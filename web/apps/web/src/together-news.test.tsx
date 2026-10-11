@@ -2,7 +2,7 @@
 
 import "./i18n.ts";
 
-import { startingTuning, type TogetherSnapshot } from "@orpheum/sdk";
+import { everyRight, startingTuning, type TogetherSnapshot } from "@orpheum/sdk";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -12,6 +12,7 @@ const snapshot: TogetherSnapshot = {
   status: "connected",
   memberId: 1,
   isHost: true,
+  rights: everyRight,
   group: undefined,
   groupReceivedAtMs: 0,
   groupPlacedByRttMs: undefined,

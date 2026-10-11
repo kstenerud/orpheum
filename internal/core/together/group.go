@@ -11,13 +11,13 @@ import (
 // setting's, together_sync_wait_seconds: its starting value (D250 §3).
 const startingSyncWait = 20 * time.Second
 
-// command applies the host's command in arrival order (cut-a §5.1): in Cut A only the host controls
-// playback (D246 §8); a seek based on a group another seek has changed since is refused as stale.
+// command applies a member's command in arrival order (cut-a §5.1): the host's, or a guest's their
+// link allows (D271 §4); a seek based on a group another seek has changed since is refused as stale.
 func (current *session) command(now time.Time, sender *member, from *device, message Inbound) {
 	refuse := func(code string) {
 		from.send(Outbound{V: ProtocolVersion, Type: MessageRejected, BasedOnSeq: message.BasedOnSeq, Code: code})
 	}
-	if !sender.isHost {
+	if !sender.may(message.Command) {
 		refuse(codeForbidden)
 		return
 	}
@@ -41,6 +41,30 @@ func (current *session) command(now time.Time, sender *member, from *device, mes
 	default:
 		refuse(codeInvalid)
 	}
+}
+
+// may is whether the member may give command: the host any, a guest what their link allows, a command
+// carrying no privilege of its own (D268 §5, D271 §4).
+func (each *member) may(command CommandKind) bool {
+	rights := each.rightsHeld()
+	switch command {
+	case CommandPlay, CommandPause:
+		return rights.CanPlayPause
+	case CommandSeek:
+		return rights.CanSeek
+	case CommandChangeItem, CommandStop, CommandRate:
+		return each.isHost
+	default:
+		return false
+	}
+}
+
+// rightsHeld is what the member may do to playback: every right for the host.
+func (each *member) rightsHeld() Rights {
+	if each.isHost {
+		return everyRight()
+	}
+	return each.rights
 }
 
 // transport plays, pauses, seeks or changes the rate of what plays.

@@ -103,6 +103,23 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     });
   });
 
+  it("keeps the rights its welcome gives its member, and none where it says none (D271 §4)", () => {
+    const sockets = fakeSockets();
+    const connection = createTogetherConnection({
+      credential: "membership",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    sockets.opened[0]!.onOpen();
+    sockets.opened[0]!.onMessage(JSON.stringify(welcome));
+    expect(connection.snapshot().rights).toEqual({ canPlayPause: false, canSeek: false });
+    sockets.opened[0]!.onMessage(
+      JSON.stringify({ ...welcome, rights: { canPlayPause: true, canSeek: false } }),
+    );
+    expect(connection.snapshot().rights).toEqual({ canPlayPause: true, canSeek: false });
+  });
+
   it("keeps the timeline first heard while the group plays on, and takes a new one when it changes", () => {
     const sockets = fakeSockets();
     const connection = createTogetherConnection({

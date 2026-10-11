@@ -90,6 +90,8 @@ type session struct {
 	startLead time.Duration
 	links     map[int64]*link
 	members   map[int64]*member
+	// lastRights are the rights of the last link made, which the next one starts with (D271 §4).
+	lastRights Rights
 	// logger is the hub's: each change of the group is logged with the session's id.
 	logger *slog.Logger
 }
@@ -102,6 +104,8 @@ type link struct {
 	// shared lost it, and a guest comes back by it on the browser that joined (D267 §1, §5).
 	secret   string
 	hostNote string
+	// rights are what the person who joins by it may do to playback (D271 §4).
+	rights Rights
 	// usedBy is the member who joined by it, or 0 while it waits.
 	usedBy int64
 }
@@ -130,7 +134,9 @@ type member struct {
 	isHost bool
 	// hostNote is the host's note of who the member is, from their link; only the host sees it.
 	hostNote string
-	person   *Person
+	// rights are a guest's, from their link, for as long as they are in; the host may do anything.
+	rights Rights
+	person *Person
 	// credentialHashes are the credentials its devices say hello with, the newest last: one per
 	// device that had the membership, so having it back on one cuts off no other (D267 §3).
 	credentialHashes [][sha256.Size]byte
@@ -220,7 +226,7 @@ func (hub *Hub) Open(host Person) (Opened, error) {
 	opened := &session{
 		id: hub.lastID, hostUserID: host.UserID, links: map[int64]*link{}, members: map[int64]*member{},
 		group: group{state: GroupIdle, rate: 1, at: hub.clock.Now()}, logger: hub.logger,
-		syncWait: startingSyncWait,
+		syncWait: startingSyncWait, lastRights: everyRight(),
 	}
 	hub.lastID++
 	hostPerson := host
@@ -239,8 +245,8 @@ type LinkMade struct {
 }
 
 // AddLink makes a link for one person to join by, once, with the host's note of who it is for,
-// which only the host sees (D246 §3).
-func (hub *Hub) AddLink(sessionID, hostUserID int64, hostNote string) (LinkMade, error) {
+// which only the host sees (D246 §3), and what they may do to playback (D271 §4).
+func (hub *Hub) AddLink(sessionID, hostUserID int64, hostNote string, rights Rights) (LinkMade, error) {
 	if hostNote == "" {
 		return LinkMade{}, ErrNoNote
 	}
@@ -257,7 +263,9 @@ func (hub *Hub) AddLink(sessionID, hostUserID int64, hostNote string) (LinkMade,
 	hub.lastID++
 	hosted.links[hub.lastID] = &link{
 		id: hub.lastID, secretHash: sha256.Sum256([]byte(secret)), secret: secret, hostNote: hostNote,
+		rights: rights,
 	}
+	hosted.lastRights = rights
 	return LinkMade{LinkID: hub.lastID, Secret: secret}, nil
 }
 
@@ -284,6 +292,7 @@ type LinkView struct {
 	Secret string
 	// UsedBy is the member who joined by it, or 0 while it waits.
 	UsedBy int64
+	Rights Rights
 }
 
 // MemberDetail is a member as their host sees them: with the note of the link they joined by.
@@ -301,6 +310,9 @@ type Details struct {
 	Links     []LinkView
 	Members   []MemberDetail
 	Group     GroupView
+	// NextRights are what the next link starts with: the last one's, or every right for the first
+	// (D271 §4).
+	NextRights Rights
 }
 
 // DetailsOf is the session sessionID, for its host.
@@ -311,10 +323,12 @@ func (hub *Hub) DetailsOf(sessionID, hostUserID int64) (Details, error) {
 	if err != nil {
 		return Details{}, err
 	}
-	details := Details{SessionID: hosted.id, Group: *hosted.groupView(hub.clock.Now())}
+	details := Details{
+		SessionID: hosted.id, Group: *hosted.groupView(hub.clock.Now()), NextRights: hosted.lastRights,
+	}
 	for _, each := range hosted.links {
 		details.Links = append(details.Links, LinkView{
-			ID: each.id, HostNote: each.hostNote, Secret: each.secret, UsedBy: each.usedBy,
+			ID: each.id, HostNote: each.hostNote, Secret: each.secret, UsedBy: each.usedBy, Rights: each.rights,
 		})
 	}
 	for _, each := range hosted.members {
@@ -350,7 +364,8 @@ func (hub *Hub) Join(secret, name string, person *Person) (Joined, error) {
 	hub.lastID++
 	used.usedBy = hub.lastID
 	joined.members[hub.lastID] = &member{
-		id: hub.lastID, name: name, hostNote: used.hostNote, person: person, devices: map[int64]*device{},
+		id: hub.lastID, name: name, hostNote: used.hostNote, rights: used.rights, person: person,
+		devices: map[int64]*device{},
 	}
 	joined.members[hub.lastID].addCredential(credential)
 	joined.sendRoster()
@@ -473,7 +488,8 @@ func (hub *Hub) Attach(
 	send(Outbound{
 		V: ProtocolVersion, Type: MessageWelcome, Seq: attached.group.seq, SessionID: attached.id,
 		MemberID: attachedMember.id, DeviceID: hub.lastID, IsHost: attachedMember.isHost,
-		Group: attached.groupView(hub.clock.Now()), Roster: attached.roster(), Tuning: &tuning,
+		Rights: new(attachedMember.rightsHeld()), Group: attached.groupView(hub.clock.Now()), Roster: attached.roster(),
+		Tuning: &tuning,
 	})
 	attached.sendRoster()
 	return Attachment{

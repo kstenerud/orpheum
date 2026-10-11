@@ -43,7 +43,15 @@ type TogetherLinkBody struct {
 	HostNote string `doc:"Who it is for; only the host sees it" json:"hostNote"`
 	Secret   string `doc:"The link's secret, after # in its address, to pass on again (D267 §5)" json:"secret"`
 	// UsedByMemberID is the member who joined by it; absent while it waits.
-	UsedByMemberID int64 `json:"usedByMemberId,omitempty"`
+	UsedByMemberID int64              `json:"usedByMemberId,omitempty"`
+	Rights         TogetherRightsBody `doc:"What the person who joins by it may do to playback" json:"rights"`
+}
+
+// TogetherRightsBody is what a guest may do to playback, each given or withheld in their link
+// (D271 §4).
+type TogetherRightsBody struct {
+	CanPlayPause bool `doc:"Play and pause for everyone" json:"canPlayPause"`
+	CanSeek      bool `doc:"Change the position for everyone" json:"canSeek"`
 }
 
 // TogetherMemberBody is one member, as the host sees them.
@@ -62,6 +70,8 @@ type TogetherDetailsOutput struct {
 		Links     []TogetherLinkBody   `json:"links"`
 		Members   []TogetherMemberBody `json:"members"`
 		FileID    int64                `doc:"What plays; absent while nothing does" json:"fileId,omitempty"`
+		// NextRights are what a new link starts with: the last one's, every right for the first.
+		NextRights TogetherRightsBody `json:"nextRights"`
 	}
 }
 
@@ -70,7 +80,8 @@ type TogetherLinkInput struct {
 	AuthorizationHeader
 	SessionID int64 `minimum:"1" path:"id"`
 	Body      struct {
-		HostNote string `doc:"Who it is for: \"Grandma\"; only the host sees it" json:"hostNote" maxLength:"200" minLength:"1"` //nolint:lll // one struct tag
+		HostNote string              `doc:"Who it is for: \"Grandma\"; only the host sees it" json:"hostNote" maxLength:"200" minLength:"1"`          //nolint:lll // one struct tag
+		Rights   *TogetherRightsBody `doc:"What they may do to playback; absent, the last link's (D271 §4)" json:"rights,omitempty" required:"false"` //nolint:lll // one struct tag
 	}
 }
 
@@ -248,10 +259,12 @@ func (server *Server) getTogether(ctx context.Context, input *TogetherInput) (*T
 	}
 	output := &TogetherDetailsOutput{}
 	output.Body.SessionID, output.Body.FileID = details.SessionID, details.Group.FileID
+	output.Body.NextRights = TogetherRightsBody(details.NextRights)
 	output.Body.Links = make([]TogetherLinkBody, 0, len(details.Links))
 	for _, each := range details.Links {
 		output.Body.Links = append(output.Body.Links, TogetherLinkBody{
 			ID: each.ID, HostNote: each.HostNote, Secret: each.Secret, UsedByMemberID: each.UsedBy,
+			Rights: TogetherRightsBody(each.Rights),
 		})
 	}
 	output.Body.Members = make([]TogetherMemberBody, 0, len(details.Members))
@@ -268,12 +281,24 @@ func (server *Server) addTogetherLink(ctx context.Context, input *TogetherLinkIn
 	if err != nil {
 		return nil, err
 	}
-	made, err := dependencies.Together.AddLink(input.SessionID, principal.UserID, textindex.Line(input.Body.HostNote))
+	var rights together.Rights
+	if input.Body.Rights == nil {
+		details, detailsErr := dependencies.Together.DetailsOf(input.SessionID, principal.UserID)
+		if detailsErr != nil {
+			return nil, server.togetherError(ctx, "make a link", detailsErr)
+		}
+		rights = details.NextRights
+	} else {
+		rights = together.Rights(*input.Body.Rights)
+	}
+	made, err := dependencies.Together.AddLink(
+		input.SessionID, principal.UserID, textindex.Line(input.Body.HostNote), rights)
 	if err != nil {
 		return nil, server.togetherError(ctx, "make a link", err)
 	}
 	server.logger.InfoContext(ctx, "watch together: the host made a link",
-		"sessionId", input.SessionID, "linkId", made.LinkID, "hostNote", input.Body.HostNote)
+		"sessionId", input.SessionID, "linkId", made.LinkID, "hostNote", input.Body.HostNote,
+		"mayPlayPause", rights.CanPlayPause, "maySeek", rights.CanSeek)
 	output := &TogetherLinkOutput{}
 	output.Body.LinkID, output.Body.Secret = made.LinkID, made.Secret
 	return output, nil

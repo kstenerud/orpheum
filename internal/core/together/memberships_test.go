@@ -12,7 +12,7 @@ import (
 func TestMine_IsEverySessionAPersonIsInAsHostOrSignedInMember(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	made, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "my partner")
+	made, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "my partner", Rights{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,11 +86,11 @@ func TestMine_KeepsAMembersNewestCredentials(t *testing.T) {
 func TestDetailsOf_ShowsTheHostEachLinkToPassOnAgain(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	waiting, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "a cousin")
+	waiting, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "a cousin", Rights{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	used, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "Grandma")
+	used, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "Grandma", Rights{})
 	if err != nil {
 		t.Fatal(err)
 	}

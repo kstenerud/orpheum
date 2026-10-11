@@ -89,7 +89,7 @@ func (stage sessionStage) attach(t *testing.T, credential string, role DeviceRol
 // join admits the guest, "partner", by a link of their own.
 func (stage sessionStage) join(t *testing.T) Joined {
 	t.Helper()
-	made, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "my partner")
+	made, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "my partner", Rights{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +278,8 @@ func TestHub_TheRosterListsTheMembersInTheOrderTheyJoined(t *testing.T) {
 	}
 }
 
-// In Cut A only the host controls playback: a viewer's every command is refused (D246 §8).
+// A guest whose link gives them no rights controls nothing: their every command is refused (D246 §8,
+// D271 §4).
 func TestHub_OnlyTheHostControlsPlayback(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
@@ -291,6 +292,72 @@ func TestHub_OnlyTheHostControlsPlayback(t *testing.T) {
 		if refused := guestBox.last(MessageRejected); refused.Code != codeForbidden {
 			t.Errorf("the viewer's %s = %+v; want it refused as forbidden", command, refused)
 		}
+	}
+}
+
+// A guest's link says what they may do to playback: a guest given play and pause alone pauses the
+// group and is refused a seek; one given the position alone seeks and is refused a pause; neither
+// changes what plays, stops it or changes its rate, which stay the host's (D271 §4). Each is told
+// their rights as they attach, so their player offers only those.
+func TestHub_AGuestDoesToPlaybackWhatTheirLinkAllows(t *testing.T) {
+	t.Parallel()
+	for _, rights := range []Rights{{CanPlayPause: true}, {CanSeek: true}} {
+		stage := newStage(t)
+		host, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+		stage.command(t, host, CommandChangeItem, 7)
+		made, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "Grandma", rights)
+		if err != nil {
+			t.Fatal(err)
+		}
+		joined, err := stage.hub.Join(made.Secret, "Gran", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		guest, guestBox := stage.attach(t, joined.MembershipCredential, RolePlayback)
+		if told := guestBox.last(MessageWelcome).Rights; told == nil || *told != rights {
+			t.Errorf("the guest given %+v was welcomed with %+v", rights, told)
+		}
+		for command, isAllowed := range map[CommandKind]bool{
+			CommandPause: rights.CanPlayPause, CommandPlay: rights.CanPlayPause, CommandSeek: rights.CanSeek,
+			CommandChangeItem: false, CommandStop: false, CommandRate: false,
+		} {
+			before := len(guestBox.messages)
+			stage.hub.Handle(t.Context(), guest, Inbound{
+				Type: MessageCommand, Command: command, FileID: 9, PositionMs: 60_000, Rate: 1.1,
+				BasedOnSeq: stage.hub.sessions[stage.opened.SessionID].group.seq,
+			})
+			isRefused := slices.ContainsFunc(guestBox.messages[before:], func(message Outbound) bool {
+				return message.Type == MessageRejected && message.Code == codeForbidden
+			})
+			if isRefused == isAllowed {
+				t.Errorf("given %+v, the guest's %s was refused: %v; want refused: %v",
+					rights, command, isRefused, !isAllowed)
+			}
+		}
+	}
+}
+
+// Each link starts with the rights of the last one made, the first with every right (D271 §4).
+func TestHub_ANewLinkStartsWithTheLastOnesRights(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	details, err := stage.hub.DetailsOf(stage.opened.SessionID, stage.owner.UserID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if details.NextRights != everyRight() {
+		t.Errorf("the first link starts with %+v; want every right", details.NextRights)
+	}
+	_, err = stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "a cousin", Rights{CanSeek: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if details, err = stage.hub.DetailsOf(stage.opened.SessionID, stage.owner.UserID); err != nil {
+		t.Fatal(err)
+	}
+	if details.NextRights != (Rights{CanSeek: true}) || details.Links[0].Rights != (Rights{CanSeek: true}) {
+		t.Errorf("after a link given the position alone: next %+v, link %+v; want both that", details.NextRights,
+			details.Links[0].Rights)
 	}
 }
 
@@ -341,10 +408,11 @@ func TestHub_EachLinkAdmitsOnePersonOnce(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
 	_, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
-	if _, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, ""); !errors.Is(err, ErrNoNote) {
+	_, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "", Rights{})
+	if !errors.Is(err, ErrNoNote) {
 		t.Errorf("a link with no note = %v; want ErrNoNote", err)
 	}
-	made, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "Grandma")
+	made, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "Grandma", Rights{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -365,7 +433,7 @@ func TestHub_EachLinkAdmitsOnePersonOnce(t *testing.T) {
 		!slices.ContainsFunc(details.Members, func(each MemberDetail) bool { return each.HostNote == "Grandma" }) {
 		t.Errorf("the host's view = %+v (%v); want the link used by Gran, noted Grandma", details, err)
 	}
-	unused, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "a cousin")
+	unused, err := stage.hub.AddLink(stage.opened.SessionID, stage.owner.UserID, "a cousin", Rights{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -132,6 +132,29 @@ export const startingTuning: SyncTuning = {
   shouldBrowserLevelMicrophone: false,
 };
 
+/**
+ * What a member may do to playback (D271 §4): the host everything, a guest what their link gives,
+ * play and pause, and changing the position, each its own.
+ */
+export interface PlaybackRights {
+  readonly canPlayPause: boolean;
+  readonly canSeek: boolean;
+}
+
+/** The host's rights: every one. */
+export const everyRight: PlaybackRights = { canPlayPause: true, canSeek: true };
+
+/** No right: what a device has before its welcome says. */
+export const noRight: PlaybackRights = { canPlayPause: false, canSeek: false };
+
+/** A welcome's rights; one that says none gives none. */
+function parseRights(value: unknown): PlaybackRights {
+  const record = recordOf(value);
+  return record === undefined
+    ? noRight
+    : { canPlayPause: record["canPlayPause"] === true, canSeek: record["canSeek"] === true };
+}
+
 /** A message the server sends, parsed (cut-a §5.1); undefined for one this client does not use. */
 export type TogetherServerMessage =
   | {
@@ -141,6 +164,8 @@ export type TogetherServerMessage =
       /** This device's own id, as the roster lists it. */
       readonly deviceId: number;
       readonly isHost: boolean;
+      /** What this device's member may do to playback (D271 §4). */
+      readonly rights: PlaybackRights;
       readonly group: GroupView;
       readonly roster: readonly RosterMember[];
       readonly tuning: SyncTuning;
@@ -319,6 +344,7 @@ function parseFollowed(
             memberId: numberIn(record, "memberId"),
             deviceId: numberIn(record, "deviceId"),
             isHost: record["isHost"] === true,
+            rights: parseRights(record["rights"]),
             group,
             roster: parseRoster(record["roster"]),
             tuning: parseTuning(record["tuning"]),

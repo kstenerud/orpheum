@@ -454,10 +454,14 @@ function useMovingDown(
   }, [lowerQuality, onLowerQuality]);
 }
 
-/** Whether the film plays muted, the browser having refused its sound, and the tap that turns it on. */
+/**
+ * Whether the film plays muted, the browser having refused its sound, and the tap that turns it on;
+ * and whether the viewer has the player's own controls, which their link's rights give (D271 §4).
+ */
 interface MutedFilm {
   readonly isMuted: boolean;
   readonly turnSoundOn: () => void;
+  readonly hasControls: boolean;
 }
 
 /**
@@ -472,6 +476,8 @@ function useFollowing(
 ): MutedFilm {
   const { connection, volume } = following;
   const [isMuted, setIsMuted] = useState(false);
+  // The rights the welcome gave, known by the time a film is on: a link's never change.
+  const { canPlayPause, canSeek } = connection.snapshot().rights;
   useDiagnosisNotes(videoRef, connection);
   useEffect(() => {
     const video = videoRef.current;
@@ -482,12 +488,16 @@ function useFollowing(
       setIsMuted(true);
     };
     video.addEventListener(playedMutedEvent, onPlayedMuted);
-    const stopFollowing = followGroup(video, connection, { fileId, isLeading: false, monotonicMs });
+    const stopFollowing = followGroup(video, connection, {
+      fileId,
+      leads: { canPlayPause, canSeek },
+      monotonicMs,
+    });
     return () => {
       stopFollowing();
       video.removeEventListener(playedMutedEvent, onPlayedMuted);
     };
-  }, [videoRef, connection, fileId]);
+  }, [videoRef, connection, fileId, canPlayPause, canSeek]);
   useEffect(() => {
     const video = videoRef.current;
     if (video !== null) {
@@ -501,17 +511,54 @@ function useFollowing(
     }
     setIsMuted(false);
   }, [videoRef, connection]);
-  return { isMuted, turnSoundOn };
+  return { isMuted, turnSoundOn, hasControls: canPlayPause || canSeek };
 }
 
-/** Over a film the browser would only play muted, the tap that turns its sound on. */
-function SoundOnButton(props: MutedFilm): JSX.Element | null {
+/**
+ * Over a film the browser would only play muted, the tap that turns its sound on; and for a viewer
+ * without the player's own controls, Full screen, which every viewer has.
+ */
+function FilmButtons(
+  props: MutedFilm & { readonly videoRef: RefObject<HTMLVideoElement | null> },
+): JSX.Element {
   const { t } = useTranslation();
-  return props.isMuted ? (
-    <button type="button" className="together-viewer__sound-on" onClick={props.turnSoundOn}>
-      {t("together.soundOn")}
-    </button>
-  ) : null;
+  return (
+    <>
+      {props.isMuted ? (
+        <button type="button" className="together-viewer__sound-on" onClick={props.turnSoundOn}>
+          {t("together.soundOn")}
+        </button>
+      ) : null}
+      {props.hasControls ? null : (
+        <button
+          type="button"
+          className="together-viewer__fullscreen"
+          onClick={() => {
+            enterFullscreen(props.videoRef.current);
+          }}
+        >
+          {t("together.fullscreen")}
+        </button>
+      )}
+    </>
+  );
+}
+
+/** A video that has its own fullscreen, as an iPhone's alone does: requestFullscreen it has not. */
+interface WebKitVideo {
+  readonly webkitEnterFullscreen?: () => void;
+}
+
+/** Shows video full screen: by the standard way where the browser has it, else the iPhone's. */
+function enterFullscreen(video: (HTMLVideoElement & WebKitVideo) | null): void {
+  if (video === null) {
+    return;
+  }
+  if (typeof video.requestFullscreen === "function") {
+    void video.requestFullscreen().catch(() => undefined);
+  } else {
+    video.webkitEnterFullscreen?.();
+  }
 }
 
 /** The original file, following the group; it plays when the group does, never on its own. */
@@ -530,6 +577,7 @@ function DirectFilm(
         className="together-viewer__video"
         ref={videoRef}
         src={props.decision.url}
+        controls={muted.hasControls}
         playsInline
         onError={(event) => {
           setFailure(
@@ -539,7 +587,7 @@ function DirectFilm(
           );
         }}
       />
-      <SoundOnButton {...muted} />
+      <FilmButtons {...muted} videoRef={videoRef} />
       {failure === undefined ? null : <p role="alert">{failure}</p>}
     </>
   );
@@ -569,8 +617,13 @@ function PreparedFilm(
   return (
     <>
       {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- subtitles for a viewer come later; the host's choice of track is not theirs (watch-together.md) */}
-      <video className="together-viewer__video" ref={videoRef} playsInline />
-      <SoundOnButton {...muted} />
+      <video
+        className="together-viewer__video"
+        ref={videoRef}
+        controls={muted.hasControls}
+        playsInline
+      />
+      <FilmButtons {...muted} videoRef={videoRef} />
       {isWaiting && failure === undefined ? <p>{t("play.preparing")}</p> : null}
       {failure === undefined ? null : (
         <p role="alert">{t("play.preparedFailed", { reason: failure })}</p>
@@ -610,8 +663,13 @@ function ChunkedFilm(
   return (
     <>
       {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- subtitles for a viewer come later; the host's choice of track is not theirs (watch-together.md) */}
-      <video className="together-viewer__video" ref={videoRef} playsInline />
-      <SoundOnButton {...muted} />
+      <video
+        className="together-viewer__video"
+        ref={videoRef}
+        controls={muted.hasControls}
+        playsInline
+      />
+      <FilmButtons {...muted} videoRef={videoRef} />
       <LadderNotes
         offer={props.offer}
         playing={playing}

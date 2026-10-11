@@ -5318,6 +5318,9 @@
               "null"
             ]
           },
+          "nextRights": {
+            "$ref": "#/components/schemas/TogetherRightsBody"
+          },
           "sessionId": {
             "format": "int64",
             "type": "integer"
@@ -5326,7 +5329,8 @@
         "required": [
           "sessionId",
           "links",
-          "members"
+          "members",
+          "nextRights"
         ],
         "type": "object"
       },
@@ -5341,6 +5345,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "rights": {
+            "$ref": "#/components/schemas/TogetherRightsBody",
+            "description": "What the person who joins by it may do to playback"
+          },
           "secret": {
             "description": "The link's secret, after # in its address, to pass on again (D267 §5)",
             "type": "string"
@@ -5353,7 +5361,8 @@
         "required": [
           "id",
           "hostNote",
-          "secret"
+          "secret",
+          "rights"
         ],
         "type": "object"
       },
@@ -5365,6 +5374,10 @@
             "maxLength": 200,
             "minLength": 1,
             "type": "string"
+          },
+          "rights": {
+            "$ref": "#/components/schemas/TogetherRightsBody",
+            "description": "What they may do to playback; absent, the last link's (D271 §4)"
           }
         },
         "required": [
@@ -5412,6 +5425,24 @@
           "id",
           "name",
           "isHost"
+        ],
+        "type": "object"
+      },
+      "TogetherRightsBody": {
+        "additionalProperties": false,
+        "properties": {
+          "canPlayPause": {
+            "description": "Play and pause for everyone",
+            "type": "boolean"
+          },
+          "canSeek": {
+            "description": "Change the position for everyone",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "canPlayPause",
+          "canSeek"
         ],
         "type": "object"
       },

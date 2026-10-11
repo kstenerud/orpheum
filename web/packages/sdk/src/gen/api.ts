@@ -3289,6 +3289,7 @@ export interface components {
             fileId?: number;
             links: components["schemas"]["TogetherLinkBody"][] | null;
             members: components["schemas"]["TogetherMemberBody"][] | null;
+            nextRights: components["schemas"]["TogetherRightsBody"];
             /** Format: int64 */
             sessionId: number;
         };
@@ -3297,6 +3298,8 @@ export interface components {
             hostNote: string;
             /** Format: int64 */
             id: number;
+            /** @description What the person who joins by it may do to playback */
+            rights: components["schemas"]["TogetherRightsBody"];
             /** @description The link's secret, after # in its address, to pass on again (D267 §5) */
             secret: string;
             /** Format: int64 */
@@ -3305,6 +3308,8 @@ export interface components {
         TogetherLinkInputBody: {
             /** @description Who it is for: "Grandma"; only the host sees it */
             hostNote: string;
+            /** @description What they may do to playback; absent, the last link's (D271 §4) */
+            rights?: components["schemas"]["TogetherRightsBody"];
         };
         TogetherLinkOutputBody: {
             /** Format: int64 */
@@ -3319,6 +3324,12 @@ export interface components {
             isHost: boolean;
             /** @description The name they chose, which everyone sees */
             name: string;
+        };
+        TogetherRightsBody: {
+            /** @description Play and pause for everyone */
+            canPlayPause: boolean;
+            /** @description Change the position for everyone */
+            canSeek: boolean;
         };
         UnavailableBody: {
             /** @description The machine that holds it */

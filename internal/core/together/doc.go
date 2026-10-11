@@ -39,10 +39,12 @@
 //     its devices were welcomed with, and says what is left of it, so every player starts at once;
 //     one that plays on moves on as it was (D268 §3). Enforced by
 //     TestHub_AGroupStartsMovingTheStartsLeadAfterItsSyncPointEnds.
-//   - Only the host controls playback in Cut A, and stopping leaves nothing on; a seek made against
-//     a group another seek has changed is refused as stale (D246 §5, §8). Enforced by
-//     TestHub_OnlyTheHostControlsPlayback, TestHub_TheHostStoppingLeavesNothingPlaying and
-//     TestHub_ASeekAgainstAnotherSeekIsRefusedAsStale.
+//   - A guest plays and pauses, and changes the position, only as their link allows; what plays,
+//     stopping it and its rate are the host's alone; each link starts with the last one's rights
+//     (D271 §4). Stopping leaves nothing on; a seek made against a group another seek has changed
+//     is refused as stale (D246 §5, §8). Enforced by TestHub_OnlyTheHostControlsPlayback,
+//     TestHub_AGuestDoesToPlaybackWhatTheirLinkAllows, TestHub_ANewLinkStartsWithTheLastOnesRights,
+//     TestHub_TheHostStoppingLeavesNothingPlaying and TestHub_ASeekAgainstAnotherSeekIsRefusedAsStale.
 //   - Each link admits the one person it was made for, once, its note the host's alone; a withdrawn
 //     link admits no one; an ejected member's credential admits nothing; a host has one session.
 //     Enforced by TestHub_EachLinkAdmitsOnePersonOnce, TestHub_AnEjectedMemberIsGone,
@@ -69,7 +71,8 @@
 //   - D62: Watch Together is first-class; the client surface is six methods.
 //   - D66: no clock synchronisation.
 //   - D117, D119, D122, D125: the session, its link and its guests, as D246 revised them.
-//   - D246 §3, §5, §6, §8: the viewer, the host's session, joining and control.
+//   - D246 §3, §5, §6, §8: the viewer, the host's session, joining and control, as D271 §4 revised
+//     it: a guest's rights.
 //   - D250 §2–§5: the group stops only at its own sync points; a member's trouble is theirs to
 //     catch up on.
 //   - D191: the session behaves as if nobody has an account.

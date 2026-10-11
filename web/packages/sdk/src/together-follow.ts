@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { GroupView, SyncTuning } from "./together.ts";
+import type { GroupView, PlaybackRights, SyncTuning } from "./together.ts";
 import {
   expectedGroupPositionMs,
   groupStartsAtMs,
@@ -102,8 +102,11 @@ export const recentEventsKept = 8;
 export interface FollowOptions {
   /** The film this player plays: a group playing another is not followed. */
   readonly fileId: number;
-  /** Whether this player's own play, pause and seeks are the group's (the host's; D246 §8). */
-  readonly isLeading: boolean;
+  /**
+   * Which of its person's moves are the group's: the host's every one, a guest's those their link
+   * gives (D271 §4). A move it may not make is undone, the player put back where the group is.
+   */
+  readonly leads: PlaybackRights;
   readonly monotonicMs: () => number;
 }
 
@@ -145,6 +148,20 @@ function commandOfEvent(
   return event === "seeking" && isAJump
     ? { command: "seek", positionMs: positionMsOf(media) }
     : undefined;
+}
+
+/** Whether rights let a player send command: play and pause by one, a seek by the other. */
+function mayLead(command: GroupCommand, rights: PlaybackRights): boolean {
+  switch (command.command) {
+    case "play":
+    case "pause":
+      return rights.canPlayPause;
+    case "seek":
+      return rights.canSeek;
+    case "changeItem":
+    case "stop":
+      return false;
+  }
 }
 
 /** The events a following player tells the group of, and is moved by. */
@@ -285,10 +302,8 @@ class GroupFollower {
     const isOwn = this.#isOwnMove(event);
     const where = this.#whereNow();
     const command =
-      this.#options.isLeading && where !== undefined && !isOwn
-        ? commandOfEvent(event, this.#media, where)
-        : undefined;
-    if (command === undefined) {
+      where !== undefined && !isOwn ? commandOfEvent(event, this.#media, where) : undefined;
+    if (command === undefined || !mayLead(command, this.#options.leads)) {
       this.apply();
     } else {
       this.#lead(command);
