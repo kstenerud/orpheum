@@ -14,6 +14,7 @@ import { warmUpFilm } from "./server.ts";
 import {
   endSession,
   expectHearing,
+  expectTalkRingMoves,
   expectVoiceWithinBounds,
   hostPlays,
   join,
@@ -149,6 +150,7 @@ for (const talker of ["the guest, offering", "the host, answering"] as const) {
     await expectHearing(host, guest);
     const [speaker, listener] = talker === "the host, answering" ? [host, guest] : [guest, host];
     await talkAlone(speaker);
+    await expectTalkRingMoves(speaker);
     await speaker.waitForTimeout(talkForMs);
 
     await expectVoiceWithinBounds([["the listener", listener]], true);
