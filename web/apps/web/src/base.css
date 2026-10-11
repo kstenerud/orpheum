@@ -94,8 +94,12 @@ button {
   transition: background-color var(--duration-quick);
 }
 
-button:hover:not(:disabled) {
-  background: var(--color-border);
+/* A hover is a pointer's: a phone's browser keeps a tapped button hovered, and Firefox for Android
+   painted a pressed Talk button grey over its fill (the owner, 2026-10-11). */
+@media (hover: hover) {
+  button:hover:not(:disabled) {
+    background: var(--color-border);
+  }
 }
 
 button[type="submit"] {

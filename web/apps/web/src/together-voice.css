@@ -51,7 +51,8 @@
   transition: box-shadow 0.08s linear;
 }
 
-.together-voice__talk[aria-pressed="true"] {
+.together-voice__talk[aria-pressed="true"],
+.together-voice__talk[aria-pressed="true"]:hover:not(:disabled) {
   border-color: var(--color-status);
   background: var(--color-status);
   color: var(--color-on-status);
