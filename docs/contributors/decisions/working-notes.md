@@ -19401,3 +19401,25 @@ after each small fix, six runs of 139 to 1133 seconds against a 300-second budge
 **Status:** Decided 2026-10-11; the rule is written. Restructuring the tiers so each fits its
 budget, and measuring them, is the next piece of work.
 
+## D280 — A status tray at the banner's end shows what is on, in a light blue; Watch Together's opens its controls over the screen; the admin's yellow sign leads to a page of what needs them
+
+**Decided** (2026-10-11), by the project owner, for using Watch Together the next day:
+
+1. **What is on is in view on every screen.** *"When a 'watch together' session is active, I think
+   it would be good for some kind of status to show up as I navigate around the app so that it's
+   clear I'm in that mode. Often when demoing this I forgot I was in watch together mode. Maybe an
+   icon on the top-right? A silhouette of two heads facing each other."*
+2. **Its controls without leaving the film.** *"Clicking on it brings up pop-up controls so that I
+   can do all of the watch together management without navigating away from the movie (which stops
+   it for everyone I think, requiring me to navigate back to the same movie/show to restart it)."*
+   It does stop it: leaving the player stops the film for everyone (D246 §5).
+3. **A status tray, in a status colour.** *"We'll probably have other statuses to show at some
+   point, so a status tray might be in order, with a standard status tray icon color (maybe some
+   kind of light blue?)"*: `--color-status` `#7cc8ff`, provisional until the owner chooses.
+4. **The admin's warning sign, yellow, leads to a page.** *"We could even have a top-level warning
+   icon when something's wrong somewhere, although that one should buck the trend and be yellow.
+   Clicking on it would bring you to a summary page of everything that's wrong (not a pop-up). The
+   page can just be a placeholder for now until we design it properly."*
+
+**Status:** Decided 2026-10-11.
+

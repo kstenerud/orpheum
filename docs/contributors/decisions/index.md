@@ -285,6 +285,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D277](working-notes.md#d277--a-scan-held-back-for-the-admin-leaves-its-root-playable-unless-it-saw-none-of-it-and-the-admin-is-told-what-waits-and-what-could-not-be-read-with-the-fix) A scan held back for the admin leaves its root playable unless it saw none of it, and the admin is told what waits and what could not be read, with the fix
 - [D278](working-notes.md#d278--a-problem-is-shown-beside-what-it-affects-by-a-yellow-warning-sign-that-opens-what-is-wrong-yellow-means-something-needs-fixing-bright-red-that-an-action-cannot-be-undone) A problem is shown beside what it affects, by a yellow warning sign that opens what is wrong; yellow means something needs fixing, bright red that an action cannot be undone
 - [D279](working-notes.md#d279--test-runs-are-proportionate-to-the-change-a-30-second-spot-check-while-working-make-check-at-a-commit-check-pr-for-a-batch) Test runs are proportionate to the change: a 30-second spot check while working, make check at a commit, check-pr for a batch
+- [D280](working-notes.md#d280--a-status-tray-at-the-banners-end-shows-what-is-on-in-a-light-blue-watch-togethers-opens-its-controls-over-the-screen-the-admins-yellow-sign-leads-to-a-page-of-what-needs-them) A status tray at the banner's end shows what is on, in a light blue; Watch Together's opens its controls over the screen; the admin's yellow sign leads to a page of what needs them
 
 ## Archived
 
