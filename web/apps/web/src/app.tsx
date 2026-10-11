@@ -10,6 +10,7 @@ import { Account } from "./account.tsx";
 import { AppShell } from "./app-shell.tsx";
 import { tabStorage } from "./browser-storage.ts";
 import { Browse } from "./browse.tsx";
+import { NeedsAttention } from "./needs-attention.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 import { Files } from "./files.tsx";
 import { Identify } from "./identify.tsx";
@@ -211,6 +212,9 @@ function adminScreen(route: Route): JSX.Element | undefined {
   }
   if (route.screen === "system") {
     return <System />;
+  }
+  if (route.screen === "needs-attention") {
+    return <NeedsAttention />;
   }
   if (route.screen === "people") {
     return <People />;

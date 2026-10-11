@@ -19421,5 +19421,7 @@ budget, and measuring them, is the next piece of work.
    Clicking on it would bring you to a summary page of everything that's wrong (not a pop-up). The
    page can just be a placeholder for now until we design it properly."*
 
-**Status:** Decided 2026-10-11.
+**Status:** Decided and built 2026-10-11 (`status-tray.tsx`, `needs-attention.tsx`): the tray shows
+the host's Watch Together sign and, for an admin, the warning sign while the reminder counts
+anything. Not yet: a signed-in viewer's sign, and a designed summary page.
 

@@ -41,14 +41,27 @@ export function togetherUrl(origin: string, secret: string): string {
  */
 export function WatchTogether(): JSX.Element {
   const { t } = useTranslation();
+  return (
+    <section className="watch-together" aria-labelledby="watch-together-heading">
+      <h1 id="watch-together-heading">{t("watchTogether.heading")}</h1>
+      <WatchTogetherControls />
+    </section>
+  );
+}
+
+/**
+ * What the host does with their session, on its own screen or in the status tray's pop-up over
+ * whatever screen they are on (D280), so managing it never means leaving the film, which stops it
+ * for everyone (D246 §5): start one, or have back the one this tab started, and run it.
+ */
+export function WatchTogetherControls(): JSX.Element {
   // Started here, or had back from the server on another of the host's devices (D267 §2).
   const membership = useMembership(tabStorage, "host");
   const start = (started: Membership): void => {
     keepMembership(tabStorage(), "host", started);
   };
   return (
-    <section className="watch-together" aria-labelledby="watch-together-heading">
-      <h1 id="watch-together-heading">{t("watchTogether.heading")}</h1>
+    <>
       {membership === undefined ? (
         <StartSession onStarted={start} />
       ) : (
@@ -61,7 +74,7 @@ export function WatchTogether(): JSX.Element {
           }}
         />
       )}
-    </section>
+    </>
   );
 }
 

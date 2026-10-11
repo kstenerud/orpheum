@@ -1,0 +1,76 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* D280: the status tray at the banner's end, its signs in the status blue; the warning, yellow. */
+
+.status-tray {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-inline-start: auto;
+}
+
+.status-tray__item {
+  position: relative;
+}
+
+.status-tray__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--size-control);
+  min-height: var(--size-control);
+  padding: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--color-status);
+}
+
+.status-tray__button:hover:not(:disabled) {
+  background: var(--color-surface-raised);
+}
+
+.status-tray__button[aria-expanded="true"] {
+  background: var(--color-surface-raised);
+  box-shadow: inset 0 -2px 0 var(--color-status);
+}
+
+.status-tray__icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  fill: currentColor;
+}
+
+.status-tray__button--warning .warning-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.status-tray__panel {
+  position: absolute;
+  margin: 0;
+  color: var(--color-text);
+  z-index: 4;
+  inset-block-start: 100%;
+  inset-inline-end: 0;
+  width: min(30rem, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-block-start: 3px solid var(--color-status);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.status-tray__panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.status-tray__panel-head h2 {
+  margin: 0;
+}
