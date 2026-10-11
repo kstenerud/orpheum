@@ -234,67 +234,153 @@ function sendOn(
   void sender.replaceTrack(track).catch(() => undefined);
 }
 
+/** What a browser call is made with, beside its setup: where its voice plays and how it is sent. */
+interface BrowserCallWays {
+  readonly context: AudioContext | undefined;
+  /** The microphone raised to a speaking level, where the browser's levelling is off. */
+  readonly levelOf: (microphone: VoiceMicrophone) => LevelledMicrophone | undefined;
+  /** The senders of every call, each while it lasts, whose statistics give the level sent. */
+  readonly sending: Set<RTCRtpSender>;
+}
+
 /**
  * One call over the browser's RTCPeerConnection, playing what comes from the start and sending the
  * microphone while its person talks: one audio transceiver that sends and receives, whose sender's
- * track is put and taken away with no new offer (D281 §1, §2).
+ * track is put and taken away with no new offer (D281 §1, §2). The offerer adds its transceiver;
+ * the answerer takes the one the offer made, as a transceiver added before an offer arrives is never
+ * matched to it, and a microphone put on it went nowhere (the owner's test, 2026-10-11: an
+ * iPhone's voice unheard).
  */
-function startBrowserCall(
-  setup: VoiceCallSetup<MediaStream>,
-  context: AudioContext | undefined,
-  levelOf: (microphone: VoiceMicrophone) => LevelledMicrophone | undefined,
-): VoiceCall {
-  const peer = new RTCPeerConnection({
-    iceServers: [...setup.iceServers],
-    iceTransportPolicy: "all", // standard ICE picks the path: direct, or through the relay (D193 §4)
-  });
-  const { sender } = peer.addTransceiver("audio", { direction: "sendrecv" });
-  const senders = [sender];
-  const send = (microphone: VoiceMicrophone | undefined): void => {
-    sendOn(sender, microphone, levelOf);
+class BrowserCall implements VoiceCall {
+  readonly #peer: RTCPeerConnection;
+  readonly #ways: BrowserCallWays;
+  #transceiver: RTCRtpTransceiver | undefined;
+  #microphone: VoiceMicrophone | undefined;
+  #gain = 1;
+  #played: PlayedVoice | undefined;
+
+  constructor(setup: VoiceCallSetup<MediaStream>, ways: BrowserCallWays) {
+    this.#ways = ways;
+    this.#microphone = setup.microphone;
+    this.#peer = new RTCPeerConnection({
+      iceServers: [...setup.iceServers],
+      iceTransportPolicy: "all", // standard ICE picks the path: direct, or through the relay (D193 §4)
+    });
+    const peer = this.#peer;
+    peer.addEventListener("icecandidate", (event) => {
+      if (event.candidate !== null) {
+        setup.events.onCandidate(JSON.stringify(event.candidate.toJSON()));
+      }
+    });
+    peer.addEventListener("connectionstatechange", () => {
+      if (peer.connectionState === "connected" && this.#transceiver !== undefined) {
+        markHighPriority([this.#transceiver.sender]);
+      }
+      setup.events.onState(callStateOf(peer.connectionState));
+    });
+    peer.addEventListener("track", (event) => {
+      this.#played?.stop();
+      this.#played = playVoice(event.streams[0] ?? new MediaStream([event.track]), ways.context);
+      this.#played.setGain(this.#gain);
+    });
+  }
+
+  /** Takes transceiver as the call's own: it sends and receives, and sends the microphone if open. */
+  #own(transceiver: RTCRtpTransceiver): void {
+    this.#transceiver = transceiver;
+    this.#ways.sending.add(transceiver.sender);
+    Object.assign(transceiver, { direction: "sendrecv" });
+    sendOn(transceiver.sender, this.#microphone, this.#ways.levelOf);
+    preferRed(this.#peer);
+  }
+
+  readonly offer = async (): Promise<string> => {
+    if (this.#transceiver === undefined) {
+      this.#own(this.#peer.addTransceiver("audio", { direction: "sendrecv" }));
+    }
+    return await takeOwn(this.#peer, await this.#peer.createOffer());
   };
-  send(setup.microphone);
-  preferRed(peer);
-  let gain = 1;
-  let played: PlayedVoice | undefined;
-  peer.addEventListener("icecandidate", (event) => {
-    if (event.candidate !== null) {
-      setup.events.onCandidate(JSON.stringify(event.candidate.toJSON()));
+
+  readonly answer = async (offerSdp: string): Promise<string> => {
+    await this.#peer.setRemoteDescription({ type: "offer", sdp: offerSdp });
+    if (this.#transceiver === undefined) {
+      this.#own(
+        this.#peer.getTransceivers().find((each) => each.receiver.track.kind === "audio") ??
+          this.#peer.addTransceiver("audio", { direction: "sendrecv" }),
+      );
     }
-  });
-  peer.addEventListener("connectionstatechange", () => {
-    if (peer.connectionState === "connected") {
-      markHighPriority(senders);
+    return await takeOwn(this.#peer, await this.#peer.createAnswer());
+  };
+
+  readonly accept = async (answerSdp: string): Promise<void> => {
+    await this.#peer.setRemoteDescription({ type: "answer", sdp: answerSdp });
+  };
+
+  readonly addCandidate = async (candidate: string): Promise<void> => {
+    await this.#peer.addIceCandidate(candidateFrom(candidate));
+  };
+
+  readonly setGain = (gain: number): void => {
+    this.#gain = gain;
+    this.#played?.setGain(gain);
+  };
+
+  readonly send = (microphone: VoiceMicrophone | undefined): void => {
+    this.#microphone = microphone;
+    if (this.#transceiver !== undefined) {
+      sendOn(this.#transceiver.sender, microphone, this.#ways.levelOf);
     }
-    setup.events.onState(callStateOf(peer.connectionState));
-  });
-  peer.addEventListener("track", (event) => {
-    played?.stop();
-    played = playVoice(event.streams[0] ?? new MediaStream([event.track]), context);
-    played.setGain(gain);
-  });
+  };
+
+  readonly measure = async (): Promise<VoiceCallStats> =>
+    await measureCall(this.#peer, this.#played?.playback() ?? playbackOf(this.#ways.context));
+
+  readonly close = (): void => {
+    if (this.#transceiver !== undefined) {
+      this.#ways.sending.delete(this.#transceiver.sender);
+    }
+    this.#played?.stop();
+    this.#peer.close();
+  };
+}
+
+/**
+ * The level the calls send, from their statistics, for while iOS has interrupted the audio
+ * context a microphone's meter reads through, as it does when the microphone opens (WebKit
+ * 273511): read from the first call's sender every sentLevelEveryMs while the microphone is open.
+ */
+function sentLevelReader(sending: ReadonlySet<RTCRtpSender>): {
+  readonly start: () => void;
+  readonly stop: () => void;
+  readonly level: () => number;
+} {
+  let level = 0;
+  let reading: ReturnType<typeof setInterval> | undefined;
+  const read = (): void => {
+    const [sender] = sending;
+    void sender
+      ?.getStats()
+      .then((reports) => {
+        reports.forEach((report: Record<string, unknown>) => {
+          const audioLevel = report["audioLevel"];
+          if (report["type"] === "media-source" && typeof audioLevel === "number") {
+            level = audioLevel;
+          }
+        });
+      })
+      .catch(() => undefined);
+  };
   return {
-    offer: async () => await takeOwn(peer, await peer.createOffer()),
-    answer: async (offerSdp) => {
-      await peer.setRemoteDescription({ type: "offer", sdp: offerSdp });
-      return await takeOwn(peer, await peer.createAnswer());
+    start: () => {
+      clearInterval(reading);
+      reading = setInterval(read, sentLevelEveryMs);
     },
-    accept: async (answerSdp) => {
-      await peer.setRemoteDescription({ type: "answer", sdp: answerSdp });
+    stop: () => {
+      clearInterval(reading);
+      reading = undefined;
+      level = 0;
     },
-    addCandidate: async (candidate) => {
-      await peer.addIceCandidate(candidateFrom(candidate));
-    },
-    setGain: (next) => {
-      gain = next;
-      played?.setGain(next);
-    },
-    send,
-    measure: async () => await measureCall(peer, played?.playback() ?? playbackOf(context)),
-    close: () => {
-      played?.stop();
-      peer.close();
-    },
+    level: () => level,
   };
 }
 
@@ -328,6 +414,9 @@ export function resumeAtTaps(
   follow();
 }
 
+/** How often the sent level is read from a call's statistics while the microphone is open, in ms. */
+const sentLevelEveryMs = 200;
+
 /** The browser's devices for voice, and the audio context its voices play through. */
 export interface BrowserVoiceDevices extends VoiceDevices<MediaStream> {
   /** Closes the audio context: once voice is over. */
@@ -345,8 +434,11 @@ export function browserVoiceDevices(): BrowserVoiceDevices {
   // The microphone open now, raised to a speaking level: one at a time, the last Talk's.
   let levelled:
     { readonly microphone: MediaStream; readonly level: LevelledMicrophone } | undefined;
-  // The open microphone's meter, which the Talk button shows (D281 §7).
+  // The open microphone's meter, which the Talk button shows (D281 §7), and the level the calls
+  // send, for while iOS has interrupted the audio context the meter reads through.
   let meter: ReturnType<typeof meterMicrophone>;
+  const sending = new Set<RTCRtpSender>();
+  const sent = sentLevelReader(sending);
   const prepareToHear = (): void => {
     if (context === undefined && "AudioContext" in window) {
       context = new AudioContext();
@@ -375,25 +467,31 @@ export function browserVoiceDevices(): BrowserVoiceDevices {
       levelled = level === undefined ? undefined : { microphone, level };
       meter?.close();
       meter = context === undefined ? undefined : meterMicrophone(microphone, context);
+      sent.start();
       return microphone;
     },
-    readMicrophoneLevel: () => meter?.read() ?? 0,
+    readMicrophoneLevel: () =>
+      context?.state === "running" && meter !== undefined ? meter.read() : sent.level(),
     microphoneClosed: () => {
       levelled?.level.close();
       levelled = undefined;
       meter?.close();
       meter = undefined;
+      sent.stop();
       endCallAudio();
     },
     startCall: (setup) =>
-      startBrowserCall(setup, context, (microphone) =>
-        levelled?.microphone === microphone ? levelled.level : undefined,
-      ),
+      new BrowserCall(setup, {
+        context,
+        levelOf: (microphone) => (levelled?.microphone === microphone ? levelled.level : undefined),
+        sending,
+      }),
     close: () => {
       levelled?.level.close();
       levelled = undefined;
       meter?.close();
       meter = undefined;
+      sent.stop();
       void context?.close().catch(() => undefined);
       context = undefined;
     },
