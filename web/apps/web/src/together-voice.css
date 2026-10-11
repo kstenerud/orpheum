@@ -88,3 +88,12 @@
 .together-voice__headphones {
   border-block-start-color: var(--color-warning);
 }
+
+/* The browser plays no voice until its person taps: the one tap it waits for, plain to see. */
+.together-voice__tap {
+  justify-self: start;
+  border-color: var(--color-status);
+  background: var(--color-status);
+  color: var(--color-on-status);
+  font-weight: var(--font-weight-strong);
+}

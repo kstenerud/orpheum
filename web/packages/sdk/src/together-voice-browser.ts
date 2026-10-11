@@ -80,6 +80,60 @@ function candidateFrom(text: string): RTCIceCandidateInit {
   };
 }
 
+/**
+ * The voices the browser refused to play for want of a tap, while Web Audio does not run either, and
+ * who waits on them: the page asks its person for a tap, and the tap plays them (the owner's test,
+ * 2026-10-11, where an iPhone heard no one until it pressed Talk itself).
+ */
+class TapWaiting {
+  readonly #context: () => AudioContext | undefined;
+  readonly #retries = new Map<HTMLMediaElement, () => void>();
+  readonly #listeners = new Set<() => void>();
+
+  constructor(context: () => AudioContext | undefined) {
+    this.#context = context;
+  }
+
+  /** Whether a voice waits for a tap: one refused, with Web Audio not running to play it. */
+  readonly isWaiting = (): boolean =>
+    this.#retries.size > 0 && this.#context()?.state !== "running";
+
+  readonly isRefused = (element: HTMLMediaElement): boolean => this.#retries.has(element);
+
+  readonly refused = (element: HTMLMediaElement, retry: () => void): void => {
+    this.#retries.set(element, retry);
+    this.changed();
+  };
+
+  readonly forget = (element: HTMLMediaElement): void => {
+    if (this.#retries.delete(element)) {
+      this.changed();
+    }
+  };
+
+  /** From a tap: Web Audio resumed, and every refused voice played again. */
+  readonly playNow = (): void => {
+    void this.#context()
+      ?.resume()
+      .catch(() => undefined);
+    for (const retry of [...this.#retries.values()]) {
+      retry();
+    }
+  };
+
+  readonly subscribe = (listener: () => void): (() => void) => {
+    this.#listeners.add(listener);
+    return () => this.#listeners.delete(listener);
+  };
+
+  /** Tells the listeners: a voice was refused or played, or Web Audio's state changed. */
+  readonly changed = (): void => {
+    for (const listener of this.#listeners) {
+      listener();
+    }
+  };
+}
+
 /** Where the other's voice plays, at a gain the person sets, and how it plays now. */
 interface PlayedVoice {
   readonly setGain: (gain: number) => void;
@@ -134,10 +188,27 @@ export function routeOf(
  * connected and neither heard the other (the owner's test, 2026-10-08). Chrome plays a remote
  * stream into Web Audio only while a media element holds it too, so a muted one does.
  */
-function playVoice(stream: MediaStream, context: AudioContext | undefined): PlayedVoice {
+function playVoice(
+  stream: MediaStream,
+  context: AudioContext | undefined,
+  waiting: TapWaiting,
+): PlayedVoice {
   const element = new Audio();
   element.srcObject = stream;
-  void element.play().catch(() => undefined);
+  // A browser that refuses it for want of a tap, as an iPhone's did while its Web Audio waited for
+  // one, plays no voice at all: it waits for the tap TapWaiting asks for (the owner's test,
+  // 2026-10-11).
+  const tryPlay = (): void => {
+    element.play().then(
+      () => {
+        waiting.forget(element);
+      },
+      () => {
+        waiting.refused(element, tryPlay);
+      },
+    );
+  };
+  tryPlay();
   let gain = 1;
   let nodes: { readonly source: AudioNode; readonly gainNode: GainNode } | undefined;
   if (context !== undefined) {
@@ -162,8 +233,12 @@ function playVoice(stream: MediaStream, context: AudioContext | undefined): Play
       gain = next;
       route();
     },
-    playback: () => playbackOf(context),
+    playback: () =>
+      waiting.isRefused(element) && playbackOf(context) !== "webAudio"
+        ? "elementBlocked"
+        : playbackOf(context),
     stop: () => {
+      waiting.forget(element);
       context?.removeEventListener("statechange", route);
       nodes?.source.disconnect();
       nodes?.gainNode.disconnect();
@@ -241,6 +316,8 @@ interface BrowserCallWays {
   readonly levelOf: (microphone: VoiceMicrophone) => LevelledMicrophone | undefined;
   /** The senders of every call, each while it lasts, whose statistics give the level sent. */
   readonly sending: Set<RTCRtpSender>;
+  /** The voices waiting for a tap to play. */
+  readonly waiting: TapWaiting;
 }
 
 /**
@@ -280,7 +357,11 @@ class BrowserCall implements VoiceCall {
     });
     peer.addEventListener("track", (event) => {
       this.#played?.stop();
-      this.#played = playVoice(event.streams[0] ?? new MediaStream([event.track]), ways.context);
+      this.#played = playVoice(
+        event.streams[0] ?? new MediaStream([event.track]),
+        ways.context,
+        ways.waiting,
+      );
       this.#played.setGain(this.#gain);
     });
   }
@@ -453,6 +534,15 @@ const sentLevelEveryMs = 200;
 
 /** The browser's devices for voice, and the audio context its voices play through. */
 export interface BrowserVoiceDevices extends VoiceDevices<MediaStream> {
+  /**
+   * Whether the others' voices wait for a tap: the browser refused to play them, and its Web Audio
+   * does not run (the owner's test, 2026-10-11).
+   */
+  readonly isWaitingForATap: () => boolean;
+  /** Calls listener as that may have changed; returns the unsubscribing. */
+  readonly subscribeToTapWaiting: (listener: () => void) => () => void;
+  /** From a tap: plays the voices that waited for one. */
+  readonly playAtTap: () => void;
   /** Closes the audio context: once voice is over. */
   readonly close: () => void;
 }
@@ -464,71 +554,87 @@ export interface BrowserVoiceDevices extends VoiceDevices<MediaStream> {
  * through their elements meanwhile (D281 §1).
  */
 export function browserVoiceDevices(): BrowserVoiceDevices {
-  let context: AudioContext | undefined;
-  // The microphone open now, raised to a speaking level: one at a time, the last Talk's.
-  let levelled:
-    { readonly microphone: MediaStream; readonly level: LevelledMicrophone } | undefined;
-  // The level the calls send, which the Talk button shows (D281 §7), and the open microphone's
-  // meter, for when there is no call.
-  let meter: ReturnType<typeof meterMicrophone>;
-  const sending = new Set<RTCRtpSender>();
-  const sent = sentLevelReader(sending);
-  const prepareToHear = (): void => {
-    if (context === undefined && "AudioContext" in window) {
-      context = new AudioContext();
-      resumeAtTaps(context, document);
-      void context.resume().catch(() => undefined);
+  return new BrowserDevices();
+}
+
+/** browserVoiceDevices's devices: one audio context for voice, and the microphone open now. */
+class BrowserDevices implements BrowserVoiceDevices {
+  #context: AudioContext | undefined;
+  /** The microphone open now, raised to a speaking level: one at a time, the last Talk's. */
+  #levelled: { readonly microphone: MediaStream; readonly level: LevelledMicrophone } | undefined;
+  /** The open microphone's meter, which the Talk button's ring reads (D281 §7). */
+  #meter: ReturnType<typeof meterMicrophone>;
+  readonly #sending = new Set<RTCRtpSender>();
+  /** The level the calls send, which the ring reads too. */
+  readonly #sent = sentLevelReader(this.#sending);
+  readonly #waiting = new TapWaiting(() => this.#context);
+
+  readonly isWaitingForATap = this.#waiting.isWaiting;
+  readonly subscribeToTapWaiting = this.#waiting.subscribe;
+  readonly playAtTap = this.#waiting.playNow;
+
+  readonly prepareToHear = (): void => {
+    if (this.#context === undefined && "AudioContext" in window) {
+      this.#context = new AudioContext();
+      this.#context.addEventListener("statechange", this.#waiting.changed);
+      resumeAtTaps(this.#context, document);
+      void this.#context.resume().catch(() => undefined);
     }
   };
-  return {
-    prepareToHear,
-    openMicrophone: async (processing) => {
-      prepareToHear();
-      startCallAudio();
-      const microphone = await openBrowserMicrophone(processing);
-      // iOS can pause the context as the microphone opens: it plays on once resumed. Never waited
-      // for: Firefox keeps a resume pending until it lets the page play sound, and voice hung at
-      // "Asking for your microphone" (the browser tier, 2026-10-06).
-      void context?.resume().catch(() => undefined);
-      levelled?.level.close();
-      levelled = undefined;
-      // Without the browser's levelling, which on Android makes a call of voice, a phone's microphone
-      // is too quiet to hear: it is raised here instead (the owner's choice, 2026-10-08).
-      const level =
-        processing.shouldLevel || context === undefined
-          ? undefined
-          : levelMicrophone(microphone, context);
-      levelled = level === undefined ? undefined : { microphone, level };
-      meter?.close();
-      meter = ringMeterOf(microphone, context, level);
-      sent.start();
-      return microphone;
-    },
-    readMicrophoneLevel: () => louderLevel(context, meter, sending.size > 0 ? sent : undefined),
-    microphoneClosed: () => {
-      levelled?.level.close();
-      levelled = undefined;
-      meter?.close();
-      meter = undefined;
-      sent.stop();
-      endCallAudio();
-    },
-    startCall: (setup) =>
-      new BrowserCall(setup, {
-        context,
-        levelOf: (microphone) => (levelled?.microphone === microphone ? levelled.level : undefined),
-        sending,
-      }),
-    close: () => {
-      levelled?.level.close();
-      levelled = undefined;
-      meter?.close();
-      meter = undefined;
-      sent.stop();
-      void context?.close().catch(() => undefined);
-      context = undefined;
-    },
+
+  readonly openMicrophone = async (processing: MicrophoneProcessing): Promise<MediaStream> => {
+    this.prepareToHear();
+    startCallAudio();
+    const microphone = await openBrowserMicrophone(processing);
+    const context = this.#context;
+    // iOS can pause the context as the microphone opens: it plays on once resumed. Never waited
+    // for: Firefox keeps a resume pending until it lets the page play sound, and voice hung at
+    // "Asking for your microphone" (the browser tier, 2026-10-06).
+    void context?.resume().catch(() => undefined);
+    this.#releaseMicrophone();
+    // Without the browser's levelling, which on Android makes a call of voice, a phone's microphone
+    // is too quiet to hear: it is raised here instead (the owner's choice, 2026-10-08).
+    const level =
+      processing.shouldLevel || context === undefined
+        ? undefined
+        : levelMicrophone(microphone, context);
+    this.#levelled = level === undefined ? undefined : { microphone, level };
+    this.#meter = ringMeterOf(microphone, context, level);
+    this.#sent.start();
+    return microphone;
   };
+
+  readonly readMicrophoneLevel = (): number =>
+    louderLevel(this.#context, this.#meter, this.#sending.size > 0 ? this.#sent : undefined);
+
+  readonly microphoneClosed = (): void => {
+    this.#releaseMicrophone();
+    endCallAudio();
+  };
+
+  readonly startCall = (setup: VoiceCallSetup<MediaStream>): VoiceCall =>
+    new BrowserCall(setup, {
+      context: this.#context,
+      levelOf: (microphone) =>
+        this.#levelled?.microphone === microphone ? this.#levelled.level : undefined,
+      sending: this.#sending,
+      waiting: this.#waiting,
+    });
+
+  readonly close = (): void => {
+    this.#releaseMicrophone();
+    void this.#context?.close().catch(() => undefined);
+    this.#context = undefined;
+  };
+
+  /** Undoes what was done for the open microphone: its levelling, its meter, reading its level. */
+  #releaseMicrophone(): void {
+    this.#levelled?.level.close();
+    this.#levelled = undefined;
+    this.#meter?.close();
+    this.#meter = undefined;
+    this.#sent.stop();
+  }
 }
 
 /** What a browser's audio session can be told, where it has one (Safari 16.4 and later). */

@@ -38,6 +38,7 @@ export const enTogether = {
       headphones: "Use headphones, so the film does not reach your microphone.",
       earpiece: "To hear the video while the microphone is on, please connect your headphones.",
       ok: "OK",
+      tapToHear: "Tap to hear everyone's voices",
       starting: "Asking for your microphone…",
       stopTalking: "Stop talking",
       talking: "The others hear you.",
