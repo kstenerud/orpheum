@@ -378,11 +378,29 @@ describe("voice on an iPhone without headphones", () => {
         ["built_in_speakers", true],
         ["headphones", false],
       ] as const) {
-        const { services } = voiceServices(fakeDevices());
+        const devices = fakeDevices();
+        const { services } = voiceServices(devices);
         const mounted = await mount(withServices(<Voice audioOutput={audioOutput} />, services));
-        expect(mounted.container.textContent.includes("moves all sound to the earpiece")).toBe(
-          isWarned,
-        );
+        const warning = (): Element | null =>
+          mounted.container.querySelector('[role="alertdialog"]');
+        // It pops up at the press of Talk, before the microphone opens (the owner, 2026-10-11).
+        expect(warning()).toBeNull();
+        await click(talkButton(mounted.container, "Talk"));
+        expect(warning() !== null).toBe(isWarned);
+        expect(
+          mounted.container.textContent.includes("the film's sound moves to the earpiece"),
+        ).toBe(isWarned);
+        expect(devices.processedAsked).toHaveLength(isWarned ? 0 : 1);
+        if (isWarned) {
+          await click(buttonWithText(mounted.container, "Talk anyway"));
+          expect(devices.processedAsked).toHaveLength(1);
+          expect(warning()).toBeNull();
+          // Read once, it does not come back at the next press.
+          await click(talkButton(mounted.container, "Stop talking"));
+          await click(talkButton(mounted.container, "Talk"));
+          expect(warning()).toBeNull();
+          expect(devices.processedAsked).toHaveLength(2);
+        }
         mounted.unmount();
       }
     } finally {
