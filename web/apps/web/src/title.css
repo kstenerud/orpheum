@@ -64,6 +64,7 @@
   font-style: italic;
 }
 
+/* A title that cannot be played now: its warning sign and why, in the warning yellow (D278). */
 .title__unavailable {
   display: block;
   margin-block-end: var(--space-4);

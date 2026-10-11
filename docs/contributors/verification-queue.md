@@ -246,3 +246,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   after the first minute beyond one short skip at most every minute or so. Only a real iPhone
   shows what its rate's returns cost and how far its seeks land (D268 §2).
   (`web/packages/sdk/src/together-follow.ts`, `together-drift.ts`)
+- [x] **VQ28** — Against staging, in a desktop browser and on a phone, as the admin: look at a
+  library folder with a problem and open its yellow sign, a role that reaches no library, the
+  System page's offline, waiting and unread lists and the reminder above the page, and press
+  "Remove…" on a person's page and "This folder is gone for good…" so the red confirmation shows.
+  Passes when every problem is the warning yellow `#ffcc00` with its triangle beside what it
+  affects, every error message is that yellow and not crimson, each irreversible button is
+  outlined in `#ff4d4d` and confirms filled in `#b91c1c` with white words, the consequence is in
+  `#ff4d4d`, and none of the three reads as the coral accent. Only an eye can say the colours are
+  the ones chosen and read as meant (D278 §4, §6).
+  (`web/apps/web/src/tokens.css`, `base.css`, `browse.css`, `credentials-form.css`, `jobs.css`,
+  `offline-reminder.css`, `title.css`) — done 2026-10-11 by the owner: *"Looks good."*

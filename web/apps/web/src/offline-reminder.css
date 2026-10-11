@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
+/* The reminder of storage that needs the admin: edged in the warning yellow (D278 §4). */
 .offline-reminder {
   display: flex;
   flex-wrap: wrap;
