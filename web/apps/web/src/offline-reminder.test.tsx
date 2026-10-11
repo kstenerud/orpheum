@@ -33,7 +33,7 @@ it("the reminder says how many folders and disks are offline since when, and lea
     ),
   );
   const text = mounted.container.textContent;
-  expect(text).toContain("2 library folders and 1 disk offline since Sep 12, 2026.");
+  expect(text).toContain("2 library folders and 1 mounted folder offline since Sep 12, 2026.");
   expect(mounted.container.querySelector("a")?.getAttribute("href")).toBe("/system");
 });
 

@@ -57,8 +57,10 @@ describe("libraries", () => {
     expect(markup).toContain("local: /media/films");
     expect(markup).toContain("removals wait for you");
     expect(markup).toContain("Remove what the last scan did not find");
-    expect(markup).toContain("A disk is missing from <code>/media/films/disk1</code> <button");
-    expect(markup).toContain("This disk is gone for good");
+    expect(markup).toContain(
+      "Nothing is mounted any more at <code>/media/films/disk1</code> <button",
+    );
+    expect(markup).toContain("What was mounted here is gone for good");
     expect(markup).toContain("Listed: 40 · Could not be read: 2");
     expect(markup).toContain('href="/libraries/3/files"');
     expect(markup).toContain("<output>Asked 1 roots to scan.</output>");
@@ -201,7 +203,7 @@ describe("libraries", () => {
         />,
       ),
     );
-    expect(markup.match(/This disk is gone for good/gu)).toHaveLength(2);
+    expect(markup.match(/What was mounted here is gone for good/gu)).toHaveLength(2);
     expect(markup).not.toContain("Remove what the last scan did not find");
   });
 

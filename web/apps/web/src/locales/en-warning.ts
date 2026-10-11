@@ -13,7 +13,7 @@ export const enWarning = {
     folderOffline: "This folder cannot be read",
     folderWaiting: "A scan waits for you",
     folderUnread: "Part of this folder could not be read",
-    diskMissing: "A disk inside this folder is missing",
+    diskMissing: "Something mounted inside this folder is missing",
     roleWithoutLibrary: "This role reaches no library",
     goToLibraries: "The Libraries page says more, and has what fixes it.",
     goToSystem: "The System page lists it, with what fixes it.",

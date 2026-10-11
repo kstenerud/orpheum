@@ -107,7 +107,7 @@ describe("a title that cannot be played now (D241 §3)", () => {
     });
     expect(markup).toContain("Metropolis");
     expect(markup).toContain("Cannot be played now");
-    expect(markup).toContain("the disk at /media/usb on devnas is missing");
+    expect(markup).toContain("what was mounted at /media/usb on devnas is missing");
     expect(markup).toContain("poster-grid__card--unavailable");
   });
 });

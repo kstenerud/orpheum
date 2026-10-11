@@ -77,14 +77,14 @@ export const en = {
     fileUnavailable:
       "The file is not where it was. It may have been moved or its disk unplugged; scanning the library again finds it.",
     mediaUnreachable:
-      "This cannot be played now: the machine, folder or disk that holds it is missing.",
+      "This cannot be played now: the machine, folder or mount that holds it is missing.",
     mediaReason: {
       nodeAway:
         "This cannot be played now: {{node}}, the machine that holds it, is not connected{{since}}.",
       rootMissing:
         "This cannot be played now: the folder {{path}} on {{node}} is missing{{since}}.",
       diskMissing:
-        "This cannot be played now: the disk at {{path}} on {{node}} is missing{{since}}.",
+        "This cannot be played now: what was mounted at {{path}} on {{node}} is missing{{since}}.",
     },
     sinceWhen: ", since {{since}}",
     wait: {
@@ -524,7 +524,7 @@ export const en = {
     },
     offline: "Offline",
     offlineRoot: "{{node}}: {{path}}, in {{library}}: offline since {{since}}",
-    offlineDisk: "The disk at {{node}}: {{path}}, in {{library}}: missing since {{since}}",
+    offlineDisk: "What was mounted at {{node}}: {{path}}, in {{library}}: missing since {{since}}",
     offlineHelp:
       "Nothing of theirs is removed until they come back or you say they are gone for good.",
     offlineWhere: "Libraries",
