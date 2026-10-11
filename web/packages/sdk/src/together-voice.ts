@@ -219,6 +219,8 @@ export interface TogetherVoice {
 export interface TogetherVoiceOptions<Microphone extends VoiceMicrophone> {
   /** The membership's credential, by which a second device attaches for voice (D120). */
   readonly credential: string;
+  /** The web client's script the page runs, said in the voice device's hello for the log. */
+  readonly client?: string | undefined;
   readonly sessionToken?: string | undefined;
   readonly openSocket: OpenTogetherSocket;
   readonly monotonicMs: () => number;
@@ -515,6 +517,7 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
   #attach(): void {
     const connection = createTogetherConnection({
       credential: this.#options.credential,
+      client: this.#options.client,
       sessionToken: this.#options.sessionToken,
       role: "voice",
       openSocket: this.#options.openSocket,

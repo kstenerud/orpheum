@@ -40,6 +40,7 @@ import { useStallReports } from "./play-state.ts";
 import { dataOrThrow, fieldProblemText, problemText, throwIfRefused } from "./problem.ts";
 import { productName } from "./product-name.ts";
 import { useDiagnosisNotes } from "./together-diagnosis.ts";
+import { useShowsAFilm } from "./film-showing.ts";
 import { haveBackMySessions } from "./together-mine.ts";
 import { useMembership } from "./together-membership.ts";
 import { useServices, useToken } from "./services.tsx";
@@ -380,6 +381,8 @@ function GroupFilm(props: {
     }),
   );
   const headers = useMemo(() => membershipHeaders(props.credential), [props.credential]);
+  // An update waits while the film shows, and reloads the page as soon as it stops.
+  useShowsAFilm();
   // The lower quality the viewer's player moved to once it was ready (D253), per playback.
   const [moved, setMoved] = useState<
     { readonly mediaToken: string; readonly offer: LadderOffer } | undefined

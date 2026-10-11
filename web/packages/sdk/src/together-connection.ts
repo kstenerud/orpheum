@@ -258,6 +258,11 @@ export interface TogetherConnection {
 export interface TogetherConnectionOptions {
   /** The membership credential, sent in the hello, never in the address (D154). */
   readonly credential: string;
+  /**
+   * The web client's script the page runs, said in the hello for the server's log, so a device's
+   * report says which client made it (agent-failures A28); undefined for a development page.
+   */
+  readonly client?: string | undefined;
   /** A signed-in person's session token, which makes the membership theirs (D243 §2). */
   readonly sessionToken?: string | undefined;
   /** What the device does for its member (D120), said in the hello: "playback" when not given. */
@@ -453,6 +458,7 @@ function helloText(options: TogetherConnectionOptions): string {
     credential: options.credential,
     ...(options.sessionToken === undefined ? {} : { sessionToken: options.sessionToken }),
     role,
+    ...(options.client === undefined ? {} : { client: options.client }),
     ...(role === "voice" ? {} : { canSetRate: true }),
   });
 }

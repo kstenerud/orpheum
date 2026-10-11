@@ -16,6 +16,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 )
@@ -94,7 +95,7 @@ func (server *Server) serveTogetherSocket(writer http.ResponseWriter, request *h
 	}
 	device := []any{
 		"sessionId", attachment.SessionID, "memberId", attachment.MemberID, "deviceId", attachment.DeviceID,
-		"role", string(hello.Role),
+		"role", string(hello.Role), "client", clientScriptOf(hello.Client),
 	}
 	server.logger.InfoContext(ctx, "watch together: a device connected",
 		append(device, slogx.UserAgent(request))...)
@@ -301,4 +302,17 @@ func (socket channelSocket) closeWith(code websocket.StatusCode, reason string) 
 
 func (socket channelSocket) closeNow() error {
 	return socket.conn.CloseNow() //nolint:wrapcheck // closing
+}
+
+// clientScriptMost is the most of a hello's client script logged: a built one's name is some 20
+// characters, and anything longer is not one.
+const clientScriptMost = 64
+
+// clientScriptOf is the client script a hello named, as one line no longer than clientScriptMost.
+func clientScriptOf(said string) string {
+	line := textindex.Line(said)
+	if len(line) > clientScriptMost {
+		return line[:clientScriptMost]
+	}
+	return line
 }

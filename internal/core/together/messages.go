@@ -310,6 +310,10 @@ type Inbound struct {
 	SessionToken string     `json:"sessionToken,omitempty"`
 	Role         DeviceRole `json:"role,omitempty"`
 	CanSetRate   bool       `json:"canSetRate,omitempty"`
+	// Client, in a hello, is the web client's script the page runs, "index-DCLi77_b.js", logged so
+	// a device's report says which client made it: an iPhone's tab ran an old one through a day of
+	// updates, and nothing said so (agent-failures A28).
+	Client string `json:"client,omitempty"`
 	// TMono is the sender's monotonic time in milliseconds: a ping's, and a state's.
 	TMono      int64 `json:"tMono,omitempty"`
 	PositionMs int64 `json:"positionMs,omitempty"`

@@ -42,7 +42,7 @@ func (harness testHarness) dialTogether(t *testing.T, credential string) socket 
 	opened := socket{t: t, connection: connection}
 	opened.send(together.Inbound{
 		V: together.ProtocolVersion, Type: together.MessageHello, Credential: credential,
-		Role: together.RolePlayback,
+		Role: together.RolePlayback, Client: "index-T3st.js",
 	})
 	return opened
 }
@@ -335,7 +335,8 @@ func TestTogether_LogsWhoOpenedJoinedLeftAndEnded(t *testing.T) {
 	}
 }
 
-// A device's connection is logged with whose it is and which browser: the log is read once its welcome came, which
+// A device's connection is logged with whose it is, which browser, and which client its page runs
+// (agent-failures A28): the log is read once its welcome came, which
 // the server sends after saying so, and before anything else could write.
 func TestTogether_LogsADeviceConnecting(t *testing.T) {
 	t.Parallel()
@@ -347,7 +348,8 @@ func TestTogether_LogsADeviceConnecting(t *testing.T) {
 	ids := fmt.Sprintf(`"sessionId":%d,"memberId":%d`, opened.Body.SessionID, membership.Body.MemberID)
 	for line := range strings.Lines(harness.logs.String()) {
 		if strings.Contains(line, `"watch together: a device connected"`) && strings.Contains(line, ids) &&
-			strings.Contains(line, `"userAgent":"Go-http-client/1.1"`) {
+			strings.Contains(line, `"userAgent":"Go-http-client/1.1"`) &&
+			strings.Contains(line, `"client":"index-T3st.js"`) {
 			return
 		}
 	}

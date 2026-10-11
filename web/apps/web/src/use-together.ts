@@ -10,6 +10,7 @@ import {
 } from "@orpheum/sdk";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 
+import { ownScriptOf } from "./app-update.ts";
 import { useServices } from "./services.tsx";
 
 /**
@@ -50,6 +51,7 @@ export function useTogether(device: TogetherDevice): {
         ? undefined
         : createTogetherConnection({
             credential,
+            client: ownScriptOf(document),
             sessionToken,
             openSocket: openTogetherSocket,
             monotonicMs,
