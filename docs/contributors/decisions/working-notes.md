@@ -19425,3 +19425,33 @@ budget, and measuring them, is the next piece of work.
 the host's Watch Together sign and, for an admin, the warning sign while the reminder counts
 anything. Not yet: a signed-in viewer's sign, and a designed summary page.
 
+
+## D281 — Everyone in a session hears voice from the start; Talk only opens the microphone, and Mute only stops one's own sending; the host's pop-up runs voice, each person's volume and the film's, with invites and people in dialogs of their own
+
+**Decided** (2026-10-11), by the project owner, from using Watch Together through D280's pop-up:
+*"There's no voice controls or per-user + video volume controls in the pop-up. Voice should work
+even if the other people haven't turned on talk yet. Mute should only stop you from transmitting
+voice, not prevent others from talking. Invite shouldn't be ever-present on the pop-up. It should
+be a button, with pops up a sub-dialogue. Similarly, clicking on a user in the pop-up should bring
+up a dialog for what to do with them."* It revises the plan's Voice (watch-together.md): Talk no
+longer attaches the voice device.
+
+1. **Everyone hears voice without pressing anything.** Each member's voice device attaches as their
+   page opens, with no microphone, and keeps a call with every other person's voice device, able to
+   receive from the start. A call sends nothing until its person talks.
+2. **Talk opens the microphone and sends it on the calls already up**, by putting the microphone's
+   track on each call's sender: no call is made again. **Stop talking** closes the microphone and
+   sends nothing again, still hearing everyone; on an iPhone that gives the sound back to the
+   speaker (WebKit 230902).
+3. **Mute stops only one's own sending**: the microphone's track switched off. Nothing anyone else
+   sends is touched.
+4. **Each person's voice has a volume of its own**, from silent to four times as loud as it came
+   (`partnerGainMost`), kept per member across their devices' calls, beside the film's own volume.
+5. **The host's pop-up runs the session during the film**: voice (Talk, Mute, Stop talking), each
+   person's voice volume, and the film's volume. Inviting is a button that opens a dialog of its
+   own; a person in the list opens a dialog of what may be done with them (show their link again,
+   a new link, remove them, their voice's volume).
+6. **A call that fails is told, and voice is tried again by a button**, as before (the owner,
+   2026-10-06), now one that hears again rather than one that opens the microphone.
+
+**Status:** Decided 2026-10-11.
