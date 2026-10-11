@@ -53,7 +53,7 @@ type InsertDeviceParams struct {
 	SignedInAt int64
 }
 
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // A person's devices (schema.md, device; D217 section 8): made at sign-in, named by the client.
 func (q *Queries) InsertDevice(ctx context.Context, arg InsertDeviceParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, insertDevice,

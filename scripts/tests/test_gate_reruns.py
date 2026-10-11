@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for the targeted re-runs of the slow branch gates: revert-red's --only and
 # ABOUTME: --rerun-failed with its record of failures, and check-pr-failed re-running only the steps
 # ABOUTME: that failed; each shown failing on a case built to fail (D190).

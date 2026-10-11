@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: What revert-red (check_revert_red.py) reverts together with a changed file: a
 # ABOUTME: generated query file with its SQL, a migration step with its checksum line and golden.
 """The files one revert-red probe undoes as one unit.

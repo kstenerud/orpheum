@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Claims gate run by `make check`: every cited TestArch_ test exists and every one
 # ABOUTME: is cited; every decision ID in code resolves to a live decision; every
 # ABOUTME: ORPHEUM_TEST_ variable the code reads is set by something (D190); no retired name is left;

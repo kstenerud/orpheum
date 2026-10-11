@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package nodestest gives the tests of packages whose jobs a node does Resolver, which hands a test
 // the answer its node's word resolves a job with. It is imported only by tests.

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for quiet_gate.py: a failure keeps every line that is not known passing noise,
 # ABOUTME: a pass prints one line, and the full output always reaches the log.
 import io

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package nodeproto is the wire between core and node: the JSON messages of cut-a §4 (hello, the
 // status, the commands, and the results and progress of the jobs they carry), the byte socket's

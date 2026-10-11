@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for the code gates — source hygiene, dependency allowlists, claims, test
 # ABOUTME: weakening, revert-red, commit lint and speculative API. Each gate is shown failing
 # ABOUTME: on a case built to fail, because a gate never seen red proves nothing (D190).
@@ -50,7 +50,13 @@ def git_repo(files: dict[str, str]) -> Path:
 class SourceHeaders(unittest.TestCase):
     def test_directory_decides_the_licence(self):
         self.assertEqual(cs.required_licence("web/apps/web/src/main.tsx"), "MPL-2.0")
-        self.assertEqual(cs.required_licence("internal/core/api/doc.go"), "GPL-3.0-or-later")
+        self.assertEqual(cs.required_licence("internal/core/api/doc.go"), "AGPL-3.0-or-later")
+
+    def test_a_frozen_migration_step_keeps_its_gpl_header_and_a_new_one_needs_the_agpl(self):
+        gpl = "-- SPDX-License-Identifier: GPL-3.0-or-later\nCREATE TABLE t (x);\n"
+        self.assertIsNone(cs.check_header("internal/store/migrations/0035_baseline.sql", gpl))
+        self.assertIsNotNone(cs.check_header("internal/store/migrations/0037_next.sql", gpl))
+        self.assertIsNotNone(cs.check_header("internal/core/api/doc.go", gpl))
 
     def test_missing_and_wrong_headers_fail(self):
         self.assertIsNotNone(cs.check_header("internal/x.go", "package x\n"))
@@ -84,7 +90,7 @@ class SourceHeaders(unittest.TestCase):
 
     def test_whole_tree(self):
         root = git_repo({
-            "ok.go": "// SPDX-License-Identifier: GPL-3.0-or-later\npackage ok\n",
+            "ok.go": "// SPDX-License-Identifier: AGPL-3.0-or-later\npackage ok\n",
             "bad.go": "package bad\n",
         })
         problems, _ = cs.check(root, cs.tracked_files(root))
@@ -431,7 +437,7 @@ class RevertRedBuildLines(unittest.TestCase):
     def test_a_file_whose_build_line_leaves_linux_out_is_compiled_for_darwin(self):
         directory = Path(tempfile.mkdtemp())
         other = directory / "shim_other.go"
-        other.write_text("// SPDX-License-Identifier: GPL-3.0-or-later\n\n//go:build !linux\n\npackage x\n")
+        other.write_text("// SPDX-License-Identifier: AGPL-3.0-or-later\n\n//go:build !linux\n\npackage x\n")
         plain = directory / "shim.go"
         plain.write_text("package x\n")
         self.assertEqual(rr.other_builds(str(other))[-1].env, {"GOOS": "darwin"})

@@ -113,7 +113,7 @@ type GetLibraryForRootParams struct {
 	RootPath string
 }
 
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // What the scanner saw (schema.md, Files; D163, D173, D179): one row per observed path.
 func (q *Queries) GetLibraryForRoot(ctx context.Context, arg GetLibraryForRootParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, getLibraryForRoot, arg.NodeID, arg.RootPath)

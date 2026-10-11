@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: The one list of paths that are gates or generated output. The Claude Code hooks
 # ABOUTME: refuse agent edits to them, and the branch gate requires a trailer when they change.
 """Which files an agent may not change on its own, and why.

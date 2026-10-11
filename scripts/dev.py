@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: The development loop behind `make dev`: renders the dev config, seeds an empty
 # ABOUTME: database, runs the core, the node and the Vite dev server, and restarts both on change.
 """Run Orpheum for development, with opinionated settings that are printed, never hidden.

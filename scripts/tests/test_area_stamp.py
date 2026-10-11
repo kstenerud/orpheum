@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for area_stamp.py: a step runs again only when what it reads changed since it
 # ABOUTME: passed, and a failure records nothing.
 import os

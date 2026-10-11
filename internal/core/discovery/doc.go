@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package discovery is the core's side of the discovery protocol (D273): it enrols with a discovery
 // (the paid service, or the owner's own) when an admin asks, waits to be claimed, keeps a session,

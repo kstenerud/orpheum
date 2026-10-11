@@ -15,7 +15,7 @@ DELETE FROM match_candidate
 WHERE item_id = ?1
 `
 
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // An ambiguous film's or series' search results, kept so choosing costs nothing (D172).
 func (q *Queries) DeleteMatchCandidates(ctx context.Context, itemID int64) error {
 	_, err := q.db.ExecContext(ctx, deleteMatchCandidates, itemID)

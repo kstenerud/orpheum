@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for deploy/release/build.sh (D272 §4, §7): it builds only a version tag of its own
 # ABOUTME: checkout, from a clone with its own .git, and runs that image's write-deployment as it says.
 import os

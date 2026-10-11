@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: A throwaway git repository for the gate tests to run the gates in, as the working
 # ABOUTME: directory, with commits made as a fixed author.
 import contextlib

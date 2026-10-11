@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Resolves the base the branch gates (`make check-pr`) compare against: the BASE given, or
 # ABOUTME: the newest of what check-pr last passed through, what the owner last took, and
 # ABOUTME: origin/main. It prints the base and refuses an implicit base too far back to mean anything.

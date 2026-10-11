@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package hardware is what the node's machine has, as the System page shows it (D225): the GPU
 // devices it can see, with the driver behind each and whether the node's user may open it; and the

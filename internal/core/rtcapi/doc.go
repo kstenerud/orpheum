@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package rtcapi carries the core's HTTP API over WebRTC data channels (D273 §8): the direct path to
 // a core behind carrier NAT whose client lacks IPv6. It answers a client's offer, and hands every

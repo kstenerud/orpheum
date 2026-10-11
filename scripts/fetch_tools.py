@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Fetches the pinned golangci-lint and sqlc release binaries into .tools/, verifies each
 # ABOUTME: one's SHA-256, and links them into .tools/bin, which the Makefile puts first on PATH.
 """Install the gate's own tools: golangci-lint and sqlc, at the versions this project pins.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: PreToolUse hook for shell commands: refuses adding dependencies, skipping git
 # ABOUTME: hooks, force-pushing, and shell writes whose target is a gate file in this project.
 # ABOUTME: A speed bump, not a wall: a script can write a file without naming it on the

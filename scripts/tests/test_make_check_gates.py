@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for make check's new checks: retired names, TestArch_ citations in every file, no
 # ABOUTME: decision recorded as built, the Playwright pin and eslint's alternatives; each is shown
 # ABOUTME: failing on a case built to fail (D190).

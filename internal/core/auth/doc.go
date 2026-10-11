@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package auth is who may do what: local accounts, argon2id password hashes, sessions, issued secrets,
 // and the single grant table from which every credential (session, issued secret, join, cast) is an

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: How revert-red (check_revert_red.py) tells a run's outcomes: each file under the
 # ABOUTME: heading of its verdict, and what to do about the files that failed.
 """What revert-red prints: the outcomes by verdict, and the advice for those that failed."""

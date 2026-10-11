@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Architecture map gate run by `make check`: every Go and web package has a row in the
 # ABOUTME: map's package table and every row names a package that exists; the map's storage table
 # ABOUTME: and schema.md's owners table each list exactly the tables persistent.db and cache.db have.

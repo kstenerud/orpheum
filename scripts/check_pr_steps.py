@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Records each `make check-pr` step's pass or fail with the commit it ran on, and runs
 # ABOUTME: `make check-pr-failed`: only the steps that did not pass, revert-red on its failed files.
 """check-pr's steps, recorded one by one so a fix-and-re-run loop repeats only what failed.

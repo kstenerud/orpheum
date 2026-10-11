@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package deployment writes a deployment's directory (D249, D272 §3): the values file the owner
 // fills in, the tunnel's key pair, and, from the values and the templates embedded here, the

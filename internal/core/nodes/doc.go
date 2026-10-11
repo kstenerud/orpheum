@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package nodes is the core's side of the node channel (D207): it enrols a node by name on its
 // hello, queues its commands for the long-poll and takes its status, results and progress. It starts

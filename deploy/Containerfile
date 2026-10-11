@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Orpheum's image family (D235 §2): the development image, every tool the gates and the dev
 # ABOUTME: loop need, and the runtime image staging and release run (D249), sharing one pinned base.
 #

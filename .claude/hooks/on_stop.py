@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Stop hook: if the turn changed files, run the gate (`make check`, or `make
 # ABOUTME: check-documentation` after a documentation-only turn) where the tools are; block on failure.
 from __future__ import annotations

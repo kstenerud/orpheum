@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: PostToolUse hook for file edits: records that the tree changed, so the Stop hook
 # ABOUTME: knows to run the gate — the whole of it for code, the documentation gate for documentation.
 from __future__ import annotations

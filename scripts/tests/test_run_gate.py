@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for scripts/run_gate.py: the gate runs directly where the tools are, through
 # ABOUTME: `./dev` where only a container engine is, and both hooks say how to fix a bare machine.
 import json

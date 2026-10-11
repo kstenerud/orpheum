@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Shared plumbing for the Claude Code hooks: read the event, find the project root,
 # ABOUTME: and emit the JSON decisions Claude Code understands.
 """Helpers for the hooks in this directory. Stdlib only; each hook stays a few lines."""

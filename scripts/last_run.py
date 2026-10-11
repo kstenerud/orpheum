@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: What the last run of a slow branch gate found, kept in the git common directory so a
 # ABOUTME: targeted re-run can repeat only what failed (revert-red's files, check-pr's steps).
 """The record a slow gate leaves of its last run, for the next run to re-run only what failed.

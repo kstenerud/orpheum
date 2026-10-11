@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Command orpheum is the Orpheum media server: one binary whose subcommand chooses the role
 // (core, node) or the operation (migrate, backup, restore, doctor, setup-code, openapi, version,

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package scan lists under a media root, read-only, and examines the files the core names (D240):
 // a listing reports every entry with its stat and reads no file; an examining probes and hashes a

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package cloudflaretest is a fake of Cloudflare's DNS API for tests: the zones a token reaches, and
 // the TXT records set in them.

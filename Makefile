@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: The project's one entry point. `make check` is the gate: the Stop hook runs it at the end of
 # every agent turn that touched a file, the pre-commit hook runs it, and CI runs it. A change is
 # not done until it passes. Standards: docs/contributors/standards/makefile.md.

@@ -14,7 +14,7 @@ const getItemKind = `-- name: GetItemKind :one
 SELECT kind FROM item WHERE id = ?1 AND removed_at IS NULL
 `
 
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // A series is what is identified for shows (D209): its match state, its episodes' places, and
 // what the pass and the matcher read and write about it.
 func (q *Queries) GetItemKind(ctx context.Context, id int64) (string, error) {

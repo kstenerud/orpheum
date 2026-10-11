@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for `./staging` (D249 §3, D272 §3): it runs the image's write-deployment as its usage
 # ABOUTME: says, brings an old staging directory forward, and keeps the logs of the run it replaces.
 import importlib.machinery

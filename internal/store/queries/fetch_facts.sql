@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-3.0-or-later
+-- SPDX-License-Identifier: AGPL-3.0-or-later
 -- What the fetch sweeps derive their work from besides the stored responses (D231 sections 3 and
 -- 4; schema.md, fetch_failure and refresh_request): a film's or series' own failure to be
 -- fetched, and a person's request to fetch it again.

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for the development tooling: the pinned-FFmpeg fetcher refuses a wrong hash,
 # ABOUTME: the dev library covers every Cut A path, and the dev loop renders and watches right.
 import sys

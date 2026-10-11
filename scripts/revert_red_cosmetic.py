@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Whether a file's change cannot affect behaviour (comments, formatting, a struct tag's
 # ABOUTME: doc text), so revert-red reports it COSMETIC rather than probing it (check_revert_red.py).
 """Changes no test could notice, which revert-red reports rather than probes."""

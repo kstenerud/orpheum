@@ -8,17 +8,23 @@ the first commit, so that nothing has to change when it opens.
 
 | Directory | Licence | Header every source file carries |
 | --- | --- | --- |
-| everything outside `web/` (server, media node, relay, scripts) | GPL-3.0-or-later ([`LICENSE`](LICENSE)) | `SPDX-License-Identifier: GPL-3.0-or-later` |
+| everything outside `web/` (server, media node, relay, scripts) | AGPL-3.0-or-later ([`LICENSE`](LICENSE)) | `SPDX-License-Identifier: AGPL-3.0-or-later` |
 | `web/` (the SDK, the player, the web client, the cast receiver) | MPL-2.0 ([`web/LICENSE`](web/LICENSE)) | `SPDX-License-Identifier: MPL-2.0` |
 
-The split is deliberate: a GPL application cannot ship through Apple's App Store, and MPL's
+The split is deliberate: a GPL-family application cannot ship through Apple's App Store, and MPL's
 per-file copyleft keeps the clients open while letting them ship
 ([D80](docs/contributors/decisions/working-notes.md)). `make check` fails on a file whose header
 does not match its directory. **Code must not move from `web/` into the server tree, or the
 other way, without the owner's decision**, because that changes its licence.
 
-By contributing you agree that your contribution is licensed under the licence of the directory
-it lands in.
+## The contributor licence agreement
+
+Before your first contribution is merged, you accept the
+[Individual Contributor License Agreement](CLA.md) (D275). You keep the copyright in your work; you
+give the project's owner a licence to use it under the directory's licence and under other terms,
+as Google's and the Apache Software Foundation's agreements do. The owner runs a hosted service
+built on Orpheum, and the agreement is what lets your contribution be part of it. If your employer
+owns what you write, it signs the corporate agreement first: ask the owner for it.
 
 ## Setting up
 

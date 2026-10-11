@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-3.0-or-later
+-- SPDX-License-Identifier: AGPL-3.0-or-later
 -- Sealed third-party secrets (schema.md, secret; D194 section 3). Every query's name carries
 -- SealedSecret, and only internal/core/secrets may call them (forbidigo [sealed-secret]).
 -- A server-scope row has a NULL user_id; `user_id IS` matches it with a nil parameter.

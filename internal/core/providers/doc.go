@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package providers is the outside hosts as services (D231 §5, the owner 2026-09-30): each host
 // the server calls, TMDB's API (tmdb-api), TMDB's image server (tmdb-images) and OpenSubtitles,

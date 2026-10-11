@@ -39,7 +39,7 @@ type GetLiveNodeByNameRow struct {
 	EnrolledAt int64
 }
 
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Media nodes (schema.md, node; D207): enrolled by name on their first hello.
 func (q *Queries) GetLiveNodeByName(ctx context.Context, name string) (GetLiveNodeByNameRow, error) {
 	row := q.db.QueryRowContext(ctx, getLiveNodeByName, name)

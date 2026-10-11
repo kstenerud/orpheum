@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package containertest builds small container files for tests elsewhere in the node: a Matroska
 // file whose picture's keyframes are in its cues (D259 §2). It is imported only by tests.

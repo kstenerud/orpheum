@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package reachability checks the server's path from outside in, for the System page (D243 §7):
 // its public name and where it points, HTTPS through the name back to this server, and the voice

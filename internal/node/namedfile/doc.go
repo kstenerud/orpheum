@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package namedfile opens the file a command names, by the root it is under, its path there and
 // its payload hash, once it is checked to still be that file (D100): the one way the node does

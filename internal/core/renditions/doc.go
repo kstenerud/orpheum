@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package renditions has a file's prepared copies made by its node and keeps their index in
 // cache.db: it wants a rendition for a playback, queues and runs its prepare job, records the

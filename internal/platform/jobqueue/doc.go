@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package jobqueue is a job queue that knows no program's kinds, targets or destinations (D231
 // §2): a kind is a name, a target a comparable value it only compares, a destination a name kept

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Records the working tree `make check` passed on, so a commit of exactly that tree
 # ABOUTME: need not run the gate a second time (the Stop hook has just run it).
 """The tree `make check` last passed on.

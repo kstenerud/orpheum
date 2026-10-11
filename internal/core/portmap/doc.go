@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package portmap keeps the core's HTTPS port open at the home router while its discovery publishes
 // it and should_map_ports is on (D273 §7): IPv4 forwarded by PCP, then NAT-PMP, then UPnP IGD, and

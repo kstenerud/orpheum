@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package preferences keeps a person's choices, the one place they live (the architecture map's F2
 // and F6): the subtitle and audio language last chosen in each work, what was last used in each

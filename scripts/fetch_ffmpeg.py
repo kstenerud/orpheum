@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Fetches the pinned jellyfin-ffmpeg portable build for this machine into .tools/,
 # ABOUTME: verifies its SHA-256 and prints the directory holding ffmpeg and ffprobe.
 """Download the one FFmpeg this project builds and tests against (D193 §6).

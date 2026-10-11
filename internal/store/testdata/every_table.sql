@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-3.0-or-later
+-- SPDX-License-Identifier: AGPL-3.0-or-later
 -- One realistic row in every table of the current schema, in reference order, for the backup and restore
 -- tests: a copy that reproduces this reproduces every table. Synthetic titles only (D187).
 

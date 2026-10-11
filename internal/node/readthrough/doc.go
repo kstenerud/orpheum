@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package readthrough reads a video through once, with one FFmpeg, and learns what only a read of
 // the whole file tells. How loud each audio track is, by EBU R128 with FFmpeg's ebur128 filter, so

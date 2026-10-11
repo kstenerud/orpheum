@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for documentation_only.py: what counts as documentation alone, staged for a commit
 # ABOUTME: or changed since check-pr's base.
 import sys

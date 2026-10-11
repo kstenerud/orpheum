@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Dependency gate run by `make check`: every Go module in go.mod and every
 # ABOUTME: package in a web/ package.json must be on the owner's allowlist, with a reason; the
 # ABOUTME: pinned Playwright is the lockfile's; eslint names only installed packages as the fix.

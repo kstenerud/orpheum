@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-3.0-or-later
+-- SPDX-License-Identifier: AGPL-3.0-or-later
 -- A chunk store (D247 section 10): one stream of a film on one grid, which its make_chunks jobs
 -- target, so the runs of a film's streams queue side by side (internal/core/chunks).
 

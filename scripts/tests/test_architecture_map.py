@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for check_architecture_map.py: the map's package table against the packages, and
 # ABOUTME: schema.md's owners table against the schema's tables, each shown failing (D190).
 import sys

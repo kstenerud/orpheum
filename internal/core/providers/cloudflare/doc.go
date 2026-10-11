@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package cloudflare sets and removes the DNS TXT record an ACME DNS-01 challenge asks for, through
 // Cloudflare's API with the admin's scoped token (D243 §6): the two calls the server's certificate

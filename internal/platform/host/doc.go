@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package host says what operating system a machine runs: what `lsb_release -a` shows, read
 // from /etc/os-release, which is what lsb_release itself reads, and the kernel's release. Reading

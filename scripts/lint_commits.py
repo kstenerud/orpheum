@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # Adapted from yoloAI's scripts/lint_commits.py (MIT, same author).
 # ABOUTME: Commit-message gate for a PR's own commits: subject shape, prose body
 # ABOUTME: on code commits, and AI attribution trailers. Runs in CI, not in

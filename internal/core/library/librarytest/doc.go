@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package librarytest gives tests the fixture they share: an enrolled node, a library over a root
 // on it, written through the store's queries, and the numbered envelope a node sends a scan in. It

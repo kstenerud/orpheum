@@ -75,7 +75,7 @@ type InsertInvitationParams struct {
 	AdminNote    string
 }
 
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Invitations not yet used (D246 section 2): each a single-use link's grant, the role the account
 // will have, and the admin's note of who it is for. Registering through one makes the account.
 func (q *Queries) InsertInvitation(ctx context.Context, arg InsertInvitationParams) (int64, error) {

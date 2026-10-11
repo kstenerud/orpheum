@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for check_test_weakening.py's commit-msg mode: the commit being written is held
 # ABOUTME: to the branch's rules, explained only by its own trailers (D270 §4).
 import sys

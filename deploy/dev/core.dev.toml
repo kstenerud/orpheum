@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # The development core's full config: opinionated, local, and loud. The dev loop (scripts/dev.py)
 # makes the core instance in .dev/core with `orpheum default-config`, then writes this file over
 # its persistent/config.toml, filling in {root} (the repository). It holds only what must exist

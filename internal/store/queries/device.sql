@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-3.0-or-later
+-- SPDX-License-Identifier: AGPL-3.0-or-later
 -- A person's devices (schema.md, device; D217 section 8): made at sign-in, named by the client.
 
 -- name: InsertDevice :one

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package agent is the node's loop (D207): it dials the core's socket, says hello, long-polls for
 // commands and holds the work they give it in memory (D238 §3), each job starting once a slot of its

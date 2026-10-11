@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-3.0-or-later
+-- SPDX-License-Identifier: AGPL-3.0-or-later
 -- Roles (D130) and the libraries each reaches (D243 section 4): a person has one role, which is
 -- their whole access. The built-in roles are seeded by the baseline; the admin makes the rest.
 

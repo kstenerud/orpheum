@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-3.0-or-later
+-- SPDX-License-Identifier: AGPL-3.0-or-later
 -- The retire actions (D231 section 7): a root, a node and a library each have one, a library's
 -- being its delete. Each tombstones the files it covers, their history staying on their titles
 -- (D173); the work those files and titles had is cancelled by the job queue.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package outbound builds the HTTP client every request the server makes to another host goes
 // through: TMDB, OpenSubtitles, the update check. Go's default client and transport take a proxy

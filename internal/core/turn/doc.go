@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package turn runs the TURN relay embedded in the binary (pion/turn), which carries Watch
 // Together's voice when two browsers cannot reach each other directly, and issues its credentials

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package identify matches titles to provider metadata: the filename parser, NFO read, the TMDB
 // client, ranked match candidates, the ambiguous-match chooser, and per-field overrides. An

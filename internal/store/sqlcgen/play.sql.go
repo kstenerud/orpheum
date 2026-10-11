@@ -67,7 +67,7 @@ type GetPlayPositionRow struct {
 	PositionReadAt int64
 }
 
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Play state (schema.md; play-state.md, D165, D217 section 7): the guarded position, the log of
 // state changes, and the watched spans.
 func (q *Queries) GetPlayPosition(ctx context.Context, arg GetPlayPositionParams) (GetPlayPositionRow, error) {

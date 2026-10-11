@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package archtest holds the architecture tests: the design's structural promises, checked against
 // the real package graph from go list. Each checker is a pure function and is unit-tested against

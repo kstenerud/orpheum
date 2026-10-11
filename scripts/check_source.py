@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Source hygiene gate run by `make check`: every source file carries the SPDX
 # ABOUTME: licence identifier its directory requires (D80), and no hand-written file
 # ABOUTME: outgrows what an agent reads whole (warn at 400 lines, fail at 800), and sqlc's
@@ -9,9 +9,9 @@
 Three rules, all about what a reader — human or agent — can rely on without asking:
 
 * **The directory is the licence** (D80). Everything under `web/` is MPL-2.0; everything
-  else is GPL-3.0-or-later. Each source file states its licence in an
+  else is AGPL-3.0-or-later (D275). Each source file states its licence in an
   `SPDX-License-Identifier:` line within its first five lines, and the identifier must be
-  the one its directory requires. A client file that says GPL, or a server file that says
+  the one its directory requires. A client file that says AGPL, or a server file that says
   MPL, is exactly the drift that makes relicensing impossible later.
 * **A file fits in one read.** A file that is read whole is understood whole; one that is
   read in pieces is where an agent sizes a fix from the part it happened to see. Files over
@@ -34,8 +34,20 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+AGPL = "AGPL-3.0-or-later"
 GPL = "GPL-3.0-or-later"
 MPL = "MPL-2.0"
+
+# Migration steps committed before the server moved to the AGPL (D275). A database records each
+# step's checksum, so a merged step is never edited, its header included (AGENTS.md rule 8); these
+# keep the GPL header they were committed with. The next baseline fold (D272 section 5) is a new
+# file, and carries the AGPL.
+FROZEN_GPL_STEPS = frozenset(
+    {
+        "internal/store/migrations/0035_baseline.sql",
+        "internal/store/migrations/0036_video_timeline_read_failure.sql",
+    }
+)
 
 # Extensions that are source code and can carry a comment. JSON cannot hold one, and
 # Markdown is documentation, which the docs gate covers.
@@ -69,7 +81,7 @@ class Problem:
 
 def required_licence(path: str) -> str:
     """The SPDX identifier a path's directory requires (D80)."""
-    return MPL if path.startswith("web/") else GPL
+    return MPL if path.startswith("web/") else AGPL
 
 
 def is_source(path: str) -> bool:
@@ -90,7 +102,7 @@ def check_header(path: str, text: str) -> Problem | None:
     for line in text.splitlines()[:HEADER_WINDOW]:
         if "SPDX-License-Identifier:" in line:
             got = line.split("SPDX-License-Identifier:", 1)[1].strip().rstrip("*/-> ").strip()
-            if got == want:
+            if got == want or (path in FROZEN_GPL_STEPS and got == GPL):
                 return None
             return Problem(path, f"says SPDX {got!r}, but its directory requires {want!r} (D80)")
     return Problem(

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package clock is the one place that reads the wall clock. Everything else takes a Clock,
 // so tests control time with clocktest.Fake and no test sleeps to make time pass.

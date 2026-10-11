@@ -63,7 +63,7 @@ FROM setting
 ORDER BY key
 `
 
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // The server's runtime settings (schema.md, setting; D181, D200). Every key the registry in
 // internal/core/settings declares has a row, written with its starting value on first start.
 func (q *Queries) ListSettings(ctx context.Context) ([]Setting, error) {

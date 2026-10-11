@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Revert-red's record of the files its last run failed on (GREEN, NO_RUNNER), and the
 # ABOUTME: base and head it ran on, which `check_revert_red.py --rerun-failed` probes again.
 """The files revert-red's last run failed on.

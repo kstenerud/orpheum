@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package opensubtitles is OpenSubtitles' REST API, for fetching a subtitle on request (D224):
 // search by the work's ids and the file's moviehash, download one, and say what the account has

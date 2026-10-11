@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package certificatetest is a fake ACME CA for tests (RFC 8555), as small as
 // golang.org/x/crypto/acme's client needs: one account, an order of one name at a time, a dns-01

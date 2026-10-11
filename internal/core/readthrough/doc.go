@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package readthrough has each video read through once by its node, one FFmpeg reading the whole
 // file, and keeps what the read learned by the file's payload hash, in persistent.db, since making

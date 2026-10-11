@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # The development node's full config. The dev loop (scripts/dev.py) makes the node's own instance
 # in .dev/node with `orpheum default-config --node` (D242 §6), then writes this file over its
 # persistent/config.toml, filling in {root} (the repository) and {ffmpeg_dir} (the pinned FFmpeg

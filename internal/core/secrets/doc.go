@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package secrets holds the third-party secrets the server must present to someone else: the TMDB
 // key, the OpenSubtitles login, the DNS provider token and the TURN shared secret. Each

@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-3.0-or-later
+-- SPDX-License-Identifier: AGPL-3.0-or-later
 -- People and their roles (schema.md, People; D125, D130). schema.md defines no live_user view,
 -- so these read the table and name the tombstone condition themselves.
 

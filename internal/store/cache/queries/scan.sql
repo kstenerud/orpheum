@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-3.0-or-later
+-- SPDX-License-Identifier: AGPL-3.0-or-later
 -- A root's scan in progress, and the batches of files it needs read (D240; schema.md, cache.db).
 
 -- name: InsertScan :one

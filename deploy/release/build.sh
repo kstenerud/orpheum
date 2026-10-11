@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Release's one build command (D272 §4, §7): builds the runtime image from a tag of this
 # ABOUTME: checkout, then runs that image's write-deployment over the deployment's directory.
 #

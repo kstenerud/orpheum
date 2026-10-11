@@ -1,5 +1,5 @@
 #!/bin/sh
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: The fake ffmpeg and ffprobe (standards/testing.md §11). testutil.InstallFakeFFmpeg
 # ABOUTME: copies it into a test's directory as both tools; it records each run and replies.
 #

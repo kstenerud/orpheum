@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # The deployment's core config (D249, D272 §3): `orpheum write-deployment` writes it over the core
 # instance's persistent/config.toml from the values file, so an edit here is lost; change the values
 # file and write the deployment again. It holds only what must exist before the database opens

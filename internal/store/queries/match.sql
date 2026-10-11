@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-3.0-or-later
+-- SPDX-License-Identifier: AGPL-3.0-or-later
 -- Matching a title to its provider (identification.md; D170, D172): the fetch_metadata job's reads and
 -- writes in persistent.db. The kept search results are cache.db's.
 

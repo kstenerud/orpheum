@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package rtcapitest is a client's end of the WebRTC transport, for tests: a pion peer that sends
 // each request on a channel of its own and reads its response whole, as the web client does.

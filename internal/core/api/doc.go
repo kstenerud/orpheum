@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package api is the client API: the huma handlers under /api/v1, from which the OpenAPI document
 // (api/openapi.json) is generated, committed and diffed. It authenticates, validates and

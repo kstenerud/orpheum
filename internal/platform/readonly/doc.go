@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package readonly closes what was only read — a file opened to read, a directory root opened to
 // read under — and lets its error go: closing such a handle cannot lose data. It is the one helper

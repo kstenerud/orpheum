@@ -238,7 +238,7 @@ type InsertJobParams struct {
 	CreatedAt         int64
 }
 
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // The one work queue's storage (cut-a section 5.3; schema.md, cache.db): internal/store's
 // JobStorage, which internal/platform/jobqueue drives (D231 section 2).
 func (q *Queries) InsertJob(ctx context.Context, arg InsertJobParams) (int64, error) {

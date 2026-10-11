@@ -454,7 +454,7 @@ type ListLibraryRootsRow struct {
 	RootPath string
 }
 
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // The identification pass (identification.md): it reads stored observations and writes titles.
 func (q *Queries) ListLibraryRoots(ctx context.Context, libraryID int64) ([]ListLibraryRootsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listLibraryRoots, libraryID)

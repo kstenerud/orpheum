@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package subtitle turns a text subtitle into ASS, which JASSUB draws in the browser, and WebVTT,
 // which the cast receiver shows (cut-a §6, D217 §6): a track inside a video, which means reading

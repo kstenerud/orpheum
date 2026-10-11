@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # CI runs exactly what a developer runs, in the same development image (D235 §2): `./dev make check`
 # on every push and pull request, and the branch gates (`./dev make check-pr`) on a pull request
 # and a branch. No job exists only in CI — a gate that cannot be run locally is one people learn

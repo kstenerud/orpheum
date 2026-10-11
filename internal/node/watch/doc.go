@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package watch watches the node's roots for changes with the kernel's inotify and notices, per root,
 // the folder holding every change once the root has gone quiet, for the core to scan (D27, D272 §9).

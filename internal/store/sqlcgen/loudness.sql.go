@@ -17,7 +17,7 @@ WHERE payload_hash = ?
 ORDER BY stream_index, measured_mix
 `
 
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Each audio track's loudness, as the node measured it (D226 sections 1 and 2).
 // What was measured of a file's bytes: each track's sounds, or why they could not be measured.
 func (q *Queries) ListLoudnessOfPayload(ctx context.Context, payloadHash []byte) ([]Loudness, error) {

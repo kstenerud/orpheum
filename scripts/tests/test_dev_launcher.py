@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Tests for `./dev`, the development container launcher (D235 §3): the image tag follows
 # ABOUTME: its inputs, the container gets the mounts and ports it needs, and the image's pins agree.
 import os

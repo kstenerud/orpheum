@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package chunks makes runs of chunks: one stream of a film, the copied picture, a quality or a
 // sound, cut at the film's grid and written into a store in the node's prepared directory, chunk by

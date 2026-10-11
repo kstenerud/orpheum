@@ -19284,15 +19284,19 @@ server.
    - **Contributions come under a contributor licence agreement** that grants the owner rights
      beyond the AGPL, so the closed service may import public packages others have contributed to
      without falling under the AGPL's network clause. The owner's own code needs none.
-   - Not yet done: the licence text, every file's SPDX header, the gates that read them, and the
-     agreement's text, which is the owner's choice. A commit of its own.
+   - The agreement is the owner's choice, *"go with the one that google uses"*: `CLA.md`, the
+     Apache Individual CLA v2.2 adapted as Google's is, accepted by a sentence in the first
+     contribution; a corporate agreement is asked of the owner when an employer owns the work.
+   - Done 2026-10-11: `LICENSE`, every server file's SPDX header, `scripts/check_source.py` and
+     goheader. The two migration steps committed before keep their GPL header, since a database
+     records each step's checksum (rule 8); the next baseline fold carries the AGPL.
 3. **The licence is not the defence against competitors.** The owner: *"we are also entering into
    a new era with AI able to clone existing services with ease ... licensing might make for a poor
    defense against competition. I'll need to use price and first mover advantage."* The AGPL's
    job is that improvements to Orpheum come back to it; the paid tier competes on price and on
    being first.
 
-**Status:** Decided 2026-10-11. §1 shapes W4b; §2's relicensing is not done.
+**Status:** Decided 2026-10-11. §1 shapes W4b; §2's relicensing built 2026-10-11.
 
 ## D276 — A scan that removes nothing never waits for the admin, though its root moved to another device
 

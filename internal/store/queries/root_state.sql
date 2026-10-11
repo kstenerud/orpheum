@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-3.0-or-later
+-- SPDX-License-Identifier: AGPL-3.0-or-later
 -- Each root's last scan and what it found (D208, D41, D42).
 
 -- name: GetRootState :one

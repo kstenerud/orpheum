@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package settings is the setting registry and the setting table: every opinionated value the
 // server acts on, each a row seeded with its starting value on first start and read from the

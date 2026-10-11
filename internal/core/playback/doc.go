@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package playback turns a decision into something playable and records what was watched: it
 // starts a playback with the person's choices, issues single-playback media tokens, wants a

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package testutil is where a test declares what it needs from the machine. Require fails the
 // test when a capability is absent, and skips it only when the job that runs it has named that

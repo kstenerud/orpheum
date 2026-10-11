@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # Adapted from yoloAI's scripts/lint_speculative_api.py (MIT, same author).
 # ABOUTME: Finds speculative API — code with no production caller, which the
 # ABOUTME: normal lint cannot see because `unused` counts a test as a caller.

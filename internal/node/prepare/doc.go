@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package prepare runs one FFmpeg command per prepare job, through execx, producing an fMP4 HLS
 // rendition in the node's cache (an EVENT playlist that grows while the job runs). Text
