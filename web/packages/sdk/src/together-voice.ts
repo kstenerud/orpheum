@@ -555,7 +555,12 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
       (stats) => {
         connection.note({
           kind: "voiceStats",
-          voice: { partnerDeviceId: entry.deviceId, ...stats },
+          // What the Talk button's ring reads now, to say whether a still ring read nothing.
+          voice: {
+            partnerDeviceId: entry.deviceId,
+            ...stats,
+            ringLevel: this.readMicrophoneLevel(),
+          },
         });
       },
       () => undefined, // a call that cannot say is said nothing of; its next measure may

@@ -137,5 +137,5 @@ func (current *session) logVoice(ctx context.Context, who *member, from *device,
 		"jitterBufferMs", voice.JitterBufferMs, "jitterBufferTargetMs", voice.JitterBufferTargetMs,
 		"concealedShare", voice.ConcealedShare, "packetsLost", voice.PacketsLost, "packetsLate", voice.PacketsLate,
 		"fecPackets", voice.FECPackets, "path", voice.Path, "receivedLevel", voice.ReceivedLevel,
-		"sentLevel", voice.SentLevel, "playback", voice.Playback)...)
+		"sentLevel", voice.SentLevel, "playback", voice.Playback, "ringLevel", voice.RingLevel)...)
 }

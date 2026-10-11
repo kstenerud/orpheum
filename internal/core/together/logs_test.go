@@ -79,7 +79,8 @@ func TestHub_LogsADevicesPlayerNoteAndRefusesAnUnknownOne(t *testing.T) {
 // up says whether its sound came late, was lost, or went through the relay over TCP (D262 §1, §4);
 // one without its statistics, or with an unknown path or playback, is refused. They say how loud what
 // it received and sent were, and how it plays: an iPhone and an Android phone connected and neither
-// heard the other, and nothing said which side was silent (the owner's test, 2026-10-08).
+// heard the other, and nothing said which side was silent (the owner's test, 2026-10-08); and what
+// the Talk button's ring read, still on an Android phone hosting (the owner's test, 2026-10-11).
 func TestHub_LogsAVoiceCallsStatisticsAndRefusesThemWithoutAKnownPath(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
@@ -88,13 +89,13 @@ func TestHub_LogsAVoiceCallsStatisticsAndRefusesThemWithoutAKnownPath(t *testing
 		Kind: NoteVoiceStats, Voice: &VoiceStats{
 			PartnerDeviceID: 4, RoundTripMs: 340, JitterBufferMs: 905, JitterBufferTargetMs: 880,
 			ConcealedShare: 0.043, PacketsLost: 312, PacketsLate: 97, FECPackets: 40, Path: "udp",
-			ReceivedLevel: 0.126, SentLevel: 0.032, Playback: "elementInterrupted",
+			ReceivedLevel: 0.126, SentLevel: 0.032, Playback: "elementInterrupted", RingLevel: 0.4,
 		},
 	}})
 	want := `level=INFO msg="watch together: a voice call measured"`
 	fields := `partnerDeviceId=4 roundTripMs=340 jitterBufferMs=905 jitterBufferTargetMs=880 concealedShare=0.043 ` +
 		`packetsLost=312 packetsLate=97 fecPackets=40 path=udp receivedLevel=0.126 sentLevel=0.032 ` +
-		`playback=elementInterrupted`
+		`playback=elementInterrupted ringLevel=0.4`
 	if logged := stage.logs.String(); !strings.Contains(logged, want) || !strings.Contains(logged, fields) {
 		t.Errorf("the log does not say the call's statistics:\n%s", logged)
 	}

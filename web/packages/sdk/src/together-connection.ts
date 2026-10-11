@@ -142,7 +142,11 @@ export type PlayerNote =
   | { readonly kind: "reconnected"; readonly offlineMs: number; readonly why: "closed" | "silent" }
   | {
       readonly kind: "voiceStats";
-      readonly voice: VoiceCallStats & { readonly partnerDeviceId: number };
+      readonly voice: VoiceCallStats & {
+        readonly partnerDeviceId: number;
+        /** What the Talk button's ring reads of the voice going out now, from 0 to 1. */
+        readonly ringLevel?: number;
+      };
     }
   | { readonly kind: "voiceCall"; readonly partnerDeviceId: number; readonly why: VoiceCallStep }
   | { readonly kind: "voiceOff"; readonly why: "left" | "unreachable" }
