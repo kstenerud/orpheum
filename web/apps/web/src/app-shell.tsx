@@ -136,7 +136,11 @@ export function AppShell(props: {
   );
 }
 
-/** The banner's end: the status tray (D280), then the one menu with its places. */
+/**
+ * The banner's end: the status tray (D280), then the one menu with its places, kept together so
+ * the tray sits just before the menu at every width (the owner, 2026-10-11: on a narrow window it
+ * had fallen into the row of places for watching).
+ */
 function BannerEnd(props: {
   readonly shell: Parameters<typeof AppShell>[0];
   readonly isMenuCurrent: boolean;
@@ -144,7 +148,7 @@ function BannerEnd(props: {
 }): JSX.Element {
   const { shell } = props;
   return (
-    <>
+    <div className="app-shell__end">
       <StatusTray isHostingTogether={shell.isHostingTogether === true} isAdmin={shell.isAdmin} />
       <MainMenu
         signedInAs={shell.signedInAs}
@@ -153,7 +157,7 @@ function BannerEnd(props: {
       >
         {props.children}
       </MainMenu>
-    </>
+    </div>
   );
 }
 

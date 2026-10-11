@@ -122,6 +122,15 @@
   font-size: 0;
 }
 
+/* The status tray and the menu, together at the banner's end. */
+.app-shell__end {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  margin-inline-start: auto;
+}
+
 /* The one menu at the banner's end, behind three lines; the browser's own triangle is hidden. */
 .app-shell__menu {
   position: relative;
@@ -222,7 +231,7 @@
     margin-inline-start: calc(-1 * var(--space-2));
   }
 
-  .app-shell__menu {
+  .app-shell__end {
     position: absolute;
     inset-block-start: var(--space-1);
     inset-inline-end: var(--space-page);

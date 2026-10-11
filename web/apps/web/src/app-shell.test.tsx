@@ -118,6 +118,10 @@ describe("AppShell", () => {
     expect(watching).not.toContain('href="/jobs"');
     // One menu, behind its icon, marked as where one is (the owner, 2026-10-11).
     expect(markup.match(/<details/gu)).toHaveLength(1);
+    // The status tray sits just before it, the two together at the banner's end at every width.
+    expect(markup).toMatch(
+      /<div class="app-shell__end"><section class="status-tray".*?<\/section><details/u,
+    );
     expect(markup).toMatch(
       /<details class="app-shell__menu app-shell__menu--current"><summary aria-label="Menu" title="Menu"><svg/u,
     );
