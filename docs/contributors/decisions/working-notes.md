@@ -19381,3 +19381,23 @@ a disk, and a role that reaches no library; the plain sign beside the System pag
 waiting and unread entries and the reminder; and the red on every confirming button and the System
 page's removal. Not yet: a role's deletion asks nothing first, and an episode, a person and a device
 carry no sign.
+
+## D279 — Test runs are proportionate to the change: a 30-second spot check while working, make check at a commit, check-pr for a batch
+
+**Decided** (2026-10-11), by the project owner, after a day on which the agent ran `make check-pr`
+after each small fix, six runs of 139 to 1133 seconds against a 300-second budget:
+
+1. *"Running check-pr after every little change is slowing down the dev cycle (plus it's blown way
+   past the 5 minute limit). We should be running quicker tests for small changes, and run
+   check-pr only after extensive, or accumulated changes. Test runs should be proportionate to the
+   changes."*
+2. *"Ideally a 'spot check' from a small change shouldn't exceed 30 seconds."*
+3. **Restructuring the tests to fit is allowed:** *"If that means refactoring/rearchitecting the
+   tests to support this, I'm fine with that."*
+4. **Written into the principles**, not only the agent's memory: *"put it in the testing
+   principles since your memory could get erased if the sandbox goes down"*: principles §23 and
+   testing.md §10.
+
+**Status:** Decided 2026-10-11; the rule is written. Restructuring the tiers so each fits its
+budget, and measuring them, is the next piece of work.
+
