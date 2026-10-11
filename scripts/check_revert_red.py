@@ -34,11 +34,10 @@ about itself: a noisy gate gets disabled.**
   `docs`, `test`, `ci`, `build`, `chore` need not, because a refactor that changed
   behaviour is a mislabelled commit and that is a different gate's problem. A file
   touched by several commits requires red if *any* of them claims behaviour.
-* Only kinds of file whose tests this can actually scope and run: Go, Python and web
-  TypeScript; web CSS, in the browser tier alone, since only a browser renders it, and first
-  every sheet at once, one run settling the sheets a pass can (stylesheets_together); a
-  migration step, as one unit with its checksum line and schema golden, and cache.db's
-  schema, against internal/store's integration tier (revert_red_units.py). Every other
+* Only kinds of file whose tests this can scope and run: Go, Python and web TypeScript (an added
+  file by the tests importing it, revert_red_web); web CSS in the browser tier alone, every sheet
+  at once, a pass settling them all (stylesheets_together); a migration step with its checksum line
+  and golden, and cache.db's schema, by internal/store's integration tier (revert_red_units.py). Every other
   file a feat/fix/perf commit changed is listed as UNCHECKED, by name and why, rather than
   passed — silence is what makes a green mean two things at once, and a `fix` that changed
   only a stylesheet once passed a gate that never looked at it (audit-2026-09-29 §6).
@@ -86,6 +85,7 @@ from revert_red_cosmetic import GO_SOURCE, PY_SOURCE, is_cosmetic
 from revert_red_trees import link_installed_packages
 from revert_red_units import MIGRATION_STEP, companions, query_source, restore, revert_companion
 from revert_red_unreachable import is_unreachable_removal
+from revert_red_web import added_file_scope
 
 # A commit whose type claims a behaviour change owes a red-on-revert.
 BEHAVIOR_TYPES = frozenset({"feat", "fix", "perf"})
@@ -499,6 +499,7 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
         return Outcome(change.path, "UNCHECKED", "deleted; reverting would re-add it")
 
     unit = companions(change.path)
+    first = added_file_scope(tree, change.path) if change.status == "A" and TS_SOURCE.search(change.path) else None
     try:
         if change.status == "A":
             (Path(tree) / change.path).unlink(missing_ok=True)
@@ -509,7 +510,7 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
         for companion in unit:
             revert_companion(tree, base, change.path, companion)
 
-        attempts = [Attempt(scope, "")]
+        attempts = [Attempt(first or scope, "")]
         wide = wide_scope(change.path)
         if wide is not None and wide != scope:
             attempts.append(Attempt(wide, ", found by the whole suite"))
@@ -551,12 +552,11 @@ def stylesheets_together(tree: str, base: str, head: str, changes: list[Change],
 
     Each stylesheet alone costs a whole browser tier, and a skin changes dozens, most of which
     nothing can notice and a ticked VQ item covers: one run per sheet made a skin's branch take
-    three quarters of an hour (2026-10-06). When the run with every sheet reverted passes, a sheet
-    that is cosmetic or claimed has the verdict its own run would have reached, and is settled
-    here; a sheet with neither is left to its own run, since reverted alone it may still turn
-    something red that reverting the others with it hid. When the run fails, none is settled: which
-    sheet a test noticed is for each one's own run to say. Settling only what a pass decides, this
-    makes no verdict a sheet's own run would not have made.
+    three quarters of an hour (2026-10-06). When the run with every sheet reverted passes, it settles
+    every sheet: a cosmetic or claimed one as its own run would, and any other GREEN, owing a test or
+    a ticked VQ item, with no browser run of its own (D279: those runs made check-pr 19 minutes,
+    2026-10-11). That is never laxer than its own run: a sheet another's revert hid is flagged, not
+    passed. When the run fails, none is settled: which sheet a test noticed is each one's run to say.
     """
     sheets = [change for change in changes if is_stylesheet(change)]
     if len(sheets) < 2:
@@ -584,10 +584,10 @@ def stylesheets_together(tree: str, base: str, head: str, changes: list[Change],
             settled[change.path] = Outcome(change.path, "COSMETIC", "comment or formatting only; no behaviour "
                                            "to cover")
             continue
-        claim = claimed(tree, base, head, change.path)
-        if claim is not None and claim.verdict == "CLAIMED":
-            settled[change.path] = Outcome(change.path, "CLAIMED", claim.detail + " (one browser run with "
-                                           "every stylesheet reverted turned nothing red)")
+        claim = claimed(tree, base, head, change.path) or Outcome(change.path, "GREEN", "every test still passes "
+                                                                   "with this change reverted")
+        settled[change.path] = Outcome(change.path, claim.verdict, claim.detail + " (one browser run with every "
+                                       "stylesheet reverted turned nothing red)")
     return settled
 
 

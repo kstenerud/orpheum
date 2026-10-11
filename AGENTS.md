@@ -32,6 +32,10 @@ A branch also passes `make check-pr` (the integration tier, revert-red, test wea
 lint) before it merges.
 `make help` lists everything.
 
+**While working, `make spot`**: the tests of what changed and of what imports it, in about 30
+seconds. `make check` waits for the commit, and `make check-pr` for an accumulated batch, never a
+single small fix (principles §23, D279).
+
 **Fixing a failure, re-run only what failed; then run the whole gate once.** Loop on the narrowest
 run that shows the failure: `go test -run <Test> ./<pkg>/`, `npm --prefix web test -- <file>`,
 `make check-revert-red BASE=<base> ONLY="<path>..."`, or `make check-pr-failed`, which re-runs

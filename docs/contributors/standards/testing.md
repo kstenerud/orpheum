@@ -214,8 +214,11 @@ exists, and every `TestArch_` test is cited.
   `make check`.
 - **Runs are proportionate to the change** ([principles §23](../principles/README.md),
   [D279](../decisions/working-notes.md)):
-  - **while working, a spot check** of what changed: `go test -run <Test> ./<pkg>/` or
-    `npm --prefix web test -- <file>`, within **30 seconds**;
+  - **while working, a spot check** of what changed: `make spot` runs the Go packages that
+    changed and those importing them, vitest's related tests of the changed web files, the gates'
+    Python tests when a script changed and the docs gate for Markdown, at once, and names what it
+    left to `make check` (stylesheets, the type check, generated code); or one test by hand,
+    `go test -run <Test> ./<pkg>/`, `npm --prefix web test -- <file>`. Within **30 seconds**;
   - **at each commit, `make check`** (the hooks run it), within about **90 seconds**;
   - **for an accumulated batch, or before the owner applies, `make check-pr`**, within
     **5 minutes**. Not after each small fix.
@@ -226,9 +229,10 @@ exists, and every `TestArch_` test is cited.
   running them less often than the change needs.
 - CI runs the same make targets as a developer; no gate is pull-request-only.
 
-**Enforced by:** the Makefile ([makefile.md](makefile.md)); `make check-pr` reports a run over
-its 300 s budget. The spot check's and `make check`'s budgets, and running `check-pr` only for a
-batch, are **review-only** until the tiers are restructured to measure them (D279).
+**Enforced by:** the Makefile ([makefile.md](makefile.md)); `make spot` reports a run over its
+30 s budget, and `make check-pr` one over its 300 s, ending with each step's time, the longest
+first, so the overrun names its step. `make check`'s budget, and running `check-pr` only for a
+batch, are **review-only** (D279).
 
 ## 11. The fake `ffmpeg`
 

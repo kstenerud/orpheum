@@ -10,6 +10,8 @@
 * `start --base B` begins an empty record for a run against B.
 * `record STEP -- COMMAND...` runs one step's command, records whether it passed with the commit
   HEAD was at, and exits with the command's status.
+* `durations STEP...` prints how long each step of the run took, the longest first, so a run over
+  check-pr's budget names the step that grew (D279).
 * `rerun --base B --last LAST STEP...` is `make check-pr-failed`. The Makefile names the steps
   (PR_STEPS, and PR_LAST_STEP, which runs alone after them). It re-runs, the same way, each step
   that failed or has no result (it never ran: the last step runs only after the others pass), and
@@ -26,6 +28,7 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+import time
 from typing import Any
 
 import last_run
@@ -42,15 +45,30 @@ def start(base: str) -> None:
 
 
 def record(step: str, command: list[str]) -> int:
+    started = time.monotonic()
     status = subprocess.run(command, check=False).returncode
+    seconds = round(time.monotonic() - started)
     head = last_run.commit_of("HEAD") or ""
 
     def change(old: dict[str, Any] | None) -> dict[str, Any]:
         new = old or {"base": "", "results": {}}
-        new["results"][step] = {"passed": status == 0, "commit": head}
+        new["results"][step] = {"passed": status == 0, "commit": head, "seconds": seconds}
         return new
     last_run.update(GATE, NAME, change)
     return status
+
+
+def durations(steps: list[str]) -> str:
+    """How long each of `steps` took in the recorded run, the longest first, and which did not run."""
+    record_ = last_run.read(GATE, NAME) or {}
+    results = record_.get("results", {})
+    timed = sorted(((results[s]["seconds"], s) for s in steps if "seconds" in results.get(s, {})), reverse=True)
+    lines = ["check-pr's steps, the longest first (the first group runs in parallel):"]
+    lines += [f"  {seconds:>5} s  {step}{'' if results[step]['passed'] else '  (failed)'}" for seconds, step in timed]
+    missing = [s for s in steps if "seconds" not in results.get(s, {})]
+    if missing:
+        lines.append("  did not run: " + " ".join(missing))
+    return "\n".join(lines)
 
 
 def plan(results: dict[str, Any], steps: list[str], head: str) -> tuple[list[str], list[str]]:
@@ -118,6 +136,8 @@ def main() -> int:
     one = sub.add_parser("record")
     one.add_argument("step")
     one.add_argument("command", nargs=argparse.REMAINDER)
+    timing = sub.add_parser("durations")
+    timing.add_argument("steps", nargs="+")
     again = sub.add_parser("rerun")
     again.add_argument("--base", required=True)
     again.add_argument("--last", required=True, help="the step that runs alone after the others")
@@ -127,6 +147,9 @@ def main() -> int:
 
     if args.action == "start":
         start(last_run.commit_of(args.base) or args.base)
+        return 0
+    if args.action == "durations":
+        print(durations(args.steps))
         return 0
     if args.action == "record":
         command = args.command[1:] if args.command[:1] == ["--"] else args.command

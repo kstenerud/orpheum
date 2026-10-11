@@ -178,6 +178,18 @@ class CheckPrFailed(unittest.TestCase):
         self.assertEqual((status != 0, ran), (True, ["check-revert-red"]), out)
         self.assertIn("So all of it runs again", out)
 
+    def test_each_step_is_timed_and_the_longest_named_first(self):
+        (self.repo.root / "fail-slow").write_text("")
+        self.check_pr()
+        with self.repo.cwd():
+            listed = steps.durations(["fast", "slow", "check-revert-red"])
+        self.assertRegex(listed, r"(?m)^\s+\d+ s  fast$")
+        self.assertRegex(listed, r"(?m)^\s+\d+ s  slow  \(failed\)$")
+        self.assertIn("did not run: check-revert-red", listed)
+        with self.repo.cwd():
+            record_ = last_run.read(steps.GATE, steps.NAME)
+        self.assertIsInstance(record_["results"]["fast"]["seconds"], int)
+
     def test_a_rerun_against_another_base_or_with_no_record_is_refused(self):
         with self.repo.cwd() as out:
             self.assertEqual(steps.rerun(self.base, ["fast"], "check-revert-red", jobs=1), 1)
@@ -199,6 +211,8 @@ class Wiring(unittest.TestCase):
         self.assertRegex(self.MAKEFILE, r"(?m)^\t.*\$\(PR_STEPS:%=pr-step-%\)")
         self.assertRegex(self.MAKEFILE, r"(?m)^\t.*\$\(PR_LAST_STEP:%=pr-step-%\)")
         self.assertRegex(self.MAKEFILE, r"(?m)^pr-step-%:\n\t.*check_pr_steps\.py record \$\*")
+        self.assertRegex(self.MAKEFILE, r"(?m)^\t.*check_pr_steps\.py durations \$\(PR_STEPS\) "
+                         r"\$\(PR_SERIAL_STEP\) \$\(PR_LAST_STEP\)")
         self.assertRegex(self.MAKEFILE, r"(?m)^\t.*check_revert_red\.py .*\$\(if \$\(ONLY\),--only \$\(ONLY\)\)")
 
 

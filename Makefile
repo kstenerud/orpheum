@@ -48,6 +48,12 @@ CHECK_JOBS ?= $(shell nproc 2>/dev/null || echo 4)
 check: ## The gate: everything that runs on every change, quietly (VERBOSE=1 prints all; the log is in .git/gate-logs)
 	@$(PYTHON) scripts/quiet_gate.py --fail-fast "make check" check-verbose
 
+# The spot check, while working: the tests of what changed and of what imports it, about 30 s; not
+# the gate, which make check still is at the commit (D279, testing.md §10). BASE=<rev> checks commits.
+.PHONY: spot
+spot: ## Spot check while working: tests of what changed since BASE (default HEAD, so uncommitted) and its importers, ~30 s
+	@$(PYTHON) scripts/spot_check.py $(if $(BASE),--base '$(BASE)') $(if $(SPOT_JOBS),--jobs $(SPOT_JOBS))
+
 .PHONY: check-verbose
 # web-deps runs before the parallel steps: check-generated and check-web both need it, and two
 # installs at once raced each other (2026-10-01). It does nothing when the install is current.
@@ -235,6 +241,7 @@ check-pr-verbose: ## Branch gates against BASE (default: where the last pass end
 	    $(PR_STEPS:%=pr-step-%); \
 	  $(MAKE) --no-print-directory BASE="$$base" $(PR_SERIAL_STEP:%=pr-step-%); \
 	  $(MAKE) --no-print-directory BASE="$$base" $(PR_LAST_STEP:%=pr-step-%); \
+	  $(PYTHON) scripts/check_pr_steps.py durations $(PR_STEPS) $(PR_SERIAL_STEP) $(PR_LAST_STEP); \
 	  $(PYTHON) scripts/tree_state.py --check "$$state"; \
 	  $(PYTHON) scripts/branch_base.py --checked "$$head" --base "$$base" && { \
 	    took=$$(( $$(date +%s) - started )); \
