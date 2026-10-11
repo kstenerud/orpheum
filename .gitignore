@@ -22,3 +22,6 @@ __pycache__/
 /internal/core/webclient/dist/*
 !/internal/core/webclient/dist/.keep
 /.staging/
+
+# Worktrees an agent tool adds for isolated work: their own checkouts, not this one's files.
+/.claude/worktrees/

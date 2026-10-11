@@ -145,6 +145,11 @@ class CommitNeedsHooks(unittest.TestCase):
         self.assertFalse(pre_bash.hooks_installed(bare))
         subprocess.run(["git", "-C", str(bare), "config", "core.hooksPath", ".githooks"], check=True)
         self.assertTrue(pre_bash.hooks_installed(bare))
+        # A tool that adds a worktree rewrites the path as absolute: the same hooks, still installed.
+        subprocess.run(["git", "-C", str(bare), "config", "core.hooksPath", str(bare / ".githooks")], check=True)
+        self.assertTrue(pre_bash.hooks_installed(bare))
+        subprocess.run(["git", "-C", str(bare), "config", "core.hooksPath", "/dev/null"], check=True)
+        self.assertFalse(pre_bash.hooks_installed(bare))
 
 
 class GatePaths(unittest.TestCase):
