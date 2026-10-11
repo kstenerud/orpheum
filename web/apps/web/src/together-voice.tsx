@@ -16,9 +16,11 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
   useSyncExternalStore,
   type JSX,
   type ReactNode,
+  type RefObject,
 } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -170,17 +172,12 @@ function MicrophoneIcon(props: { readonly isOn: boolean }): JSX.Element {
   );
 }
 
-/**
- * Talk, one toggle (D281 §7), a round microphone button, the owner's choice B: struck through
- * while off; in the status blue while on, a ring around it growing with the voice going out. A
- * press opens the microphone, from the press it needs, and the next closes it, still hearing
- * everyone. Its name is for screen readers and a pointer's hover.
- */
-function TalkToggle(props: VoiceInUse): JSX.Element {
-  const { t } = useTranslation();
-  const { voice, snapshot } = props;
-  const isTalking = snapshot.status === "on";
-  const ref = useRef<HTMLButtonElement>(null);
+/** Has the Talk button's ring follow the voice going out, every talkRingEveryMs while talking. */
+function useTalkRing(
+  ref: RefObject<HTMLButtonElement | null>,
+  isTalking: boolean,
+  voice: TogetherVoice,
+): void {
   useEffect(() => {
     const button = ref.current;
     if (!isTalking || button === null) {
@@ -193,31 +190,103 @@ function TalkToggle(props: VoiceInUse): JSX.Element {
       clearInterval(follow);
       button.style.removeProperty("--level");
     };
-  }, [isTalking, voice]);
+  }, [ref, isTalking, voice]);
+}
+
+/** Opens the microphone, processed as the session says: Talk's press, or Talk anyway's. */
+function startTalking(props: VoiceInUse): void {
+  void props.voice.start({
+    shouldCancelEcho: props.snapshot.tuning.shouldCancelMicrophoneEcho,
+    shouldLevel: props.snapshot.tuning.shouldBrowserLevelMicrophone,
+  });
+}
+
+/**
+ * Before an iPhone without headphones talks: while its microphone is open, iOS sends the film's
+ * sound to the earpiece, and only headphones carry the film and the voices together (the owner,
+ * 2026-10-11; idiosyncrasies.md). Talk anyway opens the microphone, from its own press.
+ */
+function HeadphonesWarning(props: {
+  readonly onTalk: () => void;
+  readonly onCancel: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <dialog
+      open
+      className="together-voice__headphones"
+      role="alertdialog"
+      aria-label={t("together.voice.headphonesHeading")}
+    >
+      <h2>{t("together.voice.headphonesHeading")}</h2>
+      <p>{t("together.voice.earpiece")}</p>
+      <div className="together-voice__buttons">
+        <button type="button" onClick={props.onTalk}>
+          {t("together.voice.talkAnyway")}
+        </button>
+        <button type="button" onClick={props.onCancel}>
+          {t("together.voice.cancel")}
+        </button>
+      </div>
+    </dialog>
+  );
+}
+
+/**
+ * Talk, one toggle (D281 §7), a round microphone button, the owner's choice B: struck through
+ * while off; in the status blue while on, a ring around it growing with the voice going out. A
+ * press opens the microphone, from the press it needs, and the next closes it, still hearing
+ * everyone. Its name is for screen readers and a pointer's hover.
+ */
+function TalkToggle(
+  props: VoiceInUse & {
+    /** Whether the first press warns that only headphones carry the film and voice together. */
+    readonly shouldWarnFirst: boolean;
+  },
+): JSX.Element {
+  const { t } = useTranslation();
+  const { voice, snapshot } = props;
+  const isTalking = snapshot.status === "on";
+  const ref = useRef<HTMLButtonElement>(null);
+  // Warned once a page: the person has read it, and a warning at every press would nag.
+  const [warning, setWarning] = useState<"none" | "shown" | "read">("none");
+  useTalkRing(ref, isTalking, voice);
   const name = isTalking ? t("together.voice.stopTalking") : t("together.voice.talk");
   return (
-    <button
-      ref={ref}
-      type="button"
-      className="together-voice__talk"
-      aria-pressed={isTalking}
-      aria-label={name}
-      title={name}
-      data-starting={snapshot.status === "starting" ? "" : undefined}
-      disabled={snapshot.status === "starting"}
-      onClick={() => {
-        if (isTalking) {
-          voice.stop();
-        } else {
-          void voice.start({
-            shouldCancelEcho: snapshot.tuning.shouldCancelMicrophoneEcho,
-            shouldLevel: snapshot.tuning.shouldBrowserLevelMicrophone,
-          });
-        }
-      }}
-    >
-      <MicrophoneIcon isOn={isTalking} />
-    </button>
+    <>
+      <button
+        ref={ref}
+        type="button"
+        className="together-voice__talk"
+        aria-pressed={isTalking}
+        aria-label={name}
+        title={name}
+        data-starting={snapshot.status === "starting" ? "" : undefined}
+        disabled={snapshot.status === "starting"}
+        onClick={() => {
+          if (isTalking) {
+            voice.stop();
+          } else if (props.shouldWarnFirst && warning === "none") {
+            setWarning("shown");
+          } else {
+            startTalking(props);
+          }
+        }}
+      >
+        <MicrophoneIcon isOn={isTalking} />
+      </button>
+      {warning === "shown" ? (
+        <HeadphonesWarning
+          onTalk={() => {
+            setWarning("read");
+            startTalking(props);
+          }}
+          onCancel={() => {
+            setWarning("none");
+          }}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -311,14 +380,15 @@ export function VoiceControls(
           {t("together.voice.again")}
         </button>
       ) : null}
-      <TalkToggle voice={voice} snapshot={snapshot} />
+      <TalkToggle
+        voice={voice}
+        snapshot={snapshot}
+        shouldWarnFirst={props.audioOutput !== "headphones" && movesSoundToTheEarpiece()}
+      />
       {isTalking ? (
         <output className="together-voice__talking">{t("together.voice.talking")}</output>
       ) : null}
       {snapshot.status === "starting" ? <output>{t("together.voice.starting")}</output> : null}
-      {!isTalking && props.audioOutput !== "headphones" && movesSoundToTheEarpiece() ? (
-        <p className="together-voice__warning">{t("together.voice.earpiece")}</p>
-      ) : null}
       <VoiceVolumes voice={voice} snapshot={snapshot} />
       <p className="together-voice__hint">{t("together.voice.headphones")}</p>
     </section>
