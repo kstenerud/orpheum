@@ -9,6 +9,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/kstenerud/orpheum/discovery/safe32code"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
@@ -167,11 +168,11 @@ func (service *Service) IssueDeviceCode(
 		deviceID, deviceName = &known.ID, known.Name
 	}
 	deviceName = textindex.Line(deviceName)
-	raw, err := randbytes.Read(service.random, codeBytes)
+	raw, err := randbytes.Read(service.random, safe32code.DeviceBytes)
 	if err != nil {
 		return IssuedSecret{}, fmt.Errorf("make a device code: %w", err)
 	}
-	code := encodeCode([codeBytes]byte(raw))
+	code := safe32code.Device([safe32code.DeviceBytes]byte(raw))
 	now := service.clock.Now()
 	expires := now.Add(deviceCodeLife)
 	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
@@ -226,7 +227,7 @@ func (service *Service) WaitingCodeOf(ctx context.Context, userID int64) (*Waiti
 func (service *Service) SignInWithCode(
 	ctx context.Context, typed, platform, address string, resumeDeviceID int64,
 ) (string, error) {
-	code, err := normalizeCode(typed)
+	code, err := safe32code.Read(typed, safe32code.DeviceLength)
 	if err != nil {
 		code = typed // it cannot match, and is counted as the failure it is
 	}

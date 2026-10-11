@@ -48,7 +48,7 @@
 //     TestRegistration_ANewLinkWithdrawsTheOldAndTheOldPasswordWorksUntilANewOneIsSet.
 //   - A device code is eight safe32 characters, read as safe32 reads them, for ten minutes, once;
 //     a wrong one counts against the address's failed sign-ins (D218 §3, §4). Enforced by
-//     TestDeviceCode_IsSafe32AndReadsWhatAPersonTypes,
+//     discovery/safe32code's TestDeviceCode_IsSafe32AndReadsWhatAPersonTypes,
 //     TestDeviceCode_SignsOneDeviceInOnceWithinTenMinutesAsTyped and
 //     TestDeviceCode_WrongCodesCountAgainstTheSignInLimit.
 //   - A sign-in resumes the device the client remembers when it is the same person's; a code can
@@ -116,5 +116,6 @@
 //     failure counts.
 //   - auth.go: users, sign-in, sessions on the grant table. setup.go: the setup code and the first
 //     admin. accounts.go: accounts, registration invitations, device codes and changing a password
-//     (D218). devices.go: a person's devices. code.go: a device code's safe32.
+//     (D218). devices.go: a person's devices. A code's safe32 is
+//     discovery/safe32code's, which a discovery's claim code shares.
 package auth
