@@ -61,6 +61,28 @@ func TestScenario_S7_S8_AnUnpluggedDiskRemovesNothingAndItsReturnRestoresEveryth
 	}
 }
 
+// D276: a root found on another device with every file still in it, as after a rebuilt machine
+// mounts it again, is not an unmounted disk: the scan completes, nothing waits for the admin, and
+// the new device is the one a later unplugging is judged against.
+func TestScenario_ARootOnANewDeviceWithEveryFileCompletesAndKeepsTheNewDevice(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	world.scanOn(nodeproto.ScanBegin{RootPath: root, FilesystemDevice: 7, IsMountPoint: true}, filmRecords(3), true)
+	moved := nodeproto.ScanBegin{RootPath: root, FilesystemDevice: 8, IsMountPoint: true}
+	world.scanOn(moved, filmRecords(3), true)
+	if outcome, reason := world.rootState(); outcome != "complete" {
+		t.Errorf("root_state %s %q on the new device with every file, want complete", outcome, reason)
+	}
+	world.scanOn(nodeproto.ScanBegin{RootPath: root, FilesystemDevice: 8, IsMountPoint: true}, filmRecords(2), true)
+	if left := len(world.liveFilesByPath()); left != 2 {
+		t.Errorf("%d live files after a film was deleted on the new device, want 2: it is the known device now", left)
+	}
+	world.scanOn(nodeproto.ScanBegin{RootPath: root, FilesystemDevice: 1, IsMountPoint: false}, filmRecords(1), true)
+	if outcome, _ := world.rootState(); outcome != "withheld" {
+		t.Errorf("root_state %s when the new device went missing and a film with it, want withheld", outcome)
+	}
+}
+
 // S7, D208 §3: removals wait when a scan would remove all of a root's files, or more than half
 // of them and more than twenty; fewer go ahead.
 func TestScenario_S7_RemovalsPastTheThresholdWaitAndFewerGoAhead(t *testing.T) {

@@ -19309,4 +19309,5 @@ file it knew is not that, so:
 2. A changed device or mount still holds back a scan that would remove anything, as before; one
    that would remove all of a root's files waits in any case.
 
-**Status:** Decided 2026-10-11.
+**Status:** Decided and built 2026-10-11 (`library.withholdReason`;
+`TestScenario_ARootOnANewDeviceWithEveryFileCompletesAndKeepsTheNewDevice`).

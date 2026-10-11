@@ -97,6 +97,10 @@
 //     for the admin (D41, D208 §3). TestScenario_S7_S8_AnUnpluggedDiskRemovesNothingAndItsReturnRestoresEverything,
 //     TestScenario_S7_RemovalsPastTheThresholdWaitAndFewerGoAhead.
 //
+//   - A scan that would remove nothing completes though its root's device or mount changed, and
+//     the new one is recorded (D276).
+//     TestScenario_ARootOnANewDeviceWithEveryFileCompletesAndKeepsTheNewDevice.
+//
 //   - A disk missing from a mount point inside a root — found by comparing the mount boundaries a
 //     scan crossed with the last complete scan's — removes nothing under it (D208, as corrected).
 //     TestScenario_S7b_ADiskUnpluggedInsideARootRemovesNothingUnderIt.
