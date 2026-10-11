@@ -191,11 +191,14 @@ upgrade ladder. The relay (D243 §7–§8) listens on 3478, UDP and TCP, relays 
 house. Each member gets credentials of their own (`GET /together/{id}/ice`) that end with the
 membership or after a day; a server that relays nothing hands out none, and calls go direct only.
 
-**Talk** opens the microphone and attaches a second device of the membership in the `voice` role,
-which keeps one call with every other person's voice device. Then **Mute**, **Leave voice**, and
-the others' volume, from silent to four times as loud as they came, apart from the film's volume.
-A microphone that will not open, or a call that cannot connect or drops, turns voice off with the
-reason, the browser's own words beside a refused microphone; Talk tries again.
+**Everyone hears voice from the start** ([D281](../../decisions/working-notes.md#d281--everyone-in-a-session-hears-voice-from-the-start-talk-only-opens-the-microphone-and-mute-only-stops-ones-own-sending-the-hosts-pop-up-runs-voice-each-persons-volume-and-the-films-with-invites-and-people-in-dialogs-of-their-own)):
+each page attaches a second device of the membership in the `voice` role, with no microphone, which
+keeps one call with every other person's voice device. **Talk** opens the microphone and sends it on
+those calls, making none again; then **Mute**, which stops only one's own sending, and **Stop
+talking**, which closes the microphone and still hears everyone. Each person's voice has a volume of
+its own, from silent to four times as loud as it came, apart from the film's. A microphone that will
+not open says why, the browser's own words beside a refused one, and Talk tries again; a call that
+cannot connect or drops turns voice off with the reason, and a button connects again.
 
 **Echo.** The film plays out loud while the microphone is open, and a browser cannot cancel audio
 it has no reference for. **Headphones on at least one side are the supported setup**

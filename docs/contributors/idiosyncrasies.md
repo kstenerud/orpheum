@@ -154,6 +154,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Go's standard library reads the process's TZ | [Go's standard library reads the process's TZ](#gos-standard-library-reads-the-processs-tz) |
 | Vitest strips types without type-checking, so a types-only change can never fail a test | [Vitest strips types without type-checking, so a types-only change can never fail a test](#vitest-strips-types-without-type-checking-so-a-types-only-change-can-never-fail-a-test) |
 | Happy-dom does not carry a disabled `<fieldset>` to its controls | [happy-dom does not carry a disabled `<fieldset>` to its controls](#happy-dom-does-not-carry-a-disabled--to-its-controls) |
+| Safari sizes a `height: 100%` video in an `aspect-ratio` box wrongly, cutting off its controls | [Safari sizes a `height: 100%` video in an `aspect-ratio` box wrongly, cutting off its controls](#safari-sizes-a-height-100-video-in-an-aspect-ratio-box-wrongly-cutting-off-its-controls) |
 | Playwright grants "microphone" only on Chromium; | [Playwright grants "microphone" only on Chromium; Firefox needs prefs](#playwright-grants-microphone-only-on-chromium-firefox-needs-prefs) |
 | After the D227 renames the client compiled while still sending the old field names. | [TypeScript checks no excess properties on a body built with a computed key or held in a variable](#typescript-checks-no-excess-properties-on-a-body-built-with-a-computed-key-or-held-in-a-variable) |
 | Playwright's browsers are not installed by `npm ci` | [Playwright's browsers are not installed by `npm ci`](#playwrights-browsers-are-not-installed-by-npm-ci) |
@@ -1951,6 +1952,21 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   #2386](https://github.com/capricorn86/happy-dom/pull/2386), open, last updated 2026-09-13; the related
   [happy-dom#2184](https://github.com/capricorn86/happy-dom/issues/2184) (FormData keeps disabled controls) is
   open too (checked 2026-10-08). Re-check when #2386 merges.
+
+
+### Safari sizes a `height: 100%` video in an `aspect-ratio` box wrongly, cutting off its controls
+
+- **What we do:** the guest's video is placed on its stage with `position: absolute; inset: 0`, not sized
+  by a percentage of the stage's `aspect-ratio` height, and the film's title sits above the stage, not
+  over it. `web/apps/web/src/together-viewer.css`.
+- **Evidence:** the owner's test, 2026-10-11: on an iPhone on iOS 18.5 a guest saw none of the player's
+  controls, which Chrome and Firefox showed, and the title lay over the picture (VQ29).
+  **[web]** [WebKit 261556](https://bugs.webkit.org/show_bug.cgi?id=261556) and [a write-up of the
+  same bug](https://blog.duvallj.pw/posts/2024-09-14-safari-css-bug.html) (2024): Safari resolves a
+  media element's percentage height against an `aspect-ratio` box wrongly; `height: fit-content` or
+  absolute placement avoids it; [media-chrome discussion
+  831](https://github.com/muxinc/media-chrome/discussions/831) meets Safari's video misplaced against its
+  controls (searched 2026-10-11). Unconfirmed on the phone until VQ29 runs.
 
 
 ### Playwright grants "microphone" only on Chromium; Firefox needs prefs

@@ -24,6 +24,8 @@ import { fakeTogetherServer } from "./test-together.ts";
 import { tabStorage } from "./browser-storage.ts";
 import { HostPlaysTogether } from "./together-host.tsx";
 import { keepMembership } from "./together-storage.ts";
+import { filmVolume, setFilmVolume } from "./film-volume.ts";
+import { HostVoiceProvider } from "./together-voice.tsx";
 import { WatchTogether } from "./watch-together.tsx";
 
 const karl = { id: 1, name: "Karl", isHost: true };
@@ -41,6 +43,13 @@ function hostSession(): void {
   window.sessionStorage.setItem(
     "orpheum.together.host",
     JSON.stringify({ sessionId: 3, credential: "host-credential" }),
+  );
+}
+
+/** The row of the people's list whose words start with words, which opens its dialog. */
+function rowStarting(container: Element, words: string): Element | undefined {
+  return [...container.querySelectorAll(".watch-together__people button")].find((button) =>
+    button.textContent.startsWith(words),
   );
 }
 
@@ -74,13 +83,16 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
     await click(buttonWithText(mounted.container, "Start a session"));
     expect(window.sessionStorage.getItem("orpheum.together.host")).toContain("host-credential");
     expect(mounted.container.textContent).toContain("No one is invited yet.");
-    await enter(mounted.container.querySelector("input"), "Grandma");
+    // Inviting is a button that opens a dialog of its own (D281 §5).
+    expect(mounted.container.querySelector(".watch-together__dialog")).toBeNull();
+    await click(buttonWithText(mounted.container, "Invite someone"));
+    await enter(mounted.container.querySelector(".watch-together__dialog input"), "Grandma");
     // The first link starts with every right; the host withholds moving the position (D271 §4).
     const [mayPause, maySeek] =
       mounted.container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
     expect([mayPause?.checked, maySeek?.checked]).toEqual([true, true]);
     await click(maySeek);
-    await submit(mounted.container.querySelector("form"));
+    await submit(mounted.container.querySelector(".watch-together__dialog form"));
     expect(heard.map((each) => each.methodAndPath)).toEqual([
       "POST /together",
       "GET /together/3",
@@ -127,6 +139,9 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
     const mounted = await mount(withServices(<WatchTogether />, services));
     expect(mounted.container.textContent).toContain("Gran (Grandma)");
     expect(mounted.container.textContent).not.toContain("not used yet");
+    // What is done with a person is in a dialog the row opens (D281 §5).
+    expect(buttonWithText(mounted.container, "Remove")).toBeUndefined();
+    await click(rowStarting(mounted.container, "Gran (Grandma)"));
     await click(buttonWithText(mounted.container, "Remove"));
     expect(heard.map((each) => each.methodAndPath)).toContain("POST /together/3/eject/2");
     expect(mounted.container.textContent).not.toContain("Gran (Grandma)");
@@ -158,6 +173,7 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
       "token",
     );
     const mounted = await mount(withServices(<WatchTogether />, services));
+    await click(rowStarting(mounted.container, "Gran (Grandma)"));
     await click(buttonWithText(mounted.container, "New link"));
     expect(heard.map((each) => each.methodAndPath)).toEqual([
       "GET /together/3",
@@ -221,18 +237,56 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
       "token",
     );
     const mounted = await mount(withServices(<WatchTogether />, services));
-    const shows = [...mounted.container.querySelectorAll("button")].filter(
-      (button) => button.textContent === "Show link",
-    );
-    expect(shows).toHaveLength(2);
-    await click(shows[0]);
+    await click(rowStarting(mounted.container, "Gran (Grandma)"));
+    await click(buttonWithText(mounted.container, "Show link"));
     expect(mounted.container.querySelector("output")?.textContent).toBe(
       "http://orpheum.test/together#gran-s3cret",
     );
-    await click(shows[1]);
+    await click(rowStarting(mounted.container, "A link for a cousin"));
+    await click(buttonWithText(mounted.container, "Show link"));
     expect(mounted.container.querySelector("output")?.textContent).toBe(
       "http://orpheum.test/together#cousin-s3cret",
     );
+    mounted.unmount();
+  });
+
+  it("runs voice, each person's voice volume and the film's volume beside the people (D281 §4, §5)", async () => {
+    hostSession();
+    const gran = { id: 2, name: "Gran", hostNote: "Grandma", isHost: false };
+    const services = servedBy(
+      {
+        "GET /together/3": [
+          200,
+          { sessionId: 3, nextRights: allRights, links: [], members: [karl, gran] },
+        ],
+      },
+      [],
+      "token",
+    );
+    const mounted = await mount(
+      withServices(
+        <HostVoiceProvider membership={{ sessionId: 3, credential: "host-credential" }}>
+          <WatchTogether />
+        </HostVoiceProvider>,
+        services,
+      ),
+    );
+    expect(mounted.container.querySelector('section[aria-label="Voice"]')).not.toBeNull();
+    expect(buttonWithText(mounted.container, "Talk")).toBeDefined();
+    setFilmVolume(1);
+    const film = [...mounted.container.querySelectorAll("label")].find((label) =>
+      label.textContent.startsWith("Film volume"),
+    );
+    await enter(film?.querySelector("input"), "30");
+    expect(filmVolume()).toBe(0.3);
+    await click(rowStarting(mounted.container, "Gran (Grandma)"));
+    const dialog = mounted.container.querySelector<HTMLElement>(
+      '.watch-together__dialog[aria-label="Gran"]',
+    );
+    expect(dialog?.textContent).toContain("Gran's voice");
+    await click(buttonWithText(dialog ?? mounted.container, "Close"));
+    expect(mounted.container.querySelector(".watch-together__dialog")).toBeNull();
+    setFilmVolume(1);
     mounted.unmount();
   });
 

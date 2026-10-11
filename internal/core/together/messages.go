@@ -94,6 +94,9 @@ const (
 	// connect ("unreachable"). Calls of 8 s ended with nothing to say whether a person or a failure
 	// ended them (the owner's test, 2026-10-08).
 	NoteVoiceOff NoteKind = "voiceOff"
+	// NoteVoiceTalk is a person's microphone, while they hear voice: opened ("talking"), closed
+	// ("stopped"), muted or unmuted (D281 §2, §3).
+	NoteVoiceTalk NoteKind = "voiceTalk"
 	// NotePlayedMuted is a browser refusing to start the film with sound for want of a recent tap,
 	// and the player playing it muted; NoteUnmuted, the person's tap turning the sound on (the
 	// owner's test, 2026-10-08, where a guest's iPhone sat silent and nothing said why).
@@ -211,7 +214,7 @@ func (note PlayerNote) isKnown() bool {
 	switch note.Kind {
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected:
 		return isNoteWord(note.Why) && isNoteWord(note.Track)
-	case NoteVoiceStats, NoteVoiceOff, NoteVoiceCall:
+	case NoteVoiceStats, NoteVoiceOff, NoteVoiceCall, NoteVoiceTalk:
 		return note.isKnownVoice()
 	case NotePonged, NoteOwnMarkExpired, NoteCorrectsBySeeks:
 		return note.isKnownFollowing()
@@ -238,7 +241,7 @@ func (note PlayerNote) isKnownFollowing() bool {
 	case NoteCorrectsBySeeks:
 		return note.ReturnCostMs >= 0 && note.Why == ""
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NoteVoiceStats,
-		NoteVoiceCall, NoteVoiceOff, NotePlayedMuted, NoteUnmuted, NoteDiagnosis,
+		NoteVoiceCall, NoteVoiceOff, NoteVoiceTalk, NotePlayedMuted, NoteUnmuted, NoteDiagnosis,
 		NoteLeaderCommand: // isKnown reads them
 	}
 	return false
@@ -252,6 +255,8 @@ func (note PlayerNote) isKnownVoice() bool {
 		return note.Voice != nil && isNoteWord(note.Voice.Path) && isVoicePlayback(note.Voice.Playback)
 	case NoteVoiceOff:
 		return note.Why == "left" || note.Why == "unreachable"
+	case NoteVoiceTalk:
+		return slices.Contains([]string{"talking", "stopped", "muted", "unmuted"}, note.Why)
 	case NoteVoiceCall:
 		return note.PartnerDeviceID > 0 && isVoiceCallStep(note.Why)
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NotePonged,

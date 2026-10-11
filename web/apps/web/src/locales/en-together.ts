@@ -41,13 +41,17 @@ export const enTogether = {
       starting: "Asking for your microphone…",
       mute: "Mute",
       unmute: "Unmute",
-      leave: "Leave voice",
-      partner: "Partner",
+      stopTalking: "Stop talking",
+      talking: "The others hear you.",
+      muted: "Muted: the others do not hear you, and you still hear them.",
+      personVolume: "{{name}}'s voice",
+      volumes: "Voices",
       connecting: "Voice: connecting…",
-      alone: "Voice is on, but no one hears you yet: the others hear you once they press Talk too.",
+      alone: "Voice: no one else is here yet.",
       connectingTo: "Voice: connecting to {{names, list}}…",
       browserReason: "The browser said: {{reason}}",
-      connectedTo: "Voice: connected to {{names, list}}",
+      connectedTo: "Voice: hearing {{names, list}}",
+      again: "Connect voice again",
       failure: {
         refused:
           "Your microphone was not allowed. Allow it for this site in the browser's settings. On a phone, the browser app itself must also be allowed the microphone, in the phone's settings (Apps, then the browser, then Permissions). Then press Talk again.",
@@ -56,7 +60,7 @@ export const enTogether = {
         unsupported:
           "This page cannot use a microphone. Voice needs the https:// address, in a browser that supports it.",
         failed: "Your microphone could not start. Press Talk to try again.",
-        unreachable: "Voice could not connect to the others and is off. Press Talk to try again.",
+        unreachable: "Voice could not connect to the others and is off.",
       },
     },
     over: {
@@ -88,6 +92,7 @@ export const enTogether = {
     onExplain:
       "Your session is on. Browse and play as usual: whatever you play plays on everyone's screen, and when you stop, their screens go black.",
     makeLinkHeading: "Invite someone",
+    filmVolume: "Film volume",
     note: "Who it is for (only you see this)",
     noteExample: "Grandma",
     mayPlayPause: "They may play and pause for everyone",

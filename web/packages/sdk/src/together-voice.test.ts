@@ -98,6 +98,8 @@ interface FakeCall extends VoiceCall {
   readonly setup: VoiceCallSetup<FakeMicrophone>;
   readonly steps: string[];
   gain: number | undefined;
+  /** What it was told to send since it was made: a microphone, or nothing. */
+  readonly sent: (VoiceMicrophone | undefined)[];
   isClosed: boolean;
   /** Whether taking the other's answer fails, as a malformed one does. */
   isAnswerRefused: boolean;
@@ -109,8 +111,12 @@ function fakeCall(setup: VoiceCallSetup<FakeMicrophone>): FakeCall {
     setup,
     steps,
     gain: undefined,
+    sent: [],
     isClosed: false,
     isAnswerRefused: false,
+    send: (microphone) => {
+      call.sent.push(microphone);
+    },
     offer: () => {
       steps.push("offer");
       return Promise.resolve("offer-sdp");
@@ -161,8 +167,10 @@ interface Rig {
   readonly microphone: FakeMicrophone;
   readonly calls: FakeCall[];
   readonly iceAsked: number[];
-  /** Each time the devices were told voice ended. */
+  /** Each time the devices were told the microphone closed. */
   readonly ended: number[];
+  /** Each time the devices were readied to play the others' voices. */
+  readonly prepared: number[];
   /** Whether each opening of the microphone asked for the browser's processing. */
   readonly processedAsked: MicrophoneProcessing[];
 }
@@ -179,6 +187,7 @@ function rig(openMicrophone?: () => Promise<FakeMicrophone>): Rig {
   const calls: FakeCall[] = [];
   const iceAsked: number[] = [];
   const ended: number[] = [];
+  const prepared: number[] = [];
   const processedAsked: MicrophoneProcessing[] = [];
   const voice = createTogetherVoice({
     credential: "membership",
@@ -198,13 +207,16 @@ function rig(openMicrophone?: () => Promise<FakeMicrophone>): Rig {
         calls.push(call);
         return call;
       },
-      voiceEnded: () => {
+      prepareToHear: () => {
+        prepared.push(prepared.length);
+      },
+      microphoneClosed: () => {
         ended.push(ended.length);
       },
     },
   });
   open.push(voice);
-  return { voice, server, microphone, calls, iceAsked, ended, processedAsked };
+  return { voice, server, microphone, calls, iceAsked, ended, prepared, processedAsked };
 }
 
 /** Lets every promise waiting settle. */
@@ -250,7 +262,17 @@ function welcome(deviceId: number, members: readonly unknown[] = roster): Record
   };
 }
 
-/** Voice turned on and welcomed as device 20, with the roster above. */
+/** Voice heard, with no microphone, and welcomed as device 20, with the roster above. */
+async function hearing(): Promise<Rig> {
+  const heard = rig();
+  heard.voice.hear();
+  heard.server.sockets[0]!.onOpen();
+  heard.server.tell(welcome(20));
+  await settle();
+  return heard;
+}
+
+/** Voice talked on and welcomed as device 20, with the roster above. */
 async function talking(): Promise<Rig> {
   const started = rig();
   await started.voice.start(levelled);
@@ -263,18 +285,23 @@ async function talking(): Promise<Rig> {
 afterEach(() => {
   rigNowMs = 1000;
   for (const voice of open) {
-    voice.stop();
+    voice.leave();
   }
   open = [];
   vi.useRealTimers();
 });
 
 describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
-  it("attaches a second device for voice with the membership's credential once the microphone opens", async () => {
-    const { voice, server, processedAsked } = rig();
+  it("attaches a second device for voice with the membership's credential as it hears, before any microphone (D281 §1)", async () => {
+    const { voice, server, processedAsked, prepared } = rig();
     expect(server.sockets).toHaveLength(0);
+    voice.hear();
+    expect(prepared).toEqual([0]);
+    expect(processedAsked).toEqual([]);
+    expect(voice.snapshot()).toMatchObject({ status: "off", isHearing: true });
     await voice.start(levelled);
     expect(processedAsked).toEqual([levelled]); // as the welcome's tuning says
+    expect(server.sockets).toHaveLength(1); // Talk makes no second device
     server.sockets[0]!.onOpen();
     expect(server.sent[0]).toEqual({
       v: 2,
@@ -283,6 +310,37 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
       role: "voice",
     });
     expect(voice.snapshot()).toMatchObject({ status: "on", isConnected: false });
+  });
+
+  it("hears everyone before it talks, sending nothing, and talks on the same calls, made no new (D281 §1, §2)", async () => {
+    const { voice, server, calls, microphone } = await hearing();
+    expect(calls).toHaveLength(2);
+    expect(calls.map((call) => call.setup.microphone)).toEqual([undefined, undefined]);
+    expect(server.signalsSent()).toEqual([{ type: "rtc", toDeviceId: 30, sdp: "offer-sdp" }]);
+    await voice.start(levelled);
+    expect(calls).toHaveLength(2);
+    expect(calls.map((call) => call.sent)).toEqual([[microphone], [microphone]]);
+    expect(server.signalsSent()).toHaveLength(1); // no new offer
+    voice.stop();
+    expect(calls.map((call) => call.sent)).toEqual([
+      [microphone, undefined],
+      [microphone, undefined],
+    ]);
+    expect(microphone.isStopped()).toBe(true);
+    expect(calls.every((call) => !call.isClosed)).toBe(true);
+    expect(voice.snapshot()).toMatchObject({ status: "off", isHearing: true });
+  });
+
+  it("tells the core's log as its person talks, mutes, unmutes and stops (D281 §2, §3)", async () => {
+    const { voice, server } = await hearing();
+    voice.setMuted(true); // no microphone: nothing to mute
+    await voice.start(levelled);
+    voice.setMuted(true);
+    voice.setMuted(false);
+    voice.stop();
+    expect(notesOf(server, "voiceTalk")).toEqual(
+      ["talking", "muted", "unmuted", "stopped"].map((why) => ({ kind: "voiceTalk", why })),
+    );
   });
 
   it("calls every other person's voice device, never its own person's, the lower id offering", async () => {
@@ -364,6 +422,7 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
     calls[0]!.setup.events.onState("connected");
     expect(voice.snapshot().partners[0]).toEqual({
       deviceId: 30,
+      memberId: 8,
       name: "Karl",
       state: "connected",
     });
@@ -402,7 +461,7 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
 
   it("tells the core's log why voice turned off: the person left, or a call could not connect", async () => {
     const left = await talking();
-    left.voice.stop();
+    left.voice.leave();
     expect(notesOf(left.server, "voiceOff")).toEqual([{ kind: "voiceOff", why: "left" }]);
     const unreachable = await talking();
     unreachable.calls[0]!.setup.events.onState("failed");
@@ -437,38 +496,40 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
     );
   });
 
-  it("mutes by switching the microphone's track off, and stops it and detaches when stopped", async () => {
+  it("mutes by switching the microphone's track off, the calls kept, and stops it and detaches when left", async () => {
     const { voice, server, microphone, calls } = await talking();
     voice.setMuted(true);
     expect(microphone.track.enabled).toBe(false);
     expect(voice.snapshot().isMuted).toBe(true);
+    // Muted, it still hears everyone: no call is touched (D281 §3).
+    expect(calls.every((call) => !call.isClosed && call.sent.length === 0)).toBe(true);
     voice.setMuted(false);
     expect(microphone.track.enabled).toBe(true);
-    voice.stop();
+    voice.leave();
     expect(microphone.isStopped()).toBe(true);
     expect(server.closedHere).toEqual([0]);
     expect(calls.every((call) => call.isClosed)).toBe(true);
     expect(voice.snapshot()).toMatchObject({ status: "off", partners: [] });
   });
 
-  it("plays the partners' voices at the gain set, apart from the film's volume", async () => {
-    const { voice, server, calls } = await talking();
-    expect(calls.map((call) => call.gain)).toEqual([1, 1]);
-    voice.setPartnerGain(0.4);
-    expect(calls.map((call) => call.gain)).toEqual([0.4, 0.4]);
-    expect(voice.snapshot().partnerGain).toBe(0.4);
+  it("plays each person's voice at the gain set for them, apart from the film's volume (D281 §4)", async () => {
+    const { voice, server, calls } = await hearing();
+    expect(calls.map((call) => call.gain)).toEqual([1, 1]); // Karl's, Ann's
+    voice.setPartnerGain(8, 0.4);
+    expect(calls.map((call) => call.gain)).toEqual([0.4, 1]);
+    expect(voice.snapshot().partnerGains).toEqual({ 8: 0.4 });
     // A quiet microphone is made louder than it came, up to partnerGainMost.
-    voice.setPartnerGain(3);
-    expect(calls.map((call) => call.gain)).toEqual([3, 3]);
-    voice.setPartnerGain(9);
-    expect(voice.snapshot().partnerGain).toBe(partnerGainMost);
-    voice.setPartnerGain(0.4);
+    voice.setPartnerGain(5, 3);
+    expect(calls.map((call) => call.gain)).toEqual([0.4, 3]);
+    voice.setPartnerGain(5, 9);
+    expect(voice.snapshot().partnerGains[5]).toBe(partnerGainMost);
+    // Karl on another device is heard at his gain.
     server.tell({
       type: "roster",
-      roster: [...roster, { id: 6, name: "Bo", devices: [{ id: 50, role: "voice" }] }],
+      roster: [...roster.slice(0, 1), { ...roster[1], devices: [{ id: 50, role: "voice" }] }],
     });
     await settle();
-    expect(calls[2]!.gain).toBe(0.4);
+    expect(calls.at(-1)!.gain).toBe(0.4);
   });
 
   it("turns itself off, saying so, when a call fails, and Talk tries again (the owner, 2026-10-06)", async () => {
@@ -510,15 +571,17 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
     expect(calls).toHaveLength(3);
   });
 
-  it("says why when the microphone is refused, and attaches nothing", async () => {
+  it("says why when the microphone is refused, and still hears everyone", async () => {
     const refused = rig(() => Promise.reject(new DOMException("no", "NotAllowedError")));
     await refused.voice.start(levelled);
     expect(refused.voice.snapshot()).toMatchObject({
       status: "failed",
       failure: "refused",
       browserReason: "NotAllowedError: no",
+      isHearing: true,
     });
-    expect(refused.server.sockets).toHaveLength(0);
+    expect(refused.server.sockets).toHaveLength(1);
+    expect(refused.server.closedHere).toEqual([]);
   });
 
   it("names each way a microphone fails to open", () => {
@@ -546,7 +609,8 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
     opened(late.microphone);
     await starting;
     expect(late.microphone.isStopped()).toBe(true);
-    expect(late.server.sockets).toHaveLength(0);
+    expect(late.server.sockets).toHaveLength(1); // hearing, as before Talk
+    expect(late.calls.flatMap((call) => call.sent)).toEqual([]);
     expect(late.voice.snapshot().status).toBe("off");
   });
 });
