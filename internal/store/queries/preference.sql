@@ -33,3 +33,7 @@ SELECT CAST(coalesce((
 FROM file
 JOIN version ON version.id = file.version_id AND version.removed_at IS NULL
 WHERE file.id = sqlc.arg(file_id) AND file.removed_at IS NULL;
+
+-- name: DeletePreferencesOfUser :exec
+-- A removed person's preferences go with them (D173 section 4.6).
+DELETE FROM preference WHERE user_id = sqlc.arg(user_id);

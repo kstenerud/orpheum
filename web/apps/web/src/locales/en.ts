@@ -193,6 +193,10 @@ export const en = {
     changeRole: "Give this role",
     watched: "Watched {{hours}} hours of {{titles}} titles; last {{last}}",
     neverWatched: "never",
+    remove: "Remove {{name}}…",
+    removeConsequence:
+      "{{name}} is signed out everywhere at once, and what they watched, their places in films and their lists are deleted. This cannot be undone.",
+    removeConfirm: "Remove them",
   },
   nowPlaying: {
     heading: "Now playing",
@@ -215,6 +219,10 @@ export const en = {
     capabilities: "What its people may do",
     libraries: "The libraries its people see",
     everyLibrary: "Every library: administrators see everything.",
+    noLibrary:
+      "No library is ticked for this role, so its people see no films or series. Tick the libraries they may watch.",
+    noLibraryChosen:
+      "This role has no library yet, so they will see no films or series until you tick some for it under Roles.",
     save: "Save",
     delete: "Delete the role",
     refused: "That cannot be done: the name is taken, someone holds the role, or it is built in.",
@@ -247,6 +255,8 @@ export const en = {
     byName: "By name",
     byAdded: "Newest first",
     empty: "Nothing here yet. Once a library is scanned, what it holds shows here.",
+    noLibrary:
+      "You have not been given any library yet, so there is nothing to watch. Ask whoever runs this server to share one with you.",
     year: "{{year}}",
   },
   title: {

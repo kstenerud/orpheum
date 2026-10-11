@@ -46,6 +46,11 @@ export async function setPersonsRole(api: Api, userId: number, role: string): Pr
   );
 }
 
+/** Whether a role's people see nothing: it does not administer and lists no library (D243 §4). */
+export function isWithoutLibrary(role: Role): boolean {
+  return !role.isEveryLibrary && (role.libraries ?? []).length === 0;
+}
+
 /** A role's name as a person reads it: the built-in ones in words, the admin's own as named. */
 export function roleLabel(t: TFunction, name: string): string {
   if (name === "admin") {

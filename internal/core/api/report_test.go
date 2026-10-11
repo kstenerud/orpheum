@@ -159,3 +159,44 @@ func TestPlayState_APlaybackThatHasNotPlayedMovesNoPosition(t *testing.T) {
 		t.Errorf("after a player that never played reported 0:00 the position is %d, want 600000", got)
 	}
 }
+
+func TestPlayState_ARemovedPersonsWatchingGoesWithThemAndOthersStays(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.do(t, http.MethodPost, "/users", admin,
+		map[string]string{"name": "partner", "password": "partner-password", "role": "admin"})
+	partner := harness.signIn(t, "partner", "partner-password")
+	harness.shelveFilms(t)
+	body := reportBody(1, 90_000, 0)
+	body["spans"] = []any{map[string]any{
+		"fromPositionMs": 0, "toPositionMs": 90_000, "startedMonoMs": 910_000, "endedMonoMs": 1_000_000,
+	}}
+	for _, token := range []string{admin, partner} {
+		if sent := harness.report(t, token, harness.play(t, token, chrome(1)), body); sent.status != http.StatusOK {
+			t.Fatalf("a report: %d %s", sent.status, sent.body)
+		}
+	}
+	if removed := harness.do(t, http.MethodDelete, "/users/2", admin, nil); removed.status != http.StatusNoContent {
+		t.Fatalf("DELETE /users/2 = %d %s", removed.status, removed.body)
+	}
+	for userID, want := range map[int64]int{1: 1, 2: 0} {
+		key := sqlcgen.ListPlaySpansOfFileParams{UserID: userID, FileID: 1}
+		spans, err := harness.database.Read().ListPlaySpansOfFile(t.Context(), key)
+		if err != nil {
+			t.Fatal(err)
+		}
+		eventsKey := sqlcgen.ListPlayEventsOfFileParams(key)
+		events, err := harness.database.Read().ListPlayEventsOfFile(t.Context(), eventsKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(spans) != want || len(events) != want {
+			t.Errorf("user %d after removing user 2: %d spans and %d events, want %d of each (D173 §4.6)",
+				userID, len(spans), len(events), want)
+		}
+	}
+	if resumed := harness.play(t, admin, chrome(1)); resumed.ResumePositionMs != 90_000 {
+		t.Errorf("the admin's place after removing someone else: %d, want 90000", resumed.ResumePositionMs)
+	}
+}

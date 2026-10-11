@@ -245,6 +245,40 @@ func (q *Queries) ListLiveUsers(ctx context.Context) ([]ListLiveUsersRow, error)
 	return items, nil
 }
 
+const removeDevicesOfRemovedUser = `-- name: RemoveDevicesOfRemovedUser :exec
+UPDATE device SET removed_at = ?1 WHERE user_id = ?2 AND removed_at IS NULL
+`
+
+type RemoveDevicesOfRemovedUserParams struct {
+	RemovedAt *int64
+	UserID    *int64
+}
+
+func (q *Queries) RemoveDevicesOfRemovedUser(ctx context.Context, arg RemoveDevicesOfRemovedUserParams) error {
+	_, err := q.db.ExecContext(ctx, removeDevicesOfRemovedUser, arg.RemovedAt, arg.UserID)
+	return err
+}
+
+const removeUser = `-- name: RemoveUser :execrows
+
+UPDATE user SET removed_at = ?1 WHERE id = ?2 AND removed_at IS NULL
+`
+
+type RemoveUserParams struct {
+	RemovedAt *int64
+	ID        int64
+}
+
+// A person removed (S40, D173 section 4): the row stays as a tombstone, so what they set for the
+// household (a correction, a setting) still says who; their name is free for someone new.
+func (q *Queries) RemoveUser(ctx context.Context, arg RemoveUserParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, removeUser, arg.RemovedAt, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const renameUser = `-- name: RenameUser :exec
 UPDATE user SET name = ?1 WHERE id = ?2
 `
@@ -256,6 +290,21 @@ type RenameUserParams struct {
 
 func (q *Queries) RenameUser(ctx context.Context, arg RenameUserParams) error {
 	_, err := q.db.ExecContext(ctx, renameUser, arg.Name, arg.ID)
+	return err
+}
+
+const revokeLiveGrantsOfRemovedUser = `-- name: RevokeLiveGrantsOfRemovedUser :exec
+UPDATE "grant" SET revoked_at = ?1 WHERE user_id = ?2 AND revoked_at IS NULL
+`
+
+type RevokeLiveGrantsOfRemovedUserParams struct {
+	RevokedAt *int64
+	UserID    *int64
+}
+
+// Every credential of theirs: sessions, links, device codes (D154).
+func (q *Queries) RevokeLiveGrantsOfRemovedUser(ctx context.Context, arg RevokeLiveGrantsOfRemovedUserParams) error {
+	_, err := q.db.ExecContext(ctx, revokeLiveGrantsOfRemovedUser, arg.RevokedAt, arg.UserID)
 	return err
 }
 

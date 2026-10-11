@@ -39,6 +39,9 @@ func (reach Reach) Reaches(libraryID *int64) bool {
 	return libraryID != nil && slices.Contains(reach.libraryIDs, *libraryID)
 }
 
+// ReachesNone is whether the caller reaches no library at all: a role the admin has given none.
+func (reach Reach) ReachesNone() bool { return !reach.isEveryLibrary && len(reach.libraryIDs) == 0 }
+
 // IsEveryLibrary is whether the caller reaches every library, so a query need not ask.
 func (reach Reach) IsEveryLibrary() bool { return reach.isEveryLibrary }
 

@@ -20,8 +20,8 @@ import {
 } from "./accounts.ts";
 import { dateTimeText } from "./date-time-text.ts";
 import { i18n } from "./i18n.ts";
-import { listRoles, roleLabel } from "./roles.ts";
-import { RolesSection } from "./roles-section.tsx";
+import { listRoles, roleLabel, type Role } from "./roles.ts";
+import { NoLibraryNote, RolesSection } from "./roles-section.tsx";
 import { FormRow } from "./form-row.tsx";
 import { fieldProblemText, type FormWords } from "./problem.ts";
 import { Link } from "./link.tsx";
@@ -57,8 +57,8 @@ export function People(): JSX.Element {
   const [accounts, reload] = useResource("accounts", () => listAccounts(api));
   const [invitations, reloadInvitations] = useResource("invitations", () => listInvitations(api));
   const [roles, reloadRoles] = useResource("people-roles", () => listRoles(api));
-  const roleNames =
-    roles.state === "loaded" ? roles.value.roles.map((role) => role.name) : ["user"];
+  const roleList = roles.state === "loaded" ? roles.value.roles : undefined;
+  const roleNames = roleList?.map((role) => role.name) ?? ["user"];
   const [issued, setIssued] = useState<IssuedInvitation | undefined>(undefined);
   const { isBusy, problem, runRequest } = useRequest((cause) =>
     fieldProblemText(t, cause, personWords(t)),
@@ -69,6 +69,7 @@ export function People(): JSX.Element {
       <BusyGroup isBusy={isBusy}>
         <InvitePerson
           roleNames={roleNames}
+          roles={roleList}
           onInvite={(role, adminNote) => {
             runRequest(async (idempotencyKey) => {
               const { link } = await invite(api, { role, adminNote }, idempotencyKey);
@@ -79,6 +80,7 @@ export function People(): JSX.Element {
         />
         <SetUpAccount
           roleNames={roleNames}
+          roles={roleList}
           onCreate={(account) => {
             runRequest(async (idempotencyKey) => {
               await createAccount(api, account, idempotencyKey);
@@ -130,29 +132,33 @@ export function IssuedInvitationView(props: { readonly issued: IssuedInvitation 
   );
 }
 
-/** A role chooser over the roles there are. */
+/** A role chooser over the roles there are, saying when the one chosen reaches no library. */
 function RoleSelect(props: {
   readonly roleNames: readonly string[];
+  readonly roles: readonly Role[] | undefined;
   readonly role: string;
   readonly onChange: (role: string) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <label>
-      {t("people.role")}{" "}
-      <select
-        value={props.role}
-        onChange={(event) => {
-          props.onChange(event.target.value);
-        }}
-      >
-        {props.roleNames.map((roleName) => (
-          <option key={roleName} value={roleName}>
-            {roleLabel(t, roleName)}
-          </option>
-        ))}
-      </select>
-    </label>
+    <>
+      <label>
+        {t("people.role")}{" "}
+        <select
+          value={props.role}
+          onChange={(event) => {
+            props.onChange(event.target.value);
+          }}
+        >
+          {props.roleNames.map((roleName) => (
+            <option key={roleName} value={roleName}>
+              {roleLabel(t, roleName)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <NoLibraryNote roles={props.roles} roleName={props.role} />
+    </>
   );
 }
 
@@ -163,6 +169,7 @@ function RoleSelect(props: {
  */
 function InvitePerson(props: {
   readonly roleNames: readonly string[];
+  readonly roles: readonly Role[] | undefined;
   readonly onInvite: (role: string, adminNote: string) => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -188,7 +195,7 @@ function InvitePerson(props: {
           }}
         />
       </label>
-      <RoleSelect roleNames={props.roleNames} role={role} onChange={setRole} />
+      <RoleSelect roleNames={props.roleNames} roles={props.roles} role={role} onChange={setRole} />
       <button type="submit">{t("people.makeLink")}</button>
     </FormRow>
   );
@@ -197,6 +204,7 @@ function InvitePerson(props: {
 /** Sets an account up in full: a name, a password, a role, and the admin's note (D246 §2). */
 function SetUpAccount(props: {
   readonly roleNames: readonly string[];
+  readonly roles: readonly Role[] | undefined;
   readonly onCreate: (account: NewAccount) => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -234,7 +242,7 @@ function SetUpAccount(props: {
           }}
         />
       </label>
-      <RoleSelect roleNames={props.roleNames} role={role} onChange={setRole} />
+      <RoleSelect roleNames={props.roleNames} roles={props.roles} role={role} onChange={setRole} />
       <label>
         {t("people.adminNote")}{" "}
         <input

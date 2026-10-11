@@ -1532,7 +1532,8 @@ export interface paths {
         /** Rename a person; names are for display and sign-in, and stay unique */
         put: operations["renamePerson"];
         post?: never;
-        delete?: never;
+        /** Remove a person: their sessions and devices end, and their own watching is deleted (S40) */
+        delete: operations["removePerson"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3348,6 +3349,7 @@ export interface components {
         UserBody: {
             canHostWatchTogether: boolean;
             device?: components["schemas"]["CurrentDeviceBody"];
+            hasNoLibrary: boolean;
             /** Format: int64 */
             id: number;
             isAdmin: boolean;
@@ -7094,6 +7096,38 @@ export interface operations {
                 "application/json": components["schemas"]["RenamePersonInputBody"];
             };
         };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    removePerson: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description No Content */
             204: {

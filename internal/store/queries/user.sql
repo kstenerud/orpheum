@@ -67,3 +67,17 @@ SELECT role_library.library_id FROM role_library
 JOIN library ON library.id = role_library.library_id AND library.removed_at IS NULL
 WHERE role_library.role_id = sqlc.arg(role_id)
 ORDER BY role_library.library_id;
+
+-- A person removed (S40, D173 section 4): the row stays as a tombstone, so what they set for the
+-- household (a correction, a setting) still says who; their name is free for someone new.
+
+-- name: RemoveUser :execrows
+UPDATE user SET removed_at = sqlc.arg(removed_at) WHERE id = sqlc.arg(id) AND removed_at IS NULL;
+
+-- name: RevokeLiveGrantsOfRemovedUser :exec
+-- Every credential of theirs: sessions, links, device codes (D154).
+UPDATE "grant" SET revoked_at = sqlc.arg(revoked_at) WHERE user_id = sqlc.arg(user_id) AND revoked_at IS NULL;
+
+-- name: RemoveDevicesOfRemovedUser :exec
+UPDATE device SET removed_at = sqlc.arg(removed_at) WHERE user_id = sqlc.arg(user_id) AND removed_at IS NULL;
+

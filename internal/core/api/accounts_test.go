@@ -299,3 +299,32 @@ func (harness testHarness) accountNamed(t *testing.T, admin, name string) Accoun
 	t.Fatalf("GET /users lists no %s: %s", name, listed.body)
 	return AccountBody{}
 }
+
+func TestPeople_AnAdminRemovesAPersonWhoseNextRequestIsRefused(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.do(t, http.MethodPost, "/users", admin,
+		map[string]string{"name": "partner", "password": "partner-password", "role": "user"})
+	partner, _ := readSignIn(t, harness.do(t, http.MethodPost, "/session", "", map[string]any{
+		"name": "partner", "password": "partner-password", "device": testDevice,
+	}))
+	if me := harness.do(t, http.MethodGet, "/me", partner, nil); !strings.Contains(me.body, `"hasNoLibrary":true`) {
+		t.Errorf("GET /me of a role given no library = %d %s", me.status, me.body)
+	}
+	if me := harness.do(t, http.MethodGet, "/me", admin, nil); !strings.Contains(me.body, `"hasNoLibrary":false`) {
+		t.Errorf("GET /me of the admin = %d %s", me.status, me.body)
+	}
+	wantError(t, harness.do(t, http.MethodDelete, "/users/1", partner, nil), http.StatusForbidden, CodeForbidden)
+	wantError(t, harness.do(t, http.MethodDelete, "/users/1", admin, nil), http.StatusConflict, CodeConflict)
+	if removed := harness.do(t, http.MethodDelete, "/users/2", admin, nil); removed.status != http.StatusNoContent {
+		t.Fatalf("DELETE /users/2 = %d %s", removed.status, removed.body)
+	}
+	if me := harness.do(t, http.MethodGet, "/me", partner, nil); me.status != http.StatusUnauthorized {
+		t.Errorf("the removed person's next request = %d %s, want 401", me.status, me.body)
+	}
+	if listed := harness.do(t, http.MethodGet, "/users", admin, nil); strings.Contains(listed.body, "partner") {
+		t.Errorf("GET /users after removal = %s", listed.body)
+	}
+	wantError(t, harness.do(t, http.MethodDelete, "/users/2", admin, nil), http.StatusNotFound, CodeNotFound)
+}

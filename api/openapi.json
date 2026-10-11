@@ -5503,6 +5503,9 @@
           "device": {
             "$ref": "#/components/schemas/CurrentDeviceBody"
           },
+          "hasNoLibrary": {
+            "type": "boolean"
+          },
           "id": {
             "format": "int64",
             "type": "integer"
@@ -5522,7 +5525,8 @@
           "name",
           "role",
           "isAdmin",
-          "canHostWatchTogether"
+          "canHostWatchTogether",
+          "hasNoLibrary"
         ],
         "type": "object"
       },
@@ -11014,6 +11018,49 @@
       }
     },
     "/users/{id}": {
+      "delete": {
+        "operationId": "removePerson",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Remove a person: their sessions and devices end, and their own watching is deleted (S40)",
+        "tags": [
+          "Accounts"
+        ]
+      },
       "get": {
         "operationId": "getPerson",
         "parameters": [

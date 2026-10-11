@@ -303,6 +303,11 @@ export async function renamePerson(api: Api, userId: number, name: string): Prom
   );
 }
 
+/** Removes a person: they are signed out everywhere, and their own watching is deleted (S40). */
+export async function removePerson(api: Api, userId: number): Promise<void> {
+  throwIfRefused(await api.DELETE("/users/{id}", { params: { path: { id: userId } } }));
+}
+
 /** A person's devices, for the admin. */
 export async function listPersonDevices(api: Api, userId: number): Promise<Device[]> {
   return (

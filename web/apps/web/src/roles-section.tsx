@@ -11,6 +11,7 @@ import {
   capabilityKey,
   createRole,
   deleteRole,
+  isWithoutLibrary,
   listRoles,
   roleLabel,
   updateRole,
@@ -165,6 +166,7 @@ function RoleEditor(props: {
           onChange={setLibraryIds}
         />
       )}
+      {role.isEveryLibrary || libraryIds.length > 0 ? null : <p>{t("roles.noLibrary")}</p>}
       {role.isEveryLibrary && role.isBuiltin ? null : (
         <button type="submit">{t("roles.save")}</button>
       )}
@@ -257,4 +259,20 @@ function NewRole(props: { readonly onCreate: (name: string) => void }): JSX.Elem
       <button type="submit">{t("roles.create")}</button>
     </FormRow>
   );
+}
+
+/**
+ * Says, beside a choice of role, that the role chosen reaches no library, so whoever is given it
+ * would see nothing (the owner's friend, 2026-10-11).
+ */
+export function NoLibraryNote(props: {
+  readonly roles: readonly Role[] | undefined;
+  readonly roleName: string;
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  const role = props.roles?.find((each) => each.name === props.roleName);
+  if (role === undefined || !isWithoutLibrary(role)) {
+    return null;
+  }
+  return <p>{t("roles.noLibraryChosen")}</p>;
 }
