@@ -19230,4 +19230,20 @@ D273 §7's methods; it revisits nothing D273 decided.
    IPv6 (a router mode that delegates a prefix, not NAT6), and the System page says when a core has
    none.
 
-**Status:** Decided 2026-10-10.
+**Added** (2026-10-11), by the project owner (*"ok, agree with those recommendations"*):
+
+5. **The self-hoster's discovery is the paid tier's shape** (`orpheum discovery`, W4b):
+   - **It serves the web app**, as app.orpheum-app.com does for the paid tier, its files taken
+     from the core over the core's own outbound connection, so their version is always the core's.
+     Nothing has to come through a tunnel for a visitor to load the app.
+   - **It claims its one core by the paid tier's flow**: the core shows a claim code, and the owner
+     runs `orpheum discovery claim <code>` on the VPS.
+   - **Direct HTTPS names under the owner's own domain wait**: W4b is WebRTC first.
+   - **Its relay is TURN on the VPS**, as voice already has. The WireGuard tunnel (D243 §7, D249)
+     becomes optional, and later goes: self-hosting becomes one VPS running one `orpheum
+     discovery`.
+6. **The paid discovery service's development starts** in its own repository,
+   `/home/karl/orpheum-discovery`, closed-source (D273 §2), from the spec in the shared files; the
+   agent works on both and keeps the protocol in step.
+
+**Status:** Decided 2026-10-10; §5–§6 added 2026-10-11.
