@@ -83,6 +83,27 @@ func TestScenario_ARootOnANewDeviceWithEveryFileCompletesAndKeepsTheNewDevice(t 
 	}
 }
 
+// D277 §1: a scan held back for the admin that read the root leaves it playable, and only its
+// removals wait; one that saw none of the root's files is a lost disk, and the root is offline.
+func TestScenario_AHeldBackScanThatReadTheRootLeavesItPlayableAndOneThatSawNoneDoesNot(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	admin := newRetiringAdmin(world)
+	world.scanOn(nodeproto.ScanBegin{RootPath: root, FilesystemDevice: 7, IsMountPoint: true}, filmRecords(3), true)
+	moved := nodeproto.ScanBegin{RootPath: root, FilesystemDevice: 8, IsMountPoint: true}
+	world.scanOn(moved, filmRecords(2), true)
+	if outcome, _ := world.rootState(); outcome != "withheld" {
+		t.Fatalf("root_state %s after a film went missing on a new device, want withheld", outcome)
+	}
+	if offline, err := admin.Offline(t.Context()); err != nil || len(offline) != 0 {
+		t.Errorf("Offline = %+v, %v while only removals wait; want nothing offline", offline, err)
+	}
+	world.scanOn(nodeproto.ScanBegin{RootPath: root, FilesystemDevice: 1, IsMountPoint: false}, nil, true)
+	if offline, err := admin.Offline(t.Context()); err != nil || len(offline) != 1 {
+		t.Errorf("Offline = %+v, %v after a scan saw none of the root; want the root", offline, err)
+	}
+}
+
 // S7, D208 §3: removals wait when a scan would remove all of a root's files, or more than half
 // of them and more than twenty; fewer go ahead.
 func TestScenario_S7_RemovalsPastTheThresholdWaitAndFewerGoAhead(t *testing.T) {

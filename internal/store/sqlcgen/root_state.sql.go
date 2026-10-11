@@ -298,7 +298,7 @@ func (q *Queries) ListRootMounts(ctx context.Context, arg ListRootMountsParams) 
 const listUnavailableRootsOfNode = `-- name: ListUnavailableRootsOfNode :many
 SELECT root_path, CAST(coalesce(unavailable_since, last_scan_at) AS INTEGER) AS unavailable_since
 FROM root_state
-WHERE node_id = ?1 AND (last_scan_outcome <> 'complete' OR unavailable_since IS NOT NULL)
+WHERE node_id = ?1 AND (last_scan_outcome = 'unreadable' OR unavailable_since IS NOT NULL)
 ORDER BY root_path
 `
 
@@ -307,9 +307,9 @@ type ListUnavailableRootsOfNodeRow struct {
 	UnavailableSince int64
 }
 
-// A node's roots whose last scan could not read them, or withheld its removals as a lost disk, or
-// whose disk work stalled on since: their files are not there to read, since the first of those
-// in a row (D208, D231 section 5, D233 section 10).
+// A node's roots whose last scan could not read them, or held back its removals having seen none
+// of the root, or whose disk work stalled on since: their files are not there to read, since the
+// first of those in a row (D208, D231 section 5, D233 section 10, D277 section 1).
 func (q *Queries) ListUnavailableRootsOfNode(ctx context.Context, nodeID int64) ([]ListUnavailableRootsOfNodeRow, error) {
 	rows, err := q.db.QueryContext(ctx, listUnavailableRootsOfNode, nodeID)
 	if err != nil {
@@ -320,6 +320,62 @@ func (q *Queries) ListUnavailableRootsOfNode(ctx context.Context, nodeID int64) 
 	for rows.Next() {
 		var i ListUnavailableRootsOfNodeRow
 		if err := rows.Scan(&i.RootPath, &i.UnavailableSince); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWithheldRoots = `-- name: ListWithheldRoots :many
+SELECT library.id AS library_id, library.name AS library_name, node.name AS node_name, library_root.node_id,
+  library_root.root_path, root_state.withheld_reason,
+  CAST(root_state.withheld_scan_started_at AS INTEGER) AS withheld_scan_started_at
+FROM library_root
+JOIN library ON library.id = library_root.library_id AND library.removed_at IS NULL
+JOIN node ON node.id = library_root.node_id AND node.removed_at IS NULL
+JOIN root_state ON root_state.node_id = library_root.node_id AND root_state.root_path = library_root.root_path
+WHERE library_root.retired_at IS NULL AND root_state.last_scan_outcome = 'withheld'
+ORDER BY root_state.withheld_scan_started_at, library.id, library_root.root_path
+`
+
+type ListWithheldRootsRow struct {
+	LibraryID             int64
+	LibraryName           string
+	NodeName              string
+	NodeID                int64
+	RootPath              string
+	WithheldReason        *string
+	WithheldScanStartedAt int64
+}
+
+// The roots of live libraries, on live nodes and not retired, whose last scan's removals wait for
+// the admin, with why and since when: what the System page says waits (D208 section 3, D277
+// section 2).
+func (q *Queries) ListWithheldRoots(ctx context.Context) ([]ListWithheldRootsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listWithheldRoots)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListWithheldRootsRow{}
+	for rows.Next() {
+		var i ListWithheldRootsRow
+		if err := rows.Scan(
+			&i.LibraryID,
+			&i.LibraryName,
+			&i.NodeName,
+			&i.NodeID,
+			&i.RootPath,
+			&i.WithheldReason,
+			&i.WithheldScanStartedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -430,11 +486,12 @@ const recordRootNotComplete = `-- name: RecordRootNotComplete :exec
 INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, withheld_scan_started_at, withheld_reason,
   unavailable_since)
 VALUES (?1, ?2, ?3, ?4, ?5,
-  ?6, ?4)
+  ?6, ?7)
 ON CONFLICT (node_id, root_path) DO UPDATE SET
   last_scan_outcome = excluded.last_scan_outcome, last_scan_at = excluded.last_scan_at,
   withheld_scan_started_at = excluded.withheld_scan_started_at, withheld_reason = excluded.withheld_reason,
-  unavailable_since = coalesce(root_state.unavailable_since, excluded.last_scan_at)
+  unavailable_since = CASE WHEN excluded.unavailable_since IS NULL THEN NULL
+    ELSE coalesce(root_state.unavailable_since, excluded.unavailable_since) END
 `
 
 type RecordRootNotCompleteParams struct {
@@ -444,11 +501,13 @@ type RecordRootNotCompleteParams struct {
 	LastScanAt            int64
 	WithheldScanStartedAt *int64
 	WithheldReason        *string
+	UnavailableSince      *int64
 }
 
 // A scan that could not read its root, or whose removals wait for the admin: the known-good
-// facts stay as they were, and the root is unavailable since the first such scan in a row (D41,
-// D231 section 7).
+// facts stay as they were. A root the scan could not read, or whose held-back scan saw none of it,
+// is unavailable since the first such scan in a row (D41, D231 section 7); one whose scan read it
+// and only holds back removals is available (D277 section 1).
 func (q *Queries) RecordRootNotComplete(ctx context.Context, arg RecordRootNotCompleteParams) error {
 	_, err := q.db.ExecContext(ctx, recordRootNotComplete,
 		arg.NodeID,
@@ -457,6 +516,7 @@ func (q *Queries) RecordRootNotComplete(ctx context.Context, arg RecordRootNotCo
 		arg.LastScanAt,
 		arg.WithheldScanStartedAt,
 		arg.WithheldReason,
+		arg.UnavailableSince,
 	)
 	return err
 }

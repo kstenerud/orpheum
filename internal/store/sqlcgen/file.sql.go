@@ -443,6 +443,58 @@ func (q *Queries) ListAudioTracksOfVideo(ctx context.Context, videoFile int64) (
 	return items, nil
 }
 
+const listFilesAHeldBackScanDidNotSee = `-- name: ListFilesAHeldBackScanDidNotSee :many
+SELECT live_file.path
+FROM live_file
+WHERE live_file.node_id = ?1 AND live_file.library_id = ?2
+  AND substr(live_file.path, 1, length(CAST(?3 AS TEXT))) = CAST(?3 AS TEXT)
+  AND live_file.last_seen_at < ?4 AND live_file.filing <> 'errored'
+  AND NOT EXISTS (
+    SELECT 1 FROM live_file AS unread
+    WHERE unread.node_id = live_file.node_id AND unread.library_id = live_file.library_id
+      AND unread.filing = 'errored' AND substr(live_file.path, 1, length(unread.path) + 1) = unread.path || '/'
+  )
+ORDER BY live_file.path
+`
+
+type ListFilesAHeldBackScanDidNotSeeParams struct {
+	NodeID        int64
+	LibraryID     int64
+	RootPrefix    string
+	ScanStartedAt int64
+}
+
+// The live files under a root that its held-back scan, started at scan_started_at, did not see:
+// what it would remove (D277 section 2). What could not be read, and the files under it, are not
+// among them: a scan removes nothing it could not read.
+func (q *Queries) ListFilesAHeldBackScanDidNotSee(ctx context.Context, arg ListFilesAHeldBackScanDidNotSeeParams) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listFilesAHeldBackScanDidNotSee,
+		arg.NodeID,
+		arg.LibraryID,
+		arg.RootPrefix,
+		arg.ScanStartedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			return nil, err
+		}
+		items = append(items, path)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFilesToCompare = `-- name: ListFilesToCompare :many
 SELECT id, reported_path_raw, size_bytes, modified_at, filing, sidecar_kind, is_identity_confirmed,
        CAST(payload_hash IS NOT NULL AS INTEGER) AS has_payload_hash,
@@ -835,6 +887,61 @@ func (q *Queries) ListSubtitleTracksOfVideo(ctx context.Context, videoFile int64
 			&i.ContainerTitle,
 			&i.DispositionFlags,
 			&i.BytesPayloadHash,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUnreadablePaths = `-- name: ListUnreadablePaths :many
+SELECT library.id AS library_id, library.name AS library_name, node.name AS node_name, live_file.node_id,
+  live_file.path, live_file.filing_reason, live_file.error_detail_json, live_file.first_seen_at
+FROM live_file
+JOIN library ON library.id = live_file.library_id AND library.removed_at IS NULL
+JOIN node ON node.id = live_file.node_id AND node.removed_at IS NULL
+WHERE live_file.filing = 'errored'
+ORDER BY library.id, live_file.path
+`
+
+type ListUnreadablePathsRow struct {
+	LibraryID       int64
+	LibraryName     string
+	NodeName        string
+	NodeID          int64
+	Path            string
+	FilingReason    *string
+	ErrorDetailJSON *string
+	FirstSeenAt     int64
+}
+
+// What scans could not read in live libraries' roots, with the platform's error, owner, group and
+// mode (D163 section 8): what the System page lists with the fix (D277 section 3).
+func (q *Queries) ListUnreadablePaths(ctx context.Context) ([]ListUnreadablePathsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUnreadablePaths)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListUnreadablePathsRow{}
+	for rows.Next() {
+		var i ListUnreadablePathsRow
+		if err := rows.Scan(
+			&i.LibraryID,
+			&i.LibraryName,
+			&i.NodeName,
+			&i.NodeID,
+			&i.Path,
+			&i.FilingReason,
+			&i.ErrorDetailJSON,
+			&i.FirstSeenAt,
 		); err != nil {
 			return nil, err
 		}

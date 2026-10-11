@@ -2589,6 +2589,10 @@ export interface components {
             offlineAt?: number;
             /** Format: int64 */
             rootCount: number;
+            /** Format: int64 */
+            unreadCount: number;
+            /** Format: int64 */
+            waitingRootCount: number;
         };
         OpenTogetherOutputBody: {
             /** @description Started now, rather than one the host already had */
@@ -3269,6 +3273,8 @@ export interface components {
             providers: components["schemas"]["ProviderBody"][] | null;
             queue: components["schemas"]["QueueKindBody"][] | null;
             server: components["schemas"]["ServerBody"];
+            unread: components["schemas"]["UnreadBody"][] | null;
+            waiting: components["schemas"]["WaitingBody"][] | null;
         };
         TitlesOutputBody: {
             /** @description Empty on the last page */
@@ -3336,6 +3342,17 @@ export interface components {
             readyState?: number;
             videoBuffered?: string;
         };
+        UnreadBody: {
+            code: string;
+            errorDetail: components["schemas"]["ErrorDetailBody"];
+            /** Format: int64 */
+            foundAt: number;
+            /** Format: int64 */
+            libraryId: number;
+            libraryName: string;
+            nodeName: string;
+            path: string;
+        };
         UnusedBody: {
             key: string;
             /** @description The release that stopped reading it; empty for a typo */
@@ -3373,6 +3390,22 @@ export interface components {
              */
             audioOutput?: "built_in_speakers" | "receiver" | "headphones";
             playableFormats: components["schemas"]["PlayableFormatsBody"];
+        };
+        WaitingBody: {
+            /**
+             * Format: int64
+             * @description How many files the scan would remove
+             */
+            fileCount: number;
+            firstPaths: string[] | null;
+            /** Format: int64 */
+            libraryId: number;
+            libraryName: string;
+            nodeName: string;
+            reason: string;
+            rootPath: string;
+            /** Format: int64 */
+            waitingAt: number;
         };
         WaitingCodeOutputBody: {
             deviceName?: string;

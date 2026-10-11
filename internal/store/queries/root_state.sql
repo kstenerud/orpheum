@@ -19,16 +19,18 @@ ON CONFLICT (node_id, root_path) DO UPDATE SET
 
 -- name: RecordRootNotComplete :exec
 -- A scan that could not read its root, or whose removals wait for the admin: the known-good
--- facts stay as they were, and the root is unavailable since the first such scan in a row (D41,
--- D231 section 7).
+-- facts stay as they were. A root the scan could not read, or whose held-back scan saw none of it,
+-- is unavailable since the first such scan in a row (D41, D231 section 7); one whose scan read it
+-- and only holds back removals is available (D277 section 1).
 INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, withheld_scan_started_at, withheld_reason,
   unavailable_since)
 VALUES (sqlc.arg(node_id), sqlc.arg(root_path), sqlc.arg(last_scan_outcome), sqlc.arg(last_scan_at), sqlc.arg(withheld_scan_started_at),
-  sqlc.arg(withheld_reason), sqlc.arg(last_scan_at))
+  sqlc.arg(withheld_reason), sqlc.narg(unavailable_since))
 ON CONFLICT (node_id, root_path) DO UPDATE SET
   last_scan_outcome = excluded.last_scan_outcome, last_scan_at = excluded.last_scan_at,
   withheld_scan_started_at = excluded.withheld_scan_started_at, withheld_reason = excluded.withheld_reason,
-  unavailable_since = coalesce(root_state.unavailable_since, excluded.last_scan_at);
+  unavailable_since = CASE WHEN excluded.unavailable_since IS NULL THEN NULL
+    ELSE coalesce(root_state.unavailable_since, excluded.unavailable_since) END;
 
 -- name: MarkRootUnavailable :one
 -- Work stalled waiting on the root's disk: the root is unavailable from now, unless it already
@@ -74,12 +76,12 @@ FROM root_mount
 WHERE node_id = sqlc.arg(node_id) AND mount_path = sqlc.arg(mount_path);
 
 -- name: ListUnavailableRootsOfNode :many
--- A node's roots whose last scan could not read them, or withheld its removals as a lost disk, or
--- whose disk work stalled on since: their files are not there to read, since the first of those
--- in a row (D208, D231 section 5, D233 section 10).
+-- A node's roots whose last scan could not read them, or held back its removals having seen none
+-- of the root, or whose disk work stalled on since: their files are not there to read, since the
+-- first of those in a row (D208, D231 section 5, D233 section 10, D277 section 1).
 SELECT root_path, CAST(coalesce(unavailable_since, last_scan_at) AS INTEGER) AS unavailable_since
 FROM root_state
-WHERE node_id = sqlc.arg(node_id) AND (last_scan_outcome <> 'complete' OR unavailable_since IS NOT NULL)
+WHERE node_id = sqlc.arg(node_id) AND (last_scan_outcome = 'unreadable' OR unavailable_since IS NOT NULL)
 ORDER BY root_path;
 
 -- name: ListMissingMountsOfNode :many
@@ -115,3 +117,17 @@ JOIN library ON library.id = library_root.library_id AND library.removed_at IS N
 JOIN node ON node.id = root_mount.node_id AND node.removed_at IS NULL
 WHERE root_mount.is_present = 0 AND root_mount.missing_since IS NOT NULL
 ORDER BY root_mount.missing_since, library.id, root_mount.mount_path;
+
+-- name: ListWithheldRoots :many
+-- The roots of live libraries, on live nodes and not retired, whose last scan's removals wait for
+-- the admin, with why and since when: what the System page says waits (D208 section 3, D277
+-- section 2).
+SELECT library.id AS library_id, library.name AS library_name, node.name AS node_name, library_root.node_id,
+  library_root.root_path, root_state.withheld_reason,
+  CAST(root_state.withheld_scan_started_at AS INTEGER) AS withheld_scan_started_at
+FROM library_root
+JOIN library ON library.id = library_root.library_id AND library.removed_at IS NULL
+JOIN node ON node.id = library_root.node_id AND node.removed_at IS NULL
+JOIN root_state ON root_state.node_id = library_root.node_id AND root_state.root_path = library_root.root_path
+WHERE library_root.retired_at IS NULL AND root_state.last_scan_outcome = 'withheld'
+ORDER BY root_state.withheld_scan_started_at, library.id, library_root.root_path;

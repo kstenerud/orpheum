@@ -20,6 +20,8 @@ const twoFoldersAndADisk: OfflineReminderReport = {
   isShown: true,
   rootCount: 2,
   diskCount: 1,
+  waitingRootCount: 0,
+  unreadCount: 0,
   offlineAt: Date.UTC(2026, 8, 12, 9, 0),
 };
 
@@ -64,4 +66,22 @@ it("the reminder shows nothing when the server says not to", async () => {
     ),
   );
   expect(mounted.container.textContent).toBe("");
+});
+
+it("the reminder says when a scan waits for the admin and what could not be read, with nothing offline (D277)", async () => {
+  mounted = await mount(
+    withServices(
+      <OfflineReminder />,
+      servedBy({
+        "GET /offline-reminder": [
+          200,
+          { isShown: true, rootCount: 0, diskCount: 0, waitingRootCount: 1, unreadCount: 2 },
+        ],
+      }),
+    ),
+  );
+  const text = mounted.container.textContent;
+  expect(text).toContain("A scan waits for you before removing files.");
+  expect(text).toContain("2 files or folders could not be read.");
+  expect(text).not.toContain("offline");
 });

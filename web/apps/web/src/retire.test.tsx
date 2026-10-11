@@ -87,6 +87,8 @@ const report: SystemReport = {
       offlineAt: 1_790_000_000_000,
     },
   ],
+  waiting: [],
+  unread: [],
 };
 
 it("retires a root only once the admin confirms, and keeping it sends nothing (D231 §7)", async () => {

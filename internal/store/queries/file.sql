@@ -252,3 +252,30 @@ UPDATE file SET last_seen_at = sqlc.arg(seen_at) WHERE id = sqlc.arg(id);
 -- name: GetLibraryOfFile :one
 -- A file's library, which says who may reach it (D243 section 4).
 SELECT library_id FROM file WHERE id = sqlc.arg(id);
+
+-- name: ListFilesAHeldBackScanDidNotSee :many
+-- The live files under a root that its held-back scan, started at scan_started_at, did not see:
+-- what it would remove (D277 section 2). What could not be read, and the files under it, are not
+-- among them: a scan removes nothing it could not read.
+SELECT live_file.path
+FROM live_file
+WHERE live_file.node_id = sqlc.arg(node_id) AND live_file.library_id = sqlc.arg(library_id)
+  AND substr(live_file.path, 1, length(CAST(sqlc.arg(root_prefix) AS TEXT))) = CAST(sqlc.arg(root_prefix) AS TEXT)
+  AND live_file.last_seen_at < sqlc.arg(scan_started_at) AND live_file.filing <> 'errored'
+  AND NOT EXISTS (
+    SELECT 1 FROM live_file AS unread
+    WHERE unread.node_id = live_file.node_id AND unread.library_id = live_file.library_id
+      AND unread.filing = 'errored' AND substr(live_file.path, 1, length(unread.path) + 1) = unread.path || '/'
+  )
+ORDER BY live_file.path;
+
+-- name: ListUnreadablePaths :many
+-- What scans could not read in live libraries' roots, with the platform's error, owner, group and
+-- mode (D163 section 8): what the System page lists with the fix (D277 section 3).
+SELECT library.id AS library_id, library.name AS library_name, node.name AS node_name, live_file.node_id,
+  live_file.path, live_file.filing_reason, live_file.error_detail_json, live_file.first_seen_at
+FROM live_file
+JOIN library ON library.id = live_file.library_id AND library.removed_at IS NULL
+JOIN node ON node.id = live_file.node_id AND node.removed_at IS NULL
+WHERE live_file.filing = 'errored'
+ORDER BY library.id, live_file.path;
