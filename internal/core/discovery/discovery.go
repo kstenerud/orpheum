@@ -18,10 +18,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/core/identity"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
-	"github.com/kstenerud/orpheum/internal/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 

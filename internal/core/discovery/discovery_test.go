@@ -22,12 +22,13 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
+	"github.com/kstenerud/orpheum/discovery/discoveryproto"
+	"github.com/kstenerud/orpheum/discovery/proof"
 	"github.com/kstenerud/orpheum/internal/core/certificate"
 	"github.com/kstenerud/orpheum/internal/core/certificate/certificatetest"
 	"github.com/kstenerud/orpheum/internal/core/identity"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
-	"github.com/kstenerud/orpheum/internal/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -194,7 +195,7 @@ func (fake *fakeDiscovery) signedFresh(publicKey ed25519.PublicKey, purpose, non
 		return false
 	}
 	delete(fake.nonces, nonce)
-	return ed25519.Verify(publicKey, identity.SignedMessage(purpose, nonce), signature)
+	return proof.Verify(publicKey, purpose, nonce, signature)
 }
 
 func (fake *fakeDiscovery) read(request *http.Request, into any) {

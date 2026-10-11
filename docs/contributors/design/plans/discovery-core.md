@@ -17,8 +17,7 @@
 Paths are under the discovery's base URL (`https://api.orpheum-app.com/core/v1` for the service,
 the owner's own otherwise). JSON bodies; every call carries `Orpheum-Discovery-Protocol: 1`, and an
 answer carrying `Orpheum-Discovery-Deprecated: <date>` makes the core warn its admin (D273 §6, §7).
-The types are `internal/discoveryproto`'s, kept apart so they can move to the shared protocol
-module once its licence is chosen (the spec's Q6).
+The types are `discovery/discoveryproto`'s, a public package the closed service imports (D275 §1).
 
 | Call | What |
 | --- | --- |
@@ -38,7 +37,7 @@ A signature is Ed25519 over `orpheum-discovery-v1:<purpose>:<nonce>`, the purpos
 | Phase | What | State |
 | --- | --- | --- |
 | C1 | The identity key: Ed25519, made on first start, `identity.key` in the persistent directory beside `secret.key`, mode 0600; kept in backups until the spec's Q12 is answered | BUILT 2026-10-09 |
-| C2 | `internal/discoveryproto` and `internal/core/discovery`: connect (challenge, enrol, claim code), poll the status until claimed, sessions, the heartbeat every 5 minutes with the core's candidates; the discovery's state kept in `discovery.json` in the persistent directory; `GET/POST/DELETE /discovery` for an admin; the System page's Discovery section with the claim code and what the probe found | BUILT 2026-10-09, but its candidates are the machine's interface addresses alone (C5 adds mapped ones) and TURN is not sent (W6) |
+| C2 | `discovery/discoveryproto` (then `internal/discoveryproto`) and `internal/core/discovery`: connect (challenge, enrol, claim code), poll the status until claimed, sessions, the heartbeat every 5 minutes with the core's candidates; the discovery's state kept in `discovery.json` in the persistent directory; `GET/POST/DELETE /discovery` for an admin; the System page's Discovery section with the claim code and what the probe found | BUILT 2026-10-09, but its candidates are the machine's interface addresses alone (C5 adds mapped ones) and TURN is not sent (W6) |
 | C3 | The signalling connection: offers the discovery passes on answered by rtcapi, without a signed-in check (the discovery checked the locator); reconnects with backoff | BUILT 2026-10-09; reconnects every 30 s rather than with growing backoff |
 | C4 | Certificates through the discovery: a wildcard `*.<coreId>.<zone>` by DNS-01, the discovery setting the TXT record; HTTPS answering every name under it | BUILT 2026-10-09: `*.<coreId>.<zone>` through `PUT/DELETE /acme-challenge`, kept as `discovery-tls-*.pem`; a browser is served the certificate for the name it asks; a core with no `https.domain` opens HTTPS on `https.listen` once the wildcard is obtained, and its heartbeat's candidates carry that port. The System page's certificate line still shows only the own name's |
 | C5 | Port mapping: UPnP IGD, NAT-PMP and PCP, on by default, reported on the System page with the probe's result (D273 §7) | BUILT 2026-10-10, hand-written on the owner's word (*"Make your own implementations"*): `internal/core/portmap`, PCP → NAT-PMP → UPnP IGD for IPv4, UPnP IGD 2 pinholes for IPv6, `should_map_ports` (on), only while the discovery publishes the core. Asks only the default route's router: behind double NAT the outer router is the owner's to set; PCP for IPv6 not yet |

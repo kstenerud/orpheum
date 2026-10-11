@@ -8,8 +8,9 @@
 //
 //   - The key is made once and read back on every later start; a file that is not a key is refused,
 //     never replaced. TestLoadOrMake_MakesTheKeyOnceAndKeepsIt, TestParseKeyFile_RefusesWhatIsNotAKey.
-//   - A signature covers "orpheum-discovery-v1:<purpose>:<nonce>", so one made to enrol cannot open a
-//     session, nor the reverse. TestSign_NamesItsPurposeSoOneCannotBeUsedForAnother.
+//   - A signature covers discovery/proof's message, "orpheum-discovery-v1:<purpose>:<nonce>", so one
+//     made to enrol cannot open a session, nor the reverse.
+//     TestSign_NamesItsPurposeSoOneCannotBeUsedForAnother.
 //
 // # Read before changing
 //

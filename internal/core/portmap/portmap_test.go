@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/discoveryproto"
+	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 )
 

@@ -14,12 +14,12 @@ import (
 
 	"github.com/pion/webrtc/v4"
 
+	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/core/identity"
 	"github.com/kstenerud/orpheum/internal/core/portmap"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/core/settings"
-	"github.com/kstenerud/orpheum/internal/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 

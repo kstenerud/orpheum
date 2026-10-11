@@ -25,7 +25,12 @@ const (
 	platformPath  = modulePath + "/internal/platform"
 	archtestPath  = modulePath + "/internal/archtest"
 	testutilPath  = modulePath + "/internal/testutil"
+	internalPath  = modulePath + "/internal"
 )
+
+// publicPath is the tree of public packages a module outside Orpheum imports: the discovery's
+// building blocks, which the closed multi-core service assembles (D275 §1).
+const publicPath = modulePath + "/discovery"
 
 // sqlPackages are database/sql and every SQLite driver; only the store may import them.
 var sqlPackages = []string{
@@ -311,6 +316,16 @@ func requirePackagesUnder(t *testing.T, packages []listedPackage, root string) {
 	if !slices.ContainsFunc(packages, func(listed listedPackage) bool { return isUnder(listed.ImportPath, root) }) {
 		t.Fatalf("go list found no package under %s; the rule would pass vacuously", root)
 	}
+}
+
+// TestArch_PublicPackagesImportNothingInternal checks that no public package depends on one under
+// internal/, which Go refuses to let a module outside Orpheum import: the closed discovery service
+// could not build on it (D275 §1). Their tests may.
+func TestArch_PublicPackagesImportNothingInternal(t *testing.T) {
+	t.Parallel()
+	packages := loadModulePackages(t)
+	requirePackagesUnder(t, packages, publicPath)
+	reportViolations(t, findTransitiveDependencies(packages, publicPath, internalPath))
 }
 
 func TestArch_CoreNeverImportsNode(t *testing.T) {
