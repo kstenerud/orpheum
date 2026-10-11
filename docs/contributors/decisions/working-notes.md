@@ -5602,6 +5602,8 @@ day one is negotiable, as long as the multi-part-plus-multi-version case has som
 
 ## D80 — Licence by artefact: GPLv3 for the server, MPL-2.0 for the clients and the SDK
 
+> **Revised by [D275](#d275--orpheums-discovery-is-public-building-blocks-that-a-closed-multi-core-service-imports-and-the-server-moves-to-the-agpl-with-a-contributor-agreement)** (2026-10-11): the server moves to AGPL-3.0-or-later, with a contributor licence agreement; the clients and the SDK stay MPL-2.0.
+
 **Decided** (2026-09-19). Audit:
 [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §2. This supersedes the single
 project-wide licence in [tech-licensing.md](../design/research/tech-licensing.md), which
@@ -19247,3 +19249,45 @@ D273 §7's methods; it revisits nothing D273 decided.
    agent works on both and keeps the protocol in step.
 
 **Status:** Decided 2026-10-10; §5–§6 added 2026-10-11.
+
+## D275 — Orpheum's discovery is public building blocks that a closed multi-core service imports, and the server moves to the AGPL with a contributor agreement
+
+**Decided** (2026-10-11), by the project owner, while the paid discovery service started (D274
+§6). It replaces the paid-service spec's §9.2 recommendation (a third, permissively licensed
+protocol module) and revises
+[D80](#d80--licence-by-artefact-gplv3-for-the-server-mpl-20-for-the-clients-and-the-sdk) for the
+server.
+
+1. **The seam.** The owner: *"My paid discovery service talks the same protocol to an individual
+   host's core, but itself has the ability to talk to multiple cores. We'd need some code in
+   orpheum itself to support the host logging in to the paid service at app.orpheum-app.com, but
+   otherwise it would be pretty clean. So orpheum is public, and orpheum-discovery is my
+   proprietary discovery server that talks the same language to each core under its purview."*
+   - Orpheum's discovery is **building blocks in public (not `internal/`) packages**: the wire
+     types, signature checks, the signalling relay for one core's connection, STUN. `orpheum
+     discovery` (W4b) assembles them for one core.
+   - **The closed service imports them** and assembles them for many cores, with its own
+     accounts, billing and names. It is run, never distributed.
+   - **Orpheum carries nothing it does not use itself** (the owner: *"I don't see why orpheum
+     would need to have hooks it doesn't use"*). What it adds for the paid tier is the host's
+     sign-in to app.orpheum-app.com, beside the discovery client C1–C5 built.
+   - The public packages' interfaces are a dependency of the closed service, so a change to them is
+     made in step with it (D274 §6: the agent works on both).
+2. **The server moves to AGPL-3.0-or-later; the clients and the SDK stay MPL-2.0.** The owner
+   asked for *"a license that requires derivatives to publish"*, then *"OK, agreed on the
+   licensing."* Under GPLv3 a fork run as a service, a multi-core discovery among them, keeps its
+   changes private; under the AGPL it offers its users their source. Running an unmodified
+   Orpheum asks nothing of a self-hoster: its source is already public. D80's *Why not AGPL*
+   overstated that burden.
+   - **Contributions come under a contributor licence agreement** that grants the owner rights
+     beyond the AGPL, so the closed service may import public packages others have contributed to
+     without falling under the AGPL's network clause. The owner's own code needs none.
+   - Not yet done: the licence text, every file's SPDX header, the gates that read them, and the
+     agreement's text, which is the owner's choice. A commit of its own.
+3. **The licence is not the defence against competitors.** The owner: *"we are also entering into
+   a new era with AI able to clone existing services with ease ... licensing might make for a poor
+   defense against competition. I'll need to use price and first mover advantage."* The AGPL's
+   job is that improvements to Orpheum come back to it; the paid tier competes on price and on
+   being first.
+
+**Status:** Decided 2026-10-11. §1 shapes W4b; §2's relicensing is not done.
