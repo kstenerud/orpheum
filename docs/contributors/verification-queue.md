@@ -265,6 +265,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   with none has no player controls but a Full screen button at the film's corner, which fills
   the screen, on an iPhone too. Only a browser lays out a dialog and shows its own full screen
   (D271 §4, D280). (`web/apps/web/src/status-tray.css`, `together-viewer.css`)
+  Partly confirmed 2026-10-11 by the owner: the pop-up on screen on a desktop and on an Android
+  phone, modal over the page; an iPhone guest with every right had the player's controls and left
+  full screen by its X, the film playing on for everyone. Open: a guest with no rights and its Full
+  screen button.
 - [ ] **VQ30** — Against staging, a host on a computer and a guest on an iPhone, neither pressing
   anything: the host presses Talk and speaks. Passes when the guest hears the host without pressing
   Talk; the guest's Talk is one round microphone button, solid blue while on on every phone, Firefox for
@@ -276,3 +280,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   guest's film title sits above the picture, not over it. Only real devices carry voice and show an
   iPhone's audio session (D281). (`web/packages/sdk/src/together-voice-browser.ts`,
   `web/apps/web/src/watch-together.css`, `together-viewer.css`)
+  Partly confirmed 2026-10-11 by the owner, a Firefox for Android or Safari for Mac host with an iPhone
+  guest: each heard the other without pressing Talk; Talk one toggle, solid blue, its ring following
+  the voice on the iPhone and the Android phone; voice made again by itself after the host's phone
+  was locked; the iPhone's headphones notice with its OK; Invite and a person's row in dialogs over
+  a darkened page. Open: each person's voice slider, the pop-up's Film volume, and the guest's title
+  above the picture.
