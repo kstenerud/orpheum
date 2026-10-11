@@ -422,6 +422,8 @@ func fullScansAllowed() map[string]string {
 		"ListProviderMatchedLibraryIDs": "a household has a handful of libraries; the first-match sweep lists them",
 		"ListLiveLibraryIDs":            "a household has a handful of libraries; the identification sweep lists them",
 		"ListOfflineRoots":              "a household's libraries have a handful of roots; the System page lists them",
+		"ListWithheldRoots": "a household's libraries have a handful of roots; the System page lists those whose " +
+			"scans wait for the admin",
 		"ListOfflineDisks": "a household's libraries have a handful of roots, whose missing disks " +
 			"this lists",
 		"ListCheckedRoots": "a household's libraries have a handful of roots; the scan schedule reads " +
