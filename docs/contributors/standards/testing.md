@@ -212,12 +212,23 @@ exists, and every `TestArch_` test is cited.
   integration`), so a deleted helper cannot hide in a file the default build skips.
   `make test-integration` runs the tier against the pinned FFmpeg, and CI runs it after
   `make check`.
+- **Runs are proportionate to the change** ([principles §23](../principles/README.md),
+  [D279](../decisions/working-notes.md)):
+  - **while working, a spot check** of what changed: `go test -run <Test> ./<pkg>/` or
+    `npm --prefix web test -- <file>`, within **30 seconds**;
+  - **at each commit, `make check`** (the hooks run it), within about **90 seconds**;
+  - **for an accumulated batch, or before the owner applies, `make check-pr`**, within
+    **5 minutes**. Not after each small fix.
 - `make check` aims to finish in about **90 seconds**, because every agent turn that touched code
   waits on it. A unit test that takes more than about a second belongs in a tag or needs a
   smaller input.
+- A run over its budget is a defect of the tests, and is fixed by restructuring them, not by
+  running them less often than the change needs.
 - CI runs the same make targets as a developer; no gate is pull-request-only.
 
-**Enforced by:** the Makefile ([makefile.md](makefile.md)); the time budget is **review-only**.
+**Enforced by:** the Makefile ([makefile.md](makefile.md)); `make check-pr` reports a run over
+its 300 s budget. The spot check's and `make check`'s budgets, and running `check-pr` only for a
+batch, are **review-only** until the tiers are restructured to measure them (D279).
 
 ## 11. The fake `ffmpeg`
 

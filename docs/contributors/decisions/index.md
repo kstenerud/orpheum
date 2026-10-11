@@ -284,6 +284,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D276](working-notes.md#d276--a-scan-that-removes-nothing-never-waits-for-the-admin-though-its-root-moved-to-another-device) A scan that removes nothing never waits for the admin, though its root moved to another device
 - [D277](working-notes.md#d277--a-scan-held-back-for-the-admin-leaves-its-root-playable-unless-it-saw-none-of-it-and-the-admin-is-told-what-waits-and-what-could-not-be-read-with-the-fix) A scan held back for the admin leaves its root playable unless it saw none of it, and the admin is told what waits and what could not be read, with the fix
 - [D278](working-notes.md#d278--a-problem-is-shown-beside-what-it-affects-by-a-yellow-warning-sign-that-opens-what-is-wrong-yellow-means-something-needs-fixing-bright-red-that-an-action-cannot-be-undone) A problem is shown beside what it affects, by a yellow warning sign that opens what is wrong; yellow means something needs fixing, bright red that an action cannot be undone
+- [D279](working-notes.md#d279--test-runs-are-proportionate-to-the-change-a-30-second-spot-check-while-working-make-check-at-a-commit-check-pr-for-a-batch) Test runs are proportionate to the change: a 30-second spot check while working, make check at a commit, check-pr for a batch
 
 ## Archived
 
