@@ -299,13 +299,15 @@ An item is ticked only by the person who did it, and only with what they saw.
   film volume works, and both volume controls remain in sync, updating the other. The title is above
   the video in the guest"*. On an iPhone, where a page cannot set a film's volume, the slider is
   replaced by the phone's buttons (the owner's test, 2026-10-12).
-- [ ] **VQ31** — On an iPhone, in a Watch Together session: put a finger anywhere on a volume
+- [x] **VQ31** — On an iPhone, in a Watch Together session: put a finger anywhere on a volume
   slider (a person's voice in the host's pop-up, Film volume, a guest's own volume) and slide it.
   Passes when the slider jumps to where the finger landed and follows it, the page not scrolling,
   without having to hit the slider's knob; on a computer the sliders move by mouse as before. Safari
   on an iPhone moves a slider only by a touch that starts on its knob, which no test browser
   reproduces (the owner, 2026-10-12). (`web/apps/web/src/volume-range.tsx`, `volume-range.css`)
-  2026-10-12, the owner on an iPhone: *"the sliders are easy to use."*
+  2026-10-12, the owner on an iPhone: *"the sliders are easy to use."* — done 2026-10-12 by the
+  owner: *"the sliders on iphone jump to the position tapped"*; on the Mac the film's two sliders
+  moved by mouse, each following the other (VQ30).
 - [ ] **VQ32** — Against staging, a host and guests on a computer, an iPhone and an Android phone:
   put a film on from the start, twice in one session, then pause and play. Passes when the first
   start begins about two seconds into the film, the phones running up to it, and every later start
