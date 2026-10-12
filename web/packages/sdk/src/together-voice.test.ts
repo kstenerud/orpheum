@@ -451,19 +451,22 @@ describe("voice in a Watch Together session (watch-together.md, Voice)", () => {
 
   it("tells the core's log how each connected call goes, soon after it connects and every ten seconds (D262 §1)", async () => {
     vi.useFakeTimers();
-    const { server, calls } = await talking();
+    const { voice, server, calls } = await talking();
     calls[0]!.setup.events.onState("connected"); // with Karl's device 30; Ann's, 15, connecting
-    // The ring's reading rides along: talking, the fake microphone's 0.05 (the owner's test, 2026-10-11).
+    // The ring's reading rides along: talking, the fake microphone's 0.05 (the owner's test, 2026-10-11);
+    // and the volume set for Karl, as it came and then at 0 (the owner's test, 2026-10-12).
     const measured = {
       kind: "voiceStats",
-      voice: { partnerDeviceId: 30, ...measuredCall, ringLevel: 0.05 },
+      voice: { partnerDeviceId: 30, ...measuredCall, ringLevel: 0.05, partnerGain: 1 },
     };
     vi.advanceTimersByTime(voiceFirstStatsAfterMs);
     await settle();
     expect(notesOf(server, "voiceStats")).toEqual([measured]);
+    voice.setPartnerGain(8, 0);
     vi.advanceTimersByTime(voiceStatsEveryMs - voiceFirstStatsAfterMs);
     await settle();
-    expect(notesOf(server, "voiceStats")).toEqual([measured, measured]);
+    const silenced = { ...measured, voice: { ...measured.voice, partnerGain: 0 } };
+    expect(notesOf(server, "voiceStats")).toEqual([measured, silenced]);
   });
 
   it("tells its devices voice ended once its microphone stops, so they undo what they did for it", async () => {

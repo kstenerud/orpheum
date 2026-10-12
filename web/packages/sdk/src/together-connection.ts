@@ -146,6 +146,8 @@ export type PlayerNote =
         readonly partnerDeviceId: number;
         /** What the Talk button's ring reads of the voice going out now, from 0 to 1. */
         readonly ringLevel?: number;
+        /** The volume this person set for the partner's voice, 0 to partnerGainMost (2026-10-12). */
+        readonly partnerGain?: number;
       };
     }
   | { readonly kind: "voiceCall"; readonly partnerDeviceId: number; readonly why: VoiceCallStep }

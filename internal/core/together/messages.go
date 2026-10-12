@@ -201,6 +201,10 @@ type VoiceStats struct {
 	// the call was measured: a ring that stayed still on an Android phone hosting said nothing of
 	// whether it read nothing or showed nothing (the owner's test, 2026-10-11).
 	RingLevel float64 `json:"ringLevel,omitempty"`
+	// PartnerGain is the volume the receiver's person set for the partner's voice, 1 as it came: a
+	// voice heard with its slider at 0 said nothing of whether the slider reached the call (the
+	// owner's test, 2026-10-12). Absent from a client that does not say.
+	PartnerGain *float64 `json:"partnerGain,omitempty"`
 }
 
 // positionMsAttribute names a position, in ms, in a log line.

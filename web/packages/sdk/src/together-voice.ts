@@ -575,6 +575,7 @@ class VoiceSession<Microphone extends VoiceMicrophone> implements TogetherVoice 
             partnerDeviceId: entry.deviceId,
             ...stats,
             ringLevel: this.readMicrophoneLevel(),
+            partnerGain: this.#gainOf(entry.memberId),
           },
         });
       },
