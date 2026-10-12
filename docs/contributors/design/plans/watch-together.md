@@ -107,7 +107,9 @@ reaches it.
 
 **The group never stops for one member** (D250 §2). A stall, a slow link or a dropped connection
 is that member's alone, the host's player included: the group plays on, everyone is told who it
-continues without, and that player catches up by itself. **Catching up** is a jump ahead of the
+continues without, and that player catches up by itself. When no other player plays along, the
+group waits for it instead, where it stalled or dropped, until a player is ready: playing on
+would play to no one (D250 §2's amendment of 2026-10-12). **Catching up** is a jump ahead of the
 group to wait there, paused and loading: far enough that, at the speed it measured itself
 loading, it has `together_catch_up_buffer_percent` (80%) of what it loads ahead filled when the
 group arrives, and at most a minute ahead (D250 §4). Catching up never starts an encode; the

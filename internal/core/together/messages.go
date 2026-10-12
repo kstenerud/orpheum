@@ -454,6 +454,9 @@ const (
 	// EventContinuedWithout is the group playing on while a member's player catches up alone: it
 	// never stops for one member (D250 §2).
 	EventContinuedWithout EventKind = "continuedWithout"
+	// EventWaitingFor is the group waiting for a member's player that stalled or dropped when no
+	// other player played along: playing on would play to no one (D250 §2's amendment of 2026-10-12).
+	EventWaitingFor EventKind = "waitingFor"
 )
 
 // Rights are what a guest may do to playback, each given or withheld by the host in their link

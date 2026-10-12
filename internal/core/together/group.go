@@ -144,13 +144,48 @@ func (current *session) seek(now time.Time, sender *member, position time.Durati
 }
 
 // stalled takes a player's stall: the group never stops for one member (D250 §2). While it plays,
-// it plays on, and the player catches up alone, its member named to everyone.
+// it plays on, and the player catches up alone, its member named to everyone. When no other player
+// plays along, the group waits for it instead, as at a sync point: playing on would play to no one,
+// and the one watching would jump ahead to catch up, missing what they had not seen (D250 §2's
+// amendment of 2026-10-12).
 func (current *session) stalled(now time.Time, who *member, stalledDevice *device) {
 	if current.group.state != GroupPlaying || stalledDevice.isCatchingUp {
 		return
 	}
+	if !current.isAnyPlayingAlong() {
+		current.change(now, GroupWaiting, EventWaitingFor, who.id)
+		return
+	}
 	stalledDevice.isCatchingUp = true
 	current.change(now, GroupPlaying, EventContinuedWithout, who.id)
+}
+
+// dropped takes a player's leaving: a playing group it was the last to play along with waits, as
+// for a stall, until a player is ready again, its own back or another (D250 §2's amendment of
+// 2026-10-12).
+func (current *session) dropped(now time.Time, who *member, droppedDevice *device) {
+	if current.group.state != GroupPlaying || !droppedDevice.playsAlong() || current.isAnyPlayingAlong() {
+		return
+	}
+	current.change(now, GroupWaiting, EventWaitingFor, who.id)
+}
+
+// playsAlong is whether the device is a player the group plays along with: one that has once been
+// ready, is not catching up alone, and is ready now.
+func (each *device) playsAlong() bool {
+	return each.role.plays() && each.hasBeenReady && !each.isCatchingUp && each.isReady()
+}
+
+// isAnyPlayingAlong is whether some player plays along with the group: whether it plays to anyone.
+func (current *session) isAnyPlayingAlong() bool {
+	for _, each := range current.members {
+		for _, attached := range each.devices {
+			if attached.playsAlong() {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // endWait ends a sync point's wait once its time, the sync wait, is up and a player is ready: the
@@ -187,10 +222,11 @@ func (current *session) endWait(now time.Time) {
 
 // settle starts a group waiting at a sync point playing once every device that plays along is
 // ready. A playing group is never stopped by a player that is not (D250 §2). A device that has not
-// yet once been ready, still choosing its speakers or loading, is not waited for (D246 §6); a group
-// with no such device plays.
+// yet once been ready, still choosing its speakers or loading, is not waited for (D246 §6). A group
+// with no player ready waits on, so it never plays to no one: the one it waited for dropped, it
+// plays once that player is back and ready (D250 §2's amendment of 2026-10-12).
 func (current *session) settle(now time.Time) {
-	if current.group.state != GroupWaiting {
+	if current.group.state != GroupWaiting || !current.isAnyPlayingAlong() {
 		return
 	}
 	for _, each := range current.members {

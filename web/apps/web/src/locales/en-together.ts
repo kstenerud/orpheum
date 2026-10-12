@@ -72,6 +72,7 @@ export const enTogether = {
       changedItem: "{{name}} put on a film",
       stopped: "{{name}} stopped the film",
       continuedWithout: "Continuing without {{name}}, who will catch up",
+      waitingFor: "Waiting for {{name}}'s player at {{at}}",
       everyoneReady: "Everyone is ready",
       changedRate: "{{name}} changed the speed",
     },

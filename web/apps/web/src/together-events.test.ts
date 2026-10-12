@@ -36,6 +36,26 @@ describe("the group's changes as named events (D188)", () => {
     );
   });
 
+  it("says whose player the group waits for when no other plays along", () => {
+    const parsed = parseTogetherMessage(
+      JSON.stringify({
+        type: "group",
+        group: {
+          state: "Waiting",
+          positionMs: 2_472_000,
+          rate: 1,
+          fileId: 7,
+          event: "waitingFor",
+          byMemberId: 1,
+        },
+      }),
+    );
+    const waiting = parsed?.type === "group" ? parsed.group : undefined;
+    expect(waiting && groupEventText(i18n.t, waiting, roster)).toBe(
+      "Waiting for Karl's player at 41:12",
+    );
+  });
+
   it("says nothing of an event it does not know, or of none", () => {
     const unknown = parseTogetherMessage(
       JSON.stringify({ type: "group", group: { state: "Paused", event: "danced", byMemberId: 1 } }),

@@ -17,7 +17,8 @@ export type GroupEvent =
   | "changedItem"
   | "stopped"
   | "everyoneReady"
-  | "continuedWithout";
+  | "continuedWithout"
+  | "waitingFor";
 
 const groupEvents: readonly GroupEvent[] = [
   "played",
@@ -28,6 +29,7 @@ const groupEvents: readonly GroupEvent[] = [
   "stopped",
   "everyoneReady",
   "continuedWithout",
+  "waitingFor",
 ];
 
 /** The group as the server tells it: what plays, where, how fast, and the named event that made it so. */
