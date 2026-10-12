@@ -242,6 +242,25 @@ export function isUnplayable(still: StandingStill): boolean {
 }
 
 /**
+ * Whether what the video plays where it stands, its picture and its sound, is loaded there: only then
+ * does its standing still say it cannot play what it has (D266). After a seek the sound's chunk can
+ * come seconds after the picture's, made on request, and a video that waited six seconds for its
+ * sound, its picture's chunks arriving meanwhile, gave the film's own picture up as unplayable and
+ * moved to a quality made for it (the owner's solo jumps, 2026-10-12).
+ */
+export function isLoadedWhereItStands(
+  media: Pick<HTMLMediaElement, "buffered" | "currentTime">,
+): boolean {
+  const { buffered, currentTime } = media;
+  for (let index = 0; index < buffered.length; index += 1) {
+    if (buffered.start(index) <= currentTime && currentTime < buffered.end(index)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Whether a video is waiting to play at its position (D266): playing, or paused short of the data
  * to play on. An autoplaying video stays paused until it can play, so one whose decoder never
  * starts reads as paused forever; one a person paused, its data there, is not waiting.

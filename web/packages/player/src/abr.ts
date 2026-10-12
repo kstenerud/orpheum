@@ -18,6 +18,7 @@ import type Hls from "hls.js";
 
 import {
   giveUpFor,
+  isLoadedWhereItStands,
   isUnplayable,
   isWaitingToPlay,
   measuresTheLink,
@@ -62,7 +63,10 @@ export interface ChoosingHls {
   readonly maxAutoLevel: number;
   readonly mainForwardBufferInfo: { readonly len: number } | null;
   /** The video it plays into, whose position shows whether it plays. */
-  readonly media: Pick<HTMLMediaElement, "currentTime" | "paused" | "readyState"> | null;
+  readonly media: Pick<
+    HTMLMediaElement,
+    "buffered" | "currentTime" | "paused" | "readyState"
+  > | null;
 }
 
 /** What a playback tells its choosing. */
@@ -300,7 +304,7 @@ export class Choosing<Chunk extends FollowedChunk> {
   #lookAtPlaying(): void {
     const media = this.#hls.media;
     const nowMs = this.#options.monotonicMs();
-    if (media === null || !isWaitingToPlay(media)) {
+    if (media === null || !isWaitingToPlay(media) || !isLoadedWhereItStands(media)) {
       this.#still = undefined;
       return;
     }

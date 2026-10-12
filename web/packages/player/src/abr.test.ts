@@ -22,6 +22,24 @@ const levels = [
   { bitrate: 36_208_176, averageBitrate: 5_117_192 },
 ];
 
+/** A video at positionS, paused or not, at readyState, its picture and sound loaded there unless not. */
+function videoAt(
+  positionS: number,
+  state: { readonly isPaused: boolean; readonly readyState: number; readonly isLoaded?: boolean },
+): Pick<HTMLMediaElement, "buffered" | "currentTime" | "paused" | "readyState"> {
+  const ranges = (state.isLoaded ?? true) ? [[positionS - 5, positionS + 15]] : [];
+  return {
+    currentTime: positionS,
+    paused: state.isPaused,
+    readyState: state.readyState,
+    buffered: {
+      length: ranges.length,
+      start: (index) => ranges[index]?.[0] ?? 0,
+      end: (index) => ranges[index]?.[1] ?? 0,
+    },
+  };
+}
+
 /** A stand-in for hls.js as choosing reads it. */
 class FakeHls implements ChoosingHls {
   readonly levels = levels;
@@ -30,7 +48,7 @@ class FakeHls implements ChoosingHls {
   readonly minAutoLevel = 0;
   readonly maxAutoLevel = 3;
   mainForwardBufferInfo = { len: 0 };
-  media: Pick<HTMLMediaElement, "currentTime" | "paused" | "readyState"> | null = null;
+  media: Pick<HTMLMediaElement, "buffered" | "currentTime" | "paused" | "readyState"> | null = null;
 }
 
 /** A chunk of picture at level, ten seconds long, asked for at 0, with nothing arrived yet. */
@@ -200,7 +218,7 @@ describe("a quality this device cannot play (D266)", () => {
     const chosen = choosingFrom(40_000_000);
     chosen.link.estimateBps = 30_000_000;
     chosen.hls.loadLevel = 3;
-    chosen.hls.media = { currentTime: positionS, paused: false, readyState: 1 };
+    chosen.hls.media = videoAt(positionS, { isPaused: false, readyState: 1 });
     chosen.choosing.firstLevel();
     vi.advanceTimersByTime(lookAtChunkEveryMs); // it stands still from here
     return chosen;
@@ -223,7 +241,7 @@ describe("a quality this device cannot play (D266)", () => {
     load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
     nowMs = 6000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
-    hls.media = { currentTime: 430, paused: false, readyState: 4 };
+    hls.media = videoAt(430, { isPaused: false, readyState: 4 });
     hls.currentLevel = 2;
     hls.mainForwardBufferInfo = { len: 60 };
     nowMs = 1_000_000;
@@ -257,7 +275,7 @@ describe("a quality this device cannot play (D266)", () => {
 
   it("is given up on an autoplaying video, paused until it can play, that never can", () => {
     const { hls, choosing, unplayable } = standingAt(303.98);
-    hls.media = { currentTime: 303.98, paused: true, readyState: 1 };
+    hls.media = videoAt(303.98, { isPaused: true, readyState: 1 });
     load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
     load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
     nowMs = 6000;
@@ -265,7 +283,7 @@ describe("a quality this device cannot play (D266)", () => {
     expect(unplayable).toEqual([{ qualityKbps: 36_208, positionMs: 303_980 }]);
   });
 
-  it("is not given up while chunks are slow to come, while paused, or while the video plays", () => {
+  it("is not given up while chunks are slow to come, while paused, while its sound is not there, or while the video plays", () => {
     const slow = standingAt(420.5);
     load(slow.choosing, 3, { bytes: 6_000_000, loadMs: 1000 }); // one chunk: the link may be why
     nowMs = 6000;
@@ -274,7 +292,7 @@ describe("a quality this device cannot play (D266)", () => {
 
     nowMs = 0;
     const paused = standingAt(420.5);
-    paused.hls.media = { currentTime: 420.5, paused: true, readyState: 4 }; // its data there
+    paused.hls.media = videoAt(420.5, { isPaused: true, readyState: 4 }); // its data there
     load(paused.choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
     load(paused.choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
     nowMs = 6000;
@@ -282,10 +300,19 @@ describe("a quality this device cannot play (D266)", () => {
     expect(paused.unplayable).toEqual([]);
 
     nowMs = 0;
+    const waitingForSound = standingAt(420.5);
+    waitingForSound.hls.media = videoAt(420.5, { isPaused: false, readyState: 1, isLoaded: false }); // a seek's sound not yet come
+    load(waitingForSound.choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
+    load(waitingForSound.choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
+    nowMs = 6000;
+    vi.advanceTimersByTime(lookAtChunkEveryMs);
+    expect(waitingForSound.unplayable).toEqual([]);
+
+    nowMs = 0;
     const playing = standingAt(420.5);
     load(playing.choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
     load(playing.choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
-    playing.hls.media = { currentTime: 423.5, paused: false, readyState: 4 };
+    playing.hls.media = videoAt(423.5, { isPaused: false, readyState: 4 });
     nowMs = 6000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
     expect(playing.unplayable).toEqual([]);
