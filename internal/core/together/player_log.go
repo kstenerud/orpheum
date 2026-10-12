@@ -132,7 +132,8 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 		return true
 	case NoteUnmuted:
 		current.logger.InfoContext(ctx, "watch together: a tap turned a muted player's sound on",
-			append(current.deviceAttributes(who, from), positionMsAttribute, note.PositionMs)...)
+			append(current.deviceAttributes(who, from), positionMsAttribute, note.PositionMs, "why", note.Why,
+				"soundState", note.SoundState)...)
 		return true
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected:
 	}

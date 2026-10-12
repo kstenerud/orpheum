@@ -252,6 +252,31 @@ func TestHub_LogsAPlayerPlayingMutedAndATapTurningItsSoundOn(t *testing.T) {
 	}
 }
 
+// A tap's sound state is logged, at the tap and again after it, so an iPhone that stays silent
+// after its tap says whether its film was muted again, paused, or in which audio session (the
+// owner's VQ30, 2026-10-12); an unknown why is refused.
+func TestHub_LogsATapsSoundStateAtItAndAfter(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	device, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	after := "muted=false volume=1.00 paused=false session=playback"
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteUnmuted, PositionMs: 2843705, Why: "after", SoundState: after,
+	}})
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteUnmuted, PositionMs: 1, Why: "later",
+	}})
+	logged := stage.logs.String()
+	for _, want := range []string{"positionMs=2843705", "why=after", `soundState="` + after + `"`} {
+		if !strings.Contains(logged, want) {
+			t.Errorf("the log does not say %s:\n%s", want, logged)
+		}
+	}
+	if strings.Contains(logged, "positionMs=1 ") {
+		t.Errorf("a note with an unknown why was logged:\n%s", logged)
+	}
+}
+
 // Voice turning off is logged at INFO with why: calls of 8 s ended with nothing to say whether a
 // person or a failure ended them (the owner's test, 2026-10-08); an unknown why is refused.
 func TestHub_LogsVoiceTurningOffAndWhy(t *testing.T) {

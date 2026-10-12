@@ -173,6 +173,10 @@ type PlayerNote struct {
 	// RecentEvents are a leaderCommand note's player's last events, "<event>[(own)]@<monotonic ms>",
 	// oldest first.
 	RecentEvents string `json:"recentEvents,omitempty"`
+	// SoundState is an unmuted note's sound: whether the element is muted, its volume, whether it is
+	// paused, and an iPhone's audio session; its Why, "after" for the state some seconds after the
+	// tap. An iPhone that stayed silent after its tap could not say why (the owner's VQ30, 2026-10-12).
+	SoundState string `json:"soundState,omitempty"`
 }
 
 // diagnosisTextMost is the longest a diagnosis note's text may be: ranges and an error's line.
@@ -233,8 +237,11 @@ func (note PlayerNote) isKnown() bool {
 		return note.isKnownVoice()
 	case NotePonged, NoteOwnMarkExpired, NoteCorrectsBySeeks, NoteLoadHeld:
 		return note.isKnownFollowing()
-	case NotePlayedMuted, NoteUnmuted:
+	case NotePlayedMuted:
 		return note.PositionMs >= 0 && note.Why == "" && note.Track == ""
+	case NoteUnmuted:
+		return note.PositionMs >= 0 && (note.Why == "" || note.Why == "after") && note.Track == "" &&
+			len(note.SoundState) <= diagnosisTextMost
 	case NoteDiagnosis, NoteLeaderCommand:
 		return note.isKnownDiagnosis()
 	}

@@ -9,6 +9,13 @@ export type SoundedMedia = Pick<
 >;
 
 /**
+ * How long after a tap for sound the player's sound is told again: whether it stayed on and the film
+ * played on, which an iPhone that stayed silent after its tap could not say (the owner's VQ30,
+ * 2026-10-12).
+ */
+export const soundToldAgainAfterMs = 2000;
+
+/**
  * The event a following player fires at its video when the browser would not start it with sound
  * and it plays muted instead: a page offers the sound at a tap (soundOnAtTap). iPhone Safari
  * refuses a play with sound that no recent tap started, and a guest's film starts long after their
@@ -56,16 +63,42 @@ export function playOrPlayMuted(
 
 /**
  * Turns a following player's sound on, and plays it if it is paused: for a page to call from the
- * person's tap, which lets the browser play with sound. The server's log is told.
+ * person's tap, which lets the browser play with sound. The server's log is told, with the sound's
+ * state then and soundToldAgainAfterMs later.
  */
 export function soundOnAtTap(
-  media: SoundedMedia,
+  media: SoundedMedia & Pick<HTMLMediaElement, "volume">,
   connection: Pick<TogetherConnection, "note">,
 ): void {
   // eslint-disable-next-line no-param-reassign -- the tap's whole purpose: the element's sound on
   media.muted = false;
-  connection.note({ kind: "unmuted", positionMs: positionMsOf(media) });
   if (media.paused && !media.ended) {
     media.play().catch(() => undefined); // the tap's own play; a refusal leaves it as it was
   }
+  connection.note({
+    kind: "unmuted",
+    positionMs: positionMsOf(media),
+    soundState: soundStateOf(media),
+  });
+  setTimeout(() => {
+    connection.note({
+      kind: "unmuted",
+      why: "after",
+      positionMs: positionMsOf(media),
+      soundState: soundStateOf(media),
+    });
+  }, soundToldAgainAfterMs);
+}
+
+/**
+ * The player's sound as the server's log reads it: whether the element is muted, its volume, whether
+ * it is paused, and the browser's audio session where it has one (Safari's navigator.audioSession).
+ */
+export function soundStateOf(media: Pick<HTMLMediaElement, "muted" | "volume" | "paused">): string {
+  const session: unknown =
+    typeof navigator === "undefined" ? undefined : Reflect.get(navigator, "audioSession");
+  const sessionType: unknown =
+    typeof session === "object" && session !== null ? Reflect.get(session, "type") : undefined;
+  const type = typeof sessionType === "string" ? sessionType : "none";
+  return `muted=${String(media.muted)} volume=${media.volume.toFixed(2)} paused=${String(media.paused)} session=${type}`;
 }

@@ -54,7 +54,8 @@ export interface PlayerState {
  *   mark was given up (D268 §4);
  * - playedMuted: the browser would not start the film with sound at positionMs, for want of a recent
  *   tap, and it plays muted (playedMutedEvent);
- * - unmuted: the person's tap turned the sound on at positionMs (soundOnAtTap);
+ * - unmuted: the person's tap turned the sound on at positionMs (soundOnAtTap), the sound's state
+ *   then, and again "after", soundToldAgainAfterMs later;
  * - diagnosis: what the player holds at positionMs as it moved itself over a gap ("movedItself"),
  *   stalled ("stalled") or buffered a playlist's first chunk ("bufferedFirst"): its readyState, its
  *   picture's and sound's buffered ranges, its last error, how hls.js placed its first chunks and
@@ -130,7 +131,14 @@ export type PlayerNote =
       /** Whether an iPhone's media source lets it load: "streaming", "stopped" or "". */
       readonly mediaSourceState: string;
     }
-  | { readonly kind: "unmuted"; readonly positionMs: number };
+  | {
+      readonly kind: "unmuted";
+      readonly positionMs: number;
+      /** At the tap, absent; "after", soundToldAgainAfterMs later. */
+      readonly why?: "after";
+      /** The sound then (soundStateOf). */
+      readonly soundState?: string;
+    };
 
 /**
  * A step a voice call takes: it sent its offer, sent its answer to one, took the answer to its

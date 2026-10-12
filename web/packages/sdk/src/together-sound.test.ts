@@ -3,7 +3,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { PlayerNote } from "./together-connection.ts";
-import { playedMutedEvent, playOrPlayMuted, soundOnAtTap } from "./together-sound.ts";
+import {
+  playedMutedEvent,
+  playOrPlayMuted,
+  soundOnAtTap,
+  soundToldAgainAfterMs,
+} from "./together-sound.ts";
 
 /**
  * A stand-in video, paused at 61 s, whose browser refuses a play for refusal's reason:
@@ -69,13 +74,24 @@ describe("a film the browser will not start with sound", () => {
     expect(connection.notes).toEqual([]);
   });
 
-  it("turns its sound on at the person's tap, playing it if it was paused, and says so", () => {
-    const video = new FakeVideo();
+  it("turns its sound on at the person's tap, playing it if it was paused, and says so, then again", () => {
+    vi.useFakeTimers();
+    const video = Object.assign(new FakeVideo(), { volume: 1 });
     video.muted = true;
     const connection = noting();
     soundOnAtTap(video, connection);
     expect(video.muted).toBe(false);
     expect(video.paused).toBe(false);
-    expect(connection.notes).toEqual([{ kind: "unmuted", positionMs: 61_000 }]);
+    const state = "muted=false volume=1.00 paused=false session=none";
+    expect(connection.notes).toEqual([{ kind: "unmuted", positionMs: 61_000, soundState: state }]);
+    video.muted = true; // something muted it again after the tap
+    vi.advanceTimersByTime(soundToldAgainAfterMs);
+    expect(connection.notes.at(-1)).toEqual({
+      kind: "unmuted",
+      why: "after",
+      positionMs: 61_000,
+      soundState: "muted=true volume=1.00 paused=false session=none",
+    });
+    vi.useRealTimers();
   });
 });
