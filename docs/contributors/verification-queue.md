@@ -259,7 +259,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   the ones chosen and read as meant (D278 §4, §6).
   (`web/apps/web/src/tokens.css`, `base.css`, `browse.css`, `credentials-form.css`, `jobs.css`,
   `offline-reminder.css`, `title.css`) — done 2026-10-11 by the owner: *"Looks good."*
-- [ ] **VQ29** — Against staging, a host in a desktop browser and on a phone opens the Watch
+- [x] **VQ29** — Against staging, a host in a desktop browser and on a phone opens the Watch
   Together sign in the status tray; then two guests join, one by a link with every right, one by
   a link with both boxes cleared. Passes when the tray's pop-up opens wholly on screen, hanging
   left from the sign, at both widths; the guest with every right has the player's own controls,
@@ -270,7 +270,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   Partly confirmed 2026-10-11 by the owner: the pop-up on screen on a desktop and on an Android
   phone, modal over the page; an iPhone guest with every right had the player's controls and left
   full screen by its X, the film playing on for everyone. Open: a guest with no rights and its Full
-  screen button.
+  screen button. — done 2026-10-12 by the owner: a Mac host with an iPhone and an Android phone as
+  guests, each in turn with every right and with none, then the Android hosting: *"Each guest that
+  had no rights (on iphone and android) could only fullscreen (which worked). Any guest with rights
+  controlled pause/resume, and if they had rights, jump."* The Android host reloaded played muted
+  with no way to turn the sound on, fixed by an earlier commit.
 - [ ] **VQ30** — Against staging, a host on a computer and a guest on an iPhone, neither pressing
   anything: the host presses Talk and speaks. Passes when the guest hears the host without pressing
   Talk; the guest's Talk is one round microphone button, solid blue while on on every phone, Firefox for
