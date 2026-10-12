@@ -19650,7 +19650,28 @@ by another."* It refines D284 §2, D265 and D250 §6.
    players onto fewer and lower common ones, **and as a last resort removes the member who joined
    most recently**. The owner: *"If the clients are saturating the network pipe, we should allow the
    server to consolidate playback quality among the clients, and ultimately to boot the most recent
-   member if it still doesn't help enough."*
+   member if it still doesn't help enough."* The upload it can spare is **a setting the owner
+   gives**, how fast their link is or how much of it they allow, with a button to measure it
+   by a speed test site left for later: *"Let's allow the user to specify what his bandwidth is (or
+   what he'll allow). We can also in future offer a button to auto-detect using one of those speed
+   test sites."* Removing the newest member: *"yes, booting the newest member is ok."*
+
+**Status:** Decided 2026-10-12.
+
+## D287 — A film's player keeps the screen awake while the film plays
+
+**Decided** (2026-10-12), by the project owner, after an iPhone and an Android phone left on a table
+during group tests locked their screens mid-film, iOS pausing its video as it did: *"Is it possible
+to prevent screen lock when a video is playing?"*, and to the Screen Wake Lock API, held while the
+film plays: *"go ahead"*.
+
+1. **Every film's player holds a screen wake lock while its video plays on a shown page**, solo or
+   in a group, and lets it go when the video pauses or ends or the player closes; a paused film lets
+   the device lock as it would.
+2. **The browser lets the lock go when the page is hidden; it is asked for again when the page is
+   shown** and the video plays.
+3. **Where there is no lock, it plays on as before**: a browser without the API, a page not served
+   over HTTPS, a request refused (as in low-power mode), asked again at the next change.
 
 **Status:** Decided 2026-10-12.
 

@@ -558,6 +558,7 @@ function useFollowing(
       leads: { canPlayPause, canSeek },
       monotonicMs,
       startLag: startLagMemory(browserStorage()),
+      page: document,
     });
     return () => {
       stopFollowing();

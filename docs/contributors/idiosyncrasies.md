@@ -156,6 +156,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Vitest strips types without type-checking, so a types-only change can never fail a test | [Vitest strips types without type-checking, so a types-only change can never fail a test](#vitest-strips-types-without-type-checking-so-a-types-only-change-can-never-fail-a-test) |
 | Happy-dom does not carry a disabled `<fieldset>` to its controls | [happy-dom does not carry a disabled `<fieldset>` to its controls](#happy-dom-does-not-carry-a-disabled--to-its-controls) |
 | An iPhone pauses a video as its own full-screen player closes | [An iPhone pauses a video as its own full-screen player closes](#an-iphone-pauses-a-video-as-its-own-full-screen-player-closes) |
+| An iPhone in a group paused everyone as its screen locked | [iOS pauses a playing video as its screen locks, before the page is told it is hidden](#ios-pauses-a-playing-video-as-its-screen-locks-before-the-page-is-told-it-is-hidden) |
 | Safari sizes a `height: 100%` video in an `aspect-ratio` box wrongly, cutting off its controls | [Safari sizes a `height: 100%` video in an `aspect-ratio` box wrongly, cutting off its controls](#safari-sizes-a-height-100-video-in-an-aspect-ratio-box-wrongly-cutting-off-its-controls) |
 | Playwright grants "microphone" only on Chromium; | [Playwright grants "microphone" only on Chromium; Firefox needs prefs](#playwright-grants-microphone-only-on-chromium-firefox-needs-prefs) |
 | After the D227 renames the client compiled while still sending the old field names. | [TypeScript checks no excess properties on a body built with a computed key or held in a variable](#typescript-checks-no-excess-properties-on-a-body-built-with-a-computed-key-or-held-in-a-variable) |
@@ -200,7 +201,10 @@ User-Agent (D263; the User-Agent is logged only).
 - **What we do:** D266. A quality is given up for the playback, with every quality above it, and the video's
   decoding is built anew (`recoverMediaError`). This happens at once when two of its chunks are held nothing
   of, or after 6 s standing still while two chunks arrive. The core logs the quality, with the video as it
-  was. There is no User-Agent branching.
+  was. There is no User-Agent branching. The 6 s count only while what the video plays is loaded where it
+  stands, a seek's sound coming late being no sign; the held-nothing count needs nothing loaded, since this
+  picture is never loaded anywhere. Requiring it loaded for both left a Mac in a group waiting on Flow for
+  good (the owner's test, 2026-10-12).
   `web/packages/player/src/abr-choice.ts` (`isUnplayable`, `chunksNotHeld`); `web/packages/player/src/abr.ts`
   (`#lookAtPlaying`, `notHeld`); `internal/core/api/report.go` (`logUnplayable`).
 - **Evidence:** D266; [owner] 2026-10-07 (Safari plays it, Firefox from the start only) and 2026-10-08 (the
@@ -1978,12 +1982,30 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 
 - **What we do:** a following player takes the pause near `webkitendfullscreen` for its own, not its
   person's: a pause waiting to be sent is dropped, one still to come is marked, and the video is put
-  back where the group is. `web/packages/sdk/src/together-follow.ts` (`leftFullscreen`).
+  back where the group is. `web/packages/sdk/src/together-follow.ts` (`browserPaused`).
 - **Evidence:** the owner's test, 2026-10-11: each time an iPhone guest with the right to pause left
   full screen by its X, the log showed its player send a pause, and the group paused for everyone.
   An iPhone has no element Fullscreen API, only a video's own full-screen player
   (`webkitEnterFullscreen`, Apple Developer Forums thread 770080, searched 2026-10-11); which comes
   first, the pause or `webkitendfullscreen`, is not documented, so both orders are handled.
+
+
+### iOS pauses a playing video as its screen locks, before the page is told it is hidden
+
+- **Symptom:** an iPhone in a Watch Together group, left until its screen locked, sent a pause, and
+  the group paused for everyone: an Android phone playing beside it stopped (the owner's test,
+  2026-10-12; the core's log, `a leading player sent a command … command=pause` with no seek after).
+- **Cause:** WebKit interrupts a playing video the moment the screen locks, before any page script
+  runs, and the `pause` can come before the `visibilitychange` to hidden; to the page it reads as
+  its person's tap.
+- **What we do:** a leading player's pause waits `browserPauseWindowMs` (500 ms) before it is sent,
+  and the page hiding within it, or before it, makes it the browser's pause, as the full-screen
+  player's is above. `web/packages/sdk/src/together-follow.ts` (`browserPaused`, `followGroup`'s
+  `page`). The films' players also hold a screen wake lock while they play (D287), so a screen left
+  alone does not lock mid-film. VQ35.
+- **Evidence:** the owner's test, 2026-10-12. **[web]** The same order, and the same half-second
+  wait to tell a tapped pause from the lock's, in
+  [jackywxd/haijieliu#11](https://github.com/jackywxd/haijieliu/pull/11) (read 2026-10-12).
 
 
 ### Safari sizes a `height: 100%` video in an `aspect-ratio` box wrongly, cutting off its controls

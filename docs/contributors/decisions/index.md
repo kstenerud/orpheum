@@ -292,6 +292,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D284](working-notes.md#d284--encoded-qualities-carry-a-keyframe-every-2-s-each-its-own-fragment-and-a-chunk-is-served-as-it-is-made-a-player-says-when-a-jump-took-it-where-it-loads-and-a-jump-starts-a-run-there) Encoded qualities carry a keyframe every 2 s, each its own fragment, and a chunk is served as it is made; a player says when a jump took it where it loads, and a jump starts a run there — *revisited by D286*
 - [D285](working-notes.md#d285--a-long-jump-is-snapped-back-to-its-keyframe-and-starts-the-run-up-after-it-and-while-anyone-in-a-group-is-still-loading-the-rest-hold-a-short-runway) A long jump is snapped back to its keyframe and starts the run-up after it, and while anyone in a group is still loading, the rest hold a short runway
 - [D286](working-notes.md#d286--a-jump-cuts-every-run-of-a-quality-it-does-not-land-in-a-groups-player-keeps-the-films-own-picture-while-its-link-carries-it-encoded-devices-start-a-jump-on-a-common-quality-and-an-overloaded-server-moves-a-player-onto-a-quality-it-already-makes) A jump cuts every run of a quality it does not land in, a group's player keeps the film's own picture while its link carries it, encoded devices start a jump on a common quality, and an overloaded server moves a player onto a quality it already makes
+- [D287](working-notes.md#d287--a-films-player-keeps-the-screen-awake-while-the-film-plays) A film's player keeps the screen awake while the film plays
 
 ## Archived
 

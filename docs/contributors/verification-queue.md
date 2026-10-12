@@ -319,4 +319,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   `a player's seek was ready to play` says where it came from and is not followed by `a player found
   a quality its device cannot play`. Only the owner's link and devices carry the timings (D283).
   (`web/packages/sdk/src/together-refill.ts`, `together-follow.ts`, `web/packages/player/src/hls.ts`)
+- [ ] **VQ35** — Against staging, on an iPhone and an Android phone with the screen set to lock after
+  30 s: a film plays, alone and in a Watch Together group, untouched for two minutes. Passes when
+  neither screen locks while the film plays, and each locks as usual once the film is paused; and
+  when an iPhone's screen is locked by its button in a group, the others play on (the core's log:
+  no `a leading player sent a command … command=pause` from it). Only real devices lock their
+  screens (D287).
+  (`web/packages/player/src/wake.ts`, `web/apps/web/src/film-player.tsx`,
+  `web/packages/sdk/src/together-follow.ts`)
 
