@@ -56,6 +56,46 @@ func TestHub_TheOnlyPlayerStallingHoldsTheGroupUntilItIsReady(t *testing.T) {
 	}
 }
 
+// Once every player has stalled or dropped, one after another, the group holds where the last
+// left it until one of them is ready again: it never moves on while no one watches (the owner,
+// 2026-10-12; D250 §2's amendment).
+func TestHub_EveryPlayerStalledOrGoneHoldsTheGroupUntilOneIsReady(t *testing.T) {
+	t.Parallel()
+	for _, lastDrops := range []bool{false, true} {
+		stage := playing(t)
+		hostBox, guestDevice := stage.hostBox, stage.guestDevice
+		stage.clock.Advance(time.Minute)
+		stage.ready(t, guestDevice, true)
+		if group := hostBox.last(MessageGroup).Group; group.State != GroupPlaying {
+			t.Fatalf("the guest stalled, the host's player along: %+v; want Playing on", group)
+		}
+		stage.clock.Advance(10 * time.Second)
+		if lastDrops {
+			stage.hub.Detach(stage.host)
+		} else {
+			stage.ready(t, stage.host, true)
+		}
+		_, watchBox := stage.attach(t, stage.opened.MembershipCredential, RoleVoice)
+		held := watchBox.last(MessageWelcome).Group
+		if held.State != GroupWaiting || held.PositionMs != 70_000 {
+			t.Fatalf("host dropped %t, every player stalled or gone: %+v; want Waiting at 70 s", lastDrops, held)
+		}
+		stage.clock.Advance(testSyncWait + time.Minute)
+		stage.tick(t, guestDevice)
+		if changed := watchBox.last(MessageGroup).Group; changed != nil {
+			t.Fatalf("host dropped %t, past the sync wait with no one ready: %+v; want it held, unchanged",
+				lastDrops, changed)
+		}
+		stage.ready(t, guestDevice, false)
+		stage.clock.Advance(testSyncWait)
+		stage.tick(t, guestDevice)
+		group := watchBox.last(MessageGroup).Group
+		if group.State != GroupPlaying || group.PositionMs != 70_000 {
+			t.Errorf("host dropped %t, the guest ready again: %+v; want Playing from 70 s", lastDrops, group)
+		}
+	}
+}
+
 // The last player playing along that drops, stalled first or not, holds the group until a player is
 // ready, the same one back on a new connection: the group started playing to no one as the owner's
 // stalled player reconnected (staging, 2026-10-12; D250 §2's amendment).
