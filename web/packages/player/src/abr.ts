@@ -21,6 +21,7 @@ import {
   isLoadedWhereItStands,
   isUnplayable,
   keptOwnPicture,
+  ownPictureLevel,
   commonStartForMs,
   commonStartLevel,
   isWaitingToPlay,
@@ -87,6 +88,7 @@ export interface ChoosingOptions {
   readonly onUnplayable?: (unplayable: {
     readonly qualityKbps: number;
     readonly positionMs: number;
+    readonly isFilmsOwnPicture: boolean;
   }) => void;
 }
 
@@ -400,6 +402,7 @@ export class Choosing<Chunk extends FollowedChunk> {
     this.#options.onUnplayable?.({
       qualityKbps: Math.round((this.#hls.levels[level]?.bitrate ?? 0) / 1000),
       positionMs: Math.round(positionS * 1000),
+      isFilmsOwnPicture: level === ownPictureLevel(this.#hls.levels),
     });
     this.#link.loadAgain();
   }

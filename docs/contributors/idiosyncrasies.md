@@ -41,6 +41,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Symptom | Entry |
 |---|---|
 | *Flow* (10-bit HEVC by x265) froze at the first frame of any chunk but the film's first. | [Firefox on macOS freezes on HEVC chunks that start on a CRA keyframe](#firefox-on-macos-freezes-on-hevc-chunks-that-start-on-a-cra-keyframe) |
+| After a jump, the sound's first chunk is asked for only once the picture's has come. | [hls.js asks for a jump's sound only after its picture](#hlsjs-asks-for-a-jumps-sound-only-after-its-picture) |
 | The browser takes a fragment's append without error but adds nothing to the buffer. | [hls.js reports a fragment the browser held nothing of, then does nothing about it](#hlsjs-reports-a-fragment-the-browser-held-nothing-of-then-does-nothing-about-it) |
 | `RTCRtpReceiver.getCapabilities("audio")` lists no `audio/red`, so plain Opus is negotiated and voice has less loss protection. | [Firefox offers no RED (redundant audio) for Opus](#firefox-offers-no-red-redundant-audio-for-opus) |
 | Voice hung at "Asking for your microphone" because opening the microphone awaited the context's resume. | [Firefox keeps `AudioContext.resume()` pending until it lets the page play sound](#firefox-keeps-audiocontextresume-pending-until-it-lets-the-page-play-sound) |
@@ -986,6 +987,23 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   `bwEstimator`, so it could ask that directly rather than inferring from `FRAG_LOADED`.
 
 ---
+
+### hls.js asks for a jump's sound only after its picture
+
+- **Technology:** hls.js 1.7.3, `audio-stream-controller.ts`, a picture and a sound in separate playlists.
+- **Symptom:** a jump on a quality made on request waited 12.5 s: the picture's first chunk came at 7.4 s,
+  and the sound's run was only queued then, taking 5 s more (the owner's test, 2026-10-12, Flow on a Mac).
+- **Cause:** the sound's loader loads at most one fragment past the main one loading
+  (`audio-stream-controller.ts:429-461`, "Request audio segments up to one fragment ahead of main
+  stream-controller"): a sound fragment that starts past the end of `mainFragLoading` waits. After a jump the
+  picture's fragment there is still on its way, so the sound is asked for only once it has come [source;
+  that it was the picture's chunk it waited on, the core's log].
+- **What we do:** the core makes the sound beside the picture: a picture's file asked for where a seek took
+  its player (`Orpheum-Sought`) starts the sound the playback last asked for at the same chunk.
+  `internal/core/chunks/files.go` (`WantAlongside`), `internal/core/api/chunks.go`,
+  `internal/core/playback/chunks.go` (`SoundOf`).
+- **Evidence:** [owner] 2026-10-12, the core's log: the sound's run queued 7.4 s after the picture's;
+  `/yoloai/cache/seek-research/hls.js` (v1.7.3-24-gc407464).
 
 ### hls.js reports a fragment the browser held nothing of, then does nothing about it
 

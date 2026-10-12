@@ -81,6 +81,8 @@ type Service struct {
 	chunks      Chunks
 	// speeds are the link speeds players measured, by player and network (D257 §1).
 	speeds *linkSpeeds
+	// unplayablePictures are the films whose own picture each player gave up as unplayable.
+	unplayablePictures *unplayablePictures
 }
 
 // NewService returns the playback service.
@@ -90,7 +92,7 @@ func NewService(parts Parts) *Service {
 		clock: parts.Clock, random: parts.Random,
 		tokens: newTokens(), renditions: parts.Renditions,
 		subtitles: parts.Subtitles, preferences: parts.Preferences, loudness: parts.Loudness,
-		chunks: parts.Chunks, speeds: newLinkSpeeds(),
+		chunks: parts.Chunks, speeds: newLinkSpeeds(), unplayablePictures: newUnplayablePictures(),
 	}
 }
 
@@ -194,6 +196,8 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	playback := tokenPlayback{
 		userID: userID, sessionKey: holder.SessionKey, fileID: file.ID, libraryID: file.LibraryID,
 		deviceID: request.DeviceID, decision: decision,
+		isOwnPictureUnplayable: service.unplayablePictures.has(
+			playerOf(request.DeviceID, holder.SessionKey), file.ID),
 	}
 	playback.used, playback.startingAudio = used, started.StartingAudio
 	started.OnLadder, started.NotOnLadderBecause, err = service.startOnLadder(ctx, holder, request, playback,

@@ -5523,6 +5523,9 @@
             "maxLength": 400,
             "type": "string"
           },
+          "isFilmsOwnPicture": {
+            "type": "boolean"
+          },
           "isPaused": {
             "type": "boolean"
           },

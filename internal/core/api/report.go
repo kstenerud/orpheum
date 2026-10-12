@@ -72,6 +72,9 @@ type UnplayableBody struct {
 	VideoBuffered string `json:"videoBuffered,omitempty" maxLength:"400" required:"false"`
 	AudioBuffered string `json:"audioBuffered,omitempty" maxLength:"400" required:"false"`
 	LastError     string `json:"lastError,omitempty"     maxLength:"200" required:"false"`
+	// IsFilmsOwnPicture is whether the quality was the film's own picture, copied as it is: the
+	// server then offers it to none of the device's later playbacks of the film.
+	IsFilmsOwnPicture bool `json:"isFilmsOwnPicture,omitempty" required:"false"`
 }
 
 // StartupBody is how long a playback took to start, each from when the player asked how the file
@@ -190,6 +193,9 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 			StartedMonoMs: span.StartedMonoMs, EndedMonoMs: span.EndedMonoMs, IsUnattended: span.IsUnattended,
 		})
 	}
+	for _, unplayable := range input.Body.Unplayables {
+		report.IsOwnPictureUnplayable = report.IsOwnPictureUnplayable || unplayable.IsFilmsOwnPicture
+	}
 	answer, err := reporter.dependencies.Playback.Report(ctx, input.Token, reporter.holder, reporter.deviceID, report)
 	if err != nil {
 		return nil, server.playbackError(ctx, "keep a play report", err)
@@ -272,7 +278,7 @@ func (server *Server) logUnplayables(ctx context.Context, reporter reporter, unp
 			"qualityKbps", unplayable.QualityKbps, "positionMs", unplayable.PositionMs,
 			"readyState", unplayable.ReadyState, "isPaused", unplayable.IsPaused,
 			"videoBuffered", unplayable.VideoBuffered, "audioBuffered", unplayable.AudioBuffered,
-			"lastError", unplayable.LastError)
+			"lastError", unplayable.LastError, "isFilmsOwnPicture", unplayable.IsFilmsOwnPicture)
 	}
 }
 

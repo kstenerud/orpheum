@@ -250,6 +250,69 @@ func TestChunks_APlayerSayingASeekTookItThereIsTakenAtItsWord(t *testing.T) {
 	harness.logs.AwaitLine(t, `"msg":"waited for a chunk not made yet"`, `"wantedChunk":1,`, `"isSought":true,`)
 }
 
+// A jump's picture is made with its sound: once the player has asked for a sound, the picture's
+// first chunk asked for where a seek took it starts the sound there too, as hls.js asks for a seek's
+// sound only once that chunk has come (the owner's test, 2026-10-12: 5 s of a 12.5 s jump).
+func TestChunks_AJumpsPictureStartsItsSoundThereToo(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	base := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	harness.keepFilmOnesTimeline(t)
+	harness.measureFilmOnesLoudness(t)
+	if early := harness.getBytePath(t, base+"sound0-96k/00002.m4s", user, true, ""); early.status !=
+		http.StatusTooEarly {
+		t.Fatalf("the sound's chunk, before the jump: %d %s; want 425", early.status, early.body)
+	}
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet,
+		harness.httpServer.URL+base+"q700k432p/00001.m4s", http.NoBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Authorization", "Bearer "+user)
+	request.Header.Set("Orpheum-Sought", "true")
+	answer, err := harness.httpServer.Client().Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = answer.Body.Close() //nolint:errcheck // its status is all that is read
+	if answer.StatusCode != http.StatusTooEarly {
+		t.Errorf("the jump's picture, not made yet: %d, want 425", answer.StatusCode)
+	}
+	harness.logs.AwaitLine(t, `"msg":"queued a run of chunks"`, `"storeDir":"1/chunks-sound0-96k/`,
+		`"wantedChunk":1,`)
+}
+
+// A player that gave up the film's own picture as one its device cannot play is not offered it at
+// its next playback of the film; another player, here another session, still is (D266): Firefox on
+// a Mac gave Flow's up anew at every playback (the owner's test, 2026-10-12).
+func TestChunks_AFilmsOwnPictureGivenUpIsNotOfferedToThePlayersNextPlayback(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.keepFilmOnesTimeline(t)
+	first := harness.play(t, user, chrome(1))
+	body := reportBody(1, 420_500, 0)
+	body["unplayables"] = []map[string]any{{"qualityKbps": 3096, "positionMs": 420_500, "isFilmsOwnPicture": true}}
+	if answer := harness.report(t, user, first, body); answer.status != http.StatusOK {
+		t.Fatalf("the report: %d %s", answer.status, answer.body)
+	}
+	next := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/master.m3u8"
+	if master := harness.getBytePath(t, next, user, true, ""); master.status != http.StatusOK ||
+		strings.Contains(master.body, "picture/stream.m3u8") || !strings.Contains(master.body, "q2000k540p") {
+		t.Errorf("the next playback's master playlist offers the picture given up, or nothing:\n%s", master.body)
+	}
+	other := harness.signIn(t, "owner", "owner-password")
+	elsewhere := Prefix + "/bytes/media/chunks/" + harness.play(t, other, chrome(1)).MediaToken + "/master.m3u8"
+	if master := harness.getBytePath(t, elsewhere, other, true, ""); !strings.Contains(master.body,
+		"picture/stream.m3u8") {
+		t.Errorf("another player's master playlist lost the picture:\n%s", master.body)
+	}
+	harness.logs.AwaitLine(t, `"msg":"a player found a quality its device cannot play"`, `"isFilmsOwnPicture":true`)
+}
+
 // A chunk of a quality whose run was evicted to keep its machine's other runs faster than playback
 // is answered 429, which nothing else on a chunk's path answers, so the player stops and says why
 // (D250 §6).

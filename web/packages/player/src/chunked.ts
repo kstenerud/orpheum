@@ -47,6 +47,8 @@ export const playerFoundUnplayableEvent = "orpheumplayerfoundunplayable";
 export interface UnplayableQuality {
   readonly qualityKbps: number;
   readonly positionMs: number;
+  /** Whether it was the film's own picture, offered then to none of the device's later playbacks of the film. */
+  readonly isFilmsOwnPicture?: boolean;
   /**
    * The video as it was when the quality was given up, before its decoding was built anew: its
    * readyState, whether it was paused, what its picture's and sound's buffers held, and its last
@@ -69,7 +71,7 @@ export function unplayableOf(event: Event): UnplayableQuality | undefined {
     return undefined;
   }
   const fields = Object.fromEntries(Object.entries(detail));
-  const { qualityKbps, positionMs, readyState, isPaused } = fields;
+  const { qualityKbps, positionMs, readyState, isPaused, isFilmsOwnPicture } = fields;
   if (typeof qualityKbps !== "number" || typeof positionMs !== "number") {
     return undefined;
   }
@@ -80,6 +82,7 @@ export function unplayableOf(event: Event): UnplayableQuality | undefined {
     positionMs,
     ...(typeof readyState === "number" ? { readyState } : {}),
     ...(typeof isPaused === "boolean" ? { isPaused } : {}),
+    ...(typeof isFilmsOwnPicture === "boolean" ? { isFilmsOwnPicture } : {}),
     ...text("videoBuffered"),
     ...text("audioBuffered"),
     ...text("lastError"),
@@ -92,7 +95,11 @@ export function unplayableOf(event: Event): UnplayableQuality | undefined {
  */
 export function sendUnplayable(
   video: Pick<HTMLVideoElement, "readyState" | "paused" | "error" | "dispatchEvent">,
-): (unplayable: { readonly qualityKbps: number; readonly positionMs: number }) => void {
+): (unplayable: {
+  readonly qualityKbps: number;
+  readonly positionMs: number;
+  readonly isFilmsOwnPicture: boolean;
+}) => void {
   return (unplayable) => {
     const found: UnplayableQuality = {
       ...unplayable,
