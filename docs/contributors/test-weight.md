@@ -156,9 +156,9 @@ Each entry says: the **mechanism**, the **instance** we found, **why it was invi
   `screen-refusals.test.tsx` 2.8 s: about 25 times slower than alone.
 - **Why it was invisible:** it fails only when the gate's steps overlap and the machine is busy,
   such as when staging is encoding a film beside the gate, and a retry passes.
-- **Fix:** none yet. It needs a gate change, which is the owner's: a `testTimeout` in
-  `web/vitest.config.ts` above the worst seen under the gate (15 s would leave room), or fewer
-  vitest workers while the other checks run.
+- **Fix:** `testTimeout: 15_000` in `web/vitest.config.ts`, about three times the worst seen
+  under the gate; a test that hangs still fails (the owner, 2026-10-12: *"Make the gate edits."*).
+  Fewer vitest workers while the other checks run was the other way, and would slow every run.
 - **Warning sign:** a web test that fails with "Test timed out in 5000ms" and passes alone; first
   tests of a file at 2 s or more in the gate's verbose log.
 
