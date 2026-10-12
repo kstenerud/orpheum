@@ -113,3 +113,27 @@ func TestUpload_EachStartTakesWhatIsLeftOfTheShare(t *testing.T) {
 		t.Errorf("the second's first chunk says a ceiling of %q; want 496", ceiling)
 	}
 }
+
+// A guest's playback starts within its part of the share, the session's members counted by the
+// guest's host: under 2550 kbit/s with the host and the guest, half, so 700k, not the film's own
+// picture the whole share would carry (D286 §5).
+func TestUpload_AGuestStartsWithinItsPartOfTheShare(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.keepFilmOnesTimeline(t)
+	harness.setSetting(t, "server_upload_mbps", "3")
+	opened := harness.openTogether(t, admin)
+	membership := harness.joinByLink(t, admin, opened.Body.SessionID, "my partner", "Anna")
+	host := harness.dialTogether(t, opened.Body.MembershipCredential)
+	host.awaitWelcome()
+	viewer := harness.dialTogether(t, membership.Body.MembershipCredential)
+	viewer.awaitWelcome()
+	putOn(host, viewer, 1)
+	started := harness.viewerPlayback(t, membership.Body.MembershipCredential)
+	if started.status != http.StatusOK || !strings.Contains(started.body, `"qualityKbps":700`) {
+		t.Errorf("the guest's start = %d %s; want on its ladder at 700k, half of the share", started.status,
+			started.body)
+	}
+}
