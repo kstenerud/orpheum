@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { everyRight, followGroup, type CannotKeepUp, type GroupCommand } from "@orpheum/sdk";
-import { useEffect, useRef, type JSX } from "react";
+import {
+  everyRight,
+  followGroup,
+  playedMutedEvent,
+  soundOnAtTap,
+  type CannotKeepUp,
+  type GroupCommand,
+  type TogetherConnection,
+} from "@orpheum/sdk";
+import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { AudioOutput } from "./accounts.ts";
@@ -112,11 +120,52 @@ function HostLeading(
   }, [isOver, onOver]);
   return (
     <div className="together-host">
+      <SoundOn video={video} connection={connection} />
       <p>{t("together.hostPlaying")}</p>
       <TogetherNews snapshot={snapshot} />
       {hostVoice === undefined ? null : (
         <VoiceControls {...hostVoice} audioOutput={props.audioOutput} />
       )}
     </div>
+  );
+}
+
+/**
+ * The tap that turns the host's film's sound on, while the browser plays it muted: it refuses a
+ * film's sound that no recent tap started, as after the host's page is loaded again, and the film
+ * played on for the group with no sound and nothing said why (the owner's test, 2026-10-12).
+ */
+function SoundOn(props: {
+  readonly video: HTMLVideoElement | null;
+  readonly connection: TogetherConnection | undefined;
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  const { video, connection } = props;
+  const [isMuted, setIsMuted] = useState(false);
+  useEffect(() => {
+    if (video === null) {
+      return undefined;
+    }
+    const onPlayedMuted = (): void => {
+      setIsMuted(true);
+    };
+    video.addEventListener(playedMutedEvent, onPlayedMuted);
+    return () => {
+      video.removeEventListener(playedMutedEvent, onPlayedMuted);
+    };
+  }, [video]);
+  if (!isMuted || video === null || connection === undefined) {
+    return null;
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        soundOnAtTap(video, connection);
+        setIsMuted(false);
+      }}
+    >
+      {t("together.soundOn")}
+    </button>
   );
 }
