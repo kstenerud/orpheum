@@ -194,6 +194,9 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 	if err != nil {
 		return nil, server.playbackError(ctx, "keep a play report", err)
 	}
+	if !answer.IsRepeat {
+		server.logEvents(ctx, reporter, input.Body.Events)
+	}
 	server.logReport(ctx, reporter, report, answer, input.Body.Stalls)
 	server.logStartup(ctx, reporter, input.Body.Startup, input.Body.LinkKbps)
 	server.logUnplayables(ctx, reporter, input.Body.Unplayables)
@@ -230,6 +233,17 @@ func (server *Server) logReport(
 		server.logger.InfoContext(ctx, "a stalling player was offered a lower quality", append(who,
 			"qualityKbps", offer.Quality.Kbps, "height", offer.Quality.Height,
 			"isBelowTheLowest", offer.IsBelowTheLowest, "isReady", answer.IsLowerQualityReady)...)
+	}
+}
+
+// logEvents says each change of a player's play state a report brought, and where: a start, a pause,
+// a seek, the end, or the player closed. A Mac playing alone had paused and closed before the owner
+// told of it, and the log said only that it had started (the owner, 2026-10-12: "We should be logging
+// that").
+func (server *Server) logEvents(ctx context.Context, reporter reporter, events []EventBody) {
+	for _, event := range events {
+		server.logger.InfoContext(ctx, "a player's play state changed",
+			append(reporter.logAttributes(), "kind", event.Kind, "positionMs", event.PositionMs)...)
 	}
 }
 

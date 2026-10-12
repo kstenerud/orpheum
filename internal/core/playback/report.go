@@ -62,6 +62,9 @@ type Answer struct {
 	// IsLowerQualityReady is whether LowerQuality is made from where the player is, ready to move
 	// to: the player then decides whether it still needs it (D253 §2).
 	IsLowerQualityReady bool
+	// IsRepeat is whether the report was one taken already, sent again: it changed nothing, and
+	// what it says was logged the first time.
+	IsRepeat bool
 }
 
 // Chunks starts a playback on its film's ladder (D260), offers a stalled playback not on one a lower
@@ -137,7 +140,7 @@ func (service *Service) Report(
 		}
 		service.tokens.keepPosition(token, report.PositionMs, playback.hasPlayed)
 	}
-	answer := Answer{StopMessage: playback.stopMessage}
+	answer := Answer{StopMessage: playback.stopMessage, IsRepeat: !isNew}
 	if playback.stopMessage != nil {
 		service.tokens.end(token)
 		return answer, nil
