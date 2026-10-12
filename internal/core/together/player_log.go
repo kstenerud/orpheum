@@ -26,6 +26,9 @@ func (current *session) logPlayer(ctx context.Context, now time.Time, who *membe
 	if !from.playerChangedAt.IsZero() {
 		attributes = append(attributes, "lastStateMs", now.Sub(from.playerChangedAt).Milliseconds())
 	}
+	if message.StartLagMs != nil {
+		attributes = append(attributes, "startLagMs", *message.StartLagMs)
+	}
 	current.logger.DebugContext(ctx, "watch together: a device's player changed", attributes...)
 	from.playing, from.playerChangedAt = message.Playing, now
 }

@@ -147,9 +147,12 @@ func (current *session) seek(now time.Time, sender *member, position time.Durati
 // it plays on, and the player catches up alone, its member named to everyone. When no other player
 // plays along, the group waits for it instead, as at a sync point: playing on would play to no one,
 // and the one watching would jump ahead to catch up, missing what they had not seen (D250 §2's
-// amendment of 2026-10-12).
+// amendment of 2026-10-12). Before the group starts moving no player stalls: one loading then is
+// starting, as one running up to the start loads from before it (D282), and taken for a stall, a
+// whole session's run-ups turned its start into waits and starts, over and over (the browser tier,
+// 2026-10-12).
 func (current *session) stalled(now time.Time, who *member, stalledDevice *device) {
-	if current.group.state != GroupPlaying || stalledDevice.isCatchingUp {
+	if current.group.state != GroupPlaying || stalledDevice.isCatchingUp || now.Before(current.group.at) {
 		return
 	}
 	if !current.isAnyPlayingAlong() {
@@ -168,6 +171,31 @@ func (current *session) dropped(now time.Time, who *member, droppedDevice *devic
 		return
 	}
 	current.change(now, GroupWaiting, EventWaitingFor, who.id)
+}
+
+// startOf is where and when a group that starts playing now starts moving: where it is, the start's
+// lead from now (D268 §3). While a player along has not yet learned how late it starts, the lead is
+// the run-up, which it plays through from before where the group starts, and a group at the film's
+// first moments starts the run-up in, so there is film to run up through (D282): the owner, *"If the
+// video is at the very start, losing a second or two isn't bad"*.
+func (current *session) startOf(now time.Time) (time.Duration, time.Time) {
+	position := current.positionAt(now)
+	if current.runUp <= current.startLead || !current.isAnyStartUnlearned() {
+		return position, now.Add(current.startLead)
+	}
+	return max(position, current.runUp), now.Add(current.runUp)
+}
+
+// isAnyStartUnlearned is whether a player along has not yet learned how late it starts.
+func (current *session) isAnyStartUnlearned() bool {
+	for _, each := range current.members {
+		for _, attached := range each.devices {
+			if attached.playsAlong() && !attached.knowsStartLag {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // playsAlong is whether the device is a player the group plays along with: one that has once been
@@ -251,7 +279,7 @@ func (current *session) announce(
 ) {
 	switch {
 	case state == GroupPlaying && current.group.state != GroupPlaying:
-		current.group.position, current.group.at = current.positionAt(now), now.Add(current.startLead)
+		current.group.position, current.group.at = current.startOf(now)
 	case state != GroupPlaying || current.group.state != GroupPlaying:
 		current.group.position, current.group.at = current.positionAt(now), now
 	}

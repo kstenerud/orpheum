@@ -57,6 +57,7 @@ import {
   membershipHeaders,
   readMembership,
   readViewerAudioOutput,
+  startLagMemory,
   type Membership,
 } from "./together-storage.ts";
 import { monotonicMs, useTogether, useToldCannotKeepUp } from "./use-together.ts";
@@ -556,6 +557,7 @@ function useFollowing(
       fileId,
       leads: { canPlayPause, canSeek },
       monotonicMs,
+      startLag: startLagMemory(browserStorage()),
     });
     return () => {
       stopFollowing();

@@ -134,7 +134,7 @@ type PlayerNote struct {
 	// ReturnCostMs is what a nudged player learned its rate going back to the group's costs it:
 	// some 220 ms on an iPhone, which nudged it again and again (the owner's tests, 2026-10-08).
 	ReturnCostMs int64 `json:"returnCostMs,omitempty"`
-	// Why is a seek's ("catchUp", "hold", "skip") or a reconnection's ("closed", "silent").
+	// Why is a seek's ("catchUp", "hold", "skip", "runUp") or a reconnection's ("closed", "silent").
 	Why string `json:"why,omitempty"`
 	// Track, LoadMs and LoadedKbps are a chunk's: "video" or "audio", how long it took, and how fast.
 	Track      string `json:"track,omitempty"`
@@ -213,7 +213,7 @@ const positionMsAttribute = "positionMs"
 // isNoteWord is whether word may be a note's Why or Track: anything else is a malformed note.
 func isNoteWord(word string) bool {
 	switch word {
-	case "", "catchUp", "hold", "skip", "closed", "silent", "video", "audio", "direct", "udp", "tcp", "tls":
+	case "", "catchUp", "hold", "skip", "runUp", "closed", "silent", "video", "audio", "direct", "udp", "tcp", "tls":
 		return true
 	}
 	return false
@@ -335,11 +335,15 @@ type Inbound struct {
 	// CannotKeepUp, in a state, is the device saying even its lowest quality is beyond its link,
 	// which the group is told in the roster (D247 §8); nil while it keeps up.
 	CannotKeepUp *CannotKeepUp `json:"cannotKeepUp,omitempty"`
-	Command      CommandKind   `json:"command,omitempty"`
-	Rate         float64       `json:"rate,omitempty"`
-	FileID       int64         `json:"fileId,omitempty"`
-	BasedOnSeq   int64         `json:"basedOnSeq,omitempty"`
-	Reason       SuspendReason `json:"reason,omitempty"`
+	// StartLagMs, in a state, is how late the device's player has learned it moves after it is told
+	// to play, which it presses play that much early for; nil until it has started once, which the
+	// group then gives a run-up (D282).
+	StartLagMs *int64        `json:"startLagMs,omitempty"`
+	Command    CommandKind   `json:"command,omitempty"`
+	Rate       float64       `json:"rate,omitempty"`
+	FileID     int64         `json:"fileId,omitempty"`
+	BasedOnSeq int64         `json:"basedOnSeq,omitempty"`
+	Reason     SuspendReason `json:"reason,omitempty"`
 	// Note is a note's: one thing the device's player did, for the server's log.
 	Note *PlayerNote `json:"note,omitempty"`
 	// ToDeviceID, SDP and Candidate are an rtc message's: voice signalling relayed to another
@@ -400,6 +404,10 @@ type Tuning struct {
 	// StartLeadMs is how long after a sync point's wait ends every player starts playing: the
 	// server's own, as each group message's StartsInMs says what is left of it (D268 §3).
 	StartLeadMs int64 `json:"startLeadMs"`
+	// RunUpMs is how long the start's lead is, and how far before where the group starts its players
+	// start playing, while any of them has not yet learned how late it starts (D282): the server's
+	// own, as StartsInMs says what is left of it.
+	RunUpMs int64 `json:"runUpMs"`
 	// SettleAfterChangeMs is how long after it starts playing, finishes a seek or changes its rate
 	// a player's position is not read for drift: Safari's stands still for a moment then (D250 §7).
 	SettleAfterChangeMs int64 `json:"settleAfterChangeMs"`

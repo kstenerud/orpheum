@@ -5,11 +5,11 @@ import { useEffect, useRef, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { AudioOutput } from "./accounts.ts";
-import { tabStorage } from "./browser-storage.ts";
+import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { useToken } from "./services.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { useMembership } from "./together-membership.ts";
-import { forgetMembership, type Membership } from "./together-storage.ts";
+import { forgetMembership, startLagMemory, type Membership } from "./together-storage.ts";
 import { followFilmVolume } from "./film-volume.ts";
 import { useHostVoice, VoiceControls } from "./together-voice.tsx";
 import { monotonicMs, useTogether, useToldCannotKeepUp } from "./use-together.ts";
@@ -93,7 +93,12 @@ function HostLeading(
     () =>
       video === null || connection === undefined
         ? undefined
-        : followGroup(video, connection, { fileId, leads: everyRight, monotonicMs }),
+        : followGroup(video, connection, {
+            fileId,
+            leads: everyRight,
+            monotonicMs,
+            startLag: startLagMemory(browserStorage()),
+          }),
     [connection, fileId, video],
   );
   // The film plays at the tab's volume, which the status tray's pop-up sets too (D281 §5).

@@ -36,12 +36,18 @@ import {
   hasRefilled,
   isInStep,
   isOnLoaded,
-  loadedEndMs,
   playableAt,
   positionMsOf,
   type FollowedMedia,
 } from "./together-media.ts";
+import { LoadSpeed, waitAheadAtMostMs } from "./together-load-speed.ts";
 import { playOrPlayMuted } from "./together-sound.ts";
+import {
+  memoryOfTheSession,
+  runningPositionMs,
+  StartLearner,
+  type StartLagMemory,
+} from "./together-start.ts";
 
 /**
  * How long a leading player's pause or seek waits to be sent: a browser's own controls pause the
@@ -51,36 +57,14 @@ import { playOrPlayMuted } from "./together-sound.ts";
  */
 export const scrubPauseWindowMs = 300;
 
-/**
- * The furthest a catch-up seek aims ahead of the group: by the time a seek has loaded the group has
- * moved on, so it aims ahead by how long the last one took to load, up to this (D247 §4,
- * Silo-Server's number).
- */
-export const aimAheadAtMostMs = 10_000;
-
-/**
- * How much a player loads ahead of where it is, and then stops: hls.js's maxBufferLength (30 s),
- * which nothing here changes, and the most an iPhone's ManagedMediaSource lets it load
- * (playback-in-practice.md §1). A player catching up aims to have the tuning's percent of it loaded
- * when the group arrives (D250 §4).
- */
-export const playerLoadsAheadMs = 30_000;
-
-/**
- * The furthest a player catching up alone jumps ahead of the group to wait for it there: a person
- * waits paused for at most about a minute of film, however slow their link (D250 §4).
- */
-export const waitAheadAtMostMs = 60_000;
-
-/**
- * How the speed a player loads at is measured, as film loaded per second: over the last
- * loadWindowMs, from at least loadSpanAtLeastMs of samples, and only while it is loading, its buffer
- * short of what it fills to by loadSampleMarginMs, since a full buffer loads nothing and would read
- * as a link that stopped (D247 §4, amended 2026-10-06).
- */
-export const loadWindowMs = 10_000;
-export const loadSpanAtLeastMs = 3000;
-export const loadSampleMarginMs = 5000;
+export {
+  aimAheadAtMostMs,
+  loadSampleMarginMs,
+  loadSpanAtLeastMs,
+  loadWindowMs,
+  playerLoadsAheadMs,
+  waitAheadAtMostMs,
+} from "./together-load-speed.ts";
 
 /**
  * How often a following player checks its drift while the group plays, and reports its state while
@@ -108,6 +92,8 @@ export interface FollowOptions {
    */
   readonly leads: PlaybackRights;
   readonly monotonicMs: () => number;
+  /** Where the device keeps how late its player starts; for the follower's life when not given (D282). */
+  readonly startLag?: StartLagMemory;
 }
 
 /** The group a player follows, where it is expected now, and when now is. */
@@ -192,6 +178,10 @@ class GroupFollower {
   readonly #ownMoves = new OwnMoves();
   /** Where it is in correcting its drift. */
   #phase: CorrectionPhase = startingPhase;
+  /** How late it starts, as learned (D282). */
+  readonly #start: StartLearner;
+  /** Whether it has sought back to run up to the start under way (D282). */
+  #hasRunUp = false;
   /** The player's last events, as "<event>[(own)]@<monotonic ms>", for a command's note. */
   #recentEvents: string[] = [];
   /** What this player's rate going back to its group's costs it, as learned (driftCorrection). */
@@ -224,28 +214,33 @@ class GroupFollower {
   #seekStartedAtMs: number | undefined = undefined;
   /** How long its own last seek took to load. */
   #lastLoadMs = 0;
+  /** How fast it loads, measured while it loads (D250 §4). */
+  readonly #loadSpeed = new LoadSpeed();
   /** The timer that applies a playing group as it starts moving (#applyAt). */
   #startTimer: ReturnType<typeof setTimeout> | undefined = undefined;
   /** A leading player's pause or seek not yet sent, which a seek that follows it at once replaces. */
   #pendingCommand: ReturnType<typeof setTimeout> | undefined = undefined;
   /** The command pendingCommand will send, while one waits. */
   #pendingKind: GroupCommand["command"] | undefined = undefined;
-  /** The end of what it loaded, sampled while it loads: when, and to where, in ms. */
-  #loadSamples: { readonly atMs: number; readonly endMs: number }[] = [];
-  /** Film loaded per second of the link, as last measured; undefined until it has been. */
-  #loadRatio: number | undefined = undefined;
 
   constructor(media: FollowedMedia, connection: TogetherConnection, options: FollowOptions) {
     this.#media = media;
     this.#connection = connection;
     this.#options = options;
+    this.#start = new StartLearner(options.startLag ?? memoryOfTheSession());
   }
 
   /** The player's state as the group is told it. */
   readonly playerState = (): PlayerState => {
     const isBuffering = this.#isBuffering();
     this.#wasReportedBuffering = isBuffering;
-    return { positionMs: positionMsOf(this.#media), isPlaying: !this.#media.paused, isBuffering };
+    const startLagMs = this.#start.lagMs();
+    return {
+      positionMs: positionMsOf(this.#media),
+      isPlaying: !this.#media.paused,
+      isBuffering,
+      ...(startLagMs === undefined ? {} : { startLagMs }),
+    };
   };
 
   /** The connection changed: a command this player sent is answered once an answer was heard since. */
@@ -271,6 +266,7 @@ class GroupFollower {
     if (where.group.state === "Playing") {
       this.#followPlaying(where);
     } else {
+      this.#hasRunUp = false;
       this.#holdAt(where);
     }
     this.#hasCaughtUp ||= isInStep(this.#media, where.expectedMs, where.tuning);
@@ -284,14 +280,38 @@ class GroupFollower {
         this.#ownMoves.mark("pause", this.#options.monotonicMs());
         this.#media.pause();
       }
-    } else if (where.nowMs < where.startsAtMs) {
-      // Every player starts at the moment the server named, not as its message arrived: until
-      // then it is held where the group starts (D268 §3).
-      this.#holdAt(where);
-      this.#applyAt(where.startsAtMs);
+    } else if (where.nowMs < where.startsAtMs && this.#media.paused) {
+      this.#startEarly(where);
     } else {
       this.#play(where);
     }
+  }
+
+  /**
+   * Starts at the moment the server named, not as its message arrived (D268 §3), and early by how
+   * late it has learned it starts: held where the group starts until then. One that has not learned
+   * it runs up, from where the group would be had it already started, and learns it on the way
+   * (D282).
+   */
+  #startEarly(where: GroupNow): void {
+    const media = this.#media;
+    const lagMs = this.#start.lagMs();
+    if (lagMs !== undefined && where.nowMs < where.startsAtMs - lagMs) {
+      this.#holdAt(where);
+      this.#applyAt(where.startsAtMs - lagMs);
+      return;
+    }
+    const runningMs = runningPositionMs(where.group, where.startsAtMs, where.nowMs);
+    if (lagMs === undefined && !this.#hasRunUp) {
+      this.#hasRunUp = true;
+      this.#seek(runningMs, "runUp");
+      return;
+    }
+    if (media.seeking || media.readyState < haveFutureData) {
+      return; // its run-up loads: it plays once it can, its events applying the group again
+    }
+    this.#start.pressedPlay(runningMs - positionMsOf(media));
+    this.#startPlaying();
   }
 
   /** One of the player's own events: a person's command when it leads, else a reason to apply. */
@@ -299,6 +319,9 @@ class GroupFollower {
     this.#keepEvent(event);
     if (event === "playing" || event === "seeked") {
       this.#settle();
+    }
+    if (event === "playing") {
+      this.#start.movedAfterPress();
     }
     this.#noteLoading(event);
     const isOwn = this.#isOwnMove(event);
@@ -366,7 +389,7 @@ class GroupFollower {
     for (const move of this.#ownMoves.expired(this.#options.monotonicMs())) {
       this.#connection.note({ kind: "ownMarkExpired", why: move });
     }
-    this.#sampleLoading();
+    this.#loadSpeed.sample(this.#media, this.#options.monotonicMs());
     this.apply();
     if (this.#connection.snapshot().group?.state === "Waiting") {
       this.#connection.reportState();
@@ -376,7 +399,7 @@ class GroupFollower {
   /** The browser loaded more: it moves nothing, and tells the group only if it made it ready. */
   readonly loaded = (): void => {
     this.#noteLoading("progress");
-    this.#sampleLoading();
+    this.#loadSpeed.sample(this.#media, this.#options.monotonicMs());
     if (this.#pendingCommand === undefined && this.#isBuffering() !== this.#wasReportedBuffering) {
       this.#connection.reportState();
     }
@@ -431,34 +454,6 @@ class GroupFollower {
     );
   }
 
-  /**
-   * Samples how far the player has loaded, and from the samples of the last loadWindowMs measures
-   * how much film it loads per second. A sample is taken only while it loads short of a full
-   * buffer; a seek, or loading that stops, starts the samples again.
-   */
-  #sampleLoading(): void {
-    const media = this.#media;
-    const nowMs = this.#options.monotonicMs();
-    const endMs = loadedEndMs(media);
-    const isLoading =
-      endMs !== undefined &&
-      endMs < media.duration * 1000 &&
-      endMs - positionMsOf(media) < playerLoadsAheadMs - loadSampleMarginMs;
-    const last = this.#loadSamples.at(-1);
-    if (!isLoading || (last !== undefined && endMs < last.endMs)) {
-      this.#loadSamples = [];
-      return;
-    }
-    this.#loadSamples = [
-      ...this.#loadSamples.filter((sample) => nowMs - sample.atMs <= loadWindowMs),
-      { atMs: nowMs, endMs },
-    ];
-    const first = this.#loadSamples[0];
-    if (first !== undefined && nowMs - first.atMs >= loadSpanAtLeastMs) {
-      this.#loadRatio = (endMs - first.endMs) / (nowMs - first.atMs);
-    }
-  }
-
   #send(command: GroupCommand): void {
     this.#awaitAnswer();
     this.#connection.command(command);
@@ -492,18 +487,23 @@ class GroupFollower {
       return undefined;
     }
     const nowMs = this.#options.monotonicMs();
+    const startsAtMs = groupStartsAtMs(snapshot) ?? nowMs;
+    // A player playing before its group starts runs up to it, judged by where it would be (D282).
+    const isRunningUp = group.state === "Playing" && !this.#media.paused && nowMs < startsAtMs;
     return {
       group,
       nowMs,
-      expectedMs: expectedGroupPositionMs(snapshot, nowMs) ?? group.positionMs,
-      startsAtMs: groupStartsAtMs(snapshot) ?? nowMs,
+      expectedMs: isRunningUp
+        ? runningPositionMs(group, startsAtMs, nowMs)
+        : (expectedGroupPositionMs(snapshot, nowMs) ?? group.positionMs),
+      startsAtMs,
       tuning: snapshot.tuning,
     };
   }
 
-  #seek(toMs: number, why: "catchUp" | "hold" | "skip"): void {
+  #seek(toMs: number, why: "catchUp" | "hold" | "skip" | "runUp"): void {
     this.#connection.note({ kind: "sought", positionMs: positionMsOf(this.#media), toMs, why });
-    this.#loadSamples = [];
+    this.#loadSpeed.forget();
     this.#move({ kind: "sought" });
     this.#ownMoves.mark("seek", this.#options.monotonicMs());
     this.#seekStartedAtMs = this.#options.monotonicMs();
@@ -597,6 +597,7 @@ class GroupFollower {
       return;
     }
     this.#learnReturnCost(behindMs, where.tuning);
+    this.#start.settled(behindMs);
     // A player stalled and refilling is not nudged: its position does not move, and a faster rate
     // only needs a faster link once it plays (the owner's airplane test, 2026-10-06, where a frozen
     // iPhone was nudged to 2x second after second).
@@ -674,30 +675,10 @@ class GroupFollower {
     if (this.#hasCaughtUp) {
       this.#media.dispatchEvent(new Event(fellBehindEvent));
     }
-    const targetMs = toMs + this.#catchUpLeadMs(where.group.rate, where.tuning);
+    const targetMs =
+      toMs + this.#loadSpeed.catchUpLeadMs(this.#lastLoadMs, where.group.rate, where.tuning);
     this.#seek(targetMs, "catchUp");
     this.#move({ kind: "jumpedAhead", atMs: targetMs });
-  }
-
-  /**
-   * How far ahead of the group a catch-up seek aims: by how long its last seek took to load, and
-   * then by how long its link takes, as measured, to load the tuning's catchUpBufferPercent of what
-   * its player loads ahead, so the group finds its buffer that full (D250 §4); at most
-   * waitAheadAtMostMs, and never less than the last load's time alone, which is all it aims by with
-   * no measure yet.
-   */
-  #catchUpLeadMs(groupRate: number, tuning: SyncTuning): number {
-    const aimMs = Math.min(this.#lastLoadMs, aimAheadAtMostMs) * groupRate;
-    const ratio = this.#loadRatio;
-    if (ratio === undefined) {
-      return aimMs;
-    }
-    const fillMs = (playerLoadsAheadMs * tuning.catchUpBufferPercent) / 100;
-    const fillWallMs = ratio > 0 ? fillMs / ratio : Number.POSITIVE_INFINITY;
-    return Math.max(
-      aimMs,
-      Math.min(waitAheadAtMostMs, (this.#lastLoadMs + fillWallMs) * groupRate),
-    );
   }
 
   /** Holds the player paused at the group's position: Paused, Waiting or Idle. */

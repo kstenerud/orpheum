@@ -148,6 +148,7 @@ func (server *Server) togetherTuning(ctx context.Context, dependencies *Dependen
 		{settings.TogetherCatchUpBufferPercent, &tuning.CatchUpBufferPercent},
 		{settings.TogetherSettleAfterChangeMs, &tuning.SettleAfterChangeMs},
 		{settings.TogetherStartLeadMs, &tuning.StartLeadMs},
+		{settings.TogetherRunUpMs, &tuning.RunUpMs},
 	} {
 		value, err := dependencies.Settings.Int(ctx, read.key)
 		if err != nil {

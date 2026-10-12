@@ -24,6 +24,7 @@ import { nudgeForMs } from "./together-drift.ts";
 import { refillAheadMs } from "./together-media.ts";
 import { ownMarkLastsMs } from "./together-own-moves.ts";
 import { FakeMedia, fakeConnection, paused } from "./test-follow.ts";
+import { memoryOfTheSession } from "./together-start.ts";
 
 /**
  * A player in step with a group playing from 100 s that has measured its link loading half a
@@ -94,7 +95,10 @@ describe("a player following its group", () => {
   it("holds its player where the group starts until the moment the server named, then plays (D268 §3)", () => {
     const media = new FakeMedia();
     const { connection, setGroup } = fakeConnection(paused);
-    followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
+    // A player that has learned it starts on time: one that has not runs up (D282).
+    const startLag = memoryOfTheSession();
+    startLag.keep({ costMs: 0, moves: 1 });
+    followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs, startLag });
     monotonicNowMs = 1000;
     setGroup({ ...paused, state: "Playing", startsInMs: 500 }, 1000);
     expect(media.paused).toBe(true);

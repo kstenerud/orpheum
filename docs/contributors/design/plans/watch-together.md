@@ -103,7 +103,11 @@ not ready, but never to no one (D250 §3). The host's pause is immediate. **A sy
 names the moment every player starts** (D268 §3): the group stands at its position for
 `together_start_lead_ms` (500 ms), each group message and pong saying what is left of that lead,
 and each player, held there until then, plays at once with the others rather than as the message
-reaches it.
+reaches it. **Each presses play early by how late it has learned it starts** (D282), which its
+device keeps for every session; while any player along has not learned it, the lead is
+`together_run_up_ms` (2 s), and that player runs up from where the group would be had it started,
+making its lag up before the moment. A group starting in the film's first two seconds starts at
+two seconds, so there is film to run up through.
 
 **The group never stops for one member** (D250 §2). A stall, a slow link or a dropped connection
 is that member's alone, the host's player included: the group plays on, everyone is told who it

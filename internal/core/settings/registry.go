@@ -100,6 +100,7 @@ const (
 	ChunkSoundKbps                                 Key = "chunk_sound_kbps"
 	TogetherSyncWaitSeconds                        Key = "together_sync_wait_seconds"
 	TogetherStartLeadMs                            Key = "together_start_lead_ms"
+	TogetherRunUpMs                                Key = "together_run_up_ms"
 	TogetherCatchUpBufferPercent                   Key = "together_catch_up_buffer_percent"
 	TogetherSettleAfterChangeMs                    Key = "together_settle_after_change_ms"
 	ShouldTogetherNudgeKeepPitch                   Key = "should_together_nudge_keep_pitch"
@@ -286,6 +287,10 @@ func togetherDefinitions() []Definition {
 				"rather than each as the message reaches it (D268 §3)"),
 			"D268 §3: Jellyfin schedules each start at now + max(2 x the highest ping, 500 ms) "+
 				"(PlayingGroupState.cs:67; the sync review, 2026-10-08)"),
+		sourced(integerSetting(TogetherRunUpMs, "2000", 0, 10_000,
+			"ms a Watch Together player that has not yet learned how late it starts plays before where the "+
+				"group starts, making its lag up on the way, and the start's lead while any such plays (D282)"),
+			"D282: the owner, 2026-10-12: \"if it hasn't run yet, we do the 2s run-up time\""),
 		sourced(integerSetting(TogetherCatchUpBufferPercent, "80", 10, 100,
 			"percent of what its player loads ahead that a Watch Together player catching up alone aims "+
 				"to have loaded when the group reaches it; it jumps ahead by its link's time to load that "+
