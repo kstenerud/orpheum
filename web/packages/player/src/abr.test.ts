@@ -264,6 +264,33 @@ describe("a quality this device cannot play (D266)", () => {
     expect(unplayable).toEqual([{ qualityKbps: 36_208, positionMs: 416_900 }]);
   });
 
+  it("is given up when the browser holds nothing of two of its chunks, though nothing is loaded where the video stands", () => {
+    const { hls, choosing, unplayable } = standingAt(445.3);
+    hls.media = videoAt(445.3, { isPaused: true, readyState: 1, isLoaded: false }); // its picture never held
+    vi.advanceTimersByTime(lookAtChunkEveryMs);
+    choosing.notHeld(3);
+    choosing.notHeld(3);
+    nowMs = 1000;
+    vi.advanceTimersByTime(lookAtChunkEveryMs);
+    expect(unplayable).toEqual([{ qualityKbps: 36_208, positionMs: 445_300 }]);
+  });
+
+  it("counts its time standing still only from when what it plays is loaded where it stands", () => {
+    const { hls, choosing, unplayable } = standingAt(420.5);
+    hls.media = videoAt(420.5, { isPaused: false, readyState: 1, isLoaded: false });
+    load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
+    load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
+    nowMs = 6000;
+    vi.advanceTimersByTime(lookAtChunkEveryMs);
+    hls.media = videoAt(420.5, { isPaused: false, readyState: 1 }); // the sound came
+    nowMs = 7000;
+    vi.advanceTimersByTime(lookAtChunkEveryMs);
+    expect(unplayable).toEqual([]);
+    nowMs = 13_000;
+    vi.advanceTimersByTime(lookAtChunkEveryMs);
+    expect(unplayable).toEqual([{ qualityKbps: 36_208, positionMs: 420_500 }]);
+  });
+
   it("ends hls.js's forcing of it, which would otherwise keep loading it", () => {
     const { hls, choosing, unplayable } = standingAt(416.9);
     choosing.setLevel(2); // hls.js forces a switch down after a load error
