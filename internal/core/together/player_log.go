@@ -132,10 +132,14 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 // bad link said nothing of whether its sound came late, was lost, or went through a relay over TCP
 // (the acceptance's congested run, 2026-10-06; D262 §1).
 func (current *session) logVoice(ctx context.Context, who *member, from *device, voice VoiceStats) {
-	current.logger.InfoContext(ctx, "watch together: a voice call measured", append(current.deviceAttributes(who, from),
+	attributes := append(current.deviceAttributes(who, from),
 		"partnerDeviceId", voice.PartnerDeviceID, "roundTripMs", voice.RoundTripMs,
 		"jitterBufferMs", voice.JitterBufferMs, "jitterBufferTargetMs", voice.JitterBufferTargetMs,
 		"concealedShare", voice.ConcealedShare, "packetsLost", voice.PacketsLost, "packetsLate", voice.PacketsLate,
 		"fecPackets", voice.FECPackets, "path", voice.Path, "receivedLevel", voice.ReceivedLevel,
-		"sentLevel", voice.SentLevel, "playback", voice.Playback, "ringLevel", voice.RingLevel)...)
+		"sentLevel", voice.SentLevel, "playback", voice.Playback, "ringLevel", voice.RingLevel)
+	if voice.PartnerGain != nil {
+		attributes = append(attributes, "partnerGain", *voice.PartnerGain)
+	}
+	current.logger.InfoContext(ctx, "watch together: a voice call measured", attributes...)
 }

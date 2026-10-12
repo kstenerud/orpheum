@@ -90,12 +90,13 @@ func TestHub_LogsAVoiceCallsStatisticsAndRefusesThemWithoutAKnownPath(t *testing
 			PartnerDeviceID: 4, RoundTripMs: 340, JitterBufferMs: 905, JitterBufferTargetMs: 880,
 			ConcealedShare: 0.043, PacketsLost: 312, PacketsLate: 97, FECPackets: 40, Path: "udp",
 			ReceivedLevel: 0.126, SentLevel: 0.032, Playback: "elementInterrupted", RingLevel: 0.4,
+			PartnerGain: new(0.0),
 		},
 	}})
 	want := `level=INFO msg="watch together: a voice call measured"`
 	fields := `partnerDeviceId=4 roundTripMs=340 jitterBufferMs=905 jitterBufferTargetMs=880 concealedShare=0.043 ` +
 		`packetsLost=312 packetsLate=97 fecPackets=40 path=udp receivedLevel=0.126 sentLevel=0.032 ` +
-		`playback=elementInterrupted ringLevel=0.4`
+		`playback=elementInterrupted ringLevel=0.4 partnerGain=0`
 	if logged := stage.logs.String(); !strings.Contains(logged, want) || !strings.Contains(logged, fields) {
 		t.Errorf("the log does not say the call's statistics:\n%s", logged)
 	}
