@@ -11,7 +11,7 @@ import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useResource } from "./use-resource.ts";
 import { WarningIcon } from "./warning-sign.tsx";
-import { WatchTogetherControls } from "./watch-together.tsx";
+import { usePrefetchedHostedDetails, WatchTogetherControls } from "./watch-together.tsx";
 
 /**
  * The status tray at the banner's end (D280): what is on, in view on every screen, in the status
@@ -64,6 +64,7 @@ function TogetherIcon(): JSX.Element {
 function TogetherStatus(): JSX.Element {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
+  usePrefetchedHostedDetails();
   const close = (): void => {
     setIsOpen(false);
   };

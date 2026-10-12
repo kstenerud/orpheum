@@ -73,6 +73,35 @@ it("shows the host Watch Together is on, and opens its controls over the screen 
   showModal.mockRestore();
 });
 
+it("shows the session's controls the moment they open, having asked for them as the sign appeared (the owner, 2026-10-12)", async () => {
+  window.sessionStorage.setItem(
+    "orpheum.together.host",
+    JSON.stringify({ sessionId: 7, credential: "host-credential" }),
+  );
+  const members = [{ id: 1, name: "Karl", isHost: true, devices: [] }];
+  const session = {
+    sessionId: 7,
+    nextRights: { canPlayPause: true, canSeek: true },
+    links: [],
+    members,
+  };
+  mounted = await mount(
+    withServices(
+      <StatusTray isHostingTogether isAdmin={false} />,
+      servedBy({ "GET /together/7": [200, session] }),
+    ),
+  );
+  const sign = mounted.container.querySelector<HTMLButtonElement>(
+    '[aria-label="Watch Together is on: its controls"]',
+  );
+  // Opened, before the server answers again: what it asked for as the sign appeared shows at once.
+  act(() => {
+    sign?.click();
+  });
+  expect(mounted.container.querySelector("dialog")?.textContent).toContain("Your session is on.");
+  window.sessionStorage.clear();
+});
+
 it("shows an admin the yellow sign when something needs them, leading to the page of it, and not otherwise", async () => {
   mounted = await mount(
     withServices(
