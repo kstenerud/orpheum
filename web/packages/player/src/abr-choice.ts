@@ -14,6 +14,8 @@ export interface ChoiceLevel {
   readonly averageBitrate: number;
   /** Its playlist's address, which names the film's own picture ("picture/stream.m3u8"). */
   readonly uri?: string;
+  /** Its picture's height, in pixels; 0 or absent where the playlist does not say. */
+  readonly height?: number;
 }
 
 /**
@@ -295,4 +297,23 @@ export function keptOwnPicture(
   return picture !== undefined && linkBps !== undefined && linkBps >= picture.averageBitrate
     ? own
     : undefined;
+}
+
+/** The height of the quality a group's encoded devices start on after a jump (D286 §3). */
+export const commonStartHeight = 720;
+
+/** How long after a jump a group's encoded device keeps the common quality before it settles. */
+export const commonStartForMs = 30_000;
+
+/**
+ * The quality every device of a group that needs an encoded one starts on after a jump: the highest
+ * the server makes at or under commonStartHeight, one encode for all of them where each had wanted
+ * its own (D286 §3); -1 where there is none.
+ */
+export function commonStartLevel(levels: readonly ChoiceLevel[]): number {
+  const own = ownPictureLevel(levels);
+  return levels.findLastIndex(
+    (level, index) =>
+      index !== own && (level.height ?? 0) > 0 && (level.height ?? 0) <= commonStartHeight,
+  );
 }

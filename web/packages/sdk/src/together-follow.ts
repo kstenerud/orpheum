@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { PlaybackRights, SyncTuning } from "./together.ts";
+import type { GroupView, PlaybackRights, SyncTuning } from "./together.ts";
 import {
   expectedGroupPositionMs,
   groupStartsAtMs,
@@ -18,6 +18,7 @@ import {
 import {
   catchUpSeekEvent,
   chunkLoadedOf,
+  groupJumpedEvent,
   fellBehindEvent,
   playerLoadedChunkEvent,
   playerMovedItselfEvent,
@@ -130,6 +131,8 @@ class GroupFollower {
   readonly #ownMoves = new OwnMoves();
   /** Where it is in correcting its drift. */
   #phase: CorrectionPhase = startingPhase;
+  /** The group's last jump it told its player of, as "<from>-<to>" ms; undefined before one. */
+  #toldJump: string | undefined = undefined;
   /** Where its own last seek went, in ms; undefined before it made one. */
   #soughtToMs: number | undefined = undefined;
   /** What it tells its player to load while its group waits or another is behind (D283 §2, D285 §2). */
@@ -231,7 +234,20 @@ class GroupFollower {
     }
     this.#hasCaughtUp ||= isInStep(this.#media, where.expectedMs, where.tuning);
     this.#loading.follow(where.group.state, !this.#isBuffering());
+    this.#tellJump(where.group);
   };
+
+  /** Tells its player each jump of its group, once (groupJumpedEvent, D286 §3). */
+  #tellJump(group: GroupView): void {
+    const jump =
+      group.event === "seeked"
+        ? `${String(group.seekedFromMs)}-${String(group.positionMs)}`
+        : undefined;
+    if (jump !== undefined && jump !== this.#toldJump) {
+      this.#toldJump = jump;
+      this.#media.dispatchEvent(new Event(groupJumpedEvent));
+    }
+  }
 
   /** Follows a playing group: waiting ahead of it, held until it starts, or playing along. */
   #followPlaying(where: GroupNow): void {

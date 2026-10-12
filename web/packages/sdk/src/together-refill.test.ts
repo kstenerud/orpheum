@@ -7,6 +7,7 @@ import { followGroup } from "./together-follow.ts";
 import { refillAheadMs } from "./together-media.ts";
 import {
   catchUpSeekEvent,
+  groupJumpedEvent,
   holdLoadingEvent,
   loadingHoldOf,
   playerLoadedChunkEvent,
@@ -169,5 +170,27 @@ describe("a catch-up's seek, which is no jump (D250 §5, D284 §2)", () => {
     media.fire("waiting");
     expect(media.dispatched).toContain(catchUpSeekEvent);
     expect(media.currentTime).toBe(101); // it jumped to the group, which measured no lead yet
+  });
+});
+
+describe("telling its player of the group's jumps (D286 §3)", () => {
+  it("tells each jump once, and nothing else", () => {
+    const media = new FakeMedia();
+    const { connection, setGroup } = fakeConnection(paused);
+    followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
+    const jumps = (): number =>
+      media.dispatched.filter((event) => event === groupJumpedEvent).length;
+    setGroup(
+      { ...paused, state: "Waiting", event: "seeked", seekedFromMs: 60_000, positionMs: 900_000 },
+      0,
+    );
+    vi.advanceTimersByTime(3000);
+    expect(jumps()).toBe(1);
+    setGroup({ ...paused, state: "Playing", event: "everyoneReady", positionMs: 900_000 }, 0);
+    setGroup(
+      { ...paused, state: "Waiting", event: "seeked", seekedFromMs: 902_000, positionMs: 40_000 },
+      0,
+    );
+    expect(jumps()).toBe(2);
   });
 });

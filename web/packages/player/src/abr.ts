@@ -21,6 +21,8 @@ import {
   isLoadedWhereItStands,
   isUnplayable,
   keptOwnPicture,
+  commonStartForMs,
+  commonStartLevel,
   isWaitingToPlay,
   measuresTheLink,
   startingLevel,
@@ -126,6 +128,8 @@ export class Choosing<Chunk extends FollowedChunk> {
         chunksNotHeld: number;
       }
     | undefined;
+  /** Until when, after its group jumped, it keeps the common quality (D286 §3); 0 for not. */
+  #commonUntilMs = 0;
   /** The lowest quality found unplayable here: it and every one above it are never chosen again (D266). */
   #unplayableFrom: number | undefined;
   readonly #timers: ReturnType<typeof setInterval>[];
@@ -159,10 +163,9 @@ export class Choosing<Chunk extends FollowedChunk> {
       return this.#forced;
     }
     const linkBps = this.#linkBps();
-    const kept =
-      this.#options.isInAGroup?.() === true ? keptOwnPicture(this.#hls.levels, linkBps) : undefined;
-    if (kept !== undefined && kept < (this.#unplayableFrom ?? Number.POSITIVE_INFINITY)) {
-      this.#lastChosen = this.#clamped(kept);
+    const inTheGroup = this.#groupsChoice(linkBps);
+    if (inTheGroup !== undefined) {
+      this.#lastChosen = this.#clamped(inTheGroup);
       return this.#lastChosen;
     }
     const ceiling = this.#ceilingNow();
@@ -178,6 +181,30 @@ export class Choosing<Chunk extends FollowedChunk> {
       : steady;
     this.#lastChosen = this.#clamped(level);
     return this.#lastChosen;
+  }
+
+  /**
+   * Its group jumped: unless it keeps the film's own picture, it loads the common quality for
+   * commonStartForMs, then settles higher or lower as it would (D286 §3).
+   */
+  groupJumped(): void {
+    this.#commonUntilMs = this.#options.monotonicMs() + commonStartForMs;
+  }
+
+  /**
+   * The quality its group has it play, if any: the film's own picture while its link carries it
+   * (D286 §2), or, for a while after a jump, the common quality (§3); never one found unplayable.
+   */
+  #groupsChoice(linkBps: number | undefined): number | undefined {
+    const unplayableFrom = this.#unplayableFrom ?? Number.POSITIVE_INFINITY;
+    const kept =
+      this.#options.isInAGroup?.() === true ? keptOwnPicture(this.#hls.levels, linkBps) : undefined;
+    if (kept !== undefined && kept < unplayableFrom) {
+      return kept;
+    }
+    const common = commonStartLevel(this.#hls.levels);
+    const isCommon = this.#options.monotonicMs() < this.#commonUntilMs && common >= 0;
+    return isCommon && common < unplayableFrom ? common : undefined;
   }
 
   /** The quality hls.js forced, or -1. */

@@ -37,6 +37,13 @@ export const fellBehindEvent = "orpheumfellbehind";
 export const catchUpSeekEvent = "orpheumcatchupseek";
 
 /**
+ * The event a following player fires at its video as its group jumps: a player on a quality the
+ * server makes starts the jump on the group's common one, one encode for all, and settles after
+ * (D286 §3).
+ */
+export const groupJumpedEvent = "orpheumgroupjumped";
+
+/**
  * The event a player fires at its video as it loads a chunk: a ChunkLoaded in its detail, which a
  * following player tells the server for its log.
  */

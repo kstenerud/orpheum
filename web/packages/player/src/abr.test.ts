@@ -12,6 +12,7 @@ import {
   type ChoosingHls,
   type FollowedChunk,
 } from "./abr.ts";
+import { commonStartForMs } from "./abr-choice.ts";
 import { holdBeforeStepUpMs, stepUpBufferMs } from "./step-up.ts";
 
 /** Bram's ladder on staging: four qualities, then its own picture, its peak 36 Mb/s. */
@@ -366,6 +367,21 @@ describe("a player in a Watch Together group keeping the film's own picture (D28
     link.estimateBps = 4_000_000;
     load(choosing, 3, { bytes: 2_000_000, loadMs: 4000 });
     expect(choosing.nextLevel()).toBeLessThan(3); // a link too slow for it steps down
+  });
+});
+
+describe("a group's jump, which a device on an encoded quality starts on the common one (D286 §3)", () => {
+  it("loads the common quality for its while after the jump, then chooses as it would", () => {
+    const { hls, choosing, link } = choosingFrom(40_000_000);
+    const tall = levels.map((level, index) => ({ ...level, height: [432, 540, 720, 1080][index] }));
+    Object.defineProperty(hls, "levels", { value: tall });
+    link.estimateBps = 1_000_000;
+    load(choosing, 0, { bytes: 500_000, loadMs: 4000 });
+    expect(choosing.nextLevel()).toBe(0); // a slow link: the lowest
+    choosing.groupJumped();
+    expect(choosing.nextLevel()).toBe(2); // the common 720p, which the others share
+    nowMs += commonStartForMs;
+    expect(choosing.nextLevel()).toBe(0); // then it settles as it would
   });
 });
 
