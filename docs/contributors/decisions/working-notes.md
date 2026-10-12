@@ -18309,6 +18309,12 @@ D247 §4 and its amendment, and revises D247 §8 and §10.
    have multiple people needing to drop down, and start playing catch up, we could quickly end up
    with a lot of transcodes."* A chunk not made yet is answered at once with "ask again", not held:
    a held request is counted by hls.js as a slow download (playback-in-practice.md §3).
+
+   **Amended 2026-10-12**, after the owner's jump back in a three-device session stuck everyone: a
+   seek far back from a store's run cancels it, as one far past it did, since the run a seek left
+   ran on and took the node's room; and a run is in use (§6) when a player asks for its own chunks
+   or those a minute before them, not for any of its quality's, so a quality still played elsewhere
+   no longer keeps a run no one follows from being the one evicted.
 6. **A run must stay faster than playback.** *"If 480p runs at 0.8×, it's by definition an
    impossible situation. Live transcoding only works when it's faster than playback."* The core
    watches each run's speed. When one more run brings any below 1.1× (a setting), it evicts a run:
@@ -18329,7 +18335,7 @@ D247 §4 and its amendment, and revises D247 §8 and §10.
    rules. The owner: *"I'll have her update her phone when she lands, so we can set the floor to
    ios 17.1."*
 
-**Status:** Decided 2026-10-06; §7 amended the same day; §2 amended 2026-10-12.
+**Status:** Decided 2026-10-06; §7 amended the same day; §2 and §5 amended 2026-10-12.
 
 ## D251 — The web client's first skin is dark, with one coral accent, the system typeface and slightly rounded corners
 

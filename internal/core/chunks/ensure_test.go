@@ -222,6 +222,27 @@ func TestEnsure_ASeekFarPastARunCancelsItAndQueuesTheSeeksRun(t *testing.T) {
 	}
 }
 
+// A seek far back from a store's run cancels it too: no one follows it now, and it took the node's
+// room from the runs the players needed where they went (the owner's test, 2026-10-12).
+func TestEnsure_ASeekFarBackFromARunCancelsIt(t *testing.T) {
+	t.Parallel()
+	queue, cache := jobsQueue(t)
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	picture := Stream{Kind: nodeproto.StreamPicture}
+	ensured(t, service, picture, 63)
+	// The player seeks ten minutes back while the first run waits.
+	ensured(t, service, picture, 3)
+	runs := openRuns(t, cache)
+	if len(runs) != 1 {
+		t.Fatalf("the runs queued = %+v; want the seek's alone, the first cancelled", runs)
+	}
+	for _, args := range runs {
+		if args.FirstChunk != 3 {
+			t.Errorf("the queued run is %+v; want the seek's, from chunk 3", args)
+		}
+	}
+}
+
 // D247 §10: a run made faster than it is played is made long before the player reaches its end; a
 // chunk the node serves from it looks a minute ahead, so the next run is on its way before the
 // player asks for its first chunk. After a restart nothing past a served chunk is known, and no run

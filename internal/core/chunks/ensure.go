@@ -97,18 +97,20 @@ func (service *Service) Ensure(ctx context.Context, fileID int64, kind GridKind,
 	return nil
 }
 
-// ask records a player's ask for chunk wanted of the store: its runs are in use. An evicted store
-// refuses it (ErrNoRoomToMake, D250 §6); runs it is a seek far past are cancelled (cancelFarRuns).
+// ask records a player's ask for chunk wanted of the store: the runs making it and the chunks within
+// lookaheadMs of film after it, which it plays on to, are in use. An evicted store refuses it
+// (ErrNoRoomToMake, D250 §6); runs it is a seek far past are cancelled (cancelFarRuns).
 func (service *Service) ask(ctx context.Context, film cutFilm, stream Stream, wanted int) error {
 	dir := StoreDir(film.file.ID, stream, film.grid.ID())
-	service.runs.asked(dir, service.clock.Now())
+	playsThrough := film.grid.chunkAt(film.grid.StartsMs[wanted] + lookaheadMs - 1)
+	service.runs.asked(dir, wanted, playsThrough, service.clock.Now())
 	if service.runs.isEvicted(dir) {
 		return fmt.Errorf("%s: %w", dir, ErrNoRoomToMake)
 	}
 	return service.cancelFarRuns(ctx, film, stream, wanted)
 }
 
-// cancelFarRuns cancels the runs of the store chunk wanted is a seek far past (runTracker.cutFar,
+// cancelFarRuns cancels the runs of the store chunk wanted is a seek far from (runTracker.cutFar,
 // D250 §5): no one follows them now, and their encodes are room another run needs (§6). The new
 // run is queued after, so the queue, which keeps one job of a store queued, does not fold it into
 // one cancelled.
