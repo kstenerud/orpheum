@@ -19608,7 +19608,13 @@ before settling on what each device can handle."* It refines D250 §2 and D283 �
    short runway ahead**, and fill as far as they would once all play, so the one behind has the
    server's upload.
 3. **A jump's first chunk sooner** on an encoded quality, by whichever of a faster encode, a lower
-   common quality first, or the node putting it first measures best.
+   common quality first, or the node putting it first measures best. *Measured the same day, none
+   is worth building now:* a 10 s chunk of Conan at 720p took 4.5 to 5.8 s whatever the preset,
+   x264 zones of lesser effort for the first chunk, scaling filter or number of cores (3 or 8): its
+   10-bit AV1 picture's decoding, 2.2 to 2.7 s, and the scaling and the encode follow one another;
+   480p at ultrafast was 3.3 s. With §1, a device on an encoded quality waits for one chunk after a
+   jump, never two; shorter encoded chunks (fast-start-2026-10-12.md, option C) are what would go
+   further.
 
-**Status:** Decided 2026-10-12.
+**Status:** Decided 2026-10-12; §1 and §2 built the same day, §3 measured and set aside.
 

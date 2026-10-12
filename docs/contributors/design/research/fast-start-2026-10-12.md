@@ -131,3 +131,14 @@ Learning Center found 5.57% between 1 s and 10 s on Big Buck Bunny
 C over 1, after one iPhone test of hls.js moving from an encoded quality up to the copied picture in
 the middle of a chunk; 2 set aside until hls.js releases #8058 and the controller measures per
 fragment.
+
+## 6. Measured after (2026-10-12, D285)
+
+On 8 CPUs and on 3, a 10 s chunk of Conan (10-bit AV1, 1920×816) at 720p took 4.5 to 5.8 s whatever
+was tried: veryfast as now; x264 zones of lesser effort (`me=dia`, `subme` 0 or 1, `ref=1`,
+`trellis=0`) over the first 240 frames, 5.3 s; four filter threads, a threaded or fast-bilinear
+scale, 5.3 to 5.8 s. Decoding alone took 2.2 to 2.7 s, with the scale 2.7 to 3.1 s; the stages follow
+one another, and more cores did not overlap them. 480p at ultrafast took 3.3 s. Options A and B gain
+a second at most on such a film, and were set aside; D285 §1's snapping means a device on an encoded
+quality waits for one chunk after a jump, never two.
+
