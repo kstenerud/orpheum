@@ -4,6 +4,7 @@ package chunks
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -88,6 +89,35 @@ func TestKeepRunsFast_EvictsTheNewestWhenEveryRunIsInUse(t *testing.T) {
 	stage.service.runs.unevict(stage.newer)
 	if err := stage.service.Ensure(t.Context(), 1, OnKeyframes, newer, 5); err != nil {
 		t.Errorf("a stall asking for it again: %v; want a run queued", err)
+	}
+}
+
+// A run in use whose players can all move onto a quality already made for another playback of the
+// film is cancelled, its players moved, and its store not evicted: they are not stopped (D286 §4).
+// One whose players cannot move is evicted as before.
+func TestKeepRunsFast_MovesARunsPlayersOntoAQualityAlreadyMadeRatherThanEvictIt(t *testing.T) {
+	t.Parallel()
+	stage := newCapacityStage(t)
+	var asked []string
+	stage.service.MovePlayersBy(func(fileID int64, streamName string) bool {
+		asked = append(asked, fmt.Sprintf("%d %s", fileID, streamName))
+		return true
+	})
+	stage.progress(t, 3, 1.05, func(string) bool { return true })
+	if !slices.Equal(stage.queue.cancelledJobs, []int64{12}) || !slices.Equal(asked, []string{"1 q700k432p"}) {
+		t.Fatalf("the jobs cancelled = %v, players asked to move %v; want the newer run's, its players moved",
+			stage.queue.cancelledJobs, asked)
+	}
+	if err := stage.service.Ensure(t.Context(), 1, OnKeyframes, quality(700, 432), 5); err != nil {
+		t.Errorf("a player asking for the quality again: %v; want a run queued, not evicted", err)
+	}
+
+	unmoved := newCapacityStage(t)
+	unmoved.service.MovePlayersBy(func(int64, string) bool { return false })
+	unmoved.progress(t, 3, 1.05, func(string) bool { return true })
+	err := unmoved.service.Ensure(t.Context(), 1, OnKeyframes, quality(700, 432), 5)
+	if !errors.Is(err, ErrNoRoomToMake) {
+		t.Errorf("a run whose players could not move: %v; want it evicted, ErrNoRoomToMake", err)
 	}
 }
 

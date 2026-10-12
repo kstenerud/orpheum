@@ -301,6 +301,9 @@ func openPlayback(
 		Random: rand.Reader, Renditions: services.renditions, Subtitles: services.subtitles,
 		Preferences: preferencesService, Loudness: levels, Chunks: services.chunks,
 	})
+	// A run its node cannot make fast enough moves its players onto a quality already made, before it
+	// is evicted (D286 §4).
+	services.chunks.MovePlayersBy(services.playback.MoveOffStream)
 	return services, services.playback
 }
 

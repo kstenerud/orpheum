@@ -107,6 +107,10 @@ type tokenPlayback struct {
 	pictureStream string
 	ceilingKbps   int64
 	loweredAt     time.Time
+	// cpuCeilingKbps is the highest rate it may load while its node cannot make its quality as fast
+	// as it plays, until cpuCeilingUntil (MoveOffStream, D286 §4); zero for none.
+	cpuCeilingKbps  int64
+	cpuCeilingUntil time.Time
 	// measuredKbps is what it was sent over the last look at the upload: the need of a playback that
 	// asks for no chunks, which the server cannot lower.
 	measuredKbps int64
