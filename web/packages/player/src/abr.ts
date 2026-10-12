@@ -101,6 +101,17 @@ export interface ChoosingLink<Chunk extends FollowedChunk> {
 }
 
 /**
+ * Where a video, asked to play, has stood still: since when with what it plays there loaded
+ * (undefined while not), and how many chunks came meanwhile.
+ */
+interface StillAt {
+  readonly positionS: number;
+  loadedSinceMs: number | undefined;
+  chunksLoaded: number;
+  chunksNotHeld: number;
+}
+
+/**
  * Every choice of a chunked playback's quality (D265), by abr-choice.ts's rules: where it starts,
  * when a chunk on its way is given up, what the next chunk is of, the step-up, what voice leaves the
  * film, and which chunks measure the link. hls.js asks it through OrpheumAbr.
@@ -119,15 +130,8 @@ export class Choosing<Chunk extends FollowedChunk> {
   #forced: number | undefined;
   #lastChosen = -1;
   #hasMeasured = false;
-  /** Since when the video, asked to play, has stood still where it is, and how many chunks came meanwhile. */
-  #still:
-    | {
-        readonly sinceMs: number;
-        readonly positionS: number;
-        chunksLoaded: number;
-        chunksNotHeld: number;
-      }
-    | undefined;
+  /** Where the video, asked to play, has stood still, and what came meanwhile. */
+  #still: StillAt | undefined;
   /** Until when, after its group jumped, it keeps the common quality (D286 §3); 0 for not. */
   #commonUntilMs = 0;
   /** The lowest quality found unplayable here: it and every one above it are never chosen again (D266). */
@@ -335,36 +339,52 @@ export class Choosing<Chunk extends FollowedChunk> {
   /**
    * Gives up the quality loading as unplayable here when the video, waiting to play, stands still
    * while its chunks arrive (D266): every quality from it up is dropped, what is loaded with it, and
-   * the video loads again from where it is at the quality chosen next.
+   * the video loads again from where it is at the quality chosen next. Standing still counts its
+   * time only while what it plays is loaded where it stands, a seek's sound coming late being no
+   * sign; the browser holding nothing of the chunks it took counts whatever is loaded, since a
+   * picture it cannot decode is never loaded anywhere (Flow's on Firefox on macOS, the owner's
+   * group test, 2026-10-12).
    */
   #lookAtPlaying(): void {
-    const media = this.#hls.media;
     const nowMs = this.#options.monotonicMs();
-    if (media === null || !isWaitingToPlay(media) || !isLoadedWhereItStands(media)) {
-      this.#still = undefined;
-      return;
-    }
-    const still = this.#still;
-    if (still === undefined || Math.abs(media.currentTime - still.positionS) > movedAtLeastS) {
-      this.#still = {
-        sinceMs: nowMs,
-        positionS: media.currentTime,
-        chunksLoaded: 0,
-        chunksNotHeld: 0,
-      };
-      return;
-    }
+    const still = this.#standingStill(nowMs);
     const level = this.#hls.loadLevel;
     if (
+      still !== undefined &&
       level > this.#hls.minAutoLevel &&
       isUnplayable({
-        forMs: nowMs - still.sinceMs,
+        forMs: still.loadedSinceMs === undefined ? 0 : nowMs - still.loadedSinceMs,
         chunksLoaded: still.chunksLoaded,
         chunksNotHeld: still.chunksNotHeld,
       })
     ) {
       this.#giveUpUnplayable(level, still.positionS);
     }
+  }
+
+  /**
+   * Where the video, waiting to play, has stood still since the last look, kept up to date; undefined
+   * when it is not waiting, or has just moved and starts standing still afresh.
+   */
+  #standingStill(nowMs: number): StillAt | undefined {
+    const media = this.#hls.media;
+    if (media === null || !isWaitingToPlay(media)) {
+      this.#still = undefined;
+      return undefined;
+    }
+    const isLoaded = isLoadedWhereItStands(media);
+    const still = this.#still;
+    if (still === undefined || Math.abs(media.currentTime - still.positionS) > movedAtLeastS) {
+      this.#still = {
+        positionS: media.currentTime,
+        loadedSinceMs: isLoaded ? nowMs : undefined,
+        chunksLoaded: 0,
+        chunksNotHeld: 0,
+      };
+      return undefined;
+    }
+    still.loadedSinceMs = isLoaded ? (still.loadedSinceMs ?? nowMs) : undefined;
+    return still;
   }
 
   /** Gives level up, with every quality above it, and loads again from positionS below it (D266). */
