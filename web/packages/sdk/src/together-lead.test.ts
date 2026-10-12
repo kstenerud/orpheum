@@ -114,6 +114,25 @@ describe("a leading player's person's moves", () => {
     }
   });
 
+  it("plays nothing while its page is hidden, the film paused there, and follows the group once shown", () => {
+    const media = new FakeMedia();
+    const page = new FakePage();
+    const { connection, commands } = fakeConnection({ ...paused, state: "Playing" });
+    followGroup(media, connection, { fileId: 5, leads: everyRight, monotonicMs, page });
+    media.fire("seeked"); // the follower's own seek to the group's position
+    vi.advanceTimersByTime(scrubPauseWindowMs);
+    expect(media.paused).toBe(false);
+    media.paused = true; // the page's own pause as it hides (pauseWhenHidden)
+    page.hide();
+    media.fire("pause");
+    vi.advanceTimersByTime(3 * checkDriftEveryMs);
+    expect(media.paused).toBe(true);
+    expect(commands).toEqual([]);
+    page.show();
+    vi.advanceTimersByTime(checkDriftEveryMs);
+    expect(media.paused).toBe(false);
+  });
+
   it("takes the pause iOS makes as its screen locks for no pause, whichever it tells first", () => {
     for (const order of [
       ["pause", "hidden"],

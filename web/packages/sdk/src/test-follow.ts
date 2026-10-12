@@ -28,7 +28,11 @@ export class FakePage {
   }
 
   hide(): void {
-    this.visibilityState = "hidden";
+    this.show("hidden");
+  }
+
+  show(state: DocumentVisibilityState = "visible"): void {
+    this.visibilityState = state;
     for (const listener of this.#listeners) {
       listener();
     }
