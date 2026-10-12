@@ -145,6 +145,31 @@ func TestReport_HowLongAPlaybackTookToStartIsLogged(t *testing.T) {
 	}
 }
 
+// A report carrying how long the person's seeks took to play again is logged, each with where it
+// went and the link's speed, so a jump that felt slow is measured (the owner, 2026-10-12).
+func TestReport_HowLongASeekTookToPlayAgainIsLogged(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	playing := harness.play(t, user, chrome(1))
+	body := reportBody(1, 4_000, 0)
+	body["linkKbps"] = 10_400
+	body["seeks"] = []map[string]any{{"fromPositionMs": 2_759_000, "toPositionMs": 1_461_000, "readyAfterMs": 6900}}
+	if answer := harness.report(t, user, playing, body); answer.status != http.StatusOK {
+		t.Fatalf("the report: %d %s", answer.status, answer.body)
+	}
+	logged := harness.logs.String()
+	for _, want := range []string{
+		`"msg":"a player's seek was ready to play"`, `"fromPositionMs":2759000`, `"toPositionMs":1461000`,
+		`"readyAfterMs":6900`, `"isPaused":false`, `"linkKbps":10400`,
+	} {
+		if !strings.Contains(logged, want) {
+			t.Errorf("the log has no %s:\n%s", want, logged)
+		}
+	}
+}
+
 // A playback on its film's ladder moves along it by itself: its stalls start nothing and are offered
 // nothing (D260 §1).
 func TestReport_AStallOnTheLadderIsOfferedNothing(t *testing.T) {

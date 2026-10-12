@@ -37,8 +37,22 @@ type ReportInput struct {
 		// Unplayables are the qualities the player gave up as ones its device cannot play since its
 		// last report, each sent once (D266).
 		Unplayables []UnplayableBody `json:"unplayables,omitempty" required:"false"`
+		// Seeks are how long each of the person's seeks since the last report took to play again.
+		Seeks []SeekBody `json:"seeks,omitempty" required:"false"`
 	}
 	ClientFacts
+}
+
+// SeekBody is how long one of the person's seeks took to play again, as the player measured it:
+// from the seek to playing, or, for a paused video, to being able to play. A jump that felt slow
+// on staging could only be guessed at, the server seeing none of a player's own seeks (the owner,
+// 2026-10-12).
+type SeekBody struct {
+	FromPositionMs int64 `json:"fromPositionMs" minimum:"0"`
+	ToPositionMs   int64 `json:"toPositionMs"   minimum:"0"`
+	ReadyAfterMs   int64 `json:"readyAfterMs"   minimum:"0"`
+	// IsPaused is whether the video was paused, so ReadyAfterMs is to being able to play.
+	IsPaused bool `json:"isPaused,omitempty" required:"false"`
 }
 
 // UnplayableBody is a quality a player gave up as one its device cannot play: its rate, and where
@@ -179,6 +193,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 	server.logReport(ctx, reporter, report, answer, input.Body.Stalls)
 	server.logStartup(ctx, reporter, input.Body.Startup, input.Body.LinkKbps)
 	server.logUnplayables(ctx, reporter, input.Body.Unplayables)
+	server.logSeeks(ctx, reporter, input.Body.Seeks, input.Body.LinkKbps)
 	output := &ReportOutput{}
 	if answer.StopMessage != nil {
 		output.Body.Stop = &StopBody{Message: *answer.StopMessage}
@@ -243,6 +258,16 @@ func (server *Server) logUnplayables(ctx context.Context, reporter reporter, unp
 			"readyState", unplayable.ReadyState, "isPaused", unplayable.IsPaused,
 			"videoBuffered", unplayable.VideoBuffered, "audioBuffered", unplayable.AudioBuffered,
 			"lastError", unplayable.LastError)
+	}
+}
+
+// logSeeks says how long each of the person's seeks took to play again, with the link's speed.
+func (server *Server) logSeeks(ctx context.Context, reporter reporter, seeks []SeekBody, linkKbps int64) {
+	for _, seek := range seeks {
+		server.logger.InfoContext(ctx, "a player's seek was ready to play", "userId", reporter.holder.UserID,
+			"deviceId", reporter.deviceID, "viewerOfFileId", reporter.holder.OnlyFileID,
+			"fromPositionMs", seek.FromPositionMs, "toPositionMs", seek.ToPositionMs,
+			"readyAfterMs", seek.ReadyAfterMs, "isPaused", seek.IsPaused, "linkKbps", linkKbps)
 	}
 }
 

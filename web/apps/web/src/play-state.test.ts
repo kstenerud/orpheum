@@ -181,6 +181,39 @@ describe("play state", () => {
     expect(startup.playingAfterMs).toBeGreaterThanOrEqual(startup.firstDataAfterMs);
   });
 
+  it("tells how long each of the person's seeks took to play again, from its last seeking (the owner, 2026-10-12)", async () => {
+    const heard: Heard[] = [];
+    const playView = createElement(PlayView, {
+      fileId: 2,
+      decision: directDecision({ mediaToken: "sought" }),
+      onDecideAgain: () => undefined,
+    });
+    mounted = await mount(
+      withServices(playView, servedBy({ "POST /playback/sought/report": [204, undefined] }, heard)),
+    );
+    const video = mounted.container.querySelector("video");
+    if (video === null) {
+      throw new Error("no video");
+    }
+    Object.defineProperty(video, "readyState", { value: 4 });
+    Object.defineProperty(video, "paused", { value: false, configurable: true });
+    await act(async () => {
+      video.currentTime = 30;
+      video.dispatchEvent(new Event("timeupdate"));
+      video.currentTime = 600;
+      video.dispatchEvent(new Event("seeking"));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      video.dispatchEvent(new Event("playing"));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const seeks = heard
+      .filter((request) => request.methodAndPath === "POST /playback/sought/report")
+      .flatMap((request) => (request.body as { seeks?: Record<string, number>[] }).seeks ?? []);
+    expect(seeks).toHaveLength(1);
+    expect(seeks[0]).toMatchObject({ fromPositionMs: 30_000, toPositionMs: 600_000 });
+    expect(seeks[0]?.["readyAfterMs"]).toBeGreaterThanOrEqual(15);
+  });
+
   it("starts on the ladder its decision names, and says the quality follows the connection (D260)", async () => {
     const onLadder = {
       url: "/api/v1/bytes/media/chunks/remembered/master.m3u8",

@@ -2852,6 +2852,7 @@ export interface components {
             positionReadMonoMs: number;
             /** Format: int64 */
             reportSeq: number;
+            seeks?: components["schemas"]["SeekBody"][] | null;
             /** Format: int64 */
             sentMonoMs: number;
             spans: components["schemas"]["SpanBody"][] | null;
@@ -2984,6 +2985,15 @@ export interface components {
         };
         SecretsOutputBody: {
             secrets: components["schemas"]["SecretBody"][] | null;
+        };
+        SeekBody: {
+            /** Format: int64 */
+            fromPositionMs: number;
+            isPaused?: boolean;
+            /** Format: int64 */
+            readyAfterMs: number;
+            /** Format: int64 */
+            toPositionMs: number;
         };
         ServerBody: {
             build: components["schemas"]["BuildBody"];

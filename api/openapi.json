@@ -3838,6 +3838,15 @@
             "minimum": 1,
             "type": "integer"
           },
+          "seeks": {
+            "items": {
+              "$ref": "#/components/schemas/SeekBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "sentMonoMs": {
             "format": "int64",
             "minimum": 0,
@@ -4309,6 +4318,35 @@
         },
         "required": [
           "secrets"
+        ],
+        "type": "object"
+      },
+      "SeekBody": {
+        "additionalProperties": false,
+        "properties": {
+          "fromPositionMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "isPaused": {
+            "type": "boolean"
+          },
+          "readyAfterMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "toPositionMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fromPositionMs",
+          "toPositionMs",
+          "readyAfterMs"
         ],
         "type": "object"
       },

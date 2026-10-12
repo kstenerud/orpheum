@@ -182,6 +182,65 @@ function startupListeners(
   };
 }
 
+/**
+ * Times each of the person's seeks, from its last seeking (a drag seeks again and again) to playing,
+ * or, for a paused video, to being able to play, and tells the reporter (the owner, 2026-10-12: a
+ * jump that felt slow could not be measured): with the report the started event sends, or at once
+ * when paused. Its listeners go on the video before the started event's.
+ */
+function timeSeeks(
+  video: HTMLVideoElement,
+  reporter: Pick<PlayReporter, "recordSeekReady" | "flush">,
+): {
+  readonly seeking: (fromMs: number) => void;
+  readonly listeners: Record<string, () => void>;
+} {
+  let pending: { readonly fromMs: number; atMs: number } | undefined;
+  const ready = (): boolean => {
+    if (pending === undefined || video.seeking) {
+      return false;
+    }
+    const toMs = positionMs(video);
+    reporter.recordSeekReady({
+      fromPositionMs: Math.max(0, Math.round(pending.fromMs)),
+      toPositionMs: Math.max(0, Math.round(toMs)),
+      readyAfterMs: Math.max(0, Math.round(performance.now() - pending.atMs)),
+      ...(video.paused ? { isPaused: true } : {}),
+    });
+    pending = undefined;
+    return true;
+  };
+  return {
+    listeners: {
+      playing: () => {
+        ready();
+      },
+      canplay: () => {
+        if (video.paused && ready()) {
+          reporter.flush(positionMs(video));
+        }
+      },
+    },
+    seeking: (fromMs) => {
+      const atMs = performance.now();
+      if (pending === undefined) {
+        pending = { fromMs, atMs };
+      } else {
+        pending.atMs = atMs;
+      }
+    },
+  };
+}
+
+/** Wraps a video's listener to hear only events from a video that holds media. */
+function whileHoldingMedia(video: HTMLVideoElement): (listener: () => void) => () => void {
+  return (listener) => (): void => {
+    if (hasMedia(video)) {
+      listener();
+    }
+  };
+}
+
 /** What reportVideoEvents hands back: where the video last was while it held media, and how to stop. */
 interface VideoEventReporting {
   readonly lastPositionMs: () => number;
@@ -202,20 +261,14 @@ function reportVideoEvents(
   const { resumePositionMs } = playback;
   let isResuming = resumePositionMs > 0;
   let lastHeldPositionMs = resumePositionMs;
-  const whileItHoldsMedia = (listener: () => void) => (): void => {
-    if (hasMedia(video)) {
-      listener();
-    }
-  };
+  const seekTimer = timeSeeks(video, reporter);
+  const whileItHoldsMedia = whileHoldingMedia(video);
   const listeners: Record<string, () => void> = {
     loadedmetadata: () => {
       if (isResuming) {
         seekTo(video, resumePositionMs);
       }
     },
-    playing: whileItHoldsMedia(() => {
-      reporter.recordStarted(positionMs(video));
-    }),
     pause: whileItHoldsMedia(() => {
       if (!video.ended) {
         reporter.recordPaused(positionMs(video));
@@ -227,7 +280,11 @@ function reportVideoEvents(
         isResuming = false;
       } else {
         reporter.recordSeeked(lastHeldPositionMs, positionMs(video));
+        seekTimer.seeking(lastHeldPositionMs);
       }
+    }),
+    playing: whileItHoldsMedia(() => {
+      reporter.recordStarted(positionMs(video));
     }),
     timeupdate: whileItHoldsMedia(() => {
       lastHeldPositionMs = positionMs(video);
@@ -236,9 +293,10 @@ function reportVideoEvents(
       reporter.recordCompleted(positionMs(video));
     }),
   };
-  // The start-up is recorded first, so the report the first started event sends carries it.
+  // Start-up and seek times are recorded first, for the report the started event sends.
   const added = [
     ...Object.entries(startupListeners(video, reporter, playback.mediaToken)),
+    ...Object.entries(seekTimer.listeners),
     ...Object.entries(listeners),
   ];
   for (const [event, listener] of added) {
