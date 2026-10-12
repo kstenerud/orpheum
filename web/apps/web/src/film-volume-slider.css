@@ -1,0 +1,13 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* The film's volume: its label, then the slider across the rest of the row. */
+.film-volume {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.film-volume input {
+  flex: 1;
+  min-width: 0;
+}

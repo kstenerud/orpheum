@@ -45,17 +45,6 @@
   gap: var(--space-3);
 }
 
-.watch-together__volume {
-  display: flex;
-  gap: var(--space-3);
-  align-items: center;
-}
-
-.watch-together__volume input {
-  flex: 1;
-  min-width: 0;
-}
-
 /* Each person a row the width of the list, which opens what is done with them. */
 .watch-together__people {
   display: grid;

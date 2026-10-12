@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { tabStorage } from "./browser-storage.ts";
 import { BusyGroup } from "./busy-group.tsx";
 import { ConfirmButton } from "./confirm-button.tsx";
-import { setFilmVolume, useFilmVolume } from "./film-volume.ts";
+import { FilmVolumeSlider } from "./film-volume-slider.tsx";
 import { idempotent } from "./idempotent.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { ApiProblem, dataOrThrow, fieldProblemText, throwIfRefused } from "./problem.ts";
@@ -28,7 +28,6 @@ import { forgetMembership, keepMembership, type Membership } from "./together-st
 import { useHostVoice, VoiceControls } from "./together-voice.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
-import { VolumeRange } from "./volume-range.tsx";
 
 /**
  * The host's Watch Together screen (D246 §3, §5): start a session, or have back the one this tab
@@ -183,18 +182,6 @@ function HostedSession(props: {
       resource={details}
       render={(value) => <SessionView details={value} onChanged={reload} onEnded={props.onEnded} />}
     />
-  );
-}
-
-/** The film's volume in this tab, which the host's player follows (D281 §5). */
-function FilmVolumeSlider(): JSX.Element {
-  const { t } = useTranslation();
-  const volume = useFilmVolume();
-  return (
-    <label className="watch-together__volume">
-      {t("watchTogether.filmVolume")}{" "}
-      <VolumeRange value={volume} most={1} onChange={setFilmVolume} />
-    </label>
   );
 }
 
