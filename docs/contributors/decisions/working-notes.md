@@ -19572,7 +19572,8 @@ or not. The user interaction would tell you what happened."* It refines D250 §5
 1. **Encoded qualities carry a keyframe every 2 s**, inside chunks that stay on the copied picture's
    grid, each keyframe beginning its own fragment, and **a chunk is served as it is made**, so a
    player on an encoded quality starts on the first 2 s of a chunk rather than its whole 10 s: about
-   9 s to 2 or 3 after a jump, for 3 to 5% more bits.
+   9 s to 2 or 3 after a jump. (The 3 to 5% more bits first given for it was a guess; measured, a
+   2 s keyframe costs 8.5 to 23% at 720p: fast-start-2026-10-12.md §0.)
 2. **A jump says it is one.** A player loading where its person's seek, or its group's, took it
    says so on each request (`Orpheum-Sought`) until it can play there; a catch-up's seek
    (`catchUpSeekEvent`) and hls.js's own steps over a gap never do. Such a request more than

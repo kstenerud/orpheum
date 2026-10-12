@@ -168,5 +168,6 @@ jump, and the group's `everyoneReady` against its `seeked` for a group one.
   share the copied picture's grid with a keyframe only at each chunk's start (`-g 100000
   -force_key_frames`). Keeping the chunks but encoding a keyframe every 2 s, each its own fragment,
   and serving a chunk as it is made would let a device on an encoded quality start on its first 2 s:
-  about 9 s to 2 or 3 after a jump, for 3 to 5% more bits. The owner's question to decide next.
+  about 9 s to 2 or 3 after a jump. Its cost was put here at 3 to 5% more bits, a guess; measured on
+  2026-10-12 it is 8.5 to 23% at 720p (fast-start-2026-10-12.md §0). The owner's question to decide next.
 
