@@ -251,7 +251,8 @@ interface VideoEventReporting {
  * Tells the reporter what the video does, and how long it took to start (startupListeners), and
  * starts it at the playback's resumePositionMs. Events from a video with no media are ignored, and
  * where it was when it last held some is kept: an emptied video is at 0:00, which the person did not
- * watch.
+ * watch. A position told while seeking is not kept: Firefox tells of a seek's new position before
+ * its seeking event, and every seek was logged as from where it went.
  */
 function reportVideoEvents(
   video: HTMLVideoElement,
@@ -287,7 +288,7 @@ function reportVideoEvents(
       reporter.recordStarted(positionMs(video));
     }),
     timeupdate: whileItHoldsMedia(() => {
-      lastHeldPositionMs = positionMs(video);
+      lastHeldPositionMs = video.seeking ? lastHeldPositionMs : positionMs(video);
     }),
     ended: whileItHoldsMedia(() => {
       reporter.recordCompleted(positionMs(video));
