@@ -209,6 +209,7 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 		return Started{}, err
 	}
 	playback.isOnLadder = started.OnLadder != nil
+	service.keepStartsNeed(&playback, started.OnLadder)
 	// A film on its ladder needs no prepared copy (D260 §1).
 	if decision.Delivery == decide.HLS && !playback.isOnLadder {
 		playback.profile = nodeproto.PrepareProfile(decision.Profile)
@@ -264,8 +265,12 @@ func (service *Service) startOnLadder(
 		return nil, "", fmt.Errorf("read %s: %w", settings.PlayLadderWaitMs, err)
 	}
 	waitUntil := service.clock.Now().Add(time.Duration(waitMs) * time.Millisecond)
+	chunked := chunksPlaybackOf(playback)
+	if chunked.StartAtMostKbps, err = service.uploadLeftKbps(ctx); err != nil {
+		return nil, "", err
+	}
 	for {
-		offer, startErr := service.chunks.StartOnLadder(ctx, chunksPlaybackOf(playback), positionMs, kbps)
+		offer, startErr := service.chunks.StartOnLadder(ctx, chunked, positionMs, kbps)
 		isWaiting := errors.Is(startErr, chunks.ErrNoGrid) && service.clock.Now().Before(waitUntil)
 		if isWaiting && service.clock.Sleep(ctx, ladderLookEvery) == nil {
 			continue

@@ -294,3 +294,41 @@ func (service *Service) liftCeilingsLocked() []ceilingChange {
 	}
 	return changes
 }
+
+// uploadLeftKbps is what is left of the films' share of server_upload_mbps for a playback starting
+// now, at least 1 kbit/s, so a start past it takes the lowest quality; zero, no bound, while the
+// setting is unanswered (D286 §5).
+func (service *Service) uploadLeftKbps(ctx context.Context) (int64, error) {
+	uploadMbps, err := service.uploadMbps(ctx)
+	if err != nil || uploadMbps == 0 {
+		return 0, err
+	}
+	now := service.clock.Now()
+	service.tokens.mutex.Lock()
+	defer service.tokens.mutex.Unlock()
+	left := uploadMbps * 1000 * filmsShareOfUploadPercent / 100
+	for _, playback := range service.tokens.playbackByToken {
+		need := playback.picturesNeed.within(now) + playback.soundsNeed.within(now)
+		if need == 0 {
+			need = playback.measuredKbps
+		}
+		left -= need
+	}
+	return max(left, 1), nil
+}
+
+// keepStartsNeed counts a playback starting on its ladder at offer as needing its rate from now,
+// before its player asks for anything, so the starts of a group's players, a moment apart, each see
+// the others' (the owner's test, 2026-10-12: every device started at 1.7 to 1.8 Mbit/s, together
+// past the share); and, where the start was held lower to keep within the upload, at that ceiling.
+// A playback not on its ladder, a nil offer, is counted by what it is sent.
+func (service *Service) keepStartsNeed(playback *tokenPlayback, offer *chunks.Offer) {
+	if offer == nil {
+		return
+	}
+	now := service.clock.Now()
+	playback.picturesNeed, playback.pictureStream = streamNeed{kbps: offer.AverageKbps, at: now}, offer.StreamName
+	if offer.IsHeldByUpload {
+		playback.ceilingKbps, playback.loweredAt = offer.AverageKbps, now
+	}
+}
