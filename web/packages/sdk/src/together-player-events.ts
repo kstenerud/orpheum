@@ -122,3 +122,25 @@ export function loadingHoldOf(event: Event): LoadingHold | undefined {
   const { isHeld } = detailWith(event, ["isHeld"]) ?? {};
   return typeof isHeld === "boolean" ? { isHeld } : undefined;
 }
+
+/**
+ * The event a following player fires at its video to have it load no more than a runway ahead, or
+ * as far as it would: a LoadingRunway in its detail. While another player in its group is still
+ * loading, it keeps a short runway, so the one behind has the server's upload (D285 §2).
+ */
+export const loadingRunwayEvent = "orpheumloadingrunway";
+
+/** How far ahead a player is to load at most, in seconds; undefined for as far as it would. */
+export interface LoadingRunway {
+  readonly aheadS: number | undefined;
+}
+
+/** The LoadingRunway an event carries, if it is one. */
+export function loadingRunwayOf(event: Event): LoadingRunway | undefined {
+  const detail = detailWith(event, ["aheadS"]);
+  if (detail === undefined) {
+    return undefined;
+  }
+  const { aheadS } = detail;
+  return aheadS === undefined || typeof aheadS === "number" ? { aheadS } : undefined;
+}

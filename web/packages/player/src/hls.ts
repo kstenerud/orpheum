@@ -3,6 +3,8 @@
 import {
   catchUpSeekEvent,
   holdLoadingEvent,
+  loadingRunwayEvent,
+  loadingRunwayOf,
   loadingHoldOf,
   playerLoadedChunkEvent,
   playerMovedItselfEvent,
@@ -106,6 +108,57 @@ export interface OwnMoves {
     event: typeof Hls.Events.ERROR,
     listener: (event: unknown, data: Pick<ErrorData, "details">) => void,
   ) => void;
+}
+
+/**
+ * Loads no more than the runway the follower of its group asks for, while one in the group is still
+ * loading, and as far as fullS otherwise (loadingRunwayEvent, D285 §2). Returns the stopping.
+ */
+export function keepRunwayWhenTold(
+  hls: { readonly config: Pick<Hls["config"], "maxBufferLength" | "maxMaxBufferLength"> },
+  video: Pick<EventTarget, "addEventListener" | "removeEventListener">,
+  fullS: { readonly maxBufferLength: number; readonly maxMaxBufferLength: number },
+): () => void {
+  const listener = (event: Event): void => {
+    const runway = loadingRunwayOf(event);
+    if (runway === undefined) {
+      return;
+    }
+    const { aheadS } = runway;
+    // eslint-disable-next-line no-param-reassign -- hls.js reads its config as it loads
+    hls.config.maxBufferLength =
+      aheadS === undefined ? fullS.maxBufferLength : Math.min(aheadS, fullS.maxBufferLength);
+    // eslint-disable-next-line no-param-reassign -- as above
+    hls.config.maxMaxBufferLength =
+      aheadS === undefined ? fullS.maxMaxBufferLength : Math.min(aheadS, fullS.maxMaxBufferLength);
+  };
+  video.addEventListener(loadingRunwayEvent, listener);
+  return () => {
+    video.removeEventListener(loadingRunwayEvent, listener);
+  };
+}
+
+/**
+ * Loads as the follower of its group says: held while its group waits (holdLoadingWhenTold), and no
+ * more than a runway while one in the group is behind (keepRunwayWhenTold), as far as hls.js was
+ * set to otherwise. Returns the stopping.
+ */
+export function obeyGroupLoading(
+  hls: Pick<Hls, "stopLoad" | "startLoad" | "config">,
+  video: Pick<EventTarget, "addEventListener" | "removeEventListener">,
+): () => void {
+  const stops = [
+    holdLoadingWhenTold(hls, video),
+    keepRunwayWhenTold(hls, video, {
+      maxBufferLength: hls.config.maxBufferLength,
+      maxMaxBufferLength: hls.config.maxMaxBufferLength,
+    }),
+  ];
+  return () => {
+    for (const stop of stops) {
+      stop();
+    }
+  };
 }
 
 /** The header in which a player says it loads where a seek took it (D284 §2). */
