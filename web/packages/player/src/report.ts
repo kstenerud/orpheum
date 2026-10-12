@@ -38,6 +38,9 @@ export type PlayStartup = Readonly<Schemas["StartupBody"]>;
 /** A quality the player gave up as one its device cannot play, and where (D266). */
 export type PlayUnplayable = Readonly<Schemas["UnplayableBody"]>;
 
+/** How long one of the person's seeks took to play again. */
+export type PlaySeek = Readonly<Schemas["SeekBody"]>;
+
 /** How often a playing player reports where it is (play-state.md: about every ten seconds). */
 export const reportEveryMs = 10_000;
 
@@ -76,6 +79,7 @@ export class PlayReporter {
   private stalls: PlayStall[] = [];
   private startup: PlayStartup | undefined;
   private unplayables: PlayUnplayable[] = [];
+  private seeks: PlaySeek[] = [];
   private readLinkKbps: () => number | undefined = () => undefined;
   private openSpan: { fromPositionMs: number; startedMonoMs: number } | undefined;
   private isSending = false;
@@ -179,6 +183,14 @@ export class PlayReporter {
     this.flush(positionMs);
   }
 
+  /**
+   * One of the person's seeks played again, sent with the next report: the one its started event
+   * sends at once, when it is recorded just before.
+   */
+  recordSeekReady(seek: PlaySeek): void {
+    this.seeks.push(seek);
+  }
+
   /** Reports where the playback is, with any changes not yet sent. */
   flush(positionMs: number): void {
     if (this.isSending || this.isRefused) {
@@ -197,12 +209,14 @@ export class PlayReporter {
       ...(linkKbps === undefined ? {} : { linkKbps: Math.round(linkKbps) }),
       ...(this.startup === undefined ? {} : { startup: this.startup }),
       ...(this.unplayables.length === 0 ? {} : { unplayables: this.unplayables }),
+      ...(this.seeks.length === 0 ? {} : { seeks: this.seeks }),
     };
     this.events = [];
     this.spans = [];
     this.stalls = [];
     this.startup = undefined;
     this.unplayables = [];
+    this.seeks = [];
     this.isSending = true;
     this.send(report).then(
       () => {
@@ -220,6 +234,7 @@ export class PlayReporter {
         this.stalls = [...(report.stalls ?? []), ...this.stalls];
         this.startup ??= report.startup ?? undefined;
         this.unplayables = [...(report.unplayables ?? []), ...this.unplayables];
+        this.seeks = [...(report.seeks ?? []), ...this.seeks];
       },
     );
   }
