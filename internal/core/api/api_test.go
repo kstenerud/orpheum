@@ -208,6 +208,12 @@ func newHarness(t *testing.T) testHarness {
 	if mappingErr != nil {
 		t.Fatal(mappingErr)
 	}
+	hub := together.NewHub(now, rand.Reader, func(ctx context.Context, userID, fileID int64) bool {
+		reach, err := service.ReachOfUser(ctx, userID)
+		return err == nil && browser.ReachFile(ctx, reach, fileID) == nil
+	}, slog.New(slog.NewJSONHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
+	// As serve.go wires them: a group's players share the upload evenly from their start (D286 §5).
+	playbackService.GroupPlayersBy(hub.PlayersHostedBy)
 	server.Ready(Dependencies{
 		Auth: service, Settings: seeded, Discovery: discoveryService, PortMapping: portMapping,
 		Secrets: secretStore, SetupCodes: codes,
@@ -220,15 +226,12 @@ func newHarness(t *testing.T) testHarness {
 			Database: database, Queue: queue,
 			ArtFiles: directories, Cache: cache, Settings: seeded, Clock: now, Logger: slog.New(slog.DiscardHandler),
 		}),
-		Playback:   playbackService,
-		Subtitles:  subtitlesService,
-		Renditions: renditionsService,
-		Chunks:     chunksService,
-		Backups:    backups,
-		Together: together.NewHub(now, rand.Reader, func(ctx context.Context, userID, fileID int64) bool {
-			reach, err := service.ReachOfUser(ctx, userID)
-			return err == nil && browser.ReachFile(ctx, reach, fileID) == nil
-		}, slog.New(slog.NewJSONHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug}))),
+		Playback:     playbackService,
+		Subtitles:    subtitlesService,
+		Renditions:   renditionsService,
+		Chunks:       chunksService,
+		Backups:      backups,
+		Together:     hub,
 		Reachability: reachability.New(reachability.Parts{Clock: now, Random: rand.Reader}),
 		Preferences:  preferencesService,
 		NodeBytes:    nodeBytes,
