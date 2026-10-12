@@ -98,14 +98,20 @@ func (tracker *runTracker) isMadeFromThrough(dir string, first, last int) bool {
 	return true
 }
 
-// cutFar cuts every run of the store that wanted is more than beyondMs of film past the chunk it
-// makes next, or more than lookaheadMs and beyondMs before the chunk it starts at, a run made ahead
-// starting up to lookaheadMs ahead. Such a request was sought to (D250 §5, D284 §2); no one follows
+// farFrom is how far a request must be from a run for it to be cut: more than pastMs of film past
+// the chunk it makes next, or more than beforeMs before the chunk it starts at.
+type farFrom struct {
+	pastMs, beforeMs int64
+}
+
+// cutFar cuts every run of the store that wanted is far from (farFrom): past it, or before it, which
+// for any ask but a jump's is beyond the lookaheadMs a run is made ahead, and for a jump's is any
+// distance, since everyone left where it was (D286 §1). Such a request was sought to (D250 §5, D284 §2); no one follows
 // those runs now: they are forgotten, and returned
 // for the caller to cancel. A run a seek back left ran on, as fast as the node could make it, and
 // starved the runs the players needed where they went; a seek a little ahead waited for a run made
 // at playback's speed to get there (the owner's tests, 2026-10-12).
-func (tracker *runTracker) cutFar(dir string, grid Grid, wanted int, beyondMs int64) []RunSpan {
+func (tracker *runTracker) cutFar(dir string, grid Grid, wanted int, far farFrom) []RunSpan {
 	tracker.mutex.Lock()
 	defer tracker.mutex.Unlock()
 	known := tracker.storeLocked(dir)
@@ -113,9 +119,8 @@ func (tracker *runTracker) cutFar(dir string, grid Grid, wanted int, beyondMs in
 	for first, each := range known.runByFirst {
 		next := each.madeThrough + 1
 		isFarPast := wanted > each.madeThrough && next <= grid.lastChunk() &&
-			grid.StartsMs[wanted]-grid.StartsMs[next] > beyondMs
-		isFarBefore := wanted < each.first &&
-			grid.StartsMs[each.first]-grid.StartsMs[wanted] > lookaheadMs+beyondMs
+			grid.StartsMs[wanted]-grid.StartsMs[next] > far.pastMs
+		isFarBefore := wanted < each.first && grid.StartsMs[each.first]-grid.StartsMs[wanted] > far.beforeMs
 		if !isFarPast && !isFarBefore {
 			continue
 		}

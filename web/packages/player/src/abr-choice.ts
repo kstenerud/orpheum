@@ -12,6 +12,8 @@ import { haveFutureData } from "./stalls.ts";
 export interface ChoiceLevel {
   readonly bitrate: number;
   readonly averageBitrate: number;
+  /** Its playlist's address, which names the film's own picture ("picture/stream.m3u8"). */
+  readonly uri?: string;
 }
 
 /**
@@ -267,4 +269,30 @@ export function isLoadedWhereItStands(
  */
 export function isWaitingToPlay(media: Pick<HTMLMediaElement, "paused" | "readyState">): boolean {
   return !media.paused || media.readyState < haveFutureData;
+}
+
+/** The quality that is the film's own picture, copied rather than made (its playlist picture/), or -1. */
+export function ownPictureLevel(levels: readonly ChoiceLevel[]): number {
+  return levels.findIndex(
+    (level) =>
+      level.uri === "picture/stream.m3u8" || level.uri?.endsWith("/picture/stream.m3u8") === true,
+  );
+}
+
+/**
+ * The film's own picture, when a player in a Watch Together group keeps it: while its link carries
+ * the picture's average rate, whatever share the controller keeps back for voice or a growing
+ * buffer. Such a player stepped down to a quality the server made for it, adding an encode the
+ * group's encoding devices could not spare, on a link only crowded by the group sharing the server's
+ * upload (D286 §2); undefined when it does not keep it.
+ */
+export function keptOwnPicture(
+  levels: readonly ChoiceLevel[],
+  linkBps: number | undefined,
+): number | undefined {
+  const own = ownPictureLevel(levels);
+  const picture = levels[own];
+  return picture !== undefined && linkBps !== undefined && linkBps >= picture.averageBitrate
+    ? own
+    : undefined;
 }

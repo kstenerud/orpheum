@@ -65,6 +65,7 @@ function chunkAt(level: number): FollowedChunk & {
 
 let nowMs = 0;
 let isVoiceLive = false;
+let isInAGroup = false;
 /** The chunks the browser says it took from its cache, by URL; any other it says nothing of. */
 let cachedUrls = new Set<string>();
 
@@ -88,6 +89,7 @@ function choosingFrom(startAtBps: number): {
       startAtBps,
       monotonicMs: () => nowMs,
       isVoiceLive: () => isVoiceLive,
+      isInAGroup: () => isInAGroup,
       fromCache: (url) => (cachedUrls.has(url) ? true : undefined),
       onUnplayable: (found) => unplayable.push(found),
     },
@@ -118,6 +120,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   nowMs = 0;
   isVoiceLive = false;
+  isInAGroup = false;
   cachedUrls = new Set<string>();
 });
 
@@ -338,6 +341,31 @@ describe("choosing while voice is live (D262 §2, D265 §6, §7)", () => {
     // Paced at 2.4 Mb/s, a chunk arrives at its pace: it measures the pace, not the link.
     expect(load(choosing, 1, { bytes: 1_185_000, loadMs: 4000 })).toBe(false);
     expect(choosing.nextLevel()).toBe(1);
+  });
+});
+
+describe("a player in a Watch Together group keeping the film's own picture (D286 §2)", () => {
+  /** choosingFrom, its top quality named as the film's own picture, as the master lists it. */
+  function withOwnPicture(): ReturnType<typeof choosingFrom> {
+    const chosen = choosingFrom(40_000_000);
+    const named = levels.map((level, index) =>
+      index === levels.length - 1 ? { ...level, uri: "https://s/c/t/picture/stream.m3u8" } : level,
+    );
+    Object.defineProperty(chosen.hls, "levels", { value: named });
+    return chosen;
+  }
+
+  it("keeps it while its link carries the picture's average, though voice would halve its share", () => {
+    const { choosing, link } = withOwnPicture();
+    link.estimateBps = 8_800_000;
+    load(choosing, 3, { bytes: 4_400_000, loadMs: 4000 });
+    isVoiceLive = true;
+    expect(choosing.nextLevel()).toBe(2); // alone, voice leaves it half: 720p
+    isInAGroup = true;
+    expect(choosing.nextLevel()).toBe(3); // in a group: the film's own picture
+    link.estimateBps = 4_000_000;
+    load(choosing, 3, { bytes: 2_000_000, loadMs: 4000 });
+    expect(choosing.nextLevel()).toBeLessThan(3); // a link too slow for it steps down
   });
 });
 

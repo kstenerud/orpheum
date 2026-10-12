@@ -44,6 +44,7 @@ import {
   type FollowedMedia,
 } from "./together-media.ts";
 import { LoadSpeed, waitAheadAtMostMs } from "./together-load-speed.ts";
+import { markFollowingAGroup } from "./following-a-group.ts";
 import { GroupLoading } from "./together-loading.ts";
 import { Refill } from "./together-refill.ts";
 import { playOrPlayMuted } from "./together-sound.ts";
@@ -751,6 +752,7 @@ export function followGroup(
     media.addEventListener(event, listener);
   }
   connection.setPlayer(follower.playerState);
+  const unmarkFollowing = markFollowingAGroup();
   const unsubscribe = connection.subscribe(follower.connectionChanged);
   const checker = setInterval(follower.tick, checkDriftEveryMs);
   follower.apply();
@@ -758,6 +760,7 @@ export function followGroup(
   return () => {
     clearInterval(checker);
     follower.stop();
+    unmarkFollowing();
     unsubscribe();
     connection.setPlayer(undefined);
     for (const [event, listener] of listeners) {

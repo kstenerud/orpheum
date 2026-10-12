@@ -17,6 +17,8 @@ import {
   steadyLevel,
   voiceCeiling,
   type ChunkOnItsWay,
+  keptOwnPicture,
+  ownPictureLevel,
 } from "./abr-choice.ts";
 
 /** Bram's ladder on staging: four qualities, then its own picture, its peak 36 Mb/s. */
@@ -208,5 +210,20 @@ describe("a video waiting to play (D266)", () => {
     expect(isWaitingToPlay({ paused: false, readyState: 4 })).toBe(true);
     expect(isWaitingToPlay({ paused: true, readyState: 1 })).toBe(true);
     expect(isWaitingToPlay({ paused: true, readyState: 4 })).toBe(false); // a person paused it
+  });
+});
+
+describe("the film's own picture in a Watch Together group (D286 §2)", () => {
+  const ladder = [
+    { bitrate: 1_896_000, averageBitrate: 1_296_000, uri: "q1200k480p/stream.m3u8" },
+    { bitrate: 36_208_176, averageBitrate: 5_117_192, uri: "picture/stream.m3u8" },
+  ];
+
+  it("is the quality whose playlist is picture/, kept while the link carries its average", () => {
+    expect(ownPictureLevel(ladder)).toBe(1);
+    expect(ownPictureLevel([ladder[0]!])).toBe(-1);
+    expect(keptOwnPicture(ladder, 5_117_192)).toBe(1);
+    expect(keptOwnPicture(ladder, 5_000_000)).toBeUndefined();
+    expect(keptOwnPicture(ladder, undefined)).toBeUndefined();
   });
 });

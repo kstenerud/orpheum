@@ -20,6 +20,7 @@ import {
   giveUpFor,
   isLoadedWhereItStands,
   isUnplayable,
+  keptOwnPicture,
   isWaitingToPlay,
   measuresTheLink,
   startingLevel,
@@ -76,6 +77,8 @@ export interface ChoosingOptions {
   readonly monotonicMs: () => number;
   /** Whether this tab's voice is live, when the film gives way to it (D262 §2). */
   readonly isVoiceLive: () => boolean;
+  /** Whether it plays in a Watch Together group, which keeps the film's own picture (D286 §2). */
+  readonly isInAGroup?: () => boolean;
   /** Whether the browser took the chunk at url from its cache; undefined where it does not say. */
   readonly fromCache: (url: string) => boolean | undefined;
   /** Told of a quality given up as one this device cannot play, and where (D266). */
@@ -155,8 +158,14 @@ export class Choosing<Chunk extends FollowedChunk> {
       this.#lastChosen = this.#forced;
       return this.#forced;
     }
-    const ceiling = this.#ceilingNow();
     const linkBps = this.#linkBps();
+    const kept =
+      this.#options.isInAGroup?.() === true ? keptOwnPicture(this.#hls.levels, linkBps) : undefined;
+    if (kept !== undefined && kept < (this.#unplayableFrom ?? Number.POSITIVE_INFINITY)) {
+      this.#lastChosen = this.#clamped(kept);
+      return this.#lastChosen;
+    }
+    const ceiling = this.#ceilingNow();
     const steady = steadyLevel({
       levels: this.#hls.levels,
       ceiling,

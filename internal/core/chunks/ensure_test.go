@@ -274,6 +274,33 @@ func TestEnsure_ASeekAPlayerSaysItMadeStartsARunNearerThanAnotherAsk(t *testing.
 	}
 }
 
+// A jump that lands a little before a run cuts it, and starts one run where it landed, rather than a
+// second beside it; any other ask that close leaves the run ahead and fills the gap (D286 §1; the
+// owner's jumps, 2026-10-12, where two 720p runs starved each other).
+func TestEnsure_AJumpJustBeforeARunCutsItAndStartsOneRunWhereItLanded(t *testing.T) {
+	t.Parallel()
+	for _, isSought := range []bool{false, true} {
+		queue := newFakeQueue()
+		service, _ := chunksFixture(t, queue, fakeNode{})
+		picture := Stream{Kind: nodeproto.StreamPicture}
+		ensured(t, service, picture, 10)
+		err := service.ensure(t.Context(), ensuring{
+			fileID: 1, kind: OnKeyframes, stream: picture, wanted: 8, isSought: isSought,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var wantCancelled []int
+		if isSought {
+			wantCancelled = []int{10}
+		}
+		if !slices.Equal(queue.cancelledFirsts, wantCancelled) {
+			t.Errorf("said sought %t: the runs cancelled start at %v; want %v", isSought, queue.cancelledFirsts,
+				wantCancelled)
+		}
+	}
+}
+
 // D247 §10: a run made faster than it is played is made long before the player reaches its end; a
 // chunk the node serves from it looks a minute ahead, so the next run is on its way before the
 // player asks for its first chunk. After a restart nothing past a served chunk is known, and no run
