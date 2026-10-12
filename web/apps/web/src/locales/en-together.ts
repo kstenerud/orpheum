@@ -21,6 +21,7 @@ export const enTogether = {
     soundOn: "Tap for sound",
     fullscreen: "Full screen",
     volume: "Volume",
+    volumeButtons: "Use your phone's volume buttons for the film.",
     leave: "Leave",
     connecting: "Connecting…",
     cannotKeepUp:

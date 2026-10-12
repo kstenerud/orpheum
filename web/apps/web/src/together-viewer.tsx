@@ -64,6 +64,7 @@ import { monotonicMs, useTogether, useToldCannotKeepUp } from "./use-together.ts
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 import { VolumeRange } from "./volume-range.tsx";
+import { useIsVolumeSettable, VolumeButtonsNote } from "./film-volume-slider.tsx";
 
 /**
  * A Watch Together viewer's page (D246 §3, §5, §6), for someone who need not be signed in: they
@@ -315,6 +316,9 @@ function VolumeSlider(props: {
   readonly onChange: (volume: number) => void;
 }): JSX.Element {
   const { t } = useTranslation();
+  if (!useIsVolumeSettable()) {
+    return <VolumeButtonsNote />;
+  }
   return (
     <label className="together-viewer__volume">
       {t("together.volume")} <VolumeRange value={props.volume} most={1} onChange={props.onChange} />
