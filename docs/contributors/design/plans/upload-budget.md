@@ -95,7 +95,11 @@ how fast their chunks arrive and report it; when several players outside the hou
 while the server sends under its share, the share is lowered to what gets through, and raised
 slowly as they recover; one player slowing alone is its own link, which its controller handles (the
 owner, 2026-10-12: *"likely the clients could just as quickly report back about how quickly they're
-receiving the bytes"*). To build.
+receiving the bytes"*). Built 2026-10-12 (`internal/core/playback/crowding.go`): two players at
+once whose reported link carries under 1.5 times what they need, while the films need no more than the
+share, lower the films' share by a fifth at most every 10 s, to a tenth of the setting's at least; a
+minute without a sign of it grows the share back a tenth every 30 s. Starts take from the lowered
+share too. VQ37.
 
 ## Later: guests inside the house
 

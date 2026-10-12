@@ -181,6 +181,7 @@ func (resort *lastResort) isDue(isOverAtLowest bool, now time.Time) bool {
 // comes to be; staying so for overAtLowestFor, the newest member is sent away (SendAwayBy).
 func (service *Service) KeepUnderShare(ctx context.Context, tick <-chan time.Time, logger *slog.Logger) {
 	control := &uploadControl{}
+	crowded := &crowding{}
 	resort := &lastResort{}
 	wasOverAtLowest := false
 	for {
@@ -194,7 +195,7 @@ func (service *Service) KeepUnderShare(ctx context.Context, tick <-chan time.Tim
 			logger.WarnContext(ctx, "could not read the server's upload", "err", err)
 			continue
 		}
-		shareKbps := uploadMbps * 1000 * filmsShareOfUploadPercent / 100
+		shareKbps := service.crowdedShare(ctx, crowded, uploadMbps*1000*filmsShareOfUploadPercent/100, logger)
 		changes, isOverAtLowest := service.lookAtUpload(control, shareKbps)
 		for _, change := range changes {
 			logger.InfoContext(ctx, "a playback's quality was kept within the server's upload",
@@ -213,6 +214,26 @@ func (service *Service) KeepUnderShare(ctx context.Context, tick <-chan time.Tim
 			}
 		}
 	}
+}
+
+// crowdedShare is the films' share at this look, settingShareKbps lowered while players say the
+// house's upload is crowded and grown back once they stop, kept for the starts; each change logged.
+func (service *Service) crowdedShare(
+	ctx context.Context, crowded *crowding, settingShareKbps int64, logger *slog.Logger,
+) int64 {
+	if settingShareKbps == 0 {
+		service.crowdedShareKbps.Store(0)
+		return 0
+	}
+	now := service.clock.Now()
+	isCrowded := service.isCrowded(settingShareKbps, now)
+	share, isChanged := crowded.look(settingShareKbps, isCrowded, now)
+	service.crowdedShareKbps.Store(crowded.shareKbps)
+	if isChanged {
+		logger.InfoContext(ctx, "the films' share of the server's upload changed with the house's other traffic",
+			"shareKbps", share, "settingShareKbps", settingShareKbps, "isCrowded", isCrowded)
+	}
+	return share
 }
 
 // ceilingChange is a playback whose ceiling a look changed.
@@ -321,7 +342,7 @@ func (service *Service) startAtMostKbps(ctx context.Context, holder Holder, file
 	now := service.clock.Now()
 	service.tokens.mutex.Lock()
 	defer service.tokens.mutex.Unlock()
-	share := uploadMbps * 1000 * filmsShareOfUploadPercent / 100
+	share := service.filmsShareKbps(uploadMbps * 1000 * filmsShareOfUploadPercent / 100)
 	left, othersLeave := share, share
 	for _, playback := range service.tokens.playbackByToken {
 		need := playback.picturesNeed.within(now) + playback.soundsNeed.within(now)

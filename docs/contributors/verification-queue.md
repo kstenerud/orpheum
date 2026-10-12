@@ -337,4 +337,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   owner's link and devices show whether the steps are right (D286 §4, §5).
   (`internal/core/playback/lowering.go`, `upload.go`, `web/packages/player/src/abr.ts`,
   `web/apps/web/src/together-viewer.tsx`)
+- [ ] **VQ37** — Against staging, `server_upload_mbps` at your real upload: a Watch Together group
+  of two phones outside the house plays while someone in the house starts a video call or a large
+  upload. Passes when, within about half a minute, the core's log says "the films' share of the
+  server's upload changed with the house's other traffic" with `isCrowded=true`, the phones' qualities
+  step down and play on without stalling, and a minute or two after the call ends the share grows back
+  and the qualities rise. Only the owner's house and its traffic show it (D286 §5).
+  (`internal/core/playback/crowding.go`)
 

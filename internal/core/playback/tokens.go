@@ -117,6 +117,9 @@ type tokenPlayback struct {
 	// measuredKbps is what it was sent over the last look at the upload: the need of a playback that
 	// asks for no chunks, which the server cannot lower.
 	measuredKbps int64
+	// link is the link speed its player last reported: slow, with others, a sign the house's upload
+	// is crowded (crowding).
+	link linkReport
 }
 
 // usedTracks are the subtitle and audio tracks a playback started with; audio is nil for a file
