@@ -3,10 +3,14 @@
 
 import "./i18n.ts";
 
-import { playerFoundUnplayableEvent, ReportRefused } from "@orpheum/player";
+import {
+  playerFoundUnplayableEvent,
+  ReportRefused,
+  standsStillReportAfterMs,
+} from "@orpheum/player";
 import { playerLoadedChunkEvent } from "@orpheum/sdk";
 import { act, createElement } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PlayView } from "./play.tsx";
 import { directDecision } from "./test-fixtures.ts";
@@ -232,6 +236,47 @@ describe("play state", () => {
     expect(seeks[0]?.["soundAfterMs"]).toBeGreaterThanOrEqual(
       (seeks[0]?.["pictureAfterMs"] ?? 0) + 10,
     );
+  });
+
+  it("tells where a video asked to play keeps its position, and what it showed (the owner's friend, 2026-10-12)", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    try {
+      const heard: Heard[] = [];
+      const playView = createElement(PlayView, {
+        fileId: 2,
+        decision: directDecision({ mediaToken: "still" }),
+        onDecideAgain: () => undefined,
+      });
+      mounted = await mount(
+        withServices(
+          playView,
+          servedBy({ "POST /playback/still/report": [204, undefined] }, heard),
+        ),
+      );
+      const video = mounted.container.querySelector("video");
+      if (video === null) {
+        throw new Error("no video");
+      }
+      Object.defineProperty(video, "readyState", { value: 4 });
+      Object.defineProperty(video, "paused", { value: false, configurable: true });
+      await act(async () => {
+        vi.advanceTimersByTime(standsStillReportAfterMs + 2000);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      const standstills = heard
+        .filter((request) => request.methodAndPath === "POST /playback/still/report")
+        .flatMap((request) => (request.body as { standstills?: unknown[] }).standstills ?? []);
+      expect(standstills).toEqual([
+        expect.objectContaining({
+          positionMs: 0,
+          readyState: 4,
+          isMuted: false,
+          isPageHidden: false,
+        }),
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("starts on the ladder its decision names, and says the quality follows the connection (D260)", async () => {
