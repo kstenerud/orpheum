@@ -111,6 +111,17 @@ export function sendUnplayable(
   };
 }
 
+/** The header the server's answer says the highest rate it lets the player load in: the core's CeilingHeader (D286 §5). */
+export const ceilingHeader = "Orpheum-Ceiling-Kbps";
+
+const httpOk = 200;
+
+/** The ceiling a header says, in kbit/s, or undefined where it says none or nonsense. */
+export function ceilingOf(header: string | null): number | undefined {
+  const kbps = Number(header ?? "");
+  return header !== null && Number.isInteger(kbps) && kbps > 0 ? kbps : undefined;
+}
+
 /** The header a download asks the server to pace it in: the core's PaceHeader (D262 §2). */
 export const paceHeader = "Orpheum-Pace-Kbps";
 
@@ -217,9 +228,16 @@ export function chunkedHlsConfig(options: {
   readonly paceKbps?: () => number | undefined;
   /** Whether the video loads where a seek took it, which each request then says (markSeeks). */
   readonly isSought?: () => boolean;
+  /** Told the server's ceiling, kbps, with each answer, undefined where it sets none (D286 §5). */
+  readonly onCeiling?: (kbps: number | undefined) => void;
 }): Partial<HlsConfig> {
   return {
     xhrSetup: (xhr) => {
+      xhr.addEventListener("load", () => {
+        if (xhr.status === httpOk) {
+          options.onCeiling?.(ceilingOf(xhr.getResponseHeader(ceilingHeader)));
+        }
+      });
       const kbps = options.paceKbps?.();
       if (kbps !== undefined) {
         xhr.setRequestHeader(paceHeader, String(kbps));
@@ -327,6 +345,9 @@ export function playChunked(
       ...options,
       paceKbps: () => abr.choosing()?.paceKbps(),
       isSought: seeks.isSought,
+      onCeiling: (kbps) => {
+        abr.choosing()?.obeyServer(kbps);
+      },
     }),
     abrController: abr.controller,
   });

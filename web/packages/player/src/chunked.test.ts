@@ -14,6 +14,7 @@ import {
 import {
   beyondTheLink,
   chunkLoadPolicy,
+  ceilingHeader,
   chunkedHlsConfig,
   paceHeader,
   playerFoundUnplayableEvent,
@@ -96,6 +97,7 @@ describe("asking the server to pace a download (D262 §2)", () => {
       setRequestHeader: (name: string, value: string) => {
         headers.push([name, value]);
       },
+      addEventListener: () => undefined,
     } as unknown as XMLHttpRequest;
     const loaderContext = {} as unknown as LoaderContext;
     let pace: number | undefined = 1863;
@@ -114,6 +116,7 @@ describe("saying a seek took the player where it loads (D284 §2)", () => {
       setRequestHeader: (name: string, value: string) => {
         headers.push([name, value]);
       },
+      addEventListener: () => undefined,
     } as unknown as XMLHttpRequest;
     const loaderContext = {} as unknown as LoaderContext;
     const video = new EventTarget();
@@ -174,5 +177,35 @@ describe("a quality given up as unplayable, as its event tells it (D266)", () =>
         isPaused: true,
       },
     ]);
+  });
+});
+
+describe("the server's ceiling on what the player loads (D286 §5)", () => {
+  it("is read from each chunk's answer, and none where the answer names none", () => {
+    const told: (number | undefined)[] = [];
+    const config = chunkedHlsConfig({
+      startPositionS: 0,
+      onCeiling: (kbps) => {
+        told.push(kbps);
+      },
+    });
+    const answer = (status: number, header: string | null): void => {
+      let onLoad = (): void => undefined;
+      const xhr = {
+        status,
+        setRequestHeader: () => undefined,
+        addEventListener: (_type: string, listener: () => void) => {
+          onLoad = listener;
+        },
+        getResponseHeader: (name: string) => (name === ceilingHeader ? header : null),
+      } as unknown as XMLHttpRequest;
+      void config.xhrSetup?.(xhr, "/c/q1200k480p/00001.m4s", {} as unknown as LoaderContext);
+      onLoad();
+    };
+    answer(200, "1296");
+    answer(200, null);
+    answer(425, "700"); // not made yet: says nothing of the ceiling
+    answer(200, "lots");
+    expect(told).toEqual([1296, undefined, undefined]);
   });
 });

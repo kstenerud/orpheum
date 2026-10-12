@@ -7,8 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 )
 
@@ -58,9 +60,10 @@ func (service *Service) TakeUpload(span time.Duration) Upload {
 	var upload Upload
 	var sentBytes int64
 	for _, playback := range service.tokens.playbackByToken {
+		playback.measuredKbps = kbpsOver(playback.sentBytes, span)
 		need := playback.picturesNeed.within(now) + playback.soundsNeed.within(now)
 		if need == 0 {
-			need = kbpsOver(playback.sentBytes, span)
+			need = playback.measuredKbps
 		}
 		if need > 0 {
 			upload.Playbacks++
@@ -125,7 +128,121 @@ func (service *Service) uploadMbps(ctx context.Context) (int64, error) {
 		return 0, nil
 	}
 	if err != nil {
-		return 0, fmt.Errorf("read %s: %w", settings.ServerUploadMbps, err)
+		return 0, fmt.Errorf("the server's upload: %w", err)
 	}
 	return mbps, nil
+}
+
+// KeepUnderShare looks at each tick at what the server's players need of its upload, and lowers or
+// raises their qualities to keep it under the films' share of server_upload_mbps (D286 §5), telling
+// each player with its next chunk (CeilingOf). Unanswered, it lifts every ceiling. Each change is
+// logged, and the need still over the share with every quality at its lowest, once each time it
+// comes to be.
+func (service *Service) KeepUnderShare(ctx context.Context, tick <-chan time.Time, logger *slog.Logger) {
+	control := &uploadControl{}
+	wasOverAtLowest := false
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick:
+		}
+		uploadMbps, err := service.uploadMbps(ctx)
+		if err != nil {
+			logger.WarnContext(ctx, "could not read the server's upload", "err", err)
+			continue
+		}
+		shareKbps := uploadMbps * 1000 * filmsShareOfUploadPercent / 100
+		changes, isOverAtLowest := service.lookAtUpload(control, shareKbps)
+		for _, change := range changes {
+			logger.InfoContext(ctx, "a playback's quality was kept within the server's upload",
+				append(change.logAttributes(), "shareKbps", shareKbps)...)
+		}
+		if isOverAtLowest && !wasOverAtLowest {
+			logger.WarnContext(ctx, "the server's upload cannot carry its players at their lowest qualities",
+				"shareKbps", shareKbps)
+		}
+		wasOverAtLowest = isOverAtLowest
+	}
+}
+
+// ceilingChange is a playback whose ceiling a look changed.
+type ceilingChange struct {
+	playbackID, fileID, fromKbps, toKbps, needKbps int64
+}
+
+func (change ceilingChange) logAttributes() []any {
+	return []any{
+		"playbackId", change.playbackID, "fileId", change.fileID, "fromCeilingKbps", change.fromKbps,
+		"toCeilingKbps", change.toKbps, "needKbps", change.needKbps,
+	}
+}
+
+// lookAtUpload is one look (uploadControl.look) at the playbacks now, under shareKbps, its ceilings
+// kept: every ceiling lifted with no share. It says each change, and whether the need is over the
+// share with every quality at its lowest.
+func (service *Service) lookAtUpload(control *uploadControl, shareKbps int64) ([]ceilingChange, bool) {
+	now := service.clock.Now()
+	service.tokens.mutex.Lock()
+	defer service.tokens.mutex.Unlock()
+	var playbacks []lowerable
+	var otherKbps int64
+	for token, playback := range service.tokens.playbackByToken {
+		loads := slices.IndexFunc(playback.ladder, func(rung chunks.Rung) bool {
+			return rung.StreamName == playback.pictureStream
+		})
+		if shareKbps == 0 || loads < 0 || playback.picturesNeed.within(now) == 0 {
+			if need := playback.picturesNeed.within(now) + playback.soundsNeed.within(now); need > 0 {
+				otherKbps += need
+			} else {
+				otherKbps += playback.measuredKbps
+			}
+			continue
+		}
+		ceiling := slices.IndexFunc(playback.ladder, func(rung chunks.Rung) bool {
+			return rung.AverageKbps == playback.ceilingKbps
+		})
+		if ceiling < 0 {
+			ceiling = len(playback.ladder) - 1
+		}
+		playbacks = append(playbacks, lowerable{
+			token: token, fileID: playback.fileID, startedAt: playback.startedAt, loweredAt: playback.loweredAt,
+			rungs: playback.ladder, loads: loads, ceiling: ceiling,
+		})
+	}
+	if shareKbps == 0 {
+		return service.liftCeilingsLocked(), false
+	}
+	before := make([]int64, len(playbacks))
+	for index, playback := range playbacks {
+		before[index] = playback.ceilingKbps()
+	}
+	_, isOverAtLowest := control.look(playbacks, otherKbps, shareKbps, now)
+	var changes []ceilingChange
+	for index, playback := range playbacks {
+		if playback.ceilingKbps() == before[index] {
+			continue
+		}
+		known := service.tokens.playbackByToken[playback.token]
+		known.ceilingKbps, known.loweredAt = playback.ceilingKbps(), playback.loweredAt
+		changes = append(changes, ceilingChange{
+			playbackID: known.playbackID, fileID: known.fileID, fromKbps: before[index],
+			toKbps: known.ceilingKbps, needKbps: playback.needKbps(),
+		})
+	}
+	return changes, isOverAtLowest
+}
+
+// liftCeilingsLocked lifts every playback's ceiling, saying each it lifted; tokens.mutex is held.
+func (service *Service) liftCeilingsLocked() []ceilingChange {
+	var changes []ceilingChange
+	for _, playback := range service.tokens.playbackByToken {
+		if playback.ceilingKbps != 0 {
+			changes = append(changes, ceilingChange{
+				playbackID: playback.playbackID, fileID: playback.fileID, fromKbps: playback.ceilingKbps,
+			})
+			playback.ceilingKbps = 0
+		}
+	}
+	return changes
 }

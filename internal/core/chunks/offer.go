@@ -3,6 +3,7 @@
 package chunks
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -285,6 +286,39 @@ func (service *Service) MasterPlaylist(ctx context.Context, playback Playback) (
 	}
 	kept := Kept{IsOnTime: film.kind == OnTime, IsSoundUnlevelled: offered.isUnlevelled}
 	return masterPlaylist(sounds, variants), kept, nil
+}
+
+// Rung is one picture a playback is offered, as its master playlist names it: its stream's name
+// and its average rate with its sound's, in kbit/s, as a player reads its level's (D286 §5).
+type Rung struct {
+	StreamName  string
+	AverageKbps int64
+}
+
+// Ladder is every picture a playback is offered, lowest rate first: what the server may lower it
+// along when its upload cannot carry every player (D286 §5). A picture whose average is not known is
+// placed by its peak. ErrNoGrid as MasterPlaylist says.
+func (service *Service) Ladder(ctx context.Context, playback Playback) ([]Rung, error) {
+	film, err := service.cutForPlay(ctx, playback)
+	if err != nil {
+		return nil, err
+	}
+	offered, err := service.offerOf(ctx, film, playback)
+	if err != nil {
+		return nil, err
+	}
+	rungs := make([]Rung, 0, len(offered.pictures))
+	for _, picture := range offered.pictures {
+		shown := film.variantOf(picture, offered.soundKbps)
+		averageBps := shown.averageBandwidthBps
+		if averageBps == 0 {
+			averageBps = shown.bandwidthBps
+		}
+		// Rounded up: a player keeps a level whose average is at most the ceiling it is told.
+		rungs = append(rungs, Rung{StreamName: picture.Name(), AverageKbps: (averageBps + 999) / 1000})
+	}
+	slices.SortStableFunc(rungs, func(one, other Rung) int { return cmp.Compare(one.AverageKbps, other.AverageKbps) })
+	return rungs, nil
 }
 
 // MediaPlaylist is the playlist of one stream the playback is offered, every chunk of the film's

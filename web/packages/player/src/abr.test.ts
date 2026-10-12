@@ -374,6 +374,26 @@ describe("a quality this device cannot play (D266)", () => {
   });
 });
 
+describe("the server's ceiling (D286 §5)", () => {
+  it("keeps every choice at or under it, the step-up too, until it is lifted", () => {
+    const { hls, choosing, link } = choosingFrom(40_000_000);
+    link.estimateBps = 30_000_000;
+    load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
+    expect(choosing.nextLevel()).toBe(3);
+    choosing.obeyServer(1400); // 480p's 1296 with its sound
+    expect(choosing.nextLevel()).toBe(1);
+    hls.currentLevel = 1;
+    hls.mainForwardBufferInfo = { len: 60 };
+    nowMs = 1_000_000;
+    vi.advanceTimersByTime(lookForStepUpEveryMs);
+    expect(choosing.nextLevel()).toBe(1);
+    choosing.obeyServer(100); // under every quality: the lowest
+    expect(choosing.nextLevel()).toBe(0);
+    choosing.obeyServer(undefined);
+    expect(choosing.nextLevel()).toBe(3);
+  });
+});
+
 describe("choosing while voice is live (D262 §2, D265 §6, §7)", () => {
   it("paces each download a quarter above its quality, and only while voice is live", () => {
     const { hls, choosing } = choosingFrom(40_000_000);
