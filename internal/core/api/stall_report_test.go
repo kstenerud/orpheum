@@ -174,6 +174,40 @@ func TestReport_HowLongASeekTookToPlayAgainIsLogged(t *testing.T) {
 	}
 }
 
+// Each change of a player's play state is logged with where, once, a report sent again logging
+// nothing more: a Mac playing alone paused and closed, and the log said only that it had started
+// (the owner, 2026-10-12).
+func TestReport_EachChangeOfAPlayersPlayStateIsLoggedOnce(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	playing := harness.play(t, user, chrome(1))
+	body := reportBody(1, 4_000, 0)
+	body["events"] = []any{
+		map[string]any{"kind": "started", "positionMs": 4_000, "happenedMonoMs": 980_000},
+		map[string]any{"kind": "paused", "positionMs": 9_000, "happenedMonoMs": 990_000},
+		map[string]any{"kind": "abandoned", "positionMs": 9_000, "happenedMonoMs": 995_000},
+	}
+	for range 2 { // the second, a report sent again
+		if answer := harness.report(t, user, playing, body); answer.status != http.StatusOK {
+			t.Fatalf("the report: %d %s", answer.status, answer.body)
+		}
+	}
+	logged := harness.logs.String()
+	for _, want := range []string{
+		`"kind":"started","positionMs":4000`, `"kind":"paused","positionMs":9000`,
+		`"kind":"abandoned","positionMs":9000`,
+	} {
+		if count := strings.Count(logged, want); count != 1 {
+			t.Errorf("the log has %s %d times; want once:\n%s", want, count, logged)
+		}
+	}
+	if !strings.Contains(logged, `"msg":"a player's play state changed"`) {
+		t.Errorf("the log names no change of play state:\n%s", logged)
+	}
+}
+
 // A playback on its film's ladder moves along it by itself: its stalls start nothing and are offered
 // nothing (D260 §1).
 func TestReport_AStallOnTheLadderIsOfferedNothing(t *testing.T) {
