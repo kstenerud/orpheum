@@ -865,6 +865,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/needs-attention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How many folders and disks are offline, wait for the admin or could not be read (admin; D280) */
+        get: operations["getNeedsAttention"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/nodes": {
         parameters: {
             query?: never;
@@ -944,40 +961,6 @@ export interface paths {
         put?: never;
         /** Stop a playback, with a message its player shows within one report interval (admin; D243 §9) */
         post: operations["stopPlayback"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/offline-reminder": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Whether to remind the admin that folders or disks are offline, and how many since when (admin; D231 §7) */
-        get: operations["getOfflineReminder"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/offline-reminder/dismissal": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Hide the offline reminder from this admin for offline_reminder_interval_days (admin; D231 §7) */
-        post: operations["dismissOfflineReminder"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2476,6 +2459,16 @@ export interface components {
         MyTogetherOutputBody: {
             sessions: components["schemas"]["MyTogetherBody"][] | null;
         };
+        NeedsAttentionOutputBody: {
+            /** Format: int64 */
+            diskCount: number;
+            /** Format: int64 */
+            rootCount: number;
+            /** Format: int64 */
+            unreadCount: number;
+            /** Format: int64 */
+            waitingRootCount: number;
+        };
         NewDeviceBody: {
             /** @description What the person will know it by: "Chrome on Android", "Living room TV" */
             name: string;
@@ -2580,19 +2573,6 @@ export interface components {
             /** Format: int64 */
             offlineAt: number;
             rootPath: string;
-        };
-        OfflineReminderOutputBody: {
-            /** Format: int64 */
-            diskCount: number;
-            isShown: boolean;
-            /** Format: int64 */
-            offlineAt?: number;
-            /** Format: int64 */
-            rootCount: number;
-            /** Format: int64 */
-            unreadCount: number;
-            /** Format: int64 */
-            waitingRootCount: number;
         };
         OpenTogetherOutputBody: {
             /** @description Started now, rather than one the host already had */
@@ -5507,6 +5487,38 @@ export interface operations {
             };
         };
     };
+    getNeedsAttention: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NeedsAttentionOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getNodes: {
         parameters: {
             query?: never;
@@ -5658,68 +5670,6 @@ export interface operations {
                 "application/json": components["schemas"]["StopPlaybackInputBody"];
             };
         };
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getOfflineReminder: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OfflineReminderOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    dismissOfflineReminder: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
         responses: {
             /** @description No Content */
             204: {

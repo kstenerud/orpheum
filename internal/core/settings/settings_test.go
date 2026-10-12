@@ -251,7 +251,6 @@ func TestStartingDuration_IsTheRegistrysStartingValueInItsUnit(t *testing.T) {
 		{NodeSilentAfterSeconds, 30 * time.Second},
 		{MetadataRefreshCheckEveryHours, 24 * time.Hour},
 		{RemovedItemArtworkKeptDays, 30 * 24 * time.Hour},
-		{OfflineReminderIntervalDays, 7 * 24 * time.Hour},
 		{ArtworkWebPQuality, 0},    // no length of time
 		{ShouldCheckForUpdates, 0}, // a question
 		{"no_such_setting_seconds", 0},

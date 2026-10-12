@@ -19,13 +19,12 @@ afterEach(() => {
 });
 
 const nothingWrong = {
-  isShown: false,
   rootCount: 0,
   diskCount: 0,
   waitingRootCount: 0,
   unreadCount: 0,
 };
-const somethingWrong = { ...nothingWrong, isShown: true, waitingRootCount: 1, unreadCount: 2 };
+const somethingWrong = { ...nothingWrong, waitingRootCount: 1, unreadCount: 2 };
 
 it("shows nothing to someone who neither hosts nor runs the server", async () => {
   mounted = await mount(
@@ -78,7 +77,7 @@ it("shows an admin the yellow sign when something needs them, leading to the pag
   mounted = await mount(
     withServices(
       <StatusTray isHostingTogether={false} isAdmin />,
-      servedBy({ "GET /offline-reminder": [200, somethingWrong] }),
+      servedBy({ "GET /needs-attention": [200, somethingWrong] }),
     ),
   );
   const link = mounted.container.querySelector('[aria-label="Something needs your attention"]');
@@ -88,7 +87,7 @@ it("shows an admin the yellow sign when something needs them, leading to the pag
   mounted = await mount(
     withServices(
       <StatusTray isHostingTogether={false} isAdmin />,
-      servedBy({ "GET /offline-reminder": [200, nothingWrong] }),
+      servedBy({ "GET /needs-attention": [200, nothingWrong] }),
     ),
   );
   expect(
@@ -98,7 +97,7 @@ it("shows an admin the yellow sign when something needs them, leading to the pag
 
 it("the page of what needs the admin counts each kind, a placeholder until it is designed", async () => {
   mounted = await mount(
-    withServices(<NeedsAttention />, servedBy({ "GET /offline-reminder": [200, somethingWrong] })),
+    withServices(<NeedsAttention />, servedBy({ "GET /needs-attention": [200, somethingWrong] })),
   );
   const text = mounted.container.textContent;
   expect(text).toContain("1 library folders' scans wait for you");

@@ -229,14 +229,11 @@ D231 §3, §4, §7, §9; F1.
   `unavailable_since` from the first such scan in a row; a disk a scan did not find keeps
   `missing_since`; a scan that finds them clears it. `GET /system` lists them (`offline`), and the
   System page shows each with since when.
-- The weekly reminder (P39, the owner's choice 2026-09-30): an admin sees, above every page, how
-  many library folders and disks are offline since when, leading to the System page
-  (`GET /offline-reminder`). Dismissing it (`POST /offline-reminder/dismissal`) keeps the moment as
-  the admin's preference `offline_reminder_dismissed_at` and hides it from them for
-  `offline_reminder_interval_days` (7); it comes back after that while anything is still offline.
-  Tests: `TestOfflineReminder_ShowsWhatIsOfflineUntilDismissedThenReturnsAfterItsInterval`
-  (internal/core/api), `TestOfflineReminder_ADismissalHidesItForTheIntervalFromThatAdminAlone`
-  (internal/core/preferences), `src/offline-reminder.test.tsx` and `src/app.test.tsx` (web).
+- The weekly reminder (P39, the owner's choice 2026-09-30), a banner above every page the admin
+  dismissed for `offline_reminder_interval_days`, was replaced on 2026-10-12 by the status tray's
+  warning sign (D280's revision): `GET /needs-attention` counts what is offline, waiting or unread,
+  and the sign shows while any is. Tests: `TestNeedsAttention_CountsTheFoldersAndDisksOffline`
+  (internal/core/api), `src/status-tray.test.tsx` and `src/app.test.tsx` (web).
 - Tests: `TestScenario_S22_ARetiredRootsFilesAreTombstonesItsWorkIsCancelledAndItsHistoryStays`,
   `TestScenario_S23_ARetiredNodesRootsAreRetiredAndItsParkedWorkCancelled`,
   `TestScenario_S24_ADeletedLibrarysWorkIsCancelledAndItsTitlesHiddenWithTheirHistory`
