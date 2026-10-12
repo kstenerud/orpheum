@@ -15,7 +15,13 @@ import {
   type PlaybackFailure,
   type PlayedLevel,
 } from "@orpheum/player";
-import { whenReady, type Api, type CannotKeepUp, type components } from "@orpheum/sdk";
+import {
+  healPageAudio,
+  whenReady,
+  type Api,
+  type CannotKeepUp,
+  type components,
+} from "@orpheum/sdk";
 import type { TFunction } from "i18next";
 import {
   useCallback,
@@ -145,6 +151,7 @@ function Stage(
     const locks = "wakeLock" in navigator ? navigator.wakeLock : undefined;
     return video === null ? undefined : keepScreenAwake(video, document, locks);
   }, [videoRef]);
+  useHealedOnEmptied(videoRef);
   return (
     <>
       <div className="film-player__stage">
@@ -179,6 +186,24 @@ function Stage(
       )}
     </>
   );
+}
+
+/**
+ * Heals the page's audio session each time the video's media is torn down (emptied), as when its
+ * player moves to another quality or rebuilds its decoding: where an iPhone's session became stuck in
+ * the silent switch's category (WebKit bug 323104, page-audio.ts).
+ */
+function useHealedOnEmptied(videoRef: RefObject<HTMLVideoElement | null>): void {
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video === null) {
+      return undefined;
+    }
+    video.addEventListener("emptied", healPageAudio);
+    return () => {
+      video.removeEventListener("emptied", healPageAudio);
+    };
+  }, [videoRef]);
 }
 
 /** The original file, playing; when the browser cannot play it, why, in words. */

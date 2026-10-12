@@ -413,11 +413,14 @@ User-Agent (D263; the User-Agent is logged only).
   through Web Audio, played only once the microphone was open, when iOS has already made the session
   play-and-record, which the silent switch does not mute. Setting "playback" then could disturb the
   microphone. It matters again only if something plays through Web Audio without the microphone.
-  **Adopted (2026-10-12):** since D281 voice is heard from the start, through Web Audio, before any
-  microphone opens, and an iPhone guest heard neither voice nor the film, even after its tap for sound
-  (the owner's VQ30 run; the core's log, `playback=webAudio`). The session is told "playback" as voice
-  is first heard (`prepareToHear`), and "auto" again only as the microphone opens (`startCallAudio`).
-  `web/packages/sdk/src/together-voice-browser.ts`.
+  **Adopted (2026-10-12):** the page's session is "playback" from its start, as a video app's,
+  and "auto" only while a microphone is open (`web/packages/sdk/src/page-audio.ts`). That alone did not
+  give an iPhone its sound with the switch on: [WebKit bug 323104](https://bugs.webkit.org/show_bug.cgi?id=323104)
+  leaves a tab stuck in the switch-muted category after Safari's GPU process restarts, as iOS does freely
+  in the background, while every API says playback; quitting Safari cleared it on the owner's iPhone,
+  which then played with the switch on. The page heals it by setting "ambient" and, a tick later, its
+  type again, at each tap for sound, each return of the page to visible, and each `emptied` of a film's
+  video (`healPageAudio`). design/research/ios-silent-switch-2026-10-12.md. VQ38.
 
 
 ### iPhone Safari's native HLS cannot be routed through Web Audio, so it cannot be given a gain

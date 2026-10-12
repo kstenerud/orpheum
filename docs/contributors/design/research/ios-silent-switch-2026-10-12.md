@@ -53,7 +53,10 @@ or a bug report, **[I]** inferred.
 2. Put Safari in the background for half a minute and come back. Silent again: the stuck state
    follows a GPU process's restart.
 
-## If it is confirmed
+**Confirmed 2026-10-12 by the owner:** after Safari was quit, the iPhone played the film with the
+switch on (*"After restarting,it played with the silence button turned on"*).
+
+## What the page does (built 2026-10-12, `web/packages/sdk/src/page-audio.ts`)
 
 - Set `navigator.audioSession.type = "playback"` from the page's start, before the film or any audio
   context plays, where the browser has it.
