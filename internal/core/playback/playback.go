@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync/atomic"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
@@ -89,6 +90,9 @@ type Service struct {
 	// groupPlayers counts the players of a host's Watch Together session (GroupPlayersBy); nil
 	// counts none.
 	groupPlayers GroupPlayers
+	// crowdedShareKbps is the films' share while other traffic crowds the house's upload, zero while
+	// it is the setting's whole share (KeepUnderShare).
+	crowdedShareKbps atomic.Int64
 }
 
 // NewService returns the playback service.

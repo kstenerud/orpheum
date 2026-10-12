@@ -37,6 +37,14 @@
 //     TestUploadControl_SaysWhenEveryoneIsAtTheirLowestAndItIsStillOver and
 //     TestUpload_APlaybackOverTheShareIsToldItsCeilingWithEachChunk (internal/core/api).
 //
+//   - The films' share is lowered by a fifth at most every 10 s, to a tenth of the setting's at
+//     least, while two players at once report links too slow for what they need and the films need no
+//     more than the share, and grown back a tenth every 30 s a minute after; a Watch Together group's
+//     players each start within an even part of what other films leave (D286 §5). Enforced by
+//     TestCrowding_LowersTheShareWhileCrowdedAndGrowsItBackOnceItStops,
+//     TestIsCrowded_IsTwoSlowPlayersWhileTheFilmsAreWithinTheShare and
+//     TestStartAtMostKbps_IsAnEvenPartForAGroupsPlayers.
+//
 //   - Imports nothing from internal/node, never os/exec, and no image or media parser. Enforced by
 //     the depguard rule core-boundary, and transitively by TestArch_CoreNeverImportsNode and
 //     TestArch_CoreNeverExecs.
