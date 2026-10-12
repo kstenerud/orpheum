@@ -78,6 +78,31 @@ every device started at 1.7 to 1.8 Mbit/s, together past a 3.4 Mbit/s share befo
 start itself, so it needs no word from them; the owner, to that: *"yes"*. Built 2026-10-12
 (`chunks.Playback.StartAtMostKbps`, `playback.Service.uploadLeftKbps`).
 
+## 4b. A group's players share it evenly from their start
+
+All of a group's guests join before the film is put on, so the server knows how many players will
+start at once (the owner, 2026-10-12: *"In normal operation, all guests get invited and join before
+the video ever starts. So we'd already have a good idea about how the pipe should be split."*). A
+start in a Watch Together group of n players takes at most an n-th of what the playbacks of other
+films leave of the share, whichever player asks first; one joining mid-film takes what is left, best
+effort, and the five-second look evens things out. Built 2026-10-12 (`startAtMostKbps`,
+`together.Hub.PlayersHostedBy`).
+
+## 4c. Players say when the house's upload is crowded
+
+Other traffic in the house, a Zoom call, shares the upload the setting describes. Players measure
+how fast their chunks arrive and report it; when several players outside the house slow at once
+while the server sends under its share, the share is lowered to what gets through, and raised
+slowly as they recover; one player slowing alone is its own link, which its controller handles (the
+owner, 2026-10-12: *"likely the clients could just as quickly report back about how quickly they're
+receiving the bytes"*). To build.
+
+## Later: guests inside the house
+
+A guest on the server's own network does not use the house's internet upload at all. Today every
+player counts against the share; once players in the house are served directly, a player whose
+address is on the server's network is left out of it (the owner, 2026-10-12). Open.
+
 ## 5. The last resort: the newest member removed (D286 §5)
 
 - **When every playback that can be lowered is at its lowest and the need is still above the share

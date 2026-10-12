@@ -35,6 +35,9 @@ type Holder struct {
 	// Viewer is a second holder the same request also is: a browser signed in as its person that
 	// also views a Watch Together session, its two cookies side by side.
 	Viewer *Holder
+	// HostUserID, for a Watch Together viewer, is the session's host: whose group its player plays
+	// in, which shares the server's upload evenly at its start (D286 §5).
+	HostUserID int64
 }
 
 // HolderOf is the holder a signed-in principal is.

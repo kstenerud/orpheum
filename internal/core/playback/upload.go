@@ -3,6 +3,7 @@
 package playback
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -295,24 +296,45 @@ func (service *Service) liftCeilingsLocked() []ceilingChange {
 	return changes
 }
 
-// uploadLeftKbps is what is left of the films' share of server_upload_mbps for a playback starting
-// now, at least 1 kbit/s, so a start past it takes the lowest quality; zero, no bound, while the
-// setting is unanswered (D286 §5).
-func (service *Service) uploadLeftKbps(ctx context.Context) (int64, error) {
+// GroupPlayers is how many devices play in the Watch Together session a user hosts, zero for none:
+// together.Hub.PlayersHostedBy.
+type GroupPlayers func(hostUserID int64) int
+
+// GroupPlayersBy is how a start in a group learns how many players share the upload with it (D286
+// §5). Set once, before the server serves.
+func (service *Service) GroupPlayersBy(players GroupPlayers) { service.groupPlayers = players }
+
+// startAtMostKbps is the most a playback of fileID starting now for holder may take of the films'
+// share of server_upload_mbps (D286 §5): what is left of it, and in a Watch Together group of more
+// than one player, at most an even part of what the playbacks of other films leave, so every player
+// a film put on starts for at once starts within its part, whichever asks first; at least 1 kbit/s, so
+// a start past it takes the lowest quality; zero, no bound, while the setting is unanswered.
+func (service *Service) startAtMostKbps(ctx context.Context, holder Holder, fileID int64) (int64, error) {
 	uploadMbps, err := service.uploadMbps(ctx)
 	if err != nil || uploadMbps == 0 {
 		return 0, err
 	}
+	players := 0
+	if service.groupPlayers != nil {
+		players = service.groupPlayers(cmp.Or(holder.HostUserID, holder.UserID))
+	}
 	now := service.clock.Now()
 	service.tokens.mutex.Lock()
 	defer service.tokens.mutex.Unlock()
-	left := uploadMbps * 1000 * filmsShareOfUploadPercent / 100
+	share := uploadMbps * 1000 * filmsShareOfUploadPercent / 100
+	left, othersLeave := share, share
 	for _, playback := range service.tokens.playbackByToken {
 		need := playback.picturesNeed.within(now) + playback.soundsNeed.within(now)
 		if need == 0 {
 			need = playback.measuredKbps
 		}
 		left -= need
+		if playback.fileID != fileID {
+			othersLeave -= need
+		}
+	}
+	if players > 1 {
+		left = min(left, othersLeave/int64(players))
 	}
 	return max(left, 1), nil
 }

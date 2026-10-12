@@ -82,10 +82,12 @@ type countingWriter struct {
 	sent func(bytes int)
 }
 
+// Write counts bytes before passing them on, so they are counted by the time the player has them;
+// a write that fails part way counts a little more than was sent, which an estimate of the upload
+// does not miss.
 func (counting *countingWriter) Write(bytes []byte) (int, error) {
-	written, err := counting.ResponseWriter.Write(bytes)
-	counting.sent(written)
-	return written, err //nolint:wrapcheck // a writer's error, passed on as it is
+	counting.sent(len(bytes))
+	return counting.ResponseWriter.Write(bytes) //nolint:wrapcheck // a writer's error, passed on as it is
 }
 
 // Unwrap is the writer counted, for http.ResponseController's flushes and deadlines.

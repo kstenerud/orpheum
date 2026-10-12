@@ -88,3 +88,34 @@ func TestWatchUpload_LogsTheNeedBesideTheFilmsShareWhileAnyonePlays(t *testing.T
 		t.Errorf("the upload was logged %d times; want once, while someone played", count)
 	}
 }
+
+// A start in a Watch Together group of three takes at most a third of what the playbacks of other
+// films leave of the share, whichever of the three asks first; alone, what is left; with the setting
+// unanswered, no bound (D286 §5).
+func TestStartAtMostKbps_IsAnEvenPartForAGroupsPlayers(t *testing.T) {
+	t.Parallel()
+	clock := clocktest.NewFake(time.Date(2026, 10, 12, 16, 0, 0, 0, time.UTC))
+	other := &tokenPlayback{fileID: 7, picturesNeed: streamNeed{kbps: 1000, at: clock.Now()}}
+	service := uploadService(clock, 4, map[string]*tokenPlayback{"other": other}) // a share of 3400
+	service.GroupPlayersBy(func(hostUserID int64) int {
+		if hostUserID == 1 {
+			return 3
+		}
+		return 0
+	})
+	host := Holder{UserID: 1}
+	guest := Holder{HostUserID: 1}
+	for name, holder := range map[string]Holder{"the host": host, "a guest": guest} {
+		if got, err := service.startAtMostKbps(t.Context(), holder, 91); err != nil || got != 800 {
+			t.Errorf("%s's start may take %d (%v); want a third of the 2400 the other film leaves, 800",
+				name, got, err)
+		}
+	}
+	if got, err := service.startAtMostKbps(t.Context(), Holder{UserID: 2}, 91); err != nil || got != 2400 {
+		t.Errorf("a start alone may take %d (%v); want what is left, 2400", got, err)
+	}
+	unanswered := uploadService(clock, 0, map[string]*tokenPlayback{})
+	if got, err := unanswered.startAtMostKbps(t.Context(), host, 91); err != nil || got != 0 {
+		t.Errorf("with the setting unanswered a start may take %d (%v); want 0, no bound", got, err)
+	}
+}

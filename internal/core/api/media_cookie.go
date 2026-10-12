@@ -116,7 +116,9 @@ func (server *Server) viewerHolder(
 	if err != nil {
 		return playback.Holder{}, false
 	}
-	return playback.Holder{SessionKey: viewerKey(credential), Reach: reach, OnlyFileID: viewer.FileID}, true
+	return playback.Holder{
+		SessionKey: viewerKey(credential), Reach: reach, OnlyFileID: viewer.FileID, HostUserID: viewer.HostUserID,
+	}, true
 }
 
 // viewerKey names a viewer's membership to the playbacks it starts without holding its credential:
