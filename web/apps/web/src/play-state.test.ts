@@ -4,6 +4,7 @@
 import "./i18n.ts";
 
 import { playerFoundUnplayableEvent, ReportRefused } from "@orpheum/player";
+import { playerLoadedChunkEvent } from "@orpheum/sdk";
 import { act, createElement } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -208,7 +209,15 @@ describe("play state", () => {
       video.dispatchEvent(new Event("timeupdate"));
       video.dispatchEvent(new Event("seeking"));
       isSeeking = false;
-      await new Promise((resolve) => setTimeout(resolve, 20));
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      const chunk = { loadMs: 900, loadedKbps: 30_000, qualityKbps: 36_208, filmMs: 10_200 };
+      video.dispatchEvent(
+        new CustomEvent(playerLoadedChunkEvent, { detail: { track: "video", ...chunk } }),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      video.dispatchEvent(
+        new CustomEvent(playerLoadedChunkEvent, { detail: { track: "audio", ...chunk } }),
+      );
       video.dispatchEvent(new Event("playing"));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
@@ -218,6 +227,11 @@ describe("play state", () => {
     expect(seeks).toHaveLength(1);
     expect(seeks[0]).toMatchObject({ fromPositionMs: 30_000, toPositionMs: 600_000 });
     expect(seeks[0]?.["readyAfterMs"]).toBeGreaterThanOrEqual(15);
+    // Which it waited on: the picture's first chunk came, then the sound's (the owner, 2026-10-12).
+    expect(seeks[0]?.["pictureAfterMs"]).toBeGreaterThanOrEqual(3);
+    expect(seeks[0]?.["soundAfterMs"]).toBeGreaterThanOrEqual(
+      (seeks[0]?.["pictureAfterMs"] ?? 0) + 10,
+    );
   });
 
   it("starts on the ladder its decision names, and says the quality follows the connection (D260)", async () => {

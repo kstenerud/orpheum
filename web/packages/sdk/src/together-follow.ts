@@ -187,11 +187,14 @@ class GroupFollower {
     const isBuffering = this.#isBuffering();
     this.#wasReportedBuffering = isBuffering;
     const startLagMs = this.#start.lagMs();
+    const loadsFaster = this.#refill.loadsFaster();
     return {
       positionMs: positionMsOf(this.#media),
       isPlaying: !this.#media.paused,
       isBuffering,
+      readyOnMs: this.#refill.readyOnMs(),
       ...(startLagMs === undefined ? {} : { startLagMs }),
+      ...(loadsFaster === undefined ? {} : { loadsFaster }),
     };
   };
 
@@ -233,6 +236,7 @@ class GroupFollower {
     if (isHeld !== this.#isLoadHeld) {
       this.#isLoadHeld = isHeld;
       this.#media.dispatchEvent(new CustomEvent(holdLoadingEvent, { detail: { isHeld } }));
+      this.#connection.note({ kind: "loadHeld", why: isHeld ? "held" : "goesOn" });
     }
   }
 

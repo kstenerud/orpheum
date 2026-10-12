@@ -15,6 +15,12 @@ export interface PlayerState {
   readonly isBuffering: boolean;
   /** How late its player has learned it starts, in ms; absent until it has started once (D282). */
   readonly startLagMs?: number;
+  /**
+   * How much film loaded ahead it is ready on now, and how many times faster than it plays its last
+   * chunk of picture loaded: which ready rule applies (D283 §1).
+   */
+  readonly readyOnMs?: number;
+  readonly loadsFaster?: number;
 }
 
 /**
@@ -24,6 +30,8 @@ export interface PlayerState {
  * - sought: moved itself from positionMs to toMs, why: "catchUp" (jumping ahead of a group it fell
  *   behind), "hold" (to where a stopped group is), "skip" (a small seek of a player that corrects
  *   by seeks alone, D268 §2) or "runUp" (back to run up to where the group starts, D282);
+ * - loadHeld: a ready player held its loading while its group waits ("held"), or went on ("goesOn")
+ *   (D283 §2);
  * - correctsBySeeks: its rate's returns to the group's cost it returnCostMs, more than the drift
  *   left alone, so it corrects by seeks alone from now on (D268 §2);
  * - chunkLoaded: loaded one chunk of track ("video" or "audio") in loadMs, at loadedKbps, of a quality
@@ -102,6 +110,7 @@ export type PlayerNote =
   | { readonly kind: "playedMuted"; readonly positionMs: number }
   | { readonly kind: "ownMarkExpired"; readonly why: "seek" | "pause" }
   | { readonly kind: "correctsBySeeks"; readonly returnCostMs: number }
+  | { readonly kind: "loadHeld"; readonly why: "held" | "goesOn" }
   | {
       readonly kind: "leaderCommand";
       readonly why: "pause" | "seek" | "play";

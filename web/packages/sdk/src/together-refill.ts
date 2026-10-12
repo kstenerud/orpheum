@@ -69,6 +69,13 @@ export class Refill {
     }
   };
 
+  /** How much film loaded ahead it is ready on now. */
+  readonly readyOnMs = (): number => this.#readyAheadMs();
+
+  /** How many times faster than it plays its last chunk of picture loaded, to a tenth; undefined before one. */
+  readonly loadsFaster = (): number | undefined =>
+    this.#loadsFaster === undefined ? undefined : Math.round(this.#loadsFaster * 10) / 10;
+
   /** Whether it is refilling and has not yet loaded enough to play on. */
   readonly isShort = (media: FollowedMedia): boolean =>
     this.#isRefilling && !hasRefilled(media, this.#readyAheadMs());

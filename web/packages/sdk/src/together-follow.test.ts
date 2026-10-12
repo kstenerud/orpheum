@@ -282,7 +282,8 @@ describe("a player following its group", () => {
     expect(reports.at(-1)?.isBuffering).toBe(true);
     media.readyState = 4;
     media.fire("seeked");
-    expect(reports.at(-1)).toEqual({ positionMs: 60_000, isPlaying: false, isBuffering: false });
+    const ready = { positionMs: 60_000, isPlaying: false, isBuffering: false, readyOnMs: 10_000 };
+    expect(reports.at(-1)).toEqual(ready);
   });
 
   it("turns the host's own play, pause and seek into commands, but not its own following", () => {

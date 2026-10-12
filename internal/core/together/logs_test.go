@@ -197,6 +197,37 @@ func TestHub_LogsAPlayerThatCorrectsBySeeksAlone(t *testing.T) {
 	}
 }
 
+// A ready player's loading held while its group waits, and going on, is logged, a word other than
+// those two refused; and a player ready again says which rule it was ready by and how fast its last
+// chunk loaded (D283; the owner, 2026-10-12: "add the logging first").
+func TestHub_LogsAPlayersLoadingHeldAndTheRuleItWasReadyBy(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	device, box := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	for _, why := range []string{"held", "goesOn"} {
+		note := &PlayerNote{Kind: NoteLoadHeld, Why: why}
+		stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: note})
+	}
+	unknown := &PlayerNote{Kind: NoteLoadHeld, Why: "dancing"}
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: unknown})
+	if box.last(MessageRejected).Code != codeInvalid {
+		t.Errorf("a loading note with an unknown word was not refused")
+	}
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageState, Buffering: true, PositionMs: 1000})
+	stage.hub.Handle(t.Context(), device, Inbound{
+		Type: MessageState, PositionMs: 1000, ReadyOnMs: 3000, LoadsFaster: 3.4,
+	})
+	logged := stage.logs.String()
+	for _, want := range []string{
+		`msg="watch together: a ready player's loading changed while its group waits"`, "loading=held",
+		"loading=goesOn", "buffering=false", "readyOnMs=3000 loadsFaster=3.4",
+	} {
+		if !strings.Contains(logged, want) {
+			t.Errorf("the log has no %s:\n%s", want, logged)
+		}
+	}
+}
+
 // A browser refusing to play with sound, and the tap that turns it on, are logged at INFO: a guest's
 // iPhone sat silent and nothing said why (the owner's test, 2026-10-08).
 func TestHub_LogsAPlayerPlayingMutedAndATapTurningItsSoundOn(t *testing.T) {

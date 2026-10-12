@@ -10,7 +10,7 @@ import {
   watchStalls,
   type PlayReport,
 } from "@orpheum/player";
-import type { Api, components } from "@orpheum/sdk";
+import { chunkLoadedOf, playerLoadedChunkEvent, type Api, type components } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type RefObject } from "react";
 
 import { MovingDown, type LadderOffer } from "./moving-down.ts";
@@ -186,16 +186,19 @@ function startupListeners(
  * Times each of the person's seeks, from its last seeking (a drag seeks again and again) to playing,
  * or, for a paused video, to being able to play, and tells the reporter (the owner, 2026-10-12: a
  * jump that felt slow could not be measured): with the report the started event sends, or at once
- * when paused. Its listeners go on the video before the started event's.
+ * when paused, with when its first chunks of picture and sound arrived, to say which it waited on.
+ * Its listeners go on the video before the started event's.
  */
 function timeSeeks(
   video: HTMLVideoElement,
   reporter: Pick<PlayReporter, "recordSeekReady" | "flush">,
 ): {
   readonly seeking: (fromMs: number) => void;
-  readonly listeners: Record<string, () => void>;
+  readonly listeners: Record<string, (event: Event) => void>;
 } {
-  let pending: { readonly fromMs: number; atMs: number } | undefined;
+  let pending:
+    | { readonly fromMs: number; atMs: number; pictureAfterMs?: number; soundAfterMs?: number }
+    | undefined;
   const ready = (): boolean => {
     if (pending === undefined || video.seeking) {
       return false;
@@ -206,6 +209,8 @@ function timeSeeks(
       toPositionMs: Math.max(0, Math.round(toMs)),
       readyAfterMs: Math.max(0, Math.round(performance.now() - pending.atMs)),
       ...(video.paused ? { isPaused: true } : {}),
+      ...(pending.pictureAfterMs === undefined ? {} : { pictureAfterMs: pending.pictureAfterMs }),
+      ...(pending.soundAfterMs === undefined ? {} : { soundAfterMs: pending.soundAfterMs }),
     });
     pending = undefined;
     return true;
@@ -218,6 +223,18 @@ function timeSeeks(
       canplay: () => {
         if (video.paused && ready()) {
           reporter.flush(positionMs(video));
+        }
+      },
+      [playerLoadedChunkEvent]: (event: Event) => {
+        const loaded = chunkLoadedOf(event);
+        if (pending === undefined || loaded === undefined) {
+          return;
+        }
+        const afterMs = Math.max(0, Math.round(performance.now() - pending.atMs));
+        if (loaded.track === "video") {
+          pending.pictureAfterMs ??= afterMs;
+        } else {
+          pending.soundAfterMs ??= afterMs;
         }
       },
     },

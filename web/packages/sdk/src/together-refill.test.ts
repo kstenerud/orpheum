@@ -5,7 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { noRight } from "./together.ts";
 import { followGroup } from "./together-follow.ts";
 import { refillAheadMs } from "./together-media.ts";
-import { holdLoadingEvent, loadingHoldOf } from "./together-player-events.ts";
+import {
+  holdLoadingEvent,
+  loadingHoldOf,
+  playerLoadedChunkEvent,
+} from "./together-player-events.ts";
 import { Refill, seekReadyAheadMs } from "./together-refill.ts";
 import { FakeMedia, fakeConnection, paused } from "./test-follow.ts";
 
@@ -87,7 +91,7 @@ describe("holding its loading while its group waits (the owner's jumps, 2026-10-
     const media = new FakeMedia();
     const holds: (boolean | undefined)[] = [];
     media.addEventListener(holdLoadingEvent, (event) => holds.push(loadingHoldOf(event)?.isHeld));
-    const { connection, setGroup } = fakeConnection(paused);
+    const { connection, setGroup, notes } = fakeConnection(paused);
     const stop = followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
     expect(holds).toEqual([]); // paused, not waiting
     setGroup({ ...paused, state: "Waiting" }, 0);
@@ -98,5 +102,34 @@ describe("holding its loading while its group waits (the owner's jumps, 2026-10-
     setGroup({ ...paused, state: "Waiting" }, 1000);
     stop();
     expect(holds).toEqual([true, false, true, false]);
+    // Each told to the server's log too (the owner, 2026-10-12: "add the logging first").
+    expect(notes.filter((note) => note.kind === "loadHeld")).toEqual([
+      { kind: "loadHeld", why: "held" },
+      { kind: "loadHeld", why: "goesOn" },
+      { kind: "loadHeld", why: "held" },
+      { kind: "loadHeld", why: "goesOn" },
+    ]);
+  });
+});
+
+describe("which ready rule a player says it is ready by (the owner, 2026-10-12)", () => {
+  it("tells the group how much film it is ready on and how fast its last chunk loaded", () => {
+    const media = new FakeMedia();
+    const { connection, reports } = fakeConnection(paused);
+    followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
+    media.dispatchEvent(
+      new CustomEvent(playerLoadedChunkEvent, {
+        detail: {
+          track: "video",
+          loadMs: 3000,
+          filmMs: 10_200,
+          loadedKbps: 11_000,
+          qualityKbps: 36_208,
+        },
+      }),
+    );
+    media.fire("seeking");
+    connection.reportState();
+    expect(reports.at(-1)).toMatchObject({ readyOnMs: seekReadyAheadMs, loadsFaster: 3.4 });
   });
 });

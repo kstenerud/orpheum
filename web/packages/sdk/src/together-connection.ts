@@ -428,6 +428,8 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp, Relays
         buffering: state.isBuffering,
         rttMs: this.#snapshot.minimumRttMs ?? 0,
         ...(state.startLagMs === undefined ? {} : { startLagMs: state.startLagMs }),
+        ...(state.readyOnMs === undefined ? {} : { readyOnMs: state.readyOnMs }),
+        ...(state.loadsFaster === undefined ? {} : { loadsFaster: state.loadsFaster }),
         ...(this.#cannotKeepUp === undefined
           ? {}
           : {

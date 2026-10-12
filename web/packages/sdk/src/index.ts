@@ -93,6 +93,7 @@ export { followGroup, waitAheadAtMostMs } from "./together-follow.ts";
 export type { StartLagMemory } from "./together-start.ts";
 export type { FollowedMedia } from "./together-media.ts";
 export {
+  chunkLoadedOf,
   fellBehindEvent,
   holdLoadingEvent,
   loadingHoldOf,

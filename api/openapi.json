@@ -4332,7 +4332,17 @@
           "isPaused": {
             "type": "boolean"
           },
+          "pictureAfterMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "readyAfterMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "soundAfterMs": {
             "format": "int64",
             "minimum": 0,
             "type": "integer"
