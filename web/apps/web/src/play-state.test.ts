@@ -197,11 +197,17 @@ describe("play state", () => {
     }
     Object.defineProperty(video, "readyState", { value: 4 });
     Object.defineProperty(video, "paused", { value: false, configurable: true });
+    let isSeeking = false;
+    Object.defineProperty(video, "seeking", { get: () => isSeeking, configurable: true });
     await act(async () => {
       video.currentTime = 30;
       video.dispatchEvent(new Event("timeupdate"));
+      // Firefox moves the position, and says so, before its seeking event.
+      isSeeking = true;
       video.currentTime = 600;
+      video.dispatchEvent(new Event("timeupdate"));
       video.dispatchEvent(new Event("seeking"));
+      isSeeking = false;
       await new Promise((resolve) => setTimeout(resolve, 20));
       video.dispatchEvent(new Event("playing"));
       await new Promise((resolve) => setTimeout(resolve, 0));
