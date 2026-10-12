@@ -156,9 +156,10 @@ func (tracker *runTracker) unevict(dir string) {
 }
 
 // keepRunsFast keeps the runs nodeID is making faster than playback (D250 §6): when one of two or
-// more measures slower than chunk_run_slowest_speed_percent of it, one run is evicted, the oldest no
-// player has asked for lately, or, when every one is in use, the newest, and its players are told
-// why their playback stops. After an eviction the node's runs are left speedWindow to settle.
+// more measures slower than chunk_run_slowest_speed_percent of it, one run is cancelled, the oldest no
+// player has asked for lately, its store refusing no one, or, when every one is in use, the newest,
+// evicted, and its players are told why their playback stops. After either the node's runs are left
+// speedWindow to settle.
 func (service *Service) keepRunsFast(ctx context.Context, nodeID int64) error {
 	now := service.clock.Now()
 	if last := service.runs.lastEvictionOn(nodeID); !last.IsZero() && now.Sub(last) < speedWindow {
@@ -179,6 +180,18 @@ func (service *Service) keepRunsFast(ctx context.Context, nodeID int64) error {
 	speeds := make([]string, 0, len(running))
 	for _, each := range running {
 		speeds = append(speeds, fmt.Sprintf("%s@%d:%.2f", each.dir, each.first, each.speed))
+	}
+	if !victim.isInUse {
+		// No player is left without its chunks: its store refuses no one, and a player that comes to
+		// them later starts a run of its own. Marked evicted, a quality a player went on to play was
+		// refused it for good, the run its own chunks needed being the one no one had asked for yet
+		// (the owner's friend, 2026-10-12).
+		service.runs.drop(victim.dir, victim.first, nodeID, now)
+		service.logger.WarnContext(ctx, "cancelled a run of chunks no one played from: its node could not "+
+			"keep every run faster than playback", "nodeId", nodeID, "storeDir", victim.dir,
+			"firstChunk", victim.first, "lastChunk", victim.last, "slowestPercent", slowestPercent,
+			"runSpeeds", speeds)
+		return service.queue.Cancel(ctx, victim.jobID)
 	}
 	if service.isMovedOff(victim) {
 		service.runs.drop(victim.dir, victim.first, nodeID, now)
