@@ -25,7 +25,7 @@ import { storageIfAllowed } from "./browser-storage.ts";
 import { createNavigation } from "./navigation.ts";
 import { ServicesContext } from "./services.tsx";
 import { createSession } from "./session.ts";
-import { watchForSignOut } from "./signed-out-watch.ts";
+import { checkSessionWhileShown, watchForSignOut } from "./signed-out-watch.ts";
 import { moveToWebrtcWhenSignedIn, wantsWebrtc } from "./transport-choice.ts";
 
 const rootElement = document.getElementById("root");
@@ -41,6 +41,8 @@ const navigation = createNavigation(window);
 const routed = new SwitchableFetch();
 const api = createApi({ getToken: session.token, fetch: routed.fetch });
 api.use(watchForSignOut(session, navigation));
+// A device removed elsewhere goes to sign in as soon as its page is looked at, not at its next click.
+checkSessionWhileShown(async () => await api.GET("/me"), session, document);
 api.use(pageUpdateWatch.middleware(ownScriptOf(document)));
 // The session socket the app opens: the browser's WebSocket, until the WebRTC path takes over.
 let openTogetherSocket = browserTogetherSocket(window.location.origin);
