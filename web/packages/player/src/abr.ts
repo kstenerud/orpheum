@@ -361,6 +361,7 @@ export class Choosing<Chunk extends FollowedChunk> {
         forMs: still.loadedSinceMs === undefined ? 0 : nowMs - still.loadedSinceMs,
         chunksLoaded: still.chunksLoaded,
         chunksNotHeld: still.chunksNotHeld,
+        loadedAheadS: this.#bufferAheadS(),
       })
     ) {
       this.#giveUpUnplayable(level, still.positionS);

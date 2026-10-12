@@ -257,6 +257,14 @@ describe("a quality this device cannot play (D266)", () => {
     expect(choosing.forcedLevel()).toBe(-1);
   });
 
+  it("is given up when the video, playing, stands still with its buffer full and no chunk coming", () => {
+    const { hls, unplayable } = standingAt(0.05);
+    hls.mainForwardBufferInfo = { len: 30 }; // an older phone's Chrome, its decoder unable to keep up
+    nowMs = 6000;
+    vi.advanceTimersByTime(lookAtChunkEveryMs);
+    expect(unplayable).toEqual([{ qualityKbps: 36_208, positionMs: 50, isFilmsOwnPicture: false }]);
+  });
+
   it("is given up at once when the browser holds nothing of two of its chunks", () => {
     const { choosing, unplayable } = standingAt(416.9);
     choosing.notHeld(3);
