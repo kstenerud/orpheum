@@ -128,6 +128,8 @@ class GroupFollower {
   readonly #ownMoves = new OwnMoves();
   /** Where it is in correcting its drift. */
   #phase: CorrectionPhase = startingPhase;
+  /** Where its own last seek went, in ms; undefined before it made one. */
+  #soughtToMs: number | undefined = undefined;
   /** How late it starts, as learned (D282). */
   readonly #start: StartLearner;
   /** Where it sought back to run up from, for the start under way (D282); undefined until it has. */
@@ -485,6 +487,7 @@ class GroupFollower {
     this.#ownMoves.mark("seek", this.#options.monotonicMs());
     this.#seekStartedAtMs = this.#options.monotonicMs();
     this.#refill.sought(why);
+    this.#soughtToMs = toMs;
     this.#media.currentTime = Math.max(0, toMs) / 1000;
   }
 
@@ -685,9 +688,22 @@ class GroupFollower {
       !isLoadingOwnSeek && holdAtMs !== where.expectedMs && !isOnLoaded(media);
     const { leaveDriftUpToMs, seekDriftBeyondMs } = where.tuning;
     const isAway = awayMs > (isLoadingOwnSeek ? seekDriftBeyondMs : leaveDriftUpToMs);
-    if ((isAway || isBeforeWhatItLoaded) && !media.seeking) {
+    if ((isAway || isBeforeWhatItLoaded) && this.#maySeekTo(holdAtMs, seekDriftBeyondMs)) {
       this.#seek(holdAtMs, "hold");
     }
+  }
+
+  /**
+   * Whether it may seek to toMs now: not while it still loads a seek, unless that seek went more than
+   * farMs from toMs. A group sought again while this player still loads where it went before is
+   * followed at once: an iPhone loading a chunk not yet made went on waiting for it, 3.5 to 9 s,
+   * before it asked for the new place (the owner's jumps, 2026-10-12).
+   */
+  #maySeekTo(toMs: number, farMs: number): boolean {
+    return (
+      !this.#media.seeking ||
+      (this.#soughtToMs !== undefined && Math.abs(toMs - this.#soughtToMs) > farMs)
+    );
   }
 }
 
