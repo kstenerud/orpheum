@@ -98,6 +98,7 @@ const (
 	TogetherSeekDriftBeyondMs                      Key = "together_seek_drift_beyond_ms"
 	TogetherSeekOnlyDriftLeftAloneMs               Key = "together_seek_only_drift_left_alone_ms"
 	ChunkSoundKbps                                 Key = "chunk_sound_kbps"
+	ServerUploadMbps                               Key = "server_upload_mbps"
 	TogetherSyncWaitSeconds                        Key = "together_sync_wait_seconds"
 	TogetherStartLeadMs                            Key = "together_start_lead_ms"
 	TogetherRunUpMs                                Key = "together_run_up_ms"
@@ -446,6 +447,16 @@ func jobMetadataAndPlaybackDefinitions() []Definition {
 				"work never spends the last of them, rounded up to whole downloads (D231 §5)"),
 			"best guess: 5 of a free account's 20 a day (a VIP account has 1000; opensubtitles-api.md); "+
 				"the owner's choice of a percentage, 2026-09-30"),
+		{
+			Key: ServerUploadMbps, Kind: KindInteger, StartJSON: json.RawMessage("null"),
+			Minimum: 1, Maximum: 100_000, IsExposed: true,
+			Question: "How fast can this server send, in Mbit/s? Your connection's upload speed, or as much of " +
+				"it as you want Orpheum to use.",
+			Description: "how fast the server can send, in Mbit/s, of which its films may use 85%: past that it " +
+				"lowers its players' qualities, and last removes a Watch Together group's newest member " +
+				"(D286 §5); unanswered, it lowers nothing",
+			StartSource: "the owner, 2026-10-12: a setting the owner gives, a button to measure it later (D286 §5)",
+		},
 		{
 			Key: TimeZone, Kind: KindString, StartJSON: json.RawMessage(`""`), IsValid: isTimeZoneOrMachines,
 			IsExposed: true,

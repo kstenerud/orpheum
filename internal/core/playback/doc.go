@@ -18,6 +18,14 @@
 //     TestPlayback_ACutFilmStartsOnItsLadderAndPreparesNoCopy and
 //     TestReport_AStallOnTheLadderIsOfferedNothing (internal/core/api).
 //
+//   - What a playback needs of the server's upload is the average rates of the picture and sound
+//     its player asked for within askedWithin, or, for one that asks for no chunks, what it was
+//     sent; every byte of a film the server sends is counted to its playback, and the need, the
+//     bytes sent and the films' share of server_upload_mbps are logged while anyone plays (D286 §5).
+//     Enforced by TestUpload_IsEachPlaybacksRatesOrWhatItWasSent,
+//     TestWatchUpload_LogsTheNeedBesideTheFilmsShareWhileAnyonePlays and
+//     TestUpload_APlaybacksNeedAndTheBytesSentItAreCounted (internal/core/api).
+//
 //   - Imports nothing from internal/node, never os/exec, and no image or media parser. Enforced by
 //     the depguard rule core-boundary, and transitively by TestArch_CoreNeverImportsNode and
 //     TestArch_CoreNeverExecs.
