@@ -19,6 +19,7 @@ import { TogetherNews } from "./together-news.tsx";
 import { useMembership } from "./together-membership.ts";
 import { forgetMembership, startLagMemory, type Membership } from "./together-storage.ts";
 import { followFilmVolume } from "./film-volume.ts";
+import { FilmVolumeSlider } from "./film-volume-slider.tsx";
 import { useHostVoice, VoiceControls } from "./together-voice.tsx";
 import { monotonicMs, useTogether, useToldCannotKeepUp } from "./use-together.ts";
 
@@ -126,6 +127,7 @@ function HostLeading(
       {hostVoice === undefined ? null : (
         <VoiceControls {...hostVoice} audioOutput={props.audioOutput} />
       )}
+      <FilmVolumeSlider />
     </div>
   );
 }
