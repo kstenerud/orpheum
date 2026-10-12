@@ -3,6 +3,7 @@
 package diskspace
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"path/filepath"
@@ -44,17 +45,20 @@ func Measure(path string) (Space, error) {
 }
 
 // TreeBytes is the size of every regular file under root: what the files written there take. A
-// symbolic link, device or pipe is not counted, so a link to a large file elsewhere adds nothing.
+// symbolic link, device or pipe is not counted, so a link to a large file elsewhere adds nothing. A
+// file or directory under root that is gone by the time it is read, removed as it was walked, is
+// not counted: a run of chunks starting failed measuring its store while a cancelled run's
+// directory was removed beside it (the owner's jumps, 2026-10-12). A root that is gone fails.
 func TreeBytes(root string) (int64, error) {
 	var total int64
-	err := filepath.WalkDir(root, func(_ string, entry fs.DirEntry, err error) error {
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			return goneUnder(root, path, err)
 		}
 		if entry.Type().IsRegular() {
 			info, infoErr := entry.Info()
 			if infoErr != nil {
-				return infoErr
+				return goneUnder(root, path, infoErr)
 			}
 			total += info.Size()
 		}
@@ -64,4 +68,13 @@ func TreeBytes(root string) (int64, error) {
 		return 0, fmt.Errorf("measure %s: %w", root, err)
 	}
 	return total, nil
+}
+
+// goneUnder is err, unless it says a path under root was gone when read: nothing, so the walk goes
+// on without it.
+func goneUnder(root, path string, err error) error {
+	if path != root && errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	return err
 }
