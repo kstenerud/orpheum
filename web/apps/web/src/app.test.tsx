@@ -90,9 +90,9 @@ describe("App", () => {
           "GET /me": [200, { id: 1, name: "owner", role: isAdmin ? "admin" : "user", isAdmin }],
           "GET /home": [200, { continueWatching: [] }],
           "GET /titles": [200, { titles: [], nextCursor: "" }],
-          "GET /offline-reminder": [
+          "GET /needs-attention": [
             200,
-            { isShown: true, rootCount: 1, diskCount: 0, offlineAt: Date.UTC(2026, 8, 12) },
+            { rootCount: 1, diskCount: 0, waitingRootCount: 0, unreadCount: 0 },
           ],
         },
         heard,
@@ -110,7 +110,7 @@ describe("App", () => {
     expect(admin.text).not.toContain("offline since");
     const person = await pageFor(false);
     expect(person.hasSign).toBe(false);
-    expect(person.asked).not.toContain("GET /offline-reminder");
+    expect(person.asked).not.toContain("GET /needs-attention");
   });
 
   it("says when an address names nothing", () => {
@@ -136,7 +136,10 @@ describe("App", () => {
         ],
         "GET /home": [200, { continueWatching: [] }],
         "GET /titles": [200, { titles: [], nextCursor: "" }],
-        "GET /offline-reminder": [200, { isShown: false }],
+        "GET /needs-attention": [
+          200,
+          { rootCount: 0, diskCount: 0, waitingRootCount: 0, unreadCount: 0 },
+        ],
       },
       [],
       "token",

@@ -100,7 +100,7 @@ function NeedsAttentionSign(): JSX.Element | null {
   const { t } = useTranslation();
   const { api } = useServices();
   const [counts] = useResource("status-needs-attention", async () =>
-    dataOrThrow(await api.GET("/offline-reminder")),
+    dataOrThrow(await api.GET("/needs-attention")),
   );
   if (counts.state !== "loaded") {
     return null;

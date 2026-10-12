@@ -120,8 +120,6 @@ const (
 	// A person's own.
 	axisDialogueBoost = "dialogue_boost"
 	axisLevelling     = "levelling"
-	// An admin's: when they last dismissed the offline reminder, in Unix milliseconds (D231 §7).
-	axisOfflineReminderDismissedAt = "offline_reminder_dismissed_at"
 	// A switch's value is JSON, as value_json keeps it.
 	valueTrue  = "true"
 	valueFalse = "false"

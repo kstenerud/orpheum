@@ -90,7 +90,6 @@ const (
 	ContinueWatchingMaxWorks                       Key = "continue_watching_max_works"
 	JobViewMaxJobs                                 Key = "job_view_max_jobs"
 	SystemPageRecentPreparesPerNode                Key = "system_page_recent_prepares_per_node"
-	OfflineReminderIntervalDays                    Key = "offline_reminder_interval_days"
 	ScreenRefreshFirstWaitSeconds                  Key = "screen_refresh_first_wait_seconds"
 	ScreenRefreshLongestWaitSeconds                Key = "screen_refresh_longest_wait_seconds"
 	ScreenRefreshFailedWaitSeconds                 Key = "screen_refresh_failed_wait_seconds"
@@ -564,10 +563,6 @@ func upkeepAndDisplayDefinitions() []Definition {
 			"seconds such a screen waits before asking again after a read that failed, every time, so it "+
 				"shows the server's answer soon after it is back (D237)"),
 			"D237's amendment: the owner, 2026-10-06: \"Make it every 5 seconds\""),
-		sourced(durationSetting(OfflineReminderIntervalDays, day, "7", 1, 365,
-			"days an admin's dismissal hides the reminder that folders or disks are offline; it comes back "+
-				"after them while any is still offline (D231 §7)"),
-			"best guess: a weekly reminder, the owner 2026-09-30"),
 		sourced(durationSetting(NewLibraryDefaultScanEveryHours, time.Hour, "24", 1, 8760,
 			"hours between looks for changes that a new library checked on an interval starts with; each "+
 				"library keeps its own once made"),

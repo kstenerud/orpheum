@@ -2626,6 +2626,34 @@
         ],
         "type": "object"
       },
+      "NeedsAttentionOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "diskCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "rootCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "unreadCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "waitingRootCount": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rootCount",
+          "diskCount",
+          "waitingRootCount",
+          "unreadCount"
+        ],
+        "type": "object"
+      },
       "NewDeviceBody": {
         "additionalProperties": false,
         "properties": {
@@ -2918,42 +2946,6 @@
           "nodeName",
           "rootPath",
           "offlineAt"
-        ],
-        "type": "object"
-      },
-      "OfflineReminderOutputBody": {
-        "additionalProperties": false,
-        "properties": {
-          "diskCount": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "isShown": {
-            "type": "boolean"
-          },
-          "offlineAt": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "rootCount": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "unreadCount": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "waitingRootCount": {
-            "format": "int64",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "isShown",
-          "rootCount",
-          "diskCount",
-          "waitingRootCount",
-          "unreadCount"
         ],
         "type": "object"
       },
@@ -8920,6 +8912,48 @@
         ]
       }
     },
+    "/needs-attention": {
+      "get": {
+        "operationId": "getNeedsAttention",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NeedsAttentionOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "How many folders and disks are offline, wait for the admin or could not be read (admin; D280)",
+        "tags": [
+          "Running it"
+        ]
+      }
+    },
     "/nodes": {
       "get": {
         "operationId": "getNodes",
@@ -9151,83 +9185,6 @@
           }
         },
         "summary": "Stop a playback, with a message its player shows within one report interval (admin; D243 §9)",
-        "tags": [
-          "Running it"
-        ]
-      }
-    },
-    "/offline-reminder": {
-      "get": {
-        "operationId": "getOfflineReminder",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OfflineReminderOutputBody"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Whether to remind the admin that folders or disks are offline, and how many since when (admin; D231 §7)",
-        "tags": [
-          "Running it"
-        ]
-      }
-    },
-    "/offline-reminder/dismissal": {
-      "post": {
-        "operationId": "dismissOfflineReminder",
-        "parameters": [
-          {
-            "description": "Bearer \u003csession token\u003e",
-            "in": "header",
-            "name": "Authorization",
-            "schema": {
-              "description": "Bearer \u003csession token\u003e",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          },
-          "default": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "Hide the offline reminder from this admin for offline_reminder_interval_days (admin; D231 §7)",
         "tags": [
           "Running it"
         ]

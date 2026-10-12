@@ -12,14 +12,14 @@ import { WarningIcon } from "./warning-sign.tsx";
 
 /**
  * Everything that needs the admin, in one place, which the status tray's warning sign leads to
- * (D280). A placeholder until it is designed: it counts what the reminder counts and leads to the
- * pages that have each, the System page and the Libraries.
+ * (D280). A placeholder until it is designed: it counts what needs them and leads to the pages that
+ * have each, the System page and the Libraries.
  */
 export function NeedsAttention(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [counts] = useResource("needs-attention", async () =>
-    dataOrThrow(await api.GET("/offline-reminder")),
+    dataOrThrow(await api.GET("/needs-attention")),
   );
   return (
     <section aria-labelledby="needs-attention-heading">

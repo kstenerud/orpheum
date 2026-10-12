@@ -453,10 +453,8 @@ func TestSystem_SaysWhatAHeldBackScanWouldRemoveAndWhatCouldNotBeRead(t *testing
 		system.Body.Unread[0].ErrorDetail.ModeText != "drwxr-x---" || system.Body.Unread[0].FoundAt != 7000 {
 		t.Errorf("unread = %+v; want /media/Locked with its mode", system.Body.Unread)
 	}
-	reminder := harness.do(t, http.MethodGet, "/offline-reminder", admin, nil)
-	if !strings.Contains(reminder.body, `"isShown":true`) || !strings.Contains(reminder.body, `"waitingRootCount":1`) ||
-		!strings.Contains(reminder.body, `"unreadCount":1`) {
-		t.Errorf("GET /offline-reminder = %s; want it shown, with one folder waiting and one path unread",
-			reminder.body)
+	counted := harness.do(t, http.MethodGet, "/needs-attention", admin, nil)
+	if !strings.Contains(counted.body, `"waitingRootCount":1`) || !strings.Contains(counted.body, `"unreadCount":1`) {
+		t.Errorf("GET /needs-attention = %s; want one folder waiting and one path unread", counted.body)
 	}
 }

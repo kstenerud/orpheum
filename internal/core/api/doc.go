@@ -56,9 +56,8 @@
 //     (D231 §11). TestSystem_ListsWhatIsDownAndEachOutsideHostsProvider. It lists each root
 //     and disk a scan found missing with since when (D41, D231 §7).
 //     TestSystem_SaysSinceWhenEachRootAndDiskHasBeenOffline.
-//   - An admin is reminded of what is offline, how many folders and disks since when, until they
-//     dismiss it; it comes back after offline_reminder_interval_days while anything is still
-//     offline (D231 §7, P39). TestOfflineReminder_ShowsWhatIsOfflineUntilDismissedThenReturnsAfterItsInterval.
+//   - An admin is told how many folders and disks are offline, wait for them or could not be read,
+//     which the status tray's warning sign shows (D280). TestNeedsAttention_CountsTheFoldersAndDisksOffline.
 //   - A job waiting on a destination that is down says which, as a person reads it, why, since
 //     when, and when it is looked at next, if a check brings it back (D231 §12).
 //     TestJobs_AJobWaitingOnADestinationThatIsDownSaysWhatWhySinceWhenAndTheNextCheck.
@@ -136,5 +135,5 @@
 //   - idempotency.go: a POST carrying an Idempotency-Key, done once (D244 §4); backups.go:
 //     listing and making backups (D242 §5); client_settings.go: the settings every client reads
 //     (D237); destinations.go: a destination that is down, as what waits on it says (D231 §12);
-//     offline_reminder.go: the admin's offline banner (D231 §7, P39).
+//     needs_attention.go: what needs the admin, counted for the status tray (D280).
 package api
