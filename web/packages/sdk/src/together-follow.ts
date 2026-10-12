@@ -26,7 +26,14 @@ import {
   qualitySwitchedOf,
   type ChunkLoaded,
 } from "./together-player-events.ts";
-import { commandOfEvent, mayLead, type GroupNow } from "./together-lead.ts";
+import {
+  commandOfEvent,
+  mayLead,
+  sendAfterMs,
+  whenHidden,
+  type GroupNow,
+  type ShownPage,
+} from "./together-lead.ts";
 import { OwnMoves } from "./together-own-moves.ts";
 import {
   nextPhase,
@@ -56,14 +63,7 @@ import {
   type StartLagMemory,
 } from "./together-start.ts";
 
-/**
- * How long a leading player's pause or seek waits to be sent: a browser's own controls pause the
- * video while its person drags the timeline, and seek at each step of the drag, each within this of
- * the last. A pause with a seek after it is that seek, not a pause for everyone, and a drag is one
- * seek, to where it ended (the owner's tests, 2026-10-05).
- */
-export const scrubPauseWindowMs = 300;
-
+export { browserPauseWindowMs, scrubPauseWindowMs, type ShownPage } from "./together-lead.ts";
 export {
   aimAheadAtMostMs,
   loadSampleMarginMs,
@@ -101,6 +101,8 @@ export interface FollowOptions {
   readonly monotonicMs: () => number;
   /** Where the device keeps how late its player starts; for the follower's life when not given (D282). */
   readonly startLag?: StartLagMemory;
+  /** The page the player is on, whose hiding pauses its video on iOS: the document, in a browser. */
+  readonly page?: ShownPage;
 }
 
 /** The events a following player tells the group of, and is moved by. */
@@ -350,16 +352,17 @@ class GroupFollower {
       this.#pendingCommand = undefined;
       this.#pendingKind = undefined;
       this.#send(command);
-    }, scrubPauseWindowMs);
+    }, sendAfterMs(command));
   }
 
   /**
-   * An iPhone's own full-screen player closed. iOS pauses the video as it closes: that pause is the
-   * browser's, not its person's, and was sent as a pause for everyone each time a guest left full
-   * screen (the owner's test, 2026-10-11). A pause waiting to be sent is dropped, one still to come
-   * is taken for the player's own, and the video is put back where the group is.
+   * The browser paused the video itself, not its person: iOS does as its own full-screen player
+   * closes, a pause sent for everyone each time a guest left full screen (the owner's test,
+   * 2026-10-11), and as its screen locks or its page is hidden (2026-10-12). A pause waiting to be
+   * sent is dropped, one still to come is taken for the player's own, and the video is put back
+   * where the group is.
    */
-  readonly leftFullscreen = (): void => {
+  readonly browserPaused = (): void => {
     if (this.#pendingKind === "pause") {
       clearTimeout(this.#pendingCommand);
       this.#pendingCommand = undefined;
@@ -720,6 +723,16 @@ class GroupFollower {
   }
 }
 
+/** Notes for the server's log each switch of quality the player tells of. */
+function noteQualitySwitched(connection: TogetherConnection): (event: Event) => void {
+  return (event) => {
+    const switched = qualitySwitchedOf(event);
+    if (switched !== undefined) {
+      connection.note({ kind: "qualitySwitched", ...switched });
+    }
+  };
+}
+
 /**
  * Makes media follow the group while it plays options.fileId (watch-together.md, Sync): paused at
  * the group's position while it is Paused, Waiting or Idle; playing while it is Playing, its drift
@@ -748,7 +761,7 @@ export function followGroup(
     ["progress", follower.loaded] as const,
     [playerMovedItselfEvent, follower.playerMovedItself] as const,
     // An iPhone's own full-screen player, which pauses the video as it closes.
-    ["webkitendfullscreen", follower.leftFullscreen] as const,
+    ["webkitendfullscreen", follower.browserPaused] as const,
     [
       playerLoadedChunkEvent,
       (event: Event) => {
@@ -759,15 +772,7 @@ export function followGroup(
         }
       },
     ] as const,
-    [
-      playerSwitchedQualityEvent,
-      (event: Event) => {
-        const switched = qualitySwitchedOf(event);
-        if (switched !== undefined) {
-          connection.note({ kind: "qualitySwitched", ...switched });
-        }
-      },
-    ] as const,
+    [playerSwitchedQualityEvent, noteQualitySwitched(connection)] as const,
   ];
   for (const [event, listener] of listeners) {
     media.addEventListener(event, listener);
@@ -776,9 +781,11 @@ export function followGroup(
   const unmarkFollowing = markFollowingAGroup();
   const unsubscribe = connection.subscribe(follower.connectionChanged);
   const checker = setInterval(follower.tick, checkDriftEveryMs);
+  const stopHearingPage = whenHidden(options.page, follower.browserPaused);
   follower.apply();
   connection.reportState();
   return () => {
+    stopHearingPage();
     clearInterval(checker);
     follower.stop();
     unmarkFollowing();

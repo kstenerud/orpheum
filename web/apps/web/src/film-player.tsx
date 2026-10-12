@@ -3,6 +3,7 @@
 import "./film-player.css";
 
 import {
+  keepScreenAwake,
   mediaErrorFailure,
   meterBufferGrowth,
   playChunked,
@@ -138,6 +139,12 @@ function Stage(
     },
 ): JSX.Element {
   const { over: Over, under: Under, videoRef, readLinkKbps, failure, preparedRef, ladder } = props;
+  useEffect(() => {
+    const video = videoRef.current;
+    // Absent where the page is not served over HTTPS, or the browser has no Screen Wake Lock.
+    const locks = "wakeLock" in navigator ? navigator.wakeLock : undefined;
+    return video === null ? undefined : keepScreenAwake(video, document, locks);
+  }, [videoRef]);
   return (
     <>
       <div className="film-player__stage">

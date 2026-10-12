@@ -37,6 +37,9 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
   asked to play, stands still while its chunks arrive is given up as one the device cannot play,
   with every quality above it, and reported (D266).
   `abr-choice.test.ts`, `abr.test.ts`, `cache-hit.test.ts`, `step-up.test.ts`.
+- **A film's player holds a screen wake lock while its video plays on a shown page**, lets it go
+  when the video pauses or ends, asks again when the page is shown, and plays on without one
+  where the browser gives none (D287). `wake.test.ts`.
 - **One public entry.** `exports` in `package.json` exposes only `src/index.ts`.
 - **One library per job:** hls.js for HLS and JASSUB for ASS/SSA; alternatives are named in
   `no-restricted-imports` (`web/eslint.config.js`).
@@ -58,4 +61,4 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
 - The public surface: `src/index.ts`. Levelling's gain: `src/gain.ts`. Measuring the link: `src/link.ts`. Counting stalls: `src/stalls.ts`. Playing chunks: `src/chunked.ts`;
   choosing their quality: `src/abr.ts`, `src/abr-choice.ts`, `src/step-up.ts`. HLS playback:
   `src/hls.ts`. The play events a player reports: `src/report.ts`. The subtitle layer drawn
-  over the video: `src/subtitles.ts`.
+  over the video: `src/subtitles.ts`. Keeping the screen awake: `src/wake.ts`.

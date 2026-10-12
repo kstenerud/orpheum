@@ -14,6 +14,27 @@ import type {
   TogetherSnapshot,
 } from "./together-connection.ts";
 
+/** A stand-in document: shown until a test hides it, telling its listeners as it does. */
+export class FakePage {
+  visibilityState: DocumentVisibilityState = "visible";
+  readonly #listeners = new Set<() => void>();
+
+  addEventListener(_type: "visibilitychange", listener: () => void): void {
+    this.#listeners.add(listener);
+  }
+
+  removeEventListener(_type: "visibilitychange", listener: () => void): void {
+    this.#listeners.delete(listener);
+  }
+
+  hide(): void {
+    this.visibilityState = "hidden";
+    for (const listener of this.#listeners) {
+      listener();
+    }
+  }
+}
+
 /** A stand-in video element: its position, play state and events, as a test sets them. */
 export class FakeMedia {
   currentTime = 0;

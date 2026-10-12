@@ -11,6 +11,47 @@ import type { GroupCommand } from "./together-connection.ts";
 import { driftCorrection } from "./together-drift.ts";
 import { positionMsOf, type FollowedMedia } from "./together-media.ts";
 
+/**
+ * How long a leading player's pause or seek waits to be sent: a browser's own controls pause the
+ * video while its person drags the timeline, and seek at each step of the drag, each within this of
+ * the last. A pause with a seek after it is that seek, not a pause for everyone, and a drag is one
+ * seek, to where it ended (the owner's tests, 2026-10-05).
+ */
+export const scrubPauseWindowMs = 300;
+
+/**
+ * How long a leading player's pause waits to be sent, at least: iOS pauses a playing video as its
+ * screen locks, before the page is told it is hidden, and that pause, taken for its person's, paused
+ * the group for everyone (the owner's test, 2026-10-12). A pause the page hides within this of is
+ * the browser's. Half a second, as others separating a tapped pause from the lock's found enough.
+ */
+export const browserPauseWindowMs = 500;
+
+/** A page that tells when it is hidden or shown again: a browser's document. */
+export interface ShownPage {
+  readonly visibilityState: DocumentVisibilityState;
+  addEventListener(type: "visibilitychange", listener: () => void): void;
+  removeEventListener(type: "visibilitychange", listener: () => void): void;
+}
+
+/** How long a leading player's pause or seek waits before it is sent. */
+export function sendAfterMs(command: GroupCommand): number {
+  return command.command === "pause" ? browserPauseWindowMs : scrubPauseWindowMs;
+}
+
+/** Calls hidden each time page is hidden, if there is a page; returns the stopping. */
+export function whenHidden(page: ShownPage | undefined, hidden: () => void): () => void {
+  const onVisibility = (): void => {
+    if (page?.visibilityState === "hidden") {
+      hidden();
+    }
+  };
+  page?.addEventListener("visibilitychange", onVisibility);
+  return () => {
+    page?.removeEventListener("visibilitychange", onVisibility);
+  };
+}
+
 /** The group a player follows, where it is expected now, and when now is. */
 export interface GroupNow {
   readonly group: GroupView;

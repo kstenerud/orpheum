@@ -98,6 +98,7 @@ function HostLeading(
             leads: everyRight,
             monotonicMs,
             startLag: startLagMemory(browserStorage()),
+            page: document,
           }),
     [connection, fileId, video],
   );
