@@ -17,6 +17,7 @@ import {
   steadyLevel,
   voiceCeiling,
   type ChunkOnItsWay,
+  commonStartLevel,
   keptOwnPicture,
   ownPictureLevel,
 } from "./abr-choice.ts";
@@ -225,5 +226,18 @@ describe("the film's own picture in a Watch Together group (D286 §2)", () => {
     expect(keptOwnPicture(ladder, 5_117_192)).toBe(1);
     expect(keptOwnPicture(ladder, 5_000_000)).toBeUndefined();
     expect(keptOwnPicture(ladder, undefined)).toBeUndefined();
+  });
+});
+
+describe("the common quality a group's encoded devices start a jump on (D286 §3)", () => {
+  it("is the highest the server makes at or under 720p, never the film's own picture", () => {
+    const ladder = [
+      { bitrate: 1_000_000, averageBitrate: 700_000, height: 432 },
+      { bitrate: 4_596_000, averageBitrate: 3_096_000, height: 720 },
+      { bitrate: 36_208_176, averageBitrate: 5_117_192, height: 816, uri: "picture/stream.m3u8" },
+    ];
+    expect(commonStartLevel(ladder)).toBe(1);
+    expect(commonStartLevel([ladder[0]!, ladder[2]!])).toBe(0);
+    expect(commonStartLevel([ladder[2]!])).toBe(-1);
   });
 });

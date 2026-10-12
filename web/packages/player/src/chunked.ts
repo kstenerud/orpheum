@@ -2,7 +2,7 @@
 
 import Hls, { type HlsConfig, type LoaderResponse, type LoadPolicy } from "hls.js";
 
-import { isFollowingAGroup, isVoiceLive, type CannotKeepUp } from "@orpheum/sdk";
+import { groupJumpedEvent, isFollowingAGroup, isVoiceLive, type CannotKeepUp } from "@orpheum/sdk";
 
 import { fromCacheBy } from "./cache-hit.ts";
 import { noRoomToMakeStatus, type PlaybackFailure } from "./failure.ts";
@@ -235,6 +235,26 @@ export function chunkedHlsConfig(options: {
 }
 
 /**
+ * Does as the follower of its group says: loads as it says (obeyGroupLoading), and starts a jump of
+ * its group on the common quality (groupJumpedEvent, D286 §3). Returns the stopping.
+ */
+function obeyGroup(
+  hls: Hls,
+  video: HTMLVideoElement,
+  abr: { readonly choosing: () => { readonly groupJumped: () => void } | undefined },
+): () => void {
+  const stopObeying = obeyGroupLoading(hls, video);
+  const onGroupJumped = (): void => {
+    abr.choosing()?.groupJumped();
+  };
+  video.addEventListener(groupJumpedEvent, onGroupJumped);
+  return () => {
+    stopObeying();
+    video.removeEventListener(groupJumpedEvent, onGroupJumped);
+  };
+}
+
+/**
  * Plays url with the element's own HLS where the page has no MSE, knowing nothing of its qualities,
  * or fails as unsupported where it has neither; undefined where hls.js plays it.
  */
@@ -308,7 +328,7 @@ export function playChunked(
   startWithAudio(hls, options.startAudioRenditionIndex ?? 0);
   tellOwnMoves(hls, video);
   tellLoading(hls, video);
-  const stopObeying = obeyGroupLoading(hls, video);
+  const stopObeying = obeyGroup(hls, video, abr);
   const linkKbps = (): number | undefined => abr.choosing()?.linkKbps();
   hls.loadSource(url);
   hls.attachMedia(video);

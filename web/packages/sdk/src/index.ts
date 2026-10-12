@@ -96,6 +96,7 @@ export type { FollowedMedia } from "./together-media.ts";
 export {
   catchUpSeekEvent,
   chunkLoadedOf,
+  groupJumpedEvent,
   fellBehindEvent,
   holdLoadingEvent,
   loadingHoldOf,
