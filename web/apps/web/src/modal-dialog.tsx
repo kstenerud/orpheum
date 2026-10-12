@@ -15,6 +15,10 @@ function isOutside(dialog: HTMLDialogElement, event: MouseEvent): boolean {
   );
 }
 
+/** A field a person types in: not a checkbox, a radio or a button. */
+const firstFieldSelector =
+  'input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]), textarea';
+
 /**
  * A modal dialog, the one way the app shows one (the owner, 2026-10-11: "these dialogs should be
  * modal ... darken the rest"): opened as the browser's own modal, over a darkened page that takes no
@@ -33,6 +37,11 @@ export function ModalDialog(props: {
    * 2026-10-11).
    */
   readonly shouldCloseOnOutsidePress?: boolean;
+  /**
+   * Whether it opens with its first field to type in focused, not its first control: a form whose
+   * point is typing, as an invitation's who-it-is-for (the owner, 2026-10-12).
+   */
+  readonly shouldFocusFirstField?: boolean;
   readonly className?: string;
   readonly children: ReactNode;
 }): JSX.Element {
@@ -50,6 +59,9 @@ export function ModalDialog(props: {
     }
     if (!dialog.open) {
       dialog.showModal();
+      if (toldRef.current.shouldFocusFirstField === true) {
+        dialog.querySelector<HTMLElement>(firstFieldSelector)?.focus();
+      }
     }
     const cancel = (event: Event): void => {
       event.preventDefault(); // the page, not the browser, closes it, by unmounting it

@@ -57,11 +57,18 @@ function rightsText(t: (key: string) => string, rights: Rights): string {
 export function ActionDialog(props: {
   readonly heading: string;
   readonly onClose: () => void;
+  /** Whether it opens with its first field focused (ModalDialog). */
+  readonly shouldFocusFirstField?: boolean;
   readonly children: ReactNode;
 }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <ModalDialog className="watch-together__dialog" label={props.heading} onClose={props.onClose}>
+    <ModalDialog
+      className="watch-together__dialog"
+      label={props.heading}
+      onClose={props.onClose}
+      shouldFocusFirstField={props.shouldFocusFirstField === true}
+    >
       <div className="watch-together__dialog-head">
         <h2>{props.heading}</h2>
         <button type="button" onClick={props.onClose}>
