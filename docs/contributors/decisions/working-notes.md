@@ -18895,6 +18895,8 @@ the same person, and having it back on one device replaced the credential of the
 
 ## D268 — A Watch Together player corrects drift as its device measures it, places its group by recent pongs, starts at a moment the server names, and its host's moves are taken at the controls
 
+> **§3 extended by [D282](#d282--a-watch-together-player-presses-play-early-by-how-late-it-has-learned-it-starts-kept-by-its-device-one-that-has-not-learned-it-runs-up-two-seconds)** (2026-10-12): each player presses play early by how late it has learned it starts; one that has not runs up two seconds, the group's lead lengthened to it.
+
 > **Revised by [D271](#d271--m5s-first-questions-answered-four-browsers-no-user-facing-theming-or-light-palette-and-guests-who-may-pause-and-seek-unless-the-host-withholds-it)** (2026-10-09): §5's later guest rights are decided: play and pause, and changing the position, chosen per invite, each invite starting with the last one's.
 
 **Decided** (2026-10-08), by the project owner, on the review of Watch Together's synchronisation
@@ -19485,3 +19487,38 @@ longer attaches the voice device.
    with a ring that grows with the voice going out.
 
 **Status:** Decided 2026-10-11.
+
+
+## D282 — A Watch Together player presses play early by how late it has learned it starts, kept by its device; one that has not learned it runs up two seconds
+
+**Decided** (2026-10-12), by the project owner, after a four-device test in which every player
+started within 60 ms of the moment the server named (D268 §3), and the iPhone and the Android phone,
+whose pictures moved some 170 ms later, were then nudged into step for about six seconds. The owner
+first asked whether players could start from before where the group starts, *"so we could set the
+target to that. Then all participants aim to catch up to the same 'future' point rather than having
+a lot of back-and-forth"*; then, given the choice: *"we can have it remember how late it was last
+time and use that, but if it hasn't run yet, we do the 2s run-up time. I expect that the most
+common scenario for watch together will be: everyone connects, watches one show, then disconnects.
+The second most common would be: Everyone connects, watches a series of shows, then disconnects.
+The rare situation would be: Everyone connects, a show starts, then someone gets added via invite
+halfway through."* It extends D268 §3.
+
+1. **A player learns how late it starts.** At each start it presses play for before the moment, it
+   measures, once its position settles after its player says it plays, how far it lost from where
+   the group runs: learned as D268 §2's losses are, the first whole and each after averaged with it.
+2. **The device keeps it, for every session.** One show a session is the commonest case, so a lag
+   kept only for the session would rarely be used: the web client keeps it in the browser's
+   storage (`orpheum.together.startLag`). The player says it in its state while it has one.
+3. **A player that has learned it presses play that much early**, held where the group starts
+   until then.
+4. **A player that has not runs up.** While any player along has not learned its lag, the group's
+   start lead is `together_run_up_ms` (2000) instead of `together_start_lead_ms` (500). Such a
+   player seeks back to where the group would be had it already started, plays at once, and is
+   judged on the way by where the group runs, so it makes its lag up before the moment. A group
+   starting in the film's first two seconds starts at two seconds, so there is film to run up
+   through: *"If the video is at the very start, losing a second or two isn't bad."*
+5. **Every start of the group is one**: a film put on, the host's play after a pause, and the
+   host's seek (D250 §2's sync points). Someone joining mid-film catches up as before.
+
+**Status:** Decided 2026-10-12.
+

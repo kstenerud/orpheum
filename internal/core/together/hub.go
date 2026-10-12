@@ -88,8 +88,11 @@ type session struct {
 	// startLead is how long after a sync point's wait ends the group starts moving (D268 §3): the
 	// setting's, as the last device to attach brought it; none until one has.
 	startLead time.Duration
-	links     map[int64]*link
-	members   map[int64]*member
+	// runUp is the start's lead while a player has not yet learned how late it starts (D282): the
+	// setting's, as the last device to attach brought it; none until one has.
+	runUp   time.Duration
+	links   map[int64]*link
+	members map[int64]*member
 	// lastRights are the rights of the last link made, which the next one starts with (D271 §4).
 	lastRights Rights
 	// logger is the hub's: each change of the group is logged with the session's id.
@@ -156,6 +159,9 @@ type device struct {
 	hasBeenReady bool
 	// isCatchingUp is whether the group plays on without it until it is ready again (D247 §4).
 	isCatchingUp bool
+	// knowsStartLag is whether its player has learned how late it starts, which it said in its last
+	// state: one that has not is given a run-up (D282).
+	knowsStartLag bool
 	// cannotKeepUp is what the device last said of a link too slow for its lowest quality (D247 §8).
 	cannotKeepUp *CannotKeepUp
 	// playing is whether its player last said it plays, and playerChangedAt when it last said it
@@ -180,6 +186,7 @@ func (each *device) takeState(message Inbound) (hasStalled bool) {
 			each.rttMs = message.RTTMs
 		}
 		each.cannotKeepUp = message.CannotKeepUp
+		each.knowsStartLag = message.StartLagMs != nil
 	case MessageSuspend:
 		each.suspended = message.Reason
 	case MessageResume:
@@ -483,6 +490,7 @@ func (hub *Hub) Attach(
 		attached.syncWait = time.Duration(tuning.SyncWaitMs) * time.Millisecond
 	}
 	attached.startLead = time.Duration(tuning.StartLeadMs) * time.Millisecond
+	attached.runUp = time.Duration(tuning.RunUpMs) * time.Millisecond
 	hub.lastID++
 	attachedMember.devices[hub.lastID] = &device{id: hub.lastID, role: role, canSetRate: canSetRate, send: send}
 	send(Outbound{

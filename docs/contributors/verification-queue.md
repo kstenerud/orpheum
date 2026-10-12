@@ -296,3 +296,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   without having to hit the slider's knob; on a computer the sliders move by mouse as before. Safari
   on an iPhone moves a slider only by a touch that starts on its knob, which no test browser
   reproduces (the owner, 2026-10-12). (`web/apps/web/src/volume-range.tsx`, `volume-range.css`)
+- [ ] **VQ32** — Against staging, a host and guests on a computer, an iPhone and an Android phone:
+  put a film on from the start, twice in one session, then pause and play. Passes when the first
+  start begins about two seconds into the film, the phones running up to it, and every later start
+  (and every start in a later session on the same devices) begins with no phone nudged into step
+  for seconds after, the core's log showing each player's `startLagMs` and few `nudged` notes after
+  `everyoneReady`. Only real phones start late as the owner's did (D282).
+  (`web/packages/sdk/src/together-start.ts`, `together-follow.ts`, `internal/core/together/group.go`)

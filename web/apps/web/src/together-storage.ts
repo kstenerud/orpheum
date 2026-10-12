@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import type { StartLagMemory } from "@orpheum/sdk";
+
 import type { AudioOutput } from "./accounts.ts";
 import type { StringStorage } from "./browser-storage.ts";
 import { audioOutputs } from "./sound.tsx";
@@ -121,4 +123,34 @@ export function keepViewerAudioOutput(storage: StringStorage, output: AudioOutpu
  */
 export function membershipHeaders(credential: string): { readonly authorization: string } {
   return { authorization: `Bearer ${credential}` };
+}
+
+const startLagKey = "orpheum.together.startLag";
+
+/**
+ * How late this browser's player starts, as it learned at its starts, kept for every session here:
+ * one show a session is the most common, and a lag learned for the session alone would rarely be
+ * used (D282). Anything else kept under its key is taken for nothing learned.
+ */
+export function startLagMemory(storage: StringStorage): StartLagMemory {
+  return {
+    read: () => {
+      let kept: unknown;
+      try {
+        kept = JSON.parse(storage.getItem(startLagKey) ?? "null");
+      } catch {
+        return undefined;
+      }
+      const costMs: unknown =
+        typeof kept === "object" && kept !== null ? Reflect.get(kept, "costMs") : undefined;
+      const moves: unknown =
+        typeof kept === "object" && kept !== null ? Reflect.get(kept, "moves") : undefined;
+      return typeof costMs === "number" && typeof moves === "number"
+        ? { costMs, moves }
+        : undefined;
+    },
+    keep: (learned) => {
+      storage.setItem(startLagKey, JSON.stringify(learned));
+    },
+  };
 }

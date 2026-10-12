@@ -90,6 +90,7 @@ export type { BrowserVoiceDevices } from "./together-voice-browser.ts";
 export { isVoiceLive } from "./voice-live.ts";
 export { driftCorrection, expectedPositionMs } from "./together-drift.ts";
 export { followGroup, waitAheadAtMostMs } from "./together-follow.ts";
+export type { StartLagMemory } from "./together-start.ts";
 export type { FollowedMedia } from "./together-media.ts";
 export {
   fellBehindEvent,
