@@ -60,7 +60,7 @@ func (stage capacityStage) progress(t *testing.T, olderSpeed, newerSpeed float64
 		stage.service.runs.sample(stage.newer, 0, now, int64(newerSpeed*elapsedMs))
 		for _, dir := range []string{stage.older, stage.newer} {
 			if isAsked(dir) {
-				stage.service.runs.asked(dir, now)
+				stage.service.runs.asked(dir, 0, 0, now)
 			}
 		}
 		if step < 3 {
@@ -117,5 +117,36 @@ func TestKeepRunsFast_EvictsNothingWhileEveryRunKeepsUpOrOneRunsAlone(t *testing
 	stage.progress(t, 0.5, 0.5, func(string) bool { return true }) // the newer is gone; the older runs alone
 	if !slices.Equal(stage.queue.cancelledJobs, []int64{12}) {
 		t.Errorf("the jobs cancelled = %v; want the newer run's alone", stage.queue.cancelledJobs)
+	}
+}
+
+// A run of a quality a player still plays, but from far before it after a seek back, is no run anyone
+// plays from, and is evicted before any that is: the run a seek back left behind kept the store in
+// use, and the sound everyone needed was evicted in its place (the owner's test, 2026-10-12).
+func TestKeepRunsFast_EvictsARunASeekLeftThoughItsQualityIsStillPlayed(t *testing.T) {
+	t.Parallel()
+	stage := newCapacityStage(t)
+	left, playedFrom := stage.older, stage.newer
+	// The older store's run is from chunk 0; its player sought back to before it, to a run of its own
+	// from 60, which the node runs at the same time; the newer store is the sound, played from 0.
+	stage.service.runs.begin(left, 60, 89, 13, 1, stage.clock.Now())
+	start := stage.clock.Now()
+	for step := range 4 {
+		now := stage.clock.Now()
+		elapsedMs := float64(now.Sub(start).Milliseconds())
+		stage.service.runs.sample(left, 0, now, int64(elapsedMs))
+		stage.service.runs.sample(left, 60, now, int64(1.05*elapsedMs))
+		stage.service.runs.sample(playedFrom, 0, now, int64(1.05*elapsedMs))
+		stage.service.runs.asked(left, 60, 66, now)
+		stage.service.runs.asked(playedFrom, 0, 6, now)
+		if step < 3 {
+			stage.clock.Advance(5 * time.Second)
+		}
+	}
+	if err := stage.service.keepRunsFast(t.Context(), 1); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(stage.queue.cancelledJobs, []int64{11}) {
+		t.Errorf("the jobs cancelled = %v; want the run the seek left, 11", stage.queue.cancelledJobs)
 	}
 }

@@ -26,9 +26,6 @@ type storeRuns struct {
 	storeID    int64
 	isMade     map[int]bool
 	runByFirst map[int]*run
-	// lastAskedAt is when a player last asked for one of its chunks: a store asked for lately is in
-	// use (capacity.go).
-	lastAskedAt time.Time
 	// evictedAt is when a run of it was evicted to keep its node's others faster than playback; zero
 	// unless it was, until a player's stall asks for it again (D250 §6).
 	evictedAt time.Time
@@ -46,6 +43,9 @@ type run struct {
 	startedAt time.Time
 	// samples are the film it had made at moments of its progress, oldest first, for its speed.
 	samples []speedSample
+	// lastAskedAt is when a player last asked for a chunk it makes, or one a minute of film before
+	// them: a run asked for lately is in use (capacity.go).
+	lastAskedAt time.Time
 }
 
 // willMake is whether the run is still to make chunk n.
@@ -98,9 +98,12 @@ func (tracker *runTracker) isMadeFromThrough(dir string, first, last int) bool {
 	return true
 }
 
-// cutFar cuts every run of the store that wanted is more than beyondMs of film past: past the chunk
-// it makes next. Such a request was sought to (D250 §5), since a player catching up never jumps that
-// far, and no one follows those runs now: they are forgotten, and returned for the caller to cancel.
+// cutFar cuts every run of the store that wanted is more than beyondMs of film away from: past the
+// chunk it makes next, or before the chunk it starts at. Such a request was sought to (D250 §5),
+// since a player catching up never jumps that far, and a run made ahead starts a minute ahead at
+// most (lookaheadMs); no one follows those runs now: they are forgotten, and returned for the caller
+// to cancel. A run a seek back left ran on, as fast as the node could make it, and starved the runs
+// the players needed where they went (the owner's test, 2026-10-12).
 func (tracker *runTracker) cutFar(dir string, grid Grid, wanted int, beyondMs int64) []RunSpan {
 	tracker.mutex.Lock()
 	defer tracker.mutex.Unlock()
@@ -108,8 +111,10 @@ func (tracker *runTracker) cutFar(dir string, grid Grid, wanted int, beyondMs in
 	var cuts []RunSpan
 	for first, each := range known.runByFirst {
 		next := each.madeThrough + 1
-		if wanted <= each.madeThrough || next > grid.lastChunk() ||
-			grid.StartsMs[wanted]-grid.StartsMs[next] <= beyondMs {
+		isFarPast := wanted > each.madeThrough && next <= grid.lastChunk() &&
+			grid.StartsMs[wanted]-grid.StartsMs[next] > beyondMs
+		isFarBefore := wanted < each.first && grid.StartsMs[each.first]-grid.StartsMs[wanted] > beyondMs
+		if !isFarPast && !isFarBefore {
 			continue
 		}
 		cuts = append(cuts, RunSpan{First: each.first, Last: each.last, MadeThrough: each.madeThrough})

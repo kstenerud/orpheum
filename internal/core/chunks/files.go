@@ -105,7 +105,7 @@ func (service *Service) Served(ctx context.Context, file StoreFile) error {
 	if !file.isInit {
 		service.runs.served(file.storeDir, file.chunk)
 	}
-	service.runs.asked(file.storeDir, service.clock.Now())
+	service.runs.asked(file.storeDir, file.runFrom, file.runFrom, service.clock.Now())
 	if !file.isInit && service.runs.isCovered(file.storeDir, file.chunk+1) {
 		return service.Ensure(ctx, file.fileID, file.kind, file.stream, file.chunk)
 	}

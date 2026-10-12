@@ -90,7 +90,7 @@ func (tracker *runTracker) runningOn(nodeID int64, now time.Time) []runningRun {
 			speed, isMeasured := each.speedAt(now)
 			running = append(running, runningRun{
 				dir: dir, first: each.first, last: each.last, startedAt: each.startedAt, speed: speed,
-				isMeasured: isMeasured, isInUse: now.Sub(known.lastAskedAt) <= inUseWithin, jobID: each.jobID,
+				isMeasured: isMeasured, isInUse: now.Sub(each.lastAskedAt) <= inUseWithin, jobID: each.jobID,
 			})
 		}
 	}
@@ -115,11 +115,18 @@ func (tracker *runTracker) lastEvictionOn(nodeID int64) time.Time {
 	return tracker.evictedOnAt[nodeID]
 }
 
-// asked records that a player asked for one of the store's chunks at now: its run is in use.
-func (tracker *runTracker) asked(dir string, now time.Time) {
+// asked records that a player asked at now for chunk from of the store, and plays on through chunk
+// through: the runs making any of them are in use. In use was the store's, so a run a seek back
+// left behind, of a quality a player still asked for where it went, counted as played from, and the
+// run everyone's sound needed was evicted in its place (the owner's test, 2026-10-12).
+func (tracker *runTracker) asked(dir string, from, through int, now time.Time) {
 	tracker.mutex.Lock()
 	defer tracker.mutex.Unlock()
-	tracker.storeLocked(dir).lastAskedAt = now
+	for _, each := range tracker.storeLocked(dir).runByFirst {
+		if each.first <= through && each.last >= from {
+			each.lastAskedAt = now
+		}
+	}
 }
 
 // isEvicted is whether a run of the store was evicted, and not asked for again by a stall since.

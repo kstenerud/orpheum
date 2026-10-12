@@ -521,9 +521,10 @@ func chunkDefinitions() []Definition {
 		}, "D247 §6: Apple's HLS authoring spec's low rungs, to be tuned on the owner's films; 400k@360p "+
 			"added by the owner, 2026-10-06, for an airplane's 0.6 Mb/s link"),
 		sourced(durationSetting(ChunkNewRunBeyondSeconds, time.Second, "90", 61, 3600,
-			"seconds of film past where a run of chunks is making that a request must be to start a new run "+
-				"there, cancelling that one: a seek's; a Watch Together player catching up jumps at most a "+
-				"minute ahead, and waits for the run already making its quality (D250 §5)"),
+			"seconds of film past where a run of chunks is making, or before where it starts, that a request "+
+				"must be to start a new run there, cancelling that one: a seek's; a Watch Together player "+
+				"catching up jumps at most a minute ahead, and waits for the run already making its quality "+
+				"(D250 §5)"),
 			"D250 §5: more than a catch-up's furthest jump, 60 s"),
 		sourced(integerSetting(ChunkRunSlowestSpeedPercent, "110", 100, 1000,
 			"percent of playback speed every run of chunks on a node must keep: when one of two or more is "+
