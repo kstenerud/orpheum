@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  browserVoiceDevices,
   microphoneConstraints,
   playbackOf,
   resumeAtTaps,
@@ -80,5 +81,34 @@ describe("Web Audio stopped by the browser", () => {
       change();
     }
     expect(taps.size).toBe(0);
+  });
+});
+
+describe("an iPhone's audio session as voice is first heard (D281)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("is told it plays, so the silent switch mutes neither voice nor the film", () => {
+    const session = { type: "auto" };
+    class FakeContext {
+      readonly state = "running";
+      addEventListener(): void {
+        // a state change is not looked at here
+      }
+      resume(): Promise<void> {
+        return Promise.resolve();
+      }
+    }
+    vi.stubGlobal("navigator", { audioSession: session });
+    // eslint-disable-next-line @typescript-eslint/naming-convention -- the browser's own name
+    vi.stubGlobal("window", { AudioContext: FakeContext });
+    vi.stubGlobal("AudioContext", FakeContext);
+    vi.stubGlobal("document", {
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    });
+    browserVoiceDevices().prepareToHear();
+    expect(session.type).toBe("playback");
   });
 });
