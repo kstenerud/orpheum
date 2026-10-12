@@ -19678,6 +19678,11 @@ film plays: *"go ahead"*.
    shown** and the video plays.
 3. **Where there is no lock, it plays on as before**: a browser without the API, a page not served
    over HTTPS, a request refused (as in low-power mode), asked again at the next change.
+4. **A film whose page is hidden pauses**, as YouTube's page does, unless it is in
+   picture-in-picture (amended 2026-10-12): an iPhone's page told it plays as a video app's, so the
+   silent switch does not mute it, played its sound on in the background with the picture gone. The
+   owner, asked: *"yes"*. In a Watch Together group the pause is the browser's, and the player
+   rejoins the group as the page is shown again.
 
 **Status:** Decided 2026-10-12.
 

@@ -4,6 +4,7 @@ import "./film-player.css";
 
 import {
   keepScreenAwake,
+  pauseWhenHidden,
   mediaErrorFailure,
   meterBufferGrowth,
   playChunked,
@@ -152,6 +153,10 @@ function Stage(
     return video === null ? undefined : keepScreenAwake(video, document, locks);
   }, [videoRef]);
   useHealedOnEmptied(videoRef);
+  useEffect(() => {
+    const video = videoRef.current;
+    return video === null ? undefined : pauseWhenHidden(video, document);
+  }, [videoRef]);
   return (
     <>
       <div className="film-player__stage">

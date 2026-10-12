@@ -31,6 +31,8 @@ export { drawSubtitles, jassubTimeOffset } from "./subtitles.ts";
 export type { SubtitleLayer } from "./subtitles.ts";
 export type { CaptionSource } from "./fullscreen-captions.ts";
 export { keepScreenAwake } from "./wake.ts";
+export { pauseWhenHidden } from "./hidden.ts";
+export type { HiddenPage, PausedFilm } from "./hidden.ts";
 export type { AwakeMedia, AwakePage, ScreenLock, ScreenLocks } from "./wake.ts";
 
 /** The npm name of this package, exported so the workspace wiring has something to resolve. */
