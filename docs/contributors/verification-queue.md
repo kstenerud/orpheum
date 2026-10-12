@@ -353,7 +353,8 @@ An item is ticked only by the person who did it, and only with what they saw.
 - [ ] **VQ38** — Against staging, on an iPhone with its ring/silent switch set to silent: play a
   film, alone and as a Watch Together guest after its tap for sound; then put Safari in the background
   for a minute, come back, and play again. Passes when the film is heard each time without quitting
-  Safari, and the voice of anyone talking in the session too. Only an iPhone has the switch and the GPU
+  Safari, and the voice of anyone talking in the session too; and the film falls silent, paused, while
+  Safari is in the background, a guest's picking up with the group as Safari comes back. Only an iPhone has the switch and the GPU
   process that WebKit bug 323104 strands (design/research/ios-silent-switch-2026-10-12.md).
   (`web/packages/sdk/src/page-audio.ts`)
 
