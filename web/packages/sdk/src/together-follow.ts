@@ -51,7 +51,7 @@ import {
   positionMsOf,
   type FollowedMedia,
 } from "./together-media.ts";
-import { LoadSpeed, waitAheadAtMostMs } from "./together-load-speed.ts";
+import { catchUpTargetMs, LoadSpeed, waitAheadAtMostMs } from "./together-load-speed.ts";
 import { markFollowingAGroup } from "./following-a-group.ts";
 import { GroupLoading } from "./together-loading.ts";
 import { Refill } from "./together-refill.ts";
@@ -66,6 +66,7 @@ import {
 export { browserPauseWindowMs, scrubPauseWindowMs, type ShownPage } from "./together-lead.ts";
 export {
   aimAheadAtMostMs,
+  loadedCatchUpLeadMs,
   loadSampleMarginMs,
   loadSpanAtLeastMs,
   loadWindowMs,
@@ -663,16 +664,17 @@ class GroupFollower {
   }
 
   /**
-   * Seeks to catch up with the group at toMs, ahead by catchUpLeadMs, and says it fell behind if it
-   * had been in step. It waits there for the group, the host's player too: a host on a slow link
-   * stalls as a viewer does (the owner, 2026-10-06), and its pause to wait is no command.
+   * Seeks to catch up with the group at toMs, ahead as catchUpTargetMs says, and says it fell behind
+   * if it had been in step. It waits there for the group, the host's player too: a host on a slow
+   * link stalls as a viewer does (the owner, 2026-10-06), and its pause to wait is no command.
    */
   #catchUp(toMs: number, where: GroupNow): void {
     if (this.#hasCaughtUp) {
       this.#media.dispatchEvent(new Event(fellBehindEvent));
     }
-    const targetMs =
-      toMs + this.#loadSpeed.catchUpLeadMs(this.#lastLoadMs, where.group.rate, where.tuning);
+    const targetMs = catchUpTargetMs(this.#media, { toMs, rate: where.group.rate }, () =>
+      this.#loadSpeed.catchUpLeadMs(this.#lastLoadMs, where.group.rate, where.tuning),
+    );
     this.#media.dispatchEvent(new Event(catchUpSeekEvent));
     this.#seek(targetMs, "catchUp");
     this.#move({ kind: "jumpedAhead", atMs: targetMs });
