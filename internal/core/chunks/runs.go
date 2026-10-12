@@ -173,6 +173,13 @@ type RunSpan struct {
 	First, Last, MadeThrough int
 }
 
+// hasRun is whether any run of the store is on its way.
+func (tracker *runTracker) hasRun(dir string) bool {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	return len(tracker.storeLocked(dir).runByFirst) > 0
+}
+
 // covering is the run of the store whose chunks include chunk n, and whether there is one.
 func (tracker *runTracker) covering(dir string, n int) (RunSpan, bool) {
 	tracker.mutex.Lock()

@@ -326,6 +326,34 @@ func TestEnsure_AJumpOntoMadeChunksKeepsTheRunThatMakesTheChunksAfterThem(t *tes
 	}
 }
 
+// A store's init asked for from where a guest who has reported nothing stands, the film's start,
+// starts no run and cuts none while a run of the store is on its way: that run makes the init. Asked
+// for, it cut the run a guest's first chunk needed, which cut it back, every two seconds, until the
+// node evicted it (the owner's VQ38 run, 2026-10-12).
+func TestWant_AStoresInitStartsAndCutsNothingWhileARunOfItIsOnItsWay(t *testing.T) {
+	t.Parallel()
+	queue := newFakeQueue()
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	picture := Stream{Kind: nodeproto.StreamPicture}
+	if err := service.ensure(t.Context(), ensuring{
+		fileID: 1, kind: OnKeyframes, stream: picture, wanted: 20, isSought: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	before := queue.runs(t, service)
+	dir := StoreDir(1, picture, mustGrid(t, service).ID())
+	initFile := StoreFile{fileID: 1, kind: OnKeyframes, stream: picture, storeDir: dir, isInit: true, runFrom: 0}
+	for range 2 {
+		if err := service.Want(t.Context(), initFile); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(queue.cancelledFirsts) != 0 || !slices.Equal(queue.runs(t, service), before) {
+		t.Errorf("the init asked for: runs %v, cancelled %v; want the run from 20 alone, none cancelled",
+			queue.runs(t, service), queue.cancelledFirsts)
+	}
+}
+
 // D247 §10: a run made faster than it is played is made long before the player reaches its end; a
 // chunk the node serves from it looks a minute ahead, so the next run is on its way before the
 // player asks for its first chunk. After a restart nothing past a served chunk is known, and no run

@@ -102,6 +102,13 @@ func (file StoreFile) IsSound() bool { return file.stream.Kind == nodeproto.Stre
 // or, for the init, from the chunk the playback is at. One asked for after a seek (AsSought) starts a
 // run where it is sooner than another ask does (cancelFarRuns).
 func (service *Service) Want(ctx context.Context, file StoreFile) error {
+	// A store's init is made by any run of it: one on its way makes it, and an init asked for from
+	// where a playback last reported, the film's start for a guest who has reported nothing, cut the
+	// run the guest's first chunk needed, which cut it back, every two seconds, until the node evicted
+	// it (the owner's VQ38 run, 2026-10-12).
+	if file.isInit && service.runs.hasRun(file.storeDir) {
+		return nil
+	}
 	return service.ensure(ctx, ensuring{
 		fileID: file.fileID, kind: file.kind, stream: file.stream, wanted: file.runFrom, isSought: file.isSought,
 	})
