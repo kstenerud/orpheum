@@ -223,10 +223,11 @@ class GroupFollower {
     this.#answersHeardAtCommand = this.#connection.snapshot().answersHeard;
   }
 
-  /** Puts the player where the group is now, when the group plays its film. */
+  /** Puts the player where the group is now, when the group plays its film; not while hidden. */
   readonly apply = (): void => {
     const where = this.#whereNow();
-    if (where === undefined || this.#isAwaitingGroup || this.#media.readyState < haveMetadata) {
+    const isHeld = this.#isAwaitingGroup || this.#options.page?.visibilityState === "hidden";
+    if (where === undefined || isHeld || this.#media.readyState < haveMetadata) {
       return;
     }
     if (where.group.state === "Playing") {
@@ -357,11 +358,10 @@ class GroupFollower {
   }
 
   /**
-   * The browser paused the video itself, not its person: iOS does as its own full-screen player
-   * closes, a pause sent for everyone each time a guest left full screen (the owner's test,
-   * 2026-10-11), and as its screen locks or its page is hidden (2026-10-12). A pause waiting to be
-   * sent is dropped, one still to come is taken for the player's own, and the video is put back
-   * where the group is.
+   * The browser paused the video itself, not its person: iOS as its full-screen player closes, a
+   * pause sent for everyone each time a guest left full screen (the owner's test, 2026-10-11), and
+   * as its page is hidden (2026-10-12). A pause waiting to be sent is dropped, one to come is the
+   * player's own, and the video is put back where the group is.
    */
   readonly browserPaused = (): void => {
     if (this.#pendingKind === "pause") {
