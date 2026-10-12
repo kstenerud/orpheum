@@ -16,7 +16,6 @@ import { Files } from "./files.tsx";
 import { Identify } from "./identify.tsx";
 import { Jobs } from "./jobs.tsx";
 import { Libraries } from "./libraries.tsx";
-import { OfflineReminder } from "./offline-reminder.tsx";
 import { People } from "./people.tsx";
 import {
   BackgroundChangesContext,
@@ -110,7 +109,6 @@ function SignedIn(): JSX.Element {
             currentScreen={route.screen}
             onSignOut={signOut}
           >
-            {isAdmin ? <OfflineReminder /> : null}
             <Screen route={route} />
           </AppShell>
         </BackgroundChangesContext>

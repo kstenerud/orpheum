@@ -68,14 +68,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/router.ts` and `src/app.tsx`.
 - The screens: `browse.tsx` (films and series), `title.tsx`, `series.tsx`, `search.tsx`,
   `identify.tsx` (needs a match), `libraries.tsx` and `create-library.tsx` (retiring a folder and deleting a library, each confirmed by `confirm-button.tsx`), `files.tsx` (what
-  the scanner saw), `settings.tsx` (keys, passwords and server settings), `jobs.tsx` (the job view), `offline-reminder.tsx` (the reminder, above an admin's every page, of the folders and disks offline, P39), `system.tsx` (the System page: the server's facts, doctor's findings, and each machine's software, sandbox, hardware encoding, disks and recent prepares, D225), `node-confinement.tsx` (a machine's FFmpeg sandbox, on the System page), `about.tsx`,
+  the scanner saw), `settings.tsx` (keys, passwords and server settings), `jobs.tsx` (the job view), `system.tsx` (the System page: the server's facts, doctor's findings, and each machine's software, sandbox, hardware encoding, disks and recent prepares, D225), `node-confinement.tsx` (a machine's FFmpeg sandbox, on the System page), `about.tsx`,
   `sign-in.tsx`, `play.tsx` (the player), `watching.ts` (the film a tab watches: its page's warm-up
   and letting go of the last film's playbacks, D258), `sound.tsx` (how the device makes sound, the boost),
   `audio-tracks.tsx` (the audio track menu, D230), `watch-together.tsx` (the host's Watch Together
   screen: links with notes, members, ending it), `together-viewer.tsx` (a viewer's page, joined by
   their link), `together-host.tsx` (the host's player in their session), `together-news.tsx` and
   `together-events.ts` (who is here and the named events), `use-together.ts` (the session's
-  connection), `together-voice.tsx` (voice's controls), `together-storage.ts` (the memberships this tab keeps and a viewer's speakers),
+  connection), `together-voice.tsx` (voice's controls), `volume-range.tsx` (every volume slider, which a touch anywhere moves), `together-storage.ts` (the memberships this tab keeps and a viewer's speakers),
   `subtitles.tsx` (the subtitle menu and offset) and `subtitle-search.tsx` (finding and fetching a
   subtitle a file lacks, from OpenSubtitles, D224), `this-device.tsx` (the This device page: its
   name and how it makes sound), `now-playing.tsx` (who is playing what, and stopping it),

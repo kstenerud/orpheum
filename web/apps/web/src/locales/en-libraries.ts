@@ -2,8 +2,7 @@
 
 /**
  * The English catalogue's libraries part: the admin's libraries page, its roots, scans and watching,
- * the new-library form (libraries), and the reminder of library storage that needs the admin
- * (offlineReminder), kept apart so the catalogue fits in one read (en.ts).
+ * and the new-library form (libraries), kept apart so the catalogue fits in one read (en.ts).
  */
 export const enLibraries = {
   libraries: {
@@ -77,20 +76,5 @@ export const enLibraries = {
     noRootsYet:
       "{{name}} has not said which folders it offers yet. Reload this page in a moment; if none appear, its configuration lists none (node.root_paths).",
     create: "Create and scan",
-  },
-  offlineReminder: {
-    label: "Library storage that needs you",
-    oneFolder: "1 library folder",
-    folders: "{{count}} library folders",
-    oneDisk: "1 mounted folder",
-    disks: "{{count}} mounted folders",
-    foldersAndDisks: "{{folders}} and {{disks}}",
-    offlineSince: "{{what}} offline since {{since}}.",
-    oneWaiting: "A scan waits for you before removing files.",
-    waitingCount: "Scans of {{count}} library folders wait for you before removing files.",
-    oneUnread: "A file or folder could not be read.",
-    unreadCount: "{{count}} files or folders could not be read.",
-    see: "See the System page",
-    dismiss: "Remind me later",
   },
 };

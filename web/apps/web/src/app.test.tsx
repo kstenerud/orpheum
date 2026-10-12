@@ -80,8 +80,10 @@ describe("App", () => {
     expect(system).not.toContain("There is nothing at this address.");
   });
 
-  it("reminds an admin of what is offline on every page, and asks nothing of it for anyone else", async () => {
-    const pageFor = async (isAdmin: boolean): Promise<{ text: string; asked: string[] }> => {
+  it("shows an admin a warning sign in the tray, not a reminder under the bar, and asks nothing of it for anyone else", async () => {
+    const pageFor = async (
+      isAdmin: boolean,
+    ): Promise<{ text: string; hasSign: boolean; asked: string[] }> => {
       const heard: Heard[] = [];
       const services = servedBy(
         {
@@ -98,13 +100,16 @@ describe("App", () => {
       );
       const mounted = await mount(withServices(<App />, services));
       const text = mounted.container.textContent;
+      const hasSign = mounted.container.querySelector(".status-tray__button--warning") !== null;
       mounted.unmount();
-      return { text, asked: heard.map((request) => request.methodAndPath) };
+      return { text, hasSign, asked: heard.map((request) => request.methodAndPath) };
     };
+    // The tray's sign says it alone: the reminder under the bar said it twice (the owner, 2026-10-12).
     const admin = await pageFor(true);
-    expect(admin.text).toContain("1 library folder offline since");
+    expect(admin.hasSign).toBe(true);
+    expect(admin.text).not.toContain("offline since");
     const person = await pageFor(false);
-    expect(person.text).not.toContain("offline since");
+    expect(person.hasSign).toBe(false);
     expect(person.asked).not.toContain("GET /offline-reminder");
   });
 
