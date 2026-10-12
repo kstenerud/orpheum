@@ -308,3 +308,6 @@ An item is ticked only by the person who did it, and only with what they saw.
   run-up (`startsInMs=2000`), the iPhone and the Mac's Firefox learning 43 ms and 17 ms, and one
   nudge in the whole session. The Android phone had left before the film started. Not yet seen: a
   second start using the learned lags, and the Android phone's start.
+- [ ] **VQ33** — On staging, host a Watch Together session on a computer and a phone. Passes when the
+  status tray's Watch Together sign is the new one, a screen playing with two people before it, in
+  the status blue, sharp at the tray's size on both. (`web/apps/web/src/status-tray.tsx`)
