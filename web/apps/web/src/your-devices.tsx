@@ -14,6 +14,7 @@ import {
   type Device,
 } from "./accounts.ts";
 import { BusyGroup } from "./busy-group.tsx";
+import { ConfirmButton } from "./confirm-button.tsx";
 import { dateTimeText } from "./date-time-text.ts";
 import { submitWith } from "./form-row.tsx";
 import { fieldProblemText } from "./problem.ts";
@@ -74,14 +75,14 @@ export function YourDevices(props: {
             />
           )}
         />
-        <button
-          type="button"
-          onClick={() => {
+        <ConfirmButton
+          label={t("devices.signOutElsewhere")}
+          consequence={t("devices.signOutElsewhereConsequence")}
+          confirmLabel={t("devices.signOutElsewhereConfirm")}
+          onConfirm={() => {
             applyChange((idempotencyKey) => signOutElsewhere(api, idempotencyKey));
           }}
-        >
-          {t("devices.signOutElsewhere")}
-        </button>
+        />
         {problem === undefined ? null : <p role="alert">{problem}</p>}
       </div>
     </BusyGroup>
@@ -134,15 +135,16 @@ export function DeviceList(props: {
               {t("devices.codeToSignBackIn")}
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => {
+          {/* Removing signs the device out for good: red, and asked again (the owner, 2026-10-12). */}
+          <ConfirmButton
+            label={t("devices.remove")}
+            labelForReader={t("devices.removeLabel", { name: device.name })}
+            consequence={t("devices.removeConsequence", { name: device.name })}
+            confirmLabel={t("devices.removeConfirm")}
+            onConfirm={() => {
               props.onRemove(device);
             }}
-            aria-label={t("devices.removeLabel", { name: device.name })}
-          >
-            {t("devices.remove")}
-          </button>
+          />
         </li>
       ))}
     </ul>

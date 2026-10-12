@@ -4,6 +4,7 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ConfirmButton } from "./confirm-button.tsx";
 import { BusyGroup } from "./busy-group.tsx";
 import { useRequest } from "./use-request.ts";
 import { idempotent } from "./idempotent.ts";
@@ -90,9 +91,12 @@ function SecretRow(props: {
       </label>
       <button type="submit">{t("settings.save")}</button>{" "}
       {secret.isSet ? (
-        <button type="button" onClick={props.onRemove}>
-          {t("settings.remove")}
-        </button>
+        <ConfirmButton
+          label={t("settings.remove")}
+          consequence={t("settings.removeConsequence")}
+          confirmLabel={t("settings.removeConfirm")}
+          onConfirm={props.onRemove}
+        />
       ) : null}
       {props.note === "" ? null : <output>{props.note}</output>}
     </form>

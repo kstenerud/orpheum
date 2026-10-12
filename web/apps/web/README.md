@@ -4,6 +4,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
 
 ## Invariants
 
+- **What cannot be undone is a `ConfirmButton`** (`src/confirm-button.tsx`, D278 §4): outlined in
+  the irreversible red, its first press says what will happen and sends nothing, a second, filled red,
+  acts, and "Keep it" puts things back. Deleting, removing, withdrawing, ending, signing out other
+  devices and a new link that stops the old one all go through it (the owner, 2026-10-12: "red button +
+  confirm action is a general pattern that will occur often"). `confirmed-actions.test.tsx`,
+  `your-devices.test.tsx`, `system-waiting.test.tsx`, `watch-together.test.tsx`.
 - **Imports packages by name, never another app.** `app-not-to-other-app` and
   `not-into-another-package-by-path` (`web/.dependency-cruiser.cjs`).
 - **Server calls go through `@orpheum/sdk`.** `no-restricted-globals` (`fetch`,

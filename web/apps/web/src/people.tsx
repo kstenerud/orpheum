@@ -7,6 +7,7 @@ import { useState, type JSX } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 
+import { ConfirmButton } from "./confirm-button.tsx";
 import {
   createAccount,
   invite,
@@ -278,14 +279,14 @@ function PendingInvitations(props: {
               role: roleLabel(t, invitation.role),
               until: dateTimeText(invitation.expiresAt, i18n.language),
             })}{" "}
-            <button
-              type="button"
-              onClick={() => {
+            <ConfirmButton
+              label={t("people.withdraw")}
+              consequence={t("people.withdrawConsequence")}
+              confirmLabel={t("people.withdrawConfirm")}
+              onConfirm={() => {
                 props.onWithdraw(invitation.id);
               }}
-            >
-              {t("people.withdraw")}
-            </button>
+            />
           </li>
         ))}
       </ul>

@@ -4,6 +4,7 @@ import type { components } from "@orpheum/sdk";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ConfirmButton } from "./confirm-button.tsx";
 import { WarningIcon } from "./warning-sign.tsx";
 import { BusyGroup } from "./busy-group.tsx";
 import { dateTimeText } from "./date-time-text.ts";
@@ -163,9 +164,12 @@ function WaitingRoot(props: {
       {root.fileCount > named.length ? (
         <p>{t("system.waitingMore", { count: root.fileCount - named.length })}</p>
       ) : null}
-      <button type="button" className="irreversible" onClick={props.onRemove}>
-        {t("system.waitingRemove", { count: root.fileCount })}
-      </button>
+      <ConfirmButton
+        label={t("system.waitingRemove", { count: root.fileCount })}
+        consequence={t("system.waitingRemoveConsequence", { count: root.fileCount })}
+        confirmLabel={t("system.waitingRemoveConfirm")}
+        onConfirm={props.onRemove}
+      />
     </li>
   );
 }

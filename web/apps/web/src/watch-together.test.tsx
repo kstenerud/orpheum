@@ -185,6 +185,8 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
     expect(buttonWithText(mounted.container, "Remove")).toBeUndefined();
     await click(rowStarting(mounted.container, "Gran (Grandma)"));
     await click(buttonWithText(mounted.container, "Remove"));
+    // Removing someone cannot be undone: it is asked again (D278 §4).
+    await click(buttonWithText(mounted.container, "Remove them"));
     expect(heard.map((each) => each.methodAndPath)).toContain("POST /together/3/eject/2");
     expect(mounted.container.textContent).not.toContain("Gran (Grandma)");
     mounted.unmount();

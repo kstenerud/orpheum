@@ -11,6 +11,10 @@ import { useTranslation } from "react-i18next";
 export function ConfirmButton(props: {
   /** What the first button says. */
   readonly label: string;
+  /** What a screen reader says of the first button, where its label alone does not name what it acts on. */
+  readonly labelForReader?: string;
+  /** Whether it cannot be pressed now, as a role some people hold. */
+  readonly isDisabled?: boolean;
   /** What will happen, said before the admin confirms. */
   readonly consequence: string;
   /** What the confirming button says. */
@@ -24,6 +28,8 @@ export function ConfirmButton(props: {
       <button
         type="button"
         className="irreversible-outline"
+        aria-label={props.labelForReader}
+        disabled={props.isDisabled}
         onClick={() => {
           setIsAsking(true);
         }}
