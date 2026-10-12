@@ -10,6 +10,12 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/pacing"
 )
 
+// CeilingHeader is the header in which every answer for a chunk of a playback's film tells its
+// player the highest rate, in kbit/s, the server lets it load, its quality's average with its
+// sound's: absent for none. The server lowers it while its players need more than its upload's share
+// for films (D286 §5).
+const CeilingHeader = "Orpheum-Ceiling-Kbps"
+
 // PaceHeader is the header in which a player whose person's voice is live asks for its film's
 // downloads to be paced, in kbit/s: a little above the rate the quality it loads plays at, so the
 // download never fills the link's queue in bursts ahead of the voice (D262 §2).
@@ -48,18 +54,22 @@ func (server *Server) pacedMedia(next http.Handler) http.Handler {
 const mediaPath = Prefix + "/bytes/media/"
 
 // countedMedia is writer, counting each byte of a film it sends to its playback, by the media token
-// in the request's path, for what the server's upload carries (D286 §5); writer itself for any
-// other request, or before the server is ready.
+// in the request's path, for what the server's upload carries, and an answer for a chunk saying the
+// playback's ceiling (CeilingHeader) (D286 §5); writer itself for any other request, or before the
+// server is ready.
 func (server *Server) countedMedia(writer http.ResponseWriter, request *http.Request) http.ResponseWriter {
 	route, isMedia := strings.CutPrefix(request.URL.Path, mediaPath)
 	dependencies := server.dependencies.Load()
 	if !isMedia || dependencies == nil || dependencies.Playback == nil {
 		return writer
 	}
-	_, rest, _ := strings.Cut(route, "/")
+	kind, rest, _ := strings.Cut(route, "/")
 	token, _, _ := strings.Cut(rest, "/")
 	if token == "" {
 		return writer
+	}
+	if ceiling := dependencies.Playback.CeilingOf(token); kind == "chunks" && ceiling > 0 {
+		writer.Header().Set(CeilingHeader, strconv.FormatInt(ceiling, 10))
 	}
 	return &countingWriter{ResponseWriter: writer, sent: func(bytes int) {
 		dependencies.Playback.Sent(token, int64(bytes))

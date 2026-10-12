@@ -64,8 +64,29 @@ func (service *Service) Fetched(token string, file chunks.StoreFile) {
 	if file.IsSound() {
 		known.sound, known.hasSound, known.soundsNeed = file, true, need
 	} else {
-		known.picturesNeed = need
+		known.picturesNeed, known.pictureStream = need, file.StreamName()
 	}
+}
+
+// KeepLadder keeps every picture a token's playback is offered, lowest first, along which the
+// server may lower it (D286 §5).
+func (service *Service) KeepLadder(token string, ladder []chunks.Rung) {
+	service.tokens.mutex.Lock()
+	defer service.tokens.mutex.Unlock()
+	if known, found := service.tokens.playbackByToken[token]; found {
+		known.ladder = ladder
+	}
+}
+
+// CeilingOf is the highest rate, in kbit/s, the server lets a token's playback load, its quality's
+// average with its sound's; zero for none (D286 §5).
+func (service *Service) CeilingOf(token string) int64 {
+	service.tokens.mutex.Lock()
+	defer service.tokens.mutex.Unlock()
+	if known, found := service.tokens.playbackByToken[token]; found {
+		return known.ceilingKbps
+	}
+	return 0
 }
 
 // SoundOf is the sound a token's playback plays, the last file of a sound its player asked for, and

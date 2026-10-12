@@ -99,6 +99,11 @@ func (server *Server) getChunksMasterPlaylist(
 	if err != nil {
 		return nil, server.chunksError(ctx, "write a master playlist of chunks", err)
 	}
+	ladder, err := dependencies.Chunks.Ladder(ctx, chunked)
+	if err != nil {
+		return nil, server.chunksError(ctx, "find a playback's ladder", err)
+	}
+	dependencies.Playback.KeepLadder(input.Token, ladder)
 	if kept != chunked.Kept() {
 		// The playback keeps the grid it began on, though a read-through finds the film's keyframes
 		// before it ends (D269 §3), and its sounds unlevelled, though the loudness is measured.

@@ -28,6 +28,7 @@ import {
   measuresTheLink,
   startingLevel,
   steadyLevel,
+  underCeiling,
   voiceCeiling,
   type ChoiceLevel,
 } from "./abr-choice.ts";
@@ -138,6 +139,8 @@ export class Choosing<Chunk extends FollowedChunk> {
   #commonUntilMs = 0;
   /** The lowest quality found unplayable here: it and every one above it are never chosen again (D266). */
   #unplayableFrom: number | undefined;
+  /** The highest rate the server lets it load, in kbit/s, with each chunk's answer (D286 §5); undefined for none. */
+  #serverCeilingKbps: number | undefined;
   readonly #timers: ReturnType<typeof setInterval>[];
 
   constructor(hls: ChoosingHls, options: ChoosingOptions, link: ChoosingLink<Chunk>) {
@@ -444,7 +447,20 @@ export class Choosing<Chunk extends FollowedChunk> {
 
   #clamped(level: number): number {
     const { minAutoLevel, maxAutoLevel, levels } = this.#hls;
-    return levels.length === 0 ? level : Math.min(Math.max(level, minAutoLevel), maxAutoLevel);
+    if (levels.length === 0) {
+      return level;
+    }
+    const highest = Math.min(maxAutoLevel, underCeiling(levels, this.#serverCeilingKbps));
+    return Math.max(Math.min(level, highest), minAutoLevel);
+  }
+
+  /**
+   * The server's ceiling, kbps, with a chunk's answer: the highest rate it lets this player load,
+   * its quality's average with its sound's, so its upload carries every player (D286 §5); undefined
+   * lifts it. The next chunk is of a quality under it, and the step-up stays under it.
+   */
+  obeyServer(kbps: number | undefined): void {
+    this.#serverCeilingKbps = kbps;
   }
 
   #linkBps(): number | undefined {

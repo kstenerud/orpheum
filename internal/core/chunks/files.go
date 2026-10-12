@@ -92,6 +92,9 @@ func (film cutFilm) averageKbpsOf(stream Stream) int64 {
 // needs of the server's upload (D286 §5); zero when it is not known.
 func (file StoreFile) AverageKbps() int64 { return file.averageKbps }
 
+// StreamName is the name of the file's stream, as a playback's master playlist names it.
+func (file StoreFile) StreamName() string { return file.stream.Name() }
+
 // IsSound is whether the file is of a sound rather than a picture.
 func (file StoreFile) IsSound() bool { return file.stream.Kind == nodeproto.StreamSound }
 

@@ -460,6 +460,11 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 		defer ticker.Stop()
 		services.playback.WatchUpload(loopsContext, ticker.C, logger)
 	})
+	loops.Go(func() {
+		ticker := time.NewTicker(uploadKeptEvery)
+		defer ticker.Stop()
+		services.playback.KeepUnderShare(loopsContext, ticker.C, logger)
+	})
 	loops.Go(func() { services.discovery.Run(loopsContext) })
 	loops.Go(func() { services.portMapping.Run(loopsContext) })
 	return func() { cancel(); loops.Wait() }, nil
@@ -468,6 +473,11 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 // uploadLogEvery is how often what the server's players need of its upload is logged while anyone
 // plays: the chunks' speed window, over which a few chunks of each playback arrive (D286 §5).
 const uploadLogEvery = 20 * time.Second
+
+// uploadKeptEvery is how often the server's players' qualities are lowered or raised to keep within
+// its upload: about a chunk's time, so a player told at its next chunk has moved before the next look
+// (D286 §5).
+const uploadKeptEvery = 5 * time.Second
 
 // silenceCheckEvery is how often the work given to nodes is looked at for a silence past its limit:
 // a bound on how late a silence is noticed, against limits of minutes (node_silent_after_seconds,

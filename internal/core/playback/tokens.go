@@ -100,6 +100,16 @@ type tokenPlayback struct {
 	// (D286 §5).
 	picturesNeed, soundsNeed streamNeed
 	sentBytes                int64
+	// ladder is every picture it is offered, lowest first, pictureStream the one its player last
+	// asked for, and ceilingKbps the highest rate the server lets it load, zero for none, since
+	// loweredAt (D286 §5).
+	ladder        []chunks.Rung
+	pictureStream string
+	ceilingKbps   int64
+	loweredAt     time.Time
+	// measuredKbps is what it was sent over the last look at the upload: the need of a playback that
+	// asks for no chunks, which the server cannot lower.
+	measuredKbps int64
 }
 
 // usedTracks are the subtitle and audio tracks a playback started with; audio is nil for a file

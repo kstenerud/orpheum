@@ -317,3 +317,23 @@ export function commonStartLevel(levels: readonly ChoiceLevel[]): number {
       index !== own && (level.height ?? 0) > 0 && (level.height ?? 0) <= commonStartHeight,
   );
 }
+
+/**
+ * The highest quality whose average rate, its sound's with it, is at most ceilingKbps, the lowest
+ * when none is; the highest of all with no ceiling (D286 §5).
+ */
+export function underCeiling(
+  levels: readonly ChoiceLevel[],
+  ceilingKbps: number | undefined,
+): number {
+  if (ceilingKbps === undefined) {
+    return levels.length - 1;
+  }
+  let highest = 0;
+  levels.forEach((level, index) => {
+    if (level.averageBitrate <= ceilingKbps * 1000) {
+      highest = Math.max(highest, index);
+    }
+  });
+  return highest;
+}

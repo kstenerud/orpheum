@@ -26,6 +26,17 @@
 //     TestWatchUpload_LogsTheNeedBesideTheFilmsShareWhileAnyonePlays and
 //     TestUpload_APlaybacksNeedAndTheBytesSentItAreCounted (internal/core/api).
 //
+//   - While the need is over the films' share of server_upload_mbps, the playback needing most is
+//     lowered a quality at a time, the newest of those needing the same, onto a quality another
+//     playback of its film loads where the next lower is made for no one; a lowered playback is
+//     raised a quality at a time once the need has had room for 30 s; every chunk's answer tells the
+//     player its ceiling, and an unanswered setting lifts every one (D286 §4, §5). Enforced by
+//     TestUploadControl_LowersTheOneNeedingMostOntoAQualityAlreadyMade,
+//     TestUploadControl_LowersTheNewestOfThoseNeedingTheSame,
+//     TestUploadControl_RaisesOneQualityAtATimeOnceThereIsRoom,
+//     TestUploadControl_SaysWhenEveryoneIsAtTheirLowestAndItIsStillOver and
+//     TestUpload_APlaybackOverTheShareIsToldItsCeilingWithEachChunk (internal/core/api).
+//
 //   - Imports nothing from internal/node, never os/exec, and no image or media parser. Enforced by
 //     the depguard rule core-boundary, and transitively by TestArch_CoreNeverImportsNode and
 //     TestArch_CoreNeverExecs.
