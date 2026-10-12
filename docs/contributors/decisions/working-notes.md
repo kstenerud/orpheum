@@ -18865,8 +18865,14 @@ done (the User-Agent is logged only).
    chooses it again. Dropping the buffer alone left Firefox on macOS stuck after Flow's HEVC, every
    lower quality frozen too, for about two minutes (the owner's retest, 2026-10-08).
 3. **The play report tells the core**, which logs the quality and where it stood.
+4. **The film's own picture, given up, is offered to none of the device's later playbacks of the
+   film, for the server's life** (amended 2026-10-12): the report says whether the quality was the
+   film's own picture, and the core remembers it by player (a device, or a session with none) and
+   film. Firefox on a Mac gave Flow's up anew at every playback, 1.5 to 5 s each; the owner, asked
+   whether a device should remember it for the film until the server restarts: *"yes, do fix 2
+   also."*
 
-**Status:** Decided 2026-10-07.
+**Status:** Decided 2026-10-07; §4 decided 2026-10-12.
 
 ## D267 — A Watch Together membership is kept by the browser that joined, or by the account of whoever is signed in, and one member may be on several devices
 

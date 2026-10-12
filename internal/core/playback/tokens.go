@@ -88,6 +88,13 @@ type tokenPlayback struct {
 	// isSoundUnlevelled is whether its film's sounds were first offered to it unlevelled, the film's
 	// loudness not measured yet: it keeps them so to its end.
 	isSoundUnlevelled bool
+	// isOwnPictureUnplayable is whether its player, on an earlier playback of the film, gave up the
+	// film's own picture as one its device cannot play (D266): it is not offered (unplayablePictures).
+	isOwnPictureUnplayable bool
+	// sound is the last file of a sound its player asked for, and hasSound whether it asked for one:
+	// the sound a jump's picture is made alongside (SoundOf).
+	sound    chunks.StoreFile
+	hasSound bool
 }
 
 // usedTracks are the subtitle and audio tracks a playback started with; audio is nil for a file

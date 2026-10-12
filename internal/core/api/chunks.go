@@ -129,6 +129,12 @@ func (server *Server) getChunkFile(ctx context.Context, input *ChunkFileInput) (
 	if input.IsSought {
 		file = file.AsSought()
 	}
+	dependencies.Playback.Fetched(input.Token, file)
+	if sound, hasSound := dependencies.Playback.SoundOf(input.Token); hasSound && !file.IsSound() {
+		if err = dependencies.Chunks.WantAlongside(ctx, file, sound); err != nil {
+			return nil, server.chunksError(ctx, "have a jump's sound made with its picture", err)
+		}
+	}
 	return server.relayChunkFile(ctx, dependencies, file)
 }
 

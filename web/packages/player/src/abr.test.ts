@@ -43,7 +43,7 @@ function videoAt(
 
 /** A stand-in for hls.js as choosing reads it. */
 class FakeHls implements ChoosingHls {
-  readonly levels = levels;
+  levels: ChoosingHls["levels"] = levels;
   currentLevel = -1;
   loadLevel = -1;
   readonly minAutoLevel = 0;
@@ -234,7 +234,9 @@ describe("a quality this device cannot play (D266)", () => {
     load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
     nowMs = 6000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
-    expect(unplayable).toEqual([{ qualityKbps: 36_208, positionMs: 420_500 }]);
+    expect(unplayable).toEqual([
+      { qualityKbps: 36_208, positionMs: 420_500, isFilmsOwnPicture: false },
+    ]);
     expect(loadsAgain).toEqual([6000]);
     expect(choosing.nextLevel()).toBe(2);
   });
@@ -261,7 +263,9 @@ describe("a quality this device cannot play (D266)", () => {
     choosing.notHeld(3);
     nowMs = 1000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
-    expect(unplayable).toEqual([{ qualityKbps: 36_208, positionMs: 416_900 }]);
+    expect(unplayable).toEqual([
+      { qualityKbps: 36_208, positionMs: 416_900, isFilmsOwnPicture: false },
+    ]);
   });
 
   it("is given up when the browser holds nothing of two of its chunks, though nothing is loaded where the video stands", () => {
@@ -272,7 +276,9 @@ describe("a quality this device cannot play (D266)", () => {
     choosing.notHeld(3);
     nowMs = 1000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
-    expect(unplayable).toEqual([{ qualityKbps: 36_208, positionMs: 445_300 }]);
+    expect(unplayable).toEqual([
+      { qualityKbps: 36_208, positionMs: 445_300, isFilmsOwnPicture: false },
+    ]);
   });
 
   it("counts its time standing still only from when what it plays is loaded where it stands", () => {
@@ -288,7 +294,23 @@ describe("a quality this device cannot play (D266)", () => {
     expect(unplayable).toEqual([]);
     nowMs = 13_000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
-    expect(unplayable).toEqual([{ qualityKbps: 36_208, positionMs: 420_500 }]);
+    expect(unplayable).toEqual([
+      { qualityKbps: 36_208, positionMs: 420_500, isFilmsOwnPicture: false },
+    ]);
+  });
+
+  it("says when it is the film's own picture, which the server then offers the device no more", () => {
+    const { hls, choosing, unplayable } = standingAt(416.9);
+    hls.levels = levels.map((level, index) =>
+      index === 3 ? { ...level, uri: "picture/stream.m3u8" } : level,
+    );
+    choosing.notHeld(3);
+    choosing.notHeld(3);
+    nowMs = 1000;
+    vi.advanceTimersByTime(lookAtChunkEveryMs);
+    expect(unplayable).toEqual([
+      { qualityKbps: 36_208, positionMs: 416_900, isFilmsOwnPicture: true },
+    ]);
   });
 
   it("ends hls.js's forcing of it, which would otherwise keep loading it", () => {
@@ -311,7 +333,9 @@ describe("a quality this device cannot play (D266)", () => {
     load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
     nowMs = 6000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
-    expect(unplayable).toEqual([{ qualityKbps: 36_208, positionMs: 303_980 }]);
+    expect(unplayable).toEqual([
+      { qualityKbps: 36_208, positionMs: 303_980, isFilmsOwnPicture: false },
+    ]);
   });
 
   it("is not given up while chunks are slow to come, while paused, while its sound is not there, or while the video plays", () => {

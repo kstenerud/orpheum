@@ -3337,6 +3337,7 @@ export interface components {
         };
         UnplayableBody: {
             audioBuffered?: string;
+            isFilmsOwnPicture?: boolean;
             isPaused?: boolean;
             lastError?: string;
             /** Format: int64 */

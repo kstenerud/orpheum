@@ -33,6 +33,8 @@ type StoreFile struct {
 	// chunk itself, or, for the init, the chunk the playback is at, which a player that changes
 	// to the stream asks for next.
 	runFrom int
+	// averageKbps is its stream's average bit rate (averageKbpsOf).
+	averageKbps int64
 }
 
 // StoreFileOf is the file of a stream's store the playback asks for by its stream's name and the
@@ -68,9 +70,30 @@ func (service *Service) StoreFileOf(
 		NodeID: film.file.NodeID, Target: nodeproto.PathBytesChunks + dir + "/" + name,
 		ContentType: renditions.ContentType(name),
 		fileID:      playback.FileID, kind: film.kind, stream: stream, storeDir: dir, isInit: isInit, chunk: chunk,
-		runFrom: runFrom,
+		runFrom: runFrom, averageKbps: film.averageKbpsOf(stream),
 	}, nil
 }
+
+// averageKbpsOf is a stream's average bit rate, in kbit/s: a quality's own, a sound's, or the film's
+// own picture's, zero when its rate is not known.
+func (film cutFilm) averageKbpsOf(stream Stream) int64 {
+	switch stream.Kind {
+	case nodeproto.StreamQuality:
+		return int64(stream.Quality.Kbps)
+	case nodeproto.StreamSound:
+		return int64(stream.SoundKbps)
+	case nodeproto.StreamPicture:
+		return film.pictureAverageBps() / 1000
+	}
+	return 0
+}
+
+// AverageKbps is the average bit rate of the file's stream, in kbit/s: what a player loading it
+// needs of the server's upload (D286 §5); zero when it is not known.
+func (file StoreFile) AverageKbps() int64 { return file.averageKbps }
+
+// IsSound is whether the file is of a sound rather than a picture.
+func (file StoreFile) IsSound() bool { return file.stream.Kind == nodeproto.StreamSound }
 
 // Want makes sure a file of a store its node does not have yet will be made (Ensure): from its chunk,
 // or, for the init, from the chunk the playback is at. One asked for after a seek (AsSought) starts a
@@ -78,6 +101,20 @@ func (service *Service) StoreFileOf(
 func (service *Service) Want(ctx context.Context, file StoreFile) error {
 	return service.ensure(ctx, ensuring{
 		fileID: file.fileID, kind: file.kind, stream: file.stream, wanted: file.runFrom, isSought: file.isSought,
+	})
+}
+
+// WantAlongside makes sure sound is made from where picture is, a file of a picture asked for where
+// a seek took its player (AsSought), as if the sound were asked for there too: hls.js asks for a
+// seek's sound only once its picture's first chunk has come, and the sound's run, started then, kept
+// the player waiting 5 s more (the owner's test, 2026-10-12). A sound of another film or grid is
+// left alone.
+func (service *Service) WantAlongside(ctx context.Context, picture, sound StoreFile) error {
+	if !picture.isSought || sound.fileID != picture.fileID || sound.kind != picture.kind {
+		return nil
+	}
+	return service.ensure(ctx, ensuring{
+		fileID: sound.fileID, kind: sound.kind, stream: sound.stream, wanted: picture.runFrom, isSought: true,
 	})
 }
 

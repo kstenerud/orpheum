@@ -164,9 +164,15 @@ describe("a quality given up as unplayable, as its event tells it (D266)", () =>
       error: null,
       dispatchEvent: (event: Event) => sent.push(event) > 0,
     };
-    sendUnplayable(video)({ qualityKbps: 25_991, positionMs: 382_111 });
+    sendUnplayable(video)({ qualityKbps: 25_991, positionMs: 382_111, isFilmsOwnPicture: true });
     expect(sent.map(unplayableOf)).toEqual([
-      { qualityKbps: 25_991, positionMs: 382_111, readyState: 1, isPaused: true },
+      {
+        qualityKbps: 25_991,
+        positionMs: 382_111,
+        isFilmsOwnPicture: true,
+        readyState: 1,
+        isPaused: true,
+      },
     ]);
   });
 });

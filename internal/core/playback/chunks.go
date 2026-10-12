@@ -37,8 +37,9 @@ func (service *Service) Keep(token string, holder Holder, kept chunks.Kept) {
 func chunksPlaybackOf(playback tokenPlayback) chunks.Playback {
 	chunked := chunks.Playback{
 		FileID: playback.fileID, PositionMs: playback.positionMs, StartedAt: playback.startedAt,
-		// A playback whose picture its decision re-encodes is one whose player cannot decode it.
-		IsSourcePictureDecodable: playback.decision.Profile != decide.H264,
+		// A playback whose picture its decision re-encodes is one whose player cannot decode it, as
+		// is one whose player gave the film's own picture up on an earlier playback (D266).
+		IsSourcePictureDecodable: playback.decision.Profile != decide.H264 && !playback.isOwnPictureUnplayable,
 		IsOnTime:                 playback.isOnTime,
 		IsSoundUnlevelled:        playback.isSoundUnlevelled,
 	}
@@ -46,4 +47,31 @@ func chunksPlaybackOf(playback tokenPlayback) chunks.Playback {
 		chunked.HasStartingAudio, chunked.StartingAudioTrackIndex = true, playback.startingAudio.AudioTrackIndex
 	}
 	return chunked
+}
+
+// Fetched records a file of its film's chunks a token's playback asked for: of a sound, the sound it
+// plays, which a jump's picture is made alongside (SoundOf).
+func (service *Service) Fetched(token string, file chunks.StoreFile) {
+	if !file.IsSound() {
+		return
+	}
+	service.tokens.mutex.Lock()
+	defer service.tokens.mutex.Unlock()
+	if known, found := service.tokens.playbackByToken[token]; found {
+		known.sound, known.hasSound = file, true
+	}
+}
+
+// SoundOf is the sound a token's playback plays, the last file of a sound its player asked for, and
+// whether it asked for one: after a jump, hls.js asks for the sound only once the picture's first
+// chunk has come, so the sound was made after the picture, not beside it, and a jump on an encoded
+// quality waited 12.5 s, 5 of them for its sound (the owner's test, 2026-10-12).
+func (service *Service) SoundOf(token string) (chunks.StoreFile, bool) {
+	service.tokens.mutex.Lock()
+	defer service.tokens.mutex.Unlock()
+	known, found := service.tokens.playbackByToken[token]
+	if !found || !known.hasSound {
+		return chunks.StoreFile{}, false
+	}
+	return known.sound, true
 }

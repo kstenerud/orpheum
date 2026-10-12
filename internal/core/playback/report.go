@@ -45,6 +45,9 @@ type Report struct {
 	LinkKbps int64
 	// ClientAddress is the address the report came from, whose network the speed is kept by (D257).
 	ClientAddress string
+	// IsOwnPictureUnplayable is whether the player gave up the film's own picture as one its device
+	// cannot play (D266), which its later playbacks of the film are then not offered.
+	IsOwnPictureUnplayable bool
 }
 
 // Stall is one stall of a player: a wait for data, while it played, where it was.
@@ -139,6 +142,9 @@ func (service *Service) Report(
 			}
 		}
 		service.tokens.keepPosition(token, report.PositionMs, playback.hasPlayed)
+		if report.IsOwnPictureUnplayable {
+			service.unplayablePictures.remember(playerOf(playback.deviceID, playback.sessionKey), playback.fileID)
+		}
 	}
 	answer := Answer{StopMessage: playback.stopMessage, IsRepeat: !isNew}
 	if playback.stopMessage != nil {
