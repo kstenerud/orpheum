@@ -38,6 +38,9 @@ export type PlayStartup = Readonly<Schemas["StartupBody"]>;
 /** A quality the player gave up as one its device cannot play, and where (D266). */
 export type PlayUnplayable = Readonly<Schemas["UnplayableBody"]>;
 
+/** Where the player, asked to play, kept its position, and what its video showed. */
+export type PlayStandstill = Readonly<Schemas["StandstillBody"]>;
+
 /** How long one of the person's seeks took to play again. */
 export type PlaySeek = Readonly<Schemas["SeekBody"]>;
 
@@ -80,6 +83,7 @@ export class PlayReporter {
   private startup: PlayStartup | undefined;
   private unplayables: PlayUnplayable[] = [];
   private seeks: PlaySeek[] = [];
+  private standstills: PlayStandstill[] = [];
   private readLinkKbps: () => number | undefined = () => undefined;
   private openSpan: { fromPositionMs: number; startedMonoMs: number } | undefined;
   private isSending = false;
@@ -183,6 +187,12 @@ export class PlayReporter {
     this.flush(positionMs);
   }
 
+  /** The player, asked to play, kept its position; the server is told at once. */
+  recordStandstill(standstill: PlayStandstill): void {
+    this.standstills.push(standstill);
+    this.flush(standstill.positionMs);
+  }
+
   /**
    * One of the person's seeks played again, sent with the next report: the one its started event
    * sends at once, when it is recorded just before.
@@ -210,6 +220,7 @@ export class PlayReporter {
       ...(this.startup === undefined ? {} : { startup: this.startup }),
       ...(this.unplayables.length === 0 ? {} : { unplayables: this.unplayables }),
       ...(this.seeks.length === 0 ? {} : { seeks: this.seeks }),
+      ...(this.standstills.length === 0 ? {} : { standstills: this.standstills }),
     };
     this.events = [];
     this.spans = [];
@@ -217,6 +228,7 @@ export class PlayReporter {
     this.startup = undefined;
     this.unplayables = [];
     this.seeks = [];
+    this.standstills = [];
     this.isSending = true;
     this.send(report).then(
       () => {
@@ -235,6 +247,7 @@ export class PlayReporter {
         this.startup ??= report.startup ?? undefined;
         this.unplayables = [...(report.unplayables ?? []), ...this.unplayables];
         this.seeks = [...(report.seeks ?? []), ...this.seeks];
+        this.standstills = [...(report.standstills ?? []), ...this.standstills];
       },
     );
   }

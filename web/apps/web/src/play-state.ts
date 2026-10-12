@@ -8,6 +8,7 @@ import {
   seekTo,
   unplayableOf,
   watchStalls,
+  watchStandingStill,
   type PlayReport,
 } from "@orpheum/player";
 import { chunkLoadedOf, playerLoadedChunkEvent, type Api, type components } from "@orpheum/sdk";
@@ -50,7 +51,7 @@ export async function sendReport(
   to: ReportTo,
   report: PlayReport,
 ): Promise<ReportAnswer> {
-  const { stalls, ...rest } = report;
+  const { stalls, standstills, ...rest } = report;
   const answer = await api.POST("/playback/{token}/report", {
     params: { path: { token: to.mediaToken } },
     ...(to.headers === undefined ? {} : { headers: to.headers }),
@@ -59,6 +60,9 @@ export async function sendReport(
       events: [...report.events],
       spans: [...report.spans],
       ...(stalls === undefined ? {} : { stalls: [...stalls] }),
+      ...(standstills === undefined || standstills === null
+        ? {}
+        : { standstills: [...standstills] }),
     },
   });
   try {
@@ -368,8 +372,8 @@ export function tellUnplayable(
 
 /**
  * Reports what the video tells about its playing, at once: each stall, which may move it to a lower
- * quality (D247 §2), and each quality its player gives up as unplayable here (D266). Returns the
- * stopping.
+ * quality (D247 §2), each quality its player gives up as unplayable here (D266), and each place it
+ * keeps its position while asked to play, with what its video shows there. Returns the stopping.
  */
 function watchForReport(
   video: HTMLVideoElement,
@@ -381,7 +385,11 @@ function watchForReport(
     reporter.recordStall(stall.positionMs, video);
   });
   const stopTellingUnplayable = tellUnplayable(video, reporter);
+  const stopWatchingStill = watchStandingStill(video, (still) => {
+    reporter.recordStandstill(still);
+  });
   return () => {
+    stopWatchingStill();
     stopWatchingStalls();
     stopTellingUnplayable();
   };

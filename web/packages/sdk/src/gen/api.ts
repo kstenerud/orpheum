@@ -2857,6 +2857,7 @@ export interface components {
             sentMonoMs: number;
             spans: components["schemas"]["SpanBody"][] | null;
             stalls?: components["schemas"]["StallBody"][] | null;
+            standstills?: components["schemas"]["StandstillBody"][] | null;
             startup?: components["schemas"]["StartupBody"];
             unplayables?: components["schemas"]["UnplayableBody"][] | null;
         };
@@ -3092,6 +3093,32 @@ export interface components {
             /** Format: int64 */
             readyState?: number;
             videoBuffered?: string;
+        };
+        StandstillBody: {
+            audioBuffered?: string;
+            buffered: string;
+            /** Format: int64 */
+            decodedFrames?: number;
+            /** Format: int64 */
+            droppedFrames?: number;
+            /** Format: int64 */
+            forMs: number;
+            isMuted: boolean;
+            isPageHidden: boolean;
+            lastError: string;
+            /** Format: int64 */
+            networkState: number;
+            /** Format: int64 */
+            positionMs: number;
+            /** Format: int64 */
+            readyState: number;
+            videoBuffered?: string;
+            /** Format: int64 */
+            videoHeight: number;
+            /** Format: int64 */
+            videoWidth: number;
+            /** Format: double */
+            volume: number;
         };
         StartPlaybackInputBody: {
             /** Format: int64 */

@@ -174,6 +174,36 @@ func TestReport_HowLongASeekTookToPlayAgainIsLogged(t *testing.T) {
 	}
 }
 
+// A report carrying where the player, asked to play, kept its position is logged with what its video
+// showed: a phone's Brave stood at 0:00 "playing", and the log said only that it started (the owner's
+// friend, 2026-10-12).
+func TestReport_APlayerStandingStillIsLoggedWithWhatItsVideoShowed(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	playing := harness.play(t, user, chrome(1))
+	body := reportBody(1, 0, 0)
+	body["standstills"] = []map[string]any{{
+		"positionMs": 0, "forMs": 5000, "readyState": 4, "networkState": 1, "buffered": "0.00-31.20",
+		"lastError": "", "videoWidth": 0, "videoHeight": 0, "decodedFrames": 0, "droppedFrames": 0,
+		"isMuted": false, "volume": 1, "isPageHidden": false,
+	}}
+	if answer := harness.report(t, user, playing, body); answer.status != http.StatusOK {
+		t.Fatalf("the report: %d %s", answer.status, answer.body)
+	}
+	logged := harness.logs.String()
+	for _, want := range []string{
+		`"msg":"a playing player's position stood still"`, `"forMs":5000`, `"readyState":4`,
+		`"networkState":1`, `"buffered":"0.00-31.20"`, `"videoWidth":0`, `"decodedFrames":0`,
+		`"isPageHidden":false`,
+	} {
+		if !strings.Contains(logged, want) {
+			t.Errorf("the log has no %s:\n%s", want, logged)
+		}
+	}
+}
+
 // Each change of a player's play state is logged with where, once, a report sent again logging
 // nothing more: a Mac playing alone paused and closed, and the log said only that it had started
 // (the owner, 2026-10-12).

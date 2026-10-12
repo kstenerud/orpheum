@@ -3870,6 +3870,15 @@
               "null"
             ]
           },
+          "standstills": {
+            "items": {
+              "$ref": "#/components/schemas/StandstillBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "startup": {
             "$ref": "#/components/schemas/StartupBody"
           },
@@ -4688,6 +4697,95 @@
         },
         "required": [
           "positionMs"
+        ],
+        "type": "object"
+      },
+      "StandstillBody": {
+        "additionalProperties": false,
+        "properties": {
+          "audioBuffered": {
+            "maxLength": 400,
+            "type": "string"
+          },
+          "buffered": {
+            "maxLength": 400,
+            "type": "string"
+          },
+          "decodedFrames": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "droppedFrames": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "forMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "isMuted": {
+            "type": "boolean"
+          },
+          "isPageHidden": {
+            "type": "boolean"
+          },
+          "lastError": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "networkState": {
+            "format": "int64",
+            "maximum": 3,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "positionMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "readyState": {
+            "format": "int64",
+            "maximum": 4,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "videoBuffered": {
+            "maxLength": 400,
+            "type": "string"
+          },
+          "videoHeight": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "videoWidth": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "volume": {
+            "format": "double",
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "positionMs",
+          "forMs",
+          "readyState",
+          "networkState",
+          "buffered",
+          "lastError",
+          "videoWidth",
+          "videoHeight",
+          "isMuted",
+          "volume",
+          "isPageHidden"
         ],
         "type": "object"
       },

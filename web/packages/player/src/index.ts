@@ -22,8 +22,17 @@ export type { ChunkedPlayback, PlayedLevel, UnplayableQuality } from "./chunked.
 export { meterBufferGrowth } from "./link.ts";
 export type { LinkMeter, MeteredMedia } from "./link.ts";
 export { PlayReporter, ReportRefused, reportEveryMs, seekTo } from "./report.ts";
-export type { PlayEvent, PlayEventKind, PlayReport, PlaySpan, PlayUnplayable } from "./report.ts";
+export type {
+  PlayEvent,
+  PlayEventKind,
+  PlayReport,
+  PlaySpan,
+  PlayStandstill,
+  PlayUnplayable,
+} from "./report.ts";
 export { stallAfterMs, watchStalls } from "./stalls.ts";
+export { standsStillReportAfterMs, watchStandingStill } from "./standstill.ts";
+export type { Standstill, StandingMedia } from "./standstill.ts";
 export type { Stall, WatchedMedia } from "./stalls.ts";
 export { holdBeforeStepUpMs, nextCap, stepUpBufferMs, stepUpHeadroom } from "./step-up.ts";
 export type { StepUpState } from "./step-up.ts";

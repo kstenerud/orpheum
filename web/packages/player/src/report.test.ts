@@ -197,6 +197,32 @@ describe("reporting play state", () => {
     expect(sent[1]).not.toHaveProperty("unplayables");
   });
 
+  it("tells where it stood still at once, once, and again after a report that failed", async () => {
+    const { reporter, sent, failNext } = fakeReporter();
+    const still = {
+      positionMs: 0,
+      forMs: 5000,
+      readyState: 4,
+      networkState: 1,
+      buffered: "0.00-31.20",
+      lastError: "",
+      videoWidth: 0,
+      videoHeight: 0,
+      isMuted: false,
+      volume: 1,
+      isPageHidden: false,
+    };
+    failNext();
+    reporter.recordStandstill(still);
+    await settled();
+    reporter.flush(0);
+    await settled();
+    expect(sent[0]?.standstills).toEqual([still]);
+    reporter.flush(0);
+    await settled();
+    expect(sent[1]).not.toHaveProperty("standstills");
+  });
+
   it("sends nothing more once a report is refused for good", async () => {
     const { reporter, sent, refuseNext, attempts } = fakeReporter();
     refuseNext();

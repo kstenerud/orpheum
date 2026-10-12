@@ -39,6 +39,9 @@ type ReportInput struct {
 		Unplayables []UnplayableBody `json:"unplayables,omitempty" required:"false"`
 		// Seeks are how long each of the person's seeks since the last report took to play again.
 		Seeks []SeekBody `json:"seeks,omitempty" required:"false"`
+		// Standstills are where the player, asked to play, kept its position without saying it
+		// waited, each told once.
+		Standstills []StandstillBody `json:"standstills,omitempty" required:"false"`
 	}
 	ClientFacts
 }
@@ -57,6 +60,33 @@ type SeekBody struct {
 	// the seek, absent when none had: a slow seek waited on one of them, or on neither.
 	PictureAfterMs *int64 `json:"pictureAfterMs,omitempty" minimum:"0" required:"false"`
 	SoundAfterMs   *int64 `json:"soundAfterMs,omitempty"   minimum:"0" required:"false"`
+}
+
+// StandstillBody is what a video showed when, asked to play and not waiting, it had kept its
+// position for ForMs: whether it held the film, decoded a frame, met an error, or played with the page
+// hidden. A phone's Brave said "playing" at 0:00 and stood there through every film, direct or
+// chunked, and the log said only that it started and paused (the owner's friend, 2026-10-12).
+type StandstillBody struct {
+	PositionMs int64 `json:"positionMs" minimum:"0"`
+	ForMs      int64 `json:"forMs"      minimum:"0"`
+	// ReadyState and NetworkState are the element's own.
+	ReadyState   int64 `json:"readyState"   minimum:"0" maximum:"4"`
+	NetworkState int64 `json:"networkState" minimum:"0" maximum:"3"`
+	// Buffered is what the element holds; VideoBuffered and AudioBuffered, a chunked playback's
+	// picture and sound, as "from-to" ranges in seconds.
+	Buffered      string `json:"buffered"                maxLength:"400"`
+	VideoBuffered string `json:"videoBuffered,omitempty" maxLength:"400" required:"false"`
+	AudioBuffered string `json:"audioBuffered,omitempty" maxLength:"400" required:"false"`
+	LastError     string `json:"lastError"               maxLength:"200"`
+	// VideoWidth and VideoHeight are 0 until a frame is decoded; DecodedFrames and DroppedFrames are
+	// the browser's count, absent where it keeps none.
+	VideoWidth    int64   `json:"videoWidth"              minimum:"0"`
+	VideoHeight   int64   `json:"videoHeight"             minimum:"0"`
+	DecodedFrames *int64  `json:"decodedFrames,omitempty" minimum:"0" required:"false"`
+	DroppedFrames *int64  `json:"droppedFrames,omitempty" minimum:"0" required:"false"`
+	IsMuted       bool    `json:"isMuted"`
+	Volume        float64 `json:"volume"                  minimum:"0" maximum:"1"`
+	IsPageHidden  bool    `json:"isPageHidden"`
 }
 
 // UnplayableBody is a quality a player gave up as one its device cannot play: its rate, and where
@@ -207,6 +237,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 	server.logStartup(ctx, reporter, input.Body.Startup, input.Body.LinkKbps)
 	server.logUnplayables(ctx, reporter, input.Body.Unplayables)
 	server.logSeeks(ctx, reporter, input.Body.Seeks, input.Body.LinkKbps)
+	server.logStandstills(ctx, reporter, input.Body.Standstills, input.Body.LinkKbps)
 	output := &ReportOutput{}
 	if answer.StopMessage != nil {
 		output.Body.Stop = &StopBody{Message: *answer.StopMessage}
@@ -295,6 +326,29 @@ func (server *Server) logSeeks(ctx context.Context, reporter reporter, seeks []S
 			attributes = append(attributes, "soundAfterMs", *seek.SoundAfterMs)
 		}
 		server.logger.InfoContext(ctx, "a player's seek was ready to play", attributes...)
+	}
+}
+
+// logStandstills says each place a player, asked to play, kept its position without waiting, and
+// what its video showed there.
+func (server *Server) logStandstills(
+	ctx context.Context, reporter reporter, standstills []StandstillBody, linkKbps int64,
+) {
+	for _, still := range standstills {
+		attributes := append(reporter.logAttributes(),
+			"positionMs", still.PositionMs, "forMs", still.ForMs,
+			"readyState", still.ReadyState, "networkState", still.NetworkState,
+			"buffered", still.Buffered, "videoBuffered", still.VideoBuffered, "audioBuffered", still.AudioBuffered,
+			"lastError", still.LastError, "videoWidth", still.VideoWidth, "videoHeight", still.VideoHeight,
+			"isMuted", still.IsMuted, "volume", still.Volume, "isPageHidden", still.IsPageHidden,
+			"linkKbps", linkKbps)
+		if still.DecodedFrames != nil {
+			attributes = append(attributes, "decodedFrames", *still.DecodedFrames)
+		}
+		if still.DroppedFrames != nil {
+			attributes = append(attributes, "droppedFrames", *still.DroppedFrames)
+		}
+		server.logger.InfoContext(ctx, "a playing player's position stood still", attributes...)
 	}
 }
 
