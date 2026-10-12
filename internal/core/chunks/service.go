@@ -104,7 +104,18 @@ type Service struct {
 	// runs are the chunks known made and the runs making more, by store: in memory, since a node's
 	// answer for a chunk is the truth and a restart only asks it again.
 	runs *runTracker
+	// movePlayers moves a run's players onto a quality already made before the run is evicted;
+	// nil moves none (MovePlayersBy).
+	movePlayers MovePlayers
 }
+
+// MovePlayers moves the players loading a film's quality, by its stream's name, onto a lower
+// quality already made for another playback of the film, and says whether every one moved (D286 §4).
+type MovePlayers func(fileID int64, streamName string) bool
+
+// MovePlayersBy is how a run in use is spared eviction: its players moved onto a quality already
+// made (D286 §4). Set once, before the server serves.
+func (service *Service) MovePlayersBy(move MovePlayers) { service.movePlayers = move }
 
 // NewService returns the chunks service.
 func NewService(parts Parts) *Service {

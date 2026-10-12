@@ -81,12 +81,19 @@ func (service *Service) KeepLadder(token string, ladder []chunks.Rung) {
 // CeilingOf is the highest rate, in kbit/s, the server lets a token's playback load, its quality's
 // average with its sound's; zero for none (D286 §5).
 func (service *Service) CeilingOf(token string) int64 {
+	now := service.clock.Now()
 	service.tokens.mutex.Lock()
 	defer service.tokens.mutex.Unlock()
-	if known, found := service.tokens.playbackByToken[token]; found {
-		return known.ceilingKbps
+	known, found := service.tokens.playbackByToken[token]
+	if !found {
+		return 0
 	}
-	return 0
+	ceiling := known.ceilingKbps
+	isCPUCapped := known.cpuCeilingKbps > 0 && now.Before(known.cpuCeilingUntil)
+	if isCPUCapped && (ceiling == 0 || known.cpuCeilingKbps < ceiling) {
+		ceiling = known.cpuCeilingKbps
+	}
+	return ceiling
 }
 
 // SoundOf is the sound a token's playback plays, the last file of a sound its player asked for, and

@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -108,6 +110,16 @@ func (tracker *runTracker) evict(dir string, first int, nodeID int64, now time.T
 	tracker.evictedOnAt[nodeID] = now
 }
 
+// drop forgets the run of the store from first, cancelled at now on nodeID since its players moved
+// onto another quality: its store is not evicted, and the node is left to settle as after an
+// eviction.
+func (tracker *runTracker) drop(dir string, first int, nodeID int64, now time.Time) {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	delete(tracker.storeLocked(dir).runByFirst, first)
+	tracker.evictedOnAt[nodeID] = now
+}
+
 // lastEvictionOn is when a run was last evicted from nodeID; zero for never.
 func (tracker *runTracker) lastEvictionOn(nodeID int64) time.Time {
 	tracker.mutex.Lock()
@@ -164,15 +176,35 @@ func (service *Service) keepRunsFast(ctx context.Context, nodeID int64) error {
 		return nil
 	}
 	victim := evictee(running)
-	service.runs.evict(victim.dir, victim.first, nodeID, now)
 	speeds := make([]string, 0, len(running))
 	for _, each := range running {
 		speeds = append(speeds, fmt.Sprintf("%s@%d:%.2f", each.dir, each.first, each.speed))
 	}
+	if service.isMovedOff(victim) {
+		service.runs.drop(victim.dir, victim.first, nodeID, now)
+		service.logger.WarnContext(ctx, "moved a run's players onto a quality already made: its node could not "+
+			"keep every run faster than playback", "nodeId", nodeID, "storeDir", victim.dir,
+			"firstChunk", victim.first, "lastChunk", victim.last, "slowestPercent", slowestPercent,
+			"runSpeeds", speeds)
+		return service.queue.Cancel(ctx, victim.jobID)
+	}
+	service.runs.evict(victim.dir, victim.first, nodeID, now)
 	service.logger.WarnContext(ctx, "evicted a run of chunks: its node could not keep every run faster than playback",
 		"nodeId", nodeID, "storeDir", victim.dir, "firstChunk", victim.first, "lastChunk", victim.last,
 		"wasInUse", victim.isInUse, "slowestPercent", slowestPercent, "runSpeeds", speeds)
 	return service.queue.Cancel(ctx, victim.jobID)
+}
+
+// isMovedOff is whether every player of a run in use, of a quality made for players, was moved onto
+// a quality already made for another playback of its film, so the run is no longer needed and is
+// cancelled rather than evicted: an eviction stops its players (D286 §4).
+func (service *Service) isMovedOff(victim runningRun) bool {
+	fileText, rest, _ := strings.Cut(victim.dir, "/")
+	streamDir, _, _ := strings.Cut(rest, "/")
+	streamName, isStore := strings.CutPrefix(streamDir, "chunks-")
+	fileID, err := strconv.ParseInt(fileText, 10, 64)
+	return victim.isInUse && service.movePlayers != nil && isStore && err == nil &&
+		strings.HasPrefix(streamName, "q") && service.movePlayers(fileID, streamName)
 }
 
 // evictee is the run to evict of those running: the oldest no player has asked for lately, or,
