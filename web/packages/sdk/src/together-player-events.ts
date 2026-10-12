@@ -2,7 +2,8 @@
 
 /**
  * The events a player fires at its video for the follower of its group: that it moved itself, fell
- * behind, loaded a chunk or switched quality, and what the last two carry.
+ * behind, loaded a chunk or switched quality, and what the last two carry; and the one the follower
+ * fires at it, to hold its loading while the group waits.
  */
 
 /**
@@ -41,6 +42,8 @@ export interface ChunkLoaded {
   readonly loadedKbps: number;
   /** The quality the chunk is of, in kbit/s. */
   readonly qualityKbps: number;
+  /** How much film the chunk plays, in ms: with loadMs, whether the link keeps up with the film. */
+  readonly filmMs: number;
 }
 
 /**
@@ -74,13 +77,14 @@ function detailWith(event: Event, fields: readonly string[]): Record<string, unk
 
 /** A playerLoadedChunkEvent's chunk, or undefined when the event carries none. */
 export function chunkLoadedOf(event: Event): ChunkLoaded | undefined {
-  const detail = detailWith(event, ["track", "loadMs", "loadedKbps", "qualityKbps"]);
-  const { track, loadMs, loadedKbps, qualityKbps } = detail ?? {};
+  const detail = detailWith(event, ["track", "loadMs", "loadedKbps", "qualityKbps", "filmMs"]);
+  const { track, loadMs, loadedKbps, qualityKbps, filmMs } = detail ?? {};
   return (track === "video" || track === "audio") &&
     typeof loadMs === "number" &&
     typeof loadedKbps === "number" &&
-    typeof qualityKbps === "number"
-    ? { track, loadMs, loadedKbps, qualityKbps }
+    typeof qualityKbps === "number" &&
+    typeof filmMs === "number"
+    ? { track, loadMs, loadedKbps, qualityKbps, filmMs }
     : undefined;
 }
 
@@ -91,4 +95,23 @@ export function qualitySwitchedOf(event: Event): QualitySwitched | undefined {
     (linkEstimateKbps === undefined || typeof linkEstimateKbps === "number")
     ? { qualityKbps, linkEstimateKbps }
     : undefined;
+}
+
+/**
+ * The event a following player fires at its video to hold its loading, or let it go on: a
+ * LoadingHold in its detail. While its group waits at a sync point and it is ready, it holds, so
+ * the players not yet ready have the server's upload to themselves; it goes on as the group plays
+ * (the owner's jumps, 2026-10-12, where the ready players went on filling 30 s ahead).
+ */
+export const holdLoadingEvent = "orpheumholdloading";
+
+/** Whether a player is to hold its loading, as holdLoadingEvent tells it. */
+export interface LoadingHold {
+  readonly isHeld: boolean;
+}
+
+/** The LoadingHold an event carries, if it is one. */
+export function loadingHoldOf(event: Event): LoadingHold | undefined {
+  const { isHeld } = detailWith(event, ["isHeld"]) ?? {};
+  return typeof isHeld === "boolean" ? { isHeld } : undefined;
 }

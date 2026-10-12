@@ -12,6 +12,7 @@ import {
   failOnFatal,
   hlsMethod,
   hlsSupport,
+  holdLoadingWhenTold,
   playNative,
   startWithAudio,
   tellLoading,
@@ -278,6 +279,7 @@ export function playChunked(
   startWithAudio(hls, options.startAudioRenditionIndex ?? 0);
   tellOwnMoves(hls, video);
   tellLoading(hls, video);
+  const stopHolding = holdLoadingWhenTold(hls, video);
   const linkKbps = (): number | undefined => abr.choosing()?.linkKbps();
   hls.loadSource(url);
   hls.attachMedia(video);
@@ -286,6 +288,7 @@ export function playChunked(
       hls.audioTrack = index;
     },
     destroy: () => {
+      stopHolding();
       hls.destroy();
     },
     playing: () => hls.levels[hls.currentLevel],

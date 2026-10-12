@@ -311,3 +311,12 @@ An item is ticked only by the person who did it, and only with what they saw.
 - [ ] **VQ33** — On staging, host a Watch Together session on a computer and a phone. Passes when the
   status tray's Watch Together sign is the new one, a screen playing with two people before it, in
   the status blue, sharp at the tray's size on both. (`web/apps/web/src/status-tray.tsx`)
+- [ ] **VQ34** — Against staging: a Watch Together group of a computer, an Android phone and an
+  iPhone jumps back and forward by half an hour, twice; then a computer alone jumps a few times.
+  Passes when, in the group, the computers and the Android phone on the film's own picture are ready
+  within about 4 s (the core's log: `player changed … buffering=false` after `event=seeked`), the
+  iPhone no later than before, and no run of one chunk is queued for a run-up; and alone, each
+  `a player's seek was ready to play` says where it came from and is not followed by `a player found
+  a quality its device cannot play`. Only the owner's link and devices carry the timings (D283).
+  (`web/packages/sdk/src/together-refill.ts`, `together-follow.ts`, `web/packages/player/src/hls.ts`)
+

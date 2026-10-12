@@ -73,4 +73,24 @@ describe("a player's start, early by how late it starts or running up to it (D28
     connection.reportState();
     expect(reports.at(-1)?.startLagMs).toBe(170);
   });
+
+  it("runs up no earlier than what it loaded where the group starts, starting once the run reaches it", () => {
+    const media = new FakeMedia();
+    media.loaded = [[59, 7200]]; // the chunk the group starts in begins at 59 s
+    const { connection, setGroup, notes } = fakeConnection(paused);
+    followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
+    monotonicNowMs = 1000;
+    setGroup({ ...paused, state: "Playing", startsInMs: 2000 }, 1000); // it starts at 3000
+    expect(notes.at(-1)).toEqual({
+      kind: "sought",
+      positionMs: 60_000,
+      toMs: 59_000,
+      why: "runUp",
+    });
+    media.fire("seeked");
+    expect(media.paused).toBe(true); // the group's run is at 58 s, short of where it loaded
+    monotonicNowMs = 2000;
+    vi.advanceTimersByTime(1000);
+    expect(media.paused).toBe(false);
+  });
 });

@@ -94,12 +94,14 @@ export type { StartLagMemory } from "./together-start.ts";
 export type { FollowedMedia } from "./together-media.ts";
 export {
   fellBehindEvent,
+  holdLoadingEvent,
+  loadingHoldOf,
   playerBufferedFirstEvent,
   playerLoadedChunkEvent,
   playerMovedItselfEvent,
   playerSwitchedQualityEvent,
 } from "./together-player-events.ts";
-export type { ChunkLoaded, QualitySwitched } from "./together-player-events.ts";
+export type { ChunkLoaded, LoadingHold, QualitySwitched } from "./together-player-events.ts";
 export { playedMutedEvent, soundOnAtTap } from "./together-sound.ts";
 export type { MediaProbe, PlayableFormats } from "./playable-formats.ts";
 

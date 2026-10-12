@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  holdLoadingEvent,
   playerLoadedChunkEvent,
   playerMovedItselfEvent,
   playerSwitchedQualityEvent,
@@ -11,6 +12,7 @@ import Hls from "hls.js";
 
 import {
   hlsMethod,
+  holdLoadingWhenTold,
   measuredKbps,
   playNative,
   preparedHlsConfig,
@@ -102,7 +104,12 @@ describe("playing a prepared rendition", () => {
     const told: { type: string; detail: unknown }[] = [];
     const loaded = (type: string, level: number): void => {
       fire(Hls.Events.FRAG_LOADED, {
-        frag: { type, level, stats: { loading: { start: 100, end: 2100 }, total: 500_000 } },
+        frag: {
+          type,
+          level,
+          duration: 10.2,
+          stats: { loading: { start: 100, end: 2100 }, total: 500_000 },
+        },
       });
     };
     // Before a chunk loaded, hls.js's estimate is its starting value, measuring nothing.
@@ -118,11 +125,17 @@ describe("playing a prepared rendition", () => {
       },
       {
         type: playerLoadedChunkEvent,
-        detail: { track: "video", loadMs: 2000, loadedKbps: 2000, qualityKbps: 1200 },
+        detail: {
+          track: "video",
+          loadMs: 2000,
+          loadedKbps: 2000,
+          qualityKbps: 1200,
+          filmMs: 10_200,
+        },
       },
       {
         type: playerLoadedChunkEvent,
-        detail: { track: "audio", loadMs: 2000, loadedKbps: 2000, qualityKbps: 0 },
+        detail: { track: "audio", loadMs: 2000, loadedKbps: 2000, qualityKbps: 0, filmMs: 10_200 },
       },
       { type: playerSwitchedQualityEvent, detail: { qualityKbps: 800, linkEstimateKbps: 2500 } },
     ]);
@@ -163,5 +176,29 @@ describe("the link's speed a player reports (D257 §1)", () => {
     listeners.get(Hls.Events.FRAG_LOADED)?.();
     hls.bandwidthEstimate = 1_000_000;
     expect(estimateKbps()).toBe(1000);
+  });
+});
+
+describe("holding its loading while its group waits (the owner's jumps, 2026-10-12)", () => {
+  it("stops loading when told to hold, goes on from where the video is when told, and stops listening", () => {
+    const calls: string[] = [];
+    const hls = {
+      stopLoad: () => {
+        calls.push("stop");
+      },
+      startLoad: (position?: number) => {
+        calls.push(`start ${String(position)}`);
+      },
+    };
+    const video = new EventTarget();
+    const hold = (isHeld: boolean): void => {
+      video.dispatchEvent(new CustomEvent(holdLoadingEvent, { detail: { isHeld } }));
+    };
+    const stop = holdLoadingWhenTold(hls, video);
+    hold(true);
+    hold(false);
+    stop();
+    hold(true);
+    expect(calls).toEqual(["stop", "start -1"]);
   });
 });

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import {
+  holdLoadingEvent,
+  loadingHoldOf,
   playerLoadedChunkEvent,
   playerMovedItselfEvent,
   playerSwitchedQualityEvent,
@@ -106,6 +108,29 @@ export interface OwnMoves {
 }
 
 /**
+ * Holds hls.js's loading while the follower of its group says to, and lets it go on from where the
+ * video is when told (holdLoadingEvent): a ready player then leaves the server's upload to those its
+ * group waits for. Returns the stopping.
+ */
+export function holdLoadingWhenTold(
+  hls: Pick<Hls, "stopLoad" | "startLoad">,
+  video: Pick<EventTarget, "addEventListener" | "removeEventListener">,
+): () => void {
+  const listener = (event: Event): void => {
+    const hold = loadingHoldOf(event);
+    if (hold?.isHeld === true) {
+      hls.stopLoad();
+    } else if (hold?.isHeld === false) {
+      hls.startLoad(-1); // from where the video is
+    }
+  };
+  video.addEventListener(holdLoadingEvent, listener);
+  return () => {
+    video.removeEventListener(holdLoadingEvent, listener);
+  };
+}
+
+/**
  * Tells video, by playerMovedItselfEvent, each time hls.js moves it itself: stepping over a gap in
  * what it loaded, or nudging a stalled video on. hls.js sets the position and then says so, before
  * the browser fires seeking, so a Watch Together host's page knows that seek for the player's own.
@@ -177,6 +202,7 @@ export function tellLoading(hls: LoadingHls, video: Pick<EventTarget, "dispatchE
       loadMs,
       loadedKbps: loadMs > 0 ? (total * 8) / loadMs : 0,
       qualityKbps: isVideo ? (hls.levels[frag.level]?.bitrate ?? 0) / 1000 : 0,
+      filmMs: frag.duration * 1000,
     };
     video.dispatchEvent(new CustomEvent(playerLoadedChunkEvent, { detail: loaded }));
   });
