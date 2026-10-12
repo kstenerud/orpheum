@@ -5,6 +5,7 @@ import "./i18n.ts";
 
 import { act, useState, type JSX } from "react";
 import { stallAfterMs } from "@orpheum/player";
+import { playedMutedEvent } from "@orpheum/sdk";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PlayView } from "./play.tsx";
@@ -353,6 +354,36 @@ describe("the host's player in a session (D246 §5)", () => {
     expect(mounted.container.textContent).toContain("Watch Together is on");
     mounted.unmount();
     expect(server.heard.at(-1)).toMatchObject({ type: "command", command: "stop" });
+  });
+
+  it("offers the host a tap for sound when the browser plays the film muted, as after a reload", async () => {
+    hostSession();
+    const server = fakeTogetherServer();
+    const services = { ...servedBy({}, [], "token"), openTogetherSocket: server.openSocket };
+    const video = document.createElement("video");
+    const mounted = await mount(
+      withServices(
+        <HostPlaysTogether
+          fileId={5}
+          video={video}
+          startPositionMs={61_000}
+          cannotKeepUp={undefined}
+          audioOutput="headphones"
+        />,
+        services,
+      ),
+    );
+    await server.accept();
+    expect(buttonWithText(mounted.container, "Tap for sound")).toBeUndefined();
+    video.muted = true;
+    await act(async () => {
+      video.dispatchEvent(new Event(playedMutedEvent));
+      await Promise.resolve();
+    });
+    await click(buttonWithText(mounted.container, "Tap for sound"));
+    expect(video.muted).toBe(false);
+    expect(buttonWithText(mounted.container, "Tap for sound")).toBeUndefined();
+    mounted.unmount();
   });
 
   it("follows the player's new video when it moves to a lower quality, stopping nothing", async () => {
