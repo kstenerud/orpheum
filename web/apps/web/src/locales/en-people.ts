@@ -34,10 +34,7 @@ export const enPeople = {
     newLink: "New link",
     newLinkConsequence: "{{name}}'s current link stops working.",
     newLinkConfirm: "Make a new link",
-    issued: {
-      link: "{{name}}'s link: send it to them",
-      code: "A code for {{name}}'s device",
-    },
+    issued: "{{name}}'s link: send it to them",
   },
   person: {
     devices: "Their devices",

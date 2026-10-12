@@ -174,7 +174,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerAccounts()
 	server.registerInvitations()
 	server.registerDevices()
-	server.registerWaitingCode()
+	server.registerPairing()
 	server.registerPerson()
 	server.registerRoles()
 	server.registerNowPlaying()
@@ -329,6 +329,9 @@ func (server *Server) authError(ctx context.Context, action string, err error) e
 		return newError(http.StatusNotFound, CodeNotFound, "no such device")
 	}
 	if refused := roleRefusal(err); refused != nil {
+		return refused
+	}
+	if refused := pairingRefusal(err); refused != nil {
 		return refused
 	}
 	return server.logInternalError(ctx, action, err)

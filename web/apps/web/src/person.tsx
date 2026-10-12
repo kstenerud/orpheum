@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next";
 
 import {
   getPerson,
-  issueDeviceCode,
   issueRegistrationInvitation,
   listPersonDevices,
   removePerson,
@@ -18,7 +17,7 @@ import {
 import { BusyGroup } from "./busy-group.tsx";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { dateText } from "./date-time-text.ts";
-import { NewDeviceCodeForm } from "./device-code.tsx";
+import { ActivateDevice } from "./device-activation.tsx";
 import { FormRow } from "./form-row.tsx";
 import { tenthsText } from "./number-text.ts";
 import {
@@ -37,8 +36,8 @@ import { useResource } from "./use-resource.ts";
 import { DeviceList } from "./your-devices.tsx";
 
 /**
- * One person, for the admin: their name, which can be changed; a new registration invitation or a
- * code for one of their devices; their devices, which can be removed or signed back in by a code;
+ * One person, for the admin: their name, which can be changed; a new registration invitation, or a
+ * device of theirs activated by the code it shows (D288 §2); their devices, which can be removed;
  * what they have watched (the owner, 2026-09-27); and removing them, which an admin cannot do to
  * themselves (S40).
  */
@@ -62,22 +61,16 @@ export function PersonPage(props: { readonly userId: number }): JSX.Element {
       <section className="person">
         <Loaded
           resource={person}
-          render={(value) => <PersonHead person={value} actions={actions} />}
+          render={(value) => (
+            <PersonHead person={value} actions={actions} onActivated={reloadDevices} />
+          )}
         />
         {issued === undefined ? null : <IssuedInvitationView issued={issued} />}
         {problem === undefined ? null : <p role="alert">{problem}</p>}
         <h2>{t("person.devices")}</h2>
         <Loaded
           resource={devices}
-          render={(list) => (
-            <DeviceList
-              devices={list}
-              onRemove={actions.remove}
-              onMakeCode={(device) => {
-                actions.issueCode(device.name, { deviceId: device.id });
-              }}
-            />
-          )}
+          render={(list) => <DeviceList devices={list} onRemove={actions.remove} />}
         />
         {isRemovable && person.state === "loaded" ? (
           <ConfirmButton
@@ -98,7 +91,6 @@ interface PersonActions {
   readonly setNote: (note: string) => void;
   readonly giveRole: (role: string) => void;
   readonly issueLink: (name: string) => void;
-  readonly issueCode: (name: string, device: { deviceName: string } | { deviceId: number }) => void;
   readonly remove: (device: Device) => void;
   readonly removePerson: () => void;
 }
@@ -139,13 +131,7 @@ function usePersonActions(
     issueLink: (name: string): void => {
       runRequest(async (idempotencyKey) => {
         const invitation = await issueRegistrationInvitation(api, userId, idempotencyKey);
-        setIssued({ kind: "link", name, invitation });
-      });
-    },
-    issueCode: (name: string, device: { deviceName: string } | { deviceId: number }): void => {
-      runRequest(async (idempotencyKey) => {
-        const invitation = await issueDeviceCode(api, { target: device, userId }, idempotencyKey);
-        setIssued({ kind: "code", name, invitation });
+        setIssued({ name, invitation });
       });
     },
     remove: (device: Device): void => {
@@ -172,8 +158,8 @@ function PersonHead(props: {
     readonly setNote: (note: string) => void;
     readonly giveRole: (role: string) => void;
     readonly issueLink: (name: string) => void;
-    readonly issueCode: (name: string, device: { deviceName: string }) => void;
   };
+  readonly onActivated: () => void;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
   const { account, watchStats } = props.person;
@@ -212,12 +198,7 @@ function PersonHead(props: {
           props.actions.issueLink(account.name);
         }}
       />
-      <NewDeviceCodeForm
-        onMakeCode={(deviceName) => {
-          props.actions.issueCode(account.name, { deviceName });
-        }}
-        isMaking={false}
-      />
+      <ActivateDevice userId={account.id} onActivated={props.onActivated} />
     </>
   );
 }

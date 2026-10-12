@@ -35,17 +35,10 @@ import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 
 /** What the admin last issued, to pass on: a person's link or a device's code. */
-export type IssuedInvitation =
-  | {
-      readonly kind: "link";
-      readonly name: string;
-      readonly invitation: components["schemas"]["IssuedSecretBody"];
-    }
-  | {
-      readonly kind: "code";
-      readonly name: string;
-      readonly invitation: components["schemas"]["IssuedSecretBody"];
-    };
+export interface IssuedInvitation {
+  readonly name: string;
+  readonly invitation: components["schemas"]["IssuedSecretBody"];
+}
 
 /**
  * The household, for the admin (D218, D246 §2): everyone, with the admin's note of who each is for;
@@ -74,7 +67,7 @@ export function People(): JSX.Element {
           onInvite={(role, adminNote) => {
             runRequest(async (idempotencyKey) => {
               const { link } = await invite(api, { role, adminNote }, idempotencyKey);
-              setIssued({ kind: "link", name: adminNote, invitation: link });
+              setIssued({ name: adminNote, invitation: link });
               reloadInvitations();
             });
           }}
@@ -118,17 +111,12 @@ export function IssuedInvitationView(props: { readonly issued: IssuedInvitation 
   const { t } = useTranslation();
   const { navigation } = useServices();
   const { issued } = props;
-  const text =
-    issued.kind === "link"
-      ? registrationUrl(navigation.origin(), issued.invitation.secret)
-      : issued.invitation.secret;
+  const text = registrationUrl(navigation.origin(), issued.invitation.secret);
   return (
     <div className="people__issued">
-      <h2>{t(`people.issued.${issued.kind}`, { name: issued.name })}</h2>
-      {issued.kind === "link" ? (
-        <QrCode text={text} label={t("people.qrLabel", { name: issued.name })} />
-      ) : null}
-      <Share kind={issued.kind} text={text} invitation={issued.invitation} />
+      <h2>{t("people.issued", { name: issued.name })}</h2>
+      <QrCode text={text} label={t("people.qrLabel", { name: issued.name })} />
+      <Share text={text} invitation={issued.invitation} />
     </div>
   );
 }

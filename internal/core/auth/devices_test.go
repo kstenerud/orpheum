@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-// phoneAndTelevision signs a person in on a phone and adds a television by code, and returns the
-// two sessions.
+// phoneAndTelevision signs a person in on a phone and activates a television by its code (D288), and
+// returns the two sessions.
 func phoneAndTelevision(t *testing.T, service *Service, userID int64) (phoneToken, televisionToken string) {
 	t.Helper()
 	ctx := t.Context()
@@ -17,15 +17,7 @@ func phoneAndTelevision(t *testing.T, service *Service, userID int64) (phoneToke
 	if err != nil {
 		t.Fatal(err)
 	}
-	code, err := service.IssueDeviceCode(ctx, userID, "Living room TV", 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	televisionToken, err = service.SignInWithCode(ctx, code.Secret, "web", "192.0.2.2", 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return phoneToken, televisionToken
+	return phoneToken, pairDevice(t, service, [2]int64{userID, userID}, "Living room TV", 0)
 }
 
 func TestDevices_AreListedAndARemovedOneIsSignedOutAtItsNextRequest(t *testing.T) {
@@ -196,12 +188,13 @@ func TestNames_ADevicesNameAndPlatformAreCleanedWhereTheyEnter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = fixture.service.IssueDeviceCode(ctx, id, "Living\u202e room\u0000", 0); err != nil {
+	asked, err := fixture.service.RequestPairing(ctx, "", "we\u200bb", 0)
+	if err != nil {
 		t.Fatal(err)
 	}
-	waiting, err := fixture.service.WaitingCodeOf(ctx, id)
-	if err != nil || waiting == nil || waiting.DeviceName != "Living room" {
-		t.Errorf("the code's device = %+v, %v; want its name cleaned to %q", waiting, err, "Living room")
+	claim, err := fixture.service.ClaimPairing(ctx, id, id, asked.Code, "Living\u202e room\u0000")
+	if err != nil || claim.DeviceName != "Living room" {
+		t.Errorf("the entered device = %+v, %v; want its name cleaned to %q", claim, err, "Living room")
 	}
 	devices, err := fixture.service.Devices(ctx, id)
 	if err != nil || len(devices) != 1 || devices[0].Name != "Phone" || devices[0].Platform != "web" {

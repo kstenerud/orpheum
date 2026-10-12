@@ -26,13 +26,13 @@ import type { Resource } from "./use-resource.ts";
 
 /**
  * This person's devices (D218 §4, D221): each named, when added and last used, and whether signed
- * in, with a way to rename it, to say how it makes sound (D222), to remove it, which signs it out at its next request, and, when it
- * is signed out, to make a code that signs it back in; and a way to sign out everywhere but here.
+ * in, with a way to rename it, to say how it makes sound (D222), and to remove it, which signs it out
+ * at its next request; and a way to sign out everywhere but here. A device signed out signs in again
+ * by a code it shows (D288).
  */
 export function YourDevices(props: {
   readonly devices: Resource<Device[]>;
   readonly onChanged: () => void;
-  readonly onMakeCode: (device: Device) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { api, session } = useServices();
@@ -71,7 +71,6 @@ export function YourDevices(props: {
                   device.isThisDevice ? session.signOut : undefined,
                 );
               }}
-              onMakeCode={props.onMakeCode}
             />
           )}
         />
@@ -105,7 +104,6 @@ export function DeviceList(props: {
   /** Absent where how the devices make sound is not the viewer's to change. */
   readonly onSoundChange?: ((device: Device, output: AudioOutput) => void) | undefined;
   readonly onRemove: (device: Device) => void;
-  readonly onMakeCode: (device: Device) => void;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
   return (
@@ -125,16 +123,6 @@ export function DeviceList(props: {
               used: dateTimeText(device.lastUsedAt, i18n.language),
             })}
           </span>
-          {device.isSignedIn ? null : (
-            <button
-              type="button"
-              onClick={() => {
-                props.onMakeCode(device);
-              }}
-            >
-              {t("devices.codeToSignBackIn")}
-            </button>
-          )}
           {/* Removing signs the device out for good: red, and asked again (the owner, 2026-10-12). */}
           <ConfirmButton
             label={t("devices.remove")}

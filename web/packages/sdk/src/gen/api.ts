@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+    "/activations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enter the code a device shows; both then show a check code (D288) */
+        post: operations["activateDevice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/activations/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Say whether the check codes match: only a match activates the device */
+        post: operations["answerActivation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/backups": {
         parameters: {
             query?: never;
@@ -240,23 +274,6 @@ export interface paths {
         post?: never;
         /** Delete a setting row this release does not read; a setting in use is set to default instead (admin) */
         delete: operations["deleteUnusedConfig"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/device-codes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** A code that signs a device in, for ten minutes, once (D218) */
-        post: operations["issueDeviceCode"];
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -762,23 +779,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/me/device-code": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Whether one's device code is still waiting to be used (D221) */
-        get: operations["getWaitingCode"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/me/devices": {
         parameters: {
             query?: never;
@@ -961,6 +961,57 @@ export interface paths {
         put?: never;
         /** Stop a playback, with a message its player shows within one report interval (admin; D243 §9) */
         post: operations["stopPlayback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pairings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A code for this device to show, which a person signed in enters to activate it (D288) */
+        post: operations["requestPairing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pairings/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The session a confirmed pairing made, once */
+        post: operations["takePairedSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pairings/state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** How this device's pairing stands, and the check code to show */
+        post: operations["getPairingState"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1187,23 +1238,6 @@ export interface paths {
         post: operations["signIn"];
         /** Sign out, revoking this session */
         delete: operations["signOut"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/session/code": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Sign a device in with a device code */
-        post: operations["signInWithCode"];
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1624,6 +1658,25 @@ export interface components {
         AccountsOutputBody: {
             accounts: components["schemas"]["AccountBody"][] | null;
         };
+        ActivationAnswerInputBody: {
+            code: string;
+            isMatch: boolean;
+        };
+        ActivationInputBody: {
+            /** @description As typed: case, dashes and spaces do not matter */
+            code: string;
+            /** @description A new device's name: "Living room TV" */
+            deviceName?: string;
+            /**
+             * Format: int64
+             * @description Whose device; an admin's to name
+             */
+            userId?: number;
+        };
+        ActivationOutputBody: {
+            checkCode: string;
+            deviceName: string;
+        };
         AdminNoteInputBody: {
             /** @description Empty removes it */
             adminNote: string;
@@ -1746,16 +1799,6 @@ export interface components {
             screenRefreshFirstWaitSeconds: number;
             /** Format: int64 */
             screenRefreshLongestWaitSeconds: number;
-        };
-        CodeSignInInputBody: {
-            /** @description As typed: case, dashes and spaces do not matter */
-            code: string;
-            platform: string;
-            /**
-             * Format: int64
-             * @description The device this client was signed in as before (D221)
-             */
-            previousDeviceId?: number;
         };
         CollectionOutputBody: {
             art: components["schemas"]["ArtBody"];
@@ -1891,20 +1934,6 @@ export interface components {
             lastUsedAt: number;
             name: string;
             platform: string;
-        };
-        DeviceCodeInputBody: {
-            /**
-             * Format: int64
-             * @description A listed device, to sign back in
-             */
-            deviceId?: number;
-            /** @description A new device's name: "Living room TV" */
-            deviceName?: string;
-            /**
-             * Format: int64
-             * @description Whose device; an admin's to name
-             */
-            userId?: number;
         };
         DeviceReaderLimitInputBody: {
             deviceKey: string;
@@ -2580,6 +2609,33 @@ export interface components {
             membershipCredential: string;
             /** Format: int64 */
             sessionId: number;
+        };
+        PairingOutputBody: {
+            code: string;
+            /**
+             * Format: int64
+             * @description Unix milliseconds
+             */
+            expiresAt: number;
+            secret: string;
+        };
+        PairingRequestInputBody: {
+            platform: string;
+            /**
+             * Format: int64
+             * @description The device this client was signed in as before (D221)
+             */
+            previousDeviceId?: number;
+            /** @description The pairing this device has, for the same code again */
+            secret?: string;
+        };
+        PairingSecretInputBody: {
+            secret: string;
+        };
+        PairingStateOutputBody: {
+            checkCode?: string;
+            /** @enum {string} */
+            state: "waiting" | "checking" | "activated" | "ended";
         };
         PersonOutputBody: {
             account: components["schemas"]["AccountBody"];
@@ -3440,15 +3496,6 @@ export interface components {
             /** Format: int64 */
             waitingAt: number;
         };
-        WaitingCodeOutputBody: {
-            deviceName?: string;
-            /**
-             * Format: int64
-             * @description Unix milliseconds
-             */
-            expiresAt?: number;
-            isWaiting: boolean;
-        };
         WatchStatsBody: {
             /**
              * Format: int64
@@ -3475,6 +3522,76 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    activateDevice: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActivationInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivationOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    answerActivation: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActivationAnswerInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listBackups: {
         parameters: {
             query?: never;
@@ -4116,42 +4233,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    issueDeviceCode: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DeviceCodeInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IssuedSecretBody"];
-                };
             };
             /** @description Error */
             default: {
@@ -5301,38 +5382,6 @@ export interface operations {
             };
         };
     };
-    getWaitingCode: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Bearer <session token> */
-                Authorization?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WaitingCodeOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
     listMyDevices: {
         parameters: {
             query?: never;
@@ -5721,6 +5770,106 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    requestPairing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PairingRequestInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PairingOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    takePairedSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PairingSecretInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getPairingState: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PairingSecretInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PairingStateOutputBody"];
+                };
             };
             /** @description Error */
             default: {
@@ -6297,40 +6446,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    signInWithCode: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CodeSignInInputBody"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    "Set-Cookie"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SessionOutputBody"];
-                };
             };
             /** @description Error */
             default: {

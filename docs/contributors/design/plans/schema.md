@@ -699,7 +699,10 @@ and the admin's note, and which makes the account its person fills in
 ([D246](../../decisions/working-notes.md) §2; seven days); `register`, a registration link for a
 person who forgot their password, which sets a new one
 ([D218](../../decisions/working-notes.md) §5; a new one withdraws the old); and `add_device`, a
-device code whose `device_name` is the name the device will be listed under (ten minutes).
+device code whose `device_name` was the name the device would be listed under (ten minutes). Since
+[D288](../../decisions/working-notes.md) no `add_device` grant is made: a device is activated by a
+code it asks for, kept in memory, and `device_name` and `device_id` wait to be dropped with the next
+schema change.
 
 ```sql
 CREATE TABLE invitation (                                  -- class A (D246 section 2), step 0034

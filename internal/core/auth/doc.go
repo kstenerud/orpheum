@@ -46,17 +46,23 @@
 //     password works until the new one is set (D218 §5). Enforced by
 //     TestIssueRegistrationInvitation_LastsAsLongAsTheSettingSays and
 //     TestRegistration_ANewLinkWithdrawsTheOldAndTheOldPasswordWorksUntilANewOneIsSet.
-//   - A device code is eight safe32 characters, read as safe32 reads them, for ten minutes, once;
-//     a wrong one counts against the address's failed sign-ins (D218 §3, §4). Enforced by
-//     discovery/safe32code's TestDeviceCode_IsSafe32AndReadsWhatAPersonTypes,
-//     TestDeviceCode_SignsOneDeviceInOnceWithinTenMinutesAsTyped and
-//     TestDeviceCode_WrongCodesCountAgainstTheSignInLimit.
-//   - A sign-in resumes the device the client remembers when it is the same person's; a code can
-//     be for a listed device, which it signs back in; one code waits per person at a time; a
-//     registration invitation is not held back by the failed-sign-in limit and clears the person from it
-//     (D221). Enforced by TestDevices_ASignInResumesTheDeviceTheClientRemembersWhenItIsTheSamePersons,
-//     TestDeviceCode_OneWaitsAtATimeAndACodeForAListedDeviceSignsItBackIn and
-//     TestRegistration_ALinkIsNotHeldBackByTheLimitAndMakingOneClearsThePerson.
+//   - A device is activated by a code it asks for and shows: eight safe32 characters, the same each
+//     time it asks while no one has entered it, for ten minutes; a person signed in enters it, read
+//     as safe32 reads it, for themselves or, an admin, for someone else, and both devices then show a
+//     check code; only that person's "they match" activates the device, signed in as the person,
+//     resuming the device it was before when it is theirs; a wrong code counts against the person's
+//     failed sign-ins; pairings are kept in memory, at most pairingsAtMost waiting (D288). Enforced
+//     by discovery/safe32code's TestDeviceCode_IsSafe32AndReadsWhatAPersonTypes,
+//     TestPairing_ADeviceKeepsItsCodeUntilEnteredAndThenShowsThePersonsCheckCode,
+//     TestPairing_OnlyTheMatchSignsTheDeviceInAndItsSessionIsTakenOnce,
+//     TestPairing_NoMatchTenMinutesOrSomeoneElsesAnswerActivatesNothing,
+//     TestPairing_WrongCodesCountAgainstThePersonEnteringThem,
+//     TestPairing_ADeviceSignedInBeforeResumesItselfAndANewOneNeedsAName and
+//     TestPairing_AtMostAHundredWaitTheOldestNotEnteredGivingWay.
+//   - A sign-in resumes the device the client remembers when it is the same person's; a
+//     registration invitation is not held back by the failed-sign-in limit and clears the person from
+//     it (D221). Enforced by TestDevices_ASignInResumesTheDeviceTheClientRemembersWhenItIsTheSamePersons
+//     and TestRegistration_ALinkIsNotHeldBackByTheLimitAndMakingOneClearsThePerson.
 //   - A session that no longer works says why: ended, lapsed, or none, so a client can tell the
 //     person (cut-a §5.2). Enforced by TestAuthenticate_SaysASessionWasEndedRatherThanUnknown.
 //   - Names are unique without regard to the case of their ASCII letters, and nothing is keyed by
@@ -115,7 +121,8 @@
 //   - password.go: argon2id and PHC strings. policy.go: the settings auth reads. limiter.go: the
 //     failure counts.
 //   - auth.go: users, sign-in, sessions on the grant table. setup.go: the setup code and the first
-//     admin. accounts.go: accounts, registration invitations, device codes and changing a password
-//     (D218). devices.go: a person's devices. A code's safe32 is
+//     admin. accounts.go: accounts, registration invitations and changing a password (D218).
+//     pairing.go: a device activated by its code and a check code (D288). devices.go: a person's
+//     devices. A code's safe32 is
 //     discovery/safe32code's, which a discovery's claim code shares.
 package auth

@@ -143,7 +143,7 @@ export function IssuedLink(props: Issued): JSX.Element {
   return (
     <div className="watch-together__issued">
       <QrCode text={url} label={t("watchTogether.qrLabel", { note: props.note })} />
-      <Share kind="link" text={url} invitation={undefined} />
+      <Share text={url} invitation={undefined} />
     </div>
   );
 }

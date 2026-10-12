@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/kstenerud/orpheum/internal/core/auth"
 )
 
 // readSignIn reads a sign-in's answer: the token, and whose it is.
@@ -62,23 +64,9 @@ func TestAccounts_TheAdminMakesAPersonWhoRegistersByLinkAndAddsATelevisionByCode
 	wantError(t, harness.do(t, http.MethodPost, "/invitations", partner,
 		map[string]string{"role": "user", "adminNote": "x"}), http.StatusForbidden, CodeForbidden)
 
-	code := harness.do(t, http.MethodPost, "/device-codes", partner, map[string]string{"deviceName": "Living room TV"})
-	var issued IssuedSecretBody
-	if err := json.Unmarshal([]byte(code.body), &issued); err != nil || len(issued.Secret) != 9 {
-		t.Fatalf("POST /device-codes = %d %s", code.status, code.body)
-	}
-	television := harness.do(t, http.MethodPost, "/session/code", "", map[string]string{
-		"code": strings.ToUpper(issued.Secret), "platform": "web",
-	})
+	television := harness.activate(t, partner, map[string]any{"deviceName": "Living room TV"})
 	if _, name := readSignIn(t, television); name != "partner" {
 		t.Errorf("the television signed in as %q, want partner", name)
-	}
-	wantError(t, harness.do(t, http.MethodPost, "/device-codes", partner,
-		map[string]any{"deviceName": "TV", "userId": 1}), http.StatusForbidden, CodeForbidden)
-	forPartner := harness.do(t, http.MethodPost, "/device-codes", admin,
-		map[string]any{"deviceName": "Bedroom TV", "userId": made.Account.ID})
-	if forPartner.status != http.StatusOK {
-		t.Errorf("an admin's code for someone else: %d %s", forPartner.status, forPartner.body)
 	}
 
 	wantErrorSaying(t, harness.do(t, http.MethodPut, "/me/password", partner,
@@ -214,55 +202,87 @@ func TestPeople_AnAdminRenamesAPersonAndSeesTheirPage(t *testing.T) {
 	wantError(t, harness.do(t, http.MethodGet, "/users/99", admin, nil), http.StatusNotFound, CodeNotFound)
 }
 
-func TestDeviceCodes_OneWaitsAndIsForANewOrAListedDevice(t *testing.T) {
+// activate activates a television by the code it asks for, entered by the session enteredBy with the
+// rest of body, the check codes confirmed as matching, and returns the television's session.
+func (harness testHarness) activate(t *testing.T, enteredBy string, body map[string]any) response {
+	t.Helper()
+	asked := harness.do(t, http.MethodPost, "/pairings", "", map[string]any{"platform": "web"})
+	var pairing PairingOutput
+	if err := json.Unmarshal([]byte(asked.body), &pairing.Body); err != nil || len(pairing.Body.Code) != 9 {
+		t.Fatalf("POST /pairings = %d %s", asked.status, asked.body)
+	}
+	body["code"] = strings.ToUpper(pairing.Body.Code)
+	entered := harness.do(t, http.MethodPost, "/activations", enteredBy, body)
+	var claim ActivationOutput
+	if err := json.Unmarshal([]byte(entered.body), &claim.Body); err != nil || entered.status != http.StatusOK {
+		t.Fatalf("POST /activations = %d %s", entered.status, entered.body)
+	}
+	secret := map[string]string{"secret": pairing.Body.Secret}
+	if state := harness.do(t, http.MethodPost, "/pairings/state", "", secret); !strings.Contains(state.body,
+		`"state":"checking","checkCode":"`+claim.Body.CheckCode+`"`) {
+		t.Errorf("the television's pairing = %s; want the person's check code, %s", state.body, claim.Body.CheckCode)
+	}
+	if answered := harness.do(t, http.MethodPost, "/activations/answer", enteredBy,
+		map[string]any{"code": pairing.Body.Code, "isMatch": true}); answered.status != http.StatusNoContent {
+		t.Fatalf("POST /activations/answer = %d %s", answered.status, answered.body)
+	}
+	if state := harness.do(t, http.MethodPost, "/pairings/state", "", secret); !strings.Contains(state.body,
+		`"state":"activated"`) {
+		t.Errorf("the television's pairing once confirmed = %s", state.body)
+	}
+	session := harness.do(t, http.MethodPost, "/pairings/session", "", secret)
+	if session.status != http.StatusCreated {
+		t.Fatalf("POST /pairings/session = %d %s", session.status, session.body)
+	}
+	return session
+}
+
+// An admin activates a device for someone else, which no one else may; a code no device shows is
+// not found, and a new device needs a name (D288 §2).
+func TestPairing_AnAdminActivatesADeviceForSomeoneElseAndOnlyAnAdmin(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
-	waiting := func() string {
-		t.Helper()
-		return harness.do(t, http.MethodGet, "/me/device-code", admin, nil).body
+	made, err := harness.authService.CreateUser(t.Context(),
+		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser})
+	if err != nil {
+		t.Fatal(err)
 	}
-	if got := waiting(); !strings.Contains(got, `"isWaiting":false`) {
-		t.Errorf("before any code: %s", got)
+	partner := harness.signIn(t, "partner", "partner-password")
+	forPartner := harness.activate(t, admin, map[string]any{"deviceName": "Bedroom TV", "userId": made})
+	if _, name := readSignIn(t, forPartner); name != "partner" {
+		t.Errorf("the admin's activation signed the television in as %q, want partner", name)
 	}
-	harness.do(t, http.MethodPost, "/device-codes", admin, map[string]string{"deviceName": "TV"})
-	if got := waiting(); !strings.Contains(got, `"isWaiting":true,"deviceName":"TV"`) {
-		t.Errorf("with a code made: %s", got)
+	asked := harness.do(t, http.MethodPost, "/pairings", "", map[string]any{"platform": "web"})
+	var pairing PairingOutput
+	if err = json.Unmarshal([]byte(asked.body), &pairing.Body); err != nil {
+		t.Fatal(err)
 	}
-	wantInvalidAt(t, harness.do(t, http.MethodPost, "/device-codes", admin, map[string]any{}),
-		http.StatusBadRequest, "body")
-	forListed := harness.do(t, http.MethodPost, "/device-codes", admin, map[string]any{"deviceId": 1})
-	var code IssuedSecretBody
-	if err := json.Unmarshal([]byte(forListed.body), &code); err != nil || code.Secret == "" {
-		t.Fatalf("a code for a listed device = %d %s", forListed.status, forListed.body)
-	}
-	used := harness.do(t, http.MethodPost, "/session/code", "",
-		map[string]string{"code": code.Secret, "platform": "web"})
-	if _, name := readSignIn(t, used); name != "owner" {
-		t.Errorf("the code signed in %q", name)
-	}
-	if got := waiting(); !strings.Contains(got, `"isWaiting":false`) {
-		t.Errorf("after the code was used: %s", got)
-	}
+	wantError(t, harness.do(t, http.MethodPost, "/activations", partner,
+		map[string]any{"code": pairing.Body.Code, "deviceName": "TV", "userId": 1}),
+		http.StatusForbidden, CodeForbidden)
+	wantInvalidAt(t, harness.do(t, http.MethodPost, "/activations", partner,
+		map[string]any{"code": pairing.Body.Code}), http.StatusUnprocessableEntity, "body.deviceName")
+	wantError(t, harness.do(t, http.MethodPost, "/activations", partner,
+		map[string]any{"code": "zzzz-zzzz", "deviceName": "TV"}), http.StatusNotFound, CodeNotFound)
 }
 
-func TestDeviceCodes_TooManyWrongCodesAreTooManyFailedSignIns(t *testing.T) {
+// Codes no device shows, entered again and again, limit the person entering them, as failed
+// sign-ins do (D288 §2).
+func TestPairing_TooManyWrongCodesLimitThePersonEnteringThem(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
-	harness.createAdminAndSignIn(t)
+	admin := harness.createAdminAndSignIn(t)
 	var refused response
 	for range 100 {
-		refused = harness.do(t, http.MethodPost, "/session/code", "",
-			map[string]string{"code": "WRONGCODE", "platform": "web"})
-		if refused.status != http.StatusUnauthorized {
+		refused = harness.do(t, http.MethodPost, "/activations", admin,
+			map[string]any{"code": "WRONGCODE", "deviceName": "TV"})
+		if refused.status != http.StatusNotFound {
 			break
 		}
 	}
 	wantErrorSaying(t, refused, http.StatusTooManyRequests, CodeRateLimited,
 		"too many failed sign-ins; wait and try again")
-	wantErrorSaying(t, harness.do(t, http.MethodPost, "/session", "",
-		map[string]any{"name": "owner", "password": "owner-password", "device": testDevice}),
-		http.StatusTooManyRequests, CodeRateLimited, "too many failed sign-ins; wait and try again")
 }
 
 // invite makes an invitation into role, with the admin's note, and returns it and its link.

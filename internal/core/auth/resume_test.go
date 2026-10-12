@@ -43,52 +43,6 @@ func TestDevices_ASignInResumesTheDeviceTheClientRemembersWhenItIsTheSamePersons
 	}
 }
 
-func TestDeviceCode_OneWaitsAtATimeAndACodeForAListedDeviceSignsItBackIn(t *testing.T) {
-	t.Parallel()
-	fixture := newFixture(t)
-	ctx := t.Context()
-	id := fixture.createUser(t, "partner", "pw", RoleUser)
-	phone, television := phoneAndTelevision(t, fixture.service, id)
-	listed, err := fixture.service.Authenticate(ctx, television)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = fixture.service.SignOut(ctx, television); err != nil {
-		t.Fatal(err)
-	}
-	older, err := fixture.service.IssueDeviceCode(ctx, id, "Kitchen tablet", 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	back, err := fixture.service.IssueDeviceCode(ctx, id, "", listed.DeviceID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	waiting, err := fixture.service.WaitingCodeOf(ctx, id)
-	if err != nil || waiting == nil || waiting.DeviceName != "Living room TV" {
-		t.Errorf("the waiting code = %+v, %v; want the television's", waiting, err)
-	}
-	_, err = fixture.service.SignInWithCode(ctx, older.Secret, "web", "192.0.2.3", 0)
-	if !errors.Is(err, ErrBadInvitation) {
-		t.Errorf("an older code after a newer: %v, want withdrawn (D221 §3)", err)
-	}
-	again, err := fixture.service.SignInWithCode(ctx, back.Secret, "web", "192.0.2.3", 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	resumed, err := fixture.service.Authenticate(ctx, again)
-	if err != nil || resumed.DeviceID != listed.DeviceID {
-		t.Errorf("the code for the television signed in device %d, %v; want %d (D221 §2)", resumed.DeviceID, err,
-			listed.DeviceID)
-	}
-	if waiting, err = fixture.service.WaitingCodeOf(ctx, id); err != nil || waiting != nil {
-		t.Errorf("after it was used, the waiting code = %+v, %v; want none", waiting, err)
-	}
-	if _, err = fixture.service.Authenticate(ctx, phone); err != nil {
-		t.Errorf("the phone: %v", err)
-	}
-}
-
 func TestRegistration_ALinkIsNotHeldBackByTheLimitAndMakingOneClearsThePerson(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
@@ -100,7 +54,6 @@ func TestRegistration_ALinkIsNotHeldBackByTheLimitAndMakingOneClearsThePerson(t 
 			ErrRateLimited) {
 			break
 		}
-		_, _ = fixture.service.SignInWithCode(ctx, "zzzz-zzzz", "web", "198.51.100.9", 0) //nolint:errcheck // failing
 	}
 	if !errors.Is(err, ErrRateLimited) {
 		t.Fatalf("after wrong passwords: %v, want limited", err)

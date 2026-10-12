@@ -3,7 +3,6 @@
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import type { Api, components } from "@orpheum/sdk";
 
-import type { StringStorage } from "./browser-storage.ts";
 import { dataOrThrow, throwIfRefused } from "./problem.ts";
 import type { NewDevice } from "./device.ts";
 
@@ -11,7 +10,7 @@ import type { NewDevice } from "./device.ts";
 export type Account = components["schemas"]["AccountBody"];
 
 /** What signing in answers: the new session's token, and the device it is on. */
-interface SignInResult {
+export interface SignInResult {
   readonly token: string;
   readonly user: { readonly device?: { readonly id: number; readonly name: string } };
 }
@@ -145,38 +144,32 @@ export async function register(
   );
 }
 
-/** What a device code is for: a new device, named, or a listed one to sign back in (D221). */
-export type CodeTarget = { readonly deviceName: string } | { readonly deviceId: number };
+/** What entering a device's code gives: the check code it now shows too, and the name it is listed by. */
+export type Activation = components["schemas"]["ActivationOutputBody"];
 
-/** A code that signs a device in, for oneself or, for an admin, for another person. */
-export async function issueDeviceCode(
+/**
+ * Enters the code a device shows (D288 §2): for oneself, or, an admin, for the person userId, under
+ * the name the device will be listed by.
+ */
+export async function activateDevice(
   api: Api,
-  code: { readonly target: CodeTarget; readonly userId?: number },
+  activation: { readonly code: string; readonly deviceName: string; readonly userId?: number },
   idempotencyKey: string,
-): Promise<components["schemas"]["IssuedSecretBody"]> {
-  const { target, userId } = code;
-  const body = userId === undefined ? { ...target } : { ...target, userId };
-  return dataOrThrow(await api.POST("/device-codes", { body, ...idempotent(idempotencyKey) }));
+): Promise<Activation> {
+  return dataOrThrow(
+    await api.POST("/activations", { body: { ...activation }, ...idempotent(idempotencyKey) }),
+  );
 }
 
-/** Whether one's device code is still waiting to be used (D221 §3). */
-export async function isCodeWaiting(api: Api): Promise<boolean> {
-  return dataOrThrow(await api.GET("/me/device-code")).isWaiting;
-}
-
-/** Signs this device in with a device code, resuming the device this browser was before (D221). */
-export async function signInWithCode(
+/** Says whether the two check codes match: only a match activates the device (D288 §3). */
+export async function answerActivation(
   api: Api,
-  signIn: { readonly code: string; readonly previousDeviceId: number | undefined },
+  answer: { readonly code: string; readonly isMatch: boolean },
   idempotencyKey: string,
-): Promise<SignInResult> {
-  const { code, previousDeviceId } = signIn;
-  const body = (
-    previousDeviceId === undefined
-      ? { code, platform: "web" }
-      : { code, platform: "web", previousDeviceId }
-  ) satisfies components["schemas"]["CodeSignInInputBody"];
-  return dataOrThrow(await api.POST("/session/code", { body, ...idempotent(idempotencyKey) }));
+): Promise<void> {
+  throwIfRefused(
+    await api.POST("/activations/answer", { body: { ...answer }, ...idempotent(idempotencyKey) }),
+  );
 }
 
 /** Changes one's own password. */
@@ -231,61 +224,6 @@ export async function removeMyDevice(api: Api, deviceId: number): Promise<void> 
 /** Signs every other device out; they stay listed. */
 export async function signOutElsewhere(api: Api, idempotencyKey: string): Promise<void> {
   throwIfRefused(await api.POST("/me/devices/sign-out-elsewhere", idempotent(idempotencyKey)));
-}
-
-/** Where this tab keeps a device code it showed, so a reload shows it again until it expires. */
-const shownCodeKey = "orpheum.deviceCode";
-
-/** Keeps a device code this tab showed, with its device's name. */
-export function keepShownCode(
-  storage: StringStorage,
-  code: components["schemas"]["IssuedSecretBody"] & { readonly deviceName: string },
-): void {
-  storage.setItem(shownCodeKey, JSON.stringify(code));
-}
-
-/** A device code as this tab keeps it: with the name of the device it is for. */
-export type ShownCode = components["schemas"]["IssuedSecretBody"] & { readonly deviceName: string };
-
-/** What was kept, when it is a code this tab wrote. */
-function asShownCode(kept: unknown): ShownCode | undefined {
-  if (
-    typeof kept !== "object" ||
-    kept === null ||
-    !("secret" in kept && "expiresAt" in kept && "deviceName" in kept)
-  ) {
-    return undefined;
-  }
-  const { secret, expiresAt, deviceName } = kept;
-  if (
-    typeof secret !== "string" ||
-    typeof expiresAt !== "number" ||
-    typeof deviceName !== "string"
-  ) {
-    return undefined;
-  }
-  return { secret, expiresAt, deviceName };
-}
-
-/** Forgets the device code this tab showed: it was used, or replaced. */
-export function forgetShownCode(storage: StringStorage): void {
-  storage.removeItem(shownCodeKey);
-}
-
-/** The device code this tab last showed, while it still works; one that has expired is forgotten. */
-export function readShownCode(storage: StringStorage, nowMs: number): ShownCode | undefined {
-  const kept = storage.getItem(shownCodeKey);
-  let code: ShownCode | undefined;
-  try {
-    code = kept === null ? undefined : asShownCode(JSON.parse(kept));
-  } catch {
-    code = undefined; // not what this tab wrote
-  }
-  if (code === undefined || code.expiresAt <= nowMs) {
-    storage.removeItem(shownCodeKey);
-    return undefined;
-  }
-  return code;
 }
 
 /** A person's page, for the admin: who they are and what they have watched. */

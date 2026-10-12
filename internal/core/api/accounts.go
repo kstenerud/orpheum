@@ -25,7 +25,7 @@ type AccountBody struct {
 	HasPassword bool   `doc:"False for an account from before D246 that never registered" json:"hasPassword"`
 }
 
-// IssuedSecretBody is a registration invitation's secret or a device code, and when it stops working.
+// IssuedSecretBody is a registration invitation's secret, and when it stops working.
 // A registration invitation's secret goes after # in the address, so no request carries it (D218 §1).
 type IssuedSecretBody struct {
 	Secret    string `json:"secret"`
@@ -68,7 +68,7 @@ type RegistrationInvitationInput struct {
 	UserID int64 `minimum:"1" path:"id"`
 }
 
-// IssuedSecretOutput is one registration invitation or device code.
+// IssuedSecretOutput is one registration invitation.
 type IssuedSecretOutput struct {
 	Body IssuedSecretBody
 }
@@ -82,27 +82,6 @@ type RegisterInput struct {
 		Name     string        `doc:"An invitation's: how they are shown and sign in" json:"name,omitempty" maxLength:"100"` //nolint:lll // one struct tag
 		Password string        `json:"password" minLength:"1"`
 		Device   NewDeviceBody `json:"device"`
-	}
-	ClientFacts
-}
-
-// DeviceCodeInput asks for a code that signs a device in (D218 §3, D221 §2): a new device,
-// named, or one already listed, by id; for oneself, or, for an admin, for anyone.
-type DeviceCodeInput struct {
-	AuthorizationHeader
-	Body struct {
-		DeviceName string `doc:"A new device's name: \"Living room TV\"" json:"deviceName,omitempty" maxLength:"100" required:"false"` //nolint:lll // one struct tag
-		DeviceID   int64  `doc:"A listed device, to sign back in" json:"deviceId,omitempty" required:"false"`
-		UserID     int64  `doc:"Whose device; an admin's to name" json:"userId,omitempty" required:"false"`
-	}
-}
-
-// CodeSignInInput signs a device in with a device code (D218 §4).
-type CodeSignInInput struct {
-	Body struct {
-		Code             string `doc:"As typed: case, dashes and spaces do not matter" json:"code"     minLength:"1"`
-		Platform         string `json:"platform" maxLength:"40" minLength:"1"`
-		PreviousDeviceID int64  `doc:"The device this client was signed in as before (D221)" json:"previousDeviceId,omitempty" required:"false"` //nolint:lll // one struct tag
 	}
 	ClientFacts
 }
@@ -137,15 +116,6 @@ func (server *Server) registerAccounts() {
 		Summary: "Use an invitation or a registration link: make the account or set a new password, and sign in",
 		Tags:    tags,
 	}, server.register)
-	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "issueDeviceCode", Method: http.MethodPost, Path: "/device-codes",
-		Summary: "A code that signs a device in, for ten minutes, once (D218)", Tags: tags,
-	}, server.issueDeviceCode)
-	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "signInWithCode", Method: http.MethodPost, Path: "/session/code",
-		DefaultStatus: http.StatusCreated,
-		Summary:       "Sign a device in with a device code", Tags: tags,
-	}, server.signInWithCode)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "changePassword", Method: http.MethodPut, Path: "/me/password",
 		DefaultStatus: http.StatusNoContent,
@@ -219,43 +189,6 @@ func (server *Server) register(ctx context.Context, input *RegisterInput) (*Sess
 		newDevice(input.Body.Device))
 	if err != nil {
 		return nil, server.authError(ctx, "register", err)
-	}
-	return server.newSessionOutput(ctx, dependencies, token, input.isOverTLS)
-}
-
-func (server *Server) issueDeviceCode(ctx context.Context, input *DeviceCodeInput) (*IssuedSecretOutput, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
-	if err != nil {
-		return nil, err
-	}
-	userID := principal.UserID
-	if input.Body.UserID != 0 && input.Body.UserID != userID {
-		if !principal.IsAdmin() {
-			return nil, newError(http.StatusForbidden, CodeForbidden,
-				"only an administrator may add a device for someone else")
-		}
-		userID = input.Body.UserID
-	}
-	if (input.Body.DeviceName == "") == (input.Body.DeviceID == 0) {
-		return nil, invalidRequestAt(http.StatusBadRequest, "body",
-			"a code is for a new device, named, or a listed one")
-	}
-	deviceCode, err := dependencies.Auth.IssueDeviceCode(ctx, userID, input.Body.DeviceName, input.Body.DeviceID)
-	if err != nil {
-		return nil, server.authError(ctx, "make a device code", err)
-	}
-	return &IssuedSecretOutput{Body: issuedSecretBody(deviceCode)}, nil
-}
-
-func (server *Server) signInWithCode(ctx context.Context, input *CodeSignInInput) (*SessionOutput, error) {
-	dependencies, err := server.readyDependencies()
-	if err != nil {
-		return nil, err
-	}
-	token, err := dependencies.Auth.SignInWithCode(
-		ctx, input.Body.Code, input.Body.Platform, input.clientAddress, input.Body.PreviousDeviceID)
-	if err != nil {
-		return nil, server.authError(ctx, "sign in with a code", err)
 	}
 	return server.newSessionOutput(ctx, dependencies, token, input.isOverTLS)
 }
