@@ -114,6 +114,8 @@ export type {
   QualitySwitched,
 } from "./together-player-events.ts";
 export { playedMutedEvent, soundOnAtTap } from "./together-sound.ts";
+export { healPageAudio, keepPageAudio, setPageAudio } from "./page-audio.ts";
+export type { PageAudio, ShownAgainPage } from "./page-audio.ts";
 export type { MediaProbe, PlayableFormats } from "./playable-formats.ts";
 
 /** The npm name of this package, exported so the workspace wiring has something to resolve. */

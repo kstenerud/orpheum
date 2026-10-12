@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { setPageAudio } from "./page-audio.ts";
 import { voiceCodecOrder, withOpusSettings } from "./together-voice-codec.ts";
 import {
   levelMicrophone,
@@ -642,20 +643,9 @@ class BrowserDevices implements BrowserVoiceDevices {
   }
 }
 
-/** What a browser's audio session can be told, where it has one (Safari 16.4 and later). */
-type SessionAudio = "auto" | "playback" | "play-and-record";
-
-/** Tells the browser's audio session what it plays, where it has one; elsewhere nothing. */
-function setSessionAudio(type: SessionAudio): void {
-  const audioSession: unknown = Reflect.get(navigator, "audioSession");
-  if (typeof audioSession === "object" && audioSession !== null) {
-    Reflect.set(audioSession, "type", type);
-  }
-}
-
-/** Before the microphone opens: the session back to the browser's own choice. */
+/** Before the microphone opens: the session back to the browser's own choice, a call's. */
 function startCallAudio(): void {
-  setSessionAudio("auto");
+  setPageAudio("auto");
 }
 
 /**
@@ -665,5 +655,5 @@ function startCallAudio(): void {
  * unconfirmed on a phone, VQ26).
  */
 function endCallAudio(): void {
-  setSessionAudio("playback");
+  setPageAudio("playback");
 }

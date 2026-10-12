@@ -350,4 +350,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   step down and play on without stalling, and a minute or two after the call ends the share grows back
   and the qualities rise. Only the owner's house and its traffic show it (D286 §5).
   (`internal/core/playback/crowding.go`)
+- [ ] **VQ38** — Against staging, on an iPhone with its ring/silent switch set to silent: play a
+  film, alone and as a Watch Together guest after its tap for sound; then put Safari in the background
+  for a minute, come back, and play again. Passes when the film is heard each time without quitting
+  Safari, and the voice of anyone talking in the session too. Only an iPhone has the switch and the GPU
+  process that WebKit bug 323104 strands (design/research/ios-silent-switch-2026-10-12.md).
+  (`web/packages/sdk/src/page-audio.ts`)
 

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { healPageAudio } from "./page-audio.ts";
 import type { TogetherConnection } from "./together-connection.ts";
 
 /** The part of a video or audio element playing a film with or without its sound uses. */
@@ -72,6 +73,8 @@ export function soundOnAtTap(
 ): void {
   // eslint-disable-next-line no-param-reassign -- the tap's whole purpose: the element's sound on
   media.muted = false;
+  // An iPhone's session may be stuck where the silent switch mutes it, saying playback all the while.
+  healPageAudio();
   if (media.paused && !media.ended) {
     media.play().catch(() => undefined); // the tap's own play; a refusal leaves it as it was
   }

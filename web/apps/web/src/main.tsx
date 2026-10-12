@@ -11,6 +11,7 @@ import {
   browserTogetherSocket,
   browserVoiceDevices,
   createApi,
+  keepPageAudio,
   reportFailure,
   SwitchableFetch,
   type OpenTogetherSocket,
@@ -32,6 +33,9 @@ if (rootElement === null) {
   throw new Error("index.html has no #root element; the app cannot mount");
 }
 
+// A film plays as a video app's, the silent switch not muting it, and the session is healed as the
+// page comes back from the background (page-audio.ts).
+keepPageAudio(document);
 const session = createSession(storageIfAllowed(() => window.localStorage));
 const navigation = createNavigation(window);
 const routed = new SwitchableFetch();
