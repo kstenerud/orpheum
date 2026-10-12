@@ -29,6 +29,13 @@ type Offer struct {
 	// FilmPictureKbps is the film's own picture's average rate, as the quality was chosen by: what a
 	// player weighs its link against once the quality is ready (D253 §2); 0 when not known.
 	FilmPictureKbps int64
+	// StreamName is the quality's stream, and AverageKbps its average rate with its sound's, rounded
+	// up, as its master playlist says: what the playback needs of the server's upload (D286 §5).
+	StreamName  string
+	AverageKbps int64
+	// IsHeldByUpload is whether the start took a lower quality than its link carries, to keep within
+	// what is left of the server's upload (StartAtMostKbps).
+	IsHeldByUpload bool
 }
 
 // ErrNoQualityOffered is a film that offers no quality below its own picture: nothing lower to go to.
@@ -101,6 +108,8 @@ type chosenPicture struct {
 	stream           Stream
 	isBelowTheLowest bool
 	chunk            int
+	// isHeldByUpload is whether it is lower than the link chose, to keep within the upload left.
+	isHeldByUpload bool
 }
 
 // startAt starts the runs of the chosen picture of the film's and the playback's starting sound from
@@ -119,6 +128,9 @@ func (service *Service) startAt(
 		StartAtBps:       film.variantOf(picture, offered.soundKbps).bandwidthBps,
 		IsBelowTheLowest: chosen.isBelowTheLowest,
 		FilmPictureKbps:  max(0, film.pictureAverageBps()/1000),
+		StreamName:       picture.Name(),
+		AverageKbps:      film.averageWithSoundKbps(picture, offered.soundKbps),
+		IsHeldByUpload:   chosen.isHeldByUpload,
 	}
 	if playback.HasStartingAudio {
 		sound := startingSound(playback, offered.soundKbps, offered.isUnlevelled)

@@ -38,10 +38,13 @@ func (*cutAfterChunks) IsReadyAt(context.Context, chunks.Playback, chunks.Offer,
 
 func (*cutAfterChunks) ReleaseWanted(context.Context, int64) error { return nil }
 
-// waitSettings are settings whose play_ladder_wait_ms is waitMs.
+// waitSettings are settings whose play_ladder_wait_ms is waitMs, server_upload_mbps unanswered.
 type waitSettings struct{ waitMs int64 }
 
 func (wait waitSettings) Int(_ context.Context, key settings.Key) (int64, error) {
+	if key == settings.ServerUploadMbps {
+		return 0, settings.ErrUnanswered
+	}
 	if key != settings.PlayLadderWaitMs {
 		return 0, fmt.Errorf("no setting %s here", key)
 	}

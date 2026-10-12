@@ -67,6 +67,17 @@ made for another of the film's playbacks; eviction stays for a run with no such 
 quality would stay under 75% of the share for 30 s, the oldest-lowered playback's is raised; a
 playback stopped or idle loses its ceiling.
 
+## 4a. A start takes what is left
+
+A playback starting on its ladder takes the highest quality its link carries that fits what is left
+of the films' share, the lowest when nothing fits, and counts as needing that rate from its start,
+before its player asks for anything; held lower than its link carries, it starts at that ceiling. A
+group's devices, starting a moment apart, then each see the others' starts. In the owner's test
+every device started at 1.7 to 1.8 Mbit/s, together past a 3.4 Mbit/s share before the first look:
+*"What if the devices informed the core of their intentions at the hello?"*. The core chooses each
+start itself, so it needs no word from them; the owner, to that: *"yes"*. Built 2026-10-12
+(`chunks.Playback.StartAtMostKbps`, `playback.Service.uploadLeftKbps`).
+
 ## 5. The last resort: the newest member removed (D286 §5)
 
 - **When every playback that can be lowered is at its lowest and the need is still above the share

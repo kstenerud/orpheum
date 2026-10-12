@@ -69,3 +69,34 @@ func TestStartOnLadder_APlayerThatCannotDecodeThePictureStartsAtTheHighestQualit
 		t.Errorf("the offer = %+v; want the highest quality below the picture, 3000k at 720p", offer)
 	}
 }
+
+// A start bounded by what is left of the server's upload takes the highest picture whose average
+// with its sound's is within the bound, says it was held lower than its link carries, and names its
+// stream and rate; with no bound it starts as its link says (D286 §5).
+func TestStartOnLadder_StartsWithinTheUploadLeft(t *testing.T) {
+	t.Parallel()
+	service, _ := chunksFixture(t, newFakeQueue(), fakeNode{})
+	offer, err := service.StartOnLadder(t.Context(), Playback{
+		FileID: 1, IsSourcePictureDecodable: true, HasStartingAudio: true, StartAtMostKbps: 1500,
+	}, 95_000, 20_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if offer.Quality != (qualities.Quality{Kbps: 1200, Height: 480}) || !offer.IsHeldByUpload ||
+		offer.StreamName != "q1200k480p" || offer.AverageKbps != 1296 || offer.IsBelowTheLowest {
+		t.Errorf("within 1500 kb/s, the offer = %+v; want 480p, 1296 with its sound, held by the upload", offer)
+	}
+	unbound := startedOnLadder(t, service, 20_000, true)
+	if unbound.IsHeldByUpload || unbound.Quality.Height != 1080 {
+		t.Errorf("with no bound, the offer = %+v; want the film's own picture, not held", unbound)
+	}
+	tiny, err := service.StartOnLadder(t.Context(), Playback{
+		FileID: 1, IsSourcePictureDecodable: true, HasStartingAudio: true, StartAtMostKbps: 1,
+	}, 95_000, 20_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tiny.Quality.Kbps != 400 || !tiny.IsHeldByUpload || tiny.IsBelowTheLowest {
+		t.Errorf("with nothing left, the offer = %+v; want the lowest, held by the upload, not beyond the link", tiny)
+	}
+}

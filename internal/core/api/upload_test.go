@@ -89,3 +89,27 @@ func TestUpload_APlaybackOverTheShareIsToldItsCeilingWithEachChunk(t *testing.T)
 			"and its sound", ceiling)
 	}
 }
+
+// A playback starting on its ladder takes what is left of the films' share, counting the playbacks
+// started before it from their start: of two started a moment apart under 2550 kbit/s, the first
+// takes the film's own picture, 2096 with its sound, the second what is left, the lowest (D286 §5).
+func TestUpload_EachStartTakesWhatIsLeftOfTheShare(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.keepFilmOnesTimeline(t)
+	harness.setSetting(t, "server_upload_mbps", "3")
+	first, second := harness.play(t, user, chrome(1)), harness.play(t, user, chrome(1))
+	if first.OnLadder == nil || second.OnLadder == nil {
+		t.Fatalf("the starts = %+v, %+v; want both on the ladder", first, second)
+	}
+	if first.OnLadder.QualityKbps != 2400 || second.OnLadder.QualityKbps != 400 {
+		t.Errorf("the starts' qualities = %d, %d; want the film's own, 2400, and 400", first.OnLadder.QualityKbps,
+			second.OnLadder.QualityKbps)
+	}
+	chunk := Prefix + "/bytes/media/chunks/" + second.MediaToken + "/q400k360p/00001.m4s"
+	if ceiling := harness.getBytePath(t, chunk, user, true, "").header.Get(CeilingHeader); ceiling != "496" {
+		t.Errorf("the second's first chunk says a ceiling of %q; want 496", ceiling)
+	}
+}

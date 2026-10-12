@@ -43,6 +43,9 @@ type Playback struct {
 	// film's loudness not measured yet: they stay so to its end, though the loudness is measured
 	// meanwhile, so a stall's offer starts and waits on the sound its player plays.
 	IsSoundUnlevelled bool
+	// StartAtMostKbps is the highest rate, a picture's average with its sound's, its start on its
+	// ladder may take: what is left of the server's upload for films (D286 §5); zero for no bound.
+	StartAtMostKbps int64
 }
 
 // Kept is what a playback keeps, to its end, of the first master playlist it was offered, though
@@ -309,16 +312,24 @@ func (service *Service) Ladder(ctx context.Context, playback Playback) ([]Rung, 
 	}
 	rungs := make([]Rung, 0, len(offered.pictures))
 	for _, picture := range offered.pictures {
-		shown := film.variantOf(picture, offered.soundKbps)
-		averageBps := shown.averageBandwidthBps
-		if averageBps == 0 {
-			averageBps = shown.bandwidthBps
-		}
-		// Rounded up: a player keeps a level whose average is at most the ceiling it is told.
-		rungs = append(rungs, Rung{StreamName: picture.Name(), AverageKbps: (averageBps + 999) / 1000})
+		rungs = append(rungs, Rung{
+			StreamName: picture.Name(), AverageKbps: film.averageWithSoundKbps(picture, offered.soundKbps),
+		})
 	}
 	slices.SortStableFunc(rungs, func(one, other Rung) int { return cmp.Compare(one.AverageKbps, other.AverageKbps) })
 	return rungs, nil
+}
+
+// averageWithSoundKbps is a picture's average rate with its sound's, in kbit/s, as its master
+// playlist says it, placed by its peak where its average is not known; rounded up, since a player
+// keeps a level whose average is at most the ceiling it is told (D286 §5).
+func (film cutFilm) averageWithSoundKbps(picture Stream, soundKbps int) int64 {
+	shown := film.variantOf(picture, soundKbps)
+	averageBps := shown.averageBandwidthBps
+	if averageBps == 0 {
+		averageBps = shown.bandwidthBps
+	}
+	return (averageBps + 999) / 1000
 }
 
 // MediaPlaylist is the playlist of one stream the playback is offered, every chunk of the film's
