@@ -20,7 +20,6 @@ it("removes a device only when asked again, its button in the irreversible red",
         onRemove={(device) => {
           removed.push(device.id);
         }}
-        onMakeCode={() => undefined}
       />,
     ),
   );
@@ -29,7 +28,7 @@ it("removes a device only when asked again, its button in the irreversible red",
   await click(remove);
   expect(removed).toEqual([]);
   expect(mounted.container.textContent).toContain(
-    "Living room TV is signed out, and signs in again only with a code.",
+    "Living room TV is signed out, and signs in again only with a password or a code it shows.",
   );
   await click(buttonWithText(mounted.container, "Remove it"));
   expect(removed).toEqual([5]);

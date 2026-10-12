@@ -122,13 +122,15 @@ type Service struct {
 	random   io.Reader
 	settings Settings
 	limiter  *failureLimiter
+	// pairings are the devices being activated by a code (D288).
+	pairings *pairings
 }
 
 // NewService returns a Service.
 func NewService(database *store.Database, clockSource clock.Clock, random io.Reader, settings Settings) *Service {
 	return &Service{
 		database: database, clock: clockSource, random: random, settings: settings,
-		limiter: newFailureLimiter(clockSource),
+		limiter: newFailureLimiter(clockSource), pairings: &pairings{bySecret: map[string]*pairing{}},
 	}
 }
 

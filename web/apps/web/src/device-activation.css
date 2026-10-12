@@ -1,0 +1,64 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* D288: a device activated by the code it shows, and the check code compared by eye. */
+
+.device-activation {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.device-activation__code-field {
+  font-family: var(--font-mono);
+  letter-spacing: 0.1em;
+}
+
+.device-activation__check {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.device-activation__check-code {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 2.5em;
+  letter-spacing: 0.1em;
+}
+
+/* Big and plain: the one thing between a stranger's code and the person's account. */
+.device-activation__warning {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-inline-start: 6px solid var(--color-warning);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-raised);
+  font-size: 1.1em;
+}
+
+.device-activation__warning .warning-icon {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+}
+
+.device-activation__warning p {
+  margin: 0;
+}
+
+.device-activation__warning-heading {
+  font-weight: var(--font-weight-strong);
+}
+
+.device-activation__answers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+button.device-activation__match {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}

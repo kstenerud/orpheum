@@ -4,7 +4,6 @@ package auth
 
 import (
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
@@ -155,67 +154,6 @@ func TestRegistration_ANewLinkWithdrawsTheOldAndTheOldPasswordWorksUntilANewOneI
 	_, err = fixture.service.Register(ctx, expiring.Secret, "", "late", laptop)
 	if !errors.Is(err, ErrBadInvitation) {
 		t.Errorf("an invitation past seven days: %v, want expired", err)
-	}
-}
-
-func TestDeviceCode_SignsOneDeviceInOnceWithinTenMinutesAsTyped(t *testing.T) {
-	t.Parallel()
-	fixture := newFixture(t)
-	ctx := t.Context()
-	id := fixture.createUser(t, "partner", "pw", RoleUser)
-	code, err := fixture.service.IssueDeviceCode(ctx, id, "Living room TV", 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(code.Secret) != 9 || code.Secret[4] != '-' || code.ExpiresAt.Sub(fixture.clock.Now()) != 10*time.Minute {
-		t.Errorf("the code = %+v, want xxxx-xxxx for ten minutes (D218 §3)", code)
-	}
-	typed := strings.ToUpper(strings.ReplaceAll(code.Secret, "-", " "))
-	token, err := fixture.service.SignInWithCode(ctx, typed, "web", "192.0.2.9", 0)
-	if err != nil {
-		t.Fatalf("signing in with %q: %v", typed, err)
-	}
-	principal, err := fixture.service.Authenticate(ctx, token)
-	if err != nil || principal.UserID != id || principal.DeviceID == 0 {
-		t.Errorf("the television is %+v, %v; want the person, on a new device", principal, err)
-	}
-	_, err = fixture.service.SignInWithCode(ctx, code.Secret, "web", "192.0.2.9", 0)
-	if !errors.Is(err, ErrBadInvitation) {
-		t.Errorf("a code used twice: %v, want ErrBadInvitation", err)
-	}
-	late, err := fixture.service.IssueDeviceCode(ctx, id, "Bedroom TV", 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fixture.clock.Advance(10*time.Minute + time.Second)
-	_, err = fixture.service.SignInWithCode(ctx, late.Secret, "web", "192.0.2.9", 0)
-	if !errors.Is(err, ErrBadInvitation) {
-		t.Errorf("a code past ten minutes: %v, want expired", err)
-	}
-}
-
-func TestDeviceCode_WrongCodesCountAgainstTheSignInLimit(t *testing.T) {
-	t.Parallel()
-	fixture := newFixture(t)
-	ctx := t.Context()
-	id := fixture.createUser(t, "partner", "pw", RoleUser)
-	code, err := fixture.service.IssueDeviceCode(ctx, id, "TV", 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var last error
-	for attempt := range 20 {
-		if _, last = fixture.service.SignInWithCode(ctx, "0000-000"+string(rune('0'+attempt%10)), "web",
-			"203.0.113.5", 0); errors.Is(last, ErrRateLimited) {
-			break
-		}
-	}
-	if !errors.Is(last, ErrRateLimited) {
-		t.Fatalf("twenty wrong codes: %v, want the address limited", last)
-	}
-	_, err = fixture.service.SignInWithCode(ctx, code.Secret, "web", "203.0.113.5", 0)
-	if !errors.Is(err, ErrRateLimited) {
-		t.Errorf("the right code from a limited address: %v, want limited", err)
 	}
 }
 

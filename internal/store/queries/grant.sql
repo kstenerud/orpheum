@@ -27,14 +27,6 @@ WHERE secret_sha256 = sqlc.arg(secret_sha256) AND revoked_at IS NULL;
 UPDATE "grant" SET revoked_at = sqlc.arg(revoked_at)
 WHERE user_id = sqlc.arg(user_id) AND kind = sqlc.arg(kind) AND scope = sqlc.arg(scope) AND revoked_at IS NULL;
 
--- name: GetLatestLiveGrantOfUser :one
--- A person's live grant of one kind and scope: the device code still waiting (D221).
-SELECT secret_sha256, device_name, device_id, expires_at FROM "grant"
-WHERE user_id = sqlc.arg(user_id) AND kind = sqlc.arg(kind) AND scope = sqlc.arg(scope) AND revoked_at IS NULL
-  AND (expires_at IS NULL OR expires_at > sqlc.arg(now))
-ORDER BY issued_at DESC
-LIMIT 1;
-
 -- name: GetGrantState :one
 -- A grant whatever its state: why a session no longer works, when one does not.
 SELECT kind, revoked_at, expires_at, last_used_at, issued_at FROM "grant" WHERE secret_sha256 = sqlc.arg(secret_sha256);

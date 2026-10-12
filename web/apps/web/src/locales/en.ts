@@ -49,12 +49,12 @@ export const en = {
     tooManyAttempts: "Too many failed sign-ins. Wait a few minutes and try again.",
     noAdminYet:
       "No one can sign in until the first admin is created with the setup code from the server's log.",
-    useCode: "I have a code",
+    useCode: "Get a code",
   },
   problem: {
     signedOut: {
       sessionEnded:
-        "This device was signed out: it was removed from your devices, or signed out from another device. Sign in again, or use a code from Your account on another device.",
+        "This device was signed out: it was removed from your devices, or signed out from another device. Sign in again, or get a code and enter it on another device where you are signed in.",
       sessionExpired: "You were signed out after a long time away. Sign in again.",
       noSession: "You are not signed in. Sign in to continue.",
       signOutUnheard:
@@ -122,12 +122,14 @@ export const en = {
   codeSignIn: {
     heading: "Sign in with a code",
     explain:
-      "On a phone or computer where you are signed in, open Your account and make a code for this device.",
+      "On a phone or computer where you are signed in, open Your account and enter this code under Activate a device.",
     code: "Code",
-    submit: "Sign in",
+    checkCode: "Check code",
+    checkExplain:
+      "Your other device now shows a check code too. If it is this same code, say so there.",
+    renewed: "The last code ended, so here is a new one.",
+    signingIn: "Signed in.",
     back: "Sign in with a name and password instead",
-    badCode:
-      "That code does not work: it may be mistyped, used, replaced by a newer one, or more than ten minutes old. Make a new one and try again.",
   },
   register: {
     heading: "Choose your password",
@@ -150,19 +152,34 @@ export const en = {
   },
   account: {
     heading: "Your account",
-    addDevice: "Add a device",
-    addDeviceExplain:
-      "For a television or another device: name it, make a code, then on the device open {{origin}}, choose I have a code, and type it.",
     deviceName: "The device's name",
-    deviceNameExample: "Living room TV",
-    makeCode: "Make a code",
     changePassword: "Change password",
     currentPassword: "Current password",
     newPassword: "New password",
     passwordChanged: "Your password is changed. Your other devices stay signed in.",
     wrongPassword: "That is not your current password. Check it and try again.",
-    codeFor: "The code for {{device}}",
-    useCode: "On that device, open {{origin}}, choose I have a code, and type this code.",
+  },
+  activate: {
+    heading: "Activate a device",
+    explain:
+      "On the device you want to sign in, a television say, open {{origin}} and choose Get a code. Enter the code it shows here.",
+    code: "Code",
+    codeExample: "xxxx-xxxx",
+    deviceName: "Its name, for a new device",
+    deviceNameExample: "Living room TV",
+    submit: "Activate",
+    noSuchCode:
+      "No device is showing that code. Check it, or choose Get a code on the device again: a code lasts ten minutes.",
+    tooManyCodes: "Too many codes that did not work. Wait a few minutes and try again.",
+    checkExplain: "{{device}} now shows a check code. This is the one it should show:",
+    checkCode: "Check code",
+    warningHeading: "Look at the device's screen yourself.",
+    warning:
+      "Only say they match if you see this same code on the device's own screen, in front of you. Never go on what someone tells you, on a call or in a message: a code someone else gives you lets their device into your account.",
+    match: "Yes, they match",
+    noMatch: "They don't match",
+    activated: "{{device}} is activated and signed in.",
+    notActivated: "Nothing was activated.",
   },
   nowPlaying: {
     heading: "Now playing",
@@ -176,7 +193,6 @@ export const en = {
   },
   share: {
     link: "It works once, until {{expires}}.",
-    code: "It works once, until {{expires}}.",
     togetherLink: "It works once, for the person you made it for, while the session lasts.",
   },
   about: {

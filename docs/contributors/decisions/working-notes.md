@@ -16599,6 +16599,8 @@ a subtitle file beside the media is converted at first play.
 
 ## D218 — Accounts: the admin creates a person, who sets a password from a one-time link; a signed-in person adds a TV by a short safe32 code
 
+> **Replaced in part by [D288](#d288--a-device-is-activated-by-the-code-it-shows-entered-on-a-device-already-signed-in-and-a-check-code-both-show)** (2026-10-12): §3–§4 no longer hold; a device not signed in asks for a code, a signed-in person enters it, and a check code both show confirms it.
+
 > **Revised by [D273](#d273--clients-reach-a-core-through-apporpheum-appcom-or-the-owners-own-discovery-by-whatever-methods-work-with-no-traffic-relayed-by-us-a-node-without-landlock-runs-and-warns)** §10 (2026-10-09): a TV shows a code the core gave it, a signed-in device enters it, and a check code shown on both confirms the pairing; not built yet.
 
 **Decided** (2026-09-25), by the project owner, who set the flow out: *"Admin creates account,
@@ -16694,6 +16696,8 @@ package whose published archive has no commit in it is traced) is designed with 
 **Status:** Decided; to be built before the first public release.
 
 ## D221 — A device keeps its identity across sign-ins, and a signed-out device is signed back in with a code made for it
+
+> **Replaced in part by [D288](#d288--a-device-is-activated-by-the-code-it-shows-entered-on-a-device-already-signed-in-and-a-check-code-both-show)** (2026-10-12): §3–§4 no longer hold; a device not signed in asks for a code, a signed-in person enters it, and a check code both show confirms it.
 
 **Decided** (2026-09-27), by the project owner, after trying D218's devices on a phone: every
 sign-in made a new device, so a signed-out device could never come back and a browser signed in
@@ -19142,6 +19146,8 @@ builds D249 §5's release mode and revises D228 §3 and §6.
 
 ## D273 — Clients reach a core through app.orpheum-app.com or the owner's own discovery, by whatever methods work, with no traffic relayed by us; a node without Landlock runs and warns
 
+> **Built by [D288](#d288--a-device-is-activated-by-the-code-it-shows-entered-on-a-device-already-signed-in-and-a-check-code-both-show)** (2026-10-12): §10, with the owner's refinements.
+
 **Decided** (2026-10-09), by the project owner, planning a closed beta in two weeks. It revisits
 D214, D249 and D272 §1–§2, and D112's refusal.
 
@@ -19686,3 +19692,49 @@ film plays: *"go ahead"*.
 
 **Status:** Decided 2026-10-12.
 
+## D288 — A device is activated by the code it shows, entered on a device already signed in, and a check code both show
+
+**Decided** (2026-10-12), by the project owner, building D273 §10's direction, which was not built:
+*"For the device activation code, we should do it this way for maximum security: On the login
+screen on the untrusted device, you can either log in via username/password, or you can request a
+code ... Requesting a code asks the core to issue a code, which the device then shows to the user.
+On an already logged in device, the user goes to their account page. At the top of that, there's a
+box to enter activation codes. The user enters the code there and clicks "Activate". The device is
+now activated and connected to their account."* Why: *"The way it works right now requires a logged
+in user to generate the code on a trusted device and then input it on an untrusted device, meaning
+that any untrusted source can spam codes from distributed IPs in the hopes of harvesting devices as
+users try to set them up. With the above method, no code spamming can happen because you have to
+enter it from a trusted device."* Asked about D273 §10's check code and an admin activating a device
+for someone else: *"Yes to both. Also, when the check code shows, we should have a big, easy to
+understand warning that they need to verify visually, not take some stranger's word for it."*
+**Replaces D218 §3–§4** (a signed-in person makes a code and types it on the TV) and D221 §2's code
+for a listed device; **refines D273 §10**.
+
+1. **A device not signed in asks the server for a code** from its sign-in page, beside the name and
+   password: eight characters of safe32 shown as `xxxx-xxxx` (D218 §3's shape), for ten minutes,
+   once, with a secret of its own the device alone holds, by which it asks every couple of seconds
+   how its pairing stands; asking again returns the same code until it is used or expires. The core
+   limits nothing here: on its owner's server and VPS it needs no protection, and limiting how often
+   strangers ask for codes is the paid discovery's, which faces them for many cores (the owner:
+   *"Such a rate limiter would need to be enforced from the paid discovery tier. Otherwise it's just
+   the admin's own server and VPS, which needs no protection"*).
+2. **A person signed in enters it** in "Activate a device" at the top of their account page, with
+   the name the device is listed by; an admin enters it on another person's page, for someone with
+   no other device. A code that is no one's counts against the account entering it, as a wrong
+   password does.
+3. **The server then gives both devices a check code**, and the device being activated shows it.
+   The person compares the two with their own eyes, on the device in front of them; a big, plain
+   warning says so, and never to take someone's word for it, on a call or in a message. Only their
+   "Yes, they match" activates the device; "They don't match" ends the pairing.
+4. **The device is then signed in as the person**, listed and removable as any other. One that was
+   signed in before and remembers which device it was resumes as that device (D221).
+5. **A device with no link first opens the address of the discovery it means**: the admin's own
+   VPS, which fronts their one core and passes the request for a code to it, or the paid discovery,
+   which an app opens by default and which, fronting many cores, issues the code itself for the core
+   of whoever types it to claim (the owner, 2026-10-12; the discovery service's spec). The core's
+   side is built here; the paid discovery's is its own.
+6. **Pairings are kept in memory**: a restart ends those under way, which the device shows, and it
+   asks for a new code. At most a hundred wait at once, the oldest not yet entered giving way: not a
+   limit on who asks, but a bound on the memory strangers' asking can take.
+
+**Status:** Decided 2026-10-12.

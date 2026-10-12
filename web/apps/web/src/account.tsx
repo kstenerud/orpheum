@@ -4,12 +4,7 @@ import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { changePassword, listMyDevices } from "./accounts.ts";
-import {
-  NewDeviceCodeForm,
-  ShownDeviceCode,
-  useDeviceCode,
-  type DeviceCodeState,
-} from "./device-code.tsx";
+import { ActivateDevice } from "./device-activation.tsx";
 import { FormRow } from "./form-row.tsx";
 import { fieldProblemText } from "./problem.ts";
 import { PasswordField } from "./credentials-form.tsx";
@@ -18,45 +13,20 @@ import { useResource } from "./use-resource.ts";
 import { YourDevices } from "./your-devices.tsx";
 
 /**
- * A person's own account: their devices, a code to add one or sign one back in, and their
- * password (D218, D221). A code on screen goes once it is used, and the list shows the device.
+ * A person's own account: at the top, activating a device by the code it shows (D288); their
+ * devices, and their password (D218, D221). A device activated joins the list.
  */
 export function Account(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [devices, reload] = useResource("my-devices", () => listMyDevices(api));
-  const deviceCode = useDeviceCode(reload);
   return (
     <section className="account" aria-labelledby="account-heading">
       <h1 id="account-heading">{t("account.heading")}</h1>
-      {deviceCode.code === undefined ? null : <ShownDeviceCode code={deviceCode.code} />}
-      <YourDevices
-        devices={devices}
-        onChanged={reload}
-        onMakeCode={(device) => {
-          deviceCode.makeCode({ deviceId: device.id }, device.name);
-        }}
-      />
-      <AddDevice deviceCode={deviceCode} />
+      <ActivateDevice onActivated={reload} />
+      <YourDevices devices={devices} onChanged={reload} />
       <ChangePassword />
     </section>
-  );
-}
-
-/** Makes a code that signs a new device in as this person (D218 §3). */
-function AddDevice(props: { readonly deviceCode: DeviceCodeState }): JSX.Element {
-  const { t } = useTranslation();
-  return (
-    <NewDeviceCodeForm
-      onMakeCode={(name) => {
-        props.deviceCode.makeCode({ deviceName: name }, name);
-      }}
-      problem={props.deviceCode.problem}
-      isMaking={props.deviceCode.isMaking}
-    >
-      <h2>{t("account.addDevice")}</h2>
-      <p>{t("account.addDeviceExplain")}</p>
-    </NewDeviceCodeForm>
   );
 }
 

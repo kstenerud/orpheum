@@ -108,7 +108,6 @@ describe("how a device makes sound (D222)", () => {
           onChanged={() => {
             reloads += 1;
           }}
-          onMakeCode={() => undefined}
         />,
         services,
       ),

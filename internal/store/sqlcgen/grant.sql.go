@@ -35,46 +35,6 @@ func (q *Queries) GetGrantState(ctx context.Context, secretSha256 []byte) (GetGr
 	return i, err
 }
 
-const getLatestLiveGrantOfUser = `-- name: GetLatestLiveGrantOfUser :one
-SELECT secret_sha256, device_name, device_id, expires_at FROM "grant"
-WHERE user_id = ?1 AND kind = ?2 AND scope = ?3 AND revoked_at IS NULL
-  AND (expires_at IS NULL OR expires_at > ?4)
-ORDER BY issued_at DESC
-LIMIT 1
-`
-
-type GetLatestLiveGrantOfUserParams struct {
-	UserID *int64
-	Kind   string
-	Scope  string
-	Now    *int64
-}
-
-type GetLatestLiveGrantOfUserRow struct {
-	SecretSha256 []byte
-	DeviceName   *string
-	DeviceID     *int64
-	ExpiresAt    *int64
-}
-
-// A person's live grant of one kind and scope: the device code still waiting (D221).
-func (q *Queries) GetLatestLiveGrantOfUser(ctx context.Context, arg GetLatestLiveGrantOfUserParams) (GetLatestLiveGrantOfUserRow, error) {
-	row := q.db.QueryRowContext(ctx, getLatestLiveGrantOfUser,
-		arg.UserID,
-		arg.Kind,
-		arg.Scope,
-		arg.Now,
-	)
-	var i GetLatestLiveGrantOfUserRow
-	err := row.Scan(
-		&i.SecretSha256,
-		&i.DeviceName,
-		&i.DeviceID,
-		&i.ExpiresAt,
-	)
-	return i, err
-}
-
 const getLiveGrant = `-- name: GetLiveGrant :one
 SELECT secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_id, device_name
 FROM "grant"
