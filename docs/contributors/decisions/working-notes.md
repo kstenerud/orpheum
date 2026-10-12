@@ -19584,3 +19584,31 @@ or not. The user interaction would tell you what happened."* It refines D250 §5
 
 **Status:** Decided 2026-10-12.
 
+
+## D285 — A long jump is snapped back to its keyframe and starts the run-up after it, and while anyone in a group is still loading, the rest hold a short runway
+
+**Decided** (2026-10-12), by the project owner, on [fast-start-2026-10-12.md](../design/research/fast-start-2026-10-12.md)
+and the group jumps of the same day. On snapping: *"What if seeking snapped to the first keyframe
+leading up to that point? Using the scroll bar to jump is by nature imprecise, so I doubt anyone would
+notice."* and *"if we, on the server side, snapped to a keyframe, and then set the target playback
+point to a comfortable margin in the future (i.e. a bit beyond the keyframe) such that all clients
+have enough time to synchronize playback"*; on the runway: *"if the clients play cooperatively (only
+grab enough that they have runway to continue once everyone's caught up), then this should reduce
+contention for the bandwidth"*; to both, and to making a jump's first chunk sooner: *"yes. I'm also
+fine if it turns out we get better responsiveness from presenting a common, lower quality stream
+before settling on what each device can handle."* It refines D250 §2 and D283 §2.
+
+1. **A group's jump of more than 30 s is snapped** by the server back to the keyframe at or before
+   where it was asked, the start of the chunk holding it, and the group starts the run-up
+   (`together_run_up_ms`, D282) after it. Every player loads from a chunk's start, the encoded
+   qualities' runs too; none needs a second chunk for the film a player is ready on past where it
+   aimed; a run-up runs on what is loaded. A shorter skip, by a key or a button, lands where asked:
+   snapped back, a skip of 10 s at a chunk's start would never move on.
+2. **While any player along a group is still loading or catching up, the others load no more than a
+   short runway ahead**, and fill as far as they would once all play, so the one behind has the
+   server's upload.
+3. **A jump's first chunk sooner** on an encoded quality, by whichever of a faster encode, a lower
+   common quality first, or the node putting it first measures best.
+
+**Status:** Decided 2026-10-12.
+

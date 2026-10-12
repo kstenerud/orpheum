@@ -56,11 +56,17 @@ type Sender func(message Outbound)
 // MayPlay is whether a person may play a file now: the libraries their role reaches (D243 §4).
 type MayPlay func(ctx context.Context, userID, fileID int64) bool
 
+// KeyframeAtOrBefore is where the last keyframe of a file's picture at or before positionMs is, the
+// start of the chunk holding it, and whether the file is cut so it is known (D285 §1).
+type KeyframeAtOrBefore func(ctx context.Context, fileID, positionMs int64) (int64, bool)
+
 // Hub holds the live sessions, in memory: they end with the process (D119).
 type Hub struct {
 	clock   clock.Clock
 	random  io.Reader
 	mayPlay MayPlay
+	// keyframeAtOrBefore, when set, snaps a long seek back to a keyframe (SnapSeeksBy).
+	keyframeAtOrBefore KeyframeAtOrBefore
 	// logger hears every change of each session's group (the owner, 2026-10-06).
 	logger *slog.Logger
 
@@ -529,13 +535,20 @@ func (hub *Hub) Detach(attachment Attachment) {
 	detached.sendRoster()
 }
 
+// SnapSeeksBy has a long seek snapped back to the keyframe keyframeAtOrBefore finds (D285 §1).
+func (hub *Hub) SnapSeeksBy(keyframeAtOrBefore KeyframeAtOrBefore) {
+	hub.keyframeAtOrBefore = keyframeAtOrBefore
+}
+
 // Handle takes one message from an attached device. A change of what plays is checked against
-// what the host may play before the hub is held, since that reads the store.
+// what the host may play, and a seek's keyframe found, before the hub is held, since they read the
+// store.
 func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbound) {
 	if message.Type == MessageCommand && message.Command == CommandChangeItem &&
 		!hub.mayPlay(ctx, hub.hostOf(attachment.SessionID), message.FileID) {
 		message.FileID = 0 // refused below, as one the host may not play
 	}
+	hub.findKeyframe(ctx, attachment, &message)
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
 	handled, found := hub.sessions[attachment.SessionID]
@@ -686,6 +699,26 @@ func (hub *Hub) IsMember(sessionID, memberID int64) bool {
 		return isMember
 	}
 	return false
+}
+
+// findKeyframe finds, for a seek, the keyframe at or before where it asks, when the hub snaps seeks.
+func (hub *Hub) findKeyframe(ctx context.Context, attachment Attachment, message *Inbound) {
+	if message.Type != MessageCommand || message.Command != CommandSeek || hub.keyframeAtOrBefore == nil {
+		return
+	}
+	if fileID := hub.fileOf(attachment.SessionID); fileID != 0 {
+		message.keyframeMs, message.isKeyframeKnown = hub.keyframeAtOrBefore(ctx, fileID, message.PositionMs)
+	}
+}
+
+// fileOf is the file a session plays, or 0.
+func (hub *Hub) fileOf(sessionID int64) int64 {
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+	if playing, found := hub.sessions[sessionID]; found {
+		return playing.group.fileID
+	}
+	return 0
 }
 
 // hostOf is the user who hosts a session, or 0.

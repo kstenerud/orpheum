@@ -363,6 +363,10 @@ type Inbound struct {
 	ToDeviceID int64  `json:"toDeviceId,omitempty"`
 	SDP        string `json:"sdp,omitempty"`
 	Candidate  string `json:"candidate,omitempty"`
+	// keyframeMs is the keyframe at or before a seek's PositionMs, when isKeyframeKnown: the hub
+	// finds it before it is held (Handle); never on the wire.
+	keyframeMs      int64
+	isKeyframeKnown bool
 }
 
 // Outbound is one message the server sends.
