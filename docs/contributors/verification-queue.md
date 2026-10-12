@@ -275,7 +275,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   had no rights (on iphone and android) could only fullscreen (which worked). Any guest with rights
   controlled pause/resume, and if they had rights, jump."* The Android host reloaded played muted
   with no way to turn the sound on, fixed by an earlier commit.
-- [ ] **VQ30** — Against staging, a host on a computer and a guest on an iPhone, neither pressing
+- [x] **VQ30** — Against staging, a host on a computer and a guest on an iPhone, neither pressing
   anything: the host presses Talk and speaks. Passes when the guest hears the host without pressing
   Talk; the guest's Talk is one round microphone button, solid blue while on on every phone, Firefox for
   Android's too, with a ring that grows as they speak: pressed again, it stops only the guest's voice reaching the host,
@@ -295,7 +295,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   2026-10-12, the owner's four-device test (Firefox and Safari on a Mac, an iPhone, an Android
   phone), three microphones on: *"Everything works."* A voice slider set to 0 reached its call
   (the core's log, `partnerGain=0`). Still open: the pop-up's Film volume, and the guest's title
-  above the picture.
+  above the picture. — done 2026-10-12 by the owner: *"On the mac, the extra volume slider for the
+  film volume works, and both volume controls remain in sync, updating the other. The title is above
+  the video in the guest"*. On an iPhone, where a page cannot set a film's volume, the slider is
+  replaced by the phone's buttons (the owner's test, 2026-10-12).
 - [ ] **VQ31** — On an iPhone, in a Watch Together session: put a finger anywhere on a volume
   slider (a person's voice in the host's pop-up, Film volume, a guest's own volume) and slide it.
   Passes when the slider jumps to where the finger landed and follows it, the page not scrolling,
