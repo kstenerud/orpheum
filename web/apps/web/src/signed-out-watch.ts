@@ -28,3 +28,41 @@ export function watchForSignOut(session: Session, navigation: Navigation): Middl
     },
   };
 }
+
+/** How often a visible page asks whether its session still works. */
+export const sessionCheckEveryMs = 60_000;
+
+/** A page that says when it is shown or hidden: a browser's document. */
+export interface CheckedPage {
+  readonly visibilityState: DocumentVisibilityState;
+  addEventListener(type: "visibilitychange", listener: () => void): void;
+  removeEventListener(type: "visibilitychange", listener: () => void): void;
+}
+
+/**
+ * Asks the server whether the session still works as the page is shown again and every
+ * sessionCheckEveryMs while it is visible, so a device removed elsewhere goes to sign in at once, the
+ * answer's 401 handled by watchForSignOut: one removed from another device showed it was signed out
+ * only at its person's next click (the owner's VQ7 run, 2026-10-12). Asks nothing while signed out.
+ * Returns the stopping.
+ */
+export function checkSessionWhileShown(
+  check: () => Promise<unknown>,
+  session: Pick<Session, "token">,
+  page: CheckedPage,
+): () => void {
+  const ask = (): void => {
+    if (session.token() !== undefined && page.visibilityState === "visible") {
+      check().catch(() => undefined); // a failure is the next check's, or the next click's
+    }
+  };
+  const onVisibility = (): void => {
+    ask();
+  };
+  page.addEventListener("visibilitychange", onVisibility);
+  const timer = setInterval(ask, sessionCheckEveryMs);
+  return () => {
+    clearInterval(timer);
+    page.removeEventListener("visibilitychange", onVisibility);
+  };
+}

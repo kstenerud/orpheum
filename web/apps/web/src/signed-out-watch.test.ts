@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { Navigation } from "./navigation.ts";
 import type { Route } from "./router.ts";
-import { watchForSignOut } from "./signed-out-watch.ts";
+import {
+  checkSessionWhileShown,
+  sessionCheckEveryMs,
+  watchForSignOut,
+} from "./signed-out-watch.ts";
 import { servedBy, type Answer } from "./test-dom.tsx";
 import { testOrigin } from "./test-services.tsx";
 
@@ -74,5 +78,52 @@ describe("a session the server ended", () => {
     expect(services.session.deviceId()).toBe(42);
     services.session.signIn("next");
     expect(services.session.lastEndReason()).toBeUndefined();
+  });
+});
+
+describe("a session checked while its page is shown", () => {
+  /** A page a test shows and hides, telling its listeners. */
+  class FakePage {
+    visibilityState: DocumentVisibilityState = "visible";
+    readonly #listeners = new Set<() => void>();
+    addEventListener(_type: "visibilitychange", listener: () => void): void {
+      this.#listeners.add(listener);
+    }
+    removeEventListener(_type: "visibilitychange", listener: () => void): void {
+      this.#listeners.delete(listener);
+    }
+    show(state: DocumentVisibilityState): void {
+      this.visibilityState = state;
+      for (const listener of this.#listeners) {
+        listener();
+      }
+    }
+  }
+
+  it("is asked about as the page is shown again and every minute while visible, never hidden or signed out", () => {
+    vi.useFakeTimers();
+    let token: string | undefined = "token";
+    let checks = 0;
+    const page = new FakePage();
+    const stop = checkSessionWhileShown(
+      async () => {
+        checks += 1;
+        await Promise.resolve();
+      },
+      { token: () => token },
+      page,
+    );
+    vi.advanceTimersByTime(sessionCheckEveryMs);
+    expect(checks).toBe(1);
+    page.show("hidden");
+    vi.advanceTimersByTime(sessionCheckEveryMs);
+    expect(checks).toBe(1);
+    page.show("visible");
+    expect(checks).toBe(2);
+    token = undefined;
+    vi.advanceTimersByTime(sessionCheckEveryMs);
+    expect(checks).toBe(2);
+    stop();
+    vi.useRealTimers();
   });
 });

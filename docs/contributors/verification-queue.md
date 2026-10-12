@@ -65,7 +65,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   a while and come back: after the page reloads, the choice is still there.
   (`web/apps/web/src/subtitles.tsx`) — done 2026-09-26 by the owner, on an
   Android phone in Chrome: *"Verified on the phone."*
-- [ ] **VQ7** — On the dev loop, as owner on a computer, open **People**, add a person, and send
+- [x] **VQ7** — On the dev loop, as owner on a computer, open **People**, add a person, and send
   the link shown to an Android phone. On the phone, open it: choose a password, and it signs in.
   On the phone, open **Your account**, name a device and make a code. On a television's browser
   (or a second browser), open the server, choose **I have a code**, and type the code in capitals
@@ -74,7 +74,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   phone, **Your devices** lists the phone and the television; while a code is showing, let the
   phone sleep and wake it: the code is still there. **Remove** the television: its next page
   load asks it to sign in.
-  (`web/apps/web/src/people.tsx`, `register.tsx`, `code-sign-in.tsx`, `account.tsx`)
+  (`web/apps/web/src/people.tsx`, `register.tsx`, `code-sign-in.tsx`, `account.tsx`) — done
+  2026-10-12 by the owner; a removed device showed it was signed out only at its next click, which the
+  owner wanted at once: since then a shown page asks every minute and as it is shown again
+  (`web/apps/web/src/signed-out-watch.ts`).
 - [x] **VQ8** — On the dev loop, on the Android phone, play a film: before it plays, it asks how
   the device plays sound. Choose **Headphones**; a film with 5.1 sound then plays through a
   prepared copy, saying the device plays stereo, with the **Dialogue boost** switch. Turn the
