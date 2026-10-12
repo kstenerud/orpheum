@@ -114,6 +114,47 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
     mounted.unmount();
   });
 
+  it("opens Invite on its who-for field, and closes the link's dialog once someone joins by it", async () => {
+    hostSession();
+    const services = servedBy(
+      {
+        "GET /together/3": [
+          [200, { sessionId: 3, nextRights: allRights, links: [], members: [karl] }],
+          [
+            200,
+            {
+              sessionId: 3,
+              nextRights: allRights,
+              links: [
+                {
+                  id: 4,
+                  rights: allRights,
+                  hostNote: "Grandma",
+                  secret: "s3cret",
+                  usedByMemberId: 2,
+                },
+              ],
+              members: [karl, { id: 2, name: "Gran", hostNote: "Grandma", isHost: false }],
+            },
+          ],
+        ],
+        "POST /together/3/links": [201, { linkId: 4, secret: "s3cret" }],
+      },
+      [],
+      "token",
+    );
+    const mounted = await mount(withServices(<WatchTogether />, services));
+    await click(buttonWithText(mounted.container, "Invite someone"));
+    const note = mounted.container.querySelector(".watch-together__dialog input");
+    expect(document.activeElement).toBe(note);
+    await enter(note, "Grandma");
+    await submit(mounted.container.querySelector(".watch-together__dialog form"));
+    // Gran joined by it before the host closed it: the details read again say so.
+    expect(mounted.container.querySelector(".watch-together__dialog")).toBeNull();
+    expect(mounted.container.textContent).toContain("Gran");
+    mounted.unmount();
+  });
+
   it("lists who joined with the host's note, and removes them", async () => {
     hostSession();
     const heard: Heard[] = [];

@@ -198,9 +198,36 @@ function FilmVolumeSlider(): JSX.Element {
   );
 }
 
+/** Whether someone has joined by the link whose secret is secret. */
+function isUsed(details: SessionDetails, secret: string): boolean {
+  return (details.links ?? []).some(
+    (link) => link.secret === secret && link.usedByMemberId !== undefined,
+  );
+}
+
+/**
+ * Closes a link's dialog once someone joins by it while it is open: the person it was shown for is
+ * in, and the host need not close it themselves (the owner, 2026-10-12). A used link shown again to
+ * pass on stays open.
+ */
+function useClosedOnJoining(
+  dialog: SessionDialog,
+  details: SessionDetails,
+  setDialog: (dialog: SessionDialog) => void,
+): void {
+  const isJoined = dialog?.kind === "issued" && !dialog.wasUsed && isUsed(details, dialog.secret);
+  useEffect(() => {
+    if (isJoined) {
+      setDialog(undefined);
+    }
+  }, [isJoined, setDialog]);
+}
+
 /** Which dialog is over the session's controls: inviting, or a link to pass on (D281 §5). */
 type SessionDialog =
-  { readonly kind: "makeLink" } | ({ readonly kind: "issued" } & Issued) | undefined;
+  | { readonly kind: "makeLink" }
+  | ({ readonly kind: "issued"; readonly wasUsed: boolean } & Issued)
+  | undefined;
 
 /** Ending the session, apart from the people above it, so it is never pressed for theirs. */
 function EndSession(props: {
@@ -255,7 +282,11 @@ function SessionDialogs(props: {
     return null;
   }
   return (
-    <ActionDialog heading={t("watchTogether.makeLinkHeading")} onClose={props.onClose}>
+    <ActionDialog
+      heading={t("watchTogether.makeLinkHeading")}
+      onClose={props.onClose}
+      shouldFocusFirstField
+    >
       <MakeLink
         nextRights={props.details.nextRights}
         onMake={(hostNote, rights) => {
@@ -294,8 +325,9 @@ function SessionView(props: {
   );
   const id = props.details.sessionId;
   const showIssued = (issued: Issued): void => {
-    setDialog({ kind: "issued", ...issued });
+    setDialog({ kind: "issued", ...issued, wasUsed: isUsed(props.details, issued.secret) });
   };
+  useClosedOnJoining(dialog, props.details, setDialog);
   return (
     <div className="watch-together__controls">
       <p>{t("watchTogether.onExplain")}</p>
