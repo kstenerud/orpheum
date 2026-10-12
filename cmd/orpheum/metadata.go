@@ -18,6 +18,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/portmap"
 	coreproviders "github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
@@ -49,6 +50,8 @@ type jobServices struct {
 	readThrough *readthrough.Service
 	// chunks cuts films into chunks made on request, run by run (D247 §10).
 	chunks *chunks.Service
+	// playback plays files, and counts what its players need of the server's upload (D286 §5).
+	playback *playback.Service
 	// subtitles has a played video's subtitles made and fetches them on request (D217 §6, D224).
 	subtitles *subtitles.Service
 	// nodes says how many prepare slots the nodes have, which as many prepare runners serve.
@@ -452,10 +455,19 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 		pruneFinished(loopsContext, services.queue, ticker.C, logger)
 	})
 	loops.Go(func() { maintainArtworkCache(loopsContext, services.artwork, services.settings, logger) })
+	loops.Go(func() {
+		ticker := time.NewTicker(uploadLogEvery)
+		defer ticker.Stop()
+		services.playback.WatchUpload(loopsContext, ticker.C, logger)
+	})
 	loops.Go(func() { services.discovery.Run(loopsContext) })
 	loops.Go(func() { services.portMapping.Run(loopsContext) })
 	return func() { cancel(); loops.Wait() }, nil
 }
+
+// uploadLogEvery is how often what the server's players need of its upload is logged while anyone
+// plays: the chunks' speed window, over which a few chunks of each playback arrive (D286 §5).
+const uploadLogEvery = 20 * time.Second
 
 // silenceCheckEvery is how often the work given to nodes is looked at for a silence past its limit:
 // a bound on how late a silence is noticed, against limits of minutes (node_silent_after_seconds,

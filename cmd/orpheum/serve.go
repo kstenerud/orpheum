@@ -296,11 +296,12 @@ func openPlayback(
 		Exchanges: opened.exchanges, Loudness: levels, ReadThrough: services.readThrough, Logger: logger,
 		Clock: clock.System{},
 	})
-	return services, playback.NewService(playback.Parts{
+	services.playback = playback.NewService(playback.Parts{
 		Database: database, Nodes: opened.nodes, Settings: opened.settings, Clock: clock.System{},
 		Random: rand.Reader, Renditions: services.renditions, Subtitles: services.subtitles,
 		Preferences: preferencesService, Loudness: levels, Chunks: services.chunks,
 	})
+	return services, services.playback
 }
 
 // openExchanges are how the server gives its nodes work and takes their word on it, wired to the

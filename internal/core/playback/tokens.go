@@ -95,6 +95,11 @@ type tokenPlayback struct {
 	// the sound a jump's picture is made alongside (SoundOf).
 	sound    chunks.StoreFile
 	hasSound bool
+	// picturesNeed and soundsNeed are the average rates of the picture and the sound its player last
+	// asked for, and when; sentBytes, what the server sent it since the upload was last looked at
+	// (D286 §5).
+	picturesNeed, soundsNeed streamNeed
+	sentBytes                int64
 }
 
 // usedTracks are the subtitle and audio tracks a playback started with; audio is nil for a file

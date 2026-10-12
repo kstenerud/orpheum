@@ -49,16 +49,22 @@ func chunksPlaybackOf(playback tokenPlayback) chunks.Playback {
 	return chunked
 }
 
-// Fetched records a file of its film's chunks a token's playback asked for: of a sound, the sound it
-// plays, which a jump's picture is made alongside (SoundOf).
+// Fetched records a file of its film's chunks a token's playback asked for: its stream's rate, what
+// the playback needs of the server's upload (D286 §5), and of a sound, the sound it plays, which a
+// jump's picture is made alongside (SoundOf).
 func (service *Service) Fetched(token string, file chunks.StoreFile) {
-	if !file.IsSound() {
-		return
-	}
+	now := service.clock.Now()
 	service.tokens.mutex.Lock()
 	defer service.tokens.mutex.Unlock()
-	if known, found := service.tokens.playbackByToken[token]; found {
-		known.sound, known.hasSound = file, true
+	known, found := service.tokens.playbackByToken[token]
+	if !found {
+		return
+	}
+	need := streamNeed{kbps: file.AverageKbps(), at: now}
+	if file.IsSound() {
+		known.sound, known.hasSound, known.soundsNeed = file, true, need
+	} else {
+		known.picturesNeed = need
 	}
 }
 

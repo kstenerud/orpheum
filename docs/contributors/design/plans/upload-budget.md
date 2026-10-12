@@ -6,7 +6,7 @@
 
 # The server's upload and its players' qualities
 
-- **Status:** PLANNED — written 2026-10-12 on the owner's word (*"go ahead"*); its two questions
+- **Status:** IN-PROGRESS — U1 built 2026-10-12; written 2026-10-12 on the owner's word (*"go ahead"*); its two questions
   answered by the owner the same day (*"To your two questions: Agreed"*): solo players count and are
   lowered, and the server acts early, from the setting.
 - **Depends on:** D286 §4 and §5 (decided 2026-10-12, §5's details in its text), D265 (the player's
@@ -15,7 +15,7 @@
 
 ## 1. What the owner gives: the upload
 
-- **A setting, `server_upload_kbps`**, shown on the settings page with a question while unset
+- **A setting, `server_upload_mbps`**, shown on the settings page with a question while unset
   (D200): *"How fast can this server send, in Mbit/s? Your connection's upload speed, or as much of
   it as you want Orpheum to use."* Unset, nothing in this plan acts: no ceilings, no one removed.
 - **A button to measure it** by a speed test site is left for later (the owner, D286 §5).
@@ -83,7 +83,7 @@ playback stopped or idle loses its ceiling.
 
 | Step | What | Test |
 | --- | --- | --- |
-| U1 | The setting and its question; each playback's need from its chunk requests, the total, and the bytes sent, logged every 20 s while anyone plays | the core's tests of the need from a scripted run of requests |
+| U1 | The setting and its question; each playback's need from its chunk requests, the total, and the bytes sent, logged every 20 s while anyone plays | BUILT 2026-10-12: `server_upload_mbps`, `internal/core/playback/upload.go`, the API's `countedMedia`; the log line "the server's upload" |
 | U2 | The ceiling: kept per playback, sent as `Orpheum-Ceiling-Kbps` on every chunk, obeyed by the player's controller | the API's header; the controller's choice under a ceiling |
 | U3 | Lowering and raising (§4), as a pure function of the playbacks, their needs and the share, and the 5 s watch that applies it | the function's cases: one over, several, a quality shared, raising back |
 | U4 | D286 §4: a node too slow lowers onto a quality already made before evicting | the capacity watch's tests with a shared quality and without |
