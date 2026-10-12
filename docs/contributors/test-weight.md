@@ -142,6 +142,26 @@ Each entry says: the **mechanism**, the **instance** we found, **why it was invi
 - **Warning sign:** a classification written in more than one place, such as a hook's
   `startswith("docs/")`.
 
+### 10. A page's first render, under the gate's contention, nearing vitest's 5 s limit
+
+- **Mechanism:** `make check` runs the Go tests, golangci-lint and the web checks at once, the web
+  typecheck, ESLint, the format check and vitest's own workers together (`check-web`'s `-j5`), on
+  the same CPUs. A test that renders a whole page with React in happy-dom is slowed far more than
+  the CPUs' share suggests, and vitest's default `testTimeout` of 5 s is the same alone or under
+  load.
+- **Instance:** `roles-section.test.tsx`'s first test, which renders the whole People page, timed
+  out at 5.1 and 5.6 s in two gate runs on 2026-10-12, and passed when the commit was retried. Alone
+  it takes 0.2 s; in a web-only run no test passed 1.3 s. In the same gate runs, the first test of
+  `together-viewer.test.tsx` took 3.6 s, of `watch-together.test.tsx` 3.0 s, and of
+  `screen-refusals.test.tsx` 2.8 s: about 25 times slower than alone.
+- **Why it was invisible:** it fails only when the gate's steps overlap and the machine is busy,
+  such as when staging is encoding a film beside the gate, and a retry passes.
+- **Fix:** none yet. It needs a gate change, which is the owner's: a `testTimeout` in
+  `web/vitest.config.ts` above the worst seen under the gate (15 s would leave room), or fewer
+  vitest workers while the other checks run.
+- **Warning sign:** a web test that fails with "Test timed out in 5000ms" and passes alone; first
+  tests of a file at 2 s or more in the gate's verbose log.
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of
