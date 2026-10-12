@@ -59,11 +59,11 @@ export function isInStep(media: FollowedMedia, expectedMs: number, tuning: SyncT
 }
 
 /**
- * Whether the player has loaded enough ahead to play on after a stall or a seek: refillAheadMs, or
+ * Whether the player has loaded enough ahead to play on after a stall or a seek: aheadMs, or
  * up to the film's end, or all the browser will load while it is paused, since the browser has
  * stopped loading and waiting longer gains nothing.
  */
-export function hasRefilled(media: FollowedMedia): boolean {
+export function hasRefilled(media: FollowedMedia, aheadMs = refillAheadMs): boolean {
   if (media.readyState < haveFutureData) {
     return false;
   }
@@ -72,8 +72,7 @@ export function hasRefilled(media: FollowedMedia): boolean {
   }
   const endS = loadedEndS(media);
   return (
-    endS !== undefined &&
-    ((endS - media.currentTime) * 1000 >= refillAheadMs || endS >= media.duration)
+    endS !== undefined && ((endS - media.currentTime) * 1000 >= aheadMs || endS >= media.duration)
   );
 }
 
@@ -129,4 +128,21 @@ export function playableAt(media: FollowedMedia, expectedMs: number, tuning: Syn
     }
   }
   return expectedMs;
+}
+
+/**
+ * Where what the player loaded at atMs begins, in ms: the start of the loaded stretch holding it, or
+ * atMs where it loaded nothing there. A run-up starts no earlier, so it never asks for a chunk before
+ * the one its group starts in, which on an encoded quality is a whole encode (D282;
+ * seek-resync-2026-10-12.md).
+ */
+export function loadedFromMs(media: FollowedMedia, atMs: number): number {
+  const { buffered } = media;
+  const atS = atMs / 1000;
+  for (let index = 0; index < buffered.length; index++) {
+    if (buffered.start(index) - onLoadedToleranceS <= atS && atS <= buffered.end(index)) {
+      return buffered.start(index) * 1000;
+    }
+  }
+  return atMs;
 }

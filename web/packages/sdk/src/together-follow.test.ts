@@ -136,6 +136,7 @@ describe("a player following its group", () => {
       loadMs: 2000,
       loadedKbps: 2400,
       qualityKbps: 1200,
+      filmMs: 10_000,
     };
     media.dispatchEvent(new CustomEvent(playerLoadedChunkEvent, { detail: loaded }));
     const switched: QualitySwitched = { qualityKbps: 800, linkEstimateKbps: 2500 };

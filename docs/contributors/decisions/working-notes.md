@@ -18119,6 +18119,9 @@ paused often; in the group it played a frame and froze, over and over.
 5. **A stalled player is ready again only with 10 s loaded ahead** (built on 2026-10-05,
    `refillAheadMs`), not at its first frame, which was the loop.
 
+   **Refined by D283 §1** (2026-10-12): after a seek, on a link that carries the film well faster than
+   it plays, 3 s.
+
 6. **The lower versions are a fixed set of standard qualities**, about 3 Mbps at 720p, 2 Mbps at
    540p, 1.2 Mbps at 480p and 0.7 Mbps at 432p (Apple's authoring spec's low rungs, to be tuned on
    the owner's films). A stall chooses the highest one within about 70% of the speed the player
@@ -19497,6 +19500,8 @@ longer attaches the voice device.
 
 ## D282 — A Watch Together player presses play early by how late it has learned it starts, kept by its device; one that has not learned it runs up two seconds
 
+> **§4 refined by [D283](#d283--after-a-seek-a-player-is-ready-on-3-s-of-film-when-its-link-carries-the-film-well-faster-than-it-plays-ready-players-hold-their-loading-while-their-group-waits-and-a-run-up-starts-no-earlier-than-what-was-loaded) §3** (2026-10-12): a run-up starts no earlier than what its player loaded where the group starts.
+
 **Decided** (2026-10-12), by the project owner, after a four-device test in which every player
 started within 60 ms of the moment the server named (D268 §3), and the iPhone and the Android phone,
 whose pictures moved some 170 ms later, were then nudged into step for about six seconds. The owner
@@ -19525,6 +19530,30 @@ halfway through."* It extends D268 §3.
    through: *"If the video is at the very start, losing a second or two isn't bad."*
 5. **Every start of the group is one**: a film put on, the host's play after a pause, and the
    host's seek (D250 §2's sync points). Someone joining mid-film catches up as before.
+
+**Status:** Decided 2026-10-12.
+
+
+## D283 — After a seek a player is ready on 3 s of film when its link carries the film well faster than it plays, ready players hold their loading while their group waits, and a run-up starts no earlier than what was loaded
+
+**Decided** (2026-10-12), by the project owner, on
+[seek-resync-2026-10-12.md](../design/research/seek-resync-2026-10-12.md), after a group took 10 to
+20 s to play again after the host's jumps: *"Those sound good"*, of its options 1 to 3, and,
+asked to build them, *"yes go ahead"*. Its option 4, a seek snapped back to its chunk's start, is
+not taken: it saves at most a chunk's unused head and lands up to a chunk before where the person
+aimed. It refines D247 §5 and D282 §4.
+
+1. **After a seek, ready on 3 s, when the link keeps up well.** A player sought by its group or its
+   person is ready again with `seekReadyAheadMs` (3 s) loaded ahead when its last chunk of picture
+   loaded at least `seekReadyLoadsAtLeast` (1.5) times faster than it plays; else, and after any
+   stall or a catch-up's seek, with D247 §5's 10 s. Every player researched starts on a second or two
+   after a seek.
+2. **A ready player holds its loading while its group waits** at a sync point, and goes on as the
+   group plays, so the players not yet ready have the server's upload to themselves.
+3. **A run-up starts no earlier than what its player loaded where the group starts**: an earlier
+   chunk is one more to load, and on an encoded quality one more to encode (a run-up of 2 s asked
+   for a whole chunk for 12 ms of it, 2026-10-12). A shortened run-up starts once the group's run
+   reaches it.
 
 **Status:** Decided 2026-10-12.
 

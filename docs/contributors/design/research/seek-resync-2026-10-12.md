@@ -154,3 +154,19 @@ Effects are estimates from §1 **[I]**; "design" marks what changes a decision.
 
 The first test after any of them reads the new `a player's seek was ready to play` lines for a solo
 jump, and the group's `everyoneReady` against its `seeked` for a group one.
+
+## 6. What was decided (2026-10-12)
+
+- **Built:** options 1, 2 and 3 (D283), and, found on the owner's solo jumps the same day, a video
+  waiting after a seek for its sound is no longer taken for one that cannot decode its picture (it
+  had given the film's own picture up for an encoded 720p), and a seek's log says where it came from.
+- **Not taken:** option 4. A seek can only start at a keyframe, and snapping it to its chunk's start
+  saves at most that chunk's unused head, about 1 to 2 s at the measured speeds, while it lands up to
+  a chunk before where the person aimed.
+- **Next, in place of options 6 and 10:** the 10 s chunks are this film's keyframe spacing (its
+  picture has one every ~10.4 s, x264's default 250 frames at 24 fps), and the encoded qualities
+  share the copied picture's grid with a keyframe only at each chunk's start (`-g 100000
+  -force_key_frames`). Keeping the chunks but encoding a keyframe every 2 s, each its own fragment,
+  and serving a chunk as it is made would let a device on an encoded quality start on its first 2 s:
+  about 9 s to 2 or 3 after a jump, for 3 to 5% more bits. The owner's question to decide next.
+

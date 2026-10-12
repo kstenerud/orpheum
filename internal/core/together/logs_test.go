@@ -45,7 +45,7 @@ func TestHub_LogsADevicesPlayerNoteAndRefusesAnUnknownOne(t *testing.T) {
 		Kind: NoteSought, PositionMs: 50_000, ToMs: 124_000, Why: "catchUp",
 	}})
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
-		Kind: NoteChunkLoaded, Track: "video", LoadMs: 5200, LoadedKbps: 2300, QualityKbps: 1200,
+		Kind: NoteChunkLoaded, Track: "video", LoadMs: 5200, FilmMs: 10_200, LoadedKbps: 2300, QualityKbps: 1200,
 	}})
 	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
 		Kind: NoteNudged, PositionMs: 30_000, DriftMs: 380, Rate: 1.1, ReturnCostMs: 220,
@@ -53,7 +53,7 @@ func TestHub_LogsADevicesPlayerNoteAndRefusesAnUnknownOne(t *testing.T) {
 	logged := stage.logs.String()
 	for _, want := range []string{
 		`kind=sought positionMs=50000 toMs=124000 why=catchUp`,
-		`kind=chunkLoaded loadMs=5200 loadedKbps=2300 qualityKbps=1200 track=video`,
+		`kind=chunkLoaded loadMs=5200 filmMs=10200 loadedKbps=2300 qualityKbps=1200 track=video`,
 		`kind=nudged positionMs=30000 driftMs=380 returnCostMs=220 rate=1.1`,
 	} {
 		isNoted := strings.Contains(logged, `msg="watch together: a device's player noted"`)

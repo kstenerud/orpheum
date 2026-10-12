@@ -96,9 +96,11 @@ channel.
 host's play after a pause, and the host's seek. There it is `Waiting` until every player that has
 once been ready is ready again, those catching up included. A player still loading its first
 picture, or whose person is still choosing their speakers, holds no one up (D246 §6). A player is
-ready after a seek or a stall only with 10 s loaded ahead (`refillAheadMs`,
+ready after a stall only with 10 s loaded ahead (`refillAheadMs`,
 [D247](../../decisions/working-notes.md#d247--a-slow-link-gets-a-lower-version-made-at-its-first-stall-and-played-from-its-second-and-a-group-waits-for-a-stalled-viewer-once-then-lets-them-catch-up-alone)
-§5). A sync point waits at most `together_sync_wait_seconds` (20 s), then plays without whoever is
+§5), and after a seek with 3 s when its link carried its last chunk at least 1.5 times faster than
+it plays (D283 §1). While the group waits, a player already ready holds its loading, leaving the
+upload to the others (D283 §2). A sync point waits at most `together_sync_wait_seconds` (20 s), then plays without whoever is
 not ready, but never to no one (D250 §3). The host's pause is immediate. **A sync point's end
 names the moment every player starts** (D268 §3): the group stands at its position for
 `together_start_lead_ms` (500 ms), each group message and pong saying what is left of that lead,

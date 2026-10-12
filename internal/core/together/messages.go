@@ -140,6 +140,8 @@ type PlayerNote struct {
 	Track      string `json:"track,omitempty"`
 	LoadMs     int64  `json:"loadMs,omitempty"`
 	LoadedKbps int64  `json:"loadedKbps,omitempty"`
+	// FilmMs is how much film a chunk plays: with LoadMs, whether the link keeps up with the film.
+	FilmMs int64 `json:"filmMs,omitempty"`
 	// QualityKbps is the quality a chunk was of, or that the player switched to; LinkEstimateKbps, the
 	// player's estimate of its link at the switch.
 	QualityKbps      int64 `json:"qualityKbps,omitempty"`
