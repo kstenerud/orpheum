@@ -226,7 +226,15 @@ export interface StandingStill {
   readonly chunksLoaded: number;
   /** How many of them the browser took and held nothing of (hls.js's bufferAppendNoProgress). */
   readonly chunksNotHeld: number;
+  /** How far ahead of its position it holds the film, in seconds. */
+  readonly loadedAheadS: number;
 }
+
+/**
+ * How far ahead a video standing still must hold the film for its standing still to be its decoder's,
+ * not its link's, with no chunk arriving: its buffer full, nothing more is asked for (D266).
+ */
+export const heldAheadAtLeastS = 4;
 
 /**
  * Whether the quality a video stands still at is one this device cannot play (D266): asked to
@@ -236,12 +244,16 @@ export interface StandingStill {
  * beginning while its chunks kept arriving (the owner's test, 2026-10-07). Sooner, when the
  * browser holds nothing of chunksNotHeld chunks it took: Firefox on macOS took each of Flow's HEVC
  * chunks after a CRA and held none of it, hls.js reporting "append did not increase buffered
- * coverage" and doing nothing about it (the owner's test, 2026-10-08).
+ * coverage" and doing nothing about it (the owner's test, 2026-10-08). And with no chunk arriving,
+ * when it holds heldAheadAtLeastS ahead and still stands still: an older Android phone's Chrome took a
+ * film's own 10-bit AV1 and HEVC pictures, filled its buffer and stood at 0 "playing", its decoder
+ * unable to keep up (the owner's friend, 2026-10-12).
  */
 export function isUnplayable(still: StandingStill): boolean {
   return (
     still.chunksNotHeld >= chunksNotHeld ||
-    (still.forMs >= standsStillAtMostMs && still.chunksLoaded >= chunksWhileStill)
+    (still.forMs >= standsStillAtMostMs &&
+      (still.chunksLoaded >= chunksWhileStill || still.loadedAheadS >= heldAheadAtLeastS))
   );
 }
 

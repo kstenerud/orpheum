@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   chunksNotHeld,
   chunksWhileStill,
+  heldAheadAtLeastS,
   giveUpFor,
   isUnplayable,
   isWaitingToPlay,
@@ -185,23 +186,50 @@ describe("a quality this device cannot play (D266)", () => {
         forMs: standsStillAtMostMs,
         chunksLoaded: chunksWhileStill,
         chunksNotHeld: 0,
+        loadedAheadS: 0,
       }),
     ).toBe(true);
   });
 
-  it("is, at once, one whose chunks the browser took and held nothing of", () => {
-    expect(isUnplayable({ forMs: 1000, chunksLoaded: 2, chunksNotHeld })).toBe(true);
-    expect(isUnplayable({ forMs: 1000, chunksLoaded: 2, chunksNotHeld: chunksNotHeld - 1 })).toBe(
+  it("is one whose video stood still, playing, with heldAheadAtLeastS loaded and no chunk coming", () => {
+    const fullStill = { forMs: standsStillAtMostMs, chunksLoaded: 0, chunksNotHeld: 0 };
+    expect(isUnplayable({ ...fullStill, loadedAheadS: heldAheadAtLeastS })).toBe(true);
+    expect(isUnplayable({ ...fullStill, loadedAheadS: heldAheadAtLeastS - 1 })).toBe(false);
+    expect(isUnplayable({ ...fullStill, forMs: standsStillAtMostMs - 1, loadedAheadS: 30 })).toBe(
       false,
     );
   });
 
+  it("is, at once, one whose chunks the browser took and held nothing of", () => {
+    expect(isUnplayable({ forMs: 1000, chunksLoaded: 2, chunksNotHeld, loadedAheadS: 0 })).toBe(
+      true,
+    );
+    expect(
+      isUnplayable({
+        forMs: 1000,
+        chunksLoaded: 2,
+        chunksNotHeld: chunksNotHeld - 1,
+        loadedAheadS: 0,
+      }),
+    ).toBe(false);
+  });
+
   it("is not yet one that stood still briefly, or whose chunks were slow to come", () => {
     expect(
-      isUnplayable({ forMs: standsStillAtMostMs - 1, chunksLoaded: 10, chunksNotHeld: 0 }),
+      isUnplayable({
+        forMs: standsStillAtMostMs - 1,
+        chunksLoaded: 10,
+        chunksNotHeld: 0,
+        loadedAheadS: 0,
+      }),
     ).toBe(false);
     expect(
-      isUnplayable({ forMs: 60_000, chunksLoaded: chunksWhileStill - 1, chunksNotHeld: 0 }),
+      isUnplayable({
+        forMs: 60_000,
+        chunksLoaded: chunksWhileStill - 1,
+        chunksNotHeld: 0,
+        loadedAheadS: 0,
+      }),
     ).toBe(false);
   });
 });
