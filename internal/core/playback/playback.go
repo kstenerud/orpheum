@@ -86,6 +86,9 @@ type Service struct {
 	// sendAway sends away the newest Watch Together member with a player (SendAwayBy); nil sends
 	// no one.
 	sendAway SendAway
+	// groupPlayers counts the players of a host's Watch Together session (GroupPlayersBy); nil
+	// counts none.
+	groupPlayers GroupPlayers
 }
 
 // NewService returns the playback service.
@@ -266,7 +269,7 @@ func (service *Service) startOnLadder(
 	}
 	waitUntil := service.clock.Now().Add(time.Duration(waitMs) * time.Millisecond)
 	chunked := chunksPlaybackOf(playback)
-	if chunked.StartAtMostKbps, err = service.uploadLeftKbps(ctx); err != nil {
+	if chunked.StartAtMostKbps, err = service.startAtMostKbps(ctx, holder, playback.fileID); err != nil {
 		return nil, "", err
 	}
 	for {

@@ -267,6 +267,8 @@ func wireJobsInto(dependencies *api.Dependencies, opened openedServices, logger 
 	dependencies.Playback.SendAwayBy(func() (int64, int64, bool) {
 		return dependencies.Together.SendAwayNewest(playback.UploadFullReason)
 	})
+	// A group's players, put on at once, share the upload evenly from their start (D286 §5).
+	dependencies.Playback.GroupPlayersBy(dependencies.Together.PlayersHostedBy)
 	opened.together = dependencies.Together
 	dependencies.Jobs, dependencies.Providers = opened.jobServices.queue, opened.jobServices.providerServices.all()
 	dependencies.PortMapping = opened.jobServices.portMapping

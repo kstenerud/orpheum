@@ -431,6 +431,28 @@ func (hub *Hub) SendAwayNewest(reason string) (sessionID, memberID int64, isSent
 	return sessionID, newest.id, true
 }
 
+// PlayersHostedBy is how many devices play the film in the session hostUserID hosts, the host's
+// own among them; zero when they host none: the players a film put on there starts for at once,
+// among whom the server's upload is shared evenly (D286 §5).
+func (hub *Hub) PlayersHostedBy(hostUserID int64) int {
+	hub.mutex.Lock()
+	defer hub.mutex.Unlock()
+	count := 0
+	for _, each := range hub.sessions {
+		if each.hostUserID != hostUserID {
+			continue
+		}
+		for _, member := range each.members {
+			for _, attached := range member.devices {
+				if attached.role.plays() {
+					count++
+				}
+			}
+		}
+	}
+	return count
+}
+
 // hasPlayer is whether any of the member's devices plays the film.
 func (each *member) hasPlayer() bool {
 	for _, attached := range each.devices {
