@@ -43,6 +43,22 @@ type runArgs struct {
 // store with runs on their way is kept wanted (D234 §3). A run queued is logged. The film is cut at
 // kind, as its playback's is; one with no grid yet is ErrNoGrid.
 func (service *Service) Ensure(ctx context.Context, fileID int64, kind GridKind, stream Stream, wanted int) error {
+	return service.ensure(ctx, ensuring{fileID: fileID, kind: kind, stream: stream, wanted: wanted})
+}
+
+// ensuring is what Ensure makes sure of: a film's stream's chunk wanted, cut at kind, and whether a
+// player wants it where a seek took it.
+type ensuring struct {
+	fileID   int64
+	kind     GridKind
+	stream   Stream
+	wanted   int
+	isSought bool
+}
+
+// ensure is Ensure, for a player where a seek took it too, whose ask starts a run sooner (ask).
+func (service *Service) ensure(ctx context.Context, asked ensuring) error {
+	fileID, kind, stream, wanted := asked.fileID, asked.kind, asked.stream, asked.wanted
 	film, isCut, err := service.cut(ctx, fileID, kind)
 	if err != nil {
 		return err
@@ -55,7 +71,7 @@ func (service *Service) Ensure(ctx context.Context, fileID int64, kind GridKind,
 	}
 	gridID := film.grid.ID()
 	dir := StoreDir(fileID, stream, gridID)
-	if askErr := service.ask(ctx, film, stream, wanted); askErr != nil {
+	if askErr := service.ask(ctx, film, stream, wanted, asked.isSought); askErr != nil {
 		return askErr
 	}
 	first, last, isPlanned := service.runs.plan(dir, film.grid, wanted)
@@ -99,25 +115,33 @@ func (service *Service) Ensure(ctx context.Context, fileID int64, kind GridKind,
 
 // ask records a player's ask for chunk wanted of the store: the runs making it and the chunks within
 // lookaheadMs of film after it, which it plays on to, are in use. An evicted store refuses it
-// (ErrNoRoomToMake, D250 §6); runs it is a seek far past are cancelled (cancelFarRuns).
-func (service *Service) ask(ctx context.Context, film cutFilm, stream Stream, wanted int) error {
+// (ErrNoRoomToMake, D250 §6); runs it is a seek far from are cancelled (cancelFarRuns), nearer when a
+// player says a seek took it there (D284 §2).
+func (service *Service) ask(ctx context.Context, film cutFilm, stream Stream, wanted int, isSought bool) error {
 	dir := StoreDir(film.file.ID, stream, film.grid.ID())
 	playsThrough := film.grid.chunkAt(film.grid.StartsMs[wanted] + lookaheadMs - 1)
 	service.runs.asked(dir, wanted, playsThrough, service.clock.Now())
 	if service.runs.isEvicted(dir) {
 		return fmt.Errorf("%s: %w", dir, ErrNoRoomToMake)
 	}
-	return service.cancelFarRuns(ctx, film, stream, wanted)
+	return service.cancelFarRuns(ctx, film, stream, wanted, isSought)
 }
 
 // cancelFarRuns cancels the runs of the store chunk wanted is a seek far from (runTracker.cutFar,
-// D250 §5): no one follows them now, and their encodes are room another run needs (§6). The new
+// D250 §5), chunk_new_run_beyond_seconds, or chunk_seek_new_run_beyond_seconds when the player says a
+// seek took it there (D284 §2): no one follows them now, and their encodes are room another run needs (§6). The new
 // run is queued after, so the queue, which keeps one job of a store queued, does not fold it into
 // one cancelled.
-func (service *Service) cancelFarRuns(ctx context.Context, film cutFilm, stream Stream, wanted int) error {
-	beyond, err := service.settings.Duration(ctx, settings.ChunkNewRunBeyondSeconds)
+func (service *Service) cancelFarRuns(
+	ctx context.Context, film cutFilm, stream Stream, wanted int, isSought bool,
+) error {
+	beyondKey := settings.ChunkNewRunBeyondSeconds
+	if isSought {
+		beyondKey = settings.ChunkSeekNewRunBeyondSeconds
+	}
+	beyond, err := service.settings.Duration(ctx, beyondKey)
 	if err != nil {
-		return fmt.Errorf("read %s: %w", settings.ChunkNewRunBeyondSeconds, err)
+		return fmt.Errorf("read %s: %w", beyondKey, err)
 	}
 	fileID, gridID := film.file.ID, film.grid.ID()
 	dir := StoreDir(fileID, stream, gridID)

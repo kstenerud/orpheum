@@ -30,6 +30,13 @@ export const playerBufferedFirstEvent = "orpheumplayerbufferedfirst";
 export const fellBehindEvent = "orpheumfellbehind";
 
 /**
+ * The event a following player fires at its video just before it seeks to catch up with its group:
+ * that seek is no person's or group's jump, and its player does not say a seek took it there, so it
+ * waits for the run already making its quality (D250 §5, D284 §2).
+ */
+export const catchUpSeekEvent = "orpheumcatchupseek";
+
+/**
  * The event a player fires at its video as it loads a chunk: a ChunkLoaded in its detail, which a
  * following player tells the server for its log.
  */

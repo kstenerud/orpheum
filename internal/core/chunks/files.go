@@ -27,6 +27,8 @@ type StoreFile struct {
 	// isInit is whether it is the store's init rather than chunk chunk.
 	isInit bool
 	chunk  int
+	// isSought is whether a player asked for it loading where a seek took it (AsSought).
+	isSought bool
 	// runFrom is the chunk a run is started from when the node does not have the file yet: the
 	// chunk itself, or, for the init, the chunk the playback is at, which a player that changes
 	// to the stream asks for next.
@@ -71,9 +73,20 @@ func (service *Service) StoreFileOf(
 }
 
 // Want makes sure a file of a store its node does not have yet will be made (Ensure): from its chunk,
-// or, for the init, from the chunk the playback is at.
+// or, for the init, from the chunk the playback is at. One asked for after a seek (AsSought) starts a
+// run where it is sooner than another ask does (cancelFarRuns).
 func (service *Service) Want(ctx context.Context, file StoreFile) error {
-	return service.Ensure(ctx, file.fileID, file.kind, file.stream, file.runFrom)
+	return service.ensure(ctx, ensuring{
+		fileID: file.fileID, kind: file.kind, stream: file.stream, wanted: file.runFrom, isSought: file.isSought,
+	})
+}
+
+// AsSought is the file asked for by a player loading where a seek took it, its person's or its
+// group's, which says so: never a catch-up's, which waits for the run already making it (D250 §5,
+// D284 §2).
+func (file StoreFile) AsSought() StoreFile {
+	file.isSought = true
+	return file
 }
 
 // CoveringRun is the run of a file's store that will make the chunk the file waits for (Want), as
@@ -90,6 +103,9 @@ func (file StoreFile) StoreDir() string { return file.storeDir }
 // WantedChunk is the chunk a run must make for the file: the chunk itself, or, for the init, the
 // chunk the playback is at.
 func (file StoreFile) WantedChunk() int { return file.runFrom }
+
+// IsSought is whether a player asked for it loading where a seek took it (AsSought).
+func (file StoreFile) IsSought() bool { return file.isSought }
 
 // IsInit is whether the file is its store's init rather than a chunk.
 func (file StoreFile) IsInit() bool { return file.isInit }

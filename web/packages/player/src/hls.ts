@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import {
+  catchUpSeekEvent,
   holdLoadingEvent,
   loadingHoldOf,
   playerLoadedChunkEvent,
@@ -105,6 +106,53 @@ export interface OwnMoves {
     event: typeof Hls.Events.ERROR,
     listener: (event: unknown, data: Pick<ErrorData, "details">) => void,
   ) => void;
+}
+
+/** The header in which a player says it loads where a seek took it (D284 §2). */
+export const soughtHeader = "Orpheum-Sought";
+
+/**
+ * Whether the video loads where a seek took it, its person's or its group's, from its seeking until
+ * it can play there: a request then says so (soughtHeader), and the server starts a run there sooner
+ * than it does for another (D284 §2). The seek of a follower catching up (catchUpSeekEvent), and
+ * hls.js's own steps over a gap (playerMovedItselfEvent), are no jumps. The owner: "We should be able
+ * to tell from the controlling client whether it's a jump or not" (2026-10-12).
+ */
+export function markSeeks(video: Pick<EventTarget, "addEventListener" | "removeEventListener">): {
+  readonly isSought: () => boolean;
+  readonly stop: () => void;
+} {
+  let isSought = false;
+  let isNextSeekNoJump = false;
+  const listeners: Record<string, () => void> = {
+    [catchUpSeekEvent]: () => {
+      isNextSeekNoJump = true;
+    },
+    [playerMovedItselfEvent]: () => {
+      isNextSeekNoJump = true;
+    },
+    seeking: () => {
+      isSought = !isNextSeekNoJump;
+      isNextSeekNoJump = false;
+    },
+    canplay: () => {
+      isSought = false;
+    },
+    playing: () => {
+      isSought = false;
+    },
+  };
+  for (const [event, listener] of Object.entries(listeners)) {
+    video.addEventListener(event, listener);
+  }
+  return {
+    isSought: () => isSought,
+    stop: () => {
+      for (const [event, listener] of Object.entries(listeners)) {
+        video.removeEventListener(event, listener);
+      }
+    },
+  };
 }
 
 /**

@@ -16,6 +16,7 @@ import {
   type LearnedLoss,
 } from "./together-drift.ts";
 import {
+  catchUpSeekEvent,
   chunkLoadedOf,
   holdLoadingEvent,
   fellBehindEvent,
@@ -658,6 +659,7 @@ class GroupFollower {
     }
     const targetMs =
       toMs + this.#loadSpeed.catchUpLeadMs(this.#lastLoadMs, where.group.rate, where.tuning);
+    this.#media.dispatchEvent(new Event(catchUpSeekEvent));
     this.#seek(targetMs, "catchUp");
     this.#move({ kind: "jumpedAhead", atMs: targetMs });
   }
