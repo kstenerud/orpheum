@@ -357,4 +357,8 @@ An item is ticked only by the person who did it, and only with what they saw.
   Safari is in the background, a guest's picking up with the group as Safari comes back. Only an iPhone has the switch and the GPU
   process that WebKit bug 323104 strands (design/research/ios-silent-switch-2026-10-12.md).
   (`web/packages/sdk/src/page-audio.ts`)
+  Partly confirmed 2026-10-12 by the owner, an iPhone guest with its switch on: sound after its tap,
+  silent and paused with Safari in the background, back with the group on its return (after
+  An earlier commit): *"ok, that worked"*. Open: a film alone after a minute in the background, Safari not
+  quit.
 
