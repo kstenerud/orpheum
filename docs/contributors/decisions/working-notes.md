@@ -19432,6 +19432,13 @@ budget, and measuring them, is the next piece of work.
 the host's Watch Together sign and, for an admin, the warning sign while the reminder counts
 anything. Not yet: a signed-in viewer's sign, and a designed summary page.
 
+**Revised 2026-10-12** by the owner: *"Since we have the warning icon in the top right now, we
+don't need the other alert box under the top bar anymore."* The reminder under the banner (D231 §7,
+P39) is gone; the tray's warning sign alone tells the admin. Its dismissal
+(`POST /offline-reminder/dismissal`), the `offline_reminder_interval_days` setting and the
+`isShown` it decides are left on the server, which the client no longer uses, until the owner says
+whether they go too.
+
 
 ## D281 — Everyone in a session hears voice from the start; Talk only opens the microphone, and Mute only stops one's own sending; the host's pop-up runs voice, each person's volume and the film's, with invites and people in dialogs of their own
 
