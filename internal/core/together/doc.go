@@ -50,6 +50,11 @@
 //     Enforced by TestHub_EachLinkAdmitsOnePersonOnce, TestHub_AnEjectedMemberIsGone,
 //     TestHub_OpeningAgainGivesTheHostTheirSession and, through the API,
 //     TestTogether_OnlyAHostOpensMakesLinksAndEnds.
+//   - When the server's upload cannot carry every player at its lowest quality, the member who
+//     joined most recently with a player, never the host, is told the session ended for them with
+//     uploadFull, and their membership still admits them (D286 §5). Enforced by
+//     TestHub_SendAwayNewestTellsTheNewestPlayerAndKeepsTheirMembership and
+//     TestHub_SendAwayNewestSendsNoHost.
 //   - A signed-in person's sessions follow them to any device, each device with a credential of
 //     its own that cuts off no other, a member keeping the newest few (D267 §2, §3). Enforced by
 //     TestMine_IsEverySessionAPersonIsInAsHostOrSignedInMember,

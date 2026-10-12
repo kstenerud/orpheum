@@ -263,6 +263,10 @@ func wireJobsInto(dependencies *api.Dependencies, opened openedServices, logger 
 	}
 	dependencies.Together = together.NewHub(clock.System{}, rand.Reader, mayPlay, logger)
 	dependencies.Together.SnapSeeksBy(dependencies.Chunks.KeyframeAtOrBefore)
+	// The last resort when the server's upload cannot carry its players at their lowest (D286 §5).
+	dependencies.Playback.SendAwayBy(func() (int64, int64, bool) {
+		return dependencies.Together.SendAwayNewest(playback.UploadFullReason)
+	})
 	opened.together = dependencies.Together
 	dependencies.Jobs, dependencies.Providers = opened.jobServices.queue, opened.jobServices.providerServices.all()
 	dependencies.PortMapping = opened.jobServices.portMapping

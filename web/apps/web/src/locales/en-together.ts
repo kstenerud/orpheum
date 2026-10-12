@@ -64,6 +64,8 @@ export const enTogether = {
       ejected: "The host removed you from the session. You can close this page.",
       left: "You left the session. You can close this page.",
       gone: "This session is over. You can close this page.",
+      uploadFull: "The host's connection can't carry everyone right now.",
+      joinAgain: "Join again",
     },
     event: {
       played: "{{name}} played from {{at}}",

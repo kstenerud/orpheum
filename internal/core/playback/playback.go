@@ -83,6 +83,9 @@ type Service struct {
 	speeds *linkSpeeds
 	// unplayablePictures are the films whose own picture each player gave up as unplayable.
 	unplayablePictures *unplayablePictures
+	// sendAway sends away the newest Watch Together member with a player (SendAwayBy); nil sends
+	// no one.
+	sendAway SendAway
 }
 
 // NewService returns the playback service.

@@ -92,3 +92,28 @@ func TestUploadControl_SaysWhenEveryoneIsAtTheirLowestAndItIsStillOver(t *testin
 			playbacks[0].rung(), playbacks[1].rung(), isOverAtLowest)
 	}
 }
+
+// The newest member is sent away once the need has been over the share with every quality at its
+// lowest for overAtLowestFor, and not again until what the one sent away asked for has stopped
+// counting (D286 §5).
+func TestLastResort_IsDueAfterOverAtLowestForAndSettlesAfterEach(t *testing.T) {
+	t.Parallel()
+	start := time.Date(2026, 10, 12, 14, 0, 0, 0, time.UTC)
+	resort := &lastResort{}
+	if resort.isDue(true, start) || resort.isDue(true, start.Add(overAtLowestFor-time.Second)) {
+		t.Fatal("due before overAtLowestFor")
+	}
+	if !resort.isDue(true, start.Add(overAtLowestFor)) {
+		t.Fatal("not due after overAtLowestFor")
+	}
+	resort.sentAwayAt = start.Add(overAtLowestFor)
+	if resort.isDue(true, start.Add(overAtLowestFor+askedWithin)) {
+		t.Error("due again before the one sent away stopped counting")
+	}
+	if !resort.isDue(true, resort.sentAwayAt.Add(sentAwaySettles)) {
+		t.Error("not due again after sentAwaySettles")
+	}
+	if resort.isDue(false, start.Add(time.Hour)) || resort.isDue(true, start.Add(time.Hour)) {
+		t.Error("due at once after the need fell under the share; want overAtLowestFor again")
+	}
+}
