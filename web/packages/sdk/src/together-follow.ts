@@ -310,8 +310,13 @@ class GroupFollower {
     this.#noteLoading(event);
     const isOwn = this.#isOwnMove(event);
     const where = this.#whereNow();
+    // A player not yet once in step with its group moves as it loads, not as its person says: an
+    // iPhone joining late jumped to where it would start, and as it may seek, sent that jump to the
+    // group, which waited for everyone again (the owner's test, 2026-10-12).
     const command =
-      where !== undefined && !isOwn ? commandOfEvent(event, this.#media, where) : undefined;
+      where !== undefined && !isOwn && this.#hasCaughtUp
+        ? commandOfEvent(event, this.#media, where)
+        : undefined;
     if (command === undefined || !mayLead(command, this.#options.leads)) {
       this.apply();
     } else {

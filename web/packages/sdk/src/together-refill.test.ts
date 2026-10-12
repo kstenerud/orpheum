@@ -2,8 +2,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { noRight } from "./together.ts";
-import { followGroup } from "./together-follow.ts";
+import { everyRight, noRight } from "./together.ts";
+import { followGroup, scrubPauseWindowMs } from "./together-follow.ts";
 import { refillAheadMs } from "./together-media.ts";
 import {
   catchUpSeekEvent,
@@ -192,5 +192,30 @@ describe("telling its player of the group's jumps (D286 §3)", () => {
       0,
     );
     expect(jumps()).toBe(2);
+  });
+});
+
+describe("a player that may seek, joining a group already playing (the owner's test, 2026-10-12)", () => {
+  it("sends no jump it makes as it loads, before it is once in step, and its person's after", () => {
+    const media = new FakeMedia();
+    const { connection, setGroup, commands } = fakeConnection({
+      ...paused,
+      state: "Playing",
+      positionMs: 5_424_000,
+    });
+    media.readyState = 0; // nothing loaded yet: the follower moves nothing
+    followGroup(media, connection, { fileId: 5, leads: everyRight, monotonicMs });
+    media.readyState = 4;
+    media.currentTime = 5416.678; // where its player put itself as it loaded
+    media.fire("seeking");
+    vi.advanceTimersByTime(scrubPauseWindowMs);
+    expect(commands).toEqual([]);
+    setGroup({ ...paused, state: "Paused", positionMs: 5_416_678 }, 0); // held where it is: in step
+    media.fire("seeking"); // the browser tells of the follower's own seeks so far
+    media.fire("seeked");
+    media.currentTime = 5800;
+    media.fire("seeking");
+    vi.advanceTimersByTime(scrubPauseWindowMs); // a drag's last seek is the one sent
+    expect(commands).toEqual([{ command: "seek", positionMs: 5_800_000 }]);
   });
 });
