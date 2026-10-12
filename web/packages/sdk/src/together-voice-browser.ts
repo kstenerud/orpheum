@@ -575,6 +575,11 @@ class BrowserDevices implements BrowserVoiceDevices {
 
   readonly prepareToHear = (): void => {
     if (this.#context === undefined && "AudioContext" in window) {
+      // Voice is heard from the start, through Web Audio, before any microphone opens (D281): in the
+      // browser's own session iOS then follows the silent switch, and an iPhone guest heard neither
+      // voice nor the film, even after its tap for sound (the owner's VQ30, 2026-10-12). The session
+      // plays as a film app's; the microphone, when it opens, makes it a call again.
+      endCallAudio();
       this.#context = new AudioContext();
       this.#context.addEventListener("statechange", this.#waiting.changed);
       resumeAtTaps(this.#context, document);
@@ -654,9 +659,10 @@ function startCallAudio(): void {
 }
 
 /**
- * Once the microphone closes: the session told it plays only, so iOS leaves the call it made of voice at
- * once, the film's sound back on the speaker, rather than some 20 s later (the owner's test,
- * 2026-10-08; unconfirmed on a phone, VQ26).
+ * Before the microphone opens, and once it closes: the session told it plays only, so iOS plays the
+ * page as a film app's whatever its silent switch, and leaves the call it made of voice at once, the
+ * film's sound back on the speaker, rather than some 20 s later (the owner's test, 2026-10-08;
+ * unconfirmed on a phone, VQ26).
  */
 function endCallAudio(): void {
   setSessionAudio("playback");

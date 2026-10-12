@@ -410,9 +410,14 @@ User-Agent (D263; the User-Agent is logged only).
   therefore be possible on iOS 17+, subject to the MSE and HLS Web Audio bugs in the next entry.
   **Not adopted (2026-10-08):** it gives the film nothing, since a streamed film through Web Audio is silent
   on Safari (next entry) and an element's volume stays read-only; and voice, the one thing we play
-  through Web Audio, plays only once the microphone is open, when iOS has already made the session
+  through Web Audio, played only once the microphone was open, when iOS has already made the session
   play-and-record, which the silent switch does not mute. Setting "playback" then could disturb the
   microphone. It matters again only if something plays through Web Audio without the microphone.
+  **Adopted (2026-10-12):** since D281 voice is heard from the start, through Web Audio, before any
+  microphone opens, and an iPhone guest heard neither voice nor the film, even after its tap for sound
+  (the owner's VQ30 run; the core's log, `playback=webAudio`). The session is told "playback" as voice
+  is first heard (`prepareToHear`), and "auto" again only as the microphone opens (`startCallAudio`).
+  `web/packages/sdk/src/together-voice-browser.ts`.
 
 
 ### iPhone Safari's native HLS cannot be routed through Web Audio, so it cannot be given a gain
