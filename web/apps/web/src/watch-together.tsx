@@ -27,6 +27,7 @@ import { forgetMembership, keepMembership, type Membership } from "./together-st
 import { useHostVoice, VoiceControls } from "./together-voice.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
+import { VolumeRange } from "./volume-range.tsx";
 
 /**
  * The host's Watch Together screen (D246 §3, §5): start a session, or have back the one this tab
@@ -161,15 +162,7 @@ function FilmVolumeSlider(): JSX.Element {
   return (
     <label className="watch-together__volume">
       {t("watchTogether.filmVolume")}{" "}
-      <input
-        type="range"
-        min={0}
-        max={100}
-        value={Math.round(volume * 100)}
-        onChange={(event) => {
-          setFilmVolume(Number(event.target.value) / 100);
-        }}
-      />
+      <VolumeRange value={volume} most={1} onChange={setFilmVolume} />
     </label>
   );
 }
