@@ -301,6 +301,31 @@ func TestEnsure_AJumpJustBeforeARunCutsItAndStartsOneRunWhereItLanded(t *testing
 	}
 }
 
+// A jump onto chunks already made does not cut the run that makes the chunks after them: that run is
+// not ahead of the jump but where it goes next. Cut, the next ask queued it again and each ask cut it
+// again, without end, the node left holding work no job wanted (the owner's test, 2026-10-12).
+func TestEnsure_AJumpOntoMadeChunksKeepsTheRunThatMakesTheChunksAfterThem(t *testing.T) {
+	t.Parallel()
+	queue := newFakeQueue()
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	sound := Stream{Kind: nodeproto.StreamSound, SoundKbps: 96}
+	dir := StoreDir(1, sound, mustGrid(t, service).ID())
+	service.runs.madeThrough(dir, 8, 9) // chunks 8 and 9 made, by a run since ended
+	ensured(t, service, sound, 10)
+	for range 2 {
+		err := service.ensure(t.Context(), ensuring{
+			fileID: 1, kind: OnKeyframes, stream: sound, wanted: 8, isSought: true,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(queue.cancelledFirsts) != 0 {
+		t.Errorf("the runs cancelled start at %v; want none, the run from 10 making what follows the made chunks",
+			queue.cancelledFirsts)
+	}
+}
+
 // D247 §10: a run made faster than it is played is made long before the player reaches its end; a
 // chunk the node serves from it looks a minute ahead, so the next run is on its way before the
 // player asks for its first chunk. After a restart nothing past a served chunk is known, and no run

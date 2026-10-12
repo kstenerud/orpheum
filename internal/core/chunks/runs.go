@@ -115,12 +115,19 @@ func (tracker *runTracker) cutFar(dir string, grid Grid, wanted int, far farFrom
 	tracker.mutex.Lock()
 	defer tracker.mutex.Unlock()
 	known := tracker.storeLocked(dir)
+	// A run that begins past wanted only because the chunks between are made is the one that makes
+	// what follows them, not one ahead: a jump onto made chunks cut the run after them, the next ask
+	// queued it again, and every ask cut it again, without end (the owner's test, 2026-10-12).
+	unmade := wanted
+	for unmade <= grid.lastChunk() && known.isMade[unmade] {
+		unmade++
+	}
 	var cuts []RunSpan
 	for first, each := range known.runByFirst {
 		next := each.madeThrough + 1
 		isFarPast := wanted > each.madeThrough && next <= grid.lastChunk() &&
 			grid.StartsMs[wanted]-grid.StartsMs[next] > far.pastMs
-		isFarBefore := wanted < each.first && grid.StartsMs[each.first]-grid.StartsMs[wanted] > far.beforeMs
+		isFarBefore := unmade < each.first && grid.StartsMs[each.first]-grid.StartsMs[unmade] > far.beforeMs
 		if !isFarPast && !isFarBefore {
 			continue
 		}
