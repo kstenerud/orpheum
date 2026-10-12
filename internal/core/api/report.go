@@ -53,6 +53,10 @@ type SeekBody struct {
 	ReadyAfterMs   int64 `json:"readyAfterMs"   minimum:"0"`
 	// IsPaused is whether the video was paused, so ReadyAfterMs is to being able to play.
 	IsPaused bool `json:"isPaused,omitempty" required:"false"`
+	// PictureAfterMs and SoundAfterMs are when the first chunk of picture and of sound arrived after
+	// the seek, absent when none had: a slow seek waited on one of them, or on neither.
+	PictureAfterMs *int64 `json:"pictureAfterMs,omitempty" minimum:"0" required:"false"`
+	SoundAfterMs   *int64 `json:"soundAfterMs,omitempty"   minimum:"0" required:"false"`
 }
 
 // UnplayableBody is a quality a player gave up as one its device cannot play: its rate, and where
@@ -212,10 +216,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 func (server *Server) logReport(
 	ctx context.Context, reporter reporter, report playback.Report, answer playback.Answer, stalls []StallBody,
 ) {
-	who := []any{
-		"userId", reporter.holder.UserID, "deviceId", reporter.deviceID, "viewerOfFileId", reporter.holder.OnlyFileID,
-		"positionMs", report.PositionMs, "linkKbps", report.LinkKbps,
-	}
+	who := append(reporter.logAttributes(), "positionMs", report.PositionMs, "linkKbps", report.LinkKbps)
 	if len(report.Stalls) == 0 {
 		return
 	}
@@ -264,10 +265,16 @@ func (server *Server) logUnplayables(ctx context.Context, reporter reporter, unp
 // logSeeks says how long each of the person's seeks took to play again, with the link's speed.
 func (server *Server) logSeeks(ctx context.Context, reporter reporter, seeks []SeekBody, linkKbps int64) {
 	for _, seek := range seeks {
-		server.logger.InfoContext(ctx, "a player's seek was ready to play", "userId", reporter.holder.UserID,
-			"deviceId", reporter.deviceID, "viewerOfFileId", reporter.holder.OnlyFileID,
+		attributes := append(reporter.logAttributes(),
 			"fromPositionMs", seek.FromPositionMs, "toPositionMs", seek.ToPositionMs,
 			"readyAfterMs", seek.ReadyAfterMs, "isPaused", seek.IsPaused, "linkKbps", linkKbps)
+		if seek.PictureAfterMs != nil {
+			attributes = append(attributes, "pictureAfterMs", *seek.PictureAfterMs)
+		}
+		if seek.SoundAfterMs != nil {
+			attributes = append(attributes, "soundAfterMs", *seek.SoundAfterMs)
+		}
+		server.logger.InfoContext(ctx, "a player's seek was ready to play", attributes...)
 	}
 }
 
@@ -296,6 +303,14 @@ type reporter struct {
 	dependencies *Dependencies
 	holder       playback.Holder
 	deviceID     int64
+}
+
+// logAttributes are who reported, for the log: the holder's user, 0 for a viewer, their device, and
+// the file they may play; never the session's key.
+func (reporter reporter) logAttributes() []any {
+	return []any{
+		"userId", reporter.holder.UserID, "deviceId", reporter.deviceID, "viewerOfFileId", reporter.holder.OnlyFileID,
+	}
 }
 
 // reporterOf is who reports on a playback: a signed-in person, on their device, or a Watch Together

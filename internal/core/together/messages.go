@@ -82,6 +82,9 @@ const (
 	NoteChunkLoaded     NoteKind = "chunkLoaded"
 	NoteQualitySwitched NoteKind = "qualitySwitched"
 	NoteReconnected     NoteKind = "reconnected"
+	// NoteLoadHeld is a ready player holding its loading while its group waits ("held"), or going on
+	// as it plays ("goesOn"), so the others have the upload (D283 §2).
+	NoteLoadHeld NoteKind = "loadHeld"
 	// NoteVoiceStats is a voice call's receiver's own statistics, every ten seconds (D262 §1).
 	NoteVoiceStats NoteKind = "voiceStats"
 	// NoteVoiceCall is a step a voice call took, so a call that never connects says how far it got.
@@ -228,7 +231,7 @@ func (note PlayerNote) isKnown() bool {
 		return isNoteWord(note.Why) && isNoteWord(note.Track)
 	case NoteVoiceStats, NoteVoiceOff, NoteVoiceCall, NoteVoiceTalk:
 		return note.isKnownVoice()
-	case NotePonged, NoteOwnMarkExpired, NoteCorrectsBySeeks:
+	case NotePonged, NoteOwnMarkExpired, NoteCorrectsBySeeks, NoteLoadHeld:
 		return note.isKnownFollowing()
 	case NotePlayedMuted, NoteUnmuted:
 		return note.PositionMs >= 0 && note.Why == "" && note.Track == ""
@@ -252,6 +255,8 @@ func (note PlayerNote) isKnownFollowing() bool {
 		return note.Why == "seek" || note.Why == "pause"
 	case NoteCorrectsBySeeks:
 		return note.ReturnCostMs >= 0 && note.Why == ""
+	case NoteLoadHeld:
+		return note.Why == "held" || note.Why == "goesOn"
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NoteVoiceStats,
 		NoteVoiceCall, NoteVoiceOff, NoteVoiceTalk, NotePlayedMuted, NoteUnmuted, NoteDiagnosis,
 		NoteLeaderCommand: // isKnown reads them
@@ -273,7 +278,7 @@ func (note PlayerNote) isKnownVoice() bool {
 		return note.PartnerDeviceID > 0 && isVoiceCallStep(note.Why)
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NotePonged,
 		NotePlayedMuted, NoteUnmuted, NoteDiagnosis, NoteLeaderCommand, NoteOwnMarkExpired,
-		NoteCorrectsBySeeks: // not voice's: isKnown reads them
+		NoteCorrectsBySeeks, NoteLoadHeld: // not voice's: isKnown reads them
 	}
 	return false
 }
@@ -340,12 +345,17 @@ type Inbound struct {
 	// StartLagMs, in a state, is how late the device's player has learned it moves after it is told
 	// to play, which it presses play that much early for; nil until it has started once, which the
 	// group then gives a run-up (D282).
-	StartLagMs *int64        `json:"startLagMs,omitempty"`
-	Command    CommandKind   `json:"command,omitempty"`
-	Rate       float64       `json:"rate,omitempty"`
-	FileID     int64         `json:"fileId,omitempty"`
-	BasedOnSeq int64         `json:"basedOnSeq,omitempty"`
-	Reason     SuspendReason `json:"reason,omitempty"`
+	StartLagMs *int64 `json:"startLagMs,omitempty"`
+	// ReadyOnMs and LoadsFaster, in a state, are how much film loaded ahead the player is ready on
+	// now, 3 s after a seek on a link that keeps up well, else 10 s (D283 §1), and how many times
+	// faster than it plays its last chunk of picture loaded: whether the shorter rule applied.
+	ReadyOnMs   int64         `json:"readyOnMs,omitempty"`
+	LoadsFaster float64       `json:"loadsFaster,omitempty"`
+	Command     CommandKind   `json:"command,omitempty"`
+	Rate        float64       `json:"rate,omitempty"`
+	FileID      int64         `json:"fileId,omitempty"`
+	BasedOnSeq  int64         `json:"basedOnSeq,omitempty"`
+	Reason      SuspendReason `json:"reason,omitempty"`
 	// Note is a note's: one thing the device's player did, for the server's log.
 	Note *PlayerNote `json:"note,omitempty"`
 	// ToDeviceID, SDP and Candidate are an rtc message's: voice signalling relayed to another

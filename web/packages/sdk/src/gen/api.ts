@@ -2991,7 +2991,11 @@ export interface components {
             fromPositionMs: number;
             isPaused?: boolean;
             /** Format: int64 */
+            pictureAfterMs?: number;
+            /** Format: int64 */
             readyAfterMs: number;
+            /** Format: int64 */
+            soundAfterMs?: number;
             /** Format: int64 */
             toPositionMs: number;
         };

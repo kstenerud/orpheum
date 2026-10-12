@@ -29,6 +29,9 @@ func (current *session) logPlayer(ctx context.Context, now time.Time, who *membe
 	if message.StartLagMs != nil {
 		attributes = append(attributes, "startLagMs", *message.StartLagMs)
 	}
+	if message.ReadyOnMs != 0 {
+		attributes = append(attributes, "readyOnMs", message.ReadyOnMs, "loadsFaster", message.LoadsFaster)
+	}
 	current.logger.DebugContext(ctx, "watch together: a device's player changed", attributes...)
 	from.playing, from.playerChangedAt = message.Playing, now
 }
@@ -98,6 +101,10 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 	case NoteVoiceTalk:
 		current.logger.InfoContext(ctx, "watch together: a person's microphone changed",
 			append(current.deviceAttributes(who, from), "microphone", note.Why)...)
+		return true
+	case NoteLoadHeld:
+		current.logger.InfoContext(ctx, "watch together: a ready player's loading changed while its group waits",
+			append(current.deviceAttributes(who, from), "loading", note.Why)...)
 		return true
 	case NoteCorrectsBySeeks:
 		current.logger.InfoContext(ctx, "watch together: a player corrects by seeks alone",

@@ -155,14 +155,18 @@ func TestReport_HowLongASeekTookToPlayAgainIsLogged(t *testing.T) {
 	playing := harness.play(t, user, chrome(1))
 	body := reportBody(1, 4_000, 0)
 	body["linkKbps"] = 10_400
-	body["seeks"] = []map[string]any{{"fromPositionMs": 2_759_000, "toPositionMs": 1_461_000, "readyAfterMs": 6900}}
+	body["seeks"] = []map[string]any{{
+		"fromPositionMs": 2_759_000, "toPositionMs": 1_461_000, "readyAfterMs": 6900,
+		"pictureAfterMs": 1300, "soundAfterMs": 4900,
+	}}
 	if answer := harness.report(t, user, playing, body); answer.status != http.StatusOK {
 		t.Fatalf("the report: %d %s", answer.status, answer.body)
 	}
 	logged := harness.logs.String()
 	for _, want := range []string{
 		`"msg":"a player's seek was ready to play"`, `"fromPositionMs":2759000`, `"toPositionMs":1461000`,
-		`"readyAfterMs":6900`, `"isPaused":false`, `"linkKbps":10400`,
+		`"readyAfterMs":6900`, `"isPaused":false`, `"linkKbps":10400`, `"pictureAfterMs":1300`,
+		`"soundAfterMs":4900`,
 	} {
 		if !strings.Contains(logged, want) {
 			t.Errorf("the log has no %s:\n%s", want, logged)
