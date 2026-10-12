@@ -3,6 +3,9 @@
 package diskspace
 
 import (
+	"errors"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -53,5 +56,27 @@ func TestTreeBytes_CountsOnlyTheRegularFilesUnderADirectory(t *testing.T) {
 	}
 	if _, err := TreeBytes(filepath.Join(root, "gone")); err == nil {
 		t.Error("a directory that does not exist was measured")
+	}
+}
+
+// A path under the root that is gone when it is read is not counted, and does not fail the walk; a
+// root that is gone does (the owner's jumps, 2026-10-12, where a run failed measuring its store as a
+// cancelled run's directory was removed beside it).
+func TestTreeBytes_SkipsWhatIsGoneAsItWalksButNotAGoneRoot(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	gone := fmt.Errorf("open: %w", fs.ErrNotExist)
+	if err := goneUnder(root, filepath.Join(root, "raw-1"), gone); err != nil {
+		t.Errorf("a directory under the root gone as it was walked: %v; want it skipped", err)
+	}
+	if err := goneUnder(root, root, gone); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("the root gone: %v; want it to fail", err)
+	}
+	other := errors.New("permission denied")
+	if err := goneUnder(root, filepath.Join(root, "raw-1"), other); !errors.Is(err, other) {
+		t.Errorf("another error under the root: %v; want it to fail", err)
+	}
+	if _, err := TreeBytes(filepath.Join(root, "missing")); err == nil {
+		t.Error("a root that does not exist was measured")
 	}
 }
