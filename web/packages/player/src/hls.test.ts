@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   holdLoadingEvent,
+  loadingRunwayEvent,
   playerLoadedChunkEvent,
   playerMovedItselfEvent,
   playerSwitchedQualityEvent,
@@ -13,6 +14,7 @@ import Hls from "hls.js";
 import {
   hlsMethod,
   holdLoadingWhenTold,
+  keepRunwayWhenTold,
   measuredKbps,
   playNative,
   preparedHlsConfig,
@@ -200,5 +202,23 @@ describe("holding its loading while its group waits (the owner's jumps, 2026-10-
     stop();
     hold(true);
     expect(calls).toEqual(["stop", "start -1"]);
+  });
+});
+
+describe("keeping a short runway while its group has one behind (D285 §2)", () => {
+  it("loads no more than the runway asked, and as far as it would once told to", () => {
+    const hls = { config: { maxBufferLength: 30, maxMaxBufferLength: 30 } };
+    const video = new EventTarget();
+    const runway = (aheadS: number | undefined): void => {
+      video.dispatchEvent(new CustomEvent(loadingRunwayEvent, { detail: { aheadS } }));
+    };
+    const stop = keepRunwayWhenTold(hls, video, { maxBufferLength: 30, maxMaxBufferLength: 30 });
+    runway(10);
+    expect(hls.config).toEqual({ maxBufferLength: 10, maxMaxBufferLength: 10 });
+    runway(undefined);
+    expect(hls.config).toEqual({ maxBufferLength: 30, maxMaxBufferLength: 30 });
+    stop();
+    runway(10);
+    expect(hls.config.maxBufferLength).toBe(30);
   });
 });

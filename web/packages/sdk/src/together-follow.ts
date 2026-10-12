@@ -18,7 +18,6 @@ import {
 import {
   catchUpSeekEvent,
   chunkLoadedOf,
-  holdLoadingEvent,
   fellBehindEvent,
   playerLoadedChunkEvent,
   playerMovedItselfEvent,
@@ -45,6 +44,7 @@ import {
   type FollowedMedia,
 } from "./together-media.ts";
 import { LoadSpeed, waitAheadAtMostMs } from "./together-load-speed.ts";
+import { GroupLoading } from "./together-loading.ts";
 import { Refill } from "./together-refill.ts";
 import { playOrPlayMuted } from "./together-sound.ts";
 import {
@@ -131,6 +131,8 @@ class GroupFollower {
   #phase: CorrectionPhase = startingPhase;
   /** Where its own last seek went, in ms; undefined before it made one. */
   #soughtToMs: number | undefined = undefined;
+  /** What it tells its player to load while its group waits or another is behind (D283 §2, D285 §2). */
+  readonly #loading: GroupLoading;
   /** How late it starts, as learned (D282). */
   readonly #start: StartLearner;
   /** Where it sought back to run up from, for the start under way (D282); undefined until it has. */
@@ -152,8 +154,6 @@ class GroupFollower {
   #hasCaughtUp = false;
   /** Whether it has stalled or sought, why, and whether it has loaded enough ahead to play on. */
   readonly #refill = new Refill();
-  /** Whether it told its player to hold its loading while its group waits (holdLoadingEvent). */
-  #isLoadHeld = false;
   /** Whether the group was last told it buffers, so loading only tells it of a change. */
   #wasReportedBuffering: boolean | undefined = undefined;
   /**
@@ -183,6 +183,7 @@ class GroupFollower {
     this.#connection = connection;
     this.#options = options;
     this.#start = new StartLearner(options.startLag ?? memoryOfTheSession());
+    this.#loading = new GroupLoading(media, connection);
   }
 
   /** The player's state as the group is told it. */
@@ -228,20 +229,8 @@ class GroupFollower {
       this.#holdAt(where);
     }
     this.#hasCaughtUp ||= isInStep(this.#media, where.expectedMs, where.tuning);
-    this.#holdLoading(where.group.state === "Waiting" && !this.#isBuffering());
+    this.#loading.follow(where.group.state, !this.#isBuffering());
   };
-
-  /**
-   * Holds its player's loading while its group waits and it is ready, so those not yet ready have
-   * the upload, and lets it go on otherwise (holdLoadingEvent; seek-resync-2026-10-12.md).
-   */
-  #holdLoading(isHeld: boolean): void {
-    if (isHeld !== this.#isLoadHeld) {
-      this.#isLoadHeld = isHeld;
-      this.#media.dispatchEvent(new CustomEvent(holdLoadingEvent, { detail: { isHeld } }));
-      this.#connection.note({ kind: "loadHeld", why: isHeld ? "held" : "goesOn" });
-    }
-  }
 
   /** Follows a playing group: waiting ahead of it, held until it starts, or playing along. */
   #followPlaying(where: GroupNow): void {
@@ -397,7 +386,7 @@ class GroupFollower {
   readonly stop = (): void => {
     clearTimeout(this.#pendingCommand);
     clearTimeout(this.#startTimer);
-    this.#holdLoading(false);
+    this.#loading.stop();
   };
 
   /** Applies the group again at atMs, on the monotonic clock: when a playing group starts. */
