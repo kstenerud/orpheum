@@ -45,6 +45,7 @@ User-Agent (D263; the User-Agent is logged only).
 | `RTCRtpReceiver.getCapabilities("audio")` lists no `audio/red`, so plain Opus is negotiated and voice has less loss protection. | [Firefox offers no RED (redundant audio) for Opus](#firefox-offers-no-red-redundant-audio-for-opus) |
 | Voice hung at "Asking for your microphone" because opening the microphone awaited the context's resume. | [Firefox keeps `AudioContext.resume()` pending until it lets the page play sound](#firefox-keeps-audiocontextresume-pending-until-it-lets-the-page-play-sound) |
 | With voice on, the film was turned down and the volume buttons stopped changing its volume. | [Firefox on Android makes a "call" of gain control and noise suppression, even with echo cancelling off](#firefox-on-android-makes-a-call-of-gain-control-and-noise-suppression-even-with-echo-cancelling-off) |
+| A volume slider on an iPhone moves only when the touch lands on its thumb. | [iPhone Safari moves a range slider only by a touch that starts on its thumb](#iphone-safari-moves-a-range-slider-only-by-a-touch-that-starts-on-its-thumb) |
 | The position reads as not advancing, which looks like false drift and causes spurious nudges. | [Safari's `currentTime` stands still for up to about 250 ms after play, seek or a rate change](#safaris-currenttime-stands-still-for-up-to-about-250-ms-after-play-seek-or-a-rate-change) |
 | Each rate change may make the sound skip. | [Safari's rate nudges stutter or skip, especially with pitch-keeping on](#safaris-rate-nudges-stutter-or-skip-especially-with-pitch-keeping-on) |
 | `window.MediaSource` is undefined on iPhone, so a probe that uses only MSE misses ManagedMediaSource, and hls.js cannot run below 17.1. | [iPhone has no `MediaSource`, only `ManagedMediaSource`, and only from iOS 17.1](#iphone-has-no-mediasource-only-managedmediasource-and-only-from-ios-171) |
@@ -280,6 +281,23 @@ User-Agent (D263; the User-Agent is logged only).
 ---
 
 ## Safari / iOS / WebKit
+
+
+### iPhone Safari moves a range slider only by a touch that starts on its thumb
+
+- **Technology:** `<input type="range">` in Safari on iOS (seen on iOS 18.5, 2026-10-12).
+- **Symptom:** the owner's Watch Together volume sliders "wouldn't move unless I hit it just so": a tap on
+  the track does nothing, and a slide moves the slider only when the finger landed on its small thumb.
+- **Cause:** WebKit's touch handling of a native range starts a drag only from the thumb; a touch elsewhere
+  on the track is neither a jump nor a drag.
+- **What we do:** every volume slider is one `VolumeRange`, which takes `touchstart` and `touchmove` itself
+  (not passive), sets the value where the finger is along the slider and follows it, and is 44 px tall
+  with `touch-action: none` so the page does not scroll under the finger. A mouse uses the native slider.
+  `web/apps/web/src/volume-range.tsx`, `volume-range.css`. VQ31.
+- **Evidence:** the owner's iPhone, 2026-10-12. **[web]** Others met it widely enough that Plyr's author
+  wrote a library for it alone, [RangeTouch](https://github.com/sampotts/rangetouch) ("make
+  `<input type='range'>` sliders work better on touch devices"), which does the same: it sets the value
+  from the touch's position.
 
 
 ### Safari's `currentTime` stands still for up to about 250 ms after play, seek or a rate change

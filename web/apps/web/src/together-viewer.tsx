@@ -62,6 +62,7 @@ import {
 import { monotonicMs, useTogether, useToldCannotKeepUp } from "./use-together.ts";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
+import { VolumeRange } from "./volume-range.tsx";
 
 /**
  * A Watch Together viewer's page (D246 §3, §5, §6), for someone who need not be signed in: they
@@ -285,16 +286,7 @@ function VolumeSlider(props: {
   const { t } = useTranslation();
   return (
     <label className="together-viewer__volume">
-      {t("together.volume")}{" "}
-      <input
-        type="range"
-        min={0}
-        max={100}
-        value={Math.round(props.volume * 100)}
-        onChange={(event) => {
-          props.onChange(Number(event.target.value) / 100);
-        }}
-      />
+      {t("together.volume")} <VolumeRange value={props.volume} most={1} onChange={props.onChange} />
     </label>
   );
 }

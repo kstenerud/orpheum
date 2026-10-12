@@ -286,3 +286,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   was locked; the iPhone's headphones notice with its OK; Invite and a person's row in dialogs over
   a darkened page. Open: each person's voice slider, the pop-up's Film volume, and the guest's title
   above the picture.
+  2026-10-12, the owner's four-device test (Firefox and Safari on a Mac, an iPhone, an Android
+  phone), three microphones on: *"Everything works."* A voice slider set to 0 reached its call
+  (the core's log, `partnerGain=0`). Still open: the pop-up's Film volume, and the guest's title
+  above the picture.
+- [ ] **VQ31** — On an iPhone, in a Watch Together session: put a finger anywhere on a volume
+  slider (a person's voice in the host's pop-up, Film volume, a guest's own volume) and slide it.
+  Passes when the slider jumps to where the finger landed and follows it, the page not scrolling,
+  without having to hit the slider's knob; on a computer the sliders move by mouse as before. Safari
+  on an iPhone moves a slider only by a touch that starts on its knob, which no test browser
+  reproduces (the owner, 2026-10-12). (`web/apps/web/src/volume-range.tsx`, `volume-range.css`)

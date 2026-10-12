@@ -31,6 +31,7 @@ import { dataOrThrow } from "./problem.ts";
 import { useServices, useToken } from "./services.tsx";
 import { membershipHeaders, type Membership } from "./together-storage.ts";
 import { monotonicMs } from "./use-together.ts";
+import { VolumeRange } from "./volume-range.tsx";
 
 /** The relay's ICE servers for a membership (D243 §8), as the browser's RTCPeerConnection takes them. */
 async function iceServersFor(
@@ -309,13 +310,11 @@ export function PersonVoiceVolume(
   return (
     <label className="together-voice__partner">
       {t("together.voice.personVolume", { name: props.name })}{" "}
-      <input
-        type="range"
-        min={0}
-        max={partnerGainMost * 100}
-        value={Math.round(gain * 100)}
-        onChange={(event) => {
-          props.voice.setPartnerGain(props.memberId, Number(event.target.value) / 100);
+      <VolumeRange
+        value={gain}
+        most={partnerGainMost}
+        onChange={(value) => {
+          props.voice.setPartnerGain(props.memberId, value);
         }}
       />
     </label>
