@@ -81,7 +81,7 @@ func (current *session) transport(now time.Time, sender *member, message Inbound
 			refuse(codeStale)
 			return
 		}
-		current.seek(now, sender, time.Duration(message.PositionMs)*time.Millisecond)
+		current.seek(now, sender, current.seekTarget(now, message))
 	case CommandRate:
 		if message.Rate <= 0 || !current.everyPlayerSetsRate() {
 			refuse(codeInvalid)
@@ -119,6 +119,25 @@ func (current *session) changeItem(now time.Time, sender *member, from *device, 
 	current.group.fileID, current.group.position, current.group.rate = fileID, position, 1
 	current.change(now, GroupWaiting, EventChangedItem, sender.id)
 	current.settle(now)
+}
+
+// snapSeeksBeyond is how far a seek must jump for it to be snapped to a keyframe: a jump along the
+// timeline is imprecise, and no one notices it land a little early, but a short skip, 5 to 15 s by
+// a key or a button, snapped back to where it started would never move on (D285 §1).
+const snapSeeksBeyond = 30 * time.Second
+
+// seekTarget is where a seek takes the group: where it was asked, or, for a jump of more than
+// snapSeeksBeyond whose keyframe is known, the run-up after the keyframe at or before it. Every
+// player then loads from a chunk's start, the encoded qualities' too, and none needs a second chunk
+// for what lies past where it aimed; a run-up runs on what is loaded (D285 §1). A jump along the
+// timeline is imprecise, the owner said, and no one would notice it land a little early.
+func (current *session) seekTarget(now time.Time, message Inbound) time.Duration {
+	asked := time.Duration(message.PositionMs) * time.Millisecond
+	jump := asked - current.positionAt(now)
+	if !message.isKeyframeKnown || (jump <= snapSeeksBeyond && jump >= -snapSeeksBeyond) {
+		return asked
+	}
+	return time.Duration(message.keyframeMs)*time.Millisecond + current.runUp
 }
 
 // seek moves the group to position; a playing group waits there until every player is ready. Each

@@ -89,6 +89,16 @@ func (service *Service) Grid(ctx context.Context, fileID int64) (Grid, bool, err
 	return film.grid, isCut, err
 }
 
+// KeyframeAtOrBefore is where the film's picture's last keyframe at or before positionMs is: the
+// start of its grid's chunk holding it, false while the film is not cut or cannot be (D285 §1).
+func (service *Service) KeyframeAtOrBefore(ctx context.Context, fileID, positionMs int64) (int64, bool) {
+	grid, isCut, err := service.Grid(ctx, fileID)
+	if err != nil || !isCut || len(grid.StartsMs) == 0 {
+		return 0, false
+	}
+	return grid.StartsMs[grid.chunkAt(positionMs)], true
+}
+
 // TimeGridOf is the starts of the chunks a film durationMs long is cut into on time (D269 §1): each
 // multiple of segmentMs before its end, a last chunk shorter than segmentMs merged into the one
 // before it. It fails with ErrCannotBeCut for a film of no known length, and for a segmentMs that is

@@ -262,6 +262,7 @@ func wireJobsInto(dependencies *api.Dependencies, opened openedServices, logger 
 		return err == nil && browser.ReachFile(ctx, reach, fileID) == nil
 	}
 	dependencies.Together = together.NewHub(clock.System{}, rand.Reader, mayPlay, logger)
+	dependencies.Together.SnapSeeksBy(dependencies.Chunks.KeyframeAtOrBefore)
 	opened.together = dependencies.Together
 	dependencies.Jobs, dependencies.Providers = opened.jobServices.queue, opened.jobServices.providerServices.all()
 	dependencies.PortMapping = opened.jobServices.portMapping

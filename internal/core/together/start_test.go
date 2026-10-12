@@ -3,6 +3,7 @@
 package together
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -109,5 +110,50 @@ func TestHub_APlayerLoadingBeforeTheGroupStartsIsNoStall(t *testing.T) {
 	stage.ready(t, host, true)
 	if group := box.last(MessageGroup).Group; group.State != GroupWaiting || group.Event != EventWaitingFor {
 		t.Errorf("the player stalling once the group moves: %+v; want Waiting for it", group)
+	}
+}
+
+// A jump of more than 30 s is snapped back to the keyframe at or before it, the group starting the
+// run-up after it; a shorter skip, or one whose film's keyframes are not known, lands where asked
+// (D285 §1; the owner: "Using the scroll bar to jump is by nature imprecise").
+func TestHub_ALongJumpIsSnappedBackToItsKeyframeAndAShortSkipIsNot(t *testing.T) {
+	t.Parallel()
+	for _, jump := range []struct {
+		name    string
+		toMs    int64
+		isKnown bool
+		wantMs  int64
+	}{
+		{"a long jump", 1_461_502, true, 1_461_541},
+		{"a short skip", 70_000, true, 70_000},
+		{"a long jump, keyframes unknown", 1_461_502, false, 1_461_502},
+	} {
+		stage := newStage(t)
+		var asked []int64
+		stage.hub.SnapSeeksBy(func(_ context.Context, fileID, positionMs int64) (int64, bool) {
+			asked = append(asked, fileID, positionMs)
+			return 1_459_541, jump.isKnown // the chunk holding 24:21.502 starts at 24:19.541
+		})
+		tuning := testTuning
+		tuning.RunUpMs = 2000
+		box := &inbox{}
+		host, err := stage.hub.Attach(stage.opened.MembershipCredential, RolePlayback, true, nil, tuning, box.send)
+		if err != nil {
+			t.Fatal(err)
+		}
+		stage.hub.Handle(t.Context(), host, Inbound{Type: MessageState, StartLagMs: new(int64(100))})
+		stage.hub.Handle(t.Context(), host, Inbound{
+			Type: MessageCommand, Command: CommandChangeItem, FileID: 7, PositionMs: 60_000,
+		})
+		stage.hub.Handle(t.Context(), host, Inbound{
+			Type: MessageCommand, Command: CommandSeek, PositionMs: jump.toMs, BasedOnSeq: box.last(MessageGroup).Seq,
+		})
+		group := box.last(MessageGroup).Group
+		if group.Event != EventSeeked || group.PositionMs != jump.wantMs {
+			t.Errorf("%s to %d ms: %+v; want the group at %d ms", jump.name, jump.toMs, group, jump.wantMs)
+		}
+		if len(asked) != 2 || asked[0] != 7 || asked[1] != jump.toMs {
+			t.Errorf("%s: asked for the keyframe of %v; want film 7's at %d ms", jump.name, asked, jump.toMs)
+		}
 	}
 }

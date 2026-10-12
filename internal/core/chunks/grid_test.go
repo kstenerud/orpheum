@@ -196,3 +196,24 @@ func TestGrid_SaysThereIsNoneYetOrThatTheFilmCannotBeCut(t *testing.T) {
 		}
 	}
 }
+
+// The keyframe at or before a position is the start of the chunk holding it, a chunk's own start
+// itself; a film with no grid says it does not know (D285 §1).
+func TestKeyframeAtOrBefore_IsTheStartOfTheChunkHoldingThePosition(t *testing.T) {
+	t.Parallel()
+	service, _ := chunksFixture(t, newFakeQueue(), fakeNode{})
+	grid := mustGrid(t, service)
+	if len(grid.StartsMs) < 3 {
+		t.Fatalf("film 1's grid has %d chunks; want at least 3", len(grid.StartsMs))
+	}
+	for _, at := range []int64{grid.StartsMs[2], grid.StartsMs[2] + 1, grid.StartsMs[3] - 1} {
+		keyframe, isKnown := service.KeyframeAtOrBefore(t.Context(), 1, at)
+		if !isKnown || keyframe != grid.StartsMs[2] {
+			t.Errorf("the keyframe at or before %d ms = %d, %t; want chunk 2's start, %d", at, keyframe, isKnown,
+				grid.StartsMs[2])
+		}
+	}
+	if _, isKnown := service.KeyframeAtOrBefore(t.Context(), 99, 1000); isKnown {
+		t.Error("a film that does not exist has a keyframe")
+	}
+}
