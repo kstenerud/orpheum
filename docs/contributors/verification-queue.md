@@ -22,12 +22,14 @@ An item is ticked only by the person who did it, and only with what they saw.
 
 ## Items
 
-- [ ] **VQ1** — On devnas (J3455), run
+- [x] **VQ1** — On devnas (J3455), run
   `go test -run '^$' -bench HashPassword -benchtime 10x ./internal/core/auth` and read
   `BenchmarkHashPassword_DefaultParameters`. Passes at 500 ms/op or less
   ([D194](decisions/working-notes.md#d194--secrets-our-users-passwords-are-hashed-third-party-secrets-are-sealed-with-a-key-that-never-enters-the-database-and-nothing-reads-a-secret-back-out)
   §2); above it, the memory cost comes down to OWASP's 46 MiB, t = 1. For reference, an
-  i3-N305 VM measured 50 ms. (M1)
+  i3-N305 VM measured 50 ms. (M1) — done 2026-10-12 by the owner on devnas, two runs:
+  `BenchmarkHashPassword_DefaultParameters-4 10 109870320 ns/op` and `10 118155167 ns/op`, 110 and
+  118 ms, within the 500 ms; the parameters stay.
 - [x] **VQ2** — In Firefox on the dev loop, play a prepared film or episode with sound in its
   centre (any dev-library MKV but the stereo ones), and tick and untick **Dialogue boost**
   while it plays. Passes when the change is heard within about a second of the click, with at
