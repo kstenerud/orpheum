@@ -121,14 +121,20 @@ func TestKeepRunsFast_MovesARunsPlayersOntoAQualityAlreadyMadeRatherThanEvictIt(
 	}
 }
 
-// The oldest run no player has asked for lately is evicted first, however fast it is.
-func TestKeepRunsFast_EvictsTheOldestRunNoOneIsPlayingFrom(t *testing.T) {
+// The oldest run no player has asked for lately is cancelled first, however fast it is, and its store
+// refuses no one, since no one was left without its chunks.
+func TestKeepRunsFast_CancelsTheOldestRunNoOneIsPlayingFromRefusingNoOne(t *testing.T) {
 	t.Parallel()
 	stage := newCapacityStage(t)
 	stage.progress(t, 3, 1.05, func(dir string) bool { return dir == stage.newer })
 	if !slices.Equal(stage.queue.cancelledJobs, []int64{11}) {
 		t.Errorf("the jobs cancelled = %v; want the older run's, 11, which no one plays from",
 			stage.queue.cancelledJobs)
+	}
+	// No one was left without chunks, so a player coming to the quality later is refused nothing: the
+	// owner's friend's player was refused its quality for good (2026-10-12).
+	if err := stage.service.Ensure(t.Context(), 1, OnKeyframes, quality(1200, 480), 5); err != nil {
+		t.Errorf("a player asking later for the cancelled run's store: %v; want a new run", err)
 	}
 }
 
