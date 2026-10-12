@@ -243,6 +243,37 @@ func TestEnsure_ASeekFarBackFromARunCancelsIt(t *testing.T) {
 	}
 }
 
+// A player that says a seek took it 70 s past a run, nearer than chunk_new_run_beyond_seconds, starts
+// a run there, cancelling that one; one that does not say so, a catch-up, waits for the run (D284 §2;
+// the owner's jumps, 2026-10-12, where an iPhone waited for a 720p run made at playback's speed).
+func TestEnsure_ASeekAPlayerSaysItMadeStartsARunNearerThanAnotherAsk(t *testing.T) {
+	t.Parallel()
+	for _, isSought := range []bool{false, true} {
+		queue, cache := jobsQueue(t)
+		service, _ := chunksFixture(t, queue, fakeNode{})
+		picture := Stream{Kind: nodeproto.StreamPicture}
+		ensured(t, service, picture, 3)
+		err := service.ensure(t.Context(), ensuring{
+			fileID: 1, kind: OnKeyframes, stream: picture, wanted: 10, isSought: isSought,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		runs := openRuns(t, cache)
+		firsts := make([]int, 0, len(runs))
+		for _, args := range runs {
+			firsts = append(firsts, args.FirstChunk)
+		}
+		want := []int{3}
+		if isSought {
+			want = []int{10}
+		}
+		if !slices.Equal(firsts, want) {
+			t.Errorf("said sought %t: the runs queued start at %v; want %v", isSought, firsts, want)
+		}
+	}
+}
+
 // D247 §10: a run made faster than it is played is made long before the player reaches its end; a
 // chunk the node serves from it looks a minute ahead, so the next run is on its way before the
 // player asks for its first chunk. After a restart nothing past a served chunk is known, and no run

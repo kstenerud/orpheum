@@ -13,6 +13,8 @@ import {
   hlsMethod,
   hlsSupport,
   holdLoadingWhenTold,
+  markSeeks,
+  soughtHeader,
   playNative,
   startWithAudio,
   tellLoading,
@@ -206,12 +208,17 @@ export function chunkedHlsConfig(options: {
   readonly loadsAheadAtMostS?: number;
   /** The pace each download asks of the server, in kbit/s, or undefined for none (D262 §2). */
   readonly paceKbps?: () => number | undefined;
+  /** Whether the video loads where a seek took it, which each request then says (markSeeks). */
+  readonly isSought?: () => boolean;
 }): Partial<HlsConfig> {
   return {
     xhrSetup: (xhr) => {
       const kbps = options.paceKbps?.();
       if (kbps !== undefined) {
         xhr.setRequestHeader(paceHeader, String(kbps));
+      }
+      if (options.isSought?.() === true) {
+        xhr.setRequestHeader(soughtHeader, "true");
       }
     },
     testBandwidth: false,
@@ -225,6 +232,32 @@ export function chunkedHlsConfig(options: {
           maxMaxBufferLength: options.loadsAheadAtMostS,
         }),
   };
+}
+
+/**
+ * Plays url with the element's own HLS where the page has no MSE, knowing nothing of its qualities,
+ * or fails as unsupported where it has neither; undefined where hls.js plays it.
+ */
+function playWithoutHlsJs(
+  video: HTMLVideoElement,
+  url: string,
+  onFailed: (failure: PlaybackFailure) => void,
+): ChunkedPlayback | undefined {
+  const method = hlsMethod(hlsSupport(video));
+  const unknowing = {
+    playing: () => undefined,
+    settledAtBps: () => undefined,
+    estimateKbps: () => undefined,
+    beyondTheLink: () => undefined,
+  };
+  if (method === "native") {
+    return { ...playNative(video, url), ...unknowing };
+  }
+  if (method === "none") {
+    onFailed("hls_unsupported");
+    return { setAudioRendition: () => undefined, destroy: () => undefined, ...unknowing };
+  }
+  return undefined;
 }
 
 /**
@@ -249,19 +282,9 @@ export function playChunked(
     readonly loadsAheadAtMostS?: number;
   },
 ): ChunkedPlayback {
-  const method = hlsMethod(hlsSupport(video));
-  const unknowing = {
-    playing: () => undefined,
-    settledAtBps: () => undefined,
-    estimateKbps: () => undefined,
-    beyondTheLink: () => undefined,
-  };
-  if (method === "native") {
-    return { ...playNative(video, url), ...unknowing };
-  }
-  if (method === "none") {
-    options.onFailed("hls_unsupported");
-    return { setAudioRendition: () => undefined, destroy: () => undefined, ...unknowing };
+  const withoutHlsJs = playWithoutHlsJs(video, url, options.onFailed);
+  if (withoutHlsJs !== undefined) {
+    return withoutHlsJs;
   }
   const abr = orpheumAbr({
     startAtBps: options.startAtBps,
@@ -270,8 +293,13 @@ export function playChunked(
     fromCache: typeof performance === "undefined" ? () => undefined : fromCacheBy(performance),
     onUnplayable: sendUnplayable(video),
   });
+  const seeks = markSeeks(video);
   const hls = new Hls({
-    ...chunkedHlsConfig({ ...options, paceKbps: () => abr.choosing()?.paceKbps() }),
+    ...chunkedHlsConfig({
+      ...options,
+      paceKbps: () => abr.choosing()?.paceKbps(),
+      isSought: seeks.isSought,
+    }),
     abrController: abr.controller,
   });
   failOnFatal(hls, options.onFailed);
@@ -289,6 +317,7 @@ export function playChunked(
     },
     destroy: () => {
       stopHolding();
+      seeks.stop();
       hls.destroy();
     },
     playing: () => hls.levels[hls.currentLevel],

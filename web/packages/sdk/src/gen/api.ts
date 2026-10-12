@@ -3565,6 +3565,8 @@ export interface operations {
             header?: {
                 /** @description Bearer <session token> */
                 Authorization?: string;
+                /** @description The player loads where a seek took it (D284 §2) */
+                "Orpheum-Sought"?: boolean;
             };
             path: {
                 /** @description stream.m3u8, init.mp4 or a chunk, NNNNN.m4s */

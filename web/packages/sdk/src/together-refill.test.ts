@@ -6,6 +6,7 @@ import { noRight } from "./together.ts";
 import { followGroup } from "./together-follow.ts";
 import { refillAheadMs } from "./together-media.ts";
 import {
+  catchUpSeekEvent,
   holdLoadingEvent,
   loadingHoldOf,
   playerLoadedChunkEvent,
@@ -148,5 +149,25 @@ describe("a group that seeks again while a player still loads (the owner's jumps
     ]);
     setGroup({ ...paused, state: "Waiting", positionMs: 5_373_000 }, 0); // still loading, as near
     expect(notes.filter((note) => note.kind === "sought")).toHaveLength(3);
+  });
+});
+
+describe("a catch-up's seek, which is no jump (D250 §5, D284 §2)", () => {
+  it("is told to its player just before it seeks, so its requests do not say a seek took it there", () => {
+    const media = new FakeMedia();
+    media.currentTime = 100;
+    const { connection } = fakeConnection({
+      ...paused,
+      state: "Playing",
+      positionMs: 100_000,
+    });
+    followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
+    monotonicNowMs = 1000;
+    media.currentTime = 101;
+    media.fire("progress");
+    media.currentTime = 50; // a stall the group played on through
+    media.fire("waiting");
+    expect(media.dispatched).toContain(catchUpSeekEvent);
+    expect(media.currentTime).toBe(101); // it jumped to the group, which measured no lead yet
   });
 });

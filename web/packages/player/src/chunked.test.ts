@@ -4,7 +4,12 @@ import { describe, expect, it } from "vitest";
 
 import type { LoaderContext } from "hls.js";
 
-import { waitAheadAtMostMs, type CannotKeepUp } from "@orpheum/sdk";
+import {
+  catchUpSeekEvent,
+  playerMovedItselfEvent,
+  waitAheadAtMostMs,
+  type CannotKeepUp,
+} from "@orpheum/sdk";
 
 import {
   beyondTheLink,
@@ -16,6 +21,7 @@ import {
   settledAtBps,
   unplayableOf,
 } from "./chunked.ts";
+import { markSeeks, soughtHeader } from "./hls.ts";
 
 /** Three qualities, as hls.js reads them from the playlist. */
 const levels = [
@@ -98,6 +104,38 @@ describe("asking the server to pace a download (D262 §2)", () => {
     pace = undefined;
     void config.xhrSetup?.(xhr, "/c/q1200k480p/00002.m4s", loaderContext);
     expect(headers).toEqual([[paceHeader, "1863"]]);
+  });
+});
+
+describe("saying a seek took the player where it loads (D284 §2)", () => {
+  it("says so on each request while the video loads where its person's or group's seek took it", () => {
+    const headers: [string, string][] = [];
+    const xhr = {
+      setRequestHeader: (name: string, value: string) => {
+        headers.push([name, value]);
+      },
+    } as unknown as XMLHttpRequest;
+    const loaderContext = {} as unknown as LoaderContext;
+    const video = new EventTarget();
+    const seeks = markSeeks(video);
+    const config = chunkedHlsConfig({ startPositionS: 0, isSought: seeks.isSought });
+    const load = (): void => {
+      void config.xhrSetup?.(xhr, "/c/q1200k480p/00001.m4s", loaderContext);
+    };
+    load(); // playing on: nothing said
+    video.dispatchEvent(new Event("seeking"));
+    load();
+    video.dispatchEvent(new Event("canplay"));
+    load(); // it can play there
+    video.dispatchEvent(new Event(catchUpSeekEvent));
+    video.dispatchEvent(new Event("seeking"));
+    load(); // a catch-up, no jump
+    video.dispatchEvent(new Event("playing"));
+    video.dispatchEvent(new Event(playerMovedItselfEvent));
+    video.dispatchEvent(new Event("seeking"));
+    load(); // hls.js's own step over a gap, no jump
+    seeks.stop();
+    expect(headers).toEqual([[soughtHeader, "true"]]);
   });
 });
 

@@ -27,6 +27,9 @@ type ChunkFileInput struct {
 	Token      string `doc:"The playback's media token" path:"token"`
 	StreamName string `doc:"picture, a quality such as q1200k480p, or a sound such as sound0-96k or sound0-boost-96k" path:"streamName"` //nolint:lll // one struct tag
 	FileName   string `doc:"stream.m3u8, init.mp4 or a chunk, NNNNN.m4s" path:"fileName"`
+	// IsSought is the player saying it loads where a seek took it, its person's or its group's, never
+	// a catch-up's: a run starts there sooner (D284 §2).
+	IsSought bool `doc:"The player loads where a seek took it (D284 §2)" header:"Orpheum-Sought" required:"false"`
 }
 
 // streamPlaylistName is the name of a stream's playlist, which the core writes itself.
@@ -123,6 +126,9 @@ func (server *Server) getChunkFile(ctx context.Context, input *ChunkFileInput) (
 	if err != nil {
 		return nil, server.chunksError(ctx, "find a chunk", err)
 	}
+	if input.IsSought {
+		file = file.AsSought()
+	}
 	return server.relayChunkFile(ctx, dependencies, file)
 }
 
@@ -217,6 +223,7 @@ func (server *Server) logChunkWait(
 	}
 	attributes := []any{
 		"storeDir", file.StoreDir(), "wantedChunk", file.WantedChunk(), "isInit", file.IsInit(),
+		"isSought", file.IsSought(),
 		"outcome", outcome, "heldMs", dependencies.Clock.Now().Sub(wait.askedAt).Milliseconds(),
 		"isCovered", wait.isCovered,
 	}

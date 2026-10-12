@@ -18313,6 +18313,9 @@ D247 §4 and its amendment, and revises D247 §8 and §10.
    with a lot of transcodes."* A chunk not made yet is answered at once with "ask again", not held:
    a held request is counted by hls.js as a slow download (playback-in-practice.md §3).
 
+   **Refined by D284 §2** (2026-10-12): a request a player says a jump took it to starts a run
+   20 s past where one makes; a catch-up's still waits.
+
    **Amended 2026-10-12**, after the owner's jump back in a three-device session stuck everyone: a
    seek far back from a store's run cancels it, as one far past it did, since the run a seek left
    ran on and took the node's room; and a run is in use (§6) when a player asks for its own chunks
@@ -19554,6 +19557,29 @@ aimed. It refines D247 §5 and D282 §4.
    chunk is one more to load, and on an encoded quality one more to encode (a run-up of 2 s asked
    for a whole chunk for 12 ms of it, 2026-10-12). A shortened run-up starts once the group's run
    reaches it.
+
+**Status:** Decided 2026-10-12.
+
+
+## D284 — Encoded qualities carry a keyframe every 2 s, each its own fragment, and a chunk is served as it is made; a player says when a jump took it where it loads, and a jump starts a run there
+
+**Decided** (2026-10-12), by the project owner, on [seek-resync-2026-10-12.md](../design/research/seek-resync-2026-10-12.md)
+§6 and the owner's group jumps of the same day, where an iPhone on an encoded 720p was ready 7 to 26 s
+after a jump while the others were ready in 3 to 7: *"yes go ahead with both."* On how a server tells
+a jump from a catch-up: *"We should be able to tell from the controlling client whether it's a jump
+or not. The user interaction would tell you what happened."* It refines D250 §5.
+
+1. **Encoded qualities carry a keyframe every 2 s**, inside chunks that stay on the copied picture's
+   grid, each keyframe beginning its own fragment, and **a chunk is served as it is made**, so a
+   player on an encoded quality starts on the first 2 s of a chunk rather than its whole 10 s: about
+   9 s to 2 or 3 after a jump, for 3 to 5% more bits.
+2. **A jump says it is one.** A player loading where its person's seek, or its group's, took it
+   says so on each request (`Orpheum-Sought`) until it can play there; a catch-up's seek
+   (`catchUpSeekEvent`) and hls.js's own steps over a gap never do. Such a request more than
+   `chunk_seek_new_run_beyond_seconds` (20 s) of film past where a run is making starts a run there,
+   cancelling that one; any other keeps `chunk_new_run_beyond_seconds` (90 s), so a catch-up still
+   waits for the run already making its quality. A run made at playback's speed reached a jump 70 s
+   ahead some 50 s later.
 
 **Status:** Decided 2026-10-12.
 

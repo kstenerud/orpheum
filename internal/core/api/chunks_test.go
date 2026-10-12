@@ -220,7 +220,34 @@ func TestChunks_AChunkNotMadeIsAnsweredAtOnceByDefault(t *testing.T) {
 	}
 	harness.checkOneRunQueued(t, grid.ID())
 	harness.logs.AwaitLine(t, `"msg":"waited for a chunk not made yet"`, `"wantedChunk":1,`,
-		`"outcome":"askAgain"`, `"heldMs":0,`)
+		`"outcome":"askAgain"`, `"heldMs":0,`, `"isSought":false,`)
+}
+
+// A player that says a seek took it where it asks, by Orpheum-Sought, is taken at its word: the
+// chunk's wait says so in the log, and a run starts there sooner (D284 §2).
+func TestChunks_APlayerSayingASeekTookItThereIsTakenAtItsWord(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	base := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	harness.keepFilmOnesTimeline(t)
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet,
+		harness.httpServer.URL+base+"q700k432p/00001.m4s", http.NoBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Authorization", "Bearer "+user)
+	request.Header.Set("Orpheum-Sought", "true")
+	answer, err := harness.httpServer.Client().Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = answer.Body.Close() //nolint:errcheck // its status is all that is read
+	if answer.StatusCode != http.StatusTooEarly {
+		t.Errorf("a chunk not made yet, asked for after a seek: %d, want 425", answer.StatusCode)
+	}
+	harness.logs.AwaitLine(t, `"msg":"waited for a chunk not made yet"`, `"wantedChunk":1,`, `"isSought":true,`)
 }
 
 // A chunk of a quality whose run was evicted to keep its machine's other runs faster than playback

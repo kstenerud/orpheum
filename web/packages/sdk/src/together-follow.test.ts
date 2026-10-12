@@ -13,6 +13,7 @@ import {
   waitAheadAtMostMs,
 } from "./together-follow.ts";
 import {
+  catchUpSeekEvent,
   fellBehindEvent,
   playerLoadedChunkEvent,
   playerMovedItselfEvent,
@@ -586,13 +587,13 @@ describe("a player following its group", () => {
       leads: noRight,
       monotonicMs,
     });
-    // Joining a group already playing elsewhere is no falling behind.
-    expect(media.dispatched).toEqual([]);
+    // Joining a group already playing elsewhere is no falling behind, though it is a catch-up's seek.
+    expect(media.dispatched).toEqual([catchUpSeekEvent]);
     media.fire("seeked");
     vi.advanceTimersByTime(checkDriftEveryMs);
-    expect(media.dispatched).toEqual([]);
+    expect(media.dispatched).toEqual([catchUpSeekEvent]);
     setGroup({ ...paused, state: "Playing", positionMs: 120_000 }, 0);
-    expect(media.dispatched).toEqual([fellBehindEvent]);
+    expect(media.dispatched).toEqual([catchUpSeekEvent, fellBehindEvent, catchUpSeekEvent]);
   });
 
   it("held paused, waits at the start of what it loaded when the group's place falls just before it", () => {

@@ -98,12 +98,13 @@ func (tracker *runTracker) isMadeFromThrough(dir string, first, last int) bool {
 	return true
 }
 
-// cutFar cuts every run of the store that wanted is more than beyondMs of film away from: past the
-// chunk it makes next, or before the chunk it starts at. Such a request was sought to (D250 §5),
-// since a player catching up never jumps that far, and a run made ahead starts a minute ahead at
-// most (lookaheadMs); no one follows those runs now: they are forgotten, and returned for the caller
-// to cancel. A run a seek back left ran on, as fast as the node could make it, and starved the runs
-// the players needed where they went (the owner's test, 2026-10-12).
+// cutFar cuts every run of the store that wanted is more than beyondMs of film past the chunk it
+// makes next, or more than lookaheadMs and beyondMs before the chunk it starts at, a run made ahead
+// starting up to lookaheadMs ahead. Such a request was sought to (D250 §5, D284 §2); no one follows
+// those runs now: they are forgotten, and returned
+// for the caller to cancel. A run a seek back left ran on, as fast as the node could make it, and
+// starved the runs the players needed where they went; a seek a little ahead waited for a run made
+// at playback's speed to get there (the owner's tests, 2026-10-12).
 func (tracker *runTracker) cutFar(dir string, grid Grid, wanted int, beyondMs int64) []RunSpan {
 	tracker.mutex.Lock()
 	defer tracker.mutex.Unlock()
@@ -113,7 +114,8 @@ func (tracker *runTracker) cutFar(dir string, grid Grid, wanted int, beyondMs in
 		next := each.madeThrough + 1
 		isFarPast := wanted > each.madeThrough && next <= grid.lastChunk() &&
 			grid.StartsMs[wanted]-grid.StartsMs[next] > beyondMs
-		isFarBefore := wanted < each.first && grid.StartsMs[each.first]-grid.StartsMs[wanted] > beyondMs
+		isFarBefore := wanted < each.first &&
+			grid.StartsMs[each.first]-grid.StartsMs[wanted] > lookaheadMs+beyondMs
 		if !isFarPast && !isFarBefore {
 			continue
 		}
