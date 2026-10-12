@@ -133,13 +133,54 @@ func (service *Service) uploadMbps(ctx context.Context) (int64, error) {
 	return mbps, nil
 }
 
+// UploadFullReason is the reason a member sent away for the server's upload is told: the host's
+// connection cannot carry everyone (D286 §5).
+const UploadFullReason = "uploadFull"
+
+// How long the need must stay over the share with every quality at its lowest before the newest
+// member is sent away, and how long after one is before another may be: what the one sent away asked
+// for counts for askedWithin after (D286 §5).
+const (
+	overAtLowestFor = 20 * time.Second
+	sentAwaySettles = askedWithin + overAtLowestFor
+)
+
+// SendAway sends away the Watch Together member who joined most recently of those with a player,
+// never a host, saying whom, and whether there was anyone: together.Hub.SendAwayNewest.
+type SendAway func() (sessionID, memberID int64, isSent bool)
+
+// SendAwayBy is the last resort when the upload cannot carry every player at its lowest quality
+// (D286 §5). Set once, before the server serves.
+func (service *Service) SendAwayBy(sendAway SendAway) { service.sendAway = sendAway }
+
+// lastResort is when the need has been over the share with every quality at its lowest since, and
+// when a member was last sent away for it.
+type lastResort struct {
+	overSince, sentAwayAt time.Time
+}
+
+// isDue is whether a member is to be sent away now: the need over the share at every lowest quality
+// for overAtLowestFor, and sentAwaySettles since the last one sent away.
+func (resort *lastResort) isDue(isOverAtLowest bool, now time.Time) bool {
+	if !isOverAtLowest {
+		resort.overSince = time.Time{}
+		return false
+	}
+	if resort.overSince.IsZero() {
+		resort.overSince = now
+	}
+	return now.Sub(resort.overSince) >= overAtLowestFor &&
+		(resort.sentAwayAt.IsZero() || now.Sub(resort.sentAwayAt) >= sentAwaySettles)
+}
+
 // KeepUnderShare looks at each tick at what the server's players need of its upload, and lowers or
 // raises their qualities to keep it under the films' share of server_upload_mbps (D286 §5), telling
 // each player with its next chunk (CeilingOf). Unanswered, it lifts every ceiling. Each change is
 // logged, and the need still over the share with every quality at its lowest, once each time it
-// comes to be.
+// comes to be; staying so for overAtLowestFor, the newest member is sent away (SendAwayBy).
 func (service *Service) KeepUnderShare(ctx context.Context, tick <-chan time.Time, logger *slog.Logger) {
 	control := &uploadControl{}
+	resort := &lastResort{}
 	wasOverAtLowest := false
 	for {
 		select {
@@ -163,6 +204,13 @@ func (service *Service) KeepUnderShare(ctx context.Context, tick <-chan time.Tim
 				"shareKbps", shareKbps)
 		}
 		wasOverAtLowest = isOverAtLowest
+		if resort.isDue(isOverAtLowest, service.clock.Now()) && service.sendAway != nil {
+			if sessionID, memberID, isSent := service.sendAway(); isSent {
+				resort.sentAwayAt = service.clock.Now()
+				logger.WarnContext(ctx, "sent away the newest member: the server's upload cannot carry everyone",
+					"sessionId", sessionID, "memberId", memberID, "shareKbps", shareKbps)
+			}
+		}
 	}
 }
 

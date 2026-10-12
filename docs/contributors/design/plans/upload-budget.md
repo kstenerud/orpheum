@@ -6,7 +6,7 @@
 
 # The server's upload and its players' qualities
 
-- **Status:** IN-PROGRESS — U1 to U4 built 2026-10-12, U5 and U6 left; written 2026-10-12 on the owner's word (*"go ahead"*); its two questions
+- **Status:** IN-PROGRESS — U1 to U5 built 2026-10-12, U6 (the owner's device test, VQ36) left; written 2026-10-12 on the owner's word (*"go ahead"*); its two questions
   answered by the owner the same day (*"To your two questions: Agreed"*): solo players count and are
   lowered, and the server acts early, from the setting.
 - **Depends on:** D286 §4 and §5 (decided 2026-10-12, §5's details in its text), D265 (the player's
@@ -87,7 +87,7 @@ playback stopped or idle loses its ceiling.
 | U2 | The ceiling: kept per playback, sent as `Orpheum-Ceiling-Kbps` on every chunk, obeyed by the player's controller | BUILT 2026-10-12: `CeilingHeader`, `Choosing.obeyServer`, `chunks.Service.Ladder` |
 | U3 | Lowering and raising (§4), as a pure function of the playbacks, their needs and the share, and the 5 s watch that applies it | BUILT 2026-10-12: `internal/core/playback/lowering.go`, `KeepUnderShare` every 5 s |
 | U4 | D286 §4: a node too slow lowers onto a quality already made before evicting | BUILT 2026-10-12: `chunks.Service.MovePlayersBy`, `playback.Service.MoveOffStream`, a ceiling of 2 minutes |
-| U5 | Removing the newest member (§5): the hub's removal, the `uploadFull` close, the page's words | the hub's and the page's tests |
+| U5 | Removing the newest member (§5): the hub's removal, the `uploadFull` close, the page's words | BUILT 2026-10-12: `together.Hub.SendAwayNewest`, `playback.Service.SendAwayBy`, the guest page's Join again |
 | U6 | A VQ item: the owner's devices on a setting set low on purpose, watching qualities fall, merge and rise, and the newest member removed | device |
 
 ## The owner's answers

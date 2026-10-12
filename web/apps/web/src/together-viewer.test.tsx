@@ -434,6 +434,27 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     mounted.unmount();
   });
 
+  it("tells a viewer sent away for the host's connection why, keeps them a member, and lets them back in", async () => {
+    window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
+    window.localStorage.setItem(
+      "orpheum.together.viewer",
+      JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
+    );
+    const { services, server } = viewerServices("/together", {});
+    const mounted = await mount(withServices(<TogetherViewer />, services));
+    await server.accept();
+    await server.say(welcome);
+    await server.say({ type: "ended", reason: "uploadFull" });
+    expect(mounted.container.textContent).toContain(
+      "The host's connection can't carry everyone right now.",
+    );
+    expect(window.localStorage.getItem("orpheum.together.viewer")).not.toBeNull();
+    await click(buttonWithText(mounted.container, "Join again"));
+    expect(mounted.container.textContent).not.toContain("can't carry everyone");
+    expect(buttonWithText(mounted.container, "Leave")).toBeDefined();
+    mounted.unmount();
+  });
+
   it("joins by a new link pasted into a tab still on the page, which does not load again", async () => {
     window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
     window.localStorage.setItem(

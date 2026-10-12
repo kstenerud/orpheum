@@ -79,7 +79,7 @@ export function TogetherViewer(): JSX.Element {
   // The membership this browser keeps, unless a link other than the one it joined by was opened:
   // the same link opened again comes back as the same member (D267 §1).
   const membership = secret === undefined || kept?.link === secret ? kept : undefined;
-  const [endReason, setEndReason] = useState<TogetherEndReason | undefined>(undefined);
+  const { endReason, over } = useSessionEnd();
   useEffect(() => {
     // Signed in, a session joined on another device follows them here (D267 §2).
     if (token !== undefined && secret === undefined) {
@@ -103,13 +103,13 @@ export function TogetherViewer(): JSX.Element {
             forgetMembership(browserStorage(), "viewer");
           }
           setSecret(pasted);
-          setEndReason(undefined);
+          over.again();
         }
       }),
-    [navigation],
+    [navigation, over],
   );
   if (endReason !== undefined) {
-    return <SessionOver reason={endReason} />;
+    return <SessionOver reason={endReason} onAgain={over.again} />;
   }
   if (membership === undefined) {
     if (secret === undefined) {
@@ -128,15 +128,7 @@ export function TogetherViewer(): JSX.Element {
       />
     );
   }
-  return (
-    <ViewerSession
-      membership={membership}
-      onOver={(reason) => {
-        forgetMembership(browserStorage(), "viewer");
-        setEndReason(reason);
-      }}
-    />
-  );
+  return <ViewerSession membership={membership} onOver={over.end} />;
 }
 
 /** An address with no link in it, and no session this tab is in: only what to do instead. */
@@ -216,12 +208,50 @@ function JoinForm(props: {
   );
 }
 
-/** Why the session is over for this viewer, and that the page has nothing more to show. */
-function SessionOver(props: { readonly reason: TogetherEndReason }): JSX.Element {
+/**
+ * Why the session is over for this viewer, if it is, and how it ends and starts again: ended, the
+ * membership is forgotten, but for a viewer sent away for the host's upload, who is still a member
+ * and may come back (D286 §5).
+ */
+function useSessionEnd(): {
+  readonly endReason: TogetherEndReason | undefined;
+  readonly over: { readonly end: (reason: TogetherEndReason) => void; readonly again: () => void };
+} {
+  const [endReason, setEndReason] = useState<TogetherEndReason | undefined>(undefined);
+  const over = useMemo(
+    () => ({
+      end: (reason: TogetherEndReason) => {
+        if (reason !== "uploadFull") {
+          forgetMembership(browserStorage(), "viewer");
+        }
+        setEndReason(reason);
+      },
+      again: () => {
+        setEndReason(undefined);
+      },
+    }),
+    [],
+  );
+  return { endReason, over };
+}
+
+/**
+ * Why the session is over for this viewer, and that the page has nothing more to show; or, sent away
+ * because the host's connection could not carry everyone, a way back in (D286 §5).
+ */
+function SessionOver(props: {
+  readonly reason: TogetherEndReason;
+  readonly onAgain: () => void;
+}): JSX.Element {
   const { t } = useTranslation();
   return (
     <main className="together-viewer">
       <output>{t(`together.over.${props.reason}`)}</output>
+      {props.reason === "uploadFull" ? (
+        <button type="button" onClick={props.onAgain}>
+          {t("together.over.joinAgain")}
+        </button>
+      ) : null}
     </main>
   );
 }

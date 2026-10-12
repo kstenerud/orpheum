@@ -327,4 +327,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   screens (D287).
   (`web/packages/player/src/wake.ts`, `web/apps/web/src/film-player.tsx`,
   `web/packages/sdk/src/together-follow.ts`)
+- [ ] **VQ36** — Against staging, `server_upload_mbps` set low on purpose (3 or 4): a Watch
+  Together group of a computer and two phones plays and jumps. Passes when the core's log shows the
+  qualities lowered one at a time (`a playback's quality was kept within the server's upload`), each
+  player then loading at or under its ceiling with no stall, two players of one film sharing a
+  quality where they can; raised again a quality at a time some 30 s after room returns; and, with
+  the setting at 1, the newest guest sent away (`sent away the newest member`), their page saying
+  "The host's connection can't carry everyone right now." and Join again bringing them back. Only the
+  owner's link and devices show whether the steps are right (D286 §4, §5).
+  (`internal/core/playback/lowering.go`, `upload.go`, `web/packages/player/src/abr.ts`,
+  `web/apps/web/src/together-viewer.tsx`)
 
