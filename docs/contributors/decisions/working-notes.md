@@ -18288,6 +18288,13 @@ D247 §4 and its amendment, and revises D247 §8 and §10.
    member's alone: the group plays on, and their player catches up by itself (§4). The host's
    player is a member's here too. The group waits for its players only at its three sync points:
    a film put on (or started over), the host's play after a pause, and the host's seek.
+
+   **Amended 2026-10-12**, after the owner, watching alone in a session, lost 40 s of link to
+   staging: the group played on without their player, the only one, and when the link came back
+   it jumped 75 s ahead to catch up. Told so, the owner: *"Fix the bugs."* When no other player
+   plays along, a player's stall or drop holds the group where it was, waiting (event
+   `waitingFor`) until a player is ready, past the sync wait; a waiting group never starts to no
+   one. With another player along, the group plays on as above.
 3. **A sync point waits at most 20 s**, a setting: then the group plays, and whoever is not ready
    catches up alone. The owner: *"30 seconds is too long. Let's start at 20."*
 4. **A member catching up jumps ahead and waits there**, as D247 §4's amendment had it, aiming to
@@ -18322,7 +18329,7 @@ D247 §4 and its amendment, and revises D247 §8 and §10.
    rules. The owner: *"I'll have her update her phone when she lands, so we can set the floor to
    ios 17.1."*
 
-**Status:** Decided 2026-10-06; §7 amended the same day.
+**Status:** Decided 2026-10-06; §7 amended the same day; §2 amended 2026-10-12.
 
 ## D251 — The web client's first skin is dark, with one coral accent, the system typeface and slightly rounded corners
 

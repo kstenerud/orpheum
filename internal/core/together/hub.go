@@ -498,7 +498,8 @@ func (hub *Hub) Attach(
 }
 
 // Detach removes a device whose connection ended. The group never stops for it (D250 §2): its
-// member stays, and it catches up alone once it is back. A sync point no longer waits for it.
+// member stays, and it catches up alone once it is back. A sync point no longer waits for it. A
+// group it was the last player to play along with waits until a player is ready (dropped).
 func (hub *Hub) Detach(attachment Attachment) {
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
@@ -510,10 +511,12 @@ func (hub *Hub) Detach(attachment Attachment) {
 	if !found {
 		return
 	}
-	if _, found = left.devices[attachment.DeviceID]; !found {
+	gone, found := left.devices[attachment.DeviceID]
+	if !found {
 		return
 	}
 	delete(left.devices, attachment.DeviceID)
+	detached.dropped(hub.clock.Now(), left, gone)
 	detached.settle(hub.clock.Now())
 	detached.sendRoster()
 }
