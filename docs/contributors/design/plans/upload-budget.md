@@ -6,8 +6,9 @@
 
 # The server's upload and its players' qualities
 
-- **Status:** PARTLY SPECIFIED — written 2026-10-12 on the owner's word (*"go ahead"*), for the
-  owner's review before it is built; open: the two questions at the end.
+- **Status:** PLANNED — written 2026-10-12 on the owner's word (*"go ahead"*); its two questions
+  answered by the owner the same day (*"To your two questions: Agreed"*): solo players count and are
+  lowered, and the server acts early, from the setting.
 - **Depends on:** D286 §4 and §5 (decided 2026-10-12, §5's details in its text), D265 (the player's
   own quality controller), D250 §6 (a node's runs kept faster than playback), D247 §10 (chunks and
   their qualities), D271 §4 (a guest's rights).
@@ -89,11 +90,10 @@ playback stopped or idle loses its ceiling.
 | U5 | Removing the newest member (§5): the hub's removal, the `uploadFull` close, the page's words | the hub's and the page's tests |
 | U6 | A VQ item: the owner's devices on a setting set low on purpose, watching qualities fall, merge and rise, and the newest member removed | device |
 
-## Questions for the owner
+## The owner's answers
 
-1. **Solo players count and are lowered too** (§3, §5), on the reading that the server's upload is
-   shared by everyone it serves, a household member watching alone in another room included; only
-   group members can be removed. Or should only Watch Together groups be counted and lowered?
-2. **85% of the upload for films, and lowering before the link is full** (§1, §2): the server acts
-   on what its players ask, not on stalls it measures. Is acting early, from the setting, what you
-   want, or should it wait until players actually stall?
+1. **Solo players count and are lowered too** (§3, §5): the server's upload is shared by everyone
+   it serves, a household member watching alone in another room included; only group members are
+   ever removed. The owner, 2026-10-12: *"Agreed."*
+2. **The server acts early, from the setting** (§1, §2): on what its players ask, before the link
+   is full, not on stalls it measures. The owner, 2026-10-12: *"Agreed."*
