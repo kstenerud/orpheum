@@ -145,7 +145,14 @@ func (service *Service) cancelFarRuns(
 	}
 	fileID, gridID := film.file.ID, film.grid.ID()
 	dir := StoreDir(fileID, stream, gridID)
-	cuts := service.runs.cutFar(dir, film.grid, wanted, beyond.Milliseconds())
+	far := farFrom{pastMs: beyond.Milliseconds(), beforeMs: lookaheadMs + beyond.Milliseconds()}
+	if isSought {
+		// A jump's ask cuts a run ahead of it at any distance: its group left where the run was going,
+		// and two runs of a quality ran side by side and starved each other (the owner's jumps,
+		// 2026-10-12; D286 §1).
+		far.beforeMs = 0
+	}
+	cuts := service.runs.cutFar(dir, film.grid, wanted, far)
 	if len(cuts) == 0 {
 		return nil
 	}

@@ -19618,3 +19618,39 @@ before settling on what each device can handle."* It refines D250 §2 and D283 �
 
 **Status:** Decided 2026-10-12; §1 and §2 built the same day, §3 measured and set aside.
 
+
+## D286 — A jump cuts every run of a quality it does not land in, a group's player keeps the film's own picture while its link carries it, encoded devices start a jump on a common quality, and an overloaded server moves a player onto a quality it already makes
+
+**Decided** (2026-10-12), by the project owner, after a group test in which a Mac stepped down from
+the film's own picture to a 720p encode, two 720p runs and a 540p one ran beside the sound's, each
+at 0.6 to 1.2× playback, and the Mac and an iPhone took 70 and 85 s to play again. To cancelling a
+jump's old runs and keeping a computer on the film's own picture: *"yes that sounds good."* On a
+common start: *"My common low encoding start was more for preventing the server from getting
+overloaded when 3 devices each want a different encoding. Starting them all off at a
+likely-achievable middle-ground encoding, and then letting them settle to higher or lower after
+that, should help. When a network connection is too constrained, I'm not that worried about
+degraded performance if the happy path gives the better experience. So if a common 720p would work
+in most cases, fine."* And: *"If the proliferation of encodings starts to tax the server too much,
+we should allow it to forcibly drop a client down to a lower quality encoding already being used
+by another."* It refines D284 §2, D265 and D250 §6.
+
+1. **A jump's ask cuts every run of its quality ahead of where it lands, at any distance**, and
+   one past it beyond D284 §2's 20 s: its group left where the run was going. Any other ask keeps
+   the reach of a run made a minute ahead.
+2. **A player in a Watch Together group keeps the film's own picture while its link, as measured,
+   carries the picture's average rate**, whatever share the controller keeps back for voice
+   (D262 §2) or a growing buffer: such a step down adds an encode, on a link only crowded by the
+   group sharing the server's upload.
+3. **After a jump, every device that needs an encoded quality starts on one common quality**, the
+   one most likely to work on a real link (720p unless measurement says otherwise), and settles
+   higher or lower from there; one encode for all of them, not one each.
+4. **An overloaded server moves a player onto a quality it already makes** for another, lower,
+   rather than dropping the run the player needs (D250 §6's eviction).
+5. **When its clients saturate its upload, the server consolidates their qualities**, moving
+   players onto fewer and lower common ones, **and as a last resort removes the member who joined
+   most recently**. The owner: *"If the clients are saturating the network pipe, we should allow the
+   server to consolidate playback quality among the clients, and ultimately to boot the most recent
+   member if it still doesn't help enough."*
+
+**Status:** Decided 2026-10-12.
+

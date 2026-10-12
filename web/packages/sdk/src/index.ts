@@ -88,6 +88,7 @@ export type {
 export { browserVoiceDevices } from "./together-voice-browser.ts";
 export type { BrowserVoiceDevices } from "./together-voice-browser.ts";
 export { isVoiceLive } from "./voice-live.ts";
+export { isFollowingAGroup } from "./following-a-group.ts";
 export { driftCorrection, expectedPositionMs } from "./together-drift.ts";
 export { followGroup, waitAheadAtMostMs } from "./together-follow.ts";
 export type { StartLagMemory } from "./together-start.ts";
