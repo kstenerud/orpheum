@@ -7,6 +7,7 @@ import type { GroupCommand, PlayerNote } from "./together-connection.ts";
 import {
   aimAheadAtMostMs,
   checkDriftEveryMs,
+  loadedCatchUpLeadMs,
   scrubPauseWindowMs,
   followGroup,
   playerLoadsAheadMs,
@@ -528,6 +529,7 @@ describe("a player following its group", () => {
       monotonicMs,
     });
     expect(media.currentTime).toBe(60); // its first seek, with no load timed yet
+    media.loaded = [[0, 1]]; // nothing loaded where the group is
     media.readyState = 2;
     media.fire("seeking");
     monotonicNowMs = 2000;
@@ -542,5 +544,19 @@ describe("a player following its group", () => {
     media.readyState = 4;
     media.fire("canplay");
     expect(media.currentTime).toBe((monotonicNowMs + 60_000 + aimAheadAtMostMs) / 1000);
+  });
+
+  it("aims a catch-up seek only a moment ahead where it holds the film there already", () => {
+    const media = new FakeMedia();
+    const { connection } = fakeConnection({ ...paused, state: "Playing" });
+    followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
+    media.readyState = 2;
+    media.fire("seeking");
+    monotonicNowMs = 9000; // its last seek took 9 s to load
+    media.currentTime = 0; // a phone locked and back, its film loaded from before
+    media.loaded = [[0, 100]];
+    media.readyState = 4;
+    media.fire("canplay");
+    expect(media.currentTime).toBe(69 + loadedCatchUpLeadMs / 1000);
   });
 });

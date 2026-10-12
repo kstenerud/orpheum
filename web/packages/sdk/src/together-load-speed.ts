@@ -6,7 +6,13 @@
  */
 
 import type { SyncTuning } from "./together.ts";
-import { loadedEndMs, positionMsOf, type FollowedMedia } from "./together-media.ts";
+import {
+  isLoadedThrough,
+  loadedEndMs,
+  positionMsOf,
+  type FollowedMedia,
+} from "./together-media.ts";
+import { seekReadyAheadMs } from "./together-refill.ts";
 
 /**
  * The furthest a catch-up seek aims ahead of the group: by the time a seek has loaded the group has
@@ -14,6 +20,32 @@ import { loadedEndMs, positionMsOf, type FollowedMedia } from "./together-media.
  * Silo-Server's number).
  */
 export const aimAheadAtMostMs = 10_000;
+
+/**
+ * How far ahead of the group a catch-up seek aims where the player has loaded the film there
+ * already: a seek within what it holds is ready in a moment. Two phones paused with the group and
+ * locked came back after it had played on, and each jumped 11 to 12 s ahead to wait, by how long
+ * its last seek had taken to load, though they held that stretch already (the owner's test,
+ * 2026-10-12).
+ */
+export const loadedCatchUpLeadMs = 1000;
+
+/**
+ * Where a catch-up seek to the group at toMs aims: loadedCatchUpLeadMs ahead where the player has
+ * loaded the film from there through seekReadyAheadMs beyond and leadMs() would aim further, else
+ * leadMs() ahead.
+ */
+export function catchUpTargetMs(
+  media: FollowedMedia,
+  group: { readonly toMs: number; readonly rate: number },
+  leadMs: () => number,
+): number {
+  const aimedMs = group.toMs + leadMs();
+  const nearMs = group.toMs + loadedCatchUpLeadMs * group.rate;
+  return isLoadedThrough(media, nearMs, nearMs + seekReadyAheadMs)
+    ? Math.min(aimedMs, nearMs)
+    : aimedMs;
+}
 
 /**
  * How much a player loads ahead of where it is, and then stops: hls.js's maxBufferLength (30 s),

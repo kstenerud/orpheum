@@ -97,6 +97,17 @@ function loadedEndS(media: FollowedMedia): number | undefined {
   return undefined;
 }
 
+/** Whether the player has loaded the film from fromMs through throughMs, in one stretch. */
+export function isLoadedThrough(media: FollowedMedia, fromMs: number, throughMs: number): boolean {
+  const { buffered } = media;
+  for (let index = 0; index < buffered.length; index++) {
+    if (buffered.start(index) * 1000 <= fromMs && throughMs <= buffered.end(index) * 1000) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /** The end, in ms, of what the player loaded where it is, or undefined where it loaded nothing. */
 export function loadedEndMs(media: FollowedMedia): number | undefined {
   const endS = loadedEndS(media);
