@@ -133,3 +133,20 @@ describe("which ready rule a player says it is ready by (the owner, 2026-10-12)"
     expect(reports.at(-1)).toMatchObject({ readyOnMs: seekReadyAheadMs, loadsFaster: 3.4 });
   });
 });
+
+describe("a group that seeks again while a player still loads (the owner's jumps, 2026-10-12)", () => {
+  it("follows the group's new place at once, not once its last seek has loaded", () => {
+    const media = new FakeMedia();
+    const { connection, setGroup, notes } = fakeConnection(paused);
+    followGroup(media, connection, { fileId: 5, leads: noRight, monotonicMs });
+    setGroup({ ...paused, state: "Waiting", positionMs: 3_501_848 }, 0);
+    media.seeking = true; // its chunk there is not made yet
+    setGroup({ ...paused, state: "Waiting", positionMs: 5_372_332 }, 0);
+    const holds = notes.filter((note) => note.kind === "sought" && note.why === "hold");
+    expect(holds.map((note) => (note.kind === "sought" ? note.toMs : 0))).toEqual([
+      60_000, 3_501_848, 5_372_332,
+    ]);
+    setGroup({ ...paused, state: "Waiting", positionMs: 5_373_000 }, 0); // still loading, as near
+    expect(notes.filter((note) => note.kind === "sought")).toHaveLength(3);
+  });
+});
