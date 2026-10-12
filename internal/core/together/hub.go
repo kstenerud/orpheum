@@ -407,62 +407,6 @@ func (hub *Hub) Eject(sessionID, hostUserID, memberID int64) error {
 	return nil
 }
 
-// SendAwayNewest sends away the member who joined most recently of those with a player, in any
-// session, never a host: each of their devices is told the session ended for them with reason, and
-// their membership is kept, so they may come back at once (D286 §5: the server's upload cannot carry
-// every player at the lowest qualities). It says whom, and whether there was anyone.
-func (hub *Hub) SendAwayNewest(reason string) (sessionID, memberID int64, isSent bool) {
-	hub.mutex.Lock()
-	defer hub.mutex.Unlock()
-	var newest *member
-	for _, each := range hub.sessions {
-		for _, candidate := range each.members {
-			if !candidate.isHost && candidate.hasPlayer() && (newest == nil || candidate.id > newest.id) {
-				newest, sessionID = candidate, each.id
-			}
-		}
-	}
-	if newest == nil {
-		return 0, 0, false
-	}
-	for _, each := range newest.devices {
-		each.send(Outbound{V: ProtocolVersion, Type: MessageEnded, Reason: reason})
-	}
-	return sessionID, newest.id, true
-}
-
-// PlayersHostedBy is how many devices play the film in the session hostUserID hosts, the host's
-// own among them; zero when they host none: the players a film put on there starts for at once,
-// among whom the server's upload is shared evenly (D286 §5).
-func (hub *Hub) PlayersHostedBy(hostUserID int64) int {
-	hub.mutex.Lock()
-	defer hub.mutex.Unlock()
-	count := 0
-	for _, each := range hub.sessions {
-		if each.hostUserID != hostUserID {
-			continue
-		}
-		for _, member := range each.members {
-			for _, attached := range member.devices {
-				if attached.role.plays() {
-					count++
-				}
-			}
-		}
-	}
-	return count
-}
-
-// hasPlayer is whether any of the member's devices plays the film.
-func (each *member) hasPlayer() bool {
-	for _, attached := range each.devices {
-		if attached.role.plays() {
-			return true
-		}
-	}
-	return false
-}
-
 // Leave takes a member out of the session at their own asking (D246 §5); the host ends it instead.
 func (hub *Hub) Leave(credential string) error {
 	hub.mutex.Lock()

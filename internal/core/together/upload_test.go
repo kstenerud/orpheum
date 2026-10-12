@@ -50,15 +50,20 @@ func TestHub_SendAwayNewestSendsNoHost(t *testing.T) {
 	}
 }
 
-// A host's session's players are counted, the host's own among them, devices with voice alone not;
-// a user hosting none has none (D286 §5).
+// A host's session's players are counted, the host's own among them, a member with one player and
+// voice once; and a member with voice alone as one about to play, as a host is whose player joins only
+// after its playback starts; a user hosting none has none (D286 §5).
 func TestHub_PlayersHostedByCountsTheSessionsPlayingDevices(t *testing.T) {
 	t.Parallel()
 	stage := newStage(t)
-	stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	stage.attach(t, stage.opened.MembershipCredential, RoleVoice) // the host's player not yet joined
 	guest := stage.join(t)
 	stage.attach(t, guest.MembershipCredential, RolePlayback)
 	stage.attach(t, guest.MembershipCredential, RoleVoice)
+	if got := stage.hub.PlayersHostedBy(stage.owner.UserID); got != 2 {
+		t.Errorf("before the host's player joins, the session has %d players; want 2", got)
+	}
+	stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
 	if got := stage.hub.PlayersHostedBy(stage.owner.UserID); got != 2 {
 		t.Errorf("the host's session has %d players; want 2, the host's and the guest's", got)
 	}
