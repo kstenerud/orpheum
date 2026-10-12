@@ -3,6 +3,7 @@
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ConfirmButton } from "./confirm-button.tsx";
 import { WarningSign } from "./warning-sign.tsx";
 import { BusyGroup } from "./busy-group.tsx";
 import { FormRow } from "./form-row.tsx";
@@ -170,12 +171,22 @@ function RoleEditor(props: {
       {role.isEveryLibrary && role.isBuiltin ? null : (
         <button type="submit">{t("roles.save")}</button>
       )}
-      {role.isBuiltin ? null : (
-        <button type="button" onClick={props.onDelete} disabled={role.holderCount > 0}>
-          {t("roles.delete")}
-        </button>
-      )}
+      {role.isBuiltin ? null : <DeleteRole role={role} onDelete={props.onDelete} />}
     </FormRow>
+  );
+}
+
+/** Deleting a role no one holds, which cannot be undone: red, and asked again (D278 §4). */
+function DeleteRole(props: { readonly role: Role; readonly onDelete: () => void }): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <ConfirmButton
+      label={t("roles.delete")}
+      consequence={t("roles.deleteConsequence")}
+      confirmLabel={t("roles.deleteConfirm")}
+      isDisabled={props.role.holderCount > 0}
+      onConfirm={props.onDelete}
+    />
   );
 }
 

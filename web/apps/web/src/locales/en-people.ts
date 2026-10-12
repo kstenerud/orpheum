@@ -26,10 +26,14 @@ export const enPeople = {
     invitations: "Invitations not yet used",
     invitation: "{{note}}, as {{role}}, until {{until}}",
     withdraw: "Withdraw",
+    withdrawConsequence: "Their link stops working.",
+    withdrawConfirm: "Withdraw it",
     noted: "({{note}})",
     registered: "Has a password",
     notRegistered: "Has not used their link yet",
     newLink: "New link",
+    newLinkConsequence: "{{name}}'s current link stops working.",
+    newLinkConfirm: "Make a new link",
     issued: {
       link: "{{name}}'s link: send it to them",
       code: "A code for {{name}}'s device",
@@ -64,6 +68,8 @@ export const enPeople = {
       "This role has no library yet, so they will see no films or series until you tick some for it under Roles.",
     save: "Save",
     delete: "Delete the role",
+    deleteConsequence: "No one can be given this role any more.",
+    deleteConfirm: "Delete it",
     refused: "That cannot be done: the name is taken, someone holds the role, or it is built in.",
     capability: {
       administer: "Run the server (sees every library)",

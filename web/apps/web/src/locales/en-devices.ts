@@ -24,6 +24,10 @@ export const enDevices = {
     save: "Save",
     remove: "Remove",
     removeLabel: "Remove {{name}}; it is signed out",
+    removeConsequence: "{{name}} is signed out, and signs in again only with a code.",
+    removeConfirm: "Remove it",
     signOutElsewhere: "Sign out everywhere else",
+    signOutElsewhereConsequence: "Every other device must sign in again.",
+    signOutElsewhereConfirm: "Sign them out",
   },
 };

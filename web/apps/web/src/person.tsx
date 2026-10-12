@@ -204,14 +204,14 @@ function PersonHead(props: {
         maxLength={200}
       />
       <RoleChoice current={account.role} onGive={props.actions.giveRole} />
-      <button
-        type="button"
-        onClick={() => {
+      <ConfirmButton
+        label={t("people.newLink")}
+        consequence={t("people.newLinkConsequence", { name: account.name })}
+        confirmLabel={t("people.newLinkConfirm")}
+        onConfirm={() => {
           props.actions.issueLink(account.name);
         }}
-      >
-        {t("people.newLink")}
-      </button>
+      />
       <NewDeviceCodeForm
         onMakeCode={(deviceName) => {
           props.actions.issueCode(account.name, { deviceName });

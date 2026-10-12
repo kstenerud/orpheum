@@ -4,6 +4,7 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ConfirmButton } from "./confirm-button.tsx";
 import { FormRow } from "./form-row.tsx";
 import { idempotent } from "./idempotent.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
@@ -259,9 +260,11 @@ function PersonDialog(
           </button>
         )}
         <RelinkButton {...props} />
-        <button
-          type="button"
-          onClick={() => {
+        <ConfirmButton
+          label={t("watchTogether.eject")}
+          consequence={t("watchTogether.ejectConsequence", { name: member.name })}
+          confirmLabel={t("watchTogether.ejectConfirm")}
+          onConfirm={() => {
             props.onClose();
             sendThenReload(props, (idempotencyKey) =>
               api.POST("/together/{id}/eject/{member}", {
@@ -270,9 +273,7 @@ function PersonDialog(
               }),
             );
           }}
-        >
-          {t("watchTogether.eject")}
-        </button>
+        />
       </div>
     </ActionDialog>
   );
@@ -300,9 +301,11 @@ function LinkDialog(
         >
           {t("watchTogether.showLink")}
         </button>
-        <button
-          type="button"
-          onClick={() => {
+        <ConfirmButton
+          label={t("watchTogether.withdraw")}
+          consequence={t("watchTogether.withdrawConsequence")}
+          confirmLabel={t("watchTogether.withdrawConfirm")}
+          onConfirm={() => {
             props.onClose();
             sendThenReload(props, () =>
               api.DELETE("/together/{id}/links/{link}", {
@@ -310,9 +313,7 @@ function LinkDialog(
               }),
             );
           }}
-        >
-          {t("watchTogether.withdraw")}
-        </button>
+        />
       </div>
     </ActionDialog>
   );

@@ -1,0 +1,37 @@
+// @vitest-environment happy-dom
+// SPDX-License-Identifier: MPL-2.0
+
+import "./i18n.ts";
+
+import { expect, it } from "vitest";
+
+import { buttonWithText, click, mount } from "./test-dom.tsx";
+import { television } from "./test-fixtures.ts";
+import { withServices } from "./test-services.tsx";
+import { DeviceList } from "./your-devices.tsx";
+
+it("removes a device only when asked again, its button in the irreversible red", async () => {
+  const removed: number[] = [];
+  const mounted = await mount(
+    withServices(
+      <DeviceList
+        devices={[television({ id: 5, isSignedIn: true })]}
+        onRename={() => undefined}
+        onRemove={(device) => {
+          removed.push(device.id);
+        }}
+        onMakeCode={() => undefined}
+      />,
+    ),
+  );
+  const remove = buttonWithText(mounted.container, "Remove");
+  expect(remove?.className).toBe("irreversible-outline");
+  await click(remove);
+  expect(removed).toEqual([]);
+  expect(mounted.container.textContent).toContain(
+    "Living room TV is signed out, and signs in again only with a code.",
+  );
+  await click(buttonWithText(mounted.container, "Remove it"));
+  expect(removed).toEqual([5]);
+  mounted.unmount();
+});

@@ -72,6 +72,8 @@ it("names what a held-back scan would remove, and removes it on the admin's word
   expect(text).toContain("/media/shows/Copper Kettle/S04E01.mkv");
   expect(text).toContain("and 10 more");
   await click(buttonWithText(mounted.container, "Remove these 12 files"));
+  // It cannot be undone: it is asked again (D278 §4).
+  await click(buttonWithText(mounted.container, "Remove them"));
   expect(heard.find((each) => each.methodAndPath === "POST /libraries/5/removals")?.body).toEqual({
     nodeName: "sandbox",
     path: "/media/shows",
