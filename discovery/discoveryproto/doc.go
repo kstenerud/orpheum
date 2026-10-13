@@ -7,7 +7,12 @@
 // # Invariants
 //
 //   - Types and constants, and only the few functions both sides must compute alike: the version
-//     signal's parsing (the protocol's §5). Anything else is the caller's. Review.
+//     signal's parsing (the protocol's §5), the address classes and an address's name label (§2.4,
+//     §2.7). Anything else is the caller's. Review.
+//   - One classing of addresses: a carrier-NAT, a DS-Lite and a documentation address are never
+//     public, whatever Go's netip calls them. TestIsPublic_CarrierNATDSLiteAndDocumentationAreNeverPublic.
+//   - One address has one name label, and no label holds "--" (C15).
+//     TestAddressLabel_OneAddressOneLabelAndNoDoubleDash.
 //   - Every field names its JSON key in camelCase. Enforced by tagliatelle.
 //   - Imports nothing from internal/, which a module outside Orpheum cannot import. Enforced by
 //     TestArch_PublicPackagesImportNothingInternal.
@@ -24,5 +29,5 @@
 // # Where to change
 //
 //   - discoveryproto.go: the calls' bodies, the states and the signalling messages. version.go: the
-//     version signal.
+//     version signal. address.go: the address classes and labels.
 package discoveryproto
