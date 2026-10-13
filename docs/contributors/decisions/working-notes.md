@@ -19745,6 +19745,12 @@ for a listed device; **refines D273 §10**.
    asks for a new code. At most a hundred wait at once, the oldest not yet entered giving way: not a
    limit on who asks, but a bound on the memory strangers' asking can take.
 
+   **Amended 2026-10-13** after the security audit (S13) showed the oldest giving way let a stranger
+   push a television's code out before it was typed, on the owner's own discovery as on the core:
+   past a hundred waiting, or five not yet entered from one network (an IPv4 address, or an IPv6
+   /64), a new code is refused and none waiting is dropped (the owner: *"D: Take your
+   recommendation"*).
+
 **Status:** Decided 2026-10-12.
 
 ## D289 — The paid discovery's questions answered: accounts for payers only, the identity key backed up as the secret key is, byte paths by header, one client build per core API major

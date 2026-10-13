@@ -51,14 +51,15 @@
 //     as safe32 reads it, for themselves or, an admin, for someone else, and both devices then show a
 //     check code; only that person's "they match" activates the device, signed in as the person,
 //     resuming the device it was before when it is theirs; a wrong code counts against the person's
-//     failed sign-ins; pairings are kept in memory, at most pairingsAtMost waiting (D288). Enforced
+//     failed sign-ins; pairings are kept in memory, a new one refused, never an old one dropped, past pairingsAtMost
+//     waiting or pairingsPerNetworkAtMost not yet entered from one network (D288). Enforced
 //     by discovery/safe32code's TestDeviceCode_IsSafe32AndReadsWhatAPersonTypes,
 //     TestPairing_ADeviceKeepsItsCodeUntilEnteredAndThenShowsThePersonsCheckCode,
 //     TestPairing_OnlyTheMatchSignsTheDeviceInAndItsSessionIsTakenOnce,
 //     TestPairing_NoMatchTenMinutesOrSomeoneElsesAnswerActivatesNothing,
 //     TestPairing_WrongCodesCountAgainstThePersonEnteringThem,
 //     TestPairing_ADeviceSignedInBeforeResumesItselfAndANewOneNeedsAName and
-//     TestPairing_AtMostAHundredWaitTheOldestNotEnteredGivingWay.
+//     TestPairing_ANewCodeIsRefusedPastTheCapsAndNoWaitingOneIsPushedOut.
 //   - A sign-in resumes the device the client remembers when it is the same person's; a
 //     registration invitation is not held back by the failed-sign-in limit and clears the person from
 //     it (D221). Enforced by TestDevices_ASignInResumesTheDeviceTheClientRemembersWhenItIsTheSamePersons
