@@ -319,9 +319,17 @@ test-integration-run:
 .PHONY: test-browser
 # Within check-pr (a BASE given), the tier is skipped when nothing it builds or runs changed: docs,
 # the gates' scripts, tests alone (scripts/browser_tier_needed.py; the owner, 2026-10-06).
+#
+# The run records the browser map (web/e2e/browser-map.ts): what every test's pages held, which
+# revert-red reads to run a stylesheet's revert in only the tests it can reach (scripts/browser_map.py).
+# The map is stamped with the commit only when every test ran and passed on a clean tree, so a map
+# that is partial, failed or of other code is never read.
 test-browser: browsers ## The browser tier: Chrome and Firefox against a server of its own, with the built client (D217 §4); in check-pr, only when what it builds changed
 	@if [ -z '$(BASE)' ] || $(PYTHON) scripts/browser_tier_needed.py --base '$(BASE)'; then \
-	  $(MAKE) --no-print-directory browser-tier; fi
+	  rm -rf $(BROWSER_MAP_DIR) && \
+	  ORPHEUM_BROWSER_MAP_DIR="$(CURDIR)/$(BROWSER_MAP_DIR)" $(MAKE) --no-print-directory browser-tier && \
+	  if [ -z '$(E2E_ARGS)$(ORPHEUM_E2E_ONLY)' ] && [ '$(E2E_CONFIG)' = web/e2e/playwright.config.ts ] && \
+	    [ -z "$$(git status --porcelain)" ]; then git rev-parse HEAD > $(BROWSER_MAP_DIR)/complete; fi; fi
 
 # The browsers Playwright drives are fetched by Playwright itself, for its own version: the one
 # web/package-lock.json pins, which PLAYWRIGHT_VERSION repeats so a lockfile bump is seen here
@@ -420,6 +428,8 @@ fmt: ## Format Go and web sources in place
 # ---------------------------------------------------------------------------------------------
 
 DEV_DIR := .dev
+# The browser map the browser tier records and revert-red reads (scripts/browser_map.py).
+BROWSER_MAP_DIR := $(DEV_DIR)/browser-map
 DEV_CORE := $(DEV_DIR)/core
 DEV_LISTEN ?=
 FFMPEG_DIR = $(shell $(PYTHON) scripts/fetch_ffmpeg.py)

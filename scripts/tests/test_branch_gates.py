@@ -3,16 +3,19 @@
 # ABOUTME: commits that touched a file, Python tests and moves in test-weakening, and revert-red's
 # ABOUTME: kinds, units, UNCHECKED list and Refactor-Only; each is shown failing on a case built to
 # ABOUTME: fail (D190).
+import json
 import re
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import branch_base as bb  # noqa: E402
+import browser_map  # noqa: E402
 import browser_tier_needed as browser  # noqa: E402
 import tree_state  # noqa: E402
 import check_revert_red as rr  # noqa: E402
@@ -532,6 +535,63 @@ class RevertRedStylesheetsTogether(unittest.TestCase):
             self.assertEqual(rr.stylesheets_together(str(repo.root), base, "HEAD", self.changes(), 1,
                                                      ["sleep", "5"]), {})
         self.assertEqual(repo.git("status", "--porcelain"), "")
+
+
+class RevertRedBrowserMap(unittest.TestCase):
+    """A stylesheet's revert runs in only the browser tests the map says its changed rules can reach,
+    and in none when no test's pages held what they select; a map of another commit is not read."""
+
+    SHEETS = RevertRedStylesheetsTogether
+
+    def map_at(self, repo: Repo, commit: str, tokens: list[str]) -> Path:
+        directory = Path(tempfile.mkdtemp()) / "browser-map"
+        (directory / "chromium").mkdir(parents=True)
+        (directory / "chromium" / "1.json").write_text(json.dumps({"test": "chromium a.spec.ts a", "tokens": tokens}))
+        (directory / "firefox").mkdir()
+        (directory / "firefox" / "2.json").write_text(json.dumps({"test": "firefox b.spec.ts b", "tokens": ["tag:p"]}))
+        (directory / browser_map.COMPLETE).write_text(commit + "\n")
+        return directory
+
+    def together(self, directory: Path, repo: Repo, base: str, command: list[str]) -> dict[str, rr.Outcome]:
+        with mock.patch.object(browser_map, "BROWSER_MAP", directory), repo.cwd():
+            return rr.stylesheets_together(str(repo.root), base, "HEAD", self.SHEETS.changes(self.SHEETS()), 60,
+                                           command)
+
+    def test_no_run_when_no_test_held_what_the_changed_rules_select(self):
+        repo, base = self.SHEETS.repo(self.SHEETS())
+        ran = Path(tempfile.mkdtemp()) / "ran"
+        settled = self.together(self.map_at(repo, repo.git("rev-parse", "HEAD").strip(), ["tag:div", "class:y"]),
+                                repo, base, ["sh", "-c", f"echo x >> {ran}; false"])
+        self.assertFalse(ran.exists(), "no browser run: no test can notice these reverts")
+        self.assertEqual({path: outcome.verdict for path, outcome in settled.items()},
+                         {self.SHEETS.OLD: "CLAIMED", self.SHEETS.CLAIMED: "CLAIMED", self.SHEETS.UNCLAIMED: "GREEN"})
+        self.assertIn("the browser map", settled[self.SHEETS.UNCLAIMED].detail)
+        self.assertTrue(settled[self.SHEETS.UNCLAIMED].is_failure, "unclaimed, it still needs a test or a claim")
+
+    def test_a_run_in_only_the_tests_whose_pages_held_them(self):
+        repo, base = self.SHEETS.repo(self.SHEETS())
+        ran = Path(tempfile.mkdtemp()) / "ran"
+        command = ["sh", "-c", f'printf "%s\\n" "${browser_map.ONLY_THESE_TESTS}" >> {ran}; ' + self.SHEETS.ALL_REVERTED[2]]
+        self.together(self.map_at(repo, repo.git("rev-parse", "HEAD").strip(), ["tag:div", "class:x"]),
+                      repo, base, command)
+        self.assertEqual(ran.read_text().splitlines(), ['["chromium a.spec.ts a"]'])
+
+    def test_a_map_recorded_at_another_commit_runs_every_test(self):
+        repo, base = self.SHEETS.repo(self.SHEETS())
+        ran = Path(tempfile.mkdtemp()) / "ran"
+        command = ["sh", "-c", f'printf "%s\\n" "${browser_map.ONLY_THESE_TESTS}" >> {ran}; ' + self.SHEETS.ALL_REVERTED[2]]
+        self.together(self.map_at(repo, base, ["class:y"]), repo, base, command)
+        self.assertEqual(ran.read_text().splitlines(), [""], "one run, of every test")
+
+    def test_one_sheet_alone_is_settled_by_the_map_too(self):
+        repo, base = self.SHEETS.repo(self.SHEETS())
+        ran = Path(tempfile.mkdtemp()) / "ran"
+        directory = self.map_at(repo, repo.git("rev-parse", "HEAD").strip(), ["class:y"])
+        with mock.patch.object(browser_map, "BROWSER_MAP", directory), repo.cwd(), \
+                mock.patch.object(rr, "browser_tier_command", lambda: ["sh", "-c", f"echo x >> {ran}", "browser-tier"]):
+            outcome = rr.probe_unclaimed(str(repo.root), base, "HEAD", rr.Change(self.SHEETS.UNCLAIMED, "M"), 60)
+        self.assertFalse(ran.exists())
+        self.assertEqual((outcome.verdict, outcome.detail), ("GREEN", browser_map.NO_TEST_REACHES))
 
 
 class RevertRedDocTags(unittest.TestCase):

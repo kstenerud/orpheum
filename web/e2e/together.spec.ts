@@ -7,8 +7,9 @@
  */
 
 import { readFileSync } from "node:fs";
-import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import { expect, type BrowserContext, type Page } from "@playwright/test";
 
+import { test } from "./browser-map.ts";
 import { isPlaying, signIn } from "./pages.ts";
 import { warmUpFilm } from "./server.ts";
 import {

@@ -2,8 +2,9 @@
 
 /** The app shell as a browser lays it out: what only a stylesheet decides. */
 
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 
+import { test } from "./browser-map.ts";
 import { signIn } from "./pages.ts";
 
 test("the logo is one link home, exactly the logo's size", async ({ page }) => {
