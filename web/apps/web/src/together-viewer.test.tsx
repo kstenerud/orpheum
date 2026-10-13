@@ -301,6 +301,48 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     mounted.unmount();
   });
 
+  it("asks for a tap over the stage before the film, and plays the film in the video that tap readied (the owner, 2026-10-13)", async () => {
+    window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
+    window.localStorage.setItem(
+      "orpheum.together.viewer",
+      JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
+    );
+    const { services, server } = viewerServices("/together", {
+      "POST /together/playback": [200, directDecision({ titleName: "Metropolis" })],
+    });
+    const mounted = await mount(withServices(<TogetherViewer />, services));
+    await server.accept();
+    await server.say(welcome);
+    const stage = mounted.container.querySelector(".film-player__stage--empty");
+    const ask = buttonWithText(mounted.container, "Tap for sound");
+    expect(ask === undefined ? null : stage?.contains(ask)).toBe(true);
+    const tappedVideos: HTMLMediaElement[] = [];
+    const muting = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "muted");
+    Object.defineProperty(HTMLMediaElement.prototype, "muted", {
+      ...muting,
+      set(this: HTMLMediaElement, isMuted: boolean) {
+        tappedVideos.push(this);
+        muting?.set?.call(this, isMuted);
+      },
+    });
+    try {
+      await click(ask);
+    } finally {
+      Object.defineProperty(HTMLMediaElement.prototype, "muted", muting ?? {});
+    }
+    expect(buttonWithText(mounted.container, "Tap for sound")).toBeUndefined();
+    await server.say({
+      type: "group",
+      seq: 2,
+      group: { state: "Paused", positionMs: 0, rate: 1, fileId: 5, event: "paused", byMemberId: 1 },
+    });
+    const video = mounted.container.querySelector("video");
+    expect(video).not.toBeNull();
+    expect(tappedVideos.length).toBeGreaterThan(0);
+    expect(tappedVideos.every((tapped) => tapped === video)).toBe(true);
+    mounted.unmount();
+  });
+
   it("reports a viewer's stall by the membership, and moves to the lower quality offered (D247 §2)", async () => {
     window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
     window.localStorage.setItem(

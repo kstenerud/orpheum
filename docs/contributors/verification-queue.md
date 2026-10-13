@@ -380,3 +380,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   as them. Only real devices show the codes are readable across a room and the warning is plain
   (D288). (`web/apps/web/src/code-sign-in.tsx`, `device-activation.tsx`, `internal/core/auth/pairing.go`)
   — done 2026-10-13 by the owner, against staging at an earlier commit: *"I just verified that vq39 worked."*
+- [ ] **VQ40** — Against staging: an iPhone guest joins a session where nothing plays yet and taps
+  **Tap for sound** over the black stage, once; then the host starts a film, and someone talks. Passes
+  when the film plays with its sound and the voices are heard with no further tap, and the same after
+  the host switches to another film. Only an iPhone keeps a tap's permission per video element
+  (WebKit's `setMutedInternal`). (`web/apps/web/src/together-viewer.tsx` `useKeptVideo`,
+  `film-player.tsx` `KeptVideo`)

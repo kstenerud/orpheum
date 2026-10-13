@@ -19,6 +19,11 @@
   background: var(--color-video-background);
 }
 
+/* The slot a page's kept video is placed in, which lays out as the video alone. */
+.film-player__kept {
+  display: contents;
+}
+
 .film-player__video {
   display: block;
   width: 100%;

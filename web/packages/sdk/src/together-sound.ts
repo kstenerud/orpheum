@@ -63,6 +63,25 @@ export function playOrPlayMuted(
 }
 
 /**
+ * From a tap: lets a video not yet playing play its films with sound for as long as it lives, by
+ * turning its sound off and on again, which no one hears. iPhone Safari lifts its need of a tap for a
+ * video's sound when that video's muting is changed during one, and for that one video only, across
+ * every film it is given after (WebKit's HTMLMediaElement::setMutedInternal): a guest's tap before
+ * the group's film started went to a video made only once it did, which still asked for its own (the
+ * owner, 2026-10-13: "If the video hasn't been started yet, voice should still work, and then video
+ * as well once it starts"). A video playing is left as it is: its sound is soundOnAtTap's.
+ */
+export function readyForSoundAtTap(media: Pick<HTMLMediaElement, "muted" | "paused">): void {
+  if (!media.paused) {
+    return;
+  }
+  /* eslint-disable no-param-reassign -- the tap's whole purpose: the element's muting changed */
+  media.muted = true;
+  media.muted = false;
+  /* eslint-enable no-param-reassign -- only the muting changes */
+}
+
+/**
  * Turns a following player's sound on, and plays it if it is paused: for a page to call from the
  * person's tap, which lets the browser play with sound. The server's log is told, with the sound's
  * state then and soundToldAgainAfterMs later.
