@@ -55,8 +55,8 @@ var (
 	ErrNoDeviceName = errors.New("a new device needs a name")
 )
 
-// PreviousDevice is the device a client asking for a code says it was signed in as, and a session
-// token that device was issued, its proof (NewDevice): without the proof it is a new device.
+// PreviousDevice is the device a client asking for a code says it was signed in as, and that device's
+// secret, its proof (NewDevice): without the proof it is a new device.
 type PreviousDevice struct {
 	ID    int64
 	Proof string
@@ -98,9 +98,9 @@ type pairing struct {
 	isClaimed             bool
 	byUserID, forUserID   int64
 	deviceName, checkCode string
-	// isConfirmed is the person's match, and token the session it made, until the device takes it.
+	// isConfirmed is the person's match, and issued the session it made, until the device takes it.
 	isConfirmed bool
-	token       string
+	issued      Issued
 }
 
 // pairings are the pairings under way, in memory (D288 §6): a restart ends them.
@@ -218,7 +218,7 @@ func (service *Service) PairingStateOf(_ context.Context, secret string) Pairing
 	switch {
 	case !found:
 		return PairingState{State: PairingEnded}
-	case known.token != "":
+	case known.issued.Token != "":
 		return PairingState{State: PairingActivated}
 	case known.isConfirmed:
 		return PairingState{State: PairingChecking, CheckCode: known.checkCode}
@@ -231,15 +231,15 @@ func (service *Service) PairingStateOf(_ context.Context, secret string) Pairing
 
 // TakePairedSession is the session a confirmed pairing made, for the device that holds its secret,
 // once: the pairing then ends. ErrNoPairing until the person has confirmed it.
-func (service *Service) TakePairedSession(_ context.Context, secret string) (string, error) {
+func (service *Service) TakePairedSession(_ context.Context, secret string) (Issued, error) {
 	service.pairings.mutex.Lock()
 	defer service.pairings.mutex.Unlock()
 	known, found := service.pairings.liveLocked(secret, service.clock.Now())
-	if !found || known.token == "" {
-		return "", ErrNoPairing
+	if !found || known.issued.Token == "" {
+		return Issued{}, ErrNoPairing
 	}
 	delete(service.pairings.bySecret, secret)
-	return known.token, nil
+	return known.issued, nil
 }
 
 // ClaimPairing is a person signed in, byUserID, entering the code a device shows, to activate it as
@@ -268,7 +268,8 @@ func (service *Service) ClaimPairing(
 		return PairingClaim{}, ErrNoPairing
 	}
 	name := textindex.Line(deviceName)
-	isProven, err := isProvenDevice(ctx, service.database.Read(), forUserID, previous.ID, previous.Proof)
+	isProven, err := isProvenDevice(ctx, service.database.Read(), service.clock.Now().UnixMilli(), forUserID,
+		previous.ID, previous.Proof)
 	if err != nil {
 		return PairingClaim{}, err
 	}
@@ -323,7 +324,7 @@ func (service *Service) AnswerPairing(ctx context.Context, byUserID int64, typed
 	}
 	// Made with the pairing let go, as a database write is: confirmed, it is answered no more. A
 	// device a code activated carries the device scope, whoever entered the code (D292 §4; A11).
-	token, err := service.issueSession(ctx, known.forUserID, NewDevice{
+	issued, err := service.issueSession(ctx, known.forUserID, NewDevice{
 		Name: known.deviceName, Platform: known.platform, PreviousDeviceID: known.previous.ID,
 		PreviousDeviceProof: known.previous.Proof,
 	}, grantScopeDevice)
@@ -333,7 +334,7 @@ func (service *Service) AnswerPairing(ctx context.Context, byUserID int64, typed
 	service.pairings.mutex.Lock()
 	defer service.pairings.mutex.Unlock()
 	if kept, found := service.pairings.bySecret[known.secret]; found {
-		kept.token = token
+		kept.issued = issued
 	}
 	return nil
 }

@@ -185,12 +185,12 @@ func (server *Server) register(ctx context.Context, input *RegisterInput) (*Sess
 	if err != nil {
 		return nil, err
 	}
-	token, err := dependencies.Auth.Register(ctx, input.Body.Secret, input.Body.Name, input.Body.Password,
+	issued, err := dependencies.Auth.Register(ctx, input.Body.Secret, input.Body.Name, input.Body.Password,
 		newDevice(input.Body.Device))
 	if err != nil {
 		return nil, server.authError(ctx, "register", err)
 	}
-	return server.newSessionOutput(ctx, dependencies, token, input.isOverTLS)
+	return server.newSessionOutput(ctx, dependencies, issued, input.isOverTLS)
 }
 
 func (server *Server) changePassword(ctx context.Context, input *ChangePasswordInput) (*struct{}, error) {

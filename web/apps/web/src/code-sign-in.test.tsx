@@ -61,7 +61,10 @@ describe("a device signing in by the code it shows (D288)", () => {
           [200, { state: "checking", checkCode: "wxyz-0123" }],
           [200, { state: "activated" }],
         ],
-        "POST /pairings/session": [201, { token: "tv-token", user: { id: 2, name: "partner" } }],
+        "POST /pairings/session": [
+          201,
+          { token: "tv-token", deviceSecret: "tv-secret", user: { id: 2, name: "partner" } },
+        ],
       },
       heard,
     );
@@ -76,6 +79,7 @@ describe("a device signing in by the code it shows (D288)", () => {
     expect(mounted.container.textContent).not.toContain("abcd-efgh");
     await nextLook(poller);
     expect(services.session.token()).toBe("tv-token");
+    expect(services.session.deviceProof()).toBe("tv-secret");
     expect(heard.map((request) => request.methodAndPath)).toEqual([
       "POST /pairings",
       "POST /pairings/state",

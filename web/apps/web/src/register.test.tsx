@@ -28,7 +28,11 @@ it("registers with the link's secret, and leaves it in neither the address nor t
         "POST /registration/link": [200, { isInvitation: false, name: "partner" }],
         "POST /registration": [
           201,
-          { token: "new-token", user: { device: { id: 9, name: "Phone" } } },
+          {
+            token: "new-token",
+            deviceSecret: "phone-secret",
+            user: { device: { id: 9, name: "Phone" } },
+          },
         ],
       },
       heard,
@@ -43,6 +47,7 @@ it("registers with the link's secret, and leaves it in neither the address nor t
     body: { secret: "abc_DEF-123" },
   });
   expect(services.session.token()).toBe("new-token");
+  expect(services.session.deviceProof()).toBe("phone-secret");
   expect(services.navigation.route()).toEqual({ screen: "films" });
   expect(place.addresses).toEqual(["/films"]);
 });

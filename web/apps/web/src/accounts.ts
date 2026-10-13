@@ -9,9 +9,13 @@ import type { NewDevice } from "./device.ts";
 /** One person, as the admin's list shows them. */
 export type Account = components["schemas"]["AccountBody"];
 
-/** What signing in answers: the new session's token, and the device it is on. */
+/**
+ * What signing in answers: the new session's token, the device it is on, and that device's secret,
+ * the proof a later sign-in resumes it by (the third audit's A8).
+ */
 export interface SignInResult {
   readonly token: string;
+  readonly deviceSecret: string;
   readonly user: { readonly device?: { readonly id: number; readonly name: string } };
 }
 

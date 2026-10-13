@@ -11,8 +11,8 @@ import (
 // signsInAsAdmin is whether name, signing in with password, administers.
 func signsInAsAdmin(t *testing.T, service *Service, name, password string) bool {
 	t.Helper()
-	token, err := service.SignIn(t.Context(), name, password, "192.0.2.10",
-		NewDevice{Name: "Laptop", Platform: "web"})
+	token, err := tokenOf(service.SignIn(t.Context(), name, password, "192.0.2.10",
+		NewDevice{Name: "Laptop", Platform: "web"}))
 	if err != nil {
 		t.Fatalf("%s signing in: %v", name, err)
 	}
@@ -40,8 +40,8 @@ func TestResetAdmin_DemotesEveryAdministratorAndMakesTheOneNamedTheAdmin(t *test
 		t.Fatal(err)
 	}
 	fixture.createUser(t, "partner", "old", RoleUser)
-	held, err := fixture.service.SignIn(ctx, "partner", "old", "192.0.2.10",
-		NewDevice{Name: "Phone", Platform: "web"})
+	held, err := tokenOf(fixture.service.SignIn(ctx, "partner", "old", "192.0.2.10",
+		NewDevice{Name: "Phone", Platform: "web"}))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -12,12 +12,19 @@ import (
 // returns the two sessions.
 func phoneAndTelevision(t *testing.T, service *Service, userID int64) (phoneToken, televisionToken string) {
 	t.Helper()
-	ctx := t.Context()
-	phoneToken, err := service.SignIn(ctx, "partner", "pw", "192.0.2.1", NewDevice{Name: "Phone", Platform: "web"})
+	phoneToken, television := pairedPhoneAndTelevision(t, service, userID)
+	return phoneToken, television.Token
+}
+
+// pairedPhoneAndTelevision is phoneAndTelevision with the television's session whole, its device
+// secret included.
+func pairedPhoneAndTelevision(t *testing.T, service *Service, userID int64) (string, Issued) {
+	t.Helper()
+	phone, err := service.SignIn(t.Context(), "partner", "pw", "192.0.2.1", NewDevice{Name: "Phone", Platform: "web"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return phoneToken, pairDevice(t, service, [2]int64{userID, userID}, "Living room TV", 0)
+	return phone.Token, pairDevice(t, service, [2]int64{userID, userID}, "Living room TV", 0)
 }
 
 func TestDevices_AreListedAndARemovedOneIsSignedOutAtItsNextRequest(t *testing.T) {
@@ -66,12 +73,14 @@ func TestSignOutElsewhere_EndsEverySessionButTheAskingOneAndKeepsTheDevicesListe
 	fixture := newFixture(t)
 	ctx := t.Context()
 	id := fixture.createUser(t, "partner", "pw", RoleUser)
-	here, err := fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", NewDevice{Name: "Phone", Platform: "web"})
+	hereIssued, err := fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1",
+		NewDevice{Name: "Phone", Platform: "web"})
+	here := hereIssued.Token
 	if err != nil {
 		t.Fatal(err)
 	}
 	secondDevice := NewDevice{Name: "Laptop", Platform: "web"}
-	elsewhere, err := fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", secondDevice)
+	elsewhere, err := tokenOf(fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", secondDevice))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,9 +89,10 @@ func TestSignOutElsewhere_EndsEverySessionButTheAskingOneAndKeepsTheDevicesListe
 		t.Fatal(err)
 	}
 	// A second session on this device, which signing out everywhere else kept (the second audit's K1).
-	sameDevice, err := fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", NewDevice{
-		Name: "Phone", Platform: "web", PreviousDeviceID: principal.DeviceID, PreviousDeviceProof: here,
-	})
+	sameDevice, err := tokenOf(fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", NewDevice{
+		Name: "Phone", Platform: "web", PreviousDeviceID: principal.DeviceID,
+		PreviousDeviceProof: hereIssued.DeviceSecret,
+	}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,10 +150,11 @@ func TestDevices_ADeviceWasLastUsedWhenItsLatestSessionWasIssuedOrUsed(t *testin
 	fixture := newFixture(t)
 	ctx := t.Context()
 	id := fixture.createUser(t, "partner", "pw", RoleUser)
-	first, err := fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", laptop)
+	firstIssued, err := fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", laptop)
 	if err != nil {
 		t.Fatal(err)
 	}
+	first := firstIssued.Token
 	fixture.clock.Advance(2 * time.Minute)
 	principal, err := fixture.service.Authenticate(ctx, first)
 	if err != nil {
@@ -151,7 +162,8 @@ func TestDevices_ADeviceWasLastUsedWhenItsLatestSessionWasIssuedOrUsed(t *testin
 	}
 	fixture.clock.Advance(30 * 24 * time.Hour)
 	resumed := NewDevice{
-		Name: laptop.Name, Platform: laptop.Platform, PreviousDeviceID: principal.DeviceID, PreviousDeviceProof: first,
+		Name: laptop.Name, Platform: laptop.Platform, PreviousDeviceID: principal.DeviceID,
+		PreviousDeviceProof: firstIssued.DeviceSecret,
 	}
 	if _, err = fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", resumed); err != nil {
 		t.Fatal(err)

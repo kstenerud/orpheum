@@ -49,7 +49,7 @@ func TestInvitation_MakesTheAccountItsPersonFillsInOnceAndSignsTheDeviceIn(t *te
 	if _, err = fixture.service.Register(ctx, link.Secret, "OWNER", "pw", laptop); !errors.Is(err, ErrNameTaken) {
 		t.Errorf("an invitation filled in with a name taken: %v, want ErrNameTaken", err)
 	}
-	token, err := fixture.service.Register(ctx, link.Secret, "Gran", "gran-password", laptop)
+	token, err := tokenOf(fixture.service.Register(ctx, link.Secret, "Gran", "gran-password", laptop))
 	if err != nil {
 		t.Fatalf("Register: %v", err)
 	}
@@ -162,7 +162,7 @@ func TestChangePassword_NeedsTheCurrentOne(t *testing.T) {
 	fixture := newFixture(t)
 	ctx := t.Context()
 	id := fixture.createUser(t, "partner", "old", RoleUser)
-	asking, err := fixture.service.SignIn(ctx, "partner", "old", "192.0.2.1", laptop)
+	asking, err := tokenOf(fixture.service.SignIn(ctx, "partner", "old", "192.0.2.1", laptop))
 	if err != nil {
 		t.Fatal(err)
 	}

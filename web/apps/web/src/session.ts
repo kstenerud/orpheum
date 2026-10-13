@@ -9,8 +9,11 @@ import { storageThatNeverThrows, type StringStorage } from "./browser-storage.ts
  */
 export interface Session {
   readonly token: () => string | undefined;
-  /** Signs in, remembering the device the session is on, which the next sign-in resumes (D221). */
-  readonly signIn: (token: string, deviceId?: number) => void;
+  /**
+   * Signs in, remembering the device the session is on and its device secret, by which the next
+   * sign-in resumes it (D221; the third audit's A8).
+   */
+  readonly signIn: (token: string, deviceId?: number, deviceSecret?: string) => void;
   readonly signOut: () => void;
   /** Signs out because the server said the session no longer works, and why. */
   readonly signOutBecause: (reason: string) => void;
@@ -19,9 +22,10 @@ export interface Session {
   /** The device this browser was last signed in as, which a sign-in asks to resume (D221). */
   readonly deviceId: () => number | undefined;
   /**
-   * The last session token this browser was given, kept past signing out: the proof that it was
-   * the device it asks to resume, without which the server makes a new device (the second audit's
-   * K1). It grants nothing once its session has ended.
+   * The device secret this browser was last given, kept past signing out: the proof that it was the
+   * device it asks to resume, without which the server makes a new device (the second audit's K1).
+   * Never a session token, which would hand whoever it was sent to a working session (the third
+   * audit's A8).
    */
   readonly deviceProof: () => string | undefined;
   readonly subscribe: (listener: () => void) => () => void;
@@ -39,7 +43,7 @@ export function createSession(refusableStorage: StringStorage | undefined): Sess
   const keptDeviceId = Number(storage.getItem(deviceIdStorageKey) ?? "");
   let storedDeviceId =
     Number.isSafeInteger(keptDeviceId) && keptDeviceId > 0 ? keptDeviceId : undefined;
-  let deviceProof = storage.getItem(deviceProofStorageKey) ?? token;
+  let deviceProof = storage.getItem(deviceProofStorageKey) ?? undefined;
   const listeners = new Set<() => void>();
   const setToken = (next: string | undefined): void => {
     token = next;
@@ -54,14 +58,16 @@ export function createSession(refusableStorage: StringStorage | undefined): Sess
   };
   return {
     token: () => token,
-    signIn: (next, deviceId) => {
+    signIn: (next, deviceId, deviceSecret) => {
       endedReason = undefined;
       if (deviceId !== undefined) {
         storedDeviceId = deviceId;
         storage.setItem(deviceIdStorageKey, String(deviceId));
       }
-      deviceProof = next;
-      storage.setItem(deviceProofStorageKey, next);
+      if (deviceSecret !== undefined) {
+        deviceProof = deviceSecret;
+        storage.setItem(deviceProofStorageKey, deviceSecret);
+      }
       setToken(next);
     },
     signOut: () => {

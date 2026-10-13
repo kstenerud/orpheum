@@ -29,9 +29,17 @@ UPDATE device SET audio_output = sqlc.arg(audio_output) WHERE id = sqlc.arg(id);
 -- A device revoked (D218 section 4): it leaves the list, and its sessions end.
 UPDATE device SET removed_at = sqlc.arg(removed_at) WHERE id = sqlc.arg(id);
 
--- name: RevokeSessionsOfDevice :exec
+-- name: RevokeCredentialsOfDevice :exec
+-- A removed device's sessions and its device secret: it is neither signed in nor resumed again.
 UPDATE "grant" SET revoked_at = sqlc.arg(revoked_at)
-WHERE device_id = sqlc.arg(device_id) AND kind = 'session' AND revoked_at IS NULL;
+WHERE device_id = sqlc.arg(device_id) AND revoked_at IS NULL
+  AND (kind = 'session' OR (kind = 'issued_secret' AND scope = 'device_secret'));
+
+-- name: RevokeDeviceSecretsOfDevice :exec
+-- The device secrets a device held before a sign-in issued it a new one (the third audit's A8).
+UPDATE "grant" SET revoked_at = sqlc.arg(revoked_at)
+WHERE device_id = sqlc.arg(device_id) AND kind = 'issued_secret' AND scope = 'device_secret'
+  AND revoked_at IS NULL;
 
 -- name: GetLiveDeviceOfUser :one
 -- One of a person's devices, when it is theirs and has not been removed.

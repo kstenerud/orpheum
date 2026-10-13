@@ -82,7 +82,7 @@ func (service *Service) SetAudioOutput(ctx context.Context, userID, deviceID int
 func (service *Service) RemoveDevice(ctx context.Context, userID, deviceID int64) error {
 	now := service.clock.Now().UnixMilli()
 	return service.onOwnDevice(ctx, userID, deviceID, func(queries *sqlcgen.Queries) error {
-		if err := queries.RevokeSessionsOfDevice(ctx, sqlcgen.RevokeSessionsOfDeviceParams{
+		if err := queries.RevokeCredentialsOfDevice(ctx, sqlcgen.RevokeCredentialsOfDeviceParams{
 			RevokedAt: &now, DeviceID: &deviceID,
 		}); err != nil {
 			return fmt.Errorf("end the device's sessions: %w", err)

@@ -16,7 +16,7 @@ func TestSession_ByACodeCarriesNoAdminAndNoAccountSecurityAndByAPasswordTheWhole
 	id := fixture.createUser(t, "owner", "pw", RoleAdmin)
 	principalOf := func(device NewDevice) Principal {
 		t.Helper()
-		token, err := fixture.service.SignIn(ctx, "owner", "pw", "192.0.2.10", device)
+		token, err := tokenOf(fixture.service.SignIn(ctx, "owner", "pw", "192.0.2.10", device))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -39,7 +39,7 @@ func TestSession_ByACodeCarriesNoAdminAndNoAccountSecurityAndByAPasswordTheWhole
 	if err = fixture.service.AnswerPairing(ctx, id, asked.Code, true); err != nil {
 		t.Fatal(err)
 	}
-	token, err := fixture.service.TakePairedSession(ctx, asked.Secret)
+	token, err := tokenOf(fixture.service.TakePairedSession(ctx, asked.Secret))
 	if err != nil {
 		t.Fatal(err)
 	}

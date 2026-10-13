@@ -79,9 +79,9 @@ type NewDeviceBody struct {
 	Name             string `doc:"What the person will know it by: \"Chrome on Android\", \"Living room TV\"" json:"name"     maxLength:"100" minLength:"1"`                       //nolint:lll // one struct tag
 	Platform         string `doc:"The kind of client: \"web\", \"cast\""                                    json:"platform" maxLength:"40"  minLength:"1"`                         //nolint:lll // one struct tag
 	PreviousDeviceID int64  `doc:"The device this client was signed in as before, resumed when it is the same person's (D221)" json:"previousDeviceId,omitempty" required:"false"` //nolint:lll // one struct tag
-	// PreviousDeviceProof is a session token that device was issued, live or not, which proves the
-	// client was it.
-	PreviousDeviceProof string `doc:"A session token that device was issued, live or not: the proof it was this client" json:"previousDeviceProof,omitempty" maxLength:"100" required:"false"` //nolint:lll // one struct tag
+	// PreviousDeviceProof is the device secret a sign-in on that device gave, which proves the client
+	// was it (the third audit's A8).
+	PreviousDeviceProof string `doc:"The device secret a sign-in on that device gave: the proof it was this client" json:"previousDeviceProof,omitempty" maxLength:"100" required:"false"` //nolint:lll // one struct tag
 }
 
 func newDevice(body NewDeviceBody) auth.NewDevice {
@@ -108,8 +108,12 @@ func (facts *ClientFacts) Resolve(ctx huma.Context) []error {
 type SessionOutput struct {
 	SetCookie http.Cookie `header:"Set-Cookie"`
 	Body      struct {
-		Token string   `json:"token"`
-		User  UserBody `json:"user"`
+		Token string `json:"token"`
+		// DeviceSecret proves this client was its device at a later sign-in or code request, as
+		// previousDeviceProof: kept apart from the token, and sent to this core alone (the third
+		// audit's A8).
+		DeviceSecret string   `json:"deviceSecret"`
+		User         UserBody `json:"user"`
 	}
 }
 
@@ -179,20 +183,20 @@ func (server *Server) signIn(ctx context.Context, input *SignInInput) (*SessionO
 		return nil, newError(http.StatusConflict, CodeSetupRequired,
 			"no one can sign in until the first admin is created with the setup code")
 	}
-	token, err := dependencies.Auth.SignIn(
+	issued, err := dependencies.Auth.SignIn(
 		ctx, input.Body.Name, input.Body.Password, input.clientAddress, newDevice(input.Body.Device))
 	if err != nil {
 		return nil, server.authError(ctx, "sign in", err)
 	}
-	return server.newSessionOutput(ctx, dependencies, token, input.isOverTLS)
+	return server.newSessionOutput(ctx, dependencies, issued, input.isOverTLS)
 }
 
 // newSessionOutput answers a sign-in, a registration or a device code with the new session: its
 // token, who it is, and the media cookie.
 func (server *Server) newSessionOutput(
-	ctx context.Context, dependencies *Dependencies, token string, isOverTLS bool,
+	ctx context.Context, dependencies *Dependencies, issued auth.Issued, isOverTLS bool,
 ) (*SessionOutput, error) {
-	principal, err := dependencies.Auth.Authenticate(ctx, token)
+	principal, err := dependencies.Auth.Authenticate(ctx, issued.Token)
 	if err != nil {
 		return nil, server.logInternalError(ctx, "read the new session", err)
 	}
@@ -200,8 +204,8 @@ func (server *Server) newSessionOutput(
 	if err != nil {
 		return nil, err
 	}
-	output := &SessionOutput{SetCookie: mediaCookie(token, isOverTLS)}
-	output.Body.Token, output.Body.User = token, body
+	output := &SessionOutput{SetCookie: mediaCookie(issued.Token, isOverTLS)}
+	output.Body.Token, output.Body.DeviceSecret, output.Body.User = issued.Token, issued.DeviceSecret, body
 	return output, nil
 }
 

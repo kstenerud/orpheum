@@ -114,23 +114,23 @@ func (service *Service) IssueRegistrationInvitation(ctx context.Context, userID 
 // 256 bits cannot be guessed (D221 §4).
 func (service *Service) Register(
 	ctx context.Context, secret, name, password string, device NewDevice,
-) (string, error) {
+) (Issued, error) {
 	if password == "" {
-		return "", errors.New("a password is needed")
+		return Issued{}, errors.New("a password is needed")
 	}
 	if isInvitation, err := service.isInvitation(ctx, secret); err != nil {
-		return "", err
+		return Issued{}, err
 	} else if isInvitation {
 		return service.acceptInvitation(ctx, secret, name, password, device)
 	}
 	grant, err := service.spend(ctx, secret, grantScopeRegister)
 	if err != nil {
-		return "", err
+		return Issued{}, err
 	}
 	userID := *grant.UserID
 	hash, err := service.hashWithCurrentCosts(ctx, password)
 	if err != nil {
-		return "", err
+		return Issued{}, err
 	}
 	// A new password from a registration link ends every session the person had: the link is how
 	// someone who lost their password, or had it taken, gets back in (the second audit's K1).
@@ -145,7 +145,7 @@ func (service *Service) Register(
 		})
 	})
 	if err != nil {
-		return "", fmt.Errorf("set the password: %w", err)
+		return Issued{}, fmt.Errorf("set the password: %w", err)
 	}
 	return service.issueSession(ctx, userID, device, grantScopeRole)
 }

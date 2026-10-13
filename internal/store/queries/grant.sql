@@ -31,10 +31,6 @@ WHERE user_id = sqlc.arg(user_id) AND kind = sqlc.arg(kind) AND scope = sqlc.arg
 -- A grant whatever its state: why a session no longer works, when one does not.
 SELECT kind, revoked_at, expires_at, last_used_at, issued_at FROM "grant" WHERE secret_sha256 = sqlc.arg(secret_sha256);
 
--- name: GetSessionDevice :one
--- The person and device a session token was issued on, whatever its state: a client resuming a
--- device shows it as proof it was that device (D221 section 1, the second audit's K1).
-SELECT user_id, device_id FROM "grant" WHERE secret_sha256 = sqlc.arg(secret_sha256) AND kind = 'session';
 
 -- name: RevokeSessionsOfUserExceptSession :exec
 -- Every live session of the person's but one, the one asking: signing out everywhere else, and a

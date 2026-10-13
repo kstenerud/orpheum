@@ -18,8 +18,8 @@ type PairingRequestInput struct {
 	Body struct {
 		Secret              string `doc:"The pairing this device has, for the same code again" json:"secret,omitempty" maxLength:"100" required:"false"` //nolint:lll // one struct tag
 		Platform            string `json:"platform" maxLength:"40" minLength:"1"`
-		PreviousDeviceID    int64  `doc:"The device this client was signed in as before (D221)" json:"previousDeviceId,omitempty" required:"false"`                                                //nolint:lll // one struct tag
-		PreviousDeviceProof string `doc:"A session token that device was issued, live or not: the proof it was this client" json:"previousDeviceProof,omitempty" maxLength:"100" required:"false"` //nolint:lll // one struct tag
+		PreviousDeviceID    int64  `doc:"The device this client was signed in as before (D221)" json:"previousDeviceId,omitempty" required:"false"`                                            //nolint:lll // one struct tag
+		PreviousDeviceProof string `doc:"The device secret a sign-in on that device gave: the proof it was this client" json:"previousDeviceProof,omitempty" maxLength:"100" required:"false"` //nolint:lll // one struct tag
 	}
 	ClientFacts
 }
@@ -138,11 +138,11 @@ func (server *Server) takePairedSession(ctx context.Context, input *PairingSecre
 	if err != nil {
 		return nil, err
 	}
-	token, err := dependencies.Auth.TakePairedSession(ctx, input.Body.Secret)
+	issued, err := dependencies.Auth.TakePairedSession(ctx, input.Body.Secret)
 	if err != nil {
 		return nil, server.authError(ctx, "take a paired session", err)
 	}
-	return server.newSessionOutput(ctx, dependencies, token, input.isOverTLS)
+	return server.newSessionOutput(ctx, dependencies, issued, input.isOverTLS)
 }
 
 func (server *Server) activateDevice(ctx context.Context, input *ActivationInput) (*ActivationOutput, error) {

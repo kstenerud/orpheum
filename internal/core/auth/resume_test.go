@@ -13,10 +13,11 @@ func TestDevices_ASignInResumesTheDeviceTheClientRemembersWhenItIsTheSamePersons
 	ctx := t.Context()
 	fixture.createUser(t, "partner", "pw", RoleUser)
 	fixture.createUser(t, "owner", "pw", RoleAdmin)
-	first, err := fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", laptop)
+	firstIssued, err := fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", laptop)
 	if err != nil {
 		t.Fatal(err)
 	}
+	first := firstIssued.Token
 	before, err := fixture.service.Authenticate(ctx, first)
 	if err != nil {
 		t.Fatal(err)
@@ -25,9 +26,10 @@ func TestDevices_ASignInResumesTheDeviceTheClientRemembersWhenItIsTheSamePersons
 		t.Fatal(err)
 	}
 	resumed := NewDevice{
-		Name: "Firefox on Linux", Platform: "web", PreviousDeviceID: before.DeviceID, PreviousDeviceProof: first,
+		Name: "Firefox on Linux", Platform: "web", PreviousDeviceID: before.DeviceID,
+		PreviousDeviceProof: firstIssued.DeviceSecret,
 	}
-	again, err := fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", resumed)
+	again, err := tokenOf(fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", resumed))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,7 +37,7 @@ func TestDevices_ASignInResumesTheDeviceTheClientRemembersWhenItIsTheSamePersons
 	if err != nil || after.DeviceID != before.DeviceID {
 		t.Errorf("signing in again resumed device %d, %v; want %d (D221 §1)", after.DeviceID, err, before.DeviceID)
 	}
-	someoneElses, err := fixture.service.SignIn(ctx, "owner", "pw", "192.0.2.1", resumed)
+	someoneElses, err := tokenOf(fixture.service.SignIn(ctx, "owner", "pw", "192.0.2.1", resumed))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,35 +47,50 @@ func TestDevices_ASignInResumesTheDeviceTheClientRemembersWhenItIsTheSamePersons
 	}
 }
 
-// A client that names a device it cannot prove it was, by a session token that device was issued, gets
-// a new device: a stranger naming someone's device id sat on it, unseen in their list and kept by
-// "sign out everywhere else" (the second audit's K1 and W4, 2026-10-13).
+// A client that names a device it cannot prove it was, by that device's current secret, gets a new
+// device: a stranger naming someone's device id sat on it, unseen in their list and kept by "sign out
+// everywhere else" (the second audit's K1 and W4, 2026-10-13); and a session token is no proof, nor a
+// secret a later sign-in replaced (the third audit's A8).
 func TestDevices_ADeviceIsResumedOnlyByAClientThatProvesItWasIt(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
 	fixture.createUser(t, "partner", "pw", RoleUser)
-	phone, err := fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", laptop)
+	phoneIssued, err := fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", laptop)
 	if err != nil {
 		t.Fatal(err)
 	}
+	phone := phoneIssued.Token
 	victim, err := fixture.service.Authenticate(ctx, phone)
 	if err != nil {
 		t.Fatal(err)
 	}
-	other, err := fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", laptop)
+	other, err := tokenOf(fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", laptop))
 	if err != nil {
 		t.Fatal(err)
 	}
+	resumed, err := fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", NewDevice{
+		Name: laptop.Name, Platform: laptop.Platform, PreviousDeviceID: victim.DeviceID,
+		PreviousDeviceProof: phoneIssued.DeviceSecret,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again, authErr := fixture.service.Authenticate(ctx, resumed.Token); authErr != nil ||
+		again.DeviceID != victim.DeviceID {
+		t.Fatalf("the device's own secret resumed device %d, %v; want %d", again.DeviceID, authErr, victim.DeviceID)
+	}
 	for proof, why := range map[string]string{
-		"":        "no proof",
-		"guessed": "a token never issued",
-		other:     "a token of another of the person's devices",
+		"":                       "no proof",
+		"guessed":                "a token never issued",
+		other:                    "a token of another of the person's devices",
+		phone:                    "the device's own session token",
+		phoneIssued.DeviceSecret: "the device's secret a later sign-in replaced",
 	} {
 		named := NewDevice{
 			Name: "Intruder", Platform: "web", PreviousDeviceID: victim.DeviceID, PreviousDeviceProof: proof,
 		}
-		token, signInErr := fixture.service.SignIn(ctx, "partner", "pw", "203.0.113.9", named)
+		token, signInErr := tokenOf(fixture.service.SignIn(ctx, "partner", "pw", "203.0.113.9", named))
 		if signInErr != nil {
 			t.Fatal(signInErr)
 		}
@@ -92,11 +109,11 @@ func TestPassword_ANewPasswordEndsTheOtherSessions(t *testing.T) {
 	fixture := newFixture(t)
 	ctx := t.Context()
 	id := fixture.createUser(t, "partner", "old", RoleUser)
-	asking, err := fixture.service.SignIn(ctx, "partner", "old", "192.0.2.1", laptop)
+	asking, err := tokenOf(fixture.service.SignIn(ctx, "partner", "old", "192.0.2.1", laptop))
 	if err != nil {
 		t.Fatal(err)
 	}
-	stolen, err := fixture.service.SignIn(ctx, "partner", "old", "203.0.113.9", laptop)
+	stolen, err := tokenOf(fixture.service.SignIn(ctx, "partner", "old", "203.0.113.9", laptop))
 	if err != nil {
 		t.Fatal(err)
 	}

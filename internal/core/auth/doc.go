@@ -71,9 +71,10 @@
 //     TestPairing_ADeviceSignedInBeforeResumesItselfAndANewOneNeedsAName and
 //     TestPairing_ANewCodeIsRefusedPastTheCapsAndNoWaitingOneIsPushedOut.
 //   - A sign-in, or a device activated by its code, resumes the device the client remembers only when
-//     it is the same person's and the client proves it was that device, by a session token the
-//     device was issued, live or not; else it is a new device; a registration invitation is not held
-//     back by the failed-sign-in limit and clears the person from it (D221; the second audit's K1).
+//     it is the same person's and the client proves it was that device, by the device secret its
+//     latest sign-in gave (never a session token, the third audit's A8); else it is a new device; a
+//     registration invitation is not held back by the failed-sign-in limit and clears the person
+//     from it (D221; the second audit's K1).
 //     Enforced by TestDevices_ASignInResumesTheDeviceTheClientRemembersWhenItIsTheSamePersons,
 //     TestDevices_ADeviceIsResumedOnlyByAClientThatProvesItWasIt,
 //     TestPairing_ADeviceSignedInBeforeResumesItselfAndANewOneNeedsAName and

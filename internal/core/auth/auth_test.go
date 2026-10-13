@@ -104,7 +104,7 @@ func TestSignIn_IssuesASessionUntilSignedOut(t *testing.T) {
 	fixture := newFixture(t)
 	ctx := t.Context()
 	id := fixture.createUser(t, "owner", "right", RoleAdmin)
-	token, err := fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1", laptop)
+	token, err := tokenOf(fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1", laptop))
 	if err != nil {
 		t.Fatalf("SignIn: %v", err)
 	}
@@ -115,7 +115,8 @@ func TestSignIn_IssuesASessionUntilSignedOut(t *testing.T) {
 	if principal.UserID != id || principal.Role != RoleAdmin || !principal.IsAdmin() {
 		t.Errorf("principal = %+v, want the admin owner", principal)
 	}
-	second, err := fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1", NewDevice{Name: "TV", Platform: "web"})
+	second, err := tokenOf(fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1",
+		NewDevice{Name: "TV", Platform: "web"}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,11 +143,11 @@ func TestAuthenticate_NamesTheSessionWithoutItsCredential(t *testing.T) {
 	fixture := newFixture(t)
 	ctx := t.Context()
 	fixture.createUser(t, "owner", "right", RoleAdmin)
-	first, err := fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1", laptop)
+	first, err := tokenOf(fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1", laptop))
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1", laptop)
+	second, err := tokenOf(fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1", laptop))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,8 +214,8 @@ func TestSignIn_RateLimitsRepeatedFailuresBySetting(t *testing.T) {
 		t.Errorf("another person on the failing network, below its limit: %v, want signed in", err)
 	}
 	for index := range limit * accountEverywhereTimes {
-		_, _ = fixture.service.SignIn(ctx, "someone", "wrong", //nolint:errcheck // failing on purpose
-			fmt.Sprintf("198.51.100.%d", index+1), laptop)
+		_, _ = tokenOf(fixture.service.SignIn(ctx, "someone", "wrong", //nolint:errcheck // failing on purpose
+			fmt.Sprintf("198.51.100.%d", index+1), laptop))
 	}
 	if _, err := fixture.service.SignIn(ctx, "someone", "right", "192.0.2.200", laptop); !errors.Is(err,
 		ErrRateLimited) {
@@ -281,7 +282,7 @@ func TestAuthenticate_EndsASessionUnusedForTheIdleExpiry(t *testing.T) {
 	settingstest.Set(t, fixture.settings, settings.SessionIdleExpiryHours, "1")
 	settingstest.Set(t, fixture.settings, settings.SessionLastUsedWriteIntervalSeconds, "60")
 	fixture.createUser(t, "owner", "right", RoleAdmin)
-	token, err := fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1", laptop)
+	token, err := tokenOf(fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1", laptop))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -318,4 +319,9 @@ func BenchmarkHashPassword_DefaultParameters(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+// tokenOf is an issued session's token, for a test that needs only that.
+func tokenOf(issued Issued, err error) (string, error) {
+	return issued.Token, err
 }
