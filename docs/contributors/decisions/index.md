@@ -300,6 +300,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D292](working-notes.md#d292--the-third-audit-round-taken-no-admin-through-a-discovery-a-thin-path-first-two-machines-staging-inside-the-owners-own-names-the-household-zone-at-orpheum-corecom) The third audit round taken: no admin through a discovery, a thin path first, two machines, staging inside the owner's own names, the household zone at orpheum-core.com — *revisited by D293, D294*
 - [D293](working-notes.md#d293--the-discoverys-open-questions-answered-a-live-instance-is-pinged-before-it-is-replaced-device-codes-through-the-service-sealed-by-hpke-on-p-256-in-the-beta-stagings-dns-token-in-the-sandbox-until-production) The discovery's open questions answered: a live instance is pinged before it is replaced, device codes through the service sealed by HPKE on P-256 in the beta, staging's DNS token in the sandbox until production
 - [D294](working-notes.md#d294--admin-from-anywhere-in-the-beta-and-an-operators-reset-of-who-administers-from-the-servers-machine) Admin from anywhere in the beta, and an operator's reset of who administers from the server's machine
+- [D295](working-notes.md#d295--the-security-model-what-a-compromise-costs-decides-what-is-hardened-the-paid-service-most-of-all) The security model: what a compromise costs decides what is hardened, the paid service most of all
 
 ## Archived
 

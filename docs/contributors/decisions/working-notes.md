@@ -20050,3 +20050,26 @@ The owner is deploying on his own homelab."*
    WebRTC request's head says of where it came from.
 
 **Status:** Decided 2026-10-13.
+
+## D295 — The security model: what a compromise costs decides what is hardened, the paid service most of all
+
+**Decided** (2026-10-13), by the project owner: *"all we have to protect on the per-host level is a
+video library."*
+
+1. **What a compromise costs.** The paid service's would be catastrophic: it reaches every
+   household. A core's, or a node's, is bad only where it can write: it could delete files or the
+   metadata kept with them. One that cannot write costs little. A core's own database (accounts,
+   watch history, identification) is restored from its backups.
+2. **Nodes read the media only, by default.** A node's config file (TOML, as every config, D197)
+   may allow writing metadata beside the media (NFO files, artwork) or full writing (deleting,
+   moving), read at the node's start and settable by no other means: not by the core, the API, the
+   node channel or a setting. Until a feature needs writing, there is no such key; what exists today
+   is read-only three times over (the deployment's read-only mounts, `confine.MediaRoot`, and the
+   forbidigo rule against removing and renaming). When a mode that writes is built, its key, the
+   mount and the node's confinement change together, and the default stays read-only.
+3. **Passkeys are each server's own choice**, never required (as D294 §3).
+4. **The paid service follows best practice throughout** and is built to withstand penetration:
+   its security work comes first in its plan, and what limits the harm a compromised service can do
+   to households (the fingerprints in links, signed answers, sealed device codes) is kept.
+
+**Status:** Decided 2026-10-13.
