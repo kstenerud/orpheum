@@ -19792,7 +19792,7 @@ Follow your recommendation"*, then *"Q5, Q6, Q13, Q14, Q18: Agreed"*. The protoc
 [the security audit](../design/research/discovery-audit-security-2026-10-13.md),
 [the ease-of-use audit](../design/research/discovery-audit-ux-2026-10-13.md),
 [the correctness audit](../design/research/discovery-audit-correctness-2026-10-13.md) and
-[the DDoS and availability research](../design/research/discovery-ddos-availability-2026-10-13.md),
+the DDoS and availability research (kept with the paid service, in its own repository),
 which the owner asked for before any development: *"A1, A3, B1, B2, B3, B4, B5, B6, B7, B8, B9,
 B10, B12, D: Take your recommendation"*, and *"C: Yes, we'll need webrtc during the beta. It needs
 to be as seamless UX as possible for the user or else adoption will suffer."* Each item names the
