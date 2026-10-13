@@ -10,14 +10,15 @@ import type { NewDevice } from "./device.ts";
 export type Account = components["schemas"]["AccountBody"];
 
 /**
- * What signing in answers: the new session's token, the device it is on, and that device's secret,
- * the proof a later sign-in resumes it by (the third audit's A8).
+ * What signing in answers: the new session's token, the device it is on, that device's secret, the
+ * proof a later sign-in resumes it by (the third audit's A8), and its locator, which a discovery finds
+ * the server by (discovery-core.md K7).
  */
-export interface SignInResult {
-  readonly token: string;
-  readonly deviceSecret: string;
+export type SignInResult = Readonly<
+  Pick<components["schemas"]["SessionOutputBody"], "token" | "deviceSecret" | "locator">
+> & {
   readonly user: { readonly device?: { readonly id: number; readonly name: string } };
-}
+};
 
 /**
  * The link a registration invitation is shared as: the secret after #, so the browser never sends

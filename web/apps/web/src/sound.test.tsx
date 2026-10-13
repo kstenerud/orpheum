@@ -50,7 +50,7 @@ describe("how a device makes sound (D222)", () => {
       },
       heard,
     );
-    services.session.signIn("token", 5);
+    services.session.signIn("token", { deviceId: 5 });
     mounted = await mount(withServices(<Play fileId={2} />, services));
     expect(mounted.container.textContent).toContain("How does this device play sound?");
     expect(mounted.container.querySelector("video")).toBeNull();
@@ -86,7 +86,7 @@ describe("how a device makes sound (D222)", () => {
       },
       heard,
     );
-    services.session.signIn("token", 5);
+    services.session.signIn("token", { deviceId: 5 });
     mounted = await mount(withServices(<Play fileId={2} />, services));
     await click(answerButton("Change"));
     expect(answerButton("Built-in speakers")?.getAttribute("aria-pressed")).toBe("true");
