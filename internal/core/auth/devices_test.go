@@ -61,7 +61,7 @@ func TestDevices_AreListedAndARemovedOneIsSignedOutAtItsNextRequest(t *testing.T
 	}
 }
 
-func TestSignOutElsewhere_EndsEverySessionButThisDevicesAndKeepsThemListed(t *testing.T) {
+func TestSignOutElsewhere_EndsEverySessionButTheAskingOneAndKeepsTheDevicesListed(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
@@ -79,7 +79,14 @@ func TestSignOutElsewhere_EndsEverySessionButThisDevicesAndKeepsThemListed(t *te
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = fixture.service.SignOutElsewhere(ctx, id, principal.DeviceID)
+	// A second session on this device, which signing out everywhere else kept (the second audit's K1).
+	sameDevice, err := fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", NewDevice{
+		Name: "Phone", Platform: "web", PreviousDeviceID: principal.DeviceID, PreviousDeviceProof: here,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = fixture.service.SignOutElsewhere(ctx, id, here)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,6 +97,9 @@ func TestSignOutElsewhere_EndsEverySessionButThisDevicesAndKeepsThemListed(t *te
 	_, err = fixture.service.Authenticate(ctx, here)
 	if err != nil {
 		t.Errorf("this device: %v, want still signed in", err)
+	}
+	if _, err = fixture.service.Authenticate(ctx, sameDevice); !errors.Is(err, ErrNotAuthenticated) {
+		t.Errorf("another session on this device: %v, want signed out", err)
 	}
 	devices, err := fixture.service.Devices(ctx, id)
 	if err != nil || len(devices) != 2 {
@@ -140,7 +150,9 @@ func TestDevices_ADeviceWasLastUsedWhenItsLatestSessionWasIssuedOrUsed(t *testin
 		t.Fatal(err)
 	}
 	fixture.clock.Advance(30 * 24 * time.Hour)
-	resumed := NewDevice{Name: laptop.Name, Platform: laptop.Platform, PreviousDeviceID: principal.DeviceID}
+	resumed := NewDevice{
+		Name: laptop.Name, Platform: laptop.Platform, PreviousDeviceID: principal.DeviceID, PreviousDeviceProof: first,
+	}
 	if _, err = fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", resumed); err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +200,7 @@ func TestNames_ADevicesNameAndPlatformAreCleanedWhereTheyEnter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	asked, err := fixture.service.RequestPairing(ctx, "", "we\u200bb", 0, "192.0.2.10")
+	asked, err := fixture.service.RequestPairing(ctx, "", "we\u200bb", PreviousDevice{}, "192.0.2.10")
 	if err != nil {
 		t.Fatal(err)
 	}

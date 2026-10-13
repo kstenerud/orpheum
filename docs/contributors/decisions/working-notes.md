@@ -16635,6 +16635,13 @@ everyone else should need nothing but a link and, on a TV, eight characters.
    act.
 6. **People change their own password** in their settings.
 
+   **Amended 2026-10-13** after the second security audit (K1): a password reset left whoever held
+   the old one signed in. A new password set by a registration link now ends every session of the
+   person's, and one a person changes ends every other session of theirs, the asking one staying;
+   "sign out everywhere else" ends every session but the asking one, not every session of the
+   asking device. The owner approved the fixes to what is exploitable today: *"yes go ahead with
+   those"*.
+
 **Why this direction rather than D93's:** the TV is an ordinary page that sends one request
 instead of waiting to be approved, and the code can be made by an admin on someone else's behalf.
 Phishing risk is about equal either way; the ten-minute life and single use bound it.

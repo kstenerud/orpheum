@@ -18,11 +18,18 @@ export interface Session {
   readonly lastEndReason: () => string | undefined;
   /** The device this browser was last signed in as, which a sign-in asks to resume (D221). */
   readonly deviceId: () => number | undefined;
+  /**
+   * The last session token this browser was given, kept past signing out: the proof that it was
+   * the device it asks to resume, without which the server makes a new device (the second audit's
+   * K1). It grants nothing once its session has ended.
+   */
+  readonly deviceProof: () => string | undefined;
   readonly subscribe: (listener: () => void) => () => void;
 }
 
 const tokenStorageKey = "orpheum.session";
 const deviceIdStorageKey = "orpheum.deviceId";
+const deviceProofStorageKey = "orpheum.deviceProof";
 
 /** Creates a session over storage, which may throw on every call. */
 export function createSession(refusableStorage: StringStorage | undefined): Session {
@@ -32,6 +39,7 @@ export function createSession(refusableStorage: StringStorage | undefined): Sess
   const keptDeviceId = Number(storage.getItem(deviceIdStorageKey) ?? "");
   let storedDeviceId =
     Number.isSafeInteger(keptDeviceId) && keptDeviceId > 0 ? keptDeviceId : undefined;
+  let deviceProof = storage.getItem(deviceProofStorageKey) ?? token;
   const listeners = new Set<() => void>();
   const setToken = (next: string | undefined): void => {
     token = next;
@@ -52,6 +60,8 @@ export function createSession(refusableStorage: StringStorage | undefined): Sess
         storedDeviceId = deviceId;
         storage.setItem(deviceIdStorageKey, String(deviceId));
       }
+      deviceProof = next;
+      storage.setItem(deviceProofStorageKey, next);
       setToken(next);
     },
     signOut: () => {
@@ -63,6 +73,7 @@ export function createSession(refusableStorage: StringStorage | undefined): Sess
     },
     lastEndReason: () => endedReason,
     deviceId: () => storedDeviceId,
+    deviceProof: () => deviceProof,
     subscribe: (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);

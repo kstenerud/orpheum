@@ -23,13 +23,19 @@ export type PairingState = components["schemas"]["PairingStateOutputBody"];
  */
 export async function requestPairing(
   api: Api,
-  pairing: { readonly secret: string | undefined; readonly previousDeviceId: number | undefined },
+  pairing: {
+    readonly secret: string | undefined;
+    readonly previousDeviceId: number | undefined;
+    /** A session token that device was issued: the proof it was this browser (the second audit's K1). */
+    readonly previousDeviceProof: string | undefined;
+  },
 ): Promise<DevicePairing> {
-  const { secret, previousDeviceId } = pairing;
+  const { secret, previousDeviceId, previousDeviceProof } = pairing;
   const body = {
     platform: "web",
     ...(secret === undefined ? {} : { secret }),
     ...(previousDeviceId === undefined ? {} : { previousDeviceId }),
+    ...(previousDeviceProof === undefined ? {} : { previousDeviceProof }),
   } satisfies components["schemas"]["PairingRequestInputBody"];
   return dataOrThrow(await api.POST("/pairings", { body }));
 }

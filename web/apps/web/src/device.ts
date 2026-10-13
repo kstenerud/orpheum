@@ -42,9 +42,21 @@ export function deviceFrom(userAgent: string): NewDevice {
   return { name: system === undefined ? browser : `${browser} on ${system}`, platform: "web" };
 }
 
-/** This browser as a device to sign in on: named from its user agent, resuming the last (D221). */
-export function thisDevice(session: { readonly deviceId: () => number | undefined }): NewDevice {
+/**
+ * This browser as a device to sign in on: named from its user agent, resuming the last (D221) with
+ * the proof that it was it, without which the server makes a new device.
+ */
+export function thisDevice(session: {
+  readonly deviceId: () => number | undefined;
+  readonly deviceProof: () => string | undefined;
+}): NewDevice {
   const previousDeviceId = session.deviceId();
+  const previousDeviceProof = session.deviceProof();
   const named = deviceFrom(navigator.userAgent);
-  return previousDeviceId === undefined ? named : { ...named, previousDeviceId };
+  if (previousDeviceId === undefined) {
+    return named;
+  }
+  return previousDeviceProof === undefined
+    ? { ...named, previousDeviceId }
+    : { ...named, previousDeviceId, previousDeviceProof };
 }

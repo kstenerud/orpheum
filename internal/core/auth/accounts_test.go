@@ -157,20 +157,20 @@ func TestRegistration_ANewLinkWithdrawsTheOldAndTheOldPasswordWorksUntilANewOneI
 	}
 }
 
-func TestChangePassword_NeedsTheCurrentOneAndKeepsOtherSessions(t *testing.T) {
+func TestChangePassword_NeedsTheCurrentOne(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
 	id := fixture.createUser(t, "partner", "old", RoleUser)
-	other, err := fixture.service.SignIn(ctx, "partner", "old", "192.0.2.1", laptop)
+	asking, err := fixture.service.SignIn(ctx, "partner", "old", "192.0.2.1", laptop)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = fixture.service.ChangePassword(ctx, id, "wrong", "new")
+	err = fixture.service.ChangePassword(ctx, id, "wrong", "new", asking)
 	if !errors.Is(err, ErrWrongPassword) || errors.Is(err, ErrBadCredentials) {
 		t.Errorf("with the wrong current password: %v, want ErrWrongPassword, not a failed sign-in", err)
 	}
-	err = fixture.service.ChangePassword(ctx, id, "old", "new")
+	err = fixture.service.ChangePassword(ctx, id, "old", "new", asking)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,16 +178,12 @@ func TestChangePassword_NeedsTheCurrentOneAndKeepsOtherSessions(t *testing.T) {
 	if err != nil {
 		t.Errorf("the new password: %v", err)
 	}
-	_, err = fixture.service.Authenticate(ctx, other)
-	if err != nil {
-		t.Errorf("another session after the change: %v, want still signed in (D218 §6)", err)
-	}
 }
 
 func TestChangePassword_OfNoOneIsNoSuchPerson(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
-	if err := fixture.service.ChangePassword(t.Context(), 999, "old", "new"); !errors.Is(err, ErrNoUser) {
+	if err := fixture.service.ChangePassword(t.Context(), 999, "old", "new", ""); !errors.Is(err, ErrNoUser) {
 		t.Errorf("the password of a person who is not there: %v, want ErrNoUser", err)
 	}
 }

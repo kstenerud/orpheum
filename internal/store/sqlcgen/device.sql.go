@@ -186,24 +186,6 @@ func (q *Queries) RevokeSessionsOfDevice(ctx context.Context, arg RevokeSessions
 	return err
 }
 
-const revokeSessionsOfUserExceptDevice = `-- name: RevokeSessionsOfUserExceptDevice :exec
-UPDATE "grant" SET revoked_at = ?1
-WHERE user_id = ?2 AND kind = 'session' AND revoked_at IS NULL
-  AND device_id IS NOT ?3
-`
-
-type RevokeSessionsOfUserExceptDeviceParams struct {
-	RevokedAt    *int64
-	UserID       *int64
-	KeepDeviceID *int64
-}
-
-// Signing out everywhere else: every session of the person's but those of the device asking.
-func (q *Queries) RevokeSessionsOfUserExceptDevice(ctx context.Context, arg RevokeSessionsOfUserExceptDeviceParams) error {
-	_, err := q.db.ExecContext(ctx, revokeSessionsOfUserExceptDevice, arg.RevokedAt, arg.UserID, arg.KeepDeviceID)
-	return err
-}
-
 const setDeviceAudioOutput = `-- name: SetDeviceAudioOutput :exec
 UPDATE device SET audio_output = ?1 WHERE id = ?2
 `

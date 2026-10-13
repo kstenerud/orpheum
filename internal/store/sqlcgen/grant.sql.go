@@ -77,6 +77,24 @@ func (q *Queries) GetLiveGrant(ctx context.Context, arg GetLiveGrantParams) (Get
 	return i, err
 }
 
+const getSessionDevice = `-- name: GetSessionDevice :one
+SELECT user_id, device_id FROM "grant" WHERE secret_sha256 = ?1 AND kind = 'session'
+`
+
+type GetSessionDeviceRow struct {
+	UserID   *int64
+	DeviceID *int64
+}
+
+// The person and device a session token was issued on, whatever its state: a client resuming a
+// device shows it as proof it was that device (D221 section 1, the second audit's K1).
+func (q *Queries) GetSessionDevice(ctx context.Context, secretSha256 []byte) (GetSessionDeviceRow, error) {
+	row := q.db.QueryRowContext(ctx, getSessionDevice, secretSha256)
+	var i GetSessionDeviceRow
+	err := row.Scan(&i.UserID, &i.DeviceID)
+	return i, err
+}
+
 const insertGrant = `-- name: InsertGrant :exec
 
 INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_name, device_id)
@@ -147,6 +165,25 @@ func (q *Queries) RevokeLiveGrantsOfUser(ctx context.Context, arg RevokeLiveGran
 		arg.Kind,
 		arg.Scope,
 	)
+	return err
+}
+
+const revokeSessionsOfUserExceptSession = `-- name: RevokeSessionsOfUserExceptSession :exec
+UPDATE "grant" SET revoked_at = ?1
+WHERE user_id = ?2 AND kind = 'session' AND revoked_at IS NULL
+  AND secret_sha256 IS NOT ?3
+`
+
+type RevokeSessionsOfUserExceptSessionParams struct {
+	RevokedAt        *int64
+	UserID           *int64
+	KeepSecretSha256 []byte
+}
+
+// Every live session of the person's but one, the one asking: signing out everywhere else, and a
+// changed password.
+func (q *Queries) RevokeSessionsOfUserExceptSession(ctx context.Context, arg RevokeSessionsOfUserExceptSessionParams) error {
+	_, err := q.db.ExecContext(ctx, revokeSessionsOfUserExceptSession, arg.RevokedAt, arg.UserID, arg.KeepSecretSha256)
 	return err
 }
 

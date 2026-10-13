@@ -62,4 +62,14 @@ describe("createSession", () => {
     session.signIn("next");
     expect(session.lastEndReason()).toBeUndefined();
   });
+
+  it("keeps its last token past a sign-out, the proof of the device it resumes (the second audit's K1)", () => {
+    const storage = memoryStorage();
+    const session = createSession(storage);
+    session.signIn("token-of-42", 42);
+    session.signOut();
+    const reloaded = createSession(storage);
+    expect(reloaded.token()).toBeUndefined();
+    expect(reloaded.deviceProof()).toBe("token-of-42");
+  });
 });

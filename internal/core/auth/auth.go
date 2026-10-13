@@ -205,8 +205,13 @@ type NewDevice struct {
 	Name     string
 	Platform string
 	// PreviousDeviceID is the device the client remembers being signed in as: a sign-in resumes it when it
-	// is the same person's and has not been removed, rather than making a new one (D221 §1).
+	// is the same person's, has not been removed, and PreviousDeviceProof proves the client was it,
+	// rather than making a new one (D221 §1).
 	PreviousDeviceID int64
+	// PreviousDeviceProof is a session token that device was issued, live or not: an id alone let any
+	// client that named one sit on another's device, unseen in the list and kept by "sign out
+	// everywhere else" (the second audit's K1 and W4, 2026-10-13).
+	PreviousDeviceProof string
 }
 
 // SignIn checks a name and password and issues a session on the device the client remembers,
@@ -282,14 +287,34 @@ func accountLimitKey(name string) string {
 	return "account:" + strings.ToLower(textindex.Line(name))
 }
 
+// isProvenDevice is whether proof is a session token issued to the person userID on deviceID, live
+// or not: what lets a client resume the device it was.
+func isProvenDevice(ctx context.Context, queries *sqlcgen.Queries, userID, deviceID int64, proof string) (bool, error) {
+	if proof == "" || deviceID == 0 {
+		return false, nil
+	}
+	issued, err := store.OrNotFound(queries.GetSessionDevice(ctx, tokenHash(proof)))
+	if errors.Is(err, store.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("look up a device's proof: %w", err)
+	}
+	return ptr.ValueOrZero(issued.UserID) == userID && ptr.ValueOrZero(issued.DeviceID) == deviceID, nil
+}
+
 // resumeOrMakeDevice is the device a sign-in is on: the one the client remembers, when it is the
-// person's and not removed (D221 §1), else a new one.
+// person's, not removed, and the client proves it was it (D221 §1), else a new one.
 func resumeOrMakeDevice(
 	ctx context.Context, queries *sqlcgen.Queries, userID int64, device NewDevice, now int64,
 ) (int64, error) {
-	if device.PreviousDeviceID != 0 {
-		known, err := liveDevice(ctx, queries, userID, device.PreviousDeviceID)
-		if err == nil {
+	isProven, err := isProvenDevice(ctx, queries, userID, device.PreviousDeviceID, device.PreviousDeviceProof)
+	if err != nil {
+		return 0, err
+	}
+	if isProven {
+		known, liveErr := liveDevice(ctx, queries, userID, device.PreviousDeviceID)
+		if liveErr == nil {
 			touch := sqlcgen.RecordDeviceSignInParams{
 				Platform: textindex.Line(device.Platform), SignedInAt: now, ID: known.ID,
 			}
@@ -298,15 +323,15 @@ func resumeOrMakeDevice(
 			}
 			return known.ID, nil
 		}
-		if !errors.Is(err, ErrNoDevice) {
-			return 0, err
+		if !errors.Is(liveErr, ErrNoDevice) {
+			return 0, liveErr
 		}
 	}
-	id, err := queries.InsertDevice(ctx, sqlcgen.InsertDeviceParams{
+	id, insertErr := queries.InsertDevice(ctx, sqlcgen.InsertDeviceParams{
 		UserID: &userID, Name: textindex.Line(device.Name), Platform: textindex.Line(device.Platform), SignedInAt: now,
 	})
-	if err != nil {
-		return 0, fmt.Errorf("record the device: %w", err)
+	if insertErr != nil {
+		return 0, fmt.Errorf("record the device: %w", insertErr)
 	}
 	return id, nil
 }
