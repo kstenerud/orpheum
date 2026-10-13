@@ -5,6 +5,7 @@ import "./together-voice.css";
 import {
   createTogetherVoice,
   partnerGainMost,
+  type BrowserVoiceDevices,
   type Api,
   type TogetherVoice,
   type VoiceSnapshot,
@@ -65,14 +66,18 @@ export interface VoiceInUse {
 /**
  * This person's voice in their session, by their membership: hearing everyone from the start
  * (D281 §1), once isReady, and left as the component goes. Made again only for another membership.
+ * Its devices are its own, closed with it, unless the page gives those it keeps: a guest's page has
+ * them before its Join, whose tap readies them (useViewerVoiceDevices).
  */
 export function useVoice(
   membership: Membership,
   sessionToken: string | undefined,
-  isReady = true,
+  page: { readonly isReady?: boolean; readonly devices?: BrowserVoiceDevices } = {},
 ): VoiceInUse {
+  const isReady = page.isReady ?? true;
+  const pageDevices = page.devices;
   const { api, openTogetherSocket, voiceDevices } = useServices();
-  const devices = useMemo(() => voiceDevices(), [voiceDevices]);
+  const devices = useMemo(() => pageDevices ?? voiceDevices(), [pageDevices, voiceDevices]);
   const { sessionId, credential } = membership;
   const voice = useMemo(
     () =>
@@ -90,9 +95,11 @@ export function useVoice(
   useEffect(
     () => () => {
       voice.leave();
-      devices.close();
+      if (pageDevices === undefined) {
+        devices.close();
+      }
     },
-    [voice, devices],
+    [voice, devices, pageDevices],
   );
   useEffect(() => {
     if (isReady) {

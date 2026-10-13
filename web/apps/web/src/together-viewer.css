@@ -27,12 +27,28 @@
 }
 
 /* Over a film the browser would only play muted, in its middle: the one tap its sound needs. */
+/* Small, at the film's top: the sound the page had, lost, asked back by a tap. */
 .together-viewer__sound-on {
   position: absolute;
-  inset-block-start: 50%;
+  inset-block-start: var(--space-2);
   inset-inline-start: 50%;
   z-index: 2;
-  transform: translate(-50%, -50%);
+  transform: translateX(-50%);
+  font-size: var(--font-size-small);
+  opacity: 0.9;
+}
+
+/* The whole page until its first tap: the invitation and Tap to continue alone. */
+.together-viewer__continue {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  text-align: center;
+  background: var(--color-background);
 }
 
 /* A viewer without the player's own controls still has full screen, at the film's corner. */

@@ -84,20 +84,29 @@ function candidateFrom(text: string): RTCIceCandidateInit {
 /**
  * The voices the browser refused to play for want of a tap, while Web Audio does not run either, and
  * who waits on them: the page asks its person for a tap, and the tap plays them (the owner's test,
- * 2026-10-11, where an iPhone heard no one until it pressed Talk itself).
+ * 2026-10-11, where an iPhone heard no one until it pressed Talk itself). Web Audio that ran and
+ * stopped, as an iPhone's does for a phone call, waits for one too (the owner, 2026-10-13: "if audio
+ * gets taken by a phone call, they have to tap again").
  */
-class TapWaiting {
-  readonly #context: () => AudioContext | undefined;
+export class TapWaiting {
+  readonly #context: () => Pick<AudioContext, "state" | "resume"> | undefined;
   readonly #retries = new Map<HTMLMediaElement, () => void>();
   readonly #listeners = new Set<() => void>();
+  #hasRun = false;
 
-  constructor(context: () => AudioContext | undefined) {
+  constructor(context: () => Pick<AudioContext, "state" | "resume"> | undefined) {
     this.#context = context;
   }
 
-  /** Whether a voice waits for a tap: one refused, with Web Audio not running to play it. */
-  readonly isWaiting = (): boolean =>
-    this.#retries.size > 0 && this.#context()?.state !== "running";
+  /**
+   * Whether a voice waits for a tap: one refused, with Web Audio not running to play it, or Web
+   * Audio that ran stopped since, though not closed.
+   */
+  readonly isWaiting = (): boolean => {
+    const state = this.#context()?.state;
+    const isStopped = this.#hasRun && state !== undefined && state !== "closed";
+    return state !== "running" && (this.#retries.size > 0 || isStopped);
+  };
 
   readonly isRefused = (element: HTMLMediaElement): boolean => this.#retries.has(element);
 
@@ -129,6 +138,7 @@ class TapWaiting {
 
   /** Tells the listeners: a voice was refused or played, or Web Audio's state changed. */
   readonly changed = (): void => {
+    this.#hasRun ||= this.#context()?.state === "running";
     for (const listener of this.#listeners) {
       listener();
     }

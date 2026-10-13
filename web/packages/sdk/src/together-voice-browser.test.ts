@@ -9,6 +9,7 @@ import {
   playWaitingAtTaps,
   resumeAtTaps,
   routeOf,
+  TapWaiting,
 } from "./together-voice-browser.ts";
 
 describe("the microphone voice asks the browser for", () => {
@@ -153,5 +154,31 @@ describe("an iPhone's audio session as voice is first heard (D281)", () => {
     });
     browserVoiceDevices().prepareToHear();
     expect(session.type).toBe("playback");
+  });
+});
+
+describe("TapWaiting", () => {
+  const context = (state: AudioContextState) => ({
+    state,
+    resume: () => Promise.resolve(),
+  });
+
+  it("waits for a tap once Web Audio that ran stops, as a phone call stops it, and not after it closes", () => {
+    let audio = context("suspended");
+    const waiting = new TapWaiting(() => audio);
+    waiting.changed();
+    expect(waiting.isWaiting()).toBe(false);
+    audio = context("running");
+    waiting.changed();
+    expect(waiting.isWaiting()).toBe(false);
+    audio = context("interrupted");
+    waiting.changed();
+    expect(waiting.isWaiting()).toBe(true);
+    audio = context("running");
+    waiting.changed();
+    expect(waiting.isWaiting()).toBe(false);
+    audio = context("closed");
+    waiting.changed();
+    expect(waiting.isWaiting()).toBe(false);
   });
 });
