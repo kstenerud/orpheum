@@ -63,13 +63,16 @@ describe("createSession", () => {
     expect(session.lastEndReason()).toBeUndefined();
   });
 
-  it("keeps its last token past a sign-out, the proof of the device it resumes (the second audit's K1)", () => {
+  it("keeps its device secret past a sign-out, the proof of the device it resumes, and never its token (the third audit's A8)", () => {
     const storage = memoryStorage();
     const session = createSession(storage);
-    session.signIn("token-of-42", 42);
+    session.signIn("token-of-42", 42, "secret-of-42");
     session.signOut();
     const reloaded = createSession(storage);
     expect(reloaded.token()).toBeUndefined();
-    expect(reloaded.deviceProof()).toBe("token-of-42");
+    expect(reloaded.deviceProof()).toBe("secret-of-42");
+    session.signIn("token-without-a-secret");
+    expect(session.deviceProof()).toBe("secret-of-42");
+    expect([...storage.items.values()]).not.toContain("token-of-42");
   });
 });

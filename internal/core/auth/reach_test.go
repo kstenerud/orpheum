@@ -45,7 +45,7 @@ func TestAuthenticate_ReadsTheRolesLibrariesAtEachRequest(t *testing.T) {
 	fixture.createUser(t, "partner", "partner-password", RoleUser)
 	signIn := func(name, password string) string {
 		t.Helper()
-		token, err := fixture.service.SignIn(t.Context(), name, password, "192.0.2.1", laptop)
+		token, err := tokenOf(fixture.service.SignIn(t.Context(), name, password, "192.0.2.1", laptop))
 		if err != nil {
 			t.Fatal(err)
 		}

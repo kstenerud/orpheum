@@ -59,6 +59,9 @@ const (
 	// password sign-in carries the whole role wherever it comes from, a discovery's page included
 	// (D294 §4).
 	grantScopeDevice = "device"
+	// A device secret is an issued secret that proves a client was a device: what a sign-in resumes
+	// the device by (the third audit's A8).
+	grantScopeDeviceSecret = "device_secret"
 )
 
 // tokenBytes is a session token's length: 256 random bits, which no one guesses. A format, not an
@@ -227,9 +230,10 @@ type NewDevice struct {
 	// is the same person's, has not been removed, and PreviousDeviceProof proves the client was it,
 	// rather than making a new one (D221 §1).
 	PreviousDeviceID int64
-	// PreviousDeviceProof is a session token that device was issued, live or not: an id alone let any
-	// client that named one sit on another's device, unseen in the list and kept by "sign out
-	// everywhere else" (the second audit's K1 and W4, 2026-10-13).
+	// PreviousDeviceProof is that device's secret, which the sign-in that made or resumed it gave: an
+	// id alone let any client that named one sit on another's device, unseen in the list and kept by
+	// "sign out everywhere else" (the second audit's K1 and W4), and a session token as the proof
+	// handed whoever the client named its device to a working session (the third audit's A8).
 	PreviousDeviceProof string
 }
 
@@ -239,10 +243,10 @@ type NewDevice struct {
 // parameters is re-hashed.
 func (service *Service) SignIn(
 	ctx context.Context, name, password, clientAddress string, device NewDevice,
-) (token string, err error) {
+) (Issued, error) {
 	maxFailures, window, err := service.failurePolicy(ctx)
 	if err != nil {
-		return "", err
+		return Issued{}, err
 	}
 	keys := signInLimitKeys(name, clientAddress)
 	attemptedAt, isAllowed := service.limiter.attempt(window, map[string]int64{
@@ -250,30 +254,30 @@ func (service *Service) SignIn(
 		keys.network: maxFailures * networkTimes,
 	})
 	if !isAllowed {
-		return "", ErrRateLimited
+		return Issued{}, ErrRateLimited
 	}
 	parameters, err := service.argon2Parameters(ctx)
 	if err != nil {
-		return "", err
+		return Issued{}, err
 	}
 	user, err := store.OrNotFound(service.database.Read().GetLiveUserByName(ctx, textindex.Line(name)))
 	if errors.Is(err, store.ErrNotFound) {
 		// An unknown name costs what a known one does, so timing does not tell them apart.
 		_, hashErr := service.hashPassword(ctx, password, parameters)
-		return "", errors.Join(ErrBadCredentials, hashErr)
+		return Issued{}, errors.Join(ErrBadCredentials, hashErr)
 	}
 	if err != nil {
-		return "", fmt.Errorf("look up user: %w", err)
+		return Issued{}, fmt.Errorf("look up user: %w", err)
 	}
 	isMatch, hashParameters, err := service.verifyPassword(ctx, password, string(user.PasswordHash))
 	if err != nil || !isMatch {
-		return "", errors.Join(ErrBadCredentials, err)
+		return Issued{}, errors.Join(ErrBadCredentials, err)
 	}
 	service.limiter.withdraw(attemptedAt, keys.network, keys.accountEverywhere)
 	service.limiter.forget(keys.accountHere)
 	if !sameCosts(hashParameters, parameters) {
 		if rehashErr := service.rehash(ctx, user.ID, password, parameters); rehashErr != nil {
-			return "", rehashErr
+			return Issued{}, rehashErr
 		}
 	}
 	return service.issueSession(ctx, user.ID, device, grantScopeRole)
@@ -335,20 +339,27 @@ func accountLimitKey(name string) string {
 	return "account:" + strings.ToLower(textindex.Line(name))
 }
 
-// isProvenDevice is whether proof is a session token issued to the person userID on deviceID, live
-// or not: what lets a client resume the device it was.
-func isProvenDevice(ctx context.Context, queries *sqlcgen.Queries, userID, deviceID int64, proof string) (bool, error) {
+// isProvenDevice is whether proof is the live device secret of the person userID's device deviceID:
+// what lets a client resume the device it was. A session token never is: a proof that was a live
+// token handed every core or discovery a client named its device to a working session (the third
+// audit's A8).
+func isProvenDevice(
+	ctx context.Context, queries *sqlcgen.Queries, now, userID, deviceID int64, proof string,
+) (bool, error) {
 	if proof == "" || deviceID == 0 {
 		return false, nil
 	}
-	issued, err := store.OrNotFound(queries.GetSessionDevice(ctx, tokenHash(proof)))
+	issued, err := store.OrNotFound(queries.GetLiveGrant(ctx, sqlcgen.GetLiveGrantParams{
+		SecretSha256: tokenHash(proof), Now: &now,
+	}))
 	if errors.Is(err, store.ErrNotFound) {
 		return false, nil
 	}
 	if err != nil {
 		return false, fmt.Errorf("look up a device's proof: %w", err)
 	}
-	return ptr.ValueOrZero(issued.UserID) == userID && ptr.ValueOrZero(issued.DeviceID) == deviceID, nil
+	return issued.Kind == grantKindIssuedSecret && issued.Scope == grantScopeDeviceSecret &&
+		ptr.ValueOrZero(issued.UserID) == userID && ptr.ValueOrZero(issued.DeviceID) == deviceID, nil
 }
 
 // resumeOrMakeDevice is the device a sign-in is on: the one the client remembers, when it is the
@@ -356,7 +367,7 @@ func isProvenDevice(ctx context.Context, queries *sqlcgen.Queries, userID, devic
 func resumeOrMakeDevice(
 	ctx context.Context, queries *sqlcgen.Queries, userID int64, device NewDevice, now int64,
 ) (int64, error) {
-	isProven, err := isProvenDevice(ctx, queries, userID, device.PreviousDeviceID, device.PreviousDeviceProof)
+	isProven, err := isProvenDevice(ctx, queries, now, userID, device.PreviousDeviceID, device.PreviousDeviceProof)
 	if err != nil {
 		return 0, err
 	}
@@ -384,14 +395,27 @@ func resumeOrMakeDevice(
 	return id, nil
 }
 
+// Issued is a new session: its token, and the device secret by which its device is resumed at a later
+// sign-in, which the client keeps apart from the token and never sends anywhere but its own core
+// (the third audit's A8).
+type Issued struct {
+	Token        string
+	DeviceSecret string
+}
+
 // issueSession signs the user in on a device, resumed or made, with a session grant of scope tied to
-// it, and returns its token, which is stored only as its SHA-256 (D154).
+// it and a new device secret in place of any the device had, and returns both, each stored only as
+// its SHA-256 (D154).
 func (service *Service) issueSession(
 	ctx context.Context, userID int64, device NewDevice, scope string,
-) (string, error) {
+) (Issued, error) {
 	token, err := randomSecret(service.random)
 	if err != nil {
-		return "", err
+		return Issued{}, err
+	}
+	deviceSecret, err := randomSecret(service.random)
+	if err != nil {
+		return Issued{}, err
 	}
 	now := service.clock.Now().UnixMilli()
 	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
@@ -399,15 +423,33 @@ func (service *Service) issueSession(
 		if deviceErr != nil {
 			return deviceErr
 		}
-		return queries.InsertGrant(ctx, sqlcgen.InsertGrantParams{
+		if insertErr := queries.InsertGrant(ctx, sqlcgen.InsertGrantParams{
 			SecretSha256: tokenHash(token), Kind: grantKindSession, UserID: &userID, Scope: scope,
 			IssuedAt: now, DeviceID: &deviceID,
-		})
+		}); insertErr != nil {
+			return insertErr
+		}
+		return replaceDeviceSecret(ctx, queries, userID, deviceID, deviceSecret, now)
 	})
 	if err != nil {
-		return "", fmt.Errorf("record the session: %w", err)
+		return Issued{}, fmt.Errorf("record the session: %w", err)
 	}
-	return token, nil
+	return Issued{Token: token, DeviceSecret: deviceSecret}, nil
+}
+
+// replaceDeviceSecret makes secret the device's one device secret.
+func replaceDeviceSecret(
+	ctx context.Context, queries *sqlcgen.Queries, userID, deviceID int64, secret string, now int64,
+) error {
+	if err := queries.RevokeDeviceSecretsOfDevice(ctx, sqlcgen.RevokeDeviceSecretsOfDeviceParams{
+		RevokedAt: &now, DeviceID: &deviceID,
+	}); err != nil {
+		return fmt.Errorf("revoke the device's old secret: %w", err)
+	}
+	return queries.InsertGrant(ctx, sqlcgen.InsertGrantParams{
+		SecretSha256: tokenHash(secret), Kind: grantKindIssuedSecret, UserID: &userID,
+		Scope: grantScopeDeviceSecret, IssuedAt: now, DeviceID: &deviceID,
+	})
 }
 
 // Authenticate returns the principal a session token belongs to.

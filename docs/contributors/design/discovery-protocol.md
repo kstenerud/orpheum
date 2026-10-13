@@ -831,8 +831,9 @@ The page's origin is the discovery's; the core's are its names. So:
   (`session.ts`) and sent with every request.
 - **The device proof is a device secret** (A8, code K1, W4): random, issued at the device's first
   sign-in, stored hashed on the device row, never a session token and never sent to a discovery; a
-  device is resumed only on it. **The code must change:** since an earlier commit the proof is the live
-  session token. Later, a non-extractable WebCrypto key per session, as DPoP binds tokens [I, A8].
+  device is resumed only on it. Built (2026-10-13): each sign-in, registration or code activation
+  issues a new one, kept as an issued secret tied to the device (no schema change) and revoked with
+  the device; the web client keeps it apart from the token. Later, a non-extractable WebCrypto key per session, as DPoP binds tokens [I, A8].
 - **The Watch Together socket** accepts the client origins by `OriginPatterns`, never `*`; its
   credentials ride in `hello`, not cookies (the W report).
 - **Local Network Access**: Chrome asks before a public page reaches a private address (Chrome 142

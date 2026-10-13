@@ -63,11 +63,11 @@ async function lookAtPairing(
   }
   const state = await pairingStateOf(api, kept.secret);
   if (state.state === "activated") {
-    const { token, user } = await takePairedSession(api, kept.secret);
+    const { token, deviceSecret, user } = await takePairedSession(api, kept.secret);
     forgetPairing(storage);
     // A television signed in by code starts at home, not wherever the address last was.
     navigation.go({ screen: "films" });
-    session.signIn(token, user.device?.id);
+    session.signIn(token, user.device?.id, deviceSecret);
     return { kind: "signingIn" };
   }
   if (state.state === "ended") {

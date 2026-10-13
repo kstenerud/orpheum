@@ -69,11 +69,11 @@ func TestSetup_TheCodeFromTheLogCreatesTheFirstAdminOnce(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the right code: %v", err)
 	}
-	token, err := service.SignIn(ctx, "owner", "right", "192.0.2.1", laptop)
+	issued, err := service.SignIn(ctx, "owner", "right", "192.0.2.1", laptop)
 	if err != nil {
 		t.Fatal(err)
 	}
-	principal, err := service.Authenticate(ctx, token)
+	principal, err := service.Authenticate(ctx, issued.Token)
 	if err != nil || principal.UserID != id || !principal.IsAdmin() {
 		t.Errorf("the first user is %+v, %v; want an admin", principal, err)
 	}

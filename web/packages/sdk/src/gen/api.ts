@@ -2514,7 +2514,7 @@ export interface components {
              * @description The device this client was signed in as before, resumed when it is the same person's (D221)
              */
             previousDeviceId?: number;
-            /** @description A session token that device was issued, live or not: the proof it was this client */
+            /** @description The device secret a sign-in on that device gave: the proof it was this client */
             previousDeviceProof?: string;
         };
         NodeBody: {
@@ -2634,7 +2634,7 @@ export interface components {
              * @description The device this client was signed in as before (D221)
              */
             previousDeviceId?: number;
-            /** @description A session token that device was issued, live or not: the proof it was this client */
+            /** @description The device secret a sign-in on that device gave: the proof it was this client */
             previousDeviceProof?: string;
             /** @description The pairing this device has, for the same code again */
             secret?: string;
@@ -3085,6 +3085,7 @@ export interface components {
             type: "offer" | "answer";
         };
         SessionOutputBody: {
+            deviceSecret: string;
             token: string;
             user: components["schemas"]["UserBody"];
         };

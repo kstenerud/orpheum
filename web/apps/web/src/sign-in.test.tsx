@@ -80,14 +80,22 @@ describe("sign-in", () => {
     expect(markup).not.toContain('role="alert"');
   });
 
-  it("keeps the session a sign-in answers with, on the device it names", async () => {
+  it("keeps the session a sign-in answers with, on the device it names, with the device's secret apart from the token", async () => {
     const services = servedBy({
-      "POST /session": [201, { token: "new-token", user: { device: { id: 9, name: "Phone" } } }],
+      "POST /session": [
+        201,
+        {
+          token: "new-token",
+          deviceSecret: "phone-secret",
+          user: { device: { id: 9, name: "Phone" } },
+        },
+      ],
     });
     const mounted = await mount(withServices(<SignIn />, services));
     await submit(mounted.container.querySelector("form"));
     mounted.unmount();
     expect(services.session.token()).toBe("new-token");
     expect(services.session.deviceId()).toBe(9);
+    expect(services.session.deviceProof()).toBe("phone-secret");
   });
 });

@@ -171,18 +171,37 @@ func (q *Queries) RenameDevice(ctx context.Context, arg RenameDeviceParams) erro
 	return err
 }
 
-const revokeSessionsOfDevice = `-- name: RevokeSessionsOfDevice :exec
+const revokeCredentialsOfDevice = `-- name: RevokeCredentialsOfDevice :exec
 UPDATE "grant" SET revoked_at = ?1
-WHERE device_id = ?2 AND kind = 'session' AND revoked_at IS NULL
+WHERE device_id = ?2 AND revoked_at IS NULL
+  AND (kind = 'session' OR (kind = 'issued_secret' AND scope = 'device_secret'))
 `
 
-type RevokeSessionsOfDeviceParams struct {
+type RevokeCredentialsOfDeviceParams struct {
 	RevokedAt *int64
 	DeviceID  *int64
 }
 
-func (q *Queries) RevokeSessionsOfDevice(ctx context.Context, arg RevokeSessionsOfDeviceParams) error {
-	_, err := q.db.ExecContext(ctx, revokeSessionsOfDevice, arg.RevokedAt, arg.DeviceID)
+// A removed device's sessions and its device secret: it is neither signed in nor resumed again.
+func (q *Queries) RevokeCredentialsOfDevice(ctx context.Context, arg RevokeCredentialsOfDeviceParams) error {
+	_, err := q.db.ExecContext(ctx, revokeCredentialsOfDevice, arg.RevokedAt, arg.DeviceID)
+	return err
+}
+
+const revokeDeviceSecretsOfDevice = `-- name: RevokeDeviceSecretsOfDevice :exec
+UPDATE "grant" SET revoked_at = ?1
+WHERE device_id = ?2 AND kind = 'issued_secret' AND scope = 'device_secret'
+  AND revoked_at IS NULL
+`
+
+type RevokeDeviceSecretsOfDeviceParams struct {
+	RevokedAt *int64
+	DeviceID  *int64
+}
+
+// The device secrets a device held before a sign-in issued it a new one (the third audit's A8).
+func (q *Queries) RevokeDeviceSecretsOfDevice(ctx context.Context, arg RevokeDeviceSecretsOfDeviceParams) error {
+	_, err := q.db.ExecContext(ctx, revokeDeviceSecretsOfDevice, arg.RevokedAt, arg.DeviceID)
 	return err
 }
 

@@ -14,7 +14,7 @@ import (
 // check codes confirmed, and returns its session; previousDeviceID is the device it was before.
 func pairDevice(
 	t *testing.T, service *Service, people [2]int64, name string, previousDeviceID int64,
-) string {
+) Issued {
 	t.Helper()
 	ctx := t.Context()
 	asked, err := service.RequestPairing(ctx, "", "web", PreviousDevice{ID: previousDeviceID}, "192.0.2.10")
@@ -27,11 +27,11 @@ func pairDevice(
 	if err = service.AnswerPairing(ctx, people[0], asked.Code, true); err != nil {
 		t.Fatal(err)
 	}
-	token, err := service.TakePairedSession(ctx, asked.Secret)
+	issued, err := service.TakePairedSession(ctx, asked.Secret)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return token
+	return issued
 }
 
 // A device not signed in is given a code, the same one each time it asks while no one has entered
@@ -93,7 +93,7 @@ func TestPairing_OnlyTheMatchSignsTheDeviceInAndItsSessionIsTakenOnce(t *testing
 	if state := fixture.service.PairingStateOf(ctx, asked.Secret); state.State != PairingActivated {
 		t.Errorf("once confirmed: %+v, want activated", state)
 	}
-	token, err := fixture.service.TakePairedSession(ctx, asked.Secret)
+	token, err := tokenOf(fixture.service.TakePairedSession(ctx, asked.Secret))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,7 +187,8 @@ func TestPairing_ADeviceSignedInBeforeResumesItselfAndANewOneNeedsAName(t *testi
 	fixture := newFixture(t)
 	ctx := t.Context()
 	id := fixture.createUser(t, "partner", "pw", RoleUser)
-	phone, television := phoneAndTelevision(t, fixture.service, id)
+	phone, paired := pairedPhoneAndTelevision(t, fixture.service, id)
+	television := paired.Token
 	listed, err := fixture.service.Authenticate(ctx, television)
 	if err != nil {
 		t.Fatal(err)
@@ -206,7 +207,7 @@ func TestPairing_ADeviceSignedInBeforeResumesItselfAndANewOneNeedsAName(t *testi
 		t.Errorf("a code naming the television without its proof: %v, want a new device, ErrNoDeviceName", err)
 	}
 	asked, err := fixture.service.RequestPairing(ctx, "", "web",
-		PreviousDevice{ID: listed.DeviceID, Proof: television}, "192.0.2.10")
+		PreviousDevice{ID: listed.DeviceID, Proof: paired.DeviceSecret}, "192.0.2.10")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,7 +218,7 @@ func TestPairing_ADeviceSignedInBeforeResumesItselfAndANewOneNeedsAName(t *testi
 	if err = fixture.service.AnswerPairing(ctx, id, asked.Code, true); err != nil {
 		t.Fatal(err)
 	}
-	again, err := fixture.service.TakePairedSession(ctx, asked.Secret)
+	again, err := tokenOf(fixture.service.TakePairedSession(ctx, asked.Secret))
 	if err != nil {
 		t.Fatal(err)
 	}

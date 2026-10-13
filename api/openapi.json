@@ -2702,7 +2702,7 @@
             "type": "integer"
           },
           "previousDeviceProof": {
-            "description": "A session token that device was issued, live or not: the proof it was this client",
+            "description": "The device secret a sign-in on that device gave: the proof it was this client",
             "maxLength": 100,
             "type": "string"
           }
@@ -3039,7 +3039,7 @@
             "type": "integer"
           },
           "previousDeviceProof": {
-            "description": "A session token that device was issued, live or not: the proof it was this client",
+            "description": "The device secret a sign-in on that device gave: the proof it was this client",
             "maxLength": 100,
             "type": "string"
           },
@@ -4561,6 +4561,9 @@
       "SessionOutputBody": {
         "additionalProperties": false,
         "properties": {
+          "deviceSecret": {
+            "type": "string"
+          },
           "token": {
             "type": "string"
           },
@@ -4570,6 +4573,7 @@
         },
         "required": [
           "token",
+          "deviceSecret",
           "user"
         ],
         "type": "object"

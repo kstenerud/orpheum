@@ -164,14 +164,14 @@ func (service *Service) isInvitation(ctx context.Context, secret string) (bool, 
 // and spends the invitation; a name already taken spends nothing, so the person can choose another.
 func (service *Service) acceptInvitation(
 	ctx context.Context, secret, name, password string, device NewDevice,
-) (string, error) {
+) (Issued, error) {
 	name = textindex.Line(name)
 	if name == "" {
-		return "", errors.New("a person needs a name")
+		return Issued{}, errors.New("a person needs a name")
 	}
 	hash, err := service.hashWithCurrentCosts(ctx, password)
 	if err != nil {
-		return "", err
+		return Issued{}, err
 	}
 	now := service.clock.Now().UnixMilli()
 	secretHash := tokenHash(secret)
@@ -212,7 +212,7 @@ func (service *Service) acceptInvitation(
 		return queries.DeleteInvitation(ctx, invitation.ID)
 	})
 	if err != nil {
-		return "", err
+		return Issued{}, err
 	}
 	return service.issueSession(ctx, userID, device, grantScopeRole)
 }

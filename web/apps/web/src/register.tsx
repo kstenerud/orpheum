@@ -150,7 +150,7 @@ function useRegistration(secret: string): {
     registering.runRequest(async (idempotencyKey) => {
       try {
         const device = thisDevice(session);
-        const { token, user } = await register(
+        const { token, deviceSecret, user } = await register(
           api,
           name === undefined ? { secret, password, device } : { secret, name, password, device },
           idempotencyKey,
@@ -158,7 +158,7 @@ function useRegistration(secret: string): {
         // The secret rode in the fragment so no request carried it (D218 §1, the one exception
         // to D154's rule). It is spent now, and Films takes its page's place, so it stays in
         // neither the address nor the history, and Back leaves the app.
-        session.signIn(token, user.device?.id);
+        session.signIn(token, user.device?.id, deviceSecret);
         navigation.replace({ screen: "films" });
       } catch (cause: unknown) {
         setRefusalText(

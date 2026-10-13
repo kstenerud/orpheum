@@ -144,12 +144,25 @@ func TestSession_ARemovedDeviceIsToldItWasSignedOutAndMeNamesTheDevice(t *testin
 	}
 }
 
-// A client that signs in again naming the device it was before, as previousDeviceId, is that
-// device again (D221 §1), not a new one.
+// A client that signs in again naming the device it was before, as previousDeviceId, with the device
+// secret its sign-in gave as the proof, is that device again (D221 §1; the third audit's A8), not a
+// new one.
 func TestSession_ASignInNamingThePreviousDeviceWithItsProofResumesIt(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
-	first := harness.createAdminAndSignIn(t)
+	harness.createAdminAndSignIn(t)
+	var issued struct {
+		Token        string `json:"token"`
+		DeviceSecret string `json:"deviceSecret"`
+	}
+	answered := harness.do(t, http.MethodPost, "/session", "", map[string]any{
+		"name": "owner", "password": "owner-password", "device": testDevice,
+	})
+	if err := json.Unmarshal([]byte(answered.body), &issued); err != nil || issued.DeviceSecret == "" ||
+		issued.DeviceSecret == issued.Token {
+		t.Fatalf("a sign-in = %d %s; want a device secret apart from the token", answered.status, answered.body)
+	}
+	first := issued.Token
 	before := harness.thisDeviceID(t, first)
 	if out := harness.do(t, http.MethodDelete, "/session", first, nil); out.status != http.StatusNoContent {
 		t.Fatalf("DELETE /session = %d %s", out.status, out.body)
@@ -157,7 +170,8 @@ func TestSession_ASignInNamingThePreviousDeviceWithItsProofResumesIt(t *testing.
 	signedIn := harness.do(t, http.MethodPost, "/session", "", map[string]any{
 		"name": "owner", "password": "owner-password",
 		"device": map[string]any{
-			"name": "Firefox on Linux", "platform": "web", "previousDeviceId": before, "previousDeviceProof": first,
+			"name": "Firefox on Linux", "platform": "web", "previousDeviceId": before,
+			"previousDeviceProof": issued.DeviceSecret,
 		},
 	})
 	var session struct {

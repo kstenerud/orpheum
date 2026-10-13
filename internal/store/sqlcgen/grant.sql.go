@@ -77,24 +77,6 @@ func (q *Queries) GetLiveGrant(ctx context.Context, arg GetLiveGrantParams) (Get
 	return i, err
 }
 
-const getSessionDevice = `-- name: GetSessionDevice :one
-SELECT user_id, device_id FROM "grant" WHERE secret_sha256 = ?1 AND kind = 'session'
-`
-
-type GetSessionDeviceRow struct {
-	UserID   *int64
-	DeviceID *int64
-}
-
-// The person and device a session token was issued on, whatever its state: a client resuming a
-// device shows it as proof it was that device (D221 section 1, the second audit's K1).
-func (q *Queries) GetSessionDevice(ctx context.Context, secretSha256 []byte) (GetSessionDeviceRow, error) {
-	row := q.db.QueryRowContext(ctx, getSessionDevice, secretSha256)
-	var i GetSessionDeviceRow
-	err := row.Scan(&i.UserID, &i.DeviceID)
-	return i, err
-}
-
 const insertGrant = `-- name: InsertGrant :exec
 
 INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_name, device_id)
