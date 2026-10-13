@@ -503,6 +503,12 @@ actions, and the `TestArch_` claim (the owner's gate).
 
 ### K18 — A device secret, and credentials per core
 
+**Built 2026-10-13, but for credentials per core:** the device secret (an issued secret tied to the
+device, renewed at each sign-in, no schema change), and the lock-out fix (sign-in limits keyed by
+site, an IPv6 /48; past the person-everywhere limit a sign-in waits ten seconds; a known device
+not held to it). Credentials kept per `coreId` come with the central client (W4c, Phase 2): today
+each core serves its own client, one origin per core.
+
 - **Changes.** `internal/core/auth`: **the device proof is a device secret** (§3.4; A8, code K1,
   W4): random, issued at a device's first sign-in, stored hashed on the device row, never a session
   token and never sent to a discovery; a device is resumed only on it, never on a bare id, and never
@@ -589,12 +595,15 @@ In the public code, before any core holds a signalling connection to any discove
    scope for code-activated devices (K17) and an untrusted WebRTC head stay. **Built 2026-10-13.**
 4. **A7, A9** — the identity key's fingerprint in every link and QR (K7's link form, K8a's
    fingerprint); answers signed over the exact SDP, holding exactly one sha-256 fingerprint (K3a,
-   K8b; webrtc-transport.md W2f).
+   K8b; webrtc-transport.md W2f). **The core's half built 2026-10-13** (signatures bound to the
+   discovery and core, answers signed, `discovery/link`, the fingerprint); the offer's proof waits
+   on locators (K7) and the client's checks on the client, both Phase 2.
 5. **A8** — credentials per core and a device secret that is not a live token (K18;
-   webrtc-transport.md W4c's credential store).
+   webrtc-transport.md W4c's credential store). **The device secret built 2026-10-13**; credentials
+   per core with the central client (Phase 2).
 6. **A13** — the account lock-out fixed (D293 §9): a device proving an earlier sign-in by its
    device secret passes the account-wide limit, networks keyed by IPv6 /48, and the account-wide
-   limit delaying rather than refusing (K18).
+   limit delaying rather than refusing (K18). **Built 2026-10-13.**
 
 ### Phase 2 — the thin path, end to end on staging
 

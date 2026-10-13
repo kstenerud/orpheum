@@ -249,12 +249,27 @@ func (service *Service) SignIn(
 		return Issued{}, err
 	}
 	keys := signInLimitKeys(name, clientAddress)
-	attemptedAt, isAllowed := service.limiter.attempt(window, map[string]int64{
-		keys.accountHere: maxFailures, keys.accountEverywhere: maxFailures * accountEverywhereTimes,
-		keys.network: maxFailures * networkTimes,
-	})
+	isKnownDevice, err := service.provesAnEarlierSignIn(ctx, name, device)
+	if err != nil {
+		return Issued{}, err
+	}
+	// The person everywhere slows a sign-in rather than refusing it, and a device that proves it was
+	// signed in before is not held to it at all: a stranger failing in someone's name from many
+	// networks locked them out everywhere (the third audit's A13).
+	pacing := map[string]int64{}
+	if !isKnownDevice {
+		pacing[keys.accountEverywhere] = maxFailures * accountEverywhereTimes
+	}
+	attemptedAt, isAllowed, isPaced := service.limiter.attempt(window, map[string]int64{
+		keys.accountHere: maxFailures, keys.network: maxFailures * networkTimes,
+	}, pacing)
 	if !isAllowed {
 		return Issued{}, ErrRateLimited
+	}
+	if isPaced {
+		if err = service.clock.Sleep(ctx, accountPace); err != nil {
+			return Issued{}, fmt.Errorf("wait before a sign-in the account's failures slow: %w", err)
+		}
 	}
 	parameters, err := service.argon2Parameters(ctx)
 	if err != nil {
@@ -318,15 +333,38 @@ const (
 	accountEverywhereTimes = 10
 )
 
-// signInKeys are a sign-in's keys in the failed-sign-in limit: the person on the asking network, the
-// person everywhere, and the asking network (clientnet: an IPv4 address or an IPv6 /64, so one
-// network's many IPv6 addresses are one).
+// accountPace is how long a sign-in waits once the person everywhere has failed past their limit:
+// a guesser spread over many networks makes a few guesses a minute, and the person, who signs in
+// once, waits seconds rather than being locked out (the third audit's A13).
+const accountPace = 10 * time.Second
+
+// provesAnEarlierSignIn is whether device proves, by its device secret, that it is a device of the
+// person name names: one that signed in before, which the person-everywhere limit does not hold.
+func (service *Service) provesAnEarlierSignIn(ctx context.Context, name string, device NewDevice) (bool, error) {
+	if device.PreviousDeviceProof == "" {
+		return false, nil
+	}
+	queries := service.database.Read()
+	user, err := store.OrNotFound(queries.GetLiveUserByName(ctx, textindex.Line(name)))
+	if errors.Is(err, store.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("look up user: %w", err)
+	}
+	return isProvenDevice(ctx, queries, service.clock.Now().UnixMilli(), user.ID, device.PreviousDeviceID,
+		device.PreviousDeviceProof)
+}
+
+// signInKeys are a sign-in's keys in the failed-sign-in limit: the person on the asking site, the
+// person everywhere, and the asking site (clientnet.SiteOf: an IPv4 address or an IPv6 /48, so a
+// customer's 65,536 /64s are one, the third audit's A13).
 type signInKeys struct {
 	accountHere, accountEverywhere, network string
 }
 
 func signInLimitKeys(name, clientAddress string) signInKeys {
-	network := clientnet.Of(clientAddress)
+	network := clientnet.SiteOf(clientAddress)
 	if network == "" {
 		network = clientAddress
 	}
