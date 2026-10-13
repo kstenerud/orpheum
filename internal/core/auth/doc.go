@@ -22,11 +22,13 @@
 //     Enforced by TestHashPassword_IsAPHCStringThatVerifies and TestCreateUser_StoresOnlyTheHash.
 //   - A sign-in under older costs re-hashes the password. Enforced by
 //     TestSignIn_RehashesAPasswordMadeUnderOlderCosts.
-//   - Failed sign-ins are limited for a person on one network, for a network (an IPv4 address or an
-//     IPv6 /64) and, more loosely, for a person everywhere, so no stranger locks a person out by
-//     name; attempts made at once each count; a failure does not say which part was wrong; at most
-//     hashesAtOnce password hashes run at once. Enforced by
-//     TestSignIn_RateLimitsRepeatedFailuresBySetting,
+//   - Failed sign-ins are limited for a person on one site, for a site (an IPv4 address or an IPv6
+//     /48), and past a looser limit for a person everywhere are slowed rather than refused, a device
+//     that proves an earlier sign-in not slowed at all, so no stranger locks a person out by name
+//     (the third audit's A13); attempts made at once each count; a failure does not say which part
+//     was wrong; at most hashesAtOnce password hashes run at once. Enforced by
+//     TestSignIn_RateLimitsRepeatedFailuresBySetting, TestSignIn_ASitesNetworksCountAsOne,
+//     TestSignIn_AKnownDeviceIsNotSlowedByTheAccountsFailuresElsewhere,
 //     TestSignIn_GuessesMadeAtOnceEachCountAgainstTheLimit,
 //     TestSignIn_SaysNothingAboutWhichPartWasWrong and
 //     TestHashSlots_RunAtMostSoManyAtOnceAndRefuseOneThatWaitsTooLong.

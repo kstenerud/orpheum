@@ -182,11 +182,12 @@ func TestSignIn_SaysNothingAboutWhichPartWasWrong(t *testing.T) {
 	}
 }
 
-// Failed sign-ins are limited by the setting for a person on one network, a network (an IPv6 /64 is
-// one, however many addresses it uses) at four times it, and a person everywhere at ten times it; a
-// stranger's failures elsewhere do not lock the person out, and the limits lift after the window
-// (the second audit's K2, 2026-10-13: an account-wide limit at the setting let anyone lock anyone
-// out by name, and the address limit counted single IPv6 addresses).
+// Failed sign-ins are limited by the setting for a person on one site, a site (an IPv6 /48 is one,
+// however many addresses it uses) at four times it, and past ten times it a person everywhere is
+// slowed, not refused; a stranger's failures elsewhere do not lock the person out, and the limits
+// lift after the window (the second audit's K2, 2026-10-13: an account-wide limit at the setting
+// let anyone lock anyone out by name, and the address limit counted single IPv6 addresses; the third
+// audit's A13).
 func TestSignIn_RateLimitsRepeatedFailuresBySetting(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
@@ -217,10 +218,13 @@ func TestSignIn_RateLimitsRepeatedFailuresBySetting(t *testing.T) {
 		_, _ = tokenOf(fixture.service.SignIn(ctx, "someone", "wrong", //nolint:errcheck // failing on purpose
 			fmt.Sprintf("198.51.100.%d", index+1), laptop))
 	}
-	if _, err := fixture.service.SignIn(ctx, "someone", "right", "192.0.2.200", laptop); !errors.Is(err,
-		ErrRateLimited) {
-		t.Errorf("after %d failures spread over as many networks: %v, want ErrRateLimited",
-			limit*accountEverywhereTimes, err)
+	// Past the person-everywhere limit a sign-in is slowed, not refused: a stranger's failures from
+	// many networks no longer lock the person out (the third audit's A13; D293 §9).
+	before := fixture.clock.Now()
+	if _, err := fixture.service.SignIn(ctx, "someone", "right", "192.0.2.200", laptop); err != nil ||
+		fixture.clock.Now().Sub(before) < accountPace {
+		t.Errorf("after %d failures spread over as many networks: %v after %s; want signed in after %s",
+			limit*accountEverywhereTimes, err, fixture.clock.Now().Sub(before), accountPace)
 	}
 	fixture.clock.Advance(window + time.Second)
 	if _, err := fixture.service.SignIn(ctx, "partner", "right", "2001:db8:7:7::1", laptop); err != nil {
@@ -324,4 +328,56 @@ func BenchmarkHashPassword_DefaultParameters(b *testing.B) {
 // tokenOf is an issued session's token, for a test that needs only that.
 func tokenOf(issued Issued, err error) (string, error) {
 	return issued.Token, err
+}
+
+// A site's many IPv6 networks are one network in the limit: an IPv6 /48 (the third audit's A13).
+func TestSignIn_ASitesNetworksCountAsOne(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	settingstest.Set(t, fixture.settings, settings.SignInFailureLimit, "3")
+	fixture.createUser(t, "partner", "right", RoleUser)
+	for index := range 3 {
+		address := fmt.Sprintf("2001:db8:7:%x::1", index+1)
+		if _, err := fixture.service.SignIn(ctx, "partner", "wrong", address, laptop); !errors.Is(err,
+			ErrBadCredentials) {
+			t.Fatalf("a failed sign-in: %v", err)
+		}
+	}
+	if _, err := fixture.service.SignIn(ctx, "partner", "right", "2001:db8:7:ffff::1", laptop); !errors.Is(err,
+		ErrRateLimited) {
+		t.Errorf("after three failures from three /64s of one /48, from a fourth: %v, want ErrRateLimited", err)
+	}
+}
+
+// A device that proves it signed in before, by its device secret, is not slowed by the person's
+// failures everywhere (the third audit's A13).
+func TestSignIn_AKnownDeviceIsNotSlowedByTheAccountsFailuresElsewhere(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	settingstest.Set(t, fixture.settings, settings.SignInFailureLimit, "3")
+	fixture.createUser(t, "partner", "right", RoleUser)
+	known, err := fixture.service.SignIn(ctx, "partner", "right", "192.0.2.1", laptop)
+	if err != nil {
+		t.Fatal(err)
+	}
+	principal, err := fixture.service.Authenticate(ctx, known.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index := range 3 * accountEverywhereTimes {
+		_, _ = fixture.service.SignIn(ctx, "partner", "wrong", //nolint:errcheck // failing on purpose
+			fmt.Sprintf("198.51.100.%d", index+1), laptop)
+	}
+	before := fixture.clock.Now()
+	device := NewDevice{
+		Name: laptop.Name, Platform: laptop.Platform, PreviousDeviceID: principal.DeviceID,
+		PreviousDeviceProof: known.DeviceSecret,
+	}
+	if _, err = fixture.service.SignIn(ctx, "partner", "right", "203.0.113.5", device); err != nil ||
+		fixture.clock.Now() != before {
+		t.Errorf("the known device's sign-in: %v after %s; want signed in at once", err,
+			fixture.clock.Now().Sub(before))
+	}
 }

@@ -37,23 +37,32 @@ func (limiter *failureLimiter) isLimited(maxFailures int64, window time.Duration
 	return false
 }
 
-// attempt takes one attempt against each key of limits, refusing it, and recording nothing, when any
-// key has reached its limit within window. An attempt is recorded as a failure before it is tried,
-// so attempts made at once each count: checking the limit and recording after the slow hash let 53
-// of 60 parallel guesses through (the second audit's K2, 2026-10-13). A success withdraws it.
-func (limiter *failureLimiter) attempt(window time.Duration, limits map[string]int64) (time.Time, bool) {
+// attempt takes one attempt against each key of refusing and of pacing, refusing it, and recording
+// nothing, when a key of refusing has reached its limit within window; one past a limit of pacing
+// is allowed, and said to be paced, for the caller to slow. An attempt is recorded as a failure
+// before it is tried, so attempts made at once each count: checking the limit and recording after
+// the slow hash let 53 of 60 parallel guesses through (the second audit's K2, 2026-10-13). A
+// success withdraws it.
+func (limiter *failureLimiter) attempt(
+	window time.Duration, refusing, pacing map[string]int64,
+) (attemptedAt time.Time, isAllowed, isPaced bool) {
 	limiter.mutex.Lock()
 	defer limiter.mutex.Unlock()
-	for key, most := range limits {
+	for key, most := range refusing {
 		if int64(len(limiter.recent(key, window))) >= most {
-			return time.Time{}, false
+			return time.Time{}, false, false
 		}
 	}
-	now := limiter.clock.Now()
-	for key := range limits {
-		limiter.failures[key] = append(limiter.recent(key, window), now)
+	for key, most := range pacing {
+		isPaced = isPaced || int64(len(limiter.recent(key, window))) >= most
 	}
-	return now, true
+	now := limiter.clock.Now()
+	for _, limits := range []map[string]int64{refusing, pacing} {
+		for key := range limits {
+			limiter.failures[key] = append(limiter.recent(key, window), now)
+		}
+	}
+	return now, true, isPaced
 }
 
 // withdraw takes back the attempt recorded at attemptedAt against each of keys: it succeeded.
