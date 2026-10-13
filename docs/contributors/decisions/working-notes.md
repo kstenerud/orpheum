@@ -19914,3 +19914,56 @@ owner: *"All of this looks good"*, then, on the second machine, *"Go with your r
    page with its limits. The owner: *"ok, go with your recommendation"*.
 
 **Status:** Decided 2026-10-13; design to fold into the protocol before development.
+
+## D292 — The third audit round taken: no admin through a discovery, a thin path first, two machines, staging inside the owner's own names, the household zone at orpheum-core.com
+
+**Decided** (2026-10-13), by the project owner, on the consolidated plan
+(`orpheum-connect`'s `docs/plans/beta-bring-up.md`) built from the third round's four reports
+([security](../design/research/discovery-audit3-security-2026-10-13.md),
+[coherence](../design/research/discovery-audit3-coherence-2026-10-13.md),
+[development loop](../design/research/discovery-devloop-2026-10-13.md),
+[infrastructure, the core's part](../design/research/discovery-infra-core-2026-10-13.md)). The owner
+took its 28 recommendations (*"agreed on the rest of the stuff"*) and changed two after asking:
+
+1. **The household zone is `orpheum-core.com`**, registered and served at Cloudflare, replacing the
+   `.app` domain and Bunny DNS (D291 §2). For the beta the service writes an A or AAAA record per
+   published address, no computed answers (200 records a free zone); a script, at Bunny or elsewhere,
+   is weighed again when the beta's count or a tested script calls for it. The isolation from
+   `orpheum-app.com` is the separate registered domain; the HSTS preload `.app` gave is had by
+   submitting `orpheum-core.com` to the list. Its apex holds `issue ";"` and `issuewild ";"`; each
+   claimed core's own name allows Let's Encrypt for that core's ACME account by DNS-01 only.
+2. **Staging has no domains or accounts of its own.** Its client and API are `app-staging.` and
+   `api-staging.orpheum-app.com` (one level, which the free certificates cover), reached through a
+   Cloudflare Tunnel whose token edits no DNS; its cores sit under a subzone of `orpheum-core.com`.
+   Staging is used by the owner alone, so the rule that matters is that **no credential able to touch
+   production enters the agent's sandbox**; and production's cookies are `__Host-` prefixed so no
+   other subdomain can set them.
+3. **The closed beta is scoped down:** a thin path working end to end on staging before any step is
+   thickened; no customer accounts, sign-in links or mail (the operator claims each core by its
+   code); two production machines (`prod-api`, which serves the client too, and `prod-probe`), the
+   spare and Cloudflare Pages at the public launch; mailbox recovery, re-keying, CT watching, the NAT
+   measurement, HPKE device codes, ARI and DNS-PERSIST-01 deferred; the version window promised from
+   the public launch, a security floor from the first day. Revises D290 §8 and D289.
+4. **Security** (audit3 A1–A12): a session minted through a discovery's client never carries admin;
+   in the beta admin only from the core's own origin on its own network, a passkey later (revises
+   D290 §4). Offers through a discovery are checked and bounded, and `discovery/single`'s K13–K15 are
+   closed, before any signalling connection opens. A recovery code is made at claiming and seals the
+   identity key in scheduled backups (revises D289 §2's leaving it out). A key change the old key did
+   not sign blocks the client until a fresh link from the core (revises D291 §6). The identity key's
+   fingerprint is in every link and QR, and answers are signed over the exact SDP. One "device" scope
+   for every code-activated device (refines D291 §5). A used registration link becomes the person's
+   own, revocable and bounded.
+5. **No relay in the beta**; a relay for connections that fail waits on the beta's count (restates
+   D274 §2 over "no relay, ever").
+6. **Every household is told its core's home address** (link and QR), replacing D291 §6's last good
+   LAN address, which an HTTPS page could not call.
+7. **The edge VPS gains a Floating IPv4 and a WireGuard peer per deployment**, so staging runs beside
+   nas.example (revises D272 §8's one shared key), and becomes the staging server once `media.` retires.
+8. **Repositories:** `orpheum-connect` (the paid service, renamed from `orpheum-discovery`),
+   `orpheum-ops` and `orpheum-site`, all private.
+9. **The development loop:** check-pr back under its budget first; the service imports Orpheum by
+   `replace` and a pin file; its own gates and Stop hook; Pebble pinned; a netlab tier on demand;
+   two cores in the dev loop; `pion/transport/v5` and `golang.org/x/net` direct.
+
+**Status:** Decided 2026-10-13; to fold into the protocol, the plans and the specification in one
+pass before development.
