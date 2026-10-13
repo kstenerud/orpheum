@@ -384,6 +384,19 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     mounted.unmount();
   });
 
+  it("takes the Join's submitting as the tap, as an iPhone's keyboard Go submits it, and asks for no other", async () => {
+    const { services, server } = viewerServices("/together#link-secret", {
+      "POST /together/join": [200, joined],
+    });
+    const mounted = await mount(withServices(<TogetherViewer />, services));
+    await enter(mounted.container.querySelector("input"), "Gran");
+    await submit(mounted.container.querySelector("form"));
+    await server.accept();
+    await server.say(welcome);
+    expect(mounted.container.querySelector(".together-viewer__continue")).toBeNull();
+    mounted.unmount();
+  });
+
   it("asks for a tap over the black stage while the voices wait for one, as after a phone call took the sound", async () => {
     window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
     window.localStorage.setItem(
