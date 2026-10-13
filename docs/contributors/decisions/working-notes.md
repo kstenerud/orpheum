@@ -19845,7 +19845,24 @@ paid service's specification, which are brought in line before development start
     nonces carry their own expiry and MAC, and device codes are refused past their caps rather than
     pushing a waiting one out (D288 §6 as amended).
 
-Still open: the life of the customer's sign-in link (A2) and two points of the correctness
-findings (B11).
+16. **The customer's sign-in link follows current practice** (A2; security S8): at most 24 hours,
+    spent only by the click on its page, never by opening it (mail scanners open links), tied to
+    the browser that asked or confirmed when opened in another, cancelled by the next asked for.
+    The owner: *"if these are different things then just go with best practices. I'd mistakenly
+    thought that the magic link was for invites."* Invitations are separate and keep their own
+    lives: a household member's registration link on the core, 7 days by its setting
+    (`registration_invitation_life_days`, D246 §2); a beta tester's invitation to the paid service,
+    about 14 days, whose opening sends a fresh sign-in link then.
+17. **A Watch Together link finds its core while it lives** (B11; correctness C3): finding the core
+    by a link grants nothing, so it works again and again, as long as the link is live on the core;
+    admission stays the core's, an unused link admitting its one person and a used one only the
+    device holding the membership credential its first use gave (D267 §2). The owner: *"I want
+    'watch together' links to be re-usable on the same device, so that if they accidentally close
+    the page they can get back in."*
+18. **One core per paying account in the beta** (B11), the account and its cores kept apart in the
+    data, so more is a matter of price and dashboard later; and **two cores sharing one identity
+    key**, a backup restored onto a second machine, are detected and refused (correctness C4). The
+    owner: *"OK, go with your recommendations."* The rest of the correctness findings are taken as
+    the audit recommends.
 
 **Status:** Decided 2026-10-13; design to fold into the protocol before development.
