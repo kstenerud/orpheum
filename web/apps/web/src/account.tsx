@@ -4,9 +4,10 @@ import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { changePassword, listMyDevices } from "./accounts.ts";
+
 import { ActivateDevice } from "./device-activation.tsx";
 import { FormRow } from "./form-row.tsx";
-import { fieldProblemText } from "./problem.ts";
+import { dataOrThrow, fieldProblemText } from "./problem.ts";
 import { PasswordField } from "./credentials-form.tsx";
 import { useServices } from "./services.tsx";
 import { useResource } from "./use-resource.ts";
@@ -14,18 +15,23 @@ import { YourDevices } from "./your-devices.tsx";
 
 /**
  * A person's own account: at the top, activating a device by the code it shows (D288); their
- * devices, and their password (D218, D221). A device activated joins the list.
+ * devices, and their password (D218, D221). A device activated joins the list. A session that may not
+ * change the account's security (a device a code activated, or one signed in through a discovery's
+ * page, D292 §4) sees its devices and is told where to do the rest.
  */
 export function Account(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [devices, reload] = useResource("my-devices", () => listMyDevices(api));
+  const [me] = useResource("me", async () => dataOrThrow(await api.GET("/me")));
+  const canManage = me.state === "loaded" && me.value.canManageAccount;
   return (
     <section className="account" aria-labelledby="account-heading">
       <h1 id="account-heading">{t("account.heading")}</h1>
-      <ActivateDevice onActivated={reload} />
-      <YourDevices devices={devices} onChanged={reload} />
-      <ChangePassword />
+      {canManage ? <ActivateDevice onActivated={reload} /> : null}
+      <YourDevices devices={devices} onChanged={reload} canManage={canManage} />
+      {canManage ? <ChangePassword /> : null}
+      {me.state === "loaded" && !canManage ? <p>{t("account.notOnThisDevice")}</p> : null}
     </section>
   );
 }

@@ -5850,6 +5850,9 @@
           "canHostWatchTogether": {
             "type": "boolean"
           },
+          "canManageAccount": {
+            "type": "boolean"
+          },
           "device": {
             "$ref": "#/components/schemas/CurrentDeviceBody"
           },
@@ -5876,6 +5879,7 @@
           "role",
           "isAdmin",
           "canHostWatchTogether",
+          "canManageAccount",
           "hasNoLibrary"
         ],
         "type": "object"

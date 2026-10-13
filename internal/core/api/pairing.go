@@ -146,7 +146,7 @@ func (server *Server) takePairedSession(ctx context.Context, input *PairingSecre
 }
 
 func (server *Server) activateDevice(ctx context.Context, input *ActivationInput) (*ActivationOutput, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireAccountManager(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +169,7 @@ func (server *Server) activateDevice(ctx context.Context, input *ActivationInput
 }
 
 func (server *Server) answerActivation(ctx context.Context, input *ActivationAnswerInput) (*struct{}, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireAccountManager(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}

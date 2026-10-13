@@ -470,6 +470,15 @@ In the closed beta (D293 §2, revising D292 §3's deferral), after the thin path
 
 ### K17 — Session scopes: no admin through a discovery, one `device` scope
 
+**Built 2026-10-13 (Phase 1's A1), but for admin from the core's own network alone**, which waits
+on the owner (it would end admin through `media.` on nas.example, whose core sees no LAN address from
+inside its container): the `device` scope for sign-ins and registrations through a discovery's
+client (another `Origin`, or over WebRTC, whose head `rtcapi` no longer believes) and for every
+code activation; `requireAccountManager` on the password, device removal, signing out elsewhere
+and entering codes; `canManageAccount` in `/me`, by which the account page hides them. Not yet: the
+log of an admin activating another admin's device, re-asking the password for destructive admin
+actions, and the `TestArch_` claim (the owner's gate).
+
 - **Changes.** `internal/core/auth`, `internal/core/api`: **a session minted through a discovery's
   client never carries admin** (§3.7; D292 §4; A1): the core decides by the browser's `Origin` on a
   direct HTTPS sign-in and treats every sign-in or pairing over `rtcapi` as through a discovery

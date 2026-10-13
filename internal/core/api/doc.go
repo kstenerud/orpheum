@@ -47,6 +47,10 @@
 //     (under /bytes/, D216) also take the media cookie, HttpOnly and SameSite Strict, which the API never does
 //     (D154). Enforced by TestSession_TheTokenWorksInTheHeaderOnlyUntilSignOut and
 //     TestMediaCookie_SignInSetsItOnlyTheBytePathsTakeItAndSignOutClearsIt.
+//   - A sign-in or registration from a page another origin served, or over WebRTC, signs in through
+//     a discovery's client: its session carries no admin and may not change the account's security
+//     (D292 §4; the security audit's A1). Enforced by TestSignIn_FromAnotherOriginCarriesNoAdmin and
+//     TestSignIn_OverWebRTCCarriesNoAdminWhateverItsHeadClaims.
 //   - Only an admin sees /doctor; its artwork finding warns at high water with the ceiling to set
 //     (D212 §7). TestDoctor_AnAdminSeesTheArtworkCacheAgainstItsCeiling.
 //   - Only an admin sees /system, the System page: the server's facts, doctor's findings and each
@@ -124,8 +128,9 @@
 //     config.go, secrets.go, health.go, identification.go, libraries.go, browse.go, art.go,
 //     doctor.go, system.go, playback.go, subtitle.go, subtitle_fetch.go, preferences.go, report.go,
 //     home.go, accounts.go, devices.go and jobs.go.
-//   - server.go holds the readiness gate and the authentication helpers: requireSignedIn and
-//     requireAdmin; requireMetadataEditor is in identification.go, and requireSignedInForMedia,
+//   - server.go holds the readiness gate and the authentication helpers: requireSignedIn,
+//     requireAdmin and requireAccountManager; requireMetadataEditor is in identification.go, and
+//     requireSignedInForMedia,
 //     the one sign-in of every byte path, in media_cookie.go, with the byte paths' Cache-Control
 //     values.
 //   - One refusal leaves with one code and one message: a package's errors are mapped by that

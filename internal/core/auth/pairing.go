@@ -321,11 +321,12 @@ func (service *Service) AnswerPairing(ctx context.Context, byUserID int64, typed
 	if err != nil || !isMatch {
 		return err
 	}
-	// Made with the pairing let go, as a database write is: confirmed, it is answered no more.
+	// Made with the pairing let go, as a database write is: confirmed, it is answered no more. A
+	// device a code activated carries the device scope, whoever entered the code (D292 §4; A11).
 	token, err := service.issueSession(ctx, known.forUserID, NewDevice{
 		Name: known.deviceName, Platform: known.platform, PreviousDeviceID: known.previous.ID,
 		PreviousDeviceProof: known.previous.Proof,
-	})
+	}, grantScopeDevice)
 	if err != nil {
 		return err
 	}

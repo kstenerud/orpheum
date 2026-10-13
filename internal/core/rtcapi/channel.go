@@ -95,14 +95,15 @@ func serveChannel(
 			_ = channel.Close() //nolint:errcheck // nothing more to say on it
 			return
 		}
-		request, err := reader.request(ctx, remote())
+		overWebRTC := context.WithValue(ctx, overWebRTCKey{}, true)
+		request, err := reader.request(overWebRTC, remote())
 		if err != nil {
 			logger.WarnContext(ctx, "a request over WebRTC was not one", "err", err)
 			_ = channel.Close() //nolint:errcheck // nothing more to say on it
 			return
 		}
 		if reader.isUpgrade {
-			request = request.WithContext(context.WithValue(ctx, messageConnKey{}, conn))
+			request = request.WithContext(context.WithValue(overWebRTC, messageConnKey{}, conn))
 		}
 		writer := newChannelWriter(ctx, channel, credit)
 		handler.ServeHTTP(writer, request)
@@ -172,6 +173,24 @@ func (reader *requestReader) end(failed error) {
 	close(reader.done)
 }
 
+// overWebRTCKey marks a request's context as one a data channel carried.
+type overWebRTCKey struct{}
+
+// IsOverWebRTC reports whether a request came over a data channel: its head is what the page wrote,
+// so it says nothing of the page's origin (the security audit's A1).
+func IsOverWebRTC(ctx context.Context) bool {
+	isOver, isMarked := ctx.Value(overWebRTCKey{}).(bool)
+	return isMarked && isOver
+}
+
+// isWhereFrom is whether a header names where a request came from: its origin, its host, or a
+// proxy's word on its client, none of which a page's head is believed in.
+func isWhereFrom(name string) bool {
+	canonical := http.CanonicalHeaderKey(name)
+	return canonical == "Origin" || canonical == "Host" || canonical == "Forwarded" ||
+		strings.HasPrefix(canonical, "X-Forwarded-")
+}
+
 // errNotText is why a head that is not text is refused, or nil for one that is.
 func errNotText(message webrtc.DataChannelMessage) error {
 	if message.IsString {
@@ -200,8 +219,13 @@ func (reader *requestReader) request(ctx context.Context, remoteAddress string) 
 	if err != nil {
 		return nil, fmt.Errorf("make the request: %w", err)
 	}
-	// A browser names headers in lower case; the handler reads them by their canonical names.
+	// A browser names headers in lower case; the handler reads them by their canonical names. The
+	// head is the page's, so none that names where the request came from is believed: a page could
+	// claim the core's own origin (the security audit's A1).
 	for name, values := range reader.head.Headers {
+		if isWhereFrom(name) {
+			continue
+		}
 		for _, value := range values {
 			request.Header.Add(name, value)
 		}

@@ -54,6 +54,10 @@ const capabilityEditMetadata = "edit_metadata"
 const (
 	grantKindSession = "session"
 	grantScopeRole   = "role" // a session carries the user's role, entire (D154 §3)
+	// A device-scoped session carries the role but for administering and the account's security:
+	// a device a code activated, and every sign-in through a discovery's client (D292 §4; the
+	// security audit's A1, A11).
+	grantScopeDevice = "device"
 )
 
 // tokenBytes is a session token's length: 256 random bits, which no one guesses. A format, not an
@@ -97,6 +101,16 @@ type Principal struct {
 	// SHA-256, the same digest the grant row keeps. A media token is bound to it, so signing out
 	// ends the playbacks the session started (D217 §2).
 	SessionKey string
+	// isDeviceScoped is a session of the device scope: its Capabilities lack administering, and
+	// it may not change the account's security (CanManageAccount).
+	isDeviceScoped bool
+}
+
+// CanManageAccount reports whether the session may change the account's security: its password,
+// its devices, and the codes it enters for other devices. A device-scoped session may not (D292 §4;
+// the security audit's A11).
+func (principal Principal) CanManageAccount() bool {
+	return !principal.isDeviceScoped
 }
 
 // IsAdmin reports whether the principal's role carries the administer capability.
@@ -216,6 +230,9 @@ type NewDevice struct {
 	// client that named one sit on another's device, unseen in the list and kept by "sign out
 	// everywhere else" (the second audit's K1 and W4, 2026-10-13).
 	PreviousDeviceProof string
+	// IsThroughDiscovery is a client a discovery's page signs in, as the request showed it by what
+	// page script cannot forge: its session never carries admin (D292 §4; the security audit's A1).
+	IsThroughDiscovery bool
 }
 
 // SignIn checks a name and password and issues a session on the device the client remembers,
@@ -261,7 +278,16 @@ func (service *Service) SignIn(
 			return "", rehashErr
 		}
 	}
-	return service.issueSession(ctx, user.ID, device)
+	return service.issueSession(ctx, user.ID, device, scopeOf(device))
+}
+
+// scopeOf is the scope of a session device signs in for: the device scope through a discovery's
+// client, the role otherwise.
+func scopeOf(device NewDevice) string {
+	if device.IsThroughDiscovery {
+		return grantScopeDevice
+	}
+	return grantScopeRole
 }
 
 // hashWithCurrentCosts hashes a password with the costs the settings name now.
@@ -369,9 +395,11 @@ func resumeOrMakeDevice(
 	return id, nil
 }
 
-// issueSession signs the user in on a device, resumed or made, with a session grant tied to it,
-// and returns its token, which is stored only as its SHA-256 (D154).
-func (service *Service) issueSession(ctx context.Context, userID int64, device NewDevice) (string, error) {
+// issueSession signs the user in on a device, resumed or made, with a session grant of scope tied to
+// it, and returns its token, which is stored only as its SHA-256 (D154).
+func (service *Service) issueSession(
+	ctx context.Context, userID int64, device NewDevice, scope string,
+) (string, error) {
 	token, err := randomSecret(service.random)
 	if err != nil {
 		return "", err
@@ -383,7 +411,7 @@ func (service *Service) issueSession(ctx context.Context, userID int64, device N
 			return deviceErr
 		}
 		return queries.InsertGrant(ctx, sqlcgen.InsertGrantParams{
-			SecretSha256: tokenHash(token), Kind: grantKindSession, UserID: &userID, Scope: grantScopeRole,
+			SecretSha256: tokenHash(token), Kind: grantKindSession, UserID: &userID, Scope: scope,
 			IssuedAt: now, DeviceID: &deviceID,
 		})
 	})
@@ -433,7 +461,8 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 	if err != nil {
 		return Principal{}, err
 	}
-	capabilities := strings.Split(user.Capabilities, ",")
+	isDeviceScoped := grant.Scope == grantScopeDevice
+	capabilities := sessionCapabilities(user.Capabilities, isDeviceScoped)
 	reach, err := reachOfRole(ctx, service.database.Read(), user.RoleID, capabilities)
 	if err != nil {
 		return Principal{}, err
@@ -452,7 +481,18 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 		UserID: user.ID, Name: user.Name, Role: Role(user.RoleName),
 		Capabilities: capabilities, Reach: reach,
 		DeviceID: ptr.ValueOrZero(grant.DeviceID), SessionKey: hex.EncodeToString(hash),
+		isDeviceScoped: isDeviceScoped,
 	}, nil
+}
+
+// sessionCapabilities are a session's capabilities: its role's, stored, but for administering in a
+// device-scoped session.
+func sessionCapabilities(stored string, isDeviceScoped bool) []string {
+	capabilities := strings.Split(stored, ",")
+	if isDeviceScoped {
+		capabilities = slices.DeleteFunc(capabilities, func(each string) bool { return each == capabilityAdminister })
+	}
+	return capabilities
 }
 
 // whyNotLive says why a token finds no live session: ended, expired, or never one of ours.

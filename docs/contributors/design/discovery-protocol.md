@@ -421,8 +421,7 @@ honest client and its core. The party that also serves the client's JavaScript c
 **A connection grants nothing**: every request over a channel carries its own bearer token to the
 core. **The request's head is untrusted** (A1): `rtcapi` copies what the page wrote, so the core
 strips `Origin`, `Host`, `Forwarded` and `X-Forwarded-*` before the handler, and nothing over
-WebRTC counts as the core's own origin (§3.7). **The code must change** (`rtcapi/channel.go` copies
-every header).
+WebRTC counts as the core's own origin (§3.7). Built (`rtcapi.IsOverWebRTC`).
 
 **Recovery** (C6, taken; webrtc-transport W2d):
 
@@ -945,7 +944,10 @@ app.
 - Admin pages on `app.` say "manage this server from home, at <its home address>" (§3.1).
   Destructive admin actions ask for the password again on the admin origin (A1 item 3) [I].
 
-**The code must change:** `issueSession` gives every session the user's whole role.
+Built (2026-10-13): a sign-in, registration or code activation through a discovery's client, and
+every code activation, gets the `device` scope (`internal/core/auth`); the web client hides what such
+a session cannot do. **The code must change:** admin from the core's own network alone (the second
+point) is not built, so a session from the core's own origin carries admin wherever it is.
 
 ## 4. The API
 

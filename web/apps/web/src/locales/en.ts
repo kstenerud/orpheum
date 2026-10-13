@@ -158,6 +158,8 @@ export const en = {
     newPassword: "New password",
     passwordChanged: "Your password is changed. Your other devices stay signed in.",
     wrongPassword: "That is not your current password. Check it and try again.",
+    notOnThisDevice:
+      "On this device you can watch and host, but not change your password, remove devices or activate others. Do that on a device signed in with your password at your server's own address.",
   },
   activate: {
     heading: "Activate a device",

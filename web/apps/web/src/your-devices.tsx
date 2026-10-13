@@ -33,6 +33,8 @@ import type { Resource } from "./use-resource.ts";
 export function YourDevices(props: {
   readonly devices: Resource<Device[]>;
   readonly onChanged: () => void;
+  /** Whether this session may remove devices and sign the others out (D292 §4). */
+  readonly canManage: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
   const { api, session } = useServices();
@@ -64,24 +66,27 @@ export function YourDevices(props: {
               onSoundChange={(device, output) => {
                 applyChange(() => setMyDeviceAudioOutput(api, device.id, output));
               }}
-              onRemove={(device) => {
-                // Removing this device signs it out here too.
-                applyChange(
-                  () => removeMyDevice(api, device.id),
-                  device.isThisDevice ? session.signOut : undefined,
-                );
-              }}
+              onRemove={
+                props.canManage
+                  ? (device) => {
+                      // Removing this device signs it out here too.
+                      applyChange(
+                        () => removeMyDevice(api, device.id),
+                        device.isThisDevice ? session.signOut : undefined,
+                      );
+                    }
+                  : undefined
+              }
             />
           )}
         />
-        <ConfirmButton
-          label={t("devices.signOutElsewhere")}
-          consequence={t("devices.signOutElsewhereConsequence")}
-          confirmLabel={t("devices.signOutElsewhereConfirm")}
-          onConfirm={() => {
-            applyChange((idempotencyKey) => signOutElsewhere(api, idempotencyKey));
-          }}
-        />
+        {props.canManage ? (
+          <SignOutElsewhere
+            onConfirm={() => {
+              applyChange((idempotencyKey) => signOutElsewhere(api, idempotencyKey));
+            }}
+          />
+        ) : null}
         {problem === undefined ? null : <p role="alert">{problem}</p>}
       </div>
     </BusyGroup>
@@ -89,6 +94,19 @@ export function YourDevices(props: {
 }
 
 /** Which of the three a device is: the one asking, another signed in, or signed out. */
+/** Signs out every device but this one, asked again first. */
+function SignOutElsewhere(props: { readonly onConfirm: () => void }): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <ConfirmButton
+      label={t("devices.signOutElsewhere")}
+      consequence={t("devices.signOutElsewhereConsequence")}
+      confirmLabel={t("devices.signOutElsewhereConfirm")}
+      onConfirm={props.onConfirm}
+    />
+  );
+}
+
 export function deviceState(device: Device): "thisDevice" | "signedIn" | "signedOut" {
   if (device.isThisDevice) {
     return "thisDevice";
@@ -103,7 +121,8 @@ export function DeviceList(props: {
   readonly onRename?: ((device: Device, name: string) => void) | undefined;
   /** Absent where how the devices make sound is not the viewer's to change. */
   readonly onSoundChange?: ((device: Device, output: AudioOutput) => void) | undefined;
-  readonly onRemove: (device: Device) => void;
+  /** Absent where removing is not the viewer's to do: a session that may not change the account. */
+  readonly onRemove?: ((device: Device) => void) | undefined;
 }): JSX.Element {
   const { t, i18n } = useTranslation();
   return (
@@ -124,15 +143,17 @@ export function DeviceList(props: {
             })}
           </span>
           {/* Removing signs the device out for good: red, and asked again (the owner, 2026-10-12). */}
-          <ConfirmButton
-            label={t("devices.remove")}
-            labelForReader={t("devices.removeLabel", { name: device.name })}
-            consequence={t("devices.removeConsequence", { name: device.name })}
-            confirmLabel={t("devices.removeConfirm")}
-            onConfirm={() => {
-              props.onRemove(device);
-            }}
-          />
+          {props.onRemove === undefined ? null : (
+            <ConfirmButton
+              label={t("devices.remove")}
+              labelForReader={t("devices.removeLabel", { name: device.name })}
+              consequence={t("devices.removeConsequence", { name: device.name })}
+              confirmLabel={t("devices.removeConfirm")}
+              onConfirm={() => {
+                props.onRemove?.(device);
+              }}
+            />
+          )}
         </li>
       ))}
     </ul>

@@ -3460,6 +3460,7 @@ export interface components {
         };
         UserBody: {
             canHostWatchTogether: boolean;
+            canManageAccount: boolean;
             device?: components["schemas"]["CurrentDeviceBody"];
             hasNoLibrary: boolean;
             /** Format: int64 */
