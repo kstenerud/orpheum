@@ -49,9 +49,14 @@ dev0: /dev/dri/renderD128,gid=<the container's render group>
 - `dev0` passes the GPU's render node through. Its `gid` is the `render` group's inside the
   container: start it once and run `getent group render` there.
 
-In the container: install Docker with the compose plugin and git (Debian's `docker.io`,
-`docker-compose` and `git`, or Docker's own packages), make a user for Orpheum, add it to the
-`docker` and `render` groups, and as that user clone this repository:
+Give the container room: at least 32 GiB of disk, or a dataset of the pool mounted at
+`/srv/orpheum` (`mp1: /tank/orpheum,mp=/srv/orpheum`). Proxmox's default 8 GiB is too little: the
+node keeps prepared copies there, up to `prepared_budget_gib`, and a build pulls the toolchains.
+
+In the container: install Docker from Docker's own packages (`docker-ce docker-ce-cli containerd.io
+docker-buildx-plugin docker-compose-plugin`: Debian's `docker.io` has no BuildKit, which the build
+needs, and staging runs on Docker's), make a user for Orpheum, add it to the `docker` and `render`
+groups, and, for building from a tag (§3), as that user clone this repository:
 
 ```sh
 git clone git@github.com:kstenerud/orpheum.git ~/orpheum
@@ -68,16 +73,38 @@ As the Orpheum user in the container, with `/srv/orpheum` owned by it:
    fetch --tags` brings new ones). It builds the image `orpheum:v0.1.0` (the first build takes
    several minutes), writes `/srv/orpheum/values.toml`, and stops.
 3. Fill in `values.toml`: the values marked "fill in" are staging's (`.staging/values.toml` in the
-   sandbox), and `[media] roots = ["/tank/media/video"]`. Leave out `[node] name` and the node is
-   named after the container.
+   sandbox), and `[media] roots`, one for each folder a library will be: a library takes whole
+   roots, so `["/tank/media/video"]` would make one library of everything under it. For example
+   `["/tank/media/video/movies", "/tank/media/video/shows"]`, and a root for each series folder that
+   sits beside `shows/` rather than in it. Leave out `[node] name` and the node is named after the
+   container.
 4. Run the same `build.sh` again. It writes the compose file and the configs.
 5. **Swap the public name to nas.example** (§6), then `docker compose up -d` in `/srv/orpheum`.
 6. `docker compose exec orpheum-core orpheum setup-code --instance /var/lib/orpheum/core` prints
    the one-time code. Open `http://<container>:8440`, make the first admin, and add the libraries.
 7. In Settings, under Keys and passwords, enter the Cloudflare token as `dns_provider_token`; the
-   certificate follows.
-8. Tell the agent which schema version nas.example runs (`orpheum version` and the core's log say it),
-   so it commits `internal/store/migrations/CHECKPOINT` (D272 §6).
+   certificate follows. Enter `tmdb_api_key` too: without it nothing is identified.
+8. In Settings, answer `server_upload_mbps` (the house's upload the films may use, D286 §5) and the
+   time zone.
+9. Tell the agent which schema version nas.example runs (the core's log says it at start), so it
+   commits `internal/store/migrations/CHECKPOINT` (D272 §6).
+
+## 3a. Install without a tag (the weekend fallback)
+
+Until there is a version tag, nas.example can run the image staging runs, copied over rather than built:
+
+1. Ask the agent for the fallback. It saves staging's image (`docker save`, about 140 MB),
+   staging's `values.toml` and the tunnel's keys into the sandbox's shared files. Take them with
+   `yoloai files get`, copy them to the container, and delete the keys from the shared files.
+2. On the container, as the Orpheum user: put `values.toml` in `/srv/orpheum/`, and `private` and
+   `public` in `/srv/orpheum/tunnel/` (mode 600 for `private`).
+3. Edit `/srv/orpheum/values.toml`: `deployment = "release"`, `[media] roots` as §3 step 3 says, and
+   `[node] name` removed or set to the container's name (staging's says `"sandbox"`). Leave the
+   VPS's values as they are.
+4. `build.sh --load orpheum-fallback.tar.gz /srv/orpheum` loads the image and writes the compose
+   file and the configs, building nothing (`deploy/release/build.sh`, which the agent puts in the
+   shared files too, or a clone's).
+5. Go on from §3 step 5. Nothing is built, so Docker alone is needed: no git, no BuildKit.
 
 ## 4. Update
 
@@ -104,10 +131,14 @@ and start it again. What happened since the snapshot is lost.
 Both use the one tunnel key, and the VPS forwards to whichever end dials it, so only one may run
 its tunnel at a time (D272 §2, §8):
 
-- To nas.example: the agent stops staging (`./staging down`); then `docker compose up -d` on nas.example.
+- To nas.example: the agent stops staging with `./staging down`, which removes its containers. Only
+  stopping the sandbox is not enough: staging's containers start again whenever the sandbox's
+  Docker does, and would take the tunnel back. Then `docker compose up -d` on nas.example.
 - To staging: `docker compose down` on nas.example; then the agent runs `./staging`.
 
-`wg show` on the VPS shows the handshake with whichever is up. Each keeps its own database,
+`wg show` on the VPS shows a handshake, but both ends come from the house's one address, so it
+cannot tell them apart: ask each end with `docker compose exec orpheum-tunnel wg show wg0
+latest-handshakes`. Each keeps its own database,
 libraries and certificate.
 
 ## When something is wrong
