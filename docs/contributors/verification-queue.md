@@ -380,7 +380,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   as them. Only real devices show the codes are readable across a room and the warning is plain
   (D288). (`web/apps/web/src/code-sign-in.tsx`, `device-activation.tsx`, `internal/core/auth/pairing.go`)
   — done 2026-10-13 by the owner, against staging at an earlier commit: *"I just verified that vq39 worked."*
-- [ ] **VQ40** — Against staging, on an iPhone: (1) join as a new guest while nothing plays, with no
+- [x] **VQ40** — Against staging, on an iPhone: (1) join as a new guest while nothing plays, with no
   other tap; then the host starts a film, someone talks, and later the host switches films. Passes
   when the film and the voices are heard with no tap after Join. (2) Reload the page: it shows only
   "Karl invited you to watch together" and Tap to continue, with no voices heard and no film shown
@@ -390,3 +390,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   tap's permission per video element, and only it interrupts a page's audio for a call (WebKit's
   `setMutedInternal`). (`web/apps/web/src/together-viewer-tap.tsx`, `film-player.tsx` `KeptVideo`,
   `web/packages/sdk/src/together-voice-browser.ts` `TapWaiting`)
+  — done 2026-10-13 by the owner, against staging at an earlier commit, for (1) and (2): a new guest joined by
+  Join or by the keyboard's Go with no other tap, and a reload showed only Tap to continue, sound
+  after its tap: *"I tested the reload."* (3) not run: the test iPhone has no SIM to take a call;
+  the owner: *"this should be good enough for using with my gf though"*.
