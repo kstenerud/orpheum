@@ -80,7 +80,9 @@ from pathlib import Path
 
 import revert_red_reruns as reruns
 from revert_red_report import failure_advice, report
-from revert_red_cosmetic import GO_SOURCE, PY_SOURCE, is_cosmetic
+from revert_red_cosmetic import GO_SOURCE, PY_SOURCE, is_cosmetic, is_package_clause_only
+from revert_red_dependents import go_dependents, toplevel, web_source_readers
+from revert_red_stylesheets import settle as settle_stylesheets
 from revert_red_trees import hold_probe_trees, link_installed_packages, probe_trees  # noqa: F401 (tests reach them here)
 from revert_red_units import MIGRATION_STEP, companions, query_source, restore, revert_companion
 from revert_red_unreachable import is_unreachable_removal
@@ -349,6 +351,10 @@ def scope_for(path: str) -> list[str] | None:
         return ["go", "test", "./" + str(Path(path).parent) + "/..."]
     if is_python(path):
         return PY_TESTS_COMMAND
+    if path == GENERATED_API_TYPES:
+        # Types alone, which vitest strips: only the type check can notice it, and its importers'
+        # tests were nearly the whole suite, 72 s (check-pr's timings, 2026-10-13).
+        return TYPECHECK
     if TS_SOURCE.search(path):
         # The tests that import it, by vitest's import graph, as a Go file's package; none, and it
         # widens to the whole suite (wide_scope): all of it for each file took 54 s of check-pr.
@@ -356,17 +362,29 @@ def scope_for(path: str) -> list[str] | None:
     return None
 
 
+GENERATED_API_TYPES = "web/packages/sdk/src/gen/api.ts"
+TYPECHECK = ["npm", "--prefix", "web", "run", "typecheck"]
 VITEST_RELATED = ["npx", "--prefix", "web", "vitest", "related", "--run", "--passWithNoTests", "--root", "web"]
 WEB_SUITE = ["npm", "--prefix", "web", "run", "test"]
 WEB_BUILD = ["npm", "--prefix", "web", "run", "build"]
 
 
 def wide_scope(path: str) -> list[str] | None:
+    """What a file that survived its own tests may still turn red: for Go, the packages that import
+    its own and the tests that read every package's sources (revert_red_dependents); for TypeScript,
+    whose importers' tests vitest's `related` already ran, the tests that read sources by path."""
+    root = toplevel()
     if GO_SOURCE.search(path):
-        return ["go", "test", "./..."]
+        dependents = go_dependents(root, path)
+        return ["go", "test", *dependents] if dependents else None
     if TS_SOURCE.search(path):
-        return WEB_SUITE
+        readers = web_source_readers(root)
+        return [*VITEST_RUN, *readers] if readers else None
     return None
+
+
+VITEST_RUN = ["npx", "--prefix", "web", "vitest", "run", "--root", "web"]
+
 
 
 @dataclass(frozen=True)
@@ -386,10 +404,12 @@ def other_builds(path: str) -> list[Attempt]:
     for TypeScript, the type check, since vitest drops types unchecked and a file of types alone
     (the SDK's generated API) can break nothing else."""
     if TS_SOURCE.search(path):
-        return [Attempt(["npm", "--prefix", "web", "run", "typecheck"], ", found by the type check", None, True)]
+        return [Attempt(TYPECHECK, ", found by the type check", None, True)]
     if not GO_SOURCE.search(path):
         return []
-    attempts = [Attempt(["go", "test", "-tags", GO_EXTRA_TAGS, "./..."], f", found by the -tags {GO_EXTRA_TAGS} suite")]
+    # Its own package and those its revert can reach (wide_scope), built as the tagged suite builds them.
+    reached = ["./" + str(Path(path).parent), *go_dependents(toplevel(), path)]
+    attempts = [Attempt(["go", "test", "-tags", GO_EXTRA_TAGS, *reached], f", found by the -tags {GO_EXTRA_TAGS} suite")]
     other_os = GO_OS_SUFFIX.search(path)
     if other_os:
         goos = other_os.group(1)
@@ -415,7 +435,7 @@ def attempts_for(change: Change, first: list[str]) -> list[Attempt]:
     attempts = [Attempt(first, "")]
     wide = wide_scope(change.path)
     if wide is not None and wide != scope_for(change.path):
-        attempts.append(Attempt(wide, ", found by the whole suite"))
+        attempts.append(Attempt(wide, ", found by the tests its revert can reach"))
     return [*attempts, *other_builds(change.path), *browser_tier(change.path)]
 
 
@@ -503,6 +523,8 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
     """Revert one file in the worktree, with its unit's companions, run its tests, restore it."""
     if change.status == "M" and is_cosmetic(tree, base, head, change.path):
         return Outcome(change.path, "COSMETIC", "comment or formatting only; no behaviour to cover")
+    if change.status == "A" and is_package_clause_only(tree, change.path):
+        return Outcome(change.path, "COSMETIC", "a package clause and comments only; no behaviour to cover")
     if change.status in ("M", "D"):
         dropped = is_unreachable_removal(tree, base, head, change.path)
         if dropped:
@@ -560,48 +582,53 @@ def is_stylesheet(change: Change) -> bool:
 
 def stylesheets_together(tree: str, base: str, head: str, changes: list[Change], timeout: int,
                          command: list[str] | None = None) -> dict[str, Outcome]:
-    """The stylesheets whose verdict one browser run settles: every one reverted at once, run once.
+    """The stylesheets' verdicts, settled by halves (revert_red_stylesheets): every one reverted at
+    once, run once, and each half of a failing group again, down to the sheets a test noticed.
 
-    Each stylesheet alone costs a whole browser tier, and a skin changes dozens, most of which
-    nothing can notice and a ticked VQ item covers: one run per sheet made a skin's branch take
-    three quarters of an hour (2026-10-06). When the run with every sheet reverted passes, it settles
-    every sheet: a cosmetic or claimed one as its own run would, and any other GREEN, owing a test or
-    a ticked VQ item, with no browser run of its own (D279: those runs made check-pr 19 minutes,
-    2026-10-11). That is never laxer than its own run: a sheet another's revert hid is flagged, not
-    passed. When the run fails, none is settled: which sheet a test noticed is each one's run to say.
+    A sheet alone costs a whole browser tier, and a skin changes dozens: one run per sheet took a
+    skin's branch three quarters of an hour (2026-10-06). A passing run settles every sheet it
+    reverted, as its own run would (D279), never laxer: a sheet another's revert hid is flagged, not
+    passed. A sheet whose run alone fails is red; a timed-out run leaves its sheets to their own.
     """
     sheets = [change for change in changes if is_stylesheet(change)]
     if len(sheets) < 2:
         return {}
-    try:
-        for change in sheets:
-            if change.status == "A":
-                (Path(tree) / change.path).unlink(missing_ok=True)
-            elif _git("checkout", base, "--", change.path, cwd=tree).returncode != 0:
-                return {}
-        asked = time.monotonic()
-        done = timed(TIMINGS, EVERY_STYLESHEET, "browser tier", BROWSER_TIER_LOCK,
-                     functools.partial(subprocess.run, command or browser_tier_command(), cwd=tree,
-                                       capture_output=True, text=True, timeout=timeout, check=False,
-                                       env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}))
-        TIMINGS.note_probe(EVERY_STYLESHEET, time.monotonic() - asked)
-    except subprocess.TimeoutExpired:
-        return {}
-    finally:
-        for change in sheets:
-            restore(tree, head, change.path)
-    if done.returncode != 0:
-        return {}
+
+    def run_reverted(group: list[str]) -> subprocess.CompletedProcess[str] | None:
+        label = EVERY_STYLESHEET if len(group) == len(sheets) else f"({len(group)} stylesheets at once)"
+        try:
+            for path in group:
+                if _git("checkout", base, "--", path, cwd=tree).returncode != 0:
+                    return None
+            asked = time.monotonic()
+            done = timed(TIMINGS, label, "browser tier", BROWSER_TIER_LOCK,
+                         functools.partial(subprocess.run, command or browser_tier_command(), cwd=tree,
+                                           capture_output=True, text=True, timeout=timeout, check=False,
+                                           env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}))
+            TIMINGS.note_probe(label, time.monotonic() - asked)
+            return done
+        except subprocess.TimeoutExpired:
+            return None
+        finally:
+            for path in group:
+                restore(tree, head, path)
+
+    halving = settle_stylesheets([change.path for change in sheets], run_reverted)
+    for failure in halving.failures:
+        print(f"A browser run failed {failure}\n")
     settled: dict[str, Outcome] = {}
-    for change in sheets:
-        if change.status == "M" and is_cosmetic(tree, base, head, change.path):
-            settled[change.path] = Outcome(change.path, "COSMETIC", "comment or formatting only; no behaviour "
-                                           "to cover")
+    for path in halving.passed:
+        if is_cosmetic(tree, base, head, path):
+            settled[path] = Outcome(path, "COSMETIC", "comment or formatting only; no behaviour to cover")
             continue
-        claim = claimed(tree, base, head, change.path) or Outcome(change.path, "GREEN", "every test still passes "
-                                                                   "with this change reverted")
-        settled[change.path] = Outcome(change.path, claim.verdict, claim.detail + " (one browser run with every "
-                                       "stylesheet reverted turned nothing red)")
+        claim = claimed(tree, base, head, path) or Outcome(path, "GREEN", "every test still passes with this "
+                                                           "change reverted")
+        settled[path] = Outcome(path, claim.verdict, claim.detail + " (a browser run with it and others "
+                                "reverted turned nothing red)")
+    for path, output in halving.noticed.items():
+        verdict = "RED_BUILD" if is_build_failure(output) else "RED_TEST"
+        settled[path] = Outcome(path, verdict, "a test fails when it is reverted, found by the browser tier"
+                                if verdict == "RED_TEST" else "reverting it breaks the build, found by the browser tier")
     return settled
 
 

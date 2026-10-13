@@ -511,13 +511,26 @@ class RevertRedStylesheetsTogether(unittest.TestCase):
         changed = rr.attempts_for(rr.Change(self.OLD, "M"), rr.scope_for(self.OLD))
         self.assertIn("browser-tier", " ".join(changed[0].command))
 
-    def test_a_failing_run_settles_nothing_and_one_sheet_alone_is_not_batched(self):
+    def test_a_failing_run_is_halved_down_to_the_sheet_a_test_noticed_and_one_sheet_alone_is_not_batched(self):
         repo, base = self.repo()
+        ran = Path(tempfile.mkdtemp()) / "ran"
+        # Fails only while the unclaimed sheet is reverted; counts its runs.
+        noticing = ["sh", "-c", f"echo x >> {ran}; ! grep -q old {self.UNCLAIMED}"]
         with repo.cwd():
-            self.assertEqual(rr.stylesheets_together(str(repo.root), base, "HEAD", self.changes(), 60,
-                                                     ["false"]), {})
+            settled = rr.stylesheets_together(str(repo.root), base, "HEAD", self.changes(), 60, noticing)
             self.assertEqual(rr.stylesheets_together(str(repo.root), base, "HEAD",
                                                      [rr.Change(self.CLAIMED, "M")], 60, ["true"]), {})
+        self.assertEqual({path: outcome.verdict for path, outcome in settled.items()},
+                         {self.OLD: "CLAIMED", self.CLAIMED: "CLAIMED", self.UNCLAIMED: "RED_TEST"})
+        self.assertEqual(len(ran.read_text().splitlines()), 4, "all three at once, then each: three is too few "
+                         "to halve")
+        self.assertEqual(repo.git("status", "--porcelain"), "")
+
+    def test_a_run_that_times_out_leaves_its_sheets_to_their_own_runs(self):
+        repo, base = self.repo()
+        with repo.cwd():
+            self.assertEqual(rr.stylesheets_together(str(repo.root), base, "HEAD", self.changes(), 1,
+                                                     ["sleep", "5"]), {})
         self.assertEqual(repo.git("status", "--porcelain"), "")
 
 

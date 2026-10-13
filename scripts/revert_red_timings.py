@@ -104,7 +104,10 @@ def kind_of(command: list[str], label: str, env: dict[str, str] | None) -> str:
             return "go test, store integration"
         if "-tags" in command:
             return "go test, extra tags"
-        return "go test, whole suite" if command[-1] == "./..." else "go test, package"
+        if command[-1] == "./...":
+            return "go test, whole suite"
+        packages = [part for part in command if part.startswith("./")]
+        return "go test, its dependents" if len(packages) > 1 else "go test, package"
     if "py_tests.py" in text:
         return "python tests"
     return (command[0] if command else "?") + (label and f" ({label.strip(', ')})")

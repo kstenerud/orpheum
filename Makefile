@@ -194,7 +194,8 @@ web-format-check:
 web-deps-check:
 	@$(PYTHON) scripts/area_stamp.py web-deps-check web -- npm --prefix web run --silent deps:check
 web-test:
-	@$(PYTHON) scripts/area_stamp.py web-test web -- npm --prefix web run --silent test
+	@# Only the tests the changes since the last pass reach, by vitest's import graph (scripts/web_tests.py).
+	@$(PYTHON) scripts/web_tests.py
 
 .PHONY: web-deps
 web-deps: ## Install web dependencies from the lockfile when they are missing or stale

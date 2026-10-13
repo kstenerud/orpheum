@@ -8,6 +8,7 @@ from __future__ import annotations
 import ast
 import re
 import subprocess
+from pathlib import Path
 
 GO_SOURCE = re.compile(r"\.go$")
 PY_SOURCE = re.compile(r"\.py$")
@@ -133,3 +134,20 @@ def _without_doc_text(text: str) -> list[str]:
         else:
             lines.append(" ".join(stripped.split()))
     return lines
+
+
+# A Go comment, line or block.
+GO_COMMENT = re.compile(r"//[^\n]*|/\*.*?\*/", re.S)
+
+
+def is_package_clause_only(tree: str, path: str) -> bool:
+    """Whether a Go file holds nothing but its package clause and comments: a new `doc.go`, whose
+    revert nothing can notice. Each took the whole suite twice, 100 s, to say so (check-pr's
+    timings, 2026-10-13)."""
+    if not GO_SOURCE.search(path):
+        return False
+    try:
+        text = (Path(tree) / path).read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return len(GO_COMMENT.sub(" ", text).split()) == 2 and GO_COMMENT.sub(" ", text).split()[0] == "package"
