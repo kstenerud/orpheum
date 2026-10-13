@@ -23,7 +23,7 @@ them in
 [D290](../decisions/working-notes.md#d290--the-discovery-audits-findings-taken-claiming-on-the-core-paths-ranked-by-kind-re-keying-signed-by-the-old-key-computed-dns-behind-cloudflare-and-webrtc-in-the-beta),
 which this document follows; the correctness findings D290 does not name are taken as that audit
 recommends (D290 §18). What the audits recommended and D290 did not decide is listed in §7, decided
-by D291 but for one question still the owner's.
+by D291.
 
 **Markers.** `D<n>` is a decision; a claim citing one comes from it. **[I]** is an inference or
 recommendation not taken from a decision. **[V]** is a fact checked at its source, in
@@ -718,8 +718,9 @@ each item is taken as its audit recommends, except where noted. Each names its f
    hardware-key 2FA, DNSSEC and a narrow API token. **D291 §4:** no PSL entry now.
 8. **S13 item 1:** a cap on published names per core (moot for DNS records once answers are
    computed, not for probes).
-9. **S14 items 1–4:** a random high external port (**still the owner's**: it keeps mass scanners
-   off, but networks that allow only ports 80 and 443 cannot reach it; D291);
+9. **S14 items 1–4:** not a random high external port: the router is asked for 443 first and the
+   port it grants is taken when 443 is held, since networks that allow only 80 and 443 reach no
+   other (D291 §7);
    "your server is reachable from the internet at …" shown prominently; security-update notices
    through `GET /status`; sign-in limits tested over WebRTC.
 10. **S15:** a `Host` allow list on the core's plain-HTTP LAN listener against DNS rebinding.

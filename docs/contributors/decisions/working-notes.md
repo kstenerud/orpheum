@@ -19896,7 +19896,9 @@ owner: *"All of this looks good"*, then, on the second machine, *"Go with your r
    when the old key signed it, and after a key recovered without it (D290 §3) shows a plain notice
    that the server's identity changed, naming the date the owner confirmed it.
 
-Not decided here: whether the router is asked for a random high outside port (S14), which keeps
-mass scanners off but leaves out networks that allow only ports 80 and 443; it is put to the owner.
+7. **The router is asked for outside port 443 first**, and whatever port it grants is taken when 443
+   is held (S14 weighed against reach): a random high port keeps mass scanners off, but networks
+   that allow only ports 80 and 443 cannot reach it, and a scanner finding 443 meets only a sign-in
+   page with its limits. The owner: *"ok, go with your recommendation"*.
 
 **Status:** Decided 2026-10-13; design to fold into the protocol before development.
