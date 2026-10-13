@@ -5,9 +5,9 @@ import "./together-viewer.css";
 import {
   followGroup,
   playedMutedEvent,
-  readyForSoundAtTap,
   soundOnAtTap,
   type CannotKeepUp,
+  type BrowserVoiceDevices,
   type TellsCannotKeepUp,
   type TogetherConnection,
   type TogetherEndReason,
@@ -50,6 +50,12 @@ import { SoundChoices, SoundLine } from "./sound.tsx";
 import { Loaded } from "./title.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { requestTogetherPlayback } from "./together-playback.ts";
+import {
+  TapToContinue,
+  useKeptVideo,
+  useViewerVoiceDevices,
+  type KeptVideo,
+} from "./together-viewer-tap.tsx";
 import { useVoice, VoiceControls } from "./together-voice.tsx";
 import {
   forgetMembership,
@@ -82,6 +88,10 @@ export function TogetherViewer(): JSX.Element {
   // the same link opened again comes back as the same member (D267 §1).
   const membership = secret === undefined || kept?.link === secret ? kept : undefined;
   const { endReason, over } = useSessionEnd();
+  // Made before the Join, so its tap, and any tap after, lets the film and the voices play with
+  // sound: one tap gives a guest both, whichever starts first (the owner, 2026-10-13).
+  const keptVideo = useKeptVideo();
+  const devices = useViewerVoiceDevices();
   useEffect(() => {
     // Signed in, a session joined on another device follows them here (D267 §2).
     if (token !== undefined && secret === undefined) {
@@ -130,7 +140,9 @@ export function TogetherViewer(): JSX.Element {
       />
     );
   }
-  return <ViewerSession membership={membership} onOver={over.end} />;
+  return (
+    <ViewerSession membership={membership} kept={keptVideo} devices={devices} onOver={over.end} />
+  );
 }
 
 /** An address with no link in it, and no session this tab is in: only what to do instead. */
@@ -265,17 +277,21 @@ function SessionOver(props: {
  */
 function ViewerSession(props: {
   readonly membership: Membership;
+  readonly kept: KeptVideo;
+  readonly devices: BrowserVoiceDevices;
   readonly onOver: (reason: TogetherEndReason) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const [audioOutput, setAudioOutput] = useState(() => readViewerAudioOutput(browserStorage()));
   const [volume, setVolume] = useState(1);
   const { connection, snapshot } = useTogether({ credential: props.membership.credential });
-  // Everyone in the session is heard from the start, once the page's own device is welcomed; Talk
-  // only opens the microphone (D281 §1).
-  const voice = useVoice(props.membership, undefined, snapshot?.status === "connected");
-  const kept = useKeptVideo();
-  const { onOver } = props;
+  const { onOver, kept } = props;
+  // Everyone in the session is heard from the start, once the page's own device is welcomed and the
+  // page has had its tap; Talk only opens the microphone (D281 §1).
+  const voice = useVoice(props.membership, undefined, {
+    isReady: snapshot?.status === "connected" && kept.hasHadATap,
+    devices: props.devices,
+  });
   const keep = (output: AudioOutput): void => {
     keepViewerAudioOutput(browserStorage(), output);
     setAudioOutput(output);
@@ -286,6 +302,10 @@ function ViewerSession(props: {
       onOver(endReason);
     }
   }, [endReason, onOver]);
+  if (!kept.hasHadATap) {
+    // As a page of its own: nothing of the session plays or shows under it (the owner, 2026-10-13).
+    return <TapToContinue roster={snapshot?.roster ?? []} />;
+  }
   return (
     <main className="together-viewer">
       <img className="together-viewer__logo" src={logo} alt={productName} />
@@ -296,6 +316,7 @@ function ViewerSession(props: {
         <>
           <ViewingArea
             kept={kept}
+            isVoiceWaiting={voice.tap.isWaiting}
             membership={props.membership}
             audioOutput={audioOutput}
             connection={connection}
@@ -306,7 +327,12 @@ function ViewerSession(props: {
         </>
       )}
       <TogetherNews snapshot={snapshot} />
-      <VoiceControls {...voice} audioOutput={audioOutput} />
+      {/* The voices' tap is asked for over the stage, with the film's (ViewingArea). */}
+      <VoiceControls
+        {...voice}
+        tap={{ ...voice.tap, isWaiting: false }}
+        audioOutput={audioOutput}
+      />
       <VolumeSlider volume={volume} onChange={setVolume} />
       <LeaveButton membership={props.membership} onLeft={onOver} />
     </main>
@@ -363,41 +389,14 @@ function LeaveButton(props: {
   );
 }
 
-/** The one video every film of the session plays in, and whether the page has had a tap yet. */
-interface KeptVideo {
-  readonly video: HTMLVideoElement;
-  readonly hasHadATap: boolean;
-}
-
 /**
- * The video every film of the session plays in, which each tap anywhere on the page, made before its
- * film or between films, lets play with sound (readyForSoundAtTap), as the same tap readies the
- * voices (playWaitingAtTaps): one tap gives a guest both, whichever starts first (the owner,
- * 2026-10-13). A video made per film needed a tap of its own on an iPhone.
- */
-function useKeptVideo(): KeptVideo {
-  const [video] = useState(() => document.createElement("video"));
-  const [hasHadATap, setHasHadATap] = useState(false);
-  useEffect(() => {
-    const tapped = (): void => {
-      readyForSoundAtTap(video);
-      setHasHadATap(true);
-    };
-    document.addEventListener("click", tapped, true);
-    return () => {
-      document.removeEventListener("click", tapped, true);
-    };
-  }, [video]);
-  return { video, hasHadATap };
-}
-
-/**
- * Where the film plays: black while nothing does (D246 §6), with Tap for sound over it until the
- * page has had a tap (the owner, 2026-10-13: "put the 'Tap to enable sound' thing over top of where
- * the video frame will be"), else the group's film, followed, in the session's kept video.
+ * Where the film plays: black while nothing does (D246 §6), else the group's film, followed, in the
+ * session's kept video; over either, a tap asked for while the voices wait for one, as when a phone
+ * call took the sound (the owner, 2026-10-13: "a small 'tap to re-enable sound' over the video").
  */
 function ViewingArea(props: {
   readonly kept: KeptVideo;
+  readonly isVoiceWaiting: boolean;
   readonly membership: Membership;
   readonly audioOutput: AudioOutput;
   readonly connection: (TogetherConnection & TellsCannotKeepUp) | undefined;
@@ -411,17 +410,18 @@ function ViewingArea(props: {
     <section className="together-viewer__viewing" aria-label={t("together.stage")}>
       {fileId === 0 || connection === undefined ? (
         <EmptyStage>
-          {props.kept.hasHadATap ? null : (
-            // Its tap is the page's (useKeptVideo, playWaitingAtTaps): the button only asks for one.
+          {props.isVoiceWaiting ? (
+            // Its tap is the page's (playWaitingAtTaps): the button only asks for one.
             <button type="button" className="together-viewer__sound-on">
-              {t("together.soundOn")}
+              {t("together.soundBack")}
             </button>
-          )}
+          ) : null}
         </EmptyStage>
       ) : (
         <GroupFilm
           key={`${String(fileId)}/${props.audioOutput}`}
           keptVideo={props.kept.video}
+          isVoiceWaiting={props.isVoiceWaiting}
           fileId={fileId}
           credential={props.membership.credential}
           audioOutput={props.audioOutput}
@@ -447,18 +447,13 @@ interface Following {
  */
 function GroupFilm(props: {
   readonly keptVideo: HTMLVideoElement;
+  readonly isVoiceWaiting: boolean;
   readonly fileId: number;
   readonly credential: string;
   readonly audioOutput: AudioOutput;
   readonly following: Following;
 }): JSX.Element {
-  const { api, playableFormats } = useServices();
-  const [decision] = useResource(`together-play/${String(props.fileId)}/${props.audioOutput}`, () =>
-    requestTogetherPlayback(api, props.credential, {
-      playableFormats: playableFormats(),
-      audioOutput: props.audioOutput,
-    }),
-  );
+  const decision = useGroupFilmDecision(props);
   const headers = useMemo(() => membershipHeaders(props.credential), [props.credential]);
   // An update waits while the film shows, and reloads the page as soon as it stops.
   useShowsAFilm();
@@ -481,6 +476,7 @@ function GroupFilm(props: {
             value={{
               fileId: props.fileId,
               following: props.following,
+              isVoiceWaiting: props.isVoiceWaiting,
               decision: value,
               headers,
               onLowerQuality,
@@ -509,10 +505,28 @@ function GroupFilm(props: {
   );
 }
 
+/** How the group's film plays for this guest, as the server decides, asked for once per film. */
+function useGroupFilmDecision(film: {
+  readonly fileId: number;
+  readonly credential: string;
+  readonly audioOutput: AudioOutput;
+}): ReturnType<typeof useResource<PlaybackDecision>>[0] {
+  const { api, playableFormats } = useServices();
+  const [decision] = useResource(`together-play/${String(film.fileId)}/${film.audioOutput}`, () =>
+    requestTogetherPlayback(api, film.credential, {
+      playableFormats: playableFormats(),
+      audioOutput: film.audioOutput,
+    }),
+  );
+  return decision;
+}
+
 /** What the guest's pieces of the player need of its page: the film, the group, the membership. */
 interface GuestFilm {
   readonly fileId: number;
   readonly following: Following;
+  /** Whether the voices wait for a tap, which is asked for over the film with its own. */
+  readonly isVoiceWaiting: boolean;
   readonly decision: PlaybackDecision;
   /** The membership's authorization, by which the viewer's player reports its stalls. */
   readonly headers: Readonly<Record<string, string>>;
@@ -546,9 +560,9 @@ function GuestStalls(props: FilmParts): JSX.Element {
 
 /** Over the guest's film: the video following the group, and Tap for sound and Full screen. */
 function FollowingGroup(props: FilmParts): JSX.Element {
-  const { fileId, following } = useGuestFilm();
+  const { fileId, following, isVoiceWaiting } = useGuestFilm();
   const muted = useFollowing(props.videoRef, fileId, following);
-  return <FilmButtons {...muted} videoRef={props.videoRef} />;
+  return <FilmButtons {...muted} isVoiceWaiting={isVoiceWaiting} videoRef={props.videoRef} />;
 }
 
 /** A ladder's word that even its lowest quality cannot keep up, told the group (D247 §8). */
@@ -674,18 +688,22 @@ function useFollowing(
 }
 
 /**
- * Over a film the browser would only play muted, the tap that turns its sound on; and for a viewer
- * without the player's own controls, Full screen, which every viewer has.
+ * Over a film the browser would only play muted, or while the voices wait for a tap, the tap that
+ * turns the sound back on, small, at the film's top (the voices' is the page's, playWaitingAtTaps);
+ * and for a viewer without the player's own controls, Full screen, which every viewer has.
  */
 function FilmButtons(
-  props: MutedFilm & { readonly videoRef: RefObject<HTMLVideoElement | null> },
+  props: MutedFilm & {
+    readonly isVoiceWaiting: boolean;
+    readonly videoRef: RefObject<HTMLVideoElement | null>;
+  },
 ): JSX.Element {
   const { t } = useTranslation();
   return (
     <>
-      {props.isMuted ? (
+      {props.isMuted || props.isVoiceWaiting ? (
         <button type="button" className="together-viewer__sound-on" onClick={props.turnSoundOn}>
-          {t("together.soundOn")}
+          {t("together.soundBack")}
         </button>
       ) : null}
       {props.hasControls ? null : (

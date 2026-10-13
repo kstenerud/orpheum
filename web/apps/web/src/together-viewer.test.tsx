@@ -22,6 +22,7 @@ import {
   type Heard,
 } from "./test-dom.tsx";
 import { directDecision } from "./test-fixtures.ts";
+import type { Services } from "./services.tsx";
 import { fakePlace, withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
 import { TogetherViewer } from "./together-viewer.tsx";
@@ -83,7 +84,8 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       mounted.container.querySelector('img[alt="Orpheum"][src$="orpheum-logo.svg"]');
     expect(wordmark()).not.toBeNull();
     await enter(mounted.container.querySelector("input"), "Gran");
-    await submit(mounted.container.querySelector("form"));
+    // A click, as a person's tap: it is the one that lets the film and the voices play with sound.
+    await click(buttonWithText(mounted.container, "Join"));
     expect(wordmark()).not.toBeNull();
     expect(heard).toEqual([
       { methodAndPath: "POST /together/join", body: { secret: "link-secret", name: "Gran" } },
@@ -124,6 +126,8 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       "POST /together/playback": [200, directDecision({ titleName: "Metropolis" })],
     });
     const mounted = await mount(withServices(<TogetherViewer />, services));
+    // A guest back in the session taps through its first page (TapToContinue).
+    await click(buttonWithText(mounted.container, "Tap to continue"));
     await server.accept();
     await server.say(welcome);
     await server.say({
@@ -157,6 +161,8 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       "POST /together/playback": [200, directDecision({ titleName: "Metropolis" })],
     });
     const mounted = await mount(withServices(<TogetherViewer />, services));
+    // A guest back in the session taps through its first page (TapToContinue).
+    await click(buttonWithText(mounted.container, "Tap to continue"));
     // The speaker question was answered in this browser before: it is not asked again.
     expect(mounted.container.textContent).not.toContain("How does this device play sound?");
     await server.accept();
@@ -209,6 +215,8 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
         "POST /together/playback": [200, directDecision({ titleName: "Metropolis" })],
       });
       const mounted = await mount(withServices(<TogetherViewer />, services));
+      // A guest back in the session taps through its first page (TapToContinue).
+      await click(buttonWithText(mounted.container, "Tap to continue"));
       await server.accept();
       await server.say({ ...welcome, rights });
       await server.say({
@@ -253,6 +261,8 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       "POST /together/playback": [200, directDecision({ titleName: "Metropolis" })],
     });
     const mounted = await mount(withServices(<TogetherViewer />, services));
+    // A guest back in the session taps through its first page (TapToContinue).
+    await click(buttonWithText(mounted.container, "Tap to continue"));
     await server.accept();
     await server.say(welcome);
     await server.say({
@@ -261,15 +271,15 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       group: { state: "Paused", positionMs: 0, rate: 1, fileId: 5, event: "paused", byMemberId: 1 },
     });
     const video = mounted.container.querySelector("video");
-    expect(buttonWithText(mounted.container, "Tap for sound")).toBeUndefined();
+    expect(buttonWithText(mounted.container, "Tap to turn the sound back on")).toBeUndefined();
     // The follower found the browser refusing the film's sound, and plays it muted.
     if (video !== null) {
       video.muted = true;
     }
     await fire(video, new Event(playedMutedEvent));
-    await click(buttonWithText(mounted.container, "Tap for sound"));
+    await click(buttonWithText(mounted.container, "Tap to turn the sound back on"));
     expect(video?.muted).toBe(false);
-    expect(buttonWithText(mounted.container, "Tap for sound")).toBeUndefined();
+    expect(buttonWithText(mounted.container, "Tap to turn the sound back on")).toBeUndefined();
     mounted.unmount();
   });
 
@@ -283,6 +293,8 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       "POST /together/playback": [200, directDecision({ titleName: "Metropolis" })],
     });
     const mounted = await mount(withServices(<TogetherViewer />, services));
+    // A guest back in the session taps through its first page (TapToContinue).
+    await click(buttonWithText(mounted.container, "Tap to continue"));
     await server.accept();
     await server.say(welcome);
     await server.say({
@@ -297,25 +309,39 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     await fire(video, new Event(playedMutedEvent));
     await click(mounted.container.querySelector(".together-viewer__heading"));
     expect(video?.muted).toBe(false);
-    expect(buttonWithText(mounted.container, "Tap for sound")).toBeUndefined();
+    expect(buttonWithText(mounted.container, "Tap to turn the sound back on")).toBeUndefined();
     mounted.unmount();
   });
 
-  it("asks for a tap over the stage before the film, and plays the film in the video that tap readied (the owner, 2026-10-13)", async () => {
+  it("covers the page of a guest back in their session with who invited them until a tap, and plays the film in the video that tap readied (the owner, 2026-10-13)", async () => {
     window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
     window.localStorage.setItem(
       "orpheum.together.viewer",
       JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
     );
-    const { services, server } = viewerServices("/together", {
+    const viewer = viewerServices("/together", {
       "POST /together/playback": [200, directDecision({ titleName: "Metropolis" })],
     });
+    const { server } = viewer;
+    const sockets: number[] = [];
+    const services: Services = {
+      ...viewer.services,
+      openTogetherSocket: (...opening) => {
+        sockets.push(sockets.length);
+        return viewer.services.openTogetherSocket(...opening);
+      },
+    };
     const mounted = await mount(withServices(<TogetherViewer />, services));
     await server.accept();
     await server.say(welcome);
-    const stage = mounted.container.querySelector(".film-player__stage--empty");
-    const ask = buttonWithText(mounted.container, "Tap for sound");
-    expect(ask === undefined ? null : stage?.contains(ask)).toBe(true);
+    const overlay = (): Element | null =>
+      mounted.container.querySelector(".together-viewer__continue");
+    expect(overlay()?.textContent).toContain("Karl invited you to watch together.");
+    // As a page of its own: no film, no voices, until the tap.
+    const film = (): Element | null =>
+      mounted.container.querySelector('section[aria-label="The film"]');
+    expect(film()).toBeNull();
+    expect(sockets).toHaveLength(1);
     const tappedVideos: HTMLMediaElement[] = [];
     const muting = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "muted");
     Object.defineProperty(HTMLMediaElement.prototype, "muted", {
@@ -326,11 +352,13 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       },
     });
     try {
-      await click(ask);
+      await click(buttonWithText(mounted.container, "Tap to continue"));
     } finally {
       Object.defineProperty(HTMLMediaElement.prototype, "muted", muting ?? {});
     }
-    expect(buttonWithText(mounted.container, "Tap for sound")).toBeUndefined();
+    expect(overlay()).toBeNull();
+    expect(film()).not.toBeNull();
+    expect(sockets).toHaveLength(2);
     await server.say({
       type: "group",
       seq: 2,
@@ -340,6 +368,44 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     expect(video).not.toBeNull();
     expect(tappedVideos.length).toBeGreaterThan(0);
     expect(tappedVideos.every((tapped) => tapped === video)).toBe(true);
+    mounted.unmount();
+  });
+
+  it("takes the Join's tap as the one that lets the film play with sound, and asks for no other", async () => {
+    const { services, server } = viewerServices("/together#link-secret", {
+      "POST /together/join": [200, joined],
+    });
+    const mounted = await mount(withServices(<TogetherViewer />, services));
+    await enter(mounted.container.querySelector("input"), "Gran");
+    await click(buttonWithText(mounted.container, "Join"));
+    await server.accept();
+    await server.say(welcome);
+    expect(mounted.container.querySelector(".together-viewer__continue")).toBeNull();
+    mounted.unmount();
+  });
+
+  it("asks for a tap over the black stage while the voices wait for one, as after a phone call took the sound", async () => {
+    window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
+    window.localStorage.setItem(
+      "orpheum.together.viewer",
+      JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
+    );
+    const viewer = viewerServices("/together", {});
+    const devices = viewer.services.voiceDevices();
+    const services = {
+      ...viewer.services,
+      voiceDevices: () => ({ ...devices, isWaitingForATap: () => true }),
+    };
+    const mounted = await mount(withServices(<TogetherViewer />, services));
+    // A guest back in the session taps through its first page (TapToContinue).
+    await click(buttonWithText(mounted.container, "Tap to continue"));
+    await viewer.server.accept();
+    await viewer.server.say(welcome);
+    const stage = mounted.container.querySelector(".film-player__stage--empty");
+    const ask = buttonWithText(mounted.container, "Tap to turn the sound back on");
+    expect(ask === undefined ? null : stage?.contains(ask)).toBe(true);
+    // Asked over the stage alone, not again among the voice's controls.
+    expect(buttonWithText(mounted.container, "Tap to hear everyone's voices")).toBeUndefined();
     mounted.unmount();
   });
 
@@ -364,6 +430,8 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       "POST /playback/t/report": [200, { lowerQuality: offer }],
     });
     const mounted = await mount(withServices(<TogetherViewer />, services));
+    // A guest back in the session taps through its first page (TapToContinue).
+    await click(buttonWithText(mounted.container, "Tap to continue"));
     await server.accept();
     await server.say(welcome);
     await server.say({
@@ -414,6 +482,8 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       "GET /bytes/media/hls/abc/master.m3u8": [200, {}],
     });
     const mounted = await mount(withServices(<TogetherViewer />, services));
+    // A guest back in the session taps through its first page (TapToContinue).
+    await click(buttonWithText(mounted.container, "Tap to continue"));
     await server.accept();
     await server.say(welcome);
     await server.say({
@@ -438,6 +508,8 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     );
     const { services, heard, server } = viewerServices("/together#link-secret", {});
     const mounted = await mount(withServices(<TogetherViewer />, services));
+    // A guest back in the session taps through its first page (TapToContinue).
+    await click(buttonWithText(mounted.container, "Tap to continue"));
     await server.accept();
     expect(server.heard[0]).toMatchObject({ type: "hello", credential: "viewer-credential" });
     expect(heard).toEqual([]); // no join: the spent link is not used again
@@ -482,6 +554,8 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       "POST /together/leave": [204, undefined],
     });
     const mounted = await mount(withServices(<TogetherViewer />, services));
+    // A guest back in the session taps through its first page (TapToContinue).
+    await click(buttonWithText(mounted.container, "Tap to continue"));
     await click(buttonWithText(mounted.container, "Leave"));
     expect(heard.map((each) => each.methodAndPath)).toEqual(["POST /together/leave"]);
     expect(mounted.container.textContent).toContain("You left the session.");
@@ -497,6 +571,8 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     );
     const { services, server } = viewerServices("/together", {});
     const mounted = await mount(withServices(<TogetherViewer />, services));
+    // A guest back in the session taps through its first page (TapToContinue).
+    await click(buttonWithText(mounted.container, "Tap to continue"));
     await server.accept();
     await server.say(welcome);
     await server.say({ type: "ended", reason: "hostEnded" });
@@ -512,6 +588,8 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     );
     const { services, server } = viewerServices("/together", {});
     const mounted = await mount(withServices(<TogetherViewer />, services));
+    // A guest back in the session taps through its first page (TapToContinue).
+    await click(buttonWithText(mounted.container, "Tap to continue"));
     await server.accept();
     await server.say(welcome);
     await server.say({ type: "ended", reason: "uploadFull" });
@@ -535,6 +613,8 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
       "POST /together/join": [200, { ...joined, sessionId: 2, membershipCredential: "second" }],
     });
     const mounted = await mount(withServices(<TogetherViewer />, services));
+    // A guest back in the session taps through its first page (TapToContinue).
+    await click(buttonWithText(mounted.container, "Tap to continue"));
     await server.accept();
     await server.say(welcome);
     await server.say({ type: "ended", reason: "hostEnded" });

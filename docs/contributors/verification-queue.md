@@ -380,9 +380,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   as them. Only real devices show the codes are readable across a room and the warning is plain
   (D288). (`web/apps/web/src/code-sign-in.tsx`, `device-activation.tsx`, `internal/core/auth/pairing.go`)
   — done 2026-10-13 by the owner, against staging at an earlier commit: *"I just verified that vq39 worked."*
-- [ ] **VQ40** — Against staging: an iPhone guest joins a session where nothing plays yet and taps
-  **Tap for sound** over the black stage, once; then the host starts a film, and someone talks. Passes
-  when the film plays with its sound and the voices are heard with no further tap, and the same after
-  the host switches to another film. Only an iPhone keeps a tap's permission per video element
-  (WebKit's `setMutedInternal`). (`web/apps/web/src/together-viewer.tsx` `useKeptVideo`,
-  `film-player.tsx` `KeptVideo`)
+- [ ] **VQ40** — Against staging, on an iPhone: (1) join as a new guest while nothing plays, with no
+  other tap; then the host starts a film, someone talks, and later the host switches films. Passes
+  when the film and the voices are heard with no tap after Join. (2) Reload the page: it shows only
+  "Karl invited you to watch together" and Tap to continue, with no voices heard and no film shown
+  until the tap, after which both play with sound. (3) Take a phone call while the film plays (or
+  have one rung), and end it: if the sound does not come back on its own, a small "Tap to turn the
+  sound back on" sits at the top of the film, and one tap brings back both. Only an iPhone keeps a
+  tap's permission per video element, and only it interrupts a page's audio for a call (WebKit's
+  `setMutedInternal`). (`web/apps/web/src/together-viewer-tap.tsx`, `film-player.tsx` `KeptVideo`,
+  `web/packages/sdk/src/together-voice-browser.ts` `TapWaiting`)

@@ -361,6 +361,8 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
     window.sessionStorage.setItem("orpheum.together.host", JSON.stringify(hostMembership));
     const { services } = voiceServices(fakeDevices());
     const viewer = await mount(withServices(<TogetherViewer />, services));
+    // A guest back in the session taps through its first page (TapToContinue).
+    await click(buttonWithText(viewer.container, "Tap to continue"));
     expect(
       viewer.container
         .querySelector('section[aria-label="Voice"] button')
