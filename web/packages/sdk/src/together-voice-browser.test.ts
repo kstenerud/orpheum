@@ -6,6 +6,7 @@ import {
   browserVoiceDevices,
   microphoneConstraints,
   playbackOf,
+  playWaitingAtTaps,
   resumeAtTaps,
   routeOf,
 } from "./together-voice-browser.ts";
@@ -81,6 +82,48 @@ describe("Web Audio stopped by the browser", () => {
       change();
     }
     expect(taps.size).toBe(0);
+  });
+});
+
+describe("one tap for the film's sound and the voices (the owner, 2026-10-13)", () => {
+  it("at every click readies voice to be heard and plays the voices refused, until stopped", () => {
+    let isWaiting = true;
+    let readied = 0;
+    let played = 0;
+    const clicks = new Set<() => void>();
+    const stop = playWaitingAtTaps(
+      {
+        prepareToHear: () => {
+          readied += 1;
+        },
+        isWaiting: () => isWaiting,
+        playNow: () => {
+          played += 1;
+        },
+      },
+      {
+        addEventListener: (_type, listener, isCapture) => {
+          expect(isCapture).toBe(true);
+          clicks.add(listener);
+        },
+        removeEventListener: (_type, listener) => {
+          clicks.delete(listener);
+        },
+      },
+    );
+    const clickAll = (): void => {
+      for (const click of clicks) {
+        click();
+      }
+    };
+    clickAll(); // the film's "Tap for sound", before anyone has spoken
+    expect([readied, played]).toEqual([1, 1]);
+    isWaiting = false;
+    clickAll();
+    expect([readied, played]).toEqual([2, 1]);
+    stop();
+    clickAll();
+    expect(readied).toBe(2);
   });
 });
 

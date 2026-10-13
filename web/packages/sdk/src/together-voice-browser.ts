@@ -498,6 +498,38 @@ export function resumeAtTaps(
 }
 
 /**
+ * At every tap anywhere on page, the tap that turns the film's sound on among them, readies voice to
+ * be heard, its Web Audio made and resumed though no one has spoken yet, and plays the voices the
+ * browser refused: an iPhone guest tapped for the film's sound and again to hear the voices (the
+ * owner, 2026-10-13: "Is there a way to make it so that the iphone user only needs to tap once to
+ * hear both video and voice?"), and iOS lets audio start only from a tap, a voice that starts later
+ * playing through the Web Audio the tap started. A click, not a touch's start, which iOS does not
+ * let play. Returns the stopping.
+ */
+export function playWaitingAtTaps(
+  voice: {
+    readonly prepareToHear: () => void;
+    readonly isWaiting: () => boolean;
+    readonly playNow: () => void;
+  },
+  page: {
+    readonly addEventListener: (type: "click", listener: () => void, isCapture: boolean) => void;
+    readonly removeEventListener: (type: "click", listener: () => void, isCapture: boolean) => void;
+  },
+): () => void {
+  const tapped = (): void => {
+    voice.prepareToHear();
+    if (voice.isWaiting()) {
+      voice.playNow();
+    }
+  };
+  page.addEventListener("click", tapped, true);
+  return () => {
+    page.removeEventListener("click", tapped, true);
+  };
+}
+
+/**
  * What the Talk button's ring reads of the microphone (D281 §7). Levelled here, what the levelling
  * measured and sends: a second analyser on the same microphone read zeros on Firefox for Android,
  * hosting, while the levelling's heard the voice, which the iPhone heard at 0.1 (the owner's test,
@@ -588,6 +620,19 @@ class BrowserDevices implements BrowserVoiceDevices {
     }
   };
 
+  /** Voice readied at the person's every tap (playWaitingAtTaps), until it is closed. */
+  readonly #stopTaps =
+    typeof document === "undefined"
+      ? (): void => undefined
+      : playWaitingAtTaps(
+          {
+            prepareToHear: this.prepareToHear,
+            isWaiting: this.#waiting.isWaiting,
+            playNow: this.#waiting.playNow,
+          },
+          document,
+        );
+
   readonly openMicrophone = async (processing: MicrophoneProcessing): Promise<MediaStream> => {
     this.prepareToHear();
     startCallAudio();
@@ -628,6 +673,7 @@ class BrowserDevices implements BrowserVoiceDevices {
     });
 
   readonly close = (): void => {
+    this.#stopTaps();
     this.#releaseMicrophone();
     void this.#context?.close().catch(() => undefined);
     this.#context = undefined;
