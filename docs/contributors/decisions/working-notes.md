@@ -19758,6 +19758,11 @@ for a listed device; **refines D273 §10**.
    /64), a new code is refused and none waiting is dropped (the owner: *"D: Take your
    recommendation"*).
 
+   **Amended again 2026-10-13** after the second security audit (K5): twenty networks' five codes
+   each filled the hundred, and no television could get a code. A thousand may wait, and twenty not
+   yet entered from one site (an IPv6 /48, which a provider gives one customer, or an IPv4
+   address).
+
 **Status:** Decided 2026-10-12.
 
 ## D289 — The paid discovery's questions answered: accounts for payers only, the identity key backed up as the secret key is, byte paths by header, one client build per core API major

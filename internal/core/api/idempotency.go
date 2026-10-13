@@ -23,13 +23,25 @@ const IdempotencyKeyHeader = "Idempotency-Key"
 // repeat is a new action, which is what a person who waited that long means.
 const idempotentAnswerKept = 10 * time.Minute
 
+// How many answers are kept at once, and how many of them for requests no one signed in made, and
+// how often the ones past their time are swept out. Every POST's answer was kept, signed in or not,
+// with no bound, and every POST walked them all under the one lock (the second audit's K4,
+// 2026-10-13). A request past a bound is answered as if it carried no key: done, not kept.
+const (
+	idempotentAnswersAtMost          = 10_000
+	idempotentAnswersSignedOutAtMost = 1_000
+	idempotentSweepEvery             = 30 * time.Second
+)
+
 // maxIdempotentBodyBytes bounds the request body hashed to tell a repeat from another action under
 // the same key: larger than any body the API takes.
 const maxIdempotentBodyBytes = 1 << 20
 
 // keptAnswer is the answer to the first POST of a key, or, until done closes, its making.
 type keptAnswer struct {
-	done        chan struct{}
+	done chan struct{}
+	// isSignedOut is whether no one signed in asked: such answers have a bound of their own.
+	isSignedOut bool
 	requestHash [sha256.Size]byte
 	keptUntil   time.Time
 	status      int
@@ -41,8 +53,11 @@ type keptAnswer struct {
 // path and the key.
 type idempotentAnswers struct {
 	mutex sync.Mutex
-	// byScope is each key's answer; guarded by mutex.
-	byScope map[[sha256.Size]byte]*keptAnswer
+	// byScope is each key's answer; signedOut, how many of them no one signed in asked for; sweptAt,
+	// when the ones past their time were last swept out. Guarded by mutex.
+	byScope   map[[sha256.Size]byte]*keptAnswer
+	signedOut int
+	sweptAt   time.Time
 }
 
 // idempotent answers a POST that carries an Idempotency-Key once: a repeat of the key by the same
@@ -66,7 +81,12 @@ func (server *Server) idempotent(next http.Handler) http.Handler {
 		scope := sha256.Sum256([]byte(request.Header.Get("Authorization") + "\x00" + request.Method + "\x00" +
 			request.URL.Path + "\x00" + key))
 		now := dependencies.Clock.Now()
-		kept, isFirst := server.answers.take(scope, sha256.Sum256(body), now)
+		kept, isFirst, isKept := server.answers.take(scope, sha256.Sum256(body), now,
+			request.Header.Get("Authorization") == "")
+		if !isKept {
+			next.ServeHTTP(writer, request)
+			return
+		}
 		if kept == nil {
 			writeErrorAnswer(writer, newError(http.StatusConflict, CodeConflict,
 				"this Idempotency-Key was used for another request; make a new key for a new action"))
@@ -91,29 +111,58 @@ func (server *Server) idempotent(next http.Handler) http.Handler {
 }
 
 // take is the kept answer of a key's scope and whether this request is its first, making one when
-// none is kept or the kept one is past its time; nil when the key is kept for another body.
+// none is kept or the kept one is past its time; nil when the key is kept for another body. And
+// whether an answer is kept for it at all: not when none was and the bounds are full.
 func (answers *idempotentAnswers) take(
-	scope, requestHash [sha256.Size]byte, now time.Time,
-) (*keptAnswer, bool) {
+	scope, requestHash [sha256.Size]byte, now time.Time, isSignedOut bool,
+) (kept *keptAnswer, isFirst, isKept bool) {
 	answers.mutex.Lock()
 	defer answers.mutex.Unlock()
 	if answers.byScope == nil {
 		answers.byScope = map[[sha256.Size]byte]*keptAnswer{}
 	}
-	for each, kept := range answers.byScope {
-		if now.After(kept.keptUntil) {
-			delete(answers.byScope, each)
-		}
+	if now.Sub(answers.sweptAt) >= idempotentSweepEvery {
+		answers.sweepLocked(now)
 	}
-	if kept, isKept := answers.byScope[scope]; isKept {
-		if kept.requestHash != requestHash {
-			return nil, false
+	if known, found := answers.byScope[scope]; found && !now.After(known.keptUntil) {
+		if known.requestHash != requestHash {
+			return nil, false, true
 		}
-		return kept, false
+		return known, false, true
+	} else if found {
+		answers.forgetLocked(scope, known)
 	}
-	kept := &keptAnswer{done: make(chan struct{}), requestHash: requestHash, keptUntil: now.Add(idempotentAnswerKept)}
+	if len(answers.byScope) >= idempotentAnswersAtMost ||
+		(isSignedOut && answers.signedOut >= idempotentAnswersSignedOutAtMost) {
+		return nil, false, false
+	}
+	kept = &keptAnswer{
+		done: make(chan struct{}), isSignedOut: isSignedOut, requestHash: requestHash,
+		keptUntil: now.Add(idempotentAnswerKept),
+	}
 	answers.byScope[scope] = kept
-	return kept, true
+	if isSignedOut {
+		answers.signedOut++
+	}
+	return kept, true, true
+}
+
+// sweepLocked forgets every answer past its time; the mutex is held.
+func (answers *idempotentAnswers) sweepLocked(now time.Time) {
+	answers.sweptAt = now
+	for scope, kept := range answers.byScope {
+		if now.After(kept.keptUntil) {
+			answers.forgetLocked(scope, kept)
+		}
+	}
+}
+
+// forgetLocked forgets one answer; the mutex is held.
+func (answers *idempotentAnswers) forgetLocked(scope [sha256.Size]byte, kept *keptAnswer) {
+	delete(answers.byScope, scope)
+	if kept.isSignedOut {
+		answers.signedOut--
+	}
 }
 
 // recordedAnswer is a response written to memory, to be kept and given to each repeat.
