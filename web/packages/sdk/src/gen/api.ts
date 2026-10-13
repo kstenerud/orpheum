@@ -831,6 +831,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/locator": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A fresh locator for this device, by which it finds its server at a discovery */
+        post: operations["freshLocator"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/password": {
         parameters: {
             query?: never;
@@ -2467,6 +2484,9 @@ export interface components {
             /** @description A registration link's person; absent for an invitation */
             name?: string;
         };
+        LocatorOutputBody: {
+            locator: string;
+        };
         MadeBackupOutputBody: {
             includesKey: boolean;
         };
@@ -3094,6 +3114,7 @@ export interface components {
         };
         SessionOutputBody: {
             deviceSecret: string;
+            locator: string;
             token: string;
             user: components["schemas"]["UserBody"];
         };
@@ -5520,6 +5541,38 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    freshLocator: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LocatorOutputBody"];
+                };
             };
             /** @description Error */
             default: {

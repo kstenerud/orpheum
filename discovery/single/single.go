@@ -108,6 +108,11 @@ type Discovery struct {
 	signal   *signalling
 	// pingWait is how long a live instance has to answer: instancePingWait, shorter in the tests.
 	pingWait time.Duration
+	// locateHashes are the core's links a client may locate it by, each with when it ends, and
+	// locators its devices' locators' hashes: the full sets the core last sent, which a restart
+	// forgets and the core sends again with its next session (the protocol's §3.1).
+	locateHashes map[string]time.Time
+	locators     map[string]bool
 }
 
 // New returns a discovery over parts, with a key for its nonces from parts.Random.
@@ -189,6 +194,10 @@ func (discovery *Discovery) serveSignedIn(writer http.ResponseWriter, request *h
 	switch {
 	case call == http.MethodPut+" "+discoveryproto.PathAddresses:
 		discovery.addresses(writer, request)
+	case call == http.MethodPut+" "+discoveryproto.PathLocateHashes:
+		discovery.keepLocateHashes(writer, request)
+	case call == http.MethodPut+" "+discoveryproto.PathLocators:
+		discovery.keepLocators(writer, request)
 	case call == http.MethodPut+" "+discoveryproto.PathACMEChallenge:
 		var challenge discoveryproto.ACMEChallengeRequest
 		if read(writer, request, &challenge) {
@@ -350,6 +359,41 @@ func (discovery *Discovery) status(writer http.ResponseWriter, request *http.Req
 		status.Zone = discovery.parts.Zone
 	}
 	answer(writer, status)
+}
+
+// keepLocateHashes keeps the core's links, the full set, in place of those it sent before.
+func (discovery *Discovery) keepLocateHashes(writer http.ResponseWriter, request *http.Request) {
+	var sent discoveryproto.LocateHashesRequest
+	if !read(writer, request, &sent) {
+		return
+	}
+	now := discovery.parts.Now()
+	kept := make(map[string]time.Time, len(sent.Hashes))
+	for _, hash := range sent.Hashes {
+		kept[hash.Hash] = now.Add(time.Duration(hash.ExpiresIn) * time.Second)
+	}
+	discovery.mutex.Lock()
+	discovery.locateHashes = kept
+	discovery.mutex.Unlock()
+	discovery.parts.Logger.InfoContext(request.Context(), "discovery: the core sent its links", "count", len(kept))
+	writer.WriteHeader(http.StatusNoContent)
+}
+
+// keepLocators keeps the core's device locators, the full set, in place of those it sent before.
+func (discovery *Discovery) keepLocators(writer http.ResponseWriter, request *http.Request) {
+	var sent discoveryproto.LocatorsRequest
+	if !read(writer, request, &sent) {
+		return
+	}
+	kept := make(map[string]bool, len(sent.Hashes))
+	for _, hash := range sent.Hashes {
+		kept[hash] = true
+	}
+	discovery.mutex.Lock()
+	discovery.locators = kept
+	discovery.mutex.Unlock()
+	discovery.parts.Logger.InfoContext(request.Context(), "discovery: the core sent its locators", "count", len(kept))
+	writer.WriteHeader(http.StatusNoContent)
 }
 
 // addresses keeps the core's heartbeat. It publishes no names and probes nothing yet (W4b.4): its

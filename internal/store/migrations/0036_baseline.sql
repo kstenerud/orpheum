@@ -1,15 +1,16 @@
--- SPDX-License-Identifier: GPL-3.0-or-later
+-- SPDX-License-Identifier: AGPL-3.0-or-later
 -- orpheum:raises-compatible-version
--- orpheum:baseline folds ec4098f0a7de43b8bb9c5092c249b01f3eabf17c76587bc029d435cffa8d01f7
--- The baseline (D228): persistent.db's schema at version 35 in one step, which builds a new
--- database and runs on no other. It folds steps 0001 to 0035 (D185's first schema, the steps
+-- orpheum:baseline folds 182ce10dc4c85dfdf9a806fd08755422c1cba326e4294cb8cc6b93aec358b8f9
+-- The baseline (D228): persistent.db's schema at version 36 in one step, which builds a new
+-- database and runs on no other. It folds steps 0001 to 0036 (D185's first schema, the steps
 -- D200 to D227 added, 0026's index for the newest-first listings, 0027's names for what is held,
 -- 0028's choices that follow the work, D230, 0029's facts that were job rows, D231, 0030's
 -- reader limits a device was given, D240, 0031's dropping of the node's report sequence, D240,
 -- 0032's one fetched subtitle per file, D244, 0033's libraries each role reaches, D243, 0034's
--- invitations and the admin's note on an account, D246, and 0035's pictures' timelines, D247), and
--- builds the schema and the seeded rows they built; the checksum above is 0035_video_timeline.sql's,
--- which a database migrated through that step recorded. Until the owner declares migrations live,
+-- invitations and the admin's note on an account, D246, 0035's pictures' timelines, D247, and
+-- 0036's read failure kept apart, D270), and builds the schema and the seeded rows they built;
+-- the checksum above is 0036_video_timeline_read_failure.sql's, which a database migrated through
+-- that step recorded. Until the owner declares migrations live,
 -- a schema change folds the last step into this file, which moves up to its version, and adds the
 -- change as the one step after it. The tables are documented in
 -- docs/contributors/design/plans/schema.md. The runner owns application_id, user_version and
@@ -667,5 +668,6 @@ CREATE TABLE video_timeline (                              -- class O: what the 
   bytes_in_each_second_json TEXT NOT NULL DEFAULT '[]',  -- JSON: its bytes in each second of the film, by the second
   failure     TEXT,                      -- FFmpeg's words when the file could not be read through; the JSON is then empty
   made_at     INTEGER NOT NULL,
+  read_failure TEXT,                     -- FFmpeg's words when a full read failed after the index gave the keyframes; NULL otherwise
   PRIMARY KEY (payload_hash, video_stream_index)
 ) WITHOUT ROWID;

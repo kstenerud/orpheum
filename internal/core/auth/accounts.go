@@ -87,6 +87,10 @@ func (service *Service) IssueRegistrationInvitation(ctx context.Context, userID 
 	if err != nil {
 		return IssuedSecret{}, fmt.Errorf("read registration_invitation_life_days: %w", err)
 	}
+	locateHash, offerKey, err := linkHashes(secret)
+	if err != nil {
+		return IssuedSecret{}, err
+	}
 	now := service.clock.Now()
 	expires := now.Add(life)
 	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
@@ -98,12 +102,13 @@ func (service *Service) IssueRegistrationInvitation(ctx context.Context, userID 
 		}
 		return queries.InsertGrant(ctx, sqlcgen.InsertGrantParams{
 			SecretSha256: tokenHash(secret), Kind: grantKindIssuedSecret, UserID: &userID, Scope: grantScopeRegister,
-			IssuedAt: now.UnixMilli(), ExpiresAt: new(expires.UnixMilli()),
+			IssuedAt: now.UnixMilli(), ExpiresAt: new(expires.UnixMilli()), LocateHash: locateHash, OfferKey: offerKey,
 		})
 	})
 	if err != nil {
 		return IssuedSecret{}, fmt.Errorf("record the registration invitation: %w", err)
 	}
+	service.linksChanged()
 	return IssuedSecret{Secret: secret, ExpiresAt: expires}, nil
 }
 
@@ -226,7 +231,9 @@ func (service *Service) spend(ctx context.Context, secret, scope string) (sqlcge
 			return store.ErrNotFound
 		}
 		grant = found
-		return queries.MarkGrantRevoked(ctx, sqlcgen.MarkGrantRevokedParams{SecretSha256: hash, RevokedAt: &now})
+		// Used, a registration link becomes its person's own link, in place of the one they had
+		// (D292 §4; A12): a new password from it is also how the old link is revoked.
+		return becomeOwnLink(ctx, queries, hash, found.LocateHash, *found.UserID, time.UnixMilli(now))
 	})
 	if errors.Is(err, store.ErrNotFound) {
 		return sqlcgen.GetLiveGrantRow{}, ErrBadInvitation

@@ -15,6 +15,8 @@
 //     by TestLocateHash_IsTheSecretsHashUnderItsOwnLabel.
 //   - An offer's key is SHA-256 over "orpheum-offer" and the secret, never the locate hash the
 //     discovery holds. TestOfferKey_IsTheSecretsHashUnderALabelOfItsOwn.
+//   - A device locator's hash is SHA-256 over "orpheum-locator" and the locator.
+//     TestLocatorHash_IsTheLocatorsHashUnderALabelOfItsOwn.
 //   - Imports nothing from internal/. Enforced by TestArch_PublicPackagesImportNothingInternal.
 //
 // # Read before changing
@@ -23,5 +25,5 @@
 //
 // # Where to change
 //
-//   - link.go: the fragment, the locate hash and the offer key.
+//   - link.go: the fragment, the locate hash, the offer key and the locator's hash.
 package link

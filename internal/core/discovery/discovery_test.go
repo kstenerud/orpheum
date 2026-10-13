@@ -98,6 +98,9 @@ type fakeDiscovery struct {
 	failing         map[string]bool
 	dropsSignalling bool
 	onSignal        func()
+	// locateHashes and locators are each set of links and locators the core sent, in turn.
+	locateHashes []discoveryproto.LocateHashesRequest
+	locators     []discoveryproto.LocatorsRequest
 }
 
 // fakeCoreID and fakeZone are the core's id and zone at the fake discovery.
@@ -205,6 +208,14 @@ func (fake *fakeDiscovery) serveSigned(writer http.ResponseWriter, request *http
 		})
 	case "DELETE /core":
 		fake.isLeft = true
+	case "PUT /locate-hashes":
+		var sent discoveryproto.LocateHashesRequest
+		fake.read(request, &sent)
+		fake.locateHashes = append(fake.locateHashes, sent)
+	case "PUT /locators":
+		var sent discoveryproto.LocatorsRequest
+		fake.read(request, &sent)
+		fake.locators = append(fake.locators, sent)
 	case "PUT /acme-challenge":
 		var challenge discoveryproto.ACMEChallengeRequest
 		fake.read(request, &challenge)

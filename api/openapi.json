@@ -2545,6 +2545,18 @@
         ],
         "type": "object"
       },
+      "LocatorOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "locator": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "locator"
+        ],
+        "type": "object"
+      },
       "MadeBackupOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -4580,6 +4592,9 @@
           "deviceSecret": {
             "type": "string"
           },
+          "locator": {
+            "type": "string"
+          },
           "token": {
             "type": "string"
           },
@@ -4590,6 +4605,7 @@
         "required": [
           "token",
           "deviceSecret",
+          "locator",
           "user"
         ],
         "type": "object"
@@ -9102,6 +9118,48 @@
         "summary": "Rename one of one's devices, or say how it makes sound",
         "tags": [
           "Accounts"
+        ]
+      }
+    },
+    "/me/locator": {
+      "post": {
+        "operationId": "freshLocator",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocatorOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "A fresh locator for this device, by which it finds its server at a discovery",
+        "tags": [
+          "Setup and auth"
         ]
       }
     },

@@ -145,6 +145,8 @@ type Service struct {
 	pairings *pairings
 	// hashing is the turn each password hash waits for (hashesAtOnce).
 	hashing hashSlots
+	// onLinksChanged is told when a link or a locator is made (OnLinksChanged); nil tells nothing.
+	onLinksChanged func()
 }
 
 // NewService returns a Service.
@@ -439,6 +441,9 @@ func resumeOrMakeDevice(
 type Issued struct {
 	Token        string
 	DeviceSecret string
+	// Locator is what the device finds its core by at a discovery, handed over the direct path only
+	// (discovery-core.md K7).
+	Locator string
 }
 
 // issueSession signs the user in on a device, resumed or made, with a session grant of scope tied to
@@ -455,6 +460,10 @@ func (service *Service) issueSession(
 	if err != nil {
 		return Issued{}, err
 	}
+	locator, err := randomSecret(service.random)
+	if err != nil {
+		return Issued{}, err
+	}
 	now := service.clock.Now().UnixMilli()
 	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		deviceID, deviceErr := resumeOrMakeDevice(ctx, queries, userID, device, now)
@@ -467,12 +476,16 @@ func (service *Service) issueSession(
 		}); insertErr != nil {
 			return insertErr
 		}
+		if locatorErr := setLocator(ctx, queries, tokenHash(token), locator, now); locatorErr != nil {
+			return locatorErr
+		}
 		return replaceDeviceSecret(ctx, queries, userID, deviceID, deviceSecret, now)
 	})
 	if err != nil {
 		return Issued{}, fmt.Errorf("record the session: %w", err)
 	}
-	return Issued{Token: token, DeviceSecret: deviceSecret}, nil
+	service.linksChanged()
+	return Issued{Token: token, DeviceSecret: deviceSecret, Locator: locator}, nil
 }
 
 // replaceDeviceSecret makes secret the device's one device secret.

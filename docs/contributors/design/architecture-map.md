@@ -165,7 +165,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 
 | What | Where | Tier (actual → should) | Backed up | Flag |
 | --- | --- | --- | --- | --- |
-| user, role, role_library, invitation, user_deny, device, grant | persistent.db | T1 | yes | — |
+| user, role, role_library, invitation, user_deny, device, grant, locator | persistent.db | T1 | yes | — |
 | setting, secret (sealed) | persistent.db | T1 | yes (`secret.key` only when asked, D194 §4) | by design |
 | play_position, play_event, play_span, progress_hide, preference, favourite, user_rating, watchlist, tag, item_tag | persistent.db | T1 | yes | tag, favourite, rating and watchlist have no writer yet |
 | field_override, edition (user-made), edition_text, group_text, extra_relation (asserted), collection (user) | persistent.db | T1 | yes | edition_text and group_text have no writer yet |

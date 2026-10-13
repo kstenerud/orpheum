@@ -53,6 +53,10 @@ func (service *Service) Invite(ctx context.Context, invitation NewInvitation) (i
 	if err != nil {
 		return 0, IssuedSecret{}, fmt.Errorf("read registration_invitation_life_days: %w", err)
 	}
+	locateHash, offerKey, err := linkHashes(secret)
+	if err != nil {
+		return 0, IssuedSecret{}, err
+	}
 	now := service.clock.Now()
 	expires := now.Add(life)
 	var id int64
@@ -66,7 +70,7 @@ func (service *Service) Invite(ctx context.Context, invitation NewInvitation) (i
 		}
 		if insertErr := queries.InsertGrant(ctx, sqlcgen.InsertGrantParams{
 			SecretSha256: tokenHash(secret), Kind: grantKindIssuedSecret, Scope: grantScopeInvitation,
-			IssuedAt: now.UnixMilli(), ExpiresAt: new(expires.UnixMilli()),
+			IssuedAt: now.UnixMilli(), ExpiresAt: new(expires.UnixMilli()), LocateHash: locateHash, OfferKey: offerKey,
 		}); insertErr != nil {
 			return fmt.Errorf("record the invitation's link: %w", insertErr)
 		}
@@ -79,6 +83,7 @@ func (service *Service) Invite(ctx context.Context, invitation NewInvitation) (i
 	if err != nil {
 		return 0, IssuedSecret{}, err
 	}
+	service.linksChanged()
 	return id, IssuedSecret{Secret: secret, ExpiresAt: expires}, nil
 }
 
@@ -204,10 +209,10 @@ func (service *Service) acceptInvitation(
 		if insertErr != nil {
 			return fmt.Errorf("insert user %q: %w", name, insertErr)
 		}
-		if revokeErr := queries.MarkGrantRevoked(ctx, sqlcgen.MarkGrantRevokedParams{
-			SecretSha256: secretHash, RevokedAt: &now,
-		}); revokeErr != nil {
-			return fmt.Errorf("spend the invitation: %w", revokeErr)
+		// Used, the invitation's link becomes the new person's own link (D292 §4; A12).
+		if spendErr := becomeOwnLink(ctx, queries, secretHash, grant.LocateHash, userID,
+			service.clock.Now()); spendErr != nil {
+			return fmt.Errorf("spend the invitation: %w", spendErr)
 		}
 		return queries.DeleteInvitation(ctx, invitation.ID)
 	})

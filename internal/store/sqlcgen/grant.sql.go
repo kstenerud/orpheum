@@ -9,6 +9,32 @@ import (
 	"context"
 )
 
+const becomeOwnLink = `-- name: BecomeOwnLink :exec
+UPDATE "grant" SET kind = 'link', scope = 'own', user_id = ?1, revoked_at = NULL,
+  expires_at = ?2, last_used_at = ?3
+WHERE secret_sha256 = ?4 AND locate_hash IS NOT NULL
+`
+
+type BecomeOwnLinkParams struct {
+	UserID       *int64
+	ExpiresAt    *int64
+	Now          *int64
+	SecretSha256 []byte
+}
+
+// A used registration link, or invitation, becomes its person's own link: it locates the core for
+// them at a discovery, grants no sign-in, and lives until expires_at, renewed by their visits
+// (discovery-core.md K7; the discovery protocol's section 3.1).
+func (q *Queries) BecomeOwnLink(ctx context.Context, arg BecomeOwnLinkParams) error {
+	_, err := q.db.ExecContext(ctx, becomeOwnLink,
+		arg.UserID,
+		arg.ExpiresAt,
+		arg.Now,
+		arg.SecretSha256,
+	)
+	return err
+}
+
 const getGrantState = `-- name: GetGrantState :one
 SELECT kind, revoked_at, expires_at, last_used_at, issued_at FROM "grant" WHERE secret_sha256 = ?1
 `
@@ -36,7 +62,7 @@ func (q *Queries) GetGrantState(ctx context.Context, secretSha256 []byte) (GetGr
 }
 
 const getLiveGrant = `-- name: GetLiveGrant :one
-SELECT secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_id, device_name
+SELECT secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_id, device_name, locate_hash
 FROM "grant"
 WHERE secret_sha256 = ?1
   AND revoked_at IS NULL
@@ -58,6 +84,7 @@ type GetLiveGrantRow struct {
 	LastUsedAt   *int64
 	DeviceID     *int64
 	DeviceName   *string
+	LocateHash   []byte
 }
 
 func (q *Queries) GetLiveGrant(ctx context.Context, arg GetLiveGrantParams) (GetLiveGrantRow, error) {
@@ -73,15 +100,37 @@ func (q *Queries) GetLiveGrant(ctx context.Context, arg GetLiveGrantParams) (Get
 		&i.LastUsedAt,
 		&i.DeviceID,
 		&i.DeviceName,
+		&i.LocateHash,
 	)
 	return i, err
 }
 
+const getLiveLinkOfferKey = `-- name: GetLiveLinkOfferKey :one
+SELECT offer_key FROM "grant"
+WHERE locate_hash = ?1 AND offer_key IS NOT NULL AND revoked_at IS NULL
+  AND (expires_at IS NULL OR expires_at > ?2)
+`
+
+type GetLiveLinkOfferKeyParams struct {
+	LocateHash []byte
+	Now        *int64
+}
+
+// What an offer through a live link is proven under, by the link's locate hash.
+func (q *Queries) GetLiveLinkOfferKey(ctx context.Context, arg GetLiveLinkOfferKeyParams) ([]byte, error) {
+	row := q.db.QueryRowContext(ctx, getLiveLinkOfferKey, arg.LocateHash, arg.Now)
+	var offer_key []byte
+	err := row.Scan(&offer_key)
+	return offer_key, err
+}
+
 const insertGrant = `-- name: InsertGrant :exec
 
-INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_name, device_id)
+INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_name, device_id,
+                     locate_hash, offer_key)
 VALUES (?1, ?2, ?3, ?4, ?5,
-        ?6, ?5, ?7, ?8)
+        ?6, ?5, ?7, ?8,
+        ?9, ?10)
 `
 
 type InsertGrantParams struct {
@@ -93,10 +142,13 @@ type InsertGrantParams struct {
 	ExpiresAt    *int64
 	DeviceName   *string
 	DeviceID     *int64
+	LocateHash   []byte
+	OfferKey     []byte
 }
 
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Credentials: one grant table, opaque and revocable, stored as SHA-256 hashes (D154).
+// A link's grant also keeps its locate hash and offer key (discovery-core.md K7); NULL for the rest.
 func (q *Queries) InsertGrant(ctx context.Context, arg InsertGrantParams) error {
 	_, err := q.db.ExecContext(ctx, insertGrant,
 		arg.SecretSha256,
@@ -107,8 +159,45 @@ func (q *Queries) InsertGrant(ctx context.Context, arg InsertGrantParams) error 
 		arg.ExpiresAt,
 		arg.DeviceName,
 		arg.DeviceID,
+		arg.LocateHash,
+		arg.OfferKey,
 	)
 	return err
+}
+
+const listLiveLinkHashes = `-- name: ListLiveLinkHashes :many
+SELECT locate_hash, expires_at FROM "grant"
+WHERE locate_hash IS NOT NULL AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > ?1)
+ORDER BY locate_hash
+`
+
+type ListLiveLinkHashesRow struct {
+	LocateHash []byte
+	ExpiresAt  *int64
+}
+
+// Every live link a discovery may find the core by: its locate hash and when it ends.
+func (q *Queries) ListLiveLinkHashes(ctx context.Context, now *int64) ([]ListLiveLinkHashesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLiveLinkHashes, now)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLiveLinkHashesRow{}
+	for rows.Next() {
+		var i ListLiveLinkHashesRow
+		if err := rows.Scan(&i.LocateHash, &i.ExpiresAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const markGrantRevoked = `-- name: MarkGrantRevoked :exec
@@ -123,6 +212,24 @@ type MarkGrantRevokedParams struct {
 
 func (q *Queries) MarkGrantRevoked(ctx context.Context, arg MarkGrantRevokedParams) error {
 	_, err := q.db.ExecContext(ctx, markGrantRevoked, arg.RevokedAt, arg.SecretSha256)
+	return err
+}
+
+const renewOwnLinksOfUser = `-- name: RenewOwnLinksOfUser :exec
+UPDATE "grant" SET expires_at = ?1
+WHERE user_id = ?2 AND kind = 'link' AND scope = 'own' AND revoked_at IS NULL
+  AND (expires_at IS NULL OR expires_at > ?3)
+`
+
+type RenewOwnLinksOfUserParams struct {
+	ExpiresAt *int64
+	UserID    *int64
+	Now       *int64
+}
+
+// A signed-in visit renews the person's own link's life, which rolls.
+func (q *Queries) RenewOwnLinksOfUser(ctx context.Context, arg RenewOwnLinksOfUserParams) error {
+	_, err := q.db.ExecContext(ctx, renewOwnLinksOfUser, arg.ExpiresAt, arg.UserID, arg.Now)
 	return err
 }
 

@@ -53,8 +53,11 @@ class PreEdit(unittest.TestCase):
 
     def test_a_committed_step_is_refused_with_both_routes_a_schema_change_takes(self):
         """Before production runs a change folds the last step; after, it appends (D228, D272 §5)."""
-        step = next(path for path in sorted((ROOT / "internal/store/migrations").glob("*.sql"))
-                    if "baseline" not in path.name)
+        # A step HEAD tracks: the commit that adds a new step runs this test before that step is
+        # committed, and a step not yet committed may still be written.
+        tracked = subprocess.run(["git", "ls-tree", "--name-only", "HEAD", "internal/store/migrations/"],
+                                 cwd=ROOT, capture_output=True, text=True, check=True).stdout.split()
+        step = next(ROOT / path for path in sorted(tracked) if path.endswith(".sql") and "baseline" not in path)
         result = run_hook("pre_edit.py", {"tool_name": "Edit", "tool_input": {"file_path": str(step)}})
         self.assertEqual(decision(result), "deny")
         reason = result["hookSpecificOutput"]["permissionDecisionReason"]
