@@ -12,6 +12,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/chunks"
+	"github.com/kstenerud/orpheum/internal/core/clientnet"
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
@@ -264,7 +265,7 @@ func (service *Service) startOnLadder(
 	if service.chunks == nil {
 		return nil, "noLadder", nil
 	}
-	key := speedKey{player: playerOf(request.DeviceID, holder.SessionKey), network: networkOf(request.ClientAddress)}
+	key := speedKey{player: playerOf(request.DeviceID, holder.SessionKey), network: clientnet.Of(request.ClientAddress)}
 	kbps, _ := service.speeds.fresh(key, service.clock.Now())
 	playback.positionMs = positionMs
 	waitMs, err := service.settings.Int(ctx, settings.PlayLadderWaitMs)

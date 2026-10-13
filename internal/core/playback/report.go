@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/chunks"
+	"github.com/kstenerud/orpheum/internal/core/clientnet"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -157,7 +158,7 @@ func (service *Service) Report(
 	// The speed it measured on real video is the one its next playback on this network starts by
 	// (D257 §1).
 	service.speeds.remember(speedKey{
-		player: playerOf(playback.deviceID, playback.sessionKey), network: networkOf(report.ClientAddress),
+		player: playerOf(playback.deviceID, playback.sessionKey), network: clientnet.Of(report.ClientAddress),
 	}, report.LinkKbps, now)
 	service.keepLink(token, report.LinkKbps, now)
 	offer, isOffered, err := service.offerFor(ctx, token, playback, report)

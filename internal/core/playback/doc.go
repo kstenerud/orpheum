@@ -12,7 +12,7 @@
 //     network, an IPv6 /64 or an IPv4 address, for a day (D257). A film cut into chunks starts on
 //     its ladder, at the top, or where its player's speed on its network calls for, and no prepared
 //     copy is made for it; its stalls start nothing (D260). A film not cut yet plays as its decision
-//     says. TestNetworkOf_IsAnIPv6AddressesSlash64OrAnIPv4AddressWhole,
+//     says. internal/core/clientnet's TestOf_IsAnIPv6AddressesSlash64OrAnIPv4AddressWhole,
 //     TestLinkSpeeds_AreFreshForADayOnTheirOwnNetwork,
 //     TestPlayback_ADeviceRememberedSlowStartsOnALowerQualityOnTheSameNetwork,
 //     TestPlayback_ACutFilmStartsOnItsLadderAndPreparesNoCopy and

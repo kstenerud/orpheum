@@ -3,7 +3,6 @@
 package playback
 
 import (
-	"net/netip"
 	"strconv"
 	"sync"
 	"time"
@@ -15,7 +14,7 @@ import (
 const speedFreshFor = 24 * time.Hour
 
 // speedKey is who measured a link speed, a device or, for one with no device row, its session, and
-// on which network (networkOf).
+// on which network (clientnet.Of).
 type speedKey struct {
 	player, network string
 }
@@ -72,24 +71,4 @@ func playerOf(deviceID int64, sessionKey string) string {
 		return "device " + strconv.FormatInt(deviceID, 10)
 	}
 	return "session " + sessionKey
-}
-
-// networkOf names the network a client's address is on, as far as a link speed goes: an IPv6
-// address's /64, the prefix one network gives its devices, or an IPv4 address whole, the public
-// address of a household or a phone's carrier; "" for an address it cannot read. A phone that moves
-// from Wi-Fi to LTE comes from another (D257 §1).
-func networkOf(address string) string {
-	parsed, err := netip.ParseAddr(address)
-	if err != nil {
-		return ""
-	}
-	parsed = parsed.Unmap()
-	if parsed.Is4() {
-		return parsed.String()
-	}
-	prefix, err := parsed.Prefix(64)
-	if err != nil {
-		return ""
-	}
-	return prefix.String()
 }

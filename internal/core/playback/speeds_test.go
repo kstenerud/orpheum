@@ -7,25 +7,6 @@ import (
 	"time"
 )
 
-// A link speed is kept by the network the client's address is on: an IPv6 address's /64, so a
-// phone's changing address on one network is one network, and an IPv4 address whole; a phone that
-// moves from Wi-Fi to LTE is on another (D257 §1).
-func TestNetworkOf_IsAnIPv6AddressesSlash64OrAnIPv4AddressWhole(t *testing.T) {
-	t.Parallel()
-	for address, want := range map[string]string{
-		"2001:db8:1:2:aaaa::1": "2001:db8:1:2::/64",
-		"2001:db8:1:2:bbbb::7": "2001:db8:1:2::/64",
-		"2001:db8:9:9::1":      "2001:db8:9:9::/64",
-		"203.0.113.7":          "203.0.113.7",
-		"::ffff:203.0.113.7":   "203.0.113.7",
-		"not an address":       "",
-	} {
-		if got := networkOf(address); got != want {
-			t.Errorf("networkOf(%q) = %q; want %q", address, got, want)
-		}
-	}
-}
-
 // A player's speed is fresh for a day on the network it was measured on, and never stands for
 // another network or player (D257 §1).
 func TestLinkSpeeds_AreFreshForADayOnTheirOwnNetwork(t *testing.T) {
