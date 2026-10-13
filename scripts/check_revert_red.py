@@ -64,6 +64,7 @@ from __future__ import annotations
 
 import argparse
 import functools
+import json
 import os
 import re
 import queue
@@ -75,8 +76,10 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
+import browser_map
 import revert_red_reruns as reruns
 from revert_red_report import failure_advice, report
+from revert_red_claims import VQ_FILE, refactor_only, verification_queue_problem, verified_out_of_suite  # noqa: F401 (tests reach VQ_FILE here)
 from revert_red_cosmetic import GO_SOURCE, PY_SOURCE, is_cosmetic, is_package_clause_only
 from revert_red_dependents import go_dependents, python_tests_reaching, toplevel, web_source_readers
 from revert_red_stylesheets import settle as settle_stylesheets
@@ -134,14 +137,6 @@ TS_SOURCE = re.compile(r"^web/(packages|apps)/[^/]+/src/.*\.tsx?$")
 TS_TEST = re.compile(r"\.test\.tsx?$")
 # A stylesheet only a browser renders: vitest and the type check never read it.
 CSS_SOURCE = re.compile(r"^web/(packages|apps)/[^/]+/src/.*\.css$")
-
-# `Refactor-Only: <path> — <why>`: this file's part of a behaviour commit changed no behaviour.
-REFACTOR_ONLY = re.compile(r"^Refactor-Only:\s*(\S+)\s+(?:—|--|-)\s*(\S.*)$", re.M | re.I)
-
-VQ_FILE = "docs/contributors/verification-queue.md"
-VQ_REF = re.compile(r"\bVQ(\d+)\b")
-VQ_TICKED = re.compile(r"^- \[[xX]\] \*\*VQ(\d+)\b", re.M)
-VQ_ANY = re.compile(r"^- \[[ xX]\] \*\*VQ(\d+)\b", re.M)
 
 # Every Python test is in scripts/tests (PY_TEST), so every Python source outside it is in their
 # scope: the gate scripts, the Claude hooks in .claude/hooks, and ./dev. A list of roots left the
@@ -278,59 +273,6 @@ def unchecked_behavioral_files(base: str, head: str, probed: frozenset[str] = fr
 def types_touching(base: str, head: str, path: str) -> set[str | None]:
     out = _git("log", "--no-merges", "--format=%s", f"{base}..{head}", "--", path).stdout
     return {commit_type(line) for line in out.splitlines() if line.strip()}
-
-
-def verified_out_of_suite(base: str, head: str, path: str) -> str:
-    """Any `Verified-By:` claim on the commits touching `path`.
-
-    Some behaviour genuinely cannot go red in `go test` — here, typically a symptom
-    only a television or a real network shows, which the device lab confirms (D190).
-
-    Without a way to say that, the only route past this gate would be relabelling a
-    `fix` as a `chore`, and a gate satisfiable only by lying about the commit type is
-    worse than no gate. The trailer turns "I could not unit-test this" from a silent
-    bypass into a claim on the record that review can weigh. It deliberately takes
-    free text: the point is that a human wrote down what they actually did.
-    """
-    body = _git("log", "--no-merges", "--format=%B", f"{base}..{head}", "--", path).stdout
-    claims = [
-        line.split(":", 1)[1].strip()
-        for line in body.splitlines()
-        if line.lower().startswith("verified-by:")
-    ]
-    return "; ".join(c for c in claims if c)
-
-
-def refactor_only(base: str, head: str, path: str) -> str:
-    """Why the branch's commits say `path`'s part of them changed no behaviour: their
-    `Refactor-Only: <path> — <why>` trailers naming this path, or '' when none does.
-
-    A refactor inside a `fix` commit owes a red it cannot give, and a made commit is never
-    rewritten, so without this the file stayed flagged until the base moved past it (80ee9fe's
-    playback.go, audit-2026-09-29 §6). The better practice is a separate refactor commit.
-    The trailer names its path, so any commit on the branch may carry it: requiring one that
-    touched the file left a claim about a file nobody had reason to touch again only a pointless
-    edit to ride on (2026-09-30).
-    """
-    body = _git("log", "--no-merges", "--format=%B", f"{base}..{head}").stdout
-    return "; ".join(why.strip() for named, why in REFACTOR_ONLY.findall(body) if named == path)
-
-
-def verification_queue_problem(claim: str, tree: str) -> str:
-    """Why a Verified-By claim does not count, or '' when it names a ticked VQ item (D190)."""
-    refs = VQ_REF.findall(claim)
-    if not refs:
-        return f"names no VQ<n> item in {VQ_FILE}"
-    queue = Path(tree) / VQ_FILE
-    text = queue.read_text() if queue.exists() else ""
-    known = set(VQ_ANY.findall(text))
-    ticked = set(VQ_TICKED.findall(text))
-    for n in refs:
-        if n not in known:
-            return f"VQ{n} is not in {VQ_FILE}"
-        if n not in ticked:
-            return f"VQ{n} is not ticked — the verification has not been done"
-    return ""
 
 
 def scope_for(path: str) -> list[str] | None:
@@ -548,10 +490,18 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
         for companion in unit:
             revert_companion(tree, base, change.path, companion)
 
+        unreached = False
         for attempt in attempts_for(change, first or scope):
             # Python caches a module by its size and mtime; a probe that restores a file to the same
             # size within a second would run the stale cache, so the probes write none.
             env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1", **(attempt.env or {})}
+            if "browser-tier" in attempt.command and CSS_SOURCE.search(change.path):
+                reaching = browser_map.tests_reaching(tree, base, head, [change.path])
+                if reaching == []:
+                    unreached = True
+                    continue
+                if reaching is not None:
+                    env[browser_map.ONLY_THESE_TESTS] = json.dumps(reaching)
             # One browser tier at a time: each starts a server and three browsers.
             done = timed(TIMINGS, change.path, kind_of(attempt.command, attempt.label, attempt.env),
                          BROWSER_TIER_LOCK if "browser-tier" in attempt.command else None,
@@ -566,7 +516,8 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
             if attempt.compile_only or is_build_failure(combined):
                 return Outcome(change.path, "RED_BUILD", f"reverting it breaks the build{attempt.label}")
             return Outcome(change.path, "RED_TEST", f"a test fails when it is reverted{attempt.label}")
-        return Outcome(change.path, "GREEN", "every test still passes with this change reverted")
+        return Outcome(change.path, "GREEN", browser_map.NO_TEST_REACHES if unreached else
+                       "every test still passes with this change reverted")
     finally:
         restore(tree, head, change.path)
         for companion in unit:
@@ -594,8 +545,15 @@ def stylesheets_together(tree: str, base: str, head: str, changes: list[Change],
     if len(sheets) < 2:
         return {}
 
+    unreached: set[str] = set()
+
     def run_reverted(group: list[str]) -> subprocess.CompletedProcess[str] | None:
         label = EVERY_STYLESHEET if len(group) == len(sheets) else f"({len(group)} stylesheets at once)"
+        reaching = browser_map.tests_reaching(tree, base, head, group)
+        if reaching == []:
+            unreached.update(group)
+            return subprocess.CompletedProcess(group, 0, "", "")
+        only = {} if reaching is None else {browser_map.ONLY_THESE_TESTS: json.dumps(reaching)}
         try:
             for path in group:
                 if _git("checkout", base, "--", path, cwd=tree).returncode != 0:
@@ -604,7 +562,7 @@ def stylesheets_together(tree: str, base: str, head: str, changes: list[Change],
             done = timed(TIMINGS, label, "browser tier", BROWSER_TIER_LOCK,
                          functools.partial(subprocess.run, command or browser_tier_command(), cwd=tree,
                                            capture_output=True, text=True, timeout=timeout, check=False,
-                                           env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}))
+                                           env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1", **only}))
             TIMINGS.note_probe(label, time.monotonic() - asked)
             return done
         except subprocess.TimeoutExpired:
@@ -620,6 +578,11 @@ def stylesheets_together(tree: str, base: str, head: str, changes: list[Change],
     for path in halving.passed:
         if is_cosmetic(tree, base, head, path):
             settled[path] = Outcome(path, "COSMETIC", "comment or formatting only; no behaviour to cover")
+            continue
+        if path in unreached:
+            claim = claimed(tree, base, head, path) or Outcome(path, "GREEN", browser_map.NO_TEST_REACHES)
+            settled[path] = Outcome(path, claim.verdict, claim.detail if claim.verdict == "GREEN" else
+                                    f"{claim.detail} ({browser_map.NO_TEST_REACHES})")
             continue
         claim = claimed(tree, base, head, path) or Outcome(path, "GREEN", "every test still passes with this "
                                                            "change reverted")

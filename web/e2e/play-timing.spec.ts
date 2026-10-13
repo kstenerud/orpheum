@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 
+import { test } from "./browser-map.ts";
 import { isPlaying, openFilm, openFilmOnItsLadder, serverUrl, signIn } from "./pages.ts";
 import { longTrackName, preparedFilm, timingFilm, warmUpFilm } from "./server.ts";
 

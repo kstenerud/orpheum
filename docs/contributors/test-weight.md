@@ -187,6 +187,28 @@ Each entry says: the **mechanism**, the **instance** we found, **why it was invi
 - **Warning sign:** a run kind named "whole suite" in revert-red's timings summary; a one-file change
   whose `make check` runs more than its importers' tests.
 
+### 12. Every browser test run for a stylesheet only some of them show
+
+- **Mechanism:** a stylesheet's revert was checked by the whole browser tier, both browsers, every
+  spec, though a rule can only style a page that holds what its selector names, and most sheets
+  style screens only some tests open. Imports cannot narrow it: every spec loads the whole client.
+- **Instances** (check-pr's timings, 2026-10-13): the browser run with a batch's two changed
+  stylesheets reverted took 429 s of revert-red's 431, beside the other probes; alone it takes about
+  160 s.
+- **Why it was invisible:** the whole tier was the only unit a browser run had.
+- **Fix** (the owner, 2026-10-13, choosing a recorded map over excusing device-checked sheets):
+  check-pr's full browser run records what every test's pages held, in both browsers
+  (`web/e2e/browser-map.ts`), stamped with the commit only when every test passed on a clean tree.
+  `scripts/browser_map.py` takes a changed sheet's rules apart, as sequences so a reorder counts, and
+  a test is reached only if its pages held every token of a changed selector; revert-red then runs a
+  sheet's revert in only those tests (`ORPHEUM_E2E_ONLY`), and in none when none is reached, which
+  settles it as a run that turned nothing red would. Anything it cannot narrow (`:root`, `*`,
+  `@keyframes`, `@font-face`, nesting, escapes) reaches every test, as does a missing or stale map.
+  On the map of 2026-10-13, ten of the 33 sheets reach no test at all and most reach under half.
+- **Warning sign:** revert-red's timings show a stylesheet's browser run with no `ORPHEUM_E2E_ONLY`
+  while `.dev/browser-map/complete` names the commit checked; or `make test-browser` leaves no
+  `complete` after a passing run.
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of

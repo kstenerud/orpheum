@@ -5,8 +5,9 @@
  * joining, the host's film, and each page's voice call, measured from its own WebRTC statistics.
  */
 
-import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import { expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
+import { test } from "./browser-map.ts";
 import { openFilm, serverUrl } from "./pages.ts";
 
 /** D243 §9: voice one-way under 300 ms, and audible loss under 2%. */
