@@ -81,7 +81,15 @@ As the Orpheum user in the container, with `/srv/orpheum` owned by it:
 4. Run the same `build.sh` again. It writes the compose file and the configs.
 5. **Swap the public name to nas.example** (§6), then `docker compose up -d` in `/srv/orpheum`.
 6. `docker compose exec orpheum-core orpheum setup-code --instance /var/lib/orpheum/core` prints
-   the one-time code. Open `http://<container>:8440`, make the first admin, and add the libraries.
+   the one-time code. The web client has no screen for it yet (agent-failures A29): make the first
+   admin from inside the container, typing the password unseen, then sign in at
+   `http://<container>:8440` and add the libraries:
+
+   ```sh
+   read -p "Setup code: " CODE; read -p "Admin name: " NAME; read -s -p "Password: " PASS; echo
+   curl -sS -X POST http://127.0.0.1:8440/api/v1/setup -H 'Content-Type: application/json' \
+     -d "{\"setupCode\":\"$CODE\",\"name\":\"$NAME\",\"password\":\"$PASS\"}"; unset PASS
+   ```
 7. In Settings, under Keys and passwords, enter the Cloudflare token as `dns_provider_token`; the
    certificate follows. Enter `tmdb_api_key` too: without it nothing is identified.
 8. In Settings, answer `server_upload_mbps` (the house's upload the films may use, D286 §5) and the

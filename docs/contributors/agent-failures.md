@@ -49,6 +49,19 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A29 — Told the owner to make the first admin in a page that has no such screen (2026-10-13)
+
+- **What happened:** the NAS walkthrough said to open the web client and make the first admin with
+  the setup code, as both deployment READMEs say. The web client has no setup screen: `POST /setup`
+  is called by nothing in `web/`, so the owner, signed out with a code in hand, had nowhere to
+  enter it, and guessed the D288 device codes had broken it. The false belief came from the
+  READMEs, which the agent repeated without checking that the client calls the endpoint they
+  describe; staging's first admin had been made long before, by other means.
+- **Caught by:** the owner: *"I can't use the code to make an admin account."*
+- **Gate:** none yet. The READMEs now give the request to make the admin with; a setup screen in
+  the client, with a browser-tier test that makes the first admin through it, would make the
+  instructions true and keep them so.
+
 ### A28 — Judged a device fix by a phone that never ran it (2026-10-11)
 
 - **What happened:** an iPhone guest saw no player controls. The agent changed the guest's video
