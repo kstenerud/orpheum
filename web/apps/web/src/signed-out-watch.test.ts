@@ -69,7 +69,7 @@ describe("a session the server ended", () => {
       "token",
     );
     const went: Route[] = [];
-    services.session.signIn("token", 42);
+    services.session.signIn("token", { deviceId: 42 });
     services.api.use(watchForSignOut(services.session, recordingNavigation(went)));
     await services.api.GET("/me");
     expect(services.session.token()).toBeUndefined();

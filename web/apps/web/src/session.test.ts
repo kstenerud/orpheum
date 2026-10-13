@@ -54,7 +54,7 @@ describe("createSession", () => {
   it("remembers the device across a sign-out the server caused, and forgets why at the next sign-in", () => {
     const storage = memoryStorage();
     const session = createSession(storage);
-    session.signIn("token", 42);
+    session.signIn("token", { deviceId: 42 });
     session.signOutBecause("session_ended");
     expect(session.token()).toBeUndefined();
     expect(session.lastEndReason()).toBe("session_ended");
@@ -66,7 +66,7 @@ describe("createSession", () => {
   it("keeps its device secret past a sign-out, the proof of the device it resumes, and never its token (the third audit's A8)", () => {
     const storage = memoryStorage();
     const session = createSession(storage);
-    session.signIn("token-of-42", 42, "secret-of-42");
+    session.signIn("token-of-42", { deviceId: 42, deviceSecret: "secret-of-42" });
     session.signOut();
     const reloaded = createSession(storage);
     expect(reloaded.token()).toBeUndefined();
@@ -74,5 +74,15 @@ describe("createSession", () => {
     session.signIn("token-without-a-secret");
     expect(session.deviceProof()).toBe("secret-of-42");
     expect([...storage.items.values()]).not.toContain("token-of-42");
+  });
+
+  it("keeps the locator a sign-in hands it across a reload, and ends it with the session (discovery-core.md K7)", () => {
+    const storage = memoryStorage();
+    const session = createSession(storage);
+    session.signIn("token", { deviceId: 42, deviceSecret: "secret", locator: "locator-of-42" });
+    expect(createSession(storage).locator()).toBe("locator-of-42");
+    session.signOut();
+    expect(session.locator()).toBeUndefined();
+    expect(createSession(storage).locator()).toBeUndefined();
   });
 });

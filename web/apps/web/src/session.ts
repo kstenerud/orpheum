@@ -13,7 +13,7 @@ export interface Session {
    * Signs in, remembering the device the session is on and its device secret, by which the next
    * sign-in resumes it (D221; the third audit's A8).
    */
-  readonly signIn: (token: string, deviceId?: number, deviceSecret?: string) => void;
+  readonly signIn: (token: string, kept?: KeptWithSession) => void;
   readonly signOut: () => void;
   /** Signs out because the server said the session no longer works, and why. */
   readonly signOutBecause: (reason: string) => void;
@@ -28,12 +28,25 @@ export interface Session {
    * audit's A8).
    */
   readonly deviceProof: () => string | undefined;
+  /**
+   * The locator this session was handed, by which a discovery finds the server for this device
+   * (discovery-core.md K7): it ends with the session.
+   */
+  readonly locator: () => string | undefined;
   readonly subscribe: (listener: () => void) => () => void;
 }
 
 const tokenStorageKey = "orpheum.session";
 const deviceIdStorageKey = "orpheum.deviceId";
 const deviceProofStorageKey = "orpheum.deviceProof";
+const locatorStorageKey = "orpheum.locator";
+
+/** What a sign-in keeps beside its token: the device, its secret and its locator. */
+export interface KeptWithSession {
+  readonly deviceId?: number | undefined;
+  readonly deviceSecret?: string | undefined;
+  readonly locator?: string | undefined;
+}
 
 /** Creates a session over storage, which may throw on every call. */
 export function createSession(refusableStorage: StringStorage | undefined): Session {
@@ -44,10 +57,13 @@ export function createSession(refusableStorage: StringStorage | undefined): Sess
   let storedDeviceId =
     Number.isSafeInteger(keptDeviceId) && keptDeviceId > 0 ? keptDeviceId : undefined;
   let deviceProof = storage.getItem(deviceProofStorageKey) ?? undefined;
+  let locator = storage.getItem(locatorStorageKey) ?? undefined;
   const listeners = new Set<() => void>();
   const setToken = (next: string | undefined): void => {
     token = next;
     if (next === undefined) {
+      locator = undefined;
+      storage.removeItem(locatorStorageKey);
       storage.removeItem(tokenStorageKey);
     } else {
       storage.setItem(tokenStorageKey, next);
@@ -58,7 +74,8 @@ export function createSession(refusableStorage: StringStorage | undefined): Sess
   };
   return {
     token: () => token,
-    signIn: (next, deviceId, deviceSecret) => {
+    signIn: (next, kept = {}) => {
+      const { deviceId, deviceSecret, locator: nextLocator } = kept;
       endedReason = undefined;
       if (deviceId !== undefined) {
         storedDeviceId = deviceId;
@@ -69,6 +86,10 @@ export function createSession(refusableStorage: StringStorage | undefined): Sess
         storage.setItem(deviceProofStorageKey, deviceSecret);
       }
       setToken(next);
+      if (nextLocator !== undefined) {
+        locator = nextLocator;
+        storage.setItem(locatorStorageKey, nextLocator);
+      }
     },
     signOut: () => {
       setToken(undefined);
@@ -80,6 +101,7 @@ export function createSession(refusableStorage: StringStorage | undefined): Sess
     lastEndReason: () => endedReason,
     deviceId: () => storedDeviceId,
     deviceProof: () => deviceProof,
+    locator: () => locator,
     subscribe: (listener) => {
       listeners.add(listener);
       return () => listeners.delete(listener);

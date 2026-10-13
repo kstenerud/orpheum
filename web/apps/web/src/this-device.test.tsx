@@ -43,7 +43,7 @@ describe("the This device page (D222 §1)", () => {
       },
       heard,
     );
-    services.session.signIn("token", 5);
+    services.session.signIn("token", { deviceId: 5 });
     mounted = await mount(withServices(<ThisDevice />, services));
     const text = mounted.container.textContent;
     expect(text).toContain("Karl's laptop");

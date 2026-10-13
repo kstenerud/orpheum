@@ -107,12 +107,12 @@ export function SignIn(): JSX.Element {
   }
   const submit = (): void => {
     runRequest(async (idempotencyKey) => {
-      const { token, deviceSecret, user } = await signIn(
+      const { token, deviceSecret, locator, user } = await signIn(
         api,
         { name, password, device: thisDevice(session) },
         idempotencyKey,
       );
-      session.signIn(token, user.device?.id, deviceSecret);
+      session.signIn(token, { deviceId: user.device?.id, deviceSecret, locator });
     });
   };
   return (
