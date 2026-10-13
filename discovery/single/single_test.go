@@ -500,7 +500,9 @@ func TestSession_ASecondInstanceTakesThePlaceOfOneThatDoesNotAnswerAndIsRefusedW
 	// The second holds its connection and answers pings, as a live core's reader does: the first,
 	// asking again, is refused as a copy.
 	answering := built.dial(t, second)
+	answeringEnded := make(chan struct{})
 	go func() {
+		defer close(answeringEnded)
 		for {
 			if _, _, err := answering.Read(t.Context()); err != nil {
 				return
@@ -520,6 +522,8 @@ func TestSession_ASecondInstanceTakesThePlaceOfOneThatDoesNotAnswerAndIsRefusedW
 	// The second crashed: its connection is still open to the discovery, but nothing reads it, so
 	// no ping is answered. The first is admitted, and the second's connection closed.
 	silent := built.dial(t, second)
+	// The silent connection holds the discovery's place once the one it replaced has been closed.
+	testutil.Receive(t, answeringEnded, "the answering connection to be replaced")
 	if status, _ := built.sessionAs(t, signer, coreID, "first"); status != http.StatusOK {
 		t.Fatalf("an instance after the live one stopped answering got %d", status)
 	}

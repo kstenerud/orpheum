@@ -84,11 +84,14 @@ func (service *Service) holdSignalling(ctx context.Context, baseURL string) erro
 func (service *Service) answerOffer(
 	ctx context.Context, offer discoveryproto.SignalMessage,
 ) discoveryproto.SignalMessage {
-	answer, err := service.parts.Answerer.Answer(ctx, rtcapi.Description{Type: "offer", SDP: offer.SDP})
+	answer, err := service.parts.Answerer.AnswerRelayed(ctx, rtcapi.Description{Type: "offer", SDP: offer.SDP})
 	if err != nil {
 		reason := "the core could not answer"
-		if errors.Is(err, rtcapi.ErrTooManyConnections) {
+		switch {
+		case errors.Is(err, rtcapi.ErrTooManyConnections):
 			reason = "the core holds as many connections as it allows"
+		case errors.Is(err, rtcapi.ErrOfferRefused):
+			reason = "the core refused the offer"
 		}
 		service.parts.Logger.WarnContext(ctx, "discovery: an offer was refused", "offerId", offer.OfferID, "err", err)
 		return discoveryproto.SignalMessage{Type: discoveryproto.SignalRefusal, OfferID: offer.OfferID, Reason: reason}

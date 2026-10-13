@@ -85,6 +85,28 @@ func TestServedCertificates_ServesEachNameTheCertificateForIt(t *testing.T) {
 	}
 }
 
+// A server with only its discovery's certificate serves it for its names alone: a handshake naming
+// none, as a scanner sweeping addresses sends, or another name, is refused (the security audit's
+// A10).
+func TestServedCertificates_TheDiscoverysIsServedOnlyForItsNames(t *testing.T) {
+	t.Parallel()
+	served := &servedCertificates{discoveryParts: certificateParts(t)}
+	if err := served.useDiscoveryName(discoveryName); err != nil {
+		t.Fatal(err)
+	}
+	if err := served.HandleRenew(t.Context(), jobs.Job{Kind: jobs.KindRenewCertificate}); err != nil {
+		t.Fatal(err)
+	}
+	if got := servedName(t, served, "2a02-8070-0-0-0-0-0-1.k7xq2.orpheum-app.com"); got != discoveryName {
+		t.Errorf("for the core's name the certificate served is %s's; want %s's", got, discoveryName)
+	}
+	for _, serverName := range []string{"", "k7xq2.orpheum-app.com", "media.orpheum-app.com", "192.0.2.7"} {
+		if chosen, err := served.GetCertificate(&tls.ClientHelloInfo{ServerName: serverName}); err == nil {
+			t.Errorf("a handshake for %q was served %v; want it refused", serverName, chosen.Leaf.DNSNames)
+		}
+	}
+}
+
 // A server with no public name opens HTTPS once its discovery's certificate is obtained, and only
 // once; a door closed before then is never opened.
 func TestServedCertificates_HTTPSOpensOnceTheDiscoverysCertificateCanBeServed(t *testing.T) {

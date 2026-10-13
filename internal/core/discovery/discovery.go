@@ -85,16 +85,20 @@ type Parts struct {
 	Candidates func() []discoveryproto.Candidate
 	// TURN are the owner's own TURN servers, passed to the core's clients; nil has none.
 	TURN func() []discoveryproto.ICEServer
-	// Answerer answers the WebRTC offers the discovery passes on: rtcapi.Server; nil answers none.
+	// Answerer answers the WebRTC offers the discovery passes on: rtcapi.Server, which checks each
+	// itself first; nil answers none.
 	Answerer Answerer
 	// OnClaimed is told when the discovery has claimed the core, or moved it to another zone: its
 	// certificate's name (Status.CertificateName) is then known. Nil tells nothing.
 	OnClaimed func(ctx context.Context)
 }
 
-// Answerer answers a client's WebRTC offer: rtcapi.Server.Answer.
+// Answerer answers a client's WebRTC offer a discovery passed on: rtcapi.Server.AnswerRelayed, which
+// checks the offer itself before any connection is made, since the discovery's check is only a
+// first filter (the protocol's §2.5; the security audit's A2). It is the one way an offer through
+// a discovery reaches rtcapi.
 type Answerer interface {
-	Answer(ctx context.Context, offer rtcapi.Description) (rtcapi.Description, error)
+	AnswerRelayed(ctx context.Context, offer rtcapi.Description) (rtcapi.Description, error)
 }
 
 // kept is the state file: which discovery, the core's id there, and its zone once claimed, so its

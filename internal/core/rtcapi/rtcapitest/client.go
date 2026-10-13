@@ -37,6 +37,7 @@ func receive[Value any](tb testing.TB, ready <-chan Value, waitingFor string) {
 type Client struct {
 	tb         testing.TB
 	connection *webrtc.PeerConnection
+	answerSDP  string
 }
 
 // Answerer takes the client's offer to the core and returns its answer: rtcapi.Server.Answer, or the
@@ -57,6 +58,17 @@ func OverIPv4() Option {
 
 // Connect makes a client on the loopback and connects it through answer.
 func Connect(tb testing.TB, answer Answerer, options ...Option) *Client {
+	tb.Helper()
+	client, isConnected := Dial(tb, answer, waitLimit, options...)
+	if !isConnected {
+		tb.Fatalf("waited %s for the connection", waitLimit)
+	}
+	return client
+}
+
+// Dial makes a client on the loopback, passes its offer to answer, and returns it with whether it
+// connected within wait: for a test of a connection the core should not let connect.
+func Dial(tb testing.TB, answer Answerer, wait time.Duration, options ...Option) (*Client, bool) {
 	tb.Helper()
 	settings := webrtc.SettingEngine{}
 	settings.SetIncludeLoopbackCandidate(true)
@@ -97,8 +109,109 @@ func Connect(tb testing.TB, answer Answerer, options ...Option) *Client {
 	if err != nil {
 		tb.Fatal(err)
 	}
-	receive(tb, connected, "the connection")
-	return &Client{tb: tb, connection: connection}
+	client := &Client{tb: tb, connection: connection, answerSDP: answered.SDP}
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+	select {
+	case <-connected:
+		return client, true
+	case <-timer.C:
+		return client, false
+	}
+}
+
+// AnswerSDP is the core's answer, as the client took it.
+func (client *Client) AnswerSDP() string {
+	return client.answerSDP
+}
+
+// IsClosedWithin is whether the core closed the connection within wait.
+func (client *Client) IsClosedWithin(wait time.Duration) bool {
+	ended := make(chan struct{})
+	var once sync.Once
+	isEnded := func(state webrtc.PeerConnectionState) bool {
+		return state == webrtc.PeerConnectionStateClosed || state == webrtc.PeerConnectionStateFailed ||
+			state == webrtc.PeerConnectionStateDisconnected
+	}
+	client.connection.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+		if isEnded(state) {
+			once.Do(func() { close(ended) })
+		}
+	})
+	if isEnded(client.connection.ConnectionState()) {
+		return true
+	}
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+	select {
+	case <-ended:
+		return true
+	case <-timer.C:
+		return false
+	}
+}
+
+// Begin sends a request's head on a channel of its own, and its body and end when isWhole, and
+// returns the channel without waiting for an answer: for a test of a request the core should cut off.
+func (client *Client) Begin(head rtcapi.RequestHead, isWhole bool) *Channel {
+	client.tb.Helper()
+	channel, err := client.connection.CreateDataChannel("request", nil)
+	if err != nil {
+		client.tb.Fatal(err)
+	}
+	begun := &Channel{closed: make(chan struct{}), answered: make(chan struct{})}
+	var closeOnce, answerOnce sync.Once
+	channel.OnClose(func() { closeOnce.Do(func() { close(begun.closed) }) })
+	channel.OnMessage(func(webrtc.DataChannelMessage) { answerOnce.Do(func() { close(begun.answered) }) })
+	channel.OnOpen(func() {
+		if isWhole {
+			send(client.tb, channel, head, nil)
+			return
+		}
+		encoded, encodeErr := json.Marshal(head)
+		if encodeErr == nil {
+			encodeErr = channel.SendText(string(encoded))
+		}
+		if encodeErr != nil {
+			client.tb.Error(encodeErr)
+		}
+	})
+	client.tb.Cleanup(func() { _ = channel.Close() }) //nolint:errcheck // the test is over
+	return begun
+}
+
+// Channel is a request Begin sent.
+type Channel struct {
+	closed, answered chan struct{}
+}
+
+// IsAnsweredWithin is whether the core began its answer within wait.
+func (channel *Channel) IsAnsweredWithin(wait time.Duration) bool {
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+	select {
+	case <-channel.answered:
+		return true
+	case <-timer.C:
+		return false
+	}
+}
+
+// IsClosedWithin is whether the core closed the channel within wait, without a word of answer.
+func (channel *Channel) IsClosedWithin(wait time.Duration) bool {
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+	select {
+	case <-channel.closed:
+		select {
+		case <-channel.answered:
+			return false
+		default:
+			return true
+		}
+	case <-timer.C:
+		return false
+	}
 }
 
 // Address is the client's own end of the candidate pair its connection selected, as the core sees

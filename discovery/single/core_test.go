@@ -56,7 +56,7 @@ func (files *memoryFiles) RemovePersistentFile(name string) error {
 // answering answers every offer as the core's WebRTC server would.
 type answering struct{}
 
-func (answering) Answer(_ context.Context, offer rtcapi.Description) (rtcapi.Description, error) {
+func (answering) AnswerRelayed(_ context.Context, offer rtcapi.Description) (rtcapi.Description, error) {
 	return rtcapi.Description{Type: "answer", SDP: "answer to " + offer.SDP}, nil
 }
 
