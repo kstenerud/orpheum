@@ -66,7 +66,12 @@ Which phase each step belongs to is [The order of work](#the-order-of-work). Ste
 **Partly built 2026-10-13 (Phase 1's A3, A7):** `instanceId` and the refusals' codes; signatures
 bound to the discovery and the core, `proof.Answer` and the answer's `signature`;
 `discovery/link`'s fragment and locate hash; `clientOrigin`; the identity key's fingerprint
-(`proof.Fingerprint`). The rest waits with what uses it (Phase 2's thin path).
+(`proof.Fingerprint`). **Then (Phase 2):** the version signal (`major.minor` in the header alone,
+`discoveryproto.Serves`; no body carries a version); `expiresIn`; `discoveryproto.IsPublic` and
+`AddressLabel` with their vectors; `DELETE /acme-challenge/{name}`; the probe's fields and
+`reachableFrom`'s values. The rest waits with what uses it: the signalling's several offers, proofs
+and heartbeat with K3; locators, locate hashes and the client API with K7 and W4b.4; the ACME
+account URI and CAA with K9.
 
 - **Changes.** `discovery/discoveryproto`: `SessionRequest` gains `instanceId`; `SessionResponse`
   carries `expiresIn` (seconds) in place of `expiresAt`; the body's `protocol` is dropped from the
