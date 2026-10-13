@@ -2,7 +2,7 @@
 > the paid service at app.orpheum-app.com (many cores) and an owner's own `orpheum discovery` (one
 > core). Moved here 2026-10-13 from the paid service's spec, which keeps billing, accounts, abuse
 > and its architecture. Revised the same day for the owner's rulings on three rounds of audits
-> (D290, D291, D292).
+> (D290, D291, D292) and on the questions they left open (D293).
 
 # The discovery protocol
 
@@ -41,6 +41,10 @@ discovery) and [webrtc-transport.md](plans/webrtc-transport.md) (the client's pa
    [D292](../decisions/working-notes.md#d292--the-third-audit-round-taken-no-admin-through-a-discovery-a-thin-path-first-two-machines-staging-inside-the-owners-own-names-the-household-zone-at-orpheum-corecom)
    (§8).
 
+The questions those rulings left open were answered the same day in
+[D293](../decisions/working-notes.md#d293--the-discoverys-open-questions-answered-a-live-instance-is-pinged-before-it-is-replaced-device-codes-through-the-service-sealed-by-hpke-on-p-256-in-the-beta-stagings-dns-token-in-the-sandbox-until-production)
+(§9).
+
 Where a report and a decision disagree, the decision holds; where the third round corrects the
 second, the third holds. A second- or third-round recommendation no decision names is marked
 **[I]** and cites its finding.
@@ -49,11 +53,12 @@ second, the third holds. A second- or third-round recommendation no decision nam
 recommendation not taken from a decision. **[V]** is a fact checked at its source, in
 [reachability-approaches-2026-10-09.md](research/reachability-approaches-2026-10-09.md) ("the
 research") or in the audit report its finding id names. **Built** says what exists today; **the
-code must change** marks where the code disagrees with a design that stands. **Owner** marks a
-question still the owner's (§9). **Deferred** marks what D292 §3 put after the closed beta. Finding
-ids (S5, X7, A1…) name the audit finding a rule answers; an item of a report's list of errors in
-our documents is cited by its report and number (*W errors 5*, *A corrections 9*), and "the A
-report" or "the W report" is the third-round security or second-round web report as a whole.
+code must change** marks where the code disagrees with a design that stands; no question is the
+owner's for the beta now (§9). **Deferred** marks what D292 §3 put after the closed beta and D293
+did not bring back. Finding ids (S5, X7, A1…) name the audit finding a rule answers; an item of a
+report's list of errors in our documents is cited by its report and number (*W errors 5*, *A
+corrections 9*), and "the A report" or "the W report" is the third-round security or second-round
+web report as a whole.
 
 **Words.** A **discovery** is either the paid service or an owner's own. Where the two differ the
 text says **paid** or **own**. A **core** is a household's Orpheum server; a **client** is a browser
@@ -91,9 +96,13 @@ TURN, ever"; X6). A relay, if one is built, would carry only DTLS whose fingerpr
 
 **Staging** has no domains or accounts of its own (D292 §2): its client and API are
 `app-staging.orpheum-app.com` and `api-staging.orpheum-app.com`, reached through a Cloudflare
-Tunnel whose token edits no DNS, and its cores sit under a subzone of `orpheum-core.com`. It uses
-Let's Encrypt's staging CA [I, devloop §7]. Only the owner's own cores enrol with it, and no
-credential able to touch production enters the agent's sandbox (D292 §2).
+Tunnel whose token edits no DNS, and its cores sit under `staging.orpheum-core.com` (D293 §3). It
+uses Let's Encrypt's staging CA [I, devloop §7]. Only the owner's own cores enrol with it, and no
+credential able to touch production enters the agent's sandbox (D292 §2), with one exception
+bounded by a date (D293 §3): a Cloudflare token cannot be scoped below a zone, so staging's zone
+writer holds a token for `orpheum-core.com` while the zone holds nothing of value; before the first
+production core enrols, staging's writes move behind the production zone writer, which accepts only
+staging's subzone from it, and the token is revoked.
 
 **What an outage stops** [I, from the availability research; N10]. Once a client has reached its
 core over an HTTPS path, the discovery's API can go down and playing goes on. Three things still
@@ -209,12 +218,11 @@ code audit's K13–K15, A3, closed before any signalling connection opens):
   is claimed;
 - `coreId` is 130 bits (§2.7).
 
-**The code must change:** `single`'s `enrol` replaces a pending core with any key that signs, its
-tokens are bound to no core, and its certificate record and signalling are open to a pending core.
-The paid service does not copy `single`'s session handling (A3). A refusal that means "enrol
-again" carries an error code of its own, which the core acts on: it re-enrols and shows the new
-code (C12; **the code must change**: the core treats the bare 403 as an ordinary failure and
-retries forever).
+Built in `single` (A3), but for the binding's `instanceId`, which a token is bound to through the
+live instance it was opened by (§2.3). The paid service does not copy `single`'s session handling
+(A3). A refusal the core acts on carries a `{code, message}` body of its own
+(`discoveryproto.Refusal`): `enrol_again`, on which the core re-enrols and shows the new code (C12),
+`another_instance` (§2.3) and `not_claimed`. Built, both sides.
 
 Enrolment is rate-limited per source site (an IPv4 address or an IPv6 /48, as D288 §6 keys device
 codes; N2 [I]), and only a claimed core gets names and a certificate (S13).
@@ -227,11 +235,18 @@ codes; N2 [I]), and only a claimed core gets names and a certificate (S13).
 no signature on every request.
 
 - **`instanceId`** is random, made at each start of the core, kept in memory and never backed up. A
-  discovery holds one live instance per `coreId` (D290 §18, C4); a second is refused with a named
-  error ("another server is running with this identity"), which both System pages show. When an
-  instance stops being live is **Owner** (§9; G9, T14, U2-12). The advice on a copy is *This is a
-  copy: turn off remote access here*, which forgets `discovery.json` on that machine, not a re-key,
-  which would move the household to the copy (U2-12) [I]. Not built.
+  discovery holds one live instance per `coreId` (D290 §18, C4). **A second instance pings the
+  first** (D293 §1, replacing "the newest wins", coherence decision 7, and waiting out missed
+  heartbeats, T14): when a core asks for a session with a new `instanceId` while another instance
+  holds a signalling connection for the same `coreId`, the discovery pings the old instance on that
+  connection and waits about 10 seconds. No answer, or no connection, and the newcomer replaces it;
+  an answer, and the newcomer is refused as another copy with a named error ("another server is
+  running with this identity"), which it shows in its log and on its System page, retrying every
+  few minutes. A crash-restart is accepted in seconds, a real second copy never displaces the one
+  serving, and a stolen key cannot knock a live core off. The advice on a copy is *This is a copy:
+  turn off remote access here*, which forgets `discovery.json` on that machine, not a re-key, which
+  would move the household to the copy (U2-12) [I]. Built in `single` and the core, but for the
+  advice on the System page.
 - **Expiry as a duration** (`expiresIn`, seconds), counted on the core's monotonic clock, so a core
   whose clock is wrong neither renews on every step nor sends expired tokens (C11). **The code must
   change:** the answer carries `expiresAt` (Unix ms), compared with the wall clock.
@@ -241,7 +256,7 @@ no signature on every request.
   signalling loop redials with its stale token, and three callers can renew at once.
 - **Tokens outlive a discovery's deploy** (C11): the paid service keeps them hashed in its database,
   so a deploy does not cut every core's signalling for a heartbeat's length. `single` keeps them in
-  memory and must prune them (**the code must change**: its token map is never pruned).
+  memory and prunes them as it checks one.
 
 ### 2.4 Heartbeat and addresses — built for interface and mapped candidates
 
@@ -325,7 +340,9 @@ nothing offline.
 ### 2.5 The signalling connection (D273 §7, §8) — built on the core, unchecked
 
 One WebSocket the core keeps open, `<discovery>/core/v1/signal`, with the session's token, for a
-claimed core only (§2.2). It carries WebRTC offers and answers, and the heartbeat (§2.4).
+claimed core only (§2.2). It carries WebRTC offers and answers, the heartbeat (§2.4), and the
+discovery's ping to the instance holding it when a second instance asks for a session (§2.3,
+D293 §1).
 
 **No core holds a signalling connection to any discovery until this section's checks and bounds
 are built** (D292 §4; A2). **The code must change:** as built the core answers every offer the
@@ -463,15 +480,19 @@ NAT measurement is built, punchable with endpoint-independent mapping or only fr
 spelt in snake_case, as the built values are]. **The code must change** for the fields and the
 values. As built, `single` publishes nothing and probes nothing (W4b.4).
 
+The answer also carries the count of the core's clients that reached a dead end in the last week
+(§3.6, D293 §7), for the System page. Not built.
+
 ### 2.7 Names and certificates (D273 §7, research B1, §9.2; D290 §7; D292 §1) — the core's side built
 
 - **The household zone is `orpheum-core.com`** (D292 §1, replacing the `.app` domain and Bunny DNS
   of D291 §2), registered and served at Cloudflare; staging's cores sit under a subzone of it (D292
-  §2). It is never `orpheum-app.com`: every core holds a certificate there and could otherwise set
-  cookies for the service's pages. The isolation is the separate registered domain; the HSTS
-  preload a `.app` domain gave is had by submitting `orpheum-core.com` to the preload list once its
-  apex answers over HTTPS with `max-age=31536000; includeSubDomains; preload` (D292 §1). No Public
-  Suffix List entry (D291 §4). DNSSEC on the zone [I: the bring-up plan's next step; written records
+  §2), `staging.orpheum-core.com` (D293 §3). It is never `orpheum-app.com`: every core holds a
+  certificate there and could otherwise set cookies for the service's pages. The isolation is the
+  separate registered domain. **The apex serves no HTTPS** (D293 §10, revising D292 §1's preload):
+  Universal SSL stays off, so the apex's CAA stays `issue ";"`, and the HSTS preload of
+  `orpheum-core.com` is not sought; each core's name sends its own HSTS. No Public Suffix List
+  entry (D291 §4). DNSSEC on the zone [I: the bring-up plan's next step; written records
   are signed as any record is].
 - **Names encode addresses** (Plex's shape): `<address>.<coreId>.<zone>`, the IPv4 address dashed
   (`192-168-1-20`) or the IPv6 address as eight dashed groups, lowercase, no zero padding and no
@@ -555,10 +576,11 @@ values. As built, `single` publishes nothing and probes nothing (W4b.4).
   but whose key no longer opens a session says so on System → Discovery and hides *Connect*, which
   would enrol a new core and strand every link (D290 §11, U6). A key file still present and refused
   means someone else holds the `coreId`: an alarm, not a routine re-key (A6 item 5) [I].
-- **In the beta, a lost key is re-keyed by hand**: the operator binds the new key to the `coreId`
-  after a call with the owner [I: coherence §4.1, since re-keying is deferred]. **Owner** (§9).
+- **In the beta, a lost key is re-keyed by hand** (D293 §5): the operator binds the new key to the
+  `coreId` after checking with the household (coherence §4.1).
 - **Two cores with one key** (a backup restored onto a second machine while the first runs) are
-  detected by `instanceId` and refused (§2.3, D290 §18, C4).
+  detected by `instanceId`: the live one answers the discovery's ping and the other is refused
+  (§2.3, D290 §18, D293 §1, C4).
 - **After a lapse** the `coreId` is retired for every other key but not for its own: the same key
   reclaims it on resubscribing, and the household keeps its links (D290 §11, U6).
 - **Disabling** (paid, abuse): records removed, signalling and enrolment refused, the connection
@@ -573,7 +595,8 @@ connection; the core with the new key makes a new ACME account and certificate, 
 certificate, deactivates the old account and reports the new one for CAA [I, T1, A14]. Recommended
 for then and not yet ruled [I, A6, T1, T5]: a rotation mailed and shown, not silent; a re-key by the
 recovery code, immediate; a mailbox-only recovery of seven days, cancelled by any authenticated
-contact from the old key during the wait, never shortened by a removal. **Owner** (§9).
+contact from the old key during the wait, never shortened by a removal. Recovery's design waits
+until it is built, after the beta (D293 §5; §9 item 3).
 
 ### 2.9 STUN
 
@@ -676,20 +699,23 @@ code.
   password sign-in where §3.7 allows admin. An admin entering a code for another admin confirms it,
   and the core logs who did it for whom (A11, code K10) [I]. **The code must change:** every pairing
   issues the whole role (`auth.go`, `issueSession`).
-- **Paid: deferred with HPKE** (D292 §3). In the beta no device is activated by a code through the
-  paid service; a television joins as the plans already allowed it to wait (coherence §3.2). The
-  design for then:
+- **Paid: in the closed beta, sealed by HPKE** (D293 §2, revising D292 §3's deferral). Not built;
+  the design:
   - the page names no core, so the **service issues the code**; the core of the signed-in person who
     enters it claims it from the service. The service limits asking for codes per source site and
     fairly across sources (S13);
-  - **the session is sealed to the device** (D290 §5, S3): the device makes an ephemeral X25519 key
-    pair, the core seals the outcome and the session to it with HPKE (RFC 9180), and the service
-    passes on only the sealed blob, which holds against a service that only relays (W2). Browsers
-    have X25519 from Chrome 133, Firefox 130 and Safari 18.4 **[V, F7, A corrections 10]**; the
-    minimum browser, or a library, is **Owner** (§9);
-  - **the person entering it sees where the device asking is** (D290 §5, S4), as a neutral line
-    ("The TV asking is near Berlin, on Telekom"), not a verdict, since "another network" fires on
-    the common case of a phone on mobile data (A11, U2-9) [I].
+  - **the session is sealed to the device** (D290 §5, S3) with HPKE (RFC 9180) using
+    **DHKEM(P-256, HKDF-SHA256)**, not X25519: P-256 has been in Web Crypto for a decade and
+    television browsers run old engines, so no minimum browser rises and no library is needed
+    (D293 §2). The device makes an ephemeral P-256 key pair; the core seals to it with Go's
+    `crypto/hpke`; the client opens the blob with Web Crypto, checked against RFC 9180's test
+    vectors. The sealed blob carries the session, the core's `coreId`, its identity key's
+    fingerprint and a device locator (§3.1), so nothing the device needs crosses the service
+    readable, which holds against a service that only relays (W2);
+  - **the page entering a code warns** "only enter a code shown on a screen in front of you"
+    (D293 §2). The line naming where the asking device is (D290 §5, S4: "The TV asking is near
+    Berlin, on Telekom", neutral rather than a verdict, A11, U2-9) waits until after the beta,
+    since it needs an IP-location database.
 
 ### 3.2 The paths
 
@@ -697,6 +723,7 @@ code.
 
 ```json
 {"coreId": "k7x…q2", "apiMajor": 1,
+ "state": "online", "clientPrefix": "2a0f:3000:…::/64",
  "paths": [
    {"kind": "lan",    "url": "https://192-168-1-20.k7x…q2.<zone>"},
    {"kind": "ipv6",   "url": "https://2a02-8070-0-0-0-0-0-1.k7x…q2.<zone>"},
@@ -708,6 +735,15 @@ code.
 
 `urls` is a list, as the code has it (`discoveryproto.ICEServer`). An entry with credentials is the
 owner's TURN (§2.4); there is no `owner` field (D290 §13).
+
+- **`state`** is the core's state as the discovery knows it (D293 §6), so a household member is
+  told the cause when it is the core's (§3.6): `online`, `offline` (with `"offlineSince"`, Unix
+  ms), `paused` for a lapse, or `restoring` [I: the spellings, from U7's causes]. The client shows
+  the dead-end message only for `online` (§3.6).
+- **`clientPrefix`** is the client's network prefix as the discovery sees it (D293 §8): the
+  request's source as an IPv6 /64, or an IPv4 address as a /32 [I: the lengths], taken behind
+  Cloudflare from `CF-Connecting-IP` (§2.4). It is the key under which the client remembers which
+  paths worked (§3.3 item 7). It names the client's own address back to it, nothing of the core's.
 
 **The `lan` path is returned only when the device seems to be at home** (D290 §2, U1, S11): the
 request's source shares the core's IPv6 /64, or equals the core's public IPv4 when that address was
@@ -761,9 +797,9 @@ best."* Then, on the audit (C5), how "best" is judged (D290 §2, D291 §3). So:
    network changes** (D290 §2): it uses the next path still known to work and races again in the
    background. It races again on the browser's `online` and network-change events and when the page
    becomes visible after a long hide (C5).
-7. **It remembers which paths worked, per network** (keyed on the client address prefix the
-   discovery reports), not globally (C5), so a later visit starts with them and survives the
-   discovery being down.
+7. **It remembers which paths worked, per network** (keyed on the `paths` answer's
+   `clientPrefix`, the client's network prefix as the discovery sees it, §3.2, D293 §8), not
+   globally (C5), so a later visit starts with them and survives the discovery being down.
 
 `SwitchableFetch`'s comment still states D273 §7's replaced rule (C5); it follows this section.
 
@@ -773,7 +809,11 @@ The page's origin is the discovery's; the core's are its names. So:
 
 - **CORS** for the configured client origins (a list, never a wildcard), no credentials mode,
   `Vary: Origin`, `null` never allowed, `Authorization` named in `Access-Control-Allow-Headers`
-  (the Fetch standard leaves it out of `*`) (S18; the W report's "What is sound").
+  (the Fetch standard leaves it out of `*`) (S18; the W report's "What is sound"). **The core
+  learns its discovery's client origin from the discovery** (D293 §4): `GET /status` carries it as
+  `clientOrigin`, accepted only as an `https` origin with no path, and shown on the System page. It
+  gives the discovery no power it lacks, since the discovery already serves the client's code. Not
+  built.
 - **Sign-in by header**, never a cookie, which would be a third-party cookie (the API already takes
   `Authorization: Bearer`).
 - **Byte paths by the header on every request** (hls.js's loader, `fetch` and blob URLs for images
@@ -862,9 +902,9 @@ in the beta (§1). The message is written for whoever reads it:
   browser says it: Wi-Fi, try mobile data; mobile data, try Wi-Fi (U2-7) [I].
 - **Not for every cause**: the message is shown only when the core is online and no path works.
   Household members are told the cause when it is the core's (D291 §6, U7): offline since a time,
-  paused for a lapse, being restored. Where the `paths` answer carries that state is **Owner** (§9;
-  U2-7). When Chrome's permission was denied and the device is at home, the page says so, with the
-  help page (D291 §6) [I, U2-7]. At home it offers the home address (§3.1).
+  paused for a lapse, being restored. The `paths` answer carries that state as `state` (§3.2,
+  D293 §6; U2-7). When Chrome's permission was denied and the device is at home, the page says so,
+  with the help page (D291 §6) [I, U2-7]. At home it offers the home address (§3.1).
 - **The admin**, on the System page, ahead of time from the probe: a public IPv4 from the ISP, or
   their own VPS as a `configured` address with its TURN (§2.4).
 - **A tester can send what happened**: a "copy what happened" on the page (the race's results per
@@ -873,6 +913,10 @@ in the beta (§1). The message is written for whoever reads it:
 - **The beta counts how often the message is shown**, by the client's kind of network, as an
   aggregate with no identifiers (D290 §12, D274 §3), so the owner sees the number before the paid
   launch.
+- **The service counts failed connections per core** (D293 §7): the client reports a dead end to
+  the discovery (§4's client API), which keeps a weekly count per core with no device identifier;
+  the core reads it with its heartbeat's answer (§2.6) and the System page shows how many clients
+  failed to connect last week (D290 §12, D291 §6's U3).
 
 ### 3.7 Who is trusted, and where admin is done (D292 §4; A1, T4, W2)
 
@@ -912,27 +956,28 @@ the core must act on (enrol again, another instance running) carries a code of i
 | --- | --- | --- |
 | `POST /challenge` | public key → nonce, for enrolling or a session; rate-limited | yes |
 | `POST /enrol` | public key + signed nonce → `coreId`, claim code, expiry; idempotent per key | yes, with a `protocol` field |
-| `POST /session` | `coreId` + `instanceId` + signed nonce → token bound to the core, `expiresIn` (1 h) | yes, without `instanceId`, with `expiresAt` |
-| `GET /status` | claimed?, account state, zone, protocol support, `iceServers`, messages for the admin | yes, but for the account state |
-| `PUT /addresses` | candidates, the owner's TURN → published names, probe results, `reachableFrom`; the heartbeat's fallback | yes |
+| `POST /session` | `coreId` + `instanceId` + signed nonce → token bound to the core, `expiresIn` (1 h) | yes, with `expiresAt` |
+| `GET /status` | claimed?, account state, zone, protocol support, `iceServers`, the client origin (`clientOrigin`, §3.4), messages for the admin | yes, but for the account state and the client origin |
+| `PUT /addresses` | candidates, the owner's TURN → published names, probe results, `reachableFrom`, last week's failed connections (§3.6); the heartbeat's fallback | yes, but for the count |
 | `GET /signal` (WebSocket) | offers (with proofs) in, answers (signed over the SDP) out; the heartbeat; pings | yes, without checks, signatures, heartbeat or pings |
 | `PUT /acme-challenge`, `DELETE /acme-challenge/{name}` | set or clear `_acme-challenge.<coreId>.<zone>`, claimed cores only; returns once served | yes, the clearing with a body |
 | the core's ACME account (§2.7) | the account URI, for CAA | no |
 | `PUT /locate-hashes` | the full set of live link-secret hashes, with lives and use policies | no |
 | `PUT /locators` | the full set of live device-locator hashes | no |
-| `DELETE /core` | leave; closes the connection and ends the tokens | yes, leaving them live |
+| `DELETE /core` | leave; closes the connection and ends the tokens | yes |
 | claim approval (§2.2) | the core's admin allows or refuses an account's claim | after the beta |
 | re-key (§2.8) | a new key's enrolment, countersigned by the old key | deferred |
-| paid device codes (§3.1) | the core claims a code the service issued, and passes back the sealed outcome | deferred |
+| paid device codes (§3.1) | the core claims a code the service issued, and passes back the outcome sealed by HPKE | no; in the beta (D293 §2) |
 
 ### Client (`<discovery>/client/v1`): a hash, code or locator the device holds; no account
 
 | Method, path | Purpose |
 | --- | --- |
 | `POST /locate` | link-secret hash → paths + a bootstrap token; by the hash's use policy |
-| `POST /paths` | locator or bootstrap token → current paths, ICE servers, the core's API major |
+| `POST /paths` | locator or bootstrap token → current paths, ICE servers, the core's API major, its `state`, the client's `clientPrefix` |
 | `POST /cores/{id}/offer` | locator + SDP offers (up to four), each with its proof → the core's answers, signed |
-| device codes (§3.1) | own: the core's `/pairings`, passed through (D288); paid: deferred |
+| device codes (§3.1) | own: the core's `/pairings`, passed through (D288); paid: issued by the service, the outcome sealed to the device (D293 §2) |
+| dead-end report (§3.6) | a locator or bootstrap token → counted for its core's week, with no device identifier (D293 §7) |
 
 An own discovery answers the same client API for its one core. None of the client API is built in
 `discovery/single`: it passes an offer to its core (`Discovery.Offer`) but serves no client calls.
@@ -1005,7 +1050,8 @@ later changed an item, it says so.
 2. **S4 items 2–4:** each core limiting how many codes it claims an hour; the device confirming the
    core's name before it takes its session; where the approximate place comes from (a geolocation
    database is a dependency, the owner's to approve when it is built). The narrower role became one
-   `device` scope for every code (D292 §4; §3.1). Paid codes are deferred (D292 §3).
+   `device` scope for every code (D292 §4; §3.1). Paid codes, deferred by D292 §3, are in the beta
+   (D293 §2); the place line waits until after it, since it needs an IP-location database.
 3. **S5 item 2:** two kinds of WebRTC connection, a signed-in client proving its session in the
    offer, and unproven ones limited to signing in, registering, pairing, joining Watch Together and
    device codes (G4), with a small quota and a short life (§2.5).
@@ -1020,8 +1066,9 @@ later changed an item, it says so.
 6. **S10:** the outside probe's limits (§2.6). **D291 §1:** the probe on a machine of its own,
    holding no secret but a token that can only post results; the spare holds the database. **D292
    §3:** the spare waits for the public launch.
-7. **S12 items 2, 4, 5:** a zone under an HSTS-preloaded TLD, now had by submitting
-   `orpheum-core.com` to the preload list (D292 §1); registry lock, hardware-key 2FA, DNSSEC and a
+7. **S12 items 2, 4, 5:** a zone under an HSTS-preloaded TLD, to be had by submitting
+   `orpheum-core.com` to the preload list (D292 §1), then not sought: the apex serves no HTTPS and
+   each core's name sends its own HSTS (D293 §10); registry lock, hardware-key 2FA, DNSSEC and a
    narrow API token. **D291 §4:** no PSL entry now.
 8. **S13 item 1:** a cap on published names per core, which matters again now that each name is a
    record (§2.7).
@@ -1077,8 +1124,8 @@ names. In this document:
   core by its code (§2.2); two production machines, `prod-api` serving the client and `prod-probe`
   (§1, §2.6, §2.9);
 - **deferred** (§3): mailbox recovery, re-keying (§2.8), CT watching, ARI and DNS-PERSIST-01 (§2.7),
-  the NAT measurement (§2.6), HPKE device codes (§3.1); the version window promised from the public
-  launch, a security floor from the first day (§5);
+  the NAT measurement (§2.6), HPKE device codes (§3.1; brought back into the beta by D293 §2); the
+  version window promised from the public launch, a security floor from the first day (§5);
 - security (§4): no admin through a discovery's client (§3.7); offers checked and bounded, and
   `single`'s K13–K15 closed, before any signalling connection opens (§2.2, §2.5); a recovery code
   sealing the identity key in scheduled backups (§2.1); an unsigned key change blocking (§3.5); the
@@ -1091,15 +1138,30 @@ names. In this document:
 
 ## 9. Still the owner's
 
-Questions no decision answers, which the documents now name in place:
+Questions no decision answered after the third round, each now answered by
+[D293](../decisions/working-notes.md#d293--the-discoverys-open-questions-answered-a-live-instance-is-pinged-before-it-is-replaced-device-codes-through-the-service-sealed-by-hpke-on-p-256-in-the-beta-stagings-dns-token-in-the-sandbox-until-production)
+or left until after the beta. None is open for the beta.
 
 1. **When an instance stops being live** (§2.3; G9, T14, U2-12): its signalling connection's
    closing, two missed heartbeats, or "the newest wins" in the beta (coherence decision 7).
+   *Answered* by D293 §1: a second instance makes the discovery ping the first on its signalling
+   connection and wait about 10 seconds; no answer, or no connection, and the newcomer replaces
+   it, an answer and the newcomer is refused as another copy (§2.3).
 2. **A lost key in the beta** (§2.8): the operator re-keying by hand, as coherence §4.1 proposes,
-   or nothing until re-keying is built.
+   or nothing until re-keying is built. *Answered* by D293 §5: the operator re-keys by hand, after
+   checking with the household.
 3. **Recovery when it is built** (§2.8): D290 §3's 72 hours, or the third round's seven days with an
-   automatic veto and a re-key by the recovery code (A6).
+   automatic veto and a re-key by the recovery code (A6). *After the beta* (D293 §5): it waits on
+   its own design, made when recovery is built.
 4. **Where the core's state reaches a household member** (§3.6): a `state` field in the `paths`
-   answer (U2-7), or another call.
+   answer (U2-7), or another call. *Answered* by D293 §6: a `state` field in the `paths` answer
+   (§3.2).
 5. **The minimum browser for paid device codes** (§3.1): Safari 18.4 for X25519, or a library (a
-   dependency) (the A report's decision 12).
+   dependency) (the A report's decision 12). *Answered* by D293 §2: HPKE with DHKEM(P-256,
+   HKDF-SHA256), which Web Crypto has had for a decade, so no minimum browser rises and no library
+   is needed; and paid device codes are in the beta.
+
+D293 also settled what the documents named in place without listing here: the core learning its
+client origin from `GET /status` (§3.4, §4), the service counting failed connections (§3.6), the
+`paths` answer carrying the client's network prefix (§3.2, §3.3 item 7), the zone's apex serving
+no HTTPS and no HSTS preload (§2.7), and staging's subzone and DNS token (§1).

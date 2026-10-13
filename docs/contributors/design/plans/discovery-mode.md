@@ -1,7 +1,7 @@
 > **ABOUTME:** W4b: `orpheum discovery`, the single-target discovery a self-hoster runs on a VPS
 > for their one core (D273 §3, D274 §5), built as public packages the closed multi-core service
 > imports (D275 §1). The steps, revised to the protocol as decided after three rounds of audits
-> (D290, D291, D292), and what waits on the owner.
+> (D290, D291, D292) and the questions they left (D293), and what waits on the owner.
 
 # W4b: the single-target discovery
 
@@ -55,7 +55,7 @@
 | Step | What | State |
 | --- | --- | --- |
 | W4b.1 | The public tree: `discovery/discoveryproto` (moved from `internal/discoveryproto`) and `discovery/proof`, the core signing with it; the architecture tests that load `cmd/...` and `internal/...` load `discovery/...` too, and `TestArch_PublicPackagesImportNothingInternal` holds the tree free of `internal/` | BUILT 2026-10-11 |
-| W4b.2 | `discovery/single`, the core-facing protocol for one core against the core's real client (`internal/core/discovery`); the state in one file | the package BUILT 2026-10-11 (with `discovery/safe32code` moved out of `internal/core/auth`): enrolment, claiming (`single.Claim`), sessions, status, heartbeat, the certificate's record through a DNS provider when given one, leaving, the core's signalling; nonces carrying their own expiry and MAC since an earlier commit (D290 §15). Its takeover flaws, code K13–K15, are open (A3). The command moved to W4b.8 |
+| W4b.2 | `discovery/single`, the core-facing protocol for one core against the core's real client (`internal/core/discovery`); the state in one file | the package BUILT 2026-10-11 (with `discovery/safe32code` moved out of `internal/core/auth`): enrolment, claiming (`single.Claim`), sessions, status, heartbeat, the certificate's record through a DNS provider when given one, leaving, the core's signalling; nonces carrying their own expiry and MAC since an earlier commit (D290 §15). Its takeover flaws, code K13–K15, closed 2026-10-13 (A3; W4b.7). The command moved to W4b.8 |
 | W4b.7 | `single` brought to the revised protocol, its takeover flaws closed, and the conformance suite (below) | Phase 1, first of the remaining steps, with discovery-core.md's K1 |
 | W4b.4 | The client-facing protocol: locate, paths and offer for the one core (below) | Phase 2 |
 | W4b.6 | An end-to-end test: a core, its discovery and a browser, the browser reaching the core through the discovery (below); then the owner's real run (W5) | Phase 2 |
@@ -70,33 +70,36 @@ protocol's §2.6 cites W4b.4).
 
 Changes in `discovery/single`, landing with [discovery-core.md](discovery-core.md) K1, since the
 core's tests run against it. **First, the takeover flaws** (D292 §4: closed before any signalling
-connection opens; A3, code K13–K15, T13):
+connection opens; A3, code K13–K15, T13). **Built 2026-10-13**, with the refusals the core acts on
+(`discoveryproto.Refusal`: `enrol_again`, `another_instance`, `not_claimed`), the ping rule and
+leaving below; the instance is bound through the live instance a token was opened by:
 
 - **Tokens bound to the core**: each session token stored with `(coreId, public key, instanceId)`
   and checked against the record's core on every call; every token dropped when the record's core
   changes; signalling accepted only for the claimed core's token (protocol §2.2). Today the token
-  map holds only an expiry and `accept` replaces the connection for any valid token.
+  map held only an expiry and `accept` replaced the connection for any valid token.
 - **A stranger cannot displace a pending core**: while a pending core's code is live, another key's
   enrolment is refused with 409, and the pending core is replaced only once its code expired;
-  today `enrol` replaces a pending core with any key that signs (protocol §2.2, C12, S18). A
+  `enrol` replaced a pending core with any key that signed (protocol §2.2, C12, S18). A
   refusal that means "enrol again" carries its error code (K1).
 - **Nothing before claiming**: `PUT /acme-challenge`, `PUT /addresses` and the signalling
-  connection refused until the core is claimed; today `acmeChallenge` checks only the name.
+  connection refused until the core is claimed; `acmeChallenge` checked only the name.
 - **A 130-bit `coreId`**: 26 safe32 characters, random, never reused for another key; `coreIDChars`
-  makes 8 (protocol §2.7, D290 §13).
+  made 8 (protocol §2.7, D290 §13).
 
 Then the rest of the revised protocol:
 
-- **Sessions**: `expiresIn`; one live `instanceId` per core, a second refused by the named error
-  (protocol §2.3, D290 §18, C4; when an instance stops being live is discovery-core.md's
-  question 4); the token map pruned of expired tokens, and enrolments bounded per source site
-  (C11, code K17).
+- **Sessions**: `expiresIn`; one live `instanceId` per core (protocol §2.3, D290 §18, C4). **A
+  second instance pings the first** (D293 §1): `single` pings the old instance on its signalling
+  connection and waits about 10 seconds; no answer, or no connection, and the newcomer replaces it;
+  an answer, and the newcomer is refused by the named error. The token map pruned of expired tokens
+  (built 2026-10-13, with the ping rule), and enrolments bounded per source site (C11, code K17).
 - **The record written atomically**: a temporary file at 0600, synced, renamed over the record, so
   a crash mid-write leaves it readable (code K18) [I].
 - **Liveness by the signalling connection**: a core whose connection closed is offline at once, and
   one with none and no heartbeat for 30 minutes too (protocol §2.4, C16).
 - **Leaving closes the signalling connection and ends the tokens** at once (protocol §2.5, §2.8,
-  C4); so does revocation.
+  C4; built 2026-10-13); so does revocation.
 - **One version signal**: the header's `major.minor`, any minor of major 1 accepted, `/signal`
   checking it too, no version in the enrolment's body (protocol §5, C13, X11).
 - **The TXT record cleared by its path** (protocol §2.7, C16), its value checked to be a
@@ -111,10 +114,11 @@ Then the rest of the revised protocol:
 - **Deferred** (D292 §3): the re-key, rotation and recovery by the command (protocol §2.8).
 
 **Tests.** A stale token from a replaced core is refused on every call and on the signalling
-connection; the owner's pending core is never shown another key's code; a pending core's
-`acme-challenge`, addresses and signalling are refused; a second key's enrolment is refused while
-the pending core's code lives, and accepted after it expired. A core's id is 26 characters. An
-expired token is pruned. A closed signalling connection marks the core offline. After
+connection; the owner's pending core is never shown another key's code; a second instance is
+accepted when the first is silent or unconnected and refused while the first answers its ping; a
+pending core's `acme-challenge`, addresses and signalling are refused; a second key's enrolment is
+refused while the pending core's code lives, and accepted after it expired. A core's id is 26
+characters. An expired token is pruned. A closed signalling connection marks the core offline. After
 `DELETE /core` its token is refused and its connection closed. A header of `1.3` is accepted and
 `2.0` refused with the versions accepted. A record interrupted mid-write still loads. The existing
 `TestEnrol_HoldsOneCoreAndRefusesAnotherWhileItIsClaimed` and
@@ -127,9 +131,13 @@ expired token is pruned. A closed signalling connection marks the core offline. 
 - `POST /client/v1/locate`: a link's hash, checked against the set the core registered with its
   use policy (`PUT /locate-hashes`), answers the paths and a bootstrap token, usable for its
   minutes and never renewed (protocol §3.1, C3, X10).
-- `POST /client/v1/paths`: a locator or a bootstrap token answers the paths, the ICE servers and the
-  core's API major; the `lan` path only when the device seems to be at home (protocol §3.2, D290
-  §2), never on a match with a shared IPv4 (G5).
+- `POST /client/v1/paths`: a locator or a bootstrap token answers the paths, the ICE servers, the
+  core's API major, its `state` (D293 §6) and the client's `clientPrefix` (D293 §8); the `lan` path
+  only when the device seems to be at home (protocol §3.2, D290 §2), never on a match with a shared
+  IPv4 (G5).
+- The dead-end report, counted weekly per core with no device identifier and returned in the
+  heartbeat's answer (protocol §3.6, D293 §7); `GET /status`'s `clientOrigin`, the owner's domain
+  (protocol §3.4, D293 §4).
 - `POST /client/v1/cores/{id}/offer`: up to four offers, each with its proof, passed to the core
   over its signalling connection with the locator's hash, the signed answers returned (protocol
   §2.5).
@@ -224,4 +232,6 @@ The questions of 2026-10-11, marked where D289–D292 or the protocol now answer
    own discovery may be unable to tell the core's mapping, and `reachableFrom` says less. Is that
    accepted for an own discovery?
 8. **The instance rule's corner** is the same as discovery-core.md's question 4: when a restarted
-   core's new `instanceId` is accepted while its old token lives.
+   core's new `instanceId` is accepted while its old token lives. *Answered* by D293 §1: the
+   discovery pings the old instance and waits about 10 seconds; no answer, or no connection, and the
+   new one replaces it at once (W4b.7).

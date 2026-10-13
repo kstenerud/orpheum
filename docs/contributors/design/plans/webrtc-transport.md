@@ -98,8 +98,9 @@ through `index.ts`, so revert-red's related set stays small, devloop §2) and
 6. **Move again only on failure or a network change**: a request error, or two timeouts in a row,
    uses the next path still known to work and races again behind; `online`, network-change events
    and a page shown after a long hide race again (§3.3 item 6).
-7. **Remember which paths worked, per network** (§3.3 item 7), so a later visit starts with them and
-   survives the discovery being down. When nothing answers and the device seems to be at home, the
+7. **Remember which paths worked, per network** (§3.3 item 7), keyed on the `paths` answer's
+   `clientPrefix` (protocol §3.2; D293 §8), so a later visit starts with them and survives the
+   discovery being down. When nothing answers and the device seems to be at home, the
    page offers the core's home address as a link that leaves the discovery's origin, not as a path
    it races (protocol §3.1; D292 §6, replacing the last good LAN address).
 8. A line explaining Chrome's prompt before the LAN name is tried, and a help page for undoing a
@@ -218,8 +219,11 @@ coherence §5.3):
   `updateViaCache: "none"`, their hashes published (W2) [I]. These stop a CDN or cache swap and make
   tampering visible, not a compromised service (protocol §3.4). One build per supported core API
   major (D289 §4).
-- **Device codes** on the paid tier: the device's side of discovery-core.md K15, deferred with HPKE
-  (D292 §3).
+- **Device codes** on the paid tier, in the beta (D293 §2, revising D292 §3's deferral): the
+  device's side of discovery-core.md K15: its ephemeral P-256 key made, and the blob opened by HPKE
+  (DHKEM(P-256, HKDF-SHA256)) on Web Crypto's own P-256 and HKDF, no library, checked against RFC
+  9180's vectors; the page entering a code warns "only enter a code shown on a screen in front of
+  you".
 
 **Tests.** Component and SDK tests: each link page locates on a click and not on load, and refuses
 a link whose fingerprint fails; the no-core page offers its ways; a cross-origin API client sends
@@ -248,7 +252,9 @@ use the same credentials.
 ## Questions the plans raise
 
 1. **Which connection a restart restarts** (W2d): discovery-core.md's question 7.
-2. **The key remembered paths are kept under** (W2c): discovery-core.md's question 12.
-3. **Counting WebRTC's failures in the beta** (W5): discovery-core.md's question 9.
+2. **The key remembered paths are kept under** (W2c): discovery-core.md's question 12. *Answered*
+   by D293 §8: the `paths` answer's `clientPrefix`.
+3. **Counting WebRTC's failures in the beta** (W5): discovery-core.md's question 9. *Answered* by
+   D293 §7: the client reports a dead end to the discovery, which counts per core per week.
 
 A first visit over WebRTC alone (W2f) is answered: the link's fingerprint (D292 §4).
