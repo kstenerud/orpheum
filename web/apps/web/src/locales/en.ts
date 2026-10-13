@@ -452,11 +452,11 @@ export const en = {
     },
     backups: {
       heading: "Backups",
-      what: "A backup keeps everything that cannot be made again: the database, with what everyone watched and chose, and the server's settings. The media is not in it. The server makes one on its own each day, without the secret key, and keeps the newest; the backup settings say when and how many.",
+      what: "A backup keeps everything that cannot be made again: the database, with what everyone watched and chose, and the server's settings. The media is not in it. The server makes one on its own each day, without the server's keys, and keeps the newest; the backup settings say when and how many.",
       asked: "A backup is on its way: the jobs list shows it, and it appears here once it is made.",
-      includeKey: "Put the secret key in it, to move the server to another machine",
+      includeKey: "Put the server's keys in it, to move the server to another machine",
       includeKeyWarning:
-        "Whoever has a backup with the key can read the passwords and keys kept on the server. Keep it somewhere safe.",
+        "Whoever has a backup with the keys can read the passwords kept on the server and pass for the server itself. Keep it somewhere safe.",
       make: "Back up now",
       where:
         "Backups are kept in {{directory}} on the server's machine. A backup on the same disk does not survive that disk: copy them elsewhere.",

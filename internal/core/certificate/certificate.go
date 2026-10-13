@@ -40,6 +40,18 @@ const (
 	accountKeyFile  = "acme-account-key.pem"
 )
 
+// DiscoveryFilePrefix keeps the certificate of the core's names under its discovery apart from the
+// owner's own name's.
+const DiscoveryFilePrefix = "discovery-"
+
+// PrivateFileNames are the files holding the certificates' private keys and the ACME account's key,
+// in the persistent directory: whoever holds them can serve the core's names and renew them as the
+// core, so a scheduled backup leaves them out, as it does secret.key (D289 §2; the second audit's
+// T1). Without them, the core is issued a new certificate at its next start.
+func PrivateFileNames() []string {
+	return []string{keyFile, DiscoveryFilePrefix + keyFile, accountKeyFile}
+}
+
 // wildcardPrefix begins a name that stands for every name one label under it (RFC 6125 §6.4.3).
 const wildcardPrefix = "*."
 

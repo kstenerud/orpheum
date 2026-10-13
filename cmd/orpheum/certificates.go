@@ -15,10 +15,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 )
 
-// discoveryFilePrefix keeps the certificate of the core's names under its discovery apart from the
-// owner's own name's.
-const discoveryFilePrefix = "discovery-"
-
 // servedCertificates are the certificates HTTPS serves: the owner's own name's (https.domain,
 // D243 §6), and the wildcard of the core's names under its discovery's zone, once the discovery has
 // claimed the core (D273). A browser is served the one for the name it asks for.
@@ -58,7 +54,7 @@ func (served *servedCertificates) useDiscoveryName(name string) error {
 		return nil
 	}
 	parts := served.discoveryParts
-	parts.Domain, parts.FilePrefix = name, discoveryFilePrefix
+	parts.Domain, parts.FilePrefix = name, certificate.DiscoveryFilePrefix
 	service, err := certificate.New(parts)
 	if err != nil {
 		return err
