@@ -66,8 +66,6 @@ work one interrupted run away from being lost.
 from __future__ import annotations
 
 import argparse
-import contextlib
-import fcntl
 import functools
 import os
 import re
@@ -75,6 +73,7 @@ import queue
 import subprocess
 import sys
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
@@ -82,10 +81,12 @@ from pathlib import Path
 import revert_red_reruns as reruns
 from revert_red_report import failure_advice, report
 from revert_red_cosmetic import GO_SOURCE, PY_SOURCE, is_cosmetic
-from revert_red_trees import link_installed_packages
+from revert_red_trees import hold_probe_trees, link_installed_packages, probe_trees  # noqa: F401 (tests reach them here)
 from revert_red_units import MIGRATION_STEP, companions, query_source, restore, revert_companion
 from revert_red_unreachable import is_unreachable_removal
 from revert_red_web import added_file_scope
+from revert_red_timings import EVERY_STYLESHEET, Timings, kind_of, timed
+from revert_red_timings import keep as keep_timings, summary as timings_summary
 
 # A commit whose type claims a behaviour change owes a red-on-revert.
 BEHAVIOR_TYPES = frozenset({"feat", "fix", "perf"})
@@ -521,11 +522,10 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
             # size within a second would run the stale cache, so the probes write none.
             env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1", **(attempt.env or {})}
             # One browser tier at a time: each starts a server and three browsers.
-            with BROWSER_TIER_LOCK if "browser-tier" in attempt.command else contextlib.nullcontext():
-                done = subprocess.run(
-                    attempt.command, cwd=tree, capture_output=True, text=True, timeout=timeout,
-                    check=False, env=env,
-                )
+            done = timed(TIMINGS, change.path, kind_of(attempt.command, attempt.label, attempt.env),
+                         BROWSER_TIER_LOCK if "browser-tier" in attempt.command else None,
+                         functools.partial(subprocess.run, attempt.command, cwd=tree, capture_output=True,
+                                           text=True, timeout=timeout, check=False, env=env))
             if done.returncode == 0:
                 continue
             if done.returncode == RUNNER_MISSING:
@@ -567,10 +567,12 @@ def stylesheets_together(tree: str, base: str, head: str, changes: list[Change],
                 (Path(tree) / change.path).unlink(missing_ok=True)
             elif _git("checkout", base, "--", change.path, cwd=tree).returncode != 0:
                 return {}
-        with BROWSER_TIER_LOCK:
-            done = subprocess.run(command or browser_tier_command(), cwd=tree, capture_output=True,
-                                  text=True, timeout=timeout, check=False,
-                                  env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
+        asked = time.monotonic()
+        done = timed(TIMINGS, EVERY_STYLESHEET, "browser tier", BROWSER_TIER_LOCK,
+                     functools.partial(subprocess.run, command or browser_tier_command(), cwd=tree,
+                                       capture_output=True, text=True, timeout=timeout, check=False,
+                                       env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}))
+        TIMINGS.note_probe(EVERY_STYLESHEET, time.monotonic() - asked)
     except subprocess.TimeoutExpired:
         return {}
     finally:
@@ -592,55 +594,7 @@ def stylesheets_together(tree: str, base: str, head: str, changes: list[Change],
 
 
 BROWSER_TIER_LOCK = threading.Lock()
-
-
-@contextlib.contextmanager
-def hold_probe_trees():
-    """The kept trees are shared by every worktree of the repository, so two runs at once (two
-    agents' worktrees, or a hook beside a manual run) would reset each other's trees mid-probe.
-    A run holds this lock on the git common directory for as long as it uses them."""
-    common = Path(_git("rev-parse", "--path-format=absolute", "--git-common-dir").stdout.strip())
-    (common / "revert-red").mkdir(exist_ok=True)
-    with open(common / "revert-red" / "lock", "w", encoding="utf-8") as lock:
-        try:
-            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            print("Another revert-red run is using the probe trees; waiting for it to finish.", flush=True)
-            fcntl.flock(lock, fcntl.LOCK_EX)
-        yield
-
-
-def probe_trees(head: str, count: int) -> list[str]:
-    """`count` worktrees to probe in, at fixed paths inside the repository's git directory, made
-    once and kept: a Go build or test cached in one is found again next run, which a fresh path
-    would miss. Each is set back to `head` and cleaned of untracked files, keeping the ignored
-    ones (the linked node_modules).
-
-    `head` is resolved to a commit here, in the working tree: a ref such as HEAD names a
-    different commit inside each kept tree (the one it was last set to), so passing it through
-    would set every tree back to where it already was and probe a stale copy of the code."""
-    resolved = _git("rev-parse", "--verify", "--quiet", f"{head}^{{commit}}")
-    if resolved.returncode != 0:
-        raise RuntimeError(f"{head!r} is not a commit this repository can resolve")
-    head = resolved.stdout.strip()
-    common = Path(_git("rev-parse", "--path-format=absolute", "--git-common-dir").stdout.strip())
-    source = Path(_git("rev-parse", "--show-toplevel").stdout.strip())
-    trees = []
-    for index in range(count):
-        tree = common / "revert-red" / f"wt-{index}"
-        if (tree / ".git").exists():
-            reset = _git("checkout", "--detach", "--force", head, cwd=str(tree))
-            cleaned = _git("clean", "-fdq", cwd=str(tree))
-            if reset.returncode != 0 or cleaned.returncode != 0:
-                raise RuntimeError(f"could not reset {tree}: {reset.stderr}{cleaned.stderr}")
-        else:
-            _git("worktree", "prune")
-            added = _git("worktree", "add", "--detach", str(tree), head)
-            if added.returncode != 0:
-                raise RuntimeError(f"could not make {tree}: {added.stderr}")
-            link_installed_packages(source, tree)
-        trees.append(str(tree))
-    return trees
+TIMINGS = Timings()  # every probe's runs and how long they took (revert_red_timings)
 
 
 def why_not_probed(base: str, head: str, path: str, changes: list[Change]) -> str:
@@ -759,9 +713,11 @@ def probe_all(base: str, head: str, owed: list[Change], exempt: int, jobs: int, 
 
     def probe_in_a_free_tree(change: Change) -> Outcome:
         tree = free.get()
+        started = time.monotonic()
         try:
             return probe(tree, base, head, change, timeout)
         finally:
+            TIMINGS.note_probe(change.path, time.monotonic() - started)
             free.put(tree)
 
     def stylesheets_in_a_free_tree() -> dict[str, Outcome]:
@@ -771,6 +727,8 @@ def probe_all(base: str, head: str, owed: list[Change], exempt: int, jobs: int, 
         finally:
             free.put(tree)
 
+    TIMINGS.clear()
+    started = time.monotonic()
     with ThreadPoolExecutor(max_workers=len(trees)) as pool:
         together = pool.submit(stylesheets_in_a_free_tree)
         outcomes = list(pool.map(probe_in_a_free_tree, [c for c in owed if not is_stylesheet(c)]))
@@ -788,6 +746,9 @@ def probe_all(base: str, head: str, owed: list[Change], exempt: int, jobs: int, 
     else:
         print(f"Reverted {len(owed)} of the {len(wanted)} file(s) named.")
     print(report(outcomes))
+    wall_seconds = time.monotonic() - started
+    keep_timings(TIMINGS, base, head, wall_seconds, len(trees))
+    print(timings_summary(TIMINGS, wall_seconds, len(trees)))
 
     failures = [o for o in outcomes if o.is_failure]
     if not failures:
