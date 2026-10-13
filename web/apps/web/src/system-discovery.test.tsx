@@ -18,6 +18,7 @@ afterEach(() => {
 
 const none = {
   baseUrl: "",
+  fingerprint: "",
   published: [],
   probe: [],
   claimExpiresAt: 0,
@@ -71,6 +72,8 @@ it("says where a claimed server is reached from, and warns of the discovery's de
         reachableFrom: "ipv6_or_webrtc",
         published: ["k7xq2.orpheum-core.com"],
         deprecatedUntil: "2027-03-01",
+        clientOrigin: "https://app.orpheum-app.com",
+        fingerprint: "Zmh6rfhivXdsj8GLjp-OIAiXFIVu4jOzkCpZHQ1fKSU",
         webrtcPaths: [
           { path: "direct_ipv6", count: 0 },
           { path: "punched_ipv4", count: 3 },
@@ -98,6 +101,9 @@ it("says where a claimed server is reached from, and warns of the discovery's de
   expect(text).toContain("Clients with IPv6 reach it directly; the rest connect over WebRTC.");
   expect(text).toContain("Published as k7xq2.orpheum-core.com.");
   expect(text).toContain("stops speaking this server's protocol on 2027-03-01");
+  // Where its links open, and the fingerprint they carry (D293 §4; the protocol's §3.1).
+  expect(text).toContain("Links to this server open at https://app.orpheum-app.com.");
+  expect(text).toContain("fingerprint is Zmh6rfhivXdsj8GLjp-OIAiXFIVu4jOzkCpZHQ1fKSU");
   expect(text).toContain("[2a0f:1000:1::20]:443 reaches [2a0f:1000:1::20]:443, by UPnP.");
   expect(text).toContain("pcp: the router at 192.168.1.1:5351 did not answer");
   expect(text).toContain("through the router's NAT over IPv4: 3");

@@ -67,8 +67,11 @@ func (files *memoryFiles) RemovePersistentFile(name string) error {
 // fakeDiscovery speaks the discovery's side of the protocol, checking every signature, and keeps
 // what the core sent.
 type fakeDiscovery struct {
-	t     *testing.T
-	mutex sync.Mutex
+	t *testing.T
+	// baseURL is where the core calls it, which the core's signatures are bound to; clientOrigin is
+	// where it says it serves its client.
+	baseURL, clientOrigin string
+	mutex                 sync.Mutex
 	// Guarded by mutex:
 	nonces       map[string]bool
 	publicKey    ed25519.PublicKey
@@ -105,6 +108,7 @@ func startDiscovery(t *testing.T) (*fakeDiscovery, *httptest.Server) {
 	}
 	server := httptest.NewServer(fake)
 	t.Cleanup(server.Close)
+	fake.baseURL = server.URL
 	return fake, server
 }
 
@@ -131,7 +135,8 @@ func (fake *fakeDiscovery) ServeHTTP(writer http.ResponseWriter, request *http.R
 	case "POST /enrol":
 		var enrol discoveryproto.EnrolRequest
 		fake.read(request, &enrol)
-		if !fake.signedFresh(enrol.PublicKey, discoveryproto.PurposeEnrol, enrol.Nonce, enrol.Signature) {
+		if !fake.signedFresh(enrol.PublicKey, discoveryproto.PurposeEnrol, proof.KeyLabel(enrol.PublicKey),
+			enrol.Nonce, enrol.Signature) {
 			http.Error(writer, "bad signature", http.StatusForbidden)
 			return
 		}
@@ -142,7 +147,8 @@ func (fake *fakeDiscovery) ServeHTTP(writer http.ResponseWriter, request *http.R
 		var opened discoveryproto.SessionRequest
 		fake.read(request, &opened)
 		if opened.CoreID != fakeCoreID ||
-			!fake.signedFresh(fake.publicKey, discoveryproto.PurposeSession, opened.Nonce, opened.Signature) {
+			!fake.signedFresh(fake.publicKey, discoveryproto.PurposeSession, fakeCoreID, opened.Nonce,
+				opened.Signature) {
 			http.Error(writer, "bad signature", http.StatusForbidden)
 			return
 		}
@@ -171,6 +177,7 @@ func (fake *fakeDiscovery) serveSigned(writer http.ResponseWriter, request *http
 	case "GET /status":
 		fake.answer(writer, discoveryproto.StatusResponse{
 			State: fake.state, Zone: fakeZone, ICEServers: []discoveryproto.ICEServer{{URLs: []string{fakeSTUN}}},
+			ClientOrigin: fake.clientOrigin,
 		})
 	case "PUT /addresses":
 		var heartbeat discoveryproto.AddressesRequest
@@ -201,13 +208,15 @@ func (fake *fakeDiscovery) serveSigned(writer http.ResponseWriter, request *http
 }
 
 // signedFresh reports whether signature is publicKey's over a nonce the discovery issued and no call
-// has used, for purpose.
-func (fake *fakeDiscovery) signedFresh(publicKey ed25519.PublicKey, purpose, nonce string, signature []byte) bool {
+// has used, for purpose, bound to this discovery and core.
+func (fake *fakeDiscovery) signedFresh(
+	publicKey ed25519.PublicKey, purpose, core, nonce string, signature []byte,
+) bool {
 	if !fake.nonces[nonce] || len(publicKey) != ed25519.PublicKeySize {
 		return false
 	}
 	delete(fake.nonces, nonce)
-	return proof.Verify(publicKey, purpose, nonce, signature)
+	return proof.Verify(publicKey, purpose, fake.baseURL, core, nonce, signature)
 }
 
 func (fake *fakeDiscovery) read(request *http.Request, into any) {
@@ -469,7 +478,7 @@ func TestSignal_AClaimedCoreAnswersTheOffersItsDiscoveryPassesOn(t *testing.T) {
 		cancel()
 		testutil.Receive(t, done, "the signalling loop to end")
 	})
-	for index, offer := range []string{"offer one", "offer two"} {
+	for index, offer := range []string{"offer one\r\na=fingerprint:sha-256 AB:CD", "offer two"} {
 		built.fake.signals <- discoveryproto.SignalMessage{
 			Type:    discoveryproto.SignalOffer,
 			OfferID: fmt.Sprint(index), SDP: offer,
@@ -478,8 +487,13 @@ func TestSignal_AClaimedCoreAnswersTheOffersItsDiscoveryPassesOn(t *testing.T) {
 	answered := testutil.Receive(t, built.fake.replies, "the core's answer")
 	refused := testutil.Receive(t, built.fake.replies, "the core's refusal")
 	if answered.Type != discoveryproto.SignalAnswer || answered.OfferID != "0" ||
-		answered.SDP != "answer to offer one" {
+		answered.SDP != "answer to offer one\r\na=fingerprint:sha-256 AB:CD" {
 		t.Errorf("the first offer was answered %+v; want its answer, under its id", answered)
+	}
+	// The answer is signed over its exact SDP, the offer and the offer's fingerprint (§2.5 item 4).
+	signed := proof.Answer{CoreID: fakeCoreID, OfferID: "0", OfferFingerprint: "sha-256 AB:CD", SDP: answered.SDP}
+	if !proof.VerifyAnswer(built.key.Public(), signed, answered.Signature) {
+		t.Error("the answer's signature does not verify over its SDP, its offer and the offer's fingerprint")
 	}
 	if refused.Type != discoveryproto.SignalRefusal || refused.OfferID != "1" ||
 		!strings.Contains(refused.Reason, "as many connections") {
@@ -647,5 +661,31 @@ func TestStep_EnrolsAgainWhenTheDiscoveryNoLongerHoldsTheCore(t *testing.T) {
 	if built.fake.enrolCount != 2 || status.State != discoveryproto.StatePending || status.ClaimCode == "" {
 		t.Errorf("after the refusal: %d enrolments, status %+v; want a second, pending with its code",
 			built.fake.enrolCount, status)
+	}
+}
+
+// The core takes the client origin its discovery names only as an https origin, its links leading
+// nowhere else (D293 §4).
+func TestStep_KeepsTheClientOriginTheDiscoveryNamesWhenItIsAnHTTPSOrigin(t *testing.T) {
+	t.Parallel()
+	for named, want := range map[string]string{
+		"https://App.Orpheum-App.com": "https://app.orpheum-app.com",
+		"https://app.example:8443/":   "https://app.example:8443",
+		"http://app.example":          "",
+		"https://app.example/path":    "",
+		"https://user@app.example":    "",
+		"https://app.example?x=1":     "",
+		"javascript:alert(1)":         "",
+		"":                            "",
+	} {
+		built := newWorld(t)
+		built.fake.clientOrigin = named
+		if _, err := built.service.Connect(t.Context(), built.baseURL); err != nil {
+			t.Fatal(err)
+		}
+		built.service.step(t.Context())
+		if got := built.service.Status().ClientOrigin; got != want {
+			t.Errorf("named %q, the core keeps %q; want %q", named, got, want)
+		}
 	}
 }

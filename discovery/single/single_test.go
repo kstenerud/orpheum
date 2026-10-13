@@ -26,8 +26,12 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// testZone is the owner's zone in the tests.
-const testZone = "home.example"
+// testZone is the owner's zone in the tests, and testBaseURL the address cores call the discovery at,
+// which their signatures are bound to.
+const (
+	testZone    = "home.example"
+	testBaseURL = "https://discovery.home.example/core/v1"
+)
 
 // stage is a discovery behind an HTTP server, on a clock the test moves.
 type stage struct {
@@ -42,8 +46,8 @@ func newStage(t *testing.T) *stage {
 	t.Helper()
 	built := &stage{now: time.Date(2026, 10, 11, 20, 0, 0, 0, time.UTC), logs: &testutil.Log{}}
 	held, err := New(Parts{
-		Logger: slog.New(slog.NewTextHandler(built.logs, nil)),
-		Zone:   testZone, Store: FileStore{Path: filepath.Join(t.TempDir(), "discovery.json")},
+		Logger:  slog.New(slog.NewTextHandler(built.logs, nil)),
+		BaseURL: testBaseURL, Zone: testZone, Store: FileStore{Path: filepath.Join(t.TempDir(), "discovery.json")},
 		Now: built.clock, Random: rand.Reader,
 		ICEServers: []discoveryproto.ICEServer{{URLs: []string{"stun:" + testZone + ":3478"}}},
 	})
@@ -104,6 +108,11 @@ type key struct {
 	private ed25519.PrivateKey
 }
 
+// sign signs a nonce for purpose, bound to the test's discovery and the core, as a core does.
+func (signer key) sign(purpose, core, nonce string) []byte {
+	return ed25519.Sign(signer.private, proof.Message(purpose, testBaseURL, core, nonce))
+}
+
 func newKey(t *testing.T) key {
 	t.Helper()
 	public, private, err := ed25519.GenerateKey(rand.Reader)
@@ -131,7 +140,7 @@ func (built *stage) enrol(t *testing.T, signer key) (int, discoveryproto.EnrolRe
 	var enrolled discoveryproto.EnrolResponse
 	status := built.call(t, http.MethodPost, discoveryproto.PathEnrol, "", discoveryproto.EnrolRequest{
 		PublicKey: signer.public, Protocol: discoveryproto.ProtocolVersion, Nonce: nonce,
-		Signature: ed25519.Sign(signer.private, proof.Message(discoveryproto.PurposeEnrol, nonce)),
+		Signature: signer.sign(discoveryproto.PurposeEnrol, proof.KeyLabel(signer.public), nonce),
 	}, &enrolled)
 	return status, enrolled
 }
@@ -154,7 +163,7 @@ func (built *stage) sessionAs(t *testing.T, signer key, coreID, instanceID strin
 	var opened discoveryproto.SessionResponse
 	status := built.call(t, http.MethodPost, discoveryproto.PathSession, "", discoveryproto.SessionRequest{
 		CoreID: coreID, InstanceID: instanceID, Nonce: nonce,
-		Signature: ed25519.Sign(signer.private, proof.Message(discoveryproto.PurposeSession, nonce)),
+		Signature: signer.sign(discoveryproto.PurposeSession, coreID, nonce),
 	}, &opened)
 	return status, opened.Token
 }
@@ -204,7 +213,7 @@ func TestSession_ANonceWorksOnceAndOnlyForItsPurpose(t *testing.T) {
 	opening := func(purpose string) int {
 		return built.call(t, http.MethodPost, discoveryproto.PathSession, "", discoveryproto.SessionRequest{
 			CoreID: enrolled.CoreID, InstanceID: "first", Nonce: nonce,
-			Signature: ed25519.Sign(signer.private, proof.Message(purpose, nonce)),
+			Signature: signer.sign(purpose, enrolled.CoreID, nonce),
 		}, nil)
 	}
 	if status := opening(discoveryproto.PurposeEnrol); status != http.StatusForbidden {
@@ -239,7 +248,7 @@ func TestSession_NoCountOfStrangersChallengesKeepsTheCoreFromItsSession(t *testi
 	opening := func(nonce string) int {
 		return built.call(t, http.MethodPost, discoveryproto.PathSession, "", discoveryproto.SessionRequest{
 			CoreID: enrolled.CoreID, InstanceID: "first", Nonce: nonce,
-			Signature: ed25519.Sign(signer.private, proof.Message(discoveryproto.PurposeSession, nonce)),
+			Signature: signer.sign(discoveryproto.PurposeSession, enrolled.CoreID, nonce),
 		}, nil)
 	}
 	if status := opening(built.nonce(t, signer)); status != http.StatusOK {
@@ -351,8 +360,8 @@ func TestOffer_PassesTheOfferToTheCoreAndReturnsItsAnswer(t *testing.T) {
 	}()
 	built.logs.AwaitLine(t, "the core's signalling connected")
 	answer, err := built.discovery.Offer(t.Context(), "an offer")
-	if err != nil || answer != "answer to an offer" {
-		t.Errorf("the answer was %q, %v", answer, err)
+	if err != nil || answer.SDP != "answer to an offer" {
+		t.Errorf("the answer was %q, %v", answer.SDP, err)
 	}
 	if _, err = built.discovery.Offer(t.Context(), "a second"); !errors.Is(err, ErrRefused) ||
 		!strings.Contains(err.Error(), "too many connections") {
@@ -470,7 +479,7 @@ func TestSession_ForACoreItDoesNotHoldSaysToEnrolAgain(t *testing.T) {
 	nonce := built.nonce(t, signer)
 	status, code := built.refusalOf(t, http.MethodPost, discoveryproto.PathSession, "", discoveryproto.SessionRequest{
 		CoreID: "notheld", InstanceID: "first", Nonce: nonce,
-		Signature: ed25519.Sign(signer.private, proof.Message(discoveryproto.PurposeSession, nonce)),
+		Signature: signer.sign(discoveryproto.PurposeSession, "notheld", nonce),
 	})
 	if status != http.StatusForbidden || code != discoveryproto.RefusalEnrolAgain {
 		t.Errorf("a session for a core it does not hold answered %d %q; want %d %q", status, code,
@@ -513,7 +522,7 @@ func TestSession_ASecondInstanceTakesThePlaceOfOneThatDoesNotAnswerAndIsRefusedW
 	nonce := built.nonce(t, signer)
 	status, code := built.refusalOf(t, http.MethodPost, discoveryproto.PathSession, "", discoveryproto.SessionRequest{
 		CoreID: coreID, InstanceID: "first", Nonce: nonce,
-		Signature: ed25519.Sign(signer.private, proof.Message(discoveryproto.PurposeSession, nonce)),
+		Signature: signer.sign(discoveryproto.PurposeSession, coreID, nonce),
 	})
 	if status != http.StatusConflict || code != discoveryproto.RefusalAnotherInstance {
 		t.Fatalf("a copy while the live instance answers got %d %q; want %d %q", status, code,

@@ -134,6 +134,7 @@ function StandingView(props: {
           })}
         </p>
       )}
+      <Identity standing={standing} />
       {standing.problem === undefined ? null : (
         <p>{t("system.discovery.problem", { problem: standing.problem })}</p>
       )}
@@ -148,6 +149,20 @@ function StandingView(props: {
         confirmLabel={t("system.discovery.leaveConfirm")}
         onConfirm={props.onLeave}
       />
+    </>
+  );
+}
+
+/** Where the server's links open, and the fingerprint they carry (D293 §4; the protocol's §3.1). */
+function Identity(props: { readonly standing: Standing }): JSX.Element {
+  const { t } = useTranslation();
+  const { clientOrigin, fingerprint } = props.standing;
+  return (
+    <>
+      {clientOrigin === undefined ? null : (
+        <p>{t("system.discovery.clientOrigin", { origin: clientOrigin })}</p>
+      )}
+      <p>{t("system.discovery.fingerprint", { fingerprint })}</p>
     </>
   );
 }

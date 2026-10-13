@@ -167,8 +167,8 @@ pinned the identity key opens TLS to the LAN address with the internet down [I, 
 `orpheum-discovery-v1:<purpose>:<discovery base URL>:<coreId or public key>:<nonce>`, the base URL
 being the one the core itself called, path included, without a trailing slash (X12), so a
 discovery cannot pass another discovery's challenge to the core and come away with a session
-there. Nothing is deployed, so this changes within v1. **The code must change:** `proof.Message`
-signs `orpheum-discovery-v1:<purpose>:<nonce>`.
+there. Nothing is deployed, so this changes within v1. Built (`discovery/proof`; the core
+names itself by `proof.KeyLabel` of its key until it has an id).
 
 ### 2.2 Enrolment and claiming — enrolment built; claiming by the operator not built
 
@@ -386,8 +386,9 @@ at a time.
    client's own fingerprint already ties the answer to one offer [I]. The client checks it against
    the key it remembers, or the fingerprint its link or QR carried (§3.1, §3.5), and passes that exact string
    to `setRemoteDescription`; it refuses an answer with more than one fingerprint or any hash but
-   sha-256 (A7). The binding is mutual: the answer covers the client's fingerprint too (A9). Not
-   built.
+   sha-256 (A7). The binding is mutual: the answer covers the client's fingerprint too (A9). Built
+   on the core (`proof.Answer`, `SignalMessage.signature`, the fields a line each, the SDP last);
+   the client's check comes with the client (webrtc-transport W2f).
 5. The discovery returns the answer; the data channels then run browser to core.
 
 **What this stops** (E5, T4, A9): a discovery that only relays signalling cannot sit between an
@@ -813,8 +814,9 @@ The page's origin is the discovery's; the core's are its names. So:
   (the Fetch standard leaves it out of `*`) (S18; the W report's "What is sound"). **The core
   learns its discovery's client origin from the discovery** (D293 §4): `GET /status` carries it as
   `clientOrigin`, accepted only as an `https` origin with no path, and shown on the System page. It
-  gives the discovery no power it lacks, since the discovery already serves the client's code. Not
-  built.
+  gives the discovery no power it lacks, since the discovery already serves the client's code.
+  Built, with the identity key's fingerprint beside it on the System page; the CORS that follows it
+  is not.
 - **Sign-in by header**, never a cookie, which would be a third-party cookie (the API already takes
   `Authorization: Bearer`).
 - **Byte paths by the header on every request** (hls.js's loader, `fetch` and blob URLs for images
@@ -958,7 +960,7 @@ the core must act on (enrol again, another instance running) carries a code of i
 | `POST /challenge` | public key → nonce, for enrolling or a session; rate-limited | yes |
 | `POST /enrol` | public key + signed nonce → `coreId`, claim code, expiry; idempotent per key | yes, with a `protocol` field |
 | `POST /session` | `coreId` + `instanceId` + signed nonce → token bound to the core, `expiresIn` (1 h) | yes, with `expiresAt` |
-| `GET /status` | claimed?, account state, zone, protocol support, `iceServers`, the client origin (`clientOrigin`, §3.4), messages for the admin | yes, but for the account state and the client origin |
+| `GET /status` | claimed?, account state, zone, protocol support, `iceServers`, the client origin (`clientOrigin`, §3.4), messages for the admin | yes, but for the account state |
 | `PUT /addresses` | candidates, the owner's TURN → published names, probe results, `reachableFrom`, last week's failed connections (§3.6); the heartbeat's fallback | yes, but for the count |
 | `GET /signal` (WebSocket) | offers (with proofs) in, answers (signed over the SDP) out; the heartbeat; pings | yes, without checks, signatures, heartbeat or pings |
 | `PUT /acme-challenge`, `DELETE /acme-challenge/{name}` | set or clear `_acme-challenge.<coreId>.<zone>`, claimed cores only; returns once served | yes, the clearing with a body |

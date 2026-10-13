@@ -34,6 +34,16 @@ func enrollingDiscovery(t *testing.T) *httptest.Server {
 	return fake
 }
 
+// wantPendingWithItsCode fails the test unless a connected core is pending at baseURL with its
+// claim code and its identity key's fingerprint.
+func wantPendingWithItsCode(t *testing.T, status DiscoveryStatusBody, baseURL string) {
+	t.Helper()
+	if status.BaseURL != baseURL || status.State != "pending" || status.ClaimCode != "WXYZ-2345" ||
+		len(status.Fingerprint) != 43 {
+		t.Errorf("connected = %+v; want pending at %s with its claim code and the key's fingerprint", status, baseURL)
+	}
+}
+
 // Only an admin connects the core to a discovery; an address that is not a discovery's is refused
 // naming the field, the claim code comes back to show the owner, a second connect is a conflict,
 // and leaving forgets it (D273).
@@ -56,9 +66,7 @@ func TestDiscovery_AnAdminConnectsSeesTheClaimCodeAndLeaves(t *testing.T) {
 	if err := json.Unmarshal([]byte(connected.body), &status); err != nil || connected.status != http.StatusOK {
 		t.Fatalf("POST /system/discovery = %d %s", connected.status, connected.body)
 	}
-	if status.BaseURL != fake.URL || status.State != "pending" || status.ClaimCode != "WXYZ-2345" {
-		t.Errorf("connected = %+v; want pending at %s with its claim code", status, fake.URL)
-	}
+	wantPendingWithItsCode(t, status, fake.URL)
 	if len(status.WebRTCPaths) != 6 || status.WebRTCPaths[0].Path != "direct_ipv6" || status.WebRTCPaths[0].Count != 0 {
 		t.Errorf("the WebRTC paths = %+v; want every path listed, none taken yet", status.WebRTCPaths)
 	}

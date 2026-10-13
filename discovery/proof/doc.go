@@ -1,14 +1,22 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Package proof is what a core's signature to its discovery covers, and its check: Ed25519 over
-// "orpheum-discovery-v1:<purpose>:<nonce>", so a signature made to enrol cannot open a session, nor
-// the reverse (D273). The core signs through it, and a discovery, Orpheum's own or the closed
-// multi-core service, checks through it (D275 §1).
+// Package proof is what a core's signatures cover, and their checks: Ed25519 over
+// "orpheum-discovery-v1:<purpose>:<discovery base URL>:<core>:<nonce>" to its discovery, so a
+// signature made to enrol cannot open a session, nor serve another discovery or core (D273; the
+// protocol's §2.1); over a WebRTC answer's exact SDP, for its client (§2.5); and the identity key's
+// fingerprint every link carries (§3.1). The core signs through it, and a discovery, Orpheum's own
+// or the closed multi-core service, and the client check through it (D275 §1).
 //
 // # Invariants
 //
 //   - A signature names the protocol and its purpose; one for one purpose fails the other's check.
 //     Enforced by TestVerify_ASignatureServesOnlyThePurposeItWasMadeFor.
+//   - A signature to a discovery serves only that discovery and that core. Enforced by
+//     TestVerify_ASignatureServesOnlyTheDiscoveryAndCoreItWasMadeFor.
+//   - An answer's signature covers its exact SDP, its offer and that offer's fingerprint. Enforced by
+//     TestVerifyAnswer_CoversTheExactSDPTheOfferAndItsFingerprint.
+//   - The fingerprint is the public key's SHA-256 in base64url. Enforced by
+//     TestFingerprint_IsTheKeysSHA256InBase64URL.
 //   - Imports nothing from internal/, which a module outside Orpheum cannot import. Enforced by
 //     TestArch_PublicPackagesImportNothingInternal.
 //

@@ -492,6 +492,9 @@ export const en = {
       published: "Published as {{names}}.",
       heartbeat: "Last told the discovery its addresses at {{at}}.",
       problem: "The last call to the discovery failed: {{problem}}",
+      clientOrigin: "Links to this server open at {{origin}}.",
+      fingerprint:
+        "This server's fingerprint is {{fingerprint}}. Its links carry it, so a client knows it reached this server and no other.",
       deprecated:
         "The discovery stops speaking this server's protocol on {{date}}. Update the server before then.",
       portMapping: {

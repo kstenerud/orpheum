@@ -976,11 +976,19 @@
             "format": "int64",
             "type": "integer"
           },
+          "clientOrigin": {
+            "description": "Where the discovery serves its client, which the server's links lead to",
+            "type": "string"
+          },
           "coreId": {
             "type": "string"
           },
           "deprecatedUntil": {
             "description": "When the discovery stops speaking this core's protocol, when it said so",
+            "type": "string"
+          },
+          "fingerprint": {
+            "description": "The identity key's fingerprint, which the server's links carry",
             "type": "string"
           },
           "lastHeartbeatAt": {
@@ -1054,6 +1062,7 @@
           "published",
           "probe",
           "lastHeartbeatAt",
+          "fingerprint",
           "portMapping",
           "webrtcPaths"
         ],

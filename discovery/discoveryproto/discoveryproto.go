@@ -118,6 +118,9 @@ type StatusResponse struct {
 	// ICEServers are the STUN servers the core gathers its WebRTC candidates through, so its
 	// answers carry the public address its NAT gives it (D274): the discovery's own.
 	ICEServers []ICEServer `json:"iceServers,omitempty"`
+	// ClientOrigin is where the discovery serves its client, "https://app.example": the origin the
+	// core's links lead to, and its CORS allows (the protocol's §3.4; D293 §4).
+	ClientOrigin string `json:"clientOrigin,omitempty"`
 }
 
 // The sources of a candidate address.
@@ -186,12 +189,15 @@ const (
 )
 
 // SignalMessage is one message on the signalling connection: an offer the discovery passes on, and
-// the core's answer to it or refusal of it.
+// the core's answer to it or refusal of it. An answer's Signature is the core's identity key over
+// proof.Answer: the core, the offer, the offer's fingerprint and the answer's exact SDP, which the
+// client checks before it takes the answer (the protocol's §2.5 item 4).
 type SignalMessage struct {
-	Type    string `json:"type"`
-	OfferID string `json:"offerId"`
-	SDP     string `json:"sdp,omitempty"`
-	Reason  string `json:"reason,omitempty"`
+	Type      string `json:"type"`
+	OfferID   string `json:"offerId"`
+	SDP       string `json:"sdp,omitempty"`
+	Signature []byte `json:"signature,omitempty"`
+	Reason    string `json:"reason,omitempty"`
 }
 
 // ACMEChallengeRequest sets the TXT record of name, which is _acme-challenge.<coreId>.<zone>, to

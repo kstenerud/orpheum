@@ -49,7 +49,7 @@ func (discovery *Discovery) session(writer http.ResponseWriter, request *http.Re
 			"not this discovery's core: enrol again")
 		return
 	}
-	if !discovery.isSigned(held.PublicKey, discoveryproto.PurposeSession, opening.Nonce, opening.Signature) {
+	if !discovery.isSigned(held.PublicKey, discoveryproto.PurposeSession, held.ID, opening.Nonce, opening.Signature) {
 		http.Error(writer, "the signature is not the core's over a nonce this discovery issued", http.StatusForbidden)
 		return
 	}

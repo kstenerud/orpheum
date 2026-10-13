@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
+	"github.com/kstenerud/orpheum/discovery/proof"
 	"github.com/kstenerud/orpheum/discovery/single"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/core/identity"
@@ -69,16 +70,22 @@ func TestCore_ACoreEnrolsIsClaimedAndSendsItsAddresses(t *testing.T) {
 	// The discovery keeps a clock of its own, which stands still: the core's sleeps move the core's
 	// fake clock on by hours, which would expire every nonce the discovery issued meanwhile.
 	discoveryNow := coreClock.Now()
+	// The server is up before the discovery is made, which is told the address the core calls.
+	var handler http.Handler
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		handler.ServeHTTP(writer, request)
+	}))
+	t.Cleanup(server.Close)
 	held, err := single.New(single.Parts{
-		Zone: "home.example", Store: single.FileStore{Path: filepath.Join(t.TempDir(), "discovery.json")},
-		Now: func() time.Time { return discoveryNow }, Random: rand.Reader,
+		BaseURL: server.URL, Zone: "home.example",
+		Store: single.FileStore{Path: filepath.Join(t.TempDir(), "discovery.json")},
+		Now:   func() time.Time { return discoveryNow }, Random: rand.Reader,
 		Logger: slog.New(slog.NewTextHandler(logs, nil)),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := httptest.NewServer(held.Handler())
-	t.Cleanup(server.Close)
+	handler = held.Handler()
 	key, err := identity.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
@@ -127,8 +134,16 @@ func TestCore_ACoreEnrolsIsClaimedAndSendsItsAddresses(t *testing.T) {
 	})
 	logs.AwaitLine(t, "the core sent its addresses", "candidates=1", "orpheumVersion=v0.2.0")
 	logs.AwaitLine(t, "the core's signalling connected")
-	answer, err := held.Offer(t.Context(), "a browser's offer")
-	if err != nil || answer != "answer to a browser's offer" {
-		t.Errorf("the offer passed through the discovery was answered %q, %v", answer, err)
+	offer := "a browser's offer\r\na=fingerprint:sha-256 AB:CD"
+	answer, err := held.Offer(t.Context(), offer)
+	if err != nil || answer.SDP != "answer to "+offer {
+		t.Errorf("the offer passed through the discovery was answered %q, %v", answer.SDP, err)
+	}
+	// The core's answer comes back signed, which the client checks with the core's key (§2.5 item 4).
+	signed := proof.Answer{
+		CoreID: core.Status().CoreID, OfferID: "1", OfferFingerprint: "sha-256 AB:CD", SDP: answer.SDP,
+	}
+	if !proof.VerifyAnswer(key.Public(), signed, answer.Signature) {
+		t.Error("the answer through the discovery is not the core's, signed over its SDP")
 	}
 }
