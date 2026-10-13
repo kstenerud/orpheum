@@ -34,6 +34,7 @@ class Kinds(unittest.TestCase):
             (rr.STORE_INTEGRATION, None, "go test, store integration"),
             (["go", "vet", "./..."], {"GOOS": "darwin"}, "go compile, another system"),
             (rr.PY_TESTS_COMMAND, None, "python tests"),
+            ([*rr.PY_TESTS_COMMAND, "scripts/tests/test_x.py"], None, "python tests, those reaching it"),
         ]
         for command, env, kind in cases:
             self.assertEqual(timings.kind_of(command, "", env), kind, command)
@@ -67,7 +68,7 @@ class Recorded(unittest.TestCase):
         self.assertIn("How long it took:", out.getvalue())
         self.assertIn(f"  {COVERED}  — python tests", out.getvalue())
         files = {each["path"]: each for each in record["files"]}
-        self.assertEqual([run["kind"] for run in files[COVERED]["runs"]], ["python tests"])
+        self.assertEqual([run["kind"] for run in files[COVERED]["runs"]], ["python tests, those reaching it"])
         self.assertFalse(files[COVERED]["runs"][0]["passed"], "the revert's run went red")
         self.assertGreater(files[COVERED]["seconds"], 0)
         self.assertEqual(record["jobs"], 1)

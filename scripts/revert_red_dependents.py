@@ -14,6 +14,7 @@ that import it, which vitest's `related` already finds, and the tests that read 
 
 from __future__ import annotations
 
+import ast
 import functools
 import re
 import subprocess
@@ -103,3 +104,53 @@ def web_source_readers(root: str) -> tuple[str, ...]:
                            "web/*.test.tsx"], cwd=root, capture_output=True, text=True, check=False)
     return tuple(sorted(path.removeprefix("web/") for path in done.stdout.split()
                         if "/node_modules/" not in path))
+
+
+# Where the Python a test can import lives: the gate scripts, their tests' helpers, the hooks.
+PYTHON_HOMES = ("scripts", "scripts/tests", ".claude/hooks")
+
+
+def _python_modules(root: str) -> dict[str, Path]:
+    modules: dict[str, Path] = {}
+    for home in PYTHON_HOMES:
+        for file in sorted((Path(root) / home).glob("*.py")):
+            modules.setdefault(file.stem, file)
+    return modules
+
+
+def _imports(file: Path) -> set[str]:
+    try:
+        tree = ast.parse(file.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError):
+        return set()
+    names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            names.update(alias.name.split(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            names.add(node.module.split(".")[0])
+    return names
+
+
+def python_tests_reaching(root: str, path: str) -> list[str] | None:
+    """The test modules, "scripts/tests/test_x.py", that import a changed Python file, directly or
+    not, or name it (a test that runs it as a command); None when it has no module name to follow
+    (`./dev`, `./staging`), which every test module may run."""
+    if not path.endswith(".py"):
+        return None
+    modules = _python_modules(root)
+    stem, name = Path(path).stem, Path(path).name
+    reaching = []
+    for test in sorted((Path(root) / "scripts" / "tests").glob("test_*.py")):
+        seen, queue = {test.stem}, [test]
+        texts = []
+        while queue:
+            file = queue.pop()
+            texts.append(file.read_text(encoding="utf-8", errors="replace"))
+            for imported in _imports(file):
+                if imported in modules and imported not in seen:
+                    seen.add(imported)
+                    queue.append(modules[imported])
+        if stem in seen or any(name in text for text in texts):
+            reaching.append(str(test.relative_to(root)))
+    return reaching
