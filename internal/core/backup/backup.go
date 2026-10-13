@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/certificate"
+	"github.com/kstenerud/orpheum/internal/core/identity"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -37,16 +39,18 @@ const inspectingName = "restore-inspecting.db"
 // ErrNoKeyToInclude is a backup asked to include secret.key on an instance that has none yet.
 var ErrNoKeyToInclude = errors.New("there is no secret.key to include; the server writes one at its first start")
 
-// Written is a backup made: where it is, and whether it holds secret.key.
+// Written is a backup made: where it is, and whether it holds the server's keys.
 type Written struct {
 	Path        string
 	IncludesKey bool
 }
 
 // Write backs the persistent directory up into the backups directory: a tarball of its files, its
-// database a VACUUM INTO snapshot, safe beside a live writer (D242 §5, D77). The key, secret.key,
-// is left out unless includeKey asks for it, for moving to another machine: whoever holds a backup
-// with the key holds the secrets (D194 §4).
+// database a VACUUM INTO snapshot, safe beside a live writer (D242 §5, D77). The server's keys are
+// left out unless includeKey asks for them, for moving to another machine: secret.key, whoever holds
+// which holds the secrets (D194 §4); and the identity key and the certificates' and ACME account's
+// private keys, whoever holds which can pass for the server (D289 §2). A backup kept them all but
+// secret.key in plain text, a scheduled one too (the second audit's T1, 2026-10-13).
 func Write(
 	ctx context.Context, database *store.Database, directories *instancedir.Directories, now time.Time, includeKey bool,
 ) (Written, error) {
@@ -57,7 +61,7 @@ func Write(
 func write(
 	ctx context.Context, database *store.Database, directories *instancedir.Directories, stem string, includeKey bool,
 ) (written Written, err error) {
-	leftOut := []string{secrets.KeyFileName}
+	leftOut := serverKeys()
 	if includeKey {
 		if _, err = directories.ReadPersistentFile(secrets.KeyFileName); errors.Is(err, instancedir.ErrNotFound) {
 			return Written{}, ErrNoKeyToInclude
@@ -81,6 +85,12 @@ func write(
 	}
 	path, err := directories.BackupPath(name)
 	return Written{Path: path, IncludesKey: includeKey}, err
+}
+
+// serverKeys are the files a backup leaves out unless asked for them: the key that seals the secrets,
+// the core's identity key, and the certificates' and ACME account's private keys.
+func serverKeys() []string {
+	return append([]string{secrets.KeyFileName, identity.KeyFileName}, certificate.PrivateFileNames()...)
 }
 
 // ErrNewerBackup is returned for a backup a newer release made that this binary cannot use.

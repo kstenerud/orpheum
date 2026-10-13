@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/certificate"
+	"github.com/kstenerud/orpheum/internal/core/identity"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -358,6 +360,49 @@ func TestMakePlan_LeavesNothingBehind(t *testing.T) {
 }
 
 // A backup with the key is refused on an instance that has none yet, rather than made without it.
+// A backup made without asking for the keys holds none of the server's private keys, the identity key
+// and the certificates' and ACME account's among them, though the certificates themselves are kept;
+// one asked for them holds them all (D289 §2: every backup, a scheduled one too, held them in plain
+// text, the second audit's T1, 2026-10-13).
+func TestWrite_LeavesEveryPrivateKeyOutUnlessAskedForTheKeys(t *testing.T) {
+	t.Parallel()
+	original := newServer(t)
+	keys := append([]string{identity.KeyFileName}, certificate.PrivateFileNames()...)
+	for _, name := range append(keys, "tls-certificate.pem") {
+		if err := original.directories.WritePersistentFile(name, []byte("PRIVATE "+name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	without, err := Write(t.Context(), original.database, original.directories, testTime, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names, err := instancedir.ListBackupArchive(without.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range append(keys, secrets.KeyFileName) {
+		if slices.Contains(names, key) {
+			t.Errorf("a backup made without the keys holds %s: %v", key, names)
+		}
+	}
+	if !slices.Contains(names, "tls-certificate.pem") {
+		t.Errorf("a backup made without the keys lost the certificate itself: %v", names)
+	}
+	with, err := Write(t.Context(), original.database, original.directories, testTime.Add(time.Hour), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if names, err = instancedir.ListBackupArchive(with.Path); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range append(keys, secrets.KeyFileName) {
+		if !slices.Contains(names, key) {
+			t.Errorf("a backup asked for the keys lacks %s: %v", key, names)
+		}
+	}
+}
+
 func TestWrite_RefusesToIncludeAKeyThereIsNot(t *testing.T) {
 	t.Parallel()
 	original := newServer(t)

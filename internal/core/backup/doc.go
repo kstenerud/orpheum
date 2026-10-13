@@ -5,8 +5,9 @@
 // made by orpheum backup, or by an admin from the admin interface (Service); orpheum restore is a
 // command-line operation with the server stopped, never an endpoint, and first keeps a backup of
 // what it replaces. The pre-migration snapshots are the store's migration runner's, not this
-// package's. A backup holds secret.key only when asked for; restoring without the key marks sealed
-// secrets as needing re-entry and loses nothing else.
+// package's. A backup holds the server's keys only when asked for: secret.key, the identity key, and
+// the certificates' and ACME account's private keys (D289 §2); restoring without them marks sealed
+// secrets as needing re-entry, and the core is issued a new certificate.
 //
 // # Invariants
 //
@@ -26,9 +27,10 @@
 //     before it migrates, which replaces the database alone (D181).
 //     TestRestore_TakesTheDatabaseSnapshotKeptBeforeAMigration, Enforced by TestRestore_KeepsTheDatabaseItReplaces,
 //     TestRestore_RefusesWhileTheServerRuns and TestMakePlan_LeavesNothingBehind.
-//   - A backup holds ciphertext only, and secret.key only when asked for; restoring without the
-//     key marks secrets as needing re-entry and loses nothing else. Enforced by
-//     TestWrite_RefusesToIncludeAKeyThereIsNot,
+//   - A backup holds ciphertext only, and the server's keys (secret.key, the identity key, the
+//     certificates' and ACME account's private keys) only when asked for; restoring without them
+//     marks secrets as needing re-entry and loses nothing else. Enforced by
+//     TestWrite_LeavesEveryPrivateKeyOutUnlessAskedForTheKeys, TestWrite_RefusesToIncludeAKeyThereIsNot,
 //     TestRestore_WithoutTheKeyMarksSecretsNeedingReentryAndLosesNothingElse and
 //     TestRestore_WithTheIncludedKeyOpensSecrets; every table's copy, by the store's
 //     TestBackup_ARestoredCopyReproducesEveryTable.

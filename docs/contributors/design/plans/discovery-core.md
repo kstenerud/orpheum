@@ -372,8 +372,10 @@ client, W4b and the paid service is [The beta's order of work](#the-betas-order-
   skips bridges; a containerised core then reports its `configured` addresses, and its discovery
   sees its source address (§2.4).
 - **`newDiscovery` sets no `TURN`**, so the heartbeat never carries the owner's TURN; K13.
-- **The identity key is not in any backup**: `internal/core/backup` names `secret.key` alone, though
-  the protocol's §2.1 states D289 §2's rule without marking it not built; K8a.
+- **The server's keys were in every backup** until 2026-10-13: `internal/core/backup` left out
+  `secret.key` alone, so the identity key and the certificates' and ACME account's private keys went
+  into scheduled backups in plain text (the second audit's T1). Since fixed: a backup holds them only
+  when asked for them, as D289 §2 says; K8a builds the rest of the identity key's rules.
 - **No CORS on the core's API**, and byte paths lean on the media cookie (D216), which a page on
   another site never sends; K10.
 - **IPv6 pinholes and high ports** (from
