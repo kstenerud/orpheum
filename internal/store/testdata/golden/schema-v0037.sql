@@ -1,6 +1,6 @@
 -- application_id 1447646258
--- user_version 35
--- compatible_version 35
+-- user_version 37
+-- compatible_version 36
 -- sqlite_sequence role 2
 
 -- index artwork_chosen
@@ -29,6 +29,9 @@ CREATE INDEX file_payload ON file(payload_hash) WHERE removed_at IS NULL;
 
 -- index file_version
 CREATE INDEX file_version ON file(version_id) WHERE version_id IS NOT NULL;
+
+-- index grant_locate_hash
+CREATE UNIQUE INDEX grant_locate_hash ON "grant"(locate_hash) WHERE locate_hash IS NOT NULL;
 
 -- index grant_user
 CREATE INDEX grant_user ON "grant"(user_id) WHERE revoked_at IS NULL;
@@ -263,7 +266,7 @@ CREATE TABLE "grant" (                                   -- class A (D154)
   revoked_at  INTEGER,
   device_name TEXT,
   device_id   INTEGER REFERENCES device(id) ON DELETE RESTRICT
-) WITHOUT ROWID;
+, locate_hash BLOB, offer_key BLOB) WITHOUT ROWID;
 
 -- table group_text
 CREATE TABLE group_text (                                  -- a season's name, a disc's subtitle
@@ -380,6 +383,13 @@ CREATE TABLE library_root (                                -- class O: as the no
   root_path  TEXT NOT NULL, retired_at INTEGER,
   PRIMARY KEY (library_id, node_id, root_path)
 );
+
+-- table locator
+CREATE TABLE locator (                                     -- class A (discovery-core.md K7)
+  session_secret_sha256 BLOB PRIMARY KEY REFERENCES "grant"(secret_sha256) ON DELETE RESTRICT,
+  hash        BLOB NOT NULL UNIQUE,      -- SHA-256 of the locator; never the locator
+  issued_at   INTEGER NOT NULL
+) WITHOUT ROWID;
 
 -- table loudness
 CREATE TABLE loudness (                                    -- class O: what the node measured
@@ -692,6 +702,7 @@ CREATE TABLE video_timeline (                              -- class O: what the 
   bytes_in_each_second_json TEXT NOT NULL DEFAULT '[]',  -- JSON: its bytes in each second of the film, by the second
   failure     TEXT,                      -- FFmpeg's words when the file could not be read through; the JSON is then empty
   made_at     INTEGER NOT NULL,
+  read_failure TEXT,                     -- FFmpeg's words when a full read failed after the index gave the keyframes; NULL otherwise
   PRIMARY KEY (payload_hash, video_stream_index)
 ) WITHOUT ROWID;
 

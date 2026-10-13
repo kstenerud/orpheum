@@ -29,6 +29,11 @@ const (
 	PathAddresses = "/addresses"
 	PathSignal    = "/signal"
 	PathCore      = "/core"
+	// PathLocateHashes and PathLocators are where the core registers what a discovery finds it by:
+	// the hashes of its links' secrets, and of its devices' locators, each the full set (the
+	// protocol's §3.1).
+	PathLocateHashes = "/locate-hashes"
+	PathLocators     = "/locators"
 	// PathACMEChallenge is where the core sets and clears its certificate's DNS-01 record, which
 	// the discovery holds for it (the spec's §3.7).
 	PathACMEChallenge = "/acme-challenge"
@@ -237,4 +242,25 @@ type SignalMessage struct {
 type ACMEChallengeRequest struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
+}
+
+// LocateHash is one link a discovery may find the core by: its secret's hash (link.LocateHash), how
+// many seconds it lives from now, and how many times it may locate, none meaning as often as asked
+// until it ends (the protocol's §3.1; C3).
+type LocateHash struct {
+	Hash      string `json:"hash"`
+	ExpiresIn int64  `json:"expiresIn"`
+	Uses      int    `json:"uses,omitempty"`
+}
+
+// LocateHashesRequest is every link a discovery may find the core by; any it held and this does not
+// name, it forgets.
+type LocateHashesRequest struct {
+	Hashes []LocateHash `json:"hashes"`
+}
+
+// LocatorsRequest is every device locator a discovery may find the core by, as their hashes
+// (link.LocatorHash); any it held and this does not name, it forgets.
+type LocatorsRequest struct {
+	Hashes []string `json:"hashes"`
 }

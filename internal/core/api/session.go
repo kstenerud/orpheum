@@ -112,8 +112,11 @@ type SessionOutput struct {
 		// DeviceSecret proves this client was its device at a later sign-in or code request, as
 		// previousDeviceProof: kept apart from the token, and sent to this core alone (the third
 		// audit's A8).
-		DeviceSecret string   `json:"deviceSecret"`
-		User         UserBody `json:"user"`
+		DeviceSecret string `json:"deviceSecret"`
+		// Locator is what this device finds its core by at a discovery, handed over the direct path
+		// alone (discovery-core.md K7; the discovery protocol's §3.1).
+		Locator string   `json:"locator"`
+		User    UserBody `json:"user"`
 	}
 }
 
@@ -152,6 +155,33 @@ func (server *Server) registerSetupAndAuth() {
 		OperationID: "getMe", Method: http.MethodGet, Path: "/me",
 		Summary: "Who this session belongs to", Tags: tags,
 	}, server.getMe)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "freshLocator", Method: http.MethodPost, Path: "/me/locator",
+		Summary: "A fresh locator for this device, by which it finds its server at a discovery", Tags: tags,
+	}, server.freshLocator)
+}
+
+// LocatorOutput is a device's fresh locator (discovery-core.md K7).
+type LocatorOutput struct {
+	Body struct {
+		Locator string `json:"locator"`
+	}
+}
+
+// freshLocator hands the signed-in device a fresh locator in place of its last, on each visit, and
+// renews the person's own link (the discovery protocol's §3.1).
+func (server *Server) freshLocator(ctx context.Context, input *MeInput) (*LocatorOutput, error) {
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	locator, err := dependencies.Auth.FreshLocator(ctx, principal)
+	if err != nil {
+		return nil, server.authError(ctx, "hand the device a locator", err)
+	}
+	output := &LocatorOutput{}
+	output.Body.Locator = locator
+	return output, nil
 }
 
 func (server *Server) setup(ctx context.Context, input *SetupInput) (*UserOutput, error) {
@@ -206,6 +236,7 @@ func (server *Server) newSessionOutput(
 	}
 	output := &SessionOutput{SetCookie: mediaCookie(issued.Token, isOverTLS)}
 	output.Body.Token, output.Body.DeviceSecret, output.Body.User = issued.Token, issued.DeviceSecret, body
+	output.Body.Locator = issued.Locator
 	return output, nil
 }
 

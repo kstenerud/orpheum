@@ -151,6 +151,7 @@ User-Agent (D263; the User-Agent is logged only).
 | `COLLATE NOCASE` folds only ASCII, and temp files follow TMPDIR | [`COLLATE NOCASE` folds only ASCII, and temp files follow TMPDIR](#collate-nocase-folds-only-ascii-and-temp-files-follow-tmpdir) |
 | Go regexp's `\w`, `\d`, `\s` and `\b` are ASCII-only and fail silently on names like "Amélie" | [Go regexp's `\w`, `\d`, `\s` and `\b` are ASCII-only and fail silently on names like "Amélie"](#go-regexps-w-d-s-and-b-are-ascii-only-and-fail-silently-on-names-like-amélie) |
 | `x/text/collate` is stuck at Unicode 6.2 and sorts Korean by code point (golang/go#19087) | [`x/text/collate` is stuck at Unicode 6.2 and sorts Korean by code point (golang/go#19087)](#xtextcollate-is-stuck-at-unicode-62-and-sorts-korean-by-code-point-golanggo19087) |
+| govet's shadow check suddenly flags every `fixture := newFixture(t)` in a package's tests. | [govet's shadow check flags every `x := …` once a later file mentions a type named `x`](#govets-shadow-check-flags-every-x---once-a-later-file-mentions-a-type-named-x) |
 | "parallel golangci-lint is running". | [golangci-lint refuses to start beside another run (exit 3) and prints nothing on stdout](#golangci-lint-refuses-to-start-beside-another-run-exit-3-and-prints-nothing-on-stdout) |
 | A copy of git's index takes a file edited to the same size in the same second for unchanged | [A copy of git's index with a new time hides a file changed in the second the index was written](#a-copy-of-gits-index-with-a-new-time-hides-a-file-changed-in-the-second-the-index-was-written) |
 | The default HTTP transport reads HTTP(S)_PROXY, and Go downloads another toolchain unless `GOTOOLCHAIN=local` | [The default HTTP transport reads HTTP(S)_PROXY, and Go downloads another toolchain unless `GOTOOLCHAIN=local`](#the-default-http-transport-reads-https_proxy-and-go-downloads-another-toolchain-unless-gotoolchainlocal) |
@@ -1955,6 +1956,22 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   then fails with "parallel golangci-lint is running"; `--allow-parallel-runners` skips the lock. Reported as
   [golangci/golangci-lint#869](https://github.com/golangci/golangci-lint/issues/869) (closed 2020); no issue
   about the empty stdout found (searched the repo's issues, 2026-10-08).
+
+
+### govet's shadow check flags every `x := …` once a later file mentions a type named `x`
+
+- **Technology:** golangci-lint's govet `shadow` analyzer (strict off).
+- **Symptom:** "shadow: declaration of "fixture" shadows declaration at line 30" on every unchanged
+  `fixture := newFixture(t)` in `internal/core/auth`'s tests, line 30 being `type fixture struct`, as soon
+  as a new test file (sorting after them) named the type `fixture` in a helper's signature. Without that
+  file, none.
+- **Cause [I]:** the analyzer takes the package-level type as the shadowed object and counts a mention of
+  it in a later file as a use after the shadowing declaration, comparing positions across files.
+- **What we do:** a test helper takes the fixture's parts (`*Service`, the time), not a parameter of the
+  type `fixture` (`internal/core/auth/locators_test.go`, 2026-10-13).
+- **Evidence:** observed here, 2026-10-13. **[web]** [golangci/govet#2](https://github.com/golangci/govet/issues/2)
+  reports a shadow at a line that held nothing, the same mismatch of positions; no issue naming this case
+  found.
 
 
 ### A copy of git's index with a new time hides a file changed in the second the index was written

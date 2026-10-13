@@ -474,6 +474,8 @@ func TestHandler_APendingCorePublishesNothingUntilItIsClaimed(t *testing.T) {
 		body         any
 	}{
 		{http.MethodPut, discoveryproto.PathAddresses, discoveryproto.AddressesRequest{}},
+		{http.MethodPut, discoveryproto.PathLocateHashes, discoveryproto.LocateHashesRequest{}},
+		{http.MethodPut, discoveryproto.PathLocators, discoveryproto.LocatorsRequest{}},
 		{
 			http.MethodPut, discoveryproto.PathACMEChallenge,
 			discoveryproto.ACMEChallengeRequest{Name: name, Value: dns01Value},
@@ -653,5 +655,34 @@ func TestSession_ASecondInstanceTakesThePlaceOfOneThatDoesNotAnswerAndIsRefusedW
 	}
 	if _, _, err := silent.Read(t.Context()); err == nil {
 		t.Error("the silent instance's connection still carries messages; want it dropped")
+	}
+}
+
+func TestLinks_AClaimedCoresFullSetsReplaceTheLast(t *testing.T) {
+	t.Parallel()
+	built := newStage(t)
+	signer, coreID := built.claimed(t)
+	token := built.session(t, signer, coreID)
+	for _, sent := range []discoveryproto.LocateHashesRequest{
+		{Hashes: []discoveryproto.LocateHash{{Hash: "first", ExpiresIn: 60}, {Hash: "second", ExpiresIn: 60}}},
+		{Hashes: []discoveryproto.LocateHash{{Hash: "second", ExpiresIn: 120}}},
+	} {
+		status := built.call(t, http.MethodPut, discoveryproto.PathLocateHashes, token, sent, nil)
+		if status != http.StatusNoContent {
+			t.Fatalf("sending the links answered %d", status)
+		}
+	}
+	if status := built.call(t, http.MethodPut, discoveryproto.PathLocators, token,
+		discoveryproto.LocatorsRequest{Hashes: []string{"a-locator"}}, nil); status != http.StatusNoContent {
+		t.Fatalf("sending the locators answered %d", status)
+	}
+	built.discovery.mutex.Lock()
+	defer built.discovery.mutex.Unlock()
+	kept := built.discovery.locateHashes
+	if len(kept) != 1 || !kept["second"].Equal(built.clock().Add(2*time.Minute)) {
+		t.Errorf("the links kept are %v; want the last set alone, each ending when it said", kept)
+	}
+	if !built.discovery.locators["a-locator"] || len(built.discovery.locators) != 1 {
+		t.Errorf("the locators kept are %v; want the one sent", built.discovery.locators)
 	}
 }

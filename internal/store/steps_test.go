@@ -344,9 +344,9 @@ func TestWindowProblem_HoldsTheBaselineAtTheCheckpointAndOneStepBeforeIt(t *test
 	}
 }
 
-// Step 0036 keeps every picture's timeline, its keyframes and its failure, and adds read_failure,
-// empty, for a full read that fails after the index gave the keyframes (D270 section 1).
-func TestMigrate_Step0036KeepsEachTimelineAndAddsItsReadFailure(t *testing.T) {
+// Step 0037 keeps every grant, with no locate hash or offer key, since no link made before it is
+// registered with a discovery, and adds the empty locator table (discovery-core.md K7).
+func TestMigrate_Step0037KeepsEachGrantAndAddsWhatADiscoveryFindsTheCoreBy(t *testing.T) {
 	t.Parallel()
 	steps, err := Steps()
 	if err != nil {
@@ -356,15 +356,14 @@ func TestMigrate_Step0036KeepsEachTimelineAndAddsItsReadFailure(t *testing.T) {
 	if err = database.migrate(t.Context(), steps[:1], testMigrateOptions(t.TempDir())); err != nil {
 		t.Fatal(err)
 	}
-	execRaw(t, database, `INSERT INTO video_timeline (payload_hash, video_stream_index, keyframes_ms_json,
-		made_at) VALUES (X'0a', 0, '[0,2000]', 1)`)
+	execRaw(t, database, `INSERT INTO "grant" (secret_sha256, kind, scope, issued_at) VALUES (X'0a', 'session',
+		'role', 1)`)
 	if err = database.migrate(t.Context(), steps[:2], testMigrateOptions(t.TempDir())); err != nil {
 		t.Fatal(err)
 	}
 	got := fmt.Sprint(queryRows(t, database,
-		"SELECT keyframes_ms_json, failure IS NULL, read_failure IS NULL FROM video_timeline", 3))
-	if want := "[[[0,2000] 1 1]]"; got != want {
-		t.Errorf("the timeline after the step is %s, want %s: its keyframes kept, no failure of either kind", got,
-			want)
+		`SELECT kind, locate_hash IS NULL, offer_key IS NULL, (SELECT count(*) FROM locator) FROM "grant"`, 4))
+	if want := "[[session 1 1 0]]"; got != want {
+		t.Errorf("the grants after the step are %s, want %s: each kept, no link's hashes, no locators", got, want)
 	}
 }

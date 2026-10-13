@@ -15,6 +15,7 @@ import (
 	"github.com/pion/webrtc/v4"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/core/identity"
 	"github.com/kstenerud/orpheum/internal/core/portmap"
@@ -47,7 +48,25 @@ func newDiscovery(
 		},
 		Answerer: answerer, OnClaimed: onClaimed,
 		RetryFirst: retryFirst, RetryMost: retryMost, Random: rand.Reader,
+		Links: linksOf(opened.auth),
 	})
+}
+
+// linksOf is what a discovery finds the core by, as accounts keeps it: every live link's locate hash
+// and when it ends, and every live session's device locator's hash (discovery-core.md K7).
+func linksOf(accounts *auth.Service) func(context.Context) ([]discovery.Link, []string, error) {
+	return func(ctx context.Context) ([]discovery.Link, []string, error) {
+		live, err := accounts.LiveLinks(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+		links := make([]discovery.Link, 0, len(live))
+		for _, one := range live {
+			links = append(links, discovery.Link{LocateHash: one.LocateHash, ExpiresAt: one.ExpiresAt})
+		}
+		locators, err := accounts.LiveLocators(ctx)
+		return links, locators, err
+	}
 }
 
 // openReachedFromOutside opens what lets the server be reached from outside: its discovery, which
@@ -79,6 +98,7 @@ func openReachedFromOutside(
 	if err != nil {
 		return opened, err
 	}
+	opened.auth.OnLinksChanged(discovered.LinksChanged)
 	rtc.UseICEServers(func() []webrtc.ICEServer { return iceServersOf(discovered.Status().ICEServers) })
 	opened.jobServices.discovery, opened.jobServices.portMapping = discovered, mapped
 	served.discoveryParts.DNS = discovered

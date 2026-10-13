@@ -96,6 +96,10 @@ type Parts struct {
 	// the development stack keeps RetryMost near a second (D292 §9).
 	RetryFirst, RetryMost time.Duration
 	Random                io.Reader
+	// Links are what a discovery finds the core by, read before each look: every live link's locate
+	// hash and when it ends, and every live session's device locator's hash (auth.Service's
+	// LiveLinks and LiveLocators; discovery-core.md K7). Nil registers none.
+	Links func(ctx context.Context) ([]Link, []string, error)
 }
 
 // retryJitter is how far a retry's wait may move either way.
@@ -167,6 +171,12 @@ type Service struct {
 	lastSent       []discoveryproto.Candidate
 	// failures is how many calls of the step loop failed in a row, which its next wait doubles by.
 	failures int64
+	// sentLinks and sentLocators are what the discovery was last told it may find the core by, and
+	// sentUnder the session's token it was told under: a new session, a discovery that may have
+	// forgotten, is told again.
+	sentLinks    []Link
+	sentLocators []string
+	sentUnder    string
 }
 
 // IsPublished is whether the discovery publishes the core's addresses: it has claimed the core, and
@@ -366,7 +376,15 @@ func (service *Service) step(ctx context.Context) time.Duration {
 	}
 	switch status.State {
 	case discoveryproto.StateClaimed, discoveryproto.StateGrace:
-		return service.heartbeat(ctx, status)
+		wait := service.heartbeat(ctx, status)
+		// After the heartbeat, which may have opened a new session: one the discovery holds no links
+		// under is told them in the same step.
+		if current := service.Status(); current.IsPublished() && current.Problem == "" {
+			if linkWait, err := service.registerLinks(ctx, current); err != nil {
+				return linkWait
+			}
+		}
+		return wait
 	case "", discoveryproto.StatePending, discoveryproto.StateFrozen, discoveryproto.StateReleased,
 		discoveryproto.StateDisabled:
 		return service.askStatus(ctx, status)

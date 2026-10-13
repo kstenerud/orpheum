@@ -27,9 +27,9 @@
 > **IMPLEMENTED — see `internal/store/migrations/`** (M1): every table above the `cache.db`
 > section, plus the two built-in roles. `cache.db` arrives in M2
 > ([D198](../../decisions/working-notes.md)). Until migrations are live ([D228](../../decisions/working-notes.md#d228--until-migrations-are-live-librarydbs-schema-is-a-baseline-and-one-step-and-a-schema-change-folds-the-last-step-into-the-baseline)) the steps are a
-> baseline, `0035_baseline.sql`, and the one step after it, `0036_video_timeline_read_failure.sql`;
+> baseline, `0036_baseline.sql`, and the one step after it, `0037_links_found_through_a_discovery.sql`;
 > the notes below that name a migration (*migration 0011*, *0023: was …*) record the step that
-> added or renamed a column. Steps 0001 to 0035 are folded into the baseline and survive only in
+> added or renamed a column. Steps 0001 to 0036 are folded into the baseline and survive only in
 > the repository's history.
 
 ## Why this document exists
@@ -686,9 +686,22 @@ CREATE TABLE "grant" (                                     -- class A (D154)
   last_used_at   INTEGER,                -- 0027: was last_seen_at; the API's lastUsedAt
   revoked_at  INTEGER,
   device_name TEXT,                      -- the device an add-device code makes
-  device_id   INTEGER REFERENCES device(id) ON DELETE RESTRICT
+  device_id   INTEGER REFERENCES device(id) ON DELETE RESTRICT,
+  locate_hash BLOB,                      -- 0037: SHA-256 over "orpheum-locate" and a link's secret, what a discovery locates the core by (discovery-core.md K7)
+  offer_key   BLOB                       -- 0037: SHA-256 over "orpheum-offer" and a link's secret, what an offer through it is proven under
 ) WITHOUT ROWID;
 CREATE INDEX grant_user ON "grant"(user_id) WHERE revoked_at IS NULL;  -- 0023: was grant_subject
+CREATE UNIQUE INDEX grant_locate_hash ON "grant"(locate_hash) WHERE locate_hash IS NOT NULL;  -- 0037
+
+-- A used registration link, or invitation, becomes its person's own link: kind 'link', scope
+-- 'own', living 90 days from their last signed-in visit (0037; the third audit's A12).
+
+-- A device locator, one per session, a fresh one on each visit (0037; discovery-core.md K7).
+CREATE TABLE locator (                                     -- class A
+  session_secret_sha256 BLOB PRIMARY KEY REFERENCES "grant"(secret_sha256) ON DELETE RESTRICT,
+  hash        BLOB NOT NULL UNIQUE,      -- SHA-256 over "orpheum-locator" and the locator; never the locator
+  issued_at   INTEGER NOT NULL
+) WITHOUT ROWID;
 ```
 
 `issued_secret` is a ninth grant kind, a secret handed to a person to pass on, added for
@@ -1166,6 +1179,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `field_override` | persistent.db | `internal/core/identify` | |
 | `file` | persistent.db | `internal/core/library` | identification files through `library.FileAs` and `library.PutInVersion` |
 | `grant` | persistent.db | `internal/core/auth` | |
+| `locator` | persistent.db | `internal/core/auth` | |
 | `group_text` | persistent.db | none yet | |
 | `item` | persistent.db | `internal/core/identify` | |
 | `item_fts`, `item_fts_tri` | persistent.db | `internal/core/identify` | kept by `item_text`'s triggers |

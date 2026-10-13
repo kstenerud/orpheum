@@ -166,6 +166,15 @@ type openedServices struct {
 	exchanges *nodes.Exchanges
 	// together is Watch Together's sessions, whose memberships the voice relay admits.
 	together *together.Hub
+	// auth keeps what a discovery finds the core by: its links and its devices' locators.
+	auth *auth.Service
+}
+
+// with is opened holding what the API's dependencies opened that the services opened after them use.
+func (opened openedServices) with(dependencies api.Dependencies, directories *instancedir.Directories) openedServices {
+	opened.settings, opened.secrets, opened.directories = dependencies.Settings, dependencies.Secrets, directories
+	opened.auth = dependencies.Auth
+	return opened
 }
 
 func (opened openedServices) release() error {
@@ -212,7 +221,7 @@ func openAndWire(
 		err = mountDebug(ctx, server.Mux(), config, dependencies.Settings, logger)
 	}
 	if err == nil {
-		opened.settings, opened.secrets, opened.directories = dependencies.Settings, dependencies.Secrets, directories
+		opened = opened.with(dependencies, directories)
 		opened.jobServices, err = newJobServices(ctx, opened, outside, logger)
 	}
 	if err == nil {

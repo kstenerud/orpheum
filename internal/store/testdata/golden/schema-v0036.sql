@@ -1,6 +1,6 @@
 -- application_id 1447646258
 -- user_version 36
--- compatible_version 35
+-- compatible_version 36
 -- sqlite_sequence role 2
 
 -- index artwork_chosen
@@ -691,7 +691,8 @@ CREATE TABLE video_timeline (                              -- class O: what the 
   keyframes_ms_json TEXT NOT NULL DEFAULT '[]',  -- JSON: its keyframes' times in ms, ascending: where a chunk can begin
   bytes_in_each_second_json TEXT NOT NULL DEFAULT '[]',  -- JSON: its bytes in each second of the film, by the second
   failure     TEXT,                      -- FFmpeg's words when the file could not be read through; the JSON is then empty
-  made_at     INTEGER NOT NULL, read_failure TEXT,
+  made_at     INTEGER NOT NULL,
+  read_failure TEXT,                     -- FFmpeg's words when a full read failed after the index gave the keyframes; NULL otherwise
   PRIMARY KEY (payload_hash, video_stream_index)
 ) WITHOUT ROWID;
 

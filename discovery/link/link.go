@@ -14,8 +14,9 @@ const fingerprintChars = 43
 
 // The labels that separate each hash of a link's secret from any other.
 const (
-	locateLabel = "orpheum-locate"
-	offerLabel  = "orpheum-offer"
+	locateLabel  = "orpheum-locate"
+	offerLabel   = "orpheum-offer"
+	locatorLabel = "orpheum-locator"
 )
 
 // ErrNotALink is a fragment that is not a core's link's.
@@ -61,4 +62,13 @@ func LocateHash(secret string) string {
 func OfferKey(secret string) []byte {
 	digest := sha256.Sum256([]byte(offerLabel + secret))
 	return digest[:]
+}
+
+// LocatorHash is the hash a core registers a device locator by, the random token it hands a device
+// over the direct path once the device signed in: SHA-256 over "orpheum-locator" and the locator,
+// base64url, unpadded. The device sends the locator; the discovery compares its hash with the set
+// the core registered and never holds the locator itself (the protocol's §3.1; C3, S11).
+func LocatorHash(locator string) string {
+	digest := sha256.Sum256([]byte(locatorLabel + locator))
+	return base64.RawURLEncoding.EncodeToString(digest[:])
 }

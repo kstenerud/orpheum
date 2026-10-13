@@ -636,7 +636,8 @@ with `coreId` and fingerprint.
 - **The discovery never learns a core's secrets.** The core registers, for each live secret,
   `H = SHA-256("orpheum-locate" ‖ secret)` with its life as a duration and a **use policy**: a
   number of uses, or as many as wanted until it expires or is revoked (`PUT /locate-hashes`, the
-  full set; not built; C3). The page sends `H`, and the secret goes to the core over the direct
+  full set; C3; built 2026-10-13 for registration links, invitations and own links, Watch Together's
+  links to follow). The page sends `H`, and the secret goes to the core over the direct
   path. `/locate` is spent by a click on the page, never by its loading, so a mail scanner opening
   the link spends nothing [I, S11, U10]. "Open in Safari", where an in-app browser is detected,
   shows before that click (U2-1) [I].
@@ -964,8 +965,8 @@ the core must act on (enrol again, another instance running) carries a code of i
 | `GET /signal` (WebSocket) | offers (with proofs) in, answers (signed over the SDP) out; the heartbeat; pings | yes, without checks, signatures, heartbeat or pings |
 | `PUT /acme-challenge`, `DELETE /acme-challenge/{name}` | set or clear `_acme-challenge.<coreId>.<zone>`, claimed cores only; returns once served | yes, but for waiting until served |
 | the core's ACME account (§2.7) | the account URI, for CAA | no |
-| `PUT /locate-hashes` | the full set of live link-secret hashes, with lives and use policies | no |
-| `PUT /locators` | the full set of live device-locator hashes | no |
+| `PUT /locate-hashes` | the full set of live link-secret hashes, with lives and use policies | yes, `single` keeping them |
+| `PUT /locators` | the full set of live device-locator hashes | yes, `single` keeping them |
 | `DELETE /core` | leave; closes the connection and ends the tokens | yes |
 | claim approval (§2.2) | the core's admin allows or refuses an account's claim | after the beta |
 | re-key (§2.8) | a new key's enrolment, countersigned by the old key | deferred |

@@ -21,6 +21,9 @@
 //     TestRetryWait_TwoCoresWaitDifferentlyAndNeverPastTheMost. A dropped signalling connection is
 //     dialled again after the first wait. TestSignal_ADroppedConnectionIsDialledAgainWithinAboutASecond.
 //   - Two Connects at once enrol once (C12). TestConnect_TwoAtOnceEnrolOnce.
+//   - A claimed core tells its discovery every link and device locator it may find the core by, as
+//     their hashes, the full sets, when they change and under each new session (discovery-core.md
+//     K7). TestStep_AClaimedCoreTellsItsDiscoveryItsLinksWhenTheyChangeAndUnderEachNewSession.
 //   - Each run of the core names an instance of its own; refused as a copy of another, it says so
 //     and asks again every few minutes (D293 §1). TestStep_ACoreRefusedAsACopySaysSoAndAsksAgainLater.
 //   - A core its discovery no longer holds enrols again and shows the new code.

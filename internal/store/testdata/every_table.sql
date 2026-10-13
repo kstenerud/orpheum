@@ -79,9 +79,11 @@ INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort
 INSERT INTO group_text (collection_id, group_number, language, name, overview) VALUES (3, 1, 'en', 'Season 1', 'The first.');
 
 INSERT INTO user_deny (user_id, item_id) VALUES (2, 2);
-INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_name, device_id)
-  VALUES (X'01', 'session', 2, 'role', 1790000000000, NULL, 1790000100000, 'phone', 1),
-         (X'02', 'issued_secret', NULL, 'invitation', 1790000000000, 1790600000000, NULL, NULL, NULL);
+INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_name, device_id,
+                     locate_hash, offer_key)
+  VALUES (X'01', 'session', 2, 'role', 1790000000000, NULL, 1790000100000, 'phone', 1, NULL, NULL),
+         (X'02', 'issued_secret', NULL, 'invitation', 1790000000000, 1790600000000, NULL, NULL, NULL, X'0A0B', X'0C0D');
+INSERT INTO locator (session_secret_sha256, hash, issued_at) VALUES (X'01', X'0E0F', 1790000000000);
 INSERT INTO invitation (id, secret_sha256, role_id, admin_note) VALUES (1, X'02', 2, 'Grandma');
 INSERT INTO setting (key, value_json, set_by_user_id, set_at)
   VALUES ('should_check_for_updates', 'false', 1, 1790000000000);

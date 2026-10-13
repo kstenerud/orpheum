@@ -2,12 +2,15 @@
 -- Credentials: one grant table, opaque and revocable, stored as SHA-256 hashes (D154).
 
 -- name: InsertGrant :exec
-INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_name, device_id)
+-- A link's grant also keeps its locate hash and offer key (discovery-core.md K7); NULL for the rest.
+INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_name, device_id,
+                     locate_hash, offer_key)
 VALUES (sqlc.arg(secret_sha256), sqlc.arg(kind), sqlc.arg(user_id), sqlc.arg(scope), sqlc.arg(issued_at),
-        sqlc.arg(expires_at), sqlc.arg(issued_at), sqlc.arg(device_name), sqlc.arg(device_id));
+        sqlc.arg(expires_at), sqlc.arg(issued_at), sqlc.arg(device_name), sqlc.arg(device_id),
+        sqlc.narg(locate_hash), sqlc.narg(offer_key));
 
 -- name: GetLiveGrant :one
-SELECT secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_id, device_name
+SELECT secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_id, device_name, locate_hash
 FROM "grant"
 WHERE secret_sha256 = sqlc.arg(secret_sha256)
   AND revoked_at IS NULL
@@ -38,3 +41,29 @@ SELECT kind, revoked_at, expires_at, last_used_at, issued_at FROM "grant" WHERE 
 UPDATE "grant" SET revoked_at = sqlc.arg(revoked_at)
 WHERE user_id = sqlc.arg(user_id) AND kind = 'session' AND revoked_at IS NULL
   AND secret_sha256 IS NOT sqlc.arg(keep_secret_sha256);
+
+-- name: BecomeOwnLink :exec
+-- A used registration link, or invitation, becomes its person's own link: it locates the core for
+-- them at a discovery, grants no sign-in, and lives until expires_at, renewed by their visits
+-- (discovery-core.md K7; the discovery protocol's section 3.1).
+UPDATE "grant" SET kind = 'link', scope = 'own', user_id = sqlc.arg(user_id), revoked_at = NULL,
+  expires_at = sqlc.arg(expires_at), last_used_at = sqlc.arg(now)
+WHERE secret_sha256 = sqlc.arg(secret_sha256) AND locate_hash IS NOT NULL;
+
+-- name: RenewOwnLinksOfUser :exec
+-- A signed-in visit renews the person's own link's life, which rolls.
+UPDATE "grant" SET expires_at = sqlc.arg(expires_at)
+WHERE user_id = sqlc.arg(user_id) AND kind = 'link' AND scope = 'own' AND revoked_at IS NULL
+  AND (expires_at IS NULL OR expires_at > sqlc.arg(now));
+
+-- name: ListLiveLinkHashes :many
+-- Every live link a discovery may find the core by: its locate hash and when it ends.
+SELECT locate_hash, expires_at FROM "grant"
+WHERE locate_hash IS NOT NULL AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > sqlc.arg(now))
+ORDER BY locate_hash;
+
+-- name: GetLiveLinkOfferKey :one
+-- What an offer through a live link is proven under, by the link's locate hash.
+SELECT offer_key FROM "grant"
+WHERE locate_hash = sqlc.arg(locate_hash) AND offer_key IS NOT NULL AND revoked_at IS NULL
+  AND (expires_at IS NULL OR expires_at > sqlc.arg(now));
