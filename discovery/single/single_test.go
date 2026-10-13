@@ -4,6 +4,7 @@ package single
 
 import (
 	"bytes"
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
@@ -135,18 +136,27 @@ func (built *stage) enrol(t *testing.T, signer key) (int, discoveryproto.EnrolRe
 	return status, enrolled
 }
 
-// session opens a session for the core coreID with signer, returning its token.
+// session opens a session for the core coreID with signer, as its first instance, returning its token.
 func (built *stage) session(t *testing.T, signer key, coreID string) string {
+	t.Helper()
+	status, token := built.sessionAs(t, signer, coreID, "first")
+	if status != http.StatusOK {
+		t.Fatalf("a session answered %d", status)
+	}
+	return token
+}
+
+// sessionAs opens a session for the core coreID with signer, as the instance instanceID, returning the
+// status and the token.
+func (built *stage) sessionAs(t *testing.T, signer key, coreID, instanceID string) (int, string) {
 	t.Helper()
 	nonce := built.nonce(t, signer)
 	var opened discoveryproto.SessionResponse
-	if status := built.call(t, http.MethodPost, discoveryproto.PathSession, "", discoveryproto.SessionRequest{
-		CoreID: coreID, Nonce: nonce,
+	status := built.call(t, http.MethodPost, discoveryproto.PathSession, "", discoveryproto.SessionRequest{
+		CoreID: coreID, InstanceID: instanceID, Nonce: nonce,
 		Signature: ed25519.Sign(signer.private, proof.Message(discoveryproto.PurposeSession, nonce)),
-	}, &opened); status != http.StatusOK {
-		t.Fatalf("a session answered %d", status)
-	}
-	return opened.Token
+	}, &opened)
+	return status, opened.Token
 }
 
 func TestEnrol_HoldsOneCoreAndRefusesAnotherWhileItIsClaimed(t *testing.T) {
@@ -157,11 +167,23 @@ func TestEnrol_HoldsOneCoreAndRefusesAnotherWhileItIsClaimed(t *testing.T) {
 	if status != http.StatusOK || len(enrolled.CoreID) != coreIDChars || len(enrolled.ClaimCode) != 9 {
 		t.Fatalf("enrolling answered %d %+v; want a core's id and its claim code", status, enrolled)
 	}
-	// While it is pending, another key takes its place: the owner's core started over.
-	if status, replaced := built.enrol(t, second); status != http.StatusOK || replaced.CoreID == enrolled.CoreID {
-		t.Fatalf("a second key while the first was pending answered %d %+v; want a new core", status, replaced)
+	// While its code lives, another key cannot take a pending core's place: a stranger enrolling
+	// first would otherwise hold it and take the owner's signalling (the security audit's A3).
+	if pending, _ := built.enrol(t, second); pending != http.StatusConflict {
+		t.Fatalf("a second key while the first was pending answered %d; want %d", pending, http.StatusConflict)
 	}
-	_, enrolled = built.enrol(t, second)
+	// Once the code expired unclaimed, another key takes its place, and the first's sessions end.
+	token := built.session(t, first, enrolled.CoreID)
+	built.advance(claimLasts)
+	status, replaced := built.enrol(t, second)
+	if status != http.StatusOK || replaced.CoreID == enrolled.CoreID {
+		t.Fatalf("a second key once the first's code expired answered %d %+v; want a new core", status, replaced)
+	}
+	asked := built.call(t, http.MethodGet, discoveryproto.PathStatus, token, nil, nil)
+	if asked != http.StatusUnauthorized {
+		t.Errorf("the replaced core's session answered %d; want %d", asked, http.StatusUnauthorized)
+	}
+	enrolled = replaced
 	if err := built.discovery.Claim(enrolled.ClaimCode); err != nil {
 		t.Fatal(err)
 	}
@@ -181,7 +203,7 @@ func TestSession_ANonceWorksOnceAndOnlyForItsPurpose(t *testing.T) {
 	nonce := built.nonce(t, signer)
 	opening := func(purpose string) int {
 		return built.call(t, http.MethodPost, discoveryproto.PathSession, "", discoveryproto.SessionRequest{
-			CoreID: enrolled.CoreID, Nonce: nonce,
+			CoreID: enrolled.CoreID, InstanceID: "first", Nonce: nonce,
 			Signature: ed25519.Sign(signer.private, proof.Message(purpose, nonce)),
 		}, nil)
 	}
@@ -216,7 +238,7 @@ func TestSession_NoCountOfStrangersChallengesKeepsTheCoreFromItsSession(t *testi
 	}
 	opening := func(nonce string) int {
 		return built.call(t, http.MethodPost, discoveryproto.PathSession, "", discoveryproto.SessionRequest{
-			CoreID: enrolled.CoreID, Nonce: nonce,
+			CoreID: enrolled.CoreID, InstanceID: "first", Nonce: nonce,
 			Signature: ed25519.Sign(signer.private, proof.Message(discoveryproto.PurposeSession, nonce)),
 		}, nil)
 	}
@@ -302,14 +324,11 @@ func TestOffer_PassesTheOfferToTheCoreAndReturnsItsAnswer(t *testing.T) {
 	}
 	signer := newKey(t)
 	_, enrolled := built.enrol(t, signer)
-	token := built.session(t, signer, enrolled.CoreID)
-	address := "ws" + strings.TrimPrefix(built.server.URL, "http") + discoveryproto.PathSignal
-	dialing := &websocket.DialOptions{HTTPHeader: http.Header{"Authorization": {"Bearer " + token}}}
-	connection, _, err := websocket.Dial(t.Context(), address, dialing) //nolint:bodyclose // the library closes it
-	if err != nil {
+	if err := built.discovery.Claim(enrolled.ClaimCode); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = connection.CloseNow() }) //nolint:errcheck // the test is over
+	token := built.session(t, signer, enrolled.CoreID)
+	connection := built.dial(t, token)
 	// The core: it answers the first offer and refuses the second.
 	go func() {
 		for index := 0; ; index++ {
@@ -338,5 +357,173 @@ func TestOffer_PassesTheOfferToTheCoreAndReturnsItsAnswer(t *testing.T) {
 	if _, err = built.discovery.Offer(t.Context(), "a second"); !errors.Is(err, ErrRefused) ||
 		!strings.Contains(err.Error(), "too many connections") {
 		t.Errorf("a refused offer = %v; want ErrRefused with the core's reason", err)
+	}
+}
+
+// dial opens the signalling connection with token, closed when the test ends.
+func (built *stage) dial(t *testing.T, token string) *websocket.Conn {
+	t.Helper()
+	address := "ws" + strings.TrimPrefix(built.server.URL, "http") + discoveryproto.PathSignal
+	dialing := &websocket.DialOptions{HTTPHeader: http.Header{"Authorization": {"Bearer " + token}}}
+	connection, _, err := websocket.Dial(t.Context(), address, dialing) //nolint:bodyclose // the library closes it
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = connection.CloseNow() }) //nolint:errcheck // the test is over
+	return connection
+}
+
+// claimed is a core of a new key, enrolled and claimed.
+func (built *stage) claimed(t *testing.T) (key, string) {
+	t.Helper()
+	signer := newKey(t)
+	_, enrolled := built.enrol(t, signer)
+	if err := built.discovery.Claim(enrolled.ClaimCode); err != nil {
+		t.Fatal(err)
+	}
+	return signer, enrolled.CoreID
+}
+
+// refusalOf is the refusal's code a call answered with, opening a session for a second instance.
+func (built *stage) refusalOf(t *testing.T, method, path, token string, body any) (int, string) {
+	t.Helper()
+	var sent bytes.Buffer
+	if err := json.NewEncoder(&sent).Encode(body); err != nil {
+		t.Fatal(err)
+	}
+	request, err := http.NewRequestWithContext(t.Context(), method, built.server.URL+path, &sent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set(discoveryproto.ProtocolHeader, discoveryproto.ProtocolVersion)
+	if token != "" {
+		request.Header.Set("Authorization", "Bearer "+token)
+	}
+	response, err := built.server.Client().Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = response.Body.Close() }() //nolint:errcheck // read in full below
+	var refusal discoveryproto.Refusal
+	_ = json.NewDecoder(response.Body).Decode(&refusal) //nolint:errcheck // a refusal's body, or none
+	return response.StatusCode, refusal.Code
+}
+
+// A pending core asks how it stands and may leave, but publishes no address, gets no certificate
+// record and holds no signalling connection until it is claimed: a stranger holding a pending core's
+// place gains nothing (the security audit's A3).
+func TestHandler_APendingCorePublishesNothingUntilItIsClaimed(t *testing.T) {
+	t.Parallel()
+	built := newStage(t)
+	built.discovery.parts.TXT = &txtRecords{}
+	signer := newKey(t)
+	_, enrolled := built.enrol(t, signer)
+	token := built.session(t, signer, enrolled.CoreID)
+	name := "_acme-challenge." + enrolled.CoreID + "." + testZone
+	for _, call := range []struct {
+		method, path string
+		body         any
+	}{
+		{http.MethodPut, discoveryproto.PathAddresses, discoveryproto.AddressesRequest{}},
+		{http.MethodPut, discoveryproto.PathACMEChallenge, discoveryproto.ACMEChallengeRequest{Name: name, Value: "v"}},
+	} {
+		status, code := built.refusalOf(t, call.method, call.path, token, call.body)
+		if status != http.StatusForbidden || code != discoveryproto.RefusalNotClaimed {
+			t.Errorf("%s %s from a pending core answered %d %q; want %d %q", call.method, call.path, status, code,
+				http.StatusForbidden, discoveryproto.RefusalNotClaimed)
+		}
+	}
+	address := "ws" + strings.TrimPrefix(built.server.URL, "http") + discoveryproto.PathSignal
+	dialing := &websocket.DialOptions{HTTPHeader: http.Header{"Authorization": {"Bearer " + token}}}
+	//nolint:bodyclose // the library closes it
+	connection, response, err := websocket.Dial(t.Context(), address, dialing)
+	if err == nil {
+		_ = connection.CloseNow() //nolint:errcheck // it should not have opened
+		t.Error("a pending core opened the signalling connection")
+	} else if response == nil || response.StatusCode != http.StatusForbidden {
+		t.Errorf("a pending core's signalling answered %v; want %d", err, http.StatusForbidden)
+	}
+	if status := built.call(t, http.MethodGet, discoveryproto.PathStatus, token, nil, nil); status != http.StatusOK {
+		t.Errorf("a pending core asking how it stands answered %d", status)
+	}
+	if err := built.discovery.Claim(enrolled.ClaimCode); err != nil {
+		t.Fatal(err)
+	}
+	if status := built.call(t, http.MethodPut, discoveryproto.PathACMEChallenge, token,
+		discoveryproto.ACMEChallengeRequest{Name: name, Value: "v"}, nil); status != http.StatusOK {
+		t.Errorf("the claimed core's certificate record answered %d", status)
+	}
+}
+
+// txtRecords takes every record it is given.
+type txtRecords struct{}
+
+func (*txtRecords) SetTXT(context.Context, string, string) error { return nil }
+func (*txtRecords) ClearTXT(context.Context, string) error       { return nil }
+
+// A session for a core the discovery does not hold says to enrol again, which the core acts on
+// (the protocol's §2.2, C12).
+func TestSession_ForACoreItDoesNotHoldSaysToEnrolAgain(t *testing.T) {
+	t.Parallel()
+	built := newStage(t)
+	signer := newKey(t)
+	nonce := built.nonce(t, signer)
+	status, code := built.refusalOf(t, http.MethodPost, discoveryproto.PathSession, "", discoveryproto.SessionRequest{
+		CoreID: "notheld", InstanceID: "first", Nonce: nonce,
+		Signature: ed25519.Sign(signer.private, proof.Message(discoveryproto.PurposeSession, nonce)),
+	})
+	if status != http.StatusForbidden || code != discoveryproto.RefusalEnrolAgain {
+		t.Errorf("a session for a core it does not hold answered %d %q; want %d %q", status, code,
+			http.StatusForbidden, discoveryproto.RefusalEnrolAgain)
+	}
+}
+
+// A second instance of the core is admitted at once when the first holds no signalling connection or
+// does not answer a ping on it, the first's sessions and connection ending; while the first answers,
+// the second is refused as a copy, so a crash-restart waits seconds and two copies never take turns
+// (D293 §1).
+func TestSession_ASecondInstanceTakesThePlaceOfOneThatDoesNotAnswerAndIsRefusedWhileItDoes(t *testing.T) {
+	t.Parallel()
+	built := newStage(t)
+	built.discovery.pingWait = 200 * time.Millisecond
+	signer, coreID := built.claimed(t)
+	first := built.session(t, signer, coreID)
+	// The first holds no connection: the second takes its place, and the first's session ends.
+	status, second := built.sessionAs(t, signer, coreID, "second")
+	if status != http.StatusOK {
+		t.Fatalf("a second instance while the first held no connection answered %d", status)
+	}
+	asked := built.call(t, http.MethodGet, discoveryproto.PathStatus, first, nil, nil)
+	if asked != http.StatusUnauthorized {
+		t.Errorf("the replaced instance's session answered %d; want %d", asked, http.StatusUnauthorized)
+	}
+	// The second holds its connection and answers pings, as a live core's reader does: the first,
+	// asking again, is refused as a copy.
+	answering := built.dial(t, second)
+	go func() {
+		for {
+			if _, _, err := answering.Read(t.Context()); err != nil {
+				return
+			}
+		}
+	}()
+	built.logs.AwaitLine(t, "the core's signalling connected")
+	nonce := built.nonce(t, signer)
+	status, code := built.refusalOf(t, http.MethodPost, discoveryproto.PathSession, "", discoveryproto.SessionRequest{
+		CoreID: coreID, InstanceID: "first", Nonce: nonce,
+		Signature: ed25519.Sign(signer.private, proof.Message(discoveryproto.PurposeSession, nonce)),
+	})
+	if status != http.StatusConflict || code != discoveryproto.RefusalAnotherInstance {
+		t.Fatalf("a copy while the live instance answers got %d %q; want %d %q", status, code,
+			http.StatusConflict, discoveryproto.RefusalAnotherInstance)
+	}
+	// The second crashed: its connection is still open to the discovery, but nothing reads it, so
+	// no ping is answered. The first is admitted, and the second's connection closed.
+	silent := built.dial(t, second)
+	if status, _ := built.sessionAs(t, signer, coreID, "first"); status != http.StatusOK {
+		t.Fatalf("an instance after the live one stopped answering got %d", status)
+	}
+	if _, _, err := silent.Read(t.Context()); err == nil {
+		t.Error("the silent instance's connection still carries messages; want it dropped")
 	}
 }

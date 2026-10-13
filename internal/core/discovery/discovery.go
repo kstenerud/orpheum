@@ -5,6 +5,7 @@ package discovery
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -48,6 +49,10 @@ const heartbeatEvery = 5 * time.Minute
 
 // retryAfter is how long a core waits after a call failed.
 const retryAfter = 30 * time.Second
+
+// anotherCopyEvery is how often a core its discovery refused as a copy of another, still connected,
+// asks again: if the other stops, this one takes its place (D293 §1).
+const anotherCopyEvery = 3 * time.Minute
 
 // endedEvery is how often a core whose discovery has ended asks again, in case its owner pays.
 const endedEvery = time.Hour
@@ -127,6 +132,9 @@ type Status struct {
 type Service struct {
 	parts Parts
 	wake  chan struct{}
+	// instanceID is this run's, made at its start and never kept, so the discovery tells a restart
+	// or a copy from the instance it holds (D293 §1).
+	instanceID string
 
 	mutex sync.Mutex
 	// Guarded by mutex:
@@ -189,7 +197,7 @@ var ErrNotEnrolled = errors.New("the core is enrolled with no discovery")
 
 // New returns the service, carrying on with the discovery the core was enrolled with, if any.
 func New(parts Parts) (*Service, error) {
-	service := &Service{parts: parts, wake: make(chan struct{}, 1)}
+	service := &Service{parts: parts, wake: make(chan struct{}, 1), instanceID: rand.Text()}
 	contents, err := parts.Files.ReadPersistentFile(StateFileName)
 	switch {
 	case errors.Is(err, instancedir.ErrNotFound):
@@ -228,7 +236,12 @@ func (service *Service) Connect(ctx context.Context, baseURL string) (Status, er
 	if service.Status().BaseURL != "" {
 		return Status{}, ErrAlreadyEnrolled
 	}
-	baseURL = strings.TrimSuffix(baseURL, "/")
+	return service.enrol(ctx, strings.TrimSuffix(baseURL, "/"))
+}
+
+// enrol proves the core holds its key to the discovery at baseURL and keeps the id and code it is
+// given.
+func (service *Service) enrol(ctx context.Context, baseURL string) (Status, error) {
 	nonce, err := service.challenge(ctx, baseURL)
 	if err != nil {
 		return Status{}, err
@@ -324,7 +337,14 @@ func (service *Service) step(ctx context.Context) time.Duration {
 		return endedEvery
 	}
 	token, err := service.session(ctx)
-	if err != nil {
+	var refused *refusal
+	switch {
+	case errors.As(err, &refused) && refused.code == discoveryproto.RefusalEnrolAgain:
+		return service.enrolAgain(ctx, status.BaseURL)
+	case errors.As(err, &refused) && refused.code == discoveryproto.RefusalAnotherInstance:
+		service.failed(ctx, "open a session", ErrAnotherCopy)
+		return anotherCopyEvery
+	case err != nil:
 		return service.failed(ctx, "open a session", err)
 	}
 	switch status.State {
@@ -336,6 +356,22 @@ func (service *Service) step(ctx context.Context) time.Duration {
 	default: // a state a later protocol added: ask, as for one that has ended
 		return service.askStatus(ctx, status, token)
 	}
+}
+
+// ErrAnotherCopy is the discovery refusing this core because another instance of it, a copy, is
+// connected and still answers: what the admin is told.
+var ErrAnotherCopy = errors.New("another copy of this server is connected to the discovery; this one stays " +
+	"off it, and asks again every few minutes")
+
+// enrolAgain enrols the core again with its discovery, which no longer holds it, and returns the wait
+// before the next step: the new code shows on the System page (the protocol's §2.2, C12).
+func (service *Service) enrolAgain(ctx context.Context, baseURL string) time.Duration {
+	service.parts.Logger.WarnContext(ctx, "discovery: the discovery no longer holds the core; enrolling again",
+		"baseUrl", baseURL)
+	if _, err := service.enrol(ctx, baseURL); err != nil {
+		return service.failed(ctx, "enrol again", err)
+	}
+	return pendingEvery
 }
 
 // askStatus asks the discovery how the core stands, and returns the wait its state calls for.
@@ -472,7 +508,7 @@ func (service *Service) session(ctx context.Context) (string, error) {
 	err = service.call(ctx, callOf{
 		base: status.BaseURL, method: http.MethodPost, path: discoveryproto.PathSession,
 		body: discoveryproto.SessionRequest{
-			CoreID: status.CoreID, Nonce: nonce,
+			CoreID: status.CoreID, InstanceID: service.instanceID, Nonce: nonce,
 			Signature: service.parts.Key.Sign(discoveryproto.PurposeSession, nonce),
 		}, into: &opened,
 	})
@@ -503,6 +539,15 @@ func (service *Service) challenge(ctx context.Context, baseURL string) (string, 
 
 // errUnauthorised is a discovery refusing the core's session: a new one is opened.
 var errUnauthorised = errors.New("the discovery refused the core's session")
+
+// refusal is a refusal the discovery names, which the core acts on (discoveryproto.Refusal).
+type refusal struct {
+	code, message string
+}
+
+func (refused *refusal) Error() string {
+	return "the discovery refused: " + refused.message
+}
 
 // callOf is one call to a discovery.
 type callOf struct {
@@ -548,10 +593,8 @@ func (service *Service) call(ctx context.Context, call callOf) error {
 		return fmt.Errorf("read the discovery's answer: %w", err)
 	}
 	switch {
-	case response.StatusCode == http.StatusUnauthorized:
-		return errUnauthorised
 	case response.StatusCode < 200 || response.StatusCode > 299:
-		return fmt.Errorf("the discovery answered %s: %s", response.Status, bytes.TrimSpace(answer))
+		return failure(response, answer)
 	case call.into == nil:
 		return nil
 	}
@@ -559,6 +602,19 @@ func (service *Service) call(ctx context.Context, call callOf) error {
 		return fmt.Errorf("the discovery's answer is not what it should be: %w", err)
 	}
 	return nil
+}
+
+// failure is the error a refused call's answer stands for: a refused session, a refusal the
+// discovery names, or the status and what it said.
+func failure(response *http.Response, answer []byte) error {
+	if response.StatusCode == http.StatusUnauthorized {
+		return errUnauthorised
+	}
+	var named discoveryproto.Refusal
+	if json.Unmarshal(answer, &named) == nil && named.Code != "" {
+		return &refusal{code: named.Code, message: named.Message}
+	}
+	return fmt.Errorf("the discovery answered %s: %s", response.Status, bytes.TrimSpace(answer))
 }
 
 // ErrNotADiscoveryURL is a base URL a core will not enrol with.

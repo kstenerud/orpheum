@@ -45,8 +45,9 @@ const (
 // secretBytes is the random bytes behind a nonce, a session's token and a core's id.
 const secretBytes = 24
 
-// coreIDChars is a core's id's length, in safe32 without dashes: a label in the core's names.
-const coreIDChars = 8
+// coreIDChars is a core's id's length, in safe32 without dashes: a label in the core's names, of
+// 130 bits, too many to guess (the protocol's §2.7; the security audit's A3).
+const coreIDChars = 26
 
 // bodyMost is the largest request body it reads: a heartbeat's candidates are a few kilobytes.
 const bodyMost = 64 << 10
@@ -60,6 +61,7 @@ var (
 	errAnotherCore  = errors.New("this discovery holds another core")
 	errNoDNS        = errors.New("this discovery sets no DNS records: it was given no DNS provider")
 	errNotCoresName = errors.New("not the core's name")
+	errNotClaimed   = errors.New("the core is not claimed yet: its owner claims it by the code its System page shows")
 )
 
 // TXTRecords sets and clears the TXT records of the core's certificate's DNS-01 challenge, in the
@@ -93,9 +95,13 @@ type Discovery struct {
 	// nonceKey signs the nonces it issues; spent is each nonce a signature has used, until it expires.
 	nonceKey []byte
 	spent    map[string]time.Time
-	// tokens are the sessions' tokens, each until it expires.
-	tokens map[string]time.Time
-	signal *signalling
+	// tokens are the sessions, by their tokens; instance is the core's live instance, empty when no
+	// session is open (D293 §1).
+	tokens   map[string]session
+	instance string
+	signal   *signalling
+	// pingWait is how long a live instance has to answer: instancePingWait, shorter in the tests.
+	pingWait time.Duration
 }
 
 // New returns a discovery over parts, with a key for its nonces from parts.Random.
@@ -108,8 +114,8 @@ func New(parts Parts) (*Discovery, error) {
 		return nil, fmt.Errorf("make the nonces' key: %w", err)
 	}
 	return &Discovery{
-		parts: parts, nonceKey: nonceKey, spent: map[string]time.Time{}, tokens: map[string]time.Time{},
-		signal: newSignalling(parts.Logger),
+		parts: parts, nonceKey: nonceKey, spent: map[string]time.Time{}, tokens: map[string]session{},
+		signal: newSignalling(parts.Logger), pingWait: instancePingWait,
 	}, nil
 }
 
@@ -120,11 +126,15 @@ func (discovery *Discovery) Handler() http.Handler {
 
 func (discovery *Discovery) serve(writer http.ResponseWriter, request *http.Request) {
 	if request.URL.Path == discoveryproto.PathSignal && request.Method == http.MethodGet {
-		if !discovery.isSignedIn(request) {
-			http.Error(writer, "no session: open one first", http.StatusUnauthorized)
+		held, opened, isSignedIn := discovery.signedIn(writer, request)
+		if !isSignedIn {
 			return
 		}
-		discovery.signal.accept(writer, request)
+		if held.State != discoveryproto.StateClaimed {
+			refuse(writer, http.StatusForbidden, discoveryproto.RefusalNotClaimed, errNotClaimed.Error())
+			return
+		}
+		discovery.signal.accept(writer, request, opened.instanceID)
 		return
 	}
 	if request.Header.Get(discoveryproto.ProtocolHeader) != discoveryproto.ProtocolVersion {
@@ -141,26 +151,37 @@ func (discovery *Discovery) serve(writer http.ResponseWriter, request *http.Requ
 	case http.MethodPost + " " + discoveryproto.PathSession:
 		discovery.session(writer, request)
 	default:
-		if !discovery.isSignedIn(request) {
-			http.Error(writer, "no session: open one first", http.StatusUnauthorized)
+		held, _, isSignedIn := discovery.signedIn(writer, request)
+		if !isSignedIn {
 			return
 		}
-		discovery.serveSignedIn(writer, request)
+		discovery.serveSignedIn(writer, request, held)
 	}
 }
 
-// serveSignedIn answers the calls a session's token is needed for.
-func (discovery *Discovery) serveSignedIn(writer http.ResponseWriter, request *http.Request) {
-	switch request.Method + " " + request.URL.Path {
+// serveSignedIn answers the calls a session's token is needed for. A pending core asks how it stands
+// and may leave; its addresses and its certificate's record wait until it is claimed, so a stranger
+// holding a pending core's place publishes nothing and gets no certificate (the security audit's A3).
+func (discovery *Discovery) serveSignedIn(writer http.ResponseWriter, request *http.Request, held Core) {
+	call := request.Method + " " + request.URL.Path
+	switch call {
 	case http.MethodGet + " " + discoveryproto.PathStatus:
 		discovery.status(writer, request)
+		return
+	case http.MethodDelete + " " + discoveryproto.PathCore:
+		discovery.leave(writer, request)
+		return
+	}
+	if held.State != discoveryproto.StateClaimed {
+		refuse(writer, http.StatusForbidden, discoveryproto.RefusalNotClaimed, errNotClaimed.Error())
+		return
+	}
+	switch call {
 	case http.MethodPut + " " + discoveryproto.PathAddresses:
 		discovery.addresses(writer, request)
 	case http.MethodPut + " " + discoveryproto.PathACMEChallenge,
 		http.MethodDelete + " " + discoveryproto.PathACMEChallenge:
-		discovery.acmeChallenge(writer, request)
-	case http.MethodDelete + " " + discoveryproto.PathCore:
-		discovery.leave(writer, request)
+		discovery.acmeChallenge(writer, request, held)
 	default:
 		http.NotFound(writer, request)
 	}
@@ -222,8 +243,10 @@ func (discovery *Discovery) isSigned(publicKey ed25519.PublicKey, purpose, nonce
 	return true
 }
 
-// enrol takes the core whose key signed: a new one, the same one again, or a pending one replaced.
-// While its core is claimed it refuses any other key: it holds one core.
+// enrol takes the core whose key signed: a new one, the same one again, or a pending one whose code
+// expired unclaimed. While its core is claimed, or pending with a live code, it refuses any other key:
+// it holds one core, and a stranger cannot take a pending core's place (the security audit's A3).
+// A core replaced takes every session and the signalling connection with it.
 func (discovery *Discovery) enrol(writer http.ResponseWriter, request *http.Request) {
 	var enrolling discoveryproto.EnrolRequest
 	if !read(writer, request, &enrolling) {
@@ -234,13 +257,16 @@ func (discovery *Discovery) enrol(writer http.ResponseWriter, request *http.Requ
 		return
 	}
 	var enrolled Core
+	isReplaced := false
 	err := discovery.parts.Store.Update(func(record *Record) error {
 		held := record.Core
 		switch {
 		case held != nil && string(held.PublicKey) == string(enrolling.PublicKey):
-		case held != nil && held.State == discoveryproto.StateClaimed:
+		case held != nil && (held.State != discoveryproto.StatePending ||
+			discovery.parts.Now().Before(time.UnixMilli(held.ClaimExpiresAt))):
 			return errAnotherCore
 		default:
+			isReplaced = held != nil
 			id, idErr := discovery.coreID()
 			if idErr != nil {
 				return idErr
@@ -256,62 +282,21 @@ func (discovery *Discovery) enrol(writer http.ResponseWriter, request *http.Requ
 		return nil
 	})
 	if errors.Is(err, errAnotherCore) {
-		http.Error(writer, "this discovery holds another core, claimed: it holds one core only", http.StatusConflict)
+		http.Error(writer, "this discovery holds another core: it holds one core only", http.StatusConflict)
 		return
 	}
 	if err != nil {
 		discovery.fail(writer, request, err)
 		return
+	}
+	if isReplaced {
+		discovery.forgetSessions("another core took the place of the one whose code expired")
 	}
 	discovery.parts.Logger.InfoContext(request.Context(), "discovery: a core enrolled",
 		"coreId", enrolled.ID, "state", enrolled.State)
 	answer(writer, discoveryproto.EnrolResponse{
 		CoreID: enrolled.ID, ClaimCode: enrolled.ClaimCode, ClaimExpiresAt: enrolled.ClaimExpiresAt,
 	})
-}
-
-// session opens a session for the core that proves its key.
-func (discovery *Discovery) session(writer http.ResponseWriter, request *http.Request) {
-	var opening discoveryproto.SessionRequest
-	if !read(writer, request, &opening) {
-		return
-	}
-	record, err := discovery.parts.Store.Read()
-	if err != nil {
-		discovery.fail(writer, request, err)
-		return
-	}
-	held := record.Core
-	if held == nil || held.ID != opening.CoreID {
-		http.Error(writer, "not this discovery's core: enrol again", http.StatusForbidden)
-		return
-	}
-	if !discovery.isSigned(held.PublicKey, discoveryproto.PurposeSession, opening.Nonce, opening.Signature) {
-		http.Error(writer, "the signature is not the core's over a nonce this discovery issued", http.StatusForbidden)
-		return
-	}
-	token, err := discovery.secret()
-	if err != nil {
-		discovery.fail(writer, request, err)
-		return
-	}
-	expires := discovery.parts.Now().Add(sessionLasts)
-	discovery.mutex.Lock()
-	discovery.tokens[token] = expires
-	discovery.mutex.Unlock()
-	answer(writer, discoveryproto.SessionResponse{Token: token, ExpiresAt: expires.UnixMilli()})
-}
-
-// isSignedIn is whether request carries a session's token that has not expired.
-func (discovery *Discovery) isSignedIn(request *http.Request) bool {
-	token, isBearer := strings.CutPrefix(request.Header.Get("Authorization"), "Bearer ")
-	if !isBearer {
-		return false
-	}
-	discovery.mutex.Lock()
-	defer discovery.mutex.Unlock()
-	expires, found := discovery.tokens[token]
-	return found && discovery.parts.Now().Before(expires)
 }
 
 // status is where the core stands: pending with its claim code, a new one once the last expired, or
@@ -372,18 +357,14 @@ func (discovery *Discovery) addresses(writer http.ResponseWriter, request *http.
 }
 
 // acmeChallenge sets or clears the core's certificate's DNS-01 record, the core's own name alone.
-func (discovery *Discovery) acmeChallenge(writer http.ResponseWriter, request *http.Request) {
+func (discovery *Discovery) acmeChallenge(writer http.ResponseWriter, request *http.Request, held Core) {
 	var challenge discoveryproto.ACMEChallengeRequest
 	if !read(writer, request, &challenge) {
 		return
 	}
-	record, err := discovery.parts.Store.Read()
-	if err != nil {
-		discovery.fail(writer, request, err)
-		return
-	}
+	var err error
 	switch {
-	case record.Core == nil || challenge.Name != "_acme-challenge."+record.Core.ID+"."+discovery.parts.Zone:
+	case challenge.Name != "_acme-challenge."+held.ID+"."+discovery.parts.Zone:
 		err = errNotCoresName
 	case discovery.parts.TXT == nil:
 		err = errNoDNS
@@ -402,7 +383,7 @@ func (discovery *Discovery) acmeChallenge(writer http.ResponseWriter, request *h
 	}
 }
 
-// leave forgets the core, at its asking.
+// leave forgets the core, at its asking, with its sessions and its signalling connection.
 func (discovery *Discovery) leave(writer http.ResponseWriter, request *http.Request) {
 	if err := discovery.parts.Store.Update(func(record *Record) error {
 		record.Core = nil
@@ -411,6 +392,7 @@ func (discovery *Discovery) leave(writer http.ResponseWriter, request *http.Requ
 		discovery.fail(writer, request, err)
 		return
 	}
+	discovery.forgetSessions("the core left")
 	discovery.parts.Logger.InfoContext(request.Context(), "discovery: the core left")
 	writer.WriteHeader(http.StatusNoContent)
 }
@@ -449,13 +431,17 @@ func (discovery *Discovery) newClaimCode(held *Core) error {
 	return nil
 }
 
-// coreID is a new core's id: eight safe32 characters, a label in its names.
+// coreID is a new core's id: coreIDChars safe32 characters, a label in its names.
 func (discovery *Discovery) coreID() (string, error) {
-	var raw [8]byte
-	if _, err := io.ReadFull(discovery.parts.Random, raw[:]); err != nil {
+	raw := make([]byte, (coreIDChars*5+7)/8)
+	if _, err := io.ReadFull(discovery.parts.Random, raw); err != nil {
 		return "", fmt.Errorf("make a core's id: %w", err)
 	}
-	return strings.ReplaceAll(safe32code.Write(binary.BigEndian.Uint64(raw[:]), coreIDChars), "-", ""), nil
+	written, err := safe32code.WriteBytes(raw, coreIDChars)
+	if err != nil {
+		return "", fmt.Errorf("write a core's id: %w", err)
+	}
+	return strings.ReplaceAll(written, "-", ""), nil
 }
 
 // secret is a new nonce or token.

@@ -10,7 +10,8 @@
 //
 //   - A code is written most significant first, five bits a character, and what a person typed is
 //     read back to it: either case, o as 0, l and i as 1, u as v, dashes and spaces ignored.
-//     Enforced by TestDeviceCode_IsSafe32AndReadsWhatAPersonTypes.
+//     Enforced by TestDeviceCode_IsSafe32AndReadsWhatAPersonTypes and
+//     TestWriteBytes_WritesTheBitsAsWriteDoes.
 //   - Imports nothing from internal/. Enforced by TestArch_PublicPackagesImportNothingInternal.
 //
 // # Read before changing

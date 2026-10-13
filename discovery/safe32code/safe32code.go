@@ -21,6 +21,9 @@ const DeviceBytes = 5
 // ErrNotACode is text that cannot be a code, however it is read.
 var ErrNotACode = errors.New("not a code")
 
+// ErrTooFewBytes is WriteBytes given fewer bits than the code's characters need.
+var ErrTooFewBytes = errors.New("fewer bytes than the code's characters need")
+
 // Device writes five bytes as a device code, "xxxx-xxxx": the 40 bits big-endian, five to a
 // character.
 func Device(raw [DeviceBytes]byte) string {
@@ -41,6 +44,24 @@ func Write(value uint64, length int) string {
 		value >>= 5
 	}
 	return grouped(written)
+}
+
+// WriteBytes writes the first five bits per character of raw, most significant first, as a code of
+// length characters, grouped as Write groups them: for a value wider than Write's 64 bits, such as a
+// core's 130-bit id. Raw holding fewer than length*5 bits is ErrTooFewBytes.
+func WriteBytes(raw []byte, length int) (string, error) {
+	if len(raw)*8 < length*5 {
+		return "", ErrTooFewBytes
+	}
+	written := make([]byte, length)
+	for index := range written {
+		var value byte
+		for bit := index * 5; bit < index*5+5; bit++ {
+			value = value<<1 | raw[bit/8]>>(7-bit%8)&1
+		}
+		written[index] = alphabet[value]
+	}
+	return grouped(written), nil
 }
 
 // Read reads what a person typed as the code of length characters it means, as safe32 allows: either

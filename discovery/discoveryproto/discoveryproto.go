@@ -61,11 +61,14 @@ type EnrolResponse struct {
 	ClaimExpiresAt int64  `json:"claimExpiresAt"`
 }
 
-// SessionRequest opens a session: the core's id and its signature over the nonce for PurposeSession.
+// SessionRequest opens a session: the core's id, the instance asking, and its signature over the
+// nonce for PurposeSession. InstanceID is random, made at each start of the core and never kept, so
+// a discovery tells a restarted core, or a copy of it, from the one it holds (D293 §1).
 type SessionRequest struct {
-	CoreID    string `json:"coreId"`
-	Nonce     string `json:"nonce"`
-	Signature []byte `json:"signature"`
+	CoreID     string `json:"coreId"`
+	InstanceID string `json:"instanceId"`
+	Nonce      string `json:"nonce"`
+	Signature  []byte `json:"signature"`
 }
 
 // SessionResponse is the bearer token the core's other calls carry, until ExpiresAt (Unix ms).
@@ -73,6 +76,25 @@ type SessionResponse struct {
 	Token     string `json:"token"`
 	ExpiresAt int64  `json:"expiresAt"`
 }
+
+// Refusal is the body of a refusal the core acts on rather than retrying as it would any failure:
+// Code says which, Message says it for the admin (the protocol's §2.2, §2.3; C4, C12).
+type Refusal struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+// The refusals a core acts on.
+const (
+	// RefusalEnrolAgain is a discovery that holds no core of this id and key: the core enrols again
+	// and shows the code it is given.
+	RefusalEnrolAgain = "enrol_again"
+	// RefusalAnotherInstance is another instance of this core, still answering, holding the
+	// discovery's connection: this one is a copy, which says so and asks again later (D293 §1).
+	RefusalAnotherInstance = "another_instance"
+	// RefusalNotClaimed is a call only a claimed core makes, from a core not yet claimed.
+	RefusalNotClaimed = "not_claimed"
+)
 
 // State is where a core stands with its discovery.
 type State string

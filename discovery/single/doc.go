@@ -9,7 +9,18 @@
 // # Invariants
 //
 //   - It holds at most one core: a key other than its core's is refused enrolling while that core
-//     is claimed. Enforced by TestEnrol_HoldsOneCoreAndRefusesAnotherWhileItIsClaimed.
+//     is claimed or its claim code lives; a pending core whose code expired is replaced, and every
+//     session it had ends. Enforced by TestEnrol_HoldsOneCoreAndRefusesAnotherWhileItIsClaimed.
+//   - A session's token works only for the core it was opened for, by its id and key, checked on
+//     every call (the security audit's A3). Enforced by
+//     TestEnrol_HoldsOneCoreAndRefusesAnotherWhileItIsClaimed.
+//   - A pending core publishes no address, gets no certificate record and holds no signalling
+//     connection. Enforced by TestHandler_APendingCorePublishesNothingUntilItIsClaimed.
+//   - One instance of the core is live: another is admitted when the live one holds no signalling
+//     connection or does not answer a ping on it, and refused as a copy while it does (D293 §1).
+//     Enforced by TestSession_ASecondInstanceTakesThePlaceOfOneThatDoesNotAnswerAndIsRefusedWhileItDoes.
+//   - A session for a core it does not hold is refused saying to enrol again. Enforced by
+//     TestSession_ForACoreItDoesNotHoldSaysToEnrolAgain.
 //   - A signature counts only over a nonce it issued, once, for the purpose it was made for; issuing
 //     one keeps nothing, so no count of strangers' challenges keeps the core from its session.
 //     Enforced by TestSession_ANonceWorksOnceAndOnlyForItsPurpose and
@@ -33,7 +44,8 @@
 //
 // # Where to change
 //
-//   - single.go: the protocol's handler, its nonces and sessions.
+//   - single.go: the protocol's handler, its nonces, enrolment and claiming.
+//   - session.go: the sessions, bound to the core and its live instance.
 //   - record.go: the one core it holds, kept in a file under a lock.
 //   - signal.go: the core's signalling connection and the offers passed over it.
 package single
