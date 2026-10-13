@@ -87,7 +87,9 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     // A click, as a person's tap: it is the one that lets the film and the voices play with sound.
     await click(buttonWithText(mounted.container, "Join"));
     expect(wordmark()).not.toBeNull();
+    // The Join asks the server first, so an out-of-date page reloads before its person types.
     expect(heard).toEqual([
+      { methodAndPath: "GET /health", body: undefined },
       { methodAndPath: "POST /together/join", body: { secret: "link-secret", name: "Gran" } },
     ]);
     // The secret is spent: it is in neither the address nor the history.
@@ -652,6 +654,7 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     await enter(mounted.container.querySelector("input"), "Gran");
     await submit(mounted.container.querySelector("form"));
     expect(heard).toEqual([
+      { methodAndPath: "GET /health", body: undefined },
       { methodAndPath: "POST /together/join", body: { secret: "second-secret", name: "Gran" } },
     ]);
     mounted.unmount();
