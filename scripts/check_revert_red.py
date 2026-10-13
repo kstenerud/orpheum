@@ -358,6 +358,7 @@ def scope_for(path: str) -> list[str] | None:
 
 VITEST_RELATED = ["npx", "--prefix", "web", "vitest", "related", "--run", "--passWithNoTests", "--root", "web"]
 WEB_SUITE = ["npm", "--prefix", "web", "run", "test"]
+WEB_BUILD = ["npm", "--prefix", "web", "run", "build"]
 
 
 def wide_scope(path: str) -> list[str] | None:
@@ -402,6 +403,20 @@ def other_builds(path: str) -> list[Attempt]:
         # macOS is the other system make check compiles for (lint-speculative-api).
         attempts.append(Attempt(["go", "vet", "./..."], ", found by compiling for darwin", {"GOOS": "darwin"}, True))
     return attempts
+
+
+def attempts_for(change: Change, first: list[str]) -> list[Attempt]:
+    """The runs that may notice a file's revert, in order, the first that fails deciding: its own
+    tests (`first`), the whole suite, the other builds, the browser tier. A new stylesheet's revert
+    deletes it, which breaks the build of whatever imports it with no browser to start; one nothing
+    imports changes nothing."""
+    if change.status == "A" and CSS_SOURCE.search(change.path):
+        return [Attempt(WEB_BUILD, ", found by building the web client", None, True)]
+    attempts = [Attempt(first, "")]
+    wide = wide_scope(change.path)
+    if wide is not None and wide != scope_for(change.path):
+        attempts.append(Attempt(wide, ", found by the whole suite"))
+    return [*attempts, *other_builds(change.path), *browser_tier(change.path)]
 
 
 def browser_tier(path: str) -> list[Attempt]:
@@ -511,13 +526,7 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
         for companion in unit:
             revert_companion(tree, base, change.path, companion)
 
-        attempts = [Attempt(first or scope, "")]
-        wide = wide_scope(change.path)
-        if wide is not None and wide != scope:
-            attempts.append(Attempt(wide, ", found by the whole suite"))
-        attempts.extend(other_builds(change.path))
-        attempts.extend(browser_tier(change.path))
-        for attempt in attempts:
+        for attempt in attempts_for(change, first or scope):
             # Python caches a module by its size and mtime; a probe that restores a file to the same
             # size within a second would run the stale cache, so the probes write none.
             env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1", **(attempt.env or {})}
@@ -543,7 +552,10 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
 
 
 def is_stylesheet(change: Change) -> bool:
-    return bool(CSS_SOURCE.search(change.path)) and change.status in ("A", "M")
+    """A changed stylesheet, which the one browser run with every one reverted settles. A new one is
+    probed alone, by a build: deleted, it broke that run's build, and every sheet then took a
+    browser run of its own, one at a time, 22 minutes of check-pr (its timings, 2026-10-13)."""
+    return bool(CSS_SOURCE.search(change.path)) and change.status == "M"
 
 
 def stylesheets_together(tree: str, base: str, head: str, changes: list[Change], timeout: int,

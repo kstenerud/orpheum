@@ -16,7 +16,7 @@ def _git(*args: str, cwd: str | None = None) -> subprocess.CompletedProcess[str]
     return subprocess.run(["git", *args], capture_output=True, text=True, check=False, cwd=cwd)
 
 # Package caches a run writes, which the worktree keeps its own of rather than share.
-PACKAGE_CACHES = (".vite", ".vite-temp", ".vitest", ".cache")
+PACKAGE_CACHES = (".vite", ".vite-temp", ".vitest", ".vitest-cache", ".cache")
 
 
 def link_installed_packages(source: Path, tree: Path) -> None:

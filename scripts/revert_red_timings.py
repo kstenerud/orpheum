@@ -91,6 +91,10 @@ def kind_of(command: list[str], label: str, env: dict[str, str] | None) -> str:
         return "web type check"
     if "vitest" in text and "related" in text:
         return "vitest related"
+    if "vitest" in text:
+        return "vitest, an added file's importers"
+    if command[-2:] == ["run", "build"]:
+        return "web build"
     if command[:3] == ["npm", "--prefix", "web"]:
         return "vitest whole suite"
     if env and ("GOOS" in env or "GOARCH" in env):
