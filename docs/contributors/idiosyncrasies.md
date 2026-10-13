@@ -73,6 +73,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Browsers other than Chrome play no Matroska, and none plays TrueHD, DTS or most AC-3 | [Browsers other than Chrome play no Matroska, and none plays TrueHD, DTS or most AC-3](#browsers-other-than-chrome-play-no-matroska-and-none-plays-truehd-dts-or-most-ac-3) |
 | A browser `WebSocket` cannot send an Authorization header | [A browser `WebSocket` cannot send an Authorization header](#a-browser-websocket-cannot-send-an-authorization-header) |
 | Browsers cap a cookie's Max-Age at 400 days | [Browsers cap a cookie's Max-Age at 400 days](#browsers-cap-a-cookies-max-age-at-400-days) |
+| An iPhone held 0.26 s of a film's first chunk of its own picture and stopped at the hole. | [iPhone Safari keeps a sliver of a well-formed copied chunk](#iphone-safari-keeps-a-sliver-of-a-well-formed-copied-chunk) |
 | A hidden preload player, or one waiting for its first frame, "waited out a whole chunk" on a slow link. | [The abandon rule is skipped while the video is paused](#the-abandon-rule-is-skipped-while-the-video-is-paused) |
 | It never aborts a slow chunk when stepping down to level 0 | [It never aborts a slow chunk when stepping down to level 0](#it-never-aborts-a-slow-chunk-when-stepping-down-to-level-0) |
 | After an abandon, it resets the estimator to a nominal bitrate | [After an abandon, it resets the estimator to a nominal bitrate](#after-an-abandon-it-resets-the-estimator-to-a-nominal-bitrate) |
@@ -936,6 +937,22 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   hls.js issue asks for EVENT playlists to start at 0 (searched 2026-10-08); `startPosition: 0` is the
   documented route.
 
+
+### iPhone Safari keeps a sliver of a well-formed copied chunk
+
+- **Symptom:** an iPhone in a Watch Together group, playing Copper Kettle S2E2's own picture copied as it
+  is, buffered 0.08–0.34 s of the first chunk and nothing more of it, the next chunks whole from 10.22 s;
+  hls.js stepped over the hole, found the playhead still, and gave the playback up as fatal
+  (`bufferSeekOverHole (fatal): Playhead still not moving after seeking over hole`). S2E1 played.
+- **Cause:** not known. The chunk is well formed: one fragment, 242 H.264 frames over 10 s, its
+  decode time right, its sample sizes filling its `mdat` exactly, presentation times continuous;
+  `ffprobe` reads it whole. Safari (ManagedMediaSource, iOS 18.5) held 6 of its frames. Not checked on a
+  Mac's Safari.
+- **What we do:** a fatal hole is recovered from rather than failed: the quality is given up as
+  unplayable here (D266) and loaded again below it, from where the video stands (`passAHole`,
+  `web/packages/player/src/abr.ts`; `failOnFatal` passes a recovered error by).
+- **Evidence:** [owner] 2026-10-13, staging logs and the chunk taken from the node. Not yet searched
+  for in WebKit's tracker.
 
 ### hls.js moves the playhead itself (gap jumps, stall nudges), and the browser reports each as a seek
 

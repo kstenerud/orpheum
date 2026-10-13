@@ -14,6 +14,7 @@ import {
 } from "@orpheum/sdk";
 import Hls, { PlaylistLevelType, type ErrorData } from "hls.js";
 
+import { isRecovered } from "./abr.ts";
 import { hlsErrorFailure, type PlaybackFailure } from "./failure.ts";
 
 /** A prepared rendition playing in a video element. */
@@ -254,13 +255,16 @@ export interface LoadingHls {
   on: Hls["on"];
 }
 
-/** Tells onFailed why, when hls.js says the playback cannot go on. */
+/**
+ * Tells onFailed why, when hls.js says the playback cannot go on, unless the player recovers from
+ * it by itself (isRecovered).
+ */
 export function failOnFatal(
   hls: Pick<Hls, "on">,
   onFailed: (failure: PlaybackFailure) => void,
 ): void {
   hls.on(Hls.Events.ERROR, (_event, data) => {
-    if (data.fatal) {
+    if (data.fatal && !isRecovered(data)) {
       onFailed(hlsErrorFailure(data));
     }
   });

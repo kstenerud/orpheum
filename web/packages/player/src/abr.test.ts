@@ -2,10 +2,11 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import Hls, { Events, Fragment, PlaylistLevelType } from "hls.js";
+import Hls, { ErrorDetails, ErrorTypes, Events, Fragment, PlaylistLevelType } from "hls.js";
 
 import {
   Choosing,
+  isRecovered,
   lookAtChunkEveryMs,
   lookForStepUpEveryMs,
   orpheumAbr,
@@ -13,6 +14,7 @@ import {
   type FollowedChunk,
 } from "./abr.ts";
 import { commonStartForMs } from "./abr-choice.ts";
+import { failOnFatal } from "./hls.ts";
 import { holdBeforeStepUpMs, stepUpBufferMs } from "./step-up.ts";
 
 /** Bram's ladder on staging: four qualities, then its own picture, its peak 36 Mb/s. */
@@ -265,6 +267,18 @@ describe("a quality this device cannot play (D266)", () => {
     expect(unplayable).toEqual([{ qualityKbps: 36_208, positionMs: 50, isFilmsOwnPicture: false }]);
   });
 
+  it("is given up at a hole hls.js cannot step over, and loaded again below it; never the lowest", () => {
+    const { hls, choosing, loadsAgain, unplayable } = standingAt(5.6);
+    expect(choosing.canGiveUpAtAHole()).toBe(true);
+    choosing.giveUpAtAHole(5.6);
+    expect(unplayable).toEqual([
+      { qualityKbps: 36_208, positionMs: 5600, isFilmsOwnPicture: false },
+    ]);
+    expect(loadsAgain).toHaveLength(1);
+    hls.loadLevel = hls.minAutoLevel;
+    expect(choosing.canGiveUpAtAHole()).toBe(false);
+  });
+
   it("is given up at once when the browser holds nothing of two of its chunks", () => {
     const { choosing, unplayable } = standingAt(416.9);
     choosing.notHeld(3);
@@ -507,6 +521,42 @@ describe("the bitrate controller inside hls.js (D265 §1)", () => {
     });
     expect(hls.bandwidthEstimate).toBeGreaterThan(7_000_000);
     expect(choosing?.linkKbps()).toBe(hls.bandwidthEstimate / 1000);
+    hls.destroy();
+  });
+});
+
+describe("a hole hls.js cannot step over (D266; the owner's group test, 2026-10-13)", () => {
+  it("is recovered from by giving the quality up, so the playback is not failed", () => {
+    const abr = orpheumAbr({
+      startAtBps: 0,
+      monotonicMs: () => nowMs,
+      isVoiceLive: () => false,
+      fromCache: () => undefined,
+    });
+    const hls = new Hls({ abrController: abr.controller });
+    const video = videoAt(5.6, { isPaused: false, readyState: 1 });
+    Object.defineProperty(hls, "media", { value: video });
+    Object.defineProperty(hls, "loadLevel", { value: 3, writable: true });
+    Object.defineProperty(hls, "levels", { value: levels });
+    const startedAt: number[] = [];
+    Object.defineProperty(hls, "startLoad", { value: (at: number) => startedAt.push(at) });
+    Object.defineProperty(hls, "recoverMediaError", { value: () => undefined });
+    const failures: string[] = [];
+    failOnFatal(hls, (failure) => failures.push(failure));
+    const hole = {
+      type: ErrorTypes.MEDIA_ERROR,
+      details: ErrorDetails.BUFFER_SEEK_OVER_HOLE,
+      fatal: true,
+      error: new Error("Playhead still not moving after seeking over hole"),
+    };
+    hls.trigger(Events.ERROR, hole);
+    expect(isRecovered(hole)).toBe(true);
+    expect(failures).toEqual([]);
+    vi.advanceTimersByTime(0);
+    expect(startedAt).toEqual([5.6]);
+    const other = { ...hole, details: ErrorDetails.BUFFER_STALLED_ERROR };
+    hls.trigger(Events.ERROR, other);
+    expect(failures).toHaveLength(1);
     hls.destroy();
   });
 });
