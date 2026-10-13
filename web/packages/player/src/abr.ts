@@ -34,6 +34,14 @@ import {
 } from "./abr-choice.ts";
 import { nextCap } from "./step-up.ts";
 
+/** Fatal errors the player recovers from by itself, which are no failure (failOnFatal). */
+const recovered = new WeakSet<object>();
+
+/** Whether a fatal error is one the player recovers from by itself, giving a quality up (D266). */
+export function isRecovered(data: object): boolean {
+  return recovered.has(data);
+}
+
 /** How far, in seconds, a video's position must move to be playing, not standing still. */
 const movedAtLeastS = 0.1;
 
@@ -393,6 +401,24 @@ export class Choosing<Chunk extends FollowedChunk> {
     return still;
   }
 
+  /**
+   * Whether the quality loading, a hole in which hls.js could not step over, can be given up as
+   * unplayable here, a lower one there to load (D266): iPhone Safari kept 0.26 s of a well-formed
+   * first chunk of Copper Kettle's own picture, 242 frames over 10 s, and hls.js, stepping over the hole
+   * and finding the playhead still, gave the playback up (the owner's group test, 2026-10-13).
+   */
+  canGiveUpAtAHole(): boolean {
+    return this.#hls.loadLevel > this.#hls.minAutoLevel;
+  }
+
+  /** Gives the quality loading up as unplayable here, at a hole it could not pass at positionS. */
+  giveUpAtAHole(positionS: number): void {
+    const level = this.#hls.loadLevel;
+    if (level > this.#hls.minAutoLevel) {
+      this.#giveUpUnplayable(level, positionS);
+    }
+  }
+
   /** Gives level up, with every quality above it, and loads again from positionS below it (D266). */
   #giveUpUnplayable(level: number, positionS: number): void {
     this.#unplayableFrom = Math.min(level, this.#unplayableFrom ?? level);
@@ -540,6 +566,7 @@ class OrpheumAbrController extends AbrController {
       },
       error: (event, data) => {
         this.onError(event, data);
+        this.passAHole(data);
         const { frag } = data;
         if (
           data.details === ErrorDetails.BUFFER_APPEND_NO_PROGRESS &&
@@ -550,6 +577,30 @@ class OrpheumAbrController extends AbrController {
         }
       },
     };
+  }
+
+  /**
+   * At a hole hls.js could not step over, which it says is fatal, gives the quality up and loads
+   * again below it, rather than letting the playback end (D266): the error is marked recovered, so
+   * failOnFatal passes it by, and the giving up waits for hls.js to have finished with the error.
+   */
+  passAHole(data: ErrorData): void {
+    const choosing = this.choosing;
+    const media = this.hls.media;
+    if (
+      data.details !== ErrorDetails.BUFFER_SEEK_OVER_HOLE ||
+      !data.fatal ||
+      media === null ||
+      !choosing.canGiveUpAtAHole()
+    ) {
+      return;
+    }
+    recovered.add(data);
+    const positionS = media.currentTime;
+    setTimeout(() => {
+      choosing.giveUpAtAHole(positionS);
+      this.hls.startLoad(positionS);
+    }, 0);
   }
 
   protected override registerListeners(): void {
