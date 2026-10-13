@@ -78,7 +78,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D69](working-notes.md#d69--group-size-is-a-priority-order-not-a-capability-two-then-four-or-five-then-a-party) Group size is a priority order, not a capability: two, then four or five, then a party
 - [D70](working-notes.md#d70--hosted-fan-out-is-the-right-shape-for-remote-party-viewing-and-the-cheap-part-is-keeping-it-possible) Hosted fan-out is the right shape for remote party viewing, and the cheap part is keeping it possible
 - [D71](working-notes.md#d71--one-relay-artefact-three-jobs-and-the-core-dials-out-to-it) One relay artefact, three jobs, and the core dials out to it — *revisited by D152, D193*
-- [D72](working-notes.md#d72--the-hosted-relay-has-no-free-tier-holds-no-data-and-has-no-accounts) The hosted relay has no free tier, holds no data, and has no accounts — *revisited by D73, D214*
+- [D72](working-notes.md#d72--the-hosted-relay-has-no-free-tier-holds-no-data-and-has-no-accounts) The hosted relay has no free tier, holds no data, and has no accounts — *revisited by D73, D214, D289*
 - [D73](working-notes.md#d73--each-component-reports-according-to-its-own-visibility-blind-is-not-opaque) Each component reports according to its own visibility; blind is not opaque — *revisited by D152*
 - [D74](working-notes.md#d74--bug-reports-pseudonymise-rather-than-redact-and-fan-in-across-components) Bug reports pseudonymise rather than redact, and fan in across components
 - [D75](working-notes.md#d75--one-predicate-language-three-bindings-a-typed-field-registry-is-the-schema-deliverable) One predicate language, three bindings; a typed field registry is the schema deliverable — *revisited by D76, D84, D98, D164*
@@ -294,6 +294,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D286](working-notes.md#d286--a-jump-cuts-every-run-of-a-quality-it-does-not-land-in-a-groups-player-keeps-the-films-own-picture-while-its-link-carries-it-encoded-devices-start-a-jump-on-a-common-quality-and-an-overloaded-server-moves-a-player-onto-a-quality-it-already-makes) A jump cuts every run of a quality it does not land in, a group's player keeps the film's own picture while its link carries it, encoded devices start a jump on a common quality, and an overloaded server moves a player onto a quality it already makes
 - [D287](working-notes.md#d287--a-films-player-keeps-the-screen-awake-while-the-film-plays) A film's player keeps the screen awake while the film plays
 - [D288](working-notes.md#d288--a-device-is-activated-by-the-code-it-shows-entered-on-a-device-already-signed-in-and-a-check-code-both-show) A device is activated by the code it shows, entered on a device already signed in, and a check code both show
+- [D289](working-notes.md#d289--the-paid-discoverys-questions-answered-accounts-for-payers-only-the-identity-key-backed-up-as-the-secret-key-is-byte-paths-by-header-one-client-build-per-core-api-major) The paid discovery's questions answered: accounts for payers only, the identity key backed up as the secret key is, byte paths by header, one client build per core API major
 
 ## Archived
 

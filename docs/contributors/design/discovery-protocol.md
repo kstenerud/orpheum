@@ -342,13 +342,8 @@ own VPS (an own discovery's VPS can hold the tunnel and TURN).
 
 ## 6. Answered by the owner (2026-10-13)
 
-Questions of the paid service's spec that bear on the protocol, answered *"Follow your
-recommendation"*:
-
-- **Q12:** the identity key is treated as `secret.key` is (D243 §11): out of scheduled backups, in
-  *Back up now* when its box is ticked; losing it costs a re-key (§2.8).
-- **Q17:** byte paths take the header on every request from a cross-site page; no credential in a
-  URL (§3.4).
-- **Q11, Q16, Q8** are the paid service's (its customers with their own VPS, the dashboard's own
-  origin, what happens when payment stops); its spec records them.
-- **Q18** (one client build per supported core API major) is explained to the owner and open.
+The paid service's questions that bind the protocol and Orpheum, decided in
+[D289](../decisions/working-notes.md#d289--the-paid-discoverys-questions-answered-accounts-for-payers-only-the-identity-key-backed-up-as-the-secret-key-is-byte-paths-by-header-one-client-build-per-core-api-major):
+accounts for payers only, household users signing in to their core (Q5); the identity key backed up
+as `secret.key` is (Q12, §2.1); byte paths by the header (Q17, §3.4); one client build per supported
+core API major (Q18, §3.4, §5). Still open: a check code at claiming (§2.2).

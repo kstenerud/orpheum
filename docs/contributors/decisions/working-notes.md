@@ -19746,3 +19746,31 @@ for a listed device; **refines D273 §10**.
    limit on who asks, but a bound on the memory strangers' asking can take.
 
 **Status:** Decided 2026-10-12.
+
+## D289 — The paid discovery's questions answered: accounts for payers only, the identity key backed up as the secret key is, byte paths by header, one client build per core API major
+
+**Decided** (2026-10-13), by the project owner, on the paid service's open questions (its
+specification, draft 4, §11), the ones that bind Orpheum recorded here: *"Q8, Q11, Q12, Q16, Q17:
+Follow your recommendation"*, then *"Q5, Q6, Q13, Q14, Q18: Agreed"*. The protocol is
+[discovery-protocol.md](../design/discovery-protocol.md).
+
+1. **Only the paying owner has an account with the paid service** (Q5). Household users never do:
+   they sign in to their core, which their device found once by a link, a QR code or its code
+   (D288) and remembers by a locator. **Refines [D72](#d72--the-hosted-relay-has-no-free-tier-holds-no-data-and-has-no-accounts)**
+   for a service that relays nothing: one account per paying household, granting nothing on any core.
+2. **The core's identity key is backed up as `secret.key` is** (Q12, D243 §11): out of scheduled
+   backups, in *Back up now* when its box is ticked; losing it costs a re-key.
+3. **A page served by a discovery authenticates byte paths by the header on every request** (Q17):
+   hls.js's loader, `fetch` and blob URLs for images and subtitles; no credential in a URL (D154,
+   D217 §2), since the media cookie is not sent cross-site.
+4. **A discovery serves one web client build per supported core API major**, chosen by the major the
+   core reports (Q18), so the central client never speaks every old API at once; the window is
+   D273 §7's.
+5. **The rest is the paid service's**, recorded in its specification: its customers with their own
+   VPS are served (Q11); its dashboard has its own origin (Q16); payment stopping runs 14 days'
+   grace, 60 frozen, then the core's id retired, the core working on its LAN throughout and the
+   exit path tested in Orpheum (Q8, D25); aggregate counts only, no identifiers (Q13); two
+   repositories and two machines (Q14); code shared as D275 decided (Q6). Q7, the business and tax
+   questions, waits for a session of its own.
+
+**Status:** Decided 2026-10-13.
