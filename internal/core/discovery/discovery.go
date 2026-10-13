@@ -513,6 +513,8 @@ func (service *Service) session(ctx context.Context) (string, error) {
 	if token != "" && service.parts.Clock.Now().Add(sessionMargin).Before(expiresAt) {
 		return token, nil
 	}
+	// The session's life counts from before the asking, so a slow answer only shortens it.
+	asked := service.parts.Clock.Now()
 	nonce, err := service.challenge(ctx, status.BaseURL)
 	if err != nil {
 		return "", err
@@ -529,7 +531,7 @@ func (service *Service) session(ctx context.Context) (string, error) {
 		return "", err
 	}
 	service.mutex.Lock()
-	service.token, service.tokenExpiresAt = opened.Token, time.UnixMilli(opened.ExpiresAt)
+	service.token, service.tokenExpiresAt = opened.Token, asked.Add(time.Duration(opened.ExpiresIn)*time.Second)
 	service.mutex.Unlock()
 	return opened.Token, nil
 }
