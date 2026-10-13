@@ -128,6 +128,10 @@ listen = ":3478"
 relay_port_min = 49160
 relay_port_max = 49199
 
+[discovery]
+retry_first_milliseconds = 1000
+retry_most_milliseconds = 300000
+
 [database]
 read_connections_minimum = 4
 migrate_free_space_db_multiple = 3

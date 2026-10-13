@@ -176,6 +176,10 @@ listen = ":3478"
 relay_port_min = 49160
 relay_port_max = 49199
 
+[discovery]
+retry_first_milliseconds = 1000
+retry_most_milliseconds = 300000
+
 [database]
 read_connections_minimum = 4
 migrate_free_space_db_multiple = 3
@@ -258,4 +262,22 @@ func TestConfinementPolicy_StartsAtReport(t *testing.T) {
 		}
 	}
 	t.Error("the node has no confinement_policy key")
+}
+
+func TestDiscoveryConfig_RefusesAWaitThatIsNoneAndAMostShorterThanTheFirst(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		first, most int64
+		isRefused   bool
+	}{
+		{1000, 300000, false},
+		{1000, 1000, false},
+		{0, 1000, true},
+		{2000, 1000, true},
+	} {
+		err := DiscoveryConfig{RetryFirstMilliseconds: tc.first, RetryMostMilliseconds: tc.most}.check()
+		if (err != nil) != tc.isRefused {
+			t.Errorf("first %d ms, most %d ms: %v; want refused: %t", tc.first, tc.most, err, tc.isRefused)
+		}
+	}
 }

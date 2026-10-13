@@ -24,6 +24,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/identity"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
+	"github.com/kstenerud/orpheum/internal/platform/backoff"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
@@ -47,9 +48,6 @@ const addressesEvery = time.Minute
 // heartbeatEvery is how often a core sends its addresses when they have not changed (the
 // spec's §3.4).
 const heartbeatEvery = 5 * time.Minute
-
-// retryAfter is how long a core waits after a call failed.
-const retryAfter = 30 * time.Second
 
 // anotherCopyEvery is how often a core its discovery refused as a copy of another, still connected,
 // asks again: if the other stops, this one takes its place (D293 §1).
@@ -92,7 +90,16 @@ type Parts struct {
 	// OnClaimed is told when the discovery has claimed the core, or moved it to another zone: its
 	// certificate's name (Status.CertificateName) is then known. Nil tells nothing.
 	OnClaimed func(ctx context.Context)
+	// RetryFirst is the wait after a call failed, or the signalling connection dropped; each failure
+	// in a row doubles it, to RetryMost, every wait jittered from Random, so a discovery's restart is
+	// not met by every core at once (the protocol's §2; C7). The config's discovery table sets both;
+	// the development stack keeps RetryMost near a second (D292 §9).
+	RetryFirst, RetryMost time.Duration
+	Random                io.Reader
 }
+
+// retryJitter is how far a retry's wait may move either way.
+const retryJitter = 0.1
 
 // Answerer answers a client's WebRTC offer a discovery passed on: rtcapi.Server.AnswerRelayed, which
 // checks the offer itself before any connection is made, since the discovery's check is only a
@@ -147,12 +154,19 @@ type Service struct {
 	// or a copy from the instance it holds (D293 §1).
 	instanceID string
 
+	// connecting is held through a Connect, so two at once (a double click) enrol once (C12).
+	connecting sync.Mutex
+	// renewal opens one session at a time, for every caller.
+	renewal renewal
+
 	mutex sync.Mutex
 	// Guarded by mutex:
 	status         Status
 	token          string
 	tokenExpiresAt time.Time
 	lastSent       []discoveryproto.Candidate
+	// failures is how many calls of the step loop failed in a row, which its next wait doubles by.
+	failures int64
 }
 
 // IsPublished is whether the discovery publishes the core's addresses: it has claimed the core, and
@@ -185,20 +199,15 @@ func (service *Service) setTXT(ctx context.Context, name, value string) error {
 	if status.BaseURL == "" {
 		return ErrNotEnrolled
 	}
-	token, err := service.session(ctx)
-	if err != nil {
-		return fmt.Errorf("open a session for the certificate's challenge: %w", err)
-	}
 	call := callOf{
-		base: status.BaseURL, method: http.MethodPut, path: discoveryproto.PathACMEChallenge, token: token,
+		base: status.BaseURL, method: http.MethodPut, path: discoveryproto.PathACMEChallenge,
 		body: discoveryproto.ACMEChallengeRequest{Name: name, Value: value},
 	}
 	if value == "" {
 		call.method, call.body = http.MethodDelete, nil
 		call.path = discoveryproto.PathACMEChallenge + "/" + url.PathEscape(name)
 	}
-	err = service.call(ctx, call)
-	if err != nil {
+	if err := service.signedCall(ctx, call); err != nil {
 		return fmt.Errorf("have the discovery set the certificate's challenge: %w", err)
 	}
 	return nil
@@ -246,6 +255,8 @@ func (service *Service) Connect(ctx context.Context, baseURL string) (Status, er
 	if err := checkBaseURL(baseURL); err != nil {
 		return Status{}, err
 	}
+	service.connecting.Lock()
+	defer service.connecting.Unlock()
 	if service.Status().BaseURL != "" {
 		return Status{}, ErrAlreadyEnrolled
 	}
@@ -295,15 +306,11 @@ func (service *Service) Leave(ctx context.Context) error {
 	if status.BaseURL == "" {
 		return nil
 	}
-	if token, err := service.session(ctx); err == nil {
-		err = service.call(ctx, callOf{
-			base: status.BaseURL, method: http.MethodDelete,
-			path: discoveryproto.PathCore, token: token,
-		})
-		if err != nil {
-			service.parts.Logger.WarnContext(ctx, "discovery: the discovery did not take the core's leaving",
-				"err", err)
-		}
+	err := service.signedCall(ctx, callOf{
+		base: status.BaseURL, method: http.MethodDelete, path: discoveryproto.PathCore,
+	})
+	if err != nil {
+		service.parts.Logger.WarnContext(ctx, "discovery: the discovery did not take the core's leaving", "err", err)
 	}
 	if err := service.parts.Files.RemovePersistentFile(StateFileName); err != nil {
 		return fmt.Errorf("forget %s: %w", StateFileName, err)
@@ -349,25 +356,22 @@ func (service *Service) step(ctx context.Context) time.Duration {
 	if status.BaseURL == "" {
 		return endedEvery
 	}
-	token, err := service.session(ctx)
+	_, err := service.session(ctx)
 	var refused *refusal
 	switch {
 	case errors.As(err, &refused) && refused.code == discoveryproto.RefusalEnrolAgain:
 		return service.enrolAgain(ctx, status.BaseURL)
-	case errors.As(err, &refused) && refused.code == discoveryproto.RefusalAnotherInstance:
-		service.failed(ctx, "open a session", ErrAnotherCopy)
-		return anotherCopyEvery
 	case err != nil:
 		return service.failed(ctx, "open a session", err)
 	}
 	switch status.State {
 	case discoveryproto.StateClaimed, discoveryproto.StateGrace:
-		return service.heartbeat(ctx, status, token)
+		return service.heartbeat(ctx, status)
 	case "", discoveryproto.StatePending, discoveryproto.StateFrozen, discoveryproto.StateReleased,
 		discoveryproto.StateDisabled:
-		return service.askStatus(ctx, status, token)
+		return service.askStatus(ctx, status)
 	default: // a state a later protocol added: ask, as for one that has ended
-		return service.askStatus(ctx, status, token)
+		return service.askStatus(ctx, status)
 	}
 }
 
@@ -388,11 +392,10 @@ func (service *Service) enrolAgain(ctx context.Context, baseURL string) time.Dur
 }
 
 // askStatus asks the discovery how the core stands, and returns the wait its state calls for.
-func (service *Service) askStatus(ctx context.Context, status Status, token string) time.Duration {
+func (service *Service) askStatus(ctx context.Context, status Status) time.Duration {
 	var answered discoveryproto.StatusResponse
-	err := service.call(ctx, callOf{
-		base: status.BaseURL, method: http.MethodGet, path: discoveryproto.PathStatus,
-		token: token, into: &answered,
+	err := service.signedCall(ctx, callOf{
+		base: status.BaseURL, method: http.MethodGet, path: discoveryproto.PathStatus, into: &answered,
 	})
 	if err != nil {
 		return service.failed(ctx, "ask the discovery how the core stands", err)
@@ -400,6 +403,7 @@ func (service *Service) askStatus(ctx context.Context, status Status, token stri
 	service.mutex.Lock()
 	was := service.status
 	service.status.State, service.status.Zone, service.status.Problem = answered.State, answered.Zone, ""
+	service.failures = 0
 	service.status.ClaimCode, service.status.ClaimExpiresAt = answered.ClaimCode, time.Time{}
 	service.status.ICEServers = answered.ICEServers
 	service.status.ClientOrigin = originOf(answered.ClientOrigin)
@@ -452,7 +456,7 @@ func (service *Service) keep(state kept) error {
 
 // heartbeat sends the core's addresses when they changed, or every heartbeatEvery, and returns the
 // wait until it looks again.
-func (service *Service) heartbeat(ctx context.Context, status Status, token string) time.Duration {
+func (service *Service) heartbeat(ctx context.Context, status Status) time.Duration {
 	candidates := service.parts.Candidates()
 	service.mutex.Lock()
 	isDue := !slices.Equal(candidates, service.lastSent) ||
@@ -463,7 +467,7 @@ func (service *Service) heartbeat(ctx context.Context, status Status, token stri
 	}
 	// A claimed core's standing can change too, its subscription lapsing or renewed: it asks with
 	// each heartbeat, and sends its addresses only while it is still claimed.
-	if wait := service.askStatus(ctx, status, token); wait != 0 {
+	if wait := service.askStatus(ctx, status); wait != 0 {
 		return wait
 	}
 	request := discoveryproto.AddressesRequest{
@@ -474,9 +478,9 @@ func (service *Service) heartbeat(ctx context.Context, status Status, token stri
 		request.TURN = service.parts.TURN()
 	}
 	var answered discoveryproto.AddressesResponse
-	err := service.call(ctx, callOf{
+	err := service.signedCall(ctx, callOf{
 		base: status.BaseURL, method: http.MethodPut,
-		path: discoveryproto.PathAddresses, token: token, body: request, into: &answered,
+		path: discoveryproto.PathAddresses, body: request, into: &answered,
 	})
 	if err != nil {
 		return service.failed(ctx, "send the core's addresses", err)
@@ -490,8 +494,15 @@ func (service *Service) heartbeat(ctx context.Context, status Status, token stri
 	return addressesEvery
 }
 
-// failed records why a call failed, and returns the wait before trying again.
+// failed records why a call failed, and returns the wait before trying again. A session refused
+// because another copy of the core holds the discovery is no ordinary failure: it says so, and asks
+// again in a few minutes, however it came (D293 §1).
 func (service *Service) failed(ctx context.Context, what string, err error) time.Duration {
+	var refused *refusal
+	isCopy := errors.As(err, &refused) && refused.code == discoveryproto.RefusalAnotherInstance
+	if isCopy {
+		what, err = "open a session", ErrAnotherCopy
+	}
 	problem := what + ": " + err.Error()
 	service.mutex.Lock()
 	isNew := service.status.Problem != problem
@@ -499,21 +510,84 @@ func (service *Service) failed(ctx context.Context, what string, err error) time
 	if errors.Is(err, errUnauthorised) {
 		service.token = ""
 	}
+	failures := service.failures
+	if !isCopy {
+		service.failures++
+	}
 	service.mutex.Unlock()
 	if isNew {
 		service.parts.Logger.WarnContext(ctx, "discovery: a call failed; trying again", "what", what, "err", err)
 	}
-	return retryAfter
+	if isCopy {
+		return anotherCopyEvery
+	}
+	return service.retryWait(ctx, failures)
 }
 
-// session is a bearer token for the discovery, opening a session when there is none or it ends soon.
-func (service *Service) session(ctx context.Context) (string, error) {
+// retryWait is the wait after a failure that followed earlier ones in a row, as many as earlier
+// counts: RetryFirst doubled for each, to RetryMost, jittered.
+func (service *Service) retryWait(ctx context.Context, earlier int64) time.Duration {
+	most := service.parts.RetryMost
+	wait, err := backoff.Jittered(service.parts.Random, backoff.Doubled(service.parts.RetryFirst, most, earlier),
+		most, retryJitter)
+	if err != nil {
+		service.parts.Logger.WarnContext(ctx, "discovery: could not jitter a retry's wait", "err", err)
+	}
+	return wait
+}
+
+// signedCall makes a call with the session's token, renewing the session at once, and only once, when the
+// discovery refuses its token, rather than failing and waiting a retry's length (the protocol's
+// §2.3; C11). A second refusal is the call's failure.
+func (service *Service) signedCall(ctx context.Context, call callOf) error {
+	token, err := service.session(ctx)
+	if err != nil {
+		return err
+	}
+	call.token = token
+	err = service.call(ctx, call)
+	if !errors.Is(err, errUnauthorised) {
+		return err
+	}
+	service.dropToken(token)
+	if call.token, err = service.session(ctx); err != nil {
+		return err
+	}
+	return service.call(ctx, call)
+}
+
+// dropToken forgets token, the discovery having refused it, unless another caller has renewed it.
+func (service *Service) dropToken(token string) {
 	service.mutex.Lock()
-	token, expiresAt, status := service.token, service.tokenExpiresAt, service.status
-	service.mutex.Unlock()
-	if token != "" && service.parts.Clock.Now().Add(sessionMargin).Before(expiresAt) {
+	defer service.mutex.Unlock()
+	if service.token == token {
+		service.token = ""
+	}
+}
+
+// session is a bearer token for the discovery, opening a session when there is none or it ends soon:
+// one at a time, every caller sharing it (renewal).
+func (service *Service) session(ctx context.Context) (string, error) {
+	if token, isLive := service.liveToken(); isLive {
 		return token, nil
 	}
+	return service.renewal.do(ctx, service.openSession)
+}
+
+// liveToken is the session's token, while it does not end within sessionMargin.
+func (service *Service) liveToken() (string, bool) {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	isLive := service.token != "" && service.parts.Clock.Now().Add(sessionMargin).Before(service.tokenExpiresAt)
+	return service.token, isLive
+}
+
+// openSession opens a session, unless the renewal a caller waited for left one live.
+func (service *Service) openSession(ctx context.Context) (string, error) {
+	if token, isLive := service.liveToken(); isLive {
+		return token, nil
+	}
+	status := service.Status()
 	// The session's life counts from before the asking, so a slow answer only shortens it.
 	asked := service.parts.Clock.Now()
 	nonce, err := service.challenge(ctx, status.BaseURL)

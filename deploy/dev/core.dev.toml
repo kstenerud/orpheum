@@ -32,6 +32,11 @@ listen = ":3478"
 relay_port_min = 49160
 relay_port_max = 49199
 
+# A restart of the development discovery has the core back within about two seconds (D292 §9).
+[discovery]
+retry_first_milliseconds = 1000
+retry_most_milliseconds = 1000
+
 [database]
 read_connections_minimum = 4
 migrate_free_space_db_multiple = 3

@@ -30,12 +30,13 @@ import (
 // instance's kind, each with its starting value: a key the file lacks runs on it and says so
 // (D202). Where the instance's directories are is its top-level config's (D242).
 type Config struct {
-	Server   ServerConfig   `toml:"server"`
-	HTTPS    HTTPSConfig    `toml:"https"`
-	TURN     TURNConfig     `toml:"turn"`
-	Database DatabaseConfig `toml:"database"`
-	Node     NodeConfig     `toml:"node"`
-	Log      LogConfig      `toml:"log"`
+	Server    ServerConfig    `toml:"server"`
+	HTTPS     HTTPSConfig     `toml:"https"`
+	TURN      TURNConfig      `toml:"turn"`
+	Discovery DiscoveryConfig `toml:"discovery"`
+	Database  DatabaseConfig  `toml:"database"`
+	Node      NodeConfig      `toml:"node"`
+	Log       LogConfig       `toml:"log"`
 
 	// Instance is the instance directory's top-level config: its kind and its directories.
 	Instance Instance `toml:"-"`
@@ -82,6 +83,32 @@ func (https HTTPSConfig) check() error {
 			fmt.Errorf("https.acme_directory %q: want the https:// address of an ACME directory", https.ACMEDirectory))
 	}
 	return errors.Join(problems...)
+}
+
+// DiscoveryConfig is how long the core waits before calling its discovery again after a call
+// failed, or before dialling its signalling connection again after it dropped: the first wait, each
+// failure in a row doubling it to the most, every wait jittered (the discovery protocol's §2; C7).
+// The development stack keeps the most near a second, so a restart of its discovery has the core
+// back within about two (D292 §9).
+type DiscoveryConfig struct {
+	RetryFirstMilliseconds int64 `toml:"retry_first_milliseconds"`
+	RetryMostMilliseconds  int64 `toml:"retry_most_milliseconds"`
+}
+
+// retries are the waits as the discovery service takes them.
+func (discovery DiscoveryConfig) retries() (first, most time.Duration) {
+	return time.Duration(discovery.RetryFirstMilliseconds) * time.Millisecond,
+		time.Duration(discovery.RetryMostMilliseconds) * time.Millisecond
+}
+
+// check refuses waits that are not waits, and a most shorter than the first.
+func (discovery DiscoveryConfig) check() error {
+	if discovery.RetryFirstMilliseconds < 1 || discovery.RetryMostMilliseconds < discovery.RetryFirstMilliseconds {
+		return fmt.Errorf("discovery.retry_first_milliseconds %d and discovery.retry_most_milliseconds %d: want "+
+			"the first at least 1, and the most at least the first", discovery.RetryFirstMilliseconds,
+			discovery.RetryMostMilliseconds)
+	}
+	return nil
 }
 
 // TURNConfig is the relay that carries Watch Together's voice when two browsers cannot reach each
@@ -185,12 +212,13 @@ const keyListen = "listen"
 
 // The file's tables.
 const (
-	tableServer   = "server"
-	tableHTTPS    = "https"
-	tableTURN     = "turn"
-	tableDatabase = "database"
-	tableNode     = "node"
-	tableLog      = "log"
+	tableServer    = "server"
+	tableHTTPS     = "https"
+	tableTURN      = "turn"
+	tableDiscovery = "discovery"
+	tableDatabase  = "database"
+	tableNode      = "node"
+	tableLog       = "log"
 )
 
 // configKey is one key of the file. A key with a starting value runs on it when the file lacks it
@@ -239,6 +267,15 @@ func coreConfigKeys() []configKey {
 		{tableTURN, keyListen, `":3478"`, "the UDP address and port the voice relay is served on (D243 §8)"},
 		{tableTURN, "relay_port_min", "49160", "the least UDP port relayed voice flows through (D243 §8)"},
 		{tableTURN, "relay_port_max", "49199", "the greatest UDP port relayed voice flows through (D243 §8)"},
+		{
+			tableDiscovery, "retry_first_milliseconds", "1000",
+			"the wait before calling the discovery again after a failed call, or dialling its signalling " +
+				"connection again after it dropped; each failure in a row doubles it, jittered",
+		},
+		{
+			tableDiscovery, "retry_most_milliseconds", "300000",
+			"the longest a retry of a call to the discovery waits; the development stack keeps it near a second",
+		},
 		{
 			tableDatabase, "read_connections_minimum", "4",
 			"the smallest pool of read connections; a machine with more CPUs gets one per CPU",
@@ -469,7 +506,7 @@ func (config *Config) check(kind instanceKind) error {
 		problems = append(problems, config.Node.check())
 	} else {
 		problems = append(problems, config.Server.check(), config.HTTPS.check(), config.TURN.check(),
-			config.Database.check())
+			config.Discovery.check(), config.Database.check())
 	}
 	return errors.Join(problems...)
 }

@@ -26,21 +26,27 @@ const signalCheckEvery = 10 * time.Second
 const maxSignalBytes = 64 << 10
 
 // signal holds the signalling connection while the core is claimed (discovery-core.md C3): the
-// offers the discovery passes on are answered by the core's WebRTC server, without a signed-in check
-// of their own, since the discovery checked the client's locator; every request over the connection
-// still carries its own sign-in. A dropped connection is dialled again after retryAfter.
+// offers the discovery passes on are answered by the core's WebRTC server, which checks each itself;
+// every request over a connection still carries its own sign-in. A dropped connection is dialled
+// again after RetryFirst, jittered, and each failure in a row doubles the wait (the protocol's §2.5;
+// D292 §9), so a restarted discovery has its cores back within seconds.
 func (service *Service) signal(ctx context.Context) {
+	var failures int64
 	for ctx.Err() == nil {
 		wait := signalCheckEvery
 		if status := service.Status(); service.parts.Answerer != nil &&
 			(status.State == discoveryproto.StateClaimed || status.State == discoveryproto.StateGrace) {
-			err := service.holdSignalling(ctx, status.BaseURL)
+			wasOpen, err := service.holdSignalling(ctx, status.BaseURL)
 			if ctx.Err() != nil {
 				return
 			}
+			if wasOpen {
+				failures = 0
+			}
 			service.parts.Logger.WarnContext(ctx, "discovery: the signalling connection ended; dialling again",
 				"err", err)
-			wait = retryAfter
+			wait = service.retryWait(ctx, failures)
+			failures++
 		}
 		if service.parts.Clock.Sleep(ctx, wait) != nil {
 			return
@@ -48,20 +54,23 @@ func (service *Service) signal(ctx context.Context) {
 	}
 }
 
-// holdSignalling dials the signalling connection and answers its offers until it ends.
-func (service *Service) holdSignalling(ctx context.Context, baseURL string) error {
+// holdSignalling dials the signalling connection and answers its offers until it ends, saying
+// whether it opened. A token the discovery refuses is renewed at once, and dialled with once more.
+func (service *Service) holdSignalling(ctx context.Context, baseURL string) (bool, error) {
 	token, err := service.session(ctx)
 	if err != nil {
-		return err
+		return false, err
 	}
-	address := "ws" + strings.TrimPrefix(baseURL, "http") + discoveryproto.PathSignal
-	header := http.Header{}
-	header.Set("Authorization", "Bearer "+token)
-	header.Set(discoveryproto.ProtocolHeader, discoveryproto.ProtocolVersion)
-	options := &websocket.DialOptions{HTTPClient: service.parts.HTTP, HTTPHeader: header}
-	connection, _, err := websocket.Dial(ctx, address, options) //nolint:bodyclose // coder/websocket closes it
+	connection, err := service.dialSignalling(ctx, baseURL, token)
+	if errors.Is(err, errUnauthorised) {
+		service.dropToken(token)
+		if token, err = service.session(ctx); err != nil {
+			return false, err
+		}
+		connection, err = service.dialSignalling(ctx, baseURL, token)
+	}
 	if err != nil {
-		return fmt.Errorf("dial the signalling connection: %w", err)
+		return false, err
 	}
 	defer func() { _ = connection.CloseNow() }() //nolint:errcheck // closing what may be closed
 	connection.SetReadLimit(maxSignalBytes)
@@ -69,16 +78,34 @@ func (service *Service) holdSignalling(ctx context.Context, baseURL string) erro
 	for {
 		var offer discoveryproto.SignalMessage
 		if err := wsjson.Read(ctx, connection, &offer); err != nil {
-			return fmt.Errorf("read an offer: %w", err)
+			return true, fmt.Errorf("read an offer: %w", err)
 		}
 		if offer.Type != discoveryproto.SignalOffer {
 			continue
 		}
 		reply := service.answerOffer(ctx, offer)
 		if err := wsjson.Write(ctx, connection, reply); err != nil {
-			return fmt.Errorf("send an answer: %w", err)
+			return true, fmt.Errorf("send an answer: %w", err)
 		}
 	}
+}
+
+// dialSignalling opens the signalling connection with token; errUnauthorised when the discovery
+// refuses the token.
+func (service *Service) dialSignalling(ctx context.Context, baseURL, token string) (*websocket.Conn, error) {
+	address := "ws" + strings.TrimPrefix(baseURL, "http") + discoveryproto.PathSignal
+	header := http.Header{}
+	header.Set("Authorization", "Bearer "+token)
+	header.Set(discoveryproto.ProtocolHeader, discoveryproto.ProtocolVersion)
+	options := &websocket.DialOptions{HTTPClient: service.parts.HTTP, HTTPHeader: header}
+	connection, response, err := websocket.Dial(ctx, address, options) //nolint:bodyclose // coder/websocket closes it
+	switch {
+	case err == nil:
+		return connection, nil
+	case response != nil && response.StatusCode == http.StatusUnauthorized:
+		return nil, errUnauthorised
+	}
+	return nil, fmt.Errorf("dial the signalling connection: %w", err)
 }
 
 // answerOffer is the core's answer to an offer, or its refusal and why.
