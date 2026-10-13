@@ -20039,5 +20039,14 @@ The owner is deploying on his own homelab."*
    account is removed. It runs beside a running server.
 3. **Passkeys come later, as an option the owner turns on**, never required (revises D292 §4's
    "a passkey later" as the admin factor).
+4. **A password sign-in carries the whole role wherever it comes from**, a discovery's page and
+   WebRTC included, withdrawing D292 §4's "a session minted through a discovery's client never
+   carries admin". The owner: *"If I'm remote, I still want to be able to administer my server ...
+   the public facing login is what absolutely needs to be secure in the first place."* Without §1's
+   withdrawn rule the restriction bought little: a password a compromised page harvested signs in
+   directly at the core's own name wherever one is reachable, so it stopped only page script holding
+   a session, and it left a core reachable only by WebRTC with no admin away from home. A device a
+   code activated keeps the device scope (D292 §4; A11), and the core still believes nothing a
+   WebRTC request's head says of where it came from.
 
 **Status:** Decided 2026-10-13.

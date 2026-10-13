@@ -16,8 +16,8 @@ import { YourDevices } from "./your-devices.tsx";
 /**
  * A person's own account: at the top, activating a device by the code it shows (D288); their
  * devices, and their password (D218, D221). A device activated joins the list. A session that may not
- * change the account's security (a device a code activated, or one signed in through a discovery's
- * page, D292 §4) sees its devices and is told where to do the rest.
+ * change the account's security (a device a code activated, D292 §4) sees its devices and is told
+ * where to do the rest.
  */
 export function Account(): JSX.Element {
   const { t } = useTranslation();

@@ -214,7 +214,7 @@ func (service *Service) acceptInvitation(
 	if err != nil {
 		return "", err
 	}
-	return service.issueSession(ctx, userID, device, scopeOf(device))
+	return service.issueSession(ctx, userID, device, grantScopeRole)
 }
 
 // SetAdminNote changes the admin's note of who a person is for; empty removes it (D246 §2).

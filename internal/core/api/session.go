@@ -7,13 +7,10 @@ import (
 	"errors"
 	"net"
 	"net/http"
-	"net/url"
-	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
-	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 )
 
 // SetupInput creates the first admin with the code from the log.
@@ -74,9 +71,6 @@ type ClientFacts struct {
 	// userAgent is the browser's own words for itself, for the log: an iPhone's player behaves
 	// unlike a desktop's, and nothing said which a stalling viewer had (staging, 2026-10-06).
 	userAgent string
-	// isThroughDiscovery is a request from a discovery's page (isThroughDiscovery): a session it
-	// signs in never carries admin.
-	isThroughDiscovery bool
 }
 
 // NewDeviceBody is how a client names itself: the device becomes one of the person's, listed
@@ -90,31 +84,11 @@ type NewDeviceBody struct {
 	PreviousDeviceProof string `doc:"A session token that device was issued, live or not: the proof it was this client" json:"previousDeviceProof,omitempty" maxLength:"100" required:"false"` //nolint:lll // one struct tag
 }
 
-// newDevice is the device a sign-in names, signing in as the request the facts are of did.
-func newDevice(body NewDeviceBody, facts ClientFacts) auth.NewDevice {
+func newDevice(body NewDeviceBody) auth.NewDevice {
 	return auth.NewDevice{
 		Name: body.Name, Platform: body.Platform, PreviousDeviceID: body.PreviousDeviceID,
-		PreviousDeviceProof: body.PreviousDeviceProof, IsThroughDiscovery: facts.isThroughDiscovery,
+		PreviousDeviceProof: body.PreviousDeviceProof,
 	}
-}
-
-// isThroughDiscovery is whether a request came from a page a discovery served rather than the core's
-// own, judged by what page script cannot forge (D292 §4; the security audit's A1): every request
-// over WebRTC, whose head the page wrote; and a browser's Origin naming another host than the one the
-// browser asked, or none it can say ("null"). A request with no Origin is no browser page's.
-func isThroughDiscovery(ctx huma.Context) bool {
-	if rtcapi.IsOverWebRTC(ctx.Context()) {
-		return true
-	}
-	origin := ctx.Header("Origin")
-	if origin == "" {
-		return false
-	}
-	parsed, err := url.Parse(origin)
-	if err != nil || parsed.Host == "" {
-		return true
-	}
-	return !strings.EqualFold(parsed.Host, ctx.Host())
 }
 
 // Resolve records the client's address and whether it came over TLS.
@@ -125,7 +99,6 @@ func (facts *ClientFacts) Resolve(ctx huma.Context) []error {
 	}
 	facts.clientAddress, facts.isOverTLS = host, ctx.TLS() != nil
 	facts.userAgent = ctx.Header("User-Agent")
-	facts.isThroughDiscovery = isThroughDiscovery(ctx)
 	return nil
 }
 
@@ -207,7 +180,7 @@ func (server *Server) signIn(ctx context.Context, input *SignInInput) (*SessionO
 			"no one can sign in until the first admin is created with the setup code")
 	}
 	token, err := dependencies.Auth.SignIn(
-		ctx, input.Body.Name, input.Body.Password, input.clientAddress, newDevice(input.Body.Device, input.ClientFacts))
+		ctx, input.Body.Name, input.Body.Password, input.clientAddress, newDevice(input.Body.Device))
 	if err != nil {
 		return nil, server.authError(ctx, "sign in", err)
 	}
