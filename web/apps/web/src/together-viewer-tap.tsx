@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { readyForSoundAtTap, type BrowserVoiceDevices, type RosterMember } from "@orpheum/sdk";
-import { useEffect, useMemo, useState, type JSX } from "react";
+import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useServices } from "./services.tsx";
@@ -10,6 +10,8 @@ import { useServices } from "./services.tsx";
 export interface KeptVideo {
   readonly video: HTMLVideoElement;
   readonly hasHadATap: boolean;
+  /** From a tap the page's listener may not hear as a click, as the Join's submitting: the same. */
+  readonly tapped: () => void;
 }
 
 /**
@@ -21,17 +23,17 @@ export interface KeptVideo {
 export function useKeptVideo(): KeptVideo {
   const [video] = useState(() => document.createElement("video"));
   const [hasHadATap, setHasHadATap] = useState(false);
+  const tapped = useCallback(() => {
+    readyForSoundAtTap(video);
+    setHasHadATap(true);
+  }, [video]);
   useEffect(() => {
-    const tapped = (): void => {
-      readyForSoundAtTap(video);
-      setHasHadATap(true);
-    };
     document.addEventListener("click", tapped, true);
     return () => {
       document.removeEventListener("click", tapped, true);
     };
-  }, [video]);
-  return { video, hasHadATap };
+  }, [tapped]);
+  return { video, hasHadATap, tapped };
 }
 
 /**

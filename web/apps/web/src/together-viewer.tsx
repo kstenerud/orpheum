@@ -130,6 +130,12 @@ export function TogetherViewer(): JSX.Element {
     return (
       <JoinForm
         secret={secret}
+        onSubmitted={() => {
+          // The Join's tap, however the browser submitted it: an iPhone's guest who had just joined
+          // was asked to Tap to continue (the owner's test, 2026-10-13).
+          keptVideo.tapped();
+          devices.prepareToHear();
+        }}
         onJoined={(joined) => {
           // Kept with its link in this browser: closing the page does not lose it (D267 §1).
           keepMembership(browserStorage(), "viewer", { ...joined, link: secret });
@@ -161,17 +167,13 @@ function NoLink(): JSX.Element {
  */
 function JoinForm(props: {
   readonly secret: string;
+  /** Called at once from the submitting, within the tap that did it. */
+  readonly onSubmitted: () => void;
   readonly onJoined: (membership: Membership) => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { api, canFollowAGroup } = useServices();
-  const token = useToken();
-  // What was typed, once anything was: a late answer about who is signed in never replaces it.
-  const [typedName, setTypedName] = useState<string | undefined>(undefined);
-  const [me] = useResource(`join-name:${token ?? ""}`, async () =>
-    token === undefined ? undefined : dataOrThrow(await api.GET("/me")),
-  );
-  const name = typedName ?? (me.state === "loaded" ? me.value?.name : undefined) ?? "";
+  const [name, setTypedName] = useJoinName();
   const { isBusy, problem, runRequest } = useRequest((cause) =>
     fieldProblemText(t, cause, {
       fields: { "body.name": t("together.name") },
@@ -191,6 +193,7 @@ function JoinForm(props: {
     <CredentialsForm
       heading={t("together.joinHeading")}
       onSubmit={() => {
+        props.onSubmitted();
         runRequest(async (idempotencyKey) => {
           const joined = dataOrThrow(
             await api.POST("/together/join", {
@@ -220,6 +223,20 @@ function JoinForm(props: {
       </button>
     </CredentialsForm>
   );
+}
+
+/**
+ * The name to join by: what was typed, once anything was, else the signed-in person's own; a late
+ * answer about who is signed in never replaces what was typed.
+ */
+function useJoinName(): [string, (typed: string) => void] {
+  const { api } = useServices();
+  const token = useToken();
+  const [typedName, setTypedName] = useState<string | undefined>(undefined);
+  const [me] = useResource(`join-name:${token ?? ""}`, async () =>
+    token === undefined ? undefined : dataOrThrow(await api.GET("/me")),
+  );
+  return [typedName ?? (me.state === "loaded" ? me.value?.name : undefined) ?? "", setTypedName];
 }
 
 /**

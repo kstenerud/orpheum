@@ -93,11 +93,11 @@ test("an invitation works once, only once joined, and no credential is ever in a
     element.muted = true;
     element.dispatchEvent(new Event("orpheumplayedmuted"));
   });
-  const soundOn = guest.getByRole("button", { name: "Tap for sound" });
+  const soundOn = guest.getByRole("button", { name: "Tap to turn the sound back on" });
   const [picture, button] = await Promise.all([video.boundingBox(), soundOn.boundingBox()]);
   expect(
     picture !== null && button !== null && button.y + button.height <= picture.y + picture.height,
-    "Tap for sound is over the picture",
+    "Tap to turn the sound back on is over the picture",
   ).toBe(true);
   await soundOn.click();
   expect(await video.evaluate((element: HTMLVideoElement) => element.muted)).toBe(false);
