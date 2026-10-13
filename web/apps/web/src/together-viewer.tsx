@@ -91,6 +91,7 @@ export function TogetherViewer(): JSX.Element {
   // Made before the Join, so its tap, and any tap after, lets the film and the voices play with
   // sound: one tap gives a guest both, whichever starts first (the owner, 2026-10-13).
   const keptVideo = useKeptVideo();
+  const [hasJoinedHere, setHasJoinedHere] = useState(false);
   const devices = useViewerVoiceDevices();
   useEffect(() => {
     // Signed in, a session joined on another device follows them here (D267 §2).
@@ -104,22 +105,7 @@ export function TogetherViewer(): JSX.Element {
       navigation.replace({ screen: "together" });
     }
   }, [membership, secret, navigation]);
-  // A link pasted into a tab already here changes only what follows #, and the page does not load
-  // again: the new link is joined in place of whatever this browser was in, unless it is the same.
-  useEffect(
-    () =>
-      navigation.subscribe(() => {
-        const pasted = secretFromHash(navigation.fragment());
-        if (pasted !== undefined) {
-          if (readMembership(browserStorage(), "viewer")?.link !== pasted) {
-            forgetMembership(browserStorage(), "viewer");
-          }
-          setSecret(pasted);
-          over.again();
-        }
-      }),
-    [navigation, over],
-  );
+  usePastedLinks(setSecret, over.again);
   if (endReason !== undefined) {
     return <SessionOver reason={endReason} onAgain={over.again} />;
   }
@@ -131,6 +117,7 @@ export function TogetherViewer(): JSX.Element {
       <JoinForm
         secret={secret}
         onSubmitted={() => {
+          setHasJoinedHere(true);
           // The Join's tap, however the browser submitted it: an iPhone's guest who had just joined
           // was asked to Tap to continue (the owner's test, 2026-10-13).
           keptVideo.tapped();
@@ -147,7 +134,35 @@ export function TogetherViewer(): JSX.Element {
     );
   }
   return (
-    <ViewerSession membership={membership} kept={keptVideo} devices={devices} onOver={over.end} />
+    <ViewerSession
+      membership={membership}
+      hasJoinedHere={hasJoinedHere}
+      kept={keptVideo}
+      devices={devices}
+      onOver={over.end}
+    />
+  );
+}
+
+/**
+ * A link pasted into a tab already here changes only what follows #, and the page does not load
+ * again: the new link is joined in place of whatever this browser was in, unless it is the same.
+ */
+function usePastedLinks(setSecret: (secret: string) => void, again: () => void): void {
+  const { navigation } = useServices();
+  useEffect(
+    () =>
+      navigation.subscribe(() => {
+        const pasted = secretFromHash(navigation.fragment());
+        if (pasted !== undefined) {
+          if (readMembership(browserStorage(), "viewer")?.link !== pasted) {
+            forgetMembership(browserStorage(), "viewer");
+          }
+          setSecret(pasted);
+          again();
+        }
+      }),
+    [navigation, setSecret, again],
   );
 }
 
@@ -294,34 +309,34 @@ function SessionOver(props: {
  */
 function ViewerSession(props: {
   readonly membership: Membership;
+  /** Whether this page joined by the link itself, rather than came back to the membership. */
+  readonly hasJoinedHere: boolean;
   readonly kept: KeptVideo;
   readonly devices: BrowserVoiceDevices;
   readonly onOver: (reason: TogetherEndReason) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const [audioOutput, setAudioOutput] = useState(() => readViewerAudioOutput(browserStorage()));
+  const [audioOutput, keep] = useViewerAudioOutput();
   const [volume, setVolume] = useState(1);
   const { connection, snapshot } = useTogether({ credential: props.membership.credential });
   const { onOver, kept } = props;
+  const isConnected = snapshot?.status === "connected";
   // Everyone in the session is heard from the start, once the page's own device is welcomed and the
   // page has had its tap; Talk only opens the microphone (D281 §1).
   const voice = useVoice(props.membership, undefined, {
-    isReady: snapshot?.status === "connected" && kept.hasHadATap,
+    isReady: isConnected && kept.hasHadATap,
     devices: props.devices,
   });
-  const keep = (output: AudioOutput): void => {
-    keepViewerAudioOutput(browserStorage(), output);
-    setAudioOutput(output);
-  };
-  const endReason = snapshot?.status === "ended" ? snapshot.endReason : undefined;
-  useEffect(() => {
-    if (endReason !== undefined) {
-      onOver(endReason);
-    }
-  }, [endReason, onOver]);
+  useOverWhenEnded(snapshot, onOver);
   if (!kept.hasHadATap) {
     // As a page of its own: nothing of the session plays or shows under it (the owner, 2026-10-13).
-    return <TapToContinue roster={snapshot?.roster ?? []} />;
+    return (
+      <TapToContinue
+        roster={snapshot?.roster ?? []}
+        connection={isConnected ? connection : undefined}
+        hasJoinedHere={props.hasJoinedHere}
+      />
+    );
   }
   return (
     <main className="together-viewer">
@@ -354,6 +369,29 @@ function ViewerSession(props: {
       <LeaveButton membership={props.membership} onLeft={onOver} />
     </main>
   );
+}
+
+/** How this browser makes sound, as it said, and the keeping of a new answer. */
+function useViewerAudioOutput(): [AudioOutput | undefined, (output: AudioOutput) => void] {
+  const [audioOutput, setAudioOutput] = useState(() => readViewerAudioOutput(browserStorage()));
+  const keep = useCallback((output: AudioOutput): void => {
+    keepViewerAudioOutput(browserStorage(), output);
+    setAudioOutput(output);
+  }, []);
+  return [audioOutput, keep];
+}
+
+/** Ends the viewer's session as the server ends it, with its reason. */
+function useOverWhenEnded(
+  snapshot: TogetherSnapshot | undefined,
+  onOver: (reason: TogetherEndReason) => void,
+): void {
+  const endReason = snapshot?.status === "ended" ? snapshot.endReason : undefined;
+  useEffect(() => {
+    if (endReason !== undefined) {
+      onOver(endReason);
+    }
+  }, [endReason, onOver]);
 }
 
 /** The viewer's own volume, which no one else hears (watch-together.md: per person). */

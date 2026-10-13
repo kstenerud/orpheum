@@ -120,6 +120,11 @@ const (
 	NoteCorrectsBySeeks NoteKind = "correctsBySeeks"
 	NoteLeaderCommand   NoteKind = "leaderCommand"
 	NoteUnmuted         NoteKind = "unmuted"
+	// NoteContinueAsked is a guest's page asking for a tap to continue, Why how the browser came to
+	// show it ("navigate", "reload", "back_forward", "prerender") and Page what else it knows: an
+	// iPhone that joined by its keyboard's Go was asked straight after, and nothing said whether the
+	// page had loaded again (the owner's test, 2026-10-13).
+	NoteContinueAsked NoteKind = "continueAsked"
 )
 
 // PlayerNote is one thing a device's player did, which the server logs and keeps nowhere: why a
@@ -177,6 +182,8 @@ type PlayerNote struct {
 	// paused, and an iPhone's audio session; its Why, "after" for the state some seconds after the
 	// tap. An iPhone that stayed silent after its tap could not say why (the owner's VQ30, 2026-10-12).
 	SoundState string `json:"soundState,omitempty"`
+	// Page is a continueAsked note's page: how long since it loaded, and whether it joined itself.
+	Page string `json:"page,omitempty"`
 }
 
 // diagnosisTextMost is the longest a diagnosis note's text may be: ranges and an error's line.
@@ -237,13 +244,32 @@ func (note PlayerNote) isKnown() bool {
 		return note.isKnownVoice()
 	case NotePonged, NoteOwnMarkExpired, NoteCorrectsBySeeks, NoteLoadHeld:
 		return note.isKnownFollowing()
-	case NotePlayedMuted:
-		return note.PositionMs >= 0 && note.Why == "" && note.Track == ""
-	case NoteUnmuted:
-		return note.PositionMs >= 0 && (note.Why == "" || note.Why == "after") && note.Track == "" &&
-			len(note.SoundState) <= diagnosisTextMost
+	case NotePlayedMuted, NoteUnmuted, NoteContinueAsked:
+		return note.isKnownSound()
 	case NoteDiagnosis, NoteLeaderCommand:
 		return note.isKnownDiagnosis()
+	}
+	return false
+}
+
+// isKnownSound is whether a note of a guest's sound is one the server logs: a film played muted, a
+// tap turning it on with its sound then, or a page asking for a tap to continue and how it was shown.
+func (note PlayerNote) isKnownSound() bool {
+	if note.Track != "" {
+		return false
+	}
+	switch note.Kind {
+	case NotePlayedMuted:
+		return note.PositionMs >= 0 && note.Why == ""
+	case NoteUnmuted:
+		return note.PositionMs >= 0 && (note.Why == "" || note.Why == "after") &&
+			len(note.SoundState) <= diagnosisTextMost
+	case NoteContinueAsked:
+		return slices.Contains([]string{"navigate", "reload", "back_forward", "prerender"}, note.Why) &&
+			len(note.Page) <= diagnosisTextMost
+	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NotePonged,
+		NoteVoiceStats, NoteVoiceCall, NoteVoiceOff, NoteVoiceTalk, NoteDiagnosis, NoteLeaderCommand,
+		NoteOwnMarkExpired, NoteCorrectsBySeeks, NoteLoadHeld: // not sound's: isKnown reads them
 	}
 	return false
 }
@@ -266,7 +292,7 @@ func (note PlayerNote) isKnownFollowing() bool {
 		return note.Why == "held" || note.Why == "goesOn"
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NoteVoiceStats,
 		NoteVoiceCall, NoteVoiceOff, NoteVoiceTalk, NotePlayedMuted, NoteUnmuted, NoteDiagnosis,
-		NoteLeaderCommand: // isKnown reads them
+		NoteLeaderCommand, NoteContinueAsked: // isKnown reads them
 	}
 	return false
 }
@@ -285,7 +311,7 @@ func (note PlayerNote) isKnownVoice() bool {
 		return note.PartnerDeviceID > 0 && isVoiceCallStep(note.Why)
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected, NotePonged,
 		NotePlayedMuted, NoteUnmuted, NoteDiagnosis, NoteLeaderCommand, NoteOwnMarkExpired,
-		NoteCorrectsBySeeks, NoteLoadHeld: // not voice's: isKnown reads them
+		NoteCorrectsBySeeks, NoteLoadHeld, NoteContinueAsked: // not voice's: isKnown reads them
 	}
 	return false
 }
