@@ -4,6 +4,11 @@
 # ABOUTME: checkout, then runs that image's write-deployment over the deployment's directory.
 #
 #   deploy/release/build.sh <tag> <deployment directory>
+#   deploy/release/build.sh --load <image archive> <deployment directory>
+#
+# With --load it builds nothing: it loads an image `docker save` wrote, gzipped or not, and writes
+# the deployment from it, so a machine with Docker alone runs the image staging runs, until there is a
+# tag (the weekend fallback, deploy/release/README.md §3a).
 #
 # It clones the tag into a temporary directory, with its own .git so the binary records its version
 # and commit (D225), builds the image orpheum:<tag> from it, and runs the image's write-deployment
@@ -17,9 +22,38 @@ set -eu
 
 usage() {
 	echo "usage: deploy/release/build.sh <tag> <deployment directory>" >&2
+	echo "       deploy/release/build.sh --load <image archive> <deployment directory>" >&2
 	exit 2
 }
 
+# writeDeployment runs the image's write-deployment over the directory, as cmd/orpheum's
+# write-deployment says to run it: the directory and its run/ where the image looks for them, as
+# their owner, with the machine's name, and the GPU when there is one.
+writeDeployment() {
+	set -- --rm --user "$(id -u):$(id -g)" --hostname "$(hostname)" \
+		--volume "$dir:/var/lib/orpheum" --volume "$dir/run:/run/orpheum"
+	if [ -d /dev/dri ]; then
+		set -- "$@" --volume /dev/dri:/dev/dri:ro
+	fi
+	docker run "$@" "$image" write-deployment --deployment release --image "$image"
+}
+
+if [ "$#" -eq 3 ] && [ "$1" = --load ]; then
+	mkdir -p "$3/run"
+	dir=$(cd "$3" && pwd)
+	case $2 in
+	*.gz) loaded=$(gunzip -c "$2" | docker load) ;;
+	*) loaded=$(docker load --input "$2") ;;
+	esac
+	echo "$loaded" >&2
+	image=$(echo "$loaded" | sed -n 's/^Loaded image: //p' | tail -n 1)
+	if [ -z "$image" ]; then
+		echo "build: the archive named no image; was it made by docker save of a tagged image?" >&2
+		exit 1
+	fi
+	writeDeployment
+	exit 0
+fi
 [ "$#" -eq 2 ] || usage
 tag=$1
 dir=$2
@@ -50,12 +84,4 @@ echo "build: building $image (the first build fetches FFmpeg, Go and Node, and t
 DOCKER_BUILDKIT=1 docker build --file "$source/orpheum/deploy/Containerfile" --target runtime \
 	--tag "$image" "$source/orpheum"
 
-# As cmd/orpheum's write-deployment says to run it: the directory and its run/ where the image looks
-# for them, as their owner, with the machine's name, and the GPU when there is one.
-set -- --rm --user "$(id -u):$(id -g)" --hostname "$(hostname)" \
-	--volume "$dir:/var/lib/orpheum" --volume "$dir/run:/run/orpheum"
-if [ -d /dev/dri ]; then
-	set -- "$@" --volume /dev/dri:/dev/dri:ro
-fi
-docker run "$@" "$image" write-deployment --deployment release --image "$image"
-echo "build: \`docker compose up -d\` in $dir starts $image" >&2
+writeDeployment
