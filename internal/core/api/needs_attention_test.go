@@ -47,3 +47,20 @@ func TestNeedsAttention_CountsTheFoldersAndDisksOffline(t *testing.T) {
 		t.Errorf("GET /needs-attention by a person who is not an admin = %d, want 403", got.status)
 	}
 }
+
+// The owner, 2026-10-13: "Needs a match should show up as one of the things under the exclamation
+// point tray icon." A film waiting for a person's choice is counted.
+func TestNeedsAttention_CountsWhatWaitsForAMatch(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.ambiguousTitle(t)
+	got := harness.do(t, http.MethodGet, "/needs-attention", admin, nil)
+	var output NeedsAttentionOutput
+	if err := json.Unmarshal([]byte(got.body), &output.Body); err != nil || got.status != http.StatusOK {
+		t.Fatalf("GET /needs-attention = %d %s", got.status, got.body)
+	}
+	if output.Body.MatchCount != 1 {
+		t.Errorf("counts = %+v; want the one film waiting for its match", output.Body)
+	}
+}

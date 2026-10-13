@@ -120,6 +120,7 @@ type jobsWorld struct {
 	hosts     hostProviders
 	tmdb      *fakeTMDBHost
 	pass      *identify.Pass
+	matcher   *identify.Matcher
 	refresher *identify.Refresher
 	runner    *jobs.Runner
 	libraryID int64
@@ -170,9 +171,9 @@ func (world *jobsWorld) wireQueue(cache *store.Cache) {
 	}
 	client := tmdb.New(httpClient, world.tmdbURL, world.secrets, world.hosts.tmdbAPI)
 	world.pass = identify.NewPass(world.database, world.clock, logger, identify.Providers{"tmdb": client}, world.config)
-	matcher := identify.NewMatcher(world.database, cache, world.pass, world.clock, logger)
+	world.matcher = identify.NewMatcher(world.database, cache, world.pass, world.clock, logger)
 	world.refresher = identify.NewRefresher(world.database, world.queue, world.config, world.clock, logger)
-	world.runner = world.queue.NewRunner(jobs.KindFetchMetadata, matcher.Handle)
+	world.runner = world.queue.NewRunner(jobs.KindFetchMetadata, world.matcher.Handle)
 }
 
 // addFilms lands a copy of count films and has their first matches queued, as a scan's pass does.
@@ -466,7 +467,9 @@ func TestScenario_S78_DiscardingCacheDBLosesOnlyTiming(t *testing.T) {
 		Fetchers: map[string]artwork.Fetcher{"tmdb": missingPosterFetcher{}}, Clock: world.clock,
 		Logger: slog.New(slog.DiscardHandler),
 	})
-	services := jobServices{queue: world.queue, refresher: world.refresher, artwork: images, pass: world.pass}
+	services := jobServices{
+		queue: world.queue, refresher: world.refresher, artwork: images, pass: world.pass, matcher: world.matcher,
+	}
 	for _, sweep := range services.sweeps(slog.New(slog.DiscardHandler)) {
 		// No files to measure, nothing due a rolling refresh, and backups and scans are not this
 		// scenario's work.

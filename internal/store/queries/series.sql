@@ -50,7 +50,9 @@ WHERE item_id = sqlc.arg(item_id) AND provider = sqlc.arg(provider) AND part = s
 
 -- name: ListSeriesByIdentification :many
 -- The series in one state of identification, for the chooser's list, with a failure of their own
--- to be fetched and a person's refresh waiting (D231 section 4).
+-- to be fetched and a person's refresh waiting (D231 section 4). Only those with an episode's live
+-- file: a series an older reading of the folders made, its episodes filed again elsewhere, waits
+-- for no one (the owner's NAS, 2026-10-13).
 SELECT collection.id, collection.year, collection.identification_state, collection.followed_source, collection.followed_source_id,
   item.library_id, item_text.name, fetch_failure.failure AS fetch_failure, fetch_failure.failed_at AS fetch_failed_at,
   refresh_request.requested_at AS refresh_requested_at
@@ -62,11 +64,19 @@ LEFT JOIN refresh_request ON refresh_request.item_id = collection.id
 WHERE collection.kind = 'series' AND collection.identification_state = sqlc.arg(identification_state) AND item.removed_at IS NULL
   AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
     OR item.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
+  AND EXISTS (
+    SELECT 1 FROM collection_member
+    CROSS JOIN version ON version.title_id = collection_member.member_title
+    CROSS JOIN file ON file.version_id = version.id
+    WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
+      AND file.removed_at IS NULL
+  )
 ORDER BY item_text.name, collection.id;
 
 -- name: ListSeriesAwaitingMatch :many
 -- Series in a provider's library that are not matched, have an episode no NFO speaks for, and
--- have no failure of their own (D231 section 3).
+-- have no failure of their own (D231 section 3), with an episode's live file: one emptied by a new
+-- reading of its folders is searched for no one.
 SELECT collection.id
 FROM collection
 JOIN item ON item.id = collection.id
@@ -82,4 +92,16 @@ WHERE item.library_id = sqlc.arg(library_id) AND item.removed_at IS NULL AND col
     WHERE ordering.collection_id = collection.id AND ordering.name = 'aired'
       AND (title.followed_source IS NULL OR title.followed_source != 'nfo')
   )
+  AND EXISTS (
+    SELECT 1 FROM collection_member
+    CROSS JOIN version ON version.title_id = collection_member.member_title
+    CROSS JOIN file ON file.version_id = version.id
+    WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
+      AND file.removed_at IS NULL
+  )
 ORDER BY collection.id;
+
+-- name: ReturnAmbiguousSeriesToItsFirstMatch :exec
+-- A series the matcher left ambiguous that its kept results now settle: owed its first match again.
+UPDATE collection SET identification_state = 'unidentified'
+WHERE id = sqlc.arg(id) AND kind = 'series' AND identification_state = 'ambiguous';

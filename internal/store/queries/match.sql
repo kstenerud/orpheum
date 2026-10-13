@@ -74,7 +74,9 @@ ORDER BY title.id;
 
 -- name: ListTitlesByIdentification :many
 -- The titles in one state of identification, for the chooser's list (cut-a section 5), with a
--- failure of their own to be fetched and a person's refresh waiting (D231 section 4).
+-- failure of their own to be fetched and a person's refresh waiting (D231 section 4). Only those
+-- with a live file: a title whose files went elsewhere waits for no one (the owner's NAS,
+-- 2026-10-13, where a series library's films became its episodes).
 SELECT title.id, title.kind, title.year, title.identification_state, title.followed_source, title.followed_source_id, item.library_id,
   item_text.name, fetch_failure.failure AS fetch_failure, fetch_failure.failed_at AS fetch_failed_at,
   refresh_request.requested_at AS refresh_requested_at
@@ -86,6 +88,10 @@ LEFT JOIN refresh_request ON refresh_request.item_id = title.id
 WHERE title.identification_state = sqlc.arg(identification_state) AND item.removed_at IS NULL
   AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
     OR item.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
+  AND EXISTS (
+    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+    WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
+  )
 ORDER BY item_text.name, title.id;
 
 -- name: DeleteItemProviderIDsAtProvider :exec
@@ -105,3 +111,10 @@ ON CONFLICT (item_id, field, language) DO UPDATE SET
 -- a tombstoned row (standards/sql.md section 6): its absence is the state.
 DELETE FROM field_override
 WHERE item_id = sqlc.arg(item_id) AND field = sqlc.arg(field) AND language = '';
+
+-- name: ReturnAmbiguousTitleToItsFirstMatch :exec
+-- A film the matcher left ambiguous that its kept results now settle, under rules that changed
+-- since: owed its first match again, which the matcher takes (the owner's NAS, 2026-10-13). A
+-- person's choice is never undone: only 'ambiguous' changes.
+UPDATE title SET identification_state = 'unidentified'
+WHERE id = sqlc.arg(id) AND identification_state = 'ambiguous';

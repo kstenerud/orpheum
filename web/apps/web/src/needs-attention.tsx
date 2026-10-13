@@ -13,7 +13,7 @@ import { WarningIcon } from "./warning-sign.tsx";
 /**
  * Everything that needs the admin, in one place, which the status tray's warning sign leads to
  * (D280). A placeholder until it is designed: it counts what needs them and leads to the pages that
- * have each, the System page and the Libraries.
+ * have each, the System page, the Libraries and Needs a match.
  */
 export function NeedsAttention(): JSX.Element {
   const { t } = useTranslation();
@@ -33,6 +33,7 @@ export function NeedsAttention(): JSX.Element {
             { count: value.diskCount, key: "needsAttention.missingDisks" },
             { count: value.waitingRootCount, key: "needsAttention.waitingFolders" },
             { count: value.unreadCount, key: "needsAttention.unreadPaths" },
+            { count: value.matchCount, key: "needsAttention.waitingMatches" },
           ].filter((line) => line.count > 0);
           return lines.length === 0 ? (
             <p>{t("needsAttention.nothing")}</p>
@@ -49,7 +50,8 @@ export function NeedsAttention(): JSX.Element {
       />
       <p>
         <Link to={{ screen: "system" }}>{t("needsAttention.toSystem")}</Link> ·{" "}
-        <Link to={{ screen: "libraries" }}>{t("needsAttention.toLibraries")}</Link>
+        <Link to={{ screen: "libraries" }}>{t("needsAttention.toLibraries")}</Link> ·{" "}
+        <Link to={{ screen: "identify" }}>{t("needsAttention.toIdentify")}</Link>
       </p>
     </section>
   );

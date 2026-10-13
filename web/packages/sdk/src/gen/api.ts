@@ -2492,6 +2492,8 @@ export interface components {
             /** Format: int64 */
             diskCount: number;
             /** Format: int64 */
+            matchCount: number;
+            /** Format: int64 */
             rootCount: number;
             /** Format: int64 */
             unreadCount: number;

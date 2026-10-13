@@ -232,6 +232,10 @@ LEFT JOIN refresh_request ON refresh_request.item_id = title.id
 WHERE title.identification_state = ?1 AND item.removed_at IS NULL
   AND (CAST(?2 AS INTEGER) = 1
     OR item.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
+  AND EXISTS (
+    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+    WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
+  )
 ORDER BY item_text.name, title.id
 `
 
@@ -256,7 +260,9 @@ type ListTitlesByIdentificationRow struct {
 }
 
 // The titles in one state of identification, for the chooser's list (cut-a section 5), with a
-// failure of their own to be fetched and a person's refresh waiting (D231 section 4).
+// failure of their own to be fetched and a person's refresh waiting (D231 section 4). Only those
+// with a live file: a title whose files went elsewhere waits for no one (the owner's NAS,
+// 2026-10-13, where a series library's films became its episodes).
 func (q *Queries) ListTitlesByIdentification(ctx context.Context, arg ListTitlesByIdentificationParams) ([]ListTitlesByIdentificationRow, error) {
 	rows, err := q.db.QueryContext(ctx, listTitlesByIdentification, arg.IdentificationState, arg.IsEveryLibrary, arg.LibraryIdsJSON)
 	if err != nil {
@@ -322,6 +328,19 @@ type MoveVersionsBetweenTitlesParams struct {
 
 func (q *Queries) MoveVersionsBetweenTitles(ctx context.Context, arg MoveVersionsBetweenTitlesParams) error {
 	_, err := q.db.ExecContext(ctx, moveVersionsBetweenTitles, arg.ToTitle, arg.FromTitle)
+	return err
+}
+
+const returnAmbiguousTitleToItsFirstMatch = `-- name: ReturnAmbiguousTitleToItsFirstMatch :exec
+UPDATE title SET identification_state = 'unidentified'
+WHERE id = ?1 AND identification_state = 'ambiguous'
+`
+
+// A film the matcher left ambiguous that its kept results now settle, under rules that changed
+// since: owed its first match again, which the matcher takes (the owner's NAS, 2026-10-13). A
+// person's choice is never undone: only 'ambiguous' changes.
+func (q *Queries) ReturnAmbiguousTitleToItsFirstMatch(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, returnAmbiguousTitleToItsFirstMatch, id)
 	return err
 }
 

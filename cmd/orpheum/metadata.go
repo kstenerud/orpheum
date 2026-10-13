@@ -261,6 +261,7 @@ func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRun
 // video through whose bytes lack their loudness or their picture's timeline (D226 §2, D247 §10).
 const (
 	sweepFirstMatches    = "first matches"
+	sweepReconsidered    = "ambiguous matches reconsidered"
 	sweepRefreshRequests = "refreshes people asked for"
 	sweepRechecks        = "rechecks of missing images"
 	sweepRollingRefresh  = "rolling refresh"
@@ -320,6 +321,8 @@ func (services jobServices) sweeps(logger *slog.Logger) []jobs.Sweep {
 		return lengthOrStarting(ctx, services.settings, settings.DerivedWorkSweepEverySeconds, logger)
 	}
 	return []jobs.Sweep{
+		// Before the first matches, which queue what it returns to them.
+		{Name: sweepReconsidered, Derive: services.matcher.ReconsiderAmbiguous, Every: derivedWorkEvery},
 		{Name: sweepFirstMatches, Derive: services.refresher.QueueFirstMatches, Every: derivedWorkEvery},
 		{Name: sweepRefreshRequests, Derive: services.refresher.QueueRequested, Every: derivedWorkEvery},
 		{
