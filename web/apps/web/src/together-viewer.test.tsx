@@ -273,6 +273,34 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     mounted.unmount();
   });
 
+  it("turns the film's sound on at a tap anywhere on the page, as the voices' tap is too (the owner, 2026-10-13)", async () => {
+    window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
+    window.localStorage.setItem(
+      "orpheum.together.viewer",
+      JSON.stringify({ sessionId: 1, credential: "viewer-credential" }),
+    );
+    const { services, server } = viewerServices("/together", {
+      "POST /together/playback": [200, directDecision({ titleName: "Metropolis" })],
+    });
+    const mounted = await mount(withServices(<TogetherViewer />, services));
+    await server.accept();
+    await server.say(welcome);
+    await server.say({
+      type: "group",
+      seq: 2,
+      group: { state: "Paused", positionMs: 0, rate: 1, fileId: 5, event: "paused", byMemberId: 1 },
+    });
+    const video = mounted.container.querySelector("video");
+    if (video !== null) {
+      video.muted = true;
+    }
+    await fire(video, new Event(playedMutedEvent));
+    await click(mounted.container.querySelector(".together-viewer__heading"));
+    expect(video?.muted).toBe(false);
+    expect(buttonWithText(mounted.container, "Tap for sound")).toBeUndefined();
+    mounted.unmount();
+  });
+
   it("reports a viewer's stall by the membership, and moves to the lower quality offered (D247 §2)", async () => {
     window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
     window.localStorage.setItem(

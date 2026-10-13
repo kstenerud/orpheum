@@ -612,6 +612,18 @@ function useFollowing(
     }
     setIsMuted(false);
   }, [videoRef, connection]);
+  // While the film plays muted, any tap on the page turns its sound on, as any tap plays the voices
+  // the browser refused: an iPhone guest tapped once for the film and again for the voices (the
+  // owner, 2026-10-13: "only needs to tap once to hear both video and voice").
+  useEffect(() => {
+    if (!isMuted) {
+      return undefined;
+    }
+    document.addEventListener("click", turnSoundOn, true);
+    return () => {
+      document.removeEventListener("click", turnSoundOn, true);
+    };
+  }, [isMuted, turnSoundOn]);
   return { isMuted, turnSoundOn, hasControls: canPlayPause || canSeek };
 }
 
