@@ -18,8 +18,10 @@ import (
 // DiscoveryProbeBody is what the discovery's outside probe found of one of the core's addresses, or
 // of "webrtc".
 type DiscoveryProbeBody struct {
-	Candidate string `json:"candidate"`
-	Result    string `json:"result"`
+	Address string `json:"address"`
+	Port    int    `json:"port"`
+	Kind    string `doc:"What the probe tried there" enum:"https,turn" json:"kind"`
+	Result  string `doc:"reached, or the hop a failure stopped at" json:"result"`
 }
 
 // DiscoveryStatusBody is where the core stands with its discovery (D273): none, waiting to be
@@ -32,7 +34,7 @@ type DiscoveryStatusBody struct {
 	// ClaimCode is what the owner types at the discovery to claim the core, while it is pending.
 	ClaimCode       string               `json:"claimCode,omitempty"`
 	ClaimExpiresAt  int64                `doc:"Unix milliseconds; 0 when there is no code" json:"claimExpiresAt"`
-	ReachableFrom   string               `doc:"As the probe found; absent before it ran" enum:"everywhere,ipv6_or_webrtc,nowhere" json:"reachableFrom,omitempty"` //nolint:lll // one struct tag
+	ReachableFrom   string               `doc:"As the probe found; absent before it ran" enum:"public_ipv4,public_ipv4_other_port,ipv6,nowhere" json:"reachableFrom,omitempty"` //nolint:lll // one struct tag
 	Published       []string             `doc:"The addresses the discovery publishes" json:"published"`
 	Probe           []DiscoveryProbeBody `json:"probe"`
 	LastHeartbeatAt int64                `doc:"Unix milliseconds; 0 before the first" json:"lastHeartbeatAt"`
@@ -167,7 +169,9 @@ func discoveryStatusBody(status discovery.Status) DiscoveryStatusBody {
 		body.LastHeartbeatAt = status.LastHeartbeatAt.UnixMilli()
 	}
 	for _, probe := range status.Probe {
-		body.Probe = append(body.Probe, DiscoveryProbeBody{Candidate: probe.Candidate, Result: probe.Result})
+		body.Probe = append(body.Probe, DiscoveryProbeBody{
+			Address: probe.Address, Port: probe.Port, Kind: probe.Kind, Result: probe.Result,
+		})
 	}
 	return body
 }

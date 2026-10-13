@@ -1946,7 +1946,15 @@ export interface components {
             devices: components["schemas"]["DeviceBody"][] | null;
         };
         DiscoveryProbeBody: {
-            candidate: string;
+            address: string;
+            /**
+             * @description What the probe tried there
+             * @enum {string}
+             */
+            kind: "https" | "turn";
+            /** Format: int64 */
+            port: number;
+            /** @description reached, or the hop a failure stopped at */
             result: string;
         };
         DiscoveryStatusBody: {
@@ -1980,7 +1988,7 @@ export interface components {
              * @description As the probe found; absent before it ran
              * @enum {string}
              */
-            reachableFrom?: "everywhere" | "ipv6_or_webrtc" | "nowhere";
+            reachableFrom?: "public_ipv4" | "public_ipv4_other_port" | "ipv6" | "nowhere";
             /**
              * @description Absent before the discovery's first answer
              * @enum {string}

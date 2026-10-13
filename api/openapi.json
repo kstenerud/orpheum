@@ -948,15 +948,30 @@
       "DiscoveryProbeBody": {
         "additionalProperties": false,
         "properties": {
-          "candidate": {
+          "address": {
             "type": "string"
           },
+          "kind": {
+            "description": "What the probe tried there",
+            "enum": [
+              "https",
+              "turn"
+            ],
+            "type": "string"
+          },
+          "port": {
+            "format": "int64",
+            "type": "integer"
+          },
           "result": {
+            "description": "reached, or the hop a failure stopped at",
             "type": "string"
           }
         },
         "required": [
-          "candidate",
+          "address",
+          "port",
+          "kind",
           "result"
         ],
         "type": "object"
@@ -1025,8 +1040,9 @@
           "reachableFrom": {
             "description": "As the probe found; absent before it ran",
             "enum": [
-              "everywhere",
-              "ipv6_or_webrtc",
+              "public_ipv4",
+              "public_ipv4_other_port",
+              "ipv6",
               "nowhere"
             ],
             "type": "string"

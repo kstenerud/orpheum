@@ -69,7 +69,7 @@ it("says where a claimed server is reached from, and warns of the discovery's de
         ...none,
         baseUrl: "https://discovery.example.com/core/v1",
         state: "claimed",
-        reachableFrom: "ipv6_or_webrtc",
+        reachableFrom: "ipv6",
         published: ["k7xq2.orpheum-core.com"],
         deprecatedUntil: "2027-03-01",
         clientOrigin: "https://app.orpheum-app.com",

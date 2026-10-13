@@ -470,16 +470,15 @@ The heartbeat's answer carries the result, each probe as fields, not free text (
 {"published": ["2a02-8070-0-0-0-0-0-1.k7x…q2.<zone>", "203-0-113-7.k7x…q2.<zone>:51234"],
  "probe": [{"address": "2a0f:1000::1", "port": 443, "kind": "https", "result": "reached"},
            {"address": "198.51.100.9", "port": 443, "kind": "https", "result": "refused"}],
- "reachableFrom": "ipv6_or_webrtc"}
+ "reachableFrom": "ipv6"}
 ```
 
-`reachableFrom` is, as built, `everywhere` (a public IPv4 path works), `ipv6_or_webrtc` or
-`nowhere`; the core shows it on the System page, with what a household nothing reaches can do
-(§3.6). **It is to be named by what was tested** (C10): a public IPv4 on 443, a public IPv4 on
-another port (which networks allowing only 80 and 443 do not reach), IPv6, nowhere; and, once the
-NAT measurement is built, punchable with endpoint-independent mapping or only from an open NAT [I:
-spelt in snake_case, as the built values are]. **The code must change** for the fields and the
-values. As built, `single` publishes nothing and probes nothing (W4b.4).
+`reachableFrom` is named by what was tested (C10): `public_ipv4` (a public IPv4 on 443),
+`public_ipv4_other_port` (a public IPv4 on another port, which networks allowing only 80 and 443 do
+not reach), `ipv6`, or `nowhere`; and, once the NAT measurement is built, punchable with
+endpoint-independent mapping or only from an open NAT. The core shows it on the System page, with
+what a household nothing reaches can do (§3.6). Built (2026-10-13): the fields and the values; as
+built, `single` publishes nothing and probes nothing (W4b.4).
 
 The answer also carries the count of the core's clients that reached a dead end in the last week
 (§3.6, D293 §7), for the System page. Not built.
