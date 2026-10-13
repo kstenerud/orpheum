@@ -41,8 +41,10 @@ func TestWriteDeployment_BeginsThenMakesTheInstancesOnceAndWritesTheFiles(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !begun.isBegun || !strings.Contains(begun.text, "public key") {
-		t.Errorf("the first run said %q; want it begun, giving the tunnel's public key", begun.text)
+	if !begun.isBegun || !strings.Contains(begun.text, "public key") ||
+		!strings.Contains(begun.text, "vps.tunnel_ipv4") {
+		t.Errorf("the first run said %q; want it begun, giving the tunnel's public key and naming the "+
+			"tunnel addresses its peer on the VPS is given", begun.text)
 	}
 	if _, err = writeDeployment(dir, runDir, deployment.Staging, "orpheum:v0.1.0", "nas", -1); err == nil ||
 		!strings.Contains(err.Error(), "contact") {
