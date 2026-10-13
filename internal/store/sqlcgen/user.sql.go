@@ -20,6 +20,38 @@ func (q *Queries) CountLiveUsers(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const demoteAdministrators = `-- name: DemoteAdministrators :many
+UPDATE user SET role_id = (SELECT id FROM role WHERE name = 'user' AND is_builtin = 1)
+WHERE removed_at IS NULL
+  AND role_id IN (SELECT id FROM role WHERE ',' || capabilities || ',' LIKE '%,administer,%')
+RETURNING name
+`
+
+// Everyone whose role administers, given the built-in user role: the first step of the operator's
+// reset of who administers (orpheum reset-admin). Returns who was demoted.
+func (q *Queries) DemoteAdministrators(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, demoteAdministrators)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getLiveUserByID = `-- name: GetLiveUserByID :one
 SELECT user.id, user.name, user.password_hash, user.admin_note, user.role_id, role.name AS role_name,
   role.capabilities

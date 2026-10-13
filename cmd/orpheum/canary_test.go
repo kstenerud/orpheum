@@ -101,7 +101,7 @@ type commandOutput struct {
 func runCommand(t *testing.T, arguments ...string) commandOutput {
 	t.Helper()
 	var stdout, stderr bytes.Buffer
-	status := dispatch(t.Context(), arguments, noEnvironment, &stdout, &stderr)
+	status := dispatch(t.Context(), arguments, noEnvironment, nil, &stdout, &stderr)
 	return commandOutput{status: status, stdout: stdout.String(), stderr: stderr.String()}
 }
 

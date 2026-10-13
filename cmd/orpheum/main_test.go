@@ -38,7 +38,7 @@ func TestDispatch_PlannedSubcommandsAreNotImplementedYet(t *testing.T) {
 		t.Run(planned.name, func(t *testing.T) {
 			t.Parallel()
 			var stdout, stderr bytes.Buffer
-			status := dispatch(t.Context(), []string{planned.name}, noEnvironment, &stdout, &stderr)
+			status := dispatch(t.Context(), []string{planned.name}, noEnvironment, nil, &stdout, &stderr)
 			if status != exitUsageError {
 				t.Errorf("exit status = %d, want %d", status, exitUsageError)
 			}
@@ -71,7 +71,7 @@ func TestDispatch_BuiltSubcommandsNeedTheirInstance(t *testing.T) {
 		t.Run(planned.name, func(t *testing.T) {
 			t.Parallel()
 			var stdout, stderr bytes.Buffer
-			status := dispatch(t.Context(), []string{planned.name}, noEnvironment, &stdout, &stderr)
+			status := dispatch(t.Context(), []string{planned.name}, noEnvironment, nil, &stdout, &stderr)
 			if status == exitSuccess || !strings.Contains(stderr.String(), want) {
 				t.Errorf("without its instance: status %d, stderr %q; want a failure saying %q",
 					status, stderr.String(), want)
@@ -83,7 +83,7 @@ func TestDispatch_BuiltSubcommandsNeedTheirInstance(t *testing.T) {
 func TestDispatch_Version(t *testing.T) {
 	t.Parallel()
 	var stdout, stderr bytes.Buffer
-	status := dispatch(t.Context(), []string{"version"}, noEnvironment, &stdout, &stderr)
+	status := dispatch(t.Context(), []string{"version"}, noEnvironment, nil, &stdout, &stderr)
 	if status != exitSuccess {
 		t.Errorf("exit status = %d, want %d", status, exitSuccess)
 	}
@@ -105,7 +105,7 @@ func TestDispatch_UsageErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			var stdout, stderr bytes.Buffer
-			status := dispatch(t.Context(), tc.arguments, noEnvironment, &stdout, &stderr)
+			status := dispatch(t.Context(), tc.arguments, noEnvironment, nil, &stdout, &stderr)
 			if status != exitUsageError {
 				t.Errorf("exit status = %d, want %d", status, exitUsageError)
 			}
@@ -121,7 +121,7 @@ func TestDispatch_UsageErrors(t *testing.T) {
 func TestDispatch_DevSubcommandExistsOnlyInDevBuilds(t *testing.T) {
 	t.Parallel()
 	var stdout, stderr bytes.Buffer
-	dispatch(t.Context(), []string{"dev"}, noEnvironment, &stdout, &stderr)
+	dispatch(t.Context(), []string{"dev"}, noEnvironment, nil, &stdout, &stderr)
 	unknown := strings.Contains(stderr.String(), "unknown subcommand")
 	if unknown == isDevBuild {
 		t.Errorf("isDevBuild = %v but stderr = %q: the dev subcommand must exist exactly in dev builds",

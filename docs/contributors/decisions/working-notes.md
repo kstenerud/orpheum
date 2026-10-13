@@ -20022,3 +20022,22 @@ recovery's wait, the claim page's address, the NAT measurement, CT watching, the
 the self-hosted discovery's questions (`discovery-mode.md`).
 
 **Status:** Decided 2026-10-13; folded into the protocol, the plans and the specification.
+
+## D294 — Admin from anywhere in the beta, and an operator's reset of who administers from the server's machine
+
+**Decided** (2026-10-13), by the project owner, answering whether admin should come only from the
+core's own network (D292 §4's second point; the security audit's A1), which in a container would
+have ended admin on nas.example: *"Compromising a home server isn't the end of the world during beta.
+The owner is deploying on his own homelab."*
+
+1. **Admin works from anywhere.** No rule ties an admin session to the core's own network; D292
+   §4's "in the beta admin only from the core's own origin on its own network" is withdrawn.
+2. **The operator's way back in is a command on the server's machine**: `orpheum reset-admin
+   --instance <dir> --name <person>` demotes everyone whose role administers to the user role, makes
+   the person named the admin with a password read from standard input (asked twice without echo
+   at a terminal), making the account when no one has the name, and ends that person's sessions. No
+   account is removed. It runs beside a running server.
+3. **Passkeys come later, as an option the owner turns on**, never required (revises D292 §4's
+   "a passkey later" as the admin factor).
+
+**Status:** Decided 2026-10-13.

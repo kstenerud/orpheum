@@ -87,6 +87,11 @@ func plannedSubcommands() []subcommand {
 			name: "setup-code", summary: "print the one-time code that creates the first admin",
 			implementation: commandSetupCode,
 		},
+		{
+			name: "reset-admin", summary: "make one person the only admin, with a new password, " +
+				"read from standard input (D294)",
+			implementation: commandResetAdmin,
+		},
 		{name: "openapi", summary: "print the API's OpenAPI document", implementation: commandOpenAPI},
 	}
 	if isDevBuild {
@@ -106,7 +111,7 @@ func main() {
 	useUTC()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	api.UseErrorShape()
-	status := dispatch(ctx, os.Args[1:], environmentLookup(), os.Stdout, os.Stderr)
+	status := dispatch(ctx, os.Args[1:], environmentLookup(), os.Stdin, os.Stdout, os.Stderr)
 	stop()
 	os.Exit(status)
 }
@@ -128,9 +133,10 @@ func useUTC() {
 }
 
 // dispatch executes one invocation and returns its exit status. It takes the environment and its
-// streams as parameters so the test can observe them.
+// streams as parameters so the test can observe them; a nil stdin reads nothing.
 func dispatch(
-	ctx context.Context, arguments []string, lookupEnv func(string) (string, bool), stdout, stderr io.Writer,
+	ctx context.Context, arguments []string, lookupEnv func(string) (string, bool), stdin io.Reader,
+	stdout, stderr io.Writer,
 ) int {
 	if len(arguments) == 0 {
 		return write(stderr, usage(), exitUsageError)
@@ -149,7 +155,12 @@ func dispatch(
 		if planned.implementation == nil {
 			return write(stderr, fmt.Sprintf("orpheum %s: not implemented yet\n", name), exitUsageError)
 		}
-		call := invocation{arguments: arguments[1:], lookupEnv: lookupEnv, stdout: stdout, stderr: stderr}
+		if stdin == nil {
+			stdin = strings.NewReader("")
+		}
+		call := invocation{
+			arguments: arguments[1:], lookupEnv: lookupEnv, stdin: stdin, stdout: stdout, stderr: stderr,
+		}
 		return planned.implementation(ctx, call)
 	}
 	return write(stderr, fmt.Sprintf("orpheum: unknown subcommand %q\n\n", name)+usage(), exitUsageError)

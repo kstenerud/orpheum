@@ -164,5 +164,11 @@ libraries and certificate.
   (`sysctl fs.inotify.max_user_watches=1048576`, and the same line in
   `/etc/sysctl.d/orpheum.conf`), then restart the node. Meanwhile the library's periodic scan
   (`watched_library_scan_every_hours`) finds what changes.
+- **No one can administer** (a forgotten password, or an admin account someone else took): on
+  the container, as `orpheum`, in `/srv/orpheum`,
+  `docker compose exec -it orpheum-core orpheum reset-admin --instance /var/lib/orpheum/core --name <you>`
+  asks for a new password twice, makes you the only admin (making the account if no one has the
+  name), demotes everyone else who administered and signs you out everywhere. No account is removed,
+  and the server keeps running (D294).
 - Everything else is as staging's "When something is wrong" says, with `docker compose` in
   `/srv/orpheum` for `./staging`.
