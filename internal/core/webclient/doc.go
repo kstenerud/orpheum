@@ -15,8 +15,10 @@
 //     Enforced by TestHandler_HashedAssetsAreImmutableAndIndexIsRevalidated.
 //   - The client counts as built only when dist/ has an index.html; the placeholder alone does
 //     not. Enforced by TestBuiltClient_IsTheClientOnlyWhenItHasAnIndex.
-//   - Every answer carries `X-Content-Type-Options: nosniff`. Enforced by
-//     TestHandler_ServesFilesAndFallsBackToIndex.
+//   - Every answer carries `X-Content-Type-Options: nosniff`, a content-security policy that loads
+//     nothing from elsewhere and forbids framing, and `Referrer-Policy: no-referrer`; one over HTTPS
+//     carries `Strict-Transport-Security`. Enforced by TestHandler_ServesFilesAndFallsBackToIndex
+//     and TestHandler_EveryAnswerCarriesTheSecurityHeaders.
 //
 // # Read before changing
 //
