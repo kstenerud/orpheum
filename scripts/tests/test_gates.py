@@ -337,14 +337,38 @@ class RevertRed(unittest.TestCase):
         self.assertEqual(rr.scope_for("web/apps/web/src/App.tsx"),
                          ["npx", "--prefix", "web", "vitest", "related", "--run", "--passWithNoTests", "--root", "web",
                           "apps/web/src/App.tsx"])
-        self.assertEqual(rr.wide_scope("web/apps/web/src/App.tsx"), rr.WEB_SUITE)
+        # Past its importers' tests, only the tests that read the sources by path, never the whole suite.
+        wide = rr.wide_scope("web/apps/web/src/App.tsx")
+        self.assertEqual(wide[:len(rr.VITEST_RUN)], rr.VITEST_RUN)
+        self.assertIn("apps/web/src/idempotent.test.ts", wide)
+        self.assertNotIn("apps/web/src/App.test.tsx", wide)
         self.assertIsNone(rr.scope_for("docs/x.md"))
+        self.assertEqual(rr.scope_for("web/packages/sdk/src/gen/api.ts"), rr.TYPECHECK,
+                         "types alone, which vitest strips: the type check, not its importers' tests")
         self.assertEqual(rr.scope_for("internal/store/sqlcgen/browse.sql.go"),
                          ["go", "test", "-tags", "integration", "./internal/store/..."])
 
+    def test_a_go_file_past_its_package_reaches_its_importers_never_the_whole_suite(self):
+        wide = rr.wide_scope("internal/core/playback/report.go")
+        self.assertEqual(wide[:2], ["go", "test"])
+        self.assertIn("./internal/core/api", wide, "api imports playback")
+        self.assertIn("./internal/archtest", wide, "the arch tests read every package's sources")
+        self.assertNotIn("./...", wide)
+        self.assertNotIn("./internal/node/chunks", wide, "the node never imports the core's playback")
+        self.assertNotIn("./internal/core/playback", wide, "its own package ran first")
+
+    def test_a_new_file_of_a_package_clause_and_comments_is_cosmetic(self):
+        with tempfile.TemporaryDirectory() as tree:
+            Path(tree, "doc.go").write_text("// Package x does things.\n//\n/* more */\npackage x\n")
+            Path(tree, "x.go").write_text("// Package x.\npackage x\n\nconst y = 1\n")
+            self.assertTrue(rr.is_package_clause_only(tree, "doc.go"))
+            self.assertFalse(rr.is_package_clause_only(tree, "x.go"))
+
     def test_files_only_other_builds_compile_are_run_against_those_builds(self):
         dev = rr.other_builds("cmd/orpheum/dev_seed.go")
-        self.assertEqual([a.command for a in dev], [["go", "test", "-tags", "dev", "./..."]])
+        # Its own package and what its revert can reach: the source-reading arch tests, as nothing
+        # imports a main package; never the whole suite.
+        self.assertEqual([a.command for a in dev], [["go", "test", "-tags", "dev", "./cmd/orpheum", "./internal/archtest"]])
         darwin = rr.other_builds("internal/store/space_darwin.go")
         self.assertEqual(darwin[-1].command, ["go", "vet", "./..."])
         self.assertEqual(darwin[-1].env, {"GOOS": "darwin"})

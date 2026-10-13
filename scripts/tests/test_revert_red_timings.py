@@ -29,6 +29,7 @@ class Kinds(unittest.TestCase):
             (["npm", "--prefix", "web", "run", "typecheck"], None, "web type check"),
             (["go", "test", "./internal/core/auth/..."], None, "go test, package"),
             (["go", "test", "./..."], None, "go test, whole suite"),
+            (["go", "test", "./internal/core/api", "./internal/archtest"], None, "go test, its dependents"),
             (["go", "test", "-tags", "dev", "./..."], None, "go test, extra tags"),
             (rr.STORE_INTEGRATION, None, "go test, store integration"),
             (["go", "vet", "./..."], {"GOOS": "darwin"}, "go compile, another system"),
