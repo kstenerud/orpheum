@@ -4,6 +4,7 @@
 # Remote access
 
 - **Status:** PARTLY SPECIFIED — **adaptation gap identified 2026-09-19** ([D86](../../decisions/working-notes.md)); researched 2026-09-18 ([remote-access.md](../research/remote-access.md), [D25](../../decisions/working-notes.md)); NAT traversal and the relay shape settled 2026-09-19 ([D68](../../decisions/working-notes.md), [D71](../../decisions/working-notes.md)). **The mechanism is now chosen**; the hosted-service question remains a product decision, not a technical one. **2026-09-23, for Cut A** ([D178](../../decisions/working-notes.md), [D193](../../decisions/working-notes.md) §4–§5): one public HTTPS name with a DNS-01 certificate, reached by a port-forward, IPv6 or a standard tunnel; **our own `relay` role is deferred.** **2026-10-04, for M4** ([D243](../../decisions/working-notes.md#d243--m4s-nine-questions-answered-a-guests-cookie-covers-one-film-invites-are-registration-links-under-roles-that-choose-libraries-the-names-certificate-comes-by-dns-01-through-cloudflare-and-a-vps-carries-every-route-in) §6–§8): **the route is a VPS.** The core's machine dials out to it over WireGuard, and it forwards TCP 443, TURN's 3478 and the relay range into the tunnel; the name's records point at it. The certificate comes by DNS-01 through Cloudflare, the record never proxied. The port-forward, IPv6 and tunnel routes below are not used.
+- **Superseded for reaching a core** (2026-10-13): how clients reach a core is now [discovery-protocol.md](../discovery-protocol.md), built by [discovery-core.md](discovery-core.md), [discovery-mode.md](discovery-mode.md) and [webrtc-transport.md](webrtc-transport.md). A core is reached first by WebRTC through a discovery, direct paths are upgrades, and **no relay runs in the paid service's closed beta: a relay for the connections that fail waits on the beta's count** ([D274](../../decisions/working-notes.md) §2, as [D292](../../decisions/working-notes.md) §5 restates it). The VPS route of D243 §7 stays as a household's own `configured` address with its TURN (discovery-protocol.md §2.4). The `relay` role below, its tunnel mode and the hosted relay are history, not the plan.
 - **Depends on:** a domain the owner already holds ([D193](../../decisions/working-notes.md) §5); [threat-model.md](threat-model.md) for the listeners it exposes.
 
 ## In Cut A: one name, and the plainest path that reaches it
@@ -36,7 +37,12 @@ whether it is behind carrier-grade NAT, and whether it has IPv6 (audit §1.6).
 ## The mechanism: a `relay` role the core dials out to
 
 *Deferred past Cut A ([D193](../../decisions/working-notes.md) §4, refining
-[D71](../../decisions/working-notes.md)); the design stands for when it is built.*
+[D71](../../decisions/working-notes.md)). **Superseded** by
+[D274](../../decisions/working-notes.md) §2, as [D292](../../decisions/working-notes.md) §5
+restates it: the core holds its connection out to a discovery that passes on WebRTC offers and
+relays nothing; a self-hoster's relay is TURN on their own VPS; a relay of only the connections
+that fail, through TURN and encrypted end to end, waits on the closed beta's count; a tunnel
+through the service relaying everything is not the way. The section is kept for its reasoning.*
 
 Settled by [D71](../../decisions/working-notes.md). A third mode of the same binary, run on any
 publicly reachable host — your VPS, or eventually ours.
@@ -66,7 +72,9 @@ a month at 10 Mbps, uncapped**: about five times the bitrate of Plex's paid rela
 of a coffee. The difference is household versus platform economics, not cleverness.
 
 **If we ever host one: no free tier, no data, no accounts**
-([D72](../../decisions/working-notes.md)). Blind and stateless, so a box is cattle and there is
+([D72](../../decisions/working-notes.md); for the paid discovery, which relays nothing, refined by
+[D289](../../decisions/working-notes.md) §1 to one account per paying household, granting nothing
+on any core). Blind and stateless, so a box is cattle and there is
 no backup, restore or migration story; clients authenticate the core, so the relay needs no user
 directory and inherits none of the password-reset, account-recovery or data-protection surface;
 payment identity stays separate from access.

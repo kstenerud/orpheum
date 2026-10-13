@@ -1,20 +1,25 @@
 > **ABOUTME:** The core's side of the discovery protocol (D273): its identity key, enrolling with a
 > discovery (the paid service at app.orpheum-app.com or the owner's own), keeping its addresses
-> current, and answering WebRTC offers the discovery passes on. The phases built, and the ordered
-> steps that bring the core to the protocol as decided after the audits (D290, D291).
+> current, and answering WebRTC offers the discovery passes on. The phases built, the steps that
+> bring the core to the protocol as decided after three rounds of audits (D290, D291, D292), and
+> the order of work: the security floor, then a thin end-to-end path, then the rest.
 
 # Discovery: the core's side
 
 - **Status:** IN-PROGRESS — begun 2026-10-09 on the owner's word (*"Do the core side of the
-  discovery protocol"*); phases C1–C5 are built. Steps K1–K16 below, written 2026-10-13 from
-  [discovery-protocol.md](../discovery-protocol.md) as revised for D290 and D291, are planned and
-  not started: the owner asked that building wait (2026-10-13).
-- **Depends on:** D273, D274, D275, D288, D289, D290, D291, D214 §4;
+  discovery protocol"*); phases C1–C5 are built. Steps K1–K18 below, written 2026-10-13 from
+  [discovery-protocol.md](../discovery-protocol.md) and revised the same day for D292, are planned
+  and not started: the documentation pass D292 asked for comes first, then
+  [Phase 1](#phase-1--the-security-floor).
+- **Depends on:** D273, D274, D275, D288, D289, D290, D291, D292, D214 §4;
   [discovery-protocol.md](../discovery-protocol.md), the protocol both discoveries speak;
   [discovery-mode.md](discovery-mode.md) (`discovery/single`, the reference every core test runs
   against); [webrtc-transport.md](webrtc-transport.md) (the client's side of the same paths).
-- **Blocks:** the paid service, whose plan is kept in its own repository: it imports the wire types
-  K1 settles (D275 §1), so it cannot be finished correctly before them.
+- **Blocks:** the paid service (`orpheum-connect`, renamed from `orpheum-discovery`, D292 §8), whose
+  plans are kept in its own repository: it imports the wire types K1 settles (D275 §1), so it cannot
+  be finished correctly before them. Its `docs/plans/beta-bring-up.md` holds the joint order across
+  both repositories, which [The order of work](#the-order-of-work) below gives Orpheum's part of
+  (G11: kept in one place each, not copied).
 
 ## The wire
 
@@ -25,17 +30,19 @@ repeat it. Its types are `discovery/discoveryproto`'s, a public package the clos
 **the code must change**, and the steps below say where.
 
 **Names in this plan.** Phases C1–C5 keep the names they were built under. The correctness audit's
-findings are also called C1–C16, so the remaining steps are named K1–K16, and a finding is always
-written as the protocol writes it, after the rule it answers (for example "(C11)").
+findings are also called C1–C16, so the remaining steps are named K1–K18, and a finding is always
+written as the protocol writes it, after the rule it answers (for example "(C11)"). The second
+round's code audit named its findings K1–K20 too; they are written **code K13** and so on, never
+bare (D292 §4's "K13–K15" are code K13–K15, `single`'s takeover flaws).
 
 ## Phases built
 
 | Phase | What | State |
 | --- | --- | --- |
-| C1 | The identity key: Ed25519, made on first start, `identity.key` in the persistent directory beside `secret.key`, mode 0600 | BUILT 2026-10-09. D289 §2 since decided it is backed up as `secret.key` is; `internal/core/backup` holds `secret.key` alone today (K8) |
+| C1 | The identity key: Ed25519, made on first start, `identity.key` in the persistent directory beside `secret.key`, mode 0600 | BUILT 2026-10-09. Since an earlier commit every private key (`secret.key`, `identity.key`, the TLS and ACME account keys) is left out of a backup unless asked for (N5, X1, T1). D292 §4 then revised D289 §2: scheduled backups hold the identity key sealed under a recovery code made at claiming (K8a) |
 | C2 | `discovery/discoveryproto` and `internal/core/discovery`: connect (challenge, enrol, claim code), poll the status until claimed, sessions, the heartbeat every 5 minutes with the core's candidates; `discovery.json` in the persistent directory; `GET/POST/DELETE /system/discovery` for an admin; the System page's Discovery section | BUILT 2026-10-09; its candidates are the machine's interface addresses (`cmd/orpheum/discovery.go`) and the mapped ones (C5); `configured` candidates and TURN are not sent |
-| C3 | The signalling connection: offers answered by `rtcapi`, without a signed-in check of their own; reconnects | BUILT 2026-10-09; one offer at a time, a flat 30 s between dials, no ping |
-| C4 | Certificates through the discovery: a wildcard `*.<coreId>.<zone>` by DNS-01, the discovery setting the TXT record (`PUT/DELETE /acme-challenge`), kept as `discovery-tls-*.pem`, served for every name under it | BUILT 2026-10-09; renews 30 days before expiry, waits a fixed 30 s for the record |
+| C3 | The signalling connection: offers answered by `rtcapi`, with no check of their own; reconnects | BUILT 2026-10-09; one offer at a time, a flat 30 s between dials, no ping. Every offer is answered unchecked, so no core may hold a signalling connection until K3a (D292 §4; A2) |
+| C4 | Certificates through the discovery: a wildcard `*.<coreId>.<zone>` by DNS-01, the discovery setting the TXT record (`PUT/DELETE /acme-challenge`), kept as `discovery-tls-*.pem`, served for every name under it | BUILT 2026-10-09; renews 30 days before expiry, waits a fixed 30 s for the record, serves it for any server name (A10) |
 | C5 | Port mapping: PCP → NAT-PMP → UPnP IGD for IPv4, UPnP IGD 2 pinholes for IPv6 (`internal/core/portmap`), `should_map_ports` on by default, only while the discovery publishes the core | BUILT 2026-10-10, on the standard library alone. TCP only already; asks for the core's own HTTPS port as the external one |
 
 ## The remaining steps
@@ -44,45 +51,48 @@ Each step names what it changes, the decision and the protocol section it builds
 red when it is reverted (AGENTS.md rule 4), any `VQ` item a device alone can confirm, and what it
 waits on. Tests are described, not named: a name is given when the test is written. Every test runs
 against `discovery/single` or a fake discovery, a fake router, the fake CA
-(`certificate/certificatetest`) and `clocktest`; none touches the network (rule 16).
+(`certificate/certificatetest`) and `clocktest`; none touches the network (rule 16). **Every
+behaviour is turned red by an in-process package test**; a browser or netlab test confirms the
+whole but is never the only test that sees it, so revert-red settles a discovery file in seconds,
+not minutes (devloop §2, D292 §9).
 
-Order: **K1 first**, since everything speaks its types. Then K2 and K3 (the session and the
-signalling path that WebRTC in the beta stands on, D290 §14), with K7 and K8b, which K3's checks
-need. K4–K6 and K9–K10 can run beside them. K11–K16 follow. The order across the core, the web
-client, W4b and the paid service is [The beta's order of work](#the-betas-order-of-work) below.
+Which phase each step belongs to is [The order of work](#the-order-of-work). Steps marked
+**deferred** wait for after the beta (D292 §3).
 
 ### K1 — The wire, revised in the public packages
 
 - **Changes.** `discovery/discoveryproto`: `SessionRequest` gains `instanceId`; `SessionResponse`
   carries `expiresIn` (seconds) in place of `expiresAt`; the body's `protocol` is dropped from the
-  heartbeat (§2.4) and the header carries `major.minor` (§5); `ProbeResult` becomes fields
-  (`address`, `port`, `kind`, `result`) and `reachableFrom` takes the values named by what was
-  tested (§2.6); `SignalMessage` carries `locatorHash` and `fingerprintSignature`, and one message
-  up to four offers (§2.5); a refusal the core must act on carries an error code of its own (enrol
-  again, another instance running; §4); the TXT record is cleared by
-  `DELETE /acme-challenge/{name}` (§2.7); new types for the claim token and its approval (§2.2), the
-  holding account and the account's state in `GET /status`, `PUT /locate-hashes` and
-  `PUT /locators` (§3.1), the core's ACME account URI (§2.7), the re-key (§2.8), the paid device
-  code's claim (§3.1), and the client API (`locate`, `paths`, `offer`, device codes; §3.2, §4).
+  heartbeat and from enrolment (§2.2, §2.4; X11), and the header carries `major.minor` (§5);
+  `ProbeResult` becomes fields (`address`, `port`, `kind`, `result`) and `reachableFrom` takes the
+  values named by what was tested (§2.6); `SignalMessage` carries several offers, each with its
+  `locatorHash` and `proof`, and the answer its `signature` over the exact SDP (§2.5; A9), and the
+  heartbeat (§2.4); a refusal the core must act on carries an error code of its own (enrol again,
+  another instance running; §4); the TXT record is cleared by `DELETE /acme-challenge/{name}`
+  (§2.7); new types for `PUT /locate-hashes` and `PUT /locators` (§3.1), the core's ACME account URI
+  (§2.7), and the client API (`locate`, `paths`, `offer`; §3.2, §4). The claim token and its
+  approval, the holding account, the re-key and the paid device code's claim wait with what uses
+  them (after the beta, deferred).
   One function encodes an address as a name label, with test vectors (§2.7, C15). One function
   classes an address as public or not, counting `100.64.0.0/10`, `192.0.0.0/29` and the
-  documentation ranges as not public (§2.4, C7, C9) [I: in `discoveryproto`, so the core and every
-  discovery class addresses alike]. One function derives a link's locate-hash,
-  `SHA-256("orpheum-locate" ‖ secret)` (§3.1).
+  documentation ranges as not public, for publishing and for the probe's deny list alike (§2.4, C7,
+  C9, G12). One function derives a link's locate-hash, `SHA-256("orpheum-locate" ‖ secret)`, and one
+  reads and writes a link's fragment, `<coreId>.<secret>.<fingerprint>` (§3.1; D292 §4) [I]. The
+  zone's CAA records, at the apex and a claimed core's name, as test vectors (§2.7; T2) [I].
 - `discovery/proof`: `Message` binds the discovery and the core,
-  `orpheum-discovery-v1:<purpose>:<discovery origin>:<coreId or public key>:<nonce>` (§2.1, C8),
-  with new purposes for the re-key, a client's first-contact challenge and the DTLS fingerprint.
-  `internal/core/identity.Key` signs through it.
+  `orpheum-discovery-v1:<purpose>:<discovery base URL>:<coreId or public key>:<nonce>` (§2.1, C8,
+  X12), with new purposes for a client's first-contact challenge and the answer SDP; the re-key's
+  waits (deferred). `internal/core/identity.Key` signs through it.
 - `discovery/single` and `internal/core/discovery` follow in the same change, since nothing is
   deployed and v1 changes in place (§2.1, D290 §13); single's own share is
   [discovery-mode.md](discovery-mode.md) W4b.7.
-- **Builds** §2.1, §2.4, §2.6, §2.7, §4, §5; D290 §13; findings C8, C13, C15, C16.
+- **Builds** §2.1, §2.4, §2.6, §2.7, §4, §5; D290 §13; findings C8, C13, C15, C16, X11, X12.
 - **Tests.** A signature made for one discovery fails at another, and one made for one core fails
   for another. The name encoding's vectors: one address has one name, no label holds `--`, IPv6 in
   eight groups without compression. The address classes: a carrier-NAT, a DS-Lite and a
-  documentation address are never public. Each new message decodes what the protocol's examples
-  show. A test that a discovery accepts any minor of its major and refuses another major with the
-  versions it accepts.
+  documentation address are never public. A link's fragment round-trips and one without a
+  fingerprint is refused. Each new message decodes what the protocol's examples show. A test that a
+  discovery accepts any minor of its major and refuses another major with the versions it accepts.
 - **Waits on:** nothing. It is the root of every other step, of W4b and of the paid service.
 
 ### K2 — Sessions, retries and instances
@@ -90,56 +100,78 @@ client, W4b and the paid service is [The beta's order of work](#the-betas-order-
 - **Changes.** `internal/core/discovery/discovery.go`: the session's expiry counted from
   `expiresIn` on the monotonic clock (C11); one renewal at a time, shared by the step loop, the
   signalling loop and the certificate job (`SetTXT`), renewing five minutes before expiry and at
-  once, once, on any 401, then backing off (C11); every retry backing off exponentially with jitter,
-  and the five-minute heartbeat carrying ±20% jitter (§2, C7), in place of `retryAfter`'s flat 30 s;
-  an `instanceId` made at each start, kept in memory, never backed up (§2.3, C4); acting on the
-  named refusals: *enrol again* re-enrols and shows the new code, *another instance* is shown on the
-  System page and not retried as an ordinary failure (§2.2, §2.3, C12, C4); `Connect` serialised,
-  so a double click enrols once (§2.2, C12).
-- **Builds** §2, §2.2, §2.3; D290 §18; findings C4, C7, C11, C12.
+  once, once, on any 401, then backing off (C11); every retry backing off exponentially with
+  jitter, in place of `retryAfter`'s flat 30 s, **the signalling connection's reopening starting
+  near 1 s** (D292 §9; devloop §6), every interval a config value with a production default, so the
+  development stack caps it at 1 s and every core is back within about 2 s of a restart of the
+  discovery; an `instanceId` made at each start, kept in memory, never backed up (§2.3, C4); acting
+  on the named refusals: *enrol again* re-enrols and shows the new code, *another instance* is shown
+  on the System page and not retried as an ordinary failure (§2.2, §2.3, C12, C4); `Connect`
+  serialised, so a double click enrols once (§2.2, C12).
+- **Builds** §2, §2.2, §2.3; D290 §18; D292 §9; findings C4, C7, C11, C12.
 - **Tests.** After a 401 the next call carries a renewed token without waiting 30 s. Three callers
   asking at once open one session. A core whose wall clock jumps a day neither renews on every step
-  nor sends an expired token. Two cores' retry waits grow and differ (the jitter's random source
-  given by the test). Two `Connect`s at once enrol once. An *enrol again* refusal re-enrols and
-  shows a new code. An *another instance* refusal shows on the status and stops the retries.
-- **Waits on:** K1.
+  nor sends an expired token. A dropped signalling connection is redialled within about a second the
+  first time, and two cores' later waits grow and differ (the jitter's random source given by the
+  test). Two `Connect`s at once enrol once. An *enrol again* refusal re-enrols and shows a new code.
+  An *another instance* refusal shows on the status and stops the retries.
+- **Waits on:** K1; when an instance stops being live (question 4).
 
-### K3 — The signalling connection, bounded and checked
+### K3 — The signalling connection, checked and bounded
 
-- **Changes.** `internal/core/discovery/signal.go`: a ping every 25–30 s, two missed pongs ending
-  the connection, and a reopening within seconds, with jitter, on the shared session (§2.5, C11);
-  offers answered concurrently under `rtcapi`'s limit, several in one message (§2.5, C6, S5); each
-  offer's `locatorHash` checked against the set the core registered (K7), or for a bootstrap token
-  the locate-hash it came from, and refused when unknown (§2.5, D290 §6, S5); each answer's
-  `a=fingerprint` signed with the identity key as `fingerprintSignature` (§2.5, D290 §6, S6);
-  the connection closed and its tokens dropped on leaving, re-keying, revocation and disabling
-  (§2.5, C4); offers through the discovery stripped of loopback and link-local remote candidates,
-  and refused past about ten candidates (§7 item 11, D291 §6, S16).
-- `internal/core/rtcapi`: **half-trickle**, the answer sent once the host candidates and the first
+In two parts: **K3a** is the security floor, without which no core holds a signalling connection to
+any discovery (D292 §4; A2, A9); **K3b** is what makes the connection keep up.
+
+- **K3a changes.** `internal/core/discovery/signal.go`: each offer checked by the core before
+  `rtcapi` sees it (§2.5 item 3): its `proof`, an HMAC over the offer's DTLS fingerprint keyed by
+  `SHA-256(token)` of the signed-in session (the hash the core holds, A corrections 5) or, for a
+  link's bootstrap, by the value the core stored when it made the link (K7) (A9, T7); exactly one
+  `a=fingerprint`, sha-256; at most about ten candidates. `internal/core/rtcapi`:
+  `SettingEngine.SetRemoteIPFilter` refusing loopback, link-local, private ranges and the core's own
+  LAN prefixes for offers through a discovery, and a budget of connectivity checks; after DTLS
+  connects, the remote certificate's hash compared with the value the proof covered (A9);
+  `SetSCTPMaxReceiveBufferSize` and an application message cap; the data channels and requests in
+  flight per connection capped; a deadline on a request's head and body (A2, code K16); per-source
+  and per-locator connection caps on the core; **unproven connections** short-lived (about 60 s
+  without a sign-in), few (about 4), evicted first, and limited to signing in, registering, pairing,
+  joining Watch Together and device codes (§2.5; D291 §6, S5 item 2; G4); **the request head
+  untrusted**, `Origin`, `Host`, `Forwarded` and `X-Forwarded-*` stripped before the handler (A1);
+  each answer signed with the identity key over its exact SDP, with the `offerId` and the
+  client's offer fingerprint (§2.5 item 4; D292 §4; A7, A9).
+- **K3b changes.** A ping every 25–30 s, two missed pongs ending the connection, reopened on K2's
+  backoff (§2.5, C11); the heartbeat carried on the connection, `PUT /addresses` its fallback (§2.4,
+  D291 §6); offers answered concurrently under `rtcapi`'s limit, several in one message (§2.5, C6,
+  S5); the connection closed and its tokens dropped on leaving, revocation and disabling (§2.5,
+  C4); **early description**, the answer sent once the host candidates and the first
   server-reflexive one are in, or after about a second, in place of `gatherTimeout`'s wait for
-  gathering to complete (§2.5, C6); **a slot counted once ICE connects**, an unconnected offer
+  gathering to complete (§2.5, C6, F2); **a slot counted once ICE connects**, an unconnected offer
   bounded to about 10 s, the cap sized by memory rather than `MaxConnections`' 64, and refusals
   counted for the System page (§2.5, C6); **idle connections closed** when they carried no request
   with a valid sign-in for a few minutes, which needs the API's sign-in check to tell `rtcapi` per
-  request whether it passed [I] (§2.5, D290 §6, S5); **two kinds of connection**: one whose offer
-  carries the client's proof of its session (the security audit's S5 item 2: the session's id and
-  an HMAC over the offer's DTLS fingerprint keyed by the session's token, which the discovery
-  cannot use), and unproven ones, limited to signing in, registering and pairing, with a small quota
-  of their own (about 4), a life of about 60 s without a sign-in, and evicted first (§7 item 3,
-  D291 §6); answering an **ICE restart** offer on an existing connection, through the discovery or
-  over the connection's own data channel while it lives (§2.5, C6; see the questions).
-- **Builds** §2.5; D290 §6; D291 §6 (§7 items 3, 11); findings S5, S6, S16, C4, C6, C11.
-- **Tests.** An offer whose `locatorHash` the core never registered is refused though the discovery
-  passed it. The answer's signature verifies over its fingerprint with the core's public key. A slow
-  gathering does not hold the next offer's answer. A connection whose pongs stop is reopened within
-  seconds. After leaving, the signalling connection is closed. An offer that never connects frees
-  its slot after about 10 s. A connection idle past the limit is closed while one carrying signed-in
-  requests stays. An unproven connection's request to the library is refused while a sign-in on it
-  is answered. An answer leaves before gathering completes once a server-reflexive candidate is in
-  (`rtcapitest` with a STUN server in the test). Sign-in limits key on the ICE pair's address over
-  WebRTC as over TCP (§7 item 9, S14).
+  request whether it passed [I] (§2.5, D290 §6, S5). Later, in the thickening: answering an **ICE
+  restart** offer on an existing connection (§2.5, C6; question 7); until then a failed connection
+  starts a new race (coherence §3.2).
+- **Builds** §2.4, §2.5; D290 §6; D291 §6 (§7 items 3, 11, 22); D292 §4; findings A1, A2, A9, S5,
+  S6, S16, C4, C6, C11, G4.
+- **Tests.** K3a: an offer without a valid proof is refused though the discovery passed it; one with
+  two `a=fingerprint` lines, or one sha-1, is refused; a candidate at a LAN, loopback or link-local
+  address is never checked; an eleventh candidate refuses the offer; a connection whose DTLS
+  certificate does not match the proven fingerprint is closed; a request head naming another
+  `Origin` reaches the handler without it; an unproven connection's request to the library is
+  refused while a sign-in and a Watch Together join on it are answered; an unproven connection is
+  closed after its minute; a half-sent body is dropped at its deadline; the answer's signature
+  verifies over its exact SDP with the core's public key; a `TestArch_` claim that an offer through
+  `internal/core/discovery` reaches `rtcapi` only after the core's own check, cited in the
+  package's `doc.go`. K3b: a slow gathering does not hold the next offer's answer; a connection
+  whose pongs stop is reopened; after leaving, the signalling connection is closed; an offer that
+  never connects frees its slot after about 10 s; a connection idle past the limit is closed while
+  one carrying signed-in requests stays; an answer leaves before gathering completes once a
+  server-reflexive candidate is in (`rtcapitest` with a STUN server in the test); sign-in limits key
+  on the ICE pair's address over WebRTC as over TCP (§7 item 9, S14). The ICE matrix between pion
+  peers runs through pion's virtual network in-process (`pion/transport/v5`, direct by D292 §9),
+  through a seam that hands `rtcapi` its `Net` (devloop §4.3).
 - **VQ:** none; W5 tests the client's side in a browser.
-- **Waits on:** K1, K2; K7 for the locator set; K8b for the proof's key.
+- **Waits on:** K1, K2; K7 for the link's proof value; K8b for the signing.
 
 ### K4 — Addresses: stable, public and the admin's own
 
@@ -147,10 +179,13 @@ client, W4b and the paid service is [The beta's order of work](#the-betas-order-
   `internal/core/discovery` [I: beside their only user]. On Linux they are read through netlink
   (`RTM_GETADDR` by the standard library's `syscall`, no new dependency), skipping temporary,
   deprecated, tentative and failed addresses and preferring the stable one; container bridges are
-  skipped; a change is sent at once rather than found by the minute's poll (§2.4, C7). Addresses
-  are classed by K1's function, so carrier-NAT and DS-Lite ranges are never public. `configured`
-  candidates come from the config: the admin's port-forward or own VPS (§2.4; not built).
-- **Builds** §2.4; findings C7, C9.
+  skipped; a change is sent at once rather than found by the minute's poll (§2.4, C7); other
+  systems keep `net.InterfaceAddrs`. Addresses are classed by K1's function, so carrier-NAT and
+  DS-Lite ranges are never public. `configured` candidates come from the config: the admin's
+  port-forward or own VPS (§2.4; not built). The staging core's direct IPv4 path is its VPS's
+  address as a `configured` candidate (infrastructure §3 change 4), and a household keeps its own
+  VPS this way rather than retiring it (§2.4; N11).
+- **Builds** §2.4; findings C7, C9, N11.
 - **Tests.** From recorded netlink messages: a temporary and a deprecated address are left out and
   the stable one kept; a bridge's address is left out; `100.64.0.1` and `192.0.0.2` are never sent
   as public; a configured address is sent with `source: configured`.
@@ -158,343 +193,464 @@ client, W4b and the paid service is [The beta's order of work](#the-betas-order-
 
 ### K5 — Port mapping to the protocol
 
-- **Changes.** `internal/core/portmap`: the router asked for **outside port 443 first**, and the port
-  it grants taken when 443 is held (D291 §7, S14); never a port on the Fetch standard's bad-port
-  list, asked or published (§2.4, C9); TCP only, as built, pinned by a test (D290 §9); the external
-  address the router reports checked, and when it is not public nothing published and the System
-  page saying why; NAT-PMP's and PCP's epoch read on every answer and PCP's ANNOUNCE listened for,
-  every mapping remade when the router restarted; UPnP falling back to `AddAnyPortMapping`, then
-  another port, on a conflict; PCP's nonce kept in the persistent directory, so a restarted core
-  renews or deletes its mapping; IPv6 pinholes updated and deleted (`UpdatePinhole`,
+- **Changes.** `internal/core/portmap`: the router asked for **outside port 443 first**, and the
+  port it grants taken when 443 is held (D291 §7, S14); never a port on the Fetch standard's
+  bad-port list, asked or published (§2.4, C9); TCP only, as built, pinned by a test (D290 §9); the
+  external address the router reports checked, and when it is not public nothing published and the
+  System page saying why; NAT-PMP's and PCP's epoch read on every answer and PCP's ANNOUNCE listened
+  for, every mapping remade when the router restarted; UPnP falling back to `AddAnyPortMapping`,
+  then another port, on a conflict; UPnP's description and control URLs accepted only on the
+  gateway's own address (code K20) [I]; PCP's nonce kept in the persistent directory, so a restarted
+  core renews or deletes its mapping; IPv6 pinholes updated and deleted (`UpdatePinhole`,
   `DeletePinhole`), not re-added, and asked over IPv6 (the homelab research); the report naming the
   common case met (a FRITZ!Box that maps only for a device the owner allowed) (§2.4, C9).
 - **Builds** §2.4; D290 §9, D291 §7; findings C9, S14.
 - **Tests** against the fake routers `portmap_test.go` already has: 443 is asked first and a granted
   8443 is published; a bad port is never asked for; no UDP mapping is ever asked; a private
   external address publishes nothing and says why; an epoch that went back, and an ANNOUNCE, remake
-  the mappings; a conflict falls back to `AddAnyPortMapping`; a core restarted with its kept nonce
-  deletes its old mapping; a pinhole's renewal is `UpdatePinhole`.
+  the mappings; a conflict falls back to `AddAnyPortMapping`; a control URL on another host is
+  refused; a core restarted with its kept nonce deletes its old mapping; a pinhole's renewal is
+  `UpdatePinhole`. miniupnpd confirms the fakes in the netlab tier (D292 §9).
 - **VQ:** a new item: on a FRITZ!Box and on an OpenWrt router, the core maps 443 (or the port
   granted), the probe reaches it, and the System page names what it met.
 - **Waits on:** K1.
 
-### K6 — Claiming from the core
+### K6 — Claiming
 
-- **Changes.** `internal/core/discovery`: on the paid service, `Connect` gets a claim token and
-  opens the claim page in the same browser (§2.2, D290 §1); the core polls `GET /status` for a
-  claim waiting, shows which account asks (masked) with *Allow* and *Refuse*, and only an admin's
-  *Allow* binds it; the holding account, masked, kept and shown from then on; an expired code
-  replaced, the System page saying so (U5); *This isn't me, release*, signed by the core (§7
-  item 5, D291 §6). On an own discovery the claim code stays (§2.2 item 4). `internal/core/api`:
-  the approval and the release for an admin only. `web/apps/web/src/system-discovery.tsx`: opening
-  the claim page on the admin's click, the approval, the holding account.
-- **Builds** §2.2; D290 §1; D291 §6; findings S7, U5, C12.
-- **Tests.** Against a fake paid discovery: nothing binds until the admin's *Allow*, and *Refuse*
-  ends the claim. A member who is not an admin cannot approve. The System page opens the claim page
-  the core was given and shows who asks; once claimed it shows the holding account. An expired code
-  shows a new one with the message.
-- **Waits on:** K1, K2; the claim page's URL (see the questions).
+- **Changes, for the beta** (D292 §3): on both tiers `Connect` enrols and the System page shows the
+  claim code, which on the paid service the tester reads to the operator, who claims the core, and
+  on an own discovery the owner types into `orpheum discovery claim` (§2.2); an expired code
+  replaced, the System page saying so (U5); once claimed, the System page says so and shows the
+  recovery code (K8a). `web/apps/web/src/system-discovery.tsx`: the code, its expiry and the claimed
+  state.
+- **After the beta** (D292 §3, with the customer accounts): claiming from the core (D290 §1). The
+  core gets a claim token and opens the claim page in a tab opened within the admin's click (U2-4)
+  [I]; it polls `GET /status` for a claim waiting and shows which account asks, its address in full,
+  with *Allow* and *Refuse*, only an admin's *Allow* binding it, and only when the one-time value
+  the claim page returned matches (A15, T10) [I]; the holding account kept and shown; *This isn't
+  me, release*, signed by the core, in *Details* (§7 item 5, D291 §6; U2-5); the typed code a
+  fallback needing *Allow* (X8). `internal/core/api`: the approval and the release for an admin
+  only, under K17.
+- **Builds** §2.2; D290 §1; D291 §6; D292 §3; findings S7, U5, C12, A15.
+- **Tests.** For the beta: the System page shows the code and replaces an expired one with the
+  message; a claimed core shows its state. After the beta, against a fake paid discovery: nothing
+  binds until the admin's *Allow*, *Refuse* ends the claim, a claim whose returned value does not
+  match is not shown, and a member who is not an admin cannot approve.
+- **Waits on:** K1, K2; after the beta, the claim page's address (question 6).
 
 ### K7 — Links, locate hashes and locators issued by the core
 
-- **Changes.** The store: a person's own link (one per person, revocable) and device locators tied
-  to their grant (a device's session, a Watch Together membership), each kept as a hash. A schema
-  change under rule 8: until `internal/store/migrations/CHECKPOINT` exists it folds into the
-  baseline (D272 §5). `internal/core/auth` and `internal/core/together`: a locator issued on
-  signing in, registering, pairing and joining, a fresh one on each visit, and dropped when its grant
-  ends (§3.1, C3, S11). `internal/core/discovery`: `PUT /locate-hashes`, the full set with each
-  hash's life and use policy (a registration link once; a Watch Together link while it is live on
-  the core, D290 §17; a person's own link until revoked, D290 §10), and `PUT /locators`, the full
-  set, sent on each change and on each new session. `internal/core/api`: where a client gets its
-  locator over the direct path [I: the shape is the build's]. The links take the discovery's
-  form: `/register#<coreId>.<secret>`, `/join#…`, `/s#…`, `/p#…` (§3.1); the built client makes
+- **Changes.** The store: a person's own link and device locators tied to their grant (a device's
+  session, a Watch Together membership), each kept as a hash; for each link, the value an offer's
+  proof is keyed by (K3a). A schema change under rule 8: until
+  `internal/store/migrations/CHECKPOINT` exists it folds into the baseline (D272 §5).
+  `internal/core/auth` and `internal/core/together`: a locator issued on signing in, registering,
+  pairing and joining, a fresh one on each visit, and dropped when its grant ends (§3.1, C3, S11).
+  **A registration link becomes the person's own link once used** (D292 §4; A12, U2-1): its locate
+  reusable while unused, the registration spent once on the core as built; once used it locates
+  only, revoked when the person is removed, resets their password, or the admin revokes it, with a
+  rolling life of 90 days renewed by a signed-in device's visit and a cap on distinct sources a day
+  [I: the numbers]. A used Watch Together link locates only for the device holding the membership,
+  by the locator the core handed it (A12). `internal/core/discovery`: `PUT /locate-hashes`, the full
+  set with each hash's life and use policy, and `PUT /locators`, the full set, sent on each change
+  and on each new session. `internal/core/api`: where a client gets its locator over the direct path
+  [I: the shape is the build's]. **Every link the core makes carries the identity key's
+  fingerprint** (D292 §4; A7): while enrolled, `/register#<coreId>.<secret>.<fingerprint>`,
+  `/together#…`, `/s#…`, `/p#…` at the discovery (§3.1); the built client makes
   `/register#<secret>` and `/together#<secret>` on its own origin. The web client: the person's own
   link and QR on their account page and after registering, revoked by an admin (D290 §10, U2); the
   admin's link that signs a known person in rather than resetting a password (§7 item 15, D291 §6)
-  [I: a grant of its own, unlike the own link, which grants nothing].
-- **Builds** §3.1; D290 §10, §17; D291 §6; findings C3, S11, U2.
+  [I: a grant of its own, unlike the own link, which grants no sign-in].
+- **Builds** §3.1; D290 §10, §17; D291 §6; D292 §4; findings C3, S11, U2, A7, A12, W7, X13.
 - **Tests.** The core registers the hash of every live link and never the secret; a registration
-  link's hash goes once it is used; a Watch Together link's stays while the link lives; ending a
-  session drops its locator from the next `PUT /locators`; revoking a person's own link drops its
-  hash; a link made while enrolled names the core's id. A `TestArch_` claim, cited in
+  link's hash stays reusable while unused and becomes a locate-only hash once used; removing the
+  person drops it; a Watch Together link's stays while the link lives; ending a session drops its
+  locator from the next `PUT /locators`; revoking a person's own link drops its hash; a link made
+  while enrolled names the core's id and its fingerprint. A `TestArch_` claim, cited in
   `internal/core/discovery`'s `doc.go`, that no link secret, session token or password crosses
   `discoveryproto` (§3.1).
-- **Waits on:** K1; how the core learns the discovery's client origin (see the questions).
+- **Waits on:** K1, K8a for the fingerprint; how the core learns the discovery's client origin
+  (question 5).
 
 ### K8 — The identity key in full
 
-- **K8a.** The fingerprint, `SHA-256(public key)` in safe32 groups, on the System page (§2.1);
-  `identity.key` in *Back up now* when its box is ticked and never in scheduled backups, as
-  `secret.key` is (D289 §2, `internal/core/backup`), and the backup page saying what leaving it out
-  costs (U6). **Tests:** a backup with the box ticked holds the key and a scheduled one does not; a
-  restore brings it back.
+- **K8a.** The fingerprint, `SHA-256(public key)` in safe32 groups, on the System page and in every
+  link (K7) (§2.1; D292 §4). **The recovery code** (D292 §4, revising D289 §2; A6): made when the
+  core is claimed, 128 random bits shown once to print or save; scheduled backups then hold
+  `identity.key` sealed under it (argon2id, then XChaCha20-Poly1305, as `secrets` seals [I, A6]),
+  and a restore given the code brings back the same key; *Back up now* holds the key as before when
+  its box is ticked; the TLS and ACME account keys stay out of scheduled backups (§2.1).
+  `internal/core/backup`, `internal/core/identity`. **Tests:** a scheduled backup made before
+  claiming holds no identity key and one made after holds it only sealed; a restore with the code
+  gives the same key and with a wrong code refuses; a backup with the box ticked holds the key; no
+  scheduled backup holds the TLS or ACME account key.
 - **K8b.** The core signs a client's nonce on first contact, over a direct path, so the web client
   can remember its key (§3.5, D290 §3) [I: an API endpoint, open to anyone, signing only under the
   client purpose]. **Tests:** the signature verifies with the core's key under that purpose and no
   other.
-- **K8c.** Re-key by rotation: the new key's enrolment countersigned by the old (§2.8, D290 §3);
-  then a new certificate and the old one revoked (C4). **Tests** against `single`: the countersigned
-  key takes the same `coreId`; one not countersigned does not; the old certificate is revoked.
-- **K8d.** After a backup restored without the key: a core that remembers a `coreId` whose key no
-  longer opens a session says so on System → Discovery, offers the re-key and hides *Connect*
-  (§2.8, D290 §11, U6); on an own discovery it names `orpheum discovery rekey`. Two cores with one
-  key: the *another instance* refusal of K2 shown on both, with the choice of which to keep (§2.3,
-  D290 §18). **Tests:** a refused session with a remembered `coreId` shows the re-key and no
-  *Connect*.
-- **K8e.** Certificate Transparency watched for the core's own names, a certificate it did not ask
-  for shown to the admin as an alarm (§2.7, D290 §3, S1). **Tests:** against a fake log, an unknown
-  certificate raises the alarm and the core's own does not. Waits on the source (see the
-  questions).
-- **Builds** §2.1, §2.7, §2.8, §3.5; D289 §2; D290 §3, §11, §18; D291 §6; findings S1, U6, C4.
-- **Waits on:** K1; K8c on K9's revocation.
+- **K8d.** After a backup restored without the key and without the recovery code: a core that
+  remembers a `coreId` whose key no longer opens a session says so on System → Discovery and hides
+  *Connect* (§2.8, D290 §11, U6); a key file still present and refused is shown as an alarm, not a
+  routine state (A6 item 5) [I]; two cores with one key: the *another instance* refusal of K2 shown
+  on both, with *This is a copy: turn off remote access here* (U2-12) [I]. **Tests:** a refused
+  session with a remembered `coreId` shows the state and no *Connect*; a present, refused key raises
+  the alarm.
+- **K8c (deferred).** Re-key by rotation: the new key's enrolment countersigned by the old (§2.8,
+  D290 §3); then a new ACME account and certificate, the old certificate revoked and the old account
+  deactivated (C4, A14). Its re-key button in K8d comes with it.
+- **K8e (deferred).** Certificate Transparency watched for the core's own names (§2.7, D290 §3,
+  S1), by the source question 16 names.
+- **Builds** §2.1, §2.8, §3.5; D289 §2 as revised; D290 §3, §11, §18; D292 §4; findings S1, U6, C4,
+  A6, U2-12.
+- **Waits on:** K1; K8a's recovery code on K6's claimed state.
 
 ### K9 — Certificates
 
-- **Changes.** `internal/core/certificate`: renewal in the window of Let's Encrypt's renewal
-  information (ARI, RFC 9773), otherwise at two-thirds of the lifetime, replacing `renewBefore`'s
-  fixed 30 days (§2.7, D290 §7, C1); the core's ACME account URI reported to the discovery for CAA
-  and DNS-PERSIST-01 (§2.7); DNS-PERSIST-01 used once Let's Encrypt runs it in production, DNS-01
-  through the discovery staying the fallback; the TXT record checked to resolve before the CA is
-  asked, in place of the fixed 30 s; the record cleared by its path (K1); after leaving, the
-  discovery's certificate no longer served (C16); a new certificate on re-key (K8c).
-  `golang.org/x/crypto/acme` v0.57 has no ARI and no DNS-PERSIST-01 (checked: no `renewalInfo` in
-  its source). ARI's lookup is an unauthenticated GET the standard library makes; a new order's
-  `replaces` field and answering a `dns-persist-01` challenge may need ACME requests the package
-  does not expose [I, verify]. Hand-writing them, as port mapping was, or a library is **the owner's
-  decision** (rule 3).
-- **Builds** §2.7; D290 §7; findings C1, C16, S12.
-- **Tests.** Against the fake CA with renewal information: renewal falls in its window; a 20-day
-  certificate is not reissued on every sweep; the CA is not asked before the record resolves; after
-  leaving, the discovery's names are no longer served.
-- **VQ:** a new item: against Let's Encrypt's staging, a core obtains and renews its wildcard
-  through the paid service, by DNS-PERSIST-01 if offered.
-- **Waits on:** K1; the dependency decision.
+- **Changes.** `internal/core/certificate`: renewal at two-thirds of the lifetime, replacing
+  `renewBefore`'s fixed 30 days (§2.7, C1); the TXT record checked to resolve before the CA is
+  asked, in place of the fixed 30 s, by `golang.org/x/net/dns/dnsmessage` (direct by D292 §9); the
+  record cleared by its path (K1); after leaving, the discovery's certificate no longer served
+  (C16); the core's ACME account URI reported to the discovery for CAA, and reported again whenever
+  the core makes a new account (a restore leaves the account key out), before it orders (§2.7; G2).
+  `cmd/orpheum/certificates.go`: **a TLS handshake whose SNI names no name the core serves is
+  refused** (§2.7; A10), so a scanner does not learn the core's id. **Deferred** (D292 §3): ARI and
+  DNS-PERSIST-01, and so whether `golang.org/x/crypto/acme` v0.57, which has neither and whose order
+  options are sealed (F18), is extended by hand or replaced (a dependency, the owner's, rule 3).
+- **Builds** §2.7; D290 §7; D292 §1, §3; findings C1, C16, S12, A10, G2.
+- **Tests.** Against the fake CA: a 20-day certificate is renewed at about day 13 and not on every
+  sweep; the CA is not asked before the record resolves; after leaving, the discovery's names are no
+  longer served; a new ACME account is reported before the next order. A ClientHello with no server
+  name, or another one, fails the handshake. Pebble confirms the fake in the integration tier
+  (D292 §9).
+- **VQ:** a new item: against Let's Encrypt's staging and the staging subzone of
+  `orpheum-core.com`, a core obtains and renews its wildcard through the staging service, under the
+  zone's CAA.
+- **Waits on:** K1.
 
 ### K10 — Serving the client cross-origin
 
 - **Changes.** `internal/core/api`: CORS for the discovery's client origins, a list, never a
-  wildcard, no credentials mode, `Vary: Origin`, `null` never allowed (§3.4, §7 item 13). Byte paths
-  authenticated by the header on every request (D289 §3): images and subtitles by `fetch` into blob
-  URLs, hls.js's loader carrying the header (`web/packages/sdk`, `web/packages/player`), the media
-  cookie (`media_cookie.go`) kept for the core's own origin only [I]. A `Host` allow list on the
-  core's plain-HTTP LAN listener against DNS rebinding (§7 item 10, S15).
-- **Builds** §3.4; D289 §3; D291 §6; findings S15, S18.
+  wildcard, no credentials mode, `Vary: Origin`, `null` never allowed, `Authorization` named in the
+  allowed headers (§3.4, §7 item 13). Byte paths authenticated by the header on every request
+  (D289 §3): images and subtitles by `fetch` into blob URLs, hls.js's loader carrying the header
+  (`web/packages/sdk`, `web/packages/player`), the media cookie (`media_cookie.go`) kept for the
+  core's own origin only [I]. The Watch Together socket accepting the client origins by
+  `OriginPatterns`, never `*` (§3.4). A `Host` allow list on the core's plain-HTTP LAN listener
+  against DNS rebinding (§7 item 10, S15).
+- **Builds** §3.4; D289 §3; D291 §6; findings S15, S18, W12.
 - **Tests.** A preflight from a configured origin is answered and one from another, or from `null`,
-  refused; an answer carries `Vary: Origin`; a request on the LAN listener naming another `Host` is
-  refused. A browser-tier test: a page on another origin plays a film and shows its poster with the
-  header alone.
-- **Waits on:** the client origin (see the questions).
+  refused; an answer carries `Vary: Origin` and allows `Authorization`; a request on the LAN
+  listener naming another `Host` is refused; a socket from another origin is refused. A
+  browser-tier test: a page on another origin plays a film and shows its poster with the header
+  alone.
+- **Waits on:** the client origin (question 5).
 
 ### K11 — Versions, status and the exit path
 
 - **Changes.** `internal/core/discovery`: the `major.minor` header; the deprecation's date kept and
-  shown (built), and past the window the refusal's accepted versions shown (§5, C13); the account's
-  state with its dates, and the discovery's messages for the admin (security-update notices, §7
-  item 9) from `GET /status`; the lapse messages with dates and *Renew*, household members told the
-  cause (§7 item 18, U7).
+  shown (built), and past the window the refusal's accepted versions shown (§5, C13); **the security
+  floor** shown and acted on: a core below it is told why it is refused (§5; D292 §3); the
+  discovery's messages for the admin (security-update notices, §7 item 9) from `GET /status`. After
+  the beta, with payment: the account's state with its dates, the lapse messages with dates and
+  *Renew*, household members told the cause (§7 item 18, U7).
 - **The exit path, tested** (D25; the paid spec §9.1 item 22): a fake discovery drives the core
   through `grace`, `frozen` and `released`; the core keeps serving its LAN and its own client, says
   what each state means, and names the way to an own discovery.
-- **Builds** §5; the paid spec §3.10; D289 §5; D291 §6; findings C13, U7.
+- **Builds** §5; the paid spec §3.10; D289 §5; D291 §6; D292 §3; findings C13, U7.
 - **Tests.** The exit path's walk above; a deprecated discovery's date shows; an unknown minor is
-  accepted.
+  accepted; a refusal below the floor shows its reason.
 - **Waits on:** K1, K2.
 
 ### K12 — The System page in plain words
 
 - **Changes.** `web/apps/web/src/system-discovery.tsx`, `system-reachability.tsx` and their
-  strings: *Remote access* as the name, the discovery's address behind "use my own" (§7 item 17,
-  U5); "your server is reachable from the internet at …" shown prominently (§7 item 9, S14);
-  `reachableFrom` by what was tested (§2.6); what a household nothing reaches can do, for the admin
-  (§3.6, D290 §12); the connections `rtcapi` refused (K3) and the clients that failed to connect last
-  week (§7 item 16); the holding account and the claim (K6); the fingerprint (K8a); the instance
-  conflict and the restore without the key (K8d); the port-mapping cases (K5); the first-run setup
-  code accepted in the browser (§7 item 17).
-- **Builds** §2.6, §3.6; D290 §12; D291 §6; findings U3, U5, U7, S14.
-- **Tests.** Component tests: each state renders its sentence and its action.
+  strings: **the first-run form** that makes the first admin with the setup code, which every
+  tester's install needs and the web client lacks (§7 item 17, U2-4; agent-failures A29); **the
+  home address**, as a link and a QR, on the System page and each person's account page (§3.1;
+  D292 §6); *Remote access* as the name, the discovery's address behind "use my own", which staging
+  depends on (§7 item 17, U5); "your server is reachable from the internet at …" shown prominently
+  (§7 item 9, S14); `reachableFrom` by what was tested (§2.6); what a household nothing reaches can
+  do, for the admin (§3.6, D290 §12); the connections `rtcapi` refused (K3) and the clients that
+  failed to connect last week (§7 item 16); the claim code and the claimed state (K6); the
+  fingerprint and the recovery code (K8a); the instance conflict and the restore without the key
+  (K8d); the port-mapping cases (K5); admin pages reached through a discovery saying "manage this
+  server from home, at <its home address>" (§3.7; K17).
+- **Builds** §2.6, §3.1, §3.6, §3.7; D290 §12; D291 §6; D292 §6; findings U3, U5, U7, S14, U2-4, N3.
+- **Tests.** Component tests: each state renders its sentence and its action; the first-run form
+  makes the first admin with a right code and refuses a wrong one; the home address renders as a
+  link and a QR.
 - **Waits on:** the steps whose state it shows.
 
 ### K13 — The owner's TURN, with credentials that expire
 
 - **Changes.** The heartbeat's `turn` sent for the owner's TURN servers, with credentials minted by
-  the core in the TURN REST shape (a username `<expiry>:<id>`, an HMAC under a secret shared with the
-  TURN server) and refreshed with each heartbeat, never static ones (§2.4, C14). The core already
-  mints such credentials for voice (`internal/core/turn/credentials.go`); this reuses them. The
-  owner's TURN as one switch (§7 item 16).
-- **Builds** §2.4; finding C14. Pairs with [webrtc-transport.md](webrtc-transport.md) W6.
-- **Tests.** The heartbeat carries a credential that expires and verifies under the shared secret.
+  the core in the TURN REST shape (a username `<expiry>:<id>`, an HMAC under a secret shared with
+  the TURN server) and refreshed with each heartbeat, never static ones (§2.4, C14). The core
+  already mints such credentials for voice (`internal/core/turn/credentials.go`); this reuses them.
+  The owner's TURN as one switch (§7 item 16). A quota of allocations per membership and the VPS's
+  own address refused but on the relay range (code K9, A17) [I]. It is a household's route for
+  IPv4-only devices behind DS-Lite or carrier NAT (N11), so the owner's own household wants it
+  before the beta's end.
+- **Builds** §2.4; findings C14, N11. Pairs with [webrtc-transport.md](webrtc-transport.md) W6.
+- **Tests.** The heartbeat carries a credential that expires and verifies under the shared secret;
+  a member's third allocation is refused. coturn confirms the credentials in the netlab tier.
 - **Waits on:** K1.
 
-### K14 — The core's NAT, measured
+### K14 — The core's NAT, measured (deferred)
 
-- **Changes.** The core sends STUN binding requests to two STUN servers on different addresses (the
-  discovery's and the probe machine's) and compares the mapped ports (RFC 5780): the same port is
-  endpoint-independent mapping (§2.6, C10). `pion/stun/v3` is already allowed.
-- **Builds** §2.6; finding C10.
-- **Tests.** Against two STUN servers in the test, one mapping and two mappings are told apart.
-- **Waits on:** K1; how the result reaches the discovery (see the questions).
+Deferred (D292 §3). When built: the core sends STUN binding requests to two STUN servers on
+different addresses and compares the mapped ports (RFC 5780): the same port is
+endpoint-independent mapping (§2.6, C10). `pion/webrtc/v4` already brings `pion/stun/v4`, so the
+binary carries one STUN library (G10) [I]. **Tests:** against two STUN servers in the test, one
+mapping and two mappings are told apart. **Waits on:** how the result reaches the discovery
+(question 8).
 
-### K15 — Device codes through the paid service
+### K15 — Device codes through the paid service (deferred)
 
-- **Changes.** `internal/core/auth` and `internal/core/discovery`: the core of the signed-in person
-  who enters a code the service issued claims it from the service (§3.1, D288 §5); the person sees
-  where the device asking is, from the service (D290 §5, S4); the check code's outcome and the
-  session sealed to the device's X25519 key with HPKE (RFC 9180), the service passing on only the
-  blob (D290 §5, S3). Go 1.26's standard library has `crypto/hpke`, so the core needs no new
-  dependency [I, verify its suites against the browser's]. A code-activated device gets ordinary
-  rights, never admin, until its person signs in with their password on it (D291 §5). The core
-  limits how many codes it claims an hour (§7 item 2). The web client: the device's side on the
-  `app.` origin (an ephemeral key pair, opening the sealed blob) and the ease-of-use items of U9 (a
-  QR beside the code, a default device name, the check code picked from three, *Get a code*
-  renamed, the two-sentence warning; §7 item 20). In the browser, HPKE is built from WebCrypto's
-  X25519, HKDF and AES-GCM, or taken from a library: **the owner's decision** (rule 3).
-- **Builds** §3.1; D288 §5; D290 §5; D291 §5, §6; findings S3, S4, S13, U9.
-- **Tests.** The blob the fake service passes on opens only with the device's key; a session token
-  never appears in what the service is sent (the `TestArch_` claim of K7); a code-activated device's
-  session is refused an admin call until a password sign-in on it; past the hour's cap the core
-  claims no more codes.
-- **VQ:** a new item: a television's browser on `app.orpheum-app.com` asks for a code, a phone
-  enters it, both show the check code, and the television plays.
-- **Waits on:** K1, K7; the paid service's device-code calls.
+Deferred with HPKE (D292 §3): in the beta a television does not join through `app.` by a code.
+When built: the core of the signed-in person who enters a code the service issued claims it from the
+service (§3.1, D288 §5); the person sees where the device asking is, as a neutral line (D290 §5,
+S4; A11); the check code's outcome and the session sealed to the device's X25519 key with HPKE
+(RFC 9180) by Go's `crypto/hpke`, the service passing on only the blob (D290 §5, S3); the session
+the `device` scope of K17; the core limits how many codes it claims an hour (§7 item 2); the web
+client's side on the `app.` origin and U9's ease-of-use items (§7 item 20). Its design stays open to
+"a member admits another device by its code", a guest's second device (coherence §1.2) [I].
+**Waits on:** the minimum browser or a library (§9 of the protocol); K1, K7, K17.
 
-### K16 — The dead-end counted
+### K16 — The dead end counted, and told
 
 - **Changes.** The message of §3.6 written for whoever reads it (the web client, W4c), and its
   showing counted by the client's kind of network, as an aggregate with no identifiers (D290 §12,
-  D274 §3).
+  D274 §3); a "copy what happened" a tester can send the owner (§3.6) [I, coherence §4.2].
 - **Builds** §3.6; D290 §12; finding U3.
-- **Waits on:** which side counts and by what call (see the questions).
+- **Waits on:** which side counts and by what call (question 9).
+
+### K17 — Session scopes: no admin through a discovery, one `device` scope
+
+- **Changes.** `internal/core/auth`, `internal/core/api`: **a session minted through a discovery's
+  client never carries admin** (§3.7; D292 §4; A1): the core decides by the browser's `Origin` on a
+  direct HTTPS sign-in and treats every sign-in or pairing over `rtcapi` as through a discovery
+  (K3a strips the head). **In the beta an admin session comes only from the core's own origin on
+  its own network**, judged by the TCP source address against the prefixes of the core's own
+  interfaces, never a bare private address and never an address delivered through the VPS tunnel
+  (A1, A5); where the core cannot see real sources it offers no shortcut and says so. **One
+  `device` scope for every code-activated device** (§3.1; D292 §4; A11): the role minus
+  administering and minus account security; an admin entering a code for another admin confirms it,
+  and the core logs who did it for whom (code K10). The web client reads the session's rights, not
+  the role's, and an admin page on a session without admin offers the step to the admin origin.
+  Destructive admin actions ask for the password again (A1 item 3) [I]. A passkey for admin comes
+  later (D292 §4).
+- **Builds** §3.1, §3.7; D291 §5 as refined; D292 §4; findings A1, A11, W5, U2-6, code K10.
+- **Tests.** A sign-in from another origin, and one over a WebRTC data channel, get a session that
+  is refused an admin call; one from the core's own origin from an address in its LAN prefix is
+  allowed admin; one from the tunnel's address is not; a code-activated session is refused changing
+  the password and making links but can host Watch Together; an admin's activation for another admin
+  is logged. A `TestArch_` claim, cited in `internal/core/auth`'s `doc.go`, that every session is
+  issued with a scope the request's origin allows.
+- **Waits on:** K1; K3a for the untrusted head.
+
+### K18 — A device secret, and credentials per core
+
+- **Changes.** `internal/core/auth`: **the device proof is a device secret** (§3.4; A8, code K1,
+  W4): random, issued at a device's first sign-in, stored hashed on the device row, never a session
+  token and never sent to a discovery; a device is resumed only on it, never on a bare id, and never
+  as the device the person entering a code is using. `web/apps/web/src/session.ts` and
+  `web/packages/sdk`: **every credential, device id, device secret, locator and remembered key kept
+  under its `coreId`**, an API client bound to one core attaching its credential only to that core's
+  names or its WebRTC transport (§3.4; A8, W1); the web side is W4c's. A device that proved itself
+  may pass the account-wide sign-in limit, and IPv6 networks are keyed by /48 for it (A13) [I].
+- **Builds** §3.4; D292 §4; findings A8, W1, W4, code K1.
+- **Tests.** A sign-in naming another device's id without its secret makes a new device; one with
+  the secret resumes it; the session token is no longer accepted as a proof; a request for core A's
+  names carries A's credential and never B's; a playlist's foreign URL goes without a credential. A
+  `TestArch_` claim that no request leaves the client with a credential for a core other than its
+  target.
+- **Waits on:** K1.
 
 ## Found while planning
 
 - **A core in a container sees the container's addresses**, not the host's: the bridge network's
   private ones. The heartbeat's `interface` candidates are only real under host networking. K4
   skips bridges; a containerised core then reports its `configured` addresses, and its discovery
-  sees its source address (§2.4).
+  sees its source address (§2.4). The release compose file puts the core on a bridge, so a
+  deployment without the tunnel chooses one of the two (infrastructure §1).
 - **`newDiscovery` sets no `TURN`**, so the heartbeat never carries the owner's TURN; K13.
 - **The server's keys were in every backup** until 2026-10-13: `internal/core/backup` left out
   `secret.key` alone, so the identity key and the certificates' and ACME account's private keys went
-  into scheduled backups in plain text (the second audit's T1). Since fixed: a backup holds them only
-  when asked for them, as D289 §2 says; K8a builds the rest of the identity key's rules.
+  into scheduled backups in plain text (T1, X1). Since an earlier commit a backup holds them only when
+  asked; K8a seals the identity key into scheduled backups under the recovery code (D292 §4).
 - **No CORS on the core's API**, and byte paths lean on the media cookie (D216), which a page on
   another site never sends; K10.
 - **IPv6 pinholes and high ports** (from
   [homelab-networks-2026-10-10.md](../research/homelab-networks-2026-10-10.md) §6, read against
-  miniupnpd's source): miniupnpd refuses a pinhole unless asked over IPv6 from the address opened and
-  for a port of 1024 or more; stock OpenWrt maps only 1024–65535 for IPv4. D291 §7's 443 first will
-  meet that refusal there and take the port granted; K5 asks pinholes over IPv6.
+  miniupnpd's source): miniupnpd refuses a pinhole unless asked over IPv6 from the address opened
+  and for a port of 1024 or more; stock OpenWrt maps only 1024–65535 for IPv4. D291 §7's 443 first
+  will meet that refusal there and take the port granted; K5 asks pinholes over IPv6.
 - **miniupnpd maps nothing for IPv4 when its own WAN address is private**: every inner router of a
   double NAT. K5's external-address check says so rather than retrying.
+- **Every offer through a discovery is answered unchecked today**, and pion's defaults take any
+  number of remote candidates at any address (A2); K3a, before any signalling connection.
 
-## The beta's order of work
+## The order of work
 
 The closed beta reaches a few invited households from `app.orpheum-app.com` wherever they are, over
 a direct HTTPS path where one exists and WebRTC through the service where none does (D290 §14), with
-no payment, no public sign-up and one core per account (D290 §18). The work runs in lanes; a lane
-starts when what it waits on is done.
+no payment, no public sign-up, no customer accounts and one core per account (D290 §18, D292 §3).
+The owner's rule is that nothing goes public until every component has been tested together, so the
+components meet early and thin, and are thickened after (D292 §3). Orpheum's part, by phase; the
+service's parts are in `orpheum-connect`'s bring-up plan.
 
-**Owner's lane, started first: the long waits.** Register the zone's domain (see the questions);
-file Let's Encrypt's rate-limit increase, which takes weeks (D290 §7); confirm that one Bunny script
-record answers a whole wildcard subtree (the spec's §7.2 left it unverified) and whether Let's
-Encrypt runs DNS-PERSIST-01 in production; open the Cloudflare, Hetzner, second-provider and mail
-accounts; decide the dependencies the plans name (the ACME library, K9; HPKE in the browser, K15;
-the geolocation database, P9). Outside these plans, and possibly longer than the service itself
-(the spec's §10 risks): a deployment without the VPS tunnel (D272 §3) and a way for testers to
-obtain the software ([beta-inventory-2026-10-09.md](../research/beta-inventory-2026-10-09.md)
-(d) 2–3).
+### Phase 0 — before any discovery code
 
-**Lane A, the wire: on the critical path.** discovery-core.md K1 with discovery-mode.md W4b.7, in
-one change. Every other lane waits on it.
+- **check-pr back under its budget** (D292 §9): from 2,498 s to 676 s with nothing loosened
+ ; what remains over 300 s is the browser tier, to be cut by a recorded
+  map of which browser spec exercises which source file, built after this documentation pass and
+  Phase 1 (the owner's choice).
+- **This documentation pass**: the second and third rounds folded into the protocol and these plans
+  (D292).
+- **The development loop** (D292 §9; the owner's gate and dependency work): the service imports
+  Orpheum by `replace` and a pin file, with `make spot-both`; its own gates and Stop hook; Pebble
+  pinned; a netlab tier on demand; `scripts/dev.py` running two cores; `pion/transport/v5` and
+  `golang.org/x/net` direct.
+- **The owner's long waits**: Let's Encrypt's rate-limit increase for `orpheum-core.com` (weeks,
+  D290 §7); the staging Tunnel and its token; the edge VPS's Floating IPv4 and WireGuard peers
+  (below); the CAA at `media.orpheum-app.com` now (A5). Outside these plans and possibly longer:
+  testers' installation, a deployment without the VPS tunnel (D272 §3) and a way for testers to
+  obtain the image ([beta-inventory-2026-10-09.md](../research/beta-inventory-2026-10-09.md) (d)
+  2–3).
 
-**Lane B, WebRTC through a discovery: the critical path.** It is the largest piece and the least
-known (the spec's §10), and the beta's promise rests on it:
+### Phase 1 — the security floor
 
-1. Core: K2 (sessions), then K3 (signalling bounded and checked), with K7's locators and K8b's
-   proof, which K3's checks use.
-2. W4b: W4b.3 (STUN) and W4b.4 (the client API), the reference every client test runs against.
-3. Web: W2e (half-trickle), W2d (recovery and ICE restart), W2f (signed fingerprints), then W2c
-   (choosing among the paths), then W4c (the client served by a discovery).
-4. W4b.6 and W5: the browser-tier test through `single`.
-5. Service: P6 and P7 on the same tests, P10 serving W4c's build.
+In the public code, before any core holds a signalling connection to any discovery (D292 §4).
+**K1 first**, with W4b.7's wire, since every other step speaks its types. Then, beside each other:
 
-**Lane C, direct paths and certificates, beside Lane B after K1:** K4 (addresses), K5 (port mapping),
-K9 (certificates), K10 (cross-origin), K14 (NAT measurement); the service's P5 and P8.
+1. **A3** — `discovery/single`'s code K13–K15 closed: tokens bound to the core, no replacing a
+   pending core, no certificate record, addresses or signalling before claiming, 130-bit ids
+   ([discovery-mode.md](discovery-mode.md) W4b.7).
+2. **A2, A10** — offers checked and bounded (K3a); no certificate for a handshake that names no
+   served name (K9's SNI part).
+3. **A1** — no admin through a discovery's client; admin only from the core's own origin on its own
+   network (K17, with the `device` scope).
+4. **A7, A9** — the identity key's fingerprint in every link and QR (K7's link form, K8a's
+   fingerprint); answers signed over the exact SDP, holding exactly one sha-256 fingerprint (K3a,
+   K8b; webrtc-transport.md W2f).
+5. **A8** — credentials per core and a device secret that is not a live token (K18;
+   webrtc-transport.md W4c's credential store).
 
-**Lane D, claiming, identity and the System page, after K2:** K6 (claiming), K8a, K8c–K8e
-(identity), K11 (versions and the exit path), K12 (the System page); the service's P2, P3, P4, P12.
+### Phase 2 — the thin path, end to end on staging
 
-**Lane E, the service's base, after K1:** P1, P11, P13; it needs nothing else from Orpheum.
+Before any step is thickened, one path works from end to end (D292 §3; coherence §3.2): the staging
+core enrols with the staging service, the operator claims it, its name gets its certificate, and a
+phone on mobile data opens `app-staging.orpheum-app.com` and plays through each path (direct IPv6,
+the configured VPS address, WebRTC).
 
-**Last, and allowed to slip:** device codes through the service (K15, P9, W4c's device side). Without
-them no television joins through `app.`; if they are late, testers are told a television must wait
-(the spec's §10 item 4).
+| Piece | Real in the thin path | Waits for Phase 3 |
+| --- | --- | --- |
+| Sessions (K2) | `expiresIn`, renewal on a 401, backoff starting near 1 s | the instance rule (question 4) |
+| Signalling (K3) | K3a in full; K3b's ping, heartbeat, concurrency, idle close | ICE restart (a failed connection starts a new race) |
+| Links (K7) | locate hashes, device locators, the person's own link, fingerprints in links | the admin's sign-in link |
+| Addresses (K4) | stable IPv6, the non-public ranges, `configured` | netlink's change events: polling stays |
+| Port mapping (K5) | as built, TCP only | the C9 list; the FRITZ!Box VQ |
+| Certificates (K9) | DNS-01 through the discovery as built, renewal at two-thirds, SNI refusal | — |
+| Cross-origin (K10) | CORS, byte paths by header, the `Host` allow list | — |
+| Identity (K8) | K8a's fingerprint, K8b | K8a's recovery code, K8d |
+| Claiming (K6) | the code, claimed by the operator | — |
+| Scopes (K17), device secret (K18) | in full, from Phase 1 | — |
+| Client (W2c–W2f, W4c) | early description, fingerprint checks, keep what connects and replace what fails, the race ranked by kind, credentials per core | ICE restart, network-change triggers, the in-app-browser hint |
+| STUN | any public STUN server | the discovery's own (W4b.3) |
+| Versions (K11), System page (K12), TURN (K13), counting (K16) | the deprecation header as built | the rest |
 
-**Then, in order:** end to end on the owner's staging core; nas.example; one outside household; the
-invited households.
+In order: K1 with W4b.7; the core's thin steps and `single`'s client API (W4b.4) beside each other;
+the browser-tier test through `single` (W4b.6), where all public parts first meet, which runs in CI
+from then on; the web client's thin steps; the same test against the paid service's handlers, by
+the conformance suite `discovery/discoverytest`; then the staging deployment.
 
-**The critical path**: K1 → K2 → K3 (with K7, K8b) → W4b.4 → W2e, W2d, W2f → W2c → W4c → P6, P7,
-P10 → staging → nas.example → an outside household → the invited ones; beside it, the owner's long waits
-(the rate-limit increase, the domain, the testers' images), any of which can become the critical
-path if started late. Not on it: the `orpheum discovery` command and its web serving (W4b.5, W4b.8),
-which ship after the beta; billing; K13 (the owner's TURN), useful to a household with its own VPS
-but not needed for the beta.
+**Orpheum's deployment, for staging** (D292 §7; infrastructure §3): the WireGuard tunnel's
+addresses chosen per deployment, so the staging core (`10.77.0.3`, its own key) runs beside
+nas.example (`10.77.0.2`, unchanged), revising D272 §8's one shared key; `deploy/vps/` for several
+peers, forwards matched by destination address, a forward chain with policy drop and SSH over the
+tunnel only; the staging core reconfigured with no `domain`, the staging discovery entered under
+*use my own*, and its Cloudflare token deleted. The edge VPS becomes the staging server once
+`media.` retires (D292 §7).
+
+**What must be real from the first day** (coherence §3.2): the zone and its written records with
+their CAA, a real browser on a real carrier network, and the central origin's service worker.
+
+### Phase 3 — thickening, and what testers need
+
+In the order the thin path's failures show, and before the first outside household:
+
+- **What testers need**: K12's first-run form; the home address (K12; D292 §6); K8a's recovery code
+  (D292 §4); a tester's diagnosis (K16); testers' installation (Phase 0's outside items).
+- **The rest of the steps**: K3b's ICE restart; K4's change events; K5's C9 list; K8d; K10's
+  browser test; K11; K12; K13 (the owner's household wants it, N11); K16's counting; W2c's
+  network-change triggers and W4c's remaining items.
+
+### Phase 4 — production
+
+Only once every component has been tested together on staging (the owner: *"Nothing will become
+public until we've tested all of the components together"*): the service on its two machines,
+`prod-api` and `prod-probe` (D292 §3); the legacy Cloudflare token revoked before the first
+production name (A5); then the owner's staging core as the first household, then nas.example, moved off
+`media.orpheum-app.com` before that certificate's renewal (about 2027-01-04, infrastructure §4),
+then one outside household, then the invited ones.
+
+### Deferred, after the beta
+
+From D292 §3 and the steps above: customer accounts, sign-in links and mail, and with them claiming
+from the core and its approval (K6's second part); re-keying and mailbox recovery (K8c, §2.8); CT
+watching (K8e); ARI and DNS-PERSIST-01 (K9); the NAT measurement (K14); device codes through the
+paid service with HPKE (K15); the version window's promise (K11, §5); the spare machine and
+Cloudflare Pages; a switcher for a person on two servers (D291 §6); `orpheum discovery`'s command
+and its web serving (W4b.5, W4b.8), the self-hoster's route in the beta being the VPS tunnel
+(`deploy/vps/`) [I, coherence §4.2].
 
 ## Questions the plans raise
 
-Not decided here; each is the owner's, or a fix to the protocol document.
+Not decided here; each is the owner's, or a fix to the protocol document. Those the third round's
+rulings or this pass settled say where.
 
-1. **The heartbeat on the signalling connection, and the hourly probe.** D291 §6 takes the
-   correctness audit's "something simpler" (protocol §7 item 22): the heartbeat carried on the
-   signalling connection, `PUT /addresses` kept as the fallback, and the hourly probe replaced by
-   probing on change and clients' reports. The protocol's §2.4 and §2.6 still describe a five-minute
-   `PUT /addresses` and an hourly probe. K2 and K3 are written to §2.4 as it stands; which does the
-   build follow?
-2. **What a signature binds** (K1): §2.1 says "the discovery origin" and, in the same sentence, "the
-   base URL the core itself called". The base URL carries a path (`/core/v1`); an origin does not.
-3. **The enrolment's `protocol` field** (K1): §2.2 shows `POST /enrol {publicKey, protocol, …}`, while
-   §5 says the body carries no version.
+1. **The heartbeat on the signalling connection, and the hourly probe.** *Settled:* D291 §6's
+   "something simpler", the heartbeat on the connection with `PUT /addresses` its fallback (§2.4),
+   and probing on change, at most once per core per 10 minutes (§2.6) [I: X9's reading of S10].
+2. **What a signature binds.** *Settled* (X12): the base URL the core called, path included, without
+   a trailing slash (§2.1).
+3. **The enrolment's `protocol` field.** *Settled* (X11): dropped (§2.2).
 4. **When an instance stops being live** (K2): a discovery refuses a second `instanceId` per
    `coreId`. A core that restarts, or crashes without closing its connection, comes back with a new
-   one while its old token still lives. What ends the old instance: its signalling connection's
-   closing, its token, a time without heartbeat? Without a rule, a restart is refused as "another
-   server".
+   one while its old token still lives. Its signalling connection's closing and two missed
+   heartbeats (T14), or the newest instance winning in the beta (coherence decision 7)? Without a
+   rule, a restart is refused as "another server". Protocol §9 item 1.
 5. **How the core learns the discovery's client origin** (K7, K10): links take the form
    `https://<discovery>/register#…`, and CORS allows "the configured client origins", but the core
    knows only the discovery's API base URL (`https://api.orpheum-app.com/core/v1`). A field in
    `GET /status`, or a setting?
-6. **The claim page's address, and a typed fallback** (K6): §2.2 has the core open
-   `https://account.orpheum-app.com/claim#<token>`, but not whether the URL comes from the
-   enrolment's answer or is fixed in the core. And §7 item 5 asks "whether a typed claim code stays
-   as a fallback"; D291 §6 takes the audit's recommendation, which keeps it (security audit S7 item
-   2). Does the paid enrolment then return both a code and a token?
-7. **Matching an ICE restart to its connection** (K3, W2d): a restart's offer goes "through the
+6. **The claim page's address** (K6, after the beta): whether the URL comes from the enrolment's
+   answer or is fixed in the core. The beta claims by the code (D292 §3), and the typed code stays a
+   fallback after it (D291 §6; X8).
+7. **Matching an ICE restart to its connection** (K3b, W2d): a restart's offer goes "through the
    discovery (or over the data channel while it lives)", but nothing in §2.5 or §4 names which
-   existing connection an offer restarts.
-8. **Where the NAT measurement goes** (K14): the core compares the mapped ports, yet "the heartbeat's
-   answer carries the result". Does the core report its finding in the heartbeat (a new field), or
-   do the discovery's STUN servers observe it, and if so how do they know the requests are the core's?
+   existing connection an offer restarts. Not on the thin path.
+8. **Where the NAT measurement goes** (K14, deferred): does the core report its finding in the
+   heartbeat, or do the discovery's STUN servers observe it?
 9. **Counting failures** (K12, K16): D290 §12 counts how often the dead-end message is shown, and §7
    item 16 has the System page say how many clients failed to connect last week. A client that
    failed reached neither the core nor, by any call in §4, the discovery. Which side counts, and by
    what call?
-10. **Ordinary rights for which codes** (K15): D291 §5 gives a code-activated device ordinary rights.
-    The protocol places it under the paid tier's codes; does it apply to the core's own codes
-    (D288, built, used on an own discovery and at home) too?
-11. **The Watch Together link's path** (K7): §3.1 has `https://<discovery>/join#<coreId>.<secret>`;
-    the built client makes `/together#<secret>`, with no "the code must change" marker.
+10. **Ordinary rights for which codes.** *Answered* by D292 §4: one `device` scope for every
+    code-activated device, on both tiers (K17).
+11. **The Watch Together link's path.** *Settled* (X13): `/together`, as the built client makes it
+    (§3.1) [I].
 12. **The remembered paths' key** (W2c): §3.3 item 7 keys remembered paths on "the client address
     prefix the discovery reports", but §3.2's `paths` answer has no field carrying it.
-13. **The bootstrap token** (K3, K7): §3.1 calls it "short-lived and single-use" and says it "serves
-    `/paths` and offers for its few minutes". Is it spent once by `/locate`, then usable for its
-    minutes, or spent by its first use?
-14. **First contact over WebRTC alone** (K8b, W2f): the client learns the core's key "over a direct
-    path". For a household only WebRTC through the discovery reaches, the key and the signed
-    fingerprint both arrive through the discovery on a first visit. Should registration, Watch
-    Together and own links carry the key's fingerprint, as the pairing QR carries the DTLS one?
-15. **What the sealed blob carries** (K15): the session, and "the check code's outcome". Does it also
-    carry the core's id and a device locator, so the device can find its core afterwards, and is the
-    check code itself sealed, so the service never sees it?
-16. **Certificate Transparency's source** (K8e): the core must ask some log or monitor (crt.sh, or a
-    log's own API) for its names; that third party learns which core asks. The protocol names none.
-17. **The ACME library** (K9): ARI's `replaces` and DNS-PERSIST-01 beyond `golang.org/x/crypto/acme`
-    v0.57: hand-written, or a library (a dependency, the owner's).
+13. **The bootstrap token.** *Settled* (X10): issued by `/locate`, usable for its minutes, never
+    renewed (§3.1).
+14. **First contact over WebRTC alone.** *Answered* by D292 §4: every link and QR carries the
+    identity key's fingerprint (K7).
+15. **What the sealed blob carries** (K15, deferred): the session and the check code's outcome;
+    also the core's id and a device locator, and is the check code itself sealed?
+16. **Certificate Transparency's source** (K8e, deferred): the service watching the whole zone and
+    passing alarms on, a core's own query opt-in (A16) [I].
+17. **The ACME library** (K9): waits with ARI and DNS-PERSIST-01 (deferred).
+18. **A lost key in the beta, and recovery after it** (§2.8): protocol §9 items 2–3.
+19. **Where a core's state reaches a household member** (K16, W4c): protocol §9 item 4.
