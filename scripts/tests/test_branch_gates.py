@@ -472,7 +472,8 @@ class RevertRedStylesheetsTogether(unittest.TestCase):
     UNCLAIMED = "web/apps/web/src/c.css"
     ADDED = "web/apps/web/src/new.css"
     # Passes only while every sheet is as the base has it: the run saw them all reverted at once.
-    ALL_REVERTED = ["sh", "-c", f"test ! -e {ADDED} && grep -q old {OLD} && grep -q old {CLAIMED} "
+    # A new sheet is left as it is: its revert deletes it, which broke the run's build (2026-10-13).
+    ALL_REVERTED = ["sh", "-c", f"test -e {ADDED} && grep -q old {OLD} && grep -q old {CLAIMED} "
                                 f"&& grep -q old {UNCLAIMED}"]
 
     def repo(self) -> tuple[Repo, str]:
@@ -495,11 +496,20 @@ class RevertRedStylesheetsTogether(unittest.TestCase):
             settled = rr.stylesheets_together(str(repo.root), base, "HEAD", self.changes(), 60,
                                               self.ALL_REVERTED)
         self.assertEqual({path: outcome.verdict for path, outcome in settled.items()},
-                         {self.OLD: "CLAIMED", self.CLAIMED: "CLAIMED", self.ADDED: "CLAIMED", self.UNCLAIMED: "GREEN"})
+                         {self.OLD: "CLAIMED", self.CLAIMED: "CLAIMED", self.UNCLAIMED: "GREEN"})
         self.assertIn("Verified-By: VQ7", settled[self.OLD].detail)
         self.assertTrue(settled[self.UNCLAIMED].is_failure, "a sheet nothing noticed and nothing claims fails, "
                         "with no browser run of its own (D279)")
         self.assertEqual(repo.git("status", "--porcelain"), "", "every sheet is put back")
+
+    def test_a_new_sheet_is_probed_alone_by_building_the_web_client_and_not_by_a_browser(self):
+        added = rr.Change(self.ADDED, "A")
+        self.assertFalse(rr.is_stylesheet(added), "a new sheet left in the batch broke its build")
+        self.assertTrue(rr.is_stylesheet(rr.Change(self.OLD, "M")))
+        attempts = rr.attempts_for(added, rr.scope_for(self.ADDED))
+        self.assertEqual([(a.command, a.compile_only) for a in attempts], [(rr.WEB_BUILD, True)])
+        changed = rr.attempts_for(rr.Change(self.OLD, "M"), rr.scope_for(self.OLD))
+        self.assertIn("browser-tier", " ".join(changed[0].command))
 
     def test_a_failing_run_settles_nothing_and_one_sheet_alone_is_not_batched(self):
         repo, base = self.repo()
