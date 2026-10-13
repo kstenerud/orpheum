@@ -111,8 +111,8 @@ function NeedsAttentionSign(): JSX.Element | null {
   if (counts.state !== "loaded") {
     return null;
   }
-  const { rootCount, diskCount, waitingRootCount, unreadCount } = counts.value;
-  if (rootCount + diskCount + waitingRootCount + unreadCount === 0) {
+  const { rootCount, diskCount, waitingRootCount, unreadCount, matchCount } = counts.value;
+  if (rootCount + diskCount + waitingRootCount + unreadCount + matchCount === 0) {
     return null;
   }
   return (

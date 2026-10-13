@@ -30,6 +30,12 @@ type ParsedPath struct {
 	// ExtraSuffix is a trailing "-trailer", "-featurette" and so on. It types an extra; it never
 	// makes one (D162).
 	ExtraSuffix string
+	// EpisodeName is an episode's own name as its file writes it, for one no listing names: an
+	// unnumbered special, or "Show - 01 - Its Name".
+	EpisodeName string
+	// IsUnnumbered is an episode of a series library that no marker or folder numbers: a special
+	// (season 0), a film or a featurette inside a series' folders, placed by its path.
+	IsUnnumbered bool
 }
 
 // The expressions. D49: no \w, \d, \s, \b or [[:alpha:]] — \w and \s are ASCII-only in Go and
@@ -50,6 +56,16 @@ var (
 	seasonPackPattern = regexp.MustCompile(`(?i)(?:^|[\p{Z} ._-])(?:s[0-9]{1,3}|` +
 		`(?:season|series|staffel|saison|temporada)[\p{Z} ._-]*[0-9]{1,3})(?:[\p{Z} ._-]|$)`)
 	yearPattern = regexp.MustCompile(`(?:^|[\p{Z} ._(\[-])((?:19|20)[0-9]{2})(?:[\p{Z} ._)\]-]|$)`)
+	// A site's name a download put before the release name: "www.example.org - Show.S13E01".
+	sitePrefixPattern = regexp.MustCompile(
+		`(?i)^[\p{Z} ]*(?:www\.)?[\p{L}\p{N}-]+\.(?:org|com|net|to|info|io|cc|me|tv|ru|se|nz|ws)[\p{Z} ]*[-–][\p{Z} ]*`)
+	// A folder or a file named only for an episode's number: "E01", "Ep 3", "Episode 12".
+	episodeOnlyPattern = regexp.MustCompile(`(?i)^(?:e|ep|episode)[\p{Z} ._-]*([0-9]{1,4})$`)
+	// An episode number a name carries without a season: "Show E05 Title", "Show Episode 5".
+	loneEpisodePattern = regexp.MustCompile(
+		`(?i)(?:^|[^\p{L}\p{N}])(?:e|ep|episode)[\p{Z} ._-]?([0-9]{1,4})(?:[^\p{L}\p{N}]|$)`)
+	// "Show - 01 - Its Name": a number alone between dashes, the season left unsaid.
+	dashNumberPattern = regexp.MustCompile(`[\p{Z} ._]-[\p{Z} ._]*([0-9]{1,3})[\p{Z} ._]*-[\p{Z} ._]`)
 )
 
 // isReleaseTag reports whether a word ends a title in a release name: what follows it is about
@@ -84,7 +100,7 @@ func ParsePath(relative string) ParsedPath {
 		parsed.ProviderIDs[provider] = match[2]
 	}
 	folder, file := path.Split(relative)
-	stem := strings.TrimSuffix(file, path.Ext(file))
+	stem := sitePrefixPattern.ReplaceAllString(strings.TrimSuffix(file, path.Ext(file)), "")
 	stem, parsed.ExtraSuffix = cutExtraSuffix(stem)
 
 	if marker, found := findEpisode(stem); found {
@@ -137,11 +153,22 @@ func findEpisode(stem string) (episodeMarker, bool) {
 // a season too, not a series of its own, so the folder above it names the series; with none above,
 // what the pack's name says before its season marker does (the owner's NAS, 2026-10-07: each of Ted
 // Lasso's seasons was a series of its own).
+//
+// A folder of one episode, "Show/Show.S01E01.1080p/x.mkv", or one named only for its number,
+// "Show/Show.S01/E01/x.mkv", and a specials or extras folder are passed over the same way (the
+// owner's NAS, 2026-10-13: each of Wing Vellmoor's episodes, and Corvessa's "E01" to "E12", were
+// series of their own).
 func seriesFromFolders(folder string) (name string, year int) {
 	packPrefix := ""
 	for _, part := range slices.Backward(strings.Split(strings.Trim(folder, "/"), "/")) {
-		part = strings.TrimSpace(part)
-		if part == "" || isSeasonFolder(part) {
+		part = strings.TrimSpace(sitePrefixPattern.ReplaceAllString(part, ""))
+		if part == "" || isSeasonFolder(part) || episodeOnlyPattern.MatchString(part) || isBonusFolder(part) {
+			continue
+		}
+		if marker, found := findEpisode(part); found {
+			if packPrefix == "" {
+				packPrefix = part[:marker.startIndex]
+			}
 			continue
 		}
 		if marker := seasonPackPattern.FindStringIndex(part); marker != nil {
@@ -153,6 +180,115 @@ func seriesFromFolders(folder string) (name string, year int) {
 		return cleanTitle(part)
 	}
 	return cleanTitle(packPrefix)
+}
+
+// isBonusFolder is a series' folder of specials or extras: "Specials", "Christmas SPECIALS",
+// "Featurettes", "DVD Extras", "Special features" and D162's extras folders.
+func isBonusFolder(name string) bool {
+	if _, isExtras := extraTypeOfFolder(name); isExtras {
+		return true
+	}
+	lower := strings.ToLower(name)
+	for _, word := range []string{"special", "extras", "featurette", "bonus", "deleted scene", "behind the scenes"} {
+		if strings.Contains(lower, word) {
+			return true
+		}
+	}
+	return false
+}
+
+// ParseEpisodePath reads a path in a series library, where every video is an episode of a series
+// (the owner, 2026-10-13: "when something is marked as a series, it should be impossible for any of
+// its contents to be classified as films"). A marker in the file name places it as ParsePath does;
+// else "Show - 01 - Its Name", "E01" or "Episode 1" numbers it, in the season its folders name or
+// the first; else, or in a specials or extras folder, it is a special of season 0, its name the
+// file's, placed by its path: a featurette, or a film made of the series (Brackenmere's "The Promised
+// Land"), which its series' listing of specials may name.
+func ParseEpisodePath(relative string) ParsedPath {
+	parsed := ParsePath(relative)
+	if parsed.Kind == library.TitleKindEpisode {
+		return parsed
+	}
+	folder, file := path.Split(relative)
+	stem := sitePrefixPattern.ReplaceAllString(strings.TrimSuffix(file, path.Ext(file)), "")
+	stem, _ = cutExtraSuffix(stem)
+	parsed.Kind = library.TitleKindEpisode
+	parsed.Name, parsed.Year = outermostSeriesFolder(folder)
+	season, isBonus := seasonFromFolders(folder)
+	before, episodeName := "", stem
+	if match := dashNumberPattern.FindStringSubmatchIndex(stem); match != nil {
+		parsed.Episode = parseNonNegativeInt(stem[match[2]:match[3]])
+		before, episodeName = stem[:match[0]], stem[match[1]:]
+	} else if match := loneEpisodePattern.FindStringSubmatchIndex(stem); match != nil {
+		parsed.Episode = parseNonNegativeInt(stem[match[2]:match[3]])
+		before = stem[:match[0]]
+	} else if number, found := episodeFolderNumber(folder); found {
+		parsed.Episode = number
+	}
+	if parsed.Name == "" {
+		parsed.Name, parsed.Year = cleanTitle(before)
+	}
+	if parsed.Name == "" {
+		parsed.Name, parsed.Year = cleanTitle(stem)
+	}
+	parsed.EpisodeName, _ = cleanTitle(episodeName)
+	if parsed.EpisodeName == "" {
+		parsed.EpisodeName = strings.TrimSpace(episodeName)
+	}
+	switch {
+	case isBonus || parsed.Episode == 0:
+		parsed.Season, parsed.Episode, parsed.IsUnnumbered = 0, 0, true
+	case season >= 0:
+		parsed.Season = season
+	default:
+		parsed.Season = 1
+	}
+	return parsed
+}
+
+// outermostSeriesFolder names the series of a file no marker places by the folder just under the
+// library's root, where a series library keeps each series: a featurette or a film inside a series'
+// folders is that series', not its own folder's ("Brackenmere/The Promised Land 2020/x.mkv" is Red
+// Dwarf's). When that folder is itself an episode's or a season pack's, the folders say as for an
+// episode.
+func outermostSeriesFolder(folder string) (name string, year int) {
+	parts := strings.Split(strings.Trim(folder, "/"), "/")
+	top := strings.TrimSpace(sitePrefixPattern.ReplaceAllString(parts[0], ""))
+	_, isEpisodeFolder := findEpisode(top)
+	if top == "" || isEpisodeFolder || isSeasonFolder(top) || episodeOnlyPattern.MatchString(top) ||
+		seasonPackPattern.MatchString(top) {
+		return seriesFromFolders(folder)
+	}
+	return cleanTitle(top)
+}
+
+// seasonFromFolders is the season the nearest season folder above a file names, -1 for none, and
+// whether a specials or extras folder holds it.
+func seasonFromFolders(folder string) (season int, isBonus bool) {
+	for _, part := range slices.Backward(strings.Split(strings.Trim(folder, "/"), "/")) {
+		part = strings.TrimSpace(part)
+		if isBonusFolder(part) {
+			return 0, true
+		}
+		if match := seasonFolderPattern.FindStringSubmatch(part); match != nil {
+			return parseNonNegativeInt(match[1] + match[2]), false
+		}
+		if marker := seasonPackPattern.FindString(part); marker != "" {
+			digits := strings.TrimFunc(marker, func(r rune) bool { return r < '0' || r > '9' })
+			return parseNonNegativeInt(digits), false
+		}
+	}
+	return -1, false
+}
+
+// episodeFolderNumber is the number of the "E01" folder nearest above a file, if there is one.
+func episodeFolderNumber(folder string) (int, bool) {
+	for _, part := range slices.Backward(strings.Split(strings.Trim(folder, "/"), "/")) {
+		if match := episodeOnlyPattern.FindStringSubmatch(strings.TrimSpace(part)); match != nil {
+			return parseNonNegativeInt(match[1]), true
+		}
+	}
+	return 0, false
 }
 
 // cleanTitle turns a release-style stem into a title and its year: separators become spaces,
@@ -175,7 +311,8 @@ func cleanTitle(stem string) (name string, year int) {
 	}
 	words := strings.Fields(text)
 	for index, word := range words {
-		if isReleaseTag(word) {
+		// "Complete" ends a pack's name, "Show.COMPLETE.SERIES", but may begin a title.
+		if isReleaseTag(word) || (index > 0 && strings.EqualFold(word, "complete")) {
 			words = words[:index]
 			break
 		}

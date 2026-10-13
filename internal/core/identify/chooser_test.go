@@ -20,12 +20,12 @@ func ambiguousTheGeneral(t *testing.T) (*testLibrary, int64) {
 	lib := newTestLibrary(t, "movies", "tmdb")
 	theGeneral72 := lib.provider.Add(identify.Metadata{ID: "1", Name: "The General", Year: 1972})
 	theGeneral02 := lib.provider.Add(identify.Metadata{ID: "2", Name: "The General", Year: 2002, Overview: "Soderbergh's."})
-	lib.provider.Searches[identifytest.SearchKey("The General", 2003)] = []identify.Candidate{theGeneral72, theGeneral02}
-	lib.scan(videoRecord("The General (2003).mkv"))
-	if outcome := lib.matchFileTitle("The General (2003).mkv"); outcome != identify.OutcomeAmbiguous {
+	lib.provider.Searches[identifytest.SearchKey("The General", 2004)] = []identify.Candidate{theGeneral72, theGeneral02}
+	lib.scan(videoRecord("The General (2004).mkv"))
+	if outcome := lib.matchFileTitle("The General (2004).mkv"); outcome != identify.OutcomeAmbiguous {
 		t.Fatalf("outcome %s, want ambiguous", outcome)
 	}
-	return lib, lib.titlesByPath()["The General (2003).mkv"].TitleID
+	return lib, lib.titlesByPath()["The General (2004).mkv"].TitleID
 }
 
 func TestChooser_ListsTheAmbiguousTitlesAndTheirCandidates(t *testing.T) {
@@ -67,12 +67,12 @@ func TestChooser_AChosenMatchIsPermanent(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, when := range []string{"after choosing", "after another pass"} {
-		file := lib.titlesByPath()["The General (2003).mkv"]
+		file := lib.titlesByPath()["The General (2004).mkv"]
 		if file.IdentificationState != identify.IdentificationConfirmed || file.Year == nil || *file.Year != 2002 ||
 			file.Filing != identify.FilingListed {
 			t.Errorf("%s: %+v; want the chosen film, confirmed", when, file)
 		}
-		lib.scan(videoRecord("The General (2003).mkv"))
+		lib.scan(videoRecord("The General (2004).mkv"))
 	}
 	if kept, err := lib.cache.Read().ListMatchCandidates(t.Context(), titleID); err != nil || len(kept) != 0 {
 		t.Errorf("%d candidates kept after the choice (%v)", len(kept), err)
@@ -124,14 +124,14 @@ func TestChooser_AnOverrideHoldsUntilItIsRemoved(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lib.scan(videoRecord("The General (2003).mkv"))
-	if got := titleName(lib.titlesByPath()["The General (2003).mkv"]); got != "The General (Soderbergh)" {
+	lib.scan(videoRecord("The General (2004).mkv"))
+	if got := titleName(lib.titlesByPath()["The General (2004).mkv"]); got != "The General (Soderbergh)" {
 		t.Errorf("with the override, after another pass: %q", got)
 	}
 	if err := lib.chooser.ClearOverride(t.Context(), titleID, identify.FieldName); err != nil {
 		t.Fatal(err)
 	}
-	if got := titleName(lib.titlesByPath()["The General (2003).mkv"]); got != "The General" {
+	if got := titleName(lib.titlesByPath()["The General (2004).mkv"]); got != "The General" {
 		t.Errorf("with the override removed: %q, want the source's name", got)
 	}
 }

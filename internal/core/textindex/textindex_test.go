@@ -39,6 +39,7 @@ func TestSameWork_NamesThatDifferOnlyInWhatFilesAndProvidersWriteTheirOwnWayAreO
 		{"Ｆｕｌｌ ｗｉｄｔｈ", "Full Width"},
 		{"十字路", "千と千尋の 神隠し"},
 		{"नमस्ते", "नमस्ते!"},
+		{"Wit & Wilfulness", "Wit.and.Wilfulness", "wit and wilfulness"},
 	} {
 		for _, name := range same[1:] {
 			if SameWork(name) != SameWork(same[0]) {

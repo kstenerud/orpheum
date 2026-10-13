@@ -146,11 +146,19 @@ WHERE item.library_id = ?1 AND item.removed_at IS NULL AND collection.kind = 'se
     WHERE ordering.collection_id = collection.id AND ordering.name = 'aired'
       AND (title.followed_source IS NULL OR title.followed_source != 'nfo')
   )
+  AND EXISTS (
+    SELECT 1 FROM collection_member
+    CROSS JOIN version ON version.title_id = collection_member.member_title
+    CROSS JOIN file ON file.version_id = version.id
+    WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
+      AND file.removed_at IS NULL
+  )
 ORDER BY collection.id
 `
 
 // Series in a provider's library that are not matched, have an episode no NFO speaks for, and
-// have no failure of their own (D231 section 3).
+// have no failure of their own (D231 section 3), with an episode's live file: one emptied by a new
+// reading of its folders is searched for no one.
 func (q *Queries) ListSeriesAwaitingMatch(ctx context.Context, libraryID *int64) ([]int64, error) {
 	rows, err := q.db.QueryContext(ctx, listSeriesAwaitingMatch, libraryID)
 	if err != nil {
@@ -186,6 +194,13 @@ LEFT JOIN refresh_request ON refresh_request.item_id = collection.id
 WHERE collection.kind = 'series' AND collection.identification_state = ?1 AND item.removed_at IS NULL
   AND (CAST(?2 AS INTEGER) = 1
     OR item.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
+  AND EXISTS (
+    SELECT 1 FROM collection_member
+    CROSS JOIN version ON version.title_id = collection_member.member_title
+    CROSS JOIN file ON file.version_id = version.id
+    WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
+      AND file.removed_at IS NULL
+  )
 ORDER BY item_text.name, collection.id
 `
 
@@ -209,7 +224,9 @@ type ListSeriesByIdentificationRow struct {
 }
 
 // The series in one state of identification, for the chooser's list, with a failure of their own
-// to be fetched and a person's refresh waiting (D231 section 4).
+// to be fetched and a person's refresh waiting (D231 section 4). Only those with an episode's live
+// file: a series an older reading of the folders made, its episodes filed again elsewhere, waits
+// for no one (the owner's NAS, 2026-10-13).
 func (q *Queries) ListSeriesByIdentification(ctx context.Context, arg ListSeriesByIdentificationParams) ([]ListSeriesByIdentificationRow, error) {
 	rows, err := q.db.QueryContext(ctx, listSeriesByIdentification, arg.IdentificationState, arg.IsEveryLibrary, arg.LibraryIdsJSON)
 	if err != nil {
@@ -252,6 +269,17 @@ WHERE id = ?1 AND kind = 'series' AND followed_source IS NULL
 // The provider found nothing for a series whose own fields have no source yet.
 func (q *Queries) MarkSeriesUnmatched(ctx context.Context, id int64) error {
 	_, err := q.db.ExecContext(ctx, markSeriesUnmatched, id)
+	return err
+}
+
+const returnAmbiguousSeriesToItsFirstMatch = `-- name: ReturnAmbiguousSeriesToItsFirstMatch :exec
+UPDATE collection SET identification_state = 'unidentified'
+WHERE id = ?1 AND kind = 'series' AND identification_state = 'ambiguous'
+`
+
+// A series the matcher left ambiguous that its kept results now settle: owed its first match again.
+func (q *Queries) ReturnAmbiguousSeriesToItsFirstMatch(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, returnAmbiguousSeriesToItsFirstMatch, id)
 	return err
 }
 

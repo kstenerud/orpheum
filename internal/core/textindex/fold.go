@@ -64,9 +64,11 @@ func Fold(text string) string {
 // forms, case, combining marks and atomic letters folded as search folds them (D48) — keeping
 // only letters, numbers and the spacing marks some scripts write vowels with, so punctuation and
 // spacing, which files and providers write each their own way, say nothing: "Lantern's Agents"
-// and "Lanterns Agents", "Moth-Lantern" and "Moth Lantern", "Fièvre" and "FIEVRE" are one work.
+// and "Lanterns Agents", "Moth-Lantern" and "Moth Lantern", "Fièvre" and "FIEVRE" are one work. An
+// ampersand is the word it stands for: "Wit & Wilfulness" is "Wit and Wilfulness" (the owner's
+// NAS, 2026-10-13, where TMDB's single "Wit & Wilfulness" of 2005 waited for a person's choice).
 func SameWork(name string) string {
-	folded := Fold(name)
+	folded := Fold(strings.ReplaceAll(name, "&", " and "))
 	var builder strings.Builder
 	builder.Grow(len(folded))
 	for _, character := range folded {

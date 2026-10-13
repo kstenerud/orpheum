@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"maps"
 	"path"
+	"strings"
 
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
@@ -32,11 +33,17 @@ func (filer *libraryFiler) fileEpisode(
 		return err
 	}
 	filer.seriesIDByFolder[seriesFolderOf(file.Path)] = seriesID
+	if numberErr := filer.numberBySpecials(ctx, seriesID, &parsed); numberErr != nil {
+		return numberErr
+	}
 	season, number := parsed.Season, parsed.Episode
 	spec := titleSpec{
 		kind: library.TitleKindEpisode, name: fmt.Sprintf("Episode %d", number),
 		runtimeMs: probeRuntimeMs(file.ProbeJSON),
 		ids:       map[string]string{},
+	}
+	if parsed.IsUnnumbered {
+		return filer.fileUnnumberedSpecial(ctx, file, seriesID, parsed, spec)
 	}
 	nfo, hasNFO := filer.nfoFor(file)
 	switch {
@@ -67,6 +74,72 @@ func (filer *libraryFiler) fileEpisode(
 	}
 	return filer.place(ctx, file, titleID, spec)
 }
+
+// numberBySpecials gives an unnumbered special the number its series' listing of specials gives
+// its name, when it has one (specialNamed).
+func (filer *libraryFiler) numberBySpecials(ctx context.Context, seriesID int64, parsed *ParsedPath) error {
+	if !parsed.IsUnnumbered {
+		return nil
+	}
+	named, err := filer.specialNamed(ctx, seriesID, parsed.EpisodeName)
+	if err == nil && named > 0 {
+		parsed.Episode, parsed.IsUnnumbered = named, false
+	}
+	return err
+}
+
+// fileUnnumberedSpecial files a video of a series library that no marker, folder or listing
+// numbers: a special of season 0, named as its file is, keyed by its path, after the numbered ones
+// (ParseEpisodePath). It is no film, and nothing waits to identify it: its series is what is matched.
+func (filer *libraryFiler) fileUnnumberedSpecial(
+	ctx context.Context, file sqlcgen.ListIdentifyFilesRow, seriesID int64, parsed ParsedPath, spec titleSpec,
+) error {
+	spec.name = parsed.EpisodeName
+	if spec.name == "" {
+		spec.name = "Special"
+	}
+	spec.source, spec.identification = sourceNone, identificationIdentified
+	spec.key = fmt.Sprintf("special|%d|%s", seriesID, strings.ToLower(file.Path))
+	titleID, err := filer.findOrAddTitle(ctx, spec)
+	if err != nil {
+		return err
+	}
+	if err := filer.positionUnnumbered(ctx, seriesID, titleID); err != nil {
+		return err
+	}
+	return filer.place(ctx, file, titleID, spec)
+}
+
+// specialNamed is the number its matched series' listing of specials (season 0) gives a special
+// of that name, or 0: Brackenmere's "The Promised Land", a film filed in a series, is one of its
+// specials at TMDB. A file's name may carry the series' before the special's.
+func (filer *libraryFiler) specialNamed(ctx context.Context, seriesID int64, name string) (int, error) {
+	series, err := filer.cachedSeriesMatch(ctx, seriesID)
+	if err != nil || !isSeriesMatched(series) || name == "" {
+		return 0, err
+	}
+	provider, known := filer.providers[providerOf(filer.library.MetadataSource)]
+	if !known {
+		return 0, nil
+	}
+	episodes, _, err := filer.seasonListing(ctx, seriesID, provider, 0)
+	if err != nil {
+		return 0, err
+	}
+	wanted := textindex.SameWork(name)
+	for _, episode := range episodes {
+		listed := textindex.SameWork(episode.Name)
+		isNamed := listed == wanted || strings.HasSuffix(wanted, listed) && len(listed) >= minimumSpecialName
+		if listed != "" && isNamed {
+			return episode.Number, nil
+		}
+	}
+	return 0, nil
+}
+
+// minimumSpecialName is the shortest listed name, folded, that a file's name may end with and be
+// that special: shorter ones ("Pilot") end too many names.
+const minimumSpecialName = 8
 
 // showNFOFor is the tvshow.nfo in the nearest folder above a file, if there is one.
 func (filer *libraryFiler) showNFOFor(file sqlcgen.ListIdentifyFilesRow) (NFO, bool) {
@@ -226,6 +299,33 @@ func (filer *libraryFiler) positionEpisode(ctx context.Context, seriesID, titleI
 	}
 	return nil
 }
+
+// positionUnnumbered puts a special no number places in its series, in season 0 after the
+// numbered ones, with no number of its own.
+func (filer *libraryFiler) positionUnnumbered(ctx context.Context, seriesID, titleID int64) error {
+	sortOrder := float64(unnumberedSortOrder)
+	err := filer.queries.UpsertCollectionMember(ctx, sqlcgen.UpsertCollectionMemberParams{
+		CollectionID: seriesID, MemberTitle: &titleID, Position: &sortOrder,
+	})
+	if err != nil {
+		return fmt.Errorf("add title %d to series %d: %w", titleID, seriesID, err)
+	}
+	ordering, err := airedOrderingOf(ctx, filer.queries, seriesID)
+	if err != nil {
+		return err
+	}
+	season := int64(0)
+	err = filer.queries.UpsertPosition(ctx, sqlcgen.UpsertPositionParams{
+		OrderingID: ordering, TitleID: titleID, GroupNumber: &season, NumberInGroup: nil, SortOrder: sortOrder,
+	})
+	if err != nil {
+		return fmt.Errorf("place title %d among series %d's specials: %w", titleID, seriesID, err)
+	}
+	return nil
+}
+
+// unnumberedSortOrder places unnumbered specials after season 0's numbered episodes, before season 1.
+const unnumberedSortOrder = 9_999
 
 // airedOrderingOf is a series' aired order, made when it has none yet.
 func airedOrderingOf(ctx context.Context, queries *sqlcgen.Queries, seriesID int64) (int64, error) {

@@ -92,7 +92,7 @@ describe("App", () => {
           "GET /titles": [200, { titles: [], nextCursor: "" }],
           "GET /needs-attention": [
             200,
-            { rootCount: 1, diskCount: 0, waitingRootCount: 0, unreadCount: 0 },
+            { rootCount: 1, diskCount: 0, waitingRootCount: 0, unreadCount: 0, matchCount: 0 },
           ],
         },
         heard,
@@ -111,6 +111,34 @@ describe("App", () => {
     const person = await pageFor(false);
     expect(person.hasSign).toBe(false);
     expect(person.asked).not.toContain("GET /needs-attention");
+  });
+
+  it("shows an admin the warning sign while films or series wait for their match, and the page leads to them (the owner, 2026-10-13)", async () => {
+    const services = servedBy(
+      {
+        "GET /me": [200, { id: 1, name: "owner", role: "admin", isAdmin: true }],
+        "GET /home": [200, { continueWatching: [] }],
+        "GET /titles": [200, { titles: [], nextCursor: "" }],
+        "GET /needs-attention": [
+          200,
+          { rootCount: 0, diskCount: 0, waitingRootCount: 0, unreadCount: 0, matchCount: 97 },
+        ],
+      },
+      [],
+      "token",
+    );
+    const mounted = await mount(withServices(<App />, services));
+    const sign = mounted.container.querySelector(".status-tray__button--warning");
+    expect(sign).not.toBeNull();
+    await click(sign);
+    expect(mounted.container.textContent).toContain(
+      "97 films and series need you to choose their match.",
+    );
+    const toMatches = [...mounted.container.querySelectorAll("a")].find(
+      (link) => link.textContent === "Needs a match" && link.closest("main") !== null,
+    );
+    expect(toMatches?.getAttribute("href")).toBe("/identify");
+    mounted.unmount();
   });
 
   it("says when an address names nothing", () => {
@@ -138,7 +166,7 @@ describe("App", () => {
         "GET /titles": [200, { titles: [], nextCursor: "" }],
         "GET /needs-attention": [
           200,
-          { rootCount: 0, diskCount: 0, waitingRootCount: 0, unreadCount: 0 },
+          { rootCount: 0, diskCount: 0, waitingRootCount: 0, unreadCount: 0, matchCount: 0 },
         ],
       },
       [],

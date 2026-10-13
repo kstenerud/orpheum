@@ -4,6 +4,7 @@ package identify
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -15,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -136,7 +138,7 @@ func (pass *Pass) IdentifyLibrary(ctx context.Context, libraryID int64) (Report,
 			evidence: map[int64][]titleSpec{}, titleIDByFile: map[int64]int64{}, extraReasonByFile: map[int64]string{},
 			localArt: map[int64][]LocalImage{}, seriesIDByFolder: map[string]int64{},
 			seriesSpecByID: map[int64]seriesSpec{}, seriesMatchByID: map[int64]sqlcgen.GetSeriesForMatchRow{},
-			listings: map[string][]Episode{}, returningEpisodes: map[int64]bool{},
+			listings: map[string][]Episode{}, returningEpisodes: map[int64]bool{}, contradicted: map[int64]bool{},
 		}
 		if loadErr := filer.load(ctx, libraryID); loadErr != nil {
 			return loadErr
@@ -186,6 +188,9 @@ type libraryFiler struct {
 	// returningEpisodes are the episodes of a series brought back into this library, each brought
 	// back with it when a file of it is filed (D208 section 2).
 	returningEpisodes map[int64]bool
+	// contradicted are the files whose place their path now contradicts, filed again as a moved
+	// file is (contradictedPlacements).
+	contradicted map[int64]bool
 }
 
 // listAwaitingMatch lists what the fetch queue owes the library: films and series never answered for.
@@ -207,6 +212,9 @@ func (filer *libraryFiler) listAwaitingMatch(ctx context.Context, libraryID int6
 
 // identify files every video: films and episodes first, so an extra can find its film.
 func (filer *libraryFiler) identify(ctx context.Context) error {
+	if err := filer.contradictedPlacements(ctx); err != nil {
+		return err
+	}
 	if err := filer.knowSeriesByFolder(ctx); err != nil {
 		return err
 	}
@@ -219,7 +227,7 @@ func (filer *libraryFiler) identify(ctx context.Context) error {
 		if !ok {
 			continue
 		}
-		if extra, isExtra := detectExtra(relativePath); isExtra {
+		if extra, isExtra := detectExtra(relativePath); isExtra && !filer.isSeriesLibrary() {
 			extras = append(extras, pendingExtra{file: file, relativePath: relativePath, extra: extra})
 			continue
 		}
@@ -254,7 +262,7 @@ func (filer *libraryFiler) knowSeriesByFolder(ctx context.Context) error {
 		if !isVideo(file) || !ok {
 			continue
 		}
-		parsed := ParsePath(relativePath)
+		parsed := filer.parse(relativePath)
 		if parsed.Kind != library.TitleKindEpisode {
 			continue
 		}
@@ -297,7 +305,7 @@ func (filer *libraryFiler) relativePath(file sqlcgen.ListIdentifyFilesRow) (stri
 func (filer *libraryFiler) fileFilmOrEpisode(
 	ctx context.Context, file sqlcgen.ListIdentifyFilesRow, relativePath string,
 ) error {
-	parsed := ParsePath(relativePath)
+	parsed := filer.parse(relativePath)
 	if parsed.Kind == library.TitleKindEpisode {
 		return filer.fileEpisode(ctx, file, parsed)
 	}
@@ -311,6 +319,69 @@ func (filer *libraryFiler) fileFilmOrEpisode(
 	}
 	filer.titleIDByFolder[path.Dir(file.Path)] = titleID
 	return filer.place(ctx, file, titleID, spec)
+}
+
+// isSeriesLibrary is whether every video of the library is an episode of a series.
+func (filer *libraryFiler) isSeriesLibrary() bool {
+	return filer.library.Kind == library.LibraryKindShows
+}
+
+// parse reads a path as the library's kind says: in a series library, as an episode or a special
+// whatever its name (ParseEpisodePath), never a film.
+func (filer *libraryFiler) parse(relativePath string) ParsedPath {
+	if filer.isSeriesLibrary() {
+		return ParseEpisodePath(relativePath)
+	}
+	return ParsePath(relativePath)
+}
+
+// contradictedPlacements finds, in a series library, the files whose place the path now
+// contradicts, which the pass files again as it would a moved file, unless a person confirmed them
+// (D208 §1): one filed as a film, or an episode in a series no one matched whose name its folders
+// no longer give. Kept where they were, the episodes an older reading of the folders made series of
+// their own, and the featurettes it made films, stayed there however often the library was scanned
+// (the owner's NAS, 2026-10-13).
+func (filer *libraryFiler) contradictedPlacements(ctx context.Context) error {
+	if !filer.isSeriesLibrary() {
+		return nil
+	}
+	for _, file := range filer.files {
+		relativePath, ok := filer.relativePath(file)
+		if !isVideo(file) || !ok || file.VersionID == nil || hasMoved(file) {
+			continue
+		}
+		current, err := filer.queries.GetVersionTitle(ctx, *file.VersionID)
+		if err != nil {
+			return fmt.Errorf("read %s's version: %w", file.Path, err)
+		}
+		if current.IdentificationState == identificationConfirmed {
+			continue
+		}
+		place, err := store.OrNotFound(filer.queries.GetEpisodePlace(ctx, current.TitleID))
+		if errors.Is(err, store.ErrNotFound) {
+			filer.contradicted[file.ID] = true // not an episode
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("read title %d's series: %w", current.TitleID, err)
+		}
+		series, err := filer.cachedSeriesMatch(ctx, place.CollectionID)
+		if err != nil {
+			return err
+		}
+		pathName := ParseEpisodePath(relativePath).Name
+		named := textindex.SameWork(ptr.ValueOrZero(series.Name)) == textindex.SameWork(pathName)
+		if !isSeriesMatched(series) && !named {
+			filer.contradicted[file.ID] = true
+		}
+	}
+	return nil
+}
+
+// isFiledAgain is whether a file's place is derived again rather than kept: it moved (D208 §1), or
+// its path now contradicts its place.
+func (filer *libraryFiler) isFiledAgain(file sqlcgen.ListIdentifyFilesRow) bool {
+	return hasMoved(file) || filer.contradicted[file.ID]
 }
 
 // movieSpec is what a film's file and its NFO say about the work.
@@ -409,7 +480,7 @@ func (filer *libraryFiler) keepOrMove(
 	if err != nil {
 		return 0, fmt.Errorf("read %s's version: %w", file.Path, err)
 	}
-	if current.IdentificationState == identificationConfirmed || !hasMoved(file) {
+	if current.IdentificationState == identificationConfirmed || !filer.isFiledAgain(file) {
 		titleID = current.TitleID
 	} else if current.TitleID != titleID {
 		move := sqlcgen.MoveVersionToTitleParams{TitleID: titleID, ID: *file.VersionID}
@@ -436,7 +507,7 @@ func hasMoved(file sqlcgen.ListIdentifyFilesRow) bool {
 
 // currentTitle is the title a file already belongs to, if it has one and has not moved.
 func (filer *libraryFiler) currentTitle(ctx context.Context, file sqlcgen.ListIdentifyFilesRow) (int64, bool, error) {
-	if file.VersionID == nil || hasMoved(file) {
+	if file.VersionID == nil || filer.isFiledAgain(file) {
 		return 0, false, nil
 	}
 	current, err := filer.queries.GetVersionTitle(ctx, *file.VersionID)

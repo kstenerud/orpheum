@@ -23,6 +23,7 @@ const nothingWrong = {
   diskCount: 0,
   waitingRootCount: 0,
   unreadCount: 0,
+  matchCount: 0,
 };
 const somethingWrong = { ...nothingWrong, waitingRootCount: 1, unreadCount: 2 };
 

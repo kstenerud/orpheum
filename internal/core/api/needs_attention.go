@@ -22,6 +22,10 @@ type NeedsAttentionOutput struct {
 		// files; UnreadCount how many files and folders scans could not read (D277).
 		WaitingRootCount int `json:"waitingRootCount"`
 		UnreadCount      int `json:"unreadCount"`
+		// MatchCount is how many films and series wait for the admin to choose their match, among
+		// several or after none was found, as "Needs a match" lists them (the owner, 2026-10-13:
+		// "Needs a match should show up as one of the things under the exclamation point tray icon").
+		MatchCount int `json:"matchCount"`
 	}
 }
 
@@ -61,5 +65,9 @@ func (server *Server) getNeedsAttention(
 		}
 	}
 	output.Body.WaitingRootCount, output.Body.UnreadCount = len(waiting), len(unread)
+	output.Body.MatchCount, err = dependencies.Chooser.WaitingForAPerson(ctx)
+	if err != nil {
+		return nil, server.libraryError(ctx, "count what needs a match", err)
+	}
 	return output, nil
 }

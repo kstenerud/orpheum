@@ -2646,6 +2646,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "matchCount": {
+            "format": "int64",
+            "type": "integer"
+          },
           "rootCount": {
             "format": "int64",
             "type": "integer"
@@ -2663,7 +2667,8 @@
           "rootCount",
           "diskCount",
           "waitingRootCount",
-          "unreadCount"
+          "unreadCount",
+          "matchCount"
         ],
         "type": "object"
       },

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"unicode"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -147,25 +148,174 @@ func (matcher *Matcher) idInHand(ctx context.Context, provider Provider, kind st
 	return "", nil
 }
 
+// ReconsiderAmbiguous returns to their first match the films and series left ambiguous whose kept
+// search results the rules now settle: a rule that changed since they were searched would settle
+// them, and nothing searched them again (the owner's NAS, 2026-10-13, where Wit & Wilfulness of
+// 2005, TMDB's one answer, waited for a person's choice). It reads only persistent.db and cache.db,
+// asking no provider; the first-match sweep then searches each once more, and accepts what the
+// rules settle. A person's choice is never undone. It says how many it returned.
+func (matcher *Matcher) ReconsiderAmbiguous(ctx context.Context) (int, error) {
+	waiting, err := matcher.ambiguousItems(ctx)
+	if err != nil {
+		return 0, err
+	}
+	var settled []reconsidered
+	for _, item := range waiting {
+		isSettled, settleErr := matcher.isSettledByKept(ctx, item.id, item.query)
+		if settleErr != nil {
+			return 0, settleErr
+		}
+		if isSettled {
+			settled = append(settled, item)
+		}
+	}
+	if len(settled) == 0 {
+		return 0, nil
+	}
+	err = matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		for _, item := range settled {
+			returnErr := queries.ReturnAmbiguousTitleToItsFirstMatch(ctx, item.id)
+			if item.query.Kind == KindSeries {
+				returnErr = queries.ReturnAmbiguousSeriesToItsFirstMatch(ctx, item.id)
+			}
+			if returnErr != nil {
+				return fmt.Errorf("return item %d to its first match: %w", item.id, returnErr)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, fmt.Errorf("return the settled to their first match: %w", err)
+	}
+	return len(settled), nil
+}
+
+// reconsidered is an ambiguous film or series, and the query its kept results answered.
+type reconsidered struct {
+	id    int64
+	query Query
+}
+
+// ambiguousItems are the films and series left ambiguous, with a live file, and their queries.
+func (matcher *Matcher) ambiguousItems(ctx context.Context) ([]reconsidered, error) {
+	queries := matcher.database.Read()
+	titles, err := queries.ListTitlesByIdentification(ctx, sqlcgen.ListTitlesByIdentificationParams{
+		IdentificationState: identificationAmbiguous, IsEveryLibrary: 1, LibraryIdsJSON: "[]",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list the ambiguous titles: %w", err)
+	}
+	series, err := queries.ListSeriesByIdentification(ctx, sqlcgen.ListSeriesByIdentificationParams{
+		IdentificationState: ptr.NilIfZero(identificationAmbiguous), IsEveryLibrary: 1, LibraryIdsJSON: "[]",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list the ambiguous series: %w", err)
+	}
+	items := make([]reconsidered, 0, len(titles)+len(series))
+	for _, title := range titles {
+		if title.Kind == KindMovie {
+			items = append(items, reconsidered{id: title.ID, query: Query{
+				Kind: KindMovie, Name: ptr.ValueOrZero(title.Name), Year: int(ptr.ValueOrZero(title.Year)),
+			}})
+		}
+	}
+	for _, one := range series {
+		items = append(items, reconsidered{id: one.ID, query: Query{
+			Kind: KindSeries, Name: ptr.ValueOrZero(one.Name), Year: int(ptr.ValueOrZero(one.Year)),
+		}})
+	}
+	return items, nil
+}
+
+// isSettledByKept is whether an item's kept search results hold its one match by singleMatch.
+// A film's year is required, a series' not (singleMatch).
+func (matcher *Matcher) isSettledByKept(ctx context.Context, itemID int64, query Query) (bool, error) {
+	kept, err := matcher.cache.Read().ListMatchCandidates(ctx, itemID)
+	if err != nil {
+		return false, fmt.Errorf("read item %d's candidates: %w", itemID, err)
+	}
+	candidates := make([]Candidate, 0, len(kept))
+	for _, row := range kept {
+		candidates = append(candidates, Candidate{
+			ID: row.ProviderID, Name: ptr.ValueOrZero(row.Name), Year: int(ptr.ValueOrZero(row.Year)),
+		})
+	}
+	_, isSettled := singleMatch(query, candidates, query.Kind == KindMovie)
+	return isSettled, nil
+}
+
 // singleMatch is the one candidate whose name and year are the query's (D172). A film with no
 // year in hand matches nothing: a wrong match is worse than none. A series' year is checked
 // where its folder or tvshow.nfo gives one (D209).
+//
+// It looks in tiers, each still asking for exactly one candidate, the next only when the one before
+// found none: the name and the year; the name and a year one off, as a film's year at TMDB is
+// often its first showing's, the year before its release (Larkhollow, 1997, is TMDB's 1998);
+// and a candidate whose whole name begins the query's, word by word, in the year, as a release
+// name carries a subtitle the provider's does not ("Wild Rex 2 The Dust Road" is TMDB's "Wild Rex
+// 2", 1981). Several candidates in one tier are still ambiguous (the owner's NAS, 2026-10-13,
+// where 72 films waited for a choice, most with one plain answer).
 func singleMatch(query Query, candidates []Candidate, isYearRequired bool) (Candidate, bool) {
 	if query.Year == 0 && isYearRequired {
 		return Candidate{}, false
 	}
-	var found []Candidate
-	want := textindex.SameWork(query.Name)
-	for _, candidate := range candidates {
-		named := textindex.SameWork(candidate.Name) == want || textindex.SameWork(candidate.OriginalName) == want
-		if named && (query.Year == 0 || candidate.Year == query.Year) {
-			found = append(found, candidate)
+	for _, tier := range matchTiers(query) {
+		var found []Candidate
+		for _, candidate := range candidates {
+			if tier(candidate) {
+				found = append(found, candidate)
+			}
+		}
+		if len(found) > 0 {
+			return found[0], len(found) == 1
 		}
 	}
-	if len(found) != 1 {
-		return Candidate{}, false
+	return Candidate{}, false
+}
+
+// matchTiers are singleMatch's tiers, in order: the name and the year; the name and a year one
+// off; the name beginning the query's, word by word, in its year.
+func matchTiers(query Query) []func(Candidate) bool {
+	want := textindex.SameWork(query.Name)
+	named := func(candidate Candidate) bool {
+		return textindex.SameWork(candidate.Name) == want || textindex.SameWork(candidate.OriginalName) == want
 	}
-	return found[0], true
+	withinYears := func(candidate Candidate, years int) bool {
+		return query.Year == 0 || (candidate.Year >= query.Year-years && candidate.Year <= query.Year+years)
+	}
+	return []func(Candidate) bool{
+		func(candidate Candidate) bool { return named(candidate) && withinYears(candidate, 0) },
+		func(candidate Candidate) bool {
+			return named(candidate) && query.Year != 0 && withinYears(candidate, 1)
+		},
+		func(candidate Candidate) bool {
+			return query.Year != 0 && candidate.Year == query.Year &&
+				(beginsByWords(query.Name, candidate.Name) || beginsByWords(query.Name, candidate.OriginalName))
+		},
+	}
+}
+
+// beginsByWords is whether name begins with every word of prefix, and has more: "Wild Rex 2 The
+// Road Warrior" begins with "Wild Rex 2", not "Wild Rex" alone being "Wild Rex 2", and "Wings" does
+// not begin with "Wing". Words compare as SameWork does.
+func beginsByWords(name, prefix string) bool {
+	words, start := wordsOf(name), wordsOf(prefix)
+	if len(start) == 0 || len(words) <= len(start) {
+		return false
+	}
+	for index, word := range start {
+		if textindex.SameWork(word) != textindex.SameWork(words[index]) {
+			return false
+		}
+	}
+	return true
+}
+
+// wordsOf is a name's words: what lies between its spaces and its marks, "&" a word of its own.
+func wordsOf(name string) []string {
+	return strings.FieldsFunc(strings.ReplaceAll(name, "&", " and "), func(character rune) bool {
+		return !unicode.IsLetter(character) && !unicode.IsNumber(character) && !unicode.Is(unicode.Mc, character)
+	})
 }
 
 // accept fetches the work, stores the response and re-derives the title from it, identified by

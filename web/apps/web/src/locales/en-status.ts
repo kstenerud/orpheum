@@ -21,7 +21,9 @@ export const enStatus = {
     missingDisks: "{{count}} folders mounted inside library folders are missing.",
     waitingFolders: "{{count}} library folders' scans wait for you before removing files.",
     unreadPaths: "{{count}} files or folders could not be read.",
+    waitingMatches: "{{count}} films and series need you to choose their match.",
     toSystem: "The System page",
     toLibraries: "The Libraries",
+    toIdentify: "Needs a match",
   },
 };

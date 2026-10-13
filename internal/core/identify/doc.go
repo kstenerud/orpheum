@@ -57,6 +57,11 @@
 //     TestMatch_ADeletedLibrarysSeriesMatchedAgainElsewhereComesBack.
 //   - A match is never guessed: a provider id in hand skips the search, a single result matching
 //     the name and year is accepted, and anything else is ambiguous with its results kept (D172).
+//     The one result may also be a year off, or a name the file's begins with word by word in its
+//     year, each tier asked only when the one before found none; two in a tier stay ambiguous (the
+//     owner, 2026-10-13). TestMatch_AYearOffOrASubtitleStillFindsTheOneWork. A film or series left
+//     ambiguous that its kept results now settle is owed its first match again, and a person's
+//     choice never is. TestMatch_AnAmbiguousFilmTheRulesNowSettleIsMatchedAgain.
 //     TestMatch_AProviderIDInHandSkipsTheSearch, TestMatch_AnAmbiguousSearchIsNeverGuessed,
 //     TestMatch_ASingleResultMatchingNameAndYearIsAcceptedAndReplayedFromTheStoredResponse.
 //   - A pass re-derives a matched title from its stored response and never calls a provider;
@@ -72,6 +77,12 @@
 //     TestChooser_SearchesAgainWhenTheCacheLostTheCandidates.
 //   - A person's override holds until it is removed, then the field follows its source (D183).
 //     TestChooser_AnOverrideHoldsUntilItIsRemoved.
+//   - In a series library every video is an episode: a marker, "Show - 01 - Its Name" or an "E01"
+//     numbers it, and anything else, or in a specials or extras folder, is a special of season 0 in
+//     the series its outermost folder names; a folder named for one episode names no series of its
+//     own (the owner, 2026-10-13). TestPass_ASeriesLibraryFilesEveryVideoAsAnEpisodeOrASpecialNeverAFilm.
+//     A placement its path now contradicts, in a series no one matched or confirmed, is filed again
+//     though the file never moved. TestPass_EpisodesAnOlderReadingSplitIntoSeriesOfTheirOwnComeTogether.
 //   - For shows, the series is what is matched, ambiguous and chosen; an episode is never
 //     searched, and takes its values from its series' season listing, one fetch a season; a new
 //     episode missing from a listing fetched before it arrived fetches that listing again (D209).

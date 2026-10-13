@@ -13,6 +13,10 @@ const (
 	FilingSkipped      = "skipped"
 	FilingErrored      = "errored"
 
+	// LibraryKindShows is a series library, every video of which is an episode of a series (the
+	// owner, 2026-10-13).
+	LibraryKindShows = "shows"
+
 	TitleKindMovie   = "movie"
 	TitleKindEpisode = "episode"
 	TitleKindExtra   = "extra"

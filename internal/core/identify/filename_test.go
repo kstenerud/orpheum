@@ -4,6 +4,7 @@ package identify
 
 import (
 	"maps"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -113,6 +114,86 @@ func TestParsePath_NoExpressionUsesAnASCIIOnlyClass(t *testing.T) {
 			if strings.Contains(pattern.String(), banned) {
 				t.Errorf("%s uses %s (D49): use \\p{L}, \\p{N} or \\p{Z}", pattern, banned)
 			}
+		}
+	}
+}
+
+// Episodes as the owner's NAS lays them out (2026-10-13): a folder per episode, a folder per
+// episode's number, a site's name before the release, extras and specials inside a series.
+func TestParsePath_AnEpisodesFolderOrNumberNamesNoSeriesOfItsOwn(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		path            string
+		name            string
+		season, episode int
+	}{
+		{
+			"Wing Vellmoor/Wing.Vellmoor.S01E01.1080p.x265-LANTERN/Wing.Vellmoor.S01E01.1080p.x265-LANTERN.mkv",
+			"Wing Vellmoor", 1, 1,
+		},
+		{"Star Wren Lower Rooms/S04/Star.Wren.Lower.Rooms.S04E01.1080p.HEVC.x265-WICKER[SHELF]/" +
+			"Star.Wren.Lower.Rooms.S04E01.1080p.HEVC.x265-WICKER.mkv", "Star Wren Lower Rooms", 4, 1},
+		{
+			"Corvessa/01.Corvessa.S01.720p.Bluray.x264.anoXmous/E01/Corvessa.S01E01.720p.Bluray.x264.anoXmous_.mp4",
+			"Corvessa", 1, 1,
+		},
+		{"Wed At First Light/www.example.org    -    Wed.At.First.Light.AU.S13E01.1080p.HDTV.H264-TALLOW/" +
+			"Wed.At.First.Light.AU.S13E01.1080p.HDTV.H264-TALLOW.mkv", "Wed At First Light", 13, 1},
+		{"Wing.Vellmoor.S01E02.1080p.x265-LANTERN/Wing.Vellmoor.S01E02.1080p.x265-LANTERN.mkv", "Wing Vellmoor", 1, 2},
+	}
+	for _, test := range cases {
+		parsed := ParsePath(test.path)
+		if parsed.Kind != "episode" || parsed.Name != test.name || parsed.Season != test.season ||
+			parsed.Episode != test.episode {
+			t.Errorf("ParsePath(%q) = %q %q S%dE%d; want episode %q S%dE%d", test.path, parsed.Kind, parsed.Name,
+				parsed.Season, parsed.Episode, test.name, test.season, test.episode)
+		}
+	}
+}
+
+func TestParseEpisodePath_InASeriesLibraryEverythingIsAnEpisodeOrASpecial(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		path string
+		want ParsedPath
+	}{
+		{"The Wanderer (1967)/The Wanderer - 01 - The Bells of Saint Quill.mkv", ParsedPath{
+			Kind: "episode", Name: "The Wanderer", Year: 1967, Season: 1, Episode: 1,
+			EpisodeName: "The Bells of Saint Quill",
+		}},
+		{
+			"Brindlewood/Brindlewood Season 5  [1080p x265 10bit FS89 Joy]/Featurettes/Six Seasons and A Finale.mkv",
+			ParsedPath{Kind: "episode", Name: "Brindlewood", EpisodeName: "Six Seasons and A Finale", IsUnnumbered: true},
+		},
+		{"Star Wren Far Harbour Nine/Season 1/Star Wren Far Harbour Nine - Season 1 - DVD Extras/" +
+			"Far Harbour Nine A Bright Opening.mkv", ParsedPath{
+			Kind: "episode", Name: "Star Wren Far Harbour Nine", EpisodeName: "Far Harbour Nine A Bright Opening",
+			IsUnnumbered: true,
+		}},
+		{"The Server Room Lot/Extras/The Server Room Lot Season 3 - Extras/Out-takes.avi", ParsedPath{
+			Kind: "episode", Name: "The Server Room Lot", EpisodeName: "Out-takes", IsUnnumbered: true,
+		}},
+		{"Some.Fathers.Do.Mind.Em.Complete.Series.Plus.Christmas.Specials.DVDRip.H264(BINGOWINGZ-UKB-RG)/" +
+			"Christmas SPECIALS/Learning to Row.mp4", ParsedPath{
+			Kind: "episode", Name: "Some Fathers Do Mind Em",
+			EpisodeName: "Learning to Row", IsUnnumbered: true,
+		}},
+		{
+			"Brackenmere/The Promised Land 2020/Brackenmere The Promised Land 2020 1080p BluRay HEVC x265 5.1 BONE.mkv",
+			ParsedPath{
+				Kind: "episode", Name: "Brackenmere", EpisodeName: "Brackenmere The Promised Land",
+				IsUnnumbered: true,
+			},
+		},
+		{"The Pumbletons/The Pumbletons S05 720p x265/Special features - Deleted Scenes.mkv", ParsedPath{
+			Kind: "episode", Name: "The Pumbletons", EpisodeName: "Special features", IsUnnumbered: true,
+		}},
+	}
+	for _, test := range cases {
+		parsed := ParseEpisodePath(test.path)
+		parsed.ProviderIDs, parsed.ExtraSuffix = nil, ""
+		if !reflect.DeepEqual(parsed, test.want) {
+			t.Errorf("ParseEpisodePath(%q) =\n %+v\nwant\n %+v", test.path, parsed, test.want)
 		}
 	}
 }

@@ -11,8 +11,10 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/providers"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
+	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -89,19 +91,20 @@ func TestMatch_ACandidateIsNamedAsTheFileIsByTheOneIdentityFold(t *testing.T) {
 func TestMatch_AnAmbiguousSearchIsNeverGuessed(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "tmdb")
-	// Two remakes a year apart, neither in the year the file names; and a file with no year.
-	lib.provider.Searches[identifytest.SearchKey("The General", 2003)] = []identify.Candidate{
+	// Two remakes, neither within a year of the one the file names; and a file with no year. One a
+	// year off would be taken (TestMatch_AYearOffOrASubtitleStillFindsTheOneWork).
+	lib.provider.Searches[identifytest.SearchKey("The General", 2004)] = []identify.Candidate{
 		{ID: "1", Name: "The General", Year: 1972}, {ID: "2", Name: "The General", Year: 2002},
 	}
 	lib.provider.Searches[identifytest.SearchKey("Metropolis", 0)] = []identify.Candidate{lib.provider.Add(heat)}
-	lib.scan(videoRecord("The General (2003).mkv"), videoRecord("Metropolis.mkv"))
-	for _, rel := range []string{"The General (2003).mkv", "Metropolis.mkv"} {
+	lib.scan(videoRecord("The General (2004).mkv"), videoRecord("Metropolis.mkv"))
+	for _, rel := range []string{"The General (2004).mkv", "Metropolis.mkv"} {
 		if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeAmbiguous {
 			t.Errorf("%s: outcome %s, want ambiguous", rel, outcome)
 		}
 	}
-	lib.scan(videoRecord("The General (2003).mkv"), videoRecord("Metropolis.mkv"))
-	solaris := lib.titlesByPath()["The General (2003).mkv"]
+	lib.scan(videoRecord("The General (2004).mkv"), videoRecord("Metropolis.mkv"))
+	solaris := lib.titlesByPath()["The General (2004).mkv"]
 	if solaris.IdentificationState != identify.IdentificationAmbiguous || solaris.Filing != identify.FilingListed ||
 		solaris.FollowedSource != nil {
 		t.Errorf("after another pass: %+v; want ambiguous, listed on local data", solaris)
@@ -119,6 +122,95 @@ func TestMatch_AnAmbiguousSearchIsNeverGuessed(t *testing.T) {
 	}
 	if slices.Contains(lib.provider.Calls, "fetch 949") {
 		t.Error("a film with no year was fetched: its single result was taken as its match")
+	}
+}
+
+// The owner's NAS, 2026-10-13: films with one plain answer waited for a person's choice. A year
+// one off, a subtitle the release name carries, an ampersand spelled out, each still finds the one
+// work; two within a year stay a person's choice.
+func TestMatch_AYearOffOrASubtitleStillFindsTheOneWork(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "tmdb")
+	lib.provider.Searches[identifytest.SearchKey("Larkhollow", 1997)] = []identify.Candidate{
+		lib.provider.Add(identify.Metadata{ID: "10", Name: "Larkhollow", Year: 1998}),
+	}
+	lib.provider.Searches[identifytest.SearchKey("Wild Rex 2 The Dust Road", 1981)] = []identify.Candidate{
+		lib.provider.Add(identify.Metadata{ID: "11", Name: "Wild Rex 2", Year: 1981}),
+		{ID: "12", Name: "Wild Rex", Year: 1979},
+	}
+	lib.provider.Searches[identifytest.SearchKey("Wit and Wilfulness", 2005)] = []identify.Candidate{
+		lib.provider.Add(identify.Metadata{ID: "13", Name: "Wit & Wilfulness", Year: 2005}),
+		{ID: "14", Name: "Wit and Wilfulness", Year: 1940},
+	}
+	lib.provider.Searches[identifytest.SearchKey("Wings", 1986)] = []identify.Candidate{
+		{ID: "15", Name: "Wing", Year: 1986},
+	}
+	lib.provider.Searches[identifytest.SearchKey("Quillfen", 2014)] = []identify.Candidate{
+		{ID: "16", Name: "Quillfen", Year: 2013}, {ID: "17", Name: "Quillfen", Year: 2015},
+	}
+	files := map[string]identify.Outcome{
+		"Larkhollow 1997 REMASTERED JAPANESE 1080p BluRay H264 AAC-OSPREY.mkv": identify.OutcomeMatched,
+		"Wild.Rex.2.The.Dust.Road.1981.1080p.BluRay.H264.AAC-THISTLE.mp4":     identify.OutcomeMatched,
+		"Wit.and.Wilfulness.2005.1080p.BluRay.x264.anoXmous_.mp4":            identify.OutcomeMatched,
+		"Wings (1986).mkv":  identify.OutcomeAmbiguous,
+		"Quillfen (2014).mkv": identify.OutcomeAmbiguous,
+	}
+	var records []nodeproto.ScanRecord
+	for path := range files {
+		records = append(records, videoRecord(path))
+	}
+	lib.scan(records...)
+	for path, want := range files {
+		if outcome := lib.matchFileTitle(path); outcome != want {
+			t.Errorf("%s: outcome %s; want %s", path, outcome, want)
+		}
+	}
+}
+
+// A film left ambiguous under earlier rules, whose kept results the rules now settle, is owed its
+// first match again, and the next match accepts it; one they do not settle, and a person's choice,
+// stay as they were (the owner's NAS, 2026-10-13).
+func TestMatch_AnAmbiguousFilmTheRulesNowSettleIsMatchedAgain(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "tmdb")
+	blue := lib.provider.Add(identify.Metadata{ID: "10", Name: "Larkhollow", Year: 1998})
+	lib.provider.Searches[identifytest.SearchKey("Larkhollow", 1997)] = []identify.Candidate{
+		blue, {ID: "11", Name: "Larkhollow", Year: 1998},
+	}
+	lib.provider.Searches[identifytest.SearchKey("Quillfen", 2014)] = []identify.Candidate{
+		{ID: "16", Name: "Quillfen", Year: 2014}, {ID: "17", Name: "Quillfen", Year: 2014},
+	}
+	lib.scan(videoRecord("Larkhollow (1997).mkv"), videoRecord("Quillfen (2014).mkv"))
+	for _, rel := range []string{"Larkhollow (1997).mkv", "Quillfen (2014).mkv"} {
+		if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeAmbiguous {
+			t.Fatalf("%s: %s; want ambiguous to begin with", rel, outcome)
+		}
+	}
+	// As earlier rules left it: its kept results now hold its one answer, a year off.
+	blueTitle := lib.titlesByPath()["Larkhollow (1997).mkv"].TitleID
+	err := lib.cache.Write(t.Context(), func(queries *cachegen.Queries) error {
+		if err := queries.DeleteMatchCandidates(t.Context(), blueTitle); err != nil {
+			return err //nolint:wrapcheck // the test reads it as is
+		}
+		year := int64(1998)
+		return queries.InsertMatchCandidate(t.Context(), cachegen.InsertMatchCandidateParams{
+			ItemID: blueTitle, Rank: 0, Provider: "tmdb", ProviderID: "10", Name: new("Larkhollow"), Year: &year,
+		})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lib.provider.Searches[identifytest.SearchKey("Larkhollow", 1997)] = []identify.Candidate{blue}
+	returned, err := lib.matcher.ReconsiderAmbiguous(t.Context())
+	if err != nil || returned != 1 {
+		t.Fatalf("ReconsiderAmbiguous = %d, %v; want Larkhollow alone returned to its first match", returned, err)
+	}
+	if outcome := lib.matchFileTitle("Larkhollow (1997).mkv"); outcome != identify.OutcomeMatched {
+		t.Errorf("Larkhollow: %s; want matched once returned", outcome)
+	}
+	quillfen := lib.titlesByPath()["Quillfen (2014).mkv"]
+	if quillfen.IdentificationState != identify.IdentificationAmbiguous {
+		t.Errorf("Quillfen is %s; two of its year stay a person's choice", quillfen.IdentificationState)
 	}
 }
 
