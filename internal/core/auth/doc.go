@@ -60,23 +60,28 @@
 //     TestPairing_WrongCodesCountAgainstThePersonEnteringThem,
 //     TestPairing_ADeviceSignedInBeforeResumesItselfAndANewOneNeedsAName and
 //     TestPairing_ANewCodeIsRefusedPastTheCapsAndNoWaitingOneIsPushedOut.
-//   - A sign-in resumes the device the client remembers when it is the same person's; a
-//     registration invitation is not held back by the failed-sign-in limit and clears the person from
-//     it (D221). Enforced by TestDevices_ASignInResumesTheDeviceTheClientRemembersWhenItIsTheSamePersons
-//     and TestRegistration_ALinkIsNotHeldBackByTheLimitAndMakingOneClearsThePerson.
+//   - A sign-in, or a device activated by its code, resumes the device the client remembers only when
+//     it is the same person's and the client proves it was that device, by a session token the
+//     device was issued, live or not; else it is a new device; a registration invitation is not held
+//     back by the failed-sign-in limit and clears the person from it (D221; the second audit's K1).
+//     Enforced by TestDevices_ASignInResumesTheDeviceTheClientRemembersWhenItIsTheSamePersons,
+//     TestDevices_ADeviceIsResumedOnlyByAClientThatProvesItWasIt,
+//     TestPairing_ADeviceSignedInBeforeResumesItselfAndANewOneNeedsAName and
+//     TestRegistration_ALinkIsNotHeldBackByTheLimitAndMakingOneClearsThePerson.
 //   - A session that no longer works says why: ended, lapsed, or none, so a client can tell the
 //     person (cut-a §5.2). Enforced by TestAuthenticate_SaysASessionWasEndedRatherThanUnknown.
 //   - Names are unique without regard to the case of their ASCII letters, and nothing is keyed by
 //     them. Enforced by TestRenameUser_KeepsNamesUnique.
-//   - Changing a password needs the current one and signs no one out (D218 §6); a wrong current
-//     one is ErrWrongPassword, not a failed sign-in's ErrBadCredentials. Enforced by
-//     TestChangePassword_NeedsTheCurrentOneAndKeepsOtherSessions.
+//   - Changing a password needs the current one and ends every other session of the person's; a
+//     new password set by a registration link ends every session (D218 §6 as amended 2026-10-13); a
+//     wrong current one is ErrWrongPassword, not a failed sign-in's ErrBadCredentials. Enforced by
+//     TestChangePassword_NeedsTheCurrentOne and TestPassword_ANewPasswordEndsTheOtherSessions.
 //   - A person's devices are listed, and only they, or an admin, change one, by its name or how
 //     it makes sound (D222); a removed device's sessions end, and signing out elsewhere ends
-//     every session but this device's and keeps the devices listed (D218 §4, §5). Enforced by
+//     every session but the asking one and keeps the devices listed (D218 §4, §5). Enforced by
 //     TestDevices_AreListedAndARemovedOneIsSignedOutAtItsNextRequest,
 //     TestSetAudioOutput_IsKeptOnTheDeviceAndOnlyItsOwnerSetsIt and
-//     TestSignOutElsewhere_EndsEverySessionButThisDevicesAndKeepsThemListed.
+//     TestSignOutElsewhere_EndsEverySessionButTheAskingOneAndKeepsTheDevicesListed.
 //   - An admin removes a person, never themselves (so an admin remains): every credential of
 //     theirs ends, their devices leave the list, their own watching, positions, lists, ratings and
 //     preferences are deleted (D173 §4.6), and the row stays as a tombstone whose name is free

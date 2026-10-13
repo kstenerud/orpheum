@@ -91,16 +91,14 @@ func (service *Service) RemoveDevice(ctx context.Context, userID, deviceID int64
 	})
 }
 
-// SignOutElsewhere ends every session of the person's but those of the device keepDeviceID: the
-// "sign out everywhere" D218 §5 keeps separate from a password reset. The devices stay listed.
-func (service *Service) SignOutElsewhere(ctx context.Context, userID, keepDeviceID int64) error {
-	var keep *int64
-	if keepDeviceID != 0 {
-		keep = &keepDeviceID
-	}
+// SignOutElsewhere ends every session of the person's but keepToken's, the one asking: the "sign out
+// everywhere" D218 §5 keeps separate from a password reset. The devices stay listed. It kept every
+// session of the asking device, so a session that had resumed this device stayed (the second
+// audit's K1).
+func (service *Service) SignOutElsewhere(ctx context.Context, userID int64, keepToken string) error {
 	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		return queries.RevokeSessionsOfUserExceptDevice(ctx, sqlcgen.RevokeSessionsOfUserExceptDeviceParams{
-			RevokedAt: new(service.clock.Now().UnixMilli()), UserID: &userID, KeepDeviceID: keep,
+		return queries.RevokeSessionsOfUserExceptSession(ctx, sqlcgen.RevokeSessionsOfUserExceptSessionParams{
+			RevokedAt: new(service.clock.Now().UnixMilli()), UserID: &userID, KeepSecretSha256: tokenHash(keepToken),
 		})
 	})
 	if err != nil {

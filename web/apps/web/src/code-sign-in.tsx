@@ -52,6 +52,7 @@ async function lookAtPairing(
     const pairing = await requestPairing(api, {
       secret: undefined,
       previousDeviceId: session.deviceId(),
+      previousDeviceProof: session.deviceProof(),
     });
     keepPairing(storage, pairing);
     return { kind: "pairing", pairing, state: { state: "waiting" }, isRenewed };

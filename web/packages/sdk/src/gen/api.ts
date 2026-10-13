@@ -2508,6 +2508,8 @@ export interface components {
              * @description The device this client was signed in as before, resumed when it is the same person's (D221)
              */
             previousDeviceId?: number;
+            /** @description A session token that device was issued, live or not: the proof it was this client */
+            previousDeviceProof?: string;
         };
         NodeBody: {
             /** @description Whether it is connected now: polling for its commands, or heard within node_silent_after_seconds */
@@ -2626,6 +2628,8 @@ export interface components {
              * @description The device this client was signed in as before (D221)
              */
             previousDeviceId?: number;
+            /** @description A session token that device was issued, live or not: the proof it was this client */
+            previousDeviceProof?: string;
             /** @description The pairing this device has, for the same code again */
             secret?: string;
         };

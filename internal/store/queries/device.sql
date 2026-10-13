@@ -33,12 +33,6 @@ UPDATE device SET removed_at = sqlc.arg(removed_at) WHERE id = sqlc.arg(id);
 UPDATE "grant" SET revoked_at = sqlc.arg(revoked_at)
 WHERE device_id = sqlc.arg(device_id) AND kind = 'session' AND revoked_at IS NULL;
 
--- name: RevokeSessionsOfUserExceptDevice :exec
--- Signing out everywhere else: every session of the person's but those of the device asking.
-UPDATE "grant" SET revoked_at = sqlc.arg(revoked_at)
-WHERE user_id = sqlc.arg(user_id) AND kind = 'session' AND revoked_at IS NULL
-  AND device_id IS NOT sqlc.arg(keep_device_id);
-
 -- name: GetLiveDeviceOfUser :one
 -- One of a person's devices, when it is theirs and has not been removed.
 SELECT id, name, platform, audio_output FROM device

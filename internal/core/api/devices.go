@@ -166,7 +166,7 @@ func (server *Server) signOutElsewhere(ctx context.Context, input *struct{ Autho
 	if err != nil {
 		return nil, err
 	}
-	err = dependencies.Auth.SignOutElsewhere(ctx, principal.UserID, principal.DeviceID)
+	err = dependencies.Auth.SignOutElsewhere(ctx, principal.UserID, bearerToken(input.Authorization))
 	return server.deviceAnswer(ctx, "sign out elsewhere", err)
 }
 

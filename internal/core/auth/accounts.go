@@ -132,8 +132,17 @@ func (service *Service) Register(
 	if err != nil {
 		return "", err
 	}
+	// A new password from a registration link ends every session the person had: the link is how
+	// someone who lost their password, or had it taken, gets back in (the second audit's K1).
 	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		return queries.UpdateUserPasswordHash(ctx, sqlcgen.UpdateUserPasswordHashParams{ID: userID, PasswordHash: hash})
+		if updateErr := queries.UpdateUserPasswordHash(ctx, sqlcgen.UpdateUserPasswordHashParams{
+			ID: userID, PasswordHash: hash,
+		}); updateErr != nil {
+			return updateErr
+		}
+		return queries.RevokeSessionsOfUserExceptSession(ctx, sqlcgen.RevokeSessionsOfUserExceptSessionParams{
+			RevokedAt: new(service.clock.Now().UnixMilli()), UserID: &userID,
+		})
 	})
 	if err != nil {
 		return "", fmt.Errorf("set the password: %w", err)
@@ -166,9 +175,12 @@ func refuseTakenName(ctx context.Context, queries *sqlcgen.Queries, name string,
 	return fmt.Errorf("%q: %w", name, ErrNameTaken)
 }
 
-// ChangePassword changes a person's own password, given their current one (D218 §6). Other
-// sessions stay signed in; signing out everywhere is a separate act.
-func (service *Service) ChangePassword(ctx context.Context, userID int64, currentPassword, newPassword string) error {
+// ChangePassword changes a person's own password, given their current one (D218 §6 as amended
+// 2026-10-13), and ends every other session of theirs, keepToken's alone staying: a password changed
+// because it leaked left whoever had it signed in (the second audit's K1).
+func (service *Service) ChangePassword(
+	ctx context.Context, userID int64, currentPassword, newPassword, keepToken string,
+) error {
 	if newPassword == "" {
 		return errors.New("a password is needed")
 	}
@@ -185,7 +197,14 @@ func (service *Service) ChangePassword(ctx context.Context, userID int64, curren
 		return err
 	}
 	return service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		return queries.UpdateUserPasswordHash(ctx, sqlcgen.UpdateUserPasswordHashParams{ID: userID, PasswordHash: hash})
+		if updateErr := queries.UpdateUserPasswordHash(ctx, sqlcgen.UpdateUserPasswordHashParams{
+			ID: userID, PasswordHash: hash,
+		}); updateErr != nil {
+			return updateErr
+		}
+		return queries.RevokeSessionsOfUserExceptSession(ctx, sqlcgen.RevokeSessionsOfUserExceptSessionParams{
+			RevokedAt: new(service.clock.Now().UnixMilli()), UserID: &userID, KeepSecretSha256: tokenHash(keepToken),
+		})
 	})
 }
 

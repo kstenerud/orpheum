@@ -52,6 +52,13 @@ var (
 	ErrNoDeviceName = errors.New("a new device needs a name")
 )
 
+// PreviousDevice is the device a client asking for a code says it was signed in as, and a session
+// token that device was issued, its proof (NewDevice): without the proof it is a new device.
+type PreviousDevice struct {
+	ID    int64
+	Proof string
+}
+
 // Pairing is a device's code, the secret by which it alone asks how its pairing stands, and when it
 // stops working.
 type Pairing struct {
@@ -76,9 +83,10 @@ type PairingClaim struct {
 
 // pairing is one device's pairing as the core keeps it.
 type pairing struct {
-	secret, code     string
-	platform         string
-	previousDeviceID int64
+	secret, code string
+	platform     string
+	// previous is the device the asking client says it was, and its proof (NewDevice).
+	previous PreviousDevice
 	// network is where the device asked from (clientnet), by which its codes are counted.
 	network string
 	madeAt  time.Time
@@ -141,7 +149,7 @@ func (kept *pairings) hasRoomLocked(network string) bool {
 // The device names its platform, and the device it was signed in as before, which a person of its
 // own resumes (D221); address is where it asks from. ErrTooManyPairings while no new one has room.
 func (service *Service) RequestPairing(
-	_ context.Context, secret, platform string, previousDeviceID int64, address string,
+	_ context.Context, secret, platform string, previous PreviousDevice, address string,
 ) (Pairing, error) {
 	service.pairings.mutex.Lock()
 	defer service.pairings.mutex.Unlock()
@@ -162,7 +170,7 @@ func (service *Service) RequestPairing(
 		return Pairing{}, err
 	}
 	service.pairings.bySecret[newSecret] = &pairing{
-		secret: newSecret, code: code, platform: textindex.Line(platform), previousDeviceID: previousDeviceID,
+		secret: newSecret, code: code, platform: textindex.Line(platform), previous: previous,
 		network: network, madeAt: now,
 	}
 	return Pairing{Secret: newSecret, Code: code, ExpiresAt: now.Add(pairingLife)}, nil
@@ -243,16 +251,19 @@ func (service *Service) ClaimPairing(
 		return PairingClaim{}, userErr
 	}
 	code, readErr := safe32code.Read(typed, safe32code.DeviceLength)
-	previousDeviceID, found := service.waitingDevice(code)
+	previous, found := service.waitingDevice(code)
 	if readErr != nil || !found {
 		service.limiter.recordFailure(window, limitKey)
 		return PairingClaim{}, ErrNoPairing
 	}
 	name := textindex.Line(deviceName)
-	if previousDeviceID != 0 {
-		previous, deviceErr := liveDevice(ctx, service.database.Read(), forUserID, previousDeviceID)
-		if deviceErr == nil {
-			name = previous.Name
+	isProven, err := isProvenDevice(ctx, service.database.Read(), forUserID, previous.ID, previous.Proof)
+	if err != nil {
+		return PairingClaim{}, err
+	}
+	if isProven {
+		if known, deviceErr := liveDevice(ctx, service.database.Read(), forUserID, previous.ID); deviceErr == nil {
+			name = known.Name
 		}
 	}
 	if name == "" {
@@ -274,17 +285,17 @@ func (service *Service) ClaimPairing(
 	return PairingClaim{CheckCode: checkCode, DeviceName: name}, nil
 }
 
-// waitingDevice is the device a live pairing not yet entered was signed in as before, 0 for none,
-// and whether a pairing with code waits.
-func (service *Service) waitingDevice(code string) (int64, bool) {
+// waitingDevice is the device a live pairing not yet entered says it was signed in as before, none
+// when it says none, and whether a pairing with code waits.
+func (service *Service) waitingDevice(code string) (PreviousDevice, bool) {
 	service.pairings.mutex.Lock()
 	defer service.pairings.mutex.Unlock()
 	service.pairings.forgetExpiredLocked(service.clock.Now())
 	known, found := service.pairings.byCodeLocked(code)
 	if !found || known.isClaimed {
-		return 0, false
+		return PreviousDevice{}, false
 	}
-	return known.previousDeviceID, true
+	return known.previous, true
 }
 
 // AnswerPairing is the person who entered a code saying whether the check codes match (D288 §3):
@@ -301,7 +312,8 @@ func (service *Service) AnswerPairing(ctx context.Context, byUserID int64, typed
 	}
 	// Made with the pairing let go, as a database write is: confirmed, it is answered no more.
 	token, err := service.issueSession(ctx, known.forUserID, NewDevice{
-		Name: known.deviceName, Platform: known.platform, PreviousDeviceID: known.previousDeviceID,
+		Name: known.deviceName, Platform: known.platform, PreviousDeviceID: known.previous.ID,
+		PreviousDeviceProof: known.previous.Proof,
 	})
 	if err != nil {
 		return err

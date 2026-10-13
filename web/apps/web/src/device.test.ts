@@ -32,8 +32,13 @@ describe("naming this device", () => {
     expect(deviceFrom("").platform).toBe("web");
   });
 
-  it("names the device it was before as previousDeviceId, which the server resumes (D221)", () => {
-    expect(thisDevice({ deviceId: () => 7 }).previousDeviceId).toBe(7);
-    expect(thisDevice({ deviceId: () => undefined })).not.toHaveProperty("previousDeviceId");
+  it("names the device it was before, with the proof it was it, which the server resumes (D221)", () => {
+    expect(thisDevice({ deviceId: () => 7, deviceProof: () => "token" })).toMatchObject({
+      previousDeviceId: 7,
+      previousDeviceProof: "token",
+    });
+    expect(
+      thisDevice({ deviceId: () => undefined, deviceProof: () => "token" }),
+    ).not.toHaveProperty("previousDeviceId");
   });
 });

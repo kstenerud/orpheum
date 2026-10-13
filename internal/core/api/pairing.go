@@ -16,9 +16,10 @@ import (
 // of the pairing it has, for the same code again, its platform, and the device it was before.
 type PairingRequestInput struct {
 	Body struct {
-		Secret           string `doc:"The pairing this device has, for the same code again" json:"secret,omitempty" maxLength:"100" required:"false"` //nolint:lll // one struct tag
-		Platform         string `json:"platform" maxLength:"40" minLength:"1"`
-		PreviousDeviceID int64  `doc:"The device this client was signed in as before (D221)" json:"previousDeviceId,omitempty" required:"false"` //nolint:lll // one struct tag
+		Secret              string `doc:"The pairing this device has, for the same code again" json:"secret,omitempty" maxLength:"100" required:"false"` //nolint:lll // one struct tag
+		Platform            string `json:"platform" maxLength:"40" minLength:"1"`
+		PreviousDeviceID    int64  `doc:"The device this client was signed in as before (D221)" json:"previousDeviceId,omitempty" required:"false"`                                                //nolint:lll // one struct tag
+		PreviousDeviceProof string `doc:"A session token that device was issued, live or not: the proof it was this client" json:"previousDeviceProof,omitempty" maxLength:"100" required:"false"` //nolint:lll // one struct tag
 	}
 	ClientFacts
 }
@@ -110,7 +111,9 @@ func (server *Server) requestPairing(ctx context.Context, input *PairingRequestI
 		return nil, err
 	}
 	asked, err := dependencies.Auth.RequestPairing(
-		ctx, input.Body.Secret, input.Body.Platform, input.Body.PreviousDeviceID, input.clientAddress)
+		ctx, input.Body.Secret, input.Body.Platform,
+		auth.PreviousDevice{ID: input.Body.PreviousDeviceID, Proof: input.Body.PreviousDeviceProof},
+		input.clientAddress)
 	if err != nil {
 		return nil, server.authError(ctx, "make a pairing", err)
 	}

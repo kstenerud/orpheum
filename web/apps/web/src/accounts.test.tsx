@@ -93,8 +93,16 @@ describe("accounts", () => {
       { secret: "s", name: "Gran", password: "p", device: { name: "Phone", platform: "web" } },
       "click-2",
     );
-    await requestPairing(api, { secret: undefined, previousDeviceId: 7 });
-    await requestPairing(api, { secret: "s", previousDeviceId: undefined });
+    await requestPairing(api, {
+      secret: undefined,
+      previousDeviceId: 7,
+      previousDeviceProof: "proof",
+    });
+    await requestPairing(api, {
+      secret: "s",
+      previousDeviceId: undefined,
+      previousDeviceProof: undefined,
+    });
     await pairingStateOf(api, "s");
     await activateDevice(api, { code: "abcd-efgh", deviceName: "Living room TV" }, "click-3");
     await activateDevice(
@@ -116,7 +124,10 @@ describe("accounts", () => {
           device: { name: "Phone", platform: "web" },
         },
       },
-      { methodAndPath: "POST /pairings", body: { platform: "web", previousDeviceId: 7 } },
+      {
+        methodAndPath: "POST /pairings",
+        body: { platform: "web", previousDeviceId: 7, previousDeviceProof: "proof" },
+      },
       { methodAndPath: "POST /pairings", body: { platform: "web", secret: "s" } },
       { methodAndPath: "POST /pairings/state", body: { secret: "s" } },
       {

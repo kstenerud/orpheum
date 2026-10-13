@@ -198,7 +198,8 @@ func (server *Server) changePassword(ctx context.Context, input *ChangePasswordI
 	if err != nil {
 		return nil, err
 	}
-	err = dependencies.Auth.ChangePassword(ctx, principal.UserID, input.Body.CurrentPassword, input.Body.NewPassword)
+	err = dependencies.Auth.ChangePassword(ctx, principal.UserID, input.Body.CurrentPassword, input.Body.NewPassword,
+		bearerToken(input.Authorization))
 	if err != nil {
 		return nil, server.authError(ctx, "change a password", err)
 	}

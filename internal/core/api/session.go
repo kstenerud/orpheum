@@ -76,10 +76,16 @@ type NewDeviceBody struct {
 	Name             string `doc:"What the person will know it by: \"Chrome on Android\", \"Living room TV\"" json:"name"     maxLength:"100" minLength:"1"`                       //nolint:lll // one struct tag
 	Platform         string `doc:"The kind of client: \"web\", \"cast\""                                    json:"platform" maxLength:"40"  minLength:"1"`                         //nolint:lll // one struct tag
 	PreviousDeviceID int64  `doc:"The device this client was signed in as before, resumed when it is the same person's (D221)" json:"previousDeviceId,omitempty" required:"false"` //nolint:lll // one struct tag
+	// PreviousDeviceProof is a session token that device was issued, live or not, which proves the
+	// client was it.
+	PreviousDeviceProof string `doc:"A session token that device was issued, live or not: the proof it was this client" json:"previousDeviceProof,omitempty" maxLength:"100" required:"false"` //nolint:lll // one struct tag
 }
 
 func newDevice(body NewDeviceBody) auth.NewDevice {
-	return auth.NewDevice{Name: body.Name, Platform: body.Platform, PreviousDeviceID: body.PreviousDeviceID}
+	return auth.NewDevice{
+		Name: body.Name, Platform: body.Platform, PreviousDeviceID: body.PreviousDeviceID,
+		PreviousDeviceProof: body.PreviousDeviceProof,
+	}
 }
 
 // Resolve records the client's address and whether it came over TLS.

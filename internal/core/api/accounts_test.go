@@ -146,7 +146,7 @@ func TestSession_ARemovedDeviceIsToldItWasSignedOutAndMeNamesTheDevice(t *testin
 
 // A client that signs in again naming the device it was before, as previousDeviceId, is that
 // device again (D221 §1), not a new one.
-func TestSession_ASignInNamingThePreviousDeviceResumesIt(t *testing.T) {
+func TestSession_ASignInNamingThePreviousDeviceWithItsProofResumesIt(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	first := harness.createAdminAndSignIn(t)
@@ -156,7 +156,9 @@ func TestSession_ASignInNamingThePreviousDeviceResumesIt(t *testing.T) {
 	}
 	signedIn := harness.do(t, http.MethodPost, "/session", "", map[string]any{
 		"name": "owner", "password": "owner-password",
-		"device": map[string]any{"name": "Firefox on Linux", "platform": "web", "previousDeviceId": before},
+		"device": map[string]any{
+			"name": "Firefox on Linux", "platform": "web", "previousDeviceId": before, "previousDeviceProof": first,
+		},
 	})
 	var session struct {
 		Token string `json:"token"`
@@ -165,7 +167,18 @@ func TestSession_ASignInNamingThePreviousDeviceResumesIt(t *testing.T) {
 		t.Fatalf("sign in again: %d %s", signedIn.status, signedIn.body)
 	}
 	if after := harness.thisDeviceID(t, session.Token); after != before {
-		t.Errorf("signing in again naming device %d as previousDeviceId is device %d, want %d", before, after, before)
+		t.Errorf("signing in again naming device %d with its proof is device %d, want %d", before, after, before)
+	}
+	// Naming the device without the proof makes a new one (the second audit's K1).
+	unproven := harness.do(t, http.MethodPost, "/session", "", map[string]any{
+		"name": "owner", "password": "owner-password",
+		"device": map[string]any{"name": "Intruder", "platform": "web", "previousDeviceId": before},
+	})
+	if err := json.Unmarshal([]byte(unproven.body), &session); err != nil || session.Token == "" {
+		t.Fatalf("sign in naming the device without proof: %d %s", unproven.status, unproven.body)
+	}
+	if after := harness.thisDeviceID(t, session.Token); after == before {
+		t.Errorf("a sign-in naming device %d without its proof was put on it", before)
 	}
 }
 
