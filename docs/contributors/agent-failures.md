@@ -49,6 +49,19 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A30 — Called a live site's repository new and empty (2026-10-13)
+
+- **What happened:** the 2026-10-13 handoff listed `orpheum-site` as "new, private, empty", and
+  `orpheum-connect`'s infrastructure plan put the `orpheum-app.com` apex "when the homepage exists".
+  The repository has held the landing page since 2026-10-06, and Cloudflare Pages has served it
+  at `https://orpheum-app.com/` since. The false belief came from the plans, which describe the
+  site as something to create (D292 §8); the agent repeated them without one request to the apex
+  or one look at the repository.
+- **Caught by:** the owner: *"there's already an orpheum-site repository with a simple landing
+  page, which is live on https://orpheum-app.com/"*.
+- **Gate:** none; no gate reads a handoff. The lesson: a handoff's statement of what exists is
+  checked against the thing itself (a `git log`, a request to the name) before it is written.
+
 ### A29 — Told the owner to make the first admin in a page that has no such screen (2026-10-13)
 
 - **What happened:** the NAS walkthrough said to open the web client and make the first admin with
