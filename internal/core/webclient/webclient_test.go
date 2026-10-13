@@ -3,8 +3,10 @@
 package webclient_test
 
 import (
+	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -46,6 +48,35 @@ func TestHandler_ServesFilesAndFallsBackToIndex(t *testing.T) {
 	}
 	if response := get(t, handler, "/assets/gone-9z.js"); response.Code != http.StatusNotFound {
 		t.Errorf("a missing asset: %d, want 404 rather than the client", response.Code)
+	}
+}
+
+// Every page of the client says what it may load and that it may not be framed, sends no referrer, and
+// over HTTPS tells the browser to come back only over HTTPS (the second audit's W14, K19,
+// 2026-10-13: the core sent none of these).
+func TestHandler_EveryAnswerCarriesTheSecurityHeaders(t *testing.T) {
+	t.Parallel()
+	handler := webclient.Handler(builtClientFS(), "/api/v1")
+	plain := get(t, handler, "/films")
+	policy := plain.Header().Get("Content-Security-Policy")
+	for _, want := range []string{"default-src 'self'", "frame-ancestors 'none'", "object-src 'none'",
+		"base-uri 'none'"} {
+		if !strings.Contains(policy, want) {
+			t.Errorf("the content-security policy %q lacks %q", policy, want)
+		}
+	}
+	if got := plain.Header().Get("Referrer-Policy"); got != "no-referrer" {
+		t.Errorf("Referrer-Policy %q, want no-referrer", got)
+	}
+	if got := plain.Header().Get("Strict-Transport-Security"); got != "" {
+		t.Errorf("over plain HTTP, Strict-Transport-Security %q; want none", got)
+	}
+	overTLS := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/films", nil)
+	overTLS.TLS = &tls.ConnectionState{}
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, overTLS)
+	if got := recorder.Header().Get("Strict-Transport-Security"); !strings.HasPrefix(got, "max-age=") {
+		t.Errorf("over HTTPS, Strict-Transport-Security %q; want a max-age", got)
 	}
 }
 
