@@ -375,8 +375,8 @@ func (server *Server) requireAdmin(ctx context.Context, authorization string) (
 }
 
 // requireAccountManager is requireSignedIn for a session that may change the account's security: its
-// password, its devices, and the codes it enters for others. A device a code activated, or one signed
-// in through a discovery's page, may not (D292 §4; the security audit's A1, A11).
+// password, its devices, and the codes it enters for others. A device a code activated may not
+// (D292 §4; the security audit's A11).
 func (server *Server) requireAccountManager(ctx context.Context, authorization string) (
 	*Dependencies, auth.Principal, error,
 ) {
@@ -386,8 +386,8 @@ func (server *Server) requireAccountManager(ctx context.Context, authorization s
 	}
 	if !principal.CanManageAccount() {
 		return nil, principal, newError(http.StatusForbidden, CodeForbidden,
-			"this device's session may not change the account's security; do it on a device signed in "+
-				"with the password at the server's own address")
+			"this device was activated by a code and may not change the account's security; do it on a "+
+				"device signed in with the password")
 	}
 	return dependencies, principal, nil
 }

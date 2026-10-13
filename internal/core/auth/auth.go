@@ -55,8 +55,9 @@ const (
 	grantKindSession = "session"
 	grantScopeRole   = "role" // a session carries the user's role, entire (D154 §3)
 	// A device-scoped session carries the role but for administering and the account's security:
-	// a device a code activated, and every sign-in through a discovery's client (D292 §4; the
-	// security audit's A1, A11).
+	// a device a code activated, whoever entered the code (D292 §4; the security audit's A11). A
+	// password sign-in carries the whole role wherever it comes from, a discovery's page included
+	// (D294 §4).
 	grantScopeDevice = "device"
 )
 
@@ -230,9 +231,6 @@ type NewDevice struct {
 	// client that named one sit on another's device, unseen in the list and kept by "sign out
 	// everywhere else" (the second audit's K1 and W4, 2026-10-13).
 	PreviousDeviceProof string
-	// IsThroughDiscovery is a client a discovery's page signs in, as the request showed it by what
-	// page script cannot forge: its session never carries admin (D292 §4; the security audit's A1).
-	IsThroughDiscovery bool
 }
 
 // SignIn checks a name and password and issues a session on the device the client remembers,
@@ -278,16 +276,7 @@ func (service *Service) SignIn(
 			return "", rehashErr
 		}
 	}
-	return service.issueSession(ctx, user.ID, device, scopeOf(device))
-}
-
-// scopeOf is the scope of a session device signs in for: the device scope through a discovery's
-// client, the role otherwise.
-func scopeOf(device NewDevice) string {
-	if device.IsThroughDiscovery {
-		return grantScopeDevice
-	}
-	return grantScopeRole
+	return service.issueSession(ctx, user.ID, device, grantScopeRole)
 }
 
 // hashWithCurrentCosts hashes a password with the costs the settings name now.

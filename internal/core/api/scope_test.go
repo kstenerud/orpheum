@@ -34,23 +34,14 @@ func (harness testHarness) mayAdminister(t *testing.T, token string) (isAdmin, c
 	return isAdmin, changed.status != http.StatusForbidden
 }
 
-// A sign-in from a page another origin served (a discovery's client) gets no admin and may not change
-// the account's security, whatever its role; one from the core's own origin, or no browser's, does
-// (D292 §4; the security audit's A1).
-func TestSignIn_FromAnotherOriginCarriesNoAdmin(t *testing.T) {
+// An admin administers from anywhere: a sign-in from a page another origin served (a discovery's
+// client), from the core's own origin or from no browser carries the whole role (D294 §1, §4).
+func TestSignIn_AnAdminAdministersFromAnyOrigin(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	harness.createAdminAndSignIn(t)
-	for name, origin := range map[string]string{
-		"a discovery's client": "https://app.orpheum-app.com", "an opaque origin": "null",
-	} {
-		token := harness.signInFrom(t, http.Header{"Origin": {origin}})
-		if isAdmin, canManage := harness.mayAdminister(t, token); isAdmin || canManage {
-			t.Errorf("a sign-in from %s may administer: %t, manage its account: %t; want neither", name, isAdmin,
-				canManage)
-		}
-	}
 	for name, header := range map[string]http.Header{
+		"a discovery's client":  {"Origin": {"https://app.orpheum-app.com"}},
 		"the core's own origin": {"Origin": {harness.httpServer.URL}}, "no browser": nil,
 	} {
 		if isAdmin, canManage := harness.mayAdminister(t, harness.signInFrom(t, header)); !isAdmin || !canManage {
@@ -60,9 +51,8 @@ func TestSignIn_FromAnotherOriginCarriesNoAdmin(t *testing.T) {
 	}
 }
 
-// A sign-in over a WebRTC data channel gets no admin, though its head claims the core's own origin:
-// the head is the page's, and the core believes none of it that says where it came from (A1).
-func TestSignIn_OverWebRTCCarriesNoAdminWhateverItsHeadClaims(t *testing.T) {
+// An admin administers over WebRTC too, the one way into a core no direct path reaches (D294 §4).
+func TestSignIn_AnAdminAdministersOverWebRTC(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	rtc := rtcapi.New(t.Context(), harness.server.Handler(), slog.New(slog.DiscardHandler))
@@ -92,7 +82,7 @@ func TestSignIn_OverWebRTCCarriesNoAdminWhateverItsHeadClaims(t *testing.T) {
 		},
 	}, body)
 	token, _ := readSignIn(t, response{status: signedIn.Head.Status, body: string(signedIn.Body)})
-	if isAdmin, canManage := harness.mayAdminister(t, token); isAdmin || canManage {
-		t.Errorf("a sign-in over WebRTC may administer: %t, manage its account: %t; want neither", isAdmin, canManage)
+	if isAdmin, canManage := harness.mayAdminister(t, token); !isAdmin || !canManage {
+		t.Errorf("a sign-in over WebRTC may administer: %t, manage its account: %t; want both", isAdmin, canManage)
 	}
 }

@@ -47,10 +47,9 @@
 //     (under /bytes/, D216) also take the media cookie, HttpOnly and SameSite Strict, which the API never does
 //     (D154). Enforced by TestSession_TheTokenWorksInTheHeaderOnlyUntilSignOut and
 //     TestMediaCookie_SignInSetsItOnlyTheBytePathsTakeItAndSignOutClearsIt.
-//   - A sign-in or registration from a page another origin served, or over WebRTC, signs in through
-//     a discovery's client: its session carries no admin and may not change the account's security
-//     (D292 §4; the security audit's A1). Enforced by TestSignIn_FromAnotherOriginCarriesNoAdmin and
-//     TestSignIn_OverWebRTCCarriesNoAdminWhateverItsHeadClaims.
+//   - An admin administers from anywhere: a password sign-in from any origin, or over WebRTC, carries
+//     the whole role (D294 §1, §4). Enforced by TestSignIn_AnAdminAdministersFromAnyOrigin and
+//     TestSignIn_AnAdminAdministersOverWebRTC.
 //   - Only an admin sees /doctor; its artwork finding warns at high water with the ceiling to set
 //     (D212 §7). TestDoctor_AnAdminSeesTheArtworkCacheAgainstItsCeiling.
 //   - Only an admin sees /system, the System page: the server's facts, doctor's findings and each

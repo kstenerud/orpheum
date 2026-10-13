@@ -929,11 +929,12 @@ compromise visible (signed keys and fingerprints, CAA, later CT), and it **caps 
 yields**. Independence from the service needs the core's own origin, an own discovery, or a native
 app.
 
-- **A session minted through a discovery's client never carries admin** (D292 §4, revising D290
-  §4's "for now"). The core judges "through a discovery's client" by what page script cannot forge:
-  the browser's `Origin` on a direct HTTPS sign-in, and every sign-in or pairing that arrives over
-  `rtcapi`, whose request heads are untrusted (§2.5). Such a session's scope is narrower than the
-  role, as a code-activated device's is (§3.1).
+- **A password sign-in carries the person's whole role wherever it comes from**, a discovery's
+  client and WebRTC included (D294 §4, withdrawing D292 §4's "a session minted through a
+  discovery's client never carries admin"): the client's own security is what protects every
+  household's password, and an admin away from home administers through it. A device a code
+  activated carries the `device` scope (§3.1). `rtcapi` still believes nothing a request's head
+  says of where it came from (§2.5).
 - **Admin works from anywhere** (D294, withdrawing D292 §4's "only from the core's own network",
   which a core in a container could not judge: it sees no LAN prefix of its own). The operator's
   way back in is `orpheum reset-admin` on the server's machine (D294 §2). **Later, a passkey**
@@ -942,10 +943,8 @@ app.
 - Admin pages on `app.` say "manage this server from home, at <its home address>" (§3.1).
   Destructive admin actions ask for the password again on the admin origin (A1 item 3) [I].
 
-Built (2026-10-13): a sign-in, registration or code activation through a discovery's client, and
-every code activation, gets the `device` scope (`internal/core/auth`); the web client hides what such
-a session cannot do. **The code must change:** admin from the core's own network alone (the second
-point) was withdrawn by D294.
+Built (2026-10-13): every code activation gets the `device` scope (`internal/core/auth`), and the
+web client hides what such a session cannot do; `orpheum reset-admin` (D294 §2).
 
 ## 4. The API
 

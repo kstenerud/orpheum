@@ -6,10 +6,10 @@ import (
 	"testing"
 )
 
-// A sign-in through a discovery's page, and a device a code activated, get the device scope: the
-// person's role without administering and without changing the account's security; a sign-in at
-// the core's own origin gets the whole role (D292 §4; the security audit's A1, A11).
-func TestSession_ThroughADiscoveryOrByACodeCarriesNoAdminAndNoAccountSecurity(t *testing.T) {
+// A device a code activated gets the device scope: the person's role without administering and
+// without changing the account's security; a password sign-in gets the whole role (D292 §4, D294 §4;
+// the security audit's A11).
+func TestSession_ByACodeCarriesNoAdminAndNoAccountSecurityAndByAPasswordTheWholeRole(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
@@ -27,11 +27,7 @@ func TestSession_ThroughADiscoveryOrByACodeCarriesNoAdminAndNoAccountSecurity(t 
 		return principal
 	}
 	if own := principalOf(NewDevice{Name: "Laptop", Platform: "web"}); !own.IsAdmin() || !own.CanManageAccount() {
-		t.Errorf("a sign-in at the core's own origin is %+v; want admin, managing its account", own)
-	}
-	through := principalOf(NewDevice{Name: "Phone", Platform: "web", IsThroughDiscovery: true})
-	if through.IsAdmin() || through.CanManageAccount() || !through.CanHostWatchTogether() {
-		t.Errorf("a sign-in through a discovery is %+v; want no admin, no account security, hosting kept", through)
+		t.Errorf("a password sign-in is %+v; want admin, managing its account", own)
 	}
 	asked, err := fixture.service.RequestPairing(ctx, "", "web", PreviousDevice{}, "192.0.2.10")
 	if err != nil {
@@ -51,7 +47,8 @@ func TestSession_ThroughADiscoveryOrByACodeCarriesNoAdminAndNoAccountSecurity(t 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if television.IsAdmin() || television.CanManageAccount() {
-		t.Errorf("an admin's television activated by a code is %+v; want no admin, no account security", television)
+	if television.IsAdmin() || television.CanManageAccount() || !television.CanHostWatchTogether() {
+		t.Errorf("an admin's television activated by a code is %+v; want no admin, no account security, "+
+			"hosting kept", television)
 	}
 }

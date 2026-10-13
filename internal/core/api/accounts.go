@@ -186,7 +186,7 @@ func (server *Server) register(ctx context.Context, input *RegisterInput) (*Sess
 		return nil, err
 	}
 	token, err := dependencies.Auth.Register(ctx, input.Body.Secret, input.Body.Name, input.Body.Password,
-		newDevice(input.Body.Device, input.ClientFacts))
+		newDevice(input.Body.Device))
 	if err != nil {
 		return nil, server.authError(ctx, "register", err)
 	}

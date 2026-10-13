@@ -147,7 +147,7 @@ func (service *Service) Register(
 	if err != nil {
 		return "", fmt.Errorf("set the password: %w", err)
 	}
-	return service.issueSession(ctx, userID, device, scopeOf(device))
+	return service.issueSession(ctx, userID, device, grantScopeRole)
 }
 
 // liveUser is a person who has not been removed, or ErrNoUser.
