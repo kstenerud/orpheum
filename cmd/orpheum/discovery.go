@@ -146,8 +146,8 @@ func httpsPort(config Config) int {
 	return number
 }
 
-// interfaceCandidates are the machine's own addresses at port: each global unicast address, a private
-// one marked as reachable only at home (discoveryproto.ScopeLAN). A core in a container sees the
+// interfaceCandidates are the machine's own addresses at port: each public one (discoveryproto.IsPublic),
+// and each private one marked as reachable only at home (discoveryproto.ScopeLAN). A core in a container sees the
 // container's (discovery-core.md, Found while planning).
 func interfaceCandidates(port int) []discoveryproto.Candidate {
 	if port == 0 {
@@ -169,14 +169,16 @@ func candidatesOf(addresses []net.Addr, port int) []discoveryproto.Candidate {
 			continue
 		}
 		found := prefix.Addr().Unmap()
-		if !found.IsGlobalUnicast() {
-			continue
-		}
 		candidate := discoveryproto.Candidate{
 			Address: found.String(), Port: port, Source: discoveryproto.SourceInterface,
 		}
-		if found.IsPrivate() {
+		switch {
+		case discoveryproto.IsPublic(found):
+		case found.IsPrivate():
 			candidate.Scope = discoveryproto.ScopeLAN
+		default:
+			// Loopback, link-local, carrier NAT, DS-Lite's own address: nobody reaches the core there.
+			continue
 		}
 		candidates = append(candidates, candidate)
 	}

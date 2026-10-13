@@ -289,7 +289,8 @@ the signalling connection.
 - **Non-public IPv4 is never public** (C7, C9): `100.64.0.0/10` (carrier NAT), `192.0.0.0/29`
   (DS-Lite) and the documentation ranges are classed non-public, which Go's `netip` does not do. One
   function classes addresses, in `discoveryproto`, for publishing and for the probe's deny list
-  alike (G12) [I]. **The code must change.**
+  alike (G12) [I]. Built (2026-10-13): `discoveryproto.IsPublic`, which the core's interface
+  candidates go through, a private address marked `lan` and the rest never sent.
 - `mapped`: a public IPv4 and port from the router by UPnP IGD, NAT-PMP or PCP, **on by default**,
   shown on the System page, with a switch (D273 §7; built, `internal/core/portmap`). **It maps TCP
   only, never a UDP port** (D290 §9), and **asks for outside port 443 first, taking whatever port
@@ -498,7 +499,8 @@ The answer also carries the count of the core's clients that reached a dead end 
   (`192-168-1-20`) or the IPv6 address as eight dashed groups, lowercase, no zero padding and no
   compression (`2a02-8070-0-0-0-0-0-1`), so one address has one name and no label holds `--` (C15).
   The encoding is one function in `discoveryproto`, with test vectors, which the paid service,
-  `single` and the client share (C15; not built: the core sends addresses compressed). A port other
+  `single` and the client share (C15; built, `discoveryproto.AddressLabel`; the core sends its
+  candidates as addresses, and the discovery names them). A port other
   than 443 goes in the URL.
 - **`coreId` is 26 safe32 characters (130 bits)**, random, never reused for another key (§2.8).
   **The code must change:** `single` makes 8 characters (40 bits) (D290 §13).
