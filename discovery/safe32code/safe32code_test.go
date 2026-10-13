@@ -2,7 +2,10 @@
 
 package safe32code
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestDeviceCode_IsSafe32AndReadsWhatAPersonTypes(t *testing.T) {
 	t.Parallel()
@@ -28,5 +31,22 @@ func TestDeviceCode_IsSafe32AndReadsWhatAPersonTypes(t *testing.T) {
 		if _, err := Read(typed, DeviceLength); err == nil {
 			t.Errorf("Read(%q) read a code", typed)
 		}
+	}
+}
+
+// A value wider than 64 bits is written as Write writes a narrower one: the same bits, most
+// significant first, the same groups.
+func TestWriteBytes_WritesTheBitsAsWriteDoes(t *testing.T) {
+	t.Parallel()
+	if got, err := WriteBytes([]byte{0x01, 0x23, 0x45, 0x67, 0x89}, DeviceLength); err != nil || got != "04hm-asw9" {
+		t.Errorf("0x0123456789 = %q, %v; want 04hm-asw9, as Device writes it", got, err)
+	}
+	// 130 bits: 0xff00 eight times, then the top two bits of 0xc0.
+	wide := []byte{0xff, 0, 0xff, 0, 0xff, 0, 0xff, 0, 0xff, 0, 0xff, 0, 0xff, 0, 0xff, 0, 0xc0}
+	if got, err := WriteBytes(wide, 26); err != nil || got != "zw0f-y07z-03zg-1zr0-zw0f-y07z-03" {
+		t.Errorf("130 bits = %q, %v", got, err)
+	}
+	if _, err := WriteBytes(wide, 28); !errors.Is(err, ErrTooFewBytes) {
+		t.Errorf("28 characters from 136 bits = %v; want ErrTooFewBytes", err)
 	}
 }

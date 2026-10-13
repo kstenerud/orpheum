@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
@@ -28,23 +29,24 @@ var (
 // §3.5).
 const signalMessageMost = 64 << 10
 
-// signalling is the core's signalling connection, the newest it opened, and the offers waiting on it
-// for an answer, by their ids.
+// signalling is the core's signalling connection, the newest its live instance opened, that
+// instance, and the offers waiting on it for an answer, by their ids.
 type signalling struct {
-	logger  *slog.Logger
-	mutex   sync.Mutex
-	current *websocket.Conn
-	lastID  uint64
-	waiting map[string]chan discoveryproto.SignalMessage
+	logger   *slog.Logger
+	mutex    sync.Mutex
+	current  *websocket.Conn
+	instance string
+	lastID   uint64
+	waiting  map[string]chan discoveryproto.SignalMessage
 }
 
 func newSignalling(logger *slog.Logger) *signalling {
 	return &signalling{logger: logger, waiting: map[string]chan discoveryproto.SignalMessage{}}
 }
 
-// accept takes the core's signalling connection in place of any it had, and reads its answers until
-// it closes.
-func (signal *signalling) accept(writer http.ResponseWriter, request *http.Request) {
+// accept takes the signalling connection of the core's instance in place of any it had, and reads its
+// answers until it closes. Only the live instance holds a session to call it with (D293 §1).
+func (signal *signalling) accept(writer http.ResponseWriter, request *http.Request, instanceID string) {
 	connection, err := websocket.Accept(writer, request, nil)
 	if err != nil {
 		return
@@ -52,7 +54,7 @@ func (signal *signalling) accept(writer http.ResponseWriter, request *http.Reque
 	connection.SetReadLimit(signalMessageMost)
 	signal.mutex.Lock()
 	previous := signal.current
-	signal.current = connection
+	signal.current, signal.instance = connection, instanceID
 	signal.mutex.Unlock()
 	if previous != nil {
 		_ = previous.Close(websocket.StatusGoingAway, "the core connected again") //nolint:errcheck // it is replaced
@@ -61,9 +63,54 @@ func (signal *signalling) accept(writer http.ResponseWriter, request *http.Reque
 	signal.read(request.Context(), connection)
 	signal.mutex.Lock()
 	if signal.current == connection {
-		signal.current = nil
+		signal.current, signal.instance = nil, ""
 	}
 	signal.mutex.Unlock()
+}
+
+// answers is whether instanceID holds the signalling connection and answers a ping on it within wait.
+func (signal *signalling) answers(ctx context.Context, instanceID string, wait time.Duration) bool {
+	signal.mutex.Lock()
+	connection := signal.current
+	isItsOwn := connection != nil && signal.instance == instanceID
+	signal.mutex.Unlock()
+	if !isItsOwn {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(ctx, wait)
+	defer cancel()
+	return connection.Ping(ctx) == nil
+}
+
+// dropSilent drops the signalling connection when instanceID holds it: it did not answer a ping, so
+// it is not asked to close, which would wait for an answer that never comes.
+func (signal *signalling) dropSilent(instanceID string) {
+	if connection := signal.take(instanceID); connection != nil {
+		_ = connection.CloseNow() //nolint:errcheck // it is dead
+	}
+}
+
+// closeAll closes the signalling connection, whichever instance holds it, saying why; the closing
+// handshake runs apart, so the call that ended it does not wait on the core.
+func (signal *signalling) closeAll(reason string) {
+	signal.mutex.Lock()
+	instanceID := signal.instance
+	signal.mutex.Unlock()
+	if connection := signal.take(instanceID); connection != nil {
+		go func() { _ = connection.Close(websocket.StatusPolicyViolation, reason) }() //nolint:errcheck // it is ended
+	}
+}
+
+// take removes the signalling connection when instanceID holds it, and returns it.
+func (signal *signalling) take(instanceID string) *websocket.Conn {
+	signal.mutex.Lock()
+	defer signal.mutex.Unlock()
+	connection := signal.current
+	if connection == nil || signal.instance != instanceID {
+		return nil
+	}
+	signal.current, signal.instance = nil, ""
+	return connection
 }
 
 // read hands each answer or refusal the core sends to the offer waiting on its id.

@@ -78,6 +78,11 @@ type fakeDiscovery struct {
 	deprecated   string
 	isLeft       bool
 	sessionCount int
+	// instanceIDs are the instances that opened sessions, in turn; refusal, when set, refuses every
+	// session with its code, until the core enrols again; enrolCount is how many times it enrolled.
+	instanceIDs []string
+	refusal     *discoveryproto.Refusal
+	enrolCount  int
 	// txt are the certificate challenges' records the core had the discovery set, by name.
 	txt map[string]string
 	// signals are the offers the test has the discovery pass on, and replies the core's answers.
@@ -130,7 +135,8 @@ func (fake *fakeDiscovery) ServeHTTP(writer http.ResponseWriter, request *http.R
 			http.Error(writer, "bad signature", http.StatusForbidden)
 			return
 		}
-		fake.publicKey, fake.state = enrol.PublicKey, discoveryproto.StatePending
+		fake.publicKey, fake.state, fake.refusal = enrol.PublicKey, discoveryproto.StatePending, nil
+		fake.enrolCount++
 		fake.answer(writer, discoveryproto.EnrolResponse{CoreID: fakeCoreID, ClaimCode: "abcd-efgh", ClaimExpiresAt: 1})
 	case "POST /session":
 		var opened discoveryproto.SessionRequest
@@ -138,6 +144,12 @@ func (fake *fakeDiscovery) ServeHTTP(writer http.ResponseWriter, request *http.R
 		if opened.CoreID != fakeCoreID ||
 			!fake.signedFresh(fake.publicKey, discoveryproto.PurposeSession, opened.Nonce, opened.Signature) {
 			http.Error(writer, "bad signature", http.StatusForbidden)
+			return
+		}
+		fake.instanceIDs = append(fake.instanceIDs, opened.InstanceID)
+		if fake.refusal != nil {
+			writer.WriteHeader(http.StatusConflict)
+			fake.answer(writer, fake.refusal)
 			return
 		}
 		fake.sessionCount++
@@ -580,4 +592,60 @@ func (files certificateFiles) ReadPersistentFile(name string) ([]byte, error) {
 func (files certificateFiles) WritePersistentFile(name string, contents []byte) error {
 	files[name] = contents
 	return nil
+}
+
+// refuse has the discovery refuse every session with code, and forget the sessions it opened.
+func (fake *fakeDiscovery) refuse(code string) {
+	fake.mutex.Lock()
+	defer fake.mutex.Unlock()
+	fake.refusal = &discoveryproto.Refusal{Code: code, Message: "refused: " + code}
+	fake.tokens = map[string]bool{}
+}
+
+// A core whose discovery refuses it as a copy of another instance, connected and still answering,
+// says so on its System page and asks again every few minutes; each run of the core names an
+// instance of its own (D293 §1).
+func TestStep_ACoreRefusedAsACopySaysSoAndAsksAgainLater(t *testing.T) {
+	t.Parallel()
+	built := newWorld(t)
+	ctx := t.Context()
+	if _, err := built.service.Connect(ctx, built.baseURL); err != nil {
+		t.Fatal(err)
+	}
+	built.service.step(ctx)
+	built.fake.refuse(discoveryproto.RefusalAnotherInstance)
+	built.service.step(ctx) // its session refused: it opens another, refused as a copy
+	if wait := built.service.step(ctx); wait != anotherCopyEvery ||
+		!strings.Contains(built.service.Status().Problem, ErrAnotherCopy.Error()) {
+		t.Errorf("a core refused as a copy waited %s with problem %q; want %s and that it is a copy", wait,
+			built.service.Status().Problem, anotherCopyEvery)
+	}
+	built.restart(t).step(ctx)
+	ids := built.fake.instanceIDs
+	if len(ids) != 3 || ids[0] == "" || ids[0] != ids[1] || ids[2] == ids[0] || ids[2] == "" {
+		t.Errorf("the sessions named instances %q; want one run's twice, then a restart's own", ids)
+	}
+}
+
+// A core its discovery no longer holds enrols again, and shows the new code (the protocol's §2.2,
+// C12): it does not retry a session that will never open.
+func TestStep_EnrolsAgainWhenTheDiscoveryNoLongerHoldsTheCore(t *testing.T) {
+	t.Parallel()
+	built := newWorld(t)
+	ctx := t.Context()
+	if _, err := built.service.Connect(ctx, built.baseURL); err != nil {
+		t.Fatal(err)
+	}
+	built.fake.claim()
+	built.service.step(ctx)
+	built.fake.refuse(discoveryproto.RefusalEnrolAgain)
+	built.service.step(ctx) // its session refused: it opens another, refused as unknown
+	if wait := built.service.step(ctx); wait != pendingEvery {
+		t.Errorf("a core its discovery no longer holds waited %s; want %s, enrolled again", wait, pendingEvery)
+	}
+	status := built.service.Status()
+	if built.fake.enrolCount != 2 || status.State != discoveryproto.StatePending || status.ClaimCode == "" {
+		t.Errorf("after the refusal: %d enrolments, status %+v; want a second, pending with its code",
+			built.fake.enrolCount, status)
+	}
 }

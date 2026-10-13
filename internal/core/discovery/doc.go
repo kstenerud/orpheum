@@ -12,6 +12,10 @@
 //     and every five minutes otherwise. TestStep_WaitsToBeClaimedThenSendsItsAddressesWhenTheyChangeOrEveryFiveMinutes.
 //   - A session the discovery refuses is replaced by a new one, signed afresh.
 //     TestStep_OpensANewSessionWhenTheDiscoveryRefusesTheOld.
+//   - Each run of the core names an instance of its own; refused as a copy of another, it says so
+//     and asks again every few minutes (D293 §1). TestStep_ACoreRefusedAsACopySaysSoAndAsksAgainLater.
+//   - A core its discovery no longer holds enrols again and shows the new code.
+//     TestStep_EnrolsAgainWhenTheDiscoveryNoLongerHoldsTheCore.
 //   - The core's zone, once the discovery claims it, is kept, and the claim is told once, so the
 //     certificate of its names can be asked for. TestStep_SaysOnceWhenTheCoreIsClaimedAndKeepsItsZone.
 //   - A claimed core asks how it stands with each heartbeat, and stops sending its addresses once
