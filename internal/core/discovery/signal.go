@@ -14,6 +14,7 @@ import (
 	"github.com/coder/websocket/wsjson"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
+	"github.com/kstenerud/orpheum/discovery/proof"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 )
 
@@ -96,5 +97,12 @@ func (service *Service) answerOffer(
 		service.parts.Logger.WarnContext(ctx, "discovery: an offer was refused", "offerId", offer.OfferID, "err", err)
 		return discoveryproto.SignalMessage{Type: discoveryproto.SignalRefusal, OfferID: offer.OfferID, Reason: reason}
 	}
-	return discoveryproto.SignalMessage{Type: discoveryproto.SignalAnswer, OfferID: offer.OfferID, SDP: answer.SDP}
+	signed := proof.Answer{
+		CoreID: service.Status().CoreID, OfferID: offer.OfferID, OfferFingerprint: rtcapi.FingerprintOf(offer.SDP),
+		SDP: answer.SDP,
+	}
+	return discoveryproto.SignalMessage{
+		Type: discoveryproto.SignalAnswer, OfferID: offer.OfferID, SDP: answer.SDP,
+		Signature: service.parts.Key.SignAnswer(signed),
+	}
 }

@@ -76,6 +76,17 @@ func checkRelayedOffer(sdp string) (string, error) {
 	return strings.Join(kept, "\r\n"), nil
 }
 
+// FingerprintOf is an SDP's a=fingerprint value ("sha-256 AB:..."), the first it holds, or empty:
+// what an answer's signature names the offer by (the protocol's §2.5 item 4).
+func FingerprintOf(sdp string) string {
+	for line := range strings.SplitSeq(strings.ReplaceAll(sdp, "\r\n", "\n"), "\n") {
+		if value, isFingerprint := strings.CutPrefix(line, "a=fingerprint:"); isFingerprint {
+			return value
+		}
+	}
+	return ""
+}
+
 // isFromOutside is whether a remote candidate's address is one a client outside the core's network
 // has: not loopback, link-local, private, carrier-grade NAT's, multicast or unspecified, and in
 // none of the core's own prefixes, which ownPrefixes names.

@@ -29,6 +29,12 @@
 //     TestCheckBaseURL_RefusesAnythingButHTTPSOrThisMachine.
 //   - A claimed core answers each offer the discovery passes on, under its id, and refuses one past
 //     rtcapi's limit saying why. TestSignal_AClaimedCoreAnswersTheOffersItsDiscoveryPassesOn.
+//   - Every signature to the discovery is bound to its base URL and the core, and every answer is
+//     signed over its exact SDP, its offer and the offer's fingerprint (the protocol's §2.1, §2.5).
+//     TestStep_WaitsToBeClaimedThenSendsItsAddressesWhenTheyChangeOrEveryFiveMinutes (the fake
+//     discovery checks the binding) and TestSignal_AClaimedCoreAnswersTheOffersItsDiscoveryPassesOn.
+//   - The client origin the discovery names is kept only as an https origin (D293 §4).
+//     TestStep_KeepsTheClientOriginTheDiscoveryNamesWhenItIsAnHTTPSOrigin.
 //   - An offer through the discovery reaches rtcapi only by Answerer.AnswerRelayed, which checks it
 //     itself first (the security audit's A2): the interface names no other way. Review, until the
 //     owner adds its TestArch_ claim.

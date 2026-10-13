@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
+	"github.com/kstenerud/orpheum/discovery/proof"
 	"github.com/kstenerud/orpheum/internal/core/identity"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
@@ -129,6 +130,12 @@ type Status struct {
 	DeprecatedUntil string
 	// ICEServers are the STUN servers the discovery names for the core's WebRTC candidates.
 	ICEServers []discoveryproto.ICEServer
+	// ClientOrigin is where the discovery serves its client, which the core's links lead to; empty
+	// until it says, or when what it said is not an https origin (D293 §4).
+	ClientOrigin string
+	// Fingerprint is the identity key's, which the core's links carry and a person can compare
+	// (proof.Fingerprint).
+	Fingerprint string
 }
 
 // Service keeps the core enrolled with its discovery: it connects when an admin asks, then keeps a
@@ -222,6 +229,7 @@ func (service *Service) Status() Status {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
 	status := service.status
+	status.Fingerprint = proof.Fingerprint(service.parts.Key.Public())
 	status.Published = slices.Clone(status.Published)
 	status.Probe = slices.Clone(status.Probe)
 	status.ICEServers = slices.Clone(status.ICEServers)
@@ -256,7 +264,7 @@ func (service *Service) enrol(ctx context.Context, baseURL string) (Status, erro
 		base: baseURL, method: http.MethodPost, path: discoveryproto.PathEnrol,
 		body: discoveryproto.EnrolRequest{
 			PublicKey: public, Protocol: discoveryproto.ProtocolVersion, Nonce: nonce,
-			Signature: service.parts.Key.Sign(discoveryproto.PurposeEnrol, nonce),
+			Signature: service.parts.Key.Sign(discoveryproto.PurposeEnrol, baseURL, proof.KeyLabel(public), nonce),
 		}, into: &enrolled,
 	})
 	if err != nil {
@@ -393,6 +401,7 @@ func (service *Service) askStatus(ctx context.Context, status Status, token stri
 	service.status.State, service.status.Zone, service.status.Problem = answered.State, answered.Zone, ""
 	service.status.ClaimCode, service.status.ClaimExpiresAt = answered.ClaimCode, time.Time{}
 	service.status.ICEServers = answered.ICEServers
+	service.status.ClientOrigin = originOf(answered.ClientOrigin)
 	if answered.ClaimCode != "" {
 		service.status.ClaimExpiresAt = time.UnixMilli(answered.ClaimExpiresAt)
 	}
@@ -513,7 +522,7 @@ func (service *Service) session(ctx context.Context) (string, error) {
 		base: status.BaseURL, method: http.MethodPost, path: discoveryproto.PathSession,
 		body: discoveryproto.SessionRequest{
 			CoreID: status.CoreID, InstanceID: service.instanceID, Nonce: nonce,
-			Signature: service.parts.Key.Sign(discoveryproto.PurposeSession, nonce),
+			Signature: service.parts.Key.Sign(discoveryproto.PurposeSession, status.BaseURL, status.CoreID, nonce),
 		}, into: &opened,
 	})
 	if err != nil {
@@ -619,6 +628,19 @@ func failure(response *http.Response, answer []byte) error {
 		return &refusal{code: named.Code, message: named.Message}
 	}
 	return fmt.Errorf("the discovery answered %s: %s", response.Status, bytes.TrimSpace(answer))
+}
+
+// originOf is a client origin a discovery names, as the core takes it: an https origin with no path,
+// query or credentials, written scheme://host[:port]; anything else is none. The discovery already
+// serves its client's code, so its word gives it nothing more, and this keeps the core's links from
+// leading anywhere but a web origin (D293 §4).
+func originOf(named string) string {
+	parsed, err := url.Parse(named)
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil ||
+		(parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return ""
+	}
+	return "https://" + strings.ToLower(parsed.Host)
 }
 
 // ErrNotADiscoveryURL is a base URL a core will not enrol with.

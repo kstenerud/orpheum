@@ -63,6 +63,11 @@ Which phase each step belongs to is [The order of work](#the-order-of-work). Ste
 
 ### K1 — The wire, revised in the public packages
 
+**Partly built 2026-10-13 (Phase 1's A3, A7):** `instanceId` and the refusals' codes; signatures
+bound to the discovery and the core, `proof.Answer` and the answer's `signature`;
+`discovery/link`'s fragment and locate hash; `clientOrigin`; the identity key's fingerprint
+(`proof.Fingerprint`). The rest waits with what uses it (Phase 2's thin path).
+
 - **Changes.** `discovery/discoveryproto`: `SessionRequest` gains `instanceId`; `SessionResponse`
   carries `expiresIn` (seconds) in place of `expiresAt`; the body's `protocol` is dropped from the
   heartbeat and from enrolment (§2.2, §2.4; X11), and the header carries `major.minor` (§5);

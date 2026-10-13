@@ -73,9 +73,14 @@ type TXTRecords interface {
 
 // Parts is what a single-target discovery is made of.
 type Parts struct {
+	// BaseURL is the address the core calls this discovery at, path included, which its signatures
+	// are bound to (the protocol's §2.1; X12).
+	BaseURL string
 	// Zone is the owner's zone: the core's names are under <coreId>.<Zone>.
-	Zone  string
-	Store Store
+	Zone string
+	// ClientOrigin is where the owner serves the client, which the core's links lead to (D293 §4).
+	ClientOrigin string
+	Store        Store
 	// Now is the time; Random, where its nonces, tokens, ids and codes come from.
 	Now    func() time.Time
 	Random io.Reader
@@ -222,11 +227,13 @@ func (discovery *Discovery) nonceExpiry(nonce string) (time.Time, bool) {
 }
 
 // isSigned is whether signature is publicKey's over a nonce this discovery issued, not expired and
-// not yet spent, for purpose; one a valid signature used is spent, and kept until it expires.
-func (discovery *Discovery) isSigned(publicKey ed25519.PublicKey, purpose, nonce string, signature []byte) bool {
+// not yet spent, for purpose, bound to this discovery and core; one a valid signature used is spent,
+// and kept until it expires.
+func (discovery *Discovery) isSigned(publicKey ed25519.PublicKey, purpose, core, nonce string, signature []byte) bool {
 	expires, isIssued := discovery.nonceExpiry(nonce)
 	now := discovery.parts.Now()
-	if !isIssued || !now.Before(expires) || !proof.Verify(publicKey, purpose, nonce, signature) {
+	if !isIssued || !now.Before(expires) ||
+		!proof.Verify(publicKey, purpose, discovery.parts.BaseURL, core, nonce, signature) {
 		return false
 	}
 	discovery.mutex.Lock()
@@ -252,7 +259,8 @@ func (discovery *Discovery) enrol(writer http.ResponseWriter, request *http.Requ
 	if !read(writer, request, &enrolling) {
 		return
 	}
-	if !discovery.isSigned(enrolling.PublicKey, discoveryproto.PurposeEnrol, enrolling.Nonce, enrolling.Signature) {
+	if !discovery.isSigned(enrolling.PublicKey, discoveryproto.PurposeEnrol, proof.KeyLabel(enrolling.PublicKey),
+		enrolling.Nonce, enrolling.Signature) {
 		http.Error(writer, "the signature is not over a nonce this discovery issued", http.StatusForbidden)
 		return
 	}
@@ -324,7 +332,9 @@ func (discovery *Discovery) status(writer http.ResponseWriter, request *http.Req
 		discovery.fail(writer, request, err)
 		return
 	}
-	status := discoveryproto.StatusResponse{State: held.State, ICEServers: discovery.parts.ICEServers}
+	status := discoveryproto.StatusResponse{
+		State: held.State, ICEServers: discovery.parts.ICEServers, ClientOrigin: discovery.parts.ClientOrigin,
+	}
 	if held.State == discoveryproto.StatePending {
 		status.ClaimCode, status.ClaimExpiresAt = held.ClaimCode, held.ClaimExpiresAt
 	} else {

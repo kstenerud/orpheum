@@ -1958,9 +1958,13 @@ export interface components {
              * @description Unix milliseconds; 0 when there is no code
              */
             claimExpiresAt: number;
+            /** @description Where the discovery serves its client, which the server's links lead to */
+            clientOrigin?: string;
             coreId?: string;
             /** @description When the discovery stops speaking this core's protocol, when it said so */
             deprecatedUntil?: string;
+            /** @description The identity key's fingerprint, which the server's links carry */
+            fingerprint: string;
             /**
              * Format: int64
              * @description Unix milliseconds; 0 before the first
