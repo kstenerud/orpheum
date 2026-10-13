@@ -81,6 +81,8 @@ type fakeDiscovery struct {
 	deprecated   string
 	isLeft       bool
 	sessionCount int
+	// sessionLasts is how many seconds a session lasts, as the discovery says: a day unless set.
+	sessionLasts int64
 	// instanceIDs are the instances that opened sessions, in turn; refusal, when set, refuses every
 	// session with its code, until the core enrols again; enrolCount is how many times it enrolled.
 	instanceIDs []string
@@ -105,6 +107,7 @@ func startDiscovery(t *testing.T) (*fakeDiscovery, *httptest.Server) {
 	fake := &fakeDiscovery{
 		t: t, nonces: map[string]bool{}, tokens: map[string]bool{}, txt: map[string]string{},
 		signals: make(chan discoveryproto.SignalMessage), replies: make(chan discoveryproto.SignalMessage, 4),
+		sessionLasts: int64((24 * time.Hour) / time.Second),
 	}
 	server := httptest.NewServer(fake)
 	t.Cleanup(server.Close)
@@ -161,7 +164,7 @@ func (fake *fakeDiscovery) ServeHTTP(writer http.ResponseWriter, request *http.R
 		fake.sessionCount++
 		token := rand.Text()
 		fake.tokens[token] = true
-		fake.answer(writer, discoveryproto.SessionResponse{Token: token, ExpiresAt: 1 << 62})
+		fake.answer(writer, discoveryproto.SessionResponse{Token: token, ExpiresIn: fake.sessionLasts})
 	default:
 		fake.serveSigned(writer, request, route)
 	}
@@ -365,6 +368,35 @@ func TestStep_OpensANewSessionWhenTheDiscoveryRefusesTheOld(t *testing.T) {
 	if count := built.fake.sessionCount; count != 2 || built.service.Status().Problem != "" {
 		t.Errorf("%d sessions opened, problem %q; want a second one opened and the problem cleared", count,
 			built.service.Status().Problem)
+	}
+}
+
+func TestSession_LastsAsLongAsTheDiscoverySaysCountedOnTheCoresOwnClock(t *testing.T) {
+	t.Parallel()
+	built := newWorld(t)
+	ctx := t.Context()
+	built.fake.mutex.Lock()
+	built.fake.sessionLasts = int64((sessionMargin + 2*heartbeatEvery - time.Minute) / time.Second)
+	built.fake.mutex.Unlock()
+	if _, err := built.service.Connect(ctx, built.baseURL); err != nil {
+		t.Fatal(err)
+	}
+	built.service.step(ctx)
+	sessions := func() int {
+		built.fake.mutex.Lock()
+		defer built.fake.mutex.Unlock()
+		return built.fake.sessionCount
+	}
+	opened := sessions()
+	built.clock.Advance(heartbeatEvery)
+	built.service.step(ctx) // a heartbeat, well within the session's life: the same session
+	if count := sessions(); count != opened {
+		t.Errorf("%d sessions after a heartbeat within the session's life; want still %d", count, opened)
+	}
+	built.clock.Advance(heartbeatEvery)
+	built.service.step(ctx) // within sessionMargin of its end: renewed first
+	if count := sessions(); count != opened+1 {
+		t.Errorf("%d sessions after a heartbeat near the session's end; want one more than %d", count, opened)
 	}
 }
 

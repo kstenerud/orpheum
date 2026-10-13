@@ -77,10 +77,12 @@ type SessionRequest struct {
 	Signature  []byte `json:"signature"`
 }
 
-// SessionResponse is the bearer token the core's other calls carry, until ExpiresAt (Unix ms).
+// SessionResponse is the bearer token the core's other calls carry, for ExpiresIn seconds: a
+// duration, which the core counts on its own clock from when it asked, so a core whose clock is wrong
+// neither renews on every step nor sends expired tokens (the protocol's §2.3; C11).
 type SessionResponse struct {
 	Token     string `json:"token"`
-	ExpiresAt int64  `json:"expiresAt"`
+	ExpiresIn int64  `json:"expiresIn"`
 }
 
 // Refusal is the body of a refusal the core acts on rather than retrying as it would any failure:

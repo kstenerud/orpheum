@@ -71,7 +71,7 @@ func (discovery *Discovery) session(writer http.ResponseWriter, request *http.Re
 		coreID: held.ID, publicKey: string(held.PublicKey), instanceID: opening.InstanceID, expires: expires,
 	}
 	discovery.mutex.Unlock()
-	answer(writer, discoveryproto.SessionResponse{Token: token, ExpiresAt: expires.UnixMilli()})
+	answer(writer, discoveryproto.SessionResponse{Token: token, ExpiresIn: int64(sessionLasts / time.Second)})
 }
 
 // admit makes instanceID the core's live instance, unless another is live and still answers a ping

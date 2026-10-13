@@ -247,8 +247,8 @@ no signature on every request.
   would move the household to the copy (U2-12) [I]. Built in `single` and the core, but for the
   advice on the System page.
 - **Expiry as a duration** (`expiresIn`, seconds), counted on the core's monotonic clock, so a core
-  whose clock is wrong neither renews on every step nor sends expired tokens (C11). **The code must
-  change:** the answer carries `expiresAt` (Unix ms), compared with the wall clock.
+  whose clock is wrong neither renews on every step nor sends expired tokens (C11). Built
+  (2026-10-13), counted from before the core asked.
 - **Renewal.** The core renews five minutes before expiry, and **at once, once, on any 401** from
   any call, then backs off; one renewal runs at a time, the step loop, the signalling loop and the
   certificate job sharing it (C11). **The code must change:** it waits 30 s after a 401, the
@@ -958,7 +958,7 @@ the core must act on (enrol again, another instance running) carries a code of i
 | --- | --- | --- |
 | `POST /challenge` | public key → nonce, for enrolling or a session; rate-limited | yes |
 | `POST /enrol` | public key + signed nonce → `coreId`, claim code, expiry; idempotent per key | yes |
-| `POST /session` | `coreId` + `instanceId` + signed nonce → token bound to the core, `expiresIn` (1 h) | yes, with `expiresAt` |
+| `POST /session` | `coreId` + `instanceId` + signed nonce → token bound to the core, `expiresIn` (1 h) | yes |
 | `GET /status` | claimed?, account state, zone, protocol support, `iceServers`, the client origin (`clientOrigin`, §3.4), messages for the admin | yes, but for the account state |
 | `PUT /addresses` | candidates, the owner's TURN → published names, probe results, `reachableFrom`, last week's failed connections (§3.6); the heartbeat's fallback | yes, but for the count |
 | `GET /signal` (WebSocket) | offers (with proofs) in, answers (signed over the SDP) out; the heartbeat; pings | yes, without checks, signatures, heartbeat or pings |
