@@ -105,8 +105,9 @@ func TestDemoteUnwantedEvery_IsAtMostHalfTheShortestPlayPriorityKept(t *testing.
 	}
 }
 
-// The sweeps that derive first matches, requested refreshes, rechecks and the identification passes
-// run as derived_work_sweep_every_seconds says, read afresh (D231 §3).
+// The sweeps that derive first matches, requested refreshes, rechecks, the identification passes and
+// the reconsidering of ambiguous matches run as derived_work_sweep_every_seconds says, read afresh
+// (D231 §3); the reconsidering runs before the first matches, which queue what it returns to them.
 func TestSweeps_TheDerivedWorkSweepsRunAsTheirSettingSays(t *testing.T) {
 	t.Parallel()
 	config := settingstest.Seeded(t, storetest.OpenMigrated(t))
@@ -114,8 +115,11 @@ func TestSweeps_TheDerivedWorkSweepsRunAsTheirSettingSays(t *testing.T) {
 	services := jobServices{settings: config}
 	derived := map[string]bool{
 		sweepFirstMatches: true, sweepRefreshRequests: true, sweepRechecks: true, sweepPasses: true,
+		sweepReconsidered: true,
 	}
+	var order []string
 	for _, sweep := range services.sweeps(slog.New(slog.DiscardHandler)) {
+		order = append(order, sweep.Name)
 		if derived[sweep.Name] {
 			delete(derived, sweep.Name)
 			if every := sweep.Every(t.Context()); every != 7*time.Minute {
@@ -125,6 +129,10 @@ func TestSweeps_TheDerivedWorkSweepsRunAsTheirSettingSays(t *testing.T) {
 	}
 	if len(derived) != 0 {
 		t.Errorf("no sweep named %v", derived)
+	}
+	if slices.Index(order, sweepReconsidered) > slices.Index(order, sweepFirstMatches) {
+		t.Errorf("the sweeps run in the order %v; want ambiguous matches reconsidered before the first matches",
+			order)
 	}
 }
 

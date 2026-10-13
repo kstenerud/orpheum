@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -84,5 +85,36 @@ func TestSignIn_AnAdminAdministersOverWebRTC(t *testing.T) {
 	token, _ := readSignIn(t, response{status: signedIn.Head.Status, body: string(signedIn.Body)})
 	if isAdmin, canManage := harness.mayAdminister(t, token); !isAdmin || !canManage {
 		t.Errorf("a sign-in over WebRTC may administer: %t, manage its account: %t; want both", isAdmin, canManage)
+	}
+}
+
+// A device a code activated watches and hosts but may not change the account's security: its
+// password, removing a device, signing out the others, or entering a code for another device (D292
+// §4; the security audit's A11).
+func TestPairing_ACodeActivatedDeviceMayNotChangeTheAccountsSecurity(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	television, _ := readSignIn(t, harness.activate(t, admin, map[string]any{"deviceName": "Living room TV"}))
+	if isAdmin, canManage := harness.mayAdminister(t, television); isAdmin || canManage {
+		t.Errorf("the television may administer: %t, change its password: %t; want neither", isAdmin, canManage)
+	}
+	adminDevice := harness.thisDeviceID(t, admin)
+	wantError(t, harness.do(t, http.MethodDelete, "/me/devices/"+strconv.FormatInt(adminDevice, 10), television,
+		nil), http.StatusForbidden, CodeForbidden)
+	wantError(t, harness.doWithHeader(t, http.MethodPost, "/me/devices/sign-out-elsewhere", television,
+		http.Header{"Idempotency-Key": {"k1"}}, nil), http.StatusForbidden, CodeForbidden)
+	asked := harness.do(t, http.MethodPost, "/pairings", "", map[string]any{"platform": "web"})
+	var pairing PairingOutput
+	if err := json.Unmarshal([]byte(asked.body), &pairing.Body); err != nil {
+		t.Fatal(err)
+	}
+	wantError(t, harness.do(t, http.MethodPost, "/activations", television,
+		map[string]any{"code": pairing.Body.Code, "deviceName": "Phone"}), http.StatusForbidden, CodeForbidden)
+	wantError(t, harness.do(t, http.MethodPost, "/activations/answer", television,
+		map[string]any{"code": pairing.Body.Code, "isMatch": true}), http.StatusForbidden, CodeForbidden)
+	if me := harness.do(t, http.MethodGet, "/me", television, nil); !strings.Contains(me.body,
+		`"canManageAccount":false`) {
+		t.Errorf("GET /me for the television = %s; want canManageAccount false", me.body)
 	}
 }
