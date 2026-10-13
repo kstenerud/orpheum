@@ -19198,6 +19198,14 @@ D214, D249 and D272 §1–§2, and D112's refusal.
      comes back successfully a short while later, we switch to that"*: the client uses the first
      path that answers, keeps the others trying for a short while, and moves to a better one that
      answers in that time (better: on the LAN over across the internet, plain HTTPS over WebRTC).
+
+     **Amended 2026-10-13** by the owner: moving to a better path as it answers *"is moving the
+     original problem one rung down rather than solving it. We should be taking the first one that
+     succeeds as a control connection, then giving a few seconds for the other attempts to work or
+     fail, and then out of all that succeeded, pick which one will work best."* The first path to
+     answer carries the page at once; the others get a few seconds; then the client moves to the
+     best of all that succeeded, by what it measured of each as well as by kind
+     ([discovery-protocol.md](../design/discovery-protocol.md) §3.3).
    - Hidden per-core names live under a dedicated domain of the service's, not under
      orpheum-app.com, with one wildcard certificate per core (*"a separate domain for the hidden
      cores is acceptable (if it still makes sense to go this route)"*).
@@ -19234,7 +19242,7 @@ D214, D249 and D272 §1–§2, and D112's refusal.
     - D218's safe32 shape, single use and short life hold for both codes. Not built: M3 built
       D218's direction, which this replaces.
 
-**Status:** Decided 2026-10-09.
+**Status:** Decided 2026-10-09; §7's choice among paths amended 2026-10-13.
 
 ## D274 — A core is reached first by what needs nothing from its owner, WebRTC through the discovery; direct paths are upgrades, and a relay waits for demand
 
