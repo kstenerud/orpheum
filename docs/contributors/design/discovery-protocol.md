@@ -6,8 +6,8 @@
 # The discovery protocol
 
 **Status:** a design, partly built. Moved into the repository on the owner's word (2026-10-13:
-*"move the protocol parts into the repo"*) from the paid service's specification (draft 3, the
-shared files' `discovery-service-spec.md`), whose §3, §4, §8 and §9.3 it was. It is what the core
+*"move the protocol parts into the repo"*) from the paid service's specification (draft 3, kept in
+the paid service's own repository), whose §3, §4, §8 and §9.3 it was. It is what the core
 (`internal/core/discovery`), Orpheum's public building blocks (`discovery/discoveryproto`,
 `discovery/proof`, `discovery/safe32code`, `discovery/single`) and the closed service all speak
 (D275 §1). The plans that build it are [discovery-core.md](plans/discovery-core.md) (the core's
@@ -18,7 +18,7 @@ side, built), [discovery-mode.md](plans/discovery-mode.md) (W4b, the owner's own
 [security](research/discovery-audit-security-2026-10-13.md) (findings S1–S18),
 [ease of use](research/discovery-audit-ux-2026-10-13.md) (U1–U13),
 [correctness](research/discovery-audit-correctness-2026-10-13.md) (C1–C16) and
-[DDoS and availability](research/discovery-ddos-availability-2026-10-13.md). The owner ruled on
+DDoS and availability (kept with the paid service, in its own repository). The owner ruled on
 them in
 [D290](../decisions/working-notes.md#d290--the-discovery-audits-findings-taken-claiming-on-the-core-paths-ranked-by-kind-re-keying-signed-by-the-old-key-computed-dns-behind-cloudflare-and-webrtc-in-the-beta),
 which this document follows; the correctness findings D290 does not name are taken as that audit
