@@ -3,6 +3,7 @@
 # ABOUTME: weakening, revert-red, commit lint and speculative API. Each gate is shown failing
 # ABOUTME: on a case built to fail, because a gate never seen red proves nothing (D190).
 import contextlib
+import fcntl
 import io
 import json
 import os
@@ -423,7 +424,7 @@ class RevertRed(unittest.TestCase):
                 lock = root / ".git" / "revert-red" / "lock"
                 with open(lock, "w", encoding="utf-8") as other:
                     with self.assertRaises(BlockingIOError):
-                        rr.fcntl.flock(other, rr.fcntl.LOCK_EX | rr.fcntl.LOCK_NB)
+                        fcntl.flock(other, fcntl.LOCK_EX | fcntl.LOCK_NB)
         finally:
             os.chdir(cwd)
 
