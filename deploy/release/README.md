@@ -134,20 +134,24 @@ unless the newer one declared it compatible, and its refusal names the snapshot 
 migration (D181): stop the deployment, put the snapshot in place of `core/persistent/persistent.db`,
 and start it again. What happened since the snapshot is lost.
 
-## 6. Swapping the public name between staging and nas.example
+## 6. Staging and nas.example on one VPS
 
-Both use the one tunnel key, and the VPS forwards to whichever end dials it, so only one may run
-its tunnel at a time (D272 §2, §8):
+Each deployment is its own peer on the VPS: its own key, and its own tunnel addresses, the values
+file's `vps.tunnel_ipv4` and `vps.tunnel_ipv6` (10.77.0.2 and fd77::2 when it names none). Given
+different addresses, and on the VPS a peer and a public address each, with forwards matched by
+destination address, both run at once (D292 §7); the owner's VPS is set up so by `orpheum-ops`.
+
+Two deployments with the same addresses still exclude each other, as before D292 (D272 §2, §8):
+the VPS forwards to whichever end dialled last, so only one may run its tunnel at a time.
 
 - To nas.example: the agent stops staging with `./staging down`, which removes its containers. Only
   stopping the sandbox is not enough: staging's containers start again whenever the sandbox's
   Docker does, and would take the tunnel back. Then `docker compose up -d` on nas.example.
 - To staging: `docker compose down` on nas.example; then the agent runs `./staging`.
 
-`wg show` on the VPS shows a handshake, but both ends come from the house's one address, so it
-cannot tell them apart: ask each end with `docker compose exec orpheum-tunnel wg show wg0
-latest-handshakes`. Each keeps its own database,
-libraries and certificate.
+`wg show` on the VPS shows each peer's handshake; ends sharing a key come from the house's one
+address and cannot be told apart there, so ask each with `docker compose exec orpheum-tunnel wg show
+wg0 latest-handshakes`. Each keeps its own database, libraries and certificate.
 
 ## When something is wrong
 

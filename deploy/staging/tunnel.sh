@@ -10,28 +10,31 @@
 # family that sends those to a table whose default route is wg0.
 #
 # /etc/orpheum-tunnel/wg0.conf is `wg setconf`'s format (a key and a peer), rendered by
-# ./staging; MTU comes from the environment. Stopping takes the tunnel down with the network.
+# write-deployment; the MTU and this end's addresses (the values file's vps.tunnel_ipv4 and
+# vps.tunnel_ipv6) come from the environment. Stopping takes the tunnel down with the network.
 set -u
 
 conf=/etc/orpheum-tunnel/wg0.conf
 mtu="${ORPHEUM_TUNNEL_MTU:-1420}"
+ipv4="${ORPHEUM_TUNNEL_IPV4:?the tunnel IPv4 address of the deployment}"
+ipv6="${ORPHEUM_TUNNEL_IPV6:?the tunnel IPv6 address of the deployment}"
 table=51820
 
 down() {
-	ip -4 rule del from 10.77.0.2 lookup "$table" 2>/dev/null || true
-	ip -6 rule del from fd77::2 lookup "$table" 2>/dev/null || true
+	ip -4 rule del from "$ipv4" lookup "$table" 2>/dev/null || true
+	ip -6 rule del from "$ipv6" lookup "$table" 2>/dev/null || true
 	ip link del wg0 2>/dev/null || true
 }
 
 up() {
 	ip link add wg0 type wireguard &&
 		wg setconf wg0 "$conf" &&
-		ip -4 address add 10.77.0.2/24 dev wg0 &&
-		ip -6 address add fd77::2/64 dev wg0 &&
+		ip -4 address add "$ipv4/24" dev wg0 &&
+		ip -6 address add "$ipv6/64" dev wg0 &&
 		ip link set mtu "$mtu" up dev wg0 &&
-		ip -4 rule add from 10.77.0.2 lookup "$table" &&
+		ip -4 rule add from "$ipv4" lookup "$table" &&
 		ip -4 route replace default dev wg0 table "$table" &&
-		ip -6 rule add from fd77::2 lookup "$table" &&
+		ip -6 rule add from "$ipv6" lookup "$table" &&
 		ip -6 route replace default dev wg0 table "$table"
 }
 
@@ -45,7 +48,7 @@ until up; do
 	down
 	sleep 10
 done
-echo "orpheum-tunnel: wg0 is up as 10.77.0.2 and fd77::2, MTU $mtu; the VPS's end is $(wg show wg0 endpoints | cut -f2)"
+echo "orpheum-tunnel: wg0 is up as $ipv4 and $ipv6, MTU $mtu; the VPS's end is $(wg show wg0 endpoints | cut -f2)"
 
 trap 'down; exit 0' TERM INT
 # Waiting in the background, so the trap runs as soon as the signal comes.

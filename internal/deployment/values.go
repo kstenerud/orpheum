@@ -5,6 +5,7 @@ package deployment
 import (
 	"encoding/base64"
 	"fmt"
+	"net"
 	"net/netip"
 	"path/filepath"
 	"strconv"
@@ -31,6 +32,24 @@ const (
 	mtuOverIPv4 = 1380
 )
 
+// The tunnel's subnets, whose first address is the VPS's end (deploy/vps/vps-wg0.conf); each
+// deployment's end is another address in them, so several deployments share the one VPS (D292 §7).
+// The tunnel service (deploy/staging/tunnel.sh) gives wg0 its addresses with these prefixes.
+const (
+	tunnelSubnetIPv4 = "10.77.0.0/24"
+	tunnelSubnetIPv6 = "fd77::/64"
+)
+
+// The tunnel addresses a values file that names none has: the first deployment's, which every
+// deployment had before each could have its own (D272 §8, revised by D292 §7).
+const (
+	firstTunnelIPv4 = "10.77.0.2"
+	firstTunnelIPv6 = "fd77::2"
+)
+
+// turnPort is TURN's port on the tunnel's IPv4 address.
+const turnPort = 3478
+
 // The dev loop's ports, which a deployment beside it must not take.
 const (
 	devServerPort = 8432
@@ -49,6 +68,10 @@ type Values struct {
 		PublicKey  string `toml:"public_key"`
 		// MTU is 0 when the values file leaves it out: chosen from the endpoint's family.
 		MTU int `toml:"mtu"`
+		// TunnelIPv4 and TunnelIPv6 are this deployment's end of the tunnel, which the VPS's
+		// wg0.conf names as this deployment's peer.
+		TunnelIPv4 string `toml:"tunnel_ipv4"`
+		TunnelIPv6 string `toml:"tunnel_ipv6"`
 	} `toml:"vps"`
 	Media struct {
 		Roots []string `toml:"roots"`
@@ -69,6 +92,8 @@ func ParseValues(text, hostName string) (Values, error) {
 	values := Values{}
 	values.HTTP.Publish = "0.0.0.0"
 	values.HTTP.Port = 8440
+	values.VPS.TunnelIPv4 = firstTunnelIPv4
+	values.VPS.TunnelIPv6 = firstTunnelIPv6
 	if _, err := toml.Decode(text, &values); err != nil {
 		return Values{}, fmt.Errorf("the values file: %w", err)
 	}
@@ -77,6 +102,8 @@ func ParseValues(text, hostName string) (Values, error) {
 	values.VPS.Endpoint = strings.TrimSpace(values.VPS.Endpoint)
 	values.VPS.PublicIPv4 = strings.TrimSpace(values.VPS.PublicIPv4)
 	values.VPS.PublicKey = strings.TrimSpace(values.VPS.PublicKey)
+	values.VPS.TunnelIPv4 = strings.TrimSpace(values.VPS.TunnelIPv4)
+	values.VPS.TunnelIPv6 = strings.TrimSpace(values.VPS.TunnelIPv6)
 	values.Node.Name = strings.TrimSpace(values.Node.Name)
 	if values.Node.Name == "" {
 		values.Node.Name = hostName
@@ -93,6 +120,12 @@ func (values Values) TunnelMTU() int {
 		return mtuOverIPv6
 	}
 	return mtuOverIPv4
+}
+
+// TURNListen is where the core's TURN listens: the tunnel's IPv4 address, so a UDP answer leaves
+// from the address the VPS forwards to (deploy/vps/README.md §3).
+func (values Values) TURNListen() string {
+	return net.JoinHostPort(values.VPS.TunnelIPv4, strconv.Itoa(turnPort))
 }
 
 // Problems is what the values file still lacks or holds wrongly, each naming its key.
@@ -132,7 +165,26 @@ func (values Values) vpsProblems() []string {
 		problems = append(problems, fmt.Sprintf("vps.mtu %d: want 1280 to 1500, or leave it out: %d over IPv6 "+
 			"and %d over IPv4 are chosen from the endpoint", values.VPS.MTU, mtuOverIPv6, mtuOverIPv4))
 	}
+	if problem := tunnelAddressProblem("vps.tunnel_ipv4", values.VPS.TunnelIPv4, tunnelSubnetIPv4); problem != "" {
+		problems = append(problems, problem)
+	}
+	if problem := tunnelAddressProblem("vps.tunnel_ipv6", values.VPS.TunnelIPv6, tunnelSubnetIPv6); problem != "" {
+		problems = append(problems, problem)
+	}
 	return problems
+}
+
+// tunnelAddressProblem says why address is not a deployment's address in subnet, or "": the
+// subnet's first address is the VPS's.
+func tunnelAddressProblem(key, address, subnetText string) string {
+	subnet := netip.MustParsePrefix(subnetText)
+	parsed, err := netip.ParseAddr(address)
+	vps := subnet.Addr().Next()
+	if err != nil || !subnet.Contains(parsed) || parsed == subnet.Addr() || parsed == vps {
+		return fmt.Sprintf("%s %q: want an address in %s other than the VPS's %s, one no other "+
+			"deployment on the VPS has", key, address, subnet, vps)
+	}
+	return ""
 }
 
 // mediaProblems is what [media] lacks or holds wrongly.

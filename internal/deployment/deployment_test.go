@@ -128,6 +128,11 @@ func TestValues_ProblemsNameEachKeyThatLacksAValue(t *testing.T) {
 		{"the dev loop's port", `http.port = 8432`, "http.port"},
 		{"Vite's port", `http.port = 5173`, "http.port"},
 		{"a publish address by name", `http.publish = "lan"`, "http.publish"},
+		{"a tunnel IPv4 outside the tunnel's subnet", `vps.tunnel_ipv4 = "10.78.0.3"`, "vps.tunnel_ipv4"},
+		{"the VPS's own tunnel IPv4", `vps.tunnel_ipv4 = "10.77.0.1"`, "vps.tunnel_ipv4"},
+		{"a tunnel IPv4 that is IPv6", `vps.tunnel_ipv4 = "fd77::3"`, "vps.tunnel_ipv4"},
+		{"the VPS's own tunnel IPv6", `vps.tunnel_ipv6 = "fd77::1"`, "vps.tunnel_ipv6"},
+		{"a tunnel IPv6 outside the tunnel's subnet", `vps.tunnel_ipv6 = "fd78::3"`, "vps.tunnel_ipv6"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -164,6 +169,10 @@ func overlay(values *Values, changed Values, change string) {
 		values.HTTP.Port = changed.HTTP.Port
 	case "http.publish":
 		values.HTTP.Publish = changed.HTTP.Publish
+	case "vps.tunnel_ipv4":
+		values.VPS.TunnelIPv4 = changed.VPS.TunnelIPv4
+	case "vps.tunnel_ipv6":
+		values.VPS.TunnelIPv6 = changed.VPS.TunnelIPv6
 	}
 }
 
@@ -295,6 +304,33 @@ func TestWrite_TheConfigsServeTheNameRelayThroughTheVPSAndNameTheMedia(t *testin
 	}
 }
 
+func TestWrite_ADeploymentTakesItsOwnTunnelAddressesForTheTunnelAndTURN(t *testing.T) {
+	t.Parallel()
+	dir := begun(t, Staging)
+	values := filledValues(t, Staging)
+	if values.VPS.TunnelIPv4 != "10.77.0.2" || values.VPS.TunnelIPv6 != "fd77::2" {
+		t.Errorf("a values file naming no tunnel addresses has %s and %s; want the first deployment's, "+
+			"10.77.0.2 and fd77::2", values.VPS.TunnelIPv4, values.VPS.TunnelIPv6)
+	}
+	changed, err := ParseValues("[vps]\ntunnel_ipv4 = \"10.77.0.3\"\ntunnel_ipv6 = \"fd77::3\"\n", "nas")
+	if err != nil {
+		t.Fatal(err)
+	}
+	values.VPS.TunnelIPv4, values.VPS.TunnelIPv6 = changed.VPS.TunnelIPv4, changed.VPS.TunnelIPv6
+	if err = Write(dir, values, runtime); err != nil {
+		t.Fatal(err)
+	}
+	if got := decodeTOML(t, filepath.Join(dir, coreConfig))["turn"]["listen"]; got != "10.77.0.3:3478" {
+		t.Errorf("the core config's turn.listen is %v; want the deployment's own 10.77.0.3:3478", got)
+	}
+	env := readFile(t, filepath.Join(dir, environmentFile))
+	for _, want := range []string{"ORPHEUM_TUNNEL_IPV4=10.77.0.3\n", "ORPHEUM_TUNNEL_IPV6=fd77::3\n"} {
+		if !strings.Contains(env, want) {
+			t.Errorf(".env is %q; want it to hold %q for the tunnel service", env, want)
+		}
+	}
+}
+
 func TestWrite_ReleaseRefusesAnUnmigratableDatabaseAndStagingStartsOver(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
@@ -334,6 +370,7 @@ func TestWrite_ComposeReadsEveryVariableTheEnvironmentFileSets(t *testing.T) {
 	for _, want := range []string{
 		"ORPHEUM_IMAGE=orpheum:v0.1.0", "ORPHEUM_UID=1000", "ORPHEUM_GID=1001",
 		"ORPHEUM_HTTP_PUBLISH=0.0.0.0", "ORPHEUM_HTTP_PORT=8440", "ORPHEUM_TUNNEL_MTU=1420",
+		"ORPHEUM_TUNNEL_IPV4=10.77.0.2", "ORPHEUM_TUNNEL_IPV6=fd77::2",
 	} {
 		if !strings.Contains(env, want+"\n") {
 			t.Errorf(".env lacks %s", want)

@@ -25,7 +25,7 @@ acme_directory = "https://acme-v02.api.letsencrypt.org/directory"
 
 [turn]
 public_address = {{toml .Values.VPS.PublicIPv4}}
-listen = "10.77.0.2:3478"
+listen = {{toml .Values.TURNListen}}
 relay_port_min = 49160
 relay_port_max = 49199
 
