@@ -19772,5 +19772,9 @@ Follow your recommendation"*, then *"Q5, Q6, Q13, Q14, Q18: Agreed"*. The protoc
    exit path tested in Orpheum (Q8, D25); aggregate counts only, no identifiers (Q13); two
    repositories and two machines (Q14); code shared as D275 decided (Q6). Q7, the business and tax
    questions, waits for a session of its own.
+6. **Claiming a core on the paid dashboard ends with a check code** (Q19, the owner: *"Q19:
+   Agreed"*): the dashboard and the core's System page both show it, with the core's name and
+   fingerprint, and only the customer's "they match" binds the core, as D288 §3 ends a device's
+   activation. The core's System page shows it, so this is Orpheum's to build too.
 
 **Status:** Decided 2026-10-13.
