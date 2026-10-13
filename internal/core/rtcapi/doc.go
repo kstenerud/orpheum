@@ -43,6 +43,9 @@
 //     bounded; its requests in flight limited, each arriving whole by a deadline.
 //     TestAnswerRelayed_ConnectsNoClientOnTheCoresOwnNetwork, TestAnswer_HoldsEachClientWithinItsBounds,
 //     TestChannel_ARequestThatDoesNotArriveInTimeIsCutOff.
+//   - The handler believes nothing a request's head says of where it came from: Origin, Host,
+//     Forwarded and X-Forwarded-* are dropped, and IsOverWebRTC tells it the request came over a
+//     channel (the security audit's A1). TestChannel_TheHandlerBelievesNothingTheHeadSaysOfWhereItCameFrom.
 //   - A connection grants nothing: each request carries its own sign-in, and the offer endpoint
 //     answers only a signed-in client (internal/core/api's
 //     TestRTCOffer_ASignedInClientReachesTheAPIOverDataChannels).

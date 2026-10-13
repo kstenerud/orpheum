@@ -153,7 +153,7 @@ func (server *Server) changeMyDevice(ctx context.Context, input *ChangeDeviceInp
 }
 
 func (server *Server) removeMyDevice(ctx context.Context, input *DeviceInput) (*struct{}, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireAccountManager(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +162,7 @@ func (server *Server) removeMyDevice(ctx context.Context, input *DeviceInput) (*
 }
 
 func (server *Server) signOutElsewhere(ctx context.Context, input *struct{ AuthorizationHeader }) (*struct{}, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireAccountManager(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}

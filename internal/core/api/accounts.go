@@ -186,7 +186,7 @@ func (server *Server) register(ctx context.Context, input *RegisterInput) (*Sess
 		return nil, err
 	}
 	token, err := dependencies.Auth.Register(ctx, input.Body.Secret, input.Body.Name, input.Body.Password,
-		newDevice(input.Body.Device))
+		newDevice(input.Body.Device, input.ClientFacts))
 	if err != nil {
 		return nil, server.authError(ctx, "register", err)
 	}
@@ -194,7 +194,7 @@ func (server *Server) register(ctx context.Context, input *RegisterInput) (*Sess
 }
 
 func (server *Server) changePassword(ctx context.Context, input *ChangePasswordInput) (*struct{}, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireAccountManager(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}

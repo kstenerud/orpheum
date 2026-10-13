@@ -162,3 +162,34 @@ func TestChannel_ARequestThatDoesNotArriveInTimeIsCutOff(t *testing.T) {
 		t.Error("a request whose end never came was held past its deadline")
 	}
 }
+
+// A request's head is the page's: the handler sees no header in it that says where the request came
+// from, and knows the request came over WebRTC (the security audit's A1).
+func TestChannel_TheHandlerBelievesNothingTheHeadSaysOfWhereItCameFrom(t *testing.T) {
+	t.Parallel()
+	told := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("X-Told", strings.Join([]string{
+			request.Header.Get("Origin"), request.Header.Get("Forwarded"), request.Header.Get("X-Forwarded-For"),
+			request.Host, request.Header.Get("Authorization"),
+		}, "|"))
+		if rtcapi.IsOverWebRTC(request.Context()) {
+			writer.Header().Set("X-Over-WebRTC", "yes")
+		}
+		writer.WriteHeader(http.StatusNoContent)
+	})
+	server := rtcapi.New(t.Context(), told, slog.New(slog.DiscardHandler))
+	t.Cleanup(func() { _ = server.Close() }) //nolint:errcheck // the test is over
+	got := rtcapitest.Connect(t, server.Answer).Do(rtcapi.RequestHead{
+		Method: http.MethodGet, Path: "/",
+		Headers: http.Header{
+			"origin": {"https://core.example"}, "forwarded": {"for=192.0.2.1"}, "x-forwarded-for": {"192.0.2.1"},
+			"host": {"core.example"}, "authorization": {"Bearer t"},
+		},
+	}, nil)
+	if told := got.Head.Headers.Get("X-Told"); told != "||||Bearer t" {
+		t.Errorf("the handler was told %q; want only the sign-in", told)
+	}
+	if got.Head.Headers.Get("X-Over-WebRTC") != "yes" {
+		t.Error("the handler did not know the request came over WebRTC")
+	}
+}

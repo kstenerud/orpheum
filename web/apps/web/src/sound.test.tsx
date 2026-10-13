@@ -104,6 +104,7 @@ describe("how a device makes sound (D222)", () => {
     mounted = await mount(
       withServices(
         <YourDevices
+          canManage
           devices={{ state: "loaded", value: [livingRoom] }}
           onChanged={() => {
             reloads += 1;

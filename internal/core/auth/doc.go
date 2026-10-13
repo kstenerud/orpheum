@@ -33,6 +33,11 @@
 //   - A session is stored only as its token's SHA-256 and ends when revoked, and belongs to the
 //     device it was signed in on: the one the client remembers, or a new one the client names
 //     (D217 §8, D221). Enforced by TestSignIn_IssuesASessionUntilSignedOut.
+//   - A session signed in through a discovery's page (NewDevice.IsThroughDiscovery), and one a
+//     device code activated, carry the device scope: the role without administering and without
+//     changing the account's security (CanManageAccount); any other carries the whole role (D292 §4;
+//     the security audit's A1, A11). Enforced by
+//     TestSession_ThroughADiscoveryOrByACodeCarriesNoAdminAndNoAccountSecurity.
 //   - A principal names its session by that digest's hex (SessionKey), so no other package hashes
 //     a credential to tell sessions apart. Enforced by
 //     TestAuthenticate_NamesTheSessionWithoutItsCredential.

@@ -38,6 +38,9 @@ async function type(container: HTMLElement, label: string, text: string): Promis
   );
 }
 
+/** The person signed in, as GET /me answers. */
+const owner = { id: 1, name: "owner", role: "admin", isAdmin: true, canHostWatchTogether: true };
+
 /** The account page, served by answers, with a television's code and name entered. */
 async function accountWithCodeEntered(answers: Answers, heard: Heard[]): Promise<Mounted> {
   const shown = await mount(
@@ -46,6 +49,7 @@ async function accountWithCodeEntered(answers: Answers, heard: Heard[]): Promise
       servedBy(
         {
           "GET /me/devices": [200, { devices: [] }],
+          "GET /me": [200, { ...owner, canManageAccount: true }],
           "POST /activations": [200, { checkCode: "wxyz-0123", deviceName: "Living room TV" }],
           "POST /activations/answer": [204, undefined],
           ...answers,
@@ -72,7 +76,7 @@ describe("activating a device by the code it shows (D288)", () => {
     expect(container.textContent).toContain("Never go on what someone tells you");
     await click(buttonWithText(container, "Yes, they match"));
     expect(container.textContent).toContain("Living room TV is activated and signed in.");
-    expect(heard.filter((request) => request.methodAndPath !== "GET /me/devices")).toEqual([
+    expect(heard.filter((request) => !request.methodAndPath.startsWith("GET /me"))).toEqual([
       {
         methodAndPath: "POST /activations",
         body: { code: "ABCD EFGH", deviceName: "Living room TV" },

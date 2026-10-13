@@ -7,10 +7,13 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 )
 
 // SetupInput creates the first admin with the code from the log.
@@ -32,6 +35,9 @@ type UserBody struct {
 	// CanHostWatchTogether is whether the person's role may host Watch Together, so a client offers
 	// it only to them.
 	CanHostWatchTogether bool `json:"canHostWatchTogether"`
+	// CanManageAccount is whether this session may change the account's security (its password, its
+	// devices, codes it enters for others): a client offers those only when it may (D292 §4).
+	CanManageAccount bool `json:"canManageAccount"`
 	// HasNoLibrary is a person whose role the admin has given no library yet, so a client tells
 	// them why their lists are empty (D243 §4).
 	HasNoLibrary bool `json:"hasNoLibrary"`
@@ -68,6 +74,9 @@ type ClientFacts struct {
 	// userAgent is the browser's own words for itself, for the log: an iPhone's player behaves
 	// unlike a desktop's, and nothing said which a stalling viewer had (staging, 2026-10-06).
 	userAgent string
+	// isThroughDiscovery is a request from a discovery's page (isThroughDiscovery): a session it
+	// signs in never carries admin.
+	isThroughDiscovery bool
 }
 
 // NewDeviceBody is how a client names itself: the device becomes one of the person's, listed
@@ -81,11 +90,31 @@ type NewDeviceBody struct {
 	PreviousDeviceProof string `doc:"A session token that device was issued, live or not: the proof it was this client" json:"previousDeviceProof,omitempty" maxLength:"100" required:"false"` //nolint:lll // one struct tag
 }
 
-func newDevice(body NewDeviceBody) auth.NewDevice {
+// newDevice is the device a sign-in names, signing in as the request the facts are of did.
+func newDevice(body NewDeviceBody, facts ClientFacts) auth.NewDevice {
 	return auth.NewDevice{
 		Name: body.Name, Platform: body.Platform, PreviousDeviceID: body.PreviousDeviceID,
-		PreviousDeviceProof: body.PreviousDeviceProof,
+		PreviousDeviceProof: body.PreviousDeviceProof, IsThroughDiscovery: facts.isThroughDiscovery,
 	}
+}
+
+// isThroughDiscovery is whether a request came from a page a discovery served rather than the core's
+// own, judged by what page script cannot forge (D292 §4; the security audit's A1): every request
+// over WebRTC, whose head the page wrote; and a browser's Origin naming another host than the one the
+// browser asked, or none it can say ("null"). A request with no Origin is no browser page's.
+func isThroughDiscovery(ctx huma.Context) bool {
+	if rtcapi.IsOverWebRTC(ctx.Context()) {
+		return true
+	}
+	origin := ctx.Header("Origin")
+	if origin == "" {
+		return false
+	}
+	parsed, err := url.Parse(origin)
+	if err != nil || parsed.Host == "" {
+		return true
+	}
+	return !strings.EqualFold(parsed.Host, ctx.Host())
 }
 
 // Resolve records the client's address and whether it came over TLS.
@@ -96,6 +125,7 @@ func (facts *ClientFacts) Resolve(ctx huma.Context) []error {
 	}
 	facts.clientAddress, facts.isOverTLS = host, ctx.TLS() != nil
 	facts.userAgent = ctx.Header("User-Agent")
+	facts.isThroughDiscovery = isThroughDiscovery(ctx)
 	return nil
 }
 
@@ -158,7 +188,9 @@ func (server *Server) setup(ctx context.Context, input *SetupInput) (*UserOutput
 		return nil, server.authError(ctx, "complete setup", err)
 	}
 	server.logger.InfoContext(ctx, "first admin created", "userId", id)
-	return &UserOutput{Body: UserBody{ID: id, Name: admin.Name, Role: string(auth.RoleAdmin), IsAdmin: true}}, nil
+	return &UserOutput{Body: UserBody{
+		ID: id, Name: admin.Name, Role: string(auth.RoleAdmin), IsAdmin: true, CanManageAccount: true,
+	}}, nil
 }
 
 func (server *Server) signIn(ctx context.Context, input *SignInInput) (*SessionOutput, error) {
@@ -175,7 +207,7 @@ func (server *Server) signIn(ctx context.Context, input *SignInInput) (*SessionO
 			"no one can sign in until the first admin is created with the setup code")
 	}
 	token, err := dependencies.Auth.SignIn(
-		ctx, input.Body.Name, input.Body.Password, input.clientAddress, newDevice(input.Body.Device))
+		ctx, input.Body.Name, input.Body.Password, input.clientAddress, newDevice(input.Body.Device, input.ClientFacts))
 	if err != nil {
 		return nil, server.authError(ctx, "sign in", err)
 	}
@@ -253,7 +285,7 @@ func (server *Server) userBody(
 	body := UserBody{
 		ID: principal.UserID, Name: principal.Name, Role: string(principal.Role),
 		IsAdmin: principal.IsAdmin(), CanHostWatchTogether: principal.CanHostWatchTogether(),
-		HasNoLibrary: principal.Reach.ReachesNone(),
+		CanManageAccount: principal.CanManageAccount(), HasNoLibrary: principal.Reach.ReachesNone(),
 	}
 	if principal.DeviceID != 0 {
 		device, err := dependencies.Auth.DeviceOf(ctx, principal.UserID, principal.DeviceID)
