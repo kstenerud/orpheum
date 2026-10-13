@@ -13,6 +13,8 @@
 //     by TestFragment_IsReadBackAsWrittenAndAnythingElseIsRefused.
 //   - A link's locate hash is SHA-256 over "orpheum-locate" and the secret, in base64url. Enforced
 //     by TestLocateHash_IsTheSecretsHashUnderItsOwnLabel.
+//   - An offer's key is SHA-256 over "orpheum-offer" and the secret, never the locate hash the
+//     discovery holds. TestOfferKey_IsTheSecretsHashUnderALabelOfItsOwn.
 //   - Imports nothing from internal/. Enforced by TestArch_PublicPackagesImportNothingInternal.
 //
 // # Read before changing
@@ -21,5 +23,5 @@
 //
 // # Where to change
 //
-//   - link.go: the fragment and the locate hash.
+//   - link.go: the fragment, the locate hash and the offer key.
 package link

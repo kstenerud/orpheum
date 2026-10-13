@@ -38,3 +38,14 @@ func TestLocateHash_IsTheSecretsHashUnderItsOwnLabel(t *testing.T) {
 		t.Error("two secrets hash alike")
 	}
 }
+
+func TestOfferKey_IsTheSecretsHashUnderALabelOfItsOwn(t *testing.T) {
+	t.Parallel()
+	digest := sha256.Sum256([]byte("orpheum-offer" + "abc_DEF-123"))
+	if got := OfferKey("abc_DEF-123"); string(got) != string(digest[:]) {
+		t.Errorf("OfferKey = %x; want %x", got, digest)
+	}
+	if LocateHash("abc_DEF-123") == base64.RawURLEncoding.EncodeToString(OfferKey("abc_DEF-123")) {
+		t.Error("the offer key is the locate hash, which the discovery holds")
+	}
+}

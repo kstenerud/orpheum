@@ -12,8 +12,11 @@ import (
 // fingerprintChars is a fingerprint's length: a SHA-256 in base64url, unpadded (proof.Fingerprint).
 const fingerprintChars = 43
 
-// locateLabel separates a link's locate hash from any other hash of its secret.
-const locateLabel = "orpheum-locate"
+// The labels that separate each hash of a link's secret from any other.
+const (
+	locateLabel = "orpheum-locate"
+	offerLabel  = "orpheum-offer"
+)
 
 // ErrNotALink is a fragment that is not a core's link's.
 var ErrNotALink = errors.New("not an Orpheum link: want <coreId>.<secret>.<fingerprint>")
@@ -49,4 +52,13 @@ func Read(text string) (Fragment, error) {
 func LocateHash(secret string) string {
 	digest := sha256.Sum256([]byte(locateLabel + secret))
 	return base64.RawURLEncoding.EncodeToString(digest[:])
+}
+
+// OfferKey is what an offer made by a link's bootstrap is proven under: SHA-256 over
+// "orpheum-offer" and the secret. The core keeps it when it makes the link and the client derives it
+// from the link, so a discovery, which sees neither the secret nor this key, cannot make an offer
+// the core takes (the protocol's §2.5 item 3; A9, T7).
+func OfferKey(secret string) []byte {
+	digest := sha256.Sum256([]byte(offerLabel + secret))
+	return digest[:]
 }
