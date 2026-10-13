@@ -119,11 +119,13 @@ func beginDeployment(dir string, kind deployment.Kind) (deploymentMessage, error
 	}
 	return deploymentMessage{isBegun: true, text: fmt.Sprintf(`began a %s deployment. Before it can start:
   1. Fill in %s: every value marked "fill in".
-  2. On the VPS, put this end's public key in /etc/wireguard/wg0.conf's [Peer] PublicKey, and restart
-     the tunnel there (systemctl restart wg-quick@wg0), unless it already holds this key:
+  2. On the VPS, give this end a [Peer] in /etc/wireguard/wg0.conf, unless it already has one: its
+     PublicKey this end's public key, below, and its AllowedIPs this deployment's tunnel addresses,
+     %s's vps.tunnel_ipv4 and vps.tunnel_ipv6 (10.77.0.2 and fd77::2 unless it names others);
+     then restart the tunnel there (systemctl restart wg-quick@wg0).
        %s
   3. Run the command that began it again: deploy/release/build.sh, or ./staging.
-`, kind, deployment.ValuesFile, publicKey)}, nil
+`, kind, deployment.ValuesFile, deployment.ValuesFile, publicKey)}, nil
 }
 
 // makeMissingInstances makes the core's and the node's instances in dir, each the first time.
