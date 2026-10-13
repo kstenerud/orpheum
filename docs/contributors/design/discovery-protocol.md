@@ -132,8 +132,9 @@ signals change (C13).
 Every retry the core makes backs off exponentially with jitter, so a discovery's restart is not met
 by every core at once (C7). **The signalling connection's reopening starts near 1 s** and grows
 from there, with jitter, to a cap, so a restart of the discovery (in development, every save) brings
-every core back within seconds (D292 §9; devloop §6). **The code must change:** it waits a flat
-30 s, with no jitter.
+every core back within seconds (D292 §9; devloop §6). Built (2026-10-13): `internal/platform/backoff`,
+from the config's `[discovery]` table, 1 s doubling to 5 minutes, the development stack's capped at
+1 s.
 
 ### 2.1 The core's identity key (D214 §4) — built
 
@@ -176,8 +177,7 @@ names itself by `proof.KeyLabel` of its key until it has an id).
    `POST /enrol {publicKey, nonce, signature}` → `{coreId, claimCode, claimExpiresAt}` (Unix ms).
    The body carries no version (§5; X11; built). A nonce works once. Enrolment is idempotent per public key: the same key gets the
    same pending core and `coreId`, with a fresh code once the old one expired (C12; `single` does
-   this). A double click on *Connect* enrols once (C12; **the code must change**: nothing serialises
-   `Connect`).
+   this). A double click on *Connect* enrols once (C12; built).
 2. **Claiming is by the code, on both tiers, in the beta.** The core's System page shows the claim
    code: 8 characters of safe32 shown `xxxx-xxxx` (`discovery/safe32code`), 30 minutes, once.
    - **Paid:** there are no customer accounts, sign-in links or mail in the beta; **the operator
@@ -251,8 +251,7 @@ no signature on every request.
   (2026-10-13), counted from before the core asked.
 - **Renewal.** The core renews five minutes before expiry, and **at once, once, on any 401** from
   any call, then backs off; one renewal runs at a time, the step loop, the signalling loop and the
-  certificate job sharing it (C11). **The code must change:** it waits 30 s after a 401, the
-  signalling loop redials with its stale token, and three callers can renew at once.
+  certificate job sharing it (C11). Built (2026-10-13).
 - **Tokens outlive a discovery's deploy** (C11): the paid service keeps them hashed in its database,
   so a deploy does not cut every core's signalling for a heartbeat's length. `single` keeps them in
   memory and prunes them as it checks one.

@@ -93,6 +93,11 @@ type fakeDiscovery struct {
 	// signals are the offers the test has the discovery pass on, and replies the core's answers.
 	signals chan discoveryproto.SignalMessage
 	replies chan discoveryproto.SignalMessage
+	// failing are the routes ("GET /status") it answers with a 500; dropsSignalling closes each
+	// signalling connection as soon as it opens; onSignal is told of each dial of it.
+	failing         map[string]bool
+	dropsSignalling bool
+	onSignal        func()
 }
 
 // fakeCoreID and fakeZone are the core's id and zone at the fake discovery.
@@ -107,7 +112,7 @@ func startDiscovery(t *testing.T) (*fakeDiscovery, *httptest.Server) {
 	fake := &fakeDiscovery{
 		t: t, nonces: map[string]bool{}, tokens: map[string]bool{}, txt: map[string]string{},
 		signals: make(chan discoveryproto.SignalMessage), replies: make(chan discoveryproto.SignalMessage, 4),
-		sessionLasts: int64((24 * time.Hour) / time.Second),
+		sessionLasts: int64((24 * time.Hour) / time.Second), failing: map[string]bool{},
 	}
 	server := httptest.NewServer(fake)
 	t.Cleanup(server.Close)
@@ -130,6 +135,10 @@ func (fake *fakeDiscovery) ServeHTTP(writer http.ResponseWriter, request *http.R
 		writer.Header().Set(discoveryproto.DeprecatedHeader, fake.deprecated)
 	}
 	route := request.Method + " " + request.URL.Path
+	if fake.failing[route] {
+		http.Error(writer, "the discovery failed", http.StatusInternalServerError)
+		return
+	}
 	switch route {
 	case "POST /challenge":
 		nonce := rand.Text()
@@ -294,6 +303,7 @@ func (built *world) restart(t *testing.T) *Service {
 		Logger: slog.New(slog.DiscardHandler), Version: "v0.1.0", APIMajor: 1,
 		Candidates: func() []discoveryproto.Candidate { return built.candidates },
 		OnClaimed:  func(context.Context) { built.claimedCount.Add(1) },
+		RetryFirst: time.Second, RetryMost: time.Minute, Random: unjittered{},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -365,43 +375,14 @@ func TestStep_OpensANewSessionWhenTheDiscoveryRefusesTheOld(t *testing.T) {
 	built.fake.mutex.Lock()
 	built.fake.tokens = map[string]bool{} // the discovery restarted and forgot its sessions
 	built.fake.mutex.Unlock()
-	if wait := built.service.step(ctx); wait != retryAfter || built.service.Status().Problem == "" {
-		t.Errorf("a refused session waited %s with problem %q; want %s and the refusal said", wait,
-			built.service.Status().Problem, retryAfter)
+	// The refused call opens a new session at once and is made again with it, rather than failing
+	// and waiting a retry's length (the protocol's §2.3; C11).
+	if wait := built.service.step(ctx); wait != pendingEvery || built.service.Status().Problem != "" {
+		t.Errorf("a refused session waited %s with problem %q; want the step's own wait, %s, and no problem",
+			wait, built.service.Status().Problem, pendingEvery)
 	}
-	built.service.step(ctx)
-	if count := built.fake.sessionCount; count != 2 || built.service.Status().Problem != "" {
-		t.Errorf("%d sessions opened, problem %q; want a second one opened and the problem cleared", count,
-			built.service.Status().Problem)
-	}
-}
-
-func TestSession_LastsAsLongAsTheDiscoverySaysCountedOnTheCoresOwnClock(t *testing.T) {
-	t.Parallel()
-	built := newWorld(t)
-	ctx := t.Context()
-	built.fake.mutex.Lock()
-	built.fake.sessionLasts = int64((sessionMargin + 2*heartbeatEvery - time.Minute) / time.Second)
-	built.fake.mutex.Unlock()
-	if _, err := built.service.Connect(ctx, built.baseURL); err != nil {
-		t.Fatal(err)
-	}
-	built.service.step(ctx)
-	sessions := func() int {
-		built.fake.mutex.Lock()
-		defer built.fake.mutex.Unlock()
-		return built.fake.sessionCount
-	}
-	opened := sessions()
-	built.clock.Advance(heartbeatEvery)
-	built.service.step(ctx) // a heartbeat, well within the session's life: the same session
-	if count := sessions(); count != opened {
-		t.Errorf("%d sessions after a heartbeat within the session's life; want still %d", count, opened)
-	}
-	built.clock.Advance(heartbeatEvery)
-	built.service.step(ctx) // within sessionMargin of its end: renewed first
-	if count := sessions(); count != opened+1 {
-		t.Errorf("%d sessions after a heartbeat near the session's end; want one more than %d", count, opened)
+	if count := built.fake.sessionCount; count != 2 {
+		t.Errorf("%d sessions opened; want a second one opened at once", count)
 	}
 }
 
@@ -451,7 +432,11 @@ func TestCheckBaseURL_RefusesAnythingButHTTPSOrThisMachine(t *testing.T) {
 func (fake *fakeDiscovery) serveSignal(writer http.ResponseWriter, request *http.Request) {
 	fake.mutex.Lock()
 	isSignedIn := fake.tokens[strings.TrimPrefix(request.Header.Get("Authorization"), "Bearer ")]
+	drops, onSignal := fake.dropsSignalling, fake.onSignal
 	fake.mutex.Unlock()
+	if onSignal != nil {
+		onSignal()
+	}
 	if !isSignedIn {
 		http.Error(writer, "no session", http.StatusUnauthorized)
 		return
@@ -461,6 +446,9 @@ func (fake *fakeDiscovery) serveSignal(writer http.ResponseWriter, request *http
 		return
 	}
 	defer func() { _ = connection.CloseNow() }() //nolint:errcheck // the test is over
+	if drops {
+		return
+	}
 	ctx := request.Context()
 	for {
 		select {
@@ -665,7 +653,7 @@ func TestStep_ACoreRefusedAsACopySaysSoAndAsksAgainLater(t *testing.T) {
 	}
 	built.service.step(ctx)
 	built.fake.refuse(discoveryproto.RefusalAnotherInstance)
-	built.service.step(ctx) // its session refused: it opens another, refused as a copy
+	// Its session refused, it opens another at once, which is refused as a copy.
 	if wait := built.service.step(ctx); wait != anotherCopyEvery ||
 		!strings.Contains(built.service.Status().Problem, ErrAnotherCopy.Error()) {
 		t.Errorf("a core refused as a copy waited %s with problem %q; want %s and that it is a copy", wait,

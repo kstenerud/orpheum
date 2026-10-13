@@ -10,8 +10,17 @@
 //     id there survive a restart (discovery.json). TestConnect_EnrolsWithASignatureAndKeepsTheDiscoveryAcrossARestart.
 //   - A pending core asks whether it is claimed; a claimed one sends its addresses when they change
 //     and every five minutes otherwise. TestStep_WaitsToBeClaimedThenSendsItsAddressesWhenTheyChangeOrEveryFiveMinutes.
-//   - A session the discovery refuses is replaced by a new one, signed afresh.
-//     TestStep_OpensANewSessionWhenTheDiscoveryRefusesTheOld.
+//   - A session the discovery refuses is replaced at once by a new one, signed afresh, and the
+//     call made again with it (C11). TestStep_OpensANewSessionWhenTheDiscoveryRefusesTheOld.
+//   - One session is opened at a time, however many callers ask at once (C11).
+//     TestRenewal_CallersAskingAtOnceShareOneRenewal. A session's life is the duration the discovery
+//     gives, counted on the core's own clock. TestSession_LastsAsLongAsTheDiscoverySaysCountedOnTheCoresOwnClock.
+//   - A failed call waits longer each time in a row, doubling from the first to the most, jittered
+//     so two cores differ, and a success starts over (the protocol's §2; C7).
+//     TestStep_AFailedCallWaitsLongerEachTimeInARowAndASuccessStartsOver,
+//     TestRetryWait_TwoCoresWaitDifferentlyAndNeverPastTheMost. A dropped signalling connection is
+//     dialled again after the first wait. TestSignal_ADroppedConnectionIsDialledAgainWithinAboutASecond.
+//   - Two Connects at once enrol once (C12). TestConnect_TwoAtOnceEnrolOnce.
 //   - Each run of the core names an instance of its own; refused as a copy of another, it says so
 //     and asks again every few minutes (D293 §1). TestStep_ACoreRefusedAsACopySaysSoAndAsksAgainLater.
 //   - A core its discovery no longer holds enrols again and shows the new code.
@@ -46,5 +55,6 @@
 //
 // # Where to change
 //
-//   - discovery.go: connecting, the loop, sessions and calls; signal.go: the signalling connection.
+//   - discovery.go: connecting, the loop, sessions and calls; renewal.go: one session renewal at a
+//     time; signal.go: the signalling connection.
 package discovery

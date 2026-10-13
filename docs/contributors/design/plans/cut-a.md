@@ -136,6 +136,9 @@ loop to work:**
     host, the tunnel's address in a deployment), `relay_port_min` (49160) and `relay_port_max`
     (49199); its credentials are derived from the TURN secret, which the server makes (D194,
     D243 §8)
+  - a core's `[discovery]`: `retry_first_milliseconds` (1000) and `retry_most_milliseconds`
+    (300000), the wait after a failed call to its discovery or a dropped signalling connection,
+    doubling to the most, jittered; the development stack's most is 1000 (D292 §9)
   - a core's `[database]`: `read_connections_minimum`, `migrate_free_space_db_multiple` (D201)
   - a node's `[node]`: `name` (the core enrols it by it, D207), `core_socket`, `root_paths`,
     `ffmpeg_dir`, and `confinement_policy`, which is `"require"` or `"report"`; a production

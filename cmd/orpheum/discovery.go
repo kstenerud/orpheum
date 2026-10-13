@@ -38,6 +38,7 @@ func newDiscovery(
 	if err != nil {
 		return nil, err
 	}
+	retryFirst, retryMost := config.Discovery.retries()
 	return discovery.New(discovery.Parts{
 		Files: opened.directories, Key: key, HTTP: opened.jobServices.outboundClient, Clock: clock.System{},
 		Logger: logger, Version: thisBuild().Version, APIMajor: apiMajor,
@@ -45,6 +46,7 @@ func newDiscovery(
 			return append(interfaceCandidates(httpsPort(config)), mapped.Candidates()...)
 		},
 		Answerer: answerer, OnClaimed: onClaimed,
+		RetryFirst: retryFirst, RetryMost: retryMost, Random: rand.Reader,
 	})
 }
 
