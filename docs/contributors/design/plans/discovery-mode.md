@@ -10,8 +10,9 @@
   shape: it serves the web app, taking the files from the core; it claims its core by
   `orpheum discovery claim <code>`; it relays by TURN; the tunnel becomes optional), D275 §1 (public
   building blocks, the closed service assembling them for many cores, nothing in Orpheum it does
-  not use), [discovery-core.md](discovery-core.md) (the core's side, C1–C5, built), and the service's
-  spec in the shared files (`discovery-service-spec.md`), whose §3 and §8 it answers for one core.
+  not use), [discovery-core.md](discovery-core.md) (the core's side, C1–C5, built), and
+  [discovery-protocol.md](../discovery-protocol.md), the protocol both discoveries speak, whose §2
+  and §3 it answers for one core (moved 2026-10-13 from the paid service's spec in the shared files).
 
 ## The shape
 
