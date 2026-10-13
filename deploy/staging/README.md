@@ -53,7 +53,8 @@ compose file, the configs and the tunnel's config into `.staging/` from your val
    address, for the voice relay; its WireGuard public key (`cat /etc/wireguard/public` on the
    VPS); and the media directories, for example `roots = ["/mnt/tank/media/video/movies"]`. The
    tunnel's MTU follows the endpoint: 1380 over IPv4, which leaves room for DS-Lite, and 1420 over
-   IPv6; `mtu` in the file overrides it.
+   IPv6; `mtu` in the file overrides it. Beside another deployment on the same VPS, such as
+   nas.example's, give staging its own `tunnel_ipv4` and `tunnel_ipv6` (`deploy/release/README.md` §6).
 4. `./staging` again. It renders the configs, starts the three services and waits until they are
    healthy, then prints the address on the house's network.
 5. `./staging setup-code` prints the one-time code. The web client has no screen for it yet

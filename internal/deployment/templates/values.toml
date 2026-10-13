@@ -26,6 +26,11 @@ public_key = ""
 # The tunnel's MTU. Left out, it is chosen from the endpoint: 1380 over IPv4, which leaves room for
 # DS-Lite carrying it in IPv6, and 1420 over IPv6. Set it only if large transfers stall.
 # mtu = 1380
+# This deployment's end of the tunnel: the addresses the VPS's wg0.conf gives its peer, and forwards
+# its ports to. Left out, they are 10.77.0.2 and fd77::2; a second deployment on the same VPS, such
+# as staging beside a release, takes others in 10.77.0.0/24 and fd77::/64, with a key of its own.
+# tunnel_ipv4 = "10.77.0.2"
+# tunnel_ipv6 = "fd77::2"
 
 [media]
 # The media directories the node serves, read-only, at the same paths inside it. Fill in.

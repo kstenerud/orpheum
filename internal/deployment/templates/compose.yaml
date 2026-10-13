@@ -9,6 +9,7 @@
 #   ORPHEUM_UID/GID    who the core and the node run as: the owner of the directory
 #   ORPHEUM_HTTP_PUBLISH, ORPHEUM_HTTP_PORT   where the house's network reaches plain HTTP
 #   ORPHEUM_TUNNEL_MTU the tunnel's MTU
+#   ORPHEUM_TUNNEL_IPV4, ORPHEUM_TUNNEL_IPV6   this deployment's end of the tunnel
 #
 # The directory holds tunnel/ (wg0.conf and its keys), core/ and node/ (the instances) and run/
 # (their sockets).
@@ -27,6 +28,8 @@ services:
       net.ipv4.ip_unprivileged_port_start: "0"
     environment:
       ORPHEUM_TUNNEL_MTU: ${ORPHEUM_TUNNEL_MTU:-1420}
+      ORPHEUM_TUNNEL_IPV4: ${ORPHEUM_TUNNEL_IPV4:?}
+      ORPHEUM_TUNNEL_IPV6: ${ORPHEUM_TUNNEL_IPV6:?}
     volumes:
       - ./tunnel:/etc/orpheum-tunnel:ro
     ports:

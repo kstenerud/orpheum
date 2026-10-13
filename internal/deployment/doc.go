@@ -20,6 +20,9 @@
 //     §4). TestWrite_ReleaseRefusesAnUnmigratableDatabaseAndStagingStartsOver.
 //   - The tunnel's key pair is WireGuard's: a clamped X25519 key and its public key.
 //     TestNewKeyPair_IsAClampedX25519PairAsWgMakesOne.
+//   - Each deployment's end of the tunnel is the values file's (10.77.0.2 and fd77::2 when it names
+//     none), so several deployments, each with its own key, share one VPS (D292 §7); the tunnel and
+//     TURN take it from there. TestWrite_ADeploymentTakesItsOwnTunnelAddressesForTheTunnelAndTURN.
 //   - Keys and the configs naming one are readable by their owner alone.
 //     TestWrite_RewritesTheFilesAndKeepsTheValuesAndKeys.
 //
@@ -27,7 +30,7 @@
 //
 //   - D249: the deployment, its three services and the tunnel in a container.
 //   - D272: release on nas.example, the image's own setup, the build re-rendering (§7), one shared
-//     tunnel key (§8).
+//     tunnel key (§8), which D292 §7 revises: a peer and addresses per deployment.
 //   - deploy/staging/README.md and deploy/release/README.md: how a person runs it.
 //
 // # Where to change
