@@ -337,6 +337,17 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     const overlay = (): Element | null =>
       mounted.container.querySelector(".together-viewer__continue");
     expect(overlay()?.textContent).toContain("Karl invited you to watch together.");
+    // It says how it came to be shown, so a guest asked straight after their Join says why.
+    expect(server.heard).toContainEqual(
+      expect.objectContaining({
+        type: "note",
+        note: {
+          kind: "continueAsked",
+          why: "navigate",
+          page: expect.stringMatching(/^loadedMsAgo=\d+ joinedHere=false$/u) as unknown,
+        },
+      }),
+    );
     // As a page of its own: no film, no voices, until the tap.
     const film = (): Element | null =>
       mounted.container.querySelector('section[aria-label="The film"]');

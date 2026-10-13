@@ -135,6 +135,10 @@ func (current *session) logAtInfo(ctx context.Context, who *member, from *device
 			append(current.deviceAttributes(who, from), positionMsAttribute, note.PositionMs, "why", note.Why,
 				"soundState", note.SoundState)...)
 		return true
+	case NoteContinueAsked:
+		current.logger.InfoContext(ctx, "watch together: a guest's page asked for a tap to continue",
+			append(current.deviceAttributes(who, from), "navigation", note.Why, "page", note.Page)...)
+		return true
 	case NoteNudged, NoteSought, NoteChunkLoaded, NoteQualitySwitched, NoteReconnected:
 	}
 	return false

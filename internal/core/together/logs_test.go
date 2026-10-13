@@ -252,6 +252,34 @@ func TestHub_LogsAPlayerPlayingMutedAndATapTurningItsSoundOn(t *testing.T) {
 	}
 }
 
+// A guest's page asking for a tap to continue says how it came to be shown, and an unknown way is
+// refused: an iPhone asked straight after its Join said nothing of whether it had loaded again (the
+// owner's test, 2026-10-13).
+func TestHub_LogsAGuestsPageAskingForATapToContinue(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	device, _ := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	page := "loadedMsAgo=1400 joinedHere=false"
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteContinueAsked, Why: "reload", Page: page,
+	}})
+	stage.hub.Handle(t.Context(), device, Inbound{Type: MessageNote, Note: &PlayerNote{
+		Kind: NoteContinueAsked, Why: "teleported",
+	}})
+	logged := stage.logs.String()
+	for _, want := range []string{
+		`level=INFO msg="watch together: a guest's page asked for a tap to continue"`,
+		"navigation=reload", `page="` + page + `"`,
+	} {
+		if !strings.Contains(logged, want) {
+			t.Errorf("the log does not say %s:\n%s", want, logged)
+		}
+	}
+	if strings.Contains(logged, "teleported") {
+		t.Errorf("the log took a way of showing it does not know:\n%s", logged)
+	}
+}
+
 // A tap's sound state is logged, at the tap and again after it, so an iPhone that stays silent
 // after its tap says whether its film was muted again, paused, or in which audio session (the
 // owner's VQ30, 2026-10-12); an unknown why is refused.

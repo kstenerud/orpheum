@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { readyForSoundAtTap, type BrowserVoiceDevices, type RosterMember } from "@orpheum/sdk";
+import {
+  readyForSoundAtTap,
+  type BrowserVoiceDevices,
+  type RosterMember,
+  type TogetherConnection,
+} from "@orpheum/sdk";
 import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -60,9 +65,15 @@ export function useViewerVoiceDevices(): BrowserVoiceDevices {
  * until then: "as if it really were a separate page". A guest who joined has tapped Join, and never
  * sees it.
  */
-export function TapToContinue(props: { readonly roster: readonly RosterMember[] }): JSX.Element {
+export function TapToContinue(props: {
+  readonly roster: readonly RosterMember[];
+  /** The session's connection once connected, by which the page says how it came to be shown. */
+  readonly connection: Pick<TogetherConnection, "note"> | undefined;
+  readonly hasJoinedHere: boolean;
+}): JSX.Element {
   const { t } = useTranslation();
   const host = props.roster.find((member) => member.isHost)?.name;
+  useToldContinueAsked(props.connection, props.hasJoinedHere);
   return (
     <main className="together-viewer__continue">
       <p>
@@ -72,4 +83,35 @@ export function TapToContinue(props: { readonly roster: readonly RosterMember[] 
       <button type="button">{t("together.tapToContinue")}</button>
     </main>
   );
+}
+
+/**
+ * Tells the server, once connected, that the page asks for a tap to continue: how the browser came
+ * to show it, how long since it loaded, and whether it joined itself. An iPhone that joined by its
+ * keyboard's Go was asked straight after, and nothing said whether its page had loaded again (the
+ * owner's test, 2026-10-13).
+ */
+function useToldContinueAsked(
+  connection: Pick<TogetherConnection, "note"> | undefined,
+  hasJoinedHere: boolean,
+): void {
+  useEffect(() => {
+    if (connection === undefined) {
+      return;
+    }
+    const entry = performance.getEntriesByType("navigation").at(0);
+    const type = entry !== undefined && "type" in entry ? entry.type : "navigate";
+    connection.note({
+      kind: "continueAsked",
+      why: isNavigationType(type) ? type : "navigate",
+      page: `loadedMsAgo=${String(Math.round(performance.now()))} joinedHere=${String(hasJoinedHere)}`,
+    });
+  }, [connection, hasJoinedHere]);
+}
+
+const navigationTypes = ["navigate", "reload", "back_forward", "prerender"] as const;
+
+/** Whether type is a way a browser shows a page that the server knows. */
+function isNavigationType(type: unknown): type is (typeof navigationTypes)[number] {
+  return navigationTypes.some((known) => known === type);
 }

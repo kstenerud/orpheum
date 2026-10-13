@@ -138,6 +138,13 @@ export type PlayerNote =
       readonly why?: "after";
       /** The sound then (soundStateOf). */
       readonly soundState?: string;
+    }
+  | {
+      /** A guest's page asking for a tap to continue, and how the browser came to show it. */
+      readonly kind: "continueAsked";
+      readonly why: "navigate" | "reload" | "back_forward" | "prerender";
+      /** How long since the page loaded, and whether it joined itself. */
+      readonly page: string;
     };
 
 /**
