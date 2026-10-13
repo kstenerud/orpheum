@@ -4,6 +4,7 @@ package proof
 
 import (
 	"crypto/ed25519"
+	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 	"strings"
@@ -13,8 +14,11 @@ import (
 // purpose after it names the call.
 const prefix = "orpheum-discovery-v1:"
 
-// answerPurpose is the purpose of a signature over a WebRTC answer.
-const answerPurpose = "answer"
+// The purposes of a signature over a WebRTC answer, and of a proof over an offer.
+const (
+	answerPurpose = "answer"
+	offerPurpose  = "offer"
+)
 
 // Message is what a signature to a discovery signs: the purpose ("enrol" or "session",
 // discoveryproto's Purpose constants), the discovery's base URL as the core called it, without a
@@ -68,4 +72,27 @@ func KeyLabel(publicKey ed25519.PublicKey) string {
 func Fingerprint(publicKey ed25519.PublicKey) string {
 	digest := sha256.Sum256(publicKey)
 	return base64.RawURLEncoding.EncodeToString(digest[:])
+}
+
+// SessionOfferKey is what an offer made by a signed-in client is proven under: SHA-256 of its
+// session's token, the hash the core keeps of the session, which the discovery never sees (the
+// protocol's §2.5 item 3; A9, A corrections 5).
+func SessionOfferKey(token string) []byte {
+	digest := sha256.Sum256([]byte(token))
+	return digest[:]
+}
+
+// Offer is an offer's proof: an HMAC-SHA256, under key, over the DTLS fingerprint the offer carries
+// (its a=fingerprint value, "sha-256 AB:..."), base64url. The key is the client's session's
+// (SessionOfferKey) or its link's (link.OfferKey); the discovery holds neither, so the offer it
+// passes on is one the client made, for a DTLS certificate the client holds (A9).
+func Offer(key []byte, fingerprint string) string {
+	mac := hmac.New(sha256.New, key)
+	mac.Write([]byte(prefix + offerPurpose + "\n" + fingerprint))
+	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+// VerifyOffer is whether proven is Offer's proof under key over fingerprint, compared in constant time.
+func VerifyOffer(key []byte, fingerprint, proven string) bool {
+	return hmac.Equal([]byte(Offer(key, fingerprint)), []byte(proven))
 }

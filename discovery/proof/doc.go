@@ -15,6 +15,8 @@
 //     TestVerify_ASignatureServesOnlyTheDiscoveryAndCoreItWasMadeFor.
 //   - An answer's signature covers its exact SDP, its offer and that offer's fingerprint. Enforced by
 //     TestVerifyAnswer_CoversTheExactSDPTheOfferAndItsFingerprint.
+//   - An offer's proof covers its DTLS fingerprint under the client's session's or link's key, which
+//     the discovery holds neither of. TestOffer_ProvesOnlyItsFingerprintUnderItsKey.
 //   - The fingerprint is the public key's SHA-256 in base64url. Enforced by
 //     TestFingerprint_IsTheKeysSHA256InBase64URL.
 //   - Imports nothing from internal/, which a module outside Orpheum cannot import. Enforced by

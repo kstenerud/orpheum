@@ -5,6 +5,7 @@ package proof
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
 	"testing"
 )
 
@@ -90,5 +91,23 @@ func TestFingerprint_IsTheKeysSHA256InBase64URL(t *testing.T) {
 	// SHA-256 of 32 zero bytes is 66687aad...f925; its base64url, unpadded:
 	if got := Fingerprint(zero); got != "Zmh6rfhivXdsj8GLjp-OIAiXFIVu4jOzkCpZHQ1fKSU" {
 		t.Errorf("Fingerprint(32 zero bytes) = %q", got)
+	}
+}
+
+func TestOffer_ProvesOnlyItsFingerprintUnderItsKey(t *testing.T) {
+	t.Parallel()
+	key := SessionOfferKey("a session's token")
+	proven := Offer(key, "sha-256 AB:CD")
+	if !VerifyOffer(key, "sha-256 AB:CD", proven) {
+		t.Error("an offer's own proof does not verify")
+	}
+	if VerifyOffer(key, "sha-256 AB:CE", proven) {
+		t.Error("the proof verified for another fingerprint: a discovery could swap in its own certificate")
+	}
+	if VerifyOffer(SessionOfferKey("another session's token"), "sha-256 AB:CD", proven) {
+		t.Error("the proof verified under another key")
+	}
+	if digest := sha256.Sum256([]byte("a session's token")); string(key) != string(digest[:]) {
+		t.Error("a session's offer key is not SHA-256 of its token, the hash the core keeps")
 	}
 }
