@@ -3,12 +3,14 @@
 package auth
 
 import (
+	"context"
 	"crypto/subtle"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"golang.org/x/crypto/argon2"
 
@@ -102,4 +104,60 @@ func sameCosts(used, current Argon2Parameters) bool {
 	return used.MemoryKiB == current.MemoryKiB && used.Iterations == current.Iterations &&
 		used.Parallelism == current.Parallelism && used.KeyBytes == current.KeyBytes &&
 		used.SaltBytes == current.SaltBytes
+}
+
+// How many password hashes run at once, and how long one waits for its turn: each takes argon2id's
+// memory, 64 MiB at the starting costs, and a few hundred sign-ins at once, a name known or not, used
+// it all (the second audit's K3, 2026-10-13). A sign-in that waits past hashWaitMost is refused as
+// too many, which the client tells as a busy server.
+const (
+	hashesAtOnce = 4
+	hashWaitMost = 10 * time.Second
+)
+
+// hashSlots is the turn a password hash waits for: one slot each, hashesAtOnce in all.
+type hashSlots chan struct{}
+
+func newHashSlots() hashSlots {
+	return make(hashSlots, hashesAtOnce)
+}
+
+// run runs hash in a slot, waiting at most hashWaitMost for one; ErrRateLimited when none came.
+func (slots hashSlots) run(ctx context.Context, hash func()) error {
+	waiting, cancel := context.WithTimeout(ctx, hashWaitMost)
+	defer cancel()
+	select {
+	case slots <- struct{}{}:
+	case <-waiting.Done():
+		return ErrRateLimited
+	}
+	defer func() { <-slots }()
+	hash()
+	return nil
+}
+
+// hashPassword is HashPassword in a hash slot.
+func (service *Service) hashPassword(
+	ctx context.Context, password string, parameters Argon2Parameters,
+) (string, error) {
+	var (
+		hashed string
+		err    error
+	)
+	hash := func() { hashed, err = HashPassword(password, parameters, service.random) }
+	if slotErr := service.hashing.run(ctx, hash); slotErr != nil {
+		return "", slotErr
+	}
+	return hashed, err
+}
+
+// verifyPassword is VerifyPassword in a hash slot.
+func (service *Service) verifyPassword(
+	ctx context.Context, password, hash string,
+) (isMatch bool, hashParameters Argon2Parameters, err error) {
+	verify := func() { isMatch, hashParameters, err = VerifyPassword(password, hash) }
+	if slotErr := service.hashing.run(ctx, verify); slotErr != nil {
+		return false, Argon2Parameters{}, slotErr
+	}
+	return isMatch, hashParameters, err
 }

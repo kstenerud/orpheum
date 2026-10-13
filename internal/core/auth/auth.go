@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/clientnet"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
@@ -124,6 +125,8 @@ type Service struct {
 	limiter  *failureLimiter
 	// pairings are the devices being activated by a code (D288).
 	pairings *pairings
+	// hashing is the turn each password hash waits for (hashesAtOnce).
+	hashing hashSlots
 }
 
 // NewService returns a Service.
@@ -131,6 +134,7 @@ func NewService(database *store.Database, clockSource clock.Clock, random io.Rea
 	return &Service{
 		database: database, clock: clockSource, random: random, settings: settings,
 		limiter: newFailureLimiter(clockSource), pairings: &pairings{bySecret: map[string]*pairing{}},
+		hashing: newHashSlots(),
 	}
 }
 
@@ -225,8 +229,12 @@ func (service *Service) SignIn(
 	if err != nil {
 		return "", err
 	}
-	accountKey, addressKey := accountLimitKey(name), "address:"+clientAddress
-	if service.limiter.isLimited(maxFailures, window, accountKey, addressKey) {
+	keys := signInLimitKeys(name, clientAddress)
+	attemptedAt, isAllowed := service.limiter.attempt(window, map[string]int64{
+		keys.accountHere: maxFailures, keys.accountEverywhere: maxFailures * accountEverywhereTimes,
+		keys.network: maxFailures * networkTimes,
+	})
+	if !isAllowed {
 		return "", ErrRateLimited
 	}
 	parameters, err := service.argon2Parameters(ctx)
@@ -236,19 +244,18 @@ func (service *Service) SignIn(
 	user, err := store.OrNotFound(service.database.Read().GetLiveUserByName(ctx, textindex.Line(name)))
 	if errors.Is(err, store.ErrNotFound) {
 		// An unknown name costs what a known one does, so timing does not tell them apart.
-		_, hashErr := HashPassword(password, parameters, service.random)
-		service.limiter.recordFailure(window, accountKey, addressKey)
+		_, hashErr := service.hashPassword(ctx, password, parameters)
 		return "", errors.Join(ErrBadCredentials, hashErr)
 	}
 	if err != nil {
 		return "", fmt.Errorf("look up user: %w", err)
 	}
-	isMatch, hashParameters, err := VerifyPassword(password, string(user.PasswordHash))
+	isMatch, hashParameters, err := service.verifyPassword(ctx, password, string(user.PasswordHash))
 	if err != nil || !isMatch {
-		service.limiter.recordFailure(window, accountKey, addressKey)
 		return "", errors.Join(ErrBadCredentials, err)
 	}
-	service.limiter.forget(accountKey)
+	service.limiter.withdraw(attemptedAt, keys.network, keys.accountEverywhere)
+	service.limiter.forget(keys.accountHere)
 	if !sameCosts(hashParameters, parameters) {
 		if rehashErr := service.rehash(ctx, user.ID, password, parameters); rehashErr != nil {
 			return "", rehashErr
@@ -263,7 +270,7 @@ func (service *Service) hashWithCurrentCosts(ctx context.Context, password strin
 	if err != nil {
 		return nil, err
 	}
-	hashed, err := HashPassword(password, parameters, service.random)
+	hashed, err := service.hashPassword(ctx, password, parameters)
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +278,7 @@ func (service *Service) hashWithCurrentCosts(ctx context.Context, password strin
 }
 
 func (service *Service) rehash(ctx context.Context, userID int64, password string, parameters Argon2Parameters) error {
-	hash, err := HashPassword(password, parameters, service.random)
+	hash, err := service.hashPassword(ctx, password, parameters)
 	if err != nil {
 		return err
 	}
@@ -280,6 +287,32 @@ func (service *Service) rehash(ctx context.Context, userID int64, password strin
 			ID: userID, PasswordHash: []byte(hash),
 		})
 	})
+}
+
+// How far the failed-sign-in limit (sign_in_failure_limit) stretches beyond one person on one network:
+// a network is a household or a carrier's shared address, many people's failures; and a person
+// everywhere slows guessing spread across many networks without letting a stranger lock them out by
+// their name alone, which the account-wide limit at sign_in_failure_limit did (the second audit's
+// K2, 2026-10-13).
+const (
+	networkTimes           = 4
+	accountEverywhereTimes = 10
+)
+
+// signInKeys are a sign-in's keys in the failed-sign-in limit: the person on the asking network, the
+// person everywhere, and the asking network (clientnet: an IPv4 address or an IPv6 /64, so one
+// network's many IPv6 addresses are one).
+type signInKeys struct {
+	accountHere, accountEverywhere, network string
+}
+
+func signInLimitKeys(name, clientAddress string) signInKeys {
+	network := clientnet.Of(clientAddress)
+	if network == "" {
+		network = clientAddress
+	}
+	account := accountLimitKey(name)
+	return signInKeys{accountHere: account + "@" + network, accountEverywhere: account, network: "network:" + network}
 }
 
 // accountLimitKey is a person's key in the failed-sign-in limit.

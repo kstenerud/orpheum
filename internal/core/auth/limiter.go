@@ -3,6 +3,8 @@
 package auth
 
 import (
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -33,6 +35,55 @@ func (limiter *failureLimiter) isLimited(maxFailures int64, window time.Duration
 		}
 	}
 	return false
+}
+
+// attempt takes one attempt against each key of limits, refusing it, and recording nothing, when any
+// key has reached its limit within window. An attempt is recorded as a failure before it is tried,
+// so attempts made at once each count: checking the limit and recording after the slow hash let 53
+// of 60 parallel guesses through (the second audit's K2, 2026-10-13). A success withdraws it.
+func (limiter *failureLimiter) attempt(window time.Duration, limits map[string]int64) (time.Time, bool) {
+	limiter.mutex.Lock()
+	defer limiter.mutex.Unlock()
+	for key, most := range limits {
+		if int64(len(limiter.recent(key, window))) >= most {
+			return time.Time{}, false
+		}
+	}
+	now := limiter.clock.Now()
+	for key := range limits {
+		limiter.failures[key] = append(limiter.recent(key, window), now)
+	}
+	return now, true
+}
+
+// withdraw takes back the attempt recorded at attemptedAt against each of keys: it succeeded.
+func (limiter *failureLimiter) withdraw(attemptedAt time.Time, keys ...string) {
+	limiter.mutex.Lock()
+	defer limiter.mutex.Unlock()
+	for _, key := range keys {
+		kept := limiter.failures[key]
+		for index, when := range slices.Backward(kept) {
+			if when.Equal(attemptedAt) {
+				limiter.failures[key] = slices.Delete(kept, index, index+1)
+				break
+			}
+		}
+		if len(limiter.failures[key]) == 0 {
+			delete(limiter.failures, key)
+		}
+	}
+}
+
+// forgetPrefixed clears every key that is prefix or begins with it followed by "@": a person's
+// failures everywhere, account-wide and per network.
+func (limiter *failureLimiter) forgetPrefixed(prefix string) {
+	limiter.mutex.Lock()
+	defer limiter.mutex.Unlock()
+	for key := range limiter.failures {
+		if key == prefix || strings.HasPrefix(key, prefix+"@") {
+			delete(limiter.failures, key)
+		}
+	}
 }
 
 // recordFailure records one failure against each of keys.
