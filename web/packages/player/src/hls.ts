@@ -63,6 +63,7 @@ export function hlsMethod(support: HlsSupport): HlsMethod {
 
 /** The part of a media element the element's own HLS needs. */
 export interface NativeTarget {
+  readonly getAttribute: (name: string) => string | null;
   readonly setAttribute: (name: string, value: string) => void;
   readonly removeAttribute: (name: string) => void;
   readonly load: () => void;
@@ -76,9 +77,12 @@ export function playNative(target: NativeTarget, url: string): HlsPlayback {
     setAudioRendition: () => undefined,
     // Safari measures its link for itself, and says nothing of it.
     estimateKbps: () => undefined,
+    // A page's video kept for its next film may hold that film's source already: it is left be.
     destroy: () => {
-      target.removeAttribute("src");
-      target.load();
+      if (target.getAttribute("src") === url) {
+        target.removeAttribute("src");
+        target.load();
+      }
     },
   };
 }

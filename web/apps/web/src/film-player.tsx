@@ -27,10 +27,12 @@ import type { TFunction } from "i18next";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ComponentType,
   type JSX,
+  type ReactNode,
   type RefObject,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -76,7 +78,8 @@ export type FilmPiece = ComponentType<FilmParts>;
  * file a failure is explained by asking the server of (undefined asks nothing, for a Watch Together
  * guest, who may not ask of the host's files), and what it draws over the video, inside its stage,
  * and under it. Each piece is a component of the page's own, stable across renders, which reads
- * what else it needs from the page's context.
+ * what else it needs from the page's context. A page that keeps one video for every film gives it;
+ * else each film makes its own.
  */
 export interface FilmComposition {
   readonly hasControls: boolean;
@@ -84,6 +87,7 @@ export interface FilmComposition {
   readonly askAbout: number | undefined;
   readonly over?: FilmPiece;
   readonly under?: FilmPiece;
+  readonly keptVideo?: HTMLVideoElement | undefined;
 }
 
 /** Where a stalled player moved to a lower quality (D247 §2), for its playback alone. */
@@ -129,9 +133,12 @@ export function FilmPlayer(props: {
   return <PreparedFilm decision={decision} composition={composition} />;
 }
 
-/** The black box a film plays in, before any does: the stage's size, with no video in it. */
-export function EmptyStage(): JSX.Element {
-  return <div className="film-player__stage film-player__stage--empty" />;
+/**
+ * The black box a film plays in, before any does: the stage's size, with no video in it, and what
+ * the page draws over it.
+ */
+export function EmptyStage(props: { readonly children?: ReactNode }): JSX.Element {
+  return <div className="film-player__stage film-player__stage--empty">{props.children}</div>;
 }
 
 /**
@@ -140,7 +147,7 @@ export function EmptyStage(): JSX.Element {
  */
 function Stage(
   props: FilmParts &
-    Pick<FilmComposition, "hasControls" | "isAutoPlay" | "over" | "under"> & {
+    Pick<FilmComposition, "hasControls" | "isAutoPlay" | "over" | "under" | "keptVideo"> & {
       readonly src?: string;
       readonly onError?: (error: MediaError | null) => void;
     },
@@ -160,16 +167,20 @@ function Stage(
   return (
     <>
       <div className="film-player__stage">
-        {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- JASSUB draws the subtitles over the video, not a <track> (cut-a §6) */}
-        <video
-          className="film-player__video"
-          ref={videoRef}
-          src={props.src}
-          controls={props.hasControls}
-          autoPlay={props.isAutoPlay}
-          playsInline
-          onError={(event) => props.onError?.(event.currentTarget.error)}
-        />
+        {props.keptVideo === undefined ? (
+          // eslint-disable-next-line jsx-a11y-x/media-has-caption -- JASSUB draws the subtitles over the video, not a <track> (cut-a §6)
+          <video
+            className="film-player__video"
+            ref={videoRef}
+            src={props.src}
+            controls={props.hasControls}
+            autoPlay={props.isAutoPlay}
+            playsInline
+            onError={(event) => props.onError?.(event.currentTarget.error)}
+          />
+        ) : (
+          <KeptVideo {...props} video={props.keptVideo} />
+        )}
         {Over === undefined ? null : (
           <Over
             videoRef={videoRef}
@@ -191,6 +202,91 @@ function Stage(
       )}
     </>
   );
+}
+
+/**
+ * The page's kept video, placed in the stage as the video the film plays in, as Stage's own would
+ * be, and emptied as the film ends, for the next: a tap lets one video play with sound, and a new one
+ * per film asked for a tap of its own (readyForSoundAtTap). Placed before any effect of the film's
+ * runs, which finds it in videoRef.
+ */
+function KeptVideo(props: {
+  readonly video: HTMLVideoElement;
+  readonly videoRef: RefObject<HTMLVideoElement | null>;
+  readonly hasControls: boolean;
+  readonly isAutoPlay: boolean;
+  readonly src?: string | undefined;
+  readonly onError?: ((error: MediaError | null) => void) | undefined;
+}): JSX.Element {
+  const slotRef = useRef<HTMLDivElement>(null);
+  const { video, videoRef, hasControls, isAutoPlay, src, onError } = props;
+  useLayoutEffect(() => {
+    const slot = slotRef.current;
+    if (slot === null) {
+      return undefined;
+    }
+    placeVideo(video, slot);
+    videoRef.current = video;
+    return () => {
+      videoRef.current = null;
+      video.remove();
+      emptyVideo(video);
+    };
+  }, [video, videoRef]);
+  useLayoutEffect(() => {
+    showControls(video, { hasControls, isAutoPlay });
+  }, [video, hasControls, isAutoPlay]);
+  useLayoutEffect(() => {
+    if (src !== undefined) {
+      video.setAttribute("src", src);
+    }
+  }, [video, src]);
+  useEffect(() => {
+    if (onError === undefined) {
+      return undefined;
+    }
+    const failed = (): void => {
+      onError(video.error);
+    };
+    video.addEventListener("error", failed);
+    return () => {
+      video.removeEventListener("error", failed);
+    };
+  }, [video, onError]);
+  return <div ref={slotRef} className="film-player__kept" />;
+}
+
+/** Places a kept video in its slot, dressed as Stage's own, its sound on. */
+function placeVideo(video: HTMLVideoElement, slot: HTMLElement): void {
+  /* eslint-disable no-param-reassign -- the kept video is dressed as Stage's own would be */
+  video.className = "film-player__video";
+  video.playsInline = true;
+  // A film the last one played muted (playedMutedEvent) starts asking for its sound again.
+  video.muted = false;
+  /* eslint-enable no-param-reassign -- the video is placed */
+  slot.append(video);
+}
+
+/** Gives a kept video the player's own controls, and plays it at once, as the page composes it. */
+function showControls(
+  video: HTMLVideoElement,
+  composed: Pick<FilmComposition, "hasControls" | "isAutoPlay">,
+): void {
+  /* eslint-disable no-param-reassign -- as Stage's own video's attributes */
+  video.controls = composed.hasControls;
+  video.autoplay = composed.isAutoPlay;
+  /* eslint-enable no-param-reassign -- only these */
+}
+
+/**
+ * Stops the video and lets go of its film, the source hls.js gave it too, which it leaves to whoever
+ * changed it last (its BufferController): the video waits for the next.
+ */
+function emptyVideo(video: HTMLVideoElement): void {
+  video.pause();
+  video.removeAttribute("src");
+  video.replaceChildren();
+  video.load();
 }
 
 /**

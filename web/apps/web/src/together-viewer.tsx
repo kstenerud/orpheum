@@ -5,6 +5,7 @@ import "./together-viewer.css";
 import {
   followGroup,
   playedMutedEvent,
+  readyForSoundAtTap,
   soundOnAtTap,
   type CannotKeepUp,
   type TellsCannotKeepUp,
@@ -273,6 +274,7 @@ function ViewerSession(props: {
   // Everyone in the session is heard from the start, once the page's own device is welcomed; Talk
   // only opens the microphone (D281 §1).
   const voice = useVoice(props.membership, undefined, snapshot?.status === "connected");
+  const kept = useKeptVideo();
   const { onOver } = props;
   const keep = (output: AudioOutput): void => {
     keepViewerAudioOutput(browserStorage(), output);
@@ -293,6 +295,7 @@ function ViewerSession(props: {
       ) : (
         <>
           <ViewingArea
+            kept={kept}
             membership={props.membership}
             audioOutput={audioOutput}
             connection={connection}
@@ -360,8 +363,41 @@ function LeaveButton(props: {
   );
 }
 
-/** Where the film plays: black while nothing does (D246 §6), else the group's film, followed. */
+/** The one video every film of the session plays in, and whether the page has had a tap yet. */
+interface KeptVideo {
+  readonly video: HTMLVideoElement;
+  readonly hasHadATap: boolean;
+}
+
+/**
+ * The video every film of the session plays in, which each tap anywhere on the page, made before its
+ * film or between films, lets play with sound (readyForSoundAtTap), as the same tap readies the
+ * voices (playWaitingAtTaps): one tap gives a guest both, whichever starts first (the owner,
+ * 2026-10-13). A video made per film needed a tap of its own on an iPhone.
+ */
+function useKeptVideo(): KeptVideo {
+  const [video] = useState(() => document.createElement("video"));
+  const [hasHadATap, setHasHadATap] = useState(false);
+  useEffect(() => {
+    const tapped = (): void => {
+      readyForSoundAtTap(video);
+      setHasHadATap(true);
+    };
+    document.addEventListener("click", tapped, true);
+    return () => {
+      document.removeEventListener("click", tapped, true);
+    };
+  }, [video]);
+  return { video, hasHadATap };
+}
+
+/**
+ * Where the film plays: black while nothing does (D246 §6), with Tap for sound over it until the
+ * page has had a tap (the owner, 2026-10-13: "put the 'Tap to enable sound' thing over top of where
+ * the video frame will be"), else the group's film, followed, in the session's kept video.
+ */
 function ViewingArea(props: {
+  readonly kept: KeptVideo;
   readonly membership: Membership;
   readonly audioOutput: AudioOutput;
   readonly connection: (TogetherConnection & TellsCannotKeepUp) | undefined;
@@ -374,10 +410,18 @@ function ViewingArea(props: {
   return (
     <section className="together-viewer__viewing" aria-label={t("together.stage")}>
       {fileId === 0 || connection === undefined ? (
-        <EmptyStage />
+        <EmptyStage>
+          {props.kept.hasHadATap ? null : (
+            // Its tap is the page's (useKeptVideo, playWaitingAtTaps): the button only asks for one.
+            <button type="button" className="together-viewer__sound-on">
+              {t("together.soundOn")}
+            </button>
+          )}
+        </EmptyStage>
       ) : (
         <GroupFilm
           key={`${String(fileId)}/${props.audioOutput}`}
+          keptVideo={props.kept.video}
           fileId={fileId}
           credential={props.membership.credential}
           audioOutput={props.audioOutput}
@@ -402,6 +446,7 @@ interface Following {
  * told.
  */
 function GroupFilm(props: {
+  readonly keptVideo: HTMLVideoElement;
   readonly fileId: number;
   readonly credential: string;
   readonly audioOutput: AudioOutput;
@@ -454,6 +499,7 @@ function GroupFilm(props: {
                 askAbout: undefined,
                 over: FollowingGroup,
                 under: GuestStalls,
+                keptVideo: props.keptVideo,
               }}
             />
           </GuestFilmContext>

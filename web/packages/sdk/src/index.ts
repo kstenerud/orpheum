@@ -113,7 +113,7 @@ export type {
   LoadingRunway,
   QualitySwitched,
 } from "./together-player-events.ts";
-export { playedMutedEvent, soundOnAtTap } from "./together-sound.ts";
+export { playedMutedEvent, readyForSoundAtTap, soundOnAtTap } from "./together-sound.ts";
 export { healPageAudio, keepPageAudio, setPageAudio } from "./page-audio.ts";
 export type { PageAudio, ShownAgainPage } from "./page-audio.ts";
 export type { MediaProbe, PlayableFormats } from "./playable-formats.ts";

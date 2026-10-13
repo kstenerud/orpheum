@@ -6,6 +6,7 @@ import type { PlayerNote } from "./together-connection.ts";
 import {
   playedMutedEvent,
   playOrPlayMuted,
+  readyForSoundAtTap,
   soundOnAtTap,
   soundToldAgainAfterMs,
 } from "./together-sound.ts";
@@ -93,5 +94,39 @@ describe("a film the browser will not start with sound", () => {
       soundState: "muted=true volume=1.00 paused=false session=none",
     });
     vi.useRealTimers();
+  });
+
+  it("changes a paused video's muting at a tap, which lets it play with sound after, and leaves it unmuted", () => {
+    const changes: boolean[] = [];
+    const video = {
+      paused: true,
+      /* eslint-disable @typescript-eslint/naming-convention -- HTMLMediaElement's own name, which this stands in for */
+      get muted(): boolean {
+        return changes.at(-1) ?? false;
+      },
+      set muted(isMuted: boolean) {
+        changes.push(isMuted);
+      },
+      /* eslint-enable @typescript-eslint/naming-convention -- only muted */
+    };
+    readyForSoundAtTap(video);
+    expect(changes).toEqual([true, false]);
+  });
+
+  it("leaves a playing video's sound alone at a tap", () => {
+    const changes: boolean[] = [];
+    const video = {
+      paused: false,
+      /* eslint-disable @typescript-eslint/naming-convention -- HTMLMediaElement's own name, which this stands in for */
+      get muted(): boolean {
+        return false;
+      },
+      set muted(isMuted: boolean) {
+        changes.push(isMuted);
+      },
+      /* eslint-enable @typescript-eslint/naming-convention -- only muted */
+    };
+    readyForSoundAtTap(video);
+    expect(changes).toEqual([]);
   });
 });

@@ -43,6 +43,7 @@ describe("playing a prepared rendition", () => {
     let source = "";
     let loads = 0;
     const target: NativeTarget = {
+      getAttribute: (name) => (name === "src" ? source : null),
       setAttribute: (name, value) => {
         source = name === "src" ? value : source;
       },
@@ -56,6 +57,23 @@ describe("playing a prepared rendition", () => {
     playback.destroy();
     expect(removed).toEqual(["src"]);
     expect(loads).toBe(1);
+  });
+
+  it("leaves a video the next film was given already as it is", () => {
+    const removed: string[] = [];
+    let source = "";
+    const target: NativeTarget = {
+      getAttribute: (name) => (name === "src" ? source : null),
+      setAttribute: (name, value) => {
+        source = name === "src" ? value : source;
+      },
+      removeAttribute: (name) => removed.push(name),
+      load: () => undefined,
+    };
+    const playback = playNative(target, "/api/v1/bytes/media/hls/t/master.m3u8");
+    source = "/api/v1/bytes/media/direct/next";
+    playback.destroy();
+    expect(removed).toEqual([]);
   });
 
   it("tells the video when hls.js moves it itself, and not for any other error", () => {
