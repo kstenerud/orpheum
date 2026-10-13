@@ -540,8 +540,8 @@ The answer also carries the count of the core's clients that reached a dead end 
   the core asks the CA to validate, then clears it. The core keeps its ACME account, its key and its
   certificate. Taken from C1: the call returns only once every authoritative server serves the
   record, and the core checks it resolves before asking the CA (as built it waits a fixed 30 s).
-  Clearing names the record in the path, not in a body, which DELETE does not define (C16; **the
-  code must change**).
+  Clearing names the record in the path, not in a body, which DELETE does not define (C16; built
+  2026-10-13, with `single`'s check of the value).
 - **Renewal at two-thirds of the lifetime** (C1). **The code must change:** it renews 30 days
   before expiry, fixed, which for a certificate shorter than 30 days would reissue on every sweep.
 - **Refuse a handshake without a served name** (A10): the core answers TLS only when the SNI is a
@@ -964,7 +964,7 @@ the core must act on (enrol again, another instance running) carries a code of i
 | `GET /status` | claimed?, account state, zone, protocol support, `iceServers`, the client origin (`clientOrigin`, §3.4), messages for the admin | yes, but for the account state |
 | `PUT /addresses` | candidates, the owner's TURN → published names, probe results, `reachableFrom`, last week's failed connections (§3.6); the heartbeat's fallback | yes, but for the count |
 | `GET /signal` (WebSocket) | offers (with proofs) in, answers (signed over the SDP) out; the heartbeat; pings | yes, without checks, signatures, heartbeat or pings |
-| `PUT /acme-challenge`, `DELETE /acme-challenge/{name}` | set or clear `_acme-challenge.<coreId>.<zone>`, claimed cores only; returns once served | yes, the clearing with a body |
+| `PUT /acme-challenge`, `DELETE /acme-challenge/{name}` | set or clear `_acme-challenge.<coreId>.<zone>`, claimed cores only; returns once served | yes, but for waiting until served |
 | the core's ACME account (§2.7) | the account URI, for CAA | no |
 | `PUT /locate-hashes` | the full set of live link-secret hashes, with lives and use policies | no |
 | `PUT /locators` | the full set of live device-locator hashes | no |

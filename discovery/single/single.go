@@ -61,6 +61,7 @@ var (
 	errAnotherCore  = errors.New("this discovery holds another core")
 	errNoDNS        = errors.New("this discovery sets no DNS records: it was given no DNS provider")
 	errNotCoresName = errors.New("not the core's name")
+	errNotDigest    = errors.New("not a DNS-01 value: a SHA-256 digest in base64url, 43 characters")
 	errNotClaimed   = errors.New("the core is not claimed yet: its owner claims it by the code its System page shows")
 )
 
@@ -184,12 +185,17 @@ func (discovery *Discovery) serveSignedIn(writer http.ResponseWriter, request *h
 		refuse(writer, http.StatusForbidden, discoveryproto.RefusalNotClaimed, errNotClaimed.Error())
 		return
 	}
-	switch call {
-	case http.MethodPut + " " + discoveryproto.PathAddresses:
+	cleared, isClearing := strings.CutPrefix(request.URL.Path, discoveryproto.PathACMEChallenge+"/")
+	switch {
+	case call == http.MethodPut+" "+discoveryproto.PathAddresses:
 		discovery.addresses(writer, request)
-	case http.MethodPut + " " + discoveryproto.PathACMEChallenge,
-		http.MethodDelete + " " + discoveryproto.PathACMEChallenge:
-		discovery.acmeChallenge(writer, request, held)
+	case call == http.MethodPut+" "+discoveryproto.PathACMEChallenge:
+		var challenge discoveryproto.ACMEChallengeRequest
+		if read(writer, request, &challenge) {
+			discovery.acmeChallenge(writer, request, held, challenge)
+		}
+	case request.Method == http.MethodDelete && isClearing:
+		discovery.acmeChallenge(writer, request, held, discoveryproto.ACMEChallengeRequest{Name: cleared})
 	default:
 		http.NotFound(writer, request)
 	}
@@ -369,16 +375,17 @@ func (discovery *Discovery) addresses(writer http.ResponseWriter, request *http.
 	answer(writer, discoveryproto.AddressesResponse{Published: []string{}, Probe: []discoveryproto.ProbeResult{}})
 }
 
-// acmeChallenge sets or clears the core's certificate's DNS-01 record, the core's own name alone.
-func (discovery *Discovery) acmeChallenge(writer http.ResponseWriter, request *http.Request, held Core) {
-	var challenge discoveryproto.ACMEChallengeRequest
-	if !read(writer, request, &challenge) {
-		return
-	}
+// acmeChallenge sets the core's certificate's DNS-01 record, or clears it on a DELETE: the core's own
+// name alone, and a value only of the shape DNS-01 gives (S18).
+func (discovery *Discovery) acmeChallenge(writer http.ResponseWriter, request *http.Request, held Core,
+	challenge discoveryproto.ACMEChallengeRequest,
+) {
 	var err error
 	switch {
 	case challenge.Name != "_acme-challenge."+held.ID+"."+discovery.parts.Zone:
 		err = errNotCoresName
+	case request.Method != http.MethodDelete && !isDNS01Digest(challenge.Value):
+		err = errNotDigest
 	case discovery.parts.TXT == nil:
 		err = errNoDNS
 	case request.Method == http.MethodDelete:
@@ -389,11 +396,20 @@ func (discovery *Discovery) acmeChallenge(writer http.ResponseWriter, request *h
 	switch {
 	case errors.Is(err, errNotCoresName):
 		http.Error(writer, "not the core's name: _acme-challenge.<coreId>."+discovery.parts.Zone, http.StatusForbidden)
+	case errors.Is(err, errNotDigest):
+		http.Error(writer, err.Error(), http.StatusBadRequest)
 	case errors.Is(err, errNoDNS):
 		http.Error(writer, err.Error(), http.StatusNotImplemented)
 	case err != nil:
 		discovery.fail(writer, request, err)
 	}
+}
+
+// isDNS01Digest reports whether value is what DNS-01 puts in a TXT record: a SHA-256 digest in
+// unpadded base64url, 43 characters (RFC 8555 §8.4).
+func isDNS01Digest(value string) bool {
+	decoded, err := base64.RawURLEncoding.DecodeString(value)
+	return err == nil && len(decoded) == sha256.Size
 }
 
 // leave forgets the core, at its asking, with its sessions and its signalling connection.

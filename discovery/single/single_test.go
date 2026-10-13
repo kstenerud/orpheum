@@ -474,7 +474,10 @@ func TestHandler_APendingCorePublishesNothingUntilItIsClaimed(t *testing.T) {
 		body         any
 	}{
 		{http.MethodPut, discoveryproto.PathAddresses, discoveryproto.AddressesRequest{}},
-		{http.MethodPut, discoveryproto.PathACMEChallenge, discoveryproto.ACMEChallengeRequest{Name: name, Value: "v"}},
+		{
+			http.MethodPut, discoveryproto.PathACMEChallenge,
+			discoveryproto.ACMEChallengeRequest{Name: name, Value: dns01Value},
+		},
 	} {
 		status, code := built.refusalOf(t, call.method, call.path, token, call.body)
 		if status != http.StatusForbidden || code != discoveryproto.RefusalNotClaimed {
@@ -501,16 +504,86 @@ func TestHandler_APendingCorePublishesNothingUntilItIsClaimed(t *testing.T) {
 		t.Fatal(err)
 	}
 	if status := built.call(t, http.MethodPut, discoveryproto.PathACMEChallenge, token,
-		discoveryproto.ACMEChallengeRequest{Name: name, Value: "v"}, nil); status != http.StatusOK {
+		discoveryproto.ACMEChallengeRequest{Name: name, Value: dns01Value}, nil); status != http.StatusOK {
 		t.Errorf("the claimed core's certificate record answered %d", status)
 	}
 }
 
-// txtRecords takes every record it is given.
-type txtRecords struct{}
+// dns01Value is a TXT record's value as DNS-01 makes one: a SHA-256 digest in unpadded base64url.
+const dns01Value = "LoqXcYV8q5ONbJQxbmR7SCTNo3tiAXDfowyjxAjEuX0"
 
-func (*txtRecords) SetTXT(context.Context, string, string) error { return nil }
-func (*txtRecords) ClearTXT(context.Context, string) error       { return nil }
+// txtRecords takes every record it is given, keeping them.
+type txtRecords struct {
+	mutex   sync.Mutex
+	records map[string]string
+}
+
+func (records *txtRecords) SetTXT(_ context.Context, name, value string) error {
+	records.mutex.Lock()
+	defer records.mutex.Unlock()
+	if records.records == nil {
+		records.records = map[string]string{}
+	}
+	records.records[name] = value
+	return nil
+}
+
+func (records *txtRecords) ClearTXT(_ context.Context, name string) error {
+	records.mutex.Lock()
+	defer records.mutex.Unlock()
+	delete(records.records, name)
+	return nil
+}
+
+func (records *txtRecords) value(name string) string {
+	records.mutex.Lock()
+	defer records.mutex.Unlock()
+	return records.records[name]
+}
+
+func TestACMEChallenge_SetsOnlyTheCoresOwnRecordToADigestAndClearsItByItsName(t *testing.T) {
+	t.Parallel()
+	built := newStage(t)
+	records := &txtRecords{}
+	built.discovery.parts.TXT = records
+	signer, coreID := built.claimed(t)
+	token := built.session(t, signer, coreID)
+	name := "_acme-challenge." + coreID + "." + testZone
+	for _, tc := range []struct {
+		why  string
+		sent discoveryproto.ACMEChallengeRequest
+		want int
+	}{
+		{"another core's name", discoveryproto.ACMEChallengeRequest{
+			Name: "_acme-challenge.other." + testZone, Value: dns01Value,
+		}, http.StatusForbidden},
+		{
+			"a value DNS-01 never makes",
+			discoveryproto.ACMEChallengeRequest{Name: name, Value: "v"},
+			http.StatusBadRequest,
+		},
+		{
+			"the core's own record",
+			discoveryproto.ACMEChallengeRequest{Name: name, Value: dns01Value},
+			http.StatusOK,
+		},
+	} {
+		status := built.call(t, http.MethodPut, discoveryproto.PathACMEChallenge, token, tc.sent, nil)
+		if status != tc.want {
+			t.Errorf("setting %s answered %d, want %d", tc.why, status, tc.want)
+		}
+	}
+	if got := records.value(name); got != dns01Value {
+		t.Fatalf("the record is %q; want the digest set", got)
+	}
+	status := built.call(t, http.MethodDelete, discoveryproto.PathACMEChallenge+"/"+name, token, nil, nil)
+	if status != http.StatusOK {
+		t.Errorf("clearing the record by its name answered %d", status)
+	}
+	if got := records.value(name); got != "" {
+		t.Errorf("after clearing, the record is %q; want none", got)
+	}
+}
 
 // A session for a core the discovery does not hold says to enrol again, which the core acts on
 // (the protocol's §2.2, C12).

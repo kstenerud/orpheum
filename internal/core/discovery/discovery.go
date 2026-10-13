@@ -189,14 +189,15 @@ func (service *Service) setTXT(ctx context.Context, name, value string) error {
 	if err != nil {
 		return fmt.Errorf("open a session for the certificate's challenge: %w", err)
 	}
-	method := http.MethodPut
-	if value == "" {
-		method = http.MethodDelete
-	}
-	err = service.call(ctx, callOf{
-		base: status.BaseURL, method: method, path: discoveryproto.PathACMEChallenge, token: token,
+	call := callOf{
+		base: status.BaseURL, method: http.MethodPut, path: discoveryproto.PathACMEChallenge, token: token,
 		body: discoveryproto.ACMEChallengeRequest{Name: name, Value: value},
-	})
+	}
+	if value == "" {
+		call.method, call.body = http.MethodDelete, nil
+		call.path = discoveryproto.PathACMEChallenge + "/" + url.PathEscape(name)
+	}
+	err = service.call(ctx, call)
 	if err != nil {
 		return fmt.Errorf("have the discovery set the certificate's challenge: %w", err)
 	}

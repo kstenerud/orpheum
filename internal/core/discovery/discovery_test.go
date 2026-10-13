@@ -193,20 +193,22 @@ func (fake *fakeDiscovery) serveSigned(writer http.ResponseWriter, request *http
 		})
 	case "DELETE /core":
 		fake.isLeft = true
-	case "PUT /acme-challenge", "DELETE /acme-challenge":
+	case "PUT /acme-challenge":
 		var challenge discoveryproto.ACMEChallengeRequest
 		fake.read(request, &challenge)
 		if challenge.Name != "_acme-challenge."+fakeCoreID+"."+fakeZone {
 			http.Error(writer, "not this core's name", http.StatusForbidden)
 			return
 		}
-		if request.Method == http.MethodDelete {
-			delete(fake.txt, challenge.Name)
-			return
-		}
 		fake.txt[challenge.Name] = challenge.Value
 	default:
-		http.NotFound(writer, request)
+		// The record is cleared by its name in the path, with no body (the protocol's §2.7).
+		cleared, isClearing := strings.CutPrefix(request.URL.Path, discoveryproto.PathACMEChallenge+"/")
+		if request.Method != http.MethodDelete || !isClearing || request.ContentLength > 0 {
+			http.NotFound(writer, request)
+			return
+		}
+		delete(fake.txt, cleared)
 	}
 }
 

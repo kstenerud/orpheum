@@ -211,8 +211,10 @@ type SignalMessage struct {
 }
 
 // ACMEChallengeRequest sets the TXT record of name, which is _acme-challenge.<coreId>.<zone>, to
-// value; with no value, it clears it.
+// value, the 43-character base64url digest DNS-01 asks for (RFC 8555 §8.4; S18). The record is
+// cleared by DELETE PathACMEChallenge/<name>, the name in the path, since a DELETE defines no body
+// (the protocol's §2.7; C16).
 type ACMEChallengeRequest struct {
 	Name  string `json:"name"`
-	Value string `json:"value,omitempty"`
+	Value string `json:"value"`
 }
