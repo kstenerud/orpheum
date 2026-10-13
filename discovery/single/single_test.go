@@ -139,7 +139,7 @@ func (built *stage) enrol(t *testing.T, signer key) (int, discoveryproto.EnrolRe
 	nonce := built.nonce(t, signer)
 	var enrolled discoveryproto.EnrolResponse
 	status := built.call(t, http.MethodPost, discoveryproto.PathEnrol, "", discoveryproto.EnrolRequest{
-		PublicKey: signer.public, Protocol: discoveryproto.ProtocolVersion, Nonce: nonce,
+		PublicKey: signer.public, Nonce: nonce,
 		Signature: signer.sign(discoveryproto.PurposeEnrol, proof.KeyLabel(signer.public), nonce),
 	}, &enrolled)
 	return status, enrolled
@@ -325,6 +325,44 @@ func TestHandler_RefusesASignedCallWithoutASessionsToken(t *testing.T) {
 	}
 }
 
+func TestHandler_AnswersAnyMinorOfItsMajorAndRefusesAnotherByName(t *testing.T) {
+	t.Parallel()
+	built := newStage(t)
+	signer, coreID := built.claimed(t)
+	token := built.session(t, signer, coreID)
+	for _, tc := range []struct {
+		path, version string
+		wantStatus    int
+		wantCode      string
+	}{
+		{discoveryproto.PathStatus, "1.7", http.StatusOK, ""},
+		{discoveryproto.PathStatus, "2.0", http.StatusBadRequest, discoveryproto.RefusalVersion},
+		{discoveryproto.PathStatus, "1", http.StatusBadRequest, discoveryproto.RefusalVersion},
+		{discoveryproto.PathStatus, "", http.StatusBadRequest, discoveryproto.RefusalVersion},
+		{discoveryproto.PathSignal, "2.0", http.StatusBadRequest, discoveryproto.RefusalVersion},
+	} {
+		request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, built.server.URL+tc.path, http.NoBody)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if tc.version != "" {
+			request.Header.Set(discoveryproto.ProtocolHeader, tc.version)
+		}
+		request.Header.Set("Authorization", "Bearer "+token)
+		response, err := built.server.Client().Do(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var refusal discoveryproto.Refusal
+		_ = json.NewDecoder(response.Body).Decode(&refusal) //nolint:errcheck // a refusal's body, or none
+		_ = response.Body.Close()                           //nolint:errcheck // read above
+		if response.StatusCode != tc.wantStatus || refusal.Code != tc.wantCode {
+			t.Errorf("GET %s saying %q answered %d %q; want %d %q", tc.path, tc.version, response.StatusCode,
+				refusal.Code, tc.wantStatus, tc.wantCode)
+		}
+	}
+}
+
 func TestOffer_PassesTheOfferToTheCoreAndReturnsItsAnswer(t *testing.T) {
 	t.Parallel()
 	built := newStage(t)
@@ -373,7 +411,9 @@ func TestOffer_PassesTheOfferToTheCoreAndReturnsItsAnswer(t *testing.T) {
 func (built *stage) dial(t *testing.T, token string) *websocket.Conn {
 	t.Helper()
 	address := "ws" + strings.TrimPrefix(built.server.URL, "http") + discoveryproto.PathSignal
-	dialing := &websocket.DialOptions{HTTPHeader: http.Header{"Authorization": {"Bearer " + token}}}
+	dialing := &websocket.DialOptions{HTTPHeader: http.Header{
+		"Authorization": {"Bearer " + token}, discoveryproto.ProtocolHeader: {discoveryproto.ProtocolVersion},
+	}}
 	connection, _, err := websocket.Dial(t.Context(), address, dialing) //nolint:bodyclose // the library closes it
 	if err != nil {
 		t.Fatal(err)
@@ -443,7 +483,9 @@ func TestHandler_APendingCorePublishesNothingUntilItIsClaimed(t *testing.T) {
 		}
 	}
 	address := "ws" + strings.TrimPrefix(built.server.URL, "http") + discoveryproto.PathSignal
-	dialing := &websocket.DialOptions{HTTPHeader: http.Header{"Authorization": {"Bearer " + token}}}
+	dialing := &websocket.DialOptions{HTTPHeader: http.Header{
+		"Authorization": {"Bearer " + token}, discoveryproto.ProtocolHeader: {discoveryproto.ProtocolVersion},
+	}}
 	//nolint:bodyclose // the library closes it
 	connection, response, err := websocket.Dial(t.Context(), address, dialing)
 	if err == nil {

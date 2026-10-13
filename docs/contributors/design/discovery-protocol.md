@@ -125,7 +125,7 @@ core then by **its home address**, which every household is told (D292 §6; §3.
 
 All calls are HTTPS to `<discovery>/core/v1/…`, JSON, outbound only; the discovery connects in only
 to probe (§2.6). **Built** (`discovery/discoveryproto`, `internal/core/discovery`): JSON keys are
-camelCase; every call carries `Orpheum-Discovery-Protocol: 1`; an answer's
+camelCase; every call carries `Orpheum-Discovery-Protocol: 1.0`; an answer's
 `Orpheum-Discovery-Deprecated: <date>` header is shown to the core's admin. §5 says how the version
 signals change (C13).
 
@@ -174,8 +174,7 @@ names itself by `proof.KeyLabel` of its key until it has an id).
 
 1. **Enrolment** (built). `POST /challenge {publicKey}` → `{nonce}`;
    `POST /enrol {publicKey, nonce, signature}` → `{coreId, claimCode, claimExpiresAt}` (Unix ms).
-   The body carries no version (§5; X11; **the code must change**: `EnrolRequest` carries
-   `protocol`). A nonce works once. Enrolment is idempotent per public key: the same key gets the
+   The body carries no version (§5; X11; built). A nonce works once. Enrolment is idempotent per public key: the same key gets the
    same pending core and `coreId`, with a fresh code once the old one expired (C12; `single` does
    this). A double click on *Connect* enrols once (C12; **the code must change**: nothing serialises
    `Connect`).
@@ -277,8 +276,7 @@ with ±20% jitter, and at once when an address or mapping changes:
 }
 ```
 
-As built the body also carries `"protocol": "1"`; it is dropped (C13, §5). **The code must
-change:** the heartbeat is a `PUT /addresses` every 5 minutes, without jitter, and nothing rides on
+The body carries no version (C13, §5; built). **The code must change:** the heartbeat is a `PUT /addresses` every 5 minutes, without jitter, and nothing rides on
 the signalling connection.
 
 - `interface`: an address on the machine (a global IPv6 address is native on DS-Lite). **Only stable
@@ -959,7 +957,7 @@ the core must act on (enrol again, another instance running) carries a code of i
 | Method, path | Purpose | Built |
 | --- | --- | --- |
 | `POST /challenge` | public key → nonce, for enrolling or a session; rate-limited | yes |
-| `POST /enrol` | public key + signed nonce → `coreId`, claim code, expiry; idempotent per key | yes, with a `protocol` field |
+| `POST /enrol` | public key + signed nonce → `coreId`, claim code, expiry; idempotent per key | yes |
 | `POST /session` | `coreId` + `instanceId` + signed nonce → token bound to the core, `expiresIn` (1 h) | yes, with `expiresAt` |
 | `GET /status` | claimed?, account state, zone, protocol support, `iceServers`, the client origin (`clientOrigin`, §3.4), messages for the admin | yes, but for the account state |
 | `PUT /addresses` | candidates, the owner's TURN → published names, probe results, `reachableFrom`, last week's failed connections (§3.6); the heartbeat's fallback | yes, but for the count |
@@ -996,9 +994,9 @@ discoveries upgrade on their own schedule):
 - **One version signal** (C13): the path carries the major (`/core/v1`); the
   `Orpheum-Discovery-Protocol` header carries `major.minor`; no body carries one. A discovery
   accepts any minor of a major it serves and uses the minor only to know which optional features the
-  core has; `/signal` checks the header too. **The code must change:** as built the header and the
-  bodies of the heartbeat and enrolment carry `"1"`, `single` requires the header to equal `"1"`
-  exactly and never checks the body, and `/signal` checks nothing.
+  core has; `/signal` checks the header too. Built (2026-10-13): `discoveryproto.ParseVersion`
+  and `Serves`; `single` refuses another major, or none, with `unsupported_version` naming what it
+  serves, on every call, `/signal` included.
 - **A break is a new major** (`/core/v2`).
 - **The window is promised from the public launch** (D292 §3), as D273 §7 states it: a major is
   served while it is one of the two before the newest, and in any case for at least six months after
