@@ -78,7 +78,7 @@ func (service *Service) IssueRegistrationInvitation(ctx context.Context, userID 
 		return IssuedSecret{}, err
 	}
 	// The invitation is the admin's answer to a person locked out: it clears them from the limit (D221 §4).
-	service.limiter.forget(accountLimitKey(user.Name))
+	service.limiter.forgetPrefixed(accountLimitKey(user.Name))
 	secret, err := randomSecret(service.random)
 	if err != nil {
 		return IssuedSecret{}, err
@@ -188,7 +188,7 @@ func (service *Service) ChangePassword(
 	if err != nil {
 		return err
 	}
-	isMatch, _, verifyErr := VerifyPassword(currentPassword, string(user.PasswordHash))
+	isMatch, _, verifyErr := service.verifyPassword(ctx, currentPassword, string(user.PasswordHash))
 	if verifyErr != nil || !isMatch {
 		return errors.Join(ErrWrongPassword, verifyErr)
 	}

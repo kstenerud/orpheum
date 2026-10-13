@@ -22,9 +22,14 @@
 //     Enforced by TestHashPassword_IsAPHCStringThatVerifies and TestCreateUser_StoresOnlyTheHash.
 //   - A sign-in under older costs re-hashes the password. Enforced by
 //     TestSignIn_RehashesAPasswordMadeUnderOlderCosts.
-//   - Failed sign-ins are limited per account and per address, and a failure does not say which
-//     part was wrong. Enforced by TestSignIn_RateLimitsRepeatedFailuresBySetting and
-//     TestSignIn_SaysNothingAboutWhichPartWasWrong.
+//   - Failed sign-ins are limited for a person on one network, for a network (an IPv4 address or an
+//     IPv6 /64) and, more loosely, for a person everywhere, so no stranger locks a person out by
+//     name; attempts made at once each count; a failure does not say which part was wrong; at most
+//     hashesAtOnce password hashes run at once. Enforced by
+//     TestSignIn_RateLimitsRepeatedFailuresBySetting,
+//     TestSignIn_GuessesMadeAtOnceEachCountAgainstTheLimit,
+//     TestSignIn_SaysNothingAboutWhichPartWasWrong and
+//     TestHashSlots_RunAtMostSoManyAtOnceAndRefuseOneThatWaitsTooLong.
 //   - A session is stored only as its token's SHA-256 and ends when revoked, and belongs to the
 //     device it was signed in on: the one the client remembers, or a new one the client names
 //     (D217 §8, D221). Enforced by TestSignIn_IssuesASessionUntilSignedOut.

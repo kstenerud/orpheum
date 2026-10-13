@@ -5,8 +5,10 @@ package auth
 import (
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -179,6 +181,11 @@ func TestSignIn_SaysNothingAboutWhichPartWasWrong(t *testing.T) {
 	}
 }
 
+// Failed sign-ins are limited by the setting for a person on one network, a network (an IPv6 /64 is
+// one, however many addresses it uses) at four times it, and a person everywhere at ten times it; a
+// stranger's failures elsewhere do not lock the person out, and the limits lift after the window
+// (the second audit's K2, 2026-10-13: an account-wide limit at the setting let anyone lock anyone
+// out by name, and the address limit counted single IPv6 addresses).
 func TestSignIn_RateLimitsRepeatedFailuresBySetting(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
@@ -187,24 +194,66 @@ func TestSignIn_RateLimitsRepeatedFailuresBySetting(t *testing.T) {
 	settingstest.Set(t, fixture.settings, settings.SignInFailureLimit, "3")
 	settingstest.Set(t, fixture.settings, settings.SignInFailureWindowSeconds, "60")
 	fixture.createUser(t, "partner", "right", RoleUser)
-	for range limit {
-		_, err := fixture.service.SignIn(ctx, "partner", "wrong", "198.51.100.7", laptop)
+	fixture.createUser(t, "someone", "right", RoleUser)
+	for index := range limit {
+		_, err := fixture.service.SignIn(ctx, "partner", "wrong", fmt.Sprintf("2001:db8:7:7::%x", index+1), laptop)
 		if !errors.Is(err, ErrBadCredentials) {
 			t.Fatalf("a failed sign-in: %v", err)
 		}
 	}
-	_, err := fixture.service.SignIn(ctx, "partner", "right", "203.0.113.9", laptop)
-	if !errors.Is(err, ErrRateLimited) {
-		t.Errorf("the right password after %d failures, from another address: %v, want ErrRateLimited",
-			limit, err)
+	if _, err := fixture.service.SignIn(ctx, "partner", "right", "2001:db8:7:7::99", laptop); !errors.Is(err,
+		ErrRateLimited) {
+		t.Errorf("the right password after %d failures on that /64, from another of its addresses: %v, want "+
+			"ErrRateLimited", limit, err)
 	}
-	_, err = fixture.service.SignIn(ctx, "someone", "right", "198.51.100.7", laptop)
-	if !errors.Is(err, ErrRateLimited) {
-		t.Errorf("another account from the failing address: %v, want ErrRateLimited", err)
+	if _, err := fixture.service.SignIn(ctx, "partner", "right", "203.0.113.9", laptop); err != nil {
+		t.Errorf("the person from another network after a stranger's failures: %v, want signed in", err)
+	}
+	if _, err := fixture.service.SignIn(ctx, "someone", "right", "2001:db8:7:7::5", laptop); err != nil {
+		t.Errorf("another person on the failing network, below its limit: %v, want signed in", err)
+	}
+	for index := range limit * accountEverywhereTimes {
+		_, _ = fixture.service.SignIn(ctx, "someone", "wrong", //nolint:errcheck // failing on purpose
+			fmt.Sprintf("198.51.100.%d", index+1), laptop)
+	}
+	if _, err := fixture.service.SignIn(ctx, "someone", "right", "192.0.2.200", laptop); !errors.Is(err,
+		ErrRateLimited) {
+		t.Errorf("after %d failures spread over as many networks: %v, want ErrRateLimited",
+			limit*accountEverywhereTimes, err)
 	}
 	fixture.clock.Advance(window + time.Second)
-	if _, err := fixture.service.SignIn(ctx, "partner", "right", "198.51.100.7", laptop); err != nil {
+	if _, err := fixture.service.SignIn(ctx, "partner", "right", "2001:db8:7:7::1", laptop); err != nil {
 		t.Errorf("after the window: %v, want the sign-in to succeed", err)
+	}
+}
+
+// Sign-ins tried at once each count against the limit: the check made before the slow hash and the
+// failure recorded after it let 53 of 60 parallel guesses through (the second audit's K2).
+func TestSignIn_GuessesMadeAtOnceEachCountAgainstTheLimit(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	settingstest.Set(t, fixture.settings, settings.SignInFailureLimit, "3")
+	fixture.createUser(t, "partner", "right", RoleUser)
+	const guesses = 30
+	tried := make(chan error, guesses)
+	var started sync.WaitGroup
+	for range guesses {
+		started.Go(func() {
+			_, err := fixture.service.SignIn(ctx, "partner", "wrong", "198.51.100.7", laptop)
+			tried <- err
+		})
+	}
+	started.Wait()
+	close(tried)
+	checked := 0
+	for err := range tried {
+		if errors.Is(err, ErrBadCredentials) {
+			checked++
+		}
+	}
+	if checked > 3 {
+		t.Errorf("%d of %d guesses made at once were checked; want at most the limit, 3", checked, guesses)
 	}
 }
 
