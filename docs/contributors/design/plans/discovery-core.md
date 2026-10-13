@@ -111,6 +111,12 @@ account URI and CAA with K9.
 
 ### K2 — Sessions, retries and instances
 
+**Built 2026-10-13 (Phase 2):** one renewal at a time for every caller; renewal at once, once, on a
+401; retries doubling from `[discovery] retry_first_milliseconds` to `retry_most_milliseconds`,
+jittered (`internal/platform/backoff`), the development stack's capped at 1 s; the signalling
+connection redialled after the first wait; `Connect` serialised; a copy's refusal said and waited
+on however it came. The instance's ping and the named refusals were built with A3.
+
 - **Changes.** `internal/core/discovery/discovery.go`: the session's expiry counted from
   `expiresIn` on the monotonic clock (C11); one renewal at a time, shared by the step loop, the
   signalling loop and the certificate job (`SetTXT`), renewing five minutes before expiry and at
