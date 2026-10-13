@@ -162,6 +162,31 @@ Each entry says: the **mechanism**, the **instance** we found, **why it was invi
 - **Warning sign:** a web test that fails with "Test timed out in 5000ms" and passes alone; first
   tests of a file at 2 s or more in the gate's verbose log.
 
+### 11. A fallback that widens to everything rather than to what a change can reach
+
+- **Mechanism:** when a narrow run cannot settle a question, a gate falls back to the whole suite,
+  though a change can reach only the code that imports it and the tests that read sources by path.
+- **Instances** (check-pr's timings, 2026-10-13, 2,498 s against 300):
+  - revert-red widened a Go file that survived its own package to `go test ./...`, and again with
+    the dev tag, 55 s each; two of them were `doc.go` files no test could notice, 211 s;
+  - it widened a TypeScript file that survived its importers' tests to the whole web suite, 69 s,
+    which can add only the tests that read sources by path;
+  - it probed the generated `api.ts`, types alone, by its importers' tests, nearly the whole suite;
+  - `make check` ran the whole web suite, 60 to 125 s, for any change under `web/`;
+  - the one browser run with every changed stylesheet reverted failed in 5 s for a reason nothing
+    kept, and each of 13 sheets then took a 160 s run of its own.
+- **Why it was invisible:** each fallback was correct, and each was cheap when it was written; the
+  per-probe timings (`.git/revert-red/last-timings`) first showed where the time went.
+- **Fix** (the owner, 2026-10-13: *"Our tests should be intelligent enough and compartmentalized
+  enough that we can test only the parts actually affected by a change"*):
+  `scripts/revert_red_dependents.py` gives a Go file's dependents (from `go list -test` under both
+  tag sets) and the tests that read sources; `scripts/web_tests.py` runs `vitest related` over the
+  files changed since the web tests' last pass; a package clause with comments is cosmetic; `api.ts`
+  goes to the type check; `scripts/revert_red_stylesheets.py` settles stylesheets by halves and
+  prints a failing run's last lines.
+- **Warning sign:** a run kind named "whole suite" in revert-red's timings summary; a one-file change
+  whose `make check` runs more than its importers' tests.
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of
@@ -195,5 +220,11 @@ failed.
   its contents. A film made some other way, such as from a file it reads that is not named in its
   arguments, needs its own key.
 - **`vitest related`** follows imports. A test that depends on a file without importing it (by
-  reading it from disk, say) is not related to it, and only the widening to the whole suite
-  catches that.
+  reading it from disk, say) is not related to it: such tests are found by what they call
+  (`readFileSync`, `readdirSync`, `import.meta.glob`, `web_source_readers`) and always run with the
+  related ones. A new way of reading files needs adding there.
+- **A Go file's dependents** are those whose code or tests import its package. A test that reads
+  every package's sources is named in `GO_SOURCE_READERS` (today `internal/archtest`); one that
+  builds the binary is found by its `go build`. A new reader of the sources needs adding there.
+- **`web_tests.py`** trusts its tree record as `area_stamp.py` does, and runs the whole suite when a
+  manifest, the lockfile or a configuration changed, or a file was deleted.
