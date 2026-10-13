@@ -369,7 +369,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   silent and paused with Safari in the background, back with the group on its return (after
   An earlier commit): *"ok, that worked"*. — done 2026-10-12 by the owner: a film alone, the switch on, after
   a minute in the background with Safari not quit: *"it worked"*.
-- [ ] **VQ39** — Against staging: on a television's browser (or a second browser, or a private
+- [x] **VQ39** — Against staging: on a television's browser (or a second browser, or a private
   window) not signed in, choose **Get a code**; on a phone signed in, open **Your account** and, under
   **Activate a device**, enter the code with a name. Passes when both screens then show the same check
   code, the phone under the big warning to look at the device's own screen; **Yes, they match** signs
@@ -378,3 +378,4 @@ An item is ticked only by the person who did it, and only with what they saw.
   shows a new code; and, as admin, entering a code on someone's page under People signs the device in
   as them. Only real devices show the codes are readable across a room and the warning is plain
   (D288). (`web/apps/web/src/code-sign-in.tsx`, `device-activation.tsx`, `internal/core/auth/pairing.go`)
+  — done 2026-10-13 by the owner, against staging at an earlier commit: *"I just verified that vq39 worked."*
