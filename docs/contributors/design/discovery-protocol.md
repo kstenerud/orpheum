@@ -76,13 +76,12 @@ on the System page (not built). Whether scheduled backups carry it: answered (§
 
 A pending core not claimed in 30 minutes is deleted; enrolment is rate-limited per address (paid).
 
-**Owner (2026-10-13): a check code at claiming?** The owner asked whether claiming should end, as
-device activation does (D288 §3), with a check code both screens show. **[I]** Yes, for the paid
-dashboard: after the code is typed, the dashboard and the core's System page both show a check code
-(and the core's name and fingerprint), and only the customer's "they match" binds the core. It
-closes the case of a customer typing a code someone else read out to them, which would hand that
-person's core the customer's account and names, or theirs the customer's household. On an own
-discovery the owner types the code on the VPS they control, and the check adds little. To decide.
+**A check code ends claiming on the paid dashboard** (the owner, 2026-10-13, *"Q19: Agreed"*;
+D289 §6). After the claim code is typed, the dashboard and the core's System page both show a check
+code, with the core's name and fingerprint, and only the customer's "they match" binds the core, as
+device activation ends (D288 §3). It closes the case of a customer typing a code someone else read
+out to them, which would join that person's core to the customer's account. An own discovery's
+owner types the code on the VPS they control, where the check adds little. Not built.
 
 ### 2.3 Session — built
 
@@ -346,4 +345,4 @@ The paid service's questions that bind the protocol and Orpheum, decided in
 [D289](../decisions/working-notes.md#d289--the-paid-discoverys-questions-answered-accounts-for-payers-only-the-identity-key-backed-up-as-the-secret-key-is-byte-paths-by-header-one-client-build-per-core-api-major):
 accounts for payers only, household users signing in to their core (Q5); the identity key backed up
 as `secret.key` is (Q12, §2.1); byte paths by the header (Q17, §3.4); one client build per supported
-core API major (Q18, §3.4, §5). Still open: a check code at claiming (§2.2).
+core API major (Q18, §3.4, §5); a check code at claiming on the paid dashboard (Q19, §2.2).
