@@ -22,8 +22,8 @@ side, built), [discovery-mode.md](plans/discovery-mode.md) (W4b, the owner's own
 them in
 [D290](../decisions/working-notes.md#d290--the-discovery-audits-findings-taken-claiming-on-the-core-paths-ranked-by-kind-re-keying-signed-by-the-old-key-computed-dns-behind-cloudflare-and-webrtc-in-the-beta),
 which this document follows; the correctness findings D290 does not name are taken as that audit
-recommends (D290 §18). What the audits recommend and D290 does not decide is listed in §7, for the
-owner.
+recommends (D290 §18). What the audits recommended and D290 did not decide is listed in §7, decided
+by D291 but for one question still the owner's.
 
 **Markers.** `D<n>` is a decision; a claim citing one comes from it. **[I]** is an inference or
 recommendation not taken from a decision. **[V]** is a fact checked at its source, in
@@ -478,7 +478,7 @@ paid service's by default) and asks for a code.
     and network, from the address the service saw, and whether it is on the same network as the
     device entering the code, said in plain words when it is not ("This device is in another
     country").
-  - **A device activated by a code may start with a narrower role** (D290 §5). Which role: §7.
+  - **A device activated by a code may start with a narrower role** (D290 §5): ordinary rights, never admin (D291 §5).
 
 ### 3.2 The paths
 
@@ -583,7 +583,7 @@ core's own TURN or the owner's VPS, never the paid service's.
 **The web client remembers a core's identity key on first contact** (D290 §3, S1): over a direct
 path, it asks the core to sign a nonce with its identity key (§2.1), keeps the public key per
 `coreId`, and checks it on every later visit. A changed key stops the client before it sends a
-password, with a plain warning. How a client accepts a key changed by a real re-key (§2.8): §7. It also
+password, with a plain warning. A client accepts a key the old key signed (§2.8, D291 §6). It also
 checks each WebRTC answer's signed fingerprint against that key (§2.5). Not built.
 
 Native apps (later, D273 §4) race the same paths, pin the identity key on first contact, and add
@@ -685,17 +685,22 @@ discoveries upgrade on their own schedule):
   with one key refused (§18; §2.3, the spec); the remaining correctness findings as the audit
   recommends (§18).
 
-## 7. Not yet decided
+## 7. Decided after the audits (D291)
 
-What the audits recommend that D290 neither decides nor follows from, for the owner. Each names its
-finding.
+What the audits recommended that D290 neither decided nor followed from, now decided by
+[D291](../decisions/working-notes.md#d291--what-the-discovery-audits-raised-and-d290-left-open-taken-as-the-audits-recommend-the-probe-on-a-machine-of-its-own-dns-on-bunny-ipv6-before-ipv4):
+each item is taken as its audit recommends, except where noted. Each names its finding.
+
+
 
 1. **S2 items 3, (part of) 2:** WEBCAT enrolment later; Trusted Types; keeping `app.` free of
    third-party scripts and analytics (the CSP implies the first part).
 2. **S4 items 2–4:** which narrower role a code-activated device gets (S4: playback and its own
    settings, never admin, even when an admin entered the code); each core limiting how many codes
    it claims an hour; the device confirming the core's name before it takes its session.
-   Where the approximate place comes from (a geolocation database is a dependency).
+   Where the approximate place comes from (a geolocation database is a dependency, the owner's to
+   approve when it is built). **D291 §5:** ordinary rights, never admin, admin only after the
+   person signs in with their password on that device.
 3. **S5 item 2:** two kinds of WebRTC connection, a signed-in client proving its session in the
    offer, and unproven ones limited to signing in, registering or pairing, with a small quota and a
    short life.
@@ -707,14 +712,14 @@ finding.
 6. **S10:** the outside probe's limits: global unicast only, the service's own prefixes and
    private, shared and documentation ranges denied; few ports; a cap on `configured` and TURN
    candidates; probes rate-limited per core and per target; detail reported only once the target
-   proved it is the core; the probe on a host with no secrets (which conflicts with D290 §8's second
-   machine holding the database).
+   proved it is the core. **D291 §1:** the probe on a machine of its own, holding no secret but a
+   token that can only post results; the spare holds the database.
 7. **S12 items 2, 4, 5:** a zone under an HSTS-preloaded TLD (`.app`, `.dev`); registry lock,
-   hardware-key 2FA, DNSSEC and a narrow API token; a PSL entry for cookie isolation, which C1 calls
-   weak and unlikely.
+   hardware-key 2FA, DNSSEC and a narrow API token. **D291 §4:** no PSL entry now.
 8. **S13 item 1:** a cap on published names per core (moot for DNS records once answers are
    computed, not for probes).
-9. **S14 items 1–4:** a random high external port (which D290 §9's "TCP 443" seems to rule out);
+9. **S14 items 1–4:** a random high external port (**still the owner's**: it keeps mass scanners
+   off, but networks that allow only ports 80 and 443 cannot reach it; D291);
    "your server is reachable from the internet at …" shown prominently; security-update notices
    through `GET /status`; sign-in limits tested over WebRTC.
 10. **S15:** a `Host` allow list on the core's plain-HTTP LAN listener against DNS rebinding.
@@ -735,15 +740,16 @@ finding.
     the first-run setup code accepted in the browser.
 18. **U7:** lapse and outage messages with dates and *Renew*; household members told the cause; the
     last good LAN address kept for an outage.
-19. **U8:** a list of locators with a switcher for a person on two servers.
+19. **U8:** a list of locators with a switcher for a person on two servers. **After the beta**
+    (D291 §6).
 20. **U9:** a QR beside the TV's code; a default device name; picking the check code from three;
     renaming *Get a code*; a two-sentence warning.
 21. **U11, U12:** "Connecting to …" after a second; a "how this device is connected" line; mail to
     the customer when `reachableFrom` drops.
 22. **Correctness, "something simpler" (not findings):** the heartbeat carried on the signalling
     connection; the hourly probe dropped for probe-on-change and clients' reports.
-23. **S1 item 3, after a re-key:** how a client that remembered the old key learns that the new one
-    is the core's, rather than meeting the changed-key warning.
-24. **C5 item 1 (part):** demoting a path whose round trip is far worse (more than 3× and 50 ms over
-    the best), which D290 §2's "round-trip time breaking ties" does not include; and C5's order of
-    IPv6 before IPv4, where D290 §2 ranks them together.
+23. **S1 item 3, after a re-key:** a client that remembered the old key accepts the new one when the
+    old key signed it; after a key recovered without it, a plain notice says the server's identity
+    changed and when the owner confirmed it (D291 §6).
+24. **C5 item 1 (part):** a path whose round trip is far worse (more than 3× and 50 ms over the best)
+    is demoted, and IPv6 ranks before IPv4 (D291 §3).
