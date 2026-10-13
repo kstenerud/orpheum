@@ -19778,9 +19778,74 @@ Follow your recommendation"*, then *"Q5, Q6, Q13, Q14, Q18: Agreed"*. The protoc
    exit path tested in Orpheum (Q8, D25); aggregate counts only, no identifiers (Q13); two
    repositories and two machines (Q14); code shared as D275 decided (Q6). Q7, the business and tax
    questions, waits for a session of its own.
-6. **Claiming a core on the paid dashboard ends with a check code** (Q19, the owner: *"Q19:
+6. **Replaced by D290 §1** (2026-10-13): claiming is done from the core instead.
+   **Claiming a core on the paid dashboard ends with a check code** (Q19, the owner: *"Q19:
    Agreed"*): the dashboard and the core's System page both show it, with the core's name and
    fingerprint, and only the customer's "they match" binds the core, as D288 §3 ends a device's
    activation. The core's System page shows it, so this is Orpheum's to build too.
 
 **Status:** Decided 2026-10-13.
+
+## D290 — The discovery audits' findings taken: claiming on the core, paths ranked by kind, re-keying signed by the old key, computed DNS behind Cloudflare, and WebRTC in the beta
+
+**Decided** (2026-10-13), by the project owner, on the four reports of
+[the security audit](../design/research/discovery-audit-security-2026-10-13.md),
+[the ease-of-use audit](../design/research/discovery-audit-ux-2026-10-13.md),
+[the correctness audit](../design/research/discovery-audit-correctness-2026-10-13.md) and
+[the DDoS and availability research](../design/research/discovery-ddos-availability-2026-10-13.md),
+which the owner asked for before any development: *"A1, A3, B1, B2, B3, B4, B5, B6, B7, B8, B9,
+B10, B12, D: Take your recommendation"*, and *"C: Yes, we'll need webrtc during the beta. It needs
+to be as seamless UX as possible for the user or else adoption will suffer."* Each item names the
+finding it answers. They revise [discovery-protocol.md](../design/discovery-protocol.md) and the
+paid service's specification, which are brought in line before development starts.
+
+1. **Claiming is done from the core** (A1; security S7, ease of use U5). The customer claims from
+   the core's own System page, in the same browser, the core's admin approving the claim and the
+   core showing which account holds it; this replaces D289 §6's check code compared on two screens,
+   which protects little when the person comparing is the one being deceived.
+2. **The paths are ranked by kind once the race ends** (A3; correctness C5, ease of use U1), within
+   D273 §7 as amended: of the paths that succeeded, the LAN first, then IPv6 or IPv4, then WebRTC,
+   round-trip time breaking ties; the client moves later only when its path fails or the network
+   changes. Throughput is not measured in the race. The LAN name is tried only when the device
+   seems to be at home, so Chrome's local-network prompt does not meet every first visit.
+3. **Re-keying is signed by the old key** (B1; security S1). A lost key's recovery waits about 72
+   hours and tells the customer by mail; the web client remembers a core's identity key on first
+   contact; the core watches Certificate Transparency for its own names.
+4. **The central web client is built reproducibly, its hashes published**, and served with
+   integrity and content-security policies (B2; security S2). Sessions made through it keep their
+   admin rights for now.
+5. **Device codes on the paid tier** (B3; security S3, S4): the session is sealed to a key the
+   device makes, so the service never holds it; the person entering a code sees where the device
+   asking is; a device activated by a code may start with a narrower role.
+6. **Signalling** (B4; security S5, S6): the core checks a device's locator itself, idle WebRTC
+   connections close, offers are limited per locator, and the core signs its DTLS fingerprint with
+   its identity key, so no discovery can sit between a client and its core.
+7. **DNS and certificates** (B5; correctness C1, C2; security S12; availability): names answered by
+   computing them from the name from the start, not a record each; DNS treated as on the playback
+   path and kept available; Let's Encrypt's DNS-PERSIST-01 and renewal information (ARI), and a
+   limit increase asked for early; CAA records naming the core's ACME account.
+8. **Hosting for the beta** (B6; availability): Cloudflare's free plan in front of the service's
+   HTTPS, the static client on Cloudflare Pages, and a second small machine at another provider
+   holding a live copy of the database.
+9. **Port mapping maps TCP 443 only** (B7; availability: Plex servers were used to amplify attacks
+   through a port UPnP opened).
+10. **A way back to one's core** (B8; ease of use U2): a reusable link per person that finds the
+    core and grants nothing; a page for a device that knows no core; "Add to Home Screen" offered on
+    iPhones, whose Safari erases a site's storage after seven days unvisited.
+11. **Recovery** (B9; ease of use U6): after a backup restored without the identity key, the core
+    guides its admin to re-key rather than enrol anew; the same key reclaims its old id after a
+    lapse.
+12. **The message when nothing reaches the core** is written for whoever reads it, suggests a
+    phone's hotspot, and the beta counts how often it is shown (B10; ease of use U3).
+13. **The document is brought in line with the code**, but for a core's id, which is 130 bits as
+    the document says, not the 40 the code makes (B12; correctness).
+14. **WebRTC through the discovery is in the beta** (C), so a household behind carrier NAT and a
+    phone on IPv4-only Wi-Fi reach their core from the start; it must be seamless to the person.
+15. **Two flaws in built code are to be fixed** (D; security S13): the single-target discovery's
+    nonces carry their own expiry and MAC, and device codes are refused past their caps rather than
+    pushing a waiting one out (D288 §6 as amended).
+
+Still open: the life of the customer's sign-in link (A2) and two points of the correctness
+findings (B11).
+
+**Status:** Decided 2026-10-13; design to fold into the protocol before development.
