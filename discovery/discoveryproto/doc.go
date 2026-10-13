@@ -6,12 +6,15 @@
 //
 // # Invariants
 //
-//   - Holds no logic: types and constants only. Review, as nodeproto's.
+//   - Types and constants, and only the few functions both sides must compute alike: the version
+//     signal's parsing (the protocol's §5). Anything else is the caller's. Review.
 //   - Every field names its JSON key in camelCase. Enforced by tagliatelle.
 //   - Imports nothing from internal/, which a module outside Orpheum cannot import. Enforced by
 //     TestArch_PublicPackagesImportNothingInternal.
-//   - The protocol is additive wherever it can be; a breaking change raises ProtocolVersion, and the
-//     discovery answers the previous two majors for at least six months each (D273 §6, §7). Review.
+//   - The protocol is additive wherever it can be; a breaking change raises ProtocolMajor, and the
+//     discovery answers the previous two majors for at least six months each (D273 §6, §7). The
+//     header alone says the version, "major.minor", and a discovery answers any minor of a major it
+//     serves. TestServes_AnyMinorOfAServedMajorAndNothingElse. Review, for the rest.
 //
 // # Read before changing
 //
@@ -20,5 +23,6 @@
 //
 // # Where to change
 //
-//   - discoveryproto.go: the calls' bodies, the states and the signalling messages.
+//   - discoveryproto.go: the calls' bodies, the states and the signalling messages. version.go: the
+//     version signal.
 package discoveryproto

@@ -130,6 +130,14 @@ func (discovery *Discovery) Handler() http.Handler {
 }
 
 func (discovery *Discovery) serve(writer http.ResponseWriter, request *http.Request) {
+	// Every call says its version, the signalling connection's too; any minor of a served major is
+	// answered (the protocol's §5).
+	version := request.Header.Get(discoveryproto.ProtocolHeader)
+	if !discoveryproto.Serves([]int{discoveryproto.ProtocolMajor}, version) {
+		refuse(writer, http.StatusBadRequest, discoveryproto.RefusalVersion, fmt.Sprintf(
+			"%s %q: this discovery serves %d.x", discoveryproto.ProtocolHeader, version, discoveryproto.ProtocolMajor))
+		return
+	}
 	if request.URL.Path == discoveryproto.PathSignal && request.Method == http.MethodGet {
 		held, opened, isSignedIn := discovery.signedIn(writer, request)
 		if !isSignedIn {
@@ -140,11 +148,6 @@ func (discovery *Discovery) serve(writer http.ResponseWriter, request *http.Requ
 			return
 		}
 		discovery.signal.accept(writer, request, opened.instanceID)
-		return
-	}
-	if request.Header.Get(discoveryproto.ProtocolHeader) != discoveryproto.ProtocolVersion {
-		http.Error(writer, "say the protocol in "+discoveryproto.ProtocolHeader+": this discovery speaks "+
-			discoveryproto.ProtocolVersion, http.StatusBadRequest)
 		return
 	}
 	request.Body = http.MaxBytesReader(writer, request.Body, bodyMost)

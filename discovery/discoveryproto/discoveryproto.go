@@ -9,9 +9,16 @@ const (
 	DeprecatedHeader = "Orpheum-Discovery-Deprecated"
 )
 
-// ProtocolVersion is the major version of the protocol this build speaks. Changes are additive
-// wherever they can be; a breaking one raises it (D273 §6).
-const ProtocolVersion = "1"
+// The protocol this build speaks. Changes are additive wherever they can be and raise the minor;
+// a breaking one raises the major, which the paths carry too (/core/v1; the protocol's §5, D273 §6).
+const (
+	ProtocolMajor = 1
+	ProtocolMinor = 0
+)
+
+// ProtocolVersion is what every call says in ProtocolHeader, "major.minor": the one version signal,
+// which no body repeats (the protocol's §5; C13).
+const ProtocolVersion = "1.0"
 
 // The paths under a discovery's base URL.
 const (
@@ -44,11 +51,10 @@ type ChallengeResponse struct {
 	Nonce string `json:"nonce"`
 }
 
-// EnrolRequest makes the core a pending one: its public key, its protocol, and its signature over
-// the nonce for PurposeEnrol, proving it holds the key.
+// EnrolRequest makes the core a pending one: its public key, and its signature over the nonce for
+// PurposeEnrol, proving it holds the key.
 type EnrolRequest struct {
 	PublicKey []byte `json:"publicKey"`
-	Protocol  string `json:"protocol"`
 	Nonce     string `json:"nonce"`
 	Signature []byte `json:"signature"`
 }
@@ -94,6 +100,9 @@ const (
 	RefusalAnotherInstance = "another_instance"
 	// RefusalNotClaimed is a call only a claimed core makes, from a core not yet claimed.
 	RefusalNotClaimed = "not_claimed"
+	// RefusalVersion is a call in a major the discovery does not serve, or with no version at all:
+	// its message names the versions it serves (the protocol's §5).
+	RefusalVersion = "unsupported_version"
 )
 
 // State is where a core stands with its discovery.
@@ -153,7 +162,6 @@ type ICEServer struct {
 // AddressesRequest is the heartbeat: the core's version, its API's major, its candidates and its
 // owner's TURN servers.
 type AddressesRequest struct {
-	Protocol       string      `json:"protocol"`
 	OrpheumVersion string      `json:"orpheumVersion"`
 	APIMajor       int         `json:"apiMajor"`
 	Candidates     []Candidate `json:"candidates"`

@@ -263,7 +263,7 @@ func (service *Service) enrol(ctx context.Context, baseURL string) (Status, erro
 	err = service.call(ctx, callOf{
 		base: baseURL, method: http.MethodPost, path: discoveryproto.PathEnrol,
 		body: discoveryproto.EnrolRequest{
-			PublicKey: public, Protocol: discoveryproto.ProtocolVersion, Nonce: nonce,
+			PublicKey: public, Nonce: nonce,
 			Signature: service.parts.Key.Sign(discoveryproto.PurposeEnrol, baseURL, proof.KeyLabel(public), nonce),
 		}, into: &enrolled,
 	})
@@ -466,8 +466,8 @@ func (service *Service) heartbeat(ctx context.Context, status Status, token stri
 		return wait
 	}
 	request := discoveryproto.AddressesRequest{
-		Protocol: discoveryproto.ProtocolVersion, OrpheumVersion: service.parts.Version,
-		APIMajor: service.parts.APIMajor, Candidates: candidates,
+		OrpheumVersion: service.parts.Version,
+		APIMajor:       service.parts.APIMajor, Candidates: candidates,
 	}
 	if service.parts.TURN != nil {
 		request.TURN = service.parts.TURN()
