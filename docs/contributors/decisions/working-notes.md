@@ -19967,3 +19967,58 @@ took its 28 recommendations (*"agreed on the rest of the stuff"*) and changed tw
 
 **Status:** Decided 2026-10-13; to fold into the protocol, the plans and the specification in one
 pass before development.
+
+## D293 — The discovery's open questions answered: a live instance is pinged before it is replaced, device codes through the service sealed by HPKE on P-256 in the beta, staging's DNS token in the sandbox until production
+
+**Decided** (2026-10-13), by the project owner, on the questions the D292 pass left open
+([discovery-protocol.md](../design/discovery-protocol.md) §9, `discovery-core.md`'s and the
+specification's lists). The owner proposed §1 and asked for §2; the rest were taken as recommended
+(*"all as recommended"*).
+
+1. **A second instance pings the first.** When a core enrols with a new `instanceId` while another
+   holds a signalling connection for the same `coreId`, the discovery pings the old instance on that
+   connection and waits about 10 seconds: no answer, or no connection, and the newcomer replaces it;
+   an answer, and the newcomer is refused as another copy, which says so in its log and on its System
+   page and retries every few minutes. A crash-restart is accepted in seconds, a real second copy
+   never displaces the one serving, and a stolen key cannot knock a live core off. Replaces both
+   "the newest wins" (coherence decision 7) and waiting out missed heartbeats (T14).
+2. **Device codes through the paid service are in the closed beta**, sealed with HPKE (RFC 9180)
+   using DHKEM(P-256, HKDF-SHA256), not X25519: P-256 has been in Web Crypto for a decade and
+   television browsers run old engines, so no minimum browser rises and no library is needed. Go's
+   `crypto/hpke` seals on the core; the client opens with Web Crypto, checked against RFC 9180's
+   vectors. The sealed blob carries the session, the core's id, its identity key's fingerprint and
+   a device locator; nothing the device needs crosses the service readable. The page entering a
+   code warns "only enter a code shown on a screen in front of you"; the line naming where the
+   asking device is (D290 §5, S4) waits until after the beta, since it needs an IP-location
+   database. Revises D292 §3's deferral of HPKE device codes; answers protocol §9 item 5.
+3. **Staging's DNS token sits in the sandbox until production.** A Cloudflare token cannot be
+   scoped below a zone, so staging's zone writer holds a token for `orpheum-core.com` while the zone
+   holds nothing of value; before the first production core enrols, staging's writes move behind the
+   production zone writer, accepting only staging's subzone, and the token is revoked, on M-S7's list
+   beside the legacy token's. Staging's subzone is `staging.orpheum-core.com`. A narrow exception to
+   D292 §2, bounded by that date.
+4. **The core learns its discovery's client origin from the discovery**: a field in `GET /status`,
+   accepted only as an `https` origin with no path and shown on the System page. It gives the
+   discovery no power it lacks, since it already serves the client's code.
+5. **A lost identity key in the beta** is re-keyed by the operator by hand, after checking with the
+   household; recovery when built waits on its own design (protocol §9 item 3, after the beta).
+6. **The core's state reaches a household member** as a `state` field in the `paths` answer.
+7. **Failed connections are counted by the service:** the client reports a dead end to the
+   discovery, which keeps a weekly count per core with no device identifier, and the core reads it
+   with its heartbeat for the System page (D290 §12).
+8. **The `paths` answer carries the client's network prefix** as the discovery sees it, the key the
+   client's remembered paths need (§3.3 item 7).
+9. **The account lock-out (audit3 A13) is fixed in Phase 1:** a device that proves an earlier
+   sign-in (A8's device secret) passes the account-wide limit, networks are keyed by IPv6 /48, and
+   the account-wide limit delays rather than refuses.
+10. **The zone's apex serves no HTTPS:** Universal SSL stays off so its CAA stays `issue ";"`, and
+    the HSTS preload of `orpheum-core.com` is not sought (revises D292 §1); each core's name sends
+    its own HSTS.
+11. **The reports' lesser items** (B1 items 5–6, B4, B7–B11, B13–B17, I9, the infrastructure
+    report's §5.2 secrets rules) are taken as the reports recommend.
+
+Left for when their features are built, after the beta: sign-in across browsers and mailbox
+recovery's wait, the claim page's address, the NAT measurement, CT watching, the ACME library, and
+the self-hosted discovery's questions (`discovery-mode.md`).
+
+**Status:** Decided 2026-10-13; folded into the protocol, the plans and the specification.
