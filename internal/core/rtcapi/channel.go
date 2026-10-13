@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/pion/webrtc/v4"
 )
@@ -52,28 +53,46 @@ type ResponseHead struct {
 	Headers http.Header `json:"headers,omitempty"`
 }
 
+// servedChannel is how a channel is served: the time its request has to arrive whole, and what is
+// told when its request is done with, answered or its channel closed, whichever comes first.
+type servedChannel struct {
+	deadline time.Duration
+	ended    func()
+}
+
 // serveChannel serves the one request a channel carries: its head, its body, an empty message ending
 // it; then the response's head, its body in messages of at most MaxMessageBytes, and an empty message
 // ending it, after which the client closes the channel. The client's address is what remote says.
-// The request's context ends with the channel, or with base, the server's lifetime.
+// The request's context ends with the channel, or with base, the server's lifetime. A request that
+// has not arrived whole by served.deadline closes its channel, so no one holds a request open by
+// sending it slowly.
 func serveChannel(
 	base context.Context, handler http.Handler, channel *webrtc.DataChannel, remote func() string,
-	logger *slog.Logger,
+	logger *slog.Logger, served servedChannel,
 ) {
 	ctx, cancel := context.WithCancel(base)
 	conn := newMessageConn(channel)
+	var endOnce sync.Once
 	channel.OnClose(func() {
 		conn.ended()
 		cancel()
+		endOnce.Do(served.ended)
 	})
 	credit := newCredit(InitialCreditMessages)
 	reader := &requestReader{done: make(chan struct{}), credit: credit, conn: conn}
 	channel.OnMessage(reader.take)
 	go func() {
 		defer cancel()
+		defer endOnce.Do(served.ended)
+		late := time.NewTimer(served.deadline)
+		defer late.Stop()
 		select {
 		case <-reader.done:
 		case <-ctx.Done():
+			return
+		case <-late.C:
+			logger.WarnContext(ctx, "a request over WebRTC did not arrive in time", "deadline", served.deadline)
+			_ = channel.Close() //nolint:errcheck // nothing more to say on it
 			return
 		}
 		request, err := reader.request(ctx, remote())

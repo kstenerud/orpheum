@@ -32,6 +32,17 @@
 //     TestAnswer_CountsThePathEachConnectionTook, TestPathOf_IsToldByTheCoresEndOfThePair.
 //   - Only an offer is answered, and none past MaxConnections.
 //     TestAnswer_RefusesWhatIsNotAnOfferAndPastTheLimit.
+//   - An offer a discovery passed on is checked by the core before any connection is made: one
+//     sha-256 fingerprint, at most MaxRelayedCandidates candidates, mDNS ones dropped; and its
+//     connection checks no remote address that is private, loopback, link-local or in the core's own
+//     networks (the security audit's A2). TestCheckRelayedOffer_TakesOneSHA256FingerprintAndAFewCandidates,
+//     TestIsFromOutside_RefusesEveryAddressOfTheCoresOwnNetworks,
+//     TestAnswerRelayed_ConnectsNoClientOnTheCoresOwnNetwork.
+//   - Each connection is bounded: closed unless it connects within its bound, and past its network's
+//     share once it does; its client's messages no larger than MaxMessageBytes and its SCTP buffer
+//     bounded; its requests in flight limited, each arriving whole by a deadline.
+//     TestAnswerRelayed_ConnectsNoClientOnTheCoresOwnNetwork, TestAnswer_HoldsEachClientWithinItsBounds,
+//     TestChannel_ARequestThatDoesNotArriveInTimeIsCutOff.
 //   - A connection grants nothing: each request carries its own sign-in, and the offer endpoint
 //     answers only a signed-in client (internal/core/api's
 //     TestRTCOffer_ASignedInClientReachesTheAPIOverDataChannels).
@@ -43,7 +54,8 @@
 //
 // # Where to change
 //
-//   - rtcapi.go: offers, connections and their bounds; path.go: the paths connections take;
+//   - rtcapi.go: offers, connections and their bounds; relayed.go: the core's own check of an offer
+//     a discovery passed on; path.go: the paths connections take;
 //     channel.go: reading a request;
 //     writer.go: sending a response; message.go: a request that became a WebSocket.
 package rtcapi

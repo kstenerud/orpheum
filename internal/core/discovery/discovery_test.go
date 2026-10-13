@@ -439,7 +439,7 @@ type answering struct {
 	offered []string
 }
 
-func (answerer *answering) Answer(_ context.Context, offer rtcapi.Description) (rtcapi.Description, error) {
+func (answerer *answering) AnswerRelayed(_ context.Context, offer rtcapi.Description) (rtcapi.Description, error) {
 	answerer.mutex.Lock()
 	defer answerer.mutex.Unlock()
 	answerer.offered = append(answerer.offered, offer.SDP)

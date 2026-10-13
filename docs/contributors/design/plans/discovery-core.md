@@ -133,6 +133,20 @@ Which phase each step belongs to is [The order of work](#the-order-of-work). Ste
 In two parts: **K3a** is the security floor, without which no core holds a signalling connection to
 any discovery (D292 §4; A2, A9); **K3b** is what makes the connection keep up.
 
+**Built 2026-10-13 (Phase 1's A2):** `rtcapi.Server.AnswerRelayed`, the only way an offer through
+`internal/core/discovery` reaches `rtcapi` (its `Answerer` names no other), checks the offer first:
+exactly one sha-256 fingerprint, at most `MaxRelayedCandidates` (10) candidates, mDNS candidates
+dropped; its connections check no remote address that is loopback, link-local, private,
+carrier-grade NAT's or in the core's own interface prefixes. Every connection: SCTP's receive buffer
+1 MiB and messages at most `MaxMessageBytes`; 16 requests in flight; a request's head and body whole
+within 30 s; closed unless ICE connects within 10 s; 16 connections per network (an IPv4 address or
+an IPv6 /56) once connected. The check budget is the candidate cap times pion's seven binding
+requests a pair. **Still K3a's:** the proof and the certificate compared after DTLS (A9) and the
+answer's signature (A7), with Phase 1's A7/A9; unproven connections, with the proof's kinds;
+the head stripped, with A1; per-locator caps, with locators (K7); the `TestArch_` claim, which
+needs the owner's gate (`internal/archtest`), in its place a review invariant in the package's
+`doc.go`.
+
 - **K3a changes.** `internal/core/discovery/signal.go`: each offer checked by the core before
   `rtcapi` sees it (§2.5 item 3): its `proof`, an HMAC over the offer's DTLS fingerprint keyed by
   `SHA-256(token)` of the signed-in session (the hash the core holds, A corrections 5) or, for a
@@ -560,7 +574,8 @@ In the public code, before any core holds a signalling connection to any discove
    pending core, no certificate record, addresses or signalling before claiming, 130-bit ids
    ([discovery-mode.md](discovery-mode.md) W4b.7).
 2. **A2, A10** — offers checked and bounded (K3a); no certificate for a handshake that names no
-   served name (K9's SNI part).
+   served name (K9's SNI part). **Built 2026-10-13**, but for the parts K3a's status leaves to the
+   steps below.
 3. **A1** — no admin through a discovery's client; admin only from the core's own origin on its own
    network (K17, with the `device` scope).
 4. **A7, A9** — the identity key's fingerprint in every link and QR (K7's link form, K8a's

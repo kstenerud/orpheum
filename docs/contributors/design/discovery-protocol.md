@@ -345,10 +345,12 @@ discovery's ping to the instance holding it when a second instance asks for a se
 D293 §1).
 
 **No core holds a signalling connection to any discovery until this section's checks and bounds
-are built** (D292 §4; A2). **The code must change:** as built the core answers every offer the
-discovery passes, unconditionally and one at a time (`internal/core/discovery/signal.go`), by a
-WebRTC stack with none of RFC 8445's limits switched on: an unauthenticated door into the core's
-API, and a way to make it send STUN checks into its own LAN **[V, A2]**.
+are built** (D292 §4; A2). Built (2026-10-13): the fingerprint and candidate checks of item 3 and
+the address filter, before `rtcapi` makes a connection (`rtcapi.Server.AnswerRelayed`, the one way
+an offer through `internal/core/discovery` reaches it), and each connection's bounds below but the
+idle close, the unproven connections and per-locator caps. **The code must change:** the proof
+(item 3) and the answer's signature (item 4) are not built, so an offer is answered unproven, one
+at a time.
 
 1. A client posts up to four SDP offers with its locator (§3.1), or the bootstrap token `/locate`
    gave it, and with each offer **its proof** (below).

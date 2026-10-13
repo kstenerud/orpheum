@@ -29,6 +29,9 @@
 //     TestCheckBaseURL_RefusesAnythingButHTTPSOrThisMachine.
 //   - A claimed core answers each offer the discovery passes on, under its id, and refuses one past
 //     rtcapi's limit saying why. TestSignal_AClaimedCoreAnswersTheOffersItsDiscoveryPassesOn.
+//   - An offer through the discovery reaches rtcapi only by Answerer.AnswerRelayed, which checks it
+//     itself first (the security audit's A2): the interface names no other way. Review, until the
+//     owner adds its TestArch_ claim.
 //
 // # Read before changing
 //

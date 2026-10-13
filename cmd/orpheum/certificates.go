@@ -74,7 +74,13 @@ func (served *servedCertificates) whenServable(start func()) {
 
 // tellIfServable tells onServable, once, when a certificate can be served.
 func (served *servedCertificates) tellIfServable() {
-	if _, err := served.GetCertificate(&tls.ClientHelloInfo{}); err != nil {
+	isServable := false
+	for _, held := range served.all() {
+		if _, err := held.GetCertificate(&tls.ClientHelloInfo{}); err == nil {
+			isServable = true
+		}
+	}
+	if !isServable {
 		return
 	}
 	served.mutex.Lock()
@@ -87,17 +93,25 @@ func (served *servedCertificates) tellIfServable() {
 }
 
 // GetCertificate is the certificate for the name a browser asks for: the discovery's for a name
-// under its wildcard, the owner's own name's otherwise, and whichever there is when only one is.
+// under its wildcard, and the owner's own name's otherwise. The discovery's is never served for a
+// handshake naming no name of its, so a scanner sweeping addresses without a name learns no core's id
+// from it (the security audit's A10); the owner's own name is theirs to publish.
 func (served *servedCertificates) GetCertificate(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	discovered := served.underDiscovery.Load()
-	if discovered != nil && (served.own == nil || isUnder(hello.ServerName, discovered.Domain())) {
+	if discovered != nil && isUnder(hello.ServerName, discovered.Domain()) {
 		return discovered.GetCertificate(hello)
 	}
 	if served.own != nil {
 		return served.own.GetCertificate(hello)
 	}
+	if discovered != nil {
+		return nil, errNotServedName
+	}
 	return nil, certificate.ErrNoCertificate
 }
+
+// errNotServedName is a handshake for a name the server holds no certificate for: none, or another's.
+var errNotServedName = errors.New("the server serves no certificate for that name")
 
 // isUnder is whether name is one label under wildcard's (*.k7xq2.<zone>), as the wildcard covers.
 func isUnder(name, wildcard string) bool {
