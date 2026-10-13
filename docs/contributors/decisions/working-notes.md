@@ -19866,3 +19866,37 @@ paid service's specification, which are brought in line before development start
     the audit recommends.
 
 **Status:** Decided 2026-10-13; design to fold into the protocol before development.
+
+## D291 — What the discovery audits raised and D290 left open: taken as the audits recommend, the probe on a machine of its own, DNS on Bunny, IPv6 before IPv4
+
+**Decided** (2026-10-13), by the project owner, on the questions
+[discovery-protocol.md](../design/discovery-protocol.md) §7 and the paid service's specification
+§11.3 listed after D290, and on the places where D290 and the four audit reports pulled apart. The
+owner: *"All of this looks good"*, then, on the second machine, *"Go with your recommendations"*.
+
+1. **The outside probe runs on a machine of its own** (S10), the smallest instance at any provider,
+   holding no database and no secret but a token that can only post probe results; the spare of
+   D290 §8 holds the database's copy and the service's secrets and runs nothing that talks to
+   strangers until it takes over. The probe refuses private, shared, documentation and the cloud's
+   internal addresses and the service's own, tests only what a core listed, and is rate-limited per
+   core and per target. About €4 a month more.
+2. **The zone's DNS is on Bunny DNS**, whose scripted records compute answers from the name, answering
+   only for core ids that exist (C2, S12); Cloudflare stays in front of the service's own HTTPS
+   (D290 §8), whose DNS cannot compute answers.
+3. **IPv6 ranks before IPv4**, and a path whose round trip is far worse than the best (more than three
+   times and 50 ms over) is demoted (C5), refining D290 §2.
+4. **No Public Suffix List entry now** (S12, C1): the zone's own domain already isolates the service;
+   it is revisited if the list's rules change.
+5. **A device activated by a code gets ordinary rights** (S4): playback and its own settings, never
+   admin, even when an admin entered the code; admin rights only once the person also signs in with
+   their password on that device. Refines D290 §5.
+6. **The rest of the open list is taken as the audits recommend** (protocol §7, the spec §11.3), but
+   for a switcher for a person on two cores (U8), which waits until after the beta. Where an audit
+   named no recommendation, a client that remembered a core's old identity key accepts the new one
+   when the old key signed it, and after a key recovered without it (D290 §3) shows a plain notice
+   that the server's identity changed, naming the date the owner confirmed it.
+
+Not decided here: whether the router is asked for a random high outside port (S14), which keeps
+mass scanners off but leaves out networks that allow only ports 80 and 443; it is put to the owner.
+
+**Status:** Decided 2026-10-13; design to fold into the protocol before development.

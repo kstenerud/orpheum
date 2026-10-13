@@ -295,7 +295,8 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D287](working-notes.md#d287--a-films-player-keeps-the-screen-awake-while-the-film-plays) A film's player keeps the screen awake while the film plays
 - [D288](working-notes.md#d288--a-device-is-activated-by-the-code-it-shows-entered-on-a-device-already-signed-in-and-a-check-code-both-show) A device is activated by the code it shows, entered on a device already signed in, and a check code both show
 - [D289](working-notes.md#d289--the-paid-discoverys-questions-answered-accounts-for-payers-only-the-identity-key-backed-up-as-the-secret-key-is-byte-paths-by-header-one-client-build-per-core-api-major) The paid discovery's questions answered: accounts for payers only, the identity key backed up as the secret key is, byte paths by header, one client build per core API major — *revisited by D290*
-- [D290](working-notes.md#d290--the-discovery-audits-findings-taken-claiming-on-the-core-paths-ranked-by-kind-re-keying-signed-by-the-old-key-computed-dns-behind-cloudflare-and-webrtc-in-the-beta) The discovery audits' findings taken: claiming on the core, paths ranked by kind, re-keying signed by the old key, computed DNS behind Cloudflare, and WebRTC in the beta
+- [D290](working-notes.md#d290--the-discovery-audits-findings-taken-claiming-on-the-core-paths-ranked-by-kind-re-keying-signed-by-the-old-key-computed-dns-behind-cloudflare-and-webrtc-in-the-beta) The discovery audits' findings taken: claiming on the core, paths ranked by kind, re-keying signed by the old key, computed DNS behind Cloudflare, and WebRTC in the beta — *revisited by D291*
+- [D291](working-notes.md#d291--what-the-discovery-audits-raised-and-d290-left-open-taken-as-the-audits-recommend-the-probe-on-a-machine-of-its-own-dns-on-bunny-ipv6-before-ipv4) What the discovery audits raised and D290 left open: taken as the audits recommend, the probe on a machine of its own, DNS on Bunny, IPv6 before IPv4
 
 ## Archived
 
