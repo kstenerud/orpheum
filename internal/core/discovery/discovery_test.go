@@ -187,9 +187,12 @@ func (fake *fakeDiscovery) serveSigned(writer http.ResponseWriter, request *http
 		fake.read(request, &heartbeat)
 		fake.heartbeats = append(fake.heartbeats, heartbeat)
 		fake.answer(writer, discoveryproto.AddressesResponse{
-			Published:     []string{"2a02-8070-0-0-0-0-0-1." + fakeCoreID + ".orpheum-core.example"},
-			Probe:         []discoveryproto.ProbeResult{{Candidate: "2a0f:1000::1", Result: "reached"}},
-			ReachableFrom: discoveryproto.ReachableIPv6OrWebRTC,
+			Published: []string{"2a02-8070-0-0-0-0-0-1." + fakeCoreID + ".orpheum-core.example"},
+			Probe: []discoveryproto.ProbeResult{{
+				Address: "2a0f:1000::1", Port: 443,
+				Kind: discoveryproto.ProbeHTTPS, Result: discoveryproto.ProbeReached,
+			}},
+			ReachableFrom: discoveryproto.ReachableIPv6,
 		})
 	case "DELETE /core":
 		fake.isLeft = true
@@ -332,7 +335,7 @@ func TestStep_WaitsToBeClaimedThenSendsItsAddressesWhenTheyChangeOrEveryFiveMinu
 	built.service.step(ctx) // sends its addresses
 	status := built.service.Status()
 	if status.State != discoveryproto.StateClaimed || status.Zone != "orpheum-core.example" ||
-		status.ReachableFrom != discoveryproto.ReachableIPv6OrWebRTC || len(status.Probe) != 1 {
+		status.ReachableFrom != discoveryproto.ReachableIPv6 || len(status.Probe) != 1 {
 		t.Errorf("once claimed the status is %+v; want claimed, its zone and what the probe found", status)
 	}
 	built.service.step(ctx) // nothing changed, nothing due

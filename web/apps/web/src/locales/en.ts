@@ -485,9 +485,12 @@ export const en = {
       claim:
         "To claim this server, sign in at the discovery and enter the code {{code}}. It works until {{until}}.",
       reachable: {
-        everywhere: "Clients can reach it from anywhere.",
-        ipv6OrWebrtc: "Clients with IPv6 reach it directly; the rest connect over WebRTC.",
-        nowhere: "The discovery could not reach it from outside. Clients at home still can.",
+        publicIpv4: "Clients can reach it from anywhere, at its public IPv4 address.",
+        publicIpv4OtherPort:
+          "Clients reach it at its public IPv4 address, on a port some networks block; there, they connect over IPv6 or WebRTC.",
+        ipv6: "Clients with IPv6 reach it directly; the rest connect over WebRTC.",
+        nowhere:
+          "The discovery could not reach it from outside. Clients connect over WebRTC, and at home directly.",
       },
       published: "Published as {{names}}.",
       heartbeat: "Last told the discovery its addresses at {{at}}.",

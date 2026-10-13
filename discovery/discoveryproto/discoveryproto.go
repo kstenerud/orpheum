@@ -170,17 +170,37 @@ type AddressesRequest struct {
 	TURN           []ICEServer `json:"turn,omitempty"`
 }
 
-// ProbeResult is what the discovery's outside probe found of one candidate, or of "webrtc".
+// ProbeResult is what the discovery's outside probe found of one candidate, each part a field of its
+// own (the protocol's §2.6; C16): the address and port it tried, what it tried there, and how it went.
 type ProbeResult struct {
-	Candidate string `json:"candidate"`
-	Result    string `json:"result"`
+	Address string `json:"address"`
+	Port    int    `json:"port"`
+	Kind    string `json:"kind"`
+	// Result is ProbeReached, or the hop a failure stopped at, as the core's own reachability check
+	// names them (D152): "refused", "timed_out", "tls", "wrong_core".
+	Result string `json:"result"`
 }
 
-// Where a core can be reached from, as the probe found.
+// What a probe tried at a candidate.
 const (
-	ReachableEverywhere   = "everywhere"
-	ReachableIPv6OrWebRTC = "ipv6_or_webrtc"
-	ReachableNowhere      = "nowhere"
+	ProbeHTTPS = "https"
+	ProbeTURN  = "turn"
+)
+
+// ProbeReached is a probe that got through, and found the core.
+const ProbeReached = "reached"
+
+// Where a core can be reached from, named by what the probe found to work (the protocol's §2.6; C10).
+const (
+	// ReachablePublicIPv4 is a public IPv4 address on 443: every network reaches it.
+	ReachablePublicIPv4 = "public_ipv4"
+	// ReachablePublicIPv4OtherPort is a public IPv4 address on another port, which networks that allow
+	// only 80 and 443 do not reach.
+	ReachablePublicIPv4OtherPort = "public_ipv4_other_port"
+	// ReachableIPv6 is IPv6 alone: a client without it connects over WebRTC, or not at all.
+	ReachableIPv6 = "ipv6"
+	// ReachableNowhere is no direct path at all: WebRTC alone.
+	ReachableNowhere = "nowhere"
 )
 
 // AddressesResponse is the heartbeat's answer: the names published, the probe's findings, and where
