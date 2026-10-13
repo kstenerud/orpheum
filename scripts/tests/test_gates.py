@@ -357,6 +357,17 @@ class RevertRed(unittest.TestCase):
         self.assertNotIn("./internal/node/chunks", wide, "the node never imports the core's playback")
         self.assertNotIn("./internal/core/playback", wide, "its own package ran first")
 
+    def test_a_gate_script_is_probed_by_the_test_modules_that_import_it_then_by_them_all(self):
+        narrow = rr.scope_for("scripts/web_tests.py")
+        self.assertEqual(narrow[:len(rr.PY_TESTS_COMMAND)], rr.PY_TESTS_COMMAND)
+        self.assertIn("scripts/tests/test_web_tests.py", narrow, "imports it")
+        self.assertNotIn("scripts/tests/test_hooks.py", narrow, "neither imports nor names it")
+        self.assertEqual(rr.wide_scope("scripts/web_tests.py"), rr.PY_TESTS_COMMAND)
+        reaching = rr.scope_for("scripts/check_stamp.py")[len(rr.PY_TESTS_COMMAND):]
+        self.assertIn("scripts/tests/test_area_stamp.py", reaching, "imports it")
+        self.assertIn("scripts/tests/test_web_tests.py", reaching, "imports web_tests, which imports it")
+        self.assertNotIn("scripts/tests/test_revert_red_stylesheets.py", reaching)
+
     def test_a_new_file_of_a_package_clause_and_comments_is_cosmetic(self):
         with tempfile.TemporaryDirectory() as tree:
             Path(tree, "doc.go").write_text("// Package x does things.\n//\n/* more */\npackage x\n")

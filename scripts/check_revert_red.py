@@ -35,8 +35,8 @@ about itself: a noisy gate gets disabled.**
   behaviour is a mislabelled commit and that is a different gate's problem. A file
   touched by several commits requires red if *any* of them claims behaviour.
 * Only kinds of file whose tests this can scope and run: Go, Python and web TypeScript (an added
-  file by the tests importing it, revert_red_web); web CSS in the browser tier alone, every sheet
-  at once, a pass settling them all (stylesheets_together); a migration step with its checksum line
+  file by the tests importing it, revert_red_web), each widening only to what it can reach
+  (revert_red_dependents); web CSS in the browser tier alone, by halves (stylesheets_together); a migration step with its checksum line
   and golden, and cache.db's schema, by internal/store's integration tier (revert_red_units.py). Every other
   file a feat/fix/perf commit changed is listed as UNCHECKED, by name and why, rather than
   passed — silence is what makes a green mean two things at once, and a `fix` that changed
@@ -51,12 +51,9 @@ about itself: a noisy gate gets disabled.**
 is load-bearing; it does not prove a test asserts its behaviour. Conflating the two
 would let a compile-time dependency stand in for a missing test.
 
-That distinction is much weaker in Python than in Go, and the difference is worth
-knowing before reading a report. A Python test names what it imports, so removing a
-newly-added function breaks collection before any assertion runs: **an added Python
-function can essentially only ever report `RED_BUILD`**, however well it is tested.
-Go reaches `RED_TEST` for the same change whenever the symbol survives the revert.
-Measured by running this gate against its own commit.
+The distinction is weaker in Python: a test names what it imports, so removing a newly-added
+function breaks collection first, and **an added Python function essentially only ever reports
+`RED_BUILD`**, however well tested; Go reaches `RED_TEST` whenever the symbol survives the revert.
 
 Everything happens in a throwaway git worktree. This tool checks out old versions of
 files over a tree, and doing that in the user's working tree would put uncommitted
@@ -81,7 +78,7 @@ from pathlib import Path
 import revert_red_reruns as reruns
 from revert_red_report import failure_advice, report
 from revert_red_cosmetic import GO_SOURCE, PY_SOURCE, is_cosmetic, is_package_clause_only
-from revert_red_dependents import go_dependents, toplevel, web_source_readers
+from revert_red_dependents import go_dependents, python_tests_reaching, toplevel, web_source_readers
 from revert_red_stylesheets import settle as settle_stylesheets
 from revert_red_trees import hold_probe_trees, link_installed_packages, probe_trees  # noqa: F401 (tests reach them here)
 from revert_red_units import MIGRATION_STEP, companions, query_source, restore, revert_companion
@@ -350,7 +347,8 @@ def scope_for(path: str) -> list[str] | None:
     if GO_SOURCE.search(path):
         return ["go", "test", "./" + str(Path(path).parent) + "/..."]
     if is_python(path):
-        return PY_TESTS_COMMAND
+        # The test modules that import it or name it, all of them when none does (revert_red_dependents).
+        return [*PY_TESTS_COMMAND, *(python_tests_reaching(toplevel(), path) or [])]
     if path == GENERATED_API_TYPES:
         # Types alone, which vitest strips: only the type check can notice it, and its importers'
         # tests were nearly the whole suite, 72 s (check-pr's timings, 2026-10-13).
@@ -374,6 +372,8 @@ def wide_scope(path: str) -> list[str] | None:
     its own and the tests that read every package's sources (revert_red_dependents); for TypeScript,
     whose importers' tests vitest's `related` already ran, the tests that read sources by path."""
     root = toplevel()
+    if is_python(path):
+        return PY_TESTS_COMMAND
     if GO_SOURCE.search(path):
         dependents = go_dependents(root, path)
         return ["go", "test", *dependents] if dependents else None

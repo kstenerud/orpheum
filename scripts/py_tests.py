@@ -37,8 +37,9 @@ def run(module: Path) -> tuple[Path, subprocess.CompletedProcess[str]]:
     return module, done
 
 
-def main() -> int:
-    modules = sorted(TESTS.glob("test_*.py"))
+def main(argv: list[str]) -> int:
+    """Every test module, or only those named (revert-red's narrow run, revert_red_dependents)."""
+    modules = [Path(name) for name in argv] if argv else sorted(TESTS.glob("test_*.py"))
     with ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as pool:
         results = list(pool.map(run, modules))
     failed = [(module, done) for module, done in results if done.returncode != 0]
@@ -49,4 +50,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))
