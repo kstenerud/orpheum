@@ -4,6 +4,7 @@ package auth
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -16,7 +17,7 @@ func pairDevice(
 ) string {
 	t.Helper()
 	ctx := t.Context()
-	asked, err := service.RequestPairing(ctx, "", "web", previousDeviceID)
+	asked, err := service.RequestPairing(ctx, "", "web", previousDeviceID, "192.0.2.10")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,14 +42,14 @@ func TestPairing_ADeviceKeepsItsCodeUntilEnteredAndThenShowsThePersonsCheckCode(
 	fixture := newFixture(t)
 	ctx := t.Context()
 	id := fixture.createUser(t, "partner", "pw", RoleUser)
-	asked, err := fixture.service.RequestPairing(ctx, "", "web", 0)
+	asked, err := fixture.service.RequestPairing(ctx, "", "web", 0, "192.0.2.10")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(asked.Code) != 9 || asked.Code[4] != '-' || asked.ExpiresAt.Sub(fixture.clock.Now()) != 10*time.Minute {
 		t.Errorf("the code = %+v, want xxxx-xxxx for ten minutes (D218 §3)", asked)
 	}
-	again, err := fixture.service.RequestPairing(ctx, asked.Secret, "web", 0)
+	again, err := fixture.service.RequestPairing(ctx, asked.Secret, "web", 0, "192.0.2.10")
 	if err != nil || again != asked {
 		t.Errorf("asking again = %+v, %v; want the same code (D288 §1)", again, err)
 	}
@@ -76,7 +77,7 @@ func TestPairing_OnlyTheMatchSignsTheDeviceInAndItsSessionIsTakenOnce(t *testing
 	fixture := newFixture(t)
 	ctx := t.Context()
 	id := fixture.createUser(t, "partner", "pw", RoleUser)
-	asked, err := fixture.service.RequestPairing(ctx, "", "web", 0)
+	asked, err := fixture.service.RequestPairing(ctx, "", "web", 0, "192.0.2.10")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +121,7 @@ func TestPairing_NoMatchTenMinutesOrSomeoneElsesAnswerActivatesNothing(t *testin
 	ctx := t.Context()
 	id := fixture.createUser(t, "partner", "pw", RoleUser)
 	other := fixture.createUser(t, "other", "pw", RoleUser)
-	refused, err := fixture.service.RequestPairing(ctx, "", "web", 0)
+	refused, err := fixture.service.RequestPairing(ctx, "", "web", 0, "192.0.2.10")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +137,7 @@ func TestPairing_NoMatchTenMinutesOrSomeoneElsesAnswerActivatesNothing(t *testin
 	if state := fixture.service.PairingStateOf(ctx, refused.Secret); state.State != PairingEnded {
 		t.Errorf("after no match: %+v, want ended", state)
 	}
-	late, err := fixture.service.RequestPairing(ctx, "", "web", 0)
+	late, err := fixture.service.RequestPairing(ctx, "", "web", 0, "192.0.2.10")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +145,7 @@ func TestPairing_NoMatchTenMinutesOrSomeoneElsesAnswerActivatesNothing(t *testin
 	if _, err = fixture.service.ClaimPairing(ctx, id, id, late.Code, "TV"); !errors.Is(err, ErrNoPairing) {
 		t.Errorf("a code past ten minutes: %v, want ErrNoPairing", err)
 	}
-	renewed, err := fixture.service.RequestPairing(ctx, late.Secret, "web", 0)
+	renewed, err := fixture.service.RequestPairing(ctx, late.Secret, "web", 0, "192.0.2.10")
 	if err != nil || renewed.Code == late.Code {
 		t.Errorf("asking after it expired = %+v, %v; want a new code", renewed, err)
 	}
@@ -160,7 +161,7 @@ func TestPairing_WrongCodesCountAgainstThePersonEnteringThem(t *testing.T) {
 	fixture := newFixture(t)
 	ctx := t.Context()
 	id := fixture.createUser(t, "partner", "pw", RoleUser)
-	asked, err := fixture.service.RequestPairing(ctx, "", "web", 0)
+	asked, err := fixture.service.RequestPairing(ctx, "", "web", 0, "192.0.2.10")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +195,7 @@ func TestPairing_ADeviceSignedInBeforeResumesItselfAndANewOneNeedsAName(t *testi
 	if err = fixture.service.SignOut(ctx, television); err != nil {
 		t.Fatal(err)
 	}
-	asked, err := fixture.service.RequestPairing(ctx, "", "web", listed.DeviceID)
+	asked, err := fixture.service.RequestPairing(ctx, "", "web", listed.DeviceID, "192.0.2.10")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,7 +217,7 @@ func TestPairing_ADeviceSignedInBeforeResumesItselfAndANewOneNeedsAName(t *testi
 	if _, err = fixture.service.Authenticate(ctx, phone); err != nil {
 		t.Errorf("the phone: %v", err)
 	}
-	unnamed, err := fixture.service.RequestPairing(ctx, "", "web", 0)
+	unnamed, err := fixture.service.RequestPairing(ctx, "", "web", 0, "192.0.2.10")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,35 +226,42 @@ func TestPairing_ADeviceSignedInBeforeResumesItselfAndANewOneNeedsAName(t *testi
 	}
 }
 
-// At most pairingsAtMost wait at once: the oldest no one has entered gives way to a new one, and one
-// entered stays (D288 §6).
-func TestPairing_AtMostAHundredWaitTheOldestNotEnteredGivingWay(t *testing.T) {
+// Past five codes not yet entered from one network (an IPv4 address, or an IPv6 /64 however many
+// addresses it uses), or a hundred in all, a new code is refused, and no code already waiting is
+// dropped for it: the oldest giving way let a stranger push out a television's code before it was
+// typed (the security audit's S13, 2026-10-13; D288 §6).
+func TestPairing_ANewCodeIsRefusedPastTheCapsAndNoWaitingOneIsPushedOut(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
-	id := fixture.createUser(t, "partner", "pw", RoleUser)
-	entered, err := fixture.service.RequestPairing(ctx, "", "web", 0)
+	television, err := fixture.service.RequestPairing(ctx, "", "web", 0, "198.51.100.20")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = fixture.service.ClaimPairing(ctx, id, id, entered.Code, "TV"); err != nil {
-		t.Fatal(err)
-	}
-	fixture.clock.Advance(time.Second)
-	oldest, err := fixture.service.RequestPairing(ctx, "", "web", 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for range pairingsAtMost - 1 {
-		fixture.clock.Advance(time.Millisecond)
-		if _, err = fixture.service.RequestPairing(ctx, "", "web", 0); err != nil {
-			t.Fatal(err)
+	for index := range pairingsPerNetworkAtMost {
+		if _, err = fixture.service.RequestPairing(ctx, "", "web", 0,
+			fmt.Sprintf("2001:db8:1:2::%x", index+1)); err != nil {
+			t.Fatalf("code %d from one /64: %v", index+1, err)
 		}
 	}
-	if state := fixture.service.PairingStateOf(ctx, oldest.Secret); state.State != PairingEnded {
-		t.Errorf("the oldest not entered: %+v, want it gone", state)
+	if _, err = fixture.service.RequestPairing(ctx, "", "web", 0, "2001:db8:1:2::ffff"); !errors.Is(err,
+		ErrTooManyPairings) {
+		t.Errorf("a sixth code from the same /64: %v, want ErrTooManyPairings", err)
 	}
-	if state := fixture.service.PairingStateOf(ctx, entered.Secret); state.State != PairingChecking {
-		t.Errorf("the one entered: %+v, want it kept", state)
+	for index := 0; ; index++ {
+		_, err = fixture.service.RequestPairing(ctx, "", "web", 0, fmt.Sprintf("203.0.113.%d", index))
+		if err != nil {
+			break
+		}
+	}
+	if !errors.Is(err, ErrTooManyPairings) {
+		t.Errorf("past a hundred in all: %v, want ErrTooManyPairings", err)
+	}
+	if state := fixture.service.PairingStateOf(ctx, television.Secret); state.State != PairingWaiting {
+		t.Errorf("the television's code, waiting first: %+v, want it still waiting", state)
+	}
+	again, err := fixture.service.RequestPairing(ctx, television.Secret, "web", 0, "198.51.100.20")
+	if err != nil || again.Code != television.Code {
+		t.Errorf("the television asking again while full = %+v, %v; want its own code", again, err)
 	}
 }

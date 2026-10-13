@@ -188,7 +188,7 @@ func TestNames_ADevicesNameAndPlatformAreCleanedWhereTheyEnter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	asked, err := fixture.service.RequestPairing(ctx, "", "we\u200bb", 0)
+	asked, err := fixture.service.RequestPairing(ctx, "", "we\u200bb", 0, "192.0.2.10")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/discovery/safe32code"
+	"github.com/kstenerud/orpheum/internal/core/clientnet"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 )
@@ -21,9 +22,12 @@ const (
 	// How long a pairing works from its code's making: fixed, not a setting, since it bounds how long
 	// a code shown on a screen can be taken by someone else (D218 §3).
 	pairingLife = 10 * time.Minute
-	// How many pairings wait at once, the oldest not yet entered giving way: a bound on the memory
-	// strangers' asking takes, not a limit on who asks (D288 §6).
-	pairingsAtMost = 100
+	// How many pairings wait at once, and how many not yet entered one network may hold (clientnet: an
+	// IPv6 /64 or an IPv4 address). Past either a new one is refused, never an older one dropped: the
+	// oldest giving way let a stranger push out a television's code before it was typed (the security
+	// audit's S13, 2026-10-13; D288 §6). A bound on memory and on one network, not on who asks.
+	pairingsAtMost           = 100
+	pairingsPerNetworkAtMost = 5
 )
 
 // The states of a pairing, as the device asking sees them (D288).
@@ -41,6 +45,9 @@ const (
 var (
 	// ErrNoPairing is a code no device waits with, or a pairing the person answering did not enter.
 	ErrNoPairing = errors.New("no device is waiting with that code; check it, or ask the device for a new one")
+	// ErrTooManyPairings is a code asked for while as many wait as may, or as many from the asking
+	// network: the device asks again once one is entered or expires.
+	ErrTooManyPairings = errors.New("too many devices are waiting with a code; try again in a few minutes")
 	// ErrNoDeviceName is a new device entered with no name to list it by.
 	ErrNoDeviceName = errors.New("a new device needs a name")
 )
@@ -72,7 +79,9 @@ type pairing struct {
 	secret, code     string
 	platform         string
 	previousDeviceID int64
-	madeAt           time.Time
+	// network is where the device asked from (clientnet), by which its codes are counted.
+	network string
+	madeAt  time.Time
 	// The person's entering of its code, once entered: by whom, as whom, under what name, and the
 	// check code.
 	isClaimed             bool
@@ -115,34 +124,34 @@ func (kept *pairings) byCodeLocked(code string) (*pairing, bool) {
 	return nil, false
 }
 
-// makeRoomLocked forgets the oldest pairing no one has entered while pairingsAtMost wait.
-func (kept *pairings) makeRoomLocked() {
-	for len(kept.bySecret) >= pairingsAtMost {
-		var oldest *pairing
-		for _, known := range kept.bySecret {
-			if !known.isClaimed && (oldest == nil || known.madeAt.Before(oldest.madeAt)) {
-				oldest = known
-			}
+// hasRoomLocked is whether another pairing may wait, asked for from network: fewer than
+// pairingsAtMost wait, and fewer than pairingsPerNetworkAtMost of network's not yet entered.
+func (kept *pairings) hasRoomLocked(network string) bool {
+	waiting := 0
+	for _, known := range kept.bySecret {
+		if !known.isClaimed && known.network == network {
+			waiting++
 		}
-		if oldest == nil {
-			return
-		}
-		delete(kept.bySecret, oldest.secret)
 	}
+	return len(kept.bySecret) < pairingsAtMost && waiting < pairingsPerNetworkAtMost
 }
 
 // RequestPairing gives a device not signed in a code to show (D288 §1): the one it already has while
 // secret names a pairing not yet entered, or a new one, eight characters of safe32 for ten minutes.
 // The device names its platform, and the device it was signed in as before, which a person of its
-// own resumes (D221).
+// own resumes (D221); address is where it asks from. ErrTooManyPairings while no new one has room.
 func (service *Service) RequestPairing(
-	_ context.Context, secret, platform string, previousDeviceID int64,
+	_ context.Context, secret, platform string, previousDeviceID int64, address string,
 ) (Pairing, error) {
 	service.pairings.mutex.Lock()
 	defer service.pairings.mutex.Unlock()
 	now := service.clock.Now()
 	if known, found := service.pairings.liveLocked(secret, now); found && !known.isClaimed {
 		return Pairing{Secret: known.secret, Code: known.code, ExpiresAt: known.madeAt.Add(pairingLife)}, nil
+	}
+	network := clientnet.Of(address)
+	if !service.pairings.hasRoomLocked(network) {
+		return Pairing{}, ErrTooManyPairings
 	}
 	newSecret, err := randomSecret(service.random)
 	if err != nil {
@@ -152,10 +161,9 @@ func (service *Service) RequestPairing(
 	if err != nil {
 		return Pairing{}, err
 	}
-	service.pairings.makeRoomLocked()
 	service.pairings.bySecret[newSecret] = &pairing{
 		secret: newSecret, code: code, platform: textindex.Line(platform), previousDeviceID: previousDeviceID,
-		madeAt: now,
+		network: network, madeAt: now,
 	}
 	return Pairing{Secret: newSecret, Code: code, ExpiresAt: now.Add(pairingLife)}, nil
 }

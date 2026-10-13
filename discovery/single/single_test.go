@@ -40,12 +40,16 @@ type stage struct {
 func newStage(t *testing.T) *stage {
 	t.Helper()
 	built := &stage{now: time.Date(2026, 10, 11, 20, 0, 0, 0, time.UTC), logs: &testutil.Log{}}
-	built.discovery = New(Parts{
+	held, err := New(Parts{
 		Logger: slog.New(slog.NewTextHandler(built.logs, nil)),
 		Zone:   testZone, Store: FileStore{Path: filepath.Join(t.TempDir(), "discovery.json")},
 		Now: built.clock, Random: rand.Reader,
 		ICEServers: []discoveryproto.ICEServer{{URLs: []string{"stun:" + testZone + ":3478"}}},
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	built.discovery = held
 	built.server = httptest.NewServer(built.discovery.Handler())
 	t.Cleanup(built.server.Close)
 	return built
@@ -195,6 +199,36 @@ func TestSession_ANonceWorksOnceAndOnlyForItsPurpose(t *testing.T) {
 	built.advance(nonceLasts)
 	if status := opening(discoveryproto.PurposeSession); status != http.StatusForbidden {
 		t.Errorf("an expired nonce answered %d; want %d", status, http.StatusForbidden)
+	}
+}
+
+// A stranger asking for challenges again and again keeps nothing on the discovery, and the core still
+// opens its session; a nonce the discovery did not make, or one altered, is refused (the security
+// audit's S13, 2026-10-13: a cap of 256 outstanding nonces let a stranger refuse the core's sessions).
+func TestSession_NoCountOfStrangersChallengesKeepsTheCoreFromItsSession(t *testing.T) {
+	t.Parallel()
+	built := newStage(t)
+	signer := newKey(t)
+	_, enrolled := built.enrol(t, signer)
+	stranger := newKey(t)
+	for range 1000 {
+		built.nonce(t, stranger)
+	}
+	opening := func(nonce string) int {
+		return built.call(t, http.MethodPost, discoveryproto.PathSession, "", discoveryproto.SessionRequest{
+			CoreID: enrolled.CoreID, Nonce: nonce,
+			Signature: ed25519.Sign(signer.private, proof.Message(discoveryproto.PurposeSession, nonce)),
+		}, nil)
+	}
+	if status := opening(built.nonce(t, signer)); status != http.StatusOK {
+		t.Errorf("the core's session after a stranger's thousand challenges answered %d", status)
+	}
+	issued := []byte(built.nonce(t, signer))
+	issued[len(issued)/2] ^= 1
+	for _, made := range []string{string(issued), "bm90LWEtbm9uY2UtaXQtbWFkZQ"} {
+		if status := opening(made); status != http.StatusForbidden {
+			t.Errorf("a nonce the discovery did not make, %q, answered %d", made, status)
+		}
 	}
 }
 

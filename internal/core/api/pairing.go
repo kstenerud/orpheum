@@ -20,6 +20,7 @@ type PairingRequestInput struct {
 		Platform         string `json:"platform" maxLength:"40" minLength:"1"`
 		PreviousDeviceID int64  `doc:"The device this client was signed in as before (D221)" json:"previousDeviceId,omitempty" required:"false"` //nolint:lll // one struct tag
 	}
+	ClientFacts
 }
 
 // PairingOutput is a device's code, the secret by which it alone asks how its pairing stands, and
@@ -109,7 +110,7 @@ func (server *Server) requestPairing(ctx context.Context, input *PairingRequestI
 		return nil, err
 	}
 	asked, err := dependencies.Auth.RequestPairing(
-		ctx, input.Body.Secret, input.Body.Platform, input.Body.PreviousDeviceID)
+		ctx, input.Body.Secret, input.Body.Platform, input.Body.PreviousDeviceID, input.clientAddress)
 	if err != nil {
 		return nil, server.authError(ctx, "make a pairing", err)
 	}
@@ -180,6 +181,8 @@ func pairingRefusal(err error) *Error {
 	switch {
 	case errors.Is(err, auth.ErrNoPairing):
 		return newError(http.StatusNotFound, CodeNotFound, auth.ErrNoPairing.Error())
+	case errors.Is(err, auth.ErrTooManyPairings):
+		return newError(http.StatusTooManyRequests, CodeRateLimited, auth.ErrTooManyPairings.Error())
 	case errors.Is(err, auth.ErrNoDeviceName):
 		return invalidRequestAt(http.StatusUnprocessableEntity, "body.deviceName", auth.ErrNoDeviceName.Error())
 	}

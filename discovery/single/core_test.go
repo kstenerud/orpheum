@@ -69,11 +69,14 @@ func TestCore_ACoreEnrolsIsClaimedAndSendsItsAddresses(t *testing.T) {
 	// The discovery keeps a clock of its own, which stands still: the core's sleeps move the core's
 	// fake clock on by hours, which would expire every nonce the discovery issued meanwhile.
 	discoveryNow := coreClock.Now()
-	held := single.New(single.Parts{
+	held, err := single.New(single.Parts{
 		Zone: "home.example", Store: single.FileStore{Path: filepath.Join(t.TempDir(), "discovery.json")},
 		Now: func() time.Time { return discoveryNow }, Random: rand.Reader,
 		Logger: slog.New(slog.NewTextHandler(logs, nil)),
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	server := httptest.NewServer(held.Handler())
 	t.Cleanup(server.Close)
 	key, err := identity.GenerateKey(rand.Reader)

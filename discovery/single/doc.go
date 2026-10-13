@@ -10,8 +10,10 @@
 //
 //   - It holds at most one core: a key other than its core's is refused enrolling while that core
 //     is claimed. Enforced by TestEnrol_HoldsOneCoreAndRefusesAnotherWhileItIsClaimed.
-//   - A signature counts only over a nonce it issued, once, for the purpose it was made for.
-//     Enforced by TestSession_ANonceWorksOnceAndOnlyForItsPurpose.
+//   - A signature counts only over a nonce it issued, once, for the purpose it was made for; issuing
+//     one keeps nothing, so no count of strangers' challenges keeps the core from its session.
+//     Enforced by TestSession_ANonceWorksOnceAndOnlyForItsPurpose and
+//     TestSession_NoCountOfStrangersChallengesKeepsTheCoreFromItsSession.
 //   - A pending core is claimed only by its own code, typed before the code expires; a status asked
 //     for after the code expired gives a new one. Enforced by
 //     TestClaim_TakesOnlyThePendingCoresOwnCodeInItsTime.

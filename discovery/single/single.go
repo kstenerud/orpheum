@@ -5,6 +5,8 @@ package single
 import (
 	"context"
 	"crypto/ed25519"
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
@@ -13,6 +15,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -29,9 +32,15 @@ const (
 	claimLasts   = 30 * time.Minute
 )
 
-// noncesMost is the most nonces outstanding at once: past it, a challenge is refused until some
-// expire, so a stranger cannot grow its memory without end.
-const noncesMost = 256
+// A nonce carries its own expiry and a MAC under a key only this discovery holds, so issuing one
+// keeps nothing: a stranger asking for challenges again and again fills no table. A cap of 256
+// outstanding nonces let one refuse the core's own sessions (the security audit's S13, 2026-10-13).
+// What is kept is the nonces a signature has spent, until they expire, so each works once.
+const (
+	nonceRandomBytes = 16
+	nonceMACBytes    = 16
+	nonceKeyBytes    = 32
+)
 
 // secretBytes is the random bytes behind a nonce, a session's token and a core's id.
 const secretBytes = 24
@@ -79,23 +88,29 @@ type Parts struct {
 // sessions and its core's signalling connection, which a restart forgets (the core opens a new
 // session on its next call's refusal).
 type Discovery struct {
-	parts  Parts
-	mutex  sync.Mutex
-	nonces map[string]time.Time
+	parts Parts
+	mutex sync.Mutex
+	// nonceKey signs the nonces it issues; spent is each nonce a signature has used, until it expires.
+	nonceKey []byte
+	spent    map[string]time.Time
 	// tokens are the sessions' tokens, each until it expires.
 	tokens map[string]time.Time
 	signal *signalling
 }
 
-// New returns a discovery over parts.
-func New(parts Parts) *Discovery {
+// New returns a discovery over parts, with a key for its nonces from parts.Random.
+func New(parts Parts) (*Discovery, error) {
 	if parts.Logger == nil {
 		parts.Logger = slog.New(slog.DiscardHandler)
 	}
-	return &Discovery{
-		parts: parts, nonces: map[string]time.Time{}, tokens: map[string]time.Time{},
-		signal: newSignalling(parts.Logger),
+	nonceKey := make([]byte, nonceKeyBytes)
+	if _, err := io.ReadFull(parts.Random, nonceKey); err != nil {
+		return nil, fmt.Errorf("make the nonces' key: %w", err)
 	}
+	return &Discovery{
+		parts: parts, nonceKey: nonceKey, spent: map[string]time.Time{}, tokens: map[string]time.Time{},
+		signal: newSignalling(parts.Logger),
+	}, nil
 }
 
 // Handler answers the core's calls, at paths relative to the discovery's base URL.
@@ -151,40 +166,60 @@ func (discovery *Discovery) serveSignedIn(writer http.ResponseWriter, request *h
 	}
 }
 
-// challenge issues a nonce to sign, for enrolling or a session.
+// challenge issues a nonce to sign, for enrolling or a session: its expiry, random bytes and their
+// MAC, keeping nothing.
 func (discovery *Discovery) challenge(writer http.ResponseWriter, request *http.Request) {
-	nonce, err := discovery.secret()
-	if err != nil {
-		discovery.fail(writer, request, err)
+	expires := uint64(discovery.parts.Now().Add(nonceLasts).UnixMilli())
+	body := binary.BigEndian.AppendUint64(make([]byte, 0, 8+nonceRandomBytes+nonceMACBytes), expires)
+	body = body[:8+nonceRandomBytes]
+	if _, err := io.ReadFull(discovery.parts.Random, body[8:]); err != nil {
+		discovery.fail(writer, request, fmt.Errorf("make a nonce: %w", err))
 		return
 	}
-	discovery.mutex.Lock()
-	now := discovery.parts.Now()
-	for issued, expires := range discovery.nonces {
-		if !now.Before(expires) {
-			delete(discovery.nonces, issued)
-		}
-	}
-	isFull := len(discovery.nonces) >= noncesMost
-	if !isFull {
-		discovery.nonces[nonce] = now.Add(nonceLasts)
-	}
-	discovery.mutex.Unlock()
-	if isFull {
-		http.Error(writer, "too many challenges outstanding: try again in a few minutes", http.StatusTooManyRequests)
-		return
-	}
-	answer(writer, discoveryproto.ChallengeResponse{Nonce: nonce})
+	nonce := slices.Concat(body, discovery.nonceMAC(body))
+	answer(writer, discoveryproto.ChallengeResponse{Nonce: base64.RawURLEncoding.EncodeToString(nonce)})
 }
 
-// isSigned is whether signature is publicKey's over a nonce it issued and no call has used, for
-// purpose; the nonce is spent either way.
+// nonceMAC is the MAC of a nonce's expiry and random bytes under the discovery's key.
+func (discovery *Discovery) nonceMAC(body []byte) []byte {
+	mac := hmac.New(sha256.New, discovery.nonceKey)
+	mac.Write(body)
+	return mac.Sum(nil)[:nonceMACBytes]
+}
+
+// nonceExpiry is when a nonce this discovery issued expires, and whether it is one.
+func (discovery *Discovery) nonceExpiry(nonce string) (time.Time, bool) {
+	raw, err := base64.RawURLEncoding.DecodeString(nonce)
+	if err != nil || len(raw) != 8+nonceRandomBytes+nonceMACBytes {
+		return time.Time{}, false
+	}
+	body := raw[:8+nonceRandomBytes]
+	if !hmac.Equal(raw[8+nonceRandomBytes:], discovery.nonceMAC(body)) {
+		return time.Time{}, false
+	}
+	return time.UnixMilli(int64(binary.BigEndian.Uint64(body))), true //nolint:gosec // written from a time above
+}
+
+// isSigned is whether signature is publicKey's over a nonce this discovery issued, not expired and
+// not yet spent, for purpose; one a valid signature used is spent, and kept until it expires.
 func (discovery *Discovery) isSigned(publicKey ed25519.PublicKey, purpose, nonce string, signature []byte) bool {
+	expires, isIssued := discovery.nonceExpiry(nonce)
+	now := discovery.parts.Now()
+	if !isIssued || !now.Before(expires) || !proof.Verify(publicKey, purpose, nonce, signature) {
+		return false
+	}
 	discovery.mutex.Lock()
-	expires, isIssued := discovery.nonces[nonce]
-	delete(discovery.nonces, nonce)
-	discovery.mutex.Unlock()
-	return isIssued && discovery.parts.Now().Before(expires) && proof.Verify(publicKey, purpose, nonce, signature)
+	defer discovery.mutex.Unlock()
+	for each, until := range discovery.spent {
+		if !now.Before(until) {
+			delete(discovery.spent, each)
+		}
+	}
+	if _, isSpent := discovery.spent[nonce]; isSpent {
+		return false
+	}
+	discovery.spent[nonce] = expires
+	return true
 }
 
 // enrol takes the core whose key signed: a new one, the same one again, or a pending one replaced.
