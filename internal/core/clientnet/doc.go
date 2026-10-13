@@ -13,6 +13,8 @@
 //     TestArch_CoreNeverExecs.
 //   - An IPv6 address is its /64, an IPv4 address (mapped into IPv6 or not) itself, and an address
 //     it cannot read "". Enforced by TestOf_IsAnIPv6AddressesSlash64OrAnIPv4AddressWhole.
+//   - An address's site is an IPv6 address's /48 and an IPv4 address itself. Enforced by
+//     TestSiteOf_IsAnIPv6AddressesSlash48OrAnIPv4AddressWhole.
 //
 // # Read before changing
 //
@@ -20,5 +22,5 @@
 //
 // # Where to change
 //
-//   - clientnet.go: Of.
+//   - clientnet.go: Of, and SiteOf.
 package clientnet

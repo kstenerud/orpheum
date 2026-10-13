@@ -13,6 +13,11 @@
 //   - Imports nothing from internal/node, never os/exec, and no image or media parser. Enforced by
 //     the depguard rule core-boundary, and transitively by TestArch_CoreNeverImportsNode and
 //     TestArch_CoreNeverExecs.
+//   - A POST carrying an Idempotency-Key is done once and its answer kept for repeats, at most
+//     idempotentAnswersAtMost answers, idempotentAnswersSignedOutAtMost of them for requests no one
+//     signed in made; past a bound it is done without keeping its answer (D244 §4). Enforced by
+//     TestIdempotentAnswers_AreBounded and
+//     TestIdempotentAnswers_PastTheirTimeAreSweptOut.
 //   - Opens no file and walks no directory; files are internal/core/instancedir's. Enforced by the
 //     forbidigo rule tagged [core-fs].
 //   - Imports no database/sql or SQLite driver; it calls internal/store. Enforced by the depguard

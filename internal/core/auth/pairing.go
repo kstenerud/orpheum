@@ -26,8 +26,11 @@ const (
 	// IPv6 /64 or an IPv4 address). Past either a new one is refused, never an older one dropped: the
 	// oldest giving way let a stranger push out a television's code before it was typed (the security
 	// audit's S13, 2026-10-13; D288 §6). A bound on memory and on one network, not on who asks.
-	pairingsAtMost           = 100
+	pairingsAtMost           = 1000
 	pairingsPerNetworkAtMost = 5
+	// A site (clientnet.SiteOf: an IPv6 /48) holds many networks: twenty networks' five codes each
+	// filled a hundred, and no television could get a code (the second audit's K5, 2026-10-13).
+	pairingsPerSiteAtMost = 20
 )
 
 // The states of a pairing, as the device asking sees them (D288).
@@ -87,9 +90,9 @@ type pairing struct {
 	platform     string
 	// previous is the device the asking client says it was, and its proof (NewDevice).
 	previous PreviousDevice
-	// network is where the device asked from (clientnet), by which its codes are counted.
-	network string
-	madeAt  time.Time
+	// network and site are where the device asked from (clientnet), by which its codes are counted.
+	network, site string
+	madeAt        time.Time
 	// The person's entering of its code, once entered: by whom, as whom, under what name, and the
 	// check code.
 	isClaimed             bool
@@ -132,16 +135,24 @@ func (kept *pairings) byCodeLocked(code string) (*pairing, bool) {
 	return nil, false
 }
 
-// hasRoomLocked is whether another pairing may wait, asked for from network: fewer than
-// pairingsAtMost wait, and fewer than pairingsPerNetworkAtMost of network's not yet entered.
-func (kept *pairings) hasRoomLocked(network string) bool {
-	waiting := 0
+// hasRoomLocked is whether another pairing may wait, asked for from network in site: fewer than
+// pairingsAtMost wait, and fewer than pairingsPerNetworkAtMost of network's and
+// pairingsPerSiteAtMost of site's not yet entered.
+func (kept *pairings) hasRoomLocked(network, site string) bool {
+	fromNetwork, fromSite := 0, 0
 	for _, known := range kept.bySecret {
-		if !known.isClaimed && known.network == network {
-			waiting++
+		if known.isClaimed {
+			continue
+		}
+		if known.network == network {
+			fromNetwork++
+		}
+		if known.site == site {
+			fromSite++
 		}
 	}
-	return len(kept.bySecret) < pairingsAtMost && waiting < pairingsPerNetworkAtMost
+	return len(kept.bySecret) < pairingsAtMost && fromNetwork < pairingsPerNetworkAtMost &&
+		fromSite < pairingsPerSiteAtMost
 }
 
 // RequestPairing gives a device not signed in a code to show (D288 §1): the one it already has while
@@ -157,8 +168,8 @@ func (service *Service) RequestPairing(
 	if known, found := service.pairings.liveLocked(secret, now); found && !known.isClaimed {
 		return Pairing{Secret: known.secret, Code: known.code, ExpiresAt: known.madeAt.Add(pairingLife)}, nil
 	}
-	network := clientnet.Of(address)
-	if !service.pairings.hasRoomLocked(network) {
+	network, site := clientnet.Of(address), clientnet.SiteOf(address)
+	if !service.pairings.hasRoomLocked(network, site) {
 		return Pairing{}, ErrTooManyPairings
 	}
 	newSecret, err := randomSecret(service.random)
@@ -171,7 +182,7 @@ func (service *Service) RequestPairing(
 	}
 	service.pairings.bySecret[newSecret] = &pairing{
 		secret: newSecret, code: code, platform: textindex.Line(platform), previous: previous,
-		network: network, madeAt: now,
+		network: network, site: site, madeAt: now,
 	}
 	return Pairing{Secret: newSecret, Code: code, ExpiresAt: now.Add(pairingLife)}, nil
 }

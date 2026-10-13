@@ -238,9 +238,10 @@ func TestPairing_ADeviceSignedInBeforeResumesItselfAndANewOneNeedsAName(t *testi
 }
 
 // Past five codes not yet entered from one network (an IPv4 address, or an IPv6 /64 however many
-// addresses it uses), or a hundred in all, a new code is refused, and no code already waiting is
-// dropped for it: the oldest giving way let a stranger push out a television's code before it was
-// typed (the security audit's S13, 2026-10-13; D288 §6).
+// addresses it uses), twenty from one site (an IPv6 /48), or a thousand in all, a new code is refused,
+// and no code already waiting is dropped for it: the oldest giving way let a stranger push out a
+// television's code before it was typed (the security audit's S13), and twenty networks filled a cap
+// of a hundred (the second audit's K5, 2026-10-13; D288 §6).
 func TestPairing_ANewCodeIsRefusedPastTheCapsAndNoWaitingOneIsPushedOut(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
@@ -259,14 +260,28 @@ func TestPairing_ANewCodeIsRefusedPastTheCapsAndNoWaitingOneIsPushedOut(t *testi
 		ErrTooManyPairings) {
 		t.Errorf("a sixth code from the same /64: %v, want ErrTooManyPairings", err)
 	}
+	for index := range pairingsPerSiteAtMost {
+		_, err = fixture.service.RequestPairing(ctx, "", "web", PreviousDevice{},
+			fmt.Sprintf("2001:db8:9:%x::1", index+1))
+		if err != nil {
+			t.Fatalf("code %d from as many networks of one /48: %v", index+1, err)
+		}
+	}
+	if _, err = fixture.service.RequestPairing(ctx, "", "web", PreviousDevice{}, "2001:db8:9:ffff::1"); !errors.Is(err,
+		ErrTooManyPairings) {
+		t.Errorf("a code from one more network of that /48: %v, want ErrTooManyPairings", err)
+	}
+	waiting := 1 + pairingsPerNetworkAtMost + pairingsPerSiteAtMost
 	for index := 0; ; index++ {
-		_, err = fixture.service.RequestPairing(ctx, "", "web", PreviousDevice{}, fmt.Sprintf("203.0.113.%d", index))
+		_, err = fixture.service.RequestPairing(ctx, "", "web", PreviousDevice{},
+			fmt.Sprintf("10.%d.%d.1", index/256, index%256))
 		if err != nil {
 			break
 		}
+		waiting++
 	}
-	if !errors.Is(err, ErrTooManyPairings) {
-		t.Errorf("past a hundred in all: %v, want ErrTooManyPairings", err)
+	if !errors.Is(err, ErrTooManyPairings) || waiting != pairingsAtMost {
+		t.Errorf("past %d waiting in all (%d): %v, want ErrTooManyPairings", pairingsAtMost, waiting, err)
 	}
 	if state := fixture.service.PairingStateOf(ctx, television.Secret); state.State != PairingWaiting {
 		t.Errorf("the television's code, waiting first: %+v, want it still waiting", state)
