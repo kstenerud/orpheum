@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Command orpheum is the Orpheum media server: one binary whose subcommand chooses the role
-// (core, node) or the operation (migrate, backup, restore, doctor, setup-code, openapi, version,
-// and dev in dev builds). The core and each node are services of their own, `orpheum core` and
+// (core, node) or the operation (migrate, backup, restore, doctor, setup-code, reset-admin, openapi,
+// version, and dev in dev builds). The core and each node are services of their own, `orpheum core` and
 // `orpheum node`, which the runtime starts and restarts (D233 §2, D235 §4); the core starts no node.
 //
 // This is the composition root. It is the only package that reads argv, the environment or the
@@ -62,6 +62,8 @@
 //     kind, each with a starting value or none (D200, D201). configfill.go: running a missing key
 //     on its starting value (D202). serve.go: orpheum core, which seeds the settings at start.
 //     operations.go: default-config, migrate, backup, restore, setup-code and openapi.
+//     reset_admin.go: reset-admin, the operator's way back in (D294), terminal_linux.go its
+//     password read without echo.
 //     doctor.go: doctor, the one list of what to fix. dev_seed.go: orpheum dev seed, in dev
 //     builds only.
 //   - metadata.go: the background jobs and loops the core starts. artwork.go: the artwork service

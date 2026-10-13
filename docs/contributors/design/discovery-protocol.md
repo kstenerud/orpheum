@@ -934,20 +934,18 @@ app.
   the browser's `Origin` on a direct HTTPS sign-in, and every sign-in or pairing that arrives over
   `rtcapi`, whose request heads are untrusted (§2.5). Such a session's scope is narrower than the
   role, as a code-activated device's is (§3.1).
-- **In the beta, admin comes only from the core's own origin on its own network**: the TCP source
-  address within the prefixes of the core's own interfaces, never a bare "private address" (the
-  VPS tunnel's `10.77.0.1` is private, a container bridge's gateway is private, and the VPS can
-  inject any source, A5), and never an address delivered through the VPS tunnel. Where the core
-  cannot see real source addresses (a container proxy rewriting them) it offers no shortcut and says
-  so. **Later, a passkey** whose relying party is the core's own domain, which a page at `app.`
-  cannot exercise (D292 §4; A1).
+- **Admin works from anywhere** (D294, withdrawing D292 §4's "only from the core's own network",
+  which a core in a container could not judge: it sees no LAN prefix of its own). The operator's
+  way back in is `orpheum reset-admin` on the server's machine (D294 §2). **Later, a passkey**
+  whose relying party is the core's own domain, which a page at `app.` cannot exercise, as an
+  option the owner turns on, never required (D294 §3; A1).
 - Admin pages on `app.` say "manage this server from home, at <its home address>" (§3.1).
   Destructive admin actions ask for the password again on the admin origin (A1 item 3) [I].
 
 Built (2026-10-13): a sign-in, registration or code activation through a discovery's client, and
 every code activation, gets the `device` scope (`internal/core/auth`); the web client hides what such
 a session cannot do. **The code must change:** admin from the core's own network alone (the second
-point) is not built, so a session from the core's own origin carries admin wherever it is.
+point) was withdrawn by D294.
 
 ## 4. The API
 

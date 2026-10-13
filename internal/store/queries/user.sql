@@ -81,3 +81,11 @@ UPDATE "grant" SET revoked_at = sqlc.arg(revoked_at) WHERE user_id = sqlc.arg(us
 -- name: RemoveDevicesOfRemovedUser :exec
 UPDATE device SET removed_at = sqlc.arg(removed_at) WHERE user_id = sqlc.arg(user_id) AND removed_at IS NULL;
 
+
+-- name: DemoteAdministrators :many
+-- Everyone whose role administers, given the built-in user role: the first step of the operator's
+-- reset of who administers (orpheum reset-admin). Returns who was demoted.
+UPDATE user SET role_id = (SELECT id FROM role WHERE name = 'user' AND is_builtin = 1)
+WHERE removed_at IS NULL
+  AND role_id IN (SELECT id FROM role WHERE ',' || capabilities || ',' LIKE '%,administer,%')
+RETURNING name;

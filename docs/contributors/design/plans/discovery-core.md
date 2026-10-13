@@ -470,9 +470,9 @@ In the closed beta (D293 §2, revising D292 §3's deferral), after the thin path
 
 ### K17 — Session scopes: no admin through a discovery, one `device` scope
 
-**Built 2026-10-13 (Phase 1's A1), but for admin from the core's own network alone**, which waits
-on the owner (it would end admin through `media.` on nas.example, whose core sees no LAN address from
-inside its container): the `device` scope for sign-ins and registrations through a discovery's
+**Built 2026-10-13 (Phase 1's A1).** Admin from the core's own network alone was withdrawn by
+D294 (admin from anywhere; `orpheum reset-admin` the operator's way back in; passkeys an option
+later). Built: the `device` scope for sign-ins and registrations through a discovery's
 client (another `Origin`, or over WebRTC, whose head `rtcapi` no longer believes) and for every
 code activation; `requireAccountManager` on the password, device removal, signing out elsewhere
 and entering codes; `canManageAccount` in `/me`, by which the account page hides them. Not yet: the
@@ -482,10 +482,8 @@ actions, and the `TestArch_` claim (the owner's gate).
 - **Changes.** `internal/core/auth`, `internal/core/api`: **a session minted through a discovery's
   client never carries admin** (§3.7; D292 §4; A1): the core decides by the browser's `Origin` on a
   direct HTTPS sign-in and treats every sign-in or pairing over `rtcapi` as through a discovery
-  (K3a strips the head). **In the beta an admin session comes only from the core's own origin on
-  its own network**, judged by the TCP source address against the prefixes of the core's own
-  interfaces, never a bare private address and never an address delivered through the VPS tunnel
-  (A1, A5); where the core cannot see real sources it offers no shortcut and says so. **One
+  (K3a strips the head). Admin otherwise works from anywhere (D294, withdrawing the core's own
+  network as admin's only place), with `orpheum reset-admin` the operator's way back in. **One
   `device` scope for every code-activated device** (§3.1; D292 §4; A11): the role minus
   administering and minus account security; an admin entering a code for another admin confirms it,
   and the core logs who did it for whom (code K10). The web client reads the session's rights, not
@@ -585,8 +583,8 @@ In the public code, before any core holds a signalling connection to any discove
 2. **A2, A10** — offers checked and bounded (K3a); no certificate for a handshake that names no
    served name (K9's SNI part). **Built 2026-10-13**, but for the parts K3a's status leaves to the
    steps below.
-3. **A1** — no admin through a discovery's client; admin only from the core's own origin on its own
-   network (K17, with the `device` scope).
+3. **A1** — no admin through a discovery's client (K17, with the `device` scope); admin from
+   anywhere else, and `orpheum reset-admin` (D294). **Built 2026-10-13.**
 4. **A7, A9** — the identity key's fingerprint in every link and QR (K7's link form, K8a's
    fingerprint); answers signed over the exact SDP, holding exactly one sha-256 fingerprint (K3a,
    K8b; webrtc-transport.md W2f).

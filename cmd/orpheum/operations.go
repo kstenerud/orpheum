@@ -28,6 +28,7 @@ import (
 type invocation struct {
 	arguments []string
 	lookupEnv func(string) (string, bool)
+	stdin     io.Reader
 	stdout    io.Writer
 	stderr    io.Writer
 }
