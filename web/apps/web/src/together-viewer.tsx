@@ -28,18 +28,13 @@ import { useTranslation } from "react-i18next";
 import { secretFromHash, type AudioOutput } from "./accounts.ts";
 import logo from "./assets/orpheum-logo.svg";
 import { browserStorage } from "./browser-storage.ts";
-import {
-  CredentialsField,
-  CredentialsForm,
-  CredentialsNotice,
-  CredentialsProblem,
-} from "./credentials-form.tsx";
 import { idempotent } from "./idempotent.ts";
+import { JoinForm, NoLink } from "./together-join.tsx";
 import { EmptyStage, FilmPlayer, type FilmParts, type MovedDown } from "./film-player.tsx";
 import type { PlaybackDecision } from "./watching.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { useStallReports } from "./play-state.ts";
-import { dataOrThrow, fieldProblemText, problemText, throwIfRefused } from "./problem.ts";
+import { problemText, throwIfRefused } from "./problem.ts";
 import { productName } from "./product-name.ts";
 import { useDiagnosisNotes } from "./together-diagnosis.ts";
 import { useShowsAFilm } from "./film-showing.ts";
@@ -164,94 +159,6 @@ function usePastedLinks(setSecret: (secret: string) => void, again: () => void):
       }),
     [navigation, setSecret, again],
   );
-}
-
-/** An address with no link in it, and no session this tab is in: only what to do instead. */
-function NoLink(): JSX.Element {
-  const { t } = useTranslation();
-  return (
-    <CredentialsNotice heading={t("together.joinHeading")}>
-      <p>{t("together.noLink")}</p>
-    </CredentialsNotice>
-  );
-}
-
-/**
- * Joining by a link: the name the others will see, and Join (watch-together.md: one Join). Someone
- * signed in here finds their own name already filled in, theirs to change (the owner, 2026-10-06).
- */
-function JoinForm(props: {
-  readonly secret: string;
-  /** Called at once from the submitting, within the tap that did it. */
-  readonly onSubmitted: () => void;
-  readonly onJoined: (membership: Membership) => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const { api, canFollowAGroup } = useServices();
-  const [name, setTypedName] = useJoinName();
-  const { isBusy, problem, runRequest } = useRequest((cause) =>
-    fieldProblemText(t, cause, {
-      fields: { "body.name": t("together.name") },
-      overrides: { notFound: t("together.badLink") },
-    }),
-  );
-  const { secret } = props;
-  if (!canFollowAGroup()) {
-    // Told before joining, so no one waits for a device that could never keep up (D250 §7).
-    return (
-      <CredentialsNotice heading={t("together.joinHeading")}>
-        <p role="alert">{t("together.cannotFollow")}</p>
-      </CredentialsNotice>
-    );
-  }
-  return (
-    <CredentialsForm
-      heading={t("together.joinHeading")}
-      onSubmit={() => {
-        props.onSubmitted();
-        runRequest(async (idempotencyKey) => {
-          const joined = dataOrThrow(
-            await api.POST("/together/join", {
-              body: { secret, name },
-              ...idempotent(idempotencyKey),
-            }),
-          );
-          props.onJoined({ sessionId: joined.sessionId, credential: joined.membershipCredential });
-        });
-      }}
-    >
-      <p>{t("together.joinExplain")}</p>
-      <CredentialsField label={t("together.name")}>
-        <input
-          required
-          maxLength={100}
-          autoComplete="nickname"
-          value={name}
-          onChange={(event) => {
-            setTypedName(event.target.value);
-          }}
-        />
-      </CredentialsField>
-      {problem === undefined ? null : <CredentialsProblem isAlert>{problem}</CredentialsProblem>}
-      <button type="submit" disabled={isBusy}>
-        {t("together.join")}
-      </button>
-    </CredentialsForm>
-  );
-}
-
-/**
- * The name to join by: what was typed, once anything was, else the signed-in person's own; a late
- * answer about who is signed in never replaces what was typed.
- */
-function useJoinName(): [string, (typed: string) => void] {
-  const { api } = useServices();
-  const token = useToken();
-  const [typedName, setTypedName] = useState<string | undefined>(undefined);
-  const [me] = useResource(`join-name:${token ?? ""}`, async () =>
-    token === undefined ? undefined : dataOrThrow(await api.GET("/me")),
-  );
-  return [typedName ?? (me.state === "loaded" ? me.value?.name : undefined) ?? "", setTypedName];
 }
 
 /**
