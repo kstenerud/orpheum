@@ -354,6 +354,38 @@ func TestWant_AStoresInitStartsAndCutsNothingWhileARunOfItIsOnItsWay(t *testing.
 	}
 }
 
+// A picture's init asked for after a jump says nothing of where the player is, and moves no sound: it
+// stands where the playback last reported, the film's start for a player that jumped before its
+// report, and started the sound from there, cutting the run the jump needed, every two seconds, while
+// the player stepped down to a quality not made yet (the owner's test, 2026-10-14).
+func TestWantAlongside_APicturesInitMovesNoSound(t *testing.T) {
+	t.Parallel()
+	queue := newFakeQueue()
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	sound := Stream{Kind: nodeproto.StreamSound}
+	if err := service.ensure(t.Context(), ensuring{
+		fileID: 1, kind: OnKeyframes, stream: sound, wanted: 20, isSought: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	before := queue.runs(t, service)
+	picture := Stream{Kind: nodeproto.StreamPicture}
+	pictureInit := StoreFile{
+		fileID: 1, kind: OnKeyframes, stream: picture, storeDir: StoreDir(1, picture, mustGrid(t, service).ID()),
+		isInit: true, runFrom: 0, isSought: true,
+	}
+	soundFile := StoreFile{fileID: 1, kind: OnKeyframes, stream: sound}
+	for range 2 {
+		if err := service.WantAlongside(t.Context(), pictureInit, soundFile); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(queue.cancelledFirsts) != 0 || !slices.Equal(queue.runs(t, service), before) {
+		t.Errorf("a picture's init asked for: sound runs %v, cancelled %v; want the run from 20 alone",
+			queue.runs(t, service), queue.cancelledFirsts)
+	}
+}
+
 // D247 §10: a run made faster than it is played is made long before the player reaches its end; a
 // chunk the node serves from it looks a minute ahead, so the next run is on its way before the
 // player asks for its first chunk. After a restart nothing past a served chunk is known, and no run
