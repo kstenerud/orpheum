@@ -442,8 +442,9 @@ WebRTC counts as the core's own origin (§3.7). Built (`rtcapi.IsOverWebRTC`).
   failed connection starts a new race (coherence §3.2). Not built: every offer makes a new
   connection.
 - The core pings its signalling connection every 25–30 s and treats two missed pongs as dead, and
-  reopens it at once on the backoff of §2, starting near 1 s (C11, D292 §9). **The code must
-  change:** no ping; a flat 30 s.
+  reopens it at once on the backoff of §2, starting near 1 s (C11, D292 §9). Built (2026-10-14):
+  `internal/core/discovery`'s `keepAlive`, every 27.5 s ±9%; staging's connection, idle, had been
+  closed by Cloudflare every two minutes.
 
 **Leaving, re-keying, revocation and disabling close the connection** and invalidate the core's
 tokens at once (C4). **The code must change:** after `DELETE /core` the socket and tokens stay live.

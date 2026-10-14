@@ -97,9 +97,12 @@ type fakeDiscovery struct {
 	signals chan discoveryproto.SignalMessage
 	replies chan discoveryproto.SignalMessage
 	// failing are the routes ("GET /status") it answers with a 500; dropsSignalling closes each
-	// signalling connection as soon as it opens; onSignal is told of each dial of it.
+	// signalling connection as soon as it opens; onSignal is told of each dial of it. Unless
+	// answersPings, a signalling connection reads nothing while no offer is passed on, so a ping on
+	// it goes unanswered, as on a connection a proxy dropped.
 	failing         map[string]bool
 	dropsSignalling bool
+	answersPings    bool
 	onSignal        func()
 	// locateHashes and locators are each set of links and locators the core sent, in turn.
 	locateHashes []discoveryproto.LocateHashesRequest
@@ -458,7 +461,7 @@ func TestCheckBaseURL_RefusesAnythingButHTTPSOrThisMachine(t *testing.T) {
 func (fake *fakeDiscovery) serveSignal(writer http.ResponseWriter, request *http.Request) {
 	fake.mutex.Lock()
 	isSignedIn := fake.tokens[strings.TrimPrefix(request.Header.Get("Authorization"), "Bearer ")]
-	drops, onSignal := fake.dropsSignalling, fake.onSignal
+	drops, onSignal, answersPings := fake.dropsSignalling, fake.onSignal, fake.answersPings
 	fake.mutex.Unlock()
 	if onSignal != nil {
 		onSignal()
@@ -476,6 +479,15 @@ func (fake *fakeDiscovery) serveSignal(writer http.ResponseWriter, request *http
 		return
 	}
 	ctx := request.Context()
+	if answersPings {
+		// Reads only control frames, answering each ping, until the connection or the request ends.
+		reading := connection.CloseRead(ctx)
+		select {
+		case <-reading.Done():
+		case <-ctx.Done():
+		}
+		return
+	}
 	for {
 		select {
 		case <-ctx.Done():

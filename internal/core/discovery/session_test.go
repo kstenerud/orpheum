@@ -112,6 +112,79 @@ func TestSignal_ADroppedConnectionIsDialledAgainWithinAboutASecond(t *testing.T)
 	}
 }
 
+// signalOverTime runs the signalling loop of a claimed core while its clock moves a second every few
+// milliseconds of real time, and is each dial's time on that clock, until stop.
+func signalOverTime(t *testing.T, built *world, answersPings bool) (dials <-chan time.Time, stop func()) {
+	t.Helper()
+	built.service.parts.Answerer = &answering{}
+	if _, err := built.service.Connect(t.Context(), built.baseURL); err != nil {
+		t.Fatal(err)
+	}
+	built.fake.claim()
+	built.service.step(t.Context())
+	dialled := make(chan time.Time, 8)
+	built.fake.mutex.Lock()
+	built.fake.answersPings = answersPings
+	built.fake.onSignal = func() { dialled <- built.clock.Now() }
+	built.fake.mutex.Unlock()
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		built.service.signal(ctx)
+	}()
+	go func() {
+		tick := time.NewTicker(5 * time.Millisecond)
+		defer tick.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-tick.C:
+				built.clock.Advance(time.Second)
+			}
+		}
+	}()
+	return dialled, func() {
+		cancel()
+		testutil.Receive(t, done, "the signalling loop to end")
+	}
+}
+
+// A signalling connection that answers no ping is closed after two missed, a ping's interval apart,
+// and dialled again: a proxy that dropped it, or a discovery gone, is found within a minute or so
+// (the protocol's §2.5; C11).
+func TestSignal_AConnectionThatAnswersNoPingIsDialledAgain(t *testing.T) {
+	t.Parallel()
+	built := newWorld(t)
+	dials, stop := signalOverTime(t, built, false)
+	defer stop()
+	first := testutil.Receive(t, dials, "the first dial")
+	second := testutil.Receive(t, dials, "the dial after two pings went unanswered")
+	if gap := second.Sub(first); gap < 2*pingEvery*91/100 || gap > 4*pingEvery {
+		t.Errorf("the connection was dialled again %s after it opened; want after two missed pings", gap)
+	}
+}
+
+// A connection that answers its pings is kept: the pings keep it from looking idle to a proxy, which
+// on staging closed it every two minutes (2026-10-14).
+func TestSignal_AConnectionThatAnswersItsPingsIsKept(t *testing.T) {
+	t.Parallel()
+	built := newWorld(t)
+	dials, stop := signalOverTime(t, built, true)
+	first := testutil.Receive(t, dials, "the first dial")
+	for built.clock.Now().Sub(first) < 5*time.Minute {
+		select {
+		case again := <-dials:
+			stop()
+			t.Fatalf("the connection was dialled again %s after it opened, though it answered its pings",
+				again.Sub(first))
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+	stop()
+}
+
 func TestConnect_TwoAtOnceEnrolOnce(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)

@@ -11,6 +11,9 @@
 //   - A pending core asks whether it is claimed; a claimed one sends its addresses when they change
 //     and every five minutes otherwise, each time with a new nonce for the outside probe.
 //     TestStep_WaitsToBeClaimedThenSendsItsAddressesWhenTheyChangeOrEveryFiveMinutes.
+//   - The signalling connection is pinged every 25-30 s, and closed and dialled again once two pings
+//     in a row go unanswered; one that answers is kept (the protocol's §2.5).
+//     TestSignal_AConnectionThatAnswersNoPingIsDialledAgain, TestSignal_AConnectionThatAnswersItsPingsIsKept.
 //   - A session the discovery refuses is replaced at once by a new one, signed afresh, and the
 //     call made again with it (C11). TestStep_OpensANewSessionWhenTheDiscoveryRefusesTheOld.
 //   - One session is opened at a time, however many callers ask at once (C11).

@@ -16,11 +16,22 @@ import (
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/discovery/proof"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
+	"github.com/kstenerud/orpheum/internal/platform/backoff"
 )
 
 // signalCheckEvery is how often the signalling loop looks whether the core is claimed and so should
 // hold the connection, when it holds none.
 const signalCheckEvery = 10 * time.Second
+
+// pingEvery is how often the core pings its signalling connection, jittered by pingJitter either
+// way, so a proxy on the way never finds it idle (Cloudflare closes a WebSocket idle for 100 s) and a
+// dead connection is found: a ping not answered by the next one's time is missed, and two missed in
+// a row end the connection, which is dialled again (the protocol's §2.5; C11, D292 §9).
+const (
+	pingEvery     = 27500 * time.Millisecond
+	pingJitter    = 0.09
+	pingsMissedAt = 2
+)
 
 // maxSignalBytes bounds one signalling message: an SDP with its candidates is a few kilobytes.
 const maxSignalBytes = 64 << 10
@@ -75,6 +86,9 @@ func (service *Service) holdSignalling(ctx context.Context, baseURL string) (boo
 	defer func() { _ = connection.CloseNow() }() //nolint:errcheck // closing what may be closed
 	connection.SetReadLimit(maxSignalBytes)
 	service.parts.Logger.InfoContext(ctx, "discovery: the signalling connection is open")
+	pinging, stopPinging := context.WithCancel(ctx)
+	defer stopPinging()
+	go service.keepAlive(pinging, connection)
 	for {
 		var offer discoveryproto.SignalMessage
 		if err := wsjson.Read(ctx, connection, &offer); err != nil {
@@ -86,6 +100,47 @@ func (service *Service) holdSignalling(ctx context.Context, baseURL string) (boo
 		reply := service.answerOffer(ctx, offer)
 		if err := wsjson.Write(ctx, connection, reply); err != nil {
 			return true, fmt.Errorf("send an answer: %w", err)
+		}
+	}
+}
+
+// keepAlive pings connection every pingEvery, jittered, until ctx ends, and closes it once
+// pingsMissedAt pings in a row went unanswered by the next one's time.
+func (service *Service) keepAlive(ctx context.Context, connection *websocket.Conn) {
+	answered := make(chan error, 1)
+	isWaiting, missed := false, 0
+	for {
+		every, err := backoff.Jittered(service.parts.Random, pingEvery, pingEvery*2, pingJitter)
+		if err != nil {
+			every = pingEvery
+		}
+		timer := service.parts.Clock.NewTimer(every)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C():
+		}
+		if isWaiting {
+			select {
+			case err := <-answered:
+				isWaiting, missed = false, 0
+				if err != nil {
+					missed = 1
+				}
+			default:
+				missed++
+			}
+		}
+		if missed >= pingsMissedAt {
+			service.parts.Logger.WarnContext(ctx, "discovery: the signalling connection answered no ping; closing it",
+				"missed", missed)
+			_ = connection.CloseNow() //nolint:errcheck // dead, and the reader ends with it
+			return
+		}
+		if !isWaiting {
+			isWaiting = true
+			go func() { answered <- connection.Ping(ctx) }()
 		}
 	}
 }
