@@ -65,5 +65,6 @@
 // # Where to change
 //
 //   - discovery.go: connecting, the loop, sessions and calls; renewal.go: one session renewal at a
-//     time; signal.go: the signalling connection.
+//     time; signal.go: the signalling connection; urls.go: which discovery addresses and client
+//     origins the core takes.
 package discovery

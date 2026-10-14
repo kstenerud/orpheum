@@ -771,11 +771,15 @@ func TestStep_KeepsTheClientOriginTheDiscoveryNamesWhenItIsAnHTTPSOrigin(t *test
 		"https://App.Orpheum-App.com": "https://app.orpheum-app.com",
 		"https://app.example:8443/":   "https://app.example:8443",
 		"http://app.example":          "",
-		"https://app.example/path":    "",
-		"https://user@app.example":    "",
-		"https://app.example?x=1":     "",
-		"javascript:alert(1)":         "",
-		"":                            "",
+		// A discovery on this machine, as in the browser tier: plain HTTP crosses no network.
+		"http://127.0.0.1:8080":    "http://127.0.0.1:8080",
+		"http://localhost:8080":    "http://localhost:8080",
+		"http://10.0.0.1:8080":     "",
+		"https://app.example/path": "",
+		"https://user@app.example": "",
+		"https://app.example?x=1":  "",
+		"javascript:alert(1)":      "",
+		"":                         "",
 	} {
 		built := newWorld(t)
 		built.fake.clientOrigin = named

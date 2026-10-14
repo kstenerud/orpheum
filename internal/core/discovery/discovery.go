@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"net"
 	"net/http"
 	"net/url"
 	"slices"
@@ -761,39 +760,4 @@ func failure(response *http.Response, answer []byte) error {
 		return &refusal{code: named.Code, message: named.Message}
 	}
 	return fmt.Errorf("the discovery answered %s: %s", response.Status, bytes.TrimSpace(answer))
-}
-
-// originOf is a client origin a discovery names, as the core takes it: an https origin with no path,
-// query or credentials, written scheme://host[:port]; anything else is none. The discovery already
-// serves its client's code, so its word gives it nothing more, and this keeps the core's links from
-// leading anywhere but a web origin (D293 §4).
-func originOf(named string) string {
-	parsed, err := url.Parse(named)
-	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil ||
-		(parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return ""
-	}
-	return "https://" + strings.ToLower(parsed.Host)
-}
-
-// ErrNotADiscoveryURL is a base URL a core will not enrol with.
-var ErrNotADiscoveryURL = errors.New("a discovery's address is https://, or http:// only on this machine")
-
-// checkBaseURL refuses a base URL that is not HTTPS, but for one on this machine's loopback, so a
-// claim code and a session never cross a network in the clear.
-func checkBaseURL(baseURL string) error {
-	parsed, err := url.Parse(baseURL)
-	if err != nil || parsed.Host == "" {
-		return ErrNotADiscoveryURL
-	}
-	switch parsed.Scheme {
-	case "https":
-		return nil
-	case "http":
-		if address := net.ParseIP(parsed.Hostname()); address != nil && address.IsLoopback() ||
-			parsed.Hostname() == "localhost" {
-			return nil
-		}
-	}
-	return ErrNotADiscoveryURL
 }
