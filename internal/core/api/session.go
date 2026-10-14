@@ -11,6 +11,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 )
 
 // SetupInput creates the first admin with the code from the log.
@@ -74,6 +75,9 @@ type ClientFacts struct {
 	// host is the name the client reached the server by, for the log: at a discovery's names, which
 	// one won a device's race says which path reached the server (discovery-protocol.md §3.3).
 	host string
+	// over is how the request came, for the log: "webrtc" over a data channel, whose head names no
+	// host or browser, else "http".
+	over string
 }
 
 // NewDeviceBody is how a client names itself: the device becomes one of the person's, listed
@@ -101,7 +105,10 @@ func (facts *ClientFacts) Resolve(ctx huma.Context) []error {
 		host = ctx.RemoteAddr()
 	}
 	facts.clientAddress, facts.isOverTLS = host, ctx.TLS() != nil
-	facts.userAgent, facts.host = ctx.Header("User-Agent"), ctx.Host()
+	facts.userAgent, facts.host, facts.over = ctx.Header("User-Agent"), ctx.Host(), "http"
+	if rtcapi.IsOverWebRTC(ctx.Context()) {
+		facts.over = "webrtc"
+	}
 	return nil
 }
 
