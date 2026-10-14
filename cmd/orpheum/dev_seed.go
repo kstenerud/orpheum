@@ -72,10 +72,15 @@ func devSecrets() []struct {
 	}
 }
 
-// commandDev runs `orpheum dev seed --instance <dir> --seed <file>`.
+// commandDev runs `orpheum dev seed --instance <dir> --seed <file>`, or `orpheum dev discovery`.
 func commandDev(ctx context.Context, call invocation) int {
+	if len(call.arguments) > 0 && call.arguments[0] == "discovery" {
+		call.arguments = call.arguments[1:]
+		return commandDevDiscovery(ctx, call)
+	}
 	if len(call.arguments) == 0 || call.arguments[0] != "seed" {
-		return write(call.stderr, "Usage: orpheum dev seed --instance <dir> --seed <file>\n", exitUsageError)
+		return write(call.stderr, "Usage: orpheum dev seed --instance <dir> --seed <file>\n"+
+			"       orpheum dev discovery --listen <host:port> --state <dir>\n", exitUsageError)
 	}
 	call.arguments = call.arguments[1:]
 	var seedPath string
