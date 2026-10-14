@@ -23,15 +23,12 @@ copy, and checked to work there. A test holds each pair together:
 
 | Twin | Copy | Held by |
 | --- | --- | --- |
+| `internal/platform/atomics/atomics.go` | `discovery/internal/atomics/atomics.go`, byte for byte | `TestAtomics_IsInternalPlatformAtomicsByteForByte` |
 | `internal/core/secrets/value.go` | `orpheum-connect`'s, same path | `orpheum-connect`'s twins test, in its `internal/twins` |
 | `internal/store/open.go` (the opening; `ours.go` is each project's own) | `orpheum-connect`'s, same path | the same |
 | `deploy/staging/tunnel.sh` | `orpheum-connect`'s, same path | the same |
 
 Still copies, not yet twins, each waiting on the owner:
-
-- `internal/platform/atomics`' `WriteFile` and `discovery/single`'s `writeWhole`: the copy moves to
-  `discovery/internal/atomics/atomics.go`, byte for byte, once the lint exemption for its renames
-  names that file instead of `discovery/single/record.go`.
 - `internal/platform/clock` and `clocktest`, and `orpheum-connect`'s smaller `internal/clock`: the
   move to the same path needs `orpheum-connect`'s lint exemption for the clock moved with it.
 - `internal/core/providers/cloudflare` and `orpheum-connect`'s `internal/zone` client: two jobs now
