@@ -49,6 +49,19 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A33 — Read a player's automatic restart as the person restarting it (2026-10-14)
+
+- **What happened:** reading staging's log of a relayed playback that stalled, the agent told the
+  owner "you restarted it at about 12 s", and was about to put the stalls down to the phone's weak
+  LTE alone. The log said `kind=abandoned` then a new `a playback started` 30 ms later: no person
+  restarts a film in 30 ms. The player did it by itself, which is a behaviour to explain, not the
+  owner's doing. The false belief came from the log's verbs: "abandoned" and "started" read as a
+  person's acts, and the agent did not check the gap between them.
+- **Caught by:** the owner: *"I didn't restart playback. Everything happened automatically after I
+  pressed play."*
+- **Gate:** none yet. The log does not say who ended a playback; the fix for the restart adds
+  that, so the next reading cannot mistake it (the agent's own rule: digging means missing logs).
+
 ### A32 — Named the sandbox's VM after a retired machine (2026-10-14)
 
 - **What happened:** explaining what a core in a container can see, the agent called
