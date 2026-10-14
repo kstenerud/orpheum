@@ -99,6 +99,11 @@ type DiscoveryConfig struct {
 	// "address:port": the admin's port-forward, or their own VPS through its tunnel, sent to the
 	// discovery as configured candidates (the protocol's §2.4; discovery-core.md K5; N11).
 	ConfiguredAddresses []string `toml:"configured_addresses"`
+	// SendInterfaceAddresses is whether the core sends the addresses of the interfaces it sees: true
+	// for a core run on its machine, false in a container, whose interfaces are its own network's and
+	// its tunnel's, which nothing at home reaches; there the deployment names its addresses (the owner,
+	// 2026-10-14).
+	SendInterfaceAddresses bool `toml:"send_interface_addresses"`
 }
 
 // configuredCandidates are the configured addresses as the discovery is sent them.
@@ -308,6 +313,11 @@ func coreConfigKeys() []configKey {
 			tableDiscovery, "configured_addresses", "[]",
 			"public addresses that reach the core which the machine does not hold, \"address:port\": a " +
 				"port-forward, or the VPS's addresses through its tunnel; the discovery publishes them",
+		},
+		{
+			tableDiscovery, "send_interface_addresses", "true",
+			"whether the core sends its discovery the addresses of the interfaces it sees; false in a " +
+				"container, whose interfaces nothing at home reaches",
 		},
 		{
 			tableDatabase, "read_connections_minimum", "4",

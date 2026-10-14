@@ -539,10 +539,14 @@ func TestWrite_TheCoreSendsItsDiscoveryTheVPSsAddresses(t *testing.T) {
 	if err := Write(dir, values, runtime); err != nil {
 		t.Fatal(err)
 	}
-	got := decodeTOML(t, filepath.Join(dir, coreConfig))["discovery"]["configured_addresses"]
+	discovery := decodeTOML(t, filepath.Join(dir, coreConfig))["discovery"]
 	want := []any{values.VPS.PublicIPv4 + ":443", "[2a0f:4000:1c16:2684::3]:443"}
-	if fmt.Sprint(got) != fmt.Sprint(want) {
+	if got := discovery["configured_addresses"]; fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Errorf("the core's discovery.configured_addresses are %v; want %v", got, want)
+	}
+	// In its container the core's own interfaces reach nothing at home: it sends none of them.
+	if sends, isBool := discovery["send_interface_addresses"].(bool); !isBool || sends {
+		t.Errorf("the core's discovery.send_interface_addresses is %v; want false in a container", sends)
 	}
 	values.VPS.PublicIPv6 = "10.0.0.1"
 	if problems := values.Problems(); !strings.Contains(strings.Join(problems, "\n"), "vps.public_ipv6") {

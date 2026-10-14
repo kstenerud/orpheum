@@ -58,8 +58,11 @@ func newDiscovery(
 // addresses, the router's mappings, and the addresses the config names (the protocol's §2.4).
 func heartbeatCandidates(config Config, mapped func() []discoveryproto.Candidate) func() []discoveryproto.Candidate {
 	return func() []discoveryproto.Candidate {
-		return append(append(interfaceCandidates(httpsPort(config)), mapped()...),
-			config.Discovery.configuredCandidates()...)
+		var candidates []discoveryproto.Candidate
+		if config.Discovery.SendInterfaceAddresses {
+			candidates = interfaceCandidates(httpsPort(config))
+		}
+		return append(append(candidates, mapped()...), config.Discovery.configuredCandidates()...)
 	}
 }
 
