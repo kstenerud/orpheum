@@ -20,12 +20,10 @@ func (shelf *Shelf) Shelve(manifest nodeproto.RenditionManifest) error {
 	if err != nil {
 		return fmt.Errorf("encode %s's manifest: %w", manifest.Prepare.RenditionDir, err)
 	}
+	// Not durably: a manifest a crash lost, or left unreadable, is a making that never finished,
+	// which the inventory passes over and the next prepare makes again.
 	runPath := filepath.Join(shelf.directory, filepath.FromSlash(manifest.Prepare.RenditionDir))
-	partPath := filepath.Join(runPath, nodeproto.ManifestName+".part")
-	if err := os.WriteFile(partPath, encoded, 0o600); err != nil {
-		return fmt.Errorf("write %s's manifest: %w", manifest.Prepare.RenditionDir, err)
-	}
-	if err := os.Rename(partPath, filepath.Join(runPath, nodeproto.ManifestName)); err != nil {
+	if err := replaceIn(runPath, nodeproto.ManifestName, encoded); err != nil {
 		return fmt.Errorf("write %s's manifest: %w", manifest.Prepare.RenditionDir, err)
 	}
 	return nil

@@ -5,7 +5,6 @@ package instancedir
 import (
 	"archive/tar"
 	"compress/gzip"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
@@ -15,6 +14,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/kstenerud/orpheum/internal/platform/atomics"
 	"github.com/kstenerud/orpheum/internal/platform/errs"
 )
 
@@ -67,7 +67,7 @@ func (directories *Directories) WriteBackupArchive(name, snapshotName string, le
 	if err != nil {
 		return err
 	}
-	return writeStreamAtomically(backupsRoot, name, func(output io.Writer) error {
+	err = atomics.WriteStream(backupsRoot, name, fileMode, func(output io.Writer) error {
 		return writeArchive(output, func(add func(archived string, source *os.Root, sourceName string) error) error {
 			if addErr := add(persistentDatabaseName, backupsRoot, snapshotName); addErr != nil {
 				return addErr
@@ -80,6 +80,10 @@ func (directories *Directories) WriteBackupArchive(name, snapshotName string, le
 			return nil
 		})
 	})
+	if err != nil {
+		return fmt.Errorf("write the backup %s: %w", name, err)
+	}
+	return nil
 }
 
 // persistentFileNames are the persistent directory's own regular files a backup keeps: all but the
@@ -141,34 +145,6 @@ func writeArchive(
 		return fmt.Errorf("finish the archive: %w", err)
 	}
 	return nil
-}
-
-// writeStreamAtomically writes name under root as write produces it, through a temporary file,
-// synced, then renamed, mode 0600, so a crash leaves no half-written file under the name.
-func writeStreamAtomically(root *os.Root, name string, write func(io.Writer) error) (err error) {
-	temporary := "." + name + "." + rand.Text()
-	handle, err := root.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_EXCL, fileMode)
-	if err != nil {
-		return fmt.Errorf("create a temporary file for %s: %w", name, err)
-	}
-	defer func() {
-		if err != nil {
-			err = errors.Join(err, ignoreMissing(root.Remove(temporary)))
-		}
-	}()
-	if err = write(handle); err != nil {
-		return errors.Join(err, handle.Close())
-	}
-	if err = handle.Sync(); err != nil {
-		return errors.Join(fmt.Errorf("sync %s: %w", temporary, err), handle.Close())
-	}
-	if err = handle.Close(); err != nil {
-		return fmt.Errorf("close %s: %w", temporary, err)
-	}
-	if err = root.Rename(temporary, name); err != nil {
-		return fmt.Errorf("move %s into place: %w", name, err)
-	}
-	return syncRoot(root)
 }
 
 // ListBackupArchive lists the files a backup archive holds, by their names in the persistent
@@ -244,7 +220,7 @@ func (directories *Directories) extractInto(
 		if !isKept {
 			return nil
 		}
-		return writeStreamAtomically(root, target, func(output io.Writer) error {
+		return atomics.WriteStream(root, target, fileMode, func(output io.Writer) error {
 			if _, copyErr := io.Copy(output, contents); copyErr != nil {
 				return fmt.Errorf("extract %s: %w", name, copyErr)
 			}

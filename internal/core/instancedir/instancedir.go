@@ -5,13 +5,13 @@ package instancedir
 import (
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/platform/atomics"
 	"github.com/kstenerud/orpheum/internal/platform/errs"
 )
 
@@ -192,7 +192,10 @@ func writeFileIn(directory, name string, contents []byte) (err error) {
 		return err
 	}
 	defer func() { err = errors.Join(err, errs.WrapIf("close "+directory, root.Close())) }()
-	return writeAtomically(root, name, contents)
+	if err := atomics.WriteFile(root, name, contents, fileMode); err != nil {
+		return fmt.Errorf("write %s: %w", filepath.Join(directory, name), err)
+	}
+	return nil
 }
 
 // removeFileIn removes the plain name in directory; a file already gone is not an error.
@@ -261,7 +264,10 @@ func (directories *Directories) ReplacePersistentDatabase(restoredName string) (
 	if err = root.Rename(restoredName, persistentDatabaseName); err != nil {
 		return fmt.Errorf("move %s into place: %w", restoredName, err)
 	}
-	return syncRoot(root)
+	if err := atomics.SyncDirectory(root); err != nil {
+		return fmt.Errorf("make the restored database's move durable: %w", err)
+	}
+	return nil
 }
 
 // SetPersistentDatabaseAside moves persistent.db into the backups directory under the plain name
@@ -314,27 +320,6 @@ func openRoot(directory string) (*os.Root, error) {
 		return nil, fmt.Errorf("open %s: %w", directory, err)
 	}
 	return root, nil
-}
-
-// writeAtomically writes name under root through a temporary file, synced, then renamed.
-func writeAtomically(root *os.Root, name string, contents []byte) error {
-	return writeStreamAtomically(root, name, func(output io.Writer) error {
-		if _, err := output.Write(contents); err != nil {
-			return fmt.Errorf("write %s: %w", name, err)
-		}
-		return nil
-	})
-}
-
-// syncRoot makes a rename in root's directory durable.
-func syncRoot(root *os.Root) error {
-	handle, err := root.Open(".")
-	if err != nil {
-		return fmt.Errorf("open %s to sync it: %w", root.Name(), err)
-	}
-	return errors.Join(
-		errs.WrapIf("sync "+root.Name(), handle.Sync()), errs.WrapIf("close "+root.Name(), handle.Close()),
-	)
 }
 
 func ignoreMissing(err error) error {
