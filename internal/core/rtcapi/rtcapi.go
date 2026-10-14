@@ -37,6 +37,12 @@ const cwndStepBytes = 64 << 10
 // gatherTimeout bounds how long an answer waits for the core's candidates.
 const gatherTimeout = 5 * time.Second
 
+// stunGatherTimeout bounds how long a STUN server is given to answer while the core gathers, well
+// within gatherTimeout: a network with no way out by one family, as a container with an IPv6 route
+// and no IPv6 beyond its host, never answers, and pion's own 5 s wait took the whole answer's time
+// (staging, 2026-10-14).
+const stunGatherTimeout = 2 * time.Second
+
 // The bounds on each connection (the protocol's §2.5; the security audit's A2, code K16):
 //   - connectWithin: an answered offer whose ICE has not connected by then is closed, so no one holds
 //     the core's slots with offers that never connect;
@@ -148,6 +154,7 @@ func settings() webrtc.SettingEngine {
 	engine.SetSCTPCwndCAStep(cwndStepBytes)
 	engine.SetSCTPMaxReceiveBufferSize(sctpReceiveBytes)
 	engine.SetSCTPMaxMessageSize(MaxMessageBytes)
+	engine.SetSTUNGatherTimeout(stunGatherTimeout)
 	return engine
 }
 

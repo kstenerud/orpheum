@@ -94,6 +94,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Voice arrived about 1.1 s late under the emulated congested link, about 0.9 s of it in NetEQ. | [No browser API caps the jitter buffer: `jitterBufferTarget` is a floor, not a ceiling](#no-browser-api-caps-the-jitter-buffer-jitterbuffertarget-is-a-floor-not-a-ceiling) |
 | `networkPriority` (DSCP) exists in Chrome and Safari but not Firefox, and `setParameters` may refuse it | [`networkPriority` (DSCP) exists in Chrome and Safari but not Firefox, and `setParameters` may refuse it](#networkpriority-dscp-exists-in-chrome-and-safari-but-not-firefox-and-setparameters-may-refuse-it) |
 | Two pages in the test container cannot call each other. | [mDNS-obfuscated host candidates cannot be resolved inside a container](#mdns-obfuscated-host-candidates-cannot-be-resolved-inside-a-container) |
+| Every offer refused: "gather the core's candidates: context deadline exceeded". | [pion waits 5 s for each STUN server while gathering, and a family with no way out never answers](#pion-waits-5-s-for-each-stun-server-while-gathering-and-a-family-with-no-way-out-never-answers) |
 | X265 makes every keyframe after the first a CRA (open GOP) | [x265 makes every keyframe after the first a CRA (open GOP)](#x265-makes-every-keyframe-after-the-first-a-cra-open-gop) |
 | The `segment` muxer misses a keyframe a hair before the cut time (10.009999 against 10.010) | [The `segment` muxer misses a keyframe a hair before the cut time (10.009999 against 10.010)](#the-segment-muxer-misses-a-keyframe-a-hair-before-the-cut-time-10009999-against-10010) |
 | A copied picture's chunks each held the chunk before, retimed: the film jumped back, and chunks overlapped. | [An input seek at a keyframe of a Matroska film lands on the keyframe before it](#an-input-seek-at-a-keyframe-of-a-matroska-film-lands-on-the-keyframe-before-it) |
@@ -1112,6 +1113,18 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   candidate for the other and only peer-reflexive learning (which needs one side's address) or STUN/TURN
   candidates remain. No browser bug tracks it: it is the design working as specified (searched Bugzilla and
   GitHub, 2026-10-08).
+
+### pion waits 5 s for each STUN server while gathering, and a family with no way out never answers
+
+- **Symptom:** on staging every offer through the discovery was refused with "gather the core's
+  candidates: context deadline exceeded", and a phone with no direct path could not reach the core.
+- **What we do:** `rtcapi` sets pion's STUN gather timeout to 2 s (`stunGatherTimeout`), well within
+  the 5 s an answer waits for its candidates. `TestUseICEServers_AStunServerThatNeverAnswersDoesNotSinkTheAnswer`.
+- **Evidence:** staging, 2026-10-14. pion/ice v4.4.7 `agent_config.go`: `defaultSTUNGatherTimeout = 5 *
+  time.Second`; gathering completes only once every server-reflexive attempt has answered or timed
+  out. The core's container had an IPv6 default route to Docker's bridge and no IPv6 beyond its
+  host, so the IPv6 binding to the STUN server never came back, and gathering took the answer's
+  whole 5 s. pion's `SettingEngine.SetSTUNGatherTimeout` is the knob.
 
 ---
 

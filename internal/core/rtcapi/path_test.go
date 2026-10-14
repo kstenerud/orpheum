@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pion/stun/v3"
 	"github.com/pion/webrtc/v4"
@@ -85,6 +86,33 @@ func TestUseICEServers_TheAnswerCarriesThePublicAddressSTUNFound(t *testing.T) {
 	if !strings.Contains(answered, want) {
 		t.Errorf("the answer's candidates are\n%s\nwant one %q", candidateLines(answered), want)
 	}
+}
+
+// silentSTUN is a STUN server that never answers, as one is by a family the core's network cannot
+// send out by; it returns the server's URL.
+func silentSTUN(t *testing.T) string {
+	t.Helper()
+	connection, err := (&net.ListenConfig{}).ListenPacket(t.Context(), "udp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = connection.Close() }) //nolint:errcheck // the test is over
+	return "stun:" + connection.LocalAddr().String()
+}
+
+// A STUN server that never answers costs the core's answer a short wait, not its whole time: the
+// answer still comes well within its bound, with the candidates the core has (staging, 2026-10-14).
+func TestUseICEServers_AStunServerThatNeverAnswersDoesNotSinkTheAnswer(t *testing.T) {
+	t.Parallel()
+	server := newServer(t)
+	stunURL := silentSTUN(t)
+	server.UseICEServers(func() []webrtc.ICEServer { return []webrtc.ICEServer{{URLs: []string{stunURL}}} })
+	rtcapitest.Connect(t, func(ctx context.Context, offer rtcapi.Description) (rtcapi.Description, error) {
+		// Shorter than the 5 s pion waits by default, longer than the core's own wait.
+		ctx, cancel := context.WithTimeout(ctx, 4*time.Second)
+		defer cancel()
+		return server.Answer(ctx, offer)
+	})
 }
 
 // candidateLines are an SDP's candidate lines.
