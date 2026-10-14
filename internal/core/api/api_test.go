@@ -496,6 +496,21 @@ func TestSetup_TheCodeCreatesTheFirstAdminAndThenSetupIsClosed(t *testing.T) {
 		map[string]string{"setupCode": code, "name": "intruder", "password": "x"}), http.StatusConflict, CodeConflict)
 }
 
+// Before anyone signs in, a page asks whether the server needs its first admin, so it opens on
+// setting it up (agent-failures A31).
+func TestSetup_SaysWhetherTheFirstAdminIsStillNeeded(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	if needed := harness.do(t, http.MethodGet, "/setup", "", nil); needed.status != http.StatusOK ||
+		!strings.Contains(needed.body, `"isRequired":true`) {
+		t.Errorf("GET /setup before any admin = %d %s; want it required", needed.status, needed.body)
+	}
+	harness.createAdminAndSignIn(t)
+	if done := harness.do(t, http.MethodGet, "/setup", "", nil); !strings.Contains(done.body, `"isRequired":false`) {
+		t.Errorf("GET /setup once the admin exists = %d %s; want it not required", done.status, done.body)
+	}
+}
+
 func TestSession_TheTokenWorksInTheHeaderOnlyUntilSignOut(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)

@@ -1302,7 +1302,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Whether the server still needs its first admin, so the sign-in page opens on setting it up */
+        get: operations["getSetup"];
         put?: never;
         /** Create the first admin with the one-time setup code from the log */
         post: operations["setup"];
@@ -3217,6 +3218,10 @@ export interface components {
             password: string;
             /** @description The one-time code the server logged at start */
             setupCode: string;
+        };
+        SetupOutputBody: {
+            /** @description No one can sign in until the first admin is made with the setup code */
+            isRequired: boolean;
         };
         SignedOutDetailBody: {
             /** @enum {string} */
@@ -6681,6 +6686,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SettingsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetupOutputBody"];
                 };
             };
             /** @description Error */

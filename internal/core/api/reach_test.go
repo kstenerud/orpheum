@@ -188,7 +188,7 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// A WebRTC connection, which grants nothing: each request over it checks its own reach (D273 §8).
 		"postRTCOffer",
 		// Signing in and setting up, before there is a caller.
-		"getHealth", "setup", "signIn", "signOut", "register", "getLinkKind",
+		"getHealth", "setup", "getSetup", "signIn", "signOut", "register", "getLinkKind",
 		"requestPairing", "getPairingState", "takePairedSession",
 		// A Watch Together session's own management: a link is the grant (D117, D246 §3), and the host
 		// puts on only what they reach (D122, TestHub_TheHostChangesWhatPlaysOnlyToAFilmTheyMayPlay).

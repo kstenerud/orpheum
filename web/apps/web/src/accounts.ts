@@ -156,6 +156,11 @@ export async function signInThisDevice(
   session.signIn(token, { deviceId: user.device?.id, deviceSecret, locator });
 }
 
+/** Whether the server still needs its first admin, asked before anyone signs in. */
+export async function isSetupRequired(api: Api): Promise<boolean> {
+  return dataOrThrow(await api.GET("/setup")).isRequired;
+}
+
 /**
  * Makes a server's first admin with the one-time setup code it printed (cut-a §5.2's POST /setup),
  * under the click's key, which the server keeps apart from the same key's sign-in by the path.

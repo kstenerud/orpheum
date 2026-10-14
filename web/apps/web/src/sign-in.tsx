@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 
 import { ApiProblem } from "@orpheum/sdk";
 
-import { signInThisDevice } from "./accounts.ts";
+import { isSetupRequired, signInThisDevice } from "./accounts.ts";
 import { CodeSignIn } from "./code-sign-in.tsx";
 import {
   CredentialsField,
@@ -17,6 +17,7 @@ import { fieldProblemText, signedOutText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { SetUp } from "./set-up.tsx";
 import { useRequest } from "./use-request.ts";
+import { useResource } from "./use-resource.ts";
 
 /** Why the last session ended, when the server ended it; nothing otherwise. */
 export function SessionEndedNotice(props: {
@@ -90,8 +91,20 @@ async function needsSetUp(signingIn: Promise<void>): Promise<boolean> {
   }
 }
 
-/** Signs in: the form, sent to the server, and the session kept on success. */
+/**
+ * Signs in, or sets up a server no one can sign in to yet: the server is asked first, so a new one
+ * opens on setting up rather than on a sign-in that cannot work (A31).
+ */
 export function SignIn(): JSX.Element {
+  const { api } = useServices();
+  const [setup] = useResource("setup", () => isSetupRequired(api));
+  const isRequired = setup.state === "loaded" && setup.value;
+  // Keyed by the answer, so a server that turns out to need setting up opens on it.
+  return <SignInScreen key={String(isRequired)} showsSetUpFirst={isRequired} />;
+}
+
+/** The sign-in form, sent to the server, and the session kept on success; or setting up, or a code. */
+function SignInScreen(props: { readonly showsSetUpFirst: boolean }): JSX.Element {
   const { t } = useTranslation();
   const { api, session } = useServices();
   const [name, setName] = useState("");
@@ -112,7 +125,7 @@ export function SignIn(): JSX.Element {
   );
   const [isUsingCode, setIsUsingCode] = useState(false);
   // A server no one can sign in to yet is set up here, rather than by a request typed by hand (A31).
-  const [isSettingUp, setIsSettingUp] = useState(false);
+  const [isSettingUp, setIsSettingUp] = useState(props.showsSetUpFirst);
   if (isUsingCode || isSettingUp) {
     const back = (): void => {
       setIsUsingCode(false);
