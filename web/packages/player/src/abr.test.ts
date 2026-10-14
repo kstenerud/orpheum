@@ -99,6 +99,10 @@ function choosingFrom(startAtBps: number): {
     {
       estimateBps: () => link.estimateBps,
       giveUp: (chunk) => givenUp.push(chunk),
+      // As hls.js's estimator takes a sample: here it becomes the estimate outright.
+      measureGivenUp: (durationMs, bytes) => {
+        link.estimateBps = (bytes * 8 * 1000) / durationMs;
+      },
       loadAgain: () => loadsAgain.push(nowMs),
     },
   );
@@ -460,6 +464,24 @@ describe("a player in a Watch Together group keeping the film's own picture (D28
     link.estimateBps = 4_000_000;
     load(choosing, 3, { bytes: 2_000_000, loadMs: 4000 });
     expect(choosing.nextLevel()).toBeLessThan(3); // a link too slow for it steps down
+  });
+  it("steps down from it once a chunk of it is given up, though no chunk measured the slower link", () => {
+    const { choosing, link, givenUp } = withOwnPicture();
+    link.estimateBps = 8_800_000;
+    load(choosing, 3, { bytes: 4_400_000, loadMs: 4000 });
+    isInAGroup = true;
+    expect(choosing.nextLevel()).toBe(3);
+    // The link slows: the picture's next chunk crawls, and is given up before it ever loads, so
+    // nothing loaded measures the link. Kept on the old measure, the group's choice took the picture
+    // again, which was given up again, every few seconds (the owner's group test, 2026-10-14).
+    const crawling = chunkAt(3);
+    choosing.loading(crawling);
+    crawling.stats.loaded = 750_000; // 1 Mb/s over six seconds
+    crawling.stats.loading = { start: 0, first: 50, end: 0 };
+    nowMs += 6000;
+    vi.advanceTimersByTime(lookAtChunkEveryMs);
+    expect(givenUp).toEqual([crawling]);
+    expect(choosing.nextLevel()).toBeLessThan(3);
   });
 });
 
