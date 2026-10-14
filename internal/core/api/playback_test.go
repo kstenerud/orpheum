@@ -257,10 +257,13 @@ func TestPlayback_LogsEachStartAndRefusalButNeverTheToken(t *testing.T) {
 	asked["cause"], asked["pageStarts"] = "subtitleFetched", 3
 	decided := harness.play(t, user, asked)
 	harness.logs.AwaitLine(t, `"msg":"a playback started"`, `"fileId":2`, `"delivery":"hls"`,
-		`"cause":"subtitleFetched"`, `"pageStarts":3`, // what made the page ask, and how many it asked for
 		`"profile":"remux"`, `"notDirectReasons":["container","audio_codec"]`,
-		`"userAgent":"Go-http-client/1.1"`,                  // which browser, as an iPhone's player differs
-		`"host":"127.0.0.1:`, `"clientAddress":"127.0.0.1"`, // which name and path reached the server
+		// what made the page ask, and how many it asked for
+		`"cause":"subtitleFetched"`, `"pageStarts":3`,
+		// which browser, as an iPhone's player differs
+		`"userAgent":"Go-http-client/1.1"`,
+		// which way, by which name and from where the request reached the server
+		`"over":"http"`, `"host":"127.0.0.1:`, `"clientAddress":"127.0.0.1"`,
 		`"notOnLadderBecause":"noGridYet"`) // why it plays as its decision says
 	token := decided.URL[strings.LastIndex(strings.TrimSuffix(decided.URL, "/master.m3u8"), "/")+1:]
 	if token == "" || strings.Contains(harness.logs.String(), token) {

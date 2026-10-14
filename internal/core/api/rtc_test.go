@@ -48,6 +48,20 @@ func TestRTCOffer_ASignedInClientReachesTheAPIOverDataChannels(t *testing.T) {
 	if signedIn.Head.Status != http.StatusOK || !strings.Contains(string(signedIn.Body), `"libraries"`) {
 		t.Errorf("GET /libraries over a channel = %d %s; want the libraries", signedIn.Head.Status, signedIn.Body)
 	}
+	// A playback asked for over the channel is logged as come over WebRTC, whose head names no host.
+	harness.shelveFilms(t)
+	asked, err := json.Marshal(chrome(2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	started := link.Do(rtcapi.RequestHead{
+		Method: http.MethodPost, Path: Prefix + "/playback",
+		Headers: http.Header{"Authorization": {"Bearer " + token}, "Content-Type": {"application/json"}},
+	}, asked)
+	if started.Head.Status != http.StatusOK {
+		t.Fatalf("POST /playback over a channel = %d %s", started.Head.Status, started.Body)
+	}
+	harness.logs.AwaitLine(t, `"msg":"a playback started"`, `"over":"webrtc"`)
 	anonymous := link.Do(rtcapi.RequestHead{Method: http.MethodGet, Path: Prefix + "/libraries"}, nil)
 	if anonymous.Head.Status != http.StatusUnauthorized {
 		t.Errorf("GET /libraries over a channel with no sign-in = %d; want 401: a connection grants nothing",
