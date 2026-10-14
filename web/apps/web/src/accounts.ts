@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
-import type { Api, components } from "@orpheum/sdk";
+import { readLinkFragment, type Api, type components } from "@orpheum/sdk";
 
 import { dataOrThrow, throwIfRefused } from "./problem.ts";
 import type { NewDevice } from "./device.ts";
@@ -30,6 +30,11 @@ export function registrationUrl(origin: string, secret: string): string {
 
 /** The secret a registration invitation's link carries after #, or undefined when there is none. */
 export function secretFromHash(hash: string): string | undefined {
+  // A link a discovery serves carries the core and its fingerprint around the secret (the protocol's §3.1).
+  const link = readLinkFragment(hash);
+  if (link !== undefined) {
+    return link.secret;
+  }
   const secret = hash.startsWith("#") ? hash.slice(1) : hash;
   return secret === "" ? undefined : secret;
 }

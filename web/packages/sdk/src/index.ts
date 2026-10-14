@@ -18,14 +18,24 @@ export { browserFetch, textWhenReady, whenReady } from "./ready.ts";
 export { connectRtc, RtcTransport, SwitchableFetch } from "./rtc-transport.ts";
 export {
   discoverySignaller,
+  locate,
   locateHash,
   locatorHash,
+  NotFound,
   offerKey,
+  pathsOf,
   protocolVersion,
   readLinkFragment,
+  reportDeadEnd,
   sessionOfferKey,
 } from "./discovery.ts";
-export type { DiscoverySignalling, Held, LinkFragment } from "./discovery.ts";
+export type {
+  DiscoveryClient,
+  DiscoverySignalling,
+  Held,
+  LinkFragment,
+  Located,
+} from "./discovery.ts";
 export { rtcTogetherSocket } from "./rtc-together.ts";
 export {
   answerLoad,

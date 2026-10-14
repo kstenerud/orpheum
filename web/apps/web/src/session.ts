@@ -36,10 +36,23 @@ export interface Session {
   readonly subscribe: (listener: () => void) => () => void;
 }
 
-const tokenStorageKey = "orpheum.session";
-const deviceIdStorageKey = "orpheum.deviceId";
-const deviceProofStorageKey = "orpheum.deviceProof";
-const locatorStorageKey = "orpheum.locator";
+/** The keys a session is kept under, after its prefix: "orpheum." on a core's own origin. */
+const tokenStorageKey = "session";
+const deviceIdStorageKey = "deviceId";
+const deviceProofStorageKey = "deviceProof";
+const locatorStorageKey = "locator";
+
+/** The prefix of a session's keys on a core's own origin, which holds that core's alone. */
+export const ownOriginPrefix = "orpheum.";
+
+/**
+ * The prefix of a session's keys on a discovery's origin, which holds a session for each core it
+ * reached: every credential kept under its core's id, never one for the origin (the protocol's §3.4;
+ * A8, W1).
+ */
+export function corePrefix(coreId: string): string {
+  return `orpheum.core.${coreId}.`;
+}
 
 /** What a sign-in keeps beside its token: the device, its secret and its locator. */
 export interface KeptWithSession {
@@ -48,9 +61,40 @@ export interface KeptWithSession {
   readonly locator?: string | undefined;
 }
 
-/** Creates a session over storage, which may throw on every call. */
-export function createSession(refusableStorage: StringStorage | undefined): Session {
-  const storage = storageThatNeverThrows(refusableStorage);
+/** Keeps value under key when one is given, and returns it; undefined when none is. */
+function keepIfGiven<T extends string | number>(
+  storage: StringStorage,
+  key: string,
+  value: T | undefined,
+): T | undefined {
+  if (value !== undefined) {
+    storage.setItem(key, String(value));
+  }
+  return value;
+}
+
+/** storage, every key under prefix. */
+function prefixed(storage: StringStorage, prefix: string): StringStorage {
+  return {
+    getItem: (key) => storage.getItem(prefix + key),
+    setItem: (key, value) => {
+      storage.setItem(prefix + key, value);
+    },
+    removeItem: (key) => {
+      storage.removeItem(prefix + key);
+    },
+  };
+}
+
+/**
+ * Creates a session over storage, which may throw on every call, its keys under prefix: one core's
+ * credentials, apart from any other's.
+ */
+export function createSession(
+  refusableStorage: StringStorage | undefined,
+  prefix: string = ownOriginPrefix,
+): Session {
+  const storage = prefixed(storageThatNeverThrows(refusableStorage), prefix);
   let token = storage.getItem(tokenStorageKey) ?? undefined;
   let endedReason: string | undefined;
   const keptDeviceId = Number(storage.getItem(deviceIdStorageKey) ?? "");
@@ -75,21 +119,11 @@ export function createSession(refusableStorage: StringStorage | undefined): Sess
   return {
     token: () => token,
     signIn: (next, kept = {}) => {
-      const { deviceId, deviceSecret, locator: nextLocator } = kept;
       endedReason = undefined;
-      if (deviceId !== undefined) {
-        storedDeviceId = deviceId;
-        storage.setItem(deviceIdStorageKey, String(deviceId));
-      }
-      if (deviceSecret !== undefined) {
-        deviceProof = deviceSecret;
-        storage.setItem(deviceProofStorageKey, deviceSecret);
-      }
+      storedDeviceId = keepIfGiven(storage, deviceIdStorageKey, kept.deviceId) ?? storedDeviceId;
+      deviceProof = keepIfGiven(storage, deviceProofStorageKey, kept.deviceSecret) ?? deviceProof;
       setToken(next);
-      if (nextLocator !== undefined) {
-        locator = nextLocator;
-        storage.setItem(locatorStorageKey, nextLocator);
-      }
+      locator = keepIfGiven(storage, locatorStorageKey, kept.locator) ?? locator;
     },
     signOut: () => {
       setToken(undefined);

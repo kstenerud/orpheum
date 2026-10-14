@@ -61,6 +61,10 @@ describe("accounts", () => {
     expect(url).toBe("https://orpheum.example/register#abc_DEF-123");
     expect(secretFromHash(new URL(url).hash)).toBe("abc_DEF-123");
     expect(secretFromHash("")).toBeUndefined();
+    // A link a discovery serves names the core and its fingerprint around the secret (the protocol's §3.1).
+    expect(secretFromHash("#k7xq2.abc_DEF-123.Vkdap1RjR0wChd9dvyvKtz2mUTWIOem3dIGy6rEHcIw")).toBe(
+      "abc_DEF-123",
+    );
     expect(parseRoute("/register", "").screen).toBe("register");
     expect(parseRoute("/people", "").screen).toBe("people");
     expect(parseRoute("/account", "").screen).toBe("account");

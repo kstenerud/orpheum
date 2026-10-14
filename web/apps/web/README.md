@@ -43,6 +43,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **The host's player leads their session while this tab hosts one, and is as before without
   one**: the film goes on for everyone, and stops as the host leaves the player.
   `src/watch-together.test.tsx`.
+- **On a discovery's origin the page reaches its core through the discovery** (webrtc-transport.md
+  W4c): the discovery names its client API in the page (`<meta name="orpheum-discovery-client-api">`;
+  the client reads no environment, D204); a link is spent by its click, never the page's loading; the
+  connection's offers are proven and its answers taken only when the core signed them by the key the
+  link's fingerprint names; each core's credentials are kept under its id. `discovery-gate.test.tsx`,
+  `session.test.ts`, and the SDK's `discovery.test.ts`.
 - **The session token travels in the Authorization header**; images load through the media
   cookie sign-in sets (D154), by addresses from `artUrl` in `@orpheum/sdk`.
 - **A screen showing what the server changes in the background asks again** — the lists, a title,

@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { StringStorage } from "./browser-storage.ts";
-import { createSession } from "./session.ts";
+import { corePrefix, createSession } from "./session.ts";
 
 function memoryStorage(): StringStorage & { readonly items: Map<string, string> } {
   const items = new Map<string, string>();
@@ -84,5 +84,16 @@ describe("createSession", () => {
     session.signOut();
     expect(session.locator()).toBeUndefined();
     expect(createSession(storage).locator()).toBeUndefined();
+  });
+
+  it("keeps each core's credentials apart under its own id, and the own origin's where they were", () => {
+    const storage = memoryStorage();
+    createSession(storage).signIn("own-origin-token");
+    createSession(storage, corePrefix("core-a")).signIn("a-token", { locator: "a-locator" });
+    const b = createSession(storage, corePrefix("core-b"));
+    expect(b.token()).toBeUndefined();
+    expect(b.locator()).toBeUndefined();
+    expect(createSession(storage, corePrefix("core-a")).token()).toBe("a-token");
+    expect(storage.items.get("orpheum.session")).toBe("own-origin-token");
   });
 });
