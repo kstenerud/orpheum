@@ -34,6 +34,11 @@ const ClientConnections = 4
 // 64 KiB took a 50 ms round trip from 15 to 20 Mbit/s on one connection (§9.4).
 const cwndStepBytes = 64 << 10
 
+// NegotiationLabel is the channel a client opens only so its offer has something to negotiate
+// (web/packages/sdk's rtc-transport.ts, rtcapitest): it carries no request, so it is never served,
+// takes no request's place, and is not logged as one that did not arrive.
+const NegotiationLabel = "hello"
+
 // gatherTimeout bounds how long an answer waits for the core's candidates.
 const gatherTimeout = 5 * time.Second
 
@@ -228,6 +233,9 @@ func (server *Server) open(api *webrtc.API) (*webrtc.PeerConnection, error) {
 	})
 	inFlight := &atomic.Int32{}
 	connection.OnDataChannel(func(channel *webrtc.DataChannel) {
+		if channel.Label() == NegotiationLabel {
+			return
+		}
 		if inFlight.Add(1) > int32(server.bounds.channels) { //nolint:gosec // a small constant
 			inFlight.Add(-1)
 			server.logger.Warn("rtcapi: refused a request past a connection's limit", "limit", server.bounds.channels)
