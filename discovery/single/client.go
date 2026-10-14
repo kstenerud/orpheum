@@ -3,9 +3,13 @@
 package single
 
 import (
+	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"net/netip"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
@@ -51,6 +55,11 @@ func (discovery *Discovery) serveClient(writer http.ResponseWriter, request *htt
 	case http.MethodPost + " " + discoveryproto.PathPaths:
 		discovery.paths(writer, request)
 	default:
+		if request.Method == http.MethodPost && strings.HasPrefix(request.URL.Path, discoveryproto.PathCores) &&
+			strings.HasSuffix(request.URL.Path, "/offer") {
+			discovery.offers(writer, request)
+			return
+		}
 		http.NotFound(writer, request)
 	}
 }
@@ -111,14 +120,24 @@ func (discovery *Discovery) paths(writer http.ResponseWriter, request *http.Requ
 // holds is whether the request names the core: a locator it registered, or a bootstrap token not yet
 // ended.
 func (discovery *Discovery) holds(asked discoveryproto.PathsRequest) bool {
+	_, isHeld := discovery.heldHash(asked)
+	return isHeld
+}
+
+// heldHash is the hash the request found the core by, which an offer is passed on with: a registered
+// locator's, or a live bootstrap token's link's.
+func (discovery *Discovery) heldHash(asked discoveryproto.PathsRequest) (string, bool) {
 	now := discovery.parts.Now()
 	discovery.mutex.Lock()
 	defer discovery.mutex.Unlock()
 	if asked.Locator != "" && discovery.locators[link.LocatorHash(asked.Locator)] {
-		return true
+		return link.LocatorHash(asked.Locator), true
 	}
 	held, isHeld := discovery.bootstraps[asked.BootstrapToken]
-	return asked.BootstrapToken != "" && isHeld && now.Before(held.expires)
+	if asked.BootstrapToken == "" || !isHeld || !now.Before(held.expires) {
+		return "", false
+	}
+	return held.locateHash, true
 }
 
 // pruneBootstraps forgets the bootstrap tokens that have ended. The caller holds the mutex.
@@ -187,4 +206,77 @@ func prefixOf(remoteAddress string) string {
 		return ""
 	}
 	return prefix.String()
+}
+
+// openOffersMost is how many offers one locator may have waiting on the core at once (S5).
+const openOffersMost = 8
+
+// offerWait is how long an offer waits for the core's answer.
+const offerWait = 15 * time.Second
+
+// offers passes a device's offers to the core, each with the hash the device found it by and its own
+// proof, at most MaxOffersAtOnce at a time and openOffersMost open for one hash, and answers the core's
+// answers in the offers' order (the protocol's §2.5).
+func (discovery *Discovery) offers(writer http.ResponseWriter, request *http.Request) {
+	var asked discoveryproto.OfferRequest
+	if !read(writer, request, &asked) {
+		return
+	}
+	hash, isHeld := discovery.heldHash(asked.PathsRequest)
+	record, err := discovery.parts.Store.Read()
+	if err != nil {
+		discovery.fail(writer, request, err)
+		return
+	}
+	if !isHeld || record.Core == nil || request.URL.Path != discoveryproto.OfferPath(record.Core.ID) {
+		refuse(writer, http.StatusNotFound, discoveryproto.RefusalNotFound, "no server is found by this")
+		return
+	}
+	if len(asked.Offers) == 0 || len(asked.Offers) > discoveryproto.MaxOffersAtOnce {
+		http.Error(writer, fmt.Sprintf("send 1 to %d offers", discoveryproto.MaxOffersAtOnce), http.StatusBadRequest)
+		return
+	}
+	if !discovery.openOffers(hash, len(asked.Offers)) {
+		http.Error(writer, "too many offers open for this", http.StatusTooManyRequests)
+		return
+	}
+	defer discovery.closeOffers(hash, len(asked.Offers))
+	ctx, cancel := context.WithTimeout(request.Context(), offerWait)
+	defer cancel()
+	answers := make([]discoveryproto.OfferAnswer, len(asked.Offers))
+	var waiting sync.WaitGroup
+	for index, offer := range asked.Offers {
+		waiting.Go(func() {
+			answered, offerErr := discovery.Offer(ctx, offer, hash)
+			answers[index] = discoveryproto.OfferAnswer{
+				OfferID: answered.OfferID, SDP: answered.SDP, Signature: answered.Signature,
+			}
+			if offerErr != nil {
+				answers[index].Refusal = offerErr.Error()
+			}
+		})
+	}
+	waiting.Wait()
+	answer(writer, discoveryproto.OfferResponse{Answers: answers})
+}
+
+// openOffers counts count offers open for hash, unless that passes openOffersMost.
+func (discovery *Discovery) openOffers(hash string, count int) bool {
+	discovery.mutex.Lock()
+	defer discovery.mutex.Unlock()
+	if discovery.openByHash[hash]+count > openOffersMost {
+		return false
+	}
+	discovery.openByHash[hash] += count
+	return true
+}
+
+// closeOffers counts count of hash's offers closed.
+func (discovery *Discovery) closeOffers(hash string, count int) {
+	discovery.mutex.Lock()
+	defer discovery.mutex.Unlock()
+	discovery.openByHash[hash] -= count
+	if discovery.openByHash[hash] <= 0 {
+		delete(discovery.openByHash, hash)
+	}
 }

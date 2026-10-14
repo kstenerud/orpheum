@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/discovery/link"
+	"github.com/kstenerud/orpheum/discovery/proof"
 )
 
 // liveLinkHashes are the locate hashes LiveLinks gives, with each one's life from now.
@@ -164,5 +165,39 @@ func TestFreshLocator_RenewsThePersonsOwnLink(t *testing.T) {
 	lives := liveLinkHashes(t, fixture.service, fixture.clock.Now())
 	if life := lives[link.LocateHash(registration.Secret)]; life != ownLinkLife {
 		t.Errorf("after a visit 30 days on, her own link lives %s; want a whole %s again", life, ownLinkLife)
+	}
+}
+
+func TestOfferKey_IsALiveSessionsHashByItsLocatorOrALiveLinksKeyByItsHash(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	fixture.createUser(t, "owner", "right", RoleAdmin)
+	issued, err := fixture.service.SignIn(ctx, "owner", "right", "192.0.2.1", NewDevice{Name: "laptop"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, invitation, err := fixture.service.Invite(ctx, NewInvitation{Role: RoleUser, AdminNote: "Grandma"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if key, keyErr := fixture.service.OfferKey(ctx, link.LocatorHash(issued.Locator)); keyErr != nil ||
+		string(key) != string(proof.SessionOfferKey(issued.Token)) {
+		t.Errorf("the locator's key = %x, %v; want its session's, SHA-256 of the token the client proves with",
+			key, keyErr)
+	}
+	if key, keyErr := fixture.service.OfferKey(ctx, link.LocateHash(invitation.Secret)); keyErr != nil ||
+		string(key) != string(link.OfferKey(invitation.Secret)) {
+		t.Errorf("the link's key = %x, %v; want link.OfferKey of its secret", key, keyErr)
+	}
+	_, keyErr := fixture.service.OfferKey(ctx, link.LocatorHash("never handed out"))
+	if !errors.Is(keyErr, ErrNoOfferKey) {
+		t.Errorf("an unknown hash's key = %v; want ErrNoOfferKey", keyErr)
+	}
+	if err = fixture.service.SignOut(ctx, issued.Token); err != nil {
+		t.Fatal(err)
+	}
+	if _, keyErr := fixture.service.OfferKey(ctx, link.LocatorHash(issued.Locator)); !errors.Is(keyErr, ErrNoOfferKey) {
+		t.Errorf("a signed-out session's locator's key = %v; want ErrNoOfferKey", keyErr)
 	}
 }

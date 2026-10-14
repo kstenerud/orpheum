@@ -82,3 +82,34 @@ type PathsResponse struct {
 // RefusalNotFound is a link's hash, a locator or a bootstrap token the discovery finds no core by:
 // never registered, used up, expired or dropped. Which, it does not say.
 const RefusalNotFound = "not_found"
+
+// MaxOffersAtOnce is how many offers one request may carry: a client races one connection, then opens
+// the rest of its four (the protocol's §2.5; C6).
+const MaxOffersAtOnce = 4
+
+// ClientOffer is one WebRTC offer and its proof: proof.Offer over its DTLS fingerprint, under the
+// client's session's key or its link's.
+type ClientOffer struct {
+	SDP   string `json:"sdp"`
+	Proof string `json:"proof"`
+}
+
+// OfferRequest is a device's offers to the core, by the locator or bootstrap token it holds.
+type OfferRequest struct {
+	PathsRequest
+	Offers []ClientOffer `json:"offers"`
+}
+
+// OfferAnswer is the core's answer to one offer, in the offers' order: its exact SDP and its signature
+// (proof.Answer), which the client checks before it takes it, or why it refused.
+type OfferAnswer struct {
+	OfferID   string `json:"offerId"`
+	SDP       string `json:"sdp,omitempty"`
+	Signature []byte `json:"signature,omitempty"`
+	Refusal   string `json:"refusal,omitempty"`
+}
+
+// OfferResponse is the core's answers, one per offer.
+type OfferResponse struct {
+	Answers []OfferAnswer `json:"answers"`
+}

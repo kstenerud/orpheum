@@ -48,7 +48,7 @@ func newDiscovery(
 		},
 		Answerer: answerer, OnClaimed: onClaimed,
 		RetryFirst: retryFirst, RetryMost: retryMost, Random: rand.Reader,
-		Links: linksOf(opened.auth),
+		Links: linksOf(opened.auth), OfferKey: opened.auth.OfferKey,
 	})
 }
 

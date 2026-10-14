@@ -157,8 +157,10 @@ carrier-grade NAT's or in the core's own interface prefixes. Every connection: S
 1 MiB and messages at most `MaxMessageBytes`; 16 requests in flight; a request's head and body whole
 within 30 s; closed unless ICE connects within 10 s; 16 connections per network (an IPv4 address or
 an IPv6 /56) once connected. The check budget is the candidate cap times pion's seven binding
-requests a pair. **Still K3a's:** the proof and the certificate compared after DTLS (A9) and the
-answer's signature (A7), with Phase 1's A7/A9; unproven connections, with the proof's kinds;
+requests a pair. **Built 2026-10-14 (Phase 2):** the proof, checked under the key auth keeps for
+the offer's hash (a session's by its locator, a link's by its locate hash; `auth.OfferKey`), every
+offer refused before `rtcapi` sees it when it does not hold; pion compares the DTLS certificate with
+the one fingerprint the proof covers. **Still K3a's:** unproven connections, with the proof's kinds;
 the head stripped, with A1; per-locator caps, with locators (K7); the `TestArch_` claim, which
 needs the owner's gate (`internal/archtest`), in its place a review invariant in the package's
 `doc.go`.

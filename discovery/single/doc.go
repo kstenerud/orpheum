@@ -54,6 +54,11 @@
 //     TestLocate_ALinkOfOneUseLocatesOnceAndAnyLinkNoLongerOnceItEnds,
 //     TestPaths_ALocatorOrALiveBootstrapTokenFindsTheCoreAndSaysHowItStands.
 //
+//   - An offer reaches the core with the hash the device found it by and its proof, which the core
+//     checks; a request names at most four, and one hash holds at most eight open.
+//     TestOffers_ReachTheCoreWithTheHashTheDeviceFoundItByAndComeBackInOrder,
+//     TestOffers_ARefusedRequestNeverReachesTheCore, TestOpenOffers_AHashHoldsAtMostEightOpenAtOnce.
+//
 //   - A core is online while it holds its signalling connection, offline since it last closed.
 //     TestPaths_ALocatorOrALiveBootstrapTokenFindsTheCoreAndSaysHowItStands.
 //
