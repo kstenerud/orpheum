@@ -82,6 +82,10 @@ type Server struct {
 	// iceServers are the STUN and TURN servers a connection gathers its candidates through: its
 	// discovery's (D274); none gathers only the core's own addresses.
 	iceServers atomic.Pointer[func() []webrtc.ICEServer]
+	// anyRelayedAddress lets a relayed connection check any remote address, the core's own networks'
+	// too: for a development build alone, whose browser tests put the browser, the discovery and the
+	// core on one machine (AcceptAnyRelayedAddress).
+	anyRelayedAddress atomic.Bool
 
 	mutex sync.Mutex
 	// Guarded by mutex: connections are the peer connections held now, and paths how many
@@ -100,11 +104,31 @@ type bounds struct {
 	requestDeadline time.Duration
 }
 
+// AcceptAnyRelayedAddress lets the connections a discovery's offers make check any remote address,
+// the core's own networks' too, which a release refuses so that no one holding a link can turn the
+// core on its own network. Only a development build calls it (cmd/orpheum's build_dev.go), whose
+// browser tests run the browser, the discovery and the core on one machine.
+func (server *Server) AcceptAnyRelayedAddress() {
+	server.anyRelayedAddress.Store(true)
+}
+
+// checksRelayed is whether a connection a discovery's offer made checks a remote address: one from
+// outside the core's networks, or any after AcceptAnyRelayedAddress.
+func (server *Server) checksRelayed(ip net.IP) bool {
+	return server.anyRelayedAddress.Load() || isFromOutside(ip, interfacePrefixes)
+}
+
+// AcceptsAnyRelayedAddress is whether AcceptAnyRelayedAddress was called.
+func (server *Server) AcceptsAnyRelayedAddress() bool {
+	return server.anyRelayedAddress.Load()
+}
+
 // New returns a server whose channels' requests handler serves, until ctx ends.
 func New(ctx context.Context, handler http.Handler, logger *slog.Logger) *Server {
 	relayed := settings()
-	relayed.SetRemoteIPFilter(func(ip net.IP) bool { return isFromOutside(ip, interfacePrefixes) })
-	return &Server{
+	var server *Server
+	relayed.SetRemoteIPFilter(func(ip net.IP) bool { return server.checksRelayed(ip) })
+	server = &Server{
 		ctx: ctx, handler: handler, logger: logger,
 		api:        webrtc.NewAPI(webrtc.WithSettingEngine(settings())),
 		relayedAPI: webrtc.NewAPI(webrtc.WithSettingEngine(relayed)),
@@ -115,6 +139,7 @@ func New(ctx context.Context, handler http.Handler, logger *slog.Logger) *Server
 		connections: map[*webrtc.PeerConnection]bool{}, paths: map[Path]int{},
 		sources: map[*webrtc.PeerConnection]netip.Prefix{},
 	}
+	return server
 }
 
 // settings are every connection's: the congestion window's growth, and what a client may send.

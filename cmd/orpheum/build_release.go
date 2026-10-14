@@ -4,7 +4,11 @@
 
 package main
 
-import "os"
+import (
+	"os"
+
+	"github.com/kstenerud/orpheum/internal/core/rtcapi"
+)
 
 // isDevBuild is false in every release build; see build_dev.go.
 const isDevBuild = false
@@ -25,4 +29,10 @@ func environmentLookup() func(string) (string, bool) {
 		}
 		return "", false
 	}
+}
+
+// relaxForDevelopment changes nothing in a release: a discovery's offers make connections that
+// check no address of the core's own networks, so no one holding a link can turn the core on them.
+func relaxForDevelopment(rtc *rtcapi.Server) *rtcapi.Server {
+	return rtc
 }

@@ -53,7 +53,7 @@ func serve(
 	clientFiles, hasClient := webclient.Files()
 	serveClient(server, clientFiles, hasClient)
 	// Requests over WebRTC data channels reach the same handler as those over TCP (D273 §8).
-	rtc := rtcapi.New(ctx, server.Handler(), logger)
+	rtc := relaxForDevelopment(rtcapi.New(ctx, server.Handler(), logger))
 	server.SetRTC(rtc)
 	defer func() { err = errors.Join(err, rtc.Close()) }()
 	httpServer := &http.Server{
