@@ -53,6 +53,7 @@ export {
   dataOrThrow,
   problemFromAnswer,
   reportFailure,
+  sendFailuresTo,
   throwIfRefused,
 } from "./problem.ts";
 export type { ProblemBody, ProblemCode, ProblemWithCode, UnknownProblemBody } from "./problem.ts";

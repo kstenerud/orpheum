@@ -198,6 +198,8 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"ejectFromTogether", "endTogether",
 		// A reachability check's own request: it says only whether this server made the nonce.
 		"echoReachability",
+		// A page's failure, which is only logged and answers nothing.
+		"reportClientProblem",
 		// A player's word that it left its own playback, by a token only its holder may use (D258 §2):
 		// it answers nothing (TestLeave_APlayerThatLeavesLetsGoOfTheWorkItsPlaybackAskedFor).
 		"leavePlayback",

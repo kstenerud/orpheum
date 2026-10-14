@@ -171,6 +171,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerPlayback()
 	server.registerPreferences()
 	server.registerReport()
+	server.registerClientProblems()
 	server.registerLeave()
 	server.registerHome()
 	server.registerAccounts()

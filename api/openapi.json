@@ -445,6 +445,27 @@
         ],
         "type": "object"
       },
+      "ClientProblemInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "message": {
+            "description": "What failed, in the page's own words",
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
+          },
+          "page": {
+            "description": "The page's path when it failed",
+            "maxLength": 200,
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "page"
+        ],
+        "type": "object"
+      },
       "ClientSettingsBody": {
         "additionalProperties": false,
         "properties": {
@@ -5003,9 +5024,30 @@
       "StartPlaybackInputBody": {
         "additionalProperties": false,
         "properties": {
+          "cause": {
+            "description": "Why the page asked for this playback, for the log",
+            "enum": [
+              "filmPage",
+              "playPage",
+              "warmUpStale",
+              "warmUpOffLadder",
+              "warmUpFailed",
+              "soundAnswered",
+              "soundChanged",
+              "subtitleFetched",
+              "audioChosen"
+            ],
+            "type": "string"
+          },
           "fileId": {
             "format": "int64",
             "minimum": 1,
+            "type": "integer"
+          },
+          "pageStarts": {
+            "description": "How many playbacks the page has asked for since it loaded, this one included",
+            "format": "int64",
+            "minimum": 0,
             "type": "integer"
           },
           "playableFormats": {
@@ -6942,6 +6984,51 @@
           }
         },
         "summary": "One of a playback's subtitle tracks, as ASS or WebVTT (D217 §6)",
+        "tags": [
+          "Playback"
+        ]
+      }
+    },
+    "/client-problems": {
+      "post": {
+        "operationId": "reportClientProblem",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientProblemInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "A failure the page met, for the server's log",
         "tags": [
           "Playback"
         ]

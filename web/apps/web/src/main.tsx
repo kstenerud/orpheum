@@ -30,6 +30,7 @@ import { createNavigation } from "./navigation.ts";
 import { ServicesContext } from "./services.tsx";
 import { DiscoveryGate, type GateParts } from "./discovery-gate.tsx";
 import { discoveryClientApiOf, rememberCore, startOf } from "./discovery-start.ts";
+import { sendFailuresToCore } from "./failure-reports.ts";
 import { corePrefix, createSession, type Session } from "./session.ts";
 import { checkSessionWhileShown, watchForSignOut } from "./signed-out-watch.ts";
 import { moveToWebrtcWhenSignedIn, pathName, wantsWebrtc } from "./transport-choice.ts";
@@ -56,6 +57,7 @@ function mountApp(session: Session): Api {
   // A device removed elsewhere goes to sign in as soon as its page is looked at, not at its next click.
   checkSessionWhileShown(async () => await api.GET("/me"), session, document);
   api.use(pageUpdateWatch.middleware(ownScriptOf(document)));
+  sendFailuresToCore(api, session, () => window.location.pathname);
   const services = {
     api,
     session,

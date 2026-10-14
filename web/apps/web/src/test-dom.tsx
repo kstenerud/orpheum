@@ -29,6 +29,20 @@ export interface Heard {
   readonly query?: string;
 }
 
+/** A heard request body's field, or undefined when the body has none by that name. */
+export function bodyField(heard: Heard, name: string): unknown {
+  return typeof heard.body === "object" && heard.body !== null
+    ? Reflect.get(heard.body, name)
+    : undefined;
+}
+
+/** Why the page asked for each playback it asked for, in order (watching.ts's StartCause). */
+export function playbackCauses(heard: readonly Heard[]): unknown[] {
+  return heard
+    .filter((each) => each.methodAndPath === "POST /playback")
+    .map((each) => bodyField(each, "cause"));
+}
+
 /**
  * Services whose API is answered by a stand-in server: each request from answers, and one it has
  * no answer for, or one outside the API's prefix, fails the test, so a screen cannot quietly ask

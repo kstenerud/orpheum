@@ -20,9 +20,13 @@ describe("playing a file", () => {
       { "POST /playback": [200, { delivery: "direct", url: "/u", notDirectReasons: [] }] },
       heard,
     );
-    const decision = await requestPlayback(api, 7, playableFormats);
+    const decision = await requestPlayback(api, 7, { playableFormats, cause: "playPage" });
     expect(heard).toEqual([
-      { methodAndPath: "POST /playback", body: { fileId: 7, playableFormats } },
+      {
+        methodAndPath: "POST /playback",
+        // Why it asked and how many times this page has, for the server's log alone.
+        body: { fileId: 7, playableFormats, cause: "playPage", pageStarts: 1 },
+      },
     ]);
     expect(decision.delivery).toBe("direct");
   });

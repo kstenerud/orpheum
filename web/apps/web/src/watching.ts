@@ -11,16 +11,31 @@ import { monotonicMs } from "./use-together.ts";
 /** The server's decision on how a file plays here (cut-a §6). */
 export type PlaybackDecision = components["schemas"]["StartPlaybackOutputBody"];
 
-/** Asks the server how a file plays in this browser; nothing of where it is (D247 §11). */
+/**
+ * Why a page asks the server for a playback, for the server's log alone: a phone's playback started
+ * over by itself and nothing said what started it (staging, 2026-10-14).
+ */
+export type StartCause = NonNullable<components["schemas"]["StartPlaybackInputBody"]["cause"]>;
+
+/** How many playbacks this page has asked for since it loaded, which the server logs beside each. */
+const pageStarts = { count: 0 };
+
+/** Asks the server how a file plays in this browser, and why it asks; nothing of where it is (D247 §11). */
 export async function requestPlayback(
   api: Api,
   fileId: number,
-  playableFormats: PlayableFormats,
+  asked: { readonly playableFormats: PlayableFormats; readonly cause: StartCause },
 ): Promise<PlaybackDecision> {
   const askedMs = performance.now();
+  pageStarts.count += 1;
   const decision = dataOrThrow(
     await api.POST("/playback", {
-      body: { fileId, playableFormats },
+      body: {
+        fileId,
+        playableFormats: asked.playableFormats,
+        cause: asked.cause,
+        pageStarts: pageStarts.count,
+      },
     }),
   );
   noteDecisionTimes(decision.mediaToken, askedMs, performance.now());
@@ -109,7 +124,7 @@ export class Watching {
       return;
     }
     this.watch(fileId);
-    const decision = this.ask(fileId, playableFormats);
+    const decision = this.ask(fileId, { playableFormats, cause: "filmPage" });
     const warm: Warm = { decision, askedMs: this.nowMs(), preload: undefined };
     this.warm = warm;
     decision.then(
@@ -129,13 +144,20 @@ export class Watching {
    * film's ladder, else a new one, since the warm-up read the keyframes of a film not cut yet and it
    * may be on its ladder now (D260 §1). Another film being watched is let go of first.
    */
-  decide(fileId: number, playableFormats: PlayableFormats): Promise<PlaybackDecision> {
+  decide(
+    fileId: number,
+    playableFormats: PlayableFormats,
+    cause: StartCause = "playPage",
+  ): Promise<PlaybackDecision> {
     this.watch(fileId);
     const warm = this.warm;
     this.warm = undefined;
-    if (warm === undefined || this.nowMs() - warm.askedMs >= warmUpKeptMs) {
-      warm?.preload?.stop();
-      return this.ask(fileId, playableFormats);
+    if (warm === undefined) {
+      return this.ask(fileId, { playableFormats, cause });
+    }
+    if (this.nowMs() - warm.askedMs >= warmUpKeptMs) {
+      warm.preload?.stop();
+      return this.ask(fileId, { playableFormats, cause: "warmUpStale" });
     }
     // Its start is timed from Play, not from opening the page: what the person waits for.
     const pressedMs = performance.now();
@@ -147,7 +169,7 @@ export class Watching {
           // The warm-up's playback is let go of: the server worked on both (the M4 closing audit).
           this.tokens.delete(decision.mediaToken);
           this.leave(decision.mediaToken);
-          return this.ask(fileId, playableFormats);
+          return this.ask(fileId, { playableFormats, cause: "warmUpOffLadder" });
         }
         noteDecisionTimes(decision.mediaToken, pressedMs, performance.now());
         return settledAtBps === undefined
@@ -156,12 +178,15 @@ export class Watching {
       },
       // A warm-up that failed is asked again at Play, as its page left it to be: it failed the
       // first press of Play instead (the M4 closing audit, 2026-10-08).
-      () => this.ask(fileId, playableFormats),
+      () => this.ask(fileId, { playableFormats, cause: "warmUpFailed" }),
     );
   }
 
-  private async ask(fileId: number, playableFormats: PlayableFormats): Promise<PlaybackDecision> {
-    const decision = await requestPlayback(this.api, fileId, playableFormats);
+  private async ask(
+    fileId: number,
+    asked: { readonly playableFormats: PlayableFormats; readonly cause: StartCause },
+  ): Promise<PlaybackDecision> {
+    const decision = await requestPlayback(this.api, fileId, asked);
     if (this.fileId === fileId) {
       this.tokens.add(decision.mediaToken);
     } else {
