@@ -40,6 +40,19 @@ export type PullMessage = "pull" | "cancel";
 export const mediaPathPrefix = "/api/v1/";
 
 /** A port as the bridge uses it; a MessagePort, or a test's. */
+/**
+ * What a page's media loads are signed with: its own session's token, and a Watch Together viewer's
+ * membership, which the core's viewer cookie carries on its own origin and no cookie reaches from
+ * another (discovery-core.md K10).
+ */
+export interface MediaCredentials {
+  readonly token: string | undefined;
+  readonly viewer: string | undefined;
+}
+
+/** The header a viewer's membership goes in (internal/core/api.ViewerHeaderName). */
+export const viewerHeaderName = "Orpheum-Viewer";
+
 export interface PortLike {
   postMessage(message: unknown, transfer?: Transferable[]): void;
   addEventListener(type: "message", listener: (event: MessageEvent<unknown>) => void): void;
@@ -78,14 +91,14 @@ export function isFetchMessage(message: unknown): message is FetchMessage {
 export async function answerLoad(
   message: FetchMessage,
   port: PortLike,
-  load: {
-    readonly send: (request: Request) => Promise<Response>;
-    readonly token: string | undefined;
-  },
+  load: { readonly send: (request: Request) => Promise<Response> } & MediaCredentials,
 ): Promise<void> {
   const headers = new Headers(message.headers.map(([name, value]) => [name, value]));
   if (load.token !== undefined && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${load.token}`);
+  }
+  if (load.viewer !== undefined && !headers.has(viewerHeaderName)) {
+    headers.set(viewerHeaderName, load.viewer);
   }
   let response: Response;
   try {
@@ -269,7 +282,7 @@ export const serviceWorkerUrl = "/sw.js";
  */
 export async function carryMediaOver(
   send: (request: Request) => Promise<Response>,
-  token: () => string | undefined,
+  credentials: () => MediaCredentials,
   name: string,
 ): Promise<void> {
   if (!("serviceWorker" in navigator)) {
@@ -279,7 +292,7 @@ export async function carryMediaOver(
   workers.addEventListener("message", (event: MessageEvent<unknown>) => {
     const [port] = event.ports;
     if (port !== undefined && isFetchMessage(event.data)) {
-      void answerLoad(event.data, port, { send, token: token() });
+      void answerLoad(event.data, port, { send, ...credentials() });
     }
   });
   workers.startMessages();

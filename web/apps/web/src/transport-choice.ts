@@ -12,6 +12,7 @@ import {
 
 import { storageThatNeverThrows, type StringStorage } from "./browser-storage.ts";
 import type { Session } from "./session.ts";
+import { mediaCredentialsOf } from "./together-playback.ts";
 
 /** The address parameter that asks for the WebRTC path: `?transport=webrtc`. */
 export const transportParameter = "transport";
@@ -62,7 +63,7 @@ export function moveToWebrtcWhenSignedIn(
       .then(async (transport) => {
         routed.use(transport.fetch, pathName);
         app.switchTogetherSocket(rtcTogetherSocket(() => transport.openChannel()));
-        await carryMediaOver(transport.fetch, session.token, pathName);
+        await carryMediaOver(transport.fetch, mediaCredentialsOf(session), pathName);
       })
       .catch((problem: unknown) => {
         isStarted = false;

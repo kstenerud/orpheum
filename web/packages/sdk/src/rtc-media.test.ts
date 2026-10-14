@@ -26,6 +26,7 @@ describe("media over the WebRTC path", () => {
         );
       },
       token: "t",
+      viewer: "v",
     });
     const response = await responseFromPort(port1);
     expect(response.status).toBe(206);
@@ -33,6 +34,8 @@ describe("media over the WebRTC path", () => {
     expect(await response.text()).toBe("orpheum");
     expect(heard[0]?.headers.get("Range")).toBe("bytes=0-");
     expect(heard[0]?.headers.get("Authorization")).toBe("Bearer t");
+    // A viewer's membership beside the page's own sign-in, which no cookie reaches across origins.
+    expect(heard[0]?.headers.get("Orpheum-Viewer")).toBe("v");
     port1.close();
   });
 
@@ -41,7 +44,11 @@ describe("media over the WebRTC path", () => {
     void answerLoad(
       { kind: "orpheum-fetch", url: "https://app.example/api/v1/x", method: "GET", headers: [] },
       port2,
-      { send: () => Promise.reject(new Error("the channel closed")), token: undefined },
+      {
+        send: () => Promise.reject(new Error("the channel closed")),
+        token: undefined,
+        viewer: undefined,
+      },
     );
     await expect(responseFromPort(port1)).rejects.toThrow("the channel closed");
     port1.close();

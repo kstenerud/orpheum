@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { Api, PlayableFormats } from "@orpheum/sdk";
+import type { Api, MediaCredentials, PlayableFormats } from "@orpheum/sdk";
 
 import type { AudioOutput } from "./accounts.ts";
 import type { PlaybackDecision } from "./watching.ts";
 import { dataOrThrow } from "./problem.ts";
+import type { Session } from "./session.ts";
 import { membershipHeaders } from "./together-storage.ts";
 
 /**
@@ -18,6 +19,7 @@ export async function requestTogetherPlayback(
   credential: string,
   asked: { readonly playableFormats: PlayableFormats; readonly audioOutput: AudioOutput },
 ): Promise<PlaybackDecision> {
+  mediaViewer.credential = credential;
   return dataOrThrow(
     await api.POST("/together/playback", {
       headers: membershipHeaders(credential),
@@ -27,4 +29,21 @@ export async function requestTogetherPlayback(
       },
     }),
   );
+}
+
+/** The membership whose playback this page asked for last, which its media loads are signed with. */
+const mediaViewer: { credential: string | undefined } = { credential: undefined };
+
+/**
+ * The viewer's membership this page's media loads carry beside its own sign-in: on another origin
+ * than the core's no viewer cookie reaches the core, and a guest signed in to an account of their own
+ * found the film gone (staging, 2026-10-14). Undefined until the page plays as a viewer.
+ */
+export function viewerForMedia(): string | undefined {
+  return mediaViewer.credential;
+}
+
+/** What the page's media loads are signed with, read at each load: its session, and its viewer's. */
+export function mediaCredentialsOf(session: Pick<Session, "token">): () => MediaCredentials {
+  return () => ({ token: session.token(), viewer: viewerForMedia() });
 }

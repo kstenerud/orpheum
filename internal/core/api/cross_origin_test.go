@@ -30,9 +30,11 @@ func TestCrossOrigin_LetsTheDiscoverysClientCallTheAPIByHeaderAlone(t *testing.T
 			t.Errorf("a preflight from %q allowed %q (Vary %q); want allowed %v, varying by origin, no credentials",
 				origin, allowed, preflight.header.Get("Vary"), isAllowed)
 		}
-		if isAllowed && !strings.Contains(preflight.header.Get("Access-Control-Allow-Headers"), "Authorization") {
-			t.Errorf("the preflight allows headers %q; want Authorization among them",
-				preflight.header.Get("Access-Control-Allow-Headers"))
+		allowedHeaders := preflight.header.Get("Access-Control-Allow-Headers")
+		if isAllowed && (!strings.Contains(allowedHeaders, "Authorization") ||
+			!strings.Contains(allowedHeaders, ViewerHeaderName)) {
+			t.Errorf("the preflight allows headers %q; want Authorization and the viewer's among them",
+				allowedHeaders)
 		}
 	}
 	me := harness.doWithHeader(t, http.MethodGet, "/me", token, http.Header{"Origin": {client}}, nil)
