@@ -704,8 +704,7 @@ Only once every component has been tested together on staging (the owner: *"Noth
 public until we've tested all of the components together"*): the service on its two machines,
 `prod-api` and `prod-probe` (D292 §3); the legacy Cloudflare token revoked before the first
 production name (A5), and staging's token for `orpheum-core.com` revoked before the first production
-core enrols, staging's writes moved behind the production zone writer limited to
-`staging.orpheum-core.com` (D293 §3); then the owner's staging core as the first household, then
+core enrols, staging's households having moved to `orpheum-test.com` (D296, revising D293 §3); then the owner's staging core as the first household, then
 nas.example, moved off `media.orpheum-app.com` before that certificate's renewal (about 2027-01-04,
 infrastructure §4), then one outside household, then the invited ones.
 

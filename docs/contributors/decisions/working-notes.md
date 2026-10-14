@@ -20074,3 +20074,32 @@ video library."*
    to households (the fingerprints in links, signed answers, sealed device codes) is kept.
 
 **Status:** Decided 2026-10-13.
+
+---
+
+## D296 — Staging's households move to their own domain, orpheum-test.com, so no sandbox token reaches production's zone
+
+**Decided** (2026-10-14), by the project owner, revising D293 §3: *"OK, I'll get orpheum-test.com."*
+
+1. **Why.** A Cloudflare token reaches a whole zone, and whoever can write a zone's records can
+   have certificates issued for its names. While staging's cores lived under
+   `staging.orpheum-core.com`, the sandbox's token could have rewritten production's households'
+   records and taken certificates for them. D293 §3 answered that by moving staging's writes behind
+   production's zone writer once the first production core enrolled; nas.example is about to be that
+   core, and that route put production code on staging's path and days of security work before it.
+2. **Staging's households live in `orpheum-test.com`**, a registered domain of their own, at
+   Cloudflare beside `orpheum-core.com` and set up as it is: DNSSEC on, Universal SSL off, the apex
+   holding only `issue ";"` and `issuewild ";"`, each core's name its own CAA. A staging core's names
+   are `<address>.<core id>.orpheum-test.com`. The sandbox's token reaches `orpheum-test.com` alone,
+   and the token for `orpheum-core.com` is revoked; production's is made later and never enters the
+   sandbox. Production and staging share no zone, and no Let's Encrypt limit counted per registered
+   domain: staging's re-issuing no longer spends production's.
+3. **Staging's front names stay** `app-staging.` and `api-staging.orpheum-app.com` (D292 §2): their
+   tunnel's token edits no DNS. Staging mirrors production: front names under `orpheum-app.com`, the
+   households in a domain of their own. `orpheum-test.com` may later hold other test names.
+4. **How others do it** (the owner asked): a separate registered domain for test environments is the
+   common answer (Mozilla's `allizom.org`), since the registered domain is where cookies, DNS
+   permissions and certificate limits stop. Delegating `staging.orpheum-core.com` to a second DNS
+   provider would have kept two domains, at the cost of a second DNS client in the service.
+
+**Status:** Decided 2026-10-14. Revises D293 §3.
