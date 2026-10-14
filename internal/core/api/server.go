@@ -124,11 +124,13 @@ type health struct {
 // Server is the API. It answers /health from the moment it exists, and everything else once Ready
 // has handed it its dependencies; until then those answer "migrating".
 type Server struct {
-	humaAPI      huma.API
-	mux          *http.ServeMux
-	logger       *slog.Logger
-	health       health
-	dependencies atomic.Pointer[Dependencies]
+	// namedClientOrigin is the client origin a test names in place of the discovery's (crossOrigin).
+	namedClientOrigin atomic.Pointer[string]
+	humaAPI           huma.API
+	mux               *http.ServeMux
+	logger            *slog.Logger
+	health            health
+	dependencies      atomic.Pointer[Dependencies]
 	// clientScript is the served web client's script, set before the server serves.
 	clientScript string
 	// rtc answers WebRTC offers; nil takes none (SetRTC).
@@ -190,7 +192,7 @@ func NewServer(logger *slog.Logger) *Server {
 // Handler is the HTTP handler to serve: the API, a POST with an Idempotency-Key answered once,
 // every answer naming the web client this server serves (ClientScriptHeader).
 func (server *Server) Handler() http.Handler {
-	return server.namingClient(server.idempotent(server.pacedMedia(server.mux)))
+	return server.crossOrigin(server.namingClient(server.idempotent(server.pacedMedia(server.mux))))
 }
 
 // ClientScriptHeader names, on every answer, the script of the web client this server serves: a

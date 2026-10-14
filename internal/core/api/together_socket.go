@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
@@ -58,7 +59,7 @@ func (server *Server) serveTogetherSocket(writer http.ResponseWriter, request *h
 		http.Error(writer, "the server is not ready", http.StatusServiceUnavailable)
 		return
 	}
-	connection, err := acceptTogetherSocket(writer, request)
+	connection, err := acceptTogetherSocket(writer, request, server.clientOriginOf())
 	if err != nil {
 		return // the refusal is answered
 	}
@@ -242,15 +243,23 @@ type togetherSocket interface {
 }
 
 // acceptTogetherSocket accepts a device's connection: the message connection a request over a data
-// channel asked to become, else a WebSocket. A refusal is answered by the time it returns.
-func acceptTogetherSocket(writer http.ResponseWriter, request *http.Request) (togetherSocket, error) {
+// channel asked to become, else a WebSocket from the core's own page or from the client the core's
+// discovery serves, clientOrigin, never another (the discovery protocol's §3.4; discovery-core.md
+// K10). A refusal is answered by the time it returns.
+func acceptTogetherSocket(
+	writer http.ResponseWriter, request *http.Request, clientOrigin string,
+) (togetherSocket, error) {
 	if conn, isChannel := rtcapi.MessageConnFrom(request.Context()); isChannel {
 		if err := conn.Accept(); err != nil {
 			return nil, err //nolint:wrapcheck // the channel's own words; nothing reads them
 		}
 		return channelSocket{conn: conn}, nil
 	}
-	connection, err := websocket.Accept(writer, request, nil)
+	options := &websocket.AcceptOptions{}
+	if origin, err := url.Parse(clientOrigin); clientOrigin != "" && err == nil && origin.Host != "" {
+		options.OriginPatterns = []string{origin.Host}
+	}
+	connection, err := websocket.Accept(writer, request, options)
 	if err != nil {
 		return nil, err //nolint:wrapcheck // Accept has answered
 	}

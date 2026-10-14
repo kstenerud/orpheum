@@ -297,6 +297,7 @@ func (harness testHarness) answerSubtitle(t *testing.T, jobID int64, answer node
 type response struct {
 	status int
 	body   string
+	header http.Header
 }
 
 func (harness testHarness) do(t *testing.T, method, path, token string, body any) response {
@@ -341,7 +342,7 @@ func (harness testHarness) doWithHeader(
 	if err != nil {
 		t.Fatal(err)
 	}
-	return response{status: answer.StatusCode, body: string(text)}
+	return response{status: answer.StatusCode, body: string(text), header: answer.Header}
 }
 
 // wantError checks a response is an error in the one shape, with the code expected.
