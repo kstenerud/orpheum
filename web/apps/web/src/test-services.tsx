@@ -53,9 +53,15 @@ export function fakePlace(start: string): FakePlace {
 }
 
 /**
- * Services for a test render: an API that sends through send (by default nowhere a test reaches),
- * a session with the token given, and a place at path.
+ * Services for a test render: an API that sends through send (by default nowhere: each request fails
+ * at once, as with no network, and never reaches the real one; AGENTS.md rule 16), a session with the
+ * token given, and a place at path.
  */
+/** A fetch with no network under it: it fails as a browser's does, without looking anything up. */
+function noNetwork(): Promise<Response> {
+  return Promise.reject(new TypeError("Failed to fetch: a test has no network"));
+}
+
 export function testServices(
   token?: string,
   path = "/films",
@@ -70,7 +76,7 @@ export function testServices(
     api: createApi({
       origin: testOrigin,
       getToken: session.token,
-      ...(send === undefined ? {} : { fetch: send }),
+      fetch: send ?? noNetwork,
     }),
     session,
     navigation,
