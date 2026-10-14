@@ -57,7 +57,8 @@ func serve(
 	server.SetRTC(rtc)
 	defer func() { err = errors.Join(err, rtc.Close()) }()
 	httpServer := &http.Server{
-		Handler: server.Handler(), ReadHeaderTimeout: config.readHeaderTimeout(), ConnContext: pacing.ConnContext,
+		Handler:           server.LANHandler(lanHostNames(config)),
+		ReadHeaderTimeout: config.readHeaderTimeout(), ConnContext: pacing.ConnContext,
 	}
 	var serving sync.WaitGroup
 	serving.Go(func() {

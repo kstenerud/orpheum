@@ -42,7 +42,7 @@ func TestServe_FinishesARequestInFlightBeforeItClosesTheDatabases(t *testing.T) 
 	}()
 	body := fmt.Sprintf(`{"name":"owner","password":%q,"device":{"name":"Shutdown test","platform":"web"}}`,
 		ownerPassword)
-	head := fmt.Sprintf("POST %s/session HTTP/1.1\r\nHost: orpheum.test\r\nContent-Type: application/json\r\n"+
+	head := fmt.Sprintf("POST %s/session HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\n"+
 		"Content-Length: %d\r\nExpect: 100-continue\r\n\r\n", api.Prefix, len(body))
 	if _, writeErr := io.WriteString(conn, head); writeErr != nil {
 		t.Fatal(writeErr)

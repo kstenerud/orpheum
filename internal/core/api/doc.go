@@ -15,6 +15,10 @@
 //     (the discovery protocol's §3.4; discovery-core.md K10). Enforced by
 //     TestCrossOrigin_LetsTheDiscoverysClientCallTheAPIByHeaderAlone and
 //     TestCrossOrigin_TheSessionSocketOpensFromTheDiscoverysClientAlone.
+//   - The plain-HTTP listener answers only the names a household reaches it by (its addresses,
+//     localhost, names public DNS never answers, the configured names and the core's names at its
+//     discovery) and refuses any other with 421, against DNS rebinding (S15). Enforced by
+//     TestLANHandler_AnswersTheHousesNamesAndRefusesAnyOther.
 //   - Imports nothing from internal/node, never os/exec, and no image or media parser. Enforced by
 //     the depguard rule core-boundary, and transitively by TestArch_CoreNeverImportsNode and
 //     TestArch_CoreNeverExecs.

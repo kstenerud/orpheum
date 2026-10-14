@@ -1091,7 +1091,8 @@ later changed an item, it says so.
    port it grants is taken when 443 is held, since networks that allow only 80 and 443 reach no
    other (D291 §7); "your server is reachable from the internet at …" shown prominently;
    security-update notices through `GET /status`; sign-in limits tested over WebRTC.
-10. **S15:** a `Host` allow list on the core's plain-HTTP LAN listener against DNS rebinding.
+10. **S15:** a `Host` allow list on the core's plain-HTTP LAN listener against DNS rebinding (built
+    2026-10-14, also taking names public DNS never answers, such as `nas.example` [I]).
 11. **S16:** at most about ten candidates per offer; loopback and link-local remote candidates
     dropped from offers through the discovery; STUN answering Binding requests only, rate-limited
     per source, without `SOFTWARE`. A2 made the candidate limits a must and widened the filter
