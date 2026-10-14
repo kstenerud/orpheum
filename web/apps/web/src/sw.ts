@@ -8,7 +8,13 @@
  * Built on its own, self-contained (`vite build --mode sw`), as a classic worker every browser runs.
  */
 
-import { isPathMessage, mediaPathPrefix, responseFromPort } from "@orpheum/sdk";
+import {
+  isClaimMessage,
+  isPathMessage,
+  loadAfterAsking,
+  mediaPathPrefix,
+  responseFromPort,
+} from "@orpheum/sdk";
 
 /** A load the worker is asked to answer. */
 interface FetchEventLike {
@@ -21,6 +27,7 @@ interface FetchEventLike {
 interface MessageEventLike {
   readonly data: unknown;
   readonly source: { readonly id: string } | null;
+  waitUntil(work: Promise<unknown>): void;
 }
 
 /** An install or activate, which the worker can hold open. */
@@ -56,7 +63,11 @@ function isWorkerScope(scope: unknown): scope is WorkerScope {
 }
 
 /** The pages on the WebRTC path, by their client id. */
+// Each page's word on its path, kept while the worker runs: the browser stops an idle worker, and one
+// started again knows none, so a page it has no word from is asked (askPathOf). A guest's next film
+// went to the page's own origin and was not found (staging, 2026-10-14).
 const onWebrtc = new Set<string>();
+const onHttp = new Set<string>();
 
 const scope: unknown = globalThis;
 if (isWorkerScope(scope)) {
@@ -68,11 +79,10 @@ if (isWorkerScope(scope)) {
   });
   scope.addEventListener("message", (event) => {
     if (event.source !== null && isPathMessage(event.data)) {
-      if (event.data.path === "webrtc") {
-        onWebrtc.add(event.source.id);
-      } else {
-        onWebrtc.delete(event.source.id);
-      }
+      notePath(event.source.id, event.data.path);
+    }
+    if (isClaimMessage(event.data)) {
+      event.waitUntil(scope.clients.claim());
     }
   });
   scope.addEventListener("fetch", (event) => {
@@ -80,11 +90,36 @@ if (isWorkerScope(scope)) {
     if (
       url.origin !== scope.location.origin ||
       !url.pathname.startsWith(mediaPathPrefix) ||
-      !onWebrtc.has(event.clientId)
+      onHttp.has(event.clientId)
     ) {
       return;
     }
-    event.respondWith(throughThePage(scope, event));
+    event.respondWith(
+      onWebrtc.has(event.clientId) ? throughThePage(scope, event) : askedFirst(scope, event),
+    );
+  });
+}
+
+/** Keeps a page's word on its path. */
+function notePath(clientId: string, path: "webrtc" | "http"): void {
+  if (path === "webrtc") {
+    onWebrtc.add(clientId);
+    onHttp.delete(clientId);
+  } else {
+    onHttp.add(clientId);
+    onWebrtc.delete(clientId);
+  }
+}
+
+/** A load from a page the worker has no word from: the page is asked its path, then the load goes. */
+async function askedFirst(worker: WorkerScope, event: FetchEventLike): Promise<Response> {
+  return await loadAfterAsking({
+    page: await worker.clients.get(event.clientId),
+    request: event.request,
+    throughThePage: () => throughThePage(worker, event),
+    noted: (path) => {
+      notePath(event.clientId, path);
+    },
   });
 }
 
