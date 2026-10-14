@@ -114,6 +114,43 @@ describe("the gate a discovery's page opens on", () => {
     expect(heard.at(-1)).toBe(`/dead-end {"bootstrapToken":"a-bootstrap-token"}`);
   });
 
+  it("reaches the core at its own published name before WebRTC (W2c)", async () => {
+    const heard: string[] = [];
+    const located = {
+      coreId: "k7xq2",
+      bootstrapToken: "a-bootstrap-token",
+      iceServers: [],
+      paths: [
+        { kind: "ipv4", url: "https://v4.k7xq2.zone.example" },
+        { kind: "webrtc", offer: "/cores/k7xq2/offer" },
+      ],
+    };
+    const toDiscovery = discovery({ "/locate": [200, located] }, heard);
+    // The discovery's fetch also asks the core's name for its health: it answers.
+    const fetched: typeof fetch = (url, init) =>
+      (url instanceof Request ? url.url : url.toString()).startsWith(
+        "https://v4.k7xq2.zone.example/",
+      )
+        ? Promise.resolve(new Response("{}", { status: 200 }))
+        : toDiscovery(url, init);
+    const connected: KeptCore[] = [];
+    const reached: string[] = [];
+    const parts: GateParts = {
+      ...partsOf(fetched, connected),
+      onConnected: (core, how) => {
+        connected.push(core);
+        reached.push(how.kind === "direct" ? how.origin : how.kind);
+      },
+    };
+    mounted = await mount(
+      <DiscoveryGate start={startOf(linkHash, memoryStorage())} parts={parts} />,
+    );
+    await click(buttonWithText(mounted.container, "Connect"));
+    await settleUntil(() => reached.length > 0);
+    expect(reached).toEqual(["https://v4.k7xq2.zone.example"]);
+    expect(connected).toEqual([{ coreId: "k7xq2", fingerprint }]);
+  });
+
   it("with no link and no server reached before, says how to get in", async () => {
     mounted = await mount(
       <DiscoveryGate start={{ kind: "none" }} parts={partsOf(discovery({}, []))} />,

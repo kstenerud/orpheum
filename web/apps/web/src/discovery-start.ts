@@ -10,6 +10,7 @@
 import {
   connectRtc,
   discoverySignaller,
+  firstDirectPath,
   locate,
   offerKey,
   pathsOf,
@@ -93,6 +94,8 @@ export interface Target {
   readonly held: Held;
   readonly key: Uint8Array<ArrayBuffer>;
   readonly iceServers: RTCIceServer[];
+  /** The core's published names, tried before WebRTC (W2c). */
+  readonly directUrls: readonly string[];
 }
 
 /**
@@ -110,6 +113,7 @@ export async function targetOfLink(client: DiscoveryClient, link: LinkFragment):
     held: { bootstrapToken: located.bootstrapToken },
     key: await offerKey(link.secret),
     iceServers: located.iceServers,
+    directUrls: located.directUrls,
   };
 }
 
@@ -132,7 +136,25 @@ export async function targetOfSession(client: DiscoveryClient, held: HeldSession
     held: { locator: held.locator },
     key: await sessionOfferKey(held.token),
     iceServers: located.iceServers,
+    directUrls: located.directUrls,
   };
+}
+
+/** How the core was reached: at one of its own names, or over WebRTC through the discovery. */
+export type Reached =
+  | { readonly kind: "direct"; readonly origin: string }
+  | { readonly kind: "webrtc"; readonly transport: RtcTransport };
+
+/**
+ * Reaches the target: at the first of its published names to answer, else over WebRTC through the
+ * discovery (the protocol's §3.3; W2c's thin form, which races the names and then falls back).
+ */
+export async function reachCore(client: DiscoveryClient, target: Target): Promise<Reached> {
+  const origin = await firstDirectPath(target.directUrls, client.fetch);
+  if (origin !== undefined) {
+    return { kind: "direct", origin };
+  }
+  return { kind: "webrtc", transport: await connectThrough(client, target) };
 }
 
 /** Connects to the target through the discovery, its offers proven and its answers checked. */

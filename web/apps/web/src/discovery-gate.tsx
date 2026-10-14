@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { NotFound, reportDeadEnd, type DiscoveryClient, type RtcTransport } from "@orpheum/sdk";
+import { NotFound, reportDeadEnd, type DiscoveryClient } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { CredentialsForm } from "./credentials-form.tsx";
 import {
-  connectThrough,
+  reachCore,
   targetOfLink,
   targetOfSession,
   type HeldSession,
   type KeptCore,
+  type Reached,
   type Start,
   type Target,
 } from "./discovery-start.ts";
@@ -20,8 +21,8 @@ export interface GateParts {
   readonly client: DiscoveryClient;
   /** The session this device holds with core, when it holds one. */
   readonly sessionOf: (core: KeptCore) => HeldSession | undefined;
-  /** Told the core reached and the transport to it; the app takes over from there. */
-  readonly onConnected: (core: KeptCore, transport: RtcTransport) => void;
+  /** Told the core reached and how; the app takes over from there. */
+  readonly onConnected: (core: KeptCore, reached: Reached) => void;
 }
 
 type Phase = "waiting" | "connecting" | "notFound" | "deadEnd";
@@ -45,7 +46,7 @@ async function reach(
   let target: Target | undefined;
   try {
     target = await find();
-    parts.onConnected(core, await connectThrough(parts.client, target));
+    parts.onConnected(core, await reachCore(parts.client, target));
     return undefined;
   } catch (problem: unknown) {
     if (problem instanceof NotFound) {

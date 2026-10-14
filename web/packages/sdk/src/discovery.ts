@@ -302,6 +302,8 @@ async function postToDiscovery(call: ClientCall): Promise<unknown> {
 export interface Located {
   readonly coreId: string;
   readonly iceServers: RTCIceServer[];
+  /** The core's published names, LAN, IPv6 then IPv4, as HTTPS URLs: tried before WebRTC (§3.3). */
+  readonly directUrls: readonly string[];
   /** Locate's alone: good for paths and offers for a few minutes, never renewed. */
   readonly bootstrapToken?: string;
 }
@@ -326,6 +328,29 @@ function iceServerOf(named: unknown): RTCIceServer[] {
   ];
 }
 
+/** The kinds of path a direct URL names (the protocol's §3.2). */
+const directKinds = new Set(["lan", "ipv6", "ipv4"]);
+
+/** The direct paths' URLs a discovery's answer names, in its order; anything else is left out. */
+function directUrlsOf(paths: unknown): string[] {
+  if (!Array.isArray(paths)) {
+    return [];
+  }
+  return paths.flatMap((path: unknown) => {
+    if (typeof path !== "object" || path === null) {
+      return [];
+    }
+    const kind: unknown = Reflect.get(path, "kind");
+    const url: unknown = Reflect.get(path, "url");
+    return typeof kind === "string" &&
+      directKinds.has(kind) &&
+      typeof url === "string" &&
+      url.startsWith("https://")
+      ? [url]
+      : [];
+  });
+}
+
 function locatedOf(answer: unknown): Located {
   const field = (name: string): unknown =>
     typeof answer === "object" && answer !== null ? Reflect.get(answer, name) : undefined;
@@ -338,6 +363,7 @@ function locatedOf(answer: unknown): Located {
   return {
     coreId,
     iceServers: Array.isArray(iceServers) ? iceServers.flatMap(iceServerOf) : [],
+    directUrls: directUrlsOf(field("paths")),
     ...(typeof bootstrapToken === "string" ? { bootstrapToken } : {}),
   };
 }
