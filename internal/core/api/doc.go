@@ -10,6 +10,11 @@
 //
 // # Invariants
 //
+//   - A page on the client origin the core's discovery names may call the API and open the session
+//     socket, by header alone; no other origin may, nor "null", and no answer allows credentials
+//     (the discovery protocol's §3.4; discovery-core.md K10). Enforced by
+//     TestCrossOrigin_LetsTheDiscoverysClientCallTheAPIByHeaderAlone and
+//     TestCrossOrigin_TheSessionSocketOpensFromTheDiscoverysClientAlone.
 //   - Imports nothing from internal/node, never os/exec, and no image or media parser. Enforced by
 //     the depguard rule core-boundary, and transitively by TestArch_CoreNeverImportsNode and
 //     TestArch_CoreNeverExecs.

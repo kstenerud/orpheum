@@ -390,6 +390,11 @@ day, which is the discovery's.
 
 ### K10 — Serving the client cross-origin
 
+**Partly built 2026-10-14:** CORS on the API, byte paths included, for the client origin the
+discovery names, and the session socket's `OriginPatterns` for it. Byte paths already take the header;
+the page the discovery serves reaches them through its service worker, which carries the header.
+**Still K10's:** the `Host` allow list on the plain-HTTP LAN listener, and the browser-tier test.
+
 - **Changes.** `internal/core/api`: CORS for the discovery's client origins, a list, never a
   wildcard, no credentials mode, `Vary: Origin`, `null` never allowed, `Authorization` named in the
   allowed headers (§3.4, §7 item 13). Byte paths authenticated by the header on every request
