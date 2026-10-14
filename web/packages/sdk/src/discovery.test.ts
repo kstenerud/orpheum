@@ -120,6 +120,19 @@ describe("a signaller through a discovery", () => {
     ]);
   });
 
+  it("sends only the candidates a core outside the client's network could use", async () => {
+    const heard: unknown[] = [];
+    const signaller = await signalling(answering({ offerId: "1", refusal: "a test's" }, heard));
+    const withLocal = {
+      type: "offer" as const,
+      sdp: `${offer.sdp}a=candidate:1 1 udp 2122260223 192.168.1.20 50000 typ host\r\n`,
+    };
+    await expect(signaller(withLocal)).rejects.toThrow("a test's");
+    expect(heard).toEqual([
+      { bootstrapToken: "a-token", offers: [{ sdp: offer.sdp, proof: vectors.offerProof }] },
+    ]);
+  });
+
   it("refuses an answer the core did not sign, or signed with a key its link does not name", async () => {
     const forged = await signalling(
       answering({

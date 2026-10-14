@@ -94,6 +94,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Voice arrived about 1.1 s late under the emulated congested link, about 0.9 s of it in NetEQ. | [No browser API caps the jitter buffer: `jitterBufferTarget` is a floor, not a ceiling](#no-browser-api-caps-the-jitter-buffer-jitterbuffertarget-is-a-floor-not-a-ceiling) |
 | `networkPriority` (DSCP) exists in Chrome and Safari but not Firefox, and `setParameters` may refuse it | [`networkPriority` (DSCP) exists in Chrome and Safari but not Firefox, and `setParameters` may refuse it](#networkpriority-dscp-exists-in-chrome-and-safari-but-not-firefox-and-setparameters-may-refuse-it) |
 | Two pages in the test container cannot call each other. | [mDNS-obfuscated host candidates cannot be resolved inside a container](#mdns-obfuscated-host-candidates-cannot-be-resolved-inside-a-container) |
+| A phone on Wi-Fi cannot connect over WebRTC; the discovery logs "… 11 candidates; at most 10". | [A phone on Wi-Fi gathers more than ten ICE candidates](#a-phone-on-wi-fi-gathers-more-than-ten-ice-candidates) |
 | Every offer refused: "gather the core's candidates: context deadline exceeded". | [pion waits 5 s for each STUN server while gathering, and a family with no way out never answers](#pion-waits-5-s-for-each-stun-server-while-gathering-and-a-family-with-no-way-out-never-answers) |
 | X265 makes every keyframe after the first a CRA (open GOP) | [x265 makes every keyframe after the first a CRA (open GOP)](#x265-makes-every-keyframe-after-the-first-a-cra-open-gop) |
 | The `segment` muxer misses a keyframe a hair before the cut time (10.009999 against 10.010) | [The `segment` muxer misses a keyframe a hair before the cut time (10.009999 against 10.010)](#the-segment-muxer-misses-a-keyframe-a-hair-before-the-cut-time-10009999-against-10010) |
@@ -1125,6 +1126,21 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   out. The core's container had an IPv6 default route to Docker's bridge and no IPv6 beyond its
   host, so the IPv6 binding to the STUN server never came back, and gathering took the answer's
   whole 5 s. pion's `SettingEngine.SetSTUNGatherTimeout` is the knob.
+
+### A phone on Wi-Fi gathers more than ten ICE candidates
+
+- **Symptom:** a phone on home Wi-Fi got "Can't reach the server from this network" over WebRTC,
+  while on mobile data it connected; the discovery logged "refused a client's offer … 11
+  candidates; at most 10".
+- **What we do:** the page sends an offer through a discovery with only the candidates a core
+  outside its network can use, at most ten, relayed and UDP ones first
+  (`web/packages/sdk/src/relayed-offer.ts`), so the cap the core and the discovery keep (the
+  protocol's §2.5, S16) holds.
+- **Evidence:** staging, 2026-10-14, Chrome on Android. The offer's lines were not logged, so which
+  candidates made the eleven is not known; a browser gathers one per address and protocol, and a
+  Wi-Fi interface holds an IPv4 address and several IPv6 ones (stable and temporary) where mobile
+  data holds fewer, and a page granted the microphone gets real host addresses rather than mDNS
+  names.
 
 ---
 

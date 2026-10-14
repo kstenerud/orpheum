@@ -8,6 +8,7 @@
  */
 
 import type { Description, Signaller } from "./rtc-transport.ts";
+import { offerThroughDiscovery } from "./relayed-offer.ts";
 
 /** A core's link's fragment: `<coreId>.<secret>.<fingerprint>`, after `#`. */
 export interface LinkFragment {
@@ -232,7 +233,10 @@ export function discoverySignaller(signalling: DiscoverySignalling): Signaller {
         "Content-Type": "application/json",
         "Orpheum-Discovery-Protocol": protocolVersion,
       },
-      body: JSON.stringify({ ...signalling.held, offers: [{ sdp: offer.sdp, proof }] }),
+      body: JSON.stringify({
+        ...signalling.held,
+        offers: [{ sdp: offerThroughDiscovery(offer.sdp), proof }],
+      }),
     });
     if (!response.ok) {
       throw new Error(`the discovery answered ${String(response.status)}`);
