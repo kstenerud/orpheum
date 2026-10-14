@@ -98,7 +98,8 @@ func TestCore_ACoreEnrolsIsClaimedAndSendsItsAddresses(t *testing.T) {
 		Candidates: func() []discoveryproto.Candidate {
 			return []discoveryproto.Candidate{{Address: "2a0f:1000::1", Port: 443, Source: "interface"}}
 		},
-		Answerer: answering{}, OnClaimed: func(context.Context) {},
+		Answerer: answering{}, OnClaimed: func(context.Context) {}, Random: rand.Reader,
+		RetryFirst: 10 * time.Millisecond, RetryMost: 100 * time.Millisecond,
 		OfferKey: func(_ context.Context, hash string) ([]byte, error) {
 			if hash != link.LocatorHash("a device's locator") {
 				return nil, errors.New("no such locator")
