@@ -7,7 +7,9 @@
 # such a database aside, starts again, and logs at debug (D249 §4).
 deployment = "{{.Deployment}}"
 
-# The public name, whose A and AAAA records point at the VPS (deploy/vps/README.md §2).
+# The public name, whose A and AAAA records point at the VPS (deploy/vps/README.md §2). Empty for a
+# core reached through its discovery, which names it and gets its certificate (D292 §7): it then
+# serves no HTTPS of its own name.
 domain = "media.orpheum-app.com"
 # The e-mail address Let's Encrypt writes to about the certificate. Fill in.
 contact = ""

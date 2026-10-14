@@ -176,6 +176,22 @@ func overlay(values *Values, changed Values, change string) {
 	}
 }
 
+func TestWrite_ACoreWithNoNameOfItsOwnServesNoHTTPSOfOne(t *testing.T) {
+	t.Parallel()
+	dir := begun(t, Staging)
+	values := filledValues(t, Staging)
+	values.Domain = ""
+	if problems := values.Problems(); len(problems) != 0 {
+		t.Errorf("a values file with no domain has problems %v; want none: its discovery names it", problems)
+	}
+	if err := Write(dir, values, runtime); err != nil {
+		t.Fatal(err)
+	}
+	if got := decodeTOML(t, filepath.Join(dir, coreConfig))["https"]["domain"]; got != "" {
+		t.Errorf("the core config's https.domain is %v; want empty, so it serves no HTTPS of a name of its own", got)
+	}
+}
+
 func TestValues_TheMTUFollowsTheEndpointsFamilyUnlessTheOwnerSetsOne(t *testing.T) {
 	t.Parallel()
 	values := filledValues(t, Release)

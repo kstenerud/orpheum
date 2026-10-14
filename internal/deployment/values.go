@@ -134,9 +134,6 @@ func (values Values) Problems() []string {
 	if values.Deployment != Release && values.Deployment != Staging {
 		problems = append(problems, fmt.Sprintf("deployment %q: want %q or %q", values.Deployment, Release, Staging))
 	}
-	if values.Domain == "" {
-		problems = append(problems, "domain: the public name, whose records point at the VPS")
-	}
 	if !strings.Contains(values.Contact, "@") {
 		problems = append(problems, "contact: the e-mail address Let's Encrypt writes to")
 	}
