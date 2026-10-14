@@ -21,8 +21,8 @@ func localSuffixes() []string {
 // LANHandler is Handler for the core's plain-HTTP listener on the house's network: a request naming
 // a host a rebinding page could have pointed at the core is refused with 421, and anything else
 // answered (the discovery protocol's §7 item 10; S15). It takes an IP literal, localhost, a name
-// public DNS never answers, a name the config gives (names), and a name under the core's own at its
-// discovery.
+// public DNS never answers, a name the config gives (names), a name under the core's own at its
+// discovery, and no name at all, which no browser sends.
 func (server *Server) LANHandler(names []string) http.Handler {
 	configured := make([]string, 0, len(names))
 	for _, name := range names {
@@ -49,10 +49,9 @@ func (server *Server) isLANHost(host string, configured []string) bool {
 	if _, err := netip.ParseAddr(host); err == nil {
 		return true
 	}
-	switch {
-	case host == "" || host == "localhost" || !strings.Contains(host, "."):
-		return host != ""
-	case slices.Contains(configured, host):
+	// No Host at all is a request no browser sends, as a container's health check makes over
+	// HTTP/1.0: no rebinding page can send it.
+	if host == "" || host == "localhost" || !strings.Contains(host, ".") || slices.Contains(configured, host) {
 		return true
 	}
 	for _, suffix := range localSuffixes() {
