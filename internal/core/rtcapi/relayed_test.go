@@ -101,6 +101,33 @@ func TestAnswerRelayed_ConnectsNoClientOnTheCoresOwnNetwork(t *testing.T) {
 	}
 }
 
+// connectedCount is how many connections the core counted as connected, by any path.
+func connectedCount(server *rtcapi.Server) int {
+	count := 0
+	for path, each := range server.PathCounts() {
+		if path != rtcapi.PathFailed {
+			count += each
+		}
+	}
+	return count
+}
+
+// awaitConnected waits, ten seconds at most, until the core counted count connections as connected.
+func awaitConnected(t *testing.T, server *rtcapi.Server, count int) {
+	t.Helper()
+	giveUp := time.NewTimer(10 * time.Second)
+	defer giveUp.Stop()
+	look := time.NewTicker(10 * time.Millisecond)
+	defer look.Stop()
+	for connectedCount(server) < count {
+		select {
+		case <-giveUp.C:
+			t.Fatalf("the core counted %d connections; want %d", connectedCount(server), count)
+		case <-look.C:
+		}
+	}
+}
+
 // waitingServer is a server whose handler holds a request for /wait until the test releases it.
 func waitingServer(t *testing.T, bounds rtcapi.Bounds) (*rtcapi.Server, chan<- struct{}) {
 	t.Helper()
@@ -128,13 +155,17 @@ func waitingServer(t *testing.T, bounds rtcapi.Bounds) (*rtcapi.Server, chan<- s
 // flight on one connection than its limit (the security audit's A2, code K16).
 func TestAnswer_HoldsEachClientWithinItsBounds(t *testing.T) {
 	t.Parallel()
-	// Two in flight: the channel every client opens to have something to negotiate, and one request.
-	server, release := waitingServer(t, rtcapi.Bounds{PerSource: 1, Channels: 2})
+	// One request in flight; the channel every client opens to have something to negotiate takes no
+	// request's place.
+	server, release := waitingServer(t, rtcapi.Bounds{PerSource: 1, Channels: 1})
 	client := rtcapitest.Connect(t, server.Answer, rtcapitest.OnLoopback())
 	if !strings.Contains(client.AnswerSDP(), "a=max-message-size:65536") {
 		t.Errorf("the answer does not bound a client's messages to %d bytes:\n%s", rtcapi.MaxMessageBytes,
 			client.AnswerSDP())
 	}
+	// The core counts the first as connected before the second dials: otherwise, on a loaded machine,
+	// the core may see the second connect first and close the first as the one past the share.
+	awaitConnected(t, server, 1)
 	if second, isConnected := rtcapitest.Dial(t, server.Answer, 10*time.Second, rtcapitest.OnLoopback()); isConnected &&
 		!second.IsClosedWithin(10*time.Second) {
 		t.Error("a second connection from a network allowed one was kept")
@@ -149,6 +180,19 @@ func TestAnswer_HoldsEachClientWithinItsBounds(t *testing.T) {
 	}
 	if !client.Begin(rtcapi.RequestHead{Method: http.MethodGet, Path: "/now"}, true).IsAnsweredWithin(5 * time.Second) {
 		t.Error("a request once the one in flight was answered was not taken")
+	}
+}
+
+// The channel a client opens only to negotiate its offer takes no request's place: on a connection
+// that may hold one request at a time, a request is answered at once, not after the negotiation
+// channel's deadline (staging, 2026-10-14, where each connection's showed as a request that never
+// arrived).
+func TestChannel_TheNegotiationChannelTakesNoRequestsPlace(t *testing.T) {
+	t.Parallel()
+	server, _ := waitingServer(t, rtcapi.Bounds{Channels: 1, RequestDeadline: 20 * time.Second})
+	client := rtcapitest.Connect(t, server.Answer)
+	if !client.Begin(rtcapi.RequestHead{Method: http.MethodGet, Path: "/now"}, true).IsAnsweredWithin(5 * time.Second) {
+		t.Error("a request waited behind the negotiation channel")
 	}
 }
 
