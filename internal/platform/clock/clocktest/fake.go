@@ -44,6 +44,28 @@ func (fake *Fake) Advance(step time.Duration) {
 	fake.fireDueLocked()
 }
 
+// AdvanceToNext moves the Fake's time to the earliest armed timer's, firing it, and reports whether
+// one was armed; with none, the time stays. A test that runs code over a span of fake time steps it
+// so, and the time never runs ahead of code a busy machine slowed.
+func (fake *Fake) AdvanceToNext() bool {
+	fake.mutex.Lock()
+	defer fake.mutex.Unlock()
+	if len(fake.timers) == 0 {
+		return false
+	}
+	next := fake.timers[0].firesAt
+	for _, timer := range fake.timers[1:] {
+		if timer.firesAt.Before(next) {
+			next = timer.firesAt
+		}
+	}
+	if next.After(fake.now) {
+		fake.now = next
+	}
+	fake.fireDueLocked()
+	return true
+}
+
 // Sleep moves the Fake's time forward by wait, as though the wait had passed, and returns at once:
 // a test never waits in real time. A context already ended is its error, and the time stays.
 func (fake *Fake) Sleep(ctx context.Context, wait time.Duration) error {
