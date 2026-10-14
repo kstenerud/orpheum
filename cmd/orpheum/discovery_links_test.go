@@ -112,3 +112,22 @@ func TestHeartbeatCandidates_SendTheConfiguredAddressesBesideTheMapped(t *testin
 		t.Errorf("the heartbeat's candidates are %+v; want the mapped one and the configured one", got)
 	}
 }
+
+// A core in a container sends none of the addresses its interfaces hold, only what is mapped and
+// configured; one on its machine sends them too (the owner, 2026-10-14).
+func TestHeartbeatCandidates_InAContainerSendNoInterfaceAddresses(t *testing.T) {
+	t.Parallel()
+	var config Config
+	config.HTTPS.Listen = ":443"
+	config.Discovery.ConfiguredAddresses = []string{"11.22.44.146:443"}
+	none := func() []discoveryproto.Candidate { return nil }
+	got := heartbeatCandidates(config, none)()
+	want := []discoveryproto.Candidate{{Address: "11.22.44.146", Port: 443, Source: discoveryproto.SourceConfigured}}
+	if !slices.Equal(got, want) {
+		t.Errorf("a core told to send no interface addresses sends %+v; want the configured one alone", got)
+	}
+	config.Discovery.SendInterfaceAddresses = true
+	if withInterfaces := heartbeatCandidates(config, none)(); len(withInterfaces) != len(interfaceCandidates(443))+1 {
+		t.Errorf("a core told to send them sends %+v; want its interfaces' beside the configured", withInterfaces)
+	}
+}
