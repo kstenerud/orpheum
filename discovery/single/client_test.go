@@ -184,6 +184,7 @@ func answerAll(t *testing.T, built clientStage) {
 			reply := discoveryproto.SignalMessage{
 				Type: discoveryproto.SignalAnswer, OfferID: offer.OfferID,
 				SDP: offer.SDP + " under " + offer.LocatorHash, Signature: []byte(offer.Proof),
+				PublicKey: []byte("the core's key"),
 			}
 			if wsjson.Write(t.Context(), connection, reply) != nil {
 				return
@@ -207,9 +208,10 @@ func TestOffers_ReachTheCoreWithTheHashTheDeviceFoundItByAndComeBackInOrder(t *t
 	}
 	hash := link.LocatorHash(aLocator)
 	if len(answered.Answers) != 2 || answered.Answers[0].SDP != "first under "+hash ||
-		answered.Answers[1].SDP != "second under "+hash || string(answered.Answers[1].Signature) != "p2" {
+		answered.Answers[1].SDP != "second under "+hash || string(answered.Answers[1].Signature) != "p2" ||
+		string(answered.Answers[0].PublicKey) != "the core's key" {
 		t.Errorf("the answers are %+v; want each offer's, in order, passed under the locator's hash with "+
-			"its proof", answered.Answers)
+			"its proof, and the core's key", answered.Answers)
 	}
 	var located discoveryproto.LocateResponse
 	if status, _ := built.ask(t, discoveryproto.PathLocate,

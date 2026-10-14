@@ -298,6 +298,7 @@ func (discovery *Discovery) offers(writer http.ResponseWriter, request *http.Req
 			answered, offerErr := discovery.Offer(ctx, offer, hash)
 			answers[index] = discoveryproto.OfferAnswer{
 				OfferID: answered.OfferID, SDP: answered.SDP, Signature: answered.Signature,
+				PublicKey: answered.PublicKey,
 			}
 			if offerErr != nil {
 				answers[index].Refusal = offerErr.Error()

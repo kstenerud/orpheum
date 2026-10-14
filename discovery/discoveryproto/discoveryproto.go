@@ -242,7 +242,11 @@ type SignalMessage struct {
 	LocatorHash string `json:"locatorHash,omitempty"`
 	Proof       string `json:"proof,omitempty"`
 	Signature   []byte `json:"signature,omitempty"`
-	Reason      string `json:"reason,omitempty"`
+	// PublicKey is the core's identity key, on an answer: a client holding only a link's fingerprint
+	// checks that the key's SHA-256 is it, then the signature with the key, so it takes the key on
+	// nobody's word (the protocol's §2.5 item 4, §3.5).
+	PublicKey []byte `json:"publicKey,omitempty"`
+	Reason    string `json:"reason,omitempty"`
 }
 
 // ACMEChallengeRequest sets the TXT record of name, which is _acme-challenge.<coreId>.<zone>, to

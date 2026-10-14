@@ -110,6 +110,8 @@ type OfferAnswer struct {
 	OfferID   string `json:"offerId"`
 	SDP       string `json:"sdp,omitempty"`
 	Signature []byte `json:"signature,omitempty"`
+	// PublicKey is the core's identity key, which the client checks against the fingerprint it holds.
+	PublicKey []byte `json:"publicKey,omitempty"`
 	Refusal   string `json:"refusal,omitempty"`
 }
 

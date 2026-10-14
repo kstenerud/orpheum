@@ -137,7 +137,7 @@ func (service *Service) answerOffer(
 	}
 	return discoveryproto.SignalMessage{
 		Type: discoveryproto.SignalAnswer, OfferID: offer.OfferID, SDP: answer.SDP,
-		Signature: service.parts.Key.SignAnswer(signed),
+		Signature: service.parts.Key.SignAnswer(signed), PublicKey: service.parts.Key.Public(),
 	}
 }
 

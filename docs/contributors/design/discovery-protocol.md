@@ -381,13 +381,14 @@ at a time.
    A `TestArch_` claim that an offer through `internal/core/discovery` reaches `rtcapi` only after
    the core's own check enforces it (A2).
 4. The core answers as `internal/core/rtcapi` answers its own `POST /rtc/offer`:
-   `{"type": "answer", "offerId", "sdp", "signature"}`, or
+   `{"type": "answer", "offerId", "sdp", "signature", "publicKey"}`, or
    `{"type": "refusal", "offerId", "reason"}`. **`signature`** is the core's identity key over the
    **exact answer SDP**, with the `offerId` and the client's offer fingerprint, under the answer's
    own purpose (D292 §4; A7, A9, T12). A7 also names the discovery's origin; it is left out, since
    the client knows the discovery by its client origin and the core by its API base URL, and the
    client's own fingerprint already ties the answer to one offer [I]. The client checks it against
-   the key it remembers, or the fingerprint its link or QR carried (§3.1, §3.5), and passes that exact string
+   the key it remembers, or the fingerprint its link or QR carried (§3.1, §3.5): the answer carries the
+   core's public key, which the client takes only when its SHA-256 is that fingerprint. It passes that exact string
    to `setRemoteDescription`; it refuses an answer with more than one fingerprint or any hash but
    sha-256 (A7). The binding is mutual: the answer covers the client's fingerprint too (A9). Built
    on the core (`proof.Answer`, `SignalMessage.signature`, the fields a line each, the SDP last);

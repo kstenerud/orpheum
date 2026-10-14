@@ -148,6 +148,7 @@ type Answer struct {
 	OfferID   string
 	SDP       string
 	Signature []byte
+	PublicKey []byte
 }
 
 // Offer passes a client's WebRTC offer to the core, with the hash the client found it by and the
@@ -189,6 +190,6 @@ func (discovery *Discovery) Offer(
 		if reply.Type != discoveryproto.SignalAnswer {
 			return Answer{OfferID: offerID}, fmt.Errorf("%w: %s", ErrRefused, reply.Reason)
 		}
-		return Answer{OfferID: offerID, SDP: reply.SDP, Signature: reply.Signature}, nil
+		return Answer{OfferID: offerID, SDP: reply.SDP, Signature: reply.Signature, PublicKey: reply.PublicKey}, nil
 	}
 }
