@@ -25,7 +25,7 @@ func fillValues(t *testing.T, dir string) {
 	filled := strings.NewReplacer(
 		`contact = ""`, `contact = "owner@example.org"`,
 		`endpoint = ""`, `endpoint = "[2001:db8::7]:51820"`,
-		`public_ipv4 = ""`, `public_ipv4 = "203.0.113.7"`,
+		`public_ipv4 = ""`, `public_ipv4 = "11.22.44.146"`,
 		`public_key = ""`, `public_key = "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE="`,
 		`roots = []`, `roots = ["/srv/media"]`,
 	).Replace(string(text))

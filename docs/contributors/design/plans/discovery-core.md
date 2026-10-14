@@ -225,7 +225,8 @@ needs the owner's gate (`internal/archtest`), in its place a review invariant in
   skipped; a change is sent at once rather than found by the minute's poll (§2.4, C7); other
   systems keep `net.InterfaceAddrs`. Addresses are classed by K1's function, so carrier-NAT and
   DS-Lite ranges are never public. `configured` candidates come from the config: the admin's
-  port-forward or own VPS (§2.4; not built). The staging core's direct IPv4 path is its VPS's
+  port-forward or own VPS (§2.4; built 2026-10-14 as `[discovery] configured_addresses`, which a
+  deployment fills from its values' `vps.public_ipv4` and `vps.public_ipv6`). The staging core's direct IPv4 path is its VPS's
   address as a `configured` candidate (infrastructure §3 change 4), and a household keeps its own
   VPS this way rather than retiring it (§2.4; N11).
 - **Builds** §2.4; findings C7, C9, N11.

@@ -131,6 +131,7 @@ relay_port_max = 49199
 [discovery]
 retry_first_milliseconds = 1000
 retry_most_milliseconds = 300000
+configured_addresses = []
 
 [database]
 read_connections_minimum = 4

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/core/certificate"
 )
 
@@ -179,6 +180,7 @@ relay_port_max = 49199
 [discovery]
 retry_first_milliseconds = 1000
 retry_most_milliseconds = 300000
+configured_addresses = []
 
 [database]
 read_connections_minimum = 4
@@ -278,6 +280,30 @@ func TestDiscoveryConfig_RefusesAWaitThatIsNoneAndAMostShorterThanTheFirst(t *te
 		err := DiscoveryConfig{RetryFirstMilliseconds: tc.first, RetryMostMilliseconds: tc.most}.check()
 		if (err != nil) != tc.isRefused {
 			t.Errorf("first %d ms, most %d ms: %v; want refused: %t", tc.first, tc.most, err, tc.isRefused)
+		}
+	}
+}
+
+// A configured address is a public address with its port, sent as a configured candidate; the
+// machine's own or a documentation address is refused (the protocol's §2.4).
+func TestDiscoveryConfig_ConfiguredAddressesArePublicAndSentAsConfigured(t *testing.T) {
+	t.Parallel()
+	discovery := DiscoveryConfig{
+		RetryFirstMilliseconds: 1000, RetryMostMilliseconds: 1000,
+		ConfiguredAddresses: []string{"11.22.44.146:443", "[2a0f:4000:1c16:2684::3]:8443"},
+	}
+	if err := discovery.check(); err != nil {
+		t.Fatal(err)
+	}
+	got := discovery.configuredCandidates()
+	if len(got) != 2 || got[0].Address != "11.22.44.146" || got[1].Port != 8443 ||
+		got[1].Source != discoveryproto.SourceConfigured {
+		t.Errorf("the configured candidates are %+v; want both, as configured", got)
+	}
+	for _, refused := range []string{"192.168.1.20:443", "203.0.113.7:443", "11.22.44.146", "[::1]:443"} {
+		discovery.ConfiguredAddresses = []string{refused}
+		if discovery.check() == nil {
+			t.Errorf("configured address %q was taken", refused)
 		}
 	}
 }

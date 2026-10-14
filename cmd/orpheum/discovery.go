@@ -46,7 +46,8 @@ func newDiscovery(
 		Files: opened.directories, Key: key, HTTP: opened.jobServices.outboundClient, Clock: clock.System{},
 		Logger: logger, Version: thisBuild().Version, APIMajor: apiMajor,
 		Candidates: func() []discoveryproto.Candidate {
-			return append(interfaceCandidates(httpsPort(config)), mapped.Candidates()...)
+			return append(append(interfaceCandidates(httpsPort(config)), mapped.Candidates()...),
+				config.Discovery.configuredCandidates()...)
 		},
 		Answerer: answerer, OnClaimed: onClaimed,
 		RetryFirst: retryFirst, RetryMost: retryMost, Random: rand.Reader,
