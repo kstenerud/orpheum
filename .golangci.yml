@@ -702,8 +702,9 @@ linters:
         linters: [forbidigo]
         text: '\[delete\]'
       # A write, whole: it renames only its own temporary over the name it writes, and removes only
-      # that temporary, so it destroys nothing a plain write would not (internal/platform/atomics).
-      - path: ^internal/platform/atomics/atomics(_test)?\.go$
+      # that temporary, so it destroys nothing a plain write would not (internal/platform/atomics, and
+      # its copy in discovery/single, which a public package keeps, being unable to import it).
+      - path: ^(internal/platform/atomics/atomics(_test)?|discovery/single/record)\.go$
         linters: [forbidigo]
         text: '\[(delete|media-root)\]'
       # The node's own rendition shelf, which it writes whole through atomics; never a media root.
