@@ -1,10 +1,22 @@
 // SPDX-License-Identifier: MPL-2.0
 
 /**
- * The English catalogue's people part: the admin's People page (people), a person's page (person)
- * and the roles (roles), kept apart so the catalogue fits in one read (en.ts).
+ * The English catalogue's people part: setting up a server's first admin (setUp), the admin's People
+ * page (people), a person's page (person) and the roles (roles), kept apart so the catalogue fits in
+ * one read (en.ts).
  */
 export const enPeople = {
+  setUp: {
+    heading: "Set up this server",
+    explain:
+      "This server has no admin yet. Enter the setup code from its log (or run `orpheum setup-code` on it), and choose the first admin's name and password.",
+    code: "Setup code",
+    submit: "Create the admin",
+    back: "Back",
+    wrongCode:
+      "That setup code is wrong. It is in the server's log, or run `orpheum setup-code` on it.",
+    alreadySetUp: "This server already has an admin. Go back and sign in.",
+  },
   people: {
     heading: "People",
     nameTaken: "Someone already has that name. Choose another.",

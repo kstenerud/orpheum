@@ -57,10 +57,9 @@ compose file, the configs and the tunnel's config into `.staging/` from your val
    nas.example's, give staging its own `tunnel_ipv4` and `tunnel_ipv6` (`deploy/release/README.md` §6).
 4. `./staging` again. It renders the configs, starts the three services and waits until they are
    healthy, then prints the address on the house's network.
-5. `./staging setup-code` prints the one-time code. The web client has no screen for it yet
-   (agent-failures A29): make the first admin with `POST /api/v1/setup`, as
-   `deploy/release/README.md` §3 step 6 shows, then sign in at `http://devnas.example:8440` and add the
-   libraries.
+5. `./staging setup-code` prints the one-time code. At `http://devnas.example:8440`, sign in with any
+   name and password: a server with no admin opens **Set up this server**, which takes the code and
+   the first admin's name and password. Then add the libraries.
 6. In **Settings**, under **Keys and passwords**, enter the Cloudflare token as
    `dns_provider_token` (`deploy/vps/README.md` §2 says how to make it). The certificate follows,
    and `https://media.orpheum-app.com` works from outside.

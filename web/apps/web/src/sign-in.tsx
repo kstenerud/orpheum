@@ -3,9 +3,10 @@
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { signIn } from "./accounts.ts";
+import { ApiProblem } from "@orpheum/sdk";
+
+import { signInThisDevice } from "./accounts.ts";
 import { CodeSignIn } from "./code-sign-in.tsx";
-import { thisDevice } from "./device.ts";
 import {
   CredentialsField,
   CredentialsForm,
@@ -14,6 +15,7 @@ import {
 } from "./credentials-form.tsx";
 import { fieldProblemText, signedOutText } from "./problem.ts";
 import { useServices } from "./services.tsx";
+import { SetUp } from "./set-up.tsx";
 import { useRequest } from "./use-request.ts";
 
 /** Why the last session ended, when the server ended it; nothing otherwise. */
@@ -75,6 +77,19 @@ export function SignInForm(props: {
   );
 }
 
+/** Whether a sign-in went no further because the server needs setting up; other failures are thrown. */
+async function needsSetUp(signingIn: Promise<void>): Promise<boolean> {
+  try {
+    await signingIn;
+    return false;
+  } catch (cause) {
+    if (cause instanceof ApiProblem && cause.code === "setup_required") {
+      return true;
+    }
+    throw cause;
+  }
+}
+
 /** Signs in: the form, sent to the server, and the session kept on success. */
 export function SignIn(): JSX.Element {
   const { t } = useTranslation();
@@ -96,23 +111,22 @@ export function SignIn(): JSX.Element {
     }),
   );
   const [isUsingCode, setIsUsingCode] = useState(false);
-  if (isUsingCode) {
-    return (
-      <CodeSignIn
-        onBack={() => {
-          setIsUsingCode(false);
-        }}
-      />
-    );
+  // A server no one can sign in to yet is set up here, rather than by a request typed by hand (A31).
+  const [isSettingUp, setIsSettingUp] = useState(false);
+  if (isUsingCode || isSettingUp) {
+    const back = (): void => {
+      setIsUsingCode(false);
+      setIsSettingUp(false);
+    };
+    return isSettingUp ? <SetUp onBack={back} /> : <CodeSignIn onBack={back} />;
   }
   const submit = (): void => {
     runRequest(async (idempotencyKey) => {
-      const { token, deviceSecret, locator, user } = await signIn(
-        api,
-        { name, password, device: thisDevice(session) },
-        idempotencyKey,
-      );
-      session.signIn(token, { deviceId: user.device?.id, deviceSecret, locator });
+      if (
+        await needsSetUp(signInThisDevice({ api, session }, { name, password }, idempotencyKey))
+      ) {
+        setIsSettingUp(true);
+      }
     });
   };
   return (
