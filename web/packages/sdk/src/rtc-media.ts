@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import type { operations } from "./gen/api.ts";
+
 /**
  * Media over the WebRTC path (plans/webrtc-transport.md W2b). What the browser loads by itself, an
  * image, a video's bytes, hls.js's chunks, a subtitle track, cannot use a data channel. A service
@@ -80,8 +82,14 @@ export interface MediaCredentials {
   readonly viewer: string | undefined;
 }
 
-/** The header a viewer's membership goes in (internal/core/api.ViewerHeaderName). */
-export const viewerHeaderName = "Orpheum-Viewer";
+/** The headers a film's chunk is asked for with, as the API declares them. */
+type ChunkHeaders = NonNullable<operations["getChunkFile"]["parameters"]["header"]>;
+
+/**
+ * The header a viewer's membership goes in (internal/core/api.ViewerHeaderName), checked against the
+ * API's declaration, so a rename on the server fails the type check rather than the guest's film.
+ */
+export const viewerHeaderName = "Orpheum-Viewer" satisfies keyof ChunkHeaders;
 
 export interface PortLike {
   postMessage(message: unknown, transfer?: Transferable[]): void;
