@@ -19,7 +19,9 @@ func TestLANHandler_AnswersTheHousesNamesAndRefusesAnyOther(t *testing.T) {
 		"192.168.1.20:8440": true, "[fd00::20]:8440": true, "localhost:8440": true, "nas:8440": true,
 		"nas.example:8440": true, "NAS.Local": true, "server.home.arpa": true, "box.internal": true,
 		"media.orpheum-app.com": true, "media.orpheum-app.com.": true,
-		"rebind.attacker.example": false, "orpheum-app.com": false, "": false,
+		"rebind.attacker.example": false, "orpheum-app.com": false,
+		// No Host is a container's HTTP/1.0 health check; a browser always sends one.
+		"": true,
 	} {
 		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, Prefix+"/health", http.NoBody)
 		request.Host = host
