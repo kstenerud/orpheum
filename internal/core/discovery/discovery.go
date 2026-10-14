@@ -144,9 +144,10 @@ type Status struct {
 	// ClientOrigin is where the discovery serves its client, which the core's links lead to; empty
 	// until it says, or when what it said is not an https origin (D293 §4).
 	ClientOrigin string
-	// Fingerprint is the identity key's, which the core's links carry and a person can compare
-	// (proof.Fingerprint).
-	Fingerprint string
+	// Fingerprint is the identity key's, which the core's links carry (proof.Fingerprint), and
+	// FingerprintText the same as a person reads and compares it, in safe32 groups
+	// (proof.FingerprintText).
+	Fingerprint, FingerprintText string
 }
 
 // Service keeps the core enrolled with its discovery: it connects when an admin asks, then keeps a
@@ -250,6 +251,7 @@ func (service *Service) Status() Status {
 	defer service.mutex.Unlock()
 	status := service.status
 	status.Fingerprint = proof.Fingerprint(service.parts.Key.Public())
+	status.FingerprintText = proof.FingerprintText(service.parts.Key.Public())
 	status.Published = slices.Clone(status.Published)
 	status.Probe = slices.Clone(status.Probe)
 	status.ICEServers = slices.Clone(status.ICEServers)

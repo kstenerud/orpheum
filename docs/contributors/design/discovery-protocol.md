@@ -140,8 +140,11 @@ from the config's `[discovery]` table, 1 s doubling to 5 minutes, the developmen
 
 `internal/core/identity`: an Ed25519 key pair made on first start, kept as `identity.key` beside
 `secret.key` (D194), mode 0600, never in the database. It is not the TLS key. Its **fingerprint**,
-`SHA-256(public key)` in safe32 groups, is shown on the System page and carried in every link and QR
-the core makes (D292 §4; §3.1). Not built: neither.
+`SHA-256(public key)`, is carried in every link and QR the core makes in base64url, 43 characters,
+which machines read (D292 §4; §3.1), and shown wherever a person reads, compares or types it in
+safe32 groups, 52 characters in 13 groups of four, as the core's other codes are written: no letters
+that look alike, case ignored (the owner, 2026-10-14). Built: both forms (`proof.Fingerprint`,
+`proof.FingerprintText`), the System page showing the second.
 
 **Backups and the recovery code** (D292 §4, revising D289 §2's leaving the key out; A6). When the
 core is claimed it makes a **recovery code**, 128 random bits, shown once on the System page to

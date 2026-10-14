@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"testing"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
@@ -34,13 +35,17 @@ func enrollingDiscovery(t *testing.T) *httptest.Server {
 	return fake
 }
 
+// fingerprintText is a fingerprint as a person reads it: 13 groups of four safe32 characters.
+var fingerprintText = regexp.MustCompile(`^([0-9a-hjkmnp-tv-z]{4}-){12}[0-9a-hjkmnp-tv-z]{4}$`)
+
 // wantPendingWithItsCode fails the test unless a connected core is pending at baseURL with its
 // claim code and its identity key's fingerprint.
 func wantPendingWithItsCode(t *testing.T, status DiscoveryStatusBody, baseURL string) {
 	t.Helper()
 	if status.BaseURL != baseURL || status.State != "pending" || status.ClaimCode != "WXYZ-2345" ||
-		len(status.Fingerprint) != 43 {
-		t.Errorf("connected = %+v; want pending at %s with its claim code and the key's fingerprint", status, baseURL)
+		!fingerprintText.MatchString(status.Fingerprint) {
+		t.Errorf("connected = %+v; want pending at %s with its claim code and the key's fingerprint, "+
+			"in safe32 groups for a person to read", status, baseURL)
 	}
 }
 

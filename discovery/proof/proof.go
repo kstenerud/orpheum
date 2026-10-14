@@ -8,6 +8,8 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"strings"
+
+	"github.com/kstenerud/orpheum/discovery/safe32code"
 )
 
 // prefix separates a core's signatures from any other use of its key: it names the protocol, as the
@@ -72,6 +74,24 @@ func KeyLabel(publicKey ed25519.PublicKey) string {
 func Fingerprint(publicKey ed25519.PublicKey) string {
 	digest := sha256.Sum256(publicKey)
 	return base64.RawURLEncoding.EncodeToString(digest[:])
+}
+
+// fingerprintTextChars is the fingerprint written for a person: 52 safe32 characters, 13 groups of
+// four, which hold all of SHA-256's 256 bits.
+const fingerprintTextChars = 52
+
+// FingerprintText is the identity key's fingerprint as a person reads, compares or types it: the same
+// SHA-256 as Fingerprint, in safe32 groups, "k7xq-2m4p-…", as the core's other codes are written:
+// no letters that look alike, case ignored. Links and QR codes, which machines read, carry
+// Fingerprint (the protocol's §2.1; the owner, 2026-10-14).
+func FingerprintText(publicKey ed25519.PublicKey) string {
+	digest := sha256.Sum256(publicKey)
+	// A zero byte after the digest, since 52 characters take 260 bits and the digest has 256.
+	text, err := safe32code.WriteBytes(append(digest[:], 0), fingerprintTextChars)
+	if err != nil {
+		return "" // unreachable: 264 bits are more than 52 characters take
+	}
+	return text
 }
 
 // SessionOfferKey is what an offer made by a signed-in client is proven under: SHA-256 of its

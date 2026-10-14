@@ -73,7 +73,7 @@ it("says where a claimed server is reached from, and warns of the discovery's de
         published: ["k7xq2.orpheum-core.com"],
         deprecatedUntil: "2027-03-01",
         clientOrigin: "https://app.orpheum-app.com",
-        fingerprint: "Zmh6rfhivXdsj8GLjp-OIAiXFIVu4jOzkCpZHQ1fKSU",
+        fingerprint: "k7xq-2m4p-9tbd-hc3w-0vze-8gnr-5sya-j6kf-1qmw-p4dt-xb7c-re2h-9n0g",
         webrtcPaths: [
           { path: "direct_ipv6", count: 0 },
           { path: "punched_ipv4", count: 3 },
@@ -103,7 +103,9 @@ it("says where a claimed server is reached from, and warns of the discovery's de
   expect(text).toContain("stops speaking this server's protocol on 2027-03-01");
   // Where its links open, and the fingerprint they carry (D293 §4; the protocol's §3.1).
   expect(text).toContain("Links to this server open at https://app.orpheum-app.com.");
-  expect(text).toContain("fingerprint is Zmh6rfhivXdsj8GLjp-OIAiXFIVu4jOzkCpZHQ1fKSU");
+  expect(text).toContain(
+    "fingerprint is k7xq-2m4p-9tbd-hc3w-0vze-8gnr-5sya-j6kf-1qmw-p4dt-xb7c-re2h-9n0g",
+  );
   expect(text).toContain("[2a0f:1000:1::20]:443 reaches [2a0f:1000:1::20]:443, by UPnP.");
   expect(text).toContain("pcp: the router at 192.168.1.1:5351 did not answer");
   expect(text).toContain("through the router's NAT over IPv4: 3");
