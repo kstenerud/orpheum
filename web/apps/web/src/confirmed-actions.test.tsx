@@ -184,3 +184,59 @@ it("removes a stored secret only when asked again", async () => {
     methodAndPath: "DELETE /secrets/tmdb_api_key",
   });
 });
+
+it("ends a person's own link only when asked again, saying until when it led them back (D292 §4)", async () => {
+  const heard: Heard[] = [];
+  mounted = await mount(
+    withServices(
+      <PersonPage userId={5} />,
+      servedBy(
+        {
+          "GET /users/5": [
+            200,
+            {
+              account: { id: 5, name: "cousin", role: "user", hasPassword: true },
+              watchStats: { watchedMs: 0, titlesWatchedCount: 0 },
+              ownLinkExpiresAt: Date.UTC(2027, 0, 12),
+            },
+          ],
+          "GET /users/5/devices": [200, { devices: [] }],
+          "GET /roles": [200, roles],
+          "DELETE /users/5/own-link": [204, null],
+        },
+        heard,
+      ),
+    ),
+  );
+  expect(mounted.container.textContent).toContain("leads them back to this server until");
+  await pressAndConfirm(heard, {
+    label: "End that link…",
+    confirmLabel: "End it",
+    methodAndPath: "DELETE /users/5/own-link",
+  });
+});
+
+it("shows no own link for a person who has none", async () => {
+  mounted = await mount(
+    withServices(
+      <PersonPage userId={5} />,
+      servedBy(
+        {
+          "GET /users/5": [
+            200,
+            {
+              account: { id: 5, name: "cousin", role: "user", hasPassword: true },
+              watchStats: { watchedMs: 0, titlesWatchedCount: 0 },
+            },
+          ],
+          "GET /users/5/devices": [200, { devices: [] }],
+          "GET /roles": [200, roles],
+        },
+        [],
+      ),
+    ),
+  );
+  expect(mounted.container.textContent).toContain("cousin");
+  expect(mounted.container.textContent).not.toContain("leads them back");
+  expect(buttonWithText(mounted.container, "End that link…")).toBeUndefined();
+});

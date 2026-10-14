@@ -50,6 +50,14 @@ UPDATE "grant" SET kind = 'link', scope = 'own', user_id = sqlc.arg(user_id), re
   expires_at = sqlc.arg(expires_at), last_used_at = sqlc.arg(now)
 WHERE secret_sha256 = sqlc.arg(secret_sha256) AND locate_hash IS NOT NULL;
 
+-- name: GetOwnLinkExpiryOfUser :one
+-- When the person's own link stops locating the core, while they have one.
+SELECT expires_at FROM "grant"
+WHERE user_id = sqlc.arg(user_id) AND kind = 'link' AND scope = 'own' AND revoked_at IS NULL
+  AND expires_at > sqlc.arg(now)
+ORDER BY expires_at DESC
+LIMIT 1;
+
 -- name: RenewOwnLinksOfUser :exec
 -- A signed-in visit renews the person's own link's life, which rolls.
 UPDATE "grant" SET expires_at = sqlc.arg(expires_at)

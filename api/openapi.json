@@ -3142,6 +3142,11 @@
           "account": {
             "$ref": "#/components/schemas/AccountBody"
           },
+          "ownLinkExpiresAt": {
+            "description": "Unix milliseconds",
+            "format": "int64",
+            "type": "integer"
+          },
           "watchStats": {
             "$ref": "#/components/schemas/WatchStatsBody"
           }
@@ -11879,6 +11884,51 @@
           }
         },
         "summary": "Remove a person's device, for the admin: a lost or given-away one",
+        "tags": [
+          "Accounts"
+        ]
+      }
+    },
+    "/users/{id}/own-link": {
+      "delete": {
+        "operationId": "revokeOwnLink",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "End a person's own link, which leads them back to the server through a discovery (D292 §4)",
         "tags": [
           "Accounts"
         ]

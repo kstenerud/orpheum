@@ -3,6 +3,9 @@
 package api
 
 import (
+	"encoding/json"
+	"fmt"
+	"net/http"
 	"slices"
 	"testing"
 
@@ -63,4 +66,44 @@ func TestTogether_AJoiningDeviceIsHandedTheLocatorTheCoreRegisters(t *testing.T)
 	if made := togetherLink(dependencies, "a-secret"); made != "" {
 		t.Errorf("a core no discovery has claimed names the link %q; want none", made)
 	}
+}
+
+// A person's page says until when their own link leads them back, and the admin alone ends it,
+// leaving them signed in (D292 §4; A12).
+func TestPerson_TheAdminSeesAndEndsAPersonsOwnLink(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	invitation := harness.invite(t, admin, "user", "the partner")
+	partner, _ := readSignIn(t, harness.do(t, http.MethodPost, "/registration", "", map[string]any{
+		"secret": invitation.Link.Secret, "name": "partner", "password": "partner-password", "device": testDevice,
+	}))
+	id := harness.accountNamed(t, admin, "partner").ID
+	path := fmt.Sprintf("/users/%d", id)
+	if page := harness.personPage(t, admin, path); page.Body.OwnLinkExpiresAt <= harness.clock.Now().UnixMilli() {
+		t.Errorf("the person's page says their own link ends at %d; want a time to come", page.Body.OwnLinkExpiresAt)
+	}
+	wantError(t, harness.do(t, http.MethodDelete, path+"/own-link", partner, nil), http.StatusForbidden, CodeForbidden)
+	if ended := harness.do(t, http.MethodDelete, path+"/own-link", admin, nil); ended.status != http.StatusNoContent {
+		t.Fatalf("DELETE %s/own-link = %d %s", path, ended.status, ended.body)
+	}
+	if page := harness.personPage(t, admin, path); page.Body.OwnLinkExpiresAt != 0 {
+		t.Errorf("after it ended, the person's page says their own link ends at %d; want none",
+			page.Body.OwnLinkExpiresAt)
+	}
+	if me := harness.do(t, http.MethodGet, "/me", partner, nil); me.status != http.StatusOK {
+		t.Errorf("ending their own link signed the person out: GET /me = %d", me.status)
+	}
+	wantError(t, harness.do(t, http.MethodDelete, "/users/99/own-link", admin, nil), http.StatusNotFound, CodeNotFound)
+}
+
+// personPage is GET path, a person's page, as the admin.
+func (harness testHarness) personPage(t *testing.T, admin, path string) PersonOutput {
+	t.Helper()
+	read := harness.do(t, http.MethodGet, path, admin, nil)
+	var page PersonOutput
+	if err := json.Unmarshal([]byte(read.body), &page.Body); err != nil || read.status != http.StatusOK {
+		t.Fatalf("GET %s = %d %s", path, read.status, read.body)
+	}
+	return page
 }

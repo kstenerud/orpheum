@@ -10,6 +10,7 @@ import {
   removePerson,
   removePersonDevice,
   renamePerson,
+  revokeOwnLink,
   setAdminNote,
   type Device,
   type Person,
@@ -62,7 +63,10 @@ export function PersonPage(props: { readonly userId: number }): JSX.Element {
         <Loaded
           resource={person}
           render={(value) => (
-            <PersonHead person={value} actions={actions} onActivated={reloadDevices} />
+            <>
+              <PersonHead person={value} actions={actions} onActivated={reloadDevices} />
+              <OwnLink person={value} onRevoke={actions.revokeOwnLink} />
+            </>
           )}
         />
         {issued === undefined ? null : <IssuedInvitationView issued={issued} />}
@@ -93,6 +97,7 @@ interface PersonActions {
   readonly issueLink: (name: string) => void;
   readonly remove: (device: Device) => void;
   readonly removePerson: () => void;
+  readonly revokeOwnLink: () => void;
 }
 
 /** What the admin does to a person, one request at a time, and what it issued and why one failed. */
@@ -140,6 +145,9 @@ function usePersonActions(
         reloads.reloadDevices();
       });
     },
+    revokeOwnLink: (): void => {
+      change(() => revokeOwnLink(api, userId));
+    },
     removePerson: (): void => {
       runRequest(async () => {
         await removePerson(api, userId);
@@ -148,6 +156,32 @@ function usePersonActions(
     },
   };
   return { actions, issued, isBusy, problem };
+}
+
+/**
+ * Until when the person's own link leads them back through a discovery, and ending it; nothing while
+ * they have none (D292 §4).
+ */
+function OwnLink(props: {
+  readonly person: Person;
+  readonly onRevoke: () => void;
+}): JSX.Element | null {
+  const { t, i18n } = useTranslation();
+  const { account, ownLinkExpiresAt } = props.person;
+  if (ownLinkExpiresAt === undefined) {
+    return null;
+  }
+  return (
+    <div className="person__own-link">
+      <p>{t("person.ownLink", { date: dateText(ownLinkExpiresAt, i18n.language) })}</p>
+      <ConfirmButton
+        label={t("person.revokeOwnLink")}
+        consequence={t("person.revokeOwnLinkConsequence", { name: account.name })}
+        confirmLabel={t("person.revokeOwnLinkConfirm")}
+        onConfirm={props.onRevoke}
+      />
+    </div>
+  );
 }
 
 /** A person's name, which can be changed, what they have watched, and what the admin can make. */

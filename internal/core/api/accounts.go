@@ -251,6 +251,9 @@ type PersonOutput struct {
 	Body struct {
 		Account    AccountBody    `json:"account"`
 		WatchStats WatchStatsBody `json:"watchStats"`
+		// OwnLinkExpiresAt is when the person's own link stops leading them back through a discovery,
+		// unless a visit renews it; absent when they have none (D292 §4).
+		OwnLinkExpiresAt int64 `doc:"Unix milliseconds" json:"ownLinkExpiresAt,omitempty"`
 	}
 }
 
@@ -280,6 +283,23 @@ func (server *Server) registerPerson() {
 		Summary: "Remove a person: their sessions and devices end, and their own watching is deleted (S40)",
 		Tags:    tags, DefaultStatus: http.StatusNoContent,
 	}, server.removePerson)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "revokeOwnLink", Method: http.MethodDelete, Path: pathPerson + "/own-link",
+		Summary: "End a person's own link, which leads them back to the server through a discovery (D292 §4)",
+		Tags:    tags, DefaultStatus: http.StatusNoContent,
+	}, server.revokeOwnLink)
+}
+
+func (server *Server) revokeOwnLink(ctx context.Context, input *PersonInput) (*struct{}, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	if err = dependencies.Auth.RevokeOwnLink(ctx, input.UserID); err != nil {
+		return nil, server.authError(ctx, "revoke a person's own link", err)
+	}
+	server.logger.InfoContext(ctx, "an admin revoked a person's own link", "userId", input.UserID)
+	return &struct{}{}, nil
 }
 
 func (server *Server) getPerson(ctx context.Context, input *PersonInput) (*PersonOutput, error) {
@@ -307,6 +327,13 @@ func (server *Server) getPerson(ctx context.Context, input *PersonInput) (*Perso
 	output.Body.WatchStats = WatchStatsBody{WatchedMs: stats.WatchedMs, TitlesWatchedCount: stats.TitlesWatched}
 	if !stats.LastWatchedAt.IsZero() {
 		output.Body.WatchStats.LastWatchedAt = stats.LastWatchedAt.UnixMilli()
+	}
+	ownLinkExpires, hasOwnLink, err := dependencies.Auth.OwnLinkExpiry(ctx, input.UserID)
+	if err != nil {
+		return nil, server.authError(ctx, "read a person's own link", err)
+	}
+	if hasOwnLink {
+		output.Body.OwnLinkExpiresAt = ownLinkExpires.UnixMilli()
 	}
 	return output, nil
 }

@@ -131,9 +131,11 @@
 //
 //   - What a discovery finds the core by is kept as hashes, never as a secret: a link's locate hash and
 //     offer key, and a session's locator's hash; a used invitation or registration link becomes its
-//     person's own link, revoking the last, and ends when the person is removed (discovery-core.md
-//     K7). TestLiveLinks_AreEveryLiveLinksHashAndAUsedInvitationLeadsItsPersonBack,
-//     TestRegister_ARegistrationLinkBecomesItsPersonsOwnLinkAndRevokesTheLast.
+//     person's own link, revoking the last, and ends when the person is removed or the admin revokes
+//     it, which signs no one out (discovery-core.md K7).
+//     TestLiveLinks_AreEveryLiveLinksHashAndAUsedInvitationLeadsItsPersonBack,
+//     TestRegister_ARegistrationLinkBecomesItsPersonsOwnLinkAndRevokesTheLast,
+//     TestRevokeOwnLink_EndsTheLinkAndTellsTheDiscoveryLeavingThePersonSignedIn.
 //
 //   - Each session has one device locator, a fresh one on each visit, which ends with the session;
 //     a visit renews the person's own link. TestLiveLocators_EachSessionHasOneFreshOnEachVisitEndingWithTheSession,

@@ -147,6 +147,38 @@ func becomeOwnLink(
 	})
 }
 
+// OwnLinkExpiry is when the person's own link stops locating the core, unless a visit renews it;
+// false when they have none.
+func (service *Service) OwnLinkExpiry(ctx context.Context, userID int64) (time.Time, bool, error) {
+	expires, err := store.OrNotFound(service.database.Read().GetOwnLinkExpiryOfUser(ctx,
+		sqlcgen.GetOwnLinkExpiryOfUserParams{UserID: &userID, Now: new(service.clock.Now().UnixMilli())}))
+	switch {
+	case errors.Is(err, store.ErrNotFound), err == nil && expires == nil:
+		return time.Time{}, false, nil
+	case err != nil:
+		return time.Time{}, false, fmt.Errorf("read the person's own link: %w", err)
+	}
+	return time.UnixMilli(*expires), true, nil
+}
+
+// RevokeOwnLink is the admin ending a person's own link: it locates the core no more, and the
+// discovery is told at once (D292 §4; A12). Their sessions and devices are untouched.
+func (service *Service) RevokeOwnLink(ctx context.Context, userID int64) error {
+	if _, err := liveUser(ctx, service.database.Read(), userID); err != nil {
+		return err
+	}
+	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		return queries.RevokeLiveGrantsOfUser(ctx, sqlcgen.RevokeLiveGrantsOfUserParams{
+			RevokedAt: new(service.clock.Now().UnixMilli()), UserID: &userID, Kind: grantKindLink, Scope: grantScopeOwn,
+		})
+	})
+	if err != nil {
+		return fmt.Errorf("revoke the person's own link: %w", err)
+	}
+	service.linksChanged()
+	return nil
+}
+
 // linksChanged tells whoever registers the core's links with its discovery that they changed.
 func (service *Service) linksChanged() {
 	if service.onLinksChanged != nil {
