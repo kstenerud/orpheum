@@ -182,6 +182,7 @@ relay_port_max = 49199
 retry_first_milliseconds = 1000
 retry_most_milliseconds = 300000
 configured_addresses = []
+lan_addresses = []
 send_interface_addresses = true
 
 [database]
@@ -282,6 +283,30 @@ func TestDiscoveryConfig_RefusesAWaitThatIsNoneAndAMostShorterThanTheFirst(t *te
 		err := DiscoveryConfig{RetryFirstMilliseconds: tc.first, RetryMostMilliseconds: tc.most}.check()
 		if (err != nil) != tc.isRefused {
 			t.Errorf("first %d ms, most %d ms: %v; want refused: %t", tc.first, tc.most, err, tc.isRefused)
+		}
+	}
+}
+
+// A house's address is a private address with its port, the machine's at home and its published HTTPS
+// port, sent beside the configured public ones so the discovery names it for devices at home; a public
+// or loopback address is refused there (the owner, 2026-10-14).
+func TestDiscoveryConfig_LANAddressesArePrivateAndSentBesideThePublic(t *testing.T) {
+	t.Parallel()
+	discovery := DiscoveryConfig{
+		RetryFirstMilliseconds: 1000, RetryMostMilliseconds: 1000,
+		ConfiguredAddresses: []string{"11.22.44.146:443"}, LANAddresses: []string{"192.168.1.199:8443"},
+	}
+	if err := discovery.check(); err != nil {
+		t.Fatal(err)
+	}
+	got := discovery.configuredCandidates()
+	if len(got) != 2 || got[1].Address != "192.168.1.199" || got[1].Port != 8443 {
+		t.Errorf("the configured candidates are %+v; want the public one and the house's", got)
+	}
+	for _, refused := range []string{"11.22.44.146:8443", "127.0.0.1:8443", "192.168.1.20", "[fe80::1]:8443"} {
+		discovery.LANAddresses = []string{refused}
+		if discovery.check() == nil {
+			t.Errorf("house address %q was taken", refused)
 		}
 	}
 }

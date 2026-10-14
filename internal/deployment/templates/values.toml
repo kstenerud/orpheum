@@ -48,3 +48,12 @@ roots = []
 # is every interface; "127.0.0.1" only this machine.
 publish = "0.0.0.0"
 port = 8440
+
+[lan]
+# This machine's address on the house's network, which the server's container cannot see: the
+# discovery names it, so devices at home reach the server over HTTPS in the house rather than out
+# through the VPS and back, the way the microphone needs. Keep the address fixed with a reservation in
+# the router. Empty, devices at home go through the VPS. build.sh fills it in from this machine.
+address = ""
+# The port HTTPS is published on at that address.
+https_port = 8443

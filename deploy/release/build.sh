@@ -38,6 +38,25 @@ writeDeployment() {
 	docker run "$@" "$image" write-deployment --deployment release --image "$image"
 }
 
+# fillLANAddress gives an empty lan.address in the values file this machine's address on the house's
+# network: the source address of its default route, when that is a private one. The server's
+# container cannot see it; an address the owner set is left as it is.
+fillLANAddress() {
+	values="$dir/values.toml"
+	[ -f "$values" ] || return 0
+	address=$(ip -4 route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p')
+	case $address in
+	10.* | 192.168.* | 172.1[6-9].* | 172.2[0-9].* | 172.3[01].*) ;;
+	*) return 0 ;;
+	esac
+	awk -v address="$address" '
+		/^\[/ { section = $0 }
+		section == "[lan]" && $0 == "address = \"\"" { print "address = \"" address "\""; filled = 1; next }
+		{ print }
+		END { if (filled) print "build: lan.address is " address ", this machine'"'"'s address at home" > "/dev/stderr" }
+	' "$values" >"$values.new" && mv "$values.new" "$values"
+}
+
 if [ "$#" -eq 3 ] && [ "$1" = --load ]; then
 	mkdir -p "$3/run"
 	dir=$(cd "$3" && pwd)
@@ -51,7 +70,9 @@ if [ "$#" -eq 3 ] && [ "$1" = --load ]; then
 		echo "build: the archive named no image; was it made by docker save of a tagged image?" >&2
 		exit 1
 	fi
+	fillLANAddress
 	writeDeployment
+	fillLANAddress
 	exit 0
 fi
 [ "$#" -eq 2 ] || usage
@@ -84,4 +105,6 @@ echo "build: building $image (the first build fetches FFmpeg, Go and Node, and t
 DOCKER_BUILDKIT=1 docker build --file "$source/orpheum/deploy/Containerfile" --target runtime \
 	--tag "$image" "$source/orpheum"
 
+fillLANAddress
 writeDeployment
+fillLANAddress

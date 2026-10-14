@@ -386,7 +386,8 @@ func TestWrite_ComposeReadsEveryVariableTheEnvironmentFileSets(t *testing.T) {
 	env := readFile(t, filepath.Join(dir, environmentFile))
 	for _, want := range []string{
 		"ORPHEUM_IMAGE=orpheum:v0.1.0", "ORPHEUM_UID=1000", "ORPHEUM_GID=1001",
-		"ORPHEUM_HTTP_PUBLISH=0.0.0.0", "ORPHEUM_HTTP_PORT=8440", "ORPHEUM_TUNNEL_MTU=1420",
+		"ORPHEUM_HTTP_PUBLISH=0.0.0.0", "ORPHEUM_HTTP_PORT=8440", "ORPHEUM_LAN_HTTPS_PORT=8443",
+		"ORPHEUM_TUNNEL_MTU=1420",
 		"ORPHEUM_TUNNEL_IPV4=10.77.0.2", "ORPHEUM_TUNNEL_IPV6=fd77::2",
 	} {
 		if !strings.Contains(env, want+"\n") {
@@ -523,6 +524,44 @@ func TestNewKeyPair_IsAClampedX25519PairAsWgMakesOne(t *testing.T) {
 	}
 	if !isWireGuardKey(public) {
 		t.Errorf("the public key %s is not a WireGuard key", public)
+	}
+}
+
+// The machine's address at home, which the core's container cannot see, goes to the core with the
+// port HTTPS is published on there, for its discovery to name for devices at home; none is sent when
+// the values file names none, and an address that is not the house's is a problem the values name
+// (the owner, 2026-10-14).
+func TestWrite_TheCoreSendsItsDiscoveryTheMachinesAddressAtHome(t *testing.T) {
+	t.Parallel()
+	dir := begun(t, Staging)
+	values := filledValues(t, Staging)
+	values.LAN.Address = "192.168.1.199"
+	if problems := values.Problems(); len(problems) != 0 {
+		t.Fatalf("the values have problems: %v", problems)
+	}
+	if err := Write(dir, values, runtime); err != nil {
+		t.Fatal(err)
+	}
+	discovery := decodeTOML(t, filepath.Join(dir, coreConfig))["discovery"]
+	if got := fmt.Sprint(discovery["lan_addresses"]); got != "[192.168.1.199:8443]" {
+		t.Errorf("the core's discovery.lan_addresses are %s; want the machine's address on the HTTPS port", got)
+	}
+	if compose := readFile(t, filepath.Join(dir, composeFile)); !strings.Contains(compose,
+		"${ORPHEUM_LAN_HTTPS_PORT:-8443}:443") {
+		t.Error("the compose file does not publish HTTPS at home")
+	}
+	values.LAN.Address = ""
+	if err := Write(dir, values, runtime); err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprint(decodeTOML(t, filepath.Join(dir, coreConfig))["discovery"]["lan_addresses"]); got != "[]" {
+		t.Errorf("with no address at home the core's discovery.lan_addresses are %s; want none", got)
+	}
+	for _, wrong := range []string{"11.22.44.146", "a-name"} {
+		values.LAN.Address = wrong
+		if problems := values.Problems(); !strings.Contains(strings.Join(problems, " "), "lan.address") {
+			t.Errorf("lan.address %q is no problem: %v", wrong, problems)
+		}
 	}
 }
 

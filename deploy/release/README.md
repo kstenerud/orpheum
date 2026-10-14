@@ -77,7 +77,12 @@ As the Orpheum user in the container, with `/srv/orpheum` owned by it:
    roots, so `["/tank/media/video"]` would make one library of everything under it. For example
    `["/tank/media/video/movies", "/tank/media/video/shows"]`, and a root for each series folder that
    sits beside `shows/` rather than in it. Leave out `[node] name` and the node is named after the
-   container.
+   container. `[lan] address` is this machine's address at home, which `build.sh` fills in; check it,
+   and keep it fixed with a reservation in the router. A core with a discovery has it named there, so
+   devices at home reach the server over HTTPS on `[lan] https_port` (8443) inside the house, which
+   the microphone needs, not out through the VPS and back. A router that filters private addresses
+   out of public DNS answers (OpenWrt's and the FRITZ!Box's "rebind protection") needs
+   `orpheum-core.com` as an exception.
 4. Run the same `build.sh` again. It writes the compose file and the configs.
 5. **Swap the public name to nas.example** (§6), then `docker compose up -d` in `/srv/orpheum`.
 6. `docker compose exec orpheum-core orpheum setup-code --instance /var/lib/orpheum/core` prints

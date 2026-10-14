@@ -110,6 +110,11 @@ type DiscoveryConfig struct {
 	// "address:port": the admin's port-forward, or their own VPS through its tunnel, sent to the
 	// discovery as configured candidates (the protocol's §2.4; discovery-core.md K5; N11).
 	ConfiguredAddresses []string `toml:"configured_addresses"`
+	// LANAddresses are the house's addresses that reach the core which the machine's interfaces do
+	// not show it, "address:port": in a container, the machine's own address on the house's network
+	// and the port HTTPS is published on there, which the discovery names for devices at home, so they
+	// reach the core in the house over HTTPS, not out through the VPS and back (the owner, 2026-10-14).
+	LANAddresses []string `toml:"lan_addresses"`
 	// SendInterfaceAddresses is whether the core sends the addresses of the interfaces it sees: true
 	// for a core run on its machine, false in a container, whose interfaces are its own network's and
 	// its tunnel's, which nothing at home reaches; there the deployment names its addresses (the owner,
@@ -117,10 +122,12 @@ type DiscoveryConfig struct {
 	SendInterfaceAddresses bool `toml:"send_interface_addresses"`
 }
 
-// configuredCandidates are the configured addresses as the discovery is sent them.
+// configuredCandidates are the configured addresses, public and the house's, as the discovery is
+// sent them.
 func (discovery DiscoveryConfig) configuredCandidates() []discoveryproto.Candidate {
-	candidates := make([]discoveryproto.Candidate, 0, len(discovery.ConfiguredAddresses))
-	for _, configured := range discovery.ConfiguredAddresses {
+	named := append(slices.Clone(discovery.ConfiguredAddresses), discovery.LANAddresses...)
+	candidates := make([]discoveryproto.Candidate, 0, len(named))
+	for _, configured := range named {
 		if endpoint, err := netip.ParseAddrPort(configured); err == nil {
 			candidates = append(candidates, discoveryproto.Candidate{
 				Address: endpoint.Addr().Unmap().String(), Port: int(endpoint.Port()),
@@ -150,6 +157,13 @@ func (discovery DiscoveryConfig) check() error {
 		if err != nil || endpoint.Port() == 0 || !discoveryproto.IsPublic(endpoint.Addr()) {
 			return fmt.Errorf("discovery.configured_addresses %q: want a public address and its port, "+
 				`"<IPv4>:443" or "[<IPv6>]:443"`, configured)
+		}
+	}
+	for _, named := range discovery.LANAddresses {
+		endpoint, err := netip.ParseAddrPort(named)
+		if err != nil || endpoint.Port() == 0 || !endpoint.Addr().Unmap().IsPrivate() {
+			return fmt.Errorf("discovery.lan_addresses %q: want an address on the house's network and its "+
+				`port, "192.168.1.20:8443"`, named)
 		}
 	}
 	return nil
@@ -329,6 +343,12 @@ func coreConfigKeys() []configKey {
 			tableDiscovery, "configured_addresses", "[]",
 			"public addresses that reach the core which the machine does not hold, \"address:port\": a " +
 				"port-forward, or the VPS's addresses through its tunnel; the discovery publishes them",
+		},
+		{
+			tableDiscovery, "lan_addresses", "[]",
+			"the house's addresses that reach the core which its interfaces do not show it, \"address:port\": " +
+				"in a container, the machine's address at home and its published HTTPS port; the discovery " +
+				"names them for devices at home",
 		},
 		{
 			tableDiscovery, "send_interface_addresses", "true",

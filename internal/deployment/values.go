@@ -87,7 +87,18 @@ type Values struct {
 		Publish string `toml:"publish"`
 		Port    int    `toml:"port"`
 	} `toml:"http"`
+	// LAN is where devices at home reach the core over HTTPS, by the name its discovery gives this
+	// machine's address there: the address, which the core's container cannot see, and the port HTTPS
+	// is published on (the owner, 2026-10-14). An empty address names none; devices at home then
+	// reach the core through the VPS.
+	LAN struct {
+		Address   string `toml:"address"`
+		HTTPSPort int    `toml:"https_port"`
+	} `toml:"lan"`
 }
+
+// lanHTTPSPortDefault is the port HTTPS is published on at home unless the values file names another.
+const lanHTTPSPortDefault = 8443
 
 // ParseValues reads a values file; a value it leaves out is its starting value, and the node's name
 // is hostName.
@@ -95,6 +106,7 @@ func ParseValues(text, hostName string) (Values, error) {
 	values := Values{}
 	values.HTTP.Publish = "0.0.0.0"
 	values.HTTP.Port = 8440
+	values.LAN.HTTPSPort = lanHTTPSPortDefault
 	values.VPS.TunnelIPv4 = firstTunnelIPv4
 	values.VPS.TunnelIPv6 = firstTunnelIPv6
 	if _, err := toml.Decode(text, &values); err != nil {
@@ -108,6 +120,7 @@ func ParseValues(text, hostName string) (Values, error) {
 	values.VPS.PublicKey = strings.TrimSpace(values.VPS.PublicKey)
 	values.VPS.TunnelIPv4 = strings.TrimSpace(values.VPS.TunnelIPv4)
 	values.VPS.TunnelIPv6 = strings.TrimSpace(values.VPS.TunnelIPv6)
+	values.LAN.Address = strings.TrimSpace(values.LAN.Address)
 	values.Node.Name = strings.TrimSpace(values.Node.Name)
 	if values.Node.Name == "" {
 		values.Node.Name = hostName
@@ -139,6 +152,15 @@ func (values Values) ConfiguredAddresses() []string {
 		addresses = append(addresses, net.JoinHostPort(values.VPS.PublicIPv6, httpsPort))
 	}
 	return addresses
+}
+
+// LANAddresses are this machine's address at home on the published HTTPS port, which the core sends
+// its discovery to name for devices at home; none when the values file names no address.
+func (values Values) LANAddresses() []string {
+	if values.LAN.Address == "" {
+		return []string{}
+	}
+	return []string{net.JoinHostPort(values.LAN.Address, strconv.Itoa(values.LAN.HTTPSPort))}
 }
 
 // TURNListen is where the core's TURN listens: the tunnel's IPv4 address, so a UDP answer leaves
@@ -232,6 +254,16 @@ func (values Values) httpProblems() []string {
 	if port := values.HTTP.Port; port == devServerPort || port == devVitePort || port < 1 || port > 65535 {
 		problems = append(problems, fmt.Sprintf("http.port %d: want a port the dev loop does not use (%d, %d)",
 			port, devServerPort, devVitePort))
+	}
+	if address, err := netip.ParseAddr(values.LAN.Address); values.LAN.Address != "" &&
+		(err != nil || !address.Unmap().IsPrivate()) {
+		problems = append(problems, fmt.Sprintf("lan.address %q: want this machine's address on the house's "+
+			`network, "192.168.1.20", or leave it empty`, values.LAN.Address))
+	}
+	if port := values.LAN.HTTPSPort; port == devServerPort || port == devVitePort || port == values.HTTP.Port ||
+		port < 1 || port > 65535 {
+		problems = append(problems, fmt.Sprintf("lan.https_port %d: want a port other than http.port's and the "+
+			"dev loop's (%d, %d)", port, devServerPort, devVitePort))
 	}
 	return problems
 }
