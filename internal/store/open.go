@@ -16,12 +16,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// ApplicationID marks a SQLite file as ours: 'VPMS' (schema.md, Bookkeeping). A file without it
-// is refused, never migrated.
-const ApplicationID = 1447646258
-
 // busyTimeoutMs is how long a connection waits for SQLite's lock before failing: checkpoints,
-// VACUUM INTO, and `orpheum migrate` or `backup` run beside a live server (standards/sql.md §8).
+// VACUUM INTO, a migration or a backup run beside a live server (standards/sql.md §8).
 const busyTimeoutMs = 15000
 
 // The pragmas every connection gets, in the pure-Go driver's DSN form, so the pool applies them
@@ -40,9 +36,6 @@ const synchronousNormal = 1
 // otherwise go wherever TMPDIR points, which is configuration nobody gave us (D204).
 const tempStoreMemory = 2
 
-// ErrNotOurs is returned for a database file that is not empty and lacks our application_id.
-var ErrNotOurs = errors.New("not an Orpheum database: the file lacks Orpheum's application_id")
-
 // ErrNotFound is returned by One when a query that returns one row found none.
 var ErrNotFound = errors.New("not found")
 
@@ -59,13 +52,6 @@ type Database struct {
 type OpenOptions struct {
 	// MinimumReaders is the smallest reader pool; a machine with more CPUs gets one per CPU.
 	MinimumReaders int
-}
-
-// Open opens the database at path, creating an empty file if there is none, and refuses to
-// return it unless every pragma reads back as set and the file is ours or empty. An empty file
-// becomes ours when Migrate runs its first step.
-func Open(ctx context.Context, path string, options OpenOptions) (*Database, error) {
-	return open(ctx, path, options, ApplicationID)
 }
 
 // open opens a database file that must carry applicationID or be empty.

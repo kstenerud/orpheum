@@ -13,5 +13,30 @@ reads this list and D229 §2 before reporting duplicates.
 | --- | --- | --- |
 | CSS `.poster-grid__card` (browse) and `.continue-watching__play` (home) | audit-2026-09-29 | Is a Continue Watching item a poster card with progress on it, or its own kind of tile? If the first, they are one component. |
 | The wait-then-attach hook in `play.tsx` and `subtitles.tsx` | audit-2026-09-29 | The two are the same pattern; a generic hook would defeat the `exhaustive-deps` lint. Is there a shape that keeps the lint's check, or does a third copy appear? |
-| `internal/platform/atomics`' `WriteFile` and its copy `discovery/single`'s `writeWhole` (and, later, `orpheum-connect`'s) | 2026-10-14, the owner's ruling | A public package cannot import `internal/`, so a utility the public tree needs is copied, not shared (the owner: *"For now let's duplicate, but we need to keep an eye on this kind thing and possibly revisit if we start getting too much duplication"*). Revisit when the public tree or `orpheum-connect` holds a second copied utility: is a small public utility layer then worth its coupling? |
-| `internal/store`'s `Open`, `Write` and `OrNotFound` and their copy in `orpheum-connect`'s `internal/store`; `internal/platform/clock` and `orpheum-connect`'s `internal/clock`; `internal/core/secrets`' `Value` and `orpheum-connect`'s `internal/secret`; `internal/core/providers/cloudflare` and `orpheum-connect`'s `internal/zone` client; `deploy/staging/tunnel.sh` and `orpheum-connect`'s `deploy/staging/edge.sh` (2026-10-14, the probe's tunnel) | 2026-10-14, copied under the ruling above | The second and third copied utilities: the trigger the row above names. Each copy is trimmed (one database, no baseline window; a clock and a fake), so they have begun to differ. Is a small public layer (a clock, a SQLite opener) worth its coupling, or do the copies stay apart while they drift for good reasons? The owner's to answer. |
+
+## Twins
+
+Code copied between this module's public and internal trees, or between Orpheum and
+`orpheum-connect`, is a **twin** (the owner, 2026-10-14): at the same path in each, and the same
+file but for its licence line and its module path in imports. A change to a twin is made in every
+copy, and checked to work there. A test holds each pair together:
+
+| Twin | Copy | Held by |
+| --- | --- | --- |
+| `internal/core/secrets/value.go` | `orpheum-connect`'s, same path | `orpheum-connect`'s twins test, in its `internal/twins` |
+| `internal/store/open.go` (the opening; `ours.go` is each project's own) | `orpheum-connect`'s, same path | the same |
+| `deploy/staging/tunnel.sh` | `orpheum-connect`'s, same path | the same |
+
+Still copies, not yet twins, each waiting on the owner:
+
+- `internal/platform/atomics`' `WriteFile` and `discovery/single`'s `writeWhole`: the copy moves to
+  `discovery/internal/atomics/atomics.go`, byte for byte, once the lint exemption for its renames
+  names that file instead of `discovery/single/record.go`.
+- `internal/platform/clock` and `clocktest`, and `orpheum-connect`'s smaller `internal/clock`: the
+  move to the same path needs `orpheum-connect`'s lint exemption for the clock moved with it.
+- `internal/core/providers/cloudflare` and `orpheum-connect`'s `internal/zone` client: two jobs now
+  (one ACME challenge through a household's token; a zone's records through the service's), sharing
+  only Cloudflare's answer envelope. Twins, one client for both, or two things (D229 §2)?
+- `internal/store`'s migration runner, with the migration window (D272 §5), and
+  `orpheum-connect`'s numbered steps without one.
+
