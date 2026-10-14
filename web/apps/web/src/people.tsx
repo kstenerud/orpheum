@@ -111,7 +111,7 @@ export function IssuedInvitationView(props: { readonly issued: IssuedInvitation 
   const { t } = useTranslation();
   const { navigation } = useServices();
   const { issued } = props;
-  const text = registrationUrl(navigation.origin(), issued.invitation.secret);
+  const text = registrationUrl(navigation.origin(), issued.invitation);
   return (
     <div className="people__issued">
       <h2>{t("people.issued", { name: issued.name })}</h2>
