@@ -8,7 +8,18 @@ import { describe, expect, it, vi } from "vitest";
 
 import { i18n } from "./i18n.ts";
 import { SignIn, SignInForm } from "./sign-in.tsx";
-import { mount, refusal, servedBy, submit, unreachable, type Answers } from "./test-dom.tsx";
+import {
+  buttonWithText,
+  click,
+  enter,
+  mount,
+  refusal,
+  servedBy,
+  submit,
+  unreachable,
+  type Answers,
+  type Heard,
+} from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 const ignore = (): void => undefined;
@@ -97,5 +108,56 @@ describe("sign-in", () => {
     expect(services.session.token()).toBe("new-token");
     expect(services.session.deviceId()).toBe(9);
     expect(services.session.deviceProof()).toBe("phone-secret");
+  });
+});
+
+describe("setting up a server no one can sign in to yet (A29, A31)", () => {
+  it("opens setup when the server needs it, makes the first admin with the code and signs in", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "POST /session": [
+          refusal(409, "setup_required"),
+          [
+            201,
+            {
+              token: "admin-token",
+              deviceSecret: "s",
+              user: { device: { id: 1, name: "Laptop" } },
+            },
+          ],
+        ],
+        "POST /setup": [201, { id: 1, name: "owner", role: "admin" }],
+      },
+      heard,
+    );
+    const mounted = await mount(withServices(<SignIn />, services));
+    await submit(mounted.container.querySelector("form"));
+    expect(mounted.container.textContent).toContain("Set up this server");
+    await enter(mounted.container.querySelector('input[name="setupCode"]'), "gh3k-c5vq-hhvh");
+    await enter(mounted.container.querySelector('input[name="name"]'), "owner");
+    await enter(mounted.container.querySelector('input[type="password"]'), "a password");
+    await submit(mounted.container.querySelector("form"));
+    expect(heard.find((each) => each.methodAndPath === "POST /setup")?.body).toEqual({
+      setupCode: "gh3k-c5vq-hhvh",
+      name: "owner",
+      password: "a password",
+    });
+    expect(services.session.token()).toBe("admin-token");
+    mounted.unmount();
+  });
+
+  it("says when the setup code is wrong, and goes back to sign-in", async () => {
+    const services = servedBy({
+      "POST /session": refusal(409, "setup_required"),
+      "POST /setup": refusal(403, "forbidden"),
+    });
+    const mounted = await mount(withServices(<SignIn />, services));
+    await submit(mounted.container.querySelector("form"));
+    await submit(mounted.container.querySelector("form"));
+    expect(mounted.container.textContent).toContain("That setup code is wrong");
+    await click(buttonWithText(mounted.container, "Back"));
+    expect(mounted.container.textContent).toContain("Get a code");
+    mounted.unmount();
   });
 });

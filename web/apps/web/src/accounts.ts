@@ -4,7 +4,8 @@ import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { readLinkFragment, type Api, type components } from "@orpheum/sdk";
 
 import { dataOrThrow, throwIfRefused } from "./problem.ts";
-import type { NewDevice } from "./device.ts";
+import { thisDevice, type NewDevice } from "./device.ts";
+import type { Session } from "./session.ts";
 
 /** One person, as the admin's list shows them. */
 export type Account = components["schemas"]["AccountBody"];
@@ -138,6 +139,33 @@ export async function signIn(
   return dataOrThrow(
     await api.POST("/session", { body: { ...credentials }, ...idempotent(idempotencyKey) }),
   );
+}
+
+/** Signs this device in as name with password, keeping the session the server answers with. */
+export async function signInThisDevice(
+  services: { readonly api: Api; readonly session: Session },
+  credentials: { readonly name: string; readonly password: string },
+  idempotencyKey: string,
+): Promise<void> {
+  const { api, session } = services;
+  const { token, deviceSecret, locator, user } = await signIn(
+    api,
+    { ...credentials, device: thisDevice(session) },
+    idempotencyKey,
+  );
+  session.signIn(token, { deviceId: user.device?.id, deviceSecret, locator });
+}
+
+/**
+ * Makes a server's first admin with the one-time setup code it printed (cut-a §5.2's POST /setup),
+ * under the click's key, which the server keeps apart from the same key's sign-in by the path.
+ */
+export async function completeSetup(
+  api: Api,
+  first: { readonly setupCode: string; readonly name: string; readonly password: string },
+  idempotencyKey: string,
+): Promise<void> {
+  dataOrThrow(await api.POST("/setup", { body: { ...first }, ...idempotent(idempotencyKey) }));
 }
 
 /**
