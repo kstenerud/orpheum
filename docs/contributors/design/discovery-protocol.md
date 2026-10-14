@@ -455,7 +455,9 @@ another network: HTTPS to the address with the candidate's name as SNI, the cert
 echo of a nonce the core issued (the check of `internal/core/reachability`, from outside, a failure
 naming its hop, D152); and the owner's TURN servers. It probes on change and on clients' reports,
 not hourly (D291 §6, §7 item 22), **at most once per core per 10 minutes** (S10 item 3, as
-it reads once the hourly probe is gone; X9) [I].
+it reads once the hourly probe is gone; X9) [I]. The nonce comes in each heartbeat, as `probeNonce`, and the
+core's echo recognises it for ten minutes, past the next heartbeat's. Built (2026-10-14): the
+core's side (`reachability.Checker.ProbeNonce`).
 
 **The probe runs on a machine of its own** (D291 §1), `prod-probe`, holding no secret but a token
 that can only post results (D292 §3). Its limits (S10, D291 §1): global unicast only, the service's

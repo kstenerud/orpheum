@@ -132,7 +132,7 @@ func TestRecognises_OnlyANonceItMadeWithinAMinute(t *testing.T) {
 	t.Parallel()
 	staged := newStage(t, echo, true)
 	checker := staged.checker
-	nonce, err := checker.newNonce()
+	nonce, err := checker.newNonce(nonceLifetime)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,6 +142,26 @@ func TestRecognises_OnlyANonceItMadeWithinAMinute(t *testing.T) {
 	staged.clock.Advance(nonceLifetime)
 	if checker.Recognises(nonce) {
 		t.Error("a nonce is recognised a minute after its check")
+	}
+}
+
+// A probe's nonce, sent with a heartbeat, is recognised until the next heartbeat's at the latest,
+// longer than a check's, and then no more (the protocol's §2.6).
+func TestProbeNonce_IsRecognisedForTenMinutes(t *testing.T) {
+	t.Parallel()
+	staged := newStage(t, echo, true)
+	checker := staged.checker
+	nonce, err := checker.ProbeNonce()
+	if err != nil {
+		t.Fatal(err)
+	}
+	staged.clock.Advance(probeNonceLifetime - time.Second)
+	if !checker.Recognises(nonce) {
+		t.Fatal("a probe's nonce is not recognised before ten minutes have passed")
+	}
+	staged.clock.Advance(time.Second)
+	if checker.Recognises(nonce) {
+		t.Error("a probe's nonce is recognised after ten minutes")
 	}
 }
 

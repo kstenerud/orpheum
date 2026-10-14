@@ -20,6 +20,9 @@
 //     TestCheck_TheRelaysPortAnswersOverUDPAndTCP.
 //   - The echo recognises only a nonce this server made, within a minute. Enforced by
 //     TestRecognises_OnlyANonceItMadeWithinAMinute.
+//   - A nonce sent to the discovery for its outside probe is recognised for ten minutes, past the
+//     next heartbeat's (discovery-protocol.md §2.6). Enforced by
+//     TestProbeNonce_IsRecognisedForTenMinutes.
 //
 // # Read before changing
 //

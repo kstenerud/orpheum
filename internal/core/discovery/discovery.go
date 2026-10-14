@@ -85,6 +85,10 @@ type Parts struct {
 	// TURN are the owner's own TURN servers, with credentials fresh for each heartbeat, which the
 	// discovery passes to the devices it finds the core for (the protocol's §2.4); nil has none.
 	TURN func(ctx context.Context) []discoveryproto.ICEServer
+	// ProbeNonce makes a nonce for each heartbeat, which the core's reachability echo recognises for
+	// the discovery's outside probe (reachability.Checker.ProbeNonce; the protocol's §2.6); nil sends
+	// none.
+	ProbeNonce func() (string, error)
 	// Answerer answers the WebRTC offers the discovery passes on: rtcapi.Server, which checks each
 	// itself first; nil answers none.
 	Answerer Answerer
@@ -520,6 +524,13 @@ func (service *Service) heartbeat(ctx context.Context, status Status) time.Durat
 	}
 	if service.parts.TURN != nil {
 		request.TURN = service.parts.TURN(ctx)
+	}
+	if service.parts.ProbeNonce != nil {
+		nonce, err := service.parts.ProbeNonce()
+		if err != nil {
+			return service.failed(ctx, "make the probe's nonce", err)
+		}
+		request.ProbeNonce = nonce
 	}
 	var answered discoveryproto.AddressesResponse
 	err := service.signedCall(ctx, callOf{
