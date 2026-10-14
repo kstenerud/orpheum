@@ -17,6 +17,8 @@
 //     TestVerifyAnswer_CoversTheExactSDPTheOfferAndItsFingerprint.
 //   - An offer's proof covers its DTLS fingerprint under the client's session's or link's key, which
 //     the discovery holds neither of. TestOffer_ProvesOnlyItsFingerprintUnderItsKey.
+//   - A person reads the fingerprint in safe32 groups, the same digest links carry in base64url.
+//     TestFingerprintText_IsTheSameDigestInSafe32Groups.
 //   - The fingerprint is the public key's SHA-256 in base64url. Enforced by
 //     TestFingerprint_IsTheKeysSHA256InBase64URL.
 //   - Imports nothing from internal/, which a module outside Orpheum cannot import. Enforced by

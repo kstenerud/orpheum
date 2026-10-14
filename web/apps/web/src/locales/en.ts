@@ -497,7 +497,7 @@ export const en = {
       problem: "The last call to the discovery failed: {{problem}}",
       clientOrigin: "Links to this server open at {{origin}}.",
       fingerprint:
-        "This server's fingerprint is {{fingerprint}}. Its links carry it, so a client knows it reached this server and no other.",
+        "This server's fingerprint is {{fingerprint}}. Its links carry it, so a client knows it reached this server and no other; to check by eye, compare the first and last groups.",
       deprecated:
         "The discovery stops speaking this server's protocol on {{date}}. Update the server before then.",
       portMapping: {

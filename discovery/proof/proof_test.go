@@ -6,7 +6,10 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
+	"strings"
 	"testing"
+
+	"github.com/kstenerud/orpheum/discovery/safe32code"
 )
 
 const (
@@ -109,5 +112,26 @@ func TestOffer_ProvesOnlyItsFingerprintUnderItsKey(t *testing.T) {
 	}
 	if digest := sha256.Sum256([]byte("a session's token")); string(key) != string(digest[:]) {
 		t.Error("a session's offer key is not SHA-256 of its token, the hash the core keeps")
+	}
+}
+
+func TestFingerprintText_IsTheSameDigestInSafe32Groups(t *testing.T) {
+	t.Parallel()
+	public, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := FingerprintText(public)
+	if len(text) != 52+12 || strings.Count(text, "-") != 12 {
+		t.Fatalf("FingerprintText = %q; want 13 groups of four", text)
+	}
+	read, err := safe32code.Read(strings.ToUpper(text), 52)
+	if err != nil || read != text {
+		t.Errorf("the text read back as typed, in capitals, is %q, %v; want it unchanged", read, err)
+	}
+	digest := sha256.Sum256(public)
+	again, err := safe32code.WriteBytes(append(digest[:], 0), 52)
+	if err != nil || again != text {
+		t.Errorf("FingerprintText = %q; want the key's SHA-256 in safe32, %q", text, again)
 	}
 }

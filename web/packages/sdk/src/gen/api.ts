@@ -1988,7 +1988,7 @@ export interface components {
             coreId?: string;
             /** @description When the discovery stops speaking this core's protocol, when it said so */
             deprecatedUntil?: string;
-            /** @description The identity key's fingerprint, which the server's links carry */
+            /** @description The identity key's fingerprint as a person reads it, in safe32 groups; links carry the same digest */
             fingerprint: string;
             /**
              * Format: int64

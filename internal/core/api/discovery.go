@@ -38,10 +38,10 @@ type DiscoveryStatusBody struct {
 	Published       []string             `doc:"The addresses the discovery publishes" json:"published"`
 	Probe           []DiscoveryProbeBody `json:"probe"`
 	LastHeartbeatAt int64                `doc:"Unix milliseconds; 0 before the first" json:"lastHeartbeatAt"`
-	Problem         string               `doc:"Why the last call to the discovery failed; empty when it did not" json:"problem,omitempty"`                //nolint:lll // one struct tag
-	DeprecatedUntil string               `doc:"When the discovery stops speaking this core's protocol, when it said so" json:"deprecatedUntil,omitempty"` //nolint:lll // one struct tag
-	ClientOrigin    string               `doc:"Where the discovery serves its client, which the server's links lead to" json:"clientOrigin,omitempty"`    //nolint:lll // one struct tag
-	Fingerprint     string               `doc:"The identity key's fingerprint, which the server's links carry" json:"fingerprint"`                        //nolint:lll // one struct tag
+	Problem         string               `doc:"Why the last call to the discovery failed; empty when it did not" json:"problem,omitempty"`                             //nolint:lll // one struct tag
+	DeprecatedUntil string               `doc:"When the discovery stops speaking this core's protocol, when it said so" json:"deprecatedUntil,omitempty"`              //nolint:lll // one struct tag
+	ClientOrigin    string               `doc:"Where the discovery serves its client, which the server's links lead to" json:"clientOrigin,omitempty"`                 //nolint:lll // one struct tag
+	Fingerprint     string               `doc:"The identity key's fingerprint as a person reads it, in safe32 groups; links carry the same digest" json:"fingerprint"` //nolint:lll // one struct tag
 	PortMapping     PortMappingBody      `json:"portMapping"`
 	// WebRTCPaths are how many WebRTC connections took each path since the core started (D274 §3).
 	WebRTCPaths []WebRTCPathBody `json:"webrtcPaths"`
@@ -160,7 +160,7 @@ func discoveryStatusBody(status discovery.Status) DiscoveryStatusBody {
 		ClaimCode: status.ClaimCode, ReachableFrom: status.ReachableFrom,
 		Published: append([]string{}, status.Published...), Probe: []DiscoveryProbeBody{},
 		Problem: status.Problem, DeprecatedUntil: status.DeprecatedUntil,
-		ClientOrigin: status.ClientOrigin, Fingerprint: status.Fingerprint,
+		ClientOrigin: status.ClientOrigin, Fingerprint: status.FingerprintText,
 	}
 	if !status.ClaimExpiresAt.IsZero() {
 		body.ClaimExpiresAt = status.ClaimExpiresAt.UnixMilli()

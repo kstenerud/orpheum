@@ -1003,7 +1003,7 @@
             "type": "string"
           },
           "fingerprint": {
-            "description": "The identity key's fingerprint, which the server's links carry",
+            "description": "The identity key's fingerprint as a person reads it, in safe32 groups; links carry the same digest",
             "type": "string"
           },
           "lastHeartbeatAt": {
