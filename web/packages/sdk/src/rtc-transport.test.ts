@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   grantEvery,
   maxMessageBytes,
+  replaceFirstMs,
   RtcTransport,
   sendOnChannel,
   SwitchableFetch,
@@ -176,5 +177,123 @@ describe("the switchable fetch", () => {
     routed.use(via("webrtc"), "webrtc");
     await routed.fetch(new Request("https://app.example/b"));
     expect(paths).toEqual(["https /a", "webrtc /b"]);
+  });
+});
+
+/** A connection the test keeps: the channels opened on it, and its word that it is gone. */
+class FakePeer implements PeerLike {
+  readonly channels: FakeChannel[] = [];
+  isClosed = false;
+  private goneListener: (() => void) | undefined;
+
+  createDataChannel(): ChannelLike {
+    const channel = new FakeChannel();
+    channel.readyState = "open";
+    this.channels.push(channel);
+    return channel;
+  }
+
+  close(): void {
+    this.isClosed = true;
+  }
+
+  onGone(listener: () => void): void {
+    this.goneListener = listener;
+  }
+
+  /** The connection failed, or stayed disconnected past the grace. */
+  goes(): void {
+    this.goneListener?.();
+  }
+}
+
+describe("the WebRTC transport's connections (plans/webrtc-transport.md W2d)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** A transport on first, opening each next connection from opened, failing while failing is set. */
+  function growing(first: FakePeer): {
+    transport: RtcTransport;
+    opened: FakePeer[];
+    failing: { is: boolean };
+  } {
+    const opened: FakePeer[] = [];
+    const failing = { is: false };
+    const transport = new RtcTransport([first], {
+      size: 4,
+      open: () => {
+        if (failing.is) {
+          return Promise.reject(new Error("it did not connect"));
+        }
+        const peer = new FakePeer();
+        opened.push(peer);
+        return Promise.resolve(peer);
+      },
+    });
+    return { transport, opened, failing };
+  }
+
+  it("is usable with its first connection, and grows to four behind it", async () => {
+    const first = new FakePeer();
+    const { transport, opened } = growing(first);
+    void transport.fetch(new Request("https://app.example/a"));
+    expect(first.channels).toHaveLength(1);
+    await settle();
+    expect(transport.size).toBe(4);
+    expect(opened).toHaveLength(3);
+  });
+
+  it("takes a connection that is gone out of use at once, and opens another in its place", async () => {
+    const first = new FakePeer();
+    const { transport, opened } = growing(first);
+    await settle();
+    first.goes();
+    expect(first.isClosed).toBe(true);
+    expect(transport.size).toBe(3);
+    for (const path of ["a", "b", "c", "d", "e", "f"]) {
+      void transport.fetch(new Request(`https://app.example/${path}`));
+    }
+    expect(first.channels).toHaveLength(0);
+    await settle();
+    expect(transport.size).toBe(4);
+    expect(opened).toHaveLength(4);
+  });
+
+  it("tries a connection that could not be made again after a wait, and a request waits for one", async () => {
+    vi.useFakeTimers();
+    const first = new FakePeer();
+    const { transport, failing } = growing(first);
+    await vi.advanceTimersByTimeAsync(0);
+    failing.is = true;
+    for (const peer of [first]) {
+      peer.goes();
+    }
+    expect(transport.size).toBe(3);
+    await vi.advanceTimersByTimeAsync(0);
+    failing.is = false;
+    await vi.advanceTimersByTimeAsync(replaceFirstMs);
+    expect(transport.size).toBe(4);
+
+    const alone = new FakePeer();
+    const lonely = new RtcTransport([alone], {
+      size: 1,
+      open: () => Promise.reject(new Error("none")),
+    });
+    alone.goes();
+    let outcome = "waiting";
+    void lonely.fetch(new Request("https://app.example/a")).then(
+      () => {
+        outcome = "answered";
+      },
+      () => {
+        outcome = "failed";
+      },
+    );
+    await vi.advanceTimersByTimeAsync(replaceFirstMs * 4);
+    expect(outcome).toBe("waiting");
+    lonely.close();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(outcome).toBe("failed"); // closed, it fails what waited
   });
 });

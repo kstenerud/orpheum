@@ -45,11 +45,27 @@ export interface ChannelLike {
   listen(listener: ChannelListener): void;
 }
 
-/** What the transport needs of a peer connection: opening a channel. */
+/** What the transport needs of a peer connection: opening a channel, and hearing that it is gone. */
 export interface PeerLike {
   createDataChannel(label: string): ChannelLike;
   close(): void;
+  /**
+   * Tells listener, once, that the connection is gone for good: failed, closed, or disconnected
+   * longer than disconnectedGraceMs. A test's peer may never tell.
+   */
+  onGone?(listener: () => void): void;
 }
+
+/**
+ * How long a connection may stay disconnected before it counts as gone and is replaced: a phone's
+ * moment out of signal comes back by itself, but one moving from Wi-Fi to mobile data never does
+ * until an ICE restart, which the core cannot take yet (plans/webrtc-transport.md W2d).
+ */
+export const disconnectedGraceMs = 5000;
+
+/** The first and the longest wait before a gone connection's replacement is tried again. */
+export const replaceFirstMs = 1000;
+export const replaceMostMs = 30_000;
 
 /** A request's head, as the core reads it: rtcapi.RequestHead. */
 interface RequestHead {
@@ -98,7 +114,10 @@ export function channelOf(channel: RTCDataChannel): ChannelLike {
   };
 }
 
-/** A browser's peer connection as the transport uses it: each channel delivers ArrayBuffers. */
+/**
+ * A browser's peer connection as the transport uses it: each channel delivers ArrayBuffers, and it
+ * says once when it is gone: failed, closed, or disconnected past disconnectedGraceMs.
+ */
 export function peerOf(peer: RTCPeerConnection): PeerLike {
   return {
     createDataChannel: (label) => {
@@ -108,6 +127,28 @@ export function peerOf(peer: RTCPeerConnection): PeerLike {
     },
     close: () => {
       peer.close();
+    },
+    onGone: (listener) => {
+      let isGone = false;
+      let grace: ReturnType<typeof setTimeout> | undefined;
+      const gone = (): void => {
+        clearTimeout(grace);
+        if (!isGone) {
+          isGone = true;
+          listener();
+        }
+      };
+      peer.addEventListener("connectionstatechange", () => {
+        const state = peer.connectionState;
+        if (state === "failed" || state === "closed") {
+          gone();
+        } else if (state === "disconnected") {
+          grace ??= setTimeout(gone, disconnectedGraceMs);
+        } else {
+          clearTimeout(grace);
+          grace = undefined;
+        }
+      });
     },
   };
 }
@@ -316,25 +357,47 @@ interface Link {
   underWay: number;
 }
 
+/** How a transport keeps its connections: opening another, and how many it keeps. */
+export interface Growth {
+  readonly open: () => Promise<PeerLike>;
+  readonly size: number;
+}
+
 /**
- * A client's WebRTC transport to its core: `clientConnections` peer connections, each request sent
- * on the one with the fewest under way. `fetch` is what the API client sends requests with.
+ * A client's WebRTC transport to its core: up to `clientConnections` peer connections, each request
+ * sent on the one with the fewest under way. With growth, it opens connections up to its size, takes
+ * one that is gone out of use at once and opens another in its place, retrying each failure after a
+ * wait that doubles (plans/webrtc-transport.md W2d). `fetch` is what the API client sends requests
+ * with; while no connection is up, a request waits for one.
  */
 export class RtcTransport {
-  private readonly links: readonly Link[];
+  private readonly links: Link[] = [];
+  private readonly growth: Growth | undefined;
+  private opening = 0;
+  private retryMs = replaceFirstMs;
+  private isClosed = false;
+  private readonly waiting: (() => void)[] = [];
 
-  constructor(peers: readonly PeerLike[]) {
+  constructor(peers: readonly PeerLike[], growth?: Growth) {
     if (peers.length === 0) {
       throw new Error("a transport needs at least one connection");
     }
-    this.links = peers.map((peer) => ({ peer, underWay: 0 }));
+    this.growth = growth;
+    for (const peer of peers) {
+      this.add(peer);
+    }
+    this.grow();
+  }
+
+  /** How many connections are up. */
+  get size(): number {
+    return this.links.length;
   }
 
   /** Sends a request to the core and resolves with its response. */
   readonly fetch = async (request: Request): Promise<Response> => {
-    const link = this.links.reduce((least, each) =>
-      each.underWay < least.underWay ? each : least,
-    );
+    // Chosen at once while one is up, so requests made together spread across the connections.
+    const link = this.leastLoadedNow() ?? (await this.leastLoaded());
     link.underWay += 1;
     try {
       return await sendOnChannel(link.peer.createDataChannel("request"), request);
@@ -345,36 +408,116 @@ export class RtcTransport {
 
   /**
    * A channel of its own on the connection with the fewest under way, for a request that holds it
-   * open: a WebSocket's messages (rtc-together.ts).
+   * open: a WebSocket's messages (rtc-together.ts). With no connection up, it throws, and the socket
+   * is opened again later.
    */
   openChannel(): ChannelLike {
-    const link = this.links.reduce((least, each) =>
-      each.underWay < least.underWay ? each : least,
-    );
+    const link = this.leastLoadedNow();
+    if (link === undefined) {
+      throw new Error("no WebRTC connection to the core is up");
+    }
     return link.peer.createDataChannel("upgrade");
   }
 
-  /** Closes every connection. */
+  /** Closes every connection, and opens no more. */
   close(): void {
-    for (const link of this.links) {
+    this.isClosed = true;
+    for (const link of this.links.splice(0)) {
       link.peer.close();
+    }
+    // A request waiting for a connection fails now rather than waiting for good.
+    for (const wake of this.waiting.splice(0)) {
+      wake();
+    }
+  }
+
+  /** Takes peer into use, and out of it once it is gone, opening another in its place. */
+  private add(peer: PeerLike): void {
+    const link: Link = { peer, underWay: 0 };
+    this.links.push(link);
+    for (const wake of this.waiting.splice(0)) {
+      wake();
+    }
+    peer.onGone?.(() => {
+      const index = this.links.indexOf(link);
+      if (index >= 0) {
+        this.links.splice(index, 1);
+      }
+      peer.close();
+      this.grow();
+    });
+  }
+
+  /** Opens connections up to the growth's size, one at a time per missing one. */
+  private grow(): void {
+    const growth = this.growth;
+    while (
+      growth !== undefined &&
+      !this.isClosed &&
+      this.links.length + this.opening < growth.size
+    ) {
+      this.opening += 1;
+      void this.openOne(growth);
+    }
+  }
+
+  private async openOne(growth: Growth): Promise<void> {
+    try {
+      const peer = await growth.open();
+      this.opening -= 1;
+      this.retryMs = replaceFirstMs;
+      if (this.isClosed) {
+        peer.close();
+        return;
+      }
+      this.add(peer);
+    } catch {
+      // A connection that could not be made is tried again after a wait, longer each time.
+      const wait = this.retryMs;
+      this.retryMs = Math.min(this.retryMs * 2, replaceMostMs);
+      setTimeout(() => {
+        this.opening -= 1;
+        this.grow();
+      }, wait);
+    }
+  }
+
+  private leastLoadedNow(): Link | undefined {
+    return this.links.reduce<Link | undefined>(
+      (least, each) => (least === undefined || each.underWay < least.underWay ? each : least),
+      undefined,
+    );
+  }
+
+  /** The connection with the fewest under way, waiting for one while none is up. */
+  private async leastLoaded(): Promise<Link> {
+    for (;;) {
+      const link = this.leastLoadedNow();
+      if (link !== undefined) {
+        return link;
+      }
+      if (this.isClosed) {
+        throw new Error("the WebRTC transport is closed");
+      }
+      await new Promise<void>((resolve) => {
+        this.waiting.push(resolve);
+      });
     }
   }
 }
 
 /**
- * Opens `count` peer connections to the core through signaller, each with every candidate gathered
- * before its offer is sent, and resolves once all are connected.
+ * Connects to the core through signaller: resolves once one peer connection is up, each with every
+ * candidate gathered before its offer is sent, and opens the rest up to `count` behind it, replacing
+ * any that is gone (plans/webrtc-transport.md W2d).
  */
 export async function connectRtc(
   signaller: Signaller,
   rtcConfig: RTCConfiguration = {},
   count: number = clientConnections,
 ): Promise<RtcTransport> {
-  const peers = await Promise.all(
-    Array.from({ length: count }, () => connectOne(signaller, rtcConfig)),
-  );
-  return new RtcTransport(peers);
+  const open = (): Promise<PeerLike> => connectOne(signaller, rtcConfig);
+  return new RtcTransport([await open()], { open, size: count });
 }
 
 /** One peer connection, connected through signaller. */

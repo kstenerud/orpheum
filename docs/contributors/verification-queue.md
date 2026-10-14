@@ -393,4 +393,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   — done 2026-10-13 by the owner, against staging at an earlier commit, for (1) and (2): a new guest joined by
   Join or by the keyboard's Go with no other tap, and a reload showed only Tap to continue, sound
   after its tap: *"I tested the reload."* (3) not run: the test iPhone has no SIM to take a call;
-  the owner: *"this should be good enough for using with my gf though"*.
+  the owner: *"this should be good enough for using with my gf though"*.- [ ] **VQ41** — Against staging, on a phone over WebRTC (staging's direct names withdrawn, as for
+  the relay test): play a film on Wi-Fi, then turn Wi-Fi off so the phone moves to mobile data.
+  Passes when the film goes on after a short stall, at most about ten seconds, with no reload: the
+  page replaced the connections the move left behind (plans/webrtc-transport.md W2d).
