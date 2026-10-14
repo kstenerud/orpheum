@@ -119,8 +119,12 @@ func (service *Service) Want(ctx context.Context, file StoreFile) error {
 // seek's sound only once its picture's first chunk has come, and the sound's run, started then, kept
 // the player waiting 5 s more (the owner's test, 2026-10-12). A sound of another film or grid is
 // left alone.
+//
+// A picture's init moves no sound: it says nothing of where its player is, only where the playback
+// last reported, the film's start for one that jumped before its report, and started the sound there,
+// cutting the run the jump needed every two seconds (the owner's test, 2026-10-14).
 func (service *Service) WantAlongside(ctx context.Context, picture, sound StoreFile) error {
-	if !picture.isSought || sound.fileID != picture.fileID || sound.kind != picture.kind {
+	if !picture.isSought || picture.isInit || sound.fileID != picture.fileID || sound.kind != picture.kind {
 		return nil
 	}
 	return service.ensure(ctx, ensuring{
