@@ -37,7 +37,10 @@
 //     connection checks no remote address that is private, loopback, link-local or in the core's own
 //     networks (the security audit's A2). TestCheckRelayedOffer_TakesOneSHA256FingerprintAndAFewCandidates,
 //     TestIsFromOutside_RefusesEveryAddressOfTheCoresOwnNetworks,
-//     TestAnswerRelayed_ConnectsNoClientOnTheCoresOwnNetwork.
+//     TestAnswerRelayed_ConnectsNoClientOnTheCoresOwnNetwork. A development build alone lifts the
+//     address check (AcceptAnyRelayedAddress), for browser tests on one machine; a release never
+//     does. TestServer_ARelayedConnectionChecksTheCoresOwnNetworksOnlyWhenTold and
+//     TestRelaxForDevelopment_ChangesNothingInARelease.
 //   - Each connection is bounded: closed unless it connects within its bound, and past its network's
 //     share once it does; its client's messages no larger than MaxMessageBytes and its SCTP buffer
 //     bounded; its requests in flight limited, each arriving whole by a deadline.
