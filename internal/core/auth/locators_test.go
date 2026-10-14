@@ -201,3 +201,48 @@ func TestOfferKey_IsALiveSessionsHashByItsLocatorOrALiveLinksKeyByItsHash(t *tes
 		t.Errorf("a signed-out session's locator's key = %v; want ErrNoOfferKey", keyErr)
 	}
 }
+
+// The admin revokes a person's own link: it locates the core no more and the discovery is told at
+// once, the person stays signed in, and their page says until when the link had worked.
+func TestRevokeOwnLink_EndsTheLinkAndTellsTheDiscoveryLeavingThePersonSignedIn(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	id := fixture.createUser(t, "anna", "first", RoleUser)
+	if _, has, err := fixture.service.OwnLinkExpiry(ctx, id); err != nil || has {
+		t.Errorf("before any link was used, OwnLinkExpiry has one (%v, %v); want none", has, err)
+	}
+	invitation, err := fixture.service.IssueRegistrationInvitation(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	issued, err := fixture.service.Register(ctx, invitation.Secret, "", "second", NewDevice{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	expires, has, err := fixture.service.OwnLinkExpiry(ctx, id)
+	if err != nil || !has || !expires.Equal(fixture.clock.Now().Add(ownLinkLife).Truncate(time.Millisecond)) {
+		t.Errorf("OwnLinkExpiry = %v, %v, %v; want her own link, for %s", expires, has, err, ownLinkLife)
+	}
+	told := 0
+	fixture.service.OnLinksChanged(func() { told++ })
+	if err = fixture.service.RevokeOwnLink(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	lives := liveLinkHashes(t, fixture.service, fixture.clock.Now())
+	if _, isLive := lives[link.LocateHash(invitation.Secret)]; isLive {
+		t.Error("a revoked own link still locates")
+	}
+	if _, has, err = fixture.service.OwnLinkExpiry(ctx, id); err != nil || has {
+		t.Errorf("after the revocation OwnLinkExpiry has one (%v, %v); want none", has, err)
+	}
+	if told != 1 {
+		t.Errorf("the discovery was told %d times; want once", told)
+	}
+	if _, err = fixture.service.Authenticate(ctx, issued.Token); err != nil {
+		t.Errorf("revoking her own link signed her out: %v", err)
+	}
+	if err = fixture.service.RevokeOwnLink(ctx, 999); !errors.Is(err, ErrNoUser) {
+		t.Errorf("revoking the own link of no one = %v; want ErrNoUser", err)
+	}
+}

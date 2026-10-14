@@ -293,8 +293,9 @@ in the discovery's form while it has claimed the core (`link` beside `secret` in
 web client passes it on); Watch Together's unused links' locate hashes and each membership device's
 locator (`locator` in the join's and `/together/mine`'s answers; the host's device has its own
 session's), in memory in `internal/core/together`, an unused link's life at the discovery running
-to the end of the next day and sent again daily [I]. **Still K7's:** the person's own link on their
-page; the admin's revocation of an own link; the web client keeping a membership's locator for its
+to the end of the next day and sent again daily [I]; the admin's revocation of an own link, on the
+person's page beside until when it leads them back. **Still K7's:** the person's own link on their
+page (the core keeps only its hashes); the web client keeping a membership's locator for its
 next visit through a discovery; the `TestArch_` claim (owner's gate); the cap on distinct sources a
 day, which is the discovery's.
 

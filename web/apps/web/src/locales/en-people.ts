@@ -47,6 +47,12 @@ export const enPeople = {
     removeConsequence:
       "{{name}} is signed out everywhere at once, and what they watched, their places in films and their lists are deleted. This cannot be undone.",
     removeConfirm: "Remove them",
+    ownLink:
+      "The link they were sent leads them back to this server until {{date}}; each visit renews it.",
+    revokeOwnLink: "End that link…",
+    revokeOwnLinkConsequence:
+      "The link {{name}} was sent stops leading back to this server. They stay signed in on their devices, and a new link from you gives them another.",
+    revokeOwnLinkConfirm: "End it",
   },
   roles: {
     heading: "Roles",

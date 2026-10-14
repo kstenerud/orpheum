@@ -1624,6 +1624,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/{id}/own-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** End a person's own link, which leads them back to the server through a discovery (D292 §4) */
+        delete: operations["revokeOwnLink"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users/{id}/registration-invitation": {
         parameters: {
             query?: never;
@@ -2688,6 +2705,11 @@ export interface components {
         };
         PersonOutputBody: {
             account: components["schemas"]["AccountBody"];
+            /**
+             * Format: int64
+             * @description Unix milliseconds
+             */
+            ownLinkExpiresAt?: number;
             watchStats: components["schemas"]["WatchStatsBody"];
         };
         PersonsRoleInputBody: {
@@ -7467,6 +7489,38 @@ export interface operations {
             };
             path: {
                 deviceId: number;
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    revokeOwnLink: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
                 id: number;
             };
             cookie?: never;

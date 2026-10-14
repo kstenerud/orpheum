@@ -124,6 +124,27 @@ func (q *Queries) GetLiveLinkOfferKey(ctx context.Context, arg GetLiveLinkOfferK
 	return offer_key, err
 }
 
+const getOwnLinkExpiryOfUser = `-- name: GetOwnLinkExpiryOfUser :one
+SELECT expires_at FROM "grant"
+WHERE user_id = ?1 AND kind = 'link' AND scope = 'own' AND revoked_at IS NULL
+  AND expires_at > ?2
+ORDER BY expires_at DESC
+LIMIT 1
+`
+
+type GetOwnLinkExpiryOfUserParams struct {
+	UserID *int64
+	Now    *int64
+}
+
+// When the person's own link stops locating the core, while they have one.
+func (q *Queries) GetOwnLinkExpiryOfUser(ctx context.Context, arg GetOwnLinkExpiryOfUserParams) (*int64, error) {
+	row := q.db.QueryRowContext(ctx, getOwnLinkExpiryOfUser, arg.UserID, arg.Now)
+	var expires_at *int64
+	err := row.Scan(&expires_at)
+	return expires_at, err
+}
+
 const insertGrant = `-- name: InsertGrant :exec
 
 INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_name, device_id,

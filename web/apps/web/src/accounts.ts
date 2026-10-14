@@ -261,6 +261,11 @@ export async function removePerson(api: Api, userId: number): Promise<void> {
   throwIfRefused(await api.DELETE("/users/{id}", { params: { path: { id: userId } } }));
 }
 
+/** Ends a person's own link, which leads them back through a discovery; they stay signed in. */
+export async function revokeOwnLink(api: Api, userId: number): Promise<void> {
+  throwIfRefused(await api.DELETE("/users/{id}/own-link", { params: { path: { id: userId } } }));
+}
+
 /** A person's devices, for the admin. */
 export async function listPersonDevices(api: Api, userId: number): Promise<Device[]> {
   return (
