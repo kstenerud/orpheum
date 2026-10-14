@@ -14,6 +14,36 @@ export interface PathMessage {
   readonly path: "webrtc" | "http";
 }
 
+/**
+ * The service worker's question to a page it has no word from, since a worker the browser stopped
+ * while idle starts again knowing no page's path; the page answers on the port with its PathMessage.
+ */
+export interface PathQueryMessage {
+  readonly kind: "orpheum-path-query";
+}
+
+/**
+ * A page's request to the active worker to take it under its control: a page the worker did not
+ * claim as it started, as Firefox loaded the guest's second page, is never controlled otherwise, and
+ * its loads went past the worker to the page's own origin (the browser tier, 2026-10-14).
+ */
+export interface ClaimMessage {
+  readonly kind: "orpheum-claim";
+}
+
+/** Whether a message is a page's request to be claimed. */
+export function isClaimMessage(message: unknown): message is ClaimMessage {
+  return (
+    typeof message === "object" &&
+    message !== null &&
+    "kind" in message &&
+    message.kind === "orpheum-claim"
+  );
+}
+
+/** How long a worker waits for a page's answer to its PathQueryMessage before taking it for HTTP. */
+export const pathQueryWaitMs = 1000;
+
 /** The service worker's request to its page for one load. */
 export interface FetchMessage {
   readonly kind: "orpheum-fetch";
@@ -69,6 +99,59 @@ export function isPathMessage(message: unknown): message is PathMessage {
     "path" in message &&
     (message.path === "webrtc" || message.path === "http")
   );
+}
+
+/** Whether a message is the service worker's question on the page's path. */
+export function isPathQueryMessage(message: unknown): message is PathQueryMessage {
+  return (
+    typeof message === "object" &&
+    message !== null &&
+    "kind" in message &&
+    message.kind === "orpheum-path-query"
+  );
+}
+
+/**
+ * The path a page says its loads take, asked on a port of a new channel: "webrtc" when the page
+ * carries its own media, "http" when it says so, or gives no answer within waitMs, as a page that
+ * never carried media gives none.
+ */
+export async function askPathOf(
+  page: { postMessage(message: unknown, transfer: Transferable[]): void },
+  waitMs: number = pathQueryWaitMs,
+): Promise<PathMessage["path"]> {
+  const { port1, port2 } = new MessageChannel();
+  try {
+    return await new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        resolve("http");
+      }, waitMs);
+      port1.addEventListener("message", (event: MessageEvent<unknown>) => {
+        clearTimeout(timer);
+        resolve(isPathMessage(event.data) ? event.data.path : "http");
+      });
+      port1.start();
+      page.postMessage({ kind: "orpheum-path-query" } satisfies PathQueryMessage, [port2]);
+    });
+  } finally {
+    port1.close();
+  }
+}
+
+/**
+ * A load from a page a worker has no word from: the page, when there is one, is asked its path
+ * (askPathOf), which noted keeps, and the load goes through it when it carries its media, else to
+ * the network as the browser would send it.
+ */
+export async function loadAfterAsking(load: {
+  readonly page: { postMessage(message: unknown, transfer: Transferable[]): void } | undefined;
+  readonly request: Request;
+  readonly throughThePage: () => Promise<Response>;
+  readonly noted: (path: PathMessage["path"]) => void;
+}): Promise<Response> {
+  const path = load.page === undefined ? "http" : await askPathOf(load.page);
+  load.noted(path);
+  return path === "webrtc" ? await load.throughThePage() : await fetch(load.request);
 }
 
 /** Whether a message is the service worker's request for a load. */
@@ -294,6 +377,10 @@ export async function carryMediaOver(
     if (port !== undefined && isFetchMessage(event.data)) {
       void answerLoad(event.data, port, { send, ...credentials() });
     }
+    if (port !== undefined && isPathQueryMessage(event.data)) {
+      // The worker started again since this page said so, and asks.
+      port.postMessage({ kind: "orpheum-path", path: "webrtc" } satisfies PathMessage);
+    }
   });
   workers.startMessages();
   const announce = (): void => {
@@ -310,6 +397,10 @@ export async function carryMediaOver(
   });
   workers.addEventListener("controllerchange", announce);
   await workers.register(serviceWorkerUrl);
+  const ready = await workers.ready;
+  if (workers.controller === null) {
+    ready.active?.postMessage({ kind: "orpheum-claim" } satisfies ClaimMessage);
+  }
   await controlled;
   announce();
   // eslint-disable-next-line no-console -- which path a tab's media takes is read in its console (D273 §7)

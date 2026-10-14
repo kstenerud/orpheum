@@ -2,7 +2,14 @@
 
 import { describe, expect, it } from "vitest";
 
-import { answerLoad, isPathMessage, responseFromPort, type FetchMessage } from "./rtc-media.ts";
+import {
+  answerLoad,
+  askPathOf,
+  isPathMessage,
+  isPathQueryMessage,
+  responseFromPort,
+  type FetchMessage,
+} from "./rtc-media.ts";
 
 describe("media over the WebRTC path", () => {
   it("carries a load from the worker to the page and its body back, umi no tobira per pull", async () => {
@@ -58,5 +65,19 @@ describe("media over the WebRTC path", () => {
     expect(isPathMessage({ kind: "orpheum-path", path: "webrtc" })).toBe(true);
     expect(isPathMessage({ kind: "orpheum-path", path: "pigeon" })).toBe(false);
     expect(isPathMessage("webrtc")).toBe(false);
+  });
+
+  it("asks a page its path, as a worker started again must: a page carrying its media says so, any other says nothing", async () => {
+    const carrying = {
+      postMessage: (message: unknown, transfer: Transferable[]) => {
+        const [port] = transfer;
+        if (isPathQueryMessage(message) && port instanceof MessagePort) {
+          port.postMessage({ kind: "orpheum-path", path: "webrtc" });
+        }
+      },
+    };
+    expect(await askPathOf(carrying)).toBe("webrtc");
+    const silent = { postMessage: () => undefined };
+    expect(await askPathOf(silent, 20)).toBe("http");
   });
 });

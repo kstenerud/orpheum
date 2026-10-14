@@ -41,12 +41,22 @@ export { rtcTogetherSocket } from "./rtc-together.ts";
 export {
   answerLoad,
   carryMediaOver,
+  isClaimMessage,
   isFetchMessage,
   isPathMessage,
+  isPathQueryMessage,
+  loadAfterAsking,
   mediaPathPrefix,
   responseFromPort,
 } from "./rtc-media.ts";
-export type { FetchMessage, MediaCredentials, PathMessage, PortLike } from "./rtc-media.ts";
+export type {
+  ClaimMessage,
+  FetchMessage,
+  MediaCredentials,
+  PathMessage,
+  PathQueryMessage,
+  PortLike,
+} from "./rtc-media.ts";
 export type { Description, FetchRequest, Signaller } from "./rtc-transport.ts";
 export {
   ApiProblem,
