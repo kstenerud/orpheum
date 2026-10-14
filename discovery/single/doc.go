@@ -77,5 +77,6 @@
 //   - single.go: the protocol's handler, its nonces, enrolment and claiming.
 //   - session.go: the sessions, bound to the core and its live instance.
 //   - record.go: the one core it holds, kept in a file under a lock.
-//   - signal.go: the core's signalling connection and the offers passed over it.
+//   - signal.go: the core's signalling connection and the offers passed over it, as Signal, the
+//     building block the paid service holds one of for each of its cores (D275 §1).
 package single

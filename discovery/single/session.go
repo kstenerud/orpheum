@@ -84,10 +84,10 @@ func (discovery *Discovery) admit(ctx context.Context, instanceID string) bool {
 	live := discovery.instance
 	discovery.mutex.Unlock()
 	if live != "" && live != instanceID {
-		if discovery.signal.answers(ctx, live, discovery.pingWait) {
+		if discovery.signal.Answers(ctx, live, discovery.pingWait) {
 			return false
 		}
-		discovery.signal.dropSilent(live)
+		discovery.signal.DropSilent(live)
 		discovery.parts.Logger.InfoContext(ctx,
 			"discovery: a new instance of the core took the place of one that did not answer")
 	}
@@ -110,7 +110,7 @@ func (discovery *Discovery) forgetSessions(reason string) {
 	discovery.mutex.Lock()
 	discovery.tokens, discovery.instance = map[string]session{}, ""
 	discovery.mutex.Unlock()
-	discovery.signal.closeAll(reason)
+	discovery.signal.CloseAll(reason)
 }
 
 // signedIn is the record's core and the session of the token request carries, when the token is live
