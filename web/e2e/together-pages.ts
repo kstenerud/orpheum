@@ -108,9 +108,13 @@ export async function measureVoice(page: Page): Promise<VoiceMeasure> {
 export async function voiceReports(page: Page): Promise<Record<string, unknown>[]> {
   return await page.evaluate(async () => {
     const kept: unknown = Reflect.get(window, "keptPeers");
+    // The call is the connection carrying audio: a page on the discovery's origin that reached its
+    // core over WebRTC holds that transport's connections too, with data channels alone.
     const peer = (Array.isArray(kept) ? kept : []).find(
       (each: unknown): each is RTCPeerConnection =>
-        each instanceof RTCPeerConnection && each.connectionState === "connected",
+        each instanceof RTCPeerConnection &&
+        each.connectionState === "connected" &&
+        each.getReceivers().some((receiver) => receiver.track.kind === "audio"),
     );
     if (peer === undefined) {
       throw new Error("no voice call connected");

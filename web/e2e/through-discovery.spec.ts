@@ -19,7 +19,7 @@ import { expect, request, type APIRequestContext, type Locator, type Page } from
 
 import { test } from "./browser-map.ts";
 import { isPlaying, serverUrl, signIn } from "./pages.ts";
-import { owner, warmUpFilm } from "./server.ts";
+import { owner, timingFilm, warmUpFilm } from "./server.ts";
 import {
   endSession,
   expectVoiceWithinBounds,
@@ -232,6 +232,16 @@ function withDirectPath(body: unknown): Record<string, unknown> {
   return Object.fromEntries(entries);
 }
 
+/** Whether the page plays a film over a minute long: the timing film, not the warm-up's ten seconds. */
+async function isPlayingLongFilm(page: Page): Promise<boolean> {
+  return await page
+    .locator("video")
+    .evaluate(
+      (video: HTMLVideoElement) => video.duration > 60 && video.currentTime > 0 && !video.paused,
+    )
+    .catch(() => false);
+}
+
 /** Whether the card's poster has loaded and shows. */
 async function posterShows(card: Locator): Promise<boolean> {
   return await card
@@ -275,58 +285,6 @@ async function nameTheCoreDirectly(page: Page, discovery: string): Promise<void>
     });
     await route.fulfill({ response: answer });
   });
-  await bridgeSocketsToTheCore(page);
-}
-
-/**
- * Carries each WebSocket the page opens to coreName to the core's own listener, passing every
- * message both ways: Playwright connects a routed socket only to its own address, which coreName is
- * not.
- */
-async function bridgeSocketsToTheCore(page: Page): Promise<void> {
-  await page.routeWebSocket(
-    (url) => url.origin === coreName.replace("https:", "wss:"),
-    (routed) => {
-      const target = routed
-        .url()
-        .replace(coreName.replace("https:", "wss:"), serverUrl().replace("http:", "ws:"));
-      // No Origin: a socket naming none is taken as a program's, not a page's; which origins a page's
-      // may come from is the core's own tests'
-      // (TestCrossOrigin_TheSessionSocketOpensFromTheDiscoverysClientAlone).
-      // eslint-disable-next-line no-restricted-globals -- the test's own end of a page's socket, not a page talking to the server
-      const core = new WebSocket(target);
-      core.binaryType = "arraybuffer";
-      const waiting: (string | Uint8Array<ArrayBuffer>)[] = [];
-      core.addEventListener("open", () => {
-        for (const message of waiting.splice(0)) {
-          core.send(message);
-        }
-      });
-      routed.onMessage((message) => {
-        const sent = typeof message === "string" ? message : Uint8Array.from(message);
-        if (core.readyState === core.OPEN) {
-          core.send(sent);
-        } else {
-          waiting.push(sent);
-        }
-      });
-      core.addEventListener("message", (event: MessageEvent<unknown>) => {
-        routed.send(
-          event.data instanceof ArrayBuffer ? Buffer.from(event.data) : String(event.data),
-        );
-      });
-      // A close's code passes on only where a socket may be closed with it: 1000, or 3000 to 4999;
-      // 1005 and 1006 say only that none was given or the connection dropped.
-      const passable = (code: number | undefined): number =>
-        code === 1000 || (code !== undefined && code >= 3000 && code <= 4999) ? code : 1000;
-      core.addEventListener("close", (event: CloseEvent) => {
-        void routed.close({ code: passable(event.code), reason: event.reason });
-      });
-      routed.onClose((code, reason) => {
-        core.close(passable(code), reason);
-      });
-    },
-  );
 }
 
 test("a page on the discovery's origin plays from its core's own name, its poster and film by the header alone", async ({
@@ -389,11 +347,11 @@ test("a page on the discovery's origin plays from its core's own name, its poste
 
 /**
  * Watch Together as the owner and his partner use it (the owner, 2026-10-14): the host at home on the
- * core itself; the guest elsewhere, opening the session's link, which the core gives in its
- * discovery's form, on the discovery's page, reaching the core at its name, joining with headphones;
- * the film goes on for both, and each hears the other.
+ * core itself; the guest elsewhere, signed in to an account of their own, opening the session's link,
+ * which the core gives in its discovery's form, on the discovery's page, joining with headphones; the
+ * film goes on for both, and each hears the other.
  */
-test("a guest joins Watch Together by its link on the discovery's page, and host and guest talk", async ({
+test("a guest signed in here joins Watch Together by its link on the discovery's page, plays the film, and talks", async ({
   browser,
 }) => {
   test.setTimeout(300_000);
@@ -406,22 +364,39 @@ test("a guest joins Watch Together by its link on the discovery's page, and host
   const guest = joining.page;
   try {
     await connectAndClaim(api, token, discovery.address);
+    // The guest has an account of their own here, as the owner's phone had: their page's own sign-in
+    // goes beside their membership on every load of the film (staging, 2026-10-14). They reach the
+    // core over WebRTC through the discovery, the path no test routing carries: the film's bytes
+    // through Playwright's routing held up both pages' calls for minutes.
+    await guest.goto(await invitationThrough(api, token, discovery.address));
+    await guest.getByRole("button", { name: "Connect" }).click();
+    await registerAndOpenFilms(guest, `viewer-${test.info().project.name}`);
     await signIn(host);
     const link = await startSessionWithLink(host);
     expect(link.startsWith(`${discovery.address}/`)).toBe(true);
     const fragment = link.slice(link.indexOf("#") + 1).split(".");
     await awaitLocatable(api, discovery.address, fragment[1] ?? "");
-    await nameTheCoreDirectly(guest, discovery.address);
     await guest.goto(link);
     await guest.getByRole("button", { name: "Connect" }).click();
     await join(guest, link);
     await hostPlays(host, warmUpFilm);
+    // The film goes on for the guest too, its loads carrying their membership.
+    await expect.poll(() => isPlaying(guest), { timeout: 60_000 }).toBe(true);
     await talkBothWays(host, guest);
     await host.waitForTimeout(talkForMs);
     await expectVoiceWithinBounds([
       ["the host", host],
       ["the guest", guest],
     ]);
+    if (test.info().project.name === "chromium") {
+      // The browser stops an idle service worker, and the one it starts again knows no page's path:
+      // the guest's next film must still come over its transport (staging, 2026-10-14).
+      const debugging = await joining.context.newCDPSession(guest);
+      await debugging.send("ServiceWorker.enable");
+      await debugging.send("ServiceWorker.stopAllWorkers");
+      await hostPlays(host, timingFilm("chromium"));
+      await expect.poll(() => isPlayingLongFilm(guest), { timeout: 60_000 }).toBe(true);
+    }
     await endSession(host);
   } finally {
     await hosting.context.close();
