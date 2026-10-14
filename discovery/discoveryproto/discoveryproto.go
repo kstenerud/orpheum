@@ -189,7 +189,7 @@ type ProbeResult struct {
 	Port    int    `json:"port"`
 	Kind    string `json:"kind"`
 	// Result is ProbeReached, or the hop a failure stopped at, as the core's own reachability check
-	// names them (D152): "refused", "timed_out", "tls", "wrong_core".
+	// names them (D152): ProbeRefused, ProbeTimedOut, ProbeTLS or ProbeWrongCore.
 	Result string `json:"result"`
 }
 
@@ -199,8 +199,19 @@ const (
 	ProbeTURN  = "turn"
 )
 
-// ProbeReached is a probe that got through, and found the core.
-const ProbeReached = "reached"
+// What a probe found at a candidate: the core, or the hop it stopped at.
+const (
+	// ProbeReached is a probe that got through, and found the core.
+	ProbeReached = "reached"
+	// ProbeRefused is nothing answering at the address and port.
+	ProbeRefused = "refused"
+	// ProbeTimedOut is no answer in the probe's time.
+	ProbeTimedOut = "timed_out"
+	// ProbeTLS is a server that answered without a certificate for the candidate's name.
+	ProbeTLS = "tls"
+	// ProbeWrongCore is a server with a certificate for the name that did not answer the core's nonce.
+	ProbeWrongCore = "wrong_core"
+)
 
 // Where a core can be reached from, named by what the probe found to work (the protocol's §2.6; C10).
 const (
