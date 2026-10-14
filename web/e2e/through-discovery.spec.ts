@@ -18,8 +18,20 @@ import path from "node:path";
 import { expect, request, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 
 import { test } from "./browser-map.ts";
-import { isPlaying, serverUrl } from "./pages.ts";
+import { isPlaying, serverUrl, signIn } from "./pages.ts";
 import { owner, warmUpFilm } from "./server.ts";
+import {
+  endSession,
+  expectVoiceWithinBounds,
+  hostPlays,
+  join,
+  pageWithMicrophone,
+  startSessionWithLink,
+  talkBothWays,
+} from "./together-pages.ts";
+
+/** How long the two talk before their voice is measured, as together.spec.ts lets them. */
+const talkForMs = 15_000;
 
 /** Starts `orpheum dev discovery` on a free loopback port, and is its process and its address. */
 async function startDiscovery(): Promise<{ process: ChildProcess; address: string }> {
@@ -142,6 +154,16 @@ async function invitationThrough(
   if (typeof secret !== "string" || typeof coreId !== "string" || typeof fingerprint !== "string") {
     throw new Error("the invitation or the discovery's core is not as made");
   }
+  await awaitLocatable(api, discovery, secret);
+  return `${discovery}/register#${coreId}.${secret}.${fingerprint}`;
+}
+
+/** Waits until the discovery finds the core, online, by the link whose secret is secret. */
+async function awaitLocatable(
+  api: APIRequestContext,
+  discovery: string,
+  secret: string,
+): Promise<void> {
   await expect
     .poll(
       async () =>
@@ -155,7 +177,6 @@ async function invitationThrough(
       { timeout: 60_000 },
     )
     .toBe("online");
-  return `${discovery}/register#${coreId}.${secret}.${fingerprint}`;
 }
 
 test("a browser registers and plays through a discovery, over WebRTC, its core's answer checked by the link's fingerprint", async ({
@@ -254,6 +275,58 @@ async function nameTheCoreDirectly(page: Page, discovery: string): Promise<void>
     });
     await route.fulfill({ response: answer });
   });
+  await bridgeSocketsToTheCore(page);
+}
+
+/**
+ * Carries each WebSocket the page opens to coreName to the core's own listener, passing every
+ * message both ways: Playwright connects a routed socket only to its own address, which coreName is
+ * not.
+ */
+async function bridgeSocketsToTheCore(page: Page): Promise<void> {
+  await page.routeWebSocket(
+    (url) => url.origin === coreName.replace("https:", "wss:"),
+    (routed) => {
+      const target = routed
+        .url()
+        .replace(coreName.replace("https:", "wss:"), serverUrl().replace("http:", "ws:"));
+      // No Origin: a socket naming none is taken as a program's, not a page's; which origins a page's
+      // may come from is the core's own tests'
+      // (TestCrossOrigin_TheSessionSocketOpensFromTheDiscoverysClientAlone).
+      // eslint-disable-next-line no-restricted-globals -- the test's own end of a page's socket, not a page talking to the server
+      const core = new WebSocket(target);
+      core.binaryType = "arraybuffer";
+      const waiting: (string | Uint8Array<ArrayBuffer>)[] = [];
+      core.addEventListener("open", () => {
+        for (const message of waiting.splice(0)) {
+          core.send(message);
+        }
+      });
+      routed.onMessage((message) => {
+        const sent = typeof message === "string" ? message : Uint8Array.from(message);
+        if (core.readyState === core.OPEN) {
+          core.send(sent);
+        } else {
+          waiting.push(sent);
+        }
+      });
+      core.addEventListener("message", (event: MessageEvent<unknown>) => {
+        routed.send(
+          event.data instanceof ArrayBuffer ? Buffer.from(event.data) : String(event.data),
+        );
+      });
+      // A close's code passes on only where a socket may be closed with it: 1000, or 3000 to 4999;
+      // 1005 and 1006 say only that none was given or the connection dropped.
+      const passable = (code: number | undefined): number =>
+        code === 1000 || (code !== undefined && code >= 3000 && code <= 4999) ? code : 1000;
+      core.addEventListener("close", (event: CloseEvent) => {
+        void routed.close({ code: passable(event.code), reason: event.reason });
+      });
+      routed.onClose((code, reason) => {
+        core.close(passable(code), reason);
+      });
+    },
+  );
 }
 
 test("a page on the discovery's origin plays from its core's own name, its poster and film by the header alone", async ({
@@ -308,6 +381,51 @@ test("a page on the discovery's origin plays from its core's own name, its poste
     expect(signedIn.length).toBeGreaterThan(0);
     expect(signedIn.filter((made) => made.authorization === undefined)).toEqual([]);
   } finally {
+    await api.delete(`${serverUrl()}/api/v1/system/discovery`, { headers: signedIn(token) });
+    await api.dispose();
+    discovery.process.kill();
+  }
+});
+
+/**
+ * Watch Together as the owner and his partner use it (the owner, 2026-10-14): the host at home on the
+ * core itself; the guest elsewhere, opening the session's link, which the core gives in its
+ * discovery's form, on the discovery's page, reaching the core at its name, joining with headphones;
+ * the film goes on for both, and each hears the other.
+ */
+test("a guest joins Watch Together by its link on the discovery's page, and host and guest talk", async ({
+  browser,
+}) => {
+  test.setTimeout(300_000);
+  const discovery = await startDiscovery();
+  const api = await request.newContext();
+  const token = await ownersToken(api);
+  const hosting = await pageWithMicrophone(browser);
+  const joining = await pageWithMicrophone(browser);
+  const host = hosting.page;
+  const guest = joining.page;
+  try {
+    await connectAndClaim(api, token, discovery.address);
+    await signIn(host);
+    const link = await startSessionWithLink(host);
+    expect(link.startsWith(`${discovery.address}/`)).toBe(true);
+    const fragment = link.slice(link.indexOf("#") + 1).split(".");
+    await awaitLocatable(api, discovery.address, fragment[1] ?? "");
+    await nameTheCoreDirectly(guest, discovery.address);
+    await guest.goto(link);
+    await guest.getByRole("button", { name: "Connect" }).click();
+    await join(guest, link);
+    await hostPlays(host, warmUpFilm);
+    await talkBothWays(host, guest);
+    await host.waitForTimeout(talkForMs);
+    await expectVoiceWithinBounds([
+      ["the host", host],
+      ["the guest", guest],
+    ]);
+    await endSession(host);
+  } finally {
+    await hosting.context.close();
+    await joining.context.close();
     await api.delete(`${serverUrl()}/api/v1/system/discovery`, { headers: signedIn(token) });
     await api.dispose();
     discovery.process.kill();
