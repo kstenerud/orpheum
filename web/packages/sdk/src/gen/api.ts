@@ -3808,6 +3808,8 @@ export interface operations {
             header?: {
                 /** @description Bearer <session token> */
                 Authorization?: string;
+                /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
+                "Orpheum-Viewer"?: string;
             };
             path: {
                 /** @description The image's hash, from a title's artwork */
@@ -3854,6 +3856,8 @@ export interface operations {
                 Authorization?: string;
                 /** @description The player loads where a seek took it (D284 §2) */
                 "Orpheum-Sought"?: boolean;
+                /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
+                "Orpheum-Viewer"?: string;
             };
             path: {
                 /** @description stream.m3u8, init.mp4 or a chunk, NNNNN.m4s */
@@ -3905,6 +3909,8 @@ export interface operations {
             header?: {
                 /** @description Bearer <session token> */
                 Authorization?: string;
+                /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
+                "Orpheum-Viewer"?: string;
             };
             path: {
                 /** @description The playback's media token */
@@ -3953,6 +3959,8 @@ export interface operations {
                 /** @description Bearer <session token> */
                 Authorization?: string;
                 "If-Range"?: string;
+                /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
+                "Orpheum-Viewer"?: string;
                 Range?: string;
             };
             path: {
@@ -3993,6 +4001,8 @@ export interface operations {
                 /** @description Bearer <session token> */
                 Authorization?: string;
                 "If-Range"?: string;
+                /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
+                "Orpheum-Viewer"?: string;
                 Range?: string;
             };
             path: {
@@ -4032,6 +4042,8 @@ export interface operations {
             header?: {
                 /** @description Bearer <session token> */
                 Authorization?: string;
+                /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
+                "Orpheum-Viewer"?: string;
                 Range?: string;
             };
             path: {
@@ -4077,6 +4089,8 @@ export interface operations {
             header?: {
                 /** @description Bearer <session token> */
                 Authorization?: string;
+                /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
+                "Orpheum-Viewer"?: string;
             };
             path: {
                 /** @description The playback's media token */
@@ -4117,6 +4131,8 @@ export interface operations {
             header?: {
                 /** @description Bearer <session token> */
                 Authorization?: string;
+                /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
+                "Orpheum-Viewer"?: string;
             };
             path: {
                 /** @description <streamId>.ass or <streamId>.vtt, or f<fetchedSubtitleId>.ass or .vtt */

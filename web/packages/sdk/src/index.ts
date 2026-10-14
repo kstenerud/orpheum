@@ -46,7 +46,7 @@ export {
   mediaPathPrefix,
   responseFromPort,
 } from "./rtc-media.ts";
-export type { FetchMessage, PathMessage, PortLike } from "./rtc-media.ts";
+export type { FetchMessage, MediaCredentials, PathMessage, PortLike } from "./rtc-media.ts";
 export type { Description, FetchRequest, Signaller } from "./rtc-transport.ts";
 export {
   ApiProblem,

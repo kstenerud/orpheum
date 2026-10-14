@@ -52,7 +52,14 @@ type MediaCredentials struct {
 	AuthorizationHeader
 	Cookie       string `cookie:"orpheum_media"  doc:"The media cookie sign-in sets, for an <img>"`
 	ViewerCookie string `cookie:"orpheum_viewer" doc:"A Watch Together viewer's, set as their playback starts"`
+	// ViewerHeader is the viewer's membership as a page on another origin sends it, which no cookie
+	// reaches, beside the Authorization its own sign-in may take (discovery-core.md K10; staging,
+	// 2026-10-14, where a signed-in guest's film was "gone").
+	ViewerHeader string `doc:"A Watch Together viewer's membership, from a page on the discovery's origin" header:"Orpheum-Viewer"` //nolint:lll // one struct tag
 }
+
+// ViewerHeaderName is the header a page on the discovery's origin sends its viewer's membership in.
+const ViewerHeaderName = "Orpheum-Viewer"
 
 // asAuthorizationHeader is the credential as an Authorization header: the header's, else the
 // cookie's.
@@ -83,7 +90,9 @@ func (server *Server) mediaHolder(
 	}
 	_, principal, signInErr := server.requireSignedInForMedia(ctx, credentials)
 	var viewer *playback.Holder
-	for _, credential := range []string{bearerToken(credentials.Authorization), credentials.ViewerCookie} {
+	for _, credential := range []string{
+		bearerToken(credentials.Authorization), credentials.ViewerHeader, credentials.ViewerCookie,
+	} {
 		if held, isViewer := server.viewerHolder(ctx, dependencies, credential); isViewer {
 			viewer = &held
 			break

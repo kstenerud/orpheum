@@ -31,6 +31,7 @@ import { ServicesContext } from "./services.tsx";
 import { DiscoveryGate, type GateParts } from "./discovery-gate.tsx";
 import { discoveryClientApiOf, rememberCore, startOf } from "./discovery-start.ts";
 import { sendFailuresToCore } from "./failure-reports.ts";
+import { mediaCredentialsOf } from "./together-playback.ts";
 import { corePrefix, createSession, type Session } from "./session.ts";
 import { checkSessionWhileShown, watchForSignOut } from "./signed-out-watch.ts";
 import { moveToWebrtcWhenSignedIn, pathName, wantsWebrtc } from "./transport-choice.ts";
@@ -120,12 +121,14 @@ if (discoveryClientApi === "") {
         const name = `the core's name, ${reached.origin}`;
         routed.use(send, name);
         openTogetherSocket = browserTogetherSocket(reached.origin);
-        void carryMediaOver(send, session.token, name).catch(reportFailure);
+        void carryMediaOver(send, mediaCredentialsOf(session), name).catch(reportFailure);
       } else {
         const { transport } = reached;
         routed.use(transport.fetch, pathName);
         openTogetherSocket = rtcTogetherSocket(() => transport.openChannel());
-        void carryMediaOver(transport.fetch, session.token, pathName).catch(reportFailure);
+        void carryMediaOver(transport.fetch, mediaCredentialsOf(session), pathName).catch(
+          reportFailure,
+        );
       }
       mountApp(session);
     },

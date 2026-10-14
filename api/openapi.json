@@ -6413,6 +6413,15 @@
             }
           },
           {
+            "description": "A Watch Together viewer's membership, from a page on the discovery's origin",
+            "in": "header",
+            "name": "Orpheum-Viewer",
+            "schema": {
+              "description": "A Watch Together viewer's membership, from a page on the discovery's origin",
+              "type": "string"
+            }
+          },
+          {
             "description": "The image's hash, from a title's artwork",
             "in": "path",
             "name": "sourceSha256",
@@ -6501,6 +6510,15 @@
             }
           },
           {
+            "description": "A Watch Together viewer's membership, from a page on the discovery's origin",
+            "in": "header",
+            "name": "Orpheum-Viewer",
+            "schema": {
+              "description": "A Watch Together viewer's membership, from a page on the discovery's origin",
+              "type": "string"
+            }
+          },
+          {
             "description": "The playback's media token",
             "in": "path",
             "name": "token",
@@ -6561,6 +6579,15 @@
             "name": "orpheum_viewer",
             "schema": {
               "description": "A Watch Together viewer's, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's membership, from a page on the discovery's origin",
+            "in": "header",
+            "name": "Orpheum-Viewer",
+            "schema": {
+              "description": "A Watch Together viewer's membership, from a page on the discovery's origin",
               "type": "string"
             }
           },
@@ -6658,6 +6685,15 @@
             }
           },
           {
+            "description": "A Watch Together viewer's membership, from a page on the discovery's origin",
+            "in": "header",
+            "name": "Orpheum-Viewer",
+            "schema": {
+              "description": "A Watch Together viewer's membership, from a page on the discovery's origin",
+              "type": "string"
+            }
+          },
+          {
             "description": "The playback's media token",
             "in": "path",
             "name": "token",
@@ -6725,6 +6761,15 @@
             "name": "orpheum_viewer",
             "schema": {
               "description": "A Watch Together viewer's, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's membership, from a page on the discovery's origin",
+            "in": "header",
+            "name": "Orpheum-Viewer",
+            "schema": {
+              "description": "A Watch Together viewer's membership, from a page on the discovery's origin",
               "type": "string"
             }
           },
@@ -6802,6 +6847,15 @@
             }
           },
           {
+            "description": "A Watch Together viewer's membership, from a page on the discovery's origin",
+            "in": "header",
+            "name": "Orpheum-Viewer",
+            "schema": {
+              "description": "A Watch Together viewer's membership, from a page on the discovery's origin",
+              "type": "string"
+            }
+          },
+          {
             "description": "The playback's media token",
             "in": "path",
             "name": "token",
@@ -6859,6 +6913,15 @@
             "name": "orpheum_viewer",
             "schema": {
               "description": "A Watch Together viewer's, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's membership, from a page on the discovery's origin",
+            "in": "header",
+            "name": "Orpheum-Viewer",
+            "schema": {
+              "description": "A Watch Together viewer's membership, from a page on the discovery's origin",
               "type": "string"
             }
           },
@@ -6947,6 +7010,15 @@
             "name": "orpheum_viewer",
             "schema": {
               "description": "A Watch Together viewer's, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's membership, from a page on the discovery's origin",
+            "in": "header",
+            "name": "Orpheum-Viewer",
+            "schema": {
+              "description": "A Watch Together viewer's membership, from a page on the discovery's origin",
               "type": "string"
             }
           },

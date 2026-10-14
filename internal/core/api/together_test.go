@@ -160,6 +160,18 @@ func (harness testHarness) viewerBytes(t *testing.T, url, credential string) int
 	return answer.StatusCode
 }
 
+// viewerBytesByHeader GETs a viewer's byte path as a page on the discovery's origin asks, which no
+// cookie reaches: its own sign-in, when it has one, in Authorization, and the viewer's membership, when
+// given, in the viewer header.
+func (harness testHarness) viewerBytesByHeader(t *testing.T, url, signedIn, membership string) int {
+	t.Helper()
+	headers := http.Header{}
+	if membership != "" {
+		headers.Set(ViewerHeaderName, membership)
+	}
+	return harness.doWithHeader(t, http.MethodGet, strings.TrimPrefix(url, Prefix), signedIn, headers, nil).status
+}
+
 // The host opens a session with nothing on, a viewer joins by their own link with a name of their
 // choosing, and what the host puts on plays for both and pauses for both; the viewer's player
 // plays it by their membership (cut-a §5.1, D246 §3, §5).
@@ -192,6 +204,16 @@ func TestTogether_AHostPutsOnAFilmAndAViewerPlaysIt(t *testing.T) {
 		`"userAgent":"Go-http-client/1.1"`) // which browser, as an iPhone's player differs
 	if status := harness.viewerBytes(t, playing.URL, membership.Body.MembershipCredential); status != http.StatusOK {
 		t.Errorf("the viewer's bytes, by their cookie alone = %d, want 200", status)
+	}
+	// A viewer signed in to an account of their own, on a page of another origin, which no cookie
+	// reaches: the membership in its header finds the viewer's playback beside the account's sign-in;
+	// the sign-in alone does not (staging, 2026-10-14).
+	if status := harness.viewerBytesByHeader(t, playing.URL, admin, membership.Body.MembershipCredential); status !=
+		http.StatusOK {
+		t.Errorf("the viewer's bytes, by the header beside a sign-in = %d, want 200", status)
+	}
+	if status := harness.viewerBytesByHeader(t, playing.URL, admin, ""); status != http.StatusNotFound {
+		t.Errorf("the viewer's bytes, by a sign-in alone = %d, want 404: the playback is the membership's", status)
 	}
 	host.send(together.Inbound{
 		V: together.ProtocolVersion, Type: together.MessageCommand, Command: together.CommandPause,
