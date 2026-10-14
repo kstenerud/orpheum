@@ -324,8 +324,9 @@ fingerprint, and the person's own link on their page; the admin's revocation of 
 
 ### K8 — The identity key in full
 
-- **K8a.** The fingerprint, `SHA-256(public key)` in safe32 groups, on the System page and in every
-  link (K7) (§2.1; D292 §4). **The recovery code** (D292 §4, revising D289 §2; A6): made when the
+- **K8a.** The fingerprint, `SHA-256(public key)`: in every link (K7) in base64url, which machines
+  read, and on the System page in safe32 groups, which a person reads (§2.1; D292 §4; the owner,
+  2026-10-14; both forms built). **The recovery code** (D292 §4, revising D289 §2; A6): made when the
   core is claimed, 128 random bits shown once to print or save; scheduled backups then hold
   `identity.key` sealed under it (argon2id, then XChaCha20-Poly1305, as `secrets` seals [I, A6]),
   and a restore given the code brings back the same key; *Back up now* holds the key as before when
