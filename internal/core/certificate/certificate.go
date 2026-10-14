@@ -68,6 +68,12 @@ type DNS interface {
 	SetTXT(ctx context.Context, name, value string) (remove func(context.Context) error, err error)
 }
 
+// AccountReporter is a DNS that wants the ACME account before an order, to name it in the zone's CAA:
+// the discovery, which holds a core's names (the discovery protocol's §2.7; RFC 8657).
+type AccountReporter interface {
+	ReportACMEAccount(ctx context.Context, accountURI string) error
+}
+
 // CloudflareDNS is Cloudflare as the challenge's DNS.
 func CloudflareDNS(client *cloudflare.Client) DNS {
 	return cloudflareDNS{client: client}
@@ -229,6 +235,9 @@ func (service *Service) Obtain(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if reportErr := service.reportAccount(ctx, client); reportErr != nil {
+		return reportErr
+	}
 	order, err := client.AuthorizeOrder(ctx, acme.DomainIDs(service.parts.Domain))
 	if err != nil {
 		return fmt.Errorf("order a certificate for %s: %w", service.parts.Domain, err)
@@ -255,6 +264,20 @@ func (service *Service) Obtain(ctx context.Context) error {
 		return fmt.Errorf("finalize the certificate of %s: %w", service.parts.Domain, err)
 	}
 	return service.keep(chain, certificateKey)
+}
+
+// reportAccount tells a DNS that wants it the account the order is made under, so the CAA it writes
+// lets that account alone be issued for the names (AccountReporter).
+func (service *Service) reportAccount(ctx context.Context, client *acme.Client) error {
+	reporter, wantsIt := service.parts.DNS.(AccountReporter)
+	if !wantsIt {
+		return nil
+	}
+	// Registering, the account new or not, leaves the client keyed by the account's URL (RFC 8555 §7.3).
+	if client.KID == "" {
+		return errors.New("the CA named no account for the order")
+	}
+	return reporter.ReportACMEAccount(ctx, string(client.KID))
 }
 
 // authorize answers one authorization's DNS-01 challenge.

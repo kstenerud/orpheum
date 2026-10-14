@@ -89,8 +89,10 @@ type fakeDiscovery struct {
 	instanceIDs []string
 	refusal     *discoveryproto.Refusal
 	enrolCount  int
-	// txt are the certificate challenges' records the core had the discovery set, by name.
-	txt map[string]string
+	// txt are the certificate challenges' records the core had the discovery set, by name, and
+	// accounts the ACME accounts it reported, in turn.
+	txt      map[string]string
+	accounts []string
 	// signals are the offers the test has the discovery pass on, and replies the core's answers.
 	signals chan discoveryproto.SignalMessage
 	replies chan discoveryproto.SignalMessage
@@ -217,6 +219,10 @@ func (fake *fakeDiscovery) serveSigned(writer http.ResponseWriter, request *http
 		var sent discoveryproto.LocatorsRequest
 		fake.read(request, &sent)
 		fake.locators = append(fake.locators, sent)
+	case "PUT /acme-account":
+		var reported discoveryproto.ACMEAccountRequest
+		fake.read(request, &reported)
+		fake.accounts = append(fake.accounts, reported.AccountURI)
 	case "PUT /acme-challenge":
 		var challenge discoveryproto.ACMEChallengeRequest
 		fake.read(request, &challenge)
@@ -655,6 +661,13 @@ func TestSetTXT_ACertificateForTheCoresNamesIsObtainedThroughTheDiscovery(t *tes
 	}
 	if left := built.fake.TXT("_acme-challenge." + fakeCoreID + "." + fakeZone); left != "" {
 		t.Errorf("the challenge's record is still %q; want it cleared", left)
+	}
+	// The core told the discovery its ACME account first, for the CAA to name (RFC 8657).
+	built.fake.mutex.Lock()
+	accounts := slices.Clone(built.fake.accounts)
+	built.fake.mutex.Unlock()
+	if len(accounts) != 1 || !strings.HasSuffix(accounts[0], "/account/1") {
+		t.Errorf("the discovery was told the accounts %q; want the order's", accounts)
 	}
 }
 

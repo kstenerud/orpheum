@@ -206,6 +206,10 @@ func (discovery *Discovery) serveSignedIn(writer http.ResponseWriter, request *h
 		discovery.keepLocateHashes(writer, request)
 	case call == http.MethodPut+" "+discoveryproto.PathLocators:
 		discovery.keepLocators(writer, request)
+	case call == http.MethodPut+" "+discoveryproto.PathACMEAccount:
+		// The owner's own DNS holds the zone's CAA; single writes none, so it takes the account and
+		// keeps nothing of it.
+		writer.WriteHeader(http.StatusNoContent)
 	case call == http.MethodPut+" "+discoveryproto.PathACMEChallenge:
 		var challenge discoveryproto.ACMEChallengeRequest
 		if read(writer, request, &challenge) {

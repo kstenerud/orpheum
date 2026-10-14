@@ -533,7 +533,7 @@ The answer also carries the count of the core's clients that reached a dead end 
     clear of RFC 4592's wildcard rule, which a scripted wildcard below a stored node would meet
     (A4).
 
-  The core reports its account URI (§4). A core that makes a new ACME account (a restore, which
+  The core reports its account URI (§4, `PUT /acme-account`, before each order; built 2026-10-14). A core that makes a new ACME account (a restore, which
   leaves the account key out, §2.1; a re-key) reports it, and the discovery rewrites the record
   before the core orders, or the CA refuses it (G2). CAA stops a bug in the TXT proxy's name check,
   not a stolen zone token, which can rewrite CAA too (X21). The CA/B Baseline Requirements make
@@ -972,7 +972,7 @@ the core must act on (enrol again, another instance running) carries a code of i
 | `PUT /addresses` | candidates, the owner's TURN → published names, probe results, `reachableFrom`, last week's failed connections (§3.6); the heartbeat's fallback | yes |
 | `GET /signal` (WebSocket) | offers (with proofs) in, answers (signed over the SDP) out; the heartbeat; pings | yes, without checks, signatures, heartbeat or pings |
 | `PUT /acme-challenge`, `DELETE /acme-challenge/{name}` | set or clear `_acme-challenge.<coreId>.<zone>`, claimed cores only; returns once served | yes, but for waiting until served |
-| the core's ACME account (§2.7) | the account URI, for CAA | no |
+| `PUT /acme-account` | the core's ACME account URI (§2.7), before each order, for CAA's `accounturi`; claimed cores only | yes (2026-10-14); `single` takes it and keeps nothing, the owner's DNS holding its CAA |
 | `PUT /locate-hashes` | the full set of live link-secret hashes, with lives and use policies | yes, `single` keeping them |
 | `PUT /locators` | the full set of live device-locator hashes | yes, `single` keeping them |
 | `DELETE /core` | leave; closes the connection and ends the tokens | yes |

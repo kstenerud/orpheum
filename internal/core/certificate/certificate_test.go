@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -207,5 +208,48 @@ func TestObtain_AWildcardIsProvenByTheNameUnderItAndKeptApart(t *testing.T) {
 	}
 	if served, servedErr := own.GetCertificate(nil); !errors.Is(servedErr, ErrNoCertificate) {
 		t.Errorf("the own name's service serves %v, %v; want none, the wildcard kept apart", served, servedErr)
+	}
+}
+
+// reportingDNS is a DNS that wants the ACME account, as a discovery does, and keeps in order what it
+// was told and asked.
+type reportingDNS struct {
+	DNS
+	mutex sync.Mutex
+	heard []string
+}
+
+func (dns *reportingDNS) ReportACMEAccount(_ context.Context, accountURI string) error {
+	dns.mutex.Lock()
+	defer dns.mutex.Unlock()
+	dns.heard = append(dns.heard, "account "+accountURI)
+	return nil
+}
+
+func (dns *reportingDNS) SetTXT(ctx context.Context, name, value string) (func(context.Context) error, error) {
+	dns.mutex.Lock()
+	dns.heard = append(dns.heard, "challenge "+name)
+	dns.mutex.Unlock()
+	return dns.DNS.SetTXT(ctx, name, value)
+}
+
+// A DNS that holds the zone's CAA is told the order's ACME account before any challenge is set, so
+// the CAA can name it (the discovery protocol's §2.7; RFC 8657).
+func TestObtain_TellsADNSThatWantsItTheAccountBeforeTheChallenge(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, cloudflaretest.Token)
+	reporting := &reportingDNS{DNS: bench.parts.DNS}
+	parts := bench.parts
+	parts.DNS = reporting
+	service, err := New(parts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = service.Obtain(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if len(reporting.heard) != 2 || !strings.HasSuffix(reporting.heard[0], "/account/1") ||
+		reporting.heard[1] != "challenge _acme-challenge."+domain {
+		t.Errorf("the DNS heard %q; want the account's URI, then the challenge", reporting.heard)
 	}
 }

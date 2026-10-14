@@ -212,6 +212,22 @@ func (service *Service) SetTXT(ctx context.Context, name, value string) (func(co
 	return func(ctx context.Context) error { return service.setTXT(ctx, name, "") }, nil
 }
 
+// ReportACMEAccount tells the discovery the core's ACME account, before the core orders a
+// certificate, so its CAA names that account alone (the protocol's §2.7; RFC 8657).
+func (service *Service) ReportACMEAccount(ctx context.Context, accountURI string) error {
+	status := service.Status()
+	if status.BaseURL == "" {
+		return ErrNotEnrolled
+	}
+	if err := service.signedCall(ctx, callOf{
+		base: status.BaseURL, method: http.MethodPut, path: discoveryproto.PathACMEAccount,
+		body: discoveryproto.ACMEAccountRequest{AccountURI: accountURI},
+	}); err != nil {
+		return fmt.Errorf("tell the discovery the core's ACME account: %w", err)
+	}
+	return nil
+}
+
 // setTXT sets name's record to value, or clears it when value is empty.
 func (service *Service) setTXT(ctx context.Context, name, value string) error {
 	status := service.Status()
