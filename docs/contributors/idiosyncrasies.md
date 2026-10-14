@@ -40,6 +40,7 @@ User-Agent (D263; the User-Agent is logged only).
 
 | Symptom | Entry |
 |---|---|
+| `dig CAA` shows CAs nobody wrote beside the zone's own `issue ";"`. | [Cloudflare adds its own CAA records to any zone with CAA while Universal SSL is on](#cloudflare-adds-its-own-caa-records-to-any-zone-with-caa-while-universal-ssl-is-on) |
 | *Flow* (10-bit HEVC by x265) froze at the first frame of any chunk but the film's first. | [Firefox on macOS freezes on HEVC chunks that start on a CRA keyframe](#firefox-on-macos-freezes-on-hevc-chunks-that-start-on-a-cra-keyframe) |
 | After a jump, the sound's first chunk is asked for only once the picture's has come. | [hls.js asks for a jump's sound only after its picture](#hlsjs-asks-for-a-jumps-sound-only-after-its-picture) |
 | The browser takes a fragment's append without error but adds nothing to the buffer. | [hls.js reports a fragment the browser held nothing of, then does nothing about it](#hlsjs-reports-a-fragment-the-browser-held-nothing-of-then-does-nothing-about-it) |
@@ -2229,6 +2230,22 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 
 ## Cloudflare, ACME and DNS
 
+
+
+### Cloudflare adds its own CAA records to any zone with CAA while Universal SSL is on
+
+- **Technology:** Cloudflare DNS, with Universal SSL.
+- **Symptom:** after adding `0 issue ";"` and `0 issuewild ";"` at `orpheum-core.com`'s apex, `dig CAA`
+  also showed `issue` and `issuewild` for `letsencrypt.org`, `pki.goog`, `digicert.com`, `ssl.com` and
+  `comodoca.com`, on Cloudflare's own name server and on public resolvers. The dashboard shows only the
+  two written; the rest appear only to `dig`. With them, `";"` restricts nothing: those CAs may issue
+  for the whole zone, and a claimed core's `accounturi` CAA means nothing.
+- **What we do:** Universal SSL is off on `orpheum-core.com` (D293 §10, done 2026-10-14), after which the
+  added records went and only the two remained. Check with `dig CAA orpheum-core.com` after any change to
+  the zone's SSL settings.
+- **Evidence:** observed 2026-10-14. **[web]** [Add CAA records · Cloudflare SSL/TLS docs](https://developers.cloudflare.com/ssl/edge-certificates/caa-records/):
+  "Cloudflare adds CAA records automatically when you have Universal SSL and add any CAA records to your
+  zone", and they "will not appear in the Cloudflare dashboard".
 
 ### A Cloudflare-proxied record ends TLS, carries no UDP/TURN, and the terms restrict video
 
