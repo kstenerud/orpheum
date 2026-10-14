@@ -57,8 +57,14 @@ function memoryStorage(): Storage {
 
 describe("accounts", () => {
   it("puts a registration link's secret after #, and reads it back from there", () => {
-    const url = registrationUrl("https://orpheum.example", "abc_DEF-123");
+    const url = registrationUrl("https://orpheum.example", { secret: "abc_DEF-123" });
     expect(url).toBe("https://orpheum.example/register#abc_DEF-123");
+    // While a discovery has claimed the core, the core's link in the discovery's form is the one shared.
+    const discoveryLink =
+      "https://app.example/register#k7xq2.abc_DEF-123.Vkdap1RjR0wChd9dvyvKtz2mUTWIOem3dIGy6rEHcIw";
+    expect(
+      registrationUrl("https://orpheum.example", { secret: "abc_DEF-123", link: discoveryLink }),
+    ).toBe(discoveryLink);
     expect(secretFromHash(new URL(url).hash)).toBe("abc_DEF-123");
     expect(secretFromHash("")).toBeUndefined();
     // A link a discovery serves names the core and its fingerprint around the secret (the protocol's §3.1).

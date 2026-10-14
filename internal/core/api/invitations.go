@@ -132,7 +132,7 @@ func (server *Server) createInvitation(ctx context.Context, input *InviteInput) 
 	if index := slices.IndexFunc(listed, func(each InvitationBody) bool { return each.ID == id }); index >= 0 {
 		output.Body.Invitation = listed[index]
 	}
-	output.Body.Link = issuedSecretBody(link)
+	output.Body.Link = issuedSecretBody(link, dependencies.Discovery)
 	return output, nil
 }
 

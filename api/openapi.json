@@ -2008,6 +2008,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "link": {
+            "description": "The link to share, at the discovery that claimed the server; absent when none has, and the client makes it on its own origin",
+            "type": "string"
+          },
           "secret": {
             "type": "string"
           }

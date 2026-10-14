@@ -22,10 +22,15 @@ export type SignInResult = Readonly<
 
 /**
  * The link a registration invitation is shared as: the secret after #, so the browser never sends
- * it to the server's logs or anyone else (D218 §1).
+ * it to the server's logs or anyone else (D218 §1). While a discovery has claimed the core, the
+ * core names the link in the discovery's form, which reaches it from anywhere (the protocol's §3.1),
+ * and that one is shared; otherwise it is made on this page's origin.
  */
-export function registrationUrl(origin: string, secret: string): string {
-  return `${origin}/register#${secret}`;
+export function registrationUrl(
+  origin: string,
+  issued: Pick<components["schemas"]["IssuedSecretBody"], "secret" | "link">,
+): string {
+  return issued.link ?? `${origin}/register#${issued.secret}`;
 }
 
 /** The secret a registration invitation's link carries after #, or undefined when there is none. */

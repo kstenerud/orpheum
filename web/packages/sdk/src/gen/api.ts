@@ -2315,6 +2315,8 @@ export interface components {
              * @description Unix milliseconds
              */
             expiresAt: number;
+            /** @description The link to share, at the discovery that claimed the server; absent when none has, and the client makes it on its own origin */
+            link?: string;
             secret: string;
         };
         ItemBody: {

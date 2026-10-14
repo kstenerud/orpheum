@@ -8,7 +8,9 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/kstenerud/orpheum/discovery/link"
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 )
@@ -30,10 +32,30 @@ type AccountBody struct {
 type IssuedSecretBody struct {
 	Secret    string `json:"secret"`
 	ExpiresAt int64  `doc:"Unix milliseconds" json:"expiresAt"`
+	Link      string `doc:"The link to share, at the discovery that claimed the server; absent when none has, and the client makes it on its own origin" json:"link,omitempty"` //nolint:lll // one struct tag
 }
 
-func issuedSecretBody(issued auth.IssuedSecret) IssuedSecretBody {
-	return IssuedSecretBody{Secret: issued.Secret, ExpiresAt: issued.ExpiresAt.UnixMilli()}
+// issuedSecretBody is a registration link's secret, and the link to share while a discovery has
+// claimed the core (discoveryLink).
+func issuedSecretBody(issued auth.IssuedSecret, found *discovery.Service) IssuedSecretBody {
+	body := IssuedSecretBody{Secret: issued.Secret, ExpiresAt: issued.ExpiresAt.UnixMilli()}
+	if found != nil {
+		body.Link = discoveryLink(found.Status(), "/register", issued.Secret)
+	}
+	return body
+}
+
+// discoveryLink is the link to share for a secret, in the discovery's form,
+// <clientOrigin><page>#<coreId>.<secret>.<fingerprint>, while a discovery has claimed the core (the
+// protocol's §3.1; D292 §4): the fingerprint lets the device check, on first contact, that it reached
+// this core and no other. Empty when none has, and the client makes the link on its own origin.
+func discoveryLink(status discovery.Status, page, secret string) string {
+	if !status.IsPublished() || status.CoreID == "" || status.ClientOrigin == "" || status.Fingerprint == "" {
+		return ""
+	}
+	return status.ClientOrigin + page + "#" + link.Fragment{
+		CoreID: status.CoreID, Secret: secret, Fingerprint: status.Fingerprint,
+	}.String()
 }
 
 // AccountsOutput is everyone.
@@ -177,7 +199,7 @@ func (server *Server) issueRegistrationInvitation(
 	if err != nil {
 		return nil, server.authError(ctx, "make a registration invitation", err)
 	}
-	return &IssuedSecretOutput{Body: issuedSecretBody(invitation)}, nil
+	return &IssuedSecretOutput{Body: issuedSecretBody(invitation, dependencies.Discovery)}, nil
 }
 
 func (server *Server) register(ctx context.Context, input *RegisterInput) (*SessionOutput, error) {
