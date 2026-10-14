@@ -703,10 +703,16 @@ linters:
         text: '\[delete\]'
       # A write, whole: it renames only its own temporary over the name it writes, and removes only
       # that temporary, so it destroys nothing a plain write would not (internal/platform/atomics, and
-      # its copy in discovery/single, which a public package keeps, being unable to import it).
-      - path: ^(internal/platform/atomics/atomics(_test)?|discovery/single/record)\.go$
+      # its twin in discovery/internal/atomics, which the public packages use, being unable to import
+      # it).
+      - path: ^(internal/platform/atomics/atomics(_test)?|discovery/internal/atomics/atomics)\.go$
         linters: [forbidigo]
         text: '\[(delete|media-root)\]'
+      # The single-target discovery's record, which opens its own directory as a root to write
+      # through that twin; never a media root.
+      - path: ^discovery/single/record\.go$
+        linters: [forbidigo]
+        text: '\[media-root\]'
       # The node's own rendition shelf, which it writes whole through atomics; never a media root.
       - path: ^internal/node/prepared/stores\.go$
         linters: [forbidigo]

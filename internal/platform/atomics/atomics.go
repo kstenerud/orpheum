@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-
-	"github.com/kstenerud/orpheum/internal/platform/errs"
 )
 
 // WriteFile writes contents to name under root, whole and durably, with mode.
@@ -79,9 +77,14 @@ func SyncDirectory(root *os.Root) error {
 	if err != nil {
 		return fmt.Errorf("open %s to sync it: %w", root.Name(), err)
 	}
-	return errors.Join(
-		errs.WrapIf("sync "+root.Name(), handle.Sync()), errs.WrapIf("close "+root.Name(), handle.Close()),
-	)
+	syncErr, closeErr := handle.Sync(), handle.Close()
+	if syncErr != nil {
+		syncErr = fmt.Errorf("sync %s: %w", root.Name(), syncErr)
+	}
+	if closeErr != nil {
+		closeErr = fmt.Errorf("close %s: %w", root.Name(), closeErr)
+	}
+	return errors.Join(syncErr, closeErr)
 }
 
 func ignoreMissing(err error) error {
