@@ -49,6 +49,20 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A31 — Repeated A29 a day later: the first admin made in a screen that does not exist (2026-10-14)
+
+- **What happened:** with staging redeployed as a new instance, the agent gave the owner the setup
+  code and said the sign-in page "should offer to set up the server". It has no such screen, as
+  A29 recorded the day before; the owner found name, password and "Get a code" there, nothing that
+  takes a setup code. The agent had A29's entry and the READMEs' corrected request available, and
+  answered from what a setup flow usually looks like instead of either.
+- **Caught by:** the owner: *"On the login page I see name + password, and a button 'Get a code',
+  which produces a code rather than accepting one."*
+- **Gate:** none, and that is the finding: A29's lesson was written down and not acted on, because
+  its fix, a setup screen in the client with a browser-tier test that makes the first admin through
+  it, was left as a suggestion. A failure whose fix is a missing feature recurs until the feature is
+  built; the agent now proposes that screen to the owner rather than leaving it in this file.
+
 ### A30 — Called a live site's repository new and empty (2026-10-13)
 
 - **What happened:** the 2026-10-13 handoff listed `orpheum-site` as "new, private, empty", and
