@@ -271,3 +271,36 @@ func TestOpenOffers_AHashHoldsAtMostEightOpenAtOnce(t *testing.T) {
 		t.Error("once four closed, an offer for the hash was still refused")
 	}
 }
+
+func TestDeadEnd_IsCountedForTheCoresWeekAndToldInTheHeartbeatsAnswer(t *testing.T) {
+	t.Parallel()
+	built := newClientStage(t)
+	var nothing struct{}
+	for range 2 {
+		if status, code := built.ask(t, discoveryproto.PathDeadEnd, discoveryproto.DeadEndRequest{Locator: aLocator},
+			&nothing); status != http.StatusNoContent {
+			t.Fatalf("a dead end answered %d %q", status, code)
+		}
+	}
+	if status, _ := built.ask(t, discoveryproto.PathDeadEnd, discoveryproto.DeadEndRequest{Locator: "another"},
+		&nothing); status != http.StatusNotFound {
+		t.Errorf("a dead end by a locator never registered answered %d; want not_found, uncounted", status)
+	}
+	heartbeat := func() int {
+		t.Helper()
+		var answered discoveryproto.AddressesResponse
+		token := built.session(t, built.signer, built.coreID) // a week on, the first has ended
+		if status := built.call(t, http.MethodPut, discoveryproto.PathAddresses, token,
+			discoveryproto.AddressesRequest{}, &answered); status != http.StatusOK {
+			t.Fatalf("the heartbeat answered %d", status)
+		}
+		return answered.DeadEndsLastWeek
+	}
+	if count := heartbeat(); count != 2 {
+		t.Errorf("the heartbeat's answer counts %d dead ends; want 2", count)
+	}
+	built.advance(deadEndWindow)
+	if count := heartbeat(); count != 0 {
+		t.Errorf("a week on, the heartbeat's answer counts %d dead ends; want none", count)
+	}
+}

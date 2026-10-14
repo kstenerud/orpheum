@@ -493,6 +493,8 @@ export const en = {
           "The discovery could not reach it from outside. Clients connect over WebRTC, and at home directly.",
       },
       published: "Published as {{names}}.",
+      deadEnds:
+        "Times in the last week a client found no way to reach this server: {{count}}. The discovery's check of how it is reached says what may help.",
       heartbeat: "Last told the discovery its addresses at {{at}}.",
       problem: "The last call to the discovery failed: {{problem}}",
       clientOrigin: "Links to this server open at {{origin}}.",

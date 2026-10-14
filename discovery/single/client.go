@@ -54,6 +54,8 @@ func (discovery *Discovery) serveClient(writer http.ResponseWriter, request *htt
 		discovery.locate(writer, request)
 	case http.MethodPost + " " + discoveryproto.PathPaths:
 		discovery.paths(writer, request)
+	case http.MethodPost + " " + discoveryproto.PathDeadEnd:
+		discovery.deadEnd(writer, request)
 	default:
 		if request.Method == http.MethodPost && strings.HasPrefix(request.URL.Path, discoveryproto.PathCores) &&
 			strings.HasSuffix(request.URL.Path, "/offer") {
@@ -206,6 +208,52 @@ func prefixOf(remoteAddress string) string {
 		return ""
 	}
 	return prefix.String()
+}
+
+// deadEndWindow is the week dead ends are counted over, and deadEndsKept the most it keeps, so a
+// stranger holding a locator cannot fill memory: the count saturates there.
+const (
+	deadEndWindow = 7 * 24 * time.Hour
+	deadEndsKept  = 10000
+)
+
+// deadEnd counts a client's report that nothing reached the core, keeping only when.
+func (discovery *Discovery) deadEnd(writer http.ResponseWriter, request *http.Request) {
+	var asked discoveryproto.DeadEndRequest
+	if !read(writer, request, &asked) {
+		return
+	}
+	if !discovery.holds(asked) {
+		refuse(writer, http.StatusNotFound, discoveryproto.RefusalNotFound, "no server is found by this")
+		return
+	}
+	now := discovery.parts.Now()
+	discovery.mutex.Lock()
+	discovery.pruneDeadEnds(now)
+	if len(discovery.deadEnds) < deadEndsKept {
+		discovery.deadEnds = append(discovery.deadEnds, now)
+	}
+	discovery.mutex.Unlock()
+	writer.WriteHeader(http.StatusNoContent)
+}
+
+// deadEndsLastWeek is how many dead ends were reported in the last week.
+func (discovery *Discovery) deadEndsLastWeek() int {
+	discovery.mutex.Lock()
+	defer discovery.mutex.Unlock()
+	discovery.pruneDeadEnds(discovery.parts.Now())
+	return len(discovery.deadEnds)
+}
+
+// pruneDeadEnds forgets the dead ends older than a week. The caller holds the mutex.
+func (discovery *Discovery) pruneDeadEnds(now time.Time) {
+	kept := discovery.deadEnds[:0]
+	for _, at := range discovery.deadEnds {
+		if now.Sub(at) < deadEndWindow {
+			kept = append(kept, at)
+		}
+	}
+	discovery.deadEnds = kept
 }
 
 // openOffersMost is how many offers one locator may have waiting on the core at once (S5).

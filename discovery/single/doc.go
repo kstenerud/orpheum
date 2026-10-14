@@ -59,6 +59,9 @@
 //     TestOffers_ReachTheCoreWithTheHashTheDeviceFoundItByAndComeBackInOrder,
 //     TestOffers_ARefusedRequestNeverReachesTheCore, TestOpenOffers_AHashHoldsAtMostEightOpenAtOnce.
 //
+//   - A dead end is counted for the core's week, keeping only when, and told in the heartbeat's
+//     answer. TestDeadEnd_IsCountedForTheCoresWeekAndToldInTheHeartbeatsAnswer.
+//
 //   - A core is online while it holds its signalling connection, offline since it last closed.
 //     TestPaths_ALocatorOrALiveBootstrapTokenFindsTheCoreAndSaysHowItStands.
 //

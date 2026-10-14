@@ -130,8 +130,8 @@ characters. An expired token is pruned. A closed signalling connection marks the
 bootstrap token) and `/paths` (locator or bootstrap token; `state` from the signalling connection,
 `offlineSince`; `clientPrefix` /64 or /32; WebRTC alone); `PUT /locate-hashes` and `PUT /locators`
 kept since K7; `/cores/{id}/offer`, each offer passed on with the hash it came under and its proof,
-four to a request, eight open for one hash. **Still:** the dead-end report; the `lan` path; rate
-limits on strangers.
+four to a request, eight open for one hash; the dead-end report, counted over a week, no device
+identifier kept. **Still:** the `lan` path; rate limits on strangers.
 
 `single` answers the client API for its one core (protocol §3, §4), with the hashes kept (Q4):
 

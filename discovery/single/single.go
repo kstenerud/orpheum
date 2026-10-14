@@ -117,6 +117,8 @@ type Discovery struct {
 	bootstraps   map[string]bootstrap
 	// openByHash is how many offers each hash has waiting on the core.
 	openByHash map[string]int
+	// deadEnds are when clients reported finding no path, the last week's.
+	deadEnds []time.Time
 }
 
 // New returns a discovery over parts, with a key for its nonces from parts.Random.
@@ -430,7 +432,9 @@ func (discovery *Discovery) addresses(writer http.ResponseWriter, request *http.
 	}
 	discovery.parts.Logger.InfoContext(request.Context(), "discovery: the core sent its addresses",
 		"candidates", len(heartbeat.Candidates), "orpheumVersion", heartbeat.OrpheumVersion)
-	answer(writer, discoveryproto.AddressesResponse{Published: []string{}, Probe: []discoveryproto.ProbeResult{}})
+	answer(writer, discoveryproto.AddressesResponse{
+		Published: []string{}, Probe: []discoveryproto.ProbeResult{}, DeadEndsLastWeek: discovery.deadEndsLastWeek(),
+	})
 }
 
 // acmeChallenge sets the core's certificate's DNS-01 record, or clears it on a DELETE: the core's own

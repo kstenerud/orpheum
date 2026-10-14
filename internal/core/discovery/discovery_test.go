@@ -204,7 +204,7 @@ func (fake *fakeDiscovery) serveSigned(writer http.ResponseWriter, request *http
 				Address: "2a0f:1000::1", Port: 443,
 				Kind: discoveryproto.ProbeHTTPS, Result: discoveryproto.ProbeReached,
 			}},
-			ReachableFrom: discoveryproto.ReachableIPv6,
+			ReachableFrom: discoveryproto.ReachableIPv6, DeadEndsLastWeek: 4,
 		})
 	case "DELETE /core":
 		fake.isLeft = true
@@ -356,7 +356,7 @@ func TestStep_WaitsToBeClaimedThenSendsItsAddressesWhenTheyChangeOrEveryFiveMinu
 	built.service.step(ctx) // sends its addresses
 	status := built.service.Status()
 	if status.State != discoveryproto.StateClaimed || status.Zone != "orpheum-core.example" ||
-		status.ReachableFrom != discoveryproto.ReachableIPv6 || len(status.Probe) != 1 {
+		status.ReachableFrom != discoveryproto.ReachableIPv6 || len(status.Probe) != 1 || status.DeadEndsLastWeek != 4 {
 		t.Errorf("once claimed the status is %+v; want claimed, its zone and what the probe found", status)
 	}
 	built.service.step(ctx) // nothing changed, nothing due

@@ -79,6 +79,10 @@ type PathsResponse struct {
 	ICEServers   []ICEServer `json:"iceServers"`
 }
 
+// DeadEndRequest is a client telling the discovery that no path reached the core, by what the
+// device holds; the discovery counts it for the core's week and keeps nothing of the device.
+type DeadEndRequest = PathsRequest
+
 // RefusalNotFound is a link's hash, a locator or a bootstrap token the discovery finds no core by:
 // never registered, used up, expired or dropped. Which, it does not say.
 const RefusalNotFound = "not_found"

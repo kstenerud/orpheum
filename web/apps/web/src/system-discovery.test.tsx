@@ -23,6 +23,7 @@ const none = {
   probe: [],
   claimExpiresAt: 0,
   lastHeartbeatAt: 0,
+  deadEndsLastWeek: 0,
   portMapping: { isWanted: false, checkedAt: 0, mappings: [], problems: [] },
 };
 
@@ -71,6 +72,7 @@ it("says where a claimed server is reached from, and warns of the discovery's de
         state: "claimed",
         reachableFrom: "ipv6",
         published: ["k7xq2.orpheum-core.com"],
+        deadEndsLastWeek: 3,
         deprecatedUntil: "2027-03-01",
         clientOrigin: "https://app.orpheum-app.com",
         fingerprint: "k7xq-2m4p-9tbd-hc3w-0vze-8gnr-5sya-j6kf-1qmw-p4dt-xb7c-re2h-9n0g",
@@ -100,6 +102,8 @@ it("says where a claimed server is reached from, and warns of the discovery's de
   expect(text).toContain("Claimed: clients can find this server.");
   expect(text).toContain("Clients with IPv6 reach it directly; the rest connect over WebRTC.");
   expect(text).toContain("Published as k7xq2.orpheum-core.com.");
+  // How often a client found no way in, as the discovery counted (D293 §7).
+  expect(text).toContain("Times in the last week a client found no way to reach this server: 3.");
   expect(text).toContain("stops speaking this server's protocol on 2027-03-01");
   // Where its links open, and the fingerprint they carry (D293 §4; the protocol's §3.1).
   expect(text).toContain("Links to this server open at https://app.orpheum-app.com.");
