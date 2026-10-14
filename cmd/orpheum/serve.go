@@ -164,16 +164,21 @@ type openedServices struct {
 	nodes       *nodes.Service
 	// exchanges are how a job asks a node for work; the node channel hands them the results.
 	exchanges *nodes.Exchanges
-	// together is Watch Together's sessions, whose memberships the voice relay admits.
+	// together is Watch Together's sessions, whose memberships the voice relay admits, and whose links
+	// and devices' locators a discovery finds the core by.
 	together *together.Hub
 	// auth keeps what a discovery finds the core by: its links and its devices' locators.
 	auth *auth.Service
 }
 
-// with is opened holding what the API's dependencies opened that the services opened after them use.
-func (opened openedServices) with(dependencies api.Dependencies, directories *instancedir.Directories) openedServices {
+// with is opened holding what the API's dependencies opened that the services opened after them use,
+// and the Watch Together sessions, made before the discovery so that it may find their links.
+func (opened openedServices) with(
+	dependencies *api.Dependencies, directories *instancedir.Directories, logger *slog.Logger,
+) openedServices {
 	opened.settings, opened.secrets, opened.directories = dependencies.Settings, dependencies.Secrets, directories
 	opened.auth = dependencies.Auth
+	opened.together = newTogether(dependencies, logger)
 	return opened
 }
 
@@ -221,7 +226,7 @@ func openAndWire(
 		err = mountDebug(ctx, server.Mux(), config, dependencies.Settings, logger)
 	}
 	if err == nil {
-		opened = opened.with(dependencies, directories)
+		opened = opened.with(&dependencies, directories, logger)
 		opened.jobServices, err = newJobServices(ctx, opened, outside, logger)
 	}
 	if err == nil {
@@ -247,7 +252,7 @@ func openAndWire(
 		opened.jobServices.chunks, opened.jobServices.discovery
 	opened.jobServices.nodes = opened.nodes
 	opened.nodes.SetRenditionIndex(opened.jobServices.renditions)
-	opened = wireJobsInto(&dependencies, opened, logger)
+	opened = wireJobsInto(&dependencies, opened)
 	dependencies.NodeReports, dependencies.NodeWork = opened.nodes, opened.exchanges
 	dependencies.NodeBytes, dependencies.Reachability, dependencies.Relay = openByteSocket(opened.nodes),
 		newReachability(config, opened), newRelayIssuer(config, opened)
@@ -260,17 +265,22 @@ func openAndWire(
 	return opened, nil
 }
 
+// newTogether is the Watch Together sessions, whose host may change what plays only to what they reach
+// (D243 §4), read from dependencies when asked: the hub is made before the library, so the discovery
+// may find its links (discovery-core.md K7).
+func newTogether(dependencies *api.Dependencies, logger *slog.Logger) *together.Hub {
+	mayPlay := func(ctx context.Context, userID, fileID int64) bool {
+		reach, err := dependencies.Auth.ReachOfUser(ctx, userID)
+		return err == nil && dependencies.Browser.ReachFile(ctx, reach, fileID) == nil
+	}
+	return together.NewHub(clock.System{}, rand.Reader, mayPlay, logger)
+}
+
 // wireJobsInto gives the API the job queue, the outside hosts' provider services and the port
 // mapping's report, and makes a
-// backup a job, the scheduled ones and an admin's (D243 §11); and the Watch Together sessions, whose
-// host may change what plays only to what they reach (D243 §4).
-func wireJobsInto(dependencies *api.Dependencies, opened openedServices, logger *slog.Logger) openedServices {
-	authService, browser := dependencies.Auth, dependencies.Browser
-	mayPlay := func(ctx context.Context, userID, fileID int64) bool {
-		reach, err := authService.ReachOfUser(ctx, userID)
-		return err == nil && browser.ReachFile(ctx, reach, fileID) == nil
-	}
-	dependencies.Together = together.NewHub(clock.System{}, rand.Reader, mayPlay, logger)
+// backup a job, the scheduled ones and an admin's (D243 §11); and the Watch Together sessions.
+func wireJobsInto(dependencies *api.Dependencies, opened openedServices) openedServices {
+	dependencies.Together = opened.together
 	dependencies.Together.SnapSeeksBy(dependencies.Chunks.KeyframeAtOrBefore)
 	// The last resort when the server's upload cannot carry its players at their lowest (D286 §5).
 	dependencies.Playback.SendAwayBy(func() (int64, int64, bool) {
@@ -278,7 +288,6 @@ func wireJobsInto(dependencies *api.Dependencies, opened openedServices, logger 
 	})
 	// A group's players, put on at once, share the upload evenly from their start (D286 §5).
 	dependencies.Playback.GroupPlayersBy(dependencies.Together.PlayersHostedBy)
-	opened.together = dependencies.Together
 	dependencies.Jobs, dependencies.Providers = opened.jobServices.queue, opened.jobServices.providerServices.all()
 	dependencies.PortMapping = opened.jobServices.portMapping
 	dependencies.Backups.UseQueue(opened.jobServices.queue, opened.settings)

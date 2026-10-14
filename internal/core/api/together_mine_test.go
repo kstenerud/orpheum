@@ -55,12 +55,12 @@ func TestTogether_ASessionFollowsWhoeverJoinedSignedIn(t *testing.T) {
 	harness.joinByLink(t, admin, opened.Body.SessionID, "a neighbour", "Sam") // signed out
 	theirs := harness.mine(t, partner).Body.Sessions
 	if len(theirs) != 1 || theirs[0].SessionID != opened.Body.SessionID || theirs[0].IsHost ||
-		theirs[0].MembershipCredential == "" {
-		t.Errorf("the partner's sessions are %+v; want the one they joined, with a credential", theirs)
+		theirs[0].MembershipCredential == "" || theirs[0].Locator == "" {
+		t.Errorf("the partner's sessions are %+v; want the one they joined, with a credential and a locator", theirs)
 	}
 	hosted := harness.mine(t, admin).Body.Sessions
-	if len(hosted) != 1 || !hosted[0].IsHost {
-		t.Errorf("the host's sessions are %+v; want theirs, as host", hosted)
+	if len(hosted) != 1 || !hosted[0].IsHost || hosted[0].Locator != "" {
+		t.Errorf("the host's sessions are %+v; want theirs, as host, with no locator: they have their own", hosted)
 	}
 	signedOut := harness.do(t, http.MethodGet, "/together/mine", "", nil)
 	if signedOut.status != http.StatusUnauthorized {

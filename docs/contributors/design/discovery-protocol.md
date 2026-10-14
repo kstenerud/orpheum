@@ -636,14 +636,15 @@ household gave, not one the discovery gave:
 | **The home address** (D292 §6) | the core's own origin on the LAN, shown as a link and a QR (below) |
 
 On the core's own origin the built client makes `/register#<secret>` and `/together#<secret>`
-(X13). **The code must change:** links made while the core is enrolled take the discovery's form,
-with `coreId` and fingerprint.
+(X13). Links made while a discovery has claimed the core take the discovery's form, with `coreId`
+and fingerprint (built 2026-10-14 for registration and Watch Together links).
 
 - **The discovery never learns a core's secrets.** The core registers, for each live secret,
   `H = SHA-256("orpheum-locate" ‖ secret)` with its life as a duration and a **use policy**: a
   number of uses, or as many as wanted until it expires or is revoked (`PUT /locate-hashes`, the
-  full set; C3; built 2026-10-13 for registration links, invitations and own links, Watch Together's
-  links to follow). The page sends `H`, and the secret goes to the core over the direct
+  full set; C3; built 2026-10-13 for registration links, invitations and own links, and 2026-10-14
+  for Watch Together's links, each unused one sent with a life to the end of the next day and sent
+  again daily, since a session has no end the core knows of in advance [I]). The page sends `H`, and the secret goes to the core over the direct
   path. `/locate` is spent by a click on the page, never by its loading, so a mail scanner opening
   the link spends nothing [I, S11, U10]. "Open in Safari", where an in-app browser is detected,
   shows before that click (U2-1) [I].

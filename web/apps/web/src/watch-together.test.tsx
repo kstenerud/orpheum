@@ -255,6 +255,8 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
 
   it("shows each link again after a reload, waiting or used, to pass on (D267 §5)", async () => {
     hostSession();
+    const discoveryLink =
+      "https://app.example/together#k7xq2.friend-s3cret.Vkdap1RjR0wChd9dvyvKtz2mUTWIOem3dIGy6rEHcIw";
     const gran = { id: 2, name: "Gran", hostNote: "Grandma", isHost: false };
     const services = servedBy(
       {
@@ -272,6 +274,13 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
                 usedByMemberId: 2,
               },
               { id: 5, rights: allRights, hostNote: "a cousin", secret: "cousin-s3cret" },
+              {
+                id: 6,
+                rights: allRights,
+                hostNote: "a friend",
+                secret: "friend-s3cret",
+                link: discoveryLink,
+              },
             ],
             members: [karl, gran],
           },
@@ -291,6 +300,10 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
     expect(mounted.container.querySelector("output")?.textContent).toBe(
       "http://orpheum.test/together#cousin-s3cret",
     );
+    // While a discovery has claimed the server, the link it names in the discovery's form is passed on.
+    await click(rowStarting(mounted.container, "A link for a friend"));
+    await click(buttonWithText(mounted.container, "Show link"));
+    expect(mounted.container.querySelector("output")?.textContent).toBe(discoveryLink);
     mounted.unmount();
   });
 

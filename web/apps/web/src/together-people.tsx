@@ -30,14 +30,20 @@ export type Rights = SessionDetails["nextRights"];
 export interface Issued {
   readonly note: string;
   readonly secret: string;
+  /** The link in the discovery's form, which the server names while a discovery has claimed it. */
+  readonly link?: string | undefined;
 }
 
 /** An answer the server may have refused, as throwIfRefused reads it. */
 type Answer = Parameters<typeof throwIfRefused>[0];
 
-/** The link a person joins by: the session's page, the secret after # so no request carries it (D243 §3). */
-export function togetherUrl(origin: string, secret: string): string {
-  return `${origin}/together#${secret}`;
+/**
+ * The link a person joins by: the session's page, the secret after # so no request carries it (D243
+ * §3). While a discovery has claimed the server, the server names it in the discovery's form, which
+ * reaches it from anywhere (the discovery protocol's §3.1), and that one is passed on.
+ */
+export function togetherUrl(origin: string, issued: Pick<Issued, "secret" | "link">): string {
+  return issued.link ?? `${origin}/together#${issued.secret}`;
 }
 
 /** What rights give, in a few words for the host's list of people. */
@@ -139,7 +145,7 @@ export function MakeLink(props: {
 export function IssuedLink(props: Issued): JSX.Element {
   const { t } = useTranslation();
   const { navigation } = useServices();
-  const url = togetherUrl(navigation.origin(), props.secret);
+  const url = togetherUrl(navigation.origin(), props);
   return (
     <div className="watch-together__issued">
       <QrCode text={url} label={t("watchTogether.qrLabel", { note: props.note })} />
@@ -296,7 +302,7 @@ function LinkDialog(
         <button
           type="button"
           onClick={() => {
-            props.onIssued({ note: link.hostNote, secret: link.secret });
+            props.onIssued({ note: link.hostNote, secret: link.secret, link: link.link });
           }}
         >
           {t("watchTogether.showLink")}

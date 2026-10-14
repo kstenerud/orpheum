@@ -70,6 +70,13 @@
 //     (D66). Enforced by TestHub_TheRosterShowsEachDevicesRoundTripItReported.
 //   - Voice signalling goes only to the device it names. Enforced by
 //     TestHub_RelaysVoiceSignallingToTheDeviceItNames.
+//   - A discovery finds the core by each unused link's locate hash, its offers proven under the link's
+//     key, and by each membership device's locator, its offers proven under the device's credential;
+//     a used link locates nothing, the host's device has its own session's locator, and ending a
+//     session or a membership drops its own (discovery-core.md K7; A12). Enforced by
+//     TestLiveLinks_AreTheUnusedLinksAndEachMembershipDeviceIsFoundByItsLocator,
+//     TestLiveLocators_GoWithAMemberWhoLeaves, TestLiveLocators_EndWithTheSessionAndEachDeviceHasItsOwn
+//     and, through the wiring, TestLinksOf_TheDiscoveryFindsTheCoreByWatchTogethersLinksAndLocators.
 //
 // # Read before changing
 //
@@ -94,5 +101,6 @@
 //
 //   - messages.go: the wire messages, as cut-a §5.1 lists them.
 //   - hub.go: sessions, memberships and devices.
+//   - discovery.go: what a discovery finds the core by: links' locate hashes and devices' locators.
 //   - group.go: the group's state machine: the host's commands, waiting for players, and stalls.
 package together

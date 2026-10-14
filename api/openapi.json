@@ -2350,6 +2350,10 @@
       "JoinTogetherOutputBody": {
         "additionalProperties": false,
         "properties": {
+          "locator": {
+            "description": "What this device finds the server by through a discovery",
+            "type": "string"
+          },
           "memberId": {
             "format": "int64",
             "type": "integer"
@@ -2365,7 +2369,8 @@
         "required": [
           "sessionId",
           "memberId",
-          "membershipCredential"
+          "membershipCredential",
+          "locator"
         ],
         "type": "object"
       },
@@ -2647,6 +2652,10 @@
         "properties": {
           "isHost": {
             "type": "boolean"
+          },
+          "locator": {
+            "description": "What this device finds the server by through a discovery; the host's has none",
+            "type": "string"
           },
           "memberId": {
             "format": "int64",
@@ -5647,6 +5656,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "link": {
+            "description": "The link to pass on, while a discovery has claimed the server",
+            "type": "string"
+          },
           "rights": {
             "$ref": "#/components/schemas/TogetherRightsBody",
             "description": "What the person who joins by it may do to playback"
@@ -5690,6 +5703,10 @@
       "TogetherLinkOutputBody": {
         "additionalProperties": false,
         "properties": {
+          "link": {
+            "description": "The link to pass on, while a discovery has claimed the server",
+            "type": "string"
+          },
           "linkId": {
             "format": "int64",
             "type": "integer"

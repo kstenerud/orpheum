@@ -288,10 +288,15 @@ keeps its locate hash and offer key (`discovery/link`); a used one becomes its p
 (kind `link`, scope `own`, 90 days rolling, renewed by a visit), revoking the last; a device locator
 per session (`locator`), handed in the session's answer and fresh from `POST /me/locator`; the core
 sends both full sets (`PUT /locate-hashes`, `PUT /locators`) when they change and under each new
-session, and `single` keeps them. **Still K7's:** Watch Together's links and memberships' locators
-(in memory, `internal/core/together`); links made in the discovery's form, with `coreId` and the
-fingerprint, and the person's own link on their page; the admin's revocation of an own link; the
-`TestArch_` claim (owner's gate); the cap on distinct sources a day, which is the discovery's.
+session, and `single` keeps them. **Built 2026-10-14:** registration and Watch Together links made
+in the discovery's form while it has claimed the core (`link` beside `secret` in the answers; the
+web client passes it on); Watch Together's unused links' locate hashes and each membership device's
+locator (`locator` in the join's and `/together/mine`'s answers; the host's device has its own
+session's), in memory in `internal/core/together`, an unused link's life at the discovery running
+to the end of the next day and sent again daily [I]. **Still K7's:** the person's own link on their
+page; the admin's revocation of an own link; the web client keeping a membership's locator for its
+next visit through a discovery; the `TestArch_` claim (owner's gate); the cap on distinct sources a
+day, which is the discovery's.
 
 - **Changes.** The store: a person's own link and device locators tied to their grant (a device's
   session, a Watch Together membership), each kept as a hash; for each link, the value an offer's

@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -21,6 +22,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/portmap"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
@@ -48,24 +50,46 @@ func newDiscovery(
 		},
 		Answerer: answerer, OnClaimed: onClaimed,
 		RetryFirst: retryFirst, RetryMost: retryMost, Random: rand.Reader,
-		Links: linksOf(opened.auth), OfferKey: opened.auth.OfferKey,
+		Links: linksOf(opened.auth, opened.together), OfferKey: offerKeyOf(opened.auth, opened.together),
 	})
 }
 
-// linksOf is what a discovery finds the core by, as accounts keeps it: every live link's locate hash
-// and when it ends, and every live session's device locator's hash (discovery-core.md K7).
-func linksOf(accounts *auth.Service) func(context.Context) ([]discovery.Link, []string, error) {
+// linksOf is what a discovery finds the core by, as accounts and Watch Together keep it: every live
+// link's locate hash and when it ends, and every live session's and membership device's locator's hash
+// (discovery-core.md K7).
+func linksOf(
+	accounts *auth.Service, sessions *together.Hub,
+) func(context.Context) ([]discovery.Link, []string, error) {
 	return func(ctx context.Context) ([]discovery.Link, []string, error) {
 		live, err := accounts.LiveLinks(ctx)
 		if err != nil {
 			return nil, nil, err
 		}
-		links := make([]discovery.Link, 0, len(live))
+		joining := sessions.LiveLinks()
+		links := make([]discovery.Link, 0, len(live)+len(joining))
 		for _, one := range live {
 			links = append(links, discovery.Link{LocateHash: one.LocateHash, ExpiresAt: one.ExpiresAt})
 		}
+		for _, one := range joining {
+			links = append(links, discovery.Link{LocateHash: one.LocateHash, ExpiresAt: one.ExpiresAt})
+		}
 		locators, err := accounts.LiveLocators(ctx)
-		return links, locators, err
+		return links, append(locators, sessions.LiveLocators()...), err
+	}
+}
+
+// offerKeyOf is what an offer under hash is proven under: a session's or a link's, as accounts keeps
+// them, else a Watch Together membership device's or unused link's.
+func offerKeyOf(accounts *auth.Service, sessions *together.Hub) func(context.Context, string) ([]byte, error) {
+	return func(ctx context.Context, hash string) ([]byte, error) {
+		key, err := accounts.OfferKey(ctx, hash)
+		if !errors.Is(err, auth.ErrNoOfferKey) {
+			return key, err
+		}
+		if key, isFound := sessions.OfferKey(hash); isFound {
+			return key, nil
+		}
+		return nil, err
 	}
 }
 
@@ -99,6 +123,7 @@ func openReachedFromOutside(
 		return opened, err
 	}
 	opened.auth.OnLinksChanged(discovered.LinksChanged)
+	opened.together.OnLinksChanged(discovered.LinksChanged)
 	rtc.UseICEServers(func() []webrtc.ICEServer { return iceServersOf(discovered.Status().ICEServers) })
 	opened.jobServices.discovery, opened.jobServices.portMapping = discovered, mapped
 	served.discoveryParts.DNS = discovered
