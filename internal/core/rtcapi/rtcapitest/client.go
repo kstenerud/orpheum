@@ -5,6 +5,9 @@ package rtcapitest
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"sync"
@@ -90,7 +93,7 @@ func Dial(tb testing.TB, answer Answerer, wait time.Duration, options ...Option)
 	}
 	tb.Cleanup(func() { _ = connection.Close() }) //nolint:errcheck // the test is over
 	// An offer needs something to negotiate: a channel the client opens and never uses.
-	if _, err = connection.CreateDataChannel("hello", nil); err != nil {
+	if _, err = connection.CreateDataChannel(rtcapi.NegotiationLabel, nil); err != nil {
 		tb.Fatal(err)
 	}
 	offer, err := connection.CreateOffer(nil)
@@ -173,16 +176,19 @@ func (client *Client) Begin(head rtcapi.RequestHead, isWhole bool) *Channel {
 	channel.OnClose(func() { closeOnce.Do(func() { close(begun.closed) }) })
 	channel.OnMessage(func(webrtc.DataChannelMessage) { answerOnce.Do(func() { close(begun.answered) }) })
 	channel.OnOpen(func() {
+		var sendErr error
 		if isWhole {
-			send(client.tb, channel, head, nil)
-			return
+			sendErr = sendRequest(channel, head, nil)
+		} else {
+			encoded, encodeErr := json.Marshal(head)
+			if sendErr = encodeErr; sendErr == nil {
+				sendErr = channel.SendText(string(encoded))
+			}
 		}
-		encoded, encodeErr := json.Marshal(head)
-		if encodeErr == nil {
-			encodeErr = channel.SendText(string(encoded))
-		}
-		if encodeErr != nil {
-			client.tb.Error(encodeErr)
+		// A channel past the core's limit is closed as it opens, and a send may meet it closed: the
+		// test reads that by IsClosedWithin, so it is no failure of the client's.
+		if sendErr != nil && !errors.Is(sendErr, io.ErrClosedPipe) {
+			client.tb.Error(sendErr)
 		}
 	})
 	client.tb.Cleanup(func() { _ = channel.Close() }) //nolint:errcheck // the test is over
@@ -295,6 +301,14 @@ func (client *Client) Do(head rtcapi.RequestHead, body []byte) Reply {
 // send sends a request's head, its body and the empty message that ends it.
 func send(tb testing.TB, channel *webrtc.DataChannel, head rtcapi.RequestHead, body []byte) {
 	tb.Helper()
+	if err := sendRequest(channel, head, body); err != nil {
+		tb.Error(err)
+	}
+}
+
+// sendRequest sends head, then body in messages no larger than rtcapi.MaxMessageBytes, then the
+// empty message that ends the request.
+func sendRequest(channel *webrtc.DataChannel, head rtcapi.RequestHead, body []byte) error {
 	encoded, err := json.Marshal(head)
 	if err == nil {
 		err = channel.SendText(string(encoded))
@@ -306,8 +320,9 @@ func send(tb testing.TB, channel *webrtc.DataChannel, head rtcapi.RequestHead, b
 		err = channel.Send([]byte{})
 	}
 	if err != nil {
-		tb.Error(err)
+		return fmt.Errorf("send a request: %w", err)
 	}
+	return nil
 }
 
 // Messages is a channel a request asked to become a WebSocket on: once accepted, a text message each
