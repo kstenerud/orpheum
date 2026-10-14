@@ -21,4 +21,6 @@
 // # Where to change
 //
 //   - fake.go: add behaviour here when clock.Clock gains a method.
+//   - fake.go and fake_test.go are twins of orpheum-connect's (look-alike-watch-list.md,
+//     Twins): a change to them is copied there in the same batch, and checked to work there.
 package clocktest

@@ -45,6 +45,8 @@
 // # Where to change
 //
 //   - value.go: Value and its redacting methods.
+//     value.go is a twin of orpheum-connect's (look-alike-watch-list.md, Twins): a change to it
+//     is copied there in the same batch, and checked to work there.
 //   - key.go: the key and secret.key's format (the file lives in the instance's persistent directory, D198, D242).
 //   - store.go: the registry of secrets, seal and open, and the "needs re-entering" state after a
 //     restore without the key. Key rotation (orpheum secrets rotate) is not built yet.

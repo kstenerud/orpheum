@@ -17113,6 +17113,7 @@ declarations in unrelated screens' stylesheets.
    | Episode stills on the series list and on the title page | the series list keeps a blank box where there is no still so its rows line up; the title page shows nothing (2026-09-29) |
    | A title's year printed in four places | printing a number is not a job to share; a formatted year would gain a thousands separator |
    | The node's own segment-length default and the `hls_segment_length_s` setting | the node cannot read settings: its default is its guard against an out-of-range command, not a second copy of the setting |
+   | `internal/core/providers/cloudflare` and `orpheum-connect`'s `internal/zone` Cloudflare client | one sets a household's ACME challenge through the household's own token; the other keeps the service's zone's records through the service's. They share only Cloudflare's answer envelope (the owner, 2026-10-14) |
 
 3. **Doubtful look-alikes are watched, not merged.** The owner: *"If there's some ambiguity as to
    whether two components are actually the same thing, make a watch list so that we can revisit

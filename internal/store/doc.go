@@ -95,6 +95,8 @@
 //
 // # Where to change
 //
+//   - open.go is a twin of orpheum-connect's (look-alike-watch-list.md, Twins): a change to it is
+//     copied there in the same batch, and checked to work there; ours.go is Orpheum's own.
 //   - migrations/: numbered SQL files, each with its line in migrations/SHA256SUMS (sha256sum's
 //     format). Until migrations are live (D228), a schema change folds the last step into the
 //     baseline (NNNN_baseline.sql at that step's version, its "orpheum:baseline folds" line naming

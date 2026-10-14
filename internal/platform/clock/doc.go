@@ -26,4 +26,6 @@
 //     the System implementation.
 //   - clocktest/: the Fake that tests use. Add a method to Clock only with a production caller
 //     and the matching Fake behaviour in the same change.
+//   - clock.go is a twin of orpheum-connect's (look-alike-watch-list.md, Twins): a change to it
+//     is copied there in the same batch, and checked to work there.
 package clock

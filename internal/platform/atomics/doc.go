@@ -26,4 +26,6 @@
 // # Where to change
 //
 //   - atomics.go.
+//     It is a twin of discovery/internal/atomics/atomics.go, byte for byte: a change to it is
+//     copied there in the same change.
 package atomics

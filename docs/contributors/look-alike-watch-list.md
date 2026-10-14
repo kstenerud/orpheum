@@ -24,16 +24,13 @@ copy, and checked to work there. A test holds each pair together:
 | Twin | Copy | Held by |
 | --- | --- | --- |
 | `internal/platform/atomics/atomics.go` | `discovery/internal/atomics/atomics.go`, byte for byte | `TestAtomics_IsInternalPlatformAtomicsByteForByte` |
+| `internal/platform/clock/clock.go`, `clocktest/fake.go` and `fake_test.go` | `orpheum-connect`'s, same paths | `orpheum-connect`'s twins test, in its `internal/twins` |
 | `internal/core/secrets/value.go` | `orpheum-connect`'s, same path | `orpheum-connect`'s twins test, in its `internal/twins` |
 | `internal/store/open.go` (the opening; `ours.go` is each project's own) | `orpheum-connect`'s, same path | the same |
 | `deploy/staging/tunnel.sh` | `orpheum-connect`'s, same path | the same |
 
-Still copies, not yet twins, each waiting on the owner:
-- `internal/platform/clock` and `clocktest`, and `orpheum-connect`'s smaller `internal/clock`: the
-  move to the same path needs `orpheum-connect`'s lint exemption for the clock moved with it.
-- `internal/core/providers/cloudflare` and `orpheum-connect`'s `internal/zone` client: two jobs now
-  (one ACME challenge through a household's token; a zone's records through the service's), sharing
-  only Cloudflare's answer envelope. Twins, one client for both, or two things (D229 §2)?
-- `internal/store`'s migration runner, with the migration window (D272 §5), and
-  `orpheum-connect`'s numbered steps without one.
+Still copies, not yet twins:
 
+- `internal/store`'s migration runner, with the migration window (D272 §5), and
+  `orpheum-connect`'s numbered steps without one: they become twins when `orpheum-connect` heads for
+  production, whose database must not be lost (the owner, 2026-10-14).
