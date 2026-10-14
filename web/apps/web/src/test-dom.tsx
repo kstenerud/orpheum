@@ -188,6 +188,20 @@ export function buttonWithText(
 }
 
 /** Lets pending answers and the renders they cause finish. */
+/**
+ * Lets work outside the page's requests settle until condition holds, for what waits on more than
+ * answers (WebCrypto, which runs off the main thread and may take longer than a few turns on a busy
+ * machine); it gives up after about two seconds, and the test's own expectation then says what was
+ * missing.
+ */
+export async function settleUntil(condition: () => boolean): Promise<void> {
+  for (let turn = 0; turn < 200 && !condition(); turn += 1) {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+  }
+}
+
 async function settleAnswers(): Promise<void> {
   for (let turn = 0; turn < 5; turn += 1) {
     await new Promise((resolve) => setTimeout(resolve, 0));

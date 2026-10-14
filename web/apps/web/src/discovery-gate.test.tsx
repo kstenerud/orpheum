@@ -9,7 +9,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { DiscoveryGate, type GateParts } from "./discovery-gate.tsx";
 import { discoveryClientApiOf, rememberCore, startOf, type KeptCore } from "./discovery-start.ts";
 import type { StringStorage } from "./browser-storage.ts";
-import { buttonWithText, click, mount, type Mounted } from "./test-dom.tsx";
+import { buttonWithText, click, mount, settleUntil, type Mounted } from "./test-dom.tsx";
 
 let mounted: Mounted | undefined;
 
@@ -89,6 +89,8 @@ describe("the gate a discovery's page opens on", () => {
     expect(mounted.container.textContent).toContain("Your server's link");
     expect(heard).toEqual([]);
     await click(buttonWithText(mounted.container, "Connect"));
+    const page = mounted.container;
+    await settleUntil(() => page.textContent.includes("This link no longer finds its server"));
     expect(heard).toEqual([`/locate {"hash":"${await locateHash("a-links-secret")}"}`]);
     expect(mounted.container.textContent).toContain("This link no longer finds its server");
   });
@@ -106,7 +108,9 @@ describe("the gate a discovery's page opens on", () => {
       <DiscoveryGate start={startOf(linkHash, memoryStorage())} parts={partsOf(fetched)} />,
     );
     await click(buttonWithText(mounted.container, "Connect"));
-    expect(mounted.container.textContent).toContain("Can't reach the server from this network");
+    const page = mounted.container;
+    await settleUntil(() => heard.at(-1)?.startsWith("/dead-end") === true);
+    expect(page.textContent).toContain("Can't reach the server from this network");
     expect(heard.at(-1)).toBe(`/dead-end {"bootstrapToken":"a-bootstrap-token"}`);
   });
 
