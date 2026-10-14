@@ -106,6 +106,13 @@ export interface ChoosingLink<Chunk extends FollowedChunk> {
   readonly estimateBps: () => number;
   readonly giveUp: (chunk: Chunk) => void;
   /**
+   * Takes what a chunk given up showed of the link, bytes over durationMs, as a measure of it: the
+   * chunk loads no more, and nothing else would measure a link that slowed while the old measure kept
+   * a group's player on the film's own picture, given up again every few seconds (the owner's group
+   * test, 2026-10-14). hls.js's own abandon resets its measures instead, which ours does not (D265).
+   */
+  readonly measureGivenUp: (durationMs: number, bytes: number) => void;
+  /**
    * Builds the video's decoding anew and loads again from where it is, at the quality chosen next.
    */
   readonly loadAgain: () => void;
@@ -344,6 +351,11 @@ export class Choosing<Chunk extends FollowedChunk> {
       return;
     }
     this.#onItsWay = undefined;
+    this.#link.measureGivenUp(
+      Math.max(1, this.#options.monotonicMs() - sinceMs),
+      Math.max(1, loaded),
+    );
+    this.#hasMeasured = true;
     this.#lower(chosen);
     this.#lastChosen = chosen;
     this.#link.giveUp(chunk);
@@ -525,6 +537,9 @@ class OrpheumAbrController extends AbrController {
     super(hls);
     this.choosing = new Choosing<Fragment>(hls, options, {
       estimateBps: () => this.bwEstimator.getEstimate(),
+      measureGivenUp: (durationMs, bytes) => {
+        this.bwEstimator.sample(durationMs, bytes);
+      },
       giveUp: (frag) => {
         frag.abortRequests();
         hls.trigger(Events.FRAG_LOAD_EMERGENCY_ABORTED, { frag, part: null, stats: frag.stats });
