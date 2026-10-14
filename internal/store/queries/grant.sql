@@ -2,12 +2,13 @@
 -- Credentials: one grant table, opaque and revocable, stored as SHA-256 hashes (D154).
 
 -- name: InsertGrant :exec
--- A link's grant also keeps its locate hash and offer key (discovery-core.md K7); NULL for the rest.
+-- A link's grant also keeps its locate hash and offer key, and its secret sealed for the person it
+-- becomes the own link of (discovery-core.md K7); NULL for the rest.
 INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_name, device_id,
-                     locate_hash, offer_key)
+                     locate_hash, offer_key, link_sealed)
 VALUES (sqlc.arg(secret_sha256), sqlc.arg(kind), sqlc.arg(user_id), sqlc.arg(scope), sqlc.arg(issued_at),
         sqlc.arg(expires_at), sqlc.arg(issued_at), sqlc.arg(device_name), sqlc.arg(device_id),
-        sqlc.narg(locate_hash), sqlc.narg(offer_key));
+        sqlc.narg(locate_hash), sqlc.narg(offer_key), sqlc.narg(link_sealed));
 
 -- name: GetLiveGrant :one
 SELECT secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_id, device_name, locate_hash
@@ -50,9 +51,10 @@ UPDATE "grant" SET kind = 'link', scope = 'own', user_id = sqlc.arg(user_id), re
   expires_at = sqlc.arg(expires_at), last_used_at = sqlc.arg(now)
 WHERE secret_sha256 = sqlc.arg(secret_sha256) AND locate_hash IS NOT NULL;
 
--- name: GetOwnLinkExpiryOfUser :one
--- When the person's own link stops locating the core, while they have one.
-SELECT expires_at FROM "grant"
+-- name: GetOwnLinkOfUser :one
+-- The person's own link while they have one: its grant, when it stops locating the core, and its
+-- secret sealed, NULL for a link made before the core kept it.
+SELECT secret_sha256, expires_at, link_sealed FROM "grant"
 WHERE user_id = sqlc.arg(user_id) AND kind = 'link' AND scope = 'own' AND revoked_at IS NULL
   AND expires_at > sqlc.arg(now)
 ORDER BY expires_at DESC

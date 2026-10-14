@@ -107,3 +107,28 @@ func (harness testHarness) personPage(t *testing.T, admin, path string) PersonOu
 	}
 	return page
 }
+
+// A person who registered by a link is shown it again as their own link, in the discovery's form
+// once one has claimed the server; someone with none is told so (D292 §4; discovery-core.md K7).
+func TestOwnLink_IsTheLinkThePersonRegisteredBy(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	invitation := harness.invite(t, admin, "user", "the partner")
+	partner, _ := readSignIn(t, harness.do(t, http.MethodPost, "/registration", "", map[string]any{
+		"secret": invitation.Link.Secret, "name": "partner", "password": "partner-password", "device": testDevice,
+	}))
+	read := harness.do(t, http.MethodGet, "/me/own-link", partner, nil)
+	var own OwnLinkOutput
+	if err := json.Unmarshal([]byte(read.body), &own.Body); err != nil || read.status != http.StatusOK {
+		t.Fatalf("GET /me/own-link = %d %s", read.status, read.body)
+	}
+	if own.Body.Secret != invitation.Link.Secret || own.Body.ExpiresAt <= harness.clock.Now().UnixMilli() {
+		t.Errorf("the partner's own link is %+v; want the invitation's secret, alive", own.Body)
+	}
+	if own.Body.Link != "" {
+		t.Errorf("a server no discovery has claimed names the link %q; want none", own.Body.Link)
+	}
+	wantError(t, harness.do(t, http.MethodGet, "/me/own-link", admin, nil), http.StatusNotFound, CodeNotFound)
+	wantError(t, harness.do(t, http.MethodGet, "/me/own-link", "", nil), http.StatusUnauthorized, CodeAuthRequired)
+}

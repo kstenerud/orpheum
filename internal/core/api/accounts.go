@@ -328,12 +328,12 @@ func (server *Server) getPerson(ctx context.Context, input *PersonInput) (*Perso
 	if !stats.LastWatchedAt.IsZero() {
 		output.Body.WatchStats.LastWatchedAt = stats.LastWatchedAt.UnixMilli()
 	}
-	ownLinkExpires, hasOwnLink, err := dependencies.Auth.OwnLinkExpiry(ctx, input.UserID)
+	own, hasOwnLink, err := dependencies.Auth.OwnLink(ctx, input.UserID)
 	if err != nil {
 		return nil, server.authError(ctx, "read a person's own link", err)
 	}
 	if hasOwnLink {
-		output.Body.OwnLinkExpiresAt = ownLinkExpires.UnixMilli()
+		output.Body.OwnLinkExpiresAt = own.ExpiresAt.UnixMilli()
 	}
 	return output, nil
 }

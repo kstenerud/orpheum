@@ -87,7 +87,7 @@ func (service *Service) IssueRegistrationInvitation(ctx context.Context, userID 
 	if err != nil {
 		return IssuedSecret{}, fmt.Errorf("read registration_invitation_life_days: %w", err)
 	}
-	locateHash, offerKey, err := linkHashes(secret)
+	kept, err := service.keepOfLink(secret)
 	if err != nil {
 		return IssuedSecret{}, err
 	}
@@ -102,7 +102,9 @@ func (service *Service) IssueRegistrationInvitation(ctx context.Context, userID 
 		}
 		return queries.InsertGrant(ctx, sqlcgen.InsertGrantParams{
 			SecretSha256: tokenHash(secret), Kind: grantKindIssuedSecret, UserID: &userID, Scope: grantScopeRegister,
-			IssuedAt: now.UnixMilli(), ExpiresAt: new(expires.UnixMilli()), LocateHash: locateHash, OfferKey: offerKey,
+			IssuedAt: now.UnixMilli(), ExpiresAt: new(expires.UnixMilli()),
+			LocateHash: kept.locateHash, OfferKey: kept.offerKey,
+			LinkSealed: kept.sealed,
 		})
 	})
 	if err != nil {

@@ -124,34 +124,41 @@ func (q *Queries) GetLiveLinkOfferKey(ctx context.Context, arg GetLiveLinkOfferK
 	return offer_key, err
 }
 
-const getOwnLinkExpiryOfUser = `-- name: GetOwnLinkExpiryOfUser :one
-SELECT expires_at FROM "grant"
+const getOwnLinkOfUser = `-- name: GetOwnLinkOfUser :one
+SELECT secret_sha256, expires_at, link_sealed FROM "grant"
 WHERE user_id = ?1 AND kind = 'link' AND scope = 'own' AND revoked_at IS NULL
   AND expires_at > ?2
 ORDER BY expires_at DESC
 LIMIT 1
 `
 
-type GetOwnLinkExpiryOfUserParams struct {
+type GetOwnLinkOfUserParams struct {
 	UserID *int64
 	Now    *int64
 }
 
-// When the person's own link stops locating the core, while they have one.
-func (q *Queries) GetOwnLinkExpiryOfUser(ctx context.Context, arg GetOwnLinkExpiryOfUserParams) (*int64, error) {
-	row := q.db.QueryRowContext(ctx, getOwnLinkExpiryOfUser, arg.UserID, arg.Now)
-	var expires_at *int64
-	err := row.Scan(&expires_at)
-	return expires_at, err
+type GetOwnLinkOfUserRow struct {
+	SecretSha256 []byte
+	ExpiresAt    *int64
+	LinkSealed   []byte
+}
+
+// The person's own link while they have one: its grant, when it stops locating the core, and its
+// secret sealed, NULL for a link made before the core kept it.
+func (q *Queries) GetOwnLinkOfUser(ctx context.Context, arg GetOwnLinkOfUserParams) (GetOwnLinkOfUserRow, error) {
+	row := q.db.QueryRowContext(ctx, getOwnLinkOfUser, arg.UserID, arg.Now)
+	var i GetOwnLinkOfUserRow
+	err := row.Scan(&i.SecretSha256, &i.ExpiresAt, &i.LinkSealed)
+	return i, err
 }
 
 const insertGrant = `-- name: InsertGrant :exec
 
 INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_name, device_id,
-                     locate_hash, offer_key)
+                     locate_hash, offer_key, link_sealed)
 VALUES (?1, ?2, ?3, ?4, ?5,
         ?6, ?5, ?7, ?8,
-        ?9, ?10)
+        ?9, ?10, ?11)
 `
 
 type InsertGrantParams struct {
@@ -165,11 +172,13 @@ type InsertGrantParams struct {
 	DeviceID     *int64
 	LocateHash   []byte
 	OfferKey     []byte
+	LinkSealed   []byte
 }
 
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Credentials: one grant table, opaque and revocable, stored as SHA-256 hashes (D154).
-// A link's grant also keeps its locate hash and offer key (discovery-core.md K7); NULL for the rest.
+// A link's grant also keeps its locate hash and offer key, and its secret sealed for the person it
+// becomes the own link of (discovery-core.md K7); NULL for the rest.
 func (q *Queries) InsertGrant(ctx context.Context, arg InsertGrantParams) error {
 	_, err := q.db.ExecContext(ctx, insertGrant,
 		arg.SecretSha256,
@@ -182,6 +191,7 @@ func (q *Queries) InsertGrant(ctx context.Context, arg InsertGrantParams) error 
 		arg.DeviceID,
 		arg.LocateHash,
 		arg.OfferKey,
+		arg.LinkSealed,
 	)
 	return err
 }

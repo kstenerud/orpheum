@@ -188,6 +188,7 @@ func newHarness(t *testing.T) testHarness {
 	backups := backup.NewService(database, directories, now)
 	backups.UseQueue(queue, seeded)
 	secretStore := secrets.NewStore(database, key, now, rand.Reader, seeded)
+	service.SealLinksWith(secretStore)
 	if secretErr := turn.EnsureSecret(t.Context(), secretStore, rand.Reader); secretErr != nil {
 		t.Fatal(secretErr)
 	}

@@ -182,7 +182,7 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 	}
 	noLibraryContent := []string{
 		// The caller's own rows, which say nothing of what a library holds.
-		"unhideProgress", "getMe", "freshLocator", "listMyDevices", "changeMyDevice", "removeMyDevice",
+		"unhideProgress", "getMe", "freshLocator", "getOwnLink", "listMyDevices", "changeMyDevice", "removeMyDevice",
 		"signOutElsewhere", "activateDevice", "answerActivation", "changePassword", "setMyPreferences",
 		"getClientSettings",
 		// A WebRTC connection, which grants nothing: each request over it checks its own reach (D273 §8).

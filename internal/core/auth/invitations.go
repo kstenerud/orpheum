@@ -53,7 +53,7 @@ func (service *Service) Invite(ctx context.Context, invitation NewInvitation) (i
 	if err != nil {
 		return 0, IssuedSecret{}, fmt.Errorf("read registration_invitation_life_days: %w", err)
 	}
-	locateHash, offerKey, err := linkHashes(secret)
+	kept, err := service.keepOfLink(secret)
 	if err != nil {
 		return 0, IssuedSecret{}, err
 	}
@@ -70,7 +70,9 @@ func (service *Service) Invite(ctx context.Context, invitation NewInvitation) (i
 		}
 		if insertErr := queries.InsertGrant(ctx, sqlcgen.InsertGrantParams{
 			SecretSha256: tokenHash(secret), Kind: grantKindIssuedSecret, Scope: grantScopeInvitation,
-			IssuedAt: now.UnixMilli(), ExpiresAt: new(expires.UnixMilli()), LocateHash: locateHash, OfferKey: offerKey,
+			IssuedAt: now.UnixMilli(), ExpiresAt: new(expires.UnixMilli()),
+			LocateHash: kept.locateHash, OfferKey: kept.offerKey,
+			LinkSealed: kept.sealed,
 		}); insertErr != nil {
 			return fmt.Errorf("record the invitation's link: %w", insertErr)
 		}
