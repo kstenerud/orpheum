@@ -381,7 +381,8 @@ export async function connectRtc(
 async function connectOne(signaller: Signaller, rtcConfig: RTCConfiguration): Promise<PeerLike> {
   const peer = new RTCPeerConnection(rtcConfig);
   try {
-    // An offer needs something to negotiate: a channel opened and never used.
+    // An offer needs something to negotiate: a channel opened and never used, which the core knows by
+    // its label and never serves (internal/core/rtcapi.NegotiationLabel).
     peer.createDataChannel("hello");
     await peer.setLocalDescription(await peer.createOffer());
     await gathered(peer);
