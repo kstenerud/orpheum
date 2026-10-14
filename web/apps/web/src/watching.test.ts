@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import { decisionTimesOf } from "./play-state.ts";
-import { servedBy, type Answer, type Heard } from "./test-dom.tsx";
+import { bodyField, playbackCauses, servedBy, type Answer, type Heard } from "./test-dom.tsx";
 import { testServices } from "./test-services.tsx";
 import { Watching, warmUpKeptMs, type Preload, type StartPreload } from "./watching.ts";
 
@@ -157,6 +157,43 @@ describe("the film being watched (D258)", () => {
     expect(await settled(heard)).toContain("DELETE /playback/a");
     watching.warmUp(7, playableFormats); // the server fails this warm-up
     expect((await watching.decide(7, playableFormats)).mediaToken).toBe("c");
+  });
+
+  it("tells the server why it asks for each playback, and how many the page has asked for (staging, 2026-10-14)", async () => {
+    const heard: Heard[] = [];
+    const { watching, clock } = watchingServed(heard);
+    watching.warmUp(7, playableFormats);
+    clock.ms = warmUpKeptMs;
+    await watching.decide(7, playableFormats);
+    await watching.decide(7, playableFormats, "soundChanged");
+    const offLadder: Heard[] = [];
+    const { api } = servedBy(
+      {
+        "POST /playback": [decided("d", false), decided("e"), [503, {}], decided("f")],
+        "DELETE /playback/d": [204, undefined],
+      },
+      offLadder,
+    );
+    const other = new Watching(api, () => 0, standInPreloads().start);
+    other.warmUp(8, playableFormats);
+    await other.decide(8, playableFormats);
+    other.warmUp(8, playableFormats); // the server fails this warm-up
+    await other.decide(8, playableFormats);
+    await settled(offLadder);
+    const asked = [...heard, ...offLadder].filter(
+      (request) => request.methodAndPath === "POST /playback",
+    );
+    expect(playbackCauses(asked)).toEqual([
+      "filmPage",
+      "warmUpStale",
+      "soundChanged",
+      "filmPage",
+      "warmUpOffLadder",
+      "filmPage",
+      "warmUpFailed",
+    ]);
+    const counts = asked.map((request) => Number(bodyField(request, "pageStarts")));
+    expect(counts.map((count) => count - (counts[0] ?? 0))).toEqual([0, 1, 2, 3, 4, 5, 6]);
   });
 
   it("preloads a film on its ladder from where it resumes, and Play starts where the preload settled (D260 §3)", async () => {

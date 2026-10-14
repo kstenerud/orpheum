@@ -131,4 +131,44 @@ export function isProblemBody(value: unknown): value is UnknownProblemBody {
 export function reportFailure(cause: unknown): void {
   // eslint-disable-next-line no-console -- this is the reporter the console is for (standards/typescript.md)
   console.error("Orpheum: a request failed", cause);
+  if (failureSink.send !== undefined && failureSink.sent < failureSink.most) {
+    failureSink.sent += 1;
+    failureSink.send(failureText(cause));
+  }
+}
+
+/** How many failures one page load sends on at most: a few say what went wrong, more only flood. */
+export const failuresSentMost = 20;
+
+/** Where failures go beside the console, and how many this page load sent. */
+const failureSink: { send?: (text: string) => void; sent: number; most: number } = {
+  sent: 0,
+  most: failuresSentMost,
+};
+
+/**
+ * Sends each failure reportFailure is given on to send as well as to the console, at most
+ * failuresSentMost of them for the page's life: on a phone no one reads the console, and a playback
+ * that started over by itself left nothing to say why (staging, 2026-10-14). send must not report
+ * its own failure, or one failure would send another.
+ */
+export function sendFailuresTo(send: (text: string) => void): void {
+  failureSink.send = send;
+  failureSink.sent = 0;
+}
+
+/** A failure as a line of text, its kind and its words, at most 500 characters. */
+export function failureText(cause: unknown): string {
+  let text: string;
+  if (cause instanceof ApiProblem) {
+    text = `${cause.code}: ${cause.message}`;
+  } else if (cause instanceof Error) {
+    text = `${cause.name}: ${cause.message}`;
+  } else if (typeof cause === "object" && cause !== null) {
+    text = JSON.stringify(cause);
+  } else {
+    // A string, or what JSON cannot say: undefined, a function, a symbol.
+    text = String(cause);
+  }
+  return text.slice(0, 500);
 }

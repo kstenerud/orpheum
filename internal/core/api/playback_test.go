@@ -245,16 +245,19 @@ func TestPlayback_TheAcceptanceFileIsPreparedForItsContainerAndItsAudio(t *testi
 }
 
 // Each playback start is logged with whose it is, the file, and how it is delivered and why, never
-// with its token; a refused one with why; and by which name and from which address it came, which
-// says which of a discovery's paths reached the server. On staging a film that would not play left no trace of
-// what was chosen for it (2026-10-06).
+// with its token; a refused one with why; by which name and from which address it came, which says
+// which of a discovery's paths reached the server; and why the page asked, and how many times. On
+// staging a film that would not play left no trace of what was chosen for it (2026-10-06).
 func TestPlayback_LogsEachStartAndRefusalButNeverTheToken(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
-	decided := harness.play(t, user, chrome(2))
+	asked := chrome(2)
+	asked["cause"], asked["pageStarts"] = "subtitleFetched", 3
+	decided := harness.play(t, user, asked)
 	harness.logs.AwaitLine(t, `"msg":"a playback started"`, `"fileId":2`, `"delivery":"hls"`,
+		`"cause":"subtitleFetched"`, `"pageStarts":3`, // what made the page ask, and how many it asked for
 		`"profile":"remux"`, `"notDirectReasons":["container","audio_codec"]`,
 		`"userAgent":"Go-http-client/1.1"`,                  // which browser, as an iPhone's player differs
 		`"host":"127.0.0.1:`, `"clientAddress":"127.0.0.1"`, // which name and path reached the server

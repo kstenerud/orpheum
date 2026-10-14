@@ -176,6 +176,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/client-problems": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A failure the page met, for the server's log */
+        post: operations["reportClientProblem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/client-settings": {
         parameters: {
             query?: never;
@@ -1844,6 +1861,12 @@ export interface components {
             currentPassword: string;
             newPassword: string;
         };
+        ClientProblemInputBody: {
+            /** @description What failed, in the page's own words */
+            message: string;
+            /** @description The page's path when it failed */
+            page: string;
+        };
         ClientSettingsBody: {
             /** Format: int64 */
             screenRefreshFailedWaitSeconds: number;
@@ -3281,8 +3304,18 @@ export interface components {
             volume: number;
         };
         StartPlaybackInputBody: {
+            /**
+             * @description Why the page asked for this playback, for the log
+             * @enum {string}
+             */
+            cause?: "filmPage" | "playPage" | "warmUpStale" | "warmUpOffLadder" | "warmUpFailed" | "soundAnswered" | "soundChanged" | "subtitleFetched" | "audioChosen";
             /** Format: int64 */
             fileId: number;
+            /**
+             * Format: int64
+             * @description How many playbacks the page has asked for since it loaded, this one included
+             */
+            pageStarts?: number;
             playableFormats: components["schemas"]["PlayableFormatsBody"];
             /**
              * @description A person's override of the decision
@@ -4116,6 +4149,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    reportClientProblem: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClientProblemInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
         };
     };

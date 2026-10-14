@@ -10,6 +10,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type JSX,
   type RefObject,
@@ -30,7 +31,13 @@ import { LevelSwitch, soundLevelOf, type SoundLevel } from "./levelling.tsx";
 import { Loaded } from "./title.tsx";
 import { HostPlaysTogether } from "./together-host.tsx";
 import { useResource } from "./use-resource.ts";
-import { watchingOf, type PlaybackDecision } from "./watching.ts";
+import { watchingOf, type PlaybackDecision, type StartCause } from "./watching.ts";
+
+/** Why a playing page asks how the file plays again. */
+type DecideAgainCause = Extract<
+  StartCause,
+  "soundAnswered" | "soundChanged" | "subtitleFetched" | "audioChosen"
+>;
 
 /**
  * A decision, shown: the original playing, or a prepared copy and why. The reason is always on
@@ -41,7 +48,7 @@ export function PlayView(props: {
   readonly fileId: number;
   readonly decision: PlaybackDecision;
   /** Asks the server again how the file plays: after the sound changed (D222) or a subtitle was fetched. */
-  readonly onDecideAgain: () => void;
+  readonly onDecideAgain: (cause: DecideAgainCause) => void;
 }): JSX.Element {
   // The lower quality a stalled player moved to, and where it was (D247 §2); per playback.
   const [moved, setMoved] = useState<MovedDown | undefined>(undefined);
@@ -111,6 +118,16 @@ type PlayProps = Parameters<typeof PlayView>[0] & {
   /** Told when even the lowest quality cannot keep up, and undefined when it can (D247 §8). */
   readonly onCannotKeepUp: (cannotKeepUp: CannotKeepUp | undefined) => void;
 };
+
+/** A handler that asks how the file plays again, saying why. */
+function decideAgainFor(
+  props: { readonly onDecideAgain: (cause: DecideAgainCause) => void },
+  cause: DecideAgainCause,
+): () => void {
+  return () => {
+    props.onDecideAgain(cause);
+  };
+}
 
 /**
  * Where a player moving to a lower quality goes on from: where its video is, once it has loaded
@@ -205,10 +222,13 @@ function UnderTheVideo(
         preferences={props.decision.preferences}
         videoRef={props.videoRef}
       />
-      <FindSubtitles fileId={props.fileId} onFetched={props.onDecideAgain} />
+      <FindSubtitles fileId={props.fileId} onFetched={decideAgainFor(props, "subtitleFetched")} />
       <AudioMenu fileId={props.fileId} decision={props.decision} onChosen={props.onAudioChosen} />
       {props.decision.audioOutput === undefined ? null : (
-        <SoundLine current={props.decision.audioOutput} onChanged={props.onDecideAgain} />
+        <SoundLine
+          current={props.decision.audioOutput}
+          onChanged={decideAgainFor(props, "soundChanged")}
+        />
       )}
       <LevelSwitch
         level={props.level}
@@ -251,7 +271,7 @@ function DirectUnder(props: PlayProps & FilmParts): JSX.Element {
       <UnderTheVideo
         {...props}
         level={soundLevelOf(props.decision, undefined)}
-        onAudioChosen={props.onDecideAgain}
+        onAudioChosen={decideAgainFor(props, "audioChosen")}
       />
       {props.failure === undefined ? <p className="play__reason">{t("play.direct")}</p> : null}
     </>
@@ -340,7 +360,7 @@ function LadderUnder(
       {...props}
       decision={decision}
       level={level}
-      onAudioChosen={props.onDecideAgain}
+      onAudioChosen={decideAgainFor(props, "audioChosen")}
     />
   );
 }
@@ -351,8 +371,19 @@ function LadderUnder(
  */
 export function Play(props: { readonly fileId: number }): JSX.Element {
   const { api, playableFormats, session } = useServices();
-  const [decision, decideAgain] = useResource(`play/${String(props.fileId)}`, () =>
-    watchingOf(api).decide(props.fileId, playableFormats()),
+  // Why the next decision is asked for: the page's opening, unless something asked it again.
+  const nextCauseRef = useRef<StartCause>("playPage");
+  const [decision, reload] = useResource(`play/${String(props.fileId)}`, () => {
+    const cause = nextCauseRef.current;
+    nextCauseRef.current = "playPage";
+    return watchingOf(api).decide(props.fileId, playableFormats(), cause);
+  });
+  const decideAgain = useCallback(
+    (cause: DecideAgainCause) => {
+      nextCauseRef.current = cause;
+      reload();
+    },
+    [reload],
   );
   return (
     <Loaded
@@ -360,7 +391,11 @@ export function Play(props: { readonly fileId: number }): JSX.Element {
       render={(value) =>
         value.audioOutput === undefined && session.deviceId() !== undefined ? (
           <div className="play">
-            <SoundQuestion onAnswered={decideAgain} />
+            <SoundQuestion
+              onAnswered={() => {
+                decideAgain("soundAnswered");
+              }}
+            />
           </div>
         ) : (
           <PlayView fileId={props.fileId} decision={value} onDecideAgain={decideAgain} />

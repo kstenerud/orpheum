@@ -59,6 +59,11 @@ type StartPlaybackInput struct {
 		FileID            int64               `json:"fileId" minimum:"1"`
 		PlayableFormats   PlayableFormatsBody `json:"playableFormats"`
 		PreferredDelivery DeliveryKind        `doc:"A person's override of the decision" json:"preferredDelivery,omitempty" required:"false"` //nolint:lll // one struct tag
+		// Cause and PageStarts are for the log alone: why the page asked, and how many playbacks it
+		// has asked for since it loaded, so a playback started again by itself says what started it
+		// (staging, 2026-10-14, where a phone's playback started over and nothing said why).
+		Cause      string `doc:"Why the page asked for this playback, for the log" enum:"filmPage,playPage,warmUpStale,warmUpOffLadder,warmUpFailed,soundAnswered,soundChanged,subtitleFetched,audioChosen" json:"cause,omitempty" required:"false"` //nolint:lll // one struct tag
+		PageStarts int    `doc:"How many playbacks the page has asked for since it loaded, this one included" json:"pageStarts,omitempty" minimum:"0" required:"false"`                                                                              //nolint:lll // one struct tag
 	}
 	ClientFacts
 }
@@ -238,6 +243,7 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 	who := []any{
 		"userId", principal.UserID, "fileId", input.Body.FileID, "userAgent", input.userAgent,
 		"host", input.host, "clientAddress", input.clientAddress,
+		"cause", input.Body.Cause, "pageStarts", input.Body.PageStarts,
 	}
 	if unreadable, isUnreadable := errors.AsType[*library.UnreadableError](err); isUnreadable {
 		server.logPlaybackRefused(ctx, who, err)

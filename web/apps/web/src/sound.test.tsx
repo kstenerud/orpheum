@@ -8,7 +8,15 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { PlaybackDecision } from "./watching.ts";
 import { Play } from "./play.tsx";
 import { BoostSwitch } from "./sound.tsx";
-import { choose, click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import {
+  choose,
+  click,
+  mount,
+  playbackCauses,
+  servedBy,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { directDecision, television } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
 import { YourDevices } from "./your-devices.tsx";
@@ -61,6 +69,7 @@ describe("how a device makes sound (D222)", () => {
     );
     await click(answerButton("Built-in speakers"));
     expect(asked(heard)).toEqual(["POST /playback", "PUT /me/devices/5", "POST /playback"]);
+    expect(playbackCauses(heard)).toEqual(["playPage", "soundAnswered"]);
     expect(heard[1]?.body).toEqual({ audioOutput: "built_in_speakers" });
     expect(mounted.container.querySelector("video")).not.toBeNull();
     expect(mounted.container.textContent).toContain("Sound: Built-in speakers");
@@ -92,7 +101,7 @@ describe("how a device makes sound (D222)", () => {
     expect(answerButton("Built-in speakers")?.getAttribute("aria-pressed")).toBe("true");
     await click(answerButton("Headphones"));
     expect(heard[1]?.body).toEqual({ audioOutput: "headphones" });
-    expect(asked(heard).filter((each) => each === "POST /playback")).toHaveLength(2);
+    expect(playbackCauses(heard)).toEqual(["playPage", "soundChanged"]);
     expect(mounted.container.textContent).toContain("Sound: Headphones");
   });
 
