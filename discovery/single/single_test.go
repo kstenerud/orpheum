@@ -679,7 +679,7 @@ func TestLinks_AClaimedCoresFullSetsReplaceTheLast(t *testing.T) {
 	built.discovery.mutex.Lock()
 	defer built.discovery.mutex.Unlock()
 	kept := built.discovery.locateHashes
-	if len(kept) != 1 || !kept["second"].Equal(built.clock().Add(2*time.Minute)) {
+	if len(kept) != 1 || !kept["second"].expires.Equal(built.clock().Add(2*time.Minute)) {
 		t.Errorf("the links kept are %v; want the last set alone, each ending when it said", kept)
 	}
 	if !built.discovery.locators["a-locator"] || len(built.discovery.locators) != 1 {

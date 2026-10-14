@@ -33,15 +33,26 @@ const signalMessageMost = 64 << 10
 // instance, and the offers waiting on it for an answer, by their ids.
 type signalling struct {
 	logger   *slog.Logger
+	now      func() time.Time
 	mutex    sync.Mutex
 	current  *websocket.Conn
 	instance string
 	lastID   uint64
 	waiting  map[string]chan discoveryproto.SignalMessage
+	// lastClosed is when the core last held no connection, from its closing: zero before the
+	// first. A core is online while it holds one (the protocol's §2.4; C16).
+	lastClosed time.Time
 }
 
-func newSignalling(logger *slog.Logger) *signalling {
-	return &signalling{logger: logger, waiting: map[string]chan discoveryproto.SignalMessage{}}
+func newSignalling(logger *slog.Logger, now func() time.Time) *signalling {
+	return &signalling{logger: logger, now: now, waiting: map[string]chan discoveryproto.SignalMessage{}}
+}
+
+// standing is whether the core holds a signalling connection, and when it last held none.
+func (signal *signalling) standing() (isOnline bool, offlineSince time.Time) {
+	signal.mutex.Lock()
+	defer signal.mutex.Unlock()
+	return signal.current != nil, signal.lastClosed
 }
 
 // accept takes the signalling connection of the core's instance in place of any it had, and reads its
@@ -63,7 +74,7 @@ func (signal *signalling) accept(writer http.ResponseWriter, request *http.Reque
 	signal.read(request.Context(), connection)
 	signal.mutex.Lock()
 	if signal.current == connection {
-		signal.current, signal.instance = nil, ""
+		signal.current, signal.instance, signal.lastClosed = nil, "", signal.now()
 	}
 	signal.mutex.Unlock()
 }
@@ -109,7 +120,7 @@ func (signal *signalling) take(instanceID string) *websocket.Conn {
 	if connection == nil || signal.instance != instanceID {
 		return nil
 	}
-	signal.current, signal.instance = nil, ""
+	signal.current, signal.instance, signal.lastClosed = nil, "", signal.now()
 	return connection
 }
 

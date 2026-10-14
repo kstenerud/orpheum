@@ -985,8 +985,11 @@ the core must act on (enrol again, another instance running) carries a code of i
 | device codes (§3.1) | own: the core's `/pairings`, passed through (D288); paid: issued by the service, the outcome sealed to the device (D293 §2) |
 | dead-end report (§3.6) | a locator or bootstrap token → counted for its core's week, with no device identifier (D293 §7) |
 
-An own discovery answers the same client API for its one core. None of the client API is built in
-`discovery/single`: it passes an offer to its core (`Discovery.Offer`) but serves no client calls.
+An own discovery answers the same client API for its one core. Built in `discovery/single`
+(2026-10-14): `/locate`, with the hash's use policy and a bootstrap token of five minutes, and
+`/paths`, with the core's `state` from its signalling connection and the client's `clientPrefix`,
+WebRTC its one path until it publishes names. Not yet: `/cores/{id}/offer` with proofs, and the
+dead-end report.
 
 ## 5. Versions, and keeping the sides in step (D273 §6, §7)
 

@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+package discoveryproto
+
+// The client API's paths, under a discovery's <base>/client/v1: what a device holds (a link's hash,
+// a locator or a bootstrap token) finds its core, and its offers reach it (the protocol's §3, §4).
+const (
+	PathLocate  = "/locate"
+	PathPaths   = "/paths"
+	PathDeadEnd = "/dead-end"
+	// PathCores is the start of a core's offer path: OfferPath.
+	PathCores = "/cores/"
+)
+
+// OfferPath is where a client posts its offers for the core coreID: /cores/<coreId>/offer.
+func OfferPath(coreID string) string {
+	return PathCores + coreID + "/offer"
+}
+
+// LocateRequest is a link's hash (link.LocateHash of its secret), which the discovery finds the core
+// by and spends by its use policy; the secret itself never leaves the device but to the core.
+type LocateRequest struct {
+	Hash string `json:"hash"`
+}
+
+// LocateResponse is the core's paths, and a bootstrap token: good for /paths and offers for a few
+// minutes, never renewed, so the device signs in or registers over a path in that time (the
+// protocol's §3.1; X10).
+type LocateResponse struct {
+	PathsResponse
+	BootstrapToken string `json:"bootstrapToken"`
+}
+
+// PathsRequest names the core by what the device holds: its locator, which the core handed it, or the
+// bootstrap token /locate gave it.
+type PathsRequest struct {
+	Locator        string `json:"locator,omitempty"`
+	BootstrapToken string `json:"bootstrapToken,omitempty"`
+}
+
+// CoreState is how a core stands as its discovery knows it, so a client tells a household member the
+// cause when it is the core's (the protocol's §3.2; D293 §6).
+type CoreState string
+
+// The states a client is told.
+const (
+	CoreOnline    CoreState = "online"
+	CoreOffline   CoreState = "offline"
+	CorePaused    CoreState = "paused"
+	CoreRestoring CoreState = "restoring"
+)
+
+// The kinds of path, ranked so by a client: the LAN, IPv6, IPv4, WebRTC (the protocol's §3.3).
+const (
+	PathKindLAN    = "lan"
+	PathKindIPv6   = "ipv6"
+	PathKindIPv4   = "ipv4"
+	PathKindWebRTC = "webrtc"
+)
+
+// Path is one way to the core: a URL for a direct path, or for WebRTC the path to post offers to.
+type Path struct {
+	Kind  string `json:"kind"`
+	URL   string `json:"url,omitempty"`
+	Offer string `json:"offer,omitempty"`
+}
+
+// PathsResponse is how to reach the core: its id, its API's major, its state, the client's own
+// network prefix as the discovery sees it (the key under which the client remembers what worked,
+// D293 §8), the paths, and the ICE servers for WebRTC.
+type PathsResponse struct {
+	CoreID   string    `json:"coreId"`
+	APIMajor int       `json:"apiMajor"`
+	State    CoreState `json:"state"`
+	// OfflineSince is when the core went offline, Unix ms; 0 while it is online.
+	OfflineSince int64       `json:"offlineSince,omitempty"`
+	ClientPrefix string      `json:"clientPrefix"`
+	Paths        []Path      `json:"paths"`
+	ICEServers   []ICEServer `json:"iceServers"`
+}
+
+// RefusalNotFound is a link's hash, a locator or a bootstrap token the discovery finds no core by:
+// never registered, used up, expired or dropped. Which, it does not say.
+const RefusalNotFound = "not_found"
