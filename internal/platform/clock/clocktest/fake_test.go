@@ -113,3 +113,27 @@ func hasFired(fired <-chan time.Time) bool {
 		return false
 	}
 }
+
+func TestFake_AdvanceToNextMovesToTheEarliestTimerOnly(t *testing.T) {
+	t.Parallel()
+	start := time.Date(2026, time.September, 23, 12, 0, 0, 0, time.UTC)
+	fake := clocktest.NewFake(start)
+	if fake.AdvanceToNext() || !fake.Now().Equal(start) {
+		t.Fatalf("with no timer armed, AdvanceToNext moved the time to %v", fake.Now())
+	}
+	later := fake.NewTimer(time.Minute)
+	sooner := fake.NewTimer(time.Second)
+	if !fake.AdvanceToNext() || !fake.Now().Equal(start.Add(time.Second)) {
+		t.Fatalf("AdvanceToNext moved the time to %v; want the sooner timer's, %v", fake.Now(), start.Add(time.Second))
+	}
+	select {
+	case <-sooner.C():
+	default:
+		t.Error("the sooner timer did not fire")
+	}
+	select {
+	case <-later.C():
+		t.Error("the later timer fired with the sooner")
+	default:
+	}
+}

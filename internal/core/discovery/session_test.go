@@ -134,14 +134,16 @@ func signalOverTime(t *testing.T, built *world, answersPings bool) (dials <-chan
 		built.service.signal(ctx)
 	}()
 	go func() {
-		tick := time.NewTicker(5 * time.Millisecond)
+		// Each step gives the code a real moment to answer a ping and arm its next timer before the
+		// fake time moves to that timer.
+		tick := time.NewTicker(100 * time.Millisecond)
 		defer tick.Stop()
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-tick.C:
-				built.clock.Advance(time.Second)
+				built.clock.AdvanceToNext()
 			}
 		}
 	}()
