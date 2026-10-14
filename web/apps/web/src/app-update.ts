@@ -2,6 +2,8 @@
 
 import type { Api } from "@orpheum/sdk";
 
+import { tabStorage, type StringStorage } from "./browser-storage.ts";
+
 /** A watcher of every request and answer the API makes. */
 type Middleware = Parameters<Api["use"]>[0];
 
@@ -29,18 +31,37 @@ export interface UpdateWatch {
    * development page, with no built script, is never out of date.
    */
   readonly middleware: (ownScript: string | undefined) => Middleware;
+  /**
+   * Notes that the page reloads for the script that made it out of date, so the page that loads
+   * next is not out of date for that script again: where a reload cannot bring it, as on a
+   * discovery's page, whose client the discovery serves and not the core, the page would otherwise
+   * reload forever (2026-10-14).
+   */
+  readonly beforeReload: () => void;
 }
 
-/** A watch of whether a page is out of date. */
-export function createUpdateWatch(): UpdateWatch {
+/** The tab's key for the script the page last reloaded for. */
+const reloadedForKey = "orpheum.reloadedForClient";
+
+/** A watch of whether a page is out of date; storage is the tab's, where it keeps what it reloaded for. */
+export function createUpdateWatch(storage: () => StringStorage = tabStorage): UpdateWatch {
   let isOutdated = false;
+  let outdatedBy: string | undefined;
   const listeners = new Set<() => void>();
   const noteServed = (ownScript: string | undefined, served: string | null): void => {
-    if (ownScript !== undefined && served !== null && served !== ownScript && !isOutdated) {
-      isOutdated = true;
-      for (const listener of listeners) {
-        listener();
-      }
+    if (
+      ownScript === undefined ||
+      served === null ||
+      served === ownScript ||
+      isOutdated ||
+      storage().getItem(reloadedForKey) === served
+    ) {
+      return;
+    }
+    isOutdated = true;
+    outdatedBy = served;
+    for (const listener of listeners) {
+      listener();
     }
   };
   return {
@@ -58,6 +79,11 @@ export function createUpdateWatch(): UpdateWatch {
         return undefined;
       },
     }),
+    beforeReload: () => {
+      if (outdatedBy !== undefined) {
+        storage().setItem(reloadedForKey, outdatedBy);
+      }
+    },
   };
 }
 

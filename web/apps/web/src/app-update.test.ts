@@ -35,3 +35,27 @@ describe("a page out of date", () => {
     expect(ownScriptOf(document)).toBeUndefined();
   });
 });
+
+describe("a page that reloaded for a client", () => {
+  it("is not out of date for that client again, so a reload that cannot bring it is not repeated", () => {
+    const kept = new Map<string, string>();
+    const storage = () => ({
+      getItem: (key: string) => kept.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        kept.set(key, value);
+      },
+      removeItem: (key: string) => {
+        kept.delete(key);
+      },
+    });
+    const before = createUpdateWatch(storage);
+    before.noteServed("index-connect.js", "index-core.js");
+    expect(before.isOutdated()).toBe(true);
+    before.beforeReload();
+    const after = createUpdateWatch(storage);
+    after.noteServed("index-connect.js", "index-core.js");
+    expect(after.isOutdated()).toBe(false);
+    after.noteServed("index-connect.js", "index-core-newer.js");
+    expect(after.isOutdated()).toBe(true);
+  });
+});

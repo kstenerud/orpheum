@@ -7,14 +7,18 @@ import { act, useState, type JSX } from "react";
 import { describe, expect, it } from "vitest";
 
 import { createUpdateWatch } from "./app-update.ts";
+import { storageThatNeverThrows } from "./browser-storage.ts";
 import { useShowsAFilm } from "./film-showing.ts";
 import { ReloadWhenOutdated } from "./reload-when-outdated.tsx";
 import type { Route } from "./router.ts";
 import { mount } from "./test-dom.tsx";
 
+/** A watch whose tab keeps nothing, so no test's reload carries into the next. */
+const freshWatch = () => createUpdateWatch(() => storageThatNeverThrows(undefined));
+
 describe("an out-of-date page", () => {
   it("reloads at once where nothing plays, and only as its person leaves a film", async () => {
-    const watch = createUpdateWatch();
+    const watch = freshWatch();
     let reloads = 0;
     const reload = (): void => {
       reloads += 1;
@@ -41,7 +45,7 @@ describe("an out-of-date page", () => {
   });
 
   it("reloads a guest's page at once while no film shows on it, and once the film on it stops", async () => {
-    const watch = createUpdateWatch();
+    const watch = freshWatch();
     let reloads = 0;
     const reload = (): void => {
       reloads += 1;
@@ -83,7 +87,7 @@ describe("an out-of-date page", () => {
         reload={() => {
           reloads += 1;
         }}
-        watch={createUpdateWatch()}
+        watch={freshWatch()}
       />,
     );
     expect(reloads).toBe(0);

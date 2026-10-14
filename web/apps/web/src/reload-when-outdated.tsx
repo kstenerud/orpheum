@@ -27,9 +27,10 @@ export function ReloadWhenOutdated(props: {
   const reload = props.reload ?? reloadPage;
   useEffect(() => {
     if (isOutdated && !isPlayingScreen) {
+      watch.beforeReload();
       reload();
     }
-  }, [isOutdated, isPlayingScreen, reload]);
+  }, [isOutdated, isPlayingScreen, reload, watch]);
   return isOutdated && isPlayingScreen ? (
     <output className="reload-when-outdated">{t("play.updateAfterFilm")}</output>
   ) : null;
