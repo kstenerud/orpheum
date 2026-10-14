@@ -3,6 +3,7 @@
 package discovery
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -535,7 +536,8 @@ func TestSignal_AClaimedCoreAnswersTheOffersItsDiscoveryPassesOn(t *testing.T) {
 	}
 	// The answer is signed over its exact SDP, the offer and the offer's fingerprint (§2.5 item 4).
 	signed := proof.Answer{CoreID: fakeCoreID, OfferID: "0", OfferFingerprint: "sha-256 AB:CD", SDP: answered.SDP}
-	if !proof.VerifyAnswer(built.key.Public(), signed, answered.Signature) {
+	if !bytes.Equal(answered.PublicKey, built.key.Public()) || !proof.VerifyAnswer(answered.PublicKey, signed,
+		answered.Signature) {
 		t.Error("the answer's signature does not verify over its SDP, its offer and the offer's fingerprint")
 	}
 	if refused.Type != discoveryproto.SignalRefusal || refused.OfferID != "1" ||
