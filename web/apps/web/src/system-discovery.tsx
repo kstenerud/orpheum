@@ -108,7 +108,6 @@ function StandingView(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { standing } = props;
-  const published = standing.published ?? [];
   return (
     <>
       <p>{t("system.discovery.at", { address: standing.baseUrl })}</p>
@@ -121,12 +120,7 @@ function StandingView(props: {
           })}
         </p>
       )}
-      {standing.reachableFrom === undefined ? null : (
-        <p>{t(`system.discovery.reachable.${camelKey(standing.reachableFrom)}`)}</p>
-      )}
-      {published.length === 0 ? null : (
-        <p>{t("system.discovery.published", { names: published.join(", ") })}</p>
-      )}
+      <Reach standing={standing} />
       {standing.lastHeartbeatAt === 0 ? null : (
         <p>
           {t("system.discovery.heartbeat", {
@@ -149,6 +143,26 @@ function StandingView(props: {
         confirmLabel={t("system.discovery.leaveConfirm")}
         onConfirm={props.onLeave}
       />
+    </>
+  );
+}
+
+/** How the server is reached: from where, by which names, and how often a client found no way in. */
+function Reach(props: { readonly standing: Standing }): JSX.Element {
+  const { t } = useTranslation();
+  const { reachableFrom, deadEndsLastWeek } = props.standing;
+  const published = props.standing.published ?? [];
+  return (
+    <>
+      {reachableFrom === undefined ? null : (
+        <p>{t(`system.discovery.reachable.${camelKey(reachableFrom)}`)}</p>
+      )}
+      {published.length === 0 ? null : (
+        <p>{t("system.discovery.published", { names: published.join(", ") })}</p>
+      )}
+      {deadEndsLastWeek === 0 ? null : (
+        <p role="alert">{t("system.discovery.deadEnds", { count: deadEndsLastWeek })}</p>
+      )}
     </>
   );
 }

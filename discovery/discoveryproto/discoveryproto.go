@@ -214,6 +214,9 @@ type AddressesResponse struct {
 	Published     []string      `json:"published"`
 	Probe         []ProbeResult `json:"probe"`
 	ReachableFrom string        `json:"reachableFrom"`
+	// DeadEndsLastWeek is how many times a client found no path to the core in the last seven days,
+	// counted with no device identifier, for the core's System page (the protocol's §3.6; D293 §7).
+	DeadEndsLastWeek int `json:"deadEndsLastWeek"`
 }
 
 // The kinds of message on the signalling connection.

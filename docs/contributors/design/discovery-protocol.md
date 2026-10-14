@@ -966,7 +966,7 @@ the core must act on (enrol again, another instance running) carries a code of i
 | `POST /enrol` | public key + signed nonce → `coreId`, claim code, expiry; idempotent per key | yes |
 | `POST /session` | `coreId` + `instanceId` + signed nonce → token bound to the core, `expiresIn` (1 h) | yes |
 | `GET /status` | claimed?, account state, zone, protocol support, `iceServers`, the client origin (`clientOrigin`, §3.4), messages for the admin | yes, but for the account state |
-| `PUT /addresses` | candidates, the owner's TURN → published names, probe results, `reachableFrom`, last week's failed connections (§3.6); the heartbeat's fallback | yes, but for the count |
+| `PUT /addresses` | candidates, the owner's TURN → published names, probe results, `reachableFrom`, last week's failed connections (§3.6); the heartbeat's fallback | yes |
 | `GET /signal` (WebSocket) | offers (with proofs) in, answers (signed over the SDP) out; the heartbeat; pings | yes, without checks, signatures, heartbeat or pings |
 | `PUT /acme-challenge`, `DELETE /acme-challenge/{name}` | set or clear `_acme-challenge.<coreId>.<zone>`, claimed cores only; returns once served | yes, but for waiting until served |
 | the core's ACME account (§2.7) | the account URI, for CAA | no |
@@ -991,7 +991,8 @@ An own discovery answers the same client API for its one core. Built in `discove
 (2026-10-14): `/locate`, with the hash's use policy and a bootstrap token of five minutes, and
 `/paths`, with the core's `state` from its signalling connection and the client's `clientPrefix`,
 WebRTC its one path until it publishes names. And `/cores/{id}/offer`, passing each offer on with
-the hash it came under and its proof. Not yet: the dead-end report.
+the hash it came under and its proof, and the dead-end report, counted over a week and told in the
+heartbeat's answer (`deadEndsLastWeek`), which the System page shows.
 
 ## 5. Versions, and keeping the sides in step (D273 §6, §7)
 

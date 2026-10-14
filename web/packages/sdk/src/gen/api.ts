@@ -1986,6 +1986,11 @@ export interface components {
             /** @description Where the discovery serves its client, which the server's links lead to */
             clientOrigin?: string;
             coreId?: string;
+            /**
+             * Format: int64
+             * @description How many times a client found no path to the server in the last week
+             */
+            deadEndsLastWeek: number;
             /** @description When the discovery stops speaking this core's protocol, when it said so */
             deprecatedUntil?: string;
             /** @description The identity key's fingerprint as a person reads it, in safe32 groups; links carry the same digest */

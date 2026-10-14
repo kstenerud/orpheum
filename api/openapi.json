@@ -998,6 +998,11 @@
           "coreId": {
             "type": "string"
           },
+          "deadEndsLastWeek": {
+            "description": "How many times a client found no path to the server in the last week",
+            "format": "int64",
+            "type": "integer"
+          },
           "deprecatedUntil": {
             "description": "When the discovery stops speaking this core's protocol, when it said so",
             "type": "string"
@@ -1076,6 +1081,7 @@
           "baseUrl",
           "claimExpiresAt",
           "published",
+          "deadEndsLastWeek",
           "probe",
           "lastHeartbeatAt",
           "fingerprint",

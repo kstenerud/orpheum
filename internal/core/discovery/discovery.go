@@ -135,8 +135,11 @@ type Status struct {
 	ClaimCode      string
 	ClaimExpiresAt time.Time
 	ReachableFrom  string
-	Published      []string
-	Probe          []discoveryproto.ProbeResult
+	// DeadEndsLastWeek is how many times a client found no path in the last week, as the discovery
+	// counted (D293 §7).
+	DeadEndsLastWeek int
+	Published        []string
+	Probe            []discoveryproto.ProbeResult
 	// LastHeartbeatAt is when the discovery last took the core's addresses.
 	LastHeartbeatAt time.Time
 	// Problem is why the last call failed, empty when it did not.
@@ -514,6 +517,7 @@ func (service *Service) heartbeat(ctx context.Context, status Status) time.Durat
 	service.status.LastHeartbeatAt = service.parts.Clock.Now()
 	service.status.Published, service.status.Probe = answered.Published, answered.Probe
 	service.status.ReachableFrom, service.status.Problem = answered.ReachableFrom, ""
+	service.status.DeadEndsLastWeek = answered.DeadEndsLastWeek
 	service.mutex.Unlock()
 	return addressesEvery
 }
