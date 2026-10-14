@@ -3,6 +3,7 @@
 package single
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -86,16 +87,59 @@ func (store FileStore) read() (Record, error) {
 	return record, nil
 }
 
-// write writes record whole, in place: every reader holds the lock, so none sees it half written.
+// write writes record whole, through a temporary file synced and renamed over it, so a crash leaves
+// the old record or the whole new one, never one half written.
 func (store FileStore) write(record Record) error {
 	contents, err := json.MarshalIndent(record, "", "  ")
 	if err != nil {
 		return fmt.Errorf("write the discovery's record: %w", err)
 	}
-	if err = os.WriteFile(store.Path, contents, 0o600); err != nil {
+	if err = writeWhole(store.Path, contents); err != nil {
 		return fmt.Errorf("write the discovery's record: %w", err)
 	}
 	return nil
+}
+
+// writeWhole writes contents to path whole and durably, mode 0600: a temporary file beside it,
+// synced, renamed over it, and the directory synced. A copy of internal/platform/atomics' WriteFile,
+// which a public package cannot import (the owner, 2026-10-14: duplicate, and watch for more;
+// look-alike-watch-list.md).
+func writeWhole(path string, contents []byte) (err error) {
+	root, err := os.OpenRoot(filepath.Dir(path))
+	if err != nil {
+		return fmt.Errorf("open the record's directory: %w", err)
+	}
+	defer func() { err = errors.Join(err, root.Close()) }()
+	name := filepath.Base(path)
+	temporary := "." + name + "." + rand.Text()
+	handle, err := root.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return fmt.Errorf("create a temporary file for %s: %w", name, err)
+	}
+	defer func() {
+		if err != nil {
+			if removeErr := root.Remove(temporary); removeErr != nil && !errors.Is(removeErr, fs.ErrNotExist) {
+				err = errors.Join(err, removeErr)
+			}
+		}
+	}()
+	if _, err = handle.Write(contents); err != nil {
+		return errors.Join(fmt.Errorf("write %s: %w", temporary, err), handle.Close())
+	}
+	if err = handle.Sync(); err != nil {
+		return errors.Join(fmt.Errorf("sync %s: %w", temporary, err), handle.Close())
+	}
+	if err = handle.Close(); err != nil {
+		return fmt.Errorf("close %s: %w", temporary, err)
+	}
+	if err = root.Rename(temporary, name); err != nil {
+		return fmt.Errorf("move %s into place: %w", name, err)
+	}
+	directory, err := root.Open(".")
+	if err != nil {
+		return fmt.Errorf("open the record's directory to sync it: %w", err)
+	}
+	return errors.Join(directory.Sync(), directory.Close())
 }
 
 // locked runs work holding an exclusive lock on the record's lock file.
