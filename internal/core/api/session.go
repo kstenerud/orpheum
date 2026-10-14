@@ -159,6 +159,10 @@ func (server *Server) registerSetupAndAuth() {
 		OperationID: "freshLocator", Method: http.MethodPost, Path: "/me/locator",
 		Summary: "A fresh locator for this device, by which it finds its server at a discovery", Tags: tags,
 	}, server.freshLocator)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "getOwnLink", Method: http.MethodGet, Path: "/me/own-link",
+		Summary: "Your own link, which leads your devices back to this server through its discovery", Tags: tags,
+	}, server.getOwnLink)
 }
 
 // LocatorOutput is a device's fresh locator (discovery-core.md K7).

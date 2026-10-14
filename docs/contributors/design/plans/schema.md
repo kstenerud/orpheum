@@ -688,7 +688,8 @@ CREATE TABLE "grant" (                                     -- class A (D154)
   device_name TEXT,                      -- the device an add-device code makes
   device_id   INTEGER REFERENCES device(id) ON DELETE RESTRICT,
   locate_hash BLOB,                      -- 0037: SHA-256 over "orpheum-locate" and a link's secret, what a discovery locates the core by (discovery-core.md K7)
-  offer_key   BLOB                       -- 0037: SHA-256 over "orpheum-offer" and a link's secret, what an offer through it is proven under
+  offer_key   BLOB,                      -- 0037: SHA-256 over "orpheum-offer" and a link's secret, what an offer through it is proven under
+  link_sealed BLOB                       -- 0038: the link's secret sealed under secret.key, bound to this row, so its person is shown their own link again (secrets.Store.SealBound)
 ) WITHOUT ROWID;
 CREATE INDEX grant_user ON "grant"(user_id) WHERE revoked_at IS NULL;  -- 0023: was grant_subject
 CREATE UNIQUE INDEX grant_locate_hash ON "grant"(locate_hash) WHERE locate_hash IS NOT NULL;  -- 0037

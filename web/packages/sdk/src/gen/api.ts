@@ -848,6 +848,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/own-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your own link, which leads your devices back to this server through its discovery */
+        get: operations["getOwnLink"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/password": {
         parameters: {
             query?: never;
@@ -2673,6 +2690,15 @@ export interface components {
             membershipCredential: string;
             /** Format: int64 */
             sessionId: number;
+        };
+        OwnLinkOutputBody: {
+            /**
+             * Format: int64
+             * @description Unix milliseconds; each visit renews it
+             */
+            expiresAt: number;
+            link?: string;
+            secret?: string;
         };
         PairingOutputBody: {
             code: string;
@@ -5609,6 +5635,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LocatorOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getOwnLink: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnLinkOutputBody"];
                 };
             };
             /** @description Error */

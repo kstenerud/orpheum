@@ -490,7 +490,10 @@ func buildDependencies(
 	if err != nil {
 		return api.Dependencies{}, err
 	}
+	secretStore := secrets.NewStore(database, secretKey, systemClock, rand.Reader, settingsService)
 	authService := auth.NewService(database, systemClock, rand.Reader, settingsService)
+	// Each link keeps its secret sealed, so a person's own link can be shown to them again (K7).
+	authService.SealLinksWith(secretStore)
 	codes := runSetupCodes{directories: directories}
 	code, err := authService.EnsureSetupCode(ctx, codes)
 	if err != nil {
@@ -502,7 +505,7 @@ func buildDependencies(
 	}
 	return api.Dependencies{
 		Auth: authService, Settings: settingsService,
-		Secrets: secrets.NewStore(database, secretKey, systemClock, rand.Reader, settingsService), SetupCodes: codes,
+		Secrets: secretStore, SetupCodes: codes,
 		Preferences: preferences.NewService(database, systemClock),
 		Backups:     backup.NewService(database, directories, systemClock),
 		Clock:       systemClock,

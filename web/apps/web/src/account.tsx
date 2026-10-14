@@ -3,19 +3,20 @@
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { changePassword, listMyDevices } from "./accounts.ts";
+import { changePassword, getOwnLink, listMyDevices, registrationUrl } from "./accounts.ts";
 
 import { ActivateDevice } from "./device-activation.tsx";
 import { FormRow } from "./form-row.tsx";
 import { dataOrThrow, fieldProblemText } from "./problem.ts";
 import { PasswordField } from "./credentials-form.tsx";
+import { QrCode } from "./qr-code.tsx";
 import { useServices } from "./services.tsx";
 import { useResource } from "./use-resource.ts";
 import { YourDevices } from "./your-devices.tsx";
 
 /**
  * A person's own account: at the top, activating a device by the code it shows (D288); their
- * devices, and their password (D218, D221). A device activated joins the list. A session that may not
+ * devices, the link they registered by, and their password (D218, D221). A device activated joins the list. A session that may not
  * change the account's security (a device a code activated, D292 §4) sees its devices and is told
  * where to do the rest.
  */
@@ -30,8 +31,35 @@ export function Account(): JSX.Element {
       <h1 id="account-heading">{t("account.heading")}</h1>
       {canManage ? <ActivateDevice onActivated={reload} /> : null}
       <YourDevices devices={devices} onChanged={reload} canManage={canManage} />
+      <YourLink />
       {canManage ? <ChangePassword /> : null}
       {me.state === "loaded" && !canManage ? <p>{t("account.notOnThisDevice")}</p> : null}
+    </section>
+  );
+}
+
+/**
+ * The link this person registered by, which leads any device of theirs back to the server and signs
+ * no one in: to open on another device or scan with its camera (D292 §4, D290 §10). Nothing while
+ * they have none the server kept.
+ */
+function YourLink(): JSX.Element | null {
+  const { t } = useTranslation();
+  const { api, navigation } = useServices();
+  const [own] = useResource("own-link", () => getOwnLink(api));
+  if (own.state !== "loaded" || own.value?.secret === undefined) {
+    return null;
+  }
+  const text = registrationUrl(navigation.origin(), {
+    secret: own.value.secret,
+    link: own.value.link,
+  });
+  return (
+    <section aria-labelledby="your-link-heading">
+      <h2 id="your-link-heading">{t("account.yourLink")}</h2>
+      <p>{t("account.yourLinkText")}</p>
+      <QrCode text={text} label={t("account.yourLinkQr")} />
+      <output className="share__link">{text}</output>
     </section>
   );
 }

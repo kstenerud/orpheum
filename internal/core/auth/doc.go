@@ -137,6 +137,10 @@
 //     TestRegister_ARegistrationLinkBecomesItsPersonsOwnLinkAndRevokesTheLast,
 //     TestRevokeOwnLink_EndsTheLinkAndTellsTheDiscoveryLeavingThePersonSignedIn.
 //
+//   - A link's secret is kept only sealed in its grant (secrets.Store.SealBound), so its person is
+//     shown their own link again; it never rests as itself, and a link that no longer opens is
+//     shown as none. TestOwnLink_IsShownBackFromItsSealedSecretAndNeverKeptPlain.
+//
 //   - Each session has one device locator, a fresh one on each visit, which ends with the session;
 //     a visit renews the person's own link. TestLiveLocators_EachSessionHasOneFreshOnEachVisitEndingWithTheSession,
 //     TestFreshLocator_RenewsThePersonsOwnLink.

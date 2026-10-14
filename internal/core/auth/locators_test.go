@@ -209,8 +209,8 @@ func TestRevokeOwnLink_EndsTheLinkAndTellsTheDiscoveryLeavingThePersonSignedIn(t
 	fixture := newFixture(t)
 	ctx := t.Context()
 	id := fixture.createUser(t, "anna", "first", RoleUser)
-	if _, has, err := fixture.service.OwnLinkExpiry(ctx, id); err != nil || has {
-		t.Errorf("before any link was used, OwnLinkExpiry has one (%v, %v); want none", has, err)
+	if _, has, err := fixture.service.OwnLink(ctx, id); err != nil || has {
+		t.Errorf("before any link was used, OwnLink has one (%v, %v); want none", has, err)
 	}
 	invitation, err := fixture.service.IssueRegistrationInvitation(ctx, id)
 	if err != nil {
@@ -220,9 +220,9 @@ func TestRevokeOwnLink_EndsTheLinkAndTellsTheDiscoveryLeavingThePersonSignedIn(t
 	if err != nil {
 		t.Fatal(err)
 	}
-	expires, has, err := fixture.service.OwnLinkExpiry(ctx, id)
-	if err != nil || !has || !expires.Equal(fixture.clock.Now().Add(ownLinkLife).Truncate(time.Millisecond)) {
-		t.Errorf("OwnLinkExpiry = %v, %v, %v; want her own link, for %s", expires, has, err, ownLinkLife)
+	own, has, err := fixture.service.OwnLink(ctx, id)
+	if err != nil || !has || !own.ExpiresAt.Equal(fixture.clock.Now().Add(ownLinkLife).Truncate(time.Millisecond)) {
+		t.Errorf("OwnLink = %+v, %v, %v; want her own link, for %s", own, has, err, ownLinkLife)
 	}
 	told := 0
 	fixture.service.OnLinksChanged(func() { told++ })
@@ -233,8 +233,8 @@ func TestRevokeOwnLink_EndsTheLinkAndTellsTheDiscoveryLeavingThePersonSignedIn(t
 	if _, isLive := lives[link.LocateHash(invitation.Secret)]; isLive {
 		t.Error("a revoked own link still locates")
 	}
-	if _, has, err = fixture.service.OwnLinkExpiry(ctx, id); err != nil || has {
-		t.Errorf("after the revocation OwnLinkExpiry has one (%v, %v); want none", has, err)
+	if _, has, err = fixture.service.OwnLink(ctx, id); err != nil || has {
+		t.Errorf("after the revocation OwnLink has one (%v, %v); want none", has, err)
 	}
 	if told != 1 {
 		t.Errorf("the discovery was told %d times; want once", told)

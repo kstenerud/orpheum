@@ -29,6 +29,9 @@
 //     they still open. Enforced by TestStore_ASealedValueCopiedToAnotherRowDoesNotOpen.
 //   - A row sealed under another key reads as "needs re-entering", not as an error, and nothing
 //     else is lost. Enforced by TestStore_AnotherKeyMarksSecretsNeedingReentry.
+//   - A bound value, sealed for one row of another table (a person's own link, discovery-core.md
+//     K7), opens only for that row's identity under the key it was sealed with, never as a server
+//     secret or another row's. Enforced by TestStore_ABoundValueOpensOnlyForItsRowUnderItsKey.
 //
 // # Read before changing
 //
@@ -45,4 +48,5 @@
 //   - key.go: the key and secret.key's format (the file lives in the instance's persistent directory, D198, D242).
 //   - store.go: the registry of secrets, seal and open, and the "needs re-entering" state after a
 //     restore without the key. Key rotation (orpheum secrets rotate) is not built yet.
+//   - bound.go: values sealed for a row of another table, which that table keeps.
 package secrets

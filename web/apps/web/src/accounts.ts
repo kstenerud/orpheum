@@ -28,7 +28,7 @@ export type SignInResult = Readonly<
  */
 export function registrationUrl(
   origin: string,
-  issued: Pick<components["schemas"]["IssuedSecretBody"], "secret" | "link">,
+  issued: { readonly secret: string; readonly link?: string | undefined },
 ): string {
   return issued.link ?? `${origin}/register#${issued.secret}`;
 }
@@ -259,6 +259,15 @@ export async function renamePerson(api: Api, userId: number, name: string): Prom
 /** Removes a person: they are signed out everywhere, and their own watching is deleted (S40). */
 export async function removePerson(api: Api, userId: number): Promise<void> {
   throwIfRefused(await api.DELETE("/users/{id}", { params: { path: { id: userId } } }));
+}
+
+/** The signed-in person's own link, the one they registered by. */
+export type OwnLink = components["schemas"]["OwnLinkOutputBody"];
+
+/** The signed-in person's own link, or undefined when they have none (D292 §4). */
+export async function getOwnLink(api: Api): Promise<OwnLink | undefined> {
+  const answer = await api.GET("/me/own-link");
+  return answer.response.status === 404 ? undefined : dataOrThrow(answer);
 }
 
 /** Ends a person's own link, which leads them back through a discovery; they stay signed in. */

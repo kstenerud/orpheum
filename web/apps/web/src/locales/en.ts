@@ -172,6 +172,10 @@ export const en = {
   },
   account: {
     heading: "Your account",
+    yourLink: "Your link",
+    yourLinkText:
+      "Open this link on another phone or computer, or scan the code with its camera, to find this server again. It signs no one in.",
+    yourLinkQr: "Your link, as a QR code",
     deviceName: "The device's name",
     changePassword: "Change password",
     currentPassword: "Current password",

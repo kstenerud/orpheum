@@ -3050,6 +3050,26 @@
         ],
         "type": "object"
       },
+      "OwnLinkOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "expiresAt": {
+            "description": "Unix milliseconds; each visit renews it",
+            "format": "int64",
+            "type": "integer"
+          },
+          "link": {
+            "type": "string"
+          },
+          "secret": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "expiresAt"
+        ],
+        "type": "object"
+      },
       "PairingOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -9190,6 +9210,48 @@
           }
         },
         "summary": "A fresh locator for this device, by which it finds its server at a discovery",
+        "tags": [
+          "Setup and auth"
+        ]
+      }
+    },
+    "/me/own-link": {
+      "get": {
+        "operationId": "getOwnLink",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnLinkOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Your own link, which leads your devices back to this server through its discovery",
         "tags": [
           "Setup and auth"
         ]

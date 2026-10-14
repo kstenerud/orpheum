@@ -27,11 +27,45 @@ const (
 // (the third audit's A12; the number is the protocol's, marked [I]).
 const ownLinkLife = 90 * 24 * time.Hour
 
-// linkHashes are what a link's grant keeps of its secret: the hash a discovery locates the core by,
-// and the key an offer made through the link is proven under. Neither gives the secret back.
-func linkHashes(secret string) (locateHash, offerKey []byte, err error) {
-	locateHash, err = hashBytes(link.LocateHash(secret))
-	return locateHash, link.OfferKey(secret), err
+// LinkSealer seals a link's secret for its grant's row, and opens it there alone
+// (secrets.Store's SealBound and OpenBound).
+type LinkSealer interface {
+	SealBound(identity, text string) ([]byte, error)
+	OpenBound(identity string, sealed []byte) (string, error)
+}
+
+// SealLinksWith has every link made from now on keep its secret sealed by sealer, so that the
+// person whose own link it becomes can be shown it again (OwnLink; discovery-core.md K7). Called
+// before the service is used.
+func (service *Service) SealLinksWith(sealer LinkSealer) {
+	service.linkSealer = sealer
+}
+
+// keptOfLink is what a link's grant keeps of its secret: the hash a discovery locates the core by,
+// the key an offer made through the link is proven under, neither of which gives the secret back,
+// and the secret sealed for the grant's row, nil without a sealer.
+type keptOfLink struct {
+	locateHash, offerKey, sealed []byte
+}
+
+func (service *Service) keepOfLink(secret string) (keptOfLink, error) {
+	locateHash, err := hashBytes(link.LocateHash(secret))
+	if err != nil {
+		return keptOfLink{}, err
+	}
+	kept := keptOfLink{locateHash: locateHash, offerKey: link.OfferKey(secret)}
+	if service.linkSealer != nil {
+		kept.sealed, err = service.linkSealer.SealBound(grantIdentity(tokenHash(secret)), secret)
+		if err != nil {
+			return keptOfLink{}, fmt.Errorf("seal a link: %w", err)
+		}
+	}
+	return kept, nil
+}
+
+// grantIdentity is a grant row's identity, which its sealed link is bound to.
+func grantIdentity(secretHash []byte) string {
+	return "grant " + hex.EncodeToString(secretHash)
 }
 
 // hashBytes is a base64url hash as the database keeps it, raw.
@@ -147,18 +181,36 @@ func becomeOwnLink(
 	})
 }
 
-// OwnLinkExpiry is when the person's own link stops locating the core, unless a visit renews it;
-// false when they have none.
-func (service *Service) OwnLinkExpiry(ctx context.Context, userID int64) (time.Time, bool, error) {
-	expires, err := store.OrNotFound(service.database.Read().GetOwnLinkExpiryOfUser(ctx,
-		sqlcgen.GetOwnLinkExpiryOfUserParams{UserID: &userID, Now: new(service.clock.Now().UnixMilli())}))
+// OwnLink is a person's own link: when it stops locating the core unless a visit renews it, and its
+// secret, empty for a link made before the core kept it or one that no longer opens, as after a
+// restore without secret.key.
+type OwnLink struct {
+	Secret    string
+	ExpiresAt time.Time
+}
+
+// ErrNoOwnLink is a person with no own link: none used, or it ended.
+var ErrNoOwnLink = errors.New("you have no link of your own")
+
+// OwnLink is the person's own link; false when they have none.
+func (service *Service) OwnLink(ctx context.Context, userID int64) (OwnLink, bool, error) {
+	row, err := store.OrNotFound(service.database.Read().GetOwnLinkOfUser(ctx,
+		sqlcgen.GetOwnLinkOfUserParams{UserID: &userID, Now: new(service.clock.Now().UnixMilli())}))
 	switch {
-	case errors.Is(err, store.ErrNotFound), err == nil && expires == nil:
-		return time.Time{}, false, nil
+	case errors.Is(err, store.ErrNotFound), err == nil && row.ExpiresAt == nil:
+		return OwnLink{}, false, nil
 	case err != nil:
-		return time.Time{}, false, fmt.Errorf("read the person's own link: %w", err)
+		return OwnLink{}, false, fmt.Errorf("read the person's own link: %w", err)
 	}
-	return time.UnixMilli(*expires), true, nil
+	own := OwnLink{ExpiresAt: time.UnixMilli(*row.ExpiresAt)}
+	if service.linkSealer != nil && row.LinkSealed != nil {
+		// A value that does not open shows no link; the person asks for a new one.
+		secret, openErr := service.linkSealer.OpenBound(grantIdentity(row.SecretSha256), row.LinkSealed)
+		if openErr == nil {
+			own.Secret = secret
+		}
+	}
+	return own, true, nil
 }
 
 // RevokeOwnLink is the admin ending a person's own link: it locates the core no more, and the

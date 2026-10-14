@@ -147,6 +147,9 @@ type Service struct {
 	hashing hashSlots
 	// onLinksChanged is told when a link or a locator is made (OnLinksChanged); nil tells nothing.
 	onLinksChanged func()
+	// linkSealer seals each link's secret for its row, so a person's own link can be shown to them
+	// again (SealLinksWith); nil keeps none, and the link cannot be shown.
+	linkSealer LinkSealer
 }
 
 // NewService returns a Service.
