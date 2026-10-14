@@ -29,9 +29,10 @@ var (
 // §3.5).
 const signalMessageMost = 64 << 10
 
-// signalling is the core's signalling connection, the newest its live instance opened, that
-// instance, and the offers waiting on it for an answer, by their ids.
-type signalling struct {
+// Signal is one core's signalling connection, the newest its live instance opened, that instance,
+// and the offers waiting on it for an answer, by their ids: a building block a discovery of many cores
+// holds one of for each (D275 §1), as this one holds one for its core.
+type Signal struct {
 	logger   *slog.Logger
 	now      func() time.Time
 	mutex    sync.Mutex
@@ -44,20 +45,21 @@ type signalling struct {
 	lastClosed time.Time
 }
 
-func newSignalling(logger *slog.Logger, now func() time.Time) *signalling {
-	return &signalling{logger: logger, now: now, waiting: map[string]chan discoveryproto.SignalMessage{}}
+// NewSignal is a core's signalling, holding no connection yet.
+func NewSignal(logger *slog.Logger, now func() time.Time) *Signal {
+	return &Signal{logger: logger, now: now, waiting: map[string]chan discoveryproto.SignalMessage{}}
 }
 
-// standing is whether the core holds a signalling connection, and when it last held none.
-func (signal *signalling) standing() (isOnline bool, offlineSince time.Time) {
+// Standing is whether the core holds a signalling connection, and when it last held none.
+func (signal *Signal) Standing() (isOnline bool, offlineSince time.Time) {
 	signal.mutex.Lock()
 	defer signal.mutex.Unlock()
 	return signal.current != nil, signal.lastClosed
 }
 
-// accept takes the signalling connection of the core's instance in place of any it had, and reads its
+// Accept takes the signalling connection of the core's instance in place of any it had, and reads its
 // answers until it closes. Only the live instance holds a session to call it with (D293 §1).
-func (signal *signalling) accept(writer http.ResponseWriter, request *http.Request, instanceID string) {
+func (signal *Signal) Accept(writer http.ResponseWriter, request *http.Request, instanceID string) {
 	connection, err := websocket.Accept(writer, request, nil)
 	if err != nil {
 		return
@@ -79,8 +81,8 @@ func (signal *signalling) accept(writer http.ResponseWriter, request *http.Reque
 	signal.mutex.Unlock()
 }
 
-// answers is whether instanceID holds the signalling connection and answers a ping on it within wait.
-func (signal *signalling) answers(ctx context.Context, instanceID string, wait time.Duration) bool {
+// Answers is whether instanceID holds the signalling connection and answers a ping on it within wait.
+func (signal *Signal) Answers(ctx context.Context, instanceID string, wait time.Duration) bool {
 	signal.mutex.Lock()
 	connection := signal.current
 	isItsOwn := connection != nil && signal.instance == instanceID
@@ -93,17 +95,17 @@ func (signal *signalling) answers(ctx context.Context, instanceID string, wait t
 	return connection.Ping(ctx) == nil
 }
 
-// dropSilent drops the signalling connection when instanceID holds it: it did not answer a ping, so
+// DropSilent drops the signalling connection when instanceID holds it: it did not answer a ping, so
 // it is not asked to close, which would wait for an answer that never comes.
-func (signal *signalling) dropSilent(instanceID string) {
+func (signal *Signal) DropSilent(instanceID string) {
 	if connection := signal.take(instanceID); connection != nil {
 		_ = connection.CloseNow() //nolint:errcheck // it is dead
 	}
 }
 
-// closeAll closes the signalling connection, whichever instance holds it, saying why; the closing
+// CloseAll closes the signalling connection, whichever instance holds it, saying why; the closing
 // handshake runs apart, so the call that ended it does not wait on the core.
-func (signal *signalling) closeAll(reason string) {
+func (signal *Signal) CloseAll(reason string) {
 	signal.mutex.Lock()
 	instanceID := signal.instance
 	signal.mutex.Unlock()
@@ -113,7 +115,7 @@ func (signal *signalling) closeAll(reason string) {
 }
 
 // take removes the signalling connection when instanceID holds it, and returns it.
-func (signal *signalling) take(instanceID string) *websocket.Conn {
+func (signal *Signal) take(instanceID string) *websocket.Conn {
 	signal.mutex.Lock()
 	defer signal.mutex.Unlock()
 	connection := signal.current
@@ -125,7 +127,7 @@ func (signal *signalling) take(instanceID string) *websocket.Conn {
 }
 
 // read hands each answer or refusal the core sends to the offer waiting on its id.
-func (signal *signalling) read(ctx context.Context, connection *websocket.Conn) {
+func (signal *Signal) read(ctx context.Context, connection *websocket.Conn) {
 	for {
 		var reply discoveryproto.SignalMessage
 		if err := wsjson.Read(ctx, connection, &reply); err != nil {
@@ -158,7 +160,13 @@ type Answer struct {
 func (discovery *Discovery) Offer(
 	ctx context.Context, offer discoveryproto.ClientOffer, locatorHash string,
 ) (Answer, error) {
-	signal := discovery.signal
+	return discovery.signal.Offer(ctx, offer, locatorHash)
+}
+
+// Offer passes a client's offer to the core over this connection, as Discovery.Offer says.
+func (signal *Signal) Offer(
+	ctx context.Context, offer discoveryproto.ClientOffer, locatorHash string,
+) (Answer, error) {
 	signal.mutex.Lock()
 	connection := signal.current
 	signal.lastID++

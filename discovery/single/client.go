@@ -178,7 +178,7 @@ func (discovery *Discovery) pathsFor(
 		paths.APIMajor = held.Addresses.APIMajor
 		paths.ICEServers = append(paths.ICEServers, held.Addresses.TURN...)
 	}
-	if isOnline, since := discovery.signal.standing(); !isOnline {
+	if isOnline, since := discovery.signal.Standing(); !isOnline {
 		paths.State = discoveryproto.CoreOffline
 		if !since.IsZero() {
 			paths.OfflineSince = since.UnixMilli()

@@ -105,7 +105,7 @@ type Discovery struct {
 	// session is open (D293 §1).
 	tokens   map[string]session
 	instance string
-	signal   *signalling
+	signal   *Signal
 	// pingWait is how long a live instance has to answer: instancePingWait, shorter in the tests.
 	pingWait time.Duration
 	// locateHashes are the core's links a client may locate it by, each with when it ends and how
@@ -132,7 +132,7 @@ func New(parts Parts) (*Discovery, error) {
 	}
 	return &Discovery{
 		parts: parts, nonceKey: nonceKey, spent: map[string]time.Time{}, tokens: map[string]session{},
-		signal: newSignalling(parts.Logger, parts.Now), pingWait: instancePingWait,
+		signal: NewSignal(parts.Logger, parts.Now), pingWait: instancePingWait,
 		locateHashes: map[string]locatable{}, locators: map[string]bool{}, bootstraps: map[string]bootstrap{},
 		openByHash: map[string]int{},
 	}, nil
@@ -161,7 +161,7 @@ func (discovery *Discovery) serve(writer http.ResponseWriter, request *http.Requ
 			refuse(writer, http.StatusForbidden, discoveryproto.RefusalNotClaimed, errNotClaimed.Error())
 			return
 		}
-		discovery.signal.accept(writer, request, opened.instanceID)
+		discovery.signal.Accept(writer, request, opened.instanceID)
 		return
 	}
 	request.Body = http.MaxBytesReader(writer, request.Body, bodyMost)
