@@ -49,6 +49,19 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A32 — Named the sandbox's VM after a retired machine (2026-10-14)
+
+- **What happened:** explaining what a core in a container can see, the agent called
+  `192.168.1.199` "devnas" and built its account on that: staging in the sandbox on devnas, devnas's
+  LAN address two layers out. devnas runs nothing now; `192.168.1.199` is the VM holding the
+  sandbox, as the owner had said earlier in the session. The false belief came from older notes and
+  READMEs that name devnas as the development host, repeated without checking them against what the
+  owner had said that day.
+- **Caught by:** the owner: *"devnas is no longer running anything... All that runs now is
+  192.168.1.199 (the VM containing your sandbox), and nas.example."*
+- **Gate:** none; machines are named in no file a gate reads. The agent's notes now list what runs
+  where, and the lesson is A30's: what exists is checked against the owner's latest word.
+
 ### A31 — Repeated A29 a day later: the first admin made in a screen that does not exist (2026-10-14)
 
 - **What happened:** with staging redeployed as a new instance, the agent gave the owner the setup
