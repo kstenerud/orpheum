@@ -32,6 +32,8 @@ relay_port_max = 49199
 [discovery]
 retry_first_milliseconds = 1000
 retry_most_milliseconds = 300000
+# The VPS's public addresses, which it forwards to this core: sent to a discovery to publish.
+configured_addresses = {{toml .Values.ConfiguredAddresses}}
 
 [database]
 read_connections_minimum = 4

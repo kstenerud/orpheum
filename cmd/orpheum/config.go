@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
+	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/certificate"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
@@ -93,6 +95,24 @@ func (https HTTPSConfig) check() error {
 type DiscoveryConfig struct {
 	RetryFirstMilliseconds int64 `toml:"retry_first_milliseconds"`
 	RetryMostMilliseconds  int64 `toml:"retry_most_milliseconds"`
+	// ConfiguredAddresses are public addresses that reach the core which the machine does not hold,
+	// "address:port": the admin's port-forward, or their own VPS through its tunnel, sent to the
+	// discovery as configured candidates (the protocol's §2.4; discovery-core.md K5; N11).
+	ConfiguredAddresses []string `toml:"configured_addresses"`
+}
+
+// configuredCandidates are the configured addresses as the discovery is sent them.
+func (discovery DiscoveryConfig) configuredCandidates() []discoveryproto.Candidate {
+	candidates := make([]discoveryproto.Candidate, 0, len(discovery.ConfiguredAddresses))
+	for _, configured := range discovery.ConfiguredAddresses {
+		if endpoint, err := netip.ParseAddrPort(configured); err == nil {
+			candidates = append(candidates, discoveryproto.Candidate{
+				Address: endpoint.Addr().Unmap().String(), Port: int(endpoint.Port()),
+				Source: discoveryproto.SourceConfigured,
+			})
+		}
+	}
+	return candidates
 }
 
 // retries are the waits as the discovery service takes them.
@@ -101,12 +121,20 @@ func (discovery DiscoveryConfig) retries() (first, most time.Duration) {
 		time.Duration(discovery.RetryMostMilliseconds) * time.Millisecond
 }
 
-// check refuses waits that are not waits, and a most shorter than the first.
+// check refuses waits that are not waits, a most shorter than the first, and a configured address
+// that is not a public address with a port: a private one is the machine's own, sent already.
 func (discovery DiscoveryConfig) check() error {
 	if discovery.RetryFirstMilliseconds < 1 || discovery.RetryMostMilliseconds < discovery.RetryFirstMilliseconds {
 		return fmt.Errorf("discovery.retry_first_milliseconds %d and discovery.retry_most_milliseconds %d: want "+
 			"the first at least 1, and the most at least the first", discovery.RetryFirstMilliseconds,
 			discovery.RetryMostMilliseconds)
+	}
+	for _, configured := range discovery.ConfiguredAddresses {
+		endpoint, err := netip.ParseAddrPort(configured)
+		if err != nil || endpoint.Port() == 0 || !discoveryproto.IsPublic(endpoint.Addr()) {
+			return fmt.Errorf("discovery.configured_addresses %q: want a public address and its port, "+
+				`"<IPv4>:443" or "[<IPv6>]:443"`, configured)
+		}
 	}
 	return nil
 }
@@ -275,6 +303,11 @@ func coreConfigKeys() []configKey {
 		{
 			tableDiscovery, "retry_most_milliseconds", "300000",
 			"the longest a retry of a call to the discovery waits; the development stack keeps it near a second",
+		},
+		{
+			tableDiscovery, "configured_addresses", "[]",
+			"public addresses that reach the core which the machine does not hold, \"address:port\": a " +
+				"port-forward, or the VPS's addresses through its tunnel; the discovery publishes them",
 		},
 		{
 			tableDatabase, "read_connections_minimum", "4",

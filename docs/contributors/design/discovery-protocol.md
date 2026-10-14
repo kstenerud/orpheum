@@ -278,7 +278,7 @@ with ±20% jitter, and at once when an address or mapping changes:
 }
 ```
 
-The body carries no version (C13, §5; built). **The code must change:** the heartbeat is a `PUT /addresses` every 5 minutes, without jitter, and nothing rides on
+The body carries no version (C13, §5; built). `configured` candidates are built (2026-10-14). **The code must change:** the heartbeat is a `PUT /addresses` every 5 minutes, without jitter, and nothing rides on
 the signalling connection.
 
 - `interface`: an address on the machine (a global IPv6 address is native on DS-Lite). **Only stable

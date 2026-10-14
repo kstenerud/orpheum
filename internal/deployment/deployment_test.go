@@ -6,6 +6,7 @@ import (
 	"crypto/ecdh"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -522,5 +523,29 @@ func TestNewKeyPair_IsAClampedX25519PairAsWgMakesOne(t *testing.T) {
 	}
 	if !isWireGuardKey(public) {
 		t.Errorf("the public key %s is not a WireGuard key", public)
+	}
+}
+
+// The core sends its discovery the VPS's public addresses on its HTTPS port, the IPv6 one too when
+// the deployment has its own, as configured candidates (the protocol's §2.4).
+func TestWrite_TheCoreSendsItsDiscoveryTheVPSsAddresses(t *testing.T) {
+	t.Parallel()
+	dir := begun(t, Staging)
+	values := filledValues(t, Staging)
+	values.VPS.PublicIPv6 = "2a0f:4000:1c16:2684::3"
+	if problems := values.Problems(); len(problems) != 0 {
+		t.Fatalf("the values have problems: %v", problems)
+	}
+	if err := Write(dir, values, runtime); err != nil {
+		t.Fatal(err)
+	}
+	got := decodeTOML(t, filepath.Join(dir, coreConfig))["discovery"]["configured_addresses"]
+	want := []any{values.VPS.PublicIPv4 + ":443", "[2a0f:4000:1c16:2684::3]:443"}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Errorf("the core's discovery.configured_addresses are %v; want %v", got, want)
+	}
+	values.VPS.PublicIPv6 = "10.0.0.1"
+	if problems := values.Problems(); !strings.Contains(strings.Join(problems, "\n"), "vps.public_ipv6") {
+		t.Errorf("an IPv4 address as vps.public_ipv6 gave no problem: %v", problems)
 	}
 }

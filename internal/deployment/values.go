@@ -65,6 +65,9 @@ type Values struct {
 		// Endpoint is the VPS's address and WireGuard port: "[IPv6]:port" or "IPv4:port".
 		Endpoint   string `toml:"endpoint"`
 		PublicIPv4 string `toml:"public_ipv4"`
+		// PublicIPv6 is the VPS's public IPv6 address that reaches this deployment, when it has one of
+		// its own (the edge VPS's ::3 for staging); empty when none does.
+		PublicIPv6 string `toml:"public_ipv6"`
 		PublicKey  string `toml:"public_key"`
 		// MTU is 0 when the values file leaves it out: chosen from the endpoint's family.
 		MTU int `toml:"mtu"`
@@ -101,6 +104,7 @@ func ParseValues(text, hostName string) (Values, error) {
 	values.Contact = strings.TrimSpace(values.Contact)
 	values.VPS.Endpoint = strings.TrimSpace(values.VPS.Endpoint)
 	values.VPS.PublicIPv4 = strings.TrimSpace(values.VPS.PublicIPv4)
+	values.VPS.PublicIPv6 = strings.TrimSpace(values.VPS.PublicIPv6)
 	values.VPS.PublicKey = strings.TrimSpace(values.VPS.PublicKey)
 	values.VPS.TunnelIPv4 = strings.TrimSpace(values.VPS.TunnelIPv4)
 	values.VPS.TunnelIPv6 = strings.TrimSpace(values.VPS.TunnelIPv6)
@@ -120,6 +124,21 @@ func (values Values) TunnelMTU() int {
 		return mtuOverIPv6
 	}
 	return mtuOverIPv4
+}
+
+// httpsPort is the port the core serves HTTPS on (templates/core.toml's https.listen), which the VPS
+// forwards.
+const httpsPort = "443"
+
+// ConfiguredAddresses are the VPS's public addresses on the HTTPS port, which the core sends its
+// discovery as configured candidates: the VPS forwards them through the tunnel (the protocol's §2.4;
+// discovery-core.md K5).
+func (values Values) ConfiguredAddresses() []string {
+	addresses := []string{net.JoinHostPort(values.VPS.PublicIPv4, httpsPort)}
+	if values.VPS.PublicIPv6 != "" {
+		addresses = append(addresses, net.JoinHostPort(values.VPS.PublicIPv6, httpsPort))
+	}
+	return addresses
 }
 
 // TURNListen is where the core's TURN listens: the tunnel's IPv4 address, so a UDP answer leaves
@@ -154,6 +173,11 @@ func (values Values) vpsProblems() []string {
 	if address, err := netip.ParseAddr(values.VPS.PublicIPv4); err != nil || !address.Is4() {
 		problems = append(problems, fmt.Sprintf("vps.public_ipv4 %q: the VPS's public IPv4 address",
 			values.VPS.PublicIPv4))
+	}
+	if address, err := netip.ParseAddr(values.VPS.PublicIPv6); values.VPS.PublicIPv6 != "" &&
+		(err != nil || !address.Is6() || address.Is4In6()) {
+		problems = append(problems, fmt.Sprintf("vps.public_ipv6 %q: the VPS's public IPv6 address that reaches "+
+			"this deployment, or leave it out", values.VPS.PublicIPv6))
 	}
 	if !isWireGuardKey(values.VPS.PublicKey) {
 		problems = append(problems, "vps.public_key: the VPS's WireGuard public key, /etc/wireguard/public on the VPS")
