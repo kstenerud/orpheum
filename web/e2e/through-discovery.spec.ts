@@ -15,7 +15,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { expect, request, type APIRequestContext } from "@playwright/test";
+import { expect, request, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 
 import { test } from "./browser-map.ts";
 import { isPlaying, serverUrl } from "./pages.ts";
@@ -175,11 +175,7 @@ test("a browser registers and plays through a discovery, over WebRTC, its core's
     await page.getByRole("button", { name: "Connect" }).click();
     await movedToWebrtc;
     // A name of each browser's own: the browsers share one core.
-    await page.getByLabel("Your name").fill(`guest-${test.info().project.name}`);
-    await page.getByLabel("Password", { exact: true }).fill("guest-password");
-    await page.getByLabel("The same password again").fill("guest-password");
-    await page.getByRole("button", { name: "Set password and sign in" }).click();
-    await page.getByRole("link", { name: "Films", exact: true }).click();
+    await registerAndOpenFilms(page, `guest-${test.info().project.name}`);
     const card = page
       .locator("a.poster-grid__card")
       .filter({ hasText: new RegExp(warmUpFilm, "u") });
@@ -190,6 +186,128 @@ test("a browser registers and plays through a discovery, over WebRTC, its core's
     await expect.poll(() => isPlaying(page), { timeout: 60_000 }).toBe(true);
   } finally {
     // The core leaves the discovery, as the next test, or the next browser, finds it free.
+    await api.delete(`${serverUrl()}/api/v1/system/discovery`, { headers: signedIn(token) });
+    await api.dispose();
+    discovery.process.kill();
+  }
+});
+
+/** The core's name as a published one is: HTTPS, which a page takes as a direct path (§3.3). */
+const coreName = "https://core.orpheum.test";
+
+/** A discovery's answer with the core's own name as its one path, its other fields as they were. */
+function withDirectPath(body: unknown): Record<string, unknown> {
+  const fields = [
+    "coreId",
+    "apiMajor",
+    "state",
+    "offlineSince",
+    "clientPrefix",
+    "iceServers",
+    "bootstrapToken",
+  ];
+  const entries: [string, unknown][] = fields.map((name) => [name, fieldOf(body, name)]);
+  entries.push(["paths", [{ kind: "ipv4", url: coreName }]]);
+  return Object.fromEntries(entries);
+}
+
+/** Whether the card's poster has loaded and shows. */
+async function posterShows(card: Locator): Promise<boolean> {
+  return await card
+    .locator("img")
+    .first()
+    .evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0);
+}
+
+/** Registers as a person through the invitation the page was opened on, and opens the films. */
+async function registerAndOpenFilms(page: Page, name: string): Promise<void> {
+  await page.getByLabel("Your name").fill(name);
+  await page.getByLabel("Password", { exact: true }).fill("guest-password");
+  await page.getByLabel("The same password again").fill("guest-password");
+  await page.getByRole("button", { name: "Set password and sign in" }).click();
+  await page.getByRole("link", { name: "Films", exact: true }).click();
+}
+
+/**
+ * Has the page's discovery name the core directly, at coreName, as the paid service names a core's
+ * published name (the single-target discovery publishes none), and carries each request to that name
+ * to the core's own listener, with the page's headers as they are: the browser applies CORS to the
+ * answers as it would to the core's at its name.
+ */
+async function nameTheCoreDirectly(page: Page, discovery: string): Promise<void> {
+  for (const call of ["locate", "paths"]) {
+    await page.route(`${discovery}/client/v1/${call}`, async (route) => {
+      const answer = await route.fetch();
+      await route.fulfill({ response: answer, json: withDirectPath(await answer.json()) });
+    });
+  }
+  await page.context().route(`${coreName}/**`, async (route) => {
+    // Firefox's routed request lacks the Origin header the browser sends, which CORS answers by,
+    // and names coreName as its Host, which the core's listener refuses as a name it was not given:
+    // at its real name the core would be asked by that name, over HTTPS.
+    const headers = Object.fromEntries(
+      Object.entries(route.request().headers()).filter(([name]) => name !== "host"),
+    );
+    const answer = await route.fetch({
+      url: route.request().url().replace(coreName, serverUrl()),
+      headers: { ...headers, origin: discovery },
+    });
+    await route.fulfill({ response: answer });
+  });
+}
+
+test("a page on the discovery's origin plays from its core's own name, its poster and film by the header alone", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const discovery = await startDiscovery();
+  const api = await request.newContext();
+  const token = await ownersToken(api);
+  // Every request the page makes of the core, which is another origin than the page's.
+  const toCore: { url: string; authorization: string | undefined; cookie: string | undefined }[] =
+    [];
+  page.on("request", (made) => {
+    if (made.url().startsWith(coreName) && !made.url().endsWith("/api/v1/health")) {
+      const headers = made.headers();
+      toCore.push({
+        url: made.url(),
+        authorization: headers["authorization"],
+        cookie: headers["cookie"],
+      });
+    }
+  });
+  try {
+    await connectAndClaim(api, token, discovery.address);
+    const link = await invitationThrough(api, token, discovery.address);
+    await nameTheCoreDirectly(page, discovery.address);
+    const movedToCore = page.waitForEvent("console", (message) =>
+      message.text().includes("requests now go over the core's name"),
+    );
+    await page.goto(link);
+    const mediaToCore = page.waitForEvent("console", (message) =>
+      message.text().includes("media now goes over the core's name"),
+    );
+    await page.getByRole("button", { name: "Connect" }).click();
+    await movedToCore;
+    await mediaToCore;
+    await registerAndOpenFilms(page, `direct-${test.info().project.name}`);
+    const card = page
+      .locator("a.poster-grid__card")
+      .filter({ hasText: new RegExp(warmUpFilm, "u") });
+    await expect(card).toBeVisible({ timeout: 60_000 });
+    // Its poster, fetched from the core with the header into a blob, shows.
+    await expect.poll(() => posterShows(card), { timeout: 30_000 }).toBe(true);
+    await card.click();
+    await page.getByRole("link", { name: "Play" }).click();
+    await page.getByRole("button", { name: /Built-in speakers/u }).click();
+    await expect.poll(() => isPlaying(page), { timeout: 60_000 }).toBe(true);
+    // Nothing reached the core by a cookie: every request carried the header, but the registration
+    // made before the page had one.
+    expect(toCore.filter((made) => made.cookie !== undefined)).toEqual([]);
+    const signedIn = toCore.filter((made) => !/\/api\/v1\/registration(\/link)?$/u.test(made.url));
+    expect(signedIn.length).toBeGreaterThan(0);
+    expect(signedIn.filter((made) => made.authorization === undefined)).toEqual([]);
+  } finally {
     await api.delete(`${serverUrl()}/api/v1/system/discovery`, { headers: signedIn(token) });
     await api.dispose();
     discovery.process.kill();

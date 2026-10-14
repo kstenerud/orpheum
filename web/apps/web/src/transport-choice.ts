@@ -62,7 +62,7 @@ export function moveToWebrtcWhenSignedIn(
       .then(async (transport) => {
         routed.use(transport.fetch, pathName);
         app.switchTogetherSocket(rtcTogetherSocket(() => transport.openChannel()));
-        await carryMediaOver(transport.fetch, session.token);
+        await carryMediaOver(transport.fetch, session.token, pathName);
       })
       .catch((problem: unknown) => {
         isStarted = false;

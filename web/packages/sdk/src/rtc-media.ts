@@ -262,13 +262,15 @@ export function hasBody(status: number): boolean {
 export const serviceWorkerUrl = "/sw.js";
 
 /**
- * Moves the loads the browser makes by itself onto send, the page's WebRTC transport: registers the
- * service worker, answers each load it asks for, signed in with the session's token at the time, and
- * tells it this page is on WebRTC; resolves once it controls the page, and says so in the console.
+ * Moves the loads the browser makes by itself onto send, the page's transport (WebRTC, or the core's
+ * own name on another origin): registers the service worker, answers each load it asks for, signed
+ * in with the session's token at the time, and tells it this page carries its media; resolves once
+ * it controls the page, and says in the console that media now goes over name.
  */
 export async function carryMediaOver(
   send: (request: Request) => Promise<Response>,
   token: () => string | undefined,
+  name: string,
 ): Promise<void> {
   if (!("serviceWorker" in navigator)) {
     throw new Error("this browser runs no service worker, so media stays on HTTP");
@@ -298,5 +300,5 @@ export async function carryMediaOver(
   await controlled;
   announce();
   // eslint-disable-next-line no-console -- which path a tab's media takes is read in its console (D273 §7)
-  console.info("Orpheum: media now goes over WebRTC");
+  console.info(`Orpheum: media now goes over ${name}`);
 }
