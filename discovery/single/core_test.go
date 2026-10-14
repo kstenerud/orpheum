@@ -5,6 +5,7 @@ package single_test
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
+	"github.com/kstenerud/orpheum/discovery/link"
 	"github.com/kstenerud/orpheum/discovery/proof"
 	"github.com/kstenerud/orpheum/discovery/single"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
@@ -97,6 +99,12 @@ func TestCore_ACoreEnrolsIsClaimedAndSendsItsAddresses(t *testing.T) {
 			return []discoveryproto.Candidate{{Address: "2a0f:1000::1", Port: 443, Source: "interface"}}
 		},
 		Answerer: answering{}, OnClaimed: func(context.Context) {},
+		OfferKey: func(_ context.Context, hash string) ([]byte, error) {
+			if hash != link.LocatorHash("a device's locator") {
+				return nil, errors.New("no such locator")
+			}
+			return proof.SessionOfferKey("a session's token"), nil
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -135,7 +143,10 @@ func TestCore_ACoreEnrolsIsClaimedAndSendsItsAddresses(t *testing.T) {
 	logs.AwaitLine(t, "the core sent its addresses", "candidates=1", "orpheumVersion=v0.2.0")
 	logs.AwaitLine(t, "the core's signalling connected")
 	offer := "a browser's offer\r\na=fingerprint:sha-256 AB:CD"
-	answer, err := held.Offer(t.Context(), offer)
+	// The client proves its offer under its session's key; the core checks it before answering.
+	answer, err := held.Offer(t.Context(), discoveryproto.ClientOffer{
+		SDP: offer, Proof: proof.Offer(proof.SessionOfferKey("a session's token"), "sha-256 AB:CD"),
+	}, link.LocatorHash("a device's locator"))
 	if err != nil || answer.SDP != "answer to "+offer {
 		t.Errorf("the offer passed through the discovery was answered %q, %v", answer.SDP, err)
 	}

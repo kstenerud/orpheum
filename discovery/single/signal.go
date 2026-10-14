@@ -141,17 +141,22 @@ func (signal *signalling) read(ctx context.Context, connection *websocket.Conn) 
 	}
 }
 
-// Answer is the core's answer to an offer: its SDP, and the core's signature over it, which the
-// client checks with proof.VerifyAnswer before it takes the answer (the protocol's §2.5 item 4).
+// Answer is the core's answer to an offer: the id it was passed under, its SDP, and the core's
+// signature over it, which the client checks with proof.VerifyAnswer before it takes the answer (the
+// protocol's §2.5 item 4).
 type Answer struct {
+	OfferID   string
 	SDP       string
 	Signature []byte
 }
 
-// Offer passes a client's WebRTC offer to the core and returns its answer: at once ErrCoreNotConnected
+// Offer passes a client's WebRTC offer to the core, with the hash the client found it by and the
+// offer's proof, which the core checks itself, and returns its answer: at once ErrCoreNotConnected
 // when the core has no signalling connection, ErrRefused when it refuses, and the context's error
-// when it does not answer in time (the spec's §3.5).
-func (discovery *Discovery) Offer(ctx context.Context, sdp string) (Answer, error) {
+// when it does not answer in time (the protocol's §2.5).
+func (discovery *Discovery) Offer(
+	ctx context.Context, offer discoveryproto.ClientOffer, locatorHash string,
+) (Answer, error) {
 	signal := discovery.signal
 	signal.mutex.Lock()
 	connection := signal.current
@@ -163,24 +168,27 @@ func (discovery *Discovery) Offer(ctx context.Context, sdp string) (Answer, erro
 	}
 	signal.mutex.Unlock()
 	if connection == nil {
-		return Answer{}, ErrCoreNotConnected
+		return Answer{OfferID: offerID}, ErrCoreNotConnected
 	}
 	defer func() {
 		signal.mutex.Lock()
 		delete(signal.waiting, offerID)
 		signal.mutex.Unlock()
 	}()
-	offer := discoveryproto.SignalMessage{Type: discoveryproto.SignalOffer, OfferID: offerID, SDP: sdp}
-	if err := wsjson.Write(ctx, connection, offer); err != nil {
-		return Answer{}, fmt.Errorf("pass the offer to the core: %w", err)
+	passed := discoveryproto.SignalMessage{
+		Type: discoveryproto.SignalOffer, OfferID: offerID, SDP: offer.SDP,
+		LocatorHash: locatorHash, Proof: offer.Proof,
+	}
+	if err := wsjson.Write(ctx, connection, passed); err != nil {
+		return Answer{OfferID: offerID}, fmt.Errorf("pass the offer to the core: %w", err)
 	}
 	select {
 	case <-ctx.Done():
-		return Answer{}, fmt.Errorf("wait for the core's answer: %w", ctx.Err())
+		return Answer{OfferID: offerID}, fmt.Errorf("wait for the core's answer: %w", ctx.Err())
 	case reply := <-replied:
 		if reply.Type != discoveryproto.SignalAnswer {
-			return Answer{}, fmt.Errorf("%w: %s", ErrRefused, reply.Reason)
+			return Answer{OfferID: offerID}, fmt.Errorf("%w: %s", ErrRefused, reply.Reason)
 		}
-		return Answer{SDP: reply.SDP, Signature: reply.Signature}, nil
+		return Answer{OfferID: offerID, SDP: reply.SDP, Signature: reply.Signature}, nil
 	}
 }

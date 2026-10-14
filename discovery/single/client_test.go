@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coder/websocket/wsjson"
+
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/discovery/link"
 )
@@ -165,5 +167,107 @@ func TestPrefixOf_IsAnIPv6Addresses64AndAnIPv4Addresses32(t *testing.T) {
 		if got := prefixOf(remote); got != want {
 			t.Errorf("prefixOf(%q) = %q, want %q", remote, got, want)
 		}
+	}
+}
+
+// answerAll is a core holding the signalling connection, answering every offer with what it was
+// passed: the offer and the hash it came under.
+func answerAll(t *testing.T, built clientStage) {
+	t.Helper()
+	connection := built.dial(t, built.token)
+	go func() {
+		for {
+			var offer discoveryproto.SignalMessage
+			if wsjson.Read(t.Context(), connection, &offer) != nil {
+				return
+			}
+			reply := discoveryproto.SignalMessage{
+				Type: discoveryproto.SignalAnswer, OfferID: offer.OfferID,
+				SDP: offer.SDP + " under " + offer.LocatorHash, Signature: []byte(offer.Proof),
+			}
+			if wsjson.Write(t.Context(), connection, reply) != nil {
+				return
+			}
+		}
+	}()
+	built.logs.AwaitLine(t, "the core's signalling connected")
+}
+
+func TestOffers_ReachTheCoreWithTheHashTheDeviceFoundItByAndComeBackInOrder(t *testing.T) {
+	t.Parallel()
+	built := newClientStage(t)
+	answerAll(t, built)
+	var answered discoveryproto.OfferResponse
+	asked := discoveryproto.OfferRequest{
+		PathsRequest: discoveryproto.PathsRequest{Locator: aLocator},
+		Offers:       []discoveryproto.ClientOffer{{SDP: "first", Proof: "p1"}, {SDP: "second", Proof: "p2"}},
+	}
+	if status, code := built.ask(t, discoveryproto.OfferPath(built.coreID), asked, &answered); status != http.StatusOK {
+		t.Fatalf("the offers answered %d %q", status, code)
+	}
+	hash := link.LocatorHash(aLocator)
+	if len(answered.Answers) != 2 || answered.Answers[0].SDP != "first under "+hash ||
+		answered.Answers[1].SDP != "second under "+hash || string(answered.Answers[1].Signature) != "p2" {
+		t.Errorf("the answers are %+v; want each offer's, in order, passed under the locator's hash with "+
+			"its proof", answered.Answers)
+	}
+	var located discoveryproto.LocateResponse
+	if status, _ := built.ask(t, discoveryproto.PathLocate,
+		discoveryproto.LocateRequest{Hash: link.LocateHash(everyUseSecret)}, &located); status != http.StatusOK {
+		t.Fatal("locate failed")
+	}
+	asked.PathsRequest = discoveryproto.PathsRequest{BootstrapToken: located.BootstrapToken}
+	asked.Offers = asked.Offers[:1]
+	if status, _ := built.ask(t, discoveryproto.OfferPath(built.coreID), asked, &answered); status != http.StatusOK ||
+		answered.Answers[0].SDP != "first under "+link.LocateHash(everyUseSecret) {
+		t.Errorf("an offer by a bootstrap token was answered %+v; want it passed under its link's hash",
+			answered.Answers)
+	}
+}
+
+func TestOffers_ARefusedRequestNeverReachesTheCore(t *testing.T) {
+	t.Parallel()
+	built := newClientStage(t)
+	answerAll(t, built)
+	five := make([]discoveryproto.ClientOffer, discoveryproto.MaxOffersAtOnce+1)
+	for name, tc := range map[string]struct {
+		path   string
+		asked  discoveryproto.OfferRequest
+		status int
+	}{
+		"a locator never registered": {discoveryproto.OfferPath(built.coreID), discoveryproto.OfferRequest{
+			PathsRequest: discoveryproto.PathsRequest{Locator: "another"}, Offers: five[:1],
+		}, http.StatusNotFound},
+		"another core's path": {discoveryproto.OfferPath("another-core"), discoveryproto.OfferRequest{
+			PathsRequest: discoveryproto.PathsRequest{Locator: aLocator}, Offers: five[:1],
+		}, http.StatusNotFound},
+		"more offers than a client makes at once": {discoveryproto.OfferPath(built.coreID), discoveryproto.OfferRequest{
+			PathsRequest: discoveryproto.PathsRequest{Locator: aLocator}, Offers: five,
+		}, http.StatusBadRequest},
+	} {
+		var answered discoveryproto.OfferResponse
+		if status, _ := built.ask(t, tc.path, tc.asked, &answered); status != tc.status {
+			t.Errorf("%s answered %d; want %d", name, status, tc.status)
+		}
+	}
+}
+
+func TestOpenOffers_AHashHoldsAtMostEightOpenAtOnce(t *testing.T) {
+	t.Parallel()
+	built := newStage(t)
+	for range 2 {
+		if !built.discovery.openOffers("a-hash", 4) {
+			t.Fatal("eight offers open for one hash were refused")
+		}
+	}
+	if built.discovery.openOffers("a-hash", 1) {
+		t.Error("a ninth open offer for one hash was let through")
+	}
+	if !built.discovery.openOffers("another-hash", 1) {
+		t.Error("another hash's offer was refused for the first hash's")
+	}
+	built.discovery.closeOffers("a-hash", 4)
+	if !built.discovery.openOffers("a-hash", 1) {
+		t.Error("once four closed, an offer for the hash was still refused")
 	}
 }

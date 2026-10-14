@@ -112,6 +112,13 @@ func (service *Service) dialSignalling(ctx context.Context, baseURL, token strin
 func (service *Service) answerOffer(
 	ctx context.Context, offer discoveryproto.SignalMessage,
 ) discoveryproto.SignalMessage {
+	if !service.isProven(ctx, offer) {
+		service.parts.Logger.WarnContext(ctx, "discovery: an offer's proof does not hold; refused",
+			"offerId", offer.OfferID)
+		return discoveryproto.SignalMessage{
+			Type: discoveryproto.SignalRefusal, OfferID: offer.OfferID, Reason: "the offer's proof does not hold",
+		}
+	}
 	answer, err := service.parts.Answerer.AnswerRelayed(ctx, rtcapi.Description{Type: "offer", SDP: offer.SDP})
 	if err != nil {
 		reason := "the core could not answer"
@@ -132,4 +139,20 @@ func (service *Service) answerOffer(
 		Type: discoveryproto.SignalAnswer, OfferID: offer.OfferID, SDP: answer.SDP,
 		Signature: service.parts.Key.SignAnswer(signed),
 	}
+}
+
+// isProven is whether the offer's proof holds under the key the core keeps for the hash the discovery
+// passed it on with: an HMAC over the offer's DTLS fingerprint, which the discovery cannot make, so an
+// offer it made up, or a client's with its own certificate swapped in, is refused before rtcapi sees
+// it (the protocol's §2.5 item 3; A9).
+func (service *Service) isProven(ctx context.Context, offer discoveryproto.SignalMessage) bool {
+	fingerprint := rtcapi.FingerprintOf(offer.SDP)
+	if service.parts.OfferKey == nil || offer.LocatorHash == "" || fingerprint == "" {
+		return false
+	}
+	key, err := service.parts.OfferKey(ctx, offer.LocatorHash)
+	if err != nil {
+		return false
+	}
+	return proof.VerifyOffer(key, fingerprint, offer.Proof)
 }

@@ -484,6 +484,13 @@ type answering struct {
 	offered []string
 }
 
+// taken are the offers rtcapi was given.
+func (answerer *answering) taken() []string {
+	answerer.mutex.Lock()
+	defer answerer.mutex.Unlock()
+	return append([]string{}, answerer.offered...)
+}
+
 func (answerer *answering) AnswerRelayed(_ context.Context, offer rtcapi.Description) (rtcapi.Description, error) {
 	answerer.mutex.Lock()
 	defer answerer.mutex.Unlock()
@@ -499,6 +506,7 @@ func TestSignal_AClaimedCoreAnswersTheOffersItsDiscoveryPassesOn(t *testing.T) {
 	built := newWorld(t)
 	answerer := &answering{}
 	built.service.parts.Answerer = answerer
+	built.service.parts.OfferKey = offerKeys
 	if _, err := built.service.Connect(t.Context(), built.baseURL); err != nil {
 		t.Fatal(err)
 	}
@@ -514,11 +522,10 @@ func TestSignal_AClaimedCoreAnswersTheOffersItsDiscoveryPassesOn(t *testing.T) {
 		cancel()
 		testutil.Receive(t, done, "the signalling loop to end")
 	})
-	for index, offer := range []string{"offer one\r\na=fingerprint:sha-256 AB:CD", "offer two"} {
-		built.fake.signals <- discoveryproto.SignalMessage{
-			Type:    discoveryproto.SignalOffer,
-			OfferID: fmt.Sprint(index), SDP: offer,
-		}
+	for index, offer := range []string{
+		"offer one\r\na=fingerprint:sha-256 AB:CD", "offer two\r\na=fingerprint:sha-256 EF:01",
+	} {
+		built.fake.signals <- provenOffer(fmt.Sprint(index), offer)
 	}
 	answered := testutil.Receive(t, built.fake.replies, "the core's answer")
 	refused := testutil.Receive(t, built.fake.replies, "the core's refusal")
@@ -534,6 +541,27 @@ func TestSignal_AClaimedCoreAnswersTheOffersItsDiscoveryPassesOn(t *testing.T) {
 	if refused.Type != discoveryproto.SignalRefusal || refused.OfferID != "1" ||
 		!strings.Contains(refused.Reason, "as many connections") {
 		t.Errorf("the offer past the limit was answered %+v; want a refusal saying why", refused)
+	}
+}
+
+// aLocatorHash is the one hash offerKeys knows, and aSessionKey its key.
+const aLocatorHash = "a-locators-hash"
+
+var aSessionKey = proof.SessionOfferKey("a session's token")
+
+// offerKeys is the core's keys as auth keeps them: one locator's, by its hash.
+func offerKeys(_ context.Context, hash string) ([]byte, error) {
+	if hash != aLocatorHash {
+		return nil, errors.New("no such locator")
+	}
+	return aSessionKey, nil
+}
+
+// provenOffer is an offer passed on under aLocatorHash with the proof its client made.
+func provenOffer(offerID, sdp string) discoveryproto.SignalMessage {
+	return discoveryproto.SignalMessage{
+		Type: discoveryproto.SignalOffer, OfferID: offerID, SDP: sdp, LocatorHash: aLocatorHash,
+		Proof: proof.Offer(aSessionKey, rtcapi.FingerprintOf(sdp)),
 	}
 }
 

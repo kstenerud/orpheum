@@ -139,6 +139,9 @@
 //     a visit renews the person's own link. TestLiveLocators_EachSessionHasOneFreshOnEachVisitEndingWithTheSession,
 //     TestFreshLocator_RenewsThePersonsOwnLink.
 //
+//   - An offer's key is its live session's hash, by its locator, or its live link's offer key; an
+//     ended one has none. TestOfferKey_IsALiveSessionsHashByItsLocatorOrALiveLinksKeyByItsHash.
+//
 // # Read before changing
 //
 //   - D217 §8: a device is created at sign-in.

@@ -96,6 +96,10 @@ type Parts struct {
 	// the development stack keeps RetryMost near a second (D292 §9).
 	RetryFirst, RetryMost time.Duration
 	Random                io.Reader
+	// OfferKey is the key an offer passed on under hash is proven under: a live session's, by its
+	// locator's hash, or a live link's, by its locate hash (auth.Service.OfferKey; the protocol's §2.5
+	// item 3). Nil proves none, and every offer is refused.
+	OfferKey func(ctx context.Context, hash string) ([]byte, error)
 	// Links are what a discovery finds the core by, read before each look: every live link's locate
 	// hash and when it ends, and every live session's device locator's hash (auth.Service's
 	// LiveLinks and LiveLocators; discovery-core.md K7). Nil registers none.

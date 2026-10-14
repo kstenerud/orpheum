@@ -227,12 +227,19 @@ const (
 // the core's answer to it or refusal of it. An answer's Signature is the core's identity key over
 // proof.Answer: the core, the offer, the offer's fingerprint and the answer's exact SDP, which the
 // client checks before it takes the answer (the protocol's §2.5 item 4).
+//
+// An offer also carries the hash the client found the core by, a locator's (link.LocatorHash) or, for a
+// link's bootstrap, the link's (link.LocateHash), and its proof (proof.Offer), which the core checks
+// under the key it keeps for that hash before it answers: the discovery's check of the hash is only a
+// first filter (the protocol's §2.5 item 3; A2, A9).
 type SignalMessage struct {
-	Type      string `json:"type"`
-	OfferID   string `json:"offerId"`
-	SDP       string `json:"sdp,omitempty"`
-	Signature []byte `json:"signature,omitempty"`
-	Reason    string `json:"reason,omitempty"`
+	Type        string `json:"type"`
+	OfferID     string `json:"offerId"`
+	SDP         string `json:"sdp,omitempty"`
+	LocatorHash string `json:"locatorHash,omitempty"`
+	Proof       string `json:"proof,omitempty"`
+	Signature   []byte `json:"signature,omitempty"`
+	Reason      string `json:"reason,omitempty"`
 }
 
 // ACMEChallengeRequest sets the TXT record of name, which is _acme-challenge.<coreId>.<zone>, to

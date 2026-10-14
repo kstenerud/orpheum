@@ -115,6 +115,8 @@ type Discovery struct {
 	locateHashes map[string]locatable
 	locators     map[string]bool
 	bootstraps   map[string]bootstrap
+	// openByHash is how many offers each hash has waiting on the core.
+	openByHash map[string]int
 }
 
 // New returns a discovery over parts, with a key for its nonces from parts.Random.
@@ -130,6 +132,7 @@ func New(parts Parts) (*Discovery, error) {
 		parts: parts, nonceKey: nonceKey, spent: map[string]time.Time{}, tokens: map[string]session{},
 		signal: newSignalling(parts.Logger, parts.Now), pingWait: instancePingWait,
 		locateHashes: map[string]locatable{}, locators: map[string]bool{}, bootstraps: map[string]bootstrap{},
+		openByHash: map[string]int{},
 	}, nil
 }
 

@@ -6,10 +6,12 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/kstenerud/orpheum/discovery/link"
+	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -156,4 +158,39 @@ func (service *Service) linksChanged() {
 // at once; what ends one is found by the discovery's next look.
 func (service *Service) OnLinksChanged(changed func()) {
 	service.onLinksChanged = changed
+}
+
+// ErrNoOfferKey is a hash no live locator or link has: an offer under it proves nothing.
+var ErrNoOfferKey = errors.New("no live locator or link has this hash")
+
+// OfferKey is what an offer a discovery passed on under hash is proven under: for a device's locator,
+// its live session's hash, proof.SessionOfferKey of its token; for a link's bootstrap, the live link's
+// offer key, link.OfferKey of its secret (the protocol's §2.5 item 3).
+func (service *Service) OfferKey(ctx context.Context, hash string) ([]byte, error) {
+	raw, err := base64.RawURLEncoding.DecodeString(hash)
+	if err != nil {
+		return nil, ErrNoOfferKey
+	}
+	idleExpiry, _, err := service.sessionPolicy(ctx)
+	if err != nil {
+		return nil, err
+	}
+	now := service.clock.Now()
+	session, err := store.OrNotFound(service.database.Read().GetLiveSessionOfLocator(ctx,
+		sqlcgen.GetLiveSessionOfLocatorParams{Hash: raw, IdleSince: new(now.Add(-idleExpiry).UnixMilli())}))
+	switch {
+	case err == nil:
+		return session, nil
+	case !errors.Is(err, store.ErrNotFound):
+		return nil, fmt.Errorf("look up a locator: %w", err)
+	}
+	key, err := store.OrNotFound(service.database.Read().GetLiveLinkOfferKey(ctx,
+		sqlcgen.GetLiveLinkOfferKeyParams{LocateHash: raw, Now: new(now.UnixMilli())}))
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		return nil, ErrNoOfferKey
+	case err != nil:
+		return nil, fmt.Errorf("look up a link: %w", err)
+	}
+	return key, nil
 }

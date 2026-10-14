@@ -366,12 +366,13 @@ func TestHandler_AnswersAnyMinorOfItsMajorAndRefusesAnotherByName(t *testing.T) 
 func TestOffer_PassesTheOfferToTheCoreAndReturnsItsAnswer(t *testing.T) {
 	t.Parallel()
 	built := newStage(t)
-	if _, err := built.discovery.Offer(t.Context(), "an offer"); !errors.Is(err, ErrCoreNotConnected) {
+	_, err := built.discovery.Offer(t.Context(), discoveryproto.ClientOffer{SDP: "an offer"}, "a-hash")
+	if !errors.Is(err, ErrCoreNotConnected) {
 		t.Errorf("an offer with no core connected = %v; want ErrCoreNotConnected", err)
 	}
 	signer := newKey(t)
 	_, enrolled := built.enrol(t, signer)
-	if err := built.discovery.Claim(enrolled.ClaimCode); err != nil {
+	if err = built.discovery.Claim(enrolled.ClaimCode); err != nil {
 		t.Fatal(err)
 	}
 	token := built.session(t, signer, enrolled.CoreID)
@@ -383,8 +384,10 @@ func TestOffer_PassesTheOfferToTheCoreAndReturnsItsAnswer(t *testing.T) {
 			if wsjson.Read(t.Context(), connection, &offer) != nil {
 				return
 			}
+			// The answer tells what the core was passed: the offer, its hash and its proof.
 			reply := discoveryproto.SignalMessage{
-				Type: discoveryproto.SignalAnswer, OfferID: offer.OfferID, SDP: "answer to " + offer.SDP,
+				Type: discoveryproto.SignalAnswer, OfferID: offer.OfferID,
+				SDP: "answer to " + offer.SDP + " under " + offer.LocatorHash + " proven " + offer.Proof,
 			}
 			if index > 0 {
 				reply = discoveryproto.SignalMessage{
@@ -397,11 +400,13 @@ func TestOffer_PassesTheOfferToTheCoreAndReturnsItsAnswer(t *testing.T) {
 		}
 	}()
 	built.logs.AwaitLine(t, "the core's signalling connected")
-	answer, err := built.discovery.Offer(t.Context(), "an offer")
-	if err != nil || answer.SDP != "answer to an offer" {
-		t.Errorf("the answer was %q, %v", answer.SDP, err)
+	answer, err := built.discovery.Offer(t.Context(), discoveryproto.ClientOffer{SDP: "an offer", Proof: "its proof"},
+		"a-hash")
+	if err != nil || answer.SDP != "answer to an offer under a-hash proven its proof" {
+		t.Errorf("the answer was %q, %v; want the offer passed with its hash and proof", answer.SDP, err)
 	}
-	if _, err = built.discovery.Offer(t.Context(), "a second"); !errors.Is(err, ErrRefused) ||
+	_, err = built.discovery.Offer(t.Context(), discoveryproto.ClientOffer{SDP: "a second"}, "a-hash")
+	if !errors.Is(err, ErrRefused) ||
 		!strings.Contains(err.Error(), "too many connections") {
 		t.Errorf("a refused offer = %v; want ErrRefused with the core's reason", err)
 	}

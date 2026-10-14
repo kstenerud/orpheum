@@ -349,8 +349,10 @@ D293 §1).
 are built** (D292 §4; A2). Built (2026-10-13): the fingerprint and candidate checks of item 3 and
 the address filter, before `rtcapi` makes a connection (`rtcapi.Server.AnswerRelayed`, the one way
 an offer through `internal/core/discovery` reaches it), and each connection's bounds below but the
-idle close, the unproven connections and per-locator caps. **The code must change:** the proof
-(item 3) and the answer's signature (item 4) are not built, so an offer is answered unproven, one
+idle close, the unproven connections and per-locator caps. Built since (2026-10-14): the proof
+(item 3), checked by the core under the key it keeps for the offer's hash before `rtcapi` sees it,
+and the answer's signature (item 4); `single` passes offers on with their hash and proof, at most
+four to a request and eight open for one hash. **The code must change:** offers are answered one
 at a time.
 
 1. A client posts up to four SDP offers with its locator (§3.1), or the bootstrap token `/locate`
@@ -988,8 +990,8 @@ the core must act on (enrol again, another instance running) carries a code of i
 An own discovery answers the same client API for its one core. Built in `discovery/single`
 (2026-10-14): `/locate`, with the hash's use policy and a bootstrap token of five minutes, and
 `/paths`, with the core's `state` from its signalling connection and the client's `clientPrefix`,
-WebRTC its one path until it publishes names. Not yet: `/cores/{id}/offer` with proofs, and the
-dead-end report.
+WebRTC its one path until it publishes names. And `/cores/{id}/offer`, passing each offer on with
+the hash it came under and its proof. Not yet: the dead-end report.
 
 ## 5. Versions, and keeping the sides in step (D273 §6, §7)
 
