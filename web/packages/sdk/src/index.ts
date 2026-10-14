@@ -16,6 +16,16 @@ export type { components, operations, paths } from "./gen/api.ts";
 export { browserPlayableFormats, playableFormatsFrom } from "./playable-formats.ts";
 export { browserFetch, textWhenReady, whenReady } from "./ready.ts";
 export { connectRtc, RtcTransport, SwitchableFetch } from "./rtc-transport.ts";
+export {
+  discoverySignaller,
+  locateHash,
+  locatorHash,
+  offerKey,
+  protocolVersion,
+  readLinkFragment,
+  sessionOfferKey,
+} from "./discovery.ts";
+export type { DiscoverySignalling, Held, LinkFragment } from "./discovery.ts";
 export { rtcTogetherSocket } from "./rtc-together.ts";
 export {
   answerLoad,
