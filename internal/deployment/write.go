@@ -171,6 +171,7 @@ func environment(values Values, runtime Runtime) string {
 		"ORPHEUM_GID=" + strconv.Itoa(runtime.GID),
 		"ORPHEUM_HTTP_PUBLISH=" + values.HTTP.Publish,
 		"ORPHEUM_HTTP_PORT=" + strconv.Itoa(values.HTTP.Port),
+		"ORPHEUM_LAN_HTTPS_PORT=" + strconv.Itoa(values.LAN.HTTPSPort),
 		"ORPHEUM_TUNNEL_MTU=" + strconv.Itoa(values.TunnelMTU()),
 		"ORPHEUM_TUNNEL_IPV4=" + values.VPS.TunnelIPv4,
 		"ORPHEUM_TUNNEL_IPV6=" + values.VPS.TunnelIPv6,

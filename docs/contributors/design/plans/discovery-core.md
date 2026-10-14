@@ -228,7 +228,11 @@ needs the owner's gate (`internal/archtest`), in its place a review invariant in
   port-forward or own VPS (§2.4; built 2026-10-14 as `[discovery] configured_addresses`, which a
   deployment fills from its values' `vps.public_ipv4` and `vps.public_ipv6`). The staging core's direct IPv4 path is its VPS's
   address as a `configured` candidate (infrastructure §3 change 4), and a household keeps its own
-  VPS this way rather than retiring it (§2.4; N11).
+  VPS this way rather than retiring it (§2.4; N11). A core in a container, which sees none of the
+  machine's addresses at home, is told it by its deployment (the owner, 2026-10-14): built as
+  `[discovery] lan_addresses`, which a deployment fills from its values' `[lan] address` and
+  `https_port` (8443, published to the core's 443), and `deploy/release/build.sh` fills the address
+  from the machine's default route.
 - **Builds** §2.4; findings C7, C9, N11.
 - **Tests.** From recorded netlink messages: a temporary and a deprecated address are left out and
   the stable one kept; a bridge's address is left out; `100.64.0.1` and `192.0.0.2` are never sent

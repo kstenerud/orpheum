@@ -37,6 +37,9 @@ retry_first_milliseconds = 1000
 retry_most_milliseconds = 300000
 # The VPS's public addresses, which it forwards to this core: sent to a discovery to publish.
 configured_addresses = {{toml .Values.ConfiguredAddresses}}
+# This machine's address at home and its published HTTPS port, which the core's container cannot see:
+# sent to a discovery to name for devices at home.
+lan_addresses = {{toml .Values.LANAddresses}}
 # In its container the core sees only the container's network and its tunnel, which nothing at home
 # reaches: it sends none of them, only the addresses above.
 send_interface_addresses = false
