@@ -24,9 +24,14 @@ import { withServices } from "./test-services.tsx";
 
 const ignore = (): void => undefined;
 
+/** A server with its admin already made, as most sign-ins meet. */
+const setUpAlready: Answers[string] = [200, { isRequired: false }];
+
 /** What the sign-in screen says after the server answers a sign-in with answer. */
 async function problemShownFor(answer: Answers[string]): Promise<string | undefined> {
-  const mounted = await mount(withServices(<SignIn />, servedBy({ "POST /session": answer })));
+  const mounted = await mount(
+    withServices(<SignIn />, servedBy({ "GET /setup": setUpAlready, "POST /session": answer })),
+  );
   await submit(mounted.container.querySelector("form"));
   const shown = mounted.container.querySelector('[role="alert"]')?.textContent ?? undefined;
   mounted.unmount();
@@ -93,6 +98,7 @@ describe("sign-in", () => {
 
   it("keeps the session a sign-in answers with, on the device it names, with the device's secret apart from the token", async () => {
     const services = servedBy({
+      "GET /setup": setUpAlready,
       "POST /session": [
         201,
         {
@@ -116,6 +122,7 @@ describe("setting up a server no one can sign in to yet (A29, A31)", () => {
     const heard: Heard[] = [];
     const services = servedBy(
       {
+        "GET /setup": setUpAlready,
         "POST /session": [
           refusal(409, "setup_required"),
           [
@@ -149,6 +156,7 @@ describe("setting up a server no one can sign in to yet (A29, A31)", () => {
 
   it("says when the setup code is wrong, and goes back to sign-in", async () => {
     const services = servedBy({
+      "GET /setup": setUpAlready,
       "POST /session": refusal(409, "setup_required"),
       "POST /setup": refusal(403, "forbidden"),
     });
@@ -159,5 +167,23 @@ describe("setting up a server no one can sign in to yet (A29, A31)", () => {
     await click(buttonWithText(mounted.container, "Back"));
     expect(mounted.container.textContent).toContain("Get a code");
     mounted.unmount();
+  });
+});
+
+describe("a server that needs setting up", () => {
+  it("opens on setting it up, with no sign-in tried first (A31)", async () => {
+    const heard: Heard[] = [];
+    const mounted = await mount(
+      withServices(<SignIn />, servedBy({ "GET /setup": [200, { isRequired: true }] }, heard)),
+    );
+    expect(mounted.container.textContent).toContain("Set up this server");
+    expect(heard.map((each) => each.methodAndPath)).toEqual(["GET /setup"]);
+    mounted.unmount();
+    const setUp = await mount(
+      withServices(<SignIn />, servedBy({ "GET /setup": [200, { isRequired: false }] })),
+    );
+    expect(setUp.container.textContent).not.toContain("Set up this server");
+    expect(setUp.container.textContent).toContain("Get a code");
+    setUp.unmount();
   });
 });

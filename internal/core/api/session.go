@@ -144,6 +144,11 @@ func (server *Server) registerSetupAndAuth() {
 		Summary: "Create the first admin with the one-time setup code from the log", Tags: tags,
 	}, server.setup)
 	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "getSetup", Method: http.MethodGet, Path: "/setup",
+		Summary: "Whether the server still needs its first admin, so the sign-in page opens on setting it up",
+		Tags:    tags,
+	}, server.getSetup)
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "signIn", Method: http.MethodPost, Path: "/session", DefaultStatus: http.StatusCreated,
 		Summary: "Sign in; returns a session token for the Authorization header", Tags: tags,
 	}, server.signIn)
@@ -185,6 +190,30 @@ func (server *Server) freshLocator(ctx context.Context, input *MeInput) (*Locato
 	}
 	output := &LocatorOutput{}
 	output.Body.Locator = locator
+	return output, nil
+}
+
+// SetupOutput is whether the server still needs its first admin.
+type SetupOutput struct {
+	Body struct {
+		IsRequired bool `doc:"No one can sign in until the first admin is made with the setup code" json:"isRequired"`
+	}
+}
+
+// getSetup says whether the server needs its first admin, asked before anyone signs in: the sign-in
+// page then opens on setting it up (agent-failures A31). It says nothing more, and the setup code
+// still guards the setup itself.
+func (server *Server) getSetup(ctx context.Context, _ *struct{}) (*SetupOutput, error) {
+	dependencies, err := server.readyDependencies()
+	if err != nil {
+		return nil, err
+	}
+	count, err := dependencies.Auth.CountUsers(ctx)
+	if err != nil {
+		return nil, server.authError(ctx, "count users", err)
+	}
+	output := &SetupOutput{}
+	output.Body.IsRequired = count == 0
 	return output, nil
 }
 

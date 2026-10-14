@@ -4788,6 +4788,19 @@
         ],
         "type": "object"
       },
+      "SetupOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "isRequired": {
+            "description": "No one can sign in until the first admin is made with the setup code",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "isRequired"
+        ],
+        "type": "object"
+      },
       "SignInInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -10661,6 +10674,35 @@
       }
     },
     "/setup": {
+      "get": {
+        "operationId": "getSetup",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Whether the server still needs its first admin, so the sign-in page opens on setting it up",
+        "tags": [
+          "Setup and auth"
+        ]
+      },
       "post": {
         "operationId": "setup",
         "requestBody": {
