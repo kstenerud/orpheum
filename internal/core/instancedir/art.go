@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"github.com/kstenerud/orpheum/internal/platform/atomics"
 	"github.com/kstenerud/orpheum/internal/platform/errs"
 	"github.com/kstenerud/orpheum/internal/platform/readonly"
 )
@@ -38,7 +39,10 @@ func (directories *Directories) WriteArt(sourceSha256Hex, name string, contents 
 	if !artFileNamePattern.MatchString(name) {
 		return fmt.Errorf("%q: %w", name, ErrBadArtName)
 	}
-	return writeAtomically(imageDirectory, name, contents)
+	if err := atomics.WriteFile(imageDirectory, name, contents, fileMode); err != nil {
+		return fmt.Errorf("write art %s: %w", name, err)
+	}
+	return nil
 }
 
 // ReadArt reads one size of one image; ErrNotFound when it is not there.

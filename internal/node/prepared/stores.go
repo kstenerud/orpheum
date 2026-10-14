@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/atomics"
 )
 
 // A store holds one stream of a film cut into chunks (D247 §10), at <file_id>/chunks-<stream>/<grid_id>
@@ -50,16 +51,21 @@ func (shelf *Shelf) HasFile(storeDir, name string) bool {
 	return err == nil && info.Mode().IsRegular()
 }
 
-// PutFile writes name into the store whole: to a part file first, then renamed into place, so no
-// reader ever sees part of it.
+// PutFile writes name into the store whole, so no reader ever sees part of it. Not durably: a chunk
+// is made again when a crash lost it, and a sync for each would slow the making.
 func (shelf *Shelf) PutFile(storeDir, name string, contents []byte) error {
-	path := filepath.Join(shelf.directory, filepath.FromSlash(storeDir), name)
-	partPath := path + ".part"
-	if err := os.WriteFile(partPath, contents, 0o600); err != nil {
-		return fmt.Errorf("write %s/%s: %w", storeDir, name, err)
+	return replaceIn(filepath.Join(shelf.directory, filepath.FromSlash(storeDir)), name, contents)
+}
+
+// replaceIn writes name in directory whole (atomics.Replace).
+func replaceIn(directory, name string, contents []byte) (err error) {
+	root, err := os.OpenRoot(directory)
+	if err != nil {
+		return fmt.Errorf("write %s: %w", filepath.Join(directory, name), err)
 	}
-	if err := os.Rename(partPath, path); err != nil {
-		return fmt.Errorf("write %s/%s: %w", storeDir, name, err)
+	defer func() { err = errors.Join(err, root.Close()) }()
+	if err = atomics.Replace(root, name, contents, 0o600); err != nil {
+		return fmt.Errorf("write %s: %w", filepath.Join(directory, name), err)
 	}
 	return nil
 }
