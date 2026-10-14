@@ -71,6 +71,9 @@ type ClientFacts struct {
 	// userAgent is the browser's own words for itself, for the log: an iPhone's player behaves
 	// unlike a desktop's, and nothing said which a stalling viewer had (staging, 2026-10-06).
 	userAgent string
+	// host is the name the client reached the server by, for the log: at a discovery's names, which
+	// one won a device's race says which path reached the server (discovery-protocol.md §3.3).
+	host string
 }
 
 // NewDeviceBody is how a client names itself: the device becomes one of the person's, listed
@@ -98,7 +101,7 @@ func (facts *ClientFacts) Resolve(ctx huma.Context) []error {
 		host = ctx.RemoteAddr()
 	}
 	facts.clientAddress, facts.isOverTLS = host, ctx.TLS() != nil
-	facts.userAgent = ctx.Header("User-Agent")
+	facts.userAgent, facts.host = ctx.Header("User-Agent"), ctx.Host()
 	return nil
 }
 

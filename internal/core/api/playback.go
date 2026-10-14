@@ -235,7 +235,10 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		PreferredDelivery: decide.Delivery(input.Body.PreferredDelivery), ClientAddress: input.clientAddress,
 	}
 	started, err := dependencies.Playback.Start(ctx, playback.HolderOf(principal), request)
-	who := []any{"userId", principal.UserID, "fileId", input.Body.FileID, "userAgent", input.userAgent}
+	who := []any{
+		"userId", principal.UserID, "fileId", input.Body.FileID, "userAgent", input.userAgent,
+		"host", input.host, "clientAddress", input.clientAddress,
+	}
 	if unreadable, isUnreadable := errors.AsType[*library.UnreadableError](err); isUnreadable {
 		server.logPlaybackRefused(ctx, who, err)
 		return nil, mediaUnreachable(unreadable, server.nodeNamer(ctx, dependencies))

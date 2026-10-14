@@ -245,7 +245,8 @@ func TestPlayback_TheAcceptanceFileIsPreparedForItsContainerAndItsAudio(t *testi
 }
 
 // Each playback start is logged with whose it is, the file, and how it is delivered and why, never
-// with its token; a refused one with why. On staging a film that would not play left no trace of
+// with its token; a refused one with why; and by which name and from which address it came, which
+// says which of a discovery's paths reached the server. On staging a film that would not play left no trace of
 // what was chosen for it (2026-10-06).
 func TestPlayback_LogsEachStartAndRefusalButNeverTheToken(t *testing.T) {
 	t.Parallel()
@@ -255,7 +256,8 @@ func TestPlayback_LogsEachStartAndRefusalButNeverTheToken(t *testing.T) {
 	decided := harness.play(t, user, chrome(2))
 	harness.logs.AwaitLine(t, `"msg":"a playback started"`, `"fileId":2`, `"delivery":"hls"`,
 		`"profile":"remux"`, `"notDirectReasons":["container","audio_codec"]`,
-		`"userAgent":"Go-http-client/1.1"`, // which browser, as an iPhone's player differs
+		`"userAgent":"Go-http-client/1.1"`,                  // which browser, as an iPhone's player differs
+		`"host":"127.0.0.1:`, `"clientAddress":"127.0.0.1"`, // which name and path reached the server
 		`"notOnLadderBecause":"noGridYet"`) // why it plays as its decision says
 	token := decided.URL[strings.LastIndex(strings.TrimSuffix(decided.URL, "/master.m3u8"), "/")+1:]
 	if token == "" || strings.Contains(harness.logs.String(), token) {
