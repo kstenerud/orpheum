@@ -47,7 +47,11 @@ func newServer(t *testing.T) *rtcapi.Server {
 // name.
 func TestChannel_ARequestReachesTheHandlerAndItsResponseComesBackWhole(t *testing.T) {
 	t.Parallel()
-	link := rtcapitest.Connect(t, newServer(t).Answer)
+	// Both ends on the loopback, which no container network's masquerade rewrites, so the address the
+	// server sees is the one the client holds.
+	server := newServer(t)
+	rtcapi.AnswerOnLoopback(server)
+	link := rtcapitest.Connect(t, server.Answer, rtcapitest.OnLoopback())
 	got := link.Do(rtcapi.RequestHead{
 		Method: http.MethodPost, Path: "/api/v1/things?x=1",
 		Headers: http.Header{"authorization": {"Bearer t"}},

@@ -56,6 +56,15 @@ func OverIPv4() Option {
 	}
 }
 
+// OnLoopback holds the client to the loopback's addresses, for a test whose clients must be on the
+// loopback and in one network: on a machine with container networks, each bridge gave the client
+// more candidates (past the core's limit on a relayed offer's) and another network to connect from.
+func OnLoopback() Option {
+	return func(settings *webrtc.SettingEngine) {
+		settings.SetIPFilter(func(ip net.IP) bool { return ip.IsLoopback() })
+	}
+}
+
 // Connect makes a client on the loopback and connects it through answer.
 func Connect(tb testing.TB, answer Answerer, options ...Option) *Client {
 	tb.Helper()

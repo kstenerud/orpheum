@@ -85,7 +85,7 @@ func TestAnswerRelayed_ConnectsNoClientOnTheCoresOwnNetwork(t *testing.T) {
 	t.Parallel()
 	server := newServer(t)
 	rtcapi.SetBounds(server, rtcapi.Bounds{ConnectWithin: time.Second})
-	if _, isConnected := rtcapitest.Dial(t, server.AnswerRelayed, 2*time.Second); isConnected {
+	if _, isConnected := rtcapitest.Dial(t, server.AnswerRelayed, 2*time.Second, rtcapitest.OnLoopback()); isConnected {
 		t.Error("a client on the loopback connected through a discovery")
 	}
 	if count := rtcapi.ConnectionCount(server); count != 0 {
@@ -130,12 +130,12 @@ func TestAnswer_HoldsEachClientWithinItsBounds(t *testing.T) {
 	t.Parallel()
 	// Two in flight: the channel every client opens to have something to negotiate, and one request.
 	server, release := waitingServer(t, rtcapi.Bounds{PerSource: 1, Channels: 2})
-	client := rtcapitest.Connect(t, server.Answer)
+	client := rtcapitest.Connect(t, server.Answer, rtcapitest.OnLoopback())
 	if !strings.Contains(client.AnswerSDP(), "a=max-message-size:65536") {
 		t.Errorf("the answer does not bound a client's messages to %d bytes:\n%s", rtcapi.MaxMessageBytes,
 			client.AnswerSDP())
 	}
-	if second, isConnected := rtcapitest.Dial(t, server.Answer, 10*time.Second); isConnected &&
+	if second, isConnected := rtcapitest.Dial(t, server.Answer, 10*time.Second, rtcapitest.OnLoopback()); isConnected &&
 		!second.IsClosedWithin(10*time.Second) {
 		t.Error("a second connection from a network allowed one was kept")
 	}
