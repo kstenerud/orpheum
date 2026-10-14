@@ -377,7 +377,10 @@ at a time.
    - **candidates**: at most about ten; loopback, link-local, private ranges and the core's own LAN
      prefixes refused for offers through a discovery (`SettingEngine.SetRemoteIPFilter`), since the
      LAN path does not need ICE through it; a budget of connectivity checks (RFC 8445 §19.5.1's
-     100) (A2; D291 §6, S16).
+     100) (A2; D291 §6, S16). The client sends only what passes: it drops the candidates no core
+     outside its network can use and keeps at most ten of the rest, relayed and UDP ones first, since
+     a phone on Wi-Fi gathers more and the whole offer was refused (`web/packages/sdk/src/relayed-offer.ts`,
+     2026-10-14);
 
    A `TestArch_` claim that an offer through `internal/core/discovery` reaches `rtcapi` only after
    the core's own check enforces it (A2).
