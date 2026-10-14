@@ -16,6 +16,7 @@ export type { components, operations, paths } from "./gen/api.ts";
 export { browserPlayableFormats, playableFormatsFrom } from "./playable-formats.ts";
 export { browserFetch, textWhenReady, whenReady } from "./ready.ts";
 export { connectRtc, RtcTransport, SwitchableFetch } from "./rtc-transport.ts";
+export { directFetch, directPathWaitMs, firstDirectPath } from "./direct-path.ts";
 export {
   discoverySignaller,
   locate,

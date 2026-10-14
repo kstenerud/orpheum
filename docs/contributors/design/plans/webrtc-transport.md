@@ -54,7 +54,7 @@
 | W1 | The core: `internal/core/rtcapi`, a peer per offer, each request channel handed to the core's handler with streamed, back-pressured responses; an offer endpoint on the core's API for a signed-in client (LAN and tests); bounds on connections. Tested with a pion client peer (`rtcapitest`) | built |
 | W2a | The web client's API over channels: the SDK's `RtcTransport` over four connections and a `SwitchableFetch` the API client sends with; `?transport=webrtc` moves a signed-in tab onto it until W4 signals through the discovery | built |
 | W2b | Media over channels: a service worker on the page passes what the browser loads itself (images, `<video>`, hls.js, subtitle tracks) to the page's transport, so no screen changes; credit-based flow control end to end (the core sends 4 MiB ahead of what the reader took). Not under Vite's dev server, which serves no `/sw.js` | built |
-| W2c | Choosing among the paths (protocol §3.2, §3.3; D290 §2, D291 §3) | planned, below |
+| W2c | Choosing among the paths (protocol §3.2, §3.3; D290 §2, D291 §3) | thin form built 2026-10-14: the discovery's page races the core's published names (`firstDirectPath`), takes the first to answer its health and sends its requests and media there (`directFetch`), else WebRTC; the rest below is planned |
 | W2d | Channel recovery and ICE restart (protocol §2.5; C6) | planned, below |
 | W2e | Early description on the client (protocol §2.5; C6, F2) | planned, below |
 | W2f | The core's key and its signed answers checked (protocol §2.5, §3.5; D290 §3, §6, D291 §6, D292 §4) | planned, below |

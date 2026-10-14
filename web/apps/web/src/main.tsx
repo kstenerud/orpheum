@@ -12,6 +12,7 @@ import {
   browserVoiceDevices,
   carryMediaOver,
   createApi,
+  directFetch,
   keepPageAudio,
   reportFailure,
   rtcTogetherSocket,
@@ -108,12 +109,21 @@ if (discoveryClientApi === "") {
       const locator = kept.locator();
       return token === undefined || locator === undefined ? undefined : { core, token, locator };
     },
-    onConnected: (core, transport) => {
+    onConnected: (core, reached) => {
       rememberCore(localStore, core);
       const session = createSession(localStore, corePrefix(core.coreId));
-      routed.use(transport.fetch, pathName);
-      openTogetherSocket = rtcTogetherSocket(() => transport.openChannel());
-      void carryMediaOver(transport.fetch, session.token).catch(reportFailure);
+      if (reached.kind === "direct") {
+        // The core's own name: the page's requests and media go there, the session by its header.
+        const send = directFetch(reached.origin);
+        routed.use(send, `the core's name, ${reached.origin}`);
+        openTogetherSocket = browserTogetherSocket(reached.origin);
+        void carryMediaOver(send, session.token).catch(reportFailure);
+      } else {
+        const { transport } = reached;
+        routed.use(transport.fetch, pathName);
+        openTogetherSocket = rtcTogetherSocket(() => transport.openChannel());
+        void carryMediaOver(transport.fetch, session.token).catch(reportFailure);
+      }
       mountApp(session);
     },
   };
