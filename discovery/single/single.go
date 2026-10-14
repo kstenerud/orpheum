@@ -108,11 +108,13 @@ type Discovery struct {
 	signal   *signalling
 	// pingWait is how long a live instance has to answer: instancePingWait, shorter in the tests.
 	pingWait time.Duration
-	// locateHashes are the core's links a client may locate it by, each with when it ends, and
-	// locators its devices' locators' hashes: the full sets the core last sent, which a restart
-	// forgets and the core sends again with its next session (the protocol's §3.1).
-	locateHashes map[string]time.Time
+	// locateHashes are the core's links a client may locate it by, each with when it ends and how
+	// many uses it has left, and locators its devices' locators' hashes: the full sets the core last
+	// sent, which a restart forgets and the core sends again with its next session (the protocol's
+	// §3.1). bootstraps are the bootstrap tokens /locate issued.
+	locateHashes map[string]locatable
 	locators     map[string]bool
+	bootstraps   map[string]bootstrap
 }
 
 // New returns a discovery over parts, with a key for its nonces from parts.Random.
@@ -126,7 +128,8 @@ func New(parts Parts) (*Discovery, error) {
 	}
 	return &Discovery{
 		parts: parts, nonceKey: nonceKey, spent: map[string]time.Time{}, tokens: map[string]session{},
-		signal: newSignalling(parts.Logger), pingWait: instancePingWait,
+		signal: newSignalling(parts.Logger, parts.Now), pingWait: instancePingWait,
+		locateHashes: map[string]locatable{}, locators: map[string]bool{}, bootstraps: map[string]bootstrap{},
 	}, nil
 }
 
@@ -368,11 +371,19 @@ func (discovery *Discovery) keepLocateHashes(writer http.ResponseWriter, request
 		return
 	}
 	now := discovery.parts.Now()
-	kept := make(map[string]time.Time, len(sent.Hashes))
-	for _, hash := range sent.Hashes {
-		kept[hash.Hash] = now.Add(time.Duration(hash.ExpiresIn) * time.Second)
-	}
 	discovery.mutex.Lock()
+	kept := make(map[string]locatable, len(sent.Hashes))
+	for _, hash := range sent.Hashes {
+		next := locatable{
+			expires:   now.Add(time.Duration(hash.ExpiresIn) * time.Second),
+			isLimited: hash.Uses > 0, usesLeft: hash.Uses,
+		}
+		// A link sent again keeps the uses spent since: the core counts them only as it registers.
+		if held, isHeld := discovery.locateHashes[hash.Hash]; isHeld && next.isLimited && held.isLimited {
+			next.usesLeft = min(next.usesLeft, held.usesLeft)
+		}
+		kept[hash.Hash] = next
+	}
 	discovery.locateHashes = kept
 	discovery.mutex.Unlock()
 	discovery.parts.Logger.InfoContext(request.Context(), "discovery: the core sent its links", "count", len(kept))
