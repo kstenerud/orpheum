@@ -37,6 +37,9 @@ const (
 	// PathACMEChallenge is where the core sets and clears its certificate's DNS-01 record, which
 	// the discovery holds for it (the spec's §3.7).
 	PathACMEChallenge = "/acme-challenge"
+	// PathACMEAccount is where the core reports its ACME account, before it orders a certificate, so
+	// the discovery's CAA names that account alone (the protocol's §2.7; RFC 8657).
+	PathACMEAccount = "/acme-account"
 )
 
 // The purposes a signature is made for: the protocol, the purpose and the nonce are what is signed,
@@ -247,6 +250,13 @@ type SignalMessage struct {
 	// nobody's word (the protocol's §2.5 item 4, §3.5).
 	PublicKey []byte `json:"publicKey,omitempty"`
 	Reason    string `json:"reason,omitempty"`
+}
+
+// ACMEAccountRequest is the core's ACME account, as its CA named it, which the discovery's CAA at
+// the core's own name allows alone (accounturi, RFC 8657; the protocol's §2.7). A core that makes a
+// new account reports it before it orders, and the record is rewritten (G2).
+type ACMEAccountRequest struct {
+	AccountURI string `json:"accountUri"`
 }
 
 // ACMEChallengeRequest sets the TXT record of name, which is _acme-challenge.<coreId>.<zone>, to

@@ -514,6 +514,12 @@ func TestHandler_APendingCorePublishesNothingUntilItIsClaimed(t *testing.T) {
 		discoveryproto.ACMEChallengeRequest{Name: name, Value: dns01Value}, nil); status != http.StatusOK {
 		t.Errorf("the claimed core's certificate record answered %d", status)
 	}
+	// A claimed core reports its ACME account, which the owner's own DNS needs nothing of.
+	if status := built.call(t, http.MethodPut, discoveryproto.PathACMEAccount, token,
+		discoveryproto.ACMEAccountRequest{AccountURI: "https://ca.example/acct/1"}, nil); status !=
+		http.StatusNoContent {
+		t.Errorf("the claimed core's ACME account answered %d; want it taken", status)
+	}
 }
 
 // dns01Value is a TXT record's value as DNS-01 makes one: a SHA-256 digest in unpadded base64url.
