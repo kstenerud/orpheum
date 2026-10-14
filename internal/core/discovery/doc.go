@@ -9,7 +9,8 @@
 //   - Enrolling signs the discovery's nonce with the identity key, and the discovery and the core's
 //     id there survive a restart (discovery.json). TestConnect_EnrolsWithASignatureAndKeepsTheDiscoveryAcrossARestart.
 //   - A pending core asks whether it is claimed; a claimed one sends its addresses when they change
-//     and every five minutes otherwise. TestStep_WaitsToBeClaimedThenSendsItsAddressesWhenTheyChangeOrEveryFiveMinutes.
+//     and every five minutes otherwise, each time with a new nonce for the outside probe.
+//     TestStep_WaitsToBeClaimedThenSendsItsAddressesWhenTheyChangeOrEveryFiveMinutes.
 //   - A session the discovery refuses is replaced at once by a new one, signed afresh, and the
 //     call made again with it (C11). TestStep_OpensANewSessionWhenTheDiscoveryRefusesTheOld.
 //   - One session is opened at a time, however many callers ask at once (C11).

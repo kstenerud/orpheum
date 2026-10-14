@@ -295,6 +295,8 @@ type world struct {
 	candidates []discoveryproto.Candidate
 	// claimedCount is how many times the service said the core was claimed.
 	claimedCount atomic.Int32
+	// probeNonces is how many nonces the service made for the probe.
+	probeNonces atomic.Int32
 }
 
 func newWorld(t *testing.T) *world {
@@ -322,6 +324,7 @@ func (built *world) restart(t *testing.T) *Service {
 		Candidates: func() []discoveryproto.Candidate { return built.candidates },
 		OnClaimed:  func(context.Context) { built.claimedCount.Add(1) },
 		RetryFirst: time.Second, RetryMost: time.Minute, Random: unjittered{},
+		ProbeNonce: func() (string, error) { return fmt.Sprintf("probe-%d", built.probeNonces.Add(1)), nil },
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -379,6 +382,11 @@ func TestStep_WaitsToBeClaimedThenSendsItsAddressesWhenTheyChangeOrEveryFiveMinu
 	sent := built.fake.heartbeats[1]
 	if sent.APIMajor != 1 || sent.OrpheumVersion != "v0.1.0" || len(sent.Candidates) != 2 {
 		t.Errorf("the heartbeat was %+v; want the version, the API's major and both candidates", sent)
+	}
+	// Each heartbeat carries a new nonce for the probe to ask the core's echo for (§2.6).
+	if first, next := built.fake.heartbeats[1].ProbeNonce, built.fake.heartbeats[2].ProbeNonce; first != "probe-2" ||
+		next != "probe-3" {
+		t.Errorf("the heartbeats' probe nonces were %q and %q; want a new one each", first, next)
 	}
 }
 

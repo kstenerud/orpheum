@@ -169,13 +169,17 @@ type ICEServer struct {
 	Credential string   `json:"credential,omitempty"`
 }
 
-// AddressesRequest is the heartbeat: the core's version, its API's major, its candidates and its
-// owner's TURN servers.
+// AddressesRequest is the heartbeat: the core's version, its API's major, its candidates, its
+// owner's TURN servers, and a nonce for the outside probe.
 type AddressesRequest struct {
 	OrpheumVersion string      `json:"orpheumVersion"`
 	APIMajor       int         `json:"apiMajor"`
 	Candidates     []Candidate `json:"candidates"`
 	TURN           []ICEServer `json:"turn,omitempty"`
+	// ProbeNonce is what the probe asks the core's reachability echo for at each candidate: the
+	// core made it, so only the core answers it (the protocol's §2.6). Each heartbeat sends a new one,
+	// recognised for ten minutes.
+	ProbeNonce string `json:"probeNonce,omitempty"`
 }
 
 // ProbeResult is what the discovery's outside probe found of one candidate, each part a field of its

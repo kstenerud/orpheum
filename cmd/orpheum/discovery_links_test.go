@@ -131,3 +131,17 @@ func TestHeartbeatCandidates_InAContainerSendNoInterfaceAddresses(t *testing.T) 
 		t.Errorf("a core told to send them sends %+v; want its interfaces' beside the configured", withInterfaces)
 	}
 }
+
+// Each heartbeat sends a nonce for the discovery's outside probe that the core's own echo
+// recognises, the one answer only this core can give from outside (the protocol's §2.6).
+func TestDiscoveryParts_TheProbesNonceIsOneTheEchoRecognises(t *testing.T) {
+	t.Parallel()
+	var config Config
+	var opened openedServices
+	opened.reachability = newReachability(config, opened)
+	parts := discoveryParts(config, opened, nil, nil, nil, slog.New(slog.DiscardHandler))
+	nonce, err := parts.ProbeNonce()
+	if err != nil || !opened.reachability.Recognises(nonce) {
+		t.Errorf("the heartbeat's probe nonce is %q, %v; want one the echo recognises", nonce, err)
+	}
+}

@@ -25,6 +25,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
+	"github.com/kstenerud/orpheum/internal/core/reachability"
 	"github.com/kstenerud/orpheum/internal/core/readthrough"
 	"github.com/kstenerud/orpheum/internal/core/renditions"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
@@ -170,6 +171,9 @@ type openedServices struct {
 	together *together.Hub
 	// auth keeps what a discovery finds the core by: its links and its devices' locators.
 	auth *auth.Service
+	// reachability checks the public path, and answers its echo for the admin's checks and for the
+	// discovery's outside probe, whose nonces the heartbeat sends.
+	reachability *reachability.Checker
 }
 
 // with is opened holding what the API's dependencies opened that the services opened after them use,
@@ -256,7 +260,7 @@ func openAndWire(
 	opened = wireJobsInto(&dependencies, opened)
 	dependencies.NodeReports, dependencies.NodeWork = opened.nodes, opened.exchanges
 	dependencies.NodeBytes, dependencies.Reachability, dependencies.Relay = openByteSocket(opened.nodes),
-		newReachability(config, opened), newRelayIssuer(config, opened)
+		opened.reachability, newRelayIssuer(config, opened)
 	dependencies.System = api.System{
 		Build: thisBuild(), StartedAt: clock.System{}.Now(), PersistentDirectory: directories.PersistentDirectory(),
 		CacheDirectory: directories.CacheDirectory(), PersistentDatabase: database, CacheDatabase: opened.cache,

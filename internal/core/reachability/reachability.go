@@ -31,6 +31,11 @@ const nonceBytes = 16
 // nonceLifetime is how long a nonce is recognised: longer than the check's own request may take.
 const nonceLifetime = time.Minute
 
+// probeNonceLifetime is how long a nonce sent to the discovery for its outside probe is recognised:
+// longer than a heartbeat's wait, heartbeats coming at least every 5 minutes, so the newest one the
+// discovery holds is always live (the protocol's §2.6).
+const probeNonceLifetime = 10 * time.Minute
+
 // stunWait is how long a STUN binding is given to be answered over the relay's port, and
 // stunTries how many times it is sent over UDP, which may lose one.
 const (
@@ -99,7 +104,7 @@ type Parts struct {
 type Checker struct {
 	parts  Parts
 	mutex  sync.Mutex
-	nonces map[string]time.Time // guarded by mutex: each live nonce, by when it was made
+	nonces map[string]time.Time // guarded by mutex: each live nonce, by when it stops being recognised
 }
 
 // New is a checker.
@@ -124,12 +129,19 @@ func (checker *Checker) Check(ctx context.Context) Report {
 	return report
 }
 
-// Recognises is whether nonce is one of this server's checks, made within nonceLifetime.
+// Recognises is whether nonce is one this server made, a check's or a probe's, still within its
+// lifetime.
 func (checker *Checker) Recognises(nonce string) bool {
 	checker.mutex.Lock()
 	defer checker.mutex.Unlock()
-	madeAt, found := checker.nonces[nonce]
-	return found && checker.parts.Clock.Now().Sub(madeAt) < nonceLifetime
+	endsAt, found := checker.nonces[nonce]
+	return found && checker.parts.Clock.Now().Before(endsAt)
+}
+
+// ProbeNonce is a new nonce for the discovery's outside probe to ask the echo for, recognised for
+// probeNonceLifetime: the core issues it, so an answer to it is this server (the protocol's §2.6).
+func (checker *Checker) ProbeNonce() (string, error) {
+	return checker.newNonce(probeNonceLifetime)
 }
 
 // checkHTTPS resolves the name, then asks it for the echo of a new nonce: an answer from this
@@ -139,7 +151,7 @@ func (checker *Checker) checkHTTPS(ctx context.Context) ([]string, Result) {
 	if err != nil || len(addresses) == 0 {
 		return nil, Result{Outcome: NameUnresolved, Detail: errorText(err)}
 	}
-	nonce, err := checker.newNonce()
+	nonce, err := checker.newNonce(nonceLifetime)
 	if err != nil {
 		return addresses, Result{Outcome: NotAnswering, Detail: err.Error()}
 	}
@@ -168,8 +180,8 @@ func (checker *Checker) checkHTTPS(ctx context.Context) ([]string, Result) {
 	return addresses, Result{Outcome: Reached}
 }
 
-// newNonce makes a nonce and keeps it, forgetting those past nonceLifetime.
-func (checker *Checker) newNonce() (string, error) {
+// newNonce makes a nonce and keeps it for lifetime, forgetting those past theirs.
+func (checker *Checker) newNonce(lifetime time.Duration) (string, error) {
 	nonce, err := randbytes.Base64URLSecret(checker.parts.Random, nonceBytes)
 	if err != nil {
 		return "", fmt.Errorf("make a reachability nonce: %w", err)
@@ -177,12 +189,12 @@ func (checker *Checker) newNonce() (string, error) {
 	now := checker.parts.Clock.Now()
 	checker.mutex.Lock()
 	defer checker.mutex.Unlock()
-	for each, madeAt := range checker.nonces {
-		if now.Sub(madeAt) >= nonceLifetime {
+	for each, endsAt := range checker.nonces {
+		if !now.Before(endsAt) {
 			delete(checker.nonces, each)
 		}
 	}
-	checker.nonces[nonce] = now
+	checker.nonces[nonce] = now.Add(lifetime)
 	return nonce, nil
 }
 

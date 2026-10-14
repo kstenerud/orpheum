@@ -42,16 +42,27 @@ func newDiscovery(
 	if err != nil {
 		return nil, err
 	}
+	parts := discoveryParts(config, opened, answerer, onClaimed, mapped, logger)
+	parts.Key = key
+	return discovery.New(parts)
+}
+
+// discoveryParts is what the core's side of its discovery is made of, but for its identity key:
+// what it tells its discovery in each heartbeat, and what it answers the offers passed on to it with.
+func discoveryParts(
+	config Config, opened openedServices, answerer discovery.Answerer, onClaimed func(context.Context),
+	mapped *portmap.Service, logger *slog.Logger,
+) discovery.Parts {
 	retryFirst, retryMost := config.Discovery.retries()
-	return discovery.New(discovery.Parts{
-		Files: opened.directories, Key: key, HTTP: opened.jobServices.outboundClient, Clock: clock.System{},
+	return discovery.Parts{
+		Files: opened.directories, HTTP: opened.jobServices.outboundClient, Clock: clock.System{},
 		Logger: logger, Version: thisBuild().Version, APIMajor: apiMajor,
 		Candidates: heartbeatCandidates(config, mapped.Candidates),
 		Answerer:   answerer, OnClaimed: onClaimed,
 		RetryFirst: retryFirst, RetryMost: retryMost, Random: rand.Reader,
 		Links: linksOf(opened.auth, opened.together), OfferKey: offerKeyOf(opened.auth, opened.together),
-		TURN: relayForFound(newRelayIssuer(config, opened), logger),
-	})
+		TURN: relayForFound(newRelayIssuer(config, opened), logger), ProbeNonce: opened.reachability.ProbeNonce,
+	}
 }
 
 // heartbeatCandidates is what the core may be reached at, read afresh for each heartbeat: the machine's own
@@ -146,6 +157,7 @@ func openReachedFromOutside(
 			logger.ErrorContext(ctx, "the certificate of the discovery's names could not be asked for", "err", queueErr)
 		}
 	}
+	opened.reachability = newReachability(config, opened)
 	mapped, err := newPortMapping(config, opened, func() discovery.Status { return discovered.Status() }, logger)
 	if err != nil {
 		return opened, err
