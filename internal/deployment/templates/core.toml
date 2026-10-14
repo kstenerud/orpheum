@@ -14,6 +14,9 @@
 listen = "0.0.0.0:8440"
 read_header_timeout_seconds = 10
 shutdown_grace_seconds = 10
+# Names the house reaches the plain listener by, beside its addresses and local names; the HTTPS
+# name is added on its own.
+host_names = []
 
 [https]
 domain = {{toml .Values.Domain}}

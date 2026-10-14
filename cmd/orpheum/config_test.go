@@ -164,6 +164,7 @@ var validConfigTexts = map[instanceKind]string{
 listen = "127.0.0.1:8432"
 read_header_timeout_seconds = 10
 shutdown_grace_seconds = 10
+host_names = []
 
 [https]
 domain = ""

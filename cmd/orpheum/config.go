@@ -11,6 +11,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -51,6 +52,16 @@ type ServerConfig struct {
 	Listen                   string `toml:"listen"`
 	ReadHeaderTimeoutSeconds int64  `toml:"read_header_timeout_seconds"`
 	ShutdownGraceSeconds     int64  `toml:"shutdown_grace_seconds"`
+	// HostNames are the public names the house reaches the plain-HTTP listener by, beside its IP
+	// addresses and the names public DNS never answers: a request naming any other host is refused,
+	// against DNS rebinding (the discovery protocol's §7 item 10; S15).
+	HostNames []string `toml:"host_names"`
+}
+
+// lanHostNames are the names the plain-HTTP listener answers beside the ones it always does: the
+// config's, and the HTTPS name.
+func lanHostNames(config Config) []string {
+	return append(slices.Clone(config.Server.HostNames), config.HTTPS.Domain)
 }
 
 // HTTPSConfig is the server's public name and its HTTPS listener (D243 §6): its certificate comes by
@@ -281,6 +292,11 @@ func coreConfigKeys() []configKey {
 	return []configKey{
 		{tableServer, keyListen, "", "the address and port to serve on, which only this machine's owner can choose"},
 		{tableServer, "read_header_timeout_seconds", "10", "seconds a client has to send its request headers"},
+		{
+			tableServer, "host_names", "[]",
+			"public names the house reaches this listener by; it always answers its IP addresses and names " +
+				"public DNS never answers (nas, nas.example, nas.local), and refuses others against DNS rebinding",
+		},
 		{tableServer, "shutdown_grace_seconds", "10", "seconds in-flight requests get to finish when the server stops"},
 		{
 			tableHTTPS, "domain", `""`,

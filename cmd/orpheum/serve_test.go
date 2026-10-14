@@ -115,6 +115,7 @@ func testConfig(t *testing.T) (Config, string) {
 listen = "127.0.0.1:0"
 read_header_timeout_seconds = 10
 shutdown_grace_seconds = 10
+host_names = []
 
 [https]
 domain = ""
@@ -604,6 +605,35 @@ func TestServe_APersonIsShownTheLinkTheyRegisteredBy(t *testing.T) {
 		t.Errorf("GET /me/own-link: %d %s; want the link the partner registered by", own.status, own.body)
 	}
 	if err := server.stop(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// The served plain listener refuses a request naming a public host it was not given, as a page that
+// rebound its own name to the core would send, and answers its address (S15).
+func TestServe_ThePlainListenerRefusesANameItWasNotGiven(t *testing.T) {
+	t.Parallel()
+	config, _ := testConfig(t)
+	server := startServing(t, config, newCapturedLog("ready"), "ready", nil)
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, server.baseURL+"/health", http.NoBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Host = "rebind.attacker.example"
+	answer, err := http.DefaultClient.Do(request) //nolint:forbidigo // a test's own request to its loopback server
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = answer.Body.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if answer.StatusCode != http.StatusMisdirectedRequest {
+		t.Errorf("a request naming another host answered %d; want 421", answer.StatusCode)
+	}
+	if health := requestAPI(t, http.MethodGet, server.baseURL+"/health", "", nil); health.status != http.StatusOK {
+		t.Errorf("a request to the listener's address answered %d", health.status)
+	}
+	if err = server.stop(); err != nil {
 		t.Fatal(err)
 	}
 }
