@@ -210,7 +210,7 @@ export interface DiscoverySignalling {
   /** The key the offers are proven under: the link's offer key, or the session's. */
   readonly key: Uint8Array<ArrayBuffer>;
   /** How the signaller posts: the browser's fetch, unless a test gives another. */
-  readonly fetch?: typeof fetch;
+  readonly fetch?: typeof fetch | undefined;
 }
 
 /** The protocol version every call carries (discoveryproto.ProtocolVersion). */
@@ -259,4 +259,112 @@ export function discoverySignaller(signalling: DiscoverySignalling): Signaller {
     }
     return { type: "answer", sdp: answered.sdp };
   };
+}
+
+/** The discovery finds no core by what the device holds: never registered, used up or ended. */
+export class NotFound extends Error {
+  constructor() {
+    super("the discovery finds no server by this");
+    this.name = "NotFound";
+  }
+}
+
+/** A call to a discovery's client API: where, what, and how to post. */
+interface ClientCall {
+  readonly clientApi: string;
+  readonly path: string;
+  readonly body: unknown;
+  readonly fetch?: typeof fetch | undefined;
+}
+
+/** Posts a call's body and returns its answer's JSON; NotFound when the discovery finds no core. */
+async function postToDiscovery(call: ClientCall): Promise<unknown> {
+  const send = call.fetch ?? fetch;
+  const response = await send(`${call.clientApi}${call.path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Orpheum-Discovery-Protocol": protocolVersion },
+    body: JSON.stringify(call.body),
+  });
+  if (response.status === 404) {
+    throw new NotFound();
+  }
+  if (!response.ok) {
+    throw new Error(`the discovery answered ${String(response.status)}`);
+  }
+  if (response.status === 204) {
+    return undefined;
+  }
+  const answer: unknown = await response.json();
+  return answer;
+}
+
+/** Where the core is, as a discovery's locate or paths answers. */
+export interface Located {
+  readonly coreId: string;
+  readonly iceServers: RTCIceServer[];
+  /** Locate's alone: good for paths and offers for a few minutes, never renewed. */
+  readonly bootstrapToken?: string;
+}
+
+/** An ICE server as the discovery names it, or none when it is not one. */
+function iceServerOf(named: unknown): RTCIceServer[] {
+  if (typeof named !== "object" || named === null) {
+    return [];
+  }
+  const urls: unknown = Reflect.get(named, "urls");
+  const username: unknown = Reflect.get(named, "username");
+  const credential: unknown = Reflect.get(named, "credential");
+  if (!Array.isArray(urls) || !urls.every((url): url is string => typeof url === "string")) {
+    return [];
+  }
+  return [
+    {
+      urls,
+      ...(typeof username === "string" ? { username } : {}),
+      ...(typeof credential === "string" ? { credential } : {}),
+    },
+  ];
+}
+
+function locatedOf(answer: unknown): Located {
+  const field = (name: string): unknown =>
+    typeof answer === "object" && answer !== null ? Reflect.get(answer, name) : undefined;
+  const coreId = field("coreId");
+  const iceServers = field("iceServers");
+  const bootstrapToken = field("bootstrapToken");
+  if (typeof coreId !== "string") {
+    throw new Error("the discovery's answer names no server");
+  }
+  return {
+    coreId,
+    iceServers: Array.isArray(iceServers) ? iceServers.flatMap(iceServerOf) : [],
+    ...(typeof bootstrapToken === "string" ? { bootstrapToken } : {}),
+  };
+}
+
+/** Where to ask, and how: a discovery's client API, and the fetch to post with (the browser's). */
+export interface DiscoveryClient {
+  readonly clientApi: string;
+  readonly fetch?: typeof fetch | undefined;
+}
+
+/** Locates the core by a link's secret, spending a use of the link (the protocol's §3.1). */
+export async function locate(client: DiscoveryClient, secret: string): Promise<Located> {
+  return locatedOf(
+    await postToDiscovery({ ...client, path: "/locate", body: { hash: await locateHash(secret) } }),
+  );
+}
+
+/** The core's paths, by what the device holds. */
+export async function pathsOf(client: DiscoveryClient, held: Held): Promise<Located> {
+  return locatedOf(await postToDiscovery({ ...client, path: "/paths", body: held }));
+}
+
+/** Tells the discovery nothing reached the core, so its admin hears of it (D293 §7); best effort. */
+export async function reportDeadEnd(client: DiscoveryClient, held: Held): Promise<void> {
+  try {
+    await postToDiscovery({ ...client, path: "/dead-end", body: held });
+  } catch {
+    // A report that fails is no worse than none.
+  }
 }
