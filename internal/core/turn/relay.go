@@ -136,13 +136,13 @@ func (relay *Relay) Close() error {
 	return nil
 }
 
-// authHandler admits a username Issue made, unexpired, of a live membership, and gives TURN the key
-// its password makes; anything else is refused.
+// authHandler admits a username Issue made, unexpired, of a live membership, or one IssueFound
+// made, unexpired, and gives TURN the key its password makes; anything else is refused.
 func authHandler(ctx context.Context, parts Parts) pionturn.AuthHandler {
 	return func(username, _ string, _ net.Addr) ([]byte, bool) {
-		membership, expiresAt, err := parseUsername(username)
+		held, expiresAt, err := parseUsername(username)
 		if err != nil || !parts.Clock.Now().Before(expiresAt) ||
-			!parts.IsMember(membership.SessionID, membership.MemberID) {
+			!held.isFound && !parts.IsMember(held.membership.SessionID, held.membership.MemberID) {
 			return nil, false
 		}
 		secret, err := parts.Secrets.Open(ctx, secrets.TURNSecret)

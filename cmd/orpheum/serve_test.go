@@ -573,3 +573,36 @@ func TestServe_TheDiscoverySectionSaysNoDiscoveryAndNoPortMapping(t *testing.T) 
 		t.Fatal(err)
 	}
 }
+
+// The served server keeps each link's secret sealed, so a person who registered by an invitation is
+// shown it again as their own link (discovery-core.md K7).
+func TestServe_APersonIsShownTheLinkTheyRegisteredBy(t *testing.T) {
+	t.Parallel()
+	config, path := testConfig(t)
+	server := startServing(t, config, newCapturedLog("ready"), "ready", nil)
+	token := signedInOwner(t, server, path)
+	invited := requestAPI(t, http.MethodPost, server.baseURL+"/invitations", token,
+		map[string]string{"role": "user", "adminNote": "the partner"})
+	var invitation api.InviteOutput
+	err := json.Unmarshal([]byte(invited.body), &invitation.Body)
+	if err != nil || invited.status != http.StatusCreated {
+		t.Fatalf("POST /invitations: %d %s", invited.status, invited.body)
+	}
+	registered := requestAPI(t, http.MethodPost, server.baseURL+"/registration", "", map[string]any{
+		"secret": invitation.Body.Link.Secret, "name": "partner", "password": "partner-password",
+		"device": signInDevice,
+	})
+	var session struct {
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal([]byte(registered.body), &session); err != nil || session.Token == "" {
+		t.Fatalf("POST /registration: %d %s", registered.status, registered.body)
+	}
+	own := requestAPI(t, http.MethodGet, server.baseURL+"/me/own-link", session.Token, nil)
+	if own.status != http.StatusOK || !strings.Contains(own.body, invitation.Body.Link.Secret) {
+		t.Errorf("GET /me/own-link: %d %s; want the link the partner registered by", own.status, own.body)
+	}
+	if err := server.stop(); err != nil {
+		t.Fatal(err)
+	}
+}

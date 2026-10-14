@@ -367,3 +367,26 @@ func TestMigrate_Step0037KeepsEachGrantAndAddsWhatADiscoveryFindsTheCoreBy(t *te
 		t.Errorf("the grants after the step are %s, want %s: each kept, no link's hashes, no locators", got, want)
 	}
 }
+
+// Step 0038 keeps every grant with no sealed link, since the core kept no link's secret before it
+// (discovery-core.md K7).
+func TestMigrate_Step0038KeepsEachGrantWithNoSealedLink(t *testing.T) {
+	t.Parallel()
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := openTemporary(t)
+	if err = database.migrate(t.Context(), steps[:2], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	execRaw(t, database, `INSERT INTO "grant" (secret_sha256, kind, scope, issued_at, locate_hash) VALUES
+		(X'0a', 'issued_secret', 'invitation', 1, X'0b')`)
+	if err = database.migrate(t.Context(), steps[:3], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	got := fmt.Sprint(queryRows(t, database, `SELECT kind, locate_hash IS NULL, link_sealed IS NULL FROM "grant"`, 3))
+	if want := "[[issued_secret 0 1]]"; got != want {
+		t.Errorf("the grants after the step are %s, want %s: each kept, its hashes kept, no link sealed", got, want)
+	}
+}

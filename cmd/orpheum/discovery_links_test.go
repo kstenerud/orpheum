@@ -4,18 +4,23 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"errors"
 	"log/slog"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/discovery/link"
 	"github.com/kstenerud/orpheum/discovery/proof"
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/core/together"
+	"github.com/kstenerud/orpheum/internal/core/turn"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -63,5 +68,47 @@ func TestLinksOf_TheDiscoveryFindsTheCoreByWatchTogethersLinksAndLocators(t *tes
 	}
 	if _, err = offerKey(t.Context(), link.LocateHash(used.Secret)); !errors.Is(err, auth.ErrNoOfferKey) {
 		t.Errorf("an offer under a used link's hash gave %v; want auth.ErrNoOfferKey", err)
+	}
+}
+
+// fixedSecrets is a TURN secret kept in memory.
+type fixedSecrets struct{ value secrets.Value }
+
+func (kept fixedSecrets) Open(context.Context, secrets.Name) (secrets.Value, error) {
+	return kept.value, nil
+}
+
+func (fixedSecrets) Set(context.Context, secrets.Name, secrets.Value, *int64) error { return nil }
+
+// The core hands its discovery its own relay, over UDP and TCP, with credentials of the found kind
+// the relay admits; a core that relays nothing hands none (the discovery protocol's §2.4).
+func TestRelayForFound_HandsTheDiscoveryTheCoresRelayWithFreshCredentials(t *testing.T) {
+	t.Parallel()
+	logger := slog.New(slog.DiscardHandler)
+	issuer := &turn.Issuer{Address: "11.22.44.146:3478", Secrets: fixedSecrets{value: secrets.NewValue("s")}}
+	servers := relayForFound(issuer, logger)(t.Context())
+	if len(servers) != 1 || len(servers[0].URLs) != 2 ||
+		servers[0].URLs[0] != "turn:11.22.44.146:3478?transport=udp" ||
+		!strings.HasSuffix(servers[0].Username, ":found") || servers[0].Credential == "" {
+		t.Errorf("the relay handed the discovery is %+v; want its addresses with found credentials", servers)
+	}
+	if none := relayForFound(nil, logger)(t.Context()); len(none) != 0 {
+		t.Errorf("a core that relays nothing handed %+v", none)
+	}
+}
+
+// Each heartbeat sends the addresses the config names beside the router's mappings, as configured
+// candidates (the protocol's §2.4).
+func TestHeartbeatCandidates_SendTheConfiguredAddressesBesideTheMapped(t *testing.T) {
+	t.Parallel()
+	var config Config
+	config.Discovery.ConfiguredAddresses = []string{"11.22.44.146:443"}
+	mapped := discoveryproto.Candidate{Address: "203.0.113.9", Port: 51234, Source: discoveryproto.SourceMapped}
+	mappings := func() []discoveryproto.Candidate { return []discoveryproto.Candidate{mapped} }
+	got := heartbeatCandidates(config, mappings)()
+	if !slices.Contains(got, mapped) || !slices.Contains(got, discoveryproto.Candidate{
+		Address: "11.22.44.146", Port: 443, Source: discoveryproto.SourceConfigured,
+	}) {
+		t.Errorf("the heartbeat's candidates are %+v; want the mapped one and the configured one", got)
 	}
 }

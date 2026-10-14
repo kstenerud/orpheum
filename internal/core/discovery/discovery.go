@@ -82,8 +82,9 @@ type Parts struct {
 	APIMajor int
 	// Candidates are the addresses the core may be reached at, read afresh for each heartbeat.
 	Candidates func() []discoveryproto.Candidate
-	// TURN are the owner's own TURN servers, passed to the core's clients; nil has none.
-	TURN func() []discoveryproto.ICEServer
+	// TURN are the owner's own TURN servers, with credentials fresh for each heartbeat, which the
+	// discovery passes to the devices it finds the core for (the protocol's §2.4); nil has none.
+	TURN func(ctx context.Context) []discoveryproto.ICEServer
 	// Answerer answers the WebRTC offers the discovery passes on: rtcapi.Server, which checks each
 	// itself first; nil answers none.
 	Answerer Answerer
@@ -502,7 +503,7 @@ func (service *Service) heartbeat(ctx context.Context, status Status) time.Durat
 		APIMajor:       service.parts.APIMajor, Candidates: candidates,
 	}
 	if service.parts.TURN != nil {
-		request.TURN = service.parts.TURN()
+		request.TURN = service.parts.TURN(ctx)
 	}
 	var answered discoveryproto.AddressesResponse
 	err := service.signedCall(ctx, callOf{

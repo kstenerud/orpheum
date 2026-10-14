@@ -325,8 +325,9 @@ the signalling connection.
 - `turn`: a TURN server the owner runs, passed to the core's clients; the owner's relay, never the
   paid service's. Its credentials are **time-limited** (the TURN REST pattern: a username of
   `<expiry>:<id>`, a password that is an HMAC under a secret the core and the TURN server share),
-  minted by the core and refreshed with each heartbeat, never the static long-term ones (C14). Not
-  built: the core never sends `turn` today.
+  minted by the core and refreshed with each heartbeat, never the static long-term ones (C14). Built
+  2026-10-14: a username of `<expiry>:found`, lasting a day [I], which the relay admits with no
+  membership, still relaying only to the public internet.
 - The discovery records the request's source address too, but never publishes it unprobed: behind
   carrier NAT it is shared and unreachable. Behind Cloudflare (the paid service, reached through a
   Cloudflare Tunnel, D292 §2–§3) the source is taken from `CF-Connecting-IP`, trusted only from
