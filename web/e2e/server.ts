@@ -77,6 +77,8 @@ export interface Film {
   readonly year: number;
   readonly extension: string;
   readonly ffmpegInputArguments: readonly string[];
+  /** Whether a poster.jpg sits beside it, the local artwork a library reads (no provider is reached). */
+  readonly hasPoster?: boolean;
 }
 
 /** Makes one film, in its own folder with an NFO naming it, as a library holds one. */
@@ -92,6 +94,12 @@ async function makeFilm(ffmpeg: string, library: string, film: Film): Promise<vo
     film.ffmpegInputArguments,
     path.join(folder, `${film.title} (${String(film.year)}).${film.extension}`),
   );
+  if (film.hasPoster === true) {
+    execFileSync(ffmpeg, [
+      ...["-v", "error", "-f", "lavfi", "-i", "color=c=teal:s=200x300"],
+      ...["-frames:v", "1", path.join(folder, "poster.jpg")],
+    ]);
+  }
 }
 
 /**
@@ -288,7 +296,13 @@ function specFilms(root: string): Film[] {
   const assPath = path.join(root, "timing.ass");
   writeFileSync(assPath, timingAssText);
   return [
-    { title: warmUpFilm, year: 2020, extension: "mp4", ffmpegInputArguments: warmUpArguments },
+    {
+      title: warmUpFilm,
+      year: 2020,
+      extension: "mp4",
+      ffmpegInputArguments: warmUpArguments,
+      hasPoster: true,
+    },
     {
       title: preparedFilm,
       year: 2021,

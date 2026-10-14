@@ -117,14 +117,15 @@ if (discoveryClientApi === "") {
       if (reached.kind === "direct") {
         // The core's own name: the page's requests and media go there, the session by its header.
         const send = directFetch(reached.origin);
-        routed.use(send, `the core's name, ${reached.origin}`);
+        const name = `the core's name, ${reached.origin}`;
+        routed.use(send, name);
         openTogetherSocket = browserTogetherSocket(reached.origin);
-        void carryMediaOver(send, session.token).catch(reportFailure);
+        void carryMediaOver(send, session.token, name).catch(reportFailure);
       } else {
         const { transport } = reached;
         routed.use(transport.fetch, pathName);
         openTogetherSocket = rtcTogetherSocket(() => transport.openChannel());
-        void carryMediaOver(transport.fetch, session.token).catch(reportFailure);
+        void carryMediaOver(transport.fetch, session.token, pathName).catch(reportFailure);
       }
       mountApp(session);
     },
