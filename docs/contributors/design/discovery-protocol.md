@@ -96,7 +96,7 @@ TURN, ever"; X6). A relay, if one is built, would carry only DTLS whose fingerpr
 
 **Staging** has no domains or accounts of its own (D292 §2): its client and API are
 `app-staging.orpheum-app.com` and `api-staging.orpheum-app.com`, reached through a Cloudflare
-Tunnel whose token edits no DNS, and its cores sit under `staging.orpheum-core.com` (D293 §3). It
+Tunnel whose token edits no DNS, and its cores sit in a domain of their own, `orpheum-test.com` (D296). It
 uses Let's Encrypt's staging CA [I, devloop §7]. Only the owner's own cores enrol with it, and no
 credential able to touch production enters the agent's sandbox (D292 §2), with one exception
 bounded by a date (D293 §3): a Cloudflare token cannot be scoped below a zone, so staging's zone
@@ -498,8 +498,8 @@ The answer also carries the count of the core's clients that reached a dead end 
 ### 2.7 Names and certificates (D273 §7, research B1, §9.2; D290 §7; D292 §1) — the core's side built
 
 - **The household zone is `orpheum-core.com`** (D292 §1, replacing the `.app` domain and Bunny DNS
-  of D291 §2), registered and served at Cloudflare; staging's cores sit under a subzone of it (D292
-  §2), `staging.orpheum-core.com` (D293 §3). It is never `orpheum-app.com`: every core holds a
+  of D291 §2), registered and served at Cloudflare; staging's cores sit in a domain of their own,
+  `orpheum-test.com` (D296, revising D293 §3), so no staging token reaches it. It is never `orpheum-app.com`: every core holds a
   certificate there and could otherwise set cookies for the service's pages. The isolation is the
   separate registered domain. **The apex serves no HTTPS** (D293 §10, revising D292 §1's preload):
   Universal SSL stays off, so the apex's CAA stays `issue ";"`, and the HSTS preload of
