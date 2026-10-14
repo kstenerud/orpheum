@@ -10,6 +10,7 @@ type MyTogetherBody struct {
 	MemberID             int64  `json:"memberId"`
 	IsHost               bool   `json:"isHost"`
 	MembershipCredential string `json:"membershipCredential"`
+	Locator              string `doc:"What this device finds the server by through a discovery; the host's has none" json:"locator,omitempty"` //nolint:lll // one struct tag
 }
 
 // MyTogetherOutput is every session the signed-in person is in.
@@ -36,7 +37,7 @@ func (server *Server) listMyTogether(ctx context.Context, input *AuthorizationHe
 	for _, each := range mine {
 		output.Body.Sessions = append(output.Body.Sessions, MyTogetherBody{
 			SessionID: each.SessionID, MemberID: each.MemberID, IsHost: each.IsHost,
-			MembershipCredential: each.MembershipCredential,
+			MembershipCredential: each.MembershipCredential, Locator: each.Locator,
 		})
 	}
 	return output, nil

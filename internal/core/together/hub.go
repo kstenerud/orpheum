@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	discoverylink "github.com/kstenerud/orpheum/discovery/link"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 )
@@ -69,6 +70,8 @@ type Hub struct {
 	keyframeAtOrBefore KeyframeAtOrBefore
 	// logger hears every change of each session's group (the owner, 2026-10-06).
 	logger *slog.Logger
+	// onLinksChanged is told when a link or a locator is made (OnLinksChanged); nil tells nothing.
+	onLinksChanged func()
 
 	mutex    sync.Mutex
 	sessions map[int64]*session // guarded by mutex
@@ -109,6 +112,8 @@ type session struct {
 type link struct {
 	id         int64
 	secretHash [sha256.Size]byte
+	// locateHash is what a discovery finds the core by while the link is unused (link.LocateHash).
+	locateHash string
 	// secret is the link itself, kept for the host to pass on again: a page reloaded before it was
 	// shared lost it, and a guest comes back by it on the browser that joined (D267 §1, §5).
 	secret   string
@@ -146,10 +151,10 @@ type member struct {
 	// rights are a guest's, from their link, for as long as they are in; the host may do anything.
 	rights Rights
 	person *Person
-	// credentialHashes are the credentials its devices say hello with, the newest last: one per
+	// credentials are the credentials its devices say hello with, the newest last: one per
 	// device that had the membership, so having it back on one cuts off no other (D267 §3).
-	credentialHashes [][sha256.Size]byte
-	devices          map[int64]*device
+	credentials []credential
+	devices     map[int64]*device
 }
 
 // device is one connected client of a member.
@@ -230,7 +235,7 @@ func (hub *Hub) Open(host Person) (Opened, error) {
 		}
 		for _, hostMember := range each.members {
 			if hostMember.isHost {
-				hostMember.addCredential(credential)
+				hostMember.addCredential(madeCredential{credential: credential})
 			}
 		}
 		return Opened{SessionID: each.id, MembershipCredential: credential}, nil
@@ -246,7 +251,7 @@ func (hub *Hub) Open(host Person) (Opened, error) {
 	opened.members[hub.lastID] = &member{
 		id: hub.lastID, name: host.Name, isHost: true, person: &hostPerson, devices: map[int64]*device{},
 	}
-	opened.members[hub.lastID].addCredential(credential)
+	opened.members[hub.lastID].addCredential(madeCredential{credential: credential})
 	hub.sessions[opened.id] = opened
 	return Opened{SessionID: opened.id, MembershipCredential: credential, IsNew: true}, nil
 }
@@ -275,10 +280,11 @@ func (hub *Hub) AddLink(sessionID, hostUserID int64, hostNote string, rights Rig
 	}
 	hub.lastID++
 	hosted.links[hub.lastID] = &link{
-		id: hub.lastID, secretHash: sha256.Sum256([]byte(secret)), secret: secret, hostNote: hostNote,
-		rights: rights,
+		id: hub.lastID, secretHash: sha256.Sum256([]byte(secret)), locateHash: discoverylink.LocateHash(secret),
+		secret: secret, hostNote: hostNote, rights: rights,
 	}
 	hosted.lastRights = rights
+	hub.linksChanged()
 	return LinkMade{LinkID: hub.lastID, Secret: secret}, nil
 }
 
@@ -358,15 +364,17 @@ type Joined struct {
 	SessionID            int64
 	MemberID             int64
 	MembershipCredential string
+	// Locator is what the membership's device finds the core by through a discovery (OfferKey).
+	Locator string
 }
 
 // Join admits the person a link was made for, once, as a member named name, the name the others
 // see (D246 §3); signed in, as person, whose devices have the membership back without the link
 // (D267 §2). Not signed in, person is nil.
 func (hub *Hub) Join(secret, name string, person *Person) (Joined, error) {
-	credential, err := randbytes.Base64URLSecret(hub.random, secretBytes)
+	made, err := newCredential(hub.random)
 	if err != nil {
-		return Joined{}, fmt.Errorf("make a membership credential: %w", err)
+		return Joined{}, err
 	}
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
@@ -380,9 +388,12 @@ func (hub *Hub) Join(secret, name string, person *Person) (Joined, error) {
 		id: hub.lastID, name: name, hostNote: used.hostNote, rights: used.rights, person: person,
 		devices: map[int64]*device{},
 	}
-	joined.members[hub.lastID].addCredential(credential)
+	joined.members[hub.lastID].addCredential(made)
 	joined.sendRoster()
-	return Joined{SessionID: joined.id, MemberID: hub.lastID, MembershipCredential: credential}, nil
+	hub.linksChanged()
+	return Joined{
+		SessionID: joined.id, MemberID: hub.lastID, MembershipCredential: made.credential, Locator: made.locator,
+	}, nil
 }
 
 // Eject removes a member: each of their devices is told the session ended for them, and their

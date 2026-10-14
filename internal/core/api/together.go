@@ -42,6 +42,7 @@ type TogetherLinkBody struct {
 	ID       int64  `json:"id"`
 	HostNote string `doc:"Who it is for; only the host sees it" json:"hostNote"`
 	Secret   string `doc:"The link's secret, after # in its address, to pass on again (D267 §5)" json:"secret"`
+	Link     string `doc:"The link to pass on, while a discovery has claimed the server" json:"link,omitempty"`
 	// UsedByMemberID is the member who joined by it; absent while it waits.
 	UsedByMemberID int64              `json:"usedByMemberId,omitempty"`
 	Rights         TogetherRightsBody `doc:"What the person who joins by it may do to playback" json:"rights"`
@@ -91,6 +92,7 @@ type TogetherLinkOutput struct {
 	Body struct {
 		LinkID int64  `json:"linkId"`
 		Secret string `json:"secret"`
+		Link   string `doc:"The link to pass on, while a discovery has claimed the server" json:"link,omitempty"`
 	}
 }
 
@@ -120,6 +122,7 @@ type JoinTogetherOutput struct {
 		SessionID            int64  `json:"sessionId"`
 		MemberID             int64  `json:"memberId"`
 		MembershipCredential string `json:"membershipCredential"`
+		Locator              string `doc:"What this device finds the server by through a discovery" json:"locator"`
 	}
 }
 
@@ -264,7 +267,7 @@ func (server *Server) getTogether(ctx context.Context, input *TogetherInput) (*T
 	for _, each := range details.Links {
 		output.Body.Links = append(output.Body.Links, TogetherLinkBody{
 			ID: each.ID, HostNote: each.HostNote, Secret: each.Secret, UsedByMemberID: each.UsedBy,
-			Rights: TogetherRightsBody(each.Rights),
+			Rights: TogetherRightsBody(each.Rights), Link: togetherLink(dependencies, each.Secret),
 		})
 	}
 	output.Body.Members = make([]TogetherMemberBody, 0, len(details.Members))
@@ -301,6 +304,7 @@ func (server *Server) addTogetherLink(ctx context.Context, input *TogetherLinkIn
 		"mayPlayPause", rights.CanPlayPause, "maySeek", rights.CanSeek)
 	output := &TogetherLinkOutput{}
 	output.Body.LinkID, output.Body.Secret = made.LinkID, made.Secret
+	output.Body.Link = togetherLink(dependencies, made.Secret)
 	return output, nil
 }
 
@@ -357,7 +361,7 @@ func (server *Server) joinTogether(ctx context.Context, input *JoinTogetherInput
 		"sessionId", joined.SessionID, "memberId", joined.MemberID, "name", name, "isSignedIn", person != nil)
 	output := &JoinTogetherOutput{}
 	output.Body.SessionID, output.Body.MemberID = joined.SessionID, joined.MemberID
-	output.Body.MembershipCredential = joined.MembershipCredential
+	output.Body.MembershipCredential, output.Body.Locator = joined.MembershipCredential, joined.Locator
 	return output, nil
 }
 

@@ -3,6 +3,7 @@
 package api
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
@@ -38,5 +39,28 @@ func TestDiscoveryLink_IsTheDiscoverysFormOnlyWhileItHasClaimedTheCore(t *testin
 		if got := discoveryLink(status, "/register", "a-secret"); got != "" {
 			t.Errorf("a core %s makes the link %q; want none, the client making it on its own origin", name, got)
 		}
+	}
+}
+
+// A device that joins a Watch Together session is handed the locator a discovery finds the core by
+// for it, which the core registers (discovery-core.md K7); a core no discovery has claimed makes its
+// links on the client's origin, naming none.
+func TestTogether_AJoiningDeviceIsHandedTheLocatorTheCoreRegisters(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	opened := harness.openTogether(t, admin)
+	joined := harness.joinByLink(t, admin, opened.Body.SessionID, "my partner", "Pat")
+	dependencies, err := harness.server.readyDependencies()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if joined.Body.Locator == "" ||
+		!slices.Equal(dependencies.Together.LiveLocators(), []string{link.LocatorHash(joined.Body.Locator)}) {
+		t.Errorf("the joined device was handed locator %q, and the core registers %v; want the one handed",
+			joined.Body.Locator, dependencies.Together.LiveLocators())
+	}
+	if made := togetherLink(dependencies, "a-secret"); made != "" {
+		t.Errorf("a core no discovery has claimed names the link %q; want none", made)
 	}
 }

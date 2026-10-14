@@ -2428,6 +2428,8 @@ export interface components {
             secret: string;
         };
         JoinTogetherOutputBody: {
+            /** @description What this device finds the server by through a discovery */
+            locator: string;
             /** Format: int64 */
             memberId: number;
             membershipCredential: string;
@@ -2518,6 +2520,8 @@ export interface components {
         };
         MyTogetherBody: {
             isHost: boolean;
+            /** @description What this device finds the server by through a discovery; the host's has none */
+            locator?: string;
             /** Format: int64 */
             memberId: number;
             membershipCredential: string;
@@ -3422,6 +3426,8 @@ export interface components {
             hostNote: string;
             /** Format: int64 */
             id: number;
+            /** @description The link to pass on, while a discovery has claimed the server */
+            link?: string;
             /** @description What the person who joins by it may do to playback */
             rights: components["schemas"]["TogetherRightsBody"];
             /** @description The link's secret, after # in its address, to pass on again (D267 §5) */
@@ -3436,6 +3442,8 @@ export interface components {
             rights?: components["schemas"]["TogetherRightsBody"];
         };
         TogetherLinkOutputBody: {
+            /** @description The link to pass on, while a discovery has claimed the server */
+            link?: string;
             /** Format: int64 */
             linkId: number;
             secret: string;

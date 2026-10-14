@@ -261,7 +261,7 @@ function SessionDialogs(props: {
         heading={t("watchTogether.issued", { note: dialog.note })}
         onClose={props.onClose}
       >
-        <IssuedLink note={dialog.note} secret={dialog.secret} />
+        <IssuedLink note={dialog.note} secret={dialog.secret} link={dialog.link} />
       </ActionDialog>
     );
   }
@@ -285,7 +285,7 @@ function SessionDialogs(props: {
                 ...idempotent(idempotencyKey),
               }),
             );
-            props.onIssued({ note: hostNote, secret: made.secret });
+            props.onIssued({ note: hostNote, secret: made.secret, link: made.link });
             props.onChanged();
           });
         }}

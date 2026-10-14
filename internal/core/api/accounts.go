@@ -45,6 +45,15 @@ func issuedSecretBody(issued auth.IssuedSecret, found *discovery.Service) Issued
 	return body
 }
 
+// togetherLink is a Watch Together link in the discovery's form while one has claimed the core
+// (discoveryLink), else empty.
+func togetherLink(dependencies *Dependencies, secret string) string {
+	if dependencies.Discovery == nil {
+		return ""
+	}
+	return discoveryLink(dependencies.Discovery.Status(), "/together", secret)
+}
+
 // discoveryLink is the link to share for a secret, in the discovery's form,
 // <clientOrigin><page>#<coreId>.<secret>.<fingerprint>, while a discovery has claimed the core (the
 // protocol's §3.1; D292 §4): the fingerprint lets the device check, on first contact, that it reached
