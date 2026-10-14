@@ -20,8 +20,9 @@ func TestIssue_GivesADerivedPasswordNeverTheSecret(t *testing.T) {
 	if strings.Contains(issued.Username+issued.Password, canary) {
 		t.Fatalf("the credentials carry the secret: %+v", issued)
 	}
-	membership, expiresAt, err := parseUsername(issued.Username)
-	if err != nil || membership != (Membership{SessionID: 4, MemberID: 9}) ||
+	held, expiresAt, err := parseUsername(issued.Username)
+	membership := held.membership
+	if err != nil || held.isFound || membership != (Membership{SessionID: 4, MemberID: 9}) ||
 		!expiresAt.Equal(now.Add(credentialLifetime)) || !issued.ExpiresAt.Equal(expiresAt) {
 		t.Errorf("the username %q reads as %+v until %v (%v); want session 4's member 9 for a day",
 			issued.Username, membership, expiresAt, err)

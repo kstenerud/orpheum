@@ -23,6 +23,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/together"
+	"github.com/kstenerud/orpheum/internal/core/turn"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
@@ -45,14 +46,41 @@ func newDiscovery(
 	return discovery.New(discovery.Parts{
 		Files: opened.directories, Key: key, HTTP: opened.jobServices.outboundClient, Clock: clock.System{},
 		Logger: logger, Version: thisBuild().Version, APIMajor: apiMajor,
-		Candidates: func() []discoveryproto.Candidate {
-			return append(append(interfaceCandidates(httpsPort(config)), mapped.Candidates()...),
-				config.Discovery.configuredCandidates()...)
-		},
-		Answerer: answerer, OnClaimed: onClaimed,
+		Candidates: heartbeatCandidates(config, mapped.Candidates),
+		Answerer:   answerer, OnClaimed: onClaimed,
 		RetryFirst: retryFirst, RetryMost: retryMost, Random: rand.Reader,
 		Links: linksOf(opened.auth, opened.together), OfferKey: offerKeyOf(opened.auth, opened.together),
+		TURN: relayForFound(newRelayIssuer(config, opened), logger),
 	})
+}
+
+// heartbeatCandidates is what the core may be reached at, read afresh for each heartbeat: the machine's own
+// addresses, the router's mappings, and the addresses the config names (the protocol's §2.4).
+func heartbeatCandidates(config Config, mapped func() []discoveryproto.Candidate) func() []discoveryproto.Candidate {
+	return func() []discoveryproto.Candidate {
+		return append(append(interfaceCandidates(httpsPort(config)), mapped()...),
+			config.Discovery.configuredCandidates()...)
+	}
+}
+
+// relayForFound is the core's own relay as its discovery hands it to the devices it finds the core
+// for, with credentials fresh for each heartbeat (the protocol's §2.4); none for a core that relays
+// nothing.
+func relayForFound(issuer *turn.Issuer, logger *slog.Logger) func(ctx context.Context) []discoveryproto.ICEServer {
+	return func(ctx context.Context) []discoveryproto.ICEServer {
+		servers, err := issuer.ICEServersForFound(ctx, clock.System{}.Now())
+		if err != nil {
+			logger.WarnContext(ctx, "the relay's credentials were not made for the discovery", "err", err)
+			return nil
+		}
+		found := make([]discoveryproto.ICEServer, 0, len(servers))
+		for _, server := range servers {
+			found = append(found, discoveryproto.ICEServer{
+				URLs: server.URLs, Username: server.Credentials.Username, Credential: server.Credentials.Password,
+			})
+		}
+		return found
+	}
 }
 
 // linksOf is what a discovery finds the core by, as accounts and Watch Together keep it: every live

@@ -8,8 +8,6 @@ import (
 	"log/slog"
 	"net/http"
 	"testing"
-
-	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 )
 
 // A release build sees nothing of its environment but TZ, the machine's time zone, which is only
@@ -32,7 +30,7 @@ func TestEnvironmentLookup_SeesOnlyTZInARelease(t *testing.T) {
 // the development build's allowance is not in it.
 func TestRelaxForDevelopment_ChangesNothingInARelease(t *testing.T) {
 	t.Parallel()
-	rtc := relaxForDevelopment(rtcapi.New(t.Context(), http.NotFoundHandler(), slog.New(slog.DiscardHandler)))
+	rtc := newWebRTC(t.Context(), http.NotFoundHandler(), slog.New(slog.DiscardHandler))
 	if rtc.AcceptsAnyRelayedAddress() {
 		t.Error("a release build lets a discovery's offers check the core's own networks")
 	}

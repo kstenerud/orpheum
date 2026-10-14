@@ -53,7 +53,7 @@ func serve(
 	clientFiles, hasClient := webclient.Files()
 	serveClient(server, clientFiles, hasClient)
 	// Requests over WebRTC data channels reach the same handler as those over TCP (D273 §8).
-	rtc := relaxForDevelopment(rtcapi.New(ctx, server.Handler(), logger))
+	rtc := newWebRTC(ctx, server.Handler(), logger)
 	server.SetRTC(rtc)
 	defer func() { err = errors.Join(err, rtc.Close()) }()
 	httpServer := &http.Server{
@@ -597,4 +597,10 @@ func serveClient(server *api.Server, clientFiles fs.FS, hasClient bool) {
 		server.SetClientScript(webclient.ScriptName(clientFiles))
 	}
 	server.Mux().Handle("/", webclient.Handler(clientFiles, api.Prefix))
+}
+
+// newWebRTC is the WebRTC server over the API's handler, as this build serves it: a development build
+// lets a discovery's offers reach the machine's own addresses, a release never (relaxForDevelopment).
+func newWebRTC(ctx context.Context, handler http.Handler, logger *slog.Logger) *rtcapi.Server {
+	return relaxForDevelopment(rtcapi.New(ctx, handler, logger))
 }

@@ -21,6 +21,8 @@
 //     log line carries it is review-only.
 //   - The relay admits the credentials it issued, while their membership lasts and until they
 //     expire, and nothing else. Enforced by TestRelay_AdmitsAMembershipsCredentialsUntilItEndsOrTheyExpire.
+//     The credentials a core sends its discovery name no membership and last until they expire
+//     (the discovery protocol's §2.4). Enforced by TestRelay_AdmitsTheDiscoverysCredentialsUntilTheyExpire.
 //   - The relay serves TCP beside UDP on its port, for a browser that cannot send UDP, and relays
 //     to peers on the public internet only: never to the server's own machine or the networks it
 //     is on, which would make a membership a way into the house. Enforced by

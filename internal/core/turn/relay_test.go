@@ -216,3 +216,27 @@ func TestRelay_ServesTCPAndRelaysOnlyToThePublicInternet(t *testing.T) {
 		}
 	}
 }
+
+// The credentials a core sends its discovery admit any device holding them until they expire, with
+// no membership; forged ones admit no one (the discovery protocol's §2.4).
+func TestRelay_AdmitsTheDiscoverysCredentialsUntilTheyExpire(t *testing.T) {
+	t.Parallel()
+	stage := newRelayStage(t)
+	secret, err := stage.secrets.Open(t.Context(), secrets.TURNSecret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := IssueFound(secret, stage.clock.Now())
+	if err = stage.allocate(t, found); err != nil {
+		t.Fatalf("the discovery's credentials: %v; want a relayed address", err)
+	}
+	forged := found
+	forged.Password = IssueFound(secrets.NewValue("another secret"), stage.clock.Now()).Password
+	if err = stage.allocate(t, forged); err == nil {
+		t.Error("the discovery's credentials made with another secret were admitted")
+	}
+	stage.clock.Advance(credentialLifetime)
+	if err = stage.allocate(t, found); err == nil {
+		t.Error("the discovery's expired credentials were admitted")
+	}
+}
