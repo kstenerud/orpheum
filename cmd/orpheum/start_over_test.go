@@ -14,7 +14,9 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
+	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/platform/waiting"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -120,5 +122,29 @@ func TestLoggingSlowWrites_NamesTheWriteItWaitedBehind(t *testing.T) {
 	if text := logged.String(); !strings.Contains(text, "behind=identify.IdentifyLibrary") ||
 		!strings.Contains(text, "waitedMs=16000") {
 		t.Errorf("the slow write's line does not name the write it waited behind:\n%s", text)
+	}
+}
+
+// A write a request that only reads makes is logged with who made it (D303, DL10).
+func TestOpenAndMigrateOrStartOver_LogsAWriteAReadingRequestMade(t *testing.T) {
+	t.Parallel()
+	config, _ := testConfig(t)
+	directories, err := instancedir.Open(config.Instance.paths())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var logged bytes.Buffer
+	database, err := openAndMigrateOrStartOver(t.Context(), config, directories, clock.System{}, nil,
+		slog.New(slog.NewTextHandler(&logged, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = database.Close() }) //nolint:errcheck // the test is over
+	if err = database.Write(waiting.ForAReader(t.Context()), func(*sqlcgen.Queries) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if text := logged.String(); !strings.Contains(text, `msg="a request that only reads wrote to the database"`) ||
+		!strings.Contains(text, "TestOpenAndMigrateOrStartOver_LogsAWriteAReadingRequestMade") {
+		t.Errorf("no line names the write a reading request made:\n%s", text)
 	}
 }

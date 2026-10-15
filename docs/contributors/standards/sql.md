@@ -324,7 +324,10 @@ then; [audit-checklist](../audit-checklist.md) item 23 asks the questions at eve
   *(D303 A)*.
 - **Reading never writes** (DL10): nothing on a read request's path takes the writer. Bookkeeping
   such as a session's last use is kept in memory and written in batches, never older over newer.
-  **Enforced by:** the API harness asserting a GET writes nothing *(D303 A)*.
+  **Enforced by:** the api marks a GET or a HEAD as only reading (`internal/platform/waiting`);
+  the store reports a write made under that mark, production logs it, and every database
+  `storetest` opens fails the test that made it unless `readerWritesAllowed` lists it with why
+  (`TestWrite_ReportsAWriteAReadingRequestMakes`, `TestHandler_MarksAGetOrAHeadAsReading`).
 - **Bulk work is set-based or batched** (DL7): a constant number of statements per unit, never
   one statement per item across the library. **Enforced by:** statement counts at two library
   sizes *(D303 C)*.

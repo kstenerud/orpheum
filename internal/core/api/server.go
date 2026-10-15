@@ -203,10 +203,15 @@ func (server *Server) Handler() http.Handler {
 }
 
 // forAPerson marks every request as one a person waits on: its writes take the database's writer
-// before background work's (D303, DL11).
+// before background work's (D303, DL11). A GET or a HEAD is marked as only reading too, and the
+// store reports a write one makes (DL10).
 func (server *Server) forAPerson(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		next.ServeHTTP(writer, request.WithContext(waiting.ForAPerson(request.Context())))
+		ctx := waiting.ForAPerson(request.Context())
+		if request.Method == http.MethodGet || request.Method == http.MethodHead {
+			ctx = waiting.ForAReader(ctx)
+		}
+		next.ServeHTTP(writer, request.WithContext(ctx))
 	})
 }
 

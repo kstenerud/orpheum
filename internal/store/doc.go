@@ -43,6 +43,10 @@
 //   - Every query of both databases, and each of search's statements, reads by an index, or is
 //     listed with why it may read a whole table; an entry naming D303 is a defect the redesign
 //     removes (D303, DL1). Enforced by TestQueryPlans_EveryQueryReadsByAnIndexOrSaysWhy.
+//   - A write made under a request that only reads (waiting.ForAReader) is reported to
+//     OnReaderWrite, and storetest's databases fail the test that made it unless
+//     readerWritesAllowed lists it with why (D303, DL10). Enforced by
+//     TestWrite_ReportsAWriteAReadingRequestMakes.
 //   - A fresh schema equals testdata/golden/schema-vNNNN.sql for the current version, and the
 //     baseline alone the golden for its version. Enforced by TestMigrate_FreshSchemaEqualsTheGolden.
 //   - Each step commits alone, so an interrupted migration resumes and ends identical; a step
