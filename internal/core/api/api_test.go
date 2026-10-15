@@ -12,6 +12,7 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"slices"
 	"strings"
 	"testing"
@@ -252,6 +253,8 @@ func newHarness(t *testing.T) testHarness {
 			IsFromFile: false, Description: "seconds in-flight requests get to finish",
 		}},
 	})
+	// The tests' requests come from this machine, which is home: an admin's administer (D297 §6).
+	server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")})
 	served := httptest.NewServer(server.Handler())
 	t.Cleanup(served.Close)
 	return testHarness{

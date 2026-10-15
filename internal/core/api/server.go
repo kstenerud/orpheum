@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -133,6 +134,8 @@ type Server struct {
 	dependencies      atomic.Pointer[Dependencies]
 	// clientScript is the served web client's script, set before the server serves.
 	clientScript string
+	// homeNetworks are where an admin administers from (SetHomeNetworks; D297 §6).
+	homeNetworks atomic.Pointer[[]netip.Prefix]
 	// rtc answers WebRTC offers; nil takes none (SetRTC).
 	rtc *rtcapi.Server
 	// answers are the answers kept for repeats of an Idempotency-Key (D244 §4).
@@ -193,7 +196,7 @@ func NewServer(logger *slog.Logger) *Server {
 // Handler is the HTTP handler to serve: the API, a POST with an Idempotency-Key answered once,
 // every answer naming the web client this server serves (ClientScriptHeader).
 func (server *Server) Handler() http.Handler {
-	return server.crossOrigin(server.namingClient(server.idempotent(server.pacedMedia(server.mux))))
+	return server.markingHome(server.crossOrigin(server.namingClient(server.idempotent(server.pacedMedia(server.mux)))))
 }
 
 // ClientScriptHeader names, on every answer, the script of the web client this server serves: a
@@ -375,6 +378,11 @@ func (server *Server) requireAdmin(ctx context.Context, authorization string) (
 	}
 	if !principal.IsAdmin() {
 		return nil, principal, newError(http.StatusForbidden, CodeForbidden, "only an administrator may do this")
+	}
+	// Until passkeys, administering is from the house alone (D297 §6).
+	if !isFromHome(ctx) {
+		return nil, principal, newError(http.StatusForbidden, CodeForbidden,
+			"administering works only from the server's own network for now: open it at home")
 	}
 	return dependencies, principal, nil
 }
