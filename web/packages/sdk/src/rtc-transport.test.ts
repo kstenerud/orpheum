@@ -6,6 +6,7 @@ import {
   grantEvery,
   maxMessageBytes,
   replaceFirstMs,
+  requestsPerConnection,
   RtcTransport,
   sendOnChannel,
   SwitchableFetch,
@@ -162,6 +163,40 @@ describe("the WebRTC transport", () => {
     void transport.fetch(new Request("https://app.example/c"));
     await settle();
     expect(channelsOf.map((channels) => channels.length)).toEqual([2, 1]);
+  });
+
+  it("carries at most requestsPerConnection on a connection, the rest waiting until a body ends", async () => {
+    const channels: FakeChannel[] = [];
+    const peer: PeerLike = {
+      createDataChannel: () => {
+        const channel = new FakeChannel();
+        channel.readyState = "open";
+        channels.push(channel);
+        return channel;
+      },
+      close: () => undefined,
+    };
+    const transport = new RtcTransport([peer]);
+    const answered = Array.from({ length: requestsPerConnection + 1 }, (_, index) =>
+      transport.fetch(new Request(`https://app.example/poster/${String(index)}`)),
+    );
+    await settle();
+    expect(channels).toHaveLength(requestsPerConnection);
+    // The first's head arrives, its body not yet: the core still counts it, so none more is sent.
+    channels[0]?.answer(JSON.stringify({ status: 200 }));
+    const first = await answered[0];
+    await settle();
+    expect(channels).toHaveLength(requestsPerConnection);
+    channels[0]?.answer(new ArrayBuffer(0));
+    expect(await first?.text()).toBe("");
+    await settle();
+    expect(channels).toHaveLength(requestsPerConnection + 1);
+    // A request that fails gives its room back too.
+    channels[1]?.closeFromTheCore();
+    await expect(answered[1]).rejects.toThrow("closed before its response ended");
+    void transport.fetch(new Request("https://app.example/sign-out"));
+    await settle();
+    expect(channels).toHaveLength(requestsPerConnection + 2);
   });
 });
 

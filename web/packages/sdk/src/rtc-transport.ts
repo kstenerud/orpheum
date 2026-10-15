@@ -351,10 +351,65 @@ function toHeaders(headers: Record<string, string[]> | undefined): Headers {
   return result;
 }
 
+/**
+ * The most requests a connection carries at once: the core serves rtcapi's channelLimit, 16, on each
+ * and refuses the rest, and a Watch Together socket holds a channel of its own for as long as it is
+ * open; the rest wait their turn here instead of being refused (the owner's browse page, 2026-10-15,
+ * whose 60 posters crowded out the requests after them).
+ */
+export const requestsPerConnection = 12;
+
+/**
+ * A channel that calls release once, when it closes or fails either end: a request's channel lives
+ * until its body ends, as long as the core counts it.
+ */
+function countedChannel(channel: ChannelLike, release: () => void): ChannelLike {
+  let isReleased = false;
+  const releaseOnce = (): void => {
+    if (!isReleased) {
+      isReleased = true;
+      release();
+    }
+  };
+  return {
+    get readyState() {
+      return channel.readyState;
+    },
+    send: (data) => {
+      channel.send(data);
+    },
+    close: () => {
+      channel.close();
+      releaseOnce();
+    },
+    listen: (listener) => {
+      channel.listen({
+        ...listener,
+        close: () => {
+          releaseOnce();
+          listener.close();
+        },
+        error: () => {
+          releaseOnce();
+          listener.error();
+        },
+      });
+    },
+  };
+}
+
 /** One of the transport's connections, and how many requests are under way on it. */
 interface Link {
   readonly peer: PeerLike;
   underWay: number;
+}
+
+/** The link of links with the fewest requests under way, or none. */
+function fewestUnderWay(links: readonly Link[]): Link | undefined {
+  return links.reduce<Link | undefined>(
+    (least, each) => (least === undefined || each.underWay < least.underWay ? each : least),
+    undefined,
+  );
 }
 
 /** How a transport keeps its connections: opening another, and how many it keeps. */
@@ -396,13 +451,18 @@ export class RtcTransport {
 
   /** Sends a request to the core and resolves with its response. */
   readonly fetch = async (request: Request): Promise<Response> => {
-    // Chosen at once while one is up, so requests made together spread across the connections.
+    // Chosen at once while one has room, so requests made together spread across the connections.
     const link = this.leastLoadedNow() ?? (await this.leastLoaded());
     link.underWay += 1;
-    try {
-      return await sendOnChannel(link.peer.createDataChannel("request"), request);
-    } finally {
+    const channel = countedChannel(link.peer.createDataChannel("request"), () => {
       link.underWay -= 1;
+      this.wakeWaiting();
+    });
+    try {
+      return await sendOnChannel(channel, request);
+    } catch (problem: unknown) {
+      channel.close();
+      throw problem;
     }
   };
 
@@ -412,7 +472,8 @@ export class RtcTransport {
    * is opened again later.
    */
   openChannel(): ChannelLike {
-    const link = this.leastLoadedNow();
+    // A socket's channel is held apart from the requests' room (requestsPerConnection).
+    const link = fewestUnderWay(this.links);
     if (link === undefined) {
       throw new Error("no WebRTC connection to the core is up");
     }
@@ -435,9 +496,7 @@ export class RtcTransport {
   private add(peer: PeerLike): void {
     const link: Link = { peer, underWay: 0 };
     this.links.push(link);
-    for (const wake of this.waiting.splice(0)) {
-      wake();
-    }
+    this.wakeWaiting();
     peer.onGone?.(() => {
       const index = this.links.indexOf(link);
       if (index >= 0) {
@@ -482,14 +541,19 @@ export class RtcTransport {
     }
   }
 
-  private leastLoadedNow(): Link | undefined {
-    return this.links.reduce<Link | undefined>(
-      (least, each) => (least === undefined || each.underWay < least.underWay ? each : least),
-      undefined,
-    );
+  /** Wakes every request waiting for a connection with room, to look again. */
+  private wakeWaiting(): void {
+    for (const wake of this.waiting.splice(0)) {
+      wake();
+    }
   }
 
-  /** The connection with the fewest under way, waiting for one while none is up. */
+  /** The connection with the fewest under way, when one is up and has room. */
+  private leastLoadedNow(): Link | undefined {
+    return fewestUnderWay(this.links.filter((link) => link.underWay < requestsPerConnection));
+  }
+
+  /** The connection with the fewest under way, waiting for one while none is up or has room. */
   private async leastLoaded(): Promise<Link> {
     for (;;) {
       const link = this.leastLoadedNow();

@@ -19,8 +19,11 @@ import {
   discoveryClientApiOf,
   discoveryHasRealms,
   heldWith,
+  reachCore,
   rememberCore,
+  rememberedCore,
   startOf,
+  whenSignedOut,
   type HeldSession,
   type KeptCore,
   type Target,
@@ -71,6 +74,7 @@ function partsOf(fetched: typeof fetch, connected: KeptCore[] = []): GateParts {
     onConnected: (core) => {
       connected.push(core);
     },
+    forgetCore: () => undefined,
   };
 }
 
@@ -158,7 +162,7 @@ describe("the gate a discovery's page opens on", () => {
       ...partsOf(fetched, connected),
       onConnected: (core, how) => {
         connected.push(core);
-        reached.push(how.kind === "direct" ? how.origin : how.kind);
+        reached.push(how.first.kind === "direct" ? how.first.origin : how.first.kind);
       },
     };
     mounted = await mount(
@@ -369,5 +373,135 @@ describe("a person with no link at a discovery that has realms (D297, D298)", ()
     await click(buttonWithText(page, "Sign in"));
     await settleUntil(() => page.textContent.includes("The realm, name or password is wrong"));
     expect(storage.getItem("orpheum.discovery.realm")).toBeNull();
+  });
+});
+
+describe("a page at a discovery with realms leaves nothing kept in the way (the owner, 2026-10-15)", () => {
+  it("opens the realm sign-in, saying so, when the server it reached before is not reached", async () => {
+    const storage = memoryStorage();
+    const core = { coreId: "k7xq2", fingerprint };
+    rememberCore(storage, core);
+    const held: HeldSession = { core, token: "an-old-session", locator: "an-old-locator" };
+    const parts: GateParts = {
+      ...partsOf(discovery({ "/paths": [404, {}] }, [])),
+      hasRealms: true,
+      sessionOf: () => held,
+      forgetCore: () => {
+        storage.removeItem("orpheum.discovery.core");
+      },
+    };
+    mounted = await mount(<DiscoveryGate start={startOf("", storage)} parts={parts} />);
+    const page = mounted.container;
+    await settleUntil(() => page.querySelector('input[name="realm"]') !== null);
+    expect(page.textContent).toContain("Sign in again");
+    expect(page.textContent).not.toContain("Can't reach the server from this network");
+    expect(rememberedCore(storage)).toBeUndefined();
+  });
+
+  it("keeps the realm sign-in when the server was found but its own sign-in failed", async () => {
+    const key = await realmKey("karlnas", "karl", "a password");
+    const publicKey = "A6EHv_POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg";
+    const found = {
+      coreId: "k7xq2",
+      bootstrapToken: "a-bootstrap-token",
+      iceServers: [],
+      paths: [{ kind: "ipv4", url: "https://v4.k7xq2.zone.example" }],
+      publicKey,
+      tag: await realmTag(key, "k7xq2", fromBase64(publicKey)),
+    };
+    const toDiscovery = discovery({ "/realm": [200, found] }, []);
+    const fetched: typeof fetch = (url, init) =>
+      (url instanceof Request ? url.url : url.toString()).startsWith(
+        "https://v4.k7xq2.zone.example/",
+      )
+        ? Promise.resolve(new Response("{}", { status: 200 }))
+        : toDiscovery(url, init);
+    const parts: GateParts = {
+      ...partsOf(fetched),
+      hasRealms: true,
+      onConnected: () => Promise.reject(new Error("the core's own sign-in failed")),
+    };
+    mounted = await mount(<DiscoveryGate start={{ kind: "none" }} parts={parts} />);
+    const page = mounted.container;
+    await enter(page.querySelector('input[name="realm"]'), "karlnas");
+    await enter(page.querySelector('input[name="name"]'), "karl");
+    await enter(page.querySelector('input[type="password"]'), "a password");
+    await click(buttonWithText(page, "Sign in"));
+    await settleUntil(() => page.textContent.includes("can't be reached from this network"));
+    expect(page.querySelector('input[name="realm"]')).not.toBeNull();
+  });
+
+  it("starts again once signed out, and never for a page that was never signed in", () => {
+    let token: string | undefined = "a-session";
+    const listeners = new Set<() => void>();
+    const session = {
+      token: () => token,
+      subscribe: (listener: () => void) => {
+        listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      },
+    };
+    const set = (next: string | undefined): void => {
+      token = next;
+      for (const listener of listeners) {
+        listener();
+      }
+    };
+    let startedAgain = 0;
+    whenSignedOut(session, () => {
+      startedAgain += 1;
+    });
+    set("a-newer-session");
+    expect(startedAgain).toBe(0);
+    set(undefined);
+    set("signed-in-again");
+    set(undefined);
+    expect(startedAgain).toBe(1);
+    token = undefined;
+    let guestStartedAgain = 0;
+    whenSignedOut(session, () => {
+      guestStartedAgain += 1;
+    });
+    set(undefined);
+    expect(guestStartedAgain).toBe(0);
+  });
+});
+
+describe("the paths a core is reached by after the first (webrtc-transport.md W2c item 6)", () => {
+  const lan = "https://192-168-1-2.k7xq2.zone.example:8443";
+  const ipv6 = "https://2a00-1.k7xq2.zone.example";
+  const target: Target = {
+    coreId: "k7xq2",
+    fingerprint,
+    held: { bootstrapToken: "a-bootstrap-token" },
+    key: new Uint8Array(32),
+    iceServers: [],
+    directUrls: [lan, ipv6],
+  };
+
+  it("takes another name when the one in use fails, and the LAN again once it answers", async () => {
+    let isLanBlocked = true;
+    const fetched: typeof fetch = (url) => {
+      const address = url instanceof Request ? url.url : url.toString();
+      return address.startsWith(lan) && isLanBlocked
+        ? Promise.reject(new TypeError("NetworkError when attempting to fetch resource."))
+        : Promise.resolve(new Response("{}", { status: 200 }));
+    };
+    const reaching = await reachCore(
+      { clientApi: "https://discovery.example/client/v1", fetch: fetched },
+      target,
+    );
+    expect(reaching.first).toEqual({ kind: "direct", origin: ipv6 });
+    expect(await reaching.better(reaching.first)).toBeUndefined();
+    isLanBlocked = false;
+    const better = await reaching.better(reaching.first);
+    expect(better).toEqual({ kind: "direct", origin: lan });
+    expect(await reaching.better({ kind: "direct", origin: lan })).toBeUndefined();
+    expect(await reaching.another({ kind: "direct", origin: lan })).toEqual({
+      kind: "direct",
+      origin: ipv6,
+    });
   });
 });

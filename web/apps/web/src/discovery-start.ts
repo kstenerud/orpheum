@@ -98,6 +98,39 @@ export function rememberCore(refusable: StringStorage | undefined, core: KeptCor
   storageThatNeverThrows(refusable).setItem(keptCoreKey, JSON.stringify(core));
 }
 
+/**
+ * Forgets the core this device reached, so its next visit starts at the realm sign-in or the link it
+ * opens, with nothing kept from this one in the way (the owner, 2026-10-15: a page holding an earlier
+ * server's session opened on "Can't reach the server" and never offered the sign-in).
+ */
+export function forgetCore(refusable: StringStorage | undefined): void {
+  storageThatNeverThrows(refusable).removeItem(keptCoreKey);
+}
+
+/**
+ * Calls then once, the first time session goes from signed in to signed out: at a discovery's page a
+ * person who signs out, or is signed out, starts again at the realm sign-in, not at the core's own
+ * sign-in over a connection to the server they just left. Returns what stops the watch.
+ */
+export function whenSignedOut(
+  session: {
+    readonly token: () => string | undefined;
+    readonly subscribe: (listener: () => void) => () => void;
+  },
+  then: () => void,
+): () => void {
+  let wasSignedIn = session.token() !== undefined;
+  const stop = session.subscribe(() => {
+    const isSignedIn = session.token() !== undefined;
+    if (wasSignedIn && !isSignedIn) {
+      stop();
+      then();
+    }
+    wasSignedIn = isSignedIn;
+  });
+  return stop;
+}
+
 /** Where this device keeps the realm its person asked it to remember (D297 §5). */
 const keptRealmKey = "orpheum.discovery.realm";
 
@@ -257,15 +290,59 @@ export type Reached =
   | { readonly kind: "webrtc"; readonly transport: RtcTransport };
 
 /**
- * Reaches the target: at the first of its published names to answer, else over WebRTC through the
- * discovery (the protocol's §3.3; W2c's thin form, which races the names and then falls back).
+ * The core reached, and how to reach it again (webrtc-transport.md W2c items 5 and 6): another path
+ * when the one in use fails, and a better one than the one in use, when one answers now.
  */
-export async function reachCore(client: DiscoveryClient, target: Target): Promise<Reached> {
-  const origin = await firstDirectPath(target.directUrls, client.fetch);
-  if (origin !== undefined) {
-    return { kind: "direct", origin };
-  }
-  return { kind: "webrtc", transport: await connectThrough(client, target) };
+export interface Reaching {
+  readonly first: Reached;
+  readonly another: (failed: Reached) => Promise<Reached>;
+  readonly better: (current: Reached) => Promise<Reached | undefined>;
+}
+
+/** Where path stands in the discovery's order of the target's names, WebRTC after them all. */
+function rankOf(target: Target, path: Reached): number {
+  const origins = target.directUrls.map((url) => new URL(url).origin);
+  const index = path.kind === "direct" ? origins.indexOf(path.origin) : -1;
+  return index < 0 ? origins.length : index;
+}
+
+/**
+ * Reaches the target: at the first of its published names to answer, else over WebRTC through the
+ * discovery (the protocol's §3.3; W2c, which races the names and then falls back). Its WebRTC
+ * connection, once made, serves every later move to WebRTC.
+ */
+export async function reachCore(client: DiscoveryClient, target: Target): Promise<Reaching> {
+  let webrtc: Promise<Reached> | undefined;
+  const overWebrtc = (): Promise<Reached> => {
+    webrtc ??= connectThrough(client, target).then(
+      (transport): Reached => ({ kind: "webrtc", transport }),
+      (problem: unknown) => {
+        webrtc = undefined;
+        throw problem;
+      },
+    );
+    return webrtc;
+  };
+  const direct = async (urls: readonly string[]): Promise<Reached | undefined> => {
+    const origin = await firstDirectPath(urls, client.fetch);
+    return origin === undefined ? undefined : { kind: "direct", origin };
+  };
+  const first = (await direct(target.directUrls)) ?? (await overWebrtc());
+  return {
+    first,
+    another: async (failed) => {
+      const others = target.directUrls.filter(
+        (url) => failed.kind !== "direct" || new URL(url).origin !== failed.origin,
+      );
+      return (await direct(others)) ?? (await overWebrtc());
+    },
+    better: async (current) => {
+      const best = rankOf(target, current) === 0 ? undefined : await direct(target.directUrls);
+      return best !== undefined && rankOf(target, best) < rankOf(target, current)
+        ? best
+        : undefined;
+    },
+  };
 }
 
 /** Connects to the target through the discovery, its offers proven and its answers checked. */

@@ -11,6 +11,12 @@ import {
 } from "./credentials-form.tsx";
 
 /** What a person typed to sign in by realm, and whether this device keeps the realm (D297 §5). */
+/**
+ * What a realm sign-in says went wrong: a part wrong, said as one as the discovery does; the server
+ * found but not reached from this network; or a server this device reached before not reached now.
+ */
+export type RealmProblem = "wrong" | "unreached" | "again";
+
 export interface RealmCredentials {
   readonly realm: string;
   readonly name: string;
@@ -26,7 +32,7 @@ export interface RealmCredentials {
 export function RealmSignIn(props: {
   readonly rememberedRealm: string | undefined;
   readonly isSending: boolean;
-  readonly isWrong: boolean;
+  readonly problem: RealmProblem | undefined;
   readonly onSubmit: (typed: RealmCredentials) => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -73,9 +79,9 @@ export function RealmSignIn(props: {
         />
         {t("discovery.realm.remember")}
       </label>
-      {props.isWrong ? (
-        <CredentialsProblem isAlert>{t("discovery.realm.wrong")}</CredentialsProblem>
-      ) : null}
+      {props.problem === undefined ? null : (
+        <CredentialsProblem isAlert>{t(`discovery.realm.${props.problem}`)}</CredentialsProblem>
+      )}
       <button type="submit" disabled={props.isSending}>
         {props.isSending ? t("discovery.realm.signingIn") : t("discovery.realm.submit")}
       </button>

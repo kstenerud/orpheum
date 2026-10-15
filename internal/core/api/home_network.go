@@ -56,3 +56,17 @@ func isFromHome(ctx context.Context) bool {
 	isHome, isMarked := ctx.Value(homeKey{}).(bool)
 	return isMarked && isHome
 }
+
+// pathOf names the way the request whose context ctx is reached the core, for its log: over WebRTC,
+// directly from a home network, or directly from anywhere else; the last is a page at home that came
+// the long way, through a public name, and so is offered no admin (the owner, 2026-10-15).
+func pathOf(ctx context.Context) string {
+	switch {
+	case rtcapi.IsOverWebRTC(ctx):
+		return "webrtc"
+	case isFromHome(ctx):
+		return "direct from home"
+	default:
+		return "direct from away"
+	}
+}

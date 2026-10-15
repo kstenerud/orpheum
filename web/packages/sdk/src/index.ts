@@ -17,6 +17,8 @@ export { browserPlayableFormats, playableFormatsFrom } from "./playable-formats.
 export { browserFetch, textWhenReady, whenReady } from "./ready.ts";
 export { connectRtc, RtcTransport, SwitchableFetch } from "./rtc-transport.ts";
 export { directFetch, directPathWaitMs, firstDirectPath } from "./direct-path.ts";
+export { isNetworkFailure, namingFailures, PathKeeper } from "./path-keeper.ts";
+export type { PathWays } from "./path-keeper.ts";
 export {
   isRealm,
   masterRealm,
