@@ -283,7 +283,9 @@ func (server *Server) open(api *webrtc.API) (*webrtc.PeerConnection, error) {
 	var isConnected atomic.Bool
 	unconnected := time.AfterFunc(server.bounds.connectWithin, func() {
 		if !isConnected.Load() {
-			server.logger.Info("rtcapi: closed a connection that did not connect in time")
+			local, remote, pairs := candidatesOf(connection.GetStats())
+			server.logger.Info("rtcapi: closed a connection that did not connect in time",
+				"local", joined(local), "remote", joined(remote), "pairs", joined(pairs))
 			server.forget(connection)
 			_ = connection.Close() //nolint:errcheck // never connected
 		}
