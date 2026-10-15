@@ -285,19 +285,28 @@ func (q *Queries) ReturnAmbiguousSeriesToItsFirstMatch(ctx context.Context, id i
 
 const setSeriesMatch = `-- name: SetSeriesMatch :exec
 UPDATE collection SET followed_source_id = ?1,
-  identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE ?2 END
-WHERE id = ?3 AND kind = 'series'
+  followed_source = coalesce(?2, followed_source),
+  identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE ?3 END
+WHERE id = ?4 AND kind = 'series'
 `
 
 type SetSeriesMatchParams struct {
 	FollowedSourceID    *string
+	FollowedSource      *string
 	IdentificationState *string
 	ID                  int64
 }
 
-// The outcome of a series' match. A confirmed match is a person's and stays (D172).
+// The outcome of a series' match: the source with its id, together, as a title's match writes them
+// (an id is an id at a source, D303 M5), or no id, the source left as it is. A confirmed match is a
+// person's and stays (D172).
 func (q *Queries) SetSeriesMatch(ctx context.Context, arg SetSeriesMatchParams) error {
-	_, err := q.db.ExecContext(ctx, setSeriesMatch, arg.FollowedSourceID, arg.IdentificationState, arg.ID)
+	_, err := q.db.ExecContext(ctx, setSeriesMatch,
+		arg.FollowedSourceID,
+		arg.FollowedSource,
+		arg.IdentificationState,
+		arg.ID,
+	)
 	return err
 }
 

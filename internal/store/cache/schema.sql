@@ -3,7 +3,7 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by persistent.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 37
+-- cache schema version 38
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,7 +52,7 @@ CREATE TABLE job (                                         -- the one work queue
   CHECK ((item_id IS NOT NULL) + (rendition_id IS NOT NULL) + (stream_id IS NOT NULL) +
          (fetched_subtitle_id IS NOT NULL) + (file_id IS NOT NULL) + (scan_id IS NOT NULL) +
          (scan_batch_id IS NOT NULL) + (chunk_store_id IS NOT NULL) <= 1)
-);
+) STRICT;
 -- The paths the queue's statements take (D303; the independent audit's S4): each read the whole
 -- table, an enqueue's once per job queued, so a sweep that queued N jobs read the queue N times.
 -- A claim takes the queued jobs of its kind in order.
@@ -87,7 +87,7 @@ CREATE TABLE scan (                                        -- D240: a root's sca
   -- The scope of the one that follows, widened to cover every request made while this one ran.
   again_scope_path TEXT,
   UNIQUE (node_id, root_path)
-);
+) STRICT;
 
 CREATE TABLE scan_batch (                                  -- D240 section 8: a batch to examine
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -95,7 +95,7 @@ CREATE TABLE scan_batch (                                  -- D240 section 8: a 
   files_json  TEXT NOT NULL,             -- the files, as the examine command names them
   file_count  INTEGER NOT NULL,
   is_done     INTEGER NOT NULL DEFAULT 0 CHECK (is_done IN (0, 1))
-);
+) STRICT;
 CREATE INDEX scan_batch_of_scan ON scan_batch(scan_id);
 
 CREATE TABLE match_candidate (                             -- D172: kept so choosing costs nothing
@@ -106,12 +106,12 @@ CREATE TABLE match_candidate (                             -- D172: kept so choo
   name        TEXT, year INTEGER, runtime_ms INTEGER, provider_poster_path TEXT,
   votes       INTEGER,                   -- D301: the most voted settles a year shared
   PRIMARY KEY (item_id, rank)
-);
+) STRICT;
 
 CREATE TABLE art_served (                                  -- D212 section 6: recency, to the day
   source_sha256_hex TEXT PRIMARY KEY,    -- an image's directory under cache/art/
   last_served_epoch_day INTEGER NOT NULL  -- days since the Unix epoch it was last served
-) WITHOUT ROWID;
+) WITHOUT ROWID, STRICT;
 
 CREATE TABLE chunk_store (                                 -- D247 section 10: one stream of a film on one grid
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -119,7 +119,7 @@ CREATE TABLE chunk_store (                                 -- D247 section 10: o
   stream      TEXT NOT NULL,             -- the stream's name: picture, q1200k480p, sound0, sound0-boost
   grid_id     TEXT NOT NULL,             -- the hash of the grid it is cut on
   UNIQUE (source_file, stream, grid_id)
-);
+) STRICT;
 
 CREATE TABLE prepared_rendition (                          -- D175, D180, D217 section 5
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -141,7 +141,7 @@ CREATE TABLE prepared_rendition (                          -- D175, D180, D217 s
   created_at   INTEGER NOT NULL,
   finished_at  INTEGER,
   UNIQUE (source_file, profile)
-);
+) STRICT;
 
 CREATE TABLE node_attempt (                                -- D234 section 7: work given to a node
   attempt_token TEXT PRIMARY KEY,        -- made for this sending; every result names it (D238 section 2)
@@ -153,5 +153,5 @@ CREATE TABLE node_attempt (                                -- D234 section 7: wo
   node_start_id TEXT NOT NULL,
   work_json   TEXT NOT NULL,             -- JSON: the work as sent, without the bytes it carried
   sent_at     INTEGER NOT NULL
-);
+) STRICT;
 CREATE INDEX node_attempt_job ON node_attempt(job_id);

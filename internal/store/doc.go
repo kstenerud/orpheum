@@ -95,13 +95,15 @@
 //     TestJobStorage_ShowsThePlanTheOpenJobsAndMergesOnlyIntoAQueuedOne,
 //     TestJobStorage_RecordsAWaitWithItsFlagsAndNeverUndoesACancel,
 //     TestJobStorage_RequeuesWithTheAttemptCountedAndKnowsATargetByItsColumn.
-//   - Every step has a test on its rows, until a fold takes it into the baseline (D228): step 0037
-//     in TestMigrate_Step0037KeepsEachGrantAndAddsWhatADiscoveryFindsTheCoreBy, step 0043 in
-//     TestMigrate_Step0043KeepsEachSortKeyFoundByItsItem, step 0044 in
-//     TestMigrate_Step0044KeepsTheTextAndRewritesAnIndexOnlyOnChange, step 0045 in
-//     TestMigrate_Step0045IndexesServeTheirPaths, step 0046 in
-//     TestMigrate_Step0046CountsWhatWaitsByItsIndex, step 0047 in
-//     TestMigrate_Step0047KeepsEachProbeAndNFOBesideItsFile.
+//   - Every step has a test on its rows, until a fold takes it into the baseline (D228); the
+//     baseline at 0048 has none after it.
+//   - The schema keeps the rules D303 put in the engine: every table, both databases', STRICT; a
+//     title and a collection an item of their kind; an id at a source only with its source; a
+//     library's interval only for checking by interval; one sort key per item in each locale; the
+//     full-text indexes rewritten only on change; an index for each path a query takes. Enforced by
+//     TestSchema_EveryTableIsStrict, TestSchema_RefusesRowsThatBreakTheirRules,
+//     TestSchema_ASortKeyIsOnePerItemInEachLocaleAndReadByIt,
+//     TestSchema_TheTextIndexesAreRewrittenOnlyOnChange and TestSchema_EachPathsIndexServesIt.
 //     The runner's handling of such a step, and of a rebuild, is tested on synthetic steps in
 //     TestMigrate_ADataTransformingStepKeepsTheRowsAndRaisesTheCompatibleVersion and
 //     TestMigrate_ARebuildKeepsTheIDsAndTheIDSequence.

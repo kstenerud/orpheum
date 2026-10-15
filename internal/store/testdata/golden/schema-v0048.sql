@@ -1,6 +1,6 @@
 -- application_id 1447646258
--- user_version 43
--- compatible_version 36
+-- user_version 48
+-- compatible_version 48
 -- sqlite_sequence role 2
 
 -- index artwork_chosen
@@ -12,6 +12,9 @@ CREATE INDEX artwork_item ON artwork(item_id, kind);
 -- index artwork_source
 CREATE INDEX artwork_source ON artwork(source_sha256) WHERE source_sha256 IS NOT NULL;
 
+-- index collection_member_title
+CREATE INDEX collection_member_title ON collection_member(member_title) WHERE member_title IS NOT NULL;
+
 -- index device_owner
 CREATE INDEX device_owner ON device(user_id) WHERE removed_at IS NULL;
 
@@ -21,14 +24,26 @@ CREATE UNIQUE INDEX fetched_subtitle_once ON fetched_subtitle(video_file, provid
 -- index fetched_subtitle_video
 CREATE INDEX fetched_subtitle_video ON fetched_subtitle(video_file);
 
+-- index file_errored
+CREATE INDEX file_errored ON file(filing, library_id, path) WHERE filing = 'errored' AND removed_at IS NULL;
+
+-- index file_library
+CREATE INDEX file_library ON file(library_id, path) WHERE removed_at IS NULL;
+
 -- index file_live_path
 CREATE UNIQUE INDEX file_live_path ON file(node_id, reported_path_raw) WHERE removed_at IS NULL;
 
 -- index file_payload
 CREATE INDEX file_payload ON file(payload_hash) WHERE removed_at IS NULL;
 
+-- index file_removed_payload
+CREATE INDEX file_removed_payload ON file(library_id, payload_hash, removed_at) WHERE removed_at IS NOT NULL;
+
 -- index file_version
 CREATE INDEX file_version ON file(version_id) WHERE version_id IS NOT NULL;
+
+-- index grant_device
+CREATE INDEX grant_device ON "grant"(device_id) WHERE device_id IS NOT NULL;
 
 -- index grant_locate_hash
 CREATE UNIQUE INDEX grant_locate_hash ON "grant"(locate_hash) WHERE locate_hash IS NOT NULL;
@@ -84,11 +99,15 @@ CREATE INDEX stream_media ON stream(video_file, kind);
 -- index title_ambiguous
 CREATE INDEX title_ambiguous ON title(id) WHERE identification_state = 'ambiguous';
 
+-- index title_waiting
+CREATE INDEX title_waiting ON title(id)
+  WHERE identification_state = 'unidentified' AND followed_source = 'none' AND kind != 'episode';
+
 -- index user_live_name
 CREATE UNIQUE INDEX user_live_name ON user(name) WHERE removed_at IS NULL;
 
 -- index version_title
-CREATE INDEX version_title ON version(title_id) WHERE removed_at IS NULL;
+CREATE INDEX version_title ON version(title_id);
 
 -- table artwork
 CREATE TABLE artwork (                                     -- class O/F; A when chosen
@@ -102,11 +121,13 @@ CREATE TABLE artwork (                                     -- class O/F; A when 
   is_chosen   INTEGER NOT NULL DEFAULT 0 CHECK (is_chosen IN (0,1)),  -- a person picked it
   removed_at  INTEGER
 , refused_at INTEGER, refusal TEXT, is_missing_at_source INTEGER NOT NULL DEFAULT 0
-  CHECK (is_missing_at_source IN (0, 1)));
+  CHECK (is_missing_at_source IN (0, 1))) STRICT;
 
 -- table collection
 CREATE TABLE collection (                                  -- class A or O
   id          INTEGER PRIMARY KEY REFERENCES item(id) ON DELETE RESTRICT,
+  -- A collection is an item of kind 'collection' (D303, M5): the pair names the item and its kind.
+  item_kind   TEXT NOT NULL DEFAULT 'collection' CHECK (item_kind = 'collection'),
   kind        TEXT NOT NULL CHECK (kind IN ('series','box_set','user')),
   membership  TEXT NOT NULL CHECK (membership IN ('explicit','predicate','external')),
   predicate   TEXT,                      -- D75's serialised form, for 'predicate'
@@ -117,8 +138,10 @@ CREATE TABLE collection (                                  -- class A or O
   followed_source    TEXT CHECK (followed_source IN ('nfo','tmdb','tvdb','none')),  -- F/A
   followed_source_id TEXT,                                                    -- F/A
   identification_state TEXT CHECK (identification_state IN
-    ('identified','ambiguous','unidentified','confirmed'))                    -- F/A (D172)
-);
+    ('identified','ambiguous','unidentified','confirmed')),                   -- F/A (D172)
+  CHECK (followed_source_id IS NULL OR followed_source IS NOT NULL),  -- an id is an id at a source
+  FOREIGN KEY (id, item_kind) REFERENCES item(id, kind) ON DELETE RESTRICT
+) STRICT;
 
 -- table collection_member
 CREATE TABLE collection_member (                           -- D159, D160
@@ -129,7 +152,7 @@ CREATE TABLE collection_member (                           -- D159, D160
   CHECK ((member_title IS NULL) <> (member_collection IS NULL)),
   UNIQUE (collection_id, member_title),
   UNIQUE (collection_id, member_collection)
-);
+) STRICT;
 
 -- table device
 CREATE TABLE device (                                      -- class A
@@ -142,7 +165,7 @@ CREATE TABLE device (                                      -- class A
   added_at      INTEGER NOT NULL,
   last_signed_in_at INTEGER NOT NULL,
   removed_at    INTEGER
-);
+) STRICT;
 
 -- table device_reader_limit
 CREATE TABLE device_reader_limit (                          -- D240 section 5
@@ -151,7 +174,7 @@ CREATE TABLE device_reader_limit (                          -- D240 section 5
   reader_limit INTEGER NOT NULL CHECK (reader_limit BETWEEN 1 AND 64),
   set_at       INTEGER NOT NULL,
   PRIMARY KEY (node_id, device_key)
-) WITHOUT ROWID;
+) WITHOUT ROWID, STRICT;
 
 -- table edition
 CREATE TABLE edition (                                     -- class A when a person made it
@@ -160,7 +183,7 @@ CREATE TABLE edition (                                     -- class A when a per
   created_by  TEXT NOT NULL CHECK (created_by IN ('provider','user')),  -- D158
   created_at  INTEGER NOT NULL,
   removed_at  INTEGER
-);
+) STRICT;
 
 -- table edition_text
 CREATE TABLE edition_text (                                -- class A or O
@@ -168,7 +191,7 @@ CREATE TABLE edition_text (                                -- class A or O
   language    TEXT NOT NULL,
   name        TEXT NOT NULL,
   PRIMARY KEY (edition_id, language)
-);
+) STRICT;
 
 -- table extra_relation
 CREATE TABLE extra_relation (                              -- class O, or A when asserted
@@ -181,19 +204,19 @@ CREATE TABLE extra_relation (                              -- class O, or A when
   position      INTEGER,
   asserted_by   TEXT NOT NULL CHECK (asserted_by IN ('scanner','user')),
   PRIMARY KEY (owner_title, extra_title)
-);
+) STRICT;
 
 -- table favourite
 CREATE TABLE favourite (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, added_at INTEGER NOT NULL,
-  PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
+  PRIMARY KEY (user_id, item_id)) WITHOUT ROWID, STRICT;
 
 -- table fetch_failure
 CREATE TABLE fetch_failure (                               -- class F
   item_id   INTEGER PRIMARY KEY REFERENCES item(id) ON DELETE RESTRICT,
   failure   TEXT NOT NULL,               -- what the provider or the job said
   failed_at INTEGER NOT NULL
-);
+) STRICT;
 
 -- table fetched_subtitle
 CREATE TABLE fetched_subtitle (                            -- class A: quota-limited, kept
@@ -207,7 +230,7 @@ CREATE TABLE fetched_subtitle (                            -- class A: quota-lim
   fetched_by_user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   fetched_at  INTEGER NOT NULL,
   release_name TEXT                      -- the provider's file name for it (D224)
-);
+) STRICT;
 
 -- table field_override
 CREATE TABLE field_override (                              -- class A (D183)
@@ -219,7 +242,7 @@ CREATE TABLE field_override (                              -- class A (D183)
   set_by_user_id INTEGER REFERENCES user(id) ON DELETE RESTRICT,
   set_at      INTEGER NOT NULL,
   PRIMARY KEY (item_id, field, language)
-);
+) STRICT;
 
 -- table file
 CREATE TABLE file (                                        -- class I (identity columns) + O
@@ -235,7 +258,6 @@ CREATE TABLE file (                                        -- class I (identity 
                   ('listed','extra','attached','skipped','errored','unidentified')),
   filing_reason TEXT,                    -- the rule verbatim, the error code, what was tried
   error_detail_json TEXT,                -- owner, group, mode; the platform's text (D163)
-  probe_json    TEXT,                    -- raw probe output, JSON; the input D59 replays
   version_id    INTEGER REFERENCES version(id) ON DELETE RESTRICT,
   part_index    INTEGER,                 -- order within a multi-part Version
   attached_to_file INTEGER REFERENCES file(id) ON DELETE RESTRICT,  -- a sidecar's video
@@ -244,17 +266,26 @@ CREATE TABLE file (                                        -- class I (identity 
   removed_at    INTEGER,                 -- tombstone: only on a positive report (D34, D179)
   -- An NFO's bytes, as the node sent them: identification runs in the core, which never opens a
   -- file, and re-derives a title from stored input only (D182). A subtitle's are read when played.
-  nfo_body      BLOB,                    -- class O: a rescan sends it again
-  -- The path identification was derived from (D208 section 1): a file whose path has not
-  -- changed keeps its title; a renamed or moved one is identified again, unless a person
-  -- confirmed its match.
   identified_from_path TEXT,             -- class O
   reported_path_raw BLOB,              -- class I: the bytes the node reported, the file's key (D211)
   opensubtitles_hash TEXT,               -- 16 hex digits of OpenSubtitles' moviehash (D224); NULL until scanned
   is_identity_confirmed INTEGER NOT NULL DEFAULT 1
     CHECK (is_identity_confirmed IN (0, 1)),  -- D179: 0 after a rebuild, until re-seen
   sidecar_kind  TEXT CHECK (sidecar_kind IN ('nfo', 'subtitle', 'image'))
-);
+) STRICT;
+
+-- table file_nfo
+CREATE TABLE file_nfo (                                    -- class O: a rescan sends it again
+  file_id     INTEGER PRIMARY KEY REFERENCES file(id) ON DELETE RESTRICT,
+  body        BLOB NOT NULL              -- the NFO's bytes, as the node sent them (D182)
+) STRICT;
+
+-- table file_probe
+CREATE TABLE file_probe (                                  -- class O: what the node probed (D59)
+  file_id     INTEGER PRIMARY KEY REFERENCES file(id) ON DELETE RESTRICT,
+  probe_json  TEXT NOT NULL,             -- the raw probe output, the input D59 replays
+  duration_ms INTEGER NOT NULL DEFAULT 0 -- its format's duration; 0 when it gave none
+) STRICT;
 
 -- table grant
 CREATE TABLE "grant" (                                   -- class A (D154)
@@ -272,7 +303,7 @@ CREATE TABLE "grant" (                                   -- class A (D154)
   revoked_at  INTEGER,
   device_name TEXT,
   device_id   INTEGER REFERENCES device(id) ON DELETE RESTRICT
-, locate_hash BLOB, offer_key BLOB, link_sealed BLOB) WITHOUT ROWID;
+, locate_hash BLOB, offer_key BLOB, link_sealed BLOB) WITHOUT ROWID, STRICT;
 
 -- table group_text
 CREATE TABLE group_text (                                  -- a season's name, a disc's subtitle
@@ -282,13 +313,13 @@ CREATE TABLE group_text (                                  -- a season's name, a
   name          TEXT,
   overview      TEXT,
   PRIMARY KEY (collection_id, group_number, language)
-);
+) STRICT;
 
 -- table guessed_match
 CREATE TABLE guessed_match (                               -- class F (D301)
   item_id     INTEGER PRIMARY KEY REFERENCES item(id) ON DELETE CASCADE,
   guessed_at  INTEGER NOT NULL
-);
+) STRICT;
 
 -- table invitation
 CREATE TABLE invitation (                                  -- class A (D246 section 2)
@@ -296,7 +327,7 @@ CREATE TABLE invitation (                                  -- class A (D246 sect
   secret_sha256 BLOB NOT NULL UNIQUE REFERENCES "grant"(secret_sha256) ON DELETE RESTRICT,
   role_id       INTEGER NOT NULL REFERENCES role(id) ON DELETE RESTRICT,
   admin_note    TEXT NOT NULL CHECK (admin_note <> '')
-);
+) STRICT;
 
 -- table item
 CREATE TABLE item (                                        -- class I
@@ -306,12 +337,13 @@ CREATE TABLE item (                                        -- class I
   origin_server TEXT,                    -- NULL = this server; else who gave it (D174)
   merged_into INTEGER REFERENCES item(id) ON DELETE RESTRICT,  -- D173
   added_at    INTEGER NOT NULL,
-  removed_at  INTEGER
-);
+  removed_at  INTEGER,
+  UNIQUE (id, kind)                      -- a subtype row names its item and the item's kind (D303, M5)
+) STRICT;
 
 -- table item_fts
 CREATE VIRTUAL TABLE item_fts USING fts5(                 -- class C (D48)
-  name, search_alternates, overview, content='item_text', content_rowid='rowid',
+  name, search_alternates, overview, content='item_text', content_rowid='id',
   tokenize='unicode61 remove_diacritics 2'
 );
 
@@ -329,7 +361,7 @@ CREATE TABLE 'item_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT
 
 -- table item_fts_tri
 CREATE VIRTUAL TABLE item_fts_tri USING fts5(
-  name, search_alternates, content='item_text', content_rowid='rowid', tokenize='trigram'
+  name, search_alternates, content='item_text', content_rowid='id', tokenize='trigram'
 );
 
 -- table item_fts_tri_config
@@ -350,17 +382,18 @@ CREATE TABLE item_provider_id (                            -- class I; several p
   provider    TEXT NOT NULL,
   provider_id TEXT NOT NULL,
   PRIMARY KEY (item_id, provider, provider_id)
-) WITHOUT ROWID;
+) WITHOUT ROWID, STRICT;
 
 -- table item_tag
 CREATE TABLE item_tag (
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
   tag_id      INTEGER NOT NULL REFERENCES tag(id) ON DELETE RESTRICT,
   PRIMARY KEY (tag_id, item_id)
-) WITHOUT ROWID;
+) WITHOUT ROWID, STRICT;
 
 -- table item_text
-CREATE TABLE item_text (                                   -- class O/F, resolved (D45)
+CREATE TABLE "item_text" (                             -- class O/F, resolved (D45)
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,  -- the full-text indexes' key for the row
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
   language    TEXT NOT NULL,
   is_original INTEGER NOT NULL DEFAULT 0 CHECK (is_original IN (0,1)),
@@ -371,8 +404,8 @@ CREATE TABLE item_text (                                   -- class O/F, resolve
   -- letters no Unicode option decomposes, such as Ø and ß, spelled out), so "Bjork" finds
   -- "Bjørk" (D48).
   search_alternates TEXT,
-  PRIMARY KEY (item_id, language)
-);
+  UNIQUE (item_id, language)
+) STRICT;
 
 -- table library
 CREATE TABLE library (                                     -- class A
@@ -385,8 +418,10 @@ CREATE TABLE library (                                     -- class A
   check_every_hours INTEGER,             -- only for 'interval'
   is_writable      INTEGER NOT NULL CHECK (is_writable IN (0,1)),
   created_at       INTEGER NOT NULL,
-  removed_at       INTEGER
-);
+  removed_at       INTEGER,
+  -- Hours between checks belong to the interval and nothing else (D303, M5).
+  CHECK ((change_detection = 'interval') = (check_every_hours IS NOT NULL))
+) STRICT;
 
 -- table library_root
 CREATE TABLE library_root (                                -- class O: as the node reports it (D107)
@@ -394,14 +429,14 @@ CREATE TABLE library_root (                                -- class O: as the no
   node_id    INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
   root_path  TEXT NOT NULL, retired_at INTEGER,
   PRIMARY KEY (library_id, node_id, root_path)
-);
+) STRICT;
 
 -- table locator
 CREATE TABLE locator (                                     -- class A (discovery-core.md K7)
   session_secret_sha256 BLOB PRIMARY KEY REFERENCES "grant"(secret_sha256) ON DELETE RESTRICT,
   hash        BLOB NOT NULL UNIQUE,      -- SHA-256 of the locator; never the locator
   issued_at   INTEGER NOT NULL
-) WITHOUT ROWID;
+) WITHOUT ROWID, STRICT;
 
 -- table loudness
 CREATE TABLE loudness (                                    -- class O: what the node measured
@@ -414,7 +449,7 @@ CREATE TABLE loudness (                                    -- class O: what the 
   failure         TEXT,                  -- FFmpeg's words when it could not be measured
   measured_at     INTEGER NOT NULL,
   PRIMARY KEY (payload_hash, stream_index, measured_mix)
-) WITHOUT ROWID;
+) WITHOUT ROWID, STRICT;
 
 -- table node
 CREATE TABLE node (                                        -- class I + O (the last three)
@@ -424,7 +459,7 @@ CREATE TABLE node (                                        -- class I + O (the l
   removed_at  INTEGER,
   last_status_json         TEXT,         -- the node's last status record, JSON
   last_status_at           INTEGER       -- when it arrived; liveness is judged from this
-);
+) STRICT;
 
 -- table ordering
 CREATE TABLE ordering (                                    -- D96, D159
@@ -433,7 +468,7 @@ CREATE TABLE ordering (                                    -- D96, D159
   name          TEXT NOT NULL,           -- 'aired', 'dvd', 'absolute', a person's; 'release' for an album
   provider      TEXT,                    -- NULL when user-authored
   UNIQUE (collection_id, name)
-);
+) STRICT;
 
 -- table play_event
 CREATE TABLE play_event (                                  -- class A (D165)
@@ -445,7 +480,7 @@ CREATE TABLE play_event (                                  -- class A (D165)
   position_ms INTEGER NOT NULL,
   happened_at INTEGER NOT NULL,
   happened_mono_ms INTEGER
-);
+) STRICT;
 
 -- table play_position
 CREATE TABLE play_position (                               -- class A (D81, D157)
@@ -460,7 +495,7 @@ CREATE TABLE play_position (                               -- class A (D81, D157
   -- earlier moment does not move it.
   position_read_at INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (user_id, file_id)
-) WITHOUT ROWID;
+) WITHOUT ROWID, STRICT;
 
 -- table play_span
 CREATE TABLE play_span (                                   -- class A (D165)
@@ -474,7 +509,7 @@ CREATE TABLE play_span (                                   -- class A (D165)
   ended_at    INTEGER NOT NULL,
   is_unterminated INTEGER NOT NULL DEFAULT 0 CHECK (is_unterminated IN (0,1)),
   is_unattended   INTEGER NOT NULL DEFAULT 0 CHECK (is_unattended IN (0,1))  -- after "still watching?" went unanswered (D188): never completes anything
-);
+) STRICT;
 
 -- table position
 CREATE TABLE position (                                    -- season/episode, or disc/track
@@ -484,7 +519,7 @@ CREATE TABLE position (                                    -- season/episode, or
   number_in_group INTEGER,               -- episode, or track
   sort_order  REAL NOT NULL,             -- a total order within the ordering
   PRIMARY KEY (ordering_id, title_id)
-);
+) STRICT;
 
 -- table preference
 CREATE TABLE preference (                                  -- class A (D24, D57, D90, D103, D230)
@@ -498,12 +533,12 @@ CREATE TABLE preference (                                  -- class A (D24, D57,
   value_json  TEXT NOT NULL,               -- JSON; a switch is true or false, and unset is not false
   set_at      INTEGER NOT NULL,
   PRIMARY KEY (user_id, scope, scope_id, axis)
-) WITHOUT ROWID;
+) WITHOUT ROWID, STRICT;
 
 -- table progress_hide
 CREATE TABLE progress_hide (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, hidden_at INTEGER NOT NULL,
-  PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
+  PRIMARY KEY (user_id, item_id)) WITHOUT ROWID, STRICT;
 
 -- table provider_response
 CREATE TABLE provider_response (                           -- class F: the stored input (D170)
@@ -514,7 +549,7 @@ CREATE TABLE provider_response (                           -- class F: the store
   last_asked_at INTEGER NOT NULL,        -- when the provider was last asked, with or without a new body
   body_gzip   BLOB NOT NULL,             -- compressed; cast and crew are read from here in Cut A
   PRIMARY KEY (item_id, provider, part)
-);
+) STRICT;
 
 -- table realm_key
 CREATE TABLE realm_key (                                   -- class A (D297)
@@ -522,7 +557,7 @@ CREATE TABLE realm_key (                                   -- class A (D297)
   master_realm  TEXT NOT NULL,           -- the master realm the key was made for (proof.MasterRealm)
   key           BLOB NOT NULL,           -- proof.RealmKey, 32 bytes
   made_at       INTEGER NOT NULL
-);
+) STRICT;
 
 -- table refresh_request
 CREATE TABLE refresh_request (                             -- class A
@@ -530,7 +565,7 @@ CREATE TABLE refresh_request (                             -- class A
   requested_at INTEGER NOT NULL,
   -- Whether to ask again for the item's images that were missing or refused.
   should_fetch_images INTEGER NOT NULL CHECK (should_fetch_images IN (0, 1))
-);
+) STRICT;
 
 -- table role
 CREATE TABLE role (                                        -- class A (D130)
@@ -539,7 +574,7 @@ CREATE TABLE role (                                        -- class A (D130)
   is_builtin    INTEGER NOT NULL DEFAULT 0 CHECK (is_builtin IN (0,1)),
   capabilities  TEXT NOT NULL,           -- a set from the closed enum, e.g. 'administer,download'
   predicate     TEXT                     -- NULL = sees everything; invalid = sees nothing (D164)
-);
+) STRICT;
 
 -- table role_library
 CREATE TABLE role_library (                                -- class A (D243 section 4)
@@ -547,7 +582,7 @@ CREATE TABLE role_library (                                -- class A (D243 sect
   library_id       INTEGER NOT NULL REFERENCES library(id) ON DELETE RESTRICT,
   may_rebroadcast  INTEGER NOT NULL DEFAULT 0 CHECK (may_rebroadcast IN (0,1)),
   PRIMARY KEY (role_id, library_id)
-) WITHOUT ROWID;
+) WITHOUT ROWID, STRICT;
 
 -- table root_mount
 CREATE TABLE root_mount (                                  -- class O
@@ -557,7 +592,7 @@ CREATE TABLE root_mount (                                  -- class O
   filesystem_device INTEGER NOT NULL,    -- st_dev when it was last seen where expected
   is_present        INTEGER NOT NULL CHECK (is_present IN (0, 1)), missing_since INTEGER,
   PRIMARY KEY (node_id, mount_path)
-);
+) STRICT;
 
 -- table root_scan
 CREATE TABLE root_scan (                                   -- class O
@@ -565,7 +600,7 @@ CREATE TABLE root_scan (                                   -- class O
   root_path    TEXT NOT NULL,
   completed_at INTEGER NOT NULL,         -- the last scan of this root that finished
   PRIMARY KEY (node_id, root_path)
-);
+) STRICT;
 
 -- table root_state
 CREATE TABLE root_state (                                  -- class O
@@ -580,19 +615,19 @@ CREATE TABLE root_state (                                  -- class O
   are_removals_approved INTEGER NOT NULL DEFAULT 0
     CHECK (are_removals_approved IN (0, 1)), unavailable_since INTEGER,  -- class A: the admin said the files are gone
   PRIMARY KEY (node_id, root_path)
-);
+) STRICT;
 
 -- table schema_meta
 CREATE TABLE schema_meta (
   id                 INTEGER PRIMARY KEY CHECK (id = 1),
   compatible_version INTEGER NOT NULL  -- oldest schema whose code can still use this file
-);
+) STRICT;
 
 -- table schema_step
 CREATE TABLE schema_step (                                 -- class I: the runner's own record
   version INTEGER PRIMARY KEY,
   sha256  TEXT NOT NULL                  -- hex, of the step file's bytes
-);
+) STRICT;
 
 -- table secret
 CREATE TABLE secret (                                      -- class A, sealed (D194)
@@ -606,7 +641,7 @@ CREATE TABLE secret (                                      -- class A, sealed (D
   set_by_user_id INTEGER REFERENCES user(id) ON DELETE RESTRICT,
   set_at      INTEGER NOT NULL,
   CHECK ((scope = 'server') = (user_id IS NULL))
-);
+) STRICT;
 
 -- table setting
 CREATE TABLE setting (                                     -- class A: the server's (D200)
@@ -618,7 +653,7 @@ CREATE TABLE setting (                                     -- class A: the serve
   -- value; "set to default" clears it; a release that changes a starting value moves every
   -- unmarked row to the new one.
   is_modified INTEGER NOT NULL DEFAULT 0 CHECK (is_modified IN (0, 1))
-);
+) STRICT;
 
 -- table sort_key
 CREATE TABLE "sort_key" (                            -- class C (D47)
@@ -627,7 +662,7 @@ CREATE TABLE "sort_key" (                            -- class C (D47)
   listing       TEXT NOT NULL,           -- the list it sorts in: 'movie', 'series', 'album'…
   collation_key BLOB NOT NULL,           -- CLDR sort-key bytes, BINARY order
   PRIMARY KEY (item_id, locale)
-) WITHOUT ROWID;
+) WITHOUT ROWID, STRICT;
 
 -- table sqlite_sequence
 CREATE TABLE sqlite_sequence(name,seq);
@@ -646,7 +681,7 @@ CREATE TABLE stream (                                      -- class O; not "trac
   disposition_flags INTEGER NOT NULL DEFAULT 0,  -- FFmpeg's flags, as found
   channel_count INTEGER,
   UNIQUE (bytes_file, stream_index)
-);
+) STRICT;
 
 -- table subtitle_text
 CREATE TABLE subtitle_text (                               -- class O: what the node made
@@ -658,17 +693,19 @@ CREATE TABLE subtitle_text (                               -- class O: what the 
   made_at      INTEGER NOT NULL,
   PRIMARY KEY (source_hash, stream_index),
   CHECK ((failure IS NULL) = (ass IS NOT NULL AND vtt IS NOT NULL))
-);
+) STRICT;
 
 -- table tag
 CREATE TABLE tag (                                         -- class A (D164)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   name        TEXT NOT NULL UNIQUE
-);
+) STRICT;
 
 -- table title
 CREATE TABLE title (                                       -- mixed: see the columns
   id             INTEGER PRIMARY KEY REFERENCES item(id) ON DELETE RESTRICT,
+  -- A title is an item of kind 'title' (D303, M5): the pair names the item and its kind.
+  item_kind      TEXT NOT NULL DEFAULT 'title' CHECK (item_kind = 'title'),
   kind           TEXT NOT NULL CHECK (kind IN ('movie','episode','extra')),
   media_kind     TEXT NOT NULL DEFAULT 'video' CHECK (media_kind IN ('video','audio')),
   year           INTEGER,                                    -- O: resolved
@@ -679,8 +716,10 @@ CREATE TABLE title (                                       -- mixed: see the col
   followed_source    TEXT CHECK (followed_source IN ('nfo','tmdb','tvdb','none')),  -- F/A
   followed_source_id TEXT,                                                          -- F/A
   identification_state TEXT NOT NULL CHECK (identification_state IN
-                   ('identified','ambiguous','unidentified','confirmed'))    -- F/A (D172)
-);
+                   ('identified','ambiguous','unidentified','confirmed')),   -- F/A (D172)
+  CHECK (followed_source_id IS NULL OR followed_source IS NOT NULL),  -- an id is an id at a source
+  FOREIGN KEY (id, item_kind) REFERENCES item(id, kind) ON DELETE RESTRICT
+) STRICT;
 
 -- table user
 CREATE TABLE user (                                        -- class A
@@ -692,19 +731,19 @@ CREATE TABLE user (                                        -- class A
   removed_at    INTEGER,
   admin_note    TEXT                     -- who the account is for, the admin's alone (D246 section 2)
 , admin_away TEXT NOT NULL DEFAULT 'never'
-  CHECK (admin_away IN ('never', 'always')));
+  CHECK (admin_away IN ('never', 'always'))) STRICT;
 
 -- table user_deny
 CREATE TABLE user_deny (                                   -- class A: narrows only
   user_id     INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
   PRIMARY KEY (user_id, item_id)
-) WITHOUT ROWID;
+) WITHOUT ROWID, STRICT;
 
 -- table user_rating
 CREATE TABLE user_rating (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, rating INTEGER NOT NULL,
-  rated_at INTEGER NOT NULL, PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
+  rated_at INTEGER NOT NULL, PRIMARY KEY (user_id, item_id)) WITHOUT ROWID, STRICT;
 
 -- table version
 CREATE TABLE version (                                     -- class I
@@ -713,7 +752,7 @@ CREATE TABLE version (                                     -- class I
   edition_id  INTEGER REFERENCES edition(id) ON DELETE RESTRICT,  -- NULL: cut unknown (D155)
   created_at  INTEGER NOT NULL,
   removed_at  INTEGER
-);
+) STRICT;
 
 -- table video_timeline
 CREATE TABLE video_timeline (                              -- class O: what the node read (D247 section 10)
@@ -725,39 +764,46 @@ CREATE TABLE video_timeline (                              -- class O: what the 
   made_at     INTEGER NOT NULL,
   read_failure TEXT,                     -- FFmpeg's words when a full read failed after the index gave the keyframes; NULL otherwise
   PRIMARY KEY (payload_hash, video_stream_index)
-) WITHOUT ROWID;
+) WITHOUT ROWID, STRICT;
 
 -- table watchlist
 CREATE TABLE watchlist (user_id INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
   item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT, added_at INTEGER NOT NULL,
-  PRIMARY KEY (user_id, item_id)) WITHOUT ROWID;
+  PRIMARY KEY (user_id, item_id)) WITHOUT ROWID, STRICT;
 
 -- trigger item_text_ad
 CREATE TRIGGER item_text_ad AFTER DELETE ON item_text BEGIN
   INSERT INTO item_fts(item_fts, rowid, name, search_alternates, overview)
-    VALUES ('delete', old.rowid, old.name, old.search_alternates, old.overview);
+    VALUES ('delete', old.id, old.name, old.search_alternates, old.overview);
   INSERT INTO item_fts_tri(item_fts_tri, rowid, name, search_alternates)
-    VALUES ('delete', old.rowid, old.name, old.search_alternates);
+    VALUES ('delete', old.id, old.name, old.search_alternates);
 END;
 
 -- trigger item_text_ai
 CREATE TRIGGER item_text_ai AFTER INSERT ON item_text BEGIN
   INSERT INTO item_fts(rowid, name, search_alternates, overview)
-    VALUES (new.rowid, new.name, new.search_alternates, new.overview);
+    VALUES (new.id, new.name, new.search_alternates, new.overview);
   INSERT INTO item_fts_tri(rowid, name, search_alternates)
-    VALUES (new.rowid, new.name, new.search_alternates);
+    VALUES (new.id, new.name, new.search_alternates);
 END;
 
 -- trigger item_text_au
-CREATE TRIGGER item_text_au AFTER UPDATE ON item_text BEGIN
+CREATE TRIGGER item_text_au AFTER UPDATE OF name, search_alternates, overview ON item_text
+WHEN old.name IS NOT new.name OR old.search_alternates IS NOT new.search_alternates
+  OR old.overview IS NOT new.overview BEGIN
   INSERT INTO item_fts(item_fts, rowid, name, search_alternates, overview)
-    VALUES ('delete', old.rowid, old.name, old.search_alternates, old.overview);
-  INSERT INTO item_fts_tri(item_fts_tri, rowid, name, search_alternates)
-    VALUES ('delete', old.rowid, old.name, old.search_alternates);
+    VALUES ('delete', old.id, old.name, old.search_alternates, old.overview);
   INSERT INTO item_fts(rowid, name, search_alternates, overview)
-    VALUES (new.rowid, new.name, new.search_alternates, new.overview);
+    VALUES (new.id, new.name, new.search_alternates, new.overview);
+END;
+
+-- trigger item_text_au_trigram
+CREATE TRIGGER item_text_au_trigram AFTER UPDATE OF name, search_alternates ON item_text
+WHEN old.name IS NOT new.name OR old.search_alternates IS NOT new.search_alternates BEGIN
+  INSERT INTO item_fts_tri(item_fts_tri, rowid, name, search_alternates)
+    VALUES ('delete', old.id, old.name, old.search_alternates);
   INSERT INTO item_fts_tri(rowid, name, search_alternates)
-    VALUES (new.rowid, new.name, new.search_alternates);
+    VALUES (new.id, new.name, new.search_alternates);
 END;
 
 -- view live_file
