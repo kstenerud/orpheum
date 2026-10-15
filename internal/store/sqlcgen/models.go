@@ -4,12 +4,6 @@
 
 package sqlcgen
 
-type FetchFailure struct {
-	ItemID   int64
-	Failure  string
-	FailedAt int64
-}
-
 type Loudness struct {
 	PayloadHash    []byte
 	StreamIndex    int64

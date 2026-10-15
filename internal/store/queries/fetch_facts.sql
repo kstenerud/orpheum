@@ -13,9 +13,6 @@ ON CONFLICT (item_id) DO UPDATE SET failure = excluded.failure, failed_at = excl
 -- name: ClearFetchFailure :exec
 DELETE FROM fetch_failure WHERE item_id = sqlc.arg(item_id);
 
--- name: GetFetchFailure :one
-SELECT item_id, failure, failed_at FROM fetch_failure WHERE item_id = sqlc.arg(item_id);
-
 -- name: RequestRefresh :exec
 -- A person's refresh (D213 section 2): the newest request's time, asking for the images again if
 -- this one or one still waiting does.

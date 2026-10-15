@@ -18,17 +18,6 @@ func (q *Queries) ClearFetchFailure(ctx context.Context, itemID int64) error {
 	return err
 }
 
-const getFetchFailure = `-- name: GetFetchFailure :one
-SELECT item_id, failure, failed_at FROM fetch_failure WHERE item_id = ?1
-`
-
-func (q *Queries) GetFetchFailure(ctx context.Context, itemID int64) (FetchFailure, error) {
-	row := q.db.QueryRowContext(ctx, getFetchFailure, itemID)
-	var i FetchFailure
-	err := row.Scan(&i.ItemID, &i.Failure, &i.FailedAt)
-	return i, err
-}
-
 const getRefreshRequest = `-- name: GetRefreshRequest :one
 SELECT item_id, requested_at, should_fetch_images FROM refresh_request WHERE item_id = ?1
 `
