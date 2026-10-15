@@ -103,6 +103,14 @@ func (cache *Cache) Read() *cachegen.Queries {
 	return cachegen.New(cache.database.readers)
 }
 
+// ReadTx runs read in one read transaction on cache.db's reader pool: every query in it sees one
+// commit (D303, M2).
+func (cache *Cache) ReadTx(ctx context.Context, read func(queries *cachegen.Queries) error) error {
+	return readTransaction(ctx, cache.database.readers, func(transaction *sql.Tx) error {
+		return read(cachegen.New(transaction))
+	})
+}
+
 // Write runs change in one write transaction on cache.db's single writer.
 func (cache *Cache) Write(ctx context.Context, change func(queries *cachegen.Queries) error) error {
 	return cache.database.transact(ctx, func(transaction *sql.Tx) error { return change(cachegen.New(transaction)) })

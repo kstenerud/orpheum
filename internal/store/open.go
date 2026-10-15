@@ -146,6 +146,30 @@ func (database *Database) Read() *sqlcgen.Queries {
 	return sqlcgen.New(database.readers)
 }
 
+// ReadTx runs read in one read transaction on the reader pool: every query in it sees the database
+// as one commit left it, whatever commits meanwhile (D303, M2). A page or a decision built from
+// more than one query reads through it; Read's queries each see the latest commit.
+func (database *Database) ReadTx(ctx context.Context, read func(queries *sqlcgen.Queries) error) error {
+	return readTransaction(ctx, database.readers, func(transaction *sql.Tx) error {
+		return read(sqlcgen.New(transaction))
+	})
+}
+
+// readTransaction runs read in one read-only transaction on pool, which ends when read returns.
+func readTransaction(ctx context.Context, pool *sql.DB, read func(transaction *sql.Tx) error) error {
+	transaction, err := pool.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return fmt.Errorf("begin read transaction: %w", err)
+	}
+	if err := read(transaction); err != nil {
+		return errors.Join(err, transaction.Rollback())
+	}
+	if err := transaction.Commit(); err != nil {
+		return fmt.Errorf("end read transaction: %w", err)
+	}
+	return nil
+}
+
 // Write runs change in one write transaction, which begins IMMEDIATE on the single writer and
 // commits only if change returns nil.
 func (database *Database) Write(ctx context.Context, change func(queries *sqlcgen.Queries) error) error {
