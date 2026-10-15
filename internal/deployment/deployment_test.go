@@ -590,6 +590,41 @@ func TestWrite_TheCoreSendsItsDiscoveryTheMachinesAddressAtHome(t *testing.T) {
 	}
 }
 
+// With an address at home the core takes WebRTC on its published UDP port, the same inside, which it
+// offers devices in the house; with none it takes none (D300 §1).
+func TestWrite_TheCoreTakesWebRTCAtHomeOnItsPublishedPort(t *testing.T) {
+	t.Parallel()
+	dir := begun(t, Staging)
+	values := filledValues(t, Staging)
+	values.LAN.Address = "192.168.1.199"
+	values.LAN.WebRTCPort = 8451
+	if err := Write(dir, values, runtime); err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprint(decodeTOML(t, filepath.Join(dir, coreConfig))["webrtc"]["udp_port"]); got != "8451" {
+		t.Errorf("the core's webrtc.udp_port is %s; want the published port, 8451", got)
+	}
+	if compose := readFile(t, filepath.Join(dir, composeFile)); !strings.Contains(compose,
+		"${ORPHEUM_LAN_WEBRTC_PORT:-8443}:${ORPHEUM_LAN_WEBRTC_PORT:-8443}/udp") {
+		t.Error("the compose file does not publish WebRTC at home on the same port inside")
+	}
+	if environment := readFile(t, filepath.Join(dir, environmentFile)); !strings.Contains(environment,
+		"ORPHEUM_LAN_WEBRTC_PORT=8451\n") {
+		t.Errorf("the environment does not name the WebRTC port:\n%s", environment)
+	}
+	values.LAN.Address = ""
+	if err := Write(dir, values, runtime); err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprint(decodeTOML(t, filepath.Join(dir, coreConfig))["webrtc"]["udp_port"]); got != "0" {
+		t.Errorf("with no address at home the core's webrtc.udp_port is %s; want 0", got)
+	}
+	values.LAN.WebRTCPort = 0
+	if problems := values.Problems(); !strings.Contains(strings.Join(problems, " "), "lan.webrtc_port") {
+		t.Errorf("lan.webrtc_port 0 is no problem: %v", problems)
+	}
+}
+
 // The core sends its discovery the VPS's public addresses on its HTTPS port, the IPv6 one too when
 // the deployment has its own, as configured candidates (the protocol's §2.4).
 func TestWrite_TheCoreSendsItsDiscoveryTheVPSsAddresses(t *testing.T) {

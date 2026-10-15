@@ -171,6 +171,8 @@ export interface Target {
   readonly iceServers: RTCIceServer[];
   /** The core's published names, tried before WebRTC (W2c). */
   readonly directUrls: readonly string[];
+  /** Those of directUrls that are the core's LAN names. */
+  readonly lanUrls: readonly string[];
   /**
    * What the device holds by the time a later offer is made, when it holds more than the target
    * began with: the session or membership a link's person gained (DiscoverySignalling.latest).
@@ -194,6 +196,7 @@ export async function targetOfLink(client: DiscoveryClient, link: LinkFragment):
     key: await offerKey(link.secret),
     iceServers: located.iceServers,
     directUrls: located.directUrls,
+    lanUrls: located.lanUrls,
   };
 }
 
@@ -223,6 +226,7 @@ export async function targetOfRealm(
       key: found.key,
       iceServers: located.iceServers,
       directUrls: located.directUrls,
+      lanUrls: located.lanUrls,
     },
   };
 }
@@ -281,6 +285,7 @@ export async function targetOfSession(client: DiscoveryClient, held: HeldSession
     ...(await provingOf(held)),
     iceServers: located.iceServers,
     directUrls: located.directUrls,
+    lanUrls: located.lanUrls,
   };
 }
 
@@ -297,6 +302,13 @@ export interface Reaching {
   readonly first: Reached;
   readonly another: (failed: Reached) => Promise<Reached>;
   readonly better: (current: Reached) => Promise<Reached | undefined>;
+}
+
+/** Whether path is one of the target's LAN names. */
+function isLanOf(target: Target, path: Reached): boolean {
+  return (
+    path.kind === "direct" && target.lanUrls.some((url) => new URL(url).origin === path.origin)
+  );
 }
 
 /** Where path stands in the discovery's order of the target's names, WebRTC after them all. */
@@ -334,6 +346,18 @@ export async function reachCore(client: DiscoveryClient, target: Target): Promis
       const others = target.directUrls.filter(
         (url) => failed.kind !== "direct" || new URL(url).origin !== failed.origin,
       );
+      // A LAN name that answered and then failed says the page is in the house, where Firefox fails
+      // a controlled page's requests to it: WebRTC finds the LAN pair there, and the core's public
+      // names would take it out through the VPS, away from admin (D300 §4).
+      if (isLanOf(target, failed)) {
+        return await overWebrtc().catch(async (problem: unknown) => {
+          const named = await direct(others);
+          if (named === undefined) {
+            throw problem;
+          }
+          return named;
+        });
+      }
       return (await direct(others)) ?? (await overWebrtc());
     },
     better: async (current) => {

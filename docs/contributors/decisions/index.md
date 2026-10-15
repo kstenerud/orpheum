@@ -302,9 +302,10 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D294](working-notes.md#d294--admin-from-anywhere-in-the-beta-and-an-operators-reset-of-who-administers-from-the-servers-machine) Admin from anywhere in the beta, and an operator's reset of who administers from the server's machine — *revisited by D297*
 - [D295](working-notes.md#d295--the-security-model-what-a-compromise-costs-decides-what-is-hardened-the-paid-service-most-of-all) The security model: what a compromise costs decides what is hardened, the paid service most of all
 - [D296](working-notes.md#d296--stagings-households-move-to-their-own-domain-orpheum-testcom-so-no-sandbox-token-reaches-productions-zone) Staging's households move to their own domain, orpheum-test.com, so no sandbox token reaches production's zone
-- [D297](working-notes.md#d297--a-household-is-found-by-its-realm-realm-name-and-password-together-proven-both-ways-by-a-key-the-password-makes-admin-only-from-the-cores-own-network) A household is found by its realm: realm, name and password together, proven both ways by a key the password makes; admin only from the core's own network — *revisited by D298*
+- [D297](working-notes.md#d297--a-household-is-found-by-its-realm-realm-name-and-password-together-proven-both-ways-by-a-key-the-password-makes-admin-only-from-the-cores-own-network) A household is found by its realm: realm, name and password together, proven both ways by a key the password makes; admin only from the core's own network — *revisited by D298, D300*
 - [D298](working-notes.md#d298--a-realm-is-the-hosts-accounts-a-master-realm-chosen-once-a-subrealm-per-further-core-none-when-self-hosting) A realm is the host's account's: a master realm chosen once, a subrealm per further core, none when self-hosting — *revisited by D299*
 - [D299](working-notes.md#d299--a-core-that-leaves-its-discovery-keeps-its-peoples-realm-keys) A core that leaves its discovery keeps its people's realm keys
+- [D300](working-notes.md#d300--a-webrtc-connection-made-inside-the-house-counts-as-home-the-core-offers-webrtc-on-its-lan-address) A WebRTC connection made inside the house counts as home; the core offers WebRTC on its LAN address
 
 ## Archived
 

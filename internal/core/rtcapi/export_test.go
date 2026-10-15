@@ -53,8 +53,13 @@ func ConnectionCount(server *Server) int {
 	return len(server.connections)
 }
 
-// CheckRelayedOffer is checkRelayedOffer.
-var CheckRelayedOffer = checkRelayedOffer
+// CheckRelayedOffer is checkRelayedOffer as a release takes an offer: only addresses from outside.
+func CheckRelayedOffer(sdp string) (string, error) {
+	return checkRelayedOffer(sdp, func(ip net.IP) bool { return isFromOutside(ip, interfacePrefixes) })
+}
 
 // IsFromOutside is isFromOutside.
 var IsFromOutside = isFromOutside
+
+// ChecksRelayed is checksRelayed.
+func (server *Server) ChecksRelayed(ip net.IP) bool { return server.checksRelayed(ip) }

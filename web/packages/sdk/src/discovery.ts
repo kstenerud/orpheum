@@ -322,6 +322,8 @@ export interface Located {
   readonly iceServers: RTCIceServer[];
   /** The core's published names, LAN, IPv6 then IPv4, as HTTPS URLs: tried before WebRTC (§3.3). */
   readonly directUrls: readonly string[];
+  /** Those of directUrls that are the core's LAN names, reached only in its house (§3.2). */
+  readonly lanUrls: readonly string[];
   /** Locate's alone: good for paths and offers for a few minutes, never renewed. */
   readonly bootstrapToken?: string;
 }
@@ -349,8 +351,14 @@ function iceServerOf(named: unknown): RTCIceServer[] {
 /** The kinds of path a direct URL names (the protocol's §3.2). */
 const directKinds = new Set(["lan", "ipv6", "ipv4"]);
 
-/** The direct paths' URLs a discovery's answer names, in its order; anything else is left out. */
-function directUrlsOf(paths: unknown): string[] {
+/** The kind of the core's names reached only in its house. */
+const lanKinds = new Set(["lan"]);
+
+/**
+ * The direct paths' URLs a discovery's answer names, in its order, of the kinds asked for; anything
+ * else is left out.
+ */
+function directUrlsOf(paths: unknown, kinds: ReadonlySet<string> = directKinds): string[] {
   if (!Array.isArray(paths)) {
     return [];
   }
@@ -361,7 +369,7 @@ function directUrlsOf(paths: unknown): string[] {
     const kind: unknown = Reflect.get(path, "kind");
     const url: unknown = Reflect.get(path, "url");
     return typeof kind === "string" &&
-      directKinds.has(kind) &&
+      kinds.has(kind) &&
       typeof url === "string" &&
       url.startsWith("https://")
       ? [url]
@@ -382,6 +390,7 @@ export function locatedOf(answer: unknown): Located {
     coreId,
     iceServers: Array.isArray(iceServers) ? iceServers.flatMap(iceServerOf) : [],
     directUrls: directUrlsOf(field("paths")),
+    lanUrls: directUrlsOf(field("paths"), lanKinds),
     ...(typeof bootstrapToken === "string" ? { bootstrapToken } : {}),
   };
 }

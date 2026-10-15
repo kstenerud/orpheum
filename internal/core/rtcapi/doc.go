@@ -30,12 +30,17 @@
 //   - Each connection's path (direct, punched or relayed, by family; or failed) is counted and
 //     logged, told by the core's end of its selected pair (D274 §3).
 //     TestAnswer_CountsThePathEachConnectionTook, TestPathOf_IsToldByTheCoresEndOfThePair.
+//   - A core taking WebRTC at home gathers its host candidates on one UDP port and answers with the
+//     house's address at it, so a device in the house reaches it directly (D300 §1).
+//     TestListenLAN_AnswersWithTheHousesAddressAtItsPort.
 //   - Only an offer is answered, and none past MaxConnections.
 //     TestAnswer_RefusesWhatIsNotAnOfferAndPastTheLimit.
 //   - An offer a discovery passed on is checked by the core before any connection is made: one
-//     sha-256 fingerprint, at most MaxRelayedCandidates candidates, mDNS ones dropped; and its
-//     connection checks no remote address that is private, loopback, link-local or in the core's own
-//     networks (the security audit's A2). TestCheckRelayedOffer_TakesOneSHA256FingerprintAndAFewCandidates,
+//     sha-256 fingerprint, at most MaxRelayedCandidates candidates, mDNS ones dropped and so is every
+//     one naming an address that is private, loopback, link-local or in the core's own networks; its
+//     connection checks no such address but one in the house's networks that a check reached the core
+//     from (the security audit's A2, D300 §2). TestRelayed_AnswersAHomeAddressOnlyAsTheSourceOfItsOwnCheck,
+//     TestCheckRelayedOffer_TakesOneSHA256FingerprintAndAFewCandidates,
 //     TestIsFromOutside_RefusesEveryAddressOfTheCoresOwnNetworks,
 //     TestAnswerRelayed_ConnectsNoClientOnTheCoresOwnNetwork. A development build alone lifts the
 //     address check (AcceptAnyRelayedAddress), for browser tests on one machine; a release never

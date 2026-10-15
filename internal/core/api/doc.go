@@ -56,10 +56,13 @@
 //     (under /bytes/, D216) also take the media cookie, HttpOnly and SameSite Strict, which the API never does
 //     (D154). Enforced by TestSession_TheTokenWorksInTheHeaderOnlyUntilSignOut and
 //     TestMediaCookie_SignInSetsItOnlyTheBytePathsTakeItAndSignOutClearsIt.
-//   - An admin administers only from the house's network, directly: at home a sign-in from any origin
-//     carries the whole role, and over WebRTC or from any other network it carries a person's (D297
-//     §6, revising D294 §1, §4). Enforced by TestSignIn_AnAdminAdministersFromAnyOrigin and
-//     TestAdmin_AdministersOnlyFromTheHousesNetworkNeverOverWebRTC.
+//   - An admin administers only from the house's network: at home a sign-in from any origin carries
+//     the whole role, directly or over a WebRTC connection whose selected pair reaches the core from
+//     the house with no relay between, as the core's own end of the pair says; from any other network,
+//     over WebRTC too, it carries a person's (D297 §6, D300 §3, revising D294 §1, §4). Enforced by
+//     TestSignIn_AnAdminAdministersFromAnyOrigin,
+//     TestAdmin_AdministersOnlyFromTheHousesNetworkDirectlyOrOverWebRTCFromIt and
+//     TestIsDirectPath_CountsNoRelayedOrFailedPath.
 //   - Only an admin sees /doctor; its artwork finding warns at high water with the ceiling to set
 //     (D212 §7). TestDoctor_AnAdminSeesTheArtworkCacheAgainstItsCeiling.
 //   - Only an admin sees /system, the System page: the server's facts, doctor's findings and each

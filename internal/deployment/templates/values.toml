@@ -57,3 +57,6 @@ port = 8440
 address = ""
 # The port HTTPS is published on at that address.
 https_port = 8443
+# The UDP port WebRTC is published on at that address, so a device at home reaches the server in the
+# house over WebRTC too (D300).
+webrtc_port = 8443

@@ -53,10 +53,10 @@ func TestSignIn_AnAdminAdministersFromAnyOrigin(t *testing.T) {
 	}
 }
 
-// An admin administers only from the house's network, directly: over WebRTC, whose source the core
-// cannot know, and from any other network, their session is a person's, until passkeys (D297 §6,
-// revising D294 §4).
-func TestAdmin_AdministersOnlyFromTheHousesNetworkNeverOverWebRTC(t *testing.T) {
+// An admin administers only from the house's network: directly, or over a WebRTC connection whose
+// selected pair reaches the core directly from it, as its own end of the pair says; from any other
+// network, over WebRTC too, their session is a person's, until passkeys (D297 §6, D300 §3).
+func TestAdmin_AdministersOnlyFromTheHousesNetworkDirectlyOrOverWebRTCFromIt(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	rtc := rtcapi.New(t.Context(), harness.server.Handler(), slog.New(slog.DiscardHandler))
@@ -75,32 +75,55 @@ func TestAdmin_AdministersOnlyFromTheHousesNetworkNeverOverWebRTC(t *testing.T) 
 		return rtcapi.Description{Type: answer.Type, SDP: answer.SDP}, nil
 	})
 	host := strings.TrimPrefix(harness.httpServer.URL, "http://")
-	overWebRTC := link.Do(rtcapi.RequestHead{
-		Method: http.MethodGet, Path: Prefix + "/users",
-		Headers: http.Header{"authorization": {"Bearer " + admin}, "origin": {harness.httpServer.URL}, "host": {host}},
-	}, nil)
-	if overWebRTC.Head.Status != http.StatusForbidden || !strings.Contains(string(overWebRTC.Body), "own network") {
-		t.Errorf("an admin's GET /users over WebRTC = %d %s; want 403, administering only at home",
-			overWebRTC.Head.Status, overWebRTC.Body)
+	ask := func(path string) rtcapitest.Reply {
+		headers := http.Header{"authorization": {"Bearer " + admin}, "origin": {harness.httpServer.URL}, "host": {host}}
+		return link.Do(rtcapi.RequestHead{Method: http.MethodGet, Path: Prefix + path, Headers: headers}, nil)
 	}
-	// Asked over WebRTC, the page is told it does not administer there, so it offers nothing it may not do.
-	asked := link.Do(rtcapi.RequestHead{
-		Method: http.MethodGet, Path: Prefix + "/me",
-		Headers: http.Header{"authorization": {"Bearer " + admin}, "origin": {harness.httpServer.URL}, "host": {host}},
-	}, nil)
-	var away UserBody
-	isRead := asked.Head.Status == http.StatusOK && json.Unmarshal(asked.Body, &away) == nil
-	if !isRead || away.IsAdmin || away.Role != "admin" {
-		t.Errorf("an admin's /me over WebRTC = %d %s; want their role, and isAdmin false",
-			asked.Head.Status, asked.Body)
+	// The harness's home is this machine, which the connection's pair reaches directly.
+	if users := ask("/users"); users.Head.Status != http.StatusOK {
+		t.Errorf("an admin's GET /users over WebRTC from home = %d %s; want 200", users.Head.Status, users.Body)
 	}
-	if isAdmin, _ := harness.mayAdminister(t, admin); !isAdmin {
-		t.Error("the admin may not administer from home, this machine")
+	if !isAdminOver(t, ask("/me")) {
+		t.Error("an admin's /me over WebRTC from home says they do not administer")
 	}
 	harness.server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")})
+	users := ask("/users")
+	if users.Head.Status != http.StatusForbidden || !strings.Contains(string(users.Body), "own network") {
+		t.Errorf("an admin's GET /users over WebRTC from away = %d %s; want 403, administering only at home",
+			users.Head.Status, users.Body)
+	}
+	// Asked over WebRTC from away, the page is told it does not administer there.
+	if isAdminOver(t, ask("/me")) {
+		t.Error("an admin's /me over WebRTC from away says they administer")
+	}
 	wantError(t, harness.do(t, http.MethodGet, "/users", admin, nil), http.StatusForbidden, CodeForbidden)
 	if _, canManage := harness.mayAdminister(t, admin); !canManage {
 		t.Error("away from home the admin may not manage their own account, which a person may")
+	}
+}
+
+// isAdminOver is whether a /me answered over WebRTC says its session administers there, its role
+// read as an admin's either way.
+func isAdminOver(t *testing.T, asked rtcapitest.Reply) bool {
+	t.Helper()
+	var me UserBody
+	if asked.Head.Status != http.StatusOK || json.Unmarshal(asked.Body, &me) != nil || me.Role != "admin" {
+		t.Fatalf("an admin's /me over WebRTC = %d %s; want their role", asked.Head.Status, asked.Body)
+	}
+	return me.IsAdmin
+}
+
+// A relayed WebRTC pair never counts as home, whatever address its relay has: only a pair with no
+// relay between reaches the core from the house (D300 §3).
+func TestIsDirectPath_CountsNoRelayedOrFailedPath(t *testing.T) {
+	t.Parallel()
+	for path, want := range map[rtcapi.Path]bool{
+		rtcapi.PathDirectIPv4: true, rtcapi.PathDirectIPv6: true, rtcapi.PathPunchedIPv4: true,
+		rtcapi.PathPunchedIPv6: true, rtcapi.PathRelayed: false, rtcapi.PathFailed: false,
+	} {
+		if got := isDirectPath(path); got != want {
+			t.Errorf("isDirectPath(%s) = %t; want %t", path, got, want)
+		}
 	}
 }
 

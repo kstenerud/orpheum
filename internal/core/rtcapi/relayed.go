@@ -35,7 +35,7 @@ func (server *Server) AnswerRelayed(ctx context.Context, offer Description) (Des
 	if offer.Type != "offer" {
 		return Description{}, fmt.Errorf("%w: want an offer, not %q", ErrOfferRefused, offer.Type)
 	}
-	checked, err := checkRelayedOffer(offer.SDP)
+	checked, err := checkRelayedOffer(offer.SDP, server.takesNamedRelayed)
 	if err != nil {
 		return Description{}, fmt.Errorf("%w: %w", ErrOfferRefused, err)
 	}
@@ -44,8 +44,10 @@ func (server *Server) AnswerRelayed(ctx context.Context, offer Description) (Des
 
 // checkRelayedOffer is an offer's SDP as the core takes it from a discovery, or why it is refused.
 // Its host candidates named by mDNS (.local) are dropped: they resolve only on the client's own LAN,
-// and resolving them would send queries into the core's.
-func checkRelayedOffer(sdp string) (string, error) {
+// and resolving them would send queries into the core's. So is every candidate whose address
+// isTaken refuses: one in the core's own networks, which the connection may answer a check from
+// but never send one to first (D300 §2; the security audit's A2).
+func checkRelayedOffer(sdp string, isTaken func(net.IP) bool) (string, error) {
 	lines := strings.Split(strings.ReplaceAll(sdp, "\r\n", "\n"), "\n")
 	kept := make([]string, 0, len(lines))
 	fingerprints, candidates := 0, 0
@@ -58,7 +60,8 @@ func checkRelayedOffer(sdp string) (string, error) {
 				return "", fmt.Errorf("a fingerprint by %q; only sha-256 is taken", algorithm)
 			}
 		case strings.HasPrefix(line, "a=candidate:"):
-			if fields := strings.Fields(line); len(fields) > 4 && strings.HasSuffix(fields[4], ".local") {
+			if fields := strings.Fields(line); len(fields) > 4 &&
+				(strings.HasSuffix(fields[4], ".local") || !isTaken(net.ParseIP(fields[4]))) {
 				continue
 			}
 			candidates++
