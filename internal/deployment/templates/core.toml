@@ -17,6 +17,9 @@ shutdown_grace_seconds = 10
 # Names the house reaches the plain listener by, beside its addresses and local names; the HTTPS
 # name is added on its own.
 host_names = []
+# Where an admin administers from, reaching the server directly: the house's network alone, never the
+# tunnel's (D297 §6).
+home_networks = {{toml .Values.HomeNetworks}}
 
 [https]
 domain = {{toml .Values.Domain}}

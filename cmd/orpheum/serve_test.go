@@ -116,6 +116,7 @@ listen = "127.0.0.1:0"
 read_header_timeout_seconds = 10
 shutdown_grace_seconds = 10
 host_names = []
+home_networks = ["127.0.0.0/8", "::1/128"]
 
 [https]
 domain = ""

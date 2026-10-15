@@ -527,6 +527,31 @@ func TestNewKeyPair_IsAClampedX25519PairAsWgMakesOne(t *testing.T) {
 	}
 }
 
+// The house's network, the LAN address's /24, is where the deployed core's admin administers from,
+// never the tunnel's 10.77.0.0/24; with no LAN address, the private ranges a home router gives, which
+// leave the tunnel's out (D297 §6).
+func TestWrite_TheCoreAdministersOnlyFromTheHousesNetwork(t *testing.T) {
+	t.Parallel()
+	dir := begun(t, Staging)
+	values := filledValues(t, Staging)
+	values.LAN.Address = "192.168.1.199"
+	if err := Write(dir, values, runtime); err != nil {
+		t.Fatal(err)
+	}
+	got := fmt.Sprint(decodeTOML(t, filepath.Join(dir, coreConfig))["server"]["home_networks"])
+	if got != "[192.168.1.0/24]" {
+		t.Errorf("the core's server.home_networks are %s; want the house's /24", got)
+	}
+	values.LAN.Address = ""
+	if err := Write(dir, values, runtime); err != nil {
+		t.Fatal(err)
+	}
+	got = fmt.Sprint(decodeTOML(t, filepath.Join(dir, coreConfig))["server"]["home_networks"])
+	if got != "[192.168.0.0/16 172.16.0.0/12]" {
+		t.Errorf("with no address at home the core's server.home_networks are %s; want the home ranges", got)
+	}
+}
+
 // The machine's address at home, which the core's container cannot see, goes to the core with the
 // port HTTPS is published on there, for its discovery to name for devices at home; none is sent when
 // the values file names none, and an address that is not the house's is a problem the values name

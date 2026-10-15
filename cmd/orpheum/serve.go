@@ -50,7 +50,7 @@ func serve(
 	ctx context.Context, config Config, configReport ConfigReport, listener net.Listener, outside wiring,
 	logger *slog.Logger,
 ) (err error) {
-	server := api.NewServer(logger)
+	server := newAPIServer(config, logger)
 	clientFiles, hasClient := webclient.Files()
 	serveClient(server, clientFiles, hasClient)
 	// Requests over WebRTC data channels reach the same handler as those over TCP (D273 §8).
@@ -592,6 +592,14 @@ func mountDebug(
 			"should_serve_debug_metrics is set, but /metrics is not built yet; nothing is served there")
 	}
 	return nil
+}
+
+// newAPIServer is the API's server, an admin administering from the networks the config names
+// (D297 §6).
+func newAPIServer(config Config, logger *slog.Logger) *api.Server {
+	server := api.NewServer(logger)
+	server.SetHomeNetworks(config.Server.homeNetworks())
+	return server
 }
 
 // serveClient serves the built web client, clientFiles, at "/", and has every API answer name its

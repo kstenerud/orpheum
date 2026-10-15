@@ -3,6 +3,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -165,6 +166,7 @@ listen = "127.0.0.1:8432"
 read_header_timeout_seconds = 10
 shutdown_grace_seconds = 10
 host_names = []
+home_networks = ["127.0.0.0/8", "::1/128"]
 
 [https]
 domain = ""
@@ -332,5 +334,25 @@ func TestDiscoveryConfig_ConfiguredAddressesArePublicAndSentAsConfigured(t *test
 		if discovery.check() == nil {
 			t.Errorf("configured address %q was taken", refused)
 		}
+	}
+}
+
+// The networks an admin administers from are networks, read as such; anything else is refused by
+// name (D297 §6).
+func TestServerConfig_HomeNetworksAreNetworks(t *testing.T) {
+	t.Parallel()
+	server := ServerConfig{
+		Listen: "0.0.0.0:8440", ReadHeaderTimeoutSeconds: 10, ShutdownGraceSeconds: 10,
+		HomeNetworks: []string{"192.168.1.7/24", "fd00::/8"},
+	}
+	if err := server.check(); err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprint(server.homeNetworks()); got != "[192.168.1.0/24 fd00::/8]" {
+		t.Errorf("the home networks read as %s; want each network, masked", got)
+	}
+	server.HomeNetworks = []string{"192.168.1.7"}
+	if err := server.check(); err == nil || !strings.Contains(err.Error(), "server.home_networks") {
+		t.Errorf("an address alone = %v; want refused by server.home_networks", err)
 	}
 }

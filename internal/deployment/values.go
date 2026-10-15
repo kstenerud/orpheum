@@ -163,6 +163,28 @@ func (values Values) LANAddresses() []string {
 	return []string{net.JoinHostPort(values.LAN.Address, strconv.Itoa(values.LAN.HTTPSPort))}
 }
 
+// homeNetworkBits are how much of the LAN address names the house's network: a home router's /24,
+// or an IPv6 /64.
+const (
+	homeNetworkBitsIPv4 = 24
+	homeNetworkBitsIPv6 = 64
+)
+
+// HomeNetworks are the networks an admin administers from (D297 §6): the house's, the LAN address's
+// /24, never the tunnel's 10.77.0.0/24 nor its fd77::/64, which a private range would take in; with no
+// LAN address, the private ranges a home router gives, which leave the tunnel's out.
+func (values Values) HomeNetworks() []string {
+	address, err := netip.ParseAddr(values.LAN.Address)
+	if err != nil {
+		return []string{"192.168.0.0/16", "172.16.0.0/12"}
+	}
+	bits := homeNetworkBitsIPv4
+	if address.Is6() {
+		bits = homeNetworkBitsIPv6
+	}
+	return []string{netip.PrefixFrom(address, bits).Masked().String()}
+}
+
 // TURNListen is where the core's TURN listens: the tunnel's IPv4 address, so a UDP answer leaves
 // from the address the VPS forwards to (deploy/vps/README.md §3).
 func (values Values) TURNListen() string {

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"strconv"
 	"strings"
 	"testing"
@@ -35,8 +36,8 @@ func (harness testHarness) mayAdminister(t *testing.T, token string) (isAdmin, c
 	return isAdmin, changed.status != http.StatusForbidden
 }
 
-// An admin administers from anywhere: a sign-in from a page another origin served (a discovery's
-// client), from the core's own origin or from no browser carries the whole role (D294 §1, §4).
+// An admin at home administers whatever page they signed in from: one another origin served (a
+// discovery's client), the core's own, or no browser (D294 §1, §4; D297 §6 keeps it to the house).
 func TestSignIn_AnAdminAdministersFromAnyOrigin(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -52,8 +53,10 @@ func TestSignIn_AnAdminAdministersFromAnyOrigin(t *testing.T) {
 	}
 }
 
-// An admin administers over WebRTC too, the one way into a core no direct path reaches (D294 §4).
-func TestSignIn_AnAdminAdministersOverWebRTC(t *testing.T) {
+// An admin administers only from the house's network, directly: over WebRTC, whose source the core
+// cannot know, and from any other network, their session is a person's, until passkeys (D297 §6,
+// revising D294 §4).
+func TestAdmin_AdministersOnlyFromTheHousesNetworkNeverOverWebRTC(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	rtc := rtcapi.New(t.Context(), harness.server.Handler(), slog.New(slog.DiscardHandler))
@@ -71,20 +74,22 @@ func TestSignIn_AnAdminAdministersOverWebRTC(t *testing.T) {
 		}
 		return rtcapi.Description{Type: answer.Type, SDP: answer.SDP}, nil
 	})
-	body, err := json.Marshal(map[string]any{"name": "owner", "password": "owner-password", "device": testDevice})
-	if err != nil {
-		t.Fatal(err)
-	}
 	host := strings.TrimPrefix(harness.httpServer.URL, "http://")
-	signedIn := link.Do(rtcapi.RequestHead{
-		Method: http.MethodPost, Path: Prefix + "/session",
-		Headers: http.Header{
-			"content-type": {"application/json"}, "origin": {harness.httpServer.URL}, "host": {host},
-		},
-	}, body)
-	token, _ := readSignIn(t, response{status: signedIn.Head.Status, body: string(signedIn.Body)})
-	if isAdmin, canManage := harness.mayAdminister(t, token); !isAdmin || !canManage {
-		t.Errorf("a sign-in over WebRTC may administer: %t, manage its account: %t; want both", isAdmin, canManage)
+	overWebRTC := link.Do(rtcapi.RequestHead{
+		Method: http.MethodGet, Path: Prefix + "/users",
+		Headers: http.Header{"authorization": {"Bearer " + admin}, "origin": {harness.httpServer.URL}, "host": {host}},
+	}, nil)
+	if overWebRTC.Head.Status != http.StatusForbidden || !strings.Contains(string(overWebRTC.Body), "own network") {
+		t.Errorf("an admin's GET /users over WebRTC = %d %s; want 403, administering only at home",
+			overWebRTC.Head.Status, overWebRTC.Body)
+	}
+	if isAdmin, _ := harness.mayAdminister(t, admin); !isAdmin {
+		t.Error("the admin may not administer from home, this machine")
+	}
+	harness.server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")})
+	wantError(t, harness.do(t, http.MethodGet, "/users", admin, nil), http.StatusForbidden, CodeForbidden)
+	if _, canManage := harness.mayAdminister(t, admin); !canManage {
+		t.Error("away from home the admin may not manage their own account, which a person may")
 	}
 }
 

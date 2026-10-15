@@ -56,6 +56,21 @@ type ServerConfig struct {
 	// addresses and the names public DNS never answers: a request naming any other host is refused,
 	// against DNS rebinding (the discovery protocol's §7 item 10; S15).
 	HostNames []string `toml:"host_names"`
+	// HomeNetworks are the networks a request must come from, directly and not over WebRTC, for an
+	// admin's session to administer: the house's, not the tunnel's nor the internet's, until
+	// passkeys let an admin in from elsewhere (D297 §6).
+	HomeNetworks []string `toml:"home_networks"`
+}
+
+// homeNetworks are HomeNetworks parsed; check refused any that is not one.
+func (server ServerConfig) homeNetworks() []netip.Prefix {
+	networks := make([]netip.Prefix, 0, len(server.HomeNetworks))
+	for _, named := range server.HomeNetworks {
+		if network, err := netip.ParsePrefix(named); err == nil {
+			networks = append(networks, network.Masked())
+		}
+	}
+	return networks
 }
 
 // lanHostNames are the names the plain-HTTP listener answers beside the ones it always does: the
@@ -301,8 +316,8 @@ func configKeys(kind instanceKind) []configKey {
 	return append(coreConfigKeys(), logConfigKeys()...)
 }
 
-// coreConfigKeys are the full config's keys for the core, in the order the file is written.
-func coreConfigKeys() []configKey {
+// serverConfigKeys are the core's [server] keys, in the order the file is written.
+func serverConfigKeys() []configKey {
 	return []configKey{
 		{tableServer, keyListen, "", "the address and port to serve on, which only this machine's owner can choose"},
 		{tableServer, "read_header_timeout_seconds", "10", "seconds a client has to send its request headers"},
@@ -312,6 +327,18 @@ func coreConfigKeys() []configKey {
 				"public DNS never answers (nas, nas.example, nas.local), and refuses others against DNS rebinding",
 		},
 		{tableServer, "shutdown_grace_seconds", "10", "seconds in-flight requests get to finish when the server stops"},
+		{
+			tableServer, "home_networks",
+			`["127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"]`,
+			"the networks an admin administers from, reaching the server directly rather than over WebRTC; " +
+				"a deployment names its house's alone, so that its tunnel's never counts (D297)",
+		},
+	}
+}
+
+// coreConfigKeys are the full config's keys for the core, in the order the file is written.
+func coreConfigKeys() []configKey {
+	return append(serverConfigKeys(), []configKey{
 		{
 			tableHTTPS, "domain", `""`,
 			`the public name served over HTTPS, "media.orpheum-app.com"; empty serves none (D243 §6)`,
@@ -368,7 +395,7 @@ func coreConfigKeys() []configKey {
 			`what the core does with a database it cannot bring forward: "refuse" to start, or ` +
 				`"start_over", setting it aside in the backups directory and starting empty (staging's, D249 §4)`,
 		},
-	}
+	}...)
 }
 
 // nodeConfigKeys are the file's keys for the media node, in the order the file is written.
@@ -600,6 +627,12 @@ func (server ServerConfig) check() error {
 		"server.read_header_timeout_seconds": server.ReadHeaderTimeoutSeconds,
 		"server.shutdown_grace_seconds":      server.ShutdownGraceSeconds,
 	}))
+	for _, named := range server.HomeNetworks {
+		if _, err := netip.ParsePrefix(named); err != nil {
+			problems = append(problems,
+				fmt.Errorf("server.home_networks %q: want a network, \"192.168.1.0/24\"", named))
+		}
+	}
 	return errors.Join(problems...)
 }
 
