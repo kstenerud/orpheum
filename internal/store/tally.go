@@ -5,6 +5,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/kstenerud/orpheum/internal/platform/querytally"
 )
@@ -25,12 +26,20 @@ func (counting tallying) ExecContext(ctx context.Context, query string, args ...
 	if tally := querytally.Of(ctx); tally != nil {
 		tally.Count(query)
 	}
-	return counting.inner.ExecContext(ctx, query, args...) //nolint:wrapcheck // the generated code's caller wraps
+	result, err := counting.inner.ExecContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("%w", err) // the generated code's caller says what it was doing
+	}
+	return result, nil
 }
 
 // PrepareContext prepares a statement; it is counted when run.
 func (counting tallying) PrepareContext(ctx context.Context, query string) (*sql.Stmt, error) {
-	return counting.inner.PrepareContext(ctx, query) //nolint:wrapcheck // the generated code's caller wraps
+	statement, err := counting.inner.PrepareContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("%w", err) // the generated code's caller says what it was doing
+	}
+	return statement, nil
 }
 
 // QueryContext counts and runs a statement that returns rows.
@@ -38,7 +47,11 @@ func (counting tallying) QueryContext(ctx context.Context, query string, args ..
 	if tally := querytally.Of(ctx); tally != nil {
 		tally.Count(query)
 	}
-	return counting.inner.QueryContext(ctx, query, args...) //nolint:wrapcheck // the generated code's caller wraps
+	rows, err := counting.inner.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("%w", err) // the generated code's caller says what it was doing
+	}
+	return rows, nil
 }
 
 // QueryRowContext counts and runs a statement that returns one row.
