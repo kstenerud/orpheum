@@ -240,7 +240,11 @@ CREATE TABLE file (                                        -- class I (identity 
   last_seen_at     INTEGER NOT NULL,
   removed_at    INTEGER                  -- tombstone: only on a positive report (D34, D179)
 );
-CREATE UNIQUE INDEX file_live_path ON file(node_id, reported_path_raw) WHERE removed_at IS NULL;  -- 0011: was (node_id, path)
+CREATE UNIQUE INDEX file_live_path ON file(node_id, reported_path_raw) WHERE removed_at IS NULL;
+-- D303 (step 0045): the paths queries take that none served.
+CREATE INDEX file_removed_payload ON file(library_id, payload_hash, removed_at) WHERE removed_at IS NOT NULL;
+CREATE INDEX file_library ON file(library_id, path) WHERE removed_at IS NULL;
+CREATE INDEX file_errored ON file(library_id, path) WHERE filing = 'errored' AND removed_at IS NULL;  -- 0011: was (node_id, path)
 CREATE INDEX file_payload ON file(payload_hash) WHERE removed_at IS NULL;  -- moves, duplicates
 CREATE INDEX file_version ON file(version_id) WHERE version_id IS NOT NULL;
 CREATE VIEW live_file AS SELECT * FROM file WHERE removed_at IS NULL;
@@ -406,7 +410,7 @@ CREATE TABLE version (                                     -- class I
   created_at  INTEGER NOT NULL,
   removed_at  INTEGER
 );
-CREATE INDEX version_title ON version(title_id) WHERE removed_at IS NULL;
+CREATE INDEX version_title ON version(title_id);     -- every version, removed too, which a merge moves (D303)
 
 CREATE TABLE extra_relation (                              -- class O, or A when asserted
   owner_title   INTEGER NOT NULL REFERENCES title(id) ON DELETE RESTRICT,

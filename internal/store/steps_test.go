@@ -483,3 +483,34 @@ func TestMigrate_Step0044KeepsTheTextAndRewritesAnIndexOnlyOnChange(t *testing.T
 			"the word index rewritten, then both indexes: each more than the last", unchanged, overviewOnly, renamed)
 	}
 }
+
+// Step 0045's indexes serve the paths they were made for: a removed payload by library, a
+// library's files by path, the errored files, a title's series, a device's grants, every version
+// of a title (D303, DL1, DL4).
+func TestMigrate_Step0045IndexesServeTheirPaths(t *testing.T) {
+	t.Parallel()
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := openTemporary(t)
+	through := steps[:stepIndex(t, steps, 45)+1]
+	if err = database.migrate(t.Context(), through, testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	for query, index := range map[string]string{
+		"SELECT id FROM file WHERE library_id = 1 AND payload_hash = x'00' AND removed_at IS NOT NULL " +
+			"ORDER BY removed_at DESC LIMIT 1": "file_removed_payload",
+		"SELECT id FROM file WHERE library_id = 1 AND removed_at IS NULL ORDER BY path": "file_library",
+		"SELECT id FROM file WHERE filing = 'errored' AND removed_at IS NULL " +
+			"ORDER BY library_id, path": "file_errored",
+		"SELECT collection_id FROM collection_member WHERE member_title = 1": "collection_member_title",
+		`SELECT secret_sha256 FROM "grant" WHERE device_id = 1`:              "grant_device",
+		"UPDATE version SET title_id = 2 WHERE title_id = 1":                 "version_title",
+	} {
+		plan := fmt.Sprint(queryRows(t, database, "EXPLAIN QUERY PLAN "+query, 4))
+		if !strings.Contains(plan, index) {
+			t.Errorf("%s reads by %s; want %s", query, plan, index)
+		}
+	}
+}

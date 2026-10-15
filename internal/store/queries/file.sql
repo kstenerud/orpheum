@@ -278,4 +278,5 @@ FROM live_file
 JOIN library ON library.id = live_file.library_id AND library.removed_at IS NULL
 JOIN node ON node.id = live_file.node_id AND node.removed_at IS NULL
 WHERE live_file.filing = 'errored'
-ORDER BY library.id, live_file.path;
+-- In file_errored's order, which it then reads, never the whole table (D303).
+ORDER BY live_file.library_id, live_file.path;

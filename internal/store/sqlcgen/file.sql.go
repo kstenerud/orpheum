@@ -908,7 +908,7 @@ FROM live_file
 JOIN library ON library.id = live_file.library_id AND library.removed_at IS NULL
 JOIN node ON node.id = live_file.node_id AND node.removed_at IS NULL
 WHERE live_file.filing = 'errored'
-ORDER BY library.id, live_file.path
+ORDER BY live_file.library_id, live_file.path
 `
 
 type ListUnreadablePathsRow struct {
@@ -924,6 +924,7 @@ type ListUnreadablePathsRow struct {
 
 // What scans could not read in live libraries' roots, with the platform's error, owner, group and
 // mode (D163 section 8): what the System page lists with the fix (D277 section 3).
+// In file_errored's order, which it then reads, never the whole table (D303).
 func (q *Queries) ListUnreadablePaths(ctx context.Context) ([]ListUnreadablePathsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listUnreadablePaths)
 	if err != nil {

@@ -11,7 +11,7 @@ import (
 
 const getLiveSessionOfLocator = `-- name: GetLiveSessionOfLocator :one
 SELECT locator.session_secret_sha256 FROM locator
-JOIN "grant" ON "grant".secret_sha256 = locator.session_secret_sha256
+CROSS JOIN "grant" ON "grant".secret_sha256 = locator.session_secret_sha256
 WHERE locator.hash = ?1 AND "grant".kind = 'session' AND "grant".revoked_at IS NULL
   AND "grant".last_used_at >= ?2
 `
@@ -32,12 +32,14 @@ func (q *Queries) GetLiveSessionOfLocator(ctx context.Context, arg GetLiveSessio
 
 const listLiveLocators = `-- name: ListLiveLocators :many
 SELECT locator.hash FROM locator
-JOIN "grant" ON "grant".secret_sha256 = locator.session_secret_sha256
+CROSS JOIN "grant" ON "grant".secret_sha256 = locator.session_secret_sha256
 WHERE "grant".kind = 'session' AND "grant".revoked_at IS NULL AND "grant".last_used_at >= ?1
 ORDER BY locator.hash
 `
 
 // The locators of every live session: not revoked, and used since idle_since.
+// Driven from locator, one row per signed-in device, never from grant, which keeps every grant ever
+// issued: CROSS JOIN fixes the order, which the planner cannot know without statistics (D303).
 func (q *Queries) ListLiveLocators(ctx context.Context, idleSince *int64) ([][]byte, error) {
 	rows, err := q.db.QueryContext(ctx, listLiveLocators, idleSince)
 	if err != nil {
