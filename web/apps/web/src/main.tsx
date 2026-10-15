@@ -30,7 +30,7 @@ import { ownScriptOf, pageUpdateWatch } from "./app-update.ts";
 import { App } from "./app.tsx";
 import { browserStorage, storageIfAllowed } from "./browser-storage.ts";
 import { createNavigation } from "./navigation.ts";
-import { ServicesContext } from "./services.tsx";
+import { createPathMoves, ServicesContext } from "./services.tsx";
 import { DiscoveryGate, type GateParts } from "./discovery-gate.tsx";
 import {
   discoveryClientApiOf,
@@ -64,6 +64,8 @@ const navigation = createNavigation(window);
 const routed = new SwitchableFetch();
 const root = createRoot(rootElement);
 const localStore = storageIfAllowed(() => window.localStorage);
+// The page's moves from one path to the core to another, after its first (path-keeper.ts).
+const pathMoves = createPathMoves();
 // The session socket the app opens: the browser's WebSocket, until the WebRTC path takes over.
 let openTogetherSocket = browserTogetherSocket(window.location.origin);
 
@@ -85,6 +87,7 @@ function mountApp(session: Session, realm?: string): Api {
     voiceDevices: browserVoiceDevices,
     fetchMedia: browserFetch,
     realm,
+    pathMoves,
   };
   root.render(
     <StrictMode>
@@ -112,6 +115,7 @@ const betterPathEveryMs = 30_000;
  * allowed (path-keeper.ts); each path takes the session's media credentials and the session socket.
  */
 function keepPath(reaching: Reaching, session: Session): { readonly close: () => void } {
+  let isFirst = true;
   const keeper = new PathKeeper<Reached>(reaching.first, {
     sendOn: (path) => sendingOn(path).send,
     another: reaching.another,
@@ -122,6 +126,10 @@ function keepPath(reaching: Reaching, session: Session): { readonly close: () =>
         path.kind === "direct"
           ? browserTogetherSocket(path.origin)
           : rtcTogetherSocket(() => path.transport.openChannel());
+      if (!isFirst) {
+        pathMoves.moved();
+      }
+      isFirst = false;
     },
   });
   routed.use(keeper.fetch, "the path kept working");
