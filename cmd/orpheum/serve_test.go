@@ -137,6 +137,9 @@ configured_addresses = []
 lan_addresses = []
 send_interface_addresses = true
 
+[webrtc]
+udp_port = 0
+
 [database]
 read_connections_minimum = 4
 migrate_free_space_db_multiple = 3

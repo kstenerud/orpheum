@@ -12,7 +12,7 @@ import {
   realmTag,
   sessionOfferKey,
 } from "@orpheum/sdk";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DiscoveryGate, withLatest, type GateParts } from "./discovery-gate.tsx";
 import {
@@ -221,6 +221,7 @@ describe("what a connection's later offers are proven with", () => {
     key: new Uint8Array(32),
     iceServers: [],
     directUrls: [],
+    lanUrls: [],
   };
 
   it("is what its person gained by the link once they joined: their membership", async () => {
@@ -479,6 +480,7 @@ describe("the paths a core is reached by after the first (webrtc-transport.md W2
     key: new Uint8Array(32),
     iceServers: [],
     directUrls: [lan, ipv6],
+    lanUrls: [lan],
   };
 
   it("takes another name when the one in use fails, and the LAN again once it answers", async () => {
@@ -503,5 +505,41 @@ describe("the paths a core is reached by after the first (webrtc-transport.md W2
       kind: "direct",
       origin: ipv6,
     });
+  });
+
+  it("tries WebRTC first when the LAN name fails, the public names only after (D300 §4)", async () => {
+    const tried: string[] = [];
+    const fetched: typeof fetch = (url) => {
+      const address = url instanceof Request ? url.url : url.toString();
+      tried.push(new URL(address).origin);
+      return Promise.resolve(new Response("{}", { status: 200 }));
+    };
+    const reaching = await reachCore(
+      { clientApi: "https://discovery.example/client/v1", fetch: fetched },
+      target,
+    );
+    expect(reaching.first).toEqual({ kind: "direct", origin: lan });
+    tried.length = 0;
+    // No browser WebRTC here: a connection attempt is heard, and fails as one through no path would.
+    vi.stubGlobal("RTCPeerConnection", function noWebRTC(): never {
+      tried.push("webrtc");
+      throw new Error("no WebRTC in this test");
+    });
+    try {
+      expect(await reaching.another({ kind: "direct", origin: lan })).toEqual({
+        kind: "direct",
+        origin: ipv6,
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(tried[0]).toBe("webrtc");
+    expect(tried).toContain(ipv6);
+    tried.length = 0;
+    expect(await reaching.another({ kind: "direct", origin: ipv6 })).toEqual({
+      kind: "direct",
+      origin: lan,
+    });
+    expect(tried).not.toContain("webrtc");
   });
 });

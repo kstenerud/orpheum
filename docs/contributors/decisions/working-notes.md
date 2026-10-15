@@ -20219,3 +20219,31 @@ no such page, and would be locked out of realm sign-in after any move.
 2. **Passwords stay as D298 §6 says**; only its forgetting of the keys is withdrawn.
 
 **Status:** Decided 2026-10-15.
+
+## D300 — A WebRTC connection made inside the house counts as home; the core offers WebRTC on its LAN address
+
+**Decided** (2026-10-15), by the project owner (*"option A sounds good"*, *"I don't mind taking longer
+to do it properly"*), revising D297 §6's "any request over WebRTC … does not". Firefox fails every
+request a page at a discovery's origin makes to a LAN address once the page's service worker controls
+it, even with its local-network permission granted (idiosyncrasies.md), so `app.` at home could not
+administer in Firefox; WebRTC is not subject to that check. A core in a container offered no address
+a device at home could reach over WebRTC, so a page at home went out through the VPS and back.
+
+1. **The core takes WebRTC on its LAN address.** A deployment that names the house's address
+   (`[lan] address`) has the core gather its host candidates on one UDP port (`[webrtc] udp_port`),
+   published at that address on the same port, and add that address, at that port, to every answer
+   as a host candidate. A core with no LAN address gathers as before.
+2. **The audit's A2 holds, sharpened.** An offer through a discovery still never makes the core send
+   a check into its own networks: a candidate the offer names in them is dropped before the offer
+   is answered. The core answers a check that reaches it from an address in its home networks
+   (`server.home_networks`), and only the address that sent it: a device in the house had to send
+   it, and nothing a discovery passes on chooses it.
+3. **A request over WebRTC is from home** when its connection's selected pair is not relayed and the
+   client's end of it is in the home networks, as the core's own end of the pair says; anything else
+   over WebRTC is not. The core alone decides it, from its end of the connection: nothing a page
+   sends counts, and every admin operation refuses a request that is not from home (D297 §6).
+4. **A page tries WebRTC next when its LAN name fails after answering**: it is in the house, so
+   WebRTC finds the LAN pair there, where the core's public names would take it out through the VPS
+   and away from admin.
+
+**Status:** Decided 2026-10-15.

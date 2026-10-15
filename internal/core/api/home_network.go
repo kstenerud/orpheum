@@ -15,9 +15,10 @@ import (
 // homeKey is the context key of whether a request came from one of the house's networks.
 type homeKey struct{}
 
-// SetHomeNetworks names the networks an admin administers from: a request from one, made directly to
-// the core, carries an admin's rights; one from anywhere else, or over WebRTC, whose source the core
-// cannot know, does not (D297 §6). None named, no request administers.
+// SetHomeNetworks names the networks an admin administers from: a request from one carries an admin's
+// rights, made directly to the core or over a WebRTC connection whose selected pair reaches it
+// directly from one; one from anywhere else, or over a relayed connection, does not (D297 §6, D300
+// §3). None named, no request administers.
 func (server *Server) SetHomeNetworks(networks []netip.Prefix) {
 	held := slices.Clone(networks)
 	server.homeNetworks.Store(&held)
@@ -26,7 +27,12 @@ func (server *Server) SetHomeNetworks(networks []netip.Prefix) {
 // markingHome notes in each request's context whether it came from a home network.
 func (server *Server) markingHome(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		isHome := !rtcapi.IsOverWebRTC(request.Context()) && server.isHomeAddress(request.RemoteAddr)
+		isHome := server.isHomeAddress(request.RemoteAddr)
+		if rtcapi.IsOverWebRTC(request.Context()) {
+			// Its remote address is the client's end of the pair the core's own end selected, which no
+			// page writes; through a relay it is the relay's, so a relayed pair never counts (D300 §3).
+			isHome = isHome && isDirectPath(rtcapi.PathOf(request.Context()))
+		}
 		next.ServeHTTP(writer, request.WithContext(context.WithValue(request.Context(), homeKey{}, isHome)))
 	})
 }
@@ -57,11 +63,19 @@ func isFromHome(ctx context.Context) bool {
 	return isMarked && isHome
 }
 
-// pathOf names the way the request whose context ctx is reached the core, for its log: over WebRTC,
-// directly from a home network, or directly from anywhere else; the last is a page at home that came
-// the long way, through a public name, and so is offered no admin (the owner, 2026-10-15).
+// isDirectPath is whether a WebRTC connection's path reaches the core with no relay between.
+func isDirectPath(path rtcapi.Path) bool {
+	return path != rtcapi.PathRelayed && path != rtcapi.PathFailed
+}
+
+// pathOf names the way the request whose context ctx is reached the core, for its log: over WebRTC
+// from home or from away, directly from a home network, or directly from anywhere else; the last is a
+// page at home that came the long way, through a public name, and so is offered no admin (the owner,
+// 2026-10-15).
 func pathOf(ctx context.Context) string {
 	switch {
+	case rtcapi.IsOverWebRTC(ctx) && isFromHome(ctx):
+		return "webrtc from home"
 	case rtcapi.IsOverWebRTC(ctx):
 		return "webrtc"
 	case isFromHome(ctx):

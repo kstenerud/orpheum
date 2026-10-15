@@ -9,6 +9,7 @@
 #   ORPHEUM_UID/GID    who the core and the node run as: the owner of the directory
 #   ORPHEUM_HTTP_PUBLISH, ORPHEUM_HTTP_PORT   where the house's network reaches plain HTTP
 #   ORPHEUM_LAN_HTTPS_PORT   where it reaches HTTPS, by the name the discovery gives this machine
+#   ORPHEUM_LAN_WEBRTC_PORT  the UDP port it reaches WebRTC on there, the same inside
 #   ORPHEUM_TUNNEL_MTU the tunnel's MTU
 #   ORPHEUM_TUNNEL_IPV4, ORPHEUM_TUNNEL_IPV6   this deployment's end of the tunnel
 #
@@ -36,6 +37,8 @@ services:
     ports:
       - "${ORPHEUM_HTTP_PUBLISH:-0.0.0.0}:${ORPHEUM_HTTP_PORT:-8440}:8440"
       - "${ORPHEUM_HTTP_PUBLISH:-0.0.0.0}:${ORPHEUM_LAN_HTTPS_PORT:-8443}:443"
+      # WebRTC from devices at home, on the same port inside, which the core offers them (D300).
+      - "${ORPHEUM_HTTP_PUBLISH:-0.0.0.0}:${ORPHEUM_LAN_WEBRTC_PORT:-8443}:${ORPHEUM_LAN_WEBRTC_PORT:-8443}/udp"
     networks: [outside]
     restart: unless-stopped
     healthcheck:

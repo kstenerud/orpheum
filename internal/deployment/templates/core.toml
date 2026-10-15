@@ -47,6 +47,12 @@ lan_addresses = {{toml .Values.LANAddresses}}
 # reaches: it sends none of them, only the addresses above.
 send_interface_addresses = false
 
+[webrtc]
+# The UDP port WebRTC is taken on, published at this machine's address at home on the same port, which
+# the core offers devices at home so they reach it in the house, not through the VPS; 0 with no address
+# at home (D300).
+udp_port = {{.Values.WebRTCUDPPort}}
+
 [database]
 read_connections_minimum = 4
 migrate_free_space_db_multiple = 3

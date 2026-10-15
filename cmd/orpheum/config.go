@@ -18,7 +18,6 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/certificate"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
@@ -37,6 +36,7 @@ type Config struct {
 	HTTPS     HTTPSConfig     `toml:"https"`
 	TURN      TURNConfig      `toml:"turn"`
 	Discovery DiscoveryConfig `toml:"discovery"`
+	WebRTC    WebRTCConfig    `toml:"webrtc"`
 	Database  DatabaseConfig  `toml:"database"`
 	Node      NodeConfig      `toml:"node"`
 	Log       LogConfig       `toml:"log"`
@@ -56,9 +56,9 @@ type ServerConfig struct {
 	// addresses and the names public DNS never answers: a request naming any other host is refused,
 	// against DNS rebinding (the discovery protocol's §7 item 10; S15).
 	HostNames []string `toml:"host_names"`
-	// HomeNetworks are the networks a request must come from, directly and not over WebRTC, for an
-	// admin's session to administer: the house's, not the tunnel's nor the internet's, until
-	// passkeys let an admin in from elsewhere (D297 §6).
+	// HomeNetworks are the networks a request must come from, directly or over a WebRTC connection
+	// with no relay between, for an admin's session to administer: the house's, not the tunnel's nor
+	// the internet's, until passkeys let an admin in from elsewhere (D297 §6, D300 §3).
 	HomeNetworks []string `toml:"home_networks"`
 }
 
@@ -111,77 +111,6 @@ func (https HTTPSConfig) check() error {
 			fmt.Errorf("https.acme_directory %q: want the https:// address of an ACME directory", https.ACMEDirectory))
 	}
 	return errors.Join(problems...)
-}
-
-// DiscoveryConfig is how long the core waits before calling its discovery again after a call
-// failed, or before dialling its signalling connection again after it dropped: the first wait, each
-// failure in a row doubling it to the most, every wait jittered (the discovery protocol's §2; C7).
-// The development stack keeps the most near a second, so a restart of its discovery has the core
-// back within about two (D292 §9).
-type DiscoveryConfig struct {
-	RetryFirstMilliseconds int64 `toml:"retry_first_milliseconds"`
-	RetryMostMilliseconds  int64 `toml:"retry_most_milliseconds"`
-	// ConfiguredAddresses are public addresses that reach the core which the machine does not hold,
-	// "address:port": the admin's port-forward, or their own VPS through its tunnel, sent to the
-	// discovery as configured candidates (the protocol's §2.4; discovery-core.md K5; N11).
-	ConfiguredAddresses []string `toml:"configured_addresses"`
-	// LANAddresses are the house's addresses that reach the core which the machine's interfaces do
-	// not show it, "address:port": in a container, the machine's own address on the house's network
-	// and the port HTTPS is published on there, which the discovery names for devices at home, so they
-	// reach the core in the house over HTTPS, not out through the VPS and back (the owner, 2026-10-14).
-	LANAddresses []string `toml:"lan_addresses"`
-	// SendInterfaceAddresses is whether the core sends the addresses of the interfaces it sees: true
-	// for a core run on its machine, false in a container, whose interfaces are its own network's and
-	// its tunnel's, which nothing at home reaches; there the deployment names its addresses (the owner,
-	// 2026-10-14).
-	SendInterfaceAddresses bool `toml:"send_interface_addresses"`
-}
-
-// configuredCandidates are the configured addresses, public and the house's, as the discovery is
-// sent them.
-func (discovery DiscoveryConfig) configuredCandidates() []discoveryproto.Candidate {
-	named := append(slices.Clone(discovery.ConfiguredAddresses), discovery.LANAddresses...)
-	candidates := make([]discoveryproto.Candidate, 0, len(named))
-	for _, configured := range named {
-		if endpoint, err := netip.ParseAddrPort(configured); err == nil {
-			candidates = append(candidates, discoveryproto.Candidate{
-				Address: endpoint.Addr().Unmap().String(), Port: int(endpoint.Port()),
-				Source: discoveryproto.SourceConfigured,
-			})
-		}
-	}
-	return candidates
-}
-
-// retries are the waits as the discovery service takes them.
-func (discovery DiscoveryConfig) retries() (first, most time.Duration) {
-	return time.Duration(discovery.RetryFirstMilliseconds) * time.Millisecond,
-		time.Duration(discovery.RetryMostMilliseconds) * time.Millisecond
-}
-
-// check refuses waits that are not waits, a most shorter than the first, and a configured address
-// that is not a public address with a port: a private one is the machine's own, sent already.
-func (discovery DiscoveryConfig) check() error {
-	if discovery.RetryFirstMilliseconds < 1 || discovery.RetryMostMilliseconds < discovery.RetryFirstMilliseconds {
-		return fmt.Errorf("discovery.retry_first_milliseconds %d and discovery.retry_most_milliseconds %d: want "+
-			"the first at least 1, and the most at least the first", discovery.RetryFirstMilliseconds,
-			discovery.RetryMostMilliseconds)
-	}
-	for _, configured := range discovery.ConfiguredAddresses {
-		endpoint, err := netip.ParseAddrPort(configured)
-		if err != nil || endpoint.Port() == 0 || !discoveryproto.IsPublic(endpoint.Addr()) {
-			return fmt.Errorf("discovery.configured_addresses %q: want a public address and its port, "+
-				`"<IPv4>:443" or "[<IPv6>]:443"`, configured)
-		}
-	}
-	for _, named := range discovery.LANAddresses {
-		endpoint, err := netip.ParseAddrPort(named)
-		if err != nil || endpoint.Port() == 0 || !endpoint.Addr().Unmap().IsPrivate() {
-			return fmt.Errorf("discovery.lan_addresses %q: want an address on the house's network and its "+
-				`port, "192.168.1.20:8443"`, named)
-		}
-	}
-	return nil
 }
 
 // TURNConfig is the relay that carries Watch Together's voice when two browsers cannot reach each
@@ -289,6 +218,7 @@ const (
 	tableHTTPS     = "https"
 	tableTURN      = "turn"
 	tableDiscovery = "discovery"
+	tableWebRTC    = "webrtc"
 	tableDatabase  = "database"
 	tableNode      = "node"
 	tableLog       = "log"
@@ -381,6 +311,12 @@ func coreConfigKeys() []configKey {
 			tableDiscovery, "send_interface_addresses", "true",
 			"whether the core sends its discovery the addresses of the interfaces it sees; false in a " +
 				"container, whose interfaces nothing at home reaches",
+		},
+		{
+			tableWebRTC, "udp_port", "0",
+			"the UDP port every WebRTC connection's host candidates share, published at the house's " +
+				"address on the same port, which the core then offers too (D300); 0 gives each connection " +
+				"ports of its own",
 		},
 		{
 			tableDatabase, "read_connections_minimum", "4",
@@ -612,7 +548,7 @@ func (config *Config) check(kind instanceKind) error {
 		problems = append(problems, config.Node.check())
 	} else {
 		problems = append(problems, config.Server.check(), config.HTTPS.check(), config.TURN.check(),
-			config.Discovery.check(), config.Database.check())
+			config.Discovery.check(), config.WebRTC.check(), config.Database.check())
 	}
 	return errors.Join(problems...)
 }

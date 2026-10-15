@@ -58,6 +58,9 @@ type ResponseHead struct {
 type servedChannel struct {
 	deadline time.Duration
 	ended    func()
+	// path is the path the channel's connection selected, which the request's context carries
+	// (PathOf); nil carries none.
+	path func() Path
 }
 
 // serveChannel serves the one request a channel carries: its head, its body, an empty message ending
@@ -96,6 +99,9 @@ func serveChannel(
 			return
 		}
 		overWebRTC := context.WithValue(ctx, overWebRTCKey{}, true)
+		if served.path != nil {
+			overWebRTC = context.WithValue(overWebRTC, pathKey{}, served.path())
+		}
 		request, err := reader.request(overWebRTC, remote())
 		if err != nil {
 			logger.WarnContext(ctx, "a request over WebRTC was not one", "err", err)
@@ -171,6 +177,19 @@ func (reader *requestReader) take(message webrtc.DataChannelMessage) {
 func (reader *requestReader) end(failed error) {
 	reader.failed, reader.isDone = failed, true
 	close(reader.done)
+}
+
+// pathKey is the context key of the path a request's WebRTC connection selected.
+type pathKey struct{}
+
+// PathOf is the path the WebRTC connection a request came over selected, as the core's own end of
+// it says: what decides whether the request is from home (D300 §3); PathFailed for any other request.
+func PathOf(ctx context.Context) Path {
+	path, isMarked := ctx.Value(pathKey{}).(Path)
+	if !isMarked {
+		return PathFailed
+	}
+	return path
 }
 
 // overWebRTCKey marks a request's context as one a data channel carried.

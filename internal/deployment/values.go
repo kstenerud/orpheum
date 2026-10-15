@@ -94,6 +94,8 @@ type Values struct {
 	LAN struct {
 		Address   string `toml:"address"`
 		HTTPSPort int    `toml:"https_port"`
+		// WebRTCPort is the UDP port WebRTC is published on at the address, the same inside (D300 §1).
+		WebRTCPort int `toml:"webrtc_port"`
 	} `toml:"lan"`
 }
 
@@ -107,6 +109,7 @@ func ParseValues(text, hostName string) (Values, error) {
 	values.HTTP.Publish = "0.0.0.0"
 	values.HTTP.Port = 8440
 	values.LAN.HTTPSPort = lanHTTPSPortDefault
+	values.LAN.WebRTCPort = lanHTTPSPortDefault
 	values.VPS.TunnelIPv4 = firstTunnelIPv4
 	values.VPS.TunnelIPv6 = firstTunnelIPv6
 	if _, err := toml.Decode(text, &values); err != nil {
@@ -161,6 +164,15 @@ func (values Values) LANAddresses() []string {
 		return []string{}
 	}
 	return []string{net.JoinHostPort(values.LAN.Address, strconv.Itoa(values.LAN.HTTPSPort))}
+}
+
+// WebRTCUDPPort is the UDP port the core takes WebRTC on, published at the house's address on the
+// same port (D300 §1); 0, none, when the values file names no address at home.
+func (values Values) WebRTCUDPPort() int {
+	if values.LAN.Address == "" {
+		return 0
+	}
+	return values.LAN.WebRTCPort
 }
 
 // homeNetworkBits are how much of the LAN address names the house's network: a home router's /24,
@@ -277,6 +289,12 @@ func (values Values) httpProblems() []string {
 		problems = append(problems, fmt.Sprintf("http.port %d: want a port the dev loop does not use (%d, %d)",
 			port, devServerPort, devVitePort))
 	}
+	return append(problems, values.lanProblems()...)
+}
+
+// lanProblems is what [lan] holds wrongly.
+func (values Values) lanProblems() []string {
+	var problems []string
 	if address, err := netip.ParseAddr(values.LAN.Address); values.LAN.Address != "" &&
 		(err != nil || !address.Unmap().IsPrivate()) {
 		problems = append(problems, fmt.Sprintf("lan.address %q: want this machine's address on the house's "+
@@ -286,6 +304,9 @@ func (values Values) httpProblems() []string {
 		port < 1 || port > 65535 {
 		problems = append(problems, fmt.Sprintf("lan.https_port %d: want a port other than http.port's and the "+
 			"dev loop's (%d, %d)", port, devServerPort, devVitePort))
+	}
+	if port := values.LAN.WebRTCPort; port < 1 || port > 65535 {
+		problems = append(problems, fmt.Sprintf("lan.webrtc_port %d: want a UDP port", port))
 	}
 	return problems
 }

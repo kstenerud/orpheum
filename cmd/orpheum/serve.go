@@ -54,8 +54,7 @@ func serve(
 	clientFiles, hasClient := webclient.Files()
 	serveClient(server, clientFiles, hasClient)
 	// Requests over WebRTC data channels reach the same handler as those over TCP (D273 §8).
-	rtc := newWebRTC(ctx, server.Handler(), logger)
-	server.SetRTC(rtc)
+	rtc := webRTCOf(ctx, server, config, logger)
 	defer func() { err = errors.Join(err, rtc.Close()) }()
 	httpServer := &http.Server{
 		Handler:           server.LANHandler(lanHostNames(config)),
@@ -610,6 +609,31 @@ func serveClient(server *api.Server, clientFiles fs.FS, hasClient bool) {
 		server.SetClientScript(webclient.ScriptName(clientFiles))
 	}
 	server.Mux().Handle("/", webclient.Handler(clientFiles, api.Prefix))
+}
+
+// webRTCOf is the WebRTC server over server's handler, taking WebRTC at home as config says, which
+// server serves offers to.
+func webRTCOf(ctx context.Context, server *api.Server, config Config, logger *slog.Logger) *rtcapi.Server {
+	rtc := newWebRTC(ctx, server.Handler(), logger)
+	listenForWebRTCAtHome(ctx, rtc, config, logger)
+	server.SetRTC(rtc)
+	return rtc
+}
+
+// listenForWebRTCAtHome names the house's networks to the WebRTC server and, when the config names a
+// UDP port, has it take WebRTC there at the house's addresses (D300 §1); a port it cannot have is
+// logged, and WebRTC goes on without it.
+func listenForWebRTCAtHome(ctx context.Context, rtc *rtcapi.Server, config Config, logger *slog.Logger) {
+	rtc.SetHomeNetworks(config.Server.homeNetworks())
+	if config.WebRTC.UDPPort == 0 {
+		return
+	}
+	lanIPs := config.Discovery.lanIPs()
+	if err := rtc.ListenLAN(config.WebRTC.UDPPort, lanIPs); err != nil {
+		logger.ErrorContext(ctx, "WebRTC is not taken at home", "err", err)
+		return
+	}
+	logger.InfoContext(ctx, "taking WebRTC at home", "udpPort", config.WebRTC.UDPPort, "addresses", lanIPs)
 }
 
 // newWebRTC is the WebRTC server over the API's handler, as this build serves it: a development build

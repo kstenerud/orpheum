@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"slices"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -97,6 +98,8 @@ type Server struct {
 	// too: for a development build alone, whose browser tests put the browser, the discovery and the
 	// core on one machine (AcceptAnyRelayedAddress).
 	anyRelayedAddress atomic.Bool
+	// homeNetworks are the house's networks (SetHomeNetworks); none until named.
+	homeNetworks atomic.Pointer[[]netip.Prefix]
 
 	mutex sync.Mutex
 	// Guarded by mutex: connections are the peer connections held now, and paths how many
@@ -124,9 +127,36 @@ func (server *Server) AcceptAnyRelayedAddress() {
 }
 
 // checksRelayed is whether a connection a discovery's offer made checks a remote address: one from
-// outside the core's networks, or any after AcceptAnyRelayedAddress.
+// outside the core's networks, one in its home networks, or any after AcceptAnyRelayedAddress. A
+// home address an offer names never reaches here (takesNamedRelayed): one is checked only as the
+// address a check reached the core from, sent by a device in the house (D300 §2).
 func (server *Server) checksRelayed(ip net.IP) bool {
+	return server.takesNamedRelayed(ip) || server.isHomeIP(ip)
+}
+
+// takesNamedRelayed is whether an address an offer a discovery passed on names is kept: one from
+// outside the core's networks, or any after AcceptAnyRelayedAddress (the security audit's A2).
+func (server *Server) takesNamedRelayed(ip net.IP) bool {
 	return server.anyRelayedAddress.Load() || isFromOutside(ip, interfacePrefixes)
+}
+
+// SetHomeNetworks names the house's networks (server.home_networks): a relayed connection answers a
+// check from one, and a request over a connection whose selected pair reaches one directly is from
+// home (D300 §2, §3).
+func (server *Server) SetHomeNetworks(networks []netip.Prefix) {
+	held := slices.Clone(networks)
+	server.homeNetworks.Store(&held)
+}
+
+// isHomeIP is whether ip is in one of the home networks.
+func (server *Server) isHomeIP(ip net.IP) bool {
+	address, isAddress := netip.AddrFromSlice(ip)
+	networks := server.homeNetworks.Load()
+	if !isAddress || networks == nil {
+		return false
+	}
+	address = address.Unmap()
+	return slices.ContainsFunc(*networks, func(network netip.Prefix) bool { return network.Contains(address) })
 }
 
 // AcceptsAnyRelayedAddress is whether AcceptAnyRelayedAddress was called.
@@ -136,13 +166,9 @@ func (server *Server) AcceptsAnyRelayedAddress() bool {
 
 // New returns a server whose channels' requests handler serves, until ctx ends.
 func New(ctx context.Context, handler http.Handler, logger *slog.Logger) *Server {
-	relayed := settings()
-	var server *Server
-	relayed.SetRemoteIPFilter(func(ip net.IP) bool { return server.checksRelayed(ip) })
-	server = &Server{
+	server := &Server{
 		ctx: ctx, handler: handler, logger: logger,
-		api:        webrtc.NewAPI(webrtc.WithSettingEngine(settings())),
-		relayedAPI: webrtc.NewAPI(webrtc.WithSettingEngine(relayed)),
+		api: webrtc.NewAPI(webrtc.WithSettingEngine(settings())),
 		bounds: bounds{
 			connectWithin: connectWithin, perSource: perSourceLimit, channels: channelLimit,
 			requestDeadline: requestDeadline,
@@ -150,7 +176,52 @@ func New(ctx context.Context, handler http.Handler, logger *slog.Logger) *Server
 		connections: map[*webrtc.PeerConnection]bool{}, paths: map[Path]int{},
 		sources: map[*webrtc.PeerConnection]netip.Prefix{},
 	}
+	server.relayedAPI = webrtc.NewAPI(webrtc.WithSettingEngine(server.relayedSettings()))
 	return server
+}
+
+// ListenLAN has every connection gather its host candidates on one UDP port, which the deployment
+// publishes at the house's addresses, lanIPs, on the same port, and offer those addresses at it as
+// host candidates too: a core in a container, whose own addresses nothing at home reaches, is reached
+// by a device in the house directly, not out through the VPS and back (D300 §1). It is called once,
+// before the first offer.
+func (server *Server) ListenLAN(port int, lanIPs []netip.Addr) error {
+	conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: port})
+	if err != nil {
+		return fmt.Errorf("listen for WebRTC on UDP port %d: %w", port, err)
+	}
+	mux := webrtc.NewICEUDPMux(nil, conn)
+	external := make([]string, 0, len(lanIPs))
+	for _, address := range lanIPs {
+		external = append(external, address.Unmap().String())
+	}
+	onLAN := func(engine webrtc.SettingEngine) (webrtc.SettingEngine, error) {
+		engine.SetICEUDPMux(mux)
+		ruleErr := engine.SetICEAddressRewriteRules(webrtc.ICEAddressRewriteRule{
+			External: external, AsCandidateType: webrtc.ICECandidateTypeHost,
+			Mode: webrtc.ICEAddressRewriteAppend, Networks: []webrtc.NetworkType{webrtc.NetworkTypeUDP4},
+		})
+		return engine, ruleErr
+	}
+	own, err := onLAN(settings())
+	if err != nil {
+		return errors.Join(fmt.Errorf("offer the house's addresses: %w", err), mux.Close())
+	}
+	relayed, err := onLAN(server.relayedSettings())
+	if err != nil {
+		return errors.Join(fmt.Errorf("offer the house's addresses: %w", err), mux.Close())
+	}
+	server.api = webrtc.NewAPI(webrtc.WithSettingEngine(own))
+	server.relayedAPI = webrtc.NewAPI(webrtc.WithSettingEngine(relayed))
+	return nil
+}
+
+// relayedSettings are a relayed connection's: every connection's, checking only the remote
+// addresses checksRelayed takes.
+func (server *Server) relayedSettings() webrtc.SettingEngine {
+	relayed := settings()
+	relayed.SetRemoteIPFilter(server.checksRelayed)
+	return relayed
 }
 
 // settings are every connection's: the congestion window's growth, and what a client may send.
@@ -245,6 +316,7 @@ func (server *Server) open(api *webrtc.API) (*webrtc.PeerConnection, error) {
 		remote := func() string { return remoteAddress(connection) }
 		serveChannel(server.ctx, server.handler, channel, remote, server.logger, servedChannel{
 			deadline: server.bounds.requestDeadline, ended: func() { inFlight.Add(-1) },
+			path: func() Path { return selectedPath(connection) },
 		})
 	})
 	return connection, nil

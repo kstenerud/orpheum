@@ -16,6 +16,7 @@ import {
   readLinkFragment,
   sessionOfferKey,
   verifyAnswer,
+  locatedOf,
 } from "./discovery.ts";
 
 // Vectors the Go code made: discovery/link and discovery/proof, with an Ed25519 key from the seed
@@ -169,5 +170,24 @@ describe("a signaller through a discovery", () => {
       answering({ offerId: "1", refusal: "the offer's proof does not hold" }),
     );
     await expect(refused(offer)).rejects.toThrow("proof does not hold");
+  });
+});
+
+describe("the paths a discovery's answer names", () => {
+  it("are its direct names in its order, the LAN's told apart, and nothing it does not know", () => {
+    const located = locatedOf({
+      coreId: "k7xq2",
+      paths: [
+        { kind: "lan", url: "https://192-168-1-2.k7xq2.zone.example:8443" },
+        { kind: "ipv6", url: "https://2a00-1.k7xq2.zone.example" },
+        { kind: "webrtc", offer: "/cores/k7xq2/offer" },
+        { kind: "lan", url: "http://plain.example" },
+      ],
+    });
+    expect(located.directUrls).toEqual([
+      "https://192-168-1-2.k7xq2.zone.example:8443",
+      "https://2a00-1.k7xq2.zone.example",
+    ]);
+    expect(located.lanUrls).toEqual(["https://192-168-1-2.k7xq2.zone.example:8443"]);
   });
 });
