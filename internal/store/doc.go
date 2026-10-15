@@ -50,6 +50,9 @@
 //   - CheckInvariants names every invariant of invariants.sql that does not hold, with a dangling
 //     foreign key and a full-text index that disagrees with its text, and storetest runs it after
 //     every test (D303, M7). Enforced by TestCheckInvariants_NamesEachThatDoesNotHold.
+//   - Every statement either database runs, search's included, counts by its query's name into the
+//     querytally.Tally its context carries, and every write transaction counts once (D303, DL6).
+//     Enforced by TestTally_CountsEveryStatementByItsNameAndEveryWrite.
 //   - A fresh schema equals testdata/golden/schema-vNNNN.sql for the current version, and the
 //     baseline alone the golden for its version. Enforced by TestMigrate_FreshSchemaEqualsTheGolden.
 //   - Each step commits alone, so an interrupted migration resumes and ends identical; a step
@@ -132,7 +135,8 @@
 //   - search.go: search's three statements, hand-written because sqlc cannot parse FTS5's MATCH;
 //     static SQL with parameters only.
 //   - open.go: Open, the pragmas and their read-back, Read, ReadTx, Write and OrNotFound;
-//     writer_gate.go: the order in which writes take the one writer.
+//     writer_gate.go: the order in which writes take the one writer; tally.go: counting each
+//     statement into its context's tally.
 //   - steps.go and migrate.go: the embedded steps and the runner (D181); migrate_checks.go: the
 //     checks a step cannot make of itself (dangling foreign keys, reissued ids, views that no
 //     longer compile); step_record.go: the applied steps' checksums, and the refusal of a file

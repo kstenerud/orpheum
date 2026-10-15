@@ -6,6 +6,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
+
+	"github.com/kstenerud/orpheum/internal/platform/querytally"
 )
 
 // SearchRoute is which index a search asks (D48); internal/core/textindex decides it.
@@ -101,6 +104,10 @@ func (database *Database) Search(ctx context.Context, query SearchQuery) (hits [
 	}[query.Route]
 	if statement == "" {
 		return nil, fmt.Errorf("search: no route %q", query.Route)
+	}
+	if tally := querytally.Of(ctx); tally != nil {
+		route := string(query.Route)
+		tally.Count("-- name: Search" + strings.ToUpper(route[:1]) + route[1:] + " ") // SearchSubstring…
 	}
 	rows, err := database.readers.QueryContext(ctx, statement, query.IndexQuery, query.IsEveryLibrary,
 		query.LibraryIDsJSON, query.Limit)

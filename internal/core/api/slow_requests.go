@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/platform/querytally"
 )
 
 // slowRequestAfter is how long an API request may take before its log says so: a page waits on
@@ -13,8 +15,9 @@ import (
 // seconds, and nothing said which request).
 const slowRequestAfter = time.Second
 
-// loggingSlow logs every API request that took longer than slowRequestAfter, with its method, path
-// and how it reached the core; a file's bytes and a socket, long by nature, are left out.
+// loggingSlow logs every API request that took longer than slowRequestAfter, with its method, path,
+// how it reached the core, and the database statements and writes it made (D303, DL17); a file's
+// bytes and a socket, long by nature, are left out.
 func (server *Server) loggingSlow(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		dependencies := server.dependencies.Load()
@@ -22,14 +25,16 @@ func (server *Server) loggingSlow(next http.Handler) http.Handler {
 			next.ServeHTTP(writer, request)
 			return
 		}
+		ctx, tally := querytally.New(request.Context())
 		started := dependencies.Clock.Now()
-		next.ServeHTTP(writer, request)
+		next.ServeHTTP(writer, request.WithContext(ctx))
 		took := dependencies.Clock.Now().Sub(started)
 		if took < slowRequestAfter {
 			return
 		}
-		server.logger.InfoContext(request.Context(), "a request was slow", "method", request.Method,
-			"path", request.URL.Path, "tookMs", took.Milliseconds(), "over", pathOf(request.Context()))
+		server.logger.InfoContext(ctx, "a request was slow", "method", request.Method,
+			"path", request.URL.Path, "tookMs", took.Milliseconds(), "over", pathOf(ctx),
+			"statements", tally.String(), "writes", tally.Writes())
 	})
 }
 

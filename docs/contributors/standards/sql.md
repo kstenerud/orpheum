@@ -322,8 +322,11 @@ then; [audit-checklist](../audit-checklist.md) item 23 asks the questions at eve
 
 - **Nothing a request does grows with the library** (DL6): lists page by keyset with a `LIMIT`
   (§11); a count is `COUNT` in SQL, never rows fetched and counted; a request's number of
-  statements is constant as the library grows. **Enforced by:** the per-request statement tally
-  *(D303 A)*.
+  statements is constant as the library grows. **Enforced by:** the store counts every statement
+  into the request's `querytally.Tally`, and a slow request's log line lists them
+  (`TestTally_CountsEveryStatementByItsNameAndEveryWrite`,
+  `TestLoggingSlow_NamesTheStatementsASlowRequestRan`); the check that each list route's count
+  is the same at two library sizes comes with the generated library *(D303 C)*.
 - **Reading never writes** (DL10): nothing on a read request's path takes the writer. Bookkeeping
   such as a session's last use is kept in memory and written in batches, never older over newer.
   **Enforced by:** the api marks a GET or a HEAD as only reading (`internal/platform/waiting`);
