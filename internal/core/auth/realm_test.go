@@ -32,11 +32,7 @@ func (held *realmOf) set(realm string) {
 // karlsKey is the realm key the core finds karl by in realm, or nil.
 func karlsKey(t *testing.T, service *Service, realm string) []byte {
 	t.Helper()
-	key, err := service.RealmKeyOfPerson(t.Context(), proof.RealmPerson(realm, "karl"))
-	if err != nil && !errors.Is(err, ErrRealmRefused) {
-		t.Fatal(err)
-	}
-	return key
+	return keyOf(t, service, realm, "karl")
 }
 
 // A person's realm key is made from their password when the core has a realm: on a sign-in that
@@ -122,5 +118,71 @@ func TestTakeRealmSignIn_TakesARightProofAndHoldsAGuesserToThePersonsLimit(t *te
 	}
 	if _, err = fixture.service.TakeRealmSignIn(ctx, person, right); !errors.Is(err, ErrRateLimited) {
 		t.Errorf("the right sign-in past the limit = %v; want ErrRateLimited until the window passes", err)
+	}
+}
+
+// heldCode is a setup code kept in memory, as SetupCodes.
+type heldCode struct{ code string }
+
+func (held *heldCode) Read() (string, error) {
+	if held.code == "" {
+		return "", ErrNoSetupCode
+	}
+	return held.code, nil
+}
+
+func (held *heldCode) Write(code string) error {
+	held.code = code
+	return nil
+}
+
+func (held *heldCode) Remove() error {
+	held.code = ""
+	return nil
+}
+
+// keyOf is the realm key the core finds name by in realm, or nil.
+func keyOf(t *testing.T, service *Service, realm, name string) []byte {
+	t.Helper()
+	key, err := service.RealmKeyOfPerson(t.Context(), proof.RealmPerson(realm, name))
+	if err != nil && !errors.Is(err, ErrRealmRefused) {
+		t.Fatal(err)
+	}
+	return key
+}
+
+// Every way a password is set makes its person's realm key, with no sign-in after: the first admin's
+// at setup, an invitation's person's, and the admin an operator's reset names (D297 §3).
+func TestRealmKey_IsMadeWheneverAPasswordIsSet(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	fixture.service.UseRealm(func() string { return "karlnas" })
+	codes := &heldCode{}
+	code, err := fixture.service.EnsureSetupCode(ctx, codes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = fixture.service.CompleteSetup(ctx, codes, code, NewUser{Name: "owner", Password: "first"}); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(keyOf(t, fixture.service, "karlnas", "owner"), proof.RealmKey("karlnas", "owner", "first")) {
+		t.Error("the first admin's setup made no key")
+	}
+	_, link, err := fixture.service.Invite(ctx, NewInvitation{Role: RoleUser, AdminNote: "Grandma"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = fixture.service.Register(ctx, link.Secret, "Gran", "gran's", laptop); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(keyOf(t, fixture.service, "karlnas", "gran"), proof.RealmKey("karlnas", "gran", "gran's")) {
+		t.Error("an invitation's person made no key")
+	}
+	if _, err = fixture.service.ResetAdmin(ctx, "owner", "reset"); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(keyOf(t, fixture.service, "karlnas", "owner"), proof.RealmKey("karlnas", "owner", "reset")) {
+		t.Error("the operator's reset made no key from the new password")
 	}
 }

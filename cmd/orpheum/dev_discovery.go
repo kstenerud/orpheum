@@ -58,7 +58,13 @@ func commandDevDiscovery(ctx context.Context, call invocation) int {
 		return call.fail(fmt.Errorf("listen on %s: %w", *listen, err))
 	}
 	base := "http://" + listener.Addr().String()
-	handler, err := devDiscoveryHandler(base, filepath.Join(*state, "single.json"), *realm, logger)
+	clientFiles, hasClient := webclient.Files()
+	if !hasClient {
+		return call.fail(errors.New("this binary was built without the web client"))
+	}
+	handler, err := devDiscoveryHandler(devDiscoverySite{
+		base: base, recordPath: filepath.Join(*state, "single.json"), realm: *realm, clientFiles: clientFiles,
+	}, logger)
 	if err != nil {
 		return call.fail(errors.Join(err, listener.Close()))
 	}
@@ -77,8 +83,16 @@ func commandDevDiscovery(ctx context.Context, call invocation) int {
 
 // devDiscoveryHandler is the development discovery at base: single's two APIs, the claim and the
 // core's id and fingerprint a test asks for, and the client, its page naming the client API.
-func devDiscoveryHandler(base, recordPath, realm string, logger *slog.Logger) (http.Handler, error) {
-	store := single.FileStore{Path: recordPath}
+// devDiscoverySite is what the development discovery serves: at base, its record in recordPath, the
+// realm its operator names (none for an owner's own), and the client's files.
+type devDiscoverySite struct {
+	base, recordPath, realm string
+	clientFiles             fs.FS
+}
+
+func devDiscoveryHandler(site devDiscoverySite, logger *slog.Logger) (http.Handler, error) {
+	base, realm := site.base, site.realm
+	store := single.FileStore{Path: site.recordPath}
 	discovery, err := single.New(single.Parts{
 		BaseURL: base + devCoreAPI, Zone: "discovery.test", ClientOrigin: base, Store: store,
 		Now: clock.System{}.Now, Random: rand.Reader, Logger: logger, Realm: realm,
@@ -86,11 +100,7 @@ func devDiscoveryHandler(base, recordPath, realm string, logger *slog.Logger) (h
 	if err != nil {
 		return nil, fmt.Errorf("make the discovery: %w", err)
 	}
-	clientFiles, hasClient := webclient.Files()
-	if !hasClient {
-		return nil, errors.New("this binary was built without the web client")
-	}
-	page, err := pageNaming(clientFiles, base+devClientAPI, realm != "")
+	page, err := pageNaming(site.clientFiles, base+devClientAPI, realm != "")
 	if err != nil {
 		return nil, err
 	}
