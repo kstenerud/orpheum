@@ -103,7 +103,7 @@ func (service *Service) LiveLinks(ctx context.Context) ([]LiveLink, error) {
 
 // LiveLocators are every live session's device locator, as their hashes (link.LocatorHash).
 func (service *Service) LiveLocators(ctx context.Context) ([]string, error) {
-	idleExpiry, _, err := service.sessionPolicy(ctx)
+	idleExpiry, err := service.sessionLocatorExpiry(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +256,7 @@ func (service *Service) OfferKey(ctx context.Context, hash string) ([]byte, erro
 	if err != nil {
 		return nil, ErrNoOfferKey
 	}
-	idleExpiry, _, err := service.sessionPolicy(ctx)
+	idleExpiry, err := service.sessionLocatorExpiry(ctx)
 	if err != nil {
 		return nil, err
 	}

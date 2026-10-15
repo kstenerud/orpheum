@@ -61,17 +61,29 @@ func (service *Service) failurePolicy(ctx context.Context) (int64, time.Duration
 	return maxFailures, window, nil
 }
 
-// sessionPolicy reads how long a session may go unused, and how often its use is written.
-func (service *Service) sessionPolicy(ctx context.Context) (idleExpiry, useWriteInterval time.Duration, err error) {
-	idleExpiry, err = service.settings.Duration(ctx, settings.SessionIdleExpiryHours)
+// sessionIdleExpiry reads how long a session may go unused.
+func (service *Service) sessionIdleExpiry(ctx context.Context) (time.Duration, error) {
+	idleExpiry, err := service.settings.Duration(ctx, settings.SessionIdleExpiryHours)
 	if err != nil {
-		return 0, 0, err
+		return 0, err
 	}
-	useWriteInterval, err = service.settings.Duration(ctx, settings.SessionLastUsedWriteIntervalSeconds)
+	return idleExpiry, nil
+}
+
+// sessionLocatorExpiry is how long a session may go unused before its device's locator stops
+// leading a discovery to it: the idle expiry, and one flush interval more, since a use may wait
+// that long in memory before it is written (FlushSessionUses). Authenticate itself reads the
+// remembered use, so a session past its idle expiry is refused all the same.
+func (service *Service) sessionLocatorExpiry(ctx context.Context) (time.Duration, error) {
+	idleExpiry, err := service.sessionIdleExpiry(ctx)
 	if err != nil {
-		return 0, 0, err
+		return 0, err
 	}
-	return idleExpiry, useWriteInterval, nil
+	flushEvery, err := service.settings.Duration(ctx, settings.SessionLastUsedWriteIntervalSeconds)
+	if err != nil {
+		return 0, err
+	}
+	return idleExpiry + flushEvery, nil
 }
 
 // boundedSetting reads an integer setting and refuses one outside [0, maximum], so the conversion to a

@@ -309,7 +309,7 @@ func (q *Queries) RevokeSessionsOfUserExceptSession(ctx context.Context, arg Rev
 
 const updateGrantLastUsed = `-- name: UpdateGrantLastUsed :exec
 UPDATE "grant" SET last_used_at = ?1
-WHERE secret_sha256 = ?2
+WHERE secret_sha256 = ?2 AND (last_used_at IS NULL OR last_used_at < ?1)
 `
 
 type UpdateGrantLastUsedParams struct {
@@ -317,6 +317,7 @@ type UpdateGrantLastUsedParams struct {
 	SecretSha256 []byte
 }
 
+// A later use only: a use written late never moves the stored time back (D303 section 4).
 func (q *Queries) UpdateGrantLastUsed(ctx context.Context, arg UpdateGrantLastUsedParams) error {
 	_, err := q.db.ExecContext(ctx, updateGrantLastUsed, arg.LastUsedAt, arg.SecretSha256)
 	return err

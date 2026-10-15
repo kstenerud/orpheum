@@ -3,9 +3,11 @@
 package auth
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/textindex"
@@ -54,12 +56,19 @@ func (service *Service) Devices(ctx context.Context, userID int64) ([]Device, er
 	}
 	devices := make([]Device, 0, len(rows))
 	for _, row := range rows {
+		lastUsedAt := row.LastUsedAt
+		if remembered, ok := service.uses.latestOfDevice(row.ID); ok && remembered > lastUsedAt {
+			lastUsedAt = remembered // a use not yet written (FlushSessionUses)
+		}
 		devices = append(devices, Device{
 			ID: row.ID, Name: row.Name, Platform: row.Platform, AudioOutput: ptr.ValueOrZero(row.AudioOutput),
 			AddedAt:    time.UnixMilli(row.AddedAt),
-			LastUsedAt: time.UnixMilli(row.LastUsedAt), IsSignedIn: row.IsSignedIn == 1,
+			LastUsedAt: time.UnixMilli(lastUsedAt), IsSignedIn: row.IsSignedIn == 1,
 		})
 	}
+	slices.SortStableFunc(devices, func(a, b Device) int {
+		return cmp.Or(b.LastUsedAt.Compare(a.LastUsedAt), cmp.Compare(b.ID, a.ID))
+	})
 	return devices, nil
 }
 

@@ -166,6 +166,8 @@ type Service struct {
 	// linkSealer seals each link's secret for its row, so a person's own link can be shown to them
 	// again (SealLinksWith); nil keeps none, and the link cannot be shown.
 	linkSealer LinkSealer
+	// uses are the sessions used since their use was last written (FlushSessionUses).
+	uses sessionUses
 	// realm is the realm the core is found by at its discovery (SetRealm), a string; none, or empty,
 	// and no realm key is made.
 	realm atomic.Value
@@ -533,18 +535,43 @@ func replaceDeviceSecret(
 	})
 }
 
-// Authenticate returns the principal a session token belongs to.
+// Authenticate returns the principal a session token belongs to. It reads the session, its person
+// and their reach in one read transaction (D303, M2), and writes nothing: the session's use is
+// remembered, and FlushSessionUses writes it later (D303 §4, DL10).
 func (service *Service) Authenticate(ctx context.Context, token string) (Principal, error) {
 	if token == "" {
 		return Principal{}, ErrNotAuthenticated
 	}
 	now := service.clock.Now()
 	hash := tokenHash(token)
-	grant, err := store.OrNotFound(service.database.Read().GetLiveGrant(ctx, sqlcgen.GetLiveGrantParams{
+	idleExpiry, err := service.sessionIdleExpiry(ctx)
+	if err != nil {
+		return Principal{}, err
+	}
+	var principal Principal
+	err = service.database.ReadTx(ctx, func(queries *sqlcgen.Queries) error {
+		var readErr error
+		principal, readErr = service.sessionPrincipal(ctx, queries, hash, now, idleExpiry)
+		return readErr
+	})
+	if err != nil {
+		return Principal{}, err
+	}
+	service.uses.note(hash, principal.DeviceID, now.UnixMilli())
+	return principal, nil
+}
+
+// sessionPrincipal is who the live session hash belongs to, read through queries, or why there is
+// no one: not a session, ended, or unused for longer than idleExpiry by the later of its stored
+// and its remembered use.
+func (service *Service) sessionPrincipal(
+	ctx context.Context, queries *sqlcgen.Queries, hash []byte, now time.Time, idleExpiry time.Duration,
+) (Principal, error) {
+	grant, err := store.OrNotFound(queries.GetLiveGrant(ctx, sqlcgen.GetLiveGrantParams{
 		SecretSha256: hash, Now: new(now.UnixMilli()),
 	}))
 	if errors.Is(err, store.ErrNotFound) {
-		return Principal{}, service.whyNotLive(ctx, hash)
+		return Principal{}, whyNotLive(ctx, queries, hash)
 	}
 	if err == nil && (grant.Kind != grantKindSession || grant.UserID == nil) {
 		return Principal{}, ErrNotAuthenticated
@@ -552,19 +579,18 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 	if err != nil {
 		return Principal{}, fmt.Errorf("look up the session: %w", err)
 	}
-	idleExpiry, useWriteInterval, err := service.sessionPolicy(ctx)
-	if err != nil {
-		return Principal{}, err
-	}
 	// Sessions end on idle, not absolutely (D154 §3). issued_at stands in for a session never used.
 	lastUsedAt := grant.IssuedAt
 	if grant.LastUsedAt != nil {
 		lastUsedAt = *grant.LastUsedAt
 	}
+	if remembered, ok := service.uses.latest(hash); ok && remembered > lastUsedAt {
+		lastUsedAt = remembered
+	}
 	if now.Sub(time.UnixMilli(lastUsedAt)) > idleExpiry {
 		return Principal{}, ErrSessionExpired
 	}
-	user, err := liveUser(ctx, service.database.Read(), *grant.UserID)
+	user, err := liveUser(ctx, queries, *grant.UserID)
 	if errors.Is(err, ErrNoUser) {
 		// A session whose person is gone is no session: the client is signed out, not told of a
 		// missing person.
@@ -575,19 +601,9 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 	}
 	isDeviceScoped := grant.Scope == grantScopeDevice
 	capabilities := sessionCapabilities(user.Capabilities, isDeviceScoped)
-	reach, err := reachOfRole(ctx, service.database.Read(), user.RoleID, capabilities)
+	reach, err := reachOfRole(ctx, queries, user.RoleID, capabilities)
 	if err != nil {
 		return Principal{}, err
-	}
-	if now.Sub(time.UnixMilli(lastUsedAt)) >= useWriteInterval {
-		err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-			return queries.UpdateGrantLastUsed(ctx, sqlcgen.UpdateGrantLastUsedParams{
-				SecretSha256: hash, LastUsedAt: new(now.UnixMilli()),
-			})
-		})
-		if err != nil {
-			return Principal{}, fmt.Errorf("record the session's use: %w", err)
-		}
 	}
 	return Principal{
 		UserID: user.ID, Name: user.Name, Role: Role(user.RoleName),
@@ -608,8 +624,8 @@ func sessionCapabilities(stored string, isDeviceScoped bool) []string {
 }
 
 // whyNotLive says why a token finds no live session: ended, expired, or never one of ours.
-func (service *Service) whyNotLive(ctx context.Context, hash []byte) error {
-	state, err := store.OrNotFound(service.database.Read().GetGrantState(ctx, hash))
+func whyNotLive(ctx context.Context, queries *sqlcgen.Queries, hash []byte) error {
+	state, err := store.OrNotFound(queries.GetGrantState(ctx, hash))
 	switch {
 	case errors.Is(err, store.ErrNotFound) || (err == nil && state.Kind != grantKindSession):
 		return ErrNotAuthenticated
