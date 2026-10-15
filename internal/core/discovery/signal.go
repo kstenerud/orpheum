@@ -94,10 +94,15 @@ func (service *Service) holdSignalling(ctx context.Context, baseURL string) (boo
 		if err := wsjson.Read(ctx, connection, &offer); err != nil {
 			return true, fmt.Errorf("read an offer: %w", err)
 		}
-		if offer.Type != discoveryproto.SignalOffer {
+		var reply discoveryproto.SignalMessage
+		switch offer.Type {
+		case discoveryproto.SignalOffer:
+			reply = service.answerOffer(ctx, offer)
+		case discoveryproto.SignalRealm:
+			reply = service.answerRealm(ctx, offer)
+		default:
 			continue
 		}
-		reply := service.answerOffer(ctx, offer)
 		if err := wsjson.Write(ctx, connection, reply); err != nil {
 			return true, fmt.Errorf("send an answer: %w", err)
 		}

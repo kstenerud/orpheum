@@ -249,7 +249,8 @@ var ErrNoOfferKey = errors.New("no live locator or link has this hash")
 
 // OfferKey is what an offer a discovery passed on under hash is proven under: for a device's locator,
 // its live session's hash, proof.SessionOfferKey of its token; for a link's bootstrap, the live link's
-// offer key, link.OfferKey of its secret (the protocol's §2.5 item 3).
+// offer key, link.OfferKey of its secret; for a person a realm sign-in found the core for, their realm
+// key (the protocol's §2.5 item 3; D297 §3).
 func (service *Service) OfferKey(ctx context.Context, hash string) ([]byte, error) {
 	raw, err := base64.RawURLEncoding.DecodeString(hash)
 	if err != nil {
@@ -272,6 +273,12 @@ func (service *Service) OfferKey(ctx context.Context, hash string) ([]byte, erro
 		sqlcgen.GetLiveLinkOfferKeyParams{LocateHash: raw, Now: new(now.UnixMilli())}))
 	switch {
 	case errors.Is(err, store.ErrNotFound):
+		// A person a realm sign-in found the core for: their offers are proven by their realm key.
+		if realmKey, realmErr := service.RealmKeyOfPerson(ctx, hash); realmErr == nil {
+			return realmKey, nil
+		} else if !errors.Is(realmErr, ErrRealmRefused) {
+			return nil, realmErr
+		}
 		return nil, ErrNoOfferKey
 	case err != nil:
 		return nil, fmt.Errorf("look up a link: %w", err)

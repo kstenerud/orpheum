@@ -167,6 +167,41 @@ func (discovery *Discovery) Offer(
 func (signal *Signal) Offer(
 	ctx context.Context, offer discoveryproto.ClientOffer, locatorHash string,
 ) (Answer, error) {
+	reply, offerID, err := signal.pass(ctx, discoveryproto.SignalMessage{
+		Type: discoveryproto.SignalOffer, SDP: offer.SDP, LocatorHash: locatorHash, Proof: offer.Proof,
+	}, discoveryproto.SignalAnswer)
+	if err != nil {
+		return Answer{OfferID: offerID}, err
+	}
+	return Answer{OfferID: offerID, SDP: reply.SDP, Signature: reply.Signature, PublicKey: reply.PublicKey}, nil
+}
+
+// RealmAnswer is the core's answer to a realm sign-in it took: its identity key, and its tag over it
+// under the person's key (proof.RealmTag), which the page checks.
+type RealmAnswer struct {
+	PublicKey []byte
+	Tag       string
+}
+
+// Realm passes a realm sign-in to the core, who it is for and its proof, which the core checks
+// under that person's key, and returns its answer: ErrCoreNotConnected, ErrRefused and the
+// context's error as Offer has them (D297 §3).
+func (signal *Signal) Realm(ctx context.Context, person, ask string) (RealmAnswer, error) {
+	reply, _, err := signal.pass(ctx, discoveryproto.SignalMessage{
+		Type: discoveryproto.SignalRealm, Person: person, Ask: ask,
+	}, discoveryproto.SignalRealm)
+	if err != nil {
+		return RealmAnswer{}, err
+	}
+	return RealmAnswer{PublicKey: reply.PublicKey, Tag: reply.Tag}, nil
+}
+
+// pass sends message to the core under a new id and waits for its reply of type taken: at once
+// ErrCoreNotConnected when the core has no signalling connection, ErrRefused when it replies another
+// type, and the context's error when it does not reply in time.
+func (signal *Signal) pass(
+	ctx context.Context, message discoveryproto.SignalMessage, taken string,
+) (discoveryproto.SignalMessage, string, error) {
 	signal.mutex.Lock()
 	connection := signal.current
 	signal.lastID++
@@ -177,27 +212,24 @@ func (signal *Signal) Offer(
 	}
 	signal.mutex.Unlock()
 	if connection == nil {
-		return Answer{OfferID: offerID}, ErrCoreNotConnected
+		return discoveryproto.SignalMessage{}, offerID, ErrCoreNotConnected
 	}
 	defer func() {
 		signal.mutex.Lock()
 		delete(signal.waiting, offerID)
 		signal.mutex.Unlock()
 	}()
-	passed := discoveryproto.SignalMessage{
-		Type: discoveryproto.SignalOffer, OfferID: offerID, SDP: offer.SDP,
-		LocatorHash: locatorHash, Proof: offer.Proof,
-	}
-	if err := wsjson.Write(ctx, connection, passed); err != nil {
-		return Answer{OfferID: offerID}, fmt.Errorf("pass the offer to the core: %w", err)
+	message.OfferID = offerID
+	if err := wsjson.Write(ctx, connection, message); err != nil {
+		return discoveryproto.SignalMessage{}, offerID, fmt.Errorf("pass the %s to the core: %w", message.Type, err)
 	}
 	select {
 	case <-ctx.Done():
-		return Answer{OfferID: offerID}, fmt.Errorf("wait for the core's answer: %w", ctx.Err())
+		return discoveryproto.SignalMessage{}, offerID, fmt.Errorf("wait for the core's answer: %w", ctx.Err())
 	case reply := <-replied:
-		if reply.Type != discoveryproto.SignalAnswer {
-			return Answer{OfferID: offerID}, fmt.Errorf("%w: %s", ErrRefused, reply.Reason)
+		if reply.Type != taken {
+			return discoveryproto.SignalMessage{}, offerID, fmt.Errorf("%w: %s", ErrRefused, reply.Reason)
 		}
-		return Answer{OfferID: offerID, SDP: reply.SDP, Signature: reply.Signature, PublicKey: reply.PublicKey}, nil
+		return reply, offerID, nil
 	}
 }

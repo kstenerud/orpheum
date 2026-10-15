@@ -40,9 +40,17 @@ type stage struct {
 	logs      *testutil.Log
 	mutex     sync.Mutex
 	now       time.Time
+	// waited is each wait the discovery asked for, which passes at once.
+	waited []time.Duration
 }
 
 func newStage(t *testing.T) *stage {
+	t.Helper()
+	return newStageWithRealm(t, "")
+}
+
+// newStageWithRealm is newStage at a discovery whose operator named realm (Parts.Realm).
+func newStageWithRealm(t *testing.T, realm string) *stage {
 	t.Helper()
 	built := &stage{now: time.Date(2026, 10, 11, 20, 0, 0, 0, time.UTC), logs: &testutil.Log{}}
 	held, err := New(Parts{
@@ -50,6 +58,12 @@ func newStage(t *testing.T) *stage {
 		BaseURL: testBaseURL, Zone: testZone, Store: FileStore{Path: filepath.Join(t.TempDir(), "discovery.json")},
 		Now: built.clock, Random: rand.Reader,
 		ICEServers: []discoveryproto.ICEServer{{URLs: []string{"stun:" + testZone + ":3478"}}},
+		Realm:      realm,
+		Wait: func(_ context.Context, wait time.Duration) {
+			built.mutex.Lock()
+			defer built.mutex.Unlock()
+			built.waited = append(built.waited, wait)
+		},
 	})
 	if err != nil {
 		t.Fatal(err)

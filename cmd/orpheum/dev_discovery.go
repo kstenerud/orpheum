@@ -46,8 +46,10 @@ func commandDevDiscovery(ctx context.Context, call invocation) int {
 	flags.SetOutput(call.stderr)
 	listen := flags.String("listen", "127.0.0.1:0", "the address to serve on")
 	state := flags.String("state", "", "the directory its record is kept in (required)")
+	realm := flags.String("realm", "",
+		"the realm its core is signed in to by, as a paid discovery's host has one (D297)")
 	if err := flags.Parse(call.arguments); err != nil || *state == "" {
-		return write(call.stderr, "Usage: orpheum dev discovery --listen <host:port> --state <dir>\n",
+		return write(call.stderr, "Usage: orpheum dev discovery --listen <host:port> --state <dir> [--realm <realm>]\n",
 			exitUsageError)
 	}
 	logger := slog.New(slog.NewTextHandler(call.stderr, nil))
@@ -56,7 +58,7 @@ func commandDevDiscovery(ctx context.Context, call invocation) int {
 		return call.fail(fmt.Errorf("listen on %s: %w", *listen, err))
 	}
 	base := "http://" + listener.Addr().String()
-	handler, err := devDiscoveryHandler(base, filepath.Join(*state, "single.json"), logger)
+	handler, err := devDiscoveryHandler(base, filepath.Join(*state, "single.json"), *realm, logger)
 	if err != nil {
 		return call.fail(errors.Join(err, listener.Close()))
 	}
@@ -75,11 +77,11 @@ func commandDevDiscovery(ctx context.Context, call invocation) int {
 
 // devDiscoveryHandler is the development discovery at base: single's two APIs, the claim and the
 // core's id and fingerprint a test asks for, and the client, its page naming the client API.
-func devDiscoveryHandler(base, recordPath string, logger *slog.Logger) (http.Handler, error) {
+func devDiscoveryHandler(base, recordPath, realm string, logger *slog.Logger) (http.Handler, error) {
 	store := single.FileStore{Path: recordPath}
 	discovery, err := single.New(single.Parts{
 		BaseURL: base + devCoreAPI, Zone: "discovery.test", ClientOrigin: base, Store: store,
-		Now: clock.System{}.Now, Random: rand.Reader, Logger: logger,
+		Now: clock.System{}.Now, Random: rand.Reader, Logger: logger, Realm: realm,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("make the discovery: %w", err)
@@ -88,7 +90,7 @@ func devDiscoveryHandler(base, recordPath string, logger *slog.Logger) (http.Han
 	if !hasClient {
 		return nil, errors.New("this binary was built without the web client")
 	}
-	page, err := pageNaming(clientFiles, base+devClientAPI)
+	page, err := pageNaming(clientFiles, base+devClientAPI, realm != "")
 	if err != nil {
 		return nil, err
 	}
@@ -127,12 +129,16 @@ func devDiscoveryHandler(base, recordPath string, logger *slog.Logger) (http.Han
 
 // pageNaming serves the client's files, its page naming clientAPI in the meta element the client
 // reads (webrtc-transport.md W4c), as a discovery serves it.
-func pageNaming(files fs.FS, clientAPI string) (http.Handler, error) {
+func pageNaming(files fs.FS, clientAPI string, hasRealms bool) (http.Handler, error) {
 	index, err := fs.ReadFile(files, "index.html")
 	if err != nil {
 		return nil, fmt.Errorf("read the client's index.html: %w", err)
 	}
 	meta := `<head><meta name="orpheum-discovery-client-api" content="` + clientAPI + `">`
+	if hasRealms {
+		// The page offers a realm sign-in only where the discovery has realms (D297 §1).
+		meta += `<meta name="orpheum-discovery-realms" content="true">`
+	}
 	index = bytes.Replace(index, []byte("<head>"), []byte(meta), 1)
 	served := webclient.Handler(files, api.Prefix)
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {

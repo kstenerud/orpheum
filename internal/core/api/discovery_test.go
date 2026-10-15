@@ -4,12 +4,14 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
 	"testing"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
+	"github.com/kstenerud/orpheum/discovery/proof"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 )
 
@@ -55,12 +57,18 @@ func wantPendingWithItsCode(t *testing.T, status DiscoveryStatusBody, baseURL st
 func TestDiscovery_AnAdminConnectsSeesTheClaimCodeAndLeaves(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
+	// Signed in under a realm, a person has a realm key, which leaving forgets (D298 §6).
+	harness.authService.UseRealm(func() string { return "karlnas" })
 	admin := harness.createAdminAndSignIn(t)
 	if _, err := harness.authService.CreateUser(t.Context(),
 		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
 		t.Fatal(err)
 	}
 	partner := harness.signIn(t, "partner", "partner-password")
+	partnerPerson := proof.RealmPerson("karlnas", "partner")
+	if _, err := harness.authService.RealmKeyOfPerson(t.Context(), partnerPerson); err != nil {
+		t.Fatalf("the partner's realm key after signing in: %v", err)
+	}
 	wantError(t, harness.do(t, http.MethodGet, "/system/discovery", partner, nil), http.StatusForbidden, CodeForbidden)
 	wantError(t, harness.do(t, http.MethodPost, "/system/discovery", admin, map[string]any{
 		"baseUrl": "http://discovery.example.com/core/v1",
@@ -87,5 +95,12 @@ func TestDiscovery_AnAdminConnectsSeesTheClaimCodeAndLeaves(t *testing.T) {
 	got := harness.do(t, http.MethodGet, "/system/discovery", admin, nil)
 	if err := json.Unmarshal([]byte(got.body), &status); err != nil || status.BaseURL != "" {
 		t.Errorf("after leaving = %s; want no discovery", got.body)
+	}
+	_, err := harness.authService.RealmKeyOfPerson(t.Context(), partnerPerson)
+	if !errors.Is(err, auth.ErrRealmRefused) {
+		t.Errorf("after leaving the partner's realm key = %v; want forgotten", err)
+	}
+	if harness.signIn(t, "partner", "partner-password") == "" {
+		t.Error("after leaving the partner's password no longer signs in")
 	}
 }

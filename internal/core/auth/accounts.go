@@ -154,6 +154,9 @@ func (service *Service) Register(
 	if err != nil {
 		return Issued{}, fmt.Errorf("set the password: %w", err)
 	}
+	if keepErr := service.keepRealmKeyOfUser(ctx, userID, password); keepErr != nil {
+		return Issued{}, keepErr
+	}
 	return service.issueSession(ctx, userID, device, grantScopeRole)
 }
 
@@ -203,7 +206,7 @@ func (service *Service) ChangePassword(
 	if err != nil {
 		return err
 	}
-	return service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		if updateErr := queries.UpdateUserPasswordHash(ctx, sqlcgen.UpdateUserPasswordHashParams{
 			ID: userID, PasswordHash: hash,
 		}); updateErr != nil {
@@ -213,6 +216,10 @@ func (service *Service) ChangePassword(
 			RevokedAt: new(service.clock.Now().UnixMilli()), UserID: &userID, KeepSecretSha256: tokenHash(keepToken),
 		})
 	})
+	if err != nil {
+		return err
+	}
+	return service.keepRealmKey(ctx, userID, user.Name, newPassword, true)
 }
 
 // spend spends a live invitation of scope, once, and returns it.

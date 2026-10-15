@@ -221,6 +221,9 @@ func (service *Service) acceptInvitation(
 	if err != nil {
 		return Issued{}, err
 	}
+	if keepErr := service.keepRealmKey(ctx, userID, name, password, true); keepErr != nil {
+		return Issued{}, keepErr
+	}
 	return service.issueSession(ctx, userID, device, grantScopeRole)
 }
 

@@ -34,7 +34,13 @@ const (
 
 func newClientStage(t *testing.T) clientStage {
 	t.Helper()
-	built := newStage(t)
+	return newClientStageWithRealm(t, "")
+}
+
+// newClientStageWithRealm is newClientStage at a discovery whose operator named realm.
+func newClientStageWithRealm(t *testing.T, realm string) clientStage {
+	t.Helper()
+	built := newStageWithRealm(t, realm)
 	signer, coreID := built.claimed(t)
 	token := built.session(t, signer, coreID)
 	if status := built.call(t, http.MethodPut, discoveryproto.PathLocateHashes, token,

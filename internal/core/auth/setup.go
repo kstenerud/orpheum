@@ -105,6 +105,9 @@ func (service *Service) CompleteSetup(
 	if err != nil {
 		return 0, err
 	}
+	if keepErr := service.keepRealmKeyOfUser(ctx, id, admin.Password); keepErr != nil {
+		return 0, keepErr
+	}
 	return id, codes.Remove()
 }
 

@@ -90,6 +90,13 @@ type Parts struct {
 	// TXT sets the certificate's records; nil refuses them.
 	TXT    TXTRecords
 	Logger *slog.Logger
+	// Realm is what a person signs in to the core by at the client's page, beside their name and
+	// password; empty, as an owner's own discovery has it, offers no realm sign-in at all (D297 §1).
+	// A development or test discovery names one to test it.
+	Realm string
+	// Wait waits out a duration, or until ctx ends: how a realm sign-in that failed answers no sooner
+	// than one that the core refused (D297 §2). Nil waits by a timer; a test passes its own.
+	Wait func(ctx context.Context, wait time.Duration)
 }
 
 // Discovery is a single-target discovery: its record in its store, and in memory its nonces, its
@@ -368,7 +375,7 @@ func (discovery *Discovery) status(writer http.ResponseWriter, request *http.Req
 	if held.State == discoveryproto.StatePending {
 		status.ClaimCode, status.ClaimExpiresAt = held.ClaimCode, held.ClaimExpiresAt
 	} else {
-		status.Zone = discovery.parts.Zone
+		status.Zone, status.Realm = discovery.parts.Zone, proof.RealmName(discovery.parts.Realm)
 	}
 	answer(writer, status)
 }
