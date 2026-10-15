@@ -193,11 +193,11 @@ class CheckPrFailed(unittest.TestCase):
 
     def test_a_rerun_against_another_base_or_with_no_record_is_refused(self):
         with self.repo.cwd() as out:
-            self.assertEqual(steps.rerun(self.base, ["fast"], "check-revert-red", jobs=1), 1)
+            self.assertEqual(steps.rerun(self.base, ["fast"], ["check-revert-red"], jobs=1), 1)
         self.assertIn("No check-pr run is recorded", out.getvalue())
         self.check_pr()
         with self.repo.cwd() as out:
-            self.assertEqual(steps.rerun(self.repo.git("rev-parse", "HEAD"), ["fast"], "check-revert-red", 1), 1)
+            self.assertEqual(steps.rerun(self.repo.git("rev-parse", "HEAD"), ["fast"], ["check-revert-red"], 1), 1)
         self.assertIn("answer a different question", out.getvalue())
 
 
@@ -211,7 +211,8 @@ class Wiring(unittest.TestCase):
             self.assertIn(f"  {target} ", help_text)
         # The tiers, quickest first, each step recorded; PR_STEPS, which check-pr-failed re-runs, is
         # every tier's (the owner, 2026-10-15).
-        tiers = ("PR_FAST_STEPS", "PR_MEDIUM_STEPS", "PR_SERIAL_STEP", "PR_SLOW_STEPS", "PR_LAST_STEP")
+        tiers = ("PR_FAST_STEPS", "PR_MEDIUM_STEPS", "PR_CODE_RED_STEP", "PR_SERIAL_STEP", "PR_SLOW_STEPS",
+                 "PR_LAST_STEP")
         places = []
         for tier in tiers:
             found = re.search(rf"(?m)^\t.*\$\({tier}:%=pr-step-%\)", self.MAKEFILE)
@@ -226,7 +227,15 @@ class Wiring(unittest.TestCase):
         self.assertRegex(self.MAKEFILE, r"(?m)^\t.*\$\(PR_LAST_STEP:%=pr-step-%\)")
         self.assertRegex(self.MAKEFILE, r"(?m)^pr-step-%:\n\t.*check_pr_steps\.py record \$\*")
         self.assertRegex(self.MAKEFILE, r"(?m)^\t.*check_pr_steps\.py durations \$\(PR_STEPS\) "
-                         r"\$\(PR_SERIAL_STEP\) \$\(PR_LAST_STEP\)")
+                         r"\$\(PR_CODE_RED_STEP\) \$\(PR_SERIAL_STEP\) \$\(PR_LAST_STEP\)")
+        # Revert-red in two parts, the code's after the medium tier and the stylesheets' last, each
+        # re-run on its own failed files (the owner, 2026-10-15).
+        self.assertRegex(self.MAKEFILE, r"(?m)^PR_CODE_RED_STEP := check-revert-red-code$")
+        self.assertRegex(self.MAKEFILE, r"(?m)^PR_LAST_STEP := check-revert-red-sheets$")
+        self.assertRegex(self.MAKEFILE, r"--last \$\(PR_CODE_RED_STEP\) --last \$\(PR_LAST_STEP\)")
+        for part in ("code", "sheets"):
+            self.assertRegex(self.MAKEFILE, rf"(?m)^\t.*check_revert_red\.py .*--rerun-failed --part {part}$")
+        self.assertRegex(self.MAKEFILE, r"(?m)^\t.*check_revert_red\.py --base HEAD~1 --part code --unrecorded$")
         self.assertRegex(self.MAKEFILE, r"(?m)^\t.*check_revert_red\.py .*\$\(if \$\(ONLY\),--only \$\(ONLY\)\)")
 
 
@@ -248,3 +257,13 @@ class Records(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Parts(unittest.TestCase):
+    def test_a_stylesheet_is_the_sheets_part_and_anything_else_the_codes(self):
+        for path, code, sheets in (("web/apps/web/src/browse.css", False, True),
+                                   ("web/apps/web/src/browse.tsx", True, False),
+                                   ("internal/core/api/browse.go", True, False)):
+            self.assertEqual(rr.is_in_part(path, "code"), code, path)
+            self.assertEqual(rr.is_in_part(path, "sheets"), sheets, path)
+            self.assertTrue(rr.is_in_part(path, "all"), path)

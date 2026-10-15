@@ -121,8 +121,14 @@ queries that read whole tables reached `main` because only CI ran it.
 
 `make check-pr` runs its steps **in tiers, quickest first**, each tier only once the one before
 passed (the owner, 2026-10-15): the second's checks (test weakening, decision status, commit lint),
-then the medium ones in parallel (the integration tier, the full web lint), the acceptance under
-`home` alone, the browser tier, and revert-red last. A failure a quick check finds is never waited
+then the medium ones in parallel (the integration tier, the full web lint), **revert-red on the
+code** (Go, TypeScript, Python: a package's tests each), the acceptance under `home` alone, the
+browser tier, and **revert-red on the stylesheets** last, as they run the browser tier. A change no
+test notices is found within minutes, not after the browser tier (the owner, 2026-10-15).
+
+After each commit, `make check-commit-red` runs revert-red on that commit's code against its
+parent, keeping no record: a minute's check, while the change is fresh, so check-pr at a batch's
+end confirms rather than discovers. A failure a quick check finds is never waited
 for behind the browser tier, and the slow tiers never share the machine. A passing run is no shorter
 for it; the tiers' order is in the Makefile's `PR_FAST_STEPS`, `PR_MEDIUM_STEPS` and `PR_SLOW_STEPS`.
 The acceptance under `home` runs only in a batch that changed what it crosses: Watch Together, voice,

@@ -613,6 +613,17 @@ def why_not_probed(base: str, head: str, path: str, changes: list[Change]) -> st
     return f"not changed in {base[:12]}..{head[:12]}"
 
 
+# check-pr's two parts of revert-red (the owner, 2026-10-15): the code's probes, a package's tests
+# each, run right after the medium tier, so a change no test notices is found in minutes; the
+# stylesheets', the browser tier's, after it. "all" is both, for a run by hand.
+PARTS = ("all", "code", "sheets")
+
+
+def is_in_part(path: str, part: str) -> bool:
+    """Whether path is one of part's: a stylesheet is the sheets', anything else the code's."""
+    return part == "all" or (part == "sheets") == bool(CSS_SOURCE.search(path))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--base", required=True, help="ref the branch forked from")
@@ -624,7 +635,15 @@ def main() -> int:
                       "against --base..--head; a full run is still required before the branch is done")
     only.add_argument("--rerun-failed", action="store_true", help="probe only the paths the last run "
                       "against the same --base failed on (the head may have moved)")
+    ap.add_argument("--part", choices=PARTS, default="all", help="probe only the code (Go, TypeScript, "
+                    "Python: quick, a package's tests each) or only the stylesheets (the browser tier), as "
+                    "check-pr's tiers do; the record of failures keeps the other part's")
+    ap.add_argument("--unrecorded", action="store_true", help="keep no record of the failures: a check of "
+                    "one commit (make check-commit-red) leaves the batch's record to check-pr")
     args = ap.parse_args()
+    if args.unrecorded:
+        reruns.begin = lambda _base: None  # type: ignore[assignment]
+        reruns.finish = lambda *_args, **_kwargs: None  # type: ignore[assignment]
 
     for name, ref in (("--base", args.base), ("--head", args.head)):
         if not rev_exists(ref):
@@ -646,8 +665,10 @@ def main() -> int:
     elif args.only:
         wanted = [p.removeprefix("./") for p in args.only]
 
-    changes = changed_sources(base, head)
+    changes = [c for c in changed_sources(base, head) if is_in_part(c.path, args.part)]
     owed = [c for c in changes if claims_behavior_change(types_touching(base, head, c.path))]
+    if wanted is not None:
+        wanted = [path for path in wanted if is_in_part(path, args.part)]
     exempt = len(changes) - len(owed)
     unknown = False
     if wanted is not None:
@@ -661,7 +682,7 @@ def main() -> int:
             reruns.finish(base, head, wanted, [], targeted=True)
             return 1 if unknown else 0
     elif not owed:
-        reruns.finish(base, head, [], [], targeted=False)
+        reruns.finish(base, head, [c.path for c in changes], [], targeted=args.part != "all")
         # A behavioral commit whose every file fell out of scope is not a pass; it
         # is the gate reporting that it checked nothing, and it must say which
         # files and why. Printing "no behavioral source changes" over a `fix` that
@@ -688,7 +709,8 @@ def main() -> int:
     jobs = args.jobs or max(1, (os.cpu_count() or 2) // 2)
     with hold_probe_trees():
         reruns.begin(base)
-        status = probe_all(base, head, owed, exempt, min(jobs, len(owed)), args.timeout, wanted)
+        status = probe_all(base, head, owed, exempt, min(jobs, len(owed)), args.timeout, wanted,
+                           args.part != "all")
     if wanted is not None:
         print("\nA targeted run: the full `make check-revert-red` (or `make check-pr`) is still "
               "required before the branch is done.")
@@ -703,7 +725,7 @@ def unprobed(base: str, head: str, owed: list[Change]) -> list[Outcome]:
 
 
 def probe_all(base: str, head: str, owed: list[Change], exempt: int, jobs: int, timeout: int,
-              wanted: list[str] | None) -> int:
+              wanted: list[str] | None, is_one_part: bool = False) -> int:
     try:
         trees = probe_trees(head, jobs)
     except RuntimeError as problem:
@@ -742,7 +764,7 @@ def probe_all(base: str, head: str, owed: list[Change], exempt: int, jobs: int, 
     if wanted is None:
         outcomes += unprobed(base, head, owed)
     reruns.finish(base, head, wanted or [c.path for c in owed], [o.path for o in outcomes if o.is_failure],
-                  targeted=wanted is not None)
+                  targeted=wanted is not None or is_one_part)
     if wanted is None:
         print(f"Reverted {len(owed)} behavioral source change(s); {exempt} exempt by commit type.")
     else:
