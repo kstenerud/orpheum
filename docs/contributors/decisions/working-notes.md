@@ -20204,3 +20204,18 @@ he wants."* Revises D297 §1, §7 and §8.
 
 **Status:** Decided 2026-10-15. The code-entry connection, subrealm management and the count wait for
 customer accounts; the realm's shape, its key and its sign-in come with D297's work.
+
+## D299 — A core that leaves its discovery keeps its people's realm keys
+
+**Decided** (2026-10-15), by the project owner (*"OK to keep the keys"*), revising D298 §6's last
+sentence. Staging left one discovery and joined another under the same master realm, and every realm
+sign-in was refused until each person signed in once on the core's own page: the keys had gone with
+the Leave. A person who only ever reaches the core from away, as a Watch Together partner does, has
+no such page, and would be locked out of realm sign-in after any move.
+
+1. **Leaving forgets no realm key.** A key is salted by its master realm (D298 §4), so a kept key
+   serves nothing but that realm; a core that comes back under it is found by its people at once, and
+   one given another master realm makes new keys at their next sign-in, as before.
+2. **Passwords stay as D298 §6 says**; only its forgetting of the keys is withdrawn.
+
+**Status:** Decided 2026-10-15.

@@ -19,7 +19,3 @@ ORDER BY realm_key.user_id;
 -- name: GetRealmKeyMasterOfUser :one
 -- The master realm the person's key was made for: what tells whether it serves the realm the core has.
 SELECT master_realm FROM realm_key WHERE user_id = sqlc.arg(user_id);
-
--- name: DeleteRealmKeysMadeBy :exec
--- Every key made by left_at, when the core left its discovery: no realm sign-in reaches it after.
-DELETE FROM realm_key WHERE made_at <= sqlc.arg(left_at);

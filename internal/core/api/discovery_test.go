@@ -4,7 +4,6 @@ package api
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -53,11 +52,11 @@ func wantPendingWithItsCode(t *testing.T, status DiscoveryStatusBody, baseURL st
 
 // Only an admin connects the core to a discovery; an address that is not a discovery's is refused
 // naming the field, the claim code comes back to show the owner, a second connect is a conflict,
-// and leaving forgets it (D273).
+// and leaving forgets it, but not its people's realm keys (D273, D299).
 func TestDiscovery_AnAdminConnectsSeesTheClaimCodeAndLeaves(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
-	// Signed in under a realm, a person has a realm key, which leaving forgets (D298 §6).
+	// Signed in under a realm, a person has a realm key, which leaving keeps (D299).
 	harness.authService.SetRealm("karlnas")
 	admin := harness.createAdminAndSignIn(t)
 	if _, err := harness.authService.CreateUser(t.Context(),
@@ -96,9 +95,10 @@ func TestDiscovery_AnAdminConnectsSeesTheClaimCodeAndLeaves(t *testing.T) {
 	if err := json.Unmarshal([]byte(got.body), &status); err != nil || status.BaseURL != "" {
 		t.Errorf("after leaving = %s; want no discovery", got.body)
 	}
-	_, err := harness.authService.RealmKeyOfPerson(t.Context(), partnerPerson)
-	if !errors.Is(err, auth.ErrRealmRefused) {
-		t.Errorf("after leaving the partner's realm key = %v; want forgotten", err)
+	// Come back under the same master realm, the partner is found with no sign-in at home first.
+	harness.authService.SetRealm("karlnas")
+	if _, err := harness.authService.RealmKeyOfPerson(t.Context(), partnerPerson); err != nil {
+		t.Errorf("after leaving and coming back the partner's realm key = %v; want kept", err)
 	}
 	if harness.signIn(t, "partner", "partner-password") == "" {
 		t.Error("after leaving the partner's password no longer signs in")
