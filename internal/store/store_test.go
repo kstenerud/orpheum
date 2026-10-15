@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -135,7 +136,10 @@ func TestVerifyPragmas_RefusesAConnectionWithoutThem(t *testing.T) {
 	}
 
 	database := openTemporary(t)
-	for name, pool := range map[string]*sql.DB{"writer": database.writer, "readers": database.readers} {
+	pools := map[string]*sql.DB{
+		"writer": database.writer, "readers": database.readers, "maintenance": database.maintenance,
+	}
+	for name, pool := range pools {
 		if err := verifyPragmas(t.Context(), pool); err != nil {
 			t.Errorf("verifyPragmas(%s) = %v, want nil", name, err)
 		}
@@ -219,5 +223,25 @@ func TestOpen_RefusesOptionsNobodyChose(t *testing.T) {
 	}
 	if err = database.requireSpaceToMigrate(t.Context(), t.TempDir(), 3); err != nil {
 		t.Errorf("a free-space database multiple of 3 with room to spare = %v, want nil", err)
+	}
+}
+
+// A connection without the page cache size or the log's size limit is refused (D303, DL16).
+func TestVerifyPragmas_RefusesAConnectionWithoutItsCacheOrLogLimit(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "plain.db")
+	for _, pragma := range []string{"cache_size", "journal_size_limit"} {
+		withoutIt := regexp.MustCompile(`&_pragma=`+pragma+`\([^)]*\)`).ReplaceAllString(connectionPragmas, "")
+		pool, err := sql.Open("sqlite", path+"?"+withoutIt)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = verifyPragmas(t.Context(), pool)
+		if closeErr := pool.Close(); closeErr != nil {
+			t.Error(closeErr)
+		}
+		if err == nil || !strings.Contains(err.Error(), pragma) {
+			t.Errorf("verifyPragmas(no %s) = %v, want a %s refusal", pragma, err, pragma)
+		}
 	}
 }
