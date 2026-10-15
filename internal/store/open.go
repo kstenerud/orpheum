@@ -28,13 +28,24 @@ const busyTimeoutMs = 15000
 // to each connection it opens rather than to whichever one ran an Exec (standards/sql.md §7).
 const (
 	connectionPragmas = "_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(1)" +
-		"&_pragma=busy_timeout(15000)&_pragma=temp_store(MEMORY)"
+		"&_pragma=busy_timeout(15000)&_pragma=temp_store(MEMORY)&_pragma=cache_size(-16384)" +
+		"&_pragma=journal_size_limit(67108864)"
 	writerOptions = "&_txlock=immediate"
 	readerOptions = "&_pragma=query_only(1)"
 )
 
 // synchronousNormal is PRAGMA synchronous's value for NORMAL.
 const synchronousNormal = 1
+
+// cacheSizeKiB is each connection's page cache, in KiB (PRAGMA cache_size takes a negative number
+// for KiB): 16 MiB, against SQLite's default of about 2 MiB, which made every pass over a library
+// re-read its pages (D303, DL16; PocketBase uses 32 MiB, practitioners 32 to 200). A connection's
+// cache fills only as it reads, so an idle reader costs nothing.
+const cacheSizeKiB = 16384
+
+// journalSizeLimitBytes is how large the write-ahead log file is left after a checkpoint: without
+// a limit it stays at the largest it ever grew (D303, DL16; 64 MiB, as Rails sets it).
+const journalSizeLimitBytes = 64 << 20
 
 // tempStoreMemory is PRAGMA temp_store's value for MEMORY. SQLite's temporary files would
 // otherwise go wherever TMPDIR points, which is configuration nobody gave us (D204).
@@ -267,7 +278,7 @@ func (database *Database) verify(ctx context.Context, wantApplicationID int64) e
 // verifyPragmas refuses a connection whose pragmas are not the ones the DSN asked for.
 func verifyPragmas(ctx context.Context, pool *sql.DB) error {
 	var journalMode string
-	var synchronous, foreignKeys, busyTimeout, tempStore int
+	var synchronous, foreignKeys, busyTimeout, tempStore, cacheSize, journalSizeLimit int
 	checks := []struct {
 		pragma string
 		value  any
@@ -277,6 +288,8 @@ func verifyPragmas(ctx context.Context, pool *sql.DB) error {
 		{"PRAGMA foreign_keys", &foreignKeys},
 		{"PRAGMA busy_timeout", &busyTimeout},
 		{"PRAGMA temp_store", &tempStore},
+		{"PRAGMA cache_size", &cacheSize},
+		{"PRAGMA journal_size_limit", &journalSizeLimit},
 	}
 	for _, check := range checks {
 		if err := pool.QueryRowContext(ctx, check.pragma).Scan(check.value); err != nil {
@@ -294,6 +307,10 @@ func verifyPragmas(ctx context.Context, pool *sql.DB) error {
 		return fmt.Errorf("busy_timeout is %d, want %d", busyTimeout, busyTimeoutMs)
 	case tempStore != tempStoreMemory:
 		return fmt.Errorf("temp_store is %d, want %d (MEMORY)", tempStore, tempStoreMemory)
+	case cacheSize != -cacheSizeKiB:
+		return fmt.Errorf("cache_size is %d, want %d (KiB)", cacheSize, -cacheSizeKiB)
+	case journalSizeLimit != journalSizeLimitBytes:
+		return fmt.Errorf("journal_size_limit is %d, want %d", journalSizeLimit, journalSizeLimitBytes)
 	}
 	return nil
 }

@@ -170,9 +170,12 @@ D181 is the policy and [migrations.md](../design/plans/migrations.md) the mechan
 - **Pragmas are set in the DSN with the pure-Go `_pragma=` syntax**, so every connection the
   pool opens gets them (`foreign_keys` and `busy_timeout` are per connection; an `Exec` after
   opening would set them on one):
-  `file:persistent.db?_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(1)&_pragma=busy_timeout(15000)`.
+  `file:persistent.db?_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(1)&_pragma=busy_timeout(15000)&_pragma=temp_store(MEMORY)&_pragma=cache_size(-16384)&_pragma=journal_size_limit(67108864)`
+  (the last two since D303: a 16 MiB page cache per connection, and the WAL file trimmed to
+  64 MiB after a checkpoint).
 - **They are read back at startup, and the server refuses to run if any is wrong**:
-  `journal_mode`, `synchronous`, `foreign_keys`, `busy_timeout`, and `application_id`. A file
+  `journal_mode`, `synchronous`, `foreign_keys`, `busy_timeout`, `temp_store`, `cache_size`,
+  `journal_size_limit`, and `application_id`. A file
   without our `application_id` is refused, not migrated; a database on a network filesystem is
   refused with a message (D31). **Enforced by:** `Open()`'s checks and their tests
   (`TestVerifyPragmas_RefusesAConnectionWithoutThem`, `TestOpen_RefusesAFileThatIsNotOurs`); the
