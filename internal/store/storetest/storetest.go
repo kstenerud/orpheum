@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"sync"
 	"testing"
 
@@ -71,7 +73,9 @@ func OpenMigrated(tb testing.TB) *store.Database {
 	if err = os.WriteFile(path, contents, 0o600); err != nil {
 		tb.Fatalf("copy the migrated template: %v", err)
 	}
-	database, err := store.Open(tb.Context(), path, OpenOptions())
+	options, readerWrites := OpenOptions(), &readerWrites{}
+	options.OnReaderWrite = readerWrites.note
+	database, err := store.Open(tb.Context(), path, options)
 	if err != nil {
 		tb.Fatalf("open a test database: %v", err)
 	}
@@ -79,6 +83,7 @@ func OpenMigrated(tb testing.TB) *store.Database {
 		if err := database.Close(); err != nil {
 			tb.Errorf("close the test database: %v", err)
 		}
+		readerWrites.report(tb)
 	})
 	if err := database.Migrate(tb.Context(), MigrateOptions(directory)); err != nil {
 		tb.Fatalf("migrate the test database: %v", err)
@@ -177,4 +182,46 @@ func DiskFullError(tb testing.TB) error {
 	}
 	tb.Fatal("the scratch database never filled")
 	return nil
+}
+
+// readerWrites are the writes made under a request that only reads (waiting.ForAReader), which
+// fail the test that made them (D303, DL10): nothing a GET or a HEAD does may take the writer.
+type readerWrites struct {
+	mutex   sync.Mutex
+	callers []string
+}
+
+// note records one such write, by the function outside the store that made it.
+func (writes *readerWrites) note(_, caller string) {
+	writes.mutex.Lock()
+	defer writes.mutex.Unlock()
+	if _, isAllowed := readerWritesAllowed()[shortName(caller)]; !isAllowed {
+		writes.callers = append(writes.callers, caller)
+	}
+}
+
+// report fails the test for each write it recorded.
+func (writes *readerWrites) report(tb testing.TB) {
+	tb.Helper()
+	writes.mutex.Lock()
+	defer writes.mutex.Unlock()
+	for _, caller := range slices.Compact(slices.Sorted(slices.Values(writes.callers))) {
+		tb.Errorf("a request that only reads wrote to the database, through %s: reading never writes "+
+			"(D303, DL10); keep it in memory and write it later, or list it in storetest's "+
+			"readerWritesAllowed with why", caller)
+	}
+}
+
+// shortName is a function's name without its package path: "auth.(*Service).Authenticate".
+func shortName(function string) string {
+	return function[strings.LastIndex(function, "/")+1:]
+}
+
+// readerWritesAllowed are the writes a reading request may make, by the function that makes them,
+// each with why. An entry naming D303 is a defect the redesign removes.
+func readerWritesAllowed() map[string]string {
+	return map[string]string{
+		"settings.(*Service).heal": "a setting row removed while the server runs is written back once, with its " +
+			"starting value, the first time it is read (D202); every start writes them all",
+	}
 }

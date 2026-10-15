@@ -50,6 +50,8 @@ type Config struct {
 	slowWrites func(store.SlowWrite)
 	// slowWriteClock times the writes slowWrites hears of: the system's unless a test names another.
 	slowWriteClock clock.Clock
+	// readerWrites, when set, is told each write a request that only reads made (store.OpenOptions).
+	readerWrites func(file, caller string)
 	// path is the file's absolute path.
 	path string
 }
@@ -664,7 +666,9 @@ func atLeastOne(values map[string]int64) error {
 
 // openOptions are the store's choices from the file.
 func (config *Config) openOptions() store.OpenOptions {
-	options := store.OpenOptions{MinimumReaders: config.Database.ReadConnectionsMinimum}
+	options := store.OpenOptions{
+		MinimumReaders: config.Database.ReadConnectionsMinimum, OnReaderWrite: config.readerWrites,
+	}
 	if config.slowWrites != nil {
 		options.Clock, options.OnSlowWrite = config.slowWriteClock, config.slowWrites
 		if options.Clock == nil {
@@ -687,6 +691,14 @@ func loggingSlowWrites(ctx context.Context, logger *slog.Logger) func(store.Slow
 			attributes = append(attributes, "behind", write.Behind)
 		}
 		logger.InfoContext(ctx, "a database write was slow", attributes...)
+	}
+}
+
+// loggingReaderWrites logs each database write a request that only reads made: reading never
+// writes (D303, DL10), and the log names what did.
+func loggingReaderWrites(ctx context.Context, logger *slog.Logger) func(file, caller string) {
+	return func(file, caller string) {
+		logger.WarnContext(ctx, "a request that only reads wrote to the database", "file", file, "caller", caller)
 	}
 }
 

@@ -69,6 +69,8 @@ type Database struct {
 	// slowWrites says each write that waited for the writer or held it past SlowWriteAfter; none
 	// when its options named no clock or no listener.
 	slowWrites slowWrites
+	// onReaderWrite is told each write a reading request makes; nil tells no one.
+	onReaderWrite func(file, caller string)
 }
 
 // OpenOptions are the choices Open needs from the config file: they are known before the
@@ -82,6 +84,10 @@ type OpenOptions struct {
 	// times nothing.
 	Clock       clock.Clock
 	OnSlowWrite func(SlowWrite)
+	// OnReaderWrite, set, is told each write made under a request that only reads
+	// (waiting.ForAReader), with the database file's name and the function outside the store that
+	// wrote: reading never writes (D303, DL10).
+	OnReaderWrite func(file, caller string)
 }
 
 // SlowWriteAfter is how long a write may wait for the writer, or hold it, before it is reported.
@@ -149,7 +155,8 @@ func open(ctx context.Context, path string, options OpenOptions, applicationID i
 	maintenance.SetMaxOpenConns(1)
 	database := &Database{
 		path: path, writer: writer, readers: readers, maintenance: maintenance,
-		slowWrites: slowWrites{file: filepath.Base(path), clock: options.Clock, report: options.OnSlowWrite},
+		slowWrites:    slowWrites{file: filepath.Base(path), clock: options.Clock, report: options.OnSlowWrite},
+		onReaderWrite: options.OnReaderWrite,
 	}
 	if err := database.verify(ctx, applicationID); err != nil {
 		return nil, errors.Join(err, database.Close())
@@ -206,6 +213,9 @@ func (database *Database) Write(ctx context.Context, change func(queries *sqlcge
 // transact runs change in one IMMEDIATE transaction on the single writer, which it takes through
 // the writer gate: a person's write before background work (D303, DL11).
 func (database *Database) transact(ctx context.Context, change func(transaction *sql.Tx) error) error {
+	if database.onReaderWrite != nil && waiting.IsAReader(ctx) {
+		database.onReaderWrite(database.slowWrites.file, callerOutsideTheStore())
+	}
 	if !database.slowWrites.isOn() {
 		if err := database.gate.acquire(ctx, waiting.IsAPerson(ctx), ""); err != nil {
 			return err

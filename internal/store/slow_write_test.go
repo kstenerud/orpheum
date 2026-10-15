@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/platform/waiting"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -109,4 +110,27 @@ func waitBehindTheHolder(ctx context.Context, database *store.Database) error {
 		return fmt.Errorf("wait behind the holder: %w", err)
 	}
 	return nil
+}
+
+// A write made under a request that only reads is reported with who wrote; a person's write that
+// is no reader's is not (D303, DL10).
+func TestWrite_ReportsAWriteAReadingRequestMakes(t *testing.T) {
+	t.Parallel()
+	var reported []string
+	database, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "persistent.db"), store.OpenOptions{
+		MinimumReaders: 1, OnReaderWrite: func(file, caller string) { reported = append(reported, file+" "+caller) },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = database.Close() }) //nolint:errcheck // the test is over
+	for _, ctx := range []context.Context{waiting.ForAPerson(t.Context()), waiting.ForAReader(t.Context())} {
+		if err := database.Write(ctx, func(*sqlcgen.Queries) error { return nil }); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(reported) != 1 || !strings.HasPrefix(reported[0], "persistent.db ") ||
+		!strings.HasSuffix(reported[0], "TestWrite_ReportsAWriteAReadingRequestMakes") {
+		t.Errorf("reported %q; want the reading request's one write, by this test", reported)
+	}
 }
