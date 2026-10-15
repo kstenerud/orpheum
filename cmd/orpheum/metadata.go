@@ -81,6 +81,8 @@ type jobServices struct {
 	// providerServices are each outside host's provider service, which every call to it asks
 	// first (D231 §5): TMDB's API, TMDB's image server and OpenSubtitles, in that order.
 	providerServices hostProviders
+	// sessions remembers each session's use, which writeSessionUses writes in batches (D303 §4).
+	sessions sessionUseFlusher
 }
 
 // newJobServices builds the providers, the pass and the queue, and returns the jobs a crash left
@@ -126,7 +128,8 @@ func newJobServices(
 	})
 	matcher := identify.NewMatcher(opened.database, opened.cache, pass, clock.System{}, logger)
 	return jobServices{
-		pass: pass, queue: queue, matcher: matcher, settings: opened.settings, subtitler: subtitler,
+		sessions: opened.auth,
+		pass:     pass, queue: queue, matcher: matcher, settings: opened.settings, subtitler: subtitler,
 		outboundClient: httpClient, providerServices: hosts,
 		chooser:   identify.NewChooser(matcher, pass),
 		refresher: identify.NewRefresher(opened.database, queue, opened.settings, clock.System{}, logger),
@@ -457,20 +460,28 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 		defer ticker.Stop()
 		pruneFinished(loopsContext, services.queue, ticker.C, logger)
 	})
-	loops.Go(func() { maintainArtworkCache(loopsContext, services.artwork, services.settings, logger) })
+	services.startUpkeep(loopsContext, &loops, logger)
+	loops.Go(func() { services.discovery.Run(loopsContext) })
+	loops.Go(func() { services.portMapping.Run(loopsContext) })
+	return func() { cancel(); loops.Wait() }, nil
+}
+
+// startUpkeep starts, on loops, the loops that keep things tidy until ctx ends: the artwork
+// cache's ceiling, the sessions' remembered uses written in batches (D303 §4), and the players'
+// share of the server's upload (D286 §5).
+func (services jobServices) startUpkeep(ctx context.Context, loops *sync.WaitGroup, logger *slog.Logger) {
+	loops.Go(func() { maintainArtworkCache(ctx, services.artwork, services.settings, logger) })
+	loops.Go(func() { writeSessionUses(ctx, services.sessions, services.settings, logger) })
 	loops.Go(func() {
 		ticker := time.NewTicker(uploadLogEvery)
 		defer ticker.Stop()
-		services.playback.WatchUpload(loopsContext, ticker.C, logger)
+		services.playback.WatchUpload(ctx, ticker.C, logger)
 	})
 	loops.Go(func() {
 		ticker := time.NewTicker(uploadKeptEvery)
 		defer ticker.Stop()
-		services.playback.KeepUnderShare(loopsContext, ticker.C, logger)
+		services.playback.KeepUnderShare(ctx, ticker.C, logger)
 	})
-	loops.Go(func() { services.discovery.Run(loopsContext) })
-	loops.Go(func() { services.portMapping.Run(loopsContext) })
-	return func() { cancel(); loops.Wait() }, nil
 }
 
 // uploadLogEvery is how often what the server's players need of its upload is logged while anyone

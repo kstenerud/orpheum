@@ -270,7 +270,9 @@ then; [audit-checklist](../audit-checklist.md) item 23 asks the questions at eve
   `revision` raised on every write. **Enforced by:** a test that a person's edit between a job's
   read and its write wins *(D303 C)*.
 - **A read built from several queries uses one read transaction** (M2): `ReadTx`, which pins one
-  connection and one snapshot. **Enforced by:** review; `ReadTx`'s snapshot test *(D303 A)*.
+  connection and one snapshot. Inside it, read only through its queries: a `Read()` inside waits
+  for another reader, and once every reader is lent to a `ReadTx` that waits the same way, none
+  returns. **Enforced by:** review; `ReadTx`'s snapshot test *(D303 A)*.
 - **Identity is declared** (M3): whatever must not be duplicated has a `UNIQUE` constraint on its
   natural key beside its surrogate key. **Enforced by:** the invariants *(D303 B)*.
 - **A write transaction covers one consistency unit** (M4, DL8): a title with its versions, text

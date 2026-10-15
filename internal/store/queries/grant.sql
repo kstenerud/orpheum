@@ -18,8 +18,9 @@ WHERE secret_sha256 = sqlc.arg(secret_sha256)
   AND (expires_at IS NULL OR expires_at > sqlc.arg(now));
 
 -- name: UpdateGrantLastUsed :exec
+-- A later use only: a use written late never moves the stored time back (D303 section 4).
 UPDATE "grant" SET last_used_at = sqlc.arg(last_used_at)
-WHERE secret_sha256 = sqlc.arg(secret_sha256);
+WHERE secret_sha256 = sqlc.arg(secret_sha256) AND (last_used_at IS NULL OR last_used_at < sqlc.arg(last_used_at));
 
 -- name: MarkGrantRevoked :exec
 UPDATE "grant" SET revoked_at = sqlc.arg(revoked_at)

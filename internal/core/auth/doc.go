@@ -43,6 +43,13 @@
 //     device it was signed in on: the one the client remembers, or a new one the client names
 //     (D217 §8, D221). Enforced by TestSignIn_IssuesASessionUntilSignedOut.
 //
+//   - Authenticating writes nothing: a session's use is remembered and written in a batch by
+//     FlushSessionUses, which never moves a stored use back; the idle check and a person's devices
+//     read the later of the stored and the remembered use (D303 §4, DL10). Its reads are one read
+//     transaction (M2). Enforced by TestAuthenticate_WritesNothingAndTheFlushWritesTheUse,
+//     TestFlushSessionUses_NeverMovesAStoredUseBack and
+//     TestDevices_ADeviceWasLastUsedWhenItsLatestSessionWasIssuedOrUsed.
+//
 //   - A session a device code activated carries the device scope: the role without administering
 //     and without changing the account's security (CanManageAccount); a password sign-in carries the
 //     whole role, wherever it comes from (D292 §4, D294 §4; the security audit's A11). Enforced by
