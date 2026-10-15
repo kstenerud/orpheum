@@ -390,3 +390,45 @@ func TestMigrate_Step0038KeepsEachGrantWithNoSealedLink(t *testing.T) {
 		t.Errorf("the grants after the step are %s, want %s: each kept, its hashes kept, no link sealed", got, want)
 	}
 }
+
+// stepIndex is the position of the step of version in steps.
+func stepIndex(t *testing.T, steps []Step, version int) int {
+	t.Helper()
+	for index, step := range steps {
+		if step.Version == version {
+			return index
+		}
+	}
+	t.Fatalf("no step %d", version)
+	return 0
+}
+
+// Step 0043 keeps each item's sort key, now found by the item: one per item in each locale, and the
+// listings' order an index (D303; the access audit's A1).
+func TestMigrate_Step0043KeepsEachSortKeyFoundByItsItem(t *testing.T) {
+	t.Parallel()
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	step0043 := stepIndex(t, steps, 43)
+	database := openTemporary(t)
+	if err = database.migrate(t.Context(), steps[:step0043], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	execRaw(t, database,
+		"INSERT INTO item (id, kind, added_at) VALUES (7, 'title', 1)",
+		"INSERT INTO sort_key (item_id, locale, listing, collation_key) VALUES (7, 'en', 'movie', x'01')")
+	if err = database.migrate(t.Context(), steps[:step0043+1], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprint(queryRows(t, database, "SELECT item_id, locale, listing, hex(collation_key) FROM sort_key",
+		4)); got != "[[7 en movie 01]]" {
+		t.Errorf("the sort keys after the step are %s; want the one key kept", got)
+	}
+	plan := fmt.Sprint(queryRows(t, database,
+		"EXPLAIN QUERY PLAN SELECT listing FROM sort_key WHERE item_id = 7 AND locale = 'en'", 4))
+	if !strings.Contains(plan, "PRIMARY KEY (item_id=? AND locale=?)") {
+		t.Errorf("an item's key is read by %s; want its primary key, by item and locale", plan)
+	}
+}
