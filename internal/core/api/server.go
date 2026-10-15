@@ -197,7 +197,8 @@ func NewServer(logger *slog.Logger) *Server {
 // Handler is the HTTP handler to serve: the API, a POST with an Idempotency-Key answered once,
 // every answer naming the web client this server serves (ClientScriptHeader).
 func (server *Server) Handler() http.Handler {
-	return server.markingHome(server.crossOrigin(server.namingClient(server.idempotent(server.pacedMedia(server.mux)))))
+	return server.markingHome(server.loggingSlow(
+		server.crossOrigin(server.namingClient(server.idempotent(server.pacedMedia(server.mux))))))
 }
 
 // ClientScriptHeader names, on every answer, the script of the web client this server serves: a
