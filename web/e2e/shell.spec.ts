@@ -7,7 +7,7 @@ import { join } from "node:path";
 
 import { expect, type Locator } from "@playwright/test";
 
-import { test } from "./browser-map.ts";
+import { readsStylesheets, test } from "./browser-map.ts";
 import { signIn } from "./pages.ts";
 
 test("the logo is one link home, exactly the logo's size", async ({ page }) => {
@@ -85,23 +85,27 @@ async function boxOf(
 /** The client's source folder, beside this one. */
 const clientSource = join(import.meta.dirname, "..", "apps", "web", "src");
 
-test("every class the client's stylesheets select is one its code draws", () => {
-  const files = readdirSync(clientSource);
-  const code = files
-    .filter((name) => /\.tsx?$/u.test(name) && !/\.test\.tsx?$/u.test(name))
-    .map((name) => readFileSync(join(clientSource, name), "utf8"))
-    .join("\n");
-  const unused: string[] = [];
-  for (const sheet of files.filter((name) => name.endsWith(".css"))) {
-    const selected = readFileSync(join(clientSource, sheet), "utf8").matchAll(
-      /\.([a-z][a-z0-9-]*(?:__[a-z0-9-]+)?(?:--[a-z0-9-]+)?)/gu,
-    );
-    for (const [, name] of selected) {
-      // A rule for a class nothing draws is dead: kept, it would say a look the page never has.
-      if (name !== undefined && !code.includes(name)) {
-        unused.push(`${sheet}: .${name}`);
+test(
+  "every class the client's stylesheets select is one its code draws",
+  { tag: readsStylesheets },
+  () => {
+    const files = readdirSync(clientSource);
+    const code = files
+      .filter((name) => /\.tsx?$/u.test(name) && !/\.test\.tsx?$/u.test(name))
+      .map((name) => readFileSync(join(clientSource, name), "utf8"))
+      .join("\n");
+    const unused: string[] = [];
+    for (const sheet of files.filter((name) => name.endsWith(".css"))) {
+      const selected = readFileSync(join(clientSource, sheet), "utf8").matchAll(
+        /\.([a-z][a-z0-9-]*(?:__[a-z0-9-]+)?(?:--[a-z0-9-]+)?)/gu,
+      );
+      for (const [, name] of selected) {
+        // A rule for a class nothing draws is dead: kept, it would say a look the page never has.
+        if (name !== undefined && !code.includes(name)) {
+          unused.push(`${sheet}: .${name}`);
+        }
       }
     }
-  }
-  expect(unused).toEqual([]);
-});
+    expect(unused).toEqual([]);
+  },
+);

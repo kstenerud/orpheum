@@ -84,16 +84,27 @@ function grepTitle(testInfo: TestInfo): string {
 }
 
 /**
- * What a test's pages held, or null when the record cannot be vouched for: a context the test made
- * other than by browser.newContext, which nothing watched, or a test that did not run to its end.
- * A null record reaches every change (scripts/browser_map.py).
+ * The tag of a test that reads the stylesheets themselves, not what a page drew: it can notice a
+ * change to any rule, whatever its pages held (the dead-rule check, shell.spec.ts).
  */
-function record(
+export const readsStylesheets = "@stylesheets";
+
+/**
+ * What a test's pages held, or null when the record cannot be vouched for: a context the test made
+ * other than by browser.newContext, which nothing watched, a test that did not run to its end, or
+ * one that reads the stylesheets themselves (readsStylesheets). A null record reaches every change
+ * (scripts/browser_map.py).
+ */
+export function record(
   tokens: Set<string>,
   wasEveryContextWatched: boolean,
   testInfo: TestInfo,
 ): string[] | null {
-  return wasEveryContextWatched && testInfo.status === "passed" ? [...tokens].toSorted() : null;
+  return wasEveryContextWatched &&
+    testInfo.status === "passed" &&
+    !testInfo.tags.includes(readsStylesheets)
+    ? [...tokens].toSorted()
+    : null;
 }
 
 export const test = base.extend<{ browserMap: undefined }>({
