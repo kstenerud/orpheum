@@ -45,7 +45,8 @@ exhaustive ([go.md](go.md) §6).
   `internal/store/cache/queries/*.sql` for cache.db, one file per concern** (`library.sql`,
   `play.sql`, `secret.sql`; cache.db's `job.sql`), and sqlc generates the Go in
   `internal/store/sqlcgen` and `internal/store/cachegen`. Search's three statements
-  (`internal/store/search.go`, §4) are the one exception. No other package holds SQL. **Enforced by:** depguard
+  (`internal/store/search.go`, §4) and the invariants (`internal/store/invariants.sql`, §13), which
+  a runner reads one by one, are the exceptions. No other package holds SQL. **Enforced by:** depguard
   `sql-only-in-store` and `TestArch_OnlyStoreImportsDatabaseSQL` (nothing else can run it).
 - **A query is named for what it does**, verb first, with its sqlc command:
   `-- name: ListFilmsByName :many`. The verbs are `Get` (one row, an error if absent),
@@ -287,7 +288,8 @@ then; [audit-checklist](../audit-checklist.md) item 23 asks the questions at eve
 - **Invariants are executable** (M7): data invariants are SQL queries that must return no rows,
   in `internal/store/invariants.sql`, run after store and identify tests, after migrations, and
   nightly in production, with `foreign_key_check` and FTS5's `integrity-check`. **Enforced by:**
-  the invariant harness *(D303 A)*.
+  `storetest` runs `CheckInvariants` after every test that opens a database through it
+  (`TestCheckInvariants_NamesEachThatDoesNotHold`); the nightly run *(D303 D)*.
 - **`persistent.db` and `cache.db` agree by protocol** (M11): no transaction spans both, so a
   change writes `persistent.db` first, as the fact, then `cache.db`; the second write is
   idempotent, and the invariants find orphans either way. **Enforced by:** review; the invariants.
