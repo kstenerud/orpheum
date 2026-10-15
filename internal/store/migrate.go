@@ -94,7 +94,10 @@ func (database *Database) Migrate(ctx context.Context, options MigrateOptions) e
 	if err != nil {
 		return err
 	}
-	return database.migrate(ctx, steps, options)
+	if err := database.migrate(ctx, steps, options); err != nil {
+		return err
+	}
+	return database.loadStatistics(ctx, persistentStatistics)
 }
 
 func (database *Database) migrate(ctx context.Context, steps []Step, options MigrateOptions) error {

@@ -56,6 +56,10 @@
 //   - Every upsert writes only when it changes something, unless its query opts out and says why
 //     (D303, DL9). Enforced by sqlc vet's upsert-only-if-changed rule and
 //     TestUpserts_EachWritesOnlyWhenItChangesSomething.
+//   - Every Migrate loads the committed planner statistics, which every connection then plans by,
+//     and nothing else runs ANALYZE or PRAGMA optimize (D303 §3, DL15). Enforced by
+//     TestStatistics_NameTheSchemasIndexesAndNoOthers, TestStatistics_AReaderOpenedBeforeThemPlansByThem
+//     and TestStatistics_NothingElseAnalyzes.
 //   - A fresh schema equals testdata/golden/schema-vNNNN.sql for the current version, and the
 //     baseline alone the golden for its version. Enforced by TestMigrate_FreshSchemaEqualsTheGolden.
 //   - Each step commits alone, so an interrupted migration resumes and ends identical; a step
@@ -155,6 +159,8 @@
 //     longer compile); step_record.go: the applied steps' checksums, and the refusal of a file
 //     below the baseline (D228).
 //   - backup.go: VACUUM INTO, and reading a backup without changing it.
+//   - statistics/persistent.tsv and statistics.go: the committed planner statistics and their
+//     loading; TestReferenceScale writes them with -update-statistics.
 //   - invariants.sql and invariants.go: what must never be true of persistent.db, as queries that
 //     return where it is (D303, M7); add one with each rule a row or a set of rows must keep.
 //   - migrate.go's requireSpaceToMigrate: the pre-migration free-space preflight, which measures

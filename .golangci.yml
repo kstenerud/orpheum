@@ -192,6 +192,8 @@ linters:
     misspell:
       locale: UK
       mode: restricted # comments and strings only; identifiers from the standard library stay as they are
+      # SQLite's own keywords, which a statement and its comment must spell as SQLite does (D303 §3).
+      ignore-rules: [analyze, optimize]
     predeclared:
       qualified-name: true
     inamedparam:

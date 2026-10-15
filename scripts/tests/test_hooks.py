@@ -57,7 +57,10 @@ class PreEdit(unittest.TestCase):
         # committed, and a step not yet committed may still be written.
         tracked = subprocess.run(["git", "ls-tree", "--name-only", "HEAD", "internal/store/migrations/"],
                                  cwd=ROOT, capture_output=True, text=True, check=True).stdout.split()
-        step = next(ROOT / path for path in sorted(tracked) if path.endswith(".sql") and "baseline" not in path)
+        # The baseline alone when no step follows it (D303's fold): with a CHECKPOINT, production has
+        # run it, so it is as committed as any step (D272 section 5).
+        steps = [path for path in sorted(tracked) if path.endswith(".sql")]
+        step = ROOT / next((path for path in steps if "baseline" not in path), steps[0])
         result = run_hook("pre_edit.py", {"tool_name": "Edit", "tool_input": {"file_path": str(step)}})
         self.assertEqual(decision(result), "deny")
         reason = result["hookSpecificOutput"]["permissionDecisionReason"]

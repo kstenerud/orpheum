@@ -216,6 +216,18 @@ func wholeReadsAllowed() map[string]string {
 		"cache.ListNodeAttempts":       few + "nodes' attempts",
 		"cache.ListFinishedRenditions": "read once at start, to adopt what the node kept",
 		"cache.ListScans":              few + "scans at a time, one per root",
+		// Small tables the planner reads whole by the committed statistics (D303, DL15).
+		"ListSeriesByName": "by the statistics the planner reads the series, which are few (200 at the " +
+			"reference scale), and sorts a page of them",
+		"ListLibrarySeries":       "a library's series, which are few, read whole by the statistics",
+		"ListSeriesAwaitingMatch": "the first-match sweep reads the series, which are few",
+		"ListTitlesAwaitingMatch": sweep + "the first-match sweep reads the titles never answered",
+		"ListUnreadablePaths":     few + "nodes, which the errored files are joined to",
+		"ListLibraryRoots":        few + "roots",
+		"ListLibraryRootStates":   few + "roots and nodes",
+		"RetireRootsOfLibrary":    few + "roots; a library's removal retires them",
+		"ListLiveRealmKeys":       few + "people, whose realm keys a discovery lists",
+		"ListLibraryIDsOfRole":    few + "libraries",
 		// Defects the redesign removes (the access audit and the independent audit).
 		"ListTitlesByIdentification": redesign + "counted by fetching every row (access audit A7)",
 		"ListRefreshRequests":        "the refresh sweep reads every request a person made, a handful",

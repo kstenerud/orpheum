@@ -58,7 +58,7 @@ func TestBackup_ARestoredCopyReproducesEveryTable(t *testing.T) {
 	loadEveryTable(t, source)
 	want := tableContents(t, source)
 	for table, rows := range want {
-		if rows == "" && !strings.HasPrefix(table, "item_fts") {
+		if rows == "" && !strings.HasPrefix(table, "item_fts") && !strings.HasPrefix(table, "sqlite_") {
 			t.Errorf("the fixture leaves %s empty, so the test cannot see it copied", table)
 		}
 	}
