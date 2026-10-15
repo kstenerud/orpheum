@@ -16,10 +16,12 @@ import {
   mount,
   refusal,
   servedBy,
+  settleUntil,
   unreachable,
   type Answers,
   type Heard,
 } from "./test-dom.tsx";
+import { createPathMoves } from "./services.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 import { forgetMembership, keepMembership } from "./together-storage.ts";
 
@@ -78,6 +80,38 @@ describe("App", () => {
     const system = renderToStaticMarkup(withServices(<App />, testServices("token", "/system")));
     expect(system).toContain("Loading…");
     expect(system).not.toContain("There is nothing at this address.");
+  });
+
+  it("asks again what this session may do each time the page's requests move path (D297 §6)", async () => {
+    const heard: Heard[] = [];
+    const answers: Answers = {
+      // On the core's public name it administers nothing; on its LAN name, once moved there, it does.
+      "GET /me": [
+        [200, { id: 1, name: "owner", role: "admin", isAdmin: false }],
+        [200, { id: 1, name: "owner", role: "admin", isAdmin: true }],
+      ],
+      "GET /home": [200, { continueWatching: [] }],
+      "GET /titles": [200, { titles: [], nextCursor: "" }],
+      "GET /needs-attention": [
+        200,
+        { rootCount: 1, diskCount: 0, waitingRootCount: 0, unreadCount: 0, matchCount: 0 },
+      ],
+    };
+    const moves = createPathMoves();
+    const services = { ...servedBy(answers, heard, "token"), pathMoves: moves };
+    const mounted = await mount(withServices(<App />, services));
+    const page = mounted.container;
+    const hasSign = (): boolean => page.querySelector(".status-tray__button--warning") !== null;
+    const askedMe = (): number =>
+      heard.filter((request) => request.methodAndPath === "GET /me").length;
+    expect(hasSign()).toBe(false);
+    const askedBefore = askedMe();
+    act(() => {
+      moves.moved();
+    });
+    await settleUntil(hasSign);
+    expect(askedMe()).toBeGreaterThan(askedBefore);
+    mounted.unmount();
   });
 
   it("shows an admin a warning sign in the tray, not a reminder under the bar, and asks nothing of it for anyone else", async () => {

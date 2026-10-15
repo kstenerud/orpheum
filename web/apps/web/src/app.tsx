@@ -33,7 +33,7 @@ import { Search } from "./search.tsx";
 import { Series } from "./series.tsx";
 import type { Session } from "./session.ts";
 import { Settings } from "./settings.tsx";
-import { useRoute, useServices, useToken } from "./services.tsx";
+import { usePathMoveCount, useRoute, useServices, useToken } from "./services.tsx";
 import { SignIn } from "./sign-in.tsx";
 import { System } from "./system.tsx";
 import { ThisDevice } from "./this-device.tsx";
@@ -79,7 +79,12 @@ function RoutedApp(props: { readonly route: ReturnType<typeof useRoute> }): JSX.
 function SignedIn(): JSX.Element {
   const { api, session, realm } = useServices();
   const route = useRoute();
-  const [me] = useResource("me", async () => dataOrThrow(await api.GET("/me")));
+  // Read again on each path the page moves to: an admin administers only from home (D297 §6), and a
+  // page that started on the core's public name and moved to its LAN name showed no admin until
+  // reloaded (the owner's Chrome, 2026-10-15).
+  const [me] = useResource(`me:${String(usePathMoveCount())}`, async () =>
+    dataOrThrow(await api.GET("/me")),
+  );
   const signOut = (): void => {
     signOutHere(api, session);
   };

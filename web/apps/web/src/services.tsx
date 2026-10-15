@@ -31,6 +31,52 @@ export interface Services {
    * banner so they know which server they are on (D297 §5); undefined anywhere else.
    */
   readonly realm?: string | undefined;
+  /**
+   * The moves of the page's requests from one path to another, at a discovery's page: what the core
+   * says this session may do depends on the path (an admin administers only from home, D297 §6), so
+   * what was read on one path is read again on the next. Undefined where the page never moves.
+   */
+  readonly pathMoves?: PathMoves | undefined;
+}
+
+/** How many times the page's requests moved path, and who is told of each move. */
+export interface PathMoves {
+  readonly count: () => number;
+  readonly subscribe: (listener: () => void) => () => void;
+}
+
+/** A count of path moves, and the move to tell of: what main.tsx keeps, and tests move by hand. */
+export function createPathMoves(): PathMoves & { readonly moved: () => void } {
+  let count = 0;
+  const listeners = new Set<() => void>();
+  return {
+    count: () => count,
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    moved: () => {
+      count += 1;
+      for (const listener of listeners) {
+        listener();
+      }
+    },
+  };
+}
+
+const neverMoves = (): number => 0;
+const noMoves = (): (() => void) => () => undefined;
+
+/** How many times the page's requests moved path, re-rendering at each move. */
+export function usePathMoveCount(): number {
+  const { pathMoves } = useServices();
+  return useSyncExternalStore(
+    pathMoves?.subscribe ?? noMoves,
+    pathMoves?.count ?? neverMoves,
+    pathMoves?.count ?? neverMoves,
+  );
 }
 
 /** Holds the services for the tree below it; main.tsx provides the real ones, tests their own. */
