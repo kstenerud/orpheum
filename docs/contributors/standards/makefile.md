@@ -125,6 +125,10 @@ then the medium ones in parallel (the integration tier, the full web lint), the 
 `home` alone, the browser tier, and revert-red last. A failure a quick check finds is never waited
 for behind the browser tier, and the slow tiers never share the machine. A passing run is no shorter
 for it; the tiers' order is in the Makefile's `PR_FAST_STEPS`, `PR_MEDIUM_STEPS` and `PR_SLOW_STEPS`.
+The acceptance under `home` runs only in a batch that changed what it crosses: Watch Together, voice,
+the WebRTC transport and the path to the core, the player, playback's chunks and decisions
+(`scripts/browser_tier_needed.py --acceptance`). The owner's standing rule (2026-10-15): a batch that
+changes those areas is tested so, and one that does not is spared its minutes.
 
 `make check-pr` has a budget of **five minutes** (`CHECK_PR_BUDGET_S`, the owner's): its one line
 on a pass says how long it took, and says so when it took longer. A step or test added to it

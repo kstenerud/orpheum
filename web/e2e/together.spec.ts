@@ -25,8 +25,14 @@ import {
   talkBothWays,
 } from "./together-pages.ts";
 
-/** How long two people talk before their voice is measured. */
+/** How long two people talk before their voice is measured against D243 §9's bounds. */
 const talkForMs = 15_000;
+
+/**
+ * How long one person talks before the other is asked whether they heard anything at all: a few
+ * seconds hear it, where the bounds need talkForMs (the owner, 2026-10-15, of check-pr's time).
+ */
+const talkUntilHeardMs = 3000;
 
 /** Every value a context holds that lets it act: its cookies and its stored tokens. */
 async function credentialsOf(context: BrowserContext, page: Page): Promise<string[]> {
@@ -152,7 +158,7 @@ for (const talker of ["the guest, offering", "the host, answering"] as const) {
     const [speaker, listener] = talker === "the host, answering" ? [host, guest] : [guest, host];
     await talkAlone(speaker);
     await expectTalkRingMoves(speaker);
-    await speaker.waitForTimeout(talkForMs);
+    await speaker.waitForTimeout(talkUntilHeardMs);
 
     await expectVoiceWithinBounds([["the listener", listener]], true);
     await endSession(host);
