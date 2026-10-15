@@ -178,7 +178,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | file_nfo | persistent.db | TO | yes | an NFO's bytes, beside its file (D303, M8) |
 | root_state | persistent.db | TO + one T1 column (`are_removals_approved`) | yes | ⚑ mixed |
 | root_scan, root_mount, stream | persistent.db | TO | yes | — |
-| node | persistent.db | T1 (enrolment) + TO (`last_status_json`, `last_status_at`) | yes | ⚑ status is transient, and backed up |
+| node | persistent.db | T1 (enrolment) | yes | — (its status is kept in memory alone since D303's step 0049) |
 | device_reader_limit | persistent.db | T1 (the admin's, D240 §5) | yes | — |
 | refresh_request, fetch_failure | persistent.db | T1 (a person's ask) / TO (a fetch's own failure, D231 §4) | yes | facts that were job rows (F1, step 0029) |
 | guessed_match | persistent.db | TO (the matcher's guess, cleared by a person's choice, D301) | yes | — |
@@ -373,7 +373,8 @@ in SQL should be named in library's and artwork's doc.go. library/art.go:21's co
 corrected on 2026-09-30.
 
 **F12. Cheap derived data in the backup.** *Accepted.*
-sort_key, both FTS tables, search_alternates and `node.last_status_json` are in persistent.db. The
+sort_key, both FTS tables and search_alternates are in persistent.db (a node's status was too, until
+D303's step 0049 kept it in memory alone). The
 bloat is small at Cut A's scale, and startup re-derives the sort and search keys anyway.
 schema.md's conventions already accept backing persistent.db up whole: at the reference scale it is
 46 MB and 177 ms, so splitting it by table bought nothing. Leaving the derived tables out needs

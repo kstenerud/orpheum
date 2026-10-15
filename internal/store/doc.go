@@ -101,8 +101,8 @@
 //     TestJobStorage_ShowsThePlanTheOpenJobsAndMergesOnlyIntoAQueuedOne,
 //     TestJobStorage_RecordsAWaitWithItsFlagsAndNeverUndoesACancel,
 //     TestJobStorage_RequeuesWithTheAttemptCountedAndKnowsATargetByItsColumn.
-//   - Every step has a test on its rows, until a fold takes it into the baseline (D228); the
-//     baseline at 0048 has none after it.
+//   - Every step has a test on its rows, until a fold takes it into the baseline (D228): step 0049
+//     in TestMigrate_Step0049KeepsEachNodeWithoutItsStoredStatus.
 //   - The schema keeps the rules D303 put in the engine: every table, both databases', STRICT; a
 //     title and a collection an item of their kind; an id at a source only with its source; a
 //     library's interval only for checking by interval; one sort key per item in each locale; the

@@ -350,13 +350,6 @@ func TestStatus_TheLastIsKeptAndTheNodeHeard(t *testing.T) {
 	for _, sentAt := range []int64{7, 8} {
 		harness.postStatus(t, reply.NodeID, nodeproto.Status{SentAt: sentAt})
 	}
-	node, err := harness.database.Read().GetNodeStatus(t.Context(), reply.NodeID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if node.LastStatusJSON == nil || !strings.Contains(*node.LastStatusJSON, `"sentAt":8`) {
-		t.Errorf("the node's status is %v, want the last one posted", node.LastStatusJSON)
-	}
 	if facts, _ := harness.service.Facts("local"); facts.Status == nil || facts.Status.SentAt != 8 {
 		t.Errorf("the status kept in memory is %+v, want the last one posted", facts.Status)
 	}

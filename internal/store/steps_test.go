@@ -343,3 +343,40 @@ func TestWindowProblem_HoldsTheBaselineAtTheCheckpointAndOneStepBeforeIt(t *test
 		})
 	}
 }
+
+// stepIndex is the position of the step of version in steps.
+func stepIndex(t *testing.T, steps []Step, version int) int {
+	t.Helper()
+	for index, step := range steps {
+		if step.Version == version {
+			return index
+		}
+	}
+	t.Fatalf("no step %d", version)
+	return 0
+}
+
+// Step 0049 keeps each node, without the status columns nothing read back (D303, M8; the
+// independent audit's S6).
+func TestMigrate_Step0049KeepsEachNodeWithoutItsStoredStatus(t *testing.T) {
+	t.Parallel()
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	step0049 := stepIndex(t, steps, 49)
+	database := openTemporary(t)
+	if err = database.migrate(t.Context(), steps[:step0049], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	execRaw(t, database, `INSERT INTO node (id, name, enrolled_at, last_status_json, last_status_at)
+		VALUES (1, 'nas', 1, '{"sentAt":1}', 1)`)
+	if err = database.migrate(t.Context(), steps[:step0049+1], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	got := fmt.Sprint(queryRows(t, database, "SELECT id, name FROM node", 2), queryRows(t, database,
+		"SELECT count(*) FROM pragma_table_info('node') WHERE name LIKE 'last_status%'", 1))
+	if want := "[[1 nas]] [[0]]"; got != want {
+		t.Errorf("after the step: %s; want %s: the node kept, its stored status gone", got, want)
+	}
+}

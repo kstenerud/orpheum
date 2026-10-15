@@ -104,13 +104,13 @@ CREATE TABLE schema_step (                                 -- plan-deviations P1
 ## Libraries and nodes
 
 ```sql
-CREATE TABLE node (                                        -- class I + O (the last three)
+CREATE TABLE node (                                        -- class I
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   name        TEXT NOT NULL,
   enrolled_at INTEGER NOT NULL,
-  removed_at  INTEGER,
-  last_status_json      TEXT,                        -- the node's last status record, JSON
-  last_status_at   INTEGER                      -- when it arrived; liveness is judged from this
+  removed_at  INTEGER
+  -- Its last status is kept in memory alone (D303, step 0049): a report every few seconds wrote it
+  -- here, and nothing read it back.
 );
 
 -- How many may read one of a node's devices at once, as an admin set it for that device, over the

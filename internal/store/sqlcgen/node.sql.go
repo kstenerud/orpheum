@@ -48,31 +48,6 @@ func (q *Queries) GetLiveNodeByName(ctx context.Context, name string) (GetLiveNo
 	return i, err
 }
 
-const getNodeStatus = `-- name: GetNodeStatus :one
-SELECT id, name, last_status_json, last_status_at
-FROM node
-WHERE id = ?
-`
-
-type GetNodeStatusRow struct {
-	ID             int64
-	Name           string
-	LastStatusJSON *string
-	LastStatusAt   *int64
-}
-
-func (q *Queries) GetNodeStatus(ctx context.Context, id int64) (GetNodeStatusRow, error) {
-	row := q.db.QueryRowContext(ctx, getNodeStatus, id)
-	var i GetNodeStatusRow
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.LastStatusJSON,
-		&i.LastStatusAt,
-	)
-	return i, err
-}
-
 const insertNode = `-- name: InsertNode :one
 INSERT INTO node (name, enrolled_at)
 VALUES (?1, ?2)
@@ -185,20 +160,5 @@ func (q *Queries) SetDeviceReaderLimit(ctx context.Context, arg SetDeviceReaderL
 		arg.ReaderLimit,
 		arg.SetAt,
 	)
-	return err
-}
-
-const updateNodeStatus = `-- name: UpdateNodeStatus :exec
-UPDATE node SET last_status_json = ?1, last_status_at = ?2 WHERE id = ?3
-`
-
-type UpdateNodeStatusParams struct {
-	LastStatusJSON *string
-	LastStatusAt   *int64
-	ID             int64
-}
-
-func (q *Queries) UpdateNodeStatus(ctx context.Context, arg UpdateNodeStatusParams) error {
-	_, err := q.db.ExecContext(ctx, updateNodeStatus, arg.LastStatusJSON, arg.LastStatusAt, arg.ID)
 	return err
 }
