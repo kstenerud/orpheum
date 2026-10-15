@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,6 +23,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/certificate"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/node/agent"
+	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
 	"github.com/kstenerud/orpheum/internal/store"
 )
@@ -43,6 +45,11 @@ type Config struct {
 
 	// Instance is the instance directory's top-level config: its kind and its directories.
 	Instance Instance `toml:"-"`
+	// slowWrites, when set, is told each database write that was slow (store.OpenOptions): the
+	// serving core's log.
+	slowWrites func(store.SlowWrite)
+	// slowWriteClock times the writes slowWrites hears of: the system's unless a test names another.
+	slowWriteClock clock.Clock
 	// path is the file's absolute path.
 	path string
 }
@@ -657,7 +664,24 @@ func atLeastOne(values map[string]int64) error {
 
 // openOptions are the store's choices from the file.
 func (config *Config) openOptions() store.OpenOptions {
-	return store.OpenOptions{MinimumReaders: config.Database.ReadConnectionsMinimum}
+	options := store.OpenOptions{MinimumReaders: config.Database.ReadConnectionsMinimum}
+	if config.slowWrites != nil {
+		options.Clock, options.OnSlowWrite = config.slowWriteClock, config.slowWrites
+		if options.Clock == nil {
+			options.Clock = clock.System{}
+		}
+	}
+	return options
+}
+
+// loggingSlowWrites logs each database write that waited for the writer, or held it, past
+// store.SlowWriteAfter: what a slow request that writes waited behind (the owner's nas.example,
+// 2026-10-15).
+func loggingSlowWrites(ctx context.Context, logger *slog.Logger) func(store.SlowWrite) {
+	return func(write store.SlowWrite) {
+		logger.InfoContext(ctx, "a database write was slow", "file", write.File, "caller", write.Caller,
+			"waitedMs", write.Waited.Milliseconds(), "heldMs", write.Held.Milliseconds())
+	}
 }
 
 // migrateOptions are the runner's choices from the file.

@@ -7,12 +7,15 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	// The pure-Go SQLite driver registers itself as "sqlite" (D31).
 	_ "modernc.org/sqlite"
 
+	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -45,6 +48,9 @@ type Database struct {
 	path    string
 	writer  *sql.DB
 	readers *sql.DB
+	// slowWrites says each write that waited for the writer or held it past SlowWriteAfter; none
+	// when its options named no clock or no listener.
+	slowWrites slowWrites
 }
 
 // OpenOptions are the choices Open needs from the config file: they are known before the
@@ -52,6 +58,46 @@ type Database struct {
 type OpenOptions struct {
 	// MinimumReaders is the smallest reader pool; a machine with more CPUs gets one per CPU.
 	MinimumReaders int
+	// Clock and OnSlowWrite, both set, are told each write that waited for the one writer, or held
+	// it, longer than SlowWriteAfter: a request that writes waits behind it, and the log names it
+	// (the owner's nas.example, 2026-10-15: /me took 12 s and removing a device 27 s). Either nil
+	// times nothing.
+	Clock       clock.Clock
+	OnSlowWrite func(SlowWrite)
+}
+
+// SlowWriteAfter is how long a write may wait for the writer, or hold it, before it is reported.
+const SlowWriteAfter = time.Second
+
+// SlowWrite is a write that waited for the writer, or held it, past SlowWriteAfter: the database
+// file's name, the function outside the store that wrote, and both times.
+type SlowWrite struct {
+	File   string
+	Caller string
+	Waited time.Duration
+	Held   time.Duration
+}
+
+// slowWrites is a database's timing of its writes, from its options.
+type slowWrites struct {
+	file   string
+	clock  clock.Clock
+	report func(SlowWrite)
+}
+
+// isOn is whether writes are timed.
+func (writes slowWrites) isOn() bool { return writes.clock != nil && writes.report != nil }
+
+// callerOutsideTheStore is the first function that called into the store, for a slow write's report.
+func callerOutsideTheStore() string {
+	frames := make([]uintptr, 16)
+	found := runtime.CallersFrames(frames[:runtime.Callers(3, frames)])
+	for {
+		frame, more := found.Next()
+		if !strings.Contains(frame.Function, "/internal/store.") || !more {
+			return frame.Function
+		}
+	}
 }
 
 // open opens a database file that must carry applicationID or be empty.
@@ -75,7 +121,9 @@ func open(ctx context.Context, path string, options OpenOptions, applicationID i
 		return nil, errors.Join(fmt.Errorf("open database %q for reading: %w", path, err), writer.Close())
 	}
 	readers.SetMaxOpenConns(max(options.MinimumReaders, runtime.NumCPU()))
-	database := &Database{path: path, writer: writer, readers: readers}
+	database := &Database{path: path, writer: writer, readers: readers, slowWrites: slowWrites{
+		file: filepath.Base(path), clock: options.Clock, report: options.OnSlowWrite,
+	}}
 	if err := database.verify(ctx, applicationID); err != nil {
 		return nil, errors.Join(err, database.Close())
 	}
@@ -106,10 +154,34 @@ func (database *Database) Write(ctx context.Context, change func(queries *sqlcge
 
 // transact runs change in one IMMEDIATE transaction on the single writer.
 func (database *Database) transact(ctx context.Context, change func(transaction *sql.Tx) error) error {
+	if database.slowWrites.isOn() {
+		writes := database.slowWrites
+		asked := writes.clock.Now()
+		var begun time.Time
+		defer func() {
+			done := writes.clock.Now()
+			if begun.IsZero() {
+				begun = done
+			}
+			waited, held := begun.Sub(asked), done.Sub(begun)
+			if waited > SlowWriteAfter || held > SlowWriteAfter {
+				writes.report(SlowWrite{File: writes.file, Caller: callerOutsideTheStore(), Waited: waited, Held: held})
+			}
+		}()
+		return database.transactTimed(ctx, change, func() { begun = writes.clock.Now() })
+	}
+	return database.transactTimed(ctx, change, func() {})
+}
+
+// transactTimed is transact, calling begun as the write has the writer.
+func (database *Database) transactTimed(
+	ctx context.Context, change func(transaction *sql.Tx) error, begun func(),
+) error {
 	transaction, err := database.writer.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin write transaction: %w", err)
 	}
+	begun()
 	if err := change(transaction); err != nil {
 		return errors.Join(err, transaction.Rollback())
 	}

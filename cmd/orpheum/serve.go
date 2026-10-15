@@ -397,6 +397,7 @@ func openAndMigrateOrStartOver(
 	ctx context.Context, config Config, directories *instancedir.Directories, now clock.Clock,
 	setStatus func(api.Status, string, ...string), logger *slog.Logger,
 ) (*store.Database, error) {
+	config.slowWrites, config.slowWriteClock = loggingSlowWrites(ctx, logger), now
 	var beforeStep func(step, total int)
 	if setStatus != nil {
 		beforeStep = reportMigration(setStatus, logger)
@@ -444,6 +445,7 @@ func openAndMigrate(
 func openCache(
 	ctx context.Context, config Config, directories *instancedir.Directories, logger *slog.Logger,
 ) (*store.Cache, error) {
+	config.slowWrites = loggingSlowWrites(ctx, logger)
 	cache, err := store.OpenCache(ctx, directories.CacheDatabasePath(), config.openOptions())
 	if !errors.Is(err, store.ErrCacheOutdated) {
 		return cache, err
