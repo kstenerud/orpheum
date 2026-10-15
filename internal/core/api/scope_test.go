@@ -83,6 +83,17 @@ func TestAdmin_AdministersOnlyFromTheHousesNetworkNeverOverWebRTC(t *testing.T) 
 		t.Errorf("an admin's GET /users over WebRTC = %d %s; want 403, administering only at home",
 			overWebRTC.Head.Status, overWebRTC.Body)
 	}
+	// Asked over WebRTC, the page is told it does not administer there, so it offers nothing it may not do.
+	asked := link.Do(rtcapi.RequestHead{
+		Method: http.MethodGet, Path: Prefix + "/me",
+		Headers: http.Header{"authorization": {"Bearer " + admin}, "origin": {harness.httpServer.URL}, "host": {host}},
+	}, nil)
+	var away UserBody
+	isRead := asked.Head.Status == http.StatusOK && json.Unmarshal(asked.Body, &away) == nil
+	if !isRead || away.IsAdmin || away.Role != "admin" {
+		t.Errorf("an admin's /me over WebRTC = %d %s; want their role, and isAdmin false",
+			asked.Head.Status, asked.Body)
+	}
 	if isAdmin, _ := harness.mayAdminister(t, admin); !isAdmin {
 		t.Error("the admin may not administer from home, this machine")
 	}
