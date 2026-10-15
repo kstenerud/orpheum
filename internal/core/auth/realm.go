@@ -123,11 +123,3 @@ func (service *Service) TakeRealmSignIn(ctx context.Context, person, ask string)
 	service.limiter.withdraw(attemptedAt, limitKey)
 	return key, nil
 }
-
-// ForgetRealmKeys forgets every person's realm key: the core left its discovery, whose realm sign-in
-// was all they served; the people sign in by their passwords as before (D298 §6).
-func (service *Service) ForgetRealmKeys(ctx context.Context) error {
-	return service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		return queries.DeleteRealmKeysMadeBy(ctx, service.clock.Now().UnixMilli())
-	})
-}

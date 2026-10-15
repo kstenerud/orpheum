@@ -303,7 +303,8 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D295](working-notes.md#d295--the-security-model-what-a-compromise-costs-decides-what-is-hardened-the-paid-service-most-of-all) The security model: what a compromise costs decides what is hardened, the paid service most of all
 - [D296](working-notes.md#d296--stagings-households-move-to-their-own-domain-orpheum-testcom-so-no-sandbox-token-reaches-productions-zone) Staging's households move to their own domain, orpheum-test.com, so no sandbox token reaches production's zone
 - [D297](working-notes.md#d297--a-household-is-found-by-its-realm-realm-name-and-password-together-proven-both-ways-by-a-key-the-password-makes-admin-only-from-the-cores-own-network) A household is found by its realm: realm, name and password together, proven both ways by a key the password makes; admin only from the core's own network — *revisited by D298*
-- [D298](working-notes.md#d298--a-realm-is-the-hosts-accounts-a-master-realm-chosen-once-a-subrealm-per-further-core-none-when-self-hosting) A realm is the host's account's: a master realm chosen once, a subrealm per further core, none when self-hosting
+- [D298](working-notes.md#d298--a-realm-is-the-hosts-accounts-a-master-realm-chosen-once-a-subrealm-per-further-core-none-when-self-hosting) A realm is the host's account's: a master realm chosen once, a subrealm per further core, none when self-hosting — *revisited by D299*
+- [D299](working-notes.md#d299--a-core-that-leaves-its-discovery-keeps-its-peoples-realm-keys) A core that leaves its discovery keeps its people's realm keys
 
 ## Archived
 

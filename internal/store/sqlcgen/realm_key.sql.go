@@ -9,16 +9,6 @@ import (
 	"context"
 )
 
-const deleteRealmKeysMadeBy = `-- name: DeleteRealmKeysMadeBy :exec
-DELETE FROM realm_key WHERE made_at <= ?1
-`
-
-// Every key made by left_at, when the core left its discovery: no realm sign-in reaches it after.
-func (q *Queries) DeleteRealmKeysMadeBy(ctx context.Context, leftAt int64) error {
-	_, err := q.db.ExecContext(ctx, deleteRealmKeysMadeBy, leftAt)
-	return err
-}
-
 const getRealmKeyMasterOfUser = `-- name: GetRealmKeyMasterOfUser :one
 SELECT master_realm FROM realm_key WHERE user_id = ?1
 `

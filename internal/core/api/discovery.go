@@ -152,10 +152,8 @@ func (server *Server) leaveDiscovery(ctx context.Context, input *AuthorizationHe
 	if leaveErr := dependencies.Discovery.Leave(ctx); leaveErr != nil {
 		return nil, fmt.Errorf("leave the discovery: %w", leaveErr)
 	}
-	// Its realm keys served the discovery's realm sign-in alone; passwords stay as they are (D298 §6).
-	if forgetErr := dependencies.Auth.ForgetRealmKeys(ctx); forgetErr != nil {
-		return nil, fmt.Errorf("forget the realm keys: %w", forgetErr)
-	}
+	// Its people's realm keys stay: a key serves only its master realm, and a core that comes back
+	// under it is found by them again with no sign-in at home first (D299).
 	return &struct{}{}, nil
 }
 
