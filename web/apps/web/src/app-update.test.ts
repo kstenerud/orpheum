@@ -34,6 +34,13 @@ describe("a page out of date", () => {
     document.head.innerHTML = '<script type="module" src="/src/main.tsx"></script>';
     expect(ownScriptOf(document)).toBeUndefined();
   });
+
+  it("is never out of date at a discovery's page, whose client the core's answers do not name", () => {
+    document.head.innerHTML =
+      '<meta name="orpheum-discovery-client-api" content="https://api.example/client/v1">' +
+      '<script type="module" crossorigin src="/assets/index-DCLi77_b.js"></script>';
+    expect(ownScriptOf(document)).toBeUndefined();
+  });
 });
 
 describe("a page that reloaded for a client", () => {
