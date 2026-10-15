@@ -533,9 +533,13 @@ test("a person with no link signs in at a paid discovery's page by realm, name a
     await page.getByLabel("Realm", { exact: true }).fill("KarlNAS");
     await page.getByLabel("Name", { exact: true }).fill(owner.name);
     await page.getByLabel("Password", { exact: true }).fill(owner.password);
+    // The box sits in one row beside its words.
+    await expect(page.locator(".credentials-form__check")).toHaveCSS("display", "flex");
     await page.getByLabel("This is my own device: remember my realm").check();
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.locator(".app-shell__realm")).toHaveText("karlnas", { timeout: 60_000 });
+    // Quiet beside the tray, on one line however narrow the banner.
+    await expect(page.locator(".app-shell__realm")).toHaveCSS("white-space", "nowrap");
     await expect(page.getByRole("link", { name: "Films" })).toBeVisible();
   } finally {
     await api.delete(`${serverUrl()}/api/v1/system/discovery`, { headers: signedIn(token) });
