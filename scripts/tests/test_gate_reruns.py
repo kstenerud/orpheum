@@ -3,6 +3,7 @@
 # ABOUTME: --rerun-failed with its record of failures, and check-pr-failed re-running only the steps
 # ABOUTME: that failed; each shown failing on a case built to fail (D190).
 import os
+import re
 import subprocess
 import sys
 import unittest
@@ -208,7 +209,17 @@ class Wiring(unittest.TestCase):
                                    text=True, check=True, cwd=REPO).stdout
         for target in ("check-pr-failed", "check-revert-red-failed", "check-revert-red"):
             self.assertIn(f"  {target} ", help_text)
-        self.assertRegex(self.MAKEFILE, r"(?m)^\t.*\$\(PR_STEPS:%=pr-step-%\)")
+        # The tiers, quickest first, each step recorded; PR_STEPS, which check-pr-failed re-runs, is
+        # every tier's (the owner, 2026-10-15).
+        tiers = ("PR_FAST_STEPS", "PR_MEDIUM_STEPS", "PR_SERIAL_STEP", "PR_SLOW_STEPS", "PR_LAST_STEP")
+        places = []
+        for tier in tiers:
+            found = re.search(rf"(?m)^\t.*\$\({tier}:%=pr-step-%\)", self.MAKEFILE)
+            self.assertIsNotNone(found, tier)
+            places.append(found.start())
+        self.assertEqual(places, sorted(places), "check-pr runs its tiers out of order")
+        self.assertRegex(self.MAKEFILE,
+                         r"(?m)^PR_STEPS := \$\(PR_FAST_STEPS\) \$\(PR_MEDIUM_STEPS\) \$\(PR_SLOW_STEPS\)$")
         self.assertRegex(self.MAKEFILE, r"(?m)^\t.*\$\(PR_LAST_STEP:%=pr-step-%\)")
         self.assertRegex(self.MAKEFILE, r"(?m)^pr-step-%:\n\t.*check_pr_steps\.py record \$\*")
         self.assertRegex(self.MAKEFILE, r"(?m)^\t.*check_pr_steps\.py durations \$\(PR_STEPS\) "

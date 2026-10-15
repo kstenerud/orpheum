@@ -119,6 +119,13 @@ queries that read whole tables reached `main` because only CI ran it.
 
 ### The fix-and-re-run loop
 
+`make check-pr` runs its steps **in tiers, quickest first**, each tier only once the one before
+passed (the owner, 2026-10-15): the second's checks (test weakening, decision status, commit lint),
+then the medium ones in parallel (the integration tier, the full web lint), the acceptance under
+`home` alone, the browser tier, and revert-red last. A failure a quick check finds is never waited
+for behind the browser tier, and the slow tiers never share the machine. A passing run is no shorter
+for it; the tiers' order is in the Makefile's `PR_FAST_STEPS`, `PR_MEDIUM_STEPS` and `PR_SLOW_STEPS`.
+
 `make check-pr` has a budget of **five minutes** (`CHECK_PR_BUDGET_S`, the owner's): its one line
 on a pass says how long it took, and says so when it took longer. A step or test added to it
 states what it adds, and one that would take it past the budget goes to the milestone's runs
