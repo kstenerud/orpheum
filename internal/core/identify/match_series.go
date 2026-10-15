@@ -163,7 +163,7 @@ func recordSeries(
 		}
 	}
 	err = queries.SetSeriesMatch(ctx, sqlcgen.SetSeriesMatchParams{
-		FollowedSourceID: &metadata.ID, IdentificationState: &identification,
+		FollowedSourceID: &metadata.ID, FollowedSource: &provider, IdentificationState: &identification,
 		ID: seriesID,
 	})
 	if err != nil {

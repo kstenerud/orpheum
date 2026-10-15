@@ -105,10 +105,12 @@ func (filler *referenceScaleFiller) insertVideo(titleID, libraryID int64, path s
 		`{"codec_name":"eac3","channels":6},{"codec_name":"subrip"}],"chapters":%q}`,
 		5400+filler.random.IntN(3600), 20_000_000+filler.random.IntN(40_000_000), filler.words(40), filler.words(70))
 	filler.exec(`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, modified_at,
-		payload_hash, payload_bytes, filing, probe_json, version_id, first_seen_at, last_seen_at)
-		VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, 'listed', ?, ?, ?, ?)`,
+		payload_hash, payload_bytes, filing, version_id, first_seen_at, last_seen_at)
+		VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, 'listed', ?, ?, ?)`,
 		filler.fileID, libraryID, path, []byte(path), 20_000_000_000, filler.now, filler.bytes(32), 19_000_000_000,
-		probe, versionID, filler.now, filler.now)
+		versionID, filler.now, filler.now)
+	filler.exec("INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (?, ?, ?)", filler.fileID, probe,
+		5_400_000)
 	for index, stream := range []struct{ kind, codec, language string }{
 		{"video", "hevc", ""}, {"audio", "truehd", "en"}, {"audio", "eac3", "de"}, {"subtitle", "subrip", "en"},
 	} {
@@ -350,6 +352,8 @@ func fullScansAllowed() map[string]string {
 			"scans wait for the admin",
 		"ListOfflineDisks": "a household's libraries have a handful of roots, whose missing disks " +
 			"this lists",
+		"ListRefreshRequests": "the refresh sweep reads every request a person made, a handful; it is driven " +
+			"from them, never from every item (D303)",
 		"ListCheckedRoots": "a household's libraries have a handful of roots; the scan schedule reads " +
 			"each one's last scan every 15 minutes (D272 section 1)",
 	}

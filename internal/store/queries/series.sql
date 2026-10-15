@@ -15,8 +15,11 @@ LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_origin
 WHERE collection.id = sqlc.arg(id) AND collection.kind = 'series' AND item.removed_at IS NULL;
 
 -- name: SetSeriesMatch :exec
--- The outcome of a series' match. A confirmed match is a person's and stays (D172).
+-- The outcome of a series' match: the source with its id, together, as a title's match writes them
+-- (an id is an id at a source, D303 M5), or no id, the source left as it is. A confirmed match is a
+-- person's and stays (D172).
 UPDATE collection SET followed_source_id = sqlc.arg(followed_source_id),
+  followed_source = coalesce(sqlc.narg(followed_source), followed_source),
   identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE sqlc.arg(identification_state) END
 WHERE id = sqlc.arg(id) AND kind = 'series';
 

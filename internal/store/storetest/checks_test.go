@@ -64,12 +64,19 @@ func TestOpenMigrated_FailsATestThatBreaksAnInvariant(t *testing.T) {
 	recording := &recordingTB{TB: t}
 	database := storetest.OpenMigrated(recording)
 	storetest.ExecRaw(t, database.Path(),
-		"INSERT INTO item (id, kind, added_at) VALUES (7, 'collection', 1)",
-		"INSERT INTO title (id, kind, identification_state) VALUES (7, 'movie', 'unidentified')")
+		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'nas', 1)",
+		"INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at) "+
+			"VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)",
+		"INSERT INTO item (id, kind, added_at, removed_at) VALUES (7, 'title', 1, 2)",
+		"INSERT INTO title (id, kind, identification_state) VALUES (7, 'movie', 'unidentified')",
+		"INSERT INTO version (id, title_id, created_at) VALUES (5, 7, 1)",
+		"INSERT INTO file (library_id, node_id, path, filing, version_id, first_seen_at, last_seen_at) "+
+			"VALUES (1, 1, '/m/f.mkv', 'listed', 5, 1, 1)")
 	for _, cleanup := range slices.Backward(recording.cleanups) {
 		cleanup()
 	}
-	if len(recording.errors) != 1 || !strings.Contains(recording.errors[0], "a title's subtype row is a title item") {
+	broken := "no live version belongs to a removed title"
+	if len(recording.errors) != 1 || !strings.Contains(recording.errors[0], broken) {
 		t.Errorf("the test was failed with %q; want one error, naming the broken invariant", recording.errors)
 	}
 }

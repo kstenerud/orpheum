@@ -219,7 +219,6 @@ func wholeReadsAllowed() map[string]string {
 		// Defects the redesign removes (the access audit and the independent audit).
 		"ListTitlesByIdentification": redesign + "counted by fetching every row (access audit A7)",
 		"ListRefreshRequests":        "the refresh sweep reads every request a person made, a handful",
-		"ListUnreadablePaths":        "it reads file_errored, an index of the files scans could not read alone",
 		"ListLiveLocators":           few + "signed-in devices, one locator each; a discovery lists them",
 		"cache.CountJobsByKind":      "the System page counts the queue, which pruning holds to what ended lately",
 		"cache.ListJobs":             "the job view walks the newest jobs by id and stops at its LIMIT",

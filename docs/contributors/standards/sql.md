@@ -285,8 +285,8 @@ then; [audit-checklist](../audit-checklist.md) item 23 asks the questions at eve
   budget on the pass and a kill-and-resume test *(D303 C)*; the slow-write log in production.
 - **Integrity is the engine's** (M5): every table is `STRICT`; a rule a row obeys alone is a
   `CHECK`; a subtype row (`title`, `collection`) is tied to its supertype's kind by a composite
-  foreign key; `NOT NULL` wherever absence is not a state. **Enforced by:** a schema test that
-  every table is `STRICT` *(D303 B)*.
+  foreign key; `NOT NULL` wherever absence is not a state. **Enforced by:**
+  `TestSchema_EveryTableIsStrict` (both databases) and `TestSchema_RefusesRowsThatBreakTheirRules`.
 - **Invariants are executable** (M7): data invariants are SQL queries that must return no rows,
   in `internal/store/invariants.sql`, run after store and identify tests, after migrations, and
   nightly in production, with `foreign_key_check` and FTS5's `integrity-check`. **Enforced by:**

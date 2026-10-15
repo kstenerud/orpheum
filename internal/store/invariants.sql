@@ -9,8 +9,3 @@ SELECT version.id FROM version
 JOIN item ON item.id = version.title_id
 WHERE version.removed_at IS NULL AND item.removed_at IS NOT NULL AND EXISTS (
   SELECT 1 FROM file WHERE file.version_id = version.id AND file.removed_at IS NULL);
-
--- invariant: a title's subtype row is a title item, and a collection's a collection item
-SELECT title.id FROM title JOIN item ON item.id = title.id WHERE item.kind != 'title'
-UNION ALL
-SELECT collection.id FROM collection JOIN item ON item.id = collection.id WHERE item.kind != 'collection';
