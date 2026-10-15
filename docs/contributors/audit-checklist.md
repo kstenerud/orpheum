@@ -24,7 +24,8 @@ rule in place that said not to. The owner then made these checks policy at every
 as at every milestone (AGENTS.md rule 17), so that a lapse is caught in the commit that makes it,
 not after it has spread: *"Since you're non-deterministic with prose rules, we need mechanical
 checks to catch things you miss."* Before committing, check the diff against items 7, 8, 10 and
-11 below, and against item 19 when the commit claims to finish a decision. A finding is fixed in the same commit; one that reaches a migration, the API or a
+11 below, against item 19 when the commit claims to finish a decision, and against item 23 when it
+touches a query, a write, a table or an index (D303). A finding is fixed in the same commit; one that reaches a migration, the API or a
 setting key goes to the owner first.
 
 ## The milestone
@@ -136,3 +137,15 @@ setting key goes to the owner first.
     we discover things"). Read the settings the owner changed on their server (`GET /settings`
     with only the modified ones); for each, promote the owner's value to the starting value with
     its source updated, or record why it is particular to that server.
+23. **Data access** (D303; [sql.md](standards/sql.md) §13). For a diff that adds or changes a
+    query, a `Write`, a table or an index:
+    1. Which access path serves each new query, and does `EXPLAIN QUERY PLAN` at reference scale
+       narrow by a column with many values, not only by a locale, kind or state?
+    2. Does a write that depends on something read outside its transaction re-check it inside
+       (compare-and-set), and does a zero-row result count as a conflict, not success?
+    3. Does every upsert and derivation update skip a row that has not changed, leaving the
+       writer's own stamps out of the comparison?
+    4. Does the transaction cover one consistency unit and nothing a person waits on, and does
+       anything on a read request's path write?
+    5. Does a derived value name its inputs, and does each input's change re-derive only what it
+       touched?
