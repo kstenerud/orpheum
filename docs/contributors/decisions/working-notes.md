@@ -20247,3 +20247,40 @@ a device at home could reach over WebRTC, so a page at home went out through the
    and away from admin.
 
 **Status:** Decided 2026-10-15.
+
+## D301 — An unsettled match takes the oldest candidate, the most voted within a year, and an admin corrects it from the title's page
+
+**Decided** (2026-10-15), by the project owner, revising D172 §3's "anything else is not guessed".
+nas.example's "Needs a match" held about 85 titles, many the owner saw as obvious (*"Some are indeed
+ambiguous, but others (like The Thief of Bagdad with an identified year of 1992) should be pretty obvious. I
+think that when something has no date and there are multiple versions available, we should choose
+the oldest one by default, and then offer a 'this is identified incorrectly' button on the details
+page so that the admin can correct it"*), and for two works of one name in one year (Disney's
+*The Thief of Bagdad* and a lesser one, both 1992) the agent's proposal of the vote count (*"Yes that sounds
+good"*).
+
+1. **Among the candidates whose names match**, as D172's tiers find them, where more than one
+   remains: with no year in the name, the **oldest** is taken (a series by its first air date);
+   with a year, the one with the **most votes** at the source among those of that year. A
+   provider ID in hand, and a single clear winner, are taken as before.
+2. **A taken guess is corrected from the title's page**: an admin's "Identified incorrectly" opens
+   the chooser over the candidates kept for it (D172 §3 item 3), and their choice is final as any
+   person's choice is (D170).
+3. **Nothing whose name matches no candidate is guessed**: "No match" stays as it is.
+
+**Status:** Decided 2026-10-15.
+
+## D302 — An admin may administer from away from home, by their own setting, off by default
+
+**Decided** (2026-10-15), by the project owner, beside D297 §6 and D300 §3: *"an admin user should
+have a field they can set for their user to give them admin from outside anyway, default disabled.
+Later we can add another enum to it: only with passkey."*
+
+1. **Each admin has a setting, "Administer from away from home"**, one of `never` (the default)
+   and `always`; `with_passkey` comes with passkeys (D294 §3). It is set by the admin for
+   themselves, from home.
+2. **The server decides it**, at every request, as it decides home (D297 §6): an admin whose
+   setting is `always` administers from any network; one whose setting is `never`, only from home.
+   Nothing a page sends changes it.
+
+**Status:** Decided 2026-10-15; scheduled after D301 and the tiered gate.
