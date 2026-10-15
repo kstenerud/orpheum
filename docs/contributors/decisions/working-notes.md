@@ -16400,6 +16400,8 @@ that is down parks its destination), and §1's recheck is derived from the refus
 
 ## D214 — A later commercial service connects clients to a core without carrying content; the hosted relay stays deferred
 
+> **§3 revised by [D297](#d297--a-household-is-found-by-its-realm-realm-name-and-password-together-proven-both-ways-by-a-key-the-password-makes-admin-only-from-the-cores-own-network) §2:** a core is also found by its realm, but only with a name and password that sign in.
+
 > **Refined by [D273](#d273--clients-reach-a-core-through-apporpheum-appcom-or-the-owners-own-discovery-by-whatever-methods-work-with-no-traffic-relayed-by-us-a-node-without-landlock-runs-and-warns)** (2026-10-09): the service is discovery at app.orpheum-app.com, where a web client talks to its core with as much traffic as possible direct; a separate closed-source project.
 
 **Recorded, not scheduled** (2026-09-25), by the project owner, after the study
@@ -20026,6 +20028,8 @@ the self-hosted discovery's questions (`discovery-mode.md`).
 
 ## D294 — Admin from anywhere in the beta, and an operator's reset of who administers from the server's machine
 
+> **Revised by [D297](#d297--a-household-is-found-by-its-realm-realm-name-and-password-together-proven-both-ways-by-a-key-the-password-makes-admin-only-from-the-cores-own-network) §6:** admin only from the core's own network, until passkeys.
+
 **Decided** (2026-10-13), by the project owner, answering whether admin should come only from the
 core's own network (D292 §4's second point; the security audit's A1), which in a container would
 have ended admin on nas.example: *"Compromising a home server isn't the end of the world during beta.
@@ -20103,3 +20107,55 @@ video library."*
    provider would have kept two domains, at the cost of a second DNS client in the service.
 
 **Status:** Decided 2026-10-14. Revises D293 §3.
+
+---
+
+## D297 — A household is found by its realm: realm, name and password together, proven both ways by a key the password makes; admin only from the core's own network
+
+**Decided** (2026-10-15), by the project owner, after the first production test, where a guest's
+page lost its way and the owner could not tell staging from production: *"What if we did some kind
+of realm system, where the admin chooses a realm name, and then his own users have realm, username,
+pw?"*; then *"they must get all 3 correct or else the entire login fails"*. Revises D214 §3 and
+D294 §1 and §4.
+
+1. **A realm names a household at a discovery.** The admin chooses it on the System page; the
+   discovery keeps it unique. Lowercase letters, digits and hyphens, 3 to 32 characters. A person
+   with no link signs in at the discovery's page by realm, name and password together.
+2. **All three, or nothing.** The sign-in answers only that it worked or that it did not, never
+   which part was wrong, so no one learns which realms exist: there is no directory to harvest, and
+   D214 §3's "never *what cores exist*" holds. The owner: *"It's actually more secure than
+   username/pw because there's a third piece of information you have to get correct."* A guessed
+   person's sign-in costs viewing, history and that person's account (D295); admin is what is
+   dangerous, and §6 keeps it at home.
+3. **The page proves its offer by a key the password makes, and the core proves its answer by the
+   same key.** The page derives the key from realm, name and password with PBKDF2-SHA256 at 600,000
+   rounds (OWASP's figure; built into browsers and Go, so no dependency); the offer goes to the
+   discovery under the realm and a hash of realm and name, which tells the core whose key to use and
+   tells the discovery no name. The core keeps each person's key, derived whenever it sees their
+   password (sign-in, registration, a password set); an offer whose proof does not hold is refused
+   before ICE, as every offer through a discovery is (A2). The core's answer carries, beside its
+   identity signature, a tag under the person's key, which only the core can make: a discovery
+   cannot answer in the core's place to harvest the password that the sign-in then sends, so the
+   identity needs no trust on first use, and the page pins it for later visits. The discovery sees
+   proofs, never passwords; turning a proof back into a password costs it 600,000 rounds a guess.
+4. **Links stay** for what has no password: a Watch Together guest, a first invitation.
+5. **The page shows the realm a person is signed in to**, beside their name. It stands in for a
+   banner telling staging from production (the owner: *"show the realm a user is logged into (which
+   will effectively serve the same purpose)"*). **"This is my own device: remember my realm"**, a
+   box on the sign-in form, keeps the realm in the browser for next time; unticked, nothing is kept.
+6. **Admin only from the core's own network**, until passkeys: the admin role takes effect only on
+   a request that reached the core directly from an address on its own network, so `app.` at home,
+   which reaches the core at its LAN name, administers, and the same page away from home, or any
+   request over WebRTC, whose source the core cannot know, does not. Revises D294 §1 and §4 (*"keep
+   it restricted to LAN-only for now"*); passkeys for admin away from home come later, as D294 §3
+   has them.
+7. **Staging and nas.example are two households of production's discovery**, the realms `staging` and
+   `nas`, so one site reaches either and the realm says which (the owner: *"can't we just set up two
+   realms now: staging and nas? Basically treat them as two hosts"*). The staging core enrols as any
+   household does: its credential reaches only its own records, so D296's rule holds. `app-staging.`
+   and its discovery stay for testing the discovery itself.
+8. **Not decided here:** a realm's renaming re-keys every person (the key's salt names the realm),
+   so each signs in once more by another way after one; whether to keep the old keys meanwhile is
+   left until renaming is built.
+
+**Status:** Decided 2026-10-15.
