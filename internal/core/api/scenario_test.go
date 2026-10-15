@@ -130,9 +130,11 @@ func TestScenario_S76_ADownNodeBlocksNoOtherNodesWork(t *testing.T) {
 		`INSERT INTO node (id, name, enrolled_at) VALUES (2, 'attic', 1)`,
 		`INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 2, '/attic')`,
 		`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, payload_hash, filing,
-		   probe_json, first_seen_at, last_seen_at)
-		 SELECT 10, 1, 2, '/attic/Film (2003).mp4', CAST('/attic/Film (2003).mp4' AS BLOB), 10, X'1a1b', 'listed',
-		   probe_json, 1, 1 FROM file WHERE id = 1`,
+		   first_seen_at, last_seen_at)
+		 VALUES (10, 1, 2, '/attic/Film (2003).mp4', CAST('/attic/Film (2003).mp4' AS BLOB), 10, X'1a1b', 'listed',
+		   1, 1)`,
+		`INSERT INTO file_probe (file_id, probe_json, duration_ms)
+		 SELECT 10, probe_json, duration_ms FROM file_probe WHERE file_id = 1`,
 		`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, channel_count)
 		 VALUES (10, 10, 0, 'audio', 'aac', 2)`)
 	harness.nodes.awayNodeID = 2

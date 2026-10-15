@@ -97,7 +97,8 @@
 //     TestMigrate_Step0043KeepsEachSortKeyFoundByItsItem, step 0044 in
 //     TestMigrate_Step0044KeepsTheTextAndRewritesAnIndexOnlyOnChange, step 0045 in
 //     TestMigrate_Step0045IndexesServeTheirPaths, step 0046 in
-//     TestMigrate_Step0046CountsWhatWaitsByItsIndex.
+//     TestMigrate_Step0046CountsWhatWaitsByItsIndex, step 0047 in
+//     TestMigrate_Step0047KeepsEachProbeAndNFOBesideItsFile.
 //     The runner's handling of such a step, and of a rebuild, is tested on synthetic steps in
 //     TestMigrate_ADataTransformingStepKeepsTheRowsAndRaisesTheCompatibleVersion and
 //     TestMigrate_ARebuildKeepsTheIDsAndTheIDSequence.

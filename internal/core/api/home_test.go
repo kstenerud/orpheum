@@ -51,7 +51,9 @@ func TestContinueWatching_EachWorkOnceAtItsLatestPositionPartwayThrough(t *testi
 	harness.shelve(t)
 	// Metropolis has a second copy, and an extra; Metropolis's first copy is 1000 s long.
 	storetest.ExecRaw(t, harness.databasePath,
-		`UPDATE file SET probe_json = '{"format":{"durationMs":1000000}}' WHERE id = 1`,
+		`INSERT INTO file_probe (file_id, probe_json, duration_ms) `+
+			`VALUES (1, '{"format":{"durationMs":1000000}}', 1000000) `+
+			`ON CONFLICT (file_id) DO UPDATE SET probe_json = excluded.probe_json, duration_ms = excluded.duration_ms`,
 		"INSERT INTO version (id, title_id, created_at) VALUES (3, 10, 3)",
 		`INSERT INTO file (id, library_id, node_id, path, size_bytes, filing, version_id, first_seen_at, last_seen_at)
 		 VALUES (3, 1, 1, '/m/Metropolis (1995) - 720p.mkv', 500, 'listed', 3, 1, 1),

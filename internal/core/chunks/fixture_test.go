@@ -244,9 +244,11 @@ func chunksFixture(t *testing.T, queue Queue, node fakeNode) (*Service, *fakeRea
 		`{"streamIndex":2,"kind":"audio","codec":"aac","audio":{"channelCount":2}}]}`, durationMs)
 	for fileID := range 2 {
 		storetest.ExecRaw(t, database.Path(), fmt.Sprintf("INSERT INTO file (id, library_id, node_id, path, "+
-			"reported_path_raw, payload_hash, probe_json, filing, first_seen_at, last_seen_at) "+
-			"VALUES (%d, %d, %d, '/m/f%d.mkv', CAST('/m/f%d.mkv' AS BLOB), X'0%d', '%s', 'unidentified', 1, 1)",
-			fileID+1, libraryID, nodeID, fileID+1, fileID+1, fileID+1, probe))
+			"reported_path_raw, payload_hash, filing, first_seen_at, last_seen_at) "+
+			"VALUES (%d, %d, %d, '/m/f%d.mkv', CAST('/m/f%d.mkv' AS BLOB), X'0%d', 'unidentified', 1, 1)",
+			fileID+1, libraryID, nodeID, fileID+1, fileID+1, fileID+1),
+			fmt.Sprintf("INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (%d, '%s', %d)",
+				fileID+1, probe, durationMs))
 	}
 	keyframes, seconds := []int64{}, []int64{}
 	for at := int64(0); at < durationMs; at += 10_000 {

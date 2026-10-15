@@ -74,14 +74,12 @@ func (harness testHarness) shelveFilms(t *testing.T) {
 		librarytest.Library{Name: "Films", Kind: "mixed", MetadataSource: "nfo", Root: "/media"})
 	storetest.ExecRaw(t, harness.databasePath,
 		`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, payload_hash, filing,
-		 probe_json,
 		 first_seen_at,
 		 last_seen_at) VALUES
-		 (1, 1, 1, '/media/Film (2001).mp4', CAST('/media/Film (2001).mp4' AS BLOB), 10, X'0a0b', 'listed', '`+
-			mp4+`', 1, 1),
-		 (2, 1, 1, '/media/Film (2002).mkv', CAST('/media/Film (2002).mkv' AS BLOB), 10, X'0c0d', 'listed', '`+
-			mkv+`', 1, 1),
-		 (3, 1, 1, '/media/notes.txt', CAST('/media/notes.txt' AS BLOB), 5, X'0e0f', 'skipped', NULL, 1, 1)`)
+		 (1, 1, 1, '/media/Film (2001).mp4', CAST('/media/Film (2001).mp4' AS BLOB), 10, X'0a0b', 'listed', 1, 1),
+		 (2, 1, 1, '/media/Film (2002).mkv', CAST('/media/Film (2002).mkv' AS BLOB), 10, X'0c0d', 'listed', 1, 1),
+		 (3, 1, 1, '/media/notes.txt', CAST('/media/notes.txt' AS BLOB), 5, X'0e0f', 'skipped', 1, 1)`,
+		`INSERT INTO file_probe (file_id, probe_json) VALUES (1, '`+mp4+`'), (2, '`+mkv+`')`)
 	harness.nodeBytes.mutex.Lock()
 	defer harness.nodeBytes.mutex.Unlock()
 	film := nodeproto.BytesFile{RootPath: "/media", Path: []byte("Film (2001).mp4"), PayloadHash: "0a0b"}

@@ -143,12 +143,15 @@ func (batch *ingestBatch) insertFile(ctx context.Context, scan *scanState, seenF
 		LibraryID: scan.libraryID, NodeID: batch.nodeID, Path: seenFile.path, ReportedPathRaw: seenFile.reportedBytes,
 		SizeBytes: &observed.SizeBytes, ModifiedAt: &observed.ModifiedAt, PayloadHash: seenFile.hash,
 		PayloadBytes: &observed.Identity.PayloadBytes, Filing: FilingUnidentified, FilingReason: &reason,
-		ProbeJSON: &seenFile.probeJSON, SeenAt: batch.nowMs, OpensubtitlesHash: seenFile.openSubtitlesHash,
+		SeenAt: batch.nowMs, OpensubtitlesHash: seenFile.openSubtitlesHash,
 	})
 	if err != nil {
 		return fmt.Errorf("insert %s: %w", seenFile.path, err)
 	}
 	batch.hasNewFiles = true
+	if err := batch.keepProbe(ctx, id, seenFile); err != nil {
+		return err
+	}
 	return batch.syncStreams(ctx, id, observed.Probe)
 }
 
@@ -162,14 +165,29 @@ func (batch *ingestBatch) updateObservedFile(
 		LibraryID: scan.libraryID, Path: seenFile.path, ReportedPathRaw: seenFile.reportedBytes,
 		SizeBytes:  &observed.SizeBytes,
 		ModifiedAt: &observed.ModifiedAt, PayloadHash: seenFile.hash, PayloadBytes: &observed.Identity.PayloadBytes,
-		UnidentifiedReason: &reason, ProbeJSON: &seenFile.probeJSON, OpensubtitlesHash: seenFile.openSubtitlesHash,
+		UnidentifiedReason: &reason, OpensubtitlesHash: seenFile.openSubtitlesHash,
 		SeenAt: batch.nowMs,
 		ID:     id,
 	})
 	if err != nil {
 		return fmt.Errorf("update %s: %w", seenFile.path, err)
 	}
+	if err := batch.keepProbe(ctx, id, seenFile); err != nil {
+		return err
+	}
 	return batch.syncStreams(ctx, id, observed.Probe)
+}
+
+// keepProbe keeps a file's probe beside its row, with its duration, written only when either
+// changed (D303, M8).
+func (batch *ingestBatch) keepProbe(ctx context.Context, id int64, seenFile observation) error {
+	err := batch.queries.UpsertFileProbe(ctx, sqlcgen.UpsertFileProbeParams{
+		FileID: id, ProbeJSON: seenFile.probeJSON, DurationMs: seenFile.observed.Probe.Format.DurationMs,
+	})
+	if err != nil {
+		return fmt.Errorf("keep the probe of %s: %w", seenFile.path, err)
+	}
+	return nil
 }
 
 // recordFiling records a path the node skipped or could not read: an existing row keeps its identity

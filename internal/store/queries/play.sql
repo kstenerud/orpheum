@@ -47,7 +47,8 @@ ORDER BY happened_at, id;
 -- with each file's length where its probe knows it and when its work was last hidden: what
 -- Continue Watching is chosen from. Extras are left out (D162).
 SELECT play_position.file_id, play_position.position_ms, play_position.position_read_at,
-  CAST(coalesce(json_extract(file.probe_json, '$.format.durationMs'), 0) AS INTEGER) AS duration_ms, file.path,
+  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
+    AS duration_ms, file.path,
   title.id AS title_id, title.kind, title.year, item.library_id, item_text.name, progress_hide.hidden_at
 FROM play_position
 JOIN file ON file.id = play_position.file_id AND file.removed_at IS NULL

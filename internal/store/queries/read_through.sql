@@ -22,7 +22,8 @@ SELECT f.id, f.node_id, f.reported_path_raw,
     AS has_timeline
 FROM file f
 WHERE f.id > sqlc.arg(after_id) AND f.id <= sqlc.arg(through_id) AND f.removed_at IS NULL
-  AND f.filing IN ('listed', 'extra', 'unidentified') AND f.payload_hash IS NOT NULL AND f.probe_json IS NOT NULL
+  AND f.filing IN ('listed', 'extra', 'unidentified') AND f.payload_hash IS NOT NULL
+  AND EXISTS (SELECT 1 FROM file_probe WHERE file_probe.file_id = f.id)
   AND (
     ((SELECT 1 FROM stream s WHERE s.video_file = f.id AND s.kind = 'audio' LIMIT 1) IS NOT NULL
       AND (SELECT 1 FROM loudness l WHERE l.payload_hash = f.payload_hash LIMIT 1) IS NULL)

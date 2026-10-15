@@ -32,15 +32,21 @@ INSERT INTO extra_relation (owner_title, owner_edition, extra_title, extra_type,
   VALUES (1, 1, 2, 'trailer', 1, 'scanner');
 
 INSERT INTO file (id, library_id, node_id, path, size_bytes, modified_at, payload_hash, payload_bytes, is_identity_confirmed,
-                  filing, filing_reason, probe_json, version_id, part_index, first_seen_at, last_seen_at,
+                  filing, filing_reason, version_id, part_index, first_seen_at, last_seen_at,
                   opensubtitles_hash)
   VALUES (1, 1, 1, '/media/films/Direct Play Film (2020)/Direct Play Film (2020).mp4', 1048576, 1780000000000,
           X'00112233445566778899AABBCCDDEEFF', 1000000, 1, 'listed', 'movie folder',
-          '{"format":"mp4"}', 1, 1, 1790000000000, 1790000002000, '8e245d9679d31e12');
+          1, 1, 1790000000000, 1790000002000, '8e245d9679d31e12');
+INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (1, '{"format":{"durationMs":5400000}}', 5400000);
 INSERT INTO file (id, library_id, node_id, path, size_bytes, modified_at, is_identity_confirmed, filing, filing_reason,
                   sidecar_kind, attached_to_file, first_seen_at, last_seen_at)
   VALUES (2, 1, 1, '/media/films/Direct Play Film (2020)/Direct Play Film (2020).en.srt', 2048, 1780000000000,
           0, 'attached', 'a subtitle beside its video', 'subtitle', 1, 1790000000000, 1790000002000);
+INSERT INTO file (id, library_id, node_id, path, size_bytes, modified_at, is_identity_confirmed, filing, filing_reason,
+                  sidecar_kind, attached_to_file, first_seen_at, last_seen_at)
+  VALUES (3, 1, 1, '/media/films/Direct Play Film (2020)/Direct Play Film (2020).nfo', 512, 1780000000000,
+          0, 'attached', 'an NFO beside its video', 'nfo', 1, 1790000000000, 1790000002000);
+INSERT INTO file_nfo (file_id, body) VALUES (3, CAST('<movie><title>Direct Play Film</title></movie>' AS BLOB));
 INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, container_language, language, container_title, disposition_flags,
                     channel_count)
   VALUES (1, 1, 1, 1, 'audio', 'aac', 'eng', 'en', 'Stereo', 1, 2),

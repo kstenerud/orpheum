@@ -174,6 +174,8 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | library, library_root | persistent.db | T1 (the admin's) | yes | — |
 | item, title, version, item_provider_id, collection_member, ordering, position | persistent.db | T1 identity + TO/T2 resolved columns | yes | ⚑ mixed tiers per column (title, collection: O/F/A) |
 | file | persistent.db | T1 identity columns + TO | yes | ⚑ mixed; one writer since 2026-09-30 (§1) |
+| file_probe | persistent.db | TO | yes | what a scan probed, beside its file (D303, M8) |
+| file_nfo | persistent.db | TO | yes | an NFO's bytes, beside its file (D303, M8) |
 | root_state | persistent.db | TO + one T1 column (`are_removals_approved`) | yes | ⚑ mixed |
 | root_scan, root_mount, stream | persistent.db | TO | yes | — |
 | node | persistent.db | T1 (enrolment) + TO (`last_status_json`, `last_status_at`) | yes | ⚑ status is transient, and backed up |

@@ -538,3 +538,36 @@ func TestMigrate_Step0046CountsWhatWaitsByItsIndex(t *testing.T) {
 	}
 	t.Error("no query CountWaitingForAPerson")
 }
+
+// Step 0047 moves each file's probe, with its duration, and each NFO's bytes beside the file, whose
+// row keeps neither (D303, M8; the independent audit's S5).
+func TestMigrate_Step0047KeepsEachProbeAndNFOBesideItsFile(t *testing.T) {
+	t.Parallel()
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	step0047 := stepIndex(t, steps, 47)
+	database := openTemporary(t)
+	if err = database.migrate(t.Context(), steps[:step0047], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	execRaw(t, database,
+		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'nas', 1)",
+		"INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at) "+
+			"VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)",
+		`INSERT INTO file (id, library_id, node_id, path, filing, probe_json, nfo_body, first_seen_at, last_seen_at)
+		 VALUES (1, 1, 1, '/m/f.mkv', 'listed', '{"format":{"durationMs":5400000}}', NULL, 1, 1),
+		        (2, 1, 1, '/m/f.nfo', 'attached', NULL, CAST('<movie/>' AS BLOB), 1, 1)`)
+	if err = database.migrate(t.Context(), steps[:step0047+1], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	got := fmt.Sprint(queryRows(t, database, "SELECT file_id, duration_ms FROM file_probe", 2),
+		queryRows(t, database, "SELECT file_id, CAST(body AS TEXT) FROM file_nfo", 2),
+		queryRows(t, database,
+			"SELECT count(*) FROM pragma_table_info('file') WHERE name IN ('probe_json', 'nfo_body')", 1))
+	if want := "[[1 5400000]] [[2 <movie/>]] [[0]]"; got != want {
+		t.Errorf("after the step: %s; want %s: the probe with its duration, the NFO, and neither on the file",
+			got, want)
+	}
+}

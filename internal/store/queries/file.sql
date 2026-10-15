@@ -26,11 +26,11 @@ ORDER BY id;
 -- name: InsertFile :one
 INSERT INTO file (
   library_id, node_id, path, reported_path_raw, size_bytes, modified_at, payload_hash, payload_bytes,
-  filing, filing_reason, error_detail_json, probe_json, first_seen_at, last_seen_at, opensubtitles_hash
+  filing, filing_reason, error_detail_json, first_seen_at, last_seen_at, opensubtitles_hash
 ) VALUES (
   sqlc.arg(library_id), sqlc.arg(node_id), sqlc.arg(path), sqlc.arg(reported_path_raw), sqlc.arg(size_bytes),
   sqlc.arg(modified_at), sqlc.arg(payload_hash), sqlc.arg(payload_bytes), sqlc.arg(filing),
-  sqlc.arg(filing_reason), sqlc.arg(error_detail_json), sqlc.arg(probe_json), sqlc.arg(seen_at), sqlc.arg(seen_at),
+  sqlc.arg(filing_reason), sqlc.arg(error_detail_json), sqlc.arg(seen_at), sqlc.arg(seen_at),
   sqlc.narg(opensubtitles_hash)
 )
 RETURNING id;
@@ -51,7 +51,6 @@ UPDATE file SET
   filing_reason = CASE WHEN filing IN ('skipped', 'errored') THEN sqlc.arg(unidentified_reason)
                   ELSE filing_reason END,
   error_detail_json = NULL,
-  probe_json = sqlc.arg(probe_json),
   opensubtitles_hash = sqlc.narg(opensubtitles_hash),
   last_seen_at = sqlc.arg(seen_at)
 WHERE id = sqlc.arg(id);
@@ -130,11 +129,11 @@ ORDER BY stream_index;
 -- an NFO's bytes are kept, in nfo_body.
 INSERT INTO file (
   library_id, node_id, path, reported_path_raw, size_bytes, modified_at, payload_hash, payload_bytes, filing,
-  filing_reason, sidecar_kind, nfo_body, first_seen_at, last_seen_at
+  filing_reason, sidecar_kind, first_seen_at, last_seen_at
 ) VALUES (
   sqlc.arg(library_id), sqlc.arg(node_id), sqlc.arg(path), sqlc.arg(reported_path_raw), sqlc.arg(size_bytes),
   sqlc.arg(modified_at), sqlc.arg(payload_hash), sqlc.arg(payload_bytes), 'attached', sqlc.arg(filing_reason),
-  sqlc.arg(sidecar_kind), sqlc.arg(nfo_body), sqlc.arg(seen_at), sqlc.arg(seen_at)
+  sqlc.arg(sidecar_kind), sqlc.arg(seen_at), sqlc.arg(seen_at)
 )
 RETURNING id;
 
@@ -144,7 +143,6 @@ UPDATE file SET
   modified_at = sqlc.arg(modified_at), payload_hash = sqlc.arg(payload_hash), payload_bytes = sqlc.arg(payload_bytes),
   filing = 'attached', sidecar_kind = sqlc.arg(sidecar_kind), filing_reason = sqlc.arg(filing_reason),
   error_detail_json = NULL,
-  nfo_body = sqlc.arg(nfo_body),
   last_seen_at = sqlc.arg(seen_at)
 WHERE id = sqlc.arg(id);
 
@@ -158,14 +156,32 @@ ORDER BY path;
 UPDATE file SET attached_to_file = sqlc.arg(attached_to_file) WHERE id = sqlc.arg(id);
 
 -- name: GetNFOBody :one
-SELECT nfo_body FROM file WHERE id = ?;
+SELECT file_nfo.body AS nfo_body FROM file LEFT JOIN file_nfo ON file_nfo.file_id = file.id WHERE file.id = ?;
+
+-- name: UpsertFileProbe :exec
+-- A file's probe, and its duration, written only when they changed (D303, DL9).
+INSERT INTO file_probe (file_id, probe_json, duration_ms)
+VALUES (sqlc.arg(file_id), sqlc.arg(probe_json), sqlc.arg(duration_ms))
+ON CONFLICT (file_id) DO UPDATE SET probe_json = excluded.probe_json, duration_ms = excluded.duration_ms
+WHERE file_probe.probe_json IS NOT excluded.probe_json OR file_probe.duration_ms IS NOT excluded.duration_ms;
+
+-- name: UpsertFileNFO :exec
+-- An NFO's bytes, written only when they changed (D303, DL9).
+INSERT INTO file_nfo (file_id, body) VALUES (sqlc.arg(file_id), sqlc.arg(body))
+ON CONFLICT (file_id) DO UPDATE SET body = excluded.body WHERE file_nfo.body IS NOT excluded.body;
+
+-- name: DeleteFileNFO :exec
+-- A sidecar that is no NFO, or no longer one, keeps no bytes.
+DELETE FROM file_nfo WHERE file_id = sqlc.arg(file_id);
 
 -- name: GetPlayableFile :one
 -- A live file a person may play: a video the scan filed, whatever it was identified as. What a
 -- scan skipped, could not read or attached to another is not played.
-SELECT id, node_id, library_id, reported_path_raw, payload_hash, probe_json, size_bytes
+SELECT file.id, file.node_id, file.library_id, file.reported_path_raw, file.payload_hash, file_probe.probe_json,
+  file.size_bytes
 FROM file
-WHERE id = ? AND removed_at IS NULL AND filing IN ('listed', 'extra', 'unidentified');
+LEFT JOIN file_probe ON file_probe.file_id = file.id
+WHERE file.id = ? AND file.removed_at IS NULL AND file.filing IN ('listed', 'extra', 'unidentified');
 
 -- name: ListLibraryRootsOnNode :many
 -- The roots a library has on a node, longest first, so the root a path is under is the first
@@ -241,7 +257,7 @@ UPDATE file SET filing = sqlc.arg(filing), filing_reason = sqlc.arg(filing_reaso
 -- file whose size and modified time are as stored, and which was read whole, needs nothing.
 SELECT id, reported_path_raw, size_bytes, modified_at, filing, sidecar_kind, is_identity_confirmed,
        CAST(payload_hash IS NOT NULL AS INTEGER) AS has_payload_hash,
-       CAST(nfo_body IS NOT NULL AS INTEGER) AS has_nfo_body
+       CAST(EXISTS (SELECT 1 FROM file_nfo WHERE file_nfo.file_id = file.id) AS INTEGER) AS has_nfo_body
 FROM file
 WHERE node_id = sqlc.arg(node_id) AND library_id = sqlc.arg(library_id) AND removed_at IS NULL;
 
