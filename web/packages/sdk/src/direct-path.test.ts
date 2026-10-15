@@ -28,17 +28,49 @@ describe("a core's direct paths (W2c)", () => {
   it("takes the first name whose core answers, whatever its order, and none when none does", async () => {
     const send = hosts({ "lan.core.example": "never", "v4.core.example": 200 });
     expect(
-      await firstDirectPath(
-        ["https://lan.core.example", "https://v4.core.example:8443/x"],
-        send,
-        50,
-      ),
+      await firstDirectPath(["https://lan.core.example", "https://v4.core.example:8443/x"], send, {
+        answerMs: 50,
+      }),
     ).toBe(undefined);
     expect(
-      await firstDirectPath(["https://lan.core.example", "https://v4.core.example"], send, 50),
+      await firstDirectPath(["https://lan.core.example", "https://v4.core.example"], send, {
+        answerMs: 50,
+      }),
     ).toBe("https://v4.core.example");
-    expect(await firstDirectPath(["https://gone.core.example"], send, 50)).toBeUndefined();
-    expect(await firstDirectPath([], send, 50)).toBeUndefined();
+    expect(
+      await firstDirectPath(["https://gone.core.example"], send, { answerMs: 50 }),
+    ).toBeUndefined();
+    expect(await firstDirectPath([], send, { answerMs: 50 })).toBeUndefined();
+  });
+
+  it("takes the LAN's name when it answers shortly after a public one, as at home", async () => {
+    const delayed =
+      (answers: Record<string, number>): typeof fetch =>
+      (input) =>
+        new Promise((resolve) => {
+          const host = new URL(input instanceof Request ? input.url : input.toString()).host;
+          setTimeout(() => {
+            resolve(new Response(null, { status: 200 }));
+          }, answers[host] ?? 0);
+        });
+    // The public IPv6 name, through the VPS, answers first; the LAN's 20 ms after: the LAN's wins.
+    expect(
+      await firstDirectPath(
+        ["https://lan.core.example", "https://v6.core.example"],
+        delayed({ "lan.core.example": 30, "v6.core.example": 10 }),
+        { answerMs: 500, betterMs: 200 },
+      ),
+    ).toBe("https://lan.core.example");
+    // Away from home the LAN's never answers: the public one is taken once the grace is over.
+    const away = hosts({ "lan.core.example": "never", "v6.core.example": 200 });
+    const started = Date.now();
+    expect(
+      await firstDirectPath(["https://lan.core.example", "https://v6.core.example"], away, {
+        answerMs: 500,
+        betterMs: 50,
+      }),
+    ).toBe("https://v6.core.example");
+    expect(Date.now() - started).toBeLessThan(400);
   });
 
   it("sends the page's request to the core's name, path and query kept, with no cookie", async () => {
