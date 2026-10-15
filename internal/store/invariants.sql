@@ -4,9 +4,6 @@
 -- database through storetest; the doctor and a nightly check are to run them too (D303 phase D).
 -- Each starts "-- invariant: <name>"; the text up to the next one is its query, which reads only.
 
--- invariant: no item has two sort keys in one locale
-SELECT item_id FROM sort_key GROUP BY item_id, locale HAVING count(*) > 1;
-
 -- invariant: no live version belongs to a removed title
 SELECT version.id FROM version
 JOIN item ON item.id = version.title_id

@@ -16,7 +16,7 @@ func TestCheckInvariants_AnEmptyDatabaseKeepsThemAll(t *testing.T) {
 	if err != nil || len(violations) != 0 {
 		t.Errorf("an empty database: %+v, %v; want no violation", violations, err)
 	}
-	if len(invariants()) < 3 {
+	if len(invariants()) < 2 {
 		t.Errorf("invariants.sql yields %d invariants; want each of its queries", len(invariants()))
 	}
 }
@@ -27,9 +27,8 @@ func TestCheckInvariants_NamesEachThatDoesNotHold(t *testing.T) {
 	t.Parallel()
 	database := openMigrated(t)
 	execRaw(t, database,
-		"INSERT INTO item (id, kind, added_at) VALUES (7, 'title', 1)",
-		"INSERT INTO sort_key (item_id, locale, listing, collation_key) VALUES (7, 'en', 'movie', x'01')",
-		"INSERT INTO sort_key (item_id, locale, listing, collation_key) VALUES (7, 'en', 'series', x'02')",
+		"INSERT INTO item (id, kind, added_at) VALUES (7, 'collection', 1)",
+		"INSERT INTO title (id, kind, identification_state) VALUES (7, 'movie', 'unidentified')",
 		"PRAGMA foreign_keys = OFF",
 		"INSERT INTO item (id, kind, library_id, added_at) VALUES (8, 'title', 999, 1)",
 		"PRAGMA foreign_keys = ON",
@@ -45,7 +44,8 @@ func TestCheckInvariants_NamesEachThatDoesNotHold(t *testing.T) {
 	}
 	slices.Sort(named)
 	want := []string{
-		"every foreign key names a row that exists", "item_fts agrees", "no item has two sort keys in one locale: 7",
+		"every foreign key names a row that exists", "item_fts agrees",
+		"a title's subtype row is a title item, and a collection's a collection item: 7",
 	}
 	for _, prefix := range want {
 		if !slices.ContainsFunc(named, func(each string) bool { return strings.HasPrefix(each, prefix) }) {

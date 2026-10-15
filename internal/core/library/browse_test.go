@@ -43,7 +43,7 @@ func nameItem(t *testing.T, queries *sqlcgen.Queries, itemID int64, listing, tex
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = queries.InsertSortKey(t.Context(), sqlcgen.InsertSortKeyParams{
+		err = queries.UpsertSortKey(t.Context(), sqlcgen.UpsertSortKeyParams{
 			ItemID: itemID, Locale: locale, Listing: listing, CollationKey: sorter.Key(text),
 		})
 		if err != nil {

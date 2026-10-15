@@ -120,11 +120,7 @@ func rekeyName(
 		bytes.Equal(item.sortKeys[0].collationKey, key) {
 		return rewrote, nil
 	}
-	stale := sqlcgen.DeleteItemSortKeysParams{ItemID: item.itemID, Locale: sorter.Locale()}
-	if err := queries.DeleteItemSortKeys(ctx, stale); err != nil {
-		return false, fmt.Errorf("clear item %d's sort key: %w", item.itemID, err)
-	}
-	err := queries.InsertSortKey(ctx, sqlcgen.InsertSortKeyParams{
+	err := queries.UpsertSortKey(ctx, sqlcgen.UpsertSortKeyParams{
 		ItemID: item.itemID, Locale: sorter.Locale(), Listing: item.listing, CollationKey: key,
 	})
 	if err != nil {
