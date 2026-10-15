@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/netip"
 	"strconv"
@@ -63,6 +64,9 @@ func TestAdmin_AdministersOnlyFromTheHousesNetworkDirectlyOrOverWebRTCFromIt(t *
 	rtc := rtcapi.New(t.Context(), harness.server.Handler(), slog.New(slog.DiscardHandler))
 	t.Cleanup(func() { _ = rtc.Close() }) //nolint:errcheck // the test is over
 	harness.server.SetRTC(rtc)
+	// Home is this machine: the pair may reach the core over any of its addresses, loopback or an
+	// interface's, whichever ICE settles on first (it chose the container's own address under load).
+	harness.server.SetHomeNetworks(machineNetworks(t))
 	admin := harness.createAdminAndSignIn(t)
 	//nolint:contextcheck // the harness's requests carry the test's context
 	link := rtcapitest.Connect(t, func(_ context.Context, offer rtcapi.Description) (rtcapi.Description, error) {
@@ -212,4 +216,20 @@ func TestAdmin_AdministersFromAwayOnlyByTheirOwnSettingSetFromHome(t *testing.T)
 		t.Errorf("a person's /me = %s; says nothing of administering", me.body)
 	}
 	wantError(t, setAway(admin, "sometimes"), http.StatusUnprocessableEntity, CodeInvalidRequest)
+}
+
+// machineNetworks are this machine's own addresses, each as a one-address network.
+func machineNetworks(t *testing.T) []netip.Prefix {
+	t.Helper()
+	addresses, err := net.InterfaceAddrs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var networks []netip.Prefix
+	for _, address := range addresses {
+		if prefix, parseErr := netip.ParsePrefix(address.String()); parseErr == nil {
+			networks = append(networks, netip.PrefixFrom(prefix.Addr().Unmap().WithZone(""), prefix.Addr().BitLen()))
+		}
+	}
+	return networks
 }
