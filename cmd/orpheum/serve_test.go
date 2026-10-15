@@ -642,3 +642,29 @@ func TestServe_ThePlainListenerRefusesANameItWasNotGiven(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// A core whose config names a UDP port for WebRTC takes WebRTC there at the house's addresses, which
+// its LAN addresses name (D300 §1).
+func TestServe_TakesWebRTCAtHomeOnTheConfiguredPort(t *testing.T) {
+	t.Parallel()
+	config, _ := testConfig(t)
+	held, err := net.ListenUDP("udp", &net.UDPAddr{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	address, isUDP := held.LocalAddr().(*net.UDPAddr)
+	if !isUDP {
+		t.Fatalf("a UDP listener's address is %T", held.LocalAddr())
+	}
+	if err = held.Close(); err != nil {
+		t.Fatal(err)
+	}
+	config.WebRTC.UDPPort = address.Port
+	config.Discovery.LANAddresses = []string{"192.168.1.20:8443"}
+	captured := newCapturedLog("taking WebRTC at home")
+	startServing(t, config, captured, "taking WebRTC at home", nil)
+	if want := fmt.Sprintf(`"udpPort":%d`, address.Port); !strings.Contains(captured.String(), want) ||
+		!strings.Contains(captured.String(), "192.168.1.20") {
+		t.Errorf("the log does not say WebRTC is taken on %s at 192.168.1.20:\n%s", want, captured)
+	}
+}
