@@ -43,14 +43,6 @@ WHERE artwork.item_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_id_list
 ORDER BY artwork.item_id, artwork.is_chosen DESC,
   (artwork.source = 'local') = (COALESCE(library.metadata_source, '') != 'tmdb') DESC, artwork.id DESC;
 
--- name: CountEarlierMisses :one
--- How often this image was missing before and looked into since: a recheck removes the row it
--- left, so a removed row with no hash is a miss already rechecked, D213 section 1.
-SELECT COUNT(*) AS misses
-FROM artwork
-WHERE item_id = sqlc.arg(item_id) AND kind = sqlc.arg(kind) AND source = sqlc.arg(source)
-  AND source_ref = sqlc.arg(source_ref) AND source_sha256 IS NULL AND removed_at IS NOT NULL;
-
 -- name: RetryItemArtwork :exec
 -- A refresh that looks again: the item's images that were missing or refused are asked for once
 -- more at its next pass, D213 sections 1 and 2.

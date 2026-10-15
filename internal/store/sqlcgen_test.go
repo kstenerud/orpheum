@@ -123,11 +123,6 @@ func callerSources(t *testing.T) string {
 	return all.String()
 }
 
-// uncalledBefore are the queries nothing called when TestGeneratedQueries_EachHasACaller came
-// (2026-10-15), left for the owner to remove or bring back into use: CountEarlierMisses is named by
-// plans/scenarios.md as where an artwork miss is counted, which a removal would leave stale.
-var uncalledBefore = map[string]bool{"CountEarlierMisses": true, "GetFetchFailure": true}
-
 // Every query the generated code holds has a caller: one left behind when its last caller went is
 // dead code nothing notices, as D299's removed forgetting of realm keys would have been had its
 // query stayed.
@@ -144,7 +139,7 @@ func TestGeneratedQueries_EachHasACaller(t *testing.T) {
 			t.Fatal(readErr)
 		}
 		for _, method := range queryMethods(t, source, contents) {
-			if !uncalledBefore[method] && !regexp.MustCompile(`\.`+method+`\b`).MatchString(callers) {
+			if !regexp.MustCompile(`\.`+method+`\b`).MatchString(callers) {
 				t.Errorf("%s: %s has no caller; remove its query", source, method)
 			}
 		}

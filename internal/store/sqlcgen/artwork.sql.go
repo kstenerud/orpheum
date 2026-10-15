@@ -9,34 +9,6 @@ import (
 	"context"
 )
 
-const countEarlierMisses = `-- name: CountEarlierMisses :one
-SELECT COUNT(*) AS misses
-FROM artwork
-WHERE item_id = ?1 AND kind = ?2 AND source = ?3
-  AND source_ref = ?4 AND source_sha256 IS NULL AND removed_at IS NOT NULL
-`
-
-type CountEarlierMissesParams struct {
-	ItemID    int64
-	Kind      string
-	Source    string
-	SourceRef *string
-}
-
-// How often this image was missing before and looked into since: a recheck removes the row it
-// left, so a removed row with no hash is a miss already rechecked, D213 section 1.
-func (q *Queries) CountEarlierMisses(ctx context.Context, arg CountEarlierMissesParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countEarlierMisses,
-		arg.ItemID,
-		arg.Kind,
-		arg.Source,
-		arg.SourceRef,
-	)
-	var misses int64
-	err := row.Scan(&misses)
-	return misses, err
-}
-
 const getArtworkSource = `-- name: GetArtworkSource :one
 SELECT item_id, kind, source, source_ref
 FROM artwork
