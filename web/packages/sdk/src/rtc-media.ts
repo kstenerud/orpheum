@@ -33,6 +33,22 @@ export interface ClaimMessage {
   readonly kind: "orpheum-claim";
 }
 
+/**
+ * Whether the worker fetches a load itself rather than letting it pass: one to another origin, as the
+ * page's requests to its core's own names are. Firefox's local-network check misjudges a load a
+ * worker lets pass to a LAN address, and failed every request a controlled page made to its core's
+ * LAN name while one the page made before the worker controlled it went through (the owner's
+ * Firefox 157, 2026-10-15; idiosyncrasies.md).
+ */
+export function isFetchedByTheWorker(url: URL, workerOrigin: string): boolean {
+  return url.origin !== workerOrigin && url.protocol === "https:";
+}
+
+/** The worker's own fetch of a load isFetchedByTheWorker names, the request as the page made it. */
+export function fetchedByTheWorker(request: Request): Promise<Response> {
+  return fetch(request);
+}
+
 /** Whether a message is a page's request to be claimed. */
 export function isClaimMessage(message: unknown): message is ClaimMessage {
   return (

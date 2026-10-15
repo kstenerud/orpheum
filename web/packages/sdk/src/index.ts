@@ -56,7 +56,9 @@ export { rtcTogetherSocket } from "./rtc-together.ts";
 export {
   answerLoad,
   carryMediaOver,
+  fetchedByTheWorker,
   isClaimMessage,
+  isFetchedByTheWorker,
   isFetchMessage,
   isPathMessage,
   isPathQueryMessage,
