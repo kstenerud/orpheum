@@ -340,6 +340,10 @@ export async function reachCore(client: DiscoveryClient, target: Target): Promis
     return origin === undefined ? undefined : { kind: "direct", origin };
   };
   const first = (await direct(target.directUrls)) ?? (await overWebrtc());
+  // Whether the page is in the house: its LAN name answered. There WebRTC finds the LAN pair, and
+  // the core's public names are never better than it: through them the page is away, with no admin
+  // (D300 §4; the owner's Firefox at home, 2026-10-15, moved to the public IPv6 name and lost admin).
+  let isAtHome = isLanOf(target, first);
   return {
     first,
     another: async (failed) => {
@@ -350,6 +354,7 @@ export async function reachCore(client: DiscoveryClient, target: Target): Promis
       // a controlled page's requests to it: WebRTC finds the LAN pair there, and the core's public
       // names would take it out through the VPS, away from admin (D300 §4).
       if (isLanOf(target, failed)) {
+        isAtHome = true;
         return await overWebrtc().catch(async (problem: unknown) => {
           const named = await direct(others);
           if (named === undefined) {
@@ -361,7 +366,8 @@ export async function reachCore(client: DiscoveryClient, target: Target): Promis
       return (await direct(others)) ?? (await overWebrtc());
     },
     better: async (current) => {
-      const best = rankOf(target, current) === 0 ? undefined : await direct(target.directUrls);
+      const candidates = isAtHome ? target.lanUrls : target.directUrls;
+      const best = rankOf(target, current) === 0 ? undefined : await direct(candidates);
       return best !== undefined && rankOf(target, best) < rankOf(target, current)
         ? best
         : undefined;

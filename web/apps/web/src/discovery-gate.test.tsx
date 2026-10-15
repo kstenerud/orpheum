@@ -26,6 +26,7 @@ import {
   whenSignedOut,
   type HeldSession,
   type KeptCore,
+  type Reached,
   type Target,
 } from "./discovery-start.ts";
 import type { StringStorage } from "./browser-storage.ts";
@@ -541,5 +542,26 @@ describe("the paths a core is reached by after the first (webrtc-transport.md W2
       origin: lan,
     });
     expect(tried).not.toContain("webrtc");
+  });
+
+  it("at home, never takes a public name for better than WebRTC, only the LAN name (D300 §4)", async () => {
+    let isLanBlocked = false;
+    const fetched: typeof fetch = (url) => {
+      const address = url instanceof Request ? url.url : url.toString();
+      return address.startsWith(lan) && isLanBlocked
+        ? Promise.reject(new TypeError("NetworkError when attempting to fetch resource."))
+        : Promise.resolve(new Response("{}", { status: 200 }));
+    };
+    const reaching = await reachCore(
+      { clientApi: "https://discovery.example/client/v1", fetch: fetched },
+      target,
+    );
+    expect(reaching.first).toEqual({ kind: "direct", origin: lan });
+    // The page went to WebRTC once its LAN name failed: Firefox's prompt, or its service worker.
+    isLanBlocked = true;
+    const overWebrtc = { kind: "webrtc", transport: {} } as unknown as Reached;
+    expect(await reaching.better(overWebrtc)).toBeUndefined();
+    isLanBlocked = false;
+    expect(await reaching.better(overWebrtc)).toEqual({ kind: "direct", origin: lan });
   });
 });
