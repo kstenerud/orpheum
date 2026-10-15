@@ -16,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/store"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -72,5 +73,38 @@ func TestOpenAndMigrateOrStartOver_SetsAsideADatabaseItCannotBringForwardOnlyWhe
 	}
 	if !strings.Contains(logged.String(), "level=WARN") || !strings.Contains(logged.String(), aside) {
 		t.Errorf("the log does not warn where the old database went:\n%s", logged.String())
+	}
+}
+
+// The database the serving core opens logs a write that held the writer over a second, naming who
+// wrote and for how long: what a slow request that writes waited behind (the owner's nas.example,
+// 2026-10-15).
+func TestOpenAndMigrateOrStartOver_LogsASlowWrite(t *testing.T) {
+	t.Parallel()
+	config, _ := testConfig(t)
+	directories, err := instancedir.Open(config.Instance.paths())
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := clocktest.NewFake(time.Date(2026, 10, 15, 18, 40, 0, 0, time.UTC))
+	var logged bytes.Buffer
+	database, err := openAndMigrateOrStartOver(t.Context(), config, directories, now, nil,
+		slog.New(slog.NewTextHandler(&logged, nil)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = database.Close() }) //nolint:errcheck // the test is over
+	err = database.Write(t.Context(), func(*sqlcgen.Queries) error {
+		now.Advance(2 * time.Second)
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := logged.String()
+	isLogged := strings.Contains(text, `msg="a database write was slow" file=persistent.db`) &&
+		strings.Contains(text, "TestOpenAndMigrateOrStartOver_LogsASlowWrite") && strings.Contains(text, "heldMs=2000")
+	if !isLogged {
+		t.Errorf("no slow write logged with its file, its caller and how long it held the writer:\n%s", text)
 	}
 }
