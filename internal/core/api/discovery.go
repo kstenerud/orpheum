@@ -31,6 +31,7 @@ type DiscoveryStatusBody struct {
 	CoreID  string `json:"coreId,omitempty"`
 	State   string `doc:"Absent before the discovery's first answer" enum:"pending,claimed,grace,frozen,released,disabled" json:"state,omitempty"` //nolint:lll // one struct tag
 	Zone    string `json:"zone,omitempty"`
+	Realm   string `doc:"What a person signs in to the server by at the discovery's page, beside their name and password: the realm the host's account there gave it; empty at a discovery with none (D297)" json:"realm,omitempty"` //nolint:lll // one struct tag
 	// ClaimCode is what the owner types at the discovery to claim the core, while it is pending.
 	ClaimCode        string               `json:"claimCode,omitempty"`
 	ClaimExpiresAt   int64                `doc:"Unix milliseconds; 0 when there is no code" json:"claimExpiresAt"`
@@ -151,6 +152,10 @@ func (server *Server) leaveDiscovery(ctx context.Context, input *AuthorizationHe
 	if leaveErr := dependencies.Discovery.Leave(ctx); leaveErr != nil {
 		return nil, fmt.Errorf("leave the discovery: %w", leaveErr)
 	}
+	// Its realm keys served the discovery's realm sign-in alone; passwords stay as they are (D298 §6).
+	if forgetErr := dependencies.Auth.ForgetRealmKeys(ctx); forgetErr != nil {
+		return nil, fmt.Errorf("forget the realm keys: %w", forgetErr)
+	}
 	return &struct{}{}, nil
 }
 
@@ -158,6 +163,7 @@ func (server *Server) leaveDiscovery(ctx context.Context, input *AuthorizationHe
 func discoveryStatusBody(status discovery.Status) DiscoveryStatusBody {
 	body := DiscoveryStatusBody{
 		BaseURL: status.BaseURL, CoreID: status.CoreID, State: string(status.State), Zone: status.Zone,
+		Realm:     status.Realm,
 		ClaimCode: status.ClaimCode, ReachableFrom: status.ReachableFrom, DeadEndsLastWeek: status.DeadEndsLastWeek,
 		Published: append([]string{}, status.Published...), Probe: []DiscoveryProbeBody{},
 		Problem: status.Problem, DeprecatedUntil: status.DeprecatedUntil,

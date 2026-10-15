@@ -2069,6 +2069,8 @@ export interface components {
              * @enum {string}
              */
             reachableFrom?: "public_ipv4" | "public_ipv4_other_port" | "ipv6" | "nowhere";
+            /** @description What a person signs in to the server by at the discovery's page, beside their name and password: the realm the host's account there gave it; empty at a discovery with none (D297) */
+            realm?: string;
             /**
              * @description Absent before the discovery's first answer
              * @enum {string}

@@ -8,6 +8,12 @@
 //
 // # Invariants
 //
+//   - A realm sign-in wrong in any part, its realm unknown included, answers the same not-found no
+//     sooner than a fixed wait after it was asked, and a right one is what a link's locate gives, its
+//     offers passed under the person (D297 §2, §3). Enforced by
+//     TestRealmSignIn_AnyPartWrongIsTheSameNotFoundAfterTheSameWait and
+//     TestRealmSignIn_ARightOneIsTheCoresPathsKeyAndTagAndItsOffersGoUnderThePerson.
+//
 //   - It holds at most one core: a key other than its core's is refused enrolling while that core
 //     is claimed or its claim code lives; a pending core whose code expired is replaced, and every
 //     session it had ends. Enforced by TestEnrol_HoldsOneCoreAndRefusesAnotherWhileItIsClaimed.

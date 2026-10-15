@@ -130,8 +130,12 @@ const (
 
 // StatusResponse is the core's state, its zone once claimed, and its claim code while pending.
 type StatusResponse struct {
-	State          State  `json:"state"`
-	Zone           string `json:"zone,omitempty"`
+	State State  `json:"state"`
+	Zone  string `json:"zone,omitempty"`
+	// Realm is what a person signs in to the core by at the client's page, the realm its host's
+	// account at the discovery gave it; none at a discovery that has no realms, as the free one an
+	// owner runs (D297 §1).
+	Realm          string `json:"realm,omitempty"`
 	ClaimCode      string `json:"claimCode,omitempty"`
 	ClaimExpiresAt int64  `json:"claimExpiresAt,omitempty"`
 	// ICEServers are the STUN servers the core gathers its WebRTC candidates through, so its
@@ -242,6 +246,9 @@ const (
 	SignalOffer   = "offer"
 	SignalAnswer  = "answer"
 	SignalRefusal = "refusal"
+	// SignalRealm is a realm sign-in the discovery passes on, which the core answers by its tag or
+	// refuses (D297 §3).
+	SignalRealm = "realm"
 )
 
 // SignalMessage is one message on the signalling connection: an offer the discovery passes on, and
@@ -265,6 +272,11 @@ type SignalMessage struct {
 	// nobody's word (the protocol's §2.5 item 4, §3.5).
 	PublicKey []byte `json:"publicKey,omitempty"`
 	Reason    string `json:"reason,omitempty"`
+	// Person and Ask are a realm sign-in's, on a SignalRealm: who it is for (proof.RealmPerson) and
+	// its proof (proof.RealmAsk); Tag is the core's answer to one (proof.RealmTag), beside PublicKey.
+	Person string `json:"person,omitempty"`
+	Ask    string `json:"ask,omitempty"`
+	Tag    string `json:"tag,omitempty"`
 }
 
 // ACMEAccountRequest is the core's ACME account, as its CA named it, which the discovery's CAA at

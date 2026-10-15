@@ -703,6 +703,15 @@ CREATE TABLE locator (                                     -- class A
   hash        BLOB NOT NULL UNIQUE,      -- SHA-256 over "orpheum-locator" and the locator; never the locator
   issued_at   INTEGER NOT NULL
 ) WITHOUT ROWID;
+
+-- A person's realm key, what their realm sign-in is proven by both ways, made whenever the core
+-- sees their password, for the master realm the core's host holds (0039; D297 section 3).
+CREATE TABLE realm_key (                                   -- class A (D297)
+  user_id       INTEGER PRIMARY KEY REFERENCES user(id) ON DELETE CASCADE,
+  master_realm  TEXT NOT NULL,           -- the master realm the key was made for (proof.MasterRealm)
+  key           BLOB NOT NULL,           -- proof.RealmKey, 32 bytes
+  made_at       INTEGER NOT NULL
+);
 ```
 
 `issued_secret` is a ninth grant kind, a secret handed to a person to pass on, added for
@@ -1181,6 +1190,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `file` | persistent.db | `internal/core/library` | identification files through `library.FileAs` and `library.PutInVersion` |
 | `grant` | persistent.db | `internal/core/auth` | |
 | `locator` | persistent.db | `internal/core/auth` | |
+| `realm_key` | persistent.db | `internal/core/auth` | |
 | `group_text` | persistent.db | none yet | |
 | `item` | persistent.db | `internal/core/identify` | |
 | `item_fts`, `item_fts_tri` | persistent.db | `internal/core/identify` | kept by `item_text`'s triggers |

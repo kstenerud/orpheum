@@ -150,6 +150,9 @@ type Service struct {
 	// linkSealer seals each link's secret for its row, so a person's own link can be shown to them
 	// again (SealLinksWith); nil keeps none, and the link cannot be shown.
 	linkSealer LinkSealer
+	// realm is the realm the core is found by at its discovery (UseRealm); nil, or empty, is none,
+	// and no realm key is made.
+	realm func() string
 }
 
 // NewService returns a Service.
@@ -178,7 +181,10 @@ func (service *Service) CreateUser(ctx context.Context, user NewUser) (int64, er
 		id, insertErr = service.insertUser(ctx, queries, user)
 		return insertErr
 	})
-	return id, err
+	if err != nil {
+		return id, err
+	}
+	return id, service.keepRealmKeyOfUser(ctx, id, user.Password)
 }
 
 // insertUser adds a user inside the caller's write transaction.
@@ -299,6 +305,11 @@ func (service *Service) SignIn(
 		if rehashErr := service.rehash(ctx, user.ID, password, parameters); rehashErr != nil {
 			return Issued{}, rehashErr
 		}
+	}
+	// A person who has no realm key for the core's realm yet, as after the realm was set, has one
+	// from this sign-in's password (D297 §3).
+	if keepErr := service.keepRealmKey(ctx, user.ID, user.Name, password, false); keepErr != nil {
+		return Issued{}, keepErr
 	}
 	return service.issueSession(ctx, user.ID, device, grantScopeRole)
 }

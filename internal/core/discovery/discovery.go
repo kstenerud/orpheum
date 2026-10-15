@@ -104,6 +104,9 @@ type Parts struct {
 	// locator's hash, or a live link's, by its locate hash (auth.Service.OfferKey; the protocol's §2.5
 	// item 3). Nil proves none, and every offer is refused.
 	OfferKey func(ctx context.Context, hash string) ([]byte, error)
+	// RealmSignIn takes a realm sign-in the discovery passed on, who it is for and its proof, and is
+	// the person's realm key, which the core's answer is tagged under; an error refuses it (D297 §3).
+	RealmSignIn func(ctx context.Context, person, ask string) ([]byte, error)
 	// Links are what a discovery finds the core by, read before each look: every live link's locate
 	// hash and when it ends, and every live session's device locator's hash (auth.Service's
 	// LiveLinks and LiveLocators; discovery-core.md K7). Nil registers none.
@@ -132,10 +135,13 @@ type kept struct {
 // Status is where the core stands with its discovery, for its admin.
 type Status struct {
 	// BaseURL is the discovery's, empty when the core is enrolled with none.
-	BaseURL        string
-	CoreID         string
-	State          discoveryproto.State
-	Zone           string
+	BaseURL string
+	CoreID  string
+	State   discoveryproto.State
+	Zone    string
+	// Realm is what a person signs in to the core by at the discovery's page, beside their name and
+	// password: the realm the host's account there gave it, empty at a discovery with none (D297 §1).
+	Realm          string
 	ClaimCode      string
 	ClaimExpiresAt time.Time
 	ReachableFrom  string
@@ -450,6 +456,7 @@ func (service *Service) askStatus(ctx context.Context, status Status) time.Durat
 	service.mutex.Lock()
 	was := service.status
 	service.status.State, service.status.Zone, service.status.Problem = answered.State, answered.Zone, ""
+	service.status.Realm = answered.Realm
 	service.failures = 0
 	service.status.ClaimCode, service.status.ClaimExpiresAt = answered.ClaimCode, time.Time{}
 	service.status.ICEServers = answered.ICEServers

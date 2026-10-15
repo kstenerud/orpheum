@@ -44,7 +44,13 @@ func newDiscovery(
 	}
 	parts := discoveryParts(config, opened, answerer, onClaimed, mapped, logger)
 	parts.Key = key
-	return discovery.New(parts)
+	service, err := discovery.New(parts)
+	if err != nil {
+		return nil, err
+	}
+	// A person's realm key is made for the realm the discovery finds the core by (D297 §3).
+	opened.auth.UseRealm(func() string { return service.Status().Realm })
+	return service, nil
 }
 
 // discoveryParts is what the core's side of its discovery is made of, but for its identity key:
@@ -61,7 +67,8 @@ func discoveryParts(
 		Answerer:   answerer, OnClaimed: onClaimed,
 		RetryFirst: retryFirst, RetryMost: retryMost, Random: rand.Reader,
 		Links: linksOf(opened.auth, opened.together), OfferKey: offerKeyOf(opened.auth, opened.together),
-		TURN: relayForFound(newRelayIssuer(config, opened), logger), ProbeNonce: opened.reachability.ProbeNonce,
+		RealmSignIn: opened.auth.TakeRealmSignIn,
+		TURN:        relayForFound(newRelayIssuer(config, opened), logger), ProbeNonce: opened.reachability.ProbeNonce,
 	}
 }
 

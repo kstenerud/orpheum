@@ -20112,6 +20112,8 @@ video library."*
 
 ## D297 — A household is found by its realm: realm, name and password together, proven both ways by a key the password makes; admin only from the core's own network
 
+> **Refined by [D298](#d298--a-realm-is-the-hosts-accounts-a-master-realm-chosen-once-a-subrealm-per-further-core-none-when-self-hosting):** the realm is the host's account's at the discovery, not the core admin's choice; the key is salted by the master realm.
+
 **Decided** (2026-10-15), by the project owner, after the first production test, where a guest's
 page lost its way and the owner could not tell staging from production: *"What if we did some kind
 of realm system, where the admin chooses a realm name, and then his own users have realm, username,
@@ -20159,3 +20161,46 @@ D294 §1 and §4.
    left until renaming is built.
 
 **Status:** Decided 2026-10-15.
+
+---
+
+## D298 — A realm is the host's account's: a master realm chosen once, a subrealm per further core, none when self-hosting
+
+**Decided** (2026-10-15), by the project owner, refining D297 while it was being built: *"A host who
+is self-hosting has no realm, and we don't show anything realm-related in that case. A host who
+decides to do the paid service creates an account with us, and then can define which master realm
+he wants."* Revises D297 §1, §7 and §8.
+
+1. **Self-hosting has no realm.** An owner's own discovery (`discovery/single`) offers no realm
+   sign-in, and the page shows nothing of realms unless its discovery says it has them (a meta tag,
+   as it names its client API). A development or test discovery may name one, to test it.
+2. **The master realm is the host's account's**, chosen when the account is made, first come first
+   served, unique at the paid discovery, and never changed (*"If enough users complain we can
+   revisit changing it, but it avoids complications with existing logged in users"*): 5 to 32
+   lowercase letters, digits and inner hyphens, few enough to guess.
+3. **A core takes the master realm, or the master and a subrealm**: one core alone takes the
+   master realm by default; each further one takes a subrealm, `<master>.<subrealm>`, 1 to 32 of the
+   same characters, unique within the account, and the first core may be given one later
+   (`karlnas`, then `karlnas.test` beside it, then the first renamed `karlnas.live`). No part holds a
+   dot, so none is mistaken for another's. The discovery gives the core its realm; the core only shows
+   it (D297 §1's admin choosing it on the System page is withdrawn).
+4. **A person's realm key is salted by the master realm alone** (revising D297 §3's salt and §8):
+   a subrealm given or changed later leaves every key as it was, and the core finds the person a
+   sign-in names by the whole realm and their name, which needs no password. A person renamed signs in
+   once with their password before their realm sign-in works again, since the key names them.
+5. **Connecting a core to the paid service is by a code the service shows**, which the admin enters
+   on the core over the house's network, as the core's other codes are entered; until customer
+   accounts exist, the operator gives realms on `prod-api` (`up.sh realm <core> <realm>`), and the
+   claim stays as it is.
+
+6. **Cancelling keeps every account and password.** A host who leaves the paid service runs a VPS
+   with an address per core, their own concern; each core's people sign in at its own address with
+   the names and passwords they had, which the core alone ever held, and that page has no realm
+   field, its discovery having none (the owner: *"All that changes is the login URL"*). A core that
+   leaves its discovery forgets its realm keys, which serve nothing after.
+7. **At most five subrealms per account** to start, one tier of subscription, until the owner weighs
+   tiers by the number of cores (*"$3 a month for one core, $4 a month for up to 5 cores or something
+   like that. But for now we just have one tier"*); the discovery holds the count.
+
+**Status:** Decided 2026-10-15. The code-entry connection, subrealm management and the count wait for
+customer accounts; the realm's shape, its key and its sign-in come with D297's work.

@@ -2,12 +2,16 @@
 
 package discoveryproto
 
+import "strings"
+
 // The client API's paths, under a discovery's <base>/client/v1: what a device holds (a link's hash,
 // a locator or a bootstrap token) finds its core, and its offers reach it (the protocol's §3, §4).
 const (
 	PathLocate  = "/locate"
 	PathPaths   = "/paths"
 	PathDeadEnd = "/dead-end"
+	// PathRealmSignIn finds a core by its realm, for a person who signs in there (ClientRealmRequest).
+	PathRealmSignIn = "/realm"
 	// PathCores is the start of a core's offer path: OfferPath.
 	PathCores = "/cores/"
 )
@@ -29,6 +33,25 @@ type LocateRequest struct {
 type LocateResponse struct {
 	PathsResponse
 	BootstrapToken string `json:"bootstrapToken"`
+}
+
+// ClientRealmRequest is a person's realm sign-in: the realm, who it is for (proof.RealmPerson of
+// the realm and their name) and their proof (proof.RealmAsk under the key their password makes). The
+// discovery cannot check the proof; the realm's core does (D297 §2, §3).
+type ClientRealmRequest struct {
+	Realm  string `json:"realm"`
+	Person string `json:"person"`
+	Ask    string `json:"ask"`
+}
+
+// ClientRealmResponse is what a realm sign-in the core took gives: what a link's locate gives, the
+// core's identity key, and the core's tag (proof.RealmTag) over its id and that key, which the page
+// checks under the person's key before it believes the key is the core's. Any part of the sign-in
+// wrong, the realm included, answers RefusalNotFound alone, after the same wait (D297 §2).
+type ClientRealmResponse struct {
+	LocateResponse
+	PublicKey []byte `json:"publicKey"`
+	Tag       string `json:"tag"`
 }
 
 // PathsRequest names the core by what the device holds: its locator, which the core handed it, or the
@@ -118,4 +141,34 @@ type OfferAnswer struct {
 // OfferResponse is the core's answers, one per offer.
 type OfferResponse struct {
 	Answers []OfferAnswer `json:"answers"`
+}
+
+// The bounds of a realm's parts: a master realm, a host's account's, 5 to 32 lowercase letters,
+// digits and inner hyphens, few enough to guess; a subrealm, one of the account's cores', 1 to 32 of
+// the same. A realm is the master alone, or the master, a dot and a subrealm; no part holds a dot, so
+// none is mistaken for another's (D297 §1, the owner, 2026-10-15).
+const (
+	masterRealmShortest = 5
+	subrealmShortest    = 1
+	realmPartLongest    = 32
+)
+
+// IsRealm is whether realm is one as it is kept, in lower case: "karlnas" or "karlnas.test".
+func IsRealm(realm string) bool {
+	master, sub, hasSub := strings.Cut(realm, ".")
+	return isRealmPart(master, masterRealmShortest) && (!hasSub || isRealmPart(sub, subrealmShortest))
+}
+
+// isRealmPart is whether part is one realm's part: shortest to realmPartLongest lowercase letters,
+// digits and hyphens, neither starting nor ending with a hyphen.
+func isRealmPart(part string, shortest int) bool {
+	if len(part) < shortest || len(part) > realmPartLongest || part[0] == '-' || part[len(part)-1] == '-' {
+		return false
+	}
+	for _, each := range part {
+		if (each < 'a' || each > 'z') && (each < '0' || each > '9') && each != '-' {
+			return false
+		}
+	}
+	return true
 }
