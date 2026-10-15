@@ -57,3 +57,20 @@ func writeAsAReader(t *testing.T, write func(context.Context, func(*sqlcgen.Quer
 	}
 	return nil
 }
+
+// A database storetest opens fails the test that leaves it breaking an invariant (D303, M7).
+func TestOpenMigrated_FailsATestThatBreaksAnInvariant(t *testing.T) {
+	t.Parallel()
+	recording := &recordingTB{TB: t}
+	database := storetest.OpenMigrated(recording)
+	storetest.ExecRaw(t, database.Path(),
+		"INSERT INTO item (id, kind, added_at) VALUES (7, 'title', 1)",
+		"INSERT INTO sort_key (item_id, locale, listing, collation_key) VALUES (7, 'en', 'movie', x'01')",
+		"INSERT INTO sort_key (item_id, locale, listing, collation_key) VALUES (7, 'en', 'series', x'02')")
+	for _, cleanup := range slices.Backward(recording.cleanups) {
+		cleanup()
+	}
+	if len(recording.errors) != 1 || !strings.Contains(recording.errors[0], "no item has two sort keys in one locale") {
+		t.Errorf("the test was failed with %q; want one error, naming the broken invariant", recording.errors)
+	}
+}

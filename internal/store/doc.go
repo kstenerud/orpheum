@@ -47,6 +47,9 @@
 //     OnReaderWrite, and storetest's databases fail the test that made it unless
 //     readerWritesAllowed lists it with why (D303, DL10). Enforced by
 //     TestWrite_ReportsAWriteAReadingRequestMakes.
+//   - CheckInvariants names every invariant of invariants.sql that does not hold, with a dangling
+//     foreign key and a full-text index that disagrees with its text, and storetest runs it after
+//     every test (D303, M7). Enforced by TestCheckInvariants_NamesEachThatDoesNotHold.
 //   - A fresh schema equals testdata/golden/schema-vNNNN.sql for the current version, and the
 //     baseline alone the golden for its version. Enforced by TestMigrate_FreshSchemaEqualsTheGolden.
 //   - Each step commits alone, so an interrupted migration resumes and ends identical; a step
@@ -135,6 +138,8 @@
 //     longer compile); step_record.go: the applied steps' checksums, and the refusal of a file
 //     below the baseline (D228).
 //   - backup.go: VACUUM INTO, and reading a backup without changing it.
+//   - invariants.sql and invariants.go: what must never be true of persistent.db, as queries that
+//     return where it is (D303, M7); add one with each rule a row or a set of rows must keep.
 //   - migrate.go's requireSpaceToMigrate: the pre-migration free-space preflight, which measures
 //     through internal/platform/diskspace.
 //   - failure.go: IsStorageFailure, a database's disk failing rather than what was written, which

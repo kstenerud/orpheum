@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	// The pure-Go SQLite driver registers itself as "sqlite" (D31).
@@ -71,6 +72,8 @@ type Database struct {
 	slowWrites slowWrites
 	// onReaderWrite is told each write a reading request makes; nil tells no one.
 	onReaderWrite func(file, caller string)
+	// isClosed is whether Close has been called.
+	isClosed atomic.Bool
 }
 
 // OpenOptions are the choices Open needs from the config file: they are known before the
@@ -171,8 +174,12 @@ func (database *Database) Path() string {
 
 // Close closes the reader pool, the writer and the maintenance connection.
 func (database *Database) Close() error {
+	database.isClosed.Store(true)
 	return errors.Join(database.readers.Close(), database.maintenance.Close(), database.writer.Close())
 }
+
+// ErrClosed is returned by a check of a database already closed.
+var ErrClosed = errors.New("the database is closed")
 
 // Read returns the generated queries over the read-only pool. SQLite itself refuses a write
 // through it (query_only).

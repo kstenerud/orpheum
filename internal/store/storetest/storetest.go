@@ -3,6 +3,7 @@
 package storetest
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -80,6 +81,7 @@ func OpenMigrated(tb testing.TB) *store.Database {
 		tb.Fatalf("open a test database: %v", err)
 	}
 	tb.Cleanup(func() {
+		checkInvariants(tb, database)
 		if err := database.Close(); err != nil {
 			tb.Errorf("close the test database: %v", err)
 		}
@@ -223,5 +225,22 @@ func readerWritesAllowed() map[string]string {
 	return map[string]string{
 		"settings.(*Service).heal": "a setting row removed while the server runs is written back once, with its " +
 			"starting value, the first time it is read (D202); every start writes them all",
+	}
+}
+
+// checkInvariants fails the test whose database no longer keeps one of persistent.db's invariants
+// (D303, M7): whatever a test did, the data it left must be data the server could hold.
+func checkInvariants(tb testing.TB, database *store.Database) {
+	tb.Helper()
+	violations, err := database.CheckInvariants(context.WithoutCancel(tb.Context()))
+	if errors.Is(err, store.ErrClosed) {
+		return // the test closed it itself, to see what a closed database does
+	}
+	if err != nil {
+		tb.Errorf("check the test database's invariants: %v", err)
+	}
+	for _, violation := range violations {
+		tb.Errorf("the test left its database breaking an invariant (D303, M7): %s, at %v",
+			violation.Invariant, violation.Rows)
 	}
 }
