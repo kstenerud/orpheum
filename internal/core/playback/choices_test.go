@@ -28,9 +28,9 @@ func TestKeepSubtitleOffset_RefusesAFileItsTransactionRemoved(t *testing.T) {
 		librarytest.Library{Name: "Films", Kind: "mixed", MetadataSource: "nfo", Root: "/media"})
 	storetest.ExecRaw(t, database.Path(), fmt.Sprintf(
 		`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, payload_hash, filing,
-		 probe_json, first_seen_at, last_seen_at)
-		 VALUES (2, %d, %d, '/media/Film.mkv', CAST('/media/Film.mkv' AS BLOB), 10, X'0c0d', 'listed', '{}', 1, 1)`,
-		libraryID, nodeID))
+		 first_seen_at, last_seen_at)
+		 VALUES (2, %d, %d, '/media/Film.mkv', CAST('/media/Film.mkv' AS BLOB), 10, X'0c0d', 'listed', 1, 1)`,
+		libraryID, nodeID), "INSERT INTO file_probe (file_id, probe_json) VALUES (2, '{}')")
 	const fileID, offsetMs = 2, 500
 	removedAt := int64(2)
 	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {

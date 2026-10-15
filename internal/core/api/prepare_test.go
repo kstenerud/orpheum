@@ -273,7 +273,7 @@ func TestPrepare_ACopyMadeBeforeAnAudioTrackWasRelabelledIsMadeAgain(t *testing.
 	}
 	// A rescan after mkvpropedit tagged the track German: the same payload, a new probe.
 	storetest.ExecRaw(t, harness.databasePath,
-		`UPDATE file SET probe_json = json_set(probe_json, '$.streams[1].language', 'de') WHERE id = 2`)
+		`UPDATE file_probe SET probe_json = json_set(probe_json, '$.streams[1].language', 'de') WHERE file_id = 2`)
 	if relabelled := harness.play(t, user, chrome(2)); !relabelled.IsPreparing {
 		t.Errorf("played after the track was relabelled: %+v, want the copy made again", relabelled)
 	}

@@ -42,8 +42,9 @@ func TestAdoptRenditions_RebuildsTheIndexFromTheNodesManifestsAndKeepsOnlyWhatIt
 		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/m"})
 	for _, fileID := range []int64{3, 4, 5, 6} {
 		storetest.ExecRaw(t, database.Path(), fmt.Sprintf("INSERT INTO file (id, library_id, node_id, path, "+
-			"payload_hash, probe_json, filing, first_seen_at, last_seen_at) "+
-			"VALUES (%d, %d, %d, '/m/f.mkv', X'0a0b', '{}', 'unidentified', 1, 1)", fileID, libraryID, nodeID))
+			"payload_hash, filing, first_seen_at, last_seen_at) "+
+			"VALUES (%d, %d, %d, '/m/f.mkv', X'0a0b', 'unidentified', 1, 1)", fileID, libraryID, nodeID),
+			fmt.Sprintf("INSERT INTO file_probe (file_id, probe_json) VALUES (%d, '{}')", fileID))
 	}
 	cache := storetest.OpenCache(t)
 	clockSource := clocktest.NewFake(time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC))

@@ -138,9 +138,11 @@ func serviceWithFilms(t *testing.T) *Service {
 	}
 	for fileID, probe := range probes {
 		storetest.ExecRaw(t, database.Path(), fmt.Sprintf("INSERT INTO file (id, library_id, node_id, path, "+
-			"payload_hash, probe_json, filing, first_seen_at, last_seen_at) "+
-			"VALUES (%d, %d, %d, '/m/f%d.mkv', X'0%d', '%s', 'unidentified', 1, 1)",
-			fileID, libraryID, nodeID, fileID, fileID, probe))
+			"payload_hash, filing, first_seen_at, last_seen_at) "+
+			"VALUES (%d, %d, %d, '/m/f%d.mkv', X'0%d', 'unidentified', 1, 1)",
+			fileID, libraryID, nodeID, fileID, fileID),
+			fmt.Sprintf("INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (%d, '%s', 7000)",
+				fileID, probe))
 	}
 	failure := "Invalid data found"
 	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {

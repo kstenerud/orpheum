@@ -32,7 +32,8 @@ func TestLoudness_AFileIsMeasuredOnceAndPlaysAtTheLevel(t *testing.T) {
 	// Wing's ten minutes: quiet, with room below its peak for the whole gain. The node is told how
 	// long the film is, so its watchdog allows decoding all of it.
 	storetest.ExecRaw(t, harness.databasePath,
-		`UPDATE file SET probe_json = json_set(probe_json, '$.format.durationMs', 600000) WHERE id = 1`)
+		`UPDATE file_probe SET probe_json = json_set(probe_json, '$.format.durationMs', 600000),`+
+			` duration_ms = 600000 WHERE file_id = 1`)
 	alien := nodeproto.Measurement{IntegratedLUFS: -35.7, RangeLU: 22.8, TruePeakDBTP: new(-16.2)}
 	command, err := harness.readThroughWith(t, 90, 1, nodeproto.ReadThroughResult{Loudness: []nodeproto.TrackLoudness{
 		{StreamIndex: 0, Stereo: alien},

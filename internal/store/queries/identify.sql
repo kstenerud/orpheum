@@ -12,11 +12,13 @@ SELECT id FROM library WHERE removed_at IS NULL ORDER BY id;
 SELECT id, kind, metadata_source FROM library WHERE id = ? AND removed_at IS NULL;
 
 -- name: ListIdentifyFiles :many
-SELECT id, node_id, path, reported_path_raw, filing, filing_reason, sidecar_kind, payload_hash, version_id, attached_to_file, probe_json,
-  identified_from_path, size_bytes, modified_at
+SELECT file.id, file.node_id, file.path, file.reported_path_raw, file.filing, file.filing_reason, file.sidecar_kind,
+  file.payload_hash, file.version_id, file.attached_to_file, CAST(coalesce(file_probe.duration_ms, 0) AS INTEGER) AS duration_ms,
+  file.identified_from_path, file.size_bytes, file.modified_at
 FROM file
-WHERE library_id = ? AND removed_at IS NULL
-ORDER BY path;
+LEFT JOIN file_probe ON file_probe.file_id = file.id
+WHERE file.library_id = ? AND file.removed_at IS NULL
+ORDER BY file.path;
 
 -- name: ListLibraryTitles :many
 SELECT title.id, title.kind, title.year, title.identification_state, item.library_id, item_text.name

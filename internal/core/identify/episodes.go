@@ -39,7 +39,7 @@ func (filer *libraryFiler) fileEpisode(
 	season, number := parsed.Season, parsed.Episode
 	spec := titleSpec{
 		kind: library.TitleKindEpisode, name: fmt.Sprintf("Episode %d", number),
-		runtimeMs: probeRuntimeMs(file.ProbeJSON),
+		runtimeMs: file.DurationMs,
 		ids:       map[string]string{},
 	}
 	if parsed.IsUnnumbered {

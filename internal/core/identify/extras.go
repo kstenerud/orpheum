@@ -122,7 +122,7 @@ func (filer *libraryFiler) fileExtra(ctx context.Context, pending pendingExtra) 
 	}
 	parsed := ParsePath(pending.relativePath)
 	spec := titleSpec{
-		kind: library.TitleKindExtra, name: parsed.Name, runtimeMs: probeRuntimeMs(pending.file.ProbeJSON),
+		kind: library.TitleKindExtra, name: parsed.Name, runtimeMs: pending.file.DurationMs,
 		ids:    map[string]string{},
 		key:    fmt.Sprintf("extra|%d|%s", ownerTitleID, strings.ToLower(pending.relativePath)),
 		source: sourceNone, identification: identificationIdentified,

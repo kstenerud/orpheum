@@ -230,24 +230,34 @@ CREATE TABLE file (                                        -- class I (identity 
   filing_reason TEXT,                    -- the rule verbatim, the error code, what was tried
   sidecar_kind  TEXT CHECK (sidecar_kind IN ('nfo','subtitle','image')),  -- 0023: an attached file's kind
   error_detail_json TEXT,                -- owner, group, mode; the platform's text (D163)
-  probe_json    TEXT,                    -- raw probe output, JSON; the input D59 replays
   version_id    INTEGER REFERENCES version(id) ON DELETE RESTRICT,
   part_index    INTEGER,                 -- order within a multi-part Version
   attached_to_file INTEGER REFERENCES file(id) ON DELETE RESTRICT,  -- a sidecar's video
-  nfo_body      BLOB,                    -- migration 0005: an NFO's bytes, which identification reads
   identified_from_path TEXT,             -- the path its identification was read from
   first_seen_at    INTEGER NOT NULL,
   last_seen_at     INTEGER NOT NULL,
   removed_at    INTEGER                  -- tombstone: only on a positive report (D34, D179)
 );
-CREATE UNIQUE INDEX file_live_path ON file(node_id, reported_path_raw) WHERE removed_at IS NULL;
+CREATE UNIQUE INDEX file_live_path ON file(node_id, reported_path_raw) WHERE removed_at IS NULL;  -- 0011: was (node_id, path)
 -- D303 (step 0045): the paths queries take that none served.
 CREATE INDEX file_removed_payload ON file(library_id, payload_hash, removed_at) WHERE removed_at IS NOT NULL;
 CREATE INDEX file_library ON file(library_id, path) WHERE removed_at IS NULL;
-CREATE INDEX file_errored ON file(library_id, path) WHERE filing = 'errored' AND removed_at IS NULL;  -- 0011: was (node_id, path)
+CREATE INDEX file_errored ON file(library_id, path) WHERE filing = 'errored' AND removed_at IS NULL;
 CREATE INDEX file_payload ON file(payload_hash) WHERE removed_at IS NULL;  -- moves, duplicates
 CREATE INDEX file_version ON file(version_id) WHERE version_id IS NOT NULL;
 CREATE VIEW live_file AS SELECT * FROM file WHERE removed_at IS NULL;
+
+-- D303 (M8, step 0047): what is wide and rarely read sits beside the file, so the row a scan stamps
+-- stays narrow, and each is written only when it changed.
+CREATE TABLE file_probe (                                  -- class O: what the node probed (D59)
+  file_id     INTEGER PRIMARY KEY REFERENCES file(id) ON DELETE RESTRICT,
+  probe_json  TEXT NOT NULL,             -- the raw probe output, the input D59 replays
+  duration_ms INTEGER NOT NULL DEFAULT 0 -- its format's duration; 0 when it gave none
+);
+CREATE TABLE file_nfo (                                    -- class O: a rescan sends it again
+  file_id     INTEGER PRIMARY KEY REFERENCES file(id) ON DELETE RESTRICT,
+  body        BLOB NOT NULL              -- the NFO's bytes, which identification reads (D182)
+);
 ```
 
 **`attached` is a sixth filing**, added here: a subtitle or NFO file that belongs to a video
@@ -1224,6 +1234,8 @@ second writer, or on a writer this table does not name. A table no package write
 | `fetch_failure` | persistent.db | `internal/core/identify` | the fetch_metadata runner's failure recorder, and a person's refresh, which clears it |
 | `field_override` | persistent.db | `internal/core/identify` | |
 | `file` | persistent.db | `internal/core/library` | identification files through `library.FileAs` and `library.PutInVersion` |
+| `file_probe` | persistent.db | `internal/core/library` | a scan's probe of each video, beside its row (D303) |
+| `file_nfo` | persistent.db | `internal/core/library` | an NFO's bytes, beside its row (D303) |
 | `grant` | persistent.db | `internal/core/auth` | |
 | `locator` | persistent.db | `internal/core/auth` | |
 | `realm_key` | persistent.db | `internal/core/auth` | |

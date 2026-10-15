@@ -388,7 +388,7 @@ func (filer *libraryFiler) isFiledAgain(file sqlcgen.ListIdentifyFilesRow) bool 
 func (filer *libraryFiler) movieSpec(file sqlcgen.ListIdentifyFilesRow, parsed ParsedPath) titleSpec {
 	spec := titleSpec{
 		kind: KindMovie, name: parsed.Name, year: parsed.Year, ids: parsed.ProviderIDs,
-		runtimeMs: probeRuntimeMs(file.ProbeJSON),
+		runtimeMs: file.DurationMs,
 	}
 	if nfo, found := filer.nfoFor(file); found && nfo.Kind == KindMovie {
 		spec.fromNFO(nfo)
@@ -515,16 +515,4 @@ func (filer *libraryFiler) currentTitle(ctx context.Context, file sqlcgen.ListId
 		return 0, false, fmt.Errorf("read %s's version: %w", file.Path, err)
 	}
 	return current.TitleID, true, nil
-}
-
-// probeRuntimeMs is the probe's duration: a local fallback for the runtime (D183).
-func probeRuntimeMs(probe *string) int64 {
-	if probe == nil {
-		return 0
-	}
-	parsed, err := library.DecodeProbe(*probe)
-	if err != nil {
-		return 0
-	}
-	return parsed.Format.DurationMs
 }

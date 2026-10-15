@@ -27,17 +27,18 @@ func TestListFilesToReadThrough_ListsTheLiveVideosThatLackLoudnessOrATimeline(t 
 		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
 		 VALUES (1, 'Films', 'mixed', 'nfo', 'manual', 0, 1)`,
-		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, probe_json, filing, removed_at,
+		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing, removed_at,
 		 first_seen_at, last_seen_at) VALUES
-		 (1, 1, 1, '/m/1.mkv', 10, X'01', '{}', 'listed', NULL, 1, 1),
-		 (2, 1, 1, '/m/2.mkv', 10, X'02', '{}', 'extra', NULL, 1, 1),
-		 (3, 1, 1, '/m/3.mkv', 10, X'03', '{}', 'unidentified', NULL, 1, 1),
-		 (4, 1, 1, '/m/4.mkv', 10, X'04', '{}', 'listed', NULL, 1, 1),
-		 (5, 1, 1, '/m/5.mkv', 10, X'05', '{}', 'listed', 9, 1, 1),
-		 (6, 1, 1, '/m/6.mkv', 10, X'06', '{}', 'skipped', NULL, 1, 1),
-		 (7, 1, 1, '/m/7.mkv', 10, X'07', '{}', 'listed', NULL, 1, 1),
-		 (8, 1, 1, '/m/8.mkv', 10, X'08', '{}', 'listed', NULL, 1, 1),
-		 (9, 1, 1, '/m/9.mkv', 10, X'09', '{}', 'listed', NULL, 1, 1)`,
+		 (1, 1, 1, '/m/1.mkv', 10, X'01', 'listed', NULL, 1, 1),
+		 (2, 1, 1, '/m/2.mkv', 10, X'02', 'extra', NULL, 1, 1),
+		 (3, 1, 1, '/m/3.mkv', 10, X'03', 'unidentified', NULL, 1, 1),
+		 (4, 1, 1, '/m/4.mkv', 10, X'04', 'listed', NULL, 1, 1),
+		 (5, 1, 1, '/m/5.mkv', 10, X'05', 'listed', 9, 1, 1),
+		 (6, 1, 1, '/m/6.mkv', 10, X'06', 'skipped', NULL, 1, 1),
+		 (7, 1, 1, '/m/7.mkv', 10, X'07', 'listed', NULL, 1, 1),
+		 (8, 1, 1, '/m/8.mkv', 10, X'08', 'listed', NULL, 1, 1),
+		 (9, 1, 1, '/m/9.mkv', 10, X'09', 'listed', NULL, 1, 1)`,
+		`INSERT INTO file_probe (file_id, probe_json) SELECT id, '{}' FROM file`,
 		`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, disposition_flags) VALUES
 		 (1, 1, 0, 'video', 'h264', 0), (1, 1, 1, 'audio', 'aac', 0),
 		 (2, 2, 0, 'video', 'h264', 0), (2, 2, 1, 'audio', 'aac', 0),
@@ -127,8 +128,9 @@ func TestVideoTimeline_AFailedReadAfterTheIndexIsKeptAsItsReadFailure(t *testing
 		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'local', 1)",
 		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
 		 VALUES (1, 'Films', 'mixed', 'nfo', 'manual', 0, 1)`,
-		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, probe_json, filing,
-		 first_seen_at, last_seen_at) VALUES (1, 1, 1, '/m/1.mkv', 10, X'0c', '{}', 'listed', 1, 1)`,
+		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing,
+		 first_seen_at, last_seen_at) VALUES (1, 1, 1, '/m/1.mkv', 10, X'0c', 'listed', 1, 1)`,
+		`INSERT INTO file_probe (file_id, probe_json) VALUES (1, '{}')`,
 		`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, disposition_flags)
 		 VALUES (1, 1, 0, 'video', 'h264', 0)`)
 	failure := "Invalid data found"

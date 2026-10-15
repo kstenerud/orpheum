@@ -26,7 +26,8 @@ func TestChunks_AFilmWithNoIndexIsCutOnTimeAndItsPlaybackStaysSo(t *testing.T) {
 	harness.shelveFilms(t)
 	// A film cut on time is cut by its length, which its probe says: thirty seconds.
 	storetest.ExecRaw(t, harness.databasePath,
-		`UPDATE file SET probe_json = json_set(probe_json, '$.format.durationMs', 30000) WHERE id = 1`)
+		`UPDATE file_probe SET probe_json = json_set(probe_json, '$.format.durationMs', 30000),`+
+			` duration_ms = 30000 WHERE file_id = 1`)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
 	base := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
 	if early := harness.getBytePath(t, base+"master.m3u8", user, true, ""); early.status != http.StatusTooEarly {

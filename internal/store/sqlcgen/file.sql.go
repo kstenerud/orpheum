@@ -9,6 +9,16 @@ import (
 	"context"
 )
 
+const deleteFileNFO = `-- name: DeleteFileNFO :exec
+DELETE FROM file_nfo WHERE file_id = ?1
+`
+
+// A sidecar that is no NFO, or no longer one, keeps no bytes.
+func (q *Queries) DeleteFileNFO(ctx context.Context, fileID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteFileNFO, fileID)
+	return err
+}
+
 const deleteStreamsOfBytesFile = `-- name: DeleteStreamsOfBytesFile :exec
 DELETE FROM stream WHERE bytes_file = ?
 `
@@ -161,7 +171,7 @@ func (q *Queries) GetLiveFileByReportedPathRaw(ctx context.Context, arg GetLiveF
 }
 
 const getNFOBody = `-- name: GetNFOBody :one
-SELECT nfo_body FROM file WHERE id = ?
+SELECT file_nfo.body AS nfo_body FROM file LEFT JOIN file_nfo ON file_nfo.file_id = file.id WHERE file.id = ?
 `
 
 func (q *Queries) GetNFOBody(ctx context.Context, id int64) ([]byte, error) {
@@ -172,9 +182,11 @@ func (q *Queries) GetNFOBody(ctx context.Context, id int64) ([]byte, error) {
 }
 
 const getPlayableFile = `-- name: GetPlayableFile :one
-SELECT id, node_id, library_id, reported_path_raw, payload_hash, probe_json, size_bytes
+SELECT file.id, file.node_id, file.library_id, file.reported_path_raw, file.payload_hash, file_probe.probe_json,
+  file.size_bytes
 FROM file
-WHERE id = ? AND removed_at IS NULL AND filing IN ('listed', 'extra', 'unidentified')
+LEFT JOIN file_probe ON file_probe.file_id = file.id
+WHERE file.id = ? AND file.removed_at IS NULL AND file.filing IN ('listed', 'extra', 'unidentified')
 `
 
 type GetPlayableFileRow struct {
@@ -272,12 +284,12 @@ func (q *Queries) GetSubtitleStream(ctx context.Context, id int64) (GetSubtitleS
 const insertFile = `-- name: InsertFile :one
 INSERT INTO file (
   library_id, node_id, path, reported_path_raw, size_bytes, modified_at, payload_hash, payload_bytes,
-  filing, filing_reason, error_detail_json, probe_json, first_seen_at, last_seen_at, opensubtitles_hash
+  filing, filing_reason, error_detail_json, first_seen_at, last_seen_at, opensubtitles_hash
 ) VALUES (
   ?1, ?2, ?3, ?4, ?5,
   ?6, ?7, ?8, ?9,
-  ?10, ?11, ?12, ?13, ?13,
-  ?14
+  ?10, ?11, ?12, ?12,
+  ?13
 )
 RETURNING id
 `
@@ -294,7 +306,6 @@ type InsertFileParams struct {
 	Filing            string
 	FilingReason      *string
 	ErrorDetailJSON   *string
-	ProbeJSON         *string
 	SeenAt            int64
 	OpensubtitlesHash *string
 }
@@ -312,7 +323,6 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) (int64, 
 		arg.Filing,
 		arg.FilingReason,
 		arg.ErrorDetailJSON,
-		arg.ProbeJSON,
 		arg.SeenAt,
 		arg.OpensubtitlesHash,
 	)
@@ -324,11 +334,11 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) (int64, 
 const insertSidecarFile = `-- name: InsertSidecarFile :one
 INSERT INTO file (
   library_id, node_id, path, reported_path_raw, size_bytes, modified_at, payload_hash, payload_bytes, filing,
-  filing_reason, sidecar_kind, nfo_body, first_seen_at, last_seen_at
+  filing_reason, sidecar_kind, first_seen_at, last_seen_at
 ) VALUES (
   ?1, ?2, ?3, ?4, ?5,
   ?6, ?7, ?8, 'attached', ?9,
-  ?10, ?11, ?12, ?12
+  ?10, ?11, ?11
 )
 RETURNING id
 `
@@ -344,7 +354,6 @@ type InsertSidecarFileParams struct {
 	PayloadBytes    *int64
 	FilingReason    *string
 	SidecarKind     *string
-	NFOBody         []byte
 	SeenAt          int64
 }
 
@@ -362,7 +371,6 @@ func (q *Queries) InsertSidecarFile(ctx context.Context, arg InsertSidecarFilePa
 		arg.PayloadBytes,
 		arg.FilingReason,
 		arg.SidecarKind,
-		arg.NFOBody,
 		arg.SeenAt,
 	)
 	var id int64
@@ -498,7 +506,7 @@ func (q *Queries) ListFilesAHeldBackScanDidNotSee(ctx context.Context, arg ListF
 const listFilesToCompare = `-- name: ListFilesToCompare :many
 SELECT id, reported_path_raw, size_bytes, modified_at, filing, sidecar_kind, is_identity_confirmed,
        CAST(payload_hash IS NOT NULL AS INTEGER) AS has_payload_hash,
-       CAST(nfo_body IS NOT NULL AS INTEGER) AS has_nfo_body
+       CAST(EXISTS (SELECT 1 FROM file_nfo WHERE file_nfo.file_id = file.id) AS INTEGER) AS has_nfo_body
 FROM file
 WHERE node_id = ?1 AND library_id = ?2 AND removed_at IS NULL
 `
@@ -1083,10 +1091,9 @@ UPDATE file SET
   filing_reason = CASE WHEN filing IN ('skipped', 'errored') THEN ?8
                   ELSE filing_reason END,
   error_detail_json = NULL,
-  probe_json = ?9,
-  opensubtitles_hash = ?10,
-  last_seen_at = ?11
-WHERE id = ?12
+  opensubtitles_hash = ?9,
+  last_seen_at = ?10
+WHERE id = ?11
 `
 
 type UpdateObservedFileParams struct {
@@ -1098,7 +1105,6 @@ type UpdateObservedFileParams struct {
 	PayloadHash        []byte
 	PayloadBytes       *int64
 	UnidentifiedReason *string
-	ProbeJSON          *string
 	OpensubtitlesHash  *string
 	SeenAt             int64
 	ID                 int64
@@ -1116,7 +1122,6 @@ func (q *Queries) UpdateObservedFile(ctx context.Context, arg UpdateObservedFile
 		arg.PayloadHash,
 		arg.PayloadBytes,
 		arg.UnidentifiedReason,
-		arg.ProbeJSON,
 		arg.OpensubtitlesHash,
 		arg.SeenAt,
 		arg.ID,
@@ -1130,9 +1135,8 @@ UPDATE file SET
   modified_at = ?3, payload_hash = ?4, payload_bytes = ?5,
   filing = 'attached', sidecar_kind = ?6, filing_reason = ?7,
   error_detail_json = NULL,
-  nfo_body = ?8,
-  last_seen_at = ?9
-WHERE id = ?10
+  last_seen_at = ?8
+WHERE id = ?9
 `
 
 type UpdateSidecarFileParams struct {
@@ -1143,7 +1147,6 @@ type UpdateSidecarFileParams struct {
 	PayloadBytes *int64
 	SidecarKind  *string
 	FilingReason *string
-	NFOBody      []byte
 	SeenAt       int64
 	ID           int64
 }
@@ -1157,7 +1160,6 @@ func (q *Queries) UpdateSidecarFile(ctx context.Context, arg UpdateSidecarFilePa
 		arg.PayloadBytes,
 		arg.SidecarKind,
 		arg.FilingReason,
-		arg.NFOBody,
 		arg.SeenAt,
 		arg.ID,
 	)
@@ -1188,6 +1190,41 @@ func (q *Queries) UpdateSidecarStream(ctx context.Context, arg UpdateSidecarStre
 		arg.DispositionFlags,
 		arg.ID,
 	)
+	return err
+}
+
+const upsertFileNFO = `-- name: UpsertFileNFO :exec
+INSERT INTO file_nfo (file_id, body) VALUES (?1, ?2)
+ON CONFLICT (file_id) DO UPDATE SET body = excluded.body WHERE file_nfo.body IS NOT excluded.body
+`
+
+type UpsertFileNFOParams struct {
+	FileID int64
+	Body   []byte
+}
+
+// An NFO's bytes, written only when they changed (D303, DL9).
+func (q *Queries) UpsertFileNFO(ctx context.Context, arg UpsertFileNFOParams) error {
+	_, err := q.db.ExecContext(ctx, upsertFileNFO, arg.FileID, arg.Body)
+	return err
+}
+
+const upsertFileProbe = `-- name: UpsertFileProbe :exec
+INSERT INTO file_probe (file_id, probe_json, duration_ms)
+VALUES (?1, ?2, ?3)
+ON CONFLICT (file_id) DO UPDATE SET probe_json = excluded.probe_json, duration_ms = excluded.duration_ms
+WHERE file_probe.probe_json IS NOT excluded.probe_json OR file_probe.duration_ms IS NOT excluded.duration_ms
+`
+
+type UpsertFileProbeParams struct {
+	FileID     int64
+	ProbeJSON  string
+	DurationMs int64
+}
+
+// A file's probe, and its duration, written only when they changed (D303, DL9).
+func (q *Queries) UpsertFileProbe(ctx context.Context, arg UpsertFileProbeParams) error {
+	_, err := q.db.ExecContext(ctx, upsertFileProbe, arg.FileID, arg.ProbeJSON, arg.DurationMs)
 	return err
 }
 

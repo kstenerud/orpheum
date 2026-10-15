@@ -52,25 +52,38 @@ func (batch *ingestBatch) recordSidecar(ctx context.Context, scan *scanState, si
 		err = batch.queries.UpdateSidecarFile(ctx, sqlcgen.UpdateSidecarFileParams{
 			LibraryID: scan.libraryID, SizeBytes: &sidecar.SizeBytes, ModifiedAt: &sidecar.ModifiedAt,
 			PayloadHash: hash, PayloadBytes: payloadBytes, SidecarKind: &kind,
-			FilingReason: &reason,
-			NFOBody:      sidecar.NFOBody, SeenAt: batch.nowMs, ID: existing.ID,
+			FilingReason: &reason, SeenAt: batch.nowMs, ID: existing.ID,
 		})
 		if err != nil {
 			return fmt.Errorf("update the sidecar %s: %w", located.text, err)
 		}
-		return nil
+		return batch.keepNFO(ctx, existing.ID, located.text, sidecar.NFOBody)
 	}
 	if !errors.Is(err, store.ErrNotFound) {
 		return err
 	}
-	_, err = batch.queries.InsertSidecarFile(ctx, sqlcgen.InsertSidecarFileParams{
+	id, err := batch.queries.InsertSidecarFile(ctx, sqlcgen.InsertSidecarFileParams{
 		LibraryID: scan.libraryID, NodeID: batch.nodeID, Path: located.text, ReportedPathRaw: located.reportedBytes,
 		SizeBytes: &sidecar.SizeBytes, ModifiedAt: &sidecar.ModifiedAt, PayloadHash: hash, PayloadBytes: payloadBytes,
-		SidecarKind: &kind, FilingReason: &reason,
-		NFOBody: sidecar.NFOBody, SeenAt: batch.nowMs,
+		SidecarKind: &kind, FilingReason: &reason, SeenAt: batch.nowMs,
 	})
 	if err != nil {
 		return fmt.Errorf("insert the sidecar %s: %w", located.text, err)
+	}
+	return batch.keepNFO(ctx, id, located.text, sidecar.NFOBody)
+}
+
+// keepNFO keeps an NFO's bytes beside its row, written only when they changed, and none for a
+// sidecar that is no NFO (D303, M8).
+func (batch *ingestBatch) keepNFO(ctx context.Context, id int64, located string, body []byte) error {
+	var err error
+	if body == nil {
+		err = batch.queries.DeleteFileNFO(ctx, id)
+	} else {
+		err = batch.queries.UpsertFileNFO(ctx, sqlcgen.UpsertFileNFOParams{FileID: id, Body: body})
+	}
+	if err != nil {
+		return fmt.Errorf("keep the NFO of %s: %w", located, err)
 	}
 	return nil
 }
