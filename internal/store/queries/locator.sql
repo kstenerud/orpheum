@@ -6,7 +6,9 @@
 -- The session's locator, replacing the one it had: each visit gets a fresh one.
 INSERT INTO locator (session_secret_sha256, hash, issued_at)
 VALUES (sqlc.arg(session_secret_sha256), sqlc.arg(hash), sqlc.arg(issued_at))
-ON CONFLICT (session_secret_sha256) DO UPDATE SET hash = excluded.hash, issued_at = excluded.issued_at;
+ON CONFLICT (session_secret_sha256) DO UPDATE SET hash = excluded.hash, issued_at = excluded.issued_at
+-- Only when it changes something (D303, DL9).
+WHERE (locator.hash, locator.issued_at) IS NOT (excluded.hash, excluded.issued_at);
 
 -- name: ListLiveLocators :many
 -- The locators of every live session: not revoked, and used since idle_since.

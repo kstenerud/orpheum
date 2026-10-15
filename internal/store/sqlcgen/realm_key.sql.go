@@ -64,6 +64,8 @@ const setRealmKey = `-- name: SetRealmKey :exec
 INSERT INTO realm_key (user_id, master_realm, key, made_at)
 VALUES (?1, ?2, ?3, ?4)
 ON CONFLICT (user_id) DO UPDATE SET master_realm = excluded.master_realm, key = excluded.key, made_at = excluded.made_at
+WHERE (realm_key.master_realm, realm_key.key, realm_key.made_at)
+  IS NOT (excluded.master_realm, excluded.key, excluded.made_at)
 `
 
 type SetRealmKeyParams struct {
@@ -77,6 +79,7 @@ type SetRealmKeyParams struct {
 // Realm keys: what a person's realm sign-in is proven by, both ways, one per person, made for the
 // master realm the core's host holds (D297 section 3).
 // The person's key, replacing the one they had: a new password or a new master realm makes another.
+// Only when it changes something (D303, DL9).
 func (q *Queries) SetRealmKey(ctx context.Context, arg SetRealmKeyParams) error {
 	_, err := q.db.ExecContext(ctx, setRealmKey,
 		arg.UserID,

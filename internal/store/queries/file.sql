@@ -87,7 +87,9 @@ UPDATE file SET removed_at = sqlc.arg(removed_at) WHERE id = sqlc.arg(id);
 -- name: UpsertRootScan :exec
 INSERT INTO root_scan (node_id, root_path, completed_at)
 VALUES (sqlc.arg(node_id), sqlc.arg(root_path), sqlc.arg(completed_at))
-ON CONFLICT (node_id, root_path) DO UPDATE SET completed_at = excluded.completed_at;
+ON CONFLICT (node_id, root_path) DO UPDATE SET completed_at = excluded.completed_at
+-- Only when it changes something (D303, DL9).
+WHERE (root_scan.completed_at) IS NOT (excluded.completed_at);
 
 -- name: DeleteStreamsOfBytesFile :exec
 DELETE FROM stream WHERE bytes_file = ?;
@@ -103,7 +105,12 @@ VALUES (
 ON CONFLICT (bytes_file, stream_index) DO UPDATE SET
   video_file = excluded.video_file, kind = excluded.kind, codec = excluded.codec, container_language = excluded.container_language,
   language = excluded.language, container_title = excluded.container_title, disposition_flags = excluded.disposition_flags,
-  channel_count = excluded.channel_count;
+  channel_count = excluded.channel_count
+-- Only when it changes something (D303, DL9).
+WHERE (stream.video_file, stream.kind, stream.codec, stream.container_language, stream.language,
+  stream.container_title, stream.disposition_flags, stream.channel_count)
+  IS NOT (excluded.video_file, excluded.kind, excluded.codec, excluded.container_language, excluded.language,
+    excluded.container_title, excluded.disposition_flags, excluded.channel_count);
 
 -- name: DeleteStreamsOfBytesFileNotIn :exec
 -- A video's own tracks whose stream index its probe no longer has.

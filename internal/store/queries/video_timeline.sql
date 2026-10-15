@@ -27,7 +27,16 @@ ON CONFLICT (payload_hash, video_stream_index) DO UPDATE SET
       AND excluded.failure IS NOT NULL THEN excluded.failure
     WHEN excluded.bytes_in_each_second_json <> '[]' THEN NULL
     ELSE video_timeline.read_failure END,
-  made_at = excluded.made_at;
+  made_at = excluded.made_at
+-- Only when it changes something (D303, DL9).
+WHERE (video_timeline.keyframes_ms_json, video_timeline.bytes_in_each_second_json, video_timeline.failure,
+  video_timeline.read_failure, video_timeline.made_at)
+  IS NOT (
+    CASE WHEN video_timeline.keyframes_ms_json = '[]' THEN excluded.keyframes_ms_json ELSE video_timeline.keyframes_ms_json END,
+    CASE WHEN excluded.bytes_in_each_second_json = '[]' THEN video_timeline.bytes_in_each_second_json ELSE excluded.bytes_in_each_second_json END,
+    CASE WHEN video_timeline.keyframes_ms_json = '[]' THEN excluded.failure ELSE video_timeline.failure END,
+    CASE WHEN video_timeline.keyframes_ms_json <> '[]' AND video_timeline.bytes_in_each_second_json = '[]' AND excluded.failure IS NOT NULL THEN excluded.failure WHEN excluded.bytes_in_each_second_json <> '[]' THEN NULL ELSE video_timeline.read_failure END,
+    excluded.made_at);
 
 -- name: DeleteVideoTimelineFailedBefore :execrows
 -- A person's play tries again what failed before they pressed play: the failure goes, and the

@@ -11,6 +11,7 @@ sql:
     queries: internal/store/queries
     rules:
       - no-unbounded-write
+      - upsert-only-if-changed
     gen:
       go:
         package: sqlcgen
@@ -46,6 +47,7 @@ sql:
     queries: internal/store/cache/queries
     rules:
       - no-unbounded-write
+      - upsert-only-if-changed
     gen:
       go:
         package: cachegen
@@ -71,3 +73,12 @@ rules:
     rule: >-
       query.sql.matches("(?is)^(\\s|--[^\\n]*\\n)*(update|delete)\\b")
       && !query.sql.matches("(?is)\\bwhere\\b")
+  # D303 (DL9): SQLite rewrites a row an upsert's DO UPDATE names, and fires its triggers, whatever
+  # the values; a write that changes nothing must write nothing. A query whose upsert must touch
+  # the row regardless (one that returns it) opts out with `-- @sqlc-vet-disable
+  # upsert-only-if-changed` and says why.
+  - name: upsert-only-if-changed
+    message: "an ON CONFLICT DO UPDATE with no WHERE rewrites the row, and fires its triggers, even when nothing changed; guard it with WHERE (columns) IS NOT (new values) (standards/sql.md section 13, DL9)"
+    rule: >-
+      query.sql.matches("(?is)\\bdo\\s+update\\b")
+      && !query.sql.matches("(?is)\\bdo\\s+update\\b.*\\bwhere\\b")

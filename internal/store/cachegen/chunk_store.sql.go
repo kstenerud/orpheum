@@ -26,7 +26,9 @@ type EnsureChunkStoreParams struct {
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // A chunk store (D247 section 10): one stream of a film on one grid, which its make_chunks jobs
 // target, so the runs of a film's streams queue side by side (internal/core/chunks).
-// The store's row, made the first time it is named.
+// The store's row, made the first time it is named. Its DO UPDATE sets a column to itself so that
+// RETURNING gives the id of a row already there, which a guard would stop it returning.
+// @sqlc-vet-disable upsert-only-if-changed
 func (q *Queries) EnsureChunkStore(ctx context.Context, arg EnsureChunkStoreParams) (int64, error) {
 	row := q.db.QueryRowContext(ctx, ensureChunkStore, arg.SourceFile, arg.Stream, arg.GridID)
 	var id int64

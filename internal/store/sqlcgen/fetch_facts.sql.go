@@ -102,6 +102,7 @@ const recordFetchFailure = `-- name: RecordFetchFailure :exec
 INSERT INTO fetch_failure (item_id, failure, failed_at)
 VALUES (?1, ?2, ?3)
 ON CONFLICT (item_id) DO UPDATE SET failure = excluded.failure, failed_at = excluded.failed_at
+WHERE (fetch_failure.failure, fetch_failure.failed_at) IS NOT (excluded.failure, excluded.failed_at)
 `
 
 type RecordFetchFailureParams struct {
@@ -116,6 +117,7 @@ type RecordFetchFailureParams struct {
 // fetched, and a person's request to fetch it again.
 // A fetch that failed through the item's own fault, its last attempt included (D231 section 10):
 // the sweeps pass the item over until a person's refresh, or a fetch that succeeds, clears it.
+// Only when it changes something (D303, DL9).
 func (q *Queries) RecordFetchFailure(ctx context.Context, arg RecordFetchFailureParams) error {
 	_, err := q.db.ExecContext(ctx, recordFetchFailure, arg.ItemID, arg.Failure, arg.FailedAt)
 	return err
@@ -126,6 +128,8 @@ INSERT INTO refresh_request (item_id, requested_at, should_fetch_images)
 VALUES (?1, ?2, ?3)
 ON CONFLICT (item_id) DO UPDATE SET requested_at = excluded.requested_at,
   should_fetch_images = max(refresh_request.should_fetch_images, excluded.should_fetch_images)
+WHERE (refresh_request.requested_at, refresh_request.should_fetch_images)
+  IS NOT (excluded.requested_at, max(refresh_request.should_fetch_images, excluded.should_fetch_images))
 `
 
 type RequestRefreshParams struct {
@@ -136,6 +140,7 @@ type RequestRefreshParams struct {
 
 // A person's refresh (D213 section 2): the newest request's time, asking for the images again if
 // this one or one still waiting does.
+// Only when it changes something (D303, DL9).
 func (q *Queries) RequestRefresh(ctx context.Context, arg RequestRefreshParams) error {
 	_, err := q.db.ExecContext(ctx, requestRefresh, arg.ItemID, arg.RequestedAt, arg.ShouldFetchImages)
 	return err

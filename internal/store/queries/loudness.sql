@@ -15,4 +15,9 @@ VALUES (sqlc.arg(payload_hash), sqlc.arg(stream_index), sqlc.arg(measured_mix), 
   sqlc.arg(range_lu), sqlc.arg(true_peak_dbtp), sqlc.arg(failure), sqlc.arg(measured_at))
 ON CONFLICT (payload_hash, stream_index, measured_mix) DO UPDATE SET
   integrated_lufs = excluded.integrated_lufs, range_lu = excluded.range_lu,
-  true_peak_dbtp = excluded.true_peak_dbtp, failure = excluded.failure, measured_at = excluded.measured_at;
+  true_peak_dbtp = excluded.true_peak_dbtp, failure = excluded.failure, measured_at = excluded.measured_at
+-- Only when it changes something (D303, DL9).
+WHERE (loudness.integrated_lufs, loudness.range_lu, loudness.true_peak_dbtp, loudness.failure,
+  loudness.measured_at)
+  IS NOT (excluded.integrated_lufs, excluded.range_lu, excluded.true_peak_dbtp, excluded.failure,
+    excluded.measured_at);

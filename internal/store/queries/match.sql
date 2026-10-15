@@ -23,7 +23,10 @@ INSERT INTO provider_response (item_id, provider, part, fetched_at, last_asked_a
 VALUES (sqlc.arg(item_id), sqlc.arg(provider), sqlc.arg(part), sqlc.arg(fetched_at), sqlc.arg(fetched_at),
         sqlc.arg(body_gzip))
 ON CONFLICT (item_id, provider, part) DO UPDATE
-SET fetched_at = excluded.fetched_at, last_asked_at = excluded.last_asked_at, body_gzip = excluded.body_gzip;
+SET fetched_at = excluded.fetched_at, last_asked_at = excluded.last_asked_at, body_gzip = excluded.body_gzip
+-- Only when it changes something (D303, DL9).
+WHERE (provider_response.fetched_at, provider_response.last_asked_at, provider_response.body_gzip)
+  IS NOT (excluded.fetched_at, excluded.last_asked_at, excluded.body_gzip);
 
 -- name: DeleteSeasonListings :exec
 -- A series' stored season listings, dropped as a person chooses its match, which may be another
@@ -110,7 +113,11 @@ WHERE item_id = sqlc.arg(item_id) AND provider = sqlc.arg(provider);
 INSERT INTO field_override (item_id, field, language, override_value, origin, set_by_user_id, set_at)
 VALUES (sqlc.arg(item_id), sqlc.arg(field), '', sqlc.arg(override_value), 'typed', sqlc.arg(set_by_user_id), sqlc.arg(set_at))
 ON CONFLICT (item_id, field, language) DO UPDATE SET
-  override_value = excluded.override_value, origin = excluded.origin, set_by_user_id = excluded.set_by_user_id, set_at = excluded.set_at;
+  override_value = excluded.override_value, origin = excluded.origin, set_by_user_id = excluded.set_by_user_id, set_at = excluded.set_at
+-- Only when it changes something (D303, DL9).
+WHERE (field_override.override_value, field_override.origin, field_override.set_by_user_id,
+  field_override.set_at)
+  IS NOT (excluded.override_value, excluded.origin, excluded.set_by_user_id, excluded.set_at);
 
 -- name: DeleteOverride :execrows
 -- Removing an override is how a field returns to its source (D183). A person's correction is not

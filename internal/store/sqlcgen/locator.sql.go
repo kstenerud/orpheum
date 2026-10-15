@@ -68,6 +68,7 @@ const setLocator = `-- name: SetLocator :exec
 INSERT INTO locator (session_secret_sha256, hash, issued_at)
 VALUES (?1, ?2, ?3)
 ON CONFLICT (session_secret_sha256) DO UPDATE SET hash = excluded.hash, issued_at = excluded.issued_at
+WHERE (locator.hash, locator.issued_at) IS NOT (excluded.hash, excluded.issued_at)
 `
 
 type SetLocatorParams struct {
@@ -80,6 +81,7 @@ type SetLocatorParams struct {
 // Device locators: what a signed-in device finds its core by at a discovery, one per session, kept
 // as their hashes (discovery-core.md K7; the discovery protocol's section 3.1).
 // The session's locator, replacing the one it had: each visit gets a fresh one.
+// Only when it changes something (D303, DL9).
 func (q *Queries) SetLocator(ctx context.Context, arg SetLocatorParams) error {
 	_, err := q.db.ExecContext(ctx, setLocator, arg.SessionSecretSha256, arg.Hash, arg.IssuedAt)
 	return err

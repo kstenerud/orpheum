@@ -78,6 +78,14 @@ ON CONFLICT (payload_hash, video_stream_index) DO UPDATE SET
     WHEN excluded.bytes_in_each_second_json <> '[]' THEN NULL
     ELSE video_timeline.read_failure END,
   made_at = excluded.made_at
+WHERE (video_timeline.keyframes_ms_json, video_timeline.bytes_in_each_second_json, video_timeline.failure,
+  video_timeline.read_failure, video_timeline.made_at)
+  IS NOT (
+    CASE WHEN video_timeline.keyframes_ms_json = '[]' THEN excluded.keyframes_ms_json ELSE video_timeline.keyframes_ms_json END,
+    CASE WHEN excluded.bytes_in_each_second_json = '[]' THEN video_timeline.bytes_in_each_second_json ELSE excluded.bytes_in_each_second_json END,
+    CASE WHEN video_timeline.keyframes_ms_json = '[]' THEN excluded.failure ELSE video_timeline.failure END,
+    CASE WHEN video_timeline.keyframes_ms_json <> '[]' AND video_timeline.bytes_in_each_second_json = '[]' AND excluded.failure IS NOT NULL THEN excluded.failure WHEN excluded.bytes_in_each_second_json <> '[]' THEN NULL ELSE video_timeline.read_failure END,
+    excluded.made_at)
 `
 
 type UpsertVideoTimelineParams struct {
@@ -93,6 +101,7 @@ type UpsertVideoTimelineParams struct {
 // later read through adds its bytes in each second, and a failure of one is kept as read_failure,
 // the film still cut on its keyframes, so the sweep does not read it again (D259 section 2, D270
 // section 1); a read through that succeeds clears it.
+// Only when it changes something (D303, DL9).
 func (q *Queries) UpsertVideoTimeline(ctx context.Context, arg UpsertVideoTimelineParams) error {
 	_, err := q.db.ExecContext(ctx, upsertVideoTimeline,
 		arg.PayloadHash,

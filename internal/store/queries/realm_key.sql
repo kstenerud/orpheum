@@ -6,7 +6,10 @@
 -- The person's key, replacing the one they had: a new password or a new master realm makes another.
 INSERT INTO realm_key (user_id, master_realm, key, made_at)
 VALUES (sqlc.arg(user_id), sqlc.arg(master_realm), sqlc.arg(key), sqlc.arg(made_at))
-ON CONFLICT (user_id) DO UPDATE SET master_realm = excluded.master_realm, key = excluded.key, made_at = excluded.made_at;
+ON CONFLICT (user_id) DO UPDATE SET master_realm = excluded.master_realm, key = excluded.key, made_at = excluded.made_at
+-- Only when it changes something (D303, DL9).
+WHERE (realm_key.master_realm, realm_key.key, realm_key.made_at)
+  IS NOT (excluded.master_realm, excluded.key, excluded.made_at);
 
 -- name: ListLiveRealmKeys :many
 -- Every live person's key made for the master realm, with their name: a sign-in names its person by

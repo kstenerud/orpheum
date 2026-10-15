@@ -116,6 +116,7 @@ const setPreference = `-- name: SetPreference :exec
 INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6)
 ON CONFLICT (user_id, scope, scope_id, axis) DO UPDATE SET value_json = excluded.value_json, set_at = excluded.set_at
+WHERE (preference.value_json, preference.set_at) IS NOT (excluded.value_json, excluded.set_at)
 `
 
 type SetPreferenceParams struct {
@@ -130,6 +131,7 @@ type SetPreferenceParams struct {
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // A person's preferences (schema.md, preference; D24, D90, D230): one value per axis at a scope.
 // A value set equal to the starting one is still a choice, so it is stored, never deleted.
+// Only when it changes something (D303, DL9).
 func (q *Queries) SetPreference(ctx context.Context, arg SetPreferenceParams) error {
 	_, err := q.db.ExecContext(ctx, setPreference,
 		arg.UserID,

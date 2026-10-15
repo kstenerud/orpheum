@@ -53,6 +53,9 @@
 //   - Every statement either database runs, search's included, counts by its query's name into the
 //     querytally.Tally its context carries, and every write transaction counts once (D303, DL6).
 //     Enforced by TestTally_CountsEveryStatementByItsNameAndEveryWrite.
+//   - Every upsert writes only when it changes something, unless its query opts out and says why
+//     (D303, DL9). Enforced by sqlc vet's upsert-only-if-changed rule and
+//     TestUpserts_EachWritesOnlyWhenItChangesSomething.
 //   - A fresh schema equals testdata/golden/schema-vNNNN.sql for the current version, and the
 //     baseline alone the golden for its version. Enforced by TestMigrate_FreshSchemaEqualsTheGolden.
 //   - Each step commits alone, so an interrupted migration resumes and ends identical; a step

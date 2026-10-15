@@ -14,9 +14,10 @@ import (
 
 // listQuery is one of the store's queries, as its file writes it.
 type listQuery struct {
-	name string
-	kind string // sqlc's command: one, many, exec…
-	sql  string
+	name    string
+	kind    string // sqlc's command: one, many, exec…
+	sql     string
+	comment string // its comment lines, which say why it reads or writes as it does
 }
 
 var (
@@ -49,15 +50,17 @@ func queriesIn(t *testing.T, directory string) []listQuery {
 			if index+1 < len(marks) {
 				end = marks[index+1][0]
 			}
-			var body []string
+			var body, comment []string
 			for line := range strings.SplitSeq(string(text[mark[1]:end]), "\n") {
-				if !strings.HasPrefix(strings.TrimSpace(line), "--") {
+				if strings.HasPrefix(strings.TrimSpace(line), "--") {
+					comment = append(comment, line)
+				} else {
 					body = append(body, line)
 				}
 			}
 			found = append(found, listQuery{
 				name: string(text[mark[2]:mark[3]]), kind: string(text[mark[4]:mark[5]]),
-				sql: queryArg.ReplaceAllString(strings.Join(body, "\n"), "?"),
+				sql: queryArg.ReplaceAllString(strings.Join(body, "\n"), "?"), comment: strings.Join(comment, "\n"),
 			})
 		}
 	}

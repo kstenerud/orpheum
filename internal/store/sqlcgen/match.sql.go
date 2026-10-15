@@ -427,6 +427,9 @@ INSERT INTO field_override (item_id, field, language, override_value, origin, se
 VALUES (?1, ?2, '', ?3, 'typed', ?4, ?5)
 ON CONFLICT (item_id, field, language) DO UPDATE SET
   override_value = excluded.override_value, origin = excluded.origin, set_by_user_id = excluded.set_by_user_id, set_at = excluded.set_at
+WHERE (field_override.override_value, field_override.origin, field_override.set_by_user_id,
+  field_override.set_at)
+  IS NOT (excluded.override_value, excluded.origin, excluded.set_by_user_id, excluded.set_at)
 `
 
 type UpsertOverrideParams struct {
@@ -438,6 +441,7 @@ type UpsertOverrideParams struct {
 }
 
 // A person's value for a field: the lock, kept over every source (D183).
+// Only when it changes something (D303, DL9).
 func (q *Queries) UpsertOverride(ctx context.Context, arg UpsertOverrideParams) error {
 	_, err := q.db.ExecContext(ctx, upsertOverride,
 		arg.ItemID,
@@ -455,6 +459,8 @@ VALUES (?1, ?2, ?3, ?4, ?4,
         ?5)
 ON CONFLICT (item_id, provider, part) DO UPDATE
 SET fetched_at = excluded.fetched_at, last_asked_at = excluded.last_asked_at, body_gzip = excluded.body_gzip
+WHERE (provider_response.fetched_at, provider_response.last_asked_at, provider_response.body_gzip)
+  IS NOT (excluded.fetched_at, excluded.last_asked_at, excluded.body_gzip)
 `
 
 type UpsertProviderResponseParams struct {
@@ -466,6 +472,7 @@ type UpsertProviderResponseParams struct {
 }
 
 // A body fetched is a body asked for: both times are the fetch's.
+// Only when it changes something (D303, DL9).
 func (q *Queries) UpsertProviderResponse(ctx context.Context, arg UpsertProviderResponseParams) error {
 	_, err := q.db.ExecContext(ctx, upsertProviderResponse,
 		arg.ItemID,

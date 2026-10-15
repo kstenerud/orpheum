@@ -34,6 +34,7 @@ const markGuessedMatch = `-- name: MarkGuessedMatch :exec
 
 INSERT INTO guessed_match (item_id, guessed_at) VALUES (?1, ?2)
 ON CONFLICT (item_id) DO UPDATE SET guessed_at = excluded.guessed_at
+WHERE (guessed_match.guessed_at) IS NOT (excluded.guessed_at)
 `
 
 type MarkGuessedMatchParams struct {
@@ -44,6 +45,7 @@ type MarkGuessedMatchParams struct {
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // A match the matcher guessed among several whose names match, marked until a person confirms or
 // corrects it (D301 section 4).
+// Only when it changes something (D303, DL9).
 func (q *Queries) MarkGuessedMatch(ctx context.Context, arg MarkGuessedMatchParams) error {
 	_, err := q.db.ExecContext(ctx, markGuessedMatch, arg.ItemID, arg.GuessedAt)
 	return err

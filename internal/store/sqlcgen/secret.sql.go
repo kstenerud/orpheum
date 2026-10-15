@@ -162,6 +162,10 @@ VALUES (?1, ?2, ?3, ?4, ?5,
 ON CONFLICT (scope, ifnull(user_id, 0), name)
 DO UPDATE SET key_id = excluded.key_id, nonce = excluded.nonce, ciphertext = excluded.ciphertext,
               last_chars = excluded.last_chars, set_by_user_id = excluded.set_by_user_id, set_at = excluded.set_at
+WHERE (secret.key_id, secret.nonce, secret.ciphertext, secret.last_chars, secret.set_by_user_id,
+  secret.set_at)
+  IS NOT (excluded.key_id, excluded.nonce, excluded.ciphertext, excluded.last_chars, excluded.set_by_user_id,
+    excluded.set_at)
 `
 
 type UpsertSealedSecretParams struct {
@@ -176,6 +180,7 @@ type UpsertSealedSecretParams struct {
 	SetAt       int64
 }
 
+// Only when it changes something (D303, DL9).
 func (q *Queries) UpsertSealedSecret(ctx context.Context, arg UpsertSealedSecretParams) error {
 	_, err := q.db.ExecContext(ctx, upsertSealedSecret,
 		arg.Scope,

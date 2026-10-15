@@ -161,7 +161,9 @@ VALUES (sqlc.arg(id), sqlc.arg(kind), 'explicit', sqlc.arg(created_by));
 -- name: UpsertCollectionMember :exec
 INSERT INTO collection_member (collection_id, member_title, position)
 VALUES (sqlc.arg(collection_id), sqlc.arg(member_title), sqlc.arg(position))
-ON CONFLICT (collection_id, member_title) DO UPDATE SET position = excluded.position;
+ON CONFLICT (collection_id, member_title) DO UPDATE SET position = excluded.position
+-- Only when it changes something (D303, DL9).
+WHERE (collection_member.position) IS NOT (excluded.position);
 
 -- name: GetOrdering :one
 SELECT id FROM ordering WHERE collection_id = ? AND name = ?;
@@ -174,7 +176,10 @@ RETURNING id;
 INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order)
 VALUES (sqlc.arg(ordering_id), sqlc.arg(title_id), sqlc.arg(group_number), sqlc.arg(number_in_group), sqlc.arg(sort_order))
 ON CONFLICT (ordering_id, title_id) DO UPDATE SET group_number = excluded.group_number, number_in_group = excluded.number_in_group,
-  sort_order = excluded.sort_order;
+  sort_order = excluded.sort_order
+-- Only when it changes something (D303, DL9).
+WHERE (position.group_number, position.number_in_group, position.sort_order)
+  IS NOT (excluded.group_number, excluded.number_in_group, excluded.sort_order);
 
 -- name: ListSeriesEpisodePlaces :many
 -- A series' episodes in its aired order: the live ones, and those hidden with a deleted library,

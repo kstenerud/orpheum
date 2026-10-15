@@ -14,7 +14,10 @@ FROM subtitle_text WHERE source_hash = ? AND stream_index = ?;
 INSERT INTO subtitle_text (source_hash, stream_index, ass, vtt, failure, made_at)
 VALUES (sqlc.arg(source_hash), sqlc.arg(stream_index), sqlc.arg(ass), sqlc.arg(vtt), sqlc.arg(failure), sqlc.arg(made_at))
 ON CONFLICT (source_hash, stream_index) DO UPDATE SET
-  ass = excluded.ass, vtt = excluded.vtt, failure = excluded.failure, made_at = excluded.made_at;
+  ass = excluded.ass, vtt = excluded.vtt, failure = excluded.failure, made_at = excluded.made_at
+-- Only when it changes something (D303, DL9).
+WHERE (subtitle_text.ass, subtitle_text.vtt, subtitle_text.failure, subtitle_text.made_at)
+  IS NOT (excluded.ass, excluded.vtt, excluded.failure, excluded.made_at);
 
 -- name: ForgetSubtitleTextFailure :exec
 -- A play asks again for a track that could not be made: its failure goes while it is made again.
