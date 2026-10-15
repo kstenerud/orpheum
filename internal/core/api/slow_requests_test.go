@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/platform/querytally"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
@@ -59,5 +60,26 @@ func TestHandler_LogsASlowRequest(t *testing.T) {
 	server.Handler().ServeHTTP(httptest.NewRecorder(), request)
 	if !strings.Contains(logs.String(), `"path":"/api/v1/slow-for-the-test","tookMs":3000`) {
 		t.Errorf("the server's handler logged no slow request:\n%s", logs.String())
+	}
+}
+
+// A slow request's line names the database statements it ran and its writes (D303, DL17).
+func TestLoggingSlow_NamesTheStatementsASlowRequestRan(t *testing.T) {
+	t.Parallel()
+	logs := &testutil.Log{}
+	server := NewServer(slog.New(slog.NewJSONHandler(logs, nil)))
+	now := clocktest.NewFake(time.Date(2026, time.October, 15, 12, 0, 0, 0, time.UTC))
+	server.dependencies.Store(&Dependencies{Clock: now})
+	handler := server.loggingSlow(http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
+		tally := querytally.Of(request.Context())
+		tally.Count("-- name: GetLiveGrant :one")
+		tally.Count("-- name: ListTitles :many")
+		tally.CountWrite()
+		now.Advance(2 * time.Second)
+	}))
+	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequestWithContext(t.Context(), http.MethodGet,
+		Prefix+"/titles", nil))
+	if logged := logs.String(); !strings.Contains(logged, `"statements":"GetLiveGrant×1 ListTitles×1","writes":1`) {
+		t.Errorf("the slow request's line does not name its statements and writes:\n%s", logged)
 	}
 }

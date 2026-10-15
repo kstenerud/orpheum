@@ -17,6 +17,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/querytally"
 	"github.com/kstenerud/orpheum/internal/platform/waiting"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -184,7 +185,7 @@ var ErrClosed = errors.New("the database is closed")
 // Read returns the generated queries over the read-only pool. SQLite itself refuses a write
 // through it (query_only).
 func (database *Database) Read() *sqlcgen.Queries {
-	return sqlcgen.New(database.readers)
+	return sqlcgen.New(tallying{database.readers})
 }
 
 // ReadTx runs read in one read transaction on the reader pool: every query in it sees the database
@@ -192,7 +193,7 @@ func (database *Database) Read() *sqlcgen.Queries {
 // more than one query reads through it; Read's queries each see the latest commit.
 func (database *Database) ReadTx(ctx context.Context, read func(queries *sqlcgen.Queries) error) error {
 	return readTransaction(ctx, database.readers, func(transaction *sql.Tx) error {
-		return read(sqlcgen.New(transaction))
+		return read(sqlcgen.New(tallying{transaction}))
 	})
 }
 
@@ -214,12 +215,17 @@ func readTransaction(ctx context.Context, pool *sql.DB, read func(transaction *s
 // Write runs change in one write transaction, which begins IMMEDIATE on the single writer and
 // commits only if change returns nil.
 func (database *Database) Write(ctx context.Context, change func(queries *sqlcgen.Queries) error) error {
-	return database.transact(ctx, func(transaction *sql.Tx) error { return change(sqlcgen.New(transaction)) })
+	return database.transact(ctx, func(transaction *sql.Tx) error {
+		return change(sqlcgen.New(tallying{transaction}))
+	})
 }
 
 // transact runs change in one IMMEDIATE transaction on the single writer, which it takes through
 // the writer gate: a person's write before background work (D303, DL11).
 func (database *Database) transact(ctx context.Context, change func(transaction *sql.Tx) error) error {
+	if tally := querytally.Of(ctx); tally != nil {
+		tally.CountWrite()
+	}
 	if database.onReaderWrite != nil && waiting.IsAReader(ctx) {
 		database.onReaderWrite(database.slowWrites.file, callerOutsideTheStore())
 	}
