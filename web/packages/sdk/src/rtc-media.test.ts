@@ -9,6 +9,7 @@ import {
   isPathQueryMessage,
   responseFromPort,
   type FetchMessage,
+  isFetchedByTheWorker,
 } from "./rtc-media.ts";
 
 describe("media over the WebRTC path", () => {
@@ -79,5 +80,17 @@ describe("media over the WebRTC path", () => {
     expect(await askPathOf(carrying)).toBe("webrtc");
     const silent = { postMessage: () => undefined };
     expect(await askPathOf(silent, 20)).toBe("http");
+  });
+});
+
+describe("the loads the worker fetches itself", () => {
+  it("are those to another origin, as the core's own names are, never the page's own", () => {
+    const worker = "https://app.orpheum-app.com";
+    const lan = new URL("https://192-168-1-2.k7xq2.orpheum-core.com:8443/api/v1/me");
+    expect(isFetchedByTheWorker(lan, worker)).toBe(true);
+    expect(
+      isFetchedByTheWorker(new URL("https://app.orpheum-app.com/api/v1/titles/7/poster"), worker),
+    ).toBe(false);
+    expect(isFetchedByTheWorker(new URL("http://192.168.1.2:8440/api/v1/me"), worker)).toBe(false);
   });
 });

@@ -203,6 +203,14 @@ User-Agent (D263; the User-Agent is logged only).
   online, the page asks whether a better path answers now, so the LAN is moved to once the prompt is
   allowed (webrtc-transport.md W2c items 5 and 6). Asking the permission's state first (W2c item 1)
   and the line explaining the prompt (item 8) are still to come.
+- **And with a service worker:** even granted ("prompt action: auto_allow" in the console), every
+  request a page made to the LAN name failed once the page's service worker controlled it: the
+  health check and the sign-in, made before, went through; the core received each request after
+  and Firefox closed the connection (the core logging `http2: received GOAWAY`), the console saying
+  "CORS request did not succeed", and the page, on the public name, was offered no admin. Setting
+  `network.lna.blocking` to false made it work at once; Firefox misjudges a load a worker lets pass
+  ([Mozilla support 1594177](https://support.mozilla.org/de/questions/1594177)). The worker now
+  fetches every load to another origin itself (`isFetchedByTheWorker`, `web/apps/web/src/sw.ts`).
 - **Evidence:** nas.example's and staging's logs, 2026-10-15, Firefox 157 on macOS; [Mozilla bug
   2059274](https://bugzilla.mozilla.org/show_bug.cgi?id=2059274) on when Firefox asks;
   undoing a block: the site's permissions in the address bar, or `about:preferences#privacy`'s

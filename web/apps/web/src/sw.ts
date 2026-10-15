@@ -9,7 +9,9 @@
  */
 
 import {
+  fetchedByTheWorker,
   isClaimMessage,
+  isFetchedByTheWorker,
   isPathMessage,
   loadAfterAsking,
   mediaPathPrefix,
@@ -87,6 +89,10 @@ if (isWorkerScope(scope)) {
   });
   scope.addEventListener("fetch", (event) => {
     const url = new URL(event.request.url);
+    if (isFetchedByTheWorker(url, scope.location.origin)) {
+      event.respondWith(fetchedByTheWorker(event.request));
+      return;
+    }
     if (
       url.origin !== scope.location.origin ||
       !url.pathname.startsWith(mediaPathPrefix) ||
