@@ -33,16 +33,24 @@ import {
 /** How long the two talk before their voice is measured, as together.spec.ts lets them. */
 const talkForMs = 15_000;
 
-/** Starts `orpheum dev discovery` on a free loopback port, and is its process and its address. */
-async function startDiscovery(): Promise<{ process: ChildProcess; address: string }> {
+/**
+ * Starts `orpheum dev discovery` on a free loopback port, a paid discovery's realm when one is named,
+ * and is its process and its address.
+ */
+async function startDiscovery(realm?: string): Promise<{ process: ChildProcess; address: string }> {
   const binary = process.env["ORPHEUM_TEST_BINARY"];
   if (binary === undefined) {
     throw new Error("ORPHEUM_TEST_BINARY names no binary");
   }
   const state = mkdtempSync(path.join(tmpdir(), "orpheum-discovery-"));
-  const started = spawn(binary, ["dev", "discovery", "--listen", "127.0.0.1:0", "--state", state], {
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  const realmFlags = realm === undefined ? [] : ["--realm", realm];
+  const started = spawn(
+    binary,
+    ["dev", "discovery", "--listen", "127.0.0.1:0", "--state", state, ...realmFlags],
+    {
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
   let output = "";
   started.stderr.on("data", (chunk: Buffer) => {
     output += chunk.toString();
@@ -487,6 +495,49 @@ test("a guest not signed in keeps reaching the core through the discovery after 
   } finally {
     await hosting.context.close();
     await joining.context.close();
+    await api.delete(`${serverUrl()}/api/v1/system/discovery`, { headers: signedIn(token) });
+    await api.dispose();
+    discovery.process.kill();
+  }
+});
+
+/**
+ * A person with no link at a paid discovery's page (D297, D298): the discovery has the realm
+ * karlnas, and the owner, having signed in once with their password since the core was given it, has
+ * a realm key. On the page they type the realm, their name and their password, the discovery passes
+ * the sign-in to the core, the core's tag proves the answer its own, and the app opens signed in, the
+ * realm in its banner.
+ */
+test("a person with no link signs in at a paid discovery's page by realm, name and password", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const discovery = await startDiscovery("karlnas");
+  const api = await request.newContext();
+  const token = await ownersToken(api);
+  try {
+    await connectAndClaim(api, token, discovery.address);
+    // A sign-in with the password since the core has its realm makes the owner's realm key, and the
+    // sign-in waits for the core's signalling connection, as one long after its claim finds it.
+    await ownersToken(api);
+    await expect
+      .poll(
+        async () =>
+          fieldOf(await (await api.get(`${discovery.address}/dev/core`)).json(), "isOnline"),
+        {
+          timeout: 60_000,
+        },
+      )
+      .toBe(true);
+    await page.goto(discovery.address);
+    await page.getByLabel("Realm", { exact: true }).fill("KarlNAS");
+    await page.getByLabel("Name", { exact: true }).fill(owner.name);
+    await page.getByLabel("Password", { exact: true }).fill(owner.password);
+    await page.getByLabel("This is my own device: remember my realm").check();
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page.locator(".app-shell__realm")).toHaveText("karlnas", { timeout: 60_000 });
+    await expect(page.getByRole("link", { name: "Films" })).toBeVisible();
+  } finally {
     await api.delete(`${serverUrl()}/api/v1/system/discovery`, { headers: signedIn(token) });
     await api.dispose();
     discovery.process.kill();

@@ -86,6 +86,8 @@ export function AppShell(props: {
   /** Who is signed in, and on which device, once known: said in the banner. */
   readonly signedInAs:
     { readonly name: string; readonly deviceName: string | undefined } | undefined;
+  /** The realm the person signed in to the server by, when they did: shown in the banner (D297 §5). */
+  readonly realm?: string | undefined;
   readonly children: ReactNode;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -149,6 +151,7 @@ function BannerEnd(props: {
   const { shell } = props;
   return (
     <div className="app-shell__end">
+      {shell.realm === undefined ? null : <RealmMark realm={shell.realm} />}
       <StatusTray isHostingTogether={shell.isHostingTogether === true} isAdmin={shell.isAdmin} />
       <MainMenu
         signedInAs={shell.signedInAs}
@@ -158,6 +161,16 @@ function BannerEnd(props: {
         {props.children}
       </MainMenu>
     </div>
+  );
+}
+
+/** The realm the person is signed in to, in view on every screen: which server this is (D297 §5). */
+function RealmMark(props: { readonly realm: string }): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <span className="app-shell__realm" title={t("nav.realmTitle", { realm: props.realm })}>
+      {props.realm}
+    </span>
   );
 }
 

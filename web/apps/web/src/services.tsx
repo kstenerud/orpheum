@@ -26,6 +26,11 @@ export interface Services {
    * media cookie: the browser's fetch, or a test's server, so no test reaches the network.
    */
   readonly fetchMedia: (url: string, init: RequestInit) => Promise<Response>;
+  /**
+   * The realm this page's person signed in to the server by at a paid discovery, shown in the
+   * banner so they know which server they are on (D297 §5); undefined anywhere else.
+   */
+  readonly realm?: string | undefined;
 }
 
 /** Holds the services for the tree below it; main.tsx provides the real ones, tests their own. */

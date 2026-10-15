@@ -18,7 +18,19 @@ export { browserFetch, textWhenReady, whenReady } from "./ready.ts";
 export { connectRtc, RtcTransport, SwitchableFetch } from "./rtc-transport.ts";
 export { directFetch, directPathWaitMs, firstDirectPath } from "./direct-path.ts";
 export {
+  isRealm,
+  masterRealm,
+  realmAsk,
+  realmKey,
+  realmName,
+  realmPerson,
+  realmSignIn,
+  realmTag,
+} from "./realm.ts";
+export type { RealmFound, RealmTyped } from "./realm.ts";
+export {
   discoverySignaller,
+  fromBase64,
   locate,
   locateHash,
   locatorHash,

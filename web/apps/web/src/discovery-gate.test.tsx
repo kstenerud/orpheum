@@ -3,12 +3,21 @@
 
 import "./i18n.ts";
 
-import { locateHash, sessionOfferKey } from "@orpheum/sdk";
+import {
+  fromBase64,
+  locateHash,
+  realmAsk,
+  realmKey,
+  realmPerson,
+  realmTag,
+  sessionOfferKey,
+} from "@orpheum/sdk";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { DiscoveryGate, withLatest, type GateParts } from "./discovery-gate.tsx";
 import {
   discoveryClientApiOf,
+  discoveryHasRealms,
   heldWith,
   rememberCore,
   startOf,
@@ -17,7 +26,7 @@ import {
   type Target,
 } from "./discovery-start.ts";
 import type { StringStorage } from "./browser-storage.ts";
-import { buttonWithText, click, mount, settleUntil, type Mounted } from "./test-dom.tsx";
+import { buttonWithText, click, enter, mount, settleUntil, type Mounted } from "./test-dom.tsx";
 
 let mounted: Mounted | undefined;
 
@@ -57,6 +66,8 @@ function partsOf(fetched: typeof fetch, connected: KeptCore[] = []): GateParts {
   return {
     client: { clientApi: "https://discovery.example/client/v1", fetch: fetched },
     sessionOf: () => undefined,
+    hasRealms: false,
+    realmStorage: undefined,
     onConnected: (core) => {
       connected.push(core);
     },
@@ -248,5 +259,115 @@ describe("what this browser holds with a core", () => {
     });
     expect(heldWith(core, session(), { credential: "kept-before-locators" })).toBeUndefined();
     expect(heldWith(core, session(), undefined)).toBeUndefined();
+  });
+});
+
+describe("a person with no link at a discovery that has realms (D297, D298)", () => {
+  // The Ed25519 key of the seed 0x00…0x1f, and its fingerprint, as discovery.test.ts has them.
+  const publicKey = "A6EHv_POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg";
+  const fingerprintOfKey = "Vkdap1RjR0wChd9dvyvKtz2mUTWIOem3dIGy6rEHcIw";
+
+  /** A discovery taking karl's sign-in at karlnas, the core at its own name, which answers. */
+  async function realmDiscovery(heard: string[]): Promise<typeof fetch> {
+    const key = await realmKey("karlnas", "karl", "a password");
+    const person = await realmPerson("karlnas", "karl");
+    const karls = JSON.stringify({
+      realm: "karlnas",
+      person,
+      ask: await realmAsk(key, "karlnas", person),
+    });
+    const tag = await realmTag(key, "k7xq2", fromBase64(publicKey));
+    return (url, init) => {
+      const address = url instanceof Request ? url.url : url.toString();
+      if (address.startsWith("https://v4.k7xq2.zone.example/")) {
+        return Promise.resolve(new Response("{}", { status: 200 }));
+      }
+      const body = typeof init?.body === "string" ? init.body : "";
+      heard.push(`${address.replace("https://discovery.example/client/v1", "")} ${body}`);
+      const isKarl = body === karls;
+      return Promise.resolve(
+        isKarl
+          ? new Response(
+              JSON.stringify({
+                coreId: "k7xq2",
+                bootstrapToken: "a-bootstrap-token",
+                iceServers: [],
+                paths: [{ kind: "ipv4", url: "https://v4.k7xq2.zone.example" }],
+                publicKey,
+                tag,
+              }),
+              { status: 200 },
+            )
+          : new Response("{}", { status: 404 }),
+      );
+    };
+  }
+
+  it("is asked for realm, name and password together, where the page says its discovery has realms", async () => {
+    const page = document.implementation.createHTMLDocument("");
+    expect(discoveryHasRealms(page)).toBe(false);
+    const meta = page.createElement("meta");
+    meta.setAttribute("name", "orpheum-discovery-realms");
+    meta.setAttribute("content", "true");
+    page.head.append(meta);
+    expect(discoveryHasRealms(page)).toBe(true);
+    mounted = await mount(
+      <DiscoveryGate
+        start={{ kind: "none" }}
+        parts={{ ...partsOf(discovery({}, [])), hasRealms: true }}
+      />,
+    );
+    expect(mounted.container.querySelector('input[name="realm"]')).not.toBeNull();
+    expect(mounted.container.textContent).not.toContain("Which server?");
+  });
+
+  it("reaches the core its realm sign-in found, hands on the name and password, and keeps the realm", async () => {
+    const heard: string[] = [];
+    const storage = memoryStorage();
+    const connected: { core: KeptCore; signIn: unknown }[] = [];
+    const parts: GateParts = {
+      ...partsOf(await realmDiscovery(heard)),
+      hasRealms: true,
+      realmStorage: storage,
+      onConnected: (core, _reached, signIn) => {
+        connected.push({ core, signIn });
+      },
+    };
+    mounted = await mount(<DiscoveryGate start={{ kind: "none" }} parts={parts} />);
+    const page = mounted.container;
+    await enter(page.querySelector('input[name="realm"]'), " KarlNAS ");
+    await enter(page.querySelector('input[name="name"]'), "karl");
+    await enter(page.querySelector('input[type="password"]'), "a password");
+    await click(page.querySelector('input[type="checkbox"]'));
+    await click(buttonWithText(page, "Sign in"));
+    await settleUntil(() => connected.length > 0);
+    expect(heard[0]?.startsWith("/realm ")).toBe(true);
+    expect(connected).toEqual([
+      {
+        core: { coreId: "k7xq2", fingerprint: fingerprintOfKey, realm: "karlnas" },
+        signIn: { name: "karl", password: "a password" },
+      },
+    ]);
+    expect(storage.getItem("orpheum.discovery.realm")).toBe("karlnas");
+  });
+
+  it("says the realm, name or password is wrong as one, and keeps no realm when not asked to", async () => {
+    const storage = memoryStorage();
+    storage.setItem("orpheum.discovery.realm", "karlnas");
+    const parts: GateParts = {
+      ...partsOf(await realmDiscovery([])),
+      hasRealms: true,
+      realmStorage: storage,
+    };
+    mounted = await mount(<DiscoveryGate start={{ kind: "none" }} parts={parts} />);
+    const page = mounted.container;
+    expect(page.querySelector<HTMLInputElement>('input[name="realm"]')?.value).toBe("karlnas");
+    await click(page.querySelector('input[type="checkbox"]'));
+    await enter(page.querySelector('input[name="realm"]'), "the-smiths");
+    await enter(page.querySelector('input[name="name"]'), "karl");
+    await enter(page.querySelector('input[type="password"]'), "a guess");
+    await click(buttonWithText(page, "Sign in"));
+    await settleUntil(() => page.textContent.includes("The realm, name or password is wrong"));
+    expect(storage.getItem("orpheum.discovery.realm")).toBeNull();
   });
 });

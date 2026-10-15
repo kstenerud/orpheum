@@ -118,9 +118,9 @@ func devDiscoveryHandler(base, recordPath, realm string, logger *slog.Logger) (h
 			return
 		}
 		writer.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(writer).Encode(map[string]string{ //nolint:errcheck // the test reads it
+		_ = json.NewEncoder(writer).Encode(map[string]any{ //nolint:errcheck // the test reads it
 			"coreId": record.Core.ID, "fingerprint": proof.Fingerprint(record.Core.PublicKey),
-			"state": string(record.Core.State),
+			"state": string(record.Core.State), "isOnline": discovery.IsCoreOnline(),
 		})
 	})
 	mux.Handle("/", page)
