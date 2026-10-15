@@ -84,7 +84,7 @@ def plan(results: dict[str, Any], steps: list[str], head: str) -> tuple[list[str
     return again, skipped
 
 
-def rerun(base: str, steps: list[str], last: str, jobs: int) -> int:
+def rerun(base: str, steps: list[str], lasts: list[str], jobs: int) -> int:
     record_ = last_run.read(GATE, NAME)
     if record_ is None:
         print(f"No check-pr run is recorded ({last_run.record_path(GATE, NAME)}); run `make check-pr`.")
@@ -94,17 +94,21 @@ def rerun(base: str, steps: list[str], last: str, jobs: int) -> int:
               "its results answer a different question. Run `make check-pr` against this base.")
         return 1
     results = record_.get("results", {})
-    again, skipped = plan(results, [*steps, last], last_run.commit_of("HEAD") or "")
+    again, skipped = plan(results, [*steps, *lasts], last_run.commit_of("HEAD") or "")
     if skipped:
         print("Skipped: these passed at the last check-pr, and the fixes since may have broken them:")
         print("\n".join(skipped))
     status = 0
-    first = [s for s in again if s != last]
+    first = [s for s in again if s not in lasts]
     if first:
         print(f"Re-running: {' '.join(first)}", flush=True)
         status = subprocess.run(["make", "--no-print-directory", f"-j{jobs}", "-k", "--output-sync=target",
                                  f"BASE={base}", *[STEP_TARGET + s for s in first]], check=False).returncode
-    if last in again:
+    # The revert-red steps in their order, each after the steps before it pass (the code's, then
+    # the stylesheets'), each on its own failed files when its record of them is whole.
+    for last in lasts:
+        if last not in again:
+            continue
         if status == 0:
             status = rerun_last(last, last in results, base)
         else:
@@ -118,12 +122,12 @@ def rerun_last(last: str, ran: bool, base: str) -> int:
     """The last step again: revert-red on its failed files alone when it ran and failed and its
     own record of them is whole, and all of it otherwise."""
     target = last
-    if last == REVERT_RED and ran:
+    if last.startswith(REVERT_RED) and ran:
         _, _, problem = revert_red_reruns.recorded_failures(base)
         if problem:
             print(f"{problem}\nSo all of it runs again.")
         else:
-            target = "check-revert-red-failed"
+            target = f"{last}-failed"
     print(f"Re-running: {target}", flush=True)
     return record(last, ["make", "--no-print-directory", target, f"BASE={base}"])
 
@@ -140,7 +144,8 @@ def main() -> int:
     timing.add_argument("steps", nargs="+")
     again = sub.add_parser("rerun")
     again.add_argument("--base", required=True)
-    again.add_argument("--last", required=True, help="the step that runs alone after the others")
+    again.add_argument("--last", required=True, action="append", help="a revert-red step, run alone after "
+                       "the steps before it, in the order given (the code's, then the stylesheets')")
     again.add_argument("--jobs", type=int, default=4)
     again.add_argument("steps", nargs="+")
     args = ap.parse_args()
