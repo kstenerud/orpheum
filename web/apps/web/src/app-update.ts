@@ -3,6 +3,7 @@
 import type { Api } from "@orpheum/sdk";
 
 import { tabStorage, type StringStorage } from "./browser-storage.ts";
+import { discoveryClientApiOf } from "./discovery-start.ts";
 
 /** A watcher of every request and answer the API makes. */
 type Middleware = Parameters<Api["use"]>[0];
@@ -10,8 +11,16 @@ type Middleware = Parameters<Api["use"]>[0];
 /** The header each answer names the server's web client's script in (api.ClientScriptHeader). */
 export const clientScriptHeader = "X-Orpheum-Client";
 
-/** The built client's own script on page, "index-DCLi77_b.js"; undefined for a development page. */
+/**
+ * The built client's own script on page, "index-DCLi77_b.js"; undefined for a development page, and
+ * for a discovery's page, whose client the discovery serves and not the core: the core's answers name
+ * the core's own client, which a reload of the discovery's page never brings, and the reload the
+ * difference set off at sign-in cancelled every request under way (the owner, 2026-10-15).
+ */
 export function ownScriptOf(page: Pick<Document, "querySelector">): string | undefined {
+  if (discoveryClientApiOf(page) !== "") {
+    return undefined;
+  }
   const entry = page
     .querySelector('script[type="module"][src^="/assets/index-"]')
     ?.getAttribute("src");
