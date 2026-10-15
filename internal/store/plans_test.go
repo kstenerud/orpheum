@@ -233,3 +233,22 @@ func wholeReadsAllowed() map[string]string {
 		"ListNamesWithSortAndSearchKeys":        sweep + "the key refresh reads every name, each with its key by item",
 	}
 }
+
+// The queries that read a small table whole read that one, never the large table they join: the
+// refresh requests, not every item; the locators, not every grant ever issued (D303, DL2).
+func TestQueryPlans_ASmallTableDrivesItsJoin(t *testing.T) {
+	t.Parallel()
+	database := openMigrated(t)
+	drivenBy := map[string]string{"ListRefreshRequests": "refresh_request", "ListLiveLocators": "locator"}
+	for _, query := range queriesIn(t, "queries") {
+		table, isChecked := drivenBy[query.name]
+		if !isChecked {
+			continue
+		}
+		for _, read := range wholeReads(t, database.readers, query) {
+			if !strings.HasPrefix(read, "SCAN "+table) {
+				t.Errorf("%s reads %q whole; want only %s whole", query.name, read, table)
+			}
+		}
+	}
+}
