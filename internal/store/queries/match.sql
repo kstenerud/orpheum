@@ -124,3 +124,31 @@ WHERE item_id = sqlc.arg(item_id) AND field = sqlc.arg(field) AND language = '';
 -- person's choice is never undone: only 'ambiguous' changes.
 UPDATE title SET identification_state = 'unidentified'
 WHERE id = sqlc.arg(id) AND identification_state = 'ambiguous';
+
+-- name: CountWaitingForAPerson :one
+-- The films and series whose match waits for a person, as "Needs a match" lists them: several
+-- found, or none found after a search, with a live file; an episode is its series' (D209). Each
+-- part repeats the index it is counted by, title_ambiguous or title_waiting (D303, DL4).
+SELECT CAST((
+  SELECT count(*) FROM title CROSS JOIN item ON item.id = title.id
+  WHERE title.identification_state = 'ambiguous' AND item.removed_at IS NULL AND EXISTS (
+    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+    WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL)
+) + (
+  SELECT count(*) FROM title CROSS JOIN item ON item.id = title.id
+  WHERE title.identification_state = 'unidentified' AND title.followed_source = 'none' AND title.kind != 'episode'
+    AND item.removed_at IS NULL AND EXISTS (
+    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+    WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL)
+) + (
+  SELECT count(*) FROM collection CROSS JOIN item ON item.id = collection.id
+  WHERE collection.kind = 'series' AND item.removed_at IS NULL
+    AND (collection.identification_state = 'ambiguous'
+      OR (collection.identification_state = 'unidentified' AND collection.followed_source = 'none'))
+    AND EXISTS (
+    SELECT 1 FROM collection_member
+    CROSS JOIN version ON version.title_id = collection_member.member_title
+    CROSS JOIN file ON file.version_id = version.id
+    WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
+      AND file.removed_at IS NULL)
+) AS INTEGER) AS waiting_count;

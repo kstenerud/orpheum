@@ -514,3 +514,27 @@ func TestMigrate_Step0045IndexesServeTheirPaths(t *testing.T) {
 		}
 	}
 }
+
+// Step 0046's index counts what waits for a person: the count reads it, not every title.
+func TestMigrate_Step0046CountsWhatWaitsByItsIndex(t *testing.T) {
+	t.Parallel()
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	database := openTemporary(t)
+	through := steps[:stepIndex(t, steps, 46)+1]
+	if err = database.migrate(t.Context(), through, testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	for _, query := range queriesIn(t, "queries") {
+		if query.name == "CountWaitingForAPerson" {
+			plan := fmt.Sprint(planOf(t, database.readers, query))
+			if !strings.Contains(plan, "INDEX title_waiting") {
+				t.Errorf("the count reads %s; want title_waiting", plan)
+			}
+			return
+		}
+	}
+	t.Error("no query CountWaitingForAPerson")
+}

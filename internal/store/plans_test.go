@@ -203,7 +203,9 @@ func wholeReadsAllowed() map[string]string {
 		"ListSeriesByAdded": "newest first reads the series, which are few (200 at the reference scale), " +
 			"and sorts them: walking item_added would pass every film and episode",
 		"ListSeriesByIdentification": "the needs-a-match list's series, which are few",
-		"ListFilmsByAdded":           "a keyset page walks item_added in order and stops at its LIMIT",
+		"CountWaitingForAPerson": "it reads title_ambiguous and title_waiting, indexes of the few titles it counts, " +
+			"and the series, which are few",
+		"ListFilmsByAdded": "a keyset page walks item_added in order and stops at its LIMIT",
 		"SearchSubstring": "a query too short for either full-text index reads every name once, by design " +
 			"(D48): a household's names take milliseconds",
 		"DeleteSortKeysOfOtherLocales": "runs once, when the sort locale changes",
