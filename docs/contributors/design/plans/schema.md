@@ -1067,7 +1067,16 @@ CREATE TABLE job (                                         -- the one work queue
          (fetched_subtitle_id IS NOT NULL) + (file_id IS NOT NULL) + (scan_id IS NOT NULL) +
          (scan_batch_id IS NOT NULL) <= 1)
 );
-CREATE INDEX job_next ON job(state, priority DESC, runnable_at) WHERE state = 'queued';
+-- The paths the queue's statements take (D303; the independent audit's S4), cache schema 37.
+CREATE INDEX job_claim ON job(kind, priority DESC, runnable_at, id) WHERE state = 'queued';
+CREATE INDEX job_open_target ON job(kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id,
+  scan_id, scan_batch_id, chunk_store_id) WHERE state IN ('queued', 'running', 'assigned');
+CREATE INDEX job_state ON job(state, kind, assigned_until);
+CREATE INDEX job_wanted ON job(wanted_until) WHERE wanted_until IS NOT NULL;
+CREATE INDEX job_finished ON job(finished_at) WHERE finished_at IS NOT NULL;
+-- At most one queued, and one running, job per target is the store's rule, kept by cache.db's one
+-- writer: a unique index cannot hold it while a target is one of eight nullable columns, which
+-- SQLite's unique indexes treat as distinct. One target column would let it (D303, M3; to do).
 CREATE TABLE scan (                                        -- D240: a root's scan in progress
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   node_id     INTEGER NOT NULL,          -- persistent.db's node, whose root it is

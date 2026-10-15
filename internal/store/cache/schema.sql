@@ -3,7 +3,7 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by persistent.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 36
+-- cache schema version 37
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,7 +53,19 @@ CREATE TABLE job (                                         -- the one work queue
          (fetched_subtitle_id IS NOT NULL) + (file_id IS NOT NULL) + (scan_id IS NOT NULL) +
          (scan_batch_id IS NOT NULL) + (chunk_store_id IS NOT NULL) <= 1)
 );
-CREATE INDEX job_next ON job(state, priority DESC, runnable_at) WHERE state = 'queued';
+-- The paths the queue's statements take (D303; the independent audit's S4): each read the whole
+-- table, an enqueue's once per job queued, so a sweep that queued N jobs read the queue N times.
+-- A claim takes the queued jobs of its kind in order.
+CREATE INDEX job_claim ON job(kind, priority DESC, runnable_at, id) WHERE state = 'queued';
+-- An open job of a kind on a target: an enqueue's look for one to merge into, and a wait's mark.
+CREATE INDEX job_open_target ON job(kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id,
+  scan_id, scan_batch_id, chunk_store_id) WHERE state IN ('queued', 'running', 'assigned');
+-- The jobs in a state: the running ones a start requeues, the assigned ones whose time ran out.
+CREATE INDEX job_state ON job(state, kind, assigned_until);
+-- The jobs a person waits for, which fall to background priority once no one does.
+CREATE INDEX job_wanted ON job(wanted_until) WHERE wanted_until IS NOT NULL;
+-- The jobs that ended, which are pruned once old.
+CREATE INDEX job_finished ON job(finished_at) WHERE finished_at IS NOT NULL;
 
 CREATE TABLE scan (                                        -- D240: a root's scan in progress
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
