@@ -104,3 +104,27 @@ func TestLiveLocators_KeepASessionWhoseUseIsNotWrittenYet(t *testing.T) {
 		t.Errorf("30 s past the idle expiry, within a flush, the live locators are %v; want the session's", hashes)
 	}
 }
+
+// A person's devices show a use not yet written.
+func TestDevices_ShowAUseNotYetWritten(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	id := fixture.createUser(t, "partner", "pw", RoleUser)
+	token, err := tokenOf(fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", laptop))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.clock.Advance(time.Hour)
+	if _, err = fixture.service.Authenticate(ctx, token); err != nil {
+		t.Fatal(err)
+	}
+	devices, err := fixture.service.Devices(ctx, id)
+	if err != nil || len(devices) != 1 {
+		t.Fatalf("devices = %+v, %v; want the laptop", devices, err)
+	}
+	if want := fixture.clock.Now(); !devices[0].LastUsedAt.Equal(want) {
+		t.Errorf("the laptop was last used %v; want %v, its use an hour after signing in, not yet written",
+			devices[0].LastUsedAt, want)
+	}
+}

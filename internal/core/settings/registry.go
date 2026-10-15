@@ -205,7 +205,7 @@ func buildRegistry() []Definition {
 			"hours a session may go unused before it ends; 90 days, so a television rarely signs out (D154)"),
 			"D154: 90 days, so a television rarely signs out"),
 		sourced(durationSetting(SessionLastUsedWriteIntervalSeconds, time.Second, "60", 1, 24*3600,
-			"how often, in seconds, the sessions' remembered uses are written in one batch (D303 §4)"),
+			"how often, in seconds, a session's last use is written; idle expiry needs no finer grain"),
 			"best guess (M1): a minute is far finer than a 90-day idle expiry needs"),
 		sourced(integerSetting(Argon2MemoryKiB, "65536", 8, math.MaxUint32,
 			"argon2id memory per password hash, KiB: RFC 9106's second option (D194 §2); new costs re-hash on sign-in"),
