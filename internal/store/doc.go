@@ -28,6 +28,9 @@
 //     TestOpen_RefusesAFileThatIsNotOurs.
 //   - Writes go through Write on the one writer; the reader pool is query_only. Enforced by
 //     TestRead_RefusesAWrite and TestWrite_RollsBackWhenTheChangeFails.
+//   - ReadTx's queries, on either database, all see one commit, whatever commits meanwhile (D303,
+//     M2). Enforced by TestReadTx_SeesOneCommitWhateverCommitsMeanwhile and
+//     TestCacheReadTx_SeesOneCommitWhateverCommitsMeanwhile.
 //   - A fresh schema equals testdata/golden/schema-vNNNN.sql for the current version, and the
 //     baseline alone the golden for its version. Enforced by TestMigrate_FreshSchemaEqualsTheGolden.
 //   - Each step commits alone, so an interrupted migration resumes and ends identical; a step
@@ -89,6 +92,7 @@
 //   - D181: the migration policy and our small runner.
 //   - D228: until migrations are live, a baseline and one step, and a change folds the last step.
 //   - D185: the schema as SQL that runs.
+//   - D303: the data-layer principles (standards/sql.md §13).
 //   - D173: tombstones, not deletes; live_* views.
 //   - docs/contributors/design/plans/schema.md, docs/contributors/design/plans/migrations.md.
 //   - docs/contributors/standards/sql.md.
@@ -108,7 +112,7 @@
 //     cache.db (JobStorage), which internal/platform/jobqueue drives.
 //   - search.go: search's three statements, hand-written because sqlc cannot parse FTS5's MATCH;
 //     static SQL with parameters only.
-//   - open.go: Open, the pragmas and their read-back, Read, Write and OrNotFound.
+//   - open.go: Open, the pragmas and their read-back, Read, ReadTx, Write and OrNotFound.
 //   - steps.go and migrate.go: the embedded steps and the runner (D181); migrate_checks.go: the
 //     checks a step cannot make of itself (dangling foreign keys, reissued ids, views that no
 //     longer compile); step_record.go: the applied steps' checksums, and the refusal of a file
