@@ -854,7 +854,7 @@ func (q *Queries) MoveVersionToTitle(ctx context.Context, arg MoveVersionToTitle
 
 const setSearchAlternates = `-- name: SetSearchAlternates :exec
 UPDATE item_text SET search_alternates = ?1
-WHERE item_id = ?2 AND is_original = 1
+WHERE item_id = ?2 AND is_original = 1 AND search_alternates IS NOT ?1
 `
 
 type SetSearchAlternatesParams struct {
@@ -922,6 +922,9 @@ VALUES (?1, ?2, 1, ?3, ?4, ?5,
 ON CONFLICT (item_id, language) DO UPDATE SET
   is_original = 1, name = excluded.name, overview = excluded.overview, tagline = excluded.tagline,
   search_alternates = excluded.search_alternates
+WHERE item_text.is_original IS NOT 1 OR item_text.name IS NOT excluded.name
+  OR item_text.overview IS NOT excluded.overview OR item_text.tagline IS NOT excluded.tagline
+  OR item_text.search_alternates IS NOT excluded.search_alternates
 `
 
 type UpsertOriginalTextParams struct {
@@ -934,6 +937,7 @@ type UpsertOriginalTextParams struct {
 }
 
 // search_alternates is the name as the one normaliser folds it (D48), which both search indexes take.
+// A text already as derived is left alone (D303, DL9): nothing is written, and no index rewritten.
 func (q *Queries) UpsertOriginalText(ctx context.Context, arg UpsertOriginalTextParams) error {
 	_, err := q.db.ExecContext(ctx, upsertOriginalText,
 		arg.ItemID,

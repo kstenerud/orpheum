@@ -109,7 +109,11 @@ VALUES (sqlc.arg(item_id), sqlc.arg(language), 1, sqlc.arg(name), sqlc.arg(overv
   sqlc.arg(search_alternates))
 ON CONFLICT (item_id, language) DO UPDATE SET
   is_original = 1, name = excluded.name, overview = excluded.overview, tagline = excluded.tagline,
-  search_alternates = excluded.search_alternates;
+  search_alternates = excluded.search_alternates
+-- A text already as derived is left alone (D303, DL9): nothing is written, and no index rewritten.
+WHERE item_text.is_original IS NOT 1 OR item_text.name IS NOT excluded.name
+  OR item_text.overview IS NOT excluded.overview OR item_text.tagline IS NOT excluded.tagline
+  OR item_text.search_alternates IS NOT excluded.search_alternates;
 
 -- name: UpsertSortKey :exec
 -- An item's sort key in one locale, made whenever its name is written (D47), and left alone when
@@ -233,7 +237,7 @@ ORDER BY item_text.item_id;
 -- name: SetSearchAlternates :exec
 -- An item's name folded again, when the one normaliser now folds it otherwise (D48).
 UPDATE item_text SET search_alternates = sqlc.arg(search_alternates)
-WHERE item_id = sqlc.arg(item_id) AND is_original = 1;
+WHERE item_id = sqlc.arg(item_id) AND is_original = 1 AND search_alternates IS NOT sqlc.arg(search_alternates);
 
 -- name: DeleteSortKeysOfOtherLocales :exec
 -- Keys for a locale no longer in use (sort_key is a cache, class C).

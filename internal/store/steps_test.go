@@ -432,3 +432,54 @@ func TestMigrate_Step0043KeepsEachSortKeyFoundByItsItem(t *testing.T) {
 		t.Errorf("an item's key is read by %s; want its primary key, by item and locale", plan)
 	}
 }
+
+// Step 0044 keeps each item's text under its own key, which both full-text indexes follow, and an
+// update that changes nothing they index writes neither (D303, DL9; SQLite fires an UPDATE trigger
+// whatever the values, and total_changes counts what a trigger writes).
+func TestMigrate_Step0044KeepsTheTextAndRewritesAnIndexOnlyOnChange(t *testing.T) {
+	t.Parallel()
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	step0044 := stepIndex(t, steps, 44)
+	database := openTemporary(t)
+	if err = database.migrate(t.Context(), steps[:step0044], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	execRaw(t, database,
+		"INSERT INTO item (id, kind, added_at) VALUES (7, 'title', 1)",
+		"INSERT INTO item_text (item_id, language, is_original, name, search_alternates) "+
+			"VALUES (7, 'und', 1, 'The General', 'solaris')")
+	if err = database.migrate(t.Context(), steps[:step0044+1], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	found := fmt.Sprint(queryRows(t, database,
+		"SELECT item_text.item_id FROM item_fts JOIN item_text ON item_text.id = item_fts.rowid "+
+			"WHERE item_fts MATCH 'solaris'", 1),
+		queryRows(t, database, "SELECT item_text.item_id FROM item_fts_tri JOIN item_text ON item_text.id = "+
+			"item_fts_tri.rowid WHERE item_fts_tri MATCH 'olar'", 1))
+	if found != "[[7]] [[7]]" {
+		t.Errorf("after the step the indexes find %s; want the kept text in both", found)
+	}
+	changes := func(update string) int {
+		t.Helper()
+		var before, after int
+		if err := database.writer.QueryRowContext(t.Context(), "SELECT total_changes()").Scan(&before); err != nil {
+			t.Fatal(err)
+		}
+		execRaw(t, database, update)
+		if err := database.writer.QueryRowContext(t.Context(), "SELECT total_changes()").Scan(&after); err != nil {
+			t.Fatal(err)
+		}
+		return after - before
+	}
+	unchanged := changes("UPDATE item_text SET name = name, search_alternates = search_alternates, " +
+		"overview = overview WHERE item_id = 7")
+	overviewOnly := changes("UPDATE item_text SET overview = 'A planet.' WHERE item_id = 7")
+	renamed := changes("UPDATE item_text SET name = 'Solyaris', search_alternates = 'solyaris' WHERE item_id = 7")
+	if unchanged != 1 || overviewOnly <= unchanged || overviewOnly >= renamed {
+		t.Errorf("an unchanged update made %d changes, an overview's %d, a rename %d; want the row alone, then "+
+			"the word index rewritten, then both indexes: each more than the last", unchanged, overviewOnly, renamed)
+	}
+}

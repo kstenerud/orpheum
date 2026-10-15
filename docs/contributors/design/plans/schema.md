@@ -429,6 +429,7 @@ its source File ([D180](../../decisions/working-notes.md)).
 
 ```sql
 CREATE TABLE item_text (                                   -- class O/F, resolved (D45)
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,  -- the full-text indexes' key for the row (D303)
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE RESTRICT,
   language        TEXT NOT NULL,
   is_original INTEGER NOT NULL DEFAULT 0 CHECK (is_original IN (0,1)),
@@ -436,7 +437,7 @@ CREATE TABLE item_text (                                   -- class O/F, resolve
   overview    TEXT,
   tagline     TEXT,
   search_alternates  TEXT,                      -- migration 0010: the name, folded for search (D48)
-  PRIMARY KEY (item_id, language)
+  UNIQUE (item_id, language)
 );
 CREATE UNIQUE INDEX item_text_original ON item_text(item_id) WHERE is_original = 1;
 
@@ -457,11 +458,11 @@ CREATE TABLE sort_key (                                    -- class C (D47)
 CREATE INDEX sort_key_listing ON sort_key(locale, listing, collation_key, item_id);  -- the listings' order
 
 CREATE VIRTUAL TABLE item_fts USING fts5(                 -- class C (D48)
-  name, search_alternates, overview, content='item_text', content_rowid='rowid',
+  name, search_alternates, overview, content='item_text', content_rowid='id',
   tokenize='unicode61 remove_diacritics 2'
 );
 CREATE VIRTUAL TABLE item_fts_tri USING fts5(
-  name, search_alternates, content='item_text', content_rowid='rowid', tokenize='trigram'
+  name, search_alternates, content='item_text', content_rowid='id', tokenize='trigram'
 );
 ```
 
@@ -474,25 +475,32 @@ hand-written in `internal/store/search.go`, because sqlc cannot parse FTS5's `MA
 ```sql
 CREATE TRIGGER item_text_ai AFTER INSERT ON item_text BEGIN
   INSERT INTO item_fts(rowid, name, search_alternates, overview)
-    VALUES (new.rowid, new.name, new.search_alternates, new.overview);
+    VALUES (new.id, new.name, new.search_alternates, new.overview);
   INSERT INTO item_fts_tri(rowid, name, search_alternates)
-    VALUES (new.rowid, new.name, new.search_alternates);
+    VALUES (new.id, new.name, new.search_alternates);
 END;
 CREATE TRIGGER item_text_ad AFTER DELETE ON item_text BEGIN
   INSERT INTO item_fts(item_fts, rowid, name, search_alternates, overview)
-    VALUES ('delete', old.rowid, old.name, old.search_alternates, old.overview);
+    VALUES ('delete', old.id, old.name, old.search_alternates, old.overview);
   INSERT INTO item_fts_tri(item_fts_tri, rowid, name, search_alternates)
-    VALUES ('delete', old.rowid, old.name, old.search_alternates);
+    VALUES ('delete', old.id, old.name, old.search_alternates);
 END;
-CREATE TRIGGER item_text_au AFTER UPDATE ON item_text BEGIN
+-- Each index is rewritten only when a column it indexes changed (D303, DL9): SQLite fires an
+-- UPDATE trigger whenever a row is written, whatever its values.
+CREATE TRIGGER item_text_au AFTER UPDATE OF name, search_alternates, overview ON item_text
+WHEN old.name IS NOT new.name OR old.search_alternates IS NOT new.search_alternates
+  OR old.overview IS NOT new.overview BEGIN
   INSERT INTO item_fts(item_fts, rowid, name, search_alternates, overview)
-    VALUES ('delete', old.rowid, old.name, old.search_alternates, old.overview);
-  INSERT INTO item_fts_tri(item_fts_tri, rowid, name, search_alternates)
-    VALUES ('delete', old.rowid, old.name, old.search_alternates);
+    VALUES ('delete', old.id, old.name, old.search_alternates, old.overview);
   INSERT INTO item_fts(rowid, name, search_alternates, overview)
-    VALUES (new.rowid, new.name, new.search_alternates, new.overview);
+    VALUES (new.id, new.name, new.search_alternates, new.overview);
+END;
+CREATE TRIGGER item_text_au_trigram AFTER UPDATE OF name, search_alternates ON item_text
+WHEN old.name IS NOT new.name OR old.search_alternates IS NOT new.search_alternates BEGIN
+  INSERT INTO item_fts_tri(item_fts_tri, rowid, name, search_alternates)
+    VALUES ('delete', old.id, old.name, old.search_alternates);
   INSERT INTO item_fts_tri(rowid, name, search_alternates)
-    VALUES (new.rowid, new.name, new.search_alternates);
+    VALUES (new.id, new.name, new.search_alternates);
 END;
 ```
 
