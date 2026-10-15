@@ -58,7 +58,7 @@ func TestDiscovery_AnAdminConnectsSeesTheClaimCodeAndLeaves(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	// Signed in under a realm, a person has a realm key, which leaving forgets (D298 §6).
-	harness.authService.UseRealm(func() string { return "karlnas" })
+	harness.authService.SetRealm("karlnas")
 	admin := harness.createAdminAndSignIn(t)
 	if _, err := harness.authService.CreateUser(t.Context(),
 		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {

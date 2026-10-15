@@ -81,8 +81,6 @@ func commandDevDiscovery(ctx context.Context, call invocation) int {
 	return exitSuccess
 }
 
-// devDiscoveryHandler is the development discovery at base: single's two APIs, the claim and the
-// core's id and fingerprint a test asks for, and the client, its page naming the client API.
 // devDiscoverySite is what the development discovery serves: at base, its record in recordPath, the
 // realm its operator names (none for an owner's own), and the client's files.
 type devDiscoverySite struct {
@@ -90,6 +88,8 @@ type devDiscoverySite struct {
 	clientFiles             fs.FS
 }
 
+// devDiscoveryHandler is the development discovery at base: single's two APIs, the claim and the
+// core's id and fingerprint a test asks for, and the client, its page naming the client API.
 func devDiscoveryHandler(site devDiscoverySite, logger *slog.Logger) (http.Handler, error) {
 	base, realm := site.base, site.realm
 	store := single.FileStore{Path: site.recordPath}

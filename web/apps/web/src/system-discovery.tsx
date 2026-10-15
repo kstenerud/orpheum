@@ -111,6 +111,9 @@ function StandingView(props: {
   return (
     <>
       <p>{t("system.discovery.at", { address: standing.baseUrl })}</p>
+      {standing.realm === undefined ? null : (
+        <p>{t("system.discovery.realm", { realm: standing.realm })}</p>
+      )}
       {standing.state === undefined ? null : <p>{t(`system.discovery.state.${standing.state}`)}</p>}
       {standing.claimCode === undefined ? null : (
         <p>

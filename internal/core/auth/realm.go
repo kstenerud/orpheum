@@ -20,18 +20,16 @@ var ErrRealmRefused = errors.New("the realm sign-in does not hold")
 // them by who they are at the discovery, not by their name.
 const realmLimitPrefix = "realm:"
 
-// UseRealm has the service ask realm for the realm its core is found by at its discovery, empty for
-// none: a person's realm key is made for it (D297 §3). Called before the service is used.
-func (service *Service) UseRealm(realm func() string) {
-	service.realm = realm
+// SetRealm is the realm the core is found by at its discovery, empty for none, as the discovery's
+// status last named it: a person's realm key is made for it (D297 §3).
+func (service *Service) SetRealm(realm string) {
+	service.realm.Store(proof.RealmName(realm))
 }
 
 // currentRealm is the realm the core is found by, or empty.
 func (service *Service) currentRealm() string {
-	if service.realm == nil {
-		return ""
-	}
-	return proof.RealmName(service.realm())
+	realm, _ := service.realm.Load().(string) //nolint:errcheck // a realm never set is none
+	return realm
 }
 
 // keepRealmKey makes and keeps the person's realm key from their password, for the master realm the

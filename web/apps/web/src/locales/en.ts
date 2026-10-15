@@ -478,6 +478,8 @@ export const en = {
       address: "The discovery's address",
       connect: "Connect",
       at: "Connected to {{address}}.",
+      realm:
+        "People sign in to this server at the discovery's page by the realm {{realm}}, with their name and password.",
       state: {
         pending: "Waiting to be claimed.",
         claimed: "Claimed: clients can find this server.",
