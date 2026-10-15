@@ -13,10 +13,10 @@ import { camelKey } from "./catalogue-key.ts";
 import { languageName } from "./language-name.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { ConfirmButton } from "./confirm-button.tsx";
-import { dataOrThrow, problemText, throwIfRefused, unavailableText } from "./problem.ts";
-import { GuessedMark, MatchCorrection } from "./match-correction.tsx";
+import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
+import { MatchCorrection } from "./match-correction.tsx";
+import { StatusNotes } from "./status-cues.tsx";
 import { Poster } from "./poster.tsx";
-import { UnplayableSign } from "./unplayable-sign.tsx";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
 import { useResource, type Resource } from "./use-resource.ts";
@@ -61,7 +61,6 @@ export function TitleView(props: {
   /** Told a film's match was corrected, an admin's (D301 §2): the page reads it again. */
   readonly onMatchCorrected?: () => void;
 }): JSX.Element {
-  const { t } = useTranslation();
   const { title } = props;
   return (
     <article className="title">
@@ -79,11 +78,7 @@ export function TitleView(props: {
       {title.kind === "movie" && props.onMatchCorrected !== undefined ? (
         <MatchCorrection itemId={title.id} onCorrected={props.onMatchCorrected} />
       ) : null}
-      {title.unavailable === undefined ? null : (
-        <output className="title__unavailable">
-          <UnplayableSign unavailable={title.unavailable} /> {unavailableText(t, title.unavailable)}
-        </output>
-      )}
+      <StatusNotes subject={title} />
       <Versions
         versions={title.versions ?? []}
         isPlayable={title.unavailable === undefined}
@@ -98,12 +93,7 @@ export function TitleView(props: {
 function TitleArt(props: { readonly title: TitleDetail }): JSX.Element | null {
   const { art, kind } = props.title;
   if (kind !== "episode") {
-    return (
-      <span className="poster-frame">
-        <Poster sourceSha256={art.posterSha256} />
-        <GuessedMark isGuessed={props.title.isGuessed} />
-      </span>
-    );
+    return <Poster sourceSha256={art.posterSha256} />;
   }
   return art.stillSha256 === undefined ? null : (
     <img className="title__still" src={artUrl(art.stillSha256, "landscape-m")} alt={""} />

@@ -86,20 +86,28 @@
   text-align: center;
 }
 
-/* A title that cannot be played now carries the warning sign over its poster's corner, on a dark
-   patch so the yellow reads on any art (D278; looked at, VQ28). */
+/* A poster's status cues, a tray down from its top-right corner, each on a dark patch so it reads on
+   any art: the warning sign of a title that cannot be played now (D278; looked at, VQ28), then an
+   uncertain match's (D301 §4; the owner, 2026-10-15). */
 .poster-grid__item {
   position: relative;
 }
 
-.poster-grid__warning {
+.poster-grid__cues {
   position: absolute;
   inset-block-start: var(--space-1);
   inset-inline-end: var(--space-1);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  align-items: flex-end;
+}
+
+.poster-grid__cues > .warning-sign {
   border-radius: var(--radius-control);
   background: rgb(0 0 0 / 55%);
 }
 
-.poster-grid__warning .warning-sign__detail {
+.poster-grid__cues .warning-sign__detail {
   inset-inline: auto 0;
 }

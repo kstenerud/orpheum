@@ -20267,10 +20267,14 @@ good"*).
    the chooser over the candidates kept for it (D172 §3 item 3), and their choice is final as any
    person's choice is (D170).
 3. **Nothing whose name matches no candidate is guessed**: "No match" stays as it is.
-4. **A guess is marked as one where its title is shown**: a small low-confidence icon in a corner of
-   its poster (*"maybe putting an icon in the corner of the poster to indicate low confidence in the
-   guess"*), until an admin confirms or corrects it, which keeps D172's "nothing says it is a guess"
-   from coming back.
+4. **A guess is marked as one where its title is shown**, until an admin confirms or corrects it,
+   which keeps D172's "nothing says it is a guess" from coming back: the owner's uncertain-match icon
+   (a question mark on a caution yellow, ringed over art) in a **tray of status cues** down from the
+   poster's top-right corner, under the warning sign of one that cannot play (D278), opening what it
+   means as that sign does; and on the film's or series' page the same icon with an explanation
+   suited to its reader, an admin told how to correct it (*"a vertical icon tray going down from the
+   top right corner to display status cues. On the info page for the video we can display the same
+   icons when relevant, with an explanation (suitable to the audience)"*).
 
 **Status:** Decided 2026-10-15.
 

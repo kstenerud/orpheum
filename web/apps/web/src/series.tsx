@@ -9,7 +9,8 @@ import type { TFunction } from "i18next";
 
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, unavailableText } from "./problem.ts";
-import { GuessedMark, MatchCorrection } from "./match-correction.tsx";
+import { MatchCorrection } from "./match-correction.tsx";
+import { StatusNotes } from "./status-cues.tsx";
 import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
@@ -60,14 +61,12 @@ export function SeriesView(props: {
   return (
     <article className="series">
       <div className="series__head">
-        <span className="poster-frame">
-          <Poster sourceSha256={series.art.posterSha256} />
-          <GuessedMark isGuessed={series.isGuessed} />
-        </span>
+        <Poster sourceSha256={series.art.posterSha256} />
         <div>
           <h1>{series.name}</h1>
           {series.year === undefined ? null : <p className="series__year">{series.year}</p>}
           {series.overview === undefined ? null : <p>{series.overview}</p>}
+          <StatusNotes subject={series} />
           {props.onMatchCorrected === undefined ? null : (
             <MatchCorrection itemId={series.id} onCorrected={props.onMatchCorrected} />
           )}

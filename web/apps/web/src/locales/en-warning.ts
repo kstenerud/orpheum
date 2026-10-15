@@ -17,5 +17,10 @@ export const enWarning = {
     roleWithoutLibrary: "This role reaches no library",
     goToLibraries: "The Libraries page says more, and has what fixes it.",
     goToSystem: "The System page lists it, with what fixes it.",
+    uncertainMatch: "This may be identified incorrectly",
+    uncertainMatchForViewer:
+      "It was identified automatically, and may be another work of the same name.",
+    uncertainMatchForAdmin:
+      "Several works have this name, and the likeliest was taken. If it is the wrong one, its page has Identified incorrectly.",
   },
 };

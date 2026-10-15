@@ -154,3 +154,22 @@ func TestOpenCache_TakesTheWholeServerJobsAndAScansCounts(t *testing.T) {
 		t.Errorf("the scan = %+v (%v); want 3 to read and another queued", scans, err)
 	}
 }
+
+// A match's candidates keep their vote counts, which settle two of one name in one year (D301).
+func TestCache_KeepsACandidatesVotes(t *testing.T) {
+	t.Parallel()
+	cache := openCacheAt(t, filepath.Join(t.TempDir(), "cache.db"))
+	votes := int64(11000)
+	err := cache.Write(t.Context(), func(queries *cachegen.Queries) error {
+		return queries.InsertMatchCandidate(t.Context(), cachegen.InsertMatchCandidateParams{
+			ItemID: 1, Rank: 0, Provider: "tmdb", ProviderID: "812", Votes: &votes,
+		})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	kept, err := cache.Read().ListMatchCandidates(t.Context(), 1)
+	if err != nil || len(kept) != 1 || kept[0].Votes == nil || *kept[0].Votes != votes {
+		t.Errorf("kept %+v, %v; want the candidate with its 11000 votes", kept, err)
+	}
+}

@@ -213,7 +213,7 @@ describe("a film whose match is a guess (D301)", () => {
       heard,
     );
     const forUser = await mount(withServices(<Title id={12} />, services));
-    expect(forUser.container.textContent).toContain("Identified by a guess");
+    expect(forUser.container.textContent).toContain("may be another work of the same name");
     expect(buttonWithText(forUser.container, "Identified incorrectly")).toBeUndefined();
     forUser.unmount();
     const forAdmin = await mount(
@@ -238,7 +238,7 @@ describe("a film whose match is a guess (D301)", () => {
         providerId: "50",
       },
     );
-    await settleUntil(() => !page.textContent.includes("Identified by a guess"));
+    await settleUntil(() => !page.textContent.includes("This may be identified incorrectly"));
     forAdmin.unmount();
   });
 });

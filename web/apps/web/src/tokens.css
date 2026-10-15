@@ -34,6 +34,9 @@
    */
   --color-warning: #ffcc00;
   --color-on-warning: #111111;
+  /* A cue that something may be wrong, softer than a warning: an uncertain match (D301 §4). */
+  --color-caution: #f7ce46;
+  --color-on-caution: #1c1d22;
   --color-irreversible: #b91c1c;
   --color-on-irreversible: #ffffff;
   --color-irreversible-text: #ff4d4d;
