@@ -47,7 +47,14 @@ export const chunkRequest = /\/bytes\/media\/chunks\/.+\.m4s/u;
 export async function openFilmOnItsLadder(page: Page, name: string): Promise<void> {
   await expect(async () => {
     const preloaded = page.waitForRequest(chunkRequest, { timeout: 5000 });
-    await openFilm(page, name);
+    try {
+      await openFilm(page, name);
+    } catch (problem: unknown) {
+      // The attempt failed before its wait could: the wait is let go, so its timeout seconds later
+      // fails no later attempt (check-pr, 2026-10-15: the test failed 5.6 s in, in its first try).
+      preloaded.catch(() => undefined);
+      throw problem;
+    }
     await preloaded;
   }).toPass({ timeout: 60_000 });
 }
