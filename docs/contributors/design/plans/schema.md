@@ -712,6 +712,7 @@ CREATE TABLE realm_key (                                   -- class A (D297)
   key           BLOB NOT NULL,           -- proof.RealmKey, 32 bytes
   made_at       INTEGER NOT NULL
 );
+CREATE INDEX realm_key_master ON realm_key(master_realm);  -- a sign-in lists its master realm's (0040)
 ```
 
 `issued_secret` is a ninth grant kind, a secret handed to a person to pass on, added for
