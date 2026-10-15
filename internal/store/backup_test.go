@@ -3,6 +3,7 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -10,6 +11,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // tableContents renders every row of every table, in a stable order, as text.
@@ -122,5 +127,34 @@ func TestInspectBackup_RefusesAMissingOrForeignFile(t *testing.T) {
 	inspected, err := InspectBackup(t.Context(), backup)
 	if err != nil || inspected.State.Version == 0 {
 		t.Errorf("InspectBackup(ours) = %+v, %v; want our schema version", inspected, err)
+	}
+}
+
+// A backup copies a snapshot while a write holds the writer: it never waits for the writer, and
+// the writer never waits for it (D303 §7, the independent audit's S7).
+func TestBackupInto_CopiesWhileAWriteHoldsTheWriter(t *testing.T) {
+	t.Parallel()
+	database := openMigrated(t)
+	holding, release, done := make(chan struct{}), make(chan struct{}), make(chan error, 1)
+	go func() {
+		done <- database.Write(t.Context(), func(*sqlcgen.Queries) error {
+			close(holding)
+			select {
+			case <-release:
+			case <-t.Context().Done():
+			}
+			return nil
+		})
+	}()
+	testutil.Receive(t, holding, "the write to hold the writer")
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	err := database.BackupInto(ctx, filepath.Join(t.TempDir(), "backup.db"))
+	close(release)
+	if err != nil {
+		t.Errorf("a backup beside a held writer failed: %v", err)
+	}
+	if err := testutil.Receive(t, done, "the holding write to finish"); err != nil {
+		t.Fatal(err)
 	}
 }

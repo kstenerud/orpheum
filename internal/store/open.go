@@ -49,6 +49,10 @@ type Database struct {
 	path    string
 	writer  *sql.DB
 	readers *sql.DB
+	// maintenance is one connection that may write but is not the writer: VACUUM INTO, which a
+	// query_only reader refuses, reads a snapshot through it while writes go on (D303, the
+	// independent audit's S7).
+	maintenance *sql.DB
 	// gate hands the writer to one write at a time, people's before background work.
 	gate writerGate
 	// slowWrites says each write that waited for the writer or held it past SlowWriteAfter; none
@@ -126,9 +130,16 @@ func open(ctx context.Context, path string, options OpenOptions, applicationID i
 		return nil, errors.Join(fmt.Errorf("open database %q for reading: %w", path, err), writer.Close())
 	}
 	readers.SetMaxOpenConns(max(options.MinimumReaders, runtime.NumCPU()))
-	database := &Database{path: path, writer: writer, readers: readers, slowWrites: slowWrites{
-		file: filepath.Base(path), clock: options.Clock, report: options.OnSlowWrite,
-	}}
+	maintenance, err := sql.Open("sqlite", path+"?"+connectionPragmas)
+	if err != nil {
+		return nil, errors.Join(fmt.Errorf("open database %q for maintenance: %w", path, err), readers.Close(),
+			writer.Close())
+	}
+	maintenance.SetMaxOpenConns(1)
+	database := &Database{
+		path: path, writer: writer, readers: readers, maintenance: maintenance,
+		slowWrites: slowWrites{file: filepath.Base(path), clock: options.Clock, report: options.OnSlowWrite},
+	}
 	if err := database.verify(ctx, applicationID); err != nil {
 		return nil, errors.Join(err, database.Close())
 	}
@@ -140,9 +151,9 @@ func (database *Database) Path() string {
 	return database.path
 }
 
-// Close closes both connection pools.
+// Close closes the reader pool, the writer and the maintenance connection.
 func (database *Database) Close() error {
-	return errors.Join(database.readers.Close(), database.writer.Close())
+	return errors.Join(database.readers.Close(), database.maintenance.Close(), database.writer.Close())
 }
 
 // Read returns the generated queries over the read-only pool. SQLite itself refuses a write
@@ -236,9 +247,9 @@ func OrNotFound[Row any](row Row, err error) (Row, error) {
 	return row, err
 }
 
-// verify reads back every pragma on both pools and checks the application_id.
+// verify reads back every pragma on every pool and checks the application_id.
 func (database *Database) verify(ctx context.Context, wantApplicationID int64) error {
-	for _, pool := range []*sql.DB{database.writer, database.readers} {
+	for _, pool := range []*sql.DB{database.writer, database.readers, database.maintenance} {
 		if err := verifyPragmas(ctx, pool); err != nil {
 			return fmt.Errorf("database %q: %w", database.path, err)
 		}
