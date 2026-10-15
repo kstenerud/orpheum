@@ -294,10 +294,11 @@ then; [audit-checklist](../audit-checklist.md) item 23 asks the questions at eve
 
 ### Access paths
 
-- **Each query's access path and the index serving it are known** (DL1): `TestReferenceScale`
-  reads every query's plan, both databases' and search's, and fails on a full scan or an
-  automatic index not listed with its reason. **Enforced by:** `TestReferenceScale` *(D303 A:
-  every query, not only `List…`)*.
+- **Each query's access path and the index serving it are known** (DL1): every query's plan,
+  both databases' and search's, is read, and a full scan of a table or of an index, or an
+  automatic index, fails unless `wholeReadsAllowed` lists it with its reason. Without statistics
+  SQLite plans the same whatever the rows, so the check runs on empty databases, in the unit tier.
+  **Enforced by:** `TestQueryPlans_EveryQueryReadsByAnIndexOrSaysWhy`.
 - **An index is ordered by how queries bind it** (DL2): equality columns first, then one range or
   the ORDER BY. A column with a handful of values (a locale, a kind, a state) leads only when
   every query also binds the next column. `SEARCH … (locale=?)` reads the whole locale. **Enforced

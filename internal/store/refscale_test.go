@@ -11,8 +11,6 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"os"
-	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -330,80 +328,6 @@ func rebuildStep(t *testing.T, database *Database, table string, version int) St
 		fmt.Fprintf(&text, "%s;\n", statement)
 	}
 	return Step{Version: version, Name: fmt.Sprintf("%04d_rebuild_%s.sql", version, table), SQL: text.String()}
-}
-
-// listQuery is one of the store's listing queries, as its file writes it.
-type listQuery struct {
-	name string
-	sql  string
-}
-
-var (
-	queryName = regexp.MustCompile(`(?m)^-- name: (\w+) :(\w+)\s*$`)
-	queryArg  = regexp.MustCompile(`sqlc\.n?arg\(\w+\)`)
-	fullScan  = regexp.MustCompile(`^SCAN (\w+)$`)
-)
-
-// listingQueries are the :many queries named List… in the query files, their arguments made
-// placeholders.
-func listingQueries(t *testing.T) []listQuery {
-	t.Helper()
-	paths, err := filepath.Glob(filepath.Join("queries", "*.sql"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var found []listQuery
-	for _, path := range paths {
-		text, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		marks := queryName.FindAllSubmatchIndex(text, -1)
-		for index, mark := range marks {
-			name, kind := string(text[mark[2]:mark[3]]), string(text[mark[4]:mark[5]])
-			end := len(text)
-			if index+1 < len(marks) {
-				end = marks[index+1][0]
-			}
-			if kind != "many" || !strings.HasPrefix(name, "List") {
-				continue
-			}
-			var body []string
-			for line := range strings.SplitSeq(string(text[mark[1]:end]), "\n") {
-				if !strings.HasPrefix(strings.TrimSpace(line), "--") {
-					body = append(body, line)
-				}
-			}
-			found = append(found, listQuery{name: name, sql: queryArg.ReplaceAllString(strings.Join(body, "\n"), "?")})
-		}
-	}
-	return found
-}
-
-// fullyScannedTables are the tables a query's plan reads whole.
-func fullyScannedTables(t *testing.T, database *Database, query listQuery) []string {
-	t.Helper()
-	args := make([]any, strings.Count(query.sql, "?"))
-	rows, err := database.readers.QueryContext(t.Context(), "EXPLAIN QUERY PLAN "+query.sql, args...)
-	if err != nil {
-		t.Fatalf("%s: %v", query.name, err)
-	}
-	defer func() { _ = rows.Close() }() //nolint:errcheck // read-only
-	var scanned []string
-	for rows.Next() {
-		var id, parent, unused int
-		var detail string
-		if err := rows.Scan(&id, &parent, &unused, &detail); err != nil {
-			t.Fatal(err)
-		}
-		if match := fullScan.FindStringSubmatch(detail); match != nil {
-			scanned = append(scanned, match[1])
-		}
-	}
-	if err := rows.Err(); err != nil {
-		t.Fatal(err)
-	}
-	return scanned
 }
 
 // fullScansAllowed are the listing queries that read a whole table, each with why that is right

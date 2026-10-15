@@ -40,6 +40,9 @@
 //     TestWrite_ASlowWaitNamesTheWriteItWaitedBehind.
 //   - A backup reads a snapshot on the maintenance connection, never the writer, so writes go on
 //     while it copies (D303 §7). Enforced by TestBackupInto_CopiesWhileAWriteHoldsTheWriter.
+//   - Every query of both databases, and each of search's statements, reads by an index, or is
+//     listed with why it may read a whole table; an entry naming D303 is a defect the redesign
+//     removes (D303, DL1). Enforced by TestQueryPlans_EveryQueryReadsByAnIndexOrSaysWhy.
 //   - A fresh schema equals testdata/golden/schema-vNNNN.sql for the current version, and the
 //     baseline alone the golden for its version. Enforced by TestMigrate_FreshSchemaEqualsTheGolden.
 //   - Each step commits alone, so an interrupted migration resumes and ends identical; a step
