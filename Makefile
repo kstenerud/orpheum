@@ -214,9 +214,16 @@ web-deps: ## Install web dependencies from the lockfile when they are missing or
 
 RESOLVE_BASE = $(PYTHON) scripts/branch_base.py $(if $(BASE),--base '$(BASE)')
 
-# check-pr's steps. Each runs through pr-step-<step>, which records whether it passed and on what
-# commit (scripts/check_pr_steps.py), so `make check-pr-failed` can re-run only what failed.
-PR_STEPS := test-integration test-browser check-test-weakening check-decision-status lint-commits web-lint-full
+# check-pr's steps, in tiers by how long they take, each tier run only once the one before passed:
+# a failure a second's check finds is never waited for behind the browser tier, and the slow tiers
+# do not share the machine with the rest (the owner, 2026-10-15: "fast ones first, then medium
+# ones with enough parallelization… only after those pass do we do the really long ones"). Each
+# step runs through pr-step-<step>, which records whether it passed and on what commit
+# (scripts/check_pr_steps.py), so `make check-pr-failed` can re-run only what failed.
+PR_FAST_STEPS := check-test-weakening check-decision-status lint-commits
+PR_MEDIUM_STEPS := test-integration web-lint-full
+PR_SLOW_STEPS := test-browser
+PR_STEPS := $(PR_FAST_STEPS) $(PR_MEDIUM_STEPS) $(PR_SLOW_STEPS)
 # Revert-red runs after the tiers, never beside them: a timing test failing under the load of a
 # probe would be counted as the probe's red, a "covered" nothing proved (audit-2026-09-29 §6).
 PR_LAST_STEP := check-revert-red
@@ -233,15 +240,19 @@ check-pr: ## Branch gates against BASE, quietly (VERBOSE=1 prints all; the log i
 	@$(PYTHON) scripts/quiet_gate.py "make check-pr" check-pr-verbose $(if $(BASE),BASE=$(BASE))
 
 .PHONY: check-pr-verbose
-check-pr-verbose: ## Branch gates against BASE (default: where the last pass ended, or the owner's mark), the tiers in parallel, then revert-red; a pass marks HEAD as checked
+check-pr-verbose: ## Branch gates against BASE (default: where the last pass ended, or the owner's mark), its tiers from the quickest, each only once the one before passed, revert-red last; a pass marks HEAD as checked
 	@started="$$(date +%s)"; base="$$($(RESOLVE_BASE))"; head="$$(git rev-parse HEAD)"; \
 	  state="$$(git rev-parse --git-common-dir)/check-pr/tree-state"; mkdir -p "$$(dirname "$$state")"; \
 	  $(PYTHON) scripts/tree_state.py --save "$$state"; \
 	  $(PYTHON) scripts/check_pr_steps.py start --base "$$base"; \
-	  $(MAKE) --no-print-directory -j$(CHECK_JOBS) -k --output-sync=target BASE="$$base" \
-	    $(PR_STEPS:%=pr-step-%); \
-	  $(MAKE) --no-print-directory BASE="$$base" $(PR_SERIAL_STEP:%=pr-step-%); \
-	  $(MAKE) --no-print-directory BASE="$$base" $(PR_LAST_STEP:%=pr-step-%); \
+	  { $(MAKE) --no-print-directory -j$(CHECK_JOBS) -k --output-sync=target BASE="$$base" \
+	      $(PR_FAST_STEPS:%=pr-step-%) && \
+	    $(MAKE) --no-print-directory -j$(CHECK_JOBS) -k --output-sync=target BASE="$$base" \
+	      $(PR_MEDIUM_STEPS:%=pr-step-%) && \
+	    $(MAKE) --no-print-directory BASE="$$base" $(PR_SERIAL_STEP:%=pr-step-%) && \
+	    $(MAKE) --no-print-directory BASE="$$base" $(PR_SLOW_STEPS:%=pr-step-%) && \
+	    $(MAKE) --no-print-directory BASE="$$base" $(PR_LAST_STEP:%=pr-step-%); } || \
+	    echo "make check-pr: a tier failed, so the slower ones after it did not run"; \
 	  $(PYTHON) scripts/check_pr_steps.py durations $(PR_STEPS) $(PR_SERIAL_STEP) $(PR_LAST_STEP); \
 	  $(PYTHON) scripts/tree_state.py --check "$$state"; \
 	  $(PYTHON) scripts/branch_base.py --checked "$$head" --base "$$base" && { \
