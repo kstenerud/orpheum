@@ -374,8 +374,8 @@ test-acceptance: browsers ## M4's acceptance: two browsers for 30 minutes under 
 ACCEPTANCE_HOME_MINUTES ?= 0.5
 
 .PHONY: test-acceptance-home
-test-acceptance-home: browsers ## M4's acceptance under the home profile for ACCEPTANCE_HOME_MINUTES (D252 §2); in check-pr, only when what it builds changed
-	@if [ -z '$(BASE)' ] || $(PYTHON) scripts/browser_tier_needed.py --base '$(BASE)'; then \
+test-acceptance-home: browsers ## M4's acceptance under the home profile for ACCEPTANCE_HOME_MINUTES (D252 §2); in check-pr, only when Watch Together, voice, WebRTC, the player or playback changed
+	@if [ -z '$(BASE)' ] || $(PYTHON) scripts/browser_tier_needed.py --base '$(BASE)' --acceptance; then \
 	  ORPHEUM_ACCEPTANCE_MINUTES=$(ACCEPTANCE_HOME_MINUTES) ORPHEUM_ACCEPTANCE_PROFILES=home \
 	    $(MAKE) --no-print-directory browser-tier E2E_CONFIG=web/e2e/acceptance.config.ts \
 	      E2E_ARGS='--grep "stay in step"'; fi
