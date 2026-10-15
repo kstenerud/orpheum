@@ -8,7 +8,9 @@
 -- the sweeps pass the item over until a person's refresh, or a fetch that succeeds, clears it.
 INSERT INTO fetch_failure (item_id, failure, failed_at)
 VALUES (sqlc.arg(item_id), sqlc.arg(failure), sqlc.arg(failed_at))
-ON CONFLICT (item_id) DO UPDATE SET failure = excluded.failure, failed_at = excluded.failed_at;
+ON CONFLICT (item_id) DO UPDATE SET failure = excluded.failure, failed_at = excluded.failed_at
+-- Only when it changes something (D303, DL9).
+WHERE (fetch_failure.failure, fetch_failure.failed_at) IS NOT (excluded.failure, excluded.failed_at);
 
 -- name: ClearFetchFailure :exec
 DELETE FROM fetch_failure WHERE item_id = sqlc.arg(item_id);
@@ -19,7 +21,10 @@ DELETE FROM fetch_failure WHERE item_id = sqlc.arg(item_id);
 INSERT INTO refresh_request (item_id, requested_at, should_fetch_images)
 VALUES (sqlc.arg(item_id), sqlc.arg(requested_at), sqlc.arg(should_fetch_images))
 ON CONFLICT (item_id) DO UPDATE SET requested_at = excluded.requested_at,
-  should_fetch_images = max(refresh_request.should_fetch_images, excluded.should_fetch_images);
+  should_fetch_images = max(refresh_request.should_fetch_images, excluded.should_fetch_images)
+-- Only when it changes something (D303, DL9).
+WHERE (refresh_request.requested_at, refresh_request.should_fetch_images)
+  IS NOT (excluded.requested_at, max(refresh_request.should_fetch_images, excluded.should_fetch_images));
 
 -- name: GetRefreshRequest :one
 SELECT item_id, requested_at, should_fetch_images FROM refresh_request WHERE item_id = sqlc.arg(item_id);

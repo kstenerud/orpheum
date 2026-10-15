@@ -15,7 +15,13 @@ VALUES (sqlc.arg(node_id), sqlc.arg(root_path), sqlc.arg(filesystem_device), sql
 ON CONFLICT (node_id, root_path) DO UPDATE SET
   filesystem_device = excluded.filesystem_device, is_mount_point = excluded.is_mount_point, last_scan_outcome = 'complete',
   last_scan_at = excluded.last_scan_at, withheld_scan_started_at = NULL, withheld_reason = NULL, are_removals_approved = 0,
-  unavailable_since = NULL;
+  unavailable_since = NULL
+-- Only when it changes something (D303, DL9).
+WHERE (root_state.filesystem_device, root_state.is_mount_point, root_state.last_scan_outcome,
+  root_state.last_scan_at, root_state.withheld_scan_started_at, root_state.withheld_reason,
+  root_state.are_removals_approved, root_state.unavailable_since)
+  IS NOT (excluded.filesystem_device, excluded.is_mount_point, 'complete', excluded.last_scan_at, NULL, NULL,
+    0, NULL);
 
 -- name: RecordRootNotComplete :exec
 -- A scan that could not read its root, or whose removals wait for the admin: the known-good
@@ -30,7 +36,13 @@ ON CONFLICT (node_id, root_path) DO UPDATE SET
   last_scan_outcome = excluded.last_scan_outcome, last_scan_at = excluded.last_scan_at,
   withheld_scan_started_at = excluded.withheld_scan_started_at, withheld_reason = excluded.withheld_reason,
   unavailable_since = CASE WHEN excluded.unavailable_since IS NULL THEN NULL
-    ELSE coalesce(root_state.unavailable_since, excluded.unavailable_since) END;
+    ELSE coalesce(root_state.unavailable_since, excluded.unavailable_since) END
+-- Only when it changes something (D303, DL9).
+WHERE (root_state.last_scan_outcome, root_state.last_scan_at, root_state.withheld_scan_started_at,
+  root_state.withheld_reason, root_state.unavailable_since)
+  IS NOT (excluded.last_scan_outcome, excluded.last_scan_at, excluded.withheld_scan_started_at,
+    excluded.withheld_reason,
+    CASE WHEN excluded.unavailable_since IS NULL THEN NULL ELSE coalesce(root_state.unavailable_since, excluded.unavailable_since) END);
 
 -- name: MarkRootUnavailable :one
 -- Work stalled waiting on the root's disk: the root is unavailable from now, unless it already
@@ -50,7 +62,10 @@ ORDER BY mount_path;
 INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_present)
 VALUES (sqlc.arg(node_id), sqlc.arg(root_path), sqlc.arg(mount_path), sqlc.arg(filesystem_device), 1)
 ON CONFLICT (node_id, mount_path) DO UPDATE SET
-  root_path = excluded.root_path, filesystem_device = excluded.filesystem_device, is_present = 1, missing_since = NULL;
+  root_path = excluded.root_path, filesystem_device = excluded.filesystem_device, is_present = 1, missing_since = NULL
+-- Only when it changes something (D303, DL9).
+WHERE (root_mount.root_path, root_mount.filesystem_device, root_mount.is_present, root_mount.missing_since)
+  IS NOT (excluded.root_path, excluded.filesystem_device, 1, NULL);
 
 -- name: RecordRootMountMissing :exec
 -- A disk a scan did not find where it was: missing since the first such scan in a row.

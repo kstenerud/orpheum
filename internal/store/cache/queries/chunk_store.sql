@@ -3,7 +3,9 @@
 -- target, so the runs of a film's streams queue side by side (internal/core/chunks).
 
 -- name: EnsureChunkStore :one
--- The store's row, made the first time it is named.
+-- The store's row, made the first time it is named. Its DO UPDATE sets a column to itself so that
+-- RETURNING gives the id of a row already there, which a guard would stop it returning.
+-- @sqlc-vet-disable upsert-only-if-changed
 INSERT INTO chunk_store (source_file, stream, grid_id)
 VALUES (sqlc.arg(source_file), sqlc.arg(stream), sqlc.arg(grid_id))
 ON CONFLICT (source_file, stream, grid_id) DO UPDATE SET stream = excluded.stream

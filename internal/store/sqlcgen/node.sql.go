@@ -165,6 +165,8 @@ const setDeviceReaderLimit = `-- name: SetDeviceReaderLimit :exec
 INSERT INTO device_reader_limit (node_id, device_key, reader_limit, set_at)
 VALUES (?1, ?2, ?3, ?4)
 ON CONFLICT (node_id, device_key) DO UPDATE SET reader_limit = excluded.reader_limit, set_at = excluded.set_at
+WHERE (device_reader_limit.reader_limit, device_reader_limit.set_at)
+  IS NOT (excluded.reader_limit, excluded.set_at)
 `
 
 type SetDeviceReaderLimitParams struct {
@@ -175,6 +177,7 @@ type SetDeviceReaderLimitParams struct {
 }
 
 // How many may read one of a node's devices at once, as an admin set it (D240 section 5).
+// Only when it changes something (D303, DL9).
 func (q *Queries) SetDeviceReaderLimit(ctx context.Context, arg SetDeviceReaderLimitParams) error {
 	_, err := q.db.ExecContext(ctx, setDeviceReaderLimit,
 		arg.NodeID,

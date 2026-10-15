@@ -60,6 +60,8 @@ INSERT INTO subtitle_text (source_hash, stream_index, ass, vtt, failure, made_at
 VALUES (?1, ?2, ?3, ?4, ?5, ?6)
 ON CONFLICT (source_hash, stream_index) DO UPDATE SET
   ass = excluded.ass, vtt = excluded.vtt, failure = excluded.failure, made_at = excluded.made_at
+WHERE (subtitle_text.ass, subtitle_text.vtt, subtitle_text.failure, subtitle_text.made_at)
+  IS NOT (excluded.ass, excluded.vtt, excluded.failure, excluded.made_at)
 `
 
 type KeepSubtitleTextParams struct {
@@ -72,6 +74,7 @@ type KeepSubtitleTextParams struct {
 }
 
 // What the node answered: the text, or why none could be made. A later answer replaces it.
+// Only when it changes something (D303, DL9).
 func (q *Queries) KeepSubtitleText(ctx context.Context, arg KeepSubtitleTextParams) error {
 	_, err := q.db.ExecContext(ctx, keepSubtitleText,
 		arg.SourceHash,

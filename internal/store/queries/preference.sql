@@ -5,7 +5,9 @@
 -- name: SetPreference :exec
 INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
 VALUES (sqlc.arg(user_id), sqlc.arg(scope), sqlc.arg(scope_id), sqlc.arg(axis), sqlc.arg(value_json), sqlc.arg(set_at))
-ON CONFLICT (user_id, scope, scope_id, axis) DO UPDATE SET value_json = excluded.value_json, set_at = excluded.set_at;
+ON CONFLICT (user_id, scope, scope_id, axis) DO UPDATE SET value_json = excluded.value_json, set_at = excluded.set_at
+-- Only when it changes something (D303, DL9).
+WHERE (preference.value_json, preference.set_at) IS NOT (excluded.value_json, excluded.set_at);
 
 -- name: KeepPreferenceUnlessSet :exec
 -- A value kept only where the axis has none at the scope: what a started file used, which a choice

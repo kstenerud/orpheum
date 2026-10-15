@@ -904,6 +904,7 @@ const upsertCollectionMember = `-- name: UpsertCollectionMember :exec
 INSERT INTO collection_member (collection_id, member_title, position)
 VALUES (?1, ?2, ?3)
 ON CONFLICT (collection_id, member_title) DO UPDATE SET position = excluded.position
+WHERE (collection_member.position) IS NOT (excluded.position)
 `
 
 type UpsertCollectionMemberParams struct {
@@ -912,6 +913,7 @@ type UpsertCollectionMemberParams struct {
 	Position     *float64
 }
 
+// Only when it changes something (D303, DL9).
 func (q *Queries) UpsertCollectionMember(ctx context.Context, arg UpsertCollectionMemberParams) error {
 	_, err := q.db.ExecContext(ctx, upsertCollectionMember, arg.CollectionID, arg.MemberTitle, arg.Position)
 	return err
@@ -957,6 +959,8 @@ INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort
 VALUES (?1, ?2, ?3, ?4, ?5)
 ON CONFLICT (ordering_id, title_id) DO UPDATE SET group_number = excluded.group_number, number_in_group = excluded.number_in_group,
   sort_order = excluded.sort_order
+WHERE (position.group_number, position.number_in_group, position.sort_order)
+  IS NOT (excluded.group_number, excluded.number_in_group, excluded.sort_order)
 `
 
 type UpsertPositionParams struct {
@@ -967,6 +971,7 @@ type UpsertPositionParams struct {
 	SortOrder     float64
 }
 
+// Only when it changes something (D303, DL9).
 func (q *Queries) UpsertPosition(ctx context.Context, arg UpsertPositionParams) error {
 	_, err := q.db.ExecContext(ctx, upsertPosition,
 		arg.OrderingID,

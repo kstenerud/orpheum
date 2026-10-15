@@ -60,6 +60,8 @@ exhaustive ([go.md](go.md) §6).
   generated code (it has no other form); gosec G201 and G202 anywhere else.
 - **No `UPDATE` or `DELETE` without a `WHERE`.** **Enforced by:** the `no-unbounded-write` rule
   in `sqlc.yaml`, run by `sqlc vet` in `make generate`.
+- **No upsert that writes when nothing changed** (§13, DL9). **Enforced by:** the
+  `upsert-only-if-changed` rule in `sqlc.yaml`.
 - **Reads go through the `live_*` views** unless the query is about tombstoned rows (history,
   the scanner view of what went away). **Review-only.**
 - **Queries on the `secret` table carry `SealedSecret` in their name**
@@ -340,8 +342,11 @@ then; [audit-checklist](../audit-checklist.md) item 23 asks the questions at eve
   NOT excluded.col …`; a derivation `UPDATE` carries the same guard; a trigger that maintains
   derived data is `AFTER UPDATE OF <its columns> … WHEN old.x IS NOT new.x`; the writer's own
   stamps are left out of every comparison, and nothing is stamped that can be derived. **Enforced
-  by:** a second pass over an unchanged library writes zero rows *(D303 C)*; `sqlc vet`'s rule
-  against an unguarded upsert *(D303 B)*.
+  by:** `sqlc vet`'s `upsert-only-if-changed` rule refuses a `DO UPDATE` with no `WHERE`, and
+  `TestUpserts_EachWritesOnlyWhenItChangesSomething` reads the generated statements for the same; a
+  query that must touch the row regardless (one that returns it) opts out with
+  `-- @sqlc-vet-disable upsert-only-if-changed` and says why. A second pass over an unchanged
+  library writes zero rows *(D303 C)*.
 - **People's writes go first** (DL11): every write passes through the writer gate, which hands
   the one writer to the oldest interactive write before background work, and to background work
   that has waited past its bound before either, so none starves. Group commit (D303 §1) joins

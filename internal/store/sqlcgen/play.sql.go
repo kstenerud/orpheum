@@ -86,6 +86,7 @@ func (q *Queries) GetPlayPosition(ctx context.Context, arg GetPlayPositionParams
 const hideProgress = `-- name: HideProgress :exec
 INSERT INTO progress_hide (user_id, item_id, hidden_at) VALUES (?1, ?2, ?3)
 ON CONFLICT (user_id, item_id) DO UPDATE SET hidden_at = excluded.hidden_at
+WHERE (progress_hide.hidden_at) IS NOT (excluded.hidden_at)
 `
 
 type HideProgressParams struct {
@@ -95,6 +96,7 @@ type HideProgressParams struct {
 }
 
 // A work hidden from Continue Watching until it next has activity (D188): not a completion.
+// Only when it changes something (D303, DL9).
 func (q *Queries) HideProgress(ctx context.Context, arg HideProgressParams) error {
 	_, err := q.db.ExecContext(ctx, hideProgress, arg.UserID, arg.ItemID, arg.HiddenAt)
 	return err

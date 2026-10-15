@@ -32,7 +32,10 @@ ORDER BY name;
 -- How many may read one of a node's devices at once, as an admin set it (D240 section 5).
 INSERT INTO device_reader_limit (node_id, device_key, reader_limit, set_at)
 VALUES (sqlc.arg(node_id), sqlc.arg(device_key), sqlc.arg(reader_limit), sqlc.arg(set_at))
-ON CONFLICT (node_id, device_key) DO UPDATE SET reader_limit = excluded.reader_limit, set_at = excluded.set_at;
+ON CONFLICT (node_id, device_key) DO UPDATE SET reader_limit = excluded.reader_limit, set_at = excluded.set_at
+-- Only when it changes something (D303, DL9).
+WHERE (device_reader_limit.reader_limit, device_reader_limit.set_at)
+  IS NOT (excluded.reader_limit, excluded.set_at);
 
 -- name: ClearDeviceReaderLimit :exec
 -- A device's limit given back to its kind's setting.

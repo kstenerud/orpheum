@@ -66,7 +66,9 @@ LIMIT sqlc.arg(max_rows);
 -- name: HideProgress :exec
 -- A work hidden from Continue Watching until it next has activity (D188): not a completion.
 INSERT INTO progress_hide (user_id, item_id, hidden_at) VALUES (sqlc.arg(user_id), sqlc.arg(item_id), sqlc.arg(hidden_at))
-ON CONFLICT (user_id, item_id) DO UPDATE SET hidden_at = excluded.hidden_at;
+ON CONFLICT (user_id, item_id) DO UPDATE SET hidden_at = excluded.hidden_at
+-- Only when it changes something (D303, DL9).
+WHERE (progress_hide.hidden_at) IS NOT (excluded.hidden_at);
 
 -- name: UnhideProgress :exec
 DELETE FROM progress_hide WHERE user_id = sqlc.arg(user_id) AND item_id = sqlc.arg(item_id);

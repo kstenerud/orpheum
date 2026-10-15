@@ -4,7 +4,9 @@
 
 -- name: MarkGuessedMatch :exec
 INSERT INTO guessed_match (item_id, guessed_at) VALUES (sqlc.arg(item_id), sqlc.arg(guessed_at))
-ON CONFLICT (item_id) DO UPDATE SET guessed_at = excluded.guessed_at;
+ON CONFLICT (item_id) DO UPDATE SET guessed_at = excluded.guessed_at
+-- Only when it changes something (D303, DL9).
+WHERE (guessed_match.guessed_at) IS NOT (excluded.guessed_at);
 
 -- name: ClearGuessedMatch :exec
 DELETE FROM guessed_match WHERE item_id = sqlc.arg(item_id);

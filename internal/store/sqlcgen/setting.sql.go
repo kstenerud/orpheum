@@ -121,6 +121,8 @@ VALUES (?1, ?2, ?3, ?4, ?5)
 ON CONFLICT (key)
 DO UPDATE SET value_json = excluded.value_json, set_by_user_id = excluded.set_by_user_id, set_at = excluded.set_at,
               is_modified = excluded.is_modified
+WHERE (setting.value_json, setting.set_by_user_id, setting.set_at, setting.is_modified)
+  IS NOT (excluded.value_json, excluded.set_by_user_id, excluded.set_at, excluded.is_modified)
 `
 
 type UpsertSettingParams struct {
@@ -131,6 +133,7 @@ type UpsertSettingParams struct {
 	IsModified  int64
 }
 
+// Only when it changes something (D303, DL9).
 func (q *Queries) UpsertSetting(ctx context.Context, arg UpsertSettingParams) error {
 	_, err := q.db.ExecContext(ctx, upsertSetting,
 		arg.Key,

@@ -51,6 +51,8 @@ INSERT INTO art_served (source_sha256_hex, last_served_epoch_day)
 VALUES (?1, ?2)
 ON CONFLICT (source_sha256_hex) DO UPDATE
 SET last_served_epoch_day = MAX(art_served.last_served_epoch_day, excluded.last_served_epoch_day)
+WHERE (art_served.last_served_epoch_day)
+  IS NOT (MAX(art_served.last_served_epoch_day, excluded.last_served_epoch_day))
 `
 
 type MarkArtServedParams struct {
@@ -61,6 +63,7 @@ type MarkArtServedParams struct {
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // When each image was last served, to the day: what the artwork ceiling evicts first within a
 // class, D212 section 6. Written hourly in a batch, never on the request path.
+// Only when it changes something (D303, DL9).
 func (q *Queries) MarkArtServed(ctx context.Context, arg MarkArtServedParams) error {
 	_, err := q.db.ExecContext(ctx, markArtServed, arg.SourceSha256Hex, arg.LastServedEpochDay)
 	return err

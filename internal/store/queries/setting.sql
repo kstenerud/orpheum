@@ -12,7 +12,10 @@ INSERT INTO setting (key, value_json, set_by_user_id, set_at, is_modified)
 VALUES (sqlc.arg(key), sqlc.arg(value_json), sqlc.arg(set_by_user_id), sqlc.arg(set_at), sqlc.arg(is_modified))
 ON CONFLICT (key)
 DO UPDATE SET value_json = excluded.value_json, set_by_user_id = excluded.set_by_user_id, set_at = excluded.set_at,
-              is_modified = excluded.is_modified;
+              is_modified = excluded.is_modified
+-- Only when it changes something (D303, DL9).
+WHERE (setting.value_json, setting.set_by_user_id, setting.set_at, setting.is_modified)
+  IS NOT (excluded.value_json, excluded.set_by_user_id, excluded.set_at, excluded.is_modified);
 
 -- name: GetSetting :one
 SELECT key, value_json, set_by_user_id, set_at, is_modified

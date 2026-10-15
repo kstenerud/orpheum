@@ -1232,6 +1232,7 @@ const upsertRootScan = `-- name: UpsertRootScan :exec
 INSERT INTO root_scan (node_id, root_path, completed_at)
 VALUES (?1, ?2, ?3)
 ON CONFLICT (node_id, root_path) DO UPDATE SET completed_at = excluded.completed_at
+WHERE (root_scan.completed_at) IS NOT (excluded.completed_at)
 `
 
 type UpsertRootScanParams struct {
@@ -1240,6 +1241,7 @@ type UpsertRootScanParams struct {
 	CompletedAt int64
 }
 
+// Only when it changes something (D303, DL9).
 func (q *Queries) UpsertRootScan(ctx context.Context, arg UpsertRootScanParams) error {
 	_, err := q.db.ExecContext(ctx, upsertRootScan, arg.NodeID, arg.RootPath, arg.CompletedAt)
 	return err
@@ -1255,6 +1257,10 @@ ON CONFLICT (bytes_file, stream_index) DO UPDATE SET
   video_file = excluded.video_file, kind = excluded.kind, codec = excluded.codec, container_language = excluded.container_language,
   language = excluded.language, container_title = excluded.container_title, disposition_flags = excluded.disposition_flags,
   channel_count = excluded.channel_count
+WHERE (stream.video_file, stream.kind, stream.codec, stream.container_language, stream.language,
+  stream.container_title, stream.disposition_flags, stream.channel_count)
+  IS NOT (excluded.video_file, excluded.kind, excluded.codec, excluded.container_language, excluded.language,
+    excluded.container_title, excluded.disposition_flags, excluded.channel_count)
 `
 
 type UpsertStreamParams struct {
@@ -1271,6 +1277,7 @@ type UpsertStreamParams struct {
 
 // A video's own track, by its stream index. A row keeps its id for as long as its file has the
 // index, so an extraction job or a playback's subtitle address that names it holds across scans.
+// Only when it changes something (D303, DL9).
 func (q *Queries) UpsertStream(ctx context.Context, arg UpsertStreamParams) error {
 	_, err := q.db.ExecContext(ctx, upsertStream,
 		arg.FileID,

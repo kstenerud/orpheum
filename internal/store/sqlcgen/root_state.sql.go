@@ -418,6 +418,11 @@ ON CONFLICT (node_id, root_path) DO UPDATE SET
   filesystem_device = excluded.filesystem_device, is_mount_point = excluded.is_mount_point, last_scan_outcome = 'complete',
   last_scan_at = excluded.last_scan_at, withheld_scan_started_at = NULL, withheld_reason = NULL, are_removals_approved = 0,
   unavailable_since = NULL
+WHERE (root_state.filesystem_device, root_state.is_mount_point, root_state.last_scan_outcome,
+  root_state.last_scan_at, root_state.withheld_scan_started_at, root_state.withheld_reason,
+  root_state.are_removals_approved, root_state.unavailable_since)
+  IS NOT (excluded.filesystem_device, excluded.is_mount_point, 'complete', excluded.last_scan_at, NULL, NULL,
+    0, NULL)
 `
 
 type RecordRootCompleteParams struct {
@@ -430,6 +435,7 @@ type RecordRootCompleteParams struct {
 
 // A complete scan: its facts become the known-good ones later scans are compared against, and the
 // root is no longer unavailable.
+// Only when it changes something (D303, DL9).
 func (q *Queries) RecordRootComplete(ctx context.Context, arg RecordRootCompleteParams) error {
 	_, err := q.db.ExecContext(ctx, recordRootComplete,
 		arg.NodeID,
@@ -463,6 +469,8 @@ INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_pr
 VALUES (?1, ?2, ?3, ?4, 1)
 ON CONFLICT (node_id, mount_path) DO UPDATE SET
   root_path = excluded.root_path, filesystem_device = excluded.filesystem_device, is_present = 1, missing_since = NULL
+WHERE (root_mount.root_path, root_mount.filesystem_device, root_mount.is_present, root_mount.missing_since)
+  IS NOT (excluded.root_path, excluded.filesystem_device, 1, NULL)
 `
 
 type RecordRootMountPresentParams struct {
@@ -472,6 +480,7 @@ type RecordRootMountPresentParams struct {
 	FilesystemDevice int64
 }
 
+// Only when it changes something (D303, DL9).
 func (q *Queries) RecordRootMountPresent(ctx context.Context, arg RecordRootMountPresentParams) error {
 	_, err := q.db.ExecContext(ctx, recordRootMountPresent,
 		arg.NodeID,
@@ -492,6 +501,11 @@ ON CONFLICT (node_id, root_path) DO UPDATE SET
   withheld_scan_started_at = excluded.withheld_scan_started_at, withheld_reason = excluded.withheld_reason,
   unavailable_since = CASE WHEN excluded.unavailable_since IS NULL THEN NULL
     ELSE coalesce(root_state.unavailable_since, excluded.unavailable_since) END
+WHERE (root_state.last_scan_outcome, root_state.last_scan_at, root_state.withheld_scan_started_at,
+  root_state.withheld_reason, root_state.unavailable_since)
+  IS NOT (excluded.last_scan_outcome, excluded.last_scan_at, excluded.withheld_scan_started_at,
+    excluded.withheld_reason,
+    CASE WHEN excluded.unavailable_since IS NULL THEN NULL ELSE coalesce(root_state.unavailable_since, excluded.unavailable_since) END)
 `
 
 type RecordRootNotCompleteParams struct {
@@ -508,6 +522,7 @@ type RecordRootNotCompleteParams struct {
 // facts stay as they were. A root the scan could not read, or whose held-back scan saw none of it,
 // is unavailable since the first such scan in a row (D41, D231 section 7); one whose scan read it
 // and only holds back removals is available (D277 section 1).
+// Only when it changes something (D303, DL9).
 func (q *Queries) RecordRootNotComplete(ctx context.Context, arg RecordRootNotCompleteParams) error {
 	_, err := q.db.ExecContext(ctx, recordRootNotComplete,
 		arg.NodeID,

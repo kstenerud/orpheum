@@ -60,6 +60,10 @@ VALUES (?1, ?2, ?3, ?4,
 ON CONFLICT (payload_hash, stream_index, measured_mix) DO UPDATE SET
   integrated_lufs = excluded.integrated_lufs, range_lu = excluded.range_lu,
   true_peak_dbtp = excluded.true_peak_dbtp, failure = excluded.failure, measured_at = excluded.measured_at
+WHERE (loudness.integrated_lufs, loudness.range_lu, loudness.true_peak_dbtp, loudness.failure,
+  loudness.measured_at)
+  IS NOT (excluded.integrated_lufs, excluded.range_lu, excluded.true_peak_dbtp, excluded.failure,
+    excluded.measured_at)
 `
 
 type UpsertLoudnessParams struct {
@@ -73,6 +77,7 @@ type UpsertLoudnessParams struct {
 	MeasuredAt     int64
 }
 
+// Only when it changes something (D303, DL9).
 func (q *Queries) UpsertLoudness(ctx context.Context, arg UpsertLoudnessParams) error {
 	_, err := q.db.ExecContext(ctx, upsertLoudness,
 		arg.PayloadHash,
