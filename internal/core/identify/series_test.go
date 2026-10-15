@@ -5,11 +5,9 @@ package identify_test
 import (
 	"slices"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -142,27 +140,33 @@ func TestSeries_ANewEpisodeFetchesItsSeasonAgain(t *testing.T) {
 	}
 }
 
-func TestSeries_AnAmbiguousSeriesIsChosenByAPerson(t *testing.T) {
+// Two series of one name and no year to tell them apart: the oldest is taken as a guess, marked as
+// one, and a person corrects it from the candidates kept for it, which is final (D301).
+func TestSeries_OfSeveralByItsNameTheOldestIsGuessedAndAPersonCorrectsIt(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "shows", "tmdb")
 	uk := lib.provider.Add(identify.Metadata{ID: "2996", Name: "The Ledger Room", Year: 2001})
 	american := lib.provider.Add(identify.Metadata{ID: "2316", Name: "The Ledger Room", Year: 2005})
 	lib.provider.Searches[identifytest.SearchKey("The Ledger Room", 0)] = []identify.Candidate{american, uk}
+	lib.provider.Seasons["2996/2"] = []identify.Episode{
+		{ID: "8", Season: 2, Number: 1, Name: "Merger", Year: 2002},
+	}
 	lib.provider.Seasons["2316/2"] = []identify.Episode{
 		{ID: "9", Season: 2, Number: 1, Name: "The Dundies", Year: 2005},
 	}
 	const rel = "The Ledger Room/Season 2/The Ledger Room - S02E01.mkv"
 	lib.scanAll(rel)
 	series := lib.onlySeries()
-	if outcome, err := lib.matcher.Match(t.Context(), series.ID); err != nil || outcome != identify.OutcomeAmbiguous {
-		t.Fatalf("Match = %s, %v; two shows of that name and no year to tell them apart", outcome, err)
+	if outcome, err := lib.matcher.Match(t.Context(), series.ID); err != nil || outcome != identify.OutcomeMatched {
+		t.Fatalf("Match = %s, %v; the oldest of that name is taken as a guess", outcome, err)
 	}
-	if file := lib.titlesByPath()[rel]; file.FilingReason == nil || !strings.Contains(*file.FilingReason, "choose") {
-		t.Errorf("an episode of an ambiguous series: %+v", file)
+	if !lib.isGuessed(series.ID) || !slices.Contains(lib.provider.Calls, "fetch series 2996") &&
+		!slices.Contains(lib.provider.Calls, "fetch 2996") {
+		t.Errorf("the guess is not the 2001 series, marked as a guess: %v", lib.provider.Calls)
 	}
-	listed, err := lib.chooser.Items(t.Context(), auth.EveryLibrary(), identify.IdentificationAmbiguous)
-	if err != nil || len(listed) != 1 || listed[0].Kind != identify.KindSeries {
-		t.Errorf("Items(ambiguous) = %+v, %v; want the series", listed, err)
+	candidates, _, err := lib.chooser.Candidates(t.Context(), series.ID)
+	if err != nil || len(candidates) != 2 {
+		t.Fatalf("the candidates kept for correcting it = %+v, %v; want both", candidates, err)
 	}
 	if err := lib.chooser.Choose(t.Context(), series.ID, "tmdb", american.ID); err != nil {
 		t.Fatal(err)
@@ -171,8 +175,9 @@ func TestSeries_AnAmbiguousSeriesIsChosenByAPerson(t *testing.T) {
 	if got := titleName(lib.titlesByPath()[rel]); got != "The Dundies" {
 		t.Errorf("after choosing the American series: %q", got)
 	}
-	if ident := ptr.ValueOrZero(lib.onlySeries().IdentificationState); ident != identify.IdentificationConfirmed {
-		t.Errorf("the chosen series is %s, want confirmed", ident)
+	if ident := ptr.ValueOrZero(lib.onlySeries().IdentificationState); ident != identify.IdentificationConfirmed ||
+		lib.isGuessed(series.ID) {
+		t.Errorf("the chosen series is %s, guessed %t; want confirmed, no guess", ident, lib.isGuessed(series.ID))
 	}
 	episode := lib.titlesByPath()[rel].TitleID
 	if err := lib.chooser.Choose(t.Context(), episode, "tmdb", "9"); err == nil {

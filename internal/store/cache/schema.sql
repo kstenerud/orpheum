@@ -3,7 +3,7 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by persistent.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 35
+-- cache schema version 36
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -92,6 +92,7 @@ CREATE TABLE match_candidate (                             -- D172: kept so choo
   provider    TEXT NOT NULL,
   provider_id TEXT NOT NULL,
   name        TEXT, year INTEGER, runtime_ms INTEGER, provider_poster_path TEXT,
+  votes       INTEGER,                   -- D301: the most voted settles a year shared
   PRIMARY KEY (item_id, rank)
 );
 

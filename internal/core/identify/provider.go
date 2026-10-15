@@ -71,6 +71,9 @@ type Candidate struct {
 	OriginalName       string
 	Year               int
 	ProviderPosterPath string
+	// Votes are how many people rated the work at the provider: what settles two works of one name
+	// in one year (D301).
+	Votes int
 }
 
 // Metadata is what a provider says about a work.

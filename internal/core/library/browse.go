@@ -67,9 +67,11 @@ type Entry struct {
 	Name                string
 	Year                int64
 	IdentificationState string
-	LibraryID           int64
-	AddedAt             int64
-	PosterSha256        string // its poster's hash; "" when it has none
+	// IsGuessed is whether its match is a guess no person confirmed: its poster says so (D301 §4).
+	IsGuessed    bool
+	LibraryID    int64
+	AddedAt      int64
+	PosterSha256 string // its poster's hash; "" when it has none
 	// Unreadable is why none of its files can be read now, the first's, or nil when one can, or it
 	// has none (D241 §3).
 	Unreadable *Unreadable
@@ -117,7 +119,7 @@ func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error)
 			entries = append(entries, Entry{
 				ID: row.ItemID, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
 				IdentificationState: ptr.ValueOrZero(row.IdentificationState),
-				LibraryID:           ptr.ValueOrZero(row.LibraryID), AddedAt: row.AddedAt,
+				LibraryID:           ptr.ValueOrZero(row.LibraryID), AddedAt: row.AddedAt, IsGuessed: row.IsGuessed,
 			})
 			keys = append(keys, row.CollationKey)
 		}
@@ -131,7 +133,7 @@ func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error)
 			entries = append(entries, Entry{
 				ID: row.ItemID, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
 				IdentificationState: row.IdentificationState, LibraryID: ptr.ValueOrZero(row.LibraryID),
-				AddedAt: row.AddedAt,
+				AddedAt: row.AddedAt, IsGuessed: row.IsGuessed,
 			})
 			keys = append(keys, row.CollationKey)
 		}
@@ -165,7 +167,7 @@ func (browser *Browser) listByAdded(ctx context.Context, query ListQuery) (Page,
 			entries = append(entries, Entry{
 				ID: row.ItemID, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
 				IdentificationState: ptr.ValueOrZero(row.IdentificationState),
-				LibraryID:           ptr.ValueOrZero(row.LibraryID), AddedAt: row.AddedAt,
+				LibraryID:           ptr.ValueOrZero(row.LibraryID), AddedAt: row.AddedAt, IsGuessed: row.IsGuessed,
 			})
 		}
 	} else {
@@ -178,7 +180,7 @@ func (browser *Browser) listByAdded(ctx context.Context, query ListQuery) (Page,
 			entries = append(entries, Entry{
 				ID: row.ItemID, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
 				IdentificationState: row.IdentificationState, LibraryID: ptr.ValueOrZero(row.LibraryID),
-				AddedAt: row.AddedAt,
+				AddedAt: row.AddedAt, IsGuessed: row.IsGuessed,
 			})
 		}
 	}

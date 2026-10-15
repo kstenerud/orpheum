@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import { bySeason, SeriesView, type SeriesDetail } from "./series.tsx";
 import { withServices } from "./test-services.tsx";
+import { IsAdminContext } from "./warning-sign.tsx";
 
 const episode = (
   id: number,
@@ -93,5 +94,36 @@ describe("a series of one season", () => {
     const markup = renderToStaticMarkup(withServices(<SeriesView series={series} />));
     expect(markup).toContain('href="/titles/50"');
     expect(markup).not.toContain("All seasons");
+  });
+});
+
+describe("a series whose match is a guess (D301)", () => {
+  it("is marked over its poster, and offers an admin alone to correct it", () => {
+    const series: SeriesDetail = {
+      id: 20,
+      kind: "series",
+      name: "The Ledger Room",
+      libraryId: 1,
+      art: { posterSha256: "p" },
+      episodes: [],
+      isGuessed: true,
+    };
+    const corrected = (): void => undefined;
+    const forUser = renderToStaticMarkup(
+      withServices(<SeriesView series={series} onMatchCorrected={corrected} />),
+    );
+    const forAdmin = renderToStaticMarkup(
+      withServices(
+        <IsAdminContext value={true}>
+          <SeriesView series={series} onMatchCorrected={corrected} />
+        </IsAdminContext>,
+      ),
+    );
+    expect(forUser).toContain("Identified by a guess");
+    expect(forUser).not.toContain("Identified incorrectly");
+    expect(forAdmin).toContain("Identified incorrectly");
+    expect(
+      renderToStaticMarkup(withServices(<SeriesView series={{ ...series, isGuessed: false }} />)),
+    ).not.toContain("Identified by a guess");
   });
 });

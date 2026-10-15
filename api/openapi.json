@@ -514,6 +514,10 @@
           "identificationState": {
             "type": "string"
           },
+          "isGuessed": {
+            "description": "Whether its match is a guess no person confirmed (D301)",
+            "type": "boolean"
+          },
           "kind": {
             "enum": [
               "series"
@@ -1192,6 +1196,9 @@
           },
           "identificationState": {
             "type": "string"
+          },
+          "isGuessed": {
+            "type": "boolean"
           },
           "libraryId": {
             "format": "int64",
@@ -2139,6 +2146,10 @@
           },
           "identificationState": {
             "type": "string"
+          },
+          "isGuessed": {
+            "description": "Whether its match is a guess no person confirmed (D301)",
+            "type": "boolean"
           },
           "kind": {
             "enum": [

@@ -25,6 +25,12 @@ VALUES (sqlc.arg(item_id), sqlc.arg(provider), sqlc.arg(part), sqlc.arg(fetched_
 ON CONFLICT (item_id, provider, part) DO UPDATE
 SET fetched_at = excluded.fetched_at, last_asked_at = excluded.last_asked_at, body_gzip = excluded.body_gzip;
 
+-- name: DeleteSeasonListings :exec
+-- A series' stored season listings, dropped as a person chooses its match, which may be another
+-- series than the one they listed (D301 section 2): the next listings are the chosen one's.
+DELETE FROM provider_response
+WHERE item_id = sqlc.arg(item_id) AND provider = sqlc.arg(provider) AND part LIKE 'season/%';
+
 -- name: GetProviderResponse :one
 -- An item's stored response: part '' is the item itself, 'season/N' a series' season listing.
 SELECT body_gzip

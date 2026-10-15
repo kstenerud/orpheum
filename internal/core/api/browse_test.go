@@ -167,3 +167,38 @@ func TestBrowse_ATitleThatCannotBeReadNowIsListedAndMarkedUnavailable(t *testing
 		t.Errorf("a title that can be read = %s; want it unmarked", back.body)
 	}
 }
+
+// A film or series whose match is a guess says so in the lists and on its page, for its poster's
+// mark; one no guess settled says nothing of it (D301 §4).
+func TestBrowse_AGuessedMatchSaysSoWhereItsTitleIsShown(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	storetest.ExecRaw(t, harness.databasePath, "INSERT INTO guessed_match (item_id, guessed_at) VALUES (20, 5)")
+	films := harness.do(t, http.MethodGet, "/titles?kind=movie&sort=name&limit=10", admin, nil)
+	if strings.Contains(films.body, "isGuessed") {
+		t.Errorf("films = %s; Metropolis's match is no guess", films.body)
+	}
+	for _, path := range []string{"/titles?kind=series&sort=name&limit=10", "/titles?kind=series&sort=added&limit=10"} {
+		if shows := harness.do(t, http.MethodGet, path, admin, nil); !strings.Contains(shows.body, `"isGuessed":true`) {
+			t.Errorf("%s = %s; want Brass Arena's guess said", path, shows.body)
+		}
+	}
+	if series := harness.do(t, http.MethodGet, "/collections/20", admin, nil); !strings.Contains(series.body,
+		`"isGuessed":true`) {
+		t.Errorf("the series' page = %s; want its guess said", series.body)
+	}
+	if detail := harness.do(t, http.MethodGet, "/items/10", admin, nil); strings.Contains(detail.body, "isGuessed") {
+		t.Errorf("Metropolis's page = %s; its match is no guess", detail.body)
+	}
+	storetest.ExecRaw(t, harness.databasePath, "INSERT INTO guessed_match (item_id, guessed_at) VALUES (10, 6)")
+	for _, path := range []string{
+		"/titles?kind=movie&sort=name&limit=10", "/titles?kind=movie&sort=added&limit=10",
+		"/items/10",
+	} {
+		if got := harness.do(t, http.MethodGet, path, admin, nil); !strings.Contains(got.body, `"isGuessed":true`) {
+			t.Errorf("%s = %s; want Metropolis's guess said", path, got.body)
+		}
+	}
+}

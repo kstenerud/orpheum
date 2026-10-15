@@ -234,6 +234,8 @@ export const en = {
     fileDetails: "File details",
     extras: "Extras",
     unidentified: "Not identified yet",
+    guessed: "Identified by a guess: it may be another work of this name",
+    identifiedIncorrectly: "Identified incorrectly",
     streamVideo: "Video: {{codec}}",
     streamAudio: "Audio: {{codec}} {{language}} {{channels}}",
     streamSubtitle: "Subtitles: {{codec}} {{language}}",

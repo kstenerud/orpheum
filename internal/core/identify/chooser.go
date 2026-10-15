@@ -194,13 +194,6 @@ func (item target) searchQuery() Query {
 	}
 }
 
-func (item target) identification() string {
-	if item.isSeries {
-		return ptr.ValueOrZero(item.series.IdentificationState)
-	}
-	return item.title.IdentificationState
-}
-
 func (item target) metadataSource() string {
 	if item.isSeries {
 		return item.series.MetadataSource
@@ -215,28 +208,18 @@ func (item target) libraryID() *int64 {
 	return item.title.LibraryID
 }
 
-// Candidates are a film's or series' kept search results, best first. When cache.db lost them,
-// an ambiguous one is searched once more (schema.md, cache.db).
+// Candidates are a film's or series' kept search results, best first. When none are kept, as
+// after cache.db lost them or for a match settled by one clear winner, it is searched once more:
+// an ambiguous one is chosen from them, and a matched one corrected by them, "Identified
+// incorrectly" (schema.md, cache.db; D301 §2).
 func (chooser *Chooser) Candidates(ctx context.Context, itemID int64) ([]Candidate, string, error) {
 	item, err := chooser.readTarget(ctx, itemID)
 	if err != nil {
 		return nil, "", err
 	}
-	kept, err := chooser.matcher.cache.Read().ListMatchCandidates(ctx, itemID)
-	if err != nil {
-		return nil, "", fmt.Errorf("read item %d's candidates: %w", itemID, err)
-	}
-	provider := ""
-	candidates := make([]Candidate, 0, len(kept))
-	for _, row := range kept {
-		provider = row.Provider
-		candidates = append(candidates, Candidate{
-			ID: row.ProviderID, Name: ptr.ValueOrZero(row.Name), Year: int(ptr.ValueOrZero(row.Year)),
-			ProviderPosterPath: ptr.ValueOrZero(row.ProviderPosterPath),
-		})
-	}
-	if len(candidates) > 0 || item.identification() != identificationAmbiguous {
-		return candidates, provider, nil
+	candidates, provider, err := chooser.matcher.keptCandidates(ctx, itemID)
+	if err != nil || len(candidates) > 0 {
+		return candidates, provider, err
 	}
 	return chooser.searchAgain(ctx, item)
 }
@@ -273,6 +256,14 @@ func (chooser *Chooser) Choose(ctx context.Context, itemID int64, providerName, 
 		return fmt.Errorf("%q: %w", providerName, ErrUnknownProvider)
 	}
 	if item.isSeries {
+		err = chooser.matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+			return queries.DeleteSeasonListings(ctx, sqlcgen.DeleteSeasonListingsParams{
+				ItemID: itemID, Provider: provider.Name(),
+			})
+		})
+		if err != nil {
+			return fmt.Errorf("drop series %d's season listings: %w", itemID, err)
+		}
 		err = chooser.matcher.acceptSeries(ctx, provider, item.series, providerID, identificationConfirmed)
 	} else {
 		err = chooser.matcher.accept(ctx, provider, item.title, providerID, identificationConfirmed)
@@ -280,8 +271,16 @@ func (chooser *Chooser) Choose(ctx context.Context, itemID int64, providerName, 
 	if err != nil {
 		return err
 	}
-	if err := chooser.matcher.settle(ctx, itemID, chooser.matcher.clock.Now().UnixMilli()); err != nil {
+	err = chooser.matcher.settle(ctx, itemID, chooser.matcher.clock.Now().UnixMilli())
+	if err != nil {
 		return err
+	}
+	// A person's choice is no guess, whichever they chose (D301 §4).
+	err = chooser.matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		return queries.ClearGuessedMatch(ctx, itemID)
+	})
+	if err != nil {
+		return fmt.Errorf("clear item %d's guess: %w", itemID, err)
 	}
 	return chooser.dropCandidates(ctx, itemID)
 }

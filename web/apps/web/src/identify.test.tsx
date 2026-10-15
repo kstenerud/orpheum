@@ -5,7 +5,8 @@ import "./i18n.ts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { CandidateList, Identify, WaitingList } from "./identify.tsx";
+import { CandidateList } from "./candidate-chooser.tsx";
+import { Identify, WaitingList } from "./identify.tsx";
 import { withServices } from "./test-services.tsx";
 
 const ignore = (): void => undefined;
