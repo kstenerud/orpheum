@@ -8,7 +8,8 @@
 -- section 4).
 
 -- name: ListFilmsByName :many
-SELECT sort_key.item_id, sort_key.collation_key, item_text.name, title.year, title.identification_state, item.library_id, item.added_at
+SELECT sort_key.item_id, sort_key.collation_key, item_text.name, title.year, title.identification_state, item.library_id, item.added_at,
+  EXISTS (SELECT 1 FROM guessed_match WHERE guessed_match.item_id = item.id) AS is_guessed
 FROM sort_key
 JOIN item ON item.id = sort_key.item_id
 JOIN title ON title.id = sort_key.item_id
@@ -25,7 +26,8 @@ ORDER BY sort_key.collation_key, sort_key.item_id
 LIMIT sqlc.arg(max_rows);
 
 -- name: ListFilmsByAdded :many
-SELECT item.id AS item_id, item_text.name, title.year, title.identification_state, item.library_id, item.added_at
+SELECT item.id AS item_id, item_text.name, title.year, title.identification_state, item.library_id, item.added_at,
+  EXISTS (SELECT 1 FROM guessed_match WHERE guessed_match.item_id = item.id) AS is_guessed
 FROM title
 JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
@@ -42,7 +44,7 @@ LIMIT sqlc.arg(max_rows);
 
 -- name: ListSeriesByName :many
 SELECT sort_key.item_id, sort_key.collation_key, item_text.name, collection.year, collection.identification_state, item.library_id,
-  item.added_at
+  item.added_at, EXISTS (SELECT 1 FROM guessed_match WHERE guessed_match.item_id = item.id) AS is_guessed
 FROM sort_key
 JOIN item ON item.id = sort_key.item_id
 JOIN collection ON collection.id = sort_key.item_id
@@ -65,7 +67,8 @@ LIMIT sqlc.arg(max_rows);
 -- The series are read first, by CROSS JOIN, and sorted: they are few, and walking item_added
 -- newest first would pass every film and episode added between them, about seventy for each
 -- series at the reference scale.
-SELECT item.id AS item_id, item_text.name, collection.year, collection.identification_state, item.library_id, item.added_at
+SELECT item.id AS item_id, item_text.name, collection.year, collection.identification_state, item.library_id, item.added_at,
+  EXISTS (SELECT 1 FROM guessed_match WHERE guessed_match.item_id = item.id) AS is_guessed
 FROM collection
 CROSS JOIN item ON item.id = collection.id
 LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
@@ -88,7 +91,7 @@ LIMIT sqlc.arg(max_rows);
 SELECT title.id, title.kind, title.year, title.runtime_ms, title.identification_state, title.followed_source, title.followed_source_id,
   item.library_id, item.added_at, item_text.name, item_text.overview, item_text.tagline,
   fetch_failure.failure AS fetch_failure, fetch_failure.failed_at AS fetch_failed_at,
-  refresh_request.requested_at AS refresh_requested_at
+  refresh_request.requested_at AS refresh_requested_at, EXISTS (SELECT 1 FROM guessed_match WHERE guessed_match.item_id = item.id) AS is_guessed
 FROM title
 JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
@@ -135,7 +138,7 @@ WHERE position.title_id = sqlc.arg(title_id) AND ordering.name = 'aired';
 SELECT collection.id, collection.year, collection.identification_state, collection.followed_source, collection.followed_source_id,
   item.library_id, item_text.name, item_text.overview,
   fetch_failure.failure AS fetch_failure, fetch_failure.failed_at AS fetch_failed_at,
-  refresh_request.requested_at AS refresh_requested_at
+  refresh_request.requested_at AS refresh_requested_at, EXISTS (SELECT 1 FROM guessed_match WHERE guessed_match.item_id = item.id) AS is_guessed
 FROM collection
 JOIN item ON item.id = collection.id
 LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1

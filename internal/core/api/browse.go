@@ -21,9 +21,11 @@ type EntryBody struct {
 	Name                string `json:"name"`
 	Year                int64  `json:"year,omitempty"`
 	IdentificationState string `json:"identificationState"`
-	LibraryID           int64  `json:"libraryId"`
-	AddedAt             int64  `json:"addedAt"`
-	PosterSha256        string `doc:"Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp" json:"posterSha256,omitempty"` //nolint:lll // one struct tag
+	// IsGuessed is whether its match is a guess no person confirmed (D301 §4).
+	IsGuessed    bool   `json:"isGuessed,omitempty"`
+	LibraryID    int64  `json:"libraryId"`
+	AddedAt      int64  `json:"addedAt"`
+	PosterSha256 string `doc:"Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp" json:"posterSha256,omitempty"` //nolint:lll // one struct tag
 	// Unavailable says why none of its files can be read now; absent when one can (D241 §3).
 	Unavailable *UnavailableBody `json:"unavailable,omitempty"`
 }
@@ -132,6 +134,7 @@ type ItemDetailOutput struct {
 		Year                int64             `json:"year,omitempty"`
 		RuntimeMs           int64             `json:"runtimeMs,omitempty"`
 		IdentificationState string            `json:"identificationState"`
+		IsGuessed           bool              `doc:"Whether its match is a guess no person confirmed (D301)" json:"isGuessed,omitempty"` //nolint:lll // one struct tag
 		FollowedSource      string            `json:"followedSource,omitempty"`
 		LibraryID           int64             `json:"libraryId"`
 		Versions            []VersionBody     `json:"versions"`
@@ -168,6 +171,7 @@ type CollectionOutput struct {
 		Overview            string            `json:"overview,omitempty"`
 		Year                int64             `json:"year,omitempty"`
 		IdentificationState string            `json:"identificationState,omitempty"`
+		IsGuessed           bool              `doc:"Whether its match is a guess no person confirmed (D301)" json:"isGuessed,omitempty"` //nolint:lll // one struct tag
 		LibraryID           int64             `json:"libraryId"`
 		Episodes            []EpisodeBody     `json:"episodes"`
 		Art                 ArtBody           `json:"art"`
@@ -236,8 +240,8 @@ func (server *Server) getTitles(ctx context.Context, input *TitlesInput) (*Title
 	for _, entry := range page.Entries {
 		output.Body.Titles = append(output.Body.Titles, EntryBody{
 			ID: entry.ID, Name: entry.Name, Year: entry.Year, IdentificationState: entry.IdentificationState,
-			LibraryID: entry.LibraryID,
-			AddedAt:   entry.AddedAt, PosterSha256: entry.PosterSha256,
+			IsGuessed: entry.IsGuessed, LibraryID: entry.LibraryID,
+			AddedAt: entry.AddedAt, PosterSha256: entry.PosterSha256,
 			Unavailable: unavailableBody(entry.Unreadable, nodeName),
 		})
 	}
@@ -257,7 +261,7 @@ func (server *Server) getTitle(ctx context.Context, input *ItemInput) (*ItemDeta
 	output := &ItemDetailOutput{}
 	body := &output.Body
 	body.ID, body.Kind, body.Name = detail.ID, detail.Kind, ptr.ValueOrZero(detail.Name)
-	body.IdentificationState = detail.IdentificationState
+	body.IdentificationState, body.IsGuessed = detail.IdentificationState, detail.IsGuessed
 	body.Overview = ptr.ValueOrZero(detail.Overview)
 	body.Tagline = ptr.ValueOrZero(detail.Tagline)
 	body.FollowedSource = ptr.ValueOrZero(detail.FollowedSource)
@@ -322,7 +326,7 @@ func (server *Server) getSeries(ctx context.Context, input *ItemInput) (*Collect
 	body.ID, body.Kind = series.ID, "series"
 	body.Name, body.Overview = ptr.ValueOrZero(series.Name), ptr.ValueOrZero(series.Overview)
 	body.Year, body.LibraryID = ptr.ValueOrZero(series.Year), ptr.ValueOrZero(series.LibraryID)
-	body.IdentificationState = ptr.ValueOrZero(series.IdentificationState)
+	body.IdentificationState, body.IsGuessed = ptr.ValueOrZero(series.IdentificationState), series.IsGuessed
 	body.FetchFailure = fetchFailureBody(series.FetchFailure, series.FetchFailedAt)
 	body.RefreshRequestedAt = ptr.ValueOrZero(series.RefreshRequestedAt)
 	body.Episodes = make([]EpisodeBody, 0, len(series.Episodes))

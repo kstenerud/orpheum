@@ -45,6 +45,23 @@ func (q *Queries) DeleteOverride(ctx context.Context, arg DeleteOverrideParams) 
 	return result.RowsAffected()
 }
 
+const deleteSeasonListings = `-- name: DeleteSeasonListings :exec
+DELETE FROM provider_response
+WHERE item_id = ?1 AND provider = ?2 AND part LIKE 'season/%'
+`
+
+type DeleteSeasonListingsParams struct {
+	ItemID   int64
+	Provider string
+}
+
+// A series' stored season listings, dropped as a person chooses its match, which may be another
+// series than the one they listed (D301 section 2): the next listings are the chosen one's.
+func (q *Queries) DeleteSeasonListings(ctx context.Context, arg DeleteSeasonListingsParams) error {
+	_, err := q.db.ExecContext(ctx, deleteSeasonListings, arg.ItemID, arg.Provider)
+	return err
+}
+
 const getProviderResponse = `-- name: GetProviderResponse :one
 SELECT body_gzip
 FROM provider_response

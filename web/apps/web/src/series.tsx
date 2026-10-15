@@ -9,6 +9,7 @@ import type { TFunction } from "i18next";
 
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, unavailableText } from "./problem.ts";
+import { GuessedMark, MatchCorrection } from "./match-correction.tsx";
 import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
@@ -48,6 +49,8 @@ function seasonName(t: TFunction, season: number): string {
 export function SeriesView(props: {
   readonly series: SeriesDetail;
   readonly season?: number | undefined;
+  /** Told the series' match was corrected, an admin's (D301 §2): the page reads it again. */
+  readonly onMatchCorrected?: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { series } = props;
@@ -57,11 +60,17 @@ export function SeriesView(props: {
   return (
     <article className="series">
       <div className="series__head">
-        <Poster sourceSha256={series.art.posterSha256} />
+        <span className="poster-frame">
+          <Poster sourceSha256={series.art.posterSha256} />
+          <GuessedMark isGuessed={series.isGuessed} />
+        </span>
         <div>
           <h1>{series.name}</h1>
           {series.year === undefined ? null : <p className="series__year">{series.year}</p>}
           {series.overview === undefined ? null : <p>{series.overview}</p>}
+          {props.onMatchCorrected === undefined ? null : (
+            <MatchCorrection itemId={series.id} onCorrected={props.onMatchCorrected} />
+          )}
         </div>
       </div>
       {shown === undefined ? (
@@ -169,7 +178,7 @@ export function Series(props: {
   readonly season?: number | undefined;
 }): JSX.Element {
   const { api } = useServices();
-  const [loaded] = useResource(
+  const [loaded, reload] = useResource(
     `series/${String(props.id)}`,
     async () => {
       return dataOrThrow(
@@ -184,7 +193,9 @@ export function Series(props: {
   return (
     <Loaded
       resource={series}
-      render={(value) => <SeriesView series={value} season={props.season} />}
+      render={(value) => (
+        <SeriesView series={value} season={props.season} onMatchCorrected={reload} />
+      )}
     />
   );
 }

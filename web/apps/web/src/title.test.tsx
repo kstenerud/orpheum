@@ -7,7 +7,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { ApiProblem } from "./problem.ts";
-import { mount, servedBy, type Heard } from "./test-dom.tsx";
+import { buttonWithText, click, mount, servedBy, settleUntil, type Heard } from "./test-dom.tsx";
+import { IsAdminContext } from "./warning-sign.tsx";
 import { Loaded, Title, TitleView, type TitleDetail } from "./title.tsx";
 import { withServices } from "./test-services.tsx";
 
@@ -180,5 +181,64 @@ describe("Title", () => {
     const unplayable = await mount(withServices(<Title id={11} />, services));
     unplayable.unmount();
     expect(heard.map((request) => request.methodAndPath)).toEqual(["GET /items/11"]);
+  });
+});
+
+describe("a film whose match is a guess (D301)", () => {
+  it("is marked over its poster, and an admin alone corrects it from the works its search found", async () => {
+    const guessed = { ...heat, id: 12, isGuessed: true };
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /items/12": [
+          [200, guessed],
+          [200, { ...guessed, isGuessed: false }],
+        ],
+        "GET /items/12/candidates": [
+          200,
+          {
+            provider: "tmdb",
+            candidates: [
+              { providerId: "949", name: "Metropolis", year: 1995 },
+              { providerId: "50", name: "Metropolis", year: 1986 },
+            ],
+          },
+        ],
+        "POST /items/12/match": [204, {}],
+        "POST /playback": [
+          200,
+          { delivery: "direct", url: "/u", notDirectReasons: [], mediaToken: "a" },
+        ],
+      },
+      heard,
+    );
+    const forUser = await mount(withServices(<Title id={12} />, services));
+    expect(forUser.container.textContent).toContain("Identified by a guess");
+    expect(buttonWithText(forUser.container, "Identified incorrectly")).toBeUndefined();
+    forUser.unmount();
+    const forAdmin = await mount(
+      withServices(
+        <IsAdminContext value={true}>
+          <Title id={12} />
+        </IsAdminContext>,
+        services,
+      ),
+    );
+    const page = forAdmin.container;
+    await click(buttonWithText(page, "Identified incorrectly"));
+    await settleUntil(() => page.textContent.includes("1986"));
+    const picks = [...page.querySelectorAll("li button")];
+    await click(picks[1] ?? null);
+    await settleUntil(() =>
+      heard.some((request) => request.methodAndPath === "POST /items/12/match"),
+    );
+    expect(heard.find((request) => request.methodAndPath === "POST /items/12/match")?.body).toEqual(
+      {
+        provider: "tmdb",
+        providerId: "50",
+      },
+    );
+    await settleUntil(() => !page.textContent.includes("Identified by a guess"));
+    forAdmin.unmount();
   });
 });

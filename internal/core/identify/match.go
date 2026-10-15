@@ -104,8 +104,12 @@ func (matcher *Matcher) matchTitle(ctx context.Context, titleID int64) (Outcome,
 	if err != nil {
 		return "", fmt.Errorf("search %s for %q: %w", provider.Name(), query.Name, err)
 	}
-	if chosen, single := singleMatch(query, candidates, true); single {
+	switch chosen, how := settleMatch(query, candidates, true); how {
+	case clearly:
 		return OutcomeMatched, matcher.accept(ctx, provider, title, chosen.ID, identificationIdentified)
+	case byGuess:
+		return OutcomeMatched, matcher.acceptGuess(ctx, provider, title, chosen.ID, candidates)
+	case unsettled:
 	}
 	if len(candidates) == 0 {
 		return OutcomeNoMatch, matcher.markNoMatch(ctx, title)
@@ -227,53 +231,105 @@ func (matcher *Matcher) ambiguousItems(ctx context.Context) ([]reconsidered, err
 	return items, nil
 }
 
-// isSettledByKept is whether an item's kept search results hold its one match by singleMatch.
-// A film's year is required, a series' not (singleMatch).
+// isSettledByKept is whether an item's kept search results settle its match (settleMatch), or
+// whether none are kept, as after cache.db was set aside: then it is searched once more, as the
+// chooser would search it (Chooser.Candidates).
 func (matcher *Matcher) isSettledByKept(ctx context.Context, itemID int64, query Query) (bool, error) {
-	kept, err := matcher.cache.Read().ListMatchCandidates(ctx, itemID)
+	candidates, _, err := matcher.keptCandidates(ctx, itemID)
 	if err != nil {
-		return false, fmt.Errorf("read item %d's candidates: %w", itemID, err)
+		return false, err
 	}
-	candidates := make([]Candidate, 0, len(kept))
-	for _, row := range kept {
-		candidates = append(candidates, Candidate{
-			ID: row.ProviderID, Name: ptr.ValueOrZero(row.Name), Year: int(ptr.ValueOrZero(row.Year)),
-		})
+	if len(candidates) == 0 {
+		return true, nil
 	}
-	_, isSettled := singleMatch(query, candidates, query.Kind == KindMovie)
-	return isSettled, nil
+	_, how := settleMatch(query, candidates, query.Kind == KindMovie)
+	return how != unsettled, nil
 }
 
-// singleMatch is the one candidate whose name and year are the query's (D172). A film with no
-// year in hand matches nothing: a wrong match is worse than none. A series' year is checked
-// where its folder or tvshow.nfo gives one (D209).
-//
-// It looks in tiers, each still asking for exactly one candidate, the next only when the one before
-// found none: the name and the year; the name and a year one off, as a film's year at TMDB is
-// often its first showing's, the year before its release (Larkhollow, 1997, is TMDB's 1998);
-// and a candidate whose whole name begins the query's, word by word, in the year, as a release
-// name carries a subtitle the provider's does not ("Wild Rex 2 The Dust Road" is TMDB's "Wild Rex
-// 2", 1981). Several candidates in one tier are still ambiguous (the owner's NAS, 2026-10-13,
-// where 72 films waited for a choice, most with one plain answer).
-func singleMatch(query Query, candidates []Candidate, isYearRequired bool) (Candidate, bool) {
-	if query.Year == 0 && isYearRequired {
-		return Candidate{}, false
+// keptCandidates are an item's kept search results, best first, and the provider that gave them.
+func (matcher *Matcher) keptCandidates(ctx context.Context, itemID int64) ([]Candidate, string, error) {
+	kept, err := matcher.cache.Read().ListMatchCandidates(ctx, itemID)
+	if err != nil {
+		return nil, "", fmt.Errorf("read item %d's candidates: %w", itemID, err)
 	}
-	for _, tier := range matchTiers(query) {
+	provider := ""
+	candidates := make([]Candidate, 0, len(kept))
+	for _, row := range kept {
+		provider = row.Provider
+		candidates = append(candidates, Candidate{
+			ID: row.ProviderID, Name: ptr.ValueOrZero(row.Name), Year: int(ptr.ValueOrZero(row.Year)),
+			ProviderPosterPath: ptr.ValueOrZero(row.ProviderPosterPath), Votes: int(ptr.ValueOrZero(row.Votes)),
+		})
+	}
+	return candidates, provider, nil
+}
+
+// settledBy is how a match was settled: not at all, by one clear winner, or guessed among several
+// whose names match (D301), which is marked as a guess until a person confirms or corrects it.
+type settledBy int
+
+const (
+	unsettled settledBy = iota
+	clearly
+	byGuess
+)
+
+// settleMatch is the candidate a query's search settles on, and how (D172, D301). A series' year is
+// checked where its folder or tvshow.nfo gives one (D209).
+//
+// It looks in tiers, the next only when the one before found none: the name and the year; the name
+// and a year one off, as a film's year at TMDB is often its first showing's, the year before its
+// release (Larkhollow, 1997, is TMDB's 1998); and a candidate whose whole name begins the
+// query's, word by word, in the year, as a release name carries a subtitle the provider's does not
+// ("Wild Rex 2 The Dust Road" is TMDB's "Wild Rex 2", 1981). One candidate in a tier is a clear
+// winner, but for a film with no year, which is a guess. Several are settled by a guess (the
+// owner's NAS, 2026-10-15, where 85 titles waited for a choice, many plain to them): with no year
+// the oldest, with one the most voted (Disney's The Thief of Bagdad over another of 1992), and TMDB's order
+// after.
+func settleMatch(query Query, candidates []Candidate, isYearExpected bool) (Candidate, settledBy) {
+	for index, tier := range matchTiers(query) {
 		var found []Candidate
 		for _, candidate := range candidates {
 			if tier(candidate) {
 				found = append(found, candidate)
 			}
 		}
-		if len(found) > 0 {
-			return found[0], len(found) == 1
+		switch {
+		case len(found) == 1 && (query.Year != 0 || !isYearExpected):
+			return found[0], clearly
+		case len(found) == 1 || len(found) > 1 && index != yearOffTier:
+			return likeliest(found, query.Year == 0), byGuess
+		case len(found) > 1:
+			// Several a year off the file's are none of its year: a person's choice (D301 §1).
+			return Candidate{}, unsettled
 		}
 	}
-	return Candidate{}, false
+	return Candidate{}, unsettled
 }
 
-// matchTiers are singleMatch's tiers, in order: the name and the year; the name and a year one
+// yearOffTier is matchTiers' tier of a year one off, whose several are never guessed between.
+const yearOffTier = 1
+
+// likeliest is the guess among candidates whose names all match (D301): the oldest when the name
+// gave no year, then the most voted, then the first in the provider's order. A candidate with no
+// year is never the oldest.
+func likeliest(found []Candidate, isOldestFirst bool) Candidate {
+	best := found[0]
+	for _, candidate := range found[1:] {
+		if isOldestFirst && candidate.Year != best.Year {
+			if candidate.Year != 0 && (best.Year == 0 || candidate.Year < best.Year) {
+				best = candidate
+			}
+			continue
+		}
+		if candidate.Votes > best.Votes {
+			best = candidate
+		}
+	}
+	return best
+}
+
+// matchTiers are settleMatch's tiers, in order: the name and the year; the name and a year one
 // off; the name beginning the query's, word by word, in its year.
 func matchTiers(query Query) []func(Candidate) bool {
 	want := textindex.SameWork(query.Name)
@@ -498,6 +554,33 @@ func (matcher *Matcher) markAmbiguous(
 	return nil
 }
 
+// acceptGuess accepts a film's match the matcher guessed among candidates (D301): matched as any
+// other, its candidates kept for a person correcting it, and marked a guess until one does.
+func (matcher *Matcher) acceptGuess(
+	ctx context.Context, provider Provider, title sqlcgen.GetTitleForMatchRow, id string, candidates []Candidate,
+) error {
+	if err := matcher.accept(ctx, provider, title, id, identificationIdentified); err != nil {
+		return err
+	}
+	return matcher.markGuess(ctx, provider, title.ID, candidates)
+}
+
+// markGuess keeps an item's candidates and marks its match a guess (D301 §2, §4).
+func (matcher *Matcher) markGuess(ctx context.Context, provider Provider, itemID int64, candidates []Candidate) error {
+	if err := matcher.keepCandidates(ctx, provider, itemID, candidates); err != nil {
+		return err
+	}
+	err := matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		return queries.MarkGuessedMatch(ctx, sqlcgen.MarkGuessedMatchParams{
+			ItemID: itemID, GuessedAt: matcher.clock.Now().UnixMilli(),
+		})
+	})
+	if err != nil {
+		return fmt.Errorf("mark item %d's match a guess: %w", itemID, err)
+	}
+	return nil
+}
+
 // markNoMatch records that the provider has nothing for the title, so it is not searched again
 // until a person asks.
 func (matcher *Matcher) markNoMatch(ctx context.Context, title sqlcgen.GetTitleForMatchRow) error {
@@ -529,6 +612,7 @@ func (matcher *Matcher) keepCandidates(
 				ItemID: itemID, Rank: int64(rank), Provider: provider.Name(), ProviderID: candidate.ID,
 				Name: ptr.NilIfZero(candidate.Name), Year: ptr.NilIfZero(int64(candidate.Year)),
 				ProviderPosterPath: ptr.NilIfZero(candidate.ProviderPosterPath),
+				Votes:              ptr.NilIfZero(int64(candidate.Votes)),
 			})
 			if err != nil {
 				return fmt.Errorf("keep a candidate for item %d: %w", itemID, err)

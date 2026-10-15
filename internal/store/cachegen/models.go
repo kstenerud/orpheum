@@ -53,6 +53,7 @@ type MatchCandidate struct {
 	Year               *int64
 	RuntimeMs          *int64
 	ProviderPosterPath *string
+	Votes              *int64
 }
 
 type NodeAttempt struct {

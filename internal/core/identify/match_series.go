@@ -47,8 +47,12 @@ func (matcher *Matcher) matchSeries(ctx context.Context, seriesID int64) (Outcom
 	if err != nil {
 		return "", fmt.Errorf("search %s for the series %q: %w", provider.Name(), query.Name, err)
 	}
-	if chosen, single := singleMatch(query, candidates, false); single {
+	switch chosen, how := settleMatch(query, candidates, false); how {
+	case clearly:
 		return OutcomeMatched, matcher.acceptSeries(ctx, provider, series, chosen.ID, identificationIdentified)
+	case byGuess:
+		return OutcomeMatched, matcher.acceptSeriesGuess(ctx, provider, series, chosen.ID, candidates)
+	case unsettled:
 	}
 	if len(candidates) == 0 {
 		return OutcomeNoMatch, matcher.recordSeriesAndRederive(ctx, series, func(queries *sqlcgen.Queries) error {
@@ -64,6 +68,17 @@ func (matcher *Matcher) matchSeries(ctx context.Context, seriesID int64) (Outcom
 			ID:                  seriesID,
 		})
 	})
+}
+
+// acceptSeriesGuess accepts a series' match the matcher guessed among candidates (D301), as
+// acceptGuess a film's.
+func (matcher *Matcher) acceptSeriesGuess(
+	ctx context.Context, provider Provider, series sqlcgen.GetSeriesForMatchRow, id string, candidates []Candidate,
+) error {
+	if err := matcher.acceptSeries(ctx, provider, series, id, identificationIdentified); err != nil {
+		return err
+	}
+	return matcher.markGuess(ctx, provider, series.ID, candidates)
 }
 
 // acceptSeries fetches and stores the series' own response, records the match, identified by

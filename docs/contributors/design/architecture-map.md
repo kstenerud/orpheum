@@ -177,6 +177,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | node | persistent.db | T1 (enrolment) + TO (`last_status_json`, `last_status_at`) | yes | ⚑ status is transient, and backed up |
 | device_reader_limit | persistent.db | T1 (the admin's, D240 §5) | yes | — |
 | refresh_request, fetch_failure | persistent.db | T1 (a person's ask) / TO (a fetch's own failure, D231 §4) | yes | facts that were job rows (F1, step 0029) |
+| guessed_match | persistent.db | TO (the matcher's guess, cleared by a person's choice, D301) | yes | — |
 | provider_response (body_gzip) | persistent.db | T2 | yes | correct (moved from cache.db by the second audit) |
 | fetched_subtitle (body_gzip) | persistent.db | T2 | yes | correct; one per file and provider's file (step 0032, D244 §4) |
 | artwork | persistent.db | T1 (chosen) + T2 (the provider's list) | yes | the image bytes are the cache's (below) |

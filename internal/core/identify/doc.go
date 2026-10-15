@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package identify matches titles to provider metadata: the filename parser, NFO read, the TMDB
-// client, ranked match candidates, the ambiguous-match chooser, and per-field overrides. An
-// ambiguous match is never guessed. A fetched response is stored and never refetched except by a
-// person or the rolling refresh (D213); re-deriving a title reads only stored input. What it owes
-// a provider is derived from persistent.db by its sweeps, never read from job history (D231 §3).
+// client, ranked match candidates, the ambiguous-match chooser, and per-field overrides. Several
+// works of the file's name are settled by a guess, marked as one until a person confirms or
+// corrects it (D301); anything else unsettled is never guessed. A fetched response is stored and
+// never refetched except by a person or the rolling refresh (D213); re-deriving a title reads only
+// stored input. What it owes a provider is derived from persistent.db by its sweeps, never read
+// from job history (D231 §3).
 //
 // # Invariants
 //
@@ -55,15 +57,22 @@
 //     episode with it as its file reappears; a matched series' episodes it did not have join it.
 //     TestPass_ADeletedLibrarysSeriesThatReappearsElsewhereComesBack,
 //     TestMatch_ADeletedLibrarysSeriesMatchedAgainElsewhereComesBack.
-//   - A match is never guessed: a provider id in hand skips the search, a single result matching
-//     the name and year is accepted, and anything else is ambiguous with its results kept (D172).
-//     The one result may also be a year off, or a name the file's begins with word by word in its
-//     year, each tier asked only when the one before found none; two in a tier stay ambiguous (the
-//     owner, 2026-10-13). TestMatch_AYearOffOrASubtitleStillFindsTheOneWork. A film or series left
-//     ambiguous that its kept results now settle is owed its first match again, and a person's
-//     choice never is. TestMatch_AnAmbiguousFilmTheRulesNowSettleIsMatchedAgain.
-//     TestMatch_AProviderIDInHandSkipsTheSearch, TestMatch_AnAmbiguousSearchIsNeverGuessed,
+//   - A provider id in hand skips the search; a single result matching the name and year is
+//     accepted (D172). The one result may also be a year off, or a name the file's begins with word
+//     by word in its year, each tier asked only when the one before found none (the owner,
+//     2026-10-13). TestMatch_AYearOffOrASubtitleStillFindsTheOneWork,
+//     TestMatch_AProviderIDInHandSkipsTheSearch,
 //     TestMatch_ASingleResultMatchingNameAndYearIsAcceptedAndReplayedFromTheStoredResponse.
+//   - Several of the file's name in a tier, or one for a film with no year, are settled by a guess:
+//     the oldest with no year, the most voted in the year, and a year off never; the guess keeps its
+//     candidates and is marked until a person chooses, whose choice clears it and drops a series'
+//     season listings, so its episodes are the chosen series' (D301).
+//     TestMatch_SeveralOfOneNameAreSettledByAGuessMarkedAsOne,
+//     TestSeries_OfSeveralByItsNameTheOldestIsGuessedAndAPersonCorrectsIt. Anything else unsettled
+//     is ambiguous with its results kept, never guessed. TestMatch_AnUnsettledSearchIsNeverGuessed.
+//     A film or series left ambiguous that its kept results now settle, or whose kept results
+//     cache.db lost, is owed its first match again, and a person's choice never is.
+//     TestMatch_AnAmbiguousFilmTheRulesNowSettleIsMatchedAgain.
 //   - A pass re-derives a matched title from its stored response and never calls a provider;
 //     a title its provider found nothing for is not searched again (D170, D182).
 //     TestMatch_ASingleResultMatchingNameAndYearIsAcceptedAndReplayedFromTheStoredResponse,
@@ -87,7 +96,7 @@
 //     searched, and takes its values from its series' season listing, one fetch a season; a new
 //     episode missing from a listing fetched before it arrived fetches that listing again (D209).
 //     TestSeries_AMatchedSeriesNamesItsEpisodesFromOneSeasonListing,
-//     TestSeries_ANewEpisodeFetchesItsSeasonAgain, TestSeries_AnAmbiguousSeriesIsChosenByAPerson,
+//     TestSeries_ANewEpisodeFetchesItsSeasonAgain, TestSeries_OfSeveralByItsNameTheOldestIsGuessedAndAPersonCorrectsIt,
 //     TestSeries_AYearOrAnIDSettlesTheSearch.
 //   - A series renamed by its match keeps the new episodes its folders name.
 //     TestSeries_AnEpisodeAddedAfterTheSeriesWasRenamedJoinsIt.
@@ -153,7 +162,7 @@
 //
 //   - D170: one source per title, fetched once; a refetch is a person's act or, since D213, the
 //     rolling refresh.
-//   - D172: an ambiguous match is never guessed.
+//   - D172: an ambiguous match is never guessed; D301 settles several of one name by a guess.
 //   - D182: metadata is a stack of layers; re-derivation reads only stored input.
 //   - D183: an override is an override wherever its value came from.
 //   - D209: for shows, the series is what is identified.

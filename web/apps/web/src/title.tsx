@@ -14,6 +14,7 @@ import { languageName } from "./language-name.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { dataOrThrow, problemText, throwIfRefused, unavailableText } from "./problem.ts";
+import { GuessedMark, MatchCorrection } from "./match-correction.tsx";
 import { Poster } from "./poster.tsx";
 import { UnplayableSign } from "./unplayable-sign.tsx";
 import { Link } from "./link.tsx";
@@ -57,6 +58,8 @@ export function TitleView(props: {
   readonly title: TitleDetail;
   /** Says one file that cannot be read now is gone for good (D241 §5); an admin's. */
   readonly onRetireFile?: (fileId: number) => void;
+  /** Told a film's match was corrected, an admin's (D301 §2): the page reads it again. */
+  readonly onMatchCorrected?: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { title } = props;
@@ -73,6 +76,9 @@ export function TitleView(props: {
         <TitleArt title={title} />
         <TitleFacts title={title} />
       </div>
+      {title.kind === "movie" && props.onMatchCorrected !== undefined ? (
+        <MatchCorrection itemId={title.id} onCorrected={props.onMatchCorrected} />
+      ) : null}
       {title.unavailable === undefined ? null : (
         <output className="title__unavailable">
           <UnplayableSign unavailable={title.unavailable} /> {unavailableText(t, title.unavailable)}
@@ -92,7 +98,12 @@ export function TitleView(props: {
 function TitleArt(props: { readonly title: TitleDetail }): JSX.Element | null {
   const { art, kind } = props.title;
   if (kind !== "episode") {
-    return <Poster sourceSha256={art.posterSha256} />;
+    return (
+      <span className="poster-frame">
+        <Poster sourceSha256={art.posterSha256} />
+        <GuessedMark isGuessed={props.title.isGuessed} />
+      </span>
+    );
   }
   return art.stillSha256 === undefined ? null : (
     <img className="title__still" src={artUrl(art.stillSha256, "landscape-m")} alt={""} />
@@ -289,7 +300,9 @@ export function Title(props: { readonly id: number }): JSX.Element {
     <BusyGroup isBusy={retiring.isBusy}>
       <Loaded
         resource={title}
-        render={(value) => <TitleView title={value} onRetireFile={retireFile} />}
+        render={(value) => (
+          <TitleView title={value} onRetireFile={retireFile} onMatchCorrected={reload} />
+        )}
       />
     </BusyGroup>
   );

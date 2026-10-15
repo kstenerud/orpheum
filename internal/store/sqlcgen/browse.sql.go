@@ -53,7 +53,7 @@ const getSeriesDetail = `-- name: GetSeriesDetail :one
 SELECT collection.id, collection.year, collection.identification_state, collection.followed_source, collection.followed_source_id,
   item.library_id, item_text.name, item_text.overview,
   fetch_failure.failure AS fetch_failure, fetch_failure.failed_at AS fetch_failed_at,
-  refresh_request.requested_at AS refresh_requested_at
+  refresh_request.requested_at AS refresh_requested_at, EXISTS (SELECT 1 FROM guessed_match WHERE guessed_match.item_id = item.id) AS is_guessed
 FROM collection
 JOIN item ON item.id = collection.id
 LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
@@ -74,6 +74,7 @@ type GetSeriesDetailRow struct {
 	FetchFailure        *string
 	FetchFailedAt       *int64
 	RefreshRequestedAt  *int64
+	IsGuessed           bool
 }
 
 // A series, with a failure of its own to be fetched and a person's refresh waiting (D231 section 4).
@@ -92,6 +93,7 @@ func (q *Queries) GetSeriesDetail(ctx context.Context, id int64) (GetSeriesDetai
 		&i.FetchFailure,
 		&i.FetchFailedAt,
 		&i.RefreshRequestedAt,
+		&i.IsGuessed,
 	)
 	return i, err
 }
@@ -100,7 +102,7 @@ const getTitleDetail = `-- name: GetTitleDetail :one
 SELECT title.id, title.kind, title.year, title.runtime_ms, title.identification_state, title.followed_source, title.followed_source_id,
   item.library_id, item.added_at, item_text.name, item_text.overview, item_text.tagline,
   fetch_failure.failure AS fetch_failure, fetch_failure.failed_at AS fetch_failed_at,
-  refresh_request.requested_at AS refresh_requested_at
+  refresh_request.requested_at AS refresh_requested_at, EXISTS (SELECT 1 FROM guessed_match WHERE guessed_match.item_id = item.id) AS is_guessed
 FROM title
 JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
@@ -125,6 +127,7 @@ type GetTitleDetailRow struct {
 	FetchFailure        *string
 	FetchFailedAt       *int64
 	RefreshRequestedAt  *int64
+	IsGuessed           bool
 }
 
 // A title, with a failure of its own to be fetched and a person's refresh waiting (D231 section 4).
@@ -147,6 +150,7 @@ func (q *Queries) GetTitleDetail(ctx context.Context, id int64) (GetTitleDetailR
 		&i.FetchFailure,
 		&i.FetchFailedAt,
 		&i.RefreshRequestedAt,
+		&i.IsGuessed,
 	)
 	return i, err
 }
@@ -175,7 +179,8 @@ func (q *Queries) GetTitleOfFile(ctx context.Context, id int64) (GetTitleOfFileR
 }
 
 const listFilmsByAdded = `-- name: ListFilmsByAdded :many
-SELECT item.id AS item_id, item_text.name, title.year, title.identification_state, item.library_id, item.added_at
+SELECT item.id AS item_id, item_text.name, title.year, title.identification_state, item.library_id, item.added_at,
+  EXISTS (SELECT 1 FROM guessed_match WHERE guessed_match.item_id = item.id) AS is_guessed
 FROM title
 JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
@@ -206,6 +211,7 @@ type ListFilmsByAddedRow struct {
 	IdentificationState string
 	LibraryID           *int64
 	AddedAt             int64
+	IsGuessed           bool
 }
 
 func (q *Queries) ListFilmsByAdded(ctx context.Context, arg ListFilmsByAddedParams) ([]ListFilmsByAddedRow, error) {
@@ -230,6 +236,7 @@ func (q *Queries) ListFilmsByAdded(ctx context.Context, arg ListFilmsByAddedPara
 			&i.IdentificationState,
 			&i.LibraryID,
 			&i.AddedAt,
+			&i.IsGuessed,
 		); err != nil {
 			return nil, err
 		}
@@ -246,7 +253,8 @@ func (q *Queries) ListFilmsByAdded(ctx context.Context, arg ListFilmsByAddedPara
 
 const listFilmsByName = `-- name: ListFilmsByName :many
 
-SELECT sort_key.item_id, sort_key.collation_key, item_text.name, title.year, title.identification_state, item.library_id, item.added_at
+SELECT sort_key.item_id, sort_key.collation_key, item_text.name, title.year, title.identification_state, item.library_id, item.added_at,
+  EXISTS (SELECT 1 FROM guessed_match WHERE guessed_match.item_id = item.id) AS is_guessed
 FROM sort_key
 JOIN item ON item.id = sort_key.item_id
 JOIN title ON title.id = sort_key.item_id
@@ -280,6 +288,7 @@ type ListFilmsByNameRow struct {
 	IdentificationState string
 	LibraryID           *int64
 	AddedAt             int64
+	IsGuessed           bool
 }
 
 // SPDX-License-Identifier: AGPL-3.0-or-later
@@ -314,6 +323,7 @@ func (q *Queries) ListFilmsByName(ctx context.Context, arg ListFilmsByNameParams
 			&i.IdentificationState,
 			&i.LibraryID,
 			&i.AddedAt,
+			&i.IsGuessed,
 		); err != nil {
 			return nil, err
 		}
@@ -410,7 +420,8 @@ func (q *Queries) ListLiveFileLocationsOfTitles(ctx context.Context, itemIDListJ
 }
 
 const listSeriesByAdded = `-- name: ListSeriesByAdded :many
-SELECT item.id AS item_id, item_text.name, collection.year, collection.identification_state, item.library_id, item.added_at
+SELECT item.id AS item_id, item_text.name, collection.year, collection.identification_state, item.library_id, item.added_at,
+  EXISTS (SELECT 1 FROM guessed_match WHERE guessed_match.item_id = item.id) AS is_guessed
 FROM collection
 CROSS JOIN item ON item.id = collection.id
 LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
@@ -444,6 +455,7 @@ type ListSeriesByAddedRow struct {
 	IdentificationState *string
 	LibraryID           *int64
 	AddedAt             int64
+	IsGuessed           bool
 }
 
 // The series are read first, by CROSS JOIN, and sorted: they are few, and walking item_added
@@ -471,6 +483,7 @@ func (q *Queries) ListSeriesByAdded(ctx context.Context, arg ListSeriesByAddedPa
 			&i.IdentificationState,
 			&i.LibraryID,
 			&i.AddedAt,
+			&i.IsGuessed,
 		); err != nil {
 			return nil, err
 		}
@@ -487,7 +500,7 @@ func (q *Queries) ListSeriesByAdded(ctx context.Context, arg ListSeriesByAddedPa
 
 const listSeriesByName = `-- name: ListSeriesByName :many
 SELECT sort_key.item_id, sort_key.collation_key, item_text.name, collection.year, collection.identification_state, item.library_id,
-  item.added_at
+  item.added_at, EXISTS (SELECT 1 FROM guessed_match WHERE guessed_match.item_id = item.id) AS is_guessed
 FROM sort_key
 JOIN item ON item.id = sort_key.item_id
 JOIN collection ON collection.id = sort_key.item_id
@@ -524,6 +537,7 @@ type ListSeriesByNameRow struct {
 	IdentificationState *string
 	LibraryID           *int64
 	AddedAt             int64
+	IsGuessed           bool
 }
 
 func (q *Queries) ListSeriesByName(ctx context.Context, arg ListSeriesByNameParams) ([]ListSeriesByNameRow, error) {
@@ -550,6 +564,7 @@ func (q *Queries) ListSeriesByName(ctx context.Context, arg ListSeriesByNamePara
 			&i.IdentificationState,
 			&i.LibraryID,
 			&i.AddedAt,
+			&i.IsGuessed,
 		); err != nil {
 			return nil, err
 		}

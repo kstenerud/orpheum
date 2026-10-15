@@ -20267,6 +20267,10 @@ good"*).
    the chooser over the candidates kept for it (D172 §3 item 3), and their choice is final as any
    person's choice is (D170).
 3. **Nothing whose name matches no candidate is guessed**: "No match" stays as it is.
+4. **A guess is marked as one where its title is shown**: a small low-confidence icon in a corner of
+   its poster (*"maybe putting an icon in the corner of the poster to indicate low confidence in the
+   guess"*), until an admin confirms or corrects it, which keeps D172's "nothing says it is a guess"
+   from coming back.
 
 **Status:** Decided 2026-10-15.
 

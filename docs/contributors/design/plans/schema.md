@@ -713,6 +713,13 @@ CREATE TABLE realm_key (                                   -- class A (D297)
   made_at       INTEGER NOT NULL
 );
 CREATE INDEX realm_key_master ON realm_key(master_realm);  -- a sign-in lists its master realm's (0040)
+
+-- A film or series the matcher settled by a guess among several of its name, marked on its poster
+-- until a person confirms or corrects it (0041; D301 section 4).
+CREATE TABLE guessed_match (                               -- class F (D301)
+  item_id     INTEGER PRIMARY KEY REFERENCES item(id) ON DELETE CASCADE,
+  guessed_at  INTEGER NOT NULL
+);
 ```
 
 `issued_secret` is a ninth grant kind, a secret handed to a person to pass on, added for
@@ -1073,6 +1080,7 @@ CREATE TABLE match_candidate (                             -- D172: kept so choo
   provider    TEXT NOT NULL,
   provider_id TEXT NOT NULL,
   name        TEXT, year INTEGER, runtime_ms INTEGER, provider_poster_path TEXT,
+  votes       INTEGER,                   -- D301: the most voted settles a year shared
   PRIMARY KEY (item_id, rank)
 );
 CREATE TABLE art_served (                                  -- D212 section 6: recency, to the day
@@ -1192,6 +1200,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `grant` | persistent.db | `internal/core/auth` | |
 | `locator` | persistent.db | `internal/core/auth` | |
 | `realm_key` | persistent.db | `internal/core/auth` | |
+| `guessed_match` | persistent.db | `internal/core/identify` | |
 | `group_text` | persistent.db | none yet | |
 | `item` | persistent.db | `internal/core/identify` | |
 | `item_fts`, `item_fts_tri` | persistent.db | `internal/core/identify` | kept by `item_text`'s triggers |

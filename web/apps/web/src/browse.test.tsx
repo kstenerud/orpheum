@@ -60,6 +60,29 @@ describe("browse", () => {
     );
     expect(markup).toContain("No poster");
     expect(markup).toContain("Show more");
+    expect(markup).not.toContain("Identified by a guess");
+  });
+
+  it("marks the poster of an entry whose match is a guess (D301 §4)", () => {
+    const markup = renderBrowseView({
+      state: "loaded",
+      value: {
+        nextCursor: "",
+        items: [
+          {
+            id: 12,
+            name: "The Thief of Bagdad",
+            year: 1992,
+            identificationState: "identified",
+            isGuessed: true,
+            libraryId: 1,
+            addedAt: 1,
+          },
+        ],
+      },
+    });
+    expect(markup).toContain('class="guessed-mark"');
+    expect(markup).toContain("Identified by a guess");
   });
 
   it("says what an empty list means, and a failure's cause", () => {

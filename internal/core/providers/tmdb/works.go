@@ -44,6 +44,7 @@ type workSummary struct {
 	ReleaseDate   string `json:"release_date"`
 	FirstAirDate  string `json:"first_air_date"`
 	PosterPath    string `json:"poster_path"`
+	VoteCount     int    `json:"vote_count"`
 }
 
 func (found workSummary) candidate() identify.Candidate {
@@ -52,6 +53,7 @@ func (found workSummary) candidate() identify.Candidate {
 		OriginalName:       firstNonEmpty(found.OriginalTitle, found.OriginalName),
 		Year:               identify.YearOfDate(firstNonEmpty(found.ReleaseDate, found.FirstAirDate)),
 		ProviderPosterPath: found.PosterPath,
+		Votes:              found.VoteCount,
 	}
 }
 

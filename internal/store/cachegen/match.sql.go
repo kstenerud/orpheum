@@ -16,16 +16,17 @@ WHERE item_id = ?1
 `
 
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// An ambiguous film's or series' search results, kept so choosing costs nothing (D172).
+// A film's or series' search results, kept so choosing or correcting costs nothing (D172, D301).
 func (q *Queries) DeleteMatchCandidates(ctx context.Context, itemID int64) error {
 	_, err := q.db.ExecContext(ctx, deleteMatchCandidates, itemID)
 	return err
 }
 
 const insertMatchCandidate = `-- name: InsertMatchCandidate :exec
-INSERT INTO match_candidate (item_id, rank, provider, provider_id, name, year, runtime_ms, provider_poster_path)
+INSERT INTO match_candidate (item_id, rank, provider, provider_id, name, year, runtime_ms, provider_poster_path,
+                             votes)
 VALUES (?1, ?2, ?3, ?4, ?5,
-        ?6, ?7, ?8)
+        ?6, ?7, ?8, ?9)
 `
 
 type InsertMatchCandidateParams struct {
@@ -37,6 +38,7 @@ type InsertMatchCandidateParams struct {
 	Year               *int64
 	RuntimeMs          *int64
 	ProviderPosterPath *string
+	Votes              *int64
 }
 
 func (q *Queries) InsertMatchCandidate(ctx context.Context, arg InsertMatchCandidateParams) error {
@@ -49,12 +51,13 @@ func (q *Queries) InsertMatchCandidate(ctx context.Context, arg InsertMatchCandi
 		arg.Year,
 		arg.RuntimeMs,
 		arg.ProviderPosterPath,
+		arg.Votes,
 	)
 	return err
 }
 
 const listMatchCandidates = `-- name: ListMatchCandidates :many
-SELECT item_id, rank, provider, provider_id, name, year, runtime_ms, provider_poster_path
+SELECT item_id, rank, provider, provider_id, name, year, runtime_ms, provider_poster_path, votes
 FROM match_candidate
 WHERE item_id = ?1
 ORDER BY rank
@@ -78,6 +81,7 @@ func (q *Queries) ListMatchCandidates(ctx context.Context, itemID int64) ([]Matc
 			&i.Year,
 			&i.RuntimeMs,
 			&i.ProviderPosterPath,
+			&i.Votes,
 		); err != nil {
 			return nil, err
 		}

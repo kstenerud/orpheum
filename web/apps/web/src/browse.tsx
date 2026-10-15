@@ -11,6 +11,7 @@ import { UnplayableSign } from "./unplayable-sign.tsx";
 import { dataOrThrow, unavailableText } from "./problem.ts";
 import { ContinueWatching } from "./continue-watching.tsx";
 import { Link } from "./link.tsx";
+import { GuessedMark } from "./match-correction.tsx";
 import { Poster } from "./poster.tsx";
 import { itemRoute } from "./router.ts";
 import { EndOfList } from "./end-of-list.tsx";
@@ -53,6 +54,7 @@ export function PosterGrid(props: {
             }
           >
             <Poster sourceSha256={entry.posterSha256} />
+            <GuessedMark isGuessed={entry.isGuessed} />
             <span className="poster-grid__name">{entry.name}</span>
             {entry.year === undefined ? null : (
               <span className="poster-grid__year">{t("browse.year", { year: entry.year })}</span>

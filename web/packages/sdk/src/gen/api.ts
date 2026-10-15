@@ -1882,6 +1882,8 @@ export interface components {
             /** Format: int64 */
             id: number;
             identificationState?: string;
+            /** @description Whether its match is a guess no person confirmed (D301) */
+            isGuessed?: boolean;
             /** @enum {string} */
             kind: "series";
             /** Format: int64 */
@@ -2105,6 +2107,7 @@ export interface components {
             /** Format: int64 */
             id: number;
             identificationState: string;
+            isGuessed?: boolean;
             /** Format: int64 */
             libraryId: number;
             name: string;
@@ -2411,6 +2414,8 @@ export interface components {
             /** Format: int64 */
             id: number;
             identificationState: string;
+            /** @description Whether its match is a guess no person confirmed (D301) */
+            isGuessed?: boolean;
             /** @enum {string} */
             kind: "movie" | "episode" | "extra";
             /** Format: int64 */
