@@ -394,6 +394,9 @@ CREATE TABLE title (                                       -- mixed: see the col
                    ('identified','ambiguous','unidentified','confirmed'))    -- F/A (D172)
 );
 CREATE INDEX title_ambiguous ON title(id) WHERE identification_state = 'ambiguous';
+-- What waits for a person's match after a search found nothing: CountWaitingForAPerson (D303, step 0046).
+CREATE INDEX title_waiting ON title(id)
+  WHERE identification_state = 'unidentified' AND followed_source = 'none' AND kind != 'episode';
 
 CREATE TABLE edition (                                     -- class A when a person made it
   id          INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -150,23 +150,13 @@ func (chooser *Chooser) Items(ctx context.Context, reach auth.Reach, identificat
 // WaitingForAPerson counts the films and series whose match waits for a person, as "Needs a
 // match" lists them: several found, or none after a search. An episode is its series' (D209), and
 // one not searched yet waits for no one. The status tray's warning sign counts them (the owner,
-// 2026-10-13).
+// 2026-10-13), in one query over an index of the few it can be (D303; the access audit's A7).
 func (chooser *Chooser) WaitingForAPerson(ctx context.Context) (int, error) {
-	ambiguous, err := chooser.Items(ctx, auth.EveryLibrary(), identificationAmbiguous)
+	count, err := chooser.matcher.database.Read().CountWaitingForAPerson(ctx)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("count what waits for a person's match: %w", err)
 	}
-	unmatched, err := chooser.Items(ctx, auth.EveryLibrary(), identificationUnidentified)
-	if err != nil {
-		return 0, err
-	}
-	count := len(ambiguous)
-	for _, item := range unmatched {
-		if item.Kind != library.TitleKindEpisode && item.FollowedSource == sourceNone {
-			count++
-		}
-	}
-	return count, nil
+	return int(count), nil
 }
 
 // target is the title or series a request names.
