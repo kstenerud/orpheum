@@ -44,3 +44,20 @@ func TestLoggingSlow_NamesEveryAPIRequestThatTookOverASecond(t *testing.T) {
 		t.Errorf("logged more than the one slow request a page waits on:\n%s", logged)
 	}
 }
+
+// The server's own handler times its requests: a slow one through it is logged.
+func TestHandler_LogsASlowRequest(t *testing.T) {
+	t.Parallel()
+	logs := &testutil.Log{}
+	server := NewServer(slog.New(slog.NewJSONHandler(logs, nil)))
+	now := clocktest.NewFake(time.Date(2026, time.October, 15, 12, 0, 0, 0, time.UTC))
+	server.dependencies.Store(&Dependencies{Clock: now})
+	server.Mux().HandleFunc(Prefix+"/slow-for-the-test", func(http.ResponseWriter, *http.Request) {
+		now.Advance(3 * time.Second)
+	})
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, Prefix+"/slow-for-the-test", nil)
+	server.Handler().ServeHTTP(httptest.NewRecorder(), request)
+	if !strings.Contains(logs.String(), `"path":"/api/v1/slow-for-the-test","tookMs":3000`) {
+		t.Errorf("the server's handler logged no slow request:\n%s", logs.String())
+	}
+}
