@@ -651,7 +651,9 @@ CREATE TABLE user (                                        -- class A
   password_hash BLOB,
   created_at    INTEGER NOT NULL,
   removed_at    INTEGER,
-  admin_note    TEXT                     -- 0034: who it is for, the admin's alone (D246 section 2)
+  admin_note    TEXT,                    -- 0034: who it is for, the admin's alone (D246 section 2)
+  admin_away    TEXT NOT NULL DEFAULT 'never'  -- 0042: an admin administers from away too, 'always' (D302)
+    CHECK (admin_away IN ('never', 'always'))
 );
 CREATE UNIQUE INDEX user_live_name ON user(name) WHERE removed_at IS NULL;
 

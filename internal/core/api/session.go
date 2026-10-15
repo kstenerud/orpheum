@@ -30,8 +30,12 @@ type UserBody struct {
 	// Role is the name of the person's role, which may be one the admin made (D243 §4).
 	Role string `json:"role"`
 	// IsAdmin is whether this session administers where this request came from: an admin's role, and
-	// the house's network directly, so a page away from home offers nothing it may not do (D297 §6).
+	// the house's network, or anywhere when the admin chose so, so a page offers nothing it may not do
+	// (D297 §6, D302).
 	IsAdmin bool `json:"isAdmin"`
+	// AdminAway is an admin's own setting for administering from away from home, never or always
+	// (D302); absent for anyone else.
+	AdminAway string `enum:"never,always" json:"adminAway,omitempty"`
 	// CanHostWatchTogether is whether the person's role may host Watch Together, so a client offers
 	// it only to them.
 	CanHostWatchTogether bool `json:"canHostWatchTogether"`
@@ -340,8 +344,9 @@ func (server *Server) userBody(
 ) (UserBody, error) {
 	body := UserBody{
 		ID: principal.UserID, Name: principal.Name, Role: string(principal.Role),
-		IsAdmin: principal.IsAdmin() && isFromHome(ctx), CanHostWatchTogether: principal.CanHostWatchTogether(),
+		IsAdmin: administersHere(ctx, principal), CanHostWatchTogether: principal.CanHostWatchTogether(),
 		CanManageAccount: principal.CanManageAccount(), HasNoLibrary: principal.Reach.ReachesNone(),
+		AdminAway: adminAwayOf(principal),
 	}
 	if principal.DeviceID != 0 {
 		device, err := dependencies.Auth.DeviceOf(ctx, principal.UserID, principal.DeviceID)

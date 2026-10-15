@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi/rtcapitest"
 )
@@ -168,4 +169,47 @@ func TestSession_ItsBeginningIsLoggedWithItsPathAndWhetherItAdministers(t *testi
 	harness.server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")})
 	harness.signIn(t, "owner", "owner-password")
 	harness.logs.AwaitLine(t, `"msg":"a session began"`, `"path":"direct from away","isAdmin":false`)
+}
+
+// An admin administers from away from home only when they set it so, from home, and a person who is
+// no admin sets nothing (D302): the server decides it from where the request came and the setting.
+func TestAdmin_AdministersFromAwayOnlyByTheirOwnSettingSetFromHome(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	home := []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")}
+	away := []netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")}
+	setAway := func(token, value string) response {
+		return harness.do(t, http.MethodPut, "/me/admin-away", token, map[string]any{"adminAway": value})
+	}
+	if me := harness.do(t, http.MethodGet, "/me", admin, nil); !strings.Contains(me.body, `"adminAway":"never"`) {
+		t.Errorf("an admin's /me = %s; want never, the default", me.body)
+	}
+	harness.server.SetHomeNetworks(away)
+	wantError(t, harness.do(t, http.MethodGet, "/users", admin, nil), http.StatusForbidden, CodeForbidden)
+	wantError(t, setAway(admin, "always"), http.StatusForbidden, CodeForbidden)
+	harness.server.SetHomeNetworks(home)
+	if set := setAway(admin, "always"); set.status != http.StatusNoContent {
+		t.Fatalf("setting always from home = %d %s", set.status, set.body)
+	}
+	harness.server.SetHomeNetworks(away)
+	if users := harness.do(t, http.MethodGet, "/users", admin, nil); users.status != http.StatusOK {
+		t.Errorf("an admin set to always, from away: GET /users = %d %s; want 200", users.status, users.body)
+	}
+	if isAdmin, _ := harness.mayAdminister(t, admin); !isAdmin {
+		t.Error("an admin set to always is told from away that they do not administer")
+	}
+	// From away they may not turn it off either: it is set at home alone.
+	wantError(t, setAway(admin, "never"), http.StatusForbidden, CodeForbidden)
+	harness.server.SetHomeNetworks(home)
+	if _, err := harness.authService.CreateUser(t.Context(),
+		auth.NewUser{Name: "partner", Password: "partner-password", Role: auth.RoleUser}); err != nil {
+		t.Fatal(err)
+	}
+	partner := harness.signIn(t, "partner", "partner-password")
+	wantError(t, setAway(partner, "always"), http.StatusForbidden, CodeForbidden)
+	if me := harness.do(t, http.MethodGet, "/me", partner, nil); strings.Contains(me.body, "adminAway") {
+		t.Errorf("a person's /me = %s; says nothing of administering", me.body)
+	}
+	wantError(t, setAway(admin, "sometimes"), http.StatusUnprocessableEntity, CodeInvalidRequest)
 }

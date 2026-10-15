@@ -3,7 +3,13 @@
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { changePassword, getOwnLink, listMyDevices, registrationUrl } from "./accounts.ts";
+import {
+  changePassword,
+  getOwnLink,
+  listMyDevices,
+  registrationUrl,
+  setAdminAway,
+} from "./accounts.ts";
 
 import { ActivateDevice } from "./device-activation.tsx";
 import { FormRow } from "./form-row.tsx";
@@ -24,7 +30,7 @@ export function Account(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [devices, reload] = useResource("my-devices", () => listMyDevices(api));
-  const [me] = useResource("me", async () => dataOrThrow(await api.GET("/me")));
+  const [me, reloadMe] = useResource("me", async () => dataOrThrow(await api.GET("/me")));
   const canManage = me.state === "loaded" && me.value.canManageAccount;
   return (
     <section className="account" aria-labelledby="account-heading">
@@ -33,7 +39,52 @@ export function Account(): JSX.Element {
       <YourDevices devices={devices} onChanged={reload} canManage={canManage} />
       <YourLink />
       {canManage ? <ChangePassword /> : null}
+      {me.state === "loaded" && me.value.adminAway !== undefined ? (
+        <AdminAway adminAway={me.value.adminAway} onChanged={reloadMe} />
+      ) : null}
       {me.state === "loaded" && !canManage ? <p>{t("account.notOnThisDevice")}</p> : null}
+    </section>
+  );
+}
+
+/**
+ * An admin's own setting: whether they administer from away from home too (D302), which is off
+ * unless they turn it on, from home, and said with what it risks.
+ */
+function AdminAway(props: {
+  readonly adminAway: "never" | "always";
+  readonly onChanged: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { api } = useServices();
+  const [problem, setProblem] = useState<string | undefined>(undefined);
+  const isAlways = props.adminAway === "always";
+  return (
+    <section aria-labelledby="admin-away-heading">
+      <h2 id="admin-away-heading">{t("account.adminAway")}</h2>
+      <p>{t("account.adminAwayText")}</p>
+      <label>
+        <input
+          type="checkbox"
+          checked={isAlways}
+          onChange={(event) => {
+            setProblem(undefined);
+            setAdminAway(api, event.target.checked ? "always" : "never").then(
+              props.onChanged,
+              (cause: unknown) => {
+                setProblem(
+                  fieldProblemText(t, cause, {
+                    fields: {},
+                    overrides: { forbidden: t("account.adminAwayAtHome") },
+                  }),
+                );
+              },
+            );
+          }}
+        />{" "}
+        {t("account.adminAwayAlways")}
+      </label>
+      {problem === undefined ? null : <output>{problem}</output>}
     </section>
   );
 }

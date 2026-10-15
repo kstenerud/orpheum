@@ -108,6 +108,22 @@
         ],
         "type": "object"
       },
+      "AdminAwayInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "adminAway": {
+            "enum": [
+              "never",
+              "always"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "adminAway"
+        ],
+        "type": "object"
+      },
       "AdminNoteInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -6014,6 +6030,13 @@
       "UserBody": {
         "additionalProperties": false,
         "properties": {
+          "adminAway": {
+            "enum": [
+              "never",
+              "always"
+            ],
+            "type": "string"
+          },
           "canHostWatchTogether": {
             "type": "boolean"
           },
@@ -9182,6 +9205,51 @@
         "summary": "Who this session belongs to",
         "tags": [
           "Setup and auth"
+        ]
+      }
+    },
+    "/me/admin-away": {
+      "put": {
+        "operationId": "setAdminAway",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminAwayInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Whether you administer from away from home too: never (the default) or always; set from home",
+        "tags": [
+          "Accounts"
         ]
       }
     },
