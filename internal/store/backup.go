@@ -16,13 +16,14 @@ import (
 
 // BackupInto writes a consistent copy of the database to path with VACUUM INTO: one file, no
 // WAL sidecars, safe beside a live writer (D77; backup-restore.md measured a plain copy of a WAL
-// database producing a file with no tables). The target must not exist yet. The copy carries sealed
+// database producing a file with no tables). It reads a snapshot on the maintenance connection, so
+// writes go on while it copies (D303 §7). The target must not exist yet. The copy carries sealed
 // ciphertext only; secret.key is never in the database (D194 §4).
 func (database *Database) BackupInto(ctx context.Context, path string) error {
 	if strings.Contains(path, "?") {
 		return fmt.Errorf("back up into %q: a path may not contain '?'", path)
 	}
-	if _, err := database.writer.ExecContext(ctx, "VACUUM INTO ?", path); err != nil {
+	if _, err := database.maintenance.ExecContext(ctx, "VACUUM INTO ?", path); err != nil {
 		return fmt.Errorf("back up into %q: %w", path, err)
 	}
 	return nil

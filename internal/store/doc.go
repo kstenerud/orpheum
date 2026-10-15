@@ -38,6 +38,8 @@
 //     TestWriterGate_BackgroundWorkGoesNextOncePassedOverEnough.
 //   - A slow write's report names the write it waited behind (D303, DL17). Enforced by
 //     TestWrite_ASlowWaitNamesTheWriteItWaitedBehind.
+//   - A backup reads a snapshot on the maintenance connection, never the writer, so writes go on
+//     while it copies (D303 §7). Enforced by TestBackupInto_CopiesWhileAWriteHoldsTheWriter.
 //   - A fresh schema equals testdata/golden/schema-vNNNN.sql for the current version, and the
 //     baseline alone the golden for its version. Enforced by TestMigrate_FreshSchemaEqualsTheGolden.
 //   - Each step commits alone, so an interrupted migration resumes and ends identical; a step
