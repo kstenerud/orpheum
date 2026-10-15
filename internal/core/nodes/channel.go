@@ -11,7 +11,6 @@ import (
 	"strconv"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
-	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
 // serveCommands answers a long-poll: the commands numbered after the one the node names, as soon
@@ -80,8 +79,9 @@ func (service *Service) dropAckedAndListPending(nodeID, ackedSeq int64) ([]nodep
 const maxStatusBytes = 4 << 20
 
 // takeStatus takes a known node's status, at most maxStatusBytes of JSON: what it holds is reconciled
-// with what it was given (D234 §6), and the last is kept, in memory and in persistent.db, for the
-// System page and the doctor.
+// with what it was given (D234 §6), and the last is kept in memory for the System page and the
+// doctor, never in persistent.db, where a report every few seconds would take the one writer for a
+// value nothing reads back (D303, M8).
 func (service *Service) takeStatus(writer http.ResponseWriter, request *http.Request) {
 	nodeID, ok := service.knownNodeIDOf(writer, request)
 	if !ok {
@@ -95,21 +95,6 @@ func (service *Service) takeStatus(writer http.ResponseWriter, request *http.Req
 	ctx := request.Context()
 	service.noteHeard(nodeID)
 	service.keepStatus(ctx, nodeID, &status)
-	encoded, err := json.Marshal(status)
-	if err != nil {
-		service.fail(ctx, writer, "encode the status", err)
-		return
-	}
-	text, statusAt := string(encoded), service.clock.Now().UnixMilli()
-	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		return queries.UpdateNodeStatus(ctx, sqlcgen.UpdateNodeStatusParams{
-			LastStatusJSON: &text, LastStatusAt: &statusAt, ID: nodeID,
-		})
-	})
-	if err != nil {
-		service.fail(ctx, writer, "keep the node's status", err)
-		return
-	}
 	writeJSON(writer, struct{}{}) // the node reads a JSON answer
 }
 
