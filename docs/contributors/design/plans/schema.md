@@ -452,8 +452,9 @@ CREATE TABLE sort_key (                                    -- class C (D47)
   locale      TEXT NOT NULL,
   listing     TEXT NOT NULL,             -- the list it sorts in: 'movie', 'series', 'album'…
   collation_key         BLOB NOT NULL,             -- CLDR sort-key bytes, BINARY order
-  PRIMARY KEY (locale, listing, collation_key, item_id)
+  PRIMARY KEY (item_id, locale)          -- one key per item in each locale, found by its item (D303)
 ) WITHOUT ROWID;
+CREATE INDEX sort_key_listing ON sort_key(locale, listing, collation_key, item_id);  -- the listings' order
 
 CREATE VIRTUAL TABLE item_fts USING fts5(                 -- class C (D48)
   name, search_alternates, overview, content='item_text', content_rowid='rowid',

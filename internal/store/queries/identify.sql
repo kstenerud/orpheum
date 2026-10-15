@@ -111,15 +111,13 @@ ON CONFLICT (item_id, language) DO UPDATE SET
   is_original = 1, name = excluded.name, overview = excluded.overview, tagline = excluded.tagline,
   search_alternates = excluded.search_alternates;
 
--- name: DeleteItemSortKeys :exec
--- An item's sort keys in one locale, replaced whenever its name is written (D47). sort_key is
--- a cache (class C).
-DELETE FROM sort_key
-WHERE item_id = sqlc.arg(item_id) AND locale = sqlc.arg(locale);
-
--- name: InsertSortKey :exec
+-- name: UpsertSortKey :exec
+-- An item's sort key in one locale, made whenever its name is written (D47), and left alone when
+-- it is already what the name derives (D303, DL9). sort_key is a cache (class C).
 INSERT INTO sort_key (item_id, locale, listing, collation_key)
-VALUES (sqlc.arg(item_id), sqlc.arg(locale), sqlc.arg(listing), sqlc.arg(collation_key));
+VALUES (sqlc.arg(item_id), sqlc.arg(locale), sqlc.arg(listing), sqlc.arg(collation_key))
+ON CONFLICT (item_id, locale) DO UPDATE SET listing = excluded.listing, collation_key = excluded.collation_key
+WHERE sort_key.listing IS NOT excluded.listing OR sort_key.collation_key IS NOT excluded.collation_key;
 
 -- name: InsertItemProviderID :exec
 INSERT INTO item_provider_id (item_id, provider, provider_id)

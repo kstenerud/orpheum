@@ -70,23 +70,6 @@ func (q *Queries) CountLiveFilesOfTitle(ctx context.Context, titleID int64) (int
 	return count, err
 }
 
-const deleteItemSortKeys = `-- name: DeleteItemSortKeys :exec
-DELETE FROM sort_key
-WHERE item_id = ?1 AND locale = ?2
-`
-
-type DeleteItemSortKeysParams struct {
-	ItemID int64
-	Locale string
-}
-
-// An item's sort keys in one locale, replaced whenever its name is written (D47). sort_key is
-// a cache (class C).
-func (q *Queries) DeleteItemSortKeys(ctx context.Context, arg DeleteItemSortKeysParams) error {
-	_, err := q.db.ExecContext(ctx, deleteItemSortKeys, arg.ItemID, arg.Locale)
-	return err
-}
-
 const deleteSortKeysOfOtherLocales = `-- name: DeleteSortKeysOfOtherLocales :exec
 DELETE FROM sort_key
 WHERE locale != ?1
@@ -251,28 +234,6 @@ func (q *Queries) InsertOverrideIfAbsent(ctx context.Context, arg InsertOverride
 		arg.OverrideValue,
 		arg.Origin,
 		arg.SetAt,
-	)
-	return err
-}
-
-const insertSortKey = `-- name: InsertSortKey :exec
-INSERT INTO sort_key (item_id, locale, listing, collation_key)
-VALUES (?1, ?2, ?3, ?4)
-`
-
-type InsertSortKeyParams struct {
-	ItemID       int64
-	Locale       string
-	Listing      string
-	CollationKey []byte
-}
-
-func (q *Queries) InsertSortKey(ctx context.Context, arg InsertSortKeyParams) error {
-	_, err := q.db.ExecContext(ctx, insertSortKey,
-		arg.ItemID,
-		arg.Locale,
-		arg.Listing,
-		arg.CollationKey,
 	)
 	return err
 }
@@ -1027,5 +988,31 @@ type UpsertScannerExtraRelationParams struct {
 // The scanner may assert an extra of a Title; a relation a person asserted stays theirs (D162).
 func (q *Queries) UpsertScannerExtraRelation(ctx context.Context, arg UpsertScannerExtraRelationParams) error {
 	_, err := q.db.ExecContext(ctx, upsertScannerExtraRelation, arg.OwnerTitle, arg.ExtraTitle, arg.ExtraType)
+	return err
+}
+
+const upsertSortKey = `-- name: UpsertSortKey :exec
+INSERT INTO sort_key (item_id, locale, listing, collation_key)
+VALUES (?1, ?2, ?3, ?4)
+ON CONFLICT (item_id, locale) DO UPDATE SET listing = excluded.listing, collation_key = excluded.collation_key
+WHERE sort_key.listing IS NOT excluded.listing OR sort_key.collation_key IS NOT excluded.collation_key
+`
+
+type UpsertSortKeyParams struct {
+	ItemID       int64
+	Locale       string
+	Listing      string
+	CollationKey []byte
+}
+
+// An item's sort key in one locale, made whenever its name is written (D47), and left alone when
+// it is already what the name derives (D303, DL9). sort_key is a cache (class C).
+func (q *Queries) UpsertSortKey(ctx context.Context, arg UpsertSortKeyParams) error {
+	_, err := q.db.ExecContext(ctx, upsertSortKey,
+		arg.ItemID,
+		arg.Locale,
+		arg.Listing,
+		arg.CollationKey,
+	)
 	return err
 }

@@ -214,8 +214,6 @@ func wholeReadsAllowed() map[string]string {
 		"cache.ListScans":              few + "scans at a time, one per root",
 		// Defects the redesign removes (the access audit and the independent audit).
 		"GetLatestTombstoneByPayloadHash": redesign + "no index serves removed files by payload (access audit A6)",
-		"CountItemsMissingSortKey":        redesign + "sort_key has no index by item (access audit A1)",
-		"ListNamesWithSortAndSearchKeys":  redesign + "sort_key has no index by item (access audit A1)",
 		"ListTitlesByIdentification":      redesign + "counted by fetching every row (access audit A7)",
 		"MoveVersionsBetweenTitles":       redesign + "version_title is partial, so moving every version reads all",
 		"GetWorkOfFile":                   redesign + "collection_member has no index by member title",
@@ -240,5 +238,7 @@ func wholeReadsAllowed() map[string]string {
 		"ListItemsDueRecheck":                   sweep + "the recheck sweep reads every image",
 		"ListItemsWithLiveUnchosenLocalArtwork": sweep + "each pass reads every image",
 		"ListResponsesAskedBefore":              sweep + "the rolling refresh reads every provider response",
+		"CountItemsMissingSortKey":              sweep + "start counts the names with no key in the locale",
+		"ListNamesWithSortAndSearchKeys":        sweep + "the key refresh reads every name, each with its key by item",
 	}
 }

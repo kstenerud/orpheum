@@ -32,13 +32,9 @@ func (filer *libraryFiler) writeText(ctx context.Context, itemID int64, text ite
 	if err != nil {
 		return fmt.Errorf("name item %d: %w", itemID, err)
 	}
-	locale := filer.sorter.Locale()
-	err = filer.queries.DeleteItemSortKeys(ctx, sqlcgen.DeleteItemSortKeysParams{ItemID: itemID, Locale: locale})
-	if err != nil {
-		return fmt.Errorf("clear item %d's sort key: %w", itemID, err)
-	}
-	err = filer.queries.InsertSortKey(ctx, sqlcgen.InsertSortKeyParams{
-		ItemID: itemID, Locale: locale, Listing: text.sortListing, CollationKey: filer.sorter.Key(text.name),
+	err = filer.queries.UpsertSortKey(ctx, sqlcgen.UpsertSortKeyParams{
+		ItemID: itemID, Locale: filer.sorter.Locale(), Listing: text.sortListing,
+		CollationKey: filer.sorter.Key(text.name),
 	})
 	if err != nil {
 		return fmt.Errorf("sort item %d: %w", itemID, err)
