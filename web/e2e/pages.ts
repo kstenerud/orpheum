@@ -2,7 +2,7 @@
 
 /** What every browser test does to a page: reach the server, sign in, open a film, see it play. */
 
-import { expect, type Page } from "@playwright/test";
+import { expect, type Page, type Request } from "@playwright/test";
 
 import { owner, serverAddressEnvVariable } from "./server.ts";
 
@@ -45,18 +45,24 @@ export const chunkRequest = /\/bytes\/media\/chunks\/.+\.m4s/u;
  * that; so the page is opened again until it preloads a chunk, as a person would come back to it.
  */
 export async function openFilmOnItsLadder(page: Page, name: string): Promise<void> {
-  await expect(async () => {
-    const preloaded = page.waitForRequest(chunkRequest, { timeout: 5000 });
-    try {
-      await openFilm(page, name);
-    } catch (problem: unknown) {
-      // The attempt failed before its wait could: the wait is let go, so its timeout seconds later
-      // fails no later attempt (check-pr, 2026-10-15: the test failed 5.6 s in, in its first try).
-      preloaded.catch(() => undefined);
-      throw problem;
+  // A listener heard by an assertion, which toPass retries: a waitForRequest that timed out failed
+  // the test from inside it, 5.5 s into its 60 (check-pr, 2026-10-15, twice).
+  let isPreloaded = false;
+  const hear = (request: Request): void => {
+    if (chunkRequest.test(request.url())) {
+      isPreloaded = true;
     }
-    await preloaded;
-  }).toPass({ timeout: 60_000 });
+  };
+  page.on("request", hear);
+  try {
+    await expect(async () => {
+      isPreloaded = false;
+      await openFilm(page, name);
+      await expect.poll(() => isPreloaded, { timeout: 5000 }).toBe(true);
+    }).toPass({ timeout: 60_000 });
+  } finally {
+    page.off("request", hear);
+  }
 }
 
 /** Whether the page's video has started: its picture has moved past the start and is not paused. */
