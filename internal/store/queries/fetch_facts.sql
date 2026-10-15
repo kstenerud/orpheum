@@ -31,9 +31,10 @@ DELETE FROM refresh_request WHERE item_id = sqlc.arg(item_id) AND requested_at <
 -- name: ListRefreshRequests :many
 -- The live items a person asked to fetch again and whose fetch has not answered yet: the refresh
 -- sweep's work, oldest request first.
+-- Driven from refresh_request, a handful of rows, never from item (CROSS JOIN fixes the order; D303).
 SELECT refresh_request.item_id, refresh_request.should_fetch_images
 FROM refresh_request
-JOIN item ON item.id = refresh_request.item_id AND item.removed_at IS NULL
+CROSS JOIN item ON item.id = refresh_request.item_id AND item.removed_at IS NULL
 WHERE NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = refresh_request.item_id)
 ORDER BY refresh_request.requested_at, refresh_request.item_id;
 

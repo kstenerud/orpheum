@@ -61,7 +61,7 @@ func (q *Queries) ListProviderMatchedLibraryIDs(ctx context.Context) ([]int64, e
 const listRefreshRequests = `-- name: ListRefreshRequests :many
 SELECT refresh_request.item_id, refresh_request.should_fetch_images
 FROM refresh_request
-JOIN item ON item.id = refresh_request.item_id AND item.removed_at IS NULL
+CROSS JOIN item ON item.id = refresh_request.item_id AND item.removed_at IS NULL
 WHERE NOT EXISTS (SELECT 1 FROM fetch_failure WHERE fetch_failure.item_id = refresh_request.item_id)
 ORDER BY refresh_request.requested_at, refresh_request.item_id
 `
@@ -73,6 +73,7 @@ type ListRefreshRequestsRow struct {
 
 // The live items a person asked to fetch again and whose fetch has not answered yet: the refresh
 // sweep's work, oldest request first.
+// Driven from refresh_request, a handful of rows, never from item (CROSS JOIN fixes the order; D303).
 func (q *Queries) ListRefreshRequests(ctx context.Context) ([]ListRefreshRequestsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listRefreshRequests)
 	if err != nil {
