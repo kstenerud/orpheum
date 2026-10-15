@@ -5,29 +5,10 @@ package auth
 import (
 	"bytes"
 	"errors"
-	"sync"
 	"testing"
 
 	"github.com/kstenerud/orpheum/discovery/proof"
 )
-
-// realmOf is a realm the test changes, as the core's discovery would.
-type realmOf struct {
-	mutex sync.Mutex
-	realm string
-}
-
-func (held *realmOf) get() string {
-	held.mutex.Lock()
-	defer held.mutex.Unlock()
-	return held.realm
-}
-
-func (held *realmOf) set(realm string) {
-	held.mutex.Lock()
-	defer held.mutex.Unlock()
-	held.realm = realm
-}
 
 // karlsKey is the realm key the core finds karl by in realm, or nil.
 func karlsKey(t *testing.T, service *Service, realm string) []byte {
@@ -42,13 +23,11 @@ func TestRealmKey_IsMadeFromThePasswordWheneverTheCoreSeesItForTheRealmItHas(t *
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
-	realm := &realmOf{}
-	fixture.service.UseRealm(realm.get)
 	id := fixture.createUser(t, "Karl", "a password", RoleUser)
 	if key := karlsKey(t, fixture.service, "karlnas"); key != nil {
 		t.Fatal("a key was made before the core had a realm")
 	}
-	realm.set("karlnas")
+	fixture.service.SetRealm("karlnas")
 	if _, err := fixture.service.SignIn(ctx, "karl", "a password", "192.0.2.1", laptop); err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +47,7 @@ func TestRealmKey_IsMadeFromThePasswordWheneverTheCoreSeesItForTheRealmItHas(t *
 		t.Error("a new password did not make a new key")
 	}
 	// A subrealm given later needs no password: the key stands, and the person is found by the new realm.
-	realm.set("karlnas.live")
+	fixture.service.SetRealm("karlnas.live")
 	if key := karlsKey(t, fixture.service, "karlnas.live"); !bytes.Equal(key,
 		proof.RealmKey("karlnas", "karl", "another password")) {
 		t.Error("after a subrealm was given, karl is not found by it with his key")
@@ -76,7 +55,7 @@ func TestRealmKey_IsMadeFromThePasswordWheneverTheCoreSeesItForTheRealmItHas(t *
 	if key := karlsKey(t, fixture.service, "karlnas"); key != nil {
 		t.Error("the realm the core no longer has still finds karl")
 	}
-	realm.set("another")
+	fixture.service.SetRealm("another")
 	if _, err = fixture.service.SignIn(ctx, "Karl", "another password", "192.0.2.1", laptop); err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +71,7 @@ func TestTakeRealmSignIn_TakesARightProofAndHoldsAGuesserToThePersonsLimit(t *te
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
-	fixture.service.UseRealm(func() string { return "karlnas" })
+	fixture.service.SetRealm("karlnas")
 	fixture.createUser(t, "karl", "a password", RoleUser)
 	person := proof.RealmPerson("karlnas", "karl")
 	right := proof.RealmAsk(proof.RealmKey("karlnas", "karl", "a password"), "karlnas", person)
@@ -157,7 +136,7 @@ func TestRealmKey_IsMadeWheneverAPasswordIsSet(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
-	fixture.service.UseRealm(func() string { return "karlnas" })
+	fixture.service.SetRealm("karlnas")
 	codes := &heldCode{}
 	code, err := fixture.service.EnsureSetupCode(ctx, codes)
 	if err != nil {

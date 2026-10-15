@@ -5,6 +5,7 @@ package discovery
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
@@ -21,11 +22,17 @@ func TestStatus_NamesTheRealmTheDiscoveryGaveTheCore(t *testing.T) {
 	if _, err := built.service.Connect(ctx, built.baseURL); err != nil {
 		t.Fatal(err)
 	}
+	var told []string
+	built.service.parts.OnRealm = func(realm string) { told = append(told, realm) }
 	built.fake.claim()
 	built.fake.realm = "karlnas.live"
 	built.service.step(ctx)
 	if got := built.service.Status().Realm; got != "karlnas.live" {
 		t.Errorf("the status names the realm %q; want karlnas.live, the discovery's", got)
+	}
+	built.service.askStatus(ctx, built.service.Status())
+	if !slices.Equal(told, []string{"karlnas.live"}) {
+		t.Errorf("the core was told the realms %q; want karlnas.live, once, as it came", told)
 	}
 }
 

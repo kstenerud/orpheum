@@ -145,3 +145,28 @@ func TestDiscoveryParts_TheProbesNonceIsOneTheEchoRecognises(t *testing.T) {
 		t.Errorf("the heartbeat's probe nonce is %q, %v; want one the echo recognises", nonce, err)
 	}
 }
+
+// The discovery's realm reaches the accounts, which make a person's realm key for it at their next
+// password sign-in, and the realm sign-ins it passes on are checked by those keys (D297 §3).
+func TestDiscoveryParts_TheRealmAndItsSignInsGoToTheAccounts(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	database := storetest.OpenMigrated(t)
+	var config Config
+	var opened openedServices
+	opened.auth = auth.NewService(database, clocktest.NewFake(time.Date(2026, 10, 15, 9, 0, 0, 0, time.UTC)),
+		rand.Reader, settingstest.Seeded(t, database))
+	opened.reachability = newReachability(config, opened)
+	parts := discoveryParts(config, opened, nil, nil, nil, slog.New(slog.DiscardHandler))
+	parts.OnRealm("karlnas")
+	karl := auth.NewUser{Name: "karl", Password: "a password", Role: auth.RoleUser}
+	if _, err := opened.auth.CreateUser(ctx, karl); err != nil {
+		t.Fatal(err)
+	}
+	person := proof.RealmPerson("karlnas", "karl")
+	key := proof.RealmKey("karlnas", "karl", "a password")
+	got, err := parts.RealmSignIn(ctx, person, proof.RealmAsk(key, "karlnas", person))
+	if err != nil || !bytes.Equal(got, key) {
+		t.Errorf("karl's realm sign-in through the parts = %x, %v; want his key", got, err)
+	}
+}

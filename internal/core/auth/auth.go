@@ -11,6 +11,7 @@ import (
 	"io"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/clientnet"
@@ -150,9 +151,9 @@ type Service struct {
 	// linkSealer seals each link's secret for its row, so a person's own link can be shown to them
 	// again (SealLinksWith); nil keeps none, and the link cannot be shown.
 	linkSealer LinkSealer
-	// realm is the realm the core is found by at its discovery (UseRealm); nil, or empty, is none,
+	// realm is the realm the core is found by at its discovery (SetRealm), a string; none, or empty,
 	// and no realm key is made.
-	realm func() string
+	realm atomic.Value
 }
 
 // NewService returns a Service.

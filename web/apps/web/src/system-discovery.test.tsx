@@ -70,6 +70,7 @@ it("says where a claimed server is reached from, and warns of the discovery's de
         ...none,
         baseUrl: "https://discovery.example.com/core/v1",
         state: "claimed",
+        realm: "karlnas.live",
         reachableFrom: "ipv6",
         published: ["k7xq2.orpheum-core.com"],
         deadEndsLastWeek: 3,
@@ -100,6 +101,8 @@ it("says where a claimed server is reached from, and warns of the discovery's de
   mounted = await mount(withServices(<SystemDiscovery />, services));
   const text = mounted.container.textContent;
   expect(text).toContain("Claimed: clients can find this server.");
+  // The realm the discovery gave it, which only it shows (D298 §3).
+  expect(text).toContain("at the discovery's page by the realm karlnas.live");
   expect(text).toContain("Clients with IPv6 reach it directly; the rest connect over WebRTC.");
   expect(text).toContain("Published as k7xq2.orpheum-core.com.");
   // How often a client found no way in, as the discovery counted (D293 §7).

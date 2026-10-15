@@ -107,6 +107,9 @@ type Parts struct {
 	// RealmSignIn takes a realm sign-in the discovery passed on, who it is for and its proof, and is
 	// the person's realm key, which the core's answer is tagged under; an error refuses it (D297 §3).
 	RealmSignIn func(ctx context.Context, person, ask string) ([]byte, error)
+	// OnRealm is told the realm the discovery's status names whenever it is another than before:
+	// what a person's realm key is made for (auth.Service.SetRealm). Nil tells no one.
+	OnRealm func(realm string)
 	// Links are what a discovery finds the core by, read before each look: every live link's locate
 	// hash and when it ends, and every live session's device locator's hash (auth.Service's
 	// LiveLinks and LiveLocators; discovery-core.md K7). Nil registers none.
@@ -483,6 +486,9 @@ func (service *Service) changed(ctx context.Context, was Status, answered discov
 	if answered.State != was.State {
 		service.parts.Logger.InfoContext(ctx, "discovery: the core's state changed", "from", string(was.State),
 			"to", string(answered.State))
+	}
+	if answered.Realm != was.Realm && service.parts.OnRealm != nil {
+		service.parts.OnRealm(answered.Realm)
 	}
 	if answered.Zone != was.Zone {
 		if err := service.keep(kept{BaseURL: was.BaseURL, CoreID: was.CoreID, Zone: answered.Zone}); err != nil {
