@@ -29,7 +29,15 @@ import { browserStorage, storageIfAllowed } from "./browser-storage.ts";
 import { createNavigation } from "./navigation.ts";
 import { ServicesContext } from "./services.tsx";
 import { DiscoveryGate, type GateParts } from "./discovery-gate.tsx";
-import { discoveryClientApiOf, heldWith, rememberCore, startOf } from "./discovery-start.ts";
+import {
+  discoveryClientApiOf,
+  discoveryHasRealms,
+  heldWith,
+  rememberCore,
+  startOf,
+} from "./discovery-start.ts";
+import { signInThisDevice } from "./accounts.ts";
+import { newIdempotencyKey } from "./idempotent.ts";
 import { sendFailuresToCore } from "./failure-reports.ts";
 import { mediaCredentialsOf } from "./together-playback.ts";
 import { readMembership } from "./together-storage.ts";
@@ -52,8 +60,8 @@ const localStore = storageIfAllowed(() => window.localStorage);
 // The session socket the app opens: the browser's WebSocket, until the WebRTC path takes over.
 let openTogetherSocket = browserTogetherSocket(window.location.origin);
 
-/** Mounts the app over session, its requests sent through routed. */
-function mountApp(session: Session): Api {
+/** Mounts the app over session, its requests sent through routed, naming the realm signed in to. */
+function mountApp(session: Session, realm?: string): Api {
   const api = createApi({ getToken: session.token, fetch: routed.fetch });
   api.use(watchForSignOut(session, navigation));
   // A device removed elsewhere goes to sign in as soon as its page is looked at, not at its next click.
@@ -69,6 +77,7 @@ function mountApp(session: Session): Api {
     canFollowAGroup,
     voiceDevices: browserVoiceDevices,
     fetchMedia: browserFetch,
+    realm,
   };
   root.render(
     <StrictMode>
@@ -107,13 +116,15 @@ if (discoveryClientApi === "") {
 } else {
   const parts: GateParts = {
     client: { clientApi: discoveryClientApi },
+    hasRealms: discoveryHasRealms(document),
+    realmStorage: localStore,
     sessionOf: (core) =>
       heldWith(
         core,
         createSession(localStore, corePrefix(core.coreId)),
         readMembership(browserStorage(), "viewer"),
       ),
-    onConnected: (core, reached) => {
+    onConnected: (core, reached, signIn) => {
       rememberCore(localStore, core);
       const session = createSession(localStore, corePrefix(core.coreId));
       if (reached.kind === "direct") {
@@ -131,7 +142,18 @@ if (discoveryClientApi === "") {
           reportFailure,
         );
       }
-      mountApp(session);
+      if (signIn === undefined) {
+        mountApp(session, core.realm);
+        return;
+      }
+      // A realm sign-in's person typed their name and password once: they sign in to the core with
+      // them at once, over the path just reached, and the app opens signed in (D297 §2).
+      const api = createApi({ getToken: session.token, fetch: routed.fetch });
+      void signInThisDevice({ api, session }, signIn, newIdempotencyKey())
+        .catch(reportFailure)
+        .finally(() => {
+          mountApp(session, core.realm);
+        });
     },
   };
   root.render(

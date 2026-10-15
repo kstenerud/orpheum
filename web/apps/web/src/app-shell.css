@@ -131,6 +131,15 @@
   margin-inline-start: auto;
 }
 
+/* The realm the person is signed in to, quiet beside the tray, so they know which server this is
+   (D297 §5). */
+.app-shell__realm {
+  color: var(--color-muted);
+  font-size: var(--font-size-small);
+  margin-inline-end: var(--space-2);
+  white-space: nowrap;
+}
+
 /* The one menu at the banner's end, behind three lines; the browser's own triangle is hidden. */
 .app-shell__menu {
   position: relative;

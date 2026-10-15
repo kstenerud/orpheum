@@ -38,6 +38,28 @@ describe("AppShell", () => {
     expect(markup).toContain("partner on Firefox on Mac");
   });
 
+  it("shows the realm its person signed in to in the banner, and none where there is none (D297 §5)", () => {
+    const shell = (realm: string | undefined): string =>
+      renderToStaticMarkup(
+        withServices(
+          <AppShell
+            isAdmin={false}
+            canHostWatchTogether={false}
+            currentScreen="films"
+            onSignOut={ignore}
+            signedInAs={{ name: "karl", deviceName: undefined }}
+            realm={realm}
+          >
+            <p>screen</p>
+          </AppShell>,
+        ),
+      );
+    expect(shell("karlnas.live")).toContain(
+      '<span class="app-shell__realm" title="Signed in to the realm karlnas.live">karlnas.live</span>',
+    );
+    expect(shell(undefined)).not.toContain("app-shell__realm");
+  });
+
   it("takes a person home, to the films, when the logo is clicked", async () => {
     const services = testServices(undefined, "/about");
     const mounted = await mount(

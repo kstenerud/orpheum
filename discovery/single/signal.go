@@ -153,6 +153,13 @@ type Answer struct {
 	PublicKey []byte
 }
 
+// IsCoreOnline is whether the core holds its signalling connection, so offers and realm sign-ins
+// reach it.
+func (discovery *Discovery) IsCoreOnline() bool {
+	isOnline, _ := discovery.signal.Standing()
+	return isOnline
+}
+
 // Offer passes a client's WebRTC offer to the core, with the hash the client found it by and the
 // offer's proof, which the core checks itself, and returns its answer: at once ErrCoreNotConnected
 // when the core has no signalling connection, ErrRefused when it refuses, and the context's error

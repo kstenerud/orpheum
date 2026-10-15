@@ -288,7 +288,7 @@ export class NotFound extends Error {
 }
 
 /** A call to a discovery's client API: where, what, and how to post. */
-interface ClientCall {
+export interface ClientCall {
   readonly clientApi: string;
   readonly path: string;
   readonly body: unknown;
@@ -296,7 +296,7 @@ interface ClientCall {
 }
 
 /** Posts a call's body and returns its answer's JSON; NotFound when the discovery finds no core. */
-async function postToDiscovery(call: ClientCall): Promise<unknown> {
+export async function postToDiscovery(call: ClientCall): Promise<unknown> {
   const send = call.fetch ?? fetch;
   const response = await send(`${call.clientApi}${call.path}`, {
     method: "POST",
@@ -369,7 +369,7 @@ function directUrlsOf(paths: unknown): string[] {
   });
 }
 
-function locatedOf(answer: unknown): Located {
+export function locatedOf(answer: unknown): Located {
   const field = (name: string): unknown =>
     typeof answer === "object" && answer !== null ? Reflect.get(answer, name) : undefined;
   const coreId = field("coreId");

@@ -15,11 +15,14 @@ import {
   offerKey,
   pathsOf,
   readLinkFragment,
+  realmName,
+  realmSignIn,
   sessionOfferKey,
   type DiscoveryClient,
   type Held,
   type LinkFragment,
   type Proving,
+  type RealmTyped,
   type RtcTransport,
 } from "@orpheum/sdk";
 
@@ -37,10 +40,22 @@ export function discoveryClientApiOf(page: Pick<Document, "querySelector">): str
   return page.querySelector(`meta[name="${clientApiMetaName}"]`)?.getAttribute("content") ?? "";
 }
 
-/** The core this device last reached at this discovery: its id and its identity key's fingerprint. */
+/** The meta element a paid discovery's page says it has realms by (D298 §1). */
+const realmsMetaName = "orpheum-discovery-realms";
+
+/** Whether the discovery whose page this is has realms, so a person signs in by one there. */
+export function discoveryHasRealms(page: Pick<Document, "querySelector">): boolean {
+  return page.querySelector(`meta[name="${realmsMetaName}"]`)?.getAttribute("content") === "true";
+}
+
+/**
+ * The core this device last reached at this discovery: its id, its identity key's fingerprint, and
+ * the realm its person signed in to it by, when they did, which the page shows (D297 §5).
+ */
 export interface KeptCore {
   readonly coreId: string;
   readonly fingerprint: string;
+  readonly realm?: string | undefined;
 }
 
 /** Where the last core reached is kept, apart from each core's own credentials. */
@@ -68,7 +83,11 @@ export function rememberedCore(refusable: StringStorage | undefined): KeptCore |
     const kept: unknown = JSON.parse(text);
     const coreId = stringField(kept, "coreId");
     const fingerprint = stringField(kept, "fingerprint");
-    return coreId === undefined || fingerprint === undefined ? undefined : { coreId, fingerprint };
+    const realm = stringField(kept, "realm");
+    if (coreId === undefined || fingerprint === undefined) {
+      return undefined;
+    }
+    return realm === undefined ? { coreId, fingerprint } : { coreId, fingerprint, realm };
   } catch {
     return undefined;
   }
@@ -77,6 +96,27 @@ export function rememberedCore(refusable: StringStorage | undefined): KeptCore |
 /** Keeps core as the one this device reached, for its next visit. */
 export function rememberCore(refusable: StringStorage | undefined, core: KeptCore): void {
   storageThatNeverThrows(refusable).setItem(keptCoreKey, JSON.stringify(core));
+}
+
+/** Where this device keeps the realm its person asked it to remember (D297 §5). */
+const keptRealmKey = "orpheum.discovery.realm";
+
+/** The realm this device was asked to remember, when it was. */
+export function rememberedRealm(refusable: StringStorage | undefined): string | undefined {
+  return storageThatNeverThrows(refusable).getItem(keptRealmKey) ?? undefined;
+}
+
+/** Keeps realm for this device's next sign-in, or, undefined, forgets any it kept. */
+export function rememberRealm(
+  refusable: StringStorage | undefined,
+  realm: string | undefined,
+): void {
+  const storage = storageThatNeverThrows(refusable);
+  if (realm === undefined) {
+    storage.removeItem(keptRealmKey);
+  } else {
+    storage.setItem(keptRealmKey, realm);
+  }
 }
 
 /** How the page starts: from the link its address carries, the core it reached before, or neither. */
@@ -121,6 +161,36 @@ export async function targetOfLink(client: DiscoveryClient, link: LinkFragment):
     key: await offerKey(link.secret),
     iceServers: located.iceServers,
     directUrls: located.directUrls,
+  };
+}
+
+/**
+ * The core a realm sign-in finds, and the target to reach it by: its offers proven by the person's
+ * realm key, its answers checked by the identity key the core's tag proved its own (D297 §3).
+ */
+export async function targetOfRealm(
+  client: DiscoveryClient,
+  typed: RealmTyped,
+): Promise<{ readonly core: KeptCore; readonly target: Target }> {
+  const found = await realmSignIn(client, typed);
+  const { located } = found;
+  if (located.bootstrapToken === undefined) {
+    throw new Error("the discovery's answer to a realm sign-in has no bootstrap token");
+  }
+  return {
+    core: {
+      coreId: located.coreId,
+      fingerprint: found.fingerprint,
+      realm: realmName(typed.realm),
+    },
+    target: {
+      coreId: located.coreId,
+      fingerprint: found.fingerprint,
+      held: { bootstrapToken: located.bootstrapToken },
+      key: found.key,
+      iceServers: located.iceServers,
+      directUrls: located.directUrls,
+    },
   };
 }
 

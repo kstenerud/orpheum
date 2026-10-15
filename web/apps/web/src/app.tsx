@@ -77,7 +77,7 @@ function RoutedApp(props: { readonly route: ReturnType<typeof useRoute> }): JSX.
  * request passes (signed-out-watch.ts), with the server's reason.
  */
 function SignedIn(): JSX.Element {
-  const { api, session } = useServices();
+  const { api, session, realm } = useServices();
   const route = useRoute();
   const [me] = useResource("me", async () => dataOrThrow(await api.GET("/me")));
   const signOut = (): void => {
@@ -107,6 +107,7 @@ function SignedIn(): JSX.Element {
                 : undefined
             }
             currentScreen={route.screen}
+            realm={realm}
             onSignOut={signOut}
           >
             <Screen route={route} />
