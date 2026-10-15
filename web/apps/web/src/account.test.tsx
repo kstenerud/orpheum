@@ -6,7 +6,16 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { Account } from "./account.tsx";
-import { mount, refusal, servedBy, type Answer, type Mounted } from "./test-dom.tsx";
+import {
+  click,
+  mount,
+  refusal,
+  servedBy,
+  settleUntil,
+  type Answer,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { television } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
 
@@ -67,5 +76,60 @@ describe("your account", () => {
     mounted?.unmount();
     const none = await accountOf(true);
     expect(none.textContent).not.toContain("Your link");
+  });
+});
+
+describe("an admin's administering from away (D302)", () => {
+  it("is offered to an admin alone, off by default, and turned on from home", async () => {
+    const heard: Heard[] = [];
+    mounted = await mount(
+      withServices(
+        <Account />,
+        servedBy(
+          {
+            "GET /me/devices": [200, { devices: [] }],
+            "GET /me": [
+              [
+                200,
+                {
+                  id: 1,
+                  name: "owner",
+                  role: "admin",
+                  isAdmin: true,
+                  canManageAccount: true,
+                  adminAway: "never",
+                },
+              ],
+              [
+                200,
+                {
+                  id: 1,
+                  name: "owner",
+                  role: "admin",
+                  isAdmin: true,
+                  canManageAccount: true,
+                  adminAway: "always",
+                },
+              ],
+            ],
+            "GET /me/own-link": refusal(404, "not_found"),
+            "PUT /me/admin-away": [204, {}],
+          },
+          heard,
+        ),
+      ),
+    );
+    const box = mounted.container.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    expect(box?.checked).toBe(false);
+    await click(box);
+    await settleUntil(() => box?.checked === true);
+    expect(heard.find((request) => request.methodAndPath === "PUT /me/admin-away")?.body).toEqual({
+      adminAway: "always",
+    });
+  });
+
+  it("is not offered to a person who is no admin", async () => {
+    const person = await accountOf(true);
+    expect(person.textContent).not.toContain("Administering from away from home");
   });
 });

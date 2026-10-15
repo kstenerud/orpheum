@@ -25,10 +25,14 @@ WHERE user.name = ? COLLATE NOCASE AND user.removed_at IS NULL;
 
 -- name: GetLiveUserByID :one
 SELECT user.id, user.name, user.password_hash, user.admin_note, user.role_id, role.name AS role_name,
-  role.capabilities
+  role.capabilities, user.admin_away
 FROM user
 JOIN role ON role.id = user.role_id
 WHERE user.id = ? AND user.removed_at IS NULL;
+
+-- name: SetAdminAway :exec
+-- Whether an admin administers from away from home too (D302): 'never' or 'always'.
+UPDATE user SET admin_away = sqlc.arg(admin_away) WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
 -- name: UpdateUserPasswordHash :exec
 UPDATE user SET password_hash = sqlc.arg(password_hash)

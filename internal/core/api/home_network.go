@@ -9,6 +9,7 @@ import (
 	"net/netip"
 	"slices"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 )
 
@@ -83,4 +84,11 @@ func pathOf(ctx context.Context) string {
 	default:
 		return "direct from away"
 	}
+}
+
+// administersHere is whether principal administers on the request whose context ctx is: an admin's
+// session from home, or from anywhere when the admin set it so (D297 §6, D302). The server alone
+// decides it, from where the request came and the person's stored setting; nothing a page sends.
+func administersHere(ctx context.Context, principal auth.Principal) bool {
+	return principal.IsAdmin() && (isFromHome(ctx) || principal.AdministersFromAway())
 }

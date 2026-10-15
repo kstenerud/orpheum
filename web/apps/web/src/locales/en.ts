@@ -159,6 +159,11 @@ export const en = {
     yourLinkText:
       "Open this link on another phone or computer, or scan the code with its camera, to find this server again. It signs no one in.",
     yourLinkQr: "Your link, as a QR code",
+    adminAway: "Administering from away from home",
+    adminAwayText:
+      "Away from home you see this server as anyone else does. Allowed, anyone with your name and password can administer it from anywhere, so use a strong password.",
+    adminAwayAlways: "Let me administer from away from home",
+    adminAwayAtHome: "This can be changed only at home, on the server's own network.",
     deviceName: "The device's name",
     changePassword: "Change password",
     currentPassword: "Current password",

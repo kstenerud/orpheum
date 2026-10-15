@@ -320,3 +320,17 @@ func (service *Service) RemoveUser(ctx context.Context, byUserID, userID int64, 
 		return nil
 	})
 }
+
+// ErrNotAnAdminAway is a setting for administering from away that is none of D302's values.
+var ErrNotAnAdminAway = errors.New("want never or always")
+
+// SetAdminAway sets whether the admin userID administers from away from home too (D302): the
+// admin's own setting, which the API lets them change from home alone.
+func (service *Service) SetAdminAway(ctx context.Context, userID int64, adminAway string) error {
+	if adminAway != AdminAwayNever && adminAway != AdminAwayAlways {
+		return fmt.Errorf("%q: %w", adminAway, ErrNotAnAdminAway)
+	}
+	return service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		return queries.SetAdminAway(ctx, sqlcgen.SetAdminAwayParams{AdminAway: adminAway, ID: userID})
+	})
+}

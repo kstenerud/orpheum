@@ -109,6 +109,21 @@ type Principal struct {
 	// isDeviceScoped is a session of the device scope: its Capabilities lack administering, and
 	// it may not change the account's security (CanManageAccount).
 	isDeviceScoped bool
+	// AdminAway is the person's own word on administering from away from home (D302): AdminAwayNever
+	// or AdminAwayAlways.
+	AdminAway string
+}
+
+// The values of an admin's setting for administering from away from home (D302).
+const (
+	AdminAwayNever  = "never"
+	AdminAwayAlways = "always"
+)
+
+// AdministersFromAway reports whether the principal administers from any network, not only from
+// home: an admin who set it so (D302). From home, IsAdmin alone decides.
+func (principal Principal) AdministersFromAway() bool {
+	return principal.IsAdmin() && principal.AdminAway == AdminAwayAlways
 }
 
 // CanManageAccount reports whether the session may change the account's security: its password,
@@ -578,7 +593,7 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Princip
 		UserID: user.ID, Name: user.Name, Role: Role(user.RoleName),
 		Capabilities: capabilities, Reach: reach,
 		DeviceID: ptr.ValueOrZero(grant.DeviceID), SessionKey: hex.EncodeToString(hash),
-		isDeviceScoped: isDeviceScoped,
+		isDeviceScoped: isDeviceScoped, AdminAway: user.AdminAway,
 	}, nil
 }
 

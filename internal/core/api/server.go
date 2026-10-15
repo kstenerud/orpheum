@@ -178,6 +178,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerLeave()
 	server.registerHome()
 	server.registerAccounts()
+	server.registerAdminAway()
 	server.registerInvitations()
 	server.registerDevices()
 	server.registerPairing()
@@ -379,8 +380,8 @@ func (server *Server) requireAdmin(ctx context.Context, authorization string) (
 	if !principal.IsAdmin() {
 		return nil, principal, newError(http.StatusForbidden, CodeForbidden, "only an administrator may do this")
 	}
-	// Until passkeys, administering is from the house alone (D297 §6).
-	if !isFromHome(ctx) {
+	// Administering is from the house alone, unless the admin chose otherwise (D297 §6, D302).
+	if !administersHere(ctx, principal) {
 		return nil, principal, newError(http.StatusForbidden, CodeForbidden,
 			"administering works only from the server's own network for now: open it at home")
 	}

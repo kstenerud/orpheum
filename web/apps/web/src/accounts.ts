@@ -229,6 +229,11 @@ export async function changePassword(
   throwIfRefused(await api.PUT("/me/password", { body: { currentPassword, newPassword } }));
 }
 
+/** Whether an admin administers from away from home too: their own setting, set from home (D302). */
+export async function setAdminAway(api: Api, adminAway: "never" | "always"): Promise<void> {
+  throwIfRefused(await api.PUT("/me/admin-away", { body: { adminAway } }));
+}
+
 /** One of a person's devices. */
 export type Device = components["schemas"]["DeviceBody"];
 

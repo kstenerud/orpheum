@@ -54,7 +54,7 @@ func (q *Queries) DemoteAdministrators(ctx context.Context) ([]string, error) {
 
 const getLiveUserByID = `-- name: GetLiveUserByID :one
 SELECT user.id, user.name, user.password_hash, user.admin_note, user.role_id, role.name AS role_name,
-  role.capabilities
+  role.capabilities, user.admin_away
 FROM user
 JOIN role ON role.id = user.role_id
 WHERE user.id = ? AND user.removed_at IS NULL
@@ -68,6 +68,7 @@ type GetLiveUserByIDRow struct {
 	RoleID       int64
 	RoleName     string
 	Capabilities string
+	AdminAway    string
 }
 
 func (q *Queries) GetLiveUserByID(ctx context.Context, id int64) (GetLiveUserByIDRow, error) {
@@ -81,6 +82,7 @@ func (q *Queries) GetLiveUserByID(ctx context.Context, id int64) (GetLiveUserByI
 		&i.RoleID,
 		&i.RoleName,
 		&i.Capabilities,
+		&i.AdminAway,
 	)
 	return i, err
 }
@@ -337,6 +339,21 @@ type RevokeLiveGrantsOfRemovedUserParams struct {
 // Every credential of theirs: sessions, links, device codes (D154).
 func (q *Queries) RevokeLiveGrantsOfRemovedUser(ctx context.Context, arg RevokeLiveGrantsOfRemovedUserParams) error {
 	_, err := q.db.ExecContext(ctx, revokeLiveGrantsOfRemovedUser, arg.RevokedAt, arg.UserID)
+	return err
+}
+
+const setAdminAway = `-- name: SetAdminAway :exec
+UPDATE user SET admin_away = ?1 WHERE id = ?2 AND removed_at IS NULL
+`
+
+type SetAdminAwayParams struct {
+	AdminAway string
+	ID        int64
+}
+
+// Whether an admin administers from away from home too (D302): 'never' or 'always'.
+func (q *Queries) SetAdminAway(ctx context.Context, arg SetAdminAwayParams) error {
+	_, err := q.db.ExecContext(ctx, setAdminAway, arg.AdminAway, arg.ID)
 	return err
 }
 
