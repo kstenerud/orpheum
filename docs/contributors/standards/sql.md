@@ -309,7 +309,8 @@ then; [audit-checklist](../audit-checklist.md) item 23 asks the questions at eve
   by:** the weak-prefix check from statistics *(D303 B)*.
 - **A foreign key whose parent can be deleted, or whose action cascades or sets null, has a child
   index** (DL3, amended); any other child column is indexed when a query reads by it. **Enforced
-  by:** a schema test over the pragmas *(D303 B)*.
+  by:** `TestSchema_AForeignKeyWhoseParentCanGoHasAChildIndex`, which counts a parent deleted when
+  a query deletes from its table.
 - **A partial index serves only queries that repeat its condition literally** (DL4), never a
   parameter for it; a query on the tombstoned side has its own index. **Enforced by:** the plan
   check naming the index each such query must use *(D303 B)*.
