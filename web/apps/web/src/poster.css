@@ -36,34 +36,3 @@
   font-size: var(--font-size-small);
   opacity: 0.8;
 }
-
-/* A match the matcher guessed, until a person confirms it: a quiet question mark in the poster's
-   top corner, opposite the warning sign's (D301 §4). */
-.guessed-mark {
-  position: absolute;
-  inset-block-start: var(--space-1);
-  inset-inline-start: var(--space-1);
-  min-inline-size: 1.5em;
-  border-radius: var(--radius-control);
-  background: rgb(0 0 0 / 55%);
-  color: #fff;
-  font-weight: 700;
-  line-height: 1.5;
-  text-align: center;
-}
-
-/* The mark's words, for a screen reader alone. */
-.guessed-mark__words {
-  position: absolute;
-  inline-size: 1px;
-  block-size: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-/* A page's poster, positioned for its marks. */
-.poster-frame {
-  position: relative;
-  display: inline-block;
-}

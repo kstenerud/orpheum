@@ -60,10 +60,10 @@ describe("browse", () => {
     );
     expect(markup).toContain("No poster");
     expect(markup).toContain("Show more");
-    expect(markup).not.toContain("Identified by a guess");
+    expect(markup).not.toContain("This may be identified incorrectly");
   });
 
-  it("marks the poster of an entry whose match is a guess (D301 §4)", () => {
+  it("puts an uncertain match's cue in its poster's tray, under a warning's (D301 §4)", () => {
     const markup = renderBrowseView({
       state: "loaded",
       value: {
@@ -77,12 +77,16 @@ describe("browse", () => {
             isGuessed: true,
             libraryId: 1,
             addedAt: 1,
+            unavailable: { reason: "node_away", nodeName: "devnas" },
           },
         ],
       },
     });
-    expect(markup).toContain('class="guessed-mark"');
-    expect(markup).toContain("Identified by a guess");
+    const tray = markup.slice(markup.indexOf('class="poster-grid__cues"'));
+    expect(tray.indexOf("This cannot be played now")).toBeGreaterThan(0);
+    expect(tray.indexOf("This may be identified incorrectly")).toBeGreaterThan(
+      tray.indexOf("This cannot be played now"),
+    );
   });
 
   it("says what an empty list means, and a failure's cause", () => {

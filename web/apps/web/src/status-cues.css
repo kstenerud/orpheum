@@ -1,0 +1,15 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* A page's status notes, in statusCues' order: each its icon and what it means. */
+.status-note {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  margin-block-end: var(--space-4);
+}
+
+/* A title that cannot be played now: its warning sign and why, in the warning yellow (D278). */
+.status-note--cannot-play {
+  align-items: center;
+  color: var(--color-warning);
+}

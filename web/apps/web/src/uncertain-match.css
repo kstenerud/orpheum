@@ -1,0 +1,28 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* D301 §4: an uncertain match's cue, the owner's icon on the caution yellow. */
+
+.uncertain-match-icon {
+  display: block;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.uncertain-match-icon__ring {
+  fill: var(--color-on-caution);
+}
+
+.uncertain-match-icon__disc {
+  fill: var(--color-caution);
+}
+
+.uncertain-match-icon__curve {
+  fill: none;
+  stroke: var(--color-on-caution);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.uncertain-match-icon__dot {
+  fill: var(--color-on-caution);
+}

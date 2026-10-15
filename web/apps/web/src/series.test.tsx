@@ -119,11 +119,12 @@ describe("a series whose match is a guess (D301)", () => {
         </IsAdminContext>,
       ),
     );
-    expect(forUser).toContain("Identified by a guess");
-    expect(forUser).not.toContain("Identified incorrectly");
-    expect(forAdmin).toContain("Identified incorrectly");
+    expect(forUser).toContain("may be another work of the same name");
+    expect(forUser).not.toContain(">Identified incorrectly<");
+    expect(forAdmin).toContain(">Identified incorrectly<");
+    expect(forAdmin).toContain("the likeliest was taken");
     expect(
       renderToStaticMarkup(withServices(<SeriesView series={{ ...series, isGuessed: false }} />)),
-    ).not.toContain("Identified by a guess");
+    ).not.toContain("This may be identified incorrectly");
   });
 });

@@ -7,11 +7,10 @@ import { useCallback, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useBackgroundChangesPoller } from "./polling.ts";
-import { UnplayableSign } from "./unplayable-sign.tsx";
 import { dataOrThrow, unavailableText } from "./problem.ts";
 import { ContinueWatching } from "./continue-watching.tsx";
 import { Link } from "./link.tsx";
-import { GuessedMark } from "./match-correction.tsx";
+import { StatusTray } from "./status-cues.tsx";
 import { Poster } from "./poster.tsx";
 import { itemRoute } from "./router.ts";
 import { EndOfList } from "./end-of-list.tsx";
@@ -54,7 +53,6 @@ export function PosterGrid(props: {
             }
           >
             <Poster sourceSha256={entry.posterSha256} />
-            <GuessedMark isGuessed={entry.isGuessed} />
             <span className="poster-grid__name">{entry.name}</span>
             {entry.year === undefined ? null : (
               <span className="poster-grid__year">{t("browse.year", { year: entry.year })}</span>
@@ -68,11 +66,7 @@ export function PosterGrid(props: {
               </span>
             )}
           </Link>
-          {entry.unavailable === undefined ? null : (
-            <span className="poster-grid__warning">
-              <UnplayableSign unavailable={entry.unavailable} />
-            </span>
-          )}
+          <StatusTray subject={entry} />
         </li>
       ))}
     </ul>

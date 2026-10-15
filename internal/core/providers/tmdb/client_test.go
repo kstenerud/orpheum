@@ -88,7 +88,7 @@ func TestSearch_AsksForTheNameAndYearAndReadsTheResults(t *testing.T) {
 	t.Parallel()
 	server, seen := fakeTMDB(t, map[string]string{"/search/movie": `{"page":1,"results":[
 		{"id":4801,"title":"The Gold Rush","original_title":"The Gold Rush","release_date":"1999-03-31",
-		 "poster_path":"/m.jpg"},
+		 "poster_path":"/m.jpg","vote_count":26000},
 		{"id":1,"title":"Gold Rush Reloaded","original_title":"x","release_date":""}]}`})
 	query := identify.Query{Kind: "movie", Name: "The Gold Rush", Year: 1999}
 	candidates, err := newClient(t, server.URL, "v3key").Search(t.Context(), query)
@@ -97,6 +97,7 @@ func TestSearch_AsksForTheNameAndYearAndReadsTheResults(t *testing.T) {
 	}
 	want := identify.Candidate{
 		ID: "4801", Name: "The Gold Rush", OriginalName: "The Gold Rush", Year: 1999, ProviderPosterPath: "/m.jpg",
+		Votes: 26000, // what settles two of one name in one year (D301)
 	}
 	if len(candidates) != 2 || candidates[0] != want || candidates[1].Year != 0 {
 		t.Errorf("candidates = %+v", candidates)

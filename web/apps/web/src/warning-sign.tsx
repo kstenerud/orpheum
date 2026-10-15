@@ -35,6 +35,8 @@ export function WarningSign(props: {
   readonly forAdmin: ReactNode;
   /** What anyone else is told, before being asked to tell the administrator; the summary when absent. */
   readonly forViewer?: ReactNode;
+  /** The sign's icon: the warning triangle unless another cue's (an uncertain match's, D301 §4). */
+  readonly icon?: ReactNode;
 }): JSX.Element {
   const { t } = useTranslation();
   const isAdmin = use(IsAdminContext);
@@ -54,7 +56,7 @@ export function WarningSign(props: {
           setIsOpen(!isOpen);
         }}
       >
-        <WarningIcon />
+        {props.icon ?? <WarningIcon />}
       </button>
       {isOpen ? (
         <span className="warning-sign__detail" id={detailId} role="note">
