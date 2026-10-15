@@ -58,7 +58,7 @@ LEFT JOIN collection ON collection.id = item.id`
 
 	searchWordsSQL = `SELECT ` + searchColumns + `
 FROM item_fts
-JOIN item_text ON item_text.id = item_fts.rowid
+JOIN item_text ON item_text.rowid = item_fts.rowid
 ` + searchJoins + `
 WHERE item_fts MATCH ? AND ` + searchLiveCondition + `
   AND ` + searchReachCondition + `
@@ -67,7 +67,7 @@ LIMIT ?`
 
 	searchTrigramSQL = `SELECT ` + searchColumns + `
 FROM item_fts_tri
-JOIN item_text ON item_text.id = item_fts_tri.rowid
+JOIN item_text ON item_text.rowid = item_fts_tri.rowid
 ` + searchJoins + `
 WHERE item_fts_tri MATCH ? AND ` + searchLiveCondition + `
   AND ` + searchReachCondition + `
