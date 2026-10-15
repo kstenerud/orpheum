@@ -27,6 +27,7 @@ func (service *Service) answerRealm(
 		return refusal
 	}
 	coreID := service.Status().CoreID
+	service.parts.Logger.InfoContext(ctx, "discovery: a realm sign-in was taken")
 	return discoveryproto.SignalMessage{
 		Type: discoveryproto.SignalRealm, OfferID: asked.OfferID, PublicKey: service.parts.Key.Public(),
 		Tag: proof.RealmTag(key, coreID, service.parts.Key.Public()),

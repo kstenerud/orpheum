@@ -28,8 +28,10 @@ type UserBody struct {
 	ID   int64  `json:"id"`
 	Name string `json:"name"`
 	// Role is the name of the person's role, which may be one the admin made (D243 §4).
-	Role    string `json:"role"`
-	IsAdmin bool   `json:"isAdmin"`
+	Role string `json:"role"`
+	// IsAdmin is whether this session administers where this request came from: an admin's role, and
+	// the house's network directly, so a page away from home offers nothing it may not do (D297 §6).
+	IsAdmin bool `json:"isAdmin"`
 	// CanHostWatchTogether is whether the person's role may host Watch Together, so a client offers
 	// it only to them.
 	CanHostWatchTogether bool `json:"canHostWatchTogether"`
@@ -335,7 +337,7 @@ func (server *Server) userBody(
 ) (UserBody, error) {
 	body := UserBody{
 		ID: principal.UserID, Name: principal.Name, Role: string(principal.Role),
-		IsAdmin: principal.IsAdmin(), CanHostWatchTogether: principal.CanHostWatchTogether(),
+		IsAdmin: principal.IsAdmin() && isFromHome(ctx), CanHostWatchTogether: principal.CanHostWatchTogether(),
 		CanManageAccount: principal.CanManageAccount(), HasNoLibrary: principal.Reach.ReachesNone(),
 	}
 	if principal.DeviceID != 0 {
