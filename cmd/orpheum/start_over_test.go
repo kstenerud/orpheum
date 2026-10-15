@@ -108,3 +108,17 @@ func TestOpenAndMigrateOrStartOver_LogsASlowWrite(t *testing.T) {
 		t.Errorf("no slow write logged with its file, its caller and how long it held the writer:\n%s", text)
 	}
 }
+
+// A write that waited long is logged with the write it waited behind (D303, DL17).
+func TestLoggingSlowWrites_NamesTheWriteItWaitedBehind(t *testing.T) {
+	t.Parallel()
+	var logged bytes.Buffer
+	loggingSlowWrites(t.Context(), slog.New(slog.NewTextHandler(&logged, nil)))(store.SlowWrite{
+		File: "persistent.db", Caller: "auth.Authenticate", Behind: "identify.IdentifyLibrary",
+		Waited: 16 * time.Second,
+	})
+	if text := logged.String(); !strings.Contains(text, "behind=identify.IdentifyLibrary") ||
+		!strings.Contains(text, "waitedMs=16000") {
+		t.Errorf("the slow write's line does not name the write it waited behind:\n%s", text)
+	}
+}

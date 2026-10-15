@@ -675,12 +675,18 @@ func (config *Config) openOptions() store.OpenOptions {
 }
 
 // loggingSlowWrites logs each database write that waited for the writer, or held it, past
-// store.SlowWriteAfter: what a slow request that writes waited behind (the owner's nas.example,
-// 2026-10-15).
+// store.SlowWriteAfter, and the write that held the writer when it asked: what a slow request
+// that writes waited behind (the owner's nas.example, 2026-10-15; D303, DL17).
 func loggingSlowWrites(ctx context.Context, logger *slog.Logger) func(store.SlowWrite) {
 	return func(write store.SlowWrite) {
-		logger.InfoContext(ctx, "a database write was slow", "file", write.File, "caller", write.Caller,
-			"waitedMs", write.Waited.Milliseconds(), "heldMs", write.Held.Milliseconds())
+		attributes := []any{
+			"file", write.File, "caller", write.Caller,
+			"waitedMs", write.Waited.Milliseconds(), "heldMs", write.Held.Milliseconds(),
+		}
+		if write.Behind != "" {
+			attributes = append(attributes, "behind", write.Behind)
+		}
+		logger.InfoContext(ctx, "a database write was slow", attributes...)
 	}
 }
 

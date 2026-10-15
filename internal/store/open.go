@@ -16,6 +16,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/waiting"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -48,6 +49,8 @@ type Database struct {
 	path    string
 	writer  *sql.DB
 	readers *sql.DB
+	// gate hands the writer to one write at a time, people's before background work.
+	gate writerGate
 	// slowWrites says each write that waited for the writer or held it past SlowWriteAfter; none
 	// when its options named no clock or no listener.
 	slowWrites slowWrites
@@ -70,10 +73,12 @@ type OpenOptions struct {
 const SlowWriteAfter = time.Second
 
 // SlowWrite is a write that waited for the writer, or held it, past SlowWriteAfter: the database
-// file's name, the function outside the store that wrote, and both times.
+// file's name, the function outside the store that wrote, the one that held the writer when it
+// asked (when it waited long; D303, DL17), and both times.
 type SlowWrite struct {
 	File   string
 	Caller string
+	Behind string
 	Waited time.Duration
 	Held   time.Duration
 }
@@ -176,36 +181,43 @@ func (database *Database) Write(ctx context.Context, change func(queries *sqlcge
 	return database.transact(ctx, func(transaction *sql.Tx) error { return change(sqlcgen.New(transaction)) })
 }
 
-// transact runs change in one IMMEDIATE transaction on the single writer.
+// transact runs change in one IMMEDIATE transaction on the single writer, which it takes through
+// the writer gate: a person's write before background work (D303, DL11).
 func (database *Database) transact(ctx context.Context, change func(transaction *sql.Tx) error) error {
-	if database.slowWrites.isOn() {
-		writes := database.slowWrites
-		asked := writes.clock.Now()
-		var begun time.Time
-		defer func() {
-			done := writes.clock.Now()
-			if begun.IsZero() {
-				begun = done
-			}
-			waited, held := begun.Sub(asked), done.Sub(begun)
-			if waited > SlowWriteAfter || held > SlowWriteAfter {
-				writes.report(SlowWrite{File: writes.file, Caller: callerOutsideTheStore(), Waited: waited, Held: held})
-			}
-		}()
-		return database.transactTimed(ctx, change, func() { begun = writes.clock.Now() })
+	if !database.slowWrites.isOn() {
+		if err := database.gate.acquire(ctx, waiting.IsAPerson(ctx), ""); err != nil {
+			return err
+		}
+		defer database.gate.release()
+		return database.transactHolding(ctx, change)
 	}
-	return database.transactTimed(ctx, change, func() {})
+	writes := database.slowWrites
+	caller, behind := callerOutsideTheStore(), database.gate.heldBy()
+	asked := writes.clock.Now()
+	if err := database.gate.acquire(ctx, waiting.IsAPerson(ctx), caller); err != nil {
+		return err
+	}
+	begun := writes.clock.Now()
+	defer func() {
+		database.gate.release()
+		done := writes.clock.Now()
+		waited, held := begun.Sub(asked), done.Sub(begun)
+		if waited <= SlowWriteAfter {
+			behind = ""
+		}
+		if waited > SlowWriteAfter || held > SlowWriteAfter {
+			writes.report(SlowWrite{File: writes.file, Caller: caller, Behind: behind, Waited: waited, Held: held})
+		}
+	}()
+	return database.transactHolding(ctx, change)
 }
 
-// transactTimed is transact, calling begun as the write has the writer.
-func (database *Database) transactTimed(
-	ctx context.Context, change func(transaction *sql.Tx) error, begun func(),
-) error {
+// transactHolding is transact once the gate has handed this write the writer.
+func (database *Database) transactHolding(ctx context.Context, change func(transaction *sql.Tx) error) error {
 	transaction, err := database.writer.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin write transaction: %w", err)
 	}
-	begun()
 	if err := change(transaction); err != nil {
 		return errors.Join(err, transaction.Rollback())
 	}

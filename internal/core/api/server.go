@@ -36,6 +36,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/core/turn"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/waiting"
 )
 
 // Prefix is where the API lives (cut-a §5).
@@ -197,8 +198,16 @@ func NewServer(logger *slog.Logger) *Server {
 // Handler is the HTTP handler to serve: the API, a POST with an Idempotency-Key answered once,
 // every answer naming the web client this server serves (ClientScriptHeader).
 func (server *Server) Handler() http.Handler {
-	return server.markingHome(server.loggingSlow(
-		server.crossOrigin(server.namingClient(server.idempotent(server.pacedMedia(server.mux))))))
+	return server.forAPerson(server.markingHome(server.loggingSlow(
+		server.crossOrigin(server.namingClient(server.idempotent(server.pacedMedia(server.mux)))))))
+}
+
+// forAPerson marks every request as one a person waits on: its writes take the database's writer
+// before background work's (D303, DL11).
+func (server *Server) forAPerson(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		next.ServeHTTP(writer, request.WithContext(waiting.ForAPerson(request.Context())))
+	})
 }
 
 // ClientScriptHeader names, on every answer, the script of the web client this server serves: a

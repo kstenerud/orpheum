@@ -111,6 +111,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/platform/unixsocket` | R8 support | — (dialling and, since 2026-09-30, listening, for both roles) |
 | `internal/platform/jobqueue` | R8 support | — (the generic job queue of D231 §2, since the jobs rebuild's Phase 1; it knows no kind, target or destination, and its storage is `internal/store`'s `JobStorage` on cache.db, so either role could use it) |
 | `internal/platform/langtag` | R2 (normalise on entry) | — |
+| `internal/platform/waiting` | R4 support (a person's writes before background work, D303 DL11) | — (the api marks each request; the store's writer gate reads the mark) |
 | `internal/platform/pacing` | R4 support (a film's download giving way to live voice, D262 §2) | — (the core's api paces media requests by the player's header; built 2026-10-07) |
 | `internal/platform/build`, `internal/platform/host`, `internal/platform/diskspace` | OPS | — |
 | `internal/platform/clock`, `internal/platform/localtime`, `internal/platform/slogx`, `internal/platform/errs`, `internal/platform/ptr`, `internal/platform/pathtree`, `internal/platform/randbytes`, `internal/platform/readonly`, `internal/platform/backoff`, `internal/platform/atomics` | PRIM | — |
