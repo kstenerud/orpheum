@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { useEffect, useState, type JSX } from "react";
+import { useEffect, useState, type Dispatch, type JSX, type SetStateAction } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -73,22 +73,39 @@ export function JoinForm(props: {
       }}
     >
       <p>{t("together.joinExplain")}</p>
-      <CredentialsField label={t("together.name")}>
-        <input
-          required
-          maxLength={100}
-          autoComplete="nickname"
-          value={name}
-          onChange={(event) => {
-            setTypedName(event.target.value);
-          }}
-        />
-      </CredentialsField>
+      <JoinNameField name={name} setTypedName={setTypedName} />
       {problem === undefined ? null : <CredentialsProblem isAlert>{problem}</CredentialsProblem>}
       <button type="submit" disabled={isBusy}>
         {t("together.join")}
       </button>
     </CredentialsForm>
+  );
+}
+
+/** The name to join by, its field. */
+function JoinNameField(props: {
+  readonly name: string;
+  readonly setTypedName: Dispatch<SetStateAction<string | undefined>>;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { name, setTypedName } = props;
+  return (
+    <CredentialsField label={t("together.name")}>
+      <input
+        required
+        maxLength={100}
+        autoComplete="nickname"
+        value={name}
+        onFocus={() => {
+          // What it shows as its person starts on it is theirs: a name loaded later replaces nothing,
+          // where it went in before what they typed ("viewer-firefoxAnna", check-pr 2026-10-15).
+          setTypedName((typed) => typed ?? name);
+        }}
+        onChange={(event) => {
+          setTypedName(event.target.value);
+        }}
+      />
+    </CredentialsField>
   );
 }
 
@@ -122,10 +139,10 @@ function useAsksWhetherOutdated(isJoinShown: boolean): void {
 }
 
 /**
- * The name to join by: what was typed, once anything was, else the signed-in person's own; a late
- * answer about who is signed in never replaces what was typed.
+ * The name to join by: what was typed, or shown as the field was first focused, once either was,
+ * else the signed-in person's own; a late answer about who is signed in never replaces either.
  */
-function useJoinName(): [string, (typed: string) => void] {
+function useJoinName(): [string, Dispatch<SetStateAction<string | undefined>>] {
   const { api } = useServices();
   const token = useToken();
   const [typedName, setTypedName] = useState<string | undefined>(undefined);

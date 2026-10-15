@@ -688,6 +688,40 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     mounted.unmount();
   });
 
+  it("fills in no name that arrives once its person is in the field (check-pr, 2026-10-15)", async () => {
+    const { services } = viewerServices(
+      "/together#link-secret",
+      { "GET /me": [200, { id: 4, name: "Partner", isAdmin: false, canHostWatchTogether: false }] },
+      "partner-token",
+    );
+    let answerMe = (): void => undefined;
+    const meAnswered = new Promise<void>((resolve) => {
+      answerMe = resolve;
+    });
+    services.api.use({
+      async onRequest({ request }) {
+        if (new URL(request.url).pathname.endsWith("/me")) {
+          await meAnswered;
+        }
+        return undefined;
+      },
+    });
+    const mounted = await mount(withServices(<TogetherViewer />, services));
+    const input = mounted.container.querySelector("input");
+    expect(input?.value).toBe("");
+    act(() => {
+      input?.focus();
+    });
+    // Their own name arrives once they are in the field: it goes nowhere, as what they type would
+    // have gone after it.
+    answerMe();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(input?.value).toBe("");
+    mounted.unmount();
+  });
+
   it("asks no one not signed in who they are, and leaves the name empty", async () => {
     const { services, heard } = viewerServices("/together#link-secret", {});
     const mounted = await mount(withServices(<TogetherViewer />, services));
