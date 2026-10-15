@@ -12,6 +12,9 @@
 //     database/sql to build a state the store never produces (a newer release's file, a foreign
 //     one). It may, being under internal/store: the depguard rule sql-only-in-store and
 //     TestArch_OnlyStoreImportsDatabaseSQL allow database/sql nowhere else.
+//   - A database OpenMigrated opens fails the test whose request that only reads wrote to it,
+//     unless readerWritesAllowed lists the writer with why (D303, DL10). Enforced by
+//     TestOpenMigrated_FailsATestWhoseReadingRequestWrote.
 //
 // # Read before changing
 //
