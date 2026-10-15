@@ -218,6 +218,9 @@ class Wiring(unittest.TestCase):
             self.assertIsNotNone(found, tier)
             places.append(found.start())
         self.assertEqual(places, sorted(places), "check-pr runs its tiers out of order")
+        # A tier that fails fails check-pr: a pass reported over a failed revert-red, the chain's
+        # `|| echo` having swallowed it, was the first run of the tiers (2026-10-15).
+        self.assertRegex(self.MAKEFILE, r"\|\| \{ \\\n(?:\t.*\\\n)*\t.*a tier failed.*exit 1; \}")
         self.assertRegex(self.MAKEFILE,
                          r"(?m)^PR_STEPS := \$\(PR_FAST_STEPS\) \$\(PR_MEDIUM_STEPS\) \$\(PR_SLOW_STEPS\)$")
         self.assertRegex(self.MAKEFILE, r"(?m)^\t.*\$\(PR_LAST_STEP:%=pr-step-%\)")

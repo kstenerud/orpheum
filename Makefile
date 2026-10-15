@@ -251,8 +251,9 @@ check-pr-verbose: ## Branch gates against BASE (default: where the last pass end
 	      $(PR_MEDIUM_STEPS:%=pr-step-%) && \
 	    $(MAKE) --no-print-directory BASE="$$base" $(PR_SERIAL_STEP:%=pr-step-%) && \
 	    $(MAKE) --no-print-directory BASE="$$base" $(PR_SLOW_STEPS:%=pr-step-%) && \
-	    $(MAKE) --no-print-directory BASE="$$base" $(PR_LAST_STEP:%=pr-step-%); } || \
-	    echo "make check-pr: a tier failed, so the slower ones after it did not run"; \
+	    $(MAKE) --no-print-directory BASE="$$base" $(PR_LAST_STEP:%=pr-step-%); } || { \
+	    $(PYTHON) scripts/check_pr_steps.py durations $(PR_STEPS) $(PR_SERIAL_STEP) $(PR_LAST_STEP); \
+	    echo "make check-pr: a tier failed, so the slower ones after it did not run"; exit 1; }; \
 	  $(PYTHON) scripts/check_pr_steps.py durations $(PR_STEPS) $(PR_SERIAL_STEP) $(PR_LAST_STEP); \
 	  $(PYTHON) scripts/tree_state.py --check "$$state"; \
 	  $(PYTHON) scripts/branch_base.py --checked "$$head" --base "$$base" && { \
