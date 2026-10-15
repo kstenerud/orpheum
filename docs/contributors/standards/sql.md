@@ -306,7 +306,10 @@ then; [audit-checklist](../audit-checklist.md) item 23 asks the questions at eve
 - **An index is ordered by how queries bind it** (DL2): equality columns first, then one range or
   the ORDER BY. A column with a handful of values (a locale, a kind, a state) leads only when
   every query also binds the next column. `SEARCH … (locale=?)` reads the whole locale. **Enforced
-  by:** the weak-prefix check from statistics *(D303 B)*.
+  by:** `TestQueryPlans_EverySearchNarrowsToAFewRows`, which reads, by the committed statistics,
+  how many rows each search reads for each value it binds; a keyset page with a `LIMIT` stops
+  early and is not counted, and a deliberate read of a whole library, node or person is listed in
+  `weakSearchesAllowed` with why.
 - **A foreign key whose parent can be deleted, or whose action cascades or sets null, has a child
   index** (DL3, amended); any other child column is indexed when a query reads by it. **Enforced
   by:** `TestSchema_AForeignKeyWhoseParentCanGoHasAChildIndex`, which counts a parent deleted when

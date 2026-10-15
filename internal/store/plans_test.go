@@ -4,10 +4,12 @@ package store
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -260,4 +262,118 @@ func TestQueryPlans_ASmallTableDrivesItsJoin(t *testing.T) {
 			}
 		}
 	}
+}
+
+// indexSearch is a plan line that narrows by an index: the table, the index (the table's own name
+// for a WITHOUT ROWID primary key, "" for a rowid), and the terms it binds.
+var indexSearch = regexp.MustCompile(
+	`^SEARCH (\w+)(?: AS \w+)? USING (?:COVERING )?(?:INDEX (\w+)|(PRIMARY KEY)|INTEGER PRIMARY KEY) \((.+)\)`)
+
+// rowsPerSearch is how many rows SQLite's statistics say a search reads for each value it binds:
+// the stat's figure for as many leading columns as the search binds with =.
+func rowsPerSearch(stats map[string]string, table, index, terms string) (rows, total int) {
+	stat, isKnown := stats[table+"/"+index]
+	if !isKnown {
+		return 0, 0
+	}
+	figures := strings.Fields(stat)
+	bound := strings.Count(terms, "=?")
+	if bound == 0 || bound >= len(figures) {
+		return 0, 0
+	}
+	total, totalErr := strconv.Atoi(figures[0])
+	rows, rowsErr := strconv.Atoi(figures[bound])
+	if totalErr != nil || rowsErr != nil {
+		return 0, 0
+	}
+	return rows, total
+}
+
+// weakSearchesAllowed are the queries whose search binds only columns with few values, each with
+// why. A keyset page, which stops at its LIMIT, needs none.
+func weakSearchesAllowed() map[string]string {
+	const (
+		library = "it reads a library's files or items, all of them, by design: "
+		node    = "it reads a node's files, all of them, by design: "
+		person  = "it reads a person's history, all of it, by design: "
+	)
+	return map[string]string{
+		"ListLiveFilesOfLibraryOnNode":    library + "a scan's comparison",
+		"ListLiveFilesForAttaching":       library + "a scan's attaching of sidecars",
+		"ListFilesToCompare":              library + "a scan's comparison",
+		"ListFilesAHeldBackScanDidNotSee": library + "what a withheld scan would remove",
+		"ListIdentifyFiles":               library + "the identification pass, which D303 phase C splits",
+		"ListLibraryTitles":               library + "the identification pass",
+		"ListFileTitles":                  library + "the scanner view",
+		"CountLibraryFilings":             library + "the scanner view's counts",
+		"TombstoneLiveFilesOfLibrary":     library + "a library's removal",
+		"ListTitlesWithoutLiveFiles":      library + "a library's removal",
+		"TombstoneItemsOfLibrary":         library + "a library's removal",
+		"ListLiveFilesByNode":             node + "the System page's files of a node",
+		"DeletePlaySpansOfUser":           person + "their removal",
+		"DeletePlayPositionsOfUser":       person + "their removal",
+		"GetWatchStats":                   person + "their watching's totals",
+	}
+}
+
+// A search by an index narrows to a few rows for each value it binds: one that binds only a column
+// with a handful of values (a locale, a kind, a state) reads most of the table, though the plan says
+// SEARCH (D303, DL2; the access audit's A1, SEARCH sort_key USING PRIMARY KEY (locale=?)). Measured
+// by the committed statistics.
+func TestQueryPlans_EverySearchNarrowsToAFewRows(t *testing.T) {
+	t.Parallel()
+	database := openMigrated(t)
+	stats := map[string]string{}
+	for _, row := range queryRows(t, database, "SELECT tbl, coalesce(idx, ''), stat FROM sqlite_stat1", 3) {
+		stats[row[0]+"/"+row[1]] = row[2]
+	}
+	allowed := weakSearchesAllowed()
+	for _, query := range append(queriesIn(t, "queries"), searchQueries()...) {
+		if regexp.MustCompile(`(?is)\bLIMIT\b`).MatchString(query.sql) || insertsValues.MatchString(query.sql) {
+			continue // a page, or a first match, stops at its LIMIT; an insert's plan is foreign-key bookkeeping
+		}
+		reason, isAllowed := allowed[query.name]
+		weak := weakSearches(t, database, stats, query)
+		switch {
+		case len(weak) > 0 && !isAllowed:
+			t.Errorf("%s: %v for each value it binds; bind a column with many values first, or list it in "+
+				"weakSearchesAllowed with why", query.name, weak)
+		case len(weak) == 0 && isAllowed:
+			t.Errorf("%s no longer searches weakly; take it off weakSearchesAllowed (%s)", query.name, reason)
+		}
+	}
+}
+
+// The measure sees the access audit's A1: a search of sort_key that binds only the locale, of
+// which there is one, reads every key, though the plan says SEARCH.
+func TestRowsPerSearch_SeesASearchThatBindsOnlyTheLocale(t *testing.T) {
+	t.Parallel()
+	stats := map[string]string{"sort_key/sort_key": "20000 20000 10000 1 1"}
+	if rows, total := rowsPerSearch(stats, "sort_key", "sort_key", "locale=?"); rows != 20000 || total != 20000 {
+		t.Errorf("a search by the locale reads %d of %d rows; want all 20000", rows, total)
+	}
+	whole := "locale=? AND listing=? AND collation_key=?"
+	if rows, _ := rowsPerSearch(stats, "sort_key", "sort_key", whole); rows != 1 {
+		t.Errorf("a search by the whole key reads %d rows; want 1", rows)
+	}
+}
+
+// weakSearches are the lines of a query's plan that read many rows for each value they bind.
+func weakSearches(t *testing.T, database *Database, stats map[string]string, query listQuery) []string {
+	t.Helper()
+	var weak []string
+	for _, line := range planOf(t, database.readers, query) {
+		match := indexSearch.FindStringSubmatch(line)
+		if match == nil {
+			continue
+		}
+		index := match[2]
+		if match[3] != "" {
+			index = match[1]
+		}
+		if rows, total := rowsPerSearch(stats, match[1], index, match[4]); rows > 64 && rows*4 > total {
+			weak = append(weak, fmt.Sprintf("%q reads about %d of %d rows", line, rows, total))
+		}
+	}
+	return weak
 }
