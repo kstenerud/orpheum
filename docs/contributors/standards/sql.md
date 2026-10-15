@@ -318,8 +318,12 @@ then; [audit-checklist](../audit-checklist.md) item 23 asks the questions at eve
   indexes. **Review-only.**
 - **Planner statistics are committed** (DL15): a `sqlite_stat1` generated from the reference
   library is loaded into every database; nothing runs `ANALYZE` or `PRAGMA optimize`; plans are
-  tested over several library shapes. **Enforced by:** a staleness test and a check that no code
-  runs `ANALYZE` *(D303 B)*.
+  tested over several library shapes. The statistics are `internal/store/statistics/persistent.tsv`,
+  written by `go test -tags integration -run TestReferenceScale ./internal/store
+  -update-statistics`; every `Migrate` loads them and closes the idle readers, which SQLite gives
+  statistics only when they open. **Enforced by:** `TestStatistics_NameTheSchemasIndexesAndNoOthers`
+  (stale statistics fail), `TestStatistics_AReaderOpenedBeforeThemPlansByThem`,
+  `TestStatistics_NothingElseAnalyzes`; plans over several shapes *(D303 C)*.
 
 ### Requests and writes
 

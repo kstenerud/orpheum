@@ -8,9 +8,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/binary"
+	"flag"
 	"fmt"
 	"math/rand/v2"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -256,8 +258,55 @@ func TestReferenceScale(t *testing.T) {
 	// reference, as a step's worst case; the plans and pages are read on the result.
 	checkStepBudgets(t, database, steps)
 	checkStepBudgets(t, database, append(steps, rebuildStep(t, database, "file", lastVersion(steps)+1)))
+	if *updateStatistics {
+		writeStatistics(t, database)
+	}
 	checkQueryPlans(t, database)
 	checkPageBudgets(t, database)
+}
+
+// updateStatistics rewrites statistics/persistent.tsv from what ANALYZE finds of the reference
+// library. Never set by default or in CI: the statistics are committed (D303 §3, DL15).
+var updateStatistics = flag.Bool("update-statistics", false,
+	"rewrite statistics/persistent.tsv from ANALYZE of the reference library")
+
+// writeStatistics runs ANALYZE on a copy of the reference library and writes its sqlite_stat1 as
+// the committed statistics, sorted, a sample-free index of each table's rows.
+func writeStatistics(t *testing.T, database *Database) {
+	t.Helper()
+	copyPath := filepath.Join(t.TempDir(), "analyzed.db")
+	if err := database.BackupInto(t.Context(), copyPath); err != nil {
+		t.Fatal(err)
+	}
+	analyzed, err := sql.Open("sqlite", copyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = analyzed.Close() }() //nolint:errcheck // a scratch copy
+	if _, err = analyzed.ExecContext(t.Context(), "ANALYZE"); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := analyzed.QueryContext(t.Context(), "SELECT tbl, coalesce(idx, ''), stat FROM sqlite_stat1 "+
+		"WHERE tbl NOT GLOB 'item_fts*' ORDER BY tbl, coalesce(idx, '')")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = rows.Close() }() //nolint:errcheck // a read
+	var text strings.Builder
+	for rows.Next() {
+		var table, index, stat string
+		if err := rows.Scan(&table, &index, &stat); err != nil {
+			t.Fatal(err)
+		}
+		fmt.Fprintf(&text, "%s\t%s\t%s\n", table, index, stat)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join("statistics", "persistent.tsv"), []byte(text.String()), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("wrote statistics/persistent.tsv: %d bytes", text.Len())
 }
 
 // checkStepBudgets migrates through the pending steps, timing each (migrations.md: under 10 s
