@@ -43,6 +43,7 @@ export async function haveBackMySessions(api: Api): Promise<void> {
       keepMembership(storage, role, {
         sessionId: each.sessionId,
         credential: each.membershipCredential,
+        locator: each.locator,
       });
     }
   }

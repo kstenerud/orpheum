@@ -406,3 +406,89 @@ test("a guest signed in here joins Watch Together by its link on the discovery's
     discovery.process.kill();
   }
 });
+
+/** How many of the page's WebRTC transport's connections are connected: those carrying data alone. */
+async function transportConnected(page: Page): Promise<number> {
+  return await page
+    .evaluate(() => {
+      const kept: unknown = Reflect.get(window, "keptPeers");
+      return (Array.isArray(kept) ? kept : []).filter(
+        (each: unknown) =>
+          each instanceof RTCPeerConnection &&
+          each.connectionState === "connected" &&
+          each.getTransceivers().length === 0,
+      ).length;
+    })
+    .catch(() => 0);
+}
+
+/**
+ * Cuts every connection of the page's transport as a lost network does: each closes, and says so,
+ * which a connection closed by the page itself would not. The ones cut are those connected as it
+ * begins: the page opens their replacements into the same list at once, which must be left alone.
+ */
+async function cutTransport(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const kept: unknown = Reflect.get(window, "keptPeers");
+    const connected = (Array.isArray(kept) ? kept : []).filter(
+      (each: unknown): each is RTCPeerConnection =>
+        each instanceof RTCPeerConnection &&
+        each.connectionState === "connected" &&
+        each.getTransceivers().length === 0,
+    );
+    for (const each of connected) {
+      each.close();
+      each.dispatchEvent(new Event("connectionstatechange"));
+    }
+  });
+}
+
+/**
+ * A guest as the owner's phone was (2026-10-15): not signed in, joining by the session's link on the
+ * discovery's page, over WebRTC. The link's key proves only the offer that spends it, so the guest's
+ * later offers, its transport's growth and every replacement, are proven by the membership the core
+ * gave it: its transport grows to four, comes back after every connection is lost, and the page,
+ * loaded again, finds the server by that membership without the spent link.
+ */
+test("a guest not signed in keeps reaching the core through the discovery after joining: more connections, lost ones replaced, a reload", async ({
+  browser,
+}) => {
+  test.setTimeout(300_000);
+  const discovery = await startDiscovery();
+  const api = await request.newContext();
+  const token = await ownersToken(api);
+  const hosting = await pageWithMicrophone(browser);
+  const joining = await pageWithMicrophone(browser);
+  const host = hosting.page;
+  const guest = joining.page;
+  try {
+    await connectAndClaim(api, token, discovery.address);
+    await signIn(host);
+    const link = await startSessionWithLink(host);
+    const fragment = link.slice(link.indexOf("#") + 1).split(".");
+    await awaitLocatable(api, discovery.address, fragment[1] ?? "");
+    await guest.goto(link);
+    await guest.getByRole("button", { name: "Connect" }).click();
+    await join(guest, link);
+    // Its transport grows past the connection the link's offer opened.
+    await expect.poll(() => transportConnected(guest), { timeout: 60_000 }).toBe(4);
+    await hostPlays(host, warmUpFilm);
+    await expect.poll(() => isPlaying(guest), { timeout: 60_000 }).toBe(true);
+    // Wi-Fi goes off: every connection is gone, and the ones that replace them carry the next film.
+    await cutTransport(guest);
+    await expect.poll(() => transportConnected(guest), { timeout: 60_000 }).toBeGreaterThan(0);
+    await hostPlays(host, timingFilm(test.info().project.name));
+    await expect.poll(() => isPlayingLongFilm(guest), { timeout: 60_000 }).toBe(true);
+    // Loaded again, with the link spent and gone from the address, the page finds the server.
+    await guest.reload();
+    await expect.poll(() => transportConnected(guest), { timeout: 60_000 }).toBeGreaterThan(0);
+    await expect(guest.getByText("Which server?")).toHaveCount(0);
+    await endSession(host);
+  } finally {
+    await hosting.context.close();
+    await joining.context.close();
+    await api.delete(`${serverUrl()}/api/v1/system/discovery`, { headers: signedIn(token) });
+    await api.dispose();
+    discovery.process.kill();
+  }
+});

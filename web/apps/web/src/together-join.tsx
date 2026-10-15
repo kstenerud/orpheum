@@ -68,7 +68,7 @@ export function JoinForm(props: {
               ...idempotent(idempotencyKey),
             }),
           );
-          props.onJoined({ sessionId: joined.sessionId, credential: joined.membershipCredential });
+          props.onJoined(membershipOf(joined));
         });
       }}
     >
@@ -90,6 +90,19 @@ export function JoinForm(props: {
       </button>
     </CredentialsForm>
   );
+}
+
+/** The membership a join's answer gives: its session, its credential, and the locator a discovery finds it by. */
+function membershipOf(joined: {
+  readonly sessionId: number;
+  readonly membershipCredential: string;
+  readonly locator: string;
+}): Membership {
+  return {
+    sessionId: joined.sessionId,
+    credential: joined.membershipCredential,
+    locator: joined.locator,
+  };
 }
 
 /**

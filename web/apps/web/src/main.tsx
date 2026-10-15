@@ -25,13 +25,14 @@ import { createRoot } from "react-dom/client";
 
 import { ownScriptOf, pageUpdateWatch } from "./app-update.ts";
 import { App } from "./app.tsx";
-import { storageIfAllowed } from "./browser-storage.ts";
+import { browserStorage, storageIfAllowed } from "./browser-storage.ts";
 import { createNavigation } from "./navigation.ts";
 import { ServicesContext } from "./services.tsx";
 import { DiscoveryGate, type GateParts } from "./discovery-gate.tsx";
-import { discoveryClientApiOf, rememberCore, startOf } from "./discovery-start.ts";
+import { discoveryClientApiOf, heldWith, rememberCore, startOf } from "./discovery-start.ts";
 import { sendFailuresToCore } from "./failure-reports.ts";
 import { mediaCredentialsOf } from "./together-playback.ts";
+import { readMembership } from "./together-storage.ts";
 import { corePrefix, createSession, type Session } from "./session.ts";
 import { checkSessionWhileShown, watchForSignOut } from "./signed-out-watch.ts";
 import { moveToWebrtcWhenSignedIn, pathName, wantsWebrtc } from "./transport-choice.ts";
@@ -106,12 +107,12 @@ if (discoveryClientApi === "") {
 } else {
   const parts: GateParts = {
     client: { clientApi: discoveryClientApi },
-    sessionOf: (core) => {
-      const kept = createSession(localStore, corePrefix(core.coreId));
-      const token = kept.token();
-      const locator = kept.locator();
-      return token === undefined || locator === undefined ? undefined : { core, token, locator };
-    },
+    sessionOf: (core) =>
+      heldWith(
+        core,
+        createSession(localStore, corePrefix(core.coreId)),
+        readMembership(browserStorage(), "viewer"),
+      ),
     onConnected: (core, reached) => {
       rememberCore(localStore, core);
       const session = createSession(localStore, corePrefix(core.coreId));

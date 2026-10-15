@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { NotFound, reportDeadEnd, type DiscoveryClient } from "@orpheum/sdk";
+import { NotFound, reportDeadEnd, type DiscoveryClient, type LinkFragment } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { CredentialsForm } from "./credentials-form.tsx";
 import {
+  provingOf,
   reachCore,
   targetOfLink,
   targetOfSession,
@@ -19,7 +20,10 @@ import {
 /** What the gate needs: the discovery, the remembered core's session, and who takes over. */
 export interface GateParts {
   readonly client: DiscoveryClient;
-  /** The session this device holds with core, when it holds one. */
+  /**
+   * What this device holds with core, when it holds anything: its signed-in session, else its Watch
+   * Together membership. Asked again at each later offer, so what a link's person gains is used.
+   */
   readonly sessionOf: (core: KeptCore) => HeldSession | undefined;
   /** Told the core reached and how; the app takes over from there. */
   readonly onConnected: (core: KeptCore, reached: Reached) => void;
@@ -37,6 +41,31 @@ function firstPhase(start: Start, parts: GateParts): Phase {
     : "notFound";
 }
 
+/** Whether two holdings are the same: the same token at the same locator, or both none. */
+function isSameHeld(one: HeldSession | undefined, other: HeldSession | undefined): boolean {
+  return one?.token === other?.token && one?.locator === other?.locator;
+}
+
+/**
+ * The target, asking at each later offer for what the device holds by then when it is not what it
+ * held as the target was found: the session or membership its person gained by the link (the
+ * owner's guest, 2026-10-15, whose offers after joining were all refused under the spent link's key).
+ * What it held already is the target's own, so a session from an earlier visit never takes the place
+ * of the link that is being spent.
+ */
+export function withLatest(parts: GateParts, core: KeptCore, target: Target): Target {
+  const heldAtFirst = parts.sessionOf(core);
+  return {
+    ...target,
+    latest: async () => {
+      const held = parts.sessionOf(core);
+      return held === undefined || isSameHeld(held, heldAtFirst)
+        ? undefined
+        : await provingOf(held);
+    },
+  };
+}
+
 /** Reaches a core: finds it, connects, and says how it went. */
 async function reach(
   parts: GateParts,
@@ -45,7 +74,7 @@ async function reach(
 ): Promise<"notFound" | "deadEnd" | undefined> {
   let target: Target | undefined;
   try {
-    target = await find();
+    target = withLatest(parts, core, await find());
     parts.onConnected(core, await reachCore(parts.client, target));
     return undefined;
   } catch (problem: unknown) {
@@ -98,14 +127,33 @@ export function DiscoveryGate(props: {
       <LinkPage
         onConnect={() => {
           setPhase("connecting");
-          reachThen({ coreId: link.coreId, fingerprint: link.fingerprint }, () =>
-            targetOfLink(parts.client, link),
-          );
+          const core = { coreId: link.coreId, fingerprint: link.fingerprint };
+          reachThen(core, () => targetOfLinkOrHeld(parts, core, link));
         }}
       />
     );
   }
   return <GateMessage phase={start.kind === "none" ? "none" : phase} />;
+}
+
+/**
+ * The target a link finds; or, once the link is spent, what this browser gained by it: the same link
+ * opened again after its guest joined found no server, and the page said so (the owner, 2026-10-15).
+ */
+async function targetOfLinkOrHeld(
+  parts: GateParts,
+  core: KeptCore,
+  link: LinkFragment,
+): Promise<Target> {
+  try {
+    return await targetOfLink(parts.client, link);
+  } catch (problem: unknown) {
+    const held = parts.sessionOf(core);
+    if (problem instanceof NotFound && held !== undefined) {
+      return await targetOfSession(parts.client, held);
+    }
+    throw problem;
+  }
 }
 
 /** A link's page: what it is, and the click that spends it. */

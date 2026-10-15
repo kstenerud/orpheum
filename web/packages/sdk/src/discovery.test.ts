@@ -133,6 +133,28 @@ describe("a signaller through a discovery", () => {
     ]);
   });
 
+  it("proves a later offer with what the device holds by then, not the spent link", async () => {
+    const heard: unknown[] = [];
+    const post = answering({ offerId: "1", refusal: "a test's" }, heard);
+    const later = await sessionOfferKey("a membership credential");
+    const signaller = discoverySignaller({
+      clientApi: "https://discovery.example/client/v1",
+      coreId: "k7xq2",
+      fingerprint: vectors.fingerprint,
+      held: { bootstrapToken: "a-token" },
+      key: await offerKey("abc_DEF-123"),
+      latest: () => Promise.resolve({ held: { locator: "a-locator" }, key: later }),
+      fetch: post,
+    });
+    await expect(signaller(offer)).rejects.toThrow("a test's");
+    expect(heard).toEqual([
+      {
+        locator: "a-locator",
+        offers: [{ sdp: offer.sdp, proof: await offerProof(later, "sha-256 AB:CD") }],
+      },
+    ]);
+  });
+
   it("refuses an answer the core did not sign, or signed with a key its link does not name", async () => {
     const forged = await signalling(
       answering({

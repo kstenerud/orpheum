@@ -19,10 +19,12 @@ import {
   type DiscoveryClient,
   type Held,
   type LinkFragment,
+  type Proving,
   type RtcTransport,
 } from "@orpheum/sdk";
 
 import { storageThatNeverThrows, type StringStorage } from "./browser-storage.ts";
+import type { Membership } from "./together-storage.ts";
 
 /** The meta element a discovery's page names its client API by; the core's own page has none. */
 const clientApiMetaName = "orpheum-discovery-client-api";
@@ -96,6 +98,11 @@ export interface Target {
   readonly iceServers: RTCIceServer[];
   /** The core's published names, tried before WebRTC (W2c). */
   readonly directUrls: readonly string[];
+  /**
+   * What the device holds by the time a later offer is made, when it holds more than the target
+   * began with: the session or membership a link's person gained (DiscoverySignalling.latest).
+   */
+  readonly latest?: (() => Promise<Proving | undefined>) | undefined;
 }
 
 /**
@@ -117,11 +124,46 @@ export async function targetOfLink(client: DiscoveryClient, link: LinkFragment):
   };
 }
 
-/** The session a device holds with a core it reached before. */
+/**
+ * What a device holds with a core it reached before: a signed-in session's token, or a Watch Together
+ * guest's membership credential, which the core proves offers under alike, with the locator the
+ * discovery finds the core by for it.
+ */
 export interface HeldSession {
   readonly core: KeptCore;
   readonly token: string;
   readonly locator: string;
+}
+
+/** What a device keeps that a holding is made of: its session's token and locator, for one core. */
+export interface KeptSession {
+  readonly token: () => string | undefined;
+  readonly locator: () => string | undefined;
+}
+
+/**
+ * What this device holds with core: its signed-in session, else its Watch Together membership as a
+ * guest, which the core finds and proves offers by alike (the hub's OfferKey); undefined when it holds
+ * neither, or a membership kept before memberships kept their locator.
+ */
+export function heldWith(
+  core: KeptCore,
+  session: KeptSession,
+  membership: Pick<Membership, "credential" | "locator"> | undefined,
+): HeldSession | undefined {
+  const token = session.token();
+  const locator = session.locator();
+  if (token !== undefined && locator !== undefined) {
+    return { core, token, locator };
+  }
+  return membership?.locator === undefined
+    ? undefined
+    : { core, token: membership.credential, locator: membership.locator };
+}
+
+/** What an offer made with held is sent and proven with: its locator, under its token's key. */
+export async function provingOf(held: HeldSession): Promise<Proving> {
+  return { held: { locator: held.locator }, key: await sessionOfferKey(held.token) };
 }
 
 /** Finds the remembered core by this device's locator; its offers are proven under its session. */
@@ -133,8 +175,7 @@ export async function targetOfSession(client: DiscoveryClient, held: HeldSession
   return {
     coreId: held.core.coreId,
     fingerprint: held.core.fingerprint,
-    held: { locator: held.locator },
-    key: await sessionOfferKey(held.token),
+    ...(await provingOf(held)),
     iceServers: located.iceServers,
     directUrls: located.directUrls,
   };
@@ -166,6 +207,7 @@ export function connectThrough(client: DiscoveryClient, target: Target): Promise
       fingerprint: target.fingerprint,
       held: target.held,
       key: target.key,
+      latest: target.latest,
       fetch: client.fetch,
     }),
     { iceServers: target.iceServers },

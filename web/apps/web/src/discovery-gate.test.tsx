@@ -3,11 +3,19 @@
 
 import "./i18n.ts";
 
-import { locateHash } from "@orpheum/sdk";
+import { locateHash, sessionOfferKey } from "@orpheum/sdk";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { DiscoveryGate, type GateParts } from "./discovery-gate.tsx";
-import { discoveryClientApiOf, rememberCore, startOf, type KeptCore } from "./discovery-start.ts";
+import { DiscoveryGate, withLatest, type GateParts } from "./discovery-gate.tsx";
+import {
+  discoveryClientApiOf,
+  heldWith,
+  rememberCore,
+  startOf,
+  type HeldSession,
+  type KeptCore,
+  type Target,
+} from "./discovery-start.ts";
 import type { StringStorage } from "./browser-storage.ts";
 import { buttonWithText, click, mount, settleUntil, type Mounted } from "./test-dom.tsx";
 
@@ -151,10 +159,94 @@ describe("the gate a discovery's page opens on", () => {
     expect(connected).toEqual([{ coreId: "k7xq2", fingerprint }]);
   });
 
+  it("reaches the server by what this browser holds when its link is spent", async () => {
+    const heard: string[] = [];
+    const core = { coreId: "k7xq2", fingerprint };
+    const held: HeldSession = { core, token: "a-membership-credential", locator: "a-locator" };
+    const located = {
+      coreId: "k7xq2",
+      iceServers: [],
+      paths: [{ kind: "ipv4", url: "https://v4.k7xq2.zone.example" }],
+    };
+    const toDiscovery = discovery({ "/paths": [200, located] }, heard);
+    const fetched: typeof fetch = (url, init) =>
+      (url instanceof Request ? url.url : url.toString()).startsWith(
+        "https://v4.k7xq2.zone.example/",
+      )
+        ? Promise.resolve(new Response("{}", { status: 200 }))
+        : toDiscovery(url, init);
+    const connected: KeptCore[] = [];
+    const parts: GateParts = { ...partsOf(fetched, connected), sessionOf: () => held };
+    mounted = await mount(
+      <DiscoveryGate start={startOf(linkHash, memoryStorage())} parts={parts} />,
+    );
+    await click(buttonWithText(mounted.container, "Connect"));
+    await settleUntil(() => connected.length > 0);
+    expect(heard).toEqual([
+      `/locate {"hash":"${await locateHash("a-links-secret")}"}`,
+      `/paths {"locator":"a-locator"}`,
+    ]);
+    expect(connected).toEqual([core]);
+  });
+
   it("with no link and no server reached before, says how to get in", async () => {
     mounted = await mount(
       <DiscoveryGate start={{ kind: "none" }} parts={partsOf(discovery({}, []))} />,
     );
     expect(mounted.container.textContent).toContain("Open the link you were sent");
+  });
+});
+
+describe("what a connection's later offers are proven with", () => {
+  const core = { coreId: "k7xq2", fingerprint };
+  const target: Target = {
+    coreId: "k7xq2",
+    fingerprint,
+    held: { bootstrapToken: "a-bootstrap-token" },
+    key: new Uint8Array(32),
+    iceServers: [],
+    directUrls: [],
+  };
+
+  it("is what its person gained by the link once they joined: their membership", async () => {
+    const holding: { held?: HeldSession } = {};
+    const parts: GateParts = { ...partsOf(discovery({}, [])), sessionOf: () => holding.held };
+    const latest = withLatest(parts, core, target).latest;
+    await expect(latest?.()).resolves.toBeUndefined();
+    holding.held = { core, token: "a-membership-credential", locator: "a-locator" };
+    await expect(latest?.()).resolves.toEqual({
+      held: { locator: "a-locator" },
+      key: await sessionOfferKey("a-membership-credential"),
+    });
+  });
+
+  it("is never a session from an earlier visit in place of the link being spent", async () => {
+    const earlier: HeldSession = { core, token: "an-old-token", locator: "an-old-locator" };
+    const parts: GateParts = { ...partsOf(discovery({}, [])), sessionOf: () => earlier };
+    await expect(withLatest(parts, core, target).latest?.()).resolves.toBeUndefined();
+  });
+});
+
+describe("what this browser holds with a core", () => {
+  const core = { coreId: "k7xq2", fingerprint };
+  const session = (token?: string, locator?: string) => ({
+    token: () => token,
+    locator: () => locator,
+  });
+  const membership = { credential: "a-membership-credential", locator: "a-membership-locator" };
+
+  it("is its session when signed in, else its membership as a guest, else nothing", () => {
+    expect(heldWith(core, session("a-token", "a-locator"), membership)).toEqual({
+      core,
+      token: "a-token",
+      locator: "a-locator",
+    });
+    expect(heldWith(core, session(), membership)).toEqual({
+      core,
+      token: "a-membership-credential",
+      locator: "a-membership-locator",
+    });
+    expect(heldWith(core, session(), { credential: "kept-before-locators" })).toBeUndefined();
+    expect(heldWith(core, session(), undefined)).toBeUndefined();
   });
 });

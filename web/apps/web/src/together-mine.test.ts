@@ -20,7 +20,13 @@ describe("having back the sessions a signed-in person is in (D267 §2)", () => {
           {
             sessions: [
               { sessionId: 3, memberId: 1, isHost: true, membershipCredential: "hosting" },
-              { sessionId: 7, memberId: 9, isHost: false, membershipCredential: "joined" },
+              {
+                sessionId: 7,
+                memberId: 9,
+                isHost: false,
+                membershipCredential: "joined",
+                locator: "joined-locator",
+              },
             ],
           },
         ],
@@ -31,6 +37,7 @@ describe("having back the sessions a signed-in person is in (D267 §2)", () => {
     await haveBackMySessions(api);
     expect(window.sessionStorage.getItem("orpheum.together.host")).toContain("hosting");
     expect(window.localStorage.getItem("orpheum.together.viewer")).toContain("joined");
+    expect(window.localStorage.getItem("orpheum.together.viewer")).toContain("joined-locator");
   });
 
   it("leaves a membership this device keeps for the same session as it is", async () => {

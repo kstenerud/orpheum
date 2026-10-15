@@ -9,12 +9,15 @@ import { audioOutputs } from "./sound.tsx";
 /**
  * A Watch Together membership as it is kept: its session, the credential it acts by, and, for a
  * guest's, the link it was joined by, so the same link opened again in this browser comes back as
- * the same member (D267 §1).
+ * the same member (D267 §1), and the locator a discovery finds the server by for it, so a guest's
+ * page on a discovery's origin reaches the server again, after a reload or a lost connection, without
+ * the spent link (the owner's guest, 2026-10-15).
  */
 export interface Membership {
   readonly sessionId: number;
   readonly credential: string;
-  readonly link?: string;
+  readonly link?: string | undefined;
+  readonly locator?: string | undefined;
 }
 
 /**
@@ -37,10 +40,16 @@ function asMembership(kept: unknown): Membership | undefined {
   const sessionId: unknown = Reflect.get(kept, "sessionId");
   const credential: unknown = Reflect.get(kept, "credential");
   const link: unknown = Reflect.get(kept, "link");
+  const locator: unknown = Reflect.get(kept, "locator");
   if (typeof sessionId !== "number" || typeof credential !== "string" || credential === "") {
     return undefined;
   }
-  return typeof link === "string" ? { sessionId, credential, link } : { sessionId, credential };
+  return {
+    sessionId,
+    credential,
+    ...(typeof link === "string" ? { link } : {}),
+    ...(typeof locator === "string" && locator !== "" ? { locator } : {}),
+  };
 }
 
 /** The membership this tab keeps for role, or undefined when it keeps none. */
@@ -85,6 +94,7 @@ export function keepMembership(
       sessionId: membership.sessionId,
       credential: membership.credential,
       link: membership.link,
+      locator: membership.locator,
     }),
   );
   tellMembershipChanged();
