@@ -2,6 +2,9 @@
 
 /** The app shell as a browser lays it out: what only a stylesheet decides. */
 
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { expect, type Locator } from "@playwright/test";
 
 import { test } from "./browser-map.ts";
@@ -37,6 +40,9 @@ test("a poster's status cues are a tray down from its top-right corner, over the
       button.className = "warning-sign__button";
       const drawn = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       drawn.setAttribute("class", icon);
+      const disc = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      disc.setAttribute("class", `${icon}__disc`);
+      drawn.append(disc);
       button.append(drawn);
       sign.append(button);
       tray.append(sign);
@@ -55,6 +61,11 @@ test("a poster's status cues are a tray down from its top-right corner, over the
   expect(second.y).toBeGreaterThanOrEqual(first.y + first.height);
   expect(Math.abs(second.x + second.width - (first.x + first.width))).toBeLessThan(2);
   expect(second.y + second.height).toBeLessThan(poster.y + poster.height);
+  // The uncertain match's disc in the owner's caution yellow (D301 §4).
+  const disc = item.locator(".uncertain-match-icon__disc");
+  expect(await disc.evaluate((element) => getComputedStyle(element).fill)).toBe(
+    "rgb(247, 206, 70)",
+  );
   // Each cue the size of the warning sign's, its icon drawn at the sign's size.
   expect(Math.abs(second.height - first.height)).toBeLessThan(2);
   expect(Math.abs(second.width - first.width)).toBeLessThan(2);
@@ -70,3 +81,27 @@ async function boxOf(
   }
   return box;
 }
+
+/** The client's source folder, beside this one. */
+const clientSource = join(import.meta.dirname, "..", "apps", "web", "src");
+
+test("every class the client's stylesheets select is one its code draws", () => {
+  const files = readdirSync(clientSource);
+  const code = files
+    .filter((name) => /\.tsx?$/u.test(name) && !/\.test\.tsx?$/u.test(name))
+    .map((name) => readFileSync(join(clientSource, name), "utf8"))
+    .join("\n");
+  const unused: string[] = [];
+  for (const sheet of files.filter((name) => name.endsWith(".css"))) {
+    const selected = readFileSync(join(clientSource, sheet), "utf8").matchAll(
+      /\.([a-z][a-z0-9-]*(?:__[a-z0-9-]+)?(?:--[a-z0-9-]+)?)/gu,
+    );
+    for (const [, name] of selected) {
+      // A rule for a class nothing draws is dead: kept, it would say a look the page never has.
+      if (name !== undefined && !code.includes(name)) {
+        unused.push(`${sheet}: .${name}`);
+      }
+    }
+  }
+  expect(unused).toEqual([]);
+});

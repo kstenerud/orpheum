@@ -11,12 +11,6 @@
   justify-self: start;
 }
 
-.together-voice__buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-}
-
 .together-voice__partner {
   display: flex;
   gap: var(--space-3);
