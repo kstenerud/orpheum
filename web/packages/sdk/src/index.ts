@@ -34,6 +34,7 @@ export type {
   DiscoveryClient,
   DiscoverySignalling,
   Held,
+  Proving,
   LinkFragment,
   Located,
 } from "./discovery.ts";

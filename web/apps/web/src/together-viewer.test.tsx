@@ -27,7 +27,12 @@ import { fakePlace, withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
 import { TogetherViewer } from "./together-viewer.tsx";
 
-const joined = { sessionId: 1, memberId: 2, membershipCredential: "viewer-credential" };
+const joined = {
+  sessionId: 1,
+  memberId: 2,
+  membershipCredential: "viewer-credential",
+  locator: "viewer-locator",
+};
 
 const welcome = {
   type: "welcome",
@@ -95,6 +100,8 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     // The secret is spent: it is in neither the address nor the history.
     expect(services.navigation.fragment()).toBe("");
     expect(window.localStorage.getItem("orpheum.together.viewer")).toContain("viewer-credential");
+    // With its locator, so a page on a discovery's origin finds the server again without the link.
+    expect(window.localStorage.getItem("orpheum.together.viewer")).toContain("viewer-locator");
     // Asked at once, before anything plays, and kept in this browser.
     expect(mounted.container.textContent).toContain("How does this device play sound?");
     await server.accept();

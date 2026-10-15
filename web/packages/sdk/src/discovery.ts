@@ -161,6 +161,12 @@ export async function verifyAnswer(checked: AnswerToCheck): Promise<boolean> {
 /** What a device holds that a discovery finds its core by: its locator, or a bootstrap token. */
 export type Held = { readonly locator: string } | { readonly bootstrapToken: string };
 
+/** What an offer is sent and proven with: what the device holds, and the key its proof is under. */
+export interface Proving {
+  readonly held: Held;
+  readonly key: Uint8Array<ArrayBuffer>;
+}
+
 /** The first answer the discovery's JSON carries, as far as it is an answer; undefined when not. */
 interface OfferAnswer {
   readonly offerId: string;
@@ -210,6 +216,13 @@ export interface DiscoverySignalling {
   readonly held: Held;
   /** The key the offers are proven under: the link's offer key, or the session's. */
   readonly key: Uint8Array<ArrayBuffer>;
+  /**
+   * What the device holds now, asked at each offer, when it holds more than it began with: a link's
+   * key proves only the offer that spends it, so once its person joined or signed in, the
+   * connections opened after, and any that replace one gone, are proven by the membership or session
+   * the core gave them. Undefined, or answering undefined, keeps held and key.
+   */
+  readonly latest?: (() => Promise<Proving | undefined>) | undefined;
   /** How the signaller posts: the browser's fetch, unless a test gives another. */
   readonly fetch?: typeof fetch | undefined;
 }
@@ -225,8 +238,9 @@ export const protocolVersion = "1.0";
 export function discoverySignaller(signalling: DiscoverySignalling): Signaller {
   const post = signalling.fetch ?? fetch;
   return async (offer: Description): Promise<Description> => {
+    const { held, key } = (await signalling.latest?.()) ?? signalling;
     const fingerprint = fingerprintOf(offer.sdp);
-    const proof = await offerProof(signalling.key, fingerprint);
+    const proof = await offerProof(key, fingerprint);
     const response = await post(`${signalling.clientApi}/cores/${signalling.coreId}/offer`, {
       method: "POST",
       headers: {
@@ -234,7 +248,7 @@ export function discoverySignaller(signalling: DiscoverySignalling): Signaller {
         "Orpheum-Discovery-Protocol": protocolVersion,
       },
       body: JSON.stringify({
-        ...signalling.held,
+        ...held,
         offers: [{ sdp: offerThroughDiscovery(offer.sdp), proof }],
       }),
     });
