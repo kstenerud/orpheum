@@ -213,6 +213,11 @@ User-Agent (D263; the User-Agent is logged only).
   fetching the load itself fails the same way, and broke the page's other requests besides; it was
   withdrawn. A page in the house reaches its core over WebRTC instead, which the check does not
   touch, and the core counts a direct pair from the house as home (D300).
+- **Only a burst, near the start:** with WebRTC at home in place (staging, 2026-10-15), the failures
+  came once, as a page began, then stopped: the page moved to WebRTC (a direct pair in the house),
+  its 30 s look for a better path found the LAN name answering, and every request after, a film's
+  chunks too, went there without one failing. Unconfirmed: the connection opened before the worker
+  controlled the page is the one that fails, and a new one does not. The film did not stall.
 - **Evidence:** nas.example's and staging's logs, 2026-10-15, Firefox 157 on macOS; [Mozilla bug
   2059274](https://bugzilla.mozilla.org/show_bug.cgi?id=2059274) on when Firefox asks;
   undoing a block: the site's permissions in the address bar, or `about:preferences#privacy`'s
