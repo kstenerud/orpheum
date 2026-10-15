@@ -128,6 +128,9 @@ function keepPath(reaching: Reaching, session: Session): { readonly close: () =>
           : rtcTogetherSocket(() => path.transport.openChannel());
       if (!isFirst) {
         pathMoves.moved();
+        // Media follows the keeper's path (carryMediaOver below), so the console says it moved too.
+        // eslint-disable-next-line no-console -- which path a tab's media takes is read in its console (D273 §7)
+        console.info(`Orpheum: media now goes over ${sendingOn(path).name}`);
       }
       isFirst = false;
     },
@@ -135,9 +138,11 @@ function keepPath(reaching: Reaching, session: Session): { readonly close: () =>
   routed.use(keeper.fetch, "the path kept working");
   // Media is carried over once, on whichever path the keeper holds when each load is asked for: one
   // carried over per path would answer each load once for every path the page ever used.
-  void carryMediaOver(keeper.fetch, mediaCredentialsOf(session), "the path kept working").catch(
-    reportFailure,
-  );
+  void carryMediaOver(
+    keeper.fetch,
+    mediaCredentialsOf(session),
+    sendingOn(reaching.first).name,
+  ).catch(reportFailure);
   const lookForBetter = (): void => {
     void reaching.better(keeper.path).then((better) => {
       if (better !== undefined) {
