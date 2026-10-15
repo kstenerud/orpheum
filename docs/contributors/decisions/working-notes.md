@@ -20292,3 +20292,70 @@ Later we can add another enum to it: only with passkey."*
    Nothing a page sends changes it.
 
 **Status:** Decided 2026-10-15; scheduled after D301 and the tiered gate.
+
+## D303 — The data layer is rebuilt to written principles: short writes that re-check what they decided, a fresh baseline, committed statistics, hourly backups
+
+**Decided** (2026-10-15), by the project owner, after nas.example's requests waited 3–47 s behind an
+identification pass that held SQLite's one writer for 25–30 s. The evidence is three research
+documents: the [access audit](../design/research/database-access-audit-2026-10-15.md), the
+[practice research](../design/research/data-layer-practice-2026-10-15.md) (principles DL1–DL17),
+and an [independent DBA's audit](../design/research/data-layer-independent-audit-2026-10-15.md)
+(amendments, and principles M1–M13). The owner: *"These look good to me"*, then, on the
+independent audit's amendments and additions, *"Agreed"*.
+
+1. **The principles are standard.** DL1–DL17 as amended by the independent audit §2, and M1–M13
+   from its §3, become rules in [sql.md](../standards/sql.md) and the
+   [audit checklist](../audit-checklist.md), each with what enforces it. In short:
+   - **Correctness first (M1–M4).** A write that depends on a read made outside its transaction
+     re-checks it inside, by compare-and-set; rows people edit carry a `revision`. A read built
+     from several queries uses one read transaction. Every identity is a unique constraint.
+     A write transaction covers one consistency unit (a title with its versions and text, a
+     series with its episodes), within a budget of milliseconds, and a chunked job resumes.
+   - **Access paths (DL1–DL5).** Each query's path and the index serving it are written down and
+     checked. A column with few values never leads an index unless every query binds the next.
+     A foreign key whose parent can be deleted, or that cascades, has a child index. A partial
+     index is used only by queries that repeat its condition literally; the tombstoned side has
+     its own.
+   - **Requests (DL6, DL10).** Nothing a request does grows with the library; counts are SQL;
+     reading never writes.
+   - **Writes (DL7–DL9, DL11).** A write that changes nothing writes nothing (guarded upserts and
+     triggers, stamps excluded). People's writes go before background work through a writer
+     service with aging and group commit.
+   - **Derived data (DL12–DL14).** Grouping files into titles and resolving one title's values
+     are separate derivations; a change re-derives what it touched; inputs carry a fingerprint
+     and a rules version; bursts coalesce. The whole-library run is a backstop that compares.
+   - **Integrity in the engine (M5).** `STRICT` tables (sqlc 1.31.1 parses them), cross-column
+     `CHECK`s, subtypes tied to their supertype's kind.
+   - **Operations and tests (DL16–DL17, M6–M11).** Connection settings by measurement; slow work
+     names itself; invariants as zero-row SQL run after tests and nightly; data split by
+     volatility and width; random-operation and crash-injection tests; a retention policy per
+     growing table; a stated protocol between `persistent.db` and `cache.db`.
+2. **No migration: the current database is discarded** (*"Agreed on not doing a migration for
+   this step. We toss out the current db."*). The redesign is a fresh baseline; staging and
+   nas.example start empty and scan and match again. This ends D272 §5's window for this change.
+3. **Planner statistics are committed** (DL15): a `sqlite_stat1` generated from the reference
+   library, loaded into every database, with a test that fails when it is stale. Nothing runs
+   `ANALYZE` or `PRAGMA optimize`; plans are tested over several library shapes.
+4. **A session's last use is kept in memory** (DL10) and written in a batch about once a minute
+   and at shutdown, never earlier than the stored value; the idle check, Your devices and the
+   live locators read the later of the stored and the remembered time.
+5. **Deleting a person pseudonymises** (M12): *"Probably fine to pseudonymise and keep."* Their
+   name and personal fields are cleared; their history stays under their id.
+6. **Edits keep no history** (M13): *"I doubt that a record of changes would be very useful."*
+   The last write wins, as now.
+7. **Backups are hourly** (M6), revisiting D243 §11's daily one: *"would it hurt anything to make
+   it an hourly backup?"* — it does not, once a backup reads a snapshot on its own connection
+   instead of holding the writer. A backup is skipped when nothing changed (`data_version`),
+   older copies thin out (24 hourly, 7 daily, 4 weekly), and each copy passes `integrity_check`.
+   The recovery point is an hour.
+8. **The gates are built first** and fail on today's code; their gate-file changes are approved
+   (*"#4 sounds good"*): every foreign key whose parent can go has an index; every query's plan,
+   both databases', is read; a GET writes nothing; a second pass writes nothing; every table is
+   `STRICT`; nothing runs `ANALYZE`; the invariants pass.
+9. **Phases:** A, the store's foundation (read transactions, the writer service, a maintenance
+   connection, settings, last use in memory, the first gates); B, the fresh baseline schema; C,
+   the derivation split; D, operations (integrity checks, metrics, runbook, restore drill,
+   retention).
+
+**Status:** Decided 2026-10-15. Revisits D243 §11 (backup schedule) and D272 §5 (this change
+starts a new baseline). Phase A next.
