@@ -35,6 +35,9 @@ export const enDiscovery = {
       submit: "Sign in",
       signingIn: "Signing in…",
       wrong: "The realm, name or password is wrong, or the server can't be reached right now.",
+      unreached:
+        "Your server was found, but can't be reached from this network right now. Try again.",
+      again: "Your server couldn't be reached as this device last reached it. Sign in again.",
       orLink: "Or open the link you were sent.",
     },
   },

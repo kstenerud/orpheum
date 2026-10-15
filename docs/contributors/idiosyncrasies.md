@@ -40,6 +40,7 @@ User-Agent (D263; the User-Agent is logged only).
 
 | Symptom | Entry |
 |---|---|
+| At a discovery's page at home, every request failed with "NetworkError when attempting to fetch resource." after a realm sign-in. | [Firefox fails a public page's requests to a LAN name until its local-network prompt is answered, and again after a grant not remembered](#firefox-fails-a-public-pages-requests-to-a-lan-name-until-its-local-network-prompt-is-answered-and-again-after-a-grant-not-remembered) |
 | `dig CAA` shows CAs nobody wrote beside the zone's own `issue ";"`. | [Cloudflare adds its own CAA records to any zone with CAA while Universal SSL is on](#cloudflare-adds-its-own-caa-records-to-any-zone-with-caa-while-universal-ssl-is-on) |
 | *Flow* (10-bit HEVC by x265) froze at the first frame of any chunk but the film's first. | [Firefox on macOS freezes on HEVC chunks that start on a CRA keyframe](#firefox-on-macos-freezes-on-hevc-chunks-that-start-on-a-cra-keyframe) |
 | After a jump, the sound's first chunk is asked for only once the picture's has come. | [hls.js asks for a jump's sound only after its picture](#hlsjs-asks-for-a-jumps-sound-only-after-its-picture) |
@@ -182,6 +183,30 @@ User-Agent (D263; the User-Agent is logged only).
 
 ## Firefox
 
+
+### Firefox fails a public page's requests to a LAN name until its local-network prompt is answered, and again after a grant not remembered
+
+- **Symptom:** at app.orpheum-app.com at home, the page signed in by realm and then sat there:
+  every request failed with `TypeError: NetworkError when attempting to fetch resource.`, reported
+  dozens of times in the core's log as "a page reported a failure"; another time the page signed in
+  but chose the public IPv6 name, and showed no admin. A private window behaved differently from a
+  normal one.
+- **Cause:** Firefox's Local Network Access (on for everyone from Firefox 151; first behind Strict
+  tracking protection in 149) asks before a public origin's page reaches a private address, as the
+  core's LAN name resolves to. Until the prompt is answered the request fails at once, rather than
+  waiting; a grant without "Remember" lasts only for a while, after which requests fail again; and
+  one the prompt answered "Block" with is kept per site, so a profile that once blocked never asks
+  again. The page had chosen the LAN name while it answered, and kept it.
+- **What we do:** the page keeps its requests on a path that works (`web/packages/sdk/src/path-keeper.ts`):
+  a request that fails for the network's sake moves the page to another path, the next of the core's
+  names that answers, else WebRTC, and is sent again; every 30 s, and when the browser comes back
+  online, the page asks whether a better path answers now, so the LAN is moved to once the prompt is
+  allowed (webrtc-transport.md W2c items 5 and 6). Asking the permission's state first (W2c item 1)
+  and the line explaining the prompt (item 8) are still to come.
+- **Evidence:** nas.example's and staging's logs, 2026-10-15, Firefox 157 on macOS; [Mozilla bug
+  2059274](https://bugzilla.mozilla.org/show_bug.cgi?id=2059274) on when Firefox asks;
+  undoing a block: the site's permissions in the address bar, or `about:preferences#privacy`'s
+  permission settings.
 
 ### Firefox on macOS freezes on HEVC chunks that start on a CRA keyframe
 

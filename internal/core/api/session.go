@@ -279,6 +279,9 @@ func (server *Server) newSessionOutput(
 	if err != nil {
 		return nil, err
 	}
+	// Which path a session began on says why its page offers admin or not, with no digging.
+	server.logger.InfoContext(ctx, "a session began", "userId", principal.UserID, "deviceId", principal.DeviceID,
+		"path", pathOf(ctx), "isAdmin", body.IsAdmin)
 	output := &SessionOutput{SetCookie: mediaCookie(issued.Token, isOverTLS)}
 	output.Body.Token, output.Body.DeviceSecret, output.Body.User = issued.Token, issued.DeviceSecret, body
 	output.Body.Locator = issued.Locator

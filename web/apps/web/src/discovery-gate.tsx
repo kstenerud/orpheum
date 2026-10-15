@@ -4,7 +4,7 @@ import { NotFound, reportDeadEnd, type DiscoveryClient, type LinkFragment } from
 import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
-import { RealmSignIn, type RealmCredentials } from "./realm-sign-in.tsx";
+import { RealmSignIn, type RealmCredentials, type RealmProblem } from "./realm-sign-in.tsx";
 
 import type { StringStorage } from "./browser-storage.ts";
 import { CredentialsForm } from "./credentials-form.tsx";
@@ -18,7 +18,7 @@ import {
   targetOfSession,
   type HeldSession,
   type KeptCore,
-  type Reached,
+  type Reaching,
   type Start,
   type Target,
 } from "./discovery-start.ts";
@@ -33,9 +33,16 @@ export interface GateParts {
   readonly sessionOf: (core: KeptCore) => HeldSession | undefined;
   /**
    * Told the core reached and how, and, after a realm sign-in, the name and password its person
-   * typed, which sign them in at once; the app takes over from there.
+   * typed, which sign them in at once; the app takes over from there once it settles. One that
+   * throws leaves the gate up, saying the server was not reached.
    */
-  readonly onConnected: (core: KeptCore, reached: Reached, signIn?: SignInWith) => void;
+  readonly onConnected: (
+    core: KeptCore,
+    reaching: Reaching,
+    signIn?: SignInWith,
+  ) => void | Promise<void>;
+  /** Forgets the core this device reached, which no longer leads anywhere. */
+  readonly forgetCore: () => void;
   /** Whether the discovery has realms, so a person with no link signs in by one (D298 §1). */
   readonly hasRealms: boolean;
   /** Where this device keeps the realm its person asked it to remember (D297 §5). */
@@ -48,7 +55,22 @@ export interface SignInWith {
   readonly password: string;
 }
 
-type Phase = "waiting" | "connecting" | "notFound" | "deadEnd" | "realm" | "realmWrong";
+type Phase =
+  | "waiting"
+  | "connecting"
+  | "notFound"
+  | "deadEnd"
+  | "realm"
+  | "realmWrong"
+  | "realmUnreached"
+  | "realmAgain";
+
+/** What the realm sign-in says above its button, by the phase it shows in. */
+const realmProblems: Partial<Record<Phase, RealmProblem>> = {
+  realmWrong: "wrong",
+  realmUnreached: "unreached",
+  realmAgain: "again",
+};
 
 /**
  * The phase a start opens in: a link waits for its click; a remembered core is reached at once; with
@@ -71,23 +93,26 @@ function firstPhase(start: Start, parts: GateParts): Phase {
 async function reachByRealm(
   parts: GateParts,
   typed: RealmCredentials,
-): Promise<"realmWrong" | "deadEnd" | undefined> {
+): Promise<"realmWrong" | "realmUnreached" | undefined> {
   let found: Awaited<ReturnType<typeof targetOfRealm>>;
   try {
     found = await targetOfRealm(parts.client, typed);
   } catch (problem: unknown) {
-    return problem instanceof NotFound ? "realmWrong" : "deadEnd";
+    return problem instanceof NotFound ? "realmWrong" : "realmUnreached";
   }
   const target = withLatest(parts, found.core, found.target);
+  let reaching: Reaching;
   try {
-    parts.onConnected(found.core, await reachCore(parts.client, target), {
-      name: typed.name,
-      password: typed.password,
-    });
-    return undefined;
+    reaching = await reachCore(parts.client, target);
   } catch {
     await reportDeadEnd(parts.client, target.held);
-    return "deadEnd";
+    return "realmUnreached";
+  }
+  try {
+    await parts.onConnected(found.core, reaching, { name: typed.name, password: typed.password });
+    return undefined;
+  } catch {
+    return "realmUnreached";
   }
 }
 
@@ -125,7 +150,7 @@ async function reach(
   let target: Target | undefined;
   try {
     target = withLatest(parts, core, await find());
-    parts.onConnected(core, await reachCore(parts.client, target));
+    await parts.onConnected(core, await reachCore(parts.client, target));
     return undefined;
   } catch (problem: unknown) {
     if (problem instanceof NotFound) {
@@ -136,6 +161,19 @@ async function reach(
     }
     return "deadEnd";
   }
+}
+
+/**
+ * Where a remembered core that was not reached leaves the page: at the realm sign-in, saying so, where
+ * the discovery has realms, the core forgotten so nothing kept stands in the way again; else as it
+ * ended.
+ */
+function afterRemembered(parts: GateParts, ended: "notFound" | "deadEnd"): Phase {
+  if (!parts.hasRealms) {
+    return ended;
+  }
+  parts.forgetCore();
+  return "realmAgain";
 }
 
 /**
@@ -161,7 +199,7 @@ export function DiscoveryGate(props: {
     void reach(parts, core, find).then((ended) => {
       reachingRef.current = false;
       if (ended !== undefined) {
-        setPhase(ended);
+        setPhase(start.kind === "remembered" ? afterRemembered(parts, ended) : ended);
       }
     });
   };
@@ -173,11 +211,11 @@ export function DiscoveryGate(props: {
     // Once, as the page opens: a remembered core is reached at once.
     // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps -- the start and the parts never change
   }, []);
-  if (phase === "realm" || phase === "realmWrong" || isRealmSending) {
+  if (phase === "realm" || realmProblems[phase] !== undefined || isRealmSending) {
     return (
       <RealmGate
         parts={parts}
-        isWrong={phase === "realmWrong"}
+        problem={realmProblems[phase]}
         reachingRef={reachingRef}
         onSending={setIsRealmSending}
         onEnded={setPhase}
@@ -205,7 +243,7 @@ export function DiscoveryGate(props: {
  */
 function RealmGate(props: {
   readonly parts: GateParts;
-  readonly isWrong: boolean;
+  readonly problem: RealmProblem | undefined;
   readonly reachingRef: RefObject<boolean>;
   readonly onSending: (isSending: boolean) => void;
   readonly onEnded: (phase: Phase) => void;
@@ -216,7 +254,7 @@ function RealmGate(props: {
     <RealmSignIn
       rememberedRealm={rememberedRealm(parts.realmStorage)}
       isSending={isSending}
-      isWrong={props.isWrong}
+      problem={props.problem}
       onSubmit={(typed) => {
         if (reachingRef.current) {
           return;

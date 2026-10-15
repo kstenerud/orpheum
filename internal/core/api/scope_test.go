@@ -134,3 +134,15 @@ func TestPairing_ACodeActivatedDeviceMayNotChangeTheAccountsSecurity(t *testing.
 		t.Errorf("GET /me for the television = %s; want canManageAccount false", me.body)
 	}
 }
+
+// Each session's beginning is logged with the path it came by and whether it administers there, so
+// "why does my page offer no admin" is read from the log, not dug for (the owner, 2026-10-15).
+func TestSession_ItsBeginningIsLoggedWithItsPathAndWhetherItAdministers(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	harness.createAdminAndSignIn(t)
+	harness.logs.AwaitLine(t, `"msg":"a session began"`, `"path":"direct from home","isAdmin":true`)
+	harness.server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")})
+	harness.signIn(t, "owner", "owner-password")
+	harness.logs.AwaitLine(t, `"msg":"a session began"`, `"path":"direct from away","isAdmin":false`)
+}
