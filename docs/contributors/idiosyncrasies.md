@@ -209,8 +209,10 @@ User-Agent (D263; the User-Agent is logged only).
   and Firefox closed the connection (the core logging `http2: received GOAWAY`), the console saying
   "CORS request did not succeed", and the page, on the public name, was offered no admin. Setting
   `network.lna.blocking` to false made it work at once; Firefox misjudges a load a worker lets pass
-  ([Mozilla support 1594177](https://support.mozilla.org/de/questions/1594177)). The worker now
-  fetches every load to another origin itself (`isFetchedByTheWorker`, `web/apps/web/src/sw.ts`).
+  ([Mozilla support 1594177](https://support.mozilla.org/de/questions/1594177)). The worker
+  fetching the load itself fails the same way, and broke the page's other requests besides; it was
+  withdrawn. A page in the house reaches its core over WebRTC instead, which the check does not
+  touch, and the core counts a direct pair from the house as home (D300).
 - **Evidence:** nas.example's and staging's logs, 2026-10-15, Firefox 157 on macOS; [Mozilla bug
   2059274](https://bugzilla.mozilla.org/show_bug.cgi?id=2059274) on when Firefox asks;
   undoing a block: the site's permissions in the address bar, or `about:preferences#privacy`'s
