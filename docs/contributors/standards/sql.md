@@ -1,6 +1,7 @@
 > **ABOUTME:** How SQL is written here: SQLite through sqlc and our own migration runner — table
 > and column naming, where queries live, search's hand-written statements, migrations, how the database is
-> opened and written, tombstones, time, and query plans. Each rule names its enforcement.
+> opened and written, tombstones, time, query plans, and the data-layer principles of D303. Each
+> rule names its enforcement.
 
 # SQL Standard
 
@@ -246,3 +247,122 @@ page budget ([performance-targets.md](../design/plans/performance-targets.md)).
 - **A backup is `VACUUM INTO`**, run by the store for `internal/core/backup` (D77). It contains
   ciphertext only; `secret.key` is never written into the database or its backups (D194 §4).
   **Enforced by:** `TestCanary_ASecretAppearsNowhereButAsCiphertext` and the restore tests.
+
+## 13. Data-layer principles (D303)
+
+Adopted after nas.example's requests waited 3–47 s behind a 25–30 s write transaction. The evidence
+and the reasoning are the [access audit](../design/research/database-access-audit-2026-10-15.md),
+the [practice research](../design/research/data-layer-practice-2026-10-15.md) (DL1–DL17) and the
+[independent DBA's audit](../design/research/data-layer-independent-audit-2026-10-15.md) (M1–M13,
+and its amendments to DL3, DL8, DL11, DL15 and DL16). Each rule carries its source IDs. An
+enforcement marked *(D303 A/B/C/D)* is built in that phase of D303 §9 and is review-only until
+then; [audit-checklist](../audit-checklist.md) item 23 asks the questions at every commit.
+
+### Correctness
+
+- **Decide outside, verify inside** (M1). A write whose content depends on something read
+  outside its transaction re-checks it inside: a compare-and-set predicate (`WHERE revision = ?`,
+  `WHERE input_fingerprint IS ?`, or a domain guard like `MovePlayPosition`'s), or a re-read. A
+  zero-row result is a conflict to retry or drop, never success. Rows people edit carry a
+  `revision` raised on every write. **Enforced by:** a test that a person's edit between a job's
+  read and its write wins *(D303 C)*.
+- **A read built from several queries uses one read transaction** (M2): `ReadTx`, which pins one
+  connection and one snapshot. **Enforced by:** review; `ReadTx`'s snapshot test *(D303 A)*.
+- **Identity is declared** (M3): whatever must not be duplicated has a `UNIQUE` constraint on its
+  natural key beside its surrogate key. **Enforced by:** the invariants *(D303 B)*.
+- **A write transaction covers one consistency unit** (M4, DL8): a title with its versions, text
+  and sort key; a series with its episodes and positions. It reads nothing it did not need, waits
+  on nothing but SQLite (§9), and fits a budget of milliseconds. A job of many units commits unit
+  by unit, records what is done, and resumes after a crash. **Enforced by:** the writer-hold
+  budget on the pass and a kill-and-resume test *(D303 C)*; the slow-write log in production.
+- **Integrity is the engine's** (M5): every table is `STRICT`; a rule a row obeys alone is a
+  `CHECK`; a subtype row (`title`, `collection`) is tied to its supertype's kind by a composite
+  foreign key; `NOT NULL` wherever absence is not a state. **Enforced by:** a schema test that
+  every table is `STRICT` *(D303 B)*.
+- **Invariants are executable** (M7): data invariants are SQL queries that must return no rows,
+  in `internal/store/invariants.sql`, run after store and identify tests, after migrations, and
+  nightly in production, with `foreign_key_check` and FTS5's `integrity-check`. **Enforced by:**
+  the invariant harness *(D303 A)*.
+- **`persistent.db` and `cache.db` agree by protocol** (M11): no transaction spans both, so a
+  change writes `persistent.db` first, as the fact, then `cache.db`; the second write is
+  idempotent, and the invariants find orphans either way. **Enforced by:** review; the invariants.
+
+### Access paths
+
+- **Each query's access path and the index serving it are known** (DL1): `TestReferenceScale`
+  reads every query's plan, both databases' and search's, and fails on a full scan or an
+  automatic index not listed with its reason. **Enforced by:** `TestReferenceScale` *(D303 A:
+  every query, not only `List…`)*.
+- **An index is ordered by how queries bind it** (DL2): equality columns first, then one range or
+  the ORDER BY. A column with a handful of values (a locale, a kind, a state) leads only when
+  every query also binds the next column. `SEARCH … (locale=?)` reads the whole locale. **Enforced
+  by:** the weak-prefix check from statistics *(D303 B)*.
+- **A foreign key whose parent can be deleted, or whose action cascades or sets null, has a child
+  index** (DL3, amended); any other child column is indexed when a query reads by it. **Enforced
+  by:** a schema test over the pragmas *(D303 B)*.
+- **A partial index serves only queries that repeat its condition literally** (DL4), never a
+  parameter for it; a query on the tombstoned side has its own index. **Enforced by:** the plan
+  check naming the index each such query must use *(D303 B)*.
+- **No speculative indexes** (DL5): each serves a named path; columns updated often stay out of
+  indexes. **Review-only.**
+- **Planner statistics are committed** (DL15): a `sqlite_stat1` generated from the reference
+  library is loaded into every database; nothing runs `ANALYZE` or `PRAGMA optimize`; plans are
+  tested over several library shapes. **Enforced by:** a staleness test and a check that no code
+  runs `ANALYZE` *(D303 B)*.
+
+### Requests and writes
+
+- **Nothing a request does grows with the library** (DL6): lists page by keyset with a `LIMIT`
+  (§11); a count is `COUNT` in SQL, never rows fetched and counted; a request's number of
+  statements is constant as the library grows. **Enforced by:** the per-request statement tally
+  *(D303 A)*.
+- **Reading never writes** (DL10): nothing on a read request's path takes the writer. Bookkeeping
+  such as a session's last use is kept in memory and written in batches, never older over newer.
+  **Enforced by:** the API harness asserting a GET writes nothing *(D303 A)*.
+- **Bulk work is set-based or batched** (DL7): a constant number of statements per unit, never
+  one statement per item across the library. **Enforced by:** statement counts at two library
+  sizes *(D303 C)*.
+- **A write that changes nothing writes nothing** (DL9): every `DO UPDATE` carries `WHERE col IS
+  NOT excluded.col …`; a derivation `UPDATE` carries the same guard; a trigger that maintains
+  derived data is `AFTER UPDATE OF <its columns> … WHEN old.x IS NOT new.x`; the writer's own
+  stamps are left out of every comparison, and nothing is stamped that can be derived. **Enforced
+  by:** a second pass over an unchanged library writes zero rows *(D303 C)*; `sqlc vet`'s rule
+  against an unguarded upsert *(D303 B)*.
+- **People's writes go first** (DL11): every write passes through the writer gate, which hands
+  the one writer to the oldest interactive write before background work, and to background work
+  that has waited past its bound before either, so none starves. Group commit (D303 §1) joins
+  it when the writer's measured queue shows small writes waiting on each other's commits.
+  **Enforced by:** the writer gate's order test *(D303 A)*.
+
+### Derived data
+
+- **Grouping and resolution are separate derivations** (DL12): grouping files into titles and
+  series needs the library; resolving one title's values needs that title. A change re-derives
+  what it touched; the whole-library run is a backstop that compares before it writes.
+  **Enforced by:** a test that changing one item writes O(1) rows, and one that incremental
+  equals rebuilt *(D303 C)*.
+- **A derivation knows its inputs are unchanged without recomputing** (DL13): a fingerprint of
+  the inputs' values and a rules version, bumped when the derivation's output on a fixed corpus
+  changes. **Enforced by:** the corpus-hash test *(D303 C)*.
+- **Requests to re-derive coalesce** (DL14): a burst marks work and wakes one worker; the mark
+  survives a restart. **Enforced by:** a `clocktest` test counting runs *(D303 C)*.
+
+### Physical design and operations
+
+- **Data is split by volatility and width** (M8): telemetry and bookkeeping stay out of
+  `persistent.db`'s write path; wide, rarely read payloads (probe output, NFO text, provider
+  bodies) live in side tables so hot rows stay narrow. **Review-only.**
+- **Connections are tuned by measurement and read back** (DL16, §7): `cache_size`,
+  `journal_size_limit`; a read transaction never stays open across a slow consumer.
+  **Enforced by:** `verifyPragmas` *(D303 A)*.
+- **Slow work names itself** (DL17): a write that waited names the write that held the writer; a
+  slow request lists its statements; a slow statement its name, time and pages touched.
+  **Enforced by:** tests of each log line *(D303 A, D)*.
+- **The database is checked and recoverable** (M6): an hourly backup through its own
+  connection, skipped when nothing changed, thinned to 24 hourly, 7 daily and 4 weekly, each copy
+  passing `integrity_check`; a restore drill; a runbook. **Enforced by:** *(D303 D)*.
+- **Every growing table has a retention line** in schema.md (M10), and **deleting a person
+  pseudonymises** (M12: their name and personal fields cleared, their history kept). Edits keep
+  no history (M13). **Review-only.**
+- **Tests treat the data as precious** (M9): random operation sequences checked against a full
+  rebuild and the invariants; crash injection mid-job; fixtures with skewed shapes. *(D303 C)*.
