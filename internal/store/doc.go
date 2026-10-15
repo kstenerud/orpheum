@@ -104,6 +104,9 @@
 //     TestSchema_EveryTableIsStrict, TestSchema_RefusesRowsThatBreakTheirRules,
 //     TestSchema_ASortKeyIsOnePerItemInEachLocaleAndReadByIt,
 //     TestSchema_TheTextIndexesAreRewrittenOnlyOnChange and TestSchema_EachPathsIndexServesIt.
+//   - A foreign key whose parent can be deleted, or that cascades or sets null, has an index on its
+//     child columns, or is listed with why (D303, DL3). Enforced by
+//     TestSchema_AForeignKeyWhoseParentCanGoHasAChildIndex.
 //     The runner's handling of such a step, and of a rebuild, is tested on synthetic steps in
 //     TestMigrate_ADataTransformingStepKeepsTheRowsAndRaisesTheCompatibleVersion and
 //     TestMigrate_ARebuildKeepsTheIDsAndTheIDSequence.
