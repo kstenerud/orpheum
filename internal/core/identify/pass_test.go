@@ -70,6 +70,7 @@ func newTestLibraryAt(t *testing.T, kind, source, rootPath string) *testLibrary 
 		ingester: library.NewIngester(database, now, config, logger),
 		pass:     identify.NewPass(database, now, logger, providers, config),
 	}
+	created.ingester.SetOnUnreadRetired(identify.RetireUnreadFile)
 	created.matcher = identify.NewMatcher(database, created.cache, created.pass, now, logger)
 	created.nodeID, created.libraryID = librarytest.NodeWithLibrary(t, database,
 		librarytest.Library{Name: "Library", Kind: kind, MetadataSource: source, Root: rootPath})
@@ -627,5 +628,88 @@ func TestPass_AWriteBetweenItsBatchesHasThePassReadAgainAndFileEverything(t *tes
 	}
 	if filed := len(lib.titlesByPath()); filed != 3 {
 		t.Errorf("%d films filed; want all 3", filed)
+	}
+}
+
+// listedRecord is a video a listing names at path, unread, on device 7 at an inode.
+func listedRecord(path string, inode uint64) nodeproto.ScanRecord {
+	return nodeproto.ScanRecord{Type: nodeproto.RecordListed, Listed: &nodeproto.Listed{
+		Path: nodeproto.Path{Text: path}, SizeBytes: 1, ModifiedAt: 1, FilesystemDevice: 7, Inode: inode,
+	}}
+}
+
+// listThenPass takes a listing of the library's root, as a scan's first step, and runs the pass
+// that follows it, which files what the listing stored unread (D304 §1).
+func (lib *testLibrary) listThenPass(records ...nodeproto.ScanRecord) {
+	lib.t.Helper()
+	lib.clock.Advance(time.Minute)
+	all := append([]nodeproto.ScanRecord{{Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{
+		RootPath: lib.rootPath, FilesystemDevice: 7, IsMountPoint: true,
+	}}}, records...)
+	all = append(all, nodeproto.ScanRecord{
+		Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{RootPath: lib.rootPath},
+	})
+	rules := library.ScanRules{VideoExtensions: map[string]bool{"mkv": true}, SubtitleExtensions: map[string]bool{}}
+	if _, err := lib.ingester.TakeListing(lib.t.Context(), lib.nodeID, lib.rootPath, "", all, rules); err != nil {
+		lib.t.Fatal(err)
+	}
+	if _, err := lib.pass.IdentifyLibrary(lib.t.Context(), lib.libraryID); err != nil {
+		lib.t.Fatal(err)
+	}
+}
+
+// readThenPass ingests what the node read of the listing's files and the scan's end, then runs the
+// pass.
+func (lib *testLibrary) readThenPass(records ...nodeproto.ScanRecord) {
+	lib.t.Helper()
+	lib.clock.Advance(time.Minute)
+	all := append(slices.Clone(records), nodeproto.ScanRecord{
+		Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{RootPath: lib.rootPath},
+	})
+	if err := lib.ingester.IngestScan(lib.t.Context(), lib.nodeID, lib.rootPath, all); err != nil {
+		lib.t.Fatal(err)
+	}
+	if _, err := lib.pass.IdentifyLibrary(lib.t.Context(), lib.libraryID); err != nil {
+		lib.t.Fatal(err)
+	}
+}
+
+// A film is a title from its listing, filed from its path before it is read, and keeps that title
+// once read (D304 §1, §4).
+func TestPass_AFilmIsATitleFromItsListingAndKeepsItOnceRead(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "nfo")
+	const heat = "Metropolis (1995)/Metropolis (1995).mkv"
+	lib.listThenPass(listedRecord(heat, 41))
+	listed, filed := lib.titlesByPath()[heat]
+	if !filed || titleName(listed) != "Metropolis" {
+		t.Fatalf("after its listing the film is %+v, filed %v; want a title called Metropolis", listed, filed)
+	}
+	lib.readThenPass(videoRecord(heat))
+	if read := lib.titlesByPath()[heat]; read.TitleID != listed.TitleID {
+		t.Errorf("once read the film is title %d, want %d, the one its listing gave it", read.TitleID, listed.TitleID)
+	}
+}
+
+// A film moved to another disk is a title from its listing at the new path, and once its read shows
+// it is the film stored before, that title merges into the old one, which keeps what a person set on
+// it (D304 §5, D173).
+func TestPass_AFilmMovedToAnotherDiskEndsInItsOldTitle(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "nfo")
+	const heat, moved = "Metropolis (1995)/Metropolis (1995).mkv", "Disk 2/Metropolis (1995)/Metropolis (1995).mkv"
+	lib.scan(videoRecord(heat))
+	old := lib.titlesByPath()[heat].TitleID
+	lib.listThenPass(listedRecord(moved, 99))
+	fromPath := lib.titlesByPath()[moved].TitleID
+	lib.readThenPass(videoMoved(heat, moved))
+	if got := lib.titlesByPath()[moved].TitleID; got != old {
+		t.Errorf("once read the moved film is title %d (from its path, %d); want %d, the one it had", got, fromPath,
+			old)
+	}
+	merged := storetest.QueryRaw(t, lib.database.Path(), fmt.Sprintf(
+		"SELECT count(*) FROM item WHERE kind = 'title' AND removed_at IS NULL AND id != %d", old))
+	if !slices.Equal(merged, []string{"0"}) {
+		t.Errorf("%v other live titles; want none, the one made from its path merged into its old one", merged)
 	}
 }

@@ -165,7 +165,8 @@ ORDER BY position.sort_order;
 -- name: ListLiveFileLocationsOfTitles :many
 -- Where each of some titles' live playable files is: its node and the path it reported, for
 -- whether any can be read now (D241 section 3).
-SELECT version.title_id AS item_id, file.node_id, file.reported_path_raw
+SELECT version.title_id AS item_id, file.node_id, file.reported_path_raw,
+  CAST(file.payload_hash IS NULL AS INTEGER) AS is_unread
 FROM version
 JOIN file ON file.version_id = version.id
 WHERE version.title_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_id_list_json) AS TEXT)))
@@ -174,7 +175,8 @@ ORDER BY version.title_id, file.id;
 
 -- name: ListLiveFileLocationsOfSeries :many
 -- Where each of some series' episodes' live playable files is, by the series.
-SELECT ordering.collection_id AS item_id, file.node_id, file.reported_path_raw
+SELECT ordering.collection_id AS item_id, file.node_id, file.reported_path_raw,
+  CAST(file.payload_hash IS NULL AS INTEGER) AS is_unread
 FROM ordering
 JOIN position ON position.ordering_id = ordering.id
 JOIN version ON version.title_id = position.title_id AND version.removed_at IS NULL

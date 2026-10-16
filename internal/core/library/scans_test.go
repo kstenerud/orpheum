@@ -456,3 +456,43 @@ func TestScans_ARootIsOnItsQuickPassUntilItsNewFilesAreRead(t *testing.T) {
 		t.Errorf("once its file was read, the roots on their quick pass = %v; want none", roots)
 	}
 }
+
+// A person who asks to play a film still being read has the batch that reads it raised to a
+// person's priority, so it is read before what else waits; with no scan holding it, a scan of its
+// folder is asked for at that priority (D304 §4).
+func TestReadNow_RaisesTheBatchThatReadsAFileOrScansItsFolder(t *testing.T) {
+	t.Parallel()
+	bench := newScanBench(t)
+	ctx := t.Context()
+	if err := bench.scans.Request(ctx, bench.nodeID, root, jobs.PriorityBackground); err != nil {
+		t.Fatal(err)
+	}
+	bench.list(listedDirectory("Wing"), listedFile("Wing/Wing.mkv", 5, 1),
+		listedDirectory("Metropolis"), listedFile("Metropolis/Metropolis.mkv", 5, 1))
+	heat := bench.liveFilesByPath()[root+"/Metropolis/Metropolis.mkv"]
+	if err := bench.scans.ReadNow(ctx, heat.LibraryID, bench.nodeID, heat.ReportedPathRaw); err != nil {
+		t.Fatal(err)
+	}
+	raised := bench.jobs.last(t, jobs.KindExamine)
+	batch, err := bench.cache.Read().GetScanBatch(ctx, raised.ScanBatchID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if raised.Priority != jobs.PriorityPersonsRequest || !strings.Contains(batch.FilesJSON, "Metropolis/Metropolis.mkv") {
+		t.Errorf("raised a batch of %s at priority %d; want Metropolis's batch at a person's", batch.FilesJSON,
+			raised.Priority)
+	}
+
+	idle := newScanBench(t) // no scan in progress holds the file
+	stray := []byte(root + "/Elsewhere/Nosferatu.mkv")
+	if err = idle.scans.ReadNow(ctx, heat.LibraryID, idle.nodeID, stray); err != nil {
+		t.Fatal(err)
+	}
+	scans, err := idle.cache.Read().ListScans(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(scans) != 1 || scans[0].ScopePath != "Elsewhere" || scans[0].Priority != jobs.PriorityPersonsRequest {
+		t.Errorf("a file no scan holds asked for the scans %+v; want one of its folder, at a person's priority", scans)
+	}
+}

@@ -23,6 +23,9 @@ const (
 	RootMissing UnreadableReason = "root_missing"
 	// DiskMissing is a file on a disk missing from a mount point inside its root (D208).
 	DiskMissing UnreadableReason = "disk_missing"
+	// StillReading is a video its listing stored and its node has not yet read: shown from its path,
+	// it plays once read, which a play asks for at once (D304 §4).
+	StillReading UnreadableReason = "still_reading"
 )
 
 // Unreadable is why a node's file cannot be read now: its reason, the root or mount that is
@@ -169,6 +172,9 @@ func (browser *Browser) unreadableItems(ctx context.Context, itemIDs []int64, is
 		why, isUnreadable, fileErr := readability.File(ctx, location.NodeID, location.ReportedPathRaw)
 		if fileErr != nil {
 			return nil, fileErr
+		}
+		if !isUnreadable && location.IsUnread == 1 {
+			why, isUnreadable = Unreadable{Reason: StillReading, NodeID: location.NodeID}, true
 		}
 		if !isUnreadable {
 			readable[location.ItemID] = true

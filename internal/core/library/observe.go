@@ -39,6 +39,9 @@ func (batch *ingestBatch) ingestObserved(ctx context.Context, scan *scanState, o
 			NodeID: batch.nodeID, ReportedPathRaw: seenFile.reportedBytes,
 		}))
 	switch {
+	case err == nil && existing.PayloadHash == nil:
+		// Stored unread by its listing (D304 §1): what its read finds says whose row it becomes.
+		return batch.placeRead(ctx, scan, seenFile, existing.ID)
 	case err == nil && bytes.Equal(existing.PayloadHash, seenFile.hash):
 		return batch.updateObservedFile(ctx, scan, existing.ID, seenFile)
 	case err == nil:
@@ -48,45 +51,70 @@ func (batch *ingestBatch) ingestObserved(ctx context.Context, scan *scanState, o
 		if tombstoneErr != nil {
 			return fmt.Errorf("tombstone the file replaced at %s: %w", seenFile.path, tombstoneErr)
 		}
+		return batch.reviveOrInsert(ctx, scan, seenFile, 0)
 	case !errors.Is(err, store.ErrNotFound):
 		return err
-	default:
-		elsewhere, listErr := batch.queries.ListLiveFilesByPayloadHash(ctx, sqlcgen.ListLiveFilesByPayloadHashParams{
-			NodeID: batch.nodeID, PayloadHash: seenFile.hash,
-		})
-		if listErr != nil {
-			return fmt.Errorf("look for %s's payload elsewhere: %w", seenFile.path, listErr)
-		}
-		// Only a file this scan covers can be judged absent by it. One in another root, or outside
-		// the folder a scan of a folder lists, was simply not looked at, so a match there is a
-		// duplicate, never a move (D272 §9).
-		unseenIndex := slices.IndexFunc(elsewhere, func(row sqlcgen.ListLiveFilesByPayloadHashRow) bool {
-			return row.LastSeenAt < scan.startedAt && scan.covers(row.ReportedPathRaw)
-		})
-		if unseenIndex >= 0 && len(elsewhere) == 1 {
-			move := pendingMove{seenFile: seenFile, fromFileID: elsewhere[unseenIndex].ID}
-			scan.pendingMoves = append(scan.pendingMoves, move)
-			return nil
-		}
-		if len(elsewhere) > 0 {
-			return batch.insertFile(ctx, scan, seenFile) // a duplicate of a live file
-		}
 	}
-	return batch.reviveOrInsert(ctx, scan, seenFile)
+	return batch.placeRead(ctx, scan, seenFile, 0)
+}
+
+// placeRead places a video read at a path no read file holds: a move of a file this scan has not
+// seen, a duplicate of a live one, a tombstone's payload come back, or a new file. A row its
+// listing stored unread there, unreadID, becomes the file's when it is new or a duplicate, and is
+// retired, its title merged into the stored file's, when the read finds a file stored before.
+func (batch *ingestBatch) placeRead(ctx context.Context, scan *scanState, seenFile observation, unreadID int64) error {
+	elsewhere, err := batch.queries.ListLiveFilesByPayloadHash(ctx, sqlcgen.ListLiveFilesByPayloadHashParams{
+		NodeID: batch.nodeID, PayloadHash: seenFile.hash,
+	})
+	if err != nil {
+		return fmt.Errorf("look for %s's payload elsewhere: %w", seenFile.path, err)
+	}
+	// Only a file this scan covers can be judged absent by it. One in another root, or outside
+	// the folder a scan of a folder lists, was simply not looked at, so a match there is a
+	// duplicate, never a move (D272 §9).
+	unseenIndex := slices.IndexFunc(elsewhere, func(row sqlcgen.ListLiveFilesByPayloadHashRow) bool {
+		return row.LastSeenAt < scan.startedAt && scan.covers(row.ReportedPathRaw)
+	})
+	if unseenIndex >= 0 && len(elsewhere) == 1 {
+		move := pendingMove{seenFile: seenFile, fromFileID: elsewhere[unseenIndex].ID, unreadID: unreadID}
+		scan.pendingMoves = append(scan.pendingMoves, move)
+		return nil
+	}
+	if len(elsewhere) > 0 {
+		return batch.insertOrFill(ctx, scan, seenFile, unreadID) // a duplicate of a live file
+	}
+	return batch.reviveOrInsert(ctx, scan, seenFile, unreadID)
+}
+
+// insertOrFill stores a file read: in the row its listing stored unread, or else a new one.
+func (batch *ingestBatch) insertOrFill(
+	ctx context.Context, scan *scanState, seenFile observation, unreadID int64,
+) error {
+	if unreadID == 0 {
+		return batch.insertFile(ctx, scan, seenFile)
+	}
+	batch.hasNewFiles = true
+	return batch.updateObservedFile(ctx, scan, unreadID, seenFile)
 }
 
 // reviveOrInsert brings back the latest tombstone in the library with this payload, with its
 // history, wherever the payload now is — a film deleted by mistake and copied back, a disk that
-// returned after its files were removed — or else adds a new file (D208 §4, D41).
-func (batch *ingestBatch) reviveOrInsert(ctx context.Context, scan *scanState, seenFile observation) error {
+// returned after its files were removed — or else adds a new file, or fills its unread row (D208
+// §4, D41).
+func (batch *ingestBatch) reviveOrInsert(
+	ctx context.Context, scan *scanState, seenFile observation, unreadID int64,
+) error {
 	tombstone, err := store.OrNotFound(batch.queries.GetLatestTombstoneByPayloadHash(ctx,
 		sqlcgen.GetLatestTombstoneByPayloadHashParams{
 			LibraryID: scan.libraryID, PayloadHash: seenFile.hash,
 		}))
 	if errors.Is(err, store.ErrNotFound) {
-		return batch.insertFile(ctx, scan, seenFile)
+		return batch.insertOrFill(ctx, scan, seenFile, unreadID)
 	}
 	if err != nil {
+		return err
+	}
+	if err := batch.retireUnread(ctx, unreadID, tombstone); err != nil {
 		return err
 	}
 	// At its new path first, while still a tombstone: brought back at its old path, which another
@@ -99,6 +127,23 @@ func (batch *ingestBatch) reviveOrInsert(ctx context.Context, scan *scanState, s
 	}
 	batch.hasNewFiles = true
 	return nil
+}
+
+// retireUnread retires the row a listing stored unread for a file its read found stored before,
+// moved or come back as fileID: the row is tombstoned, and what the pass filed it in is retired by
+// the package that writes it (D304 §5). None, 0, retires nothing.
+func (batch *ingestBatch) retireUnread(ctx context.Context, unreadID, fileID int64) error {
+	if unreadID == 0 {
+		return nil
+	}
+	tombstone := sqlcgen.TombstoneFileParams{RemovedAt: &batch.nowMs, ID: unreadID}
+	if err := batch.queries.TombstoneFile(ctx, tombstone); err != nil {
+		return fmt.Errorf("retire the unread file %d: %w", unreadID, err)
+	}
+	if batch.ingester.onUnreadRetired == nil {
+		return nil
+	}
+	return batch.ingester.onUnreadRetired(ctx, batch.queries, unreadID, fileID, batch.nowMs)
 }
 
 // storedNumber is a device's or an inode's number as the file table keeps it: none for 0, which the

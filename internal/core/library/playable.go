@@ -26,8 +26,12 @@ func PlayableFile(ctx context.Context, queries *sqlcgen.Queries, fileID int64) (
 	if err != nil {
 		return file, fmt.Errorf("read file %d: %w", fileID, err)
 	}
-	if file.ProbeJSON == nil || file.PayloadHash == nil {
-		return file, fmt.Errorf("%w: file %d was never probed and hashed", ErrNoFile, fileID)
+	if file.PayloadHash == nil {
+		// Stored by its listing, not read yet (D304 §4): it cannot be played until it is.
+		return file, &UnreadableError{Unreadable{Reason: StillReading, NodeID: file.NodeID}}
+	}
+	if file.ProbeJSON == nil {
+		return file, fmt.Errorf("%w: file %d was never probed", ErrNoFile, fileID)
 	}
 	return file, nil
 }

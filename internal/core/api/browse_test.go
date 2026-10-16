@@ -40,10 +40,10 @@ func (harness testHarness) shelve(t *testing.T) {
 		 VALUES (10, 'en', 'movie', %s), (20, 'en', 'series', %s)`,
 			key("Metropolis"), key("Brass Arena")),
 		"INSERT INTO version (id, title_id, created_at) VALUES (1, 10, 1), (2, 21, 2)",
-		`INSERT INTO file (id, library_id, node_id, path, size_bytes, filing, version_id, first_seen_at, last_seen_at)
-		 VALUES
-		 (1, 1, 1, '/m/Metropolis (1995).mkv', 1000, 'listed', 1, 1, 1),
-		 (2, 1, 1, '/m/BB/S01E01.mkv', 10, 'listed', 2, 1, 1)`,
+		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing, version_id, first_seen_at,
+		 last_seen_at) VALUES
+		 (1, 1, 1, '/m/Metropolis (1995).mkv', 1000, X'01', 'listed', 1, 1, 1),
+		 (2, 1, 1, '/m/BB/S01E01.mkv', 10, X'02', 'listed', 2, 1, 1)`,
 		`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, language, channel_count) VALUES
 		 (1, 1, 0, 'video', 'h264', NULL, NULL), (1, 1, 1, 'audio', 'truehd', 'en', 8)`,
 		"INSERT INTO ordering (id, collection_id, name) VALUES (1, 20, 'aired')",
@@ -165,6 +165,28 @@ func TestBrowse_ATitleThatCannotBeReadNowIsListedAndMarkedUnavailable(t *testing
 	harness.nodes.isAway.Store(false)
 	if back := harness.do(t, http.MethodGet, "/items/10", user, nil); strings.Contains(back.body, `"unavailable"`) {
 		t.Errorf("a title that can be read = %s; want it unmarked", back.body)
+	}
+}
+
+// A film shown from its listing whose file is not read yet is listed, and marked still reading in
+// the lists and on its page, its series and its episode too; once read it is unmarked (D304 §4).
+func TestBrowse_ATitleStillBeingReadIsListedAndMarkedSo(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	storetest.ExecRaw(t, harness.databasePath,
+		"UPDATE file SET reported_path_raw = CAST(path AS BLOB), payload_hash = NULL")
+	const reading = `"unavailable":{"reason":"still_reading","nodeName":"local"}`
+	for _, path := range []string{"/titles?kind=movie&sort=name&limit=10", "/items/10", "/collections/20"} {
+		if got := harness.do(t, http.MethodGet, path, user, nil); got.status != http.StatusOK ||
+			!strings.Contains(got.body, reading) {
+			t.Errorf("GET %s still being read = %d %s; want it there, marked still reading", path, got.status, got.body)
+		}
+	}
+	storetest.ExecRaw(t, harness.databasePath, "UPDATE file SET payload_hash = X'01'")
+	if read := harness.do(t, http.MethodGet, "/items/10", user, nil); strings.Contains(read.body, `"unavailable"`) {
+		t.Errorf("a title read = %s; want it unmarked", read.body)
 	}
 }
 

@@ -94,6 +94,26 @@ func (q *Queries) DeleteSortKeysOfOtherLocales(ctx context.Context, locale strin
 	return err
 }
 
+const getFileTitle = `-- name: GetFileTitle :one
+SELECT file.version_id AS version_id, version.title_id
+FROM file
+CROSS JOIN version ON version.id = file.version_id
+WHERE file.id = ?1
+`
+
+type GetFileTitleRow struct {
+	VersionID *int64
+	TitleID   int64
+}
+
+// The version a file is in, and its title.
+func (q *Queries) GetFileTitle(ctx context.Context, id int64) (GetFileTitleRow, error) {
+	row := q.db.QueryRowContext(ctx, getFileTitle, id)
+	var i GetFileTitleRow
+	err := row.Scan(&i.VersionID, &i.TitleID)
+	return i, err
+}
+
 const getLibraryForIdentify = `-- name: GetLibraryForIdentify :one
 SELECT id, kind, metadata_source FROM library WHERE id = ? AND removed_at IS NULL
 `
@@ -1429,6 +1449,25 @@ func (q *Queries) MergeTitleLeftWithoutVersions(ctx context.Context, arg MergeTi
 	return result.RowsAffected()
 }
 
+const mergeTitleWithNoLiveVersion = `-- name: MergeTitleWithNoLiveVersion :exec
+UPDATE item SET merged_into = ?1, removed_at = ?2
+WHERE item.id = ?3 AND item.removed_at IS NULL
+  AND NOT EXISTS (SELECT 1 FROM version WHERE version.title_id = ?3 AND version.removed_at IS NULL)
+`
+
+type MergeTitleWithNoLiveVersionParams struct {
+	MergedInto *int64
+	RemovedAt  *int64
+	TitleID    int64
+}
+
+// A title the pass filed an unread file in, merged into the title of the file its read found it
+// was, once it has no live version left (D304 section 5).
+func (q *Queries) MergeTitleWithNoLiveVersion(ctx context.Context, arg MergeTitleWithNoLiveVersionParams) error {
+	_, err := q.db.ExecContext(ctx, mergeTitleWithNoLiveVersion, arg.MergedInto, arg.RemovedAt, arg.TitleID)
+	return err
+}
+
 const moveEpisodeToSeries = `-- name: MoveEpisodeToSeries :exec
 UPDATE collection_member SET collection_id = ?1
 WHERE collection_id = ?2 AND member_title = ?3
@@ -1489,6 +1528,21 @@ type MoveVersionToTitleParams struct {
 
 func (q *Queries) MoveVersionToTitle(ctx context.Context, arg MoveVersionToTitleParams) error {
 	_, err := q.db.ExecContext(ctx, moveVersionToTitle, arg.TitleID, arg.ID)
+	return err
+}
+
+const removeVersion = `-- name: RemoveVersion :exec
+UPDATE version SET removed_at = ?1 WHERE id = ?2 AND removed_at IS NULL
+`
+
+type RemoveVersionParams struct {
+	RemovedAt *int64
+	ID        int64
+}
+
+// A version whose file was retired: the row a listing stored unread for a file stored before.
+func (q *Queries) RemoveVersion(ctx context.Context, arg RemoveVersionParams) error {
+	_, err := q.db.ExecContext(ctx, removeVersion, arg.RemovedAt, arg.ID)
 	return err
 }
 

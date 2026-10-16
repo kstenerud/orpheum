@@ -339,7 +339,8 @@ func (q *Queries) ListFilmsByName(ctx context.Context, arg ListFilmsByNameParams
 }
 
 const listLiveFileLocationsOfSeries = `-- name: ListLiveFileLocationsOfSeries :many
-SELECT ordering.collection_id AS item_id, file.node_id, file.reported_path_raw
+SELECT ordering.collection_id AS item_id, file.node_id, file.reported_path_raw,
+  CAST(file.payload_hash IS NULL AS INTEGER) AS is_unread
 FROM ordering
 JOIN position ON position.ordering_id = ordering.id
 JOIN version ON version.title_id = position.title_id AND version.removed_at IS NULL
@@ -353,6 +354,7 @@ type ListLiveFileLocationsOfSeriesRow struct {
 	ItemID          int64
 	NodeID          int64
 	ReportedPathRaw []byte
+	IsUnread        int64
 }
 
 // Where each of some series' episodes' live playable files is, by the series.
@@ -365,7 +367,12 @@ func (q *Queries) ListLiveFileLocationsOfSeries(ctx context.Context, itemIDListJ
 	items := []ListLiveFileLocationsOfSeriesRow{}
 	for rows.Next() {
 		var i ListLiveFileLocationsOfSeriesRow
-		if err := rows.Scan(&i.ItemID, &i.NodeID, &i.ReportedPathRaw); err != nil {
+		if err := rows.Scan(
+			&i.ItemID,
+			&i.NodeID,
+			&i.ReportedPathRaw,
+			&i.IsUnread,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -380,7 +387,8 @@ func (q *Queries) ListLiveFileLocationsOfSeries(ctx context.Context, itemIDListJ
 }
 
 const listLiveFileLocationsOfTitles = `-- name: ListLiveFileLocationsOfTitles :many
-SELECT version.title_id AS item_id, file.node_id, file.reported_path_raw
+SELECT version.title_id AS item_id, file.node_id, file.reported_path_raw,
+  CAST(file.payload_hash IS NULL AS INTEGER) AS is_unread
 FROM version
 JOIN file ON file.version_id = version.id
 WHERE version.title_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
@@ -392,6 +400,7 @@ type ListLiveFileLocationsOfTitlesRow struct {
 	ItemID          int64
 	NodeID          int64
 	ReportedPathRaw []byte
+	IsUnread        int64
 }
 
 // Where each of some titles' live playable files is: its node and the path it reported, for
@@ -405,7 +414,12 @@ func (q *Queries) ListLiveFileLocationsOfTitles(ctx context.Context, itemIDListJ
 	items := []ListLiveFileLocationsOfTitlesRow{}
 	for rows.Next() {
 		var i ListLiveFileLocationsOfTitlesRow
-		if err := rows.Scan(&i.ItemID, &i.NodeID, &i.ReportedPathRaw); err != nil {
+		if err := rows.Scan(
+			&i.ItemID,
+			&i.NodeID,
+			&i.ReportedPathRaw,
+			&i.IsUnread,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -349,9 +349,12 @@ func (batch *ingestBatch) concludeMoves(ctx context.Context, scan *scanState) er
 			}
 		}
 		if movedFrom != 0 {
-			err = batch.updateObservedFile(ctx, scan, movedFrom, move.seenFile)
+			err = batch.retireUnread(ctx, move.unreadID, movedFrom)
+			if err == nil {
+				err = batch.updateObservedFile(ctx, scan, movedFrom, move.seenFile)
+			}
 		} else {
-			err = batch.insertFile(ctx, scan, move.seenFile)
+			err = batch.insertOrFill(ctx, scan, move.seenFile, move.unreadID)
 		}
 		if err != nil {
 			return err

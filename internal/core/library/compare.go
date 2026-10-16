@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"slices"
 	"strings"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -189,25 +190,39 @@ func (listing *listingComparison) takeListed(ctx context.Context, scan *scanStat
 		listing.seen = append(listing.seen, stored.ID)
 		return nil
 	}
-	if !isStored && kind == nodeproto.ExamineVideo && listed.Inode != 0 {
+	if !isStored && kind == nodeproto.ExamineVideo {
 		listing.newVideos = append(listing.newVideos, listedVideo{listed: listed, located: located, scan: scan})
-		return nil
 	}
 	listing.taken.ToExamine = append(listing.taken.ToExamine, nodeproto.ExamineFile{Path: listed.Path, Kind: kind})
 	return nil
 }
 
-// concludeInodeMoves settles each new video the listing held: a stored video, read whole, on the
-// same device and inode with the same size and modified time, that the listing did not name where
-// it is stored and that the scan covers, moved there, and its row and history follow it without
-// its being read again (D304 §5, D240 §3); any other is read. A folder's scan never takes a file
-// outside the folder for one moved into it (D272 §9).
-func (listing *listingComparison) concludeInodeMoves(ctx context.Context) error {
-	if len(listing.newVideos) == 0 {
-		return nil
+// storeUnread stores a new video as the listing found it, unread: its path, size, modified time,
+// device and inode, with no payload hash yet. The pass files it from its path at once, and it is
+// read later; its read fills its row in (D304 §1, §4).
+func (listing *listingComparison) storeUnread(ctx context.Context, video listedVideo) error {
+	reason := notIdentifiedYet
+	_, err := listing.batch.queries.InsertFile(ctx, sqlcgen.InsertFileParams{
+		LibraryID: video.scan.libraryID, NodeID: listing.batch.nodeID, Path: video.located.text,
+		ReportedPathRaw: video.located.reportedBytes, SizeBytes: &video.listed.SizeBytes,
+		ModifiedAt: &video.listed.ModifiedAt, Filing: FilingUnidentified, FilingReason: &reason,
+		SeenAt:           listing.batch.nowMs,
+		FilesystemDevice: storedNumber(video.listed.FilesystemDevice), Inode: storedNumber(video.listed.Inode),
+	})
+	if err != nil {
+		return fmt.Errorf("store %s unread: %w", video.located.text, err)
 	}
-	type place struct{ device, inode int64 }
-	movable := map[place]sqlcgen.ListFilesToCompareRow{}
+	listing.batch.hasNewFiles = true
+	return nil
+}
+
+// diskPlace is a file's device and inode.
+type diskPlace struct{ device, inode int64 }
+
+// movableVideos are the stored videos, read whole, the listing did not name where they are stored,
+// by the device and inode they were read at: each may have moved to a path the listing named.
+func (listing *listingComparison) movableVideos() map[diskPlace]sqlcgen.ListFilesToCompareRow {
+	movable := map[diskPlace]sqlcgen.ListFilesToCompareRow{}
 	for reported, stored := range listing.stored {
 		if listing.listedPaths[reported] || stored.FilesystemDevice == nil || stored.Inode == nil ||
 			!isStoredAsListed(stored, nodeproto.ExamineVideo, &nodeproto.Listed{
@@ -215,21 +230,37 @@ func (listing *listingComparison) concludeInodeMoves(ctx context.Context) error 
 			}) {
 			continue
 		}
-		movable[place{*stored.FilesystemDevice, *stored.Inode}] = stored
+		movable[diskPlace{*stored.FilesystemDevice, *stored.Inode}] = stored
 	}
+	return movable
+}
+
+// concludeInodeMoves settles each new video the listing held: a stored video, read whole, on the
+// same device and inode with the same size and modified time, that the listing did not name where
+// it is stored and that the scan covers, moved there, and its row and history follow it without
+// its being read again (D304 §5, D240 §3); any other is stored unread and read. A folder's scan
+// never takes a file outside the folder for one moved into it (D272 §9).
+func (listing *listingComparison) concludeInodeMoves(ctx context.Context) error {
+	if len(listing.newVideos) == 0 {
+		return nil
+	}
+	movable := listing.movableVideos()
+	moved := map[string]bool{} // by the path listed, those not to read
 	for _, video := range listing.newVideos {
 		device, inode := storedNumber(video.listed.FilesystemDevice), storedNumber(video.listed.Inode)
 		var stored sqlcgen.ListFilesToCompareRow
 		found := device != nil && inode != nil
 		if found {
-			stored, found = movable[place{*device, *inode}]
+			stored, found = movable[diskPlace{*device, *inode}]
 		}
 		if !found || !isAsListed(stored, video.listed) || !video.scan.covers(stored.ReportedPathRaw) {
-			listing.taken.ToExamine = append(listing.taken.ToExamine,
-				nodeproto.ExamineFile{Path: video.listed.Path, Kind: nodeproto.ExamineVideo})
+			if err := listing.storeUnread(ctx, video); err != nil {
+				return err
+			}
 			continue
 		}
-		delete(movable, place{*device, *inode})
+		delete(movable, diskPlace{*device, *inode})
+		moved[video.listed.Path.Text] = true
 		err := listing.batch.queries.MoveFileTo(ctx, sqlcgen.MoveFileToParams{
 			Path: video.located.text, ReportedPathRaw: video.located.reportedBytes, SeenAt: listing.batch.nowMs,
 			ID: stored.ID,
@@ -239,6 +270,9 @@ func (listing *listingComparison) concludeInodeMoves(ctx context.Context) error 
 		}
 		listing.batch.hasNewFiles = true // its pass identifies it again from its new path
 	}
+	listing.taken.ToExamine = slices.DeleteFunc(listing.taken.ToExamine, func(file nodeproto.ExamineFile) bool {
+		return file.Kind == nodeproto.ExamineVideo && moved[file.Path.Text]
+	})
 	return nil
 }
 

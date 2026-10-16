@@ -1,0 +1,25 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* D304 §4: a title still being read, an hourglass on the accent colour. */
+
+.still-reading-icon {
+  display: block;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.still-reading-icon__ring {
+  fill: var(--color-on-accent);
+}
+
+.still-reading-icon__disc {
+  fill: var(--color-accent);
+}
+
+.still-reading-icon__glass {
+  fill: none;
+  stroke: var(--color-on-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

@@ -505,8 +505,10 @@ func (filer *libraryFiler) knowSeriesByFolder(ctx context.Context) error {
 	return nil
 }
 
+// isVideo is whether a file is a video the pass files: read, or stored unread by its listing, which
+// a pass files from its path at once (D304 §1).
 func isVideo(file sqlcgen.ListIdentifyFilesRow) bool {
-	return file.PayloadHash != nil && file.Filing != library.FilingSkipped && file.Filing != library.FilingErrored &&
+	return file.SidecarKind == nil && file.Filing != library.FilingSkipped && file.Filing != library.FilingErrored &&
 		file.Filing != library.FilingAttached
 }
 

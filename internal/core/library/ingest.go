@@ -36,6 +36,20 @@ type Ingester struct {
 	onScanEnded  func(ctx context.Context, libraryID int64)
 	onPathsFound func(ctx context.Context, nodeID int64, paths []string)
 	onNewFiles   func(ctx context.Context)
+	// onUnreadRetired is told each row a listing stored unread whose read found a file stored
+	// before (SetOnUnreadRetired).
+	onUnreadRetired UnreadRetirer
+}
+
+// UnreadRetirer retires what the pass filed for a row a listing stored unread, unreadID, whose read
+// found it to be fileID, a file stored before that moved or came back: its version and the title
+// made from its path, which another package writes. It runs in the ingest's transaction.
+type UnreadRetirer func(ctx context.Context, queries *sqlcgen.Queries, unreadID, fileID, nowMs int64) error
+
+// SetOnUnreadRetired sets what retires an unread row's version and title (identify's
+// RetireUnreadFile); with none set, only the row is tombstoned.
+func (ingester *Ingester) SetOnUnreadRetired(retire UnreadRetirer) {
+	ingester.onUnreadRetired = retire
 }
 
 // SetOnNewFiles sets what runs once a batch that stored a new file is committed, while its scan
@@ -92,6 +106,8 @@ type rootFacts struct {
 type pendingMove struct {
 	seenFile   observation
 	fromFileID int64
+	// unreadID is the row its listing stored unread at the new path, or 0 (placeRead).
+	unreadID int64
 }
 
 // IngestSettings is what the ingest reads from the settings.

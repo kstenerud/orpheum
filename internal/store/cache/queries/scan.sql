@@ -57,3 +57,10 @@ UPDATE scan SET examined_count = examined_count + sqlc.arg(file_count) WHERE id 
 
 -- name: CountUndoneScanBatches :one
 SELECT COUNT(*) FROM scan_batch WHERE scan_id = sqlc.arg(scan_id) AND is_done = 0;
+
+-- name: GetUndoneScanBatchHolding :one
+-- The batch of a scan in progress that still has to read a file a person asked to play (D304
+-- section 4): its files' JSON holds the file's path as the batch encoded it, path_fragment.
+SELECT id FROM scan_batch
+WHERE scan_id = sqlc.arg(scan_id) AND is_done = 0 AND instr(files_json, sqlc.arg(path_fragment)) > 0
+LIMIT 1;

@@ -22,5 +22,10 @@ export const enWarning = {
       "It was identified automatically, and may be another work of the same name.",
     uncertainMatchForAdmin:
       "Several works have this name, and the likeliest was taken. If it is the wrong one, its page has Identified incorrectly.",
+    stillReading: "Still reading",
+    stillReadingForViewer:
+      "This was just found and is shown from its file's name. It plays once read; playing it reads it first.",
+    stillReadingForAdmin:
+      "Found by the latest scan and shown from its file's name; its machine has not read the file yet. It plays once read, and playing it has that file read first.",
   },
 };

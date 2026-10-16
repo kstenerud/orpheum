@@ -118,6 +118,26 @@ func (q *Queries) GetScanOfRoot(ctx context.Context, arg GetScanOfRootParams) (S
 	return i, err
 }
 
+const getUndoneScanBatchHolding = `-- name: GetUndoneScanBatchHolding :one
+SELECT id FROM scan_batch
+WHERE scan_id = ?1 AND is_done = 0 AND instr(files_json, ?2) > 0
+LIMIT 1
+`
+
+type GetUndoneScanBatchHoldingParams struct {
+	ScanID       int64
+	PathFragment string
+}
+
+// The batch of a scan in progress that still has to read a file a person asked to play (D304
+// section 4): its files' JSON holds the file's path as the batch encoded it, path_fragment.
+func (q *Queries) GetUndoneScanBatchHolding(ctx context.Context, arg GetUndoneScanBatchHoldingParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getUndoneScanBatchHolding, arg.ScanID, arg.PathFragment)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const insertScan = `-- name: InsertScan :one
 
 INSERT INTO scan (node_id, root_path, priority, started_at, scope_path)
