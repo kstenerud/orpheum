@@ -98,7 +98,13 @@ func (filer *libraryFiler) fileUnnumberedSpecial(
 	}
 	spec.source, spec.identification = sourceNone, identificationIdentified
 	spec.key = fmt.Sprintf("special|%d|%s", seriesID, strings.ToLower(file.Path))
-	titleID, err := filer.findOrAddTitle(ctx, spec)
+	// Its key is its path, which no stored row records, so a special keeps the title it is in, as a
+	// film does; found by its key instead, it gained a new title each pass (the owner's NAS,
+	// 2026-10-16).
+	titleID, hasCurrentTitle, err := filer.currentTitle(ctx, file)
+	if err == nil && !hasCurrentTitle {
+		titleID, err = filer.findOrAddTitle(ctx, spec)
+	}
 	if err != nil {
 		return err
 	}
