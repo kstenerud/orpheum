@@ -162,9 +162,12 @@ func (pass *Pass) IdentifyLibrary(ctx context.Context, libraryID int64) (Report,
 // film of some ten rows. A unit is never split, so the batch that begins one writes it whole.
 const passBatchRows = 400
 
-// passReadsAtMost is how often a pass reads its library again because someone else wrote while it
-// filed in batches, before it gives up for the sweep to run it again.
-const passReadsAtMost = 20
+// passReadsOnAReader is how often a pass reads its library again on a reader because someone else
+// wrote while it filed in batches. After that it reads it again inside the batch that finds the
+// change, holding the writer for the read: a library being matched is written to every second, by
+// the fetches its new titles queue, and a pass that only ever read on a reader never finished
+// (staging, 2026-10-16: "read the library 20 times while others wrote", every pass of the shows).
+const passReadsOnAReader = 3
 
 // errLibraryChanged is a batch finding that someone else committed since the pass read the library:
 // what the pass decided from that read may be stale, so it reads again (D303, M1).
@@ -217,66 +220,59 @@ func (report *Report) allImagesSaid(libraryID int64) {
 // fileInBatches reads the library on a reader, then files its units in batches, each one write that
 // changes no more than batchRows rows but for its last unit, in the order of their paths. Each
 // batch first checks that no one else committed since the read; if someone did, it reads again and
-// goes on with every unit not yet written whole (D303, M1).
+// goes on with every unit not yet written whole (D303, M1): on a reader the first few times, then
+// inside the batch, so each batch makes progress however often others write.
 func (pass *Pass) fileInBatches(
 	ctx context.Context, libraryID int64, sorter *textindex.Sorter, report *Report,
 ) (*libraryFiler, error) {
 	written := map[int64]bool{} // the files of the units written
-	for range passReadsAtMost {
+	read := func(queries *sqlcgen.Queries) (*libraryFiler, []filingUnit, error) {
+		filer := pass.newFiler(queries, sorter, report)
+		if err := filer.load(ctx, libraryID); err != nil {
+			return nil, nil, err
+		}
+		units, err := filer.filingUnits(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+		return filer, slices.DeleteFunc(units, func(unit filingUnit) bool { return unit.isWritten(written) }), nil
+	}
+	for reads := 1; ; reads++ {
 		commitsAtRead := pass.database.Commits()
 		var filer *libraryFiler
 		var units []filingUnit
 		err := pass.database.ReadTx(ctx, func(queries *sqlcgen.Queries) error {
-			filer = pass.newFiler(queries, sorter, report)
-			if loadErr := filer.load(ctx, libraryID); loadErr != nil {
-				return loadErr
-			}
-			var unitsErr error
-			units, unitsErr = filer.filingUnits(ctx)
-			return unitsErr
+			var readErr error
+			filer, units, readErr = read(queries)
+			return readErr
 		})
 		if err != nil {
 			return nil, fmt.Errorf("read it to file in batches: %w", err)
 		}
-		units = slices.DeleteFunc(units, func(unit filingUnit) bool { return unit.isWritten(written) })
-		err = pass.writeBatches(ctx, filer, units, commitsAtRead, written)
+		var readInBatch func(*sqlcgen.Queries) (*libraryFiler, []filingUnit, error)
+		if reads >= passReadsOnAReader {
+			readInBatch = read
+		}
+		filer, err = pass.writeBatches(ctx, filer, units, commitsAtRead, written, readInBatch)
 		if !errors.Is(err, errLibraryChanged) {
 			return filer, err
 		}
 	}
-	return nil, fmt.Errorf("read the library %d times while others wrote: %w", passReadsAtMost, errLibraryChanged)
 }
 
 // writeBatches writes units in batches, marking each unit's files written once its batch commits,
-// until none is left or a batch finds that someone else committed since commitsAtRead.
+// until none is left. A batch that finds that someone else committed since commitsAtRead reads the
+// library again with readInBatch, in its own transaction, and goes on; with none, it stops with
+// errLibraryChanged. It returns the filer of the last read.
 func (pass *Pass) writeBatches(
 	ctx context.Context, filer *libraryFiler, units []filingUnit, commitsAtRead int64, written map[int64]bool,
-) error {
-	expected := commitsAtRead
-	for len(units) > 0 {
-		var batch []filingUnit
-		var batchRows int64
-		err := pass.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-			if pass.database.Commits() != expected {
-				return errLibraryChanged
-			}
-			changedAtStart, countErr := queries.CountRowsChangedByTheWriter(ctx)
-			if countErr != nil {
-				return fmt.Errorf("count the rows changed: %w", countErr)
-			}
-			filer.queries = queries
-			rest, identifyErr := filer.identifyUnits(ctx, units, changedAtStart, pass.batchRows)
-			if identifyErr != nil {
-				return identifyErr
-			}
-			batch, units = units[:len(units)-len(rest)], rest
-			changedAtEnd, countErr := queries.CountRowsChangedByTheWriter(ctx)
-			batchRows = changedAtEnd - changedAtStart
-			expected = pass.database.Commits() + 1 // this one's, once it commits
-			return countErr                        //nolint:wrapcheck // the count read just above says the same
-		})
+	readInBatch func(*sqlcgen.Queries) (*libraryFiler, []filingUnit, error),
+) (*libraryFiler, error) {
+	batching := &batching{filer: filer, units: units, expected: commitsAtRead, readInBatch: readInBatch}
+	for len(batching.units) > 0 {
+		batch, batchRows, err := pass.writeBatch(ctx, batching)
 		if err != nil {
-			return fmt.Errorf("file a batch: %w", err)
+			return batching.filer, fmt.Errorf("file a batch: %w", err)
 		}
 		for _, unit := range batch {
 			for _, file := range unit.files {
@@ -287,7 +283,48 @@ func (pass *Pass) writeBatches(
 			pass.betweenBatches(ctx, batchRows)
 		}
 	}
-	return nil
+	return batching.filer, nil
+}
+
+// batching is a pass's filing in batches: the filer of its last read, the units left, the commits
+// it expects to find, and how it reads the library again inside a batch, if it may.
+type batching struct {
+	filer       *libraryFiler
+	units       []filingUnit
+	expected    int64
+	readInBatch func(*sqlcgen.Queries) (*libraryFiler, []filingUnit, error)
+}
+
+// writeBatch writes the next batch of units, in one write, and returns them and the rows it changed.
+func (pass *Pass) writeBatch(ctx context.Context, batching *batching) ([]filingUnit, int64, error) {
+	var batch []filingUnit
+	var batchRows int64
+	err := pass.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		if pass.database.Commits() != batching.expected {
+			if batching.readInBatch == nil {
+				return errLibraryChanged
+			}
+			var readErr error
+			if batching.filer, batching.units, readErr = batching.readInBatch(queries); readErr != nil {
+				return fmt.Errorf("read it again in the batch: %w", readErr)
+			}
+		}
+		changedAtStart, countErr := queries.CountRowsChangedByTheWriter(ctx)
+		if countErr != nil {
+			return fmt.Errorf("count the rows changed: %w", countErr)
+		}
+		batching.filer.queries = queries
+		rest, identifyErr := batching.filer.identifyUnits(ctx, batching.units, changedAtStart, pass.batchRows)
+		if identifyErr != nil {
+			return identifyErr
+		}
+		batch, batching.units = batching.units[:len(batching.units)-len(rest)], rest
+		changedAtEnd, countErr := queries.CountRowsChangedByTheWriter(ctx)
+		batchRows = changedAtEnd - changedAtStart
+		batching.expected = pass.database.Commits() + 1 // this one's, once it commits
+		return countErr                                 //nolint:wrapcheck // the count read just above says the same
+	})
+	return batch, batchRows, err //nolint:wrapcheck // writeBatches says it was a batch
 }
 
 // isWritten is whether every file of a unit was in a unit a batch wrote.
