@@ -64,6 +64,9 @@ func (all *Exchanges) parkBehindQuickPass(
 		return jobs.Park(jobs.Parking{
 			Destination: jobs.QuickPassDestination(nodeID, device), Reason: "a scan reads the disk's new files first",
 			ProbeAt: all.clock.Now().Add(quickPassRecheckEvery),
+			// Work waiting its turn behind a scan, not a destination that failed (staging, 2026-10-16:
+			// logged as one down a dozen times a scan).
+			IsBackPressure: true,
 		}, fmt.Errorf("node %d's scan of %s has not read its new files yet: %w", nodeID, root, errBehindQuickPass))
 	}
 	return nil
