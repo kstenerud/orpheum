@@ -217,8 +217,25 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** A series with its episodes in aired order */
+        /** A series with its seasons, each with how many episodes it has */
         get: operations["getSeries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/collections/{id}/seasons/{season}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A page of one season's episodes in aired order */
+        get: operations["getSeason"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1898,7 +1915,6 @@ export interface components {
         };
         CollectionOutputBody: {
             art: components["schemas"]["ArtBody"];
-            episodes: components["schemas"]["EpisodeBody"][] | null;
             fetchFailure?: components["schemas"]["FetchFailureBody"];
             /** Format: int64 */
             id: number;
@@ -1916,6 +1932,7 @@ export interface components {
              * @description When a person asked for it to be refreshed, while no fetch has answered yet
              */
             refreshRequestedAt?: number;
+            seasons: components["schemas"]["SeasonBody"][] | null;
             /** @description Why none of its episodes' files can be read now; absent when one can */
             unavailable?: components["schemas"]["UnavailableBody"];
             /** Format: int64 */
@@ -3176,6 +3193,22 @@ export interface components {
         SearchOutputBody: {
             results: components["schemas"]["HitBody"][] | null;
         };
+        SeasonBody: {
+            /** Format: int64 */
+            episodeCount: number;
+            /**
+             * Format: int64
+             * @description 0 for the specials and the episodes with no season
+             */
+            seasonNumber: number;
+            /** @description Its first episode's still that has one */
+            stillSha256?: string;
+        };
+        SeasonOutputBody: {
+            episodes: components["schemas"]["EpisodeBody"][] | null;
+            /** @description The next page's cursor; absent on the last */
+            nextCursor?: string;
+        };
         SecretBody: {
             description: string;
             isSet: boolean;
@@ -4285,6 +4318,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CollectionOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getSeason: {
+        parameters: {
+            query: {
+                /** @description From the previous page's nextCursor */
+                cursor?: string;
+                limit: number;
+            };
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+                /** @description 0 for the specials and the episodes with no season */
+                season: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeasonOutputBody"];
                 };
             };
             /** @description Error */
