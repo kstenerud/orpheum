@@ -103,8 +103,10 @@ func TestAssign_WorkOfAHigherTierBumpsTheLowestWhereNothingIsFree(t *testing.T) 
 	bench.wantBumped(2, "the examining")
 	// Another read-through is slow, as one held is: it waits for tank's readers.
 	if parking, _ := jobqueue.ParkingOf(bench.assign(4, jobs.KindReadThrough, jobs.PriorityBackground,
-		readThroughOf("/media"))); parking.Destination != jobs.ReaderDestination(1, "zfs:tank") {
-		t.Errorf("a read-through on full tank waits on %q; want tank's readers", parking.Destination)
+		readThroughOf("/media"))); parking.Destination != jobs.ReaderDestination(1, "zfs:tank") ||
+		!parking.IsBackPressure {
+		t.Errorf("a read-through on full tank waits on %q, back-pressure %v; want tank's readers, full and not down",
+			parking.Destination, parking.IsBackPressure)
 	}
 	// A scan a person asked for bumps the lowest held, the read-through, not the examining.
 	if answer := bench.assign(5, jobs.KindExamine, jobs.PriorityPersonsRequest, examineOf()); !jobqueue.IsAssigned(

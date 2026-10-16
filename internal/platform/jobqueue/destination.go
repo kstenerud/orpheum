@@ -33,6 +33,11 @@ type Parking struct {
 	// parked host counts as one (D231 §6). The queue knows its own probes; a caller outside a job
 	// says so here.
 	IsProbeFailure bool
+	// IsBackPressure is a destination with no room now rather than one that failed: a node's
+	// window of work for a disk or a slot is full, and the next to finish makes room. Parked and
+	// brought back as often as its work comes and goes, it is logged at debug, not as an outage:
+	// a scan's reads logged it twice a second (staging, 2026-10-16).
+	IsBackPressure bool
 }
 
 // DestinationState is a parked destination, as a person is shown it (D231 §12).
@@ -68,6 +73,8 @@ const (
 type parkedDestination struct {
 	state     DestinationState
 	probeStep int64
+	// isBackPressure is a destination parked for want of room, not for a failure (Parking).
+	isBackPressure bool
 }
 
 // destinations are the parked destinations, held in memory: after a restart, the first job for
@@ -123,8 +130,14 @@ func (queue *Queue[T]) Park(ctx context.Context, parking Parking) {
 			parked.state.Since = now
 		}
 		queue.destinations.parkedBy[parking.Destination] = parked
-		queue.logger.WarnContext(ctx, "a destination is down; its work waits", "destination", parking.Destination,
-			"reason", parking.Reason)
+		parked.isBackPressure = parking.IsBackPressure
+		if parking.IsBackPressure {
+			queue.logger.DebugContext(ctx, "a destination has no room; its work waits", "destination",
+				parking.Destination, "reason", parking.Reason)
+		} else {
+			queue.logger.WarnContext(ctx, "a destination is down; its work waits", "destination", parking.Destination,
+				"reason", parking.Reason)
+		}
 	} else {
 		parked.probeStep++ // a failed probe
 		parked.state.IsProbing = false
@@ -168,11 +181,15 @@ func (queue *Queue[T]) probeDelay(ctx context.Context, step int64) time.Duration
 // destination not parked is left as it is.
 func (queue *Queue[T]) Unpark(ctx context.Context, destination Destination) {
 	queue.destinations.mutex.Lock()
-	_, wasParked := queue.destinations.parkedBy[destination]
+	parked, wasParked := queue.destinations.parkedBy[destination]
 	delete(queue.destinations.parkedBy, destination)
 	queue.destinations.mutex.Unlock()
 	if wasParked {
-		queue.logger.InfoContext(ctx, "a destination is back; its work resumes", "destination", destination)
+		if parked.isBackPressure {
+			queue.logger.DebugContext(ctx, "a destination has room; its work resumes", "destination", destination)
+		} else {
+			queue.logger.InfoContext(ctx, "a destination is back; its work resumes", "destination", destination)
+		}
 		queue.Wake()
 		queue.RequestSweeps()
 	}
