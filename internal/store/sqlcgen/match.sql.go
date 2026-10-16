@@ -9,6 +9,16 @@ import (
 	"context"
 )
 
+const clearOverridesSetByRemovedUser = `-- name: ClearOverridesSetByRemovedUser :exec
+UPDATE field_override SET set_by_user_id = NULL WHERE set_by_user_id = ?1
+`
+
+// The overrides a removed person typed stay, for everyone; who typed them is forgotten (D305).
+func (q *Queries) ClearOverridesSetByRemovedUser(ctx context.Context, userID *int64) error {
+	_, err := q.db.ExecContext(ctx, clearOverridesSetByRemovedUser, userID)
+	return err
+}
+
 const countWaitingForAPerson = `-- name: CountWaitingForAPerson :one
 SELECT CAST((
   SELECT count(*) FROM title CROSS JOIN item ON item.id = title.id

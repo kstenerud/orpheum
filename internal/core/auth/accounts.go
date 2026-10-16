@@ -285,10 +285,11 @@ func (service *Service) RenameUser(ctx context.Context, userID int64, name strin
 // queries, the transaction that removes them: playback.ForgetWatchingOf, say.
 type Forget func(ctx context.Context, queries *sqlcgen.Queries, userID int64) error
 
-// RemoveUser removes a person, for an admin who is not them (S40). Every credential of theirs ends
-// at its next request and their devices leave the list (D154); each of forgets deletes what was
-// theirs alone, in the same transaction (D173 §4.6); the row stays as a tombstone, so what they
-// set for everyone still says who, and their name is free for someone new.
+// RemoveUser removes a person, for an admin who is not them (S40), deleting what was theirs (D305
+// §1): each of forgets deletes what was theirs alone, or forgets that they set what everyone
+// shares, from the tables another package writes, in the same transaction; then their credentials,
+// whose next request is refused, their devices and their realm key go, and their row stays only as
+// a nameless tombstone, so ids are never reused and their name is free for someone new.
 func (service *Service) RemoveUser(ctx context.Context, byUserID, userID int64, forgets ...Forget) error {
 	if byUserID == userID {
 		return ErrRemoveSelf
@@ -302,20 +303,30 @@ func (service *Service) RemoveUser(ctx context.Context, byUserID, userID int64, 
 		if removed == 0 {
 			return ErrNoUser
 		}
-		if err = queries.RevokeLiveGrantsOfRemovedUser(ctx, sqlcgen.RevokeLiveGrantsOfRemovedUserParams{
-			RevokedAt: &now, UserID: &userID,
-		}); err != nil {
-			return fmt.Errorf("end user %d's credentials: %w", userID, err)
-		}
-		if err = queries.RemoveDevicesOfRemovedUser(ctx, sqlcgen.RemoveDevicesOfRemovedUserParams{
-			RemovedAt: &now, UserID: &userID,
-		}); err != nil {
-			return fmt.Errorf("remove user %d's devices: %w", userID, err)
-		}
+		// Their plays name their devices, so what other packages forget goes first.
 		for _, forget := range forgets {
 			if forgetErr := forget(ctx, queries, userID); forgetErr != nil {
 				return forgetErr
 			}
+		}
+		// In this order: what names a credential of theirs, then the credentials, which name their
+		// devices, then the devices.
+		for _, step := range []struct {
+			what     string
+			deleteOf func(context.Context, *int64) error
+		}{
+			{"locators", queries.DeleteLocatorsOfRemovedUser},
+			{"invitations", queries.DeleteInvitationsOfRemovedUser},
+			{"derived credentials", queries.DeleteGrantsDerivedFromRemovedUser},
+			{"credentials", queries.DeleteGrantsOfRemovedUser},
+			{"devices", queries.DeleteDevicesOfRemovedUser},
+		} {
+			if err = step.deleteOf(ctx, &userID); err != nil {
+				return fmt.Errorf("delete user %d's %s: %w", userID, step.what, err)
+			}
+		}
+		if err = queries.DeleteRealmKeyOfRemovedUser(ctx, userID); err != nil {
+			return fmt.Errorf("delete user %d's realm key: %w", userID, err)
 		}
 		return nil
 	})

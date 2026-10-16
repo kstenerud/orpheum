@@ -9,6 +9,16 @@ import (
 	"context"
 )
 
+const clearSettingsSetByRemovedUser = `-- name: ClearSettingsSetByRemovedUser :exec
+UPDATE setting SET set_by_user_id = NULL WHERE set_by_user_id = ?1
+`
+
+// The settings a removed person changed stay; who changed them is forgotten (D305).
+func (q *Queries) ClearSettingsSetByRemovedUser(ctx context.Context, userID *int64) error {
+	_, err := q.db.ExecContext(ctx, clearSettingsSetByRemovedUser, userID)
+	return err
+}
+
 const deleteSetting = `-- name: DeleteSetting :exec
 DELETE FROM setting
 WHERE key = ?1

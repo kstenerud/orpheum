@@ -28,6 +28,8 @@ const (
 	refSeries          = 200
 	refEpisodesPerShow = 50
 	refPlaySpans       = 4_000
+	// A year of sign-ins on the two people's four devices, most of them ended since.
+	refSessions = 40
 	// A step that takes longer than stepBudget at the reference scale fails (migrations.md).
 	stepBudget = 10 * time.Second
 )
@@ -208,6 +210,20 @@ func fillReferenceScale(t *testing.T, database *Database) {
 	filler.exec("INSERT INTO library_root (library_id, node_id, root_path) " +
 		"VALUES (1, 1, '/media/films'), (2, 1, '/media/shows')")
 	filler.exec("INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1), (2, 'partner', 2, 1)")
+	filler.exec(`INSERT INTO device (id, user_id, name, platform, added_at, last_signed_in_at) VALUES
+		(1, 1, 'Firefox on Linux', 'web', 1, 1), (2, 1, 'Living room TV', 'cast', 1, 1),
+		(3, 2, 'Chrome on Android', 'web', 1, 1), (4, 2, 'Safari on iPhone', 'web', 1, 1)`)
+	for session := range refSessions {
+		var revokedAt any = filler.now - int64(session)*86_400_000
+		if session%5 == 0 {
+			revokedAt = nil // the live ones
+		}
+		secret := make([]byte, 32)
+		binary.BigEndian.PutUint64(secret, uint64(session)+1)
+		filler.exec(`INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, revoked_at, device_id)
+			VALUES (?, 'session', ?, 'user', ?, ?, ?)`,
+			secret, 1+session%2, filler.now-int64(session)*86_400_000, revokedAt, deviceOfPerson(session))
+	}
 	for index := range refFilms {
 		filler.insertFilm(index)
 	}
@@ -217,16 +233,23 @@ func fillReferenceScale(t *testing.T, database *Database) {
 	for span := range refPlaySpans {
 		fileID := 1 + filler.random.Int64N(filler.fileID)
 		start := filler.now - int64(span)*3_600_000
-		filler.exec(`INSERT INTO play_span (user_id, file_id, from_position_ms, to_position_ms, started_at, ended_at)
-			VALUES (?, ?, 0, 1800000, ?, ?)`, 1+span%2, fileID, start, start+1_800_000)
-		filler.exec(`INSERT INTO play_position (user_id, file_id, position_ms, report_seq, updated_at)
-			VALUES (?, ?, 1800000, ?, ?)
+		filler.exec(`INSERT INTO play_span (user_id, file_id, from_position_ms, to_position_ms, started_at, ended_at,
+			device_id) VALUES (?, ?, 0, 1800000, ?, ?, ?)`,
+			1+span%2, fileID, start, start+1_800_000, deviceOfPerson(span))
+		filler.exec(`INSERT INTO play_position (user_id, file_id, position_ms, report_seq, updated_at, device_id)
+			VALUES (?, ?, 1800000, ?, ?, ?)
 			ON CONFLICT (user_id, file_id) DO UPDATE SET report_seq = excluded.report_seq`,
-			1+span%2, fileID, span, start)
+			1+span%2, fileID, span, start, deviceOfPerson(span))
 	}
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// deviceOfPerson is one of the two devices of the person 1+n%2 is, in turn: 1 and 2 are the
+// owner's, 3 and 4 the partner's.
+func deviceOfPerson(n int) int {
+	return 1 + n%2*2 + n/2%2
 }
 
 // TestReferenceScale fills a database at the baseline's schema with the reference-scale library

@@ -159,3 +159,7 @@ SELECT CAST((
     WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
       AND file.removed_at IS NULL)
 ) AS INTEGER) AS waiting_count;
+
+-- name: ClearOverridesSetByRemovedUser :exec
+-- The overrides a removed person typed stay, for everyone; who typed them is forgotten (D305).
+UPDATE field_override SET set_by_user_id = NULL WHERE set_by_user_id = sqlc.arg(user_id);

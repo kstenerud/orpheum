@@ -36,3 +36,7 @@ WHERE key = sqlc.arg(key);
 -- Moves a setting nobody changed to a release's new starting value; a changed one is left alone.
 UPDATE setting SET value_json = sqlc.arg(value_json), set_at = sqlc.arg(set_at)
 WHERE key = sqlc.arg(key) AND is_modified = 0 AND value_json != sqlc.arg(value_json);
+
+-- name: ClearSettingsSetByRemovedUser :exec
+-- The settings a removed person changed stay; who changed them is forgotten (D305).
+UPDATE setting SET set_by_user_id = NULL WHERE set_by_user_id = sqlc.arg(user_id);

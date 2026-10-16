@@ -121,10 +121,13 @@
 //     TestSetAudioOutput_IsKeptOnTheDeviceAndOnlyItsOwnerSetsIt and
 //     TestSignOutElsewhere_EndsEverySessionButTheAskingOneAndKeepsTheDevicesListed.
 //
-//   - An admin removes a person, never themselves (so an admin remains): every credential of
-//     theirs ends, their devices leave the list, their own watching, positions, lists, ratings and
-//     preferences are deleted (D173 §4.6), and the row stays as a tombstone whose name is free
-//     (S40). Enforced by TestRemoveUser_EndsTheirAccessDeletesTheirOwnRowsAndFreesTheName.
+//   - An admin removes a person, never themselves (so an admin remains), deleting what was theirs
+//     (D305 §1): their watching, positions and preferences, their credentials, live or ended, with
+//     what names them, their devices and their realm key; who set what everyone shares is
+//     forgotten, and their row stays only as a nameless tombstone, whose name is free (S40).
+//     Enforced by TestRemoveUser_EndsTheirAccessDeletesTheirOwnRowsAndFreesTheName,
+//     TestRemoveUser_LeavesNothingOfTheirsButANamelessRow, and the API's
+//     TestPeople_ARemovedPersonsSettingsStayAndWhoSetThemIsForgotten.
 //
 //   - argon2id takes at most 500 ms on devnas: BenchmarkHashPassword_DefaultParameters, run there
 //     (verification queue VQ1).

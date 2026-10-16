@@ -871,6 +871,7 @@ CREATE TABLE play_span (                                   -- class A (D165)
 );
 CREATE INDEX play_span_user ON play_span(user_id, started_at);
 CREATE INDEX play_span_file ON play_span(file_id);
+CREATE INDEX play_span_device ON play_span(device_id);  -- 0051: a removed person's devices are deleted (D305)
 ```
 
 **The guard is the moment of watching, not the order of arrival** (D217 §7, migration 0014). A
