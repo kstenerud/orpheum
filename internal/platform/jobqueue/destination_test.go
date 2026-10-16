@@ -3,13 +3,17 @@
 package jobqueue_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue/jobqueuetest"
 )
@@ -358,5 +362,31 @@ func TestRunDue_AProbeWhoseToolFailedSaysNothingOfItsDestination(t *testing.T) {
 	if !isParked || state.IsProbing || !state.NextProbeAt.Equal(jobs.clock.Now().Add(jobqueue.FirstProbeDelay)) {
 		t.Errorf("after a probe whose tool failed, the host is %+v (parked %v); want parked, not probing, probed "+
 			"again at the same first step, %v from now", state, isParked, jobqueue.FirstProbeDelay)
+	}
+}
+
+// A destination with no room now, a node's full window, is parked and brought back as often as its
+// work comes and goes, and logged at debug: a scan's reads logged a "down" reader twice a second
+// (staging, 2026-10-16). A destination that failed is still a warning.
+func TestPark_BackPressureIsNoOutageAndIsNotLoggedAsOne(t *testing.T) {
+	t.Parallel()
+	var logged bytes.Buffer
+	now := clocktest.NewFake(time.Date(2026, 10, 16, 8, 0, 0, 0, time.UTC))
+	queue := jobqueue.New(&jobqueuetest.Memory[target]{}, now,
+		jobqueue.Config{
+			Random: jobqueuetest.Unjittered(), Policy: fixedPolicy{attemptLimit: attemptLimit},
+			Logger: slog.New(slog.NewTextHandler(&logged, nil)),
+		})
+	ctx := t.Context()
+	for range 3 {
+		queue.Park(ctx, jobqueue.Parking{Destination: host, Reason: "busy", AwaitsSignal: true, IsBackPressure: true})
+		queue.Unpark(ctx, host)
+	}
+	if logged.Len() != 0 {
+		t.Errorf("back-pressure logged %q; want nothing at info or above", logged.String())
+	}
+	queue.Park(ctx, jobqueue.Parking{Destination: host, Reason: "unreachable"})
+	if line := logged.String(); !strings.Contains(line, "level=WARN") {
+		t.Errorf("a failure logged %q; want a warning", line)
 	}
 }

@@ -132,7 +132,8 @@ func (all *Exchanges) parkIfWindowFull(
 	}
 	slot, device := work.Slot(), resources.deviceOf(work)
 	full := func(destination jobs.Destination) error {
-		return jobs.Park(jobs.Parking{Destination: destination, Reason: "busy", AwaitsSignal: true},
+		parking := jobs.Parking{Destination: destination, Reason: "busy", AwaitsSignal: true, IsBackPressure: true}
+		return jobs.Park(parking,
 			fmt.Errorf("node %d has no room for more %s work: %w", nodeID, slot, errWindowFull))
 	}
 	incoming := tierOf(work, priority)
