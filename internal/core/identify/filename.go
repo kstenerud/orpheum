@@ -48,6 +48,15 @@ var (
 	providerIDPattern = regexp.MustCompile(`[\[{](tmdb|tmdbid|imdb|imdbid|tvdb|tvdbid)[-=]([0-9A-Za-z]+)[\]}]`)
 	episodePattern    = regexp.MustCompile(
 		`(?i)(?:^|[^\p{L}\p{N}])s([0-9]{1,3})[ ._-]?e([0-9]{1,4})(?:[ ._-]?-?e([0-9]{1,4}))?`)
+	// A season and an episode said as words apart: "s2 ep3", "S03 EP05", "SE7 - EP5", "Season 2
+	// Episode 5". The episode's word is required, so "Se7en" is no marker.
+	wordedEpisodePattern = regexp.MustCompile(
+		`(?i)(?:^|[^\p{L}\p{N}])(?:s|se|season|series|staffel|saison|temporada)[\p{Z} ._-]*([0-9]{1,3})` +
+			`[\p{Z} ._-]*(?:-[\p{Z} ._-]*)?(?:e|ep|episode|folge|episodio)[\p{Z} ._-]*([0-9]{1,4})(?:[^\p{L}\p{N}]|$)`)
+	// An IMDb id alone in brackets: "[tt0234567]".
+	bareIMDbPattern = regexp.MustCompile(`\[(tt[0-9]{7,9})\]`)
+	// A release group's tag before the name: "[KESTREL.EX] Movie Name".
+	leadingGroupPattern   = regexp.MustCompile(`^[\p{Z} ]*\[[^\]]*\][\p{Z} ._-]*`)
 	seasonXEpisodePattern = regexp.MustCompile(`(?:^|[^\p{L}\p{N}])([0-9]{1,2})x([0-9]{2,3})(?:[^\p{L}\p{N}]|$)`)
 	seasonFolderPattern   = regexp.MustCompile(
 		`(?i)^(?:season|series|staffel|saison|temporada)[\p{Z} ._-]*([0-9]{1,3})$|^s([0-9]{1,3})$`)
@@ -115,6 +124,9 @@ func ParsePath(relative string) ParsedPath {
 		provider := strings.TrimSuffix(strings.ToLower(match[1]), "id")
 		parsed.ProviderIDs[provider] = match[2]
 	}
+	if match := bareIMDbPattern.FindStringSubmatch(relative); match != nil && parsed.ProviderIDs["imdb"] == "" {
+		parsed.ProviderIDs["imdb"] = match[1]
+	}
 	folder, file := path.Split(relative)
 	stem := sitePrefixPattern.ReplaceAllString(strings.TrimSuffix(file, path.Ext(file)), "")
 	stem, parsed.ExtraSuffix = cutExtraSuffix(stem)
@@ -157,9 +169,14 @@ func findEpisode(stem string) (episodeMarker, bool) {
 		}
 		return marker, true
 	}
-	if match := seasonXEpisodePattern.FindStringSubmatchIndex(stem); match != nil {
-		season, episode := parseNonNegativeInt(stem[match[2]:match[3]]), parseNonNegativeInt(stem[match[4]:match[5]])
-		return episodeMarker{season: season, episode: episode, startIndex: match[0]}, true
+	for _, pattern := range []*regexp.Regexp{seasonXEpisodePattern, wordedEpisodePattern} {
+		if match := pattern.FindStringSubmatchIndex(stem); match != nil {
+			return episodeMarker{
+				season:     parseNonNegativeInt(stem[match[2]:match[3]]),
+				episode:    parseNonNegativeInt(stem[match[4]:match[5]]),
+				startIndex: match[0],
+			}, true
+		}
 	}
 	return episodeMarker{}, false
 }
@@ -378,11 +395,12 @@ func episodeFolderNumber(folder string) (int, bool) {
 // provider-id markers and bracketed groups go, and everything from the year or the first release
 // tag on is cut.
 func cleanTitle(stem string) (name string, year int) {
-	text := providerIDPattern.ReplaceAllString(stem, " ")
+	text := bareIMDbPattern.ReplaceAllString(providerIDPattern.ReplaceAllString(stem, " "), " ")
+	text = leadingGroupPattern.ReplaceAllString(text, "")
 	if !strings.ContainsFunc(text, unicode.IsSpace) {
 		text = strings.NewReplacer(".", " ", "_", " ").Replace(text)
 	}
-	if matches := yearPattern.FindAllStringSubmatchIndex(text, -1); len(matches) > 0 {
+	if matches := yearsIn(text); len(matches) > 0 {
 		// The last year-looking number is the year; an earlier one is part of the name, as in
 		// "7th Heaven (1968)" or "Glass Runner 2061 (2017)".
 		last := matches[len(matches)-1]
@@ -405,6 +423,25 @@ func cleanTitle(stem string) (name string, year int) {
 		return unicode.IsSpace(r) || r == '-' || r == '(' || r == '[' || r == '.' || r == ','
 	})
 	return name, year
+}
+
+// yearsIn finds every year-looking number in text, each as yearPattern's match: one search after
+// another, each from the end of the last year's digits, since the separator after one year is the
+// one before the next ("1917 2019", a film named for a year), which FindAll would have consumed.
+func yearsIn(text string) [][]int {
+	var found [][]int
+	for from := 0; from < len(text); {
+		match := yearPattern.FindStringSubmatchIndex(text[from:])
+		if match == nil {
+			break
+		}
+		for index := range match {
+			match[index] += from
+		}
+		found = append(found, match)
+		from = match[3]
+	}
+	return found
 }
 
 // cutExtraSuffix removes a trailing "-trailer"-style part from a stem, returning its type.
