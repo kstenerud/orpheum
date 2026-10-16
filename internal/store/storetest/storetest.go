@@ -96,7 +96,9 @@ func OpenMigrated(tb testing.TB) *store.Database {
 // OpenCache returns a new cache.db in a temporary directory, closed when the test ends.
 func OpenCache(tb testing.TB) *store.Cache {
 	tb.Helper()
-	cache, err := store.OpenCache(tb.Context(), filepath.Join(tb.TempDir(), "cache.db"), OpenOptions())
+	options, readerWrites := OpenOptions(), &readerWrites{}
+	options.OnReaderWrite = readerWrites.note
+	cache, err := store.OpenCache(tb.Context(), filepath.Join(tb.TempDir(), "cache.db"), options)
 	if err != nil {
 		tb.Fatalf("open a test cache: %v", err)
 	}
@@ -104,6 +106,7 @@ func OpenCache(tb testing.TB) *store.Cache {
 		if err := cache.Close(); err != nil {
 			tb.Errorf("close the test cache: %v", err)
 		}
+		readerWrites.report(tb)
 	})
 	return cache
 }
@@ -225,6 +228,14 @@ func readerWritesAllowed() map[string]string {
 	return map[string]string{
 		"settings.(*Service).heal": "a setting row removed while the server runs is written back once, with its " +
 			"starting value, the first time it is read (D202); every start writes them all",
+		// A play's GET asks for the work it plays, on cache.db's writer, once a run, never once a
+		// chunk: the person waits on it, and nothing else can ask for it (D234 §3, D247 §10).
+		"jobqueue.(*Queue[...]).Enqueue": "a play's GET queues the run of chunks, the read-through or the " +
+			"text it plays",
+		"jobqueue.(*Queue[...]).Cancel": "a play's GET cancels the run of chunks a seek went past (D250 §5)",
+		"chunks.(*Service).storeIDOf":   "a play's GET names the chunk store its first run makes",
+		"renditions.(*Service).want":    "a play's GET asks for the prepared copy it plays",
+		"renditions.(*Service).redo":    "a play's GET asks again for a prepared copy that failed",
 	}
 }
 

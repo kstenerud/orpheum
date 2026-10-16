@@ -129,3 +129,46 @@ func TestDemoteUnwanted_APlaysJobFallsToBackgroundOnceNoOneWaits(t *testing.T) {
 		t.Errorf("the first play's job is at priority %d, want background", first.Priority)
 	}
 }
+
+// A play's wish for its work is kept in memory, and written when the demotion runs: a play asks
+// each time it is served a chunk, and its request writes nothing (D303, DL10).
+func TestKeepWanted_WritesNothingUntilTheDemotion(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t)
+	jobs.enqueue(t, 1, PriorityPlayNow)
+	if err := jobs.queue.KeepWanted(t.Context(), KindFetchMetadata, Target{ItemID: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if kept := jobs.job(t, 1).WantedUntil; kept != nil {
+		t.Errorf("a play's wish wrote the job's wanted time, %d; want it kept until the demotion", *kept)
+	}
+	if _, err := jobs.queue.DemoteUnwanted(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if kept := jobs.job(t, 1).WantedUntil; kept == nil || *kept <= jobs.clock.Now().UnixMilli() {
+		t.Errorf("after the demotion the job is wanted until %v; want a time to come, the play's wish written", kept)
+	}
+}
+
+// A play that leaves lets go of its work even when its last wish was not written yet: the wish is
+// not written after the leave, so the job falls to background at the next demotion (D258 §2).
+func TestReleaseWanted_EndsAWishNotYetWritten(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t)
+	jobs.enqueue(t, 1, PriorityPlayNow)
+	jobs.clock.Advance(5 * time.Minute)
+	if err := jobs.queue.KeepWanted(t.Context(), KindFetchMetadata, Target{ItemID: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := jobs.queue.ReleaseWanted(t.Context(), KindFetchMetadata, Target{ItemID: 1}); err != nil {
+		t.Fatal(err)
+	}
+	jobs.clock.Advance(time.Second)
+	demoted, err := jobs.queue.DemoteUnwanted(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(demoted) != 1 {
+		t.Errorf("after the leave the demotion took %+v; want the left play's job", demoted)
+	}
+}
