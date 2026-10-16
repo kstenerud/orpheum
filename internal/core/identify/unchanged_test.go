@@ -65,3 +65,30 @@ func TestPass_AgainOverAnUnchangedMatchedLibraryWritesNothing(t *testing.T) {
 		t.Errorf("a pass over an unchanged matched library changed %d rows; want none", after-before)
 	}
 }
+
+// A pass over a series library with a special no number places writes nothing either: the special
+// keeps its title rather than gaining a new one each pass, which left the old ones in its series,
+// not on disk (the owner's NAS, 2026-10-16: 80,246 of them under one series).
+func TestPass_AgainOverAnUnchangedLibraryWithAnUnnumberedSpecialWritesNothing(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "shows", "nfo")
+	lib.scan(
+		nfoRecord("Test Show/tvshow.nfo", `<tvshow><title>Test Show</title><year>2024</year></tvshow>`),
+		videoRecord("Test Show/Season 01/Test Show - S01E01.mkv"),
+		videoRecord("Test Show/Featurettes/The Making Of.mkv"),
+	)
+	before, err := lib.database.RowsChanged(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = lib.pass.IdentifyLibrary(t.Context(), lib.libraryID); err != nil {
+		t.Fatal(err)
+	}
+	after, err := lib.database.RowsChanged(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after != before {
+		t.Errorf("a pass over an unchanged library with a special changed %d rows; want none", after-before)
+	}
+}

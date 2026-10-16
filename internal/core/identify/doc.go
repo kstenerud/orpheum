@@ -38,8 +38,10 @@
 //     locked fields (D183 §2). TestPass_ATMDBOnlyLibraryIgnoresNFOFiles.
 //   - The pass reads only stored observations and reaches the same titles when run again (D182).
 //     TestPass_RunningAgainChangesNothing. Run again over a library nothing changed in, it writes
-//     no row (D303, DL9). TestPass_AgainOverAnUnchangedLibraryWritesNothing,
-//     TestPass_AgainOverAnUnchangedMatchedLibraryWritesNothing.
+//     no row (D303, DL9), nor gives a special no number places a new title.
+//     TestPass_AgainOverAnUnchangedLibraryWritesNothing,
+//     TestPass_AgainOverAnUnchangedMatchedLibraryWritesNothing,
+//     TestPass_AgainOverAnUnchangedLibraryWithAnUnnumberedSpecialWritesNothing.
 //   - A pass reads its library in a constant number of statements (snapshot.go), compares before
 //     it writes, and runs in a read transaction until it must write: over an unchanged library it
 //     runs the same statements at twice the size and takes no writer (D303, DL7, DL9, DL11).
