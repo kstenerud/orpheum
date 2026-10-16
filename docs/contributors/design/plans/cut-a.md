@@ -186,7 +186,8 @@ LICENSE (GPL-3.0) · CONTRIBUTING.md · AGENTS.md · CLAUDE.md (imports AGENTS.m
 Makefile            # make check (the gate) · make check-pr · make generate · make dev · make help
 go.mod              # one module; sqlc and golangci-lint are pinned in the Makefile
 cmd/orpheum/        # main: flags → core | node | default-config | migrate | backup | restore
-                    #   | doctor | setup-code | openapi | version | dev (dev builds only)
+                    #   | start-over | doctor | setup-code | reset-admin | openapi | version
+                    #   | dev (dev builds only)
 internal/core/      # GPL. May not import os/exec, internal/node, or any media/image package
   api/              # huma handlers; the OpenAPI document is generated from here
   auth/  secrets/  settings/  preferences/  backup/  certificate/  webclient/

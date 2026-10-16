@@ -229,3 +229,56 @@ func TestOpenExistingDatabase_SaysToStartTheCoreWithASubcommandThatExists(t *tes
 		t.Error("the message names `orpheum core`, which is not a subcommand that runs")
 	}
 }
+
+// start-over sets the database aside, with the server stopped, and keeps every other persistent
+// file, so a next start makes an empty database under the same identity (D303 §2); without --yes
+// it changes nothing, and while the server runs it refuses.
+func TestStartOver_SetsTheDatabaseAsideAndKeepsTheRest(t *testing.T) {
+	t.Parallel()
+	config, path := testConfig(t)
+	server := startServing(t, config, newCapturedLog("ready"), "ready", nil)
+	if running := runCommand(t, "start-over", "--instance", path, "--yes"); running.status == exitSuccess {
+		t.Errorf("start-over while the server runs = %+v; want a refusal", running)
+	}
+	if err := server.stop(); err != nil {
+		t.Fatal(err)
+	}
+	persistentDB := filepath.Join(config.Instance.PersistentDir, "persistent.db")
+	dryRun := runCommand(t, "start-over", "--instance", path)
+	if _, err := os.Stat(persistentDB); err != nil || dryRun.status != exitUsageError ||
+		!strings.Contains(dryRun.stdout, "Nothing was changed") {
+		t.Fatalf("start-over without --yes = %+v (%v); want exit 2 and the database where it was", dryRun, err)
+	}
+	keptBefore := persistentFilesBut(t, config.Instance.PersistentDir, "persistent.db")
+	done := runCommand(t, "start-over", "--instance", path, "--yes")
+	if done.status != exitSuccess {
+		t.Fatalf("start-over --yes = %+v", done)
+	}
+	if _, err := os.Stat(persistentDB); !os.IsNotExist(err) {
+		t.Errorf("the database is still in the persistent directory (%v)", err)
+	}
+	aside, err := filepath.Glob(filepath.Join(config.Instance.BackupsDir, "persistent-set-aside-*.db"))
+	if err != nil || len(aside) != 1 {
+		t.Errorf("set aside in the backups directory: %v (%v); want the one database", aside, err)
+	}
+	if kept := persistentFilesBut(t, config.Instance.PersistentDir, "persistent.db"); !slices.Equal(kept,
+		keptBefore) || len(kept) == 0 {
+		t.Errorf("the persistent directory holds %v after; want %v, all but the database", kept, keptBefore)
+	}
+}
+
+// persistentFilesBut lists the persistent directory's files, but the database and its sidecars.
+func persistentFilesBut(t *testing.T, directory, database string) []string {
+	t.Helper()
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, entry := range entries {
+		if !strings.HasPrefix(entry.Name(), database) {
+			names = append(names, entry.Name())
+		}
+	}
+	return names
+}
