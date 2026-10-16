@@ -23,8 +23,11 @@
 //   - Errors from the provider are wrapped where they enter. Enforced by wrapcheck, which is
 //     scoped to this package.
 //   - The filename parser is a pure function of a path, tested against a corpus that includes
-//     non-Latin names, and no expression uses an ASCII-only class (D49).
-//     TestParsePath_ACorpusOfNames, TestParsePath_NoExpressionUsesAnASCIIOnlyClass.
+//     non-Latin names, and no expression uses an ASCII-only class (D49). The corpus's names are our
+//     own, none copied from another project's tests (D306 §1).
+//     TestParsePath_ACorpusOfNames, TestParsePath_NoExpressionUsesAnASCIIOnlyClass,
+//     TestParsePath_OurCorpusOfFilms, TestParsePath_OurCorpusOfEpisodes,
+//     TestParseEpisodePath_OurCorpusOfASeriesLibrary.
 //   - Whether two names name the same work is textindex.SameWork's answer, and nothing else's: a
 //     candidate against the file, a film's name and year, a series' folder against the series
 //     filed, an extra's name against its folder (D232).

@@ -46,18 +46,26 @@ type ParsedPath struct {
 //nolint:gocritic // regexpSimplify's \d is the class D49 bans; [0-9] says the ASCII is meant
 var (
 	providerIDPattern = regexp.MustCompile(`[\[{](tmdb|tmdbid|imdb|imdbid|tvdb|tvdbid)[-=]([0-9A-Za-z]+)[\]}]`)
-	episodePattern    = regexp.MustCompile(
-		`(?i)(?:^|[^\p{L}\p{N}])s([0-9]{1,3})[ ._-]?e([0-9]{1,4})(?:[ ._-]?-?e([0-9]{1,4}))?`)
+	episodePattern    = regexp.MustCompile(`(?i)(?:^|[^\p{L}\p{N}])s([0-9]{1,3})[ ._-]?e([0-9]{1,4})`)
+	// The rest of a multi-episode file's run, read from where the number before it ends, each
+	// match its season if it says one and its episode: "E02", "-E02", " - S01E02" or ".S01E02"
+	// after "S01E01", and "-02", "x02" or "-1x02" after either "S01E01" or "1x01". The function
+	// lastOfRun says which continue the run.
+	episodeRunPattern = regexp.MustCompile(
+		`(?i)^(?:[\p{Z} ._-]*s([0-9]{1,3})[\p{Z} ._-]?e|[\p{Z} ._-]?-?e)([0-9]{1,4})`)
+	numberRunPattern = regexp.MustCompile(`^(?:-(?:([0-9]{1,2})x)?|x)([0-9]{1,3})(?:[^\p{L}\p{N}]|x|$)`)
 	// A season and an episode said as words apart: "s2 ep3", "S03 EP05", "SE7 - EP5", "Season 2
 	// Episode 5". The episode's word is required, so "Se7en" is no marker.
 	wordedEpisodePattern = regexp.MustCompile(
 		`(?i)(?:^|[^\p{L}\p{N}])(?:s|se|season|series|staffel|saison|temporada)[\p{Z} ._-]*([0-9]{1,3})` +
-			`[\p{Z} ._-]*(?:-[\p{Z} ._-]*)?(?:e|ep|episode|folge|episodio)[\p{Z} ._-]*([0-9]{1,4})(?:[^\p{L}\p{N}]|$)`)
+			`[\p{Z} ._-]*(?:-[\p{Z} ._-]*)?(?:e|ep|episode|épisode|folge|episodio)` +
+			`[\p{Z} ._-]*([0-9]{1,4})(?:[^\p{L}\p{N}]|$)`)
 	// An IMDb id alone in brackets: "[tt0234567]".
 	bareIMDbPattern = regexp.MustCompile(`\[(tt[0-9]{7,9})\]`)
 	// A release group's tag before the name: "[KESTREL.EX] Movie Name".
-	leadingGroupPattern   = regexp.MustCompile(`^[\p{Z} ]*\[[^\]]*\][\p{Z} ._-]*`)
-	seasonXEpisodePattern = regexp.MustCompile(`(?:^|[^\p{L}\p{N}])([0-9]{1,2})x([0-9]{2,3})(?:[^\p{L}\p{N}]|$)`)
+	leadingGroupPattern = regexp.MustCompile(`^[\p{Z} ]*\[[^\]]*\][\p{Z} ._-]*`)
+	// "1x02", and "1x02x03", whose run lastOfRun reads.
+	seasonXEpisodePattern = regexp.MustCompile(`(?:^|[^\p{L}\p{N}])([0-9]{1,2})x([0-9]{2,3})(?:[^\p{L}\p{N}]|x|$)`)
 	seasonFolderPattern   = regexp.MustCompile(
 		`(?i)^(?:season|series|staffel|saison|temporada)[\p{Z} ._-]*([0-9]{1,3})$|^s([0-9]{1,3})$`)
 	// A season pack's folder carries a season marker as a word inside its release name, which
@@ -65,7 +73,12 @@ var (
 	// and "Show.1982.S01-S04". An episode marker, "S02E01", is not one.
 	seasonPackPattern = regexp.MustCompile(`(?i)(?:^|[\p{Z} ._-])(?:s[0-9]{1,3}|` +
 		`(?:season|series|staffel|saison|temporada)[\p{Z} ._-]*[0-9]{1,3})(?:[\p{Z} ._-]|$)`)
-	yearPattern = regexp.MustCompile(`(?:^|[\p{Z} ._(\[-])((?:19|20)[0-9]{2})(?:[\p{Z} ._)\]-]|$)`)
+	// A year, in brackets too, full-width ones included: "灯台守（2009）".
+	yearPattern = regexp.MustCompile(`(?:^|[\p{Z} ._(\[（［-])((?:19|20)[0-9]{2})(?:[\p{Z} ._)\]）］-]|$)`)
+	// A date, day first or year first: "14.03.2019", "2019-03-14". Daily shows are out of the
+	// beta (D306 §4); a date is only kept from being read as an episode's number.
+	datePattern = regexp.MustCompile(`(?:^|[^\p{L}\p{N}])(?:[0-9]{1,2}[./-][0-9]{1,2}[./-](?:19|20)[0-9]{2}|` +
+		`(?:19|20)[0-9]{2}[./-][0-9]{1,2}[./-][0-9]{1,2})(?:[^\p{L}\p{N}]|$)`)
 	// A site's name a download put before the release name: "www.example.org - Show.S13E01".
 	sitePrefixPattern = regexp.MustCompile(
 		`(?i)^[\p{Z} ]*(?:www\.)?[\p{L}\p{N}-]+\.(?:org|com|net|to|info|io|cc|me|tv|ru|se|nz|ws)[\p{Z} ]*[-–][\p{Z} ]*`)
@@ -164,21 +177,45 @@ func findEpisode(stem string) (episodeMarker, bool) {
 			season: parseNonNegativeInt(stem[match[2]:match[3]]), episode: parseNonNegativeInt(stem[match[4]:match[5]]),
 			startIndex: match[0],
 		}
-		if match[6] >= 0 {
-			marker.lastEpisode = parseNonNegativeInt(stem[match[6]:match[7]])
-		}
+		marker.lastEpisode = lastOfRun(
+			stem[match[5]:], marker.season, marker.episode, episodeRunPattern, numberRunPattern)
 		return marker, true
 	}
-	for _, pattern := range []*regexp.Regexp{seasonXEpisodePattern, wordedEpisodePattern} {
-		if match := pattern.FindStringSubmatchIndex(stem); match != nil {
-			return episodeMarker{
-				season:     parseNonNegativeInt(stem[match[2]:match[3]]),
-				episode:    parseNonNegativeInt(stem[match[4]:match[5]]),
-				startIndex: match[0],
-			}, true
+	if match := seasonXEpisodePattern.FindStringSubmatchIndex(stem); match != nil {
+		marker := episodeMarker{
+			season: parseNonNegativeInt(stem[match[2]:match[3]]), episode: parseNonNegativeInt(stem[match[4]:match[5]]),
+			startIndex: match[0],
 		}
+		marker.lastEpisode = lastOfRun(stem[match[5]:], marker.season, marker.episode, numberRunPattern)
+		return marker, true
+	}
+	if match := wordedEpisodePattern.FindStringSubmatchIndex(stem); match != nil {
+		return episodeMarker{
+			season:     parseNonNegativeInt(stem[match[2]:match[3]]),
+			episode:    parseNonNegativeInt(stem[match[4]:match[5]]),
+			startIndex: match[0],
+		}, true
 	}
 	return episodeMarker{}, false
+}
+
+// lastOfRun is the last episode of a multi-episode file, read from rest, what follows its first
+// episode's number, by the run expressions given; 0 for a file of one. A run stays in its
+// marker's season and only climbs, so "S01E02-1080p", "S01E05-03" and "S01E05 S02E01" are one
+// episode each.
+func lastOfRun(rest string, season, episode int, runs ...*regexp.Regexp) int {
+	last := 0
+	for {
+		match := firstOf(rest, runs...)
+		if match == nil {
+			return last
+		}
+		number := parseNonNegativeInt(rest[match[4]:match[5]])
+		if (match[2] >= 0 && parseNonNegativeInt(rest[match[2]:match[3]]) != season) || number <= max(episode, last) {
+			return last
+		}
+		last, rest = number, rest[match[5]:]
+	}
 }
 
 // seriesFromFolders names a series from the folders above an episode: "Show/Season 01/x.mkv" and
@@ -331,14 +368,17 @@ func firstOf(text string, expressions ...*regexp.Regexp) []int {
 // seriesNumberedEpisode reads an episode's number written as a word after the series' name, as in
 // "ERASED 02 Palm of the Hand" or "[Group]_Kaito_Kumo_-_Tsuki_no_Onna_-_03_v2", and what
 // follows it. What comes before the number must end with the series' name, as textindex.SameWork
-// folds it, so a number inside an episode's own name is not taken for one.
+// folds it, so a number inside an episode's own name is not taken for one, and a date's numbers
+// are none ("Show 14.03.2019"). The separator after one number may be the one before the next,
+// as in "Station 9 05", so the numbers are read by everyMatch.
 func seriesNumberedEpisode(stem, seriesName string) (episode int, rest string, found bool) {
 	series := textindex.SameWork(seriesName)
 	if series == "" {
 		return 0, "", false
 	}
 	text := strings.TrimSpace(strings.ReplaceAll(bracketTagPattern.ReplaceAllString(stem, " "), "_", " "))
-	for _, match := range numberWordPattern.FindAllStringSubmatchIndex(text, -1) {
+	text = datePattern.ReplaceAllString(text, " ")
+	for _, match := range everyMatch(numberWordPattern, text) {
 		if strings.HasSuffix(textindex.SameWork(text[:match[0]]), series) {
 			return parseNonNegativeInt(text[match[2]:match[3]]), text[match[1]:], true
 		}
@@ -391,16 +431,39 @@ func episodeFolderNumber(folder string) (int, bool) {
 	return 0, false
 }
 
+// wordsBeforeTags are a name's words before its first release tag.
+func wordsBeforeTags(words []string) []string {
+	for index, word := range words {
+		// "Complete" ends a pack's name, "Show.COMPLETE.SERIES", but may begin a title; so does a cut's
+		// name, "Name Director's Cut", but not "The Director's Wife".
+		if isReleaseTag(word) || (index > 0 && strings.EqualFold(word, "complete")) ||
+			(index > 0 && index+1 < len(words) && isCutName(word, words[index+1])) {
+			return words[:index]
+		}
+	}
+	return words
+}
+
+// isCutName is whether two words name a film's cut: "Director's Cut", "Theatrical Edition".
+func isCutName(word, next string) bool {
+	switch strings.ToLower(word) {
+	case "director's", "director’s", "theatrical":
+		return strings.EqualFold(next, "cut") || strings.EqualFold(next, "edition")
+	}
+	return false
+}
+
 // cleanTitle turns a release-style stem into a title and its year: separators become spaces,
 // provider-id markers and bracketed groups go, and everything from the year or the first release
 // tag on is cut.
 func cleanTitle(stem string) (name string, year int) {
-	text := bareIMDbPattern.ReplaceAllString(providerIDPattern.ReplaceAllString(stem, " "), " ")
+	// An id goes without a trace, so "Show.2016.[tt7654321].1080p" stays a dotted name.
+	text := bareIMDbPattern.ReplaceAllString(providerIDPattern.ReplaceAllString(stem, ""), "")
 	text = leadingGroupPattern.ReplaceAllString(text, "")
 	if !strings.ContainsFunc(text, unicode.IsSpace) {
 		text = strings.NewReplacer(".", " ", "_", " ").Replace(text)
 	}
-	if matches := yearsIn(text); len(matches) > 0 {
+	if matches := everyMatch(yearPattern, text); len(matches) > 0 {
 		// The last year-looking number is the year; an earlier one is part of the name, as in
 		// "7th Heaven (1968)" or "Glass Runner 2061 (2017)".
 		last := matches[len(matches)-1]
@@ -410,28 +473,21 @@ func cleanTitle(stem string) (name string, year int) {
 			text = text[:last[0]]
 		}
 	}
-	words := strings.Fields(text)
-	for index, word := range words {
-		// "Complete" ends a pack's name, "Show.COMPLETE.SERIES", but may begin a title.
-		if isReleaseTag(word) || (index > 0 && strings.EqualFold(word, "complete")) {
-			words = words[:index]
-			break
-		}
-	}
-	name = strings.Join(words, " ")
+	name = strings.Join(wordsBeforeTags(strings.Fields(text)), " ")
 	name = strings.TrimFunc(name, func(r rune) bool {
 		return unicode.IsSpace(r) || r == '-' || r == '(' || r == '[' || r == '.' || r == ','
 	})
 	return name, year
 }
 
-// yearsIn finds every year-looking number in text, each as yearPattern's match: one search after
-// another, each from the end of the last year's digits, since the separator after one year is the
-// one before the next ("1917 2019", a film named for a year), which FindAll would have consumed.
-func yearsIn(text string) [][]int {
+// everyMatch finds every match of an expression whose first group is a number between separators,
+// as a year or an episode's number is: one search after another, each from the end of the last
+// number's digits, since the separator after one number is the one before the next ("1917 2019", a
+// film named for a year), which FindAll would have consumed.
+func everyMatch(expression *regexp.Regexp, text string) [][]int {
 	var found [][]int
 	for from := 0; from < len(text); {
-		match := yearPattern.FindStringSubmatchIndex(text[from:])
+		match := expression.FindStringSubmatchIndex(text[from:])
 		if match == nil {
 			break
 		}
