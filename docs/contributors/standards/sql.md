@@ -268,10 +268,9 @@ then; [audit-checklist](../audit-checklist.md) item 23 asks the questions at eve
 
 - **Decide outside, verify inside** (M1). A write whose content depends on something read
   outside its transaction re-checks it inside: a compare-and-set predicate (`WHERE revision = ?`,
-  `WHERE input_fingerprint IS ?`, or a domain guard like `MovePlayPosition`'s), or a re-read. A
-  zero-row result is a conflict to retry or drop, never success. Rows people edit carry a
-  `revision` raised on every write. **Enforced by:** a test that a person's edit between a job's
-  read and its write wins *(D303 C)*.
+  or a domain guard like `MovePlayPosition`'s), or a re-read. A zero-row result is a conflict to
+  retry or drop, never success. Rows people edit carry a `revision` raised on every write.
+  **Enforced by:** a test that a person's edit between a job's read and its write wins *(D303 C)*.
 - **A read built from several queries uses one read transaction** (M2): `ReadTx`, which pins one
   connection and one snapshot. Inside it, read only through its queries: a `Read()` inside waits
   for another reader, and once every reader is lent to a `ReadTx` that waits the same way, none
@@ -370,9 +369,11 @@ then; [audit-checklist](../audit-checklist.md) item 23 asks the questions at eve
   what it touched; the whole-library run is a backstop that compares before it writes.
   **Enforced by:** a test that changing one item writes O(1) rows, and one that incremental
   equals rebuilt *(D303 C)*.
-- **A derivation knows its inputs are unchanged without recomputing** (DL13): a fingerprint of
-  the inputs' values and a rules version, bumped when the derivation's output on a fixed corpus
-  changes. **Enforced by:** the corpus-hash test *(D303 C)*.
+- **A derivation compares before it writes, and the whole-library run is its backstop** (DL13,
+  as D304 §3 amends it): no fingerprint of its inputs is kept. A run over unchanged inputs reads,
+  on a reader, and writes nothing. **Enforced by:**
+  `TestPass_OverAnUnchangedLibraryRunsTheSameStatementsAtTwiceItsSizeAndTakesNoWriter`,
+  `TestPass_AgainOverAnUnchangedLibraryWritesNothing`.
 - **Requests to re-derive coalesce** (DL14): a burst marks work and wakes one worker; a mark a
   stop loses is derived again by the backstop run at start. **Enforced by:**
   `TestMatch_SeriesMatchesInOneLibraryAreFollowedByOnePass`,
