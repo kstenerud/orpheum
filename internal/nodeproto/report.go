@@ -213,6 +213,11 @@ const (
 	SkipAppleDouble SkipRule = "appledouble"
 	// SkipExtension is a file whose extension is not a video extension the node probes.
 	SkipExtension SkipRule = "extension"
+	// SkipSystem is a folder a NAS or an operating system keeps for itself beside the media: a
+	// recycle bin, snapshots, thumbnails, an index (design/research/library-scanner-practice-
+	// 2026-10-16.md §5.3: Synology's "#recycle" was read as a film's folder, a series' in a series
+	// library).
+	SkipSystem SkipRule = "system"
 	// SkipSymlinkOutsideRoots is a symlink whose target is outside every media root (D206).
 	SkipSymlinkOutsideRoots SkipRule = "symlink_outside_roots"
 	// SkipNotRegular is something that is neither a file, a directory nor a symlink: a device,

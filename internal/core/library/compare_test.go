@@ -62,6 +62,37 @@ func examined(taken TakenListing) []string {
 // The library's rules are the core's (D240 §3): a listing's trash, samples, AppleDouble files and
 // files of no kind it reads are filed skipped, and what it reads is left to be read, in the listing's
 // order.
+// The folders a NAS or an operating system keeps for itself are skipped, at any depth, each filed
+// with its rule: Synology's recycle bin was read as a film's folder (library-scanner-practice-
+// 2026-10-16.md §5.3).
+func TestTakeListing_SkipsTheFoldersANASOrAnOperatingSystemKeepsForItself(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	taken := world.takeListing([]nodeproto.ScanRecord{
+		listedDirectory("#recycle"),
+		listedFile("#recycle/Old Film (1950)/Old Film (1950).mkv", 3, 1),
+		listedDirectory(".snapshot"),
+		listedFile(".snapshot/daily.0/Metropolis (1995)/Metropolis.mkv", 3, 1),
+		listedDirectory("Metropolis (1995)"),
+		listedFile("Metropolis (1995)/Metropolis.mkv", 4, 1),
+		listedDirectory("Metropolis (1995)/@eaDir"),
+		listedFile("Metropolis (1995)/@eaDir/Metropolis.mkv", 4, 1),
+	}, false)
+	if got, want := examined(taken), []string{"video Metropolis (1995)/Metropolis.mkv"}; !slices.Equal(got, want) {
+		t.Errorf("to read %v, want %v", got, want)
+	}
+	skipped := map[string]string{}
+	for path, file := range world.liveFilesByPath() {
+		if file.Filing == FilingSkipped {
+			skipped[strings.TrimPrefix(path, root+"/")] = *file.FilingReason
+		}
+	}
+	want := map[string]string{"#recycle": "system", ".snapshot": "system", "Metropolis (1995)/@eaDir": "system"}
+	if !mapsEqual(skipped, want) {
+		t.Errorf("skipped %v, want %v", skipped, want)
+	}
+}
+
 func TestTakeListing_FilesEachEntryByTheLibrarysRules(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
