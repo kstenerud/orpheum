@@ -68,6 +68,10 @@ func (filer *libraryFiler) cachedSeriesMatch(
 	if row, found := filer.seriesMatchByID[seriesID]; found {
 		return row, nil
 	}
+	if row, held := filer.snap.seriesMatch[seriesID]; held {
+		filer.seriesMatchByID[seriesID] = row
+		return row, nil
+	}
 	row, err := filer.queries.GetSeriesForMatch(ctx, seriesID)
 	if err != nil {
 		return row, fmt.Errorf("read series %d's match: %w", seriesID, err)
@@ -85,7 +89,11 @@ func (filer *libraryFiler) seasonListing(
 	if episodes, found := filer.listings[key]; found {
 		return episodes, episodes != nil, nil
 	}
-	episodes, err := storedListing(ctx, filer.queries, provider, seriesID, season)
+	bodyGzip, isFetched, err := filer.storedResponse(ctx, seriesID, provider.Name(), seasonPart(season))
+	if err != nil {
+		return nil, false, fmt.Errorf("read series %d's season %d: %w", seriesID, season, err)
+	}
+	episodes, err := parseListing(provider, seriesID, season, bodyGzip, isFetched)
 	if err != nil {
 		return nil, false, err
 	}
@@ -106,6 +114,14 @@ func storedListing(
 	if err != nil {
 		return nil, fmt.Errorf("read series %d's season %d: %w", seriesID, season, err)
 	}
+	return parseListing(provider, seriesID, season, bodyGzip, true)
+}
+
+// parseListing parses a stored season listing; nil when it was never fetched.
+func parseListing(provider Provider, seriesID int64, season int, bodyGzip []byte, isFetched bool) ([]Episode, error) {
+	if !isFetched {
+		return nil, nil
+	}
 	body, err := bounded.Gunzip(bodyGzip, maxStoredResponseBytes)
 	if err != nil {
 		return nil, fmt.Errorf("series %d's season %d: %w", seriesID, season, err)
@@ -125,13 +141,12 @@ func storedListing(
 
 // seasonsToFetch are the seasons of a series whose listing is missing, or was fetched before an
 // episode of it arrived that it does not list: a new episode is a first fetch (D170, D209 §3).
-func seasonsToFetch(ctx context.Context, queries *sqlcgen.Queries, provider Provider, seriesID int64) ([]int, error) {
-	episodes, err := queries.ListLiveSeriesEpisodeSources(ctx, seriesID)
+func seasonsToFetch(ctx context.Context, reads seasonReads, provider Provider, seriesID int64) ([]int, error) {
+	episodes, err := reads.liveEpisodeSources(ctx, seriesID)
 	if err != nil {
 		return nil, fmt.Errorf("list series %d's episodes: %w", seriesID, err)
 	}
 	var seasons []int
-	listings := map[int][]Episode{}
 	for _, episode := range episodes {
 		if episode.FollowedSource != nil && *episode.FollowedSource == sourceNFO {
 			continue // its own NFO speaks for it
@@ -140,15 +155,8 @@ func seasonsToFetch(ctx context.Context, queries *sqlcgen.Queries, provider Prov
 		if slices.Contains(seasons, season) {
 			continue
 		}
-		listing, isCached := listings[season]
-		if !isCached {
-			if listing, err = storedListing(ctx, queries, provider, seriesID, season); err != nil {
-				return nil, err
-			}
-			listings[season] = listing
-		}
 		where := seasonAtProvider{provider: provider, seriesID: seriesID, season: season}
-		stale, err := isListingStale(ctx, queries, where, listing, number, episode.AddedAt)
+		stale, err := isListingStale(ctx, reads, where, number, episode.AddedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -158,6 +166,51 @@ func seasonsToFetch(ctx context.Context, queries *sqlcgen.Queries, provider Prov
 	}
 	slices.Sort(seasons)
 	return seasons, nil
+}
+
+// seasonReads are what seasonsToFetch reads: the database, or a pass's snapshot of it.
+type seasonReads interface {
+	// liveEpisodeSources are a series' live episodes in its aired order, with where each takes
+	// its values from and when it first appeared (ListLiveSeriesEpisodeSources).
+	liveEpisodeSources(ctx context.Context, seriesID int64) ([]sqlcgen.ListLiveSeriesEpisodeSourcesRow, error)
+	// listing is a season's stored listing, nil when it was never fetched.
+	listing(ctx context.Context, where seasonAtProvider) ([]Episode, error)
+	// listingFetchedAt is when a season's stored listing was fetched.
+	listingFetchedAt(ctx context.Context, where seasonAtProvider) (int64, error)
+}
+
+// storedSeasons are seasonReads through queries, a season's listing parsed once.
+type storedSeasons struct {
+	queries  *sqlcgen.Queries
+	listings map[int][]Episode
+}
+
+func (stored *storedSeasons) liveEpisodeSources(
+	ctx context.Context, seriesID int64) ([]sqlcgen.ListLiveSeriesEpisodeSourcesRow, error,
+) {
+	return stored.queries.ListLiveSeriesEpisodeSources(ctx, seriesID) //nolint:wrapcheck // seasonsToFetch says which
+}
+
+func (stored *storedSeasons) listing(ctx context.Context, where seasonAtProvider) ([]Episode, error) {
+	if listing, isParsed := stored.listings[where.season]; isParsed {
+		return listing, nil
+	}
+	listing, err := storedListing(ctx, stored.queries, where.provider, where.seriesID, where.season)
+	if err != nil {
+		return nil, err
+	}
+	if stored.listings == nil {
+		stored.listings = map[int][]Episode{}
+	}
+	stored.listings[where.season] = listing
+	return listing, nil
+}
+
+func (stored *storedSeasons) listingFetchedAt(ctx context.Context, where seasonAtProvider) (int64, error) {
+	listing := sqlcgen.GetProviderResponseFetchedAtParams{
+		ItemID: where.seriesID, Provider: where.provider.Name(), Part: seasonPart(where.season),
+	}
+	return stored.queries.GetProviderResponseFetchedAt(ctx, listing) //nolint:wrapcheck // isListingStale says which
 }
 
 // seasonAtProvider names one season of a series at a provider.
@@ -170,21 +223,18 @@ type seasonAtProvider struct {
 // isListingStale reports whether a season's listing must be fetched for an episode: it was never
 // fetched, or it does not list the episode and was fetched before the episode arrived.
 func isListingStale(
-	ctx context.Context, queries *sqlcgen.Queries, where seasonAtProvider, listing []Episode, number int,
-	arrivedAt int64,
+	ctx context.Context, reads seasonReads, where seasonAtProvider, number int, arrivedAt int64,
 ) (bool, error) {
-	provider, seriesID, season := where.provider, where.seriesID, where.season
-	if listing == nil {
-		return true, nil
+	listing, err := reads.listing(ctx, where)
+	if err != nil || listing == nil {
+		return err == nil, err
 	}
 	if slices.ContainsFunc(listing, func(episode Episode) bool { return episode.Number == number }) {
 		return false, nil
 	}
-	fetchedAt, err := queries.GetProviderResponseFetchedAt(ctx, sqlcgen.GetProviderResponseFetchedAtParams{
-		ItemID: seriesID, Provider: provider.Name(), Part: seasonPart(season),
-	})
+	fetchedAt, err := reads.listingFetchedAt(ctx, where)
 	if err != nil {
-		return false, fmt.Errorf("read when series %d's season %d was fetched: %w", seriesID, season, err)
+		return false, fmt.Errorf("read when series %d's season %d was fetched: %w", where.seriesID, where.season, err)
 	}
 	return arrivedAt > fetchedAt, nil
 }
@@ -206,7 +256,7 @@ func (filer *libraryFiler) resolveSeries(ctx context.Context, seriesID int64, sp
 	if recordErr := filer.recordSeriesIDs(ctx, seriesID, spec, values); recordErr != nil {
 		return recordErr
 	}
-	overrides, err := filer.queries.ListOverrides(ctx, seriesID)
+	overrides, err := filer.itemOverrides(ctx, seriesID)
 	if err != nil {
 		return fmt.Errorf("read series %d's overrides: %w", seriesID, err)
 	}
@@ -218,12 +268,12 @@ func (filer *libraryFiler) resolveSeries(ctx context.Context, seriesID int64, sp
 		identification = identificationIdentified
 	}
 	year, _ := strconv.ParseInt(values[fieldYear], 10, 64) //nolint:errcheck // zero when unset
-	err = filer.queries.UpdateSeriesResolved(ctx, sqlcgen.UpdateSeriesResolvedParams{
+	err = filer.resolveSeriesValues(ctx, sqlcgen.UpdateSeriesResolvedParams{
 		Year: ptr.NilIfZero(year), FollowedSource: ptr.NilIfZero(source), IdentificationState: &identification,
 		ID: seriesID,
 	})
 	if err != nil {
-		return fmt.Errorf("resolve series %d: %w", seriesID, err)
+		return err
 	}
 	err = filer.writeText(ctx, seriesID, itemText{
 		sortListing: KindSeries, name: values[fieldName], overview: values[fieldOverview],
@@ -233,7 +283,7 @@ func (filer *libraryFiler) resolveSeries(ctx context.Context, seriesID int64, sp
 	}
 	filer.reportImages(seriesID, source, own.artwork)
 	if known && isSeriesMatched(seriesMatchRow) {
-		seasons, err := seasonsToFetch(ctx, filer.queries, provider, seriesID)
+		seasons, err := seasonsToFetch(ctx, filer, provider, seriesID)
 		if err != nil {
 			return err
 		}
@@ -272,9 +322,7 @@ func (filer *libraryFiler) seriesValues(
 		}
 		return seriesSourceValues{values: values, source: source}, nil
 	}
-	bodyGzip, err := filer.queries.GetProviderResponse(ctx, sqlcgen.GetProviderResponseParams{
-		ItemID: seriesID, Provider: provider.Name(), Part: "",
-	})
+	bodyGzip, err := filer.ownResponse(ctx, seriesID, provider.Name())
 	if err != nil {
 		return seriesSourceValues{}, fmt.Errorf("read series %d's %s response: %w", seriesID, provider.Name(), err)
 	}
@@ -297,9 +345,7 @@ func (filer *libraryFiler) recordSeriesIDs(
 	ctx context.Context, seriesID int64, spec seriesSpec, values map[string]string,
 ) error {
 	for provider, id := range spec.ids {
-		err := filer.queries.InsertItemProviderID(ctx, sqlcgen.InsertItemProviderIDParams{
-			ItemID: seriesID, Provider: provider, ProviderID: id,
-		})
+		err := filer.keepProviderID(ctx, seriesID, provider, id)
 		if err != nil {
 			return fmt.Errorf("record series %d's %s %s: %w", seriesID, provider, id, err)
 		}
@@ -309,9 +355,7 @@ func (filer *libraryFiler) recordSeriesIDs(
 		if !overridable {
 			continue
 		}
-		err := filer.queries.InsertOverrideIfAbsent(ctx, sqlcgen.InsertOverrideIfAbsentParams{
-			ItemID: seriesID, Field: field, OverrideValue: value, Origin: "nfo", SetAt: filer.nowMs,
-		})
+		err := filer.overrideIfAbsent(ctx, seriesID, field, value, "nfo")
 		if err != nil {
 			return fmt.Errorf("record series %d's locked %s: %w", seriesID, field, err)
 		}

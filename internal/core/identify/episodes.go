@@ -4,7 +4,6 @@ package identify
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 	"path"
@@ -13,7 +12,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
-	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -182,12 +180,9 @@ func (filer *libraryFiler) currentSeries(ctx context.Context, file sqlcgen.ListI
 		return 0, err
 	}
 	// Found through its place rather than its name.
-	place, err := store.OrNotFound(filer.queries.GetEpisodePlace(ctx, titleID))
-	if errors.Is(err, store.ErrNotFound) {
-		return 0, nil
-	}
-	if err != nil {
-		return 0, fmt.Errorf("read title %d's series: %w", titleID, err)
+	place, isEpisode, err := filer.episodePlace(ctx, titleID)
+	if err != nil || !isEpisode {
+		return 0, err
 	}
 	return place.CollectionID, nil
 }
@@ -269,6 +264,7 @@ func (filer *libraryFiler) findOrAddSeries(ctx context.Context, evidence seriesS
 	if err != nil {
 		return 0, fmt.Errorf("add series %q: %w", name, err)
 	}
+	filer.snap.holdAdded(id, "")
 	if err := filer.writeText(ctx, id, itemText{sortListing: KindSeries, name: name}); err != nil {
 		return 0, err
 	}
@@ -279,18 +275,18 @@ func (filer *libraryFiler) findOrAddSeries(ctx context.Context, evidence seriesS
 // positionEpisode puts an episode in its series and in the series' aired order.
 func (filer *libraryFiler) positionEpisode(ctx context.Context, seriesID, titleID int64, season, number int) error {
 	sortOrder := float64(season)*10_000 + float64(number)
-	err := filer.queries.UpsertCollectionMember(ctx, sqlcgen.UpsertCollectionMemberParams{
+	err := filer.keepMember(ctx, sqlcgen.UpsertCollectionMemberParams{
 		CollectionID: seriesID, MemberTitle: &titleID, Position: &sortOrder,
 	})
 	if err != nil {
 		return fmt.Errorf("add title %d to series %d: %w", titleID, seriesID, err)
 	}
-	ordering, err := airedOrderingOf(ctx, filer.queries, seriesID)
+	ordering, err := filer.airedOrdering(ctx, seriesID)
 	if err != nil {
 		return err
 	}
 	groupNumber, numberInGroup := int64(season), int64(number)
-	err = filer.queries.UpsertPosition(ctx, sqlcgen.UpsertPositionParams{
+	err = filer.keepPosition(ctx, sqlcgen.UpsertPositionParams{
 		OrderingID: ordering, TitleID: titleID, GroupNumber: &groupNumber, NumberInGroup: &numberInGroup,
 		SortOrder: sortOrder,
 	})
@@ -304,18 +300,18 @@ func (filer *libraryFiler) positionEpisode(ctx context.Context, seriesID, titleI
 // numbered ones, with no number of its own.
 func (filer *libraryFiler) positionUnnumbered(ctx context.Context, seriesID, titleID int64) error {
 	sortOrder := float64(unnumberedSortOrder)
-	err := filer.queries.UpsertCollectionMember(ctx, sqlcgen.UpsertCollectionMemberParams{
+	err := filer.keepMember(ctx, sqlcgen.UpsertCollectionMemberParams{
 		CollectionID: seriesID, MemberTitle: &titleID, Position: &sortOrder,
 	})
 	if err != nil {
 		return fmt.Errorf("add title %d to series %d: %w", titleID, seriesID, err)
 	}
-	ordering, err := airedOrderingOf(ctx, filer.queries, seriesID)
+	ordering, err := filer.airedOrdering(ctx, seriesID)
 	if err != nil {
 		return err
 	}
 	season := int64(0)
-	err = filer.queries.UpsertPosition(ctx, sqlcgen.UpsertPositionParams{
+	err = filer.keepPosition(ctx, sqlcgen.UpsertPositionParams{
 		OrderingID: ordering, TitleID: titleID, GroupNumber: &season, NumberInGroup: nil, SortOrder: sortOrder,
 	})
 	if err != nil {

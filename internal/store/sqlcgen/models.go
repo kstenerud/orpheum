@@ -4,6 +4,17 @@
 
 package sqlcgen
 
+type FileNFO struct {
+	FileID int64
+	Body   []byte
+}
+
+type ItemProviderID struct {
+	ItemID     int64
+	Provider   string
+	ProviderID string
+}
+
 type Loudness struct {
 	PayloadHash    []byte
 	StreamIndex    int64

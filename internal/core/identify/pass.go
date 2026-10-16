@@ -4,7 +4,6 @@ package identify
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -123,14 +122,17 @@ func (pass *Pass) IdentifyAll(ctx context.Context) (int, error) {
 	return passed, nil
 }
 
-// IdentifyLibrary identifies every video in a library, in one transaction.
+// IdentifyLibrary identifies every video in a library, in one transaction: a read alone when
+// nothing would change, and the writer's only when something does.
 func (pass *Pass) IdentifyLibrary(ctx context.Context, libraryID int64) (Report, error) {
 	var report Report
 	sorter, err := pass.sorter(ctx)
 	if err != nil {
 		return Report{}, err
 	}
-	err = pass.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+	// A pass over a library nothing changed in reads alone, and never takes the writer (D303, DL9).
+	_, err = pass.database.WriteUnlessUnchanged(ctx, func(queries *sqlcgen.Queries) error {
+		report = Report{}
 		filer := &libraryFiler{
 			queries: queries, nowMs: pass.clock.Now().UnixMilli(), report: &report, providers: pass.providers,
 			sorter:       sorter,
@@ -192,6 +194,9 @@ type libraryFiler struct {
 	// contradicted are the files whose place their path now contradicts, filed again as a moved
 	// file is (contradictedPlacements).
 	contradicted map[int64]bool
+	// snap is what the pass read of the library at its start, which it compares against before it
+	// writes; none in a match's filer.
+	snap snapshot
 }
 
 // listAwaitingMatch lists what the fetch queue owes the library: films and series never answered for.
@@ -351,20 +356,20 @@ func (filer *libraryFiler) contradictedPlacements(ctx context.Context) error {
 		if !isVideo(file) || !ok || file.VersionID == nil || hasMoved(file) {
 			continue
 		}
-		current, err := filer.queries.GetVersionTitle(ctx, *file.VersionID)
+		current, err := filer.versionTitle(ctx, *file.VersionID)
 		if err != nil {
 			return fmt.Errorf("read %s's version: %w", file.Path, err)
 		}
 		if current.IdentificationState == identificationConfirmed {
 			continue
 		}
-		place, err := store.OrNotFound(filer.queries.GetEpisodePlace(ctx, current.TitleID))
-		if errors.Is(err, store.ErrNotFound) {
+		place, isEpisode, err := filer.episodePlace(ctx, current.TitleID)
+		if err != nil {
+			return err
+		}
+		if !isEpisode {
 			filer.contradicted[file.ID] = true // not an episode
 			continue
-		}
-		if err != nil {
-			return fmt.Errorf("read title %d's series: %w", current.TitleID, err)
 		}
 		series, err := filer.cachedSeriesMatch(ctx, place.CollectionID)
 		if err != nil {
@@ -477,15 +482,14 @@ func (filer *libraryFiler) newVersion(ctx context.Context, file sqlcgen.ListIden
 func (filer *libraryFiler) keepOrMove(
 	ctx context.Context, file sqlcgen.ListIdentifyFilesRow, titleID int64) (int64, error,
 ) {
-	current, err := filer.queries.GetVersionTitle(ctx, *file.VersionID)
+	current, err := filer.versionTitle(ctx, *file.VersionID)
 	if err != nil {
 		return 0, fmt.Errorf("read %s's version: %w", file.Path, err)
 	}
 	if current.IdentificationState == identificationConfirmed || !filer.isFiledAgain(file) {
 		titleID = current.TitleID
 	} else if current.TitleID != titleID {
-		move := sqlcgen.MoveVersionToTitleParams{TitleID: titleID, ID: *file.VersionID}
-		err = filer.queries.MoveVersionToTitle(ctx, move)
+		err = filer.moveVersion(ctx, *file.VersionID, titleID)
 		if err != nil {
 			return 0, fmt.Errorf("move %s to its title: %w", file.Path, err)
 		}
@@ -511,7 +515,7 @@ func (filer *libraryFiler) currentTitle(ctx context.Context, file sqlcgen.ListId
 	if file.VersionID == nil || filer.isFiledAgain(file) {
 		return 0, false, nil
 	}
-	current, err := filer.queries.GetVersionTitle(ctx, *file.VersionID)
+	current, err := filer.versionTitle(ctx, *file.VersionID)
 	if err != nil {
 		return 0, false, fmt.Errorf("read %s's version: %w", file.Path, err)
 	}

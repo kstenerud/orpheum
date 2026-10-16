@@ -40,3 +40,25 @@ func TestNilIfZero_WritesZeroAsNil(t *testing.T) {
 		t.Errorf("no number: %d", *got)
 	}
 }
+
+func TestEqual_ComparesWhatThePointersHold(t *testing.T) {
+	t.Parallel()
+	first, second, other, empty := "text", "text", "other", ""
+	cases := []struct {
+		name        string
+		left, right *string
+		isEqual     bool
+	}{
+		{"both nil", nil, nil, true},
+		{"one nil", &first, nil, false},
+		{"the other nil", nil, &first, false},
+		{"nil and an empty string", nil, &empty, false},
+		{"equal values at two addresses", &first, &second, true},
+		{"different values", &first, &other, false},
+	}
+	for _, each := range cases {
+		if got := ptr.Equal(each.left, each.right); got != each.isEqual {
+			t.Errorf("%s: Equal = %v, want %v", each.name, got, each.isEqual)
+		}
+	}
+}

@@ -20,3 +20,12 @@ func NilIfZero[T comparable](value T) *T {
 	}
 	return &value
 }
+
+// Equal is whether two pointers are both nil, or point to equal values: two nullable columns
+// holding the same value, which == on the pointers does not see.
+func Equal[T comparable](first, second *T) bool {
+	if first == nil || second == nil {
+		return first == second
+	}
+	return *first == *second
+}

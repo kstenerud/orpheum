@@ -25,19 +25,23 @@ type itemText struct {
 // is already clean: paths, NFO files, providers and people are cleaned where they enter
 // (principles §22).
 func (filer *libraryFiler) writeText(ctx context.Context, itemID int64, text itemText) error {
-	err := filer.queries.UpsertOriginalText(ctx, sqlcgen.UpsertOriginalTextParams{
+	original := sqlcgen.UpsertOriginalTextParams{
 		ItemID: itemID, Language: langtag.Undetermined, Name: text.name, Overview: ptr.NilIfZero(text.overview),
 		Tagline: ptr.NilIfZero(text.tagline), SearchAlternates: ptr.NilIfZero(textindex.Fold(text.name)),
-	})
-	if err != nil {
-		return fmt.Errorf("name item %d: %w", itemID, err)
 	}
-	err = filer.queries.UpsertSortKey(ctx, sqlcgen.UpsertSortKeyParams{
+	sortKey := sqlcgen.UpsertSortKeyParams{
 		ItemID: itemID, Locale: filer.sorter.Locale(), Listing: text.sortListing,
 		CollationKey: filer.sorter.Key(text.name),
-	})
-	if err != nil {
+	}
+	if filer.isTextHeld(itemID, original, sortKey) {
+		return nil
+	}
+	if err := filer.queries.UpsertOriginalText(ctx, original); err != nil {
+		return fmt.Errorf("name item %d: %w", itemID, err)
+	}
+	if err := filer.queries.UpsertSortKey(ctx, sortKey); err != nil {
 		return fmt.Errorf("sort item %d: %w", itemID, err)
 	}
+	filer.noteText(itemID, original, sortKey)
 	return nil
 }

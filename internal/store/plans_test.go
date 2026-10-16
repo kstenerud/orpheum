@@ -296,23 +296,39 @@ func weakSearchesAllowed() map[string]string {
 		library = "it reads a library's files or items, all of them, by design: "
 		node    = "it reads a node's files, all of them, by design: "
 		person  = "it reads a person's history, all of it, by design: "
+		// snapshot is the identification pass's read of its library at its start.
+		snapshot = "the identification pass's snapshot"
 	)
 	return map[string]string{
 		"ListLiveFilesOfLibraryOnNode":    library + "a scan's comparison",
 		"ListLiveFilesForAttaching":       library + "a scan's attaching of sidecars",
 		"ListFilesToCompare":              library + "a scan's comparison",
 		"ListFilesAHeldBackScanDidNotSee": library + "what a withheld scan would remove",
-		"ListIdentifyFiles":               library + "the identification pass, which D303 phase C splits",
+		"ListIdentifyFiles":               library + "the identification pass",
 		"ListLibraryTitles":               library + "the identification pass",
-		"ListFileTitles":                  library + "the scanner view",
-		"CountLibraryFilings":             library + "the scanner view's counts",
-		"TombstoneLiveFilesOfLibrary":     library + "a library's removal",
-		"ListTitlesWithoutLiveFiles":      library + "a library's removal",
-		"TombstoneItemsOfLibrary":         library + "a library's removal",
-		"ListLiveFilesByNode":             node + "the System page's files of a node",
-		"DeletePlaySpansOfUser":           person + "their removal",
-		"DeletePlayPositionsOfUser":       person + "their removal",
-		"GetWatchStats":                   person + "their watching's totals",
+		// What the pass reads of its library at its start, once a pass, so that it runs no
+		// statement per file (D303, DL7).
+		"ListLibraryVersionTitles":       library + snapshot,
+		"ListLibraryNFOBodies":           library + snapshot,
+		"ListLibraryTitlesForPass":       library + snapshot,
+		"ListLibraryOverrides":           library + snapshot,
+		"ListLibraryProviderIDs":         library + snapshot,
+		"ListLibraryOriginalTexts":       library + snapshot,
+		"ListLibraryAiredPositions":      library + snapshot,
+		"ListLibrarySeriesForPass":       library + snapshot,
+		"ListLibrarySeriesEpisodePlaces": library + snapshot,
+		"ListLibraryProviderResponses":   library + snapshot,
+		"ListLibraryLiveEpisodeSources":  library + snapshot,
+		"ListLibraryExtraRelations":      library + snapshot,
+		"ListFileTitles":                 library + "the scanner view",
+		"CountLibraryFilings":            library + "the scanner view's counts",
+		"TombstoneLiveFilesOfLibrary":    library + "a library's removal",
+		"ListTitlesWithoutLiveFiles":     library + "a library's removal",
+		"TombstoneItemsOfLibrary":        library + "a library's removal",
+		"ListLiveFilesByNode":            node + "the System page's files of a node",
+		"DeletePlaySpansOfUser":          person + "their removal",
+		"DeletePlayPositionsOfUser":      person + "their removal",
+		"GetWatchStats":                  person + "their watching's totals",
 	}
 }
 

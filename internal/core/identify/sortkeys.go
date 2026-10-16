@@ -16,8 +16,9 @@ import (
 // and its fold for search, what this build derives from the name, now. Both are functions of a
 // stored name and the locale alone, so neither a change of locale nor a build that collates or
 // folds otherwise waits for a scan (D47, D48; agent-failures A4). It compares each stored key and
-// fold with one derived afresh, rewrites only those that differ, and drops other locales' keys.
-// It returns how many items it rewrote.
+// fold with one derived afresh, rewrites only those that differ, and drops other locales' keys;
+// when nothing differs it reads alone, and never takes the writer (D303, DL9). It returns how many
+// items it rewrote.
 func (pass *Pass) RefreshSortAndSearchKeys(ctx context.Context) (int, error) {
 	sorter, err := pass.sorter(ctx)
 	if err != nil {
@@ -25,9 +26,16 @@ func (pass *Pass) RefreshSortAndSearchKeys(ctx context.Context) (int, error) {
 	}
 	locale := sorter.Locale()
 	rewrittenCount := 0
-	err = pass.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		if dropErr := queries.DeleteSortKeysOfOtherLocales(ctx, locale); dropErr != nil {
-			return fmt.Errorf("drop other locales' sort keys: %w", dropErr)
+	_, err = pass.database.WriteUnlessUnchanged(ctx, func(queries *sqlcgen.Queries) error {
+		rewrittenCount = 0
+		hasOther, checkErr := queries.HasSortKeysOfOtherLocales(ctx, locale)
+		if checkErr != nil {
+			return fmt.Errorf("look for other locales' sort keys: %w", checkErr)
+		}
+		if hasOther {
+			if dropErr := queries.DeleteSortKeysOfOtherLocales(ctx, locale); dropErr != nil {
+				return fmt.Errorf("drop other locales' sort keys: %w", dropErr)
+			}
 		}
 		rows, listErr := queries.ListNamesWithSortAndSearchKeys(ctx, locale)
 		if listErr != nil {

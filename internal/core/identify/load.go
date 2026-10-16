@@ -26,6 +26,9 @@ func (filer *libraryFiler) load(ctx context.Context, libraryID int64) error {
 	if filer.files, err = filer.queries.ListIdentifyFiles(ctx, libraryID); err != nil {
 		return fmt.Errorf("list its files: %w", err)
 	}
+	if err := filer.loadSnapshot(ctx, libraryID); err != nil {
+		return err
+	}
 	if filer.library.MetadataSource != sourceTMDB {
 		if err := filer.loadNFOs(ctx); err != nil {
 			return err
@@ -43,7 +46,7 @@ func (filer *libraryFiler) loadNFOs(ctx context.Context) error {
 		if file.Filing != library.FilingAttached || !isNFO {
 			continue
 		}
-		body, bodyErr := filer.queries.GetNFOBody(ctx, file.ID)
+		body, bodyErr := filer.nfoBody(ctx, file.ID)
 		if bodyErr != nil {
 			return fmt.Errorf("read the NFO %s: %w", file.Path, bodyErr)
 		}
@@ -82,18 +85,20 @@ func (filer *libraryFiler) loadTitles(ctx context.Context, libraryID int64) erro
 		if show.Name == nil {
 			continue
 		}
+		filer.snap.holdSeries(show.ID)
 		filer.seriesIDByName[textindex.SameWork(*show.Name)] = show.ID
 		if err := filer.knowEpisodesOf(ctx, show.ID); err != nil {
 			return err
 		}
 	}
+	filer.snap.seriesPlaces = nil // the pass's writes would leave it behind: a later read asks
 	return nil
 }
 
 // knowEpisodesOf lets a series' episodes be found at their places. One hidden with a deleted
 // library comes back when a file of it is filed (D231 section 7).
 func (filer *libraryFiler) knowEpisodesOf(ctx context.Context, seriesID int64) error {
-	episodes, err := filer.queries.ListSeriesEpisodePlaces(ctx, seriesID)
+	episodes, err := filer.seriesEpisodePlaces(ctx, seriesID)
 	if err != nil {
 		return fmt.Errorf("list the episodes of series %d: %w", seriesID, err)
 	}

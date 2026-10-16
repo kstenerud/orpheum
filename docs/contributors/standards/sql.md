@@ -345,7 +345,7 @@ then; [audit-checklist](../audit-checklist.md) item 23 asks the questions at eve
   (`TestWrite_ReportsAWriteAReadingRequestMakes`, `TestHandler_MarksAGetOrAHeadAsReading`).
 - **Bulk work is set-based or batched** (DL7): a constant number of statements per unit, never
   one statement per item across the library. **Enforced by:** statement counts at two library
-  sizes *(D303 C)*.
+  sizes (`TestPass_OverAnUnchangedLibraryRunsTheSameStatementsAtTwiceItsSizeAndTakesNoWriter`).
 - **A write that changes nothing writes nothing** (DL9): every `DO UPDATE` carries `WHERE col IS
   NOT excluded.col …`; a derivation `UPDATE` carries the same guard; a trigger that maintains
   derived data is `AFTER UPDATE OF <its columns> … WHEN old.x IS NOT new.x`; the writer's own

@@ -177,7 +177,7 @@ func recordSeries(
 func (matcher *Matcher) fetchSeasonListings(
 	ctx context.Context, provider Provider, series sqlcgen.GetSeriesForMatchRow,
 ) (Outcome, error) {
-	seasons, err := seasonsToFetch(ctx, matcher.database.Read(), provider, series.ID)
+	seasons, err := seasonsToFetch(ctx, &storedSeasons{queries: matcher.database.Read()}, provider, series.ID)
 	if err != nil {
 		return "", err
 	}
