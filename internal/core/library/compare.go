@@ -182,8 +182,23 @@ func directoryRule(relative string) (nodeproto.SkipRule, bool) {
 		return nodeproto.SkipTrash, true
 	case strings.EqualFold(path.Base(relative), "sample"):
 		return nodeproto.SkipSample, true
+	case isSystemFolder(path.Base(relative)):
+		return nodeproto.SkipSystem, true
 	}
 	return "", false
+}
+
+// isSystemFolder is a folder, by its name, that a NAS or an operating system keeps for itself at
+// any depth: Synology's, QNAP's, ZFS's and NetApp's snapshots, Windows' and macOS's bins and
+// indexes, and a filesystem's lost+found. Jellyfin, Kodi and Plex's scanners skip the same.
+func isSystemFolder(name string) bool {
+	switch strings.ToLower(name) {
+	case "@eadir", "#recycle", "@recycle", "#snapshot", "@recently-snapshot", ".@__thumb", ".snapshot", ".snapshots",
+		".zfs", "$recycle.bin", "system volume information", "lost+found", ".trashes", ".spotlight-v100", ".fseventsd",
+		".appledouble", ".temporaryitems", ".documentrevisions-v100":
+		return true
+	}
+	return false
 }
 
 // kindOf is how a file named name is read: as a video, an NFO or a subtitle; "" and no rule for an
