@@ -31,6 +31,9 @@
 //   - ReadTx's queries, on either database, all see one commit, whatever commits meanwhile (D303,
 //     M2). Enforced by TestReadTx_SeesOneCommitWhateverCommitsMeanwhile and
 //     TestCacheReadTx_SeesOneCommitWhateverCommitsMeanwhile.
+//   - WriteUnlessUnchanged runs a derivation in a read transaction first and takes the writer only
+//     when SQLite refused it a write there, so one that finds nothing to change never takes it
+//     (D303, DL9, DL11). Enforced by TestWriteUnlessUnchanged_TakesTheWriterOnlyForADerivationThatWrites.
 //   - Every write takes the one writer through the writer gate: a write whose context a person
 //     waits on (internal/platform/waiting) before background work, and background work once
 //     passed over backgroundPassedOverAtMost times (D303, DL11). Enforced by
@@ -154,6 +157,7 @@
 //   - search.go: search's three statements, hand-written because sqlc cannot parse FTS5's MATCH;
 //     static SQL with parameters only.
 //   - open.go: Open, the pragmas and their read-back, Read, ReadTx, Write and OrNotFound;
+//     derive.go: WriteUnlessUnchanged;
 //     writer_gate.go: the order in which writes take the one writer; tally.go: counting each
 //     statement into its context's tally.
 //   - steps.go and migrate.go: the embedded steps and the runner (D181); migrate_checks.go: the
