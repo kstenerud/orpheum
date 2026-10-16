@@ -20456,6 +20456,7 @@ retention. It revises D172 for episodes and D304 §6 for plays.
 10. **The client cache and list windowing are our own code**, grown from `useResource` and
     `Remembered`, with no new dependency.
 
-The owner, to the recommendations on 5, 9 and 10: *"ok, I agree with your recommendations."*
+The owner, to the recommendations on disc images, series → season reads and the client cache:
+*"ok, I agree with your recommendations."*
 
 **Status:** Decided 2026-10-16.
