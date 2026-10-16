@@ -15,6 +15,7 @@ import (
 	"net/netip"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -95,6 +96,32 @@ type testHarness struct {
 	chunks *chunks.Service
 	// backups makes the backups a job asks for (D243 §11).
 	backups *backup.Service
+	// reads records each file a play asked to have read first (D304 §4).
+	reads *fakeFileReads
+}
+
+// fakeFileReads records the files a play asks to have read before what else waits.
+type fakeFileReads struct {
+	mutex sync.Mutex
+	asked [][]byte
+}
+
+func (reads *fakeFileReads) ReadNow(_ context.Context, _, _ int64, reportedPath []byte) error {
+	reads.mutex.Lock()
+	defer reads.mutex.Unlock()
+	reads.asked = append(reads.asked, reportedPath)
+	return nil
+}
+
+// askedFor is the paths of the files a play asked to have read.
+func (reads *fakeFileReads) askedFor() []string {
+	reads.mutex.Lock()
+	defer reads.mutex.Unlock()
+	paths := make([]string, 0, len(reads.asked))
+	for _, path := range reads.asked {
+		paths = append(paths, string(path))
+	}
+	return paths
 }
 
 // handle runs job by its handler, as a runner would, and returns where its answer arrives
@@ -161,10 +188,11 @@ func newHarness(t *testing.T) testHarness {
 		Loudness: loudnessService, ReadThrough: readThroughService,
 		Logger: slog.New(slog.NewJSONHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})), Clock: now,
 	})
+	reads := &fakeFileReads{}
 	playbackService := playback.NewService(playback.Parts{
 		Database: database, Nodes: nodes, Settings: seeded, Clock: now, Random: rand.Reader,
 		Renditions: renditionsService, Subtitles: subtitlesService, Preferences: preferencesService,
-		Loudness: loudnessService, Chunks: chunksService,
+		Loudness: loudnessService, Chunks: chunksService, Reads: reads,
 	})
 	// A fetch waits for the job that converts what it fetched, as the server's runner runs it.
 	converter := queue.NewRunner(jobs.KindConvertFetchedSubtitle, subtitlesService.HandleConvertFetchedSubtitle)
@@ -264,7 +292,7 @@ func newHarness(t *testing.T) testHarness {
 		tmdbProvider: provider, cache: cache, nodes: nodes, exchanges: exchanges, directories: directories, clock: now,
 		nodeBytes: nodeBytes, queue: queue, resolver: resolver, backups: backups,
 		subtitler: subtitler, readThrough: readThroughService, subtitles: subtitlesService,
-		renditions: renditionsService, chunks: chunksService,
+		renditions: renditionsService, chunks: chunksService, reads: reads,
 	}
 }
 

@@ -29,8 +29,8 @@ func (harness testHarness) ambiguousTitle(t *testing.T) {
 		`INSERT INTO title (id, kind, year, identification_state) VALUES (10, 'movie', 2003, 'ambiguous')`,
 		`INSERT INTO item_text (item_id, language, is_original, name) VALUES (10, 'und', 1, 'The General')`,
 		"INSERT INTO version (id, title_id, created_at) VALUES (1, 10, 1)",
-		`INSERT INTO file (id, library_id, node_id, path, size_bytes, filing, version_id, first_seen_at, last_seen_at)
-		 VALUES (1, 1, 1, '/m/The General.mkv', 1000, 'listed', 1, 1, 1)`)
+		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing, version_id, first_seen_at,
+		 last_seen_at) VALUES (1, 1, 1, '/m/The General.mkv', 1000, X'01', 'listed', 1, 1, 1)`)
 	err := harness.cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		for rank, year := range []int64{1972, 2002} {
 			err := queries.InsertMatchCandidate(t.Context(), cachegen.InsertMatchCandidateParams{

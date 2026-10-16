@@ -2684,7 +2684,8 @@
             "enum": [
               "node_away",
               "root_missing",
-              "disk_missing"
+              "disk_missing",
+              "still_reading"
             ],
             "type": "string"
           },
@@ -5891,7 +5892,8 @@
             "enum": [
               "node_away",
               "root_missing",
-              "disk_missing"
+              "disk_missing",
+              "still_reading"
             ],
             "type": "string"
           },

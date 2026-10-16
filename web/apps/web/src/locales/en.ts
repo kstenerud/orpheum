@@ -88,6 +88,8 @@ export const en = {
         "This cannot be played now: the folder {{path}} on {{node}} is missing{{since}}.",
       diskMissing:
         "This cannot be played now: what was mounted at {{path}} on {{node}} is missing{{since}}.",
+      stillReading:
+        "This is still being read: {{node}} is reading it now, and it plays as soon as that is done.",
     },
     sinceWhen: ", since {{since}}",
     wait: {

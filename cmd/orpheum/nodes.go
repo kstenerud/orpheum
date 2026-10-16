@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
@@ -68,6 +69,9 @@ func newNodeService(opened openedServices, logger *slog.Logger) (*nodes.Service,
 			"listed", report.ListedCount, "extras", report.ExtraCount,
 			"unidentified", report.UnidentifiedCount, "awaitingMatch", len(report.AwaitingMatch))
 	})
+	// A row stored unread whose read finds a file stored before gives up the title the pass made
+	// from its path (D304 §5).
+	ingester.SetOnUnreadRetired(identify.RetireUnreadFile)
 	queue := opened.jobServices.queue
 	askForAPassOnNewFiles(ingester, queue)
 	ingester.SetOnPathsFound(func(ctx context.Context, nodeID int64, paths []string) {

@@ -61,6 +61,14 @@ type Parts struct {
 	Loudness Loudness
 	// Chunks offers a stalled playback a lower quality (D247 §2); nil offers none.
 	Chunks Chunks
+	// Reads has a file not yet read taken first, for a person who asked to play it (D304 §4); nil
+	// asks for none.
+	Reads FileReads
+}
+
+// FileReads has a file its listing stored unread read before what else waits: library.Scans.
+type FileReads interface {
+	ReadNow(ctx context.Context, libraryID, nodeID int64, reportedPath []byte) error
 }
 
 // Loudness says the gains that level each measured sound of a file's bytes: loudness.Service.
@@ -81,6 +89,7 @@ type Service struct {
 	preferences *preferences.Service
 	loudness    Loudness
 	chunks      Chunks
+	reads       FileReads
 	// speeds are the link speeds players measured, by player and network (D257 §1).
 	speeds *linkSpeeds
 	// unplayablePictures are the films whose own picture each player gave up as unplayable.
@@ -103,7 +112,7 @@ func NewService(parts Parts) *Service {
 		clock: parts.Clock, random: parts.Random,
 		tokens: newTokens(), renditions: parts.Renditions,
 		subtitles: parts.Subtitles, preferences: parts.Preferences, loudness: parts.Loudness,
-		chunks: parts.Chunks, speeds: newLinkSpeeds(), unplayablePictures: newUnplayablePictures(),
+		chunks: parts.Chunks, reads: parts.Reads, speeds: newLinkSpeeds(), unplayablePictures: newUnplayablePictures(),
 	}
 }
 
@@ -171,7 +180,7 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	userID := holder.UserID
 	file, err := service.reachedFile(ctx, holder, request.FileID)
 	if err != nil {
-		return Started{}, err
+		return Started{}, service.readIfStillReading(ctx, file, err)
 	}
 	// Nothing is queued for a file that cannot be read now: the person is told why at once (D241 §4).
 	refused := library.RefuseUnreadable(ctx, service.database.Read(), service.nodes, file.NodeID, file.ReportedPathRaw)
@@ -304,10 +313,27 @@ func (service *Service) reachedFile(ctx context.Context, holder Holder, fileID i
 ) {
 	file, err := library.PlayableFile(ctx, service.database.Read(), fileID)
 	isOtherFile := holder.OnlyFileID != 0 && holder.OnlyFileID != fileID
-	if err == nil && (!holder.Reach.Reaches(&file.LibraryID) || isOtherFile) {
+	// A file still being read is found too, so it is judged by reach as a readable one is.
+	isFound := err == nil || errors.As(err, new(*library.UnreadableError))
+	if isFound && (!holder.Reach.Reaches(&file.LibraryID) || isOtherFile) {
 		return file, fmt.Errorf("file %d: %w", fileID, library.ErrNoFile)
 	}
 	return file, err
+}
+
+// readIfStillReading asks for the read of a file a person asked to play that its listing stored
+// unread, before what else waits (D304 §4); the play is refused as still reading all the same.
+func (service *Service) readIfStillReading(
+	ctx context.Context, file sqlcgen.GetPlayableFileRow, refusal error,
+) error {
+	unreadable, isUnreadable := errors.AsType[*library.UnreadableError](refusal)
+	if !isUnreadable || unreadable.Reason != library.StillReading || service.reads == nil {
+		return refusal
+	}
+	if err := service.reads.ReadNow(ctx, file.LibraryID, file.NodeID, file.ReportedPathRaw); err != nil {
+		return errors.Join(refusal, fmt.Errorf("ask for file %d's read: %w", file.ID, err))
+	}
+	return refusal
 }
 
 // decisionFor is how a file plays for the client that asked, with the audio track the playback

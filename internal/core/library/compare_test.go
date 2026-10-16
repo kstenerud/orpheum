@@ -4,6 +4,7 @@ package library
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -57,9 +58,9 @@ func observedAt(path, content string, inode uint64) nodeproto.ScanRecord {
 	return record
 }
 
-// listedAt is listedFile at an inode on device 7.
-func listedAt(path string, sizeBytes, modifiedAt int64, inode uint64) nodeproto.ScanRecord {
-	record := listedFile(path, sizeBytes, modifiedAt)
+// listedAt is listedFile, modified at 1 as observedRecord's files are, at an inode on device 7.
+func listedAt(path string, sizeBytes int64, inode uint64) nodeproto.ScanRecord {
+	record := listedFile(path, sizeBytes, 1)
 	record.Listed.Inode = inode
 	return record
 }
@@ -116,15 +117,71 @@ func TestTakeListing_AVideoMovedOnItsDiskKeepsItsRowWithoutBeingReadAgain(t *tes
 	heat := world.liveFilesByPath()[root+"/Metropolis.mkv"].ID
 	taken := world.takeListing([]nodeproto.ScanRecord{
 		listedDirectory("Metropolis (1995)"),
-		listedAt("Metropolis (1995)/Metropolis (1995).mkv", int64(len("heat")), 1, 41),
-		listedAt("Wing (1979).mkv", int64(len("alien"))+1, 1, 42), // rewritten, not moved
-		listedAt("Nosferatu.mkv", 5, 1, 43),
+		listedAt("Metropolis (1995)/Metropolis (1995).mkv", int64(len("heat")), 41),
+		listedAt("Wing (1979).mkv", int64(len("alien"))+1, 42), // rewritten, not moved
+		listedAt("Nosferatu.mkv", 5, 43),
 	}, false)
 	if got, want := examined(taken), []string{"video Wing (1979).mkv", "video Nosferatu.mkv"}; !slices.Equal(got, want) {
 		t.Errorf("to read %v, want %v: the moved film needs no read", got, want)
 	}
 	if moved := world.liveFilesByPath()[root+"/Metropolis (1995)/Metropolis (1995).mkv"]; moved.ID != heat {
 		t.Errorf("the moved film is file %d, want %d with its history", moved.ID, heat)
+	}
+}
+
+// readThen ingests what the node read of the listing's files, then the listing's end, as the scan's
+// batches do once read.
+func (world *harness) readThen(records ...nodeproto.ScanRecord) {
+	world.t.Helper()
+	world.clock.Advance(time.Minute)
+	all := append(slices.Clone(records), nodeproto.ScanRecord{
+		Type: nodeproto.RecordScanComplete, ScanComplete: &nodeproto.ScanComplete{RootPath: world.rootPath},
+	})
+	if err := world.ingester.IngestScan(world.t.Context(), world.nodeID, world.rootPath, all); err != nil {
+		world.t.Fatal(err)
+	}
+}
+
+// A new video is stored at its listing, unread, so the pass files it from its path before it is read;
+// its read fills the same row in (D304 §1, §4).
+func TestTakeListing_ANewVideoIsStoredUnreadAndItsReadFillsItsRow(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	const heat = "Metropolis (1995)/Metropolis (1995).mkv"
+	taken := world.takeListing([]nodeproto.ScanRecord{
+		listedDirectory("Metropolis (1995)"), listedAt(heat, int64(len("heat")), 41),
+	}, false)
+	if got, want := examined(taken), []string{"video " + heat}; !slices.Equal(got, want) {
+		t.Fatalf("to read %v, want %v", got, want)
+	}
+	unread, stored := world.liveFilesByPath()[root+"/"+heat]
+	if !stored || unread.PayloadHash != nil {
+		t.Fatalf("after its listing the film is %+v, stored %v; want it stored unread", unread, stored)
+	}
+	world.readThen(observedAt(heat, "heat", 41))
+	if read := world.liveFilesByPath()[root+"/"+heat]; read.ID != unread.ID || read.PayloadHash == nil {
+		t.Errorf("after its read the film is file %d, hash %x; want file %d, read", read.ID, read.PayloadHash,
+			unread.ID)
+	}
+}
+
+// A video moved to another disk, which no inode tells, is stored unread at its new path; its read
+// finds the payload of the file stored before, which keeps its row and history, and the unread row
+// is retired (D304 §5, D179).
+func TestTakeListing_AVideoMovedToAnotherDiskReadAtItsNewPathKeepsItsRow(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	world.scan([]nodeproto.ScanRecord{observedAt("Metropolis.mkv", "heat", 41)}, true)
+	heat := world.liveFilesByPath()[root+"/Metropolis.mkv"].ID
+	const moved = "Disk 2/Metropolis (1995).mkv"
+	world.takeListing([]nodeproto.ScanRecord{listedDirectory("Disk 2"), listedAt(moved, 4, 99)}, false)
+	world.readThen(observedAt(moved, "heat", 99))
+	live := world.liveFilesByPath()
+	if got := live[root+"/"+moved]; got.ID != heat {
+		t.Errorf("the moved film is file %d, want %d with its history", got.ID, heat)
+	}
+	if len(live) != 1 {
+		t.Errorf("%d live files, %v; want the one, the unread row retired", len(live), slices.Collect(maps.Keys(live)))
 	}
 }
 

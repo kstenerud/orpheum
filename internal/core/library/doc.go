@@ -32,7 +32,15 @@
 //     read again (D240 §3). TestTakeListing_AFileAsStoredIsSeenAndNotReadAgain. A video listed at a
 //     new path on the device and inode a stored one was read at, its size and modified time as
 //     stored, moved there, and keeps its row without a read (D304 §5).
-//     TestTakeListing_AVideoMovedOnItsDiskKeepsItsRowWithoutBeingReadAgain. The files a listing
+//     TestTakeListing_AVideoMovedOnItsDiskKeepsItsRowWithoutBeingReadAgain.
+//
+//   - A new video is stored at its listing, unread, so it is filed from its path before it is read;
+//     its read fills that row in, or, finding a file stored before, moved or come back, retires it,
+//     what identification filed it in going with it (D304 §1, §5).
+//     TestTakeListing_ANewVideoIsStoredUnreadAndItsReadFillsItsRow,
+//     TestTakeListing_AVideoMovedToAnotherDiskReadAtItsNewPathKeepsItsRow. A title whose files are
+//     only unread is still reading, not playable, and a play of one asks for its read before what
+//     else waits (D304 §4). TestReadNow_RaisesTheBatchThatReadsAFileOrScansItsFolder. The files a listing
 //     finds as stored are marked seen in one statement, not one each (D303, DL7).
 //     TestTakeListing_OfFilesAllAsStoredRunsTheSameStatementsAtTwiceTheirNumber. A listing the node
 //     stopped removes nothing (D39). TestTakeListing_AListingThatWasStoppedEndsUnreadable.

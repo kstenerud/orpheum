@@ -52,6 +52,10 @@
 //     gave no file is a fault, logged.
 //   - A title's kind is how the pass files it: an extra with no film is a film, and a film a film
 //     comes to own is an extra (D162). TestPass_AConfirmedFilmFiledAsAnExtraTakesTheKindExtra.
+//   - A video stored unread by its listing is filed from its path at once, and keeps its title once
+//     read; one whose read finds a file stored before ends in that file's title, the one its path
+//     gave it merged in (D304 §1, §5). TestPass_AFilmIsATitleFromItsListingAndKeepsItOnceRead,
+//     TestPass_AFilmMovedToAnotherDiskEndsInItsOldTitle.
 //   - A film whose NFO is gone is identified from its path again.
 //     TestPass_AFilmWhoseNFOIsDeletedIsIdentifiedFromItsPathAgain.
 //   - A pass reads its library in a constant number of statements (snapshot.go), compares before

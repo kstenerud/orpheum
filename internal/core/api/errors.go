@@ -106,7 +106,7 @@ func problemDetails() []problemDetail {
 // MediaUnreachableDetailBody is media_unreachable's detail: why the file cannot be read now, on
 // which machine, the folder or disk missing, and since when (D241 §4).
 type MediaUnreachableDetailBody struct {
-	Reason   string `enum:"node_away,root_missing,disk_missing" json:"reason"`
+	Reason   string `enum:"node_away,root_missing,disk_missing,still_reading" json:"reason"`
 	NodeName string `doc:"The machine that holds the file" json:"nodeName"`
 	Path     string `doc:"The folder or disk missing on it; absent for a machine away" json:"path,omitempty"`
 	// UnavailableAt is when it became unavailable, in Unix milliseconds; absent when not known.

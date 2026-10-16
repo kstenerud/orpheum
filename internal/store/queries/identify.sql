@@ -398,3 +398,21 @@ WHERE item.library_id = ? AND item.removed_at IS NULL AND item.kind = 'title';
 -- How many rows the writer has changed since it opened: a pass writing in batches reads it as it
 -- goes, to know how much its batch has written.
 SELECT CAST(total_changes() AS INTEGER) AS changed;
+
+-- name: GetFileTitle :one
+-- The version a file is in, and its title.
+SELECT file.version_id AS version_id, version.title_id
+FROM file
+CROSS JOIN version ON version.id = file.version_id
+WHERE file.id = sqlc.arg(id);
+
+-- name: RemoveVersion :exec
+-- A version whose file was retired: the row a listing stored unread for a file stored before.
+UPDATE version SET removed_at = sqlc.arg(removed_at) WHERE id = sqlc.arg(id) AND removed_at IS NULL;
+
+-- name: MergeTitleWithNoLiveVersion :exec
+-- A title the pass filed an unread file in, merged into the title of the file its read found it
+-- was, once it has no live version left (D304 section 5).
+UPDATE item SET merged_into = sqlc.arg(merged_into), removed_at = sqlc.arg(removed_at)
+WHERE item.id = sqlc.arg(title_id) AND item.removed_at IS NULL
+  AND NOT EXISTS (SELECT 1 FROM version WHERE version.title_id = sqlc.arg(title_id) AND version.removed_at IS NULL);

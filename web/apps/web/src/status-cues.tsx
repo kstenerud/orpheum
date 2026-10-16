@@ -6,6 +6,7 @@ import { createElement, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { unavailableText } from "./problem.ts";
+import { StillReadingNote, StillReadingSign } from "./still-reading.tsx";
 import { UncertainMatchNote, UncertainMatchSign } from "./uncertain-match.tsx";
 import { UnplayableSign } from "./unplayable-sign.tsx";
 
@@ -51,7 +52,7 @@ function CannotPlayNote(props: { readonly subject: CueSubject }): JSX.Element | 
 export const statusCues: readonly StatusCue[] = [
   {
     name: "cannotPlay",
-    isShown: (subject) => subject.unavailable !== undefined,
+    isShown: (subject) => subject.unavailable !== undefined && !isStillReading(subject),
     sign: CannotPlaySign,
     note: CannotPlayNote,
   },
@@ -61,7 +62,19 @@ export const statusCues: readonly StatusCue[] = [
     sign: UncertainMatchSign,
     note: UncertainMatchNote,
   },
+  {
+    // Not a fault: shown from its listing, it plays once read (D304 §4).
+    name: "stillReading",
+    isShown: isStillReading,
+    sign: StillReadingSign,
+    note: StillReadingNote,
+  },
 ];
+
+/** Whether a subject's files are only waiting to be read, which is no warning (D304 §4). */
+function isStillReading(subject: CueSubject): boolean {
+  return subject.unavailable?.reason === "still_reading";
+}
 
 /** A poster's tray of status cues, in statusCues' order; nothing when it has none (D278, D301 §4). */
 export function StatusTray(props: { readonly subject: CueSubject }): JSX.Element | null {

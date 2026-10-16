@@ -56,6 +56,34 @@ func TestScenario_S29_APlayWhoseNodeIsAwayIsRefusedAtOnceAndQueuesNothing(t *tes
 	}
 }
 
+// A film shown from its listing whose file is not read yet is refused at once as still being read,
+// and its file is asked to be read before what else waits, so asking again soon plays it (D304 §4).
+func TestStartPlayback_AFilmStillBeingReadIsRefusedAsSoAndAskedToBeReadFirst(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	partner := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.nodes.roots = []string{"/media"}
+	storetest.ExecRaw(t, harness.databasePath, "UPDATE file SET payload_hash = NULL WHERE id = 2")
+	refused := harness.do(t, http.MethodPost, "/playback", partner, chrome(2))
+	var problem struct {
+		Error struct {
+			Code   Code                       `json:"code"`
+			Detail MediaUnreachableDetailBody `json:"detail"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(refused.body), &problem); err != nil {
+		t.Fatal(err)
+	}
+	if problem.Error.Code != CodeMediaUnreachable || problem.Error.Detail.Reason != "still_reading" {
+		t.Errorf("a play of a film still being read: %d %s; want media_unreachable, still reading", refused.status,
+			refused.body)
+	}
+	if asked := harness.reads.askedFor(); !slices.Equal(asked, []string{"/media/Film (2002).mkv"}) {
+		t.Errorf("the play asked to have %v read; want the film's file", asked)
+	}
+}
+
 // A play-driven prepare whose root goes missing after it was queued ends, and its rendition with it,
 // rather than parking on the root: no one can watch it, so no one waits for it (D241 §4). A
 // background one parks.

@@ -2600,7 +2600,7 @@ export interface components {
             /** @description The folder or disk missing on it; absent for a machine away */
             path?: string;
             /** @enum {string} */
-            reason: "node_away" | "root_missing" | "disk_missing";
+            reason: "node_away" | "root_missing" | "disk_missing" | "still_reading";
             /** Format: int64 */
             unavailableAt?: number;
         };
@@ -3583,7 +3583,7 @@ export interface components {
             /** @description The folder or disk missing on it; absent for a machine away */
             path?: string;
             /** @enum {string} */
-            reason: "node_away" | "root_missing" | "disk_missing";
+            reason: "node_away" | "root_missing" | "disk_missing" | "still_reading";
             /** Format: int64 */
             unavailableAt?: number;
         };

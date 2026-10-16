@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
 // ScanJobs are where a scan's jobs are queued: jobs.Queue.
@@ -125,6 +127,59 @@ func (scans *Scans) request(ctx context.Context, nodeID int64, root, scope strin
 		return nil
 	}
 	return scans.queueListing(ctx, scanID, nodeID, root, priority)
+}
+
+// ReadNow has a file its listing stored unread read before what else waits, for a person who asked
+// to play it (D304 §4): the batch of the scan in progress that holds it is raised to a person's
+// priority, as a request merging into a queued job raises it; with no such batch, a scan of the
+// file's folder is asked for at that priority.
+func (scans *Scans) ReadNow(ctx context.Context, libraryID, nodeID int64, reportedPath []byte) error {
+	inProgress, err := scans.cache.Read().ListScans(ctx)
+	if err != nil {
+		return fmt.Errorf("list the scans in progress: %w", err)
+	}
+	for _, scan := range inProgress {
+		relative, under := RelativeToRoot(reportedPath, scan.RootPath)
+		if scan.NodeID != nodeID || !under {
+			continue
+		}
+		fragment, encodeErr := json.Marshal(nodeproto.Path{Text: string(relative)})
+		if encodeErr != nil {
+			return fmt.Errorf("encode %s: %w", relative, encodeErr)
+		}
+		// As keepBatches encoded it: {"text":"…" and, for a name that is not UTF-8, its raw bytes after.
+		batchID, findErr := store.OrNotFound(scans.cache.Read().GetUndoneScanBatchHolding(ctx,
+			cachegen.GetUndoneScanBatchHoldingParams{
+				ScanID: scan.ID, PathFragment: strings.TrimSuffix(string(fragment), "}"),
+			}))
+		if errors.Is(findErr, store.ErrNotFound) {
+			continue
+		}
+		if findErr != nil {
+			return fmt.Errorf("find the batch that reads %s: %w", relative, findErr)
+		}
+		_, err = scans.jobs.Enqueue(ctx, jobs.Request{
+			Kind: jobs.KindExamine, Target: jobs.Target{ScanBatchID: batchID}, Priority: jobs.PriorityPersonsRequest,
+			Reason:      "reads a file a person asked to play",
+			Destination: jobs.NodeDestination(nodeID),
+		})
+		if err != nil {
+			return fmt.Errorf("raise scan batch %d: %w", batchID, err)
+		}
+		return nil
+	}
+	roots, err := scans.ingester.database.Read().ListLibraryRootsOnNode(ctx, sqlcgen.ListLibraryRootsOnNodeParams{
+		LibraryID: libraryID, NodeID: nodeID,
+	})
+	if err != nil {
+		return fmt.Errorf("list library %d's roots: %w", libraryID, err)
+	}
+	for _, root := range roots {
+		if relative, under := RelativeToRoot(reportedPath, root); under {
+			return scans.RequestUnder(ctx, nodeID, root, path.Dir(string(relative)), jobs.PriorityPersonsRequest)
+		}
+	}
+	return nil
 }
 
 // MarkRootStalled is the core's answer to work that stalled waiting on a root's disk (D233 §10): the

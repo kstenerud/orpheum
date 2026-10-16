@@ -55,9 +55,10 @@ func TestContinueWatching_EachWorkOnceAtItsLatestPositionPartwayThrough(t *testi
 			`VALUES (1, '{"format":{"durationMs":1000000}}', 1000000) `+
 			`ON CONFLICT (file_id) DO UPDATE SET probe_json = excluded.probe_json, duration_ms = excluded.duration_ms`,
 		"INSERT INTO version (id, title_id, created_at) VALUES (3, 10, 3)",
-		`INSERT INTO file (id, library_id, node_id, path, size_bytes, filing, version_id, first_seen_at, last_seen_at)
-		 VALUES (3, 1, 1, '/m/Metropolis (1995) - 720p.mkv', 500, 'listed', 3, 1, 1),
-		        (4, 1, 1, '/m/Metropolis (1995)-trailer.mkv', 5, 'extra', 4, 1, 1)`,
+		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing, version_id, first_seen_at,
+		 last_seen_at)
+		 VALUES (3, 1, 1, '/m/Metropolis (1995) - 720p.mkv', 500, X'03', 'listed', 3, 1, 1),
+		        (4, 1, 1, '/m/Metropolis (1995)-trailer.mkv', 5, X'04', 'extra', 4, 1, 1)`,
 		"INSERT INTO item (id, kind, library_id, added_at) VALUES (30, 'title', 1, 3)",
 		"INSERT INTO title (id, kind, identification_state) VALUES (30, 'extra', 'identified')",
 		"INSERT INTO version (id, title_id, created_at) VALUES (4, 30, 3)")
