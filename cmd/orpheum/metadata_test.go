@@ -415,3 +415,18 @@ func TestSweeps_TheDatabasesInvariantsAreCheckedDailyAndEachBrokenOneLoggedAsAnE
 	}
 	t.Error("no sweep checks the database's invariants (D303, M7)")
 }
+
+// The scheduled backup's sweep looks every five minutes, so an hourly backup comes within five of
+// its hour (D305 §2).
+func TestSweeps_TheScheduledBackupIsCheckedEveryFiveMinutes(t *testing.T) {
+	t.Parallel()
+	for _, sweep := range (jobServices{}).sweeps(slog.New(slog.DiscardHandler)) {
+		if sweep.Name == sweepScheduledBackup {
+			if every := sweep.Every(t.Context()); every != 5*time.Minute {
+				t.Errorf("the scheduled backup is checked every %s, want 5m", every)
+			}
+			return
+		}
+	}
+	t.Error("no sweep asks for the scheduled backup (D305 §2)")
+}
