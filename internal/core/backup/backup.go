@@ -292,18 +292,36 @@ type Service struct {
 	// (UseQueue); nil until the server's queue is made.
 	queue    Queue
 	settings Settings
+	// commits counts the database's commits (store.Database.Commits), and commitsAtBackup was it
+	// when the last backup began, so a scheduled one is skipped when nothing changed (D305 §2);
+	// hasBackedUp is whether this server made one since it started. Guarded by mutex.
+	commits         func() int64
+	commitsAtBackup int64
+	hasBackedUp     bool
 }
 
 // NewService returns the backup service of the server whose database and directories these are.
 func NewService(database *store.Database, directories *instancedir.Directories, clockSource clock.Clock) *Service {
-	return &Service{database: database, directories: directories, clock: clockSource}
+	service := &Service{database: database, directories: directories, clock: clockSource}
+	if database != nil {
+		service.commits = database.Commits
+	}
+	return service
 }
 
 // Make writes a backup now, as Write says.
 func (service *Service) Make(ctx context.Context, includeKey bool) (Written, error) {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
-	return Write(ctx, service.database, service.directories, service.clock.Now(), includeKey)
+	var commitsAtStart int64
+	if service.commits != nil {
+		commitsAtStart = service.commits() // what commits while it copies is a change since
+	}
+	written, err := Write(ctx, service.database, service.directories, service.clock.Now(), includeKey)
+	if err == nil {
+		service.commitsAtBackup, service.hasBackedUp = commitsAtStart, true
+	}
+	return written, err
 }
 
 // Directory is where the backups are.

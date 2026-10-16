@@ -15,7 +15,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
-	"github.com/kstenerud/orpheum/internal/platform/localtime"
 )
 
 // Queue is where backups are asked for: jobs.Queue.
@@ -27,8 +26,6 @@ type Queue interface {
 type Settings interface {
 	Int(ctx context.Context, key settings.Key) (int64, error)
 	Duration(ctx context.Context, key settings.Key) (time.Duration, error)
-	// Zone is the server's time zone, which backup_hour_local_tz is in.
-	Zone(ctx context.Context) (localtime.Zone, error)
 }
 
 // JobArgs are a backup job's arguments: whether it holds secret.key, which a person asks for and
@@ -94,33 +91,20 @@ func (service *Service) Request(ctx context.Context, includesKey bool) error {
 		"an admin asked for a backup now")
 }
 
-// QueueScheduled asks for the scheduled backup when it is due, and says how many it asked for:
-// one when the newest backup is backup_every_days old and it is backup_hour_local_tz in the server's time
-// zone, or when the newest is a day overdue, whatever the hour; none otherwise (D246 §7). A sweep
-// calls it.
+// QueueScheduled asks for the scheduled backup when it is due, and says how many it asked for: one
+// when the newest backup is backup_every_hours old and the database has changed since the last
+// backup this server made, or there is none; none otherwise (D305 §2). A sweep calls it.
 func (service *Service) QueueScheduled(ctx context.Context) (int, error) {
-	every, err := service.settings.Duration(ctx, settings.BackupEveryDays)
+	every, err := service.settings.Duration(ctx, settings.BackupEveryHours)
 	if err != nil {
-		return 0, fmt.Errorf("read backup_every_days: %w", err)
-	}
-	hour, err := service.settings.Int(ctx, settings.BackupHourLocalTZ)
-	if err != nil {
-		return 0, fmt.Errorf("read backup_hour_local_tz: %w", err)
-	}
-	zone, err := service.settings.Zone(ctx)
-	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("read backup_every_hours: %w", err)
 	}
 	files, err := service.directories.ListBackups()
 	if err != nil {
 		return 0, err
 	}
-	now := service.clock.Now()
 	newest, isAny := newestBackup(files)
-	// A backup is due an hour early, so one made at the quiet hour is due again at the next.
-	isDue := !isAny || now.Sub(newest) >= every-time.Hour
-	isOverdue := !isAny || now.Sub(newest) >= every+24*time.Hour
-	if !isDue || (int64(zone.Of(now).Hour()) != hour && !isOverdue) {
+	if isAny && (service.clock.Now().Sub(newest) < every || service.isUnchangedSinceLastBackup()) {
 		return 0, nil
 	}
 	if enqueueErr := service.enqueue(ctx, JobArgs{IsScheduled: true}, jobs.PriorityBackground,
@@ -130,7 +114,15 @@ func (service *Service) QueueScheduled(ctx context.Context) (int, error) {
 	return 1, nil
 }
 
-// HandleBackup makes the backup a job asked for, then prunes the backups past backups_kept.
+// isUnchangedSinceLastBackup is whether nothing was committed since the last backup this server
+// made; false when it has made none since it started, which a backup made then answers.
+func (service *Service) isUnchangedSinceLastBackup() bool {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	return service.hasBackedUp && service.commits != nil && service.commits() == service.commitsAtBackup
+}
+
+// HandleBackup makes the backup a job asked for, then thins the backups (prune).
 func (service *Service) HandleBackup(ctx context.Context, job jobs.Job) error {
 	var args JobArgs
 	if err := json.Unmarshal([]byte(job.ArgsJSON), &args); err != nil {
@@ -145,26 +137,78 @@ func (service *Service) HandleBackup(ctx context.Context, job jobs.Job) error {
 	return service.prune(ctx)
 }
 
-// prune removes the backups past the newest backups_kept; the copies kept before a restore or a
-// migration are not backups the server made, and are never pruned (D243 §11).
+// thinning is how many backups prune keeps: the newest hourly, then the newest of each of the
+// daily days and the weekly weeks before (D305 §2).
+type thinning struct {
+	hourly, daily, weekly int64
+}
+
+// prune thins the backups to backups_kept_hourly of the newest, then the newest of each of the
+// backups_kept_daily days and the backups_kept_weekly weeks, in UTC, its names' time; the copies kept
+// before a restore or a migration are not backups the server made, and are never pruned (D305 §2).
 func (service *Service) prune(ctx context.Context) error {
-	kept, err := service.settings.Int(ctx, settings.BackupsKept)
-	if err != nil {
-		return fmt.Errorf("read backups_kept: %w", err)
+	var keeps thinning
+	for _, read := range []struct {
+		key  settings.Key
+		into *int64
+	}{
+		{settings.BackupsKeptHourly, &keeps.hourly},
+		{settings.BackupsKeptDaily, &keeps.daily},
+		{settings.BackupsKeptWeekly, &keeps.weekly},
+	} {
+		value, err := service.settings.Int(ctx, read.key)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", read.key, err)
+		}
+		*read.into = value
 	}
 	files, err := service.directories.ListBackups()
 	if err != nil {
 		return err
 	}
-	names := backupNames(files)
-	slices.Sort(names) // by when each was made, as its name says
-	for len(names) > int(kept) {
-		if removeErr := service.directories.RemoveBackupFile(names[0]); removeErr != nil {
+	for _, name := range backupsPastThinning(backupNames(files), keeps) {
+		if removeErr := service.directories.RemoveBackupFile(name); removeErr != nil {
 			return removeErr
 		}
-		names = names[1:]
 	}
 	return nil
+}
+
+// backupsPastThinning are the backups, of names, that keeps does not keep: past the newest hourly,
+// all but the newest of each day back to the daily'th day with one, and of each week to the weekly'th.
+func backupsPastThinning(names []string, keeps thinning) []string {
+	sorted := slices.Clone(names)
+	slices.SortFunc(sorted, func(first, second string) int { return strings.Compare(second, first) }) // newest first
+	kept := map[string]bool{}
+	for index, name := range sorted {
+		if int64(index) < keeps.hourly {
+			kept[name] = true
+		}
+	}
+	keepNewestOf := func(periodOf func(time.Time) string, count int64) {
+		periods := map[string]bool{}
+		for _, name := range sorted {
+			madeAt, isMade := madeAtOf(name)
+			if !isMade {
+				continue
+			}
+			period := periodOf(madeAt)
+			if periods[period] {
+				continue
+			}
+			if int64(len(periods)) >= count {
+				return
+			}
+			periods[period] = true
+			kept[name] = true
+		}
+	}
+	keepNewestOf(func(madeAt time.Time) string { return madeAt.UTC().Format(time.DateOnly) }, keeps.daily)
+	keepNewestOf(func(madeAt time.Time) string {
+		year, week := madeAt.UTC().ISOWeek()
+		return fmt.Sprintf("%d-W%02d", year, week)
+	}, keeps.weekly)
+	return slices.DeleteFunc(sorted, func(name string) bool { return kept[name] })
 }
 
 // enqueue asks for a backup job.
@@ -198,12 +242,18 @@ func backupNames(files []instancedir.BackupFile) []string {
 func newestBackup(files []instancedir.BackupFile) (time.Time, bool) {
 	var newest time.Time
 	for _, name := range backupNames(files) {
-		stem := strings.TrimSuffix(strings.TrimPrefix(name, backupStemPrefix), archiveSuffix)
-		if madeAt, err := time.Parse(timestampLayout, stem); err == nil && madeAt.After(newest) {
+		if madeAt, isMade := madeAtOf(name); isMade && madeAt.After(newest) {
 			newest = madeAt
 		}
 	}
 	return newest, !newest.IsZero()
+}
+
+// madeAtOf is when a backup was made, as its name says.
+func madeAtOf(name string) (time.Time, bool) {
+	stem := strings.TrimSuffix(strings.TrimPrefix(name, backupStemPrefix), archiveSuffix)
+	madeAt, err := time.Parse(timestampLayout, stem)
+	return madeAt, err == nil
 }
 
 // argsJSON is a backup job's arguments as the queue keeps them.

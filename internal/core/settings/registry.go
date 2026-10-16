@@ -79,10 +79,11 @@ const (
 	LoudnessMaxRaiseDB                             Key = "loudness_max_raise_db"
 	ReadThroughSweepEveryHours                     Key = "read_through_sweep_every_hours"
 	DerivedWorkSweepEverySeconds                   Key = "derived_work_sweep_every_seconds"
-	BackupEveryDays                                Key = "backup_every_days"
-	BackupHourLocalTZ                              Key = "backup_hour_local_tz"
+	BackupEveryHours                               Key = "backup_every_hours"
 	TimeZone                                       Key = "time_zone"
-	BackupsKept                                    Key = "backups_kept"
+	BackupsKeptHourly                              Key = "backups_kept_hourly"
+	BackupsKeptDaily                               Key = "backups_kept_daily"
+	BackupsKeptWeekly                              Key = "backups_kept_weekly"
 	ArtworkJPEGQuality                             Key = "artwork_jpeg_quality"
 	ArtworkSecondsBeforeEachRetry                  Key = "artwork_seconds_before_each_retry"
 	ArtworkCacheSweepEveryHours                    Key = "artwork_cache_sweep_every_hours"
@@ -330,20 +331,24 @@ func togetherDefinitions() []Definition {
 	}
 }
 
-// backupDefinitions are when the server backs itself up, and how many backups it keeps (D243 §11).
+// backupDefinitions are when the server backs itself up, and how many backups it keeps: hourly,
+// skipped when nothing changed, thinned to so many hourly, daily and weekly (D305 §2).
 func backupDefinitions() []Definition {
 	return []Definition{
-		exposed(sourced(durationSetting(BackupEveryDays, day, "1", 1, 365,
-			"days between the backups the server makes on its own, never holding secret.key (D246 §7)"),
-			"D243 §11: one a day")),
-		exposed(sourced(integerSetting(BackupHourLocalTZ, "4", 0, 23,
-			"the hour of the day, in the server's time_zone, a scheduled backup is made in, a quiet one; a "+
-				"backup overdue by a day is made at once (D246 §7)"),
-			"best guess: early morning, when no one watches; D243 §11 asks only for a quiet hour")),
-		exposed(sourced(integerSetting(BackupsKept, "14", 1, 1000,
-			"how many backups are kept, the newest; the copies kept before a restore or a migration are "+
-				"never pruned (D243 §11)"),
-			"D243 §11: the last 14")),
+		exposed(sourced(durationSetting(BackupEveryHours, time.Hour, "1", 1, 7*24,
+			"hours between the backups the server makes on its own, skipped when nothing changed, never "+
+				"holding secret.key (D305 §2)"),
+			"D305 §2: hourly")),
+		exposed(sourced(integerSetting(BackupsKeptHourly, "24", 1, 1000,
+			"how many of the newest backups are kept, one an hour (D305 §2)"),
+			"D305 §2: a day's hours")),
+		exposed(sourced(integerSetting(BackupsKeptDaily, "7", 0, 1000,
+			"how many days back the newest backup of each day is kept, past the hourly ones (D305 §2)"),
+			"D305 §2: a week's days")),
+		exposed(sourced(integerSetting(BackupsKeptWeekly, "4", 0, 520,
+			"how many weeks back the newest backup of each week is kept, past the daily ones; the copies "+
+				"kept before a restore or a migration are never pruned (D305 §2)"),
+			"D305 §2: a month's weeks")),
 	}
 }
 

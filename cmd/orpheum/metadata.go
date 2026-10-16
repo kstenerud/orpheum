@@ -341,10 +341,10 @@ func (services jobServices) queueCertificateRenewal(ctx context.Context) (int, e
 	return services.certificates.QueueRenewal(ctx)
 }
 
-// scheduledBackupCheckEvery is how often the scheduled backup's sweep asks whether it is due: within
-// a quarter of backup_hour_local_tz, whenever in the hour the server started; a look at the backup
-// directory, nothing more (D243 §11).
-const scheduledBackupCheckEvery = 15 * time.Minute
+// scheduledBackupCheckEvery is how often the scheduled backup's sweep asks whether it is due, so an
+// hourly backup comes within five minutes of its hour; a look at the backup directory, nothing
+// more (D305 §2).
+const scheduledBackupCheckEvery = 5 * time.Minute
 
 // sweepsAfterAPass are the sweeps an identification pass asks for: every one but the pass's own.
 func sweepsAfterAPass() []string {

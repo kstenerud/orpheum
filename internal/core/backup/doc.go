@@ -46,13 +46,14 @@
 //   - D194 §4: backups and the key.
 //   - D242 §5: a backup is a tarball of the persistent directory.
 //   - docs/contributors/design/plans/backup-restore.md.
-//   - A backup is a job, a person's or the schedule's: the schedule's is asked for at
-//     backup_hour_local_tz in the server's time zone once the newest backup is backup_every_days old, at
-//     once when it is a day overdue, and never holds secret.key; past backups_kept, the oldest
-//     backups are pruned, and the copies kept before a restore or a migration never are (D243 §11,
-//     D246 §7). TestQueueScheduled_AsksAtTheQuietHourWhenDueAndAtOnceWhenOverdue,
-//     TestQueueScheduled_TheHourIsTheServersAndTheGapIsInDays,
-//     TestPrune_KeepsTheNewestBackupsAndEveryCopyKeptBeforeARestoreOrMigration,
+//   - A backup is a job, a person's or the schedule's: the schedule's is asked for once the newest
+//     backup is backup_every_hours old, skipped when nothing was committed since the last this server
+//     made, and never holds secret.key; the backups are thinned to the newest backups_kept_hourly,
+//     then the newest of each day back to backups_kept_daily days and of each week back to
+//     backups_kept_weekly, and the copies kept before a restore or a migration are never pruned
+//     (D305 §2, D243 §11). TestQueueScheduled_AsksOnceTheNewestIsAnHourOld,
+//     TestQueueScheduled_SkipsABackupWhenNothingChangedSinceTheLast,
+//     TestPrune_ThinsToTheNewestHourlyThenOneADayThenOneAWeek,
 //     TestJobArgsMerge_HoldsTheKeyWhenEitherAskedAndARunningOneCoversWhatItHolds.
 //
 // # Where to change
@@ -61,5 +62,5 @@
 //     MakePlan and Restore (orpheum restore). The archive itself is internal/core/instancedir's
 //     (archive.go), the only core package that touches files.
 //   - jobs.go: a backup as a job (D243 §11): a person's request, the scheduled one the sweep asks
-//     for, the handler, which prunes past backups_kept, and how two requests merge.
+//     for, the handler, which thins the backups, and how two requests merge.
 package backup
