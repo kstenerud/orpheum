@@ -52,7 +52,10 @@ func (service *Service) Unanswered(ctx context.Context, nodeID int64, err error)
 
 // Withdraw takes an attempt's commands a node has not taken, its work and its cancel, out of the
 // node's queue, so the commands of a job that ended are never sent (S27). It says whether the work
-// was among them: the node never had it, and has nothing to stop.
+// was among them, never carried to the node: the node never had it, and has nothing to stop. Work an
+// answer carried that the node has not acknowledged yet, or a change of its priority, is not: the
+// node may hold the work, and is told to stop it (staging, 2026-10-16: bumped read-throughs were
+// withdrawn so, and the node, holding them, logged work no job wanted).
 func (service *Service) Withdraw(nodeID int64, token string) bool {
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
@@ -64,7 +67,8 @@ func (service *Service) Withdraw(nodeID int64, token string) bool {
 	wasWorkQueued := false
 	node.commands = slices.DeleteFunc(node.commands, func(command nodeproto.Command) bool {
 		isTheAttempts := command.AttemptToken == token
-		if isTheAttempts && command.Type != nodeproto.CommandCancel {
+		if isTheAttempts && command.Type != nodeproto.CommandCancel && command.Type != nodeproto.CommandReprioritize &&
+			command.CommandSeq > node.deliveredThrough {
 			wasWorkQueued = true
 		}
 		return isTheAttempts

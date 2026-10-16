@@ -292,6 +292,25 @@ func TestWithdraw_TakesAnEndedAttemptsCommandsOutBeforeTheNodeTakesThem(t *testi
 	}
 }
 
+// Work an answer carried to the node, which it has not acknowledged yet, and a change of its
+// priority are not work never sent: withdrawing the attempt says the node may hold it, so the node
+// is told to stop it, not left holding work no job wants (staging, 2026-10-16).
+func TestWithdraw_WorkCarriedToTheNodeIsNotWithdrawnAsNeverSent(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
+	harness.service.Enqueue(reply.NodeID, nodeproto.Command{
+		JobID: 7, AttemptToken: "carried", Work: nodeproto.Work{Type: nodeproto.CommandReadThrough},
+	})
+	if commands, _ := harness.pollThroughHold(t, reply.NodeID, 0); len(commands.Commands) != 1 {
+		t.Fatalf("the node took %+v, want the work", commands.Commands)
+	}
+	harness.service.Enqueue(reply.NodeID, ReprioritizeCommand(7, "carried", 5))
+	if harness.service.Withdraw(reply.NodeID, "carried") {
+		t.Error("withdrawing work an answer carried to the node said it was never sent")
+	}
+}
+
 // fakeRenditionIndex keeps the renditions named in keeps, or fails when err is set.
 type fakeRenditionIndex struct {
 	keeps []string

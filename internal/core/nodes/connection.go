@@ -20,6 +20,9 @@ type connectedNode struct {
 	status         *nodeproto.Status
 	commands       []nodeproto.Command
 	nextCommandSeq int64
+	// deliveredThrough is the last command an answer to a long-poll carried: one up to it may be the
+	// node's though it has not acknowledged it yet.
+	deliveredThrough int64
 	// seqByToken is the last command sent for each attempt, its work or its cancel, until the
 	// node's status says it took it: the reconciliation judges no attempt whose command is on its way.
 	seqByToken map[string]int64
