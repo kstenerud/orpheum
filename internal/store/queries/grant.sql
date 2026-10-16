@@ -78,3 +78,23 @@ ORDER BY locate_hash;
 SELECT offer_key FROM "grant"
 WHERE locate_hash = sqlc.arg(locate_hash) AND offer_key IS NOT NULL AND revoked_at IS NULL
   AND (expires_at IS NULL OR expires_at > sqlc.arg(now));
+
+-- A credential ended, revoked or expired, before ended_before is deleted with what names it (D304
+-- section 6): every sign-in ever made was kept.
+
+-- name: DeleteLocatorsOfEndedGrants :exec
+DELETE FROM locator WHERE session_secret_sha256 IN (
+  SELECT ended.secret_sha256 FROM "grant" AS ended
+  WHERE ended.revoked_at < sqlc.arg(ended_before) OR ended.expires_at < sqlc.arg(ended_before));
+
+-- name: DeleteInvitationsOfEndedGrants :exec
+DELETE FROM invitation WHERE secret_sha256 IN (
+  SELECT ended.secret_sha256 FROM "grant" AS ended
+  WHERE ended.revoked_at < sqlc.arg(ended_before) OR ended.expires_at < sqlc.arg(ended_before));
+
+-- name: DeleteEndedGrants :execrows
+-- Those no credential derived from them still names (D177); a derived one goes first, and its
+-- parent at the next sweep.
+DELETE FROM "grant"
+WHERE ("grant".revoked_at < sqlc.arg(ended_before) OR "grant".expires_at < sqlc.arg(ended_before))
+  AND NOT EXISTS (SELECT 1 FROM "grant" AS derived WHERE derived.parent_secret_sha256 = "grant".secret_sha256);

@@ -87,6 +87,13 @@ type jobServices struct {
 	sessions sessionUseFlusher
 	// invariants checks persistent.db's invariants, at start and daily (D303, M7).
 	invariants invariantChecker
+	// credentials deletes the credentials ended past their keeping, daily (D304 §6).
+	credentials credentialPurger
+}
+
+// credentialPurger deletes the credentials ended past their keeping: auth.Service.
+type credentialPurger interface {
+	PurgeEndedCredentials(ctx context.Context) (int, error)
 }
 
 // newJobServices builds the providers, the pass and the queue, and returns the jobs a crash left
@@ -133,7 +140,7 @@ func newJobServices(
 	wakeOwedPasses(pass, queue)
 	matcher := identify.NewMatcher(opened.database, opened.cache, pass, clock.System{}, logger)
 	return jobServices{
-		sessions: opened.auth, invariants: opened.database,
+		sessions: opened.auth, invariants: opened.database, credentials: opened.auth,
 		pass: pass, queue: queue, matcher: matcher, settings: opened.settings, subtitler: subtitler,
 		outboundClient: httpClient, providerServices: hosts,
 		chooser:   identify.NewChooser(matcher, pass),
@@ -274,24 +281,40 @@ func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRun
 // owed from what the pass reports, as after a scan (D209 §3, D212); and the measurement of each
 // video through whose bytes lack their loudness or their picture's timeline (D226 §2, D247 §10).
 const (
-	sweepFirstMatches    = "first matches"
-	sweepReconsidered    = "ambiguous matches reconsidered"
-	sweepRefreshRequests = "refreshes people asked for"
-	sweepRechecks        = "rechecks of missing images"
-	sweepRollingRefresh  = "rolling refresh"
-	sweepPasses          = "identification passes"
-	sweepOwedPasses      = "identification passes owed"
-	sweepReadThroughs    = "read-throughs"
-	sweepScheduledBackup = "the scheduled backup"
-	sweepCertificate     = "the certificate's renewal"
-	sweepScheduledScans  = "the scheduled scans"
-	sweepInvariants      = "the database's invariants"
+	sweepFirstMatches     = "first matches"
+	sweepReconsidered     = "ambiguous matches reconsidered"
+	sweepRefreshRequests  = "refreshes people asked for"
+	sweepRechecks         = "rechecks of missing images"
+	sweepRollingRefresh   = "rolling refresh"
+	sweepPasses           = "identification passes"
+	sweepOwedPasses       = "identification passes owed"
+	sweepReadThroughs     = "read-throughs"
+	sweepScheduledBackup  = "the scheduled backup"
+	sweepCertificate      = "the certificate's renewal"
+	sweepScheduledScans   = "the scheduled scans"
+	sweepInvariants       = "the database's invariants"
+	sweepEndedCredentials = "ended credentials past their keeping" //nolint:gosec // G101: a sweep's name
 )
 
 // scheduledScansCheckEvery is how often the scan schedule's sweep asks whether a root is due its
 // scan: a bound on how late one starts, against intervals of hours, and a read of persistent.db's
 // roots, nothing more.
 const scheduledScansCheckEvery = 15 * time.Minute
+
+// retentionSweepEvery is how often what is kept a number of days is pruned to it (D304 §6): daily,
+// as the limits are in days.
+const retentionSweepEvery = 24 * time.Hour
+
+// purgeEndedCredentials is the ended credentials' sweep: it queues no work, and deletes those past
+// their keeping.
+func purgeEndedCredentials(purger credentialPurger) func(ctx context.Context) (int, error) {
+	return func(ctx context.Context) (int, error) {
+		if _, err := purger.PurgeEndedCredentials(ctx); err != nil {
+			return 0, fmt.Errorf("purge ended credentials: %w", err)
+		}
+		return 0, nil
+	}
+}
 
 // invariantsCheckEvery is how often persistent.db's invariants are checked beside the check at
 // start: daily, as D303 (M7) says, a few full reads of tables at this scale.
@@ -399,6 +422,10 @@ func (services jobServices) sweeps(logger *slog.Logger) []jobs.Sweep {
 		{
 			Name: sweepScheduledScans, Derive: services.scanSchedule.QueueDue,
 			Every: func(context.Context) time.Duration { return scheduledScansCheckEvery },
+		},
+		{
+			Name: sweepEndedCredentials, Derive: purgeEndedCredentials(services.credentials),
+			Every: func(context.Context) time.Duration { return retentionSweepEvery },
 		},
 		{
 			Name: sweepInvariants, Derive: checkInvariants(services.invariants, logger),

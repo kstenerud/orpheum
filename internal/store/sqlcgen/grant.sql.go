@@ -35,6 +35,47 @@ func (q *Queries) BecomeOwnLink(ctx context.Context, arg BecomeOwnLinkParams) er
 	return err
 }
 
+const deleteEndedGrants = `-- name: DeleteEndedGrants :execrows
+DELETE FROM "grant"
+WHERE ("grant".revoked_at < ?1 OR "grant".expires_at < ?1)
+  AND NOT EXISTS (SELECT 1 FROM "grant" AS derived WHERE derived.parent_secret_sha256 = "grant".secret_sha256)
+`
+
+// Those no credential derived from them still names (D177); a derived one goes first, and its
+// parent at the next sweep.
+func (q *Queries) DeleteEndedGrants(ctx context.Context, endedBefore *int64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteEndedGrants, endedBefore)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deleteInvitationsOfEndedGrants = `-- name: DeleteInvitationsOfEndedGrants :exec
+DELETE FROM invitation WHERE secret_sha256 IN (
+  SELECT ended.secret_sha256 FROM "grant" AS ended
+  WHERE ended.revoked_at < ?1 OR ended.expires_at < ?1)
+`
+
+func (q *Queries) DeleteInvitationsOfEndedGrants(ctx context.Context, endedBefore *int64) error {
+	_, err := q.db.ExecContext(ctx, deleteInvitationsOfEndedGrants, endedBefore)
+	return err
+}
+
+const deleteLocatorsOfEndedGrants = `-- name: DeleteLocatorsOfEndedGrants :exec
+
+DELETE FROM locator WHERE session_secret_sha256 IN (
+  SELECT ended.secret_sha256 FROM "grant" AS ended
+  WHERE ended.revoked_at < ?1 OR ended.expires_at < ?1)
+`
+
+// A credential ended, revoked or expired, before ended_before is deleted with what names it (D304
+// section 6): every sign-in ever made was kept.
+func (q *Queries) DeleteLocatorsOfEndedGrants(ctx context.Context, endedBefore *int64) error {
+	_, err := q.db.ExecContext(ctx, deleteLocatorsOfEndedGrants, endedBefore)
+	return err
+}
+
 const getGrantState = `-- name: GetGrantState :one
 SELECT kind, revoked_at, expires_at, last_used_at, issued_at FROM "grant" WHERE secret_sha256 = ?1
 `

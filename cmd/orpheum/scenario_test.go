@@ -14,6 +14,7 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -472,10 +473,11 @@ func TestScenario_S78_DiscardingCacheDBLosesOnlyTiming(t *testing.T) {
 		invariants: world.database,
 	}
 	for _, sweep := range services.sweeps(slog.New(slog.DiscardHandler)) {
-		// No files to measure, nothing due a rolling refresh, and backups and scans are not this
-		// scenario's work.
-		if sweep.Name != sweepReadThroughs && sweep.Name != sweepRollingRefresh && sweep.Name != sweepScheduledBackup &&
-			sweep.Name != sweepScheduledScans {
+		// No files to measure, nothing due a rolling refresh, and backups, scans and credentials are
+		// not this scenario's work.
+		if !slices.Contains([]string{
+			sweepReadThroughs, sweepRollingRefresh, sweepScheduledBackup, sweepScheduledScans, sweepEndedCredentials,
+		}, sweep.Name) {
 			world.queue.AddSweep(sweep)
 		}
 	}

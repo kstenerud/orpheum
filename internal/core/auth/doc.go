@@ -129,6 +129,10 @@
 //     TestRemoveUser_LeavesNothingOfTheirsButANamelessRow, and the API's
 //     TestPeople_ARemovedPersonsSettingsStayAndWhoSetThemIsForgotten.
 //
+//   - A credential that ended, revoked or expired, is deleted ended_credentials_kept_days after,
+//     with what names it, by a daily sweep (D304 §6).
+//     TestPurgeEndedCredentials_DeletesThoseEndedPastTheirKeeping.
+//
 //   - argon2id takes at most 500 ms on devnas: BenchmarkHashPassword_DefaultParameters, run there
 //     (verification queue VQ1).
 //
