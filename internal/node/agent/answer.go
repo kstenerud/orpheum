@@ -37,6 +37,9 @@ type endedAttempts struct {
 	mutex          sync.Mutex
 	unacknowledged map[string]int64     // guarded by mutex: each one's job, by token
 	acknowledgedAt map[string]time.Time // guarded by mutex
+	// cancelledAt is when a cancel came for each attempt the node did not hold yet: its work, sent
+	// before it but held after, is never run (guarded by mutex).
+	cancelledAt map[string]time.Time
 	// helloSaid is closed at each hello, when every unacknowledged result is sent again at once.
 	helloSaid chan struct{} // guarded by mutex
 }
@@ -44,6 +47,7 @@ type endedAttempts struct {
 func newEndedAttempts() *endedAttempts {
 	return &endedAttempts{
 		unacknowledged: map[string]int64{}, acknowledgedAt: map[string]time.Time{}, helloSaid: make(chan struct{}),
+		cancelledAt: map[string]time.Time{},
 	}
 }
 
@@ -86,6 +90,27 @@ func (ended *endedAttempts) acknowledge(token string, now time.Time, kept time.D
 			delete(ended.acknowledgedAt, other)
 		}
 	}
+}
+
+// cancelledUnheld notes a cancel for an attempt the node does not hold at now, and forgets those
+// noted longer than kept ago.
+func (ended *endedAttempts) cancelledUnheld(token string, now time.Time, kept time.Duration) {
+	ended.mutex.Lock()
+	defer ended.mutex.Unlock()
+	ended.cancelledAt[token] = now
+	for other, at := range ended.cancelledAt {
+		if now.Sub(at) > kept {
+			delete(ended.cancelledAt, other)
+		}
+	}
+}
+
+// wasCancelled is whether a cancel came for an attempt before the node held it.
+func (ended *endedAttempts) wasCancelled(token string) bool {
+	ended.mutex.Lock()
+	defer ended.mutex.Unlock()
+	_, isCancelled := ended.cancelledAt[token]
+	return isCancelled
 }
 
 // nextHello is closed at the next hello.
