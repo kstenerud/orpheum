@@ -15,12 +15,14 @@ export interface Page<T> {
 
 /**
  * A list read a page at a time: what is loaded so far, merged into one page, whether more is
- * loading, and a way to ask.
+ * loading, a way to ask, and a way to say which of its items are in view, whose pages a poll reads.
  */
 export interface Pages<T> {
   readonly loadedSoFar: Resource<Page<T>>;
   readonly isLoadingMore: boolean;
   readonly loadMore: () => void;
+  /** The view's first and last item in view, by their place in loadedSoFar's items. */
+  readonly showRange: (first: number, last: number) => void;
 }
 
 /** The pages so far with the next one added. */
@@ -30,43 +32,108 @@ export function appendPage<T>(loadedSoFar: Page<T>, page: Page<T>): Page<T> {
 
 /**
  * The first pages of a list again, from the start, until they hold at least shownCount items or the
- * list ends: what a person scrolled through, as the server has it now.
+ * list ends: what a person scrolled through, as the server has it now. Each is kept with the cursor
+ * it was read by.
  */
 export async function loadAgain<T>(
   load: (cursor: string) => Promise<Page<T>>,
   shownCount: number,
-): Promise<Page<T>> {
-  let pages = await load("");
-  while (pages.items.length < shownCount && pages.nextCursor !== "") {
-    pages = appendPage(pages, await load(pages.nextCursor));
+): Promise<ReadPage<T>[]> {
+  const pages = [{ cursor: "", ...(await load("")) }];
+  let count = pages[0]?.items.length ?? 0;
+  for (let last = pages[0]; last !== undefined && count < shownCount && last.nextCursor !== "";) {
+    const cursor = last.nextCursor;
+    last = { cursor, ...(await load(cursor)) };
+    pages.push(last);
+    count += last.items.length;
   }
   return pages;
 }
 
-/** What a list's poll reads against: the pages shown, whether the last read of them failed, and
- * whether a page more is loading. */
-interface Shown<T> {
-  page: Page<T> | undefined;
-  hasFailed: boolean;
-  isLoadingMore: boolean;
+/** A page as it was read: by its cursor, "" for the first. */
+export interface ReadPage<T> extends Page<T> {
+  readonly cursor: string;
+}
+
+/** The pages read, merged into one: their items in order, an id seen twice kept the first time. */
+export function merged<T>(pages: readonly ReadPage<T>[], idOf?: (item: T) => unknown): Page<T> {
+  const items: T[] = [];
+  const seen = new Set<unknown>();
+  for (const page of pages) {
+    for (const item of page.items) {
+      const id = idOf === undefined ? undefined : idOf(item);
+      if (id !== undefined && seen.has(id)) {
+        continue;
+      }
+      seen.add(id);
+      items.push(item);
+    }
+  }
+  return { items, nextCursor: pages.at(-1)?.nextCursor ?? "" };
 }
 
 /**
- * Reads every page shown again and hands answered what that came to, and the pages read when they
- * are to be shown: changed, or read after a failure, the first read's among them, which shows
- * nothing yet. It skips its turn, unchanged, while the first read or a page more is loading.
+ * How many pages a poll reads at most: those the view shows, as D306 §7 has it, so a poll's cost
+ * stays the same however far a person scrolled. Pages scrolled past keep what they had, and are
+ * read again once they are in view again.
+ */
+export const pagesReadByAPoll = 2;
+
+/** Which pages hold the items from first to last, by their place among the pages' items. */
+export function pagesHolding<T>(
+  pages: readonly ReadPage<T>[],
+  first: number,
+  last: number,
+): number[] {
+  const holding: number[] = [];
+  let start = 0;
+  pages.forEach((page, index) => {
+    const end = start + page.items.length - 1;
+    if (end >= first && start <= last) {
+      holding.push(index);
+    }
+    start = end + 1;
+  });
+  return holding;
+}
+
+/** What a list's poll reads against, as the poll, which outlives renders, sees it. */
+interface Shown<T> {
+  pages: ReadPage<T>[] | undefined;
+  hasFailed: boolean;
+  isLoadingMore: boolean;
+  /** The items in view, by their place in the merged items; undefined before the view says. */
+  range: { first: number; last: number } | undefined;
+}
+
+/** The pages a poll reads: those the view shows, or, before it says, the first; at most two. */
+function pagesToRead<T>(shown: Shown<T>, pages: readonly ReadPage<T>[]): number[] {
+  const inView =
+    shown.range === undefined ? [0] : pagesHolding(pages, shown.range.first, shown.range.last);
+  return (inView.length === 0 ? [0] : inView).slice(0, pagesReadByAPoll);
+}
+
+/**
+ * Reads the pages in view again, each by the cursor it was read by, and hands answered what that
+ * came to, and the pages to show when they changed. A list whose last read failed is read again
+ * from the start, as far as it was shown. It skips its turn, unchanged, while the first read or a
+ * page more is loading.
  */
 function readAgain<T>(
   load: (cursor: string) => Promise<Page<T>>,
   shown: Shown<T>,
-  answered: (outcome: AskOutcome, now?: Page<T>) => void,
+  answered: (outcome: AskOutcome, now?: ReadPage<T>[]) => void,
 ): void {
-  const before = shown.page;
+  const before = shown.pages;
   if (shown.isLoadingMore || (before === undefined && !shown.hasFailed)) {
     answered("unchanged");
     return;
   }
-  loadAgain(load, before?.items.length ?? 0).then(
+  const read: Promise<ReadPage<T>[]> =
+    shown.hasFailed || before === undefined
+      ? loadAgain(load, before?.reduce((count, page) => count + page.items.length, 0) ?? 0)
+      : readPagesInView(load, before, pagesToRead(shown, before));
+  read.then(
     (now) => {
       if (shown.isLoadingMore) {
         answered("unchanged");
@@ -83,16 +150,81 @@ function readAgain<T>(
   );
 }
 
-/** A list as its poller reads and shows it: how to load a page, what is shown, and how to show more. */
-interface PolledList<T> {
-  readonly load: (cursor: string) => Promise<Page<T>>;
-  readonly shown: { readonly current: Shown<T> };
-  readonly show: (page: Page<T>) => void;
+/** The pages with each of those at indexes read again by its own cursor. */
+async function readPagesInView<T>(
+  load: (cursor: string) => Promise<Page<T>>,
+  pages: readonly ReadPage<T>[],
+  indexes: readonly number[],
+): Promise<ReadPage<T>[]> {
+  const now = [...pages];
+  for (const index of indexes) {
+    const page = pages[index];
+    if (page !== undefined) {
+      now[index] = keepUnchanged(page, { cursor: page.cursor, ...(await load(page.cursor)) });
+    }
+  }
+  return now;
 }
 
 /**
- * While the component shows a list, reads every page shown again as the poller says, and shows what
- * changed (D237); a list whose read failed is read again from the start. Nothing without a poller.
+ * A page read again, each item that did not change the very one shown before, so a view that
+ * draws rows by their identity draws again only what changed; the page shown before when nothing
+ * did.
+ */
+function keepUnchanged<T>(before: ReadPage<T>, now: ReadPage<T>): ReadPage<T> {
+  const beforeByText = new Map(before.items.map((item) => [JSON.stringify(item), item]));
+  const items = now.items.map((item) => beforeByText.get(JSON.stringify(item)) ?? item);
+  const isSame =
+    items.length === before.items.length &&
+    items.every((item, index) => item === before.items[index]) &&
+    now.nextCursor === before.nextCursor;
+  return isSame ? before : { ...now, items };
+}
+
+/**
+ * How a list asks for its next page: after the last page read, unless the list ended or a page more
+ * is loading, which it says through setIsLoadingMore.
+ */
+function useLoadMore<T>(
+  list: PolledList<T> & { readonly fail: (cause: unknown) => void },
+  setIsLoadingMore: (isLoadingMore: boolean) => void,
+): () => void {
+  const { load, show, fail } = list;
+  const state = list.shown.current;
+  return (): void => {
+    const pages = state.pages;
+    const cursor = pages?.at(-1)?.nextCursor ?? "";
+    if (pages === undefined || cursor === "" || state.isLoadingMore) {
+      return;
+    }
+    setIsLoadingMore(true);
+    state.isLoadingMore = true;
+    load(cursor).then(
+      (page) => {
+        setIsLoadingMore(false);
+        state.isLoadingMore = false;
+        show([...pages, { cursor, ...page }]);
+      },
+      (cause: unknown) => {
+        setIsLoadingMore(false);
+        state.isLoadingMore = false;
+        fail(cause);
+      },
+    );
+  };
+}
+
+/** A list as its poller reads and shows it: how to load a page, what is shown, and how to show it. */
+interface PolledList<T> {
+  readonly load: (cursor: string) => Promise<Page<T>>;
+  readonly shown: { readonly current: Shown<T> };
+  readonly show: (pages: ReadPage<T>[]) => void;
+}
+
+/**
+ * While the component shows a list, reads the pages in view again as the poller says, and shows
+ * what changed (D237, D306 §7); a list whose read failed is read again from the start. Nothing
+ * without a poller.
  */
 function usePagesPolling<T>(
   poller: Poller | undefined,
@@ -115,70 +247,67 @@ function usePagesPolling<T>(
 
 /**
  * Reads a list a page at a time from load. A different list is a different component: key it by
- * what load reads, so it starts again from the first page.
+ * what load reads, so it starts again from the first page. Given idOf, an item read twice, as a
+ * list changing between two pages' reads may give it, is shown once.
  *
- * Given a poller, it also asks again for every page shown so far for as long as the component shows
- * it, backing off while nothing changes (D237), and keeps what it shows meanwhile: titles a scan
- * finds, and the posters made for them, appear without a reload. It skips its turn while a page
- * more is loading.
+ * Given a poller, it also asks again for the pages in view, as showRange says them, for as long as
+ * the component shows it, backing off while nothing changes (D237): titles a scan finds, and the
+ * posters made for them, appear without a reload, and a poll reads no more than pagesReadByAPoll
+ * however far the list was scrolled (D306 §7). It skips its turn while a page more is loading.
  */
-export function usePages<T>(load: (cursor: string) => Promise<Page<T>>, poller?: Poller): Pages<T> {
+export function usePages<T>(
+  load: (cursor: string) => Promise<Page<T>>,
+  poller?: Poller,
+  idOf?: (item: T) => unknown,
+): Pages<T> {
   const [loadedSoFar, setLoadedSoFar] = useState<Resource<Page<T>>>({ state: "loading" });
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   // What is shown and whether a page more is loading, as the poll, which outlives renders, reads them.
-  const shown = useRef<Shown<T>>({ page: undefined, hasFailed: false, isLoadingMore: false });
-  const show = useCallback((page: Page<T>): void => {
-    shown.current.page = page;
+  const shown = useRef<Shown<T>>({
+    pages: undefined,
+    hasFailed: false,
+    isLoadingMore: false,
+    range: undefined,
+  });
+  // Read through a ref, so a function made anew at each render does not read the list again.
+  const idOfNow = useRef(idOf);
+  idOfNow.current = idOf;
+  const show = useCallback((pages: ReadPage<T>[]): void => {
+    shown.current.pages = pages;
     shown.current.hasFailed = false;
-    setLoadedSoFar({ state: "loaded", value: page });
+    setLoadedSoFar({ state: "loaded", value: merged(pages, idOfNow.current) });
+  }, []);
+  const fail = useCallback((cause: unknown): void => {
+    shown.current.hasFailed = true;
+    setLoadedSoFar({ state: "failed", cause });
   }, []);
   useEffect(() => {
     let isCurrent = true;
     load("").then(
       (first) => {
         if (isCurrent) {
-          show(first);
+          show([{ cursor: "", ...first }]);
         }
       },
       (cause: unknown) => {
         if (isCurrent) {
-          shown.current.hasFailed = true;
-          setLoadedSoFar({ state: "failed", cause });
+          fail(cause);
         }
       },
     );
     return () => {
       isCurrent = false;
     };
-  }, [load, show]);
+  }, [load, show, fail]);
   usePagesPolling(poller, { load, shown, show });
-  const loadMore = (): void => {
-    if (loadedSoFar.state !== "loaded" || loadedSoFar.value.nextCursor === "" || isLoadingMore) {
-      return;
-    }
-    const loaded = loadedSoFar.value;
-    setIsLoadingMore(true);
-    shown.current.isLoadingMore = true;
-    load(loaded.nextCursor).then(
-      (page) => {
-        setIsLoadingMore(false);
-        shown.current.isLoadingMore = false;
-        const more = appendPage(loaded, page);
-        shown.current.page = more;
-        setLoadedSoFar({ state: "loaded", value: more });
-      },
-      (cause: unknown) => {
-        setIsLoadingMore(false);
-        shown.current.isLoadingMore = false;
-        shown.current.hasFailed = true;
-        setLoadedSoFar({ state: "failed", cause });
-      },
-    );
-  };
+  const loadMore = useLoadMore({ load, shown, show, fail }, setIsLoadingMore);
+  const showRange = useCallback((first: number, last: number): void => {
+    shown.current.range = { first, last };
+  }, []);
   // A failure its poller reads again after says so: the poller, not the read, decides it.
   const shownSoFar =
     loadedSoFar.state === "failed" && poller !== undefined
       ? { ...loadedSoFar, willAskAgain: true }
       : loadedSoFar;
-  return { loadedSoFar: shownSoFar, isLoadingMore, loadMore };
+  return { loadedSoFar: shownSoFar, isLoadingMore, loadMore, showRange };
 }

@@ -19,6 +19,7 @@ import { Remembered, useRemembered } from "./remembered.ts";
 import { useResource, type Resource } from "./use-resource.ts";
 import { usePages, type Page } from "./use-pages.ts";
 import { EndOfList } from "./end-of-list.tsx";
+import { useItemsInView } from "./items-in-view.ts";
 
 /** A series with its seasons, as the server sends it; each season's episodes are read apart. */
 export type SeriesDetail = components["schemas"]["CollectionOutputBody"];
@@ -122,6 +123,9 @@ function SeasonList(props: {
   );
 }
 
+/** An episode's id, by which a season shows an episode read twice once. */
+const episodeId = (episode: Episode): number => episode.id;
+
 /** One season's episodes, read a page at a time (D306 §9). */
 function SeasonEpisodes(props: {
   readonly seriesId: number;
@@ -141,12 +145,14 @@ function SeasonEpisodes(props: {
     },
     [api, seriesId, season],
   );
-  const pages = usePages(loadPage, useBackgroundChangesPoller());
+  const pages = usePages(loadPage, useBackgroundChangesPoller(), episodeId);
+  const watchItemAt = useItemsInView(pages.showRange);
   return (
     <SeasonView
       loadedEpisodes={pages.loadedSoFar}
       isLoadingMore={pages.isLoadingMore}
       onLoadMore={pages.loadMore}
+      watchItemAt={watchItemAt}
     />
   );
 }
@@ -156,13 +162,14 @@ export function SeasonView(props: {
   readonly loadedEpisodes: Resource<Page<Episode>>;
   readonly isLoadingMore: boolean;
   readonly onLoadMore: () => void;
+  readonly watchItemAt?: ((index: number) => (element: Element | null) => void) | undefined;
 }): JSX.Element {
   return (
     <Loaded
       resource={props.loadedEpisodes}
       render={(page) => (
         <>
-          <EpisodeList episodes={page.items} />
+          <EpisodeList episodes={page.items} watchItemAt={props.watchItemAt} />
           {page.nextCursor === "" ? null : (
             <EndOfList onMore={props.onLoadMore} isLoadingMore={props.isLoadingMore} />
           )}
@@ -173,13 +180,17 @@ export function SeasonView(props: {
 }
 
 /** One season's episodes, each with its still, those not on disk or unavailable said so. */
-function EpisodeList(props: { readonly episodes: readonly Episode[] }): JSX.Element {
+function EpisodeList(props: {
+  readonly episodes: readonly Episode[];
+  readonly watchItemAt?: ((index: number) => (element: Element | null) => void) | undefined;
+}): JSX.Element {
   const { t } = useTranslation();
   return (
     <ol className="series__episodes">
-      {props.episodes.map((episode) => (
+      {props.episodes.map((episode, index) => (
         <li
           key={episode.id}
+          ref={props.watchItemAt?.(index)}
           className={
             episode.hasLiveFile && episode.unavailable === undefined
               ? undefined
