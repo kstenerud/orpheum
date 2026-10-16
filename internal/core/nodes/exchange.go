@@ -96,8 +96,12 @@ type Exchanges struct {
 	assignees map[jobs.Kind]Assignee  // guarded by mutex
 	// brokenInvariants counts, by node, the differences reconciled between what it was given and held.
 	brokenInvariants map[int64]int // guarded by mutex
-	disks            DiskStalls    // guarded by mutex
-	quickPasses      QuickPasses   // guarded by mutex
+	// stopping are the attempts the core told their node to stop, a bump's or a cancel's, by token,
+	// with when: until the node no longer holds one, or stoppingGrace has passed, its holding it is
+	// its cancel on its way, not work no job wants (Reconcile).
+	stopping    map[string]time.Time // guarded by mutex
+	disks       DiskStalls           // guarded by mutex
+	quickPasses QuickPasses          // guarded by mutex
 }
 
 // ExchangeParts are what the exchanges are built from.
@@ -200,7 +204,7 @@ func NewExchanges(parts ExchangeParts) *Exchanges {
 		settings: parts.Settings, maxSilence: parts.MaxSilence, rooms: parts.Rooms,
 		recorders: map[nodeproto.CommandType]Recorder{},
 		attempts:  map[string]*heldAttempt{}, assignees: map[jobs.Kind]Assignee{},
-		brokenInvariants: map[int64]int{},
+		brokenInvariants: map[int64]int{}, stopping: map[string]time.Time{},
 	}
 }
 

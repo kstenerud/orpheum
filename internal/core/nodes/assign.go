@@ -374,6 +374,9 @@ func (all *Exchanges) stop(_ context.Context, attempt Attempt) {
 	if all.sender.Withdraw(attempt.NodeID, attempt.Token) {
 		return
 	}
+	all.mutex.Lock()
+	all.stopping[attempt.Token] = all.clock.Now()
+	all.mutex.Unlock()
 	all.sender.Enqueue(attempt.NodeID, CancelCommand(attempt.JobID, attempt.Token))
 }
 
