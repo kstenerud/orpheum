@@ -76,6 +76,9 @@ func write(
 		return Written{}, err
 	}
 	if backupErr := database.BackupInto(ctx, snapshotPath); backupErr != nil {
+		if errors.Is(backupErr, store.ErrDamagedCopy) {
+			backupErr = errors.Join(backupErr, directories.RemoveBackupFile(snapshotName))
+		}
 		return Written{}, backupErr
 	}
 	defer func() { err = errors.Join(err, directories.RemoveBackupFile(snapshotName)) }()

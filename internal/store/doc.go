@@ -42,7 +42,9 @@
 //   - A slow write's report names the write it waited behind (D303, DL17). Enforced by
 //     TestWrite_ASlowWaitNamesTheWriteItWaitedBehind.
 //   - A backup reads a snapshot on the maintenance connection, never the writer, so writes go on
-//     while it copies (D303 §7). Enforced by TestBackupInto_CopiesWhileAWriteHoldsTheWriter.
+//     while it copies (D303 §7). Enforced by TestBackupInto_CopiesWhileAWriteHoldsTheWriter. A copy
+//     that fails integrity_check is refused (M6). Enforced by
+//     TestBackupInto_RefusesACopyThatFailsItsIntegrityCheck.
 //   - Every query of both databases, and each of search's statements, reads by an index, or is
 //     listed with why it may read a whole table; an entry naming D303 is a defect the redesign
 //     removes (D303, DL1). Enforced by TestQueryPlans_EveryQueryReadsByAnIndexOrSaysWhy. Each search

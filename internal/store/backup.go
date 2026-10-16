@@ -17,14 +17,51 @@ import (
 // BackupInto writes a consistent copy of the database to path with VACUUM INTO: one file, no
 // WAL sidecars, safe beside a live writer (D77; backup-restore.md measured a plain copy of a WAL
 // database producing a file with no tables). It reads a snapshot on the maintenance connection, so
-// writes go on while it copies (D303 §7). The target must not exist yet. The copy carries sealed
-// ciphertext only; secret.key is never in the database (D194 §4).
+// writes go on while it copies (D303 §7). The copy is then checked whole (integrity_check), and one
+// that fails is refused, ErrDamagedCopy, for the caller to remove: a backup that would not restore
+// is no backup (D303 §7, M6).
+// The target must not exist yet. The copy carries sealed ciphertext only; secret.key is never in
+// the database (D194 §4).
 func (database *Database) BackupInto(ctx context.Context, path string) error {
 	if strings.Contains(path, "?") {
 		return fmt.Errorf("back up into %q: a path may not contain '?'", path)
 	}
 	if _, err := database.maintenance.ExecContext(ctx, "VACUUM INTO ?", path); err != nil {
 		return fmt.Errorf("back up into %q: %w", path, err)
+	}
+	return checkCopy(ctx, path)
+}
+
+// ErrDamagedCopy is a backup whose copy fails SQLite's integrity check.
+var ErrDamagedCopy = errors.New("the copy fails its integrity check")
+
+// checkCopy runs integrity_check over the copy at path, which must answer "ok" alone. The copy is
+// opened query_only, not mode=ro: on a read-only file SQLite's integrity_check skips CHECK
+// constraints and answers "ok" (idiosyncrasies.md).
+func checkCopy(ctx context.Context, path string) (err error) {
+	pool, err := sql.Open("sqlite", path+"?_pragma=query_only(1)")
+	if err != nil {
+		return fmt.Errorf("open the copy %q: %w", path, err)
+	}
+	defer func() { err = errors.Join(err, errs.WrapIf("close the copy", pool.Close())) }()
+	rows, err := pool.QueryContext(ctx, "PRAGMA integrity_check")
+	if err != nil {
+		return fmt.Errorf("check the copy %q: %w", path, err)
+	}
+	defer func() { _ = rows.Close() }() //nolint:errcheck // a read; rows.Err is checked
+	var found []string
+	for rows.Next() {
+		var line string
+		if err = rows.Scan(&line); err != nil {
+			return fmt.Errorf("check the copy %q: %w", path, err)
+		}
+		found = append(found, line)
+	}
+	if err = rows.Err(); err != nil {
+		return fmt.Errorf("check the copy %q: %w", path, err)
+	}
+	if len(found) != 1 || found[0] != "ok" {
+		return fmt.Errorf("back up into %q: %w: %s", path, ErrDamagedCopy, strings.Join(found, "; "))
 	}
 	return nil
 }

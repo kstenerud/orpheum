@@ -152,6 +152,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Unicode61 makes a CJK run one token and shreds Thai. | [FTS5 tokeniser gaps](#fts5-tokeniser-gaps) |
 | `modernc.org/libc` imports `os/exec`, which trips "the core never execs" | [`modernc.org/libc` imports `os/exec`, which trips "the core never execs"](#moderncorglibc-imports-osexec-which-trips-the-core-never-execs) |
 | SQLite's locking is unreliable on network filesystems | [SQLite's locking is unreliable on network filesystems](#sqlites-locking-is-unreliable-on-network-filesystems) |
+| A backup with a row its CHECK forbids passed `integrity_check` | [On a file opened `mode=ro`, `integrity_check` skips CHECK constraints](#on-a-file-opened-modero-integrity_check-skips-check-constraints) |
 | `COLLATE NOCASE` folds only ASCII, and temp files follow TMPDIR | [`COLLATE NOCASE` folds only ASCII, and temp files follow TMPDIR](#collate-nocase-folds-only-ascii-and-temp-files-follow-tmpdir) |
 | Go regexp's `\w`, `\d`, `\s` and `\b` are ASCII-only and fail silently on names like "Amélie" | [Go regexp's `\w`, `\d`, `\s` and `\b` are ASCII-only and fail silently on names like "Amélie"](#go-regexps-w-d-s-and-b-are-ascii-only-and-fail-silently-on-names-like-amélie) |
 | `x/text/collate` is stuck at Unicode 6.2 and sorts Korean by code point (golang/go#19087) | [`x/text/collate` is stuck at Unicode 6.2 and sorts Korean by code point (golang/go#19087)](#xtextcollate-is-stuck-at-unicode-62-and-sorts-korean-by-code-point-golanggo19087) |
@@ -1958,6 +1959,17 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   [source] In libc v1.75.7 the import serves C's `system()` (`Xsystem` runs `exec.Command("sh", "-c", …)` in
   `libc_musl.go`), which SQLite never calls.
 
+
+### On a file opened `mode=ro`, `integrity_check` skips CHECK constraints
+
+- **Symptom:** a copy holding a row its table's CHECK forbids answers `PRAGMA integrity_check`
+  with `ok` when opened `file:…?mode=ro`, and with `CHECK constraint failed in user` when opened
+  by its plain path with `query_only(1)`. Measured on SQLite 3.53.4 (modernc), 2026-10-16.
+- **What we do:** a backup's copy is checked through its plain path with `query_only(1)`.
+  `checkCopy` in `internal/store/backup.go`; `TestBackupInto_RefusesACopyThatFailsItsIntegrityCheck`.
+- **Evidence:** measured here; the [pragma documentation](https://www.sqlite.org/pragma.html#pragma_integrity_check)
+  says CHECK constraints are verified and says nothing of read-only files. **[web]** no report found
+  on the SQLite forum (searched 2026-10-16).
 
 ### SQLite's locking is unreliable on network filesystems
 

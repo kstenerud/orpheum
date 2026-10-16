@@ -466,3 +466,25 @@ func TestRestore_TakesTheDatabaseSnapshotKeptBeforeAMigration(t *testing.T) {
 		}
 	}
 }
+
+// A backup whose database copy fails its integrity check is refused and leaves nothing behind in
+// the backup directory (D303 §7, M6).
+func TestWrite_RefusesADamagedCopyAndLeavesNothingBehind(t *testing.T) {
+	t.Parallel()
+	instance := newServer(t)
+	storetest.ExecRaw(t, instance.database.Path(), "PRAGMA ignore_check_constraints = 1; "+
+		"INSERT INTO user (name, role_id, created_at, admin_away) VALUES ('mallory', 1, 1, 'sometimes')")
+	_, err := Write(t.Context(), instance.database, instance.directories, testTime, false)
+	if !errors.Is(err, store.ErrDamagedCopy) {
+		t.Errorf("a backup of a row its CHECK forbids: %v, want store.ErrDamagedCopy", err)
+	}
+	files, err := instance.directories.ListBackups()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range files {
+		if strings.HasPrefix(file.Name, "backup-") {
+			t.Errorf("the refused backup left %s behind", file.Name)
+		}
+	}
+}
