@@ -20358,7 +20358,7 @@ independent audit's amendments and additions, *"Agreed"*.
    retention).
 
 **Status:** Decided 2026-10-15. Revisits D243 §11 (backup schedule) and D272 §5 (this change
-starts a new baseline). Phase A next. §1's M4, DL13 and DL14 amended by D304.
+starts a new baseline). Phase A next. §1's M4, DL13 and DL14 amended by D304; §5 and §7 revised by D305.
 
 ## D304 — A library is filed in stages by weight: titles show from the listing, still reading, and fill in by whole units
 
@@ -20391,3 +20391,26 @@ revises D240 §3, §4 and §8.
    (*"Sane limits for each, stored as a config value."*).
 
 **Status:** Decided 2026-10-16; to be built in the proposal's §7 order.
+
+## D305 — Removing a person deletes what was theirs; backups are hourly, thinned by counts the config holds
+
+**Decided** (2026-10-16), by the project owner, on two of D303's open questions. It revises D303
+§5 and §7.
+
+1. **Removing a person deletes what was theirs, not pseudonymises it** (D303 §5, M12). The owner,
+   asked what removal should keep: *"I've already said that I don't need an audit trail (who set
+   what when) because the most likely setup will have a single admin, and even two admins wouldn't
+   need it. [...] What data do we have that wouldn't be an easily purged leaf table off a user (and
+   that we really would want to keep around for other reasons)?"*; and to the proposal below,
+   *"yes"*. Each table of the person's alone is emptied of their rows by the package that writes it
+   (their watching, preferences, credentials, devices and realm key); the columns that record who
+   set something everyone shares (an override, a setting, a key) are cleared; and the person's row
+   stays only as a nameless tombstone (no name, password or note), so ids are never reused and a
+   subtitle fetched for everyone still names a row. Watch counts, should they matter one day, are
+   a counter on the title.
+2. **Backups are hourly with no quiet hour** (D303 §7): *"what is a quiet hour?"*, then *"yes"* to
+   dropping it. A backup runs each hour, is skipped when nothing changed, and old ones thin to so
+   many hourly, daily and weekly, each count a config value with a sane default (24, 7, 4) and
+   bounds, as D304 §6's retention limits are.
+
+**Status:** Decided 2026-10-16.

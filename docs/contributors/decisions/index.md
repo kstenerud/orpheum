@@ -308,8 +308,9 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D300](working-notes.md#d300--a-webrtc-connection-made-inside-the-house-counts-as-home-the-core-offers-webrtc-on-its-lan-address) A WebRTC connection made inside the house counts as home; the core offers WebRTC on its LAN address
 - [D301](working-notes.md#d301--an-unsettled-match-takes-the-oldest-candidate-the-most-voted-within-a-year-and-an-admin-corrects-it-from-the-titles-page) An unsettled match takes the oldest candidate, the most voted within a year, and an admin corrects it from the title's page
 - [D302](working-notes.md#d302--an-admin-may-administer-from-away-from-home-by-their-own-setting-off-by-default) An admin may administer from away from home, by their own setting, off by default
-- [D303](working-notes.md#d303--the-data-layer-is-rebuilt-to-written-principles-short-writes-that-re-check-what-they-decided-a-fresh-baseline-committed-statistics-hourly-backups) The data layer is rebuilt to written principles: short writes that re-check what they decided, a fresh baseline, committed statistics, hourly backups — *revisited by D304*
+- [D303](working-notes.md#d303--the-data-layer-is-rebuilt-to-written-principles-short-writes-that-re-check-what-they-decided-a-fresh-baseline-committed-statistics-hourly-backups) The data layer is rebuilt to written principles: short writes that re-check what they decided, a fresh baseline, committed statistics, hourly backups — *revisited by D304, D305*
 - [D304](working-notes.md#d304--a-library-is-filed-in-stages-by-weight-titles-show-from-the-listing-still-reading-and-fill-in-by-whole-units) A library is filed in stages by weight: titles show from the listing, still reading, and fill in by whole units
+- [D305](working-notes.md#d305--removing-a-person-deletes-what-was-theirs-backups-are-hourly-thinned-by-counts-the-config-holds) Removing a person deletes what was theirs; backups are hourly, thinned by counts the config holds
 
 ## Archived
 
