@@ -121,6 +121,7 @@ func TestParsePath_NoExpressionUsesAnASCIIOnlyClass(t *testing.T) {
 	t.Parallel()
 	patterns := []*regexp.Regexp{
 		providerIDPattern, episodePattern, seasonXEpisodePattern, seasonFolderPattern, seasonPackPattern, yearPattern,
+		episodeRunPattern, numberRunPattern, datePattern,
 	}
 	for _, pattern := range patterns {
 		for _, banned := range []string{`\w`, `\W`, `\d`, `\D`, `\s`, `\S`, `\b`, `[[:alpha:]]`, `[[:alnum:]]`} {
