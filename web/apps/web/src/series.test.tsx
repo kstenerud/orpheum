@@ -55,6 +55,18 @@ describe("SeriesView", () => {
     expect(season).toContain('href="/series/20"');
     expect(bySeason([]).length).toBe(0);
   });
+
+  it("groups a season of tens of thousands of episodes in a moment, not the square of their number", () => {
+    // The owner's NAS sent 80,269 under one series (2026-10-16); copying a season's list for each
+    // episode added took 45 seconds, and the browser offered to stop the page.
+    const many = Array.from({ length: 40_000 }, (_, index) =>
+      episode(index, { seasonNumber: 0, episodeNumber: index }),
+    );
+    const started = performance.now();
+    const seasons = bySeason(many);
+    expect(seasons[0]?.[1].length).toBe(40_000);
+    expect(performance.now() - started).toBeLessThan(1_000);
+  });
 });
 
 describe("an episode that cannot be played now (D241 §3)", () => {

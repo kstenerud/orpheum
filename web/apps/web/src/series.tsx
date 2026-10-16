@@ -3,7 +3,7 @@
 import "./series.css";
 
 import { artUrl, type components } from "@orpheum/sdk";
-import type { JSX } from "react";
+import { useMemo, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 
@@ -22,11 +22,20 @@ import { useResource } from "./use-resource.ts";
 export type SeriesDetail = components["schemas"]["CollectionOutputBody"];
 type Episode = components["schemas"]["EpisodeBody"];
 
-/** Episodes grouped by season, in aired order, specials (season 0) last. */
+/**
+ * Episodes grouped by season, in aired order, specials (season 0) last. Each season's list grows in
+ * place: copied for every episode added, the grouping took 45 seconds over the owner's 80,269
+ * (2026-10-16, design/research/data-delivery-independent-review-2026-10-16.md).
+ */
 export function bySeason(episodes: readonly Episode[]): [number, Episode[]][] {
   const seasons = new Map<number, Episode[]>();
   for (const episode of episodes) {
-    seasons.set(episode.seasonNumber, [...(seasons.get(episode.seasonNumber) ?? []), episode]);
+    const season = seasons.get(episode.seasonNumber);
+    if (season === undefined) {
+      seasons.set(episode.seasonNumber, [episode]);
+    } else {
+      season.push(episode);
+    }
   }
   // Specials are season 0; they sort after every numbered season.
   const seasonSortKey = (season: number): number =>
@@ -55,7 +64,8 @@ export function SeriesView(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const { series } = props;
-  const seasons = bySeason(series.episodes ?? []);
+  // Grouped once per answer, not at every render.
+  const seasons = useMemo(() => bySeason(series.episodes ?? []), [series.episodes]);
   const shown =
     seasons.length === 1 ? seasons[0] : seasons.find(([season]) => season === props.season);
   return (
