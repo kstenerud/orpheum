@@ -3,12 +3,14 @@
 package library
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/querytally"
 )
 
 // listedFile and listedDirectory are a listing's entries, relative to the root.
@@ -189,6 +191,43 @@ func TestTakeListing_AFileAsStoredIsSeenAndNotReadAgain(t *testing.T) {
 
 // A listing the node stopped, which never said it was complete, ends as a scan that could not read
 // its root: it removes nothing (D39).
+// A listing of files all as stored runs the same statements at twice their number: the files it
+// finds seen are marked in one statement, not one each (D303, DL7).
+func TestTakeListing_OfFilesAllAsStoredRunsTheSameStatementsAtTwiceTheirNumber(t *testing.T) {
+	t.Parallel()
+	var statements []int
+	var tallies []string
+	for _, size := range []int{3, 6} {
+		world := newHarness(t)
+		var observed, listed []nodeproto.ScanRecord
+		for number := range size {
+			name := fmt.Sprintf("Film %d.mkv", number)
+			observed = append(observed, observedRecord(name, name))
+			listed = append(listed, listedFile(name, int64(len(name)), 1))
+		}
+		world.scan(observed, true)
+		world.clock.Advance(time.Minute)
+		all := slices.Concat([]nodeproto.ScanRecord{{Type: nodeproto.RecordScanBegin, ScanBegin: &nodeproto.ScanBegin{
+			RootPath: world.rootPath, FilesystemDevice: 7, IsMountPoint: true,
+		}}}, listed)
+		ctx, tally := querytally.New(t.Context())
+		taken, err := world.ingester.TakeListing(ctx, world.nodeID, world.rootPath, wholeRoot, all, testRules)
+		if err != nil || len(taken.ToExamine) != 0 {
+			t.Fatalf("listing %d files as stored: %v to read, %v", size, examined(taken), err)
+		}
+		for path, file := range world.liveFilesByPath() {
+			if file.LastSeenAt != world.clock.Now().UnixMilli() {
+				t.Errorf("%s was last seen at %d, want now: the listing saw it", path, file.LastSeenAt)
+			}
+		}
+		statements, tallies = append(statements, tally.Statements()), append(tallies, tally.String())
+	}
+	if statements[0] != statements[1] {
+		t.Errorf("a listing of 3 files as stored ran %d statements, of 6 ran %d; want the same:\n%s\n%s",
+			statements[0], statements[1], tallies[0], tallies[1])
+	}
+}
+
 func TestTakeListing_AListingThatWasStoppedEndsUnreadable(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)

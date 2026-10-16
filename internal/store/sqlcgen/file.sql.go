@@ -1007,21 +1007,6 @@ func (q *Queries) SetFileFiling(ctx context.Context, arg SetFileFilingParams) er
 	return err
 }
 
-const setFileSeen = `-- name: SetFileSeen :exec
-UPDATE file SET last_seen_at = ?1 WHERE id = ?2
-`
-
-type SetFileSeenParams struct {
-	SeenAt int64
-	ID     int64
-}
-
-// A file a listing found as stored: it was seen, and nothing else changed.
-func (q *Queries) SetFileSeen(ctx context.Context, arg SetFileSeenParams) error {
-	_, err := q.db.ExecContext(ctx, setFileSeen, arg.SeenAt, arg.ID)
-	return err
-}
-
 const setFileVersionAndIdentifiedPath = `-- name: SetFileVersionAndIdentifiedPath :exec
 UPDATE file SET version_id = ?1, identified_from_path = path WHERE id = ?2
 `
@@ -1034,6 +1019,23 @@ type SetFileVersionAndIdentifiedPathParams struct {
 // The version identification put a file in, and the path it was identified from (D208 section 1).
 func (q *Queries) SetFileVersionAndIdentifiedPath(ctx context.Context, arg SetFileVersionAndIdentifiedPathParams) error {
 	_, err := q.db.ExecContext(ctx, setFileVersionAndIdentifiedPath, arg.VersionID, arg.ID)
+	return err
+}
+
+const setFilesSeen = `-- name: SetFilesSeen :exec
+UPDATE file SET last_seen_at = ?1
+WHERE id IN (SELECT value FROM json_each(CAST(?2 AS TEXT)))
+`
+
+type SetFilesSeenParams struct {
+	SeenAt  int64
+	IdsJSON string
+}
+
+// The files a listing found as stored: they were seen, and nothing else changed. One statement
+// for the listing's files, not one a file (D303, DL7).
+func (q *Queries) SetFilesSeen(ctx context.Context, arg SetFilesSeenParams) error {
+	_, err := q.db.ExecContext(ctx, setFilesSeen, arg.SeenAt, arg.IdsJSON)
 	return err
 }
 
