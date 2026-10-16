@@ -161,6 +161,10 @@ func TestParseEpisodePath_InASeriesLibraryEverythingIsAnEpisodeOrASpecial(t *tes
 			Kind: "episode", Name: "The Wanderer", Year: 1967, Season: 1, Episode: 1,
 			EpisodeName: "The Bells of Saint Quill",
 		}},
+		// The owner's NAS, 2026-10-16: an episode number of one digit after the season's "x".
+		{"Quillwick/Quillwick - 1x4 - Born to be King.avi", ParsedPath{
+			Kind: "episode", Name: "Quillwick", Season: 1, Episode: 4, EpisodeName: "Born to be King",
+		}},
 		{
 			"Brindlewood/Brindlewood Season 5  [1080p x265 10bit FS89 Joy]/Featurettes/Six Seasons and A Finale.mkv",
 			ParsedPath{Kind: "episode", Name: "Brindlewood", EpisodeName: "Six Seasons and A Finale", IsUnnumbered: true},

@@ -64,6 +64,10 @@ var (
 	// An episode number a name carries without a season: "Show E05 Title", "Show Episode 5".
 	loneEpisodePattern = regexp.MustCompile(
 		`(?i)(?:^|[^\p{L}\p{N}])(?:e|ep|episode)[\p{Z} ._-]?([0-9]{1,4})(?:[^\p{L}\p{N}]|$)`)
+	// "Show - 1x4 - Its Name": a season and an episode of one digit, which in a series library alone
+	// is taken as a marker, since a film's name may be "5x2".
+	shortSeasonXEpisodePattern = regexp.MustCompile(
+		`(?:^|[^\p{L}\p{N}])([0-9]{1,2})x([0-9]{1,3})(?:[^\p{L}\p{N}]+|$)`)
 	// "Show - 01 - Its Name": a number alone between dashes, the season left unsaid.
 	dashNumberPattern = regexp.MustCompile(`[\p{Z} ._]-[\p{Z} ._]*([0-9]{1,3})[\p{Z} ._]*-[\p{Z} ._]`)
 )
@@ -215,8 +219,12 @@ func ParseEpisodePath(relative string) ParsedPath {
 	parsed.Kind = library.TitleKindEpisode
 	parsed.Name, parsed.Year = outermostSeriesFolder(folder)
 	season, isBonus := seasonFromFolders(folder)
-	before, episodeName := "", stem
-	if match := dashNumberPattern.FindStringSubmatchIndex(stem); match != nil {
+	before, episodeName, markedSeason := "", stem, -1
+	if match := shortSeasonXEpisodePattern.FindStringSubmatchIndex(stem); match != nil {
+		markedSeason = parseNonNegativeInt(stem[match[2]:match[3]])
+		parsed.Episode = parseNonNegativeInt(stem[match[4]:match[5]])
+		before, episodeName = stem[:match[0]], stem[match[1]:]
+	} else if match := dashNumberPattern.FindStringSubmatchIndex(stem); match != nil {
 		parsed.Episode = parseNonNegativeInt(stem[match[2]:match[3]])
 		before, episodeName = stem[:match[0]], stem[match[1]:]
 	} else if match := loneEpisodePattern.FindStringSubmatchIndex(stem); match != nil {
@@ -238,6 +246,8 @@ func ParseEpisodePath(relative string) ParsedPath {
 	switch {
 	case isBonus || parsed.Episode == 0:
 		parsed.Season, parsed.Episode, parsed.IsUnnumbered = 0, 0, true
+	case markedSeason >= 0:
+		parsed.Season = markedSeason
 	case season >= 0:
 		parsed.Season = season
 	default:
