@@ -219,8 +219,9 @@ func (matcher *Matcher) storeSeason(
 	return nil
 }
 
-// recordSeriesAndRederive writes what a match found, if anything, and re-derives the series' library, so
-// its episodes are filed by it.
+// recordSeriesAndRederive writes what a match found, if anything, and marks the series' library as
+// owing a pass, which files its episodes by it: a burst of series fetches is followed by one pass,
+// not one each (D303, DL14).
 func (matcher *Matcher) recordSeriesAndRederive(
 	ctx context.Context, series sqlcgen.GetSeriesForMatchRow, recordMatch func(*sqlcgen.Queries) error,
 ) error {
@@ -232,8 +233,6 @@ func (matcher *Matcher) recordSeriesAndRederive(
 	if series.LibraryID == nil {
 		return nil
 	}
-	if _, err := matcher.pass.IdentifyLibrary(ctx, *series.LibraryID); err != nil {
-		return err
-	}
+	matcher.pass.OwePass(*series.LibraryID)
 	return nil
 }

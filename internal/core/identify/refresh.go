@@ -253,7 +253,7 @@ type goneResponsePart struct {
 }
 
 // keepGoneCopy keeps a title's copy of a record its provider no longer has, notes the attempt, and
-// re-derives its library, so images asked for again are owed.
+// marks its library as owing a pass, so images asked for again are owed.
 func (matcher *Matcher) keepGoneCopy(ctx context.Context, libraryID *int64, gone goneResponsePart) error {
 	matcher.logger.InfoContext(ctx, "a refresh found an item gone from its provider; our copy is kept",
 		"itemId", gone.itemID, "provider", gone.provider)
@@ -263,8 +263,8 @@ func (matcher *Matcher) keepGoneCopy(ctx context.Context, libraryID *int64, gone
 	if libraryID == nil {
 		return nil
 	}
-	_, err := matcher.pass.IdentifyLibrary(ctx, *libraryID)
-	return err
+	matcher.pass.OwePass(*libraryID)
+	return nil
 }
 
 // noteRefreshAttempt stamps a stored part's LastAskedAt with now: the provider was asked, and the

@@ -31,6 +31,7 @@ type Pass struct {
 	providers      Providers
 	settings       Settings
 	afterPassHooks []func(context.Context, Report)
+	owed           owedPasses
 }
 
 // AfterPass calls follow after each pass and each re-derivation a match makes, with what it left

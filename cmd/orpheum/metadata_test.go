@@ -115,7 +115,7 @@ func TestSweeps_TheDerivedWorkSweepsRunAsTheirSettingSays(t *testing.T) {
 	services := jobServices{settings: config}
 	derived := map[string]bool{
 		sweepFirstMatches: true, sweepRefreshRequests: true, sweepRechecks: true, sweepPasses: true,
-		sweepReconsidered: true,
+		sweepOwedPasses: true, sweepReconsidered: true,
 	}
 	var order []string
 	for _, sweep := range services.sweeps(slog.New(slog.DiscardHandler)) {
