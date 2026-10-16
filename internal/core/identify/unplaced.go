@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"strings"
 
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -19,9 +20,10 @@ type UnplacedEpisodes struct {
 	FileCount  int
 }
 
-// unplacedAtLeast is how many episodes of a series must be unplaced for it to be told: one or two
-// is an unaired pilot or a special a folder does not name, which needs nobody.
-const unplacedAtLeast = 3
+// unplacedAtLeast is how many episodes of a series must be unplaced for it to be told: a few are an
+// unaired pilot or specials a folder does not name, which need nobody (staging, 2026-10-16: Red
+// Dwarf's three specials, each in a folder of its own).
+const unplacedAtLeast = 5
 
 // unplacedFilesRead bounds how many unnumbered episodes' files a look reads: enough to find a
 // series gone wrong, however many it has.
@@ -37,11 +39,27 @@ func (chooser *Chooser) SeriesWithUnplacedEpisodes(ctx context.Context) ([]Unpla
 	return unplacedOf(rows), nil
 }
 
+// isBonusName is whether a file's own name says it is bonus material, as a specials or extras
+// folder's would, or as a disc's are named: "Season 6 Special Features - Commercials", "Music Video -
+// Do the Bartman" (staging, 2026-10-16: The Pumbletons' sixteen).
+func isBonusName(name string) bool {
+	if isBonusFolder(name) {
+		return true
+	}
+	lower := strings.ToLower(name)
+	for _, word := range []string{"music video", "commercial", "documentary", "trailer", "interview", "making of"} {
+		if strings.Contains(lower, word) {
+			return true
+		}
+	}
+	return false
+}
+
 // unplacedOf counts each series' unnumbered files outside a specials or extras folder.
 func unplacedOf(rows []sqlcgen.ListUnnumberedEpisodeFilesRow) []UnplacedEpisodes {
 	var found []UnplacedEpisodes
 	for _, row := range rows {
-		if _, isBonus := seasonFromFolders(path.Dir(row.Path)); isBonus {
+		if _, isBonus := seasonFromFolders(path.Dir(row.Path)); isBonus || isBonusName(path.Base(row.Path)) {
 			continue
 		}
 		if last := len(found) - 1; last >= 0 && found[last].SeriesID == row.SeriesID {
