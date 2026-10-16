@@ -72,9 +72,9 @@ func TestAssign_ABackgroundReadThroughWaitsForAScansQuickPassOfItsDisk(t *testin
 	answer := assign(1, jobs.KindReadThrough, jobs.PriorityBackground, readThroughOf("/media"))
 	parking, isParked := jobqueue.ParkingOf(answer)
 	if !isParked || parking.Destination != jobs.QuickPassDestination(1, "zfs:tank") || parking.AwaitsSignal ||
-		parking.ProbeAt.IsZero() {
+		parking.ProbeAt.IsZero() || !parking.IsBackPressure {
 		t.Fatalf("a background read-through on tank during its quick pass was answered %v (%+v); want it "+
-			"waiting on tank's quick pass, asking again", answer, parking)
+			"waiting its turn on tank's quick pass, not a destination down, asking again", answer, parking)
 	}
 	examine := nodeproto.Command{Work: nodeproto.Work{Type: nodeproto.CommandExamine, Examine: &nodeproto.Examine{
 		RootPath: "/media", Files: []nodeproto.ExamineFile{{Path: nodeproto.Path{Text: "films/Film.mkv"}}},
