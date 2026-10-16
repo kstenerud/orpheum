@@ -354,7 +354,9 @@ then; [audit-checklist](../audit-checklist.md) item 23 asks the questions at eve
   `TestUpserts_EachWritesOnlyWhenItChangesSomething` reads the generated statements for the same; a
   query that must touch the row regardless (one that returns it) opts out with
   `-- @sqlc-vet-disable upsert-only-if-changed` and says why. A second pass over an unchanged
-  library writes zero rows *(D303 C)*.
+  library writes zero rows, counted by the writer's `total_changes()`
+  (`TestPass_AgainOverAnUnchangedLibraryWritesNothing`,
+  `TestPass_AgainOverAnUnchangedMatchedLibraryWritesNothing`).
 - **People's writes go first** (DL11): every write passes through the writer gate, which hands
   the one writer to the oldest interactive write before background work, and to background work
   that has waited past its bound before either, so none starves. Group commit (D303 §1) joins
