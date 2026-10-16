@@ -412,3 +412,25 @@ func TestPeople_ARemovedPersonsSettingsStayAndWhoSetThemIsForgotten(t *testing.T
 		}
 	}
 }
+
+// Removing a person deletes what deleted files left of their watching too (D305 §1, D306 §8).
+func TestPeople_ARemovedPersonsWatchingOfDeletedFilesGoesWithThem(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.do(t, http.MethodPost, "/users", admin,
+		map[string]string{"name": "partner", "password": "partner-password", "role": "user"})
+	storetest.ExecRaw(t, harness.databasePath,
+		"INSERT INTO item (id, kind, added_at) VALUES (10, 'title', 1)",
+		"INSERT INTO title (id, kind, identification_state) VALUES (10, 'movie', 'identified')",
+		"INSERT INTO version (id, title_id, created_at) VALUES (20, 10, 1)",
+		`INSERT INTO purged_watching (user_id, version_id, completed_count, watched_ms, last_watched_at)
+		 VALUES (1, 20, 1, 600000, 1), (2, 20, 3, 900000, 1)`)
+	if removed := harness.do(t, http.MethodDelete, "/users/2", admin, nil); removed.status != http.StatusNoContent {
+		t.Fatalf("DELETE /users/2 = %d %s", removed.status, removed.body)
+	}
+	if got := storetest.QueryRaw(t, harness.databasePath, "SELECT user_id FROM purged_watching"); !slices.Equal(got,
+		[]string{"1"}) {
+		t.Errorf("watching of deleted files after removing person 2: %v; want only person 1's", got)
+	}
+}

@@ -208,6 +208,11 @@
 //     TestContinueWatching_EachWorkOnceAtItsLatestPositionPartwayThrough and
 //     TestContinueWatching_AHiddenWorkLeavesUntilItHasActivityAndUndoBringsItBack.
 //
+//   - A removed file is deleted removed_files_kept_days after it went, by a daily sweep, in short
+//     writes, after each package that holds something of it has dealt with it; a video goes only
+//     once no sidecar of it stays, and its title and version stay (D304 §6, D306 §8).
+//     TestPurgeRemovedFiles_KeepsWhatWasWatchedOnTheVersion (internal/core/playback).
+//
 // # Read before changing
 //
 //   - D79: four levels, Title, Edition, Version, File.

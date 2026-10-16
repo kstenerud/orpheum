@@ -34,3 +34,8 @@ DELETE FROM fetched_subtitle WHERE id = sqlc.arg(id);
 SELECT id FROM fetched_subtitle
 WHERE video_file = sqlc.arg(video_file) AND provider = sqlc.arg(provider)
   AND provider_file_id = sqlc.arg(provider_file_id);
+
+-- name: DeleteFetchedSubtitlesOfPurgedFiles :exec
+-- A removed file deleted past its keeping takes the subtitles fetched for it: they were timed to it.
+DELETE FROM fetched_subtitle
+WHERE video_file IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT)));

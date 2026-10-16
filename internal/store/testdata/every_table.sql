@@ -106,6 +106,8 @@ INSERT INTO play_span (id, user_id, file_id, device_id, from_position_ms, to_pos
                        is_unterminated,
                        is_unattended)
   VALUES (1, 2, 1, 1, 0, 3600000, 1790000100000, 1790000200000, 0, 0);
+INSERT INTO purged_watching (user_id, version_id, completed_count, watched_ms, last_watched_at)
+  VALUES (2, 1, 2, 7200000, 1790000000000);
 INSERT INTO favourite (user_id, item_id, added_at) VALUES (2, 1, 1790000000000);
 INSERT INTO user_rating (user_id, item_id, rating, rated_at) VALUES (2, 1, 8, 1790000000000);
 INSERT INTO watchlist (user_id, item_id, added_at) VALUES (1, 1, 1790000000000);

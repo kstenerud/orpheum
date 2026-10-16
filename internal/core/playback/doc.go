@@ -124,6 +124,11 @@
 //     TestChunks_AnotherPersonsTokenIsRefused and
 //     TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere (internal/core/api).
 //
+//   - What was watched of a removed file outlives it: before library's purge deletes the file, how
+//     often each person finished it and how long they watched are kept on its version, and a
+//     person's totals are the same after (D306 §8). The position does not carry.
+//     TestPurgeRemovedFiles_KeepsWhatWasWatchedOnTheVersion.
+//
 // # Read before changing
 //
 //   - D217: the menu, the media token, and what M3 decided about playback.

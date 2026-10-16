@@ -9,6 +9,17 @@ import (
 	"context"
 )
 
+const deletePreferencesOfPurgedFiles = `-- name: DeletePreferencesOfPurgedFiles :exec
+DELETE FROM preference
+WHERE scope = 'file' AND scope_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+`
+
+// A removed file deleted past its keeping takes what each person chose in it.
+func (q *Queries) DeletePreferencesOfPurgedFiles(ctx context.Context, fileIdsJson string) error {
+	_, err := q.db.ExecContext(ctx, deletePreferencesOfPurgedFiles, fileIdsJson)
+	return err
+}
+
 const deletePreferencesOfUser = `-- name: DeletePreferencesOfUser :exec
 DELETE FROM preference WHERE user_id = ?1
 `

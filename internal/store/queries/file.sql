@@ -322,3 +322,27 @@ JOIN node ON node.id = live_file.node_id AND node.removed_at IS NULL
 WHERE live_file.filing = 'errored'
 -- In file_errored's order, which it then reads, never the whole table (D303).
 ORDER BY live_file.library_id, live_file.path;
+
+-- name: ListFilesToPurge :many
+-- Removed files past their keeping (D304 section 6, D306 section 8): removed before the cut-off,
+-- each with no sidecar that stays, oldest first, a batch at a time.
+SELECT file.id FROM file
+WHERE file.removed_at IS NOT NULL AND file.removed_at < sqlc.arg(removed_before)
+  AND NOT EXISTS (SELECT 1 FROM file AS sidecar WHERE sidecar.attached_to_file = file.id
+    AND (sidecar.removed_at IS NULL OR sidecar.removed_at >= sqlc.arg(removed_before)))
+ORDER BY file.removed_at, file.id
+LIMIT sqlc.arg(max_rows);
+
+-- name: DeleteStreamsOfPurgedFiles :exec
+DELETE FROM stream
+WHERE video_file IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT)))
+  OR bytes_file IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT)));
+
+-- name: DeleteProbesOfPurgedFiles :exec
+DELETE FROM file_probe WHERE file_id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT)));
+
+-- name: DeleteNFOsOfPurgedFiles :exec
+DELETE FROM file_nfo WHERE file_id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT)));
+
+-- name: DeletePurgedFiles :execrows
+DELETE FROM file WHERE id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT)));

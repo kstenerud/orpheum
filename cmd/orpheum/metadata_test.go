@@ -16,6 +16,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
@@ -456,4 +457,48 @@ func TestSweeps_EndedCredentialsArePurgedDaily(t *testing.T) {
 		return
 	}
 	t.Error("no sweep purges ended credentials (D304 §6)")
+}
+
+// countingFilePurger counts the purges of removed files asked of it, and what each was asked.
+type countingFilePurger struct {
+	purges        int
+	removedBefore time.Time
+	forgetCount   int
+}
+
+func (purger *countingFilePurger) PurgeRemovedFiles(
+	_ context.Context, removedBefore time.Time, forgets ...library.PurgedFilesForget,
+) (int, error) {
+	purger.purges++
+	purger.removedBefore, purger.forgetCount = removedBefore, len(forgets)
+	return 0, nil
+}
+
+// The files removed past their keeping are purged by a sweep, at start and daily, of those removed
+// more than removed_files_kept_days ago, with what playback, preferences and subtitles hold of them
+// dealt with first (D304 §6, D306 §8).
+func TestSweeps_RemovedFilesArePurgedDaily(t *testing.T) {
+	t.Parallel()
+	purger := &countingFilePurger{}
+	config := settingstest.Seeded(t, storetest.OpenMigrated(t))
+	now := time.Date(2026, 10, 17, 3, 0, 0, 0, time.UTC)
+	if _, err := purgeRemovedFiles(purger, config, clocktest.NewFake(now))(t.Context()); err != nil ||
+		purger.purges != 1 || purger.forgetCount != 3 {
+		t.Fatalf("the sweep purged %d times with %d forgets (%v); want once with 3", purger.purges,
+			purger.forgetCount, err)
+	}
+	if want := now.AddDate(0, 0, -90); !purger.removedBefore.Equal(want) {
+		t.Errorf("the sweep purged the files removed before %s; want %s, 90 days, the default",
+			purger.removedBefore, want)
+	}
+	for _, sweep := range (jobServices{removedFiles: purger, settings: config}).sweeps(slog.New(slog.DiscardHandler)) {
+		if sweep.Name != sweepRemovedFiles {
+			continue
+		}
+		if every := sweep.Every(t.Context()); every != 24*time.Hour {
+			t.Errorf("removed files are purged every %s, want daily", every)
+		}
+		return
+	}
+	t.Error("no sweep purges removed files (D306 §8)")
 }

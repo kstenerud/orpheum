@@ -39,3 +39,8 @@ WHERE file.id = sqlc.arg(file_id) AND file.removed_at IS NULL;
 -- name: DeletePreferencesOfUser :exec
 -- A removed person's preferences go with them (D173 section 4.6).
 DELETE FROM preference WHERE user_id = sqlc.arg(user_id);
+
+-- name: DeletePreferencesOfPurgedFiles :exec
+-- A removed file deleted past its keeping takes what each person chose in it.
+DELETE FROM preference
+WHERE scope = 'file' AND scope_id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT)));

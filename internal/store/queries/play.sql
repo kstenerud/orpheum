@@ -86,3 +86,45 @@ DELETE FROM play_position WHERE user_id = sqlc.arg(user_id);
 
 -- name: DeleteProgressHidesOfUser :exec
 DELETE FROM progress_hide WHERE user_id = sqlc.arg(user_id);
+
+-- A removed file deleted past its keeping leaves what was watched of it on its version (D306
+-- section 8): how often each person finished it and how long they watched, added to what earlier
+-- deleted files of the version left.
+
+-- name: FoldWatchingOfPurgedFiles :exec
+INSERT INTO purged_watching (user_id, version_id, completed_count, watched_ms, last_watched_at)
+SELECT watching.user_id, file.version_id, sum(watching.completed), sum(watching.watched_ms), max(watching.happened_at)
+FROM (
+  SELECT play_span.user_id, play_span.file_id, 0 AS completed,
+    play_span.ended_at - play_span.started_at AS watched_ms, play_span.ended_at AS happened_at
+  FROM play_span
+  WHERE play_span.file_id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT)))
+  UNION ALL
+  SELECT play_event.user_id, play_event.file_id, 1, 0, play_event.happened_at
+  FROM play_event
+  WHERE play_event.kind = 'completed'
+    AND play_event.file_id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT)))
+) AS watching
+JOIN file ON file.id = watching.file_id
+WHERE file.version_id IS NOT NULL
+GROUP BY watching.user_id, file.version_id
+ON CONFLICT (user_id, version_id) DO UPDATE SET
+  completed_count = purged_watching.completed_count + excluded.completed_count,
+  watched_ms = purged_watching.watched_ms + excluded.watched_ms,
+  last_watched_at = max(purged_watching.last_watched_at, excluded.last_watched_at)
+-- Only when it adds something (D303, DL9).
+WHERE excluded.completed_count > 0 OR excluded.watched_ms > 0
+  OR excluded.last_watched_at > purged_watching.last_watched_at;
+
+-- name: DeletePlaySpansOfPurgedFiles :exec
+DELETE FROM play_span WHERE file_id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT)));
+
+-- name: DeletePlayEventsOfPurgedFiles :exec
+DELETE FROM play_event WHERE file_id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT)));
+
+-- name: DeletePlayPositionsOfPurgedFiles :exec
+DELETE FROM play_position WHERE file_id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT)));
+
+-- name: DeletePurgedWatchingOfUser :exec
+-- A removed person's watching of deleted files goes with them too (D305 section 1).
+DELETE FROM purged_watching WHERE user_id = sqlc.arg(user_id);
