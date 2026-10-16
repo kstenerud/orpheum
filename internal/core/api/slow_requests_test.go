@@ -83,3 +83,29 @@ func TestLoggingSlow_NamesTheStatementsASlowRequestRan(t *testing.T) {
 		t.Errorf("the slow request's line does not name its statements and writes:\n%s", logged)
 	}
 }
+
+// An API response of more than a mebibyte is logged with its path and size, however quickly it
+// came; a small one, and a file's bytes, large by nature, are not (the owner's nas.example, 2026-10-16:
+// a series' page of 5.3 MB that nothing named).
+func TestLoggingSlow_NamesEveryAPIResponseOverAMebibyte(t *testing.T) {
+	t.Parallel()
+	logs := &testutil.Log{}
+	server := NewServer(slog.New(slog.NewJSONHandler(logs, nil)))
+	server.dependencies.Store(&Dependencies{Clock: clocktest.NewFake(time.Date(2026, 10, 16, 12, 0, 0, 0, time.UTC))})
+	writing := func(size int) http.Handler {
+		return server.loggingSlow(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+			_, _ = writer.Write(make([]byte, size)) //nolint:errcheck // a recorder
+		}))
+	}
+	for path, size := range map[string]int{
+		Prefix + "/collections/606": 5 << 20, Prefix + "/me": 2 << 10, Prefix + "/bytes/media/x.m4s": 8 << 20,
+	} {
+		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
+		writing(size).ServeHTTP(httptest.NewRecorder(), request)
+	}
+	logged := logs.String()
+	if !strings.Contains(logged, `"path":"/api/v1/collections/606","bytes":5242880`) ||
+		strings.Count(logged, "a response was large") != 1 {
+		t.Errorf("want the one large response named with its size:\n%s", logged)
+	}
+}

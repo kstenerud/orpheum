@@ -15,9 +15,16 @@ import (
 // seconds, and nothing said which request).
 const slowRequestAfter = time.Second
 
+// largeResponseAfter is how many bytes an API response may hold before its log says so: a page
+// draws what it is sent, and nothing grows without bound but by a fault (the owner's nas.example,
+// 2026-10-16: a series' page of 5.3 MB, 80,269 episodes, that nothing named;
+// design/research/data-delivery-independent-review-2026-10-16.md's MD1).
+const largeResponseAfter = 1 << 20
+
 // loggingSlow logs every API request that took longer than slowRequestAfter, with its method, path,
-// how it reached the core, and the database statements and writes it made (D303, DL17); a file's
-// bytes and a socket, long by nature, are left out.
+// how it reached the core, and the database statements and writes it made (D303, DL17), and every
+// one whose response held more than largeResponseAfter bytes, with its size; a file's bytes and a
+// socket, long and large by nature, are left out.
 func (server *Server) loggingSlow(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		dependencies := server.dependencies.Load()
@@ -27,8 +34,14 @@ func (server *Server) loggingSlow(next http.Handler) http.Handler {
 		}
 		ctx, tally := querytally.New(request.Context())
 		started := dependencies.Clock.Now()
-		next.ServeHTTP(writer, request.WithContext(ctx))
+		size := 0
+		next.ServeHTTP(&countingWriter{ResponseWriter: writer, sent: func(bytes int) { size += bytes }},
+			request.WithContext(ctx))
 		took := dependencies.Clock.Now().Sub(started)
+		if size > largeResponseAfter {
+			server.logger.WarnContext(ctx, "a response was large", "method", request.Method,
+				"path", request.URL.Path, "bytes", size, "over", pathOf(ctx))
+		}
 		if took < slowRequestAfter {
 			return
 		}
