@@ -20433,7 +20433,8 @@ retention. It revises D172 for episodes and D304 §6 for plays.
 3. **A "filed wrongly" report is a Markdown file on the server's disk.** *"We could make it save
    the report to the disk somewhere, and then the admin can view it (probably markdown is best)
    and decide if he wants to tweak personal info before posting it as a github issue."* Nothing
-   leaves the server by itself.
+   leaves the server by itself. The admin reads it on the System page too, with a copy button
+   (the owner chose "On disk and on the System page").
 4. **Daily and date-numbered shows are out of the beta's scope.** *"Out of scope for beta. Make
    sure the architecture can handle adding it later."* A position stays a group and a number, and
    the parser's result keeps room for a date.
@@ -20448,7 +20449,10 @@ retention. It revises D172 for episodes and D304 §6 for plays.
 8. **Watching follows the title and its edition, not the file.** *"Plays should match name +
    edition (so if someone gets the director's cut dvd rip of XYZ, deletes that because the file
    is defective, then gets another copy, it still has the play count)."* A removed file can then
-   be purged by D304 §6's limits without taking what was watched of it.
+   be purged by D304 §6's limits without taking what was watched of it. An unknown cut matches
+   any cut, and two different known cuts keep their own history (the owner chose "Carry if either
+   is unknown"). What carries is whether it was watched and how often, not the resume position:
+   a new copy starts from its beginning (the owner chose "No, keep only watched/play count").
 
 9. **Reads follow series → season.** A series is read with its seasons and their counts and the
    season it opens on; a season is read with its episodes, paged. No response grows with a
