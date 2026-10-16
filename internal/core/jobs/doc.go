@@ -82,6 +82,10 @@
 //     TestCancelRetired_CancelsTheWorkOfWhatWasRetiredByTargetOrDestinationAndForgetsTheDestinations.
 //   - Nothing reads job history as a fact: only the queue, its storage and the job view read the
 //     job rows. TestArch_NothingButTheQueueAndTheJobViewReadsJobHistory.
+//   - A play's wish for its work (KeepWanted) writes nothing: it is kept in memory and written
+//     when the demotion runs, and a leave writes a wish not yet written before ending it (D303,
+//     DL10). Enforced by TestKeepWanted_WritesNothingUntilTheDemotion and
+//     TestReleaseWanted_EndsAWishNotYetWritten.
 //
 // # Read before changing
 //

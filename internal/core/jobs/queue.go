@@ -182,6 +182,17 @@ type Queue struct {
 
 	reportedProgressMutex sync.Mutex
 	reportedProgress      ReportedProgress // guarded by reportedProgressMutex: nil until set
+
+	// wanted are the plays' wishes for their work not yet written: KeepWanted keeps each here, so
+	// a play's request writes nothing (D303, DL10), and DemoteUnwanted writes them first.
+	wantedMutex sync.Mutex
+	wanted      map[wantedWork]time.Time // guarded by wantedMutex: until when each is wanted
+}
+
+// wantedWork is the work a play waits for: a kind's job on a target.
+type wantedWork struct {
+	kind   Kind
+	target Target
 }
 
 // NewQueue returns the queue. A person's request probes its parked destination at once, and
@@ -225,17 +236,69 @@ func (queue *Queue) Enqueue(ctx context.Context, job Request) (bool, error) {
 
 // KeepWanted says a person still waits for kind's open job on target: it keeps its play priority
 // for play_priority_kept_seconds more (D234 §3). A play asks again each time it looks for the work.
+//
+// It writes nothing: a play asks each time it is served a chunk, several times a second, and the
+// wish is kept in memory until DemoteUnwanted writes it, every few seconds against a wait of
+// minutes (D303, DL10).
 func (queue *Queue) KeepWanted(ctx context.Context, kind Kind, target Target) error {
 	wanted, err := queue.settings.Duration(ctx, settings.PlayPriorityKeptSeconds)
 	if err != nil {
 		return fmt.Errorf("read play_priority_kept_seconds: %w", err)
 	}
-	return queue.queue.KeepWanted(ctx, kind, target, queue.clock.Now().Add(wanted))
+	until := queue.clock.Now().Add(wanted)
+	queue.wantedMutex.Lock()
+	defer queue.wantedMutex.Unlock()
+	if queue.wanted == nil {
+		queue.wanted = map[wantedWork]time.Time{}
+	}
+	work := wantedWork{kind: kind, target: target}
+	if until.After(queue.wanted[work]) {
+		queue.wanted[work] = until
+	}
+	return nil
+}
+
+// writeWanted writes the plays' wishes kept since the last time; one it could not write is kept
+// for the next.
+func (queue *Queue) writeWanted(ctx context.Context) error {
+	queue.wantedMutex.Lock()
+	pending := queue.wanted
+	queue.wanted = nil
+	queue.wantedMutex.Unlock()
+	var failed error
+	for work, until := range pending {
+		err := queue.queue.KeepWanted(ctx, work.kind, work.target, until)
+		if err == nil {
+			continue
+		}
+		failed = err
+		queue.wantedMutex.Lock()
+		if queue.wanted == nil {
+			queue.wanted = map[wantedWork]time.Time{}
+		}
+		if until.After(queue.wanted[work]) {
+			queue.wanted[work] = until
+		}
+		queue.wantedMutex.Unlock()
+	}
+	return failed
 }
 
 // ReleaseWanted says no person waits for kind's open job on target any more, as one who left the
 // page that asked for it: it falls to background priority at the next demotion (D258 §2).
 func (queue *Queue) ReleaseWanted(ctx context.Context, kind Kind, target Target) error {
+	// A wish not yet written is written first: the release ends a wait the job has a record of,
+	// and a job queued at play priority with none would never be demoted.
+	work := wantedWork{kind: kind, target: target}
+	queue.wantedMutex.Lock()
+	until, isPending := queue.wanted[work]
+	delete(queue.wanted, work)
+	queue.wantedMutex.Unlock()
+	if isPending {
+		if err := queue.queue.KeepWanted(ctx, kind, target, until); err != nil {
+			return err
+		}
+	}
 	return queue.queue.ReleaseWanted(ctx, kind, target)
 }
 
@@ -249,6 +312,9 @@ type Demoted struct {
 // DemoteUnwanted gives the open jobs no person waits for any more background priority (D234 §3,
 // S87), and returns them.
 func (queue *Queue) DemoteUnwanted(ctx context.Context) ([]Demoted, error) {
+	if err := queue.writeWanted(ctx); err != nil {
+		return nil, err
+	}
 	rows, err := queue.queue.DemoteUnwanted(ctx, PriorityBackground)
 	if err != nil {
 		return nil, err

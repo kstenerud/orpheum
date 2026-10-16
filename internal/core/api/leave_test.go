@@ -22,6 +22,10 @@ func TestLeave_APlayerThatLeavesLetsGoOfTheWorkItsPlaybackAskedFor(t *testing.T)
 	token := harness.play(t, admin, chrome(1)).MediaToken
 	master := Prefix + "/bytes/media/chunks/" + token + "/master.m3u8"
 	harness.getBytePath(t, master, admin, true, "") // queues film 1's read-through at play priority
+	// The play's wish is kept in memory and written when the demotion runs (D303, DL10).
+	if _, err := harness.queue.DemoteUnwanted(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 	now := harness.clock.Now().UnixMilli()
 	if read := harness.openJobs(t, jobs.KindReadThrough); len(read) != 1 || read[0].WantedUntil == nil ||
 		*read[0].WantedUntil <= now {
