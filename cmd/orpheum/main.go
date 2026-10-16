@@ -82,6 +82,10 @@ func plannedSubcommands() []subcommand {
 		{name: "migrate", summary: "migrate the database without starting the server", implementation: commandMigrate},
 		{name: "backup", summary: "write a backup of the database", implementation: commandBackup},
 		{name: "restore", summary: "restore a backup, with the server stopped", implementation: commandRestore},
+		{
+			name: "start-over", summary: "set the database aside, with the server stopped, so it starts with an " +
+				"empty one; the instance's identity and claim stay", implementation: commandStartOver,
+		},
 		{name: "doctor", summary: "report what is wrong and how to fix it", implementation: commandDoctor},
 		{
 			name: "setup-code", summary: "print the one-time code that creates the first admin",

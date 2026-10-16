@@ -203,6 +203,45 @@ func commandRestore(ctx context.Context, call invocation) int {
 	return write(call.stdout, "Restored. Start the server; it migrates an older backup on the way up.\n", exitSuccess)
 }
 
+// commandStartOver sets persistent.db aside in the backups directory, with the server stopped, so
+// its next start makes an empty one: what an install needs once when the new version cannot bring
+// its database forward (D303 §2: a fresh baseline, no migration from before it). Every other
+// persistent file stays, the instance's identity, its certificate, its discovery claim and the key
+// that seals its secrets, so it keeps its names and its discovery; its people, libraries, settings
+// and secrets start again. Without --yes it only says what it would do.
+func commandStartOver(_ context.Context, call invocation) int {
+	var isConfirmed bool
+	config, configReport, err := call.loadConfigFromFlags("start-over", kindCore, func(flags *flag.FlagSet) {
+		flags.BoolVar(&isConfirmed, "yes", false, "set the database aside; without it, only say what would happen")
+	})
+	if err != nil {
+		return call.fail(err)
+	}
+	call.printConfigNotes(configReport)
+	directories, err := instancedir.Open(config.Instance.paths())
+	if err != nil {
+		return call.fail(err)
+	}
+	asideName := "persistent-set-aside-" + clock.System{}.Now().UTC().Format("20060102T150405Z") + ".db"
+	plan := fmt.Sprintf("The database %s is set aside as %s in %s. The server then starts with an empty "+
+		"one: a new setup code, and its people, libraries, settings and secrets made again. Its identity, "+
+		"certificate and discovery claim stay.\n", directories.PersistentDatabasePath(), asideName,
+		config.Instance.BackupsDir)
+	if !isConfirmed {
+		return write(call.stdout, plan+"Nothing was changed. Run again with --yes to set it aside.\n", exitUsageError)
+	}
+	lock, err := directories.LockInstance()
+	if err != nil {
+		return call.fail(err)
+	}
+	aside, err := directories.SetPersistentDatabaseAside(asideName)
+	if err = errors.Join(err, lock.Release()); err != nil {
+		return call.fail(err)
+	}
+	return write(call.stdout, fmt.Sprintf("Set aside as %s. Start the server; it makes an empty database, and "+
+		"`orpheum setup-code` prints the code that makes its first admin.\n", aside), exitSuccess)
+}
+
 // commandSetupCode prints the one-time setup code, for a server whose log has scrolled away.
 func commandSetupCode(ctx context.Context, call invocation) int {
 	config, configReport, err := call.loadConfigFromFlags("setup-code", kindCore, nil)

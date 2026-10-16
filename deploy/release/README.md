@@ -126,6 +126,26 @@ version's (D272 §7); `values.toml` and the keys are never touched. The core mig
 at start, through every step since the version nas.example last ran (D272 §5), and keeps a snapshot
 taken before migrating. When it has, tell the agent the version, so the checkpoint moves.
 
+### Starting over, once
+
+A version whose database baseline is newer than the install's database, as D303's fresh baseline
+is for every install before it, refuses that database: the core is unhealthy, and its log says the
+database is below the baseline. Set it aside once, with the server stopped, then start:
+
+```sh
+cd /srv/orpheum && docker compose stop orpheum-core
+docker compose run --rm --no-deps orpheum-core start-over --instance /var/lib/orpheum/core --yes
+docker compose up -d
+docker compose exec orpheum-core orpheum setup-code --instance /var/lib/orpheum/core
+```
+
+`start-over` moves only `core/persistent/persistent.db` (and its write-ahead log) into
+`core/backups/`, as `persistent-set-aside-<time>.db`. Everything else in `core/persistent/` stays:
+the instance's identity, its certificate, its discovery claim and the key that seals its secrets,
+so the core keeps its names and its discovery. Its people, libraries, settings and secrets (the
+TMDB key among them) are made again, and every link anyone was given stops working. Without
+`--yes` it only says what it would do. Never move the whole persistent directory instead.
+
 ## 5. Going back
 
 The same two commands with the older tag. An older binary refuses a database a newer one migrated,
