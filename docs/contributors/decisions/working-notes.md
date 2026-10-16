@@ -20414,3 +20414,42 @@ revises D240 §3, §4 and §8.
    bounds, as D304 §6's retention limits are.
 
 **Status:** Decided 2026-10-16.
+
+## D306 — The scanner is tested on names of our own, places an unnumbered episode by a guessed title match, and keeps watching by title and edition
+
+**Decided** (2026-10-16), by the project owner, on the questions of the scanner research
+(`design/research/library-scanner-practice-2026-10-16.md`), the data-delivery review and D304 §6's
+retention. It revises D172 for episodes and D304 §6 for plays.
+
+1. **Test names are our own.** *"I'd prefer not to get into licensing issues. How about we use
+   those as inspiration and generate our own test data that has similar issues?"* No file name is
+   copied from another project's tests, whatever its licence. Ours are written in the same shapes
+   and with the same difficulties.
+2. **An episode whose name has no number may be placed by its title, fuzzily, as a guess.**
+   *"We can do a fuzzy match and mark it as guessed."* The file's title text is matched against
+   the provider's episode list of its series. A match places the file and is marked guessed, as
+   D301's unsettled match is, so an admin can see and correct it. The path still decides when it
+   holds a number. This revises D172's "never guessed" for this one case.
+3. **A "filed wrongly" report is a Markdown file on the server's disk.** *"We could make it save
+   the report to the disk somewhere, and then the admin can view it (probably markdown is best)
+   and decide if he wants to tweak personal info before posting it as a github issue."* Nothing
+   leaves the server by itself.
+4. **Daily and date-numbered shows are out of the beta's scope.** *"Out of scope for beta. Make
+   sure the architecture can handle adding it later."* A position stays a group and a number, and
+   the parser's result keeps room for a date.
+5. **Disc folders, ISOs and `cd1`/`cd2` films are out of the beta.** *"We'll keep them out of beta
+   for now, unless people start asking for it."*
+6. **Absurd data is a health signal.** To "should a series with far more specials than its files
+   or listing could explain appear in Needs attention?": *"Yes"*.
+7. **Off-screen rows may go stale while a library is filed.** To "may rows off screen go stale
+   until scrolled back to?": *"yes"*. A poll reads the window in view, and pages scrolled past are
+   read again when they come back into view.
+8. **Watching follows the title and its edition, not the file.** *"Plays should match name +
+   edition (so if someone gets the director's cut dvd rip of XYZ, deletes that because the file
+   is defective, then gets another copy, it still has the play count)."* A removed file can then
+   be purged by D304 §6's limits without taking what was watched of it.
+
+Open: whether the API follows series → season (the review's Q2), and whether the client cache and
+list windowing are our own code or a dependency (its Q4).
+
+**Status:** Decided 2026-10-16.
