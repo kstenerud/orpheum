@@ -72,18 +72,39 @@ JOIN library ON library.id = role_library.library_id AND library.removed_at IS N
 WHERE role_library.role_id = sqlc.arg(role_id)
 ORDER BY role_library.library_id;
 
--- A person removed (S40, D173 section 4): the row stays as a tombstone, so what they set for the
--- household (a correction, a setting) still says who; their name is free for someone new.
+-- A person removed (S40, D305 section 1): what was theirs is deleted, and their row stays only as
+-- a nameless tombstone, so ids are never reused and their name is free for someone new.
 
 -- name: RemoveUser :execrows
-UPDATE user SET removed_at = sqlc.arg(removed_at) WHERE id = sqlc.arg(id) AND removed_at IS NULL;
+-- Their row, nameless: no name, password or note of theirs is kept.
+UPDATE user SET removed_at = sqlc.arg(removed_at), name = '', password_hash = NULL, admin_note = NULL
+WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
--- name: RevokeLiveGrantsOfRemovedUser :exec
--- Every credential of theirs: sessions, links, device codes (D154).
-UPDATE "grant" SET revoked_at = sqlc.arg(revoked_at) WHERE user_id = sqlc.arg(user_id) AND revoked_at IS NULL;
+-- name: DeleteLocatorsOfRemovedUser :exec
+-- What each of their sessions was found by at a discovery (discovery-core.md K7).
+DELETE FROM locator
+WHERE session_secret_sha256 IN (SELECT owned.secret_sha256 FROM "grant" AS owned WHERE owned.user_id = sqlc.arg(user_id));
 
--- name: RemoveDevicesOfRemovedUser :exec
-UPDATE device SET removed_at = sqlc.arg(removed_at) WHERE user_id = sqlc.arg(user_id) AND removed_at IS NULL;
+-- name: DeleteInvitationsOfRemovedUser :exec
+-- The invitations their links are (D246 section 2).
+DELETE FROM invitation
+WHERE secret_sha256 IN (SELECT owned.secret_sha256 FROM "grant" AS owned WHERE owned.user_id = sqlc.arg(user_id));
+
+-- name: DeleteGrantsDerivedFromRemovedUser :exec
+-- The credentials derived from theirs (D177), which held nothing but what theirs gave.
+DELETE FROM "grant"
+WHERE parent_secret_sha256 IN (SELECT owned.secret_sha256 FROM "grant" AS owned WHERE owned.user_id = sqlc.arg(user_id));
+
+-- name: DeleteGrantsOfRemovedUser :exec
+-- Every credential of theirs, live or ended: sessions, links, device codes (D154).
+DELETE FROM "grant" WHERE user_id = sqlc.arg(user_id);
+
+-- name: DeleteDevicesOfRemovedUser :exec
+-- Their devices, once their plays, which name them, are deleted.
+DELETE FROM device WHERE user_id = sqlc.arg(user_id);
+
+-- name: DeleteRealmKeyOfRemovedUser :exec
+DELETE FROM realm_key WHERE user_id = sqlc.arg(user_id);
 
 
 -- name: DemoteAdministrators :many

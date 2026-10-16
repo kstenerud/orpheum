@@ -4,11 +4,14 @@ package auth
 
 import (
 	"errors"
+	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 // setPreference stores one of a person's own preferences, as a played film would.
@@ -105,5 +108,41 @@ func wantSignedOutAndForgotten(t *testing.T, service *Service, database *store.D
 	}
 	if count := preferenceCount(t, database, removed.userID); count != 0 {
 		t.Errorf("the removed person's preferences: %d, want deleted (D173 §4.6)", count)
+	}
+}
+
+// Removing a person deletes what was theirs, not pseudonymises it (D305 §1): their credentials,
+// live or ended, their devices and their realm key go, and their row stays only as a nameless
+// tombstone, its password and the admin's note on it gone.
+func TestRemoveUser_LeavesNothingOfTheirsButANamelessRow(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	partner := fixture.createUser(t, "partner", "pw", RoleUser)
+	owner := fixture.createUser(t, "owner", "pw", RoleAdmin)
+	phoneAndTelevision(t, fixture.service, partner)
+	storetest.ExecRaw(t, fixture.database.Path(), fmt.Sprintf(
+		"UPDATE user SET admin_note = 'my sister' WHERE id = %d", partner),
+		fmt.Sprintf("INSERT INTO realm_key (user_id, master_realm, key, made_at) VALUES (%d, 'home', X'01', 1)",
+			partner))
+	if err := fixture.service.RemoveUser(ctx, owner, partner); err != nil {
+		t.Fatal(err)
+	}
+	path := fixture.database.Path()
+	left := map[string][]string{
+		"their row": storetest.QueryRaw(t, path, fmt.Sprintf(
+			"SELECT name || '|' || coalesce(hex(password_hash), '') || '|' || coalesce(admin_note, '') FROM user "+
+				"WHERE id = %d AND removed_at IS NOT NULL", partner)),
+		"credentials": storetest.QueryRaw(t, path,
+			fmt.Sprintf(`SELECT count(*) FROM "grant" WHERE user_id = %d`, partner)),
+		"devices": storetest.QueryRaw(t, path, fmt.Sprintf("SELECT count(*) FROM device WHERE user_id = %d", partner)),
+		"realm key": storetest.QueryRaw(t, path,
+			fmt.Sprintf("SELECT count(*) FROM realm_key WHERE user_id = %d", partner)),
+	}
+	want := map[string][]string{"their row": {"||"}, "credentials": {"0"}, "devices": {"0"}, "realm key": {"0"}}
+	for what, got := range left {
+		if !slices.Equal(got, want[what]) {
+			t.Errorf("after removal, %s: %v; want %v", what, got, want[what])
+		}
 	}
 }

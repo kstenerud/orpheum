@@ -20,6 +20,68 @@ func (q *Queries) CountLiveUsers(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const deleteDevicesOfRemovedUser = `-- name: DeleteDevicesOfRemovedUser :exec
+DELETE FROM device WHERE user_id = ?1
+`
+
+// Their devices, once their plays, which name them, are deleted.
+func (q *Queries) DeleteDevicesOfRemovedUser(ctx context.Context, userID *int64) error {
+	_, err := q.db.ExecContext(ctx, deleteDevicesOfRemovedUser, userID)
+	return err
+}
+
+const deleteGrantsDerivedFromRemovedUser = `-- name: DeleteGrantsDerivedFromRemovedUser :exec
+DELETE FROM "grant"
+WHERE parent_secret_sha256 IN (SELECT owned.secret_sha256 FROM "grant" AS owned WHERE owned.user_id = ?1)
+`
+
+// The credentials derived from theirs (D177), which held nothing but what theirs gave.
+func (q *Queries) DeleteGrantsDerivedFromRemovedUser(ctx context.Context, userID *int64) error {
+	_, err := q.db.ExecContext(ctx, deleteGrantsDerivedFromRemovedUser, userID)
+	return err
+}
+
+const deleteGrantsOfRemovedUser = `-- name: DeleteGrantsOfRemovedUser :exec
+DELETE FROM "grant" WHERE user_id = ?1
+`
+
+// Every credential of theirs, live or ended: sessions, links, device codes (D154).
+func (q *Queries) DeleteGrantsOfRemovedUser(ctx context.Context, userID *int64) error {
+	_, err := q.db.ExecContext(ctx, deleteGrantsOfRemovedUser, userID)
+	return err
+}
+
+const deleteInvitationsOfRemovedUser = `-- name: DeleteInvitationsOfRemovedUser :exec
+DELETE FROM invitation
+WHERE secret_sha256 IN (SELECT owned.secret_sha256 FROM "grant" AS owned WHERE owned.user_id = ?1)
+`
+
+// The invitations their links are (D246 section 2).
+func (q *Queries) DeleteInvitationsOfRemovedUser(ctx context.Context, userID *int64) error {
+	_, err := q.db.ExecContext(ctx, deleteInvitationsOfRemovedUser, userID)
+	return err
+}
+
+const deleteLocatorsOfRemovedUser = `-- name: DeleteLocatorsOfRemovedUser :exec
+DELETE FROM locator
+WHERE session_secret_sha256 IN (SELECT owned.secret_sha256 FROM "grant" AS owned WHERE owned.user_id = ?1)
+`
+
+// What each of their sessions was found by at a discovery (discovery-core.md K7).
+func (q *Queries) DeleteLocatorsOfRemovedUser(ctx context.Context, userID *int64) error {
+	_, err := q.db.ExecContext(ctx, deleteLocatorsOfRemovedUser, userID)
+	return err
+}
+
+const deleteRealmKeyOfRemovedUser = `-- name: DeleteRealmKeyOfRemovedUser :exec
+DELETE FROM realm_key WHERE user_id = ?1
+`
+
+func (q *Queries) DeleteRealmKeyOfRemovedUser(ctx context.Context, userID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteRealmKeyOfRemovedUser, userID)
+	return err
+}
+
 const demoteAdministrators = `-- name: DemoteAdministrators :many
 UPDATE user SET role_id = (SELECT id FROM role WHERE name = 'user' AND is_builtin = 1)
 WHERE removed_at IS NULL
@@ -279,23 +341,10 @@ func (q *Queries) ListLiveUsers(ctx context.Context) ([]ListLiveUsersRow, error)
 	return items, nil
 }
 
-const removeDevicesOfRemovedUser = `-- name: RemoveDevicesOfRemovedUser :exec
-UPDATE device SET removed_at = ?1 WHERE user_id = ?2 AND removed_at IS NULL
-`
-
-type RemoveDevicesOfRemovedUserParams struct {
-	RemovedAt *int64
-	UserID    *int64
-}
-
-func (q *Queries) RemoveDevicesOfRemovedUser(ctx context.Context, arg RemoveDevicesOfRemovedUserParams) error {
-	_, err := q.db.ExecContext(ctx, removeDevicesOfRemovedUser, arg.RemovedAt, arg.UserID)
-	return err
-}
-
 const removeUser = `-- name: RemoveUser :execrows
 
-UPDATE user SET removed_at = ?1 WHERE id = ?2 AND removed_at IS NULL
+UPDATE user SET removed_at = ?1, name = '', password_hash = NULL, admin_note = NULL
+WHERE id = ?2 AND removed_at IS NULL
 `
 
 type RemoveUserParams struct {
@@ -303,8 +352,9 @@ type RemoveUserParams struct {
 	ID        int64
 }
 
-// A person removed (S40, D173 section 4): the row stays as a tombstone, so what they set for the
-// household (a correction, a setting) still says who; their name is free for someone new.
+// A person removed (S40, D305 section 1): what was theirs is deleted, and their row stays only as
+// a nameless tombstone, so ids are never reused and their name is free for someone new.
+// Their row, nameless: no name, password or note of theirs is kept.
 func (q *Queries) RemoveUser(ctx context.Context, arg RemoveUserParams) (int64, error) {
 	result, err := q.db.ExecContext(ctx, removeUser, arg.RemovedAt, arg.ID)
 	if err != nil {
@@ -324,21 +374,6 @@ type RenameUserParams struct {
 
 func (q *Queries) RenameUser(ctx context.Context, arg RenameUserParams) error {
 	_, err := q.db.ExecContext(ctx, renameUser, arg.Name, arg.ID)
-	return err
-}
-
-const revokeLiveGrantsOfRemovedUser = `-- name: RevokeLiveGrantsOfRemovedUser :exec
-UPDATE "grant" SET revoked_at = ?1 WHERE user_id = ?2 AND revoked_at IS NULL
-`
-
-type RevokeLiveGrantsOfRemovedUserParams struct {
-	RevokedAt *int64
-	UserID    *int64
-}
-
-// Every credential of theirs: sessions, links, device codes (D154).
-func (q *Queries) RevokeLiveGrantsOfRemovedUser(ctx context.Context, arg RevokeLiveGrantsOfRemovedUserParams) error {
-	_, err := q.db.ExecContext(ctx, revokeLiveGrantsOfRemovedUser, arg.RevokedAt, arg.UserID)
 	return err
 }
 

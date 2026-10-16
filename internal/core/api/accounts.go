@@ -11,8 +11,11 @@ import (
 	"github.com/kstenerud/orpheum/discovery/link"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
+	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
+	"github.com/kstenerud/orpheum/internal/core/secrets"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 )
 
 const tagAccounts = "Accounts"
@@ -355,8 +358,10 @@ func (server *Server) removePerson(ctx context.Context, input *PersonInput) (*st
 	if err != nil {
 		return nil, err
 	}
+	// What was theirs goes, and who set what everyone shares is forgotten (D305 §1).
 	err = dependencies.Auth.RemoveUser(ctx, principal.UserID, input.UserID,
-		playback.ForgetWatchingOf, preferences.ForgetPreferencesOf)
+		playback.ForgetWatchingOf, preferences.ForgetPreferencesOf, identify.ForgetOverridesSetBy,
+		settings.ForgetSettingsSetBy, secrets.ForgetSecretsSetBy)
 	if err != nil {
 		return nil, server.authError(ctx, "remove a person", err)
 	}

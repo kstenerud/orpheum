@@ -4,12 +4,15 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 // readSignIn reads a sign-in's answer: the token, and whose it is.
@@ -374,4 +377,38 @@ func TestPeople_AnAdminRemovesAPersonWhoseNextRequestIsRefused(t *testing.T) {
 		t.Errorf("GET /users after removal = %s", listed.body)
 	}
 	wantError(t, harness.do(t, http.MethodDelete, "/users/2", admin, nil), http.StatusNotFound, CodeNotFound)
+}
+
+// Removing a person keeps what they set for everyone, an override, a setting and a key, and forgets
+// that they set it: no record of who set what is kept (D305 §1).
+func TestPeople_ARemovedPersonsSettingsStayAndWhoSetThemIsForgotten(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.do(t, http.MethodPost, "/users", admin,
+		map[string]string{"name": "partner", "password": "partner-password", "role": "user"})
+	storetest.ExecRaw(t, harness.databasePath,
+		"INSERT INTO item (id, kind, added_at) VALUES (10, 'title', 1)",
+		"INSERT INTO title (id, kind, identification_state) VALUES (10, 'movie', 'identified')",
+		"INSERT INTO version (title_id, created_at) VALUES (10, 1)",
+		`INSERT INTO field_override (item_id, field, language, override_value, origin, set_by_user_id, set_at)
+		 VALUES (10, 'name', '', 'Metropolis', 'typed', 2, 1)`,
+		"UPDATE setting SET set_by_user_id = 2 WHERE key = 'sort_locale'",
+		`INSERT INTO secret (scope, user_id, name, key_id, nonce, ciphertext, last_chars, set_by_user_id, set_at)
+		 VALUES ('server', NULL, 'tmdb_api_key', 1, X'02', X'03', 'abcd', 2, 1)`)
+	if removed := harness.do(t, http.MethodDelete, "/users/2", admin, nil); removed.status != http.StatusNoContent {
+		t.Fatalf("DELETE /users/2 = %d %s", removed.status, removed.body)
+	}
+	//nolint:gosec // G101: a key's name in a query, not a key
+	for table, kept := range map[string]string{
+		"field_override": "item_id = 10", "setting": "key = 'sort_locale'", "secret": "name = 'tmdb_api_key'",
+	} {
+		got := storetest.QueryRaw(t, harness.databasePath, fmt.Sprintf(
+			"SELECT (SELECT count(*) FROM %[1]s WHERE %[2]s) || '|' || "+
+				"(SELECT count(*) FROM %[1]s WHERE set_by_user_id = 2)", table, kept))
+		if !slices.Equal(got, []string{"1|0"}) {
+			t.Errorf("%s after removal: %v rows kept|naming them; want 1|0, what they set kept and no one named",
+				table, got)
+		}
+	}
 }

@@ -37,3 +37,7 @@ WHERE (secret.key_id, secret.nonce, secret.ciphertext, secret.last_chars, secret
 -- references a secret row, so this is not the tombstone case of standards/sql.md section 6.
 DELETE FROM secret
 WHERE scope = sqlc.arg(scope) AND user_id IS sqlc.arg(user_id) AND name = sqlc.arg(name);
+
+-- name: ClearSecretsSetByRemovedUser :exec
+-- The keys a removed person entered stay, the server's; who entered them is forgotten (D305).
+UPDATE secret SET set_by_user_id = NULL WHERE set_by_user_id = sqlc.arg(user_id);

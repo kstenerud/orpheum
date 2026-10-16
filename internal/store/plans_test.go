@@ -198,13 +198,22 @@ func wholeReadsAllowed() map[string]string {
 		"ListRoles":                     few + "roles and people; the admin lists them (D243 section 4)",
 		"ListRoleLibraries":             few + "roles' libraries; the admin lists them (D243 section 4)",
 		"DeleteRole":                    few + "people, whose roles a removed role's check reads",
-		"DemoteAdministrators":          few + "people and roles; the operator's reset-admin reads them",
-		"CountLiveUsers":                few + "people; setup counts them",
-		"GetLiveUserByName":             few + "people; a name is checked when one is made or renamed",
-		"ListLiveUsers":                 few + "people; the admin lists them",
-		"ListLiveInvitations":           few + "people's grants; the admin lists the invitations",
-		"ListAllSealedSecrets":          few + "secrets; doctor lists them",
-		"ListSettings":                  few + "settings, a fixed registry; the admin lists them",
+		// Removing a person, which is rare, reads these once (D305).
+		"ClearSettingsSetByRemovedUser":      few + "settings, a hundred or so",
+		"ClearSecretsSetByRemovedUser":       few + "keys",
+		"ClearOverridesSetByRemovedUser":     "the overrides people typed, a few hundred at most",
+		"DeleteGrantsOfRemovedUser":          "every credential ever made, which retention bounds",
+		"DeleteLocatorsOfRemovedUser":        "every credential, for the removed person's sessions' locators",
+		"DeleteInvitationsOfRemovedUser":     "every credential, for the removed person's links' invitations",
+		"DeleteGrantsDerivedFromRemovedUser": "every credential, for those derived from the removed person's",
+		"DeleteDevicesOfRemovedUser":         few + "devices",
+		"DemoteAdministrators":               few + "people and roles; the operator's reset-admin reads them",
+		"CountLiveUsers":                     few + "people; setup counts them",
+		"GetLiveUserByName":                  few + "people; a name is checked when one is made or renamed",
+		"ListLiveUsers":                      few + "people; the admin lists them",
+		"ListLiveInvitations":                few + "people's grants; the admin lists the invitations",
+		"ListAllSealedSecrets":               few + "secrets; doctor lists them",
+		"ListSettings":                       few + "settings, a fixed registry; the admin lists them",
 		"ListSeriesByAdded": "newest first reads the series, which are few (200 at the reference scale), " +
 			"and sorts them: walking item_added would pass every film and episode",
 		"ListSeriesByIdentification": "the needs-a-match list's series, which are few",
@@ -300,6 +309,8 @@ func weakSearchesAllowed() map[string]string {
 		snapshot = "the identification pass's snapshot"
 	)
 	return map[string]string{
+		"DeleteDevicesOfRemovedUser": person + "the check that no play names a device deleted, whose plays " +
+			"removing the person deleted first (D305)",
 		"ListLiveFilesOfLibraryOnNode":    library + "a scan's comparison",
 		"ListLiveFilesForAttaching":       library + "a scan's attaching of sidecars",
 		"ListFilesToCompare":              library + "a scan's comparison",

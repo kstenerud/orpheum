@@ -9,6 +9,16 @@ import (
 	"context"
 )
 
+const clearSecretsSetByRemovedUser = `-- name: ClearSecretsSetByRemovedUser :exec
+UPDATE secret SET set_by_user_id = NULL WHERE set_by_user_id = ?1
+`
+
+// The keys a removed person entered stay, the server's; who entered them is forgotten (D305).
+func (q *Queries) ClearSecretsSetByRemovedUser(ctx context.Context, userID *int64) error {
+	_, err := q.db.ExecContext(ctx, clearSecretsSetByRemovedUser, userID)
+	return err
+}
+
 const deleteSealedSecret = `-- name: DeleteSealedSecret :exec
 DELETE FROM secret
 WHERE scope = ?1 AND user_id IS ?2 AND name = ?3
