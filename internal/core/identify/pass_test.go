@@ -631,6 +631,32 @@ func TestPass_AWriteBetweenItsBatchesHasThePassReadAgainAndFileEverything(t *tes
 	}
 }
 
+// Someone else writing between every one of a pass's batches, as the fetches a library's new
+// titles queue do, has the pass read the library again in the batch that finds it, after a few
+// reads on a reader, and still file everything: a pass that read only on a reader gave up after 20
+// (staging, 2026-10-16).
+func TestPass_WritesBetweenEveryBatchStillLetThePassFileEverything(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "nfo")
+	identify.BatchRows(lib.pass, 1)
+	writes := 0
+	identify.BetweenBatches(lib.pass, func(context.Context, int64) {
+		writes++
+		//nolint:contextcheck // anyone's write, on the test's
+		storetest.InsertUser(t, lib.database, fmt.Sprintf("person %d", writes), "user")
+	})
+	var films []nodeproto.ScanRecord
+	for index := range 30 {
+		films = append(films, videoRecord(fmt.Sprintf("Film %02d (%d)/Film %02d (%d).mkv", index, 1990+index,
+			index, 1990+index)))
+	}
+	lib.scan(films...)
+	if filed := len(lib.titlesByPath()); filed != len(films) || writes < len(films) {
+		t.Errorf("%d films filed, with %d writes between batches; want all %d, each batch followed by a write",
+			filed, writes, len(films))
+	}
+}
+
 // listedRecord is a video a listing names at path, unread, on device 7 at an inode.
 func listedRecord(path string, inode uint64) nodeproto.ScanRecord {
 	return nodeproto.ScanRecord{Type: nodeproto.RecordListed, Listed: &nodeproto.Listed{
