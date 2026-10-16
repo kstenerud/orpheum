@@ -277,7 +277,8 @@ func (listing *listingComparison) concludeInodeMoves(ctx context.Context) error 
 }
 
 // directoryRule is the rule a directory, relative to the root, is skipped by: the root's .trash,
-// where an export keeps the files it replaced (D144), or a release's sample/ (D162).
+// where an export keeps the files it replaced (D144), a release's sample/ (D162), a folder a NAS
+// keeps for itself, or a disc's folder (D306 §5).
 func directoryRule(relative string) (nodeproto.SkipRule, bool) {
 	switch {
 	case relative == ".trash":
@@ -286,6 +287,8 @@ func directoryRule(relative string) (nodeproto.SkipRule, bool) {
 		return nodeproto.SkipSample, true
 	case isSystemFolder(path.Base(relative)):
 		return nodeproto.SkipSystem, true
+	case strings.EqualFold(path.Base(relative), "VIDEO_TS") || strings.EqualFold(path.Base(relative), "BDMV"):
+		return nodeproto.SkipDiscImage, true
 	}
 	return "", false
 }
@@ -317,6 +320,8 @@ func (rules ScanRules) kindOf(name string) (nodeproto.ExamineKind, nodeproto.Ski
 		return nodeproto.ExamineSubtitle, ""
 	case isImage(extension):
 		return "", ""
+	case extension == "iso":
+		return "", nodeproto.SkipDiscImage
 	case !rules.VideoExtensions[extension]:
 		return "", nodeproto.SkipExtension
 	case isSampleFile(name):
