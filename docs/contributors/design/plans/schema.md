@@ -231,6 +231,8 @@ CREATE TABLE file (                                        -- class I (identity 
   payload_hash  BLOB,                    -- D179: anchored on the media payload
   payload_bytes   INTEGER,
   opensubtitles_hash TEXT,               -- migration 0017: the provider's moviehash, 16 hex digits (D224 §3)
+  filesystem_device INTEGER,             -- migration 0050: where the node last read it, with inode,
+  inode         INTEGER,                 --   which tell it moved on its disk (D304 §5)
   is_identity_confirmed INTEGER NOT NULL DEFAULT 1
                   CHECK (is_identity_confirmed IN (0, 1)),   -- D179: 0 after a rebuild, until re-seen
   filing        TEXT NOT NULL CHECK (filing IN
