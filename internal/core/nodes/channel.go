@@ -71,6 +71,9 @@ func (service *Service) dropAckedAndListPending(nodeID, ackedSeq int64) ([]nodep
 		}
 	}
 	node.commands = kept
+	if len(kept) > 0 {
+		node.deliveredThrough = max(node.deliveredThrough, kept[len(kept)-1].CommandSeq)
+	}
 	return append([]nodeproto.Command(nil), kept...), node.wake
 }
 
