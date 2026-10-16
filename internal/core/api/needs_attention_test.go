@@ -75,7 +75,7 @@ func TestNeedsAttention_TellsTheSeriesWhoseEpisodesWereLikelyReadWrongly(t *test
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelve(t)
 	var statements []string
-	for index := range 3 {
+	for index := range 5 {
 		id := 40 + index
 		statements = append(statements,
 			fmt.Sprintf("INSERT INTO item (id, kind, library_id, added_at) VALUES (%d, 'title', 1, 2)", id),
@@ -90,7 +90,7 @@ func TestNeedsAttention_TellsTheSeriesWhoseEpisodesWereLikelyReadWrongly(t *test
 	}
 	storetest.ExecRaw(t, harness.databasePath, statements...)
 	got := harness.do(t, http.MethodGet, "/needs-attention", admin, nil)
-	if !strings.Contains(got.body, `"seriesReadWrongly":[{"seriesId":20,"name":"Brass Arena","unplacedCount":3}]`) {
-		t.Errorf("GET /needs-attention = %d %s; want Brass Arena's three unplaced episodes told", got.status, got.body)
+	if !strings.Contains(got.body, `"seriesReadWrongly":[{"seriesId":20,"name":"Brass Arena","unplacedCount":5}]`) {
+		t.Errorf("GET /needs-attention = %d %s; want Brass Arena's five unplaced episodes told", got.status, got.body)
 	}
 }
