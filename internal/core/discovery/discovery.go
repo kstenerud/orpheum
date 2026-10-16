@@ -16,6 +16,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
@@ -198,6 +199,10 @@ type Service struct {
 	sentLinks    []Link
 	sentLocators []string
 	sentUnder    string
+
+	// pingsUnanswered is how many pings of the signalling connection wait for their answer: a test
+	// moves its fake time on only once a ping answered in real time has been heard.
+	pingsUnanswered atomic.Int64
 }
 
 // IsPublished is whether the discovery publishes the core's addresses: it has claimed the core, and

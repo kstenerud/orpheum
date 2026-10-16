@@ -145,7 +145,12 @@ func (service *Service) keepAlive(ctx context.Context, connection *websocket.Con
 		}
 		if !isWaiting {
 			isWaiting = true
-			go func() { answered <- connection.Ping(ctx) }()
+			service.pingsUnanswered.Add(1)
+			go func() {
+				err := connection.Ping(ctx)
+				service.pingsUnanswered.Add(-1)
+				answered <- err
+			}()
 		}
 	}
 }
