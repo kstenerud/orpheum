@@ -5,8 +5,9 @@
 
 - **Status:** BUILT for Cut A: manual backups (M1; as D242 changed them, 2026-10-03), and scheduled
   ones as jobs (M4, 2026-10-05; [D243](../../decisions/working-notes.md) §11 and
-  [D246](../../decisions/working-notes.md) §7: every `backup_every_days` at `backup_hour_local_tz` in the
-  server's `time_zone`, the newest `backups_kept` kept, never holding the key). Researched 2026-09-19 ([backup-restore.md](../research/backup-restore.md), [D77](../../decisions/working-notes.md)); **the database is backed up whole** ([D185](../../decisions/working-notes.md)); **an older backup is migrated, not refused** ([D181](../../decisions/working-notes.md)). In Cut A ([D178](../../decisions/working-notes.md), F12).
+  [D246](../../decisions/working-notes.md) §7; hourly since [D305](../../decisions/working-notes.md) §2:
+  every `backup_every_hours`, skipped when nothing changed, thinned to `backups_kept_hourly`,
+  `backups_kept_daily` and `backups_kept_weekly`, never holding the key). Researched 2026-09-19 ([backup-restore.md](../research/backup-restore.md), [D77](../../decisions/working-notes.md)); **the database is backed up whole** ([D185](../../decisions/working-notes.md)); **an older backup is migrated, not refused** ([D181](../../decisions/working-notes.md)). In Cut A ([D178](../../decisions/working-notes.md), F12).
 - **Depends on:** library-model.md
 
 > **Since [D242](../../decisions/working-notes.md) (built 2026-10-03):** a backup is a gzipped
@@ -92,8 +93,8 @@ viewing to anyone with filesystem access. The sidecar mechanism structurally can
 > **IMPLEMENTED — see `internal/core/backup`** (M1): `orpheum backup` (with `--include-key`) and
 > `orpheum restore`, which says what it will overwrite, keeps it, and runs only with the server
 > stopped. Since D242 an admin also backs up from the System page, the key in it only when the box
-> is ticked, as a job the job view shows; the server makes one on its own each day and prunes past
-> `backups_kept` (D243 §11).
+> is ticked, as a job the job view shows; the server makes one on its own each hour, skipped when
+> nothing changed, and thins them to so many hourly, daily and weekly (D305 §2).
 
 A backup that has never been restored is not a backup, so the deliverable is **a test that
 restores into an empty instance and asserts equivalence of the irreplaceable set** — not a

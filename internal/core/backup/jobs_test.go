@@ -3,10 +3,12 @@
 package backup
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"os"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,7 +16,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
-	"github.com/kstenerud/orpheum/internal/platform/localtime"
 )
 
 // heardQueue keeps the backup jobs asked for.
@@ -25,34 +26,32 @@ func (queue *heardQueue) Enqueue(_ context.Context, request jobs.Request) (bool,
 	return true, nil
 }
 
-// startingSettings are the backup settings at their starting values, kept aside, every days apart
-// (one when zero), in a time zone (UTC when zero).
+// startingSettings are the backup settings: every hours apart (one when zero), and the thinning's
+// counts (D305 §2's starting values when zero).
 type startingSettings struct {
-	kept  int64
-	every int64
-	zone  localtime.Zone
+	every                 int64
+	hourly, daily, weekly int64
 }
 
 func (config startingSettings) Int(_ context.Context, key settings.Key) (int64, error) {
-	if key == settings.BackupsKept {
-		return config.kept, nil
+	if key == settings.BackupsKeptHourly {
+		return cmp.Or(config.hourly, 24), nil
 	}
-	return 4, nil // backup_hour_local_tz
+	if key == settings.BackupsKeptDaily {
+		return cmp.Or(config.daily, 7), nil
+	}
+	return cmp.Or(config.weekly, 4), nil // backups_kept_weekly
 }
 
 func (config startingSettings) Duration(context.Context, settings.Key) (time.Duration, error) {
-	return time.Duration(max(config.every, 1)) * 24 * time.Hour, nil // backup_every_days
-}
-
-func (config startingSettings) Zone(context.Context) (localtime.Zone, error) {
-	return config.zone, nil
+	return time.Duration(max(config.every, 1)) * time.Hour, nil // backup_every_hours
 }
 
 // scheduleBench is a backup service over an empty instance holding files, its clock at now, and
 // what it asked for.
 func scheduleBench(t *testing.T, now time.Time, files ...string) (*Service, *heardQueue, *instancedir.Directories) {
 	t.Helper()
-	return scheduleBenchWith(t, startingSettings{kept: 2}, now, files...)
+	return scheduleBenchWith(t, startingSettings{}, now, files...)
 }
 
 // scheduleBenchWith is scheduleBench with config's settings.
@@ -76,9 +75,9 @@ func scheduleBenchWith(
 	return service, queue, directories
 }
 
-// The scheduled backup is asked for at the quiet hour once the newest is a day old, at any hour once
-// it is a day overdue, and never holding the key (D243 §11).
-func TestQueueScheduled_AsksAtTheQuietHourWhenDueAndAtOnceWhenOverdue(t *testing.T) {
+// The scheduled backup is asked for once the newest is an hour old, at any hour, and never holding
+// the key (D305 §2).
+func TestQueueScheduled_AsksOnceTheNewestIsAnHourOld(t *testing.T) {
 	t.Parallel()
 	for _, check := range []struct {
 		what  string
@@ -86,31 +85,20 @@ func TestQueueScheduled_AsksAtTheQuietHourWhenDueAndAtOnceWhenOverdue(t *testing
 		files []string
 		want  int
 	}{
-		{"none yet, at the quiet hour", time.Date(2026, 10, 5, 4, 10, 0, 0, time.UTC), nil, 1},
-		{"none yet, at another hour", time.Date(2026, 10, 5, 13, 0, 0, 0, time.UTC), nil, 1},
+		{"none yet", time.Date(2026, 10, 5, 13, 10, 0, 0, time.UTC), nil, 1},
 		{
-			"a day old, at the quiet hour", time.Date(2026, 10, 5, 4, 0, 0, 0, time.UTC),
-			[]string{"backup-20261004T040500Z.tar.gz"},
-			1,
-		},
-		{
-			"a day old, at another hour", time.Date(2026, 10, 5, 13, 0, 0, 0, time.UTC),
-			[]string{"backup-20261004T040500Z.tar.gz"},
+			"half an hour old", time.Date(2026, 10, 5, 13, 35, 0, 0, time.UTC),
+			[]string{"backup-20261005T130500Z.tar.gz"},
 			0,
 		},
 		{
-			"made today", time.Date(2026, 10, 5, 4, 30, 0, 0, time.UTC),
-			[]string{"backup-20261005T040500Z.tar.gz"},
-			0,
-		},
-		{
-			"two days old, at another hour", time.Date(2026, 10, 6, 13, 0, 0, 0, time.UTC),
-			[]string{"backup-20261004T040500Z.tar.gz"},
+			"an hour old", time.Date(2026, 10, 5, 14, 5, 0, 0, time.UTC),
+			[]string{"backup-20261005T130500Z.tar.gz"},
 			1,
 		},
 		{
-			"a pre-restore copy is not a backup", time.Date(2026, 10, 5, 4, 0, 0, 0, time.UTC),
-			[]string{"pre-restore-20261005T030000Z.tar.gz", "backup-20261004T040500Z.tar.gz"},
+			"a pre-restore copy is not a backup", time.Date(2026, 10, 5, 14, 5, 0, 0, time.UTC),
+			[]string{"pre-restore-20261005T140000Z.tar.gz", "backup-20261005T130500Z.tar.gz"},
 			1,
 		},
 	} {
@@ -127,59 +115,76 @@ func TestQueueScheduled_AsksAtTheQuietHourWhenDueAndAtOnceWhenOverdue(t *testing
 	}
 }
 
-// The quiet hour is in the server's time zone, and a backup every few days waits that many days
-// (D246 §7).
-func TestQueueScheduled_TheHourIsTheServersAndTheGapIsInDays(t *testing.T) {
+// A scheduled backup is skipped when nothing was committed since the last this server made, and
+// asked for once something was; one made before the server started says nothing of what changed
+// since (D305 §2).
+func TestQueueScheduled_SkipsABackupWhenNothingChangedSinceTheLast(t *testing.T) {
 	t.Parallel()
-	berlin, err := localtime.Named("Europe/Berlin")
-	if err != nil {
-		t.Fatal(err)
+	service, queue, _ := scheduleBench(t, time.Date(2026, 10, 5, 14, 5, 0, 0, time.UTC),
+		"backup-20261005T130500Z.tar.gz")
+	commits := int64(7)
+	service.commits = func() int64 { return commits }
+	if asked, err := service.QueueScheduled(t.Context()); err != nil || asked != 1 {
+		t.Errorf("no backup made since the server started: asked for %d (%v); want one", asked, err)
 	}
-	newest := "backup-20261002T020500Z.tar.gz" // 04:05 in Berlin, three days before
-	inBerlin := startingSettings{zone: berlin, every: 3}
-	for _, check := range []struct {
-		what   string
-		config startingSettings
-		at     time.Time
-		want   int
-	}{
-		{"04:00 in Berlin, 02:00 UTC", inBerlin, time.Date(2026, 10, 5, 2, 0, 0, 0, time.UTC), 1},
-		{"04:00 UTC, 06:00 in Berlin", inBerlin, time.Date(2026, 10, 5, 4, 0, 0, 0, time.UTC), 0},
-		{"two days on, of every three", inBerlin, time.Date(2026, 10, 4, 2, 0, 0, 0, time.UTC), 0},
-	} {
-		check.config.kept = 2
-		service, _, _ := scheduleBenchWith(t, check.config, check.at, newest)
-		if asked, askErr := service.QueueScheduled(t.Context()); askErr != nil || asked != check.want {
-			t.Errorf("%s: asked for %d (%v), want %d", check.what, asked, askErr, check.want)
-		}
+	service.commitsAtBackup, service.hasBackedUp = 7, true
+	if asked, err := service.QueueScheduled(t.Context()); err != nil || asked != 0 {
+		t.Errorf("nothing changed since the last: asked for %d (%v); want none", asked, err)
+	}
+	commits = 8
+	if asked, err := service.QueueScheduled(t.Context()); err != nil || asked != 1 || len(queue.requests) != 2 {
+		t.Errorf("a commit since the last: asked for %d (%v); want one", asked, err)
 	}
 }
 
-// Pruning keeps the newest backups_kept backups, and never the copies kept before a restore or a
-// migration (D243 §11).
-func TestPrune_KeepsTheNewestBackupsAndEveryCopyKeptBeforeARestoreOrMigration(t *testing.T) {
+// Pruning thins forty days of hourly backups to the newest backups_kept_hourly, then the newest of
+// each day back to backups_kept_daily days, and of each week back to backups_kept_weekly weeks, and
+// never prunes the copies kept before a restore or a migration (D305 §2).
+func TestPrune_ThinsToTheNewestHourlyThenOneADayThenOneAWeek(t *testing.T) {
 	t.Parallel()
-	service, _, directories := scheduleBench(t, time.Date(2026, 10, 5, 4, 0, 0, 0, time.UTC),
-		"backup-20261001T040000Z.tar.gz", "backup-20261002T040000Z.tar.gz", "backup-20261003T040000Z.tar.gz",
-		"pre-restore-20261001T050000Z.tar.gz", "pre-migrate-v31.sqlite")
+	now := time.Date(2026, 10, 16, 12, 30, 0, 0, time.UTC) // a Friday
+	var files []string
+	for hour := range 40 * 24 {
+		files = append(files, "backup-"+now.Add(-time.Duration(hour)*time.Hour).Format(timestampLayout)+archiveSuffix)
+	}
+	files = append(files, "pre-restore-20261001T050000Z.tar.gz", "pre-migrate-v31.sqlite")
+	service, _, directories := scheduleBenchWith(t, startingSettings{hourly: 24, daily: 7, weekly: 4}, now, files...)
 	if err := service.prune(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	files, err := directories.ListBackups()
+	listed, err := directories.ListBackups()
 	if err != nil {
 		t.Fatal(err)
 	}
-	var names []string
-	for _, file := range files {
-		names = append(names, file.Name)
+	var kept []string
+	for _, file := range listed {
+		kept = append(kept, file.Name)
 	}
-	slices.Sort(names)
+	slices.Sort(kept)
+	backups := slices.DeleteFunc(slices.Clone(kept), func(name string) bool {
+		return !strings.HasPrefix(name, "backup-")
+	})
+	// The 24 newest, which reach back into yesterday; the newest of each of the five days of the
+	// seven before those two; the newest of each of the two weeks of the four before the two the
+	// daily ones reach.
 	want := []string{
-		"backup-20261002T040000Z.tar.gz", "backup-20261003T040000Z.tar.gz", "pre-migrate-v31.sqlite",
-		"pre-restore-20261001T050000Z.tar.gz",
+		"20260927T233000Z", "20261004T233000Z", "20261010T233000Z", "20261011T233000Z",
+		"20261012T233000Z", "20261013T233000Z", "20261014T233000Z",
 	}
-	if !slices.Equal(names, want) {
-		t.Errorf("after pruning to two: %v, want %v", names, want)
+	for hour := range 24 {
+		want = append(want, now.Add(-time.Duration(hour)*time.Hour).Format(timestampLayout))
+	}
+	for index := range want {
+		want[index] = "backup-" + want[index] + archiveSuffix
+	}
+	slices.Sort(want)
+	if !slices.Equal(backups, want) {
+		t.Errorf("kept %v; want %v: 24 hourly, then 5 days' and 2 weeks' newest", backups, want)
+	}
+	for _, copied := range []string{"pre-restore-20261001T050000Z.tar.gz", "pre-migrate-v31.sqlite"} {
+		if !slices.Contains(kept, copied) {
+			t.Errorf("pruning removed %s, a copy kept before a restore or a migration", copied)
+		}
 	}
 }
 
