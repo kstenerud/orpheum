@@ -284,12 +284,13 @@ func (q *Queries) GetSubtitleStream(ctx context.Context, id int64) (GetSubtitleS
 const insertFile = `-- name: InsertFile :one
 INSERT INTO file (
   library_id, node_id, path, reported_path_raw, size_bytes, modified_at, payload_hash, payload_bytes,
-  filing, filing_reason, error_detail_json, first_seen_at, last_seen_at, opensubtitles_hash
+  filing, filing_reason, error_detail_json, first_seen_at, last_seen_at, opensubtitles_hash,
+  filesystem_device, inode
 ) VALUES (
   ?1, ?2, ?3, ?4, ?5,
   ?6, ?7, ?8, ?9,
   ?10, ?11, ?12, ?12,
-  ?13
+  ?13, ?14, ?15
 )
 RETURNING id
 `
@@ -308,6 +309,8 @@ type InsertFileParams struct {
 	ErrorDetailJSON   *string
 	SeenAt            int64
 	OpensubtitlesHash *string
+	FilesystemDevice  *int64
+	Inode             *int64
 }
 
 func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) (int64, error) {
@@ -325,6 +328,8 @@ func (q *Queries) InsertFile(ctx context.Context, arg InsertFileParams) (int64, 
 		arg.ErrorDetailJSON,
 		arg.SeenAt,
 		arg.OpensubtitlesHash,
+		arg.FilesystemDevice,
+		arg.Inode,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -505,6 +510,7 @@ func (q *Queries) ListFilesAHeldBackScanDidNotSee(ctx context.Context, arg ListF
 
 const listFilesToCompare = `-- name: ListFilesToCompare :many
 SELECT id, reported_path_raw, size_bytes, modified_at, filing, sidecar_kind, is_identity_confirmed,
+       filesystem_device, inode,
        CAST(payload_hash IS NOT NULL AS INTEGER) AS has_payload_hash,
        CAST(EXISTS (SELECT 1 FROM file_nfo WHERE file_nfo.file_id = file.id) AS INTEGER) AS has_nfo_body
 FROM file
@@ -524,6 +530,8 @@ type ListFilesToCompareRow struct {
 	Filing              string
 	SidecarKind         *string
 	IsIdentityConfirmed int64
+	FilesystemDevice    *int64
+	Inode               *int64
 	HasPayloadHash      int64
 	HasNFOBody          int64
 }
@@ -547,6 +555,8 @@ func (q *Queries) ListFilesToCompare(ctx context.Context, arg ListFilesToCompare
 			&i.Filing,
 			&i.SidecarKind,
 			&i.IsIdentityConfirmed,
+			&i.FilesystemDevice,
+			&i.Inode,
 			&i.HasPayloadHash,
 			&i.HasNFOBody,
 		); err != nil {
@@ -965,6 +975,34 @@ func (q *Queries) ListUnreadablePaths(ctx context.Context) ([]ListUnreadablePath
 	return items, nil
 }
 
+const moveFileTo = `-- name: MoveFileTo :exec
+UPDATE file SET
+  path = ?1,
+  reported_path_raw = ?2,
+  last_seen_at = ?3
+WHERE id = ?4 AND removed_at IS NULL
+`
+
+type MoveFileToParams struct {
+	Path            string
+	ReportedPathRaw []byte
+	SeenAt          int64
+	ID              int64
+}
+
+// A file a listing found at a new path on the same device and inode, with its size and modified
+// time as stored: it moved, and its row and history follow it without its being read again (D304
+// section 5). A pass identifies it again from the new path, unless a person confirmed it.
+func (q *Queries) MoveFileTo(ctx context.Context, arg MoveFileToParams) error {
+	_, err := q.db.ExecContext(ctx, moveFileTo,
+		arg.Path,
+		arg.ReportedPathRaw,
+		arg.SeenAt,
+		arg.ID,
+	)
+	return err
+}
+
 const reviveFile = `-- name: ReviveFile :exec
 UPDATE file SET removed_at = NULL WHERE id = ?
 `
@@ -1097,8 +1135,10 @@ UPDATE file SET
                   ELSE filing_reason END,
   error_detail_json = NULL,
   opensubtitles_hash = ?9,
-  last_seen_at = ?10
-WHERE id = ?11
+  filesystem_device = ?10,
+  inode = ?11,
+  last_seen_at = ?12
+WHERE id = ?13
 `
 
 type UpdateObservedFileParams struct {
@@ -1111,6 +1151,8 @@ type UpdateObservedFileParams struct {
 	PayloadBytes       *int64
 	UnidentifiedReason *string
 	OpensubtitlesHash  *string
+	FilesystemDevice   *int64
+	Inode              *int64
 	SeenAt             int64
 	ID                 int64
 }
@@ -1128,6 +1170,8 @@ func (q *Queries) UpdateObservedFile(ctx context.Context, arg UpdateObservedFile
 		arg.PayloadBytes,
 		arg.UnidentifiedReason,
 		arg.OpensubtitlesHash,
+		arg.FilesystemDevice,
+		arg.Inode,
 		arg.SeenAt,
 		arg.ID,
 	)

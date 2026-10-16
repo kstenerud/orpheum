@@ -380,3 +380,29 @@ func TestMigrate_Step0049KeepsEachNodeWithoutItsStoredStatus(t *testing.T) {
 		t.Errorf("after the step: %s; want %s: the node kept, its stored status gone", got, want)
 	}
 }
+
+// Step 0050 keeps each file, its device and inode unknown until it is read again (D304 §5).
+func TestMigrate_Step0050KeepsEachFileWithItsDeviceAndInodeUnknown(t *testing.T) {
+	t.Parallel()
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	step0050 := stepIndex(t, steps, 50)
+	database := openTemporary(t)
+	if err = database.migrate(t.Context(), steps[:step0050], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	execRaw(t, database, `INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable,
+		created_at) VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)`,
+		`INSERT INTO node (id, name, enrolled_at) VALUES (1, 'nas', 1)`,
+		`INSERT INTO file (id, library_id, node_id, path, filing, first_seen_at, last_seen_at)
+		VALUES (1, 1, 1, '/media/Metropolis.mkv', 'listed', 1, 1)`)
+	if err = database.migrate(t.Context(), steps[:step0050+1], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	got := fmt.Sprint(queryRows(t, database, "SELECT id, path, filesystem_device IS NULL, inode IS NULL FROM file", 4))
+	if want := "[[1 /media/Metropolis.mkv 1 1]]"; got != want {
+		t.Errorf("after the step: %s; want %s: the file kept, its device and inode unknown", got, want)
+	}
+}

@@ -59,6 +59,9 @@ type Listed struct {
 	ModifiedAt  int64 `json:"modifiedAt"`
 	// FilesystemDevice is the device number of the filesystem the entry is on.
 	FilesystemDevice uint64 `json:"filesystemDevice"`
+	// Inode is the entry's inode on that filesystem, 0 where the platform gives none: with the
+	// device, size and modified time it tells a file moved on its disk (D304 §5, D240 §3).
+	Inode uint64 `json:"inode,omitempty"`
 }
 
 // ExamineKind is what the node reads of a file it examines.

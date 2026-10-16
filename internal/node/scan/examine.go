@@ -126,6 +126,8 @@ func (walk *walk) observe(place location, info fs.FileInfo) error {
 	if err != nil {
 		return walk.fail(place.reportedPath, nodeproto.ScopeEntry, fmt.Errorf("%w: %w", errProbe, err), info)
 	}
+	device, _ := confine.DeviceOf(info)
+	inode, _ := confine.InodeOf(info)
 	return walk.send(nodeproto.ScanRecord{Type: nodeproto.RecordObserved, Observed: &nodeproto.Observed{
 		Path:       toNodePath(place.reportedPath),
 		SizeBytes:  info.Size(),
@@ -134,6 +136,8 @@ func (walk *walk) observe(place location, info fs.FileInfo) error {
 		Probe:      probed,
 
 		OpensubtitlesHash: moviehash,
+		FilesystemDevice:  device,
+		Inode:             inode,
 	}})
 }
 

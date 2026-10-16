@@ -26,12 +26,13 @@ ORDER BY id;
 -- name: InsertFile :one
 INSERT INTO file (
   library_id, node_id, path, reported_path_raw, size_bytes, modified_at, payload_hash, payload_bytes,
-  filing, filing_reason, error_detail_json, first_seen_at, last_seen_at, opensubtitles_hash
+  filing, filing_reason, error_detail_json, first_seen_at, last_seen_at, opensubtitles_hash,
+  filesystem_device, inode
 ) VALUES (
   sqlc.arg(library_id), sqlc.arg(node_id), sqlc.arg(path), sqlc.arg(reported_path_raw), sqlc.arg(size_bytes),
   sqlc.arg(modified_at), sqlc.arg(payload_hash), sqlc.arg(payload_bytes), sqlc.arg(filing),
   sqlc.arg(filing_reason), sqlc.arg(error_detail_json), sqlc.arg(seen_at), sqlc.arg(seen_at),
-  sqlc.narg(opensubtitles_hash)
+  sqlc.narg(opensubtitles_hash), sqlc.narg(filesystem_device), sqlc.narg(inode)
 )
 RETURNING id;
 
@@ -52,8 +53,20 @@ UPDATE file SET
                   ELSE filing_reason END,
   error_detail_json = NULL,
   opensubtitles_hash = sqlc.narg(opensubtitles_hash),
+  filesystem_device = sqlc.narg(filesystem_device),
+  inode = sqlc.narg(inode),
   last_seen_at = sqlc.arg(seen_at)
 WHERE id = sqlc.arg(id);
+
+-- name: MoveFileTo :exec
+-- A file a listing found at a new path on the same device and inode, with its size and modified
+-- time as stored: it moved, and its row and history follow it without its being read again (D304
+-- section 5). A pass identifies it again from the new path, unless a person confirmed it.
+UPDATE file SET
+  path = sqlc.arg(path),
+  reported_path_raw = sqlc.arg(reported_path_raw),
+  last_seen_at = sqlc.arg(seen_at)
+WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 
 -- name: UpdateFileFilingAndLastSeen :exec
 -- A path the node skipped or could not read: its filing says why, and it was seen.
@@ -266,6 +279,7 @@ WHERE id = sqlc.arg(id)
 -- The live files of a library on a node, with what a listing is compared with (D240 section 3): a
 -- file whose size and modified time are as stored, and which was read whole, needs nothing.
 SELECT id, reported_path_raw, size_bytes, modified_at, filing, sidecar_kind, is_identity_confirmed,
+       filesystem_device, inode,
        CAST(payload_hash IS NOT NULL AS INTEGER) AS has_payload_hash,
        CAST(EXISTS (SELECT 1 FROM file_nfo WHERE file_nfo.file_id = file.id) AS INTEGER) AS has_nfo_body
 FROM file

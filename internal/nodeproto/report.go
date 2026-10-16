@@ -188,6 +188,10 @@ type Observed struct {
 	// OpensubtitlesHash is OpenSubtitles' moviehash of the file, 16 hex digits, which finds
 	// subtitles made for these exact bytes (D224 §3); empty for a file too small to have one.
 	OpensubtitlesHash string `json:"opensubtitlesHash,omitempty"`
+	// FilesystemDevice and Inode are where the file was read, as a listing names them (Listed),
+	// which the core keeps to tell the file moved by them later (D304 §5); 0 where unknown.
+	FilesystemDevice uint64 `json:"filesystemDevice,omitempty"`
+	Inode            uint64 `json:"inode,omitempty"`
 }
 
 // Identity is a file's payload identity (D179).

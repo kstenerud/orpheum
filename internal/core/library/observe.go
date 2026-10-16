@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"slices"
 
@@ -100,6 +101,16 @@ func (batch *ingestBatch) reviveOrInsert(ctx context.Context, scan *scanState, s
 	return nil
 }
 
+// storedNumber is a device's or an inode's number as the file table keeps it: none for 0, which the
+// node sends where the platform gives none, or for one past what SQLite's integer holds.
+func storedNumber(number uint64) *int64 {
+	if number == 0 || number > math.MaxInt64 {
+		return nil
+	}
+	stored := int64(number)
+	return &stored
+}
+
 // observation is an observed record resolved to the file table's terms.
 type observation struct {
 	path          string
@@ -149,6 +160,7 @@ func (batch *ingestBatch) insertFile(ctx context.Context, scan *scanState, seenF
 		SizeBytes: &observed.SizeBytes, ModifiedAt: &observed.ModifiedAt, PayloadHash: seenFile.hash,
 		PayloadBytes: &observed.Identity.PayloadBytes, Filing: FilingUnidentified, FilingReason: &reason,
 		SeenAt: batch.nowMs, OpensubtitlesHash: seenFile.openSubtitlesHash,
+		FilesystemDevice: storedNumber(observed.FilesystemDevice), Inode: storedNumber(observed.Inode),
 	})
 	if err != nil {
 		return fmt.Errorf("insert %s: %w", seenFile.path, err)
@@ -171,6 +183,7 @@ func (batch *ingestBatch) updateObservedFile(
 		SizeBytes:  &observed.SizeBytes,
 		ModifiedAt: &observed.ModifiedAt, PayloadHash: seenFile.hash, PayloadBytes: &observed.Identity.PayloadBytes,
 		UnidentifiedReason: &reason, OpensubtitlesHash: seenFile.openSubtitlesHash,
+		FilesystemDevice: storedNumber(observed.FilesystemDevice), Inode: storedNumber(observed.Inode),
 		SeenAt: batch.nowMs,
 		ID:     id,
 	})

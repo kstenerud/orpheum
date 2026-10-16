@@ -55,6 +55,15 @@ func deviceOfPath(path string) (uint64, error) {
 	return device, nil
 }
 
+// InodeOf is a file's inode on its filesystem, and whether the platform gives one.
+func InodeOf(info fs.FileInfo) (uint64, bool) {
+	system, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		return 0, false
+	}
+	return system.Ino, true
+}
+
 // DeviceOf is the device id of the filesystem an entry is on, when the platform reports one.
 func DeviceOf(info fs.FileInfo) (uint64, bool) {
 	system, ok := info.Sys().(*syscall.Stat_t)

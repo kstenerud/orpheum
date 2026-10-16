@@ -229,10 +229,11 @@ func (walk *walk) enter(place location, info fs.FileInfo) error {
 // list reports an entry with its stat.
 func (walk *walk) list(place location, info fs.FileInfo) error {
 	device, _ := confine.DeviceOf(info)
+	inode, _ := confine.InodeOf(info)
 	walk.listedCount++
 	return walk.send(nodeproto.ScanRecord{Type: nodeproto.RecordListed, Listed: &nodeproto.Listed{
 		Path: toNodePath(place.reportedPath), IsDirectory: info.IsDir(), SizeBytes: info.Size(),
-		ModifiedAt: info.ModTime().UnixMilli(), FilesystemDevice: device,
+		ModifiedAt: info.ModTime().UnixMilli(), FilesystemDevice: device, Inode: inode,
 	}})
 }
 

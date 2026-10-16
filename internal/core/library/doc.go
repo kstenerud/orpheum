@@ -29,7 +29,10 @@
 //     TestTakeListing_RecordsAnImageBesideTheMediaWithoutReadingIt.
 //
 //   - A file whose size and modified time are as stored, and which was read whole, is seen and not
-//     read again (D240 §3). TestTakeListing_AFileAsStoredIsSeenAndNotReadAgain. The files a listing
+//     read again (D240 §3). TestTakeListing_AFileAsStoredIsSeenAndNotReadAgain. A video listed at a
+//     new path on the device and inode a stored one was read at, its size and modified time as
+//     stored, moved there, and keeps its row without a read (D304 §5).
+//     TestTakeListing_AVideoMovedOnItsDiskKeepsItsRowWithoutBeingReadAgain. The files a listing
 //     finds as stored are marked seen in one statement, not one each (D303, DL7).
 //     TestTakeListing_OfFilesAllAsStoredRunsTheSameStatementsAtTwiceTheirNumber. A listing the node
 //     stopped removes nothing (D39). TestTakeListing_AListingThatWasStoppedEndsUnreadable.
