@@ -126,6 +126,7 @@ func newJobServices(
 		// matches. Every sweep but the pass's own runs after it (D231 §3).
 		queue.RequestSweeps(sweepsAfterAPass()...)
 	})
+	wakeOwedPasses(pass, queue)
 	matcher := identify.NewMatcher(opened.database, opened.cache, pass, clock.System{}, logger)
 	return jobServices{
 		sessions: opened.auth,
@@ -134,6 +135,12 @@ func newJobServices(
 		chooser:   identify.NewChooser(matcher, pass),
 		refresher: identify.NewRefresher(opened.database, queue, opened.settings, clock.System{}, logger),
 	}, nil
+}
+
+// wakeOwedPasses has a library marked as owing a pass ask for the owed passes' sweep, which runs
+// each such library's pass once however many marked it (D303, DL14).
+func wakeOwedPasses(pass *identify.Pass, sweeps sweepRequester) {
+	pass.OnPassOwed(func() { sweeps.RequestSweeps(sweepOwedPasses) })
 }
 
 // hostProviders are the outside hosts' provider services (D231 §5).
@@ -269,6 +276,7 @@ const (
 	sweepRechecks        = "rechecks of missing images"
 	sweepRollingRefresh  = "rolling refresh"
 	sweepPasses          = "identification passes"
+	sweepOwedPasses      = "identification passes owed"
 	sweepReadThroughs    = "read-throughs"
 	sweepScheduledBackup = "the scheduled backup"
 	sweepCertificate     = "the certificate's renewal"
@@ -345,6 +353,8 @@ func (services jobServices) sweeps(logger *slog.Logger) []jobs.Sweep {
 			},
 		},
 		{Name: sweepPasses, Derive: services.pass.IdentifyAll, Every: derivedWorkEvery},
+		// The passes a match or a refresh left owed, one per library however many asked (D303, DL14).
+		{Name: sweepOwedPasses, Derive: services.pass.IdentifyOwed, Every: derivedWorkEvery},
 		{
 			Name: sweepCertificate, Derive: services.queueCertificateRenewal,
 			Every: func(context.Context) time.Duration { return certificateCheckEvery },

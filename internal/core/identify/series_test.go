@@ -3,6 +3,7 @@
 package identify_test
 
 import (
+	"context"
 	"slices"
 	"strconv"
 	"testing"
@@ -73,6 +74,7 @@ func TestSeries_AMatchedSeriesNamesItsEpisodesFromOneSeasonListing(t *testing.T)
 	if err != nil || outcome != identify.OutcomeMatched {
 		t.Fatalf("Match(series) = %s, %v", outcome, err)
 	}
+	lib.runOwedPasses()
 	if want := []string{"search Orbitorama|0", "fetch 615", "season 615/2"}; !slices.Equal(lib.provider.Calls, want) {
 		t.Errorf("calls %v, want %v: one listing for the season, not one call an episode", lib.provider.Calls, want)
 	}
@@ -135,6 +137,7 @@ func TestSeries_ANewEpisodeFetchesItsSeasonAgain(t *testing.T) {
 	if err != nil || outcome != identify.OutcomeListingsFetched {
 		t.Fatalf("Match = %s, %v", outcome, err)
 	}
+	lib.runOwedPasses()
 	if got := titleName(lib.titlesByPath()[newest]); got != "Raging Bender" {
 		t.Errorf("the new episode is %q", got)
 	}
@@ -225,5 +228,50 @@ func TestSeries_AnEpisodeAddedAfterTheSeriesWasRenamedJoinsIt(t *testing.T) {
 	lib.scanAll("Always Sunny {tmdb-2710}/Season 1/S01E01.mkv", first)
 	if series := lib.onlySeries(); ptr.ValueOrZero(series.Name) != sunny.Name {
 		t.Errorf("series %+v", series)
+	}
+}
+
+// A series' match marks its library as owing a pass and wakes the sweep that runs it, rather than
+// running the library's pass itself; matches of two series in one library are followed by one
+// pass, not two (D303, DL14).
+func TestMatch_SeriesMatchesInOneLibraryAreFollowedByOnePass(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "shows", "tmdb")
+	lib.provider.Searches[identifytest.SearchKey("Orbitorama", 0)] = []identify.Candidate{
+		lib.provider.Add(identify.Metadata{ID: "7615", Name: "Orbitorama", Year: 1999}),
+	}
+	lib.provider.Searches[identifytest.SearchKey("Fennimore", 0)] = []identify.Candidate{
+		lib.provider.Add(identify.Metadata{ID: "1400", Name: "Fennimore", Year: 1989}),
+	}
+	lib.provider.Seasons["615/1"] = []identify.Episode{{ID: "1", Season: 1, Number: 1, Name: "Comet Pilot 3000"}}
+	lib.provider.Seasons["1400/1"] = []identify.Episode{{ID: "2", Season: 1, Number: 1, Name: "Good News, Bad News"}}
+	lib.scanAll("Orbitorama/Season 1/S01E01.mkv", "Fennimore/Season 1/S01E01.mkv")
+	passes, wakes := 0, 0
+	lib.pass.AfterPass(func(context.Context, identify.Report) { passes++ })
+	lib.pass.OnPassOwed(func() { wakes++ })
+	series, err := lib.database.Read().ListLibrarySeries(t.Context(), &lib.libraryID)
+	if err != nil || len(series) != 2 {
+		t.Fatalf("series %+v, %v", series, err)
+	}
+	for _, show := range series {
+		if outcome, err := lib.matcher.Match(t.Context(), show.ID); err != nil || outcome != identify.OutcomeMatched {
+			t.Fatalf("Match(%s) = %s, %v", ptr.ValueOrZero(show.Name), outcome, err)
+		}
+	}
+	if passes != 0 || wakes != 2 {
+		t.Errorf("the matches ran %d passes and woke the owed passes' sweep %d times; want none run and two wakes",
+			passes, wakes)
+	}
+	if ran, err := lib.pass.IdentifyOwed(t.Context()); err != nil || ran != 1 || passes != 1 {
+		t.Errorf("the owed passes ran %d libraries' passes (%d in all), %v; want the one library's, once",
+			ran, passes, err)
+	}
+	if ran, err := lib.pass.IdentifyOwed(t.Context()); err != nil || ran != 0 {
+		t.Errorf("owed passes run again ran %d, %v; want none still owed", ran, err)
+	}
+	for path, file := range lib.titlesByPath() {
+		if file.Filing != identify.FilingListed {
+			t.Errorf("%s is filed %s after the owed pass, want listed by its series' listing", path, file.Filing)
+		}
 	}
 }

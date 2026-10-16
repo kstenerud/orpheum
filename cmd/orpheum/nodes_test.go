@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
@@ -52,6 +53,19 @@ func TestAskForAPassOnNewFiles_AFilmFoundMidScanAsksForTheIdentificationPasses(t
 	}
 	if !slices.Equal(sweeps.names, []string{sweepPasses}) {
 		t.Errorf("a scan still going that stored a film asked for %v, want the %q sweep", sweeps.names, sweepPasses)
+	}
+}
+
+func TestWakeOwedPasses_ALibraryOwingAPassAsksForTheOwedPassesSweep(t *testing.T) {
+	t.Parallel()
+	database := storetest.OpenMigrated(t)
+	fakeClock := clocktest.NewFake(time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC))
+	pass := identify.NewPass(database, fakeClock, slog.New(slog.DiscardHandler), nil, settingstest.Seeded(t, database))
+	sweeps := &requestedSweeps{}
+	wakeOwedPasses(pass, sweeps)
+	pass.OwePass(1)
+	if !slices.Equal(sweeps.names, []string{sweepOwedPasses}) {
+		t.Errorf("a library owing a pass asked for %v, want the %q sweep", sweeps.names, sweepOwedPasses)
 	}
 }
 

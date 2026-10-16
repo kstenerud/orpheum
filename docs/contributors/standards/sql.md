@@ -373,8 +373,10 @@ then; [audit-checklist](../audit-checklist.md) item 23 asks the questions at eve
 - **A derivation knows its inputs are unchanged without recomputing** (DL13): a fingerprint of
   the inputs' values and a rules version, bumped when the derivation's output on a fixed corpus
   changes. **Enforced by:** the corpus-hash test *(D303 C)*.
-- **Requests to re-derive coalesce** (DL14): a burst marks work and wakes one worker; the mark
-  survives a restart. **Enforced by:** a `clocktest` test counting runs *(D303 C)*.
+- **Requests to re-derive coalesce** (DL14): a burst marks work and wakes one worker; a mark a
+  stop loses is derived again by the backstop run at start. **Enforced by:**
+  `TestMatch_SeriesMatchesInOneLibraryAreFollowedByOnePass`,
+  `TestWakeOwedPasses_ALibraryOwingAPassAsksForTheOwedPassesSweep`.
 
 ### Physical design and operations
 

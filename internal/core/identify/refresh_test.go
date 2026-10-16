@@ -138,6 +138,7 @@ func TestRefresh_ASeriesFetchesItsRecordAndEachSeasonItKeeps(t *testing.T) {
 	lib.clock.Advance(time.Hour)
 	// An episode's refresh is its series'.
 	lib.refresh(lib.titlesByPath()[orbitoramaFiles[0]].TitleID)
+	lib.runOwedPasses()
 	if got, want := lib.provider.Calls[calls:], []string{"fetch 615", "season 615/2"}; !slices.Equal(got, want) {
 		t.Errorf("calls %v, want %v", got, want)
 	}

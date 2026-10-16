@@ -115,6 +115,14 @@ func (lib *testLibrary) scan(records ...nodeproto.ScanRecord) identify.Report {
 	return report
 }
 
+// runOwedPasses runs the passes matches and refreshes left owed, as their sweep does.
+func (lib *testLibrary) runOwedPasses() {
+	lib.t.Helper()
+	if _, err := lib.pass.IdentifyOwed(lib.t.Context()); err != nil {
+		lib.t.Fatal(err)
+	}
+}
+
 // titlesByPath is each live video's title, by path below the root.
 func (lib *testLibrary) titlesByPath() map[string]sqlcgen.ListFileTitlesRow {
 	lib.t.Helper()

@@ -40,6 +40,9 @@
 //     TestPass_RunningAgainChangesNothing. Run again over a library nothing changed in, it writes
 //     no row (D303, DL9). TestPass_AgainOverAnUnchangedLibraryWritesNothing,
 //     TestPass_AgainOverAnUnchangedMatchedLibraryWritesNothing.
+//   - A series' match or refresh does not run its library's pass: it marks the library as owing
+//     one, and the owed passes' sweep runs each such library's pass once, however many marked it
+//     (D303, DL14). TestMatch_SeriesMatchesInOneLibraryAreFollowedByOnePass.
 //   - Films, versions, extras by containment and episodes in their series' aired order come from
 //     the paths and NFO files (D155, D162, D96). TestPass_TheDevLibrarysFilms,
 //     TestPass_ASeriesFromItsFoldersAndItsTvshowNFO.
