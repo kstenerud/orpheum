@@ -9,6 +9,7 @@ import type { TFunction } from "i18next";
 
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, unavailableText } from "./problem.ts";
+import { FilingReportButton } from "./filing-report.tsx";
 import { MatchCorrection } from "./match-correction.tsx";
 import { StatusNotes } from "./status-cues.tsx";
 import { Poster } from "./poster.tsx";
@@ -65,6 +66,7 @@ export function SeriesView(props: {
           {props.onMatchCorrected === undefined ? null : (
             <MatchCorrection itemId={series.id} onCorrected={props.onMatchCorrected} />
           )}
+          <FilingReportButton itemId={series.id} />
         </div>
       </div>
       {shown === undefined ? (

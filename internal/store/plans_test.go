@@ -238,6 +238,8 @@ func wholeReadsAllowed() map[string]string {
 		"ListSeriesByName": "by the statistics the planner reads the series, which are few (200 at the " +
 			"reference scale), and sorts a page of them",
 		"ListLibrarySeries": "a library's series, which are few, read whole by the statistics",
+		"ListFilesOfWork": "the series' orderings, which are few, for the aired one; an admin's report of a " +
+			"work's filing, which is rare (D306 section 3)",
 		"ListUnnumberedEpisodeFiles": "the series' orderings, which are few (one or two a series), each searched " +
 			"for its positions; Needs attention looks for episodes read wrongly (D306 section 6)",
 		"ListSeriesAwaitingMatch": "the first-match sweep reads the series, which are few",

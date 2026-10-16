@@ -19,6 +19,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/backup"
 	"github.com/kstenerud/orpheum/internal/core/chunks"
+	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/loudness"
@@ -513,9 +514,10 @@ func buildDependencies(
 	return api.Dependencies{
 		Auth: authService, Settings: settingsService,
 		Secrets: secretStore, SetupCodes: codes,
-		Preferences: preferences.NewService(database, systemClock),
-		Backups:     backup.NewService(database, directories, systemClock),
-		Clock:       systemClock,
+		Preferences:   preferences.NewService(database, systemClock),
+		Backups:       backup.NewService(database, directories, systemClock),
+		FilingReports: identify.NewFilingReports(database, directories, thisBuild().Version, systemClock),
+		Clock:         systemClock,
 	}, nil
 }
 

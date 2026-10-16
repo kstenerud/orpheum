@@ -432,3 +432,22 @@ JOIN file ON file.version_id = version.id AND file.removed_at IS NULL
 WHERE position.number_in_group IS NULL
 ORDER BY ordering.collection_id, file.path
 LIMIT sqlc.arg(max_rows);
+
+-- name: ListFilesOfWork :many
+-- The live videos a film, an episode or a series holds, a series' through its episodes, each with
+-- how it was filed and its title: what a report of its filing lists (D306 section 3).
+SELECT file.id, file.path, file.filing, file.filing_reason, file.size_bytes, file.node_id,
+  title.id AS title_id, title.kind AS title_kind, title.identification_state,
+  CAST(coalesce(title_text.name, '') AS TEXT) AS title_name, title.year,
+  position.group_number, position.number_in_group
+FROM title
+JOIN version ON version.title_id = title.id AND version.removed_at IS NULL
+JOIN file ON file.version_id = version.id AND file.removed_at IS NULL
+LEFT JOIN item_text AS title_text ON title_text.item_id = title.id AND title_text.is_original = 1
+LEFT JOIN position ON position.title_id = title.id
+  AND position.ordering_id IN (SELECT ordering.id FROM ordering WHERE ordering.name = 'aired')
+WHERE title.id = sqlc.arg(item_id)
+  OR title.id IN (SELECT position.title_id FROM position JOIN ordering ON ordering.id = position.ordering_id
+    WHERE ordering.collection_id = sqlc.arg(item_id) AND ordering.name = 'aired')
+ORDER BY file.path
+LIMIT sqlc.arg(max_rows);

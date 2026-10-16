@@ -66,6 +66,8 @@ type Dependencies struct {
 	SetupCodes auth.SetupCodes
 	// Chooser is what a person does about identification: choosing a match, and overrides.
 	Chooser *identify.Chooser
+	// FilingReports are the reports an admin asks for of a work filed wrongly (D306 §3).
+	FilingReports *identify.FilingReports
 	// Refresher queues a person's refresh of a title or series (D213).
 	Refresher *identify.Refresher
 	// Libraries is what an admin does with libraries: create, list, scan, and the scanner view.
@@ -170,6 +172,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerDoctor()
 	server.registerSystem()
 	server.registerBackups()
+	server.registerFilingReports()
 	server.registerNeedsAttention()
 	server.registerClientSettings()
 	server.registerPlayback()
