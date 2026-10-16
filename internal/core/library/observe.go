@@ -88,11 +88,16 @@ func (batch *ingestBatch) reviveOrInsert(ctx context.Context, scan *scanState, s
 	if err != nil {
 		return err
 	}
+	// At its new path first, while still a tombstone: brought back at its old path, which another
+	// file may hold now, it broke the one live file per path, and the scan failed whole.
+	if err := batch.updateObservedFile(ctx, scan, tombstone, seenFile); err != nil {
+		return err
+	}
 	if err := batch.queries.ReviveFile(ctx, tombstone); err != nil {
 		return fmt.Errorf("revive file %d at %s: %w", tombstone, seenFile.path, err)
 	}
 	batch.hasNewFiles = true
-	return batch.updateObservedFile(ctx, scan, tombstone, seenFile)
+	return nil
 }
 
 // observation is an observed record resolved to the file table's terms.
