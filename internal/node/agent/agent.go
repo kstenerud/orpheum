@@ -318,6 +318,9 @@ func (agent *Agent) pollCommands(ctx, nodeCtx context.Context, nodeID int64) err
 func (agent *Agent) takeOrder(ctx context.Context, command nodeproto.Command) bool {
 	if command.Type == nodeproto.CommandCancel {
 		if !agent.work.cancel(command.AttemptToken) {
+			// The core may queue a job's work after its cancel, when it bumps the job while recording
+			// it assigned: the work, once it comes, is not run (staging, 2026-10-16).
+			agent.ended.cancelledUnheld(command.AttemptToken, agent.clock.Now(), agent.workers.EndedWorkKept)
 			agent.logger.InfoContext(ctx, "a cancel came for an attempt this node does not hold", "jobId",
 				command.JobID, "attemptToken", command.AttemptToken)
 		}
@@ -349,6 +352,11 @@ func (agent *Agent) holdCommand(ctx, nodeCtx context.Context, nodeID int64, comm
 	}
 	if file, isMedia := command.MediaFile(); isMedia {
 		work.device = agent.deviceOf(filepath.Join(file.RootPath, string(file.Path)))
+	}
+	if agent.ended.wasCancelled(held.token) {
+		agent.logger.InfoContext(ctx, "the work of an attempt cancelled before it came is not run",
+			"jobId", held.jobID, "attemptToken", held.token)
+		return
 	}
 	if agent.ended.hasEnded(held.token) {
 		agent.logger.InfoContext(ctx, "the core sent again an attempt that ended here; it is not run again",
