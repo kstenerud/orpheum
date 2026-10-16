@@ -28,13 +28,8 @@ func (all *Exchanges) Reconcile(
 	}
 	now := all.clock.Now()
 	all.mutex.Lock()
-	var unknown []nodeproto.HeldAttempt
-	for _, each := range held {
-		if _, isGiven := all.attempts[each.AttemptToken]; !isGiven && each.State != nodeproto.HeldEnded &&
-			!onTheirWay[each.AttemptToken] {
-			unknown = append(unknown, each)
-		}
-	}
+	unknown := all.unknownHeld(held, onTheirWay, now)
+	all.forgetStopped(heldByToken, now)
 	for token, attempt := range all.attempts {
 		if each, isHeld := heldByToken[token]; isHeld && attempt.NodeID == nodeID {
 			attempt.lastHeard = now
@@ -58,6 +53,39 @@ func (all *Exchanges) Reconcile(
 		all.sender.Enqueue(nodeID, CancelCommand(each.JobID, each.AttemptToken))
 	}
 }
+
+// unknownHeld are the attempts a node holds that it was not given, are not on their way to it, and
+// it was not told to stop within stoppingGrace; the mutex held.
+func (all *Exchanges) unknownHeld(
+	held []nodeproto.HeldAttempt, onTheirWay map[string]bool, now time.Time,
+) []nodeproto.HeldAttempt {
+	var unknown []nodeproto.HeldAttempt
+	for _, each := range held {
+		stoppedAt, isStopping := all.stopping[each.AttemptToken]
+		isStopping = isStopping && now.Sub(stoppedAt) < stoppingGrace
+		if _, isGiven := all.attempts[each.AttemptToken]; !isGiven && each.State != nodeproto.HeldEnded &&
+			!onTheirWay[each.AttemptToken] && !isStopping {
+			unknown = append(unknown, each)
+		}
+	}
+	return unknown
+}
+
+// forgetStopped drops each attempt told to stop that its node no longer holds, has ended, or held
+// past stoppingGrace; the mutex held.
+func (all *Exchanges) forgetStopped(heldByToken map[string]nodeproto.HeldAttempt, now time.Time) {
+	for token, stoppedAt := range all.stopping {
+		if each, isHeld := heldByToken[token]; !isHeld || each.State == nodeproto.HeldEnded ||
+			now.Sub(stoppedAt) >= stoppingGrace {
+			delete(all.stopping, token)
+		}
+	}
+}
+
+// stoppingGrace is how long a node may go on holding an attempt the core told it to stop before
+// its holding it is a broken invariant: a cancel reaches a connected node within a status or two.
+// A bump of a scan's slow read-throughs logged one each time (staging, 2026-10-16).
+const stoppingGrace = 2 * time.Minute
 
 // stopNotMoving stops each attempt the node holds that it says has not moved for MovementWindow,
 // and resolves it as not moving (ErrNotMoving).

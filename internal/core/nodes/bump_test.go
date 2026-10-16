@@ -151,3 +151,35 @@ func TestAssign_TwoBumpsAtOnceBumpTwoAttempts(t *testing.T) {
 		t.Errorf("the node was told to stop %+v; want read-throughs 1 and 2, once each", bench.stops)
 	}
 }
+
+// A job bumped for work of a higher priority is no broken invariant while its node still holds it:
+// the node has not yet taken its cancel, which is on its way; held past the grace, it is one (D255).
+func TestReconcile_ABumpedJobItsNodeStillHoldsIsItsCancelOnItsWay(t *testing.T) {
+	t.Parallel()
+	bench := newBumpBench(t)
+	for _, id := range []int64{1, 2} {
+		if answer := bench.assign(id, jobs.KindReadThrough, jobs.PriorityBackground,
+			readThroughOf("/media")); !jobqueue.IsAssigned(answer) {
+			t.Fatalf("read-through %d was answered %v", id, answer)
+		}
+	}
+	if answer := bench.assign(3, jobs.KindExamine, jobs.PriorityBackground, examineOf()); !jobqueue.IsAssigned(answer) {
+		t.Fatalf("the examining was answered %v", answer)
+	}
+	bench.wantBumped(2, "the examining")
+	var stillHeld []nodeproto.HeldAttempt // the two it runs, and the bumped one it has not yet stopped
+	for _, id := range []int64{1, 2, 3} {
+		stillHeld = append(stillHeld, nodeproto.HeldAttempt{
+			JobID: id, AttemptToken: bench.sent[id].AttemptToken, State: nodeproto.HeldRunning,
+		})
+	}
+	bench.exchanges.Reconcile(t.Context(), 1, stillHeld, nil)
+	if count := bench.exchanges.BrokenInvariants(1); count != 0 {
+		t.Errorf("%d broken invariants while the bumped job's cancel is on its way; want none", count)
+	}
+	bench.now.Advance(3 * time.Minute)
+	bench.exchanges.Reconcile(t.Context(), 1, stillHeld, nil)
+	if count := bench.exchanges.BrokenInvariants(1); count != 1 {
+		t.Errorf("%d broken invariants with the bumped job held past the grace; want 1", count)
+	}
+}
