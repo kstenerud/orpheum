@@ -126,6 +126,16 @@ func (filler *referenceScaleFiller) insertVideo(titleID, libraryID int64, path s
 	}
 }
 
+// insertSidecar inserts an NFO beside the video inserted last, attached to it.
+func (filler *referenceScaleFiller) insertSidecar(libraryID int64, path string) {
+	videoID := filler.fileID
+	filler.fileID++
+	filler.exec(`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, modified_at,
+		filing, sidecar_kind, attached_to_file, first_seen_at, last_seen_at)
+		VALUES (?, ?, 1, ?, ?, 2000, ?, 'attached', 'nfo', ?, ?, ?)`,
+		filler.fileID, libraryID, path, []byte(path), filler.now, videoID, filler.now, filler.now)
+}
+
 // insertFilm inserts one film: its title, one or two versions, artwork, ids and stored response.
 func (filler *referenceScaleFiller) insertFilm(index int) {
 	id := filler.insertItem("title", 1, "movie")
@@ -136,6 +146,7 @@ func (filler *referenceScaleFiller) insertFilm(index int) {
 		path := fmt.Sprintf("/media/films/Film %d (%d)/Film %d - %d.mkv", index, index, index, version)
 		filler.insertVideo(id, 1, path)
 	}
+	filler.insertSidecar(1, fmt.Sprintf("/media/films/Film %d (%d)/Film %d - 0.nfo", index, index, index))
 	filler.insertProviderData(id, "movie", index)
 }
 

@@ -406,3 +406,33 @@ func TestMigrate_Step0050KeepsEachFileWithItsDeviceAndInodeUnknown(t *testing.T)
 		t.Errorf("after the step: %s; want %s: the file kept, its device and inode unknown", got, want)
 	}
 }
+
+// Step 0052 keeps every play as it was, with nothing yet kept of deleted files (D306 §8).
+func TestMigrate_Step0052KeepsEachPlayAndKeepsNothingOfDeletedFilesYet(t *testing.T) {
+	t.Parallel()
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	step0052 := stepIndex(t, steps, 52)
+	database := openTemporary(t)
+	if err = database.migrate(t.Context(), steps[:step0052], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	execRaw(t, database, `INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable,
+		created_at) VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)`,
+		`INSERT INTO node (id, name, enrolled_at) VALUES (1, 'nas', 1)`,
+		`INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'alice', 1, 1)`,
+		`INSERT INTO file (id, library_id, node_id, path, filing, first_seen_at, last_seen_at, removed_at)
+		VALUES (1, 1, 1, '/media/Metropolis.mkv', 'listed', 1, 1, 2)`,
+		`INSERT INTO play_span (user_id, file_id, from_position_ms, to_position_ms, started_at, ended_at)
+		VALUES (1, 1, 0, 60000, 1, 2)`)
+	if err = database.migrate(t.Context(), steps[:step0052+1], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	got := fmt.Sprint(queryRows(t, database, "SELECT user_id, file_id, to_position_ms FROM play_span", 3),
+		queryRows(t, database, "SELECT count(*) FROM purged_watching", 1))
+	if want := "[[1 1 60000]] [[0]]"; got != want {
+		t.Errorf("after the step: %s; want %s: the play kept, nothing kept of deleted files", got, want)
+	}
+}

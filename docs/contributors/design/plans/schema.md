@@ -872,7 +872,27 @@ CREATE TABLE play_span (                                   -- class A (D165)
 CREATE INDEX play_span_user ON play_span(user_id, started_at);
 CREATE INDEX play_span_file ON play_span(file_id);
 CREATE INDEX play_span_device ON play_span(device_id);  -- 0051: a removed person's devices are deleted (D305)
+
+CREATE TABLE purged_watching (                             -- class A (D306 §8), 0052
+  user_id         INTEGER NOT NULL REFERENCES user(id) ON DELETE RESTRICT,
+  version_id      INTEGER NOT NULL REFERENCES version(id) ON DELETE RESTRICT,
+  completed_count INTEGER NOT NULL CHECK (completed_count >= 0),  -- the 'completed' events of its deleted files
+  watched_ms      INTEGER NOT NULL CHECK (watched_ms >= 0),       -- the time in their spans
+  last_watched_at INTEGER NOT NULL,                               -- the latest of either
+  PRIMARY KEY (user_id, version_id)
+) WITHOUT ROWID, STRICT;
+CREATE INDEX purged_watching_version ON purged_watching(version_id);
 ```
+
+**What was watched outlives the file** (D306 §8). A removed file is deleted once
+`removed_files_kept_days` (90) have passed; before it goes, how often each person finished it and
+how long they watched are added to its version's row here, and its spans, events and position go
+with it. A version keeps its edition and moves with its title when titles merge, so a new copy of
+a film, filed to the same title, finds what was watched of the old one: an unknown cut matches any
+cut, and two different known cuts keep their own. The position does not carry: it names a moment
+in the deleted file's timeline (play-state.md). Step 0052 also indexes the file by when it was
+removed and by the video a sidecar is attached to, and each play and file preference by its file,
+since the purge finds and deletes by them (D303, DL3).
 
 **The guard is the moment of watching, not the order of arrival** (D217 §7, migration 0014). A
 player reports on one playback: its report's number within the playback, the device's monotonic
@@ -1265,6 +1285,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `play_event` | persistent.db | `internal/core/playback` | |
 | `play_position` | persistent.db | `internal/core/playback` | |
 | `play_span` | persistent.db | `internal/core/playback` | |
+| `purged_watching` | persistent.db | `internal/core/playback` | what deleted files left of each person's watching on their versions, folded as library's purge deletes the files (D306 §8) |
 | `position` | persistent.db | `internal/core/identify` | |
 | `preference` | persistent.db | `internal/core/preferences` | |
 | `progress_hide` | persistent.db | `internal/core/playback` | |
@@ -1304,14 +1325,14 @@ second writer, or on a writer this table does not name. A table no package write
 
 Every table that grows has a line here (D303, M10): what bounds it today, and what removes its
 rows. Each class that would grow with no bound but time is kept to a limit a setting holds (D304
-§6); the removed library's and the watching's limits are still to be built.
+§6); a removed item's limit is still to be built.
 
 | Grows with | Tables | Bounded by, today |
 | --- | --- | --- |
-| The library | `file`, `file_probe`, `file_nfo`, `stream`, `item`, `title`, `version`, `collection`, `collection_member`, `ordering`, `position`, `extra_relation`, `item_text`, `sort_key`, `item_provider_id`, `field_override`, `artwork`, `provider_response`, `loudness`, `video_timeline`, `subtitle_text`, `fetched_subtitle` | the files and works the libraries hold, **and every one they ever held**: a removed file or item is a tombstone, kept so that a file copied back returns with its history (D208 §4, D231 §7), and nothing purges tombstones |
+| The library | `file`, `file_probe`, `file_nfo`, `stream`, `item`, `title`, `version`, `collection`, `collection_member`, `ordering`, `position`, `extra_relation`, `item_text`, `sort_key`, `item_provider_id`, `field_override`, `artwork`, `provider_response`, `loudness`, `video_timeline`, `subtitle_text`, `fetched_subtitle` | the files and works the libraries hold, **and every one they ever held**: a removed file is a tombstone, kept so that a file copied back returns with what was read of it (D208 §4, D231 §7), and deleted `removed_files_kept_days` (90) after, with its streams, probe, NFO, subtitles fetched for it and the choices made in it (D306 §8); a removed item, title or version stays, and nothing purges those yet |
 | The library's open questions | `fetch_failure`, `refresh_request`, `guessed_match` | one row an item at most; each is deleted when its question is answered |
 | People and their devices | `user`, `device`, `"grant"`, `locator` | the people and devices there are, and a removed person's nameless row (D305 §1); a credential that ended, revoked or expired, is deleted `ended_credentials_kept_days` (90) after, with its locator (D304 §6); a removed device stays as a row while a play names it |
-| Watching | `play_event`, `play_span`, `play_position`, `progress_hide` | every play, forever; deleted only with the person who watched (`ForgetWatchingOf`) |
+| Watching | `play_event`, `play_span`, `play_position`, `progress_hide`, `purged_watching` | every play of the files there are; a deleted file's plays fold into one `purged_watching` row a person a version (D306 §8); all deleted with the person who watched (`ForgetWatchingOf`) |
 | Scans | `root_scan`, `root_mount`, `root_state` | one row a root, deleted with the root |
 | Settings, roles, invitations, secrets | `setting`, `role`, `role_library`, `invitation`, `secret` | what an admin made; deleted when they delete it |
 

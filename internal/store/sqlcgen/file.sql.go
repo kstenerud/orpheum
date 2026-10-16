@@ -19,6 +19,36 @@ func (q *Queries) DeleteFileNFO(ctx context.Context, fileID int64) error {
 	return err
 }
 
+const deleteNFOsOfPurgedFiles = `-- name: DeleteNFOsOfPurgedFiles :exec
+DELETE FROM file_nfo WHERE file_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+`
+
+func (q *Queries) DeleteNFOsOfPurgedFiles(ctx context.Context, fileIdsJson string) error {
+	_, err := q.db.ExecContext(ctx, deleteNFOsOfPurgedFiles, fileIdsJson)
+	return err
+}
+
+const deleteProbesOfPurgedFiles = `-- name: DeleteProbesOfPurgedFiles :exec
+DELETE FROM file_probe WHERE file_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+`
+
+func (q *Queries) DeleteProbesOfPurgedFiles(ctx context.Context, fileIdsJson string) error {
+	_, err := q.db.ExecContext(ctx, deleteProbesOfPurgedFiles, fileIdsJson)
+	return err
+}
+
+const deletePurgedFiles = `-- name: DeletePurgedFiles :execrows
+DELETE FROM file WHERE id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+`
+
+func (q *Queries) DeletePurgedFiles(ctx context.Context, fileIdsJson string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deletePurgedFiles, fileIdsJson)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteStreamsOfBytesFile = `-- name: DeleteStreamsOfBytesFile :exec
 DELETE FROM stream WHERE bytes_file = ?
 `
@@ -42,6 +72,17 @@ type DeleteStreamsOfBytesFileNotInParams struct {
 // A video's own tracks whose stream index its probe no longer has.
 func (q *Queries) DeleteStreamsOfBytesFileNotIn(ctx context.Context, arg DeleteStreamsOfBytesFileNotInParams) error {
 	_, err := q.db.ExecContext(ctx, deleteStreamsOfBytesFileNotIn, arg.FileID, arg.KeptIndexes)
+	return err
+}
+
+const deleteStreamsOfPurgedFiles = `-- name: DeleteStreamsOfPurgedFiles :exec
+DELETE FROM stream
+WHERE video_file IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+  OR bytes_file IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+`
+
+func (q *Queries) DeleteStreamsOfPurgedFiles(ctx context.Context, fileIdsJson string) error {
+	_, err := q.db.ExecContext(ctx, deleteStreamsOfPurgedFiles, fileIdsJson)
 	return err
 }
 
@@ -563,6 +604,45 @@ func (q *Queries) ListFilesToCompare(ctx context.Context, arg ListFilesToCompare
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFilesToPurge = `-- name: ListFilesToPurge :many
+SELECT file.id FROM file
+WHERE file.removed_at IS NOT NULL AND file.removed_at < ?1
+  AND NOT EXISTS (SELECT 1 FROM file AS sidecar WHERE sidecar.attached_to_file = file.id
+    AND (sidecar.removed_at IS NULL OR sidecar.removed_at >= ?1))
+ORDER BY file.removed_at, file.id
+LIMIT ?2
+`
+
+type ListFilesToPurgeParams struct {
+	RemovedBefore *int64
+	MaxRows       int64
+}
+
+// Removed files past their keeping (D304 section 6, D306 section 8): removed before the cut-off,
+// each with no sidecar that stays, oldest first, a batch at a time.
+func (q *Queries) ListFilesToPurge(ctx context.Context, arg ListFilesToPurgeParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, listFilesToPurge, arg.RemovedBefore, arg.MaxRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

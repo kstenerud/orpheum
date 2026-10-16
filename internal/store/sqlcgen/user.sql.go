@@ -209,13 +209,22 @@ func (q *Queries) GetRoleByName(ctx context.Context, name string) (GetRoleByName
 }
 
 const getWatchStats = `-- name: GetWatchStats :one
-SELECT CAST(coalesce(sum(play_span.ended_at - play_span.started_at), 0) AS INTEGER) AS watched_ms,
-  count(DISTINCT version.title_id) AS titles_watched_count,
-  CAST(coalesce(max(play_span.ended_at), 0) AS INTEGER) AS last_watched_at
-FROM play_span
-LEFT JOIN file ON file.id = play_span.file_id
-LEFT JOIN version ON version.id = file.version_id
-WHERE play_span.user_id = ?1
+SELECT CAST(coalesce(sum(watching.watched_ms), 0) AS INTEGER) AS watched_ms,
+  count(DISTINCT watching.title_id) AS titles_watched_count,
+  CAST(coalesce(max(watching.last_watched_at), 0) AS INTEGER) AS last_watched_at
+FROM (
+  SELECT version.title_id, play_span.ended_at - play_span.started_at AS watched_ms,
+    play_span.ended_at AS last_watched_at
+  FROM play_span
+  LEFT JOIN file ON file.id = play_span.file_id
+  LEFT JOIN version ON version.id = file.version_id
+  WHERE play_span.user_id = ?1
+  UNION ALL
+  SELECT version.title_id, purged_watching.watched_ms, purged_watching.last_watched_at
+  FROM purged_watching
+  JOIN version ON version.id = purged_watching.version_id
+  WHERE purged_watching.user_id = ?1
+) AS watching
 `
 
 type GetWatchStatsRow struct {
@@ -225,7 +234,7 @@ type GetWatchStatsRow struct {
 }
 
 // What a person has watched, for their page: time in spans, the titles they watched in, and when
-// they last watched.
+// they last watched, with what deleted files left on their versions (D306 section 8).
 func (q *Queries) GetWatchStats(ctx context.Context, userID int64) (GetWatchStatsRow, error) {
 	row := q.db.QueryRowContext(ctx, getWatchStats, userID)
 	var i GetWatchStatsRow

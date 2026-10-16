@@ -7,11 +7,12 @@ collection_member	sqlite_autoindex_collection_member_1	10000 50 1
 collection_member	sqlite_autoindex_collection_member_2	10000 50 50
 device		4
 device	device_owner	4 2
-file		13850
+file	file_attached	17350 5
 file	file_errored	0 0 0 0
-file	file_library	13850 6925 1
-file	file_live_path	13850 13850 1
-file	file_payload	13850 1
+file	file_library	17350 8675 1
+file	file_live_path	17350 17350 1
+file	file_payload	17350 2
+file	file_removed_at	0 0
 file	file_removed_payload	0 0 0 0
 file	file_version	13850 1
 file_probe		13850
@@ -31,8 +32,9 @@ library		2
 library_root	sqlite_autoindex_library_root_1	2 1 1 1
 node		1
 ordering	sqlite_autoindex_ordering_1	200 1 1
-play_position	play_position	3755 1878 1
-play_position	play_position_device	3755 939
+play_position	play_position	3790 1895 1
+play_position	play_position_device	3790 948
+play_position	play_position_file	3790 1
 play_span	play_span_device	4000 1000
 play_span	play_span_file	4000 2
 play_span	play_span_user	4000 2000 1
@@ -42,7 +44,7 @@ position	sqlite_autoindex_position_1	10000 50 1
 provider_response	sqlite_autoindex_provider_response_1	3500 1 1 1
 role	sqlite_autoindex_role_1	2 1
 schema_meta		1
-schema_step		5
+schema_step		6
 sort_key	sort_key	3700 1 1
 sort_key	sort_key_listing	3700 3700 1850 2 1
 stream	sqlite_autoindex_stream_1	55400 4 1

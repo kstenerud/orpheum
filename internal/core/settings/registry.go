@@ -75,6 +75,7 @@ const (
 	RegistrationInvitationLifeDays                 Key = "registration_invitation_life_days"
 	//nolint:gosec // G101: a setting's name, not a credential
 	EndedCredentialsKeptDays                  Key = "ended_credentials_kept_days"
+	RemovedFilesKeptDays                      Key = "removed_files_kept_days"
 	NewLibraryDefaultScanEveryHours           Key = "new_library_default_scan_every_hours"
 	WatchedLibraryScanEveryHours              Key = "watched_library_scan_every_hours"
 	LoudnessTargetLUFS                        Key = "loudness_target_lufs"
@@ -258,7 +259,7 @@ func buildRegistry() []Definition {
 			"D208 §3: the owner's twenty, 2026-09-24"),
 	}, slices.Concat(
 		scanDefinitions(), jobMetadataAndPlaybackDefinitions(), deviceDefinitions(), upkeepAndDisplayDefinitions(),
-		backupDefinitions(), togetherDefinitions(),
+		retentionDefinitions(), backupDefinitions(), togetherDefinitions(),
 	)...)
 }
 
@@ -582,10 +583,6 @@ func upkeepAndDisplayDefinitions() []Definition {
 		sourced(durationSetting(RegistrationInvitationLifeDays, day, "7", 1, 365,
 			"days a registration invitation works before its person needs a new one (D218 §1)"),
 			"D218 §1: the owner's flow, 2026-09-25"),
-		exposed(sourced(durationSetting(EndedCredentialsKeptDays, day, "90", 1, 3650,
-			"days a credential is kept once it ended, revoked or expired, before it is deleted: every sign-in "+
-				"ever made was kept (D304 §6)"),
-			"best guess: a season, long enough to say why a device was signed out")),
 		sourced(durationSetting(ScreenRefreshFirstWaitSeconds, time.Second, "2", 1, 60,
 			"seconds a screen showing what the server changes in the background waits before asking again, "+
 				"and after an answer that changed it (D237)"),
@@ -644,6 +641,21 @@ func upkeepAndDisplayDefinitions() []Definition {
 		sourced(integerSetting(SystemPageRecentPreparesPerNode, "10", 1, 1000,
 			"how many of a node's finished prepares the System page lists"),
 			"best guess: enough to compare recent encode speeds"),
+	}
+}
+
+// retentionDefinitions are how long what would grow with no bound but time is kept before it is
+// deleted (D304 §6): each a limit a setting holds.
+func retentionDefinitions() []Definition {
+	return []Definition{
+		exposed(sourced(durationSetting(EndedCredentialsKeptDays, day, "90", 1, 3650,
+			"days a credential is kept once it ended, revoked or expired, before it is deleted: every sign-in "+
+				"ever made was kept (D304 §6)"),
+			"best guess: a season, long enough to say why a device was signed out")),
+		exposed(sourced(durationSetting(RemovedFilesKeptDays, day, "90", 1, 3650,
+			"days a file is kept once it is gone from its disk, so that putting it back keeps what was "+
+				"read of it, before it is deleted; what was watched of it stays on its title (D306 §8)"),
+			"best guess: a season, long enough to put back a disk that was away")),
 	}
 }
 

@@ -21,6 +21,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/portmap"
+	"github.com/kstenerud/orpheum/internal/core/preferences"
 	coreproviders "github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/core/providers/tmdb"
@@ -89,6 +90,13 @@ type jobServices struct {
 	invariants invariantChecker
 	// credentials deletes the credentials ended past their keeping, daily (D304 §6).
 	credentials credentialPurger
+	// removedFiles deletes the files removed past their keeping, daily (D304 §6, D306 §8).
+	removedFiles removedFilePurger
+}
+
+// removedFilePurger deletes the files removed before a time: library.FilePurger.
+type removedFilePurger interface {
+	PurgeRemovedFiles(ctx context.Context, removedBefore time.Time, forgets ...library.PurgedFilesForget) (int, error)
 }
 
 // credentialPurger deletes the credentials ended past their keeping: auth.Service.
@@ -141,7 +149,8 @@ func newJobServices(
 	matcher := identify.NewMatcher(opened.database, opened.cache, pass, clock.System{}, logger)
 	return jobServices{
 		sessions: opened.auth, invariants: opened.database, credentials: opened.auth,
-		pass: pass, queue: queue, matcher: matcher, settings: opened.settings, subtitler: subtitler,
+		removedFiles: library.NewFilePurger(opened.database),
+		pass:         pass, queue: queue, matcher: matcher, settings: opened.settings, subtitler: subtitler,
 		outboundClient: httpClient, providerServices: hosts,
 		chooser:   identify.NewChooser(matcher, pass),
 		refresher: identify.NewRefresher(opened.database, queue, opened.settings, clock.System{}, logger),
@@ -294,6 +303,7 @@ const (
 	sweepScheduledScans   = "the scheduled scans"
 	sweepInvariants       = "the database's invariants"
 	sweepEndedCredentials = "ended credentials past their keeping" //nolint:gosec // G101: a sweep's name
+	sweepRemovedFiles     = "removed files past their keeping"
 )
 
 // scheduledScansCheckEvery is how often the scan schedule's sweep asks whether a root is due its
@@ -311,6 +321,27 @@ func purgeEndedCredentials(purger credentialPurger) func(ctx context.Context) (i
 	return func(ctx context.Context) (int, error) {
 		if _, err := purger.PurgeEndedCredentials(ctx); err != nil {
 			return 0, fmt.Errorf("purge ended credentials: %w", err)
+		}
+		return 0, nil
+	}
+}
+
+// purgeRemovedFiles is the removed files' sweep: it queues no work, and deletes those removed more
+// than removed_files_kept_days ago, keeping what was watched of them on their versions and
+// forgetting what each person chose in them and the subtitles fetched for them.
+func purgeRemovedFiles(
+	purger removedFilePurger, config *settings.Service, now clock.Clock,
+) func(ctx context.Context) (int, error) {
+	return func(ctx context.Context) (int, error) {
+		kept, err := config.Duration(ctx, settings.RemovedFilesKeptDays)
+		if err != nil {
+			return 0, fmt.Errorf("read removed_files_kept_days: %w", err)
+		}
+		_, err = purger.PurgeRemovedFiles(ctx, now.Now().Add(-kept),
+			playback.FoldWatchingOfPurgedFiles, preferences.ForgetPreferencesOfPurgedFiles,
+			subtitles.ForgetSubtitlesOfPurgedFiles)
+		if err != nil {
+			return 0, fmt.Errorf("purge removed files: %w", err)
 		}
 		return 0, nil
 	}
@@ -426,6 +457,11 @@ func (services jobServices) sweeps(logger *slog.Logger) []jobs.Sweep {
 		{
 			Name: sweepEndedCredentials, Derive: purgeEndedCredentials(services.credentials),
 			Every: func(context.Context) time.Duration { return retentionSweepEvery },
+		},
+		{
+			Name:   sweepRemovedFiles,
+			Derive: purgeRemovedFiles(services.removedFiles, services.settings, clock.System{}),
+			Every:  func(context.Context) time.Duration { return retentionSweepEvery },
 		},
 		{
 			Name: sweepInvariants, Derive: checkInvariants(services.invariants, logger),

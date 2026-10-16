@@ -17,3 +17,14 @@ func ForgetPreferencesOf(ctx context.Context, queries *sqlcgen.Queries, userID i
 	}
 	return nil
 }
+
+// ForgetPreferencesOfPurgedFiles deletes what each person chose in removed files about to be
+// deleted (D306 §8): their subtitle and audio choices and offsets were about those files alone.
+// It is given the files' ids as a JSON array, and writes through queries, the transaction that
+// deletes them (library.FilePurger.PurgeRemovedFiles).
+func ForgetPreferencesOfPurgedFiles(ctx context.Context, queries *sqlcgen.Queries, fileIDsJSON string) error {
+	if err := queries.DeletePreferencesOfPurgedFiles(ctx, fileIDsJSON); err != nil {
+		return fmt.Errorf("delete the choices made in the files: %w", err)
+	}
+	return nil
+}

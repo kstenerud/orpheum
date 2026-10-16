@@ -55,7 +55,8 @@ type WatchStats struct {
 	LastWatchedAt time.Time
 }
 
-// WatchStatsOf reads a person's watching from their spans (D165).
+// WatchStatsOf reads a person's watching from their spans, and from what deleted files left on their
+// versions (D165, D306 §8).
 func (service *Service) WatchStatsOf(ctx context.Context, userID int64) (WatchStats, error) {
 	row, err := service.database.Read().GetWatchStats(ctx, userID)
 	if err != nil {

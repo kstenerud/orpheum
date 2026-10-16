@@ -20,6 +20,17 @@ func (q *Queries) DeleteFetchedSubtitle(ctx context.Context, id int64) error {
 	return err
 }
 
+const deleteFetchedSubtitlesOfPurgedFiles = `-- name: DeleteFetchedSubtitlesOfPurgedFiles :exec
+DELETE FROM fetched_subtitle
+WHERE video_file IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+`
+
+// A removed file deleted past its keeping takes the subtitles fetched for it: they were timed to it.
+func (q *Queries) DeleteFetchedSubtitlesOfPurgedFiles(ctx context.Context, fileIdsJson string) error {
+	_, err := q.db.ExecContext(ctx, deleteFetchedSubtitlesOfPurgedFiles, fileIdsJson)
+	return err
+}
+
 const getFetchedSubtitle = `-- name: GetFetchedSubtitle :one
 SELECT s.id, s.video_file, s.body_gzip, f.node_id
 FROM fetched_subtitle s
