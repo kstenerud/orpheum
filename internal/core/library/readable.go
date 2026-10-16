@@ -28,6 +28,11 @@ const (
 	StillReading UnreadableReason = "still_reading"
 )
 
+// UnreadableReasons are every reason a file cannot be read now, which the API's schema lists.
+func UnreadableReasons() []UnreadableReason {
+	return []UnreadableReason{NodeAway, RootMissing, DiskMissing, StillReading}
+}
+
 // Unreadable is why a node's file cannot be read now: its reason, the root or mount that is
 // missing, and since when; Since is zero for a node not heard from since the core started.
 type Unreadable struct {
