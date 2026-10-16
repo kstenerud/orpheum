@@ -6,10 +6,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -221,6 +223,29 @@ func TestBrowse_AGuessedMatchSaysSoWhereItsTitleIsShown(t *testing.T) {
 	} {
 		if got := harness.do(t, http.MethodGet, path, admin, nil); !strings.Contains(got.body, `"isGuessed":true`) {
 			t.Errorf("%s = %s; want Metropolis's guess said", path, got.body)
+		}
+	}
+}
+
+// Every reason a file cannot be read now is one the schema names, wherever the API says one: a
+// reason the library gives that the schema lacks reaches a client its types do not know (D304 §4).
+func TestSchema_NamesEveryReasonAFileCannotBeReadNow(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	schemas := harness.server.OpenAPI().Components.Schemas.Map()
+	for _, name := range []string{"UnavailableBody", "MediaUnreachableDetailBody"} {
+		schema, found := schemas[name]
+		if !found {
+			t.Fatalf("the schema has no %s", name)
+		}
+		var named []string
+		for _, value := range schema.Properties["reason"].Enum {
+			named = append(named, fmt.Sprint(value))
+		}
+		for _, reason := range library.UnreadableReasons() {
+			if !slices.Contains(named, string(reason)) {
+				t.Errorf("%s's reasons %v lack %q", name, named, reason)
+			}
 		}
 	}
 }

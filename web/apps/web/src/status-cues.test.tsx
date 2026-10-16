@@ -3,6 +3,7 @@
 
 import "./i18n.ts";
 
+import type { components } from "@orpheum/sdk";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -35,7 +36,9 @@ describe("the status cues", () => {
   });
 
   it("mark a title still being read with its own cue, not the cannot-play warning (D304 §4)", () => {
-    const reading = { unavailable: { reason: "still_reading" as const, nodeName: "devnas" } };
+    // The reason as the API's schema types it, so a schema without it does not type-check.
+    const stillReading: components["schemas"]["UnavailableBody"]["reason"] = "still_reading";
+    const reading = { unavailable: { reason: stillReading, nodeName: "devnas" } };
     for (const markup of [
       renderToStaticMarkup(withServices(<StatusTray subject={reading} />)),
       renderToStaticMarkup(withServices(<StatusNotes subject={reading} />)),
