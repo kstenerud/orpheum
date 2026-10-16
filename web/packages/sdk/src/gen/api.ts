@@ -432,6 +432,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/filing-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The reports of works filed wrongly, newest first (admin; D306 §3) */
+        get: operations["listFilingReports"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/filing-reports/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One report of a work filed wrongly (admin; D306 §3) */
+        get: operations["getFilingReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -549,6 +583,23 @@ export interface paths {
         get: operations["getItemCandidates"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/items/{id}/filing-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Write a report of how a film, episode or series was filed, as Markdown on the server's disk, for an admin to edit and post as an issue; nothing leaves the server (admin; D306 §3) */
+        post: operations["postFilingReport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2271,6 +2322,25 @@ export interface components {
             files: components["schemas"]["FileBody"][] | null;
             /** @description Empty on the last page */
             nextCursor?: string;
+        };
+        FilingReportBody: {
+            markdown: string;
+            name: string;
+            /** @description Where it is on the server's disk */
+            path?: string;
+        };
+        FilingReportEntryBody: {
+            name: string;
+            /** Format: int64 */
+            sizeBytes: number;
+            /**
+             * Format: int64
+             * @description Unix milliseconds
+             */
+            writtenAt: number;
+        };
+        FilingReportsOutputBody: {
+            reports: components["schemas"]["FilingReportEntryBody"][] | null;
         };
         FindingBody: {
             action?: string;
@@ -4800,6 +4870,72 @@ export interface operations {
             };
         };
     };
+    listFilingReports: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FilingReportsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getFilingReport: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FilingReportBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getHealth: {
         parameters: {
             query?: never;
@@ -5050,6 +5186,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CandidatesOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postFilingReport: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FilingReportBody"];
                 };
             };
             /** @description Error */

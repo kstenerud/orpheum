@@ -1589,6 +1589,67 @@
         ],
         "type": "object"
       },
+      "FilingReportBody": {
+        "additionalProperties": false,
+        "properties": {
+          "markdown": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "description": "Where it is on the server's disk",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "markdown"
+        ],
+        "type": "object"
+      },
+      "FilingReportEntryBody": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "writtenAt": {
+            "description": "Unix milliseconds",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "sizeBytes",
+          "writtenAt"
+        ],
+        "type": "object"
+      },
+      "FilingReportsOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reports": {
+            "items": {
+              "$ref": "#/components/schemas/FilingReportEntryBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "reports"
+        ],
+        "type": "object"
+      },
       "FindingBody": {
         "additionalProperties": false,
         "properties": {
@@ -8056,6 +8117,98 @@
         ]
       }
     },
+    "/filing-reports": {
+      "get": {
+        "operationId": "listFilingReports",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilingReportsOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "The reports of works filed wrongly, newest first (admin; D306 §3)",
+        "tags": [
+          "Running it"
+        ]
+      }
+    },
+    "/filing-reports/{name}": {
+      "get": {
+        "operationId": "getFilingReport",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilingReportBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "One report of a work filed wrongly (admin; D306 §3)",
+        "tags": [
+          "Running it"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "description": "Unauthenticated. Starting and migrating answer 200 so a container manager does not kill a busy server; degraded answers 503 with its reasons.",
@@ -8423,6 +8576,57 @@
         "summary": "An ambiguous film's or series' search results, to choose from (edit_metadata)",
         "tags": [
           "Identification"
+        ]
+      }
+    },
+    "/items/{id}/filing-report": {
+      "post": {
+        "operationId": "postFilingReport",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FilingReportBody"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Write a report of how a film, episode or series was filed, as Markdown on the server's disk, for an admin to edit and post as an issue; nothing leaves the server (admin; D306 §3)",
+        "tags": [
+          "Running it"
         ]
       }
     },

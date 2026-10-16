@@ -390,6 +390,84 @@ func (q *Queries) ListFileTitles(ctx context.Context, libraryID int64) ([]ListFi
 	return items, nil
 }
 
+const listFilesOfWork = `-- name: ListFilesOfWork :many
+SELECT file.id, file.path, file.filing, file.filing_reason, file.size_bytes, file.node_id,
+  title.id AS title_id, title.kind AS title_kind, title.identification_state,
+  CAST(coalesce(title_text.name, '') AS TEXT) AS title_name, title.year,
+  position.group_number, position.number_in_group
+FROM title
+JOIN version ON version.title_id = title.id AND version.removed_at IS NULL
+JOIN file ON file.version_id = version.id AND file.removed_at IS NULL
+LEFT JOIN item_text AS title_text ON title_text.item_id = title.id AND title_text.is_original = 1
+LEFT JOIN position ON position.title_id = title.id
+  AND position.ordering_id IN (SELECT ordering.id FROM ordering WHERE ordering.name = 'aired')
+WHERE title.id = ?1
+  OR title.id IN (SELECT position.title_id FROM position JOIN ordering ON ordering.id = position.ordering_id
+    WHERE ordering.collection_id = ?1 AND ordering.name = 'aired')
+ORDER BY file.path
+LIMIT ?2
+`
+
+type ListFilesOfWorkParams struct {
+	ItemID  int64
+	MaxRows int64
+}
+
+type ListFilesOfWorkRow struct {
+	ID                  int64
+	Path                string
+	Filing              string
+	FilingReason        *string
+	SizeBytes           *int64
+	NodeID              int64
+	TitleID             int64
+	TitleKind           string
+	IdentificationState string
+	TitleName           string
+	Year                *int64
+	GroupNumber         *int64
+	NumberInGroup       *int64
+}
+
+// The live videos a film, an episode or a series holds, a series' through its episodes, each with
+// how it was filed and its title: what a report of its filing lists (D306 section 3).
+func (q *Queries) ListFilesOfWork(ctx context.Context, arg ListFilesOfWorkParams) ([]ListFilesOfWorkRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFilesOfWork, arg.ItemID, arg.MaxRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListFilesOfWorkRow{}
+	for rows.Next() {
+		var i ListFilesOfWorkRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Path,
+			&i.Filing,
+			&i.FilingReason,
+			&i.SizeBytes,
+			&i.NodeID,
+			&i.TitleID,
+			&i.TitleKind,
+			&i.IdentificationState,
+			&i.TitleName,
+			&i.Year,
+			&i.GroupNumber,
+			&i.NumberInGroup,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listIdentifyFiles = `-- name: ListIdentifyFiles :many
 SELECT file.id, file.node_id, file.path, file.reported_path_raw, file.filing, file.filing_reason, file.sidecar_kind,
   file.payload_hash, file.version_id, file.attached_to_file, CAST(coalesce(file_probe.duration_ms, 0) AS INTEGER) AS duration_ms,

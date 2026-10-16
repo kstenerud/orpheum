@@ -247,11 +247,12 @@ func newHarness(t *testing.T) testHarness {
 	server.Ready(Dependencies{
 		Auth: service, Settings: seeded, Discovery: discoveryService, PortMapping: portMapping,
 		Secrets: secretStore, SetupCodes: codes,
-		Relay:     &turn.Issuer{Address: "203.0.113.7:3478", Secrets: secretStore},
-		Chooser:   identify.NewChooser(matcher, pass),
-		Libraries: library.NewAdmin(database, now, nodes, nodes, library.Retirement{Work: queue, Titles: pass}),
-		Refresher: identify.NewRefresher(database, queue, seeded, now, slog.New(slog.DiscardHandler)),
-		Browser:   browser,
+		Relay:         &turn.Issuer{Address: "203.0.113.7:3478", Secrets: secretStore},
+		Chooser:       identify.NewChooser(matcher, pass),
+		FilingReports: identify.NewFilingReports(database, directories, "test", now),
+		Libraries:     library.NewAdmin(database, now, nodes, nodes, library.Retirement{Work: queue, Titles: pass}),
+		Refresher:     identify.NewRefresher(database, queue, seeded, now, slog.New(slog.DiscardHandler)),
+		Browser:       browser,
 		Artwork: artwork.NewService(artwork.Parts{
 			Database: database, Queue: queue,
 			ArtFiles: directories, Cache: cache, Settings: seeded, Clock: now, Logger: slog.New(slog.DiscardHandler),

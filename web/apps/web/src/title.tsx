@@ -14,6 +14,7 @@ import { languageName } from "./language-name.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
+import { FilingReportButton } from "./filing-report.tsx";
 import { MatchCorrection } from "./match-correction.tsx";
 import { StatusNotes } from "./status-cues.tsx";
 import { Poster } from "./poster.tsx";
@@ -78,6 +79,7 @@ export function TitleView(props: {
       {title.kind === "movie" && props.onMatchCorrected !== undefined ? (
         <MatchCorrection itemId={title.id} onCorrected={props.onMatchCorrected} />
       ) : null}
+      {title.kind === "extra" ? null : <FilingReportButton itemId={title.id} />}
       <StatusNotes subject={title} />
       <Versions
         versions={title.versions ?? []}

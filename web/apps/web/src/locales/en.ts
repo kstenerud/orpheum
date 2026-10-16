@@ -230,6 +230,17 @@ export const en = {
       "You have not been given any library yet, so there is nothing to watch. Ask whoever runs this server to share one with you.",
     year: "{{year}}",
   },
+  filingReport: {
+    write: "Report filed wrongly",
+    savedAt:
+      "Saved on the server as {{path}}. Edit anything you would rather not post, then post it as an issue.",
+    text: "The report, in Markdown",
+    copy: "Copy",
+    copied: "Copied.",
+    heading: "Reports of what was filed wrongly",
+    what: "Each is a Markdown file on the server, written when an admin asked on a film's or series' page. Nothing is sent anywhere: read one, edit what you would rather not post, and post it as an issue.",
+    none: "No report yet.",
+  },
   title: {
     runtime: "{{minutes}} min",
     season: "Season {{season}}",
