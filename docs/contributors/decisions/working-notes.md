@@ -20358,4 +20358,36 @@ independent audit's amendments and additions, *"Agreed"*.
    retention).
 
 **Status:** Decided 2026-10-15. Revisits D243 §11 (backup schedule) and D272 §5 (this change
-starts a new baseline). Phase A next.
+starts a new baseline). Phase A next. §1's M4, DL13 and DL14 amended by D304.
+
+## D304 — A library is filed in stages by weight: titles show from the listing, still reading, and fill in by whole units
+
+**Decided** (2026-10-16), by the project owner, on the
+[staged identification proposal](../design/research/staged-identification-2026-10-16.md), after
+the owner's: *"We should be able to trickle in the lightest data, then progressively build out the
+higher level data in small batches + jobs. We're aiming for eventual consistency (good enough for a
+nice UX), not a perfect view at every single moment."* It amends D303 §1 (M4, DL13, DL14) and
+revises D240 §3, §4 and §8.
+
+1. **Five stages, by weight**: the listing stores every file, a new video unread; filing from the
+   path; the small files beside a video (NFO, images, subtitles) in their own fast read; the
+   provider's match; and the video's read (probe and payload hash, D179), at the slow priority
+   (D255).
+2. **The unit of work is a filing unit**: a film's folder, or loose files sharing one name and
+   year; in a series library, one series. A unit is never split across writes, and a write holds
+   as many whole units as a budget allows (M4). Each stage finds its work from stored state (D231
+   §3); a change marks its unit as owing filing again, in memory (DL14), and the whole-library
+   comparison on a reader, writing in batches, is the backstop.
+3. **DL13 is amended**: compare before writing, with the whole-library run as the backstop; no
+   fingerprints (*"Agreed"*).
+4. **Every title shows straight from the listing, marked "still reading"** until its video is
+   read, and cannot play until then (*"Yes, Show every title straight from the listing, marked
+   'still reading'"*). Play asks for that video's read at a person's priority.
+5. **A move is told by device and inode** at the listing, D240 §3's move that §8 deferred, so a
+   renamed folder does not show its films twice before they are read (*"Yes."*). A file whose
+   read later shows the payload a tombstone holds brings that title back, which absorbs the one
+   filed from the path, keeping what a person set on it.
+6. **Each retention limit of D303 §1's retention policy is a config value** with a sane default and bounds
+   (*"Sane limits for each, stored as a config value."*).
+
+**Status:** Decided 2026-10-16; to be built in the proposal's §7 order.
