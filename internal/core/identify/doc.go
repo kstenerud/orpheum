@@ -41,7 +41,17 @@
 //     no row (D303, DL9), nor gives a special no number places a new title.
 //     TestPass_AgainOverAnUnchangedLibraryWritesNothing,
 //     TestPass_AgainOverAnUnchangedMatchedLibraryWritesNothing,
-//     TestPass_AgainOverAnUnchangedLibraryWithAnUnnumberedSpecialWritesNothing.
+//     TestPass_AgainOverAnUnchangedLibraryWithAnUnnumberedSpecialWritesNothing. So does a pass over
+//     a random library, however its names parse, through renames, removals and NFO changes, and it
+//     makes a title for a file at a path at most once (D303, M10).
+//     TestPass_OverRandomLibrariesAgainWritesNothingAndMakesNoTitleEachPass.
+//   - No live title is left with no version: one a file left is merged into the file's title, and
+//     none is made for a file that stays where it is (D173; the store's invariant "every live title
+//     has a version"). TestPass_ATitleAFileLeftIsMergedIntoItsNewOneAndNoneIsMadeForAFileThatStays,
+//     TestPass_AnEpisodeRenumberedByItsNFOLeavesNoEmptyTitleAtItsNewPlace. A title the pass made and
+//     gave no file is a fault, logged.
+//   - A film whose NFO is gone is identified from its path again.
+//     TestPass_AFilmWhoseNFOIsDeletedIsIdentifiedFromItsPathAgain.
 //   - A pass reads its library in a constant number of statements (snapshot.go), compares before
 //     it writes, and runs in a read transaction until it must write: over an unchanged library it
 //     runs the same statements at twice the size and takes no writer (D303, DL7, DL9, DL11).

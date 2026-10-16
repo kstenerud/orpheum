@@ -1393,6 +1393,29 @@ func (q *Queries) ListTitlesByProviderID(ctx context.Context, arg ListTitlesByPr
 	return items, nil
 }
 
+const mergeTitleLeftWithoutVersions = `-- name: MergeTitleLeftWithoutVersions :execrows
+UPDATE item SET merged_into = ?1, removed_at = ?2
+WHERE item.id = ?3 AND item.removed_at IS NULL
+  AND NOT EXISTS (SELECT 1 FROM version WHERE version.title_id = ?3)
+`
+
+type MergeTitleLeftWithoutVersionsParams struct {
+	MergedInto *int64
+	RemovedAt  *int64
+	TitleID    int64
+}
+
+// A title a pass moved its last version out of, tombstoned pointing at the title the version went
+// to, as a match's join leaves one (D173): left live, it stayed in its series and its library with
+// no file, one more each time it happened. Merged, it is no deleted library's to bring back.
+func (q *Queries) MergeTitleLeftWithoutVersions(ctx context.Context, arg MergeTitleLeftWithoutVersionsParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, mergeTitleLeftWithoutVersions, arg.MergedInto, arg.RemovedAt, arg.TitleID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const moveEpisodeToSeries = `-- name: MoveEpisodeToSeries :exec
 UPDATE collection_member SET collection_id = ?1
 WHERE collection_id = ?2 AND member_title = ?3
@@ -1474,17 +1497,20 @@ func (q *Queries) SetSearchAlternates(ctx context.Context, arg SetSearchAlternat
 
 const updateTitleResolved = `-- name: UpdateTitleResolved :exec
 UPDATE title SET
-  year = ?1, runtime_ms = ?2, followed_source = ?3,
-  followed_source_id = ?4,
-  identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE ?5 END
-WHERE id = ?6
+  kind = ?1,
+  year = ?2, runtime_ms = ?3, followed_source = ?4,
+  followed_source_id = ?5,
+  identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE ?6 END
+WHERE id = ?7
   -- Only when it changes something (D303, DL9).
-  AND (year, runtime_ms, followed_source, followed_source_id, identification_state)
+  AND (kind, year, runtime_ms, followed_source, followed_source_id, identification_state)
     IS NOT (?1, ?2, ?3, ?4,
-      CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE ?5 END)
+      ?5,
+      CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE ?6 END)
 `
 
 type UpdateTitleResolvedParams struct {
+	Kind                string
 	Year                *int64
 	RuntimeMs           *int64
 	FollowedSource      *string
@@ -1493,9 +1519,12 @@ type UpdateTitleResolvedParams struct {
 	ID                  int64
 }
 
-// A confirmed match is a person's: the pass never lowers it (D172).
+// A confirmed match is a person's: the pass never lowers it (D172). Its kind is how the pass files
+// it: an extra whose film is gone is filed as a film (D162), and its kind follows, which the sort
+// keys are listed by.
 func (q *Queries) UpdateTitleResolved(ctx context.Context, arg UpdateTitleResolvedParams) error {
 	_, err := q.db.ExecContext(ctx, updateTitleResolved,
+		arg.Kind,
 		arg.Year,
 		arg.RuntimeMs,
 		arg.FollowedSource,

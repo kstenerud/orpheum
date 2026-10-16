@@ -97,15 +97,19 @@ VALUES (sqlc.arg(id), sqlc.arg(kind), sqlc.arg(year), sqlc.arg(runtime_ms), sqlc
   sqlc.arg(identification_state));
 
 -- name: UpdateTitleResolved :exec
--- A confirmed match is a person's: the pass never lowers it (D172).
+-- A confirmed match is a person's: the pass never lowers it (D172). Its kind is how the pass files
+-- it: an extra whose film is gone is filed as a film (D162), and its kind follows, which the sort
+-- keys are listed by.
 UPDATE title SET
+  kind = sqlc.arg(kind),
   year = sqlc.arg(year), runtime_ms = sqlc.arg(runtime_ms), followed_source = sqlc.arg(followed_source),
   followed_source_id = sqlc.arg(followed_source_id),
   identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE sqlc.arg(identification_state) END
 WHERE id = sqlc.arg(id)
   -- Only when it changes something (D303, DL9).
-  AND (year, runtime_ms, followed_source, followed_source_id, identification_state)
-    IS NOT (sqlc.arg(year), sqlc.arg(runtime_ms), sqlc.arg(followed_source), sqlc.arg(followed_source_id),
+  AND (kind, year, runtime_ms, followed_source, followed_source_id, identification_state)
+    IS NOT (sqlc.arg(kind), sqlc.arg(year), sqlc.arg(runtime_ms), sqlc.arg(followed_source),
+      sqlc.arg(followed_source_id),
       CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE sqlc.arg(identification_state) END);
 
 -- name: UpsertOriginalText :exec
@@ -140,6 +144,14 @@ RETURNING id;
 
 -- name: MoveVersionToTitle :exec
 UPDATE version SET title_id = sqlc.arg(title_id) WHERE id = sqlc.arg(id);
+
+-- name: MergeTitleLeftWithoutVersions :execrows
+-- A title a pass moved its last version out of, tombstoned pointing at the title the version went
+-- to, as a match's join leaves one (D173): left live, it stayed in its series and its library with
+-- no file, one more each time it happened. Merged, it is no deleted library's to bring back.
+UPDATE item SET merged_into = sqlc.arg(merged_into), removed_at = sqlc.arg(removed_at)
+WHERE item.id = sqlc.arg(title_id) AND item.removed_at IS NULL
+  AND NOT EXISTS (SELECT 1 FROM version WHERE version.title_id = sqlc.arg(title_id));
 
 -- name: ListOverrides :many
 SELECT field, override_value FROM field_override WHERE item_id = ? AND language = '' ORDER BY field;

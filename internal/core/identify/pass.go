@@ -62,6 +62,9 @@ type Report struct {
 	ListedCount       int
 	UnidentifiedCount int
 	ExtraCount        int
+	// UnusedTitleCount is how many titles the pass made and gave no file, which it merged into the
+	// file's: a fault in filing, which the log names (retireEmptied).
+	UnusedTitleCount int
 	// AwaitingMatch are the films and series no source has answered for yet: the fetch queue's
 	// first fetches (D170, D209).
 	AwaitingMatch []int64
@@ -145,6 +148,7 @@ func (pass *Pass) IdentifyLibrary(ctx context.Context, libraryID int64) (Report,
 			localArt: map[int64][]LocalImage{}, seriesIDByFolder: map[string]int64{},
 			seriesSpecByID: map[int64]seriesSpec{}, seriesMatchByID: map[int64]sqlcgen.GetSeriesForMatchRow{},
 			listings: map[string][]Episode{}, returningEpisodes: map[int64]bool{}, contradicted: map[int64]bool{},
+			leftFor: map[int64]int64{}, added: map[int64]bool{},
 			readsAsItGoes: pass.readsAsItGoes,
 		}
 		if loadErr := filer.load(ctx, libraryID); loadErr != nil {
@@ -157,6 +161,10 @@ func (pass *Pass) IdentifyLibrary(ctx context.Context, libraryID int64) (Report,
 	})
 	if err != nil {
 		return Report{}, fmt.Errorf("identify library %d: %w", libraryID, err)
+	}
+	if report.UnusedTitleCount > 0 {
+		pass.logger.WarnContext(ctx, "the pass made titles it gave no file, and merged them: a fault in filing",
+			"libraryId", libraryID, "titles", report.UnusedTitleCount)
 	}
 	// The locale may have changed after this pass read it: any name it keyed in the old one is
 	// keyed again in the new.
@@ -198,6 +206,11 @@ type libraryFiler struct {
 	// contradicted are the files whose place their path now contradicts, filed again as a moved
 	// file is (contradictedPlacements).
 	contradicted map[int64]bool
+	// leftFor are titles a file left this pass, each with the title the file is in: one it moved a
+	// version out of, or one made for a file that stayed where it was. retireEmptied merges each
+	// left with no version. added are the titles the pass made.
+	leftFor map[int64]int64
+	added   map[int64]bool
 	// snap is what the pass read of the library at its start, which it compares against before it
 	// writes; none in a match's filer, or with readsAsItGoes.
 	snap          snapshot
@@ -261,6 +274,28 @@ func (filer *libraryFiler) identify(ctx context.Context) error {
 		}
 	}
 	filer.reportLocalImages()
+	return filer.retireEmptied(ctx)
+}
+
+// retireEmptied merges each title a file left this pass, once it has no version left, into the
+// title the file is in, as a match's join does (D173): a renamed file identified again, an episode
+// an older reading misplaced, and a title made for a file that stayed where it was. Left live, each
+// stayed in its series and its library with no file, one more each pass that made it (the owner's
+// NAS, 2026-10-16: 80,246 under one series). A title the pass made and merged is a fault in filing,
+// which the log names.
+func (filer *libraryFiler) retireEmptied(ctx context.Context) error {
+	for _, titleID := range slices.Sorted(maps.Keys(filer.leftFor)) {
+		into := filer.leftFor[titleID]
+		merged, err := filer.queries.MergeTitleLeftWithoutVersions(ctx, sqlcgen.MergeTitleLeftWithoutVersionsParams{
+			MergedInto: &into, RemovedAt: &filer.nowMs, TitleID: titleID,
+		})
+		if err != nil {
+			return fmt.Errorf("merge title %d, left with no version, into %d: %w", titleID, into, err)
+		}
+		if merged > 0 && filer.added[titleID] {
+			filer.report.UnusedTitleCount++
+		}
+	}
 	return nil
 }
 
@@ -458,7 +493,12 @@ func (filer *libraryFiler) place(
 	if file.VersionID == nil {
 		err = filer.newVersion(ctx, file, titleID)
 	} else {
-		titleID, err = filer.keepOrMove(ctx, file, titleID)
+		var keptIn int64
+		keptIn, err = filer.keepOrMove(ctx, file, titleID)
+		if filer.added[titleID] {
+			filer.noteLeft(titleID, keptIn)
+		}
+		titleID = keptIn
 	}
 	if err != nil {
 		return err
@@ -466,6 +506,13 @@ func (filer *libraryFiler) place(
 	filer.titleIDByFile[file.ID] = titleID
 	filer.evidence[titleID] = append(filer.evidence[titleID], spec)
 	return nil
+}
+
+// noteLeft records that a file left a title, or a title made for it, for the title it is in.
+func (filer *libraryFiler) noteLeft(leftTitleID, inTitleID int64) {
+	if filer.leftFor != nil && leftTitleID != inTitleID {
+		filer.leftFor[leftTitleID] = inTitleID
+	}
 }
 
 // newVersion gives a file its own Version under the title.
@@ -495,6 +542,7 @@ func (filer *libraryFiler) keepOrMove(
 		titleID = current.TitleID
 	} else if current.TitleID != titleID {
 		err = filer.moveVersion(ctx, *file.VersionID, titleID)
+		filer.noteLeft(current.TitleID, titleID)
 		if err != nil {
 			return 0, fmt.Errorf("move %s to its title: %w", file.Path, err)
 		}
@@ -515,14 +563,19 @@ func hasMoved(file sqlcgen.ListIdentifyFilesRow) bool {
 	return file.IdentifiedFromPath == nil || *file.IdentifiedFromPath != file.Path
 }
 
-// currentTitle is the title a file already belongs to, if it has one and has not moved.
+// currentTitle is the title a file already belongs to, if it has one and stays in it as keepOrMove
+// keeps it: it has not moved, or a person confirmed the title. Asked before a title is found or
+// made for the file, it keeps the pass from making one the file never goes to.
 func (filer *libraryFiler) currentTitle(ctx context.Context, file sqlcgen.ListIdentifyFilesRow) (int64, bool, error) {
-	if file.VersionID == nil || filer.isFiledAgain(file) {
+	if file.VersionID == nil {
 		return 0, false, nil
 	}
 	current, err := filer.versionTitle(ctx, *file.VersionID)
 	if err != nil {
 		return 0, false, fmt.Errorf("read %s's version: %w", file.Path, err)
+	}
+	if current.IdentificationState != identificationConfirmed && filer.isFiledAgain(file) {
+		return 0, false, nil
 	}
 	return current.TitleID, true, nil
 }

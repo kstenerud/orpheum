@@ -209,6 +209,20 @@ Each entry says: the **mechanism**, the **instance** we found, **why it was invi
   while `.dev/browser-map/complete` names the commit checked; or `make test-browser` leaves no
   `complete` after a passing run.
 
+### 13. A randomized test's seeds, raised to hunt and left raised
+
+- **Mechanism:** a randomized test finds more the more seeds it runs, so a hunt raises its count;
+  each seed costs a whole walk, and a count left raised is paid by every run after.
+- **Instance:** identify's `TestPass_OverRandomLibrariesAgainWritesNothingAndMakesNoTitleEachPass`
+  (2026-10-16) walks a random library through five scans per seed: 60 seeds per library kind took
+  61 s, and found five faults that 6 did not; the suite runs 4 per kind, about 5 s.
+- **Why it was invisible:** a seed count is a constant, which reads as cheap.
+- **Fix:** the suite keeps the small count; a hunt raises it by hand
+  (`for seed := range uint64(60)`), turns what it finds into a named test, and lowers it again in
+  the same change.
+- **Warning sign:** the identify package's test time grows by seconds in a commit that only
+  changes a seed count.
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of

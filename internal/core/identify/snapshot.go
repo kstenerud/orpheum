@@ -370,7 +370,7 @@ func (filer *libraryFiler) resolveTitleValues(
 	held, isHeld := filer.snap.titles[values.ID]
 	if isHeld {
 		resolved := held
-		resolved.Year, resolved.RuntimeMs = values.Year, values.RuntimeMs
+		resolved.Kind, resolved.Year, resolved.RuntimeMs = values.Kind, values.Year, values.RuntimeMs
 		resolved.FollowedSource, resolved.FollowedSourceID = values.FollowedSource, values.FollowedSourceID
 		if held.IdentificationState != identificationConfirmed {
 			resolved.IdentificationState = values.IdentificationState

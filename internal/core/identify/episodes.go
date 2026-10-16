@@ -63,14 +63,28 @@ func (filer *libraryFiler) fileEpisode(
 	}
 	spec.key = episodeKey(seriesID, season, number)
 	filer.unidentifiedUnlessNFO(&spec)
-	titleID, err := filer.findOrAddTitle(ctx, spec)
+	titleID, err := filer.episodeTitle(ctx, file, spec, seriesID, season, number)
 	if err != nil {
 		return err
 	}
-	if err := filer.positionEpisode(ctx, seriesID, titleID, season, number); err != nil {
-		return err
-	}
 	return filer.place(ctx, file, titleID, spec)
+}
+
+// episodeTitle is the title an episode's file goes to: the one it is in, if it stays, at the place
+// it has, or the one at its place in its series, found or made and placed there. Found or made at
+// the place its NFO now gives a file that stays, a title was left there with no file.
+func (filer *libraryFiler) episodeTitle(
+	ctx context.Context, file sqlcgen.ListIdentifyFilesRow, spec titleSpec, seriesID int64, season, number int,
+) (int64, error) {
+	titleID, hasCurrentTitle, err := filer.currentTitle(ctx, file)
+	if err != nil || hasCurrentTitle {
+		return titleID, err
+	}
+	titleID, err = filer.findOrAddTitle(ctx, spec)
+	if err != nil {
+		return 0, err
+	}
+	return titleID, filer.positionEpisode(ctx, seriesID, titleID, season, number)
 }
 
 // numberBySpecials gives an unnumbered special the number its series' listing of specials gives
