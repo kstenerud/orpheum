@@ -360,14 +360,14 @@ func scanDefinitions() []Definition {
 	return []Definition{
 		sourced(Definition{
 			Key: ScanVideoExtensions, Kind: KindString,
-			StartJSON: json.RawMessage(`"mkv,mp4,m4v,avi,mov,wmv,ts,m2ts,mts,webm,mpg,mpeg,vob,flv,ogv,3gp"`),
+			StartJSON: json.RawMessage(`"mkv,mp4,m4v,avi,divx,mov,wmv,ts,m2ts,mts,webm,mpg,mpeg,vob,flv,ogv,3gp"`),
 			Pattern:   regexp.MustCompile(extensionsPattern),
 			Description: "the extensions, lower case and comma-separated, of the files a scan reads as " +
 				"videos (D240 §8)",
 		}, "the containers FFmpeg reads that people keep films in: Matroska and MP4 first, the broadcast and "+
-			"disc formats (ts, m2ts, mts, vob, mpg), and the older ones still found in libraries (avi, wmv, flv, "+
-			"3gp); a file with another extension is never probed, so a missing one hides films, and an extra "+
-			"one costs a probe of each such file. Carried over from the node's video_extensions"),
+			"disc formats (ts, m2ts, mts, vob, mpg), and the older ones still found in libraries (avi and its "+
+			".divx, wmv, flv, 3gp); a file with another extension is never probed, so a missing one hides films, "+
+			"and an extra one costs a probe of each such file. Carried over from the node's video_extensions"),
 		sourced(Definition{
 			Key: ScanSubtitleExtensions, Kind: KindString, StartJSON: json.RawMessage(`"srt,ass,ssa,vtt"`),
 			Pattern: regexp.MustCompile(extensionsPattern),

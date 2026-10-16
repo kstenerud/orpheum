@@ -222,6 +222,9 @@ const (
 	// 2026-10-16.md §5.3: Synology's "#recycle" was read as a film's folder, a series' in a series
 	// library).
 	SkipSystem SkipRule = "system"
+	// SkipDiscImage is a disc's image, an .iso, or a disc's folder, VIDEO_TS or BDMV, which the
+	// beta does not read (D306 §5): listed as skipped, so a film is not missing in silence.
+	SkipDiscImage SkipRule = "disc_image_not_supported_yet"
 	// SkipSymlinkOutsideRoots is a symlink whose target is outside every media root (D206).
 	SkipSymlinkOutsideRoots SkipRule = "symlink_outside_roots"
 	// SkipNotRegular is something that is neither a file, a directory nor a symlink: a device,

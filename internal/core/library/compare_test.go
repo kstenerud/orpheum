@@ -105,6 +105,35 @@ func TestTakeListing_SkipsTheFoldersANASOrAnOperatingSystemKeepsForItself(t *tes
 	}
 }
 
+// A disc's image and a disc's folder are skipped, each filed with its rule, so a film the beta
+// does not read is not missing in silence; the videos inside a disc's folder are never read as
+// films of their own (D306 §5).
+func TestTakeListing_SkipsADiscsImageAndADiscsFolder(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	world.takeListing([]nodeproto.ScanRecord{
+		listedFile("Metropolis (1995).iso", 3, 1),
+		listedDirectory("Wing (1979)"),
+		listedDirectory("Wing (1979)/VIDEO_TS"),
+		listedFile("Wing (1979)/VIDEO_TS/VTS_01_1.mkv", 3, 1),
+		listedDirectory("Nosferatu (1998)"),
+		listedDirectory("Nosferatu (1998)/BDMV"),
+		listedFile("Nosferatu (1998)/BDMV/00001.mkv", 3, 1),
+		listedFile("Nosferatu (1998)/Nosferatu (1998).mkv", 4, 1),
+	}, false)
+	skipped := map[string]string{}
+	for path, file := range world.liveFilesByPath() {
+		if file.Filing == FilingSkipped {
+			skipped[strings.TrimPrefix(path, root+"/")] = *file.FilingReason
+		}
+	}
+	const rule = "disc_image_not_supported_yet"
+	want := map[string]string{"Metropolis (1995).iso": rule, "Wing (1979)/VIDEO_TS": rule, "Nosferatu (1998)/BDMV": rule}
+	if !mapsEqual(skipped, want) {
+		t.Errorf("skipped %v, want %v", skipped, want)
+	}
+}
+
 // A video moved on its disk, listed at a new path on the same device and inode with the size and
 // modified time stored, keeps its row and its history and is not read again; a new file elsewhere
 // is read, and so is one whose inode matches but whose size does not (D304 §5, D240 §3).

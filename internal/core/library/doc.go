@@ -22,10 +22,12 @@
 //     rule tagged [core-fs]; M2's test runs the core with the media root unreadable to it.
 //
 //   - The library's rules for what a scan reads are the core's: a listing's trash, samples,
-//     AppleDouble files, the folders a NAS or an operating system keeps for itself and extensions it
-//     does not read are filed skipped, an image beside the media is recorded as listed and not read,
-//     and the rest is read (D40, D215, D240 §3). TestTakeListing_FilesEachEntryByTheLibrarysRules,
+//     AppleDouble files, the folders a NAS or an operating system keeps for itself, a disc's image
+//     or folder (D306 §5) and extensions it does not read are filed skipped, an image beside the
+//     media is recorded as listed and not read, and the rest is read (D40, D215, D240 §3).
+//     TestTakeListing_FilesEachEntryByTheLibrarysRules,
 //     TestTakeListing_SkipsTheFoldersANASOrAnOperatingSystemKeepsForItself,
+//     TestTakeListing_SkipsADiscsImageAndADiscsFolder,
 //     TestTakeListing_RecordsAnImageBesideTheMediaWithoutReadingIt.
 //
 //   - A file whose size and modified time are as stored, and which was read whole, is seen and not

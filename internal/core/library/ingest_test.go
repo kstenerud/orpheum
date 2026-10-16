@@ -477,3 +477,19 @@ func TestIngest_KeepsAVideosOpenSubtitlesHashOnlyInItsOwnShape(t *testing.T) {
 		}
 	}
 }
+
+// A scan reads the containers people keep films in by default, the older ones too: a DivX film's
+// .divx was skipped as an extension a scan does not read (staging, 2026-10-16, four of the owner's).
+func TestReadRules_ReadTheOlderContainersByDefault(t *testing.T) {
+	t.Parallel()
+	scans := &Scans{settings: settingstest.Seeded(t, storetest.OpenMigrated(t))}
+	rules, _, err := scans.readRules(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, extension := range []string{"mkv", "mp4", "avi", "divx", "vob"} {
+		if !rules.VideoExtensions[extension] {
+			t.Errorf("a scan does not read .%s files by default", extension)
+		}
+	}
+}
