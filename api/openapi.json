@@ -511,15 +511,6 @@
           "art": {
             "$ref": "#/components/schemas/ArtBody"
           },
-          "episodes": {
-            "items": {
-              "$ref": "#/components/schemas/EpisodeBody"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          },
           "fetchFailure": {
             "$ref": "#/components/schemas/FetchFailureBody"
           },
@@ -555,6 +546,15 @@
             "format": "int64",
             "type": "integer"
           },
+          "seasons": {
+            "items": {
+              "$ref": "#/components/schemas/SeasonBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "unavailable": {
             "$ref": "#/components/schemas/UnavailableBody",
             "description": "Why none of its episodes' files can be read now; absent when one can"
@@ -569,7 +569,7 @@
           "kind",
           "name",
           "libraryId",
-          "episodes",
+          "seasons",
           "art"
         ],
         "type": "object"
@@ -4518,6 +4518,51 @@
         ],
         "type": "object"
       },
+      "SeasonBody": {
+        "additionalProperties": false,
+        "properties": {
+          "episodeCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "seasonNumber": {
+            "description": "0 for the specials and the episodes with no season",
+            "format": "int64",
+            "type": "integer"
+          },
+          "stillSha256": {
+            "description": "Its first episode's still that has one",
+            "type": "string"
+          }
+        },
+        "required": [
+          "seasonNumber",
+          "episodeCount"
+        ],
+        "type": "object"
+      },
+      "SeasonOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "episodes": {
+            "items": {
+              "$ref": "#/components/schemas/EpisodeBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "nextCursor": {
+            "description": "The next page's cursor; absent on the last",
+            "type": "string"
+          }
+        },
+        "required": [
+          "episodes"
+        ],
+        "type": "object"
+      },
       "SecretBody": {
         "additionalProperties": false,
         "properties": {
@@ -7233,7 +7278,92 @@
             "description": "Error"
           }
         },
-        "summary": "A series with its episodes in aired order",
+        "summary": "A series with its seasons, each with how many episodes it has",
+        "tags": [
+          "Browse"
+        ]
+      }
+    },
+    "/collections/{id}/seasons/{season}": {
+      "get": {
+        "operationId": "getSeason",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "0 for the specials and the episodes with no season",
+            "in": "path",
+            "name": "season",
+            "required": true,
+            "schema": {
+              "description": "0 for the specials and the episodes with no season",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "From the previous page's nextCursor",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "From the previous page's nextCursor",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeasonOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "A page of one season's episodes in aired order",
         "tags": [
           "Browse"
         ]

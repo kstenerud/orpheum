@@ -433,6 +433,84 @@ func (q *Queries) ListLiveFileLocationsOfTitles(ctx context.Context, itemIDListJ
 	return items, nil
 }
 
+const listSeasonEpisodeDetails = `-- name: ListSeasonEpisodeDetails :many
+SELECT position.title_id, position.group_number, position.number_in_group, position.sort_order, item_text.name,
+  title.year, title.runtime_ms, title.identification_state,
+  EXISTS (
+    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+    WHERE version.title_id = position.title_id AND version.removed_at IS NULL AND file.removed_at IS NULL
+  ) AS available
+FROM position
+JOIN ordering ON ordering.id = position.ordering_id
+JOIN title ON title.id = position.title_id
+JOIN item ON item.id = title.id
+LEFT JOIN item_text ON item_text.item_id = position.title_id AND item_text.is_original = 1
+WHERE ordering.collection_id = ?1 AND ordering.name = 'aired' AND item.removed_at IS NULL
+  AND coalesce(position.group_number, 0) = CAST(?2 AS INTEGER)
+  AND position.sort_order > ?3
+ORDER BY position.sort_order
+LIMIT ?4
+`
+
+type ListSeasonEpisodeDetailsParams struct {
+	CollectionID   int64
+	SeasonNumber   int64
+	AfterSortOrder float64
+	MaxRows        int64
+}
+
+type ListSeasonEpisodeDetailsRow struct {
+	TitleID             int64
+	GroupNumber         *int64
+	NumberInGroup       *int64
+	SortOrder           float64
+	Name                *string
+	Year                *int64
+	RuntimeMs           *int64
+	IdentificationState string
+	Available           bool
+}
+
+// A page of one season's episodes in aired order, after the episode at after_sort_order, each with
+// whether it has a live file; season 0 holds the specials and the episodes with no season.
+func (q *Queries) ListSeasonEpisodeDetails(ctx context.Context, arg ListSeasonEpisodeDetailsParams) ([]ListSeasonEpisodeDetailsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSeasonEpisodeDetails,
+		arg.CollectionID,
+		arg.SeasonNumber,
+		arg.AfterSortOrder,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSeasonEpisodeDetailsRow{}
+	for rows.Next() {
+		var i ListSeasonEpisodeDetailsRow
+		if err := rows.Scan(
+			&i.TitleID,
+			&i.GroupNumber,
+			&i.NumberInGroup,
+			&i.SortOrder,
+			&i.Name,
+			&i.Year,
+			&i.RuntimeMs,
+			&i.IdentificationState,
+			&i.Available,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSeriesByAdded = `-- name: ListSeriesByAdded :many
 SELECT item.id AS item_id, item_text.name, collection.year, collection.identification_state, item.library_id, item.added_at,
   EXISTS (SELECT 1 FROM guessed_match WHERE guessed_match.item_id = item.id) AS is_guessed

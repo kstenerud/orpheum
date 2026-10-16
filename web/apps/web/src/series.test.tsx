@@ -5,7 +5,7 @@ import "./i18n.ts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { bySeason, SeriesView, type SeriesDetail } from "./series.tsx";
+import { SeasonView, SeriesView, type SeriesDetail } from "./series.tsx";
 import { withServices } from "./test-services.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 
@@ -22,19 +22,20 @@ const episode = (
   hasLiveFile: isAvailable,
 });
 
+const loaded = <T,>(value: T) => ({ state: "loaded" as const, value });
+
 describe("SeriesView", () => {
-  it("groups episodes by season, specials last, each with its still and whether it is on disk", () => {
+  it("lists its seasons as the server orders them, each with its still and how many episodes", () => {
     const series: SeriesDetail = {
       id: 20,
       kind: "series",
       name: "Glass Tide",
       libraryId: 1,
       art: { posterSha256: "p" },
-      episodes: [
-        { ...episode(31, { seasonNumber: 1, episodeNumber: 1 }), stillSha256: "s31" },
-        episode(32, { seasonNumber: 1, episodeNumber: 2 }, false),
-        episode(40, { seasonNumber: 0, episodeNumber: 1 }),
-        episode(33, { seasonNumber: 2, episodeNumber: 1 }),
+      seasons: [
+        { seasonNumber: 1, episodeCount: 2, stillSha256: "s31" },
+        { seasonNumber: 2, episodeCount: 1 },
+        { seasonNumber: 0, episodeCount: 1 },
       ],
     };
     // The series' page lists its seasons, specials last, each with a still and its count, leading
@@ -45,46 +46,69 @@ describe("SeriesView", () => {
     expect(markup).toContain('src="/api/v1/bytes/art/s31/landscape-s.webp"');
     expect(markup).toContain("Episodes: 2");
     expect(markup).toContain('href="/series/20?season=1"');
-    expect(markup).not.toContain('href="/titles/32"');
-    // A season's page lists its episodes, each with its still and whether it is on disk.
+    // A season's page names the season and leads back to them all; its episodes are read apart.
     const season = renderToStaticMarkup(withServices(<SeriesView series={series} season={1} />));
-    expect(season).toContain('src="/api/v1/bytes/art/s31/landscape-s.webp"');
-    expect(season).toContain("not on disk");
-    expect(season).toContain('href="/titles/32"');
-    expect(season).not.toContain('href="/titles/33"');
+    expect(season).toContain(">Season 1</h2>");
     expect(season).toContain('href="/series/20"');
-    expect(bySeason([]).length).toBe(0);
+    expect(season).not.toContain("Specials");
   });
+});
 
-  it("groups a season of tens of thousands of episodes in a moment, not the square of their number", () => {
-    // The owner's NAS sent 80,269 under one series (2026-10-16); copying a season's list for each
-    // episode added took 45 seconds, and the browser offered to stop the page.
-    const many = Array.from({ length: 40_000 }, (_, index) =>
-      episode(index, { seasonNumber: 0, episodeNumber: index }),
+describe("SeasonView", () => {
+  it("lists a season's episodes, each with its still and whether it is on disk, and offers more", () => {
+    const page = {
+      items: [
+        { ...episode(31, { seasonNumber: 1, episodeNumber: 1 }), stillSha256: "s31" },
+        episode(32, { seasonNumber: 1, episodeNumber: 2 }, false),
+      ],
+      nextCursor: "10002",
+    };
+    const markup = renderToStaticMarkup(
+      withServices(
+        <SeasonView
+          loadedEpisodes={loaded(page)}
+          isLoadingMore={false}
+          onLoadMore={() => undefined}
+        />,
+      ),
     );
-    const started = performance.now();
-    const seasons = bySeason(many);
-    expect(seasons[0]?.[1].length).toBe(40_000);
-    expect(performance.now() - started).toBeLessThan(1_000);
+    expect(markup).toContain('src="/api/v1/bytes/art/s31/landscape-s.webp"');
+    expect(markup).toContain("not on disk");
+    expect(markup).toContain('href="/titles/32"');
+    expect(markup).toContain("Show more");
+    const last = renderToStaticMarkup(
+      withServices(
+        <SeasonView
+          loadedEpisodes={loaded({ ...page, nextCursor: "" })}
+          isLoadingMore={false}
+          onLoadMore={() => undefined}
+        />,
+      ),
+    );
+    expect(last).not.toContain("Show more");
   });
 });
 
 describe("an episode that cannot be played now (D241 §3)", () => {
   it("is listed, marked with why", () => {
-    const series: SeriesDetail = {
-      id: 20,
-      kind: "series",
-      name: "Glass Tide",
-      libraryId: 1,
-      art: {},
-      episodes: [
+    const page = {
+      items: [
         {
           ...episode(31, { seasonNumber: 1, episodeNumber: 1 }),
-          unavailable: { reason: "node_away", nodeName: "devnas" },
+          unavailable: { reason: "node_away" as const, nodeName: "devnas" },
         },
       ],
+      nextCursor: "",
     };
-    const markup = renderToStaticMarkup(withServices(<SeriesView series={series} />));
+    const markup = renderToStaticMarkup(
+      withServices(
+        <SeasonView
+          loadedEpisodes={loaded(page)}
+          isLoadingMore={false}
+          onLoadMore={() => undefined}
+        />,
+      ),
+    );
     expect(markup).toContain("Episode 1");
     expect(markup).toContain(
       "This cannot be played now: devnas, the machine that holds it, is not connected.",
@@ -94,17 +118,17 @@ describe("an episode that cannot be played now (D241 §3)", () => {
 });
 
 describe("a series of one season", () => {
-  it("shows its episodes at once, with no season to choose", () => {
+  it("shows that season at once, with no season to choose", () => {
     const series: SeriesDetail = {
       id: 21,
       kind: "series",
       name: "Short Run",
       libraryId: 1,
       art: {},
-      episodes: [episode(50, { seasonNumber: 1, episodeNumber: 1 })],
+      seasons: [{ seasonNumber: 1, episodeCount: 1 }],
     };
     const markup = renderToStaticMarkup(withServices(<SeriesView series={series} />));
-    expect(markup).toContain('href="/titles/50"');
+    expect(markup).toContain(">Season 1</h2>");
     expect(markup).not.toContain("All seasons");
   });
 });
@@ -117,7 +141,7 @@ describe("a series whose match is a guess (D301)", () => {
       name: "The Ledger Room",
       libraryId: 1,
       art: { posterSha256: "p" },
-      episodes: [],
+      seasons: [],
       isGuessed: true,
     };
     const corrected = (): void => undefined;

@@ -162,6 +162,26 @@ LEFT JOIN item_text ON item_text.item_id = position.title_id AND item_text.is_or
 WHERE ordering.collection_id = sqlc.arg(collection_id) AND ordering.name = 'aired' AND item.removed_at IS NULL
 ORDER BY position.sort_order;
 
+-- name: ListSeasonEpisodeDetails :many
+-- A page of one season's episodes in aired order, after the episode at after_sort_order, each with
+-- whether it has a live file; season 0 holds the specials and the episodes with no season.
+SELECT position.title_id, position.group_number, position.number_in_group, position.sort_order, item_text.name,
+  title.year, title.runtime_ms, title.identification_state,
+  EXISTS (
+    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+    WHERE version.title_id = position.title_id AND version.removed_at IS NULL AND file.removed_at IS NULL
+  ) AS available
+FROM position
+JOIN ordering ON ordering.id = position.ordering_id
+JOIN title ON title.id = position.title_id
+JOIN item ON item.id = title.id
+LEFT JOIN item_text ON item_text.item_id = position.title_id AND item_text.is_original = 1
+WHERE ordering.collection_id = sqlc.arg(collection_id) AND ordering.name = 'aired' AND item.removed_at IS NULL
+  AND coalesce(position.group_number, 0) = CAST(sqlc.arg(season_number) AS INTEGER)
+  AND position.sort_order > sqlc.arg(after_sort_order)
+ORDER BY position.sort_order
+LIMIT sqlc.arg(max_rows);
+
 -- name: ListLiveFileLocationsOfTitles :many
 -- Where each of some titles' live playable files is: its node and the path it reported, for
 -- whether any can be read now (D241 section 3).

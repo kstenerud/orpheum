@@ -162,7 +162,15 @@ type EpisodeBody struct {
 	Unavailable *UnavailableBody `json:"unavailable,omitempty"`
 }
 
-// CollectionOutput is a series with its episodes in aired order.
+// SeasonBody is one season of a series, as its page lists it (D306 §9).
+type SeasonBody struct {
+	SeasonNumber int64  `doc:"0 for the specials and the episodes with no season" json:"seasonNumber"`
+	EpisodeCount int64  `json:"episodeCount"`
+	StillSha256  string `doc:"Its first episode's still that has one" json:"stillSha256,omitempty"`
+}
+
+// CollectionOutput is a series with its seasons in aired order, the specials last; each season's
+// episodes are GET /collections/{id}/seasons/{season} (D306 §9).
 type CollectionOutput struct {
 	Body struct {
 		ID                  int64             `json:"id"`
@@ -173,11 +181,28 @@ type CollectionOutput struct {
 		IdentificationState string            `json:"identificationState,omitempty"`
 		IsGuessed           bool              `doc:"Whether its match is a guess no person confirmed (D301)" json:"isGuessed,omitempty"` //nolint:lll // one struct tag
 		LibraryID           int64             `json:"libraryId"`
-		Episodes            []EpisodeBody     `json:"episodes"`
+		Seasons             []SeasonBody      `json:"seasons"`
 		Art                 ArtBody           `json:"art"`
 		FetchFailure        *FetchFailureBody `json:"fetchFailure,omitempty"`
 		RefreshRequestedAt  int64             `doc:"When a person asked for it to be refreshed, while no fetch has answered yet" json:"refreshRequestedAt,omitempty"` //nolint:lll // one struct tag
 		Unavailable         *UnavailableBody  `doc:"Why none of its episodes' files can be read now; absent when one can" json:"unavailable,omitempty"`               //nolint:lll // one struct tag
+	}
+}
+
+// SeasonInput asks for a page of one season's episodes.
+type SeasonInput struct {
+	AuthorizationHeader
+	ID     int64  `path:"id"`
+	Season int64  `doc:"0 for the specials and the episodes with no season" minimum:"0" path:"season"`
+	Cursor string `doc:"From the previous page's nextCursor" query:"cursor"`
+	Limit  int64  `maximum:"500" minimum:"1" query:"limit" required:"true"`
+}
+
+// SeasonOutput is a page of one season's episodes in aired order.
+type SeasonOutput struct {
+	Body struct {
+		Episodes   []EpisodeBody `json:"episodes"`
+		NextCursor string        `doc:"The next page's cursor; absent on the last" json:"nextCursor,omitempty"`
 	}
 }
 
@@ -215,8 +240,12 @@ func (server *Server) registerBrowse() {
 	}, server.getTitle)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getSeries", Method: http.MethodGet, Path: "/collections/{id}",
-		Summary: "A series with its episodes in aired order", Tags: tags,
+		Summary: "A series with its seasons, each with how many episodes it has", Tags: tags,
 	}, server.getSeries)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "getSeason", Method: http.MethodGet, Path: "/collections/{id}/seasons/{season}",
+		Summary: "A page of one season's episodes in aired order", Tags: tags,
+	}, server.getSeason)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "search", Method: http.MethodGet, Path: "/search",
 		Summary: "Titles and series by name, in any script (D48)", Tags: tags,
@@ -329,25 +358,47 @@ func (server *Server) getSeries(ctx context.Context, input *ItemInput) (*Collect
 	body.IdentificationState, body.IsGuessed = ptr.ValueOrZero(series.IdentificationState), series.IsGuessed
 	body.FetchFailure = fetchFailureBody(series.FetchFailure, series.FetchFailedAt)
 	body.RefreshRequestedAt = ptr.ValueOrZero(series.RefreshRequestedAt)
-	body.Episodes = make([]EpisodeBody, 0, len(series.Episodes))
+	body.Unavailable = unavailableBody(series.Unreadable, server.nodeNamer(ctx, dependencies))
+	body.Seasons = make([]SeasonBody, 0, len(series.Seasons))
+	for _, season := range series.Seasons {
+		body.Seasons = append(body.Seasons, SeasonBody{
+			SeasonNumber: season.Number, EpisodeCount: season.EpisodeCount, StillSha256: season.StillSha256,
+		})
+	}
+	body.Art = artBody(series.Art)
+	return output, nil
+}
+
+func (server *Server) getSeason(ctx context.Context, input *SeasonInput) (*SeasonOutput, error) {
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	page, err := dependencies.Browser.Season(ctx, principal.Reach, library.SeasonQuery{
+		SeriesID: input.ID, Season: input.Season, Cursor: input.Cursor, Limit: input.Limit,
+	})
+	if err != nil {
+		return nil, server.libraryError(ctx, "read a season", err)
+	}
+	output := &SeasonOutput{}
+	output.Body.Episodes = make([]EpisodeBody, 0, len(page.Episodes))
 	nodeName := server.nodeNamer(ctx, dependencies)
-	body.Unavailable = unavailableBody(series.Unreadable, nodeName)
-	for _, episode := range series.Episodes {
+	for _, episode := range page.Episodes {
 		var unreadable *library.Unreadable
-		if why, isUnreadable := series.UnreadableByEpisodeID[episode.TitleID]; isUnreadable {
+		if why, isUnreadable := page.UnreadableByEpisodeID[episode.TitleID]; isUnreadable {
 			unreadable = &why
 		}
-		body.Episodes = append(body.Episodes, EpisodeBody{
+		output.Body.Episodes = append(output.Body.Episodes, EpisodeBody{
 			Unavailable: unavailableBody(unreadable, nodeName),
 			ID:          episode.TitleID, SeasonNumber: ptr.ValueOrZero(episode.GroupNumber),
 			EpisodeNumber: ptr.ValueOrZero(episode.NumberInGroup),
 			Name:          ptr.ValueOrZero(episode.Name),
 			Year:          ptr.ValueOrZero(episode.Year), RuntimeMs: ptr.ValueOrZero(episode.RuntimeMs),
 			IdentificationState: episode.IdentificationState,
-			HasLiveFile:         episode.Available, StillSha256: series.StillSha256ByEpisodeID[episode.TitleID],
+			HasLiveFile:         episode.Available, StillSha256: page.StillSha256ByEpisodeID[episode.TitleID],
 		})
 	}
-	body.Art = artBody(series.Art)
+	output.Body.NextCursor = page.NextCursor
 	return output, nil
 }
 

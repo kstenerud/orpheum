@@ -3,9 +3,13 @@
 package library
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"math"
+	"slices"
+	"strconv"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
@@ -113,31 +117,35 @@ func (browser *Browser) versions(ctx context.Context, titleID int64) ([]Version,
 // SeriesDetail is a series with its episodes in aired order.
 type SeriesDetail struct {
 	sqlcgen.GetSeriesDetailRow
-	Episodes               []sqlcgen.ListSeriesEpisodeDetailsRow
-	Art                    Art
-	StillSha256ByEpisodeID map[int64]string // each episode's still, by its id
-	// UnreadableByEpisodeID is why none of an episode's files can be read now, for each such
-	// episode; Unreadable is why none of the series' can, or nil when one can (D241 §3).
-	UnreadableByEpisodeID map[int64]Unreadable
-	Unreadable            *Unreadable
+	// Seasons are its seasons in aired order, the specials last: the series' page lists them, and
+	// each season's episodes are read by Season (D306 §9).
+	Seasons []SeasonSummary
+	Art     Art
+	// Unreadable is why none of the series' files can be read now, or nil when one can (D241 §3).
+	Unreadable *Unreadable
 }
 
-// Series is a series' detail; one in a library reach does not reach is ErrNoItem, as one that does
-// not exist (D243 §4).
+// SeasonSummary is one season of a series: its number, 0 for the specials and the episodes with no
+// season, how many episodes it has, and the still of its first episode that has one.
+type SeasonSummary struct {
+	Number       int64
+	EpisodeCount int64
+	StillSha256  string
+}
+
+// Series is a series' detail, its seasons summed up; one in a library reach does not reach is
+// ErrNoItem, as one that does not exist (D243 §4).
 func (browser *Browser) Series(ctx context.Context, reach auth.Reach, seriesID int64) (SeriesDetail, error) {
 	queries := browser.database.Read()
-	series, err := store.OrNotFound(queries.GetSeriesDetail(ctx, seriesID))
-	if errors.Is(err, store.ErrNotFound) || (err == nil && !reach.Reaches(series.LibraryID)) {
-		return SeriesDetail{}, fmt.Errorf("series %d: %w", seriesID, ErrNoItem)
-	}
+	series, err := browser.reachedSeries(ctx, reach, seriesID)
 	if err != nil {
-		return SeriesDetail{}, fmt.Errorf("read series %d: %w", seriesID, err)
+		return SeriesDetail{}, err
 	}
 	episodes, err := queries.ListSeriesEpisodeDetails(ctx, seriesID)
 	if err != nil {
 		return SeriesDetail{}, fmt.Errorf("list series %d's episodes: %w", seriesID, err)
 	}
-	detail := SeriesDetail{GetSeriesDetailRow: series, Episodes: episodes}
+	detail := SeriesDetail{GetSeriesDetailRow: series}
 	if detail.Art, err = browser.itemArt(ctx, seriesID); err != nil {
 		return SeriesDetail{}, err
 	}
@@ -145,12 +153,11 @@ func (browser *Browser) Series(ctx context.Context, reach auth.Reach, seriesID i
 	for _, episode := range episodes {
 		ids = append(ids, episode.TitleID)
 	}
-	if detail.StillSha256ByEpisodeID, err = browser.shownArtSourceSha256s(ctx, ArtStill, ids); err != nil {
+	stills, err := browser.shownArtSourceSha256s(ctx, ArtStill, ids)
+	if err != nil {
 		return SeriesDetail{}, err
 	}
-	if detail.UnreadableByEpisodeID, err = browser.unreadableItems(ctx, ids, false); err != nil {
-		return SeriesDetail{}, err
-	}
+	detail.Seasons = seasonsOf(episodes, stills)
 	unreadable, err := browser.unreadableItems(ctx, []int64{seriesID}, true)
 	if err != nil {
 		return SeriesDetail{}, err
@@ -159,6 +166,110 @@ func (browser *Browser) Series(ctx context.Context, reach auth.Reach, seriesID i
 		detail.Unreadable = &why
 	}
 	return detail, nil
+}
+
+// reachedSeries is a series reach reaches; ErrNoItem for one it does not, or that does not exist.
+func (browser *Browser) reachedSeries(
+	ctx context.Context, reach auth.Reach, seriesID int64,
+) (sqlcgen.GetSeriesDetailRow, error) {
+	series, err := store.OrNotFound(browser.database.Read().GetSeriesDetail(ctx, seriesID))
+	if errors.Is(err, store.ErrNotFound) || (err == nil && !reach.Reaches(series.LibraryID)) {
+		return sqlcgen.GetSeriesDetailRow{}, fmt.Errorf("series %d: %w", seriesID, ErrNoItem)
+	}
+	if err != nil {
+		return sqlcgen.GetSeriesDetailRow{}, fmt.Errorf("read series %d: %w", seriesID, err)
+	}
+	return series, nil
+}
+
+// seasonsOf sums a series' episodes, in aired order, up by season: numbered seasons in order, then
+// the specials.
+func seasonsOf(episodes []sqlcgen.ListSeriesEpisodeDetailsRow, stills map[int64]string) []SeasonSummary {
+	byNumber := map[int64]*SeasonSummary{}
+	var numbers []int64
+	for _, episode := range episodes {
+		number := ptr.ValueOrZero(episode.GroupNumber)
+		season, isSeen := byNumber[number]
+		if !isSeen {
+			season = &SeasonSummary{Number: number}
+			byNumber[number] = season
+			numbers = append(numbers, number)
+		}
+		season.EpisodeCount++
+		if season.StillSha256 == "" {
+			season.StillSha256 = stills[episode.TitleID]
+		}
+	}
+	// The specials, season 0, come after every numbered season.
+	sortKey := func(number int64) int64 {
+		if number == 0 {
+			return math.MaxInt64
+		}
+		return number
+	}
+	slices.SortFunc(numbers, func(first, second int64) int { return cmp.Compare(sortKey(first), sortKey(second)) })
+	seasons := make([]SeasonSummary, 0, len(numbers))
+	for _, number := range numbers {
+		seasons = append(seasons, *byNumber[number])
+	}
+	return seasons
+}
+
+// SeasonQuery asks for a page of one season's episodes: a series, its season, 0 for the specials,
+// a cursor from the page before ("" for the first) and how many at most.
+type SeasonQuery struct {
+	SeriesID int64
+	Season   int64
+	Cursor   string
+	Limit    int64
+}
+
+// SeasonPage is a page of a season's episodes in aired order, with each one's still and why none
+// of its files can be read now where none can, and the cursor of the next page, "" on the last.
+type SeasonPage struct {
+	Episodes               []sqlcgen.ListSeasonEpisodeDetailsRow
+	StillSha256ByEpisodeID map[int64]string
+	UnreadableByEpisodeID  map[int64]Unreadable
+	NextCursor             string
+}
+
+// Season is a page of one season's episodes; a series reach does not reach is ErrNoItem, and a
+// cursor this server did not give ErrBadCursor (D306 §9).
+func (browser *Browser) Season(ctx context.Context, reach auth.Reach, query SeasonQuery) (SeasonPage, error) {
+	if _, err := browser.reachedSeries(ctx, reach, query.SeriesID); err != nil {
+		return SeasonPage{}, err
+	}
+	after := math.Inf(-1)
+	if query.Cursor != "" {
+		parsed, err := strconv.ParseFloat(query.Cursor, 64)
+		if err != nil || math.IsNaN(parsed) {
+			return SeasonPage{}, ErrBadCursor
+		}
+		after = parsed
+	}
+	episodes, err := browser.database.Read().ListSeasonEpisodeDetails(ctx, sqlcgen.ListSeasonEpisodeDetailsParams{
+		CollectionID: query.SeriesID, SeasonNumber: query.Season, AfterSortOrder: after, MaxRows: query.Limit + 1,
+	})
+	if err != nil {
+		return SeasonPage{}, fmt.Errorf("list season %d of series %d: %w", query.Season, query.SeriesID, err)
+	}
+	page := SeasonPage{}
+	if int64(len(episodes)) > query.Limit {
+		episodes = episodes[:query.Limit]
+		page.NextCursor = strconv.FormatFloat(episodes[len(episodes)-1].SortOrder, 'g', -1, 64)
+	}
+	page.Episodes = episodes
+	ids := make([]int64, 0, len(episodes))
+	for _, episode := range episodes {
+		ids = append(ids, episode.TitleID)
+	}
+	if page.StillSha256ByEpisodeID, err = browser.shownArtSourceSha256s(ctx, ArtStill, ids); err != nil {
+		return SeasonPage{}, err
+	}
+	if page.UnreadableByEpisodeID, err = browser.unreadableItems(ctx, ids, false); err != nil {
+		return SeasonPage{}, err
+	}
+	return page, nil
 }
 
 // FileWork is what a file is, as now playing names it: its title, when one is filed, by id and name,
