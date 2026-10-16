@@ -35,3 +35,7 @@ var (
 	// DueAfter is how long after its fetch the rolling refresh queues an item.
 	DueAfter = dueAfter
 )
+
+// ReadAsItGoes has a pass read each row when it needs it rather than from its snapshot, as a
+// match's filer does, so a test can compare what the two passes write.
+func ReadAsItGoes(pass *Pass) { pass.readsAsItGoes = true }

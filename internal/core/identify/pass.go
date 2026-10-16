@@ -31,6 +31,9 @@ type Pass struct {
 	settings       Settings
 	afterPassHooks []func(context.Context, Report)
 	owed           owedPasses
+	// readsAsItGoes has the pass read each row when it needs it, as a match's filer does, rather
+	// than from the snapshot: a test's, comparing the two.
+	readsAsItGoes bool
 }
 
 // AfterPass calls follow after each pass and each re-derivation a match makes, with what it left
@@ -142,6 +145,7 @@ func (pass *Pass) IdentifyLibrary(ctx context.Context, libraryID int64) (Report,
 			localArt: map[int64][]LocalImage{}, seriesIDByFolder: map[string]int64{},
 			seriesSpecByID: map[int64]seriesSpec{}, seriesMatchByID: map[int64]sqlcgen.GetSeriesForMatchRow{},
 			listings: map[string][]Episode{}, returningEpisodes: map[int64]bool{}, contradicted: map[int64]bool{},
+			readsAsItGoes: pass.readsAsItGoes,
 		}
 		if loadErr := filer.load(ctx, libraryID); loadErr != nil {
 			return loadErr
@@ -195,8 +199,9 @@ type libraryFiler struct {
 	// file is (contradictedPlacements).
 	contradicted map[int64]bool
 	// snap is what the pass read of the library at its start, which it compares against before it
-	// writes; none in a match's filer.
-	snap snapshot
+	// writes; none in a match's filer, or with readsAsItGoes.
+	snap          snapshot
+	readsAsItGoes bool
 }
 
 // listAwaitingMatch lists what the fetch queue owes the library: films and series never answered for.

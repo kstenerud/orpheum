@@ -43,7 +43,9 @@
 //   - A pass reads its library in a constant number of statements (snapshot.go), compares before
 //     it writes, and runs in a read transaction until it must write: over an unchanged library it
 //     runs the same statements at twice the size and takes no writer (D303, DL7, DL9, DL11).
-//     TestPass_OverAnUnchangedLibraryRunsTheSameStatementsAtTwiceItsSizeAndTakesNoWriter.
+//     TestPass_OverAnUnchangedLibraryRunsTheSameStatementsAtTwiceItsSizeAndTakesNoWriter. What it
+//     writes from the snapshot is what a pass reading each row as it goes writes (D303, M9).
+//     TestPass_FromTheSnapshotWritesWhatAPassReadingAsItGoesWrites.
 //   - A series' match or refresh does not run its library's pass: it marks the library as owing
 //     one, and the owed passes' sweep runs each such library's pass once, however many marked it
 //     (D303, DL14). TestMatch_SeriesMatchesInOneLibraryAreFollowedByOnePass.
