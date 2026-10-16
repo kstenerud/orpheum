@@ -110,7 +110,15 @@ func TestRefresh_AnItemGoneFromItsProviderKeepsOurCopy(t *testing.T) {
 	fetchedAt := lib.fetchedAt(titleID)
 	delete(lib.provider.Films, heat.ID)
 	lib.clock.Advance(time.Hour)
+	passes := 0
+	lib.pass.AfterPass(func(context.Context, identify.Report) { passes++ })
 	lib.refresh(titleID)
+	if passes != 0 {
+		t.Errorf("the refresh ran %d passes of its library; want it marked as owing one (D303, DL14)", passes)
+	}
+	if ran, err := lib.pass.IdentifyOwed(t.Context()); err != nil || ran != 1 {
+		t.Errorf("the owed passes ran %d, %v; want the film's library's", ran, err)
+	}
 	file := lib.titlesByPath()["Metropolis (1995).mkv"]
 	if titleName(file) != "Metropolis" || file.FollowedSource == nil || *file.FollowedSource != "tmdb" ||
 		file.Filing != identify.FilingListed {
