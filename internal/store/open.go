@@ -352,3 +352,13 @@ func (database *Database) emptinessAndApplicationID(
 	}
 	return schemaObjectCount == 0, applicationID, nil
 }
+
+// RowsChanged is how many rows the writer has changed since it opened, what triggers wrote
+// included (SQLite's total_changes): how a test sees that a write changed nothing (D303, DL9).
+func (database *Database) RowsChanged(ctx context.Context) (int64, error) {
+	var changed int64
+	if err := database.writer.QueryRowContext(ctx, "SELECT total_changes()").Scan(&changed); err != nil {
+		return 0, fmt.Errorf("count the rows the writer changed: %w", err)
+	}
+	return changed, nil
+}

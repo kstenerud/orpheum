@@ -314,6 +314,9 @@ const updateSeriesResolved = `-- name: UpdateSeriesResolved :exec
 UPDATE collection SET year = ?1, followed_source = ?2,
   identification_state = CASE WHEN identification_state IN ('identified', 'ambiguous', 'confirmed') THEN identification_state ELSE ?3 END
 WHERE id = ?4 AND kind = 'series'
+  -- Only when it changes something (D303, DL9).
+  AND (year, followed_source, identification_state) IS NOT (?1, ?2,
+    CASE WHEN identification_state IN ('identified', 'ambiguous', 'confirmed') THEN identification_state ELSE ?3 END)
 `
 
 type UpdateSeriesResolvedParams struct {

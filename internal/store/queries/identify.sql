@@ -102,7 +102,11 @@ UPDATE title SET
   year = sqlc.arg(year), runtime_ms = sqlc.arg(runtime_ms), followed_source = sqlc.arg(followed_source),
   followed_source_id = sqlc.arg(followed_source_id),
   identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE sqlc.arg(identification_state) END
-WHERE id = sqlc.arg(id);
+WHERE id = sqlc.arg(id)
+  -- Only when it changes something (D303, DL9).
+  AND (year, runtime_ms, followed_source, followed_source_id, identification_state)
+    IS NOT (sqlc.arg(year), sqlc.arg(runtime_ms), sqlc.arg(followed_source), sqlc.arg(followed_source_id),
+      CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE sqlc.arg(identification_state) END);
 
 -- name: UpsertOriginalText :exec
 -- search_alternates is the name as the one normaliser folds it (D48), which both search indexes take.
@@ -197,7 +201,7 @@ ORDER BY position.sort_order;
 INSERT INTO extra_relation (owner_title, extra_title, extra_type, asserted_by)
 VALUES (sqlc.arg(owner_title), sqlc.arg(extra_title), sqlc.arg(extra_type), 'scanner')
 ON CONFLICT (owner_title, extra_title) DO UPDATE SET extra_type = excluded.extra_type
-WHERE extra_relation.asserted_by = 'scanner';
+WHERE extra_relation.asserted_by = 'scanner' AND extra_relation.extra_type IS NOT excluded.extra_type;
 
 -- name: GetTitleIdentification :one
 SELECT identification_state FROM title WHERE id = ?;
