@@ -70,6 +70,19 @@ func (q *Queries) CountLiveFilesOfTitle(ctx context.Context, titleID int64) (int
 	return count, err
 }
 
+const countRowsChangedByTheWriter = `-- name: CountRowsChangedByTheWriter :one
+SELECT CAST(total_changes() AS INTEGER) AS changed
+`
+
+// How many rows the writer has changed since it opened: a pass writing in batches reads it as it
+// goes, to know how much its batch has written.
+func (q *Queries) CountRowsChangedByTheWriter(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRowsChangedByTheWriter)
+	var changed int64
+	err := row.Scan(&changed)
+	return changed, err
+}
+
 const deleteSortKeysOfOtherLocales = `-- name: DeleteSortKeysOfOtherLocales :exec
 DELETE FROM sort_key
 WHERE locale != ?1

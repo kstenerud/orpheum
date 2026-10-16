@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/querytally"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -22,6 +23,7 @@ import (
 // invariants holding, and makes no more titles over the library's life, tombstones and all, than
 // files at paths it was shown: a fault that made one each pass grows with the passes (D303,
 // M10; the owner's NAS, 2026-10-16, where a special made a new title each pass, 80,246 in all).
+// Filed with each unit its own batch, the library is the same as filed whole (D304 §2).
 // Its seeds are fixed, so a failure is the same failure every run.
 func TestPass_OverRandomLibrariesAgainWritesNothingAndMakesNoTitleEachPass(t *testing.T) {
 	t.Parallel()
@@ -45,7 +47,10 @@ type randomFile struct {
 // randomLibraryWalk scans a random library through several changes, checking each pass.
 func randomLibraryWalk(t *testing.T, kind string, random *rand.Rand) {
 	t.Helper()
-	lib := newTestLibrary(t, kind, []string{"nfo", "nfo_then_tmdb"}[random.IntN(2)])
+	source := []string{"nfo", "nfo_then_tmdb"}[random.IntN(2)]
+	// The same library twice: one filed whole, one with each unit its own batch (D304 §2).
+	lib, batched := newTestLibrary(t, kind, source), newTestLibrary(t, kind, source)
+	identify.BatchRows(batched.pass, 1)
 	var files []randomFile
 	nfos := map[string]string{} // body by path
 	pathsShown := map[string]bool{}
@@ -75,7 +80,14 @@ func randomLibraryWalk(t *testing.T, kind string, random *rand.Rand) {
 			records = append(records, nfoRecord(nfoPath, nfos[nfoPath]))
 		}
 		lib.scan(records...)
+		batched.scan(records...)
 		checkAgainAfterScan(t, lib, step, filePaths(files), len(placesShown))
+		checkAgainAfterScan(t, batched, step, filePaths(files), len(placesShown))
+		if whole, inBatches := dumpIdentified(t, lib), dumpIdentified(t, batched); !maps.EqualFunc(
+			whole, inBatches, slices.Equal) {
+			t.Errorf("step %d: filed in batches, the library differs from filed whole:\n%s", step,
+				differences(whole, inBatches))
+		}
 		changeRandomly(random, &files, nfos, add)
 	}
 }

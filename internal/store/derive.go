@@ -21,13 +21,25 @@ import (
 func (database *Database) WriteUnlessUnchanged(
 	ctx context.Context, derive func(queries *sqlcgen.Queries) error,
 ) (bool, error) {
-	err := readTransaction(ctx, database.readers, func(transaction *sql.Tx) error {
-		return derive(sqlcgen.New(tallying{transaction}))
-	})
-	if !isRefusedWrite(err) {
+	wouldWrite, err := database.WouldWrite(ctx, derive)
+	if !wouldWrite {
 		return false, err
 	}
 	return true, database.Write(ctx, derive)
+}
+
+// WouldWrite runs derive in a read transaction, where SQLite refuses any write (query_only), and
+// says whether it tried to write: a derivation that finds everything as it derives it never takes
+// the writer, and one that would write can then write as it chooses, in batches (D304 §2). Its run
+// stops at the first write it tries, so it must keep nothing of the run.
+func (database *Database) WouldWrite(ctx context.Context, derive func(queries *sqlcgen.Queries) error) (bool, error) {
+	err := readTransaction(ctx, database.readers, func(transaction *sql.Tx) error {
+		return derive(sqlcgen.New(tallying{transaction}))
+	})
+	if isRefusedWrite(err) {
+		return true, nil
+	}
+	return false, err
 }
 
 // isRefusedWrite is whether err is SQLite refusing a write on a query_only connection.

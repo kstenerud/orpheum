@@ -75,6 +75,8 @@ type Database struct {
 	onReaderWrite func(file, caller string)
 	// isClosed is whether Close has been called.
 	isClosed atomic.Bool
+	// commits counts the write transactions committed since the database opened (Commits).
+	commits atomic.Int64
 }
 
 // OpenOptions are the choices Open needs from the config file: they are known before the
@@ -269,7 +271,15 @@ func (database *Database) transactHolding(ctx context.Context, change func(trans
 	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("commit write transaction: %w", err)
 	}
+	database.commits.Add(1)
 	return nil
+}
+
+// Commits is how many write transactions have committed since the database opened. Read inside a
+// write, which holds the one writer, it is exact: a work that read the database and writes in
+// batches knows by it, in each batch, whether anyone else wrote since (D303, M1; D304 §2).
+func (database *Database) Commits() int64 {
+	return database.commits.Load()
 }
 
 // OrNotFound turns a generated query's "no rows" into ErrNotFound, so callers outside the store can

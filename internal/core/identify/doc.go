@@ -60,6 +60,12 @@
 //     TestPass_OverAnUnchangedLibraryRunsTheSameStatementsAtTwiceItsSizeAndTakesNoWriter. What it
 //     writes from the snapshot is what a pass reading each row as it goes writes (D303, M9).
 //     TestPass_FromTheSnapshotWritesWhatAPassReadingAsItGoesWrites.
+//   - A pass that would write files its library in batches of whole filing units (units.go), each
+//     one write that changes no more than its budget of rows but for the unit it ends with, and
+//     reads the library again when anyone else committed since it read: filed in batches, a library
+//     is as filed whole (D304 §2; D303, M1). TestPass_AFirstImportIsFiledInBatchesOfWholeUnitsWithinTheirBudget,
+//     TestPass_AWriteBetweenItsBatchesHasThePassReadAgainAndFileEverything,
+//     TestPass_OverRandomLibrariesAgainWritesNothingAndMakesNoTitleEachPass.
 //   - A series' match or refresh does not run its library's pass: it marks the library as owing
 //     one, and the owed passes' sweep runs each such library's pass once, however many marked it
 //     (D303, DL14). TestMatch_SeriesMatchesInOneLibraryAreFollowedByOnePass.

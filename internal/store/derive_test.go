@@ -55,3 +55,24 @@ func TestWriteUnlessUnchanged_TakesTheWriterOnlyForADerivationThatWrites(t *test
 		t.Errorf("a failing derivation: %v after %d runs; want its failure, from the one read run", err, runs)
 	}
 }
+
+// Commits counts each write that commits, and not one that rolls back or a read: a pass filing in
+// batches knows by it whether anyone else wrote since it read (D303, M1; D304 §2).
+func TestCommits_CountsEachWriteThatCommitsAndNoneThatRollsBack(t *testing.T) {
+	t.Parallel()
+	database := storetest.OpenMigrated(t)
+	before := database.Commits()
+	if err := database.Write(t.Context(), func(*sqlcgen.Queries) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	failed := errors.New("rolled back")
+	if err := database.Write(t.Context(), func(*sqlcgen.Queries) error { return failed }); !errors.Is(err, failed) {
+		t.Fatalf("the failing write returned %v", err)
+	}
+	if _, err := database.Read().ListLiveLibraryIDs(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if counted := database.Commits() - before; counted != 1 {
+		t.Errorf("counted %d commits; want 1, the write that committed", counted)
+	}
+}
