@@ -20438,7 +20438,8 @@ retention. It revises D172 for episodes and D304 §6 for plays.
    sure the architecture can handle adding it later."* A position stays a group and a number, and
    the parser's result keeps room for a date.
 5. **Disc folders, ISOs and `cd1`/`cd2` films are out of the beta.** *"We'll keep them out of beta
-   for now, unless people start asking for it."*
+   for now, unless people start asking for it."* One is listed as skipped, "disc image, not
+   supported yet", rather than ignored in silence.
 6. **Absurd data is a health signal.** To "should a series with far more specials than its files
    or listing could explain appear in Needs attention?": *"Yes"*.
 7. **Off-screen rows may go stale while a library is filed.** To "may rows off screen go stale
@@ -20449,7 +20450,12 @@ retention. It revises D172 for episodes and D304 §6 for plays.
    is defective, then gets another copy, it still has the play count)."* A removed file can then
    be purged by D304 §6's limits without taking what was watched of it.
 
-Open: whether the API follows series → season (the review's Q2), and whether the client cache and
-list windowing are our own code or a dependency (its Q4).
+9. **Reads follow series → season.** A series is read with its seasons and their counts and the
+   season it opens on; a season is read with its episodes, paged. No response grows with a
+   library's damage.
+10. **The client cache and list windowing are our own code**, grown from `useResource` and
+    `Remembered`, with no new dependency.
+
+The owner, to the recommendations on 5, 9 and 10: *"ok, I agree with your recommendations."*
 
 **Status:** Decided 2026-10-16.
