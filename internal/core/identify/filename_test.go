@@ -25,6 +25,19 @@ func TestParsePath_ACorpusOfNames(t *testing.T) {
 		{"7th Heaven (1968).mkv", ParsedPath{Kind: "movie", Name: "7th Heaven", Year: 1968}},
 		{"Glass Runner 2061 (2017).mkv", ParsedPath{Kind: "movie", Name: "Glass Runner 2061", Year: 2017}},
 		{"untitled rip final v2.mkv", ParsedPath{Kind: "movie", Name: "untitled rip final v2"}},
+		// The competitors' corpora (design/research/library-scanner-practice-2026-10-16.md §5.3): a
+		// release group's tag before the name, a title that is a year before its year, and an IMDb
+		// id alone in brackets.
+		{"[KESTREL.EX] Movie Name (2019) 1080p.mkv", ParsedPath{Kind: "movie", Name: "Movie Name", Year: 2019}},
+		{"1917.2019.1080p.mkv", ParsedPath{Kind: "movie", Name: "1917", Year: 2019}},
+		{"Metropolis [tt0234567].mkv", ParsedPath{
+			Kind: "movie", Name: "Metropolis", ProviderIDs: map[string]string{"imdb": "tt0234567"},
+		}},
+		// A season and an episode said as separate words, which fell to season 1 silently.
+		{"the office s2 ep3 FINAL.mp4", ParsedPath{Kind: "episode", Name: "the office", Season: 2, Episode: 3}},
+		{"Show S03 EP05 Name.mkv", ParsedPath{Kind: "episode", Name: "Show", Season: 3, Episode: 5}},
+		{"Lockfast (1989) SE7 - EP5.mkv", ParsedPath{Kind: "episode", Name: "Lockfast", Year: 1989, Season: 7, Episode: 5}},
+		{"Show Season 2 Episode 5.mkv", ParsedPath{Kind: "episode", Name: "Show", Season: 2, Episode: 5}},
 		// Not Latin: D49's cases, which ASCII character classes fail silently.
 		{"Fièvre (2001)/Fièvre (2001).mkv", ParsedPath{Kind: "movie", Name: "Fièvre", Year: 2001}},
 		{"狂った一頁 (2015).mkv", ParsedPath{Kind: "movie", Name: "狂った一頁", Year: 2015}},
