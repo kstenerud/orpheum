@@ -72,13 +72,10 @@ func (world *shelf) fileAsFilm(text, path string) int64 {
 			return err
 		}
 		nameItem(world.t, queries, titleID, ListFilms, text)
-		if fileID == 0 {
-			return nil // a film whose files are gone
-		}
 		version, err := queries.InsertVersion(world.t.Context(),
 			sqlcgen.InsertVersionParams{TitleID: titleID, CreatedAt: 1})
-		if err != nil {
-			return err
+		if err != nil || fileID == 0 {
+			return err // with no file, a film whose files are gone: its version is all that is left
 		}
 		return queries.SetFileVersionAndIdentifiedPath(world.t.Context(),
 			sqlcgen.SetFileVersionAndIdentifiedPathParams{VersionID: &version, ID: fileID})

@@ -39,6 +39,10 @@ func (filer *libraryFiler) matchEvidence(ctx context.Context, titleID int64, spe
 	case matchRow.identificationState == identificationAmbiguous:
 		spec.identification, spec.reason = identificationAmbiguous, ""
 	case matchRow.followedSource == nil:
+	case *matchRow.followedSource == sourceNFO:
+		// The NFO it followed is gone, deleted or its video renamed from it: the path speaks for it
+		// now. Read as a provider's answer, it failed the library's every pass (found by
+		// TestPass_OverRandomLibrariesAgainWritesNothingAndMakesNoTitleEachPass).
 	case *matchRow.followedSource == sourceNone:
 		spec.source, spec.reason = sourceNone, noMatchReason(matchRow.metadataSource)
 	default:

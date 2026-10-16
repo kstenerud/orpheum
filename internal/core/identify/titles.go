@@ -97,6 +97,9 @@ func (filer *libraryFiler) findOrAddTitle(ctx context.Context, spec titleSpec) (
 	}
 	filer.snap.holdAdded(id, spec.kind)
 	filer.titleIDByKey[key] = id
+	if filer.added != nil {
+		filer.added[id] = true
+	}
 	return id, nil
 }
 
@@ -240,7 +243,7 @@ func (filer *libraryFiler) resolve(ctx context.Context, titleID int64, spec titl
 		}
 	}
 	identification, err := filer.resolveTitleValues(ctx, sqlcgen.UpdateTitleResolvedParams{
-		Year: ptr.NilIfZero(year), RuntimeMs: ptr.NilIfZero(runtimeMs),
+		Kind: spec.kind, Year: ptr.NilIfZero(year), RuntimeMs: ptr.NilIfZero(runtimeMs),
 		FollowedSource: source, FollowedSourceID: sourceID,
 		IdentificationState: spec.identification, ID: titleID,
 	})

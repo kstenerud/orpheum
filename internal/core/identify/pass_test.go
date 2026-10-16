@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -494,5 +495,68 @@ func TestPass_FilesUnderARootNotInNFCOrOfSlashAreFiled(t *testing.T) {
 		if titleName(heat) != "Metropolis" || heat.Filing != identify.FilingListed {
 			t.Errorf("root %s: Metropolis is %+v, want it filed from its NFO and listed", rootPath, heat)
 		}
+	}
+}
+
+// A title a file left, renamed and identified again, is merged into the file's new title with its
+// history (D173), and a file a person confirmed gets no title of its new name made and left empty:
+// each stayed live with no file, in its library (the owner's NAS, 2026-10-16).
+func TestPass_ATitleAFileLeftIsMergedIntoItsNewOneAndNoneIsMadeForAFileThatStays(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "nfo_then_tmdb")
+	lib.scan(videoRecord("Metropols (1995).mkv"), videoRecord("Nosferatu (1998).mkv"))
+	typo := lib.titlesByPath()["Metropols (1995).mkv"].TitleID
+	ronin := lib.titlesByPath()["Nosferatu (1998).mkv"].TitleID
+	if err := lib.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		return queries.ConfirmTitleMatch(t.Context(), ronin)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	lib.scan(videoMoved("Metropols (1995).mkv", "Metropolis (1995).mkv"), videoMoved("Nosferatu (1998).mkv", "Nosferatu 2 (1998).mkv"))
+	heat := lib.titlesByPath()["Metropolis (1995).mkv"].TitleID
+	merged := storetest.QueryRaw(t, lib.database.Path(),
+		fmt.Sprintf("SELECT merged_into FROM item WHERE id = %d AND removed_at IS NOT NULL", typo))
+	if want := []string{strconv.FormatInt(heat, 10)}; !slices.Equal(merged, want) {
+		t.Errorf("the title the renamed file left is merged into %v; want %v, the file's new title", merged, want)
+	}
+	live := storetest.QueryRaw(t, lib.database.Path(),
+		"SELECT count(*) FROM item WHERE kind = 'title' AND removed_at IS NULL")
+	if !slices.Equal(live, []string{"2"}) {
+		t.Errorf("%v live titles; want 2, Metropolis and the confirmed Nosferatu, none made for Nosferatu 2 and left empty", live)
+	}
+}
+
+// An episode whose NFO now numbers it otherwise, its file where it was, stays at its place, and no
+// title is made at the place the NFO gives and left there empty (the owner's NAS, 2026-10-16).
+func TestPass_AnEpisodeRenumberedByItsNFOLeavesNoEmptyTitleAtItsNewPlace(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "shows", "nfo")
+	show := nfoRecord("Test Show/tvshow.nfo", `<tvshow><title>Test Show</title><year>2024</year></tvshow>`)
+	const rel = "Test Show/Season 01/Test Show - S01E02.mkv"
+	numbered := func(episode int) nodeproto.ScanRecord {
+		return nfoRecord("Test Show/Season 01/Test Show - S01E02.nfo", fmt.Sprintf(
+			`<episodedetails><title>The Second</title><season>1</season><episode>%d</episode>`+
+				`</episodedetails>`, episode))
+	}
+	lib.scan(show, videoRecord(rel), numbered(2))
+	lib.scan(show, videoRecord(rel), numbered(4))
+	live := storetest.QueryRaw(t, lib.database.Path(),
+		"SELECT count(*) FROM item WHERE kind = 'title' AND removed_at IS NULL")
+	if !slices.Equal(live, []string{"1"}) {
+		t.Errorf("%v live episodes; want 1, none made at the NFO's new place and left empty", live)
+	}
+}
+
+// A film whose NFO is deleted is identified from its path again, and the library's pass goes on: it
+// failed, every pass, reading "nfo" as a provider whose stored answer it followed.
+func TestPass_AFilmWhoseNFOIsDeletedIsIdentifiedFromItsPathAgain(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "nfo_then_tmdb")
+	const rel = "Metropolis (1995)/Metropolis (1995).mkv"
+	lib.scan(videoRecord(rel), nfoRecord("Metropolis (1995)/Metropolis (1995).nfo",
+		`<movie><title>Metropolis, the NFO's</title><year>1995</year></movie>`))
+	lib.scan(videoRecord(rel))
+	if name := titleName(lib.titlesByPath()[rel]); name != "Metropolis" {
+		t.Errorf("the film is called %q once its NFO is gone; want Metropolis, from its path", name)
 	}
 }
