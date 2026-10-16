@@ -165,6 +165,27 @@ func TestParseEpisodePath_InASeriesLibraryEverythingIsAnEpisodeOrASpecial(t *tes
 		{"Quillwick/Quillwick - 1x4 - Born to be King.avi", ParsedPath{
 			Kind: "episode", Name: "Quillwick", Season: 1, Episode: 4, EpisodeName: "Born to be King",
 		}},
+		// The owner's NAS, 2026-10-16: the series' name and the episode's number, with no marker.
+		{"Cidade das Gaivotas/Cidade das Gaivotas 01 - A Coroa do Faroleiro.mkv", ParsedPath{
+			Kind: "episode", Name: "Cidade das Gaivotas", Season: 1, Episode: 1, EpisodeName: "A Coroa do Faroleiro",
+		}},
+		{"ERASED/ERASED 02 Palm of the Hand (BDRip 1080p AC3 10bit).mkv", ParsedPath{
+			Kind: "episode", Name: "ERASED", Season: 1, Episode: 2, EpisodeName: "Palm of the Hand",
+		}},
+		{
+			"Tsuki no Onna/[Hoshizora]_Kaito_Kumo_-_Tsuki_no_Onna_-_03_v2_[720p-10bit] [C66E9481].mkv",
+			ParsedPath{Kind: "episode", Name: "Tsuki no Onna", Season: 1, Episode: 3},
+		},
+		// A miniseries' parts.
+		{"Lonesome Wren/Lonesome Wren part 2.mkv", ParsedPath{
+			Kind: "episode", Name: "Lonesome Wren", Season: 1, Episode: 2,
+		}},
+		{"The Walking Ape/The Walking Ape - Part 3 - The Ape House.avi", ParsedPath{
+			Kind: "episode", Name: "The Walking Ape", Season: 1, Episode: 3, EpisodeName: "The Ape House",
+		}},
+		{"Cold Tobias/Cold Tobias BBC 1996 2 of 4.avi", ParsedPath{
+			Kind: "episode", Name: "Cold Tobias", Season: 1, Episode: 2,
+		}},
 		{
 			"Brindlewood/Brindlewood Season 5  [1080p x265 10bit FS89 Joy]/Featurettes/Six Seasons and A Finale.mkv",
 			ParsedPath{Kind: "episode", Name: "Brindlewood", EpisodeName: "Six Seasons and A Finale", IsUnnumbered: true},

@@ -10,6 +10,7 @@ import (
 	"unicode"
 
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/textindex"
 )
 
 // ParsedPath is what a path says about the work in it: a hint, never an authority
@@ -68,6 +69,17 @@ var (
 	// is taken as a marker, since a film's name may be "5x2".
 	shortSeasonXEpisodePattern = regexp.MustCompile(
 		`(?:^|[^\p{L}\p{N}])([0-9]{1,2})x([0-9]{1,3})(?:[^\p{L}\p{N}]+|$)`)
+	// A miniseries' part: "Show part 2", "Show - Part 3 - Its Name", "Show BBC 1996 2 of 4".
+	partPattern   = regexp.MustCompile(`(?i)(?:^|[^\p{L}\p{N}])part[\p{Z} ._-]*([0-9]{1,2})(?:[^\p{L}\p{N}]+|$)`)
+	partOfPattern = regexp.MustCompile(
+		`(?i)(?:^|[^\p{L}\p{N}])([0-9]{1,2})[\p{Z} ._-]*of[\p{Z} ._-]*[0-9]{1,2}(?:[^\p{L}\p{N}]+|$)`)
+	// A number after the series' name, as a word: "ERASED 02 Its Name", "Show_-_03_v2_[720p]"; a
+	// release's version, "v2", may follow it. The function seriesNumberedEpisode checks what comes
+	// before.
+	numberWordPattern = regexp.MustCompile(
+		`(?:^|[\p{Z} ._-])([0-9]{1,3})(?:[\p{Z} ._-]?v[0-9])?(?:[^\p{L}\p{N}]+|$)`)
+	// A release's tag in brackets, before or after the name: "[Hoshizora]", "[720p-10bit]".
+	bracketTagPattern = regexp.MustCompile(`\[[^\]]*\]`)
 	// "Show - 01 - Its Name": a number alone between dashes, the season left unsaid.
 	dashNumberPattern = regexp.MustCompile(`[\p{Z} ._]-[\p{Z} ._]*([0-9]{1,3})[\p{Z} ._]*-[\p{Z} ._]`)
 )
@@ -219,20 +231,9 @@ func ParseEpisodePath(relative string) ParsedPath {
 	parsed.Kind = library.TitleKindEpisode
 	parsed.Name, parsed.Year = outermostSeriesFolder(folder)
 	season, isBonus := seasonFromFolders(folder)
-	before, episodeName, markedSeason := "", stem, -1
-	if match := shortSeasonXEpisodePattern.FindStringSubmatchIndex(stem); match != nil {
-		markedSeason = parseNonNegativeInt(stem[match[2]:match[3]])
-		parsed.Episode = parseNonNegativeInt(stem[match[4]:match[5]])
-		before, episodeName = stem[:match[0]], stem[match[1]:]
-	} else if match := dashNumberPattern.FindStringSubmatchIndex(stem); match != nil {
-		parsed.Episode = parseNonNegativeInt(stem[match[2]:match[3]])
-		before, episodeName = stem[:match[0]], stem[match[1]:]
-	} else if match := loneEpisodePattern.FindStringSubmatchIndex(stem); match != nil {
-		parsed.Episode = parseNonNegativeInt(stem[match[2]:match[3]])
-		before = stem[:match[0]]
-	} else if number, found := episodeFolderNumber(folder); found {
-		parsed.Episode = number
-	}
+	marker := numberedInStem(stem, folder, parsed.Name)
+	parsed.Episode = marker.episode
+	before, episodeName := marker.before, marker.after
 	if parsed.Name == "" {
 		parsed.Name, parsed.Year = cleanTitle(before)
 	}
@@ -240,20 +241,92 @@ func ParseEpisodePath(relative string) ParsedPath {
 		parsed.Name, parsed.Year = cleanTitle(stem)
 	}
 	parsed.EpisodeName, _ = cleanTitle(episodeName)
-	if parsed.EpisodeName == "" {
+	if parsed.EpisodeName == "" && !marker.isNamedOnlyIfClean {
 		parsed.EpisodeName = strings.TrimSpace(episodeName)
 	}
 	switch {
 	case isBonus || parsed.Episode == 0:
 		parsed.Season, parsed.Episode, parsed.IsUnnumbered = 0, 0, true
-	case markedSeason >= 0:
-		parsed.Season = markedSeason
+	case marker.season >= 0:
+		parsed.Season = marker.season
 	case season >= 0:
 		parsed.Season = season
 	default:
 		parsed.Season = 1
 	}
 	return parsed
+}
+
+// stemNumber is an episode's number as a series library's file name gives it with no S01E02
+// marker: the season too where it says one (-1 where not), what comes before the number and what
+// after, and whether what follows is the episode's name only if it cleans to one, as release tags
+// alone, "[720p-10bit]", name nothing.
+type stemNumber struct {
+	season, episode    int
+	before, after      string
+	isNamedOnlyIfClean bool
+}
+
+// numberedInStem reads an episode's number from a stem, in order: "1x4", "Show - 01 - Its Name", a
+// miniseries' "2 of 4" or "part 2", a number after the series' name, "E05" or "Episode 5", and else
+// a folder named for the number. None found, its episode is 0.
+func numberedInStem(stem, folder, seriesName string) stemNumber {
+	if match := shortSeasonXEpisodePattern.FindStringSubmatchIndex(stem); match != nil {
+		return stemNumber{
+			season:  parseNonNegativeInt(stem[match[2]:match[3]]),
+			episode: parseNonNegativeInt(stem[match[4]:match[5]]),
+			before:  stem[:match[0]], after: stem[match[1]:],
+		}
+	}
+	if match := dashNumberPattern.FindStringSubmatchIndex(stem); match != nil {
+		return stemNumber{
+			season: -1, episode: parseNonNegativeInt(stem[match[2]:match[3]]),
+			before: stem[:match[0]], after: stem[match[1]:],
+		}
+	}
+	if match := firstOf(stem, partOfPattern, partPattern); match != nil {
+		return stemNumber{
+			season: -1, episode: parseNonNegativeInt(stem[match[2]:match[3]]),
+			before: stem[:match[0]], after: stem[match[1]:], isNamedOnlyIfClean: true,
+		}
+	}
+	if episode, rest, found := seriesNumberedEpisode(stem, seriesName); found {
+		return stemNumber{season: -1, episode: episode, after: rest, isNamedOnlyIfClean: true}
+	}
+	if match := loneEpisodePattern.FindStringSubmatchIndex(stem); match != nil {
+		episode := parseNonNegativeInt(stem[match[2]:match[3]])
+		return stemNumber{season: -1, episode: episode, before: stem[:match[0]], after: stem}
+	}
+	number, _ := episodeFolderNumber(folder)
+	return stemNumber{season: -1, episode: number, after: stem}
+}
+
+// firstOf is the first match of the first expression that matches text, or nil.
+func firstOf(text string, expressions ...*regexp.Regexp) []int {
+	for _, expression := range expressions {
+		if match := expression.FindStringSubmatchIndex(text); match != nil {
+			return match
+		}
+	}
+	return nil
+}
+
+// seriesNumberedEpisode reads an episode's number written as a word after the series' name, as in
+// "ERASED 02 Palm of the Hand" or "[Group]_Kaito_Kumo_-_Tsuki_no_Onna_-_03_v2", and what
+// follows it. What comes before the number must end with the series' name, as textindex.SameWork
+// folds it, so a number inside an episode's own name is not taken for one.
+func seriesNumberedEpisode(stem, seriesName string) (episode int, rest string, found bool) {
+	series := textindex.SameWork(seriesName)
+	if series == "" {
+		return 0, "", false
+	}
+	text := strings.TrimSpace(strings.ReplaceAll(bracketTagPattern.ReplaceAllString(stem, " "), "_", " "))
+	for _, match := range numberWordPattern.FindAllStringSubmatchIndex(text, -1) {
+		if strings.HasSuffix(textindex.SameWork(text[:match[0]]), series) {
+			return parseNonNegativeInt(text[match[2]:match[3]]), text[match[1]:], true
+		}
+	}
+	return 0, "", false
 }
 
 // outermostSeriesFolder names the series of a file no marker places by the folder just under the
