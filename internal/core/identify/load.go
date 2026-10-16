@@ -26,8 +26,10 @@ func (filer *libraryFiler) load(ctx context.Context, libraryID int64) error {
 	if filer.files, err = filer.queries.ListIdentifyFiles(ctx, libraryID); err != nil {
 		return fmt.Errorf("list its files: %w", err)
 	}
-	if err := filer.loadSnapshot(ctx, libraryID); err != nil {
-		return err
+	if !filer.readsAsItGoes {
+		if err := filer.loadSnapshot(ctx, libraryID); err != nil {
+			return err
+		}
 	}
 	if filer.library.MetadataSource != sourceTMDB {
 		if err := filer.loadNFOs(ctx); err != nil {

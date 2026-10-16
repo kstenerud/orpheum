@@ -65,7 +65,7 @@ func nfoFilms(t *testing.T, size int) *testLibrary {
 	return lib
 }
 
-// matchedFilms is a library of films, each matched at TMDB.
+// matchedFilms is a library of films, each matched at TMDB, one confirmed by a person.
 func matchedFilms(t *testing.T, size int) *testLibrary {
 	t.Helper()
 	lib := newTestLibrary(t, "movies", "tmdb")
@@ -83,6 +83,11 @@ func matchedFilms(t *testing.T, size int) *testLibrary {
 		if outcome := lib.matchFileTitle(path); outcome != identify.OutcomeMatched {
 			t.Fatalf("%s: %s, want matched", path, outcome)
 		}
+	}
+	// A person's chosen match is confirmed, which a pass never lowers (D172).
+	if err := lib.chooser.Choose(t.Context(), lib.titlesByPath()["Film 0 (1990)/Film 0 (1990).mkv"].TitleID,
+		"tmdb", "100"); err != nil {
+		t.Fatal(err)
 	}
 	lib.scan(records...)
 	return lib

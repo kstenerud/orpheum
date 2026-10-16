@@ -156,6 +156,53 @@ func ExecRaw(tb testing.TB, path string, statements ...string) {
 	}
 }
 
+// QueryRaw reads every row a query returns from the database file at path, bypassing the store,
+// each row's columns as text joined by "|": for a test that compares two databases' contents.
+func QueryRaw(tb testing.TB, path, query string) []string {
+	tb.Helper()
+	pool, err := sql.Open("sqlite", path+"?_pragma=busy_timeout(15000)&_pragma=query_only(1)")
+	if err != nil {
+		tb.Fatalf("open %s: %v", path, err)
+	}
+	defer func() {
+		if closeErr := pool.Close(); closeErr != nil {
+			tb.Errorf("close %s: %v", path, closeErr)
+		}
+	}()
+	rows, err := pool.QueryContext(tb.Context(), query)
+	if err != nil {
+		tb.Fatalf("query %q on %s: %v", query, path, err)
+	}
+	defer func() { _ = rows.Close() }() //nolint:errcheck // a read; rows.Err is checked
+	columns, err := rows.Columns()
+	if err != nil {
+		tb.Fatalf("read the columns of %q: %v", query, err)
+	}
+	var read []string
+	for rows.Next() {
+		values := make([]any, len(columns))
+		pointers := make([]any, len(columns))
+		for index := range values {
+			pointers[index] = &values[index]
+		}
+		if err := rows.Scan(pointers...); err != nil {
+			tb.Fatalf("read a row of %q: %v", query, err)
+		}
+		texts := make([]string, len(values))
+		for index, value := range values {
+			if bytes, isBytes := value.([]byte); isBytes {
+				value = fmt.Sprintf("%x", bytes)
+			}
+			texts[index] = fmt.Sprint(value)
+		}
+		read = append(read, strings.Join(texts, "|"))
+	}
+	if err := rows.Err(); err != nil {
+		tb.Fatalf("read %q: %v", query, err)
+	}
+	return read
+}
+
 // DiskFullError is the error SQLite answers a write with when its disk has no room: a real one,
 // from a scratch database held to the pages it has, for a test of what a full disk does to a
 // package that writes (D231 §5).
