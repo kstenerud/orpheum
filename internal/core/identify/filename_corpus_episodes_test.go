@@ -358,7 +358,7 @@ func TestParseEpisodePath_OurCorpusOfASeriesLibrary(t *testing.T) {
 		{"Harbor Lights/Harbor Lights - 2019-03-14 - Guest Night.mkv", unnumbered("Harbor Lights", "Harbor Lights")},
 		{"Harbor Lights/Harbor Lights 14.03.2019.mkv", unnumbered("Harbor Lights", "Harbor Lights 14.03")},
 		{"Harbor Lights/Harbor Lights 2019 03 14.mkv", unnumbered("Harbor Lights", "Harbor Lights")},
-		{"Harbor Lights/Harbor Lights (March 14, 2019).mkv", unnumbered("Harbor Lights", "Harbor Lights (March 14")},
+		{"Harbor Lights/Harbor Lights (March 14, 2019).mkv", unnumbered("Harbor Lights", "Harbor Lights")},
 		{"Harbor Lights/2019/Harbor Lights 2019-03-14.mkv", unnumbered("Harbor Lights", "Harbor Lights")},
 
 		// Not Latin.
