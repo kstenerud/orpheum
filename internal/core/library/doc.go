@@ -152,8 +152,9 @@
 //     across scans. TestIngest_ASubtitleFileIsATrackOfItsVideoUntilItsVideoIsGone,
 //     TestSidecarTrackOf_ReadsTheLanguageAndFlagsAfterTheVideosName.
 //
-//   - A payload that returns revives its tombstone, with its history (D208 §4).
-//     TestScenario_S10_AFilmPutBackRevivesItsTombstone.
+//   - A payload that returns revives its tombstone, with its history (D208 §4), wherever it is put
+//     back, another file now at its old path or not. TestScenario_S10_AFilmPutBackRevivesItsTombstone,
+//     TestScenario_AFilmPutBackElsewhereWhileItsOldPathIsTakenRevivesItsTombstone.
 //
 //   - Once a scan's end is committed its library is handed on, to identification.
 //     TestIngest_AfterAScanEndsItsLibraryIsHandedOn.

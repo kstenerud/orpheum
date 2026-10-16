@@ -159,6 +159,23 @@ func TestScenario_S10_AFilmPutBackRevivesItsTombstone(t *testing.T) {
 	}
 }
 
+// A film put back at a new path while another file now lives at its old one comes back too: brought
+// back at its old path first, it broke the one live file per path, and the scan failed whole.
+func TestScenario_AFilmPutBackElsewhereWhileItsOldPathIsTakenRevivesItsTombstone(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	world.scan([]nodeproto.ScanRecord{observedRecord("Metropolis.mkv", "heat"), observedRecord("Wing.mkv", "alien")}, true)
+	heat := world.liveFilesByPath()[root+"/Metropolis.mkv"].ID
+	world.scan([]nodeproto.ScanRecord{observedRecord("Wing.mkv", "alien")}, true)
+	world.scan([]nodeproto.ScanRecord{
+		observedRecord("Wing.mkv", "alien"), observedRecord("Metropolis.mkv", "another"),
+		observedRecord("Restored/Metropolis (1995).mkv", "heat"),
+	}, true)
+	if back := world.liveFilesByPath()[root+"/Restored/Metropolis (1995).mkv"]; back.ID != heat {
+		t.Errorf("the film came back as file %d, want %d with its history (D208 §4)", back.ID, heat)
+	}
+}
+
 func mountRecord(path string, device uint64) nodeproto.ScanRecord {
 	return nodeproto.ScanRecord{Type: nodeproto.RecordMount, Mount: &nodeproto.Mount{
 		Path: nodeproto.Path{Text: path}, FilesystemDevice: device,
