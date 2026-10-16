@@ -257,7 +257,10 @@ UPDATE file SET version_id = sqlc.arg(version_id), identified_from_path = path W
 
 -- name: SetFileFiling :exec
 -- How identification filed a file, and why (D163).
-UPDATE file SET filing = sqlc.arg(filing), filing_reason = sqlc.arg(filing_reason) WHERE id = sqlc.arg(id);
+UPDATE file SET filing = sqlc.arg(filing), filing_reason = sqlc.arg(filing_reason)
+WHERE id = sqlc.arg(id)
+  -- Only when it changes something (D303, DL9).
+  AND (filing, filing_reason) IS NOT (sqlc.arg(filing), sqlc.arg(filing_reason));
 
 -- name: ListFilesToCompare :many
 -- The live files of a library on a node, with what a listing is compared with (D240 section 3): a

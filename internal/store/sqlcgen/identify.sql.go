@@ -876,6 +876,10 @@ UPDATE title SET
   followed_source_id = ?4,
   identification_state = CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE ?5 END
 WHERE id = ?6
+  -- Only when it changes something (D303, DL9).
+  AND (year, runtime_ms, followed_source, followed_source_id, identification_state)
+    IS NOT (?1, ?2, ?3, ?4,
+      CASE WHEN identification_state = 'confirmed' THEN identification_state ELSE ?5 END)
 `
 
 type UpdateTitleResolvedParams struct {
@@ -987,7 +991,7 @@ const upsertScannerExtraRelation = `-- name: UpsertScannerExtraRelation :exec
 INSERT INTO extra_relation (owner_title, extra_title, extra_type, asserted_by)
 VALUES (?1, ?2, ?3, 'scanner')
 ON CONFLICT (owner_title, extra_title) DO UPDATE SET extra_type = excluded.extra_type
-WHERE extra_relation.asserted_by = 'scanner'
+WHERE extra_relation.asserted_by = 'scanner' AND extra_relation.extra_type IS NOT excluded.extra_type
 `
 
 type UpsertScannerExtraRelationParams struct {

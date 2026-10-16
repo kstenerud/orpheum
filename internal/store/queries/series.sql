@@ -32,7 +32,10 @@ WHERE id = sqlc.arg(id) AND kind = 'series' AND followed_source IS NULL;
 -- A pass's resolution of a series' own fields; its match is the matcher's and a person's.
 UPDATE collection SET year = sqlc.arg(year), followed_source = sqlc.arg(followed_source),
   identification_state = CASE WHEN identification_state IN ('identified', 'ambiguous', 'confirmed') THEN identification_state ELSE sqlc.arg(identification_state) END
-WHERE id = sqlc.arg(id) AND kind = 'series';
+WHERE id = sqlc.arg(id) AND kind = 'series'
+  -- Only when it changes something (D303, DL9).
+  AND (year, followed_source, identification_state) IS NOT (sqlc.arg(year), sqlc.arg(followed_source),
+    CASE WHEN identification_state IN ('identified', 'ambiguous', 'confirmed') THEN identification_state ELSE sqlc.arg(identification_state) END);
 
 -- name: ListLiveSeriesEpisodeSources :many
 -- A series' episodes in its aired order, with where each takes its values from and when it

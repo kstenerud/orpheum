@@ -989,7 +989,10 @@ func (q *Queries) SetFileAttachedTo(ctx context.Context, arg SetFileAttachedToPa
 }
 
 const setFileFiling = `-- name: SetFileFiling :exec
-UPDATE file SET filing = ?1, filing_reason = ?2 WHERE id = ?3
+UPDATE file SET filing = ?1, filing_reason = ?2
+WHERE id = ?3
+  -- Only when it changes something (D303, DL9).
+  AND (filing, filing_reason) IS NOT (?1, ?2)
 `
 
 type SetFileFilingParams struct {
