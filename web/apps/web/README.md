@@ -30,6 +30,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **Every screen is a pure view of its data, tested by rendering it**; the loading around it is
   thin. `src/*.test.tsx`. What a screen does when clicked is tested in happy-dom against a
   stand-in server passed to the SDK as its fetch (`src/test-dom.tsx`), never the network.
+- **A list's poll reads at most two pages, those in view** (D306 §7): pages scrolled past keep what
+  they showed until they are in view again, each page is read again by its own cursor, an entry read
+  twice shows once, and an unchanged entry stays the object shown, so a memoised row is not drawn
+  again. A series sends its seasons and a season its episodes a page at a time (D306 §9).
+  `src/use-pages.test.ts`, `src/items-in-view.test.ts`, `src/series.test.tsx`.
 - **A device not yet asked how it makes sound is asked before it plays**, and the decision is
   asked for again with the answer; it can be changed under the video and in Your devices, and
   the dialogue boost starts as the person left it (D222). `src/sound.test.tsx`.

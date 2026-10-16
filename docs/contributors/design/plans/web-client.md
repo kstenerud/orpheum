@@ -343,7 +343,9 @@ The capability is on the role ([D130](../../decisions/working-notes.md)).
 
 ## Browsing, settings and errors
 
-- **No pagination and no cap on search.** Lists are virtualised. Jellyfin's *remove
+- **No pagination and no cap on search.** Lists load a page at a time as they are scrolled, with
+  no page to click through, and a poll reads only the pages in view (D306 §7); they are not
+  windowed yet, which is to be our own code (D306 §10). Jellyfin's *remove
   pagination* request has 1,176 votes; its search returns at most 24 results and Emby's 30.
 - **Focus and hover follow [D189](../../decisions/working-notes.md)**: a ring and a lift, never a darker tile,
   and never grown over a neighbour. Keyboard focus in a grid is a television's focus in a

@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { Ask, AskOutcome, Poller } from "./polling.ts";
 import { mount } from "./test-dom.tsx";
-import { appendPage, loadAgain, usePages, type Page, type Pages } from "./use-pages.ts";
+import { appendPage, loadAgain, merged, usePages, type Page, type Pages } from "./use-pages.ts";
 
 /**
  * A poller a test runs by hand: each ask a hook starts is kept, and the test runs it and reads what
@@ -61,7 +61,7 @@ describe("usePages", () => {
       asked.push(cursor);
       return load(cursor);
     }, 3);
-    expect(again).toEqual({ items: ["A", "B", "C", "D"], nextCursor: "4" });
+    expect(merged(again)).toEqual({ items: ["A", "B", "C", "D"], nextCursor: "4" });
     expect(asked).toEqual(["", "2"]);
   });
 
@@ -140,6 +140,91 @@ describe("usePages", () => {
     });
     mounted.unmount();
     written.mockRestore();
+  });
+});
+
+describe("a poll of a list scrolled far (D306 §7)", () => {
+  it("reads only the pages in view, each by its own cursor, and keeps the rest as they were", async () => {
+    const poller = handPoller();
+    let titles = ["A", "B", "C", "D", "E", "F"];
+    const asked: string[] = [];
+    const titlesBy2 = pagedBy2(() => titles);
+    const load = (cursor: string): Promise<Page<string>> => {
+      asked.push(cursor);
+      return titlesBy2(cursor);
+    };
+    let pages: Pages<string> | undefined;
+    function Probe(): null {
+      pages = usePages(load, poller);
+      return null;
+    }
+    const mounted = await mount(createElement(Probe));
+    for (let more = 0; more < 2; more += 1) {
+      await act(async () => {
+        pages?.loadMore();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+    }
+    expect(pages?.loadedSoFar).toEqual({
+      state: "loaded",
+      value: { items: ["A", "B", "C", "D", "E", "F"], nextCursor: "" },
+    });
+    // In view: E and F, the third page. A title added first is not read: its page is not in view.
+    pages?.showRange(4, 5);
+    titles = ["A0", "A", "B", "C", "D", "E", "F2"];
+    asked.length = 0;
+    expect(await pollOnce(poller)).toBe("changed");
+    expect(asked).toEqual(["4"]);
+    expect(pages?.loadedSoFar).toEqual({
+      state: "loaded",
+      value: { items: ["A", "B", "C", "D", "D", "E"], nextCursor: "6" },
+    });
+    // Back at the top, the first page is read again, and shows what was added there.
+    pages?.showRange(0, 1);
+    asked.length = 0;
+    expect(await pollOnce(poller)).toBe("changed");
+    expect(asked).toEqual([""]);
+    expect(pages?.loadedSoFar).toMatchObject({ value: { items: ["A0", "A", "C", "D", "D", "E"] } });
+    mounted.unmount();
+  });
+
+  it("shows an item read twice once, given its id, and keeps an unchanged item the one shown", async () => {
+    const poller = handPoller();
+    let titles = [
+      { id: 1, name: "Wing" },
+      { id: 2, name: "Greed" },
+      { id: 3, name: "The Gold Rush" },
+    ];
+    const load = (cursor: string): Promise<Page<{ id: number; name: string }>> => {
+      const from = cursor === "" ? 0 : Number(cursor);
+      return Promise.resolve({
+        items: titles.slice(from, from + 2),
+        nextCursor: from + 2 < titles.length ? String(from + 2) : "",
+      });
+    };
+    let pages: Pages<{ id: number; name: string }> | undefined;
+    function Probe(): null {
+      pages = usePages(load, poller, (title) => title.id);
+      return null;
+    }
+    const mounted = await mount(createElement(Probe));
+    await act(async () => {
+      pages?.loadMore();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const alien =
+      pages?.loadedSoFar.state === "loaded" ? pages.loadedSoFar.value.items[0] : undefined;
+    // Greed's name changes, and The Gold Rush moves up into the first page while the second keeps it.
+    titles = [
+      { id: 1, name: "Wing" },
+      { id: 3, name: "The Gold Rush" },
+      { id: 2, name: "Greed!" },
+    ];
+    expect(await pollOnce(poller)).toBe("changed");
+    const shown = pages?.loadedSoFar.state === "loaded" ? pages.loadedSoFar.value.items : [];
+    expect(shown.map((title) => title.name)).toEqual(["Wing", "The Gold Rush"]);
+    expect(shown[0]).toBe(alien);
+    mounted.unmount();
   });
 });
 

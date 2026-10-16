@@ -3,7 +3,7 @@
 import "./browse.css";
 
 import type { components } from "@orpheum/sdk";
-import { useCallback, useState, type JSX } from "react";
+import { memo, useCallback, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useBackgroundChangesPoller } from "./polling.ts";
@@ -16,6 +16,7 @@ import { itemRoute } from "./router.ts";
 import { EndOfList } from "./end-of-list.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
+import { useItemsInView } from "./items-in-view.ts";
 import { usePages, type Page } from "./use-pages.ts";
 import { useResource, type Resource } from "./use-resource.ts";
 
@@ -38,40 +39,59 @@ const entriesPerPage = 60;
 export function PosterGrid(props: {
   readonly kind: BrowseKind;
   readonly entries: readonly Entry[];
+  /** Watches each poster, by its place, for the list to know which are in view (usePages). */
+  readonly watchItemAt?: ((index: number) => (element: Element | null) => void) | undefined;
 }): JSX.Element {
-  const { t } = useTranslation();
   return (
     <ul className="poster-grid">
-      {props.entries.map((entry) => (
-        <li key={entry.id} className="poster-grid__item">
-          <Link
-            to={itemRoute(props.kind, entry.id)}
-            className={
-              entry.unavailable === undefined
-                ? "poster-grid__card"
-                : "poster-grid__card poster-grid__card--unavailable"
-            }
-          >
-            <Poster sourceSha256={entry.posterSha256} />
-            <span className="poster-grid__name">{entry.name}</span>
-            {entry.year === undefined ? null : (
-              <span className="poster-grid__year">{t("browse.year", { year: entry.year })}</span>
-            )}
-            {entry.unavailable === undefined ? null : (
-              <span
-                className="poster-grid__unavailable"
-                title={unavailableText(t, entry.unavailable)}
-              >
-                {t("title.unavailableNow")}
-              </span>
-            )}
-          </Link>
-          <StatusTray subject={entry} />
-        </li>
+      {props.entries.map((entry, index) => (
+        <PosterCard
+          key={entry.id}
+          kind={props.kind}
+          entry={entry}
+          watch={props.watchItemAt?.(index)}
+        />
       ))}
     </ul>
   );
 }
+
+/**
+ * One poster with its name, year and cues. A poll that changes one entry draws that one again, as
+ * usePages keeps each unchanged entry the very one shown before.
+ */
+const PosterCard = memo(function PosterCard(props: {
+  readonly kind: BrowseKind;
+  readonly entry: Entry;
+  readonly watch: ((element: Element | null) => void) | undefined;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { entry, kind, watch } = props;
+  return (
+    <li ref={watch} className="poster-grid__item">
+      <Link
+        to={itemRoute(kind, entry.id)}
+        className={
+          entry.unavailable === undefined
+            ? "poster-grid__card"
+            : "poster-grid__card poster-grid__card--unavailable"
+        }
+      >
+        <Poster sourceSha256={entry.posterSha256} />
+        <span className="poster-grid__name">{entry.name}</span>
+        {entry.year === undefined ? null : (
+          <span className="poster-grid__year">{t("browse.year", { year: entry.year })}</span>
+        )}
+        {entry.unavailable === undefined ? null : (
+          <span className="poster-grid__unavailable" title={unavailableText(t, entry.unavailable)}>
+            {t("title.unavailableNow")}
+          </span>
+        )}
+      </Link>
+      <StatusTray subject={entry} />
+    </li>
+  );
+});
 
 /**
  * Films or series, by name or newest first, with no pagination to click through: the next page
@@ -115,6 +135,9 @@ export function SortChoice(props: {
   );
 }
 
+/** An entry's id, by which a list shows an entry read twice once. */
+const entryId = (entry: Entry): number => entry.id;
+
 /** One list in one order, read a page at a time. */
 function BrowsePages(props: { readonly kind: BrowseKind; readonly sort: BrowseSort }): JSX.Element {
   const { api } = useServices();
@@ -127,13 +150,15 @@ function BrowsePages(props: { readonly kind: BrowseKind; readonly sort: BrowseSo
     },
     [api, kind, sort],
   );
-  const pages = usePages(loadPage, useBackgroundChangesPoller());
+  const pages = usePages(loadPage, useBackgroundChangesPoller(), entryId);
+  const watchItemAt = useItemsInView(pages.showRange);
   return (
     <BrowseView
       kind={kind}
       loadedEntries={pages.loadedSoFar}
       isLoadingMore={pages.isLoadingMore}
       onLoadMore={pages.loadMore}
+      watchItemAt={watchItemAt}
     />
   );
 }
@@ -144,6 +169,7 @@ export function BrowseView(props: {
   readonly loadedEntries: Resource<Page<Entry>>;
   readonly isLoadingMore: boolean;
   readonly onLoadMore: () => void;
+  readonly watchItemAt?: ((index: number) => (element: Element | null) => void) | undefined;
 }): JSX.Element {
   return (
     <Loaded
@@ -153,7 +179,7 @@ export function BrowseView(props: {
           <EmptyList />
         ) : (
           <>
-            <PosterGrid kind={props.kind} entries={page.items} />
+            <PosterGrid kind={props.kind} entries={page.items} watchItemAt={props.watchItemAt} />
             {page.nextCursor === "" ? null : (
               <EndOfList onMore={props.onLoadMore} isLoadingMore={props.isLoadingMore} />
             )}
