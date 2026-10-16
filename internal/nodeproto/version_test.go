@@ -64,6 +64,9 @@ var wireShapeByVersion = map[int]string{
 	// 31 adds the watcher's notice of a change (PathChanged) and each root's watch in the status
 	// (D272 §9); the notice joins the hashed messages from here.
 	31: "030d5c2639c2f1ea6e9ad4e81141f5a33f12c52587ea0661578a90c54a4f7d29",
+	// 32 adds each listed and observed file's inode, and an observed file's device, which tell a
+	// file moved on its disk (D304 §5).
+	32: "6193ac0e641a4dbaefbf2f1d37a06e958fdf23d2415aafa5b0303ca151862e4c",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

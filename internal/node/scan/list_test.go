@@ -70,6 +70,10 @@ func TestList_ListsEveryEntryWithItsStatAndReadsNoFile(t *testing.T) {
 		alien.FilesystemDevice == 0 {
 		t.Errorf("listed %+v, want its size, modified time and device", alien)
 	}
+	// Its inode tells it moved on its disk (D304 §5).
+	if inode, _ := confine.InodeOf(info); inode == 0 || alien.Inode != inode {
+		t.Errorf("listed inode %d, want %d", alien.Inode, inode)
+	}
 	if complete := records[len(records)-1].ScanComplete; complete.ListedCount != 11 || complete.SkippedCount != 1 {
 		t.Errorf("scan_complete = %+v, want 11 listed and 1 skipped", complete)
 	}
@@ -197,6 +201,15 @@ func TestExamine_ReadsEachFileAsItsKindSaysOrSaysWhyNot(t *testing.T) {
 	if observed := records[0].Observed; observed.SizeBytes != int64(len("alien")) ||
 		observed.Identity.PayloadHash == "" {
 		t.Errorf("observed = %+v, want its size and payload hash", observed)
+	}
+	info, err := os.Stat(filepath.Join(root, "Wing", "Wing.mkv"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	inode, _ := confine.InodeOf(info)
+	if observed := records[0].Observed; observed.FilesystemDevice == 0 || inode == 0 || observed.Inode != inode {
+		t.Errorf("observed on device %d at inode %d, want inode %d: the core keeps them to tell a move (D304 §5)",
+			observed.FilesystemDevice, observed.Inode, inode)
 	}
 	if betweenCount != len(files) {
 		t.Errorf("between was called %d times, want once before each of %d files", betweenCount, len(files))

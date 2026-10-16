@@ -41,11 +41,16 @@ func (ingester *Ingester) TakeListing(
 ) (TakenListing, error) {
 	taken := TakenListing{Complete: nodeproto.ScanComplete{RootPath: root, IsStoppedByErrors: true}}
 	err := ingester.write(ctx, scanKey{nodeID: nodeID, root: root}, func(batch *ingestBatch) error {
-		listing := &listingComparison{batch: batch, rules: rules, taken: &taken, scope: cleanScope(scope)}
+		listing := &listingComparison{
+			batch: batch, rules: rules, taken: &taken, scope: cleanScope(scope), listedPaths: map[string]bool{},
+		}
 		for index, record := range records {
 			if err := listing.take(ctx, cleanRecord(record)); err != nil {
 				return fmt.Errorf("listing record %d (%s): %w", index, record.Type, err)
 			}
+		}
+		if err := listing.concludeInodeMoves(ctx); err != nil {
+			return err
 		}
 		return listing.markSeen(ctx)
 	})
@@ -68,6 +73,19 @@ type listingComparison struct {
 	// seen are the stored files found as listed, not yet marked seen: marked together, before any
 	// record that might read when a file was seen, and at the listing's end (markSeen).
 	seen []int64
+	// listedPaths are the paths the listing named, by their reported bytes, so a stored file listed
+	// where it was is never taken for one moved.
+	listedPaths map[string]bool
+	// newVideos are the videos listed at a path nothing is stored at, with a device and an inode:
+	// each is a stored file moved (concludeInodeMoves) or else read.
+	newVideos []listedVideo
+}
+
+// listedVideo is a video a listing found at a path nothing is stored at.
+type listedVideo struct {
+	listed  *nodeproto.Listed
+	located reportedPath
+	scan    *scanState
 }
 
 // markSeen marks the stored files found as listed seen now, in one statement (D303, DL7).
@@ -165,12 +183,62 @@ func (listing *listingComparison) takeListed(ctx context.Context, scan *scanStat
 		})
 	}
 	located := resolveReportedPath(scan.root, listed.Path)
+	listing.listedPaths[string(located.reportedBytes)] = true
 	stored, isStored := listing.stored[string(located.reportedBytes)]
 	if isStored && isStoredAsListed(stored, kind, listed) {
 		listing.seen = append(listing.seen, stored.ID)
 		return nil
 	}
+	if !isStored && kind == nodeproto.ExamineVideo && listed.Inode != 0 {
+		listing.newVideos = append(listing.newVideos, listedVideo{listed: listed, located: located, scan: scan})
+		return nil
+	}
 	listing.taken.ToExamine = append(listing.taken.ToExamine, nodeproto.ExamineFile{Path: listed.Path, Kind: kind})
+	return nil
+}
+
+// concludeInodeMoves settles each new video the listing held: a stored video, read whole, on the
+// same device and inode with the same size and modified time, that the listing did not name where
+// it is stored and that the scan covers, moved there, and its row and history follow it without
+// its being read again (D304 §5, D240 §3); any other is read. A folder's scan never takes a file
+// outside the folder for one moved into it (D272 §9).
+func (listing *listingComparison) concludeInodeMoves(ctx context.Context) error {
+	if len(listing.newVideos) == 0 {
+		return nil
+	}
+	type place struct{ device, inode int64 }
+	movable := map[place]sqlcgen.ListFilesToCompareRow{}
+	for reported, stored := range listing.stored {
+		if listing.listedPaths[reported] || stored.FilesystemDevice == nil || stored.Inode == nil ||
+			!isStoredAsListed(stored, nodeproto.ExamineVideo, &nodeproto.Listed{
+				SizeBytes: ptr.ValueOrZero(stored.SizeBytes), ModifiedAt: ptr.ValueOrZero(stored.ModifiedAt),
+			}) {
+			continue
+		}
+		movable[place{*stored.FilesystemDevice, *stored.Inode}] = stored
+	}
+	for _, video := range listing.newVideos {
+		device, inode := storedNumber(video.listed.FilesystemDevice), storedNumber(video.listed.Inode)
+		var stored sqlcgen.ListFilesToCompareRow
+		found := device != nil && inode != nil
+		if found {
+			stored, found = movable[place{*device, *inode}]
+		}
+		if !found || !isAsListed(stored, video.listed) || !video.scan.covers(stored.ReportedPathRaw) {
+			listing.taken.ToExamine = append(listing.taken.ToExamine,
+				nodeproto.ExamineFile{Path: video.listed.Path, Kind: nodeproto.ExamineVideo})
+			continue
+		}
+		delete(movable, place{*device, *inode})
+		err := listing.batch.queries.MoveFileTo(ctx, sqlcgen.MoveFileToParams{
+			Path: video.located.text, ReportedPathRaw: video.located.reportedBytes, SeenAt: listing.batch.nowMs,
+			ID: stored.ID,
+		})
+		if err != nil {
+			return fmt.Errorf("move file %d to %s: %w", stored.ID, video.located.text, err)
+		}
+		listing.batch.hasNewFiles = true // its pass identifies it again from its new path
+	}
 	return nil
 }
 

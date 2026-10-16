@@ -50,6 +50,20 @@ func (world *harness) takeListing(records []nodeproto.ScanRecord, isStopped bool
 	return taken
 }
 
+// observedAt is observedRecord read on device 7 at an inode.
+func observedAt(path, content string, inode uint64) nodeproto.ScanRecord {
+	record := observedRecord(path, content)
+	record.Observed.FilesystemDevice, record.Observed.Inode = 7, inode
+	return record
+}
+
+// listedAt is listedFile at an inode on device 7.
+func listedAt(path string, sizeBytes, modifiedAt int64, inode uint64) nodeproto.ScanRecord {
+	record := listedFile(path, sizeBytes, modifiedAt)
+	record.Listed.Inode = inode
+	return record
+}
+
 // examined names each file taken to be read, as "kind path".
 func examined(taken TakenListing) []string {
 	var named []string
@@ -59,9 +73,6 @@ func examined(taken TakenListing) []string {
 	return named
 }
 
-// The library's rules are the core's (D240 §3): a listing's trash, samples, AppleDouble files and
-// files of no kind it reads are filed skipped, and what it reads is left to be read, in the listing's
-// order.
 // The folders a NAS or an operating system keeps for itself are skipped, at any depth, each filed
 // with its rule: Synology's recycle bin was read as a film's folder (library-scanner-practice-
 // 2026-10-16.md §5.3).
@@ -93,6 +104,33 @@ func TestTakeListing_SkipsTheFoldersANASOrAnOperatingSystemKeepsForItself(t *tes
 	}
 }
 
+// A video moved on its disk, listed at a new path on the same device and inode with the size and
+// modified time stored, keeps its row and its history and is not read again; a new file elsewhere
+// is read, and so is one whose inode matches but whose size does not (D304 §5, D240 §3).
+func TestTakeListing_AVideoMovedOnItsDiskKeepsItsRowWithoutBeingReadAgain(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	world.scan([]nodeproto.ScanRecord{
+		observedAt("Metropolis.mkv", "heat", 41), observedAt("Wing.mkv", "alien", 42),
+	}, true)
+	heat := world.liveFilesByPath()[root+"/Metropolis.mkv"].ID
+	taken := world.takeListing([]nodeproto.ScanRecord{
+		listedDirectory("Metropolis (1995)"),
+		listedAt("Metropolis (1995)/Metropolis (1995).mkv", int64(len("heat")), 1, 41),
+		listedAt("Wing (1979).mkv", int64(len("alien"))+1, 1, 42), // rewritten, not moved
+		listedAt("Nosferatu.mkv", 5, 1, 43),
+	}, false)
+	if got, want := examined(taken), []string{"video Wing (1979).mkv", "video Nosferatu.mkv"}; !slices.Equal(got, want) {
+		t.Errorf("to read %v, want %v: the moved film needs no read", got, want)
+	}
+	if moved := world.liveFilesByPath()[root+"/Metropolis (1995)/Metropolis (1995).mkv"]; moved.ID != heat {
+		t.Errorf("the moved film is file %d, want %d with its history", moved.ID, heat)
+	}
+}
+
+// The library's rules are the core's (D240 §3): a listing's trash, samples, AppleDouble files and
+// files of no kind it reads are filed skipped, and what it reads is left to be read, in the listing's
+// order.
 func TestTakeListing_FilesEachEntryByTheLibrarysRules(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
