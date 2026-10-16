@@ -175,3 +175,34 @@ wg0 latest-handshakes`. Each keeps its own database, libraries and certificate.
   and the server keeps running (D294).
 - Everything else is as staging's "When something is wrong" says, with `docker compose` in
   `/srv/orpheum` for `./staging`.
+
+## When the database is wrong
+
+The core's database is `core/persistent/persistent.db`; its backups are in `core/backups/`, made
+each day and on an admin's request from the System page (D243 §11). `cache.db` is never backed
+up: deleting it costs only work done again (D231 §3).
+
+- **Slow.** The core logs `a database write was slow` with the write's caller, how long it waited
+  and held the writer, and what it waited `behind`; and `a request was slow` with the statements
+  it ran. A write held for seconds, or a request with hundreds of statements, is a defect to
+  report with those lines (D303, DL17).
+- **Disk full.** A write the disk has no room for fails, and the work that writes waits, parked,
+  until a write succeeds again (D231 §5). Free space on the volume; nothing needs restarting.
+- **Damaged** (`database disk image is malformed`, or a backup refused because its copy fails
+  its integrity check). Stop the core and restore the newest backup, below. A backup's copy is
+  checked whole as it is made, so every backup in `core/backups/` restores (D303 §7).
+- **A large `persistent.db-wal`.** It is trimmed to 64 MiB after each checkpoint; one that stays
+  larger means a read held open for a long time. Restart the core.
+- **Restore.** With the core stopped (`docker compose stop orpheum-core`), see what a restore
+  would do, then do it:
+
+  ```sh
+  docker compose run --rm --no-deps orpheum-core restore --instance /var/lib/orpheum/core \
+    --from /var/lib/orpheum/core/backups/<backup>.tar.gz
+  docker compose run --rm --no-deps orpheum-core restore --instance /var/lib/orpheum/core \
+    --from /var/lib/orpheum/core/backups/<backup>.tar.gz --yes
+  docker compose up -d
+  ```
+
+  The restore keeps the database it replaces beside the backups, and an older backup is migrated
+  as the core starts. What changed since the backup was made is lost.
