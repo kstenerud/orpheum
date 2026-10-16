@@ -4,6 +4,7 @@ package library
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path"
 	"strings"
@@ -46,7 +47,7 @@ func (ingester *Ingester) TakeListing(
 				return fmt.Errorf("listing record %d (%s): %w", index, record.Type, err)
 			}
 		}
-		return nil
+		return listing.markSeen(ctx)
 	})
 	return taken, err
 }
@@ -64,6 +65,28 @@ type listingComparison struct {
 	// skippedDirectories are the directories a rule skipped, relative to the root: nothing below
 	// them is the library's.
 	skippedDirectories []string
+	// seen are the stored files found as listed, not yet marked seen: marked together, before any
+	// record that might read when a file was seen, and at the listing's end (markSeen).
+	seen []int64
+}
+
+// markSeen marks the stored files found as listed seen now, in one statement (D303, DL7).
+func (listing *listingComparison) markSeen(ctx context.Context) error {
+	if len(listing.seen) == 0 {
+		return nil
+	}
+	ids, err := json.Marshal(listing.seen)
+	if err != nil {
+		return fmt.Errorf("list the files seen: %w", err)
+	}
+	err = listing.batch.queries.SetFilesSeen(ctx, sqlcgen.SetFilesSeenParams{
+		SeenAt: listing.batch.nowMs, IdsJSON: string(ids),
+	})
+	if err != nil {
+		return fmt.Errorf("mark %d files seen: %w", len(listing.seen), err)
+	}
+	listing.seen = listing.seen[:0]
+	return nil
 }
 
 // take compares one record of the listing.
@@ -88,6 +111,9 @@ func (listing *listingComparison) take(ctx context.Context, record nodeproto.Sca
 		return nil
 	case nodeproto.RecordObserved, nodeproto.RecordSidecar, nodeproto.RecordSkip, nodeproto.RecordError,
 		nodeproto.RecordMount:
+	}
+	if err := listing.markSeen(ctx); err != nil {
+		return err
 	}
 	return batch.ingestRecord(ctx, record)
 }
@@ -141,12 +167,7 @@ func (listing *listingComparison) takeListed(ctx context.Context, scan *scanStat
 	located := resolveReportedPath(scan.root, listed.Path)
 	stored, isStored := listing.stored[string(located.reportedBytes)]
 	if isStored && isStoredAsListed(stored, kind, listed) {
-		err := listing.batch.queries.SetFileSeen(ctx, sqlcgen.SetFileSeenParams{
-			SeenAt: listing.batch.nowMs, ID: stored.ID,
-		})
-		if err != nil {
-			return fmt.Errorf("mark %s seen: %w", located.text, err)
-		}
+		listing.seen = append(listing.seen, stored.ID)
 		return nil
 	}
 	listing.taken.ToExamine = append(listing.taken.ToExamine, nodeproto.ExamineFile{Path: listed.Path, Kind: kind})

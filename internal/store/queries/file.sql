@@ -271,9 +271,11 @@ SELECT id, reported_path_raw, size_bytes, modified_at, filing, sidecar_kind, is_
 FROM file
 WHERE node_id = sqlc.arg(node_id) AND library_id = sqlc.arg(library_id) AND removed_at IS NULL;
 
--- name: SetFileSeen :exec
--- A file a listing found as stored: it was seen, and nothing else changed.
-UPDATE file SET last_seen_at = sqlc.arg(seen_at) WHERE id = sqlc.arg(id);
+-- name: SetFilesSeen :exec
+-- The files a listing found as stored: they were seen, and nothing else changed. One statement
+-- for the listing's files, not one a file (D303, DL7).
+UPDATE file SET last_seen_at = sqlc.arg(seen_at)
+WHERE id IN (SELECT value FROM json_each(CAST(sqlc.arg(ids_json) AS TEXT)));
 
 -- name: GetLibraryOfFile :one
 -- A file's library, which says who may reach it (D243 section 4).
