@@ -430,3 +430,30 @@ func TestSweeps_TheScheduledBackupIsCheckedEveryFiveMinutes(t *testing.T) {
 	}
 	t.Error("no sweep asks for the scheduled backup (D305 §2)")
 }
+
+// countingPurger counts the purges of ended credentials asked of it.
+type countingPurger struct{ purges int }
+
+func (purger *countingPurger) PurgeEndedCredentials(context.Context) (int, error) {
+	purger.purges++
+	return 0, nil
+}
+
+// The credentials ended past their keeping are purged by a sweep, at start and daily (D304 §6).
+func TestSweeps_EndedCredentialsArePurgedDaily(t *testing.T) {
+	t.Parallel()
+	purger := &countingPurger{}
+	for _, sweep := range (jobServices{credentials: purger}).sweeps(slog.New(slog.DiscardHandler)) {
+		if sweep.Name != sweepEndedCredentials {
+			continue
+		}
+		if every := sweep.Every(t.Context()); every != 24*time.Hour {
+			t.Errorf("ended credentials are purged every %s, want daily", every)
+		}
+		if _, err := sweep.Derive(t.Context()); err != nil || purger.purges != 1 {
+			t.Errorf("the sweep purged %d times (%v); want once", purger.purges, err)
+		}
+		return
+	}
+	t.Error("no sweep purges ended credentials (D304 §6)")
+}

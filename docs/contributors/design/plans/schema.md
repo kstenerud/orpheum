@@ -1303,14 +1303,14 @@ second writer, or on a writer this table does not name. A table no package write
 ## What grows, and what bounds it
 
 Every table that grows has a line here (D303, M10): what bounds it today, and what removes its
-rows. Three classes grow with no bound but time; how long each is kept is the owner's to decide,
-and until then they are kept.
+rows. Each class that would grow with no bound but time is kept to a limit a setting holds (D304
+§6); the removed library's and the watching's limits are still to be built.
 
 | Grows with | Tables | Bounded by, today |
 | --- | --- | --- |
 | The library | `file`, `file_probe`, `file_nfo`, `stream`, `item`, `title`, `version`, `collection`, `collection_member`, `ordering`, `position`, `extra_relation`, `item_text`, `sort_key`, `item_provider_id`, `field_override`, `artwork`, `provider_response`, `loudness`, `video_timeline`, `subtitle_text`, `fetched_subtitle` | the files and works the libraries hold, **and every one they ever held**: a removed file or item is a tombstone, kept so that a file copied back returns with its history (D208 §4, D231 §7), and nothing purges tombstones |
 | The library's open questions | `fetch_failure`, `refresh_request`, `guessed_match` | one row an item at most; each is deleted when its question is answered |
-| People and their devices | `user`, `device`, `"grant"`, `locator` | every account, device and credential ever made: a removed person, a removed device and a revoked or expired credential stay as rows (D154, D173 §4.6); nothing purges them |
+| People and their devices | `user`, `device`, `"grant"`, `locator` | the people and devices there are, and a removed person's nameless row (D305 §1); a credential that ended, revoked or expired, is deleted `ended_credentials_kept_days` (90) after, with its locator (D304 §6); a removed device stays as a row while a play names it |
 | Watching | `play_event`, `play_span`, `play_position`, `progress_hide` | every play, forever; deleted only with the person who watched (`ForgetWatchingOf`) |
 | Scans | `root_scan`, `root_mount`, `root_state` | one row a root, deleted with the root |
 | Settings, roles, invitations, secrets | `setting`, `role`, `role_library`, `invitation`, `secret` | what an admin made; deleted when they delete it |
