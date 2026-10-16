@@ -135,7 +135,8 @@ func signalOverTime(t *testing.T, built *world, answersPings bool) (dials <-chan
 	}()
 	go func() {
 		// Each step gives the code a real moment to answer a ping and arm its next timer before the
-		// fake time moves to that timer.
+		// fake time moves to that timer; a connection that answers its pings is given until its ping
+		// is answered, however busy the machine (make check, 2026-10-16: two missed under load).
 		tick := time.NewTicker(100 * time.Millisecond)
 		defer tick.Stop()
 		for {
@@ -143,6 +144,9 @@ func signalOverTime(t *testing.T, built *world, answersPings bool) (dials <-chan
 			case <-ctx.Done():
 				return
 			case <-tick.C:
+				for answersPings && built.service.pingsUnanswered.Load() > 0 && ctx.Err() == nil {
+					time.Sleep(time.Millisecond)
+				}
 				built.clock.AdvanceToNext()
 			}
 		}
