@@ -4,7 +4,6 @@ package identify
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -13,7 +12,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
-	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -97,6 +95,7 @@ func (filer *libraryFiler) findOrAddTitle(ctx context.Context, spec titleSpec) (
 	if err != nil {
 		return 0, fmt.Errorf("add title %q: %w", spec.name, err)
 	}
+	filer.snap.holdAdded(id, spec.kind)
 	filer.titleIDByKey[key] = id
 	return id, nil
 }
@@ -106,6 +105,9 @@ func (filer *libraryFiler) findOrAddTitle(ctx context.Context, spec titleSpec) (
 func (filer *libraryFiler) claimTitleByProviderID(
 	ctx context.Context, kind, provider, providerID string) (int64, error,
 ) {
+	if held, found := filer.heldTitleByProviderID(kind, providerIDOf(provider, providerID)); found {
+		return held, nil
+	}
 	rows, err := filer.queries.ListTitlesByProviderID(ctx, sqlcgen.ListTitlesByProviderIDParams{
 		Provider: provider, ProviderID: providerID,
 	})
@@ -163,7 +165,7 @@ func (filer *libraryFiler) resolveAndFile(ctx context.Context) error {
 		} else {
 			filer.report.ListedCount++
 		}
-		err := library.FileAs(ctx, filer.queries, file.ID, filing, reason)
+		err := filer.fileAs(ctx, file, filing, reason)
 		if err != nil {
 			return fmt.Errorf("file %s: %w", file.Path, err)
 		}
@@ -209,14 +211,12 @@ func (filer *libraryFiler) resolve(ctx context.Context, titleID int64, spec titl
 		fieldYear: strconv.Itoa(spec.year), fieldRuntimeMs: strconv.FormatInt(spec.runtimeMs, 10),
 	}
 	for _, field := range spec.lockedFields {
-		err := filer.queries.InsertOverrideIfAbsent(ctx, sqlcgen.InsertOverrideIfAbsentParams{
-			ItemID: titleID, Field: field, OverrideValue: values[field], Origin: "nfo", SetAt: filer.nowMs,
-		})
+		err := filer.overrideIfAbsent(ctx, titleID, field, values[field], "nfo")
 		if err != nil {
 			return titleResolution{}, fmt.Errorf("record the locked %s: %w", field, err)
 		}
 	}
-	overrides, err := filer.queries.ListOverrides(ctx, titleID)
+	overrides, err := filer.itemOverrides(ctx, titleID)
 	if err != nil {
 		return titleResolution{}, fmt.Errorf("read the overrides of title %d: %w", titleID, err)
 	}
@@ -239,13 +239,13 @@ func (filer *libraryFiler) resolve(ctx context.Context, titleID int64, spec titl
 			sourceID = &id
 		}
 	}
-	err = filer.queries.UpdateTitleResolved(ctx, sqlcgen.UpdateTitleResolvedParams{
+	identification, err := filer.resolveTitleValues(ctx, sqlcgen.UpdateTitleResolvedParams{
 		Year: ptr.NilIfZero(year), RuntimeMs: ptr.NilIfZero(runtimeMs),
 		FollowedSource: source, FollowedSourceID: sourceID,
 		IdentificationState: spec.identification, ID: titleID,
 	})
 	if err != nil {
-		return titleResolution{}, fmt.Errorf("resolve title %d: %w", titleID, err)
+		return titleResolution{}, err
 	}
 	err = filer.writeText(ctx, titleID, itemText{
 		sortListing: spec.kind, name: values[fieldName], overview: values[fieldOverview], tagline: values[fieldTagline],
@@ -254,19 +254,13 @@ func (filer *libraryFiler) resolve(ctx context.Context, titleID int64, spec titl
 		return titleResolution{}, fmt.Errorf("name title %d: %w", titleID, err)
 	}
 	filer.reportImages(titleID, spec.source, spec.artwork)
-	identification, err := store.OrNotFound(filer.queries.GetTitleIdentification(ctx, titleID))
-	if err != nil && !errors.Is(err, store.ErrNotFound) {
-		return titleResolution{}, fmt.Errorf("read title %d's identification: %w", titleID, err)
-	}
 	return titleResolution{identification: identification, reason: spec.reason}, nil
 }
 
 // recordIDs keeps the provider ids a title's evidence names.
 func (filer *libraryFiler) recordIDs(ctx context.Context, titleID int64, ids map[string]string) error {
 	for provider, id := range ids {
-		err := filer.queries.InsertItemProviderID(ctx, sqlcgen.InsertItemProviderIDParams{
-			ItemID: titleID, Provider: provider, ProviderID: id,
-		})
+		err := filer.keepProviderID(ctx, titleID, provider, id)
 		if err != nil {
 			return fmt.Errorf("record %s %s: %w", provider, id, err)
 		}

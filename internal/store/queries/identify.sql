@@ -250,7 +250,134 @@ ORDER BY item_text.item_id;
 UPDATE item_text SET search_alternates = sqlc.arg(search_alternates)
 WHERE item_id = sqlc.arg(item_id) AND is_original = 1 AND search_alternates IS NOT sqlc.arg(search_alternates);
 
+-- name: HasSortKeysOfOtherLocales :one
+-- Whether any key is for a locale no longer in use: two short reads of sort_key_listing, so the
+-- refresh deletes, and takes the writer, only when one is (D303, DL9).
+SELECT EXISTS (
+  SELECT 1 FROM sort_key WHERE sort_key.locale < sqlc.arg(locale) OR sort_key.locale > sqlc.arg(locale)
+) AS has_other;
+
 -- name: DeleteSortKeysOfOtherLocales :exec
 -- Keys for a locale no longer in use (sort_key is a cache, class C).
 DELETE FROM sort_key
 WHERE locale != sqlc.arg(locale);
+
+-- The rows a pass reads of its library at its start, a few statements whatever its size, which it
+-- compares against before it writes, so that a pass over an unchanged library runs neither a
+-- statement per file nor a write (D303, DL7, DL9). Each reads from the library's items outward:
+-- CROSS JOIN keeps SQLite from scanning the other table instead, which it would when a library is
+-- most of the database.
+
+-- name: ListLibraryVersionTitles :many
+-- The title each live file's version is in.
+SELECT version.id, version.title_id, title.identification_state
+FROM file
+JOIN version ON version.id = file.version_id
+JOIN title ON title.id = version.title_id
+WHERE file.library_id = ? AND file.removed_at IS NULL;
+
+-- name: ListLibraryNFOBodies :many
+-- The bodies of the library's live NFO files.
+SELECT file_nfo.file_id, file_nfo.body
+FROM file
+JOIN file_nfo ON file_nfo.file_id = file.id
+WHERE file.library_id = ? AND file.removed_at IS NULL;
+
+-- name: ListLibraryTitlesForPass :many
+-- The library's live titles, with the values a pass resolves.
+SELECT title.id, title.kind, title.year, title.runtime_ms, title.identification_state, title.followed_source,
+  title.followed_source_id
+FROM item
+JOIN title ON title.id = item.id
+WHERE item.library_id = ? AND item.removed_at IS NULL AND item.kind = 'title';
+
+-- name: ListLibraryOverrides :many
+-- The overrides of the library's live items.
+SELECT field_override.item_id, field_override.field, field_override.override_value
+FROM item
+JOIN field_override ON field_override.item_id = item.id AND field_override.language = ''
+WHERE item.library_id = ? AND item.removed_at IS NULL
+ORDER BY field_override.item_id, field_override.field;
+
+-- name: ListLibraryProviderIDs :many
+-- The provider ids of the library's live items.
+SELECT item_provider_id.item_id, item_provider_id.provider, item_provider_id.provider_id
+FROM item
+CROSS JOIN item_provider_id ON item_provider_id.item_id = item.id
+WHERE item.library_id = ? AND item.removed_at IS NULL;
+
+-- name: ListLibraryOriginalTexts :many
+-- The text a pass writes of the library's live items, with each one's sort key in a locale.
+SELECT item_text.item_id, item_text.language, item_text.name, item_text.overview, item_text.tagline,
+  item_text.search_alternates, sort_key.listing, sort_key.collation_key
+FROM item
+CROSS JOIN item_text ON item_text.item_id = item.id AND item_text.is_original = 1
+LEFT JOIN sort_key ON sort_key.item_id = item.id AND sort_key.locale = sqlc.arg(locale)
+WHERE item.library_id = sqlc.arg(library_id) AND item.removed_at IS NULL;
+
+-- name: ListLibraryAiredPositions :many
+-- Each live title's place in a series' aired order, with the series' ordering.
+SELECT position.title_id, position.ordering_id, ordering.collection_id, position.group_number,
+  position.number_in_group, position.sort_order
+FROM item
+CROSS JOIN position ON position.title_id = item.id
+CROSS JOIN ordering ON ordering.id = position.ordering_id AND ordering.name = 'aired'
+WHERE item.library_id = ? AND item.removed_at IS NULL AND item.kind = 'title';
+
+-- name: ListLibrarySeriesForPass :many
+-- The library's live series, with their aired ordering when they have one and their match.
+SELECT collection.id, collection.year, collection.followed_source, collection.followed_source_id,
+  collection.identification_state, item.library_id, library.metadata_source, item_text.name,
+  ordering.id AS aired_ordering_id
+FROM item
+CROSS JOIN collection ON collection.id = item.id AND collection.kind = 'series'
+CROSS JOIN library ON library.id = item.library_id
+LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
+LEFT JOIN ordering ON ordering.collection_id = collection.id AND ordering.name = 'aired'
+WHERE item.library_id = ? AND item.removed_at IS NULL AND item.kind = 'collection';
+
+-- name: ListLibrarySeriesMembers :many
+-- The titles in the library's live series, with their places.
+SELECT collection_member.collection_id, collection_member.member_title, collection_member.position
+FROM item
+JOIN collection_member ON collection_member.collection_id = item.id
+WHERE item.library_id = ? AND item.removed_at IS NULL AND item.kind = 'collection'
+  AND collection_member.member_title IS NOT NULL;
+
+-- name: ListLibrarySeriesEpisodePlaces :many
+-- ListSeriesEpisodePlaces for every live series of the library.
+SELECT ordering.collection_id, position.title_id, position.group_number, position.number_in_group, episode.removed_at
+FROM item
+CROSS JOIN ordering ON ordering.collection_id = item.id AND ordering.name = 'aired'
+CROSS JOIN position ON position.ordering_id = ordering.id
+CROSS JOIN item AS episode ON episode.id = position.title_id
+WHERE item.library_id = ? AND item.removed_at IS NULL AND item.kind = 'collection'
+  AND (episode.removed_at IS NULL OR episode.merged_into IS NULL)
+ORDER BY ordering.collection_id, position.sort_order;
+
+-- name: ListLibraryProviderResponses :many
+-- The stored responses of the library's live items, which a pass parses and never fetches (D170).
+SELECT provider_response.item_id, provider_response.provider, provider_response.part,
+  provider_response.fetched_at, provider_response.body_gzip
+FROM item
+CROSS JOIN provider_response ON provider_response.item_id = item.id
+WHERE item.library_id = ? AND item.removed_at IS NULL;
+
+-- name: ListLibraryLiveEpisodeSources :many
+-- ListLiveSeriesEpisodeSources for every live series of the library.
+SELECT ordering.collection_id, position.title_id, position.group_number, position.number_in_group,
+  title.followed_source, episode.added_at
+FROM item
+CROSS JOIN ordering ON ordering.collection_id = item.id AND ordering.name = 'aired'
+CROSS JOIN position ON position.ordering_id = ordering.id
+CROSS JOIN title ON title.id = position.title_id
+CROSS JOIN item AS episode ON episode.id = title.id
+WHERE item.library_id = ? AND item.removed_at IS NULL AND item.kind = 'collection' AND episode.removed_at IS NULL
+ORDER BY ordering.collection_id, position.sort_order;
+
+-- name: ListLibraryExtraRelations :many
+-- The extras of the library's live titles, and who asserted each.
+SELECT extra_relation.owner_title, extra_relation.extra_title, extra_relation.extra_type, extra_relation.asserted_by
+FROM item
+JOIN extra_relation ON extra_relation.owner_title = item.id
+WHERE item.library_id = ? AND item.removed_at IS NULL AND item.kind = 'title';

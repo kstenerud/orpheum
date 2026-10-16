@@ -4,14 +4,11 @@ package identify
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/platform/bounded"
-	"github.com/kstenerud/orpheum/internal/store"
-	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
 // identificationAmbiguous is a title whose search found candidates and no single match (D172).
@@ -25,30 +22,27 @@ func (filer *libraryFiler) matchEvidence(ctx context.Context, titleID int64, spe
 	if spec.kind == library.TitleKindEpisode {
 		return nil // an episode's evidence is its series' listing, read where it is filed (D209)
 	}
-	matchRow, err := store.OrNotFound(filer.queries.GetTitleForMatch(ctx, titleID))
-	if errors.Is(err, store.ErrNotFound) {
-		return nil
+	matchRow, found, err := filer.titleMatchState(ctx, titleID)
+	if err != nil || !found {
+		return err
 	}
-	if err != nil {
-		return fmt.Errorf("read title %d's match: %w", titleID, err)
-	}
-	isChosen := matchRow.IdentificationState == identificationConfirmed && matchRow.FollowedSource != nil &&
-		*matchRow.FollowedSource != sourceNFO &&
-		*matchRow.FollowedSource != sourceNone
+	isChosen := matchRow.identificationState == identificationConfirmed && matchRow.followedSource != nil &&
+		*matchRow.followedSource != sourceNFO &&
+		*matchRow.followedSource != sourceNone
 	if isChosen {
-		return filer.fromResponse(ctx, titleID, *matchRow.FollowedSource, spec)
+		return filer.fromResponse(ctx, titleID, *matchRow.followedSource, spec)
 	}
 	if spec.source != "" {
 		return nil
 	}
 	switch {
-	case matchRow.IdentificationState == identificationAmbiguous:
+	case matchRow.identificationState == identificationAmbiguous:
 		spec.identification, spec.reason = identificationAmbiguous, ""
-	case matchRow.FollowedSource == nil:
-	case *matchRow.FollowedSource == sourceNone:
-		spec.source, spec.reason = sourceNone, noMatchReason(matchRow.MetadataSource)
+	case matchRow.followedSource == nil:
+	case *matchRow.followedSource == sourceNone:
+		spec.source, spec.reason = sourceNone, noMatchReason(matchRow.metadataSource)
 	default:
-		return filer.fromResponse(ctx, titleID, *matchRow.FollowedSource, spec)
+		return filer.fromResponse(ctx, titleID, *matchRow.followedSource, spec)
 	}
 	return nil
 }
@@ -65,9 +59,7 @@ func (filer *libraryFiler) fromResponse(
 	if !known {
 		return fmt.Errorf("title %d follows %s, which this server has no client for", titleID, providerName)
 	}
-	bodyGzip, err := filer.queries.GetProviderResponse(ctx, sqlcgen.GetProviderResponseParams{
-		ItemID: titleID, Provider: providerName, Part: "",
-	})
+	bodyGzip, err := filer.ownResponse(ctx, titleID, providerName)
 	if err != nil {
 		return fmt.Errorf("read title %d's %s response: %w", titleID, providerName, err)
 	}
