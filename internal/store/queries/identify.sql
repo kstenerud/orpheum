@@ -393,3 +393,8 @@ SELECT extra_relation.owner_title, extra_relation.extra_title, extra_relation.ex
 FROM item
 JOIN extra_relation ON extra_relation.owner_title = item.id
 WHERE item.library_id = ? AND item.removed_at IS NULL AND item.kind = 'title';
+
+-- name: CountRowsChangedByTheWriter :one
+-- How many rows the writer has changed since it opened: a pass writing in batches reads it as it
+-- goes, to know how much its batch has written.
+SELECT CAST(total_changes() AS INTEGER) AS changed;

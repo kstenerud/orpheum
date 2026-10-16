@@ -2,7 +2,11 @@
 
 package identify
 
-import "github.com/kstenerud/orpheum/internal/core/library"
+import (
+	"context"
+
+	"github.com/kstenerud/orpheum/internal/core/library"
+)
 
 // The names identify_test reads that the package keeps to itself. The tests that drive a library
 // through identifytest.Provider live in identify_test, since identifytest imports this package;
@@ -39,3 +43,12 @@ var (
 // ReadAsItGoes has a pass read each row when it needs it rather than from its snapshot, as a
 // match's filer does, so a test can compare what the two passes write.
 func ReadAsItGoes(pass *Pass) { pass.readsAsItGoes = true }
+
+// BatchRows has a pass's batches commit after rows changed rows, so a test's small library files in
+// many batches.
+func BatchRows(pass *Pass, rows int64) { pass.batchRows = rows }
+
+// BetweenBatches has a pass run between after each batch it commits, with the rows it changed.
+func BetweenBatches(pass *Pass, between func(ctx context.Context, rowsChanged int64)) {
+	pass.betweenBatches = between
+}

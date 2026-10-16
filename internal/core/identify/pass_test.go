@@ -3,6 +3,7 @@
 package identify_test
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -23,6 +24,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
+	"github.com/kstenerud/orpheum/internal/platform/querytally"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -558,5 +560,72 @@ func TestPass_AFilmWhoseNFOIsDeletedIsIdentifiedFromItsPathAgain(t *testing.T) {
 	lib.scan(videoRecord(rel))
 	if name := titleName(lib.titlesByPath()[rel]); name != "Metropolis" {
 		t.Errorf("the film is called %q once its NFO is gone; want Metropolis, from its path", name)
+	}
+}
+
+// A first import is filed in batches, each one write that changes no more than its budget of rows
+// but for the whole unit it ends with, so a person's write waits a few milliseconds behind it, not
+// the whole import (D304 §2).
+func TestPass_AFirstImportIsFiledInBatchesOfWholeUnitsWithinTheirBudget(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "nfo")
+	const budget = 40
+	identify.BatchRows(lib.pass, budget)
+	var batches []int64
+	identify.BetweenBatches(lib.pass, func(_ context.Context, rows int64) { batches = append(batches, rows) })
+	var films []nodeproto.ScanRecord
+	for index := range 30 {
+		films = append(films, videoRecord(fmt.Sprintf("Film %02d (%d)/Film %02d (%d).mkv", index, 1990+index,
+			index, 1990+index)))
+	}
+	lib.scan(films...)
+	if len(batches) < 3 {
+		t.Fatalf("filed in %d batches, %v; want several of at most %d rows", len(batches), batches, budget)
+	}
+	// A film writes some thirteen rows; the unit that ends a batch may also set off the full-text
+	// index's merge of its segments, which writes as much again.
+	const unitRows = 80
+	for index, rows := range batches {
+		if rows > budget+unitRows {
+			t.Errorf("batch %d changed %d rows of %v; want at most %d and the unit it ended with", index, rows,
+				batches, budget)
+		}
+	}
+	if filed := len(lib.titlesByPath()); filed != len(films) {
+		t.Errorf("%d films filed; want all %d", filed, len(films))
+	}
+}
+
+// Someone else writing between a pass's batches has it read the library again before its next
+// batch, and file everything still: what it decided from the first read may be stale (D303, M1).
+func TestPass_AWriteBetweenItsBatchesHasThePassReadAgainAndFileEverything(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "nfo")
+	identify.BatchRows(lib.pass, 1)
+	wrote := false
+	identify.BetweenBatches(lib.pass, func(context.Context, int64) {
+		if wrote {
+			return
+		}
+		wrote = true
+		storetest.InsertUser(t, lib.database, "alice", "admin") //nolint:contextcheck // anyone's write, on the test's
+	})
+	tallied, tally := querytally.New(t.Context())
+	all := librarytest.Scan(nodeproto.ScanBegin{RootPath: lib.rootPath}, []nodeproto.ScanRecord{
+		videoRecord("Metropolis (1995)/Metropolis (1995).mkv"), videoRecord("Wing (1979)/Wing (1979).mkv"),
+		videoRecord("Nosferatu (1998)/Nosferatu (1998).mkv"),
+	}, true)
+	if err := lib.ingester.IngestScan(t.Context(), lib.nodeID, lib.rootPath, all); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := lib.pass.IdentifyLibrary(tallied, lib.libraryID); err != nil {
+		t.Fatal(err)
+	}
+	// One read to learn it would write, one for its batches, and one again after the write.
+	if reads := strings.Count(tally.String(), "ListIdentifyFiles×3"); reads != 1 {
+		t.Errorf("the pass ran %s; want the library read three times", tally)
+	}
+	if filed := len(lib.titlesByPath()); filed != 3 {
+		t.Errorf("%d films filed; want all 3", filed)
 	}
 }

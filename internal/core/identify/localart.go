@@ -99,11 +99,13 @@ func (filer *libraryFiler) mapLocalArtwork() {
 // reportLocalImages reports every image the pass found beside the library's media, by item: the
 // artwork service fetches what it does not hold, and retires an image no longer found (D215 §1).
 func (filer *libraryFiler) reportLocalImages() {
-	found := &LocalImages{LibraryID: filer.library.ID}
+	if filer.report.BesideTheMedia == nil {
+		filer.report.BesideTheMedia = &LocalImages{LibraryID: filer.library.ID}
+	}
+	found := filer.report.BesideTheMedia
 	for _, itemID := range slices.Sorted(maps.Keys(filer.localArt)) {
 		found.Images = append(found.Images, filer.localArt[itemID]...)
 	}
-	filer.report.BesideTheMedia = found
 }
 
 // localImageOwner is the item an image beside the media belongs to, and its kind, by its name.

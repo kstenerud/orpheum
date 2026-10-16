@@ -4,6 +4,7 @@ package identify
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -34,6 +35,10 @@ type Pass struct {
 	// readsAsItGoes has the pass read each row when it needs it, as a match's filer does, rather
 	// than from the snapshot: a test's, comparing the two.
 	readsAsItGoes bool
+	// batchRows is how many rows a batch changes before it commits: passBatchRows, or a test's.
+	batchRows int64
+	// betweenBatches runs after each batch commits: a test's, writing between them.
+	betweenBatches func(ctx context.Context, rowsChanged int64)
 }
 
 // AfterPass calls follow after each pass and each re-derivation a match makes, with what it left
@@ -88,7 +93,7 @@ func NewPass(
 ) *Pass {
 	return &Pass{
 		database: database, clock: clockSource, logger: logger, providers: cleanProviders(providers),
-		settings: sortSettings,
+		settings: sortSettings, batchRows: passBatchRows,
 	}
 }
 
@@ -128,37 +133,14 @@ func (pass *Pass) IdentifyAll(ctx context.Context) (int, error) {
 	return passed, nil
 }
 
-// IdentifyLibrary identifies every video in a library, in one transaction: a read alone when
-// nothing would change, and the writer's only when something does.
+// IdentifyLibrary identifies every video in a library: in a read alone when nothing would change,
+// and else in batches of whole filing units, each one short write (D303, DL9; D304 §2).
 func (pass *Pass) IdentifyLibrary(ctx context.Context, libraryID int64) (Report, error) {
-	var report Report
 	sorter, err := pass.sorter(ctx)
 	if err != nil {
 		return Report{}, err
 	}
-	// A pass over a library nothing changed in reads alone, and never takes the writer (D303, DL9).
-	_, err = pass.database.WriteUnlessUnchanged(ctx, func(queries *sqlcgen.Queries) error {
-		report = Report{}
-		filer := &libraryFiler{
-			queries: queries, nowMs: pass.clock.Now().UnixMilli(), report: &report, providers: pass.providers,
-			sorter:       sorter,
-			titleIDByKey: map[string]int64{}, seriesIDByName: map[string]int64{}, nfoByVideo: map[int64]NFO{},
-			showNFOs: map[string]NFO{}, nfosByFolder: map[string][]namedNFO{}, titleIDByFolder: map[string]int64{},
-			evidence: map[int64][]titleSpec{}, titleIDByFile: map[int64]int64{}, extraReasonByFile: map[int64]string{},
-			localArt: map[int64][]LocalImage{}, seriesIDByFolder: map[string]int64{},
-			seriesSpecByID: map[int64]seriesSpec{}, seriesMatchByID: map[int64]sqlcgen.GetSeriesForMatchRow{},
-			listings: map[string][]Episode{}, returningEpisodes: map[int64]bool{}, contradicted: map[int64]bool{},
-			leftFor: map[int64]int64{}, added: map[int64]bool{},
-			readsAsItGoes: pass.readsAsItGoes,
-		}
-		if loadErr := filer.load(ctx, libraryID); loadErr != nil {
-			return loadErr
-		}
-		if identifyErr := filer.identify(ctx); identifyErr != nil {
-			return identifyErr
-		}
-		return filer.listAwaitingMatch(ctx, libraryID)
-	})
+	report, err := pass.fileLibrary(ctx, libraryID, sorter)
 	if err != nil {
 		return Report{}, fmt.Errorf("identify library %d: %w", libraryID, err)
 	}
@@ -173,6 +155,157 @@ func (pass *Pass) IdentifyLibrary(ctx context.Context, libraryID int64) (Report,
 	}
 	pass.runAfterPassHooks(ctx, report)
 	return report, nil
+}
+
+// passBatchRows is how many rows a batch of the pass changes before it commits and hands the
+// writer on (D304 §2): a few milliseconds' writing, about 25 at the reference library's 0.44 ms a
+// film of some ten rows. A unit is never split, so the batch that begins one writes it whole.
+const passBatchRows = 400
+
+// passReadsAtMost is how often a pass reads its library again because someone else wrote while it
+// filed in batches, before it gives up for the sweep to run it again.
+const passReadsAtMost = 20
+
+// errLibraryChanged is a batch finding that someone else committed since the pass read the library:
+// what the pass decided from that read may be stale, so it reads again (D303, M1).
+var errLibraryChanged = errors.New("the database changed since the pass read the library")
+
+// fileLibrary files a library's units: in a read alone when nothing would change, which never
+// takes the writer, and else in batches.
+func (pass *Pass) fileLibrary(ctx context.Context, libraryID int64, sorter *textindex.Sorter) (Report, error) {
+	var report Report
+	wouldWrite, err := pass.database.WouldWrite(ctx, func(queries *sqlcgen.Queries) error {
+		report = Report{}
+		filer := pass.newFiler(queries, sorter, &report)
+		if loadErr := filer.load(ctx, libraryID); loadErr != nil {
+			return loadErr
+		}
+		units, unitsErr := filer.filingUnits(ctx)
+		if unitsErr != nil {
+			return unitsErr
+		}
+		if _, identifyErr := filer.identifyUnits(ctx, units, -1, 0); identifyErr != nil {
+			return identifyErr
+		}
+		return filer.listAwaitingMatch(ctx, libraryID)
+	})
+	if err != nil {
+		return Report{}, fmt.Errorf("read it to file: %w", err)
+	}
+	if !wouldWrite {
+		report.allImagesSaid(libraryID)
+		return report, nil
+	}
+	report = Report{}
+	filer, err := pass.fileInBatches(ctx, libraryID, sorter, &report)
+	if err != nil {
+		return Report{}, err
+	}
+	filer.queries = pass.database.Read()
+	report.allImagesSaid(libraryID)
+	return report, filer.listAwaitingMatch(ctx, libraryID)
+}
+
+// allImagesSaid makes a pass's report of the images beside the media a set, empty when no unit
+// found one: none said is every image gone, which the artwork service retires (D215 §1).
+func (report *Report) allImagesSaid(libraryID int64) {
+	if report.BesideTheMedia == nil {
+		report.BesideTheMedia = &LocalImages{LibraryID: libraryID}
+	}
+}
+
+// fileInBatches reads the library on a reader, then files its units in batches, each one write that
+// changes no more than batchRows rows but for its last unit, in the order of their paths. Each
+// batch first checks that no one else committed since the read; if someone did, it reads again and
+// goes on with every unit not yet written whole (D303, M1).
+func (pass *Pass) fileInBatches(
+	ctx context.Context, libraryID int64, sorter *textindex.Sorter, report *Report,
+) (*libraryFiler, error) {
+	written := map[int64]bool{} // the files of the units written
+	for range passReadsAtMost {
+		commitsAtRead := pass.database.Commits()
+		var filer *libraryFiler
+		var units []filingUnit
+		err := pass.database.ReadTx(ctx, func(queries *sqlcgen.Queries) error {
+			filer = pass.newFiler(queries, sorter, report)
+			if loadErr := filer.load(ctx, libraryID); loadErr != nil {
+				return loadErr
+			}
+			var unitsErr error
+			units, unitsErr = filer.filingUnits(ctx)
+			return unitsErr
+		})
+		if err != nil {
+			return nil, fmt.Errorf("read it to file in batches: %w", err)
+		}
+		units = slices.DeleteFunc(units, func(unit filingUnit) bool { return unit.isWritten(written) })
+		err = pass.writeBatches(ctx, filer, units, commitsAtRead, written)
+		if !errors.Is(err, errLibraryChanged) {
+			return filer, err
+		}
+	}
+	return nil, fmt.Errorf("read the library %d times while others wrote: %w", passReadsAtMost, errLibraryChanged)
+}
+
+// writeBatches writes units in batches, marking each unit's files written once its batch commits,
+// until none is left or a batch finds that someone else committed since commitsAtRead.
+func (pass *Pass) writeBatches(
+	ctx context.Context, filer *libraryFiler, units []filingUnit, commitsAtRead int64, written map[int64]bool,
+) error {
+	expected := commitsAtRead
+	for len(units) > 0 {
+		var batch []filingUnit
+		var batchRows int64
+		err := pass.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+			if pass.database.Commits() != expected {
+				return errLibraryChanged
+			}
+			changedAtStart, countErr := queries.CountRowsChangedByTheWriter(ctx)
+			if countErr != nil {
+				return fmt.Errorf("count the rows changed: %w", countErr)
+			}
+			filer.queries = queries
+			rest, identifyErr := filer.identifyUnits(ctx, units, changedAtStart, pass.batchRows)
+			if identifyErr != nil {
+				return identifyErr
+			}
+			batch, units = units[:len(units)-len(rest)], rest
+			changedAtEnd, countErr := queries.CountRowsChangedByTheWriter(ctx)
+			batchRows = changedAtEnd - changedAtStart
+			expected = pass.database.Commits() + 1 // this one's, once it commits
+			return countErr                        //nolint:wrapcheck // the count read just above says the same
+		})
+		if err != nil {
+			return fmt.Errorf("file a batch: %w", err)
+		}
+		for _, unit := range batch {
+			for _, file := range unit.files {
+				written[file.ID] = true
+			}
+		}
+		if pass.betweenBatches != nil {
+			pass.betweenBatches(ctx, batchRows)
+		}
+	}
+	return nil
+}
+
+// isWritten is whether every file of a unit was in a unit a batch wrote.
+func (unit filingUnit) isWritten(written map[int64]bool) bool {
+	return !slices.ContainsFunc(unit.files, func(file sqlcgen.ListIdentifyFilesRow) bool { return !written[file.ID] })
+}
+
+// newFiler is a pass's filer over one library, reporting into report.
+func (pass *Pass) newFiler(queries *sqlcgen.Queries, sorter *textindex.Sorter, report *Report) *libraryFiler {
+	return &libraryFiler{
+		queries: queries, nowMs: pass.clock.Now().UnixMilli(), report: report, providers: pass.providers,
+		sorter:       sorter,
+		titleIDByKey: map[string]int64{}, seriesIDByName: map[string]int64{}, nfoByVideo: map[int64]NFO{},
+		showNFOs: map[string]NFO{}, nfosByFolder: map[string][]namedNFO{}, titleIDByFolder: map[string]int64{},
+		seriesIDByFolder: map[string]int64{}, seriesMatchByID: map[int64]sqlcgen.GetSeriesForMatchRow{},
+		listings: map[string][]Episode{}, returningEpisodes: map[int64]bool{},
+		readsAsItGoes: pass.readsAsItGoes,
+	}
 }
 
 // libraryFiler is one pass over one library.
@@ -215,6 +348,40 @@ type libraryFiler struct {
 	// writes; none in a match's filer, or with readsAsItGoes.
 	snap          snapshot
 	readsAsItGoes bool
+}
+
+// identifyUnits files units in turn. With changedAtStart a count of rows the writer had changed
+// when the batch began, it stops after the unit that brings the batch's changes to batchRows, and
+// returns the units left; with -1, a read's, it files them all.
+func (filer *libraryFiler) identifyUnits(
+	ctx context.Context, units []filingUnit, changedAtStart, batchRows int64,
+) ([]filingUnit, error) {
+	for index, unit := range units {
+		if err := filer.identifyUnit(ctx, unit); err != nil {
+			return nil, err
+		}
+		if changedAtStart < 0 {
+			continue
+		}
+		changed, err := filer.queries.CountRowsChangedByTheWriter(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("count the rows changed: %w", err)
+		}
+		if changed-changedAtStart >= batchRows {
+			return units[index+1:], nil
+		}
+	}
+	return nil, nil
+}
+
+// identifyUnit files one unit: what the pass gathers of its files' evidence is the unit's alone.
+func (filer *libraryFiler) identifyUnit(ctx context.Context, unit filingUnit) error {
+	filer.files = unit.files
+	filer.evidence, filer.titleIDByFile = map[int64][]titleSpec{}, map[int64]int64{}
+	filer.extraReasonByFile, filer.localArt = map[int64]string{}, map[int64][]LocalImage{}
+	filer.seriesSpecByID, filer.contradicted = map[int64]seriesSpec{}, map[int64]bool{}
+	filer.leftFor, filer.added = map[int64]int64{}, map[int64]bool{}
+	return filer.identify(ctx)
 }
 
 // listAwaitingMatch lists what the fetch queue owes the library: films and series never answered for.
@@ -292,11 +459,22 @@ func (filer *libraryFiler) retireEmptied(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("merge title %d, left with no version, into %d: %w", titleID, into, err)
 		}
-		if merged > 0 && filer.added[titleID] {
+		if merged == 0 {
+			continue
+		}
+		if filer.added[titleID] {
 			filer.report.UnusedTitleCount++
 		}
+		filer.forgetTitle(titleID)
 	}
 	return nil
+}
+
+// forgetTitle drops a title the pass merged from what it finds titles by, so a later unit files
+// nothing into a tombstone.
+func (filer *libraryFiler) forgetTitle(titleID int64) {
+	maps.DeleteFunc(filer.titleIDByKey, func(_ string, held int64) bool { return held == titleID })
+	delete(filer.snap.titles, titleID)
 }
 
 // knowSeriesByFolder lets the name an episode's folders give find the series its neighbours are

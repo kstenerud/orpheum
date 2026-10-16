@@ -33,7 +33,11 @@
 //     TestCacheReadTx_SeesOneCommitWhateverCommitsMeanwhile.
 //   - WriteUnlessUnchanged runs a derivation in a read transaction first and takes the writer only
 //     when SQLite refused it a write there, so one that finds nothing to change never takes it
-//     (D303, DL9, DL11). Enforced by TestWriteUnlessUnchanged_TakesTheWriterOnlyForADerivationThatWrites.
+//     (D303, DL9, DL11); WouldWrite says only whether it would write, for one that then writes in
+//     batches. Enforced by TestWriteUnlessUnchanged_TakesTheWriterOnlyForADerivationThatWrites.
+//   - Commits counts each write that commits, and none that rolls back: read inside a write it is
+//     exact, so a work that writes in batches knows whether anyone else wrote since it read (D303,
+//     M1; D304 §2). Enforced by TestCommits_CountsEachWriteThatCommitsAndNoneThatRollsBack.
 //   - Every write takes the one writer through the writer gate: a write whose context a person
 //     waits on (internal/platform/waiting) before background work, and background work once
 //     passed over backgroundPassedOverAtMost times (D303, DL11). Enforced by
@@ -160,8 +164,8 @@
 //     cache.db (JobStorage), which internal/platform/jobqueue drives.
 //   - search.go: search's three statements, hand-written because sqlc cannot parse FTS5's MATCH;
 //     static SQL with parameters only.
-//   - open.go: Open, the pragmas and their read-back, Read, ReadTx, Write and OrNotFound;
-//     derive.go: WriteUnlessUnchanged;
+//   - open.go: Open, the pragmas and their read-back, Read, ReadTx, Write, Commits and OrNotFound;
+//     derive.go: WriteUnlessUnchanged and WouldWrite;
 //     writer_gate.go: the order in which writes take the one writer; tally.go: counting each
 //     statement into its context's tally.
 //   - steps.go and migrate.go: the embedded steps and the runner (D181); migrate_checks.go: the
