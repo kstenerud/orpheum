@@ -134,3 +134,25 @@ it("the page of what needs the admin counts each kind, a placeholder until it is
   expect(text).toContain("2 files or folders could not be read.");
   expect(text).not.toContain("offline");
 });
+
+it("tells an admin of a series whose episodes were likely read wrongly, leading to it (D306 §6)", async () => {
+  const readWrongly = {
+    ...nothingWrong,
+    seriesReadWrongly: [{ seriesId: 606, name: "Quillwick", unplacedCount: 24 }],
+  };
+  mounted = await mount(
+    withServices(
+      <StatusTray isHostingTogether={false} isAdmin />,
+      servedBy({ "GET /needs-attention": [200, readWrongly] }),
+    ),
+  );
+  expect(
+    mounted.container.querySelector('[aria-label="Something needs your attention"]'),
+  ).not.toBeNull();
+  mounted.unmount();
+  mounted = await mount(
+    withServices(<NeedsAttention />, servedBy({ "GET /needs-attention": [200, readWrongly] })),
+  );
+  expect(mounted.container.querySelector('a[href="/series/606"]')?.textContent).toBe("Quillwick");
+  expect(mounted.container.textContent).toContain(": 24 of its episodes have no number");
+});

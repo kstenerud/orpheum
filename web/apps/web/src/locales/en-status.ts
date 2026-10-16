@@ -22,6 +22,8 @@ export const enStatus = {
     waitingFolders: "{{count}} library folders' scans wait for you before removing files.",
     unreadPaths: "{{count}} files or folders could not be read.",
     waitingMatches: "{{count}} films and series need you to choose their match.",
+    seriesReadWrongly:
+      ": {{count}} of its episodes have no number, though no specials or extras folder holds them. Their file names may have been read wrongly; renaming them as S01E04 places them.",
     toSystem: "The System page",
     toLibraries: "The Libraries",
     toIdentify: "Needs a match",

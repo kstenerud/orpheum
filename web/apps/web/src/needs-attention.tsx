@@ -35,13 +35,23 @@ export function NeedsAttention(): JSX.Element {
             { count: value.unreadCount, key: "needsAttention.unreadPaths" },
             { count: value.matchCount, key: "needsAttention.waitingMatches" },
           ].filter((line) => line.count > 0);
-          return lines.length === 0 ? (
+          const readWrongly = value.seriesReadWrongly ?? [];
+          return lines.length + readWrongly.length === 0 ? (
             <p>{t("needsAttention.nothing")}</p>
           ) : (
             <ul>
               {lines.map((line) => (
                 <li key={line.key}>
                   <WarningIcon /> {t(line.key, { count: line.count })}
+                </li>
+              ))}
+              {readWrongly.map((series) => (
+                <li key={`series-${String(series.seriesId)}`}>
+                  <WarningIcon />{" "}
+                  <Link to={{ screen: "series-page", collectionId: series.seriesId }}>
+                    {series.name}
+                  </Link>
+                  {t("needsAttention.seriesReadWrongly", { count: series.unplacedCount })}
                 </li>
               ))}
             </ul>

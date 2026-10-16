@@ -2641,6 +2641,7 @@ export interface components {
             matchCount: number;
             /** Format: int64 */
             rootCount: number;
+            seriesReadWrongly: components["schemas"]["SeriesReadWronglyBody"][] | null;
             /** Format: int64 */
             unreadCount: number;
             /** Format: int64 */
@@ -3237,6 +3238,16 @@ export interface components {
             soundAfterMs?: number;
             /** Format: int64 */
             toPositionMs: number;
+        };
+        SeriesReadWronglyBody: {
+            name: string;
+            /** Format: int64 */
+            seriesId: number;
+            /**
+             * Format: int64
+             * @description How many of its episodes have no number outside a specials or extras folder
+             */
+            unplacedCount: number;
         };
         ServerBody: {
             build: components["schemas"]["BuildBody"];

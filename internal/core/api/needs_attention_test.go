@@ -4,7 +4,9 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
@@ -62,5 +64,33 @@ func TestNeedsAttention_CountsWhatWaitsForAMatch(t *testing.T) {
 	}
 	if output.Body.MatchCount != 1 {
 		t.Errorf("counts = %+v; want the one film waiting for its match", output.Body)
+	}
+}
+
+// A series some of whose episodes have no number outside a specials or extras folder is told, its
+// files' names likely read wrongly (D306 §6).
+func TestNeedsAttention_TellsTheSeriesWhoseEpisodesWereLikelyReadWrongly(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	var statements []string
+	for index := range 3 {
+		id := 40 + index
+		statements = append(statements,
+			fmt.Sprintf("INSERT INTO item (id, kind, library_id, added_at) VALUES (%d, 'title', 1, 2)", id),
+			fmt.Sprintf("INSERT INTO title (id, kind, identification_state) VALUES (%d, 'episode', 'unidentified')",
+				id),
+			fmt.Sprintf("INSERT INTO version (id, title_id, created_at) VALUES (%d, %d, 2)", id, id),
+			fmt.Sprintf(`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing, version_id,
+			 first_seen_at, last_seen_at) VALUES (%d, 1, 1, '/m/BB/Brass Arena - 1x%d.mkv', 10, X'0%d', 'listed',
+			 %d, 1, 1)`, id, index+2, index+3, id),
+			fmt.Sprintf(`INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order)
+			 VALUES (1, %d, 0, NULL, %d)`, id, 20000+index))
+	}
+	storetest.ExecRaw(t, harness.databasePath, statements...)
+	got := harness.do(t, http.MethodGet, "/needs-attention", admin, nil)
+	if !strings.Contains(got.body, `"seriesReadWrongly":[{"seriesId":20,"name":"Brass Arena","unplacedCount":3}]`) {
+		t.Errorf("GET /needs-attention = %d %s; want Brass Arena's three unplaced episodes told", got.status, got.body)
 	}
 }

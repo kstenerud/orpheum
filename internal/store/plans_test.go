@@ -237,7 +237,9 @@ func wholeReadsAllowed() map[string]string {
 		// Small tables the planner reads whole by the committed statistics (D303, DL15).
 		"ListSeriesByName": "by the statistics the planner reads the series, which are few (200 at the " +
 			"reference scale), and sorts a page of them",
-		"ListLibrarySeries":       "a library's series, which are few, read whole by the statistics",
+		"ListLibrarySeries": "a library's series, which are few, read whole by the statistics",
+		"ListUnnumberedEpisodeFiles": "the series' orderings, which are few (one or two a series), each searched " +
+			"for its positions; Needs attention looks for episodes read wrongly (D306 section 6)",
 		"ListSeriesAwaitingMatch": "the first-match sweep reads the series, which are few",
 		"ListTitlesAwaitingMatch": sweep + "the first-match sweep reads the titles never answered",
 		"ListUnreadablePaths":     few + "nodes, which the errored files are joined to",

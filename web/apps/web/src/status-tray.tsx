@@ -112,7 +112,11 @@ function NeedsAttentionSign(): JSX.Element | null {
     return null;
   }
   const { rootCount, diskCount, waitingRootCount, unreadCount, matchCount } = counts.value;
-  if (rootCount + diskCount + waitingRootCount + unreadCount + matchCount === 0) {
+  const readWrongly = counts.value.seriesReadWrongly ?? [];
+  if (
+    rootCount + diskCount + waitingRootCount + unreadCount + matchCount + readWrongly.length ===
+    0
+  ) {
     return null;
   }
   return (

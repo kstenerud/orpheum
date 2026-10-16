@@ -2763,6 +2763,15 @@
             "format": "int64",
             "type": "integer"
           },
+          "seriesReadWrongly": {
+            "items": {
+              "$ref": "#/components/schemas/SeriesReadWronglyBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "unreadCount": {
             "format": "int64",
             "type": "integer"
@@ -2777,7 +2786,8 @@
           "diskCount",
           "waitingRootCount",
           "unreadCount",
-          "matchCount"
+          "matchCount",
+          "seriesReadWrongly"
         ],
         "type": "object"
       },
@@ -4654,6 +4664,29 @@
           "fromPositionMs",
           "toPositionMs",
           "readyAfterMs"
+        ],
+        "type": "object"
+      },
+      "SeriesReadWronglyBody": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "seriesId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "unplacedCount": {
+            "description": "How many of its episodes have no number outside a specials or extras folder",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seriesId",
+          "name",
+          "unplacedCount"
         ],
         "type": "object"
       },
