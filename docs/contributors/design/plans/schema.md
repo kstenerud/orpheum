@@ -1297,6 +1297,25 @@ second writer, or on a writer this table does not name. A table no package write
 | `prepared_rendition` | cache.db | `internal/core/renditions` | |
 | `video_timeline` | persistent.db | `internal/core/readthrough` | each picture's keyframes and bytes in each second, by payload hash; `internal/core/chunks` reads it for the grid (D247 §10) |
 
+## What grows, and what bounds it
+
+Every table that grows has a line here (D303, M10): what bounds it today, and what removes its
+rows. Three classes grow with no bound but time; how long each is kept is the owner's to decide,
+and until then they are kept.
+
+| Grows with | Tables | Bounded by, today |
+| --- | --- | --- |
+| The library | `file`, `file_probe`, `file_nfo`, `stream`, `item`, `title`, `version`, `collection`, `collection_member`, `ordering`, `position`, `extra_relation`, `item_text`, `sort_key`, `item_provider_id`, `field_override`, `artwork`, `provider_response`, `loudness`, `video_timeline`, `subtitle_text`, `fetched_subtitle` | the files and works the libraries hold, **and every one they ever held**: a removed file or item is a tombstone, kept so that a file copied back returns with its history (D208 §4, D231 §7), and nothing purges tombstones |
+| The library's open questions | `fetch_failure`, `refresh_request`, `guessed_match` | one row an item at most; each is deleted when its question is answered |
+| People and their devices | `user`, `device`, `"grant"`, `locator` | every account, device and credential ever made: a removed person, a removed device and a revoked or expired credential stay as rows (D154, D173 §4.6); nothing purges them |
+| Watching | `play_event`, `play_span`, `play_position`, `progress_hide` | every play, forever; deleted only with the person who watched (`ForgetWatchingOf`) |
+| Scans | `root_scan`, `root_mount`, `root_state` | one row a root, deleted with the root |
+| Settings, roles, invitations, secrets | `setting`, `role`, `role_library`, `invitation`, `secret` | what an admin made; deleted when they delete it |
+
+`cache.db` is bounded by its own rules ([below](#cachedb--never-backed-up)): a job that ended is
+pruned once its keeping time passes (D233 §8), and renditions and chunks are evicted by their
+budgets.
+
 ## Not in Cut A, and additive
 
 Each arrives with its feature as a new table or column, precluding nothing
