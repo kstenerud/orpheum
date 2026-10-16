@@ -416,3 +416,19 @@ UPDATE version SET removed_at = sqlc.arg(removed_at) WHERE id = sqlc.arg(id) AND
 UPDATE item SET merged_into = sqlc.arg(merged_into), removed_at = sqlc.arg(removed_at)
 WHERE item.id = sqlc.arg(title_id) AND item.removed_at IS NULL
   AND NOT EXISTS (SELECT 1 FROM version WHERE version.title_id = sqlc.arg(title_id) AND version.removed_at IS NULL);
+
+-- name: ListUnnumberedEpisodeFiles :many
+-- The live files of each series' live episodes that have no number in its aired order, with the
+-- series' name, at most max_rows: those outside a specials or extras folder suggest names read
+-- wrongly (D306 section 6).
+SELECT ordering.collection_id AS series_id, CAST(coalesce(series_text.name, '') AS TEXT) AS series_name, file.path
+FROM position
+JOIN ordering ON ordering.id = position.ordering_id AND ordering.name = 'aired'
+JOIN item AS episode ON episode.id = position.title_id AND episode.removed_at IS NULL
+JOIN item AS series ON series.id = ordering.collection_id AND series.removed_at IS NULL
+LEFT JOIN item_text AS series_text ON series_text.item_id = ordering.collection_id AND series_text.is_original = 1
+JOIN version ON version.title_id = position.title_id AND version.removed_at IS NULL
+JOIN file ON file.version_id = version.id AND file.removed_at IS NULL
+WHERE position.number_in_group IS NULL
+ORDER BY ordering.collection_id, file.path
+LIMIT sqlc.arg(max_rows);

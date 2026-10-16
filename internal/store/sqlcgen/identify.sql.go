@@ -1426,6 +1426,52 @@ func (q *Queries) ListTitlesByProviderID(ctx context.Context, arg ListTitlesByPr
 	return items, nil
 }
 
+const listUnnumberedEpisodeFiles = `-- name: ListUnnumberedEpisodeFiles :many
+SELECT ordering.collection_id AS series_id, CAST(coalesce(series_text.name, '') AS TEXT) AS series_name, file.path
+FROM position
+JOIN ordering ON ordering.id = position.ordering_id AND ordering.name = 'aired'
+JOIN item AS episode ON episode.id = position.title_id AND episode.removed_at IS NULL
+JOIN item AS series ON series.id = ordering.collection_id AND series.removed_at IS NULL
+LEFT JOIN item_text AS series_text ON series_text.item_id = ordering.collection_id AND series_text.is_original = 1
+JOIN version ON version.title_id = position.title_id AND version.removed_at IS NULL
+JOIN file ON file.version_id = version.id AND file.removed_at IS NULL
+WHERE position.number_in_group IS NULL
+ORDER BY ordering.collection_id, file.path
+LIMIT ?1
+`
+
+type ListUnnumberedEpisodeFilesRow struct {
+	SeriesID   int64
+	SeriesName string
+	Path       string
+}
+
+// The live files of each series' live episodes that have no number in its aired order, with the
+// series' name, at most max_rows: those outside a specials or extras folder suggest names read
+// wrongly (D306 section 6).
+func (q *Queries) ListUnnumberedEpisodeFiles(ctx context.Context, maxRows int64) ([]ListUnnumberedEpisodeFilesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUnnumberedEpisodeFiles, maxRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListUnnumberedEpisodeFilesRow{}
+	for rows.Next() {
+		var i ListUnnumberedEpisodeFilesRow
+		if err := rows.Scan(&i.SeriesID, &i.SeriesName, &i.Path); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const mergeTitleLeftWithoutVersions = `-- name: MergeTitleLeftWithoutVersions :execrows
 UPDATE item SET merged_into = ?1, removed_at = ?2
 WHERE item.id = ?3 AND item.removed_at IS NULL

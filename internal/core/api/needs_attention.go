@@ -26,7 +26,17 @@ type NeedsAttentionOutput struct {
 		// several or after none was found, as "Needs a match" lists them (the owner, 2026-10-13:
 		// "Needs a match should show up as one of the things under the exclamation point tray icon").
 		MatchCount int `json:"matchCount"`
+		// SeriesReadWrongly are the series some of whose episodes have no number though no specials
+		// or extras folder holds them: their files' names were likely read wrongly (D306 §6).
+		SeriesReadWrongly []SeriesReadWronglyBody `json:"seriesReadWrongly"`
 	}
+}
+
+// SeriesReadWronglyBody is a series some of whose episodes' file names were likely read wrongly.
+type SeriesReadWronglyBody struct {
+	SeriesID      int64  `json:"seriesId"`
+	Name          string `json:"name"`
+	UnplacedCount int    `doc:"How many of its episodes have no number outside a specials or extras folder" json:"unplacedCount"` //nolint:lll // one struct tag
 }
 
 func (server *Server) registerNeedsAttention() {
@@ -68,6 +78,16 @@ func (server *Server) getNeedsAttention(
 	output.Body.MatchCount, err = dependencies.Chooser.WaitingForAPerson(ctx)
 	if err != nil {
 		return nil, server.libraryError(ctx, "count what needs a match", err)
+	}
+	unplaced, err := dependencies.Chooser.SeriesWithUnplacedEpisodes(ctx)
+	if err != nil {
+		return nil, server.libraryError(ctx, "find the series read wrongly", err)
+	}
+	output.Body.SeriesReadWrongly = make([]SeriesReadWronglyBody, 0, len(unplaced))
+	for _, series := range unplaced {
+		output.Body.SeriesReadWrongly = append(output.Body.SeriesReadWrongly, SeriesReadWronglyBody{
+			SeriesID: series.SeriesID, Name: series.SeriesName, UnplacedCount: series.FileCount,
+		})
 	}
 	return output, nil
 }
