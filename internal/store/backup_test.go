@@ -158,3 +158,24 @@ func TestBackupInto_CopiesWhileAWriteHoldsTheWriter(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// A copy that fails SQLite's integrity check is refused: here a row the database's own CHECK
+// forbids, which VACUUM INTO copies as it is (D303 §7, M6).
+func TestBackupInto_RefusesACopyThatFailsItsIntegrityCheck(t *testing.T) {
+	t.Parallel()
+	database := openMigrated(t)
+	for _, statement := range []string{
+		"PRAGMA ignore_check_constraints = 1",
+		"INSERT INTO user (name, role_id, created_at, admin_away) VALUES ('mallory', 1, 1, 'sometimes')",
+		"PRAGMA ignore_check_constraints = 0",
+	} {
+		if _, err := database.writer.ExecContext(t.Context(), statement); err != nil {
+			t.Fatalf("%s: %v", statement, err)
+		}
+	}
+	backup := filepath.Join(t.TempDir(), "backup.db")
+	err := database.BackupInto(t.Context(), backup)
+	if !errors.Is(err, ErrDamagedCopy) {
+		t.Errorf("a backup of a row its CHECK forbids: %v, want ErrDamagedCopy", err)
+	}
+}
