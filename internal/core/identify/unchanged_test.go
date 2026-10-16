@@ -3,10 +3,14 @@
 package identify_test
 
 import (
+	"fmt"
+	"slices"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 // A pass over a library nothing changed in writes nothing: no title, text, sort key, index or
@@ -90,5 +94,27 @@ func TestPass_AgainOverAnUnchangedLibraryWithAnUnnumberedSpecialWritesNothing(t 
 	}
 	if after != before {
 		t.Errorf("a pass over an unchanged library with a special changed %d rows; want none", after-before)
+	}
+}
+
+// A title filed as an extra once a film appears to own it takes the kind "extra", even where nothing
+// else about it changes, as when a person confirmed it as a film: kept a film, its listing was
+// rewritten by the pass and the sort-key refresh in turn, every pass (D162; found by
+// TestPass_OverRandomLibrariesAgainWritesNothingAndMakesNoTitleEachPass).
+func TestPass_AConfirmedFilmFiledAsAnExtraTakesTheKindExtra(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "nfo")
+	const making = "Metropolis (1995)/Featurettes/Making Metropolis.mkv"
+	lib.scan(videoRecord(making))
+	title := lib.titlesByPath()[making].TitleID
+	if err := lib.database.Write(t.Context(), func(queries *sqlcgen.Queries) error {
+		return queries.ConfirmTitleMatch(t.Context(), title)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	lib.scan(videoRecord("Metropolis (1995)/Metropolis (1995).mkv"), videoRecord(making))
+	kind := storetest.QueryRaw(t, lib.database.Path(), fmt.Sprintf("SELECT kind FROM title WHERE id = %d", title))
+	if !slices.Equal(kind, []string{"extra"}) {
+		t.Errorf("the title filed as an extra is of kind %v; want extra", kind)
 	}
 }

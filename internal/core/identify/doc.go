@@ -50,6 +50,8 @@
 //     has a version"). TestPass_ATitleAFileLeftIsMergedIntoItsNewOneAndNoneIsMadeForAFileThatStays,
 //     TestPass_AnEpisodeRenumberedByItsNFOLeavesNoEmptyTitleAtItsNewPlace. A title the pass made and
 //     gave no file is a fault, logged.
+//   - A title's kind is how the pass files it: an extra with no film is a film, and a film a film
+//     comes to own is an extra (D162). TestPass_AConfirmedFilmFiledAsAnExtraTakesTheKindExtra.
 //   - A film whose NFO is gone is identified from its path again.
 //     TestPass_AFilmWhoseNFOIsDeletedIsIdentifiedFromItsPathAgain.
 //   - A pass reads its library in a constant number of statements (snapshot.go), compares before
