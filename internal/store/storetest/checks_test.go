@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/platform/waiting"
+	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
@@ -78,5 +79,26 @@ func TestOpenMigrated_FailsATestThatBreaksAnInvariant(t *testing.T) {
 	broken := "no live version belongs to a removed title"
 	if len(recording.errors) != 1 || !strings.Contains(recording.errors[0], broken) {
 		t.Errorf("the test was failed with %q; want one error, naming the broken invariant", recording.errors)
+	}
+}
+
+// A cache.db storetest opens fails the test whose reading request wrote to it too (D303, DL10).
+func TestOpenCache_FailsATestWhoseReadingRequestWrote(t *testing.T) {
+	t.Parallel()
+	recording := &recordingTB{TB: t}
+	cache := storetest.OpenCache(recording)
+	err := cache.Write(waiting.ForAReader(t.Context()), func(queries *cachegen.Queries) error {
+		return queries.MarkArtServed(t.Context(), cachegen.MarkArtServedParams{
+			SourceSha256Hex: "ab", LastServedEpochDay: 1,
+		})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, cleanup := range slices.Backward(recording.cleanups) {
+		cleanup()
+	}
+	if len(recording.errors) != 1 || !strings.Contains(recording.errors[0], "only reads wrote") {
+		t.Errorf("the test was failed with %q; want one error, naming the reading request's write", recording.errors)
 	}
 }
