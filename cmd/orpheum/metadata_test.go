@@ -3,12 +3,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,6 +23,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/jobqueue/jobqueuetest"
+	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -375,4 +378,40 @@ func TestSweeps_TheScanScheduleIsASweepCheckedEveryQuarterHour(t *testing.T) {
 		}
 	}
 	t.Error("no sweep asks for the scans libraries are due (D272 §1)")
+}
+
+// brokenInvariants is a database whose data breaks the invariants it names.
+type brokenInvariants []store.Violation
+
+func (broken brokenInvariants) CheckInvariants(context.Context) ([]store.Violation, error) {
+	return broken, nil
+}
+
+// The database's invariants are checked by a sweep, at start and daily, and each one the data
+// breaks is logged as an error with the rows it fails at (D303, M7): the owner's NAS gathered 80,246
+// empty titles under one series that nothing reported.
+func TestSweeps_TheDatabasesInvariantsAreCheckedDailyAndEachBrokenOneLoggedAsAnError(t *testing.T) {
+	t.Parallel()
+	var logged bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logged, nil))
+	services := jobServices{invariants: brokenInvariants{
+		{Invariant: "every live title has a version", Rows: []string{"607", "608"}},
+	}}
+	for _, sweep := range services.sweeps(logger) {
+		if sweep.Name != sweepInvariants {
+			continue
+		}
+		if every := sweep.Every(t.Context()); every != 24*time.Hour {
+			t.Errorf("the invariants are checked every %s, want daily", every)
+		}
+		if _, err := sweep.Derive(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		if line := logged.String(); !strings.Contains(line, "level=ERROR") ||
+			!strings.Contains(line, "every live title has a version") || !strings.Contains(line, "607") {
+			t.Errorf("logged %q; want an error naming the invariant and its rows", line)
+		}
+		return
+	}
+	t.Error("no sweep checks the database's invariants (D303, M7)")
 }

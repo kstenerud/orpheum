@@ -56,7 +56,9 @@
 //     TestWrite_ReportsAWriteAReadingRequestMakes.
 //   - CheckInvariants names every invariant of invariants.sql that does not hold, with a dangling
 //     foreign key and a full-text index that disagrees with its text, and storetest runs it after
-//     every test (D303, M7). Enforced by TestCheckInvariants_NamesEachThatDoesNotHold.
+//     every test (D303, M7); the running server checks them at start and daily, logging each one
+//     broken. Enforced by TestCheckInvariants_NamesEachThatDoesNotHold, and cmd/orpheum's
+//     TestSweeps_TheDatabasesInvariantsAreCheckedDailyAndEachBrokenOneLoggedAsAnError.
 //   - Every statement either database runs, search's included, counts by its query's name into the
 //     querytally.Tally its context carries, and every write transaction counts once (D303, DL6).
 //     Enforced by TestTally_CountsEveryStatementByItsNameAndEveryWrite.

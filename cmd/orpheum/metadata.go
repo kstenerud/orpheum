@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -30,6 +31,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
+	"github.com/kstenerud/orpheum/internal/store"
 )
 
 // jobServices is what the background jobs need: the identification pass, the job queue, the
@@ -83,6 +85,8 @@ type jobServices struct {
 	providerServices hostProviders
 	// sessions remembers each session's use, which writeSessionUses writes in batches (D303 §4).
 	sessions sessionUseFlusher
+	// invariants checks persistent.db's invariants, at start and daily (D303, M7).
+	invariants invariantChecker
 }
 
 // newJobServices builds the providers, the pass and the queue, and returns the jobs a crash left
@@ -129,8 +133,8 @@ func newJobServices(
 	wakeOwedPasses(pass, queue)
 	matcher := identify.NewMatcher(opened.database, opened.cache, pass, clock.System{}, logger)
 	return jobServices{
-		sessions: opened.auth,
-		pass:     pass, queue: queue, matcher: matcher, settings: opened.settings, subtitler: subtitler,
+		sessions: opened.auth, invariants: opened.database,
+		pass: pass, queue: queue, matcher: matcher, settings: opened.settings, subtitler: subtitler,
 		outboundClient: httpClient, providerServices: hosts,
 		chooser:   identify.NewChooser(matcher, pass),
 		refresher: identify.NewRefresher(opened.database, queue, opened.settings, clock.System{}, logger),
@@ -281,12 +285,41 @@ const (
 	sweepScheduledBackup = "the scheduled backup"
 	sweepCertificate     = "the certificate's renewal"
 	sweepScheduledScans  = "the scheduled scans"
+	sweepInvariants      = "the database's invariants"
 )
 
 // scheduledScansCheckEvery is how often the scan schedule's sweep asks whether a root is due its
 // scan: a bound on how late one starts, against intervals of hours, and a read of persistent.db's
 // roots, nothing more.
 const scheduledScansCheckEvery = 15 * time.Minute
+
+// invariantsCheckEvery is how often persistent.db's invariants are checked beside the check at
+// start: daily, as D303 (M7) says, a few full reads of tables at this scale.
+const invariantsCheckEvery = 24 * time.Hour
+
+// invariantChecker checks persistent.db's invariants: store.Database.
+type invariantChecker interface {
+	CheckInvariants(ctx context.Context) ([]store.Violation, error)
+}
+
+// checkInvariants is the invariants' sweep: it queues no work, and logs each invariant the data no
+// longer keeps as an error, with the first rows it fails at, so a fault that writes what no healthy
+// server holds is named the day it starts (D303, M7): the owner's NAS gathered 80,246 empty titles
+// under one series, found only when its page took 45 seconds to draw.
+func checkInvariants(checker invariantChecker, logger *slog.Logger) func(ctx context.Context) (int, error) {
+	return func(ctx context.Context) (int, error) {
+		violations, err := checker.CheckInvariants(ctx)
+		if err != nil {
+			return 0, fmt.Errorf("check the database's invariants: %w", err)
+		}
+		for _, violation := range violations {
+			logger.ErrorContext(ctx,
+				"the database breaks one of its invariants: a fault wrote what no healthy server holds",
+				"invariant", violation.Invariant, "rows", violation.Rows)
+		}
+		return 0, nil
+	}
+}
 
 // certificateCheckEvery is how often the certificate's sweep asks whether a renewal is due: daily,
 // against a month's margin before it expires (D243 §6).
@@ -366,6 +399,10 @@ func (services jobServices) sweeps(logger *slog.Logger) []jobs.Sweep {
 		{
 			Name: sweepScheduledScans, Derive: services.scanSchedule.QueueDue,
 			Every: func(context.Context) time.Duration { return scheduledScansCheckEvery },
+		},
+		{
+			Name: sweepInvariants, Derive: checkInvariants(services.invariants, logger),
+			Every: func(context.Context) time.Duration { return invariantsCheckEvery },
 		},
 		{
 			Name: sweepReadThroughs, Derive: services.readThrough.QueueReadThroughs,

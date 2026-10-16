@@ -1,7 +1,8 @@
 -- SPDX-License-Identifier: AGPL-3.0-or-later
 -- persistent.db's invariants (D303, M7): each query names what must never be true and returns the
 -- rows where it is, so a healthy database returns none. They run after every test that opens a
--- database through storetest; the doctor and a nightly check are to run them too (D303 phase D).
+-- database through storetest, and on the running server at start and daily, which logs each one
+-- broken as an error (cmd/orpheum's checkInvariants); the doctor is to run them too.
 -- Each starts "-- invariant: <name>"; the text up to the next one is its query, which reads only.
 
 -- invariant: no live version belongs to a removed title
