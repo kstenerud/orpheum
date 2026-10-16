@@ -74,7 +74,7 @@ var (
 	seasonPackPattern = regexp.MustCompile(`(?i)(?:^|[\p{Z} ._-])(?:s[0-9]{1,3}|` +
 		`(?:season|series|staffel|saison|temporada)[\p{Z} ._-]*[0-9]{1,3})(?:[\p{Z} ._-]|$)`)
 	// A year, in brackets too, full-width ones included: "灯台守（2009）".
-	yearPattern = regexp.MustCompile(`(?:^|[\p{Z} ._(\[（［-])((?:19|20)[0-9]{2})(?:[\p{Z} ._)\]）］-]|$)`)
+	yearPattern = regexp.MustCompile(`(?:^|[\p{Z} ._(\[（［)\]）］-])((?:19|20)[0-9]{2})(?:[\p{Z} ._)\]）］-]|$)`)
 	// A date, day first or year first: "14.03.2019", "2019-03-14". Daily shows are out of the
 	// beta (D306 §4); a date is only kept from being read as an episode's number.
 	datePattern = regexp.MustCompile(`(?:^|[^\p{L}\p{N}])(?:[0-9]{1,2}[./-][0-9]{1,2}[./-](?:19|20)[0-9]{2}|` +
@@ -431,9 +431,17 @@ func episodeFolderNumber(folder string) (int, bool) {
 	return 0, false
 }
 
-// wordsBeforeTags are a name's words before its first release tag.
+// wordsBeforeTags are a name's words before its first release tag, one joined to a word by a dash
+// too: "Ice Station Wren-AC3-5.1-DVDRip" is Ice Station Wren.
 func wordsBeforeTags(words []string) []string {
 	for index, word := range words {
+		if parts := strings.Split(word, "-"); len(parts) > 1 && !isReleaseTag(word) {
+			for part := 1; part < len(parts); part++ {
+				if isReleaseTag(parts[part]) {
+					return append(words[:index:index], strings.Join(parts[:part], "-"))
+				}
+			}
+		}
 		// "Complete" ends a pack's name, "Show.COMPLETE.SERIES", but may begin a title; so does a cut's
 		// name, "Name Director's Cut", but not "The Director's Wife".
 		if isReleaseTag(word) || (index > 0 && strings.EqualFold(word, "complete")) ||
@@ -442,6 +450,30 @@ func wordsBeforeTags(words []string) []string {
 		}
 	}
 	return words
+}
+
+// withoutOpenBracket is text cut where a bracket opens that does not close: what is left of a group
+// whose year cut it, as in "Goin' Yonder (Western Comedy" or "Verbena [ATG".
+func withoutOpenBracket(text string) string {
+	open := -1
+	depth := 0
+	for index, r := range text {
+		switch r {
+		case '(', '[', '（', '［':
+			if depth == 0 {
+				open = index
+			}
+			depth++
+		case ')', ']', '）', '］':
+			if depth > 0 {
+				depth--
+			}
+		}
+	}
+	if depth > 0 && open > 0 {
+		return text[:open]
+	}
+	return text
 }
 
 // isCutName is whether two words name a film's cut: "Director's Cut", "Theatrical Edition".
@@ -473,6 +505,9 @@ func cleanTitle(stem string) (name string, year int) {
 			text = text[:last[0]]
 		}
 	}
+	// What is left of a bracket the year was inside goes, "Name (Comedy" and "Name [ATG", and so does
+	// a bracketed tag after the name, "Name [BDRip-1080p][RiP By X]".
+	text = bracketTagPattern.ReplaceAllString(withoutOpenBracket(text), " ")
 	name = strings.Join(wordsBeforeTags(strings.Fields(text)), " ")
 	name = strings.TrimFunc(name, func(r rune) bool {
 		return unicode.IsSpace(r) || r == '-' || r == '(' || r == '[' || r == '.' || r == ','

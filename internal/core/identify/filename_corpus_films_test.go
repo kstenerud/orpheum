@@ -212,6 +212,19 @@ func TestParsePath_OurCorpusOfFilms(t *testing.T) {
 		{"Velvet Static Unrated (2016).mkv", ParsedPath{Kind: "movie", Name: "Velvet Static", Year: 2016}},
 		{"Velvet Static Director's Cut (2016).mkv", ParsedPath{Kind: "movie", Name: "Velvet Static", Year: 2016}},
 		{"Velvet Static Theatrical Cut (2016).mkv", ParsedPath{Kind: "movie", Name: "Velvet Static", Year: 2016}},
+		// Release names that leave a group open, tag the name in brackets, or join tags to it with
+		// dashes (staging's scan of the owner's NAS, 2026-10-16: each was searched for as written).
+		{
+			"Gravel Choir (Folk Musical 1978)  Two Actors & A Third  (HD).mp4",
+			ParsedPath{Kind: "movie", Name: "Gravel Choir", Year: 1978},
+		},
+		{"Ember Tide [ATG 2017] English 720p x265 AAC.mp4", ParsedPath{Kind: "movie", Name: "Ember Tide", Year: 2017}},
+		{
+			"Copper Winter [BDRip-1080p-MultiLang-MultiSub][RiP By Someone].mkv",
+			ParsedPath{Kind: "movie", Name: "Copper Winter"},
+		},
+		{"Harbour Lantern-AC3-5.1-DVDRip[Eng]1968.avi", ParsedPath{Kind: "movie", Name: "Harbour Lantern", Year: 1968}},
+		{"Moth-Lantern-1080p.mkv", ParsedPath{Kind: "movie", Name: "Moth-Lantern"}},
 		// A cut's words name the cut only as a pair: these are titles.
 		{"The Director's Lantern (2010).mkv", ParsedPath{Kind: "movie", Name: "The Director's Lantern", Year: 2010}},
 		{"Theatrical Embers (2001).mkv", ParsedPath{Kind: "movie", Name: "Theatrical Embers", Year: 2001}},
