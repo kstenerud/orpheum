@@ -26,8 +26,8 @@ type fakeDiscovery struct {
 	t *testing.T
 	// baseURL is where the core calls it, which the core's signatures are bound to; clientOrigin is
 	// where it says it serves its client.
-	baseURL, clientOrigin string
-	mutex                 sync.Mutex
+	baseURL, clientOrigin, loaderOrigin string
+	mutex                               sync.Mutex
 	// Guarded by mutex:
 	nonces       map[string]bool
 	publicKey    ed25519.PublicKey
@@ -155,7 +155,7 @@ func (fake *fakeDiscovery) serveSigned(writer http.ResponseWriter, request *http
 	case "GET /status":
 		fake.answer(writer, discoveryproto.StatusResponse{
 			State: fake.state, Zone: fakeZone, ICEServers: []discoveryproto.ICEServer{{URLs: []string{fakeSTUN}}},
-			ClientOrigin: fake.clientOrigin, Realm: fake.realm,
+			ClientOrigin: fake.clientOrigin, LoaderOrigin: fake.loaderOrigin, Realm: fake.realm,
 		})
 	case "PUT /addresses":
 		var heartbeat discoveryproto.AddressesRequest

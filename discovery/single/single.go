@@ -81,6 +81,9 @@ type Parts struct {
 	Zone string
 	// ClientOrigin is where the owner serves the client, which the core's links lead to (D293 §4).
 	ClientOrigin string
+	// LoaderOrigin is where the owner serves the loader that hands a browser on to the client origin
+	// (D308); empty when the client is served whole at ClientOrigin.
+	LoaderOrigin string
 	Store        Store
 	// Now is the time; Random, where its nonces, tokens, ids and codes come from.
 	Now    func() time.Time
@@ -371,6 +374,7 @@ func (discovery *Discovery) status(writer http.ResponseWriter, request *http.Req
 	}
 	status := discoveryproto.StatusResponse{
 		State: held.State, ICEServers: discovery.parts.ICEServers, ClientOrigin: discovery.parts.ClientOrigin,
+		LoaderOrigin: discovery.parts.LoaderOrigin,
 	}
 	if held.State == discoveryproto.StatePending {
 		status.ClaimCode, status.ClaimExpiresAt = held.ClaimCode, held.ClaimExpiresAt

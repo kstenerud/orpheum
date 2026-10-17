@@ -829,7 +829,10 @@ The page's origin is the discovery's; the core's are its names. So:
   `clientOrigin`, accepted only as an `https` origin with no path, and shown on the System page. It
   gives the discovery no power it lacks, since the discovery already serves the client's code.
   Built, with the identity key's fingerprint beside it on the System page; the CORS that follows it
-  is not.
+  is not. **D308** adds `loaderOrigin`, checked the same way: where the discovery serves the loader
+  that hands a browser on to the core's own client origin, which `clientOrigin` then names. The
+  core's CORS lets the loader's origin read only `/health` and ask for a hand-off code
+  ([client-from-core.md](plans/client-from-core.md) §2.1).
 - **Sign-in by header**, never a cookie, which would be a third-party cookie (the API already takes
   `Authorization: Bearer`).
 - **Byte paths by the header on every request** (hls.js's loader, `fetch` and blob URLs for images
@@ -974,7 +977,7 @@ the core must act on (enrol again, another instance running) carries a code of i
 | `POST /challenge` | public key → nonce, for enrolling or a session; rate-limited | yes |
 | `POST /enrol` | public key + signed nonce → `coreId`, claim code, expiry; idempotent per key | yes |
 | `POST /session` | `coreId` + `instanceId` + signed nonce → token bound to the core, `expiresIn` (1 h) | yes |
-| `GET /status` | claimed?, account state, zone, protocol support, `iceServers`, the client origin (`clientOrigin`, §3.4), messages for the admin | yes, but for the account state |
+| `GET /status` | claimed?, account state, zone, protocol support, `iceServers`, the client origin (`clientOrigin`, §3.4) and the loader's (`loaderOrigin`, D308), messages for the admin | yes, but for the account state |
 | `PUT /addresses` | candidates, the owner's TURN → published names, probe results, `reachableFrom`, last week's failed connections (§3.6); the heartbeat's fallback | yes |
 | `GET /signal` (WebSocket) | offers (with proofs) in, answers (signed over the SDP) out; the heartbeat; pings | yes, without checks, signatures, heartbeat or pings |
 | `PUT /acme-challenge`, `DELETE /acme-challenge/{name}` | set or clear `_acme-challenge.<coreId>.<zone>`, claimed cores only; returns once served | yes, but for waiting until served |

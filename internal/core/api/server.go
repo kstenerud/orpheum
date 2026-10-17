@@ -130,6 +130,8 @@ type health struct {
 type Server struct {
 	// namedClientOrigin is the client origin a test names in place of the discovery's (crossOrigin).
 	namedClientOrigin atomic.Pointer[string]
+	// namedLoaderOrigin is the loader origin a test names in place of the discovery's (crossOrigin).
+	namedLoaderOrigin atomic.Pointer[string]
 	humaAPI           huma.API
 	mux               *http.ServeMux
 	logger            *slog.Logger

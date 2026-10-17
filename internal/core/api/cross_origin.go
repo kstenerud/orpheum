@@ -23,8 +23,10 @@ const (
 
 // crossOrigin lets a page on the client origin the core's discovery names call the API from a
 // browser: that origin exactly, never a wildcard and never "null", no credentials, and Vary: Origin on
-// every answer (the protocol's §3.4; S18). A preflight from any other origin, or none, is answered
-// without permission; the core's own page, on its own origin, needs none.
+// every answer (the protocol's §3.4; S18). The loader's origin, where no core's client runs (D308),
+// may call only what finding the core takes (isOpenToTheLoader). A preflight from any other
+// origin, or none, is answered without permission; the core's own page, on its own origin, needs
+// none.
 func (server *Server) crossOrigin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		if !strings.HasPrefix(request.URL.Path, Prefix+"/") {
@@ -33,7 +35,8 @@ func (server *Server) crossOrigin(next http.Handler) http.Handler {
 		}
 		writer.Header().Add("Vary", "Origin")
 		origin := request.Header.Get("Origin")
-		isAllowed := origin != "" && origin != "null" && origin == server.clientOriginOf()
+		isAllowed := origin != "" && origin != "null" && (origin == server.clientOriginOf() ||
+			origin == server.loaderOriginOf() && isOpenToTheLoader(request.URL.Path))
 		if isAllowed {
 			writer.Header().Set("Access-Control-Allow-Origin", origin)
 			writer.Header().Set("Access-Control-Expose-Headers", crossOriginExposedHeaders)
@@ -49,6 +52,24 @@ func (server *Server) crossOrigin(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(writer, request)
 	})
+}
+
+// isOpenToTheLoader is whether the loader's origin may call path: the health its path race probes.
+func isOpenToTheLoader(path string) bool {
+	return path == Prefix+"/health"
+}
+
+// loaderOriginOf is the loader's origin crossOrigin allows for pathsOpenToTheLoader: the discovery's,
+// unless a test names one.
+func (server *Server) loaderOriginOf() string {
+	if named := server.namedLoaderOrigin.Load(); named != nil {
+		return *named
+	}
+	dependencies, err := server.readyDependencies()
+	if err != nil || dependencies.Discovery == nil {
+		return ""
+	}
+	return dependencies.Discovery.Status().LoaderOrigin
 }
 
 // clientOriginOf is the origin crossOrigin allows: discoveryClientOrigin, unless a test names one.
