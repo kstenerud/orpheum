@@ -251,10 +251,13 @@ class Wiring(unittest.TestCase):
         body = recipe.group(0)
         self.assertIn('rm -rf "$$(git rev-parse --git-path orpheum-area-stamps)" '
                       '"$$(git rev-parse --git-path orpheum-check-passed)"', body)
-        for step in ("check-verbose", "go test -race -count=1 ./...", "test-integration-run", "lint:full",
+        for step in ("check-verbose", "go test -race -count=1", "test-integration-run", "lint:full",
                      "test-browser BASE=", "test-acceptance-home BASE=", "check_revert_red.py"):
             self.assertRegex(body, rf"{re.escape(step)}.* \|\| failed=1", f"{step} does not run to its end")
         self.assertIn("--part all", body)
+        # The race detector's packages, all at once on every core, ran identify past go test's
+        # ten-minute default and a backup test past its deadline (test-weight.md §15).
+        self.assertIn('go test -race -count=1 -p "$$(( ($$(nproc) + 1) / 2 ))" -timeout 30m ./...', body)
         ci = (REPO / ".github" / "workflows" / "ci.yml").read_text()
         self.assertRegex(ci, r'(?m)^  schedule:\n    - cron: "\d+ \d+ \* \* \*"$')
         self.assertRegex(ci, r"(?m)^        if: github\.event_name == 'schedule' \|\| github\.event_name == "

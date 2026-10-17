@@ -249,6 +249,22 @@ Each entry says: the **mechanism**, the **instance** we found, **why it was invi
   grows from batch to batch (a file only a browser can check is the expensive kind); a browser
   probe whose time is near its timeout.
 
+### 15. The race detector on every core at once
+
+- **Mechanism:** `go test -race ./...` runs as many package binaries as there are cores, and each
+  runs its own tests in parallel under the race detector's five-to-tenfold cost. The packages
+  starve each other, so a slow package passes go test's ten-minute default and a test with its own
+  deadline misses it, though neither is slow alone.
+- **Instance** (the first `make check-everything`, 2026-10-17): identify's tests ran past ten
+  minutes and a `TestBackupInto` test passed its deadline; both pass alone under `-race`.
+- **Why it was invisible:** the race run had been `make test-all`'s alone, run by hand on an idle
+  machine; the nightly is its first regular caller.
+- **Fix:** check-everything runs half the cores' packages at a time (`-p`) with a thirty-minute
+  timeout, which bounds a hang and leaves room for one under contention (principles §24:
+  parallelize only where it gains and starves nothing).
+- **Warning sign:** a nightly race failure that is a timeout or a missed deadline rather than a
+  race report; the race step's time growing faster than the suite.
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of

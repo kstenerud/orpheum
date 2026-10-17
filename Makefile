@@ -366,7 +366,7 @@ check-everything: browsers ## Everything, trusting no stamp, cache or map: CI's 
 	@rm -rf "$$(git rev-parse --git-path orpheum-area-stamps)" "$$(git rev-parse --git-path orpheum-check-passed)"; \
 	  failed=0; \
 	  $(MAKE) --no-print-directory check-verbose || failed=1; \
-	  $(UNCONTROLLED); $(HERMETIC) go test -race -count=1 ./... || failed=1; \
+	  $(UNCONTROLLED); $(HERMETIC) go test -race -count=1 -p "$$(( ($$(nproc) + 1) / 2 ))" -timeout 30m ./... || failed=1; \
 	  $(MAKE) --no-print-directory test-integration-run || failed=1; \
 	  npm --prefix web run --silent lint:full || failed=1; \
 	  $(MAKE) --no-print-directory test-browser BASE= || failed=1; \
