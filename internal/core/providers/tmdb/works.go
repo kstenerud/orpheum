@@ -137,6 +137,10 @@ type workDetails struct {
 		IMDbID string `json:"imdb_id"`
 		TVDbID int64  `json:"tvdb_id"`
 	} `json:"external_ids"`
+	// Seasons are a series' seasons, the specials' 0 among them.
+	Seasons []struct {
+		SeasonNumber int `json:"season_number"`
+	} `json:"seasons"`
 }
 
 // Parse reads a stored /movie/{id} or /tv/{id} response.
@@ -170,10 +174,15 @@ func (*Client) Parse(kind string, body []byte) (identify.Metadata, error) {
 	if work.BackdropPath != "" {
 		artwork = append(artwork, identify.ImageRef{Kind: library.ArtBackdrop, Ref: work.BackdropPath})
 	}
+	var seasons []int
+	for _, season := range work.Seasons {
+		seasons = append(seasons, season.SeasonNumber)
+	}
 	return identify.Metadata{
 		ID: summary.ID, Name: summary.Name, OriginalName: summary.OriginalName, OriginalLang: work.OriginalLanguage,
 		Overview: work.Overview, Tagline: work.Tagline, Year: summary.Year,
 		RuntimeMs: runtimeMinutes * int64(time.Minute/time.Millisecond), IDs: ids, Artwork: artwork,
+		SeasonNumbers: seasons,
 	}, nil
 }
 

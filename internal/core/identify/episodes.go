@@ -31,7 +31,8 @@ func (filer *libraryFiler) fileEpisode(
 		return err
 	}
 	filer.seriesIDByFolder[seriesFolderOf(file.Path)] = seriesID
-	if numberErr := filer.numberBySpecials(ctx, seriesID, &parsed); numberErr != nil {
+	isPlacedByGuess, numberErr := filer.numberByListings(ctx, seriesID, file.Path, &parsed)
+	if numberErr != nil {
 		return numberErr
 	}
 	season, number := parsed.Season, parsed.Episode
@@ -67,6 +68,13 @@ func (filer *libraryFiler) fileEpisode(
 	if err != nil {
 		return err
 	}
+	if isPlacedByGuess {
+		// Placed by its name alone, as a match guessed is marked until a person confirms it (D307 §2).
+		guess := sqlcgen.MarkGuessedMatchParams{ItemID: titleID, GuessedAt: filer.nowMs}
+		if markErr := filer.queries.MarkGuessedMatch(ctx, guess); markErr != nil {
+			return fmt.Errorf("mark episode %d placed by a guess: %w", titleID, markErr)
+		}
+	}
 	return filer.place(ctx, file, titleID, spec)
 }
 
@@ -87,17 +95,34 @@ func (filer *libraryFiler) episodeTitle(
 	return titleID, filer.positionEpisode(ctx, seriesID, titleID, season, number)
 }
 
-// numberBySpecials gives an unnumbered special the number its series' listing of specials gives
-// its name, when it has one (specialNamed).
-func (filer *libraryFiler) numberBySpecials(ctx context.Context, seriesID int64, parsed *ParsedPath) error {
+// numberByListings gives an unnumbered episode the place its series' listings give its name: the
+// number its listing of specials gives it (specialNamed); else, for one in no specials or extras
+// folder and not named as bonus material, the season and number of the one episode of every season
+// listed whose name is its own, or nearly, which is a guess it reports (placedByName, D307 §2).
+func (filer *libraryFiler) numberByListings(
+	ctx context.Context, seriesID int64, filePath string, parsed *ParsedPath,
+) (isGuess bool, err error) {
 	if !parsed.IsUnnumbered {
-		return nil
+		return false, nil
 	}
 	named, err := filer.specialNamed(ctx, seriesID, parsed.EpisodeName)
-	if err == nil && named > 0 {
-		parsed.Episode, parsed.IsUnnumbered = named, false
+	if err != nil || named > 0 {
+		if named > 0 {
+			parsed.Episode, parsed.IsUnnumbered = named, false
+		}
+		return false, err
 	}
-	return err
+	series, err := filer.cachedSeriesMatch(ctx, seriesID)
+	provider, known := filer.providers[providerOf(filer.library.MetadataSource)]
+	if err != nil || !known || !isSeriesMatched(series) || !isPlaceableByName(filePath) {
+		return false, err
+	}
+	placed, found, err := filer.placedByName(ctx, seriesID, provider, parsed.Name, parsed.EpisodeName)
+	if err != nil || !found {
+		return false, err
+	}
+	parsed.Season, parsed.Episode, parsed.IsUnnumbered = placed.season, placed.number, false
+	return true, nil
 }
 
 // fileUnnumberedSpecial files a video of a series library that no marker, folder or listing

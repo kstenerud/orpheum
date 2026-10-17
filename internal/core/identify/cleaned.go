@@ -63,7 +63,7 @@ func (provider cleaningProvider) Parse(kind string, body []byte) (Metadata, erro
 		ID:      textindex.Line(metadata.ID), Name: textindex.Line(metadata.Name),
 		OriginalName: textindex.Line(metadata.OriginalName), OriginalLang: textindex.Line(metadata.OriginalLang),
 		Overview: textindex.Prose(metadata.Overview), Tagline: textindex.Line(metadata.Tagline),
-		Year: metadata.Year, RuntimeMs: metadata.RuntimeMs, IDs: ids,
+		Year: metadata.Year, RuntimeMs: metadata.RuntimeMs, IDs: ids, SeasonNumbers: metadata.SeasonNumbers,
 	}, err //nolint:wrapcheck // the provider's own error, passed through as it is
 }
 

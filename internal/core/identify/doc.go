@@ -106,8 +106,15 @@
 //     candidates and is marked until a person chooses, whose choice clears it and drops a series'
 //     season listings, so its episodes are the chosen series' (D301).
 //     TestMatch_SeveralOfOneNameAreSettledByAGuessMarkedAsOne,
-//     TestSeries_OfSeveralByItsNameTheOldestIsGuessedAndAPersonCorrectsIt. Anything else unsettled
-//     is ambiguous with its results kept, never guessed. TestMatch_AnUnsettledSearchIsNeverGuessed.
+//     TestSeries_OfSeveralByItsNameTheOldestIsGuessedAndAPersonCorrectsIt. With none of the file's
+//     name, a work under another name is guessed: the one candidate of the file's year, or with no
+//     year the older of the one or two found (D307 §1). TestMatch_AWorkUnderAnotherNameIsGuessed.
+//     Anything else unsettled is ambiguous with its results kept, never guessed.
+//     TestMatch_AnUnsettledSearchIsNeverGuessed.
+//   - An unnumbered episode in no specials or extras folder, and not named as bonus material, is
+//     placed by its name in the one episode of every season its series lists that is named so, or
+//     nearly, every season being fetched for it, and marked a guess (D307 §2).
+//     TestSeries_AnUnnumberedEpisodeIsPlacedByItsNameAcrossEverySeason.
 //     A film or series left ambiguous that its kept results now settle, or whose kept results
 //     cache.db lost, is owed its first match again, and a person's choice never is.
 //     TestMatch_AnAmbiguousFilmTheRulesNowSettleIsMatchedAgain.

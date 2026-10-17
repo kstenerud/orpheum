@@ -90,6 +90,9 @@ type Metadata struct {
 	IDs map[string]string
 	// Artwork are the images the provider has for the work, fetched later (D212).
 	Artwork []ImageRef
+	// SeasonNumbers are a series' seasons the provider lists, the specials' 0 among them, each a
+	// listing FetchSeason fetches (D307 §2).
+	SeasonNumbers []int
 }
 
 // ImageRef is one image a provider's record names: its kind and the provider's reference to it.

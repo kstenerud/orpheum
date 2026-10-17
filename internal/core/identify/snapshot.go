@@ -595,6 +595,31 @@ func (filer *libraryFiler) listing(ctx context.Context, where seasonAtProvider) 
 	return episodes, err
 }
 
+// seasonsForUnplaced are every season the series' own response lists, when it has an episode with
+// no number its name may place (D307 §2).
+func (filer *libraryFiler) seasonsForUnplaced(ctx context.Context, provider Provider, seriesID int64) ([]int, error) {
+	if filer.seriesWithUnplaced == nil {
+		rows, err := filer.queries.ListLibraryUnnumberedEpisodePaths(ctx, &filer.library.ID)
+		if err != nil {
+			return nil, fmt.Errorf("list the episodes with no number: %w", err)
+		}
+		filer.seriesWithUnplaced = map[int64]bool{}
+		for _, row := range rows {
+			if isPlaceableByName(row.Path) {
+				filer.seriesWithUnplaced[row.SeriesID] = true
+			}
+		}
+	}
+	if !filer.seriesWithUnplaced[seriesID] {
+		return nil, nil
+	}
+	body, _, err := filer.storedResponse(ctx, seriesID, provider.Name(), "")
+	if err != nil {
+		return nil, fmt.Errorf("read series %d's own response: %w", seriesID, err)
+	}
+	return listedSeasons(provider, body), nil
+}
+
 // listingFetchedAt is when a season's stored listing was fetched.
 func (filer *libraryFiler) listingFetchedAt(ctx context.Context, where seasonAtProvider) (int64, error) {
 	key := responseKey{where.seriesID, where.provider.Name(), seasonPart(where.season)}

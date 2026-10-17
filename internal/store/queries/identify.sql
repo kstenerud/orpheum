@@ -451,3 +451,29 @@ WHERE title.id = sqlc.arg(item_id)
     WHERE ordering.collection_id = sqlc.arg(item_id) AND ordering.name = 'aired')
 ORDER BY file.path
 LIMIT sqlc.arg(max_rows);
+
+-- name: ListUnnumberedEpisodePathsOfSeries :many
+-- The live files of a series' live episodes that have no number in its aired order: those outside
+-- a specials or extras folder have every season's listing fetched, to be placed by their names
+-- (D307 section 2).
+SELECT file.path
+FROM ordering
+JOIN position ON position.ordering_id = ordering.id AND position.number_in_group IS NULL
+JOIN item AS episode ON episode.id = position.title_id AND episode.removed_at IS NULL
+JOIN version ON version.title_id = position.title_id AND version.removed_at IS NULL
+JOIN file ON file.version_id = version.id AND file.removed_at IS NULL
+WHERE ordering.collection_id = sqlc.arg(series_id) AND ordering.name = 'aired'
+ORDER BY file.path
+LIMIT sqlc.arg(max_rows);
+
+-- name: ListLibraryUnnumberedEpisodePaths :many
+-- ListUnnumberedEpisodePathsOfSeries for every series of a library, in one statement a pass.
+SELECT ordering.collection_id AS series_id, file.path
+FROM item AS series
+JOIN ordering ON ordering.collection_id = series.id AND ordering.name = 'aired'
+JOIN position ON position.ordering_id = ordering.id AND position.number_in_group IS NULL
+JOIN item AS episode ON episode.id = position.title_id AND episode.removed_at IS NULL
+JOIN version ON version.title_id = position.title_id AND version.removed_at IS NULL
+JOIN file ON file.version_id = version.id AND file.removed_at IS NULL
+WHERE series.library_id = sqlc.arg(library_id) AND series.removed_at IS NULL
+ORDER BY ordering.collection_id, file.path;
