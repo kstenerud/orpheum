@@ -72,22 +72,25 @@ class WebLint(unittest.TestCase):
 CLIENT = "web/apps/web/src/a.ts"
 OTHER = "web/apps/web/src/b.ts"
 WORKER = "web/apps/web/src/sw.ts"
+SHEET = "web/apps/web/src/poster.css"
+SPEC = "web/e2e/shell.spec.ts"
 
 
 class Browser(unittest.TestCase):
     def setUp(self):
         self.repo = Repo({CLIENT: "1\n", OTHER: "1\n", WORKER: "1\n", "internal/a.go": "package a\n",
-                          ".gitignore": ".dev/\n"})
+                          SHEET: ".poster { color: red; }\n", SPEC: "a\n", ".gitignore": ".dev/\n"})
         self.commit = self.repo.commit("chore: base")
         self.map = self.repo.root / ".dev" / "browser-map"
         self.map.mkdir(parents=True)
         (self.map / browser_map.COMPLETE).write_text(self.commit + "\n")
         (self.map / "modules-client.json").write_text(json.dumps({"assets/a.js": [CLIENT], "assets/b.js": [OTHER]}))
         (self.map / browser_map.SERVICE_WORKER_MODULES).write_text(json.dumps({"sw.js": [WORKER]}))
-        for n, (test, scripts) in enumerate([("chromium a", ["assets/a.js"]), ("chromium b", ["assets/b.js"]),
-                                             ("firefox unvouched", None)]):
+        for n, (test, tokens, scripts) in enumerate([("chromium a", [], ["assets/a.js"]),
+                                                     ("chromium b", ["class:poster", "tag:div"], ["assets/b.js"]),
+                                                     ("firefox unvouched", [], None)]):
             (self.map / "chromium").mkdir(exist_ok=True)
-            (self.map / "chromium" / f"{n}.json").write_text(json.dumps({"test": test, "tokens": [],
+            (self.map / "chromium" / f"{n}.json").write_text(json.dumps({"test": test, "tokens": tokens,
                                                                        "scripts": scripts}))
 
     def scope(self, changes: dict[str, str | None]) -> list[str] | None:
@@ -103,12 +106,25 @@ class Browser(unittest.TestCase):
         self.assertEqual(self.scope({CLIENT: "2\n"}), ["chromium a", "chromium b", "firefox unvouched"])
 
     def test_what_the_map_cannot_place_runs_every_test(self):
-        for path, why in (("internal/a.go", "the server changed"), ("web/e2e/a.spec.ts", "a spec, or the harness"),
+        for path, why in (("internal/a.go", "the server changed"), ("web/e2e/pages.ts", "every spec's helpers"),
                           (WORKER, "every page registers the service worker"),
                           ("web/apps/web/src/new.ts", "no chunk holds a new file"),
                           ("web/apps/web/vite.config.ts", "the build's configuration")):
             self.setUp()
             self.assertIsNone(self.scope({path: "changed\n"}), why)
+
+    def test_a_stylesheet_runs_the_tests_whose_pages_drew_what_its_changed_rules_select(self):
+        self.assertEqual(self.scope({SHEET: ".poster { color: blue; }\n"}), ["chromium b", "firefox unvouched"])
+
+    def test_a_new_stylesheet_or_a_rule_for_every_page_runs_every_test(self):
+        self.assertIsNone(self.scope({"web/apps/web/src/new.css": ".poster { color: red; }\n"}))
+        self.setUp()
+        self.assertIsNone(self.scope({SHEET: ".poster { color: red; }\n:root { --a: 1; }\n"}))
+
+    def test_a_changed_spec_runs_whole_beside_the_tests_the_map_names(self):
+        self.assertEqual(self.scope({SPEC: "b\n", CLIENT: "2\n"}), ["chromium a", "firefox unvouched", "shell.spec.ts"])
+        self.setUp()
+        self.assertEqual(self.scope({SPEC: None, "web/e2e/acceptance.spec.ts": "x\n"}), ["firefox unvouched"])
 
     def test_a_map_of_no_commit_behind_head_runs_every_test(self):
         (self.map / browser_map.COMPLETE).write_text("0" * 40 + "\n")
