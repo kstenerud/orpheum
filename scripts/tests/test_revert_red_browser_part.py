@@ -48,6 +48,26 @@ class BrowserPart(unittest.TestCase):
         self.assertEqual(self.outcome(rr.BROWSER_INLINE, [CHEAP_PASSES, BROWSER_FAILS]).verdict, "RED_TEST")
 
 
+
+class ClaimedBrowserRun(unittest.TestCase):
+    def setUp(self):
+        self.repo = Repo({CODE: "export const a = 1;\n"})
+        self.base = self.repo.commit("chore: base")
+
+    def outcome(self) -> rr.Outcome:
+        with self.repo.cwd(), mock.patch.object(rr, "attempts_for", return_value=[CHEAP_PASSES, BROWSER_FAILS]):
+            return rr.probe(str(self.repo.root), self.base, "HEAD", rr.Change(CODE, "M"), 60, rr.BROWSER_DEFERRED)
+
+    def test_a_claimed_file_owes_no_browser_run_since_none_could_change_its_verdict(self):
+        self.repo.commit(f"refactor(web): a is two\n\nOne name for it.\n\nRefactor-Only: {CODE} — renamed",
+                         {CODE: "export const a = 2;\n"})
+        self.assertEqual(self.outcome().verdict, "CLAIMED")
+
+    def test_an_unclaimed_file_still_owes_it(self):
+        self.repo.commit("fix(web): a is two\n\nIt was one.", {CODE: "export const a = 2;\n"})
+        self.assertEqual(self.outcome().verdict, "BROWSER_OWED")
+
+
 class OwedRecord(unittest.TestCase):
     def test_a_targeted_code_run_replaces_only_the_rows_it_probed(self):
         repo = Repo({"a": "1\n"})

@@ -437,9 +437,12 @@ def is_not_linux(path: str) -> bool:
 
 def probe(tree: str, base: str, head: str, change: Change, timeout: int,
           browser: str = BROWSER_INLINE) -> Outcome:
-    """One file's verdict: its revert probed, and the branch's claims read only when nothing went
-    red."""
+    """One file's verdict: its revert probed, then the branch's claims if nothing went red."""
     outcome = probe_unclaimed(tree, base, head, change, timeout, browser)
+    if outcome.verdict == "BROWSER_OWED":
+        # A claim passes it red or green, so a browser run decides nothing (client-main.tsx: 15 min, 2026-10-17).
+        claim = claimed(tree, base, head, change.path)
+        return claim if claim is not None and claim.verdict == "CLAIMED" else outcome
     if outcome.verdict != "GREEN":
         return outcome
     return claimed(tree, base, head, change.path) or outcome

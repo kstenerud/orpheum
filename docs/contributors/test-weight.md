@@ -244,7 +244,11 @@ Each entry says: the **mechanism**, the **instance** we found, **why it was invi
   (`--max-failures=1`), so a hang costs one test's timeout; a run past the probe's timeout is
   `TIMED_OUT`, a failure that settles nothing; and a probe's run is a process group of its own,
   ended whole (`scripts/revert_red_run.py`). The service worker's loader logic has unit tests
-  (`sw.test.ts`), so its revert is red without a browser.
+  (`sw.test.ts`), so its revert is red without a browser. A file a `Refactor-Only:` or ticked
+  `Verified-By:` claim covers owes no browser run, since red or green the claim passes it; and a
+  file the map narrows to more than half the tests skips the narrowed run, which a green revert
+  pays on top of the whole one (`client-main.tsx` at nas.10: 441 s narrowed, then 448 s whole, then
+  settled by its `Refactor-Only:`).
 - **Warning sign:** a "browser tier" row in revert-red-code's timings; a `BROWSER_OWED` list that
   grows from batch to batch (a file only a browser can check is the expensive kind); a browser
   probe whose time is near its timeout.
