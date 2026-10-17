@@ -77,7 +77,7 @@ type runningRun struct {
 // runningOn is every run nodeID is making at now, with its speed where it is measured and whether a
 // player wants it, by interestsOf the film's (D309).
 func (tracker *runTracker) runningOn(
-	nodeID int64, now time.Time, interestsOf func(fileID int64) ([]Interest, bool),
+	nodeID int64, now time.Time, interestsOf func(fileID int64) ([]Interest, bool), keptAheadMs int64,
 ) []runningRun {
 	tracker.mutex.Lock()
 	var running []runningRun
@@ -97,7 +97,7 @@ func (tracker *runTracker) runningOn(
 	// The interests are asked for outside the tracker's lock: the playbacks keep them under their own.
 	for index, each := range running {
 		if interests, isKnown := interestsOf(fileOfStore(each.dir)); isKnown {
-			running[index].isInUse = tracker.isWanted(each.dir, each.first, interests)
+			running[index].isInUse = tracker.isWanted(each.dir, each.first, interests, keptAheadMs)
 		}
 	}
 	return running
@@ -159,7 +159,11 @@ func (service *Service) keepRunsFast(ctx context.Context, nodeID int64) error {
 	if err != nil {
 		return fmt.Errorf("read %s: %w", settings.ChunkRunSlowestSpeedPercent, err)
 	}
-	running := service.runs.runningOn(nodeID, now, service.interestsOf)
+	keptAhead, err := service.settings.Duration(ctx, settings.ChunkKeptAheadSeconds)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", settings.ChunkKeptAheadSeconds, err)
+	}
+	running := service.runs.runningOn(nodeID, now, service.interestsOf, keptAhead.Milliseconds())
 	isTooSlow := slices.ContainsFunc(running, func(each runningRun) bool {
 		return each.isMeasured && each.speed*100 < float64(slowestPercent)
 	})

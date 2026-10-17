@@ -18,6 +18,21 @@
 //     TestPlayback_ACutFilmStartsOnItsLadderAndPreparesNoCopy and
 //     TestReport_AStallOnTheLadderIsOfferedNothing (internal/core/api).
 //
+//   - Each playback holds what its player wants of its film's chunks, which decides the runs that go
+//     on (D309): one picture and its sound from a position, read off each chunk it asks for, said by
+//     its player, set as it starts on its ladder, with its stall's offer beside it; and where its
+//     player stands: playing, lapsing after interestLapsesAfter of silence; paused or gone from its
+//     page, wanting only what it keeps ahead; gone to another film, said so or by starting one,
+//     wanting nothing. TestInterestsIn_AreWhatEachPlayerLastAskedFor,
+//     TestSayInterest_ReplacesWhatThePlayerWantedAndLeavingSaysWhy,
+//     TestReplaceOthers_APlayerStartingAnotherFilmLeavesTheOthersForGood; through the API,
+//     TestInterest_ARunOfAQualityThePlayerLeftStops (internal/core/api).
+//
+//   - Each chunk store a player asked for is kept at the highest tier any playback gives it, by
+//     where its player stands and how long since it was heard (D309 §8), and every answer to a node's
+//     poll says them. TestStoreTiers_AreTheHighestAnyPlayerGivesEachStore and
+//     TestCommands_EachAnswerCarriesHowStronglyEachChunkStoreIsKept (internal/core/nodes).
+//
 //   - What a playback needs of the server's upload is the average rates of the picture and sound
 //     its player asked for within askedWithin, or, for one that asks for no chunks, what it was
 //     sent; every byte of a film the server sends is counted to its playback, and the need, the

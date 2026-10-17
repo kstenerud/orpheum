@@ -39,7 +39,9 @@ func (service *Service) serveCommands(writer http.ResponseWriter, request *http.
 			service.logger.WarnContext(ctx, "could not read the devices' reader limits; the node keeps its last",
 				"nodeId", nodeID, "err", err)
 		}
-		writeJSON(writer, nodeproto.Commands{Commands: pending, DeviceReaderLimits: limits})
+		writeJSON(writer, nodeproto.Commands{
+			Commands: pending, DeviceReaderLimits: limits, StoreTiers: service.storeTiersNow(ctx, nodeID),
+		})
 	}
 	for {
 		pending, wake := service.dropAckedAndListPending(nodeID, ackedSeq)
@@ -205,4 +207,20 @@ func readPost[Body any](
 		return 0, body, false
 	}
 	return nodeID, body, true
+}
+
+// storeTiersNow is how strongly each chunk store is kept as the players stand now, for an answer to
+// nodeID's poll (D309 §8); nil, which leaves the node its last, when none is set or it cannot be
+// read.
+func (service *Service) storeTiersNow(ctx context.Context, nodeID int64) map[string]nodeproto.KeepTier {
+	if service.storeTiers == nil {
+		return nil
+	}
+	tiers, err := service.storeTiers(ctx)
+	if err != nil {
+		service.logger.WarnContext(ctx, "could not say how strongly the chunk stores are kept; the node keeps its last",
+			"nodeId", nodeID, "err", err)
+		return nil
+	}
+	return tiers
 }

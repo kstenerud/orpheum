@@ -10860,6 +10860,20 @@
               "description": "The playback's media token",
               "type": "string"
             }
+          },
+          {
+            "description": "Why: left the page, playing nothing else, or went on to play another film (D309 §7)",
+            "explode": false,
+            "in": "query",
+            "name": "reason",
+            "schema": {
+              "description": "Why: left the page, playing nothing else, or went on to play another film (D309 §7)",
+              "enum": [
+                "left",
+                "replaced"
+              ],
+              "type": "string"
+            }
           }
         ],
         "responses": {

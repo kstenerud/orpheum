@@ -18,6 +18,11 @@
 //   - A rendition within its kept time is evicted only when the budget or the disk still needs it,
 //     after every rendition past its kept time; one being written, never.
 //     TestEvict_RemovesTheLeastRecentlyUsedPastTheirKeptTimeFirstAndNeverOneBeingWritten.
+//   - A chunk store is evicted by how strongly the core's players want it kept (D309 §8), the tier
+//     the core's last poll answer named: one it named none first of all, before any rendition; then
+//     maybe, likely and in use, the last after every rendition; the least lately used first within a
+//     tier. Until the core names any, the stores go as renditions do.
+//     TestEvict_RemovesChunkStoresByTheirPlayersTierFirst.
 //   - One being watched, served within node.prepared_watched_minutes, is never evicted either,
 //     whatever the disk says; a prepare the disk then has no room for is refused instead, so a film
 //     playing does not break (the owner, 2026-10-06). TestEvict_NeverRemovesOneBeingWatched.

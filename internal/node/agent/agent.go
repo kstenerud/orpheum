@@ -115,6 +115,8 @@ type PreparedShelf interface {
 	LastUsage() (prepared.Usage, bool)
 	Inventory() ([]nodeproto.RenditionManifest, error)
 	Reconcile(listed, kept []string) (evicted []string, err error)
+	// SetStoreTiers keeps how strongly the core's players want each chunk store kept (D309 §8).
+	SetStoreTiers(tiers map[string]nodeproto.KeepTier)
 }
 
 // Agent is the node's loop (D207): it dials the core's socket, says hello, long-polls for
@@ -288,6 +290,18 @@ func (agent *Agent) sayHello(ctx context.Context, hello nodeproto.Hello) (nodepr
 	return reply, err
 }
 
+// takeAnswersSettings takes what a poll's answer says of the core's settings and players beside its
+// commands: each device's readers (D240 §5), and how strongly each chunk store is kept (D309 §8). One
+// it does not say leaves the last.
+func (agent *Agent) takeAnswersSettings(answer nodeproto.Commands) {
+	if answer.DeviceReaderLimits != nil {
+		agent.work.setReaderLimits(answer.DeviceReaderLimits)
+	}
+	if answer.StoreTiers != nil && agent.workers.PreparedShelf != nil {
+		agent.workers.PreparedShelf.SetStoreTiers(answer.StoreTiers)
+	}
+}
+
 // pollCommands long-polls for commands. Work is held by the node; a cancel or a reprioritize is
 // carried out as it arrives.
 func (agent *Agent) pollCommands(ctx, nodeCtx context.Context, nodeID int64) error {
@@ -300,9 +314,7 @@ func (agent *Agent) pollCommands(ctx, nodeCtx context.Context, nodeID int64) err
 		if err := agent.exchange(ctx, http.MethodGet, path, nodeID, http.NoBody, &answer); err != nil {
 			return err
 		}
-		if answer.DeviceReaderLimits != nil {
-			agent.work.setReaderLimits(answer.DeviceReaderLimits)
-		}
+		agent.takeAnswersSettings(answer)
 		for _, command := range answer.Commands {
 			if !agent.takeOrder(ctx, command) {
 				agent.holdCommand(ctx, nodeCtx, nodeID, command)

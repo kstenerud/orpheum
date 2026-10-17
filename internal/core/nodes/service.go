@@ -89,6 +89,8 @@ type Service struct {
 	scans          ScanRequester
 	// changes takes the nodes' watchers' notices; nil drops them.
 	changes ChangeTaker
+	// storeTiers says how strongly each chunk store is kept (D309 §8); nil sends none.
+	storeTiers StoreTiers
 
 	mutex                sync.Mutex
 	nodesHeardSinceStart map[int64]*connectedNode
@@ -119,6 +121,16 @@ func (service *Service) SetRenditionIndex(index RenditionIndex) {
 // none set, a hello asks for no scan.
 func (service *Service) SetScans(scans ScanRequester) {
 	service.scans = scans
+}
+
+// StoreTiers says how strongly each chunk store is kept, by its directory: playback.Service.StoreTiers.
+type StoreTiers func(ctx context.Context) (map[string]nodeproto.KeepTier, error)
+
+// SetStoreTiers names what says how strongly each chunk store is kept, sent with every answer to a
+// node's poll (D309 §8). Set it before the channel serves; with none set, none is sent, and the
+// nodes remove the least lately used first.
+func (service *Service) SetStoreTiers(tiers StoreTiers) {
+	service.storeTiers = tiers
 }
 
 // SetChanges names what takes the nodes' watchers' notices. Set it before the channel serves; with

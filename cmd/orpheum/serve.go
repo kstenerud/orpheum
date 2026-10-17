@@ -336,6 +336,8 @@ func openPlayback(
 	// (D286 §4, D309 §6); and the runs that go on are those the players want (D309).
 	services.chunks.MovePlayersBy(services.playback.MoveOffStream)
 	services.chunks.InterestsBy(services.playback.InterestsIn)
+	// The nodes keep the chunk stores by how strongly the players want them (D309 §8).
+	opened.nodes.SetStoreTiers(services.playback.StoreTiers)
 	return services, services.playback
 }
 

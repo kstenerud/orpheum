@@ -10,9 +10,11 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/diskspace"
 )
@@ -70,6 +72,17 @@ type Shelf struct {
 	writersByRenditionDir map[string]int // guarded by mutex: run directories a prepare is writing, and how many
 	// lastUsage is what the last eviction left, for the node's status; zero before the first.
 	lastUsage Usage // guarded by mutex
+	// storeTiers are how strongly the core's players want each chunk store kept, by its directory
+	// (D309 §8); nil until the core first said, when the stores are evicted as the renditions are.
+	storeTiers map[string]nodeproto.KeepTier // guarded by mutex
+}
+
+// SetStoreTiers keeps how strongly the core's players want each chunk store kept, by its directory,
+// for the next eviction (D309 §8): a store it does not name is the first removed.
+func (shelf *Shelf) SetStoreTiers(tiers map[string]nodeproto.KeepTier) {
+	shelf.mutex.Lock()
+	defer shelf.mutex.Unlock()
+	shelf.storeTiers = tiers
 }
 
 // LastUsage is what the directory held after its last eviction, and whether there was one.
@@ -155,7 +168,10 @@ func (shelf *Shelf) Evict(ctx context.Context) (Usage, error) {
 	isPastKeptTime := func(each run) bool { return now.Sub(each.lastUse) >= shelf.budget.KeptAfterLastPlay }
 	isWatched := func(each run) bool { return now.Sub(each.lastUse) < shelf.budget.WatchedWithin }
 	var spared []string
-	sortForEviction(runs, isPastKeptTime)
+	shelf.mutex.Lock()
+	tiers := shelf.storeTiers
+	shelf.mutex.Unlock()
+	sortForEviction(runs, func(each run) int { return evictionRank(each, tiers, isPastKeptTime(each)) })
 	for _, each := range runs {
 		if usage.UsedBytes <= shelf.budget.MaxBytes && usage.isDiskWithin() {
 			break
@@ -183,18 +199,40 @@ func (shelf *Shelf) Evict(ctx context.Context) (Usage, error) {
 	return usage, nil
 }
 
-// sortForEviction orders runs as eviction takes them: oldest first, and every one past its kept time
-// before any within it.
-func sortForEviction(runs []run, isPastKeptTime func(run) bool) {
+// sortForEviction orders runs as eviction takes them: the lowest rank first (evictionRank), and the
+// least lately used within one.
+func sortForEviction(runs []run, rankOf func(run) int) {
 	slices.SortStableFunc(runs, func(one, other run) int {
-		if isPastKeptTime(one) != isPastKeptTime(other) {
-			if isPastKeptTime(one) {
-				return -1
-			}
-			return 1
+		if rankOf(one) != rankOf(other) {
+			return rankOf(one) - rankOf(other)
 		}
 		return one.lastUse.Compare(other.lastUse)
 	})
+}
+
+// evictionRank is where a run stands in eviction's order, the lowest taken first: a chunk store by
+// its players' tier, one no player gives a tier before any rendition and one in use after every one
+// (D309 §8); a rendition, and every chunk store while the core has said nothing of them, past its
+// kept time before any within it.
+func evictionRank(each run, tiers map[string]nodeproto.KeepTier, isPastKeptTime bool) int {
+	_, store, _ := strings.Cut(each.renditionDir, "/")
+	if tiers != nil && strings.HasPrefix(store, "chunks-") {
+		switch tiers[each.renditionDir] {
+		case nodeproto.KeepMaybe:
+			return 2
+		case nodeproto.KeepLikely:
+			return 3
+		case nodeproto.KeepInUse:
+			return 4
+		case nodeproto.KeepUnlikely:
+			return 0
+		}
+		return 0
+	}
+	if isPastKeptTime {
+		return 1
+	}
+	return 2
 }
 
 // logKeptWatched says, once per eviction, which renditions being watched were kept though the

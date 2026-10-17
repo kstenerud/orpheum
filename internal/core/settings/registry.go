@@ -114,6 +114,10 @@ const (
 	ShouldTogetherVoiceBrowserLevelMicrophone Key = "should_together_voice_browser_level_microphone"
 	ChunkHoldMs                               Key = "chunk_hold_ms"
 	ChunkRunSlowestSpeedPercent               Key = "chunk_run_slowest_speed_percent"
+	ChunkKeptAheadSeconds                     Key = "chunk_kept_ahead_seconds"
+	ChunkKeptLikelySeconds                    Key = "chunk_kept_likely_seconds"
+	ChunkKeptLeftSeconds                      Key = "chunk_kept_left_seconds"
+	ChunkKeptMaybeSeconds                     Key = "chunk_kept_maybe_seconds"
 	PlayLadderWaitMs                          Key = "play_ladder_wait_ms"
 )
 
@@ -544,6 +548,22 @@ func chunkDefinitions() []Definition {
 				"slower, one is evicted, the oldest no one plays from or else the newest, and its players are "+
 				"told why their playback stops (D250 §6)"),
 			"D250 §6: the owner, 2026-10-06: \"fall below 1.1x\""),
+		sourced(durationSetting(ChunkKeptAheadSeconds, time.Second, "30", 2, 300,
+			"seconds of film past where a player paused, or left its page, that its runs of chunks finish "+
+				"before they stop, so it plays again at once (D309 §7)"),
+			"D309 §7: the player's own buffer holds about 30 s; the owner, 2026-10-17: \"yes\""),
+		sourced(durationSetting(ChunkKeptLikelySeconds, time.Second, "300", 60, 86_400,
+			"seconds after a paused or silent player was last heard that the chunks it played are kept as "+
+				"likely to be played again, removed after the maybe and unlikely ones (D309 §8)"),
+			"D309 §8: the owner, 2026-10-17: \"5 minutes\""),
+		sourced(durationSetting(ChunkKeptLeftSeconds, time.Second, "600", 60, 86_400,
+			"seconds after a player left its page, playing nothing else, that the chunks it played are kept as "+
+				"maybe played again, removed after the likely ones (D309 §8)"),
+			"D309 §8: the owner, 2026-10-17: \"10 minutes\""),
+		sourced(durationSetting(ChunkKeptMaybeSeconds, time.Second, "1200", 60, 86_400,
+			"seconds after a paused or silent player was last heard that the chunks it played are kept as "+
+				"maybe played again; after them they are the first removed when the node needs room (D309 §8)"),
+			"D309 §8: the owner, 2026-10-17: \"After 20 minutes they might as well start the process anew\""),
 		sourced(integerSetting(ChunkHoldMs, "0", 0, 30_000,
 			"ms a request for a chunk not made yet is held for it before the player is told to ask again; "+
 				"a player counts a hold as the chunk's download, and takes its link for slower (D250 §5)"),

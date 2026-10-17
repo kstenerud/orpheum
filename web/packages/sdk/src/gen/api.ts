@@ -6692,7 +6692,10 @@ export interface operations {
     };
     leavePlayback: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Why: left the page, playing nothing else, or went on to play another film (D309 §7) */
+                reason?: "left" | "replaced";
+            };
             header?: {
                 /** @description Bearer <session token> */
                 Authorization?: string;

@@ -10,18 +10,21 @@ import (
 	"strings"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 )
 
-// Interest is what one player wants of a film's chunks: one stream, from a position, and, while it
-// is paused, only the minute after it (D309 §1, §4). A player wants its picture and its sound, each
-// an interest; a stall's offer is another, the quality made ready for it (D247 §2).
+// Interest is what one player wants of a film's chunks: one stream, from a position, and, once it
+// stopped, paused or gone from its page, only chunk_kept_ahead_seconds after it (D309 §1, §7). A
+// player wants its picture and its sound, each an interest; a stall's offer is another, the quality
+// made ready for it (D247 §2).
 type Interest struct {
 	// StreamName is the stream's name, as its store names it (Stream.Name).
 	StreamName string
 	// PositionMs is where in the film the player wants it from.
 	PositionMs int64
-	// IsPaused is whether the player is paused, and wants only lookaheadMs of film after PositionMs.
-	IsPaused bool
+	// IsStopped is whether the player paused or left its page, and wants only chunk_kept_ahead_seconds
+	// of film after PositionMs made.
+	IsStopped bool
 }
 
 // Interests is every interest the players of a film hold now: internal/core/playback keeps them,
@@ -49,14 +52,18 @@ type stoppedRun struct {
 }
 
 // StopUnwanted stops every run of the film's chunks no player wants (D309 §2): a quality its players
-// moved off, a place they sought away from, a paused player's minute already made, an interest
-// lapsed. Each is cancelled, queued or running; what it made is kept (§5).
+// moved off, a place they sought away from, what a stopped player keeps ahead already made, an
+// interest lapsed. Each is cancelled, queued or running; what it made is kept (§5).
 func (service *Service) StopUnwanted(ctx context.Context, fileID int64) error {
 	interests, isKnown := service.interestsOf(fileID)
 	if !isKnown {
 		return nil
 	}
-	for _, stopped := range service.runs.cutUnwanted(fileID, interests) {
+	keptAhead, err := service.settings.Duration(ctx, settings.ChunkKeptAheadSeconds)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", settings.ChunkKeptAheadSeconds, err)
+	}
+	for _, stopped := range service.runs.cutUnwanted(fileID, interests, keptAhead.Milliseconds()) {
 		cancelled, err := service.cancelRun(ctx, stopped)
 		if err != nil {
 			return err
@@ -117,7 +124,7 @@ func (tracker *runTracker) cutQueuedAhead(dir string, grid Grid, wanted int) (st
 
 // cutUnwanted forgets every run of fileID's stores that no interest wants (isWantedLocked), and
 // returns them for the caller to cancel. A store whose grid is not known yet keeps its runs.
-func (tracker *runTracker) cutUnwanted(fileID int64, interests []Interest) []stoppedRun {
+func (tracker *runTracker) cutUnwanted(fileID int64, interests []Interest, keptAheadMs int64) []stoppedRun {
 	tracker.mutex.Lock()
 	defer tracker.mutex.Unlock()
 	var stopped []stoppedRun
@@ -127,7 +134,7 @@ func (tracker *runTracker) cutUnwanted(fileID int64, interests []Interest) []sto
 			continue
 		}
 		for first, each := range known.runByFirst {
-			if known.isWantedLocked(each, stream, interests) {
+			if known.isWantedLocked(each, stream, interests, keptAheadMs) {
 				continue
 			}
 			stopped = append(stopped, stoppedRun{
@@ -142,7 +149,7 @@ func (tracker *runTracker) cutUnwanted(fileID int64, interests []Interest) []sto
 
 // isWanted is whether an interest wants the run of the store from first (isWantedLocked); true for a
 // run it no longer knows, which nothing then stops.
-func (tracker *runTracker) isWanted(dir string, first int, interests []Interest) bool {
+func (tracker *runTracker) isWanted(dir string, first int, interests []Interest, keptAheadMs int64) bool {
 	tracker.mutex.Lock()
 	defer tracker.mutex.Unlock()
 	known := tracker.storeLocked(dir)
@@ -151,14 +158,14 @@ func (tracker *runTracker) isWanted(dir string, first int, interests []Interest)
 		return true
 	}
 	stream, _ := streamOfStore(dir, fileOfStore(dir))
-	return known.isWantedLocked(each, stream, interests)
+	return known.isWantedLocked(each, stream, interests, keptAheadMs)
 }
 
 // isWantedLocked is whether any interest in the store's stream wants the run: one playing from a
 // chunk the run has not gone past, the run starting within lookaheadMs of film of the first chunk
-// after it not made, as a run is planned (runTracker.plan); or one paused, whose minute after it the
-// run is still to make some of. A store whose grid is not known yet is wanted: nothing can say.
-func (known *storeRuns) isWantedLocked(each *run, stream string, interests []Interest) bool {
+// after it not made, as a run is planned (runTracker.plan); or one stopped, whose keptAheadMs after
+// it the run is still to make some of. A store whose grid is not known yet is wanted: nothing can say.
+func (known *storeRuns) isWantedLocked(each *run, stream string, interests []Interest, keptAheadMs int64) bool {
 	if known.grid == nil {
 		return true
 	}
@@ -171,8 +178,8 @@ func (known *storeRuns) isWantedLocked(each *run, stream string, interests []Int
 		if each.last < from {
 			continue
 		}
-		if interest.IsPaused {
-			end := grid.chunkAt(grid.StartsMs[from] + lookaheadMs - 1)
+		if interest.IsStopped {
+			end := grid.chunkAt(interest.PositionMs + keptAheadMs - 1)
 			if each.first <= end && each.madeThrough < end {
 				return true
 			}

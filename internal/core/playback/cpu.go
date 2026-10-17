@@ -25,7 +25,7 @@ func (service *Service) MoveOffStream(fileID int64, streamName string) bool {
 	defer service.tokens.mutex.Unlock()
 	moves := map[*tokenPlayback]int64{}
 	for _, playback := range service.tokens.playbackByToken {
-		if playback.fileID != fileID || playback.interest.picture != streamName || !playback.isHeardWithin(now) {
+		if playback.fileID != fileID || playback.interest.picture != streamName || !playback.isWatching(now) {
 			continue
 		}
 		kbps, isFound := rungBelow(playback.ladder, streamName)

@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 )
 
@@ -238,5 +239,56 @@ func TestMakeRoom_KeepsTheDisksFloorOfFreeSpace(t *testing.T) {
 	free = 200 << 20
 	if err := shelf.MakeRoom(t.Context()); err != nil {
 		t.Errorf("MakeRoom with 200 MiB free: %v, want room", err)
+	}
+}
+
+// A chunk store is removed by how strongly the core's players want it kept, the lowest tier first and
+// the least lately used within one: one no player gives a tier before any rendition, however recently
+// used, and one in use after every rendition. Until the core says, the stores go as renditions do
+// (D309 §8).
+func TestEvict_RemovesChunkStoresByTheirPlayersTierFirst(t *testing.T) {
+	t.Parallel()
+	runs := map[string]struct {
+		bytes int
+		ago   time.Duration
+	}{
+		"1/chunks-q400k360p/g": {100, 1 * time.Hour},       // in use
+		"1/chunks-q700k432p/g": {100, 5 * time.Minute},     // a quality switched from: no tier
+		"2/chunks-picture/g":   {100, 10 * time.Hour},      // maybe
+		"3/chunks-picture/g":   {100, 20 * time.Hour},      // likely
+		"4/remux/aaaaaaaaaaaa": {100, 30 * 24 * time.Hour}, // a rendition past its kept time
+	}
+	tiers := map[string]nodeproto.KeepTier{
+		"1/chunks-q400k360p/g": nodeproto.KeepInUse, "2/chunks-picture/g": nodeproto.KeepMaybe,
+		"3/chunks-picture/g": nodeproto.KeepLikely,
+	}
+	for _, keep := range []struct {
+		maxBytes int64
+		want     []string
+	}{
+		{400, []string{"1/chunks-q400k360p/g", "2/chunks-picture/g", "3/chunks-picture/g", "4/remux/aaaaaaaaaaaa"}},
+		{300, []string{"1/chunks-q400k360p/g", "2/chunks-picture/g", "3/chunks-picture/g"}},
+		{200, []string{"1/chunks-q400k360p/g", "3/chunks-picture/g"}},
+		{100, []string{"1/chunks-q400k360p/g"}},
+	} {
+		disk := 50
+		budget := Budget{MaxBytes: keep.maxBytes, KeptAfterLastPlay: 72 * time.Hour, DiskUsedLimitPercent: 95}
+		shelf := shelfWith(t, budget, &disk, runs)
+		shelf.SetStoreTiers(tiers)
+		if _, err := shelf.Evict(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		if got := remainingRunDirs(t, shelf); !slices.Equal(got, keep.want) {
+			t.Errorf("within %d bytes, left %v; want %v", keep.maxBytes, got, keep.want)
+		}
+	}
+	disk := 50
+	budget := Budget{MaxBytes: 400, KeptAfterLastPlay: 72 * time.Hour, DiskUsedLimitPercent: 95}
+	untold := shelfWith(t, budget, &disk, runs)
+	if _, err := untold.Evict(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if got := remainingRunDirs(t, untold); slices.Contains(got, "4/remux/aaaaaaaaaaaa") {
+		t.Errorf("with no tiers said, left %v; want the rendition past its kept time gone first", got)
 	}
 }

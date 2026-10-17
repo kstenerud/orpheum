@@ -38,4 +38,14 @@ func TestInterest_ARunOfAQualityThePlayerLeftStops(t *testing.T) {
 		http.StatusNotFound {
 		t.Errorf("a word on a playback not its own: %d %s; want 404", answer.status, answer.body)
 	}
+	// Leaving, it says why: its page, or another film (D309 §7); nothing else.
+	if answer := harness.do(t, http.MethodDelete, "/playback/"+token+"?reason=sideways", user, nil); answer.status !=
+		http.StatusUnprocessableEntity {
+		t.Errorf("a leave for no reason it knows: %d %s; want 422", answer.status, answer.body)
+	}
+	if answer := harness.do(t, http.MethodDelete, "/playback/"+token+"?reason=replaced", user, nil); answer.status !=
+		http.StatusNoContent {
+		t.Errorf("a leave for another film: %d %s; want 204", answer.status, answer.body)
+	}
+	harness.logs.AwaitLine(t, `"msg":"a player left its playback"`, `"reason":"replaced"`)
 }

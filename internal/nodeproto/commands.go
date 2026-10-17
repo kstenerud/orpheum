@@ -67,6 +67,10 @@ type Commands struct {
 	// DeviceReaderLimits are how many may read each of the node's devices at once, by its key, as the
 	// core's settings say now: a change reaches the node with the next answer (D240 §5).
 	DeviceReaderLimits map[string]int `json:"deviceReaderLimits"`
+	// StoreTiers are how strongly each chunk store is kept, by its directory, as the core's players
+	// stand now, every store not named KeepUnlikely: a change reaches the node with the next answer
+	// (D309 §8). Nil from a core that sends none, which leaves the node's last.
+	StoreTiers map[string]KeepTier `json:"storeTiers"`
 }
 
 // MediaFile is the file of the node's media a command reads, and whether it reads one: the device it

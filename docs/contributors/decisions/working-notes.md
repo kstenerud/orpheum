@@ -20599,5 +20599,28 @@ interest in one quality at a time."* It revises D247 §10, D250 §5 and §6, and
 6. **When the runs players want cannot all keep up, a player moves down a quality** (D286 §4's move,
    made the rule): the run that gives way is one a player wants, moved to the quality below; only a
    player already at the lowest is stopped and told why (D250 §6).
+7. **A player that stops says why, and the reason decides what is finished and what is kept**
+   (the owner, 2026-10-17: *"When a client stops, it gives a reason … The reason determines how
+   strongly we keep the 1 minute of data in cache, and whether we cancel the filling of that 1
+   minute"*). The reasons: **paused**; **left its page** (navigated away, closed the tab, the page
+   hidden for good); **played another film**; and, unsaid, **silent** (a crash, a lost link). Paused
+   and left both finish what is made ahead of where they stopped, then stop; another film stops the
+   old film's runs at once; a quality switched from is not wanted again (§2). A paused player
+   replaces §4's minute: what is finished ahead is **`chunk_kept_ahead_seconds`**, 30 by default
+   (*"Is 1 minute of pre-generated data too much? Would 30 seconds be better? Should we make this a
+   config value?"*, the agent's proposal: the player's own buffer already holds about 30 s; the owner:
+   *"yes"*).
+8. **What is made is kept by tier, the highest any player gives it** (the owner's tiers; *"The
+   highest priority demanded by any client determines the resulting cache priority"*). The
+   playbacks are the list of who wants what, so a store's tier is read from them, never kept beside
+   it. From when its player was last heard (the owner: *"5 minutes, 10 minutes, 20 minutes. After 20
+   minutes they might as well start the process anew"*):
+   - **in use**: a playing player's, heard within §3's lapse;
+   - **likely**: a paused or silent player's, for 5 minutes;
+   - **maybe**: theirs to 20 minutes, and a player's that left its page, for 10;
+   - **unlikely**: a quality switched from, a film another replaced, and everything after.
+   The node removes the lowest tier first, the least lately used within one, and only when it needs
+   the room: an unlikely store is first to go, not deleted at once (*"4: yes"*). The times are
+   settings.
 
-**Status:** Decided 2026-10-17.
+**Status:** Decided 2026-10-17; §7 and §8 the same evening.
