@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { Api } from "@orpheum/sdk";
-import { useEffect, useMemo, type JSX } from "react";
+import type { Api, components } from "@orpheum/sdk";
+import { useEffect, useMemo, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ReloadWhenOutdated } from "./reload-when-outdated.tsx";
@@ -42,6 +42,7 @@ import { haveBackMySessions } from "./together-mine.ts";
 import { useMembership } from "./together-membership.ts";
 import { HostVoiceProvider } from "./together-voice.tsx";
 import { TogetherViewer } from "./together-viewer.tsx";
+import { Remembered, useRemembered } from "./remembered.ts";
 import { useResource } from "./use-resource.ts";
 import { WatchTogether } from "./watch-together.tsx";
 
@@ -82,9 +83,15 @@ function SignedIn(): JSX.Element {
   // Read again on each path the page moves to: an admin administers only from home (D297 §6), and a
   // page that started on the core's public name and moved to its LAN name showed no admin until
   // reloaded (the owner's Chrome, 2026-10-15).
-  const [me] = useResource(`me:${String(usePathMoveCount())}`, async () =>
+  const [meNow] = useResource(`me:${String(usePathMoveCount())}`, async () =>
     dataOrThrow(await api.GET("/me")),
   );
+  // While it is read again, what it said last stays: the warning sign and the admin's places went
+  // and came back at each move (the owner, 2026-10-17: "disappears for a split-second every now and
+  // then").
+  // Kept by this signed-in page alone, so another sign-in never starts from it.
+  const [rememberedMe] = useState(() => new Remembered<components["schemas"]["UserBody"]>());
+  const me = useRemembered("me", meNow, rememberedMe);
   const signOut = (): void => {
     signOutHere(api, session);
   };

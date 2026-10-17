@@ -114,6 +114,30 @@ describe("App", () => {
     mounted.unmount();
   });
 
+  it("keeps an admin's warning sign while what the session may do is read again after a move (the owner, 2026-10-17)", async () => {
+    const answers: Answers = {
+      "GET /me": [200, { id: 1, name: "owner", role: "admin", isAdmin: true }],
+      "GET /home": [200, { continueWatching: [] }],
+      "GET /titles": [200, { titles: [], nextCursor: "" }],
+      "GET /needs-attention": [
+        200,
+        { rootCount: 1, diskCount: 0, waitingRootCount: 0, unreadCount: 0, matchCount: 0 },
+      ],
+    };
+    const moves = createPathMoves();
+    const mounted = await mount(
+      withServices(<App />, { ...servedBy(answers, [], "token"), pathMoves: moves }),
+    );
+    const hasSign = (): boolean =>
+      mounted.container.querySelector(".status-tray__button--warning") !== null;
+    expect(hasSign()).toBe(true);
+    act(() => {
+      moves.moved();
+    });
+    expect(hasSign()).toBe(true);
+    mounted.unmount();
+  });
+
   it("shows an admin a warning sign in the tray, not a reminder under the bar, and asks nothing of it for anyone else", async () => {
     const pageFor = async (
       isAdmin: boolean,
