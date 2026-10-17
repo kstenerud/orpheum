@@ -311,9 +311,13 @@ mark-applied: ## After `yoloai apply`: mark REV (default HEAD) as what the owner
 	@$(PYTHON) scripts/branch_base.py --mark '$(or $(REV),HEAD)'
 
 .PHONY: web-lint-full
-web-lint-full: web-deps ## eslint without its cache: make check's cached lint cannot see a type another file changed; in check-pr, not for documentation alone
+web-lint-full: web-deps ## eslint without its cache: make check's cached lint cannot see a type another file changed; given BASE, only the changed web files and what imports them (scripts/impact.py)
 	@if $(DOCUMENTATION_ONLY); then echo "web-lint-full: skipped; documentation alone changed since $(BASE)"; \
-	  else npm --prefix web run --silent lint:full; fi
+	  elif [ -z '$(BASE)' ]; then npm --prefix web run --silent lint:full; \
+	  else files="$$($(PYTHON) scripts/impact.py web-lint --base '$(BASE)')" || files=.; case "$$files" in \
+	    "") echo "web-lint-full: skipped; nothing eslint reads changed since $(BASE)";; \
+	    .) npm --prefix web run --silent lint:full;; \
+	    *) cd web && npx --no-install eslint --max-warnings 0 --no-warn-ignored $$files;; esac; fi
 
 .PHONY: check-revert-red
 check-revert-red: ## Every behaviour change can turn a test red when reverted (D190); ONLY="a b" probes only those paths
@@ -391,9 +395,13 @@ INTEGRATION_ONLY_TESTS = $(shell echo '$(INTEGRATION_TEST_FILES)' | xargs -r gre
 INTEGRATION_PACKAGES = $(sort $(patsubst %/,./%,$(dir $(INTEGRATION_TEST_FILES))))
 
 .PHONY: test-integration
-test-integration: ## The integration tier: tests that run the pinned FFmpeg and MKVToolNix (fetched as make ffmpeg and make mkvtoolnix do); in check-pr, not for documentation alone
+test-integration: ## The integration tier: tests that run the pinned FFmpeg and MKVToolNix (fetched as make ffmpeg and make mkvtoolnix do); given BASE, only the packages a change reaches (scripts/impact.py)
 	@if $(DOCUMENTATION_ONLY); then echo "test-integration: skipped; documentation alone changed since $(BASE)"; \
-	  else $(MAKE) --no-print-directory test-integration-run; fi
+	  elif [ -z '$(BASE)' ]; then $(MAKE) --no-print-directory test-integration-run; \
+	  else packages="$$($(PYTHON) scripts/impact.py integration --base '$(BASE)' $(INTEGRATION_PACKAGES))" || \
+	    packages='$(INTEGRATION_PACKAGES)'; \
+	    if [ -z "$$packages" ]; then echo "test-integration: skipped; no change since $(BASE) reaches its packages"; \
+	    else $(MAKE) --no-print-directory test-integration-run INTEGRATION_PACKAGES="$$packages"; fi; fi
 
 .PHONY: test-integration-run
 test-integration-run:
@@ -410,12 +418,22 @@ test-integration-run:
 # revert-red reads to run a stylesheet's revert in only the tests it can reach (scripts/browser_map.py).
 # The map is stamped with the commit only when every test ran and passed on a clean tree, so a map
 # that is partial, failed or of other code is never read.
-test-browser: browsers ## The browser tier: Chrome and Firefox against a server of its own, with the built client (D217 §4); in check-pr, only when what it builds changed
+#
+# Within check-pr, a change of the client's sources alone since the map's commit runs only the tests
+# that loaded a chunk holding one (scripts/impact.py; the owner, 2026-10-17: "check-pr only checks
+# what is actually possible to break"), and records no map, so the last complete one stays. The
+# integration tier and the full lint narrow the same way; check-everything runs each whole nightly.
+test-browser: browsers ## The browser tier: Chrome and Firefox against a server of its own, with the built client (D217 §4); given BASE, only when what it builds changed, and only the tests that loaded a changed client source (scripts/impact.py)
 	@if [ -z '$(BASE)' ] || $(PYTHON) scripts/browser_tier_needed.py --base '$(BASE)'; then \
-	  rm -rf $(BROWSER_MAP_DIR) && \
-	  ORPHEUM_BROWSER_MAP_DIR="$(CURDIR)/$(BROWSER_MAP_DIR)" $(MAKE) --no-print-directory browser-tier && \
-	  if [ -z '$(E2E_ARGS)$(ORPHEUM_E2E_ONLY)' ] && [ '$(E2E_CONFIG)' = web/e2e/playwright.config.ts ] && \
-	    [ -z "$$(git status --porcelain)" ]; then git rev-parse HEAD > $(BROWSER_MAP_DIR)/complete; fi; fi
+	  only=all; if [ -n '$(BASE)' ] && [ -z '$(E2E_ARGS)$(ORPHEUM_E2E_ONLY)' ] && \
+	    [ '$(E2E_CONFIG)' = web/e2e/playwright.config.ts ]; then only="$$($(PYTHON) scripts/impact.py browser)" || only=all; fi; \
+	  case "$$only" in \
+	  none) echo "test-browser: skipped; no browser test loaded what changed since the browser map's commit";; \
+	  all) rm -rf $(BROWSER_MAP_DIR) && \
+	    ORPHEUM_BROWSER_MAP_DIR="$(CURDIR)/$(BROWSER_MAP_DIR)" $(MAKE) --no-print-directory browser-tier && \
+	    if [ -z '$(E2E_ARGS)$(ORPHEUM_E2E_ONLY)' ] && [ '$(E2E_CONFIG)' = web/e2e/playwright.config.ts ] && \
+	      [ -z "$$(git status --porcelain)" ]; then git rev-parse HEAD > $(BROWSER_MAP_DIR)/complete; fi;; \
+	  *) ORPHEUM_E2E_ONLY="$$only" $(MAKE) --no-print-directory browser-tier;; esac; fi
 
 # The browsers Playwright drives are fetched by Playwright itself, for its own version: the one
 # web/package-lock.json pins, which PLAYWRIGHT_VERSION repeats so a lockfile bump is seen here
