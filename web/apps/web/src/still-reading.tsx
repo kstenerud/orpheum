@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { IsAdminContext, WarningSign } from "./warning-sign.tsx";
 
 /**
- * The still-reading icon: an hourglass on the accent colour, its sand run into the lower bulb and
+ * The still-reading icon: an hourglass on the status blue, its sand run into the lower bulb and
  * drawn heavy so it reads as one at a poster's corner (the owner, 2026-10-17: the thin one did not), for a title shown from its listing
  * whose file its machine has not read yet (D304 §4). Ringed, it is drawn over a poster; unringed,
  * beside words on a page. Decoration beside words that say it.

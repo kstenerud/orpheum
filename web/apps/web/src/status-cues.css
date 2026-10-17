@@ -13,3 +13,12 @@
   align-items: center;
   color: var(--color-warning);
 }
+
+/* A note's round icon at the size its words need, never squeezed by them: beside a long line the
+   flex row shrank it to half the warning triangle's size (the owner, 2026-10-17). */
+.status-note > .still-reading-icon,
+.status-note > .uncertain-match-icon {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+}
