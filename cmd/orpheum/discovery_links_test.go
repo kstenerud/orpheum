@@ -170,3 +170,34 @@ func TestDiscoveryParts_TheRealmAndItsSignInsGoToTheAccounts(t *testing.T) {
 		t.Errorf("karl's realm sign-in through the parts = %x, %v; want his key", got, err)
 	}
 }
+
+// A live hand-off's code proves the offers the discovery passes on for its person, so the client
+// origin it was handed to reaches the core over WebRTC (D308 §4).
+func TestDiscoveryParts_AHandOffsCodeProvesOffersForItsPerson(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	database := storetest.OpenMigrated(t)
+	var config Config
+	var opened openedServices
+	opened.auth = auth.NewService(database, clocktest.NewFake(time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)),
+		rand.Reader, settingstest.Seeded(t, database))
+	opened.reachability = newReachability(config, opened)
+	parts := discoveryParts(config, opened, nil, nil, nil, slog.New(slog.DiscardHandler))
+	parts.OnRealm("karlnas")
+	karl := auth.NewUser{Name: "karl", Password: "a password", Role: auth.RoleUser}
+	if _, err := opened.auth.CreateUser(ctx, karl); err != nil {
+		t.Fatal(err)
+	}
+	code, err := opened.auth.HandOff(ctx, "karl", "a password", "192.0.2.1",
+		auth.NewDevice{Name: "Firefox on Linux", Platform: "web"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parts.HandOffOfferKeys == nil {
+		t.Fatal("the parts give the discovery no hand-off keys")
+	}
+	keys := parts.HandOffOfferKeys(proof.RealmPerson("karlnas", "karl"))
+	if len(keys) != 1 || !bytes.Equal(keys[0], proof.HandOffOfferKey(code)) {
+		t.Errorf("karl's hand-off keys through the parts are %d; want his live code's", len(keys))
+	}
+}
