@@ -98,3 +98,35 @@ func TestCrossOrigin_TheLoadersOriginReachesOnlyWhatFindingTheCoreTakes(t *testi
 		t.Error("the client's origin may not read /me beside a loader's")
 	}
 }
+
+// The client origin reads the core's own client, its page and its files, over the core's names as
+// over WebRTC, for its loader to check and run (D308 §6); the loader's origin reads none of it. Over
+// the core's names the page was refused, and a browser whose LAN waited on its local-network prompt
+// ran out of paths (staging, 2026-10-17).
+func TestCrossOrigin_TheClientOriginReadsTheCoresClientAndTheLoadersDoesNot(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	client, loader := "https://core1.client.example", "https://app.example"
+	harness.server.namedClientOrigin.Store(&client)
+	harness.server.namedLoaderOrigin.Store(&loader)
+	for _, path := range []string{"/", "/assets/client-main.js", "/sw.js"} {
+		for origin, isAllowed := range map[string]bool{client: true, loader: false, "https://evil.example": false} {
+			address := harness.httpServer.URL + path
+			request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, address, http.NoBody)
+			if err != nil {
+				t.Fatal(err)
+			}
+			request.Header.Set("Origin", origin)
+			answer, err := harness.httpServer.Client().Do(request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_ = answer.Body.Close() //nolint:errcheck // only the headers are read
+			if allowed := answer.Header.Get("Access-Control-Allow-Origin"); (allowed == origin) != isAllowed ||
+				answer.Header.Get("Vary") != "Origin" {
+				t.Errorf("GET %s from %s allowed %q (Vary %q); want allowed %v, varying by origin", path, origin,
+					allowed, answer.Header.Get("Vary"), isAllowed)
+			}
+		}
+	}
+}
