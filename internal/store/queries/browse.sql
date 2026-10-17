@@ -217,3 +217,13 @@ LEFT JOIN version ON version.id = file.version_id
 LEFT JOIN title ON title.id = version.title_id
 LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
 WHERE file.id = sqlc.arg(id);
+
+-- name: ListUnreadFilesOfTitle :many
+-- A title's live videos its listing stored that are not read yet, by where each is, for a person
+-- who opened its page to have them read first (D304 section 4).
+SELECT file.id, file.library_id, file.node_id, file.reported_path_raw
+FROM version
+JOIN file ON file.version_id = version.id
+WHERE version.title_id = sqlc.arg(title_id) AND version.removed_at IS NULL AND file.removed_at IS NULL
+  AND file.payload_hash IS NULL AND file.sidecar_kind IS NULL
+ORDER BY file.id;

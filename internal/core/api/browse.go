@@ -327,6 +327,12 @@ func (server *Server) getTitle(ctx context.Context, input *ItemInput) (*ItemDeta
 	body.Art = artBody(detail.Art)
 	body.Episode = episodePlaceBody(detail.Episode)
 	body.Unavailable = unavailableBody(detail.Unreadable, server.nodeNamer(ctx, dependencies))
+	if detail.Unreadable != nil && detail.Unreadable.Reason == library.StillReading {
+		// Its page open, its files are read before what else waits, so Play works soon (D304 §4).
+		if readErr := dependencies.Playback.ReadWhenViewed(ctx, detail.ID); readErr != nil {
+			server.logger.WarnContext(ctx, "could not ask for a title's read", "titleId", detail.ID, "err", readErr)
+		}
+	}
 	return output, nil
 }
 

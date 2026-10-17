@@ -84,3 +84,28 @@ func TestServe_AConfirmedFilmCopiedElsewhereAndDeletedKeepsItsTitleAndNoOther(t 
 		return len(live) == 1 && live[0] == "confirmed"
 	})
 }
+
+// Opening the page of a film still being read has the server read it before what else waits, so
+// Play works by the time it is pressed, with no play asked (the owner, 2026-10-17: Nosferatu's page said
+// still reading, and could not be played). The server wires the page to the scans (D304 §4).
+func TestServe_OpeningTheFilmStillBeingReadsPageHasItRead(t *testing.T) {
+	t.Parallel()
+	shelved := filmOnNode(t, "nfo")
+	server, token, filmFileID := playableFilm(t, shelved)
+	database := openDatabase(t, shelved.config)
+	storetest.ExecRaw(t, database.Path(), "UPDATE file SET payload_hash = NULL WHERE path LIKE '%.mkv'")
+	titles := storetest.QueryRaw(t, database.Path(), "SELECT version.title_id FROM file JOIN version ON "+
+		"version.id = file.version_id WHERE file.id = "+strconv.FormatInt(filmFileID, 10))
+	if len(titles) != 1 {
+		t.Fatalf("the film's title: %v", titles)
+	}
+	page := requestAPI(t, http.MethodGet, server.baseURL+"/items/"+titles[0], token, nil)
+	if page.status != http.StatusOK || !strings.Contains(page.body, "still_reading") {
+		t.Fatalf("the film's page = %d %s; want it, still reading", page.status, page.body)
+	}
+	pollUntil(t, "the film read, its page only opened", func() bool {
+		read := storetest.QueryRaw(t, database.Path(), "SELECT payload_hash IS NOT NULL FROM file WHERE id = "+
+			strconv.FormatInt(filmFileID, 10))
+		return len(read) == 1 && read[0] == "1"
+	})
+}
