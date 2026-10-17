@@ -11,6 +11,7 @@ import {
   connectRtc,
   discoverySignaller,
   firstDirectPath,
+  handOffOfferKey,
   locate,
   offerKey,
   pathsOf,
@@ -65,7 +66,42 @@ const keptCoreKey = "orpheum.discovery.core";
 export type Start =
   | { readonly kind: "link"; readonly link: LinkFragment }
   | { readonly kind: "remembered"; readonly core: KeptCore }
+  | { readonly kind: "handoff"; readonly core: KeptCore; readonly handOff: HandOff }
   | { readonly kind: "none" };
+
+/**
+ * A realm sign-in the discovery's loader handed on to the core's client origin (D308 §4): the code
+ * the client origin takes its session by, once; the bootstrap token the sign-in got, which finds the
+ * core's paths for five minutes; the core's fingerprint; and the realm.
+ */
+export interface HandOff {
+  readonly code: string;
+  readonly bootstrapToken: string;
+  readonly fingerprint: string;
+  readonly realm: string;
+}
+
+/** The fragment a loader sends a browser on to a client origin with, carrying handOff. */
+export function handOffFragment(handOff: HandOff): string {
+  return `#${new URLSearchParams({
+    handoff: handOff.code,
+    bootstrap: handOff.bootstrapToken,
+    fingerprint: handOff.fingerprint,
+    realm: handOff.realm,
+  }).toString()}`;
+}
+
+/** The hand-off a fragment carries, or undefined for any fragment that is not one whole. */
+export function readHandOffFragment(hash: string): HandOff | undefined {
+  const fields = new URLSearchParams(hash.replace(/^#/u, ""));
+  const code = fields.get("handoff") ?? "";
+  const bootstrapToken = fields.get("bootstrap") ?? "";
+  const fingerprint = fields.get("fingerprint") ?? "";
+  if (code === "" || bootstrapToken === "" || fingerprint === "") {
+    return undefined;
+  }
+  return { code, bootstrapToken, fingerprint, realm: fields.get("realm") ?? "" };
+}
 
 function stringField(kept: unknown, name: string): string | undefined {
   const value: unknown =
@@ -228,6 +264,30 @@ export async function targetOfRealm(
       directUrls: located.directUrls,
       lanUrls: located.lanUrls,
     },
+  };
+}
+
+/**
+ * Finds the core a hand-off names by the bootstrap token its realm sign-in got; the target's offers
+ * are proven under the hand-off code's key until the code is taken (D308 §4).
+ */
+export async function targetOfHandOff(
+  client: DiscoveryClient,
+  core: KeptCore,
+  handOff: HandOff,
+): Promise<Target> {
+  const located = await pathsOf(client, { bootstrapToken: handOff.bootstrapToken });
+  if (located.coreId !== core.coreId) {
+    throw new Error("the discovery answered for another server than the hand-off names");
+  }
+  return {
+    coreId: core.coreId,
+    fingerprint: core.fingerprint,
+    held: { bootstrapToken: handOff.bootstrapToken },
+    key: await handOffOfferKey(handOff.code),
+    iceServers: located.iceServers,
+    directUrls: located.directUrls,
+    lanUrls: located.lanUrls,
   };
 }
 
