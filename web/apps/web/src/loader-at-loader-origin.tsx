@@ -26,7 +26,9 @@ import {
   type Household,
 } from "./loader-households.ts";
 import type { StringStorage } from "./browser-storage.ts";
+import { ConfirmButton } from "./confirm-button.tsx";
 import { CredentialsForm } from "./credentials-form.tsx";
+import "./loader-households.css";
 
 /** What the page at the loader's origin starts from. */
 export interface AtLoaderOrigin {
@@ -138,14 +140,19 @@ export function HouseholdList(props: {
           return origin === undefined ? null : (
             <li key={household.coreId}>
               <a href={`${origin}/`}>{householdName(household)}</a>
-              <button
-                type="button"
-                onClick={() => {
+              <ConfirmButton
+                label={t("loader.households.forget")}
+                labelForReader={t("loader.households.forgetNamed", {
+                  name: householdName(household),
+                })}
+                consequence={t("loader.households.forgetConsequence", {
+                  name: householdName(household),
+                })}
+                confirmLabel={t("loader.households.forgetConfirm")}
+                onConfirm={() => {
                   props.onForget(household.coreId);
                 }}
-              >
-                {t("loader.households.forget")}
-              </button>
+              />
             </li>
           );
         })}
@@ -165,11 +172,16 @@ function householdName(household: Household): string {
 
 /** The sign-in by realm, which hands the browser on to the core it finds. */
 function JoinByRealm(props: { readonly at: AtLoaderOrigin }): JSX.Element {
-  const { at } = props;
-  const parts: GateParts = {
+  return <DiscoveryGate start={{ kind: "none" }} parts={joinParts(props.at)} />;
+}
+
+/** What the realm sign-in at the loader's origin reaches the core with, and hands the browser on by. */
+export function joinParts(at: AtLoaderOrigin): GateParts {
+  return {
     client: { clientApi: at.config.clientApi },
     hasRealms: at.config.hasRealms,
     realmStorage: at.storage,
+    shouldSkipLanNames: true,
     sessionOf: () => undefined,
     forgetCore: () => undefined,
     onConnected: async (core: KeptCore, reaching, signIn) => {
@@ -198,5 +210,4 @@ function JoinByRealm(props: { readonly at: AtLoaderOrigin }): JSX.Element {
       );
     },
   };
-  return <DiscoveryGate start={{ kind: "none" }} parts={parts} />;
 }

@@ -46,6 +46,10 @@ export const enDiscovery = {
     households: {
       heading: "Your households",
       forget: "Forget",
+      forgetNamed: "Forget {{name}}",
+      forgetConsequence:
+        "This browser will forget {{name}}. You can sign in to it again by its realm.",
+      forgetConfirm: "Forget it",
       join: "Sign in to another household",
     },
     refused:

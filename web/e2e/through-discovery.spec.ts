@@ -575,6 +575,21 @@ test("a person with no link signs in at a paid discovery's page by realm, name a
     // Quiet beside the tray, on one line however narrow the banner.
     await expect(page.locator(".app-shell__realm")).toHaveCSS("white-space", "nowrap");
     await expect(page.getByRole("link", { name: "Films" })).toBeVisible();
+    // Back at the loader, the household is listed with a small red Forget at its row's end, not a
+    // button the form's width beside a small name (the owner, 2026-10-17).
+    await page.goto(`${discovery.loaderOrigin}/?households=`);
+    const forget = page.getByRole("button", { name: "Forget karlnas" });
+    const name = await page.getByRole("link", { name: "karlnas" }).boundingBox();
+    const drawn = await forget.boundingBox();
+    const list = await page.locator(".loader-households").boundingBox();
+    if (name === null || drawn === null || list === null) {
+      throw new Error("the household list is drawn nowhere");
+    }
+    expect(drawn.width).toBeLessThan(list.width / 2);
+    expect(Math.abs(drawn.y + drawn.height / 2 - (name.y + name.height / 2))).toBeLessThan(3);
+    await forget.click();
+    await page.getByRole("button", { name: "Forget it" }).click();
+    await expect(page.locator(".loader-households li")).toHaveCount(0);
   } finally {
     await api.delete(`${serverUrl()}/api/v1/system/discovery`, { headers: signedIn(token) });
     await api.dispose();

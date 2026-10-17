@@ -337,7 +337,12 @@ describe("a person with no link at a discovery that has realms (D297, D298)", ()
   const fingerprintOfKey = "Vkdap1RjR0wChd9dvyvKtz2mUTWIOem3dIGy6rEHcIw";
 
   /** A discovery taking karl's sign-in at karlnas, the core at its own name, which answers. */
-  async function realmDiscovery(heard: string[]): Promise<typeof fetch> {
+  async function realmDiscovery(
+    heard: string[],
+    paths: readonly { readonly kind: string; readonly url: string }[] = [
+      { kind: "ipv4", url: "https://v4.k7xq2.zone.example" },
+    ],
+  ): Promise<typeof fetch> {
     const key = await realmKey("karlnas", "karl", "a password");
     const person = await realmPerson("karlnas", "karl");
     const karls = JSON.stringify({
@@ -361,7 +366,7 @@ describe("a person with no link at a discovery that has realms (D297, D298)", ()
                 coreId: "k7xq2",
                 bootstrapToken: "a-bootstrap-token",
                 iceServers: [],
-                paths: [{ kind: "ipv4", url: "https://v4.k7xq2.zone.example" }],
+                paths,
                 publicKey,
                 tag,
               }),
@@ -422,6 +427,34 @@ describe("a person with no link at a discovery that has realms (D297, D298)", ()
       },
     ]);
     expect(storage.getItem("orpheum.discovery.realm")).toBe("karlnas");
+  });
+
+  it("tries no LAN name where the page only hands the browser on, so the local network is asked for once", async () => {
+    const lan = "https://192-168-1-2.k7xq2.zone.example:8443";
+    const heard: string[] = [];
+    const reached: unknown[] = [];
+    const parts: GateParts = {
+      ...partsOf(
+        await realmDiscovery(heard, [
+          { kind: "lan", url: lan },
+          { kind: "ipv4", url: "https://v4.k7xq2.zone.example" },
+        ]),
+      ),
+      hasRealms: true,
+      shouldSkipLanNames: true,
+      onConnected: (_core, reaching) => {
+        reached.push(reaching.first);
+      },
+    };
+    mounted = await mount(<DiscoveryGate start={{ kind: "none" }} parts={parts} />);
+    const page = mounted.container;
+    await enter(page.querySelector('input[name="realm"]'), "karlnas");
+    await enter(page.querySelector('input[name="name"]'), "karl");
+    await enter(page.querySelector('input[type="password"]'), "a password");
+    await click(buttonWithText(page, "Sign in"));
+    await settleUntil(() => reached.length > 0);
+    expect(reached).toEqual([{ kind: "direct", origin: "https://v4.k7xq2.zone.example" }]);
+    expect(heard.filter((request) => request.startsWith(lan))).toEqual([]);
   });
 
   it("says the realm, name or password is wrong as one, and keeps no realm when not asked to", async () => {
