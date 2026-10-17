@@ -144,6 +144,11 @@ type StatusResponse struct {
 	// ClientOrigin is where the discovery serves its client, "https://app.example": the origin the
 	// core's links lead to, and its CORS allows (the protocol's §3.4; D293 §4).
 	ClientOrigin string `json:"clientOrigin,omitempty"`
+	// LoaderOrigin is where the discovery serves the loader that finds a core and hands a browser on
+	// to its client origin, "https://app.example" (D308): the core's CORS lets it read the health a
+	// path race probes and ask for a hand-off code, and nothing else. Empty when the discovery's
+	// client and loader are one, as before D308.
+	LoaderOrigin string `json:"loaderOrigin,omitempty"`
 }
 
 // The sources of a candidate address.

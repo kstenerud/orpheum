@@ -505,13 +505,17 @@ func TestStep_KeepsTheClientOriginTheDiscoveryNamesWhenItIsAnHTTPSOrigin(t *test
 		"":                         "",
 	} {
 		built := newWorld(t)
-		built.fake.clientOrigin = named
+		built.fake.clientOrigin, built.fake.loaderOrigin = named, named
 		if _, err := built.service.Connect(t.Context(), built.baseURL); err != nil {
 			t.Fatal(err)
 		}
 		built.service.step(t.Context())
 		if got := built.service.Status().ClientOrigin; got != want {
 			t.Errorf("named %q, the core keeps %q; want %q", named, got, want)
+		}
+		// The loader's origin is checked as the client's is (D308).
+		if got := built.service.Status().LoaderOrigin; got != want {
+			t.Errorf("named the loader at %q, the core keeps %q; want %q", named, got, want)
 		}
 	}
 }

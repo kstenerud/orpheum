@@ -49,6 +49,12 @@ func newStage(t *testing.T) *stage {
 	return newStageWithRealm(t, "")
 }
 
+// The origins the owner serves the client and the loader at (D308).
+const (
+	testClientOrigin = "https://core.client.example"
+	testLoaderOrigin = "https://app.example"
+)
+
 // newStageWithRealm is newStage at a discovery whose operator named realm (Parts.Realm).
 func newStageWithRealm(t *testing.T, realm string) *stage {
 	t.Helper()
@@ -58,7 +64,7 @@ func newStageWithRealm(t *testing.T, realm string) *stage {
 		BaseURL: testBaseURL, Zone: testZone, Store: FileStore{Path: filepath.Join(t.TempDir(), "discovery.json")},
 		Now: built.clock, Random: rand.Reader,
 		ICEServers: []discoveryproto.ICEServer{{URLs: []string{"stun:" + testZone + ":3478"}}},
-		Realm:      realm,
+		Realm:      realm, ClientOrigin: testClientOrigin, LoaderOrigin: testLoaderOrigin,
 		Wait: func(_ context.Context, wait time.Duration) {
 			built.mutex.Lock()
 			defer built.mutex.Unlock()
@@ -274,6 +280,22 @@ func TestSession_NoCountOfStrangersChallengesKeepsTheCoreFromItsSession(t *testi
 		if status := opening(made); status != http.StatusForbidden {
 			t.Errorf("a nonce the discovery did not make, %q, answered %d", made, status)
 		}
+	}
+}
+
+// The status names where the owner serves the client and the loader, for the core's links and CORS
+// (D293 §4, D308).
+func TestStatus_NamesTheClientsAndTheLoadersOrigins(t *testing.T) {
+	t.Parallel()
+	built := newStage(t)
+	signer := newKey(t)
+	_, enrolled := built.enrol(t, signer)
+	token := built.session(t, signer, enrolled.CoreID)
+	var status discoveryproto.StatusResponse
+	built.call(t, http.MethodGet, discoveryproto.PathStatus, token, nil, &status)
+	if status.ClientOrigin != testClientOrigin || status.LoaderOrigin != testLoaderOrigin {
+		t.Errorf("the status names the client at %q and the loader at %q; want %q and %q",
+			status.ClientOrigin, status.LoaderOrigin, testClientOrigin, testLoaderOrigin)
 	}
 }
 

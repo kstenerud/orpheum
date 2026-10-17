@@ -165,6 +165,9 @@ type Status struct {
 	// ClientOrigin is where the discovery serves its client, which the core's links lead to; empty
 	// until it says, or when what it said is not an https origin (D293 §4).
 	ClientOrigin string
+	// LoaderOrigin is where the discovery serves the loader that hands a browser on to the client
+	// origin (D308); empty until it says, or when what it said is not an https origin.
+	LoaderOrigin string
 	// Fingerprint is the identity key's, which the core's links carry (proof.Fingerprint), and
 	// FingerprintText the same as a person reads and compares it, in safe32 groups
 	// (proof.FingerprintText).
@@ -469,6 +472,7 @@ func (service *Service) askStatus(ctx context.Context, status Status) time.Durat
 	service.status.ClaimCode, service.status.ClaimExpiresAt = answered.ClaimCode, time.Time{}
 	service.status.ICEServers = answered.ICEServers
 	service.status.ClientOrigin = originOf(answered.ClientOrigin)
+	service.status.LoaderOrigin = originOf(answered.LoaderOrigin)
 	if answered.ClaimCode != "" {
 		service.status.ClaimExpiresAt = time.UnixMilli(answered.ClaimExpiresAt)
 	}
