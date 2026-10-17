@@ -585,8 +585,11 @@ User-Agent (D263; the User-Agent is logged only).
 
 ### Native-HLS `<video>` (and `<img>`) cannot send an Authorization header
 
-- **What we do:** a media cookie scoped to `/api/v1/bytes/`, while API calls and hls.js use the header.
-  `internal/core/api/media_cookie.go`.
+- **What we do:** a media cookie only the byte paths under `/api/v1/bytes/` take, while API calls and
+  hls.js use the header. Over TLS it is `__Host-` named, at `/`, as that prefix requires, and a byte
+  path takes it only when `Sec-Fetch-Site` is absent, `same-origin` or `none`: every core is one site
+  under `orpheum-core.com`, so `SameSite` alone let other cores' pages use or set it (the D308
+  audit's F-6). `internal/core/api/media_cookie.go`.
 - **Evidence:** D154, D216. This is a limitation that forced the design.
   **[web]** no tracker; it is how media elements fetch. [Stack Overflow
   56146913](https://stackoverflow.com/questions/56146913/using-token-based-authentication-for-html5-video) and

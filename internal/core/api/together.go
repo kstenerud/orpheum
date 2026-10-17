@@ -148,7 +148,7 @@ type ViewerPlaybackInput struct {
 // ViewerPlaybackOutput is the decision, as POST /playback answers, and the viewer cookie, which
 // carries the membership to the byte paths for the player (D246 §3).
 type ViewerPlaybackOutput struct {
-	SetCookie http.Cookie `header:"Set-Cookie"`
+	SetCookie []http.Cookie `header:"Set-Cookie"`
 	Body      StartPlaybackOutputBody
 }
 
@@ -398,7 +398,7 @@ func (server *Server) playTogether(ctx context.Context, input *ViewerPlaybackInp
 	if err != nil {
 		return nil, err
 	}
-	return &ViewerPlaybackOutput{SetCookie: viewerCookie(credential, input.isOverTLS), Body: named.Body}, nil
+	return &ViewerPlaybackOutput{SetCookie: viewerCookies(credential, input.isOverTLS), Body: named.Body}, nil
 }
 
 func (server *Server) getTogetherICE(ctx context.Context, input *ICEInput) (*ICEOutput, error) {

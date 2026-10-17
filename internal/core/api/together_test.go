@@ -150,7 +150,7 @@ func (harness testHarness) viewerBytes(t *testing.T, url, credential string) int
 	if err != nil {
 		t.Fatal(err)
 	}
-	cookie := viewerCookie(credential, false)
+	cookie := byteCookie(ViewerCookieName, credential, false)
 	request.AddCookie(&cookie)
 	answer, err := harness.httpServer.Client().Do(request)
 	if err != nil {
