@@ -114,6 +114,46 @@ audit, whose controls this builds, is
    - It never writes `document.cookie`, a lint holds that, and the client keeps one list of the
      storage keys it owns.
 
+### 2.2a How the loader works
+
+- **One source tree, two builds.** The loader is a second Vite entry in `web/apps/web`
+  (`loader.html`, `src/loader/`), so it imports the gate's existing modules as they are. The
+  discovery's package carries only its build. The client's build keeps `index.html`.
+- **What a redirect carries.** Every fragment names the core whose origin it opens, and the loader
+  refuses one that names another:
+  - an invitation, a person's own link or a Watch Together link: the link's fragment as today,
+    `#<coreId>.<secret>.<fingerprint>`, on the client origin's page the link names;
+  - a realm sign-in's hand-off:
+    `#handoff=<code>&bootstrap=<token>&fingerprint=<fingerprint>&realm=<realm>`.
+
+    The code is used once, the bootstrap token ends in five minutes, and the loader clears the
+    fragment as soon as it reads it.
+- **Session storage.** At the client origin the loader keeps the session, the device and the
+  locator, under `orpheum.core.<coreId>.` as `session.ts` does today. The client reads and writes
+  them only through the interface's `session`, so the two never disagree about the storage.
+- **Running the client.**
+  1. Once a path answers, the loader fetches `/client-manifest` over it and checks:
+     - the key's fingerprint against the one the link, the hand-off or this origin's memory named;
+     - the signature;
+     - the version against the floor;
+     - then the client's `index.html`, by its hash.
+  2. It gives the checked manifest to its service worker.
+  3. It copies the client's `<link>` and `<script>` elements into its own document.
+  4. The service worker answers every `/assets/…` load from its cache, where files are kept by
+     their SHA-256. On a miss it asks the page to fetch the file over the kept path, checks the
+     hash against the manifest, keeps it, and answers it. A file whose hash does not match is
+     never answered.
+  5. The loader's own files are under `/loader/`, apart from the client's.
+- **The household list** (D308 §8) lives in `localStorage` at `app.`: each entry has the core id,
+  fingerprint, realm and name, and when it was last used.
+  - A realm sign-in's hand-off adds its core.
+  - **Switch household** at a client origin goes to `app.`'s list, naming the core it came from.
+    `app.` adds that core only when `document.referrer` is that core's client origin, which the
+    link sends with `referrerpolicy="origin"`. So no other page can put an entry in the list.
+  - A household joined by a link appears there after its first Switch.
+- **At `app.`, its first run** unregisters the whole client's old service worker and deletes the
+  keys it kept.
+
 ### 2.3 The discovery (`orpheum-connect`)
 
 1. **The loader at `app.` and at the client domain.**
