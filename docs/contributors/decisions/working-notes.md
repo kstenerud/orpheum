@@ -20524,5 +20524,19 @@ between a core and its discovery stable but says nothing of the one between a cl
 5. **No sessions are carried over.** The owner: *"The only deployments so far are your staging, and
    nas.example. Both are expendable, and nobody but you and me have logged into either."*
 
-**Status:** Decided 2026-10-17 in part; the rest of its design (the audit's open questions) is the
-owner's to settle.
+6. **The owner's answers to the rest** (2026-10-17):
+   - The domain is **`orpheum-client.com`** (*"I'll use orpheum-client.com"*), and staging's client
+     origins are in it too (*"use the same domain for staging"*), one level down as the free
+     certificate covers.
+   - A core **signs a list of its client's file hashes**, which the loader checks before any of it
+     runs, and the discovery publishes **a floor of client versions it refuses** (*"yes"*).
+   - The browser **keeps each core's client by its hashed file names**, checked against the signed
+     list each time (*"yes"*).
+   - The audit's finding that a core's media cookie reaches another core's pages is **fixed apart
+     from D308** (*"fix it"*).
+   - Opened by itself, `app.` **sends the browser to the last core it reached, with links to the
+     others it is signed in to** (*"Send to the last one, with links to any others the browser is
+     logged into"*).
+
+**Status:** Decided 2026-10-17 but for the Public Suffix List entry, explained to the owner the same
+day.
