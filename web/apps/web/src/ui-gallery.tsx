@@ -14,6 +14,14 @@ import { WarningIcon } from "./warning-sign.tsx";
 /** The poster tones the cues are shown over: a pale poster, a mid one, a dark one and a busy one. */
 const tones = ["light", "medium", "dark", "busy"] as const;
 
+/** Each tone's poster class, written out whole, so a search for a stylesheet's class finds it. */
+const toneClass: Readonly<Record<(typeof tones)[number], string>> = {
+  light: "ui-gallery__poster--light",
+  medium: "ui-gallery__poster--medium",
+  dark: "ui-gallery__poster--dark",
+  busy: "ui-gallery__poster--busy",
+};
+
 /** One way a title can be, by the cues it shows, each with its name's key. */
 const states: readonly { readonly key: string; readonly subject: CueSubject }[] = [
   { key: "gallery.plain", subject: {} },
@@ -76,10 +84,7 @@ function PostersOfTone(props: { readonly tone: (typeof tones)[number] }): JSX.El
         {states.map((state) => (
           <li key={state.key} className="poster-grid__item">
             <span className="poster-grid__card">
-              <span
-                className={`poster ui-gallery__poster ui-gallery__poster--${tone}`}
-                aria-hidden="true"
-              />
+              <span className={`poster ui-gallery__poster ${toneClass[tone]}`} aria-hidden="true" />
               <span className="poster-grid__name">{t(state.key)}</span>
             </span>
             <StatusTray subject={state.subject} />
