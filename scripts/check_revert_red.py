@@ -503,10 +503,16 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
                 if reaching is not None:
                     env[browser_map.ONLY_THESE_TESTS] = json.dumps(reaching)
             # One browser tier at a time: each starts a server and three browsers.
-            done = timed(TIMINGS, change.path, kind_of(attempt.command, attempt.label, attempt.env),
-                         BROWSER_TIER_LOCK if "browser-tier" in attempt.command else None,
-                         functools.partial(subprocess.run, attempt.command, cwd=tree, capture_output=True,
-                                           text=True, timeout=timeout, check=False, env=env))
+            try:
+                done = timed(TIMINGS, change.path, kind_of(attempt.command, attempt.label, attempt.env),
+                             BROWSER_TIER_LOCK if "browser-tier" in attempt.command else None,
+                             functools.partial(subprocess.run, attempt.command, cwd=tree, capture_output=True,
+                                               text=True, timeout=timeout, check=False, env=env))
+            except subprocess.TimeoutExpired:
+                # A run that cannot finish with the change reverted did not pass. Escaping, it ended the
+                # whole probe pool and 27 minutes of check-pr named no file (2026-10-17).
+                return Outcome(change.path, "RED_TEST", f"the tests ran past {timeout} s when it is "
+                               f"reverted{attempt.label}, so they hang without it")
             if done.returncode == 0:
                 continue
             if done.returncode == RUNNER_MISSING:
