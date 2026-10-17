@@ -127,6 +127,16 @@ and last **revert-red's browser runs**: the stylesheets', and those of the code 
 noticed (`BROWSER_OWED`), read against the browser map the browser tier has just recorded. No
 expensive run holds back a cheap one (the owner, 2026-10-17; test-weight.md §14).
 
+A branch of **documentation alone** (`scripts/documentation_only.py`) cannot change what the code
+does, so `make check-pr` and `make check-pr-failed` hand it to `make check-pr-documentation`: what
+reads the documents (links, citations, the architecture map) and the commits' quick checks, in
+seconds, marking HEAD checked as check-pr does (the owner, 2026-10-17).
+
+**Every night, CI runs `make check-everything`** on main: the backstop to all of check-pr's
+narrowing. It clears the stamps and runs every tier whole and uncached, plus revert-red over the
+day's commits with every browser run in turn, each step to its end. Run it by hand with
+`SINCE="3 days ago"` to cover more commits (the owner, 2026-10-17).
+
 check-pr is the last run of a block of work, which is expected to pass, since its pieces' tests
 have run already: **every tier runs to its end**, a failed one too, so one run shows every
 failure, and check-pr fails at the end. The piecework runs fail fast: `make check-pr-failed` stops

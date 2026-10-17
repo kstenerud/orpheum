@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Says whether a change is documentation alone, which runs the documentation gate and no
-# ABOUTME: tests of the code: the one definition the Stop hook, the pre-commit hook and check-pr use.
+# ABOUTME: tests of the code: the one definition the Stop hook, the pre-commit hook and check-pr use
+# ABOUTME: (check-pr hands a branch of documentation alone to check-pr-documentation).
 """Whether a change touches documentation alone.
 
 Documentation is anything under docs/ and any Markdown file. A package's README holds its

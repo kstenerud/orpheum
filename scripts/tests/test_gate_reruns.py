@@ -243,6 +243,52 @@ class Wiring(unittest.TestCase):
         self.assertRegex(self.MAKEFILE, r"(?m)^\t.*check_revert_red\.py --base HEAD~1 --part code --unrecorded$")
         self.assertRegex(self.MAKEFILE, r"(?m)^\t.*check_revert_red\.py .*\$\(if \$\(ONLY\),--only \$\(ONLY\)\)")
 
+    def test_the_nightly_run_checks_everything_trusting_no_stamp_and_ci_runs_it_each_night(self):
+        # The backstop to check-pr's narrowing (the owner, 2026-10-17): the stamps cleared, each tier
+        # run whole and to its end, revert-red with its browser runs in turn; CI runs it on a schedule.
+        recipe = re.search(r"(?ms)^check-everything:.*?\n\n", self.MAKEFILE)
+        self.assertIsNotNone(recipe)
+        body = recipe.group(0)
+        self.assertIn('rm -rf "$$(git rev-parse --git-path orpheum-area-stamps)" '
+                      '"$$(git rev-parse --git-path orpheum-check-passed)"', body)
+        for step in ("check-verbose", "go test -race -count=1 ./...", "test-integration-run", "lint:full",
+                     "test-browser BASE=", "test-acceptance-home BASE=", "check_revert_red.py"):
+            self.assertRegex(body, rf"{re.escape(step)}.* \|\| failed=1", f"{step} does not run to its end")
+        self.assertIn("--part all", body)
+        ci = (REPO / ".github" / "workflows" / "ci.yml").read_text()
+        self.assertRegex(ci, r'(?m)^  schedule:\n    - cron: "\d+ \d+ \* \* \*"$')
+        self.assertRegex(ci, r"(?m)^        if: github\.event_name == 'schedule' \|\| github\.event_name == "
+                             r"'workflow_dispatch'\n        run: \./dev make check-everything")
+        self.assertIn("group: ci-${{ github.event_name }}-${{ github.ref }}", ci)
+        for step in ("make check", "Integration tier"):
+            self.assertRegex(ci, rf"(?m)^      - name: {step}\n        if: github\.event_name == 'push' \|\| "
+                                 r"github\.event_name == 'pull_request'$")
+
+    def test_a_branch_of_documentation_alone_takes_the_documentation_gate_instead(self):
+        # check-pr and its re-run hand a branch of documentation alone to check-pr-documentation,
+        # before any tier starts (the owner, 2026-10-17); it runs what reads the documents and the
+        # commits' quick checks, and marks HEAD checked as check-pr does.
+        dispatch = (r'if \$\(PYTHON\) scripts/documentation_only\.py --base "\$\$base"; then \\\n'
+                    r'\t +exec \$\(MAKE\) --no-print-directory check-pr-documentation BASE="\$\$base"; fi; \\\n')
+        for target, first_after in (("check-pr-verbose", "tree_state.py --save"), ("check-pr-failed", "rerun")):
+            recipe = re.search(rf"(?ms)^{target}:.*?\n\n", self.MAKEFILE)
+            self.assertIsNotNone(recipe, target)
+            body = recipe.group(0)
+            found = re.search(dispatch, body)
+            self.assertIsNotNone(found, f"{target} does not hand documentation alone on")
+            self.assertLess(found.start(), body.index(first_after), f"{target} starts its own steps first")
+        self.assertRegex(self.MAKEFILE, r"(?m)^PR_DOCUMENTATION_STEPS := check-documentation \$\(PR_FAST_STEPS\)$")
+        recipe = re.search(r"(?ms)^check-pr-documentation:.*?\n\n", self.MAKEFILE)
+        self.assertIsNotNone(recipe)
+        self.assertIn("$(PR_DOCUMENTATION_STEPS:%=pr-step-%)", recipe.group(0))
+        self.assertIn('branch_base.py --checked "$$head"', recipe.group(0))
+        # Called by hand on a branch with code in it, it refuses before it marks anything checked.
+        refusal = recipe.group(0).find('if ! $(PYTHON) scripts/documentation_only.py --base "$$base"; then')
+        self.assertGreater(refusal, -1, "check-pr-documentation takes a branch with code in it")
+        self.assertLess(refusal, recipe.group(0).index("branch_base.py --checked"))
+        for heavy in ("PR_MEDIUM_STEPS", "PR_SLOW_STEPS", "PR_CODE_RED_STEP", "PR_LAST_STEP", "PR_SERIAL_STEP"):
+            self.assertNotIn(heavy, recipe.group(0))
+
 
 class Records(unittest.TestCase):
     def test_a_record_lives_in_the_common_directory_every_worktree_shares(self):
