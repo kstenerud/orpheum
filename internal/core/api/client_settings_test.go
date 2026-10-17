@@ -30,3 +30,25 @@ func TestClientSettings_EveryClientReadsHowOftenAScreenAsksAgain(t *testing.T) {
 			"the failed wait's starting 5 s", got)
 	}
 }
+
+// The pages for development are offered only once the admin turns them on (the owner, 2026-10-17).
+func TestClientSettings_TheDeveloperPagesAreOfferedOnlyWhenTurnedOn(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	token := harness.createAdminAndSignIn(t)
+	read := func() ClientSettingsBody {
+		served := harness.do(t, http.MethodGet, "/client-settings", token, nil)
+		var got ClientSettingsBody
+		if err := json.Unmarshal([]byte(served.body), &got); err != nil || served.status != http.StatusOK {
+			t.Fatalf("GET /client-settings = %d %s (%v)", served.status, served.body, err)
+		}
+		return got
+	}
+	if read().ShouldShowDeveloperPages {
+		t.Error("the developer pages are offered before the admin turned them on")
+	}
+	settingstest.Set(t, harness.server.dependencies.Load().Settings, settings.ShouldShowDeveloperPages, "true")
+	if !read().ShouldShowDeveloperPages {
+		t.Error("the developer pages are not offered once the admin turned them on")
+	}
+}

@@ -5,8 +5,10 @@ import "./ui-gallery.css";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { MenuIcon } from "./app-shell.tsx";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { StatusNotes, StatusTray, type CueSubject } from "./status-cues.tsx";
+import { TogetherIcon } from "./status-tray.tsx";
 import { StillReadingIcon } from "./still-reading.tsx";
 import { UncertainMatchIcon } from "./uncertain-match.tsx";
 import { WarningIcon } from "./warning-sign.tsx";
@@ -46,9 +48,10 @@ const states: readonly { readonly key: string; readonly subject: CueSubject }[] 
 
 /**
  * The client's own parts, drawn with made-up data, to see how they look before a library has them
- * (the owner, 2026-10-17: "a demo page … that shows the UI elements"): each status cue over posters
- * pale, mid, dark and busy, the notes a page says them with, the icons alone, and the buttons. It
- * reads nothing from the server, and no menu leads to it: its address is /ui-gallery.
+ * (the owner, 2026-10-17: "a demo page … that shows the UI elements"): the banner's status tray
+ * with each sign it can show, each status cue over posters pale, mid, dark and busy, the notes a
+ * page says them with, the icons alone, and the buttons. It reads nothing from the server; the menu
+ * leads to it while the admin has the pages for development on, and its address is /ui-gallery.
  */
 export function UiGallery(): JSX.Element {
   const { t } = useTranslation();
@@ -56,6 +59,7 @@ export function UiGallery(): JSX.Element {
     <article className="ui-gallery">
       <h1>{t("gallery.heading")}</h1>
       <p>{t("gallery.what")}</p>
+      <BannerTrays />
       {tones.map((tone) => (
         <PostersOfTone key={tone} tone={tone} />
       ))}
@@ -70,6 +74,57 @@ export function UiGallery(): JSX.Element {
       </section>
       <IconsAndButtons />
     </article>
+  );
+}
+
+/** Which signs a banner's tray shows, each with its name's key. */
+const trays: readonly {
+  readonly key: string;
+  readonly needsAttention: boolean;
+  readonly isHostingTogether: boolean;
+}[] = [
+  { key: "gallery.trayNeedsAttention", needsAttention: true, isHostingTogether: false },
+  { key: "gallery.trayTogether", needsAttention: false, isHostingTogether: true },
+  { key: "gallery.trayBoth", needsAttention: true, isHostingTogether: true },
+];
+
+/**
+ * The banner's end as each sign of its status tray shows there (D280): beside the realm and the
+ * menu, in the tray's own classes, the signs drawn without what they do.
+ */
+function BannerTrays(): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <section aria-labelledby="gallery-trays">
+      <h2 id="gallery-trays">{t("gallery.trays")}</h2>
+      {trays.map((tray) => (
+        <div key={tray.key} className="ui-gallery__tray">
+          <h3>{t(tray.key)}</h3>
+          <div className="ui-gallery__banner">
+            <div className="app-shell__end">
+              <span className="app-shell__realm">{t("gallery.realm")}</span>
+              <span className="status-tray">
+                {tray.needsAttention ? (
+                  <span className="status-tray__button status-tray__button--warning">
+                    <WarningIcon />
+                  </span>
+                ) : null}
+                {tray.isHostingTogether ? (
+                  <span className="status-tray__button">
+                    <TogetherIcon />
+                  </span>
+                ) : null}
+              </span>
+              <span className="app-shell__menu">
+                <span className="ui-gallery__menu-mark">
+                  <MenuIcon />
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </section>
   );
 }
 

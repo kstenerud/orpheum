@@ -496,12 +496,16 @@
           "screenRefreshLongestWaitSeconds": {
             "format": "int64",
             "type": "integer"
+          },
+          "shouldShowDeveloperPages": {
+            "type": "boolean"
           }
         },
         "required": [
           "screenRefreshFirstWaitSeconds",
           "screenRefreshLongestWaitSeconds",
-          "screenRefreshFailedWaitSeconds"
+          "screenRefreshFailedWaitSeconds",
+          "shouldShowDeveloperPages"
         ],
         "type": "object"
       },
@@ -7321,7 +7325,7 @@
             "description": "Error"
           }
         },
-        "summary": "The server settings every client reads: how often a screen asks again (D237)",
+        "summary": "The server settings every client reads: how often a screen asks again (D237), and more",
         "tags": [
           "Settings"
         ]

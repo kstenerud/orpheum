@@ -97,7 +97,8 @@ function SignedIn(): JSX.Element {
     signOutHere(api, session);
   };
   const isAdmin = me.state === "loaded" && me.value.isAdmin;
-  const poller = useServersPoller();
+  const clientSettings = useClientSettings();
+  const poller = useServersPoller(clientSettings);
   // The session this tab hosts, whose voice every screen shares (D281 §5).
   const hostMembership = useMembership(tabStorage, "host");
   const isHostingTogether = hostMembership !== undefined;
@@ -121,6 +122,7 @@ function SignedIn(): JSX.Element {
             }
             currentScreen={route.screen}
             realm={realm}
+            showsDeveloperPages={clientSettings?.shouldShowDeveloperPages === true}
             onSignOut={signOut}
           >
             <Screen route={route} />
@@ -131,17 +133,21 @@ function SignedIn(): JSX.Element {
   );
 }
 
+/** The server settings every client reads, once read. */
+function useClientSettings(): components["schemas"]["ClientSettingsBody"] | undefined {
+  const { api } = useServices();
+  const [clientSettings] = useResource("client-settings", async () =>
+    dataOrThrow(await api.GET("/client-settings")),
+  );
+  return clientSettings.state === "loaded" ? clientSettings.value : undefined;
+}
+
 /**
  * The poller of screens showing what the server changes in the background, on the waits the
  * server's client settings say (D237); D237's starting waits until they are read. A longest wait
  * shorter than the first is the first.
  */
-function useServersPoller(): Poller {
-  const { api } = useServices();
-  const [clientSettings] = useResource("client-settings", async () =>
-    dataOrThrow(await api.GET("/client-settings")),
-  );
-  const read = clientSettings.state === "loaded" ? clientSettings.value : undefined;
+function useServersPoller(read: components["schemas"]["ClientSettingsBody"] | undefined): Poller {
   const firstSeconds = read?.screenRefreshFirstWaitSeconds;
   const longestSeconds = read?.screenRefreshLongestWaitSeconds;
   const failedSeconds = read?.screenRefreshFailedWaitSeconds;
