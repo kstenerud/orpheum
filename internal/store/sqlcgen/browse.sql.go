@@ -868,3 +868,49 @@ func (q *Queries) ListTitleFiles(ctx context.Context, titleID int64) ([]ListTitl
 	}
 	return items, nil
 }
+
+const listUnreadFilesOfTitle = `-- name: ListUnreadFilesOfTitle :many
+SELECT file.id, file.library_id, file.node_id, file.reported_path_raw
+FROM version
+JOIN file ON file.version_id = version.id
+WHERE version.title_id = ?1 AND version.removed_at IS NULL AND file.removed_at IS NULL
+  AND file.payload_hash IS NULL AND file.sidecar_kind IS NULL
+ORDER BY file.id
+`
+
+type ListUnreadFilesOfTitleRow struct {
+	ID              int64
+	LibraryID       int64
+	NodeID          int64
+	ReportedPathRaw []byte
+}
+
+// A title's live videos its listing stored that are not read yet, by where each is, for a person
+// who opened its page to have them read first (D304 section 4).
+func (q *Queries) ListUnreadFilesOfTitle(ctx context.Context, titleID int64) ([]ListUnreadFilesOfTitleRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUnreadFilesOfTitle, titleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListUnreadFilesOfTitleRow{}
+	for rows.Next() {
+		var i ListUnreadFilesOfTitleRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.LibraryID,
+			&i.NodeID,
+			&i.ReportedPathRaw,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

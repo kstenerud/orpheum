@@ -540,3 +540,22 @@ func (service *Service) FetchSubtitle(
 	}
 	return fetched, nil
 }
+
+// ReadWhenViewed asks for the read of each of a title's files its listing stored unread, before
+// what else waits, for a person who opened its page (D304 §4): by the time they press Play it is
+// read, or nearly. A play of a file still being read asks the same.
+func (service *Service) ReadWhenViewed(ctx context.Context, titleID int64) error {
+	if service.reads == nil {
+		return nil
+	}
+	files, err := service.database.Read().ListUnreadFilesOfTitle(ctx, titleID)
+	if err != nil {
+		return fmt.Errorf("list title %d's files still being read: %w", titleID, err)
+	}
+	for _, file := range files {
+		if err := service.reads.ReadNow(ctx, file.LibraryID, file.NodeID, file.ReportedPathRaw); err != nil {
+			return fmt.Errorf("ask for file %d's read: %w", file.ID, err)
+		}
+	}
+	return nil
+}
