@@ -405,7 +405,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   any hiccups or sound glitches"*.
 - [ ] **VQ42** — Against staging's `/ui-gallery`, in a desktop browser: the still-reading hourglass
   is on the status blue of the tray's signs, over every poster tone and on its own; and in "On a
-  title's page", the question-mark and hourglass icons beside their words are as big as the warning
-  triangle beside its words, not smaller. Only a person judges a colour and a size by eye (the owner,
-  2026-10-17: "the coral color is not good", "the rest are very small by visual comparison").
+  title's page", the warning triangle and the question-mark and hourglass icons beside their words
+  look the same size, none smaller. Only a person judges a colour and a size by eye (the owner,
+  2026-10-17: "the coral color is not good", "the rest are very small by visual comparison", then
+  of the triangle: "visually smaller by a tiny amount").
   (`web/apps/web/src/still-reading.css`, `status-cues.css`)
+  — colour done 2026-10-17 by the owner, against staging at an earlier commit: *"Color looks right now."*
