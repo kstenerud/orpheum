@@ -20538,7 +20538,8 @@ between a core and its discovery stable but says nothing of the one between a cl
      others it is signed in to** (*"Send to the last one, with links to any others the browser is
      logged into"*); refined by §8.
 
-7. **No Public Suffix List entry for now; disciplines instead.** The owner, having bought both
+7. **No Public Suffix List entry for now; disciplines instead** (the agent's proposal, awaiting the
+   owner's word). The owner, having bought both
    domains for a year: *"Aren't there other methods or disciplines we can apply to mitigate the
    worst? Consider the actual threat model we face."* Separate origins already stop a core's code
    taking other households' sessions, their service workers or their admin; what being one site
@@ -20562,4 +20563,4 @@ between a core and its discovery stable but says nothing of the one between a cl
    be forgotten. Whether a browser is still signed in to a core is not shown: only that core's own
    origin knows.
 
-**Status:** Decided 2026-10-17.
+**Status:** Decided 2026-10-17, but for §7, which awaits the owner.
