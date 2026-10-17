@@ -141,12 +141,15 @@ func (tracker *runTracker) cutFar(dir string, grid Grid, wanted int, far farFrom
 // way: the first chunk of those that start within lookaheadMs of film from wanted's start that is
 // neither made nor to be made by a run, through the earliest of runSpanMs of film, the chunk before
 // the next that is made or to be made, and the grid's last. It reports false when every chunk in
-// the look-ahead is made or on its way. The caller queues the run, and forgets it if it was not
-// queued.
+// the look-ahead is made or on its way, and for an evicted store, which starts no run until a stall
+// asks for it again (D250 §6). The caller queues the run, and forgets it if it was not queued.
 func (tracker *runTracker) plan(dir string, grid Grid, wanted int) (first, last int, isPlanned bool) {
 	tracker.mutex.Lock()
 	defer tracker.mutex.Unlock()
 	known := tracker.storeLocked(dir)
+	if !known.evictedAt.IsZero() {
+		return 0, 0, false
+	}
 	lookUntilMs := grid.StartsMs[wanted] + lookaheadMs
 	first = -1
 	for n := wanted; n <= grid.lastChunk() && grid.StartsMs[n] < lookUntilMs; n++ {

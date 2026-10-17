@@ -92,6 +92,37 @@ func TestKeepRunsFast_EvictsTheNewestWhenEveryRunIsInUse(t *testing.T) {
 	}
 }
 
+// An evicted store still gives its players what is made and what another of its runs is making, and
+// starts no run for them: only a player its eviction left without its chunks is refused (D250 §6). A
+// chunk made was refused, answered 500 as it was served, while a run of its store made the rest at
+// 2.5x playback (the owner's Wings on nas.example, 2026-10-17).
+func TestEnsure_AnEvictedStoreGivesWhatIsMadeOrOnItsWayAndStartsNoRun(t *testing.T) {
+	t.Parallel()
+	stage := newCapacityStage(t)
+	// A second run of the newer store, older than its first, which its players are asking for too.
+	stage.service.runs.begin(stage.newer, 30, 59, 13, 1, stage.clock.Now())
+	stage.service.runs.storeByDir[stage.newer].runByFirst[30].startedAt = stage.clock.Now().Add(-time.Minute)
+	stage.service.runs.asked(stage.newer, 30, 30, stage.clock.Now())
+	stage.service.runs.madeThrough(stage.newer, 0, 27)
+	stage.progress(t, 3, 1.05, func(string) bool { return true })
+	if !slices.Contains(stage.queue.cancelledJobs, 12) {
+		t.Fatalf("the jobs cancelled = %v; want the newer run from 0's, 12", stage.queue.cancelledJobs)
+	}
+	newer := quality(700, 432)
+	queued := len(stage.queue.requests)
+	for _, chunk := range []int{27, 31} {
+		if err := stage.service.Ensure(t.Context(), 1, OnKeyframes, newer, chunk); err != nil {
+			t.Errorf("chunk %d, made or on its way: %v; want it given", chunk, err)
+		}
+	}
+	if len(stage.queue.requests) != queued {
+		t.Errorf("runs queued for an evicted store: %v; want none", stage.queue.requests[queued:])
+	}
+	if err := stage.service.Ensure(t.Context(), 1, OnKeyframes, newer, 28); !errors.Is(err, ErrNoRoomToMake) {
+		t.Errorf("chunk 28, which the evicted run was to make: %v; want ErrNoRoomToMake", err)
+	}
+}
+
 // A run in use whose players can all move onto a quality already made for another playback of the
 // film is cancelled, its players moved, and its store not evicted: they are not stopped (D286 §4).
 // One whose players cannot move is evicted as before.
