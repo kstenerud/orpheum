@@ -17,7 +17,7 @@ type LeaveInput struct {
 	AuthorizationHeader
 	Token string `doc:"The playback's media token" path:"token"`
 	//nolint:lll // one struct tag
-	Reason string `doc:"Why: left the page, playing nothing else, or went on to play another film (D309 §7)" enum:"left,replaced" query:"reason" required:"false"`
+	Reason string `doc:"Why: left the page, playing nothing else, or went on to another film, the default (D309 §7)" enum:"left,replaced" query:"reason" required:"false"`
 }
 
 // registerLeave registers a player's words on its playback's work: that it left, and what it wants

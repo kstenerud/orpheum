@@ -1,0 +1,67 @@
+// SPDX-License-Identifier: MPL-2.0
+
+import type { Api } from "@orpheum/sdk";
+
+/**
+ * What a player says it wants of its film's chunks (D309): where it plays from, and whether it is
+ * paused. Its quality and its sound the server reads off the chunks it asks for, the first of a new
+ * one saying it moved.
+ */
+export interface SaidInterest {
+  readonly positionMs: number;
+  readonly isPaused: boolean;
+}
+
+/**
+ * Says what the video's player wants as it pauses, plays again and seeks, so the server finishes
+ * only what a paused player keeps ahead, and stops the runs a seek left at once (D309 §2, §7).
+ * Returns the stopping.
+ */
+export function sayInterestOf(
+  video: HTMLVideoElement,
+  say: (said: SaidInterest) => void,
+): () => void {
+  const at = (): number => Math.round(video.currentTime * 1000);
+  const listeners: Record<string, () => void> = {
+    pause: () => {
+      // The end pauses the video too: nothing is left ahead to keep.
+      if (!video.ended) {
+        say({ positionMs: at(), isPaused: true });
+      }
+    },
+    playing: () => {
+      say({ positionMs: at(), isPaused: false });
+    },
+    seeking: () => {
+      say({ positionMs: at(), isPaused: video.paused });
+    },
+  };
+  for (const [event, listener] of Object.entries(listeners)) {
+    video.addEventListener(event, listener);
+  }
+  return () => {
+    for (const [event, listener] of Object.entries(listeners)) {
+      video.removeEventListener(event, listener);
+    }
+  };
+}
+
+/** Why a player let go of its playback (D309 §7): it left its page, or went on to another film. */
+export type LeftFor = "left" | "replaced";
+
+/** Says to the server what the playback mediaToken names wants now; one that fails costs nothing. */
+export function sendInterest(api: Api, mediaToken: string, said: SaidInterest): void {
+  api
+    .PUT("/playback/{token}/interest", { params: { path: { token: mediaToken } }, body: said })
+    .catch(() => undefined);
+}
+
+/**
+ * Lets go of the playback mediaToken names, saying why (D258 §2, D309 §7). A leave that fails costs
+ * only what the server keeps for the playback until it idles out.
+ */
+export function leavePlayback(api: Api, mediaToken: string, reason: LeftFor): void {
+  api
+    .DELETE("/playback/{token}", { params: { path: { token: mediaToken }, query: { reason } } })
+    .catch(() => undefined);
+}

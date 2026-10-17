@@ -5,6 +5,7 @@ import type { Api, components, PlayableFormats } from "@orpheum/sdk";
 
 import type { LadderOffer } from "./moving-down.ts";
 import { noteDecisionTimes } from "./play-state.ts";
+import { leavePlayback } from "./interest.ts";
 import { dataOrThrow } from "./problem.ts";
 import { monotonicMs } from "./use-together.ts";
 
@@ -211,8 +212,8 @@ export class Watching {
   }
 
   private leave(token: string): void {
-    // A leave that fails costs only background priority, later, when the token idles out.
-    this.api.DELETE("/playback/{token}", { params: { path: { token } } }).catch(() => undefined);
+    // Every leave here is for another film, or another playback of this one: its runs stop at once.
+    leavePlayback(this.api, token, "replaced");
   }
 }
 

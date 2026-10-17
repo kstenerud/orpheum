@@ -112,7 +112,10 @@ describe("play state", () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    expect(heard.map((request) => request.methodAndPath)).toEqual(["POST /playback/gone/report"]);
+    // One report, refused for good, and none after; the player's word on what it wants beside it.
+    const reports = heard.filter((request) => request.methodAndPath.endsWith("/report"));
+    expect(reports.map((request) => request.methodAndPath)).toEqual(["POST /playback/gone/report"]);
+    expect(heard.map((request) => request.methodAndPath)).toContain("PUT /playback/gone/interest");
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
       "Where you are is no longer being kept for next time. That is no longer here",
     );
