@@ -49,9 +49,20 @@ func TestPlayback_AFilePlaysFromTheNodesSocketThroughTheCore(t *testing.T) {
 // the server, the session token and the film's file id.
 func playableFilm(t *testing.T, shelved filmFixture) (server runningServer, token string, filmFileID int64) {
 	t.Helper()
+	return playableFilmLogged(t, shelved, newCapturedLog("ready", filmIdentified))
+}
+
+// filmIdentified is what the core logs once a shelved film's library is identified, which
+// playableFilmLogged waits for.
+const filmIdentified = "identified a library"
+
+// playableFilmLogged is playableFilm, logging to captured, which awaits filmIdentified.
+func playableFilmLogged(
+	t *testing.T, shelved filmFixture, captured capturedLog,
+) (server runningServer, token string, filmFileID int64) {
+	t.Helper()
 	config, configPath, nodeID := shelved.config, shelved.configPath, shelved.nodeID
-	const identified = "identified a library"
-	server = serveWithNode(t, config, newCapturedLog("ready", identified), identified)
+	server = serveWithNode(t, config, captured, filmIdentified)
 	token = signedInOwner(t, server, configPath)
 	files, err := openDatabase(t, config).Read().ListLiveFilesByNode(t.Context(), nodeID)
 	if err != nil {

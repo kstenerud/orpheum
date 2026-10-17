@@ -5,6 +5,7 @@ package playback
 import (
 	"context"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -39,6 +40,8 @@ func (*cutAfterChunks) IsReadyAt(context.Context, chunks.Playback, chunks.Offer,
 func (*cutAfterChunks) ReleaseWanted(context.Context, int64) error { return nil }
 
 func (*cutAfterChunks) StopUnwanted(context.Context, int64) error { return nil }
+
+func (*cutAfterChunks) InterestsBy(chunks.Interests) {}
 
 // waitSettings are settings whose play_ladder_wait_ms is waitMs, server_upload_mbps unanswered.
 type waitSettings struct{ waitMs int64 }
@@ -85,5 +88,26 @@ func TestStartOnLadder_WaitsForAFilmsKeyframesUpToTheLadderWait(t *testing.T) {
 		if waited := clock.Now().Sub(started); waited > time.Duration(wait.waitMs)*time.Millisecond {
 			t.Errorf("waiting %d ms, it waited %v", wait.waitMs, waited)
 		}
+	}
+}
+
+// A device that starts a film on its ladder has gone to it from every other film it played: their
+// runs no one else wants stop at once (D309 §7).
+func TestStartOnLadder_LeavesThePlayersOtherFilmsForGood(t *testing.T) {
+	t.Parallel()
+	clock := clocktest.NewFake(time.Date(2026, 10, 17, 20, 0, 0, 0, time.UTC))
+	fake := &stoppingChunks{}
+	before := &tokenPlayback{deviceID: 4, fileID: 2, interest: playerInterest{disposition: Paused}}
+	service := &Service{
+		clock: clock, chunks: fake, speeds: newLinkSpeeds(), settings: waitSettings{}, tokens: newTokens(),
+	}
+	service.tokens.playbackByToken["before"] = before
+	_, _, err := service.startOnLadder(t.Context(), Holder{}, Request{DeviceID: 4}, tokenPlayback{fileID: 1}, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before.interest.disposition != Replaced || !slices.Equal(fake.stopped, []int64{2}) {
+		t.Errorf("the device's other film: %q, stopped %v; want it replaced and film 2's runs stopped",
+			before.interest.disposition, fake.stopped)
 	}
 }

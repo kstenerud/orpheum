@@ -107,13 +107,18 @@ type Service struct {
 
 // NewService returns the playback service.
 func NewService(parts Parts) *Service {
-	return &Service{
+	service := &Service{
 		database: parts.Database, nodes: parts.Nodes, settings: parts.Settings,
 		clock: parts.Clock, random: parts.Random,
 		tokens: newTokens(), renditions: parts.Renditions,
 		subtitles: parts.Subtitles, preferences: parts.Preferences, loudness: parts.Loudness,
 		chunks: parts.Chunks, reads: parts.Reads, speeds: newLinkSpeeds(), unplayablePictures: newUnplayablePictures(),
 	}
+	// The runs that go on are those its playbacks' players want (D309).
+	if parts.Chunks != nil {
+		parts.Chunks.InterestsBy(service.InterestsIn)
+	}
+	return service
 }
 
 // Request is what a client asks to play, and what it can play (D21, D217 §1).

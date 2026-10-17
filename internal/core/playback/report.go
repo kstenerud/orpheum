@@ -80,6 +80,8 @@ type Chunks interface {
 	ReleaseWanted(ctx context.Context, fileID int64) error
 	// StopUnwanted stops the film's runs no player wants (D309 §2).
 	StopUnwanted(ctx context.Context, fileID int64) error
+	// InterestsBy is where the runs learn who wants them: this service's playbacks (D309).
+	InterestsBy(interests chunks.Interests)
 }
 
 // Event is one change of play state, at a position in the file.

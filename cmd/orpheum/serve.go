@@ -333,9 +333,8 @@ func openPlayback(
 		Preferences: preferencesService, Loudness: levels, Chunks: services.chunks, Reads: opened.jobServices.scans,
 	})
 	// A run its node cannot make fast enough moves its players down a quality, before it is evicted
-	// (D286 §4, D309 §6); and the runs that go on are those the players want (D309).
+	// (D286 §4, D309 §6).
 	services.chunks.MovePlayersBy(services.playback.MoveOffStream)
-	services.chunks.InterestsBy(services.playback.InterestsIn)
 	// The nodes keep the chunk stores by how strongly the players want them (D309 §8).
 	opened.nodes.SetStoreTiers(services.playback.StoreTiers)
 	return services, services.playback

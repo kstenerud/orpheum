@@ -234,3 +234,30 @@ func TestPictureSeekMs_IsPastTheKeyframeAndBeforeTheNext(t *testing.T) {
 		}
 	}
 }
+
+// Each step of a run looks again at who wants it: a run whose players all fell silent, and so want
+// nothing, stops at its next step, with no ask to stop it (D309 §3).
+func TestTakeProgress_ARunNoPlayerWantsStopsAtItsNextStep(t *testing.T) {
+	t.Parallel()
+	fixture := runsOnAFakeNode(t)
+	service := fixture.service
+	grid := mustGrid(t, service)
+	dir := StoreDir(1, Stream{Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 1200, Height: 480}},
+		grid.ID())
+	wanted := wantedBy(service)
+	wanted.say(Interest{StreamName: "q1200k480p", PositionMs: 30_000})
+	fixture.start(t, 7, testRun{"q1200k480p", grid.ID(), runArgs{FirstChunk: 3, LastChunk: 5}})
+	command := testutil.Receive(t, fixture.node.sent, "the run's command")
+	service.runs.knowGrid(dir, grid)
+	for step, players := range [][]Interest{{{StreamName: "q1200k480p", PositionMs: 30_000}}, nil} {
+		wanted.say(players...)
+		madeThrough := 3 + step
+		service.exchanges.DeliverProgress(t.Context(), 1, nodeproto.Progress{
+			JobID: 7, AttemptToken: command.AttemptToken, State: nodeproto.ProgressRunning,
+			ChunksMadeThrough: &madeThrough,
+		})
+		if isWanted := players != nil; service.runs.hasRun(dir) != isWanted {
+			t.Errorf("at step %d, with players %v, the run is kept %t; want %t", step, players, !isWanted, isWanted)
+		}
+	}
+}

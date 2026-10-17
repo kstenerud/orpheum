@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net/http"
 	"path/filepath"
 	"slices"
@@ -136,7 +137,10 @@ type Agent struct {
 	stuckReads stuckReads
 	// takenCommandSeq is the last command this session took, which the status says.
 	takenCommandSeq atomic.Int64
-	answerRetry     answerRetry
+	// storeTiers are the chunk stores' tiers the core last said (D309 §8), which a change is logged
+	// against; read and written by the poll alone.
+	storeTiers  map[string]nodeproto.KeepTier
+	answerRetry answerRetry
 
 	mutex sync.Mutex
 	// devices are what the roots are on, as the last hello found them. Guarded by mutex.
@@ -293,13 +297,26 @@ func (agent *Agent) sayHello(ctx context.Context, hello nodeproto.Hello) (nodepr
 // takeAnswersSettings takes what a poll's answer says of the core's settings and players beside its
 // commands: each device's readers (D240 §5), and how strongly each chunk store is kept (D309 §8). One
 // it does not say leaves the last.
-func (agent *Agent) takeAnswersSettings(answer nodeproto.Commands) {
+func (agent *Agent) takeAnswersSettings(ctx context.Context, answer nodeproto.Commands) {
 	if answer.DeviceReaderLimits != nil {
 		agent.work.setReaderLimits(answer.DeviceReaderLimits)
 	}
-	if answer.StoreTiers != nil && agent.workers.PreparedShelf != nil {
-		agent.workers.PreparedShelf.SetStoreTiers(answer.StoreTiers)
+	if answer.StoreTiers == nil || agent.workers.PreparedShelf == nil {
+		return
 	}
+	agent.workers.PreparedShelf.SetStoreTiers(answer.StoreTiers)
+	if maps.Equal(answer.StoreTiers, agent.storeTiers) {
+		return
+	}
+	// Which stores the core's players want kept, and how strongly, as it changes: what eviction will
+	// take first is in the log before it takes it.
+	byTier := map[nodeproto.KeepTier]int{}
+	for _, tier := range answer.StoreTiers {
+		byTier[tier]++
+	}
+	agent.logger.InfoContext(ctx, "kept the chunk stores by the core's players", "inUse", byTier[nodeproto.KeepInUse],
+		"likely", byTier[nodeproto.KeepLikely], "maybe", byTier[nodeproto.KeepMaybe])
+	agent.storeTiers = answer.StoreTiers
 }
 
 // pollCommands long-polls for commands. Work is held by the node; a cancel or a reprioritize is
@@ -314,7 +331,7 @@ func (agent *Agent) pollCommands(ctx, nodeCtx context.Context, nodeID int64) err
 		if err := agent.exchange(ctx, http.MethodGet, path, nodeID, http.NoBody, &answer); err != nil {
 			return err
 		}
-		agent.takeAnswersSettings(answer)
+		agent.takeAnswersSettings(ctx, answer)
 		for _, command := range answer.Commands {
 			if !agent.takeOrder(ctx, command) {
 				agent.holdCommand(ctx, nodeCtx, nodeID, command)
