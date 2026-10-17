@@ -58,6 +58,9 @@ func (discovery *Discovery) serveClient(writer http.ResponseWriter, request *htt
 		discovery.realmSignIn(writer, request)
 	case http.MethodPost + " " + discoveryproto.PathDeadEnd:
 		discovery.deadEnd(writer, request)
+	case http.MethodGet + " " + discoveryproto.PathClientFloor:
+		// An owner's own discovery refuses no client version: each core runs the one it was built with.
+		answer(writer, discoveryproto.ClientFloorResponse{RefusedVersions: []string{}})
 	default:
 		if request.Method == http.MethodPost && strings.HasPrefix(request.URL.Path, discoveryproto.PathCores) &&
 			strings.HasSuffix(request.URL.Path, "/offer") {

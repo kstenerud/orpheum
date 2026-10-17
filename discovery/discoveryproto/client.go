@@ -14,7 +14,16 @@ const (
 	PathRealmSignIn = "/realm"
 	// PathCores is the start of a core's offer path: OfferPath.
 	PathCores = "/cores/"
+	// PathClientFloor is read with GET: the client versions the discovery refuses, which its loader
+	// runs none of (D308 §6; ClientFloorResponse).
+	PathClientFloor = "/client-floor"
 )
+
+// ClientFloorResponse is the discovery's floor of client versions: each one named is refused, as one
+// with a hole its operator knows of. None for a discovery that refuses none.
+type ClientFloorResponse struct {
+	RefusedVersions []string `json:"refusedVersions"`
+}
 
 // OfferPath is where a client posts its offers for the core coreID: /cores/<coreId>/offer.
 func OfferPath(coreID string) string {
