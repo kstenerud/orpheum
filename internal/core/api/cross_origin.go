@@ -2,10 +2,7 @@
 
 package api
 
-import (
-	"net/http"
-	"strings"
-)
+import "net/http"
 
 // What a page on the discovery's origin may send to the API and read from its answers (the
 // discovery protocol's §3.4; discovery-core.md K10): its sign-in by header, never a cookie, so no
@@ -22,17 +19,16 @@ const (
 )
 
 // crossOrigin lets a page on the client origin the core's discovery names call the API from a
-// browser: that origin exactly, never a wildcard and never "null", no credentials, and Vary: Origin on
-// every answer (the protocol's §3.4; S18). The loader's origin, where no core's client runs (D308),
-// may call only what finding the core takes (isOpenToTheLoader). A preflight from any other
-// origin, or none, is answered without permission; the core's own page, on its own origin, needs
-// none.
+// browser, and read the core's client itself, its page and files, which its loader checks and runs
+// from there over whichever path reaches the core (D308 §6): that origin exactly, never a wildcard
+// and never "null", no credentials, and Vary: Origin on every answer (the protocol's §3.4; S18).
+// Over the core's own names the client's page was refused, and a browser whose LAN waited on its
+// local-network prompt ran out of paths (staging, 2026-10-17). The loader's origin, where no core's
+// client runs (D308), may call only what finding the core takes (isOpenToTheLoader). A preflight
+// from any other origin, or none, is answered without permission; the core's own page, on its own
+// origin, needs none.
 func (server *Server) crossOrigin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if !strings.HasPrefix(request.URL.Path, Prefix+"/") {
-			next.ServeHTTP(writer, request)
-			return
-		}
 		writer.Header().Add("Vary", "Origin")
 		origin := request.Header.Get("Origin")
 		isAllowed := origin != "" && origin != "null" && (origin == server.clientOriginOf() ||
