@@ -281,8 +281,9 @@ Each entry says: the **mechanism**, the **instance** we found, **why it was invi
   made"): `scripts/impact.py` scopes each to what the change reaches: the integration packages
   whose tests build a changed package; the changed web files and what imports them, by
   dependency-cruiser; the browser tests that loaded a chunk holding a changed client source, by the
-  last complete browser map, read from the map's own commit. What it cannot place runs whole, and
-  `make check-everything` runs all three whole each night.
+  last complete browser map, read from the map's own commit, with the tests whose pages drew what
+  a changed stylesheet's rules select, and each changed spec whole. What it cannot place runs
+  whole, and `make check-everything` runs all three whole each night.
 - **Warning sign:** check-pr's steps log "may reach any" or "cannot place" for a change that
   touched one package; a browser map whose `complete` commit falls far behind HEAD (only whole runs
   renew it).

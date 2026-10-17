@@ -15,9 +15,11 @@ behind it. At nas.10 the three steps took 41 s, 132 s and 396 s of check-pr what
     impact.py web-lint --base REV             "." for every file, or the web files, relative to web/,
                                               that are changed or import one, directly or not (a type
                                               flows through imports); nothing when web/ is unchanged
-    impact.py browser                         "all", or the JSON list of tests (ORPHEUM_E2E_ONLY) that
-                                              loaded a chunk holding a changed client source, by the
-                                              last complete browser map, or "none"
+    impact.py browser                         "all", or the JSON list (ORPHEUM_E2E_ONLY) of the tests
+                                              that loaded a chunk holding a changed client source or
+                                              drew what a changed stylesheet's rules select, by the last
+                                              complete browser map, and of each changed spec, whole;
+                                              or "none"
 
 The browser tier's narrowing reads the change since the map's own commit, not since check-pr's base:
 the map says which tests loaded which source at that commit, and only a change since then can have
@@ -56,6 +58,13 @@ WEB_UNLINTED = re.compile(r"\.(css|md|svg|png|ico|webmanifest|html)$")
 # A client source the browser map places in the chunks it is built into.
 CLIENT_SOURCE = re.compile(r"^web/(apps|packages)/[^/]+/src/.+\.(ts|tsx)$")
 CLIENT_TEST = re.compile(r"\.test\.tsx?$")
+# A stylesheet the browser map places by the tokens each test's pages held (browser_map.reached).
+CLIENT_STYLESHEET = re.compile(r"^web/(apps|packages)/[^/]+/src/.+\.css$")
+# A spec of browser tests, run whole when it changes: the map knows no test a change adds to it. Its
+# helpers beside it (pages.ts, server.ts, browser-map.ts) are every spec's, and run them all.
+BROWSER_SPEC = re.compile(r"^web/e2e/[\w-]+\.spec\.ts$")
+# M4's acceptance, which the browser tier ignores (playwright.config.ts) and test-acceptance-home runs.
+BROWSER_ACCEPTANCE = "web/e2e/acceptance.spec.ts"
 
 
 def changed(base: str) -> list[str]:
@@ -162,7 +171,7 @@ def web_lint_scope(paths: list[str], importers_of=importers) -> tuple[list[str],
 
 
 def browser_scope(map_dir: Path = browser_map.BROWSER_MAP) -> tuple[list[str] | None, str]:
-    """The tests to run, None for every one, and why."""
+    """The tests to run, by name or by spec file, None for every one, and why."""
     stamp = map_dir / browser_map.COMPLETE
     if not stamp.is_file():
         return None, "no complete browser map"
@@ -171,12 +180,23 @@ def browser_scope(map_dir: Path = browser_map.BROWSER_MAP) -> tuple[list[str] | 
     if behind.returncode != 0:
         return None, f"the browser map's commit {commit[:12]} is not behind HEAD"
     loaded = browser_map.load_scripts(map_dir)
-    if loaded is None:
+    recorded = browser_map.load(map_dir, commit)
+    if loaded is None or recorded is None:
         return None, "the browser map recorded no scripts"
-    paths = changed(commit)
     chunks: set[str] = set()
-    for path in paths:
-        if _matches(path, NOT_IN_THE_TIER):
+    sheets: list[tuple[str, str]] = []
+    specs: list[str] = []
+    for path in changed(commit):
+        if _matches(path, NOT_IN_THE_TIER) or path == BROWSER_ACCEPTANCE:
+            continue
+        if BROWSER_SPEC.match(path):
+            specs += [PurePosixPath(path).name] if Path(path).exists() else []
+            continue
+        if CLIENT_STYLESHEET.match(path):
+            before = subprocess.run(["git", "show", f"{commit}:{path}"], capture_output=True, text=True, check=False)
+            if before.returncode != 0:
+                return None, f"{path} is new since the browser map's commit {commit[:12]}, so it holds none of it"
+            sheets.append((before.stdout, Path(path).read_text(encoding="utf-8") if Path(path).exists() else ""))
             continue
         if not CLIENT_SOURCE.match(path) or CLIENT_TEST.search(path):
             return None, f"{path} changed since the browser map's commit {commit[:12]}, and the map cannot place it"
@@ -184,8 +204,12 @@ def browser_scope(map_dir: Path = browser_map.BROWSER_MAP) -> tuple[list[str] | 
         if holding is None:
             return None, f"{path} is in no chunk the map can narrow to (new, the service worker's, or none)"
         chunks |= holding
-    tests = [test for test, scripts in loaded if scripts is None or scripts & chunks]
-    return tests, f"{len(tests)} of {len(loaded)} tests loaded what changed since {commit[:12]}"
+    styled = browser_map.reached(recorded, sheets) if sheets else []
+    if styled is None:
+        return None, "a changed stylesheet's rules may style any page (the browser map)"
+    tests = [test for test, scripts in loaded if scripts is None or scripts & chunks or test in styled]
+    return [*tests, *sorted(specs)], (f"{len(tests)} of {len(loaded)} tests loaded or drew what changed since "
+                                      f"{commit[:12]}, and {len(specs)} changed spec(s) whole")
 
 
 def main(argv: list[str]) -> int:
