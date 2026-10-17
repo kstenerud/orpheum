@@ -20536,7 +20536,30 @@ between a core and its discovery stable but says nothing of the one between a cl
      from D308** (*"fix it"*).
    - Opened by itself, `app.` **sends the browser to the last core it reached, with links to the
      others it is signed in to** (*"Send to the last one, with links to any others the browser is
-     logged into"*).
+     logged into"*); refined by §8.
 
-**Status:** Decided 2026-10-17 but for the Public Suffix List entry, explained to the owner the same
-day.
+7. **No Public Suffix List entry for now; disciplines instead.** The owner, having bought both
+   domains for a year: *"Aren't there other methods or disciplines we can apply to mitigate the
+   worst? Consider the actual threat model we face."* Separate origins already stop a core's code
+   taking other households' sessions, their service workers or their admin; what being one site
+   leaves is a nuisance in one browser, so instead:
+   - no client origin sets or reads a cookie: connectd sends no `Set-Cookie` there and the client
+     never writes `document.cookie`, each held by a test;
+   - the loader deletes every cookie it can see at its start, and its page is kept by its service
+     worker, so a cookie bomb from another core's code can only stop a browser's first visit;
+   - every client origin sends `Origin-Agent-Cluster: ?1` and `Cross-Origin-Opener-Policy:
+     same-origin`;
+   - the entry is weighed again at the public launch, when the registration can be extended past
+     the list's two years.
+8. **The household list is `app.`'s alone** (the owner: *"We shouldn't make core aware of how many
+   cores app knows of, because the situation could change while I'm navigating around in core"*).
+   `app.` remembers each core it handed a browser to (its id, fingerprint, realm and name, nothing
+   secret). Opened by itself it sends the browser to that core when it knows one, and lists them,
+   last used first, when it knows several. A client's menu always offers to switch household, which
+   goes back to `app.` with a mark asking for the list however many there are, one included. The
+   list also leads to the sign-in by realm, to join another core (*"This page should also have a
+   button to bring the user to the login screen so they can join a new core"*), and each entry can
+   be forgotten. Whether a browser is still signed in to a core is not shown: only that core's own
+   origin knows.
+
+**Status:** Decided 2026-10-17.
