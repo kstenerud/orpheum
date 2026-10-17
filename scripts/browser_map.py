@@ -404,7 +404,7 @@ def chunks_holding(map_dir: Path, source: str) -> frozenset[str] | None:
 
 def tests_loading(source: str, map_dir: Path = BROWSER_MAP) -> list[str] | None:
     """The browser tests that loaded a built chunk holding source, by the last map recorded; None when
-    the map cannot narrow it, and every test runs. The map may be another commit's: revert-red runs
+    the map cannot narrow it to half the tests or fewer, and every test runs. The map may be another commit's: revert-red runs
     every test before it calls a revert that turned no narrowed run red green, so the map only orders
     where a red is looked for first, and never decides a verdict."""
     loaded = load_scripts(map_dir)
@@ -412,4 +412,7 @@ def tests_loading(source: str, map_dir: Path = BROWSER_MAP) -> list[str] | None:
     if loaded is None or chunks is None:
         return None
     reaching = [test for test, scripts in loaded if scripts is None or scripts & chunks]
-    return None if len(reaching) == len(loaded) else reaching
+    # A green revert pays the narrowed run and then the whole one, so a narrowing to most tests costs
+    # more than it saves: client-main.tsx's 441 s of narrowed run came before 448 s of all of them
+    # (check-pr, 2026-10-17).
+    return None if len(reaching) * 2 > len(loaded) else reaching

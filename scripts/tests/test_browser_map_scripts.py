@@ -34,6 +34,7 @@ class TestsLoading(unittest.TestCase):
         self.record(THROUGH_DISCOVERY, ["assets/index-a.js", "assets/loader-main-b.js", "assets/client-main-c.js"])
         self.record(PLAYS, ["assets/index-a.js", "assets/client-main-c.js"])
         self.record("chromium shell.spec.ts the logo", ["assets/index-a.js"])
+        self.record("chromium shell.spec.ts the footer", ["assets/index-a.js"])
 
     def record(self, test: str, scripts: list[str] | None) -> None:
         directory = self.root / test.split()[0]
@@ -55,6 +56,12 @@ class TestsLoading(unittest.TestCase):
         self.assertIsNone(browser_map.tests_loading("web/apps/web/src/nowhere.ts", self.root), "no chunk holds it")
         (self.root / browser_map.COMPLETE).unlink()
         self.assertIsNone(browser_map.tests_loading(LOADER, self.root), "the last run did not pass")
+
+    def test_a_file_most_tests_loaded_runs_every_test_once(self):
+        # Narrowed to more than half, a green revert would pay for most tests twice.
+        self.record("firefox shell.spec.ts the logo", ["assets/client-main-c.js"])
+        self.record("chromium shell.spec.ts the menu", ["assets/client-main-c.js"])
+        self.assertIsNone(browser_map.tests_loading(PLAYER, self.root), "4 of the 6 tests loaded it")
 
     def test_a_map_recorded_before_scripts_were_narrows_nothing(self):
         for record in self.root.glob("*/*.json"):
