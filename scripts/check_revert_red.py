@@ -79,6 +79,9 @@ from pathlib import Path
 import browser_map
 import revert_red_reruns as reruns
 from revert_red_report import failure_advice, report
+from revert_red_parts import (BROWSER_DEFERRED, BROWSER_INLINE, BROWSER_ONLY, CSS_SOURCE, PARTS,  # noqa: F401 (tests reach them here)
+                              browser_mode, is_in_part)
+from revert_red_run import RUNNER_MISSING, is_build_failure, run_whole_group  # noqa: F401 (tests reach RUNNER_MISSING here)
 from revert_red_claims import VQ_FILE, refactor_only, verification_queue_problem, verified_out_of_suite  # noqa: F401 (tests reach VQ_FILE here)
 from revert_red_cosmetic import GO_SOURCE, PY_SOURCE, is_cosmetic, is_package_clause_only
 from revert_red_dependents import go_dependents, python_tests_reaching, toplevel, web_source_readers
@@ -135,8 +138,6 @@ PY_TEST = re.compile(r"(^|/)tests/")
 
 TS_SOURCE = re.compile(r"^web/(packages|apps)/[^/]+/src/.*\.tsx?$")
 TS_TEST = re.compile(r"\.test\.tsx?$")
-# A stylesheet only a browser renders: vitest and the type check never read it.
-CSS_SOURCE = re.compile(r"^web/(packages|apps)/[^/]+/src/.*\.css$")
 
 # Every Python test is in scripts/tests (PY_TEST), so every Python source outside it is in their
 # scope: the gate scripts, the Claude hooks in .claude/hooks, and ./dev. A list of roots left the
@@ -169,12 +170,12 @@ class Change:
 @dataclass(frozen=True)
 class Outcome:
     path: str
-    verdict: str  # RED_TEST | RED_BUILD | GREEN | NO_RUNNER | CLAIMED | COSMETIC | UNREACHABLE | UNCHECKED
+    verdict: str  # RED_TEST | RED_BUILD | GREEN | NO_RUNNER | TIMED_OUT | BROWSER_OWED | CLAIMED | COSMETIC | UNREACHABLE | UNCHECKED
     detail: str = ""
 
     @property
     def is_failure(self) -> bool:
-        return self.verdict in ("GREEN", "NO_RUNNER")
+        return self.verdict in ("GREEN", "NO_RUNNER", "TIMED_OUT")
 
 
 def _git(*args: str, cwd: str | None = None) -> subprocess.CompletedProcess[str]:
@@ -389,11 +390,30 @@ def browser_tier(path: str) -> list[Attempt]:
     the working tree's, which the worktree does not have."""
     if not TS_SOURCE.search(path):
         return []
-    return [Attempt(browser_tier_command(), ", found by the browser tier")]
+    whole = Attempt(browser_tier_command(), ", found by the browser tier")
+    # First the tests that loaded a chunk holding it (the browser map), where a red is likeliest and
+    # comes soonest; only if none turns red, every test, since the map may be another commit's and a
+    # verdict of green is never the map's (browser_map.tests_loading).
+    loading = browser_map.tests_loading(path)
+    if not loading:
+        return [whole]
+    return [Attempt(browser_tier_command(), ", found by the browser tests that load it",
+                    {browser_map.ONLY_THESE_TESTS: json.dumps(loading)}), whole]
+
+
+def is_browser_run(attempt: Attempt) -> bool:
+    return "browser-tier" in attempt.command
 
 
 def browser_tier_command() -> list[str]:
-    return ["make", "--no-print-directory", "browser-tier", f"FFMPEG_DIR={_installed_ffmpeg()}"]
+    """The browser tier as a probe runs it: stopped at its first failing test, since one red settles
+    the probe. A test its revert hangs fails by Playwright's own timeout, two minutes, where the whole
+    tier ran on past the probe's 15 and settled nothing (check-pr, 2026-10-17)."""
+    return ["make", "--no-print-directory", "browser-tier", f"FFMPEG_DIR={_installed_ffmpeg()}",
+            f"E2E_ARGS={FIRST_FAILURE_ENDS_IT}"]
+
+
+FIRST_FAILURE_ENDS_IT = "--max-failures=1"
 
 
 @functools.cache
@@ -415,27 +435,11 @@ def is_not_linux(path: str) -> bool:
     return bool(GO_NOT_LINUX.search(head))
 
 
-# The shell's exit status for a command it could not find: `npm run test` in a tree with no
-# installed packages, which once passed every TypeScript file as red because vitest was absent.
-RUNNER_MISSING = 127
-
-def is_build_failure(output: str) -> bool:
-    """Whether a failing run failed to compile rather than to assert.
-
-    Keyed on the toolchains' own markers rather than on error text: `go test` prints
-    a `[build failed]` suffix on the FAIL line, and pytest reports an import-time
-    problem as a collection error. Matching compiler prose ("undefined:", "cannot
-    use") would misread a test that legitimately asserts on such a message.
-    """
-    markers = ("[build failed]", "ERROR collecting", "ImportError", "SyntaxError", "error TS",
-               "error during build")
-    return any(m in output for m in markers)
-
-
-def probe(tree: str, base: str, head: str, change: Change, timeout: int) -> Outcome:
+def probe(tree: str, base: str, head: str, change: Change, timeout: int,
+          browser: str = BROWSER_INLINE) -> Outcome:
     """One file's verdict: its revert probed, and the branch's claims read only when nothing went
     red."""
-    outcome = probe_unclaimed(tree, base, head, change, timeout)
+    outcome = probe_unclaimed(tree, base, head, change, timeout, browser)
     if outcome.verdict != "GREEN":
         return outcome
     return claimed(tree, base, head, change.path) or outcome
@@ -461,7 +465,8 @@ def claimed(tree: str, base: str, head: str, path: str) -> Outcome | None:
     return None
 
 
-def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: int) -> Outcome:
+def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: int,
+                    browser: str = BROWSER_INLINE) -> Outcome:
     """Revert one file in the worktree, with its unit's companions, run its tests, restore it."""
     if change.status == "M" and is_cosmetic(tree, base, head, change.path):
         return Outcome(change.path, "COSMETIC", "comment or formatting only; no behaviour to cover")
@@ -491,11 +496,15 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
             revert_companion(tree, base, change.path, companion)
 
         unreached = False
-        for attempt in attempts_for(change, first or scope):
+        attempts = attempts_for(change, first or scope)
+        deferred = [a for a in attempts if is_browser_run(a)] if browser == BROWSER_DEFERRED else []
+        if browser == BROWSER_ONLY and not CSS_SOURCE.search(change.path):
+            attempts = [a for a in attempts if is_browser_run(a)]
+        for attempt in (a for a in attempts if a not in deferred):
             # Python caches a module by its size and mtime; a probe that restores a file to the same
             # size within a second would run the stale cache, so the probes write none.
             env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1", **(attempt.env or {})}
-            if "browser-tier" in attempt.command and CSS_SOURCE.search(change.path):
+            if is_browser_run(attempt) and CSS_SOURCE.search(change.path):
                 reaching = browser_map.tests_reaching(tree, base, head, [change.path])
                 if reaching == []:
                     unreached = True
@@ -505,14 +514,15 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
             # One browser tier at a time: each starts a server and three browsers.
             try:
                 done = timed(TIMINGS, change.path, kind_of(attempt.command, attempt.label, attempt.env),
-                             BROWSER_TIER_LOCK if "browser-tier" in attempt.command else None,
-                             functools.partial(subprocess.run, attempt.command, cwd=tree, capture_output=True,
-                                               text=True, timeout=timeout, check=False, env=env))
+                             BROWSER_TIER_LOCK if is_browser_run(attempt) else None,
+                             functools.partial(run_whole_group, attempt.command, tree, timeout, env))
             except subprocess.TimeoutExpired:
-                # A run that cannot finish with the change reverted did not pass. Escaping, it ended the
-                # whole probe pool and 27 minutes of check-pr named no file (2026-10-17).
-                return Outcome(change.path, "RED_TEST", f"the tests ran past {timeout} s when it is "
-                               f"reverted{attempt.label}, so they hang without it")
+                # Neither red nor green: a slow run that would have passed is not coverage. Escaping, it
+                # ended the whole probe pool and 27 minutes of check-pr named no file (2026-10-17). A
+                # browser test that hangs fails by its own timeout first, and the run stops there
+                # (browser_tier_command).
+                return Outcome(change.path, "TIMED_OUT", f"the tests ran past {timeout} s with it "
+                               f"reverted{attempt.label}, so the probe could not tell")
             if done.returncode == 0:
                 continue
             if done.returncode == RUNNER_MISSING:
@@ -522,6 +532,9 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
             if attempt.compile_only or is_build_failure(combined):
                 return Outcome(change.path, "RED_BUILD", f"reverting it breaks the build{attempt.label}")
             return Outcome(change.path, "RED_TEST", f"a test fails when it is reverted{attempt.label}")
+        if deferred:
+            return Outcome(change.path, "BROWSER_OWED", "no cheap run turned red; its browser runs come in "
+                           "the last tier, after check-pr's own browser run")
         return Outcome(change.path, "GREEN", browser_map.NO_TEST_REACHES if unreached else
                        "every test still passes with this change reverted")
     finally:
@@ -566,9 +579,8 @@ def stylesheets_together(tree: str, base: str, head: str, changes: list[Change],
                     return None
             asked = time.monotonic()
             done = timed(TIMINGS, label, "browser tier", BROWSER_TIER_LOCK,
-                         functools.partial(subprocess.run, command or browser_tier_command(), cwd=tree,
-                                           capture_output=True, text=True, timeout=timeout, check=False,
-                                           env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1", **only}))
+                         functools.partial(run_whole_group, command or browser_tier_command(), tree, timeout,
+                                           {**os.environ, "PYTHONDONTWRITEBYTECODE": "1", **only}))
             TIMINGS.note_probe(label, time.monotonic() - asked)
             return done
         except subprocess.TimeoutExpired:
@@ -619,17 +631,6 @@ def why_not_probed(base: str, head: str, path: str, changes: list[Change]) -> st
     return f"not changed in {base[:12]}..{head[:12]}"
 
 
-# check-pr's two parts of revert-red (the owner, 2026-10-15): the code's probes, a package's tests
-# each, run right after the medium tier, so a change no test notices is found in minutes; the
-# stylesheets', the browser tier's, after it. "all" is both, for a run by hand.
-PARTS = ("all", "code", "sheets")
-
-
-def is_in_part(path: str, part: str) -> bool:
-    """Whether path is one of part's: a stylesheet is the sheets', anything else the code's."""
-    return part == "all" or (part == "sheets") == bool(CSS_SOURCE.search(path))
-
-
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--base", required=True, help="ref the branch forked from")
@@ -641,15 +642,17 @@ def main() -> int:
                       "against --base..--head; a full run is still required before the branch is done")
     only.add_argument("--rerun-failed", action="store_true", help="probe only the paths the last run "
                       "against the same --base failed on (the head may have moved)")
-    ap.add_argument("--part", choices=PARTS, default="all", help="probe only the code (Go, TypeScript, "
-                    "Python: quick, a package's tests each) or only the stylesheets (the browser tier), as "
-                    "check-pr's tiers do; the record of failures keeps the other part's")
+    ap.add_argument("--part", choices=PARTS, default="all", help="probe only the code with its cheap runs "
+                    "(Go, TypeScript, Python: a package's tests each), or only what takes the browser tier "
+                    "(the stylesheets, and the code the code part left owing it), as check-pr's tiers do; "
+                    "the record of failures keeps the other part's")
     ap.add_argument("--unrecorded", action="store_true", help="keep no record of the failures: a check of "
                     "one commit (make check-commit-red) leaves the batch's record to check-pr")
     args = ap.parse_args()
     if args.unrecorded:
         reruns.begin = lambda _base: None  # type: ignore[assignment]
         reruns.finish = lambda *_args, **_kwargs: None  # type: ignore[assignment]
+        reruns.owe_browser = lambda *_args: None  # type: ignore[assignment]
 
     for name, ref in (("--base", args.base), ("--head", args.head)):
         if not rev_exists(ref):
@@ -671,10 +674,11 @@ def main() -> int:
     elif args.only:
         wanted = [p.removeprefix("./") for p in args.only]
 
-    changes = [c for c in changed_sources(base, head) if is_in_part(c.path, args.part)]
+    owed_browser = reruns.owed_browser(base) if args.part == "browser" else frozenset()
+    changes = [c for c in changed_sources(base, head) if is_in_part(c.path, args.part, owed_browser)]
     owed = [c for c in changes if claims_behavior_change(types_touching(base, head, c.path))]
     if wanted is not None:
-        wanted = [path for path in wanted if is_in_part(path, args.part)]
+        wanted = [path for path in wanted if is_in_part(path, args.part, owed_browser)]
     exempt = len(changes) - len(owed)
     unknown = False
     if wanted is not None:
@@ -716,7 +720,7 @@ def main() -> int:
     with hold_probe_trees():
         reruns.begin(base)
         status = probe_all(base, head, owed, exempt, min(jobs, len(owed)), args.timeout, wanted,
-                           args.part != "all")
+                           args.part != "all", browser_mode(args.part))
     if wanted is not None:
         print("\nA targeted run: the full `make check-revert-red` (or `make check-pr`) is still "
               "required before the branch is done.")
@@ -731,7 +735,7 @@ def unprobed(base: str, head: str, owed: list[Change]) -> list[Outcome]:
 
 
 def probe_all(base: str, head: str, owed: list[Change], exempt: int, jobs: int, timeout: int,
-              wanted: list[str] | None, is_one_part: bool = False) -> int:
+              wanted: list[str] | None, is_one_part: bool = False, browser: str = BROWSER_INLINE) -> int:
     try:
         trees = probe_trees(head, jobs)
     except RuntimeError as problem:
@@ -745,7 +749,7 @@ def probe_all(base: str, head: str, owed: list[Change], exempt: int, jobs: int, 
         tree = free.get()
         started = time.monotonic()
         try:
-            return probe(tree, base, head, change, timeout)
+            return probe(tree, base, head, change, timeout, browser)
         finally:
             TIMINGS.note_probe(change.path, time.monotonic() - started)
             free.put(tree)
@@ -771,6 +775,8 @@ def probe_all(base: str, head: str, owed: list[Change], exempt: int, jobs: int, 
         outcomes += unprobed(base, head, owed)
     reruns.finish(base, head, wanted or [c.path for c in owed], [o.path for o in outcomes if o.is_failure],
                   targeted=wanted is not None or is_one_part)
+    if browser == BROWSER_DEFERRED:
+        reruns.owe_browser(base, [c.path for c in owed], [o.path for o in outcomes if o.verdict == "BROWSER_OWED"])
     if wanted is None:
         print(f"Reverted {len(owed)} behavioral source change(s); {exempt} exempt by commit type.")
     else:

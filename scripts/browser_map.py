@@ -361,3 +361,55 @@ def tests_reaching(tree: str, base: str, head: str, sheets: list[str]) -> list[s
             return None
         changes.append((before.stdout, after.stdout))
     return reached(recorded, changes)
+
+
+# What each built chunk holds, as the browser run's build records it (web/apps/web/src/chunk-modules.ts).
+MODULES_GLOB = "modules-*.json"
+# The service worker's build: every page registers it, so what it holds reaches every test.
+SERVICE_WORKER_MODULES = "modules-sw.json"
+
+
+def load_scripts(map_dir: Path) -> list[tuple[str, frozenset[str] | None]] | None:
+    """Each test's built scripts, as the last complete map recorded them, at whatever commit: None
+    when there is none, or it recorded no scripts. A test whose record cannot vouch for them is None,
+    reaching every file."""
+    if not (map_dir / COMPLETE).is_file():
+        return None
+    loaded: list[tuple[str, frozenset[str] | None]] = []
+    for path in sorted(map_dir.glob("*/*.json")):
+        entry = json.loads(path.read_text())
+        if "scripts" not in entry:
+            return None
+        scripts = entry["scripts"]
+        loaded.append((entry["test"], None if scripts is None else frozenset(scripts)))
+    return loaded or None
+
+
+def chunks_holding(map_dir: Path, source: str) -> frozenset[str] | None:
+    """The client's chunks that hold source, by the build's record; None when every test may reach it:
+    the service worker holds it, no record was written, or no chunk holds it (a file only a worker's
+    build or none takes)."""
+    records = sorted(map_dir.glob(MODULES_GLOB))
+    if not records:
+        return None
+    holding: set[str] = set()
+    for record in records:
+        chunks: dict[str, list[str]] = json.loads(record.read_text())
+        held = {chunk for chunk, sources in chunks.items() if source in sources}
+        if held and record.name == SERVICE_WORKER_MODULES:
+            return None
+        holding |= held
+    return frozenset(holding) or None
+
+
+def tests_loading(source: str, map_dir: Path = BROWSER_MAP) -> list[str] | None:
+    """The browser tests that loaded a built chunk holding source, by the last map recorded; None when
+    the map cannot narrow it, and every test runs. The map may be another commit's: revert-red runs
+    every test before it calls a revert that turned no narrowed run red green, so the map only orders
+    where a red is looked for first, and never decides a verdict."""
+    loaded = load_scripts(map_dir)
+    chunks = chunks_holding(map_dir, source)
+    if loaded is None or chunks is None:
+        return None
+    reaching = [test for test, scripts in loaded if scripts is None or scripts & chunks]
+    return None if len(reaching) == len(loaded) else reaching

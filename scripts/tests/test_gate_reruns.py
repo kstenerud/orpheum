@@ -222,18 +222,23 @@ class Wiring(unittest.TestCase):
         # A tier that fails fails check-pr: a pass reported over a failed revert-red, the chain's
         # `|| echo` having swallowed it, was the first run of the tiers (2026-10-15).
         self.assertRegex(self.MAKEFILE, r"\|\| \{ \\\n(?:\t.*\\\n)*\t.*a tier failed.*exit 1; \}")
+        # The last run of a block runs every tier to its end, a failed one too, and fails at the end
+        # (the owner, 2026-10-17): no tier is chained behind another's pass.
+        for tier in tiers:
+            self.assertRegex(self.MAKEFILE, rf"(?m)^\t.*\$\({tier}:%=pr-step-%\) \|\| failed=1; \\$")
+        self.assertRegex(self.MAKEFILE, r'(?m)^\t +\[ "\$\$failed" -eq 0 \]; \} \|\| \{ \\$')
         self.assertRegex(self.MAKEFILE,
                          r"(?m)^PR_STEPS := \$\(PR_FAST_STEPS\) \$\(PR_MEDIUM_STEPS\) \$\(PR_SLOW_STEPS\)$")
         self.assertRegex(self.MAKEFILE, r"(?m)^\t.*\$\(PR_LAST_STEP:%=pr-step-%\)")
         self.assertRegex(self.MAKEFILE, r"(?m)^pr-step-%:\n\t.*check_pr_steps\.py record \$\*")
         self.assertRegex(self.MAKEFILE, r"(?m)^\t.*check_pr_steps\.py durations \$\(PR_STEPS\) "
                          r"\$\(PR_CODE_RED_STEP\) \$\(PR_SERIAL_STEP\) \$\(PR_LAST_STEP\)")
-        # Revert-red in two parts, the code's after the medium tier and the stylesheets' last, each
-        # re-run on its own failed files (the owner, 2026-10-15).
+        # Revert-red in two parts, the code's cheap runs after the medium tier and every browser run
+        # last, each re-run on its own failed files (the owner, 2026-10-15, 2026-10-17).
         self.assertRegex(self.MAKEFILE, r"(?m)^PR_CODE_RED_STEP := check-revert-red-code$")
-        self.assertRegex(self.MAKEFILE, r"(?m)^PR_LAST_STEP := check-revert-red-sheets$")
+        self.assertRegex(self.MAKEFILE, r"(?m)^PR_LAST_STEP := check-revert-red-browser$")
         self.assertRegex(self.MAKEFILE, r"--last \$\(PR_CODE_RED_STEP\) --last \$\(PR_LAST_STEP\)")
-        for part in ("code", "sheets"):
+        for part in ("code", "browser"):
             self.assertRegex(self.MAKEFILE, rf"(?m)^\t.*check_revert_red\.py .*--rerun-failed --part {part}$")
         self.assertRegex(self.MAKEFILE, r"(?m)^\t.*check_revert_red\.py --base HEAD~1 --part code --unrecorded$")
         self.assertRegex(self.MAKEFILE, r"(?m)^\t.*check_revert_red\.py .*\$\(if \$\(ONLY\),--only \$\(ONLY\)\)")
@@ -260,10 +265,18 @@ if __name__ == "__main__":
 
 
 class Parts(unittest.TestCase):
-    def test_a_stylesheet_is_the_sheets_part_and_anything_else_the_codes(self):
-        for path, code, sheets in (("web/apps/web/src/browse.css", False, True),
-                                   ("web/apps/web/src/browse.tsx", True, False),
-                                   ("internal/core/api/browse.go", True, False)):
+    def test_a_stylesheet_is_the_browser_part_and_anything_else_the_codes(self):
+        for path, code, browser in (("web/apps/web/src/browse.css", False, True),
+                                    ("web/apps/web/src/browse.tsx", True, False),
+                                    ("internal/core/api/browse.go", True, False)):
             self.assertEqual(rr.is_in_part(path, "code"), code, path)
-            self.assertEqual(rr.is_in_part(path, "sheets"), sheets, path)
+            self.assertEqual(rr.is_in_part(path, "browser"), browser, path)
             self.assertTrue(rr.is_in_part(path, "all"), path)
+
+    def test_a_file_the_code_part_left_owing_its_browser_runs_is_the_browser_parts_too(self):
+        owed = frozenset({"web/apps/web/src/sw.ts"})
+        self.assertTrue(rr.is_in_part("web/apps/web/src/sw.ts", "browser", owed))
+        self.assertTrue(rr.is_in_part("web/apps/web/src/sw.ts", "code", owed))
+        self.assertFalse(rr.is_in_part("web/apps/web/src/browse.tsx", "browser", owed))
+        self.assertEqual([rr.browser_mode(part) for part in ("code", "browser", "all")],
+                         [rr.BROWSER_DEFERRED, rr.BROWSER_ONLY, rr.BROWSER_INLINE])

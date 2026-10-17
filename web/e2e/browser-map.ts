@@ -5,14 +5,23 @@
  * here. When ORPHEUM_BROWSER_MAP_DIR is set, as check-pr's full browser run sets it, every page of
  * every context a test opens reports each tag, class, id and attribute name it ever holds, and a
  * test that passed writes them to the directory. Revert-red then runs a stylesheet's revert only in
- * the tests whose pages held what its changed rules select. Unset, nothing is added to any page.
+ * the tests whose pages held what its changed rules select. Each test also writes every built script
+ * its pages, their workers and the service worker loaded, which with what each chunk holds (the
+ * build's record, apps/web/src/chunk-modules.ts) says which tests a source file's revert can reach.
+ * Unset, nothing is added to any page.
  */
 
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { test as base, type Browser, type BrowserContext, type TestInfo } from "@playwright/test";
+import {
+  test as base,
+  type Browser,
+  type BrowserContext,
+  type Page,
+  type TestInfo,
+} from "@playwright/test";
 
 const mapDirectory = process.env["ORPHEUM_BROWSER_MAP_DIR"];
 
@@ -107,6 +116,60 @@ export function record(
     : null;
 }
 
+/** A script's file in the build, as the build's record names it ("assets/client-main-….js"). */
+export function builtScriptOf(url: string): string | undefined {
+  const { pathname } = new URL(url);
+  return pathname.endsWith(".js") ? pathname.slice(1) : undefined;
+}
+
+/** Notes every built script a context's pages, their workers and its service workers load. */
+function noteScripts(context: BrowserContext, scripts: Set<string>): void {
+  const note = (url: string): void => {
+    const script = builtScriptOf(url);
+    if (script !== undefined) {
+      scripts.add(script);
+    }
+  };
+  const watchPage = (page: Page): void => {
+    page.on("worker", (worker) => {
+      note(worker.url());
+    });
+  };
+  context.on("request", (request) => {
+    note(request.url());
+  });
+  context.on("page", watchPage);
+  for (const page of context.pages()) {
+    watchPage(page);
+  }
+  // Chromium's alone; Firefox's is seen by its request (revert-red re-runs every test before it
+  // calls a revert green, so a script missed here costs time, never a verdict).
+  context.on("serviceworker", (worker) => {
+    note(worker.url());
+  });
+}
+
+/** Writes a test's record into directory: what its pages held, and the scripts they loaded. */
+function writeRecord(
+  directory: string,
+  testInfo: TestInfo,
+  seen: { readonly held: string[] | null; readonly scripts: ReadonlySet<string> },
+): void {
+  const { held, scripts } = seen;
+  const title = grepTitle(testInfo);
+  mkdirSync(directory, { recursive: true });
+  const name = createHash("sha256").update(title).digest("hex").slice(0, 16);
+  writeFileSync(
+    path.join(directory, `${name}.json`),
+    JSON.stringify({
+      test: title,
+      tokens: held,
+      // A record that cannot vouch for what its pages held cannot for what they loaded either.
+      scripts: held === null ? null : [...scripts].toSorted(),
+    }),
+  );
+}
+
 export const test = base.extend<{ browserMap: undefined }>({
   browserMap: [
     async ({ browser, context }, use, testInfo) => {
@@ -115,8 +178,10 @@ export const test = base.extend<{ browserMap: undefined }>({
         return;
       }
       const tokens = new Set<string>();
+      const scripts = new Set<string>();
       const watched = new Set<BrowserContext>([context]);
       const watch = async (one: BrowserContext): Promise<void> => {
+        noteScripts(one, scripts);
         await one.exposeBinding("orpheumBrowserMapSeen", (_source, reported: string[]) => {
           for (const token of reported) {
             tokens.add(token);
@@ -155,19 +220,12 @@ export const test = base.extend<{ browserMap: undefined }>({
       ) {
         return;
       }
-      const title = grepTitle(testInfo);
-      const directory = path.join(mapDirectory, testInfo.project.name);
-      mkdirSync(directory, { recursive: true });
-      const name = createHash("sha256").update(title).digest("hex").slice(0, 16);
       const held = record(
         tokens,
         opened.every((one) => watched.has(one)),
         testInfo,
       );
-      writeFileSync(
-        path.join(directory, `${name}.json`),
-        JSON.stringify({ test: title, tokens: held }),
-      );
+      writeRecord(path.join(mapDirectory, testInfo.project.name), testInfo, { held, scripts });
     },
     { auto: true },
   ],

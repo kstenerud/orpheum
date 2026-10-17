@@ -223,6 +223,32 @@ Each entry says: the **mechanism**, the **instance** we found, **why it was invi
 - **Warning sign:** the identify package's test time grows by seconds in a commit that only
   changes a seed count.
 
+### 14. A probe's browser run in the cheap tier, hanging for its whole timeout
+
+- **Mechanism:** revert-red tried the browser tier last for each TypeScript file its unit tests did
+  not notice, in check-pr's code tier, one browser run at a time. A file whose revert made the
+  browser tests hang (the loader, the service worker) ran every test to its two-minute timeout,
+  past the probe's own fifteen, while the cheap probes queued behind the browser lock. The timeout
+  then raised out of the probe pool, ended every probe and named no file, and left the run's core,
+  node and browsers running.
+- **Instance** (check-pr over the D308 batch, 2026-10-17): 1632 s of revert-red ended in a
+  traceback; the next run's `sw.ts` probe sat at 655 s of its browser run.
+- **Why it was invisible:** a probe's runs are one row in the timings, and a run that never ends
+  writes none.
+- **Fix** (the owner, 2026-10-17: cheap tests first, no expensive test blocks a cheap one, fail
+  fast on piecework, run to completion on the final run): the code tier takes only the cheap runs,
+  and a file they leave green owes its browser run (`BROWSER_OWED`) to the last tier, after
+  check-pr's own browser run. There it runs first in only the tests that loaded a chunk holding it
+  (the browser map's scripts, `scripts/browser_map.py`), then, if none turned red, in every test,
+  so the map never decides a green. Each browser run stops at its first failure
+  (`--max-failures=1`), so a hang costs one test's timeout; a run past the probe's timeout is
+  `TIMED_OUT`, a failure that settles nothing; and a probe's run is a process group of its own,
+  ended whole (`scripts/revert_red_run.py`). The service worker's loader logic has unit tests
+  (`sw.test.ts`), so its revert is red without a browser.
+- **Warning sign:** a "browser tier" row in revert-red-code's timings; a `BROWSER_OWED` list that
+  grows from batch to batch (a file only a browser can check is the expensive kind); a browser
+  probe whose time is near its timeout.
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of
