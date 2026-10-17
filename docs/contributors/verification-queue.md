@@ -403,3 +403,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   about 30 seconds in, and four relayed connections replaced them at 20:55:16–22 UTC with no reload.
   The buffer covered the gap, so no stall was seen: *"It's still playing (1:35) and hasn't suffered
   any hiccups or sound glitches"*.
+- [ ] **VQ42** — Against staging's `/ui-gallery`, in a desktop browser: the still-reading hourglass
+  is on the status blue of the tray's signs, over every poster tone and on its own; and in "On a
+  title's page", the question-mark and hourglass icons beside their words are as big as the warning
+  triangle beside its words, not smaller. Only a person judges a colour and a size by eye (the owner,
+  2026-10-17: "the coral color is not good", "the rest are very small by visual comparison").
+  (`web/apps/web/src/still-reading.css`, `status-cues.css`)
