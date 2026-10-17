@@ -20489,3 +20489,27 @@ scan of the owner's NAS. It revises D301 §3 and builds D306 §2.
    name matches one episode of them is placed there, marked as a guess.
 
 **Status:** Decided 2026-10-17.
+
+## D308 — app.orpheum-app.com serves a small loader, and each core serves its own client
+
+**Decided** (2026-10-17), by the project owner, after the update to v0.2.0-nas.8 needed prod-api
+repackaged for a change in the core's API alone. It refines D273, whose §6 keeps the protocol
+between a core and its discovery stable but says nothing of the one between a client and its core.
+
+1. **The client a browser runs is its core's.** The page at the discovery's origin today is the
+   whole web client, built into the discovery's package, so the client of every household is the
+   one the discovery last shipped, whatever its core runs: one API change, and every core on the
+   older version breaks. The owner asked: *"Shouldn't the web client details come from the
+   core?"* Of three ways (the agent's): a small, stable loader that fetches its core's client over
+   whichever path reached it; the discovery hosting each version, with the core naming its own;
+   or a client-to-core API kept compatible across a window as §6 keeps the discovery's. The owner:
+   *"Go with 1"*.
+2. **The loader is the discovery's; the client is the core's.** The discovery's page signs in by
+   realm, finds the core and races its paths (D273 §7), and then runs the client the core serves
+   over the path that won, checked before it runs. The discovery's package then changes only when
+   the loader or the discovery does, never for a core's release, and a core built by anyone runs
+   with the client it was built with. On the core's own address (at home) nothing changes: the core
+   serves its client there already.
+
+**Status:** Decided 2026-10-17; its design (how the code is carried, checked and run, and what the
+loader hands the client) is the agent's to propose and the owner's to settle.
