@@ -13,6 +13,7 @@ import {
   reachCore,
   rememberedRealm,
   rememberRealm,
+  targetOfHandOff,
   targetOfLink,
   targetOfRealm,
   targetOfSession,
@@ -80,7 +81,10 @@ function firstPhase(start: Start, parts: GateParts): Phase {
   if (start.kind === "link") {
     return "waiting";
   }
-  if (start.kind === "remembered" && parts.sessionOf(start.core) !== undefined) {
+  if (
+    start.kind === "handoff" ||
+    (start.kind === "remembered" && parts.sessionOf(start.core) !== undefined)
+  ) {
     return "connecting";
   }
   return parts.hasRealms ? "realm" : "notFound";
@@ -204,6 +208,10 @@ export function DiscoveryGate(props: {
     });
   };
   useEffect(() => {
+    if (start.kind === "handoff") {
+      reachThen(start.core, () => targetOfHandOff(parts.client, start.core, start.handOff));
+      return;
+    }
     const held = start.kind === "remembered" ? parts.sessionOf(start.core) : undefined;
     if (held !== undefined) {
       reachThen(held.core, () => targetOfSession(parts.client, held));

@@ -18,7 +18,9 @@ import { DiscoveryGate, withLatest, type GateParts } from "./discovery-gate.tsx"
 import {
   discoveryClientApiOf,
   discoveryHasRealms,
+  handOffFragment,
   heldWith,
+  readHandOffFragment,
   reachCore,
   rememberCore,
   rememberedCore,
@@ -205,11 +207,60 @@ describe("the gate a discovery's page opens on", () => {
     expect(connected).toEqual([core]);
   });
 
+  it("reaches the core a realm sign-in handed on by its bootstrap token, at once (D308 §4)", async () => {
+    const heard: string[] = [];
+    const core = { coreId: "k7xq2", fingerprint };
+    const handOff = {
+      code: "a-code",
+      bootstrapToken: "a-bootstrap-token",
+      fingerprint,
+      realm: "nas",
+    };
+    const located = {
+      coreId: "k7xq2",
+      iceServers: [],
+      paths: [{ kind: "ipv4", url: "https://v4.k7xq2.zone.example" }],
+    };
+    const toDiscovery = discovery({ "/paths": [200, located] }, heard);
+    const fetched: typeof fetch = (url, init) =>
+      (url instanceof Request ? url.url : url.toString()).startsWith(
+        "https://v4.k7xq2.zone.example/",
+      )
+        ? Promise.resolve(new Response("{}", { status: 200 }))
+        : toDiscovery(url, init);
+    const connected: KeptCore[] = [];
+    mounted = await mount(
+      <DiscoveryGate
+        start={{ kind: "handoff", core, handOff }}
+        parts={partsOf(fetched, connected)}
+      />,
+    );
+    await settleUntil(() => connected.length > 0);
+    expect(heard).toEqual([`/paths {"bootstrapToken":"a-bootstrap-token"}`]);
+    expect(connected).toEqual([core]);
+  });
+
   it("with no link and no server reached before, says how to get in", async () => {
     mounted = await mount(
       <DiscoveryGate start={{ kind: "none" }} parts={partsOf(discovery({}, []))} />,
     );
     expect(mounted.container.textContent).toContain("Open the link you were sent");
+  });
+});
+
+describe("a hand-off's fragment (D308 §4)", () => {
+  it("carries the code, the bootstrap token, the fingerprint and the realm, and reads back only whole", () => {
+    const handOff = { code: "a+code/1", bootstrapToken: "a token", fingerprint, realm: "nas.kids" };
+    expect(readHandOffFragment(handOffFragment(handOff))).toEqual(handOff);
+    for (const text of [
+      "",
+      linkHash,
+      "#handoff=a-code",
+      "#handoff=a-code&bootstrap=a-token",
+      `#bootstrap=a-token&fingerprint=${fingerprint}`,
+    ]) {
+      expect(readHandOffFragment(text)).toBeUndefined();
+    }
   });
 });
 
