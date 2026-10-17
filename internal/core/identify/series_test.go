@@ -4,6 +4,7 @@ package identify_test
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strconv"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 var orbitorama = identify.Metadata{
@@ -306,6 +308,11 @@ func TestSeries_AnUnnumberedEpisodeIsPlacedByItsNameAcrossEverySeason(t *testing
 	if titleName(placed) != "Comet Pilot 3000" || !lib.isGuessed(placed.TitleID) {
 		t.Errorf("the unnumbered episode = %+v named %q, guessed %v; want S01E01 by its name, a guess", placed,
 			titleName(placed), lib.isGuessed(placed.TitleID))
+	}
+	place := storetest.QueryRaw(t, lib.database.Path(), fmt.Sprintf(
+		"SELECT group_number || 'x' || number_in_group FROM position WHERE title_id = %d", placed.TitleID))
+	if !slices.Equal(place, []string{"1x1"}) {
+		t.Errorf("the unnumbered episode is at %v; want 1x1, Comet Pilot 3000's place", place)
 	}
 	if titles[bonus].TitleID == placed.TitleID || lib.isGuessed(titles[bonus].TitleID) {
 		t.Errorf("the extra was placed as the episode, or guessed; want it a special of its own")

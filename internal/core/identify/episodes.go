@@ -64,7 +64,8 @@ func (filer *libraryFiler) fileEpisode(
 	}
 	spec.key = episodeKey(seriesID, season, number)
 	filer.unidentifiedUnlessNFO(&spec)
-	titleID, err := filer.episodeTitle(ctx, file, spec, seriesID, season, number)
+	titleID, err := filer.episodeTitle(ctx, file, spec, seriesID,
+		episodeFiledAt{season: season, number: number, isByName: isPlacedByGuess})
 	if err != nil {
 		return err
 	}
@@ -78,15 +79,34 @@ func (filer *libraryFiler) fileEpisode(
 	return filer.place(ctx, file, titleID, spec)
 }
 
+// episodeFiledAt is where an episode is filed: its season and number, and whether its name alone
+// placed it there (D307 §2).
+type episodeFiledAt struct {
+	season, number int
+	isByName       bool
+}
+
 // episodeTitle is the title an episode's file goes to: the one it is in, if it stays, at the place
-// it has, or the one at its place in its series, found or made and placed there. Found or made at
+// it has, unless it was placed by its name; or the one at its place in its series, found or made and
+// placed there. Found or made at
 // the place its NFO now gives a file that stays, a title was left there with no file.
 func (filer *libraryFiler) episodeTitle(
-	ctx context.Context, file sqlcgen.ListIdentifyFilesRow, spec titleSpec, seriesID int64, season, number int,
+	ctx context.Context, file sqlcgen.ListIdentifyFilesRow, spec titleSpec, seriesID int64, at episodeFiledAt,
 ) (int64, error) {
+	season, number := at.season, at.number
 	titleID, hasCurrentTitle, err := filer.currentTitle(ctx, file)
-	if err != nil || hasCurrentTitle {
+	if err != nil || (hasCurrentTitle && !at.isByName) {
 		return titleID, err
+	}
+	if hasCurrentTitle {
+		// One placed by its name, filed as a special before its season was fetched: its title moves
+		// to that place, or it joins the title already there.
+		key := episodeKey(seriesID, season, number)
+		if there, isTaken := filer.titleIDByKey[key]; isTaken && there != titleID {
+			return there, nil
+		}
+		filer.titleIDByKey[key] = titleID
+		return titleID, filer.positionEpisode(ctx, seriesID, titleID, season, number)
 	}
 	titleID, err = filer.findOrAddTitle(ctx, spec)
 	if err != nil {
