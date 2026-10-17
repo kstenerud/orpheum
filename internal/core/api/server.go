@@ -357,11 +357,10 @@ func (server *Server) authError(ctx context.Context, action string, err error) e
 	case errors.Is(err, auth.ErrNoDevice):
 		return newError(http.StatusNotFound, CodeNotFound, "no such device")
 	}
-	if refused := roleRefusal(err); refused != nil {
-		return refused
-	}
-	if refused := pairingRefusal(err); refused != nil {
-		return refused
+	for _, refusal := range []func(error) *Error{roleRefusal, pairingRefusal, handOffRefusal} {
+		if refused := refusal(err); refused != nil {
+			return refused
+		}
 	}
 	return server.logInternalError(ctx, action, err)
 }

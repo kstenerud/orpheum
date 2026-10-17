@@ -1379,6 +1379,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/session/handoff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign in at the discovery's loader; returns a code the client origin takes the session by (D308) */
+        post: operations["handOffSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/session/redeem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Take the session a sign-in at the loader kept, by its code, once */
+        post: operations["redeemSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/settings": {
         parameters: {
             query?: never;
@@ -2380,6 +2414,10 @@ export interface components {
             driver?: string;
             noAccessReason?: string;
         };
+        HandOffOutputBody: {
+            /** @description Taken once, within a minute, by POST /session/redeem at the client origin */
+            code: string;
+        };
         HardwareBody: {
             /** @enum {string} */
             chosenEncoder: "h264_qsv" | "h264_nvenc" | "x264";
@@ -3106,6 +3144,9 @@ export interface components {
             detail?: string;
             /** @enum {string} */
             outcome: "reached" | "notChecked" | "nameUnresolved" | "notAnswering" | "certificateRefused" | "anotherServer";
+        };
+        RedeemInputBody: {
+            code: string;
         };
         RefreshOutputBody: {
             /** @description False when a fetch for it was already waiting */
@@ -7069,6 +7110,73 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    handOffSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignInInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HandOffOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    redeemSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedeemInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOutputBody"];
+                };
             };
             /** @description Error */
             default: {

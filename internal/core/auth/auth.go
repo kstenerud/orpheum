@@ -159,6 +159,8 @@ type Service struct {
 	limiter  *failureLimiter
 	// pairings are the devices being activated by a code (D288).
 	pairings *pairings
+	// handOffs are the sessions a loader's sign-in made, waiting for the client origin (D308 §4).
+	handOffs *handOffs
 	// hashing is the turn each password hash waits for (hashesAtOnce).
 	hashing hashSlots
 	// onLinksChanged is told when a link or a locator is made (OnLinksChanged); nil tells nothing.
@@ -178,7 +180,8 @@ func NewService(database *store.Database, clockSource clock.Clock, random io.Rea
 	return &Service{
 		database: database, clock: clockSource, random: random, settings: settings,
 		limiter: newFailureLimiter(clockSource), pairings: &pairings{bySecret: map[string]*pairing{}},
-		hashing: newHashSlots(),
+		handOffs: &handOffs{byCode: map[string]handOff{}},
+		hashing:  newHashSlots(),
 	}
 }
 
