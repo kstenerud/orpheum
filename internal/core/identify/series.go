@@ -156,11 +156,27 @@ func seasonsToFetch(ctx context.Context, reads seasonReads, provider Provider, s
 			continue
 		}
 		where := seasonAtProvider{provider: provider, seriesID: seriesID, season: season}
-		stale, err := isListingStale(ctx, reads, where, number, episode.AddedAt)
-		if err != nil {
-			return nil, err
+		stale, staleErr := isListingStale(ctx, reads, where, number, episode.AddedAt)
+		if staleErr != nil {
+			return nil, staleErr
 		}
 		if stale {
+			seasons = append(seasons, season)
+		}
+	}
+	unplaced, err := reads.seasonsForUnplaced(ctx, provider, seriesID)
+	if err != nil {
+		return nil, err
+	}
+	for _, season := range unplaced {
+		if slices.Contains(seasons, season) {
+			continue
+		}
+		listing, listErr := reads.listing(ctx, seasonAtProvider{provider: provider, seriesID: seriesID, season: season})
+		if listErr != nil {
+			return nil, listErr
+		}
+		if listing == nil {
 			seasons = append(seasons, season)
 		}
 	}
@@ -177,6 +193,9 @@ type seasonReads interface {
 	listing(ctx context.Context, where seasonAtProvider) ([]Episode, error)
 	// listingFetchedAt is when a season's stored listing was fetched.
 	listingFetchedAt(ctx context.Context, where seasonAtProvider) (int64, error)
+	// seasonsForUnplaced are every season the series' own response lists, when it has an episode
+	// with no number its name may place (D307 §2); none otherwise.
+	seasonsForUnplaced(ctx context.Context, provider Provider, seriesID int64) ([]int, error)
 }
 
 // storedSeasons are seasonReads through queries, a season's listing parsed once.
@@ -211,6 +230,24 @@ func (stored *storedSeasons) listingFetchedAt(ctx context.Context, where seasonA
 		ItemID: where.seriesID, Provider: where.provider.Name(), Part: seasonPart(where.season),
 	}
 	return stored.queries.GetProviderResponseFetchedAt(ctx, listing) //nolint:wrapcheck // isListingStale says which
+}
+
+func (stored *storedSeasons) seasonsForUnplaced(
+	ctx context.Context, provider Provider, seriesID int64,
+) ([]int, error) {
+	if hasUnplaced, err := hasUnplacedEpisodes(ctx, stored.queries, seriesID); err != nil || !hasUnplaced {
+		return nil, err
+	}
+	body, err := store.OrNotFound(stored.queries.GetProviderResponse(ctx, sqlcgen.GetProviderResponseParams{
+		ItemID: seriesID, Provider: provider.Name(), Part: "",
+	}))
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read series %d's own response: %w", seriesID, err)
+	}
+	return listedSeasons(provider, body), nil
 }
 
 // seasonAtProvider names one season of a series at a provider.

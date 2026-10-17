@@ -237,7 +237,8 @@ func orbitoramaAtTMDB(t *testing.T) (*Client, *[]*http.Request) {
 		"/find/73871": `{"movie_results":[],"tv_results":[{"id":7615}]}`,
 		"/tv/7615": `{"id":7615,"name":"Orbitorama","original_name":"Orbitorama","original_language":"en",
 			"overview":"The adventures of a delivery boy.","first_air_date":"1999-03-28","episode_run_time":[22],
-			"external_ids":{"imdb_id":"tt0900460","tvdb_id":78871}}`,
+			"external_ids":{"imdb_id":"tt0900460","tvdb_id":78871},
+			"seasons":[{"season_number":0},{"season_number":1},{"season_number":2}]}`,
 		"/tv/7615/season/2": `{"season_number":2,"episodes":[
 			{"id":1101,"season_number":2,"episode_number":10,"name":"A Comet of My Own",
 			 "overview":"The Professor names his successor.","air_date":"2000-04-09","runtime":22,
@@ -272,7 +273,7 @@ func TestSeries_FetchParseAndItsSeasons(t *testing.T) {
 	series, err := client.Parse(identify.KindSeries, body)
 	wantIDs := map[string]string{"tmdb": "7615", "imdb": "tt0900460", "tvdb": "78871"}
 	if err != nil || series.Name != "Orbitorama" || series.Year != 1999 || series.RuntimeMs != 0 ||
-		!maps.Equal(series.IDs, wantIDs) {
+		!maps.Equal(series.IDs, wantIDs) || !slices.Equal(series.SeasonNumbers, []int{0, 1, 2}) {
 		t.Errorf("Parse = %+v, %v", series, err)
 	}
 	listing, err := client.FetchSeason(t.Context(), "615", 2)

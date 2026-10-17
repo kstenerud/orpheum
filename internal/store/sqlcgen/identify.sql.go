@@ -1196,6 +1196,47 @@ func (q *Queries) ListLibraryTitlesForPass(ctx context.Context, libraryID *int64
 	return items, nil
 }
 
+const listLibraryUnnumberedEpisodePaths = `-- name: ListLibraryUnnumberedEpisodePaths :many
+SELECT ordering.collection_id AS series_id, file.path
+FROM item AS series
+JOIN ordering ON ordering.collection_id = series.id AND ordering.name = 'aired'
+JOIN position ON position.ordering_id = ordering.id AND position.number_in_group IS NULL
+JOIN item AS episode ON episode.id = position.title_id AND episode.removed_at IS NULL
+JOIN version ON version.title_id = position.title_id AND version.removed_at IS NULL
+JOIN file ON file.version_id = version.id AND file.removed_at IS NULL
+WHERE series.library_id = ?1 AND series.removed_at IS NULL
+ORDER BY ordering.collection_id, file.path
+`
+
+type ListLibraryUnnumberedEpisodePathsRow struct {
+	SeriesID int64
+	Path     string
+}
+
+// ListUnnumberedEpisodePathsOfSeries for every series of a library, in one statement a pass.
+func (q *Queries) ListLibraryUnnumberedEpisodePaths(ctx context.Context, libraryID *int64) ([]ListLibraryUnnumberedEpisodePathsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLibraryUnnumberedEpisodePaths, libraryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLibraryUnnumberedEpisodePathsRow{}
+	for rows.Next() {
+		var i ListLibraryUnnumberedEpisodePathsRow
+		if err := rows.Scan(&i.SeriesID, &i.Path); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLibraryVersionTitles = `-- name: ListLibraryVersionTitles :many
 
 SELECT version.id, version.title_id, title.identification_state
@@ -1540,6 +1581,49 @@ func (q *Queries) ListUnnumberedEpisodeFiles(ctx context.Context, maxRows int64)
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUnnumberedEpisodePathsOfSeries = `-- name: ListUnnumberedEpisodePathsOfSeries :many
+SELECT file.path
+FROM ordering
+JOIN position ON position.ordering_id = ordering.id AND position.number_in_group IS NULL
+JOIN item AS episode ON episode.id = position.title_id AND episode.removed_at IS NULL
+JOIN version ON version.title_id = position.title_id AND version.removed_at IS NULL
+JOIN file ON file.version_id = version.id AND file.removed_at IS NULL
+WHERE ordering.collection_id = ?1 AND ordering.name = 'aired'
+ORDER BY file.path
+LIMIT ?2
+`
+
+type ListUnnumberedEpisodePathsOfSeriesParams struct {
+	SeriesID int64
+	MaxRows  int64
+}
+
+// The live files of a series' live episodes that have no number in its aired order: those outside
+// a specials or extras folder have every season's listing fetched, to be placed by their names
+// (D307 section 2).
+func (q *Queries) ListUnnumberedEpisodePathsOfSeries(ctx context.Context, arg ListUnnumberedEpisodePathsOfSeriesParams) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listUnnumberedEpisodePathsOfSeries, arg.SeriesID, arg.MaxRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			return nil, err
+		}
+		items = append(items, path)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
