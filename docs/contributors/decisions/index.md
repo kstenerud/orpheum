@@ -306,12 +306,13 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D298](working-notes.md#d298--a-realm-is-the-hosts-accounts-a-master-realm-chosen-once-a-subrealm-per-further-core-none-when-self-hosting) A realm is the host's account's: a master realm chosen once, a subrealm per further core, none when self-hosting — *revisited by D299*
 - [D299](working-notes.md#d299--a-core-that-leaves-its-discovery-keeps-its-peoples-realm-keys) A core that leaves its discovery keeps its people's realm keys
 - [D300](working-notes.md#d300--a-webrtc-connection-made-inside-the-house-counts-as-home-the-core-offers-webrtc-on-its-lan-address) A WebRTC connection made inside the house counts as home; the core offers WebRTC on its LAN address
-- [D301](working-notes.md#d301--an-unsettled-match-takes-the-oldest-candidate-the-most-voted-within-a-year-and-an-admin-corrects-it-from-the-titles-page) An unsettled match takes the oldest candidate, the most voted within a year, and an admin corrects it from the title's page
+- [D301](working-notes.md#d301--an-unsettled-match-takes-the-oldest-candidate-the-most-voted-within-a-year-and-an-admin-corrects-it-from-the-titles-page) An unsettled match takes the oldest candidate, the most voted within a year, and an admin corrects it from the title's page — *revisited by D307*
 - [D302](working-notes.md#d302--an-admin-may-administer-from-away-from-home-by-their-own-setting-off-by-default) An admin may administer from away from home, by their own setting, off by default
 - [D303](working-notes.md#d303--the-data-layer-is-rebuilt-to-written-principles-short-writes-that-re-check-what-they-decided-a-fresh-baseline-committed-statistics-hourly-backups) The data layer is rebuilt to written principles: short writes that re-check what they decided, a fresh baseline, committed statistics, hourly backups — *revisited by D304, D305*
 - [D304](working-notes.md#d304--a-library-is-filed-in-stages-by-weight-titles-show-from-the-listing-still-reading-and-fill-in-by-whole-units) A library is filed in stages by weight: titles show from the listing, still reading, and fill in by whole units
 - [D305](working-notes.md#d305--removing-a-person-deletes-what-was-theirs-backups-are-hourly-thinned-by-counts-the-config-holds) Removing a person deletes what was theirs; backups are hourly, thinned by counts the config holds
 - [D306](working-notes.md#d306--the-scanner-is-tested-on-names-of-our-own-places-an-unnumbered-episode-by-a-guessed-title-match-and-keeps-watching-by-title-and-edition) The scanner is tested on names of our own, places an unnumbered episode by a guessed title match, and keeps watching by title and edition
+- [D307](working-notes.md#d307--a-work-released-under-another-name-is-guessed-from-the-providers-search-a-series-with-unplaced-episodes-has-every-season-fetched) A work released under another name is guessed from the provider's search; a series with unplaced episodes has every season fetched
 
 ## Archived
 

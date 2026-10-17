@@ -190,8 +190,9 @@ func TestMatch_AYearOffOrASubtitleStillFindsTheOneWork(t *testing.T) {
 		lib.provider.Add(identify.Metadata{ID: "13", Name: "Wit & Wilfulness", Year: 2005}),
 		{ID: "14", Name: "Wit and Wilfulness", Year: 1940},
 	}
+	// Neither is named Wings, and two of its year are no single work under another name (D307 §1).
 	lib.provider.Searches[identifytest.SearchKey("Wings", 1986)] = []identify.Candidate{
-		{ID: "15", Name: "Wing", Year: 1986},
+		{ID: "15", Name: "Wing", Year: 1986}, {ID: "18", Name: "Wing Nation", Year: 1986},
 	}
 	lib.provider.Searches[identifytest.SearchKey("Quillfen", 2014)] = []identify.Candidate{
 		{ID: "16", Name: "Quillfen", Year: 2013}, {ID: "17", Name: "Quillfen", Year: 2015},
@@ -212,6 +213,50 @@ func TestMatch_AYearOffOrASubtitleStillFindsTheOneWork(t *testing.T) {
 		if outcome := lib.matchFileTitle(path); outcome != want {
 			t.Errorf("%s: outcome %s; want %s", path, outcome, want)
 		}
+	}
+}
+
+// A work released under another name is guessed from the provider's search (D307 §1): with a year,
+// the one candidate of that year; with none, the oldest of the one or two found. A search of words
+// that found more is a person's choice.
+func TestMatch_AWorkUnderAnotherNameIsGuessed(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "movies", "tmdb")
+	lib.provider.Searches[identifytest.SearchKey("Kumo no Michi", 1971)] = []identify.Candidate{
+		lib.provider.Add(identify.Metadata{ID: "20", Name: "The Cloud Road", Year: 1971}),
+		{ID: "21", Name: "The Cloud Road Returns", Year: 1985},
+	}
+	lib.provider.Searches[identifytest.SearchKey("Hoshi no Mori", 0)] = []identify.Candidate{
+		{ID: "23", Name: "Forest of Stars", Year: 2016},
+		lib.provider.Add(identify.Metadata{ID: "22", Name: "Star Forest", Year: 2007}),
+	}
+	lib.provider.Searches[identifytest.SearchKey("Lanterns", 0)] = []identify.Candidate{
+		{ID: "24", Name: "Lanterns of Iron", Year: 1990},
+		{ID: "25", Name: "Paper Lanterns", Year: 1999},
+		{ID: "26", Name: "The Lantern Keeper", Year: 2011},
+	}
+	files := map[string]identify.Outcome{
+		"Kumo no Michi (1971).mkv": identify.OutcomeMatched,
+		"Hoshi no Mori.mkv":        identify.OutcomeMatched,
+		"Lanterns.mkv":             identify.OutcomeAmbiguous,
+	}
+	var records []nodeproto.ScanRecord
+	for path := range files {
+		records = append(records, videoRecord(path))
+	}
+	lib.scan(records...)
+	for path, want := range files {
+		if outcome := lib.matchFileTitle(path); outcome != want {
+			t.Errorf("%s: outcome %s; want %s", path, outcome, want)
+		}
+	}
+	for _, path := range []string{"Kumo no Michi (1971).mkv", "Hoshi no Mori.mkv"} {
+		if title := lib.titlesByPath()[path]; !lib.isGuessed(title.TitleID) {
+			t.Errorf("%s is matched but not marked a guess", path)
+		}
+	}
+	if name := titleName(lib.titlesByPath()["Hoshi no Mori.mkv"]); name != "Star Forest" {
+		t.Errorf("Hoshi no Mori is matched to %q; want Star Forest, the older of the two", name)
 	}
 }
 

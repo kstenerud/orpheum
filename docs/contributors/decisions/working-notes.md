@@ -20464,3 +20464,28 @@ The owner, to the recommendations on disc images, series → season reads and th
 *"ok, I agree with your recommendations."*
 
 **Status:** Decided 2026-10-16.
+
+## D307 — A work released under another name is guessed from the provider's search; a series with unplaced episodes has every season fetched
+
+**Decided** (2026-10-17), by the project owner, on the agent's two questions after the first full
+scan of the owner's NAS. It revises D301 §3 and builds D306 §2.
+
+1. **A candidate whose name differs may still be guessed** (D301 §3 said none was). The owner, to
+   "When TMDB returns exactly one series in the folder's year but under a different name (Kaito Kumo
+   (1971) is TMDB's "Kaito the 3rd", 1971), should it be accepted as a guess?": *"Yes. There are
+   some series that had different names depending on the country they were destined for. Kaito Kumo
+   in Japan was released as Kaito the 3rd in America. Many Japanese titles had similar treatment.
+   "Kaze no Mamoribito", also called "Keeper of the Quiet Wind" was later released as
+   "Moribito: Keeper of the Quiet Wind"."* When no candidate's name matches: with a year in the
+   name, the one candidate of that year is the guess; with none, a search that found one or two
+   candidates takes the oldest, as D301 §1 does. A search that found more found the words, not the
+   work under another name (staging, 2026-10-16: "Harbor Lights" found eight works with the word in
+   them), and is a person's choice. Each such guess is marked and corrected as D301's are. The
+   bound of two is the agent's, from the owner's examples, and the owner's to move.
+2. **An unnumbered episode is placed by its name across every season** (D306 §2), the owner to
+   "Should I build the guessed episode placement next, including fetching every season of an
+   affected series?": *"Yes"*. A series with episodes that have no number outside a specials or
+   extras folder has every season's listing its provider lists fetched, and such an episode whose
+   name matches one episode of them is placed there, marked as a guess.
+
+**Status:** Decided 2026-10-17.

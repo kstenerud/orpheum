@@ -285,7 +285,8 @@ const (
 // winner, but for a film with no year, which is a guess. Several are settled by a guess (the
 // owner's NAS, 2026-10-15, where 85 titles waited for a choice, many plain to them): with no year
 // the oldest, with one the most voted (Disney's The Thief of Bagdad over another of 1992), and TMDB's order
-// after.
+// after. With no candidate named as the query, a work released under another name is guessed
+// (underAnotherName, D307 §1).
 func settleMatch(query Query, candidates []Candidate, isYearExpected bool) (Candidate, settledBy) {
 	for index, tier := range matchTiers(query) {
 		var found []Candidate
@@ -304,7 +305,37 @@ func settleMatch(query Query, candidates []Candidate, isYearExpected bool) (Cand
 			return Candidate{}, unsettled
 		}
 	}
+	if other, found := underAnotherName(query, candidates); found {
+		return other, byGuess
+	}
 	return Candidate{}, unsettled
+}
+
+// searchFoundTheWorkAtMost is how many candidates a search whose names all differ from the query's
+// may find for it to have found the work under another name, rather than works with the words in
+// theirs (D307 §1).
+const searchFoundTheWorkAtMost = 2
+
+// underAnotherName is the guess among candidates none of whose names is the query's, a work released
+// under another name in another country (D307 §1: "Kaito Kumo" is TMDB's "Kaito the 3rd"): with a
+// year, the one candidate of that year; with none, the oldest of the one or two the search found.
+func underAnotherName(query Query, candidates []Candidate) (Candidate, bool) {
+	if query.Year != 0 {
+		var ofTheYear []Candidate
+		for _, candidate := range candidates {
+			if candidate.Year == query.Year {
+				ofTheYear = append(ofTheYear, candidate)
+			}
+		}
+		if len(ofTheYear) == 1 {
+			return ofTheYear[0], true
+		}
+		return Candidate{}, false
+	}
+	if len(candidates) == 0 || len(candidates) > searchFoundTheWorkAtMost {
+		return Candidate{}, false
+	}
+	return likeliest(candidates, true), true
 }
 
 // yearOffTier is matchTiers' tier of a year one off, whose several are never guessed between.
