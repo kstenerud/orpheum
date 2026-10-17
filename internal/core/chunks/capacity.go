@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -22,9 +21,6 @@ const (
 	speedWindow = 20 * time.Second
 	// How much of the window a run must have been sampled over to be judged.
 	speedSpanAtLeast = 10 * time.Second
-	// How lately a player must have asked for a store's chunks for its run to be in use: a playing
-	// player asks every chunk, every few seconds.
-	inUseWithin = 30 * time.Second
 )
 
 // ErrNoRoomToMake is a store whose run was evicted to keep its node's other runs faster than
@@ -78,11 +74,12 @@ type runningRun struct {
 	isMeasured, isInUse bool
 }
 
-// runningOn is every run nodeID is making at now, with its speed where it is measured and whether
-// a player has asked for its store's chunks lately.
-func (tracker *runTracker) runningOn(nodeID int64, now time.Time) []runningRun {
+// runningOn is every run nodeID is making at now, with its speed where it is measured and whether a
+// player wants it, by interestsOf the film's (D309).
+func (tracker *runTracker) runningOn(
+	nodeID int64, now time.Time, interestsOf func(fileID int64) ([]Interest, bool),
+) []runningRun {
 	tracker.mutex.Lock()
-	defer tracker.mutex.Unlock()
 	var running []runningRun
 	for dir, known := range tracker.storeByDir {
 		for _, each := range known.runByFirst {
@@ -92,8 +89,15 @@ func (tracker *runTracker) runningOn(nodeID int64, now time.Time) []runningRun {
 			speed, isMeasured := each.speedAt(now)
 			running = append(running, runningRun{
 				dir: dir, first: each.first, last: each.last, startedAt: each.startedAt, speed: speed,
-				isMeasured: isMeasured, isInUse: now.Sub(each.lastAskedAt) <= inUseWithin, jobID: each.jobID,
+				isMeasured: isMeasured, isInUse: true, jobID: each.jobID,
 			})
+		}
+	}
+	tracker.mutex.Unlock()
+	// The interests are asked for outside the tracker's lock: the playbacks keep them under their own.
+	for index, each := range running {
+		if interests, isKnown := interestsOf(fileOfStore(each.dir)); isKnown {
+			running[index].isInUse = tracker.isWanted(each.dir, each.first, interests)
 		}
 	}
 	return running
@@ -127,20 +131,6 @@ func (tracker *runTracker) lastEvictionOn(nodeID int64) time.Time {
 	return tracker.evictedOnAt[nodeID]
 }
 
-// asked records that a player asked at now for chunk from of the store, and plays on through chunk
-// through: the runs making any of them are in use. In use was the store's, so a run a seek back
-// left behind, of a quality a player still asked for where it went, counted as played from, and the
-// run everyone's sound needed was evicted in its place (the owner's test, 2026-10-12).
-func (tracker *runTracker) asked(dir string, from, through int, now time.Time) {
-	tracker.mutex.Lock()
-	defer tracker.mutex.Unlock()
-	for _, each := range tracker.storeLocked(dir).runByFirst {
-		if each.first <= through && each.last >= from {
-			each.lastAskedAt = now
-		}
-	}
-}
-
 // isEvicted is whether a run of the store was evicted, and not asked for again by a stall since.
 func (tracker *runTracker) isEvicted(dir string) bool {
 	tracker.mutex.Lock()
@@ -156,10 +146,10 @@ func (tracker *runTracker) unevict(dir string) {
 }
 
 // keepRunsFast keeps the runs nodeID is making faster than playback (D250 §6): when one of two or
-// more measures slower than chunk_run_slowest_speed_percent of it, one run is cancelled, the oldest no
-// player has asked for lately, its store refusing no one, or, when every one is in use, the newest,
-// evicted, and its players are told why their playback stops. After either the node's runs are left
-// speedWindow to settle.
+// more measures slower than chunk_run_slowest_speed_percent of it, one run is cancelled: the oldest no
+// player wants, its store refusing no one; or, when players want every one, the newest, its players
+// moved down a quality (D309 §6), or, when one cannot move, evicted, and its players told why their
+// playback stops. After any the node's runs are left speedWindow to settle.
 func (service *Service) keepRunsFast(ctx context.Context, nodeID int64) error {
 	now := service.clock.Now()
 	if last := service.runs.lastEvictionOn(nodeID); !last.IsZero() && now.Sub(last) < speedWindow {
@@ -169,7 +159,7 @@ func (service *Service) keepRunsFast(ctx context.Context, nodeID int64) error {
 	if err != nil {
 		return fmt.Errorf("read %s: %w", settings.ChunkRunSlowestSpeedPercent, err)
 	}
-	running := service.runs.runningOn(nodeID, now)
+	running := service.runs.runningOn(nodeID, now, service.interestsOf)
 	isTooSlow := slices.ContainsFunc(running, func(each runningRun) bool {
 		return each.isMeasured && each.speed*100 < float64(slowestPercent)
 	})
@@ -195,7 +185,7 @@ func (service *Service) keepRunsFast(ctx context.Context, nodeID int64) error {
 	}
 	if service.isMovedOff(victim) {
 		service.runs.drop(victim.dir, victim.first, nodeID, now)
-		service.logger.WarnContext(ctx, "moved a run's players onto a quality already made: its node could not "+
+		service.logger.WarnContext(ctx, "moved a run's players down a quality: its node could not "+
 			"keep every run faster than playback", "nodeId", nodeID, "storeDir", victim.dir,
 			"firstChunk", victim.first, "lastChunk", victim.last, "slowestPercent", slowestPercent,
 			"runSpeeds", speeds)
@@ -209,19 +199,17 @@ func (service *Service) keepRunsFast(ctx context.Context, nodeID int64) error {
 }
 
 // isMovedOff is whether every player of a run in use, of a quality made for players, was moved onto
-// a quality already made for another playback of its film, so the run is no longer needed and is
-// cancelled rather than evicted: an eviction stops its players (D286 §4).
+// the quality below, so the run is no longer needed and is cancelled rather than evicted: an eviction
+// stops its players (D286 §4, D309 §6).
 func (service *Service) isMovedOff(victim runningRun) bool {
-	fileText, rest, _ := strings.Cut(victim.dir, "/")
-	streamDir, _, _ := strings.Cut(rest, "/")
-	streamName, isStore := strings.CutPrefix(streamDir, "chunks-")
-	fileID, err := strconv.ParseInt(fileText, 10, 64)
-	return victim.isInUse && service.movePlayers != nil && isStore && err == nil &&
+	fileID := fileOfStore(victim.dir)
+	streamName, isStore := streamOfStore(victim.dir, fileID)
+	return victim.isInUse && service.movePlayers != nil && isStore && fileID != 0 &&
 		strings.HasPrefix(streamName, "q") && service.movePlayers(fileID, streamName)
 }
 
-// evictee is the run to evict of those running: the oldest no player has asked for lately, or,
-// when every one is in use, the newest (D250 §6).
+// evictee is the run to evict of those running: the oldest no player wants, or, when players want
+// every one, the newest (D250 §6).
 func evictee(running []runningRun) runningRun {
 	byAge := slices.Clone(running)
 	slices.SortFunc(byAge, func(a, b runningRun) int { return a.startedAt.Compare(b.startedAt) })

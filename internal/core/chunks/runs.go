@@ -29,6 +29,9 @@ type storeRuns struct {
 	// evictedAt is when a run of it was evicted to keep its node's others faster than playback; zero
 	// unless it was, until a player's stall asks for it again (D250 §6).
 	evictedAt time.Time
+	// grid is what its chunks are cut on, by which its players' interests are read (D309); nil until
+	// a player asks for it.
+	grid *Grid
 }
 
 // run is one run of a store's chunks, first through last, made in order.
@@ -43,9 +46,6 @@ type run struct {
 	startedAt time.Time
 	// samples are the film it had made at moments of its progress, oldest first, for its speed.
 	samples []speedSample
-	// lastAskedAt is when a player last asked for a chunk it makes, or one a minute of film before
-	// them: a run asked for lately is in use (capacity.go).
-	lastAskedAt time.Time
 }
 
 // willMake is whether the run is still to make chunk n.
@@ -96,45 +96,6 @@ func (tracker *runTracker) isMadeFromThrough(dir string, first, last int) bool {
 		}
 	}
 	return true
-}
-
-// farFrom is how far a request must be from a run for it to be cut: more than pastMs of film past
-// the chunk it makes next, or more than beforeMs before the chunk it starts at.
-type farFrom struct {
-	pastMs, beforeMs int64
-}
-
-// cutFar cuts every run of the store that wanted is far from (farFrom): past it, or before it, which
-// for any ask but a jump's is beyond the lookaheadMs a run is made ahead, and for a jump's is any
-// distance, since everyone left where it was (D286 §1). Such a request was sought to (D250 §5, D284 §2); no one follows
-// those runs now: they are forgotten, and returned
-// for the caller to cancel. A run a seek back left ran on, as fast as the node could make it, and
-// starved the runs the players needed where they went; a seek a little ahead waited for a run made
-// at playback's speed to get there (the owner's tests, 2026-10-12).
-func (tracker *runTracker) cutFar(dir string, grid Grid, wanted int, far farFrom) []RunSpan {
-	tracker.mutex.Lock()
-	defer tracker.mutex.Unlock()
-	known := tracker.storeLocked(dir)
-	// A run that begins past wanted only because the chunks between are made is the one that makes
-	// what follows them, not one ahead: a jump onto made chunks cut the run after them, the next ask
-	// queued it again, and every ask cut it again, without end (the owner's test, 2026-10-12).
-	unmade := wanted
-	for unmade <= grid.lastChunk() && known.isMade[unmade] {
-		unmade++
-	}
-	var cuts []RunSpan
-	for first, each := range known.runByFirst {
-		next := each.madeThrough + 1
-		isFarPast := wanted > each.madeThrough && next <= grid.lastChunk() &&
-			grid.StartsMs[wanted]-grid.StartsMs[next] > far.pastMs
-		isFarBefore := unmade < each.first && grid.StartsMs[each.first]-grid.StartsMs[unmade] > far.beforeMs
-		if !isFarPast && !isFarBefore {
-			continue
-		}
-		cuts = append(cuts, RunSpan{First: each.first, Last: each.last, MadeThrough: each.madeThrough})
-		delete(known.runByFirst, first)
-	}
-	return cuts
 }
 
 // plan finds the run a player asking for chunk wanted of the store needs, and records it on its

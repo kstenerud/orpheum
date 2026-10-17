@@ -9,7 +9,6 @@ import (
 	"fmt"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
-	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
 
@@ -43,22 +42,6 @@ type runArgs struct {
 // store with runs on their way is kept wanted (D234 §3). A run queued is logged. The film is cut at
 // kind, as its playback's is; one with no grid yet is ErrNoGrid.
 func (service *Service) Ensure(ctx context.Context, fileID int64, kind GridKind, stream Stream, wanted int) error {
-	return service.ensure(ctx, ensuring{fileID: fileID, kind: kind, stream: stream, wanted: wanted})
-}
-
-// ensuring is what Ensure makes sure of: a film's stream's chunk wanted, cut at kind, and whether a
-// player wants it where a seek took it.
-type ensuring struct {
-	fileID   int64
-	kind     GridKind
-	stream   Stream
-	wanted   int
-	isSought bool
-}
-
-// ensure is Ensure, for a player where a seek took it too, whose ask starts a run sooner (ask).
-func (service *Service) ensure(ctx context.Context, asked ensuring) error {
-	fileID, kind, stream, wanted := asked.fileID, asked.kind, asked.stream, asked.wanted
 	film, isCut, err := service.cut(ctx, fileID, kind)
 	if err != nil {
 		return err
@@ -71,7 +54,7 @@ func (service *Service) ensure(ctx context.Context, asked ensuring) error {
 	}
 	gridID := film.grid.ID()
 	dir := StoreDir(fileID, stream, gridID)
-	if askErr := service.ask(ctx, film, stream, wanted, asked.isSought); askErr != nil {
+	if askErr := service.ask(ctx, film, stream, wanted); askErr != nil {
 		return askErr
 	}
 	first, last, isPlanned := service.runs.plan(dir, film.grid, wanted)
@@ -113,71 +96,27 @@ func (service *Service) ensure(ctx context.Context, asked ensuring) error {
 	return nil
 }
 
-// ask records a player's ask for chunk wanted of the store: the runs making it and the chunks within
-// lookaheadMs of film after it, which it plays on to, are in use. An evicted store refuses it when it
-// is neither made nor on its way (ErrNoRoomToMake, D250 §6), and plans no run (runTracker.plan): only
-// a player its eviction left without its chunks is told why it stops. Refusing every ask, a chunk
-// made and served was answered 500, and a player whose quality another run was making at 2.5x
-// playback asked for it every two seconds for minutes (the owner's Wings on nas.example, 2026-10-17).
-// Runs it is a seek far from are cancelled (cancelFarRuns), nearer when a player says a seek took it
-// there (D284 §2).
-func (service *Service) ask(ctx context.Context, film cutFilm, stream Stream, wanted int, isSought bool) error {
+// ask is a player's ask for chunk wanted of the store: an evicted store refuses it when it is neither
+// made nor on its way (ErrNoRoomToMake, D250 §6), and plans no run (runTracker.plan): only a player
+// its eviction left without its chunks is told why it stops. Refusing every ask, a chunk made and
+// served was answered 500, and a player whose quality another run was making at 2.5x playback asked
+// for it every two seconds for minutes (the owner's Wings on nas.example, 2026-10-17).
+func (service *Service) ask(ctx context.Context, film cutFilm, stream Stream, wanted int) error {
 	dir := StoreDir(film.file.ID, stream, film.grid.ID())
-	playsThrough := film.grid.chunkAt(film.grid.StartsMs[wanted] + lookaheadMs - 1)
-	service.runs.asked(dir, wanted, playsThrough, service.clock.Now())
+	service.runs.knowGrid(dir, film.grid)
 	if service.runs.isEvicted(dir) && !service.runs.isCovered(dir, wanted) {
 		return fmt.Errorf("%s: %w", dir, ErrNoRoomToMake)
 	}
-	return service.cancelFarRuns(ctx, film, stream, wanted, isSought)
-}
-
-// cancelFarRuns cancels the runs of the store chunk wanted is a seek far from (runTracker.cutFar,
-// D250 §5), chunk_new_run_beyond_seconds, or chunk_seek_new_run_beyond_seconds when the player says a
-// seek took it there (D284 §2): no one follows them now, and their encodes are room another run needs (§6). The new
-// run is queued after, so the queue, which keeps one job of a store queued, does not fold it into
-// one cancelled.
-func (service *Service) cancelFarRuns(
-	ctx context.Context, film cutFilm, stream Stream, wanted int, isSought bool,
-) error {
-	beyondKey := settings.ChunkNewRunBeyondSeconds
-	if isSought {
-		beyondKey = settings.ChunkSeekNewRunBeyondSeconds
-	}
-	beyond, err := service.settings.Duration(ctx, beyondKey)
-	if err != nil {
-		return fmt.Errorf("read %s: %w", beyondKey, err)
-	}
-	fileID, gridID := film.file.ID, film.grid.ID()
-	dir := StoreDir(fileID, stream, gridID)
-	far := farFrom{pastMs: beyond.Milliseconds(), beforeMs: lookaheadMs + beyond.Milliseconds()}
-	if isSought {
-		// A jump's ask cuts a run ahead of it at any distance: its group left where the run was going,
-		// and two runs of a quality ran side by side and starved each other (the owner's jumps,
-		// 2026-10-12; D286 §1).
-		far.beforeMs = 0
-	}
-	cuts := service.runs.cutFar(dir, film.grid, wanted, far)
-	if len(cuts) == 0 {
+	queued, isCut := service.runs.cutQueuedAhead(dir, film.grid, wanted)
+	if !isCut {
 		return nil
 	}
-	storeID, err := service.storeIDOf(ctx, fileID, stream, gridID)
-	if err != nil {
-		return err
+	cancelled, err := service.cancelRun(ctx, queued)
+	if err == nil {
+		service.logger.InfoContext(ctx, "cancelled a queued run of chunks to start it where the player is",
+			queued.attributes(cancelled)...)
 	}
-	for _, cut := range cuts {
-		cancelled, err := service.queue.CancelMatching(ctx, jobs.KindMakeChunks, jobs.Target{ChunkStoreID: storeID},
-			func(argsJSON string) bool {
-				var args runArgs
-				return json.Unmarshal([]byte(argsJSON), &args) == nil && args.FirstChunk == cut.First
-			})
-		if err != nil {
-			return fmt.Errorf("cancel the run of %s from chunk %d: %w", dir, cut.First, err)
-		}
-		service.logger.InfoContext(ctx, "cancelled a run of chunks a seek went far past", "storeDir", dir,
-			"wantedChunk", wanted, "firstChunk", cut.First, "lastChunk", cut.Last, "madeThrough", cut.MadeThrough,
-			"cancelledJobs", cancelled)
-	}
-	return nil
+	return err
 }
 
 // storeIDOf is the chunk_store row of a stream of a film on a grid, made the first time it is named.

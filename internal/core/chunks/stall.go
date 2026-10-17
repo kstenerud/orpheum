@@ -36,6 +36,10 @@ type Offer struct {
 	// IsHeldByUpload is whether the start took a lower quality than its link carries, to keep within
 	// what is left of the server's upload (StartAtMostKbps).
 	IsHeldByUpload bool
+	// SoundStreamName is the starting sound's stream, empty for a film with none, and FromMs where in
+	// the film both are made from: what the playback wants until its player says (D309 §1).
+	SoundStreamName string
+	FromMs          int64
 }
 
 // ErrNoQualityOffered is a film that offers no quality below its own picture: nothing lower to go to.
@@ -131,9 +135,11 @@ func (service *Service) startAt(
 		StreamName:       picture.Name(),
 		AverageKbps:      film.averageWithSoundKbps(picture, offered.soundKbps),
 		IsHeldByUpload:   chosen.isHeldByUpload,
+		FromMs:           film.grid.StartsMs[chunk],
 	}
 	if playback.HasStartingAudio {
 		sound := startingSound(playback, offered.soundKbps, offered.isUnlevelled)
+		offer.SoundStreamName = sound.Name()
 		service.runs.unevict(StoreDir(playback.FileID, sound, film.grid.ID()))
 		if err := service.Ensure(ctx, playback.FileID, film.kind, sound, chunk); err != nil {
 			return Offer{}, err

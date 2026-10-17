@@ -8,7 +8,8 @@ import (
 )
 
 // Leave lets go of the work a playback asked for when its player left its page, the film's or the
-// player's, before or after it played (D258 §2): its rendition's prepare, its chunks and its
+// player's, before or after it played (D258 §2): its interest in its chunks, whose runs no other
+// player wants stop (D309 §1), and its rendition's prepare, its chunks and its
 // timeline's read-through fall to background at the next demotion, where they would have kept play
 // priority for play_priority_kept_seconds; a player still watching the film asks again and keeps
 // them. The token stays until it idles out: the player's page takes over the film page's token, and
@@ -23,9 +24,10 @@ func (service *Service) Leave(ctx context.Context, token string, holder Holder) 
 	if !found {
 		return ErrNoToken
 	}
-	var released error
+	service.tokens.dropInterest(token)
+	released := service.stopUnwanted(ctx, playback.fileID)
 	if playback.profile != "" {
-		released = service.renditions.ReleaseWanted(ctx, playback.fileID, playback.profile)
+		released = errors.Join(released, service.renditions.ReleaseWanted(ctx, playback.fileID, playback.profile))
 	}
 	if service.chunks != nil {
 		released = errors.Join(released, service.chunks.ReleaseWanted(ctx, playback.fileID))

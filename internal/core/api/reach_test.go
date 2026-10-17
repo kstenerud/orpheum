@@ -205,6 +205,9 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// A player's word that it left its own playback, by a token only its holder may use (D258 §2):
 		// it answers nothing (TestLeave_APlayerThatLeavesLetsGoOfTheWorkItsPlaybackAskedFor).
 		"leavePlayback",
+		// A player's word on which quality of its own playback it wants, by the same token (D309): it
+		// answers nothing (TestInterest_ARunOfAQualityThePlayerLeftStops).
+		"sayInterest",
 	}
 	isAdminOnly := adminOnlyHandlers(t)
 	harness := newHarness(t)

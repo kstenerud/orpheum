@@ -38,6 +38,8 @@ func (*cutAfterChunks) IsReadyAt(context.Context, chunks.Playback, chunks.Offer,
 
 func (*cutAfterChunks) ReleaseWanted(context.Context, int64) error { return nil }
 
+func (*cutAfterChunks) StopUnwanted(context.Context, int64) error { return nil }
+
 // waitSettings are settings whose play_ladder_wait_ms is waitMs, server_upload_mbps unanswered.
 type waitSettings struct{ waitMs int64 }
 

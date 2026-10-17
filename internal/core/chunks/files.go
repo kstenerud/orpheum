@@ -35,6 +35,8 @@ type StoreFile struct {
 	runFrom int
 	// averageKbps is its stream's average bit rate (averageKbpsOf).
 	averageKbps int64
+	// startMs is where its chunk starts in the film; zero for the init.
+	startMs int64
 }
 
 // StoreFileOf is the file of a stream's store the playback asks for by its stream's name and the
@@ -70,7 +72,7 @@ func (service *Service) StoreFileOf(
 		NodeID: film.file.NodeID, Target: nodeproto.PathBytesChunks + dir + "/" + name,
 		ContentType: renditions.ContentType(name),
 		fileID:      playback.FileID, kind: film.kind, stream: stream, storeDir: dir, isInit: isInit, chunk: chunk,
-		runFrom: runFrom, averageKbps: film.averageKbpsOf(stream),
+		runFrom: runFrom, averageKbps: film.averageKbpsOf(stream), startMs: film.grid.StartsMs[chunk],
 	}, nil
 }
 
@@ -92,6 +94,10 @@ func (film cutFilm) averageKbpsOf(stream Stream) int64 {
 // needs of the server's upload (D286 §5); zero when it is not known.
 func (file StoreFile) AverageKbps() int64 { return file.averageKbps }
 
+// StartMs is where the file's chunk starts in the film, and whether it is a chunk: an init says
+// nothing of where its player is.
+func (file StoreFile) StartMs() (int64, bool) { return file.startMs, !file.isInit }
+
 // StreamName is the name of the file's stream, as a playback's master playlist names it.
 func (file StoreFile) StreamName() string { return file.stream.Name() }
 
@@ -99,8 +105,9 @@ func (file StoreFile) StreamName() string { return file.stream.Name() }
 func (file StoreFile) IsSound() bool { return file.stream.Kind == nodeproto.StreamSound }
 
 // Want makes sure a file of a store its node does not have yet will be made (Ensure): from its chunk,
-// or, for the init, from the chunk the playback is at. One asked for after a seek (AsSought) starts a
-// run where it is sooner than another ask does (cancelFarRuns).
+// or, for the init, from the chunk the playback is at. The film's runs no player wants stop first
+// (StopUnwanted, D309 §2): its player's interest moved as it asked. A run the server starts for a
+// player, as it starts or stalls, stops nothing: its interest is recorded once the run is on its way.
 func (service *Service) Want(ctx context.Context, file StoreFile) error {
 	// A store's init is made by any run of it: one on its way makes it, and an init asked for from
 	// where a playback last reported, the film's start for a guest who has reported nothing, cut the
@@ -109,9 +116,10 @@ func (service *Service) Want(ctx context.Context, file StoreFile) error {
 	if file.isInit && service.runs.hasRun(file.storeDir) {
 		return nil
 	}
-	return service.ensure(ctx, ensuring{
-		fileID: file.fileID, kind: file.kind, stream: file.stream, wanted: file.runFrom, isSought: file.isSought,
-	})
+	if err := service.StopUnwanted(ctx, file.fileID); err != nil {
+		return err
+	}
+	return service.Ensure(ctx, file.fileID, file.kind, file.stream, file.runFrom)
 }
 
 // WantAlongside makes sure sound is made from where picture is, a file of a picture asked for where
@@ -127,9 +135,7 @@ func (service *Service) WantAlongside(ctx context.Context, picture, sound StoreF
 	if !picture.isSought || picture.isInit || sound.fileID != picture.fileID || sound.kind != picture.kind {
 		return nil
 	}
-	return service.ensure(ctx, ensuring{
-		fileID: sound.fileID, kind: sound.kind, stream: sound.stream, wanted: picture.runFrom, isSought: true,
-	})
+	return service.Ensure(ctx, sound.fileID, sound.kind, sound.stream, picture.runFrom)
 }
 
 // AsSought is the file asked for by a player loading where a seek took it, its person's or its
@@ -172,7 +178,6 @@ func (service *Service) Served(ctx context.Context, file StoreFile) error {
 	if !file.isInit {
 		service.runs.served(file.storeDir, file.chunk)
 	}
-	service.runs.asked(file.storeDir, file.runFrom, file.runFrom, service.clock.Now())
 	if !file.isInit && service.runs.isCovered(file.storeDir, file.chunk+1) {
 		return service.Ensure(ctx, file.fileID, file.kind, file.stream, file.chunk)
 	}

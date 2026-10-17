@@ -94,25 +94,36 @@
 //     restart nothing past a served chunk is known, and nothing is queued over it. Enforced by
 //     TestServed_AChunkOfARunMadeAheadStartsTheNextRunAMinuteBeforeThePlayerReachesIt.
 //
-//   - A seek starts a run where it lands; catching up never does (D250 §5). A chunk asked for more
-//     than chunk_new_run_beyond_seconds of film past the chunk a run of its store makes next cancels
-//     that run, queued or running, and its run is queued; one nearer waits for the run. Enforced by
-//     TestEnsure_ASeekFarPastARunCancelsItAndQueuesTheSeeksRun and
-//     TestEnsure_NeverQueuesARunOverChunksARunWillMakeOrThatAreMade.
+//   - A run goes on while a player wants it, and stops at once when none does (D309 §2): each
+//     player wants one picture and its sound from a position (InterestsBy, which
+//     internal/core/playback keeps from its word, its requests and its stall's offer), and a run is
+//     wanted by one playing from a chunk it has not passed, starting within the minute of film after
+//     the first chunk not made from there, or by one paused whose minute ahead it is still making
+//     (§4). A player's ask stops the film's unwanted runs before its own is planned (Want), as does
+//     each step of a run, for an interest that lapsed (§3); a run the server starts for a player, as
+//     it starts or stalls, stops nothing. A queued run that begins just past an ask's chunk, with
+//     nothing between, is cancelled for one run from the ask's. Enforced by
+//     TestStopUnwanted_APlayerThatSeeksAwayStopsTheRunItLeft,
+//     TestStopUnwanted_ARunItsPlayerWillReachWithinAMinuteGoesOn,
+//     TestStopUnwanted_APlayerOnMadeChunksWantsTheRunThatMakesWhatFollowsThem,
+//     TestStopUnwanted_ARunOfAQualityItsPlayerLeftStops,
+//     TestStopUnwanted_APausedPlayersRunStopsOnceItsMinuteIsMade and
+//     TestEnsure_AJumpJustBeforeAQueuedRunStartsOneRunWhereItLanded; through the API by
+//     TestInterest_ARunOfAQualityThePlayerLeftStops (internal/core/api).
 //
 //   - Every run on a node stays faster than playback (D250 §6): when one of two or more measures
 //     below chunk_run_slowest_speed_percent of it over speedWindow, one is cancelled: the oldest no
-//     player asked for within inUseWithin, its store refusing no one, so a player that comes to its
-//     chunks later starts a run of its own; or else the newest, evicted, its store refusing its
-//     players with ErrNoRoomToMake until a stall asks for it again: the chunks it was to make, not
-//     those made or another of its runs is making, and it starts no run, by
-//     TestEnsure_AnEvictedStoreGivesWhatIsMadeOrOnItsWayAndStartsNoRun. The node is then left
-//     speedWindow to settle. A run in use of a quality made for players whose every player can
-//     move onto a quality already made for another playback of the film is instead cancelled, its
-//     players moved (MovePlayersBy) and its store not evicted (D286 §4), by
-//     TestKeepRunsFast_MovesARunsPlayersOntoAQualityAlreadyMadeRatherThanEvictIt. Enforced by
+//     player wants, its store refusing no one, so a player that comes to its chunks later starts a
+//     run of its own; or else the newest, its players moved down a quality (MovePlayersBy, D309 §6)
+//     and its store not evicted, by
+//     TestKeepRunsFast_MovesARunsPlayersOntoAQualityAlreadyMadeRatherThanEvictIt; or, when one is at
+//     the lowest, evicted, its store refusing its players with ErrNoRoomToMake until a stall asks for
+//     it again: the chunks it was to make, not those made or another of its runs is making, and it
+//     starts no run, by TestEnsure_AnEvictedStoreGivesWhatIsMadeOrOnItsWayAndStartsNoRun. The node is
+//     then left speedWindow to settle. Enforced by
 //     TestKeepRunsFast_EvictsTheNewestWhenEveryRunIsInUse,
-//     TestKeepRunsFast_CancelsTheOldestRunNoOneIsPlayingFromRefusingNoOne and
+//     TestKeepRunsFast_CancelsTheOldestRunNoOneIsPlayingFromRefusingNoOne,
+//     TestKeepRunsFast_EvictsARunASeekLeftThoughItsQualityIsStillPlayed and
 //     TestKeepRunsFast_EvictsNothingWhileEveryRunKeepsUpOrOneRunsAlone; through the API, the refusal
 //     is a 429 by TestChunks_AnEvictedQualityIsRefusedWithItsOwnStatusAndCode (internal/core/api).
 //

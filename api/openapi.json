@@ -2088,6 +2088,36 @@
         ],
         "type": "object"
       },
+      "InterestInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "isPaused": {
+            "description": "Paused, it wants only the minute after its position (D309 §4)",
+            "type": "boolean"
+          },
+          "pictureStream": {
+            "description": "The picture's stream, as the master playlist names it; empty keeps the one wanted",
+            "maxLength": 64,
+            "type": "string"
+          },
+          "positionMs": {
+            "description": "Where in the film the player plays from",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "soundStream": {
+            "description": "The sound's stream, as the master playlist names it; empty keeps the one wanted",
+            "maxLength": 64,
+            "type": "string"
+          }
+        },
+        "required": [
+          "positionMs",
+          "isPaused"
+        ],
+        "type": "object"
+      },
       "InvalidRequestDetailBody": {
         "additionalProperties": false,
         "properties": {
@@ -10848,6 +10878,61 @@
           }
         },
         "summary": "Say the player left the film's page or the player: its work is no longer wanted (D258 §2)",
+        "tags": [
+          "Playback"
+        ]
+      }
+    },
+    "/playback/{token}/interest": {
+      "put": {
+        "operationId": "sayInterest",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The playback's media token",
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "description": "The playback's media token",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InterestInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Say which quality and sound the player wants, from where, and whether it is paused (D309)",
         "tags": [
           "Playback"
         ]

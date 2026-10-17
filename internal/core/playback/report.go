@@ -78,6 +78,8 @@ type Chunks interface {
 	StartOnLadder(ctx context.Context, playback chunks.Playback, positionMs, linkKbps int64) (chunks.Offer, error)
 	IsReadyAt(ctx context.Context, playback chunks.Playback, offer chunks.Offer, positionMs int64) (bool, error)
 	ReleaseWanted(ctx context.Context, fileID int64) error
+	// StopUnwanted stops the film's runs no player wants (D309 §2).
+	StopUnwanted(ctx context.Context, fileID int64) error
 }
 
 // Event is one change of play state, at a position in the file.

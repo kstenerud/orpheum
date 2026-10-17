@@ -120,6 +120,9 @@ type tokenPlayback struct {
 	// link is the link speed its player last reported: slow, with others, a sign the house's upload
 	// is crowded (crowding).
 	link linkReport
+	// interest is what its player wants of its film's chunks now, which decides the runs that go on
+	// (D309): said by its player, read off its requests, renewed by its reports.
+	interest playerInterest
 }
 
 // usedTracks are the subtitle and audio tracks a playback started with; audio is nil for a file
