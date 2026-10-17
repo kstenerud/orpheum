@@ -22,3 +22,14 @@
   width: 1.5rem;
   height: 1.5rem;
 }
+
+/* The warning triangle beside its note, a little larger than the round icons, as a triangle fills
+   less of its box than a disc does (the owner, 2026-10-17: at the same size it looked smaller). */
+.status-note .warning-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.status-note > .warning-sign {
+  flex: none;
+}
