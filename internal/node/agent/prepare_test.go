@@ -165,6 +165,8 @@ func (evictingShelf) Inventory() ([]nodeproto.RenditionManifest, error) { return
 
 func (evictingShelf) Reconcile([]string, []string) ([]string, error) { return nil, nil }
 
+func (evictingShelf) SetStoreTiers(map[string]nodeproto.KeepTier) {}
+
 // A prepare adds to the prepared directory, so once it ends the directory is brought back within its
 // budget then, not only when the next prepare makes room (D217 §5).
 func TestAgent_AFinishedPrepareKeepsThePreparedDirectoryWithinItsBudget(t *testing.T) {

@@ -98,8 +98,9 @@
 //     player wants one picture and its sound from a position (InterestsBy, which
 //     internal/core/playback keeps from its word, its requests and its stall's offer), and a run is
 //     wanted by one playing from a chunk it has not passed, starting within the minute of film after
-//     the first chunk not made from there, or by one paused whose minute ahead it is still making
-//     (§4). A player's ask stops the film's unwanted runs before its own is planned (Want), as does
+//     the first chunk not made from there, or by one stopped, paused or gone from its page, whose
+//     chunk_kept_ahead_seconds ahead it is still making (§7). A player's ask stops the film's
+//     unwanted runs before its own is planned (Want), as does
 //     each step of a run, for an interest that lapsed (§3); a run the server starts for a player, as
 //     it starts or stalls, stops nothing. A queued run that begins just past an ask's chunk, with
 //     nothing between, is cancelled for one run from the ask's. Enforced by
@@ -107,7 +108,7 @@
 //     TestStopUnwanted_ARunItsPlayerWillReachWithinAMinuteGoesOn,
 //     TestStopUnwanted_APlayerOnMadeChunksWantsTheRunThatMakesWhatFollowsThem,
 //     TestStopUnwanted_ARunOfAQualityItsPlayerLeftStops,
-//     TestStopUnwanted_APausedPlayersRunStopsOnceItsMinuteIsMade and
+//     TestStopUnwanted_APausedPlayersRunStopsOnceWhatItKeepsAheadIsMade and
 //     TestEnsure_AJumpJustBeforeAQueuedRunStartsOneRunWhereItLanded; through the API by
 //     TestInterest_ARunOfAQualityThePlayerLeftStops (internal/core/api).
 //

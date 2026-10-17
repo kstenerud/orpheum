@@ -67,6 +67,7 @@ var wireShapeByVersion = map[int]string{
 	// 32 adds each listed and observed file's inode, and an observed file's device, which tell a
 	// file moved on its disk (D304 §5).
 	32: "6193ac0e641a4dbaefbf2f1d37a06e958fdf23d2415aafa5b0303ca151862e4c",
+	33: "8a094d78ee941cd24b40719b1ab30d899d9465b61ec6524b43094e1ddd77e03e",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

@@ -61,7 +61,7 @@ func (service *Service) Fetched(token string, file chunks.StoreFile) {
 		return
 	}
 	startMs, isChunk := file.StartMs()
-	known.wantFetched(file.IsSound(), file.StreamName(), startMs, isChunk)
+	known.wantFetched(file.IsSound(), file.StreamName(), file.StoreDir(), startMs, isChunk)
 	need := streamNeed{kbps: file.AverageKbps(), at: now}
 	if file.IsSound() {
 		known.sound, known.hasSound, known.soundsNeed = file, true, need

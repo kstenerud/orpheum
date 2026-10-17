@@ -4,31 +4,49 @@ package playback
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/chunks"
+	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// interestLapsesAfter is how long a playback's interest in its film's chunks lasts with its player
+// interestLapsesAfter is how long a playing player's interest in its film's chunks lasts with it
 // silent: no word, no chunk asked for, no report (D309 §3). A playing player asks every few seconds
-// and reports every ten; a paused one says so and is silent, and its minute ahead is made well within
-// this, so a closed tab, a crash or a lost link hold an encoder at most this long.
+// and reports every ten, so a crash or a lost link hold an encoder at most this long.
 const interestLapsesAfter = 2 * time.Minute
 
+// Disposition is where a playback's player stands with its film (D309 §7): playing it, paused,
+// gone from its page, or gone to another film.
+type Disposition string
+
+// The dispositions.
+const (
+	// Playing is a player playing, or about to: the zero value, as it starts.
+	Playing Disposition = ""
+	// Paused is a player paused: likely to play again. Its runs finish chunk_kept_ahead_seconds ahead.
+	Paused Disposition = "paused"
+	// Left is a player that left its page, playing nothing else: maybe back. Its runs finish as a
+	// paused player's do.
+	Left Disposition = "left"
+	// Replaced is a player that went on to play another film: not back. Its runs stop at once.
+	Replaced Disposition = "replaced"
+)
+
 // playerInterest is what a playback's player wants of its film's chunks (D309 §1): one picture and
-// its sound, from a position, paused or not.
+// its sound, by stream and by store, from a position, and where it stands.
 type playerInterest struct {
-	picture, sound string
-	positionMs     int64
-	isPaused       bool
-	// hasLeft is whether its player left (Leave): it wants nothing, its stall's offer neither, until
-	// it asks again, as a player page that takes over its film page's token does.
-	hasLeft bool
+	picture, sound       string
+	pictureDir, soundDir string
+	positionMs           int64
+	disposition          Disposition
 }
 
 // Interest is what a player says it wants of its film's chunks (SayInterest): a picture's and a
 // sound's streams, by the names its master playlist gives them, either empty to keep the one it
-// wants; where it plays from; and whether it is paused, wanting only the minute after it.
+// wants; where it plays from; and whether it is paused.
 type Interest struct {
 	PictureStream, SoundStream string
 	PositionMs                 int64
@@ -49,17 +67,25 @@ func (service *Service) SayInterest(ctx context.Context, token string, holder Ho
 	}
 	service.tokens.mutex.Lock()
 	if known, isKnown := service.tokens.playbackByToken[token]; isKnown {
-		interest := &known.interest
-		if said.PictureStream != "" {
-			interest.picture = said.PictureStream
-		}
-		if said.SoundStream != "" {
-			interest.sound = said.SoundStream
-		}
-		interest.positionMs, interest.isPaused, interest.hasLeft = said.PositionMs, said.IsPaused, false
+		known.interest.take(said)
 	}
 	service.tokens.mutex.Unlock()
 	return service.stopUnwanted(ctx, playback.fileID)
+}
+
+// take replaces what a player wanted with what it said: a stream it names that is not the one it
+// wanted is wanted from a store not yet known, until it asks for a file of it.
+func (interest *playerInterest) take(said Interest) {
+	if said.PictureStream != "" && said.PictureStream != interest.picture {
+		interest.picture, interest.pictureDir = said.PictureStream, ""
+	}
+	if said.SoundStream != "" && said.SoundStream != interest.sound {
+		interest.sound, interest.soundDir = said.SoundStream, ""
+	}
+	interest.positionMs, interest.disposition = said.PositionMs, Playing
+	if said.IsPaused {
+		interest.disposition = Paused
+	}
 }
 
 // stopUnwanted stops the film's runs no player wants, where the playbacks have chunks.
@@ -71,26 +97,29 @@ func (service *Service) stopUnwanted(ctx context.Context, fileID int64) error {
 }
 
 // InterestsIn is every interest the playbacks of fileID hold now (chunks.Interests): each one's
-// picture and sound, and the lower quality and sound a stall made ready for it (D247 §2), until its
-// player falls silent (interestLapsesAfter).
+// picture and sound, stopped once its player paused or left, and the lower quality and sound a stall
+// made ready for it (D247 §2); none once its player went to another film, or fell silent while
+// playing (interestLapsesAfter).
 func (service *Service) InterestsIn(fileID int64) []chunks.Interest {
 	now := service.clock.Now()
 	service.tokens.mutex.Lock()
 	defer service.tokens.mutex.Unlock()
 	var interests []chunks.Interest
 	for _, playback := range service.tokens.playbackByToken {
-		if playback.fileID != fileID || !playback.isHeardWithin(now) || playback.interest.hasLeft {
+		interest := playback.interest
+		isLapsed := interest.disposition == Playing && now.Sub(playback.lastUsedAt) > interestLapsesAfter
+		if playback.fileID != fileID || interest.disposition == Replaced || isLapsed {
 			continue
 		}
-		interest := playback.interest
+		isStopped := interest.disposition != Playing
 		for _, stream := range []string{interest.picture, interest.sound} {
 			if stream != "" {
 				interests = append(interests, chunks.Interest{
-					StreamName: stream, PositionMs: interest.positionMs, IsPaused: interest.isPaused,
+					StreamName: stream, PositionMs: interest.positionMs, IsStopped: isStopped,
 				})
 			}
 		}
-		if offer := playback.offer; offer != nil {
+		if offer := playback.offer; offer != nil && interest.disposition != Left {
 			for _, stream := range []string{offer.StreamName, offer.SoundStreamName} {
 				if stream != "" {
 					interests = append(interests, chunks.Interest{StreamName: stream, PositionMs: offer.FromMs})
@@ -102,19 +131,24 @@ func (service *Service) InterestsIn(fileID int64) []chunks.Interest {
 }
 
 // wantFetched reads a playback's interest off a file of its film's chunks its player asked for (D309
-// §1): its picture or its sound is the file's stream, and the file's chunk, starting at startMs,
-// unless its player said it is paused, is where it now plays from. An init, isChunk false, says
-// nothing of where the player is: its run is made from where the playback last reported, the film's
-// start for a guest that has reported nothing (the owner's VQ38 run, 2026-10-12). Locked by its caller.
-func (playback *tokenPlayback) wantFetched(isSound bool, stream string, startMs int64, isChunk bool) {
+// §1), in the store at dir: its picture or its sound is the file's stream, and the file's chunk,
+// starting at startMs, unless its player said it is paused, is where it now plays from. An init,
+// isChunk false, says nothing of where the player is: its run is made from where the playback last
+// reported, the film's start for a guest that has reported nothing (the owner's VQ38 run,
+// 2026-10-12). A player that asks after it left, as a player page that takes over its film page's
+// token does, plays again. Locked by its caller.
+func (playback *tokenPlayback) wantFetched(isSound bool, stream, dir string, startMs int64, isChunk bool) {
 	interest := &playback.interest
-	interest.hasLeft = false
 	if isSound {
-		interest.sound = stream
+		interest.sound, interest.soundDir = stream, dir
 	} else {
-		interest.picture = stream
+		interest.picture, interest.pictureDir = stream, dir
 	}
-	if isChunk && !interest.isPaused {
+	if interest.disposition == Paused {
+		return
+	}
+	interest.disposition = Playing
+	if isChunk {
 		interest.positionMs = startMs
 	}
 }
@@ -132,17 +166,113 @@ func (service *Service) keepStart(playback *tokenPlayback, onLadder *chunks.Offe
 	service.keepStartsNeed(playback, onLadder)
 }
 
-// isHeardWithin is whether the playback's player was heard from within interestLapsesAfter of now:
-// a word, a chunk asked for, a report (D309 §3).
-func (playback *tokenPlayback) isHeardWithin(now time.Time) bool {
-	return now.Sub(playback.lastUsedAt) <= interestLapsesAfter
+// goneToAnother marks every playback of player's other than fileID's gone to it, and stops their
+// films' runs no one else wants (D309 §7): a player that starts a film is not coming back to them.
+func (service *Service) goneToAnother(ctx context.Context, player string, fileID int64) error {
+	var stopped error
+	for _, replaced := range service.tokens.replaceOthers(player, fileID) {
+		stopped = errors.Join(stopped, service.stopUnwanted(ctx, replaced))
+	}
+	return stopped
 }
 
-// dropInterest forgets a token's interest: its player left (D309 §1).
-func (all *tokens) dropInterest(token string) {
+// isWatching is whether the playback's player is playing, heard within interestLapsesAfter, or paused:
+// one whose quality a node cannot keep up with is moved, as its next request will be (D309 §6).
+func (playback *tokenPlayback) isWatching(now time.Time) bool {
+	disposition := playback.interest.disposition
+	return disposition == Paused || (disposition == Playing && now.Sub(playback.lastUsedAt) <= interestLapsesAfter)
+}
+
+// leave marks a token's player gone, Left or Replaced (D309 §7).
+func (all *tokens) leave(token string, gone Disposition) {
 	all.mutex.Lock()
 	defer all.mutex.Unlock()
 	if known, found := all.playbackByToken[token]; found {
-		known.interest = playerInterest{hasLeft: true}
+		known.interest.disposition = gone
 	}
+}
+
+// replaceOthers marks every playback of player's other than fileID's gone to another film: it plays
+// that one now, and is not coming back to them (D309 §7). It returns their films.
+func (all *tokens) replaceOthers(player string, fileID int64) []int64 {
+	all.mutex.Lock()
+	defer all.mutex.Unlock()
+	var replaced []int64
+	for _, known := range all.playbackByToken {
+		isOthers := playerOf(known.deviceID, known.sessionKey) == player && known.fileID != fileID
+		if isOthers && known.interest.disposition != Replaced {
+			known.interest.disposition = Replaced
+			replaced = append(replaced, known.fileID)
+		}
+	}
+	return replaced
+}
+
+// StoreTiers is how strongly each chunk store a player asked for is kept, by its directory: the
+// highest tier any playback gives it (D309 §8), read from the playbacks, which are the list of who
+// wants what. A store none gives one is the first a node removes when it needs room.
+func (service *Service) StoreTiers(ctx context.Context) (map[string]nodeproto.KeepTier, error) {
+	keeping, err := service.keepingTimes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	now := service.clock.Now()
+	service.tokens.mutex.Lock()
+	defer service.tokens.mutex.Unlock()
+	tiers := map[string]nodeproto.KeepTier{}
+	for _, playback := range service.tokens.playbackByToken {
+		tier := keeping.tierOf(playback.interest.disposition, now.Sub(playback.lastUsedAt))
+		if tier == nodeproto.KeepUnlikely {
+			continue
+		}
+		for _, dir := range []string{playback.interest.pictureDir, playback.interest.soundDir} {
+			if dir != "" && tier.IsAbove(tiers[dir]) {
+				tiers[dir] = tier
+			}
+		}
+	}
+	return tiers, nil
+}
+
+// keeping is how long a silent player's stores stay at each tier (D309 §8): likely, paused or silent,
+// for likelyFor; maybe to maybeFor; and maybe for leftFor once it left its page.
+type keeping struct {
+	likelyFor, leftFor, maybeFor time.Duration
+}
+
+// keepingTimes are the settings' keeping.
+func (service *Service) keepingTimes(ctx context.Context) (keeping, error) {
+	var times [3]time.Duration
+	for index, key := range []settings.Key{
+		settings.ChunkKeptLikelySeconds, settings.ChunkKeptLeftSeconds, settings.ChunkKeptMaybeSeconds,
+	} {
+		var err error
+		if times[index], err = service.settings.Duration(ctx, key); err != nil {
+			return keeping{}, fmt.Errorf("read %s: %w", key, err)
+		}
+	}
+	return keeping{likelyFor: times[0], leftFor: times[1], maybeFor: times[2]}, nil
+}
+
+// tierOf is the tier a player's stores are kept at, by where it stands and how long since it was
+// last heard (D309 §8): in use while playing and heard within interestLapsesAfter; likely, paused or
+// silent, for likelyFor; maybe, after, to maybeFor, and for leftFor once it left its page; unlikely
+// once it went to another film, and after all of them.
+func (times keeping) tierOf(disposition Disposition, silentFor time.Duration) nodeproto.KeepTier {
+	switch {
+	case disposition == Replaced:
+		return nodeproto.KeepUnlikely
+	case disposition == Left:
+		if silentFor < times.leftFor {
+			return nodeproto.KeepMaybe
+		}
+		return nodeproto.KeepUnlikely
+	case disposition == Playing && silentFor <= interestLapsesAfter:
+		return nodeproto.KeepInUse
+	case silentFor < times.likelyFor:
+		return nodeproto.KeepLikely
+	case silentFor < times.maybeFor:
+		return nodeproto.KeepMaybe
+	}
+	return nodeproto.KeepUnlikely
 }

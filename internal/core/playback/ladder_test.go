@@ -74,6 +74,7 @@ func TestStartOnLadder_WaitsForAFilmsKeyframesUpToTheLadderWait(t *testing.T) {
 		cut := &cutAfterChunks{noGridFor: wait.noGridFor}
 		service := &Service{
 			clock: clock, chunks: cut, speeds: newLinkSpeeds(), settings: waitSettings{waitMs: wait.waitMs},
+			tokens: newTokens(),
 		}
 		started := clock.Now()
 		offer, why, err := service.startOnLadder(t.Context(), Holder{}, Request{}, tokenPlayback{fileID: 1}, 0)

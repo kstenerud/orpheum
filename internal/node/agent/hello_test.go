@@ -23,6 +23,30 @@ func (fakePreparedShelf) Inventory() ([]nodeproto.RenditionManifest, error) { re
 
 func (fakePreparedShelf) Reconcile([]string, []string) ([]string, error) { return nil, nil }
 
+func (fakePreparedShelf) SetStoreTiers(map[string]nodeproto.KeepTier) {}
+
+// tieredShelf is a prepared shelf that keeps the tiers it was given.
+type tieredShelf struct {
+	fakePreparedShelf
+	tiers map[string]nodeproto.KeepTier
+}
+
+func (shelf *tieredShelf) SetStoreTiers(tiers map[string]nodeproto.KeepTier) { shelf.tiers = tiers }
+
+// A poll's answer that says how strongly the chunk stores are kept gives it to the prepared
+// directory's eviction; one that says nothing leaves its last (D309 §8).
+func TestAgent_KeepsTheChunkStoresByTheTiersThePollSays(t *testing.T) {
+	t.Parallel()
+	shelf := &tieredShelf{}
+	agent := &Agent{workers: Workers{PreparedShelf: shelf}}
+	said := map[string]nodeproto.KeepTier{"1/chunks-q400k360p/g": nodeproto.KeepInUse}
+	agent.takeAnswersSettings(nodeproto.Commands{StoreTiers: said})
+	agent.takeAnswersSettings(nodeproto.Commands{})
+	if shelf.tiers["1/chunks-q400k360p/g"] != nodeproto.KeepInUse {
+		t.Errorf("the shelf's tiers = %v; want the poll's", shelf.tiers)
+	}
+}
+
 // reconcilingShelf holds renditions, which it lists for the hello, and tells reconciled of each
 // reconciliation: the renditions listed and those kept.
 type reconcilingShelf struct {

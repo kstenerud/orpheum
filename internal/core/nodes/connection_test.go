@@ -387,6 +387,28 @@ func TestCommands_EachAnswerCarriesTheReaderLimitsTheSettingsSayNow(t *testing.T
 	}
 }
 
+// Each answer to a poll carries how strongly each chunk store is kept as the players stand then; with
+// nothing to say them, or when they cannot be read, none, which leaves the node its last (D309 §8).
+func TestCommands_EachAnswerCarriesHowStronglyEachChunkStoreIsKept(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
+	if commands, _ := harness.pollThroughHold(t, reply.NodeID, 0); commands.StoreTiers != nil {
+		t.Errorf("with nothing to say them, the tiers are %v; want none", commands.StoreTiers)
+	}
+	said := map[string]nodeproto.KeepTier{"1/chunks-q400k360p/g": nodeproto.KeepInUse}
+	harness.service.SetStoreTiers(func(context.Context) (map[string]nodeproto.KeepTier, error) { return said, nil })
+	if commands, _ := harness.pollThroughHold(t, reply.NodeID, 0); !maps.Equal(commands.StoreTiers, said) {
+		t.Errorf("the tiers = %v; want %v", commands.StoreTiers, said)
+	}
+	harness.service.SetStoreTiers(func(context.Context) (map[string]nodeproto.KeepTier, error) {
+		return nil, errors.New("the settings cannot be read")
+	})
+	if commands, _ := harness.pollThroughHold(t, reply.NodeID, 0); commands.StoreTiers != nil {
+		t.Errorf("when the tiers cannot be read, they are %v; want none", commands.StoreTiers)
+	}
+}
+
 // What a node's machine can do is its config's, said in its hello: the core knows each node's slots
 // as its last hello said, which it holds the node's work to (D240 §5), and how fast each reads.
 func TestHello_TellsTheCoreEachNodesSlotsAndHowFastItReads(t *testing.T) {

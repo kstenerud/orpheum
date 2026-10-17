@@ -174,10 +174,10 @@ func TestStopUnwanted_ARunOfAQualityItsPlayerLeftStops(t *testing.T) {
 	}
 }
 
-// A paused player wants only the minute after it: its run makes that and stops, so a tab paused for
-// an hour holds no encoder, and playing again starts at once (D309 §4). Once no one wants a film at
-// all, as when every interest lapsed, each step of a run stops it (§3).
-func TestStopUnwanted_APausedPlayersRunStopsOnceItsMinuteIsMade(t *testing.T) {
+// A paused player wants only chunk_kept_ahead_seconds after it, 30 s: its run makes that and stops,
+// so a tab paused for an hour holds no encoder, and playing again starts at once (D309 §7). Once no
+// one wants a film at all, as when every interest lapsed, each step of a run stops it (§3).
+func TestStopUnwanted_APausedPlayersRunStopsOnceWhatItKeepsAheadIsMade(t *testing.T) {
 	t.Parallel()
 	queue := newFakeQueue()
 	service, _ := chunksFixture(t, queue, fakeNode{})
@@ -185,22 +185,22 @@ func TestStopUnwanted_APausedPlayersRunStopsOnceItsMinuteIsMade(t *testing.T) {
 	picture := Stream{Kind: nodeproto.StreamPicture}
 	dir := StoreDir(1, picture, mustGrid(t, service).ID())
 	paused := playingAt(picture, 3)
-	paused.IsPaused = true
+	paused.IsStopped = true
 	wanted.say(paused)
 	askedFor(t, service, picture, 3)
-	service.runs.madeThrough(dir, 3, 7) // through 80 s: the minute from 30 s ends in chunk 8
+	service.runs.madeThrough(dir, 3, 4) // through 50 s: the 30 s from 30 s end in chunk 5
 	if err := service.StopUnwanted(t.Context(), 1); err != nil {
 		t.Fatal(err)
 	}
 	if len(queue.cancelledFirsts) != 0 {
-		t.Fatalf("with chunk 7 made: cancelled %v; want the run going on to make chunk 8", queue.cancelledFirsts)
+		t.Fatalf("with chunk 4 made: cancelled %v; want the run going on to make chunk 5", queue.cancelledFirsts)
 	}
-	service.runs.madeThrough(dir, 3, 8)
+	service.runs.madeThrough(dir, 3, 5)
 	if err := service.StopUnwanted(t.Context(), 1); err != nil {
 		t.Fatal(err)
 	}
 	if !slices.Equal(queue.cancelledFirsts, []int{3}) {
-		t.Fatalf("with the minute made: cancelled %v; want the run from 3", queue.cancelledFirsts)
+		t.Fatalf("with the 30 s made: cancelled %v; want the run from 3", queue.cancelledFirsts)
 	}
 
 	wanted.say(playingAt(picture, 40))
