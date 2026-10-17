@@ -1,0 +1,31 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/*
+ * The households the loader lists: each name, the way back, with a small red Forget at its row's
+ * end. The credentials form makes its every button the form's width, which drew Forget far larger
+ * than the name it forgets and easy to press by mistake (the owner, 2026-10-17).
+ */
+.loader-households {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.loader-households li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.loader-households a {
+  font-size: var(--font-size-h3);
+  font-weight: var(--font-weight-strong);
+}
+
+.credentials-form__form .loader-households button {
+  width: auto;
+}

@@ -54,6 +54,12 @@ export interface GateParts {
   readonly hasRealms: boolean;
   /** Where this device keeps the realm its person asked it to remember (D297 §5). */
   readonly realmStorage: StringStorage | undefined;
+  /**
+   * Whether the core is reached by its public names and WebRTC alone, never its LAN names: the
+   * loader's own origin, which only hands the browser on, so the browser asks to reach the local
+   * network once, at the client origin, not twice (the owner's Firefox, 2026-10-17).
+   */
+  readonly shouldSkipLanNames?: boolean;
 }
 
 /**
@@ -114,7 +120,7 @@ async function reachByRealm(
   } catch (problem: unknown) {
     return problem instanceof NotFound ? "realmWrong" : "realmUnreached";
   }
-  const target = withLatest(parts, found.core, found.target);
+  const target = withLatest(parts, found.core, withoutLanIfSkipped(parts, found.target));
   let reaching: Reaching;
   try {
     reaching = await reachCore(parts.client, target);
@@ -159,6 +165,15 @@ export function withLatest(parts: GateParts, core: KeptCore, target: Target): Ta
   };
 }
 
+/** The target, without its LAN names where the parts skip them. */
+function withoutLanIfSkipped(parts: GateParts, target: Target): Target {
+  if (parts.shouldSkipLanNames !== true) {
+    return target;
+  }
+  const lan = new Set(target.lanUrls);
+  return { ...target, directUrls: target.directUrls.filter((url) => !lan.has(url)), lanUrls: [] };
+}
+
 /** Reaches a core: finds it, connects, and says how it went. */
 async function reach(
   parts: GateParts,
@@ -167,7 +182,7 @@ async function reach(
 ): Promise<"notFound" | "deadEnd" | undefined> {
   let target: Target | undefined;
   try {
-    target = withLatest(parts, core, await find());
+    target = withLatest(parts, core, withoutLanIfSkipped(parts, await find()));
     await parts.onConnected(core, await reachCore(parts.client, target));
     return undefined;
   } catch (problem: unknown) {

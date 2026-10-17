@@ -8,10 +8,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { StringStorage } from "./browser-storage.ts";
 import { handOffFragment } from "./discovery-start.ts";
 import { startAtClient, type AtClientOrigin } from "./loader-at-client-origin.tsx";
-import { startAtLoaderOrigin, type AtLoaderOrigin } from "./loader-at-loader-origin.tsx";
-import { rememberHousehold } from "./loader-households.ts";
+import { joinParts, startAtLoaderOrigin, type AtLoaderOrigin } from "./loader-at-loader-origin.tsx";
+import { households, rememberHousehold } from "./loader-households.ts";
 import { loaderOf, loaderRefusal } from "./loader-interface.ts";
-import { mount, type Mounted } from "./test-dom.tsx";
+import { buttonWithText, click, mount, type Mounted } from "./test-dom.tsx";
 
 let mounted: Mounted | undefined;
 
@@ -89,9 +89,32 @@ describe("the loader at its own origin (D308)", () => {
     expect(mounted.container.textContent).toContain("Sign in to another household");
   });
 
+  it("forgets a household only once asked again, with a small red button (the owner, 2026-10-17)", async () => {
+    const storage = memoryStorage();
+    rememberHousehold(storage, household);
+    mounted = await mount(
+      startAtLoaderOrigin(loaderAt({ search: "?households=" }, storage, [])) ?? <p>nothing</p>,
+    );
+    const page = mounted.container;
+    const forget = page.querySelector<HTMLButtonElement>('button[aria-label="Forget nas"]');
+    expect(forget?.className).toBe("irreversible-outline");
+    await click(forget);
+    expect(page.textContent).toContain("This browser will forget nas.");
+    await click(buttonWithText(page, "Keep it"));
+    expect(households(storage)).toHaveLength(1);
+    await click(page.querySelector('button[aria-label="Forget nas"]'));
+    await click(buttonWithText(page, "Forget it"));
+    expect(households(storage)).toEqual([]);
+    expect(page.querySelectorAll(".loader-households li")).toHaveLength(0);
+  });
+
   it("with none, opens the realm sign-in", async () => {
     mounted = await mount(startAtLoaderOrigin(loaderAt({}, memoryStorage(), [])) ?? <p>nothing</p>);
     expect(mounted.container.querySelector('input[name="name"]')).not.toBeNull();
+  });
+
+  it("reaches the core without its LAN names, which the client origin asks the browser for alone", () => {
+    expect(joinParts(loaderAt({}, memoryStorage(), [])).shouldSkipLanNames).toBe(true);
   });
 });
 
