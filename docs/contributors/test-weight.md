@@ -269,6 +269,24 @@ Each entry says: the **mechanism**, the **instance** we found, **why it was invi
 - **Warning sign:** a nightly race failure that is a timeout or a missed deadline rather than a
   race report; the race step's time growing faster than the suite.
 
+### 16. check-pr's whole steps, whatever changed
+
+- **Mechanism:** the integration tier, the uncached lint and the browser tier ran whole on every
+  branch, so a change to one handler paid for every package's FFmpeg tests, every file's
+  type-aware lint and every browser test.
+- **Instance** (check-pr at nas.10, 2026-10-17): 41 s, 132 s and 396 s, for a batch whose Go
+  changed in one package.
+- **Why it was invisible:** each step was skipped for documentation alone, which read as narrowed.
+- **Fix** (the owner: "check-pr only checks what is actually possible to break based on the changes
+  made"): `scripts/impact.py` scopes each to what the change reaches: the integration packages
+  whose tests build a changed package; the changed web files and what imports them, by
+  dependency-cruiser; the browser tests that loaded a chunk holding a changed client source, by the
+  last complete browser map, read from the map's own commit. What it cannot place runs whole, and
+  `make check-everything` runs all three whole each night.
+- **Warning sign:** check-pr's steps log "may reach any" or "cannot place" for a change that
+  touched one package; a browser map whose `complete` commit falls far behind HEAD (only whole runs
+  renew it).
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of
