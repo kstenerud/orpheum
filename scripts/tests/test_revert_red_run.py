@@ -11,6 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import check_revert_red as rr  # noqa: E402
+import revert_red_attempts as attempts  # noqa: E402
 from revert_red_run import run_whole_group  # noqa: E402
 
 
@@ -58,13 +59,13 @@ class WholeGroup(unittest.TestCase):
 
 class BrowserProbe(unittest.TestCase):
     def test_a_probes_browser_run_stops_at_its_first_failure(self):
-        rr._installed_ffmpeg.cache_clear()
-        original = rr._installed_ffmpeg
-        rr._installed_ffmpeg = lambda: "/ffmpeg"  # type: ignore[assignment]
+        attempts._installed_ffmpeg.cache_clear()
+        original = attempts._installed_ffmpeg
+        attempts._installed_ffmpeg = lambda: "/ffmpeg"  # type: ignore[assignment]
         try:
             self.assertIn("E2E_ARGS=--max-failures=1", rr.browser_tier_command())
         finally:
-            rr._installed_ffmpeg = original
+            attempts._installed_ffmpeg = original
 
 
 if __name__ == "__main__":

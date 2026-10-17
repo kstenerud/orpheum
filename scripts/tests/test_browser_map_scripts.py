@@ -10,6 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import browser_map  # noqa: E402
 import check_revert_red as rr  # noqa: E402
+import revert_red_attempts as attempts  # noqa: E402
 
 LOADER = "web/apps/web/src/loader-main.tsx"
 SHARED = "web/packages/sdk/src/discovery.ts"
@@ -71,12 +72,12 @@ class TestsLoading(unittest.TestCase):
 
 class BrowserAttempts(unittest.TestCase):
     def setUp(self):
-        rr._installed_ffmpeg.cache_clear()
-        self.original = rr._installed_ffmpeg, browser_map.tests_loading
-        rr._installed_ffmpeg = lambda: "/ffmpeg"  # type: ignore[assignment]
+        attempts._installed_ffmpeg.cache_clear()
+        self.original = attempts._installed_ffmpeg, browser_map.tests_loading
+        attempts._installed_ffmpeg = lambda: "/ffmpeg"  # type: ignore[assignment]
 
     def tearDown(self):
-        rr._installed_ffmpeg, browser_map.tests_loading = self.original
+        attempts._installed_ffmpeg, browser_map.tests_loading = self.original
 
     def test_the_tests_that_load_it_run_first_and_every_test_after_before_it_is_green(self):
         browser_map.tests_loading = lambda path: [THROUGH_DISCOVERY]  # type: ignore[assignment]
