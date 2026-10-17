@@ -81,6 +81,8 @@ import revert_red_reruns as reruns
 from revert_red_report import failure_advice, report
 from revert_red_parts import (BROWSER_DEFERRED, BROWSER_INLINE, BROWSER_ONLY, CSS_SOURCE, PARTS,  # noqa: F401 (tests reach them here)
                               browser_mode, is_in_part)
+from revert_red_attempts import (TS_SOURCE, Attempt, browser_tier, browser_tier_command,  # noqa: F401 (tests reach them here)
+                                 is_browser_run)
 from revert_red_run import RUNNER_MISSING, is_build_failure, run_whole_group  # noqa: F401 (tests reach RUNNER_MISSING here)
 from revert_red_claims import VQ_FILE, refactor_only, verification_queue_problem, verified_out_of_suite  # noqa: F401 (tests reach VQ_FILE here)
 from revert_red_cosmetic import GO_SOURCE, PY_SOURCE, is_cosmetic, is_package_clause_only
@@ -136,7 +138,6 @@ STORE_INTEGRATION = ["go", "test", "-tags", "integration", "./internal/store/...
 # suffix in Python is a borrowed idiom that only ever matched the wrong file.
 PY_TEST = re.compile(r"(^|/)tests/")
 
-TS_SOURCE = re.compile(r"^web/(packages|apps)/[^/]+/src/.*\.tsx?$")
 TS_TEST = re.compile(r"\.test\.tsx?$")
 
 # Every Python test is in scripts/tests (PY_TEST), so every Python source outside it is in their
@@ -329,18 +330,6 @@ def wide_scope(path: str) -> list[str] | None:
 VITEST_RUN = ["npx", "--prefix", "web", "vitest", "run", "--root", "web"]
 
 
-
-@dataclass(frozen=True)
-class Attempt:
-    """One run that may notice a reverted file. `compile_only` runs cannot fail an assertion,
-    so any failure of theirs is a build failure."""
-
-    command: list[str]
-    label: str
-    env: dict[str, str] | None = None
-    compile_only: bool = False
-
-
 def other_builds(path: str) -> list[Attempt]:
     """The runs beyond the default suite that `make check` also makes, for a file only they
     compile: the dev-tagged suite, and a compile for the operating system a file is named for;
@@ -380,49 +369,6 @@ def attempts_for(change: Change, first: list[str]) -> list[Attempt]:
     if wide is not None and wide != scope_for(change.path):
         attempts.append(Attempt(wide, ", found by the tests its revert can reach"))
     return [*attempts, *other_builds(change.path), *browser_tier(change.path)]
-
-
-def browser_tier(path: str) -> list[Attempt]:
-    """For web source, the browser tier, tried last: a change only a browser shows — a stylesheet
-    a component imports, a layout — is invisible to vitest, which renders no CSS, and to the type
-    check. It runs `make browser-tier`, which is `make test-browser` without its install step: the
-    worktree's packages are links to the working tree's, which an install would replace. FFmpeg is
-    the working tree's, which the worktree does not have."""
-    if not TS_SOURCE.search(path):
-        return []
-    whole = Attempt(browser_tier_command(), ", found by the browser tier")
-    # First the tests that loaded a chunk holding it (the browser map), where a red is likeliest and
-    # comes soonest; only if none turns red, every test, since the map may be another commit's and a
-    # verdict of green is never the map's (browser_map.tests_loading).
-    loading = browser_map.tests_loading(path)
-    if not loading:
-        return [whole]
-    return [Attempt(browser_tier_command(), ", found by the browser tests that load it",
-                    {browser_map.ONLY_THESE_TESTS: json.dumps(loading)}), whole]
-
-
-def is_browser_run(attempt: Attempt) -> bool:
-    return "browser-tier" in attempt.command
-
-
-def browser_tier_command() -> list[str]:
-    """The browser tier as a probe runs it: stopped at its first failing test, since one red settles
-    the probe. A test its revert hangs fails by Playwright's own timeout, two minutes, where the whole
-    tier ran on past the probe's 15 and settled nothing (check-pr, 2026-10-17)."""
-    return ["make", "--no-print-directory", "browser-tier", f"FFMPEG_DIR={_installed_ffmpeg()}",
-            f"E2E_ARGS={FIRST_FAILURE_ENDS_IT}"]
-
-
-FIRST_FAILURE_ENDS_IT = "--max-failures=1"
-
-
-@functools.cache
-def _installed_ffmpeg() -> str:
-    """The FFmpeg directory the working tree's `make ffmpeg` installed."""
-    root = _git("rev-parse", "--show-toplevel").stdout.strip()
-    done = subprocess.run([sys.executable, "scripts/fetch_ffmpeg.py"], cwd=root, capture_output=True,
-                          text=True, check=False)
-    return done.stdout.strip()
 
 
 def is_not_linux(path: str) -> bool:
