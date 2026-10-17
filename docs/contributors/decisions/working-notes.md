@@ -18064,6 +18064,8 @@ answering the three questions that review left (§7–§9). **Revises**
 
 ## D247 — A slow link gets a lower version made at its first stall and played from its second, and a group waits for a stalled viewer once, then lets them catch up alone
 
+> **§10 revised by [D309](#d309--a-player-says-which-quality-it-wants-and-from-where-and-a-run-no-player-wants-stops)** (2026-10-17): a run goes on while a player says it wants its quality from where it plays, not while asks arrive.
+
 > **Revised by [D260](#d260--a-film-plays-from-its-ladder-of-qualities-from-the-start-filled-on-its-page-and-its-player-keeps-choosing-as-it-plays)** (2026-10-07): **a film that can be cut plays from its ladder from the start**, at its top unless its link is remembered slow; §2's original-first and stall-made version remain for a film not cut yet.
 
 > **Superseded in part by [D253](#d253--a-stalled-player-is-told-of-its-lower-version-at-its-first-stall-and-moves-to-it-once-it-is-ready-if-it-still-cannot-keep-up)** (2026-10-07): **the version is played from when it is ready, not from a second stall.** The first stall still makes it, and its answer now offers it; a player moves once it is ready if it still cannot keep up (§2, §10 below).
@@ -18282,6 +18284,8 @@ sandbox's shared files and the agent deletes once set; the admin's password goes
 **Status:** Decided 2026-10-06; staging built the same day (deploy/staging, ./staging), release later.
 
 ## D250 — A Watch Together group stops only at its own sync points: a member's trouble is theirs to catch up on, from what is already being made
+
+> **§5 and §6 revised by [D309](#d309--a-player-says-which-quality-it-wants-and-from-where-and-a-run-no-player-wants-stops)** (2026-10-17): a run no player wants stops at once, with no rule of distance; under load a player moves down a quality, and only one at the lowest is stopped.
 
 > **Revised by [D261](#d261--the-m4-audits-questions-answered)** (2026-10-07): the drift left alone is 150 ms by default, not 500 (§1).
 
@@ -19651,6 +19655,8 @@ before settling on what each device can handle."* It refines D250 §2 and D283 �
 
 ## D286 — A jump cuts every run of a quality it does not land in, a group's player keeps the film's own picture while its link carries it, encoded devices start a jump on a common quality, and an overloaded server moves a player onto a quality it already makes
 
+> **§1 and §4 revised by [D309](#d309--a-player-says-which-quality-it-wants-and-from-where-and-a-run-no-player-wants-stops)** (2026-10-17): a jump's player says where it now wants its quality, which ends the runs it left; moving a player down is the rule under load.
+
 **Decided** (2026-10-12), by the project owner, after a group test in which a Mac stepped down from
 the film's own picture to a 720p encode, two 720p runs and a 540p one ran beside the sound's, each
 at 0.6 to 1.2× playback, and the Mac and an iPhone took 70 and 85 s to play again. To cancelling a
@@ -20562,5 +20568,36 @@ between a core and its discovery stable but says nothing of the one between a cl
    button to bring the user to the login screen so they can join a new core"*), and each entry can
    be forgotten. Whether a browser is still signed in to a core is not shown: only that core's own
    origin knows.
+
+**Status:** Decided 2026-10-17.
+
+## D309 — A player says which quality it wants and from where, and a run no player wants stops
+
+**Decided** (2026-10-17), by the project owner, after Wings on nas.example stopped for minutes after a
+small seek. The node was making four runs: two of 720p, left from before the player moved to 360p,
+and two of 360p. One 720p run measured just under 1.1x, so the newest run, a 360p one 3.5 s old that
+the player needed, was evicted (D250 §6). Every rule that chose it guessed: a run was in use when a
+player had asked for any of its chunks in the last 30 s, a seek was told from how far apart two asks
+were (D250 §5, D286 §1), and a player moved onto another quality needed a rule of its own (D286 §4).
+The owner: *"What if we had clients express interest and disinterest? Then we'd know if there's
+actually any reason to keep chunks around or even continue them. Each client can only express
+interest in one quality at a time."* It revises D247 §10, D250 §5 and §6, and D286 §1 and §4.
+
+1. **A player says what it wants: one picture quality, from a position, and its sound.** It says so
+   as it starts, and again whenever its quality-switching (D265) moves it or a seek moves where it
+   plays: each saying replaces the last. Leaving the film withdraws it.
+2. **A run no player wants is stopped at once**, with no grace period and no rule of distance: a
+   run of a quality its players left, or of a place they sought away from. A Watch Together group's
+   run goes on while any member wants it; members on different qualities each keep their own.
+3. **Interest lapses when a player falls silent.** Its play reports renew it, so a closed tab, a
+   crash or a lost link lets it end; the player's own word is the signal, the lapse only the backstop.
+4. **A paused player wants only the minute ahead of it** (the agent's proposal; the owner:
+   *"agreed on all points"*): its run makes that minute and stops, so a tab paused for an hour holds
+   no encoder, and playing again starts at once.
+5. **Chunks no one wants are kept, within the disk budget**: interest decides what a node encodes;
+   what is made costs only disk, and a rewind or a second viewer plays it again.
+6. **When the runs players want cannot all keep up, a player moves down a quality** (D286 §4's move,
+   made the rule): the run that gives way is one a player wants, moved to the quality below; only a
+   player already at the lowest is stopped and told why (D250 §6).
 
 **Status:** Decided 2026-10-17.
