@@ -20511,5 +20511,18 @@ between a core and its discovery stable but says nothing of the one between a cl
    with the client it was built with. On the core's own address (at home) nothing changes: the core
    serves its client there already.
 
-**Status:** Decided 2026-10-17; its design (how the code is carried, checked and run, and what the
-loader hands the client) is the agent's to propose and the owner's to settle.
+3. **Each core's client has an origin of its own, under a new registered domain**, after an
+   independent audit ([client-from-core-security-audit-2026-10-17.md](../design/research/client-from-core-security-audit-2026-10-17.md))
+   found that a core's code on `app.`'s shared origin could take other households' sessions and
+   their admin from home, and that Cloudflare's free certificate on `orpheum-core.com` would likely
+   cancel the per-core CAA of D292 §1. The owner: *"I'll register a new domain."* `app.` keeps no
+   core's session.
+4. **A realm sign-in hands over by a single-use code**, the owner choosing it over a second password
+   (*"Typing the password twice is annoying. We go with (a)."*): `app.`'s loader signs in with the
+   password, asks the core for a code of one use and a short life bound to the device, keeps
+   nothing, and the client's origin exchanges the code for its own session.
+5. **No sessions are carried over.** The owner: *"The only deployments so far are your staging, and
+   nas.example. Both are expendable, and nobody but you and me have logged into either."*
+
+**Status:** Decided 2026-10-17 in part; the rest of its design (the audit's open questions) is the
+owner's to settle.
