@@ -1,0 +1,43 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* The UI gallery's made-up posters, in the tones a real poster's corner may be. */
+
+.ui-gallery section {
+  margin-block-end: var(--space-6);
+}
+
+.ui-gallery__poster--light {
+  background: linear-gradient(160deg, #fdfcf7, #e8e2d2);
+}
+
+.ui-gallery__poster--medium {
+  background: linear-gradient(160deg, #8a7f74, #5d6b7a);
+}
+
+.ui-gallery__poster--dark {
+  background: linear-gradient(160deg, #15161c, #05070c);
+}
+
+.ui-gallery__poster--busy {
+  background:
+    repeating-linear-gradient(
+      45deg,
+      #ffcf3f 0 0.6rem,
+      #1b4d8c 0.6rem 1.2rem,
+      #e8e2d2 1.2rem 1.8rem
+    ),
+    #1b4d8c;
+}
+
+.ui-gallery__notes h3 {
+  margin-block: var(--space-3) var(--space-1);
+  font-size: var(--font-size-small);
+}
+
+.ui-gallery__icons,
+.ui-gallery__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}

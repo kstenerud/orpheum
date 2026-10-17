@@ -24,6 +24,8 @@ export type Route =
   | { readonly screen: "register" }
   | { readonly screen: "together" }
   | { readonly screen: "watch-together" }
+  /** The client's own parts with made-up data, for seeing how they look; no menu leads to it. */
+  | { readonly screen: "ui-gallery" }
   | { readonly screen: "not-found" };
 
 /** Where an item of a kind leads: a series' page, else a title's (a film, an episode, an extra). */
@@ -76,6 +78,7 @@ const shapes: readonly Shape[] = [
   { pattern: /^\/register\/?$/u, toRoute: () => ({ screen: "register" }) },
   { pattern: /^\/together\/?$/u, toRoute: () => ({ screen: "together" }) },
   { pattern: /^\/watch-together\/?$/u, toRoute: () => ({ screen: "watch-together" }) },
+  { pattern: /^\/ui-gallery\/?$/u, toRoute: () => ({ screen: "ui-gallery" }) },
 ];
 
 /** The route an address names; an address the client does not know is not-found, never a guess. */
