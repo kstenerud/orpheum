@@ -72,6 +72,9 @@ type TXTRecords interface {
 	ClearTXT(ctx context.Context, name string) error
 }
 
+// CorePlace is the place a core's id takes in Parts.ClientOrigin's pattern (D308).
+const CorePlace = "{core}"
+
 // Parts is what a single-target discovery is made of.
 type Parts struct {
 	// BaseURL is the address the core calls this discovery at, path included, which its signatures
@@ -79,7 +82,9 @@ type Parts struct {
 	BaseURL string
 	// Zone is the owner's zone: the core's names are under <coreId>.<Zone>.
 	Zone string
-	// ClientOrigin is where the owner serves the client, which the core's links lead to (D293 §4).
+	// ClientOrigin is where the owner serves the client, which the core's links lead to (D293 §4):
+	// with CorePlace in it, the pattern of each core's own client origin, its id put in its place
+	// (D308).
 	ClientOrigin string
 	// LoaderOrigin is where the owner serves the loader that hands a browser on to the client origin
 	// (D308); empty when the client is served whole at ClientOrigin.
@@ -373,7 +378,8 @@ func (discovery *Discovery) status(writer http.ResponseWriter, request *http.Req
 		return
 	}
 	status := discoveryproto.StatusResponse{
-		State: held.State, ICEServers: discovery.parts.ICEServers, ClientOrigin: discovery.parts.ClientOrigin,
+		State: held.State, ICEServers: discovery.parts.ICEServers,
+		ClientOrigin: strings.ReplaceAll(discovery.parts.ClientOrigin, CorePlace, held.ID),
 		LoaderOrigin: discovery.parts.LoaderOrigin,
 	}
 	if held.State == discoveryproto.StatePending {

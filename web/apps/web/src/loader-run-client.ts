@@ -82,7 +82,8 @@ export async function checkedManifest(
 /** The client's page, fetched over the path and checked by the hash its manifest names. */
 async function checkedPage(send: FetchRequest, manifest: ClientManifest): Promise<string> {
   const named = manifest.files.find((file) => file.path === "index.html");
-  const answer = await send(new Request("/index.html"));
+  // The core answers its page at "/": Go's file server sends a request for /index.html there.
+  const answer = await send(new Request("/"));
   const bytes = await answer.arrayBuffer();
   if (named === undefined || !answer.ok || (await sha256Of(bytes)) !== named.sha256) {
     throw new ClientRefused("pageChanged", "the server's client page is not the one it signed");
@@ -114,6 +115,9 @@ export function clientPartsOf(page: Document, clientPage: string): readonly Clie
   return parts;
 }
 
+/** The query a client's script is run by, apart from the same address the loader ran. */
+const clientRun = "client";
+
 /**
  * Adds parts to page, each made anew so a script runs, with loader on its window for the client to
  * take: what RunParts.mount does in a browser.
@@ -127,7 +131,13 @@ export function mountClient(
   for (const part of parts) {
     const made = page.createElement(part.tag);
     for (const [name, value] of part.attributes) {
-      made.setAttribute(name, value);
+      // A script by an address of its own: the loader and the client of one release are one build,
+      // and a module the loader already ran is not run again by the same address. The worker finds
+      // the file by its path alone.
+      made.setAttribute(
+        name,
+        part.tag === "script" && name === "src" ? `${value}?${clientRun}` : value,
+      );
     }
     page.head.append(made);
   }

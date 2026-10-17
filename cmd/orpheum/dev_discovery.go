@@ -88,19 +88,29 @@ type devDiscoverySite struct {
 	clientFiles             fs.FS
 }
 
-// devDiscoveryHandler is the development discovery at base: single's two APIs, the claim and the
-// core's id and fingerprint a test asks for, and the client, its page naming the client API.
+// devDiscoveryHandler is the development discovery at base, which the core calls: single's two
+// APIs, the claim and the core's id and fingerprint a test asks for, and the loader (D308), its page
+// naming its configuration, at every name the listener is reached by. Its loader is at localhost and
+// each core's client origin at <coreId>.localhost, on base's port: names a browser resolves to this
+// machine and takes for secure, as a service worker and crypto.subtle need (RFC 6761 §6.3).
 func devDiscoveryHandler(site devDiscoverySite, logger *slog.Logger) (http.Handler, error) {
 	base, realm := site.base, site.realm
+	port := base[strings.LastIndex(base, ":")+1:]
+	loaderOrigin := "http://localhost:" + port
+	clientOrigins := "http://" + single.CorePlace + ".localhost:" + port
 	store := single.FileStore{Path: site.recordPath}
 	discovery, err := single.New(single.Parts{
-		BaseURL: base + devCoreAPI, Zone: "discovery.test", ClientOrigin: base, Store: store,
-		Now: clock.System{}.Now, Random: rand.Reader, Logger: logger, Realm: realm,
+		BaseURL: base + devCoreAPI, Zone: "discovery.test", ClientOrigin: clientOrigins,
+		LoaderOrigin: loaderOrigin, Store: store, Now: clock.System{}.Now, Random: rand.Reader, Logger: logger,
+		Realm: realm,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("make the discovery: %w", err)
 	}
-	page, err := pageNaming(site.clientFiles, base+devClientAPI, realm != "")
+	// The client API at the page's own name, whichever it is, so no page's call is cross-origin.
+	page, err := pageNaming(site.clientFiles, loaderMetas{
+		clientAPI: devClientAPI, clientOrigins: clientOrigins, loaderOrigin: loaderOrigin, hasRealms: realm != "",
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -137,15 +147,24 @@ func devDiscoveryHandler(site devDiscoverySite, logger *slog.Logger) (http.Handl
 	return mux, nil
 }
 
-// pageNaming serves the client's files, its page naming clientAPI in the meta element the client
-// reads (webrtc-transport.md W4c), as a discovery serves it.
-func pageNaming(files fs.FS, clientAPI string, hasRealms bool) (http.Handler, error) {
+// loaderMetas are what a discovery's page tells its loader (D308): its client API, the pattern of
+// its client origins, the loader's own origin, and whether it has realms.
+type loaderMetas struct {
+	clientAPI, clientOrigins, loaderOrigin string
+	hasRealms                              bool
+}
+
+// pageNaming serves the client's files, its page naming what the loader reads in its meta elements
+// (webrtc-transport.md W4c; D308), as a discovery serves it.
+func pageNaming(files fs.FS, metas loaderMetas) (http.Handler, error) {
 	index, err := fs.ReadFile(files, "index.html")
 	if err != nil {
 		return nil, fmt.Errorf("read the client's index.html: %w", err)
 	}
-	meta := `<head><meta name="orpheum-discovery-client-api" content="` + clientAPI + `">`
-	if hasRealms {
+	meta := `<head><meta name="orpheum-discovery-client-api" content="` + metas.clientAPI + `">` +
+		`<meta name="orpheum-client-origins" content="` + metas.clientOrigins + `">` +
+		`<meta name="orpheum-loader-origin" content="` + metas.loaderOrigin + `">`
+	if metas.hasRealms {
 		// The page offers a realm sign-in only where the discovery has realms (D297 §1).
 		meta += `<meta name="orpheum-discovery-realms" content="true">`
 	}

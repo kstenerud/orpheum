@@ -15,6 +15,7 @@
  */
 
 import {
+  askPathOf,
   isClaimMessage,
   isPathMessage,
   loadAfterAsking,
@@ -48,6 +49,7 @@ interface ExtendableEventLike {
 
 /** A page the worker can post to, or a worker of one. */
 interface ClientLike {
+  readonly id?: string;
   readonly type?: string;
   postMessage(message: unknown, transfer: Transferable[]): void;
 }
@@ -239,14 +241,29 @@ async function clientFilesOf(worker: WorkerScope): Promise<Map<string, string>> 
   return clientFiles;
 }
 
-/** A page the worker can ask to fetch for the load clientId made: it, or, for a worker, a window. */
-async function pageFor(worker: WorkerScope, clientId: string): Promise<ClientLike | undefined> {
-  const made = await worker.clients.get(clientId);
-  if (made?.type === "window") {
-    return made;
+/**
+ * A page that carries a path to the core, which the worker can ask to fetch for the load clientId
+ * made: it, or, for a worker of a page, a window that does. None while the page is still finding the
+ * core, as a loader booting on a page the worker already knows the client's files for is.
+ */
+async function carryingPageFor(
+  worker: WorkerScope,
+  clientId: string,
+): Promise<ClientLike | undefined> {
+  if (onWebrtc.has(clientId)) {
+    return await worker.clients.get(clientId);
   }
-  const [window] = await worker.clients.matchAll({ type: "window" });
-  return window;
+  const made = await worker.clients.get(clientId);
+  const page =
+    made?.type === "window" ? made : (await worker.clients.matchAll({ type: "window" }))[0];
+  if (page?.id === undefined || onHttp.has(page.id)) {
+    return undefined;
+  }
+  // A worker started again knows no page's path: the page is asked, and one finding the core says
+  // nothing in time.
+  const path = onWebrtc.has(page.id) ? "webrtc" : await askPathOf(page);
+  notePath(page.id, path);
+  return path === "webrtc" ? page : undefined;
 }
 
 /**
@@ -264,19 +281,24 @@ async function clientFile(
   if (kept !== undefined) {
     return kept;
   }
-  const page = await pageFor(worker, event.clientId);
-  if (page === undefined) {
-    return new Response("no page to fetch the server's file through", { status: 503 });
-  }
-  const fetched = await fetchedBy(page, event.request);
+  const page = await carryingPageFor(worker, event.clientId);
+  // A page with no path yet is the loader starting: its own file of the same name comes from the
+  // discovery, kept only when it is the very file the manifest names, as a name made of its content
+  // says it is.
+  const fetched =
+    page === undefined ? await networkFetch(event.request) : await fetchedBy(page, event.request);
   const bytes = await fetched.arrayBuffer();
-  if (fetched.status !== 200 || (await sha256Of(bytes)) !== sha256) {
+  const isSigned = fetched.status === 200 && (await sha256Of(bytes)) === sha256;
+  if (!isSigned && page !== undefined) {
     return new Response("this file is not the one the server signed", { status: 502 });
   }
   const answer = new Response(bytes, {
+    status: fetched.status,
     headers: { "Content-Type": fetched.headers.get("Content-Type") ?? "application/octet-stream" },
   });
-  await cache.put(key, answer.clone());
+  if (isSigned) {
+    await cache.put(key, answer.clone());
+  }
   return answer;
 }
 

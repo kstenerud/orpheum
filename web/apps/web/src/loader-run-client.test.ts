@@ -53,9 +53,7 @@ async function coreServing(page: string): Promise<{
         }),
       );
     }
-    return Promise.resolve(
-      path === "/index.html" ? new Response(page) : new Response("", { status: 404 }),
-    );
+    return Promise.resolve(path === "/" ? new Response(page) : new Response("", { status: 404 }));
   };
   const fingerprint = base64url(new Uint8Array(await crypto.subtle.digest("SHA-256", publicKey)));
   return { send, fingerprint };

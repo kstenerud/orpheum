@@ -497,6 +497,8 @@ func TestStep_KeepsTheClientOriginTheDiscoveryNamesWhenItIsAnHTTPSOrigin(t *test
 		// A discovery on this machine, as in the browser tier: plain HTTP crosses no network.
 		"http://127.0.0.1:8080":    "http://127.0.0.1:8080",
 		"http://localhost:8080":    "http://localhost:8080",
+		"http://k7.localhost:8080": "http://k7.localhost:8080",
+		"http://localhost.evil:80": "",
 		"http://10.0.0.1:8080":     "",
 		"https://app.example/path": "",
 		"https://user@app.example": "",
