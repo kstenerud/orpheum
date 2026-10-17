@@ -35,8 +35,11 @@ export interface OrpheumLoader {
   readonly fetch: FetchRequest;
   /** Opens the Watch Together socket over the path in use. */
   readonly openTogetherSocket: OpenTogetherSocket;
-  /** Tells listener each time the requests move from one path to another; returns its removal. */
-  readonly onPathMove: (listener: () => void) => () => void;
+  /**
+   * Tells listener each time the requests move from one path to another, with the name of the one
+   * they went to (an older loader names none); returns its removal.
+   */
+  readonly onPathMove: (listener: (to?: string) => void) => () => void;
   /**
    * The session at this client origin, which the loader keeps, so the two never disagree about
    * where it is stored: the client signs in and out through it alone.

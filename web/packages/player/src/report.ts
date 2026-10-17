@@ -14,6 +14,11 @@ export type PlayEvent = Readonly<Schemas["EventBody"]>;
 /** A change of play state (D165): what happened, never a heartbeat. */
 export type PlayEventKind = PlayEvent["kind"];
 
+/** What was true of the page as it paused or moved, which says where the pause or the move came from. */
+export type PlayEventContext = Readonly<Schemas["EventContextBody"]>;
+
+export type PlayPathMove = Readonly<Schemas["PathMoveBody"]>;
+
 /** A run of watching that a change closed. */
 export type PlaySpan = Readonly<Schemas["SpanBody"]>;
 
@@ -22,11 +27,12 @@ export type PlaySpan = Readonly<Schemas["SpanBody"]>;
  * player always sends its changes and spans, if only none, where the API also takes null.
  */
 export type PlayReport = Readonly<
-  Omit<Schemas["ReportInputBody"], "events" | "spans" | "stalls">
+  Omit<Schemas["ReportInputBody"], "events" | "spans" | "stalls" | "pathMoves">
 > & {
   readonly events: readonly PlayEvent[];
   readonly spans: readonly PlaySpan[];
   readonly stalls?: readonly PlayStall[];
+  readonly pathMoves?: readonly PlayPathMove[];
 };
 
 /** A stall of the player, where it was (D247 §2): about its link, not what was watched. */
@@ -75,6 +81,10 @@ export class ReportRefused extends Error {
  */
 export const bufferedTextMost = 400;
 
+/** The longest path name a move is reported with, and the most moves one report carries (the API's). */
+const pathNameMost = 200;
+const pathMovesMost = 20;
+
 export class PlayReporter {
   private hasStarted = false;
   private events: PlayEvent[] = [];
@@ -84,6 +94,7 @@ export class PlayReporter {
   private unplayables: PlayUnplayable[] = [];
   private seeks: PlaySeek[] = [];
   private standstills: PlayStandstill[] = [];
+  private pathMoves: PlayPathMove[] = [];
   private readLinkKbps: () => number | undefined = () => undefined;
   private openSpan: { fromPositionMs: number; startedMonoMs: number } | undefined;
   private isSending = false;
@@ -105,25 +116,35 @@ export class PlayReporter {
     const now = this.readMonotonicMs();
     this.hasStarted = true;
     this.openSpan ??= { fromPositionMs: positionMs, startedMonoMs: now };
-    this.recordEvent("started", positionMs, now);
+    this.recordEvent({ kind: "started", positionMs, happenedMonoMs: now });
   }
 
-  /** Playing stopped at positionMs. */
-  recordPaused(positionMs: number): void {
-    this.recordEvent("paused", positionMs, this.closeSpan(positionMs));
+  /** Playing stopped at positionMs, with what was true of the page then. */
+  recordPaused(positionMs: number, context?: PlayEventContext): void {
+    this.recordEvent({
+      kind: "paused",
+      positionMs,
+      happenedMonoMs: this.closeSpan(positionMs),
+      context,
+    });
   }
 
   /**
    * The person moved from fromMs to toMs. What was playing before the move is a span; watching
    * goes on from toMs if it was playing.
    */
-  recordSeeked(fromMs: number, toMs: number): void {
+  recordSeeked(fromMs: number, toMs: number, context?: PlayEventContext): void {
     const wasPlaying = this.openSpan !== undefined;
     const now = this.closeSpan(fromMs);
     if (wasPlaying) {
       this.openSpan = { fromPositionMs: toMs, startedMonoMs: now };
     }
-    this.recordEvent("seeked", toMs, now);
+    this.recordEvent({ kind: "seeked", positionMs: toMs, happenedMonoMs: now, context });
+  }
+
+  /** The page moved to another path to the core, named to; sent with the next report. */
+  recordPathMove(to: string): void {
+    this.pathMoves.push({ to: to.slice(0, pathNameMost), happenedMonoMs: this.readMonotonicMs() });
   }
 
   /**
@@ -163,13 +184,17 @@ export class PlayReporter {
 
   /** The file played to its end. */
   recordCompleted(positionMs: number): void {
-    this.recordEvent("completed", positionMs, this.closeSpan(positionMs));
+    this.recordEvent({ kind: "completed", positionMs, happenedMonoMs: this.closeSpan(positionMs) });
   }
 
   /** The person left the playback at positionMs; a playback that never played says nothing. */
   recordAbandoned(positionMs: number): void {
     if (this.hasStarted) {
-      this.recordEvent("abandoned", positionMs, this.closeSpan(positionMs));
+      this.recordEvent({
+        kind: "abandoned",
+        positionMs,
+        happenedMonoMs: this.closeSpan(positionMs),
+      });
     }
   }
 
@@ -221,6 +246,7 @@ export class PlayReporter {
       ...(this.unplayables.length === 0 ? {} : { unplayables: this.unplayables }),
       ...(this.seeks.length === 0 ? {} : { seeks: this.seeks }),
       ...(this.standstills.length === 0 ? {} : { standstills: this.standstills }),
+      ...(this.pathMoves.length === 0 ? {} : { pathMoves: this.pathMoves.slice(-pathMovesMost) }),
     };
     this.events = [];
     this.spans = [];
@@ -229,6 +255,7 @@ export class PlayReporter {
     this.unplayables = [];
     this.seeks = [];
     this.standstills = [];
+    this.pathMoves = [];
     this.isSending = true;
     this.send(report).then(
       () => {
@@ -248,15 +275,23 @@ export class PlayReporter {
         this.unplayables = [...(report.unplayables ?? []), ...this.unplayables];
         this.seeks = [...(report.seeks ?? []), ...this.seeks];
         this.standstills = [...(report.standstills ?? []), ...this.standstills];
+        this.pathMoves = [...(report.pathMoves ?? []), ...this.pathMoves];
       },
     );
   }
 
-  private recordEvent(kind: PlayEventKind, positionMs: number, happenedMonoMs: number): void {
+  private recordEvent(event: {
+    readonly kind: PlayEventKind;
+    readonly positionMs: number;
+    readonly happenedMonoMs: number;
+    readonly context?: PlayEventContext | undefined;
+  }): void {
+    const { kind, positionMs, happenedMonoMs, context } = event;
     this.events.push({
       kind,
       positionMs: Math.max(0, Math.round(positionMs)),
       happenedMonoMs,
+      ...(context === undefined ? {} : { context }),
     });
     this.flush(positionMs);
   }

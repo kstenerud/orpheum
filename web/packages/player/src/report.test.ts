@@ -114,6 +114,36 @@ describe("reporting play state", () => {
     expect(sent[1]?.spans).toHaveLength(1);
   });
 
+  it("sends a pause's and a seek's context with them, and each path move with the next report, again after one that failed", async () => {
+    const { reporter, sent, setNow, failNext } = fakeReporter();
+    setNow(1000);
+    reporter.recordStarted(0);
+    await settled();
+    reporter.recordPathMove("WebRTC");
+    failNext();
+    setNow(5000);
+    reporter.recordPaused(4000, { isPageHidden: true, mediaSessionAction: "pause", readyState: 4 });
+    await settled();
+    setNow(6000);
+    reporter.recordSeeked(4000, 4251, { skippedBy: "hole", readyState: 3 });
+    await settled();
+    const paused = sent.flatMap((report) => report.events).find((event) => event.kind === "paused");
+    const seeked = sent.flatMap((report) => report.events).find((event) => event.kind === "seeked");
+    expect(paused?.context).toEqual({
+      isPageHidden: true,
+      mediaSessionAction: "pause",
+      readyState: 4,
+    });
+    expect(seeked?.context).toEqual({ skippedBy: "hole", readyState: 3 });
+    expect(sent.flatMap((report) => report.pathMoves ?? [])).toEqual([
+      { to: "WebRTC", happenedMonoMs: 1000 },
+    ]);
+    const started = sent
+      .flatMap((report) => report.events)
+      .find((event) => event.kind === "started");
+    expect(started).not.toHaveProperty("context");
+  });
+
   it("tells a stall at once with the link's speed, and again after a report that failed", async () => {
     const { reporter, sent, setNow, failNext } = fakeReporter();
     const link: { kbps: number | undefined } = { kbps: undefined };

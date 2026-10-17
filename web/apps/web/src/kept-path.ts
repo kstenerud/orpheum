@@ -31,7 +31,7 @@ export interface KeptPath {
   /** Opens the Watch Together socket on the path in use. */
   readonly openTogetherSocket: OpenTogetherSocket;
   /** Tells listener each time the requests move to another path; returns its removal. */
-  readonly onPathMove: (listener: () => void) => () => void;
+  readonly onPathMove: (listener: (to: string) => void) => () => void;
   /** Names what media loads are signed in with. */
   readonly setMediaCredentials: (credentials: () => MediaCredentials) => void;
   /**
@@ -72,7 +72,7 @@ export function keepPath(
   let isFirst = true;
   let openSocket = socketOn(reaching.first);
   let credentials = (): MediaCredentials => ({ token: session.token(), viewer: undefined });
-  const moveListeners = new Set<() => void>();
+  const moveListeners = new Set<(to: string) => void>();
   const keeper = new PathKeeper<Reached>(reaching.first, {
     sendOn: (path) => sendingOn(path).send,
     another: reaching.another,
@@ -82,7 +82,7 @@ export function keepPath(
       openSocket = socketOn(path);
       if (!isFirst) {
         for (const listener of moveListeners) {
-          listener();
+          listener(sendingOn(path).name);
         }
         // Media follows the keeper's path (carryMediaOver below), so the console says it moved too.
         // eslint-disable-next-line no-console -- which path a tab's media takes is read in its console (D273 §7)

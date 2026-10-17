@@ -24,6 +24,7 @@ import {
   type AudioStart,
   type NativeTarget,
 } from "./hls.ts";
+import { skippedByOf } from "./event-context.ts";
 
 describe("playing a prepared rendition", () => {
   it("uses hls.js wherever there is MSE, the element's own HLS where there is only that", () => {
@@ -88,15 +89,19 @@ describe("playing a prepared rendition", () => {
       {
         dispatchEvent: (event) => {
           told.push(event.type);
+          // What it moved over goes with it, for the pause's or the seek's context (event-context.ts).
+          over.push(skippedByOf(event));
           return true;
         },
       },
     );
     const told: string[] = [];
+    const over: (string | undefined)[] = [];
     listener?.(undefined, { details: Hls.ErrorDetails.BUFFER_SEEK_OVER_HOLE });
     listener?.(undefined, { details: Hls.ErrorDetails.FRAG_LOAD_ERROR });
     listener?.(undefined, { details: Hls.ErrorDetails.BUFFER_NUDGE_ON_STALL });
     expect(told).toEqual([playerMovedItselfEvent, playerMovedItselfEvent]);
+    expect(over).toEqual(["hole", "nudge"]);
   });
 
   it("tells the video each chunk hls.js loads, how fast, and each quality it switches to", () => {

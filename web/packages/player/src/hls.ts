@@ -243,11 +243,12 @@ export function holdLoadingWhenTold(
  */
 export function tellOwnMoves(hls: OwnMoves, video: Pick<EventTarget, "dispatchEvent">): void {
   hls.on(Hls.Events.ERROR, (_event, data) => {
-    if (
-      data.details === Hls.ErrorDetails.BUFFER_SEEK_OVER_HOLE ||
-      data.details === Hls.ErrorDetails.BUFFER_NUDGE_ON_STALL
-    ) {
-      video.dispatchEvent(new Event(playerMovedItselfEvent));
+    // What it moved over goes with the event, for the pause's or the seek's context (event-context.ts).
+    if (data.details === Hls.ErrorDetails.BUFFER_SEEK_OVER_HOLE) {
+      video.dispatchEvent(new CustomEvent(playerMovedItselfEvent, { detail: "hole" }));
+    }
+    if (data.details === Hls.ErrorDetails.BUFFER_NUDGE_ON_STALL) {
+      video.dispatchEvent(new CustomEvent(playerMovedItselfEvent, { detail: "nudge" }));
     }
   });
 }

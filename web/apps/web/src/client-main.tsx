@@ -49,7 +49,7 @@ const root = createRoot(rootElement);
 interface Reaches {
   readonly fetch: (request: Request) => Promise<Response>;
   readonly openTogetherSocket: OpenTogetherSocket;
-  readonly pathMoves: PathMoves & { readonly moved: () => void };
+  readonly pathMoves: PathMoves & { readonly moved: (to?: string) => void };
   /** The page's own client script, which the core's answers are compared with for an update. */
   readonly ownScript: string | undefined;
   readonly realm?: string | undefined;
@@ -128,8 +128,8 @@ function mountOnOwnOrigin(): void {
  */
 function mountUnderLoader(loader: OrpheumLoader): void {
   const pathMoves = createPathMoves();
-  loader.onPathMove(() => {
-    pathMoves.moved();
+  loader.onPathMove((to) => {
+    pathMoves.moved(to);
   });
   loader.setMediaCredentials(mediaCredentialsOf(loader.session));
   mountApp(

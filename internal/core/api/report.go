@@ -42,6 +42,8 @@ type ReportInput struct {
 		// Standstills are where the player, asked to play, kept its position without saying it
 		// waited, each told once.
 		Standstills []StandstillBody `json:"standstills,omitempty" required:"false"`
+		// PathMoves are the paths to the core the page moved to since its last report (PathMoveBody).
+		PathMoves []PathMoveBody `json:"pathMoves,omitempty" maxItems:"20" required:"false"`
 	}
 	ClientFacts
 }
@@ -134,6 +136,8 @@ type EventBody struct {
 	Kind           string `enum:"started,paused,seeked,completed,abandoned" json:"kind"`
 	PositionMs     int64  `json:"positionMs" minimum:"0"`
 	HappenedMonoMs int64  `json:"happenedMonoMs"     minimum:"0"`
+	// Context is what was true of the page as it paused or moved (EventContextBody).
+	Context *EventContextBody `json:"context,omitempty" required:"false"`
 }
 
 // SpanBody is a run of watching, from one position to another between two moments.
@@ -232,6 +236,7 @@ func (server *Server) reportPlayback(ctx context.Context, input *ReportInput) (*
 	}
 	if !answer.IsRepeat {
 		server.logEvents(ctx, reporter, input.Body.Events)
+		server.logPathMoves(ctx, reporter, input.Body.PathMoves)
 	}
 	server.logReport(ctx, reporter, report, answer, input.Body.Stalls)
 	server.logStartup(ctx, reporter, input.Body.Startup, input.Body.LinkKbps)
@@ -279,8 +284,8 @@ func (server *Server) logReport(
 // that").
 func (server *Server) logEvents(ctx context.Context, reporter reporter, events []EventBody) {
 	for _, event := range events {
-		server.logger.InfoContext(ctx, "a player's play state changed",
-			append(reporter.logAttributes(), "kind", event.Kind, "positionMs", event.PositionMs)...)
+		server.logger.InfoContext(ctx, "a player's play state changed", append(append(reporter.logAttributes(),
+			"kind", event.Kind, "positionMs", event.PositionMs), eventContextAttributes(event)...)...)
 	}
 }
 

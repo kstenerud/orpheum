@@ -47,23 +47,28 @@ export interface Services {
 /** How many times the page's requests moved path, and who is told of each move. */
 export interface PathMoves {
   readonly count: () => number;
+  /** The name of the path the last move went to, as the console says it; undefined before any. */
+  readonly to: () => string | undefined;
   readonly subscribe: (listener: () => void) => () => void;
 }
 
 /** A count of path moves, and the move to tell of: what client-main.tsx keeps, and tests move by hand. */
-export function createPathMoves(): PathMoves & { readonly moved: () => void } {
+export function createPathMoves(): PathMoves & { readonly moved: (to?: string) => void } {
   let count = 0;
+  let last: string | undefined;
   const listeners = new Set<() => void>();
   return {
     count: () => count,
+    to: () => last,
     subscribe: (listener) => {
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
       };
     },
-    moved: () => {
+    moved: (to) => {
       count += 1;
+      last = to;
       for (const listener of listeners) {
         listener();
       }

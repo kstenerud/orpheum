@@ -22,8 +22,16 @@ export type { ChunkedPlayback, PlayedLevel, UnplayableQuality } from "./chunked.
 export { meterBufferGrowth } from "./link.ts";
 export type { LinkMeter, MeteredMedia } from "./link.ts";
 export { PlayReporter, ReportRefused, reportEveryMs, seekTo } from "./report.ts";
+export {
+  eventContextOf,
+  mediaSessionActionLastsMs,
+  skippedByOf,
+  watchMediaSession,
+} from "./event-context.ts";
+export type { ActionSession, ContextPage, MediaSessionAction, SkippedBy } from "./event-context.ts";
 export type {
   PlayEvent,
+  PlayEventContext,
   PlayEventKind,
   PlayReport,
   PlaySpan,

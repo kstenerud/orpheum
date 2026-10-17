@@ -8,7 +8,7 @@ import {
   ReportRefused,
   standsStillReportAfterMs,
 } from "@orpheum/player";
-import { playerLoadedChunkEvent } from "@orpheum/sdk";
+import { playerLoadedChunkEvent, playerMovedItselfEvent } from "@orpheum/sdk";
 import { act, createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -31,6 +31,7 @@ import {
   type Heard,
   type Mounted,
 } from "./test-dom.tsx";
+import { createPathMoves } from "./services.tsx";
 import { withServices } from "./test-services.tsx";
 
 /** One report, as the player sends it. */
@@ -236,6 +237,64 @@ describe("play state", () => {
     expect(seeks[0]?.["soundAfterMs"]).toBeGreaterThanOrEqual(
       (seeks[0]?.["pictureAfterMs"] ?? 0) + 10,
     );
+  });
+
+  it("tells where each pause and hls.js's own skip came from, and each path the page moved to (the owner, 2026-10-17)", async () => {
+    const heard: Heard[] = [];
+    const pathMoves = createPathMoves();
+    const playView = createElement(PlayView, {
+      fileId: 2,
+      decision: directDecision({ mediaToken: "hiccup" }),
+      onDecideAgain: () => undefined,
+    });
+    mounted = await mount(
+      withServices(playView, {
+        ...servedBy({ "POST /playback/hiccup/report": [204, undefined] }, heard),
+        pathMoves,
+      }),
+    );
+    const video = mounted.container.querySelector("video");
+    if (video === null) {
+      throw new Error("no video");
+    }
+    Object.defineProperty(video, "readyState", { value: 4 });
+    await act(async () => {
+      // Each report is let go before the next event: the reporter sends one at a time.
+      const sent = async (): Promise<void> => {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      };
+      video.dispatchEvent(new Event("playing"));
+      await sent();
+      video.currentTime = 30;
+      video.dispatchEvent(new Event("timeupdate"));
+      pathMoves.moved("WebRTC");
+      video.dispatchEvent(new Event("pause"));
+      await sent();
+      // hls.js steps over a hole: it says so, then the browser seeks.
+      video.dispatchEvent(new CustomEvent(playerMovedItselfEvent, { detail: "hole" }));
+      video.currentTime = 30.25;
+      video.dispatchEvent(new Event("seeking"));
+      await sent();
+    });
+    const bodies = heard
+      .filter((request) => request.methodAndPath === "POST /playback/hiccup/report")
+      .map(
+        (request) =>
+          request.body as {
+            events: { kind: string; context?: Record<string, unknown> }[];
+            pathMoves?: { to: string }[];
+          },
+      );
+    const events = bodies.flatMap((body) => body.events);
+    expect(events.find((event) => event.kind === "paused")?.context).toMatchObject({
+      readyState: 4,
+    });
+    expect(events.find((event) => event.kind === "seeked")?.context).toMatchObject({
+      skippedBy: "hole",
+    });
+    expect(bodies.flatMap((body) => body.pathMoves ?? []).map((move) => move.to)).toEqual([
+      "WebRTC",
+    ]);
   });
 
   it("tells where a video asked to play keeps its position, and what it showed (the owner's friend, 2026-10-12)", async () => {

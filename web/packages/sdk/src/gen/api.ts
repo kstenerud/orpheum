@@ -2310,12 +2310,33 @@ export interface components {
             text: string;
         };
         EventBody: {
+            context?: components["schemas"]["EventContextBody"];
             /** Format: int64 */
             happenedMonoMs: number;
             /** @enum {string} */
             kind: "started" | "paused" | "seeked" | "completed" | "abandoned";
             /** Format: int64 */
             positionMs: number;
+        };
+        EventContextBody: {
+            audioBuffered?: string;
+            hasFocus?: boolean;
+            isPageHidden?: boolean;
+            /** @description The person's gesture is active (navigator.userActivation) */
+            isUserActive?: boolean;
+            /**
+             * @description A media-session action of the last second
+             * @enum {string}
+             */
+            mediaSessionAction?: "play" | "pause";
+            /** Format: int64 */
+            readyState?: number;
+            /**
+             * @description What hls.js moved the video over itself
+             * @enum {string}
+             */
+            skippedBy?: "hole" | "nudge";
+            videoBuffered?: string;
         };
         ExtraBody: {
             extraType: string;
@@ -2930,6 +2951,11 @@ export interface components {
             /** @enum {string} */
             state: "waiting" | "checking" | "activated" | "ended";
         };
+        PathMoveBody: {
+            /** Format: int64 */
+            happenedMonoMs: number;
+            to: string;
+        };
         PersonOutputBody: {
             account: components["schemas"]["AccountBody"];
             /**
@@ -3203,6 +3229,7 @@ export interface components {
             events: components["schemas"]["EventBody"][] | null;
             /** Format: int64 */
             linkKbps?: number;
+            pathMoves?: components["schemas"]["PathMoveBody"][] | null;
             /** Format: int64 */
             positionMs: number;
             /** Format: int64 */

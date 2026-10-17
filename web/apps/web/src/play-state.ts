@@ -1,21 +1,35 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import {
+  eventContextOf,
   PlayReporter,
   playerFoundUnplayableEvent,
   ReportRefused,
   reportEveryMs,
   seekTo,
+  skippedByOf,
   unplayableOf,
+  watchMediaSession,
   watchStalls,
   watchStandingStill,
+  type MediaSessionAction,
+  type PlayEventContext,
   type PlayReport,
+  type SkippedBy,
 } from "@orpheum/player";
-import { chunkLoadedOf, playerLoadedChunkEvent, type Api, type components } from "@orpheum/sdk";
+import {
+  chunkLoadedOf,
+  playerLoadedChunkEvent,
+  playerMovedItselfEvent,
+  type Api,
+  type components,
+} from "@orpheum/sdk";
 import { useEffect, useRef, useState, type RefObject } from "react";
 
 import { MovingDown, type LadderOffer } from "./moving-down.ts";
 import { ApiProblem, throwIfRefused } from "./problem.ts";
+import { useServices, type PathMoves } from "./services.tsx";
+import { monotonicMs } from "./use-together.ts";
 
 /** The codes of refusals that pass: a report refused with one of these goes again with the next. */
 const transientRefusalCodes: ReadonlySet<string> = new Set([
@@ -51,7 +65,7 @@ export async function sendReport(
   to: ReportTo,
   report: PlayReport,
 ): Promise<ReportAnswer> {
-  const { stalls, standstills, ...rest } = report;
+  const { stalls, standstills, pathMoves, ...rest } = report;
   const answer = await api.POST("/playback/{token}/report", {
     params: { path: { token: to.mediaToken } },
     ...(to.headers === undefined ? {} : { headers: to.headers }),
@@ -63,6 +77,7 @@ export async function sendReport(
       ...(standstills === undefined || standstills === null
         ? {}
         : { standstills: [...standstills] }),
+      ...(pathMoves === undefined ? {} : { pathMoves: [...pathMoves] }),
     },
   });
   try {
@@ -262,6 +277,80 @@ function whileHoldingMedia(video: HTMLVideoElement): (listener: () => void) => (
   };
 }
 
+/**
+ * What a pause or a seek of video says of where it came from (event-context.ts): the page, the last
+ * media-session action, and what hls.js said it moved the video over, which the seek its move starts
+ * takes and clears.
+ */
+function eventContexts(
+  video: HTMLVideoElement,
+  lastSessionAction: () => MediaSessionAction | undefined,
+): EventContexts & { readonly stop: () => void } {
+  let skippedBy: SkippedBy | undefined;
+  const onMovedItself = (event: Event): void => {
+    skippedBy = skippedByOf(event);
+  };
+  video.addEventListener(playerMovedItselfEvent, onMovedItself);
+  const now = (known: { readonly skippedBy?: SkippedBy | undefined }): PlayEventContext =>
+    eventContextOf(video, document, {
+      isUserActive: "userActivation" in navigator ? navigator.userActivation.isActive : undefined,
+      mediaSessionAction: lastSessionAction(),
+      ...known,
+    });
+  return {
+    paused: () => now({}),
+    seeked: () => {
+      const context = now({ skippedBy });
+      skippedBy = undefined;
+      return context;
+    },
+    stop: () => {
+      video.removeEventListener(playerMovedItselfEvent, onMovedItself);
+    },
+  };
+}
+
+/**
+ * Watches the page for what the reports carry beside the video's events: the media session's
+ * actions, which a pause they made says, and each path the page moves to (the owner, 2026-10-17).
+ */
+function watchPage(
+  video: HTMLVideoElement,
+  reporter: PlayReporter,
+  pathMoves: PathMoves | undefined,
+): { readonly contexts: EventContexts; readonly stop: () => void } {
+  const session = watchMediaSession(
+    "mediaSession" in navigator ? navigator.mediaSession : undefined,
+    video,
+    monotonicMs,
+  );
+  const contexts = eventContexts(video, session.lastAction);
+  const stopHearingMoves = pathMoves?.subscribe(() => {
+    reporter.recordPathMove(pathMoves.to() ?? "another path");
+  });
+  return {
+    contexts,
+    stop: () => {
+      stopHearingMoves?.();
+      contexts.stop();
+      session.stop();
+    },
+  };
+}
+
+/** The playback whose video's events are told: its token, where it starts, and its pauses' and seeks' contexts. */
+interface VideoEventsOf {
+  readonly mediaToken: string;
+  readonly resumePositionMs: number;
+  readonly contexts: EventContexts;
+}
+
+/** What a pause and a seek say of where they came from (eventContexts). */
+interface EventContexts {
+  readonly paused: () => PlayEventContext;
+  readonly seeked: () => PlayEventContext;
+}
+
 /** What reportVideoEvents hands back: where the video last was while it held media, and how to stop. */
 interface VideoEventReporting {
   readonly lastPositionMs: () => number;
@@ -278,9 +367,9 @@ interface VideoEventReporting {
 function reportVideoEvents(
   video: HTMLVideoElement,
   reporter: PlayReporter,
-  playback: { readonly mediaToken: string; readonly resumePositionMs: number },
+  playback: VideoEventsOf,
 ): VideoEventReporting {
-  const { resumePositionMs } = playback;
+  const { resumePositionMs, contexts } = playback;
   let isResuming = resumePositionMs > 0;
   let lastHeldPositionMs = resumePositionMs;
   const seekTimer = timeSeeks(video, reporter);
@@ -293,15 +382,16 @@ function reportVideoEvents(
     },
     pause: whileItHoldsMedia(() => {
       if (!video.ended) {
-        reporter.recordPaused(positionMs(video));
+        reporter.recordPaused(positionMs(video), contexts.paused());
       }
     }),
     seeking: whileItHoldsMedia(() => {
+      const context = contexts.seeked();
       // The seek that puts the player where the person left it is not theirs to log.
       if (isResuming) {
         isResuming = false;
       } else {
-        reporter.recordSeeked(lastHeldPositionMs, positionMs(video));
+        reporter.recordSeeked(lastHeldPositionMs, positionMs(video), context);
         seekTimer.seeking(lastHeldPositionMs);
       }
     }),
@@ -371,6 +461,32 @@ export function tellUnplayable(
 }
 
 /**
+ * Sends where video is every reportEveryMs while it plays, and at once when the page is hidden, from
+ * where it last held media; returns the stopping.
+ */
+function reportWhilePlaying(
+  video: HTMLVideoElement,
+  reporter: PlayReporter,
+  lastPositionMs: () => number,
+): () => void {
+  const ticker = setInterval(() => {
+    if (!video.paused && hasMedia(video)) {
+      reporter.flush(positionMs(video));
+    }
+  }, reportEveryMs);
+  const flushWhenHidden = (): void => {
+    if (document.visibilityState === "hidden") {
+      reporter.flush(lastPositionMs());
+    }
+  };
+  document.addEventListener("visibilitychange", flushWhenHidden);
+  return () => {
+    clearInterval(ticker);
+    document.removeEventListener("visibilitychange", flushWhenHidden);
+  };
+}
+
+/**
  * Reports what the video tells about its playing, at once: each stall, which may move it to a lower
  * quality (D247 §2), each quality its player gives up as unplayable here (D266), and each place it
  * keeps its position while asked to play, with what its video shows there. Returns the stopping.
@@ -429,24 +545,15 @@ function startReporting(
     }
   }, reportSeqCounter(mediaToken));
   reporter.measureLinkWith(playback.readLinkKbps);
-  const videoEvents = reportVideoEvents(video, reporter, playback);
+  const page = watchPage(video, reporter, playback.pathMoves);
+  const videoEvents = reportVideoEvents(video, reporter, { ...playback, contexts: page.contexts });
   const stopWatching = watchForReport(video, reporter, movingDown);
-  const ticker = setInterval(() => {
-    if (!video.paused && hasMedia(video)) {
-      reporter.flush(positionMs(video));
-    }
-  }, reportEveryMs);
-  const flushWhenHidden = (): void => {
-    if (document.visibilityState === "hidden") {
-      reporter.flush(videoEvents.lastPositionMs());
-    }
-  };
-  document.addEventListener("visibilitychange", flushWhenHidden);
+  const stopTelling = reportWhilePlaying(video, reporter, videoEvents.lastPositionMs);
   return () => {
-    clearInterval(ticker);
+    stopTelling();
     movingDown.stop();
     stopWatching();
-    document.removeEventListener("visibilitychange", flushWhenHidden);
+    page.stop();
     videoEvents.stop();
     // The video may be emptied already: where it last was is where the person left it.
     reporter.recordAbandoned(videoEvents.lastPositionMs());
@@ -459,6 +566,8 @@ interface PlayStateOf {
   readonly resumePositionMs: number;
   /** The link's speed as the playback measures it, undefined until it can say (D247 §1). */
   readonly readLinkKbps: () => number | undefined;
+  /** The page's moves from one path to the core to another, where it makes any. */
+  readonly pathMoves?: PathMoves | undefined;
 }
 
 /**
@@ -482,6 +591,7 @@ export function usePlayState(
   const { mediaToken, resumePositionMs } = playback;
   const [refusal, setRefusal] = useState<unknown>(undefined);
   const [stopMessage, setStopMessage] = useState<string | undefined>(undefined);
+  const { pathMoves } = useServices();
   const [lowerQuality, setLowerQuality] = useState<LadderOffer | undefined>(undefined);
   // The link is read at each report, by what the latest render handed in.
   const linkReader = useRef(playback.readLinkKbps);
@@ -493,10 +603,10 @@ export function usePlayState(
     }
     return startReporting(
       video,
-      { api, mediaToken, resumePositionMs, readLinkKbps: () => linkReader.current() },
+      { api, mediaToken, resumePositionMs, readLinkKbps: () => linkReader.current(), pathMoves },
       { onStopped: setStopMessage, onLowerQuality: setLowerQuality, onRefused: setRefusal },
     );
-  }, [api, videoRef, mediaToken, resumePositionMs]);
+  }, [api, videoRef, mediaToken, resumePositionMs, pathMoves]);
   return { refusal, stopMessage, lowerQuality };
 }
 
