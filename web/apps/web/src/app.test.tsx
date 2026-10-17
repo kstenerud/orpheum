@@ -199,6 +199,41 @@ describe("App", () => {
     mounted.unmount();
   });
 
+  it("offers the UI gallery in the menu only while the server's setting for it is on (the owner, 2026-10-17)", async () => {
+    const offersGallery = async (isOn: boolean | undefined): Promise<boolean> => {
+      const services = servedBy(
+        {
+          "GET /me": [200, { id: 1, name: "owner", role: "user", isAdmin: false }],
+          "GET /home": [200, { continueWatching: [] }],
+          "GET /titles": [200, { titles: [], nextCursor: "" }],
+          ...(isOn === undefined
+            ? {}
+            : {
+                "GET /client-settings": [
+                  200,
+                  {
+                    screenRefreshFirstWaitSeconds: 2,
+                    screenRefreshLongestWaitSeconds: 30,
+                    screenRefreshFailedWaitSeconds: 5,
+                    shouldShowDeveloperPages: isOn,
+                  },
+                ],
+              }),
+        },
+        [],
+        "token",
+      );
+      const mounted = await mount(withServices(<App />, services));
+      const hasGallery = mounted.container.querySelector('a[href="/ui-gallery"]') !== null;
+      mounted.unmount();
+      return hasGallery;
+    };
+    expect(await offersGallery(true)).toBe(true);
+    expect(await offersGallery(false)).toBe(false);
+    // Unread, the setting is off.
+    expect(await offersGallery(undefined)).toBe(false);
+  });
+
   it("says when an address names nothing", () => {
     const markup = renderToStaticMarkup(withServices(<App />, testServices("token", "/nowhere")));
     expect(markup).toContain("There is nothing at this address.");

@@ -200,7 +200,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The server settings every client reads: how often a screen asks again (D237) */
+        /** The server settings every client reads: how often a screen asks again (D237), and more */
         get: operations["getClientSettings"];
         put?: never;
         post?: never;
@@ -1963,6 +1963,7 @@ export interface components {
             screenRefreshFirstWaitSeconds: number;
             /** Format: int64 */
             screenRefreshLongestWaitSeconds: number;
+            shouldShowDeveloperPages: boolean;
         };
         CollectionOutputBody: {
             art: components["schemas"]["ArtBody"];

@@ -152,6 +152,29 @@ describe("AppShell", () => {
     );
   });
 
+  it("offers the pages for development under their own heading only when asked to (the owner, 2026-10-17)", () => {
+    const markupWith = (showsDeveloperPages: boolean): string =>
+      renderToStaticMarkup(
+        withServices(
+          <AppShell
+            isAdmin={false}
+            canHostWatchTogether={false}
+            currentScreen="films"
+            onSignOut={ignore}
+            signedInAs={undefined}
+            showsDeveloperPages={showsDeveloperPages}
+          >
+            <p>screen</p>
+          </AppShell>,
+        ),
+      );
+    expect(markupWith(true)).toMatch(
+      /<li class="app-shell__section">Development<\/li><li><a href="\/ui-gallery"[^>]*>UI gallery<\/a><\/li><li class="app-shell__divider".*href="\/this-device"/u,
+    );
+    expect(markupWith(false)).not.toContain("Development");
+    expect(markupWith(false)).not.toContain('href="/ui-gallery"');
+  });
+
   it("offers no Manage to someone who is not an admin", () => {
     const markup = renderToStaticMarkup(
       withServices(

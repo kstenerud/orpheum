@@ -35,6 +35,7 @@ const (
 	BackupAgeWarningHours                          Key = "backup_age_warning_hours"
 	ShouldServeDebugPProf                          Key = "should_serve_debug_pprof"
 	ShouldServeDebugMetrics                        Key = "should_serve_debug_metrics"
+	ShouldShowDeveloperPages                       Key = "should_show_developer_pages"
 	NodeSilentAfterSeconds                         Key = "node_silent_after_seconds"
 	AssignedJobLimitHours                          Key = "assigned_job_limit_hours"
 	ShouldScanOnNodeHello                          Key = "should_scan_on_node_hello"
@@ -580,6 +581,11 @@ func chunkDefinitions() []Definition {
 // hardcoded values ("We're basically giving full tweak capability"), each with its basis.
 func upkeepAndDisplayDefinitions() []Definition {
 	return []Definition{
+		{
+			Key: ShouldShowDeveloperPages, Kind: KindBool, StartJSON: json.RawMessage("false"),
+			Description: "whether the client's menu offers its pages for development, such as the UI gallery",
+			StartSource: "the owner, 2026-10-17: development items behind a setting, in the menu when on",
+		},
 		sourced(durationSetting(RegistrationInvitationLifeDays, day, "7", 1, 365,
 			"days a registration invitation works before its person needs a new one (D218 §1)"),
 			"D218 §1: the owner's flow, 2026-09-25"),

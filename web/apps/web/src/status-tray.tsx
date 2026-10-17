@@ -40,7 +40,7 @@ export function StatusTray(props: {
  * A screen playing, two people before it: Watch Together, in the status blue. The owner's choice,
  * drawn by Claude Design (2026-10-12).
  */
-function TogetherIcon(): JSX.Element {
+export function TogetherIcon(): JSX.Element {
   return (
     <svg className="status-tray__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path

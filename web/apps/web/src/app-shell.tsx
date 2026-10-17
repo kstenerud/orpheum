@@ -28,14 +28,19 @@ interface Destination {
     | "system"
     | "thisDevice"
     | "account"
-    | "about";
-  /** Who it shows to: everyone, an admin, or a person whose role may host Watch Together. */
-  readonly audience: "everyone" | "admin" | "host";
+    | "about"
+    | "uiGallery";
+  /**
+   * Who it shows to: everyone, an admin, a person whose role may host Watch Together, or anyone
+   * while the admin has the pages for development turned on.
+   */
+  readonly audience: "everyone" | "admin" | "host" | "developer";
   /**
    * Where in the banner it is: the places for watching, always in view; or, in the one menu at the
-   * banner's end, the admin's area under Manage, or the person's own (the owner, 2026-10-11).
+   * banner's end, the admin's area under Manage, the pages for development, or the person's own
+   * (the owner, 2026-10-11 and 2026-10-17).
    */
-  readonly group: "watching" | "manage" | "own";
+  readonly group: "watching" | "manage" | "develop" | "own";
 }
 
 const destinations: readonly Destination[] = [
@@ -59,6 +64,12 @@ const destinations: readonly Destination[] = [
   { route: { screen: "settings" }, labelKey: "settings", audience: "admin", group: "manage" },
   { route: { screen: "jobs" }, labelKey: "jobs", audience: "admin", group: "manage" },
   { route: { screen: "system" }, labelKey: "system", audience: "admin", group: "manage" },
+  {
+    route: { screen: "ui-gallery" },
+    labelKey: "uiGallery",
+    audience: "developer",
+    group: "develop",
+  },
   { route: { screen: "this-device" }, labelKey: "thisDevice", audience: "everyone", group: "own" },
   { route: { screen: "account" }, labelKey: "account", audience: "everyone", group: "own" },
   { route: { screen: "about" }, labelKey: "about", audience: "everyone", group: "own" },
@@ -88,6 +99,11 @@ export function AppShell(props: {
     { readonly name: string; readonly deviceName: string | undefined } | undefined;
   /** The realm the person signed in to the server by, when they did: shown in the banner (D297 §5). */
   readonly realm?: string | undefined;
+  /**
+   * Whether the menu offers the pages for development, such as the UI gallery: a server setting the
+   * admin turns on (the owner, 2026-10-17: "development items behind a setting").
+   */
+  readonly showsDeveloperPages?: boolean;
   readonly children: ReactNode;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -95,7 +111,8 @@ export function AppShell(props: {
     (destination) =>
       destination.audience === "everyone" ||
       (destination.audience === "admin" && props.isAdmin) ||
-      (destination.audience === "host" && props.canHostWatchTogether),
+      (destination.audience === "host" && props.canHostWatchTogether) ||
+      (destination.audience === "developer" && props.showsDeveloperPages === true),
   );
   const inGroup = (group: Destination["group"]): readonly Destination[] =>
     shown.filter((destination) => destination.group === group);
@@ -121,14 +138,9 @@ export function AppShell(props: {
         </p>
         <nav className="app-shell__nav" aria-label={t("nav.label")}>
           <ul className="app-shell__watching">{links("watching")}</ul>
-          <BannerEnd shell={props} isMenuCurrent={isIn("manage") || isIn("own")}>
-            {inGroup("manage").length === 0 ? null : (
-              <>
-                <li className="app-shell__section">{t("nav.manage")}</li>
-                {links("manage")}
-                <li className="app-shell__divider" aria-hidden="true" />
-              </>
-            )}
+          <BannerEnd shell={props} isMenuCurrent={isIn("manage") || isIn("develop") || isIn("own")}>
+            <MenuSection heading={t("nav.manage")} places={links("manage")} />
+            <MenuSection heading={t("nav.develop")} places={links("develop")} />
             {links("own")}
           </BannerEnd>
         </nav>
@@ -164,6 +176,23 @@ function BannerEnd(props: {
   );
 }
 
+/** A titled part of the menu and the divider after it, or nothing when it has no place. */
+function MenuSection(props: {
+  readonly heading: string;
+  readonly places: readonly JSX.Element[];
+}): JSX.Element | null {
+  if (props.places.length === 0) {
+    return null;
+  }
+  return (
+    <>
+      <li className="app-shell__section">{props.heading}</li>
+      {props.places}
+      <li className="app-shell__divider" aria-hidden="true" />
+    </>
+  );
+}
+
 /** The realm the person is signed in to, in view on every screen: which server this is (D297 §5). */
 function RealmMark(props: { readonly realm: string }): JSX.Element {
   const { t } = useTranslation();
@@ -175,7 +204,7 @@ function RealmMark(props: { readonly realm: string }): JSX.Element {
 }
 
 /** Three lines: the menu's mark, its name for a screen reader. */
-function MenuIcon(): JSX.Element {
+export function MenuIcon(): JSX.Element {
   return (
     <svg className="app-shell__menu-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z" />

@@ -20,3 +20,21 @@ it("shows every status cue over pale, mid, dark and busy posters, at /ui-gallery
   }
   expect(markup).toContain("Still being read, match guessed");
 });
+
+it("shows the banner's status tray with each sign it can show, beside the menu (the owner, 2026-10-17)", () => {
+  const markup = renderToStaticMarkup(withServices(<UiGallery />));
+  const trays = [...markup.matchAll(/<div class="ui-gallery__banner">(.*?)<\/div><\/div>/gu)].map(
+    (match) => match[1] ?? "",
+  );
+  expect(trays).toHaveLength(3);
+  const signs = trays.map((tray) => [
+    tray.includes("status-tray__button--warning"),
+    tray.includes("status-tray__icon"),
+    tray.includes("app-shell__menu-icon"),
+  ]);
+  expect(signs).toEqual([
+    [true, false, true],
+    [false, true, true],
+    [true, true, true],
+  ]);
+});

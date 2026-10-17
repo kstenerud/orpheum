@@ -22,6 +22,9 @@ type ClientSettingsBody struct {
 	// ScreenRefreshFailedWaitSeconds is how long it waits after a read that failed, every time
 	// (D237).
 	ScreenRefreshFailedWaitSeconds int64 `json:"screenRefreshFailedWaitSeconds"`
+	// ShouldShowDeveloperPages is whether the client's menu offers its pages for development, such
+	// as the UI gallery (the owner, 2026-10-17).
+	ShouldShowDeveloperPages bool `json:"shouldShowDeveloperPages"`
 }
 
 // ClientSettingsOutput is GET /client-settings's answer.
@@ -32,7 +35,7 @@ type ClientSettingsOutput struct {
 func (server *Server) registerClientSettings() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getClientSettings", Method: http.MethodGet, Path: "/client-settings",
-		Summary: "The server settings every client reads: how often a screen asks again (D237)",
+		Summary: "The server settings every client reads: how often a screen asks again (D237), and more",
 		Tags:    []string{tagSettings},
 	}, server.getClientSettings)
 }
@@ -59,5 +62,10 @@ func (server *Server) getClientSettings(
 		}
 		*read.into = value
 	}
+	shouldShowDeveloperPages, boolErr := dependencies.Settings.Bool(ctx, settings.ShouldShowDeveloperPages)
+	if boolErr != nil {
+		return nil, server.settingsError(ctx, "read "+string(settings.ShouldShowDeveloperPages), boolErr)
+	}
+	output.Body.ShouldShowDeveloperPages = shouldShowDeveloperPages
 	return output, nil
 }

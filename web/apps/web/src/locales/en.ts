@@ -38,6 +38,8 @@ export const en = {
     about: "About",
     signOut: "Sign out",
     manage: "Manage",
+    develop: "Development",
+    uiGallery: "UI gallery",
     togetherOn: "on now",
     menu: "Menu",
     signedInAs: "{{name}}",
