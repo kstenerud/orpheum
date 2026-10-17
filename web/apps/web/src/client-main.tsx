@@ -28,7 +28,12 @@ import { sendFailuresToCore } from "./failure-reports.ts";
 import { loaderOf, loaderRefusal, type OrpheumLoader } from "./loader-interface.ts";
 import { createNavigation } from "./navigation.ts";
 import { i18n } from "./i18n.ts";
-import { createPathMoves, ServicesContext, type PathMoves } from "./services.tsx";
+import {
+  createPathMoves,
+  pathMovesHeardFrom,
+  ServicesContext,
+  type PathMoves,
+} from "./services.tsx";
 import { createSession, type Session } from "./session.ts";
 import { checkSessionWhileShown, watchForSignOut } from "./signed-out-watch.ts";
 import { mediaCredentialsOf } from "./together-playback.ts";
@@ -49,7 +54,7 @@ const root = createRoot(rootElement);
 interface Reaches {
   readonly fetch: (request: Request) => Promise<Response>;
   readonly openTogetherSocket: OpenTogetherSocket;
-  readonly pathMoves: PathMoves & { readonly moved: (to?: string) => void };
+  readonly pathMoves: PathMoves;
   /** The page's own client script, which the core's answers are compared with for an update. */
   readonly ownScript: string | undefined;
   readonly realm?: string | undefined;
@@ -127,10 +132,7 @@ function mountOnOwnOrigin(): void {
  * client origin (D308): every request, the session socket and the media go the loader's way.
  */
 function mountUnderLoader(loader: OrpheumLoader): void {
-  const pathMoves = createPathMoves();
-  loader.onPathMove((to) => {
-    pathMoves.moved(to);
-  });
+  const pathMoves = pathMovesHeardFrom(loader.onPathMove);
   loader.setMediaCredentials(mediaCredentialsOf(loader.session));
   mountApp(
     loader.session,

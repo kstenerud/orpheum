@@ -76,6 +76,20 @@ export function createPathMoves(): PathMoves & { readonly moved: (to?: string) =
   };
 }
 
+/**
+ * The path moves a loader tells of, with the name of the path each went to, for the screens that
+ * read again on a move and the play report that logs it (the owner, 2026-10-17).
+ */
+export function pathMovesHeardFrom(
+  onPathMove: (listener: (to?: string) => void) => () => void,
+): PathMoves {
+  const pathMoves = createPathMoves();
+  onPathMove((to) => {
+    pathMoves.moved(to);
+  });
+  return pathMoves;
+}
+
 const neverMoves = (): number => 0;
 const noMoves = (): (() => void) => () => undefined;
 
