@@ -104,7 +104,9 @@
 //     below chunk_run_slowest_speed_percent of it over speedWindow, one is cancelled: the oldest no
 //     player asked for within inUseWithin, its store refusing no one, so a player that comes to its
 //     chunks later starts a run of its own; or else the newest, evicted, its store refusing its
-//     players with ErrNoRoomToMake until a stall asks for it again. The node is then left
+//     players with ErrNoRoomToMake until a stall asks for it again: the chunks it was to make, not
+//     those made or another of its runs is making, and it starts no run, by
+//     TestEnsure_AnEvictedStoreGivesWhatIsMadeOrOnItsWayAndStartsNoRun. The node is then left
 //     speedWindow to settle. A run in use of a quality made for players whose every player can
 //     move onto a quality already made for another playback of the film is instead cancelled, its
 //     players moved (MovePlayersBy) and its store not evicted (D286 §4), by
