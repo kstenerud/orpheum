@@ -122,7 +122,7 @@ func (facts *ClientFacts) Resolve(ctx huma.Context) []error {
 // header; it never goes in a URL (D154). The same session is set as the media cookie, for what
 // cannot send a header: an <img>.
 type SessionOutput struct {
-	SetCookie http.Cookie `header:"Set-Cookie"`
+	SetCookie []http.Cookie `header:"Set-Cookie"`
 	Body      struct {
 		Token string `json:"token"`
 		// DeviceSecret proves this client was its device at a later sign-in or code request, as
@@ -150,7 +150,7 @@ func (input *SignOutInput) Resolve(ctx huma.Context) []error {
 
 // SignOutOutput clears the media cookie.
 type SignOutOutput struct {
-	SetCookie http.Cookie `header:"Set-Cookie"`
+	SetCookie []http.Cookie `header:"Set-Cookie"`
 }
 
 func (server *Server) registerSetupAndAuth() {
@@ -286,7 +286,7 @@ func (server *Server) newSessionOutput(
 	// Which path a session began on says why its page offers admin or not, with no digging.
 	server.logger.InfoContext(ctx, "a session began", "userId", principal.UserID, "deviceId", principal.DeviceID,
 		"path", pathOf(ctx), "isAdmin", body.IsAdmin)
-	output := &SessionOutput{SetCookie: mediaCookie(issued.Token, isOverTLS)}
+	output := &SessionOutput{SetCookie: mediaCookies(issued.Token, isOverTLS)}
 	output.Body.Token, output.Body.DeviceSecret, output.Body.User = issued.Token, issued.DeviceSecret, body
 	output.Body.Locator = issued.Locator
 	return output, nil
@@ -300,9 +300,7 @@ func (server *Server) signOut(ctx context.Context, input *SignOutInput) (*SignOu
 	if err = dependencies.Auth.SignOut(ctx, bearerToken(input.Authorization)); err != nil {
 		return nil, server.authError(ctx, "sign out", err)
 	}
-	cleared := mediaCookie("", input.isOverTLS) //nolint:gosec // as mediaCookie (P20)
-	cleared.MaxAge = -1
-	return &SignOutOutput{SetCookie: cleared}, nil
+	return &SignOutOutput{SetCookie: clearedCookies(MediaCookieName, input.isOverTLS)}, nil
 }
 
 // MeInput asks who a session belongs to.
@@ -319,7 +317,7 @@ func (input *MeInput) Resolve(ctx huma.Context) []error {
 
 // MeOutput is who the session belongs to, and the media cookie set again for it.
 type MeOutput struct {
-	SetCookie http.Cookie `header:"Set-Cookie"`
+	SetCookie []http.Cookie `header:"Set-Cookie"`
 	Body      UserBody
 }
 
@@ -335,7 +333,7 @@ func (server *Server) getMe(ctx context.Context, input *MeInput) (*MeOutput, err
 	if err != nil {
 		return nil, err
 	}
-	return &MeOutput{SetCookie: mediaCookie(bearerToken(input.Authorization), input.isOverTLS), Body: body}, nil
+	return &MeOutput{SetCookie: mediaCookies(bearerToken(input.Authorization), input.isOverTLS), Body: body}, nil
 }
 
 // userBody is who a session belongs to, and the device it is on.

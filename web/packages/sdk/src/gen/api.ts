@@ -3955,6 +3955,8 @@ export interface operations {
                 Authorization?: string;
                 /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
                 "Orpheum-Viewer"?: string;
+                /** @description The browser's Sec-Fetch-Site */
+                "Sec-Fetch-Site"?: string;
             };
             path: {
                 /** @description The image's hash, from a title's artwork */
@@ -3963,9 +3965,13 @@ export interface operations {
                 variant: string;
             };
             cookie?: {
-                /** @description The media cookie sign-in sets, for an <img> */
+                /** @description The media cookie sign-in sets over TLS, for an <img> */
+                "__Host-orpheum_media"?: string;
+                /** @description A Watch Together viewer's over TLS, set as their playback starts */
+                "__Host-orpheum_viewer"?: string;
+                /** @description The media cookie sign-in sets over plain HTTP, for an <img> */
                 orpheum_media?: string;
-                /** @description A Watch Together viewer's, set as their playback starts */
+                /** @description A Watch Together viewer's over plain HTTP, set as their playback starts */
                 orpheum_viewer?: string;
             };
         };
@@ -4003,6 +4009,8 @@ export interface operations {
                 "Orpheum-Sought"?: boolean;
                 /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
                 "Orpheum-Viewer"?: string;
+                /** @description The browser's Sec-Fetch-Site */
+                "Sec-Fetch-Site"?: string;
             };
             path: {
                 /** @description stream.m3u8, init.mp4 or a chunk, NNNNN.m4s */
@@ -4013,9 +4021,13 @@ export interface operations {
                 token: string;
             };
             cookie?: {
-                /** @description The media cookie sign-in sets, for an <img> */
+                /** @description The media cookie sign-in sets over TLS, for an <img> */
+                "__Host-orpheum_media"?: string;
+                /** @description A Watch Together viewer's over TLS, set as their playback starts */
+                "__Host-orpheum_viewer"?: string;
+                /** @description The media cookie sign-in sets over plain HTTP, for an <img> */
                 orpheum_media?: string;
-                /** @description A Watch Together viewer's, set as their playback starts */
+                /** @description A Watch Together viewer's over plain HTTP, set as their playback starts */
                 orpheum_viewer?: string;
             };
         };
@@ -4056,15 +4068,21 @@ export interface operations {
                 Authorization?: string;
                 /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
                 "Orpheum-Viewer"?: string;
+                /** @description The browser's Sec-Fetch-Site */
+                "Sec-Fetch-Site"?: string;
             };
             path: {
                 /** @description The playback's media token */
                 token: string;
             };
             cookie?: {
-                /** @description The media cookie sign-in sets, for an <img> */
+                /** @description The media cookie sign-in sets over TLS, for an <img> */
+                "__Host-orpheum_media"?: string;
+                /** @description A Watch Together viewer's over TLS, set as their playback starts */
+                "__Host-orpheum_viewer"?: string;
+                /** @description The media cookie sign-in sets over plain HTTP, for an <img> */
                 orpheum_media?: string;
-                /** @description A Watch Together viewer's, set as their playback starts */
+                /** @description A Watch Together viewer's over plain HTTP, set as their playback starts */
                 orpheum_viewer?: string;
             };
         };
@@ -4107,15 +4125,21 @@ export interface operations {
                 /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
                 "Orpheum-Viewer"?: string;
                 Range?: string;
+                /** @description The browser's Sec-Fetch-Site */
+                "Sec-Fetch-Site"?: string;
             };
             path: {
                 /** @description The playback's media token */
                 token: string;
             };
             cookie?: {
-                /** @description The media cookie sign-in sets, for an <img> */
+                /** @description The media cookie sign-in sets over TLS, for an <img> */
+                "__Host-orpheum_media"?: string;
+                /** @description A Watch Together viewer's over TLS, set as their playback starts */
+                "__Host-orpheum_viewer"?: string;
+                /** @description The media cookie sign-in sets over plain HTTP, for an <img> */
                 orpheum_media?: string;
-                /** @description A Watch Together viewer's, set as their playback starts */
+                /** @description A Watch Together viewer's over plain HTTP, set as their playback starts */
                 orpheum_viewer?: string;
             };
         };
@@ -4149,15 +4173,21 @@ export interface operations {
                 /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
                 "Orpheum-Viewer"?: string;
                 Range?: string;
+                /** @description The browser's Sec-Fetch-Site */
+                "Sec-Fetch-Site"?: string;
             };
             path: {
                 /** @description The playback's media token */
                 token: string;
             };
             cookie?: {
-                /** @description The media cookie sign-in sets, for an <img> */
+                /** @description The media cookie sign-in sets over TLS, for an <img> */
+                "__Host-orpheum_media"?: string;
+                /** @description A Watch Together viewer's over TLS, set as their playback starts */
+                "__Host-orpheum_viewer"?: string;
+                /** @description The media cookie sign-in sets over plain HTTP, for an <img> */
                 orpheum_media?: string;
-                /** @description A Watch Together viewer's, set as their playback starts */
+                /** @description A Watch Together viewer's over plain HTTP, set as their playback starts */
                 orpheum_viewer?: string;
             };
         };
@@ -4190,6 +4220,8 @@ export interface operations {
                 /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
                 "Orpheum-Viewer"?: string;
                 Range?: string;
+                /** @description The browser's Sec-Fetch-Site */
+                "Sec-Fetch-Site"?: string;
             };
             path: {
                 /** @description stream.m3u8, init.mp4 or a segment */
@@ -4200,9 +4232,13 @@ export interface operations {
                 token: string;
             };
             cookie?: {
-                /** @description The media cookie sign-in sets, for an <img> */
+                /** @description The media cookie sign-in sets over TLS, for an <img> */
+                "__Host-orpheum_media"?: string;
+                /** @description A Watch Together viewer's over TLS, set as their playback starts */
+                "__Host-orpheum_viewer"?: string;
+                /** @description The media cookie sign-in sets over plain HTTP, for an <img> */
                 orpheum_media?: string;
-                /** @description A Watch Together viewer's, set as their playback starts */
+                /** @description A Watch Together viewer's over plain HTTP, set as their playback starts */
                 orpheum_viewer?: string;
             };
         };
@@ -4236,15 +4272,21 @@ export interface operations {
                 Authorization?: string;
                 /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
                 "Orpheum-Viewer"?: string;
+                /** @description The browser's Sec-Fetch-Site */
+                "Sec-Fetch-Site"?: string;
             };
             path: {
                 /** @description The playback's media token */
                 token: string;
             };
             cookie?: {
-                /** @description The media cookie sign-in sets, for an <img> */
+                /** @description The media cookie sign-in sets over TLS, for an <img> */
+                "__Host-orpheum_media"?: string;
+                /** @description A Watch Together viewer's over TLS, set as their playback starts */
+                "__Host-orpheum_viewer"?: string;
+                /** @description The media cookie sign-in sets over plain HTTP, for an <img> */
                 orpheum_media?: string;
-                /** @description A Watch Together viewer's, set as their playback starts */
+                /** @description A Watch Together viewer's over plain HTTP, set as their playback starts */
                 orpheum_viewer?: string;
             };
         };
@@ -4278,6 +4320,8 @@ export interface operations {
                 Authorization?: string;
                 /** @description A Watch Together viewer's membership, from a page on the discovery's origin */
                 "Orpheum-Viewer"?: string;
+                /** @description The browser's Sec-Fetch-Site */
+                "Sec-Fetch-Site"?: string;
             };
             path: {
                 /** @description <streamId>.ass or <streamId>.vtt, or f<fetchedSubtitleId>.ass or .vtt */
@@ -4286,9 +4330,13 @@ export interface operations {
                 token: string;
             };
             cookie?: {
-                /** @description The media cookie sign-in sets, for an <img> */
+                /** @description The media cookie sign-in sets over TLS, for an <img> */
+                "__Host-orpheum_media"?: string;
+                /** @description A Watch Together viewer's over TLS, set as their playback starts */
+                "__Host-orpheum_viewer"?: string;
+                /** @description The media cookie sign-in sets over plain HTTP, for an <img> */
                 orpheum_media?: string;
-                /** @description A Watch Together viewer's, set as their playback starts */
+                /** @description A Watch Together viewer's over plain HTTP, set as their playback starts */
                 orpheum_viewer?: string;
             };
         };

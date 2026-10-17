@@ -53,9 +53,13 @@
 //     TestArch_EveryInvalidRequestSaysWhere and by the tests' wantError, which fails an
 //     invalid_request without a location.
 //   - A credential is read from the Authorization header only, never the URL; the byte paths
-//     (under /bytes/, D216) also take the media cookie, HttpOnly and SameSite Strict, which the API never does
-//     (D154). Enforced by TestSession_TheTokenWorksInTheHeaderOnlyUntilSignOut and
+//     (under /bytes/, D216) also take the media cookie, HttpOnly and SameSite Strict, which the API
+//     never does (D154). Enforced by TestSession_TheTokenWorksInTheHeaderOnlyUntilSignOut and
 //     TestMediaCookie_SignInSetsItOnlyTheBytePathsTakeItAndSignOutClearsIt.
+//   - A byte path takes a cookie only on a load from the core's own pages, and over TLS only by its
+//     host-only name, so no other core, all being one site, can use or set one (the D308 audit's
+//     F-6). Enforced by TestMediaCookie_ALoadFromAnotherSitesPageIsNotSignedInByIt and
+//     TestMediaCookie_OverTLSItIsHostOnlyAndThePlainNameNoLongerCounts.
 //   - An admin administers only from the house's network: at home a sign-in from any origin carries
 //     the whole role, directly or over a WebRTC connection whose selected pair reaches the core from
 //     the house with no relay between, as the core's own end of the pair says; from any other network,

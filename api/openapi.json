@@ -6578,20 +6578,47 @@
             }
           },
           {
-            "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+            "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
             "in": "cookie",
             "name": "orpheum_media",
             "schema": {
-              "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+              "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
               "type": "string"
             }
           },
           {
-            "description": "A Watch Together viewer's, set as their playback starts",
+            "description": "The media cookie sign-in sets over TLS, for an \u003cimg\u003e",
+            "in": "cookie",
+            "name": "__Host-orpheum_media",
+            "schema": {
+              "description": "The media cookie sign-in sets over TLS, for an \u003cimg\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's over plain HTTP, set as their playback starts",
             "in": "cookie",
             "name": "orpheum_viewer",
             "schema": {
-              "description": "A Watch Together viewer's, set as their playback starts",
+              "description": "A Watch Together viewer's over plain HTTP, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's over TLS, set as their playback starts",
+            "in": "cookie",
+            "name": "__Host-orpheum_viewer",
+            "schema": {
+              "description": "A Watch Together viewer's over TLS, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The browser's Sec-Fetch-Site",
+            "in": "header",
+            "name": "Sec-Fetch-Site",
+            "schema": {
+              "description": "The browser's Sec-Fetch-Site",
               "type": "string"
             }
           },
@@ -6675,20 +6702,47 @@
             }
           },
           {
-            "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+            "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
             "in": "cookie",
             "name": "orpheum_media",
             "schema": {
-              "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+              "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
               "type": "string"
             }
           },
           {
-            "description": "A Watch Together viewer's, set as their playback starts",
+            "description": "The media cookie sign-in sets over TLS, for an \u003cimg\u003e",
+            "in": "cookie",
+            "name": "__Host-orpheum_media",
+            "schema": {
+              "description": "The media cookie sign-in sets over TLS, for an \u003cimg\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's over plain HTTP, set as their playback starts",
             "in": "cookie",
             "name": "orpheum_viewer",
             "schema": {
-              "description": "A Watch Together viewer's, set as their playback starts",
+              "description": "A Watch Together viewer's over plain HTTP, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's over TLS, set as their playback starts",
+            "in": "cookie",
+            "name": "__Host-orpheum_viewer",
+            "schema": {
+              "description": "A Watch Together viewer's over TLS, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The browser's Sec-Fetch-Site",
+            "in": "header",
+            "name": "Sec-Fetch-Site",
+            "schema": {
+              "description": "The browser's Sec-Fetch-Site",
               "type": "string"
             }
           },
@@ -6748,20 +6802,47 @@
             }
           },
           {
-            "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+            "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
             "in": "cookie",
             "name": "orpheum_media",
             "schema": {
-              "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+              "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
               "type": "string"
             }
           },
           {
-            "description": "A Watch Together viewer's, set as their playback starts",
+            "description": "The media cookie sign-in sets over TLS, for an \u003cimg\u003e",
+            "in": "cookie",
+            "name": "__Host-orpheum_media",
+            "schema": {
+              "description": "The media cookie sign-in sets over TLS, for an \u003cimg\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's over plain HTTP, set as their playback starts",
             "in": "cookie",
             "name": "orpheum_viewer",
             "schema": {
-              "description": "A Watch Together viewer's, set as their playback starts",
+              "description": "A Watch Together viewer's over plain HTTP, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's over TLS, set as their playback starts",
+            "in": "cookie",
+            "name": "__Host-orpheum_viewer",
+            "schema": {
+              "description": "A Watch Together viewer's over TLS, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The browser's Sec-Fetch-Site",
+            "in": "header",
+            "name": "Sec-Fetch-Site",
+            "schema": {
+              "description": "The browser's Sec-Fetch-Site",
               "type": "string"
             }
           },
@@ -6850,20 +6931,47 @@
             }
           },
           {
-            "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+            "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
             "in": "cookie",
             "name": "orpheum_media",
             "schema": {
-              "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+              "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
               "type": "string"
             }
           },
           {
-            "description": "A Watch Together viewer's, set as their playback starts",
+            "description": "The media cookie sign-in sets over TLS, for an \u003cimg\u003e",
+            "in": "cookie",
+            "name": "__Host-orpheum_media",
+            "schema": {
+              "description": "The media cookie sign-in sets over TLS, for an \u003cimg\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's over plain HTTP, set as their playback starts",
             "in": "cookie",
             "name": "orpheum_viewer",
             "schema": {
-              "description": "A Watch Together viewer's, set as their playback starts",
+              "description": "A Watch Together viewer's over plain HTTP, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's over TLS, set as their playback starts",
+            "in": "cookie",
+            "name": "__Host-orpheum_viewer",
+            "schema": {
+              "description": "A Watch Together viewer's over TLS, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The browser's Sec-Fetch-Site",
+            "in": "header",
+            "name": "Sec-Fetch-Site",
+            "schema": {
+              "description": "The browser's Sec-Fetch-Site",
               "type": "string"
             }
           },
@@ -6930,20 +7038,47 @@
             }
           },
           {
-            "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+            "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
             "in": "cookie",
             "name": "orpheum_media",
             "schema": {
-              "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+              "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
               "type": "string"
             }
           },
           {
-            "description": "A Watch Together viewer's, set as their playback starts",
+            "description": "The media cookie sign-in sets over TLS, for an \u003cimg\u003e",
+            "in": "cookie",
+            "name": "__Host-orpheum_media",
+            "schema": {
+              "description": "The media cookie sign-in sets over TLS, for an \u003cimg\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's over plain HTTP, set as their playback starts",
             "in": "cookie",
             "name": "orpheum_viewer",
             "schema": {
-              "description": "A Watch Together viewer's, set as their playback starts",
+              "description": "A Watch Together viewer's over plain HTTP, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's over TLS, set as their playback starts",
+            "in": "cookie",
+            "name": "__Host-orpheum_viewer",
+            "schema": {
+              "description": "A Watch Together viewer's over TLS, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The browser's Sec-Fetch-Site",
+            "in": "header",
+            "name": "Sec-Fetch-Site",
+            "schema": {
+              "description": "The browser's Sec-Fetch-Site",
               "type": "string"
             }
           },
@@ -7012,20 +7147,47 @@
             }
           },
           {
-            "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+            "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
             "in": "cookie",
             "name": "orpheum_media",
             "schema": {
-              "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+              "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
               "type": "string"
             }
           },
           {
-            "description": "A Watch Together viewer's, set as their playback starts",
+            "description": "The media cookie sign-in sets over TLS, for an \u003cimg\u003e",
+            "in": "cookie",
+            "name": "__Host-orpheum_media",
+            "schema": {
+              "description": "The media cookie sign-in sets over TLS, for an \u003cimg\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's over plain HTTP, set as their playback starts",
             "in": "cookie",
             "name": "orpheum_viewer",
             "schema": {
-              "description": "A Watch Together viewer's, set as their playback starts",
+              "description": "A Watch Together viewer's over plain HTTP, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's over TLS, set as their playback starts",
+            "in": "cookie",
+            "name": "__Host-orpheum_viewer",
+            "schema": {
+              "description": "A Watch Together viewer's over TLS, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The browser's Sec-Fetch-Site",
+            "in": "header",
+            "name": "Sec-Fetch-Site",
+            "schema": {
+              "description": "The browser's Sec-Fetch-Site",
               "type": "string"
             }
           },
@@ -7082,20 +7244,47 @@
             }
           },
           {
-            "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+            "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
             "in": "cookie",
             "name": "orpheum_media",
             "schema": {
-              "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+              "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
               "type": "string"
             }
           },
           {
-            "description": "A Watch Together viewer's, set as their playback starts",
+            "description": "The media cookie sign-in sets over TLS, for an \u003cimg\u003e",
+            "in": "cookie",
+            "name": "__Host-orpheum_media",
+            "schema": {
+              "description": "The media cookie sign-in sets over TLS, for an \u003cimg\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's over plain HTTP, set as their playback starts",
             "in": "cookie",
             "name": "orpheum_viewer",
             "schema": {
-              "description": "A Watch Together viewer's, set as their playback starts",
+              "description": "A Watch Together viewer's over plain HTTP, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's over TLS, set as their playback starts",
+            "in": "cookie",
+            "name": "__Host-orpheum_viewer",
+            "schema": {
+              "description": "A Watch Together viewer's over TLS, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The browser's Sec-Fetch-Site",
+            "in": "header",
+            "name": "Sec-Fetch-Site",
+            "schema": {
+              "description": "The browser's Sec-Fetch-Site",
               "type": "string"
             }
           },
@@ -7179,20 +7368,47 @@
             }
           },
           {
-            "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+            "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
             "in": "cookie",
             "name": "orpheum_media",
             "schema": {
-              "description": "The media cookie sign-in sets, for an \u003cimg\u003e",
+              "description": "The media cookie sign-in sets over plain HTTP, for an \u003cimg\u003e",
               "type": "string"
             }
           },
           {
-            "description": "A Watch Together viewer's, set as their playback starts",
+            "description": "The media cookie sign-in sets over TLS, for an \u003cimg\u003e",
+            "in": "cookie",
+            "name": "__Host-orpheum_media",
+            "schema": {
+              "description": "The media cookie sign-in sets over TLS, for an \u003cimg\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's over plain HTTP, set as their playback starts",
             "in": "cookie",
             "name": "orpheum_viewer",
             "schema": {
-              "description": "A Watch Together viewer's, set as their playback starts",
+              "description": "A Watch Together viewer's over plain HTTP, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A Watch Together viewer's over TLS, set as their playback starts",
+            "in": "cookie",
+            "name": "__Host-orpheum_viewer",
+            "schema": {
+              "description": "A Watch Together viewer's over TLS, set as their playback starts",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The browser's Sec-Fetch-Site",
+            "in": "header",
+            "name": "Sec-Fetch-Site",
+            "schema": {
+              "description": "The browser's Sec-Fetch-Site",
               "type": "string"
             }
           },

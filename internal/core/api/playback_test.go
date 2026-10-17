@@ -165,7 +165,7 @@ func (harness testHarness) getBytePath(t *testing.T, url, token string, byCookie
 		t.Fatal(err)
 	}
 	if byCookie {
-		cookie := mediaCookie(token, false)
+		cookie := byteCookie(MediaCookieName, token, false)
 		request.AddCookie(&cookie)
 	} else {
 		request.Header.Set("Authorization", "Bearer "+token)
