@@ -22,6 +22,7 @@ const (
 	answerPurpose         = "answer"
 	offerPurpose          = "offer"
 	clientManifestPurpose = "client-manifest"
+	handOffOfferPurpose   = "handoff-offer"
 )
 
 // Message is what a signature to a discovery signs: the purpose ("enrol" or "session",
@@ -101,6 +102,15 @@ func FingerprintText(publicKey ed25519.PublicKey) string {
 // protocol's §2.5 item 3; A9, A corrections 5).
 func SessionOfferKey(token string) []byte {
 	digest := sha256.Sum256([]byte(token))
+	return digest[:]
+}
+
+// HandOffOfferKey is what a client origin proves its offers under while it holds only the code of a
+// sign-in handed off to it, before it has a session of its own (D308 §4): SHA-256 over the code
+// under a purpose of its own, so no session's key is ever one. The core takes it for the person the
+// sign-in was for, beside their realm key, only while the code is live.
+func HandOffOfferKey(code string) []byte {
+	digest := sha256.Sum256([]byte(prefix + handOffOfferPurpose + "\n" + code))
 	return digest[:]
 }
 

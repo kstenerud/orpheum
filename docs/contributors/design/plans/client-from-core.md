@@ -55,6 +55,15 @@ audit, whose controls this builds, is
      makes the device then, at the client origin, where the session will be kept. Whether the
      session administers is decided at redemption, by D297 §6's rule, from where that request came.
    - A redeemed or expired code is refused, and so is a second redemption.
+   - **Reaching the core before the code is taken.** The client origin finds the core with the
+     bootstrap token `app.`'s realm sign-in got from the discovery, which the redirect carries
+     beside the code. That token ends in five minutes and lets it reach no further than the core's
+     paths and offers.
+     - Over a direct name it needs nothing more.
+     - Over WebRTC it proves its offers under `proof.HandOffOfferKey(code)`. The core accepts that
+       key for the person the realm names, beside their realm key, while the code is live, so a
+       core behind carrier NAT can still be reached.
+     - Once the code is taken, the session's own locator and key take over, as today.
 3. **The signed client manifest** (D308 §6).
    - `make generate` writes, beside the embedded `dist/`, the client's version and each file's
      path and SHA-256.

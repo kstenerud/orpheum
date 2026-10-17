@@ -7,6 +7,8 @@ import (
 	"errors"
 	"sync"
 	"time"
+
+	"github.com/kstenerud/orpheum/discovery/proof"
 )
 
 // How a sign-in at the discovery's loader reaches the core's own client origin (D308 §4): the
@@ -37,10 +39,12 @@ type handOffs struct {
 	byCode map[string]handOff
 }
 
-// handOff is one session waiting to be taken, and when its code was made.
+// handOff is one session waiting to be taken, when its code was made, and the person a realm
+// sign-in names them as (proof.RealmPerson), empty when the core has no realm.
 type handOff struct {
 	issued Issued
 	madeAt time.Time
+	person string
 }
 
 // expiredLocked removes every hand-off expired at now and returns their sessions; the mutex is held.
@@ -68,11 +72,15 @@ func (service *Service) HandOff(
 	if err != nil {
 		return "", errors.Join(err, service.SignOut(ctx, issued.Token))
 	}
+	person := ""
+	if realm := service.currentRealm(); realm != "" {
+		person = proof.RealmPerson(realm, name)
+	}
 	service.handOffs.mutex.Lock()
 	expired := service.handOffs.expiredLocked(service.clock.Now())
 	isFull := len(service.handOffs.byCode) >= handOffsAtMost
 	if !isFull {
-		service.handOffs.byCode[code] = handOff{issued: issued, madeAt: service.clock.Now()}
+		service.handOffs.byCode[code] = handOff{issued: issued, madeAt: service.clock.Now(), person: person}
 	}
 	service.handOffs.mutex.Unlock()
 	err = service.endUntaken(ctx, expired)
@@ -97,6 +105,22 @@ func (service *Service) TakeHandOff(ctx context.Context, code string) (Issued, e
 		return Issued{}, ErrNoHandOff
 	}
 	return waiting.issued, nil
+}
+
+// HandOffOfferKeys are the keys a client origin holding a live hand-off's code for person proves its
+// offers under (proof.HandOffOfferKey), which the discovery passes on under the person, as it does a
+// realm sign-in's: so a client origin reached only over WebRTC can take its session (D308 §4).
+func (service *Service) HandOffOfferKeys(person string) [][]byte {
+	service.handOffs.mutex.Lock()
+	defer service.handOffs.mutex.Unlock()
+	now := service.clock.Now()
+	keys := [][]byte{}
+	for code, waiting := range service.handOffs.byCode {
+		if person != "" && waiting.person == person && now.Sub(waiting.madeAt) < handOffLife {
+			keys = append(keys, proof.HandOffOfferKey(code))
+		}
+	}
+	return keys
 }
 
 // endUntaken signs out the sessions whose hand-offs expired untaken, which no one holds.

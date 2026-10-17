@@ -6,6 +6,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/kstenerud/orpheum/discovery/proof"
 )
 
 // A loader's sign-in keeps its session for the client origin, which takes it by the code once; the
@@ -57,5 +59,37 @@ func TestHandOff_ACodeNotTakenInItsMinuteEndsWithItsSession(t *testing.T) {
 	}
 	if _, err := fixture.service.Authenticate(ctx, waiting.Token); !errors.Is(err, ErrNotAuthenticated) {
 		t.Errorf("the untaken session past its minute authenticates (%v); want it ended", err)
+	}
+}
+
+// While its code is live, a hand-off's key proves offers for the person the realm names, so a
+// client origin reached only over WebRTC can take its session; no other person's, and none once
+// taken (D308 §4).
+func TestHandOffOfferKeys_AreTheLiveCodesOfThePersonTheRealmNames(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	fixture.service.SetRealm("karlnas")
+	fixture.createUser(t, "owner", "right", RoleAdmin)
+	if keys := fixture.service.HandOffOfferKeys(proof.RealmPerson("karlnas", "owner")); len(keys) != 0 {
+		t.Fatalf("before any hand-off the person's keys are %d; want none", len(keys))
+	}
+	code, err := fixture.service.HandOff(ctx, "Owner", "right", "192.0.2.1", laptop)
+	if err != nil {
+		t.Fatal(err)
+	}
+	person := proof.RealmPerson("karlnas", "owner")
+	keys := fixture.service.HandOffOfferKeys(person)
+	if len(keys) != 1 || string(keys[0]) != string(proof.HandOffOfferKey(code)) {
+		t.Errorf("the person's keys are %d; want the one hand-off's", len(keys))
+	}
+	if others := fixture.service.HandOffOfferKeys(proof.RealmPerson("karlnas", "partner")); len(others) != 0 {
+		t.Errorf("another person's keys are %d; want none", len(others))
+	}
+	if _, err := fixture.service.TakeHandOff(ctx, code); err != nil {
+		t.Fatal(err)
+	}
+	if keys := fixture.service.HandOffOfferKeys(person); len(keys) != 0 {
+		t.Errorf("once taken the person's keys are %d; want none", len(keys))
 	}
 }

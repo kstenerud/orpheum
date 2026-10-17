@@ -61,6 +61,7 @@ func discoveryParts(
 		Answerer:   answerer, OnClaimed: onClaimed,
 		RetryFirst: retryFirst, RetryMost: retryMost, Random: rand.Reader,
 		Links: linksOf(opened.auth, opened.together), OfferKey: offerKeyOf(opened.auth, opened.together),
+		HandOffOfferKeys: opened.auth.HandOffOfferKeys,
 		// A person's realm key is made for the realm the discovery finds the core by, and checks the
 		// realm sign-ins it passes on (D297 §3).
 		RealmSignIn: opened.auth.TakeRealmSignIn, OnRealm: opened.auth.SetRealm,
