@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { expect, type Locator } from "@playwright/test";
 
 import { readsStylesheets, test } from "./browser-map.ts";
-import { signIn } from "./pages.ts";
+import { serverUrl, signIn } from "./pages.ts";
 
 test("the logo is one link home, exactly the logo's size", async ({ page }) => {
   await signIn(page);
@@ -69,6 +69,30 @@ test("a poster's status cues are a tray down from its top-right corner, over the
   // Each cue the size of the warning sign's, its icon drawn at the sign's size.
   expect(Math.abs(second.height - first.height)).toBeLessThan(2);
   expect(Math.abs(second.width - first.width)).toBeLessThan(2);
+});
+
+test("the gallery draws each status tray at a banner's end, in one row, as the banner does (D280)", async ({
+  page,
+}) => {
+  await signIn(page);
+  await page.goto(`${serverUrl()}/ui-gallery`);
+  const banners = page.locator(".ui-gallery__banner");
+  await expect(banners.first()).toBeVisible();
+  const count = await banners.count();
+  expect(count).toBeGreaterThan(1);
+  for (let index = 0; index < count; index += 1) {
+    const banner = banners.nth(index);
+    const drawn = await boxOf(banner);
+    // A banner's width, not the page's, so its end is where a banner's is.
+    expect(drawn.width).toBeLessThanOrEqual(24 * 16 + 1);
+    const realm = await boxOf(banner.locator(".app-shell__realm"));
+    const menu = await boxOf(banner.locator(".ui-gallery__menu-mark"));
+    // The menu last, at the banner's end inside its padding, level with the realm beside it.
+    const end = drawn.x + drawn.width;
+    expect(end - (menu.x + menu.width)).toBeLessThan(20);
+    expect(menu.x).toBeGreaterThan(realm.x + realm.width - 1);
+    expect(Math.abs(menu.y + menu.height / 2 - (realm.y + realm.height / 2))).toBeLessThan(3);
+  }
 });
 
 /** Where element is drawn; it fails the test when it is drawn nowhere. */
