@@ -8,7 +8,8 @@ import { useTranslation } from "react-i18next";
 import { IsAdminContext, WarningSign } from "./warning-sign.tsx";
 
 /**
- * The still-reading icon: an hourglass on the accent colour, for a title shown from its listing
+ * The still-reading icon: an hourglass on the accent colour, its sand run into the lower bulb and
+ * drawn heavy so it reads as one at a poster's corner (the owner, 2026-10-17: the thin one did not), for a title shown from its listing
  * whose file its machine has not read yet (D304 §4). Ringed, it is drawn over a poster; unringed,
  * beside words on a page. Decoration beside words that say it.
  */
@@ -28,9 +29,14 @@ export function StillReadingIcon(props: { readonly isRinged: boolean }): JSX.Ele
       ) : null}
       <circle className="still-reading-icon__disc" cx={centre} cy={centre} r={13} />
       <g transform={`translate(${String(inset)} ${String(inset)}) scale(0.875)`}>
+        <path className="still-reading-icon__caps" d="M4.6 4h14.8M4.6 20h14.8" />
         <path
           className="still-reading-icon__glass"
-          d="M8 5.5h8M8 18.5h8M9 5.5c0 4 6 4.5 6 6.5s-6 2.5-6 6.5M15 5.5c0 4-6 4.5-6 6.5s6 2.5 6 6.5"
+          d="M6.4 4.6c0 4.4 4.3 5.2 4.3 7.4s-4.3 3-4.3 7.4M17.6 4.6c0 4.4-4.3 5.2-4.3 7.4s4.3 3 4.3 7.4"
+        />
+        <path
+          className="still-reading-icon__sand"
+          d="M6.4 19.4c0-4.4 4.3-5.2 4.3-7.4h2.6c0 2.2 4.3 3 4.3 7.4z"
         />
       </g>
     </svg>
