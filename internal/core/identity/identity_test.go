@@ -62,6 +62,23 @@ func TestSign_NamesItsPurposeSoOneCannotBeUsedForAnother(t *testing.T) {
 	}
 }
 
+// The client's manifest is signed as a manifest, which a loader checks, and as nothing else.
+func TestSignClientManifest_VerifiesAsTheManifestAlone(t *testing.T) {
+	t.Parallel()
+	key, err := GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest := []byte(`{"files":[]}`)
+	signature := key.SignClientManifest(manifest)
+	if !proof.VerifyClientManifest(key.Public(), manifest, signature) {
+		t.Error("the manifest's signature does not verify")
+	}
+	if proof.VerifyClientManifest(key.Public(), []byte(`{"files":[1]}`), signature) {
+		t.Error("the signature verifies another manifest")
+	}
+}
+
 func TestParseKeyFile_RefusesWhatIsNotAKey(t *testing.T) {
 	t.Parallel()
 	for _, contents := range []string{

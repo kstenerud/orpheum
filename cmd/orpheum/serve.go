@@ -53,7 +53,9 @@ func serve(
 ) (err error) {
 	server := newAPIServer(config, logger)
 	clientFiles, hasClient := webclient.Files()
-	serveClient(server, clientFiles, hasClient)
+	if clientErr := serveClient(server, clientFiles, hasClient); clientErr != nil {
+		return clientErr
+	}
 	// Requests over WebRTC data channels reach the same handler as those over TCP (D273 §8).
 	rtc := webRTCOf(ctx, server, config, logger)
 	defer func() { err = errors.Join(err, rtc.Close()) }()
@@ -607,13 +609,20 @@ func newAPIServer(config Config, logger *slog.Logger) *api.Server {
 }
 
 // serveClient serves the built web client, clientFiles, at "/", and has every API answer name its
-// script, so a page left open across an update reloads itself (api.ClientScriptHeader); a binary
-// built without the client, hasClient false, serves the placeholder and names none.
-func serveClient(server *api.Server, clientFiles fs.FS, hasClient bool) {
+// script, so a page left open across an update reloads itself (api.ClientScriptHeader), and its
+// manifest signed, which a discovery's loader checks before it runs it (D308 §6); a binary built
+// without the client, hasClient false, serves the placeholder and names none.
+func serveClient(server *api.Server, clientFiles fs.FS, hasClient bool) error {
 	if hasClient {
 		server.SetClientScript(webclient.ScriptName(clientFiles))
+		manifest, err := webclient.ManifestOf(clientFiles, thisBuild().Version)
+		if err != nil {
+			return err
+		}
+		server.SetClientManifest(manifest)
 	}
 	server.Mux().Handle("/", webclient.Handler(clientFiles, api.Prefix))
+	return nil
 }
 
 // webRTCOf is the WebRTC server over server's handler, taking WebRTC at home as config says, which

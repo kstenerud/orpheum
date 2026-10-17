@@ -6,6 +6,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"strings"
 	"testing"
 
@@ -133,5 +134,37 @@ func TestFingerprintText_IsTheSameDigestInSafe32Groups(t *testing.T) {
 	again, err := safe32code.WriteBytes(append(digest[:], 0), 52)
 	if err != nil || again != text {
 		t.Errorf("FingerprintText = %q; want the key's SHA-256 in safe32, %q", text, again)
+	}
+}
+
+// clientManifestVector is the vector key's signature over the manifest {"files":[]}, which the web
+// client's tests hold too, so the loader checks what the core signs.
+const clientManifestVector = "UoKlrdFrAoHSyIoY1izKxSjrqGmsqj7KVvSJQWAvuhtvCYzkVwJaI_cag2Lrv9Q3h7gt7rF87XmmPLcmSaPeDQ"
+
+// A client manifest's signature covers its exact bytes under the core's key, and nothing else
+// verifies (D308 §6).
+func TestVerifyClientManifest_CoversTheManifestsExactBytes(t *testing.T) {
+	t.Parallel()
+	signature, err := base64.RawURLEncoding.DecodeString(clientManifestVector)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest := []byte(`{"files":[]}`)
+	if !VerifyClientManifest(vectorKey(), manifest, signature) {
+		t.Fatal("the vector's signature does not verify")
+	}
+	if VerifyClientManifest(vectorKey(), []byte(`{"files":[] }`), signature) {
+		t.Error("a manifest of other bytes verifies")
+	}
+	other, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if VerifyClientManifest(other, manifest, signature) || VerifyClientManifest(nil, manifest, signature) {
+		t.Error("the signature verifies under another key, or none")
+	}
+	// A signature for another purpose over the same bytes is no manifest's.
+	if VerifyClientManifest(vectorKey(), manifest, ed25519.Sign(vectorPrivate(), manifest)) {
+		t.Error("a signature over the bare manifest, with no purpose, verifies")
 	}
 }

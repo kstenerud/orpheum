@@ -19,13 +19,18 @@ const (
 	realmOfferVector  = "3C1NBzuWqwkuFATD3QijN5V_0ujLhubShn9Zh7qVqPM"
 )
 
-// vectorKey is the Ed25519 key of the seed 0x00…0x1f, as the other vectors use.
-func vectorKey() ed25519.PublicKey {
+// vectorPrivate is the Ed25519 key of the seed 0x00…0x1f, as the other vectors use.
+func vectorPrivate() ed25519.PrivateKey {
 	seed := make([]byte, ed25519.SeedSize)
 	for index := range seed {
 		seed[index] = byte(index)
 	}
-	public, isEd25519 := ed25519.NewKeyFromSeed(seed).Public().(ed25519.PublicKey)
+	return ed25519.NewKeyFromSeed(seed)
+}
+
+// vectorKey is vectorPrivate's public half.
+func vectorKey() ed25519.PublicKey {
+	public, isEd25519 := vectorPrivate().Public().(ed25519.PublicKey)
 	if !isEd25519 {
 		return nil
 	}

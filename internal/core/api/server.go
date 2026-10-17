@@ -132,11 +132,13 @@ type Server struct {
 	namedClientOrigin atomic.Pointer[string]
 	// namedLoaderOrigin is the loader origin a test names in place of the discovery's (crossOrigin).
 	namedLoaderOrigin atomic.Pointer[string]
-	humaAPI           huma.API
-	mux               *http.ServeMux
-	logger            *slog.Logger
-	health            health
-	dependencies      atomic.Pointer[Dependencies]
+	// clientManifest is the manifest of the client this binary serves (SetClientManifest).
+	clientManifest []byte
+	humaAPI        huma.API
+	mux            *http.ServeMux
+	logger         *slog.Logger
+	health         health
+	dependencies   atomic.Pointer[Dependencies]
 	// clientScript is the served web client's script, set before the server serves.
 	clientScript string
 	// homeNetworks are where an admin administers from (SetHomeNetworks; D297 §6).

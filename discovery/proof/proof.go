@@ -16,10 +16,12 @@ import (
 // purpose after it names the call.
 const prefix = "orpheum-discovery-v1:"
 
-// The purposes of a signature over a WebRTC answer, and of a proof over an offer.
+// The purposes of a signature over a WebRTC answer, of a proof over an offer, and of a signature
+// over the manifest of a core's client.
 const (
-	answerPurpose = "answer"
-	offerPurpose  = "offer"
+	answerPurpose         = "answer"
+	offerPurpose          = "offer"
+	clientManifestPurpose = "client-manifest"
 )
 
 // Message is what a signature to a discovery signs: the purpose ("enrol" or "session",
@@ -115,4 +117,20 @@ func Offer(key []byte, fingerprint string) string {
 // VerifyOffer is whether proven is Offer's proof under key over fingerprint, compared in constant time.
 func VerifyOffer(key []byte, fingerprint, proven string) bool {
 	return hmac.Equal([]byte(Offer(key, fingerprint)), []byte(proven))
+}
+
+// ClientManifestMessage is what a core's signature over its client's manifest signs: the manifest's
+// exact bytes after the purpose's line. A loader runs a core's client only once the manifest holds
+// under the key its link or realm named, and each file's hash in it (D308 §6), so neither the
+// discovery serving the loader nor anyone between can put other code in the core's place.
+func ClientManifestMessage(manifest []byte) []byte {
+	return append([]byte(prefix+clientManifestPurpose+"\n"), manifest...)
+}
+
+// VerifyClientManifest is whether signature is publicKey's over manifest.
+func VerifyClientManifest(publicKey ed25519.PublicKey, manifest, signature []byte) bool {
+	if len(publicKey) != ed25519.PublicKeySize {
+		return false
+	}
+	return ed25519.Verify(publicKey, ClientManifestMessage(manifest), signature)
 }

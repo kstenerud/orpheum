@@ -154,7 +154,7 @@ type SignOutOutput struct {
 }
 
 func (server *Server) registerSetupAndAuth() {
-	tags := []string{"Setup and auth"}
+	tags := []string{tagSetupAndAuth}
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setup", Method: http.MethodPost, Path: "/setup", DefaultStatus: http.StatusCreated,
 		Summary: "Create the first admin with the one-time setup code from the log", Tags: tags,

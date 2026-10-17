@@ -19,6 +19,9 @@
 //     nothing from elsewhere and forbids framing, and `Referrer-Policy: no-referrer`; one over HTTPS
 //     carries `Strict-Transport-Security`. Enforced by TestHandler_ServesFilesAndFallsBackToIndex
 //     and TestHandler_EveryAnswerCarriesTheSecurityHeaders.
+//   - The client's manifest names every file it serves by its size and SHA-256, in path order, so
+//     the same client is always the same bytes, which the core signs for a discovery's loader to
+//     check (D308 §6). Enforced by TestManifestOf_NamesEveryFileByItsHashInPathOrder.
 //
 // # Read before changing
 //
@@ -28,4 +31,5 @@
 // # Where to change
 //
 //   - webclient.go: the handler. files.go: the embedded files, and whether they are a client.
+//     manifest.go: the manifest of its files.
 package webclient

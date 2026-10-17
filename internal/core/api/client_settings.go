@@ -38,6 +38,7 @@ func (server *Server) registerClientSettings() {
 		Summary: "The server settings every client reads: how often a screen asks again (D237), and more",
 		Tags:    []string{tagSettings},
 	}, server.getClientSettings)
+	server.registerClientManifest()
 }
 
 func (server *Server) getClientSettings(
