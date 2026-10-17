@@ -152,7 +152,7 @@ strong typing with fast mechanical feedback — because a wrong column name is a
 > **Amended 2026-09-19 by [D98](#d98--a-sidecar-carries-what-is-true-about-the-work-the-database-carries-what-is-true-about-a-person).**
 > "Mirrored to sidecars" applies only to what is true about the *work*; per-user state is
 > database-only, because the media tree is shared. And the mirror itself needs an **opt-in
-> writable path** that [principles §2](../principles/README.md) does not grant by default —
+> writable path** that [principles §2](../principles/02-the-users-files.md) does not grant by default —
 > so the durability promise is kept by the automatic backup
 > ([D77](#d77--back-up-with-vacuum-into-back-up-only-the-irreplaceable-and-test-the-restore))
 > and the *portability* promise is what the sidecar delivers.
@@ -3167,7 +3167,7 @@ item for D11 that was not in its estimate.
 
 `ass_track_set_feature` returns −1 when a feature is unavailable at runtime, which makes it a
 capability probe. Check it once and report the answer rather than silently rendering wrong —
-[principles §9](../principles/README.md), sensors report.
+[principles §9](../principles/09-sensors-report.md), sensors report.
 
 **Status:** Provisional. Needs a rendering comparison on real Arabic, Hebrew, Thai and Japanese
 subtitle files before the flags are fixed; the split between "authored ASS" and "everything else"
@@ -3673,7 +3673,7 @@ CVE-2025-27363 covers. So one user preference produces the right behaviour on bo
 honours it, and an old TV box declines and says why, without the user having to keep two settings
 or understand the difference. The client that declines should say so in the same
 "why is this different?" surface that explains transcoding decisions
-([principles §3](../principles/README.md)) — *"this subtitle's own fonts weren't loaded on this
+([principles §3](../principles/03-explain-the-decision.md)) — *"this subtitle's own fonts weren't loaded on this
 device"* — rather than silently rendering substituted metrics and letting the user wonder why the
 signs overlap.
 
@@ -3740,7 +3740,7 @@ just request handling. That is a small implementation difference and a large ope
 and it is cheaper to build this way than the other way.
 
 **Status:** Provisional only in how the alarm surfaces — a log line, a counter, or something the
-user sees. Promoted to [principles §10](../principles/README.md), because it decides arguments
+user sees. Promoted to [principles §10](../principles/10-only-what-a-client-may-use.md), because it decides arguments
 well beyond this one.
 
 ---
@@ -3944,7 +3944,7 @@ journal: a node that cannot write cannot write its status record
 stops looking wedged and starts looking dead.
 
 So `journal_max_bytes` exists as a backstop — and per
-[principles §10](../principles/README.md), a backstop that fires is a signal, not a branch.
+[principles §10](../principles/10-only-what-a-client-may-use.md), a backstop that fires is a signal, not a branch.
 Hitting it means the node emits an `error`-class record saying it discarded history, how much,
 and over what span. The core surfaces that; it does not silently absorb it.
 
@@ -4058,7 +4058,7 @@ Each costs approximately nothing today and is expensive to retrofit.
    CPU, memory and output size per file is free, and an outlier is visible with no new machinery.
 4. **Quarantine is a library state, never a file operation.** Never move, never delete, never
    modify — [D7](#d7--the-files-are-the-source-of-truth-the-database-is-a-rebuildable-index) and
-   [principles §2](../principles/README.md). A suspected file is *marked and not played by
+   [principles §2](../principles/02-the-users-files.md). A suspected file is *marked and not played by
    default*; the bytes are untouched.
 
 ### And the two mistakes to avoid
@@ -4072,7 +4072,7 @@ A node that quarantines is a sensor making policy.
 **Do not cry wolf.** These are the user's own files, acquired over fifteen years, many encoded by
 broken tools. A server that warns about a 2004 home-video rip has not made anyone safer; it has
 taught them to dismiss warnings, which is a security failure and not a cosmetic one.
-[Principles §3](../principles/README.md) requires explaining the decision, and a warning the user
+[Principles §3](../principles/03-explain-the-decision.md) requires explaining the decision, and a warning the user
 cannot act on is not an explanation. Default silent; surface only concrete observations; always
 say what to do. *"This file used 40× the memory of anything else in your library while probing"*
 is actionable. *"Possible shellcode detected"* is not.
@@ -4159,7 +4159,7 @@ bar you are suspended**, so your intermediate positions do not drag everyone els
 timeline. Without it, "anyone can seek" is unusable, and it is not a thing one would think of
 before shipping it badly once.
 
-A reason is also better than a flag for the UI, per [principles §3](../principles/README.md):
+A reason is also better than a flag for the UI, per [principles §3](../principles/03-explain-the-decision.md):
 "Karl is buffering" is something a person can wait for.
 
 ### Concurrent commands are normal, so the server serialises
@@ -4931,7 +4931,7 @@ a content-reading relay would give, because the extra thing it would see is the 
 
 **And the direction is the point: the relay reports to the household's core, even when we
 operate the box.** The data stays with the library owner. This is
-[principles §9](../principles/README.md) applied to a machine we happen to run.
+[principles §9](../principles/09-sensors-report.md) applied to a machine we happen to run.
 
 ### The one thing to build now: a session id
 
@@ -5055,7 +5055,7 @@ it should be built once and used by both.
 The report must be **plain markdown the user can read before posting** — no base64 blobs, no
 binary, nothing opaque. "Review before sharing" is meaningless advice if the thing cannot be
 reviewed. This is the project's existing legibility theme
-([principles §3](../principles/README.md)) doing double duty.
+([principles §3](../principles/03-explain-the-decision.md)) doing double duty.
 
 **Status:** Provisional in detail. The pseudonymisation scheme wants a real look before it
 ships — in particular whether a 4-character tag collides annoyingly in a 50,000-item library,
@@ -5164,7 +5164,7 @@ a rule that silently stops working, which is what Apple has.
 The worst outcome of a schema change is a user's smart collection quietly disappearing. So a
 rule whose field no longer resolves is **kept, marked invalid, and surfaced with the offending
 field named** — never dropped, never silently emptied. That is
-[principles §7](../principles/README.md), migrations are a safety feature, applied to user data
+[principles §7](../principles/07-migrations-are-safety.md), migrations are a safety feature, applied to user data
 that happens to be a query.
 
 ### Live updating is a property of the rule
@@ -5246,7 +5246,7 @@ sees a narrowed list and can still stream anything whose id they remember from b
 tightened.
 
 This needs **both halves**, and it composes with
-[principles §10](../principles/README.md) rather than contradicting it: **omit** from the
+[principles §10](../principles/10-only-what-a-client-may-use.md) rather than contradicting it: **omit** from the
 manifest so a correct client never asks, **and deny** at the endpoint, because a shared user is
 a different trust domain from the owner. §10's reading of the denial gets *more* valuable here
 — a grantee's client asking for something outside its share is either a bug or a probe, and
@@ -5367,7 +5367,7 @@ A backup that has never been restored is not a backup. So: **a test that restore
 instance and asserts equivalence of the irreplaceable set** — not a checksum, which proves only
 that a copy happened.
 
-Two properties fall out of [principles §7](../principles/README.md):
+Two properties fall out of [principles §7](../principles/07-migrations-are-safety.md):
 
 - **A backup carries the schema version it was taken at, and restore refuses a version gap**
   rather than auto-converting. Detect-and-refuse, as with migrations.
@@ -5707,7 +5707,7 @@ transport; the log is the content.
 
 Their thresholds are otherwise a reasonable starting point — `MinResumePct = 5`,
 `MaxResumePct = 90` — and they are **policy in the core**
-([principles §9](../principles/README.md)), configurable, never compiled into a client.
+([principles §9](../principles/09-sensors-report.md)), configurable, never compiled into a client.
 
 **Status:** Schema. Due before `library-model.md`. ~~The retention policy for the event log is
 unmeasured — a household at ~2 writes/second is nothing, but the log is the first table with an
@@ -5770,7 +5770,7 @@ second detection pass; it is recorded as a derivation, not as an observation.
 **Detection is a job, and a plugin-shaped one.** It reads decoded audio and video, so by
 [D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp) it runs in the node's jail, and by [D42](#d42--nodes-are-sensors-the-core-is-the-only-thing-that-decides) it reports
 candidate boundaries while the core decides what to store. A **user override** wins over any
-detector and survives re-detection, per [principles §3](../principles/README.md).
+detector and survives re-detection, per [principles §3](../principles/03-explain-the-decision.md).
 
 **Status:** Schema (the table) is due with `library-model.md`; the detector is not, and should
 not be first-party at launch. The chapter-derived provider is nearly free and worth shipping
@@ -5789,7 +5789,7 @@ the downmix and the resulting quiet dialogue is ours.
 **Netflix fixes it at ingest**: **-27 LKFS ±2 LU, dialog-gated**, true peak ≤ **-2 dBTP**, per
 ITU-R BS.1770. Their whole catalogue is loudness-consistent before a player sees it.
 
-We cannot rewrite files ([principles §2](../principles/README.md)), so we take the answer the
+We cannot rewrite files ([principles §2](../principles/02-the-users-files.md)), so we take the answer the
 music world found under the same constraint: **measure once, store the number, apply gain at
 playback.** The node already opens every file; FFmpeg's `ebur128` filter implements EBU R128.
 Per audio track we store integrated loudness, loudness range and true peak as node-observed
@@ -6040,7 +6040,7 @@ receiver. If it needs a seventh method, that is worth knowing before the surface
 **Decided** (2026-09-19). Audit: [audit-2026-09-19.md](../design/research/audit-2026-09-19.md) §11.
 
 The tree contains no mention of deleting media — not "trash", not "recycle", not "delete". The
-two positions that exist point in opposite directions: [principles §2](../principles/README.md)
+two positions that exist point in opposite directions: [principles §2](../principles/02-the-users-files.md)
 mounts media read-only, and [D75](#d75--one-predicate-language-three-bindings-a-typed-field-registry-is-the-schema-deliverable) makes retention **mark** items rather than
 delete them, deliberately, because Maintainerr and Janitorr delete and people are afraid of
 them.
@@ -6053,7 +6053,7 @@ But "mark and review" has no "act", and users delete things. Unstated, this ends
 - **A writable path is opt-in per library** and off by default. Read-only remains the default
   mount and the default answer.
 - **Deletion is two-phase**: mark, then a confirmation that **names every file and its size**.
-  [principles §2](../principles/README.md) already says destructive actions must say exactly
+  [principles §2](../principles/02-the-users-files.md) already says destructive actions must say exactly
   what they will destroy; this is that rule's first real consumer.
 - **It happens in the node**, never the core, because the core does not touch media filesystems
   ([D33](#d33--hub-and-spoke-a-core-that-never-touches-media-and-n-media-nodes-that-do)) — so deletion is a node command with a node report, and it is
@@ -6100,7 +6100,7 @@ caption size and font controls and to make audio description reachable.
    eight-style mapping explicit and it becomes a conformance artefact instead of a coincidence.
 2. **The overlay rendition forecloses every control in that table**, not just size. So it is
    never the only offer for a caption track, and where it is chosen the client says which
-   controls it lost — [principles §3](../principles/README.md), applied to accessibility.
+   controls it lost — [principles §3](../principles/03-explain-the-decision.md), applied to accessibility.
 3. **Audio description is a first-class track kind**, not a disposition flag we happen to parse.
    It must appear in the client contract and in the preference axes, not only in
    [identification.md](../design/plans/identification.md)'s derivation table.
@@ -6428,7 +6428,7 @@ too"* — and nothing else in it.
 
 Nobody noticed that the mechanism collides with two other decisions:
 
-- [principles §2](../principles/README.md) mounts **media read-only by default**;
+- [principles §2](../principles/02-the-users-files.md) mounts **media read-only by default**;
 - [D33](#d33--hub-and-spoke-a-core-that-never-touches-media-and-n-media-nodes-that-do) says **the core never touches a media filesystem**.
 
 So a sidecar write requires a **writable path, opt-in per library** — the same opt-in
@@ -6452,7 +6452,7 @@ the word "survive" was doing work for. Say both, and say which is on by default.
 with filesystem access, which includes people the user cannot un-share with); a hidden
 dot-directory beside the media (same filesystem, same readers, plus it breaks the "any other
 media server can read it" property that was the point); requiring a writable path (it is the
-read-only default that makes [principles §2](../principles/README.md) mean anything).
+read-only default that makes [principles §2](../principles/02-the-users-files.md) mean anything).
 
 **Status:** ~~The sidecar format is still undesigned … NFO is the field's de-facto answer and
 **reading it is already planned**; writing it is a compatibility question nobody has
@@ -6539,7 +6539,7 @@ silently, from a channel designed to be replayed.
 **So:** a destructive command carries the **identity of what it is destroying**, not only its
 location — size and mtime at minimum, a content hash where one was taken — and the node
 **refuses and reports** rather than proceeding when the target does not match. A refusal here
-is [principles §10](../principles/README.md)'s alarm, not a branch: in a correct system it
+is [principles §10](../principles/10-only-what-a-client-may-use.md)'s alarm, not a branch: in a correct system it
 never fires, so every firing is worth looking at.
 
 Two smaller consequences:
@@ -6569,7 +6569,7 @@ is affordable.
 [D82](#d82--media-segments-are-typed-attach-at-the-version-and-carry-provenance) puts intro detection in the node, which is right — it decodes audio
 and [D26](#d26--no-ffmpeg-in-the-core-process-confine-it-with-landlock--seccomp) keeps that out of the core. But the useful detector works by
 finding **the segment repeated across the episodes of a season**, and that runs straight into
-[principles §9](../principles/README.md)'s test:
+[principles §9](../principles/09-sensors-report.md)'s test:
 
 > *Could this component determine it from what it observed, with no memory of previous
 > observations and no knowledge of the library?*
@@ -6744,7 +6744,7 @@ API at it — and because the core sees a legitimate owner request, nothing fire
 - **The core knows the request came via an adapter**, and says so in the session record. That
   is needed for [D74](#d74--bug-reports-pseudonymise-rather-than-redact-and-fan-in-across-components)'s bug reports and
   [D91](#d91--a-metrics-endpoint-off-by-default-and-local-when-on)'s metrics, and it is needed for
-  [principles §10](../principles/README.md): an adapter is a *cooperating* client for omission
+  [principles §10](../principles/10-only-what-a-client-may-use.md): an adapter is a *cooperating* client for omission
   purposes but a **less trusted** one for alarm purposes, since its users are running software
   we did not write.
 - **A redirect to a media URL carries the user's authorisation, not the adapter's.**
@@ -7642,7 +7642,7 @@ creation rather than buried**, and raising it is one action for the owner at any
 
 ### A refused join is a signal, not an error
 
-[principles §10](../principles/README.md) says a check that fires in a correct system is worth
+[principles §10](../principles/10-only-what-a-client-may-use.md) says a check that fires in a correct system is worth
 looking at. **"Join refused: at capacity" is exactly that** — in normal use it never happens,
 because the owner sized the session for the people he invited. Several in a row is the
 signature of a leaked link, and it is the earliest evidence available, arriving before the
@@ -7803,7 +7803,7 @@ Losing scope-keying loses nothing, because the real bound was never the item —
 
 Whatever the host puts on, the guest sees; anything else in the library is not merely
 forbidden, it is **unreachable, because it is not in the guest's world at all**. That is
-[principles §10](../principles/README.md) in its strongest form — omission rather than
+[principles §10](../principles/10-only-what-a-client-may-use.md) in its strongest form — omission rather than
 rejection — and it is a better guarantee than scope-keying was, because it does not depend on
 enumerating what the scope contains.
 
@@ -7875,7 +7875,7 @@ each participant's buffer health and stall count in the roster is a rendering of
 exists.
 
 It does three jobs at once: it tells the host **why** playback keeps pausing, which is
-[principles §3](../principles/README.md) applied to a group; it makes the stall policy a
+[principles §3](../principles/03-explain-the-decision.md) applied to a group; it makes the stall policy a
 comprehensible choice rather than a mystery toggle; and it converts "someone is ruining this"
 into a named, visible fact.
 
@@ -7974,7 +7974,7 @@ applies unchanged: the probe lies, the ladder is the response).
 - **"Cast" is three protocols, not one.** Google Cast, AirPlay, and our own. Fire TV has **no
   Google Cast** ([tv-client.md](../design/plans/tv-client.md) already notes the missing Play
   Services), and Apple devices want AirPlay. So this is a family of receiver implementations
-  behind one role, which is [principles §5](../principles/README.md)'s shape and should be
+  behind one role, which is [principles §5](../principles/05-an-interface-not-a-branch.md)'s shape and should be
   built that way from the first one.
 - **A Google dependency and $5.** A custom receiver needs a Cast developer account
   ([tech-clients.md](../design/research/tech-clients.md)); the Default Media Receiver needs no
@@ -8112,7 +8112,7 @@ What makes class 2 safe is different machinery and it already exists:
 - **Parse, don't validate, at the boundary** ([media-nodes.md](../design/media-nodes.md) trap 2),
   with malformed reports expected rather than exceptional
   ([D39](#d39--reports-are-jsonl-completeness-is-in-the-filename-and-is-scoped-not-global), [D40](#d40--error-and-skip-records-and-why-the-error-record-carries-the-completeness-scope)) — the routine-validation case
-  [principles §10](../principles/README.md) explicitly separates from
+  [principles §10](../principles/10-only-what-a-client-may-use.md) explicitly separates from
   entitlement checks.
 - **Unicode discipline** ([D49](#d49--unicode-discipline-at-the-boundaries-enforced-by-tests)),
   because the failure mode here is a silent misparse rather than a crash.
@@ -8198,7 +8198,7 @@ dial out"* ([media-nodes.md](../design/media-nodes.md)) goes: the justification 
 a node that cannot dial out is less reachable inbound, not more — and every mode costs. SSH and
 a message broker are declined, the first because we must authenticate the channel anyway and the
 second because it is a second service at household scale
-([principles §1](../principles/README.md)).
+([principles §1](../principles/01-boring-technology.md)).
 
 **Status:** ~~Compression is `Accept-Encoding` with **gzip level 1** (measured 5.7×, 262 ms;
 level 6 buys 27% more for twice the CPU) and is worth it below about 1 Gbit and not above.~~
@@ -8207,7 +8207,7 @@ the negotiation stands, the codec does not — **zstd** on this channel, because
 own binary and it beats gzip on size *and* both speeds at once. gzip remains the floor on the
 *client* channel, where old televisions are. Unresolved:
 whether the remote node's command channel is a long poll or a WebSocket — long poll is duller and
-[principles §1](../principles/README.md) prefers it, but sub-second command latency
+[principles §1](../principles/01-boring-technology.md) prefers it, but sub-second command latency
 may argue otherwise, and neither matters until a remote node exists.
 
 ---
@@ -8298,7 +8298,7 @@ question is whether a Go implementation exists that we are willing to depend on.
 generic fallbacks), BSD-3-Clause — compatible with both halves of
 [D80](#d80--licence-by-artefact-gplv3-for-the-server-mpl-20-for-the-clients-and-the-sdk)'s
 licence split — and about as boring as a third-party Go dependency gets
-([principles §1](../principles/README.md)).
+([principles §1](../principles/01-boring-technology.md)).
 
 Measured, 50.76 MB snapshot, best of three, 8 cores:
 
@@ -8446,9 +8446,9 @@ to plugin tiers. The six above each have one.
   reuse one invisibly — but there is one mechanism underneath.
 - **Editing a role changes everybody in it**, which is the point and is also the danger. The
   confirmation **names the count and the members**: *"this widens what 3 users can see —
-  Alice, Bob, Carol"*. That is [principles §2](../principles/README.md)'s "destructive actions
+  Alice, Bob, Carol"*. That is [principles §2](../principles/02-the-users-files.md)'s "destructive actions
   say exactly what they will destroy", generalised to "policy changes say exactly whom they
-  affect", and [§3](../principles/README.md)'s explain-the-decision.
+  affect", and [§3](../principles/03-explain-the-decision.md)'s explain-the-decision.
 
 ### Per-user exceptions: one direction only
 
@@ -8565,7 +8565,7 @@ Three rules, and the first is the one that matters:
 - **The template reports what it hid.** *"Hides 412 of your 3,500 items; 190 carry no rating in
   your system and are currently hidden; 47 were judged by genre because no descriptor was
   available."* That converts "not foolproof" from a disclaimer into an inspectable fact
-  ([principles §3](../principles/README.md)). **The owner already knows it is approximate; the
+  ([principles §3](../principles/03-explain-the-decision.md)). **The owner already knows it is approximate; the
   product has to make the approximation legible rather than repeat the warning.**
 - **The youngest gets a different *shape*, not a lower number.** `Young child` seeds an
   **allowlist** — "these six shows" — not a ceiling, because "everything rated U" is not what
@@ -8609,7 +8609,7 @@ than no preview, because it is trusted. One predicate compiler, one query, a dif
 principal.
 
 It is cheap for a reason already decided:
-[principles §10](../principles/README.md) requires the manifest to be **built per principal**,
+[principles §10](../principles/10-only-what-a-client-may-use.md) requires the manifest to be **built per principal**,
 omitting what that principal may not have. "Browse as this role" is that construction with a
 different argument. **The feature is nearly free because §10 was taken seriously earlier.**
 
@@ -8673,7 +8673,7 @@ Exactly so, and it is worth spelling out how much it buys:
   [D130](#d130--a-role-is-a-named-policy-object-users-are-assigned-to-one-never-configured-individually)
   already corrected, reappearing one level down.
 - **There is no second mechanism.** The predicate language stays the only way to express a
-  restriction ([principles §4](../principles/README.md)), and
+  restriction ([principles §4](../principles/04-one-way.md)), and
   [D75](#d75--one-predicate-language-three-bindings-a-typed-field-registry-is-the-schema-deliverable)
   already made the field registry *"extensible at runtime — user tags"*. The escape hatch turns
   out to be a feature we had.
@@ -8884,7 +8884,7 @@ feature that was not built is the security question that does not need answering
 **Decided** (2026-09-21), by the project owner. Three corrections to
 [D133](#d133--the-pending-items-alert-which-is-how-the-queue-actually-drains) and
 [D132](#d132--authoring-a-role-is-a-preview-loop-and-an-item-the-rules-cannot-judge-is-denied-not-shown),
-and one generalisation that becomes [principles §11](../principles/README.md).
+and one generalisation that becomes [principles §11](../principles/11-hot-path-values-are-cached.md).
 
 ### 1. No ask button
 
@@ -8919,7 +8919,7 @@ would never allow, and may be explicit in the name alone. Rendering it on a chil
 is a route to showing them precisely the thing a rating would have blocked, **through the
 surface built to protect them.**
 
-So, operationally — and this is [principles §10](../principles/README.md), omission rather
+So, operationally — and this is [principles §10](../principles/10-only-what-a-client-may-use.md), omission rather
 than rejection, applied to a scalar:
 
 - the alert renders **a number and nothing else**;
@@ -8960,7 +8960,7 @@ more than the three fixes:
 > **Mechanism clarified 2026-09-22 by [D161](#d161--cache-and-invalidate-do-not-incrementally-maintain-a-missed-invalidation-is-stale-a-missed-update-is-wrong).**
 > Read *"maintained"* here as **cached and invalidated**, not incrementally updated. The
 > quoted instruction above already said **"can easily be cached"**, and turning that into
-> "maintained" in [principles §11](../principles/README.md) the same day imported a different
+> "maintained" in [principles §11](../principles/11-hot-path-values-are-cached.md) the same day imported a different
 > and worse mechanism: an incremental counter is the only form that can go **silently wrong**,
 > and the pending count moves on six distinct events.
 
@@ -9082,7 +9082,7 @@ because it is the second time a Watch Together "later" turned out to be a castin
 
 Easy to miss, and it reaches a surface nobody had considered: **the queue is sent to the
 receiver and rendered on a television**, so it is a manifest under
-[principles §10](../principles/README.md).
+[principles §10](../principles/10-only-what-a-client-may-use.md).
 
 - It contains only what the **casting user's role** permits
   ([D130](#d130--a-role-is-a-named-policy-object-users-are-assigned-to-one-never-configured-individually)) —
@@ -9162,7 +9162,7 @@ on a Google TV — then **playback state changes without our sender having asked
 the receiver is the only thing that knows.
 
 **It must report that upward, or the session's idea of what is on screen silently diverges from
-what is on screen.** This is [principles §9](../principles/README.md) exactly: the receiver is
+what is on screen.** This is [principles §9](../principles/09-sensors-report.md) exactly: the receiver is
 the sensor, it saw something, it reports it, and the core decides what it means. A receiver
 that swallowed a local pause would leave the group state saying `Playing` over a paused
 picture, which is the sort of bug that gets diagnosed as "sync is broken".
@@ -9333,7 +9333,7 @@ Your categories are not arrangeable as the sidebar previously."*
 **Row order on the home screen is user state, not a layout constant.** It rides
 [D24](#d24--language-is-a-preference-axis-and-track-selections-stick-to-the-series)'s preference
 machinery like any other per-user setting, and per
-[principles §11](../principles/README.md) the rows themselves are maintained values. This is
+[principles §11](../principles/11-hot-path-values-are-cached.md) the rows themselves are maintained values. This is
 cheap now and is a migration later, which is the only reason it needs deciding today.
 
 ### 3. A settings scope is a UI decision
@@ -9737,7 +9737,7 @@ The README already says it, publicly:
 > corrections **in a format any other media server can read** … The second protects you from
 > **us**."*
 
-[Principles §2](../principles/README.md) says the same thing in the same words — sidecars are
+[Principles §2](../principles/02-the-users-files.md) says the same thing in the same words — sidecars are
 *"**portability**, the part that means 'survive us'"*. **A portable format only we can read is
 a contradiction**, so the commitment was always to somebody else's format; D98 simply had no
 reason to pick one yet.
@@ -9811,7 +9811,7 @@ themselves; doing it by default is not.
   [D94](#d94--disk-spin-down-is-a-cost-of-the-snapshot-interval-and-archival-means-untouched)
   already prices what waking an array costs.
 - **It needs the opt-in writable path**, which
-  [principles §2](../principles/README.md) does not grant by default and
+  [principles §2](../principles/02-the-users-files.md) does not grant by default and
   [D89](#d89--deletion-is-opt-in-per-library-two-phase-and-names-every-file) made per-library.
   Reading requires nothing; writing requires permission. That asymmetry is correct and should
   be visible in the UI rather than discovered.
@@ -9896,12 +9896,12 @@ that says how many files will be written and where.
 
 ### 3. Read-only is the normal case and must be probed, never discovered
 
-Media may be read-only by our own default ([principles §2](../principles/README.md)), by the
+Media may be read-only by our own default ([principles §2](../principles/02-the-users-files.md)), by the
 mount options, by the NAS's own export configuration, by the filesystem, or by ordinary POSIX
 permissions — and the user cannot be expected to know which.
 
 So the node **probes writability per root at startup and reports it**
-([principles §9](../principles/README.md), [D73](#d73--each-component-reports-according-to-its-own-visibility-blind-is-not-opaque)), and
+([principles §9](../principles/09-sensors-report.md), [D73](#d73--each-component-reports-according-to-its-own-visibility-blind-is-not-opaque)), and
 the core knows before it offers the button.
 [D35](#d35--node-exchange-directory-progress-pair-config-generation-and-permissions-as-the-trust-boundary)
 already requires *"degraded modes, stated rather than discovered"*; this is that rule with a
@@ -9955,7 +9955,7 @@ The node writes several thousand sidecars **into a tree it is watching**. Its wa
 several thousand changes, journals them, and the core ingests them as observations. Not
 infinite, but it is a scan storm immediately after an export, and it will be reported as a bug.
 
-**The resolution keeps [principles §9](../principles/README.md) intact rather than bending it.**
+**The resolution keeps [principles §9](../principles/09-sensors-report.md) intact rather than bending it.**
 The node **still reports the writes** — a sensor that suppresses its own output is exactly what
 §9 forbids, and *"I did this"* is a memory a node should not need to keep. **The core knows
 what it commanded and does not treat those paths as new information.**
@@ -10042,7 +10042,7 @@ should take write access very seriously and carefully. If we are going to offer 
 write functionality, we should probably have a trash directory so that things can be undone."*
 
 **The read-only posture is already the default and should be named as a supported choice**,
-not a cautious user's workaround: [principles §2](../principles/README.md) mounts media
+not a cautious user's workaround: [principles §2](../principles/02-the-users-files.md) mounts media
 read-only, and [D89](#d89--deletion-is-opt-in-per-library-two-phase-and-names-every-file)
 makes a writable path opt-in **per library**. Someone who never grants one has a fully
 functional product.
@@ -10515,7 +10515,7 @@ requires. Adds a pass to
 needs a speech reference at the moment a subtitle is fetched, which may be months after the
 scan and on a node that is asleep. Recomputing it per candidate would put a decode on an
 interactive path. **It is not a computation; it is an artefact** —
-[principles §11](../principles/README.md), a value on a hot path is maintained, not computed.
+[principles §11](../principles/11-hot-path-values-are-cached.md), a value on a hot path is maintained, not computed.
 
 ### Three references, in order, and the first one is free
 
@@ -10712,7 +10712,7 @@ MaxSilence reads as neglect, so these are stated rather than omitted. They join 
 | **Sonos / multi-room audio** | Plex has it; nobody asks us for it; audio is already second ([D1](#d1--scope-video-first-audio-second-photos-probably-never)). |
 | **Games, sports, music videos as a library type** | Emby shipped Games and Jellyfin did not carry it; Plex built an arcade and killed it (§D150). |
 | **Multi-server federation** | Zero mentions here, three reactions there. |
-| **Poster overlays baked into artwork** | Kometa's 24 overlay families are its most visible feature and it implements them by **rewriting the poster**, which is destructive to a file we do not own ([principles §2](../principles/README.md)). If we ever want badges they are a *client render* over an untouched image. |
+| **Poster overlays baked into artwork** | Kometa's 24 overlay families are its most visible feature and it implements them by **rewriting the poster**, which is destructive to a file we do not own ([principles §2](../principles/02-the-users-files.md)). If we ever want badges they are a *client render* over an untouched image. |
 
 ### Two more worth naming without deciding
 
@@ -11033,7 +11033,7 @@ because each one has a different remedy and only one of them is theirs:
 | relay up, core not dialled in | the server at home is off or has lost its uplink |
 | core up, media node unreachable | the NAS is asleep or gone ([D34](#d34--a-node-status-record-that-distinguishes-dead-from-wedged-from-idle)'s dead-versus-wedged, surfaced) |
 
-This is [principles §3](../principles/README.md) and
+This is [principles §3](../principles/03-explain-the-decision.md) and
 [D92](#d92--a-failed-rendition-falls-to-the-next-one-and-the-client-remembers-the-server-still-has-no-device-database)'s
 *a refusal names itself*, extended one step: **a connection failure names its hop too.** "Can't
 connect" is the message every competitor ships and it is the one that generates the support
@@ -11139,7 +11139,7 @@ Every row carries a stable `F`-number so one can be struck without renumbering t
 the tiers are explicitly a preference the owner may change at any time — unlike everything
 else in this tree, that file is not evidence.
 
-**And the general rule is now [principles §12](../principles/README.md) — *defer the work,
+**And the general rule is now [principles §12](../principles/12-defer-the-work-never-the-seam.md) — *defer the work,
 never the seam*** — because the failure it prevents is silent: keeping an invariant open looks
 like doing nothing, costs nothing, and is the only kind of work that becomes impossible.
 
@@ -11640,7 +11640,7 @@ reason in the line directly below the one about positions: *"a timecode indexes 
 a 4K remux and a web-dl differ in lead-in, and a **PAL-speedup rip differs throughout**."*
 Segments were placed correctly for exactly the reason positions were placed wrongly, two
 lines apart, and nobody noticed. **That is what
-[principles §13](../principles/README.md) is for** — the rule is easy to state and easy to
+[principles §13](../principles/13-state-attaches-to-what-you-observed.md) is for** — the rule is easy to state and easy to
 violate while quoting it.
 
 ### 2. The scenario it buys is rare, and it is the user's call anyway
@@ -11648,7 +11648,7 @@ violate while quoting it.
 Even where the timelines *do* match, the question is a good one: having watched forty minutes
 in 1080p and then acquired a 4K copy for a new screen, does anyone want to resume at 40:00 —
 or to start again and actually see it? **We do not know, and it is not ours to decide.**
-[principles §3](../principles/README.md) says explain the decision to the user; silently
+[principles §3](../principles/03-explain-the-decision.md) says explain the decision to the user; silently
 seeking forty minutes into a film somebody bought a television for is the opposite.
 
 And the case is *rare*: acquiring a better copy **during** a viewing is an uncommon event in a
@@ -11729,7 +11729,7 @@ Automatic resume across two encodings of one cut, and — after
 — any hint about it either. Each file shows its own progress; the user looks and scrolls.
 That is the whole cost.
 
-**And [principles §13](../principles/README.md) generalises it**, because this is the second
+**And [principles §13](../principles/13-state-attaches-to-what-you-observed.md) generalises it**, because this is the second
 time in three days the same mistake shipped — [D155](#d155--eidr-checked-against-its-own-schema-the-levels-are-right-the-citation-was-a-proposal-and-edition-must-be-optional)
 put a position on the Title, [D156](#d156--a-position-is-stored-at-the-version-and-resolved-at-the-edition-the-title-never-holds-one)
 moved it to an inferred Edition, and both were caught by someone describing an ordinary
@@ -11849,7 +11849,7 @@ ordinary library rather than by review.
 
 **The bias is worth stating so it can be watched for: faced with an inference we could not
 make reliably, the instinct was repeatedly to make it cleverer rather than to make it
-load-bearing for less.** [principles §2](../principles/README.md) now carries the general
+load-bearing for less.** [principles §2](../principles/02-the-users-files.md) now carries the general
 form — the user's *arrangement* of their files is no more ours to correct than the bytes are.
 
 **Status:** removes a feature; no schema change. The assertions in
@@ -11880,7 +11880,7 @@ position lives on the File, so **switching ordering moves nothing**: Next Up is 
 stored value.
 
 **D96 put the structure in a relation and left the user's state alone**, which is precisely
-what [principles §13](../principles/README.md) was extracted from D155–D158 to say. Worth
+what [principles §13](../principles/13-state-attaches-to-what-you-observed.md) was extracted from D155–D158 to say. Worth
 recording as the counter-example: the same author got this right in September and then got the
 film version of it wrong three times running. The difference is that D96 was reasoning about
 *coordinates* and D79 was reasoning about *containers*, and a container invites you to hang
@@ -11953,7 +11953,7 @@ models. **Add `episode_boundary` to the segment type enum**: a seventh type in a
 six, with the same provenance and the same user override.
 
 Then **"have I finished the first episode?" is derived** from the position against the
-boundary and never stored — [principles §13](../principles/README.md) — with the payoff that
+boundary and never stored — [principles §13](../principles/13-state-attaches-to-what-you-observed.md) — with the payoff that
 follows: **if the boundary is wrong the position is still right**, and fixing the boundary
 fixes the derived completion immediately. Nothing moves.
 
@@ -12120,14 +12120,14 @@ The Next Up generalisation is a deletion in [play-state.md](../design/plans/play
 > already put it, and nothing new is needed: **a collection's own page computes** (15 ms,
 > inside `performance-targets.md`'s 50 ms), and **the home page reads a maintained row**
 > (0.01 ms), because Continue Watching showing *"247 of 963"* is precisely the shape
-> [principles §11](../principles/README.md) exists for. Harness:
+> [principles §11](../principles/11-hot-path-values-are-cached.md) exists for. Harness:
 > `/yoloai/cache/bench/collections/`.
 
 ---
 
 ## D161 — Cache and invalidate; do not incrementally maintain. A missed invalidation is stale, a missed update is wrong
 
-**Decided** (2026-09-22). **Sharpens [principles §11](../principles/README.md)** and the
+**Decided** (2026-09-22). **Sharpens [principles §11](../principles/11-hot-path-values-are-cached.md)** and the
 mechanism in [D134](#d134--a-pending-item-discloses-nothing-a-rule-shows-its-coverage-and-the-home-page-computes-nothing).
 From the project owner:
 
@@ -12570,7 +12570,7 @@ This is the **rule itself** failing to resolve, and nothing covers it.
   alarming, correct, and fixed in a minute. An alarming failure beats a silent one.
 - **Better: it never gets that far.** A migration that removes or renames a field referenced by
   a *restricting* rule, with no alias registered, **fails the migration**
-  ([principles §7](../principles/README.md) — migrations are a safety feature). D75's `alias`
+  ([principles §7](../principles/07-migrations-are-safety.md) — migrations are a safety feature). D75's `alias`
   mechanism exists precisely to make this a non-event; this makes forgetting it impossible
   rather than merely regrettable.
 
@@ -12901,7 +12901,7 @@ now:
 > **Anything that changes what a principal may see invalidates that principal's cursor.**
 
 Their next request returns state, filtered for them by
-[principles §10](../principles/README.md)'s per-principal construction, which already exists.
+[principles §10](../principles/10-only-what-a-client-may-use.md)'s per-principal construction, which already exists.
 No visibility journal, no new table, no per-item recomputation — and
 [D164](#d164--the-predicate-language-stopped-being-a-feature-and-became-the-query-layer-a-restricting-rule-must-fail-closed-and-the-complexity-budget-is-one-number)
 already makes "the restricting predicate changed" a single observable event.
@@ -13009,7 +13009,7 @@ So the rule has to be the strong form:
 
 - **Availability gone → the download is `orphaned`.** It stays on the device, it stays
   playable, and the client says so: *"no longer in the library — this may be the only copy."*
-  The user decides. [principles §2](../principles/README.md) says the user's files are not ours
+  The user decides. [principles §2](../principles/02-the-users-files.md) says the user's files are not ours
   to touch, and a download on someone's phone is **further** from ours than a library file is.
 - **Entitlement gone → the lease is not renewed, and the client removes it on expiry.** This
   is the mechanism [D87](#d87--a-download-is-a-rendition-plus-a-lease-and-it-is-self-contained)
@@ -13118,7 +13118,7 @@ would have had a window.
 
 A connected client sitting on a library grid does not re-request for minutes. Telling it
 *"your entitlement changed, re-sync"* closes that window. That message is exactly
-[principles §14](../principles/README.md)'s shape and
+[principles §14](../principles/14-a-cache-may-always-be-wrong.md)'s shape and
 [D166](#d166--the-journal-is-an-accelerator-never-a-dependency-the-server-may-always-answer-with-state-and-that-is-the-ordinary-path-rather-than-the-error-path)'s:
 **an invalidation hint, never the mechanism.** Therefore:
 
@@ -13214,7 +13214,7 @@ the thing that keeps it alive. But once the bytes are on the device, **the serve
 no job except making a re-download cheap** — and that is a cache, governed by disk pressure,
 evicted whenever the server likes.
 
-[principles §14](../principles/README.md) is the whole argument: losing it must be a
+[principles §14](../principles/14-a-cache-may-always-be-wrong.md) is the whole argument: losing it must be a
 *performance* event, and it is — a re-download re-transcodes. **No lease, no reference count,
 no reaping policy.** A direct-copy download leaves no artefact at all and never needed one.
 
@@ -13373,7 +13373,7 @@ The raw response is kept because it is the input
 ([library-model-review.md](../design/research/library-model-review.md)'s *keep the input*): a
 parser change that reads a new field out of it needs no refetch, and switching back to a
 source already fetched is free. It is a cache under
-[principles §14](../principles/README.md): losing it costs one fetch, on the user's request.
+[principles §14](../principles/14-a-cache-may-always-be-wrong.md): losing it costs one fetch, on the user's request.
 
 **The source choice is per title and the manual value is per field**, deliberately. A source
 choice takes the whole record from one provider, because a title whose name came from one
@@ -13619,7 +13619,7 @@ and the user may place it in their named Edition with one action.
 
 1. **Enforced by the schema, not by care.** Every foreign key from history or authored data is
    `ON DELETE RESTRICT`, so a hard delete of a referenced row fails loudly — a
-   [principles §10](../principles/README.md) alarm. It depends on `_foreign_keys=on`, which
+   [principles §10](../principles/10-only-what-a-client-may-use.md) alarm. It depends on `_foreign_keys=on`, which
    [D31](#d31--sqlite-with-a-pure-go-driver-supersedes-d5) already sets; SQLite ignores
    foreign keys on any connection that does not.
 2. **Identifiers are never reused.** SQLite without `AUTOINCREMENT` issues the largest current
@@ -13904,7 +13904,7 @@ played through my TV (too loud background with too quiet voice)."*
 it. Everything else keeps its rank in [FEATURES.md](../../FEATURES.md) and its place in the phases,
 and is ordered later. **The schema still lands whole**: every table on the register's
 obligations list exists from the first release even if nothing fills it yet — the retrofit
-argument ([principles §12](../principles/README.md)) is about tables, not features, and it is
+argument ([principles §12](../principles/12-defer-the-work-never-the-seam.md)) is about tables, not features, and it is
 unchanged.
 
 > **Narrowed by [D180](#d180--a-prepared-renditions-play-state-is-its-sources-additive-schema-comes-with-its-feature-mistakes-are-assumed-so-migration-needs-a-policy) §2** (2026-09-23): additive schema arrives with its feature; what
@@ -13999,7 +13999,7 @@ missing rule is the whole of the rebuild problem, so one procedure does both:
 2. **Run a normal scan.** Each observation is matched against identities by the rules below.
 
 No separate restore path: the rebuild is the ordinary path from an unusual starting state —
-[principles §14](../principles/README.md) applied to identity.
+[principles §14](../principles/14-a-cache-may-always-be-wrong.md) applied to identity.
 
 | Observed against an identity | Conclusion |
 | --- | --- |
@@ -14182,7 +14182,7 @@ database.
 
 ### 4. What it amends
 
-- **[Principles §7](../principles/README.md)**, *"detect-and-refuse across a version gap rather
+- **[Principles §7](../principles/07-migrations-are-safety.md)**, *"detect-and-refuse across a version gap rather
   than auto-converting"*, is sharpened: an **older** database is always converted — every step is
   kept — and a **newer** one is refused unless it declared itself compatible.
 - **[backup-restore.md](../design/plans/backup-restore.md)**'s *"restore refuses a gap"* becomes:
@@ -14236,7 +14236,7 @@ nothing merged across providers.**
 - **Fields missing from the source fall through to layer 3** — a title with no provider match
   still has the filename's year.
 - **The layers are stored, and the column is a cache of the resolution**
-  ([principles §14](../principles/README.md)) — the column the rules engine and the poster grid
+  ([principles §14](../principles/14-a-cache-may-always-be-wrong.md)) — the column the rules engine and the poster grid
   read.
 
 **One conflict needs a rule, because we both read and write the NFO.** We write a user's override
@@ -14339,7 +14339,7 @@ screen ("from NFO", "from TMDB", "you set this — picked from TheTVDB").
 ### 3. The rule for defaults
 
 The owner's concern generalises, and it belongs in the principles as
-**[§15](../principles/README.md)**: a default is a decision made on someone's behalf without
+**[§15](../principles/15-safe-visible-defaults.md)**: a default is a decision made on someone's behalf without
 asking, so **it must be safe to be wrong, and visible where it acts.** Where either fails, ask.
 
 The field's example is Plex's *"Empty trash automatically after every scan"*: when a network share
@@ -14364,7 +14364,7 @@ opinion is a setting row seeded with its starting value, shown beside it.
 ## D184 — The defaults audit: four become questions, seven must be made visible, the rest pass
 
 **Decided** (2026-09-23), at the project owner's request, auditing the log and plans against
-[principles §15](../principles/README.md) ([D183](#d183--an-override-is-an-override-wherever-its-value-came-from-a-librarys-source-is-asked-not-defaulted-a-default-must-be-safe-to-be-wrong-and-visible-where-it-acts)): *a default must be safe to be
+[principles §15](../principles/15-safe-visible-defaults.md) ([D183](#d183--an-override-is-an-override-wherever-its-value-came-from-a-librarys-source-is-asked-not-defaulted-a-default-must-be-safe-to-be-wrong-and-visible-where-it-acts)): *a default must be safe to be
 wrong and visible where it acts; otherwise, ask.*
 
 ### Method and scope
@@ -14387,7 +14387,7 @@ development build — are out of scope and pass without comment.
 
 **Library creation now asks three things, each with its effect stated:** where metadata comes
 from, how changes are noticed, and whether we may write into the folder (read-only unless granted,
-[principles §2](../principles/README.md)). Three questions once per library is the price of no
+[principles §2](../principles/02-the-users-files.md)). Three questions once per library is the price of no
 surprises for its lifetime.
 
 ### 2. Seven pass only if they are visible where they act
@@ -14575,13 +14575,13 @@ and was advertised for them. No core repository of Kodi, Jellyfin, the *arr tool
 appears in GitHub's DMCA archive; takedowns hit the layers that supplied sources. **And blocking is
 not required**: failing to filter is not evidence on its own, and monitoring would *create* the
 knowledge liability rests on. So the owner's instinct — don't police users, don't promote — is also
-the legally stronger position. It becomes **[principles §16](../principles/README.md)**.
+the legally stronger position. It becomes **[principles §16](../principles/16-people-are-responsible-for-what-they-play.md)**.
 
 ### 2. What we never do
 
 | Never | Because |
 | --- | --- |
-| **circumvent copy protection** — no decryption of DVD/Blu-ray/streaming DRM, no bundled or linked `libdvdcss`/`libaacs`, no instructions | §1201 is the one liability that lawful uses do not cure (*Corley* enjoined even linking); the German youtube-dl hosting case is final. An encrypted disc is **refused with its reason** ([principles §3](../principles/README.md)); unencrypted disc structures play |
+| **circumvent copy protection** — no decryption of DVD/Blu-ray/streaming DRM, no bundled or linked `libdvdcss`/`libaacs`, no instructions | §1201 is the one liability that lawful uses do not cure (*Corley* enjoined even linking); the German youtube-dl hosting case is final. An encrypted disc is **refused with its reason** ([principles §3](../principles/03-explain-the-decision.md)); unencrypted disc structures play |
 | **supply or locate content** — no bundled or pre-configured indexers, trackers, debrid, IPTV playlists, add-on catalogues of sources, or "request → download" wiring | *Filmspeler*, Popcorn Time, TVAddons; and it is exactly what app stores remove (Kodi on Amazon, Stremio, 36 IPTV players) |
 | **promote it** — no piracy-flavoured wording, comparisons to pirate apps, VPN/debrid/seedbox affiliate links, "fully loaded" anything | *Grokster*'s evidence was marketing; *Amstrad*'s warning counted for it |
 | **show commercial content in what we publish** — screenshots, demos, store listings, test fixtures | Popcorn Time's notice cited screenshots; youtube-dl's cited test cases naming label videos; Play's policy names movie posters |
@@ -16291,7 +16291,7 @@ questions and narrows [D99](#d99--the-core-does-not-decode-an-image-either-and-c
    conversion, even if the source already is webp"*. The node decodes the source under FFmpeg's
    confinement, refuses one over a pixel limit before decoding it, keeps the first frame, and
    encodes our own WebP; nothing a client decodes was written by anyone but our encoder
-   ([principles §22](../principles/README.md)). CVE-2023-4863 compromised the *clients* that
+   ([principles §22](../principles/22-untrusted-data-is-cleaned.md)). CVE-2023-4863 compromised the *clients* that
    decoded a crafted WebP; passing a provider's file through would put every screen in the house
    in its path. Metadata, extra chunks, trailing bytes and polyglots go with the re-encode.
 2. **The core keeps a base**: our WebP encode at the largest size ever served (portrait-l,
@@ -16329,7 +16329,7 @@ questions and narrows [D99](#d99--the-core-does-not-decode-an-image-either-and-c
    is held as an unsanitised value whose only use is being sent to the node; a file beside the
    media or inside a container is read and re-encoded by the node, and its bytes never reach the
    core. Past that, an image is as safe to pass around as a cleaned string
-   ([principles §22](../principles/README.md)).
+   ([principles §22](../principles/22-untrusted-data-is-cleaned.md)).
 9. **URLs in NFO files are not fetched** — *"That's an easy way to DDOS someone using us as a
    naive relay. I'd leave that deferred until we get requests for it, and then only allow from a
    whitelisted set of image hosters."* The NFO reader does not read `<thumb>` or `<fanart>`.

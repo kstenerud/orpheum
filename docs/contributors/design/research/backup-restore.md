@@ -65,7 +65,7 @@ A path containing `?` opens something other than what you named. They reject it.
 
 Jellyfin corroborates the shape from the other direction: a full `BackupService` with a manifest
 and restore, plus a `JellyfinMigrationBackupAttribute` — **migrations declare that they require
-a backup**, which is [principles §7](../../principles/README.md) implemented rather than
+a backup**, which is [principles §7](../../principles/07-migrations-are-safety.md) implemented rather than
 promised.
 
 ## 4. Our backup is unusually small, and that changes the design
@@ -108,7 +108,7 @@ checksum of the file, which proves only that a copy happened.
 Two further properties worth designing in:
 
 - **Restore must refuse a version gap** rather than auto-converting, which is
-  [principles §7](../../principles/README.md)'s detect-and-refuse rule applied to backups. A
+  [principles §7](../../principles/07-migrations-are-safety.md)'s detect-and-refuse rule applied to backups. A
   backup carries the schema version it was taken at.
 - **Restore is destructive and should say what it is about to overwrite**, listing the live data
   it replaces, before doing it.

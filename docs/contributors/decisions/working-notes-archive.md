@@ -152,7 +152,7 @@ path, not only at listing*, for exactly this reason.
 
 **So the rule: the group is not a grant.** Every participant resolves the item through their
 **own** entitlement. A user who cannot see the film cannot see the group —
-[principles §10](../principles/README.md), omission rather than rejection: there is no join
+[principles §10](../principles/10-only-what-a-client-may-use.md), omission rather than rejection: there is no join
 button to decline.
 
 **And the invite has a good answer already sitting in the tree.**

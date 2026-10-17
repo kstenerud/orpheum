@@ -171,7 +171,7 @@ both worth having on their own:
 - **The client names the failing hop, not "cannot connect".** No network / relay unreachable /
   relay up but core not dialled in / core up but media node asleep — four sentences, four
   different remedies, and **three of them end the support conversation** because only one is
-  the user's to fix. [principles §3](../../principles/README.md) and
+  the user's to fix. [principles §3](../../principles/03-explain-the-decision.md) and
   [D92](../../decisions/working-notes.md)'s *a refusal names itself*, extended: a connection
   failure names its hop too.
 - **On reconnect, the relay hands the core what it saw during the gap** — the count of

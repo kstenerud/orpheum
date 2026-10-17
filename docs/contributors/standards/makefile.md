@@ -92,7 +92,7 @@ two that must come first, the tools and the generated code, and a target added t
 write files another check reads. **Read its prerequisite lines in the Makefile; do not copy them
 into a document**, where it would go stale the
 next time a check is added. yoloAI's copy was stale three times out of four
-([principles §8](../principles/README.md#8--factual-accuracy-in-documentation)).
+([principles §8](../principles/08-factual-accuracy.md)).
 
 A check belongs in `make check` when **all** of these hold:
 
@@ -131,7 +131,8 @@ check-pr is the last run of a block of work, which is expected to pass, since it
 have run already: **every tier runs to its end**, a failed one too, so one run shows every
 failure, and check-pr fails at the end. The piecework runs fail fast: `make check-pr-failed` stops
 at a failed tier, and each revert-red probe's browser run stops at its first failing test (the
-owner, 2026-10-17: "fail fast on piecework… run to completion on the final test run").
+owner, 2026-10-17: "fail fast on piecework… run to completion on the final test run";
+[principles §24](../principles/24-cheap-checks-first.md)).
 
 After each commit, `make check-commit-red` runs revert-red on that commit's code against its
 parent, keeping no record: a minute's check, while the change is fresh, so check-pr at a batch's

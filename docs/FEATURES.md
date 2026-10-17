@@ -118,7 +118,7 @@ Absent, the product reads as unfinished to anyone arriving from Plex or Jellyfin
 | F34 | A TV client | [tv-client.md](contributors/design/plans/tv-client.md) | — |
 | F35 ★ | Watch Together — **two people, remote, with voice, is the priority**: directly after the web client ([D175](contributors/decisions/working-notes.md)) | [D62](contributors/decisions/working-notes.md)–[D72](contributors/decisions/working-notes.md) | see F52 |
 | F36 ★ | Scan legibility: named, deferrable, separately reported passes | [D102](contributors/decisions/working-notes.md), [D118](contributors/decisions/working-notes.md) | — |
-| F37 ★ | Honest refusals — every no names its reason | [D92](contributors/decisions/working-notes.md), [D152](contributors/decisions/working-notes.md), [principles §3](contributors/principles/README.md) | — |
+| F37 ★ | Honest refusals — every no names its reason | [D92](contributors/decisions/working-notes.md), [D152](contributors/decisions/working-notes.md), [principles §3](contributors/principles/03-explain-the-decision.md) | — |
 | F89 | **Now playing** — every live session: who, what, device, where (LAN/remote/relay), direct or transcode with its reason, bitrate, client buffer health; stop with a message. Admin sees all, others their own ([D176](contributors/decisions/working-notes.md)). *Bitrate against the ceiling and lowering a ceiling arrive with F31, after Cut A* | [D176](contributors/decisions/working-notes.md) | — |
 | F90 | **Invite someone outside the house** — an account plus a role, redeemed from an invite link, seeing nothing of the household. *A finite download lease and a ceiling arrive with F22 and F31, after Cut A.* What "sharing" means here ([D174](contributors/decisions/working-notes.md)) | [sharing-model.md](contributors/design/plans/sharing-model.md), [D76](contributors/decisions/working-notes.md), [D174](contributors/decisions/working-notes.md) | — |
 | F38 | Jellyfin-compatible adapter | [D18](contributors/decisions/working-notes.md), [jellyfin-api-shim.md](contributors/design/plans/jellyfin-api-shim.md) | seam |
@@ -197,7 +197,7 @@ is there so that changing your mind is cheap.
 | F75 | Sonos / multi-room | no demand here | nothing |
 | F76 | Games, sports, music videos as library types | Emby shipped Games, Jellyfin dropped it; Plex closed its arcade | see F70 |
 | F77 | Multi-server federation | 3 reactions | **narrowed, not closed:** one-hop server-to-server grants are F91 |
-| F78 | Poster overlays baked into artwork | destructive to files we do not own ([principles §2](contributors/principles/README.md)) | badges as a **client render** over an untouched image |
+| F78 | Poster overlays baked into artwork | destructive to files we do not own ([principles §2](contributors/principles/02-the-users-files.md)) | badges as a **client render** over an untouched image |
 | F79 | A content-source plugin tier | **Plex killed it at "less than 2 percent" usage** ([D150](contributors/decisions/working-notes.md)) | the metadata-provider and adapter tiers are different products and stay |
 | F80 | Voice assistants | 66 likes | Cast already carries voice-originated load requests |
 | F81 | A separate desktop application | the web client is the desktop client | — |

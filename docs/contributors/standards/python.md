@@ -8,7 +8,7 @@
 Python is the language of **repository tooling**: the gates under `scripts/` (`check_docs.py`,
 `check_source.py` and those to come) and agent hooks under `.claude/hooks/` when a hook
 outgrows shell. **The product contains no Python.** The server and node are Go, the clients
-TypeScript ([principles §4](../principles/README.md#4--one-way-to-do-it)); a new Python surface
+TypeScript ([principles §4](../principles/04-one-way.md)); a new Python surface
 anywhere else is a decision, not a convenience.
 
 Every rule names its enforcement; *(planned)* marks a mechanism that does not exist yet.

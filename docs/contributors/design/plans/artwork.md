@@ -27,7 +27,7 @@ It is also multiplied by two decisions already taken:
 
 And the field's evidence that it goes wrong: Jellyfin's *Some custom primary images/art seem to
 have automatically reverted or replaced with defaults* (39 comments) — user-chosen artwork
-destroyed by a refresh, which is [principles §2](../../principles/README.md) in image form.
+destroyed by a refresh, which is [principles §2](../../principles/02-the-users-files.md) in image form.
 
 ## The shape
 
@@ -79,7 +79,7 @@ them. It is a closed enumeration, which makes it the same kind of object as
 **24 overlay families** — resolution, audio codec, ratings, content-rating flags, and
 `mediastinger` for a post-credits scene — and it implements them by **writing them into the
 poster**. That is destructive to an image we do not own
-([principles §2](../../principles/README.md)) and it makes the artwork cache
+([principles §2](../../principles/02-the-users-files.md)) and it makes the artwork cache
 content-unaddressable. If we ever want badges they are drawn over an untouched image by the
 client, from fields it already has.
 

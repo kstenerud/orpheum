@@ -64,7 +64,7 @@ reviewed before its first commit.
   ```
 
   "ShellCheck complained" is not a reason
-  ([principles §20](../principles/README.md#20--a-gate-changes-on-purpose-never-to-land-a-change)).
+  ([principles §20](../principles/20-a-gate-changes-on-purpose.md)).
 - **The version should be pinned.** Locally `/usr/bin/shellcheck` is 0.10.0; CI installs
   whatever its runner's package archive carries. yoloAI let seven findings reach its main
   branch through a green local run because the two versions disagreed (DF187), so CI should

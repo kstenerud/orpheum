@@ -26,4 +26,4 @@ Four documents answer four different questions, and it is worth knowing which on
 
 [`FEATURES.md`](FEATURES.md) is the one to read before freezing a schema or closing an
 enumeration: its **retrofit-cost** column, not its ranking, is what says which decisions
-foreclose which futures ([principles §12](contributors/principles/README.md)).
+foreclose which futures ([principles §12](contributors/principles/12-defer-the-work-never-the-seam.md)).

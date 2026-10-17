@@ -45,7 +45,7 @@ different lifetimes:
 **The server's prepared rendition is a cache.** Once the bytes are on the device, the server's
 copy exists only to make a re-download cheap, so it is governed by disk pressure and may be
 evicted whenever — losing it costs a re-transcode, which is
-[principles §14](../../principles/README.md) exactly. No reference count, no reaping policy. A
+[principles §14](../../principles/14-a-cache-may-always-be-wrong.md) exactly. No reference count, no reaping policy. A
 direct-copy download leaves no artefact and never needed one.
 
 **So an expiry is a property of the relationship, not of the download:**
@@ -137,7 +137,7 @@ cheap, exercised-daily fallback a **mass deletion trigger on every client**.
   leases this is **ordinary operation rather than an edge case**
   ([D169](../../decisions/working-notes.md)) — a download routinely outlives the server's copy
   — so the label reads as a neutral fact, never as a warning.
-  [principles §2](../../principles/README.md) governs our own filesystem; a phone is further
+  [principles §2](../../principles/02-the-users-files.md) governs our own filesystem; a phone is further
   from ours than that.
 - **Entitlement gone → the lease is not renewed and the client removes it on expiry** — where
   there is an expiry at all, which is shares ([D169](../../decisions/working-notes.md)).

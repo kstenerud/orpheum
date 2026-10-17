@@ -66,7 +66,7 @@ So the finding here is not "two home-page queries scale linearly". It is that **
 surface on that screen rediscovers the hazard**, and this one was not found by an audit — it
 arrived attached to a feature request.
 
-**That is now [principles §11](../../principles/README.md)** — *the home page computes
+**That is now [principles §11](../../principles/11-hot-path-values-are-cached.md)** — *the home page computes
 nothing*: anything on the launch screen is a maintained value, updated on the rare event that
 changes it and read as a lookup. The invalidation is not the hard part and that is why the
 rule can be absolute: these values change only on a scan completing, a rule or role changing,

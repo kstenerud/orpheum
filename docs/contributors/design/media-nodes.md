@@ -177,7 +177,7 @@ already drives.
 dial out"*. The justification was backwards — a node that cannot dial out is **less** reachable
 inbound, not more — and every mode costs. SSH (`rffmpeg`'s answer) and a message broker are
 declined: the first because the channel needs authenticating anyway, the second because it is a
-second service at household scale ([principles §1](../principles/README.md)).
+second service at household scale ([principles §1](../principles/01-boring-technology.md)).
 
 **What the measurements say.** Throughput does not discriminate — a 50,000-entry snapshot is
 50.8 MB and every transport moves it in 536–551 ms. Two things do. **Latency to the first
@@ -714,7 +714,7 @@ corrections and playlist membership — a data-loss event wearing a recovery cos
    ([D142](../decisions/working-notes.md)). When the node writes sidecars into a tree it is
    watching, its watcher sees every one of them and journals them — a scan storm immediately
    after an export, which will be reported as a bug. **The node still reports them**: a sensor
-   that suppresses its own output is what [principles §9](../principles/README.md) forbids,
+   that suppresses its own output is what [principles §9](../principles/09-sensors-report.md) forbids,
    and *"I did this"* is a memory a node should not keep. **The core knows what it commanded
    and does not treat those paths as new information.** §9's own test, applied literally — the
    node saw a file change; only the core knows it asked for it.

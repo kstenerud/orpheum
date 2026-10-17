@@ -136,7 +136,7 @@ Three details that will bite.
 
 [D141](../../decisions/working-notes.md). The README already commits to *"sidecar files beside
 your media carrying your metadata corrections **in a format any other media server can
-read**"*, and [principles §2](../../principles/README.md) calls sidecars *"portability, the
+read**"*, and [principles §2](../../principles/02-the-users-files.md) calls sidecars *"portability, the
 part that means 'survive us'"*. **A portable format only we can read is a contradiction**, so
 reading NFO settles the writing question too — the writer is the parser's inverse.
 
@@ -200,7 +200,7 @@ than the mechanism.
   no bulk core→node path; `payload/` was added for this.
 
 **Reading needs no permission; writing needs the opt-in writable path**
-([principles §2](../../principles/README.md),
+([principles §2](../../principles/02-the-users-files.md),
 [D89](../../decisions/working-notes.md)'s per-library grant), happens in the node
 ([D33](../../decisions/working-notes.md)), and is triggered **on change, never on a schedule** —
 rewriting thousands of files periodically is churn in someone's media tree, which
