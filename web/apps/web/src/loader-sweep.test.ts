@@ -2,7 +2,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { clearCookies, removeUnownedKeys } from "./loader-sweep.ts";
+import { removeUnownedKeys } from "./browser-storage.ts";
+import { clearCookies } from "./loader-sweep.ts";
 
 /** A Storage of these items, which says what it holds. */
 function storageOf(items: Record<string, string>): Storage {

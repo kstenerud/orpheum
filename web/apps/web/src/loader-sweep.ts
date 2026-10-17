@@ -7,8 +7,6 @@
  * sessions the whole client once kept there, which `app.` may no longer hold (D308 §3).
  */
 
-import { storageThatNeverThrows, type StringStorage } from "./browser-storage.ts";
-
 /**
  * Clears every cookie page can see: for its own host and for each domain above it, since another
  * core's page may have set one for the whole site, and at the root path, where one would be sent
@@ -30,46 +28,6 @@ export function clearCookies(
     cookies.write(expired);
     for (const domain of domains) {
       cookies.write(`${expired}; Domain=${domain}`);
-    }
-  }
-}
-
-/** The prefix of every key a release of Orpheum keeps. */
-const keptPrefix = "orpheum.";
-
-/** Every key storage holds. */
-function keysOf(storage: Storage): string[] {
-  const keys: string[] = [];
-  for (let index = 0; index < storage.length; index += 1) {
-    const key = storage.key(index);
-    if (key !== null) {
-      keys.push(key);
-    }
-  }
-  return keys;
-}
-
-/**
- * Removes every key under Orpheum's prefix that owned does not name: what an older release kept,
- * read by none now. A key of another prefix is not Orpheum's to remove.
- */
-export function removeUnownedKeys(
-  storage: Storage | undefined,
-  owned: (key: string) => boolean,
-): void {
-  if (storage === undefined) {
-    return;
-  }
-  let keys: string[];
-  try {
-    keys = keysOf(storage);
-  } catch {
-    return;
-  }
-  const removable: StringStorage = storageThatNeverThrows(storage);
-  for (const key of keys) {
-    if (key.startsWith(keptPrefix) && !owned(key)) {
-      removable.removeItem(key);
     }
   }
 }

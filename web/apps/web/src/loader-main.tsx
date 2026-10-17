@@ -13,7 +13,8 @@ import { i18n } from "./i18n.ts";
 import { AtClientOriginPage } from "./loader-at-client-origin.tsx";
 import { startAtLoaderOrigin } from "./loader-at-loader-origin.tsx";
 import { coreIdOfOrigin, loaderConfigOf } from "./loader-config.ts";
-import { clearCookies, removeUnownedKeys } from "./loader-sweep.ts";
+import { removeUnownedKeys } from "./browser-storage.ts";
+import { clearCookies } from "./loader-sweep.ts";
 
 /** The keys the loader owns at its own origin: the household list, and the remembered realm. */
 const ownedAtLoaderOrigin = new Set(["orpheum.loader.households", "orpheum.discovery.realm"]);
