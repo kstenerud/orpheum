@@ -33,6 +33,7 @@ export type { RealmFound, RealmTyped } from "./realm.ts";
 export {
   discoverySignaller,
   fromBase64,
+  handOffOfferKey,
   locate,
   locateHash,
   locatorHash,
@@ -43,6 +44,7 @@ export {
   readLinkFragment,
   reportDeadEnd,
   sessionOfferKey,
+  verifyClientManifest,
 } from "./discovery.ts";
 export type {
   DiscoveryClient,
@@ -51,6 +53,7 @@ export type {
   Proving,
   LinkFragment,
   Located,
+  ManifestToCheck,
 } from "./discovery.ts";
 export { rtcTogetherSocket } from "./rtc-together.ts";
 export {
