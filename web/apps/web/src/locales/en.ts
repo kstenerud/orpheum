@@ -4,6 +4,7 @@ import { enDevices } from "./en-devices.ts";
 import { enDiscovery } from "./en-discovery.ts";
 import { enLibraries } from "./en-libraries.ts";
 import { enPeople } from "./en-people.ts";
+import { enGallery } from "./en-gallery.ts";
 import { enStatus } from "./en-status.ts";
 import { enTogether } from "./en-together.ts";
 import { enWarning } from "./en-warning.ts";
@@ -19,6 +20,7 @@ export const en = {
   ...enLibraries,
   ...enPeople,
   ...enStatus,
+  ...enGallery,
   ...enWarning,
   nav: {
     films: "Films",

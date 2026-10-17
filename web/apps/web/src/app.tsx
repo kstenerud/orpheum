@@ -44,6 +44,7 @@ import { HostVoiceProvider } from "./together-voice.tsx";
 import { TogetherViewer } from "./together-viewer.tsx";
 import { Remembered, useRemembered } from "./remembered.ts";
 import { useResource } from "./use-resource.ts";
+import { UiGallery } from "./ui-gallery.tsx";
 import { WatchTogether } from "./watch-together.tsx";
 
 /**
@@ -202,6 +203,9 @@ function nonLibraryScreen(route: Route): JSX.Element | undefined {
   }
   if (route.screen === "watch-together") {
     return <WatchTogether />;
+  }
+  if (route.screen === "ui-gallery") {
+    return <UiGallery />;
   }
   return route.screen === "about" ? <About /> : undefined;
 }
