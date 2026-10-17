@@ -332,9 +332,10 @@ func openPlayback(
 		Random: rand.Reader, Renditions: services.renditions, Subtitles: services.subtitles,
 		Preferences: preferencesService, Loudness: levels, Chunks: services.chunks, Reads: opened.jobServices.scans,
 	})
-	// A run its node cannot make fast enough moves its players onto a quality already made, before it
-	// is evicted (D286 §4).
+	// A run its node cannot make fast enough moves its players down a quality, before it is evicted
+	// (D286 §4, D309 §6); and the runs that go on are those the players want (D309).
 	services.chunks.MovePlayersBy(services.playback.MoveOffStream)
+	services.chunks.InterestsBy(services.playback.InterestsIn)
 	return services, services.playback
 }
 

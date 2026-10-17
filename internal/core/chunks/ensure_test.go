@@ -201,131 +201,6 @@ func TestEnsure_TwoStreamsOfOneFilmWarmedTogetherEachQueueARun(t *testing.T) {
 	}
 }
 
-// A seek far past a store's run cancels it, while it waits in the queue as when it runs, and queues
-// the run where the player went (D250 §5).
-func TestEnsure_ASeekFarPastARunCancelsItAndQueuesTheSeeksRun(t *testing.T) {
-	t.Parallel()
-	queue, cache := jobsQueue(t)
-	service, _ := chunksFixture(t, queue, fakeNode{})
-	picture := Stream{Kind: nodeproto.StreamPicture}
-	ensured(t, service, picture, 3)
-	// The player seeks ten minutes on while the first run waits.
-	ensured(t, service, picture, 63)
-	runs := openRuns(t, cache)
-	if len(runs) != 1 {
-		t.Fatalf("the runs queued = %+v; want the seek's alone, the first cancelled", runs)
-	}
-	for _, args := range runs {
-		if args != (runArgs{FirstChunk: 63, LastChunk: 92}) {
-			t.Errorf("the queued run is %+v; want the seek's chunks, 63 to 92", args)
-		}
-	}
-}
-
-// A seek far back from a store's run cancels it too: no one follows it now, and it took the node's
-// room from the runs the players needed where they went (the owner's test, 2026-10-12).
-func TestEnsure_ASeekFarBackFromARunCancelsIt(t *testing.T) {
-	t.Parallel()
-	queue, cache := jobsQueue(t)
-	service, _ := chunksFixture(t, queue, fakeNode{})
-	picture := Stream{Kind: nodeproto.StreamPicture}
-	ensured(t, service, picture, 63)
-	// The player seeks ten minutes back while the first run waits.
-	ensured(t, service, picture, 3)
-	runs := openRuns(t, cache)
-	if len(runs) != 1 {
-		t.Fatalf("the runs queued = %+v; want the seek's alone, the first cancelled", runs)
-	}
-	for _, args := range runs {
-		if args.FirstChunk != 3 {
-			t.Errorf("the queued run is %+v; want the seek's, from chunk 3", args)
-		}
-	}
-}
-
-// A player that says a seek took it 70 s past a run, nearer than chunk_new_run_beyond_seconds, starts
-// a run there, cancelling that one; one that does not say so, a catch-up, waits for the run (D284 §2;
-// the owner's jumps, 2026-10-12, where an iPhone waited for a 720p run made at playback's speed).
-func TestEnsure_ASeekAPlayerSaysItMadeStartsARunNearerThanAnotherAsk(t *testing.T) {
-	t.Parallel()
-	for _, isSought := range []bool{false, true} {
-		queue, cache := jobsQueue(t)
-		service, _ := chunksFixture(t, queue, fakeNode{})
-		picture := Stream{Kind: nodeproto.StreamPicture}
-		ensured(t, service, picture, 3)
-		err := service.ensure(t.Context(), ensuring{
-			fileID: 1, kind: OnKeyframes, stream: picture, wanted: 10, isSought: isSought,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		runs := openRuns(t, cache)
-		firsts := make([]int, 0, len(runs))
-		for _, args := range runs {
-			firsts = append(firsts, args.FirstChunk)
-		}
-		want := []int{3}
-		if isSought {
-			want = []int{10}
-		}
-		if !slices.Equal(firsts, want) {
-			t.Errorf("said sought %t: the runs queued start at %v; want %v", isSought, firsts, want)
-		}
-	}
-}
-
-// A jump that lands a little before a run cuts it, and starts one run where it landed, rather than a
-// second beside it; any other ask that close leaves the run ahead and fills the gap (D286 §1; the
-// owner's jumps, 2026-10-12, where two 720p runs starved each other).
-func TestEnsure_AJumpJustBeforeARunCutsItAndStartsOneRunWhereItLanded(t *testing.T) {
-	t.Parallel()
-	for _, isSought := range []bool{false, true} {
-		queue := newFakeQueue()
-		service, _ := chunksFixture(t, queue, fakeNode{})
-		picture := Stream{Kind: nodeproto.StreamPicture}
-		ensured(t, service, picture, 10)
-		err := service.ensure(t.Context(), ensuring{
-			fileID: 1, kind: OnKeyframes, stream: picture, wanted: 8, isSought: isSought,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		var wantCancelled []int
-		if isSought {
-			wantCancelled = []int{10}
-		}
-		if !slices.Equal(queue.cancelledFirsts, wantCancelled) {
-			t.Errorf("said sought %t: the runs cancelled start at %v; want %v", isSought, queue.cancelledFirsts,
-				wantCancelled)
-		}
-	}
-}
-
-// A jump onto chunks already made does not cut the run that makes the chunks after them: that run is
-// not ahead of the jump but where it goes next. Cut, the next ask queued it again and each ask cut it
-// again, without end, the node left holding work no job wanted (the owner's test, 2026-10-12).
-func TestEnsure_AJumpOntoMadeChunksKeepsTheRunThatMakesTheChunksAfterThem(t *testing.T) {
-	t.Parallel()
-	queue := newFakeQueue()
-	service, _ := chunksFixture(t, queue, fakeNode{})
-	sound := Stream{Kind: nodeproto.StreamSound, SoundKbps: 96}
-	dir := StoreDir(1, sound, mustGrid(t, service).ID())
-	service.runs.madeThrough(dir, 8, 9) // chunks 8 and 9 made, by a run since ended
-	ensured(t, service, sound, 10)
-	for range 2 {
-		err := service.ensure(t.Context(), ensuring{
-			fileID: 1, kind: OnKeyframes, stream: sound, wanted: 8, isSought: true,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-	if len(queue.cancelledFirsts) != 0 {
-		t.Errorf("the runs cancelled start at %v; want none, the run from 10 making what follows the made chunks",
-			queue.cancelledFirsts)
-	}
-}
-
 // A store's init asked for from where a guest who has reported nothing stands, the film's start,
 // starts no run and cuts none while a run of the store is on its way: that run makes the init. Asked
 // for, it cut the run a guest's first chunk needed, which cut it back, every two seconds, until the
@@ -335,11 +210,7 @@ func TestWant_AStoresInitStartsAndCutsNothingWhileARunOfItIsOnItsWay(t *testing.
 	queue := newFakeQueue()
 	service, _ := chunksFixture(t, queue, fakeNode{})
 	picture := Stream{Kind: nodeproto.StreamPicture}
-	if err := service.ensure(t.Context(), ensuring{
-		fileID: 1, kind: OnKeyframes, stream: picture, wanted: 20, isSought: true,
-	}); err != nil {
-		t.Fatal(err)
-	}
+	ensured(t, service, picture, 20)
 	before := queue.runs(t, service)
 	dir := StoreDir(1, picture, mustGrid(t, service).ID())
 	initFile := StoreFile{fileID: 1, kind: OnKeyframes, stream: picture, storeDir: dir, isInit: true, runFrom: 0}
@@ -363,11 +234,7 @@ func TestWantAlongside_APicturesInitMovesNoSound(t *testing.T) {
 	queue := newFakeQueue()
 	service, _ := chunksFixture(t, queue, fakeNode{})
 	sound := Stream{Kind: nodeproto.StreamSound}
-	if err := service.ensure(t.Context(), ensuring{
-		fileID: 1, kind: OnKeyframes, stream: sound, wanted: 20, isSought: true,
-	}); err != nil {
-		t.Fatal(err)
-	}
+	ensured(t, service, sound, 20)
 	before := queue.runs(t, service)
 	picture := Stream{Kind: nodeproto.StreamPicture}
 	pictureInit := StoreFile{

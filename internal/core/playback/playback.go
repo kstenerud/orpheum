@@ -225,8 +225,7 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	if err != nil {
 		return Started{}, err
 	}
-	playback.isOnLadder = started.OnLadder != nil
-	service.keepStartsNeed(&playback, started.OnLadder)
+	service.keepStart(&playback, started.OnLadder)
 	// A film on its ladder needs no prepared copy (D260 §1).
 	if decision.Delivery == decide.HLS && !playback.isOnLadder {
 		playback.profile = nodeproto.PrepareProfile(decision.Profile)

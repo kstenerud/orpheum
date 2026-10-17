@@ -113,8 +113,6 @@ const (
 	ShouldTogetherVoiceCancelEcho             Key = "should_together_voice_cancel_echo"
 	ShouldTogetherVoiceBrowserLevelMicrophone Key = "should_together_voice_browser_level_microphone"
 	ChunkHoldMs                               Key = "chunk_hold_ms"
-	ChunkNewRunBeyondSeconds                  Key = "chunk_new_run_beyond_seconds"
-	ChunkSeekNewRunBeyondSeconds              Key = "chunk_seek_new_run_beyond_seconds"
 	ChunkRunSlowestSpeedPercent               Key = "chunk_run_slowest_speed_percent"
 	PlayLadderWaitMs                          Key = "play_ladder_wait_ms"
 )
@@ -541,18 +539,6 @@ func chunkDefinitions() []Definition {
 				"picture's height, the width following the film's shape (D247 §6)",
 		}, "D247 §6: Apple's HLS authoring spec's low rungs, to be tuned on the owner's films; 400k@360p "+
 			"added by the owner, 2026-10-06, for an airplane's 0.6 Mb/s link"),
-		sourced(durationSetting(ChunkNewRunBeyondSeconds, time.Second, "90", 61, 3600,
-			"seconds of film past where a run of chunks is making, or before where it starts beyond the minute "+
-				"it makes ahead, that a request must be to start a new run there, cancelling that one: a seek's; "+
-				"a Watch Together player catching up jumps at most a minute ahead, and waits for the run already "+
-				"making its quality (D250 §5)"),
-			"D250 §5: more than a catch-up's furthest jump, 60 s"),
-		sourced(durationSetting(ChunkSeekNewRunBeyondSeconds, time.Second, "20", 1, 3600,
-			"seconds of film past where a run of chunks is making, or before where it starts beyond the minute "+
-				"it makes ahead, that a request a player says a seek took it to must be to start a new run "+
-				"there, cancelling that one (D284 §2)"),
-			"D284 §2: two chunks of a 10 s grid; a run made at playback's speed reaches a seek that far ahead "+
-				"no sooner than a new run makes its first chunk"),
 		sourced(integerSetting(ChunkRunSlowestSpeedPercent, "110", 100, 1000,
 			"percent of playback speed every run of chunks on a node must keep: when one of two or more is "+
 				"slower, one is evicted, the oldest no one plays from or else the newest, and its players are "+

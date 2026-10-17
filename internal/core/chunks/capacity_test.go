@@ -26,6 +26,8 @@ type capacityStage struct {
 	queue        *fakeQueue
 	clock        *clocktest.Fake
 	older, newer string
+	// wanted is what the players want, the runs' interests (D309).
+	wanted *wanting
 }
 
 func newCapacityStage(t *testing.T) capacityStage {
@@ -45,25 +47,31 @@ func newCapacityStage(t *testing.T) capacityStage {
 	service.runs.begin(stage.older, 0, 29, 11, 1, fakeClock.Now())
 	fakeClock.Advance(time.Second)
 	service.runs.begin(stage.newer, 0, 29, 12, 1, fakeClock.Now())
+	for _, dir := range []string{stage.older, stage.newer} {
+		service.runs.knowGrid(dir, mustGrid(t, service))
+	}
+	stage.wanted = wantedBy(service)
 	return stage
 }
 
 // progress samples both runs over 15 s, the older making film at olderSpeed and the newer at
-// newerSpeed times playback, each asked for by its players while isAsked says so; then the node's
-// runs are kept fast.
-func (stage capacityStage) progress(t *testing.T, olderSpeed, newerSpeed float64, isAsked func(dir string) bool) {
+// newerSpeed times playback, each wanted by its players from the film's start where isWanted says
+// so; then the node's runs are kept fast.
+func (stage capacityStage) progress(t *testing.T, olderSpeed, newerSpeed float64, isWanted func(dir string) bool) {
 	t.Helper()
+	var interests []Interest
+	for dir, stream := range map[string]Stream{stage.older: quality(1200, 480), stage.newer: quality(700, 432)} {
+		if isWanted(dir) {
+			interests = append(interests, playingAt(stream, 0))
+		}
+	}
+	stage.wanted.say(interests...)
 	start := stage.clock.Now()
 	for step := range 4 {
 		now := stage.clock.Now()
 		elapsedMs := float64(now.Sub(start).Milliseconds())
 		stage.service.runs.sample(stage.older, 0, now, int64(olderSpeed*elapsedMs))
 		stage.service.runs.sample(stage.newer, 0, now, int64(newerSpeed*elapsedMs))
-		for _, dir := range []string{stage.older, stage.newer} {
-			if isAsked(dir) {
-				stage.service.runs.asked(dir, 0, 0, now)
-			}
-		}
 		if step < 3 {
 			stage.clock.Advance(5 * time.Second)
 		}
@@ -102,7 +110,6 @@ func TestEnsure_AnEvictedStoreGivesWhatIsMadeOrOnItsWayAndStartsNoRun(t *testing
 	// A second run of the newer store, older than its first, which its players are asking for too.
 	stage.service.runs.begin(stage.newer, 30, 59, 13, 1, stage.clock.Now())
 	stage.service.runs.storeByDir[stage.newer].runByFirst[30].startedAt = stage.clock.Now().Add(-time.Minute)
-	stage.service.runs.asked(stage.newer, 30, 30, stage.clock.Now())
 	stage.service.runs.madeThrough(stage.newer, 0, 27)
 	stage.progress(t, 3, 1.05, func(string) bool { return true })
 	if !slices.Contains(stage.queue.cancelledJobs, 12) {
@@ -188,8 +195,8 @@ func TestKeepRunsFast_EvictsNothingWhileEveryRunKeepsUpOrOneRunsAlone(t *testing
 }
 
 // A run of a quality a player still plays, but from far before it after a seek back, is no run anyone
-// plays from, and is evicted before any that is: the run a seek back left behind kept the store in
-// use, and the sound everyone needed was evicted in its place (the owner's test, 2026-10-12).
+// wants, and goes before any that is: the run a seek back left behind kept the store in use, and the
+// sound everyone needed was evicted in its place (the owner's test, 2026-10-12).
 func TestKeepRunsFast_EvictsARunASeekLeftThoughItsQualityIsStillPlayed(t *testing.T) {
 	t.Parallel()
 	stage := newCapacityStage(t)
@@ -197,6 +204,7 @@ func TestKeepRunsFast_EvictsARunASeekLeftThoughItsQualityIsStillPlayed(t *testin
 	// The older store's run is from chunk 0; its player sought back to before it, to a run of its own
 	// from 60, which the node runs at the same time; the newer store is the sound, played from 0.
 	stage.service.runs.begin(left, 60, 89, 13, 1, stage.clock.Now())
+	stage.wanted.say(playingAt(quality(1200, 480), 60), playingAt(quality(700, 432), 0))
 	start := stage.clock.Now()
 	for step := range 4 {
 		now := stage.clock.Now()
@@ -204,8 +212,6 @@ func TestKeepRunsFast_EvictsARunASeekLeftThoughItsQualityIsStillPlayed(t *testin
 		stage.service.runs.sample(left, 0, now, int64(elapsedMs))
 		stage.service.runs.sample(left, 60, now, int64(1.05*elapsedMs))
 		stage.service.runs.sample(playedFrom, 0, now, int64(1.05*elapsedMs))
-		stage.service.runs.asked(left, 60, 66, now)
-		stage.service.runs.asked(playedFrom, 0, 6, now)
 		if step < 3 {
 			stage.clock.Advance(5 * time.Second)
 		}

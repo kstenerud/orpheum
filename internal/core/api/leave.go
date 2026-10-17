@@ -16,12 +16,15 @@ type LeaveInput struct {
 	Token string `doc:"The playback's media token" path:"token"`
 }
 
+// registerLeave registers a player's words on its playback's work: that it left, and what it wants
+// of its film's chunks (registerInterest).
 func (server *Server) registerLeave() {
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "leavePlayback", Method: http.MethodDelete, Path: "/playback/{token}",
 		Summary: "Say the player left the film's page or the player: its work is no longer wanted (D258 §2)",
 		Tags:    []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
 	}, server.leavePlayback)
+	server.registerInterest()
 }
 
 func (server *Server) leavePlayback(ctx context.Context, input *LeaveInput) (*struct{}, error) {

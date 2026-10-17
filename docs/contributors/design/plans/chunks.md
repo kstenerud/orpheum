@@ -69,19 +69,21 @@
   (D250 §5): a player counts a held request as the chunk's download, and took its link for slower.
   A hold, asking the node again each quarter second, is the setting `chunk_hold_ms` (0); the
   player asks again every second or two for over a minute and a half.
-- **A seek starts a run where it lands; catching up never does** (D250 §5). A request more than
-  `chunk_new_run_beyond_seconds` (90) of film past the chunk a run of its store makes next was
-  sought to, since a player catching up jumps at most a minute ahead: that run is cancelled, no one
-  following it now, and a run is queued from the request. A request nearer waits for the run.
+- **A run goes on while a player wants it** (D309, which replaced D250 §5's distances). Each player
+  wants one picture and its sound from a position: said by it (`PUT /playback/{token}/interest`, as
+  it switches, seeks, pauses and plays), read off each chunk it asks for, and lapsing two minutes
+  after it falls silent. A run is wanted while a player plays from a chunk it has not passed and it
+  starts within a minute of film of the first chunk not made from there; a paused player wants only
+  its minute ahead. A player's ask stops the film's runs no one wants, before its own is queued.
 - **Every run stays faster than playback** (D250 §6). The core measures each run's speed from its
   progress, over 20 s. When one of a node's two or more runs falls below
-  `chunk_run_slowest_speed_percent` (110) of playback, it evicts one: the oldest no player has
-  asked for in 30 s, or, when every one is in use, the newest. Its job is cancelled, and its store
-  answers its players 429, `no_room_to_make`, which the player does not retry and words as the
+  `chunk_run_slowest_speed_percent` (110) of playback, it cancels one: the oldest no player wants,
+  or, when players want every one, the newest, whose players move down a quality (D309 §6); only
+  when one is at the lowest is the run evicted. Its job is cancelled, and its store
+  answers its players 429 for what no run makes, `no_room_to_make`, which the player does not retry and words as the
   reason its playback stops, until a stall asks for that quality again. A node whose encode slots
   hold its runs one at a time rarely meets this: its runs wait for a slot instead.
-- **A run is cancelled** when no player has asked for its store's chunks for a while and it is
-  far ahead of the last asked: nobody is coming.
+- **A run is cancelled** when no player wants it (above): nobody is coming.
 
 ## 4. The player
 

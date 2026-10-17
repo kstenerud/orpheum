@@ -263,6 +263,10 @@ func (service *Service) takeProgress(ctx context.Context, attempt nodes.Attempt,
 	if err := service.queue.SetProgress(ctx, attempt.JobID, max(share, 0)); err != nil {
 		return err
 	}
+	// Each step of a run looks again at who wants its film's runs: an interest lapses unsaid (D309 §3).
+	if err := service.StopUnwanted(ctx, fileOfStore(command.StoreDir)); err != nil {
+		return err
+	}
 	return service.keepRunsFast(ctx, attempt.NodeID)
 }
 
