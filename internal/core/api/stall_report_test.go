@@ -288,3 +288,37 @@ func TestReport_EachQualityAPlayerCannotPlayIsLogged(t *testing.T) {
 		t.Errorf("the second unplayable quality was not logged:\n%s", logged)
 	}
 }
+
+// A pause or a jump says where it came from, and each path the page moved to is logged beside it:
+// two players' 0.2 s pauses and a 0.25 s jump forward were heard as hiccups, and the log said nothing
+// of why (the owner, 2026-10-17).
+func TestReport_APausesContextAndThePagesPathMovesAreLogged(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	playing := harness.play(t, user, chrome(1))
+	body := reportBody(1, 4_000, 0)
+	body["events"] = []any{
+		map[string]any{"kind": "paused", "positionMs": 9_000, "happenedMonoMs": 990_000, "context": map[string]any{
+			"isPageHidden": true, "mediaSessionAction": "pause", "readyState": 4, "audioBuffered": "8.000-12.000",
+		}},
+		map[string]any{"kind": "seeked", "positionMs": 9_251, "happenedMonoMs": 991_000, "context": map[string]any{
+			"skippedBy": "hole",
+		}},
+	}
+	body["pathMoves"] = []any{map[string]any{"to": "WebRTC", "happenedMonoMs": 989_500}}
+	if answer := harness.report(t, user, playing, body); answer.status != http.StatusOK {
+		t.Fatalf("the report: %d %s", answer.status, answer.body)
+	}
+	logged := harness.logs.String()
+	for _, want := range []string{
+		`"kind":"paused","positionMs":9000,"isPageHidden":true`, `"mediaSessionAction":"pause"`,
+		`"audioBuffered":"8.000-12.000"`, `"kind":"seeked","positionMs":9251`, `"skippedBy":"hole"`,
+		`"msg":"a player's page moved to another path to the core"`, `"to":"WebRTC","happenedMonoMs":989500`,
+	} {
+		if !strings.Contains(logged, want) {
+			t.Errorf("the log has no %s:\n%s", want, logged)
+		}
+	}
+}

@@ -1395,6 +1395,9 @@
       "EventBody": {
         "additionalProperties": false,
         "properties": {
+          "context": {
+            "$ref": "#/components/schemas/EventContextBody"
+          },
           "happenedMonoMs": {
             "format": "int64",
             "minimum": 0,
@@ -1421,6 +1424,52 @@
           "positionMs",
           "happenedMonoMs"
         ],
+        "type": "object"
+      },
+      "EventContextBody": {
+        "additionalProperties": false,
+        "properties": {
+          "audioBuffered": {
+            "maxLength": 400,
+            "type": "string"
+          },
+          "hasFocus": {
+            "type": "boolean"
+          },
+          "isPageHidden": {
+            "type": "boolean"
+          },
+          "isUserActive": {
+            "description": "The person's gesture is active (navigator.userActivation)",
+            "type": "boolean"
+          },
+          "mediaSessionAction": {
+            "description": "A media-session action of the last second",
+            "enum": [
+              "play",
+              "pause"
+            ],
+            "type": "string"
+          },
+          "readyState": {
+            "format": "int64",
+            "maximum": 4,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "skippedBy": {
+            "description": "What hls.js moved the video over itself",
+            "enum": [
+              "hole",
+              "nudge"
+            ],
+            "type": "string"
+          },
+          "videoBuffered": {
+            "maxLength": 400,
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "ExtraBody": {
@@ -3317,6 +3366,26 @@
         ],
         "type": "object"
       },
+      "PathMoveBody": {
+        "additionalProperties": false,
+        "properties": {
+          "happenedMonoMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "to": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "to",
+          "happenedMonoMs"
+        ],
+        "type": "object"
+      },
       "PersonOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -4187,6 +4256,16 @@
             "format": "int64",
             "minimum": 0,
             "type": "integer"
+          },
+          "pathMoves": {
+            "items": {
+              "$ref": "#/components/schemas/PathMoveBody"
+            },
+            "maxItems": 20,
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "positionMs": {
             "format": "int64",
