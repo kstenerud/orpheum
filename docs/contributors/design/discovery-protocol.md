@@ -998,6 +998,7 @@ the core must act on (enrol again, another instance running) carries a code of i
 | `POST /cores/{id}/offer` | locator + SDP offers (up to four), each with its proof → the core's answers, signed |
 | device codes (§3.1) | own: the core's `/pairings`, passed through (D288); paid: issued by the service, the outcome sealed to the device (D293 §2) |
 | dead-end report (§3.6) | a locator or bootstrap token → counted for its core's week, with no device identifier (D293 §7) |
+| `GET /client-floor` | nothing → the client versions the discovery refuses, which its loader runs none of (D308 §6); an own discovery refuses none |
 
 An own discovery answers the same client API for its one core. Built in `discovery/single`
 (2026-10-14): `/locate`, with the hash's use policy and a bootstrap token of five minutes, and

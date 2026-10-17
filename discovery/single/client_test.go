@@ -312,3 +312,25 @@ func TestDeadEnd_IsCountedForTheCoresWeekAndToldInTheHeartbeatsAnswer(t *testing
 		t.Errorf("a week on, the heartbeat's answer counts %d dead ends; want none", count)
 	}
 }
+
+// An owner's own discovery refuses no client version: its floor, read with GET, names none (D308 §6).
+func TestClientFloor_AnOwnersDiscoveryRefusesNoVersion(t *testing.T) {
+	t.Parallel()
+	built := newClientStage(t)
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet,
+		built.client.URL+discoveryproto.PathClientFloor, http.NoBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set(discoveryproto.ProtocolHeader, discoveryproto.ProtocolVersion)
+	response, err := built.client.Client().Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = response.Body.Close() }() //nolint:errcheck // read in full below
+	var floor discoveryproto.ClientFloorResponse
+	if err = json.NewDecoder(response.Body).Decode(&floor); err != nil || response.StatusCode != http.StatusOK ||
+		floor.RefusedVersions == nil || len(floor.RefusedVersions) != 0 {
+		t.Errorf("the floor answered %d %+v (%v); want 200 and no version refused", response.StatusCode, floor, err)
+	}
+}
