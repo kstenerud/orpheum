@@ -79,7 +79,7 @@ function RoutedApp(props: { readonly route: ReturnType<typeof useRoute> }): JSX.
  * request passes (signed-out-watch.ts), with the server's reason.
  */
 function SignedIn(): JSX.Element {
-  const { api, session, realm } = useServices();
+  const { api, session, realm, switchHousehold } = useServices();
   const route = useRoute();
   // Read again on each path the page moves to: an admin administers only from home (D297 §6), and a
   // page that started on the core's public name and moved to its LAN name showed no admin until
@@ -123,6 +123,7 @@ function SignedIn(): JSX.Element {
             currentScreen={route.screen}
             realm={realm}
             showsDeveloperPages={clientSettings?.shouldShowDeveloperPages === true}
+            onSwitchHousehold={switchHousehold}
             onSignOut={signOut}
           >
             <Screen route={route} />

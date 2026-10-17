@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { NotFound, reportDeadEnd, type DiscoveryClient, type LinkFragment } from "@orpheum/sdk";
+import {
+  NotFound,
+  reportDeadEnd,
+  type DiscoveryClient,
+  type Held,
+  type LinkFragment,
+} from "@orpheum/sdk";
 import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -50,10 +56,14 @@ export interface GateParts {
   readonly realmStorage: StringStorage | undefined;
 }
 
-/** The name and password a realm sign-in's person typed, for the core's own sign-in after it. */
+/**
+ * The name and password a realm sign-in's person typed, for the core's own sign-in after it, and
+ * what the realm sign-in found the core by at the discovery, which a hand-off passes on (D308 §4).
+ */
 export interface SignInWith {
   readonly name: string;
   readonly password: string;
+  readonly held: Held;
 }
 
 type Phase =
@@ -113,7 +123,11 @@ async function reachByRealm(
     return "realmUnreached";
   }
   try {
-    await parts.onConnected(found.core, reaching, { name: typed.name, password: typed.password });
+    await parts.onConnected(found.core, reaching, {
+      name: typed.name,
+      password: typed.password,
+      held: found.target.held,
+    });
     return undefined;
   } catch {
     return "realmUnreached";

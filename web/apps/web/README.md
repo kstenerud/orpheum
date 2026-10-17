@@ -54,6 +54,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   connection's offers are proven and its answers taken only when the core signed them by the key the
   link's fingerprint names; each core's credentials are kept under its id. `discovery-gate.test.tsx`,
   `session.test.ts`, and the SDK's `discovery.test.ts`.
+- **At a discovery the page is its loader, which runs the core's own client** (D308): `app.` keeps
+  no core's session, hands a link on to its core's client origin, and hands a realm sign-in on by a
+  single-use code; a client origin is bound to the core its name names and opens nothing for
+  another; the core's client runs only once its manifest holds under the key the link, the hand-off
+  or this origin named, its version is not one the discovery refuses and its page is the one it
+  signed; and the loader clears every cookie it can see. `loader-config.test.ts`,
+  `loader-households.test.ts`, `loader-pages.test.tsx`, `loader-run-client.test.ts`,
+  `loader-sweep.test.ts`, and the SDK's `discovery.test.ts`.
 - **The session token travels in the Authorization header**; images load through the media
   cookie sign-in sets (D154), by addresses from `artUrl` in `@orpheum/sdk`.
 - **A screen showing what the server changes in the background asks again** — the lists, a title,
@@ -104,4 +112,5 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - Every user-visible string: `src/locales/en.ts` and its parts (`en-together.ts`,
   `en-devices.ts`), through react-i18next (D51).
 - Colours, sizes, focus effects: `src/tokens.css`, never a component's CSS.
-- The mount point: `src/main.tsx` and `index.html`.
+- The mount point: `src/main.tsx`, which loads the loader (`src/loader-main.tsx`) or the client
+  (`src/client-main.tsx`) by what the page says it is, and `index.html`.

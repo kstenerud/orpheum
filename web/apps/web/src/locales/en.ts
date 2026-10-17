@@ -37,6 +37,7 @@ export const en = {
     account: "Your account",
     about: "About",
     signOut: "Sign out",
+    switchHousehold: "Switch household",
     manage: "Manage",
     develop: "Development",
     uiGallery: "UI gallery",

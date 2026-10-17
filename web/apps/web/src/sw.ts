@@ -6,6 +6,12 @@
  * hls.js's chunks, subtitle tracks) are fetched by that page through its transport, which this
  * worker asks for over a message port. Every other load, and every page on HTTP, goes as it would.
  * Built on its own, self-contained (`vite build --mode sw`), as a classic worker every browser runs.
+ *
+ * Once a discovery's loader has named the core's client's files to it (D308), it also answers each
+ * of them, fetched by the page over its path and answered only when its SHA-256 is the one the
+ * core's signed manifest names, kept by that hash; and it keeps the loader's own page and files, so
+ * a page opens with no load to its origin at all, which another core's cookies cannot stop (§7). At a
+ * core's own origin no loader ever names them, and those loads go as they would.
  */
 
 import {
@@ -13,19 +19,24 @@ import {
   isPathMessage,
   loadAfterAsking,
   mediaPathPrefix,
+  networkFetch,
   responseFromPort,
 } from "@orpheum/sdk";
+
+import { clientAssetsPrefix, isClientFilesMessage, sha256Of } from "./client-files.ts";
 
 /** A load the worker is asked to answer. */
 interface FetchEventLike {
   readonly request: Request;
   readonly clientId: string;
   respondWith(response: Promise<Response>): void;
+  waitUntil(work: Promise<unknown>): void;
 }
 
 /** A page's message to the worker, and who sent it. */
 interface MessageEventLike {
   readonly data: unknown;
+  readonly ports: readonly MessagePort[];
   readonly source: { readonly id: string } | null;
   waitUntil(work: Promise<unknown>): void;
 }
@@ -35,8 +46,9 @@ interface ExtendableEventLike {
   waitUntil(work: Promise<unknown>): void;
 }
 
-/** A page the worker can post to. */
+/** A page the worker can post to, or a worker of one. */
 interface ClientLike {
+  readonly type?: string;
   postMessage(message: unknown, transfer: Transferable[]): void;
 }
 
@@ -44,8 +56,10 @@ interface ClientLike {
 interface WorkerScope {
   readonly clients: {
     get(id: string): Promise<ClientLike | undefined>;
+    matchAll(options: { readonly type: "window" }): Promise<readonly ClientLike[]>;
     claim(): Promise<void>;
   };
+  readonly caches: CacheStorage;
   readonly location: { readonly origin: string };
   skipWaiting(): Promise<void>;
   addEventListener(type: "fetch", listener: (event: FetchEventLike) => void): void;
@@ -69,6 +83,16 @@ function isWorkerScope(scope: unknown): scope is WorkerScope {
 const onWebrtc = new Set<string>();
 const onHttp = new Set<string>();
 
+/** The cache the core's client's files are kept in by their SHA-256, and their list by path. */
+const clientFilesCache = "orpheum-client-files";
+const clientFilesListKey = "/__orpheum/client-files";
+
+/** The cache the loader's own page and files are kept in. */
+const loaderCache = "orpheum-loader";
+
+/** The client's files' hashes by path, as the loader last said; read back after a restart. */
+let clientFiles: Map<string, string> | undefined;
+
 const scope: unknown = globalThis;
 if (isWorkerScope(scope)) {
   scope.addEventListener("install", (event) => {
@@ -84,9 +108,22 @@ if (isWorkerScope(scope)) {
     if (isClaimMessage(event.data)) {
       event.waitUntil(scope.clients.claim());
     }
+    if (isClientFilesMessage(event.data)) {
+      clientFiles = new Map(event.data.files.map((file) => [file.path, file.sha256]));
+      const [answer] = event.ports;
+      // Told once kept, so the loader adds no script before the worker knows its file.
+      event.waitUntil(
+        keepClientFiles(scope, clientFiles).then(() => {
+          answer?.postMessage("kept");
+        }),
+      );
+    }
   });
   scope.addEventListener("fetch", (event) => {
     const url = new URL(event.request.url);
+    if (url.origin === scope.location.origin && answeredUnderALoader(scope, event)) {
+      return;
+    }
     if (
       url.origin !== scope.location.origin ||
       !url.pathname.startsWith(mediaPathPrefix) ||
@@ -129,15 +166,144 @@ async function throughThePage(worker: WorkerScope, event: FetchEventLike): Promi
   if (page === undefined) {
     throw new Error("the page that made the load is gone");
   }
+  return await fetchedBy(page, event.request);
+}
+
+/** Asks page to fetch request through its transport, and answers with what it sends. */
+async function fetchedBy(page: ClientLike, request: Request): Promise<Response> {
   const { port1, port2 } = new MessageChannel();
   const headers: [string, string][] = [];
-  event.request.headers.forEach((value, name) => {
+  request.headers.forEach((value, name) => {
     headers.push([name, value]);
   });
   const answered = responseFromPort(port1);
-  page.postMessage(
-    { kind: "orpheum-fetch", url: event.request.url, method: event.request.method, headers },
-    [port2],
-  );
+  page.postMessage({ kind: "orpheum-fetch", url: request.url, method: request.method, headers }, [
+    port2,
+  ]);
   return await answered;
+}
+
+/**
+ * Takes a page's own load, or a file under its assets, which under a loader the worker answers
+ * itself (D308): a file of the core's client by its hash, or the loader's own page or files as kept.
+ * At the core's own origin, where no loader ever named a client's files, each goes as it would.
+ * Whether it took the load.
+ */
+function answeredUnderALoader(worker: WorkerScope, event: FetchEventLike): boolean {
+  const { pathname } = new URL(event.request.url);
+  const isPage = event.request.mode === "navigate";
+  if (!isPage && !pathname.startsWith(clientAssetsPrefix)) {
+    return false;
+  }
+  event.respondWith(underALoader(worker, event, isPage ? "/" : pathname));
+  return true;
+}
+
+/** The answer to a load answeredUnderALoader took, kept or fetched under key. */
+async function underALoader(
+  worker: WorkerScope,
+  event: FetchEventLike,
+  key: string,
+): Promise<Response> {
+  const files = await clientFilesOf(worker);
+  if (files.size === 0) {
+    return await networkFetch(event.request);
+  }
+  const sha256 = files.get(key.slice(1));
+  return sha256 === undefined
+    ? await keptLoaderFile(worker, event, key)
+    : await clientFile(worker, event, sha256);
+}
+
+/** Keeps the client's files' list, so a worker started again still knows each file's hash. */
+async function keepClientFiles(worker: WorkerScope, files: Map<string, string>): Promise<void> {
+  const cache = await worker.caches.open(clientFilesCache);
+  await cache.put(clientFilesListKey, new Response(JSON.stringify([...files])));
+}
+
+/** The client's files' hashes by path, as last kept. */
+async function clientFilesOf(worker: WorkerScope): Promise<Map<string, string>> {
+  if (clientFiles !== undefined) {
+    return clientFiles;
+  }
+  const kept = await (await worker.caches.open(clientFilesCache)).match(clientFilesListKey);
+  const pairs: unknown = kept === undefined ? [] : await kept.json();
+  clientFiles = new Map(
+    Array.isArray(pairs)
+      ? pairs.filter(
+          (pair): pair is [string, string] =>
+            Array.isArray(pair) && typeof pair[0] === "string" && typeof pair[1] === "string",
+        )
+      : [],
+  );
+  return clientFiles;
+}
+
+/** A page the worker can ask to fetch for the load clientId made: it, or, for a worker, a window. */
+async function pageFor(worker: WorkerScope, clientId: string): Promise<ClientLike | undefined> {
+  const made = await worker.clients.get(clientId);
+  if (made?.type === "window") {
+    return made;
+  }
+  const [window] = await worker.clients.matchAll({ type: "window" });
+  return window;
+}
+
+/**
+ * One of the core's client's files, as its signed manifest names it: kept by its SHA-256, else
+ * fetched by the page over its path, and answered only when its SHA-256 is that one (D308 §6).
+ */
+async function clientFile(
+  worker: WorkerScope,
+  event: FetchEventLike,
+  sha256: string,
+): Promise<Response> {
+  const cache = await worker.caches.open(clientFilesCache);
+  const key = `/__orpheum/sha256/${sha256}`;
+  const kept = await cache.match(key);
+  if (kept !== undefined) {
+    return kept;
+  }
+  const page = await pageFor(worker, event.clientId);
+  if (page === undefined) {
+    return new Response("no page to fetch the server's file through", { status: 503 });
+  }
+  const fetched = await fetchedBy(page, event.request);
+  const bytes = await fetched.arrayBuffer();
+  if (fetched.status !== 200 || (await sha256Of(bytes)) !== sha256) {
+    return new Response("this file is not the one the server signed", { status: 502 });
+  }
+  const answer = new Response(bytes, {
+    headers: { "Content-Type": fetched.headers.get("Content-Type") ?? "application/octet-stream" },
+  });
+  await cache.put(key, answer.clone());
+  return answer;
+}
+
+/**
+ * The loader's page or one of its files, as kept, the origin asked for it again behind it; the
+ * origin's own answer while none is kept. A page so kept opens with no load to the origin, which
+ * another core's cookies, set for the whole site, cannot stop (D308 §7).
+ */
+async function keptLoaderFile(
+  worker: WorkerScope,
+  event: FetchEventLike,
+  key: string,
+): Promise<Response> {
+  const cache = await worker.caches.open(loaderCache);
+  const fresh = networkFetch(event.request).then(
+    async (answer) => {
+      if (answer.ok) {
+        await cache.put(key, answer.clone());
+      }
+      return answer;
+    },
+    () => undefined,
+  );
+  const kept = await cache.match(key);
+  if (kept !== undefined) {
+    event.waitUntil(fresh);
+    return kept;
+  }
+  return (await fresh) ?? Response.error();
 }

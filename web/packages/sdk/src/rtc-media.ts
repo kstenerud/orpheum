@@ -362,6 +362,11 @@ export function hasBody(status: number): boolean {
   return !bodylessStatuses.has(status);
 }
 
+/** The service worker's own load of request, from the network: what it answers through no page. */
+export function networkFetch(request: Request): Promise<Response> {
+  return fetch(request);
+}
+
 /** Where the service worker is served, beside the app, so its scope is the whole app. */
 export const serviceWorkerUrl = "/sw.js";
 

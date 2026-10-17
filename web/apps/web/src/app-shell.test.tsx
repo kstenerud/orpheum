@@ -7,7 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { AppShell } from "./app-shell.tsx";
-import { click, fire, mount } from "./test-dom.tsx";
+import { buttonWithText, click, fire, mount } from "./test-dom.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 
 const ignore = (): void => undefined;
@@ -173,6 +173,32 @@ describe("AppShell", () => {
     );
     expect(markupWith(false)).not.toContain("Development");
     expect(markupWith(false)).not.toContain('href="/ui-gallery"');
+  });
+
+  it("offers to switch household only while a discovery's loader runs the page (D308 §8)", async () => {
+    let switched = 0;
+    const shellWith = (onSwitchHousehold: (() => void) | undefined) =>
+      withServices(
+        <AppShell
+          isAdmin={false}
+          canHostWatchTogether={false}
+          currentScreen="films"
+          onSignOut={ignore}
+          signedInAs={undefined}
+          onSwitchHousehold={onSwitchHousehold}
+        >
+          <p>screen</p>
+        </AppShell>,
+      );
+    expect(renderToStaticMarkup(shellWith(undefined))).not.toContain("Switch household");
+    const shown = await mount(
+      shellWith(() => {
+        switched += 1;
+      }),
+    );
+    await click(buttonWithText(shown.container, "Switch household"));
+    shown.unmount();
+    expect(switched).toBe(1);
   });
 
   it("offers no Manage to someone who is not an admin", () => {

@@ -37,6 +37,11 @@ export interface Services {
    * what was read on one path is read again on the next. Undefined where the page never moves.
    */
   readonly pathMoves?: PathMoves | undefined;
+  /**
+   * Goes to the discovery's list of households, under its loader (D308 §8); undefined on the core's
+   * own origin, which has no list to go to.
+   */
+  readonly switchHousehold?: (() => void) | undefined;
 }
 
 /** How many times the page's requests moved path, and who is told of each move. */
@@ -45,7 +50,7 @@ export interface PathMoves {
   readonly subscribe: (listener: () => void) => () => void;
 }
 
-/** A count of path moves, and the move to tell of: what main.tsx keeps, and tests move by hand. */
+/** A count of path moves, and the move to tell of: what client-main.tsx keeps, and tests move by hand. */
 export function createPathMoves(): PathMoves & { readonly moved: () => void } {
   let count = 0;
   const listeners = new Set<() => void>();

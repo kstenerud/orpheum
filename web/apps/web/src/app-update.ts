@@ -21,6 +21,14 @@ export function ownScriptOf(page: Pick<Document, "querySelector">): string | und
   if (discoveryClientApiOf(page) !== "") {
     return undefined;
   }
+  return builtScriptOf(page);
+}
+
+/**
+ * The built client's script on page, wherever it is served: under a discovery's loader, which runs
+ * the core's own client (D308), the core's answers name the very script the page runs.
+ */
+export function builtScriptOf(page: Pick<Document, "querySelector">): string | undefined {
   const entry = page
     .querySelector('script[type="module"][src^="/assets/index-"]')
     ?.getAttribute("src");

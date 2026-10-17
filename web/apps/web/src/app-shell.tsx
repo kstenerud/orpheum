@@ -104,6 +104,11 @@ export function AppShell(props: {
    * admin turns on (the owner, 2026-10-17: "development items behind a setting").
    */
   readonly showsDeveloperPages?: boolean;
+  /**
+   * Goes to the discovery's list of households, offered in the menu while a discovery's loader runs
+   * the page (D308 §8); undefined, and the menu offers none.
+   */
+  readonly onSwitchHousehold?: (() => void) | undefined;
   readonly children: ReactNode;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -169,6 +174,7 @@ function BannerEnd(props: {
         signedInAs={shell.signedInAs}
         isCurrent={props.isMenuCurrent}
         onSignOut={shell.onSignOut}
+        onSwitchHousehold={shell.onSwitchHousehold}
       >
         {props.children}
       </MainMenu>
@@ -239,6 +245,7 @@ function MainMenu(props: {
     { readonly name: string; readonly deviceName: string | undefined } | undefined;
   readonly isCurrent: boolean;
   readonly onSignOut: () => void;
+  readonly onSwitchHousehold: (() => void) | undefined;
   readonly children: ReactNode;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -253,6 +260,13 @@ function MainMenu(props: {
         </li>
       )}
       {props.children}
+      {props.onSwitchHousehold === undefined ? null : (
+        <li>
+          <button type="button" onClick={props.onSwitchHousehold}>
+            {t("nav.switchHousehold")}
+          </button>
+        </li>
+      )}
       <li>
         <button type="button" onClick={props.onSignOut}>
           {t("nav.signOut")}
