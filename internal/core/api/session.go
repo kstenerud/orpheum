@@ -184,6 +184,7 @@ func (server *Server) registerSetupAndAuth() {
 		OperationID: "getOwnLink", Method: http.MethodGet, Path: "/me/own-link",
 		Summary: "Your own link, which leads your devices back to this server through its discovery", Tags: tags,
 	}, server.getOwnLink)
+	server.registerHandOff()
 }
 
 // LocatorOutput is a device's fresh locator (discovery-core.md K7).

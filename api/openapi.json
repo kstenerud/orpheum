@@ -1756,6 +1756,19 @@
         ],
         "type": "object"
       },
+      "HandOffOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "description": "Taken once, within a minute, by POST /session/redeem at the client origin",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "type": "object"
+      },
       "HardwareBody": {
         "additionalProperties": false,
         "properties": {
@@ -4019,6 +4032,20 @@
         },
         "required": [
           "outcome"
+        ],
+        "type": "object"
+      },
+      "RedeemInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "maxLength": 100,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
         ],
         "type": "object"
       },
@@ -11407,6 +11434,95 @@
           }
         },
         "summary": "Sign in; returns a session token for the Authorization header",
+        "tags": [
+          "Setup and auth"
+        ]
+      }
+    },
+    "/session/handoff": {
+      "post": {
+        "operationId": "handOffSession",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignInInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HandOffOutputBody"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Sign in at the discovery's loader; returns a code the client origin takes the session by (D308)",
+        "tags": [
+          "Setup and auth"
+        ]
+      }
+    },
+    "/session/redeem": {
+      "post": {
+        "operationId": "redeemSession",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RedeemInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionOutputBody"
+                }
+              }
+            },
+            "description": "Created",
+            "headers": {
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Take the session a sign-in at the loader kept, by its code, once",
         "tags": [
           "Setup and auth"
         ]

@@ -54,9 +54,10 @@ func (server *Server) crossOrigin(next http.Handler) http.Handler {
 	})
 }
 
-// isOpenToTheLoader is whether the loader's origin may call path: the health its path race probes.
+// isOpenToTheLoader is whether the loader's origin may call path: the health its path race probes,
+// and the hand-off of a sign-in, which answers a code and never a session (D308 §4).
 func isOpenToTheLoader(path string) bool {
-	return path == Prefix+"/health"
+	return path == Prefix+"/health" || path == Prefix+handOffPath
 }
 
 // loaderOriginOf is the loader's origin crossOrigin allows for pathsOpenToTheLoader: the discovery's,

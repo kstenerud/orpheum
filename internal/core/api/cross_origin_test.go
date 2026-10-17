@@ -77,7 +77,7 @@ func TestCrossOrigin_TheSessionSocketOpensFromTheDiscoverysClientAlone(t *testin
 }
 
 // The loader's origin, where no core's client runs, may read the health its path race probes and
-// nothing else: no sign-in, no library (D308 §3).
+// ask for a hand-off's code, and nothing else: no session, no library (D308 §3–4).
 func TestCrossOrigin_TheLoadersOriginReachesOnlyWhatFindingTheCoreTakes(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -85,7 +85,9 @@ func TestCrossOrigin_TheLoadersOriginReachesOnlyWhatFindingTheCoreTakes(t *testi
 	client, loader := "https://core1.client.example", "https://app.example"
 	harness.server.namedClientOrigin.Store(&client)
 	harness.server.namedLoaderOrigin.Store(&loader)
-	for path, isAllowed := range map[string]bool{"/health": true, "/me": false, "/titles": false} {
+	for path, isAllowed := range map[string]bool{
+		"/health": true, "/session/handoff": true, "/session/redeem": false, "/me": false, "/titles": false,
+	} {
 		answer := harness.doWithHeader(t, http.MethodGet, path, token, http.Header{"Origin": {loader}}, nil)
 		if allowed := answer.header.Get("Access-Control-Allow-Origin"); (allowed == loader) != isAllowed {
 			t.Errorf("GET %s from the loader's origin allowed %q; want allowed %v", path, allowed, isAllowed)
