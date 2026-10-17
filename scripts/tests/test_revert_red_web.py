@@ -47,15 +47,13 @@ class AddedFileProbe(unittest.TestCase):
         base = repo.commit("chore: base")
         repo.commit("feat(web): a sign\n\nThere was none.", {f"{SRC}/sign.tsx": FILES[f"{SRC}/sign.tsx"]})
         ran: list[list[str]] = []
-        real_run = subprocess.run
 
-        def fake_run(command, **kwargs):
-            if command and command[0] == "git":
-                return real_run(command, **kwargs)
+        # A probe's test runs go through run_whole_group (revert_red_run.py); its git through subprocess.
+        def fake_run(command, _cwd, _timeout, _env=None):
             ran.append(list(command))
             return subprocess.CompletedProcess(command, 1, "FAIL apps/web/src/row.test.tsx", "")
 
-        with repo.cwd(), mock.patch.object(rr.subprocess, "run", side_effect=fake_run), \
+        with repo.cwd(), mock.patch.object(rr, "run_whole_group", side_effect=fake_run), \
                 mock.patch.object(rr, "browser_tier_command", return_value=["make", "browser-tier"]):
             outcome = rr.probe_unclaimed(str(repo.root), base, "HEAD", rr.Change(f"{SRC}/sign.tsx", "A"), 60)
         self.assertEqual(ran[0], [*web.VITEST_RUN, "apps/web/src/list.test.tsx", "apps/web/src/row.test.tsx",

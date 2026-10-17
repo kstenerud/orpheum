@@ -86,7 +86,8 @@ def kind_of(command: list[str], label: str, env: dict[str, str] | None) -> str:
     compile for another system, or the Python tests."""
     text = " ".join(command)
     if "browser-tier" in text:
-        return "browser tier"
+        # ORPHEUM_E2E_ONLY, browser_map.ONLY_THESE_TESTS: the tests the browser map says load it.
+        return "browser tier, the tests that load it" if env and "ORPHEUM_E2E_ONLY" in env else "browser tier"
     if "typecheck" in text:
         return "web type check"
     if "vitest" in text and "related" in text:

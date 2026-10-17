@@ -214,10 +214,12 @@ web-deps: ## Install web dependencies from the lockfile when they are missing or
 
 RESOLVE_BASE = $(PYTHON) scripts/branch_base.py $(if $(BASE),--base '$(BASE)')
 
-# check-pr's steps, in tiers by how long they take, each tier run only once the one before passed:
-# a failure a second's check finds is never waited for behind the browser tier, and the slow tiers
-# do not share the machine with the rest (the owner, 2026-10-15: "fast ones first, then medium
-# ones with enough parallelization… only after those pass do we do the really long ones"). Each
+# check-pr's steps, in tiers by how long they take, the quickest first, and the slow tiers never
+# beside the rest (the owner, 2026-10-15: "fast ones first, then medium ones with enough
+# parallelization"). check-pr is the last run of a block of work, which is expected to pass, its
+# pieces' tests having run already: every tier runs to its end, a failed one too, so one run shows
+# every failure (the owner, 2026-10-17: "fail fast on piecework… run to completion on the final
+# test run"). The piecework re-run, check-pr-failed, still stops at a failed tier. Each
 # step runs through pr-step-<step>, which records whether it passed and on what commit
 # (scripts/check_pr_steps.py), so `make check-pr-failed` can re-run only what failed.
 PR_FAST_STEPS := check-test-weakening check-decision-status lint-commits
@@ -227,10 +229,11 @@ PR_STEPS := $(PR_FAST_STEPS) $(PR_MEDIUM_STEPS) $(PR_SLOW_STEPS)
 # Revert-red runs alone, never beside another tier: a timing test failing under the load of a probe
 # would be counted as the probe's red, a "covered" nothing proved (audit-2026-09-29 §6). It runs in
 # two parts (the owner, 2026-10-15): the code's probes, a package's tests each, right after the
-# medium tier, so a change no test notices is found in minutes, not after the browser tier; the
-# stylesheets', which run the browser tier, last.
+# medium tier, so a change no test notices is found in minutes, not after the browser tier; and every
+# probe's browser run, the stylesheets' and the code's the cheap runs left green, last, after the
+# browser tier itself, whose map they read (the owner, 2026-10-17: no expensive test blocks a cheap one).
 PR_CODE_RED_STEP := check-revert-red-code
-PR_LAST_STEP := check-revert-red-sheets
+PR_LAST_STEP := check-revert-red-browser
 # M4's acceptance under home, a few minutes (D252 §2, D261 §2): after the tiers and before
 # revert-red, alone, as it shapes the container's loopback, which every tier's tests cross.
 # check-pr-failed does not re-run it: `make test-acceptance-home BASE=...` does.
@@ -244,21 +247,23 @@ check-pr: ## Branch gates against BASE, quietly (VERBOSE=1 prints all; the log i
 	@$(PYTHON) scripts/quiet_gate.py "make check-pr" check-pr-verbose $(if $(BASE),BASE=$(BASE))
 
 .PHONY: check-pr-verbose
-check-pr-verbose: ## Branch gates against BASE (default: where the last pass ended, or the owner's mark), its tiers from the quickest, each only once the one before passed, revert-red last; a pass marks HEAD as checked
+check-pr-verbose: ## Branch gates against BASE (default: where the last pass ended, or the owner's mark), its tiers from the quickest, every one run to its end, revert-red's browser runs last; a pass marks HEAD as checked
 	@started="$$(date +%s)"; base="$$($(RESOLVE_BASE))"; head="$$(git rev-parse HEAD)"; \
 	  state="$$(git rev-parse --git-common-dir)/check-pr/tree-state"; mkdir -p "$$(dirname "$$state")"; \
 	  $(PYTHON) scripts/tree_state.py --save "$$state"; \
 	  $(PYTHON) scripts/check_pr_steps.py start --base "$$base"; \
-	  { $(MAKE) --no-print-directory -j$(CHECK_JOBS) -k --output-sync=target BASE="$$base" \
-	      $(PR_FAST_STEPS:%=pr-step-%) && \
+	  { failed=0; \
 	    $(MAKE) --no-print-directory -j$(CHECK_JOBS) -k --output-sync=target BASE="$$base" \
-	      $(PR_MEDIUM_STEPS:%=pr-step-%) && \
-	    $(MAKE) --no-print-directory BASE="$$base" $(PR_CODE_RED_STEP:%=pr-step-%) && \
-	    $(MAKE) --no-print-directory BASE="$$base" $(PR_SERIAL_STEP:%=pr-step-%) && \
-	    $(MAKE) --no-print-directory BASE="$$base" $(PR_SLOW_STEPS:%=pr-step-%) && \
-	    $(MAKE) --no-print-directory BASE="$$base" $(PR_LAST_STEP:%=pr-step-%); } || { \
+	      $(PR_FAST_STEPS:%=pr-step-%) || failed=1; \
+	    $(MAKE) --no-print-directory -j$(CHECK_JOBS) -k --output-sync=target BASE="$$base" \
+	      $(PR_MEDIUM_STEPS:%=pr-step-%) || failed=1; \
+	    $(MAKE) --no-print-directory BASE="$$base" $(PR_CODE_RED_STEP:%=pr-step-%) || failed=1; \
+	    $(MAKE) --no-print-directory BASE="$$base" $(PR_SERIAL_STEP:%=pr-step-%) || failed=1; \
+	    $(MAKE) --no-print-directory BASE="$$base" $(PR_SLOW_STEPS:%=pr-step-%) || failed=1; \
+	    $(MAKE) --no-print-directory BASE="$$base" $(PR_LAST_STEP:%=pr-step-%) || failed=1; \
+	    [ "$$failed" -eq 0 ]; } || { \
 	    $(PYTHON) scripts/check_pr_steps.py durations $(PR_STEPS) $(PR_CODE_RED_STEP) $(PR_SERIAL_STEP) $(PR_LAST_STEP); \
-	    echo "make check-pr: a tier failed, so the slower ones after it did not run"; exit 1; }; \
+	    echo "make check-pr: a tier failed; every tier still ran, so each failure is above"; exit 1; }; \
 	  $(PYTHON) scripts/check_pr_steps.py durations $(PR_STEPS) $(PR_CODE_RED_STEP) $(PR_SERIAL_STEP) $(PR_LAST_STEP); \
 	  $(PYTHON) scripts/tree_state.py --check "$$state"; \
 	  $(PYTHON) scripts/branch_base.py --checked "$$head" --base "$$base" && { \
@@ -294,15 +299,15 @@ check-revert-red: ## Every behaviour change can turn a test red when reverted (D
 check-revert-red-failed: ## Revert-red on only the files its last run against BASE failed on; then run the full check
 	@base="$$($(RESOLVE_BASE))"; $(PYTHON) scripts/check_revert_red.py --base "$$base" --rerun-failed
 
-.PHONY: check-revert-red-code check-revert-red-sheets check-revert-red-code-failed check-revert-red-sheets-failed
-check-revert-red-code: ## Revert-red on the code alone (Go, TypeScript, Python): check-pr's tier after the medium one
+.PHONY: check-revert-red-code check-revert-red-browser check-revert-red-code-failed check-revert-red-browser-failed
+check-revert-red-code: ## Revert-red on the code (Go, TypeScript, Python) with its cheap runs alone: check-pr's tier after the medium one
 	@base="$$($(RESOLVE_BASE))"; $(PYTHON) scripts/check_revert_red.py --base "$$base" --part code
-check-revert-red-sheets: ## Revert-red on the stylesheets alone (the browser tier): check-pr's last step
-	@base="$$($(RESOLVE_BASE))"; $(PYTHON) scripts/check_revert_red.py --base "$$base" --part sheets
+check-revert-red-browser: ## Revert-red's browser runs: the stylesheets, and the code check-revert-red-code left owing them; check-pr's last step
+	@base="$$($(RESOLVE_BASE))"; $(PYTHON) scripts/check_revert_red.py --base "$$base" --part browser
 check-revert-red-code-failed: ## Revert-red on only the code files its last run against BASE failed on
 	@base="$$($(RESOLVE_BASE))"; $(PYTHON) scripts/check_revert_red.py --base "$$base" --rerun-failed --part code
-check-revert-red-sheets-failed: ## Revert-red on only the stylesheets its last run against BASE failed on
-	@base="$$($(RESOLVE_BASE))"; $(PYTHON) scripts/check_revert_red.py --base "$$base" --rerun-failed --part sheets
+check-revert-red-browser-failed: ## Revert-red's browser runs on only the files its last run against BASE failed on
+	@base="$$($(RESOLVE_BASE))"; $(PYTHON) scripts/check_revert_red.py --base "$$base" --rerun-failed --part browser
 
 .PHONY: check-commit-red
 check-commit-red: ## Revert-red on the last commit's code alone, against its parent: a minute's check after each commit, so a change no test notices is found while it is fresh (the owner, 2026-10-15)

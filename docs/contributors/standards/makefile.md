@@ -119,17 +119,24 @@ queries that read whole tables reached `main` because only CI ran it.
 
 ### The fix-and-re-run loop
 
-`make check-pr` runs its steps **in tiers, quickest first**, each tier only once the one before
-passed (the owner, 2026-10-15): the second's checks (test weakening, decision status, commit lint),
-then the medium ones in parallel (the integration tier, the full web lint), **revert-red on the
-code** (Go, TypeScript, Python: a package's tests each), the acceptance under `home` alone, the
-browser tier, and **revert-red on the stylesheets** last, as they run the browser tier. A change no
-test notices is found within minutes, not after the browser tier (the owner, 2026-10-15).
+`make check-pr` runs its steps **in tiers, quickest first** (the owner, 2026-10-15): the second's
+checks (test weakening, decision status, commit lint), then the medium ones in parallel (the
+integration tier, the full web lint), **revert-red on the code** with its cheap runs alone (Go,
+TypeScript, Python: a package's tests each), the acceptance under `home` alone, the browser tier,
+and last **revert-red's browser runs**: the stylesheets', and those of the code files no cheap run
+noticed (`BROWSER_OWED`), read against the browser map the browser tier has just recorded. No
+expensive run holds back a cheap one (the owner, 2026-10-17; test-weight.md §14).
+
+check-pr is the last run of a block of work, which is expected to pass, since its pieces' tests
+have run already: **every tier runs to its end**, a failed one too, so one run shows every
+failure, and check-pr fails at the end. The piecework runs fail fast: `make check-pr-failed` stops
+at a failed tier, and each revert-red probe's browser run stops at its first failing test (the
+owner, 2026-10-17: "fail fast on piecework… run to completion on the final test run").
 
 After each commit, `make check-commit-red` runs revert-red on that commit's code against its
 parent, keeping no record: a minute's check, while the change is fresh, so check-pr at a batch's
-end confirms rather than discovers. A failure a quick check finds is never waited
-for behind the browser tier, and the slow tiers never share the machine. A passing run is no shorter
+end confirms rather than discovers. It takes no browser run: it lists the files that owe one, which
+check-pr's last tier probes. The slow tiers never share the machine. A passing run is no shorter
 for it; the tiers' order is in the Makefile's `PR_FAST_STEPS`, `PR_MEDIUM_STEPS` and `PR_SLOW_STEPS`.
 The acceptance under `home` runs only in a batch that changed what it crosses: Watch Together, voice,
 the WebRTC transport and the path to the core, the player, playback's chunks and decisions

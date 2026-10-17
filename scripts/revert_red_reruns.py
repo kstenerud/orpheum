@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# ABOUTME: Revert-red's record of the files its last run failed on (GREEN, NO_RUNNER), and the
+# ABOUTME: Revert-red's record of the files its last run failed on (GREEN, NO_RUNNER, TIMED_OUT), and the
 # ABOUTME: base and head it ran on, which `check_revert_red.py --rerun-failed` probes again.
 """The files revert-red's last run failed on.
 
@@ -60,3 +60,25 @@ def recorded_failures(base: str) -> tuple[list[str], str, str]:
         return [], "", ("The last revert-red run against this base did not finish, so its list of "
                         "failures is incomplete. Run the full check first.")
     return list(record.get("paths", [])), str(record.get("head", "")), ""
+
+
+# The code part's record of the files whose cheap runs all passed, owing the browser part their
+# browser runs (check_revert_red.py's BROWSER_OWED).
+OWED_BROWSER = "owed-browser"
+
+
+def owe_browser(base: str, probed: list[str], owing: list[str]) -> None:
+    """Records which of the code part's probed files owe the browser part their browser runs: the
+    rows of the paths it probed replaced, so a targeted re-run keeps the others'."""
+    def change(old: dict[str, Any] | None) -> dict[str, Any]:
+        kept = set(old.get("paths", [])) if old is not None and old.get("base") == base else set()
+        return {"base": base, "paths": sorted((kept - set(probed)) | set(owing))}
+    last_run.update(GATE, OWED_BROWSER, change)
+
+
+def owed_browser(base: str) -> frozenset[str]:
+    """The files the code part's last run against base left owing their browser runs."""
+    record = last_run.read(GATE, OWED_BROWSER)
+    if record is None or record.get("base") != base:
+        return frozenset()
+    return frozenset(record.get("paths", []))
