@@ -59,6 +59,12 @@ func (key Key) SignAnswer(answer proof.Answer) []byte {
 	return ed25519.Sign(key.private, answer.Message())
 }
 
+// SignClientManifest signs the manifest of the core's client, which a loader checks with
+// proof.VerifyClientManifest before it runs any of it (D308 §6).
+func (key Key) SignClientManifest(manifest []byte) []byte {
+	return ed25519.Sign(key.private, proof.ClientManifestMessage(manifest))
+}
+
 // EncodeKeyFile renders the key as identity.key's contents: the seed, from which both halves follow.
 func (key Key) EncodeKeyFile() []byte {
 	return []byte(keyFileHeader + "\n" + base64.StdEncoding.EncodeToString(key.private.Seed()) + "\n")

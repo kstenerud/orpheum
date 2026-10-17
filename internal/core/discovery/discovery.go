@@ -5,6 +5,7 @@ package discovery
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
@@ -287,6 +288,12 @@ func New(parts Parts) (*Service, error) {
 	}
 	service.status.BaseURL, service.status.CoreID, service.status.Zone = state.BaseURL, state.CoreID, state.Zone
 	return service, nil
+}
+
+// SignedClientManifest is the client's manifest signed by the core's identity key, and that key's
+// public half, which a loader checks it with (D308 §6).
+func (service *Service) SignedClientManifest(manifest []byte) (signature []byte, publicKey ed25519.PublicKey) {
+	return service.parts.Key.SignClientManifest(manifest), service.parts.Key.Public()
 }
 
 // Status is where the core stands now.

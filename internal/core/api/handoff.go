@@ -12,6 +12,10 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 )
 
+// tagSetupAndAuth groups the operations that set up the server and sign people in, for the OpenAPI
+// document.
+const tagSetupAndAuth = "Setup and auth"
+
 // HandOffOutput is a sign-in kept for the client origin to take, and the code it takes it by.
 type HandOffOutput struct {
 	Body struct {
@@ -28,7 +32,7 @@ type RedeemInput struct {
 }
 
 func (server *Server) registerHandOff() {
-	tags := []string{"Setup and auth"}
+	tags := []string{tagSetupAndAuth}
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "handOffSession", Method: http.MethodPost, Path: handOffPath, DefaultStatus: http.StatusCreated,
 		Summary: "Sign in at the discovery's loader; returns a code the client origin takes the session by (D308)",

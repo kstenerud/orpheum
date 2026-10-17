@@ -24,7 +24,9 @@ func TestServeClient_ServesTheClientAndNamesItsScriptOnEveryAnswer(t *testing.T)
 		want      string
 	}{{true, "index-DCLi77_b.js"}, {false, ""}} {
 		server := api.NewServer(slog.New(slog.DiscardHandler))
-		serveClient(server, client, built.hasClient)
+		if err := serveClient(server, client, built.hasClient); err != nil {
+			t.Fatal(err)
+		}
 		answer := httptest.NewRecorder()
 		server.Handler().ServeHTTP(answer,
 			httptest.NewRequestWithContext(t.Context(), http.MethodGet, api.Prefix+"/health", nil))
