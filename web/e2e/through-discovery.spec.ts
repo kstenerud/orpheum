@@ -2,11 +2,12 @@
 
 /**
  * A browser reaching its core through a discovery (discovery-mode.md W4b.6; webrtc-transport.md W5):
- * the core enrols with a single-target discovery and is claimed; a registration link in the
- * discovery's form, opened on the discovery's page, finds the core, reaches it over WebRTC through
- * the discovery's offer (the discovery publishes no direct name, so the race has only WebRTC), checks
- * the core's answer by the link's fingerprint, registers, and plays a film. Every public part of the
- * discovery meets the core and the web client here.
+ * the core enrols with a single-target discovery and is claimed; a registration link, which leads to
+ * the core's own client origin (D308), opened on the discovery's loader there, finds the core,
+ * reaches it over WebRTC through the discovery's offer (the discovery publishes no direct name, so
+ * the race has only WebRTC), checks the core's answer by the link's fingerprint, runs the core's own
+ * client once its signed manifest holds, registers, and plays a film. Every public part of the
+ * discovery meets the core, the loader and the web client here.
  */
 
 import { spawn, type ChildProcess } from "node:child_process";
@@ -33,11 +34,21 @@ import {
 /** How long the two talk before their voice is measured, as together.spec.ts lets them. */
 const talkForMs = 15_000;
 
+/** A development discovery: its process, the address the core calls, and where the loader is. */
+interface Discovery {
+  readonly process: ChildProcess;
+  readonly address: string;
+  /** The loader's own origin, localhost on the discovery's port (D308). */
+  readonly loaderOrigin: string;
+  /** A core's client origin, <coreId>.localhost on the discovery's port. */
+  readonly clientOriginOf: (coreId: string) => string;
+}
+
 /**
  * Starts `orpheum dev discovery` on a free loopback port, a paid discovery's realm when one is named,
- * and is its process and its address.
+ * and is it.
  */
-async function startDiscovery(realm?: string): Promise<{ process: ChildProcess; address: string }> {
+async function startDiscovery(realm?: string): Promise<Discovery> {
   const binary = process.env["ORPHEUM_TEST_BINARY"];
   if (binary === undefined) {
     throw new Error("ORPHEUM_TEST_BINARY names no binary");
@@ -66,7 +77,13 @@ async function startDiscovery(realm?: string): Promise<{ process: ChildProcess; 
       reject(new Error(`the discovery exited (${String(code)}):\n${output}`));
     });
   });
-  return { process: started, address };
+  const port = new URL(address).port;
+  return {
+    process: started,
+    address,
+    loaderOrigin: `http://localhost:${port}`,
+    clientOriginOf: (coreId) => `http://${coreId}.localhost:${port}`,
+  };
 }
 
 /** The owner's session token, signed in over the core's own API. */
@@ -141,14 +158,14 @@ async function connectAndClaim(
 }
 
 /**
- * An invitation as a person is sent it, in the discovery's form: the link the core makes is on its
- * own origin, the discovery's being plain HTTP, so it is written here by the core's id and
- * fingerprint. Returned once the discovery finds the core by it, online on its signalling connection.
+ * An invitation as a person is sent it, in the discovery's form: at the core's own client origin
+ * (D308), by the core's id and fingerprint. Returned once the discovery finds the core by it, online
+ * on its signalling connection.
  */
 async function invitationThrough(
   api: APIRequestContext,
   token: string,
-  discovery: string,
+  discovery: Discovery,
 ): Promise<string> {
   const invited = await api.post(`${serverUrl()}/api/v1/invitations`, {
     headers: signedIn(token),
@@ -156,14 +173,14 @@ async function invitationThrough(
   });
   expect(invited.status()).toBe(201);
   const secret = fieldOf(await answerField(invited, "link"), "secret");
-  const core: unknown = await (await api.get(`${discovery}/dev/core`)).json();
+  const core: unknown = await (await api.get(`${discovery.address}/dev/core`)).json();
   const coreId = fieldOf(core, "coreId");
   const fingerprint = fieldOf(core, "fingerprint");
   if (typeof secret !== "string" || typeof coreId !== "string" || typeof fingerprint !== "string") {
     throw new Error("the invitation or the discovery's core is not as made");
   }
-  await awaitLocatable(api, discovery, secret);
-  return `${discovery}/register#${coreId}.${secret}.${fingerprint}`;
+  await awaitLocatable(api, discovery.address, secret);
+  return `${discovery.clientOriginOf(coreId)}/register#${coreId}.${secret}.${fingerprint}`;
 }
 
 /** Waits until the discovery finds the core, online, by the link whose secret is secret. */
@@ -196,7 +213,7 @@ test("a browser registers and plays through a discovery, over WebRTC, its core's
   const token = await ownersToken(api);
   try {
     await connectAndClaim(api, token, discovery.address);
-    const link = await invitationThrough(api, token, discovery.address);
+    const link = await invitationThrough(api, token, discovery);
     const movedToWebrtc = page.waitForEvent("console", (message) =>
       message.text().includes("requests now go over WebRTC"),
     );
@@ -273,10 +290,18 @@ async function registerAndOpenFilms(page: Page, name: string): Promise<void> {
  * to the core's own listener, with the page's headers as they are: the browser applies CORS to the
  * answers as it would to the core's at its name.
  */
-async function nameTheCoreDirectly(page: Page, discovery: string): Promise<void> {
+async function nameTheCoreDirectly(
+  page: Page,
+  clientOrigin: string,
+  discovery: string,
+): Promise<void> {
   for (const call of ["locate", "paths"]) {
-    await page.route(`${discovery}/client/v1/${call}`, async (route) => {
-      const answer = await route.fetch();
+    await page.route(`${clientOrigin}/client/v1/${call}`, async (route) => {
+      // Node, which fetches a routed request, resolves no *.localhost name: the discovery's own
+      // loopback address serves every name it is reached by.
+      const answer = await route.fetch({
+        url: route.request().url().replace(clientOrigin, discovery),
+      });
       await route.fulfill({ response: answer, json: withDirectPath(await answer.json()) });
     });
   }
@@ -289,7 +314,7 @@ async function nameTheCoreDirectly(page: Page, discovery: string): Promise<void>
     );
     const answer = await route.fetch({
       url: route.request().url().replace(coreName, serverUrl()),
-      headers: { ...headers, origin: discovery },
+      headers: { ...headers, origin: clientOrigin },
     });
     await route.fulfill({ response: answer });
   });
@@ -317,8 +342,8 @@ test("a page on the discovery's origin plays from its core's own name, its poste
   });
   try {
     await connectAndClaim(api, token, discovery.address);
-    const link = await invitationThrough(api, token, discovery.address);
-    await nameTheCoreDirectly(page, discovery.address);
+    const link = await invitationThrough(api, token, discovery);
+    await nameTheCoreDirectly(page, new URL(link).origin, discovery.address);
     const movedToCore = page.waitForEvent("console", (message) =>
       message.text().includes("requests now go over the core's name"),
     );
@@ -343,7 +368,13 @@ test("a page on the discovery's origin plays from its core's own name, its poste
     // Nothing reached the core by a cookie: every request carried the header, but the registration
     // made before the page had one.
     expect(toCore.filter((made) => made.cookie !== undefined)).toEqual([]);
-    const signedIn = toCore.filter((made) => !/\/api\/v1\/registration(\/link)?$/u.test(made.url));
+    // So did the loader's loads of the core's own client, public files it checks by the manifest the
+    // core signed (D308 §6), before any session.
+    const loadedByTheLoader = /^https:\/\/[^/]+\/(api\/v1\/client-manifest|assets\/.*)?$/u;
+    const signedIn = toCore.filter(
+      (made) =>
+        !/\/api\/v1\/registration(\/link)?$/u.test(made.url) && !loadedByTheLoader.test(made.url),
+    );
     expect(signedIn.length).toBeGreaterThan(0);
     expect(signedIn.filter((made) => made.authorization === undefined)).toEqual([]);
   } finally {
@@ -376,12 +407,13 @@ test("a guest signed in here joins Watch Together by its link on the discovery's
     // goes beside their membership on every load of the film (staging, 2026-10-14). They reach the
     // core over WebRTC through the discovery, the path no test routing carries: the film's bytes
     // through Playwright's routing held up both pages' calls for minutes.
-    await guest.goto(await invitationThrough(api, token, discovery.address));
+    await guest.goto(await invitationThrough(api, token, discovery));
     await guest.getByRole("button", { name: "Connect" }).click();
     await registerAndOpenFilms(guest, `viewer-${test.info().project.name}`);
     await signIn(host);
     const link = await startSessionWithLink(host);
-    expect(link.startsWith(`${discovery.address}/`)).toBe(true);
+    // The core's link leads to its own client origin (D308).
+    expect(new URL(link).hostname.endsWith(".localhost")).toBe(true);
     const fragment = link.slice(link.indexOf("#") + 1).split(".");
     await awaitLocatable(api, discovery.address, fragment[1] ?? "");
     await guest.goto(link);
@@ -529,7 +561,8 @@ test("a person with no link signs in at a paid discovery's page by realm, name a
         },
       )
       .toBe(true);
-    await page.goto(discovery.address);
+    // The realm sign-in is at the loader's own origin, which hands the browser on to the core's.
+    await page.goto(discovery.loaderOrigin);
     await page.getByLabel("Realm", { exact: true }).fill("KarlNAS");
     await page.getByLabel("Name", { exact: true }).fill(owner.name);
     await page.getByLabel("Password", { exact: true }).fill(owner.password);
@@ -538,6 +571,7 @@ test("a person with no link signs in at a paid discovery's page by realm, name a
     await page.getByLabel("This is my own device: remember my realm").check();
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.locator(".app-shell__realm")).toHaveText("karlnas", { timeout: 60_000 });
+    expect(new URL(page.url()).hostname.endsWith(".localhost")).toBe(true);
     // Quiet beside the tray, on one line however narrow the banner.
     await expect(page.locator(".app-shell__realm")).toHaveCSS("white-space", "nowrap");
     await expect(page.getByRole("link", { name: "Films" })).toBeVisible();

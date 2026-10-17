@@ -39,3 +39,29 @@ func TestDevDiscovery_ThePageSaysItHasRealmsOnlyWhenOneIsNamed(t *testing.T) {
 		}
 	}
 }
+
+// The development discovery's page names its loader's configuration (D308): the client API at the
+// page's own name, the loader at localhost and each core's client origin at <coreId>.localhost, on
+// the port it serves at.
+func TestDevDiscovery_ThePageNamesTheLoadersOriginsOnItsPort(t *testing.T) {
+	t.Parallel()
+	files := fstest.MapFS{"index.html": {Data: []byte("<!doctype html><html><head></head><body></body></html>")}}
+	handler, err := devDiscoveryHandler(devDiscoverySite{
+		base: "http://127.0.0.1:4321", recordPath: filepath.Join(t.TempDir(), "single.json"), clientFiles: files,
+	}, slog.New(slog.DiscardHandler))
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/films", http.NoBody))
+	page := recorder.Body.String()
+	for _, want := range []string{
+		`<meta name="orpheum-discovery-client-api" content="/client/v1">`,
+		`<meta name="orpheum-client-origins" content="http://{core}.localhost:4321">`,
+		`<meta name="orpheum-loader-origin" content="http://localhost:4321">`,
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("the page %q does not name %s", page, want)
+		}
+	}
+}

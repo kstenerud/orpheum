@@ -51,7 +51,7 @@ func newStage(t *testing.T) *stage {
 
 // The origins the owner serves the client and the loader at (D308).
 const (
-	testClientOrigin = "https://core.client.example"
+	testClientOrigin = "https://" + CorePlace + ".client.example"
 	testLoaderOrigin = "https://app.example"
 )
 
@@ -283,8 +283,8 @@ func TestSession_NoCountOfStrangersChallengesKeepsTheCoreFromItsSession(t *testi
 	}
 }
 
-// The status names where the owner serves the client and the loader, for the core's links and CORS
-// (D293 §4, D308).
+// The status names where the owner serves the core's own client and the loader, for the core's links
+// and CORS (D293 §4, D308).
 func TestStatus_NamesTheClientsAndTheLoadersOrigins(t *testing.T) {
 	t.Parallel()
 	built := newStage(t)
@@ -293,9 +293,11 @@ func TestStatus_NamesTheClientsAndTheLoadersOrigins(t *testing.T) {
 	token := built.session(t, signer, enrolled.CoreID)
 	var status discoveryproto.StatusResponse
 	built.call(t, http.MethodGet, discoveryproto.PathStatus, token, nil, &status)
-	if status.ClientOrigin != testClientOrigin || status.LoaderOrigin != testLoaderOrigin {
+	// The pattern of each core's client origin names this core's own (D308).
+	wantClient := "https://" + enrolled.CoreID + ".client.example"
+	if status.ClientOrigin != wantClient || status.LoaderOrigin != testLoaderOrigin {
 		t.Errorf("the status names the client at %q and the loader at %q; want %q and %q",
-			status.ClientOrigin, status.LoaderOrigin, testClientOrigin, testLoaderOrigin)
+			status.ClientOrigin, status.LoaderOrigin, wantClient, testLoaderOrigin)
 	}
 }
 

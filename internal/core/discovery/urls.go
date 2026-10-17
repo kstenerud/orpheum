@@ -48,5 +48,8 @@ func checkBaseURL(baseURL string) error {
 // isThisMachine is whether parsed names this machine's loopback, where plain HTTP crosses no network.
 func isThisMachine(parsed *url.URL) bool {
 	address := net.ParseIP(parsed.Hostname())
-	return address != nil && address.IsLoopback() || parsed.Hostname() == "localhost"
+	// A name under localhost is this machine's too, every name in the zone answering loopback alone
+	// (RFC 6761 §6.3): the browser tier's client origins are such names (D308).
+	name := parsed.Hostname()
+	return address != nil && address.IsLoopback() || name == "localhost" || strings.HasSuffix(name, ".localhost")
 }

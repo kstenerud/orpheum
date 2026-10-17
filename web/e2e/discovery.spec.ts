@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
 /**
- * The built client served as a discovery's page (webrtc-transport.md W4c): the page names the
- * discovery's client API, and the client opens on the gate that finds its core rather than on the
- * core's own app. The discovery is answered here, inside the browser's routing, so nothing leaves
- * the machine; the whole path through a discovery is W4b.6's.
+ * The built client served as a discovery's page (webrtc-transport.md W4c; D308): the page names the
+ * loader's configuration, and opens as the loader, on the gate that finds its core, rather than on
+ * the core's own app; a link opens at its core's client origin. The discovery is answered here,
+ * inside the browser's routing, so nothing leaves the machine; the whole path through a discovery is
+ * W4b.6's.
  */
 
 import { expect, type Page } from "@playwright/test";
@@ -23,29 +24,24 @@ function discoveryPolicy(corePolicy: string): string {
     : `${corePolicy}; connect-src 'self' ${origin}`;
 }
 
+/** A core's client origin, at <coreId>.localhost on the core's port, which a browser takes as secure. */
+function clientOriginOf(coreId: string): string {
+  return `http://${coreId}.localhost:${new URL(serverUrl()).port}`;
+}
+
 /**
- * Serves the core's page as a discovery serves it, naming its client API, and answers every call to
- * that API as a discovery that knows no such link would; returns the paths asked.
+ * Serves the core's page as a discovery serves it, at the core's own origin, which is the loader's,
+ * and at a core's client origin, naming the loader's configuration, and answers every call to the
+ * discovery's API as a discovery that knows no such link would; returns the paths asked.
  */
 async function asADiscoverysPage(page: Page): Promise<string[]> {
   const asked: string[] = [];
-  await page.route(`${serverUrl()}/**`, async (route) => {
-    if (route.request().resourceType() !== "document") {
-      await route.fallback();
-      return;
-    }
-    const served = await route.fetch();
-    const named = `<head><meta name="orpheum-discovery-client-api" content="${clientApi}">`;
-    // The discovery's own policy for its page, which lets the page call its client API; the core's
-    // allows only the core.
-    const headers = served.headers();
-    headers["content-security-policy"] = discoveryPolicy(headers["content-security-policy"] ?? "");
-    await route.fulfill({
-      response: served,
-      headers,
-      body: (await served.text()).replace("<head>", named),
+  const pattern = clientOriginOf("{core}");
+  for (const origin of [serverUrl(), clientOriginOf("k7xq2")]) {
+    await page.route(`${origin}/**`, async (route) => {
+      await route.fulfill(await asTheDiscoveryServes(route, origin, pattern));
     });
-  });
+  }
   await page.route(`${clientApi}/**`, async (route) => {
     asked.push(new URL(route.request().url()).pathname);
     await route.fulfill({
@@ -56,6 +52,41 @@ async function asADiscoverysPage(page: Page): Promise<string[]> {
     });
   });
   return asked;
+}
+
+/**
+ * The core's own answer to a load of origin, as the discovery serves it there: its page naming the
+ * loader's configuration, under a policy that lets it call the discovery's API.
+ */
+async function asTheDiscoveryServes(
+  route: Parameters<Parameters<Page["route"]>[1]>[0],
+  origin: string,
+  pattern: string,
+): Promise<Parameters<typeof route.fulfill>[0]> {
+  // The core's listener knows its own name alone: the load goes to it there.
+  const headers = Object.fromEntries(
+    Object.entries(route.request().headers()).filter(([name]) => name !== "host"),
+  );
+  const served = await route.fetch({
+    url: route.request().url().replace(origin, serverUrl()),
+    headers,
+  });
+  if (route.request().resourceType() !== "document") {
+    return { response: served };
+  }
+  const named =
+    `<head><meta name="orpheum-discovery-client-api" content="${clientApi}">` +
+    `<meta name="orpheum-client-origins" content="${pattern}">` +
+    `<meta name="orpheum-loader-origin" content="${serverUrl()}">`;
+  // The discovery's own policy for its page, which lets the page call its client API; the core's
+  // allows only the core.
+  const answered = served.headers();
+  answered["content-security-policy"] = discoveryPolicy(answered["content-security-policy"] ?? "");
+  return {
+    response: served,
+    headers: answered,
+    body: (await served.text()).replace("<head>", named),
+  };
 }
 
 test("a discovery's page with no link and no server reached before says how to get in", async ({
@@ -72,7 +103,8 @@ test("a discovery's page spends a link only on its click, and says when it finds
   page,
 }) => {
   const asked = await asADiscoverysPage(page);
-  await page.goto(`${serverUrl()}/register#k7xq2.a-links-secret.${fingerprint}`);
+  // A link leads to its core's own client origin (D308).
+  await page.goto(`${clientOriginOf("k7xq2")}/register#k7xq2.a-links-secret.${fingerprint}`);
   await expect(page.getByRole("heading", { name: "Your server's link" })).toBeVisible();
   expect(asked).toEqual([]);
   await page.getByRole("button", { name: "Connect" }).click();
