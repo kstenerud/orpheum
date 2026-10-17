@@ -194,8 +194,6 @@ func newHarness(t *testing.T) testHarness {
 		Renditions: renditionsService, Subtitles: subtitlesService, Preferences: preferencesService,
 		Loudness: loudnessService, Chunks: chunksService, Reads: reads,
 	})
-	// The runs that go on are those the players want, as the server has them (D309).
-	chunksService.InterestsBy(playbackService.InterestsIn)
 	// A fetch waits for the job that converts what it fetched, as the server's runner runs it.
 	converter := queue.NewRunner(jobs.KindConvertFetchedSubtitle, subtitlesService.HandleConvertFetchedSubtitle)
 	go func() { _ = converter.Run(t.Context(), nil) }() //nolint:errcheck // it ends with the test

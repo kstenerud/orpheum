@@ -3,8 +3,11 @@
 package agent
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/node/prepared"
@@ -38,12 +41,20 @@ func (shelf *tieredShelf) SetStoreTiers(tiers map[string]nodeproto.KeepTier) { s
 func TestAgent_KeepsTheChunkStoresByTheTiersThePollSays(t *testing.T) {
 	t.Parallel()
 	shelf := &tieredShelf{}
-	agent := &Agent{workers: Workers{PreparedShelf: shelf}}
+	var logged bytes.Buffer
+	agent := &Agent{workers: Workers{PreparedShelf: shelf}, logger: slog.New(slog.NewTextHandler(&logged, nil))}
 	said := map[string]nodeproto.KeepTier{"1/chunks-q400k360p/g": nodeproto.KeepInUse}
-	agent.takeAnswersSettings(nodeproto.Commands{StoreTiers: said})
-	agent.takeAnswersSettings(nodeproto.Commands{})
+	for range 2 {
+		agent.takeAnswersSettings(t.Context(), nodeproto.Commands{StoreTiers: said})
+	}
+	agent.takeAnswersSettings(t.Context(), nodeproto.Commands{})
 	if shelf.tiers["1/chunks-q400k360p/g"] != nodeproto.KeepInUse {
 		t.Errorf("the shelf's tiers = %v; want the poll's", shelf.tiers)
+	}
+	// Said as it changes, once: the poll answers every half minute.
+	if lines := strings.Count(logged.String(), "kept the chunk stores"); lines != 1 ||
+		!strings.Contains(logged.String(), "inUse=1") {
+		t.Errorf("the log = %q; want the change said once, with one store in use", logged.String())
 	}
 }
 
