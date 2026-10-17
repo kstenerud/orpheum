@@ -402,7 +402,11 @@ describe("a person with no link at a discovery that has realms (D297, D298)", ()
     expect(connected).toEqual([
       {
         core: { coreId: "k7xq2", fingerprint: fingerprintOfKey, realm: "karlnas" },
-        signIn: { name: "karl", password: "a password" },
+        signIn: {
+          name: "karl",
+          password: "a password",
+          held: { bootstrapToken: "a-bootstrap-token" },
+        },
       },
     ]);
     expect(storage.getItem("orpheum.discovery.realm")).toBe("karlnas");

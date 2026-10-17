@@ -41,4 +41,14 @@ export const enDiscovery = {
       orLink: "Or open the link you were sent.",
     },
   },
+  loader: {
+    notConfigured: "This page was served without what it needs to find a server.",
+    households: {
+      heading: "Your households",
+      forget: "Forget",
+      join: "Sign in to another household",
+    },
+    refused:
+      "This server's client needs version {{needs}} of the page that reaches it, which serves version {{has}}. Ask the person who runs your server to update it.",
+  },
 };

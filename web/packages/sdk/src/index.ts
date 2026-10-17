@@ -31,6 +31,8 @@ export {
 } from "./realm.ts";
 export type { RealmFound, RealmTyped } from "./realm.ts";
 export {
+  base64url,
+  clientManifestMessage,
   discoverySignaller,
   fromBase64,
   handOffOfferKey,
@@ -42,6 +44,7 @@ export {
   pathsOf,
   protocolVersion,
   readLinkFragment,
+  refusedClientVersions,
   reportDeadEnd,
   sessionOfferKey,
   verifyClientManifest,
@@ -65,6 +68,7 @@ export {
   isPathQueryMessage,
   loadAfterAsking,
   mediaPathPrefix,
+  networkFetch,
   responseFromPort,
 } from "./rtc-media.ts";
 export type {

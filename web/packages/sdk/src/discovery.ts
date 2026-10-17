@@ -356,6 +356,29 @@ export async function postToDiscovery(call: ClientCall): Promise<unknown> {
   return answer;
 }
 
+/**
+ * The client versions the discovery refuses, its floor (D308 §6): a loader runs none of them. None
+ * when the discovery keeps no floor, or is not reached, so a discovery without one still serves.
+ */
+export async function refusedClientVersions(client: DiscoveryClient): Promise<readonly string[]> {
+  const send = client.fetch ?? fetch;
+  try {
+    const response = await send(`${client.clientApi}/client-floor`, {
+      headers: { "Orpheum-Discovery-Protocol": protocolVersion },
+    });
+    const answer: unknown = response.ok ? await response.json() : undefined;
+    const refused: unknown =
+      typeof answer === "object" && answer !== null
+        ? Reflect.get(answer, "refusedVersions")
+        : undefined;
+    return Array.isArray(refused)
+      ? refused.filter((version): version is string => typeof version === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 /** Where the core is, as a discovery's locate or paths answers. */
 export interface Located {
   readonly coreId: string;

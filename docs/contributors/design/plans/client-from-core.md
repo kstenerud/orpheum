@@ -116,9 +116,12 @@ audit, whose controls this builds, is
 
 ### 2.2a How the loader works
 
-- **One source tree, two builds.** The loader is a second Vite entry in `web/apps/web`
-  (`loader.html`, `src/loader/`), so it imports the gate's existing modules as they are. The
-  discovery's package carries only its build. The client's build keeps `index.html`.
+- **One build, two roles.** `web/apps/web`'s one build is both the core's client and the
+  discovery's loader, so the loader imports the gate's modules as they are. `main.tsx` takes the
+  page's word for which it is: a discovery's page names the loader's configuration in meta
+  elements, and a client a loader runs finds the loader on the window. Each then loads only its own
+  part. A build mode would have been the client reading its environment, which D204 forbids. The
+  discovery's package carries the same `dist`, with the meta elements put in its page.
 - **What a redirect carries.** Every fragment names the core whose origin it opens, and the loader
   refuses one that names another:
   - an invitation, a person's own link or a Watch Together link: the link's fragment as today,
@@ -143,7 +146,10 @@ audit, whose controls this builds, is
      their SHA-256. On a miss it asks the page to fetch the file over the kept path, checks the
      hash against the manifest, keeps it, and answers it. A file whose hash does not match is
      never answered.
-  5. The loader's own files are under `/loader/`, apart from the client's.
+  5. The loader's own files are also under `/assets/`. A file the client's manifest names comes
+     from the core, checked. Any other comes from the discovery, kept by the worker beside the
+     loader's page, but only once a loader has named a client's files to it. At a core's own
+     origin, the worker answers neither.
 - **The household list** (D308 §8) lives in `localStorage` at `app.`: each entry has the core id,
   fingerprint, realm and name, and when it was last used.
   - A realm sign-in's hand-off adds its core.
