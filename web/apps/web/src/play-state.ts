@@ -26,6 +26,7 @@ import {
 } from "@orpheum/sdk";
 import { useEffect, useRef, useState, type RefObject } from "react";
 
+import { leavePlayback, sayInterestOf, sendInterest } from "./interest.ts";
 import { MovingDown, type LadderOffer } from "./moving-down.ts";
 import { ApiProblem, throwIfRefused } from "./problem.ts";
 import { useServices, type PathMoves } from "./services.tsx";
@@ -549,7 +550,14 @@ function startReporting(
   const videoEvents = reportVideoEvents(video, reporter, { ...playback, contexts: page.contexts });
   const stopWatching = watchForReport(video, reporter, movingDown);
   const stopTelling = reportWhilePlaying(video, reporter, videoEvents.lastPositionMs);
+  const stopSaying = sayInterestOf(video, (said) => {
+    sendInterest(api, mediaToken, said);
+  });
   return () => {
+    stopSaying();
+    // The player's page is gone, to anywhere but another film: its runs finish what it keeps ahead
+    // (D309 §7). Another film's start, or Watching's move to it, says it was replaced.
+    leavePlayback(api, mediaToken, "left");
     stopTelling();
     movingDown.stop();
     stopWatching();

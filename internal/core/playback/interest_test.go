@@ -16,10 +16,16 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 )
 
-// stoppingChunks records each film whose unwanted runs it was asked to stop (Chunks.StopUnwanted).
+// stoppingChunks records each film whose unwanted runs it was asked to stop (Chunks.StopUnwanted),
+// and each it was told no player waits for (Chunks.ReleaseWanted).
 type stoppingChunks struct {
 	cutAfterChunks
-	stopped []int64
+	stopped, released []int64
+}
+
+func (fake *stoppingChunks) ReleaseWanted(_ context.Context, fileID int64) error {
+	fake.released = append(fake.released, fileID)
+	return nil
 }
 
 func (fake *stoppingChunks) StopUnwanted(_ context.Context, fileID int64) error {
@@ -106,11 +112,14 @@ func TestSayInterest_ReplacesWhatThePlayerWantedAndLeavingSaysWhy(t *testing.T) 
 	if got := service.InterestsIn(1); !slices.Equal(got, want) {
 		t.Errorf("after leaving its page: %+v; want what it keeps ahead, %+v", got, want)
 	}
+	if len(fake.released) != 0 {
+		t.Errorf("leaving its page let go of film %v's work; want it kept until another film is chosen", fake.released)
+	}
 	if err := service.Leave(t.Context(), "mac", holder, Replaced); err != nil {
 		t.Fatal(err)
 	}
-	if got := service.InterestsIn(1); len(got) != 0 {
-		t.Errorf("gone to another film: %+v; want none", got)
+	if got := service.InterestsIn(1); len(got) != 0 || !slices.Equal(fake.released, []int64{1}) {
+		t.Errorf("gone to another film: %+v, released %v; want none, film 1's work let go of", got, fake.released)
 	}
 	if !slices.Equal(fake.stopped, []int64{1, 1, 1}) {
 		t.Errorf("the films whose unwanted runs were stopped = %v; want film 1 at the word and at each leave",

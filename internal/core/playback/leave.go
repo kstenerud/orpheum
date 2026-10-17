@@ -7,10 +7,10 @@ import (
 	"errors"
 )
 
-// Leave lets go of the work a playback asked for when its player left its page, the film's or the
-// player's, before or after it played (D258 §2), gone Left, or Replaced by another film (D309 §7):
-// left, its runs finish what it keeps ahead and stop, and replaced, they stop at once, as no other
-// player wants them; and its rendition's prepare, its chunks and its
+// Leave takes a player's word that it left its playback's page (D309 §7): Left, playing nothing else,
+// its runs finish what it keeps ahead and stop, its other work keeping its priority; or Replaced by
+// another film (D258 §2), its runs stop at once, as no other player wants them, and its rendition's
+// prepare, its chunks and its
 // timeline's read-through fall to background at the next demotion, where they would have kept play
 // priority for play_priority_kept_seconds; a player still watching the film asks again and keeps
 // them. The token stays until it idles out: the player's page takes over the film page's token, and
@@ -25,11 +25,17 @@ func (service *Service) Leave(ctx context.Context, token string, holder Holder, 
 	if !found {
 		return ErrNoToken
 	}
-	if gone != Replaced {
-		gone = Left
+	if gone != Left {
+		gone = Replaced
 	}
 	service.tokens.leave(token, gone)
 	released := service.stopUnwanted(ctx, playback.fileID)
+	// Left, the person may come back from the film's page: its work keeps play priority until another
+	// film is chosen (the owner, 2026-10-07: "Until the user signals intent to watch a different video,
+	// we should keep data").
+	if gone != Replaced {
+		return released
+	}
 	if playback.profile != "" {
 		released = errors.Join(released, service.renditions.ReleaseWanted(ctx, playback.fileID, playback.profile))
 	}
