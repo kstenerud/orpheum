@@ -16,6 +16,8 @@ import {
   readLinkFragment,
   sessionOfferKey,
   verifyAnswer,
+  verifyClientManifest,
+  handOffOfferKey,
   locatedOf,
 } from "./discovery.ts";
 
@@ -31,6 +33,10 @@ const vectors = {
   fingerprint: "Vkdap1RjR0wChd9dvyvKtz2mUTWIOem3dIGy6rEHcIw",
   answerSignature:
     "zPjLjCmzDvVqHdAZSpOC8WniJI6O_7YspYaS3m4jADbYVFqR7XuBosDQ7V5iD9XEtR-e9abWmBjGPJqid-ofAQ",
+  // proof's clientManifestVector, over the manifest {"files":[]}, and handOffOfferKeyVector.
+  clientManifestSignature:
+    "UoKlrdFrAoHSyIoY1izKxSjrqGmsqj7KVvSJQWAvuhtvCYzkVwJaI_cag2Lrv9Q3h7gt7rF87XmmPLcmSaPeDQ",
+  handOffOfferKey: "4kr2Om59JFSPErbW1mQ4dnJuRTQiDyeFHb7U_kPBfxI",
 };
 const answer = {
   coreId: "k7xq2",
@@ -61,6 +67,28 @@ describe("the discovery's derivations, as the Go code makes them", () => {
     expect(await verifyAnswer(checked)).toBe(true);
     expect(await verifyAnswer({ ...checked, answer: { ...answer, sdp: "v=1" } })).toBe(false);
     expect(await verifyAnswer({ ...checked, fingerprint: "another-fingerprint" })).toBe(false);
+  });
+
+  it("checks the core's client manifest by a key whose fingerprint the client holds, and derives a hand-off's offer key (D308)", async () => {
+    const publicKey = fromBase64(vectors.publicKey);
+    const manifest = new TextEncoder().encode('{"files":[]}');
+    const checked = {
+      publicKey,
+      fingerprint: vectors.fingerprint,
+      manifest,
+      signature: fromBase64(vectors.clientManifestSignature),
+    };
+    expect(await verifyClientManifest(checked)).toBe(true);
+    expect(
+      await verifyClientManifest({
+        ...checked,
+        manifest: new TextEncoder().encode('{"files":[1]}'),
+      }),
+    ).toBe(false);
+    expect(await verifyClientManifest({ ...checked, fingerprint: "another-fingerprint" })).toBe(
+      false,
+    );
+    expect(base64url(await handOffOfferKey("a hand-off code"))).toBe(vectors.handOffOfferKey);
   });
 
   it("reads a link's fragment, and nothing that is not one", () => {

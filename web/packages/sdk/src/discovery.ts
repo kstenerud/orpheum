@@ -77,6 +77,14 @@ export function sessionOfferKey(token: string): Promise<Uint8Array<ArrayBuffer>>
 
 const prefix = "orpheum-discovery-v1:";
 
+/**
+ * The key a client origin proves its offers under while it holds only a hand-off's code, before it
+ * has a session: proof.HandOffOfferKey (D308 §4).
+ */
+export function handOffOfferKey(code: string): Promise<Uint8Array<ArrayBuffer>> {
+  return sha256(`${prefix}handoff-offer\n${code}`);
+}
+
 /** An offer's proof, an HMAC over its DTLS fingerprint under key: proof.Offer. */
 export async function offerProof(
   key: Uint8Array<ArrayBuffer>,
@@ -135,27 +143,59 @@ export interface AnswerToCheck {
  * when its fingerprint is the one the client holds (the protocol's §2.5 item 4; A7, A9).
  */
 export async function verifyAnswer(checked: AnswerToCheck): Promise<boolean> {
-  if ((await keyFingerprint(checked.publicKey)) !== checked.fingerprint) {
+  return await isSignedByHeldKey(checked, encoder.encode(answerMessage(checked.answer)));
+}
+
+/**
+ * Whether signature is publicKey's over message, publicKey taken only when its fingerprint is the
+ * one held: the one check of every signature the core makes for a client.
+ */
+async function isSignedByHeldKey(
+  signed: {
+    readonly publicKey: Uint8Array<ArrayBuffer>;
+    readonly fingerprint: string;
+    readonly signature: Uint8Array<ArrayBuffer>;
+  },
+  message: Uint8Array<ArrayBuffer>,
+): Promise<boolean> {
+  const { publicKey, fingerprint, signature } = signed;
+  if ((await keyFingerprint(publicKey)) !== fingerprint) {
     return false;
   }
   try {
-    const key = await crypto.subtle.importKey(
-      "raw",
-      checked.publicKey,
-      { name: "Ed25519" },
-      false,
-      ["verify"],
-    );
-    return await crypto.subtle.verify(
-      "Ed25519",
-      key,
-      checked.signature,
-      encoder.encode(answerMessage(checked.answer)),
-    );
+    const key = await crypto.subtle.importKey("raw", publicKey, { name: "Ed25519" }, false, [
+      "verify",
+    ]);
+    return await crypto.subtle.verify("Ed25519", key, signature, message);
   } catch {
     // A key this browser cannot import, or one that is no Ed25519 key, verifies nothing.
     return false;
   }
+}
+
+/** What the core's signature over its client's manifest signs: proof.ClientManifestMessage. */
+export function clientManifestMessage(manifest: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer> {
+  const head = encoder.encode(`${prefix}client-manifest\n`);
+  const message = new Uint8Array(head.length + manifest.length);
+  message.set(head);
+  message.set(manifest, head.length);
+  return message;
+}
+
+/** A signed client manifest to check: its bytes, the key it came with, and the fingerprint held. */
+export interface ManifestToCheck {
+  readonly publicKey: Uint8Array<ArrayBuffer>;
+  readonly fingerprint: string;
+  readonly manifest: Uint8Array<ArrayBuffer>;
+  readonly signature: Uint8Array<ArrayBuffer>;
+}
+
+/**
+ * Whether the manifest of the core's client is the core's own, by a key whose fingerprint the client
+ * holds: a loader runs none of the client until it is (D308 §6).
+ */
+export async function verifyClientManifest(checked: ManifestToCheck): Promise<boolean> {
+  return await isSignedByHeldKey(checked, clientManifestMessage(checked.manifest));
 }
 
 /** What a device holds that a discovery finds its core by: its locator, or a bootstrap token. */
