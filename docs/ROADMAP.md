@@ -444,7 +444,7 @@ The two are read differently. A phase here is a schedule. That file's **retrofit
 is a constraint: it names the handful of things — *an item need not have a File*, *Collection
 membership is three kinds*, *a rating separates critic from audience* — that cost nothing to
 keep true now and cannot be recovered once assumed away
-([principles §12](contributors/principles/README.md)). **Several of them are owed by
+([principles §12](contributors/principles/12-defer-the-work-never-the-seam.md)). **Several of them are owed by
 `library-model.md`, which is Phase 1.**
 
 ## Unscheduled, and deliberately so

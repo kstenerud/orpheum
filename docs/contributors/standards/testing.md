@@ -6,8 +6,8 @@
 
 [testing-strategy.md](../design/plans/testing-strategy.md) says **what** gets tested: the corpus
 tiers, the product assertions, the device lab. This standard says **how** a test is written,
-in Go, TypeScript and the Python gate scripts alike. The reasons are
-[principles §17–§21](../principles/README.md#17--a-rule-that-nothing-runs-is-a-hope) and
+in Go, TypeScript and the Python gate scripts alike. The reasons are the principles of
+[testing and the gates](../principles/README.md#testing-and-the-gates) (§17–§21, §23, §24) and
 [D190](../decisions/working-notes.md).
 
 **Every rule names its enforcement.** *(planned)* marks a mechanism that does not exist yet; the
@@ -46,7 +46,7 @@ commit changed is listed as UNCHECKED.
 ## 2. Every check is first seen to fail
 
 Before a pass is trusted, the same check has been seen failing on a case where failure is
-certain ([principles §18](../principles/README.md#18--a-check-you-have-never-seen-fail-proves-nothing)).
+certain ([principles §18](../principles/18-a-check-never-seen-failing.md)).
 
 - **A test of a negative has a positive sibling.** If the pass condition is "this was refused",
   another assertion in the same test shows the same machinery succeeding where it should, and
@@ -162,7 +162,7 @@ A golden file (an expected schema, an expected playlist, a subtitle screenshot) 
 baseline (a latency, a quality score) change **only as the subject of their own commit**, never
 alongside the code that made them differ
 ([D110](../decisions/working-notes.md);
-[principles §20](../principles/README.md#20--a-gate-changes-on-purpose-never-to-land-a-change)).
+[principles §20](../principles/20-a-gate-changes-on-purpose.md)).
 
 - A threshold compares against the frozen baseline, never the previous run, with a per-test
   tolerance written as a literal in the test.
@@ -212,7 +212,7 @@ exists, and every `TestArch_` test is cited.
   integration`), so a deleted helper cannot hide in a file the default build skips.
   `make test-integration` runs the tier against the pinned FFmpeg, and CI runs it after
   `make check`.
-- **Runs are proportionate to the change** ([principles §23](../principles/README.md),
+- **Runs are proportionate to the change** ([principles §23](../principles/23-proportionate-test-runs.md),
   [D279](../decisions/working-notes.md)):
   - **while working, a spot check** of what changed: `make spot` runs the Go packages that
     changed and those importing them, vitest's related tests of the changed web files, the gates'

@@ -233,8 +233,8 @@ shared player with voice); and **Manage** (libraries, jobs, people, settings).
 
 #### U7. An automatic decision is shown where it acts, with its reason, and can be overridden
 
-- **Rule.** Already the project's [§3](../../principles/README.md#3--explain-the-decision-to-the-user)
-  and [§15](../../principles/README.md#15--a-default-must-be-safe-to-be-wrong-and-visible-where-it-acts-otherwise-ask).
+- **Rule.** Already the project's [§3](../../principles/03-explain-the-decision.md)
+  and [§15](../../principles/15-safe-visible-defaults.md).
   For the UI it means: where the app chose for the person (a quality, a subtitle track, an
   identification, a version), the screen says what was chosen and lets them choose otherwise in
   one step.
@@ -264,7 +264,7 @@ shared player with voice); and **Manage** (libraries, jobs, people, settings).
   ([NN/g](https://www.nngroup.com/articles/confirmation-dialog/)). Apple: *"Avoid displaying
   alerts for common, undoable actions, even when they're destructive"*, and never *OK* as the
   default unless the alert is purely informational [doc] (HIG, Alerts). The project's
-  [§2](../../principles/README.md#2--the-users-files-are-not-ours-to-touch) and
+  [§2](../../principles/02-the-users-files.md) and
   [D143](../../decisions/working-notes.md) already chose *confirm → trash → empty*.
 - **In Orpheum.** *Hide from Continue Watching* happens at once with *Undo* (D188 §1). Marking
   watched and unwatched: no confirmation. Withdrawing an invite link: no confirmation, with
@@ -354,7 +354,7 @@ shared player with voice); and **Manage** (libraries, jobs, people, settings).
 #### U13. Good starting values remove questions; ask only what is consequential, when it first matters
 
 - **Rule.** Already the project's
-  [§15](../../principles/README.md#15--a-default-must-be-safe-to-be-wrong-and-visible-where-it-acts-otherwise-ask)
+  [§15](../../principles/15-safe-visible-defaults.md)
   and [D200](../../decisions/working-notes.md). For flow: no setup step, preference screen or
   question appears before the moment its answer changes something.
 - **Why.** NN/g: people *"rarely utilize fancy customization features, making it important to
@@ -631,7 +631,7 @@ Raskin's *monotony*: one way per atomic task, so it becomes habit [book]. Nielse
 and Shneiderman's rule 2: shortcuts for experts alongside the visible path [doc]. **Fits here:
 both, ordered**: one visible way that is complete, and accelerators that are exact aliases of it
 (U15). That honours Raskin's habituation (the action is the same action whichever route) and the
-project's [§4](../../principles/README.md#4--one-way-to-do-it) for code. Judgement.
+project's [§4](../../principles/04-one-way.md) for code. Judgement.
 
 ### 4.3 Confirmations
 
@@ -767,7 +767,7 @@ Judgement throughout, built on the advice above.
 - **Candidate rules to carry over:** U1–U25 are written to be checked; the M5 document can adopt
   them as they are, or merge them with the visual principles of
   [ui-design-practice-2026-10-05.md](ui-design-practice-2026-10-05.md) §5.1 under one numbering.
-- **Rules a test can hold** (per [§17](../../principles/README.md#17--a-rule-that-nothing-runs-is-a-hope)):
+- **Rules a test can hold** (per [§17](../../principles/17-a-rule-nothing-runs.md)):
   U3 (Back and reload restore state) and U21 (keyboard-only completion of the top tasks) are
   browser tests; U4's click counts can be counted by a browser test walking the top tasks; U5's
   100 ms acknowledgement is measurable in the same harness. The rest are review checks.

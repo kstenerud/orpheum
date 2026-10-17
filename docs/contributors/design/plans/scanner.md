@@ -151,7 +151,7 @@ Two rules:
   continuous trickle of small wake-ups — that is strictly worse than one long pass, and it is
   the failure mode adaptivity naturally produces.
 - **How a library notices changes is asked when it is created** ([D184](../../decisions/working-notes.md),
-  [principles §15](../../principles/README.md)): *watch for changes · check every N hours · only
+  [principles §15](../../principles/15-safe-visible-defaults.md)): *watch for changes · check every N hours · only
   when I ask (archival)*, with the consequence for sleeping disks stated in the question. The
   interval is never a silent default, because it decides how often the owner's disks wake.
 - **`archival` means untouched.** The config field already exists in this plan; its meaning is
@@ -293,7 +293,7 @@ either.
 **And a node's own writes come back as observations, which is a feature rather than a bug**
 ([D142](../../decisions/working-notes.md)). Exporting sidecars into a watched tree makes the
 watcher journal thousands of changes. The node **still reports them** — a sensor suppressing
-its own output is what [principles §9](../../principles/README.md) forbids — and **the core
+its own output is what [principles §9](../../principles/09-sensors-report.md) forbids — and **the core
 ignores what it commanded.** The node saw a file change; only the core knows it asked for it.
 
 Prior art for how an exclusion list is expressed: Jellyfin's `IgnorePatterns` already skips

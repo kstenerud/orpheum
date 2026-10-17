@@ -9,7 +9,7 @@
   and [D202](../../decisions/working-notes.md), all 2026-09-24; this page is their sum, so a
   reader need not combine three decisions and their strike-throughs.
 - **Depends on:** [schema.md](schema.md) (`setting`), [migrations.md](migrations.md) (files),
-  [principles §15](../../principles/README.md).
+  [principles §15](../../principles/15-safe-visible-defaults.md).
 
 ## The rule
 

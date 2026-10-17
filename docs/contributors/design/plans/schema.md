@@ -63,7 +63,7 @@ where that kind of hole is visible.
   backed up **whole** — at the reference scale that is 46 MB and 177 ms by `VACUUM INTO`, so
   splitting it by table bought nothing. `cache.db` holds match candidates, the job queue and the
   index of prepared renditions, is never backed up, and may be deleted at any time
-  ([principles §14](../../principles/README.md)). **Fetched provider responses are in
+  ([principles §14](../../principles/14-a-cache-may-always-be-wrong.md)). **Fetched provider responses are in
   `persistent.db`**, because re-deriving a title reads them and D170 forbids refetching them.
 
 **Class**, used in every table below, is what [D181](../../decisions/working-notes.md) and
@@ -316,7 +316,7 @@ CREATE UNIQUE INDEX fetched_subtitle_once ON fetched_subtitle(video_file, provid
 ```
 
 A fetched subtitle is **stored in the database, not the media tree**: it cost one of the server's
-OpenSubtitles account's daily downloads (20 on a free account, as OpenSubtitles counts them; D224 §4), the library may be read-only ([principles §2](../../principles/README.md)),
+OpenSubtitles account's daily downloads (20 on a free account, as OpenSubtitles counts them; D224 §4), the library may be read-only ([principles §2](../../principles/02-the-users-files.md)),
 and in the database the ordinary backup carries it with no second file class.
 A subtitle is **fetched for a file once**: a second ask for the same provider's file is given the
 one kept, and one made while the first is underway waits for it, so neither spends a download

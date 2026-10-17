@@ -53,7 +53,7 @@ several files, a multi-episode file is several works in one, so it holds **one p
 inside that file** — which is what this table already is. Per-episode completion is then
 **derived** from the position against the boundary and never stored, so a wrong boundary
 costs nothing and fixing it fixes the display immediately
-([principles §13](../../principles/README.md)). The detector is already here: a mid-file
+([principles §13](../../principles/13-state-attaches-to-what-you-observed.md)). The detector is already here: a mid-file
 boundary sits directly after an `outro`.
 
 **And the `outro` boundary fixes a complaint at the other end of the episode**
@@ -74,7 +74,7 @@ Deriving a sibling Version's segments by runtime alignment is allowed and cheape
 detection pass, and is recorded as a derivation rather than as an observation.
 
 Each segment carries its **provider** and a **confidence**, and a **user override** beats any
-detector and survives re-detection ([principles §3](../../principles/README.md)).
+detector and survives re-detection ([principles §3](../../principles/03-explain-the-decision.md)).
 
 ## Detectors, in the order worth building them
 

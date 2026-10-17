@@ -12,7 +12,7 @@
 - **Not legal advice.** Nobody who wrote this is a lawyer. Where the answer matters, §6 lists what
   to ask one.
 - **Decision:** [D187](../../decisions/working-notes.md); **principle:**
-  [§16](../../principles/README.md).
+  [§16](../../principles/16-people-are-responsible-for-what-they-play.md).
 - **Working notes** (verified quotes, cached judgments, GitHub's DMCA archive):
   `/yoloai/cache/research/legal-{liability,public-performance}.md`, `/yoloai/cache/http/legal/`.
 
@@ -42,7 +42,7 @@ specifically intended" for infringing sharing and inaction after a warning.
 **UK and Canada point the same way.** *CBS v Amstrad* (House of Lords): the maker's warning notice
 counted in its favour. Canada's s.27(2.4) lists six "enabler" factors — marketing, knowledge,
 lawful uses, ability to limit, benefit, viability — **which make a usable feature-review
-checklist** ([§16](../../principles/README.md)).
+checklist** ([§16](../../principles/16-people-are-responsible-for-what-they-play.md)).
 
 ## 2. What happened to our neighbours
 

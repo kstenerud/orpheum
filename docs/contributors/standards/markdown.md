@@ -28,7 +28,7 @@ title:
 - **Say what the document is for; do not inventory what it contains.** A list of sections or a
   count is a second copy of the headings, and the next addition makes it false.
 - **Never state a count** anywhere a gate does not enforce it
-  ([principles §8](../principles/README.md#8--factual-accuracy-in-documentation)). yoloAI's
+  ([principles §8](../principles/08-factual-accuracy.md)). yoloAI's
   principles doc opened "Thirteen principles" above sixteen headings.
 - It stays visible — a blockquote, not an HTML comment — because it is written for people as
   much as for agents.
@@ -104,7 +104,7 @@ exists, and every one is cited.
 
 - **Verify and date** a number, a feature claim or a performance figure; mark what could not be
   verified **UNVERIFIED**, in place, rather than dropping it or smoothing it into confident prose
-  ([principles §8](../principles/README.md#8--factual-accuracy-in-documentation)).
+  ([principles §8](../principles/08-factual-accuracy.md)).
 - **Research says what it did not try.** A research document ends with a "Not tried" section:
   the hosts, versions, inputs and questions outside its evidence. yoloAI's parallel research
   passes differed on exactly this: the pass that wrote such sections made no over-broad

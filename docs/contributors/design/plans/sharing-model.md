@@ -57,7 +57,7 @@ jobs and the safe default is opposite in each, so the binding declares it.
 ### Enforce at every access path, not only at listing
 
 The classic bypass is filtering the library view but not the fetch-by-id endpoint. Needs **both
-halves**, composing with [principles §10](../../principles/README.md): **omit** from the
+halves**, composing with [principles §10](../../principles/10-only-what-a-client-may-use.md): **omit** from the
 manifest so a correct client never asks, **and deny** at the endpoint, because a grantee is a
 different trust domain from the owner. A grantee's client asking outside its share is a bug or a
 probe, and §10 says both are worth surfacing.
@@ -138,7 +138,7 @@ rather than expiry. What it does not settle is the entitlement questions below.
   only if designed in, since every predicate then evaluates composed with the share predicate.
 - ~~**The default share.**~~ **Answered by [D184](../../decisions/working-notes.md): there is none.** What an invited person
   can see, and their ceilings, are **asked when the invite is made** and shown on their page —
-  exposure is never a default ([principles §15](../../principles/README.md)).
+  exposure is never a default ([principles §15](../../principles/15-safe-visible-defaults.md)).
 - **Whether a grantee sees that the library is filtered.** Honest, and it tells them what to
   ask for. **Now shared with [D132](../../decisions/working-notes.md)**, which raises the same
   question for a child — *"three new things are waiting for Dad"* is useful, and is the same

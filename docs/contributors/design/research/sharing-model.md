@@ -93,7 +93,7 @@ The classic bypass: the share filter is applied when building the library view a
 fetching an item by id. The grantee sees a filtered list and can still stream anything whose id
 they can guess or remember from before the share narrowed.
 
-This composes with [principles §10](../../principles/README.md) rather than contradicting it —
+This composes with [principles §10](../../principles/10-only-what-a-client-may-use.md) rather than contradicting it —
 you need **both** halves. Omit from the manifest so a correct client never asks, *and* deny at
 the endpoint because a shared user is a different trust domain from the owner. And §10's
 reading of the denial is even more valuable here: a shared user's client requesting something

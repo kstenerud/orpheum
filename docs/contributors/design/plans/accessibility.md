@@ -75,7 +75,7 @@ So, and this belongs in the manifest rather than in a document:
 - **the overlay is never the only offer for a caption track.** Text is the default and stays
   available whenever a text form exists;
 - **where the overlay is chosen, the client says which controls it lost**, in the same "why is
-  this different?" surface that explains a transcode ([principles §3](../../principles/README.md));
+  this different?" surface that explains a transcode ([principles §3](../../principles/03-explain-the-decision.md));
 - burn-in — already the labelled exception — is the strongest version of the same loss.
 
 ## Audio description is a track kind

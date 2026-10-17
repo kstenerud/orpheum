@@ -9,7 +9,7 @@ any dependency whose behaviour we cannot change and can only characterise and gu
 This file records the specimens. Its model is yoloAI's log of the same name, whose conclusion
 was *"Execution catches my errors. Reading does not"*, and whose gates against the agent's own
 habits were each built from an entry written here first
-([principles §21](principles/README.md#21--an-owners-correction-is-a-specimen-and-it-is-written-down)).
+([principles §21](principles/21-an-owners-correction.md)).
 
 ## When to write an entry
 

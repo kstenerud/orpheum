@@ -72,7 +72,7 @@ sequence rather than over episodes.
   ([D157](../../decisions/working-notes.md), superseding this paragraph's original claim of
   the Edition). A File is the only object here with an unambiguous timeline — a baked-in
   studio ident or a PAL transfer's 4.27% speedup makes two Versions of one cut disagree — and
-  it is what the player observed ([principles §13](../../principles/README.md)). Completion
+  it is what the player observed ([principles §13](../../principles/13-state-attaches-to-what-you-observed.md)). Completion
   has no timeline, so it rolls up freely to Version, Edition and Title.
 - **Names attach at Title *and* Edition** — "Glass Runner" and "The Final Cut" are both names
   needing [D45](../../decisions/working-notes.md)'s translation treatment. So the displayed
@@ -348,7 +348,7 @@ a delete keyed only on a path can destroy a different file that has since appear
   [backup-restore.md](backup-restore.md) does not carry it. It exists so that verifying a
   subtitle months after the scan does not require waking a node and decoding a film:
   with it stored, the full offset-and-framerate search is **3–8 ms**
-  ([principles §11](../../principles/README.md) — maintained, not computed).
+  ([principles §11](../../principles/11-hot-path-values-are-cached.md) — maintained, not computed).
 
 ### And three from the 2026-09-21 source sweep
 
@@ -464,7 +464,7 @@ summary of them.
   ([D167](../../decisions/working-notes.md)). A File whose media is gone is **tombstoned**,
   because [D165](../../decisions/working-notes.md) keeps the play log for ever and a device
   returning from a trip syncs spans that reference it. Free to keep true now; a data-loss
-  migration to recover later, which is [principles §12](../../principles/README.md)'s
+  migration to recover later, which is [principles §12](../../principles/12-defer-the-work-never-the-seam.md)'s
   **invariant** row exactly. **Mechanics** ([D173](../../decisions/working-notes.md)): `ON DELETE RESTRICT` on every
   reference from history or authored data; `AUTOINCREMENT` on referenced tables so an ID is
   never reissued; partial unique indexes over live rows; live-only views as the default read;

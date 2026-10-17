@@ -38,7 +38,7 @@ Treating them as one thing is what produces a "volume boost" setting that helps 
 true peak ≤ **-2 dBTP**, measured per ITU-R BS.1770. The whole catalogue is loudness-consistent
 before a player sees it.
 
-We cannot rewrite files ([principles §2](../../principles/README.md)), so we take the answer the
+We cannot rewrite files ([principles §2](../../principles/02-the-users-files.md)), so we take the answer the
 music world found under the same constraint — measure once, store the number, apply gain at
 playback. The node already opens every file; FFmpeg's `ebur128` filter implements EBU R128.
 

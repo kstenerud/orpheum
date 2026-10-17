@@ -87,7 +87,7 @@ created by one principal on behalf of another.
   unique URL for identical bytes and silently foreclose caching and fan-out.
 - **A grantee is a different trust domain** ([D76](../../decisions/working-notes.md)), so
   authorisation composes with the share predicate at every access path, not only at listing.
-- **Omission, not rejection** ([principles §10](../../principles/README.md)) for our own
+- **Omission, not rejection** ([principles §10](../../principles/10-only-what-a-client-may-use.md)) for our own
   cooperating clients; routine validation for everything untrusted.
 
 ## The principals: two roles, and one non-principal
@@ -243,7 +243,7 @@ entitlement means nothing stale to invalidate.**
 
 **The notification is a latency optimisation and may always be lost.** A client sitting on a
 grid does not re-request for minutes, so *"your access changed, re-sync"* closes that window —
-as an invalidation hint in [principles §14](../../principles/README.md)'s sense, with **no
+as an invalidation hint in [principles §14](../../principles/14-a-cache-may-always-be-wrong.md)'s sense, with **no
 delivery guarantee, ordering, acknowledgement or retry**, because the next request catches it
 anyway. It carries **no detail**: naming what was withdrawn tells a child the item exists,
 which is the disclosure [D134](../../decisions/working-notes.md) closed everywhere else. It is

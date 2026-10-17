@@ -30,7 +30,7 @@ watch time over a period, and a per-user history with what, when, for how long a
    [D130](../../decisions/working-notes.md)'s capability decides who sees the household's.
    "Top users" is an owner's view, not a child's, and a statistics page must not become the
    disclosure channel [D134](../../decisions/working-notes.md) closed everywhere else.
-2. **Nothing on a landing surface is computed.** [principles §11](../../principles/README.md)
+2. **Nothing on a landing surface is computed.** [principles §11](../../principles/11-hot-path-values-are-cached.md)
    and [D134](../../decisions/working-notes.md): "most watched this month" over an event log is
    exactly the shape that measured **43.6 ms against 0.063 ms** from a stored row. A dedicated
    statistics *page* may compute — a person who navigated there is waiting on purpose — and

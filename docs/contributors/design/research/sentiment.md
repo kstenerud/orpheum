@@ -184,7 +184,7 @@ bug" into "this is a property of the problem, and whoever solves it wins".
 | *Plex keeps matching the wrong metadata*, *Fix Match keeps using wrong metadata*, *Plex reverting to wrong metadata after using Fix Match* | 4, 3, 5 | [D7](../../decisions/working-notes.md)'s "a manual override that survives re-scans". Note the third title: the override does not survive |
 | *Cast / Chromecast Quality Settings Missing / Not Respecting App Settings*, *External Subtitles Fail to Load on Chromecast When Casting from iOS* | 8, 1 | [D88](../../decisions/working-notes.md) |
 | *Remote Access broken* × many, incl. *plex.direct certificate expired* | — | [D25](../../decisions/working-notes.md)'s TLS-certificate problem, in the wild |
-| Eight separate *hardware transcoding fails* threads across QSV, VAAPI, NVENC and Arc | — | [principles §5](../../principles/README.md) and [transcoding.md](../plans/transcoding.md)'s hwaccel matrix being the dominant remaining complexity |
+| Eight separate *hardware transcoding fails* threads across QSV, VAAPI, NVENC and Arc | — | [principles §5](../../principles/05-an-interface-not-a-branch.md) and [transcoding.md](../plans/transcoding.md)'s hwaccel matrix being the dominant remaining complexity |
 
 **One that argues the other way, and is recorded because it does:** *Support for audiobooks* is
 **1,156 posts**, the largest thread encountered anywhere in this research.

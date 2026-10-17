@@ -123,7 +123,7 @@ has less work"*, with *"it's not foolproof"* already conceded.
 - **The imperfection has to be visible, not disclaimed.** A template that reports *"this hides
   412 of your 3,500 items; 190 carry no rating in your system and are currently hidden; 47 were
   judged by genre because no descriptor was available"* has converted "not foolproof" into an
-  inspectable fact — [principles §3](../../principles/README.md). A checkbox that says
+  inspectable fact — [principles §3](../../principles/03-explain-the-decision.md). A checkbox that says
   "approximate" has not.
 - **The youngest user gets a different predicate *shape*, not a lower number.** For a toddler,
   "everything rated U" is the wrong idea; "these six shows" is the right one. The

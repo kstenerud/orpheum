@@ -65,7 +65,7 @@ served by the user sharing one filename deliberately — minimal disclosure, not
 
 A session touches the core, one or more nodes, possibly a relay, and a client. Each reports
 according to its own visibility and all of it lands at the core
-([D73](../../decisions/working-notes.md), [principles §9](../../principles/README.md)), so the
+([D73](../../decisions/working-notes.md), [principles §9](../../principles/09-sensors-report.md)), so the
 report is a fan-in keyed by the **session id**.
 
 - **A component that does not answer is listed as absent with a reason.** *"node `nas`: no

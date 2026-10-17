@@ -104,7 +104,7 @@ carries. Three rules:
   system and are currently hidden; 47 were judged by genre because no descriptor was
   available."* This is not foolproof and everyone knows it — the product's job is to make the
   approximation **legible** rather than to repeat the warning
-  ([principles §3](../../principles/README.md)).
+  ([principles §3](../../principles/03-explain-the-decision.md)).
 - **The youngest gets a different predicate *shape*, not a lower number.** `Young child` seeds
   an **allowlist** — "these six shows" — because "everything rated U" is not what anyone means
   by a toddler's tablet, and an allowlist fails closed by construction. The person least able
@@ -123,7 +123,7 @@ carries. Three rules:
 
 **The preview is nearly free, and it must share the enforcement path.** A preview on its own
 code path is worse than none, because it is trusted and it will diverge. It is cheap because
-[principles §10](../../principles/README.md) already requires the manifest to be built **per
+[principles §10](../../principles/10-only-what-a-client-may-use.md) already requires the manifest to be built **per
 principal** — "browse as this role" is that construction with a different argument.
 
 **It must not show that person's data.** An admin authoring `Kids` needs to see *what is
@@ -222,7 +222,7 @@ Rendering it on a child's home screen shows them the thing the rating would have
 
 So: the alert is **a number and nothing else**; a pending item is **absent from that role's
 manifest entirely** — not listed, not searchable, not in Recently Added, no artwork, no title,
-not addressable by id ([principles §10](../../principles/README.md)); and there is no "show me
+not addressable by id ([principles §10](../../principles/10-only-what-a-client-may-use.md)); and there is no "show me
 what's waiting" affordance, because there is nothing safe to show. The admin's queue does show
 titles, which is fine — the admin can already see those items.
 
@@ -288,7 +288,7 @@ It inherits D76's two rules, both correct here:
 - **It fails closed.** An unresolvable predicate grants nothing. A migration must never widen
   what a child can see.
 - **Enforce at every access path, not only at listing** — omit from the manifest so a correct
-  client never asks ([principles §10](../../principles/README.md)), *and* deny by id, because a
+  client never asks ([principles §10](../../principles/10-only-what-a-client-may-use.md)), *and* deny by id, because a
   restricted profile is a different trust domain from the account owner.
 
 ## Two additions from the 2026-09-21 source sweep

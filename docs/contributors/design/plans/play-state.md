@@ -47,7 +47,7 @@ position. Last-writer-wins is the bug; ordering is the fix.
 [D81](../../decisions/working-notes.md)). **A File is the only object in the model with an
 unambiguous timeline** — a Title has none, an Edition is an editorial fact rather than a
 duration, and a Version has one only by concatenating its parts. It is also what the player
-actually observed ([principles §13](../../principles/README.md)).
+actually observed ([principles §13](../../principles/13-state-attaches-to-what-you-observed.md)).
 
 Multi-part gets *simpler*: `12:30 into part 2` **is** the position, and the part arithmetic
 happens on read for display. So does the hot path — progress writes are every ~10 s and now
@@ -137,7 +137,7 @@ which is the precise claim [D157](../../decisions/working-notes.md) refuted and
 is *the earliest unwatched **member** after the latest completed one* — **a statement about a
 sequence**, and therefore **derived, never stored**. Switching from aired to DVD order
 recomputes it and leaves **every position byte-identical**, which is
-[principles §13](../../principles/README.md) working as intended rather than as an act of
+[principles §13](../../principles/13-state-attaches-to-what-you-observed.md) working as intended rather than as an act of
 care.
 
 **The word is "member", not "episode", and that is the whole generalisation**
@@ -190,7 +190,7 @@ and always correct. A hint would be wrong in three ordinary cases — it quotes 
 seconds out on a PAL pair, it points at a **broken rip** as the place you left off, and on a
 hand-edited cut it invents a correspondence only the user knows.
 
-**The general rule this is an instance of** ([principles §2](../../principles/README.md)):
+**The general rule this is an instance of** ([principles §2](../../principles/02-the-users-files.md)):
 *we group files for browsing and never relate their timelines.* If a feature needs a moment in
 one file to correspond to a moment in another, it is out of scope. Multi-part is not an
 exception — the parts of one Version are **concatenated**, declared by that Version's own
@@ -241,7 +241,7 @@ transport; the log is the content.
 
 ## Thresholds are policy, and live in the core
 
-Per [principles §9](../../principles/README.md). Jellyfin's are a reasonable starting point and
+Per [principles §9](../../principles/09-sensors-report.md). Jellyfin's are a reasonable starting point and
 two of its behaviours are not:
 
 | Rule | Jellyfin | Ours |

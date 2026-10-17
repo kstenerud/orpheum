@@ -282,7 +282,7 @@ Each belongs to a decision elsewhere and is listed so it is not lost between pla
 - **the pending count is read from a maintained counter, not computed** — asserted as a
   latency gate, because the query form measured 43.6 ms against 0.063 ms and would pass every
   correctness test while failing the home page ([D133](../../decisions/working-notes.md),
-  [D113](../../decisions/working-notes.md), [principles §11](../../principles/README.md));
+  [D113](../../decisions/working-notes.md), [principles §11](../../principles/11-hot-path-values-are-cached.md));
 - **a pending item is absent from a restricted role's manifest entirely** — no title, no
   artwork, not searchable, not in Recently Added, and **not fetchable by id**
   ([D134](../../decisions/working-notes.md)). The title of an unclassified item is itself
@@ -292,7 +292,7 @@ Each belongs to a decision elsewhere and is listed so it is not lost between pla
 - **a cast queue contains only what the casting user's role permits**, and **no pending item
   or its title** ([D135](../../decisions/working-notes.md),
   [D134](../../decisions/working-notes.md)) — the queue is metadata rendered on a television,
-  so it is a manifest and [principles §10](../../principles/README.md) governs it;
+  so it is a manifest and [principles §10](../../principles/10-only-what-a-client-may-use.md) governs it;
 - **a second device attaches to a running cast session and controls it**, and the first
   device leaving the network does not strand the television
   ([D136](../../decisions/working-notes.md)) — control belongs to the session, not the sender;
@@ -373,7 +373,7 @@ Each belongs to a decision elsewhere and is listed so it is not lost between pla
   ([D142](../../decisions/working-notes.md)) — stopping at file 1,400 of 3,500 with one
   boolean is the behaviour to fail;
 - **a node's own sidecar writes do not produce a scan storm.** The node reports them, because
-  [principles §9](../../principles/README.md) forbids a sensor suppressing its own output;
+  [principles §9](../../principles/09-sensors-report.md) forbids a sensor suppressing its own output;
   **the core ignores what it commanded** ([D142](../../decisions/working-notes.md)). The
   regression this catches looks exactly like "the scanner went mad after I exported";
 
@@ -454,7 +454,7 @@ speech fraction, asserted.
   afterwards.
 - **Only a File holds a playback position** ([D157](../../decisions/working-notes.md)),
   asserted structurally: no Title, Edition or Version row has a position column. This is
-  [principles §13](../../principles/README.md)'s gate, and it is the one that failed twice
+  [principles §13](../../principles/13-state-attaches-to-what-you-observed.md)'s gate, and it is the one that failed twice
   before it was written.
 - **Completion rolls up and a position does not.** Finishing one Version marks the Edition and
   Title watched; it must not seed a position anywhere

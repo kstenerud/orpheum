@@ -129,7 +129,7 @@ separate from the project site. Demo content is public-domain or Creative Common
 
 ## Creating a library asks three things
 
-[D184](../../decisions/working-notes.md), [principles §15](../../principles/README.md). Each question states its effect, and
+[D184](../../decisions/working-notes.md), [principles §15](../../principles/15-safe-visible-defaults.md). Each question states its effect, and
 the answer is shown on the library's page afterwards:
 
 1. **Where metadata comes from** — NFO files where present and TMDB for the rest · TMDB only · NFO

@@ -62,7 +62,7 @@ Four things transfer, and it is worth noticing how exactly:
    [D59](../../decisions/working-notes.md)'s snapshot, independently arrived at.
 3. **The control plane decides; the appliance does not.** Steering, fill, storage layout and
    telemetry interpretation are all central. That is
-   [principles §9](../../principles/README.md) and [D42](../../decisions/working-notes.md),
+   [principles §9](../../principles/09-sensors-report.md) and [D42](../../decisions/working-notes.md),
    at planetary scale.
 4. **Bytes never transit the control plane.** Clients are steered *via URL* to the appliance.
    The control plane is a control plane.
@@ -128,7 +128,7 @@ Read locally from the cache:
 
 (6) and (7) are listed to be dismissed. SSH means shipping or requiring an SSH server and
 managing keys, for a channel we already need to authenticate anyway. A broker is a second
-service, which [principles §1](../../principles/README.md) spends an innovation token on for
+service, which [principles §1](../../principles/01-boring-technology.md) spends an innovation token on for
 nothing at household scale.
 
 (3) is in [media-nodes.md](../media-nodes.md) today, justified as *"for nodes behind a firewall

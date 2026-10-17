@@ -129,7 +129,7 @@ reject with a named path; failing at evaluation means a rule that silently stops
 
 **A rule referencing a missing field is kept, marked invalid and surfaced** with the field
 named. A smart collection quietly disappearing after an upgrade is the worst outcome
-([principles §7](../../principles/README.md)).
+([principles §7](../../principles/07-migrations-are-safety.md)).
 
 **Live updating is a property of the rule**, as Apple exposes it. Live rules re-evaluate off the
 change journal ([D166](../../decisions/working-notes.md)), which already says exactly what
@@ -158,7 +158,7 @@ and *is it doing far too much?* A rule matching 0 items is usually a typo or a f
 library does not carry; one matching 3,400 of 3,500 is usually not what anyone meant. It pairs
 with the preview below without duplicating it — **the preview shows the delta of a change,
 the coverage count shows the standing state**. Per
-[principles §11](../../principles/README.md) it is a **cached** value, invalidated off
+[principles §11](../../principles/11-hot-path-values-are-cached.md) it is a **cached** value, invalidated off
 [D166](../../decisions/working-notes.md)'s change journal like the live rules already are — a
 cached result, not an incrementally maintained counter
 ([D161](../../decisions/working-notes.md)).
@@ -175,7 +175,7 @@ suggestion the compiler could not then evaluate would be a demo, and no user str
 SQL identifier. When **nothing** separates the selection, the proposal is to create a **user
 tag** and exclude that — the registry is already *"extensible at runtime — user tags"*, so the
 escape hatch is a feature this plan already has rather than a second mechanism
-([principles §4](../../principles/README.md)).
+([principles §4](../../principles/04-one-way.md)).
 
 ## Two things the 2026-09-21 source sweep added
 
@@ -223,7 +223,7 @@ empty library naming the broken field. An alarming failure beats a silent one.
 
 **And it should never get that far.** A migration that removes or renames a field referenced by
 a restricting rule, with no alias registered, **fails the migration**
-([principles §7](../../principles/README.md)). The `alias` mechanism exists for exactly this;
+([principles §7](../../principles/07-migrations-are-safety.md)). The `alias` mechanism exists for exactly this;
 this makes forgetting it impossible rather than merely regrettable.
 
 ## The complexity budget is one number, and composition spends it

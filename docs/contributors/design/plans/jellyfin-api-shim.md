@@ -59,7 +59,7 @@ adapter cannot get it wrong because it never computes it. A media redirect carri
 user's* session authorisation ([D70](../../decisions/working-notes.md)). And the core records
 that the request arrived via an adapter — needed for
 [bug reports](bug-reports.md), for [metrics](observability.md), and because
-[principles §10](../../principles/README.md) treats an adapter as cooperating for *omission*
+[principles §10](../../principles/10-only-what-a-client-may-use.md) treats an adapter as cooperating for *omission*
 and less trusted for *alarms*: its users run software we did not write.
 
 ## Two places the translation is lossy, and both must be documented

@@ -233,7 +233,7 @@ These are the **user's own files**, acquired over fifteen years, many encoded by
 A media server that warns about a 2004 home-video rip has not made the user safer; it has taught
 them to dismiss warnings, which is a security failure rather than a cosmetic one.
 
-[Principles §3](../../principles/README.md) says explain the decision to the user — and a warning
+[Principles §3](../../principles/03-explain-the-decision.md) says explain the decision to the user — and a warning
 the user cannot act on is not an explanation. So any detection must default to silent, surface
 only observations it can state concretely, and always say what to **do**. "This file used 40× the
 memory of anything else in your library while probing" is actionable. "Possible shellcode
