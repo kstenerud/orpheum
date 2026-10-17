@@ -168,3 +168,19 @@ func TestVerifyClientManifest_CoversTheManifestsExactBytes(t *testing.T) {
 		t.Error("a signature over the bare manifest, with no purpose, verifies")
 	}
 }
+
+// handOffOfferKeyVector is HandOffOfferKey of "a hand-off code", which the web client's tests hold
+// too, so the client origin proves its offers under the key the core derives.
+const handOffOfferKeyVector = "4kr2Om59JFSPErbW1mQ4dnJuRTQiDyeFHb7U_kPBfxI"
+
+// A hand-off's offer key is the vector, and never the key a session of the same text would have.
+func TestHandOffOfferKey_IsTheVectorAndNoSessionsKey(t *testing.T) {
+	t.Parallel()
+	key := HandOffOfferKey("a hand-off code")
+	if got := base64.RawURLEncoding.EncodeToString(key); got != handOffOfferKeyVector {
+		t.Errorf("HandOffOfferKey = %s; want %s", got, handOffOfferKeyVector)
+	}
+	if string(key) == string(SessionOfferKey("a hand-off code")) {
+		t.Error("a hand-off's key is the key of a session whose token is the code")
+	}
+}

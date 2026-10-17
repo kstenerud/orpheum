@@ -85,3 +85,32 @@ func signallingWorld(
 	})
 	return built, answerer
 }
+
+// An offer passed on under a person a realm sign-in names holds under a live hand-off's key, as the
+// client origin holding only the code proves it, and under no stale one (D308 §4).
+func TestSignal_AnOfferProvenByALiveHandOffsKeyIsAnswered(t *testing.T) {
+	t.Parallel()
+	const person, sdp = "a-realm-person", "a client origin's offer\r\na=fingerprint:sha-256 AB:CD"
+	live := proof.HandOffOfferKey("a live code")
+	built, answerer := signallingWorld(t, offerKeys)
+	built.service.parts.HandOffOfferKeys = func(hash string) [][]byte {
+		if hash != person {
+			return nil
+		}
+		return [][]byte{live}
+	}
+	for offerID, key := range map[string][]byte{"1": live, "2": proof.HandOffOfferKey("a stale code")} {
+		built.fake.signals <- discoveryproto.SignalMessage{
+			Type: discoveryproto.SignalOffer, OfferID: offerID, SDP: sdp, LocatorHash: person,
+			Proof: proof.Offer(key, rtcapi.FingerprintOf(sdp)),
+		}
+		reply := testutil.Receive(t, built.fake.replies, "the core's reply")
+		if isAnswered := reply.Type == discoveryproto.SignalAnswer; isAnswered != (offerID == "1") {
+			t.Errorf("offer %s, proven by %s, was answered %+v", offerID,
+				map[string]string{"1": "the live hand-off's key", "2": "a stale one"}[offerID], reply)
+		}
+	}
+	if offered := answerer.taken(); len(offered) != 1 {
+		t.Errorf("rtcapi was given %d offers; want the one proven by the live key", len(offered))
+	}
+}

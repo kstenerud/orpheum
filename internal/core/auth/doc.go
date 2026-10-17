@@ -95,9 +95,11 @@
 //
 //   - A sign-in at the discovery's loader is handed off: signed in as any sign-in is, with its
 //     limits, its session kept in memory and only a code answered, which the client origin takes the
-//     session by once, within a minute; an untaken session then ends (D308 §4). Enforced by
-//     TestHandOff_TheSessionIsTakenByItsCodeOnce and
-//     TestHandOff_ACodeNotTakenInItsMinuteEndsWithItsSession.
+//     session by once, within a minute; an untaken session then ends; while it is live, the code's
+//     key proves offers for the person the realm names (D308 §4). Enforced by
+//     TestHandOff_TheSessionIsTakenByItsCodeOnce,
+//     TestHandOff_ACodeNotTakenInItsMinuteEndsWithItsSession and
+//     TestHandOffOfferKeys_AreTheLiveCodesOfThePersonTheRealmNames.
 //
 //   - A sign-in, or a device activated by its code, resumes the device the client remembers only when
 //     it is the same person's and the client proves it was that device, by the device secret its
