@@ -1,19 +1,26 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # CI runs exactly what a developer runs, in the same development image (D235 §2): `./dev make check`
-# on every push and pull request, and the branch gates (`./dev make check-pr`) on a pull request
-# and a branch. No job exists only in CI — a gate that cannot be run locally is one people learn
-# about too late (yoloAI DF226) — and no tool is installed on the runner but Docker, which it has.
+# on every push and pull request, the branch gates (`./dev make check-pr`) on a pull request and a
+# branch, and every night `./dev make check-everything` on main, the backstop to check-pr's narrowing
+# (the owner, 2026-10-17). No job exists only in CI — a gate that cannot be run locally is one
+# people learn about too late (yoloAI DF226) — and no tool is installed on the runner but Docker,
+# which it has.
 name: ci
 
 on:
   push:
   pull_request:
+  # Nightly, at 02:17 UTC, and by hand from the Actions tab.
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+# By event as well as ref: a push to main at night would otherwise cancel the nightly run.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -47,6 +54,7 @@ jobs:
           key: dev-cache-${{ runner.os }}-${{ hashFiles('go.sum', 'web/package-lock.json') }}
           restore-keys: dev-cache-${{ runner.os }}-
       - name: make check
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
         run: ./dev make check VERBOSE=1
       - name: Save the development image
         if: steps.restore-image.outputs.cache-hit != 'true'
@@ -58,6 +66,7 @@ jobs:
           key: dev-image-${{ steps.image.outputs.tag }}
       # The integration tier runs the pinned FFmpeg and MKVToolNix, which the image holds.
       - name: Integration tier
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
         run: ./dev make test-integration
       # The browser tier's browsers, fetched by the pinned Playwright into the cache directory; the
       # image holds the system libraries they need.
@@ -72,3 +81,7 @@ jobs:
       - name: Branch gates (branch push)
         if: github.event_name == 'push' && github.ref != 'refs/heads/main'
         run: ./dev make check-pr VERBOSE=1 BASE=origin/main
+      # The nightly run: everything, trusting no stamp, cache or map, each step to its end.
+      - name: Everything (nightly)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: ./dev make check-everything VERBOSE=1

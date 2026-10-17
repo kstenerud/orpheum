@@ -226,6 +226,11 @@ PR_FAST_STEPS := check-test-weakening check-decision-status lint-commits
 PR_MEDIUM_STEPS := test-integration web-lint-full
 PR_SLOW_STEPS := test-browser
 PR_STEPS := $(PR_FAST_STEPS) $(PR_MEDIUM_STEPS) $(PR_SLOW_STEPS)
+# A branch of documentation alone (scripts/documentation_only.py) cannot change what the code does,
+# so its branch gate is these alone: what reads the documents, and the second's checks of its
+# commits. check-pr and check-pr-failed run check-pr-documentation for it instead of their tiers
+# (the owner, 2026-10-17: "It's impossible for documentation changes to affect code").
+PR_DOCUMENTATION_STEPS := check-documentation $(PR_FAST_STEPS)
 # Revert-red runs alone, never beside another tier: a timing test failing under the load of a probe
 # would be counted as the probe's red, a "covered" nothing proved (audit-2026-09-29 §6). It runs in
 # two parts (the owner, 2026-10-15): the code's probes, a package's tests each, right after the
@@ -249,6 +254,8 @@ check-pr: ## Branch gates against BASE, quietly (VERBOSE=1 prints all; the log i
 .PHONY: check-pr-verbose
 check-pr-verbose: ## Branch gates against BASE (default: where the last pass ended, or the owner's mark), its tiers from the quickest, every one run to its end, revert-red's browser runs last; a pass marks HEAD as checked
 	@started="$$(date +%s)"; base="$$($(RESOLVE_BASE))"; head="$$(git rev-parse HEAD)"; \
+	  if $(PYTHON) scripts/documentation_only.py --base "$$base"; then \
+	    exec $(MAKE) --no-print-directory check-pr-documentation BASE="$$base"; fi; \
 	  state="$$(git rev-parse --git-common-dir)/check-pr/tree-state"; mkdir -p "$$(dirname "$$state")"; \
 	  $(PYTHON) scripts/tree_state.py --save "$$state"; \
 	  $(PYTHON) scripts/check_pr_steps.py start --base "$$base"; \
@@ -276,8 +283,25 @@ check-pr-verbose: ## Branch gates against BASE (default: where the last pass end
 .PHONY: check-pr-failed
 check-pr-failed: ## Re-run only the check-pr steps that failed last time (revert-red: only its failed files); then run the full check-pr
 	@base="$$($(RESOLVE_BASE))"; \
+	  if $(PYTHON) scripts/documentation_only.py --base "$$base"; then \
+	    exec $(MAKE) --no-print-directory check-pr-documentation BASE="$$base"; fi; \
 	  $(PYTHON) scripts/check_pr_steps.py rerun --base "$$base" --jobs $(CHECK_JOBS) \
 	    --last $(PR_CODE_RED_STEP) --last $(PR_LAST_STEP) $(PR_STEPS)
+
+.PHONY: check-pr-documentation
+check-pr-documentation: ## The branch gate for documentation alone, which check-pr runs instead for one: what reads the documents and the commits' quick checks, seconds; a pass marks HEAD as checked
+	@started="$$(date +%s)"; base="$$($(RESOLVE_BASE))"; head="$$(git rev-parse HEAD)"; \
+	  if ! $(PYTHON) scripts/documentation_only.py --base "$$base"; then \
+	    echo "make check-pr-documentation: more than documentation changed since $$(git rev-parse --short "$$base"); that branch's gate is make check-pr"; exit 1; fi; \
+	  echo "make check-pr: documentation alone changed since $$(git rev-parse --short "$$base"), so its gate is the documents' and the commits' (check-pr-documentation)"; \
+	  $(PYTHON) scripts/check_pr_steps.py start --base "$$base"; \
+	  $(MAKE) --no-print-directory -j$(CHECK_JOBS) -k --output-sync=target BASE="$$base" \
+	    $(PR_DOCUMENTATION_STEPS:%=pr-step-%) || { \
+	    $(PYTHON) scripts/check_pr_steps.py durations $(PR_DOCUMENTATION_STEPS); \
+	    echo "make check-pr-documentation: a check failed; each failure is above"; exit 1; }; \
+	  $(PYTHON) scripts/check_pr_steps.py durations $(PR_DOCUMENTATION_STEPS); \
+	  $(PYTHON) scripts/branch_base.py --checked "$$head" --base "$$base" && \
+	    echo "make check-pr: passed in $$(( $$(date +%s) - started )) s, documentation alone"
 
 pr-step-%:
 	@$(PYTHON) scripts/check_pr_steps.py record $* -- $(MAKE) --no-print-directory BASE='$(BASE)' $*
@@ -328,6 +352,31 @@ lint-commits: ## Commit subjects, bodies and attribution trailers
 # ---------------------------------------------------------------------------------------------
 # Longer runs
 # ---------------------------------------------------------------------------------------------
+
+# The nightly backstop to every narrowing above (the owner, 2026-10-17): check-pr checks only what a
+# change can break, by stamps, maps and dependency graphs, and a skip whose key misses an input passes
+# what should fail (test-weight.md, "Caches bring their own risk"). This trusts none of them: the
+# stamps are cleared, every tier runs whole, uncached, and revert-red probes the last SINCE's commits
+# with every browser run in turn. Every step runs to its end, a failed one too. CI runs it nightly
+# (.github/workflows/ci.yml); the 2.5-hour M4 acceptance stays a milestone's.
+SINCE ?= 24 hours ago
+
+.PHONY: check-everything
+check-everything: browsers ## Everything, trusting no stamp, cache or map: CI's nightly run; SINCE (default "24 hours ago") bounds revert-red's commits
+	@rm -rf "$$(git rev-parse --git-path orpheum-area-stamps)" "$$(git rev-parse --git-path orpheum-check-passed)"; \
+	  failed=0; \
+	  $(MAKE) --no-print-directory check-verbose || failed=1; \
+	  $(UNCONTROLLED); $(HERMETIC) go test -race -count=1 ./... || failed=1; \
+	  $(MAKE) --no-print-directory test-integration-run || failed=1; \
+	  npm --prefix web run --silent lint:full || failed=1; \
+	  $(MAKE) --no-print-directory test-browser BASE= || failed=1; \
+	  $(MAKE) --no-print-directory test-acceptance-home BASE= || failed=1; \
+	  base="$$(git rev-list -1 --before='$(SINCE)' HEAD)"; \
+	  if [ -z "$$base" ] || [ "$$base" = "$$(git rev-parse HEAD)" ]; then \
+	    echo "check-everything: no commit since $(SINCE), so revert-red has nothing to probe"; \
+	  else $(PYTHON) scripts/check_revert_red.py --base "$$base" --part all --unrecorded || failed=1; fi; \
+	  if [ "$$failed" -ne 0 ]; then echo "make check-everything: FAILED; every step ran, so each failure is above"; exit 1; fi; \
+	  echo "make check-everything: everything passed"
 
 .PHONY: test-all
 test-all: check ## The gate, then the race detector and uncached tests
