@@ -22,6 +22,7 @@ import { createRoot, type Root } from "react-dom/client";
 
 import { builtScriptOf, ownScriptOf, pageUpdateWatch } from "./app-update.ts";
 import { App } from "./app.tsx";
+import { removeLeftOverKeys } from "./client-keys.ts";
 import { storageIfAllowed } from "./browser-storage.ts";
 import { sendFailuresToCore } from "./failure-reports.ts";
 import { loaderOf, loaderRefusal, type OrpheumLoader } from "./loader-interface.ts";
@@ -145,6 +146,11 @@ function mountUnderLoader(loader: OrpheumLoader): void {
   );
 }
 
+// What an older release kept, and no part of this one reads, goes (the owner, 2026-10-17).
+removeLeftOverKeys([
+  storageIfAllowed(() => window.localStorage),
+  storageIfAllowed(() => window.sessionStorage),
+]);
 const loader = loaderOf(window);
 if (loader === undefined) {
   mountOnOwnOrigin();

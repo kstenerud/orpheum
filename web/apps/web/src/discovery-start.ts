@@ -15,7 +15,6 @@ import {
   locate,
   offerKey,
   pathsOf,
-  readLinkFragment,
   realmName,
   realmSignIn,
   sessionOfferKey,
@@ -59,9 +58,6 @@ export interface KeptCore {
   readonly realm?: string | undefined;
 }
 
-/** Where the last core reached is kept, apart from each core's own credentials. */
-const keptCoreKey = "orpheum.discovery.core";
-
 /** How a page at a discovery's origin starts. */
 export type Start =
   | { readonly kind: "link"; readonly link: LinkFragment }
@@ -101,46 +97,6 @@ export function readHandOffFragment(hash: string): HandOff | undefined {
     return undefined;
   }
   return { code, bootstrapToken, fingerprint, realm: fields.get("realm") ?? "" };
-}
-
-function stringField(kept: unknown, name: string): string | undefined {
-  const value: unknown =
-    typeof kept === "object" && kept !== null ? Reflect.get(kept, name) : undefined;
-  return typeof value === "string" ? value : undefined;
-}
-
-/** The core this device last reached, when one is kept. */
-export function rememberedCore(refusable: StringStorage | undefined): KeptCore | undefined {
-  const text = storageThatNeverThrows(refusable).getItem(keptCoreKey);
-  if (text === null) {
-    return undefined;
-  }
-  try {
-    const kept: unknown = JSON.parse(text);
-    const coreId = stringField(kept, "coreId");
-    const fingerprint = stringField(kept, "fingerprint");
-    const realm = stringField(kept, "realm");
-    if (coreId === undefined || fingerprint === undefined) {
-      return undefined;
-    }
-    return realm === undefined ? { coreId, fingerprint } : { coreId, fingerprint, realm };
-  } catch {
-    return undefined;
-  }
-}
-
-/** Keeps core as the one this device reached, for its next visit. */
-export function rememberCore(refusable: StringStorage | undefined, core: KeptCore): void {
-  storageThatNeverThrows(refusable).setItem(keptCoreKey, JSON.stringify(core));
-}
-
-/**
- * Forgets the core this device reached, so its next visit starts at the realm sign-in or the link it
- * opens, with nothing kept from this one in the way (the owner, 2026-10-15: a page holding an earlier
- * server's session opened on "Can't reach the server" and never offered the sign-in).
- */
-export function forgetCore(refusable: StringStorage | undefined): void {
-  storageThatNeverThrows(refusable).removeItem(keptCoreKey);
 }
 
 /**
@@ -186,16 +142,6 @@ export function rememberRealm(
   } else {
     storage.setItem(keptRealmKey, realm);
   }
-}
-
-/** How the page starts: from the link its address carries, the core it reached before, or neither. */
-export function startOf(hash: string, refusable: StringStorage | undefined): Start {
-  const link = readLinkFragment(hash);
-  if (link !== undefined) {
-    return { kind: "link", link };
-  }
-  const core = rememberedCore(refusable);
-  return core === undefined ? { kind: "none" } : { kind: "remembered", core };
 }
 
 /** A way into the core: its id, the fingerprint held for it, what the device holds, and its key. */

@@ -22,15 +22,14 @@ import {
   heldWith,
   readHandOffFragment,
   reachCore,
-  rememberCore,
-  rememberedCore,
-  startOf,
   whenSignedOut,
   type HeldSession,
   type KeptCore,
   type Reached,
+  type Start,
   type Target,
 } from "./discovery-start.ts";
+import { startAtClient, type AtClientOrigin } from "./loader-at-client-origin.tsx";
 import type { StringStorage } from "./browser-storage.ts";
 import { buttonWithText, click, enter, mount, settleUntil, type Mounted } from "./test-dom.tsx";
 
@@ -43,6 +42,12 @@ afterEach(() => {
 
 const fingerprint = "Vkdap1RjR0wChd9dvyvKtz2mUTWIOem3dIGy6rEHcIw";
 const linkHash = `#k7xq2.a-links-secret.${fingerprint}`;
+
+/** The start a page opened on linkHash makes. */
+const linkStart: Start = {
+  kind: "link",
+  link: { coreId: "k7xq2", secret: "a-links-secret", fingerprint },
+};
 
 function memoryStorage(): StringStorage {
   const items = new Map<string, string>();
@@ -94,13 +99,26 @@ describe("where a page served by a discovery starts", () => {
 
   it("starts from a link, else the core it reached before, else nothing", () => {
     const storage = memoryStorage();
-    expect(startOf(linkHash, storage)).toEqual({
-      kind: "link",
-      link: { coreId: "k7xq2", secret: "a-links-secret", fingerprint },
+    // The loader at the core's client origin, which keeps the core it reached (D308).
+    const at = (hash: string): AtClientOrigin => ({
+      config: {
+        clientApi: "https://discovery.example/client/v1",
+        hasRealms: false,
+        clientOrigins: "https://{core}.client.example",
+        loaderOrigin: "https://app.example",
+      },
+      coreId: "k7xq2",
+      storage,
+      location: { hash, pathname: "/", search: "", assign: () => undefined },
+      history: { replaceState: () => undefined },
+      loaderOrigin: "https://app.example",
+      unmount: () => undefined,
+      tellWorker: () => Promise.resolve(),
     });
-    expect(startOf("", storage)).toEqual({ kind: "none" });
-    rememberCore(storage, { coreId: "k7xq2", fingerprint });
-    expect(startOf("", storage)).toEqual({
+    expect(startAtClient(at(linkHash))).toEqual(linkStart);
+    expect(startAtClient(at(""))).toEqual({ kind: "none" });
+    storage.setItem("orpheum.loader.core", JSON.stringify({ fingerprint, realm: "" }));
+    expect(startAtClient(at(""))).toEqual({
       kind: "remembered",
       core: { coreId: "k7xq2", fingerprint },
     });
@@ -110,7 +128,7 @@ describe("where a page served by a discovery starts", () => {
 describe("the gate a discovery's page opens on", () => {
   it("spends a link only on its click, never on the page's loading (the protocol's §3.1)", async () => {
     const heard: string[] = [];
-    const start = startOf(linkHash, memoryStorage());
+    const start = linkStart;
     mounted = await mount(<DiscoveryGate start={start} parts={partsOf(discovery({}, heard))} />);
     expect(mounted.container.textContent).toContain("Your server's link");
     expect(heard).toEqual([]);
@@ -130,9 +148,7 @@ describe("the gate a discovery's page opens on", () => {
     };
     // No RTCPeerConnection here: the connection fails as one through no path would.
     const fetched = discovery({ "/locate": [200, located], "/dead-end": [204, {}] }, heard);
-    mounted = await mount(
-      <DiscoveryGate start={startOf(linkHash, memoryStorage())} parts={partsOf(fetched)} />,
-    );
+    mounted = await mount(<DiscoveryGate start={linkStart} parts={partsOf(fetched)} />);
     await click(buttonWithText(mounted.container, "Connect"));
     const page = mounted.container;
     await settleUntil(() => heard.at(-1)?.startsWith("/dead-end") === true);
@@ -168,9 +184,7 @@ describe("the gate a discovery's page opens on", () => {
         reached.push(how.first.kind === "direct" ? how.first.origin : how.first.kind);
       },
     };
-    mounted = await mount(
-      <DiscoveryGate start={startOf(linkHash, memoryStorage())} parts={parts} />,
-    );
+    mounted = await mount(<DiscoveryGate start={linkStart} parts={parts} />);
     await click(buttonWithText(mounted.container, "Connect"));
     await settleUntil(() => reached.length > 0);
     expect(reached).toEqual(["https://v4.k7xq2.zone.example"]);
@@ -195,9 +209,7 @@ describe("the gate a discovery's page opens on", () => {
         : toDiscovery(url, init);
     const connected: KeptCore[] = [];
     const parts: GateParts = { ...partsOf(fetched, connected), sessionOf: () => held };
-    mounted = await mount(
-      <DiscoveryGate start={startOf(linkHash, memoryStorage())} parts={parts} />,
-    );
+    mounted = await mount(<DiscoveryGate start={linkStart} parts={parts} />);
     await click(buttonWithText(mounted.container, "Connect"));
     await settleUntil(() => connected.length > 0);
     expect(heard).toEqual([
@@ -435,24 +447,23 @@ describe("a person with no link at a discovery that has realms (D297, D298)", ()
 
 describe("a page at a discovery with realms leaves nothing kept in the way (the owner, 2026-10-15)", () => {
   it("opens the realm sign-in, saying so, when the server it reached before is not reached", async () => {
-    const storage = memoryStorage();
     const core = { coreId: "k7xq2", fingerprint };
-    rememberCore(storage, core);
+    let isForgotten = false;
     const held: HeldSession = { core, token: "an-old-session", locator: "an-old-locator" };
     const parts: GateParts = {
       ...partsOf(discovery({ "/paths": [404, {}] }, [])),
       hasRealms: true,
       sessionOf: () => held,
       forgetCore: () => {
-        storage.removeItem("orpheum.discovery.core");
+        isForgotten = true;
       },
     };
-    mounted = await mount(<DiscoveryGate start={startOf("", storage)} parts={parts} />);
+    mounted = await mount(<DiscoveryGate start={{ kind: "remembered", core }} parts={parts} />);
     const page = mounted.container;
     await settleUntil(() => page.querySelector('input[name="realm"]') !== null);
     expect(page.textContent).toContain("Sign in again");
     expect(page.textContent).not.toContain("Can't reach the server from this network");
-    expect(rememberedCore(storage)).toBeUndefined();
+    expect(isForgotten).toBe(true);
   });
 
   it("keeps the realm sign-in when the server was found but its own sign-in failed", async () => {
