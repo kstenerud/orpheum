@@ -436,6 +436,28 @@ describe("a player following its group", () => {
     expect(reports.at(-1)?.isBuffering).toBe(false);
   });
 
+  it("held paused past its film's end, as a group's clock runs on a moment, stays at the end and seeks no more", () => {
+    const media = new FakeMedia();
+    media.duration = 10.083;
+    media.currentTime = 10.083;
+    media.loaded = [[0, 10.08]];
+    media.ended = true;
+    // The group paused half a second past the end: each seek there, which the browser keeps at the
+    // end, was followed by another, a hundred a second (the browser tier, 2026-10-18).
+    const { connection, notes } = fakeConnection({ ...paused, positionMs: 10_608 });
+    followGroup(media, connection, {
+      fileId: 5,
+      leads: noRight,
+      monotonicMs,
+    });
+    for (let check = 0; check < 3; check++) {
+      media.fire("seeked");
+      vi.advanceTimersByTime(checkDriftEveryMs);
+    }
+    expect(media.currentTime).toBe(10.083);
+    expect(notes.filter((note) => note.kind === "sought")).toEqual([]);
+  });
+
   it("held paused at the film's start, steps onto its first loaded frame however small the gap", () => {
     const media = new FakeMedia();
     media.currentTime = 0;
