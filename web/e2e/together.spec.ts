@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { expect, type BrowserContext, type Page } from "@playwright/test";
 
 import { test } from "./browser-map.ts";
-import { timingTag } from "./only-these-tests.ts";
+import { oneBrowserTag, timingTag } from "./only-these-tests.ts";
 import { isPlaying, signIn } from "./pages.ts";
 import { warmUpFilm } from "./server.ts";
 import {
@@ -67,69 +67,71 @@ function addressesIn(harPath: string): string[] {
   );
 }
 
-test("an invitation works once, only once joined, and no credential is ever in an address", async ({
-  browser,
-}, testInfo) => {
-  const hostHar = testInfo.outputPath("host.har");
-  const guestHar = testInfo.outputPath("guest.har");
-  const hostContext = await browser.newContext({ recordHar: { path: hostHar } });
-  const guestContext = await browser.newContext({ recordHar: { path: guestHar } });
-  const host = await hostContext.newPage();
-  const guest = await guestContext.newPage();
-  await signIn(host);
-  const link = await startSessionWithLink(host);
-  const secret = link.slice(link.indexOf("#") + 1);
+test(
+  "an invitation works once, only once joined, and no credential is ever in an address",
+  { tag: oneBrowserTag },
+  async ({ browser }, testInfo) => {
+    const hostHar = testInfo.outputPath("host.har");
+    const guestHar = testInfo.outputPath("guest.har");
+    const hostContext = await browser.newContext({ recordHar: { path: hostHar } });
+    const guestContext = await browser.newContext({ recordHar: { path: guestHar } });
+    const host = await hostContext.newPage();
+    const guest = await guestContext.newPage();
+    await signIn(host);
+    const link = await startSessionWithLink(host);
+    const secret = link.slice(link.indexOf("#") + 1);
 
-  // Opened and reloaded before joining, the link still works (D252 §5).
-  await guest.goto(link);
-  await expect(guest.getByRole("button", { name: "Join" })).toBeVisible();
-  await guest.reload();
-  await join(guest, link);
-  await hostPlays(host, warmUpFilm);
-  await expect.poll(() => isPlaying(guest), { timeout: 30_000 }).toBe(true);
+    // Opened and reloaded before joining, the link still works (D252 §5).
+    await guest.goto(link);
+    await expect(guest.getByRole("button", { name: "Join" })).toBeVisible();
+    await guest.reload();
+    await join(guest, link);
+    await hostPlays(host, warmUpFilm);
+    await expect.poll(() => isPlaying(guest), { timeout: 30_000 }).toBe(true);
 
-  // A browser that would play the film only muted, as an iPhone does long after the Join tap, gets
-  // Tap for sound over the picture, and the tap turns the sound on.
-  const video = guest.locator("video");
-  await video.evaluate((element: HTMLVideoElement) => {
-    // eslint-disable-next-line no-param-reassign -- muting the guest's video is what is simulated
-    element.muted = true;
-    element.dispatchEvent(new Event("orpheumplayedmuted"));
-  });
-  const soundOn = guest.getByRole("button", { name: "Tap to turn the sound back on" });
-  const [picture, button] = await Promise.all([video.boundingBox(), soundOn.boundingBox()]);
-  expect(
-    picture !== null && button !== null && button.y + button.height <= picture.y + picture.height,
-    "Tap to turn the sound back on is over the picture",
-  ).toBe(true);
-  await soundOn.click();
-  expect(await video.evaluate((element: HTMLVideoElement) => element.muted)).toBe(false);
+    // A browser that would play the film only muted, as an iPhone does long after the Join tap, gets
+    // Tap for sound over the picture, and the tap turns the sound on.
+    const video = guest.locator("video");
+    await video.evaluate((element: HTMLVideoElement) => {
+      // eslint-disable-next-line no-param-reassign -- muting the guest's video is what is simulated
+      element.muted = true;
+      element.dispatchEvent(new Event("orpheumplayedmuted"));
+    });
+    const soundOn = guest.getByRole("button", { name: "Tap to turn the sound back on" });
+    const [picture, button] = await Promise.all([video.boundingBox(), soundOn.boundingBox()]);
+    expect(
+      picture !== null && button !== null && button.y + button.height <= picture.y + picture.height,
+      "Tap to turn the sound back on is over the picture",
+    ).toBe(true);
+    await soundOn.click();
+    expect(await video.evaluate((element: HTMLVideoElement) => element.muted)).toBe(false);
 
-  // Joined, it is spent: another browser opening it is told so.
-  const late = await browser.newContext();
-  const latePage = await late.newPage();
-  await latePage.goto(link);
-  await latePage.getByLabel("Your name").fill("Someone else");
-  await latePage.getByRole("button", { name: "Join" }).click();
-  await expect(latePage.getByRole("alert")).toContainText("This link does not work");
-  await late.close();
+    // Joined, it is spent: another browser opening it is told so.
+    const late = await browser.newContext();
+    const latePage = await late.newPage();
+    await latePage.goto(link);
+    await latePage.getByLabel("Your name").fill("Someone else");
+    await latePage.getByRole("button", { name: "Join" }).click();
+    await expect(latePage.getByRole("alert")).toContainText("This link does not work");
+    await late.close();
 
-  const secrets = [
-    secret,
-    ...(await credentialsOf(hostContext, host)),
-    ...(await credentialsOf(guestContext, guest)),
-  ];
-  await endSession(host);
-  await hostContext.close();
-  await guestContext.close();
-  const addresses = [...addressesIn(hostHar), ...addressesIn(guestHar)];
-  expect(addresses.length).toBeGreaterThan(10);
-  for (const address of addresses) {
-    for (const credential of secrets) {
-      expect(address, "a credential in an address (D243 §3)").not.toContain(credential);
+    const secrets = [
+      secret,
+      ...(await credentialsOf(hostContext, host)),
+      ...(await credentialsOf(guestContext, guest)),
+    ];
+    await endSession(host);
+    await hostContext.close();
+    await guestContext.close();
+    const addresses = [...addressesIn(hostHar), ...addressesIn(guestHar)];
+    expect(addresses.length).toBeGreaterThan(10);
+    for (const address of addresses) {
+      for (const credential of secrets) {
+        expect(address, "a credential in an address (D243 §3)").not.toContain(credential);
+      }
     }
-  }
-});
+  },
+);
 
 /**
  * One person talks alone, the other never pressing Talk, and the other hears them (D281 §1). The

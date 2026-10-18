@@ -3,7 +3,7 @@
 import { expect } from "@playwright/test";
 
 import { test } from "./browser-map.ts";
-import { timingTag } from "./only-these-tests.ts";
+import { oneBrowserTag, timingTag } from "./only-these-tests.ts";
 import { isPlaying, openFilm, openFilmOnItsLadder, serverUrl, signIn } from "./pages.ts";
 import { longTrackName, preparedFilm, timingFilm, warmUpFilm } from "./server.ts";
 
@@ -43,30 +43,32 @@ test(
   },
 );
 
-test("the System page shows the machine's hardware encoding and what a prepared film's prepare used", async ({
-  page,
-}) => {
-  await signIn(page);
-  // Opening its page starts its prepare (D258 §1), once its page has asked how it plays.
-  const asked = page.waitForResponse(
-    (response) => response.request().method() === "POST" && response.url().endsWith("/playback"),
-  );
-  await openFilm(page, preparedFilm);
-  await asked;
-  await page.goto(`${serverUrl()}/system`);
-  await expect(page.getByRole("heading", { name: "Hardware encoding" })).toBeVisible();
-  await expect(
-    page.getByText(/encoded on the GPU|encoded on the processor/u).first(),
-  ).toBeVisible();
-  // The prepared film's MPEG-2 picture was encoded, by whichever encoder the machine has. Its prepare
-  // is listed once it has finished, which may be after the page first loads.
-  const row = page.getByRole("row", { name: new RegExp(preparedFilm) });
-  await expect(async () => {
-    await page.reload();
-    await expect(row).toContainText(/x264|Quick Sync|NVENC/u, { timeout: 1000 });
-  }).toPass({ timeout: 90_000 });
-  await expect(row).toContainText("× real time");
-});
+test(
+  "the System page shows the machine's hardware encoding and what a prepared film's prepare used",
+  { tag: oneBrowserTag },
+  async ({ page }) => {
+    await signIn(page);
+    // Opening its page starts its prepare (D258 §1), once its page has asked how it plays.
+    const asked = page.waitForResponse(
+      (response) => response.request().method() === "POST" && response.url().endsWith("/playback"),
+    );
+    await openFilm(page, preparedFilm);
+    await asked;
+    await page.goto(`${serverUrl()}/system`);
+    await expect(page.getByRole("heading", { name: "Hardware encoding" })).toBeVisible();
+    await expect(
+      page.getByText(/encoded on the GPU|encoded on the processor/u).first(),
+    ).toBeVisible();
+    // The prepared film's MPEG-2 picture was encoded, by whichever encoder the machine has. Its prepare
+    // is listed once it has finished, which may be after the page first loads.
+    const row = page.getByRole("row", { name: new RegExp(preparedFilm) });
+    await expect(async () => {
+      await page.reload();
+      await expect(row).toContainText(/x264|Quick Sync|NVENC/u, { timeout: 1000 });
+    }).toPass({ timeout: 90_000 });
+    await expect(row).toContainText("× real time");
+  },
+);
 
 test("on a phone's screen, the play page is no wider than the screen, whatever its tracks are called", async ({
   page,

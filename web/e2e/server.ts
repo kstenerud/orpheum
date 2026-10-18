@@ -24,6 +24,12 @@ export const owner = { name: "owner", password: "owner-browser-test" } as const;
 export const warmUpFilm = "Warm Up Film";
 
 /**
+ * A second short film, for a test that plays one after the warm-up's and must tell them apart: twice
+ * its length, where the timing film's 90 s of 1080p cost every server a minute of chunks.
+ */
+export const secondFilm = "Second Film";
+
+/**
  * A film no browser plays from its ladder, which is prepared instead (D260 §1): an MPEG-2 picture no
  * browser decodes, smaller than the lowest quality its chunks offer.
  */
@@ -144,6 +150,13 @@ const preparedFilmArguments = [
   ...["-f", "lavfi", "-i", "testsrc2=size=320x240:rate=24:duration=10"],
   ...["-f", "lavfi", "-i", "sine=frequency=330:sample_rate=48000:duration=10"],
   ...["-c:v", "mpeg2video", "-q:v", "5", "-c:a", "aac", "-ac", "2"],
+];
+
+const secondFilmArguments = [
+  ...["-f", "lavfi", "-i", "testsrc2=size=640x360:rate=24:duration=20,hue=h=180"],
+  ...["-f", "lavfi", "-i", "sine=frequency=330:sample_rate=48000:duration=20"],
+  ...["-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-ac", "2"],
+  ...["-movflags", "+faststart"],
 ];
 
 const warmUpArguments = [
@@ -339,6 +352,12 @@ function specFilms(root: string): Film[] {
       extension: "mp4",
       ffmpegInputArguments: warmUpArguments,
       hasPoster: true,
+    },
+    {
+      title: secondFilm,
+      year: 2022,
+      extension: "mp4",
+      ffmpegInputArguments: secondFilmArguments,
     },
     {
       title: preparedFilm,

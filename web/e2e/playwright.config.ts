@@ -3,7 +3,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 import { chromiumArguments, firefoxUserPrefs } from "./browsers.ts";
-import { testsOfThisPass } from "./only-these-tests.ts";
+import { oneBrowserTag, testsOfThisPass } from "./only-these-tests.ts";
 
 /**
  * The browser tier's second pass (`make browser-tier` runs both): only the tests tagged as timed,
@@ -55,9 +55,14 @@ export default defineConfig({
         launchOptions: { firefoxUserPrefs },
       },
       // Voice between two Firefoxes is check-pr's slowest browser test; Firefox's voice is held by
-      // the home acceptance check-pr runs, whose guest is Firefox (agent-failures A24). A project's
-      // grepInvert replaces the config's, so the pass's goes with it.
-      grepInvert: [...(pass.grepInvert ?? []), /voice between two fake microphones/u],
+      // the home acceptance check-pr runs, whose guest is Firefox (agent-failures A24). A test whose
+      // claim is the app's runs in Chromium alone (oneBrowserTag). A project's grepInvert replaces
+      // the config's, so the pass's goes with it.
+      grepInvert: [
+        ...(pass.grepInvert ?? []),
+        /voice between two fake microphones/u,
+        new RegExp(`(?:^|\\s)${oneBrowserTag}(?:\\s|$)`, "u"),
+      ],
     },
   ],
 });
