@@ -22,6 +22,9 @@ var echo = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Reque
 		http.Error(writer, err.Error(), http.StatusBadRequest)
 		return
 	}
+	if request.URL.Path == "/panic" {
+		panic("a handler that cannot write its response, as huma's")
+	}
 	if request.URL.Path == "/big" {
 		writer.Header().Set("Content-Type", "application/octet-stream")
 		_, _ = writer.Write(bytes.Repeat([]byte("orpheum!"), 5<<20/8)) //nolint:errcheck // the test reads it
@@ -95,5 +98,21 @@ func TestChannel_RequestsOnTheirOwnChannelsAreAnsweredAtOnce(t *testing.T) {
 		if !strings.Contains(string(got[index].Body), "|"+path+"|") {
 			t.Errorf("%s was answered %q", path, got[index].Body)
 		}
+	}
+}
+
+// A handler's panic ends its own request, answered 500, and the server goes on: net/http's server does
+// so, and a request over WebRTC without it ended the core, as huma panics when it cannot write a
+// response to a channel the client closed first (staging, 2026-10-18).
+func TestChannel_AHandlersPanicEndsItsRequestAloneNotTheServer(t *testing.T) {
+	t.Parallel()
+	link := rtcapitest.Connect(t, newServer(t).Answer)
+	panicked := link.Do(rtcapi.RequestHead{Method: http.MethodGet, Path: "/panic"}, nil)
+	if got := panicked.Head.Status; got != http.StatusInternalServerError {
+		t.Errorf("a handler that panicked was answered %d; want 500", got)
+	}
+	after := link.Do(rtcapi.RequestHead{Method: http.MethodGet, Path: "/one"}, nil)
+	if got := after.Head.Status; got != http.StatusTeapot {
+		t.Errorf("the request after was answered %d; want the server still serving", got)
 	}
 }
