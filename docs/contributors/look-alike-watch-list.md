@@ -29,6 +29,7 @@ copy, and checked to work there. A test holds each pair together:
 | `internal/store/open.go` (the opening; `ours.go` is each project's own), with `writer_gate.go` and `tally.go`, which it uses | `orpheum-connect`'s, same paths | the same |
 | `internal/platform/waiting` and `internal/platform/querytally`, every file | `orpheum-connect`'s, same paths | the same |
 | `deploy/staging/tunnel.sh` | `orpheum-connect`'s, same path | the same |
+| `internal/core/auth/password.go` (argon2id, PHC strings, hash slots; the core's own hashing is `hashing.go`) and its test, `limiter.go` (failed sign-ins), and `internal/platform/randbytes`, every file | `orpheum-connect`'s, same paths, where the service's accounts use them (its `docs/plans/accounts.md`) | the same |
 
 Still copies, not yet twins:
 
