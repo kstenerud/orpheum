@@ -192,13 +192,16 @@ function startupListeners(
       isTold = true;
       decisionTimesByToken.delete(mediaToken);
       const playingAtMs = performance.now();
+      // Typed, as a spread's fields are not checked against the body they are spread into.
+      const preload: Pick<components["schemas"]["StartupBody"], "preloadSteps"> =
+        times.preloadSteps === undefined || times.preloadSteps === ""
+          ? {}
+          : { preloadSteps: times.preloadSteps };
       reporter.recordStartup({
         decidedAfterMs: sinceAsked(times.decidedMs),
         firstDataAfterMs: sinceAsked(firstDataAtMs ?? playingAtMs),
         playingAfterMs: sinceAsked(playingAtMs),
-        ...(times.preloadSteps === undefined || times.preloadSteps === ""
-          ? {}
-          : { preloadSteps: times.preloadSteps }),
+        ...preload,
       });
     },
   };
