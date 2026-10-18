@@ -27,6 +27,8 @@ const clientKeys = new Set([
   // The tab's path choice (transport-choice.ts) and the script it last reloaded for (app-update.ts).
   "orpheum.transport",
   "orpheum.reloadedForClient",
+  // A debugging aid that starts each film on its own picture, with no preload (watching.ts).
+  "orpheum.debug.startOnFilmsPicture",
   // The realm a person asked the page to remember (discovery-start.ts).
   "orpheum.discovery.realm",
 ]);

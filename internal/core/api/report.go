@@ -115,6 +115,10 @@ type StartupBody struct {
 	DecidedAfterMs   int64 `json:"decidedAfterMs"  minimum:"0"`
 	FirstDataAfterMs int64 `json:"firstDataAfterMs" minimum:"0"`
 	PlayingAfterMs   int64 `json:"playingAfterMs"   minimum:"0"`
+	// PreloadSteps are the last steps of the film page's hidden player that loaded the playback's
+	// first buffer (D260 §3), oldest first, as a stall's are: on the owner's LAN it stepped down to
+	// the lowest quality before Play was pressed, and nothing said why (staging, 2026-10-18).
+	PreloadSteps string `json:"preloadSteps,omitempty" maxLength:"400" required:"false"`
 }
 
 // StallBody is one stall: a wait for data, while the player played, where it was; and the video's
@@ -305,7 +309,7 @@ func (server *Server) logStartup(ctx context.Context, reporter reporter, startup
 	server.logger.InfoContext(ctx, "a playback started playing", "userId", reporter.holder.UserID,
 		"deviceId", reporter.deviceID, "viewerOfFileId", reporter.holder.OnlyFileID,
 		"decidedAfterMs", startup.DecidedAfterMs, "firstDataAfterMs", startup.FirstDataAfterMs,
-		"playingAfterMs", startup.PlayingAfterMs, "linkKbps", linkKbps)
+		"playingAfterMs", startup.PlayingAfterMs, "linkKbps", linkKbps, "preloadSteps", startup.PreloadSteps)
 }
 
 // logUnplayables says each quality a player gave up as one its device cannot play, and where: Flow

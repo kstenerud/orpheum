@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import { playChunked } from "@orpheum/player";
+import { diagnosisOf, playChunked } from "@orpheum/player";
 import type { Api, components, PlayableFormats } from "@orpheum/sdk";
 
+import { browserStorage } from "./browser-storage.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { noteDecisionTimes } from "./play-state.ts";
 import { leavePlayback } from "./interest.ts";
@@ -39,7 +40,7 @@ export async function requestPlayback(
       },
     }),
   );
-  noteDecisionTimes(decision.mediaToken, askedMs, performance.now());
+  noteDecisionTimes(decision.mediaToken, { askedMs, decidedMs: performance.now() });
   return decision;
 }
 
@@ -54,6 +55,8 @@ export const warmUpKeptMs = 30 * 60_000;
 export interface Preload {
   /** The BANDWIDTH of the quality its stepping settled on so far; undefined before it loads one. */
   readonly settledAtBps: () => number | undefined;
+  /** Its player's last steps (diagnosisOf), for the playback's startup report; undefined for none. */
+  readonly steps: () => string | undefined;
   readonly stop: () => void;
 }
 
@@ -63,6 +66,26 @@ export interface Preload {
  * own picture, 12 MB of Bram's, held a phone's link after its person had moved on (2026-10-07).
  */
 export const preloadAheadS = 10;
+
+/**
+ * The browser's key that, set to "1", starts each film on its own picture with no film page preload
+ * (see startsOnFilmsPicture). Set in the console:
+ * localStorage.setItem("orpheum.debug.startOnFilmsPicture", "1").
+ */
+export const startOnFilmsPictureKey = "orpheum.debug.startOnFilmsPicture";
+
+/**
+ * Whether this browser is set to start each film on its own picture, the ladder's top, from the Play
+ * page itself: a debugging aid, so the Play page's player meets what the browser cannot play there
+ * and not the film page's preload, which met it first and stepped down out of sight (the owner's
+ * test of Firefox on macOS, 2026-10-18).
+ */
+function startsOnFilmsPicture(): boolean {
+  return browserStorage().getItem(startOnFilmsPictureKey) === "1";
+}
+
+/** The start rate that puts a player on a ladder's top quality. */
+const topOfTheLadderBps = Number.MAX_SAFE_INTEGER;
 
 /** Starts a Preload of the film's ladder from where its playback resumes. */
 export type StartPreload = (offer: LadderOffer, positionMs: number) => Preload;
@@ -87,6 +110,7 @@ export const preloadInHiddenVideo: StartPreload = (offer, positionMs) => {
   });
   return {
     settledAtBps: () => playback.settledAtBps(),
+    steps: () => diagnosisOf(video)?.steps,
     stop: () => {
       playback.destroy();
       video.remove();
@@ -131,7 +155,7 @@ export class Watching {
     decision.then(
       (decided) => {
         // Not once the Play page took it, or another film was chosen.
-        if (this.warm === warm && decided.onLadder !== undefined) {
+        if (this.warm === warm && decided.onLadder !== undefined && !startsOnFilmsPicture()) {
           warm.preload = this.startPreload(decided.onLadder, decided.resumePositionMs);
         }
       },
@@ -165,6 +189,7 @@ export class Watching {
     return warm.decision.then(
       (decision) => {
         const settledAtBps = warm.preload?.settledAtBps();
+        const preloadSteps = warm.preload?.steps();
         warm.preload?.stop();
         if (decision.onLadder === undefined) {
           // The warm-up's playback is let go of: the server worked on both (the M4 closing audit).
@@ -172,7 +197,11 @@ export class Watching {
           this.leave(decision.mediaToken);
           return this.ask(fileId, { playableFormats, cause: "warmUpOffLadder" });
         }
-        noteDecisionTimes(decision.mediaToken, pressedMs, performance.now());
+        noteDecisionTimes(decision.mediaToken, {
+          askedMs: pressedMs,
+          decidedMs: performance.now(),
+          preloadSteps,
+        });
         return settledAtBps === undefined
           ? decision
           : { ...decision, onLadder: { ...decision.onLadder, startAtBps: settledAtBps } };
@@ -187,7 +216,11 @@ export class Watching {
     fileId: number,
     asked: { readonly playableFormats: PlayableFormats; readonly cause: StartCause },
   ): Promise<PlaybackDecision> {
-    const decision = await requestPlayback(this.api, fileId, asked);
+    const answered = await requestPlayback(this.api, fileId, asked);
+    const decision =
+      answered.onLadder !== undefined && startsOnFilmsPicture()
+        ? { ...answered, onLadder: { ...answered.onLadder, startAtBps: topOfTheLadderBps } }
+        : answered;
     if (this.fileId === fileId) {
       this.tokens.add(decision.mediaToken);
     } else {

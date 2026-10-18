@@ -121,10 +121,14 @@ function reportSeqCounter(mediaToken: string): () => number {
   };
 }
 
-/** When a playback's player asked how its file plays, and was answered, on the page's clock. */
-interface DecisionTimes {
+/**
+ * When a playback's player asked how its file plays, and was answered, on the page's clock; and the
+ * last steps of the film page's preload that loaded its first buffer, where one did (D260 §3).
+ */
+export interface DecisionTimes {
   readonly askedMs: number;
   readonly decidedMs: number;
+  readonly preloadSteps?: string | undefined;
 }
 
 /** How many playbacks' decision times a tab keeps, the newest: more than a person starts at once. */
@@ -138,10 +142,11 @@ const decisionTimesByToken = new Map<string, DecisionTimes>();
 
 /**
  * Keeps when a playback's player asked how its file plays and was answered, askedMs and decidedMs
- * from performance.now(), so its reports can say how long it took to start playing.
+ * from performance.now(), so its reports can say how long it took to start playing; and what the
+ * film page's preload did before it, where one did.
  */
-export function noteDecisionTimes(mediaToken: string, askedMs: number, decidedMs: number): void {
-  decisionTimesByToken.set(mediaToken, { askedMs, decidedMs });
+export function noteDecisionTimes(mediaToken: string, times: DecisionTimes): void {
+  decisionTimesByToken.set(mediaToken, times);
   // A film page's warm-up that is never played is never told: the oldest are let go of, so the
   // tab keeps a few at most (the M4 closing audit, 2026-10-08).
   for (const oldest of decisionTimesByToken.keys()) {
@@ -191,6 +196,9 @@ function startupListeners(
         decidedAfterMs: sinceAsked(times.decidedMs),
         firstDataAfterMs: sinceAsked(firstDataAtMs ?? playingAtMs),
         playingAfterMs: sinceAsked(playingAtMs),
+        ...(times.preloadSteps === undefined || times.preloadSteps === ""
+          ? {}
+          : { preloadSteps: times.preloadSteps }),
       });
     },
   };
