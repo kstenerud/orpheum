@@ -17,7 +17,12 @@ const refusedUpgrade = 1011;
  */
 export function rtcTogetherSocket(openChannel: () => ChannelLike): OpenTogetherSocket {
   return (listeners) => {
-    const channel = openChannel();
+    let channel: ChannelLike;
+    try {
+      channel = openChannel();
+    } catch {
+      return droppedAtOnce(listeners);
+    }
     let isOpen = false;
     let isClosed = false;
     const closeWith = (code: number): void => {
@@ -68,6 +73,29 @@ export function rtcTogetherSocket(openChannel: () => ChannelLike): OpenTogetherS
         channel.close();
       },
     };
+  };
+}
+
+/**
+ * A socket that closes as one that dropped, after its caller has it: no connection to the core is
+ * up yet, as for the moment after a network's loss while the transport opens their replacements,
+ * and the connection tries again after its wait. Thrown, it ended a guest's tries for good (the
+ * browser tier under load, 2026-10-18).
+ */
+function droppedAtOnce(
+  listeners: Parameters<OpenTogetherSocket>[0],
+): ReturnType<OpenTogetherSocket> {
+  let isClosed = false;
+  queueMicrotask(() => {
+    if (!isClosed) {
+      listeners.onClose(closedAbnormally);
+    }
+  });
+  return {
+    send: () => undefined,
+    close: () => {
+      isClosed = true;
+    },
   };
 }
 
