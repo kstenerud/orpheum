@@ -18,6 +18,7 @@ import {
 } from "@orpheum/player";
 import {
   healPageAudio,
+  reportFailure,
   whenReady,
   type Api,
   type CannotKeepUp,
@@ -417,8 +418,9 @@ function ChunkedFilm(props: {
         cannotKeepUp={cannotKeepUp}
         isOnLadder={props.isOnLadder === true}
       />
+      {/* Its qualities are cut as it plays, no copy prepared (the owner's test, 2026-10-18). */}
       {failure === undefined || props.composition.isFailureHidden === true ? null : (
-        <p role="alert">{t("play.preparedFailed", { reason: failure })}</p>
+        <p role="alert">{t("play.ladderFailed", { reason: failure })}</p>
       )}
     </>
   );
@@ -495,7 +497,7 @@ export function usePreparedPlayback(
 /**
  * What the viewer is told when playback fails: what the player saw, at once, and, when the server
  * says the file cannot be read now, why instead: its machine away, or its folder or disk missing
- * (D241 §7). A file that can be read leaves the player's words.
+ * (D241 §7). A file that can be read leaves the player's words. The server is told what the player saw.
  */
 function usePlaybackFailure(
   fileId: number | undefined,
@@ -506,6 +508,9 @@ function usePlaybackFailure(
   const fail = useCallback(
     (seen: string) => {
       setFailure(seen);
+      // The server is told, beside the page's own words: a film that stopped for good said so
+      // only on the person's screen (the owner's test, 2026-10-18).
+      reportFailure(new Error(`the player failed: ${seen}`));
       if (fileId === undefined) {
         return;
       }
