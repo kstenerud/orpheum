@@ -90,9 +90,9 @@ meets first is question 6.
 
 | Item | Source | Size |
 | --- | --- | --- |
-| Customer accounts and sign-in by e-mailed link, the account dashboard | service.md P2; D289 §1, §5; D290 §16 | L |
-| Registration a person can do alone: sign up on orpheum-app.com, claim the server from the account (not the operator's console) | P4 "after the beta: claiming from the core with approval" (D290 §1); orpheum-site | L |
-| Invitations for testers | P3; D290 §16 | S–M |
+| Customer accounts, signed in by username and password (a passkey later), the account's panel with its server and *Generate key* | service.md P2; D289 §1; D310 §8–§13 | L |
+| Enrolment: a one-use safe32 key from the account, typed into the core at home within the hour; a new key moves the account to a new core | D310 §5, §8–§9; D311 | M–L |
+| Invitations for testers, from the operator's admin panel, with notes, issued again to pass an account on | P3; D310 §10; D311 | S–M |
 | Realms chosen by the household, not given by the operator | D297, D298 (code entry waits for accounts) | M |
 | The service whole (probe, names, caps, client integrity, lapse) | M-S1–M-S4, M-S6 | L |
 | Billing: a merchant of record, monthly and yearly, a trial, lapse | P14; Q7; D273 §9 | L, later |
@@ -215,3 +215,6 @@ Found while taking stock; to fix once the milestones are decided, as one change:
 - **plan-deviations.md stops at P56 (2026-10-08):** the beta pivot, the data-layer rebuild
   (D303–D305) and the M5 deferral are not recorded.
 - **Next Up is "in" Cut A** but has no milestone row and is not built.
+- **Every kind of code, against D311:** core invitations, Watch Together links and device codes can
+  be withdrawn while outstanding, but none can yet be issued again for an entitlement already made
+  (the escape hatch).

@@ -19809,6 +19809,9 @@ Follow your recommendation"*, then *"Q5, Q6, Q13, Q14, Q18: Agreed"*. The protoc
 
 ## D290 — The discovery audits' findings taken: claiming on the core, paths ranked by kind, re-keying signed by the old key, computed DNS behind Cloudflare, and WebRTC in the beta
 
+> **Revised by D310 §13** (2026-10-18): the paid service's accounts sign in with a username and a
+> password, not §16's e-mailed link; §16's invitations stand.
+
 **Decided** (2026-10-13), by the project owner, on the four reports of
 [the security audit](../design/research/discovery-audit-security-2026-10-13.md),
 [the ease-of-use audit](../design/research/discovery-audit-ux-2026-10-13.md),
@@ -19866,9 +19869,10 @@ paid service's specification, which are brought in line before development start
     nonces carry their own expiry and MAC, and device codes are refused past their caps rather than
     pushing a waiting one out (D288 §6 as amended).
 
-16. **The customer's sign-in link follows current practice** (A2; security S8): at most 24 hours,
+16. ~~**The customer's sign-in link follows current practice** (A2; security S8): at most 24 hours,
     spent only by the click on its page, never by opening it (mail scanners open links), tied to
-    the browser that asked or confirmed when opened in another, cancelled by the next asked for.
+    the browser that asked or confirmed when opened in another, cancelled by the next asked for.~~
+    (Superseded by D310 §13: a username and a password.)
     The owner: *"if these are different things then just go with best practices. I'd mistakenly
     thought that the magic link was for invites."* Invitations are separate and keep their own
     lives: a household member's registration link on the core, 7 days by its setting
@@ -20686,9 +20690,13 @@ mean in the same sense that it works now (they can admin from remote only if the
     Its panel shows the account its server.
 12. **"Do everything" from the app is what the app does now**: admin away from home only where the
     core's admin opted in (D292, D302, unchanged).
+13. **The service's account signs in with its username and a password; a second factor such as a
+    passkey comes later** (the owner, the same day: *"The link is only an entitlement to create an
+    account. Once the account is created, they log in with username/password (and eventually we will
+    also support 2fa such as passkeys)"*). The invitation (§10) only entitles its redeemer to make
+    the account (D311 §1). It replaces D290 §16's e-mailed sign-in link for the service's accounts.
 
-**Status:** Decided 2026-10-18; §7 and §8–§12 the same day. Open: how the service's account signs
-in (a password with its username, or D290 §16's e-mailed link).
+**Status:** Decided 2026-10-18; §7, §8–§12 and §13 the same day.
 
 ## D311 — A code establishes an entitlement: it expires, its issuer sees it and what it made, and a new code for the same entitlement moves it to whoever redeems it
 
