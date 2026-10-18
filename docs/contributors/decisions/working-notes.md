@@ -20804,3 +20804,42 @@ yet know the core's fingerprint (D308). It brings D310 §13's second factor into
 
 **Status:** Decided 2026-10-18, §17's last sentence the same day. All of it before the closed
 beta's first outside household.
+
+## D313 — The closed beta's milestones: joining, between episodes, the library and its people, every file plays well, the UI revamp, then the living room
+
+**Decided** (2026-10-18), by the project owner, from the marks the owner gave every feature in the
+reassessment's ledger ([milestone-reassessment-2026-10-18.md](../design/research/milestone-reassessment-2026-10-18.md)):
+*"This looks good."* With D310–D312 it replaces cut-a.md's M5 (the polished UI, D245) and M6 (the
+remote TV) as what comes next. The owner, before the marks: the UI revamp waits until the features
+are in, "doing the ui revamp would risk handcuffing us"; *"We'll do TVs last, once we have the other
+features in and can test properly"*; all of B0 before the first outside household, though *"I may
+decide to open to other people before we are feature complete for B0, but that's a decision I'll
+make in the moment"*; music left out of the closed beta and revisited after it.
+
+1. **B0, joining the beta:** the simple core install (D310 §5); the paid service's accounts with
+   passkeys, the operator's panel and invitations, enrolment keys and the accounts' safeguards
+   (D310, D312); every code to D311's pattern; the identity key's recovery code; connections that
+   heal on network changes; the System page in plain words; the paid service made whole; bug reports;
+   log levels changeable while running; terms and privacy.
+2. **B1, between episodes:** Next Up; intros and credits detected (D82); skip intro, recap and
+   credits; the next-episode countdown with a setting to turn it off; scrub-bar thumbnails; a Watch
+   Together group carried from episode to episode; the host's media keys moving the group (D268 §4);
+   chapters if they come easily, else the open beta.
+3. **B2, the library and its people:** genres first (cast, crew and ratings later); filters and
+   sorts; watched marks, shown in the poster's tray; the watchlist; episode orderings; missing
+   episodes; disc images; profiles with a PIN; a second factor on the core's own accounts.
+4. **B3, every file plays well:** the playback survey first; HDR tone mapping, scoped before it is
+   committed to; VAAPI and AMD encoding; caption styles; language defaults; night mode; HEVC played
+   as it is where the browser can, prepares staying H.264 (the owner: *"for transcoding we stick to
+   h264 for beta"*).
+5. **B4, the UI revamp** (D245's M5), over the features above.
+6. **B5, the living room:** TV mode for a TV's own browser, TV sign-in by a code the TV shows,
+   through the paid service too, Google Cast, AirPlay, "Get this ready", voice on a second device.
+7. **Not placed:** the owner's maybes (OIDC or LDAP, recommendations, trailers, Trakt, Watch
+   Together's text chat, each viewer's own tracks, our own relay); everything marked later; music,
+   after the closed beta; the discovery a household runs itself (D310 §7), before the open beta and
+   possibly during the closed one. **Not wanted:** the API's compatibility gate for now (the owner:
+   *"First we build out the functionality, then we can think about making an API"*), live TV,
+   photos.
+
+**Status:** Decided 2026-10-18. cut-a.md §8 and the plans behind the code follow it in one change.
