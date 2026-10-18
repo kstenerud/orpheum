@@ -179,7 +179,22 @@ Navidrome, Plexamp, OpenSubsonic). Size XL; its shape is a question below.
   D10), offline download (D87), 2FA, passkeys and OIDC, our own relay (D274 §2), billing and
   accounts (P2, P3, P14), remote media nodes, rebroadcast (D177), live TV (out of scope).
 
-## Questions for the owner
+## The owner's answers (2026-10-18)
+
+1. **TVs last:** *"We'll do TVs last, once we have the other features in and can test properly."*
+   B1 moves after the other feature milestones.
+2. **All of B0 before the first outside household:** *"yes. I may decide to open to other people
+   before we are feature complete for B0, but that's a decision I'll make in the moment depending
+   on circumstance."*
+3. **Music:** *"Look into how much work this will be. If we can piggyback off an existing API,
+   that's great, but I want to know that the features I want are possible under that API."*
+   Researched next (OpenSubsonic: effort, the features it can carry, whether its apps can reach a
+   core behind CGNAT).
+4. **Children in households:** *"I'm not entirely sure yet. My guess is no, but we leave it as a
+   maybe for now."* Parental controls and the rules engine stay unplaced.
+5. **The full list:** *"Give me a full list of the features so I can decide."*
+
+## Questions for the owner (as asked)
 
 1. **B1 or B2 first?** A beta household judges the TV first, and the episode furniture every
    evening after. B2 is smaller and lands sooner; B1 opens the living room.
