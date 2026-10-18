@@ -1,10 +1,10 @@
 #!/bin/sh
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # ABOUTME: Release's one build command (D272 §4, §7): builds the runtime image from a tag of this
-# ABOUTME: checkout, then runs that image's write-deployment over the deployment's directory.
+# ABOUTME: checkout, then installs it over the deployment's directory as a household's install does.
 #
-#   deploy/release/build.sh <tag> <deployment directory>
-#   deploy/release/build.sh --load <image archive> <deployment directory>
+#   deploy/release/build.sh <tag> <deployment directory> [--media <folder>...]
+#   deploy/release/build.sh --load <image archive> <deployment directory> [--media <folder>...]
 #
 # With --load it builds nothing: it loads an image `docker save` wrote, gzipped or not, and writes
 # the deployment from it, so a machine with Docker alone runs the image staging runs, until there is a
@@ -12,57 +12,35 @@
 #
 # It clones the tag into a temporary directory, with its own .git so the binary records its version
 # and commit (D225), builds the image orpheum:<tag> from it, and runs the image's write-deployment
-# over the directory, which then names that image: the first time it writes the values file and the
-# tunnel's keys and stops; after that it writes the compose file and the configs from the image's
-# templates. `docker compose up -d` in the directory then starts or updates the deployment. Going
-# back is the same with an older tag (deploy/release/README.md says when it cannot).
+# over the directory, which then names that image, by the install script a household runs
+# (internal/deployment/templates/install.sh, D314), taken from this checkout so an older tag's image,
+# which has no install-script, installs the same way: the first time it needs --media; it writes the
+# deployment from the values file and starts or updates it. Going back is the same with an older tag
+# (deploy/release/README.md says when it cannot).
 #
 # It needs git and Docker with BuildKit, and is run as the deployment directory's owner.
 set -eu
 
 usage() {
-	echo "usage: deploy/release/build.sh <tag> <deployment directory>" >&2
-	echo "       deploy/release/build.sh --load <image archive> <deployment directory>" >&2
+	echo "usage: deploy/release/build.sh <tag> <deployment directory> [--media <folder>...]" >&2
+	echo "       deploy/release/build.sh --load <image archive> <deployment directory> [--media <folder>...]" >&2
 	exit 2
 }
 
-# writeDeployment runs the image's write-deployment over the directory, as cmd/orpheum's
-# write-deployment says to run it: the directory and its run/ where the image looks for them, as
-# their owner, with the machine's name, and the GPU when there is one.
-writeDeployment() {
-	set -- --rm --user "$(id -u):$(id -g)" --hostname "$(hostname)" \
-		--volume "$dir:/var/lib/orpheum" --volume "$dir/run:/run/orpheum"
-	if [ -d /dev/dri ]; then
-		set -- "$@" --volume /dev/dri:/dev/dri:ro
-	fi
-	docker run "$@" "$image" write-deployment --deployment release --image "$image"
+# install runs the install script over the directory with the image named, which is this machine's
+# own: nothing is pulled.
+install() {
+	sh "$(dirname "$0")/../../internal/deployment/templates/install.sh" --no-pull --image "$image" --dir "$dir" "$@"
 }
 
-# fillLANAddress gives an empty lan.address in the values file this machine's address on the house's
-# network: the source address of its default route, when that is a private one. The server's
-# container cannot see it; an address the owner set is left as it is.
-fillLANAddress() {
-	values="$dir/values.toml"
-	[ -f "$values" ] || return 0
-	address=$(ip -4 route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p')
-	case $address in
-	10.* | 192.168.* | 172.1[6-9].* | 172.2[0-9].* | 172.3[01].*) ;;
-	*) return 0 ;;
-	esac
-	awk -v address="$address" '
-		/^\[/ { section = $0 }
-		section == "[lan]" && $0 == "address = \"\"" { print "address = \"" address "\""; filled = 1; next }
-		{ print }
-		END { if (filled) print "build: lan.address is " address ", this machine'"'"'s address at home" > "/dev/stderr" }
-	' "$values" >"$values.new" && mv "$values.new" "$values"
-}
-
-if [ "$#" -eq 3 ] && [ "$1" = --load ]; then
+if [ "$#" -ge 3 ] && [ "$1" = --load ]; then
+	archive=$2
 	mkdir -p "$3/run"
 	dir=$(cd "$3" && pwd)
-	case $2 in
-	*.gz) loaded=$(gunzip -c "$2" | docker load) ;;
-	*) loaded=$(docker load --input "$2") ;;
+	shift 3
+	case $archive in
+	*.gz) loaded=$(gunzip -c "$archive" | docker load) ;;
+	*) loaded=$(docker load --input "$archive") ;;
 	esac
 	echo "$loaded" >&2
 	image=$(echo "$loaded" | sed -n 's/^Loaded image: //p' | tail -n 1)
@@ -70,14 +48,13 @@ if [ "$#" -eq 3 ] && [ "$1" = --load ]; then
 		echo "build: the archive named no image; was it made by docker save of a tagged image?" >&2
 		exit 1
 	fi
-	fillLANAddress
-	writeDeployment
-	fillLANAddress
+	install "$@"
 	exit 0
 fi
-[ "$#" -eq 2 ] || usage
+[ "$#" -ge 2 ] || usage
 tag=$1
 dir=$2
+shift 2
 checkout=$(cd "$(dirname "$0")/../.." && pwd)
 
 # A version tag, vMAJOR.MINOR.PATCH with an optional -prerelease: Go records only such a tag as the
@@ -105,6 +82,4 @@ echo "build: building $image (the first build fetches FFmpeg, Go and Node, and t
 DOCKER_BUILDKIT=1 docker build --file "$source/orpheum/deploy/Containerfile" --target runtime \
 	--tag "$image" "$source/orpheum"
 
-fillLANAddress
-writeDeployment
-fillLANAddress
+install "$@"

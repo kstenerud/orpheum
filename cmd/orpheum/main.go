@@ -79,6 +79,11 @@ func plannedSubcommands() []subcommand {
 				"the compose file, the configs, the tunnel's keys (D272 §3)",
 			implementation: commandWriteDeployment,
 		},
+		{
+			name: "install-script", summary: "print the script a household installs a core with, from this image " +
+				"(D314)",
+			implementation: commandInstallScript,
+		},
 		{name: "migrate", summary: "migrate the database without starting the server", implementation: commandMigrate},
 		{name: "backup", summary: "write a backup of the database", implementation: commandBackup},
 		{name: "restore", summary: "restore a backup, with the server stopped", implementation: commandRestore},

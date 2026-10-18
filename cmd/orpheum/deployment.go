@@ -10,6 +10,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"syscall"
 
 	"github.com/kstenerud/orpheum/internal/deployment"
@@ -157,4 +159,31 @@ func renderGroup(path string) int {
 		return int(stat.Gid)
 	}
 	return -1
+}
+
+// publishedImage is where a version's runtime image is published (D314 §1; .github/workflows/release-image.yml).
+const publishedImage = "ghcr.io/kstenerud/orpheum"
+
+// untaggedVersion matches a build of no tag: its version is the last tag, a commit time and a hash.
+var untaggedVersion = regexp.MustCompile(`\.0\.\d{14}-[0-9a-f]{12}$`)
+
+// installImage is the published image of this binary's version, or the latest for a build of no tag.
+func installImage(version string) string {
+	if untaggedVersion.MatchString(version) || !strings.HasPrefix(version, "v") {
+		return publishedImage + ":latest"
+	}
+	return publishedImage + ":" + version
+}
+
+// commandInstallScript prints the script a household installs a core with, installing this image
+// (D314): `docker run --rm IMAGE install-script | sh -s -- --media /path/to/films`.
+func commandInstallScript(_ context.Context, call invocation) int {
+	if len(call.arguments) != 0 {
+		return write(call.stderr, "usage: orpheum install-script\n", exitUsageError)
+	}
+	script, err := deployment.InstallScript(installImage(version))
+	if err != nil {
+		return call.fail(err)
+	}
+	return write(call.stdout, script, exitSuccess)
 }

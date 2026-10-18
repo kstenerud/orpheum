@@ -127,6 +127,12 @@ func Write(dir string, values Values, runtime Runtime) error {
 	return nil
 }
 
+// InstallScript is the script a household installs a core with (D314), installing image: `orpheum
+// install-script` prints it, so it comes from the image it installs.
+func InstallScript(image string) (string, error) {
+	return render("install.sh", struct{ Image string }{image})
+}
+
 // renderedFile is a file Write renders from a template into the deployment's directory.
 type renderedFile struct {
 	name, template string

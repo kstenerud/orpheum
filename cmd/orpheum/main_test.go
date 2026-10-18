@@ -58,7 +58,9 @@ func TestDispatch_PlannedSubcommandsAreNotImplementedYet(t *testing.T) {
 func TestDispatch_BuiltSubcommandsNeedTheirInstance(t *testing.T) {
 	t.Parallel()
 	for _, planned := range plannedSubcommands() {
-		if planned.implementation == nil || planned.name == "openapi" || planned.name == "dev" {
+		// openapi and install-script print what the binary holds, needing no instance.
+		if planned.implementation == nil || planned.name == "openapi" || planned.name == "dev" ||
+			planned.name == "install-script" {
 			continue
 		}
 		want := "--instance is required"
