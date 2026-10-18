@@ -228,6 +228,26 @@ export async function expectVoiceWithinBounds(
 }
 
 /**
+ * Each named page hears voice within heardWithinMs, held best effort (only heard at all) once it
+ * does: a test whose claim is that voice arrives, not how well, waits for it rather than a fixed
+ * time (the browser test audit, 2026-10-18).
+ */
+export async function expectHeard(
+  pages: readonly (readonly [string, Page])[],
+  heardWithinMs = 30_000,
+): Promise<void> {
+  for (const [who, page] of pages) {
+    await expect
+      .poll(async () => (await measureVoice(page)).samplesReceived, {
+        message: `${who} heard nothing`,
+        timeout: heardWithinMs,
+      })
+      .toBeGreaterThan(0);
+  }
+  await expectVoiceWithinBounds(pages, true);
+}
+
+/**
  * A voice's measure, printed and held to D243 §9's bounds: heard at all, one-way (half the round
  * trip plus the jitter buffer) under 300 ms, and under 2% of its samples concealed apart from
  * silence. Best effort, as voice is on a congested link (D261 §7), only heard at all is held.

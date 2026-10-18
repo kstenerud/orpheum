@@ -27,7 +27,12 @@ test("a poster's status cues are a tray down from its top-right corner, over the
 }) => {
   await signIn(page);
   const item = page.locator(".poster-grid__item").first();
-  await expect(item).toBeVisible();
+  // Opened again until the scan has listed a film, as openFilm does: alone on its server, this test
+  // may come before the scan is done (the browser test audit, 2026-10-18).
+  await expect(async () => {
+    await page.goto(`${serverUrl()}/films`);
+    await expect(item).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 60_000 });
   // The test's library has nothing that cannot play and no guess: the tray the grid would draw for
   // both is added to a real item, so the stylesheet alone decides where its cues sit.
   await item.evaluate((element) => {
