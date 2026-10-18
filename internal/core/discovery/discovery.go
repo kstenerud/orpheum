@@ -181,8 +181,9 @@ type Status struct {
 // Service keeps the core enrolled with its discovery: it connects when an admin asks, then keeps a
 // session, sends its addresses, and says how it stands (D273).
 type Service struct {
-	parts Parts
-	wake  chan struct{}
+	parts      Parts
+	wake       chan struct{}
+	claimedNow chan struct{} // wakes the signalling loop when the core is newly claimed
 	// instanceID is this run's, made at its start and never kept, so the discovery tells a restart
 	// or a copy from the instance it holds (D293 §1).
 	instanceID string
@@ -277,7 +278,9 @@ var ErrNotEnrolled = errors.New("the core is enrolled with no discovery")
 
 // New returns the service, carrying on with the discovery the core was enrolled with, if any.
 func New(parts Parts) (*Service, error) {
-	service := &Service{parts: parts, wake: make(chan struct{}, 1), instanceID: rand.Text()}
+	service := &Service{
+		parts: parts, wake: make(chan struct{}, 1), claimedNow: make(chan struct{}, 1), instanceID: rand.Text(),
+	}
 	contents, err := parts.Files.ReadPersistentFile(StateFileName)
 	switch {
 	case errors.Is(err, instancedir.ErrNotFound):
@@ -515,6 +518,7 @@ func (service *Service) changed(ctx context.Context, was Status, answered discov
 		}
 	}
 	isClaimed := func(state discoveryproto.State) bool { return Status{State: state}.IsPublished() }
+	service.wakeSignallingIfClaimed(was.State, answered.State)
 	if isClaimed(answered.State) && (!isClaimed(was.State) || answered.Zone != was.Zone) &&
 		service.parts.OnClaimed != nil {
 		service.parts.OnClaimed(ctx)

@@ -20,7 +20,7 @@ import (
 )
 
 // signalCheckEvery is how often the signalling loop looks whether the core is claimed and so should
-// hold the connection, when it holds none.
+// hold the connection, when it holds none; a core newly claimed wakes it at once (claimedNow).
 const signalCheckEvery = 10 * time.Second
 
 // pingEvery is how often the core pings its signalling connection, jittered by pingJitter either
@@ -44,7 +44,7 @@ const maxSignalBytes = 64 << 10
 func (service *Service) signal(ctx context.Context) {
 	var failures int64
 	for ctx.Err() == nil {
-		wait := signalCheckEvery
+		wait, isClaimed := signalCheckEvery, false
 		if status := service.Status(); service.parts.Answerer != nil &&
 			(status.State == discoveryproto.StateClaimed || status.State == discoveryproto.StateGrace) {
 			wasOpen, err := service.holdSignalling(ctx, status.BaseURL)
@@ -56,12 +56,42 @@ func (service *Service) signal(ctx context.Context) {
 			}
 			service.parts.Logger.WarnContext(ctx, "discovery: the signalling connection ended; dialling again",
 				"err", err)
-			wait = service.retryWait(ctx, failures)
+			wait, isClaimed = service.retryWait(ctx, failures), true
 			failures++
 		}
-		if service.parts.Clock.Sleep(ctx, wait) != nil {
+		if !service.waitToLookAgain(ctx, wait, isClaimed) {
 			return
 		}
+	}
+}
+
+// waitToLookAgain waits before the loop's next look, saying false when ctx ends. A claimed core's
+// wait is a dial's backoff; an unclaimed core's ends early when it is newly claimed.
+func (service *Service) waitToLookAgain(ctx context.Context, wait time.Duration, isClaimed bool) bool {
+	if isClaimed {
+		return service.parts.Clock.Sleep(ctx, wait) == nil
+	}
+	timer := service.parts.Clock.NewTimer(wait)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-service.claimedNow:
+		return true
+	case <-timer.C():
+		return true
+	}
+}
+
+// wakeSignallingIfClaimed has the signalling loop look again now when the core, in state was, is
+// newly claimed: it dials at once rather than up to signalCheckEvery later (the owner, 2026-10-18).
+func (service *Service) wakeSignallingIfClaimed(was, now discoveryproto.State) {
+	if !(Status{State: now}).IsPublished() || (Status{State: was}).IsPublished() {
+		return
+	}
+	select {
+	case service.claimedNow <- struct{}{}:
+	default:
 	}
 }
 
