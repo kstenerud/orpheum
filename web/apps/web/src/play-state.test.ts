@@ -12,7 +12,7 @@ import { playerLoadedChunkEvent, playerMovedItselfEvent } from "@orpheum/sdk";
 import { act, createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { PlayView } from "./play.tsx";
+import { Play, PlayView } from "./play.tsx";
 import { directDecision } from "./test-fixtures.ts";
 import {
   decisionTimesKept,
@@ -55,6 +55,22 @@ async function sendingFailsWith(answer: Answers[string]): Promise<unknown> {
 
 let mounted: Mounted | undefined;
 
+/** The video a mounted page shows. */
+function videoOf(shown: Mounted): HTMLVideoElement {
+  const video = shown.container.querySelector("video");
+  if (video === null) {
+    throw new Error("no video");
+  }
+  return video;
+}
+
+/** Lets the requests a test's events started answer, and what they start in turn. */
+async function settle(): Promise<void> {
+  for (let turn = 0; turn < 5; turn += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}
+
 afterEach(() => {
   mounted?.unmount();
   mounted = undefined;
@@ -86,6 +102,9 @@ describe("play state", () => {
     expect(gone instanceof ReportRefused && gone.cause instanceof ApiProblem).toBe(true);
     const busy = await sendingFailsWith(refusal(503, "migrating"));
     expect(busy instanceof ApiProblem && !(busy instanceof ReportRefused)).toBe(true);
+    // A gateway's answer while the server restarts behind it.
+    const restarting = await sendingFailsWith(refusal(502, "not_answering"));
+    expect(restarting instanceof ApiProblem && !(restarting instanceof ReportRefused)).toBe(true);
     expect(await sendingFailsWith(unreachable)).toBeInstanceOf(TypeError);
   });
 
@@ -119,6 +138,74 @@ describe("play state", () => {
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
       "Where you are is no longer being kept for next time. That is no longer here",
     );
+  });
+
+  it("opens a playback the server lost again where it was, paused as it was, and tells a second loss within a minute (the owner's test, 2026-10-18)", async () => {
+    const heard: Heard[] = [];
+    mounted = await mount(
+      withServices(
+        createElement(Play, { fileId: 2 }),
+        servedBy(
+          {
+            "POST /playback": [
+              [200, directDecision({ mediaToken: "lost", resumePositionMs: 0 })],
+              [200, directDecision({ mediaToken: "again", resumePositionMs: 0 })],
+            ],
+            "POST /playback/lost/report": refusal(404, "playback_gone"),
+            "POST /playback/again/report": refusal(404, "playback_gone"),
+          },
+          heard,
+        ),
+      ),
+    );
+    const lost = videoOf(mounted);
+    expect(lost.autoplay).toBe(true);
+    Object.defineProperty(lost, "readyState", { value: 4 });
+    Object.defineProperty(lost, "currentTime", { value: 754.5, writable: true });
+    await act(async () => {
+      lost.dispatchEvent(new Event("timeupdate"));
+      lost.dispatchEvent(new Event("pause")); // reported at once, and refused: the server lost it
+      await settle();
+    });
+    const causes = heard
+      .filter((request) => request.methodAndPath === "POST /playback")
+      .map((request) => (request.body as { readonly cause: string }).cause);
+    expect(causes).toEqual(["playPage", "playbackGone"]);
+    const again = videoOf(mounted);
+    expect(again).not.toBe(lost);
+    expect(again.autoplay).toBe(false); // the person had paused it
+    expect(mounted.container.querySelector('[role="alert"]')).toBe(null);
+    Object.defineProperty(again, "readyState", { value: 4 });
+    await act(async () => {
+      again.dispatchEvent(new Event("loadedmetadata"));
+      await settle();
+    });
+    expect(again.currentTime).toBe(754.5); // where the lost one was
+    await act(async () => {
+      again.dispatchEvent(new Event("playing"));
+      await settle();
+    });
+    expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
+      "Reload the page to carry on from where you were",
+    );
+  });
+
+  it("reports at once when the player fails, so a playback lost before it played is learned of", async () => {
+    const heard: Heard[] = [];
+    const playView = createElement(PlayView, {
+      fileId: 2,
+      decision: directDecision({ mediaToken: "failed" }),
+      onDecideAgain: () => undefined,
+    });
+    mounted = await mount(
+      withServices(playView, servedBy({ "POST /playback/failed/report": [204, undefined] }, heard)),
+    );
+    const video = videoOf(mounted);
+    await act(async () => {
+      video.dispatchEvent(new Event("error"));
+      await settle();
+    });
+    expect(heard.map((request) => request.methodAndPath)).toContain("POST /playback/failed/report");
   });
 
   it("moves to the lower quality a report's answer offers, and says which (D247 §2)", async () => {
