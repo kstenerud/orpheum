@@ -297,3 +297,32 @@ func TestTakeProgress_ARunCancelledIsNotTakenAsRunningAgainByItsProgress(t *test
 		t.Errorf("the runs asked for = %+v; want one from chunk 4", runs)
 	}
 }
+
+// A run the node evicted, still running there, is not taken as running again by a progress it said
+// before it stopped, and once its end comes it is no longer held as cancelled: the eviction forgot the
+// run as a cancel does (staging, 2026-10-18).
+func TestTakeProgress_ARunEvictedIsNotTakenAsRunningAgainAndItsEndIsForgotten(t *testing.T) {
+	t.Parallel()
+	fixture := runsOnAFakeNode(t)
+	service := fixture.service
+	grid := mustGrid(t, service)
+	quality := Stream{Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 1200, Height: 480}}
+	dir := StoreDir(1, quality, grid.ID())
+	fixture.start(t, 7, testRun{"q1200k480p", grid.ID(), runArgs{FirstChunk: 3, LastChunk: 5}})
+	command := testutil.Receive(t, fixture.node.sent, "the run's command")
+	service.runs.evict(dir, 3, 1, service.clock.Now())
+	madeThrough := 3
+	service.exchanges.DeliverProgress(t.Context(), 1, nodeproto.Progress{
+		JobID: 7, AttemptToken: command.AttemptToken, State: nodeproto.ProgressRunning,
+		ChunksMadeThrough: &madeThrough,
+	})
+	if service.runs.hasRun(dir) {
+		t.Fatal("the evicted run's progress took it as running again")
+	}
+	service.reported(t, command, nodeproto.MakeChunksReport{State: nodeproto.PrepareDone, LastChunk: 3})
+	service.runs.mutex.Lock()
+	defer service.runs.mutex.Unlock()
+	if len(service.runs.cancelledJobs) != 0 {
+		t.Errorf("after its end, the jobs held as cancelled = %v; want none", service.runs.cancelledJobs)
+	}
+}

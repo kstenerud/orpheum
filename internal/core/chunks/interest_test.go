@@ -261,3 +261,26 @@ func TestStopUnwanted_ARunStoppedAsItsRequestEndsIsStillCancelled(t *testing.T) 
 		t.Errorf("the runs open after the stop = %+v; want none", runs)
 	}
 }
+
+// A paused player's ask for a file of its film, as the API makes it (Want), starts no run past what it
+// keeps ahead: Want planned as the server's own start, which wants every run, and a paused player
+// filling its buffer queued one at each ask (staging, 2026-10-18).
+func TestWant_APausedPlayersAskStartsNoRunPastWhatItKeepsAhead(t *testing.T) {
+	t.Parallel()
+	queue := newFakeQueue()
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	wanted := wantedBy(service)
+	picture := Stream{Kind: nodeproto.StreamPicture}
+	dir := StoreDir(1, picture, mustGrid(t, service).ID())
+	service.runs.madeThrough(dir, 3, 8)
+	paused := playingAt(picture, 3)
+	paused.IsStopped = true
+	wanted.say(paused)
+	file := StoreFile{fileID: 1, kind: OnKeyframes, stream: picture, storeDir: dir, runFrom: 9, chunk: 9}
+	if err := service.Want(t.Context(), file); err != nil {
+		t.Fatal(err)
+	}
+	if runs := queue.runs(t, service); len(runs) != 0 {
+		t.Errorf("a paused player's ask queued %+v; want nothing past the 30 s it keeps ahead", runs)
+	}
+}
