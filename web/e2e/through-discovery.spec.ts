@@ -25,7 +25,7 @@ import {
   type Discovery,
 } from "./discovery-pages.ts";
 import { isPlaying, serverUrl, signIn } from "./pages.ts";
-import { timingFilm, warmUpFilm } from "./server.ts";
+import { secondFilm, warmUpFilm } from "./server.ts";
 import {
   endSession,
   expectHeard,
@@ -170,12 +170,12 @@ function withDirectPath(body: unknown): Record<string, unknown> {
   return Object.fromEntries(entries);
 }
 
-/** Whether the page plays a film over a minute long: the timing film, not the warm-up's ten seconds. */
-async function isPlayingLongFilm(page: Page): Promise<boolean> {
+/** Whether the page plays the second film, twice the warm-up's ten seconds. */
+async function isPlayingSecondFilm(page: Page): Promise<boolean> {
   return await page
     .locator("video")
     .evaluate(
-      (video: HTMLVideoElement) => video.duration > 60 && video.currentTime > 0 && !video.paused,
+      (video: HTMLVideoElement) => video.duration > 15 && video.currentTime > 0 && !video.paused,
     )
     .catch(() => false);
 }
@@ -333,8 +333,8 @@ test("a guest signed in here joins Watch Together by its link on the discovery's
       const debugging = await joining.context.newCDPSession(guest);
       await debugging.send("ServiceWorker.enable");
       await debugging.send("ServiceWorker.stopAllWorkers");
-      await hostPlays(host, timingFilm("chromium"));
-      await expect.poll(() => isPlayingLongFilm(guest), { timeout: 60_000 }).toBe(true);
+      await hostPlays(host, secondFilm);
+      await expect.poll(() => isPlayingSecondFilm(guest), { timeout: 60_000 }).toBe(true);
     }
     await endSession(host);
   } finally {
@@ -410,8 +410,8 @@ test("a guest not signed in keeps reaching the core through the discovery after 
     // Wi-Fi goes off: every connection is gone, and the ones that replace them carry the next film.
     await cutTransport(guest);
     await expect.poll(() => transportConnected(guest), { timeout: 60_000 }).toBeGreaterThan(0);
-    await hostPlays(host, timingFilm(test.info().project.name));
-    await expect.poll(() => isPlayingLongFilm(guest), { timeout: 60_000 }).toBe(true);
+    await hostPlays(host, secondFilm);
+    await expect.poll(() => isPlayingSecondFilm(guest), { timeout: 60_000 }).toBe(true);
     // Loaded again, with the link spent and gone from the address, the page finds the server.
     await guest.reload();
     await expect.poll(() => transportConnected(guest), { timeout: 60_000 }).toBeGreaterThan(0);

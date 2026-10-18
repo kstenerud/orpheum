@@ -59,3 +59,10 @@ export function testsOfThisPass(
     ),
   };
 }
+
+/**
+ * The tag of a test whose claim is the app's, not the browser engine's, so Chromium alone runs it
+ * (playwright.config.ts): the second browser repeated its time and nothing of its proof (the browser
+ * test audit, 2026-10-18; the owner chose them).
+ */
+export const oneBrowserTag = "@one-browser";
