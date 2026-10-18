@@ -22,7 +22,7 @@ export const enLibraries = {
     outcomeWithheld: "removals wait for you",
     watching: "watched for changes",
     watchCauseNetworkFilesystem:
-      "Not watched: it is on a network share, whose changes made on another machine this one never hears of.",
+      "Not watched: it is on a network share or a shared drive, whose changes made elsewhere (another machine, or Windows on a WSL drive) this one never hears of.",
     watchCauseWatchLimit:
       "Not watched: it has more folders than this machine lets one user watch (fs.inotify.max_user_watches).",
     watchCauseUnavailable: "Not watched: this machine gave the node no watcher.",

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"golang.org/x/sys/unix"
@@ -115,6 +116,10 @@ func TestKernel_ARootOnANetworkFilesystemIsNotWatchedAndSaysWhy(t *testing.T) {
 	states := watcher.States()
 	if !states[0].IsWatching || states[1].IsWatching || states[1].Cause != nodeproto.WatchCauseNetworkFilesystem {
 		t.Errorf("the roots' watches are %+v; want the local one watched, the network one not, saying why", states)
+	}
+	// The reason holds for a WSL drive, whose changes come from Windows on the same machine (D314 §5).
+	if !strings.Contains(states[1].Reason, "WSL") {
+		t.Errorf("the network root's reason is %q; want it to name a WSL drive's Windows side too", states[1].Reason)
 	}
 	if kernel.isWatching[network] {
 		t.Error("the network root is watched")

@@ -20,7 +20,7 @@ type WatchCause string
 
 // The causes a root is not watched.
 const (
-	// WatchCauseNetworkFilesystem is a root on NFS or SMB, whose changes made elsewhere the kernel
+	// WatchCauseNetworkFilesystem is a root on NFS, SMB or 9P (a WSL drive), whose changes made elsewhere the kernel
 	// never hears of (D27).
 	WatchCauseNetworkFilesystem WatchCause = "network-filesystem"
 	// WatchCauseWatchLimit is a root with more folders than the kernel lets a user watch

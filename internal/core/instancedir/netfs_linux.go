@@ -20,6 +20,9 @@ func networkFilesystemNameByMagic() map[int64]string {
 		0x00C36400: "CEPH",
 		0x5346414F: "AFS",
 		0x6B414653: "AFS (kAFS)",
+		// 9P: a Windows drive under WSL, or a virtual machine's shared folder, its files served from
+		// outside the kernel that locks them (the Windows research, 2026-10-18).
+		0x01021997: "9P",
 	}
 }
 
