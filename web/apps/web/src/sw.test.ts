@@ -48,7 +48,7 @@ interface FakePage {
 
 function pageOf(
   id: string,
-  path: "webrtc" | "http",
+  path: "webrtc" | "http" | "unanswered",
   send: (request: Request) => Promise<Response>,
 ): FakePage {
   const asked: string[] = [];
@@ -61,7 +61,7 @@ function pageOf(
       if (!(port instanceof MessagePort)) {
         return;
       }
-      if (isPathQueryMessage(message)) {
+      if (isPathQueryMessage(message) && path !== "unanswered") {
         port.postMessage({ kind: "orpheum-path", path });
       }
       if (isFetchMessage(message)) {
@@ -288,6 +288,49 @@ describe("the service worker under a loader (D308 §6)", () => {
     expect(await (await load(worker, "/", { by: "p", mode: "navigate" }))?.text()).toBe(
       "the loader, updated",
     );
+  });
+
+  it("sends a page's media through it when started again, unasked: its client origin serves none", async () => {
+    const send = vi.fn(() => Promise.resolve(new Response("a chunk", { status: 200 })));
+    const first = await startWorker(stores, [], vi.fn<(request: Request) => Promise<Response>>());
+    expect(await nameFiles(first, [{ path: "assets/client-main.js", sha256 }])).toBe("kept");
+    // Started again, by the browser or DevTools, it knows no page's path, and this page is too busy
+    // to answer the question in time.
+    const page = pageOf("p", "unanswered", send);
+    const network = vi.fn<(request: Request) => Promise<Response>>();
+    const again = await startWorker(stores, [page], network);
+    for (const chunk of ["00170", "00171"]) {
+      const answered = await load(again, `/api/v1/bytes/media/chunks/t/q400k360p/${chunk}.m4s`, {
+        by: "p",
+      });
+      expect(await answered?.text()).toBe("a chunk");
+    }
+    expect(page.asked).toEqual([
+      "/api/v1/bytes/media/chunks/t/q400k360p/00170.m4s",
+      "/api/v1/bytes/media/chunks/t/q400k360p/00171.m4s",
+    ]);
+    expect(network).not.toHaveBeenCalled();
+  });
+
+  it("sends a page's media through it though it was finding the core when a file was asked", async () => {
+    let path: "http" | "webrtc" = "http";
+    const send = vi.fn(() => Promise.resolve(new Response("a chunk", { status: 200 })));
+    const page: FakePage = {
+      ...pageOf("p", "http", send),
+      postMessage(message, transfer) {
+        pageOf("p", path, send).postMessage(message, transfer);
+      },
+    };
+    const network = vi.fn(() => Promise.resolve(answer(script)));
+    const worker = await startWorker(stores, [page], network);
+    expect(await nameFiles(worker, [{ path: "assets/client-main.js", sha256 }])).toBe("kept");
+    expect((await load(worker, "/assets/client-main.js", { by: "p" }))?.status).toBe(200);
+    path = "webrtc";
+    const answered = await load(worker, "/api/v1/bytes/media/chunks/t/q400k360p/00001.m4s", {
+      by: "p",
+    });
+    expect(await answered?.text()).toBe("a chunk");
+    expect(network).toHaveBeenCalledTimes(1);
   });
 
   it("leaves another origin's loads alone", async () => {
