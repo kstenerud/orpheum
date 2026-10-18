@@ -29,6 +29,14 @@ features) and prioritize them."
 5. **Music comes into scope** (D1 said "audio second"; D186 kept its schema open).
 6. **Plugins and an API: the possibility, not the implementation, at the closed beta.** The API is
    kept stable enough to build on (D85's compatibility gate), and nothing is built on it yet.
+7. **The discovery we run today matches neither outcome the owner wants:** "(a) a standalone
+   single-core discovery server that users can run on their own VPS, and (b) my paid tier with
+   users and easy registration and eventually billing, connected off the orpheum home page."
+   Today (a) exists only as a package (`discovery/single`) behind `orpheum dev discovery`, its
+   command (W4b.8) and its serving of the web app (W4b.5) planned "after the beta" and waiting on
+   discovery-mode's Q3 and Q5; and (b), `connectd`, is run by its operator: cores claimed by their
+   code from the console (P4), realms given by the command line, no customer accounts (P2), no
+   invitations (P3), no billing (P14), nothing on orpheum-app.com that leads to it.
 
 To record as decisions once the order below is settled.
 
@@ -50,12 +58,37 @@ nothing after it reaches anyone else without it.
 | A recovery code for the server's identity key (K8a) | D292 §4 | M |
 | ICE restart; network change events (K3b, K4) | discovery-core Phase 3 | M |
 | The System page in plain words, first-run form, home address (K12); counting dead ends (K16) | discovery-core | M |
-| The service whole: probe, names and certificates, caps, client integrity and kill switch, operations and lapse (M-S1–M-S4, M-S6) | orpheum-connect service.md | L |
 | Bug reports from inside the app (P10) | bug-reports.md; D74 | M |
 | Log levels changeable at run time | the owner, 2026-10-15 | M |
 | The API compatibility gate, so the API stays something to build on | api-compatibility.md; D85 | S–M |
 | Terms, privacy policy, Impressum | service.md P13 | ? |
 | M4's close: the 30-minute netem acceptance (VQ24) | m4.md | S |
+
+### D: the two discoveries
+
+The owner's two outcomes (decision 7), each a product of its own. Which of them a beta household
+meets first is question 6.
+
+**Da: a discovery a household runs on its own VPS**
+
+| Item | Source | Size |
+| --- | --- | --- |
+| The command: `orpheum discovery`, its claim and re-keying | discovery-mode.md W4b.8; Q5 | M |
+| Serving the web app and the loader at the household's own domain | W4b.5; D274 §5; Q3 | M |
+| Names and certificates at the household's domain, by its DNS provider | discovery-mode Q2 | M |
+| Its own STUN and TURN on the VPS | W4b.3; W6 | S–M |
+| An install a household can follow: image, VPS sizing, DNS, the claim | discovery-core Phase 0 (*undesigned*) | M |
+
+**Db: the paid service, with accounts, from the home page**
+
+| Item | Source | Size |
+| --- | --- | --- |
+| Customer accounts and sign-in by e-mailed link, the account dashboard | service.md P2; D289 §1, §5; D290 §16 | L |
+| Registration a person can do alone: sign up on orpheum-app.com, claim the server from the account (not the operator's console) | P4 "after the beta: claiming from the core with approval" (D290 §1); orpheum-site | L |
+| Invitations for testers | P3; D290 §16 | S–M |
+| Realms chosen by the household, not given by the operator | D297, D298 (code entry waits for accounts) | M |
+| The service whole (probe, names, caps, client integrity, lapse) | M-S1–M-S4, M-S6 | L |
+| Billing: a merchant of record, monthly and yearly, a trial, lapse | P14; Q7; D273 §9 | L, later |
 
 ### B1: the living room, without app stores
 
@@ -149,7 +182,10 @@ Navidrome, Plexamp, OpenSubsonic). Size XL; its shape is a question below.
    smaller.
 4. **The rules engine (B4) is XL and gates parental controls, sharing and smart collections.**
    Profiles and a PIN can come without it. Is a household of children a beta need, or later?
-5. **Is there anything here you want sooner, or not at all?** This list is the field's and the
+6. **Which discovery first, for the beta?** Da lets a technical household join with no account
+   anywhere; Db is the path for everyone else, and the one billing grows from. Both share the
+   protocol and the core's side, which are built.
+7. **Is there anything here you want sooner, or not at all?** This list is the field's and the
    plans'; your own wants weigh more.
 
 ## Plan documents behind the code
