@@ -41,6 +41,14 @@ export const voiceLinkShare = 0.5;
 export const cacheHitUnderMs = 10;
 
 /**
+ * The fewest bytes a chunk measures the link with: a smaller one's time is mostly its request's
+ * wait, not its bytes arriving. A Woman of Paris opens on black, a first chunk of 44.8 KB, which
+ * measured a LAN as 676 kbit/s and started the film at its lowest quality (the owner's test on
+ * staging, 2026-10-18). The lowest quality's 10 s chunk is about 500 KB.
+ */
+export const measuresFromBytesAtLeast = 128 * 1024;
+
+/**
  * The share of its pace a paced chunk arrives at or below to count: slower than that, the link
  * held it back, not the pace (D265 §7).
  */
@@ -191,12 +199,15 @@ export interface LoadedChunk {
 /**
  * Whether a loaded chunk measures the link (D265 §7): not one from the browser's cache, as the film
  * page's chunks are when Play reads them again, which the browser says, or, where it does not, one
- * that loaded in under cacheHitUnderMs; and a
- * paced one only when it arrived at no more than pacedCountsAtMostShare of its pace, the link, not
+ * that loaded in under cacheHitUnderMs; not one under measuresFromBytesAtLeast, whose time is its
+ * request's wait; and a paced one only when it arrived at no more than pacedCountsAtMostShare of its pace, the link, not
  * the pace, holding it back.
  */
 export function measuresTheLink(chunk: LoadedChunk): boolean {
   if (chunk.isFromCache ?? chunk.loadMs < cacheHitUnderMs) {
+    return false;
+  }
+  if (chunk.bytes < measuresFromBytesAtLeast) {
     return false;
   }
   if (chunk.paceBps === undefined) {

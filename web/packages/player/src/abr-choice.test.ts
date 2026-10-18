@@ -12,6 +12,7 @@ import {
   linkShare,
   linkShareForQuality,
   linkShareWhenAhead,
+  measuresFromBytesAtLeast,
   measuresTheLink,
   startingLevel,
   standsStillAtMostMs,
@@ -164,6 +165,11 @@ describe("what measures the link (D265 §7)", () => {
   it("is a chunk that came over the link, not from the browser's cache", () => {
     expect(measuresTheLink(loaded)).toBe(true);
     expect(measuresTheLink({ ...loaded, loadMs: 4, arrivingMs: 1 })).toBe(false);
+  });
+
+  it("is not a chunk so small its time is its request's wait (the owner's test, 2026-10-18)", () => {
+    expect(measuresTheLink({ ...loaded, bytes: 44_794 })).toBe(false); // A Woman of Paris's black opening
+    expect(measuresTheLink({ ...loaded, bytes: measuresFromBytesAtLeast })).toBe(true);
   });
 
   it("goes by what the browser says of its cache, where it says, however long the load took", () => {
