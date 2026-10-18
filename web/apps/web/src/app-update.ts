@@ -26,13 +26,17 @@ export function ownScriptOf(page: Pick<Document, "querySelector">): string | und
 
 /**
  * The built client's script on page, wherever it is served: under a discovery's loader, which runs
- * the core's own client (D308), the core's answers name the very script the page runs.
+ * the core's own client (D308), the core's answers name the very script the page runs, the one the
+ * loader added (by its "?client" address, mountClient), never the loader's own. The loader's was
+ * taken for it: after a core's update its answers named another, and the page reloaded once for
+ * nothing, showing the connecting page and the home page twice (the owner, staging, 2026-10-18).
  */
 export function builtScriptOf(page: Pick<Document, "querySelector">): string | undefined {
-  const entry = page
-    .querySelector('script[type="module"][src^="/assets/index-"]')
-    ?.getAttribute("src");
-  return /^\/assets\/(index-[A-Za-z0-9_-]+\.js)$/u.exec(entry ?? "")?.[1];
+  const entry = (
+    page.querySelector('script[type="module"][src^="/assets/index-"][src$="?client"]') ??
+    page.querySelector('script[type="module"][src^="/assets/index-"]')
+  )?.getAttribute("src");
+  return /^\/assets\/(index-[A-Za-z0-9_-]+\.js)(\?client)?$/u.exec(entry ?? "")?.[1];
 }
 
 /** Whether this page is out of date, learned from the answers it watches, told to listeners. */

@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { createUpdateWatch, ownScriptOf } from "./app-update.ts";
+import { builtScriptOf, createUpdateWatch, ownScriptOf } from "./app-update.ts";
 
 describe("a page out of date", () => {
   it("is one whose own script an answer names otherwise, and only then", () => {
@@ -33,6 +33,13 @@ describe("a page out of date", () => {
     expect(ownScriptOf(document)).toBe("index-DCLi77_b.js");
     document.head.innerHTML = '<script type="module" src="/src/main.tsx"></script>';
     expect(ownScriptOf(document)).toBeUndefined();
+  });
+
+  it("under a loader, knows its own script as the client the loader ran, not the loader's (the owner, 2026-10-18)", () => {
+    document.head.innerHTML =
+      '<script type="module" crossorigin src="/assets/index-Dg03Qf6_.js"></script>' +
+      '<script type="module" crossorigin src="/assets/index-C5034sOT.js?client"></script>';
+    expect(builtScriptOf(document)).toBe("index-C5034sOT.js");
   });
 
   it("is never out of date at a discovery's page, whose client the core's answers do not name", () => {
