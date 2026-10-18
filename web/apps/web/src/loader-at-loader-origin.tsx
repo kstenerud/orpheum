@@ -27,6 +27,7 @@ import {
 } from "./loader-households.ts";
 import type { StringStorage } from "./browser-storage.ts";
 import { ConfirmButton } from "./confirm-button.tsx";
+import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { CredentialsForm } from "./credentials-form.tsx";
 import "./loader-households.css";
 
@@ -51,8 +52,10 @@ function sendOn(path: Reached): FetchRequest {
 async function handOffCode(path: Reached, signIn: SignInWith): Promise<string> {
   const api = createApi({ getToken: () => undefined, fetch: sendOn(path) });
   const device = thisDevice({ deviceId: () => undefined, deviceProof: () => undefined });
+  // One key for the click, so a request the transport sends again signs in once (D244 §4).
   const { data } = await api.POST("/session/handoff", {
     body: { name: signIn.name, password: signIn.password, device },
+    ...idempotent(newIdempotencyKey()),
   });
   if (data === undefined) {
     throw new Error("the server refused the sign-in's hand-off");
