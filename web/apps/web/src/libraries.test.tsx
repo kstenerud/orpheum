@@ -103,7 +103,8 @@ describe("libraries", () => {
       );
     const watched = renderToStaticMarkup(library("watch"));
     expect(watched).toContain("watched for changes");
-    expect(watched).toContain("Not watched: it is on a network share");
+    expect(watched).toContain("Not watched: it is on a network share or a shared drive");
+    expect(watched).toContain("Windows on a WSL drive");
     expect(watched).toContain("Its periodic scan finds what changes.");
     expect(watched).toContain("nfs4");
     const manual = renderToStaticMarkup(library("manual"));

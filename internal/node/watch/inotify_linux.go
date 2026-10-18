@@ -82,7 +82,8 @@ func openKernel(ctx context.Context, watcher *Watcher) (*kernelWatch, *os.File) 
 		if slices.Contains(watcher.options.NetworkRoots, root) {
 			watcher.setState(ctx, nodeproto.RootWatch{
 				RootPath: root, Cause: nodeproto.WatchCauseNetworkFilesystem,
-				Reason: "changes made on another machine to a network filesystem never reach this one's kernel",
+				Reason: "changes made elsewhere to a network or shared filesystem (another machine, or the " +
+					"Windows side of a WSL drive) never reach this kernel",
 			})
 			continue
 		}
