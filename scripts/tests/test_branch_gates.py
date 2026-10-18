@@ -512,7 +512,9 @@ class RevertRedStylesheetsTogether(unittest.TestCase):
         attempts = rr.attempts_for(added, rr.scope_for(self.ADDED))
         self.assertEqual([(a.command, a.compile_only) for a in attempts], [(rr.WEB_BUILD, True)])
         changed = rr.attempts_for(rr.Change(self.OLD, "M"), rr.scope_for(self.OLD))
-        self.assertIn("browser-tier", " ".join(changed[0].command))
+        # The browser-mode tests that import it first, seconds; the browser tier last (the owner, 2026-10-18).
+        self.assertEqual(changed[0].command, [*rr.BROWSER_MODE_RELATED, self.OLD.removeprefix("web/")])
+        self.assertIn("browser-tier", " ".join(changed[-1].command))
 
     def test_a_failing_run_is_halved_down_to_the_sheet_a_test_noticed_and_one_sheet_alone_is_not_batched(self):
         repo, base = self.repo()
@@ -587,8 +589,10 @@ class RevertRedBrowserMap(unittest.TestCase):
         repo, base = self.SHEETS.repo(self.SHEETS())
         ran = Path(tempfile.mkdtemp()) / "ran"
         directory = self.map_at(repo, repo.git("rev-parse", "HEAD").strip(), ["class:y"])
+        # Its browser-mode tests pass, as none imports it: the map then settles it with no browser run.
         with mock.patch.object(browser_map, "BROWSER_MAP", directory), repo.cwd(), \
-                mock.patch.object(rr, "browser_tier_command", lambda: ["sh", "-c", f"echo x >> {ran}", "browser-tier"]):
+                mock.patch.object(rr, "browser_tier_command", lambda: ["sh", "-c", f"echo x >> {ran}", "browser-tier"]), \
+                mock.patch.object(rr, "browser_mode_tests", lambda _path: [rr.Attempt(["true"], "")]):
             outcome = rr.probe_unclaimed(str(repo.root), base, "HEAD", rr.Change(self.SHEETS.UNCLAIMED, "M"), 60)
         self.assertFalse(ran.exists())
         self.assertEqual((outcome.verdict, outcome.detail), ("GREEN", browser_map.NO_TEST_REACHES))

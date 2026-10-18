@@ -1,115 +1,16 @@
 // SPDX-License-Identifier: MPL-2.0
 
-/** The app shell as a browser lays it out: what only a stylesheet decides. */
+/**
+ * The client's stylesheets against its code. The shell's layout, which only a stylesheet decides,
+ * is app-shell.browser.test.tsx's, in vitest's browser mode (the owner, 2026-10-18).
+ */
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { expect, type Locator } from "@playwright/test";
+import { expect } from "@playwright/test";
 
 import { readsStylesheets, test } from "./browser-map.ts";
-import { serverUrl, signIn } from "./pages.ts";
-
-test("the logo is one link home, exactly the logo's size", async ({ page }) => {
-  await signIn(page);
-  const home = page.locator("a.app-shell__home");
-  const logo = home.locator("img.app-shell__logo");
-  const [link, image] = await Promise.all([home.boundingBox(), logo.boundingBox()]);
-  // An inline link around the logo is a line of text tall, not the logo's own box.
-  expect(link?.height).toBeCloseTo(image?.height ?? -1, 0);
-  expect(link?.width).toBeCloseTo(image?.width ?? -1, 0);
-  await home.click();
-  await expect(page).toHaveURL(/\/films$/u);
-});
-
-test("a poster's status cues are a tray down from its top-right corner, over the poster (D301 §4)", async ({
-  page,
-}) => {
-  await signIn(page);
-  const item = page.locator(".poster-grid__item").first();
-  // Opened again until the scan has listed a film, as openFilm does: alone on its server, this test
-  // may come before the scan is done (the browser test audit, 2026-10-18).
-  await expect(async () => {
-    await page.goto(`${serverUrl()}/films`);
-    await expect(item).toBeVisible({ timeout: 1000 });
-  }).toPass({ timeout: 60_000 });
-  // The test's library has nothing that cannot play and no guess: the tray the grid would draw for
-  // both is added to a real item, so the stylesheet alone decides where its cues sit.
-  await item.evaluate((element) => {
-    const tray = document.createElement("span");
-    tray.className = "poster-grid__cues";
-    for (const icon of ["warning-icon", "uncertain-match-icon"]) {
-      const sign = document.createElement("span");
-      sign.className = "warning-sign";
-      const button = document.createElement("button");
-      button.className = "warning-sign__button";
-      const drawn = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      drawn.setAttribute("class", icon);
-      const disc = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      disc.setAttribute("class", `${icon}__disc`);
-      drawn.append(disc);
-      button.append(drawn);
-      sign.append(button);
-      tray.append(sign);
-    }
-    element.append(tray);
-  });
-  const poster = await boxOf(item.locator(".poster"));
-  const [first, second] = [
-    await boxOf(item.locator(".poster-grid__cues > .warning-sign").nth(0)),
-    await boxOf(item.locator(".poster-grid__cues > .warning-sign").nth(1)),
-  ];
-  // In the poster's top-right corner, the second under the first, both over the poster.
-  expect(poster.x + poster.width - (first.x + first.width)).toBeLessThan(20);
-  expect(first.y - poster.y).toBeLessThan(20);
-  expect(first.y).toBeGreaterThanOrEqual(poster.y);
-  expect(second.y).toBeGreaterThanOrEqual(first.y + first.height);
-  expect(Math.abs(second.x + second.width - (first.x + first.width))).toBeLessThan(2);
-  expect(second.y + second.height).toBeLessThan(poster.y + poster.height);
-  // The uncertain match's disc in the owner's caution yellow (D301 §4).
-  const disc = item.locator(".uncertain-match-icon__disc");
-  expect(await disc.evaluate((element) => getComputedStyle(element).fill)).toBe(
-    "rgb(247, 206, 70)",
-  );
-  // Each cue the size of the warning sign's, its icon drawn at the sign's size.
-  expect(Math.abs(second.height - first.height)).toBeLessThan(2);
-  expect(Math.abs(second.width - first.width)).toBeLessThan(2);
-});
-
-test("the gallery draws each status tray at a banner's end, in one row, as the banner does (D280)", async ({
-  page,
-}) => {
-  await signIn(page);
-  await page.goto(`${serverUrl()}/ui-gallery`);
-  const banners = page.locator(".ui-gallery__banner");
-  await expect(banners.first()).toBeVisible();
-  const count = await banners.count();
-  expect(count).toBeGreaterThan(1);
-  for (let index = 0; index < count; index += 1) {
-    const banner = banners.nth(index);
-    const drawn = await boxOf(banner);
-    // A banner's width, not the page's, so its end is where a banner's is.
-    expect(drawn.width).toBeLessThanOrEqual(24 * 16 + 1);
-    const realm = await boxOf(banner.locator(".app-shell__realm"));
-    const menu = await boxOf(banner.locator(".ui-gallery__menu-mark"));
-    // The menu last, at the banner's end inside its padding, level with the realm beside it.
-    const end = drawn.x + drawn.width;
-    expect(end - (menu.x + menu.width)).toBeLessThan(20);
-    expect(menu.x).toBeGreaterThan(realm.x + realm.width - 1);
-    expect(Math.abs(menu.y + menu.height / 2 - (realm.y + realm.height / 2))).toBeLessThan(3);
-  }
-});
-
-/** Where element is drawn; it fails the test when it is drawn nowhere. */
-async function boxOf(
-  element: Locator,
-): Promise<{ x: number; y: number; width: number; height: number }> {
-  const box = await element.boundingBox();
-  if (box === null) {
-    throw new Error("an element the test measures is not drawn");
-  }
-  return box;
-}
 
 /** The client's source folder, beside this one. */
 const clientSource = join(import.meta.dirname, "..", "apps", "web", "src");

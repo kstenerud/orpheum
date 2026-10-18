@@ -18,6 +18,7 @@
     "format": "prettier --write .",
     "deps:check": "depcruise --config .dependency-cruiser.cjs packages apps",
     "test": "vitest run",
+    "test:browser": "vitest run --config vitest.browser.config.ts",
     "build": "npm run build --workspace apps/web --workspace apps/cast-receiver"
   },
   "devDependencies": {
@@ -28,6 +29,7 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.1",
+    "@vitest/browser-playwright": "5.0.1",
     "dependency-cruiser": "18.4.0",
     "eslint": "10.11.0",
     "eslint-plugin-jsx-a11y-x": "0.2.0",

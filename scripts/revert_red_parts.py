@@ -26,13 +26,14 @@ PARTS = ("all", "code", "browser")
 
 
 def is_in_part(path: str, part: str, owed_browser: frozenset[str] = frozenset()) -> bool:
-    """Whether path is one of part's: a stylesheet is the browser part's, and a file the code part
-    left owing its browser runs (BROWSER_OWED) is both; anything else is the code's."""
+    """Whether path is one of part's: every file is the code part's, a stylesheet too, whose cheap
+    run is the browser-mode tests that import it (the owner, 2026-10-18); and a file the code part
+    left owing its browser runs (BROWSER_OWED) is the browser part's as well."""
     if part == "all":
         return True
     if part == "browser":
-        return bool(CSS_SOURCE.search(path)) or path in owed_browser
-    return not CSS_SOURCE.search(path)
+        return path in owed_browser
+    return True
 
 
 def browser_mode(part: str) -> str:

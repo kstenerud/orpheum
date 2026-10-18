@@ -179,11 +179,12 @@ check-generated: ## Fail if committed generated code differs from what its sourc
 
 .PHONY: check-web
 check-web: web-deps ## Typecheck, lint, format, dependency rules and tests for web/, at once
-	@$(MAKE) --no-print-directory -j5 --output-sync=target web-typecheck web-lint web-format-check web-deps-check web-test
+	@$(MAKE) --no-print-directory -j6 --output-sync=target web-typecheck web-lint web-format-check web-deps-check web-test \
+	  web-test-browser
 
 # The web checks, each one of web/package.json's scripts. check-web runs them at once: one after
 # another they took 16 s, the longest step of make check (2026-10-01).
-.PHONY: web-typecheck web-lint web-format-check web-deps-check web-test
+.PHONY: web-typecheck web-lint web-format-check web-deps-check web-test web-test-browser web-test-browser-run
 web-typecheck:
 	@npm --prefix web run --silent typecheck
 web-lint:
@@ -196,6 +197,13 @@ web-deps-check:
 web-test:
 	@# Only the tests the changes since the last pass reach, by vitest's import graph (scripts/web_tests.py).
 	@$(PYTHON) scripts/web_tests.py
+# The browser-mode tests (web/vitest.browser.config.ts), beside the rest so none waits on them: each
+# run starts Chromium and Firefox, about 9 s, so not again while nothing under web/ changed since they
+# passed (the owner, 2026-10-18: no light test waits on a heavy one).
+web-test-browser:
+	@$(PYTHON) scripts/area_stamp.py web-test-browser web -- $(MAKE) --no-print-directory web-test-browser-run
+web-test-browser-run: browsers
+	@npm --prefix web run --silent test:browser
 
 .PHONY: web-deps
 web-deps: ## Install web dependencies from the lockfile when they are missing or stale

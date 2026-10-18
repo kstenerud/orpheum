@@ -13,6 +13,7 @@ import sys
 from dataclasses import dataclass
 
 import browser_map
+from revert_red_parts import CSS_SOURCE
 
 TS_SOURCE = re.compile(r"^web/(packages|apps)/[^/]+/src/.*\.tsx?$")
 
@@ -26,6 +27,21 @@ class Attempt:
     label: str
     env: dict[str, str] | None = None
     compile_only: bool = False
+
+
+# The browser-mode tests that import a file, by vitest's import graph, in Chromium and Firefox with no
+# server (web/vitest.browser.config.ts): seconds, where the browser tier takes minutes, so a probe
+# makes this run among its cheap ones and a red here settles it (the owner, 2026-10-18).
+BROWSER_MODE_RELATED = ["npx", "--prefix", "web", "vitest", "related", "--run", "--passWithNoTests", "--root", "web",
+                        "--config", "vitest.browser.config.ts"]
+
+
+def browser_mode_tests(path: str) -> list[Attempt]:
+    """For web source and stylesheets, the browser-mode tests that import it: what only a real
+    engine shows (a layout, a stylesheet), before any run of the browser tier."""
+    if not (TS_SOURCE.search(path) or CSS_SOURCE.search(path)):
+        return []
+    return [Attempt([*BROWSER_MODE_RELATED, path.removeprefix("web/")], ", found by the browser-mode tests")]
 
 
 def browser_tier(path: str) -> list[Attempt]:

@@ -323,6 +323,26 @@ Each entry says: the **mechanism**, the **instance** we found, **why it was invi
 - **Warning sign:** a browser test whose time is mostly a poll's; a test that passes alone and fails
   in the first pass (it depends on what ran before it on its server); a new `waitForTimeout`.
 
+### 19. A stylesheet's check in the browser tier, behind a server and a sign-in
+
+- **Mechanism:** a layout only a real engine computes (a logo's box, a tray's corner, a row's
+  alignment) was checked by a browser test that started a server, signed in and navigated to draw
+  one component; and revert-red could only settle a stylesheet with a browser-tier run, in its
+  last, slowest part.
+- **Instance** (2026-10-18): the shell's three layout tests took 1.5–5.5 s each per browser; the
+  same checks in vitest's browser mode take about 0.1 s, past a fixed 9 s to start both browsers.
+- **Why it was invisible:** happy-dom draws no layout, so the browser tier looked like the only
+  place such a check could live.
+- **Fix:** `*.browser.test.tsx` runs a component alone in Chromium and Firefox with no server
+  (`web/vitest.browser.config.ts`, `make web-test-browser`), beside the other web checks in `make
+  check` and only when `web/` changed since it passed. Revert-red tries a file's browser-mode tests
+  (`vitest related`, which follows stylesheet imports) among its cheap runs, so a stylesheet's red
+  is found in seconds and only a sheet they leave green owes a browser-tier run. The browser tier
+  keeps what needs the server, the loader or two clients, and Firefox's WebRTC, whose ICE never
+  starts inside vitest's page.
+- **Warning sign:** a browser-tier test whose assertions are a layout's boxes or computed styles; a
+  browser-mode test that imports a page needing the API (it belongs in the tier).
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of

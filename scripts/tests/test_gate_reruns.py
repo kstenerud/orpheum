@@ -314,8 +314,8 @@ if __name__ == "__main__":
 
 
 class Parts(unittest.TestCase):
-    def test_a_stylesheet_is_the_browser_part_and_anything_else_the_codes(self):
-        for path, code, browser in (("web/apps/web/src/browse.css", False, True),
+    def test_every_file_is_the_code_parts_a_stylesheet_too_and_only_what_it_owes_the_browser_parts(self):
+        for path, code, browser in (("web/apps/web/src/browse.css", True, False),
                                     ("web/apps/web/src/browse.tsx", True, False),
                                     ("internal/core/api/browse.go", True, False)):
             self.assertEqual(rr.is_in_part(path, "code"), code, path)
@@ -327,5 +327,6 @@ class Parts(unittest.TestCase):
         self.assertTrue(rr.is_in_part("web/apps/web/src/sw.ts", "browser", owed))
         self.assertTrue(rr.is_in_part("web/apps/web/src/sw.ts", "code", owed))
         self.assertFalse(rr.is_in_part("web/apps/web/src/browse.tsx", "browser", owed))
+        self.assertTrue(rr.is_in_part("web/apps/web/src/browse.css", "browser", frozenset({"web/apps/web/src/browse.css"})))
         self.assertEqual([rr.browser_mode(part) for part in ("code", "browser", "all")],
                          [rr.BROWSER_DEFERRED, rr.BROWSER_ONLY, rr.BROWSER_INLINE])

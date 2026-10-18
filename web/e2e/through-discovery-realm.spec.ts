@@ -51,28 +51,15 @@ test("a person with no link signs in at a paid discovery's page by realm, name a
     await page.getByLabel("Realm", { exact: true }).fill("KarlNAS");
     await page.getByLabel("Name", { exact: true }).fill(owner.name);
     await page.getByLabel("Password", { exact: true }).fill(owner.password);
-    // The box sits in one row beside its words.
-    await expect(page.locator(".credentials-form__check")).toHaveCSS("display", "flex");
     await page.getByLabel("This is my own device: remember my realm").check();
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.locator(".app-shell__realm")).toHaveText("karlnas", { timeout: 60_000 });
     expect(new URL(page.url()).hostname.endsWith(".localhost")).toBe(true);
-    // Quiet beside the tray, on one line however narrow the banner.
-    await expect(page.locator(".app-shell__realm")).toHaveCSS("white-space", "nowrap");
     await expect(page.getByRole("link", { name: "Films" })).toBeVisible();
-    // Back at the loader, the household is listed with a small red Forget at its row's end, not a
-    // button the form's width beside a small name (the owner, 2026-10-17).
+    // Back at the loader, the household is listed, and Forget forgets it; how the list is laid out
+    // is realm-sign-in.browser.test.tsx's.
     await page.goto(`${discovery.loaderOrigin}/?households=`);
-    const forget = page.getByRole("button", { name: "Forget karlnas" });
-    const name = await page.getByRole("link", { name: "karlnas" }).boundingBox();
-    const drawn = await forget.boundingBox();
-    const list = await page.locator(".loader-households").boundingBox();
-    if (name === null || drawn === null || list === null) {
-      throw new Error("the household list is drawn nowhere");
-    }
-    expect(drawn.width).toBeLessThan(list.width / 2);
-    expect(Math.abs(drawn.y + drawn.height / 2 - (name.y + name.height / 2))).toBeLessThan(3);
-    await forget.click();
+    await page.getByRole("button", { name: "Forget karlnas" }).click();
     await page.getByRole("button", { name: "Forget it" }).click();
     await expect(page.locator(".loader-households li")).toHaveCount(0);
   } finally {
