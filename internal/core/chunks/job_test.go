@@ -261,3 +261,39 @@ func TestTakeProgress_ARunNoPlayerWantsStopsAtItsNextStep(t *testing.T) {
 		}
 	}
 }
+
+// A run cancelled whose node still says its progress, as one does between the cancel and its end,
+// is not taken as running again: it was, and the chunks it was to make counted as on their way,
+// which no run made (staging, 2026-10-18).
+func TestTakeProgress_ARunCancelledIsNotTakenAsRunningAgainByItsProgress(t *testing.T) {
+	t.Parallel()
+	fixture := runsOnAFakeNode(t)
+	service := fixture.service
+	grid := mustGrid(t, service)
+	quality := Stream{Kind: nodeproto.StreamQuality, Quality: qualities.Quality{Kbps: 1200, Height: 480}}
+	dir := StoreDir(1, quality, grid.ID())
+	wanted := wantedBy(service)
+	fixture.start(t, 7, testRun{"q1200k480p", grid.ID(), runArgs{FirstChunk: 3, LastChunk: 5}})
+	command := testutil.Receive(t, fixture.node.sent, "the run's command")
+	service.runs.knowGrid(dir, grid)
+	if err := service.StopUnwanted(t.Context(), 1); err != nil {
+		t.Fatal(err)
+	}
+	// The player wants it again before the cancelled run's last word arrives.
+	wanted.say(Interest{StreamName: "q1200k480p", PositionMs: 40_000})
+	madeThrough := 3
+	service.exchanges.DeliverProgress(t.Context(), 1, nodeproto.Progress{
+		JobID: 7, AttemptToken: command.AttemptToken, State: nodeproto.ProgressRunning,
+		ChunksMadeThrough: &madeThrough,
+	})
+	if service.runs.hasRun(dir) {
+		t.Fatal("the cancelled run's progress took it as running again")
+	}
+	// Its chunks after the one made start a run of their own.
+	if err := service.askedFor(t.Context(), 1, OnKeyframes, quality, 4); err != nil {
+		t.Fatal(err)
+	}
+	if runs := fixture.queue.runs(t, service); len(runs) != 1 || runs[0].firstChunk != 4 {
+		t.Errorf("the runs asked for = %+v; want one from chunk 4", runs)
+	}
+}

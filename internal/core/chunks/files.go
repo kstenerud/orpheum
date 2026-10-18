@@ -119,7 +119,7 @@ func (service *Service) Want(ctx context.Context, file StoreFile) error {
 	if err := service.StopUnwanted(ctx, file.fileID); err != nil {
 		return err
 	}
-	return service.Ensure(ctx, file.fileID, file.kind, file.stream, file.runFrom)
+	return service.askedFor(ctx, file.fileID, file.kind, file.stream, file.runFrom)
 }
 
 // WantAlongside makes sure sound is made from where picture is, a file of a picture asked for where
@@ -135,7 +135,7 @@ func (service *Service) WantAlongside(ctx context.Context, picture, sound StoreF
 	if !picture.isSought || picture.isInit || sound.fileID != picture.fileID || sound.kind != picture.kind {
 		return nil
 	}
-	return service.Ensure(ctx, sound.fileID, sound.kind, sound.stream, picture.runFrom)
+	return service.askedFor(ctx, sound.fileID, sound.kind, sound.stream, picture.runFrom)
 }
 
 // AsSought is the file asked for by a player loading where a seek took it, its person's or its
@@ -179,7 +179,7 @@ func (service *Service) Served(ctx context.Context, file StoreFile) error {
 		service.runs.served(file.storeDir, file.chunk)
 	}
 	if !file.isInit && service.runs.isCovered(file.storeDir, file.chunk+1) {
-		return service.Ensure(ctx, file.fileID, file.kind, file.stream, file.chunk)
+		return service.askedFor(ctx, file.fileID, file.kind, file.stream, file.chunk)
 	}
 	storeID, isMaking := service.runs.making(file.storeDir)
 	if !isMaking || storeID == 0 {

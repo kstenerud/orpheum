@@ -109,7 +109,7 @@ func (tracker *runTracker) evict(dir string, first int, nodeID int64, now time.T
 	tracker.mutex.Lock()
 	defer tracker.mutex.Unlock()
 	known := tracker.storeLocked(dir)
-	delete(known.runByFirst, first)
+	tracker.cancelLocked(known, first)
 	known.evictedAt = now
 	tracker.evictedOnAt[nodeID] = now
 }
@@ -120,7 +120,7 @@ func (tracker *runTracker) evict(dir string, first int, nodeID int64, now time.T
 func (tracker *runTracker) drop(dir string, first int, nodeID int64, now time.Time) {
 	tracker.mutex.Lock()
 	defer tracker.mutex.Unlock()
-	delete(tracker.storeLocked(dir).runByFirst, first)
+	tracker.cancelLocked(tracker.storeLocked(dir), first)
 	tracker.evictedOnAt[nodeID] = now
 }
 

@@ -47,6 +47,7 @@ User-Agent (D263; the User-Agent is logged only).
 | The browser takes a fragment's append without error but adds nothing to the buffer. | [hls.js reports a fragment the browser held nothing of, then does nothing about it](#hlsjs-reports-a-fragment-the-browser-held-nothing-of-then-does-nothing-about-it) |
 | `RTCRtpReceiver.getCapabilities("audio")` lists no `audio/red`, so plain Opus is negotiated and voice has less loss protection. | [Firefox offers no RED (redundant audio) for Opus](#firefox-offers-no-red-redundant-audio-for-opus) |
 | Voice hung at "Asking for your microphone" because opening the microphone awaited the context's resume. | [Firefox keeps `AudioContext.resume()` pending until it lets the page play sound](#firefox-keeps-audiocontextresume-pending-until-it-lets-the-page-play-sound) |
+| A tab throttled to "Slow 4G" in DevTools still loaded a film at full speed, and its player never stepped down. | [Chrome DevTools' network throttling does not slow a service worker's requests](#chrome-devtools-network-throttling-does-not-slow-a-service-workers-requests) |
 | With voice on, the film was turned down and the volume buttons stopped changing its volume. | [Firefox on Android makes a "call" of gain control and noise suppression, even with echo cancelling off](#firefox-on-android-makes-a-call-of-gain-control-and-noise-suppression-even-with-echo-cancelling-off) |
 | A volume slider on an iPhone moves only when the touch lands on its thumb. | [iPhone Safari moves a range slider only by a touch that starts on its thumb](#iphone-safari-moves-a-range-slider-only-by-a-touch-that-starts-on-its-thumb) |
 | The position reads as not advancing, which looks like false drift and causes spurious nudges. | [Safari's `currentTime` stands still for up to about 250 ms after play, seek or a rate change](#safaris-currenttime-stands-still-for-up-to-about-250-ms-after-play-seek-or-a-rate-change) |
@@ -701,6 +702,23 @@ User-Agent (D263; the User-Agent is logged only).
   41784137](https://stackoverflow.com/questions/41784137/webrtc-doesnt-work-with-audiocontext),
   [53325793](https://stackoverflow.com/questions/53325793/no-audio-from-webrct-stream-on-chrome-without-audio-tag)).
 
+
+### Chrome DevTools' network throttling does not slow a service worker's requests
+
+- **Symptom:** with "Slow 4G" or "3G" set in a tab's Network panel, a film on the client origin
+  went on at 2.3 Mb/s and its player never stepped down (the owner, staging, 2026-10-18).
+- **Cause:** throttling is per DevTools target; the page's requests the service worker answers,
+  and the worker's own fetches to the network, belong to the worker, which the tab's setting does
+  not touch.
+- **What we do:** to test a slow link, tick "Bypass for network" under Application → Service
+  workers and reload, or open the worker from `chrome://inspect/#service-workers` and throttle in
+  its own window. Nothing in the code: the worker (`web/apps/web/src/sw.ts`) is the client
+  origin's loader (D308).
+- **Evidence:** the owner's test on staging, 2026-10-18. **[web]** "Setting network throttle
+  doesn't affect requests handled by the worker" ([mswjs/msw discussion
+  804](https://github.com/mswjs/msw/discussions/804)); Chrome's own [request conditions
+  documentation](https://developer.chrome.com/docs/devtools/request-conditions) throttles per
+  panel (read 2026-10-18).
 
 ### Brave on Android refused the microphone
 

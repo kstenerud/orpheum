@@ -141,7 +141,7 @@ func (tracker *runTracker) cutUnwanted(fileID int64, interests []Interest, keptA
 				RunSpan: RunSpan{First: each.first, Last: each.last, MadeThrough: each.madeThrough},
 				dir:     dir, storeID: known.storeID,
 			})
-			delete(known.runByFirst, first)
+			tracker.cancelLocked(known, first)
 		}
 	}
 	return stopped
@@ -196,6 +196,31 @@ func (known *storeRuns) isWantedLocked(each *run, stream string, interests []Int
 		}
 	}
 	return false
+}
+
+// wantedness says whether the players' interests want a run of a store, its tracker locked.
+type wantedness func(known *storeRuns, each *run) bool
+
+// wantsEvery is the wantedness of the server's own start of a run, and where nothing says.
+func wantsEvery(*storeRuns, *run) bool { return true }
+
+// wantednessOf is what the players of fileID want of stream's runs now, for a player's ask, isAsked;
+// wantsEvery for the server's own start, or where nothing says.
+func (service *Service) wantednessOf(
+	ctx context.Context, fileID int64, stream Stream, isAsked bool,
+) (wantedness, error) {
+	interests, isKnown := service.interestsOf(fileID)
+	if !isAsked || !isKnown {
+		return wantsEvery, nil
+	}
+	keptAhead, err := service.settings.Duration(ctx, settings.ChunkKeptAheadSeconds)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", settings.ChunkKeptAheadSeconds, err)
+	}
+	name := stream.Name()
+	return func(known *storeRuns, each *run) bool {
+		return known.isWantedLocked(each, name, interests, keptAhead.Milliseconds())
+	}, nil
 }
 
 // knowGrid records the grid a store's chunks are cut on, which its runs' interests are read on.
