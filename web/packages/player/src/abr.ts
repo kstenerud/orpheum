@@ -113,9 +113,28 @@ export interface ChoosingLink<Chunk extends FollowedChunk> {
    */
   readonly measureGivenUp: (durationMs: number, bytes: number) => void;
   /**
-   * Builds the video's decoding anew and loads again from where it is, at the quality chosen next.
+   * Builds the video's decoding anew and loads again from positionS, where the video stood, at the
+   * quality chosen next.
    */
-  readonly loadAgain: () => void;
+  readonly loadAgain: (positionS: number) => void;
+}
+
+/**
+ * Builds hls's video's decoding anew (recoverMediaError), and starts its loading again from positionS
+ * once the new media source is attached. hls.js restarts only a loader still stopped then, and a
+ * chunk the detach aborted marks the picture's loader idle while detached (resetFragmentLoading, with
+ * no chunk current): at 0:00 its loader then never loaded again, from where it had loaded to, the
+ * video holding nothing (a Mac's Firefox giving up A Woman of Paris's own picture, the owner's test
+ * on staging, 2026-10-18).
+ */
+export function loadAgainFrom(
+  hls: Pick<Hls, "once" | "recoverMediaError" | "startLoad">,
+  positionS: number,
+): void {
+  hls.once(Events.MEDIA_ATTACHED, () => {
+    hls.startLoad(positionS);
+  });
+  hls.recoverMediaError();
 }
 
 /**
@@ -446,7 +465,7 @@ export class Choosing<Chunk extends FollowedChunk> {
       positionMs: Math.round(positionS * 1000),
       isFilmsOwnPicture: level === ownPictureLevel(this.#hls.levels),
     });
-    this.#link.loadAgain();
+    this.#link.loadAgain(positionS);
   }
 
   #lookForStepUp(): void {
@@ -544,11 +563,11 @@ class OrpheumAbrController extends AbrController {
         frag.abortRequests();
         hls.trigger(Events.FRAG_LOAD_EMERGENCY_ABORTED, { frag, part: null, stats: frag.stats });
       },
-      loadAgain: () => {
+      loadAgain: (positionS) => {
         // A new MediaSource, so the browser's decoding is built anew: dropping the buffer alone
         // left Firefox on macOS stuck after Flow's HEVC, every lower quality frozen too, for two
-        // minutes (the owner's test, 2026-10-08). It loads again from where the video was.
-        hls.recoverMediaError();
+        // minutes (the owner's test, 2026-10-08).
+        loadAgainFrom(hls, positionS);
       },
     });
   }

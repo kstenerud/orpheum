@@ -45,6 +45,7 @@ User-Agent (D263; the User-Agent is logged only).
 | *Flow* (10-bit HEVC by x265) froze at the first frame of any chunk but the film's first. | [Firefox on macOS freezes on HEVC chunks that start on a CRA keyframe](#firefox-on-macos-freezes-on-hevc-chunks-that-start-on-a-cra-keyframe) |
 | After a jump, the sound's first chunk is asked for only once the picture's has come. | [hls.js asks for a jump's sound only after its picture](#hlsjs-asks-for-a-jumps-sound-only-after-its-picture) |
 | The browser takes a fragment's append without error but adds nothing to the buffer. | [hls.js reports a fragment the browser held nothing of, then does nothing about it](#hlsjs-reports-a-fragment-the-browser-held-nothing-of-then-does-nothing-about-it) |
+| After a quality is given up at 0:00, only the sound loads again: the picture's loader asks for nothing. | [hls.js leaves its picture loader idle after `recoverMediaError` when a chunk was loading](#hlsjs-leaves-its-picture-loader-idle-after-recovermediaerror-when-a-chunk-was-loading) |
 | `RTCRtpReceiver.getCapabilities("audio")` lists no `audio/red`, so plain Opus is negotiated and voice has less loss protection. | [Firefox offers no RED (redundant audio) for Opus](#firefox-offers-no-red-redundant-audio-for-opus) |
 | Voice hung at "Asking for your microphone" because opening the microphone awaited the context's resume. | [Firefox keeps `AudioContext.resume()` pending until it lets the page play sound](#firefox-keeps-audiocontextresume-pending-until-it-lets-the-page-play-sound) |
 | A tab throttled to "Slow 4G" in DevTools still loaded a film at full speed, and its player never stepped down. | [Chrome DevTools' network throttling does not slow a service worker's requests](#chrome-devtools-network-throttling-does-not-slow-a-service-workers-requests) |
@@ -1120,6 +1121,33 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   [hls.js#8035](https://github.com/video-dev/hls.js/issues/8035), "locally determined gaps do not survive
   recoverMediaError()": open (checked 2026-10-08), which matters because D266 rebuilds with
   `recoverMediaError`.
+
+### hls.js leaves its picture loader idle after `recoverMediaError` when a chunk was loading
+
+- **Technology:** hls.js 1.7.3, `recoverMediaError`, any browser.
+- **Symptom:** after D266 gave up the film's own picture at 0:00, only the sound loaded again: the steps read
+  `detached; error aborted; sound 0/0 loading; attached; sound 0/0 loaded`, then nothing. The picture's loader
+  never chose a quality or asked for a playlist or a chunk, and the video held nothing for as long as it was
+  left. Mid-film, the same give-up recovered.
+- **Cause:** `recoverMediaError` detaches the media, which stops the stream controller (`STOPPED`) and aborts
+  the chunk it was loading. The abort's error comes after, and `handleFragLoadAborted` calls
+  `resetFragmentLoading`, which sets `IDLE` whenever no chunk is current, as the stop left it. On the new
+  attach, `onMediaAttached` restarts only a loader still `STOPPED`, so this one is skipped. It idles with its
+  old load position, the end of what it had loaded, and with no metadata yet it looks for a chunk there.
+  `recoverMediaError` calls `startLoad(currentTime)` itself only when `currentTime` is not 0, so a give-up
+  mid-film was rescued by that call and one at 0:00 was not [source] [measured]. It is a race: a chunk that
+  finished loading before the detach left nothing to abort, and the loader restarted.
+- **What we do:** `loadAgainFrom` in `web/packages/player/src/abr.ts` starts loading again from where the video
+  stood once the new media source is attached, whatever state hls.js left its loader in.
+- **Evidence:** [owner] 2026-10-18 on staging, A Woman of Paris from 0:00 in Firefox on macOS, the stall's
+  steps above. [measured] headless Firefox on Linux, our player on a stream whose first video SourceBuffer
+  silently empties every append (`.dev/hlsrepro/ours.cjs`): three of four trials stuck, the loader `IDLE`
+  while detached with `nextLoadPosition` 40.08 s; with `loadAgainFrom`, six of six played. [source]
+  `base-stream-controller.ts` (`resetFragmentLoading`, `onMediaAttached`) and `hls.ts` (`recoverMediaError`)
+  at v1.7.3. **[web]** searched 2026-10-18: no hls.js issue names it.
+  [hls.js#2652](https://github.com/video-dev/hls.js/issues/2652) shows the same `STOPPED`, `IDLE` transitions
+  around a `recoverMediaError`, and [hls.js#8035](https://github.com/video-dev/hls.js/issues/8035) is a
+  related loss of state across it.
 
 ---
 

@@ -12,6 +12,7 @@ import {
   orpheumAbr,
   type ChoosingHls,
   type FollowedChunk,
+  loadAgainFrom,
 } from "./abr.ts";
 import { commonStartForMs } from "./abr-choice.ts";
 import { failOnFatal } from "./hls.ts";
@@ -79,12 +80,15 @@ function choosingFrom(startAtBps: number): {
   link: { estimateBps: number };
   givenUp: FollowedChunk[];
   loadsAgain: number[];
+  /** Where each load again was from, in seconds of the film. */
+  loadsAgainFromS: number[];
   unplayable: { readonly qualityKbps: number; readonly positionMs: number }[];
 } {
   const hls = new FakeHls();
   const link = { estimateBps: 0 };
   const givenUp: FollowedChunk[] = [];
   const loadsAgain: number[] = [];
+  const loadsAgainFromS: number[] = [];
   const unplayable: { readonly qualityKbps: number; readonly positionMs: number }[] = [];
   const choosing = new Choosing<FollowedChunk>(
     hls,
@@ -103,10 +107,13 @@ function choosingFrom(startAtBps: number): {
       measureGivenUp: (durationMs, bytes) => {
         link.estimateBps = (bytes * 8 * 1000) / durationMs;
       },
-      loadAgain: () => loadsAgain.push(nowMs),
+      loadAgain: (positionS) => {
+        loadsAgain.push(nowMs);
+        loadsAgainFromS.push(positionS);
+      },
     },
   );
-  return { hls, choosing, link, givenUp, loadsAgain, unplayable };
+  return { hls, choosing, link, givenUp, loadsAgain, loadsAgainFromS, unplayable };
 }
 
 /** Loads a chunk at level over the link: bytes in loadMs, its first after 50 ms. */
@@ -235,7 +242,7 @@ describe("a quality this device cannot play (D266)", () => {
   }
 
   it("is given up when the video stands still while its chunks arrive, and loaded again lower", () => {
-    const { choosing, loadsAgain, unplayable } = standingAt(420.5);
+    const { choosing, loadsAgain, loadsAgainFromS, unplayable } = standingAt(420.5);
     load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
     load(choosing, 3, { bytes: 6_000_000, loadMs: 1000 });
     nowMs = 6000;
@@ -244,6 +251,7 @@ describe("a quality this device cannot play (D266)", () => {
       { qualityKbps: 36_208, positionMs: 420_500, isFilmsOwnPicture: false },
     ]);
     expect(loadsAgain).toEqual([6000]);
+    expect(loadsAgainFromS).toEqual([420.5]); // from where it stood
     expect(choosing.nextLevel()).toBe(2);
   });
 
@@ -580,5 +588,28 @@ describe("a hole hls.js cannot step over (D266; the owner's group test, 2026-10-
     hls.trigger(Events.ERROR, other);
     expect(failures).toHaveLength(1);
     hls.destroy();
+  });
+});
+
+describe("loading again after the video's decoding is built anew (D266)", () => {
+  it("starts loading from where the video stood once the new media source is attached (the owner's test, 2026-10-18)", () => {
+    const calls: string[] = [];
+    const onAttached: (() => void)[] = [];
+    const hls = {
+      once: (event: Events, listener: () => void) => {
+        if (event === Events.MEDIA_ATTACHED) {
+          onAttached.push(listener);
+        }
+      },
+      recoverMediaError: () => calls.push("recoverMediaError"),
+      startLoad: (positionS?: number) => calls.push(`startLoad ${String(positionS)}`),
+    } as unknown as Parameters<typeof loadAgainFrom>[0];
+    loadAgainFrom(hls, 0.04);
+    // Not before: hls.js's loader is detached, and a chunk the detach aborted is still to mark it idle.
+    expect(calls).toEqual(["recoverMediaError"]);
+    for (const attached of onAttached) {
+      attached();
+    }
+    expect(calls).toEqual(["recoverMediaError", "startLoad 0.04"]);
   });
 });
