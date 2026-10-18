@@ -45,7 +45,11 @@ shows where each stands.
 
 ## Sequence
 
-**Start here to build: [cut-a.md](cut-a.md).** Cut A — the owner at home and one person remote,
+**Now: [closed-beta.md](closed-beta.md)** ([D313](../../decisions/working-notes.md)). Cut A's M0–M4
+are built; the closed beta's milestones B0–B5 come next, in that order, and replace cut-a's M5 and
+M6 as what follows. What `cut-a.md` built is still its contract.
+
+**Cut A: [cut-a.md](cut-a.md).** Cut A — the owner at home and one person remote,
 watching together with subtitles ([D178](../../decisions/working-notes.md)) — is the first
 release, and `cut-a.md` is its build contract: the topology and byte path, the repository
 layout, the endpoints and message sets, the error and job models, and milestones M0–M5. **Cut

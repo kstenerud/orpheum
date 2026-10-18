@@ -18,12 +18,80 @@ and finally acquired a phase. Revised **2026-09-23** after a second audit
 ([audit-2026-09-23.md](contributors/design/research/audit-2026-09-23.md),
 [D191](contributors/decisions/working-notes.md)–[D193](contributors/decisions/working-notes.md)),
 which moved every media read and FFmpeg run into the node, made **prepare** Cut A's one path
-besides direct play, and froze Cut A's design. Pre-implementation. Phase boundaries are ordering
-constraints, not dates.
+besides direct play, and froze Cut A's design. Revised **2026-10-18** after the milestone
+reassessment ([milestone-reassessment-2026-10-18.md](contributors/design/research/milestone-reassessment-2026-10-18.md),
+[D310](contributors/decisions/working-notes.md)–[D313](contributors/decisions/working-notes.md)): Cut A's M0–M4 are built, and the closed beta's milestones come next.
+~~Pre-implementation.~~ Phase boundaries are ordering constraints, not dates.
 
 ---
 
-## Now: Cut A — two people, one of them remote
+## Now: the closed beta
+
+**Decided 2026-10-18** ([D313](contributors/decisions/working-notes.md), with [D310](contributors/decisions/working-notes.md)–[D312](contributors/decisions/working-notes.md)). The next milestones are for
+the households of a closed beta: what another household needs to install, reach, trust and enjoy
+it. They replace cut-a.md's M5 and M6 as what comes next.
+**[plans/closed-beta.md](contributors/design/plans/closed-beta.md) is their plan.** In order:
+
+- **B0, joining the beta:** a core install a household follows without help; the paid service's
+  accounts with passkeys, invitations and enrolment keys, guarded as the household's own key
+  ([D312](contributors/decisions/working-notes.md)); every code to one pattern ([D311](contributors/decisions/working-notes.md)); the identity key's recovery code;
+  connections that heal on network changes; the System page in plain words; bug reports; log levels
+  changed while running; terms and privacy. All of it before the first outside household.
+- **B1, between episodes:** Next Up; intros and credits detected ([D82](contributors/decisions/working-notes.md)) and skipped; the
+  next-episode countdown; scrub-bar thumbnails; a Watch Together group carried from episode to
+  episode.
+- **B2, the library and its people:** genres, filters and sorts; watched marks; the watchlist;
+  episode orderings; missing episodes; disc images; profiles with a PIN; a second factor on the
+  core's own accounts.
+- **B3, every file plays well:** the playback survey first (Phase 0 below, never run); HDR tone
+  mapping, scoped first; VAAPI and AMD encoding; caption styles; language defaults; night mode;
+  HEVC played as it is where the browser can, prepares staying H.264.
+- **B4, the UI revamp** ([D245](contributors/decisions/working-notes.md)'s M5), over the features above: *"doing the ui revamp would
+  risk handcuffing us"* (the owner, 2026-10-18).
+- **B5, the living room**, last: TV mode for a TV's own browser, TV sign-in by a code the TV shows,
+  Google Cast, AirPlay, "Get this ready", voice on a second device. No app store yet.
+
+**How a household reaches its core** ([D273](contributors/decisions/working-notes.md), [D274](contributors/decisions/working-notes.md); they replace the port-forward,
+IPv6 and tunnel of Phase 2b below): through a discovery, first by WebRTC, which needs nothing from
+the household's network; the core's direct paths, at home, by IPv6 or by an IPv4 address it maps
+or is given, are upgrades the client races ([discovery-protocol.md](contributors/design/discovery-protocol.md)).
+Nothing is relayed by us, and a relay waits for demand (D274 §2). `app.orpheum-app.com` serves a
+small loader, and each core serves its own client ([D308](contributors/decisions/working-notes.md)).
+
+**Two discoveries** ([D310](contributors/decisions/working-notes.md)):
+
+- **The paid service** at `app.orpheum-app.com`, a closed service built on Orpheum's public
+  `discovery/` packages ([D275](contributors/decisions/working-notes.md)). The closed beta runs on it, free: a person invited makes an
+  account, free for life in the closed beta, and is given one key for one core; the core's admin
+  enters the key at home; then the household uses the service's app from anywhere. One key, one
+  core, per account for now.
+- **A discovery a household runs itself**, on its own VPS
+  ([discovery-mode.md](contributors/design/plans/discovery-mode.md)), enrolling its core the same way, by a key from its
+  command line (D310 §7). Before the open beta, possibly during the closed one.
+
+**Built on the way, outside Cut A's milestones** (D273–D309; [plan-deviations](contributors/plan-deviations.md)
+P57): the core's side of the discovery protocol ([discovery-core.md](contributors/design/plans/discovery-core.md)), the
+WebRTC transport ([webrtc-transport.md](contributors/design/plans/webrtc-transport.md)), device codes
+([D288](contributors/decisions/working-notes.md)), realms ([D297](contributors/decisions/working-notes.md), [D298](contributors/decisions/working-notes.md)), the loader
+([client-from-core.md](contributors/design/plans/client-from-core.md)) and release mode ([release.md](contributors/design/plans/release.md),
+[D272](contributors/decisions/working-notes.md)). nas.example has run release mode since 2026-10-13, reached through the production
+service since 2026-10-15.
+
+**After the closed beta** ([closed-beta.md](contributors/design/plans/closed-beta.md), "After the closed beta"; D313 §7):
+the self-run discovery before the open beta; music revisited when the closed beta ends; the
+owner's maybes and everything marked later unplaced. Not wanted: the API's compatibility gate for
+now, live TV, photos. Before a public release, every dependency pinned to an audited commit
+([D220](contributors/decisions/working-notes.md)).
+
+The phases below are the first plan's order. They keep their place for what neither Cut A nor the
+closed beta places; **where a phase's text disagrees with this section, this section wins.**
+
+---
+
+## Built: Cut A — two people, one of them remote
+
+*M0–M4 are built ([cut-a.md](contributors/design/plans/cut-a.md) §8); M4 waits only on its 30-minute acceptance run
+under netem ([m4.md](contributors/design/plans/m4.md)). Its M5 and M6 became the closed beta's B4 and B5 (D313).*
 
 **Decided 2026-09-23** ([D178](contributors/decisions/working-notes.md)). The first release is for the owner at home and one person
 remote, watching together with subtitles. **A feature is in it only if one of them needs it;
@@ -34,7 +102,7 @@ something this section leaves out, this section wins.**
 
 **Cut A's design is frozen** ([D193](contributors/decisions/working-notes.md) §8).
 **[plans/cut-a.md](contributors/design/plans/cut-a.md) is the build contract** — topology, byte
-path, repository layout, endpoints, message sets, errors, the job queue and milestones M0–M5 —
+path, repository layout, endpoints, message sets, errors, the job queue and milestones ~~M0–M5~~ M0–M6, of which M0–M4 are built —
 and a new decision is made only when code or a measurement forces one.
 
 - **Library:** scan, identify, ambiguous-match chooser and manual fixes, versions, extras, NFO
@@ -54,14 +122,16 @@ and a new decision is made only when code or a measurement forces one.
   stereo speakers, and loudness levelling: the node measures each sound in a job, and the player
   applies a gain towards -23 LUFS ([D226](contributors/decisions/working-notes.md)).
 - **Together:** local accounts, invite from outside, Watch Together for two with voice (browser
-  WebRTC through a TURN server embedded in our binary), reachability (a port-forward, then IPv6,
-  then a standard tunnel to a VPS, under one public HTTPS name from DNS-01), prepared versions
-  (prepare's `h264`), the cast receiver. The session behaves as if nobody has an account; a
+  WebRTC through a TURN server embedded in our binary), reachability ~~(a port-forward, then IPv6,
+  then a standard tunnel to a VPS, under one public HTTPS name from DNS-01)~~ (built as a tunnel to
+  a VPS, D243 §7; since replaced by a discovery, [D273](contributors/decisions/working-notes.md), [D274](contributors/decisions/working-notes.md)), prepared versions
+  (prepare's `h264`)~~, the cast receiver~~. The session behaves as if nobody has an account; a
   signed-in participant's viewing is also recorded as their own
-  ([D191](contributors/decisions/working-notes.md)). **Her television plays and her phone
+  ([D191](contributors/decisions/working-notes.md)). ~~**Her television plays and her phone
   talks** ([D188](contributors/decisions/working-notes.md)), by the first path her setup allows: its browser, our cast receiver,
   a sideloaded prototype, or else the laptop — joining the session as a device of her
-  membership, not paired to the server (D191).
+  membership, not paired to the server (D191).~~ The cast receiver and her television were moved after
+  Cut A ([D245](contributors/decisions/working-notes.md)), and are now the closed beta's B5, last (D313 §6).
 - **Running it:** backup and restore, now playing.
 - **The architecture:** media nodes, and the web client good on a phone — plain React +
   TypeScript + Vite, with a pinned jellyfin-ffmpeg on the node (D193 §6).
@@ -70,19 +140,24 @@ and a new decision is made only when code or a measurement forces one.
 private repository, the owner and their partner testing. The public packaging channels, the
 release feed and the published cast receiver are beta-stage work.
 
-**Out for now:** roles and parental controls, collections-as-sequences, offline, segment
-detection, trickplay, subtitle verification, NFO write, TV pairing and
-the native TV client, ceilings and adaptation, the Jellyfin adapter, OIDC/LDAP, rules authoring
+**Out for now:** roles (built since, in M4, [D246](contributors/decisions/working-notes.md)) and parental controls, collections-as-sequences, offline, segment
+detection, trickplay, subtitle verification, NFO write, TV pairing (built since, by the code a device shows,
+[D288](contributors/decisions/working-notes.md)) and the native TV client, ceilings and adaptation, the Jellyfin adapter, OIDC/LDAP, rules authoring
 and the predicate compiler, play statistics, live bandwidth transcoding and live
 segment-addressed remux, our own relay role, the WASM plugin tier (D193).
 
-**Phase 0 narrows:** what fraction of the owner's library direct-plays in Chrome, Safari and a
+~~**Phase 0 narrows:** what fraction of the owner's library direct-plays in Chrome, Safari and a
 Chromecast, and what the rest needs — remux, audio, or video. The lab owns no Chromecast yet
-([D190](contributors/decisions/working-notes.md) §6), so one has to be bought first.
+([D190](contributors/decisions/working-notes.md) §6), so one has to be bought first.~~ The survey
+was never run: Cut A was built on prepare instead, which absorbs remux, audio and one video
+profile. It is now the first item of the closed beta's B3 (D313 §4).
 
 ---
 
 ## Phase 0 — Measure the number the plan rests on
+
+*Never run; now the first item of the closed beta's B3 (D313 §4). Cut A went ahead on prepare,
+which covers remux, audio and one video profile (D193).*
 
 **[`playback-survey.md`](contributors/design/plans/playback-survey.md)**
 
@@ -221,13 +296,15 @@ schema, and `library-model.md` is here:
 - **[auth.md](contributors/design/plans/auth.md)**, which had no plan at all. D20 already put
   OIDC/LDAP here; identity, sessions, tokens and **RFC 8628 device pairing**
   ([D93](contributors/decisions/working-notes.md)) needed an owner. Cut A takes local accounts,
-  sessions and invites; pairing waits until her television is used alone
-  ([D191](contributors/decisions/working-notes.md)).
+  sessions and invites; ~~pairing waits until her television is used alone
+  ([D191](contributors/decisions/working-notes.md))~~ a device is activated by the code it shows,
+  built ([D218](contributors/decisions/working-notes.md), [D288](contributors/decisions/working-notes.md)).
 
 And **[api-compatibility.md](contributors/design/plans/api-compatibility.md)**
 ([D85](contributors/decisions/working-notes.md)) — not schema, but its CI gate is cheap now and
 its deadline is the first client ship, because our clients go through app stores and
-televisions never update.
+televisions never update. *Not wanted for now (D313 §7): "First we build out the functionality,
+then we can think about making an API."*
 
 **Deliberately absent:** ~~any *video* encoder. Remote access. Sharing.~~ Cut A brings a video
 encoder (prepare's `h264`), reachability and invites (D178, D193). Still absent: sharing
@@ -247,7 +324,8 @@ first consumer and doubles as the admin surface.
 this client in a different shell. A **cast receiver** is a web app
 ([D124](contributors/decisions/working-notes.md)) and is the answer for a Watch Together
 guest's television, so the build order is **web client → cast receiver**, well before our own
-TV client is finished. And **Watch Together's LAN half** needs nothing from Phase 6 — see
+TV client is finished. *(The receiver is a stub; with TV mode and AirPlay it is the closed beta's
+B5, D313 §6.)* And **Watch Together's LAN half** needs nothing from Phase 6 — see
 below.
 
 ---
@@ -259,7 +337,8 @@ two people in different houses is the case that matters first, and it is the des
 rather than a stretch. In order, after the web client:
 
 1. **Watch Together's LAN half** — the sync machinery, six methods, voice.
-2. **Reachability.** A port-forward plus TLS if the owner's ISP allows it; if it is behind
+2. **Reachability.** *Built in M4 as a tunnel to a VPS (D243 §7), then replaced by a discovery
+   and WebRTC ([D273](contributors/decisions/working-notes.md), [D274](contributors/decisions/working-notes.md)); see "Now" above. As first planned:* A port-forward plus TLS if the owner's ISP allows it; if it is behind
    carrier-grade NAT, check IPv6, and failing that ~~**the relay ([D71](contributors/decisions/working-notes.md))
    moves here from Phase 6**~~ a standard tunnel (rathole, frp or WireGuard) to a VPS; our own
    relay role stays deferred ([D193](contributors/decisions/working-notes.md) §4). One public
@@ -282,6 +361,9 @@ rather than a stretch. In order, after the web client:
 ---
 
 ## Phase 3 — The client the project is judged on
+
+*The closed beta reaches TVs without app stores first, through a TV's own browser, Google Cast
+and AirPlay (D313 §6); store apps are later ([closed-beta.md](contributors/design/plans/closed-beta.md)).*
 
 `tv-client.md` — Android TV over the shared SDK, Kotlin native player module with **Media3 and
 libmpv side by side**. The UI framework is decided by building the same four screens in Compose
@@ -360,6 +442,10 @@ hedge.
 
 ## Phase 6 — The hard product problems
 
+*Remote access is designed and built another way: [remote-access.md](contributors/design/plans/remote-access.md) is
+superseded by [D273](contributors/decisions/working-notes.md) and [D274](contributors/decisions/working-notes.md), and a household reaches its core through a discovery
+(see "Now" above). Sharing stays here, later.*
+
 `remote-access.md` and `sharing-model.md`. **No longer `UNSPECIFIED`** — both were researched
 2026-09-18/19 and are now `PARTLY SPECIFIED` and `PLANNED`; what remains in the first is a
 product decision rather than a design one.
@@ -422,6 +508,9 @@ receiver**, which is the best path for a guest and is Phase 2 work
 
 ## Phase 7 — Audio, cheaply
 
+*Out of the closed beta and revisited when it ends (D313 §7); researched in
+[music-opensubsonic-2026-10-18.md](contributors/design/research/music-opensubsonic-2026-10-18.md).*
+
 An OpenSubsonic API surface — a second tier-2 protocol adapter, the same shape as Phase 5 — over
 the existing model, plus a music library type.
 
@@ -467,7 +556,7 @@ authority, not this list:
   unspecified (2026-09-20). Neither is a phase: the corpus tiers and the regression gates are
   built alongside whatever they are gating, starting with Phase 1. The one thing with a
   deadline is the **OpenAPI breaking-change gate**, which must exist before the first client
-  ships ([D85](contributors/decisions/working-notes.md)).
+  ships ([D85](contributors/decisions/working-notes.md)); not wanted for now (D313 §7).
 - **[artwork.md](contributors/design/plans/artwork.md)** — the home page is fifty posters and
   is an image-serving benchmark. In Cut A ([D178](contributors/decisions/working-notes.md)).
 
@@ -521,8 +610,8 @@ measured demand was **8 reactions** against subtitles' 479.
 
 ## The risks, ranked
 
-1. **The direct-play rate is lower than assumed.** Phase 0 exists to find out in days rather
-   than months. Prepare ([D193](contributors/decisions/working-notes.md)) now absorbs much of the
+1. **The direct-play rate is lower than assumed.** Phase 0, now B3's first item, exists to find
+   out in days rather than months. Prepare ([D193](contributors/decisions/working-notes.md)) now absorbs much of the
    tail — remux, audio, and one video profile — so a low rate costs node time and first-play
    latency more than it rewrites the roadmap; live segment-addressed transcoding returns only if
    that latency is measured to hurt.
