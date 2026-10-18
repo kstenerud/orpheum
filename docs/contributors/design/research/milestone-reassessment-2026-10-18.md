@@ -93,6 +93,7 @@ meets first is question 6.
 | Customer accounts, signed in by username and password (a passkey later), the account's panel with its server and *Generate key* | service.md P2; D289 §1; D310 §8–§13 | L |
 | Enrolment: a one-use safe32 key from the account, typed into the core at home within the hour; a new key moves the account to a new core | D310 §5, §8–§9; D311 | M–L |
 | Invitations for testers, from the operator's admin panel, with notes, issued again to pass an account on | P3; D310 §10; D311 | S–M |
+| The accounts' security: re-confirmation and a record of what moves a household, the household told when its core changes, recovery done as recovery, the operator's panel over WireGuard with a passkey, 80-bit keys, NIST passwords, passkeys, throttling not lockout, sessions, links redeemed by an action and carried in the fragment, sign-in that reveals nothing by its timing | D312 | L |
 | Realms chosen by the household, not given by the operator | D297, D298 (code entry waits for accounts) | M |
 | The service whole (probe, names, caps, client integrity, lapse) | M-S1–M-S4, M-S6 | L |
 | Billing: a merchant of record, monthly and yearly, a trial, lapse | P14; Q7; D273 §9 | L, later |

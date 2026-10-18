@@ -20695,6 +20695,7 @@ mean in the same sense that it works now (they can admin from remote only if the
     account. Once the account is created, they log in with username/password (and eventually we will
     also support 2fa such as passkeys)"*). The invitation (§10) only entitles its redeemer to make
     the account (D311 §1). It replaces D290 §16's e-mailed sign-in link for the service's accounts.
+    The passkey comes in the closed beta after all (D312 §7).
 
 **Status:** Decided 2026-10-18; §7, §8–§12 and §13 the same day.
 
@@ -20737,3 +20738,65 @@ keys (D310 §8–§10).
 **Status:** Decided 2026-10-18, restated the same day. Each kind of code is to be checked against
 it: today the core's invitations and Watch Together's links can be withdrawn while outstanding, but
 none can be issued again for an entitlement already made.
+
+## D312 — The accounts' security for the closed beta: the account steers a household's sign-ins, so it is guarded as the household's own key
+
+**Decided** (2026-10-18), by the project owner, on the agent's review of D310 and D311 for security
+issues and best practice: *"We should do all of those for closed beta. Also, the login screen should
+defend against timing attacks that can be used to map out valid usernames & realms."* The review's
+finding: a service account grants nothing on a core (D289 §1), but it decides which core
+app.orpheum-app.com sends a household to, and so where realm sign-ins (D297) carry its people's
+passwords; whoever takes an account, steals a fresh key or is handed a re-issued invitation can
+remove the real core (D310 §9), enrol their own, and collect passwords from devices that do not
+yet know the core's fingerprint (D308). It brings D310 §13's second factor into the closed beta.
+
+1. **What moves a household is confirmed and recorded.** Generating a key, re-issuing an
+   invitation and changing the password ask for the password or passkey again; every enrolment
+   and every core removed is recorded where the account sees it: when, the core's name and
+   fingerprint, where it came from.
+2. **A household is told when its core changed.** After a new key, the core's pages and the app
+   say the household's server changed, and when; a device that remembers the old core's
+   fingerprint stops with a warning instead of following the new one.
+3. **Re-issuing an entitlement is recovery, and is done as recovery** (D311 §5). The issuer
+   confirms who asks by a channel already trusted; the new code's redemption ends every session
+   and removes the old password and passkeys, on the paid service as on the core and in Watch
+   Together, so the one it was taken from keeps nothing.
+4. **The operator's panel is guarded most**: a passkey or second factor from its first day,
+   reached over the WireGuard network only, as SSH is (edge VPS runbook), with no sign-in shared
+   with customers.
+5. **A core's enrolment key is 16 safe32 characters** (`xxxx-xxxx-xxxx-xxxx`, 80 bits), not a
+   device code's 8: kept as its hash, compared in constant time, failures limited by source and in
+   all, spent by its first attempt, right or wrong.
+6. **Passwords follow NIST SP 800-63B-4**: at least 15 characters while the password stands alone
+   and 8 with a second factor, no composition rules, pasting and password managers welcome, every
+   new password checked against breached ones (k-anonymity, as Have I Been Pwned offers), no
+   forced change, argon2id as the core's (D193).
+7. **Passkeys (WebAuthn) in the closed beta**, not later.
+8. **Guessing is slowed, never locked out**: growing delays per account and per source, so no one
+   can lock a household out by guessing; a wrong username and a wrong password are answered alike.
+9. **Sessions**: P2's `__Host-` cookies, CSRF token and cross-origin protection, an idle limit
+   beside the 30-day absolute one, the account's sessions listed, and signing out everywhere.
+10. **Opening a link redeems nothing**: redemption is an action on its page (D290 §16's rule, kept
+    for invitations), so a messenger's or mail scanner's preview spends nothing.
+11. **A link's secret rides in its fragment**, never its path or query, so no log or Referer holds
+    it, as Watch Together's links do (D154).
+12. **A QR code is a link like any other**: short-lived, used once, and invalidated with its link
+    when the entitlement is issued again.
+13. **The free-for-life mark is the operator's alone**, set in the panel, never from what a
+    customer sends; the owner's tests of lapse and termination run on accounts marked as tests,
+    which reach no household.
+14. **Generating keys is rate-limited**, so a taken account cannot keep a household's core off the
+    service; §1's re-confirmation stands in front of it.
+15. **A removed core is removed at once**: its service sessions revoked, its names withdrawn, its
+    connections closed, its System page saying it was removed from the account; its identity key
+    enrols again only with a new key.
+16. **Issuing and redeeming are a durable record**: who issued a code, when and from where it was
+    redeemed, what it replaced; the record is D311 §4's view of what a code made, and answers
+    "was this me?".
+17. **Sign-in reveals nothing by its timing**, on the service's account sign-in, the realm sign-in
+    at the discovery's page (D297) and the core's own: an unknown username costs the same password
+    work as a known one (a hash against a stand-in), and the discovery answers a realm sign-in no
+    sooner than a time that covers a core's round trip, so an unknown realm's quick refusal does
+    not tell it from a known one's.
+
+**Status:** Decided 2026-10-18. All of it before the closed beta's first outside household.
