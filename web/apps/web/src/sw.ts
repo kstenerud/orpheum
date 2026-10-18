@@ -150,8 +150,18 @@ function notePath(clientId: string, path: "webrtc" | "http"): void {
   }
 }
 
-/** A load from a page the worker has no word from: the page is asked its path, then the load goes. */
+/**
+ * A load from a page the worker has no word from: the page is asked its path, then the load goes.
+ * Under a loader every page carries its own media, its client origin serving none, so the load goes
+ * through it unasked: asked, a page that did not answer within a second was taken for HTTP, kept so,
+ * and every load after went to the client origin, which answered 404 until hls.js gave up (the
+ * owner's Chrome, its worker started again under DevTools' throttling, staging, 2026-10-18).
+ */
 async function askedFirst(worker: WorkerScope, event: FetchEventLike): Promise<Response> {
+  if ((await clientFilesOf(worker)).size > 0) {
+    notePath(event.clientId, "webrtc");
+    return await throughThePage(worker, event);
+  }
   return await loadAfterAsking({
     page: await worker.clients.get(event.clientId),
     request: event.request,
@@ -260,9 +270,11 @@ async function carryingPageFor(
     return undefined;
   }
   // A worker started again knows no page's path: the page is asked, and one finding the core says
-  // nothing in time.
+  // nothing in time, which is not kept: it carries its media once it has found the core.
   const path = onWebrtc.has(page.id) ? "webrtc" : await askPathOf(page);
-  notePath(page.id, path);
+  if (path === "webrtc") {
+    notePath(page.id, path);
+  }
   return path === "webrtc" ? page : undefined;
 }
 
