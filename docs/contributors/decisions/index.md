@@ -320,6 +320,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D312](working-notes.md#d312--the-accounts-security-for-the-closed-beta-the-account-steers-a-households-sign-ins-so-it-is-guarded-as-the-households-own-key) The accounts' security for the closed beta: the account steers a household's sign-ins, so it is guarded as the household's own key
 - [D313](working-notes.md#d313--the-closed-betas-milestones-joining-between-episodes-the-library-and-its-people-every-file-plays-well-the-ui-revamp-then-the-living-room) The closed beta's milestones: joining, between episodes, the library and its people, every file plays well, the UI revamp, then the living room
 - [D314](working-notes.md#d314--a-core-is-installed-from-a-public-image-on-any-machine-that-runs-docker-with-the-hardware-it-needs-and-with-no-tunnel-a-connection-that-needs-a-relay-fails-and-is-counted) A core is installed from a public image, on any machine that runs Docker with the hardware it needs, and with no tunnel; a connection that needs a relay fails, and is counted
+- [D315](working-notes.md#d315--the-services-accounts-a-passkey-signs-in-alone-verified-by-our-own-code-an-unchecked-password-is-refused-the-operators-panel-is-opened-at-localhost-no-e-mail-in-the-closed-beta) The service's accounts: a passkey signs in alone, verified by our own code; an unchecked password is refused; the operator's panel is opened at localhost; no e-mail in the closed beta
 
 ## Archived
 
