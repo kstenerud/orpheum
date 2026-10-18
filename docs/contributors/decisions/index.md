@@ -318,6 +318,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D310](working-notes.md#d310--the-closed-beta-runs-on-the-paid-service-free-an-account-gives-one-key-for-one-core-the-cores-admin-enters-it-at-home-and-the-household-then-uses-the-services-app) The closed beta runs on the paid service, free: an account gives one key for one core, the core's admin enters it at home, and the household then uses the service's app — *revisited by D311*
 - [D311](working-notes.md#d311--a-code-establishes-an-entitlement-it-expires-its-issuer-sees-it-and-what-it-made-and-a-new-code-for-the-same-entitlement-moves-it-to-whoever-redeems-it) A code establishes an entitlement: it expires, its issuer sees it and what it made, and a new code for the same entitlement moves it to whoever redeems it
 - [D312](working-notes.md#d312--the-accounts-security-for-the-closed-beta-the-account-steers-a-households-sign-ins-so-it-is-guarded-as-the-households-own-key) The accounts' security for the closed beta: the account steers a household's sign-ins, so it is guarded as the household's own key
+- [D313](working-notes.md#d313--the-closed-betas-milestones-joining-between-episodes-the-library-and-its-people-every-file-plays-well-the-ui-revamp-then-the-living-room) The closed beta's milestones: joining, between episodes, the library and its people, every file plays well, the UI revamp, then the living room
 
 ## Archived
 
