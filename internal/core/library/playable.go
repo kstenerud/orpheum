@@ -84,9 +84,15 @@ type UnreadableError struct {
 	Unreadable
 }
 
+// Error says since when only when that is known: a node not heard since the core started has no time,
+// which read "since 0001-01-01T00:00:00Z" (nas.example, 2026-10-18).
 func (unreadable *UnreadableError) Error() string {
-	return fmt.Sprintf("node %d's file cannot be read: %s %s, since %s", unreadable.NodeID, unreadable.Reason,
-		cmp.Or(unreadable.Path, "-"), unreadable.Since.UTC().Format(time.RFC3339))
+	text := fmt.Sprintf("node %d's file cannot be read: %s %s", unreadable.NodeID, unreadable.Reason,
+		cmp.Or(unreadable.Path, "-"))
+	if unreadable.Since.IsZero() {
+		return text
+	}
+	return text + ", since " + unreadable.Since.UTC().Format(time.RFC3339)
 }
 
 // RefuseUnreadable refuses a play of the file a node reported at reportedPath when it cannot be read
