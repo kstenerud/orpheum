@@ -192,6 +192,7 @@ describe("reporting play state", () => {
       },
     });
     listeners.get(Hls.Events.FRAG_BUFFERED)!("", { id: "main", frag: { sn: 1, start: 0 } });
+    listeners.get(Hls.Events.LEVEL_SWITCHING)!("", { level: 2 });
     reporter.recordStall(61_500, video);
     await settled();
     const [stall] = sent[1]?.stalls ?? [];
@@ -202,9 +203,11 @@ describe("reporting play state", () => {
         "lastError",
         "positionMs",
         "readyState",
+        "steps",
         "videoBuffered",
       ].sort(),
     );
+    expect(stall?.steps).toBe("level 2"); // where the player stood, the server's length at most
     expect(stall?.videoBuffered?.length).toBeLessThanOrEqual(bufferedTextMost);
     expect(stall?.videoBuffered?.endsWith("590.00-595.00")).toBe(true);
   });

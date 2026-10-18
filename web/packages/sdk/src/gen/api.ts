@@ -3538,6 +3538,7 @@ export interface components {
             positionMs: number;
             /** Format: int64 */
             readyState?: number;
+            steps?: string;
             videoBuffered?: string;
         };
         StandstillBody: {

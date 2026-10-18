@@ -177,6 +177,9 @@ export class PlayReporter {
             videoBuffered: diagnosis.videoBuffered.slice(-bufferedTextMost),
             audioBuffered: diagnosis.audioBuffered.slice(-bufferedTextMost),
             lastError: diagnosis.lastError,
+            ...(diagnosis.steps === undefined || diagnosis.steps === ""
+              ? {}
+              : { steps: diagnosis.steps }),
           }),
     });
     this.flush(positionMs);

@@ -18,6 +18,7 @@ func stallReport(seq, positionMs int64) map[string]any {
 	body["stalls"] = []any{map[string]any{
 		"positionMs": positionMs, "readyState": 1, "isPaused": true,
 		"videoBuffered": "306.80-317.06", "audioBuffered": "296.40-317.23", "lastError": "bufferStalledError: stalled",
+		"steps": "level 2; frag 2/31 loading; frag 2/31 aborted",
 	}}
 	body["linkKbps"] = 2000
 	return body
@@ -74,6 +75,7 @@ func TestReport_AFirstStallIsAnsweredWithTheLowerQualityItStartedAndSoIsEveryRep
 		`"msg":"a player reported stalls"`, `"stallPositionsMs":[12000]`,
 		`"stallReadyStates":[1]`, `"stallsPaused":[true]`, `"stallVideoBuffered":["306.80-317.06"]`,
 		`"stallAudioBuffered":["296.40-317.23"]`, `"stallLastErrors":["bufferStalledError: stalled"]`,
+		`"stallSteps":["level 2; frag 2/31 loading; frag 2/31 aborted"]`,
 		`"msg":"a stalling player was offered a lower quality"`, `"qualityKbps":1200`, `"isReady":false`,
 	} {
 		if !strings.Contains(logged, want) {

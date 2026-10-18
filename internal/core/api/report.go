@@ -129,6 +129,11 @@ type StallBody struct {
 	VideoBuffered string `json:"videoBuffered,omitempty" maxLength:"400" required:"false"`
 	AudioBuffered string `json:"audioBuffered,omitempty" maxLength:"400" required:"false"`
 	LastError     string `json:"lastError,omitempty"     maxLength:"200" required:"false"`
+	// Steps are the player's last steps, oldest first: the quality it chose, each playlist and chunk
+	// it loaded, aborted or failed, and its video detached and attached. A Mac's Firefox, its film's
+	// own picture given up at 0:00, stood with nothing loaded and asked for nothing more, and no
+	// report said where its player had stopped (the owner's test, 2026-10-18).
+	Steps string `json:"steps,omitempty" maxLength:"400" required:"false"`
 }
 
 // EventBody is one change of play state.
@@ -358,14 +363,17 @@ func (server *Server) logStandstills(
 }
 
 // stallDiagnosis is each stall's video as its player saw it, for the log: its readyState, whether
-// it was paused, what its picture's and sound's buffers held, and its last error (D266).
+// it was paused, what its picture's and sound's buffers held, its last error (D266), and its player's
+// last steps.
 func stallDiagnosis(stalls []StallBody) []any {
 	readyStates := make([]int64, 0, len(stalls))
 	paused := make([]bool, 0, len(stalls))
 	videoBuffered := make([]string, 0, len(stalls))
 	audioBuffered := make([]string, 0, len(stalls))
 	lastErrors := make([]string, 0, len(stalls))
+	steps := make([]string, 0, len(stalls))
 	for _, stall := range stalls {
+		steps = append(steps, stall.Steps)
 		readyStates, paused = append(readyStates, stall.ReadyState), append(paused, stall.IsPaused)
 		videoBuffered = append(videoBuffered, stall.VideoBuffered)
 		audioBuffered = append(audioBuffered, stall.AudioBuffered)
@@ -374,6 +382,7 @@ func stallDiagnosis(stalls []StallBody) []any {
 	return []any{
 		"stallReadyStates", readyStates, "stallsPaused", paused,
 		"stallVideoBuffered", videoBuffered, "stallAudioBuffered", audioBuffered, "stallLastErrors", lastErrors,
+		"stallSteps", steps,
 	}
 }
 
