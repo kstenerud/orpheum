@@ -1,29 +1,31 @@
 # The deployment's values (D249, D272 §3): `orpheum write-deployment` wrote this file the first
 # time, and renders the compose file and the configs from it every time. Fill in every value marked
 # "fill in", then write the deployment again. Nothing here is secret except what the VPS already
-# knows; the tunnel's private key is tunnel/private beside it.
+# knows; the tunnel's private key is tunnel/private beside it, used only with a VPS.
 
 # "release", which refuses a database it cannot migrate and logs at info, or "staging", which sets
 # such a database aside, starts again, and logs at debug (D249 §4).
 deployment = "{{.Deployment}}"
 
-# The public name, whose A and AAAA records point at the VPS (deploy/vps/README.md §2). Empty for a
-# core reached through its discovery, which names it and gets its certificate (D292 §7): it then
-# serves no HTTPS of its own name.
-domain = "media.orpheum-app.com"
-# The e-mail address Let's Encrypt writes to about the certificate. Fill in.
+# The public name, whose A and AAAA records point at the VPS (deploy/vps/README.md §2), for a core
+# with a tunnel and a name of its own. Empty, as most are, for a core reached through its discovery,
+# which names it and gets its certificate (D292 §7): it then serves no HTTPS of its own name.
+domain = ""
+# The e-mail address Let's Encrypt writes to about the certificate: needed only with a domain.
 contact = ""
 
+# A WireGuard tunnel to a VPS, for a household that has one (D243 §7). Leave every value here empty,
+# as most households do: the core is then reached through its discovery over WebRTC and at home by
+# its LAN name, with no relay of its own (D314 §3, §4).
 [vps]
 # Where the tunnel dials the VPS: its address and WireGuard port. Either family works:
 #   IPv4: "203.0.113.7:51820", from a machine with IPv4 only, or through DS-Lite's shared IPv4;
 #   IPv6: "[2a0f:4000:1c1c:1234::1]:51820", in brackets, where the machine has IPv6 (DS-Lite's is
 #         native).
-# Fill in.
 endpoint = ""
-# The VPS's public IPv4 address: browsers reach the voice relay there (D243 §8). Fill in.
+# The VPS's public IPv4 address: browsers reach the voice relay there (D243 §8).
 public_ipv4 = ""
-# The VPS's WireGuard public key, /etc/wireguard/public on the VPS. Fill in.
+# The VPS's WireGuard public key, /etc/wireguard/public on the VPS.
 public_key = ""
 # The tunnel's MTU. Left out, it is chosen from the endpoint: 1380 over IPv4, which leaves room for
 # DS-Lite carrying it in IPv6, and 1420 over IPv6. Set it only if large transfers stall.

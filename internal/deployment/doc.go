@@ -23,12 +23,17 @@
 //   - Each deployment's end of the tunnel is the values file's (10.77.0.2 and fd77::2 when it names
 //     none), so several deployments, each with its own key, share one VPS (D292 §7); the tunnel and
 //     TURN take it from there. TestWrite_ADeploymentTakesItsOwnTunnelAddressesForTheTunnelAndTURN.
+//   - A values file naming no VPS writes a deployment with no tunnel (D314 §3): the core
+//     publishes its own ports, serves no relay, and asks for nothing but the media; a tunnel half
+//     described is a problem, not no tunnel. TestWrite_ACoreWithNoTunnelPublishesItsOwnPortsAndServesNoRelay,
+//     TestValues_ATunnelHalfDescribedIsAProblemNotNoTunnel.
 //   - Keys and the configs naming one are readable by their owner alone.
 //     TestWrite_RewritesTheFilesAndKeepsTheValuesAndKeys.
 //
 // # Read before changing
 //
-//   - D249: the deployment, its three services and the tunnel in a container.
+//   - D249: the deployment, its three services and the tunnel in a container; D314: the
+//     deployment with no tunnel, two services, that a household installs.
 //   - D272: release on nas.example, the image's own setup, the build re-rendering (§7), one shared
 //     tunnel key (§8), which D292 §7 revises: a peer and addresses per deployment.
 //   - deploy/staging/README.md and deploy/release/README.md: how a person runs it.

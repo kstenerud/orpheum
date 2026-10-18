@@ -24,14 +24,17 @@ var templates embed.FS
 
 // The files of a deployment's directory (D272 §3).
 const (
-	ValuesFile      = "values.toml"
-	composeFile     = "compose.yaml"
-	overrideFile    = "compose.override.yaml"
-	environmentFile = ".env"
-	tunnelDir       = "tunnel"
-	privateKeyFile  = "tunnel/private"
-	publicKeyFile   = "tunnel/public"
-	tunnelConfig    = "tunnel/wg0.conf"
+	ValuesFile  = "values.toml"
+	composeFile = "compose.yaml"
+	// The compose file of a deployment with no tunnel (D314 §3), written as composeFile in place of
+	// the tunnel's.
+	directComposeTemplate = "compose-direct.yaml"
+	overrideFile          = "compose.override.yaml"
+	environmentFile       = ".env"
+	tunnelDir             = "tunnel"
+	privateKeyFile        = "tunnel/private"
+	publicKeyFile         = "tunnel/public"
+	tunnelConfig          = "tunnel/wg0.conf"
 	// The instances' full configs, which the instances' own directories hold (D242 §3).
 	coreConfig = "core/persistent/config.toml"
 	nodeConfig = "node/persistent/config.toml"
@@ -83,28 +86,21 @@ func Write(dir string, values Values, runtime Runtime) error {
 	if err := values.Check(); err != nil {
 		return err
 	}
-	if _, err := ensureKeys(dir); err != nil {
-		return err
+	data := renderData{Values: values, IsStaging: values.Deployment == Staging}
+	composeTemplate := directComposeTemplate
+	files := []renderedFile{{coreConfig, "core.toml", privateFileMode}, {nodeConfig, "node.toml", privateFileMode}}
+	if values.HasTunnel() {
+		privateKey, err := tunnelPrivateKey(dir)
+		if err != nil {
+			return err
+		}
+		data.PrivateKey = privateKey
+		composeTemplate = composeFile
+		files = append(files, renderedFile{tunnelConfig, "wg0.conf", privateFileMode})
 	}
-	private, err := os.ReadFile(filepath.Join(dir, privateKeyFile)) //nolint:gosec // G304: the deployment's own
-	if err != nil {
-		return fmt.Errorf("read the tunnel's private key: %w", err)
-	}
-	data := renderData{
-		Values: values, IsStaging: values.Deployment == Staging,
-		PrivateKey: strings.TrimSpace(string(private)),
-	}
-	compose, err := templates.ReadFile("templates/" + composeFile)
+	compose, err := templates.ReadFile("templates/" + composeTemplate)
 	if err != nil {
 		return fmt.Errorf("read the compose file's template: %w", err)
-	}
-	files := []struct {
-		name, template string
-		mode           os.FileMode
-	}{
-		{coreConfig, "core.toml", privateFileMode},
-		{nodeConfig, "node.toml", privateFileMode},
-		{tunnelConfig, "wg0.conf", privateFileMode},
 	}
 	for _, file := range files {
 		text, renderErr := render(file.template, data)
@@ -129,6 +125,24 @@ func Write(dir string, values Values, runtime Runtime) error {
 		}
 	}
 	return nil
+}
+
+// renderedFile is a file Write renders from a template into the deployment's directory.
+type renderedFile struct {
+	name, template string
+	mode           os.FileMode
+}
+
+// tunnelPrivateKey is the tunnel's private key, made the first time.
+func tunnelPrivateKey(dir string) (string, error) {
+	if _, err := ensureKeys(dir); err != nil {
+		return "", err
+	}
+	private, err := os.ReadFile(filepath.Join(dir, privateKeyFile)) //nolint:gosec // G304: the deployment's own
+	if err != nil {
+		return "", fmt.Errorf("read the tunnel's private key: %w", err)
+	}
+	return strings.TrimSpace(string(private)), nil
 }
 
 // renderData is what the config templates are rendered from.
@@ -173,9 +187,13 @@ func environment(values Values, runtime Runtime) string {
 		"ORPHEUM_HTTP_PORT=" + strconv.Itoa(values.HTTP.Port),
 		"ORPHEUM_LAN_HTTPS_PORT=" + strconv.Itoa(values.LAN.HTTPSPort),
 		"ORPHEUM_LAN_WEBRTC_PORT=" + strconv.Itoa(values.LAN.WebRTCPort),
-		"ORPHEUM_TUNNEL_MTU=" + strconv.Itoa(values.TunnelMTU()),
-		"ORPHEUM_TUNNEL_IPV4=" + values.VPS.TunnelIPv4,
-		"ORPHEUM_TUNNEL_IPV6=" + values.VPS.TunnelIPv6,
+	}
+	if values.HasTunnel() {
+		lines = append(lines,
+			"ORPHEUM_TUNNEL_MTU="+strconv.Itoa(values.TunnelMTU()),
+			"ORPHEUM_TUNNEL_IPV4="+values.VPS.TunnelIPv4,
+			"ORPHEUM_TUNNEL_IPV6="+values.VPS.TunnelIPv6,
+		)
 	}
 	return strings.Join(lines, "\n") + "\n"
 }

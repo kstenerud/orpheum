@@ -4,8 +4,9 @@
 # file and write the deployment again. It holds only what must exist before the database opens
 # (D182 §3, D200); everything else is a setting, changed in the web client.
 #
-#   - plain HTTP on :8440 for the house's network, which the tunnel service publishes; HTTPS on
-#     :443 and TURN on the tunnel's address for everyone else, through the VPS (D243 §6-§8).
+#   - plain HTTP on :8440 for the house's network; HTTPS on :443 for devices at home by its LAN
+#     name; with a tunnel, HTTPS and TURN for everyone else through the VPS (D243 §6-§8), and with
+#     none, no relay: the core is reached through its discovery over WebRTC (D314 §3, §4).
 #   - a database it cannot bring forward: staging sets it aside and starts again (D249 §4);
 #     release refuses, as D181 does.
 #   - logs as text, because a person reads them with `docker compose logs`; staging's at debug.
@@ -30,7 +31,8 @@ listen = ":443"
 acme_directory = "https://acme-v02.api.letsencrypt.org/directory"
 
 [turn]
-public_address = {{toml .Values.VPS.PublicIPv4}}
+# Empty with no tunnel, which serves no relay (D314 §4).
+public_address = {{toml .Values.TURNPublicAddress}}
 listen = {{toml .Values.TURNListen}}
 relay_port_min = 49160
 relay_port_max = 49199
@@ -38,7 +40,8 @@ relay_port_max = 49199
 [discovery]
 retry_first_milliseconds = 1000
 retry_most_milliseconds = 300000
-# The VPS's public addresses, which it forwards to this core: sent to a discovery to publish.
+# The VPS's public addresses, which it forwards to this core: sent to a discovery to publish; none
+# with no tunnel.
 configured_addresses = {{toml .Values.ConfiguredAddresses}}
 # This machine's address at home and its published HTTPS port, which the core's container cannot see:
 # sent to a discovery to name for devices at home.

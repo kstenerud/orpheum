@@ -47,8 +47,9 @@ func TestWriteDeployment_BeginsThenMakesTheInstancesOnceAndWritesTheFiles(t *tes
 			"tunnel addresses its peer on the VPS is given", begun.text)
 	}
 	if _, err = writeDeployment(dir, runDir, deployment.Staging, "orpheum:v0.1.0", "nas", -1); err == nil ||
-		!strings.Contains(err.Error(), "contact") {
-		t.Errorf("writing before the values are filled in = %v; want it refused, naming what they need", err)
+		!strings.Contains(err.Error(), "media.roots") {
+		t.Errorf("writing before the values are filled in = %v; want it refused, naming what they need: "+
+			"the media, all a household with no VPS gives (D314 §3)", err)
 	}
 	fillValues(t, dir)
 	written, err := writeDeployment(dir, runDir, deployment.Release, "orpheum:v0.1.0", "nas", -1)
