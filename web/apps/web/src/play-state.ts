@@ -431,7 +431,7 @@ interface ReportListener {
   readonly onStopped: (message: string) => void;
   readonly onLowerQuality: (offer: LadderOffer) => void;
   readonly onRefused: (cause: unknown) => void;
-  readonly onGone: (at: ReopenAt) => boolean;
+  readonly onGone: (whereNow: () => ReopenAt) => boolean;
 }
 
 /** What startReporting hands back: a report sent now, as when the player failed, and the stopping. */
@@ -602,7 +602,7 @@ function watchForLoss(
   video.addEventListener("pause", paused);
   return {
     isReopened: (cause) =>
-      isPlaybackGone(cause) && listener.onGone({ positionMs: lastPositionMs(), isPaused }),
+      isPlaybackGone(cause) && listener.onGone(() => ({ positionMs: lastPositionMs(), isPaused })),
     stop: () => {
       video.removeEventListener("play", played);
       video.removeEventListener("pause", paused);
@@ -619,10 +619,10 @@ interface PlayStateOf {
   /** The page's moves from one path to the core to another, where it makes any. */
   readonly pathMoves?: PathMoves | undefined;
   /**
-   * Told that the server lost the playback, where it was: true when the page opens it again from
-   * there, false to be told the refusal. Undefined tells it.
+   * Told that the server lost the playback, and how to read where it is: true when the page opens
+   * it again from there, false to be told the refusal. Undefined tells it.
    */
-  readonly onGone?: ((at: ReopenAt) => boolean) | undefined;
+  readonly onGone?: ((whereNow: () => ReopenAt) => boolean) | undefined;
   /**
    * What failed in the player, undefined while nothing has: a failure is reported on at once, so a
    * playback the server lost before the video played, which sends no report, is learned of.
@@ -672,7 +672,7 @@ export function usePlayState(
         onStopped: setStopMessage,
         onLowerQuality: setLowerQuality,
         onRefused: setRefusal,
-        onGone: (at) => goneHearer.current?.(at) ?? false,
+        onGone: (whereNow) => goneHearer.current?.(whereNow) ?? false,
       },
     );
     reportNow.current = reporting.reportNow;

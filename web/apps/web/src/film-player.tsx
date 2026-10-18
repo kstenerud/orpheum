@@ -88,6 +88,8 @@ export interface FilmComposition {
   readonly over?: FilmPiece;
   readonly under?: FilmPiece;
   readonly keptVideo?: HTMLVideoElement | undefined;
+  /** Whether what fails is kept from the viewer, as while the page opens a lost playback again. */
+  readonly isFailureHidden?: boolean;
 }
 
 /** Where a stalled player moved to a lower quality (D247 §2), for its playback alone. */
@@ -328,7 +330,7 @@ function DirectFilm(props: {
           setFailure(playbackFailureText(t, mediaErrorFailure(error)));
         }}
       />
-      {failure === undefined ? null : (
+      {failure === undefined || props.composition.isFailureHidden === true ? null : (
         <p role="alert">{t("play.directFailed", { reason: failure })}</p>
       )}
     </>
@@ -367,7 +369,7 @@ function PreparedFilm(props: {
         preparedRef={playbackRef}
       />
       {isWaiting && failure === undefined ? <p>{t("play.preparing")}</p> : null}
-      {failure === undefined ? null : (
+      {failure === undefined || props.composition.isFailureHidden === true ? null : (
         <p role="alert">{t("play.preparedFailed", { reason: failure })}</p>
       )}
     </>
@@ -415,7 +417,7 @@ function ChunkedFilm(props: {
         cannotKeepUp={cannotKeepUp}
         isOnLadder={props.isOnLadder === true}
       />
-      {failure === undefined ? null : (
+      {failure === undefined || props.composition.isFailureHidden === true ? null : (
         <p role="alert">{t("play.preparedFailed", { reason: failure })}</p>
       )}
     </>

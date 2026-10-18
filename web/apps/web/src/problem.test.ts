@@ -75,7 +75,7 @@ describe("a play of a file that cannot be read now (D241 §4)", () => {
       detail: { reason: "root_missing", nodeName: "devnas", path: "/media/films" },
     });
     expect(problemText(t, away)).toMatch(
-      /^This cannot be played now: devnas, the machine that holds it, is not connected, since .+\.$/u,
+      /^This cannot be played now: the server cannot reach devnas, the computer the film is on, since .+\. Check that it is on and connected\.$/u,
     );
     expect(problemText(t, folder)).toBe(
       "This cannot be played now: the folder /media/films on devnas is missing.",
