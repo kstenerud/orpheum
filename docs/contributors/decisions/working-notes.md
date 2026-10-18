@@ -20797,6 +20797,10 @@ yet know the core's fingerprint (D308). It brings D310 §13's second factor into
     at the discovery's page (D297) and the core's own: an unknown username costs the same password
     work as a known one (a hash against a stand-in), and the discovery answers a realm sign-in no
     sooner than a time that covers a core's round trip, so an unknown realm's quick refusal does
-    not tell it from a known one's.
+    not tell it from a known one's. Every failed sign-in is answered no sooner than that one time,
+    whatever failed, and a success as soon as it is done (the owner, the same day: *"A failed login
+    is the rare path, so it's fine if it's a bit inconvenient."*): the wait falls only on failures,
+    which an unknown name and a wrong password both are.
 
-**Status:** Decided 2026-10-18. All of it before the closed beta's first outside household.
+**Status:** Decided 2026-10-18, §17's last sentence the same day. All of it before the closed
+beta's first outside household.
