@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -112,7 +113,10 @@ func serveChannel(
 			request = request.WithContext(context.WithValue(overWebRTC, messageConnKey{}, conn))
 		}
 		writer := newChannelWriter(ctx, channel, credit)
-		handler.ServeHTTP(writer, request)
+		if !serveGuarded(ctx, handler, writer, request, logger) {
+			_ = channel.Close() //nolint:errcheck // the response is cut short, and the client knows it so
+			return
+		}
 		if conn.accepted() {
 			_ = conn.CloseNow() //nolint:errcheck // the handler is done with it, closed or not
 			return
@@ -251,4 +255,31 @@ func (reader *requestReader) request(ctx context.Context, remoteAddress string) 
 	}
 	request.RemoteAddr, request.RequestURI = remoteAddress, target.RequestURI()
 	return request, nil
+}
+
+// serveGuarded runs handler on request, as net/http's server does, a panic ending this request alone:
+// logged with its stack, answered 500 when nothing of the response was sent yet; it reports whether
+// the response may be finished. One run on a WebRTC channel without it ended the core: huma panics
+// when it cannot write a response, as when the client closed the channel first (staging,
+// 2026-10-18, a page's GET /titles closed as it moved to another path).
+func serveGuarded(
+	ctx context.Context, handler http.Handler, writer *channelWriter, request *http.Request, logger *slog.Logger,
+) (isWhole bool) {
+	defer func() {
+		recovered := recover()
+		if recovered == nil {
+			return
+		}
+		if recovered != http.ErrAbortHandler { //nolint:errorlint,err113 // net/http's own sentinel, compared as it does
+			logger.ErrorContext(ctx, "a request over WebRTC panicked", "path", request.URL.Path,
+				"panic", fmt.Sprint(recovered), "stack", string(debug.Stack()))
+		}
+		isWhole = !writer.isHeadSent
+		if isWhole {
+			writer.headers = http.Header{}
+			writer.status = http.StatusInternalServerError
+		}
+	}()
+	handler.ServeHTTP(writer, request)
+	return true
 }
