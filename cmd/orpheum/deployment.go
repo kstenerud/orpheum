@@ -103,8 +103,12 @@ func writeDeployment(dir, runDir string, kind deployment.Kind, image, hostName s
 	if err != nil {
 		return deploymentMessage{}, err
 	}
-	return deploymentMessage{text: fmt.Sprintf("wrote the %s deployment for %s, running %s; "+
-		"`docker compose up -d` in its directory starts it\n", values.Deployment, values.Domain, image)}, nil
+	reached := "reached through its discovery"
+	if values.Domain != "" {
+		reached = "for " + values.Domain
+	}
+	return deploymentMessage{text: fmt.Sprintf("wrote the %s deployment %s, running %s; "+
+		"`docker compose up -d` in its directory starts it\n", values.Deployment, reached, image)}, nil
 }
 
 // beginDeployment writes a new deployment's values file, as kind, and the tunnel's keys, and says
@@ -119,7 +123,8 @@ func beginDeployment(dir string, kind deployment.Kind) (deploymentMessage, error
 	}
 	return deploymentMessage{isBegun: true, text: fmt.Sprintf(`began a %s deployment. Before it can start:
   1. Fill in %s: every value marked "fill in".
-  2. On the VPS, give this end a [Peer] in /etc/wireguard/wg0.conf, unless it already has one: its
+  2. Only with a VPS tunnel ([vps] filled in): on the VPS, give this end a [Peer] in
+     /etc/wireguard/wg0.conf, unless it already has one: its
      PublicKey this end's public key, below, and its AllowedIPs this deployment's tunnel addresses,
      %s's vps.tunnel_ipv4 and vps.tunnel_ipv6 (10.77.0.2 and fd77::2 unless it names others);
      then restart the tunnel there (systemctl restart wg-quick@wg0).

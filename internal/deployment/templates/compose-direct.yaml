@@ -1,0 +1,73 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Orpheum's deployment with no tunnel (D314 §3): two services from the one runtime image, the core
+# reached through its discovery over WebRTC and at home by its LAN names, with no relay of its own.
+# `orpheum write-deployment` writes this file into the deployment's directory, in place of the
+# tunnel's compose file, when the values file names no VPS; it sits beside the .env file it reads its
+# variables from and compose.override.yaml, which gives the node this machine's media and GPU;
+# `docker compose up -d` in that directory starts it. Paths are the directory's own.
+#
+#   COMPOSE_PROJECT_NAME  orpheum, or orpheum-staging
+#   ORPHEUM_IMAGE      the runtime image
+#   ORPHEUM_UID/GID    who the core and the node run as: the owner of the directory
+#   ORPHEUM_HTTP_PUBLISH, ORPHEUM_HTTP_PORT   where the house's network reaches plain HTTP
+#   ORPHEUM_LAN_HTTPS_PORT   where it reaches HTTPS, by the name the discovery gives this machine
+#   ORPHEUM_LAN_WEBRTC_PORT  the UDP port it reaches WebRTC on there, the same inside
+#
+# The directory holds core/ and node/ (the instances) and run/ (their sockets).
+
+services:
+  # The server: the API, the web client, HTTPS at home by its LAN name, WebRTC. Port 443 is bound
+  # inside its own network by the core, as a user: the sysctl, which is this network's own, lets it.
+  orpheum-core:
+    image: ${ORPHEUM_IMAGE:?}
+    user: "${ORPHEUM_UID:-10001}:${ORPHEUM_GID:-10001}"
+    command: ["core", "--instance", "/var/lib/orpheum/core"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: "0"
+    volumes:
+      - ./core:/var/lib/orpheum/core
+      - ./run:/run/orpheum
+    ports:
+      - "${ORPHEUM_HTTP_PUBLISH:-0.0.0.0}:${ORPHEUM_HTTP_PORT:-8440}:8440"
+      - "${ORPHEUM_HTTP_PUBLISH:-0.0.0.0}:${ORPHEUM_LAN_HTTPS_PORT:-8443}:443"
+      # WebRTC from devices at home, on the same port inside, which the core offers them (D300).
+      - "${ORPHEUM_HTTP_PUBLISH:-0.0.0.0}:${ORPHEUM_LAN_WEBRTC_PORT:-8443}:${ORPHEUM_LAN_WEBRTC_PORT:-8443}/udp"
+    networks: [outside]
+    restart: unless-stopped
+    healthcheck:
+      # /api/v1/health answers while the server starts, migrates or is degraded, and says which.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8440 && printf 'GET /api/v1/health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3"]
+      interval: 10s
+      start_period: 60s
+
+  # The media node (D233 §2): every file read and FFmpeg run, confined (D193 §7). It reaches the
+  # core by the sockets in run/ only, so it has no network.
+  orpheum-node:
+    image: ${ORPHEUM_IMAGE:?}
+    user: "${ORPHEUM_UID:-10001}:${ORPHEUM_GID:-10001}"
+    command: ["node", "--instance", "/var/lib/orpheum/node"]
+    network_mode: none
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - ./node:/var/lib/orpheum/node
+      - ./run:/run/orpheum
+    depends_on:
+      orpheum-core:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "test", "-S", "/run/orpheum/node/node.sock"]
+      interval: 10s
+      start_period: 30s
+
+networks:
+  # IPv6 from a private range, translated on the way out as IPv4 is, so the core's WebRTC finds its
+  # public address in both families through its discovery's STUN (rtcapi's UseICEServers).
+  outside:
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: fd77:5e::/64

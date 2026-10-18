@@ -89,14 +89,16 @@ func TestValues_TheTemplateAsBegunSaysWhatToFillInAndNothingElse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if values.Deployment != Release || values.Domain != "media.orpheum-app.com" || values.HTTP.Port != 8440 {
-		t.Errorf("the begun values are %+v; want a release for media.orpheum-app.com on 8440", values)
+	if values.Deployment != Release || values.Domain != "" || values.HasTunnel() || values.HTTP.Port != 8440 {
+		t.Errorf("the begun values are %+v; want a release with no name of its own and no tunnel, on 8440 "+
+			"(D314 §3)", values)
 	}
 	var keys []string
 	for _, problem := range values.Problems() {
 		keys = append(keys, strings.Fields(problem)[0])
 	}
-	want := []string{"contact:", "vps.endpoint:", "vps.public_ipv4", "vps.public_key:", "media.roots:"}
+	// A household with no VPS gives only its media (D314 §3).
+	want := []string{"media.roots:"}
 	if !slices.Equal(keys, want) {
 		t.Errorf("a begun values file needs %v; want %v: what the owner fills in, and nothing else", keys, want)
 	}
@@ -650,5 +652,89 @@ func TestWrite_TheCoreSendsItsDiscoveryTheVPSsAddresses(t *testing.T) {
 	values.VPS.PublicIPv6 = "10.0.0.1"
 	if problems := values.Problems(); !strings.Contains(strings.Join(problems, "\n"), "vps.public_ipv6") {
 		t.Errorf("an IPv4 address as vps.public_ipv6 gave no problem: %v", problems)
+	}
+}
+
+// directValues is a values file with no tunnel and no name of its own: a core reached through its
+// discovery (D314 §3).
+func directValues(t *testing.T) Values {
+	t.Helper()
+	values, err := ParseValues(`deployment = "release"
+[media]
+roots = ["/srv/media"]
+[lan]
+address = "192.168.1.20"
+`, "nas")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return values
+}
+
+func TestWrite_ACoreWithNoTunnelPublishesItsOwnPortsAndServesNoRelay(t *testing.T) {
+	t.Parallel()
+	dir := begun(t, Release)
+	values := directValues(t)
+	if problems := values.Problems(); len(problems) > 0 {
+		t.Fatalf("a core with no tunnel and no domain has problems %v; want none: no VPS and no contact "+
+			"needed", problems)
+	}
+	if err := Write(dir, values, runtime); err != nil {
+		t.Fatal(err)
+	}
+	compose := readFile(t, filepath.Join(dir, composeFile))
+	if strings.Contains(compose, "orpheum-tunnel") || strings.Contains(compose, "wg0") {
+		t.Error("the compose file of a core with no tunnel names the tunnel")
+	}
+	for _, want := range []string{"${ORPHEUM_LAN_HTTPS_PORT:-8443}:443", "${ORPHEUM_HTTP_PORT:-8440}:8440", "/udp"} {
+		if !strings.Contains(compose, want) {
+			t.Errorf("the compose file of a core with no tunnel lacks %q: the core publishes its own ports", want)
+		}
+	}
+	core := decodeTOML(t, filepath.Join(dir, coreConfig))
+	if address := core["turn"]["public_address"]; address != "" {
+		t.Errorf("turn.public_address is %v; want empty, no relay with no tunnel (D314 §4)", address)
+	}
+	if configured, isList := core["discovery"]["configured_addresses"].([]any); !isList || len(configured) != 0 {
+		t.Errorf("discovery.configured_addresses is %v; want none with no VPS forwarding to it", configured)
+	}
+	if _, err := os.Stat(filepath.Join(dir, tunnelConfig)); err == nil {
+		t.Error("a core with no tunnel had the tunnel's config written")
+	}
+	env := readFile(t, filepath.Join(dir, environmentFile))
+	if strings.Contains(env, "ORPHEUM_TUNNEL_") {
+		t.Errorf(".env names the tunnel's variables for a core with none: %q", env)
+	}
+	expectComposeReadsEnvironment(t, env, compose)
+}
+
+// expectComposeReadsEnvironment fails t for each variable env sets that compose never reads.
+func expectComposeReadsEnvironment(t *testing.T, env, compose string) {
+	t.Helper()
+	for line := range strings.SplitSeq(env, "\n") {
+		name, _, isSetting := strings.Cut(line, "=")
+		if isSetting && strings.HasPrefix(name, "ORPHEUM_") && !strings.Contains(compose, "${"+name) {
+			t.Errorf(".env sets %s, which the compose file never reads", name)
+		}
+	}
+}
+
+func TestValues_ATunnelHalfDescribedIsAProblemNotNoTunnel(t *testing.T) {
+	t.Parallel()
+	values, err := ParseValues(`deployment = "release"
+[vps]
+public_ipv4 = "203.0.113.7"
+[media]
+roots = ["/srv/media"]
+`, "nas")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var keys []string
+	for _, problem := range values.Problems() {
+		keys = append(keys, strings.Fields(problem)[0])
+	}
+	if !slices.Contains(keys, "vps.endpoint:") {
+		t.Errorf("a [vps] with an address and no endpoint has problems %v; want vps.endpoint named", keys)
 	}
 }

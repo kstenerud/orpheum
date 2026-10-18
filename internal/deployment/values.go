@@ -131,6 +131,11 @@ func ParseValues(text, hostName string) (Values, error) {
 	return values, nil
 }
 
+// HasTunnel is whether the deployment reaches the internet through a WireGuard tunnel to a VPS: a
+// values file that names the VPS's endpoint. One that names none is reached through its discovery
+// over WebRTC and at home by its LAN names, with no relay of its own (D314 §3, §4).
+func (values Values) HasTunnel() bool { return values.VPS.Endpoint != "" }
+
 // TunnelMTU is the values file's MTU, or the one for the endpoint's address family.
 func (values Values) TunnelMTU() int {
 	if values.VPS.MTU != 0 {
@@ -150,6 +155,9 @@ const httpsPort = "443"
 // discovery as configured candidates: the VPS forwards them through the tunnel (the protocol's §2.4;
 // discovery-core.md K5).
 func (values Values) ConfiguredAddresses() []string {
+	if !values.HasTunnel() {
+		return []string{}
+	}
 	addresses := []string{net.JoinHostPort(values.VPS.PublicIPv4, httpsPort)}
 	if values.VPS.PublicIPv6 != "" {
 		addresses = append(addresses, net.JoinHostPort(values.VPS.PublicIPv6, httpsPort))
@@ -197,6 +205,15 @@ func (values Values) HomeNetworks() []string {
 	return []string{netip.PrefixFrom(address, bits).Masked().String()}
 }
 
+// TURNPublicAddress is the address browsers reach the core's TURN at: the VPS's public IPv4 through
+// the tunnel, or none with no tunnel, which serves no relay (D314 §4).
+func (values Values) TURNPublicAddress() string {
+	if !values.HasTunnel() {
+		return ""
+	}
+	return values.VPS.PublicIPv4
+}
+
 // TURNListen is where the core's TURN listens: the tunnel's IPv4 address, so a UDP answer leaves
 // from the address the VPS forwards to (deploy/vps/README.md §3).
 func (values Values) TURNListen() string {
@@ -209,12 +226,22 @@ func (values Values) Problems() []string {
 	if values.Deployment != Release && values.Deployment != Staging {
 		problems = append(problems, fmt.Sprintf("deployment %q: want %q or %q", values.Deployment, Release, Staging))
 	}
-	if !strings.Contains(values.Contact, "@") {
+	// A core with a name of its own gets its certificate itself; one reached through its discovery
+	// has the discovery's (D292 §7).
+	if values.Domain != "" && !strings.Contains(values.Contact, "@") {
 		problems = append(problems, "contact: the e-mail address Let's Encrypt writes to")
 	}
-	problems = append(problems, values.vpsProblems()...)
+	if values.HasTunnel() || values.vpsIsPartlyGiven() {
+		problems = append(problems, values.vpsProblems()...)
+	}
 	problems = append(problems, values.mediaProblems()...)
 	return append(problems, values.httpProblems()...)
+}
+
+// vpsIsPartlyGiven is whether [vps] names any of the VPS's own values while leaving the endpoint
+// out: a tunnel half described, which is a mistake rather than no tunnel.
+func (values Values) vpsIsPartlyGiven() bool {
+	return values.VPS.PublicIPv4 != "" || values.VPS.PublicIPv6 != "" || values.VPS.PublicKey != ""
 }
 
 // vpsProblems is what [vps] lacks or holds wrongly.
