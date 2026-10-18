@@ -18,7 +18,13 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { AudioMenu, mixIndices, startingAudioTrack, type AudioTrack } from "./audio-tracks.tsx";
-import { audioRenditionIndex, FilmPlayer, type FilmParts, type MovedDown } from "./film-player.tsx";
+import {
+  audioRenditionIndex,
+  FilmPlayer,
+  type FilmComposition,
+  type FilmParts,
+  type MovedDown,
+} from "./film-player.tsx";
 import { problemText } from "./problem.ts";
 import { askUntilAnswered, reopenAtMostEveryMs, type ReopenAt } from "./reopen.ts";
 import type { LadderOffer } from "./moving-down.ts";
@@ -51,12 +57,17 @@ export function PlayView(props: {
   /** Asks the server again how the file plays: after the sound changed (D222) or a subtitle was fetched. */
   readonly onDecideAgain: (cause: DecideAgainCause) => void;
   /**
-   * Told that the server lost the playback, and where it was: true when the page opens it again
-   * from there; false, or undefined, tells the person.
+   * Told that the server lost the playback, and how to read where it is: true when the page opens
+   * it again from there; false, or undefined, tells the person.
    */
-  readonly onPlaybackGone?: ((at: ReopenAt) => boolean) | undefined;
+  readonly onPlaybackGone?: ((whereNow: () => ReopenAt) => boolean) | undefined;
   /** Whether the film waits to be played, as one the person had paused when it was opened again. */
   readonly isStartPaused?: boolean;
+  /**
+   * Whether the page is opening the playback again, this one lost: what it plays is held on screen,
+   * and its player's failures, its media gone with the playback, are not told.
+   */
+  readonly isReconnecting?: boolean;
 }): JSX.Element {
   // The lower quality a stalled player moved to, and where it was (D247 §2); per playback.
   const [moved, setMoved] = useState<MovedDown | undefined>(undefined);
@@ -96,12 +107,7 @@ export function PlayView(props: {
             decision={props.decision}
             moved={moved}
             ladderStartMs={props.decision.resumePositionMs}
-            composition={{
-              hasControls: true,
-              isAutoPlay: props.isStartPaused !== true,
-              askAbout: props.fileId,
-              under: PlayUnderOfPage,
-            }}
+            composition={pageComposition(props)}
           />
         </div>
       </PlayContext>
@@ -114,6 +120,17 @@ export function PlayView(props: {
       />
     </>
   );
+}
+
+/** How the Play page composes its player: its own controls, playing at once unless it waits. */
+function pageComposition(props: Parameters<typeof PlayView>[0]): FilmComposition {
+  return {
+    hasControls: true,
+    isAutoPlay: props.isStartPaused !== true,
+    isFailureHidden: props.isReconnecting === true,
+    askAbout: props.fileId,
+    under: PlayUnderOfPage,
+  };
 }
 
 /**
@@ -394,74 +411,87 @@ interface Opened {
 export function Play(props: { readonly fileId: number }): JSX.Element {
   const { session } = useServices();
   const { t } = useTranslation();
-  const { opened, decideAgain, reopenPlayback, isReopening } = useOpenedPlayback(props.fileId);
-  if (isReopening && opened.state === "loading") {
-    return <p className="title__loading">{t("play.reopening")}</p>;
+  const { opened, held, decideAgain, reopenPlayback } = useOpenedPlayback(props.fileId);
+  const render = ({ decision, isStartPaused }: Opened): JSX.Element =>
+    decision.audioOutput === undefined && session.deviceId() !== undefined ? (
+      <div className="play">
+        <SoundQuestion
+          onAnswered={() => {
+            decideAgain("soundAnswered");
+          }}
+        />
+      </div>
+    ) : (
+      <PlayView
+        key={decision.mediaToken}
+        fileId={props.fileId}
+        decision={decision}
+        onDecideAgain={decideAgain}
+        onPlaybackGone={reopenPlayback}
+        isStartPaused={isStartPaused === true}
+        isReconnecting={opened.state !== "loaded"}
+      />
+    );
+  // While a lost playback is opened again, the one lost stays on screen, playing what it holds (the
+  // owner's test, 2026-10-18: "the page should hold the video open if it can while it tries to
+  // reconnect").
+  const shown = shownOf(opened, held);
+  if (shown === undefined) {
+    return <Loaded resource={opened} render={render} />;
   }
   return (
-    <Loaded
-      resource={opened}
-      render={({ decision, isStartPaused }) =>
-        decision.audioOutput === undefined && session.deviceId() !== undefined ? (
-          <div className="play">
-            <SoundQuestion
-              onAnswered={() => {
-                decideAgain("soundAnswered");
-              }}
-            />
-          </div>
-        ) : (
-          <PlayView
-            fileId={props.fileId}
-            decision={decision}
-            onDecideAgain={decideAgain}
-            onPlaybackGone={reopenPlayback}
-            isStartPaused={isStartPaused === true}
-          />
-        )
-      }
-    />
+    <>
+      {opened.state === "loaded" ? null : <output>{t("play.reopening")}</output>}
+      {render(shown)}
+    </>
   );
+}
+
+/** What the Play page shows: its decision, or, while the next is asked for, the one held. */
+function shownOf(opened: Resource<Opened>, held: Opened | undefined): Opened | undefined {
+  if (opened.state === "loaded") {
+    return opened.value;
+  }
+  return opened.state === "loading" ? held : undefined;
 }
 
 /**
  * The Play page's decision for the file, asked for again when decideAgain says why, and opened again
- * where a playback the server lost was when reopenPlayback is told so, which says whether it is: not
- * within reopenAtMostEveryMs of the last.
+ * where a playback the server lost is when its new one comes, once reopenPlayback is told so, which
+ * says whether it is: not within reopenAtMostEveryMs of the last. held is what played before, shown
+ * while the new one is asked for.
  */
 function useOpenedPlayback(fileId: number): {
   readonly opened: Resource<Opened>;
+  readonly held: Opened | undefined;
   readonly decideAgain: (cause: DecideAgainCause) => void;
-  readonly reopenPlayback: (at: ReopenAt) => boolean;
-  readonly isReopening: boolean;
+  readonly reopenPlayback: (whereNow: () => ReopenAt) => boolean;
 } {
   const { api, playableFormats } = useServices();
   // Why the next decision is asked for: the page's opening, unless something asked it again.
   const nextCauseRef = useRef<StartCause>("playPage");
-  // Where a playback the server lost was, for the next decision to start from; and when the last
-  // was opened again, on the page's clock.
-  const reopenRef = useRef<ReopenAt | undefined>(undefined);
+  // Where a playback the server lost is, read as its new one comes, for that to start from; and
+  // when the last was opened again, on the page's clock.
+  const reopenRef = useRef<(() => ReopenAt) | undefined>(undefined);
   const lastReopenMsRef = useRef<number | undefined>(undefined);
-  const [isReopening, setIsReopening] = useState(false);
+  const [held, setHeld] = useState<Opened | undefined>(undefined);
   const [opened, reload] = useResource(`play/${String(fileId)}`, async (): Promise<Opened> => {
     const cause = nextCauseRef.current;
     nextCauseRef.current = "playPage";
-    const reopen = reopenRef.current;
+    const whereNow = reopenRef.current;
     reopenRef.current = undefined;
     const watching = watchingOf(api);
-    if (reopen === undefined) {
+    if (whereNow === undefined) {
+      setHeld(undefined);
       return { decision: await watching.decide(fileId, playableFormats(), cause) };
     }
-    try {
-      // The server may still be starting: asked again for about a minute.
-      const decision = await askUntilAnswered(() =>
-        watching.decide(fileId, playableFormats(), "playbackGone"),
-      );
-      const resumePositionMs = Math.round(reopen.positionMs);
-      return { decision: { ...decision, resumePositionMs }, isStartPaused: reopen.isPaused };
-    } finally {
-      setIsReopening(false);
-    }
+    // The server may still be starting: asked again for about a minute.
+    const decision = await askUntilAnswered(() =>
+      watching.decide(fileId, playableFormats(), "playbackGone"),
+    );
+    const at = whereNow();
+    const resumePositionMs = Math.round(at.positionMs);
+    return { decision: { ...decision, resumePositionMs }, isStartPaused: at.isPaused };
   });
   const decideAgain = useCallback(
     (cause: DecideAgainCause) => {
@@ -470,20 +500,21 @@ function useOpenedPlayback(fileId: number): {
     },
     [reload],
   );
+  const shownNow = opened.state === "loaded" ? opened.value : undefined;
   const reopenPlayback = useCallback(
-    (at: ReopenAt): boolean => {
+    (whereNow: () => ReopenAt): boolean => {
       const nowMs = performance.now();
       const lastMs = lastReopenMsRef.current;
       if (lastMs !== undefined && nowMs - lastMs < reopenAtMostEveryMs) {
         return false;
       }
       lastReopenMsRef.current = nowMs;
-      reopenRef.current = at;
-      setIsReopening(true);
+      reopenRef.current = whereNow;
+      setHeld(shownNow);
       reload();
       return true;
     },
-    [reload],
+    [reload, shownNow],
   );
-  return { opened, decideAgain, reopenPlayback, isReopening };
+  return { opened, held, decideAgain, reopenPlayback };
 }

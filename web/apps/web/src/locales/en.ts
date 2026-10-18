@@ -88,7 +88,7 @@ export const en = {
       "This cannot be played now: the machine, folder or mount that holds it is missing.",
     mediaReason: {
       nodeAway:
-        "This cannot be played now: {{node}}, the machine that holds it, is not connected{{since}}.",
+        "This cannot be played now: the server cannot reach {{node}}, the computer the film is on{{since}}. Check that it is on and connected.",
       rootMissing:
         "This cannot be played now: the folder {{path}} on {{node}} is missing{{since}}.",
       diskMissing:

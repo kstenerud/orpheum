@@ -111,7 +111,7 @@ describe("an episode that cannot be played now (D241 §3)", () => {
     );
     expect(markup).toContain("Episode 1");
     expect(markup).toContain(
-      "This cannot be played now: devnas, the machine that holds it, is not connected.",
+      "This cannot be played now: the server cannot reach devnas, the computer the film is on. Check that it is on and connected.",
     );
     expect(markup).toContain("series__item--absent");
   });

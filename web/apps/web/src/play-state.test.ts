@@ -22,6 +22,7 @@ import {
   tellUnplayable,
 } from "./play-state.ts";
 import { ApiProblem } from "./problem.ts";
+import { reopenWaitsMs } from "./reopen.ts";
 import {
   mount,
   refusal,
@@ -188,6 +189,54 @@ describe("play state", () => {
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
       "Reload the page to carry on from where you were",
     );
+  });
+
+  it("holds the lost video on screen while the server comes back, and opens the new one where it has got to", async () => {
+    const heard: Heard[] = [];
+    mounted = await mount(
+      withServices(
+        createElement(Play, { fileId: 2 }),
+        servedBy(
+          {
+            "POST /playback": [
+              [200, directDecision({ mediaToken: "lost" })],
+              refusal(502, "not_answering"), // the server still starting
+              [200, directDecision({ mediaToken: "again" })],
+            ],
+            "POST /playback/lost/report": refusal(404, "playback_gone"),
+          },
+          heard,
+        ),
+      ),
+    );
+    const lost = videoOf(mounted);
+    Object.defineProperty(lost, "readyState", { value: 4 });
+    Object.defineProperty(lost, "currentTime", { value: 600, writable: true });
+    await act(async () => {
+      lost.dispatchEvent(new Event("timeupdate"));
+      lost.dispatchEvent(new Event("playing")); // reported, and refused: the server lost it
+      await settle();
+    });
+    expect(videoOf(mounted)).toBe(lost);
+    expect(mounted.container.querySelector("output")?.textContent).toContain(
+      "Opening the film again where you were",
+    );
+    lost.currentTime = 612; // it plays on from what it holds
+    await act(async () => {
+      lost.dispatchEvent(new Event("timeupdate"));
+      await new Promise((resolve) => setTimeout(resolve, reopenWaitsMs[0]));
+      await settle();
+    });
+    const again = videoOf(mounted);
+    expect(again).not.toBe(lost);
+    expect(again.autoplay).toBe(true);
+    expect(mounted.container.querySelector("output")).toBe(null);
+    Object.defineProperty(again, "readyState", { value: 4 });
+    await act(async () => {
+      again.dispatchEvent(new Event("loadedmetadata"));
+      await settle();
+    });
+    expect(again.currentTime).toBe(612);
   });
 
   it("reports at once when the player fails, so a playback lost before it played is learned of", async () => {

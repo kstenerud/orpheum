@@ -23,10 +23,16 @@ const passingRefusalCodes: ReadonlySet<string> = new Set([
   "rate_limited",
 ]);
 
-/** Whether a failure to reach the server may pass: no answer at all, or a refusal that passes. */
+/**
+ * Whether a failure to reach the server may pass: no answer at all, a refusal that passes, or the
+ * machine holding the film away, as it is for the seconds after the server restarts, until it is
+ * heard again (the owner's test, 2026-10-18: a reopen asked 30 ms after the restart was told so, and
+ * gave up).
+ */
 export function mayPass(cause: unknown): boolean {
   if (cause instanceof ApiProblem) {
-    return passingRefusalCodes.has(cause.code);
+    const isNodeAway = cause.withCode("media_unreachable")?.detail?.reason === "node_away";
+    return isNodeAway || passingRefusalCodes.has(cause.code);
   }
   return cause instanceof TypeError; // fetch's own failure: no answer at all
 }
