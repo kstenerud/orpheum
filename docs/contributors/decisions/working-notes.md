@@ -20709,7 +20709,12 @@ It holds for the core's registration invitations, Watch Together's links (D246),
    loses what the link gave it, the members it let in leave, the core it enrolled is removed
    (D310 §9).
 4. **Regenerating a link is revoking it and making a new one**, the note kept.
+5. **A core's enrolment key is a code, not a URL or QR code** (the owner, the same day: *"the
+   enrolment key for enroling a core is going to be a safe32 code rather than a URL+QR code
+   (because it has to be entered by a human) but otherwise follows a similar pattern"*): a
+   `discovery/safe32code` code, which a person types into the core's own page; §1's note, §2's
+   list, §3's revoking and §4's regenerating hold for it as for the rest (D310 §8–§9).
 
-**Status:** Decided 2026-10-18. Each kind of link is to be checked against it: today the core's
+**Status:** Decided 2026-10-18, §5 the same day. Each kind of link is to be checked against it: today the core's
 invitations and Watch Together's links can be withdrawn while unused, and a Watch Together member
 ejected on its own, but neither ties what a redeemed link granted to the link.
