@@ -225,12 +225,31 @@ async function nameTheCoreDirectly(
     const headers = Object.fromEntries(
       Object.entries(route.request().headers()).filter(([name]) => name !== "host"),
     );
-    const answer = await route.fetch({
-      url: route.request().url().replace(coreName, serverUrl()),
-      headers: { ...headers, origin: clientOrigin },
-    });
-    await route.fulfill({ response: answer });
+    try {
+      const answer = await route.fetch({
+        url: route.request().url().replace(coreName, serverUrl()),
+        headers: { ...headers, origin: clientOrigin },
+      });
+      await route.fulfill({ response: answer });
+    } catch (error) {
+      // A request the page gave up on while its answer came, as a player does a chunk it no longer
+      // needs, is answered by no one, as the core's own would be; its fetched answer is disposed,
+      // and fulfilling it failed the test (check-pr, 2026-10-18).
+      if (!isAbandoned(error)) {
+        throw error;
+      }
+    }
   });
+}
+
+/** Whether a routed request's handling failed because the page gave the request up, or closed. */
+function isAbandoned(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    /has been disposed|has been closed|Route is already handled|Request context disposed/u.test(
+      error.message,
+    )
+  );
 }
 
 test("a page on the discovery's origin plays from its core's own name, its poster and film by the header alone", async ({
