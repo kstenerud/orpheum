@@ -236,8 +236,10 @@ func (service *Service) Assignee(runner nodes.Resolver) nodes.Assignee {
 	}
 }
 
-// forgetRun forgets the run an attempt was, which will make nothing more.
+// forgetRun forgets the run an attempt was, which will make nothing more, and that its job was
+// cancelled, which its node will say nothing more of.
 func (service *Service) forgetRun(attempt nodes.Attempt) {
+	service.runs.ended(attempt.JobID)
 	if command := attempt.Work.MakeChunks; command != nil {
 		service.runs.forget(command.StoreDir, command.FirstChunk)
 	}
@@ -277,6 +279,7 @@ func (service *Service) takeProgress(ctx context.Context, attempt nodes.Attempt,
 func (service *Service) takeEnd(
 	job jobs.Job, nodeID int64, command nodeproto.MakeChunks, report nodeproto.MakeChunksReport,
 ) error {
+	service.runs.ended(job.ID)
 	if report.LastChunk >= command.FirstChunk {
 		service.runs.madeThrough(command.StoreDir, command.FirstChunk, report.LastChunk)
 	}

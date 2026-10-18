@@ -40,8 +40,33 @@ type runArgs struct {
 // a film's streams queue side by side, and a run asked for while another of its store waits queued
 // is folded into that one, as the queue folds any repeat request: the next ask plans it again. A
 // store with runs on their way is kept wanted (D234 §3). A run queued is logged. The film is cut at
-// kind, as its playback's is; one with no grid yet is ErrNoGrid.
+// kind, as its playback's is; one with no grid yet is ErrNoGrid. It is the server's own start of a
+// player's run, as the player starts or stalls, whose interest is recorded once it is on its way;
+// a player's ask is askedFor.
 func (service *Service) Ensure(ctx context.Context, fileID int64, kind GridKind, stream Stream, wanted int) error {
+	return service.ensure(ctx, ensuring{fileID: fileID, kind: kind, stream: stream, wanted: wanted})
+}
+
+// askedFor is Ensure for a player's own ask, which plans no run its interest would not want: a
+// paused player filling its buffer started a run past what it keeps ahead at each ask, stopped
+// within a second as it was (staging, 2026-10-18).
+func (service *Service) askedFor(ctx context.Context, fileID int64, kind GridKind, stream Stream, wanted int) error {
+	return service.ensure(ctx, ensuring{fileID: fileID, kind: kind, stream: stream, wanted: wanted, isAsked: true})
+}
+
+// ensuring is what Ensure makes sure of: a film's stream's chunk wanted, cut at kind, and whether a
+// player asked for it.
+type ensuring struct {
+	fileID  int64
+	kind    GridKind
+	stream  Stream
+	wanted  int
+	isAsked bool
+}
+
+// ensure is Ensure, and askedFor when the ensuring says a player asked.
+func (service *Service) ensure(ctx context.Context, asked ensuring) error {
+	fileID, kind, stream, wanted := asked.fileID, asked.kind, asked.stream, asked.wanted
 	film, isCut, err := service.cut(ctx, fileID, kind)
 	if err != nil {
 		return err
@@ -54,10 +79,11 @@ func (service *Service) Ensure(ctx context.Context, fileID int64, kind GridKind,
 	}
 	gridID := film.grid.ID()
 	dir := StoreDir(fileID, stream, gridID)
-	if askErr := service.ask(ctx, film, stream, wanted); askErr != nil {
+	wants, askErr := service.ask(ctx, film, stream, wanted, asked.isAsked)
+	if askErr != nil {
 		return askErr
 	}
-	first, last, isPlanned := service.runs.plan(dir, film.grid, wanted)
+	first, last, isPlanned := service.runs.plan(dir, film.grid, wanted, wants)
 	if !isPlanned {
 		if storeID, isMaking := service.runs.making(dir); isMaking && storeID != 0 {
 			return service.queue.KeepWanted(ctx, jobs.KindMakeChunks, jobs.Target{ChunkStoreID: storeID})
@@ -100,23 +126,32 @@ func (service *Service) Ensure(ctx context.Context, fileID int64, kind GridKind,
 // made nor on its way (ErrNoRoomToMake, D250 §6), and plans no run (runTracker.plan): only a player
 // its eviction left without its chunks is told why it stops. Refusing every ask, a chunk made and
 // served was answered 500, and a player whose quality another run was making at 2.5x playback asked
-// for it every two seconds for minutes (the owner's Wings on nas.example, 2026-10-17).
-func (service *Service) ask(ctx context.Context, film cutFilm, stream Stream, wanted int) error {
+// for it every two seconds for minutes (the owner's Wings on nas.example, 2026-10-17). For a player's
+// ask, isAsked, it returns what its interest wants, which the run planned for it must be; every run
+// for the server's own start, or where nothing says.
+func (service *Service) ask(
+	ctx context.Context, film cutFilm, stream Stream, wanted int, isAsked bool,
+) (wantedness, error) {
 	dir := StoreDir(film.file.ID, stream, film.grid.ID())
 	service.runs.knowGrid(dir, film.grid)
 	if service.runs.isEvicted(dir) && !service.runs.isCovered(dir, wanted) {
-		return fmt.Errorf("%s: %w", dir, ErrNoRoomToMake)
+		return nil, fmt.Errorf("%s: %w", dir, ErrNoRoomToMake)
+	}
+	wants, err := service.wantednessOf(ctx, film.file.ID, stream, isAsked)
+	if err != nil {
+		return nil, err
 	}
 	queued, isCut := service.runs.cutQueuedAhead(dir, film.grid, wanted)
 	if !isCut {
-		return nil
+		return wants, nil
 	}
 	cancelled, err := service.cancelRun(ctx, queued)
-	if err == nil {
-		service.logger.InfoContext(ctx, "cancelled a queued run of chunks to start it where the player is",
-			queued.attributes(cancelled)...)
+	if err != nil {
+		return nil, err
 	}
-	return err
+	service.logger.InfoContext(ctx, "cancelled a queued run of chunks to start it where the player is",
+		queued.attributes(cancelled)...)
+	return wants, nil
 }
 
 // storeIDOf is the chunk_store row of a stream of a film on a grid, made the first time it is named.

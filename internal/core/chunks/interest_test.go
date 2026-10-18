@@ -213,3 +213,28 @@ func TestStopUnwanted_APausedPlayersRunStopsOnceWhatItKeepsAheadIsMade(t *testin
 		t.Errorf("with no one wanting the film: cancelled %v; want the run from 40 too", queue.cancelledFirsts)
 	}
 }
+
+// A paused player filling its buffer starts no run past what it keeps ahead: one was queued at each
+// ask and stopped within a second (staging, 2026-10-18). The server's own start of a player's run,
+// as it starts or stalls, before its interest is recorded, still starts one.
+func TestAskedFor_APausedPlayerStartsNoRunPastWhatItKeepsAhead(t *testing.T) {
+	t.Parallel()
+	queue := newFakeQueue()
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	wanted := wantedBy(service)
+	picture := Stream{Kind: nodeproto.StreamPicture}
+	service.runs.madeThrough(StoreDir(1, picture, mustGrid(t, service).ID()), 3, 8)
+	paused := playingAt(picture, 3)
+	paused.IsStopped = true
+	wanted.say(paused)
+	if err := service.askedFor(t.Context(), 1, OnKeyframes, picture, 6); err != nil {
+		t.Fatal(err)
+	}
+	if runs := queue.runs(t, service); len(runs) != 0 {
+		t.Fatalf("a paused player's ask queued %+v; want nothing past the 30 s it keeps ahead", runs)
+	}
+	ensured(t, service, picture, 6)
+	if runs := queue.runs(t, service); len(runs) != 1 || runs[0].firstChunk != 9 {
+		t.Errorf("the server's own start queued %+v; want one from chunk 9", runs)
+	}
+}
