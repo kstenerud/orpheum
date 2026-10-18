@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# A version tag publishes the runtime image a household installs (D314 §1): built from the tag as
+# deploy/release/build.sh builds it on the owner's machines, the same Containerfile and target, and
+# pushed to GitHub's registry beside the repository as ghcr.io/<owner>/orpheum:<tag> and :latest.
+# The package is made public once, by the owner, in its settings on GitHub (a private repository's
+# packages start private).
+name: release-image
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+  packages: write
+
+# One publish per tag; a tag pushed again replaces its run.
+concurrency:
+  group: release-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and push the runtime image
+        env:
+          TAG: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          # A registry's names are lower case; the repository's owner may not be.
+          image="ghcr.io/${REPOSITORY,,}"
+          echo "$TOKEN" | docker login ghcr.io --username "$ACTOR" --password-stdin
+          DOCKER_BUILDKIT=1 docker build --file deploy/Containerfile --target runtime \
+            --label "org.opencontainers.image.source=https://github.com/$REPOSITORY" \
+            --label "org.opencontainers.image.version=$TAG" \
+            --tag "$image:$TAG" --tag "$image:latest" .
+          docker push "$image:$TAG"
+          docker push "$image:latest"
