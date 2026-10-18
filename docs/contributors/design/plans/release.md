@@ -4,8 +4,9 @@
 
 # Release mode
 
-- **Status:** IN-PROGRESS — begun 2026-10-09 on the owner's word (*"Yes start building release
-  mode"*). R1 to R7 are built; R8, on nas.example, is not.
+- **Status:** BUILT — begun 2026-10-09 on the owner's word (*"Yes start building release
+  mode"*). R1 to R7 are built, and R8 is done: nas.example has run release mode since 2026-10-13
+  (`v0.1.0-nas.1`), and `v0.2.0-nas.x` since 2026-10-14; it runs `v0.2.0-nas.11` now.
 - **Depends on:** D249, D272 (and its §6–§9, the owner's choices for the build), D27, D240,
   D228, [scanner.md](scanner.md).
 
@@ -47,7 +48,7 @@
 | R5 | The periodic scan: a sweep, every 15 minutes, asks for the scan of each root whose library checks every N hours, or is watched, once its interval has passed since its last scan; a watched library's interval is the setting `watched_library_scan_every_hours`, 24 | built |
 | R6 | Scoped scans in the core (`Scans.RequestUnder`): a scan's scope kept with it in cache.db; removals, moves and mount checks only within it, the withhold share judged against the whole root; requests made while one runs widen to the folder holding them all; one that may not judge becomes the whole root's; it never counts as the root's last scan, so the periodic scan stays due | built |
 | R7 | The watcher, `internal/node/watch`: inotify on every folder of every root not on a network filesystem; per root, the folder holding every change is noticed once the root has gone `node.watch_quiet_seconds` (30) quiet, or after 20 of them while changes keep coming; an overflow notices every root whole; a root that cannot be watched whole is not watched and says why. Notices go to `/node/v1/changed` (protocol 31), and the core scans the folder only for a watched library; each root's watch rides in the status, and the library page shows it | built |
-| R8 | On nas.example with the owner: install, first run, `CHECKPOINT` committed at the version it runs | not started |
+| R8 | On nas.example with the owner: install, first run, `CHECKPOINT` committed at the version it runs | done: installed 2026-10-13 (`v0.1.0-nas.1`); `CHECKPOINT` committed at 36 on 2026-10-14, and moved to 48 by D303's fresh baseline |
 
 ## Values to classify
 

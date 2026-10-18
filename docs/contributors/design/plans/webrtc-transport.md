@@ -7,11 +7,14 @@
 
 - **Status:** IN-PROGRESS — begun 2026-10-09 on the owner's word (*"Ok let's add webrtc"*). W1,
   W2a, W2b, W3 and W4a are built. W2c–W2f, W4c, W5 and W6 were revised 2026-10-13 to
-  [discovery-protocol.md](../discovery-protocol.md) as D290, D291 and D292 left it, and are not
-  started. WebRTC through the discovery is in the paid service's closed beta (D290 §14), so this
-  plan is on the beta's critical path: W2f's fingerprint checks and W4c's credentials per core are
-  part of the security floor, and W2c–W2f with W4c make the thin path
-  ([discovery-core.md](discovery-core.md#the-order-of-work), Phases 1 and 2).
+  [discovery-protocol.md](../discovery-protocol.md) as D290, D291 and D292 left it. Since then the
+  thin path is built and live (2026-10-14, on nas.example through the production service since
+  2026-10-15): W2c's thin form, W2d but for ICE restart, W2f's offer proofs and answer
+  checks, W4c's client at a discovery, since 2026-10-17 behind D308's loader
+  ([client-from-core.md](client-from-core.md)), and W5's browser test. Left: ICE restart
+  and the network-change triggers (discovery-core.md K3b, K4), W2e, W4c's remaining items, W5's
+  measurement and W6; D313 puts the healing of connections on network changes in the closed beta's
+  B0.
 - **Depends on:** D273, D274 (WebRTC through the discovery is the baseline), D290 §2, §6, §14,
   D291 §3, D292 §4,
   [reachability-approaches-2026-10-09.md](../research/reachability-approaches-2026-10-09.md) §9.4
@@ -55,15 +58,15 @@
 | W2a | The web client's API over channels: the SDK's `RtcTransport` over four connections and a `SwitchableFetch` the API client sends with; `?transport=webrtc` moves a signed-in tab onto it until W4 signals through the discovery | built |
 | W2b | Media over channels: a service worker on the page passes what the browser loads itself (images, `<video>`, hls.js, subtitle tracks) to the page's transport, so no screen changes; credit-based flow control end to end (the core sends 4 MiB ahead of what the reader took). Not under Vite's dev server, which serves no `/sw.js` | built |
 | W2c | Choosing among the paths (protocol §3.2, §3.3; D290 §2, D291 §3) | thin form built 2026-10-14: the discovery's page races the core's published names (`firstDirectPath`), takes the first to answer its health and sends its requests and media there (`directFetch`), else WebRTC; the rest below is planned |
-| W2d | Channel recovery and ICE restart (protocol §2.5; C6) | planned, below |
+| W2d | Channel recovery and ICE restart (protocol §2.5; C6) | built 2026-10-14: one connection first, growing to four, a lost one replaced; ICE restart waits for K3b (Phase 3), and until then a failed connection starts a new race |
 | W2e | Early description on the client (protocol §2.5; C6, F2) | planned, below |
-| W2f | The core's key and its signed answers checked (protocol §2.5, §3.5; D290 §3, §6, D291 §6, D292 §4) | planned, below |
+| W2f | The core's key and its signed answers checked (protocol §2.5, §3.5; D290 §3, §6, D291 §6, D292 §4) | built in part 2026-10-14: offers carry their proof, and answers are checked by the link's fingerprint; the rest below is planned |
 | W3 | WebSocket over a channel: Watch Together's hub, through a `togetherSocket` interface the WebSocket and `rtcapi.MessageConn` both meet; the core's close a binary message, so no session message is taken for it | built |
 | W4 | Signalling and STUN through the discovery (the service and the owner's own), so a client reaches a core HTTPS cannot reach: since D274 the baseline every core is reached by. In three parts: | |
 | W4a | The core: STUN servers from its discovery, so its answers carry its public (server-reflexive) candidates; each connection's path recorded (direct over IPv6 or IPv4, punched, relayed) for the log and the System page (D274 §3) | built 2026-10-10: `iceServers` in the discovery's status answer, `rtcapi.Server.UseICEServers`, `rtcapi.Path` counted and shown in System → Discovery. The client's own report of its path waits for W4c |
 | W4b | `orpheum discovery`, the single-target discovery (D273 §3): the core's side of the protocol answered for one core, the client's (locate, paths, offer) and STUN, in this repository, so W4 is tested end to end and self-hosters have one | in progress: [discovery-mode.md](discovery-mode.md) |
-| W4c | The web client served by a discovery: finding its core, offering through the discovery, racing its paths (W2c), credentials per core | planned, below |
-| W5 | A browser-tier test forced onto the WebRTC path through a discovery; a measurement over a real link | planned, below |
+| W4c | The web client served by a discovery: finding its core, offering through the discovery, racing its paths (W2c), credentials per core | built in part 2026-10-14, and since 2026-10-17 served as each core's own client behind D308's loader ([client-from-core.md](client-from-core.md)); the rest below is planned |
+| W5 | A browser-tier test forced onto the WebRTC path through a discovery; a measurement over a real link | the test built 2026-10-14 (`through-discovery.spec.ts`); the measurement planned, below |
 | W6 | The voice relay moved from pion/turn v4 to v5, so the binary carries one TURN library | planned, below |
 
 Order: W2f's checks and W4c's credentials per core in the security floor (Phase 1); then, for the

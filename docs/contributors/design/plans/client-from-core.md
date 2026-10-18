@@ -4,8 +4,10 @@
 
 # Each core's client, behind a loader (D308)
 
-- **Status:** IN-PROGRESS — begun 2026-10-17 on the owner's word (*"agreed. Proceed."*); the byte
-  cookies of §2.1 4 are built, the rest is planned.
+- **Status:** BUILT — begun 2026-10-17 on the owner's word (*"agreed. Proceed."*), and built the
+  same day: §3's four steps, live on nas.example since 2026-10-17 (`v0.2.0-nas.9`), with
+  `prod-api` repackaged and `app.orpheum-app.com` serving the loader. Two follow-ups came the same
+  night: the loader at `app.` never tries the LAN, and Forget asks first.
 - **Depends on:** D308, D273, D292, D293, D297; [discovery-core.md](discovery-core.md);
   [webrtc-transport.md](webrtc-transport.md).
 - **Blocks:** —
@@ -76,7 +78,8 @@ audit, whose controls this builds, is
 
 ### 2.2 The web (`orpheum/web`, MPL-2.0)
 
-1. **`web/apps/loader`**, built apart from the client. These modules move out of the client:
+1. **`web/apps/loader`**, built apart from the client. *(As built, one build is both, §2.2a; there is
+   no `web/apps/loader`.)* These modules move out of the client:
    `discovery-start.ts`, `discovery-gate.tsx`, the realm sign-in, and the SDK's discovery, realm,
    direct-path, rtc-transport, rtc-media and path-keeper modules, which both may import. Its
    service worker replaces `sw.js`.

@@ -8,10 +8,14 @@
 - **Status:** IN-PROGRESS — begun 2026-10-11 on the owner's word (*"let's move on with the
   milestone"*), the next phase of [webrtc-transport.md](webrtc-transport.md) after W4a. W4b.1 and
   the package of W4b.2 are built; the steps were revised 2026-10-13 to
-  [discovery-protocol.md](../discovery-protocol.md) as D290, D291 and D292 left it, and are not
-  started. W4b.7 is part of the security floor, Phase 1 of
-  [discovery-core.md](discovery-core.md#the-order-of-work); `single`'s client API and the
-  end-to-end test are Phase 2's thin path; the command waits until after the beta.
+  [discovery-protocol.md](../discovery-protocol.md) as D290, D291 and D292 left it. Since then
+  W4b.7 is built but for the conformance suite (2026-10-13, Phase 1 of
+  [discovery-core.md](discovery-core.md#the-order-of-work)), W4b.4 in part and W4b.6 (2026-10-14,
+  Phase 2's thin path). W4b.3 is Phase 3. The command and its web serving (W4b.8, W4b.5) come
+  before the open beta, possibly during the closed one (D313 §7), and enrol the core as the paid
+  service does: the discovery's command line gives a key, the core is pointed at the household's
+  domain, and its admin enters the key at home (D310 §7), in place of `orpheum discovery claim
+  <code>`.
 - **Depends on:** D273 §3 (the owner's own discovery, one core), D274 §5 (it has the paid tier's
   shape: it serves the web app, taking the files from the core; it claims its core by
   `orpheum discovery claim <code>`; it relays by TURN), D275 §1 (public building blocks, the closed
@@ -39,16 +43,18 @@
     clock that runs the protocol's cases, which `single`'s tests and the paid service's handler
     tests both run, so the free and paid servers cannot drift (protocol §5; devloop §3.2, D292 §9).
 - **`orpheum discovery`** is a mode of the one binary (`cmd/orpheum`), as core and node are: it
-  serves `discovery/single` over HTTPS, runs STUN, and `orpheum discovery claim <code>` binds the
-  core whose code it is.
+  serves `discovery/single` over HTTPS, runs STUN, and ~~`orpheum discovery claim <code>` binds the
+  core whose code it is~~ gives the key its core enrols by (D310 §7).
 - **Nothing for many cores in Orpheum** (D275 §1): accounts, billing, names under a shared zone,
   the outside probe machine and rate limits across customers are the closed service's
   (`orpheum-connect`, D292 §8), planned in its own repository.
 - **`single` is the reference.** The core's client is tested against it (protocol §5), the web
   client's discovery paths are tested against it (W4b.6, W5), and the paid service runs the same
   conformance suite against its handlers. So its client API is on the beta's critical path even
-  though the command and its VPS guide ship after the beta. In the beta, a self-hoster's route is
-  the VPS tunnel as built (`deploy/vps/`) [I, coherence §4.2].
+  though the command and its VPS guide ship ~~after the beta~~ before the open beta (D313 §7).
+  ~~In the beta, a self-hoster's route is the VPS tunnel as built (`deploy/vps/`) [I, coherence
+  §4.2].~~ In the closed beta every household is on the paid service, and none sets up a VPS
+  (D310 §1).
 
 ## Steps
 
@@ -56,12 +62,12 @@
 | --- | --- | --- |
 | W4b.1 | The public tree: `discovery/discoveryproto` (moved from `internal/discoveryproto`) and `discovery/proof`, the core signing with it; the architecture tests that load `cmd/...` and `internal/...` load `discovery/...` too, and `TestArch_PublicPackagesImportNothingInternal` holds the tree free of `internal/` | BUILT 2026-10-11 |
 | W4b.2 | `discovery/single`, the core-facing protocol for one core against the core's real client (`internal/core/discovery`); the state in one file | the package BUILT 2026-10-11 (with `discovery/safe32code` moved out of `internal/core/auth`): enrolment, claiming (`single.Claim`), sessions, status, heartbeat, the certificate's record through a DNS provider when given one, leaving, the core's signalling; nonces carrying their own expiry and MAC since an earlier commit (D290 §15). Its takeover flaws, code K13–K15, closed 2026-10-13 (A3; W4b.7). The command moved to W4b.8 |
-| W4b.7 | `single` brought to the revised protocol, its takeover flaws closed, and the conformance suite (below) | Phase 1, first of the remaining steps, with discovery-core.md's K1 |
-| W4b.4 | The client-facing protocol: locate, paths and offer for the one core (below) | Phase 2 |
+| W4b.7 | `single` brought to the revised protocol, its takeover flaws closed, and the conformance suite (below) | built 2026-10-13 (Phase 1, with discovery-core.md's K1), but for the conformance suite `discovery/discoverytest`, which does not exist yet |
+| W4b.4 | The client-facing protocol: locate, paths and offer for the one core (below) | built in part 2026-10-14 (Phase 2): locate, paths, offers and the dead-end report; the `lan` path and rate limits on strangers wait |
 | W4b.6 | An end-to-end test: a core, its discovery and a browser, the browser reaching the core through the discovery (below); then the owner's real run (W5) | built 2026-10-14: `web/e2e/through-discovery.spec.ts`, against `orpheum dev discovery` (development builds only), in Chromium and Firefox; the Watch Together socket and ICE restart wait |
 | W4b.3 | STUN: the discovery's `iceServers` point at its own STUN server (below) | Phase 3; the thin path uses any public STUN server |
-| W4b.5 | Serving the web app at the owner's domain, its files taken from the core (D274 §5) | after the beta; waits on Q3 |
-| W4b.8 | The command: `orpheum discovery`, `orpheum discovery claim <code>`, `orpheum discovery rekey` | after the beta; waits on Q5 |
+| W4b.5 | Serving the web app at the owner's domain, its files taken from the core (D274 §5) | before the open beta (D310 §1, D313 §7); waits on Q3 |
+| W4b.8 | The command: `orpheum discovery`, ~~`orpheum discovery claim <code>`~~ a core's enrolment key (D310 §7), `orpheum discovery rekey` | before the open beta (D310 §1, D313 §7); waits on Q5 |
 
 The table is in the order of work; the step numbers stay as other documents cite them (the
 protocol's §2.6 cites W4b.4).
@@ -180,7 +186,7 @@ can be held to Binding only, or a small server is needed, is found when built; i
 **Tests:** a Binding request is answered with the source's mapped address; any other method is not;
 a source past its rate is not.
 
-### W4b.5 — Serving the web app (after the beta)
+### W4b.5 — Serving the web app (before the open beta)
 
 The discovery serves the core's web client at the owner's domain, its files taken from the core over
 the core's own outbound connection, so their version is always the core's (D274 §5); one build per
@@ -188,14 +194,18 @@ core API major, the one the core reports (D289 §4). The protocol has no call fo
 **Tests:** the discovery serves the files the core sent, and a new core version's files replace
 them.
 
-### W4b.8 — The command (after the beta)
+### W4b.8 — The command (before the open beta)
 
-`orpheum discovery` serves `single` (W4b.7, W4b.3, W4b.4, W4b.5); `orpheum discovery claim <code>`
-binds the core whose code it is and prints the fingerprint it binds (protocol §2.2 item 2; T13;
+> **Revised by D310 §7 (2026-10-18):** the core enrols by a key the command gives, which its admin
+> enters at home, as on the paid service; the claim by the core's code below is replaced.
+
+`orpheum discovery` serves `single` (W4b.7, W4b.3, W4b.4, W4b.5); ~~`orpheum discovery claim <code>`
+binds the core whose code it is and prints the fingerprint it binds~~ the command gives the core's
+enrolment key, and the core is pointed at the household's domain (D310 §7) (protocol §2.2 item 2; T13;
 `single.Claim` exists, used by its tests only); `orpheum discovery rekey` re-keys after a lost key
 once re-keying is built (protocol §2.8, C4; deferred). How it is reached and configured is Q5.
-**Tests:** the claim command binds a pending core by its code, prints its fingerprint, and refuses a
-wrong or expired one, saying which.
+**Tests:** ~~the claim command binds a pending core by its code, prints its fingerprint, and refuses a
+wrong or expired one, saying which~~ to be rewritten for the key (D310 §7).
 
 ## Questions for the owner
 

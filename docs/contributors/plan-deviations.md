@@ -40,6 +40,80 @@ counted:
 
 ## Log
 
+### P60 — Cut A's next milestones were replaced by the closed beta's, after a stock-take (after M4, 2026-10-18) · plan-gap
+
+- **Planned:** cut-a.md §8's M5, the polished UI (D245), then M6, the remote TV, as what comes
+  after M4.
+- **What happened:** by 2026-10-18 M0–M4 were built, and so was a track no milestone named (P57).
+  The owner's stock-take
+  ([milestone-reassessment-2026-10-18.md](design/research/milestone-reassessment-2026-10-18.md))
+  found the plan documents behind the code (the roadmap, seven plans' Status lines, m5.md's
+  contradictions, this log), and found that the discovery run then matched neither outcome the
+  owner wanted: a self-run discovery, and the paid service with accounts. D310–D312 brought the
+  paid service's accounts into the closed beta, and D313 replaced M5 and M6 with the closed beta's
+  milestones, B0 to B5, the UI revamp among them as B4.
+- **Why the plan missed it:** the build contract was frozen (D193 §8) and had no place for work
+  the owner chose outside it; each decision was recorded, but no one changed the milestone list
+  with it, so its order went on describing work no longer next.
+- **Cost:** a day's stock-take and a feature-by-feature comparison with the field; four decisions;
+  one pass over the roadmap, cut-a and seven plans.
+- **Process lesson:** when the owner moves work outside the milestones, revise the milestone list
+  in the same change as the decision, and read each touched plan's Status line at every
+  deployment, not only at audits.
+
+### P59 — The polished UI was deferred twice, until the features it must hold are in (M5, 2026-10-18) · requirement-emerged
+
+- **Planned:** Cut A ends with one polished, skinned web UI built on research (M5, D245), the
+  remote TV right after it.
+- **What happened:** on 2026-10-09 the owner judged M5's picture not clear enough to build and
+  put the closed beta first; M5's research and inventory were done, and D271 answered its first
+  questions, but no phase was planned. On 2026-10-18 the owner deferred the revamp until the
+  features are in (*"doing the ui revamp would risk handcuffing us"*), and D313 §5 made it B4,
+  after B0–B3. D251's first tier of the skin stays meanwhile.
+- **Why the plan missed it:** M5 was placed before the features it must hold were settled; a
+  revamp then would fix a layout around screens that are not there yet.
+- **Cost:** M5's research waits, done ahead; m5.md and cut-a stayed out of step with the order of
+  work for nine days.
+- **Process lesson:** schedule a UI revamp after the feature set it must hold, and say in the
+  plan what it waits on.
+
+### P58 — The data layer was rebuilt once a real library ran on it (after M4, 2026-10-15) · plan-gap
+
+- **Planned:** SQLite behind `internal/store` (D31), with queries written as each feature needed
+  them, and the first scan ordered so a library is browsable early (D118).
+- **What happened:** on nas.example, requests waited 3–47 s behind an identification pass that held
+  SQLite's one writer for 25–30 s. An access audit, a practice survey and an independent DBA's
+  audit led to D303: written principles (short writes that re-check what they decided, a revision
+  on rows people edit), a fresh baseline at 0048 with every table STRICT, committed statistics and
+  hourly backups. D304 then filed a library in stages by weight, and D305 settled deletion and
+  backup thinning.
+- **Why the plan missed it:** the scan's speed was measured, but not what a long write does to the
+  requests beside it; the development library was too small to show it, and the data layer had no
+  written principles to review against.
+- **Cost:** three research documents, three decisions, a fresh baseline and the rewrite of the
+  store's writers, over about two days.
+- **Process lesson:** write the data layer's principles before its first query, and test early
+  against a library of the size the first household has, with requests running beside the
+  background work.
+
+### P57 — A closed beta's discovery, transport and loader were built outside Cut A's milestones (after M4, 2026-10-09) · requirement-emerged
+
+- **Planned:** M5, the polished UI, after M4; a standard tunnel to a VPS as Cut A's route in
+  (D193 §4, D243 §7); the paid tier and its relay after the release.
+- **What happened:** on 2026-10-09 the owner set a closed beta within about two weeks: a household
+  reaching its core through a discovery, the owner's paid service at app.orpheum-app.com among
+  them. D273 and D274 replaced the tunnel with discovery and WebRTC first; D275–D309 followed:
+  the core's side of the protocol, the public `discovery/` packages, the WebRTC transport, device
+  codes, realms (D297, D298) and the loader with each core's own client (D308), beside release
+  mode on nas.example (D272). nas.example has been reached through the production service since 2026-10-15. M4's
+  last acceptance run (VQ24) was left open meanwhile.
+- **Why the plan missed it:** Cut A was for two people, and a beta for other households was not
+  in its scope; the owner's priority changed once Cut A's core worked.
+- **Cost:** thirty-seven decisions (D273–D309), five plans and a second repository (`orpheum-connect`); M4 not
+  formally closed; the roadmap and plan Status lines left behind until P60's pass.
+- **Process lesson:** a new track gets a milestone in the build contract the day it starts, even
+  a provisional one, so status, order and acceptance have somewhere to live.
+
 ### P56 — The gate checked the tree, not the commit, and this clone had no git hooks (M4, 2026-10-08) · gate-design
 
 - **Planned:** the pre-commit hook runs the gate on what a commit records; the Stop hook runs it

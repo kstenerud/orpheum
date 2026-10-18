@@ -8,10 +8,17 @@
 # Discovery: the core's side
 
 - **Status:** IN-PROGRESS — begun 2026-10-09 on the owner's word (*"Do the core side of the
-  discovery protocol"*); phases C1–C5 are built. Steps K1–K18 below, written 2026-10-13 from
-  [discovery-protocol.md](../discovery-protocol.md) and revised the same day for D292 and D293,
-  are planned and not started: the documentation pass D292 asked for comes first, then
-  [Phase 1](#phase-1--the-security-floor).
+  discovery protocol"*); phases C1–C5 are built. Steps K1–K18 below were written 2026-10-13 from
+  [discovery-protocol.md](../discovery-protocol.md) and revised the same day for D292 and D293.
+  [Phase 1](#phase-1--the-security-floor) and [Phase 2](#phase-2--the-thin-path-end-to-end-on-staging)
+  are built (2026-10-13 and 2026-10-14), and nas.example has been reached through the production
+  service since 2026-10-15, so Phase 4 has begun with the owner's own household. Each step's own
+  mark says what of it is built: K2, K17 and K18 but for credentials per core (which D308 met,
+  [client-from-core.md](client-from-core.md)); K1, K3a, K7 and K10 in part; K4's `configured` and
+  LAN addresses; K6's claim by the operator; K8a's fingerprint; K12's first-run form;
+  K16's count. Left is Phase 3, which the closed beta's B0 takes up (D313 §1): K3b's ICE
+  restart, K4's change events, K8a's recovery code, K12, K15 and the rest. D310 §5 replaces K6's
+  claim by the operator with an enrolment key the core's admin enters at home, in the closed beta.
 - **Depends on:** D273, D274, D275, D288, D289, D290, D291, D292, D293, D214 §4;
   [discovery-protocol.md](../discovery-protocol.md), the protocol both discoveries speak;
   [discovery-mode.md](discovery-mode.md) (`discovery/single`, the reference every core test runs
@@ -271,7 +278,8 @@ needs the owner's gate (`internal/archtest`), in its place a review invariant in
   replaced, the System page saying so (U5); once claimed, the System page says so and shows the
   recovery code (K8a). `web/apps/web/src/system-discovery.tsx`: the code, its expiry and the claimed
   state.
-- **After the beta** (D292 §3, with the customer accounts): claiming from the core (D290 §1). The
+- **After the beta** (D292 §3, with the customer accounts): claiming from the core (D290 §1).
+  *(Since 2026-10-18, in the closed beta, by a one-use key from the account (D310 §5, §8).)* The
   core gets a claim token and opens the claim page in a tab opened within the admin's click (U2-4)
   [I]; it polls `GET /status` for a claim waiting and shows which account asks, its address in full,
   with *Allow* and *Refuse*, only an admin's *Allow* binding it, and only when the one-time value
@@ -711,13 +719,16 @@ infrastructure §4), then one outside household, then the invited ones.
 ### Deferred, after the beta
 
 From D292 §3 and the steps above: customer accounts, sign-in links and mail, and with them claiming
-from the core and its approval (K6's second part); re-keying and mailbox recovery (K8c, §2.8); CT
+from the core and its approval (K6's second part) *(since 2026-10-18, accounts and enrolment from
+the core are in the closed beta, signed in by password and passkey, not by mailed links: D310 §5,
+§13, D312 §7)*; re-keying and mailbox recovery (K8c, §2.8); CT
 watching (K8e); ARI and DNS-PERSIST-01 (K9); the NAT measurement (K14); the line naming where a
 device asking for a code is (K15; D293 §2); the version window's promise (K11, §5); the spare
 machine and
 Cloudflare Pages; a switcher for a person on two servers (D291 §6); `orpheum discovery`'s command
 and its web serving (W4b.5, W4b.8), the self-hoster's route in the beta being the VPS tunnel
-(`deploy/vps/`) [I, coherence §4.2]. Device codes through the paid service (K15), deferred by D292
+(`deploy/vps/`) [I, coherence §4.2] *(since 2026-10-18, before the open beta, enrolling by a key
+from its command line: D310 §7, D313 §7)*. Device codes through the paid service (K15), deferred by D292
 §3, are in the beta (D293 §2; Phase 3).
 
 ## Questions the plans raise
