@@ -57,8 +57,16 @@ function socketOn(path: Reached): OpenTogetherSocket {
     : rtcTogetherSocket(() => path.transport.openChannel());
 }
 
-/** How often the page asks whether a better path than the one in use answers now (W2c item 6). */
-const betterPathEveryMs = 30_000;
+/**
+ * How long the page waits to ask whether a better path than the one in use answers now (W2c item 6):
+ * betterPathFirstMs, twice as long after each move away from a path that failed, up to
+ * betterPathMostMs. Firefox fails a LAN name's requests once the page's service worker controls it,
+ * yet answers its look for a better path: a host's page moved to the LAN name and back off it 171
+ * times in a 53-minute session, a request failing at each (the owner's Watch Together session on
+ * nas.example, 2026-10-18).
+ */
+export const betterPathFirstMs = 30_000;
+export const betterPathMostMs = 10 * 60_000;
 
 /**
  * Keeps the paths reaching found, moving to another when the one in use fails and to a better one
@@ -77,6 +85,10 @@ export function keepPath(
     sendOn: (path) => sendingOn(path).send,
     another: reaching.another,
     onUse: (path) => {
+      if (!isFirst) {
+        // Never the first path's use, which the keeper tells as it is made, before looking is.
+        looking.moved();
+      }
       // eslint-disable-next-line no-console -- which path a tab's requests take is read in its console (D273 §7)
       console.info(`Orpheum: requests now go over ${sendingOn(path).name}`);
       openSocket = socketOn(path);
@@ -95,15 +107,7 @@ export function keepPath(
   // carried over per path would answer each load once for every path the page ever used.
   const carried = carryMediaOver(keeper.fetch, () => credentials(), sendingOn(reaching.first).name);
   carried.catch(reportFailure);
-  const lookForBetter = (): void => {
-    void reaching.better(keeper.path).then((better) => {
-      if (better !== undefined) {
-        keeper.moveTo(better);
-      }
-    });
-  };
-  const every = setInterval(lookForBetter, betterPathEveryMs);
-  window.addEventListener("online", lookForBetter);
+  const looking = lookForBetterPaths(keeper, reaching);
   return {
     fetch: keeper.fetch,
     openTogetherSocket: (listeners) => openSocket(listeners),
@@ -118,11 +122,69 @@ export function keepPath(
     },
     carried,
     close: () => {
-      clearInterval(every);
-      window.removeEventListener("online", lookForBetter);
+      looking.stop();
       if (keeper.path.kind === "webrtc") {
         keeper.path.transport.close();
       }
+    },
+  };
+}
+
+/** The page's look for a better path, as keepPath runs it. */
+interface BetterPaths {
+  /** Told each move: one it did not make itself is away from a path that failed. */
+  readonly moved: () => void;
+  readonly stop: () => void;
+}
+
+/**
+ * Looks for a better path than keeper's every betterPathFirstMs, and moves to it: twice as long after
+ * each move away from a path that failed, up to betterPathMostMs, and at once, as often as at first,
+ * when the browser is back online.
+ */
+function lookForBetterPaths(
+  keeper: PathKeeper<Reached>,
+  reaching: Pick<Reaching, "better">,
+): BetterPaths {
+  let waitMs = betterPathFirstMs;
+  let isMoving = false;
+  let isStopped = false;
+  let next: ReturnType<typeof setTimeout> | undefined;
+  const look = (): void => {
+    void reaching.better(keeper.path).then((better) => {
+      if (better !== undefined && !isStopped) {
+        isMoving = true;
+        keeper.moveTo(better);
+        isMoving = false;
+      }
+    });
+  };
+  const lookLater = (): void => {
+    next = setTimeout(() => {
+      look();
+      if (!isStopped) {
+        lookLater();
+      }
+    }, waitMs);
+  };
+  const backOnline = (): void => {
+    waitMs = betterPathFirstMs;
+    look();
+  };
+  lookLater();
+  window.addEventListener("online", backOnline);
+  return {
+    moved: () => {
+      if (!isMoving) {
+        waitMs = Math.min(waitMs * 2, betterPathMostMs);
+        clearTimeout(next);
+        lookLater();
+      }
+    },
+    stop: () => {
+      isStopped = true;
+      clearTimeout(next);
+      window.removeEventListener("online", backOnline);
     },
   };
 }
