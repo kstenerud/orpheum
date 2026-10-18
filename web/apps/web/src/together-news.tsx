@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import type { TogetherSnapshot } from "@orpheum/sdk";
+import type { RosterMember, TogetherSnapshot } from "@orpheum/sdk";
+import type { TFunction } from "i18next";
 import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -37,6 +38,7 @@ export function TogetherNews(props: {
           })}
         </p>
       )}
+      <StatusLines roster={snapshot.roster} />
       {snapshot.roster.flatMap((member) => {
         const slow = member.devices.find(
           (device) => device.cannotKeepUp !== undefined,
@@ -59,4 +61,28 @@ export function TogetherNews(props: {
       })}
     </div>
   );
+}
+
+/**
+ * Where each person's player stands, a line each, as the server reads it: what their page waits on,
+ * their speakers or a tap, loading, catching up, or watching; nothing of a voice alone (the owner's
+ * Watch Together session, 2026-10-18: a guest still choosing her speakers showed as nothing at
+ * all, and the host could not tell why her film did not play).
+ */
+function StatusLines(props: { readonly roster: readonly RosterMember[] }): JSX.Element | null {
+  const { t } = useTranslation();
+  const lines = props.roster.flatMap((member) => statusText(t, member));
+  return lines.length === 0 ? null : (
+    <ul>
+      {lines.map((line) => (
+        <li key={line}>{line}</li>
+      ))}
+    </ul>
+  );
+}
+
+/** A member's status in words, by their first device with one; none for a member without. */
+function statusText(t: TFunction, member: RosterMember): string[] {
+  const status = member.devices.find((device) => device.status !== undefined)?.status;
+  return status === undefined ? [] : [t(`together.status.${status}`, { name: member.name })];
 }

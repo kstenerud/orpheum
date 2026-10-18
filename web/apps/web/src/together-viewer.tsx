@@ -7,6 +7,7 @@ import {
   playedMutedEvent,
   soundOnAtTap,
   type CannotKeepUp,
+  type Standing,
   type BrowserVoiceDevices,
   type TellsCannotKeepUp,
   type TogetherConnection,
@@ -62,7 +63,7 @@ import {
   startLagMemory,
   type Membership,
 } from "./together-storage.ts";
-import { monotonicMs, useTogether, useToldCannotKeepUp } from "./use-together.ts";
+import { monotonicMs, useTogether, useToldCannotKeepUp, useToldStanding } from "./use-together.ts";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 import { VolumeRange } from "./volume-range.tsx";
@@ -209,6 +210,14 @@ function SessionOver(props: {
   );
 }
 
+/** What a viewer's page waits on before its film can play: its tap, then its person's speakers. */
+function standingOf(kept: KeptVideo, audioOutput: AudioOutput | undefined): Standing {
+  if (!kept.hasHadATap) {
+    return "needsTap";
+  }
+  return audioOutput === undefined ? "choosingSound" : "";
+}
+
 /**
  * A viewer in the session: the speaker question first unless this browser has the answer, then the
  * playback; named events and who is here; the volume and Leave. Nobody waits for the question
@@ -235,6 +244,7 @@ function ViewerSession(props: {
     devices: props.devices,
   });
   useOverWhenEnded(snapshot, onOver);
+  useToldStanding(isConnected ? connection : undefined, standingOf(kept, audioOutput));
   if (!kept.hasHadATap) {
     // As a page of its own: nothing of the session plays or shows under it (the owner, 2026-10-13).
     return (

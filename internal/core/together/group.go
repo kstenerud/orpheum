@@ -312,6 +312,8 @@ func (current *session) announce(
 	current.broadcast(Outbound{
 		V: ProtocolVersion, Type: MessageGroup, Seq: current.group.seq, Group: current.groupView(now),
 	})
+	// Each player's status moves with the group: a new film loads, a seek waits, one is left behind.
+	current.sendRoster()
 }
 
 // logChange logs the group's state as announce just set it: what plays, where, what changed it and

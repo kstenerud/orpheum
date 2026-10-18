@@ -21,7 +21,9 @@ function memberWith(deviceId: number, isBuffering: boolean): RosterMember {
     id: deviceId,
     name: "someone",
     isHost: false,
-    devices: [{ id: deviceId, role: "playback", isBuffering, cannotKeepUp: undefined }],
+    devices: [
+      { id: deviceId, role: "playback", isBuffering, cannotKeepUp: undefined, status: undefined },
+    ],
   };
 }
 

@@ -13,6 +13,7 @@ import {
   type OpenTogetherSocket,
   type PlaybackRights,
   type RosterMember,
+  type Standing,
   type SyncTuning,
   type TogetherEndReason,
   type TogetherServerMessage,
@@ -376,7 +377,19 @@ export interface TellsCannotKeepUp {
   readonly setCannotKeepUp: (cannotKeepUp: CannotKeepUp | undefined) => void;
 }
 
-class SessionConnection implements TogetherConnection, TellsCannotKeepUp, RelaysVoiceSignals {
+/**
+ * A connection that can tell the session what its page waits on before its film can play, its
+ * person's speakers or a tap, which everyone's roster shows (Standing): apart from
+ * TogetherConnection, as only a viewer's page asks either.
+ */
+export interface TellsStanding {
+  /** Says, from now on, what the page waits on; "" once it waits on nothing. */
+  readonly setStanding: (standing: Standing) => void;
+}
+
+class SessionConnection
+  implements TogetherConnection, TellsCannotKeepUp, TellsStanding, RelaysVoiceSignals
+{
   readonly #options: TogetherConnectionOptions;
   readonly #listeners = new Set<() => void>();
   readonly #voiceSignalListeners = new Set<(fromDeviceId: number, signal: VoiceSignal) => void>();
@@ -386,6 +399,7 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp, Relays
   #socket: TogetherSocket | undefined;
   #readPlayer: (() => PlayerState) | undefined;
   #cannotKeepUp: CannotKeepUp | undefined;
+  #standing: Standing = "";
   #timers: ReturnType<typeof setInterval>[] = [];
   #reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   /** Which socket is the current one: each open and reconnect makes a new one. */
@@ -415,6 +429,13 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp, Relays
   readonly setCannotKeepUp = (cannotKeepUp: CannotKeepUp | undefined): void => {
     this.#cannotKeepUp = cannotKeepUp;
     this.reportState();
+  };
+
+  readonly setStanding = (standing: Standing): void => {
+    if (standing !== this.#standing) {
+      this.#standing = standing;
+      this.#send({ type: "standing", standing });
+    }
   };
 
   readonly reportState = (): void => {
@@ -580,6 +601,10 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp, Relays
     this.#attempt = 0;
     this.#ping();
     this.reportState();
+    // A new connection is a new device to the server, which knows nothing of what the page waits on.
+    if (this.#standing !== "") {
+      this.#send({ type: "standing", standing: this.#standing });
+    }
     const lost = this.#lost;
     this.#lost = undefined;
     if (lost !== undefined) {
@@ -679,6 +704,6 @@ class SessionConnection implements TogetherConnection, TellsCannotKeepUp, Relays
  */
 export function createTogetherConnection(
   options: TogetherConnectionOptions,
-): TogetherConnection & TellsCannotKeepUp & RelaysVoiceSignals {
+): TogetherConnection & TellsCannotKeepUp & TellsStanding & RelaysVoiceSignals {
   return new SessionConnection(options);
 }

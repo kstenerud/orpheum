@@ -35,6 +35,15 @@ export const enTogether = {
     reconnecting: "Connection lost. Reconnecting…",
     here: "Here: {{names, list}}",
     away: "{{name}} (reconnecting)",
+    status: {
+      choosingSound: "{{name}}: choosing how they hear the film",
+      needsTap: "{{name}}: needs to tap the page to start",
+      loading: "{{name}}: loading the film",
+      catchingUp: "{{name}}: catching up",
+      buffering: "{{name}}: waiting for the film to load",
+      suspended: "{{name}}: paused on their device",
+      watching: "{{name}}: watching",
+    },
     someone: "Someone",
     hostPlaying: "Watch Together is on: this plays for everyone in your session.",
     voice: {

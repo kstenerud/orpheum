@@ -49,6 +49,22 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A34 — Read a clock-sync pong as a player saying it was in step (2026-10-18)
+
+- **What happened:** reading nas.example's log of a Watch Together session whose guest did not play at
+  the start, the agent told the owner her player "said it was in step" for two minutes with no film
+  loaded, from `a player's pong said where the group is … aheadOfExpectedMs=0 placing=placed`, and
+  proposed a fix to stop a player claiming to be in step before it had a film. The pong says how
+  far the group's timeline, as the device placed it by its clock, is from where the pong put it
+  (D264): nothing of its video. The false belief came from the line's words, "where the group is"
+  and "placed", read as the player's position, and from not opening `together-notes.ts`, which
+  defines them, before building a finding on them.
+- **Caught by:** the agent itself, reading the note's definition before building the fix, after the
+  owner had the recommendation.
+- **Gate:** none can check what a log line is taken to mean. The roster now says where each player
+  stands (`TestHub_TheRosterSaysWhereEachPlayerStands`), so the next reading has the status in
+  words instead of an inference.
+
 ### A33 — Read a player's automatic restart as the person restarting it (2026-10-14)
 
 - **What happened:** reading staging's log of a relayed playback that stalled, the agent told the
