@@ -20,6 +20,8 @@ export default defineConfig({
     passWithNoTests: false,
     testTimeout: 15_000,
     fsModuleCache: true,
+    // A failure's screenshot, beside the browser tier's results and ignored by git.
+    attachmentsDir: "../.dev/browser-mode-results",
     browser: {
       enabled: true,
       headless: true,
