@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { onlyTheseTests } from "./only-these-tests.ts";
+import { onlyTheseTests, testsOfThisPass } from "./only-these-tests.ts";
 
 /** Whether the listed entries let Playwright run the test it greps as title. */
 function runs(listed: readonly string[], title: string): boolean {
@@ -26,5 +26,45 @@ describe("the browser tests a run is narrowed to", () => {
   it("is every test when unset, and refuses what is not a list of tests", () => {
     expect(onlyTheseTests(undefined)).toEqual({});
     expect(() => onlyTheseTests('{"a": 1}')).toThrow("want a JSON list of tests");
+  });
+});
+
+/** Whether a pass of the browser tier, narrowed to listed (all when undefined), runs the test title. */
+function passRuns(
+  listed: readonly string[] | undefined,
+  isTimingPass: boolean,
+  title: string,
+): boolean {
+  const pass = testsOfThisPass(
+    listed === undefined ? undefined : JSON.stringify(listed),
+    isTimingPass,
+  );
+  const isGrepped = pass.grep === undefined || pass.grep.some((pattern) => pattern.test(title));
+  return isGrepped && !(pass.grepInvert ?? []).some((pattern) => pattern.test(title));
+}
+
+describe("the browser tier's two passes", () => {
+  const timed = "chromium play-timing.spec.ts plays within 8 s @timing";
+  const untimed = "chromium shell.spec.ts the logo is one link home";
+
+  it("runs the timed tests in the second pass alone, and every other in the first", () => {
+    expect([passRuns(undefined, false, untimed), passRuns(undefined, false, timed)]).toEqual([
+      true,
+      false,
+    ]);
+    expect([passRuns(undefined, true, untimed), passRuns(undefined, true, timed)]).toEqual([
+      false,
+      true,
+    ]);
+    expect(passRuns(undefined, true, "chromium a.spec.ts named for @timings")).toBe(false);
+  });
+
+  it("keeps a run's narrowing in each pass", () => {
+    expect(passRuns([timed], true, timed)).toBe(true);
+    expect(passRuns([untimed], true, timed)).toBe(false);
+    expect(passRuns(["play-timing.spec.ts"], true, timed)).toBe(true);
+    expect(passRuns(["play-timing.spec.ts"], false, timed)).toBe(false);
+    expect(passRuns(["shell.spec.ts"], false, untimed)).toBe(true);
+    expect(passRuns(["subtitles.spec.ts"], false, untimed)).toBe(false);
   });
 });

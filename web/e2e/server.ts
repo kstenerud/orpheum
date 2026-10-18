@@ -1,16 +1,18 @@
 // SPDX-License-Identifier: MPL-2.0
 
 /**
- * Playwright's global setup: a server of its own, on loopback, in a directory of its own, over a
- * library generated here with the pinned FFmpeg. `make test-browser` builds the binary, with the
- * web client in it, and names it and FFmpeg in the environment. The library is new each run, one
- * timing film per browser, so no browser plays a copy another already prepared (cut-a §8, M3); its
- * films are copies of those the film cache keeps, made once (film-cache.ts).
+ * The browser tier's servers: each worker starts one of its own (its fixture, browser-map.ts), on
+ * loopback, in a directory of its own, over a library generated here with the pinned FFmpeg, so
+ * workers run side by side and no test meets another worker's state. `make test-browser` builds the
+ * binary, with the web client in it, and names it and FFmpeg in the environment. Each library is
+ * new, one timing film per browser, so no browser plays a copy another already prepared (cut-a §8,
+ * M3); its films are copies of those the film cache keeps, made once, by Playwright's global setup
+ * here, before any worker starts (film-cache.ts).
  */
 
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { request } from "@playwright/test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -27,8 +29,16 @@ export const warmUpFilm = "Warm Up Film";
  */
 export const preparedFilm = "Prepared Film";
 
-/** Where the last run's server log is kept, beside the dev loop's state and ignored by git. */
-const serverLogPath = new URL("../../.dev/browser-server.log", import.meta.url);
+/**
+ * Where the last run's server logs are kept, beside the dev loop's state and ignored by git: one per
+ * server, named by who started it ("browser-server-chromium-0.log", a worker's).
+ */
+const serverLogDirectory = new URL("../../.dev/", import.meta.url);
+
+/** The log a server started as name keeps. */
+function serverLogPath(name: string): URL {
+  return new URL(`browser-server-${name}.log`, serverLogDirectory);
+}
 
 /** The environment variable that carries the server's address from the setup to the spec. */
 export const serverAddressEnvVariable = "ORPHEUM_BROWSER_SERVER";
@@ -213,7 +223,8 @@ should_check_for_updates = false
 `;
 }
 
-async function waitForHealth(
+/** Waits until the core says it is ready, failing if it exits or is not within a minute. */
+async function waitUntilReady(
   url: string,
   core: ChildProcess,
   readLog: () => string,
@@ -225,8 +236,15 @@ async function waitForHealth(
       throw new Error(`the core exited (${String(core.exitCode)}):\n${readLog()}`);
     }
     try {
+      // Health answers 200 while the core starts too, so a container manager leaves it be; its
+      // status says when the rest answers (a worker's first sign-in was told "migrating", 2026-10-18).
       const answer = await client.get(`${url}/api/v1/health`);
-      if (answer.ok()) {
+      const health: unknown = answer.ok() ? await answer.json() : undefined;
+      if (
+        typeof health === "object" &&
+        health !== null &&
+        Reflect.get(health, "status") === "ready"
+      ) {
         await client.dispose();
         return;
       }
@@ -236,7 +254,7 @@ async function waitForHealth(
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   await client.dispose();
-  throw new Error(`the core did not answer /health within 60 s:\n${readLog()}`);
+  throw new Error(`the core was not ready within 60 s:\n${readLog()}`);
 }
 
 /** How a role is started: the binary, the instances, and where its output goes. */
@@ -286,9 +304,28 @@ function makeInstances(paths: {
   return instances;
 }
 
-/** The browser tier's setup: the server, over the films every spec uses. */
-export default async function globalSetup(): Promise<() => Promise<void>> {
-  return await startServer([]);
+/**
+ * The browser tier's setup: the films every spec uses made once, into the film cache, before the
+ * workers start a server each over them (the worker's fixture, browser-map.ts), so no two encode the
+ * same film at once. The last run's server logs go, as each server writes its own.
+ */
+export default async function globalSetup(): Promise<void> {
+  const ffmpeg = path.join(requiredEnv("ORPHEUM_TEST_FFMPEG_DIR"), "ffmpeg");
+  const root = mkdtempSync(path.join(tmpdir(), "orpheum-browser-films-"));
+  try {
+    await makeFilms(ffmpeg, path.join(root, "films"), specFilms(root));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+  // The timed pass's setup keeps the first pass's logs, beside which it writes its own.
+  if (process.env["ORPHEUM_E2E_TIMING"] === "1") {
+    return;
+  }
+  for (const name of readdirSync(serverLogDirectory)) {
+    if (/^browser-server(-.+)?\.log$/u.test(name)) {
+      rmSync(new URL(name, serverLogDirectory));
+    }
+  }
 }
 
 /** The films the browser tier's specs use, their subtitles written under root. */
@@ -332,11 +369,12 @@ async function makeFilms(ffmpeg: string, library: string, films: readonly Film[]
  * Makes the library, with extraFilms beside the films every spec uses, or alone when
  * shouldMakeSpecFilms is false, as for the acceptance, which plays none of them (the test audit, 2026-10-08); starts
  * the server — the core, then the node beside it, two services as in deployment (D235 §4) — and
- * returns what stops both and removes everything.
+ * returns what stops both, keeps its log as logName's, and removes everything.
  */
 export async function startServer(
   extraFilms: readonly Film[],
   shouldMakeSpecFilms = true,
+  logName = "acceptance",
 ): Promise<() => Promise<void>> {
   const binary = requiredEnv("ORPHEUM_TEST_BINARY");
   const ffmpegDirectory = requiredEnv("ORPHEUM_TEST_FFMPEG_DIR");
@@ -361,10 +399,9 @@ export async function startServer(
   const launch: Launch = { binary, instances, appendToLog };
   const core = startRole("core", launch);
   const url = `http://127.0.0.1:${String(port)}`;
-  // The spec reads the address from here: Playwright hands a global setup's environment to its
-  // workers.
+  // The spec reads the address from here: in a worker, the server its fixture started.
   process.env[serverAddressEnvVariable] = url;
-  await waitForHealth(url, core, () => log);
+  await waitUntilReady(url, core, () => log);
   // The node dials the core's socket, which exists once the core answers: started now, its first
   // hello does not wait for a status tick.
   const node = startRole("node", launch);
@@ -385,7 +422,7 @@ export async function startServer(
     core.kill("SIGTERM");
     await Promise.all(exited);
     // The server's log outlives the run, beside its results: a failure is read from it.
-    writeFileSync(serverLogPath, log);
+    writeFileSync(serverLogPath(logName), log);
     rmSync(root, { recursive: true, force: true });
   };
 }

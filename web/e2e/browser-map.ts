@@ -23,6 +23,8 @@ import {
   type TestInfo,
 } from "@playwright/test";
 
+import { startServer } from "./server.ts";
+
 const mapDirectory = process.env["ORPHEUM_BROWSER_MAP_DIR"];
 
 declare global {
@@ -170,7 +172,26 @@ function writeRecord(
   );
 }
 
-export const test = base.extend<{ browserMap: undefined }>({
+export const test = base.extend<{ browserMap: undefined }, { server: undefined }>({
+  // A server of each worker's own, started before its first test and stopped after its last, so
+  // workers run side by side and no test meets another's state (server.ts). The address is the
+  // worker's environment's, which serverUrl reads.
+  server: [
+    // eslint-disable-next-line no-empty-pattern -- Playwright reads a fixture's first parameter for what it needs, which is nothing
+    async ({}, use, workerInfo) => {
+      const stop = await startServer(
+        [],
+        true,
+        `${process.env["ORPHEUM_E2E_TIMING"] === "1" ? "timed-" : ""}${workerInfo.project.name}-${String(workerInfo.workerIndex)}`,
+      );
+      try {
+        await use(undefined);
+      } finally {
+        await stop();
+      }
+    },
+    { scope: "worker", auto: true, timeout: 180_000 },
+  ],
   browserMap: [
     async ({ browser, context }, use, testInfo) => {
       if (mapDirectory === undefined || mapDirectory === "") {

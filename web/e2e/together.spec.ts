@@ -10,6 +10,7 @@ import { readFileSync } from "node:fs";
 import { expect, type BrowserContext, type Page } from "@playwright/test";
 
 import { test } from "./browser-map.ts";
+import { timingTag } from "./only-these-tests.ts";
 import { isPlaying, signIn } from "./pages.ts";
 import { warmUpFilm } from "./server.ts";
 import {
@@ -160,26 +161,28 @@ for (const talker of ["the guest, offering", "the host, answering"] as const) {
   });
 }
 
-test("voice between two fake microphones arrives one-way under 300 ms with under 2% concealed (D243 §9)", async ({
-  browser,
-}) => {
-  const hosting = await pageWithMicrophone(browser);
-  const joining = await pageWithMicrophone(browser);
-  const host = hosting.page;
-  const guest = joining.page;
-  await signIn(host);
-  const link = await startSessionWithLink(host);
-  await guest.goto(link);
-  await join(guest, link);
-  await hostPlays(host, warmUpFilm);
-  await talkBothWays(host, guest);
-  await host.waitForTimeout(talkForMs);
+test(
+  "voice between two fake microphones arrives one-way under 300 ms with under 2% concealed (D243 §9)",
+  { tag: timingTag },
+  async ({ browser }) => {
+    const hosting = await pageWithMicrophone(browser);
+    const joining = await pageWithMicrophone(browser);
+    const host = hosting.page;
+    const guest = joining.page;
+    await signIn(host);
+    const link = await startSessionWithLink(host);
+    await guest.goto(link);
+    await join(guest, link);
+    await hostPlays(host, warmUpFilm);
+    await talkBothWays(host, guest);
+    await host.waitForTimeout(talkForMs);
 
-  await expectVoiceWithinBounds([
-    ["the host", host],
-    ["the guest", guest],
-  ]);
-  await endSession(host);
-  await hosting.context.close();
-  await joining.context.close();
-});
+    await expectVoiceWithinBounds([
+      ["the host", host],
+      ["the guest", guest],
+    ]);
+    await endSession(host);
+    await hosting.context.close();
+    await joining.context.close();
+  },
+);

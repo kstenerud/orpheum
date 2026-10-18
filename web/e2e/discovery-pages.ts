@@ -77,7 +77,7 @@ export async function ownersToken(api: APIRequestContext): Promise<string> {
       device: { name: "Discovery test", platform: "web" },
     },
   });
-  expect(answer.ok()).toBe(true);
+  expect(answer.ok(), `the sign-in: ${String(answer.status())} ${await answer.text()}`).toBe(true);
   const token = await answerField(answer, "token");
   if (typeof token !== "string") {
     throw new Error("the sign-in gave no token");
