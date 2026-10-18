@@ -10,20 +10,25 @@
  * discovery meets the core, the loader and the web client here.
  */
 
-import { spawn, type ChildProcess } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 
 import { expect, request, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 
 import { test } from "./browser-map.ts";
+import {
+  answerField,
+  connectAndClaim,
+  fieldOf,
+  ownersToken,
+  signedIn,
+  startDiscovery,
+  type Discovery,
+} from "./discovery-pages.ts";
 import { isPlaying, serverUrl, signIn } from "./pages.ts";
-import { owner, timingFilm, warmUpFilm } from "./server.ts";
+import { timingFilm, warmUpFilm } from "./server.ts";
 import {
   endSession,
-  expectVoiceWithinBounds,
+  expectHeard,
   hostPlays,
   join,
   pageWithMicrophone,
@@ -31,131 +36,51 @@ import {
   talkBothWays,
 } from "./together-pages.ts";
 
-/** How long the two talk before their voice is measured, as together.spec.ts lets them. */
-const talkForMs = 15_000;
-
-/** A development discovery: its process, the address the core calls, and where the loader is. */
-interface Discovery {
-  readonly process: ChildProcess;
-  readonly address: string;
-  /** The loader's own origin, localhost on the discovery's port (D308). */
-  readonly loaderOrigin: string;
-  /** A core's client origin, <coreId>.localhost on the discovery's port. */
-  readonly clientOriginOf: (coreId: string) => string;
-}
-
-/**
- * Starts `orpheum dev discovery` on a free loopback port, a paid discovery's realm when one is named,
- * and is it.
- */
-async function startDiscovery(realm?: string): Promise<Discovery> {
-  const binary = process.env["ORPHEUM_TEST_BINARY"];
-  if (binary === undefined) {
-    throw new Error("ORPHEUM_TEST_BINARY names no binary");
-  }
-  const state = mkdtempSync(path.join(tmpdir(), "orpheum-discovery-"));
-  const realmFlags = realm === undefined ? [] : ["--realm", realm];
-  const started = spawn(
-    binary,
-    ["dev", "discovery", "--listen", "127.0.0.1:0", "--state", state, ...realmFlags],
-    {
-      stdio: ["ignore", "pipe", "pipe"],
-    },
-  );
-  let output = "";
-  started.stderr.on("data", (chunk: Buffer) => {
-    output += chunk.toString();
-  });
-  const address = await new Promise<string>((resolve, reject) => {
-    started.stdout.on("data", (chunk: Buffer) => {
-      const served = /serving the discovery at (\S+)/u.exec(chunk.toString());
-      if (served?.[1] !== undefined) {
-        resolve(served[1]);
-      }
-    });
-    started.once("exit", (code) => {
-      reject(new Error(`the discovery exited (${String(code)}):\n${output}`));
-    });
-  });
-  const port = new URL(address).port;
-  return {
-    process: started,
-    address,
-    loaderOrigin: `http://localhost:${port}`,
-    clientOriginOf: (coreId) => `http://${coreId}.localhost:${port}`,
-  };
-}
-
-/** The owner's session token, signed in over the core's own API. */
-async function ownersToken(api: APIRequestContext): Promise<string> {
-  const answer = await api.post(`${serverUrl()}/api/v1/session`, {
-    data: {
-      name: owner.name,
-      password: owner.password,
-      device: { name: "Discovery test", platform: "web" },
-    },
-  });
-  expect(answer.ok()).toBe(true);
-  const token = await answerField(answer, "token");
-  if (typeof token !== "string") {
-    throw new Error("the sign-in gave no token");
-  }
-  return token;
-}
-
-/** A field of a JSON answer, or of a JSON value. */
-function fieldOf(value: unknown, name: string): unknown {
-  if (typeof value !== "object" || value === null) {
-    return undefined;
-  }
-  const field: unknown = Reflect.get(value, name);
-  return field;
-}
-
-/** A field of a JSON answer. */
-async function answerField(
-  answer: Awaited<ReturnType<APIRequestContext["get"]>>,
-  name: string,
-): Promise<unknown> {
-  return fieldOf(await answer.json(), name);
-}
-
-/** The headers a signed-in call carries. */
-function signedIn(token: string): Record<string, string> {
-  return Object.fromEntries([["Authorization", `Bearer ${token}`]]);
-}
-
 /** A link's locate hash, as the client makes it (discovery/link.LocateHash). */
 function locateHash(secret: string): string {
   return createHash("sha256").update(`orpheum-locate${secret}`).digest("base64url");
 }
 
-/** Connects the core to the discovery as its admin does, and claims it in the operator's place. */
-async function connectAndClaim(
-  api: APIRequestContext,
-  token: string,
-  discovery: string,
-): Promise<void> {
-  const connected = await api.post(`${serverUrl()}/api/v1/system/discovery`, {
-    headers: signedIn(token),
-    data: { baseUrl: `${discovery}/core/v1` },
-  });
-  expect(connected.ok()).toBe(true);
-  const claimed = await api.post(`${discovery}/dev/claim`, {
-    data: { code: await answerField(connected, "claimCode") },
-  });
-  expect(claimed.status()).toBe(204);
-  await expect
-    .poll(
-      async () =>
-        await answerField(
-          await api.get(`${serverUrl()}/api/v1/system/discovery`, { headers: signedIn(token) }),
-          "state",
-        ),
-      { timeout: 60_000 },
-    )
-    .toBe("claimed");
+/** The discovery the tests here share, with the owner's API, claimed once for them all. */
+interface Claimed {
+  readonly discovery: Discovery;
+  readonly api: APIRequestContext;
+  readonly token: string;
 }
+
+let claimed: Claimed | undefined;
+
+/** The discovery claimed once for the tests here (beforeAll). */
+function claimedOnce(): Claimed {
+  if (claimed === undefined) {
+    throw new Error("no discovery was claimed for this test");
+  }
+  return claimed;
+}
+
+// One discovery, its core claimed once, for every test here: a claim waits for the core's next look
+// whether it is claimed, and ten claims were much of the browser tier's time (the browser test audit,
+// 2026-10-18). The core holds one discovery: the realm test, in a spec of its own, starts another.
+test.beforeAll(async () => {
+  test.setTimeout(120_000);
+  const discovery = await startDiscovery();
+  const api = await request.newContext();
+  const token = await ownersToken(api);
+  claimed = { discovery, api, token };
+  await connectAndClaim(api, token, discovery.address);
+});
+
+test.afterAll(async () => {
+  if (claimed === undefined) {
+    return;
+  }
+  const { discovery, api, token } = claimed;
+  claimed = undefined;
+  // The core leaves the discovery, as the realm test, or the next browser, finds it free.
+  await api.delete(`${serverUrl()}/api/v1/system/discovery`, { headers: signedIn(token) });
+  await api.dispose();
+  discovery.process.kill();
+});
 
 /**
  * An invitation as a person is sent it, in the discovery's form: at the core's own client origin
@@ -208,34 +133,22 @@ test("a browser registers and plays through a discovery, over WebRTC, its core's
   page,
 }) => {
   test.setTimeout(240_000);
-  const discovery = await startDiscovery();
-  const api = await request.newContext();
-  const token = await ownersToken(api);
-  try {
-    await connectAndClaim(api, token, discovery.address);
-    const link = await invitationThrough(api, token, discovery);
-    const movedToWebrtc = page.waitForEvent("console", (message) =>
-      message.text().includes("requests now go over WebRTC"),
-    );
-    await page.goto(link);
-    await page.getByRole("button", { name: "Connect" }).click();
-    await movedToWebrtc;
-    // A name of each browser's own: the browsers share one core.
-    await registerAndOpenFilms(page, `guest-${test.info().project.name}`);
-    const card = page
-      .locator("a.poster-grid__card")
-      .filter({ hasText: new RegExp(warmUpFilm, "u") });
-    await expect(card).toBeVisible({ timeout: 60_000 });
-    await card.click();
-    await page.getByRole("link", { name: "Play" }).click();
-    await page.getByRole("button", { name: /Built-in speakers/u }).click();
-    await expect.poll(() => isPlaying(page), { timeout: 60_000 }).toBe(true);
-  } finally {
-    // The core leaves the discovery, as the next test, or the next browser, finds it free.
-    await api.delete(`${serverUrl()}/api/v1/system/discovery`, { headers: signedIn(token) });
-    await api.dispose();
-    discovery.process.kill();
-  }
+  const { discovery, api, token } = claimedOnce();
+  const link = await invitationThrough(api, token, discovery);
+  const movedToWebrtc = page.waitForEvent("console", (message) =>
+    message.text().includes("requests now go over WebRTC"),
+  );
+  await page.goto(link);
+  await page.getByRole("button", { name: "Connect" }).click();
+  await movedToWebrtc;
+  // A name of each browser's own: the browsers share one core.
+  await registerAndOpenFilms(page, `guest-${test.info().project.name}`);
+  const card = page.locator("a.poster-grid__card").filter({ hasText: new RegExp(warmUpFilm, "u") });
+  await expect(card).toBeVisible({ timeout: 60_000 });
+  await card.click();
+  await page.getByRole("link", { name: "Play" }).click();
+  await page.getByRole("button", { name: /Built-in speakers/u }).click();
+  await expect.poll(() => isPlaying(page), { timeout: 60_000 }).toBe(true);
 });
 
 /** The core's name as a published one is: HTTPS, which a page takes as a direct path (§3.3). */
@@ -324,9 +237,7 @@ test("a page on the discovery's origin plays from its core's own name, its poste
   page,
 }) => {
   test.setTimeout(240_000);
-  const discovery = await startDiscovery();
-  const api = await request.newContext();
-  const token = await ownersToken(api);
+  const { discovery, api, token } = claimedOnce();
   // Every request the page makes of the core, which is another origin than the page's.
   const toCore: { url: string; authorization: string | undefined; cookie: string | undefined }[] =
     [];
@@ -340,48 +251,39 @@ test("a page on the discovery's origin plays from its core's own name, its poste
       });
     }
   });
-  try {
-    await connectAndClaim(api, token, discovery.address);
-    const link = await invitationThrough(api, token, discovery);
-    await nameTheCoreDirectly(page, new URL(link).origin, discovery.address);
-    const movedToCore = page.waitForEvent("console", (message) =>
-      message.text().includes("requests now go over the core's name"),
-    );
-    await page.goto(link);
-    const mediaToCore = page.waitForEvent("console", (message) =>
-      message.text().includes("media now goes over the core's name"),
-    );
-    await page.getByRole("button", { name: "Connect" }).click();
-    await movedToCore;
-    await mediaToCore;
-    await registerAndOpenFilms(page, `direct-${test.info().project.name}`);
-    const card = page
-      .locator("a.poster-grid__card")
-      .filter({ hasText: new RegExp(warmUpFilm, "u") });
-    await expect(card).toBeVisible({ timeout: 60_000 });
-    // Its poster, fetched from the core with the header into a blob, shows.
-    await expect.poll(() => posterShows(card), { timeout: 30_000 }).toBe(true);
-    await card.click();
-    await page.getByRole("link", { name: "Play" }).click();
-    await page.getByRole("button", { name: /Built-in speakers/u }).click();
-    await expect.poll(() => isPlaying(page), { timeout: 60_000 }).toBe(true);
-    // Nothing reached the core by a cookie: every request carried the header, but the registration
-    // made before the page had one.
-    expect(toCore.filter((made) => made.cookie !== undefined)).toEqual([]);
-    // So did the loader's loads of the core's own client, public files it checks by the manifest the
-    // core signed (D308 §6), before any session.
-    const loadedByTheLoader = /^https:\/\/[^/]+\/(api\/v1\/client-manifest|assets\/.*)?$/u;
-    const signedIn = toCore.filter(
-      (made) =>
-        !/\/api\/v1\/registration(\/link)?$/u.test(made.url) && !loadedByTheLoader.test(made.url),
-    );
-    expect(signedIn.length).toBeGreaterThan(0);
-    expect(signedIn.filter((made) => made.authorization === undefined)).toEqual([]);
-  } finally {
-    await api.delete(`${serverUrl()}/api/v1/system/discovery`, { headers: signedIn(token) });
-    await api.dispose();
-    discovery.process.kill();
-  }
+  const link = await invitationThrough(api, token, discovery);
+  await nameTheCoreDirectly(page, new URL(link).origin, discovery.address);
+  const movedToCore = page.waitForEvent("console", (message) =>
+    message.text().includes("requests now go over the core's name"),
+  );
+  await page.goto(link);
+  const mediaToCore = page.waitForEvent("console", (message) =>
+    message.text().includes("media now goes over the core's name"),
+  );
+  await page.getByRole("button", { name: "Connect" }).click();
+  await movedToCore;
+  await mediaToCore;
+  await registerAndOpenFilms(page, `direct-${test.info().project.name}`);
+  const card = page.locator("a.poster-grid__card").filter({ hasText: new RegExp(warmUpFilm, "u") });
+  await expect(card).toBeVisible({ timeout: 60_000 });
+  // Its poster, fetched from the core with the header into a blob, shows.
+  await expect.poll(() => posterShows(card), { timeout: 30_000 }).toBe(true);
+  await card.click();
+  await page.getByRole("link", { name: "Play" }).click();
+  await page.getByRole("button", { name: /Built-in speakers/u }).click();
+  await expect.poll(() => isPlaying(page), { timeout: 60_000 }).toBe(true);
+  // Nothing reached the core by a cookie: every request carried the header, but the registration
+  // made before the page had one.
+  expect(toCore.filter((made) => made.cookie !== undefined)).toEqual([]);
+  // So did the loader's loads of the core's own client, public files it checks by the manifest the
+  // core signed (D308 §6), before any session.
+  const loadedByTheLoader = /^https:\/\/[^/]+\/(api\/v1\/client-manifest|assets\/.*)?$/u;
+  const signedIn = toCore.filter(
+    (made) =>
+      !/\/api\/v1\/registration(\/link)?$/u.test(made.url) && !loadedByTheLoader.test(made.url),
+  );
+  expect(signedIn.length).toBeGreaterThan(0);
+  expect(signedIn.filter((made) => made.authorization === undefined)).toEqual([]);
 });
 
 /**
@@ -394,15 +296,12 @@ test("a guest signed in here joins Watch Together by its link on the discovery's
   browser,
 }) => {
   test.setTimeout(300_000);
-  const discovery = await startDiscovery();
-  const api = await request.newContext();
-  const token = await ownersToken(api);
+  const { discovery, api, token } = claimedOnce();
   const hosting = await pageWithMicrophone(browser);
   const joining = await pageWithMicrophone(browser);
   const host = hosting.page;
   const guest = joining.page;
   try {
-    await connectAndClaim(api, token, discovery.address);
     // The guest has an account of their own here, as the owner's phone had: their page's own sign-in
     // goes beside their membership on every load of the film (staging, 2026-10-14). They reach the
     // core over WebRTC through the discovery, the path no test routing carries: the film's bytes
@@ -422,9 +321,9 @@ test("a guest signed in here joins Watch Together by its link on the discovery's
     await hostPlays(host, warmUpFilm);
     // The film goes on for the guest too, its loads carrying their membership.
     await expect.poll(() => isPlaying(guest), { timeout: 60_000 }).toBe(true);
+    // That voice arrives through the discovery, not how well: together.spec.ts holds the bounds.
     await talkBothWays(host, guest);
-    await host.waitForTimeout(talkForMs);
-    await expectVoiceWithinBounds([
+    await expectHeard([
       ["the host", host],
       ["the guest", guest],
     ]);
@@ -441,9 +340,6 @@ test("a guest signed in here joins Watch Together by its link on the discovery's
   } finally {
     await hosting.context.close();
     await joining.context.close();
-    await api.delete(`${serverUrl()}/api/v1/system/discovery`, { headers: signedIn(token) });
-    await api.dispose();
-    discovery.process.kill();
   }
 });
 
@@ -494,15 +390,12 @@ test("a guest not signed in keeps reaching the core through the discovery after 
   browser,
 }) => {
   test.setTimeout(300_000);
-  const discovery = await startDiscovery();
-  const api = await request.newContext();
-  const token = await ownersToken(api);
+  const { discovery, api } = claimedOnce();
   const hosting = await pageWithMicrophone(browser);
   const joining = await pageWithMicrophone(browser);
   const host = hosting.page;
   const guest = joining.page;
   try {
-    await connectAndClaim(api, token, discovery.address);
     await signIn(host);
     const link = await startSessionWithLink(host);
     const fragment = link.slice(link.indexOf("#") + 1).split(".");
@@ -527,72 +420,5 @@ test("a guest not signed in keeps reaching the core through the discovery after 
   } finally {
     await hosting.context.close();
     await joining.context.close();
-    await api.delete(`${serverUrl()}/api/v1/system/discovery`, { headers: signedIn(token) });
-    await api.dispose();
-    discovery.process.kill();
-  }
-});
-
-/**
- * A person with no link at a paid discovery's page (D297, D298): the discovery has the realm
- * karlnas, and the owner, having signed in once with their password since the core was given it, has
- * a realm key. On the page they type the realm, their name and their password, the discovery passes
- * the sign-in to the core, the core's tag proves the answer its own, and the app opens signed in, the
- * realm in its banner.
- */
-test("a person with no link signs in at a paid discovery's page by realm, name and password", async ({
-  page,
-}) => {
-  test.setTimeout(180_000);
-  const discovery = await startDiscovery("karlnas");
-  const api = await request.newContext();
-  const token = await ownersToken(api);
-  try {
-    await connectAndClaim(api, token, discovery.address);
-    // A sign-in with the password since the core has its realm makes the owner's realm key, and the
-    // sign-in waits for the core's signalling connection, as one long after its claim finds it.
-    await ownersToken(api);
-    await expect
-      .poll(
-        async () =>
-          fieldOf(await (await api.get(`${discovery.address}/dev/core`)).json(), "isOnline"),
-        {
-          timeout: 60_000,
-        },
-      )
-      .toBe(true);
-    // The realm sign-in is at the loader's own origin, which hands the browser on to the core's.
-    await page.goto(discovery.loaderOrigin);
-    await page.getByLabel("Realm", { exact: true }).fill("KarlNAS");
-    await page.getByLabel("Name", { exact: true }).fill(owner.name);
-    await page.getByLabel("Password", { exact: true }).fill(owner.password);
-    // The box sits in one row beside its words.
-    await expect(page.locator(".credentials-form__check")).toHaveCSS("display", "flex");
-    await page.getByLabel("This is my own device: remember my realm").check();
-    await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page.locator(".app-shell__realm")).toHaveText("karlnas", { timeout: 60_000 });
-    expect(new URL(page.url()).hostname.endsWith(".localhost")).toBe(true);
-    // Quiet beside the tray, on one line however narrow the banner.
-    await expect(page.locator(".app-shell__realm")).toHaveCSS("white-space", "nowrap");
-    await expect(page.getByRole("link", { name: "Films" })).toBeVisible();
-    // Back at the loader, the household is listed with a small red Forget at its row's end, not a
-    // button the form's width beside a small name (the owner, 2026-10-17).
-    await page.goto(`${discovery.loaderOrigin}/?households=`);
-    const forget = page.getByRole("button", { name: "Forget karlnas" });
-    const name = await page.getByRole("link", { name: "karlnas" }).boundingBox();
-    const drawn = await forget.boundingBox();
-    const list = await page.locator(".loader-households").boundingBox();
-    if (name === null || drawn === null || list === null) {
-      throw new Error("the household list is drawn nowhere");
-    }
-    expect(drawn.width).toBeLessThan(list.width / 2);
-    expect(Math.abs(drawn.y + drawn.height / 2 - (name.y + name.height / 2))).toBeLessThan(3);
-    await forget.click();
-    await page.getByRole("button", { name: "Forget it" }).click();
-    await expect(page.locator(".loader-households li")).toHaveCount(0);
-  } finally {
-    await api.delete(`${serverUrl()}/api/v1/system/discovery`, { headers: signedIn(token) });
-    await api.dispose();
-    discovery.process.kill();
   }
 });
