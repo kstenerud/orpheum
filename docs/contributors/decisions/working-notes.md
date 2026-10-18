@@ -20624,3 +20624,38 @@ interest in one quality at a time."* It revises D247 §10, D250 §5 and §6, and
    settings.
 
 **Status:** Decided 2026-10-17; §7 and §8 the same evening.
+
+## D310 — The closed beta runs on the paid service, free: an account gives one key for one core, the core's admin enters it at home, and the household then uses the service's app
+
+**Decided** (2026-10-18), by the project owner, at the milestone reassessment
+([milestone-reassessment-2026-10-18.md](../design/research/milestone-reassessment-2026-10-18.md)),
+after it found that the discovery run today matches neither outcome the owner wants: a discovery a
+household runs on its own VPS, and the paid service with accounts and registration. The owner:
+*"For closed beta, we build an easy, free-for-now version of the paid service so that people don't
+need to set up their own VPS. People who participate in the closed beta will get a free-for-life
+account, so we can build out the account service, and then I'll test account termination and such
+myself while everyone else has a permanent subscription. For open beta we can have the self-host
+version. The key is to make the core registration process incredibly easy … Actually, we should
+probably limit them to one key (one core) for now, and decide later if multi-core support is
+something we really want to open up yet."* It brings the paid service's accounts (P2) into the
+closed beta, replaces the operator's claim from the console (P4, D292 §3) for customers, and gives
+D290 §1's claim from the core its form.
+
+1. **The closed beta runs on the paid service, free.** No beta household sets up a VPS. The
+   discovery a household runs itself (discovery-mode W4b.5, W4b.8) comes with the open beta.
+2. **A closed-beta household's account is free for life**: a permanent subscription, which no
+   lapse reaches. The account service is built whole all the same, and the owner tests lapse,
+   termination and the exit path (D289 §5) on the owner's own accounts.
+3. **Registration is the person's own, and it is easy**: they make an account (free in the beta)
+   and it gives them a key for their core.
+4. **One key, for one core, per account, for now.** Whether an account may hold several cores is
+   decided later.
+5. **The core is claimed from the core** (D290 §1): its admin, signed in to it at home, enters the
+   key, and the core joins the account. Setting up a core must be very simple: an install a
+   household follows without help is part of this decision, not an extra.
+6. **Then the household reaches it through the service's app** (app.orpheum-app.com, D308), from
+   anywhere.
+
+**Status:** Decided 2026-10-18. Open: what the key is (one use, or kept; shown again, or replaced),
+how an account signs in (D290 §16's e-mailed link), and whether "do everything" from the app
+includes admin away from home, which D292 and D302 keep off unless the admin opts in.
