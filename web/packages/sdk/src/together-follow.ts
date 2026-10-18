@@ -703,7 +703,7 @@ class GroupFollower {
     // players held at 0 with 0.04 s to 60 s loaded, a gap under the drift left alone, and held the
     // group up for good (staging, 2026-10-06).
     const isBeforeWhatItLoaded =
-      !isLoadingOwnSeek && holdAtMs !== where.expectedMs && !isOnLoaded(media);
+      !isLoadingOwnSeek && holdAtMs > where.expectedMs && !isOnLoaded(media);
     const { leaveDriftUpToMs, seekDriftBeyondMs } = where.tuning;
     const isAway = awayMs > (isLoadingOwnSeek ? seekDriftBeyondMs : leaveDriftUpToMs);
     if ((isAway || isBeforeWhatItLoaded) && this.#maySeekTo(holdAtMs, seekDriftBeyondMs)) {

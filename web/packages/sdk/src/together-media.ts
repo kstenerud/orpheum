@@ -124,9 +124,14 @@ export function isOnLoaded(media: FollowedMedia): boolean {
  * before what it loaded, within the seek threshold, the start of what it loaded. A copied picture
  * is cut at its source's keyframes, so its first loaded frame can come a moment after the group's
  * position; a paused player never steps over that gap as a playing one does, is never ready, and
- * held the group up for good (the owner's test, 2026-10-06, a copied HEVC picture on a Mac).
+ * held the group up for good (the owner's test, 2026-10-06, a copied HEVC picture on a Mac). Past
+ * the film's end, as a group's clock runs on a moment after it, its end: the browser keeps a seek
+ * past it there, and each was followed by another (the browser tier, 2026-10-18).
  */
 export function playableAt(media: FollowedMedia, expectedMs: number, tuning: SyncTuning): number {
+  if (Number.isFinite(media.duration) && expectedMs > media.duration * 1000) {
+    return media.duration * 1000;
+  }
   const { buffered } = media;
   const expectedS = expectedMs / 1000;
   for (let index = 0; index < buffered.length; index++) {
