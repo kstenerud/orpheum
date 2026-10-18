@@ -53,8 +53,11 @@ type stoppedRun struct {
 
 // StopUnwanted stops every run of the film's chunks no player wants (D309 §2): a quality its players
 // moved off, a place they sought away from, what a stopped player keeps ahead already made, an
-// interest lapsed. Each is cancelled, queued or running; what it made is kept (§5).
+// interest lapsed. Each is cancelled, queued or running; what it made is kept (§5). It goes on when
+// the request that asked ends, as a paused player's does at once: the tracker forgets a run before
+// its job is cancelled, and a stop cut short between left the job making what no one wanted.
 func (service *Service) StopUnwanted(ctx context.Context, fileID int64) error {
+	ctx = context.WithoutCancel(ctx)
 	interests, isKnown := service.interestsOf(fileID)
 	if !isKnown {
 		return nil
@@ -73,9 +76,10 @@ func (service *Service) StopUnwanted(ctx context.Context, fileID int64) error {
 	return nil
 }
 
-// cancelRun cancels a run the tracker forgot, queued or running, and says how many jobs it was.
+// cancelRun cancels a run the tracker forgot, queued or running, and says how many jobs it was: to
+// the end, whether or not the request that asked is still there, since nothing else will.
 func (service *Service) cancelRun(ctx context.Context, stopped stoppedRun) (int, error) {
-	cancelled, err := service.queue.CancelMatching(ctx, jobs.KindMakeChunks,
+	cancelled, err := service.queue.CancelMatching(context.WithoutCancel(ctx), jobs.KindMakeChunks,
 		jobs.Target{ChunkStoreID: stopped.storeID}, func(argsJSON string) bool {
 			var args runArgs
 			return json.Unmarshal([]byte(argsJSON), &args) == nil && args.FirstChunk == stopped.First

@@ -3,6 +3,7 @@
 package chunks
 
 import (
+	"context"
 	"slices"
 	"sync"
 	"testing"
@@ -236,5 +237,27 @@ func TestAskedFor_APausedPlayerStartsNoRunPastWhatItKeepsAhead(t *testing.T) {
 	ensured(t, service, picture, 6)
 	if runs := queue.runs(t, service); len(runs) != 1 || runs[0].firstChunk != 9 {
 		t.Errorf("the server's own start queued %+v; want one from chunk 9", runs)
+	}
+}
+
+// A run stopped as its player's request ends is still cancelled: the tracker forgets it before its
+// job is cancelled, and a cancel on the request's context, cut short, left its job making chunks no
+// one wanted, the server no longer knowing of it (a paused Firefox on staging, 2026-10-18).
+func TestStopUnwanted_ARunStoppedAsItsRequestEndsIsStillCancelled(t *testing.T) {
+	t.Parallel()
+	queue, cache := jobsQueue(t)
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	wanted := wantedBy(service)
+	picture := Stream{Kind: nodeproto.StreamPicture}
+	wanted.say(playingAt(picture, 3))
+	askedFor(t, service, picture, 3)
+	wanted.say()
+	ended, end := context.WithCancel(t.Context())
+	end()
+	if err := service.StopUnwanted(ended, 1); err != nil {
+		t.Fatalf("stopping as the request ended: %v; want the run cancelled all the same", err)
+	}
+	if runs := openRuns(t, cache); len(runs) != 0 {
+		t.Errorf("the runs open after the stop = %+v; want none", runs)
 	}
 }
