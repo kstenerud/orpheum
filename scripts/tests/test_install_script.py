@@ -70,6 +70,17 @@ class Install(unittest.TestCase):
         self.assertIn("abcd-efgh", done.stderr)
         self.assertIn("http://192.168.1.20:8440", done.stderr)
 
+    def test_each_media_folder_is_served_and_one_named_again_later_is_added_once(self):
+        films, shows, music = self.root / "films", self.root / "shows", self.root / "music"
+        for folder in (films, shows, music):
+            folder.mkdir()
+        done = self.install("--media", str(films), "--media", str(shows), "--dir", str(self.dir))
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn(f'roots = ["{films}", "{shows}"]', (self.dir / "values.toml").read_text())
+        done = self.install("--media", str(shows), "--media", str(music), "--dir", str(self.dir))
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn(f'roots = ["{films}", "{shows}", "{music}"]', (self.dir / "values.toml").read_text())
+
     def test_a_machine_with_no_address_at_home_is_told_where_to_open_in_words(self):
         films = self.root / "films"
         films.mkdir()
