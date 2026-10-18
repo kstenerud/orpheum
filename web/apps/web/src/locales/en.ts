@@ -71,7 +71,7 @@ export const en = {
     forbidden: "Only an administrator can do that.",
     notFound: "That is no longer here: it may have been removed. Go back and try again.",
     playbackGone:
-      "The server restarted, or ended this playback, so it stopped. Press play to carry on from where you were.",
+      "The server restarted, or ended this playback, so it stopped. Reload the page to carry on from where you were.",
     invalidRequest: "The server could not accept that. Check what was entered and try again.",
     invalidFields:
       "The server did not accept what was entered in {{fields, list}}. Correct what is there and try again.",
@@ -313,6 +313,7 @@ export const en = {
     startOver: "Start over",
     stoppedByAdmin: "The administrator stopped this: {{message}}",
     positionNotKept: "Where you are is no longer being kept for next time. {{reason}}",
+    reopening: "The server restarted. Opening the film again where you were…",
     audio: {
       label: "Sound",
       unknownLanguage: "Unknown language",

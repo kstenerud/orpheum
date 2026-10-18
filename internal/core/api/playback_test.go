@@ -271,6 +271,19 @@ func TestPlayback_LogsEachStartAndRefusalButNeverTheToken(t *testing.T) {
 	harness.logs.AwaitLine(t, `"msg":"a playback was refused"`, `"fileId":999`)
 }
 
+// A page that opens again a playback the server lost, as it restarted, says so, and the start is
+// taken and logged with it (the owner's test, 2026-10-18).
+func TestPlayback_APlaybackOpenedAgainAfterTheServerLostItSaysSo(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	asked := chrome(2)
+	asked["cause"] = "playbackGone"
+	harness.play(t, user, asked)
+	harness.logs.AwaitLine(t, `"msg":"a playback started"`, `"fileId":2`, `"cause":"playbackGone"`)
+}
+
 func TestPlayback_AMediaAddressPlaysOnlyForItsSessionAndOnlyWhileInUse(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)

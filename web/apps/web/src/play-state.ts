@@ -29,15 +29,9 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { leavePlayback, sayInterestOf, sendInterest } from "./interest.ts";
 import { MovingDown, type LadderOffer } from "./moving-down.ts";
 import { ApiProblem, throwIfRefused } from "./problem.ts";
+import { isPlaybackGone, mayPass, type ReopenAt } from "./reopen.ts";
 import { useServices, type PathMoves } from "./services.tsx";
 import { monotonicMs } from "./use-together.ts";
-
-/** The codes of refusals that pass: a report refused with one of these goes again with the next. */
-const transientRefusalCodes: ReadonlySet<string> = new Set([
-  "internal",
-  "migrating",
-  "rate_limited",
-]);
 
 /**
  * Where a report goes: the playback its media token names, by the session's own authorization, or
@@ -85,7 +79,7 @@ export async function sendReport(
     throwIfRefused(answer);
     return answerOf(answer.data);
   } catch (cause) {
-    if (cause instanceof ApiProblem && !transientRefusalCodes.has(cause.code)) {
+    if (cause instanceof ApiProblem && !mayPass(cause)) {
       throw new ReportRefused(cause);
     }
     throw cause;
@@ -428,11 +422,22 @@ function reportVideoEvents(
   };
 }
 
-/** What reporting tells the page: the server's answers, and its refusal for good. */
+/**
+ * What reporting tells the page: the server's answers, its refusal for good, and that it lost the
+ * playback, which the page may open again from where it was instead (onGone true), and not be told
+ * the refusal.
+ */
 interface ReportListener {
   readonly onStopped: (message: string) => void;
   readonly onLowerQuality: (offer: LadderOffer) => void;
   readonly onRefused: (cause: unknown) => void;
+  readonly onGone: (at: ReopenAt) => boolean;
+}
+
+/** What startReporting hands back: a report sent now, as when the player failed, and the stopping. */
+interface Reporting {
+  readonly reportNow: () => void;
+  readonly stop: () => void;
 }
 
 /**
@@ -516,7 +521,7 @@ function startReporting(
   video: HTMLVideoElement,
   playback: PlayStateOf & { readonly api: Api },
   listener: ReportListener,
-): () => void {
+): Reporting {
   const { api, mediaToken } = playback;
   let isStopped = false;
   const movingDown = new MovingDown({
@@ -539,12 +544,13 @@ function startReporting(
       }
       movingDown.answered(answer.lowerQuality);
     } catch (cause) {
-      if (cause instanceof ReportRefused) {
+      if (cause instanceof ReportRefused && !loss.isReopened(cause.cause)) {
         listener.onRefused(cause.cause);
       }
       throw cause;
     }
   }, reportSeqCounter(mediaToken));
+  const loss = watchForLoss(video, listener, () => videoEvents.lastPositionMs());
   reporter.measureLinkWith(playback.readLinkKbps);
   const page = watchPage(video, reporter, playback.pathMoves);
   const videoEvents = reportVideoEvents(video, reporter, { ...playback, contexts: page.contexts });
@@ -553,7 +559,8 @@ function startReporting(
   const stopSaying = sayInterestOf(video, (said) => {
     sendInterest(api, mediaToken, said);
   });
-  return () => {
+  const stop = (): void => {
+    loss.stop();
     stopSaying();
     // The player's page is gone, to anywhere but another film: its runs finish what it keeps ahead
     // (D309 §7). Another film's start, or Watching's move to it, says it was replaced.
@@ -566,6 +573,41 @@ function startReporting(
     // The video may be emptied already: where it last was is where the person left it.
     reporter.recordAbandoned(videoEvents.lastPositionMs());
   };
+  const reportNow = (): void => {
+    reporter.flush(videoEvents.lastPositionMs());
+  };
+  return { reportNow, stop };
+}
+
+/**
+ * Hands a playback the server lost, as it restarted, to the page to open again where it was, and
+ * paused or playing as the person left it (the owner's test, 2026-10-18: "Press play to carry on"
+ * could not be done, the video still playing). isReopened is whether the page took it; a video that
+ * fails or is emptied stops too, which no person asked for, so only a pause of one holding media is
+ * theirs.
+ */
+function watchForLoss(
+  video: HTMLVideoElement,
+  listener: Pick<ReportListener, "onGone">,
+  lastPositionMs: () => number,
+): { readonly isReopened: (cause: unknown) => boolean; readonly stop: () => void } {
+  let isPaused = false;
+  const played = (): void => {
+    isPaused = false;
+  };
+  const paused = (): void => {
+    isPaused ||= hasMedia(video) && !video.ended;
+  };
+  video.addEventListener("play", played);
+  video.addEventListener("pause", paused);
+  return {
+    isReopened: (cause) =>
+      isPlaybackGone(cause) && listener.onGone({ positionMs: lastPositionMs(), isPaused }),
+    stop: () => {
+      video.removeEventListener("play", played);
+      video.removeEventListener("pause", paused);
+    },
+  };
 }
 
 /** The playback whose play state is kept: its token, where it starts, and how its link is read. */
@@ -576,6 +618,16 @@ interface PlayStateOf {
   readonly readLinkKbps: () => number | undefined;
   /** The page's moves from one path to the core to another, where it makes any. */
   readonly pathMoves?: PathMoves | undefined;
+  /**
+   * Told that the server lost the playback, where it was: true when the page opens it again from
+   * there, false to be told the refusal. Undefined tells it.
+   */
+  readonly onGone?: ((at: ReopenAt) => boolean) | undefined;
+  /**
+   * What failed in the player, undefined while nothing has: a failure is reported on at once, so a
+   * playback the server lost before the video played, which sends no report, is learned of.
+   */
+  readonly failure?: string | undefined;
 }
 
 /**
@@ -585,7 +637,8 @@ interface PlayStateOf {
  * ends. It returns why the server refused the reports for good, once it has, so the person is told
  * that where they are is no longer kept; the admin's message when they stopped the playback, which
  * pauses the video and ends the reports (D243 §9); and the lower quality a stall started, once it
- * is ready and the player still cannot keep up (D253); each undefined until then.
+ * is ready and the player still cannot keep up (D253); each undefined until then. A playback the
+ * server lost goes to onGone, where it was, instead of being a refusal, when the page opens it again.
  */
 export function usePlayState(
   api: Api,
@@ -604,17 +657,36 @@ export function usePlayState(
   // The link is read at each report, by what the latest render handed in.
   const linkReader = useRef(playback.readLinkKbps);
   linkReader.current = playback.readLinkKbps;
+  const goneHearer = useRef(playback.onGone);
+  goneHearer.current = playback.onGone;
+  const reportNow = useRef<(() => void) | undefined>(undefined);
   useEffect(() => {
     const video = videoRef.current;
     if (video === null) {
       return undefined;
     }
-    return startReporting(
+    const reporting = startReporting(
       video,
       { api, mediaToken, resumePositionMs, readLinkKbps: () => linkReader.current(), pathMoves },
-      { onStopped: setStopMessage, onLowerQuality: setLowerQuality, onRefused: setRefusal },
+      {
+        onStopped: setStopMessage,
+        onLowerQuality: setLowerQuality,
+        onRefused: setRefusal,
+        onGone: (at) => goneHearer.current?.(at) ?? false,
+      },
     );
+    reportNow.current = reporting.reportNow;
+    return () => {
+      reportNow.current = undefined;
+      reporting.stop();
+    };
   }, [api, videoRef, mediaToken, resumePositionMs, pathMoves]);
+  const { failure } = playback;
+  useEffect(() => {
+    if (failure !== undefined) {
+      reportNow.current?.();
+    }
+  }, [failure]);
   return { refusal, stopMessage, lowerQuality };
 }
 

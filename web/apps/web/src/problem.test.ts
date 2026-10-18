@@ -113,7 +113,7 @@ describe("a playback the server no longer has", () => {
     const gone = new ApiProblem({ code: "playback_gone", message: "no such playback" });
     const text = problemText(t, gone);
     expect(text).toContain("The server restarted");
-    expect(text).toContain("Press play to carry on");
+    expect(text).toContain("Reload the page to carry on");
     expect(text).not.toContain("removed");
   });
 });

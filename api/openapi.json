@@ -5366,7 +5366,8 @@
               "soundAnswered",
               "soundChanged",
               "subtitleFetched",
-              "audioChosen"
+              "audioChosen",
+              "playbackGone"
             ],
             "type": "string"
           },

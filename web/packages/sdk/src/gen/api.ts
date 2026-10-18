@@ -3571,7 +3571,7 @@ export interface components {
              * @description Why the page asked for this playback, for the log
              * @enum {string}
              */
-            cause?: "filmPage" | "playPage" | "warmUpStale" | "warmUpOffLadder" | "warmUpFailed" | "soundAnswered" | "soundChanged" | "subtitleFetched" | "audioChosen";
+            cause?: "filmPage" | "playPage" | "warmUpStale" | "warmUpOffLadder" | "warmUpFailed" | "soundAnswered" | "soundChanged" | "subtitleFetched" | "audioChosen" | "playbackGone";
             /** Format: int64 */
             fileId: number;
             /**
