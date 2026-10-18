@@ -135,29 +135,3 @@ func (slots hashSlots) run(ctx context.Context, hash func()) error {
 	hash()
 	return nil
 }
-
-// hashPassword is HashPassword in a hash slot.
-func (service *Service) hashPassword(
-	ctx context.Context, password string, parameters Argon2Parameters,
-) (string, error) {
-	var (
-		hashed string
-		err    error
-	)
-	hash := func() { hashed, err = HashPassword(password, parameters, service.random) }
-	if slotErr := service.hashing.run(ctx, hash); slotErr != nil {
-		return "", slotErr
-	}
-	return hashed, err
-}
-
-// verifyPassword is VerifyPassword in a hash slot.
-func (service *Service) verifyPassword(
-	ctx context.Context, password, hash string,
-) (isMatch bool, hashParameters Argon2Parameters, err error) {
-	verify := func() { isMatch, hashParameters, err = VerifyPassword(password, hash) }
-	if slotErr := service.hashing.run(ctx, verify); slotErr != nil {
-		return false, Argon2Parameters{}, slotErr
-	}
-	return isMatch, hashParameters, err
-}

@@ -200,7 +200,8 @@
 //
 //   - reach.go: a principal's reach. roles.go: the roles, their capabilities and libraries, and a
 //     person's role.
-//   - password.go: argon2id and PHC strings. policy.go: the settings auth reads. limiter.go: the
+//   - password.go: argon2id, PHC strings and hash slots, a twin in orpheum-connect; hashing.go: the
+//     service's hashing in its slots. policy.go: the settings auth reads. limiter.go: the
 //     failure counts.
 //   - auth.go: users, sign-in, sessions on the grant table. setup.go: the setup code and the first
 //     admin. accounts.go: accounts, registration invitations and changing a password (D218).
