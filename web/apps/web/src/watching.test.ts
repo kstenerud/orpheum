@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
 import { describe, expect, it } from "vitest";
@@ -5,7 +6,13 @@ import { describe, expect, it } from "vitest";
 import { decisionTimesOf } from "./play-state.ts";
 import { bodyField, playbackCauses, servedBy, type Answer, type Heard } from "./test-dom.tsx";
 import { testServices } from "./test-services.tsx";
-import { Watching, warmUpKeptMs, type Preload, type StartPreload } from "./watching.ts";
+import {
+  startOnFilmsPictureKey,
+  Watching,
+  warmUpKeptMs,
+  type Preload,
+  type StartPreload,
+} from "./watching.ts";
 
 const playableFormats = testServices().playableFormats();
 
@@ -44,8 +51,9 @@ async function settled(heard: readonly Heard[]): Promise<string[]> {
 /** The preloads a stand-in started: each one's playlist and position, whether it was stopped. */
 interface Preloads {
   readonly started: { url: string; positionMs: number; isStopped: boolean }[];
-  /** What every preload says it settled on. */
+  /** What every preload says it settled on, and its player's last steps. */
   settledAtBps: number | undefined;
+  steps: string | undefined;
   readonly start: StartPreload;
 }
 
@@ -53,11 +61,13 @@ function standInPreloads(): Preloads {
   const preloads: Preloads = {
     started: [],
     settledAtBps: undefined,
+    steps: undefined,
     start: (offer, positionMs): Preload => {
       const preload = { url: offer.url, positionMs, isStopped: false };
       preloads.started.push(preload);
       return {
         settledAtBps: () => preloads.settledAtBps,
+        steps: () => preloads.steps,
         stop: () => {
           preload.isStopped = true;
         },
@@ -206,9 +216,26 @@ describe("the film being watched (D258)", () => {
     ]);
     // It stepped down to the 1.2 Mb/s quality while the page was open.
     preloads.settledAtBps = 1_896_000;
+    preloads.steps = "level 4; frag 4/0 loaded; level 1";
     const decision = await watching.decide(7, playableFormats);
     expect(decision.onLadder?.startAtBps).toBe(1_896_000);
     expect(preloads.started[0]?.isStopped).toBe(true);
+    // Its steps go with the playback's startup report (the owner's test, 2026-10-18).
+    expect(decisionTimesOf(decision.mediaToken)?.preloadSteps).toBe(
+      "level 4; frag 4/0 loaded; level 1",
+    );
+  });
+
+  it("starts on the film's own picture with no preload, where this browser is set to (a debugging aid)", async () => {
+    window.localStorage.setItem(startOnFilmsPictureKey, "1");
+    const preloads = standInPreloads();
+    const { watching } = watchingServed([], preloads);
+    watching.warmUp(7, playableFormats);
+    await settled([]);
+    const decision = await watching.decide(7, playableFormats);
+    window.localStorage.removeItem(startOnFilmsPictureKey);
+    expect(preloads.started).toEqual([]);
+    expect(decision.onLadder?.startAtBps).toBe(Number.MAX_SAFE_INTEGER);
   });
 
   it("stops the preload when another film is chosen, and starts none for a film not on its ladder", async () => {

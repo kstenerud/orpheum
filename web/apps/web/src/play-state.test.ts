@@ -298,7 +298,7 @@ describe("play state", () => {
   it("tells, at the first playing, how long the playback took to start from asking how to play", async () => {
     const heard: Heard[] = [];
     const askedMs = performance.now() - 3000;
-    noteDecisionTimes("timed", askedMs, askedMs + 200);
+    noteDecisionTimes("timed", { askedMs, decidedMs: askedMs + 200 });
     const playView = createElement(PlayView, {
       fileId: 2,
       decision: directDecision({ mediaToken: "timed" }),
@@ -324,6 +324,39 @@ describe("play state", () => {
     };
     expect(startup.firstDataAfterMs).toBeGreaterThanOrEqual(3000);
     expect(startup.playingAfterMs).toBeGreaterThanOrEqual(startup.firstDataAfterMs);
+  });
+
+  it("tells, with its start, what the film page's preload did before it (the owner's test, 2026-10-18)", async () => {
+    const heard: Heard[] = [];
+    const askedMs = performance.now() - 1000;
+    noteDecisionTimes("preloaded", {
+      askedMs,
+      decidedMs: askedMs + 10,
+      preloadSteps: "level 4; error bufferAppendNoProgress; level 0",
+    });
+    const playView = createElement(PlayView, {
+      fileId: 2,
+      decision: directDecision({ mediaToken: "preloaded" }),
+      onDecideAgain: () => undefined,
+    });
+    mounted = await mount(
+      withServices(
+        playView,
+        servedBy({ "POST /playback/preloaded/report": [204, undefined] }, heard),
+      ),
+    );
+    const video = videoOf(mounted);
+    Object.defineProperty(video, "readyState", { value: 4 });
+    await act(async () => {
+      video.dispatchEvent(new Event("playing"));
+      await settle();
+    });
+    const sent = heard.find(
+      (request) => request.methodAndPath === "POST /playback/preloaded/report",
+    );
+    expect(sent?.body).toMatchObject({
+      startup: { preloadSteps: "level 4; error bufferAppendNoProgress; level 0" },
+    });
   });
 
   it("tells how long each of the person's seeks took to play again, from its last seeking (the owner, 2026-10-12)", async () => {
@@ -517,7 +550,7 @@ describe("a quality the player cannot play here (D266)", () => {
 
   it("keeps the decision times of the newest playbacks alone, as warm-ups never played go (the M4 closing audit)", () => {
     for (let index = 0; index <= decisionTimesKept; index++) {
-      noteDecisionTimes(`kept-${String(index)}`, index, index + 1);
+      noteDecisionTimes(`kept-${String(index)}`, { askedMs: index, decidedMs: index + 1 });
     }
     expect(decisionTimesOf("kept-0")).toBeUndefined();
     expect(decisionTimesOf(`kept-${String(decisionTimesKept)}`)).toEqual({

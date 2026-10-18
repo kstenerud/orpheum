@@ -132,14 +132,17 @@ func TestReport_HowLongAPlaybackTookToStartIsLogged(t *testing.T) {
 	playing := harness.play(t, user, chrome(1))
 	body := reportBody(1, 4_000, 0)
 	body["linkKbps"] = 2500
-	body["startup"] = map[string]any{"decidedAfterMs": 180, "firstDataAfterMs": 2400, "playingAfterMs": 3100}
+	body["startup"] = map[string]any{
+		"decidedAfterMs": 180, "firstDataAfterMs": 2400, "playingAfterMs": 3100,
+		"preloadSteps": "level 4; frag 4/0 loaded; level 0",
+	}
 	if answer := harness.report(t, user, playing, body); answer.status != http.StatusOK {
 		t.Fatalf("the report: %d %s", answer.status, answer.body)
 	}
 	logged := harness.logs.String()
 	for _, want := range []string{
 		`"msg":"a playback started playing"`, `"decidedAfterMs":180`, `"firstDataAfterMs":2400`,
-		`"playingAfterMs":3100`, `"linkKbps":2500`,
+		`"playingAfterMs":3100`, `"linkKbps":2500`, `"preloadSteps":"level 4; frag 4/0 loaded; level 0"`,
 	} {
 		if !strings.Contains(logged, want) {
 			t.Errorf("the log has no %s:\n%s", want, logged)

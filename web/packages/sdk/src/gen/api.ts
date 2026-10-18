@@ -3620,6 +3620,7 @@ export interface components {
             firstDataAfterMs: number;
             /** Format: int64 */
             playingAfterMs: number;
+            preloadSteps?: string;
         };
         StopBody: {
             message: string;

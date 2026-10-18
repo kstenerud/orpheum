@@ -5541,6 +5541,10 @@
             "format": "int64",
             "minimum": 0,
             "type": "integer"
+          },
+          "preloadSteps": {
+            "maxLength": 400,
+            "type": "string"
           }
         },
         "required": [
