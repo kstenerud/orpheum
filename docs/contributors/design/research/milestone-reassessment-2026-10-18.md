@@ -40,6 +40,13 @@ features) and prioritize them."
 
 To record as decisions once the order below is settled.
 
+8. **The closed beta runs on the paid service, free; the self-run discovery waits for the open
+   beta** ([D310](../../decisions/working-notes.md#d310--the-closed-beta-runs-on-the-paid-service-free-an-account-gives-one-key-for-one-core-the-cores-admin-enters-it-at-home-and-the-household-then-uses-the-services-app)):
+   a beta household's account is free for life; it makes the account itself and is given one key
+   for one core; its admin enters the key at home on a core that is very simple to set up; then the
+   household uses app.orpheum-app.com. The owner tests lapse and termination on their own accounts.
+   So Db joins B0, and Da moves to the open beta (question 6 answered).
+
 ## Proposed milestones
 
 Each milestone is what a beta household would notice, in the order proposed. Sizes are rough:
@@ -182,7 +189,8 @@ Navidrome, Plexamp, OpenSubsonic). Size XL; its shape is a question below.
    smaller.
 4. **The rules engine (B4) is XL and gates parental controls, sharing and smart collections.**
    Profiles and a PIN can come without it. Is a household of children a beta need, or later?
-6. **Which discovery first, for the beta?** Da lets a technical household join with no account
+6. ~~**Which discovery first, for the beta?**~~ Answered by D310: Db for the closed beta, Da for the open.
+   *(As asked:)* **Which discovery first, for the beta?** Da lets a technical household join with no account
    anywhere; Db is the path for everyone else, and the one billing grows from. Both share the
    protocol and the core's side, which are built.
 7. **Is there anything here you want sooner, or not at all?** This list is the field's and the
