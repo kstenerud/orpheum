@@ -85,6 +85,7 @@ from revert_red_attempts import (TS_SOURCE, Attempt, browser_tier, browser_tier_
                                  is_browser_run)
 from revert_red_run import RUNNER_MISSING, is_build_failure, run_whole_group  # noqa: F401 (tests reach RUNNER_MISSING here)
 from revert_red_claims import VQ_FILE, refactor_only, verification_queue_problem, verified_out_of_suite  # noqa: F401 (tests reach VQ_FILE here)
+from emitted_js import emits_the_same_between
 from revert_red_cosmetic import GO_SOURCE, PY_SOURCE, is_cosmetic, is_package_clause_only
 from revert_red_dependents import go_dependents, python_tests_reaching, toplevel, web_source_readers
 from revert_red_stylesheets import settle as settle_stylesheets
@@ -446,6 +447,9 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
 
         unreached = False
         attempts = attempts_for(change, first or scope)
+        if TS_SOURCE.search(change.path) and emits_the_same_between(tree, base, head, change.path):
+            # The browser runs the same JavaScript either way, so no browser run can notice it (emitted_js.py).
+            attempts = [a for a in attempts if not is_browser_run(a)]
         deferred = [a for a in attempts if is_browser_run(a)] if browser == BROWSER_DEFERRED else []
         if browser == BROWSER_ONLY and not CSS_SOURCE.search(change.path):
             attempts = [a for a in attempts if is_browser_run(a)]

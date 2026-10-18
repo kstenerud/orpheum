@@ -42,6 +42,7 @@ from pathlib import Path, PurePosixPath
 
 import browser_map
 from browser_tier_needed import NOT_IN_THE_TIER
+from emitted_js import emits_the_same
 
 # Changed alone, these build into no Go test: what the Go tests read lies under their packages.
 OUTSIDE_GO = ("docs/*", "web/*", "*.md", ".claude/*", ".githooks/*", ".github/*", "scripts/*")
@@ -170,6 +171,14 @@ def web_lint_scope(paths: list[str], importers_of=importers) -> tuple[list[str],
 # --- the browser tier ---------------------------------------------------------------------------
 
 
+def _emits_as_at(commit: str, path: str) -> bool:
+    """Whether the working tree's `path` compiles to the JavaScript it did at `commit`."""
+    before = subprocess.run(["git", "show", f"{commit}:{path}"], capture_output=True, text=True, check=False)
+    if before.returncode != 0 or not Path(path).is_file():
+        return False
+    return emits_the_same(path, before.stdout, Path(path).read_text(encoding="utf-8"))
+
+
 def browser_scope(map_dir: Path = browser_map.BROWSER_MAP) -> tuple[list[str] | None, str]:
     """The tests to run, by name or by spec file, None for every one, and why."""
     stamp = map_dir / browser_map.COMPLETE
@@ -200,6 +209,8 @@ def browser_scope(map_dir: Path = browser_map.BROWSER_MAP) -> tuple[list[str] | 
             continue
         if not CLIENT_SOURCE.match(path) or CLIENT_TEST.search(path):
             return None, f"{path} changed since the browser map's commit {commit[:12]}, and the map cannot place it"
+        if _emits_as_at(commit, path):
+            continue  # types or comments alone: every test's pages ran the same JavaScript (emitted_js.py)
         holding = browser_map.chunks_holding(map_dir, path)
         if holding is None:
             return None, f"{path} is in no chunk the map can narrow to (new, the service worker's, or none)"

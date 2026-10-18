@@ -47,6 +47,12 @@ class BrowserPart(unittest.TestCase):
     def test_a_run_by_hand_takes_every_run_in_turn(self):
         self.assertEqual(self.outcome(rr.BROWSER_INLINE, [CHEAP_PASSES, BROWSER_FAILS]).verdict, "RED_TEST")
 
+    def test_a_change_of_types_alone_takes_no_browser_run_as_the_browser_runs_the_same_javascript(self):
+        self.repo.commit("fix(web): a is typed\n\nIt was not.", {CODE: "export const a: number = 2;\n"})
+        with self.repo.cwd(), mock.patch.object(rr, "attempts_for", return_value=[CHEAP_PASSES, BROWSER_FAILS]):
+            outcome = rr.probe(str(self.repo.root), "HEAD~1", "HEAD", rr.Change(CODE, "M"), 60, rr.BROWSER_DEFERRED)
+        self.assertEqual(outcome.verdict, "GREEN")
+
 
 
 class ClaimedBrowserRun(unittest.TestCase):
