@@ -4,6 +4,7 @@ package library_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
@@ -23,5 +24,19 @@ func TestBytesFileOf_NamesAFileUnderARootOfSlash(t *testing.T) {
 	})
 	if err != nil || named.RootPath != "/" || string(named.Path) != "Film.mkv" || named.PayloadHash != "0c" {
 		t.Errorf("a file under / is named %+v, %v; want root / and path Film.mkv", named, err)
+	}
+}
+
+// A file that cannot be read says since when only when that is known: a node not heard since the
+// core started has no time, which read "since 0001-01-01T00:00:00Z" (nas.example, 2026-10-18).
+func TestUnreadableError_SaysSinceWhenOnlyWhenKnown(t *testing.T) {
+	t.Parallel()
+	away := library.UnreadableError{Unreadable: library.Unreadable{Reason: library.NodeAway, NodeID: 1}}
+	if got, want := away.Error(), "node 1's file cannot be read: node_away -"; got != want {
+		t.Errorf("a node away since nobody knows when: %q; want %q", got, want)
+	}
+	away.Since = time.Date(2026, 10, 18, 6, 17, 0, 0, time.UTC)
+	if got, want := away.Error(), "node 1's file cannot be read: node_away -, since 2026-10-18T06:17:00Z"; got != want {
+		t.Errorf("a node away since a known time: %q; want %q", got, want)
 	}
 }
