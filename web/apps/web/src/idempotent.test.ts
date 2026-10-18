@@ -18,7 +18,9 @@ const sources = import.meta.glob<string>(["./**/*.{ts,tsx}", "!./**/*.test.{ts,t
  * time it changes (D246 §3); and a tab on the WebRTC path offers its connections once signed in,
  * each offer a new connection, so a repeat makes another rather than doing one twice (D273 §8); and
  * a device showing its code asks for it, and how its pairing stands, on its own, asking again giving
- * the same code (D288 §1).
+ * the same code (D288 §1); a page tells the core of a failure it met on its own, each a report of
+ * its own (failure-reports.ts); and the client origin redeems a hand-off's code as it loads, a code
+ * the core takes once (D308 §4).
  */
 const notSentByAClick = new Set([
   "./watching.ts",
@@ -26,6 +28,8 @@ const notSentByAClick = new Set([
   "./together-playback.ts",
   "./transport-choice.ts",
   "./pairing.ts",
+  "./failure-reports.ts",
+  "./loader-at-client-origin.tsx",
 ]);
 
 /** The text of each call that begins at an index in source: from it to its closing parenthesis. */
