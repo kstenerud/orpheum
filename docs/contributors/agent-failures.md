@@ -49,6 +49,23 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A35 — Recorded "revoking a used link ends what it granted" as the owner's rule (2026-10-18)
+
+- **What happened:** the owner described one pattern for invitations, Watch Together links and core
+  keys: *"The code can be revoked, which eliminates the entitlements. The code can be regenerated,
+  which is basically a revoke + new key."* The agent recorded D311 §3 as "revoking a link ends what
+  it granted": the account an invitation made loses what it gave, the members a link let in leave.
+  The owner's model was two operations apart: an outstanding code is revoked or regenerated; a
+  redeemed one's entitlement is kept and moved, by a new code for it, to whoever redeems that (a
+  locked-out person gets their own account back). The false belief came from reading
+  "eliminates the entitlements" against the whole lifecycle instead of asking which stage it named,
+  while the agent's own question about it ("does revoking a long-used invitation delete the account
+  or only remove its access?") sat unanswered beside a decision already committed.
+- **Caught by:** the owner: *"I think I may not have described this adequately."*
+- **Gate:** none can check a decision's reading of the owner's words. The lesson: a decision whose
+  meaning the agent is still asking about is not recorded until the answer comes; the question goes
+  first, the record after.
+
 ### A34 — Read a clock-sync pong as a player saying it was in step (2026-10-18)
 
 - **What happened:** reading nas.example's log of a Watch Together session whose guest did not play at

@@ -20690,31 +20690,42 @@ mean in the same sense that it works now (they can admin from remote only if the
 **Status:** Decided 2026-10-18; §7 and §8–§12 the same day. Open: how the service's account signs
 in (a password with its username, or D290 §16's e-mailed link).
 
-## D311 — Every link that grants something follows one pattern: a URL and a QR code with a private note, its grants listed beside it, revoking ends them, regenerating is revoking and a new link
+## D311 — A code establishes an entitlement: it expires, its issuer sees it and what it made, and a new code for the same entitlement moves it to whoever redeems it
 
 **Decided** (2026-10-18), by the project owner, on D310's keys and invitations, as the rule for
-every kind: *"The general pattern when using links (invites, watch together, etc) is: URL + QR
-code, private note. The responsible person can see the outstanding ones and also anything that has
-been given entitlements as a result of redeeming said code. The code can be revoked, which
-eliminates the entitlements. The code can be regenerated, which is basically a revoke + new key."*
-It holds for the core's registration invitations, Watch Together's links (D246), device codes
-(D218, D288), and the paid service's invitations and core keys (D310 §8–§10).
+every kind. Restated the same day: the first record read "revoking a link ends what it granted",
+and the owner corrected it (agent-failures A35): *"A "code" (key code or invite code) is a means to
+establishing entitlements (setting up an account, enroling a core, joining a watch together
+session, etc). Codes expire after a certain time (the timeout depends on what we are setting up).
+While codes are outstanding (have not been redeemed), the issuer must be able to see the codes,
+plus their private notes, and be able to revoke or regenerate them. Once a code is redeemed, the
+issuer needs a way to see the result of that redemption (e.g. I can see registered users, users can
+see their enroled core, hosts can see their watch together guests, etc). As an escape hatch,
+issuers can generate a new code for that entitlement, which invalidates the entitlements associated
+with the old code, and allows the person redeeming the code to gain those entitlements. So, I can
+re-issue an invite link for someone who's locked themselves out of their account. A user can
+re-issue a core key if something goes wrong or they need to rebuild their VPS. A watch together
+guest couldn't get things to work with brave browser and wants to try with chrome or safari, etc.
+So the way things get manifested in the UI may appear different, but the mechanics are mostly the
+same."* Earlier the same day: *"The general pattern when using links (invites, watch together,
+etc) is: URL + QR code, private note."* It holds for the core's registration invitations, Watch
+Together's links (D246), device codes (D218, D288), and the paid service's invitations and core
+keys (D310 §8–§10).
 
-1. **A link is given as a URL and a QR code, with a private note** saying whom it is for, which only
-   the person responsible for it sees.
-2. **The person responsible sees every link still outstanding, and everything each has granted**:
-   the account an invitation made, the members a Watch Together link let in, the core a key
-   enrolled.
-3. **Revoking a link ends what it granted**, not only the link: the account its redemption made
-   loses what the link gave it, the members it let in leave, the core it enrolled is removed
-   (D310 §9).
-4. **Regenerating a link is revoking it and making a new one**, the note kept.
-5. **A core's enrolment key is a code, not a URL or QR code** (the owner, the same day: *"the
-   enrolment key for enroling a core is going to be a safe32 code rather than a URL+QR code
-   (because it has to be entered by a human) but otherwise follows a similar pattern"*): a
-   `discovery/safe32code` code, which a person types into the core's own page; §1's note, §2's
-   list, §3's revoking and §4's regenerating hold for it as for the rest (D310 §8–§9).
+1. **A code is a means of establishing an entitlement**: an account made, a core enrolled, a place
+   in a Watch Together session. Each kind is one mechanism, however its screens show it.
+2. **A code expires**, after a time that depends on what it sets up (a core key's hour, D310 §8).
+3. **While a code is outstanding, its issuer sees it with its private note, and may revoke or
+   regenerate it.** A code a person follows is given as a URL and a QR code; one a person types,
+   as a core's enrolment key is, is a `discovery/safe32code` code (the owner: *"because it has to
+   be entered by a human"*).
+4. **Once a code is redeemed, its issuer sees what it made**: the owner the registered people, a
+   household its enrolled core, a host the session's guests.
+5. **The escape hatch: a new code for the same entitlement.** Issuing it invalidates what the old
+   code granted, and whoever redeems the new one takes the entitlement over: the person locked out
+   of their account has it back, the rebuilt VPS's core replaces the old one (D310 §9), the guest
+   moves from one browser to another. The entitlement is kept and passed on, not made afresh.
 
-**Status:** Decided 2026-10-18, §5 the same day. Each kind of link is to be checked against it: today the core's
-invitations and Watch Together's links can be withdrawn while unused, and a Watch Together member
-ejected on its own, but neither ties what a redeemed link granted to the link.
+**Status:** Decided 2026-10-18, restated the same day. Each kind of code is to be checked against
+it: today the core's invitations and Watch Together's links can be withdrawn while outstanding, but
+none can be issued again for an entitlement already made.
