@@ -25,6 +25,8 @@ phase's end.
 
 ## B0 — joining the beta
 
+Phased in [b0.md](b0.md).
+
 A household goes from an invitation to watching, alone. Nothing here is new to the owner's own
 household; nothing after it reaches anyone else without it.
 
