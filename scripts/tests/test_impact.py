@@ -101,6 +101,11 @@ class Browser(unittest.TestCase):
     def test_a_client_source_runs_the_tests_that_loaded_it(self):
         self.assertEqual(self.scope({CLIENT: "2\n", "docs/a.md": "x\n"}), ["chromium a", "firefox unvouched"])
 
+    def test_a_change_of_types_alone_runs_no_test_its_chunk_loaded(self):
+        mapped = self.repo.commit("chore: a is code", {CLIENT: "export const a = 1;\n"})
+        (self.map / browser_map.COMPLETE).write_text(mapped + "\n")
+        self.assertEqual(self.scope({CLIENT: "export const a: number = 1;\n"}), ["firefox unvouched"])
+
     def test_the_change_is_read_from_the_map_s_commit_not_check_pr_s_base(self):
         self.repo.commit("fix: b, checked before", {OTHER: "2\n"})
         self.assertEqual(self.scope({CLIENT: "2\n"}), ["chromium a", "chromium b", "firefox unvouched"])

@@ -288,6 +288,22 @@ Each entry says: the **mechanism**, the **instance** we found, **why it was invi
   touched one package; a browser map whose `complete` commit falls far behind HEAD (only whole runs
   renew it).
 
+### 17. Every browser test for a change of types alone
+
+- **Mechanism:** a TypeScript file whose change was types alone is in no chunk the browser map
+  records, since compiling erases it, so both revert-red's browser run and check-pr's browser step
+  could not narrow it and ran every test, though the browser runs the same JavaScript either way.
+- **Instance** (2026-10-18): the SDK's generated `gen/api.ts`, given one optional field, took 507 s
+  of revert-red's 620 s in the browser tier, and check-pr's browser step ran whole for it.
+- **Why it was invisible:** "in no chunk the map can narrow to" read as the map's doubt, and the
+  safe answer to a doubt is every test.
+- **Fix:** `scripts/emitted_js.py` compiles both versions alone with TypeScript's `transpileModule`
+  (the web code is `isolatedModules`, so a file's JavaScript depends on its text alone); a file
+  that compiles to the same JavaScript takes no browser run in revert-red and reaches no test in
+  `impact.py`. Any doubt (a parse error, no node) answers "different".
+- **Warning sign:** a browser-tier row in revert-red's timings for a `gen/` or `types.ts` file; a
+  check-pr browser step that "cannot place" a file of types.
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of
