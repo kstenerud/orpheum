@@ -221,6 +221,12 @@ User-Agent (D263; the User-Agent is logged only).
   its 30 s look for a better path found the LAN name answering, and every request after, a film's
   chunks too, went there without one failing. Unconfirmed: the connection opened before the worker
   controlled the page is the one that fails, and a new one does not. The film did not stall.
+- **Not only a burst:** on nas.example (2026-10-18), a host's Firefox on macOS moved from the LAN name to WebRTC
+  and back 171 times in a 53-minute Watch Together session, 3 to 5 times a minute from start to end: the
+  look for a better path found the LAN name answering each time, and its next request failed. The film
+  did not stall, but a request failed at each move. The look for a better path now waits twice as long
+  after each move away from a failed path, from 30 s up to 10 minutes, and as at first once the browser
+  is back online (`betterPathFirstMs` in `web/apps/web/src/kept-path.ts`).
 - **Evidence:** nas.example's and staging's logs, 2026-10-15, Firefox 157 on macOS; [Mozilla bug
   2059274](https://bugzilla.mozilla.org/show_bug.cgi?id=2059274) on when Firefox asks;
   undoing a block: the site's permissions in the address bar, or `about:preferences#privacy`'s
