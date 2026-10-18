@@ -139,3 +139,28 @@ func TestWriteDeployment_TheConfigsItWritesSetEveryKey(t *testing.T) {
 		}
 	}
 }
+
+func TestInstallImage_IsThisVersionsPublishedImageOrTheLatestForABuildOfNoTag(t *testing.T) {
+	t.Parallel()
+	for version, want := range map[string]string{
+		"v0.2.0-nas.11": "ghcr.io/kstenerud/orpheum:v0.2.0-nas.11",
+		"v0.3.0":        "ghcr.io/kstenerud/orpheum:v0.3.0",
+		"v0.2.0-nas.10.0.20261018180503-e6c7c4eab3f8": "ghcr.io/kstenerud/orpheum:latest",
+		"(devel)": "ghcr.io/kstenerud/orpheum:latest",
+	} {
+		if got := installImage(version); got != want {
+			t.Errorf("installImage(%q) = %q; want %q", version, got, want)
+		}
+	}
+}
+
+func TestDispatch_InstallScriptPrintsTheScriptInstallingThisImage(t *testing.T) {
+	t.Parallel()
+	var stdout, stderr bytes.Buffer
+	status := dispatch(t.Context(), []string{"install-script"}, noEnvironment, nil, &stdout, &stderr)
+	if status != exitSuccess || !strings.HasPrefix(stdout.String(), "#!/bin/sh") ||
+		!strings.Contains(stdout.String(), `image="`+installImage(version)+`"`) {
+		t.Errorf("install-script: status %d, stdout begins %.80q; want the install script naming this image",
+			status, stdout.String())
+	}
+}
