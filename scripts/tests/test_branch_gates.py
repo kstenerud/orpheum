@@ -363,9 +363,22 @@ class RevertRedKinds(unittest.TestCase):
             for path in ("dev", ".claude/hooks/on_stop.py", "scripts/tool.py"):
                 self.assertTrue(rr.is_probed_kind(path), path)
                 self.assertEqual(rr.scope_for(path), rr.PY_TESTS_COMMAND, path)
-            self.assertFalse(rr.is_probed_kind("deploy/run.sh"))
+            self.assertFalse(rr.is_python("deploy/run.sh"))
             self.assertTrue(rr.is_test_file("scripts/tests/test_tool.py"))
             rr.is_python.cache_clear()
+
+    def test_a_shell_script_is_probed_by_the_python_tests_that_name_it(self):
+        repo = Repo({"deploy/run.sh": "#!/bin/sh\necho\n", "deploy/lone.sh": "#!/bin/sh\necho\n",
+                     "scripts/tests/test_run.py": 'SCRIPT = "deploy/run.sh"\n',
+                     "scripts/tests/test_other.py": "x = 1\n"})
+        base = repo.commit("chore: base")
+        repo.commit("fix: run says more", {"deploy/run.sh": "#!/bin/sh\necho more\n"})
+        with repo.cwd():
+            self.assertTrue(rr.is_probed_kind("deploy/run.sh"))
+            self.assertEqual(rr.scope_for("deploy/run.sh"), [*rr.PY_TESTS_COMMAND, "scripts/tests/test_run.py"])
+            self.assertIsNone(rr.scope_for("deploy/lone.sh"), "no test names it, so none covers it")
+            self.assertEqual(rr.unchecked_behavioral_files(base, "HEAD"), [])
+            self.assertTrue(rr.is_test_file("internal/testutil/testdata/fake.sh"))
 
     def test_css_is_probed_in_the_browser_tier_alone(self):
         css = "web/apps/web/src/play.css"

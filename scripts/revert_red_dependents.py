@@ -154,3 +154,11 @@ def python_tests_reaching(root: str, path: str) -> list[str] | None:
         if stem in seen or any(name in text for text in texts):
             reaching.append(str(test.relative_to(root)))
     return reaching
+
+
+def python_tests_naming(root: str, path: str) -> list[str]:
+    """The test modules, "scripts/tests/test_x.py", that name a file by its file name: those that
+    run a shell script as a command, as test_install_script.py runs install.sh."""
+    name = Path(path).name
+    return [str(test.relative_to(root)) for test in sorted((Path(root) / "scripts" / "tests").glob("test_*.py"))
+            if name in test.read_text(encoding="utf-8", errors="replace")]

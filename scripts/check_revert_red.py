@@ -87,7 +87,7 @@ from revert_red_run import RUNNER_MISSING, is_build_failure, run_whole_group  # 
 from revert_red_claims import VQ_FILE, refactor_only, verification_queue_problem, verified_out_of_suite  # noqa: F401 (tests reach VQ_FILE here)
 from emitted_js import emits_the_same_between
 from revert_red_cosmetic import GO_SOURCE, PY_SOURCE, is_cosmetic, is_package_clause_only
-from revert_red_dependents import go_dependents, python_tests_reaching, toplevel, web_source_readers
+from revert_red_dependents import go_dependents, python_tests_naming, python_tests_reaching, toplevel, web_source_readers
 from revert_red_stylesheets import settle as settle_stylesheets
 from revert_red_trees import hold_probe_trees, link_installed_packages, probe_trees  # noqa: F401 (tests reach them here)
 from revert_red_units import MIGRATION_STEP, companions, query_source, restore, revert_companion
@@ -140,6 +140,10 @@ STORE_INTEGRATION = ["go", "test", "-tags", "integration", "./internal/store/...
 PY_TEST = re.compile(r"(^|/)tests/")
 
 TS_TEST = re.compile(r"\.test\.tsx?$")
+
+# A shell script is run by the Python tests that name it, as the install script and build.sh are;
+# with no such kind, a fix to one alone was a blind spot (01827a66, 2026-10-18).
+SHELL_SOURCE = re.compile(r"\.sh$")
 
 # Every Python test is in scripts/tests (PY_TEST), so every Python source outside it is in their
 # scope: the gate scripts, the Claude hooks in .claude/hooks, and ./dev. A list of roots left the
@@ -209,7 +213,8 @@ def claims_behavior_change(types: set[str | None]) -> bool:
 def is_probed_kind(path: str) -> bool:
     """Whether this gate has a probe for this kind of file."""
     return bool(GO_SOURCE.search(path) or is_python(path) or TS_SOURCE.search(path)
-                or CSS_SOURCE.search(path) or MIGRATION_STEP.match(path) or path == STORE_SCHEMA)
+                or CSS_SOURCE.search(path) or SHELL_SOURCE.search(path) or MIGRATION_STEP.match(path)
+                or path == STORE_SCHEMA)
 
 
 def changed_sources(base: str, head: str) -> list[Change]:
@@ -241,6 +246,8 @@ def is_test_file(path: str) -> bool:
         return bool(PY_TEST.search(path))
     if TS_SOURCE.search(path):
         return bool(TS_TEST.search(path))
+    if SHELL_SOURCE.search(path):
+        return path.startswith(GO_TEST_SUPPORT)  # the fake FFmpeg
     return False
 
 
@@ -302,6 +309,10 @@ def scope_for(path: str) -> list[str] | None:
         # The tests that import it, by vitest's import graph, as a Go file's package; none, and it
         # widens to the whole suite (wide_scope): all of it for each file took 54 s of check-pr.
         return [*VITEST_RELATED, str(Path(path).relative_to("web"))]
+    if SHELL_SOURCE.search(path):
+        # The Python tests that run it, which name it; none names it, and no test covers it.
+        naming = python_tests_naming(toplevel(), path)
+        return [*PY_TESTS_COMMAND, *naming] if naming else None
     return None
 
 
