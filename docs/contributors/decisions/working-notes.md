@@ -20865,5 +20865,11 @@ machine that runs it) and builds D272 §3's optional tunnel.
 4. **With no tunnel there is no public relay for WebRTC, and that is accepted for the closed beta:**
    two devices that can meet only through a relay do not connect. **Each such failure is recorded**,
    so the beta shows how often it happens (D274 §3's count, which decides whether a relay is built).
+5. **Windows is not a closed-beta host** (the owner, the same day, on the agent's research: *"yes"*).
+   Under WSL 2 and Docker Desktop, changes made from Windows never reach the node's watching, Intel
+   Quick Sync is unavailable, Docker Desktop rewrites every client's address so no device is at home
+   (D297 §6, D300), and nothing runs before a person logs in. A native Windows build, about six to
+   ten weeks of its own by the research's estimate, comes later if testers ask for it. A technical
+   tester may run it unsupported under Docker Engine inside WSL with mirrored networking.
 
-**Status:** Decided 2026-10-18.
+**Status:** Decided 2026-10-18; §5 the same day.
