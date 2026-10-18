@@ -20662,6 +20662,30 @@ D290 §1's claim from the core its form.
    enters the key at home. One way to enrol, whichever discovery holds the core; it replaces the
    claim by the core's code that W4b.8 planned (`orpheum discovery claim <code>`).
 
-**Status:** Decided 2026-10-18, §7 the same day. Open: what the key is (one use, or kept; shown again, or replaced),
-how an account signs in (D290 §16's e-mailed link), and whether "do everything" from the app
-includes admin away from home, which D292 and D302 keep off unless the admin opts in.
+The owner answered §1–§7's open questions the same day: *"A key is one-time-use. If they fuck
+something up, they can request a new key, which invalidates the old key. A user is invited via
+invite URL, which I generate via an admin panel on the paid discovery server (with a note field so
+I know which invite is for whom - similar to the watch together link we have now). These can also
+be removed from the admin panel. A user can see their server from an admin panel in the paid
+discovery server app (different login from the core login, different username, completely
+unrelated except that it entitles them to enrol a core). They click generate key for this core, and
+have 1h to use it. If they click generate key again, the old key is invalidated, and any core
+enroled via that key is kicked out (no matter how long it's been enroled). By "do everything" I
+mean in the same sense that it works now (they can admin from remote only if they opt in)."*
+
+8. **A key is used once, within an hour of being made.** The account's panel has *Generate key*
+   for its server.
+9. **Generating a key again invalidates the last one, and removes any core enrolled with it**,
+   however long ago it enrolled. A household that got something wrong starts over with a new key;
+   with §4's one core per account, the new key's core is the account's only one.
+10. **A person joins by an invitation URL** the operator makes in the paid service's own admin
+    panel, each with a note saying whom it is for, as Watch Together's links have (D246); the
+    operator can remove one there.
+11. **The service's account is apart from every core's accounts**: its own sign-in and its own
+    username, related to nothing on the core, granting only that it may enrol a core (D289 §1).
+    Its panel shows the account its server.
+12. **"Do everything" from the app is what the app does now**: admin away from home only where the
+    core's admin opted in (D292, D302, unchanged).
+
+**Status:** Decided 2026-10-18; §7 and §8–§12 the same day. Open: how the service's account signs
+in (a password with its username, or D290 §16's e-mailed link).
