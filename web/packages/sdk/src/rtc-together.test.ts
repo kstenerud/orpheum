@@ -52,6 +52,25 @@ function open(channel: FakeChannel): {
 }
 
 describe("the session socket over a data channel", () => {
+  it("closes as one that dropped when no connection to the core is up, so its connection tries again", async () => {
+    const closes: number[] = [];
+    const socket = rtcTogetherSocket(() => {
+      throw new Error("no WebRTC connection to the core is up");
+    })({
+      onOpen: () => undefined,
+      onMessage: () => undefined,
+      onClose: (code) => {
+        closes.push(code);
+      },
+    });
+    expect(closes).toEqual([]); // not before its caller holds the socket
+    await Promise.resolve();
+    expect(closes).toEqual([1006]);
+    socket.send("nothing goes");
+    socket.close();
+    expect(closes).toEqual([1006]);
+  });
+
   it("asks to become a WebSocket, opens on 101, and carries text messages both ways", () => {
     const channel = new FakeChannel();
     const { heard, socket } = open(channel);
