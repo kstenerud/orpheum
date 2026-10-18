@@ -243,3 +243,33 @@ func TestSession_LastsAsLongAsTheDiscoverySaysCountedOnTheCoresOwnClock(t *testi
 		t.Errorf("%d sessions after a heartbeat near the session's end; want one more than %d", count, opened)
 	}
 }
+
+// A core newly claimed dials its signalling connection at once, not at the loop's next look: its
+// owner's first visit through the discovery waited up to signalCheckEvery for it (the owner, 2026-10-18).
+func TestSignal_ACoreNewlyClaimedDialsAtOnce(t *testing.T) {
+	t.Parallel()
+	built := newWorld(t)
+	built.service.parts.Answerer = &answering{}
+	if _, err := built.service.Connect(t.Context(), built.baseURL); err != nil {
+		t.Fatal(err)
+	}
+	dials := make(chan time.Time, 8)
+	built.fake.mutex.Lock()
+	built.fake.onSignal = func() { dials <- built.clock.Now() }
+	built.fake.mutex.Unlock()
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		built.service.signal(ctx)
+	}()
+	claimedAt := built.clock.Now()
+	built.fake.claim()
+	built.service.step(t.Context())
+	dialled := testutil.Receive(t, dials, "the dial once claimed")
+	cancel()
+	testutil.Receive(t, done, "the signalling loop to end")
+	if gap := dialled.Sub(claimedAt); gap != 0 {
+		t.Errorf("the core dialled %s after it was claimed; want at once", gap)
+	}
+}
