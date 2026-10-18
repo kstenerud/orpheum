@@ -47,6 +47,7 @@ describe("what a stalled video held, for its report (D266)", () => {
       lastError: "bufferStalledError: stalled",
       mapping: "",
       mediaSourceState: "",
+      steps: "error bufferStalledError",
     });
     const decodeFailed: Pick<MediaError, "code" | "message"> = {
       code: 3,
@@ -54,6 +55,43 @@ describe("what a stalled video held, for its report (D266)", () => {
     };
     video.error = decodeFailed as MediaError;
     expect(diagnosisOf(video)?.lastError).toBe("media error 3: decode failed");
+  });
+
+  it("keeps the player's last steps, oldest first, the latest twelve: where it stopped (the owner's test, 2026-10-18)", () => {
+    const listeners = new Map<string, (event: string, data: unknown) => void>();
+    const hls = {
+      on: (event: string, listener: (event: string, data: unknown) => void) => {
+        listeners.set(event, listener);
+      },
+    } as unknown as DiagnosedHls;
+    const video = Object.assign(new EventTarget(), { error: null });
+    diagnose(hls, video);
+    const told = (event: string, data: unknown): void => {
+      listeners.get(event)!("", data);
+    };
+    const own = { level: 4, sn: 0, type: "main" };
+    told(Hls.Events.LEVEL_SWITCHING, { level: 4 });
+    told(Hls.Events.LEVEL_LOADING, { level: 4 });
+    told(Hls.Events.LEVEL_LOADED, { level: 4 });
+    told(Hls.Events.FRAG_LOADING, { frag: own });
+    told(Hls.Events.FRAG_LOADING, { frag: { level: 0, sn: 0, type: "audio" } });
+    told(Hls.Events.FRAG_LOADED, { frag: own });
+    told(Hls.Events.ERROR, {
+      details: "bufferAppendNoProgress",
+      fatal: false,
+      error: new Error("x"),
+    });
+    told(Hls.Events.FRAG_LOAD_EMERGENCY_ABORTED, { frag: own });
+    told(Hls.Events.MEDIA_DETACHED, {});
+    told(Hls.Events.MEDIA_ATTACHED, {});
+    told(Hls.Events.LEVEL_SWITCHING, { level: 3 });
+    expect(diagnosisOf(video)?.steps).toBe(
+      "level 4; playlist 4 loading; playlist 4 loaded; frag 4/0 loading; sound 0/0 loading; " +
+        "frag 4/0 loaded; error bufferAppendNoProgress; frag 4/0 aborted; detached; attached; level 3",
+    );
+    told(Hls.Events.LEVEL_LOADING, { level: 3 });
+    told(Hls.Events.LEVEL_LOADED, { level: 3 });
+    expect(diagnosisOf(video)?.steps?.startsWith("playlist 4 loading; ")).toBe(true);
   });
 
   it("keeps how hls.js placed each playlist's first chunk, telling the video, and whether it may load", () => {

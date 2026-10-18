@@ -25,6 +25,13 @@ export interface PlaybackDiagnosis {
    * its last startstreaming or endstreaming said; "" where the source says neither.
    */
   readonly mediaSourceState: string;
+  /**
+   * The player's last steps, oldest first: each quality it chose, each playlist and chunk it loaded,
+   * aborted or failed, and its video detached and attached; "" before any. A Mac's Firefox, its
+   * film's own picture given up at 0:00, stood with nothing loaded and asked for nothing more, and no
+   * report said where its player had stopped (the owner's test, 2026-10-18).
+   */
+  readonly steps?: string;
 }
 
 /** What a diagnosis keeps as hls.js tells it. */
@@ -34,10 +41,75 @@ interface Kept {
   lastError: string;
   mapping: string[];
   mediaSourceState: string;
+  steps: string[];
 }
 
 /** The longest a diagnosis's mapping may be, as the server takes it. */
 const mappingTextMost = 300;
+
+/** How many of the player's last steps a diagnosis keeps, and the longest they may be, as the server takes them. */
+const stepsKept = 12;
+const stepsTextMost = 400;
+
+/** The hls.js events a diagnosis keeps as steps, beside its errors and its video's attaching. */
+const stepEvents = [
+  Hls.Events.LEVEL_SWITCHING,
+  Hls.Events.LEVEL_LOADING,
+  Hls.Events.LEVEL_LOADED,
+  Hls.Events.FRAG_LOADING,
+  Hls.Events.FRAG_LOADED,
+  Hls.Events.FRAG_LOAD_EMERGENCY_ABORTED,
+  Hls.Events.MEDIA_DETACHED,
+] as const;
+
+/** What a step's event says, of what hls.js tells with it. */
+interface StepData {
+  readonly level?: number;
+  readonly frag?: {
+    readonly level: number;
+    readonly sn: number | "initSegment";
+    readonly type: string;
+  };
+}
+
+/** A step in a line: "level 2", "playlist 2 loaded", "frag 2/31 aborted", "sound 0/31 loading". */
+export function stepText(event: string, data: StepData): string {
+  const { frag } = data;
+  if (frag !== undefined) {
+    const what = `${frag.type === "main" ? "frag" : "sound"} ${String(frag.level)}/${String(frag.sn)}`;
+    const outcome: Partial<Record<string, string>> = {
+      [Hls.Events.FRAG_LOADING]: "loading",
+      [Hls.Events.FRAG_LOADED]: "loaded",
+      [Hls.Events.FRAG_LOAD_EMERGENCY_ABORTED]: "aborted",
+    };
+    return `${what} ${outcome[event] ?? event}`;
+  }
+  const level = String(data.level ?? "?");
+  const texts: Partial<Record<string, string>> = {
+    [Hls.Events.LEVEL_SWITCHING]: `level ${level}`,
+    [Hls.Events.LEVEL_LOADING]: `playlist ${level} loading`,
+    [Hls.Events.LEVEL_LOADED]: `playlist ${level} loaded`,
+    [Hls.Events.MEDIA_DETACHED]: "detached",
+  };
+  return texts[event] ?? event;
+}
+
+/** Keeps each of stepEvents hls.js tells as the diagnosis's latest step. */
+function keepSteps(hls: DiagnosedHls, diagnosis: Kept): void {
+  for (const event of stepEvents) {
+    hls.on(event, (_event, data) => {
+      keepStep(diagnosis, stepText(event, data));
+    });
+  }
+}
+
+/** Keeps step as the diagnosis's latest, the stepsKept latest at most. */
+function keepStep(diagnosis: Kept, step: string): void {
+  diagnosis.steps.push(step);
+  if (diagnosis.steps.length > stepsKept) {
+    diagnosis.steps.shift();
+  }
+}
 
 const diagnoses = new WeakMap<object, Kept>();
 
@@ -92,6 +164,10 @@ export interface DiagnosedHls {
     ((
       event: typeof Hls.Events.ERROR,
       listener: (event: string, data: Pick<ErrorData, "details" | "fatal" | "error">) => void,
+    ) => void) &
+    ((
+      event: (typeof stepEvents)[number],
+      listener: (event: string, data: StepData) => void,
     ) => void);
 }
 
@@ -106,8 +182,10 @@ export function diagnose(hls: DiagnosedHls, video: EventTarget): void {
     lastError: "",
     mapping: [],
     mediaSourceState: "",
+    steps: [],
   };
   diagnoses.set(video, diagnosis);
+  keepSteps(hls, diagnosis);
   hls.on(Hls.Events.BUFFER_APPENDED, (_event, data) => {
     const { video: picture, audio, audiovideo } = data.timeRanges;
     if (picture !== undefined) {
@@ -123,6 +201,7 @@ export function diagnose(hls: DiagnosedHls, video: EventTarget): void {
   });
   hls.on(Hls.Events.ERROR, (_event, data) => {
     diagnosis.lastError = errorText(data);
+    keepStep(diagnosis, `error ${data.details}${data.fatal ? " (fatal)" : ""}`);
   });
   // How hls.js placed its first chunks, and whether its media source lets it load.
   const buffered = new Set<string>();
@@ -148,6 +227,7 @@ export function diagnose(hls: DiagnosedHls, video: EventTarget): void {
     video.dispatchEvent(new CustomEvent(playerBufferedFirstEvent, { detail: data.id }));
   });
   hls.on(Hls.Events.MEDIA_ATTACHED, (_event, data) => {
+    keepStep(diagnosis, "attached");
     data.mediaSource?.addEventListener("startstreaming", () => {
       diagnosis.mediaSourceState = "streaming";
     });
@@ -175,5 +255,6 @@ export function diagnosisOf(
         : `media error ${String(elementError.code)}: ${elementError.message}`.slice(0, 200),
     mapping: diagnosis.mapping.join("; ").slice(0, mappingTextMost),
     mediaSourceState: diagnosis.mediaSourceState,
+    steps: diagnosis.steps.join("; ").slice(-stepsTextMost),
   };
 }
