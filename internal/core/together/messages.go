@@ -18,6 +18,9 @@ const (
 	MessageRTC     MessageType = "rtc"
 	// MessageNote is one thing a device's player did, for the server's log alone (PlayerNote).
 	MessageNote MessageType = "note"
+	// MessageStanding is what a device's page waits on before its film can play (Standing): shown
+	// to everyone in the roster, it changes nothing of whom the group waits for (D246 §6).
+	MessageStanding MessageType = "standing"
 )
 
 // The messages the server sends.
@@ -70,6 +73,50 @@ const (
 	SuspendUserActionRequired      SuspendReason = "userActionRequired"
 	SuspendUserPausedLocally       SuspendReason = "userPausedLocally"
 	SuspendUserChangingTime        SuspendReason = "userIsChangingCurrentTime"
+)
+
+// Standing is what a device's page waits on before its film can play, which only the page knows.
+type Standing string
+
+// The standings a page says.
+const (
+	// StandingNone is a page that waits on nothing of its person's.
+	StandingNone Standing = ""
+	// StandingChoosingSound is a page asking its person how its device makes sound (D222).
+	StandingChoosingSound Standing = "choosingSound"
+	// StandingNeedsTap is a page waiting for a tap before it may play with sound.
+	StandingNeedsTap Standing = "needsTap"
+)
+
+// isKnown is whether standing is one a page may say.
+func (standing Standing) isKnown() bool {
+	switch standing {
+	case StandingNone, StandingChoosingSound, StandingNeedsTap:
+		return true
+	}
+	return false
+}
+
+// DeviceStatus is where a playing device stands with its group, in a word, for everyone's roster:
+// what its page waits on, or its player's state, the server's own reading (the owner's Watch
+// Together session, 2026-10-18: a guest still choosing her speakers was shown as nothing at all).
+type DeviceStatus string
+
+// The statuses a roster gives a device.
+const (
+	// StatusChoosingSound and StatusNeedsTap are what the device's page waits on (Standing).
+	StatusChoosingSound DeviceStatus = "choosingSound"
+	StatusNeedsTap      DeviceStatus = "needsTap"
+	// StatusLoading is a player loading its first buffer of the film, not yet once ready.
+	StatusLoading DeviceStatus = "loading"
+	// StatusCatchingUp is a player the group plays on without until it is ready again (D247 §4).
+	StatusCatchingUp DeviceStatus = "catchingUp"
+	// StatusBuffering is a player waiting for data while the group waits for it.
+	StatusBuffering DeviceStatus = "buffering"
+	// StatusSuspended is a player its device suspended, as when its person changes the time.
+	StatusSuspended DeviceStatus = "suspended"
+	// StatusWatching is a player playing along with the group.
+	StatusWatching DeviceStatus = "watching"
 )
 
 // NoteKind is what a PlayerNote says a device's player did.
@@ -375,6 +422,8 @@ type Inbound struct {
 	// CannotKeepUp, in a state, is the device saying even its lowest quality is beyond its link,
 	// which the group is told in the roster (D247 §8); nil while it keeps up.
 	CannotKeepUp *CannotKeepUp `json:"cannotKeepUp,omitempty"`
+	// Standing, in a standing, is what the device's page waits on, StandingNone for nothing.
+	Standing Standing `json:"standing,omitempty"`
 	// StartLagMs, in a state, is how late the device's player has learned it moves after it is told
 	// to play, which it presses play that much early for; nil until it has started once, which the
 	// group then gives a run-up (D282).
@@ -547,6 +596,9 @@ type DeviceView struct {
 	RTTMs       int64         `json:"rttMs,omitempty"`
 	// CannotKeepUp is the device's word that even its lowest quality is beyond its link (D247 §8).
 	CannotKeepUp *CannotKeepUp `json:"cannotKeepUp,omitempty"`
+	// Status is where a playing device stands with its group; empty for a voice device, and for
+	// one with nothing to wait on while the session plays nothing.
+	Status DeviceStatus `json:"status,omitempty"`
 }
 
 // CannotKeepUp is a device whose link carries less than its lowest quality needs, with both

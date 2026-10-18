@@ -641,3 +641,59 @@ func playing(t *testing.T) playingStage {
 	}
 	return playingStage{sessionStage: stage, host: host, guestDevice: guestDevice, hostBox: hostBox, guest: guest}
 }
+
+// Everyone's roster says where each player stands: what its page waits on, its person's speakers or
+// a tap; once a film is on, loading until it is first ready, then watching. Nothing of it moves whom
+// the group waits for (D246 §6). A guest still choosing her speakers was shown as nothing at all
+// while the group played on without her (the owner's Watch Together session, 2026-10-18).
+func TestHub_TheRosterSaysWhereEachPlayerStands(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	host, hostBox := stage.attach(t, stage.opened.MembershipCredential, RolePlayback)
+	guest := stage.join(t)
+	guestDevice, guestBox := stage.attach(t, guest.MembershipCredential, RolePlayback)
+	guestStatus := func() DeviceStatus {
+		for _, each := range hostBox.last(MessageRoster).Roster {
+			if each.ID == guest.MemberID && len(each.Devices) == 1 {
+				return each.Devices[0].Status
+			}
+		}
+		t.Fatal("the host's roster has no guest with one device")
+		return ""
+	}
+	if got := guestStatus(); got != "" {
+		t.Errorf("before any film, waiting on nothing: %q; want none", got)
+	}
+	for _, standing := range []Standing{StandingNeedsTap, StandingChoosingSound} {
+		stage.hub.Handle(t.Context(), guestDevice, Inbound{Type: MessageStanding, Standing: standing})
+		if got := guestStatus(); got != DeviceStatus(standing) {
+			t.Errorf("its page waiting on %q: %q; want the same", standing, got)
+		}
+	}
+	stage.ready(t, host, false)
+	stage.command(t, host, CommandChangeItem, 7)
+	if got := hostBox.last(MessageGroup).Group.State; got != GroupPlaying {
+		t.Errorf("the group with the guest choosing her speakers is %q; want it playing, waiting for no one", got)
+	}
+	stage.command(t, host, CommandStop, 0)
+	stage.hub.Handle(t.Context(), guestDevice, Inbound{Type: MessageStanding, Standing: StandingNone})
+	if got := guestStatus(); got != "" {
+		t.Errorf("speakers chosen, nothing on: %q; want none", got)
+	}
+	stage.command(t, host, CommandChangeItem, 8) // the roster comes with the group's change
+	if got := guestStatus(); got != StatusLoading {
+		t.Errorf("another film on: %q; want loading", got)
+	}
+	stage.ready(t, guestDevice, false)
+	if got := guestStatus(); got != StatusWatching {
+		t.Errorf("once ready: %q; want watching", got)
+	}
+	stage.hub.Handle(t.Context(), guestDevice, Inbound{Type: MessageStanding, Standing: "dancing"})
+	if got := guestBox.last(MessageRejected).Code; got != codeInvalid {
+		t.Errorf("a standing no page says was answered %q; want it refused", got)
+	}
+	stage.hub.Handle(t.Context(), guestDevice, Inbound{Type: MessageStanding, Standing: StandingNeedsTap})
+	if !strings.Contains(stage.logs.String(), "standing=needsTap") {
+		t.Error("a page's standing was not logged")
+	}
+}

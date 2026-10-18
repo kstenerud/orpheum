@@ -67,6 +67,32 @@ export interface CannotKeepUp {
  */
 export type DeviceRole = "playback" | "voice" | "both";
 
+/** What a page waits on before its film can play, as it tells the session; "" for nothing. */
+export type Standing = "" | "choosingSound" | "needsTap";
+
+/**
+ * Where a playing device stands with its group, as the server reads it: what its page waits on,
+ * loading its first buffer, catching up, buffering, suspended, or watching; undefined for a voice
+ * device, or one waiting on nothing while the session plays nothing.
+ */
+export type DeviceStatus =
+  "choosingSound" | "needsTap" | "loading" | "catchingUp" | "buffering" | "suspended" | "watching";
+
+const deviceStatuses: readonly DeviceStatus[] = [
+  "choosingSound",
+  "needsTap",
+  "loading",
+  "catchingUp",
+  "buffering",
+  "suspended",
+  "watching",
+];
+
+/** A roster device's status, or undefined when it names none this client knows. */
+function deviceStatusIn(value: unknown): DeviceStatus | undefined {
+  return deviceStatuses.find((status) => status === value);
+}
+
 /** One device of a member in the roster, and its health. */
 export interface RosterDevice {
   readonly id: number;
@@ -74,6 +100,8 @@ export interface RosterDevice {
   readonly isBuffering: boolean;
   /** Its word that even its lowest quality is beyond its link; undefined while it keeps up. */
   readonly cannotKeepUp: CannotKeepUp | undefined;
+  /** Where it stands with its group (DeviceStatus). */
+  readonly status: DeviceStatus | undefined;
 }
 
 /** One member in the roster: the name they chose, whether they host, and their devices. */
@@ -268,6 +296,7 @@ function parseRoster(value: unknown): RosterMember[] {
                   role: stringIn(fields, "role") ?? "",
                   isBuffering: fields["isBuffering"] === true,
                   cannotKeepUp: cannotKeepUpIn(fields["cannotKeepUp"]),
+                  status: deviceStatusIn(fields["status"]),
                 },
               ];
         }),

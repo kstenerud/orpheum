@@ -179,7 +179,9 @@ type device struct {
 	// began or stopped playing or buffering; zero until its first state.
 	playing         bool
 	playerChangedAt time.Time
-	send            Sender
+	// standing is what its page last said it waits on.
+	standing Standing
+	send     Sender
 }
 
 // takeState keeps what a device says of itself: a state report's buffering and round trip, the first
@@ -202,7 +204,8 @@ func (each *device) takeState(message Inbound) (hasStalled bool) {
 		each.suspended = message.Reason
 	case MessageResume:
 		each.suspended = ""
-	case MessageHello, MessagePing, MessageCommand, MessageRTC, MessageNote, MessageWelcome, MessagePong, MessageGroup,
+	case MessageHello, MessagePing, MessageCommand, MessageRTC, MessageNote, MessageStanding, MessageWelcome,
+		MessagePong, MessageGroup,
 		MessageRoster, MessageRejected, MessageEnded:
 	}
 	return wasReady && each.buffering
@@ -592,6 +595,8 @@ func (hub *Hub) Handle(ctx context.Context, attachment Attachment, message Inbou
 		handled.relay(from, message)
 	case MessageNote:
 		handled.logNote(ctx, sender, from, message.Note)
+	case MessageStanding:
+		handled.takeStanding(ctx, sender, from, message.Standing)
 	case MessageHello, MessageWelcome, MessagePong, MessageGroup, MessageRoster, MessageRejected, MessageEnded:
 		from.send(Outbound{V: ProtocolVersion, Type: MessageRejected, Code: codeInvalid})
 	}
@@ -637,6 +642,7 @@ func (current *session) roster() []MemberView {
 			view.Devices = append(view.Devices, DeviceView{
 				ID: attached.id, Role: attached.role, IsBuffering: attached.buffering,
 				Suspended: attached.suspended, RTTMs: attached.rttMs, CannotKeepUp: attached.cannotKeepUp,
+				Status: attached.status(current.group.fileID != 0),
 			})
 		}
 		slices.SortFunc(view.Devices, func(one, other DeviceView) int { return cmp.Compare(one.ID, other.ID) })

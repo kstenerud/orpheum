@@ -21,7 +21,15 @@ const snapshot: TogetherSnapshot = {
       id: 1,
       name: "Karl",
       isHost: true,
-      devices: [{ id: 3, role: "playback", isBuffering: false, cannotKeepUp: undefined }],
+      devices: [
+        {
+          id: 3,
+          role: "playback",
+          isBuffering: false,
+          cannotKeepUp: undefined,
+          status: "watching",
+        },
+      ],
     },
     {
       id: 2,
@@ -33,6 +41,7 @@ const snapshot: TogetherSnapshot = {
           role: "playback",
           isBuffering: true,
           cannotKeepUp: { linkKbps: 600, lowestKbps: 750 },
+          status: "buffering",
         },
       ],
     },
@@ -51,5 +60,24 @@ describe("what everyone in a session is told", () => {
       "Kim&#x27;s connection carries about 0.6 Mb/s, and even the lowest quality needs 0.8 Mb/s",
     );
     expect(shown).not.toContain("Karl&#x27;s connection");
+  });
+
+  it("says where each person's player stands, a line each (the owner's session, 2026-10-18)", () => {
+    const shown = renderToStaticMarkup(<TogetherNews snapshot={snapshot} />);
+    expect(shown).toContain("<li>Karl: watching</li>");
+    expect(shown).toContain("<li>Kim: waiting for the film to load</li>");
+    const choosing = {
+      ...snapshot,
+      roster: snapshot.roster.map((member) => ({
+        ...member,
+        devices: member.devices.map((device) => ({
+          ...device,
+          status: member.isHost ? undefined : ("choosingSound" as const),
+        })),
+      })),
+    };
+    const shownChoosing = renderToStaticMarkup(<TogetherNews snapshot={choosing} />);
+    expect(shownChoosing).toContain("<li>Kim: choosing how they hear the film</li>");
+    expect(shownChoosing).not.toContain("Karl:");
   });
 });

@@ -125,6 +125,27 @@ describe("a Watch Together viewer's page (D246 §3, §6)", () => {
     mounted.unmount();
   });
 
+  it("tells the session what the page waits on, its person's speakers, until they are chosen (the owner's session, 2026-10-18)", async () => {
+    const { services, server } = viewerServices("/together#link-secret", {
+      "POST /together/join": [200, joined],
+    });
+    const mounted = await mount(withServices(<TogetherViewer />, services));
+    await enter(mounted.container.querySelector("input"), "Gran");
+    await click(buttonWithText(mounted.container, "Join"));
+    await server.accept();
+    await server.say(welcome);
+    const standings = (): unknown[] =>
+      server.heard.filter((each) => each["type"] === "standing").map((each) => each["standing"]);
+    expect(standings()).toEqual(["choosingSound"]);
+    await click(
+      [...mounted.container.querySelectorAll("button")].find((button) =>
+        button.textContent.startsWith("Headphones"),
+      ),
+    );
+    expect(standings()).toEqual(["choosingSound", ""]);
+    mounted.unmount();
+  });
+
   it("lets a viewer change how this browser makes sound, and asks for the film again with it", async () => {
     window.localStorage.setItem("orpheum.together.audioOutput", "receiver");
     window.localStorage.setItem(

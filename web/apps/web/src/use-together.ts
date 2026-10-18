@@ -4,7 +4,9 @@ import {
   createTogetherConnection,
   type GroupCommand,
   type CannotKeepUp,
+  type Standing,
   type TellsCannotKeepUp,
+  type TellsStanding,
   type TogetherConnection,
   type TogetherSnapshot,
 } from "@orpheum/sdk";
@@ -40,7 +42,7 @@ export interface TogetherDevice {
  * credential.
  */
 export function useTogether(device: TogetherDevice): {
-  readonly connection: (TogetherConnection & TellsCannotKeepUp) | undefined;
+  readonly connection: (TogetherConnection & TellsCannotKeepUp & TellsStanding) | undefined;
   readonly snapshot: TogetherSnapshot | undefined;
 } {
   const { openTogetherSocket } = useServices();
@@ -93,4 +95,14 @@ export function useToldCannotKeepUp(
       connection.setCannotKeepUp(undefined);
     };
   }, [connection, linkKbps, lowestKbps]);
+}
+
+/**
+ * Tells the session, through connection, what the page waits on before its film can play, which
+ * everyone's roster shows: once connected, and again at each change.
+ */
+export function useToldStanding(connection: TellsStanding | undefined, standing: Standing): void {
+  useEffect(() => {
+    connection?.setStanding(standing);
+  }, [connection, standing]);
 }
