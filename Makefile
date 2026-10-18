@@ -483,8 +483,17 @@ browser-tier:
 	@$(WEBCLIENT_CLEAR)
 	@cp -r web/apps/web/dist/. $(WEBCLIENT_DIST)/
 	@go build -tags dev -o $(DEV_DIR)/bin/orpheum-browser ./cmd/orpheum; status=$$?; $(WEBCLIENT_CLEAR); exit $$status
-	@$(HERMETIC) ORPHEUM_TEST_BINARY="$(CURDIR)/$(DEV_DIR)/bin/orpheum-browser" ORPHEUM_TEST_FFMPEG_DIR="$(FFMPEG_DIR)" \
-		npm --prefix web exec -- playwright test --config $(E2E_CONFIG) $(E2E_ARGS)
+	@status=0; $(BROWSER_PASS) $(E2E_ARGS) || status=$$?; \
+	  if [ '$(E2E_CONFIG)' = web/e2e/playwright.config.ts ]; then \
+	    ORPHEUM_E2E_TIMING=1 $(BROWSER_PASS) $(E2E_ARGS) || status=$$?; fi; exit $$status
+
+# One pass of the browser tier. The tier's config runs two (playwright.config.ts): every test but the
+# timed side by side, each worker on a server of its own, then the timed alone, both whatever the
+# first's result, as the last run goes to completion (the owner, 2026-10-18). A narrowed run may leave
+# one pass nothing to run, which passes.
+BROWSER_PASS = $(HERMETIC) ORPHEUM_TEST_BINARY="$(CURDIR)/$(DEV_DIR)/bin/orpheum-browser" \
+	ORPHEUM_TEST_FFMPEG_DIR="$(FFMPEG_DIR)" npm --prefix web exec -- playwright test --config $(E2E_CONFIG) \
+	$(if $(filter web/e2e/playwright.config.ts,$(E2E_CONFIG)),--pass-with-no-tests)
 
 # ---------------------------------------------------------------------------------------------
 # Building and generating

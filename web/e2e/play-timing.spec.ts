@@ -3,6 +3,7 @@
 import { expect } from "@playwright/test";
 
 import { test } from "./browser-map.ts";
+import { timingTag } from "./only-these-tests.ts";
 import { isPlaying, openFilm, openFilmOnItsLadder, serverUrl, signIn } from "./pages.ts";
 import { longTrackName, preparedFilm, timingFilm, warmUpFilm } from "./server.ts";
 
@@ -12,32 +13,35 @@ const playsWithinMs = 8000;
 /** Says the quality a film on its ladder plays at, and that it follows the connection (D260). */
 const onTheLadder = "The quality follows your connection.";
 
-test("an MKV with H.264, TrueHD and ASS loads its first chunks on its page and plays from its ladder within 8 s of pressing play", async ({
-  page,
-  browserName,
-}) => {
-  await signIn(page);
+test(
+  "an MKV with H.264, TrueHD and ASS loads its first chunks on its page and plays from its ladder within 8 s of pressing play",
+  { tag: timingTag },
+  async ({ page, browserName }) => {
+    await signIn(page);
 
-  // A device is asked how it plays sound before its first film; a film played as it is answers
-  // it here, so the timed press is an ordinary one. Its page is opened once it is on its ladder,
-  // whose timeline a loaded machine may still be reading (failed 2 of 4 check-pr runs, 2026-10-09).
-  await openFilmOnItsLadder(page, warmUpFilm);
-  await page.getByRole("link", { name: "Play" }).click();
-  await page.getByRole("button", { name: /Built-in speakers/ }).click();
-  await expect.poll(() => isPlaying(page), { timeout: 30_000 }).toBe(true);
-  await expect(page.locator(".play__reason")).toContainText(onTheLadder);
+    // A device is asked how it plays sound before its first film; a film played as it is answers
+    // it here, so the timed press is an ordinary one. Its page is opened once it is on its ladder,
+    // whose timeline a loaded machine may still be reading (failed 2 of 4 check-pr runs, 2026-10-09).
+    await openFilmOnItsLadder(page, warmUpFilm);
+    await page.getByRole("link", { name: "Play" }).click();
+    await page.getByRole("button", { name: /Built-in speakers/ }).click();
+    await expect.poll(() => isPlaying(page), { timeout: 30_000 }).toBe(true);
+    await expect(page.locator(".play__reason")).toContainText(onTheLadder);
 
-  // Its page fills the player's first buffer before Play is pressed (D260 §3).
-  await openFilmOnItsLadder(page, timingFilm(browserName));
-  const pressedAt = Date.now();
-  await page.getByRole("link", { name: "Play" }).click();
-  await expect.poll(() => isPlaying(page), { timeout: playsWithinMs, intervals: [50] }).toBe(true);
-  const tookMs = Date.now() - pressedAt;
-  test.info().annotations.push({ type: "played after", description: `${String(tookMs)} ms` });
-  expect(tookMs).toBeLessThanOrEqual(playsWithinMs);
-  // Its own picture, copied, is the ladder's top, its TrueHD made into sound a browser plays.
-  await expect(page.locator(".play__reason")).toContainText(onTheLadder);
-});
+    // Its page fills the player's first buffer before Play is pressed (D260 §3).
+    await openFilmOnItsLadder(page, timingFilm(browserName));
+    const pressedAt = Date.now();
+    await page.getByRole("link", { name: "Play" }).click();
+    await expect
+      .poll(() => isPlaying(page), { timeout: playsWithinMs, intervals: [50] })
+      .toBe(true);
+    const tookMs = Date.now() - pressedAt;
+    test.info().annotations.push({ type: "played after", description: `${String(tookMs)} ms` });
+    expect(tookMs).toBeLessThanOrEqual(playsWithinMs);
+    // Its own picture, copied, is the ladder's top, its TrueHD made into sound a browser plays.
+    await expect(page.locator(".play__reason")).toContainText(onTheLadder);
+  },
+);
 
 test("the System page shows the machine's hardware encoding and what a prepared film's prepare used", async ({
   page,

@@ -304,6 +304,25 @@ Each entry says: the **mechanism**, the **instance** we found, **why it was invi
 - **Warning sign:** a browser-tier row in revert-red's timings for a `gen/` or `types.ts` file; a
   check-pr browser step that "cannot place" a file of types.
 
+### 18. Fixed waits in the browser tier, and one server for every test
+
+- **Mechanism:** each of through-discovery's tests started a discovery and claimed the core again,
+  ten claims a run, each waiting on the core's 10 s looks; two tests slept fixed seconds for voice;
+  and the whole tier ran on one worker over one shared server, because two timed tests needed the
+  machine alone and one of them needed to be the first to play its film.
+- **Instance** (the browser test audit, 2026-10-18): through-discovery took 272 s of the tier's
+  444 s; the tier had 43 tests, two of them timing-sensitive by nature.
+- **Why it was invisible:** a claim's wait is inside a poll, and a test's time reads as its work.
+- **Fix:** a newly claimed core dials its signalling connection at once; the plain
+  discovery's tests share one claim (their spec's `beforeAll`); voice heard is waited for
+  (`expectHeard`). The tests tagged `@timing` (`only-these-tests.ts`) run in a second pass of
+  `make browser-tier`, one worker and a fresh server; the rest run first on two workers, each over a
+  server of its own (the `server` fixture, `browser-map.ts`). The whole tier went from 444 s to 305 s,
+  with the build. More workers did not pay: each server makes the same films' chunks beside the
+  others, and four failed three tests by their waits.
+- **Warning sign:** a browser test whose time is mostly a poll's; a test that passes alone and fails
+  in the first pass (it depends on what ran before it on its server); a new `waitForTimeout`.
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of
