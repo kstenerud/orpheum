@@ -81,8 +81,8 @@ import revert_red_reruns as reruns
 from revert_red_report import failure_advice, report
 from revert_red_parts import (BROWSER_DEFERRED, BROWSER_INLINE, BROWSER_ONLY, CSS_SOURCE, PARTS,  # noqa: F401 (tests reach them here)
                               browser_mode, is_in_part)
-from revert_red_attempts import (TS_SOURCE, Attempt, browser_tier, browser_tier_command,  # noqa: F401 (tests reach them here)
-                                 is_browser_run)
+from revert_red_attempts import (BROWSER_MODE_RELATED, TS_SOURCE, Attempt, browser_mode_tests, browser_tier,  # noqa: F401 (tests reach them here)
+                                 browser_tier_command, is_browser_run)
 from revert_red_run import RUNNER_MISSING, is_build_failure, run_whole_group  # noqa: F401 (tests reach RUNNER_MISSING here)
 from revert_red_claims import VQ_FILE, refactor_only, verification_queue_problem, verified_out_of_suite  # noqa: F401 (tests reach VQ_FILE here)
 from emitted_js import emits_the_same_between
@@ -360,7 +360,7 @@ def other_builds(path: str) -> list[Attempt]:
 
 def attempts_for(change: Change, first: list[str]) -> list[Attempt]:
     """The runs that may notice a file's revert, in order, the first that fails deciding: its own
-    tests (`first`), the whole suite, the other builds, the browser tier. A new stylesheet's revert
+    tests (`first`), the whole suite, the other builds, the browser-mode tests, the browser tier. A new stylesheet's revert
     deletes it, which breaks the build of whatever imports it with no browser to start; one nothing
     imports changes nothing."""
     if change.status == "A" and CSS_SOURCE.search(change.path):
@@ -369,7 +369,10 @@ def attempts_for(change: Change, first: list[str]) -> list[Attempt]:
     wide = wide_scope(change.path)
     if wide is not None and wide != scope_for(change.path):
         attempts.append(Attempt(wide, ", found by the tests its revert can reach"))
-    return [*attempts, *other_builds(change.path), *browser_tier(change.path)]
+    # The browser tier's runs last, whatever made them first: a stylesheet's scope is one, and its
+    # browser-mode tests, seconds, settle most sheets before it (the owner, 2026-10-18).
+    every = [*attempts, *other_builds(change.path), *browser_mode_tests(change.path), *browser_tier(change.path)]
+    return sorted(every, key=is_browser_run)
 
 
 def is_not_linux(path: str) -> bool:

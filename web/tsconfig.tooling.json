@@ -6,5 +6,5 @@
     "outDir": ".tsbuild/tooling",
     "tsBuildInfoFile": ".tsbuild/tooling.tsbuildinfo"
   },
-  "include": ["vitest.config.ts"]
+  "include": ["vitest.config.ts", "vitest.browser.config.ts", "e2e/browsers.ts"]
 }
