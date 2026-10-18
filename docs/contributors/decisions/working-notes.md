@@ -20843,3 +20843,27 @@ make in the moment"*; music left out of the closed beta and revisited after it.
    photos.
 
 **Status:** Decided 2026-10-18. cut-a.md §8 and the plans behind the code follow it in one change.
+
+## D314 — A core is installed from a public image, on any machine that runs Docker with the hardware it needs, and with no tunnel; a connection that needs a relay fails, and is counted
+
+**Decided** (2026-10-18), by the project owner, on B0's phase A questions ([b0.md](../design/plans/b0.md)):
+*"1: A container registry. I don't mind if it's public from the start (it will be public eventually
+anyway). 2: Ideally any platform that supports docker and the hardware passthrough we need. 3: That's
+acceptable, and we record when it happens."* It revises D272 §4 (the image built from a tag on the
+machine that runs it) and builds D272 §3's optional tunnel.
+
+1. **A household installs a core from a prebuilt image on a public container registry**, from the
+   start: no source and no build on the household's machine. The registry is GitHub's, beside the
+   repository, and the image is published when a version is tagged, unless the owner names another.
+   The owner's own machines may still build from a tag.
+2. **The closed beta supports any machine that runs Docker** and passes through the hardware the
+   node needs (the media's disks, and a GPU where it has one): the install names what it needs and
+   reports what it finds, rather than listing supported brands. Images for amd64 and, as
+   keep-arm64-open intends, arm64 where every piece builds (D205's rows say which do not yet).
+3. **The deployment needs no tunnel.** A core is reached through its discovery over WebRTC and at
+   home by its LAN names (D300); the tunnel stays as an option for a household with a VPS.
+4. **With no tunnel there is no public relay for WebRTC, and that is accepted for the closed beta:**
+   two devices that can meet only through a relay do not connect. **Each such failure is recorded**,
+   so the beta shows how often it happens (D274 §3's count, which decides whether a relay is built).
+
+**Status:** Decided 2026-10-18.
