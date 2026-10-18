@@ -80,7 +80,7 @@ meets first is question 6.
 
 | Item | Source | Size |
 | --- | --- | --- |
-| The command: `orpheum discovery`, its claim and re-keying | discovery-mode.md W4b.8; Q5 | M |
+| The command: `orpheum discovery`, which gives the core's key (D310 §7), and re-keying | discovery-mode.md W4b.8; Q5 | M |
 | Serving the web app and the loader at the household's own domain | W4b.5; D274 §5; Q3 | M |
 | Names and certificates at the household's domain, by its DNS provider | discovery-mode Q2 | M |
 | Its own STUN and TURN on the VPS | W4b.3; W6 | S–M |

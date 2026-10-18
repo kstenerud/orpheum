@@ -20655,7 +20655,13 @@ D290 §1's claim from the core its form.
    household follows without help is part of this decision, not an extra.
 6. **Then the household reaches it through the service's app** (app.orpheum-app.com, D308), from
    anywhere.
+7. **A discovery a household runs itself enrols its core the same way** (the owner, the same day:
+   *"The admin creates the discovery service on their VPS, and gets a core key via the cmdline on
+   their VPS, points their core to their domain and enters the key to enrol."*): the discovery's
+   command line gives the key, the core is pointed at the household's own domain, and its admin
+   enters the key at home. One way to enrol, whichever discovery holds the core; it replaces the
+   claim by the core's code that W4b.8 planned (`orpheum discovery claim <code>`).
 
-**Status:** Decided 2026-10-18. Open: what the key is (one use, or kept; shown again, or replaced),
+**Status:** Decided 2026-10-18, §7 the same day. Open: what the key is (one use, or kept; shown again, or replaced),
 how an account signs in (D290 §16's e-mailed link), and whether "do everything" from the app
 includes admin away from home, which D292 and D302 keep off unless the admin opts in.
