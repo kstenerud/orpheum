@@ -80,6 +80,25 @@ func TestWriteDeployment_BeginsThenMakesTheInstancesOnceAndWritesTheFiles(t *tes
 	}
 }
 
+func TestWriteDeployment_TheVPSStepIsATunnelsAndACoreWithNoNameIsReachedThroughItsDiscovery(t *testing.T) {
+	t.Parallel()
+	dir, runDir := t.TempDir(), filepath.Join(t.TempDir(), "run")
+	begun, err := writeDeployment(dir, runDir, deployment.Release, "orpheum:v0.1.0", "nas", -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fillValues(t, dir)
+	written, err := writeDeployment(dir, runDir, deployment.Release, "orpheum:v0.1.0", "nas", -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(begun.text, "Only with a VPS tunnel") ||
+		!strings.Contains(written.text, "reached through its discovery") {
+		t.Errorf("begun %q, written %q; want the VPS's step said to apply only with a tunnel, and a core with "+
+			"no name of its own said to be reached through its discovery (D314 §3)", begun.text, written.text)
+	}
+}
+
 func TestDispatch_WriteDeploymentIsASubcommandThatNeedsItsImage(t *testing.T) {
 	t.Parallel()
 	var stdout, stderr bytes.Buffer
