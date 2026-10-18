@@ -20898,5 +20898,10 @@ machine that runs it) and builds D272 §3's optional tunnel.
    core changed on the core's pages and in the app (D312 §2). The address, mail on each new
    sign-in and recovery by mail come with the open beta.
 
-**Status:** Decided 2026-10-18. The session's limits (accounts.md §14 Q6: 7 days idle inside the
-30-day absolute life, re-confirmation lasting 5 minutes) are still the owner's.
+6. **The service account's session ends after 7 days unused or 30 days in all, and a
+   re-confirmation counts for 5 minutes** (accounts.md §7, §8), each a setting: the panel is opened a
+   few times a year and grants nothing on a core, and what moves a household always asks the
+   password or a passkey again (D312 §1), so AAL1's limits stand for the session and the
+   re-confirmation in front of what matters.
+
+**Status:** Decided 2026-10-18; §6 the same day, after the owner asked what a session is here.
