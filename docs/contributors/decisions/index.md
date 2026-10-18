@@ -316,6 +316,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D308](working-notes.md#d308--apporpheum-appcom-serves-a-small-loader-and-each-core-serves-its-own-client) app.orpheum-app.com serves a small loader, and each core serves its own client
 - [D309](working-notes.md#d309--a-player-says-which-quality-it-wants-and-from-where-and-a-run-no-player-wants-stops) A player says which quality it wants and from where, and a run no player wants stops
 - [D310](working-notes.md#d310--the-closed-beta-runs-on-the-paid-service-free-an-account-gives-one-key-for-one-core-the-cores-admin-enters-it-at-home-and-the-household-then-uses-the-services-app) The closed beta runs on the paid service, free: an account gives one key for one core, the core's admin enters it at home, and the household then uses the service's app
+- [D311](working-notes.md#d311--every-link-that-grants-something-follows-one-pattern-a-url-and-a-qr-code-with-a-private-note-its-grants-listed-beside-it-revoking-ends-them-regenerating-is-revoking-and-a-new-link) Every link that grants something follows one pattern: a URL and a QR code with a private note, its grants listed beside it, revoking ends them, regenerating is revoking and a new link
 
 ## Archived
 

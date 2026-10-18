@@ -20689,3 +20689,27 @@ mean in the same sense that it works now (they can admin from remote only if the
 
 **Status:** Decided 2026-10-18; §7 and §8–§12 the same day. Open: how the service's account signs
 in (a password with its username, or D290 §16's e-mailed link).
+
+## D311 — Every link that grants something follows one pattern: a URL and a QR code with a private note, its grants listed beside it, revoking ends them, regenerating is revoking and a new link
+
+**Decided** (2026-10-18), by the project owner, on D310's keys and invitations, as the rule for
+every kind: *"The general pattern when using links (invites, watch together, etc) is: URL + QR
+code, private note. The responsible person can see the outstanding ones and also anything that has
+been given entitlements as a result of redeeming said code. The code can be revoked, which
+eliminates the entitlements. The code can be regenerated, which is basically a revoke + new key."*
+It holds for the core's registration invitations, Watch Together's links (D246), device codes
+(D218, D288), and the paid service's invitations and core keys (D310 §8–§10).
+
+1. **A link is given as a URL and a QR code, with a private note** saying whom it is for, which only
+   the person responsible for it sees.
+2. **The person responsible sees every link still outstanding, and everything each has granted**:
+   the account an invitation made, the members a Watch Together link let in, the core a key
+   enrolled.
+3. **Revoking a link ends what it granted**, not only the link: the account its redemption made
+   loses what the link gave it, the members it let in leave, the core it enrolled is removed
+   (D310 §9).
+4. **Regenerating a link is revoking it and making a new one**, the note kept.
+
+**Status:** Decided 2026-10-18. Each kind of link is to be checked against it: today the core's
+invitations and Watch Together's links can be withdrawn while unused, and a Watch Together member
+ejected on its own, but neither ties what a redeemed link granted to the link.
