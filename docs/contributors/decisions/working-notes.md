@@ -20873,3 +20873,30 @@ machine that runs it) and builds D272 §3's optional tunnel.
    tester may run it unsupported under Docker Engine inside WSL with mirrored networking.
 
 **Status:** Decided 2026-10-18; §5 the same day.
+
+## D315 — The service's accounts: a passkey signs in alone, verified by our own code; an unchecked password is refused; the operator's panel is opened at localhost; no e-mail in the closed beta
+
+**Decided** (2026-10-18), by the project owner, on the accounts' design (orpheum-connect's
+`docs/plans/accounts.md` §14), which b0.md's phase B wrote first, each answer as recommended.
+
+1. **A passkey signs in alone** (*Sign in with a passkey*), not as a second step after the
+   password: with user verification it is two factors and resists phishing; the password stays for
+   a device without one, and is always at least 15 characters (D312 §6).
+2. **WebAuthn is verified by our own minimal code, with no library**: attestation `none` only;
+   ES256, EdDSA and RS256; a small CBOR reader for the COSE key; tested against WebAuthn Level 3's
+   published vectors. `go-webauthn/webauthn` would have brought about eight modules, mostly for
+   attestation formats and metadata the service does not ask for, each to audit (D220).
+3. **A password the breached-password check could not reach is refused for now** (*"try again in a
+   minute"*), never accepted unchecked: setting a password is rare, and an unchecked one is what
+   D312 §6's check exists to prevent.
+4. **The operator's panel listens on `prod-api`'s loopback and is opened at
+   `http://localhost:<port>` through an SSH forward over WireGuard**, since WebAuthn accepts no IP
+   address as its relying party, which the WireGuard address is; `localhost` is a secure context
+   and needs no certificate or name (D312 §4).
+5. **An account holds no e-mail address in the closed beta**: nothing in the beta sends mail, a
+   person locked out asks the operator for a new invitation (D312 §3), and a household learns its
+   core changed on the core's pages and in the app (D312 §2). The address, mail on each new
+   sign-in and recovery by mail come with the open beta.
+
+**Status:** Decided 2026-10-18. The session's limits (accounts.md §14 Q6: 7 days idle inside the
+30-day absolute life, re-confirmation lasting 5 minutes) are still the owner's.
