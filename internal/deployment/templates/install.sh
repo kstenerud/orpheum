@@ -7,8 +7,10 @@
 #
 # It writes the deployment into a directory of its own (--dir, ~/orpheum unless named), fills in
 # the media and this machine's address at home, starts it, says what this machine has and lacks, and
-# prints the address to open and the one-time code that makes the first admin. Run again, it writes
-# the deployment again from its values file and restarts it, keeping everything.
+# prints the address to open and the one-time code that makes the first admin. Each --media is one
+# folder, so films on one drive and series on another are both served. Run again, it adds any folder
+# named that the values file lacks, writes the deployment again from it and restarts it, keeping
+# everything.
 set -eu
 
 image="{{.Image}}"
@@ -82,18 +84,48 @@ homeAddress() {
 	esac
 }
 
-# Fills what the household named into a values file just begun: the media and the address at home.
-fillValues() {
-	# TOML's basic string: each backslash and quote escaped. In gsub's replacement a backslash is
-	# itself an escape, so each one it writes is written twice here.
-	roots=$(printf '%s\n' "$media" | sed '/^$/d' | awk '{ gsub(/\\/, "\\\\\\\\"); gsub(/"/, "\\\\\""); printf "%s\"%s\"", (n++ ? ", " : ""), $0 }')
+# Fills this machine's address at home into a values file just begun (D300).
+fillAddress() {
 	address=$(homeAddress)
-	awk -v roots="$roots" -v address="$address" '
+	awk -v address="$address" '
 		/^\[/ { section = $0 }
-		section == "[media]" && $0 == "roots = []" { print "roots = [" roots "]"; next }
 		section == "[lan]" && $0 == "address = \"\"" && address != "" { print "address = \"" address "\""; next }
 		{ print }
 	' "$values" >"$values.new" && mv "$values.new" "$values"
+}
+
+# Adds each folder named to the values file's media, once: a folder there already stays as it is, so
+# a drive added later is named on a run of its own. Each is a TOML basic string, its backslashes and
+# quotes escaped one character at a time (gsub's replacement escapes differ between awks).
+addMedia() {
+	if ! ORPHEUM_MEDIA=$(printf '%s\n' "$media" | sed '/^$/d') awk '
+		function quoted(s, out, c, i) {
+			for (i = 1; i <= length(s); i++) {
+				c = substr(s, i, 1)
+				if (c == "\\" || c == "\"") out = out "\\"
+				out = out c
+			}
+			return "\"" out "\""
+		}
+		/^\[/ { section = $0 }
+		section == "[media]" && /^roots = \[.*\]$/ {
+			line = substr($0, 1, length($0) - 1)
+			n = split(ENVIRON["ORPHEUM_MEDIA"], folders, "\n")
+			for (i = 1; i <= n; i++) {
+				q = quoted(folders[i])
+				if (index(line, q)) continue
+				line = line (line ~ /\[$/ ? "" : ", ") q
+			}
+			print line "]"; found = 1; next
+		}
+		{ print }
+		END { if (!found) exit 3 }
+	' "$values" >"$values.new"; then
+		rm -f "$values.new"
+		say "$values lists its media over more than one line; add the folders to media.roots there by hand"
+		exit 1
+	fi
+	mv "$values.new" "$values"
 }
 
 if $pull; then
@@ -102,8 +134,9 @@ if $pull; then
 fi
 if $isNew; then
 	writeDeployment >/dev/null
-	fillValues
+	fillAddress
 fi
+[ -z "$media" ] || addMedia
 writeDeployment
 (cd "$dir" && docker compose up -d --remove-orphans)
 
