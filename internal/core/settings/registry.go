@@ -203,29 +203,6 @@ func buildRegistry() []Definition {
 			Description: "whether the server checks for a new release (D184: asked, never assumed)",
 			StartSource: "D184: a question, asked and never assumed, so it starts unanswered",
 		},
-		sourced(integerSetting(SignInFailureLimit, "5", 1, 1000,
-			"failed sign-ins per account, and per address, before sign-in is refused for the window (D194 §2)"),
-			"best guess (M1): a person mistyping gets several tries; D194 §2 asks only for a limit"),
-		sourced(durationSetting(SignInFailureWindowSeconds, time.Second, "900", 1, 7*24*3600,
-			"how long, in seconds, a failed sign-in counts toward the limit"),
-			"best guess (M1): fifteen minutes, a common lock-out window"),
-		sourced(durationSetting(SignInFailureAnswerSeconds, time.Second, "2", 1, 60,
-			"seconds after it arrived that a failed sign-in is answered, whatever failed, so its timing "+
-				"tells no name or realm apart (D312 §17); a success is answered at once"),
-			"D312 §17: longer than a password hash takes under the hash slots' usual wait"),
-		sourced(durationSetting(SessionIdleExpiryHours, time.Hour, "2160", 1, 10*365*24,
-			"hours a session may go unused before it ends; 90 days, so a television rarely signs out (D154)"),
-			"D154: 90 days, so a television rarely signs out"),
-		sourced(durationSetting(SessionLastUsedWriteIntervalSeconds, time.Second, "60", 1, 24*3600,
-			"how often, in seconds, a session's last use is written; idle expiry needs no finer grain"),
-			"best guess (M1): a minute is far finer than a 90-day idle expiry needs"),
-		sourced(integerSetting(Argon2MemoryKiB, "65536", 8, math.MaxUint32,
-			"argon2id memory per password hash, KiB: RFC 9106's second option (D194 §2); new costs re-hash on sign-in"),
-			"D194 §2: RFC 9106's second recommended option, 64 MiB; measured 41 ms on an i3-1315U"),
-		sourced(integerSetting(Argon2Iterations, "3", 1, math.MaxUint32, "argon2id passes per password hash (D194 §2)"),
-			"D194 §2: RFC 9106's second recommended option, t = 3"),
-		sourced(integerSetting(Argon2Parallelism, "4", 1, math.MaxUint8, "argon2id lanes per password hash (D194 §2)"),
-			"D194 §2: RFC 9106's second recommended option, p = 4"),
 		sourced(integerSetting(SecretLastCharsShown, "4", 0, 8,
 			"trailing characters of an API key shown, to tell which key is set; a password shows none (D194 §3)"),
 			"D194 §3: the last four characters of an API key"),
@@ -267,8 +244,38 @@ func buildRegistry() []Definition {
 			"D208 §3: the owner's twenty, 2026-09-24"),
 	}, slices.Concat(
 		scanDefinitions(), jobMetadataAndPlaybackDefinitions(), deviceDefinitions(), upkeepAndDisplayDefinitions(),
-		retentionDefinitions(), backupDefinitions(), togetherDefinitions(),
+		retentionDefinitions(), backupDefinitions(), togetherDefinitions(), signInDefinitions(),
 	)...)
+}
+
+// signInDefinitions are signing in, its limits and its answer's time, sessions, and argon2id's costs
+// (D194 §2, D312 §17).
+func signInDefinitions() []Definition {
+	return []Definition{
+		sourced(integerSetting(SignInFailureLimit, "5", 1, 1000,
+			"failed sign-ins per account, and per address, before sign-in is refused for the window (D194 §2)"),
+			"best guess (M1): a person mistyping gets several tries; D194 §2 asks only for a limit"),
+		sourced(durationSetting(SignInFailureWindowSeconds, time.Second, "900", 1, 7*24*3600,
+			"how long, in seconds, a failed sign-in counts toward the limit"),
+			"best guess (M1): fifteen minutes, a common lock-out window"),
+		sourced(durationSetting(SignInFailureAnswerSeconds, time.Second, "2", 1, 60,
+			"seconds after it arrived that a failed sign-in is answered, whatever failed, so its timing "+
+				"tells no name or realm apart (D312 §17); a success is answered at once"),
+			"D312 §17: longer than a password hash takes under the hash slots' usual wait"),
+		sourced(durationSetting(SessionIdleExpiryHours, time.Hour, "2160", 1, 10*365*24,
+			"hours a session may go unused before it ends; 90 days, so a television rarely signs out (D154)"),
+			"D154: 90 days, so a television rarely signs out"),
+		sourced(durationSetting(SessionLastUsedWriteIntervalSeconds, time.Second, "60", 1, 24*3600,
+			"how often, in seconds, a session's last use is written; idle expiry needs no finer grain"),
+			"best guess (M1): a minute is far finer than a 90-day idle expiry needs"),
+		sourced(integerSetting(Argon2MemoryKiB, "65536", 8, math.MaxUint32,
+			"argon2id memory per password hash, KiB: RFC 9106's second option (D194 §2); new costs re-hash on sign-in"),
+			"D194 §2: RFC 9106's second recommended option, 64 MiB; measured 41 ms on an i3-1315U"),
+		sourced(integerSetting(Argon2Iterations, "3", 1, math.MaxUint32, "argon2id passes per password hash (D194 §2)"),
+			"D194 §2: RFC 9106's second recommended option, t = 3"),
+		sourced(integerSetting(Argon2Parallelism, "4", 1, math.MaxUint8, "argon2id lanes per password hash (D194 §2)"),
+			"D194 §2: RFC 9106's second recommended option, p = 4"),
+	}
 }
 
 // togetherDefinitions are how a Watch Together device follows its group, sent to it in its welcome

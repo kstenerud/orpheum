@@ -17,12 +17,12 @@ import (
 // realmKey is the key karl's password makes in the realm karlnas, made once: it costs RealmRounds.
 var realmKey = proof.RealmKey("karlnas", "karl", "a password")
 
-// answerRealms is a core holding the signalling connection that takes a realm sign-in whose ask holds
-// under karl's key, answering its tag, and refuses any other.
 // slowRefusal is how long a slow core takes to refuse a realm sign-in: past the second the answer once
 // waited, inside the time it waits now.
 const slowRefusal = 3 * time.Second
 
+// answerRealms is a core holding the signalling connection that takes a realm sign-in whose ask holds
+// under karl's key, answering its tag, and refuses any other, a slow person's after slowRefusal.
 func answerRealms(t *testing.T, built clientStage) {
 	t.Helper()
 	connection := built.dial(t, built.token)
