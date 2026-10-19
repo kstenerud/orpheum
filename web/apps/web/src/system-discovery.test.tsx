@@ -208,3 +208,15 @@ it("tells a server removed from its account that another took its place (D312 §
   expect(text).toContain("Clients no longer find this one through the discovery.");
   expect(mounted.container.querySelector("form")).toBeNull();
 });
+
+it("shows no removal to a server too old to say whether it was removed, which sends no removedAt", async () => {
+  const fromAnOlderServer = Object.fromEntries(
+    Object.entries({ ...pendingAtTheService, state: "claimed" }).filter(
+      ([key]) => key !== "removedAt",
+    ),
+  );
+  const services = servedBy({ "GET /system/discovery": [200, fromAnOlderServer] });
+  mounted = await mount(withServices(<SystemDiscovery />, services));
+  expect(mounted.container.textContent).not.toContain("Another server was enrolled");
+  expect(mounted.container.querySelector('[role="alert"]')).toBeNull();
+});
