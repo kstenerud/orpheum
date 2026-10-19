@@ -80,6 +80,52 @@ class Build(unittest.TestCase):
         self.assertIn(["compose", "up", "-d", "--remove-orphans"], calls)
         self.assertIn(f'roots = ["{self.media}"]', (self.deployment / "values.toml").read_text())
 
+    def deploy(self, *flags: str, answer: str = "") -> subprocess.CompletedProcess:
+        return subprocess.run([str(self.checkout / "deploy" / "release" / "build.sh"), "--checkout",
+                               str(self.deployment), *flags, "--media", str(self.media)],
+                              env=self.env, input=answer, capture_output=True, text=True, check=False)
+
+    def built_image_and_context(self) -> tuple[str, str]:
+        build = next(call for call in self.docker_calls() if call[0] == "build")
+        return build[build.index("--tag") + 1], build[-1]
+
+    def commit(self, name: str) -> str:
+        (self.checkout / name).write_text(name)
+        git = ["git", "-C", str(self.checkout), "-c", "user.name=t", "-c", "user.email=t@t"]
+        subprocess.run([*git, "add", "-A"], check=True)
+        subprocess.run([*git, "commit", "-q", "-m", name], check=True)
+        return subprocess.run([*git, "rev-parse", "HEAD"], check=True, capture_output=True, text=True).stdout[:12]
+
+    def test_the_checkouts_tagged_commit_deploys_by_its_tag_from_a_clone_without_asking(self):
+        done = self.deploy()
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertNotIn("warning", done.stderr)
+        image, context = self.built_image_and_context()
+        self.assertEqual(image, "orpheum:v0.1.0")
+        self.assertNotEqual(context, str(self.checkout))  # a clone of the commit, never the working files
+        self.assertIn(["compose", "up", "-d", "--remove-orphans"], self.docker_calls())
+
+    def test_an_untagged_commit_is_warned_of_and_deploys_only_when_confirmed_by_a_pseudo_version(self):
+        short = self.commit("later")
+        refused = self.deploy(answer="n\n")
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn("carries no version tag", refused.stderr)
+        self.assertIn("FORCE=yes", refused.stderr)
+        self.assertEqual(self.docker_calls(), [])
+        done = self.deploy(answer="y\n")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        image, _ = self.built_image_and_context()
+        self.assertRegex(image, rf"^orpheum:v0\.0\.0-\d{{14}}-{short}$")
+
+    def test_a_modified_tree_deploys_its_working_files_with_force_by_the_time_of_the_build(self):
+        (self.checkout / "changed").write_text("not committed")
+        done = self.deploy("--force")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn("uncommitted changes", done.stderr)
+        image, context = self.built_image_and_context()
+        self.assertRegex(image, r"^orpheum:v0\.0\.0-\d{14}-[0-9a-f]{12}-dirty$")
+        self.assertEqual(context, str(self.checkout))
+
     def test_a_tag_that_is_not_a_version_is_refused(self):
         done = self.build("nightly")
         self.assertNotEqual(done.returncode, 0)
