@@ -178,7 +178,7 @@ names itself by `proof.KeyLabel` of its key until it has an id).
 
 **Claiming by the account's key** (D310 §5, §8, §9; D312 §5, §15; D318 §5), on the paid service from
 the closed beta, replacing the operator's claim by code (the code stays beside it until phase C's
-step 5 retires it). The household's account makes a key: 16 safe32 characters,
+step 6 retires it). The household's account makes a key: 16 safe32 characters,
 `xxxx-xxxx-xxxx-xxxx`, for an hour, several outstanding at once. The core's admin, signed in at
 home, enters it on System → Discovery while the core is pending, and the core sends it with its
 session: `POST /claim {key}` → `{account}`, the account's address. In one write the service finds
@@ -193,7 +193,7 @@ the account's address (`account`), which its System page shows (D310 §5). The o
 keys from its command line with the open beta (D310 §7); until then it answers `/claim` with
 nothing and keeps its claim code.
 
-The rest of this section is the beta's first design, by the operator's claim, kept until step 5.
+The rest of this section is the beta's first design, by the operator's claim, kept until phase C's step 6.
 
 1. **Enrolment** (built). `POST /challenge {publicKey}` → `{nonce}`;
    `POST /enrol {publicKey, nonce, signature}` → `{coreId, claimCode, claimExpiresAt}` (Unix ms).
