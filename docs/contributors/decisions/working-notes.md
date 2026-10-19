@@ -20983,3 +20983,28 @@ done after closed beta)."*
    (D316 §2), which an unverified account cannot use.
 
 **Status:** Decided 2026-10-19.
+
+## D318 — Several codes may be outstanding for one entitlement, and redeeming any one of them ends them all
+
+**Decided** (2026-10-19), by the project owner, extending D311 to every kind of code, after
+D316 §2's reset links: *"Yes, for any invite type link, multiple can be issued, and redeeming one of
+them invalidates all of them. This ties into the "same shape for link/key based entitlements"
+design. We shape everything this way at the core even if it's not going to be technically possible
+with our UI flow."*
+
+1. **An entitlement may have several codes outstanding at once**: a new code for it leaves the
+   others live, each for its own life. Mail is slow, a person asks twice, a host sends a link to two
+   addresses: every code that was sent still works.
+2. **Redeeming any one ends every other code for that entitlement**, in the same step.
+3. **Revoking ends every outstanding code for it**; D311 §3's regenerate is that revocation and a
+   new code, one after the other.
+4. **One mechanism holds every kind**, whatever its screens show (D311 §1): the service's
+   verification links, password-reset links, invitations and, with phase C, core keys; the core's
+   registration invitations, Watch Together links and device codes in B0's phase D. The model allows
+   several codes even where a flow never issues a second.
+5. **D310 §9 is read through it**: a new core key does not end the last; whichever key is redeemed
+   first enrols its core, ends every other key, and removes the core enrolled before (D311 §5), so
+   a household that generated two keys while rebuilding is not stranded by the order mail arrives.
+
+**Status:** Decided 2026-10-19. The service's verification and reset links and invitations take it
+at once (orpheum-connect); core keys with phase C; the core's codes with phase D.
