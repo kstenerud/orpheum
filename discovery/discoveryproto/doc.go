@@ -14,6 +14,8 @@
 //   - One address has one name label, and no label holds "--" (C15).
 //     TestAddressLabel_OneAddressOneLabelAndNoDoubleDash.
 //   - Every field names its JSON key in camelCase. Enforced by tagliatelle.
+//   - A realm sign-in's answer dates its core's claim under the key the SDK reads, and omits it
+//     undated. TestClientRealmResponse_SaysWhenItsCoreWasClaimedUnderTheKeyThePageReads.
 //   - Imports nothing from internal/, which a module outside Orpheum cannot import. Enforced by
 //     TestArch_PublicPackagesImportNothingInternal.
 //   - The protocol is additive wherever it can be; a breaking change raises ProtocolMajor, and the
