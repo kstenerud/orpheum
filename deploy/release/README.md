@@ -121,6 +121,15 @@ git -C ~/orpheum fetch --tags
 cd /srv/orpheum && docker compose up -d
 ```
 
+Or, from the clone, whatever it is on: `git -C ~/orpheum pull` (or check out the commit wanted), then
+`make -C ~/orpheum deploy DIR=/srv/orpheum` builds that commit and updates the deployment in one
+command (`make` with no target lists the others). A commit with no version tag deploys by a
+pseudo-version, `v0.0.0-<its time>-<commit>`, and a tree with uncommitted changes as its working
+files are, `v0.0.0-<now>-<commit>-dirty`; either is warned of and asked about first, unless
+`FORCE=yes`. `make deploy-published TAG=v0.2.0 DIR=…` installs the published image instead, by the
+command a household runs (`docker run --rm ghcr.io/kstenerud/orpheum:<tag> install-script | sh -s --
+…`). `MEDIA="/path/one /path/two"` names the folders the first time, with either.
+
 The build runs the new image's `write-deployment`, so the compose file and the configs are the new
 version's (D272 §7); `values.toml` and the keys are never touched. The core migrates the database
 at start, through every step since the version nas.example last ran (D272 §5), and keeps a snapshot

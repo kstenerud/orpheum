@@ -521,6 +521,16 @@ build: web-deps ## Build the web apps into their dist/, then the server binary, 
 	@go build -trimpath -ldflags "-s -w" -o bin/orpheum ./cmd/orpheum
 	@$(WEBCLIENT_CLEAR)
 
+.PHONY: deploy
+deploy: ## Deploy this checkout's commit to DIR, on this machine (MEDIA= the first time; FORCE=yes skips the question an untagged commit or a modified tree asks)
+	@test -n "$(DIR)" || { echo "usage: make deploy DIR=<deployment directory> [MEDIA=<folder>...] [FORCE=yes]" >&2; exit 2; }
+	@deploy/release/build.sh --checkout "$(DIR)" $(if $(filter yes,$(FORCE)),--force) $(foreach folder,$(MEDIA),--media "$(folder)")
+
+.PHONY: deploy-published
+deploy-published: ## Install the published image TAG to DIR as a household does: its own install script, piped to sh (MEDIA= the first time)
+	@test -n "$(TAG)" -a -n "$(DIR)" || { echo "usage: make deploy-published TAG=<version, or latest> DIR=<deployment directory> [MEDIA=<folder>...]" >&2; exit 2; }
+	docker run --rm ghcr.io/kstenerud/orpheum:$(TAG) install-script | sh -s -- --dir "$(DIR)" $(foreach folder,$(MEDIA),--media "$(folder)")
+
 .PHONY: generate
 generate: web-deps ## Regenerate committed generated code (sqlc for persistent.db and cache.db, the OpenAPI document, and the SDK's TS types)
 	@if ls internal/store/queries/*.sql >/dev/null 2>&1; then \
