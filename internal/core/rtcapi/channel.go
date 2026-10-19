@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"runtime/debug"
 	"strings"
@@ -62,6 +63,9 @@ type servedChannel struct {
 	// path is the path the channel's connection selected, which the request's context carries
 	// (PathOf); nil carries none.
 	path func() Path
+	// ownNetworks are the core's own public IPv6 networks on the channel's connection, which the
+	// request's context carries (OwnIPv6NetworksOf); nil carries none.
+	ownNetworks func() []netip.Prefix
 }
 
 // serveChannel serves the one request a channel carries: its head, its body, an empty message ending
@@ -102,6 +106,9 @@ func serveChannel(
 		overWebRTC := context.WithValue(ctx, overWebRTCKey{}, true)
 		if served.path != nil {
 			overWebRTC = context.WithValue(overWebRTC, pathKey{}, served.path())
+		}
+		if served.ownNetworks != nil {
+			overWebRTC = context.WithValue(overWebRTC, ownNetworksKey{}, served.ownNetworks())
 		}
 		request, err := reader.request(overWebRTC, remote())
 		if err != nil {
