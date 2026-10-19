@@ -64,7 +64,14 @@ type fakeDiscovery struct {
 	locators     []discoveryproto.LocatorsRequest
 	// realm is the realm the discovery gave the core, which its status names.
 	realm string
+	// account is the account a key claimed the core for, which its status names; removedAt when the
+	// core was removed from an account, which a pending core's status says.
+	account   string
+	removedAt int64
 }
+
+// fakeKey is the one key the fake discovery takes.
+const fakeKey = "abcd-efgh-jkmn-pqrs"
 
 // fakeCoreID and fakeZone are the core's id and zone at the fake discovery.
 const (
@@ -156,7 +163,10 @@ func (fake *fakeDiscovery) serveSigned(writer http.ResponseWriter, request *http
 		fake.answer(writer, discoveryproto.StatusResponse{
 			State: fake.state, Zone: fakeZone, ICEServers: []discoveryproto.ICEServer{{URLs: []string{fakeSTUN}}},
 			ClientOrigin: fake.clientOrigin, LoaderOrigin: fake.loaderOrigin, Realm: fake.realm,
+			Account: fake.account, RemovedAt: fake.removedAt,
 		})
+	case "POST /claim":
+		fake.claimByKey(writer, request)
 	case "PUT /addresses":
 		var heartbeat discoveryproto.AddressesRequest
 		fake.read(request, &heartbeat)
@@ -291,4 +301,17 @@ func (fake *fakeDiscovery) serveSignal(writer http.ResponseWriter, request *http
 			fake.replies <- reply
 		}
 	}
+}
+
+// claimByKey takes fakeKey, claiming the core for karl's account, and refuses any other key.
+func (fake *fakeDiscovery) claimByKey(writer http.ResponseWriter, request *http.Request) {
+	var asked discoveryproto.ClaimRequest
+	fake.read(request, &asked)
+	if asked.Key != fakeKey {
+		writer.WriteHeader(http.StatusForbidden)
+		fake.answer(writer, discoveryproto.Refusal{Code: discoveryproto.RefusalWrongKey, Message: "no such key"})
+		return
+	}
+	fake.state, fake.account, fake.removedAt = discoveryproto.StateClaimed, "karl@example.com", 0
+	fake.answer(writer, discoveryproto.ClaimResponse{Account: fake.account})
 }

@@ -35,7 +35,9 @@ type DiscoveryStatusBody struct {
 	// ClaimCode is what the owner types at the discovery to claim the core, while it is pending.
 	ClaimCode        string               `json:"claimCode,omitempty"`
 	ClaimExpiresAt   int64                `doc:"Unix milliseconds; 0 when there is no code" json:"claimExpiresAt"`
-	ReachableFrom    string               `doc:"As the probe found; absent before it ran" enum:"public_ipv4,public_ipv4_other_port,ipv6,nowhere" json:"reachableFrom,omitempty"` //nolint:lll // one struct tag
+	Account          string               `doc:"The address of the account the server is enrolled with, at a discovery with accounts (D310 §5)" json:"account,omitempty"`                 //nolint:lll // one struct tag
+	RemovedAt        int64                `doc:"Unix milliseconds the server was removed from its account, another enrolled in its place (D312 §15); 0 when it was not" json:"removedAt"` //nolint:lll // one struct tag
+	ReachableFrom    string               `doc:"As the probe found; absent before it ran" enum:"public_ipv4,public_ipv4_other_port,ipv6,nowhere" json:"reachableFrom,omitempty"`          //nolint:lll // one struct tag
 	Published        []string             `doc:"The addresses the discovery publishes" json:"published"`
 	DeadEndsLastWeek int                  `doc:"How many times a client found no path to the server in the last week" json:"deadEndsLastWeek"` //nolint:lll // one struct tag
 	Probe            []DiscoveryProbeBody `json:"probe"`
@@ -86,6 +88,14 @@ type ConnectDiscoveryInput struct {
 	}
 }
 
+// ClaimDiscoveryInput is an admin entering the key the household's account made.
+type ClaimDiscoveryInput struct {
+	AuthorizationHeader
+	Body struct {
+		Key string `doc:"The key from the household's account: 16 letters and digits, as typed" json:"key" maxLength:"64" minLength:"1"` //nolint:lll // one struct tag
+	}
+}
+
 // discoveryPath is the core's discovery, which an admin reads, connects and leaves.
 const discoveryPath = "/system/discovery"
 
@@ -99,6 +109,11 @@ func (server *Server) registerDiscovery() {
 		Tags:    []string{tagRunningIt},
 		Summary: "Enrol the core with a discovery, which answers with the code its owner claims it by (admin; D273)",
 	}, server.connectDiscovery)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "claimDiscovery", Method: http.MethodPost, Path: discoveryPath + "/claim",
+		Tags:    []string{tagRunningIt},
+		Summary: "Enrol the core with its household's account by the key the account made (admin; D310 §5)",
+	}, server.claimDiscovery)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "leaveDiscovery", Method: http.MethodDelete, Path: discoveryPath,
 		Tags: []string{tagRunningIt}, DefaultStatus: http.StatusNoContent,
@@ -127,12 +142,45 @@ func (server *Server) connectDiscovery(
 		return nil, err
 	}
 	status, err := dependencies.Discovery.Connect(ctx, input.Body.BaseURL)
-	switch {
-	case errors.Is(err, discovery.ErrNotADiscoveryURL):
+	if errors.Is(err, discovery.ErrNotADiscoveryURL) {
 		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "body.baseUrl", err.Error())
-	case errors.Is(err, discovery.ErrAlreadyEnrolled):
-		return nil, newError(http.StatusConflict, CodeConflict, err.Error())
-	case err != nil:
+	}
+	return server.discoveryAnswer(dependencies, status, conflictingAs(err, discovery.ErrAlreadyEnrolled))
+}
+
+// claimDiscovery sends the key the household's account made: a wrong one is refused naming the
+// field, a core not waiting to be claimed is a conflict, and a discovery that does not answer is the
+// failing leg.
+func (server *Server) claimDiscovery(ctx context.Context, input *ClaimDiscoveryInput) (*DiscoveryStatusOutput, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	status, err := dependencies.Discovery.Claim(ctx, input.Body.Key)
+	if errors.Is(err, discovery.ErrWrongKey) {
+		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "body.key", err.Error())
+	}
+	return server.discoveryAnswer(dependencies, status, conflictingAs(err, discovery.ErrNotPending))
+}
+
+// conflictingAs is err as the API refuses it: conflicting is a conflict; any other error is the
+// discovery failing to answer, left as it is.
+func conflictingAs(err, conflicting error) error {
+	if errors.Is(err, conflicting) {
+		return newError(http.StatusConflict, CodeConflict, err.Error())
+	}
+	return err
+}
+
+// discoveryAnswer answers an admin's call to the core's discovery: a refusal conflictingAs made as it
+// is, a discovery that does not answer as the failing leg, and otherwise the core's standing.
+func (server *Server) discoveryAnswer(
+	dependencies *Dependencies, status discovery.Status, err error,
+) (*DiscoveryStatusOutput, error) {
+	if refusal, isRefusal := errors.AsType[*Error](err); isRefusal {
+		return nil, refusal
+	}
+	if err != nil {
 		failure := newDetailedError(http.StatusBadGateway, err.Error(),
 			ProviderRefusalDetailBody{Reason: ReasonUnavailable})
 		failure.ErrorBody.Error.FailedHop = HopProvider
@@ -165,7 +213,10 @@ func discoveryStatusBody(status discovery.Status) DiscoveryStatusBody {
 		ClaimCode: status.ClaimCode, ReachableFrom: status.ReachableFrom, DeadEndsLastWeek: status.DeadEndsLastWeek,
 		Published: append([]string{}, status.Published...), Probe: []DiscoveryProbeBody{},
 		Problem: status.Problem, DeprecatedUntil: status.DeprecatedUntil,
-		ClientOrigin: status.ClientOrigin, Fingerprint: status.FingerprintText,
+		ClientOrigin: status.ClientOrigin, Fingerprint: status.FingerprintText, Account: status.Account,
+	}
+	if !status.RemovedAt.IsZero() {
+		body.RemovedAt = status.RemovedAt.UnixMilli()
 	}
 	if !status.ClaimExpiresAt.IsZero() {
 		body.ClaimExpiresAt = status.ClaimExpiresAt.UnixMilli()

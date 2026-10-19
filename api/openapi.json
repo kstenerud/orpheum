@@ -461,6 +461,21 @@
         ],
         "type": "object"
       },
+      "ClaimDiscoveryInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "description": "The key from the household's account: 16 letters and digits, as typed",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "key"
+        ],
+        "type": "object"
+      },
       "ClientManifestBody": {
         "additionalProperties": false,
         "properties": {
@@ -1044,6 +1059,10 @@
       "DiscoveryStatusBody": {
         "additionalProperties": false,
         "properties": {
+          "account": {
+            "description": "The address of the account the server is enrolled with, at a discovery with accounts (D310 §5)",
+            "type": "string"
+          },
           "baseUrl": {
             "description": "The discovery's address; empty when the core is enrolled with none",
             "type": "string"
@@ -1121,6 +1140,11 @@
             "description": "What a person signs in to the server by at the discovery's page, beside their name and password: the realm the host's account there gave it; empty at a discovery with none (D297)",
             "type": "string"
           },
+          "removedAt": {
+            "description": "Unix milliseconds the server was removed from its account, another enrolled in its place (D312 §15); 0 when it was not",
+            "format": "int64",
+            "type": "integer"
+          },
           "state": {
             "description": "Absent before the discovery's first answer",
             "enum": [
@@ -1149,6 +1173,7 @@
         "required": [
           "baseUrl",
           "claimExpiresAt",
+          "removedAt",
           "published",
           "deadEndsLastWeek",
           "probe",
@@ -12090,6 +12115,58 @@
           }
         },
         "summary": "Enrol the core with a discovery, which answers with the code its owner claims it by (admin; D273)",
+        "tags": [
+          "Running it"
+        ]
+      }
+    },
+    "/system/discovery/claim": {
+      "post": {
+        "operationId": "claimDiscovery",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimDiscoveryInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoveryStatusBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Enrol the core with its household's account by the key the account made (admin; D310 §5)",
         "tags": [
           "Running it"
         ]
