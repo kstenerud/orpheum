@@ -324,7 +324,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D316](working-notes.md#d316--the-services-accounts-hold-a-verified-e-mail-address-sign-in-by-it-or-the-username-and-a-forgotten-password-or-username-is-sent-to-it-a-reset-restores-the-account-at-once) The service's accounts hold a verified e-mail address: sign in by it or the username, and a forgotten password or username is sent to it; a reset restores the account at once
 - [D317](working-notes.md#d317--the-services-accounts-have-no-username-an-e-mail-address-and-a-password-make-one-it-signs-in-unverified-does-nothing-until-verified-and-is-deleted-after-seven-days-unverified) The service's accounts have no username: an e-mail address and a password make one, it signs in unverified, does nothing until verified, and is deleted after seven days unverified
 - [D318](working-notes.md#d318--several-codes-may-be-outstanding-for-one-entitlement-and-redeeming-any-one-of-them-ends-them-all) Several codes may be outstanding for one entitlement, and redeeming any one of them ends them all
-- [D319](working-notes.md#d319--stagings-client-origins-are-orpheum-sitecom-behind-one-wildcard-on-stagings-tunnel) Staging's client origins are `<core id>.orpheum-site.com`, behind one wildcard on staging's tunnel
+- [D319](working-notes.md#d319--stagings-client-origins-are-orpheum-client-testcom-behind-one-wildcard-on-stagings-tunnel) Staging's client origins are `<core id>.orpheum-client-test.com`, behind one wildcard on staging's tunnel
 
 ## Archived
 

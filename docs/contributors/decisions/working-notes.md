@@ -20502,7 +20502,7 @@ scan of the owner's NAS. It revises D301 §3 and builds D306 §2.
 
 ## D308 — app.orpheum-app.com serves a small loader, and each core serves its own client
 
-> **Revised by [D319](#d319--stagings-client-origins-are-orpheum-sitecom-behind-one-wildcard-on-stagings-tunnel)** (2026-10-19): staging's client origins are `<core id>.orpheum-site.com`, behind one wildcard on staging's tunnel.
+> **Revised by [D319](#d319--stagings-client-origins-are-orpheum-client-testcom-behind-one-wildcard-on-stagings-tunnel)** (2026-10-19): staging's client origins are `<core id>.orpheum-client-test.com`, behind one wildcard on staging's tunnel.
 
 **Decided** (2026-10-17), by the project owner, after the update to v0.2.0-nas.8 needed prod-api
 repackaged for a change in the core's API alone. It refines D273, whose §6 keeps the protocol
@@ -21011,23 +21011,22 @@ with our UI flow."*
 **Status:** Decided 2026-10-19. The service's verification and reset links and invitations take it
 at once (orpheum-connect); core keys with phase C; the core's codes with phase D.
 
-## D319 — Staging's client origins are `<core id>.orpheum-site.com`, behind one wildcard on staging's tunnel
+## D319 — Staging's client origins are `<core id>.orpheum-client-test.com`, behind one wildcard on staging's tunnel
 
-**Decided** (2026-10-19), by the project owner: *"So orpheum-site.com's reason was never recorded.
-Then it can't have been that important and we can use it."* Revises D308 §6's staging names.
+**Decided** (2026-10-19), by the project owner, who registered `orpheum-client-test.com` for it.
+Revises D308 §6's staging names.
 
 1. **Why.** Staging's client origins were `<core id>-staging.orpheum-client.com`, each a public
    hostname on staging's tunnel made by hand, since a wildcard leads to one tunnel and
    `orpheum-client.com`'s is production's. Every wipe of staging gives its core a new id, and the
    owner's fresh setup met Cloudflare's 404 at the new one. Staging's household zone,
    `orpheum-test.com`, cannot carry them: its apex forbids every CA and Universal SSL stays off there
-   (D296 §2), which a Cloudflare-certified name would undo (agent-failures A37).
-2. **`orpheum-site.com`**, registered by the owner and used for nothing, becomes staging's
-   `orpheum-client.com`: a zone at Cloudflare with Universal SSL on and no CAA, one wildcard public
+   (D296 §2), which a Cloudflare-certified name would undo (agent-failures A37). The first choice,
+   `orpheum-site.com`, was no domain: `orpheum-site` is the landing page's Pages project.
+2. **`orpheum-client-test.com`** is staging's `orpheum-client.com`, as `orpheum-test.com` is its
+   `orpheum-core.com`: a zone at Cloudflare with Universal SSL on and no CAA, one wildcard public
    hostname on staging's tunnel to connectd, and a staging core's client origin
-   `https://<core id>.orpheum-site.com`, one level down, as the free certificate covers. Staging's
-   domains then mirror production's three: `orpheum-app.com`'s staging names, `orpheum-test.com`
-   for the households, `orpheum-site.com` for the client origins.
+   `https://<core id>.orpheum-client-test.com`, one level down, as the free certificate covers.
 
-**Status:** Decided 2026-10-19; staging's connectd takes it at once, the zone and route by the owner
+**Status:** Decided 2026-10-19; staging's connectd takes it at once, the route by the owner
 (orpheum-ops production/README.md §6c).

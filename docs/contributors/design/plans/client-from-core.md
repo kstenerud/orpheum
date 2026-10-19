@@ -34,7 +34,7 @@ audit, whose controls this builds, is
   - loads the client's files through its service worker, keeping them by their hashed names;
   - hands the client one versioned interface.
 
-  Staging's client origins are `<coreId>.orpheum-site.com`, staging's own client zone, one level
+  Staging's client origins are `<coreId>.orpheum-client-test.com`, staging's own client zone, one level
   down, which the free certificate covers (D308 §6), all of them behind one wildcard route on
   staging's tunnel (D319; until 2026-10-19 `<coreId>-staging.orpheum-client.com`, a route by hand
   for each core id, which every wipe of staging changed).
