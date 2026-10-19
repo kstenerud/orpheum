@@ -49,6 +49,22 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A36 — Proposed warning the mailbox's owner through the mailbox an attacker took (2026-10-19)
+
+- **What happened:** proposing password reset by e-mail for the service's accounts, the agent named
+  the threat (whoever takes the mailbox can reset the password and enrol their own core) and as its
+  safeguard proposed a pause after a reset in which *"the real owner gets an email and can cancel"*.
+  The e-mail goes to the very address the reset came through, so the attacker who holds it reads the
+  warning, and nothing is cancelled. The false belief came from listing safeguards by habit (notify
+  the user) without tracing each one against the threat it was meant to stop: who receives it, and
+  is that who the attacker is not?
+- **Caught by:** the owner: *"Wouldn't that be sending the email to the address just used to reset
+  the password?"*
+- **Gate:** none can check a safeguard's reasoning. The lesson: for each mitigation, name the
+  channel it relies on and confirm the attacker in that threat does not hold it; a recovery's
+  warning goes through a credential the recovery did not touch (an existing session, a passkey, the
+  enrolled core itself).
+
 ### A35 — Recorded "revoking a used link ends what it granted" as the owner's rule (2026-10-18)
 
 - **What happened:** the owner described one pattern for invitations, Watch Together links and core
