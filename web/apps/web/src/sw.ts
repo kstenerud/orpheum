@@ -315,9 +315,12 @@ async function clientFile(
 }
 
 /**
- * The loader's page or one of its files, as kept, the origin asked for it again behind it; the
- * origin's own answer while none is kept. A page so kept opens with no load to the origin, which
- * another core's cookies, set for the whole site, cannot stop (D308 §7).
+ * The loader's page as the origin answers it now, or as kept when the origin fails: another core's
+ * cookies, set for the whole site, can make every load to it fail, and the kept page still opens
+ * (D308 §7). Kept first, the visit after an update ran the page before it, which for a household
+ * whose server had gone said "This link no longer finds its server" until a reload (nas.example,
+ * 2026-10-19); the owner took the wait of one load on opening instead. Its files, named by their
+ * content, come as kept, the origin asked for them again behind.
  */
 async function keptLoaderFile(
   worker: WorkerScope,
@@ -334,6 +337,13 @@ async function keptLoaderFile(
     },
     () => undefined,
   );
+  if (key === "/") {
+    const answered = await fresh;
+    if (answered?.ok === true) {
+      return answered;
+    }
+    return (await cache.match(key)) ?? answered ?? Response.error();
+  }
   const kept = await cache.match(key);
   if (kept !== undefined) {
     event.waitUntil(fresh);

@@ -62,7 +62,9 @@ a client found no way to reach this server").
 
 A device that used the old server opened the page it had kept from then. **Reload the page once**;
 it then takes you to the sign-in, and signing in finds the new server, after asking you to confirm
-that the server has changed.
+that the server has changed. Since 2026-10-19 the page is loaded fresh each time it opens, and the
+kept copy is used only when that fails, so this happens only to a device that kept a page from
+before then.
 
 ## The installer says Landlock "cannot be seen from here"
 

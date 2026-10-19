@@ -272,22 +272,54 @@ describe("the service worker under a loader (D308 §6)", () => {
     expect(again.network).not.toHaveBeenCalled();
   });
 
-  it("opens the loader's page as kept, with no wait on its origin, and refreshes it behind", async () => {
-    const pages = ["the loader", "the loader, updated"];
-    const network = vi.fn(() => Promise.resolve(answer(pages.shift() ?? "")));
+  it("opens the loader's page as its origin answers now, and as kept when the origin fails", async () => {
+    const pages: (string | Error | number)[] = [
+      "the loader",
+      "the loader, updated",
+      new Error("offline"),
+      400,
+    ];
+    const network = vi.fn(() => {
+      const next = pages.shift() ?? "";
+      if (next instanceof Error) {
+        return Promise.reject(next);
+      }
+      return Promise.resolve(
+        typeof next === "number" ? new Response("refused", { status: next }) : answer(next),
+      );
+    });
     const worker = await startWorker(stores, [], network);
     expect(await nameFiles(worker, [{ path: "assets/client-main.js", sha256 }])).toBe("kept");
 
     expect(await (await load(worker, "/households", { by: "p", mode: "navigate" }))?.text()).toBe(
       "the loader",
     );
-    expect(await (await load(worker, "/", { by: "p", mode: "navigate" }))?.text()).toBe(
-      "the loader",
-    );
-    await Promise.all(worker.kept);
+    // An update is opened at once, not on the visit after (nas.example, 2026-10-19).
     expect(await (await load(worker, "/", { by: "p", mode: "navigate" }))?.text()).toBe(
       "the loader, updated",
     );
+    // The origin unreachable, or refusing as another core's cookies can make it: the page as kept.
+    for (let failure = 0; failure < 2; failure += 1) {
+      expect(await (await load(worker, "/", { by: "p", mode: "navigate" }))?.text()).toBe(
+        "the loader, updated",
+      );
+    }
+  });
+
+  it("answers the loader's own files as kept, and asks the origin for them again behind", async () => {
+    const files = ["body{}", "body{color:red}"];
+    const network = vi.fn(() => Promise.resolve(answer(files.shift() ?? "")));
+    const worker = await startWorker(stores, [], network);
+    expect(await nameFiles(worker, [{ path: "assets/client-main.js", sha256 }])).toBe("kept");
+
+    expect(await (await load(worker, "/assets/loader-a1b2.css", { by: "p" }))?.text()).toBe(
+      "body{}",
+    );
+    expect(await (await load(worker, "/assets/loader-a1b2.css", { by: "p" }))?.text()).toBe(
+      "body{}",
+    );
+    await Promise.all(worker.kept);
+    expect(network).toHaveBeenCalledTimes(2);
   });
 
   it("sends a page's media through it when started again, unasked: its client origin serves none", async () => {

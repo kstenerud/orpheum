@@ -20560,6 +20560,10 @@ between a core and its discovery stable but says nothing of the one between a cl
      never writes `document.cookie`, each held by a test;
    - the loader deletes every cookie it can see at its start, and its page is kept by its service
      worker, so a cookie bomb from another core's code can only stop a browser's first visit;
+     *amended 2026-10-19, the owner:* the kept page is opened only when the origin fails (a cookie
+     bomb's refusal included), not first: opened first, the visit after an update ran the page
+     before it, and a household whose server was replaced read "This link no longer finds its
+     server" until a reload (*"I don't mind a short wait on initial load"*);
    - every client origin sends `Origin-Agent-Cluster: ?1` and `Cross-Origin-Opener-Policy:
      same-origin`;
    - the entry is weighed again at the public launch, when the registration can be extended past
