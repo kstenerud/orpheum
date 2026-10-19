@@ -273,7 +273,22 @@ type NewDevice struct {
 // when it is the person's, or on a new one the client named (D221 §1). The per-address failure
 // limit counts by clientAddress, the client's network address. A hash made under older
 // parameters is re-hashed.
+//
+// Every failure, whatever failed, is answered no sooner than signin_failure_answer_seconds after the
+// sign-in began, and a success as soon as it is done (D312 §17): an unknown name already costs a
+// hash, and the floor hides what the hash slots' wait and the limits would still tell.
 func (service *Service) SignIn(
+	ctx context.Context, name, password, clientAddress string, device NewDevice,
+) (Issued, error) {
+	began := service.clock.Now()
+	issued, err := service.signIn(ctx, name, password, clientAddress, device)
+	if err != nil {
+		service.answerFailureAt(ctx, began)
+	}
+	return issued, err
+}
+
+func (service *Service) signIn(
 	ctx context.Context, name, password, clientAddress string, device NewDevice,
 ) (Issued, error) {
 	maxFailures, window, err := service.failurePolicy(ctx)
