@@ -126,8 +126,8 @@ type JoinTogetherOutput struct {
 	}
 }
 
-// EjectInput names a member the host removes.
-type EjectInput struct {
+// TogetherMemberInput names a member of a session, for the host: one to remove, or to give a new link.
+type TogetherMemberInput struct {
 	AuthorizationHeader
 	SessionID int64 `minimum:"1" path:"id"`
 	MemberID  int64 `minimum:"1" path:"member"`
@@ -200,6 +200,12 @@ func (server *Server) registerTogether() {
 		DefaultStatus: http.StatusCreated,
 		Summary:       "A link for one person to join by, once, with a note of who it is for (host; D246 §3)",
 	}, server.addTogetherLink)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "addTogetherLinkFor", Method: http.MethodPost, Path: "/together/{id}/members/{member}/links",
+		Tags: tags, DefaultStatus: http.StatusCreated,
+		Summary: "A new link for a guest's place: they stay in until it is used, and whoever joins by it " +
+			"takes the place over, cutting off the devices they came in on (host; D311 §5, D312 §3)",
+	}, server.addTogetherLinkFor)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "removeTogetherLink", Method: http.MethodDelete, Path: "/together/{id}/links/{link}",
 		Tags: tags, DefaultStatus: http.StatusNoContent, Summary: "Withdraw a link not yet used (host)",
@@ -302,6 +308,23 @@ func (server *Server) addTogetherLink(ctx context.Context, input *TogetherLinkIn
 	server.logger.InfoContext(ctx, "watch together: the host made a link",
 		"sessionId", input.SessionID, "linkId", made.LinkID, "hostNote", input.Body.HostNote,
 		"mayPlayPause", rights.CanPlayPause, "maySeek", rights.CanSeek)
+	output := &TogetherLinkOutput{}
+	output.Body.LinkID, output.Body.Secret = made.LinkID, made.Secret
+	output.Body.Link = togetherLink(dependencies, made.Secret)
+	return output, nil
+}
+
+func (server *Server) addTogetherLinkFor(ctx context.Context, input *TogetherMemberInput) (*TogetherLinkOutput, error) {
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	made, err := dependencies.Together.AnotherLinkFor(input.SessionID, principal.UserID, input.MemberID)
+	if err != nil {
+		return nil, server.togetherError(ctx, "make a new link for a guest", err)
+	}
+	server.logger.InfoContext(ctx, "watch together: the host made a new link for a guest's place",
+		"sessionId", input.SessionID, "memberId", input.MemberID, "linkId", made.LinkID)
 	output := &TogetherLinkOutput{}
 	output.Body.LinkID, output.Body.Secret = made.LinkID, made.Secret
 	output.Body.Link = togetherLink(dependencies, made.Secret)
@@ -442,7 +465,7 @@ func (server *Server) leaveTogether(ctx context.Context, input *LeaveTogetherInp
 	return &struct{}{}, nil
 }
 
-func (server *Server) ejectFromTogether(ctx context.Context, input *EjectInput) (*struct{}, error) {
+func (server *Server) ejectFromTogether(ctx context.Context, input *TogetherMemberInput) (*struct{}, error) {
 	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err

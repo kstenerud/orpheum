@@ -18919,7 +18919,11 @@ the same person, and having it back on one device replaced the credential of the
    place at a time; whichever device the host plays on leads.
 4. **Someone not signed in moves to another device by a new link**: the host makes one for that
    member, which removes the member, cutting off every device that came in with them, and admits
-   whoever opens it, under the same note.
+   whoever opens it, under the same note. *Amended 2026-10-19, the owner ("go with 2"), settling
+   D311 §5 against D312 §3 for Watch Together:* the new link no longer removes the member as it is
+   made. They stay in on every device until it is used; whoever joins by it then takes their place,
+   with its note and rights and the name they give, and the devices they came in on are cut off and
+   told why. Removing them still cuts them off at once, and ends every link to their place.
 5. **The host can show any link again**, waiting or used (*"I need a way to view the link (even if
    it's been used, since the guest can now use it to connect back using the same device)"*, the
    owner, the same day, after a reload lost one before it was shared). The server keeps each link's

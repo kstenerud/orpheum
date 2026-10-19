@@ -1690,6 +1690,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/together/{id}/members/{member}/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A new link for a guest's place: they stay in until it is used, and whoever joins by it takes the place over, cutting off the devices they came in on (host; D311 §5, D312 §3) */
+        post: operations["addTogetherLinkFor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/together/join": {
         parameters: {
             query?: never;
@@ -8027,6 +8044,41 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    addTogetherLinkFor: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+                member: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TogetherLinkOutputBody"];
+                };
             };
             /** @description Error */
             default: {

@@ -159,7 +159,7 @@ export interface PeopleActions {
   readonly sessionId: number;
   readonly run: (request: (idempotencyKey: string) => Promise<void>) => void;
   readonly onChanged: () => void;
-  /** Told a link to pass on: shown again (D267 §5), or new, which cut off its member (§4). */
+  /** Told a link to pass on: shown again (D267 §5), or new, which takes its member's place once used. */
   readonly onIssued: (issued: Issued) => void;
 }
 
@@ -175,51 +175,36 @@ function sendThenReload(
 }
 
 /**
- * Gives member a new link: someone moving to another device, not signed in, comes back by one. They
- * are removed, cutting off every device they came in on, and the link admits them again under the
- * same note, with the rights the old one gave (D267 §4, D271 §4). Returns the link to pass on.
+ * Gives member a new link for their place: someone moving to another device, not signed in, comes
+ * back by one. They stay in until it is used; whoever joins by it then takes their place, with its
+ * note and rights, and the devices they came in on are cut off (D311 §5, D312 §3; the owner,
+ * 2026-10-19). Returns the link to pass on.
  */
 async function relink(
   api: ReturnType<typeof useServices>["api"],
-  member: SessionMember & { readonly sessionId: number; readonly rights: Rights | undefined },
+  member: SessionMember & { readonly sessionId: number },
   idempotencyKey: string,
 ): Promise<Issued> {
-  const { sessionId: id, rights } = member;
-  const hostNote = member.hostNote ?? member.name;
-  throwIfRefused(
-    await api.POST("/together/{id}/eject/{member}", {
-      params: { path: { id, member: member.id } },
-      ...idempotent(`${idempotencyKey}-eject`),
-    }),
-  );
   const made = dataOrThrow(
-    await api.POST("/together/{id}/links", {
-      params: { path: { id } },
-      body: rights === undefined ? { hostNote } : { hostNote, rights },
-      ...idempotent(`${idempotencyKey}-link`),
+    await api.POST("/together/{id}/members/{member}/links", {
+      params: { path: { id: member.sessionId, member: member.id } },
+      ...idempotent(idempotencyKey),
     }),
   );
-  return { note: hostNote, secret: made.secret };
+  return { note: member.hostNote ?? member.name, secret: made.secret, link: made.link };
 }
 
-/** A new link for a member, cutting off the devices they came in on (D267 §4). */
-function RelinkButton(
-  props: PeopleActions & {
-    readonly member: SessionMember;
-    readonly joinedBy: SessionLink | undefined;
-  },
-): JSX.Element {
+/** A new link for a member's place, which takes it over once used (D311 §5, D312 §3). */
+function RelinkButton(props: PeopleActions & { readonly member: SessionMember }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const { member, joinedBy, sessionId } = props;
+  const { member, sessionId } = props;
   return (
     <button
       type="button"
       onClick={() => {
         props.run(async (idempotencyKey) => {
-          props.onIssued(
-            await relink(api, { ...member, sessionId, rights: joinedBy?.rights }, idempotencyKey),
-          );
+          props.onIssued(await relink(api, { ...member, sessionId }, idempotencyKey));
           props.onChanged();
         });
       }}
@@ -254,6 +239,7 @@ function PersonDialog(
       {voice === undefined ? null : (
         <PersonVoiceVolume {...voice} memberId={member.id} name={member.name} />
       )}
+      <p>{t("watchTogether.relinkExplain", { name: member.name })}</p>
       <div className="watch-together__actions">
         {joinedBy === undefined ? null : (
           <button

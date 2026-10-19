@@ -6,7 +6,6 @@ import (
 	"cmp"
 	"context"
 	"crypto/sha256"
-	"crypto/subtle"
 	"errors"
 	"fmt"
 	"io"
@@ -15,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	discoverylink "github.com/kstenerud/orpheum/discovery/link"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 )
@@ -108,22 +106,6 @@ type session struct {
 	logger *slog.Logger
 }
 
-// link is one person's way in (D246 §3): single use, with the host's note of who it is for.
-type link struct {
-	id         int64
-	secretHash [sha256.Size]byte
-	// locateHash is what a discovery finds the core by while the link is unused (link.LocateHash).
-	locateHash string
-	// secret is the link itself, kept for the host to pass on again: a page reloaded before it was
-	// shared lost it, and a guest comes back by it on the browser that joined (D267 §1, §5).
-	secret   string
-	hostNote string
-	// rights are what the person who joins by it may do to playback (D271 §4).
-	rights Rights
-	// usedBy is the member who joined by it, or 0 while it waits.
-	usedBy int64
-}
-
 // group is the group's state: Position is where it was at At, moving at Rate while it plays.
 type group struct {
 	seq      int64
@@ -148,6 +130,8 @@ type member struct {
 	isHost bool
 	// hostNote is the host's note of who the member is, from their link; only the host sees it.
 	hostNote string
+	// placeID is the place their link gave, which a new link for them gives again.
+	placeID int64
 	// rights are a guest's, from their link, for as long as they are in; the host may do anything.
 	rights Rights
 	person *Person
@@ -265,47 +249,6 @@ type LinkMade struct {
 	Secret string
 }
 
-// AddLink makes a link for one person to join by, once, with the host's note of who it is for,
-// which only the host sees (D246 §3), and what they may do to playback (D271 §4).
-func (hub *Hub) AddLink(sessionID, hostUserID int64, hostNote string, rights Rights) (LinkMade, error) {
-	if hostNote == "" {
-		return LinkMade{}, ErrNoNote
-	}
-	secret, err := randbytes.Base64URLSecret(hub.random, secretBytes)
-	if err != nil {
-		return LinkMade{}, fmt.Errorf("make a link: %w", err)
-	}
-	hub.mutex.Lock()
-	defer hub.mutex.Unlock()
-	hosted, err := hub.hostedSession(sessionID, hostUserID)
-	if err != nil {
-		return LinkMade{}, err
-	}
-	hub.lastID++
-	hosted.links[hub.lastID] = &link{
-		id: hub.lastID, secretHash: sha256.Sum256([]byte(secret)), locateHash: discoverylink.LocateHash(secret),
-		secret: secret, hostNote: hostNote, rights: rights,
-	}
-	hosted.lastRights = rights
-	hub.linksChanged()
-	return LinkMade{LinkID: hub.lastID, Secret: secret}, nil
-}
-
-// RemoveLink withdraws a link: it admits no one from now on, and a member who joined by it stays.
-func (hub *Hub) RemoveLink(sessionID, hostUserID, linkID int64) error {
-	hub.mutex.Lock()
-	defer hub.mutex.Unlock()
-	hosted, err := hub.hostedSession(sessionID, hostUserID)
-	if err != nil {
-		return err
-	}
-	if _, found := hosted.links[linkID]; !found {
-		return ErrNoLink
-	}
-	delete(hosted.links, linkID)
-	return nil
-}
-
 // LinkView is a link as its host sees it.
 type LinkView struct {
 	ID       int64
@@ -371,34 +314,6 @@ type Joined struct {
 	Locator string
 }
 
-// Join admits the person a link was made for, once, as a member named name, the name the others
-// see (D246 §3); signed in, as person, whose devices have the membership back without the link
-// (D267 §2). Not signed in, person is nil.
-func (hub *Hub) Join(secret, name string, person *Person) (Joined, error) {
-	made, err := newCredential(hub.random)
-	if err != nil {
-		return Joined{}, err
-	}
-	hub.mutex.Lock()
-	defer hub.mutex.Unlock()
-	joined, used := hub.sessionByLink(secret)
-	if used == nil || used.usedBy != 0 {
-		return Joined{}, ErrNoSession
-	}
-	hub.lastID++
-	used.usedBy = hub.lastID
-	joined.members[hub.lastID] = &member{
-		id: hub.lastID, name: name, hostNote: used.hostNote, rights: used.rights, person: person,
-		devices: map[int64]*device{},
-	}
-	joined.members[hub.lastID].addCredential(made)
-	joined.sendRoster()
-	hub.linksChanged()
-	return Joined{
-		SessionID: joined.id, MemberID: hub.lastID, MembershipCredential: made.credential, Locator: made.locator,
-	}, nil
-}
-
 // Eject removes a member: each of their devices is told the session ended for them, and their
 // credential admits nothing more (D119). Only the host ejects, and never themselves.
 func (hub *Hub) Eject(sessionID, hostUserID, memberID int64) error {
@@ -415,6 +330,7 @@ func (hub *Hub) Eject(sessionID, hostUserID, memberID int64) error {
 	for _, each := range ejected.devices {
 		each.send(Outbound{V: ProtocolVersion, Type: MessageEnded, Reason: "ejected"})
 	}
+	hosted.endLinksOf(ejected)
 	delete(hosted.members, memberID)
 	hosted.settle(hub.clock.Now())
 	hosted.sendRoster()
@@ -435,6 +351,7 @@ func (hub *Hub) Leave(credential string) error {
 	for _, each := range leaving.devices {
 		each.send(Outbound{V: ProtocolVersion, Type: MessageEnded, Reason: "left"})
 	}
+	left.endLinksOf(leaving)
 	delete(left.members, leaving.id)
 	left.settle(hub.clock.Now())
 	left.sendRoster()
@@ -666,19 +583,6 @@ func (current *session) broadcast(message Outbound) {
 			attached.send(message)
 		}
 	}
-}
-
-// sessionByLink is the session and link a link's secret names, or nils.
-func (hub *Hub) sessionByLink(secret string) (*session, *link) {
-	hash := sha256.Sum256([]byte(secret))
-	for _, each := range hub.sessions {
-		for _, candidate := range each.links {
-			if subtle.ConstantTimeCompare(candidate.secretHash[:], hash[:]) == 1 {
-				return each, candidate
-			}
-		}
-	}
-	return nil, nil
 }
 
 // memberByCredential is the session and member a membership credential names, or nils.

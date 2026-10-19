@@ -76,6 +76,8 @@ export const enTogether = {
     over: {
       hostEnded: "The host ended the session. You can close this page.",
       ejected: "The host removed you from the session. You can close this page.",
+      movedAway:
+        "You joined this session on another device, by a new link from the host, so it ended here. You can close this page.",
       left: "You left the session. You can close this page.",
       gone: "This session is over. You can close this page.",
       uploadFull: "The host's connection can't carry everyone right now.",
@@ -126,6 +128,8 @@ export const enTogether = {
     ejectConsequence: "{{name}} leaves the session and can't come back by their link.",
     ejectConfirm: "Remove them",
     relink: "New link",
+    relinkExplain:
+      "{{name}} stays in until the new link is used. Whoever joins by it takes their place, and the devices they came in on are cut off.",
     showLink: "Show link",
     waitingLink: "A link for {{note}}, not used yet",
     withdraw: "Withdraw",

@@ -194,7 +194,8 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"getClientManifest",
 		// A Watch Together session's own management: a link is the grant (D117, D246 §3), and the host
 		// puts on only what they reach (D122, TestHub_TheHostChangesWhatPlaysOnlyToAFilmTheyMayPlay).
-		"openTogether", "getTogether", "addTogetherLink", "removeTogetherLink", "joinTogether", "leaveTogether",
+		"openTogether", "getTogether", "addTogetherLink", "addTogetherLinkFor", "removeTogetherLink",
+		"joinTogether", "leaveTogether",
 		"listMyTogether",
 		"getTogetherICE",
 		"ejectFromTogether", "endTogether",

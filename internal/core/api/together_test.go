@@ -266,6 +266,45 @@ func TestTogether_AViewerPlaysOnlyTheFilmOnInTheHostsLibraries(t *testing.T) {
 
 // Only a role that may host Watch Together opens a session, only the host makes links, each with a
 // note, and each admits one person once; a viewer may leave, and only the host ends it (D246 §3).
+// The host gives a guest a new link for their place; joining by it takes the same place, and only
+// the host makes one (D311 §5, D312 §3; the owner, 2026-10-19).
+func TestTogether_ANewLinkForAGuestGivesTheirPlace(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	opened := harness.openTogether(t, admin)
+	path := fmt.Sprintf("/together/%d", opened.Body.SessionID)
+	join := func(secret, name string) JoinTogetherOutput {
+		t.Helper()
+		joined := harness.do(t, http.MethodPost, "/together/join", "", map[string]any{"secret": secret, "name": name})
+		var membership JoinTogetherOutput
+		if err := json.Unmarshal([]byte(joined.body), &membership.Body); err != nil || joined.status != http.StatusOK {
+			t.Fatalf("POST /together/join = %d %s", joined.status, joined.body)
+		}
+		return membership
+	}
+	var first TogetherLinkOutput
+	made := harness.do(t, http.MethodPost, path+"/links", admin, map[string]string{"hostNote": "a cousin"})
+	if err := json.Unmarshal([]byte(made.body), &first.Body); err != nil {
+		t.Fatal(err)
+	}
+	guest := join(first.Body.Secret, "Kim")
+	forGuest := fmt.Sprintf("%s/members/%d/links", path, guest.Body.MemberID)
+	wantError(t, harness.do(t, http.MethodPost, forGuest, "", nil), http.StatusUnauthorized, CodeAuthRequired)
+	answered := harness.do(t, http.MethodPost, forGuest, admin, nil)
+	var again TogetherLinkOutput
+	if err := json.Unmarshal([]byte(answered.body), &again.Body); err != nil || answered.status != http.StatusCreated ||
+		again.Body.Secret == "" {
+		t.Fatalf("POST %s = %d %s; want a new link", forGuest, answered.status, answered.body)
+	}
+	if moved := join(again.Body.Secret, "Kim on Chrome"); moved.Body.MemberID != guest.Body.MemberID {
+		t.Errorf("the new link joined as member %d; want the guest's place, %d",
+			moved.Body.MemberID, guest.Body.MemberID)
+	}
+	wantError(t, harness.do(t, http.MethodPost, fmt.Sprintf("%s/members/999/links", path), admin, nil),
+		http.StatusNotFound, CodeNotFound)
+}
+
 func TestTogether_OnlyAHostOpensMakesLinksAndEnds(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
