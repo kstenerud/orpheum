@@ -20938,4 +20938,11 @@ wait days just to get their core attached so that their kids can watch videos ag
    built; SPF, DKIM and DMARC on `orpheum-app.com`, and a mail catcher on staging so no test sends
    real mail.
 
-**Status:** Decided 2026-10-19; §6's provider still to be chosen.
+7. **The provider is Scaleway Transactional Email** (the owner, the same day, from orpheum-connect's
+   `docs/research/mail-providers-2026-10-19.md`): French, its data in the EU, no open or click
+   tracking at all, so no link is rewritten.
+8. **An account holds as many passkeys as its person adds** (the owner, the same day: *"we should
+   support multiple passkeys per account"*), each named, listed and removable, as accounts.md §6
+   had it.
+
+**Status:** Decided 2026-10-19; §7 and §8 the same day.
