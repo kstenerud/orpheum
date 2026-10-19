@@ -20926,7 +20926,10 @@ wait days just to get their core attached so that their kids can watch videos ag
 2. **A forgotten password or username is sent to the address**: "forgot password" sends a link
    (once, about 30 minutes, its secret in the fragment, spent only by a button on its page, D312
    §10, §11), and its answer never says whether an account matched; "forgot username" sends the
-   username.
+   username. *Every link sent stays live for its thirty minutes until one of them is used, which ends them
+   all* (the owner, the same day: *"to deal with the situation where mail is slow and the user does
+   another request, and then an old one comes to their email and doesn't work because another one
+   had been issued, creating chaos and confusion as they try again and it keeps failing"*).
 3. **A reset restores the account at once**: no wait before a new core key, which D310 §9 makes
    at once as before. Setting the new password ends every other session. A notice of the reset and
    of each core change goes to the address. A device that knew the old core still stops with a
