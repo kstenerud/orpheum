@@ -189,19 +189,33 @@ else
 fi
 
 say "waiting for the server to start"
+# The code that makes the first admin, as soon as the server answers; a server that has its admin
+# already says so, and is not waited on for the code it will never give (nas.example, 2026-10-19: every
+# update sat out the whole two minutes).
+setupCode=""
+isUp=false
 tries=0
-until (cd "$dir" && docker compose exec -T orpheum-core orpheum setup-code --instance /var/lib/orpheum/core) \
-	>"$dir/run/setup-code" 2>/dev/null || [ "$tries" -ge 60 ]; do
+while [ "$tries" -lt 60 ]; do
+	if answer=$(cd "$dir" && docker compose exec -T orpheum-core orpheum setup-code --instance /var/lib/orpheum/core 2>/dev/null); then
+		setupCode=$answer
+		isUp=true
+		break
+	fi
+	case $answer in
+	*"setup is complete"*) isUp=true; break ;;
+	esac
 	tries=$((tries + 1))
 	sleep 2
 done
 address=$(homeAddress)
 [ -n "$address" ] || address="<this machine's address>"
 say "installed in $dir"
-if [ -s "$dir/run/setup-code" ]; then
+if [ -n "$setupCode" ]; then
 	say "open http://$address:8440 and make the first admin with this one-time code:"
-	cat "$dir/run/setup-code" >&2
-else
+	printf '%s\n' "$setupCode" >&2
+elif $isUp; then
 	say "open http://$address:8440: it has its first admin already"
+else
+	say "the server did not answer within two minutes; \`docker compose logs orpheum-core\` in $dir says why"
+	exit 1
 fi
-rm -f "$dir/run/setup-code"
