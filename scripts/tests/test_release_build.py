@@ -126,6 +126,20 @@ class Build(unittest.TestCase):
         self.assertRegex(image, r"^orpheum:v0\.0\.0-\d{14}-[0-9a-f]{12}-dirty$")
         self.assertEqual(context, str(self.checkout))
 
+    def test_a_first_install_naming_no_media_is_refused_before_anything_is_built(self):
+        for arguments in (["v0.1.0", str(self.deployment)], ["--checkout", str(self.deployment), "--force"]):
+            done = subprocess.run([str(self.checkout / "deploy" / "release" / "build.sh"), *arguments],
+                                  env=self.env, capture_output=True, text=True, check=False)
+            self.assertEqual(done.returncode, 2, done.stderr)
+            self.assertIn("holds no deployment yet", done.stderr)
+            self.assertEqual(self.docker_calls(), [])
+        # Once there is a deployment, its values file names the media, and none need be given.
+        (self.deployment / "values.toml").write_text('[media]\nroots = ["/films"]\n[lan]\naddress = ""\n')
+        done = subprocess.run([str(self.checkout / "deploy" / "release" / "build.sh"), "--checkout",
+                               str(self.deployment), "--force"], env=self.env, capture_output=True, text=True,
+                              check=False)
+        self.assertEqual(done.returncode, 0, done.stderr)
+
     def test_a_tag_that_is_not_a_version_is_refused(self):
         done = self.build("nightly")
         self.assertNotEqual(done.returncode, 0)
