@@ -389,6 +389,7 @@ describe("a person with no link at a discovery that has realms (D297, D298)", ()
                 paths,
                 publicKey,
                 tag,
+                claimedAt: 1_790_000_000_000,
               }),
               { status: 200 },
             )
@@ -475,6 +476,45 @@ describe("a person with no link at a discovery that has realms (D297, D298)", ()
     await settleUntil(() => reached.length > 0);
     expect(reached).toEqual([{ kind: "direct", origin: "https://v4.k7xq2.zone.example" }]);
     expect(heard.filter((request) => request.startsWith(lan))).toEqual([]);
+  });
+
+  it("stops with a warning when the realm leads to another server than the one remembered (D312 §2)", async () => {
+    const connected: KeptCore[] = [];
+    const remembered = { coreId: "old7x", fingerprint: "an-older-fingerprint", realm: "karlnas" };
+    const asked: KeptCore[] = [];
+    const parts: GateParts = {
+      ...partsOf(await realmDiscovery([])),
+      hasRealms: true,
+      changedFrom: (found) => {
+        asked.push(found);
+        return found.fingerprint === remembered.fingerprint ? undefined : remembered;
+      },
+      onConnected: (core) => {
+        connected.push(core);
+      },
+    };
+    mounted = await mount(<DiscoveryGate start={{ kind: "none" }} parts={parts} />);
+    const page = mounted.container;
+    const signIn = async (): Promise<void> => {
+      await enter(page.querySelector('input[name="realm"]'), "karlnas");
+      await enter(page.querySelector('input[name="name"]'), "karl");
+      await enter(page.querySelector('input[type="password"]'), "a password");
+      await click(buttonWithText(page, "Sign in"));
+      await settleUntil(() => page.textContent.includes("Your household's server has changed"));
+    };
+    await signIn();
+    expect(asked).toEqual([{ coreId: "k7xq2", fingerprint: fingerprintOfKey, realm: "karlnas" }]);
+    expect(page.textContent).toContain("The new one was connected on");
+    expect(connected).toEqual([]);
+    await click(buttonWithText(page, "Stop"));
+    expect(page.querySelector('input[name="realm"]')).not.toBeNull();
+    expect(connected).toEqual([]);
+    await signIn();
+    await click(buttonWithText(page, "Go on to the new server"));
+    await settleUntil(() => connected.length > 0);
+    expect(connected).toEqual([
+      { coreId: "k7xq2", fingerprint: fingerprintOfKey, realm: "karlnas" },
+    ]);
   });
 
   it("says the realm, name or password is wrong as one, and keeps no realm when not asked to", async () => {

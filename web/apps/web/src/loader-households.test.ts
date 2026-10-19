@@ -12,6 +12,8 @@ import {
   switchedFrom,
   goneAddress,
   goneFrom,
+  changedFrom,
+  markHouseholdGone,
 } from "./loader-households.ts";
 
 function memoryStorage(): StringStorage {
@@ -78,6 +80,21 @@ describe("the households a browser reached (D308 §8)", () => {
       expect(switchedFrom(search, referrer, originOf)).toBeUndefined();
     }
     expect(asksForTheList("")).toBe(false);
+  });
+
+  it("finds the household kept for a realm by another fingerprint, gone or not, and keeps one per realm", () => {
+    const storage = memoryStorage();
+    rememberHousehold(storage, household);
+    markHouseholdGone(storage, household.coreId);
+    expect(households(storage).map((each) => each.isGone)).toEqual([true]);
+    const other = { coreId: "m3dz9", fingerprint: "another-fingerprint", realm: "nas" };
+    expect(changedFrom(storage, other)?.coreId).toBe("k7xq2");
+    expect(changedFrom(storage, { ...other, fingerprint: household.fingerprint })).toBeUndefined();
+    expect(changedFrom(storage, { ...other, realm: "elsewhere" })).toBeUndefined();
+    rememberHousehold(storage, { ...other, name: "", lastUsedAt: 9 });
+    expect(households(storage).map((each) => [each.coreId, each.isGone])).toEqual([
+      ["m3dz9", false],
+    ]);
   });
 
   it("takes a household as gone only from that household's own client origin", () => {

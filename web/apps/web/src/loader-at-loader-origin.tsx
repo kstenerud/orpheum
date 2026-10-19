@@ -20,8 +20,10 @@ import { clientOriginOf } from "./loader-config.ts";
 import {
   asksForTheList,
   forgetHousehold,
+  changedFrom,
   goneFrom,
   households,
+  markHouseholdGone,
   rememberHousehold,
   switchedFrom,
   type Household,
@@ -92,9 +94,9 @@ export function startAtLoaderOrigin(at: AtLoaderOrigin): JSX.Element | undefined
   }
   const gone = goneFrom(location.search, at.referrer, (coreId) => clientAddressOf(config, coreId));
   if (gone !== undefined) {
-    forgetHousehold(storage, gone);
+    markHouseholdGone(storage, gone);
   }
-  const kept = households(storage);
+  const kept = households(storage).filter((household) => household.isGone !== true);
   const [only] = kept;
   if (!asksForTheList(location.search) && kept.length === 1 && only !== undefined) {
     const origin = clientAddressOf(config, only.coreId);
@@ -113,7 +115,10 @@ function LoaderPage(props: {
 }): JSX.Element {
   const { at } = props;
   const [isJoining, setIsJoining] = useState(!props.isListFirst);
-  const [listed, setListed] = useState(() => households(at.storage));
+  // A household gone is kept for the warning a realm sign-in gives (D312 §2), never listed.
+  const live = (): readonly Household[] =>
+    households(at.storage).filter((household) => household.isGone !== true);
+  const [listed, setListed] = useState(live);
   if (isJoining) {
     return <JoinByRealm at={at} />;
   }
@@ -123,7 +128,7 @@ function LoaderPage(props: {
       originOf={(coreId) => clientAddressOf(at.config, coreId)}
       onForget={(coreId) => {
         forgetHousehold(at.storage, coreId);
-        setListed(households(at.storage));
+        setListed(live());
       }}
       onJoin={() => {
         setIsJoining(true);
@@ -192,6 +197,7 @@ export function joinParts(at: AtLoaderOrigin): GateParts {
     shouldSkipLanNames: true,
     sessionOf: () => undefined,
     forgetCore: () => undefined,
+    changedFrom: (found) => changedFrom(at.storage, found),
     onConnected: async (core: KeptCore, reaching, signIn) => {
       const origin = clientAddressOf(at.config, core.coreId);
       if (signIn === undefined || origin === undefined || !("bootstrapToken" in signIn.held)) {

@@ -189,7 +189,7 @@ export async function targetOfLink(client: DiscoveryClient, link: LinkFragment):
 export async function targetOfRealm(
   client: DiscoveryClient,
   typed: RealmTyped,
-): Promise<{ readonly core: KeptCore; readonly target: Target }> {
+): Promise<{ readonly core: KeptCore; readonly target: Target; readonly claimedAt: number }> {
   const found = await realmSignIn(client, typed);
   const { located } = found;
   if (located.bootstrapToken === undefined) {
@@ -210,6 +210,7 @@ export async function targetOfRealm(
       directUrls: located.directUrls,
       lanUrls: located.lanUrls,
     },
+    claimedAt: found.claimedAt,
   };
 }
 

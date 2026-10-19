@@ -21,6 +21,16 @@ export const enDiscovery = {
       heading: "This link no longer finds its server",
       text: "Ask the person who sent it for a new one.",
     },
+    changed: {
+      heading: "Your household's server has changed",
+      text: "The server this realm leads to is not the one this browser reached before.",
+      since:
+        "The server this realm leads to is not the one this browser reached before. The new one was connected on {{at}}.",
+      ifNot:
+        "If someone in your household set up a new server, go on. If no one did, stop here and tell whoever runs your server: someone else may have connected theirs to your account.",
+      continue: "Go on to the new server",
+      cancel: "Stop",
+    },
     deadEnd: {
       heading: "Can't reach the server from this network",
       text: "Try your phone's mobile data, or another Wi-Fi. If it keeps happening, tell the person who sent you this link.",

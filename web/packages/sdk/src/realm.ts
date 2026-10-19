@@ -103,6 +103,9 @@ export interface RealmFound {
   readonly located: Located;
   readonly fingerprint: string;
   readonly key: Uint8Array<ArrayBuffer>;
+  /** When the realm's core was claimed for its account, in milliseconds since the epoch; 0 when the
+   * discovery does not say. It only dates a warning that the household's server changed (D312 §2). */
+  readonly claimedAt: number;
 }
 
 /** The core's identity key and its tag in the discovery's answer, when both are there. */
@@ -143,5 +146,12 @@ export async function realmSignIn(client: DiscoveryClient, typed: RealmTyped): P
   if (signed.tag !== (await realmTag(key, located.coreId, signed.publicKey))) {
     throw notTheServers;
   }
-  return { located, fingerprint: await keyFingerprint(signed.publicKey), key };
+  const claimedAt: unknown =
+    typeof answer === "object" && answer !== null ? Reflect.get(answer, "claimedAt") : undefined;
+  return {
+    located,
+    fingerprint: await keyFingerprint(signed.publicKey),
+    key,
+    claimedAt: typeof claimedAt === "number" ? claimedAt : 0,
+  };
 }
