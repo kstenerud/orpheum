@@ -174,7 +174,7 @@ discovery cannot pass another discovery's challenge to the core and come away wi
 there. Nothing is deployed, so this changes within v1. Built (`discovery/proof`; the core
 names itself by `proof.KeyLabel` of its key until it has an id).
 
-### 2.2 Enrolment and claiming — enrolment built; claiming by the account's key being built (B0 phase C)
+### 2.2 Enrolment and claiming — enrolment built; claiming by the account's key built (B0 phase C)
 
 **Claiming by the account's key** (D310 §5, §8, §9; D312 §5, §15; D318 §5), on the paid service from
 the closed beta, replacing the operator's claim by code (the code stays beside it until phase C's
@@ -184,10 +184,11 @@ home, enters it on System → Discovery while the core is pending, and the core 
 session: `POST /claim {key}` → `{account}`, the account's address. In one write the service finds
 the live key, ends every key of the account (D318 §2), and claims the core for the account; a key
 is spent by its first attempt, right or wrong, and wrong keys are refused (`wrong_key`) and limited
-per core and per site. Then the account's core claimed before is removed at once: its records,
-sessions, names and signalling go (D312 §15), and its identity key is remembered as removed, so
-when it enrols again its `/enrol` and `/status` answers carry `removedAt`, its System page says it
-was removed from the account, and only a new key claims it again. A claimed core's `/status` names
+per core and per site (built: 10 and 30 an hour). In the same write the account's core claimed
+before is removed: its records and sessions go, its names and signalling just after (D312 §15), and
+the new core takes its realm. Its identity key is remembered as removed, so when it enrols again
+its `/status` carries `removedAt`, its System page says it was removed from the account, and only a
+new key claims it again. A claimed core's `/status` names
 the account's address (`account`), which its System page shows (D310 §5). The own discovery takes
 keys from its command line with the open beta (D310 §7); until then it answers `/claim` with
 nothing and keeps its claim code.
