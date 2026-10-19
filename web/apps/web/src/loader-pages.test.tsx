@@ -89,6 +89,33 @@ describe("the loader at its own origin (D308)", () => {
     expect(mounted.container.textContent).toContain("Sign in to another household");
   });
 
+  it("forgets a household its own client origin says is gone, and offers the realm sign-in", async () => {
+    const storage = memoryStorage();
+    rememberHousehold(storage, household);
+    const went: string[] = [];
+    const search = "?households=&gone=k7xq2";
+    const shown = startAtLoaderOrigin(
+      loaderAt({ search, referrer: "https://k7xq2.client.example/" }, storage, went),
+    );
+    expect(went).toEqual([]);
+    expect(households(storage)).toEqual([]);
+    mounted = await mount(shown ?? <p>nothing</p>);
+    expect(mounted.container.querySelector('input[name="name"]')).not.toBeNull();
+  });
+
+  it("keeps a household another page says is gone", () => {
+    const storage = memoryStorage();
+    rememberHousehold(storage, household);
+    startAtLoaderOrigin(
+      loaderAt(
+        { search: "?households=&gone=k7xq2", referrer: "https://evil.example/" },
+        storage,
+        [],
+      ),
+    );
+    expect(households(storage).map((each) => each.coreId)).toEqual(["k7xq2"]);
+  });
+
   it("forgets a household only once asked again, with a small red button (the owner, 2026-10-17)", async () => {
     const storage = memoryStorage();
     rememberHousehold(storage, household);
