@@ -360,8 +360,18 @@ function toHeaders(headers: Record<string, string[]> | undefined): Headers {
 export const requestsPerConnection = 12;
 
 /**
- * A channel that calls release once, when it closes or fails either end: a request's channel lives
- * until its body ends, as long as the core counts it.
+ * How long a channel the client closed holds its room at most: its close event, which comes once the
+ * core has closed its end too, gives the room back; this is the backstop for a browser that never
+ * sends it.
+ */
+export const closingHoldsMs = 5000;
+
+/**
+ * A channel that calls release once, when its close or error event comes: a request's channel lives
+ * until its body ends and the core has closed its end, as long as the core counts it. Released when
+ * the client merely began closing it, the next request's channel reached the core before the close
+ * did, past its 16, and each refusal freed room for another, the queue draining as broken posters
+ * (nas.example, 2026-10-19: eighteen refusals in two milliseconds).
  */
 function countedChannel(channel: ChannelLike, release: () => void): ChannelLike {
   let isReleased = false;
@@ -380,7 +390,7 @@ function countedChannel(channel: ChannelLike, release: () => void): ChannelLike 
     },
     close: () => {
       channel.close();
-      releaseOnce();
+      setTimeout(releaseOnce, closingHoldsMs);
     },
     listen: (listener) => {
       channel.listen({
