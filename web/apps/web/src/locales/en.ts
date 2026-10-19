@@ -421,8 +421,10 @@ export const en = {
         "To claim this server, sign in at the discovery and enter the code {{code}}. It works until {{until}}.",
       key: "Your account's key",
       keyHint:
-        "Sign in to your account at the discovery, choose Make a key under Your server, and type the key here. It works for an hour.",
+        "Sign in to your account at the discovery, choose Make a key under Your server, and type the key here, with your own password on this server: it lets you sign in by your realm from anywhere. The key works for an hour.",
+      yourPassword: "Your password",
       claimByKey: "Claim",
+      wrongPassword: "That isn't your password. Nothing was claimed, and the key still works.",
       wrongKey:
         "The discovery didn't accept that key. Check it, or make a new one on your account.",
       notPending: "This server isn't waiting to be claimed.",

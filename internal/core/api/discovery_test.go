@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -33,7 +34,9 @@ func enrollingDiscovery(t *testing.T) *httptest.Server {
 		case discoveryproto.PathStatus:
 			answer = discoveryproto.StatusResponse{State: discoveryproto.StatePending}
 			if claimed.Load() {
-				answer = discoveryproto.StatusResponse{State: discoveryproto.StateClaimed, Account: "karl@example.com"}
+				answer = discoveryproto.StatusResponse{
+					State: discoveryproto.StateClaimed, Account: "karl@example.com", Realm: "karlnas",
+				}
 			}
 		case discoveryproto.PathClaim:
 			var asked discoveryproto.ClaimRequest
@@ -136,15 +139,27 @@ func TestDiscovery_AnAdminEntersTheAccountsKeyAndTheCoreNamesTheAccount(t *testi
 	if connected.status != http.StatusOK {
 		t.Fatalf("connecting = %d %s", connected.status, connected.body)
 	}
-	keyed := func(key string) response {
-		return harness.do(t, http.MethodPost, "/system/discovery/claim", admin, map[string]any{"key": key})
+	keyed := func(key, password string) response {
+		return harness.do(t, http.MethodPost, "/system/discovery/claim", admin,
+			map[string]any{"key": key, "password": password})
 	}
-	wantError(t, keyed("wxyz-wxyz-wxyz-wxyz"), http.StatusUnprocessableEntity, CodeInvalidRequest)
-	claimed := keyed("abcd-efgh-jkmn-pqrs")
+	wantError(t, keyed("wxyz-wxyz-wxyz-wxyz", "owner-password"), http.StatusUnprocessableEntity, CodeInvalidRequest)
+	// A mistyped password is refused before the key is sent, so it spends no key.
+	wrong := keyed("abcd-efgh-jkmn-pqrs", "not-the-password")
+	wantError(t, wrong, http.StatusUnprocessableEntity, CodeInvalidRequest)
+	if !strings.Contains(wrong.body, "body.password") {
+		t.Errorf("a wrong password = %s; want it refused naming the field", wrong.body)
+	}
+	claimed := keyed("abcd-efgh-jkmn-pqrs", "owner-password")
 	var status DiscoveryStatusBody
 	if err := json.Unmarshal([]byte(claimed.body), &status); err != nil || claimed.status != http.StatusOK ||
 		status.State != "claimed" || status.Account != "karl@example.com" {
 		t.Fatalf("the key = %d %s; want claimed, naming karl's account", claimed.status, claimed.body)
 	}
-	wantError(t, keyed("abcd-efgh-jkmn-pqrs"), http.StatusConflict, CodeConflict)
+	// The admin set up the core before it had a realm; the claim's password makes their key for the
+	// account's, so they sign in from away at once (D297 §3).
+	if _, err := harness.authService.RealmKeyOfPerson(t.Context(), proof.RealmPerson("karlnas", "owner")); err != nil {
+		t.Errorf("the admin's realm key after the claim: %v; want one for karlnas", err)
+	}
+	wantError(t, keyed("abcd-efgh-jkmn-pqrs", "owner-password"), http.StatusConflict, CodeConflict)
 }

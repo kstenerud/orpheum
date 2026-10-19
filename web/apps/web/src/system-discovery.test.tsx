@@ -161,14 +161,16 @@ it("claims a waiting server by the key its household's account made, and names t
   mounted = await mount(withServices(<SystemDiscovery />, services));
   const container = mounted.container;
   await enter(container.querySelector("form input"), "  abcd efgh-jkmn pqrs ");
+  await enter(container.querySelector('form input[type="password"]'), "owner-password");
   await click(buttonWithText(container, "Claim"));
   expect(heard.map((each) => each.methodAndPath)).toEqual([
     "GET /system/discovery",
     "POST /system/discovery/claim",
     "GET /system/discovery",
   ]);
-  // The key goes as typed but for the ends: the discovery reads its spaces and dashes.
-  expect(heard[1]?.body).toEqual({ key: "abcd efgh-jkmn pqrs" });
+  // The key goes as typed but for the ends, the discovery reading its spaces and dashes; the admin's
+  // password with it, from which the server makes their realm key (D297 §3).
+  expect(heard[1]?.body).toEqual({ key: "abcd efgh-jkmn pqrs", password: "owner-password" });
   const text = container.textContent;
   expect(text).toContain("Claimed: clients can find this server.");
   expect(text).toContain("Enrolled with the account household@example.com.");
@@ -183,11 +185,38 @@ it("says a key the discovery refused was not accepted, and keeps the form", asyn
   mounted = await mount(withServices(<SystemDiscovery />, services));
   const container = mounted.container;
   await enter(container.querySelector("form input"), "ABCDEFGHJKMNPQRS");
+  await enter(container.querySelector('form input[type="password"]'), "owner-password");
   await click(buttonWithText(container, "Claim"));
   expect(container.querySelector('[role="alert"]')?.textContent).toBe(
     "The discovery didn't accept that key. Check it, or make a new one on your account.",
   );
   expect(container.querySelector("form input")).not.toBeNull();
+});
+
+it("says a password that isn't the admin's was refused, and that the key still works", async () => {
+  const services = servedBy({
+    "GET /system/discovery": [200, pendingAtTheService],
+    "POST /system/discovery/claim": [
+      422,
+      {
+        error: {
+          code: "invalid_request",
+          message: "a note for developers",
+          detail: {
+            problems: [{ location: "body.password", message: "that is not your password" }],
+          },
+        },
+      },
+    ],
+  });
+  mounted = await mount(withServices(<SystemDiscovery />, services));
+  const container = mounted.container;
+  await enter(container.querySelector("form input"), "ABCDEFGHJKMNPQRS");
+  await enter(container.querySelector('form input[type="password"]'), "a-typo");
+  await click(buttonWithText(container, "Claim"));
+  expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+    "That isn't your password. Nothing was claimed, and the key still works.",
+  );
 });
 
 it("tells a server removed from its account that another took its place (D312 §15)", async () => {

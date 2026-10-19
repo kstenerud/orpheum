@@ -180,8 +180,11 @@ names itself by `proof.KeyLabel` of its key until it has an id).
 the closed beta, replacing the operator's claim by code (the code stays beside it until phase C's
 step 6 retires it). The household's account makes a key: 16 safe32 characters,
 `xxxx-xxxx-xxxx-xxxx`, for an hour, several outstanding at once. The core's admin, signed in at
-home, enters it on System → Discovery while the core is pending, and the core sends it with its
-session: `POST /claim {key}` → `{account}`, the account's address. In one write the service finds
+home, enters it on System → Discovery while the core is pending, with their own password, and the core
+sends the key alone with its session: `POST /claim {key}` → `{account}`, the account's address. The
+password stays on the core, checked before the key is sent (a mistyped one spends no key); once the
+claim has given the core its account's realm, the core makes the admin's realm key from it (D297
+§3), so the admin, who was made at setup before the core had a realm, signs in from away at once. In one write the service finds
 the live key, ends every key of the account (D318 §2), and claims the core for the account; a key
 is spent by its first attempt, right or wrong, and wrong keys are refused (`wrong_key`) and limited
 per core and per site (built: 10 and 30 an hour). In the same write the account's core claimed

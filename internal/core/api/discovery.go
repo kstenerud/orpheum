@@ -10,6 +10,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/core/portmap"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
@@ -93,6 +94,8 @@ type ClaimDiscoveryInput struct {
 	AuthorizationHeader
 	Body struct {
 		Key string `doc:"The key from the household's account: 16 letters and digits, as typed" json:"key" maxLength:"64" minLength:"1"` //nolint:lll // one struct tag
+		//nolint:lll // one struct tag
+		Password string `doc:"The admin's own password, from which the core makes their realm key once it has the account's realm, so they sign in from away (D297 §3)" json:"password" maxLength:"1024" minLength:"1"`
 	}
 }
 
@@ -148,17 +151,29 @@ func (server *Server) connectDiscovery(
 	return server.discoveryAnswer(dependencies, status, conflictingAs(err, discovery.ErrAlreadyEnrolled))
 }
 
-// claimDiscovery sends the key the household's account made: a wrong one is refused naming the
-// field, a core not waiting to be claimed is a conflict, and a discovery that does not answer is the
-// failing leg.
+// claimDiscovery sends the key the household's account made, once the admin's password is checked,
+// and then makes the admin's realm key from it: a wrong password or key is refused naming its field,
+// a core not waiting to be claimed is a conflict, and a discovery that does not answer is the failing
+// leg.
 func (server *Server) claimDiscovery(ctx context.Context, input *ClaimDiscoveryInput) (*DiscoveryStatusOutput, error) {
-	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
+	dependencies, principal, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
+	}
+	// The password first, so a mistyped one spends no key.
+	if checkErr := dependencies.Auth.CheckPassword(ctx, principal.UserID, input.Body.Password); checkErr != nil {
+		if errors.Is(checkErr, auth.ErrWrongPassword) {
+			return nil, invalidRequestAt(http.StatusUnprocessableEntity, "body.password", "that is not your password")
+		}
+		return nil, fmt.Errorf("check the admin's password: %w", checkErr)
 	}
 	status, err := dependencies.Discovery.Claim(ctx, input.Body.Key)
 	if errors.Is(err, discovery.ErrWrongKey) {
 		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "body.key", err.Error())
+	}
+	if err == nil {
+		// The claim gave the core its account's realm: the admin's key for it, from the password.
+		err = dependencies.Auth.MakeRealmKey(ctx, principal.UserID, input.Body.Password)
 	}
 	return server.discoveryAnswer(dependencies, status, conflictingAs(err, discovery.ErrNotPending))
 }

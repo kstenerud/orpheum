@@ -228,6 +228,8 @@ func newHarness(t *testing.T) testHarness {
 	discoveryService, discoveryErr := discovery.New(discovery.Parts{
 		Files: directories, Key: identityKey, HTTP: &http.Client{}, Clock: now,
 		Logger: slog.New(slog.DiscardHandler), Version: "test", APIMajor: 1,
+		// As cmd/orpheum wires it: the realm the discovery names is what realm keys are made for.
+		OnRealm: service.SetRealm,
 	})
 	if discoveryErr != nil {
 		t.Fatal(discoveryErr)

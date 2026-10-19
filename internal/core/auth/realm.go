@@ -77,6 +77,26 @@ func (service *Service) keepRealmKeyOfUser(ctx context.Context, userID int64, pa
 	return service.keepRealmKey(ctx, userID, user.Name, password, true)
 }
 
+// CheckPassword is nil when password is the live person's, and ErrWrongPassword when it is not.
+func (service *Service) CheckPassword(ctx context.Context, userID int64, password string) error {
+	user, err := liveUser(ctx, service.database.Read(), userID)
+	if err != nil {
+		return err
+	}
+	isMatch, _, verifyErr := service.verifyPassword(ctx, password, string(user.PasswordHash))
+	if verifyErr != nil || !isMatch {
+		return errors.Join(ErrWrongPassword, verifyErr)
+	}
+	return nil
+}
+
+// MakeRealmKey makes the person's realm key from their password, checked by CheckPassword, for the
+// realm the core is found by now (D297 §3): the admin who claimed the core by its account's key, who
+// made their account at setup, before the core had a realm, and so had no key to sign in from away.
+func (service *Service) MakeRealmKey(ctx context.Context, userID int64, password string) error {
+	return service.keepRealmKeyOfUser(ctx, userID, password)
+}
+
 // RealmKeyOfPerson is the key of the live person a realm sign-in names, by the whole realm the core
 // has and their name, which their offers through it are proven under too; ErrRealmRefused when no one
 // is. A household holds few people, so each is matched in turn.
