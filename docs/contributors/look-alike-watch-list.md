@@ -33,6 +33,10 @@ copy, and checked to work there. A test holds each pair together:
 
 Still copies, not yet twins:
 
+- `web/node_modules/qrcode-generator/dist/qrcode.js` (qrcode-generator 2.0.4, MIT, pinned in
+  `web/package.json`): `orpheum-connect`'s `internal/panel/pages/qrcode.js`, byte for byte, which
+  its operator's panel draws invitations' QR codes with. A bump in `web/` is copied there too.
+
 - `internal/store`'s migration runner, with the migration window (D272 §5), and
   `orpheum-connect`'s numbered steps without one: they become twins when `orpheum-connect` heads for
   production, whose database must not be lost (the owner, 2026-10-14).
