@@ -156,6 +156,13 @@ if [ -e /dev/dri/renderD128 ]; then
 else
 	say "  a GPU's render node: no; films that need preparing are encoded in software"
 fi
+# A public IPv6 address (2000::/3) to reach the internet from: where the house shares its IPv4, as
+# DS-Lite does, it is the way a device away from home reaches the server without a relay (D314 §4).
+if ip -6 route get 2606:4700:4700::1111 2>/dev/null | grep -qE ' src [23][0-9a-f]{0,3}:'; then
+	say "  a public IPv6 address: yes, so devices away from home that have IPv6 reach it directly"
+else
+	say "  a public IPv6 address: no; devices away from home reach it only where IPv4 lets them (give this machine IPv6: a Proxmox container's network takes IPv6 SLAAC)"
+fi
 if grep -qs bbr /proc/sys/net/ipv4/tcp_available_congestion_control || [ -d /sys/module/tcp_bbr ]; then
 	say "  BBR: yes, which keeps a film's rate on a lossy link"
 else

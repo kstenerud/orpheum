@@ -36,8 +36,14 @@ esac
 exit 0
 """
 
-# The route the install asks for, answered with an address at home, or with FAKE_NO_HOME=1 with none.
+# The routes the install asks for: IPv4's answered with an address at home, or with FAKE_NO_HOME=1
+# with none; IPv6's with a public address, or with FAKE_NO_IPV6=1 with none.
 FAKE_IP = """#!/bin/sh
+if [ "$1" = -6 ]; then
+    [ "$FAKE_NO_IPV6" = 1 ] && exit 2
+    echo "2606:4700:4700::1111 from :: via fe80::1 dev eth0 src 2a0f:2000:4753:8afc::20 metric 100"
+    exit 0
+fi
 [ "$FAKE_NO_HOME" = 1 ] && exit 0
 echo "1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20 uid 1000"
 """
@@ -105,6 +111,14 @@ class Install(unittest.TestCase):
         done = self.install("--media", str(self.root / "nothing here"), "--dir", str(self.root / "o"))
         self.assertEqual(done.returncode, 1)
         self.assertIn("is not a folder", done.stderr)
+
+    def test_it_says_whether_the_machine_has_a_public_ipv6_address(self):
+        films = self.root / "films"
+        films.mkdir()
+        done = self.install("--media", str(films), "--dir", str(self.dir))
+        self.assertIn("a public IPv6 address: yes", done.stderr)
+        done = self.install("--media", str(films), "--dir", str(self.dir), FAKE_NO_IPV6="1")
+        self.assertIn("a public IPv6 address: no", done.stderr)
 
     def test_a_deployment_that_cannot_begin_stops_and_says_why(self):
         films = self.root / "films"
