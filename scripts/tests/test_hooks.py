@@ -14,17 +14,21 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import gate_paths  # noqa: E402
 
 
-# The owner's flags, which a session may be started with. A hook's decision depends on them, so
-# each test sets the ones it is about and none leaks in from the session that runs the tests.
-OWNER_FLAGS = ("ORPHEUM_ALLOW_GATE_EDIT", "ORPHEUM_ALLOW_DEPS")
+# A hook sees only what a test names, never the session's environment or this clone's own git
+# config, which differs between machines: CI's fresh clone has no core.hooksPath, and the commit
+# guard refused every commit there while it passed where `make setup` had run (2026-10-19). So the
+# hooks are installed by GIT_CONFIG_COUNT, which git reads over the clone's config, and an owner's
+# flag (ORPHEUM_ALLOW_GATE_EDIT, ORPHEUM_ALLOW_DEPS) is set only by the test it is about.
+HOOKS_INSTALLED = {"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "core.hooksPath", "GIT_CONFIG_VALUE_0": ".githooks"}
+HERMETIC = {"TZ": "UTC", "LC_ALL": "C.UTF-8", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
 
 
 def run_hook(name: str, event: dict, **env: str) -> dict:
-    inherited = {key: value for key, value in os.environ.items() if key not in OWNER_FLAGS}
+    named = {"PATH": os.environ["PATH"], "HOME": os.environ["HOME"], "CLAUDE_PROJECT_DIR": str(ROOT)}
     done = subprocess.run(
         [sys.executable, str(HOOKS / name)],
         input=json.dumps(event), capture_output=True, text=True, check=True,
-        env={**inherited, "CLAUDE_PROJECT_DIR": str(ROOT), **env},
+        env=named | HERMETIC | HOOKS_INSTALLED | env,
     )
     return json.loads(done.stdout) if done.stdout.strip() else {}
 

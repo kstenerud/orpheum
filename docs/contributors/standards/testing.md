@@ -277,6 +277,11 @@ run against the fake (`internal/node/execx/execx_test.go`).
   stall reads as a stall (yoloAI DF97).
 - **The environment is hermetic**: every test target exports `TZ=UTC`, `LC_ALL=C.UTF-8`,
   `GIT_CONFIG_GLOBAL=/dev/null` and `GIT_CONFIG_NOSYSTEM=1`, so the local run is the stricter one.
+  The Python tests go further: `scripts/py_tests.py` hands each module `PATH`, those four and a home
+  of its own, and nothing else, so no session variable, owner's flag or `~/.gitconfig` reaches them.
+  What a test depends on beyond that it sets itself, a clone's git config included (the hook tests
+  install the hooks by `GIT_CONFIG_COUNT` rather than trusting the clone's `core.hooksPath`, which
+  CI's fresh clone lacks).
 - **A flaky test is fixed or deleted.** It is not retried in CI. Device runs are the exception,
   and every retry is recorded ([D190](../decisions/working-notes.md) §6).
 
@@ -284,7 +289,8 @@ run against the fake (`internal/node/execx/execx_test.go`).
 outside `internal/platform/clock`, and its `[ambient]` rule bans environment, working-directory
 and stdio reads outside `cmd/orpheum`; `usetesting` flags `os.MkdirTemp`, `os.Setenv` and
 `context.Background` in tests. The hermetic exports are the Makefile's `HERMETIC`, set on every
-test target. The network rule, sleeps and `io.Discard` are **review-only**; running the unit tier
+test target; the Python tests' environment is `py_tests.py`'s, enforced by
+`test_a_module_sees_only_the_environment_the_runner_names`. The network rule, sleeps and `io.Discard` are **review-only**; running the unit tier
 in an empty network namespace is the mechanical form if the network rule is ever broken.
 
 ## 13. Go specifics that touch tests
