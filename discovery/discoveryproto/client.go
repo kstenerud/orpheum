@@ -54,13 +54,18 @@ type ClientRealmRequest struct {
 }
 
 // ClientRealmResponse is what a realm sign-in the core took gives: what a link's locate gives, the
-// core's identity key, and the core's tag (proof.RealmTag) over its id and that key, which the page
-// checks under the person's key before it believes the key is the core's. Any part of the sign-in
-// wrong, the realm included, answers RefusalNotFound alone, after the same wait (D297 §2).
+// core's identity key, when it was claimed, and the core's tag (proof.RealmTag) over its id and that
+// key, which the page checks under the person's key before it believes the key is the core's. Any
+// part of the sign-in wrong, the realm included, answers RefusalNotFound alone, after the same wait
+// (D297 §2).
 type ClientRealmResponse struct {
 	LocateResponse
 	PublicKey []byte `json:"publicKey"`
 	Tag       string `json:"tag"`
+	// ClaimedAt is when the realm's core was claimed for its account, Unix ms, 0 when the discovery
+	// does not say: a page that remembers another core for the realm says since when it changed
+	// (D312 §2). The tag does not cover it; it only dates the warning.
+	ClaimedAt int64 `json:"claimedAt,omitempty"`
 }
 
 // PathsRequest names the core by what the device holds: its locator, which the core handed it, or the

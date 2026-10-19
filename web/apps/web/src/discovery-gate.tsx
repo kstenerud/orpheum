@@ -14,6 +14,7 @@ import { RealmSignIn, type RealmCredentials, type RealmProblem } from "./realm-s
 
 import type { StringStorage } from "./browser-storage.ts";
 import { CredentialsForm } from "./credentials-form.tsx";
+import { dateTimeText } from "./date-time-text.ts";
 import {
   provingOf,
   reachCore,
@@ -29,6 +30,7 @@ import {
   type Start,
   type Target,
 } from "./discovery-start.ts";
+import { i18n } from "./i18n.ts";
 
 /** What the gate needs: the discovery, the remembered core's session, and who takes over. */
 export interface GateParts {
@@ -57,6 +59,12 @@ export interface GateParts {
    * longer finds its server"). Absent, the page says it was not found.
    */
   readonly onGone?: () => void;
+  /**
+   * The core this browser remembers for the realm a sign-in found another core by, when it does:
+   * the sign-in then stops with a warning instead of following the new one, unless its person goes on
+   * (D312 §2). Absent, no core is remembered by realm.
+   */
+  readonly changedFrom?: (found: KeptCore) => KeptCore | undefined;
   /** Whether the discovery has realms, so a person with no link signs in by one (D298 §1). */
   readonly hasRealms: boolean;
   /** Where this device keeps the realm its person asked it to remember (D297 §5). */
@@ -120,12 +128,17 @@ function firstPhase(start: Start, parts: GateParts): Phase {
 async function reachByRealm(
   parts: GateParts,
   typed: RealmCredentials,
-): Promise<"realmWrong" | "realmUnreached" | undefined> {
+  isChangeAccepted = false,
+): Promise<"realmWrong" | "realmUnreached" | Changed | undefined> {
   let found: Awaited<ReturnType<typeof targetOfRealm>>;
   try {
     found = await targetOfRealm(parts.client, typed);
   } catch (problem: unknown) {
     return problem instanceof NotFound ? "realmWrong" : "realmUnreached";
+  }
+  const before = isChangeAccepted ? undefined : parts.changedFrom?.(found.core);
+  if (before !== undefined) {
+    return { kind: "changed", claimedAt: found.claimedAt };
   }
   const target = withLatest(parts, found.core, withoutLanIfSkipped(parts, found.target));
   let reaching: Reaching;
@@ -145,6 +158,13 @@ async function reachByRealm(
   } catch {
     return "realmUnreached";
   }
+}
+
+/** A realm sign-in stopped because the realm's core is another than the one remembered (D312 §2). */
+interface Changed {
+  readonly kind: "changed";
+  /** When the new core was claimed, in milliseconds since the epoch; 0 when the discovery did not say. */
+  readonly claimedAt: number;
 }
 
 /** Whether two holdings are the same: the same token at the same locator, or both none. */
@@ -299,32 +319,85 @@ function RealmGate(props: {
 }): JSX.Element {
   const { parts, reachingRef } = props;
   const [isSending, setIsSending] = useState(false);
+  const [changed, setChanged] = useState<
+    { readonly typed: RealmCredentials; readonly claimedAt: number } | undefined
+  >(undefined);
+  const send = (typed: RealmCredentials, isChangeAccepted: boolean): void => {
+    if (reachingRef.current) {
+      return;
+    }
+    reachingRef.current = true;
+    setIsSending(true);
+    props.onSending(true);
+    void reachByRealm(parts, typed, isChangeAccepted).then((ended) => {
+      reachingRef.current = false;
+      setIsSending(false);
+      props.onSending(false);
+      if (typeof ended === "object") {
+        setChanged({ typed, claimedAt: ended.claimedAt });
+      } else if (ended !== undefined) {
+        setChanged(undefined);
+        props.onEnded(ended);
+      }
+    });
+  };
+  if (changed !== undefined) {
+    return (
+      <ServerChanged
+        claimedAt={changed.claimedAt}
+        isSending={isSending}
+        onContinue={() => {
+          send(changed.typed, true);
+        }}
+        onCancel={() => {
+          setChanged(undefined);
+        }}
+      />
+    );
+  }
   return (
     <RealmSignIn
       rememberedRealm={rememberedRealm(parts.realmStorage)}
       isSending={isSending}
       problem={props.problem}
       onSubmit={(typed) => {
-        if (reachingRef.current) {
-          return;
-        }
         rememberRealm(
           parts.realmStorage,
           typed.isRemembered ? typed.realm.trim().toLowerCase() : undefined,
         );
-        reachingRef.current = true;
-        setIsSending(true);
-        props.onSending(true);
-        void reachByRealm(parts, typed).then((ended) => {
-          reachingRef.current = false;
-          setIsSending(false);
-          props.onSending(false);
-          if (ended !== undefined) {
-            props.onEnded(ended);
-          }
-        });
+        send(typed, false);
       }}
     />
+  );
+}
+
+/**
+ * The warning a realm sign-in stops at when the realm's server is another than the one this browser
+ * reached before (D312 §2): the household's server changed, when, and what to do if no one in it
+ * changed it; going on reaches the new one.
+ */
+function ServerChanged(props: {
+  readonly claimedAt: number;
+  readonly isSending: boolean;
+  readonly onContinue: () => void;
+  readonly onCancel: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <CredentialsForm heading={t("discovery.changed.heading")} onSubmit={props.onContinue}>
+      <p role="alert">
+        {props.claimedAt > 0
+          ? t("discovery.changed.since", { at: dateTimeText(props.claimedAt, i18n.language) })
+          : t("discovery.changed.text")}
+      </p>
+      <p>{t("discovery.changed.ifNot")}</p>
+      <button type="submit" disabled={props.isSending}>
+        {t("discovery.changed.continue")}
+      </button>
+      <button type="button" className="quiet" disabled={props.isSending} onClick={props.onCancel}>
+        {t("discovery.changed.cancel")}
+      </button>
+    </CredentialsForm>
   );
 }
 

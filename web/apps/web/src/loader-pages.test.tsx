@@ -89,7 +89,7 @@ describe("the loader at its own origin (D308)", () => {
     expect(mounted.container.textContent).toContain("Sign in to another household");
   });
 
-  it("forgets a household its own client origin says is gone, and offers the realm sign-in", async () => {
+  it("keeps a household its own client origin says is gone as gone, unlisted, and offers the realm sign-in", async () => {
     const storage = memoryStorage();
     rememberHousehold(storage, household);
     const went: string[] = [];
@@ -98,7 +98,10 @@ describe("the loader at its own origin (D308)", () => {
       loaderAt({ search, referrer: "https://k7xq2.client.example/" }, storage, went),
     );
     expect(went).toEqual([]);
-    expect(households(storage)).toEqual([]);
+    // Kept for the warning a realm sign-in gives when it finds another core for the realm (D312 §2).
+    expect(households(storage).map((each) => [each.coreId, each.isGone])).toEqual([
+      ["k7xq2", true],
+    ]);
     mounted = await mount(shown ?? <p>nothing</p>);
     expect(mounted.container.querySelector('input[name="name"]')).not.toBeNull();
   });

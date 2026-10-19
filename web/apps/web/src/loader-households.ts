@@ -17,6 +17,11 @@ export interface Household {
   readonly name: string;
   /** When the browser was last handed on to it, in milliseconds since the epoch. */
   readonly lastUsedAt: number;
+  /**
+   * Whether its client origin said the discovery finds its core no more: kept, not gone to, so a
+   * realm sign-in that finds another core for its realm warns first (D312 §2).
+   */
+  readonly isGone?: boolean;
 }
 
 /** Where the list is kept. */
@@ -47,6 +52,7 @@ function householdOf(kept: unknown): Household | undefined {
     realm: stringField(kept, "realm") ?? "",
     name: stringField(kept, "name") ?? "",
     lastUsedAt,
+    isGone: Reflect.get(kept, "isGone") === true,
   };
 }
 
@@ -87,10 +93,46 @@ export function rememberHousehold(
 ): void {
   const others = households(refusable);
   const earlier = others.find((entry) => entry.coreId === household.coreId);
+  // One core per realm: the one reached now takes the place of any other kept for it, gone or not.
+  const isReplaced = (entry: Household): boolean =>
+    entry.coreId === household.coreId ||
+    (household.realm !== "" && entry.realm === household.realm);
   keep(refusable, [
-    { ...household, name: household.name === "" ? (earlier?.name ?? "") : household.name },
-    ...others.filter((entry) => entry.coreId !== household.coreId),
+    {
+      ...household,
+      name: household.name === "" ? (earlier?.name ?? "") : household.name,
+      isGone: false,
+    },
+    ...others.filter((entry) => !isReplaced(entry)),
   ]);
+}
+
+/** Keeps the household of coreId as gone: its core found no more, its realm and fingerprint kept. */
+export function markHouseholdGone(refusable: StringStorage | undefined, coreId: string): void {
+  keep(
+    refusable,
+    households(refusable).map((entry) =>
+      entry.coreId === coreId ? { ...entry, isGone: true } : entry,
+    ),
+  );
+}
+
+/**
+ * The household this browser remembers for found's realm by another core's fingerprint, gone or
+ * not: a realm sign-in that found found stops with a warning first (D312 §2).
+ */
+export function changedFrom(
+  refusable: StringStorage | undefined,
+  found: {
+    readonly coreId: string;
+    readonly fingerprint: string;
+    readonly realm?: string | undefined;
+  },
+): Household | undefined {
+  const realm = found.realm ?? "";
+  return households(refusable).find(
+    (entry) => realm !== "" && entry.realm === realm && entry.fingerprint !== found.fingerprint,
+  );
 }
 
 /** Forgets the household of coreId. */
