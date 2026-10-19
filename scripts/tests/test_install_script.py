@@ -31,7 +31,12 @@ case "$1 $2" in
         exit 1
     fi
     ;;
-"compose exec") echo "abcd-efgh" ;;
+"compose exec")
+    if [ "$FAKE_SET_UP" = 1 ]; then
+        echo "setup is complete: an admin exists; sign in instead"
+        exit 1
+    fi
+    echo "abcd-efgh" ;;
 esac
 exit 0
 """
@@ -152,6 +157,15 @@ class Install(unittest.TestCase):
         self.assertIn("Landlock: yes", self.install("--dir", str(self.dir)).stderr)
         (self.root / "lsm").write_text("lockdown,capability,yama,apparmor\n")
         self.assertIn("Landlock: no", self.install("--dir", str(self.dir)).stderr)
+
+    def test_a_server_with_its_admin_already_is_not_waited_on_for_a_code(self):
+        films = self.root / "films"
+        films.mkdir()
+        done = self.install("--media", str(films), "--dir", str(self.dir), FAKE_SET_UP="1")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn("it has its first admin already", done.stderr)
+        self.assertNotIn("setup is complete", done.stderr)
+        self.assertEqual(self.logged().count("setup-code"), 1)
 
     def test_a_deployment_that_cannot_begin_stops_and_says_why(self):
         films = self.root / "films"
