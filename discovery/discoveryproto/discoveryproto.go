@@ -40,6 +40,9 @@ const (
 	// PathACMEAccount is where the core reports its ACME account, before it orders a certificate, so
 	// the discovery's CAA names that account alone (the protocol's §2.7; RFC 8657).
 	PathACMEAccount = "/acme-account"
+	// PathClaim is where a pending core sends the key its household's account made, which claims it
+	// for the account (the protocol's §2.2; D310 §5, §8).
+	PathClaim = "/claim"
 )
 
 // The purposes a signature is made for: the protocol, the purpose and the nonce are what is signed,
@@ -113,7 +116,21 @@ const (
 	// RefusalVersion is a call in a major the discovery does not serve, or with no version at all:
 	// its message names the versions it serves (the protocol's §5).
 	RefusalVersion = "unsupported_version"
+	// RefusalWrongKey is a claim whose key is none the discovery holds live: mistyped, spent,
+	// expired, or the account's tries spent for now (the protocol's §2.2).
+	RefusalWrongKey = "wrong_key"
 )
+
+// ClaimRequest is a pending core's claim by its household's key, as its admin typed it; the
+// discovery reads it as safe32 reads a typed code.
+type ClaimRequest struct {
+	Key string `json:"key"`
+}
+
+// ClaimResponse is a claim taken: the address of the account the core is now its server.
+type ClaimResponse struct {
+	Account string `json:"account"`
+}
 
 // State is where a core stands with its discovery.
 type State string
@@ -138,6 +155,11 @@ type StatusResponse struct {
 	Realm          string `json:"realm,omitempty"`
 	ClaimCode      string `json:"claimCode,omitempty"`
 	ClaimExpiresAt int64  `json:"claimExpiresAt,omitempty"`
+	// Account is the address of the account a claimed core is the server of, at a discovery with
+	// accounts (D310 §5); RemovedAt, when a pending core's identity key was removed from an account
+	// because another core was claimed for it (D312 §15), in Unix ms.
+	Account   string `json:"account,omitempty"`
+	RemovedAt int64  `json:"removedAt,omitempty"`
 	// ICEServers are the STUN servers the core gathers its WebRTC candidates through, so its
 	// answers carry the public address its NAT gives it (D274): the discovery's own.
 	ICEServers []ICEServer `json:"iceServers,omitempty"`

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"sync/atomic"
 	"testing"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
@@ -14,10 +15,12 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 )
 
-// enrollingDiscovery answers a challenge and an enrolment with a claim code, as a discovery does;
-// internal/core/discovery's tests check the signatures and the rest of the protocol.
+// enrollingDiscovery answers a challenge and an enrolment with a claim code, a session, the core's
+// status, and a claim by the key abcd-efgh-jkmn-pqrs, as a discovery does; internal/core/discovery's
+// tests check the signatures and the rest of the protocol.
 func enrollingDiscovery(t *testing.T) *httptest.Server {
 	t.Helper()
+	var claimed atomic.Bool
 	fake := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		var answer any
 		switch request.URL.Path {
@@ -25,6 +28,23 @@ func enrollingDiscovery(t *testing.T) *httptest.Server {
 			answer = discoveryproto.ChallengeResponse{Nonce: "a-nonce"}
 		case discoveryproto.PathEnrol:
 			answer = discoveryproto.EnrolResponse{CoreID: "k7xq2", ClaimCode: "WXYZ-2345", ClaimExpiresAt: 1}
+		case discoveryproto.PathSession:
+			answer = discoveryproto.SessionResponse{Token: "a-token", ExpiresIn: 3600}
+		case discoveryproto.PathStatus:
+			answer = discoveryproto.StatusResponse{State: discoveryproto.StatePending}
+			if claimed.Load() {
+				answer = discoveryproto.StatusResponse{State: discoveryproto.StateClaimed, Account: "karl@example.com"}
+			}
+		case discoveryproto.PathClaim:
+			var asked discoveryproto.ClaimRequest
+			_ = json.NewDecoder(request.Body).Decode(&asked) //nolint:errcheck // a wrong body is a wrong key
+			if asked.Key != "abcd-efgh-jkmn-pqrs" {
+				writer.WriteHeader(http.StatusForbidden)
+				answer = discoveryproto.Refusal{Code: discoveryproto.RefusalWrongKey, Message: "no such key"}
+				break
+			}
+			claimed.Store(true)
+			answer = discoveryproto.ClaimResponse{Account: "karl@example.com"}
 		default:
 			http.NotFound(writer, request)
 			return
@@ -103,4 +123,28 @@ func TestDiscovery_AnAdminConnectsSeesTheClaimCodeAndLeaves(t *testing.T) {
 	if harness.signIn(t, "partner", "partner-password") == "" {
 		t.Error("after leaving the partner's password no longer signs in")
 	}
+}
+
+// An admin enters the account's key, and the core then says it is claimed and names the account; a
+// wrong key is refused naming the field, and another once claimed is a conflict (D310 §5, §8).
+func TestDiscovery_AnAdminEntersTheAccountsKeyAndTheCoreNamesTheAccount(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	fake := enrollingDiscovery(t)
+	connected := harness.do(t, http.MethodPost, "/system/discovery", admin, map[string]any{"baseUrl": fake.URL})
+	if connected.status != http.StatusOK {
+		t.Fatalf("connecting = %d %s", connected.status, connected.body)
+	}
+	keyed := func(key string) response {
+		return harness.do(t, http.MethodPost, "/system/discovery/claim", admin, map[string]any{"key": key})
+	}
+	wantError(t, keyed("wxyz-wxyz-wxyz-wxyz"), http.StatusUnprocessableEntity, CodeInvalidRequest)
+	claimed := keyed("abcd-efgh-jkmn-pqrs")
+	var status DiscoveryStatusBody
+	if err := json.Unmarshal([]byte(claimed.body), &status); err != nil || claimed.status != http.StatusOK ||
+		status.State != "claimed" || status.Account != "karl@example.com" {
+		t.Fatalf("the key = %d %s; want claimed, naming karl's account", claimed.status, claimed.body)
+	}
+	wantError(t, keyed("abcd-efgh-jkmn-pqrs"), http.StatusConflict, CodeConflict)
 }

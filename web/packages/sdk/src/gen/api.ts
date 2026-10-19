@@ -1519,6 +1519,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/discovery/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enrol the core with its household's account by the key the account made (admin; D310 §5) */
+        post: operations["claimDiscovery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system/reachability": {
         parameters: {
             query?: never;
@@ -2018,6 +2035,10 @@ export interface components {
             currentPassword: string;
             newPassword: string;
         };
+        ClaimDiscoveryInputBody: {
+            /** @description The key from the household's account: 16 letters and digits, as typed */
+            key: string;
+        };
         ClientManifestBody: {
             manifest: string;
             publicKey: string;
@@ -2198,6 +2219,8 @@ export interface components {
             result: string;
         };
         DiscoveryStatusBody: {
+            /** @description The address of the account the server is enrolled with, at a discovery with accounts (D310 §5) */
+            account?: string;
             /** @description The discovery's address; empty when the core is enrolled with none */
             baseUrl: string;
             claimCode?: string;
@@ -2236,6 +2259,11 @@ export interface components {
             reachableFrom?: "public_ipv4" | "public_ipv4_other_port" | "ipv6" | "nowhere";
             /** @description What a person signs in to the server by at the discovery's page, beside their name and password: the realm the host's account there gave it; empty at a discovery with none (D297) */
             realm?: string;
+            /**
+             * Format: int64
+             * @description Unix milliseconds the server was removed from its account, another enrolled in its place (D312 §15); 0 when it was not
+             */
+            removedAt: number;
             /**
              * @description Absent before the discovery's first answer
              * @enum {string}
@@ -7587,6 +7615,42 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    claimDiscovery: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClaimDiscoveryInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryStatusBody"];
+                };
             };
             /** @description Error */
             default: {
