@@ -51,12 +51,23 @@ func (q *Queries) DeleteGrantsOfRemovedUser(ctx context.Context, userID *int64) 
 	return err
 }
 
-const deleteInvitationsOfRemovedUser = `-- name: DeleteInvitationsOfRemovedUser :exec
-DELETE FROM invitation
-WHERE secret_sha256 IN (SELECT owned.secret_sha256 FROM "grant" AS owned WHERE owned.user_id = ?1)
+const deleteInvitationLinksOfRemovedUser = `-- name: DeleteInvitationLinksOfRemovedUser :exec
+DELETE FROM invitation_link
+WHERE invitation_id IN (SELECT made.id FROM invitation AS made WHERE made.made_user_id = ?1)
+   OR secret_sha256 IN (SELECT owned.secret_sha256 FROM "grant" AS owned WHERE owned.user_id = ?1)
 `
 
-// The invitations their links are (D246 section 2).
+// The links of the invitation that made their account, and any of theirs (D246 section 2).
+func (q *Queries) DeleteInvitationLinksOfRemovedUser(ctx context.Context, userID *int64) error {
+	_, err := q.db.ExecContext(ctx, deleteInvitationLinksOfRemovedUser, userID)
+	return err
+}
+
+const deleteInvitationsOfRemovedUser = `-- name: DeleteInvitationsOfRemovedUser :exec
+DELETE FROM invitation WHERE made_user_id = ?1
+`
+
+// The invitation that made their account.
 func (q *Queries) DeleteInvitationsOfRemovedUser(ctx context.Context, userID *int64) error {
 	_, err := q.db.ExecContext(ctx, deleteInvitationsOfRemovedUser, userID)
 	return err

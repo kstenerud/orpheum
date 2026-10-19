@@ -94,10 +94,15 @@ WHERE id = sqlc.arg(id) AND removed_at IS NULL;
 DELETE FROM locator
 WHERE session_secret_sha256 IN (SELECT owned.secret_sha256 FROM "grant" AS owned WHERE owned.user_id = sqlc.arg(user_id));
 
+-- name: DeleteInvitationLinksOfRemovedUser :exec
+-- The links of the invitation that made their account, and any of theirs (D246 section 2).
+DELETE FROM invitation_link
+WHERE invitation_id IN (SELECT made.id FROM invitation AS made WHERE made.made_user_id = sqlc.arg(user_id))
+   OR secret_sha256 IN (SELECT owned.secret_sha256 FROM "grant" AS owned WHERE owned.user_id = sqlc.arg(user_id));
+
 -- name: DeleteInvitationsOfRemovedUser :exec
--- The invitations their links are (D246 section 2).
-DELETE FROM invitation
-WHERE secret_sha256 IN (SELECT owned.secret_sha256 FROM "grant" AS owned WHERE owned.user_id = sqlc.arg(user_id));
+-- The invitation that made their account.
+DELETE FROM invitation WHERE made_user_id = sqlc.arg(user_id);
 
 -- name: DeleteGrantsDerivedFromRemovedUser :exec
 -- The credentials derived from theirs (D177), which held nothing but what theirs gave.

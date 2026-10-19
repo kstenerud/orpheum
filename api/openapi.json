@@ -2175,7 +2175,7 @@
             "type": "string"
           },
           "expiresAt": {
-            "description": "Unix milliseconds",
+            "description": "When the last live link ends, Unix milliseconds; 0 with none",
             "format": "int64",
             "type": "integer"
           },
@@ -2188,6 +2188,15 @@
             "format": "int64",
             "type": "integer"
           },
+          "liveLinks": {
+            "description": "Its links that still work; another link leaves them live",
+            "format": "int64",
+            "type": "integer"
+          },
+          "made": {
+            "$ref": "#/components/schemas/MadeAccountBody",
+            "description": "The account its use made; absent while it waits"
+          },
           "role": {
             "type": "string"
           }
@@ -2197,6 +2206,7 @@
           "role",
           "adminNote",
           "issuedAt",
+          "liveLinks",
           "expiresAt"
         ],
         "type": "object"
@@ -2830,6 +2840,29 @@
         },
         "required": [
           "locator"
+        ],
+        "type": "object"
+      },
+      "MadeAccountBody": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "description": "Unix milliseconds",
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "userId": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "userId",
+          "name",
+          "at"
         ],
         "type": "object"
       },
@@ -8767,7 +8800,7 @@
             "description": "Error"
           }
         },
-        "summary": "The invitations not yet used (admin)",
+        "summary": "Every invitation: those waiting, and those used with the account each made (admin)",
         "tags": [
           "Accounts"
         ]
@@ -8862,7 +8895,59 @@
             "description": "Error"
           }
         },
-        "summary": "Withdraw an invitation: its link admits no one (admin)",
+        "summary": "Withdraw an invitation still waiting: none of its links admits anyone (admin)",
+        "tags": [
+          "Accounts"
+        ]
+      }
+    },
+    "/invitations/{id}/links": {
+      "post": {
+        "operationId": "createInvitationLink",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssuedSecretBody"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Another link for an invitation still waiting; its other links stay live until one is used (admin; D318)",
         "tags": [
           "Accounts"
         ]

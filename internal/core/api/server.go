@@ -374,6 +374,8 @@ func roleRefusal(err error) *Error {
 		return invalidRequestAt(http.StatusUnprocessableEntity, "body.adminNote", auth.ErrNoNote.Error())
 	case errors.Is(err, auth.ErrNoInvitation):
 		return newError(http.StatusNotFound, CodeNotFound, auth.ErrNoInvitation.Error())
+	case errors.Is(err, auth.ErrInvitationUsed):
+		return newError(http.StatusConflict, CodeConflict, auth.ErrInvitationUsed.Error())
 	case errors.Is(err, auth.ErrNoRole):
 		return newError(http.StatusNotFound, CodeNotFound, "no such role")
 	case errors.Is(err, auth.ErrRoleNameTaken):

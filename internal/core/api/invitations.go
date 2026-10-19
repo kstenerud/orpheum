@@ -12,13 +12,29 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/auth"
 )
 
-// InvitationBody is an invitation not yet used: its role, and the admin's note of who it is for.
+// InvitationBody is an invitation: its role and the admin's note of who it is for; while it waits,
+// how many of its links still work and when the last ends; once used, the account it made (D311
+// §3, §4; D318).
 type InvitationBody struct {
-	ID        int64  `json:"id"`
-	Role      string `json:"role"`
-	AdminNote string `json:"adminNote"`
-	IssuedAt  int64  `doc:"Unix milliseconds" json:"issuedAt"`
-	ExpiresAt int64  `doc:"Unix milliseconds" json:"expiresAt"`
+	ID        int64            `json:"id"`
+	Role      string           `json:"role"`
+	AdminNote string           `json:"adminNote"`
+	IssuedAt  int64            `doc:"Unix milliseconds" json:"issuedAt"`
+	LiveLinks int              `doc:"Its links that still work; another link leaves them live" json:"liveLinks"`
+	ExpiresAt int64            `doc:"When the last live link ends, Unix milliseconds; 0 with none" json:"expiresAt"`
+	Made      *MadeAccountBody `doc:"The account its use made; absent while it waits" json:"made,omitempty"`
+}
+
+// MadeAccountBody is the account an invitation's use made, and when.
+type MadeAccountBody struct {
+	UserID int64  `json:"userId"`
+	Name   string `json:"name"`
+	At     int64  `doc:"Unix milliseconds" json:"at"`
+}
+
+// InvitationLinkOutput is another link for an invitation, its secret going after # in the address.
+type InvitationLinkOutput struct {
+	Body IssuedSecretBody
 }
 
 // InviteInput is the admin inviting someone to make their own account (D246 §2): the role it will
@@ -40,7 +56,7 @@ type InviteOutput struct {
 	}
 }
 
-// InvitationsOutput is every invitation not yet used, newest first.
+// InvitationsOutput is every invitation, newest first: waiting, and used with what each made.
 type InvitationsOutput struct {
 	Body struct {
 		Invitations []InvitationBody `json:"invitations"`
@@ -88,12 +104,20 @@ func (server *Server) registerInvitations() {
 	}, server.createInvitation)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "listInvitations", Method: http.MethodGet, Path: "/invitations",
-		Summary: "The invitations not yet used (admin)", Tags: tags,
+		Summary: "Every invitation: those waiting, and those used with the account each made (admin)", Tags: tags,
 	}, server.listInvitations)
 	huma.Register(server.humaAPI, huma.Operation{
-		OperationID: "withdrawInvitation", Method: http.MethodDelete, Path: "/invitations/{id}",
-		DefaultStatus: http.StatusNoContent, Summary: "Withdraw an invitation: its link admits no one (admin)",
+		OperationID: "createInvitationLink", Method: http.MethodPost, Path: "/invitations/{id}/links",
+		DefaultStatus: http.StatusCreated,
+		Summary: "Another link for an invitation still waiting; its other links stay live " +
+			"until one is used (admin; D318)",
 		Tags: tags,
+	}, server.createInvitationLink)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "withdrawInvitation", Method: http.MethodDelete, Path: "/invitations/{id}",
+		DefaultStatus: http.StatusNoContent,
+		Summary:       "Withdraw an invitation still waiting: none of its links admits anyone (admin)",
+		Tags:          tags,
 	}, server.withdrawInvitation)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getLinkKind", Method: http.MethodPost, Path: "/registration/link",
@@ -107,10 +131,31 @@ func (server *Server) registerInvitations() {
 }
 
 func invitationBody(invitation auth.Invitation) InvitationBody {
-	return InvitationBody{
+	body := InvitationBody{
 		ID: invitation.ID, Role: string(invitation.Role), AdminNote: invitation.AdminNote,
-		IssuedAt: invitation.IssuedAt.UnixMilli(), ExpiresAt: invitation.ExpiresAt.UnixMilli(),
+		IssuedAt: invitation.IssuedAt.UnixMilli(), LiveLinks: invitation.LiveLinks,
 	}
+	if !invitation.ExpiresAt.IsZero() {
+		body.ExpiresAt = invitation.ExpiresAt.UnixMilli()
+	}
+	if invitation.MadeUserID != 0 {
+		body.Made = &MadeAccountBody{
+			UserID: invitation.MadeUserID, Name: invitation.MadeName, At: invitation.MadeAt.UnixMilli(),
+		}
+	}
+	return body
+}
+
+func (server *Server) createInvitationLink(ctx context.Context, input *InvitationInput) (*InvitationLinkOutput, error) {
+	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	link, err := dependencies.Auth.AnotherInvitationLink(ctx, input.InvitationID)
+	if err != nil {
+		return nil, server.authError(ctx, "send an invitation again", err)
+	}
+	return &InvitationLinkOutput{Body: issuedSecretBody(link, dependencies.Discovery)}, nil
 }
 
 func (server *Server) createInvitation(ctx context.Context, input *InviteInput) (*InviteOutput, error) {
@@ -148,7 +193,7 @@ func (server *Server) listInvitations(
 	return output, err
 }
 
-// invitationBodies are the invitations not yet used, as the API shows them.
+// invitationBodies are the invitations, as the API shows them.
 func (server *Server) invitationBodies(ctx context.Context, dependencies *Dependencies) ([]InvitationBody, error) {
 	invitations, err := dependencies.Auth.Invitations(ctx)
 	if err != nil {

@@ -317,6 +317,7 @@ func (service *Service) RemoveUser(ctx context.Context, byUserID, userID int64, 
 			deleteOf func(context.Context, *int64) error
 		}{
 			{"locators", queries.DeleteLocatorsOfRemovedUser},
+			{"invitations' links", queries.DeleteInvitationLinksOfRemovedUser},
 			{"invitations", queries.DeleteInvitationsOfRemovedUser},
 			{"derived credentials", queries.DeleteGrantsDerivedFromRemovedUser},
 			{"credentials", queries.DeleteGrantsOfRemovedUser},
