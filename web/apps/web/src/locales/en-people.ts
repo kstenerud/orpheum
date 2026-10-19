@@ -44,7 +44,8 @@ export const enPeople = {
     registered: "Has a password",
     notRegistered: "Has not used their link yet",
     newLink: "New link",
-    newLinkConsequence: "{{name}}'s current link stops working.",
+    newLinkConsequence:
+      "Any link sent to {{name}} before keeps working until one of them is used. Using one sets a new password, ends the others and signs {{name}} out everywhere else.",
     newLinkConfirm: "Make a new link",
     issued: "{{name}}'s link: send it to them",
   },

@@ -116,30 +116,35 @@ func TestInvitation_AWithdrawnOneAndOneOfADeletedRoleAdmitNoOne(t *testing.T) {
 	}
 }
 
-func TestRegistration_ANewLinkWithdrawsTheOldAndTheOldPasswordWorksUntilANewOneIsSet(t *testing.T) {
+func TestRegistration_EveryLinkWorksUntilOneIsUsedAndTheOldPasswordUntilANewOneIsSet(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
 	id := fixture.createUser(t, "partner", "forgotten", RoleUser)
-	old, err := fixture.service.IssueRegistrationInvitation(ctx, id)
+	first, err := fixture.service.IssueRegistrationInvitation(ctx, id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	current, err := fixture.service.IssueRegistrationInvitation(ctx, id)
+	second, err := fixture.service.IssueRegistrationInvitation(ctx, id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = fixture.service.Register(ctx, old.Secret, "", "x", laptop)
-	if !errors.Is(err, ErrBadInvitation) {
-		t.Errorf("an older invitation: %v, want withdrawn", err)
+	// Both links sent work: a new one leaves the last live (D318 §1).
+	if kind, kindErr := fixture.service.KindOfLink(ctx, first.Secret); kindErr != nil || kind.Name != "partner" {
+		t.Errorf("the first link after a second was made: %+v, %v; want it still live", kind, kindErr)
 	}
 	_, err = fixture.service.SignIn(ctx, "partner", "forgotten", "192.0.2.1", laptop)
 	if err != nil {
 		t.Errorf("the old password before the new one is set: %v, want it to work (D218 §5)", err)
 	}
-	_, err = fixture.service.Register(ctx, current.Secret, "", "remembered", laptop)
+	_, err = fixture.service.Register(ctx, first.Secret, "", "remembered", laptop)
 	if err != nil {
 		t.Fatal(err)
+	}
+	// Using one ends the other (D318 §2), and the old password with it.
+	_, err = fixture.service.Register(ctx, second.Secret, "", "taken over", laptop)
+	if !errors.Is(err, ErrBadInvitation) {
+		t.Errorf("the other link after one was used: %v, want ended", err)
 	}
 	_, err = fixture.service.SignIn(ctx, "partner", "forgotten", "192.0.2.1", laptop)
 	if err == nil {

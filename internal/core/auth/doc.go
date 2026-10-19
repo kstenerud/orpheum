@@ -76,10 +76,10 @@
 //     TestInvitation_MakesTheAccountItsPersonFillsInOnceAndSignsTheDeviceIn and
 //     TestInvitation_AWithdrawnOneAndOneOfADeletedRoleAdmitNoOne.
 //
-//   - A registration link sets a forgotten password, once, and only the newest works; the old
-//     password works until the new one is set (D218 §5). Enforced by
-//     TestIssueRegistrationInvitation_LastsAsLongAsTheSettingSays and
-//     TestRegistration_ANewLinkWithdrawsTheOldAndTheOldPasswordWorksUntilANewOneIsSet.
+//   - A registration link sets a forgotten password, once; every link sent works until one is used,
+//     which ends the others (D318); the old password works until the new one is set (D218 §5).
+//     Enforced by TestIssueRegistrationInvitation_LastsAsLongAsTheSettingSays and
+//     TestRegistration_EveryLinkWorksUntilOneIsUsedAndTheOldPasswordUntilANewOneIsSet.
 //
 //   - A device is activated by a code it asks for and shows: eight safe32 characters, the same each
 //     time it asks while no one has entered it, for ten minutes; a person signed in enters it, read
