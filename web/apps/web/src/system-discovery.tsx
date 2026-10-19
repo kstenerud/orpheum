@@ -45,6 +45,21 @@ export function SystemDiscovery(): JSX.Element {
       reload();
     });
   };
+  // The key's own refusals in its words; any other failure as every request's.
+  const claiming = useRequest((cause) =>
+    problemText(t, cause, {
+      invalidRequest: t("system.discovery.wrongKey"),
+      conflict: t("system.discovery.notPending"),
+    }),
+  );
+  const claim = (key: string): void => {
+    claiming.runRequest(async (idempotencyKey) => {
+      dataOrThrow(
+        await api.POST("/system/discovery/claim", { body: { key }, ...idempotent(idempotencyKey) }),
+      );
+      reload();
+    });
+  };
   const leave = (): void => {
     runRequest(async (idempotencyKey) => {
       throwIfRefused(await api.DELETE("/system/discovery", idempotent(idempotencyKey)));
@@ -62,7 +77,11 @@ export function SystemDiscovery(): JSX.Element {
           value.baseUrl === "" ? (
             <ConnectForm isBusy={isBusy} onConnect={connect} />
           ) : (
-            <StandingView standing={value} onLeave={leave} />
+            <StandingView
+              standing={value}
+              claiming={{ isBusy: claiming.isBusy, problem: claiming.problem, onClaim: claim }}
+              onLeave={leave}
+            />
           )
         }
       />
@@ -101,9 +120,10 @@ function ConnectForm(props: {
   );
 }
 
-/** Where the core stands with its discovery, and leaving it. */
+/** Where the core stands with its discovery, claiming it by the account's key, and leaving it. */
 function StandingView(props: {
   readonly standing: Standing;
+  readonly claiming: Claiming;
   readonly onLeave: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -114,15 +134,7 @@ function StandingView(props: {
       {standing.realm === undefined ? null : (
         <p>{t("system.discovery.realm", { realm: standing.realm })}</p>
       )}
-      {standing.state === undefined ? null : <p>{t(`system.discovery.state.${standing.state}`)}</p>}
-      {standing.claimCode === undefined ? null : (
-        <p>
-          {t("system.discovery.claim", {
-            code: standing.claimCode,
-            until: dateTimeText(standing.claimExpiresAt, i18n.language),
-          })}
-        </p>
-      )}
+      <Enrolment standing={standing} claiming={props.claiming} />
       <Reach standing={standing} />
       {standing.lastHeartbeatAt === 0 ? null : (
         <p>
@@ -147,6 +159,84 @@ function StandingView(props: {
         onConfirm={props.onLeave}
       />
     </>
+  );
+}
+
+/**
+ * Where the server stands with its account: taken off it, its state, the account, and while it waits
+ * the key form and the operator's code.
+ */
+function Enrolment(props: {
+  readonly standing: Standing;
+  readonly claiming: Claiming;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { standing } = props;
+  return (
+    <>
+      {standing.removedAt === 0 ? null : (
+        <p role="alert">
+          {t("system.discovery.removed", {
+            at: dateTimeText(standing.removedAt, i18n.language),
+          })}
+        </p>
+      )}
+      {standing.state === undefined ? null : <p>{t(`system.discovery.state.${standing.state}`)}</p>}
+      {standing.account === undefined ? null : (
+        <p>{t("system.discovery.account", { account: standing.account })}</p>
+      )}
+      {standing.state === "pending" ? <KeyForm claiming={props.claiming} /> : null}
+      {standing.claimCode === undefined ? null : (
+        <p>
+          {t("system.discovery.claim", {
+            code: standing.claimCode,
+            until: dateTimeText(standing.claimExpiresAt, i18n.language),
+          })}
+        </p>
+      )}
+    </>
+  );
+}
+
+/** Claiming by the account's key: whether a claim is under way, why the last failed, and making one. */
+interface Claiming {
+  readonly isBusy: boolean;
+  readonly problem: string | undefined;
+  readonly onClaim: (key: string) => void;
+}
+
+/**
+ * The key the household's account made, which claims the server for it (the protocol's §2.2): typed
+ * as the account page shows it, spaces and dashes and all, for the discovery reads it loosely.
+ */
+function KeyForm(props: { readonly claiming: Claiming }): JSX.Element {
+  const { t } = useTranslation();
+  const { isBusy, problem, onClaim } = props.claiming;
+  const [key, setKey] = useState("");
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        onClaim(key.trim());
+      }}
+    >
+      <label>
+        {t("system.discovery.key")}{" "}
+        <input
+          autoComplete="off"
+          spellCheck={false}
+          value={key}
+          onChange={(event) => {
+            setKey(event.currentTarget.value);
+          }}
+        />
+      </label>{" "}
+      <button type="submit" disabled={isBusy || key.trim() === ""}>
+        {t("system.discovery.claimByKey")}
+      </button>
+      {problem === undefined ? null : <p role="alert">{problem}</p>}
+      <p>{t("system.discovery.keyHint")}</p>
+    </form>
   );
 }
 

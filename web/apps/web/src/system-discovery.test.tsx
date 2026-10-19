@@ -6,7 +6,16 @@ import "./i18n.ts";
 import { afterEach, expect, it } from "vitest";
 
 import { SystemDiscovery, serviceDiscoveryUrl } from "./system-discovery.tsx";
-import { buttonWithText, click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import {
+  buttonWithText,
+  click,
+  enter,
+  mount,
+  refusal,
+  servedBy,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 let mounted: Mounted | undefined;
@@ -22,6 +31,7 @@ const none = {
   published: [],
   probe: [],
   claimExpiresAt: 0,
+  removedAt: 0,
   lastHeartbeatAt: 0,
   deadEndsLastWeek: 0,
   portMapping: { isWanted: false, checkedAt: 0, mappings: [], problems: [] },
@@ -118,4 +128,83 @@ it("says where a claimed server is reached from, and warns of the discovery's de
   expect(text).toContain("through the router's NAT over IPv4: 3");
   expect(text).toContain("failed to connect: 1");
   expect(text).not.toContain("directly over IPv6");
+});
+
+const pendingAtTheService = {
+  ...none,
+  baseUrl: serviceDiscoveryUrl,
+  coreId: "k7xq2",
+  state: "pending",
+  claimCode: "WXYZ-2345",
+  claimExpiresAt: 1_790_000_000_000,
+};
+
+it("claims a waiting server by the key its household's account made, and names the account (the protocol's §2.2)", async () => {
+  const heard: Heard[] = [];
+  const claimed = {
+    ...pendingAtTheService,
+    state: "claimed",
+    claimCode: undefined,
+    claimExpiresAt: 0,
+    account: "household@example.com",
+  };
+  const services = servedBy(
+    {
+      "GET /system/discovery": [
+        [200, pendingAtTheService],
+        [200, claimed],
+      ],
+      "POST /system/discovery/claim": [200, claimed],
+    },
+    heard,
+  );
+  mounted = await mount(withServices(<SystemDiscovery />, services));
+  const container = mounted.container;
+  await enter(container.querySelector("form input"), "  abcd efgh-jkmn pqrs ");
+  await click(buttonWithText(container, "Claim"));
+  expect(heard.map((each) => each.methodAndPath)).toEqual([
+    "GET /system/discovery",
+    "POST /system/discovery/claim",
+    "GET /system/discovery",
+  ]);
+  // The key goes as typed but for the ends: the discovery reads its spaces and dashes.
+  expect(heard[1]?.body).toEqual({ key: "abcd efgh-jkmn pqrs" });
+  const text = container.textContent;
+  expect(text).toContain("Claimed: clients can find this server.");
+  expect(text).toContain("Enrolled with the account household@example.com.");
+  expect(container.querySelector("form")).toBeNull();
+});
+
+it("says a key the discovery refused was not accepted, and keeps the form", async () => {
+  const services = servedBy({
+    "GET /system/discovery": [200, pendingAtTheService],
+    "POST /system/discovery/claim": refusal(422, "invalid_request"),
+  });
+  mounted = await mount(withServices(<SystemDiscovery />, services));
+  const container = mounted.container;
+  await enter(container.querySelector("form input"), "ABCDEFGHJKMNPQRS");
+  await click(buttonWithText(container, "Claim"));
+  expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+    "The discovery didn't accept that key. Check it, or make a new one on your account.",
+  );
+  expect(container.querySelector("form input")).not.toBeNull();
+});
+
+it("tells a server removed from its account that another took its place (D312 §15)", async () => {
+  const services = servedBy({
+    "GET /system/discovery": [
+      200,
+      {
+        ...pendingAtTheService,
+        state: "released",
+        claimCode: undefined,
+        removedAt: 1_790_000_000_000,
+      },
+    ],
+  });
+  mounted = await mount(withServices(<SystemDiscovery />, services));
+  const text = mounted.container.textContent;
+  expect(text).toContain("Another server was enrolled with this server's account at");
+  expect(text).toContain("Clients no longer find this one through the discovery.");
+  expect(mounted.container.querySelector("form")).toBeNull();
 });

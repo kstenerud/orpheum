@@ -419,6 +419,16 @@ export const en = {
       },
       claim:
         "To claim this server, sign in at the discovery and enter the code {{code}}. It works until {{until}}.",
+      key: "Your account's key",
+      keyHint:
+        "Sign in to your account at the discovery, choose Make a key under Your server, and type the key here. It works for an hour.",
+      claimByKey: "Claim",
+      wrongKey:
+        "The discovery didn't accept that key. Check it, or make a new one on your account.",
+      notPending: "This server isn't waiting to be claimed.",
+      account: "Enrolled with the account {{account}}.",
+      removed:
+        "Another server was enrolled with this server's account at {{at}}, in its place. Clients no longer find this one through the discovery.",
       reachable: {
         publicIpv4: "Clients can reach it from anywhere, at its public IPv4 address.",
         publicIpv4OtherPort:
