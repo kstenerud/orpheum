@@ -36,16 +36,22 @@ esac
 exit 0
 """
 
-# The routes the install asks for: IPv4's answered with an address at home, or with FAKE_NO_HOME=1
-# with none; IPv6's with a public address, or with FAKE_NO_IPV6=1 with none.
+# The routes and addresses the install asks for: IPv4's route answered with an address at home, or
+# with FAKE_NO_HOME=1 with none; IPv6's route with a public address, or with FAKE_NO_IPV6=1 with none,
+# and then eth0's public address only with FAKE_IPV6_ADDRESS=1.
 FAKE_IP = """#!/bin/sh
-if [ "$1" = -6 ]; then
+case "$*" in
+"-6 route get "*)
     [ "$FAKE_NO_IPV6" = 1 ] && exit 2
-    echo "2606:4700:4700::1111 from :: via fe80::1 dev eth0 src 2a0f:2000:4753:8afc::20 metric 100"
-    exit 0
-fi
-[ "$FAKE_NO_HOME" = 1 ] && exit 0
-echo "1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20 uid 1000"
+    echo "2606:4700:4700::1111 from :: via fe80::1 dev eth0 src 2a0f:2000:4753:8afc::20 metric 100" ;;
+"-6 addr show dev eth0 scope global")
+    [ "$FAKE_IPV6_ADDRESS" = 1 ] && echo "    inet6 2a0f:2000:4753:8afc::47f/128 scope global dynamic" ;;
+"-4 route show default") echo "default via 192.168.1.1 dev eth0 proto static" ;;
+*)
+    [ "$FAKE_NO_HOME" = 1 ] && exit 0
+    echo "1.1.1.1 via 192.168.1.1 dev eth0 src 192.168.1.20 uid 1000" ;;
+esac
+exit 0
 """
 
 
@@ -61,7 +67,14 @@ class Install(unittest.TestCase):
         self.log = self.root / "log"
         self.env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "HOME": str(self.root),
                     "FAKE_LOG": str(self.log)}
-        self.script = TEMPLATE.read_text().replace("{{.Image}}", "ghcr.io/example/orpheum:v1.2.3")
+        # The kernel's settings the script reads, the test's own: forwarding on, as Docker makes it.
+        self.proc_sys = self.root / "proc-sys"
+        for setting, value in (("all/forwarding", "1"), ("eth0/accept_ra", "1")):
+            (self.proc_sys / "net/ipv6/conf" / setting).parent.mkdir(parents=True, exist_ok=True)
+            (self.proc_sys / "net/ipv6/conf" / setting).write_text(value + "\n")
+        self.script = (TEMPLATE.read_text().replace("{{.Image}}", "ghcr.io/example/orpheum:v1.2.3")
+                       .replace("procSys=/proc/sys", f"procSys={self.proc_sys}")
+                       .replace("lsmList=/sys/kernel/security/lsm", f"lsmList={self.root / 'lsm'}"))
         self.dir = self.root / "orpheum"
 
     def install(self, *args: str, **env: str) -> subprocess.CompletedProcess:
@@ -119,6 +132,26 @@ class Install(unittest.TestCase):
         self.assertIn("a public IPv6 address: yes", done.stderr)
         done = self.install("--media", str(films), "--dir", str(self.dir), FAKE_NO_IPV6="1")
         self.assertIn("a public IPv6 address: no", done.stderr)
+
+    def test_an_ipv6_address_with_no_route_out_while_forwarding_is_named_with_its_fix(self):
+        films = self.root / "films"
+        films.mkdir()
+        done = self.install("--media", str(films), "--dir", str(self.dir), FAKE_NO_IPV6="1", FAKE_IPV6_ADDRESS="1")
+        self.assertIn("a public IPv6 address: yes, but no route out by it", done.stderr)
+        self.assertIn("net.ipv6.conf.eth0.accept_ra = 2", done.stderr)
+        (self.proc_sys / "net/ipv6/conf/eth0/accept_ra").write_text("2\n")
+        done = self.install("--media", str(films), "--dir", str(self.dir), FAKE_NO_IPV6="1", FAKE_IPV6_ADDRESS="1")
+        self.assertIn("a public IPv6 address: no", done.stderr)
+
+    def test_landlock_is_yes_or_no_from_the_kernels_list_and_unknown_where_it_cannot_be_read(self):
+        films = self.root / "films"
+        films.mkdir()
+        done = self.install("--media", str(films), "--dir", str(self.dir))
+        self.assertIn("Landlock: cannot be seen from here", done.stderr)
+        (self.root / "lsm").write_text("lockdown,capability,landlock,yama,apparmor\n")
+        self.assertIn("Landlock: yes", self.install("--dir", str(self.dir)).stderr)
+        (self.root / "lsm").write_text("lockdown,capability,yama,apparmor\n")
+        self.assertIn("Landlock: no", self.install("--dir", str(self.dir)).stderr)
 
     def test_a_deployment_that_cannot_begin_stops_and_says_why(self):
         films = self.root / "films"
