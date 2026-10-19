@@ -20919,8 +20919,9 @@ least of their worries. … The more likely situation will be: Someone's core di
 want to set up a new one, but they don't remember their password … only to discover they now have to
 wait days just to get their core attached so that their kids can watch videos again."*
 
-1. **An account holds an e-mail address, verified before it signs in or resets anything**, and
-   the sign-in form takes the username or the address. The failed sign-in counts run over five
+1. *(Revised by D317 the same day: there is no username.)* **An account holds an e-mail address,
+   verified before it signs in or resets anything**, and the sign-in form takes the username or the
+   address. The failed sign-in counts run over five
    minutes, not fifteen (orpheum-connect).
 2. **A forgotten password or username is sent to the address**: "forgot password" sends a link
    (once, about 30 minutes, its secret in the fragment, spent only by a button on its page, D312
@@ -20946,3 +20947,36 @@ wait days just to get their core attached so that their kids can watch videos ag
    had it.
 
 **Status:** Decided 2026-10-19; §7 and §8 the same day.
+
+## D317 — The service's accounts have no username: an e-mail address and a password make one, it signs in unverified, does nothing until verified, and is deleted after seven days unverified
+
+**Decided** (2026-10-19), by the project owner, revising D310 §11, §13 and D316 §1, §2: *"I don't
+think we need usernames for orpheum-connect. They can make usernames for their own core but we
+don't need them at this elevation because nobody but the user himself would ever see it, and it's
+just something that he would forget. An unverified account is purged after 7 days if unverified.
+The address/password CAN be used to sign in during this time (in case they switch browsers), but
+the account can't do anything until verified."* Earlier the same day: *"A new user who uses an
+invite link to create an account can set up an email address and password, which gives them an
+account. However, they can't do anything with that account (i.e. enrol a core) until they verify
+their email. Once verified, the account becomes fully active. If they change email providers, they
+can change their email on account, but the old account still works for 24 hours and a warning
+email is sent there so that the user can cancel the migration to the new email (this part can be
+done after closed beta)."*
+
+1. **No username on the service.** An invitation's redemption asks for an e-mail address and a
+   password; the address is what the account signs in by, compared without regard to case. A
+   core's own accounts keep their usernames (D218); the two are unrelated, as D310 §11 has it.
+2. **An unverified account signs in, and does nothing else**: no core key, no passkey, no change
+   but resending its verification link and signing out. Verifying the address makes it fully
+   active.
+3. **An account unverified after seven days is deleted**, its address freed; its invitation's
+   record says so, for the operator to issue another (D311 §5).
+4. **A verification link** lasts 24 hours, is used once, carries its secret in the fragment and is
+   spent by a button on its page (D312 §10, §11); a new one replaces it.
+5. **Changing the address comes after the closed beta**: the new one verified, the old one still
+   signing in for 24 hours and told, with a way to cancel the change from it. Until then the address
+   is not changed; one lost is recovered by a new invitation for the account (D312 §3).
+6. **"Forgot username" goes**, there being none; "forgot password" sends its link to the address
+   (D316 §2), which an unverified account cannot use.
+
+**Status:** Decided 2026-10-19.
