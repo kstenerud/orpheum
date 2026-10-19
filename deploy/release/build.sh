@@ -42,11 +42,24 @@ install() {
 	sh "$(dirname "$0")/../../internal/deployment/templates/install.sh" --no-pull --image "$image" --dir "$dir" "$@"
 }
 
+# mediaFirst refuses, before anything is built or loaded, a first install into $dir that names no
+# folder of films and series, which the install script would refuse only after the build.
+mediaFirst() {
+	[ ! -f "$dir/values.toml" ] || return 0
+	for arg in "$@"; do
+		[ "$arg" != --media ] || return 0
+	done
+	echo "build: $dir holds no deployment yet: name the folders that hold the films and series," \
+		"--media /path/to/films (MEDIA=\"/path/to/films /path/to/shows\" with make)" >&2
+	exit 2
+}
+
 if [ "$#" -ge 3 ] && [ "$1" = --load ]; then
 	archive=$2
 	mkdir -p "$3/run"
 	dir=$(cd "$3" && pwd)
 	shift 3
+	mediaFirst "$@"
 	case $archive in
 	*.gz) loaded=$(gunzip -c "$archive" | docker load) ;;
 	*) loaded=$(docker load --input "$archive") ;;
@@ -78,6 +91,7 @@ if [ "$1" = --checkout ]; then
 		force=true
 		shift
 	fi
+	mediaFirst "$@"
 	commit=$(git -C "$checkout" rev-parse HEAD)
 	short=$(printf '%s' "$commit" | cut -c1-12)
 	tag=$(git -C "$checkout" tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)
@@ -145,6 +159,7 @@ if ! git -C "$checkout" rev-parse --quiet --verify "refs/tags/$tag" >/dev/null; 
 fi
 mkdir -p "$dir/run"
 dir=$(cd "$dir" && pwd)
+mediaFirst "$@"
 image="orpheum:$tag"
 
 source=$(mktemp -d)

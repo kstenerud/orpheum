@@ -529,6 +529,7 @@ deploy: ## Deploy this checkout's commit to DIR, on this machine (MEDIA= the fir
 .PHONY: deploy-published
 deploy-published: ## Install the published image TAG to DIR as a household does: its own install script, piped to sh (MEDIA= the first time)
 	@test -n "$(TAG)" -a -n "$(DIR)" || { echo "usage: make deploy-published TAG=<version, or latest> DIR=<deployment directory> [MEDIA=<folder>...]" >&2; exit 2; }
+	@test -f "$(DIR)/values.toml" -o -n "$(MEDIA)" || { echo "$(DIR) holds no deployment yet: name the folders that hold the films and series, MEDIA=\"/path/to/films /path/to/shows\"" >&2; exit 2; }
 	docker run --rm ghcr.io/kstenerud/orpheum:$(TAG) install-script | sh -s -- --dir "$(DIR)" $(foreach folder,$(MEDIA),--media "$(folder)")
 
 .PHONY: generate
