@@ -25,6 +25,10 @@
 //   - A password is stored only as an argon2id PHC string, with RFC 9106's second parameters.
 //     Enforced by TestHashPassword_IsAPHCStringThatVerifies and TestCreateUser_StoresOnlyTheHash.
 //
+//   - Every failed sign-in, whatever failed, is answered no sooner than signin_failure_answer_seconds
+//     after it began, and a success at once (D312 §17). Enforced by
+//     TestSignIn_EveryFailureIsAnsweredAtOneTimeAndASuccessAtOnce.
+//
 //   - A sign-in under older costs re-hashes the password. Enforced by
 //     TestSignIn_RehashesAPasswordMadeUnderOlderCosts.
 //

@@ -182,6 +182,32 @@ func TestSignIn_SaysNothingAboutWhichPartWasWrong(t *testing.T) {
 	}
 }
 
+// Every failed sign-in is answered at one time after it began, whatever failed, the limits' refusal
+// too, and a success at once (D312 §17).
+func TestSignIn_EveryFailureIsAnsweredAtOneTimeAndASuccessAtOnce(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	settingstest.Set(t, fixture.settings, settings.SignInFailureLimit, "1") // the third is refused by it
+	fixture.createUser(t, "partner", "right", RoleUser)
+	const answer = 2 * time.Second
+	for _, attempt := range []struct{ name, password, address string }{
+		{"partner", "wrong", "192.0.2.1"}, {"nobody", "right", "192.0.2.1"}, {"partner", "right", "192.0.2.1"},
+	} {
+		began := fixture.clock.Now()
+		_, err := fixture.service.SignIn(ctx, attempt.name, attempt.password, attempt.address, laptop)
+		if took := fixture.clock.Now().Sub(began); err == nil || took != answer {
+			t.Errorf("SignIn(%s, %s): %v after %s; want a failure after %s", attempt.name, attempt.password,
+				err, took, answer)
+		}
+	}
+	began := fixture.clock.Now()
+	if _, err := fixture.service.SignIn(ctx, "partner", "right", "198.51.100.1", laptop); err != nil ||
+		!fixture.clock.Now().Equal(began) {
+		t.Errorf("the right password: %v after %s; want signed in at once", err, fixture.clock.Now().Sub(began))
+	}
+}
+
 // Failed sign-ins are limited by the setting for a person on one site, a site (an IPv6 /48 is one,
 // however many addresses it uses) at four times it, and past ten times it a person everywhere is
 // slowed, not refused; a stranger's failures elsewhere do not lock the person out, and the limits
@@ -192,9 +218,11 @@ func TestSignIn_RateLimitsRepeatedFailuresBySetting(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
-	const limit, window = 3, time.Minute
+	const limit, window = 3, 5 * time.Minute
 	settingstest.Set(t, fixture.settings, settings.SignInFailureLimit, "3")
-	settingstest.Set(t, fixture.settings, settings.SignInFailureWindowSeconds, "60")
+	settingstest.Set(t, fixture.settings, settings.SignInFailureWindowSeconds, "300")
+	// Each failure is answered after the floor, which moves the fake clock; thirty at the starting
+	// two seconds would outlast the minute this test counts them in, so the window is longer.
 	fixture.createUser(t, "partner", "right", RoleUser)
 	fixture.createUser(t, "someone", "right", RoleUser)
 	for index := range limit {

@@ -26,6 +26,7 @@ const (
 	ShouldCheckForUpdates                          Key = "should_check_for_updates"
 	SignInFailureLimit                             Key = "signin_failure_limit"
 	SignInFailureWindowSeconds                     Key = "signin_failure_window_seconds"
+	SignInFailureAnswerSeconds                     Key = "signin_failure_answer_seconds"
 	SessionIdleExpiryHours                         Key = "session_idle_expiry_hours"
 	SessionLastUsedWriteIntervalSeconds            Key = "session_last_used_write_interval_seconds"
 	Argon2MemoryKiB                                Key = "argon2_memory_kib"
@@ -208,6 +209,10 @@ func buildRegistry() []Definition {
 		sourced(durationSetting(SignInFailureWindowSeconds, time.Second, "900", 1, 7*24*3600,
 			"how long, in seconds, a failed sign-in counts toward the limit"),
 			"best guess (M1): fifteen minutes, a common lock-out window"),
+		sourced(durationSetting(SignInFailureAnswerSeconds, time.Second, "2", 1, 60,
+			"seconds after it arrived that a failed sign-in is answered, whatever failed, so its timing "+
+				"tells no name or realm apart (D312 §17); a success is answered at once"),
+			"D312 §17: longer than a password hash takes under the hash slots' usual wait"),
 		sourced(durationSetting(SessionIdleExpiryHours, time.Hour, "2160", 1, 10*365*24,
 			"hours a session may go unused before it ends; 90 days, so a television rarely signs out (D154)"),
 			"D154: 90 days, so a television rarely signs out"),

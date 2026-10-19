@@ -61,6 +61,18 @@ func (service *Service) failurePolicy(ctx context.Context) (int64, time.Duration
 	return maxFailures, window, nil
 }
 
+// answerFailureAt waits until signin_failure_answer_seconds after began; a setting that cannot be read
+// waits nothing, the failure being told all the same.
+func (service *Service) answerFailureAt(ctx context.Context, began time.Time) {
+	answer, err := service.settings.Duration(ctx, settings.SignInFailureAnswerSeconds)
+	if err != nil {
+		return
+	}
+	if wait := began.Add(answer).Sub(service.clock.Now()); wait > 0 {
+		_ = service.clock.Sleep(ctx, wait) //nolint:errcheck // a request that ended needs no answer
+	}
+}
+
 // sessionIdleExpiry reads how long a session may go unused.
 func (service *Service) sessionIdleExpiry(ctx context.Context) (time.Duration, error) {
 	idleExpiry, err := service.settings.Duration(ctx, settings.SessionIdleExpiryHours)

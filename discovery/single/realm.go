@@ -11,13 +11,14 @@ import (
 	"github.com/kstenerud/orpheum/discovery/proof"
 )
 
-// realmAnswerWait is how long a realm sign-in that fails takes, whatever part of it was wrong: the
-// core's refusal comes back well within it, so an unknown realm cannot be told by its quicker answer
-// (D297 §2).
-const realmAnswerWait = time.Second
+// realmAnswerWait is how long a realm sign-in that fails takes, whatever part of it was wrong, long
+// enough to cover a core's round trip (D297 §2, D312 §17).
+const realmAnswerWait = 5 * time.Second
 
-// realmAskWait is how long a realm sign-in waits for the core's answer.
-const realmAskWait = 10 * time.Second
+// realmAskWait is how long a realm sign-in waits for the core's answer: no longer than a failure's
+// answer waits, so a core slow to refuse is answered at the same moment as an unknown realm. A wait
+// of 10 seconds beside an answer at 1 told a known realm by a refusal later than the second.
+const realmAskWait = realmAnswerWait
 
 // realmSignIn finds the core by a person's realm sign-in: passed to the core, which checks it under
 // their key, and answered, when it holds, as a link's locate is, with the core's identity key and its

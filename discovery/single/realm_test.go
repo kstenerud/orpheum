@@ -19,6 +19,10 @@ var realmKey = proof.RealmKey("karlnas", "karl", "a password")
 
 // answerRealms is a core holding the signalling connection that takes a realm sign-in whose ask holds
 // under karl's key, answering its tag, and refuses any other.
+// slowRefusal is how long a slow core takes to refuse a realm sign-in: past the second the answer once
+// waited, inside the time it waits now.
+const slowRefusal = 3 * time.Second
+
 func answerRealms(t *testing.T, built clientStage) {
 	t.Helper()
 	connection := built.dial(t, built.token)
@@ -30,6 +34,9 @@ func answerRealms(t *testing.T, built clientStage) {
 			}
 			reply := discoveryproto.SignalMessage{
 				Type: discoveryproto.SignalRefusal, OfferID: asked.OfferID, Reason: "the ask does not hold",
+			}
+			if asked.Type == discoveryproto.SignalRealm && asked.Person == proof.RealmPerson("karlnas", "slow") {
+				built.advance(slowRefusal) // a core that takes its time to refuse
 			}
 			if asked.Type == discoveryproto.SignalRealm && asked.Person == proof.RealmPerson("karlnas", "karl") &&
 				proof.VerifyRealmAsk(realmKey, "karlnas", asked.Person, asked.Ask) {
@@ -126,5 +133,34 @@ func TestRealmSignIn_AnyPartWrongIsTheSameNotFoundAfterTheSameWait(t *testing.T)
 		if len(waited) == 0 || slices.ContainsFunc(waited, isAnother) {
 			t.Errorf("the refusals waited %v; want each the whole %s, the stage's clock still", waited, realmAnswerWait)
 		}
+	}
+}
+
+// A core slow to refuse is answered at the moment an unknown realm is, the wait for the core being no
+// longer than a failure's answer, so no realm is told by a later refusal (D312 §17).
+func TestRealmSignIn_ACoreSlowToRefuseIsAnsweredWhenAnUnknownRealmIs(t *testing.T) {
+	t.Parallel()
+	if realmAskWait > realmAnswerWait {
+		t.Errorf("a realm sign-in waits %s for its core, past the %s a failure is answered at", realmAskWait,
+			realmAnswerWait)
+	}
+	built := newClientStageWithRealm(t, "karlnas")
+	answerRealms(t, built)
+	slow := karlsSignIn()
+	slow.Person = proof.RealmPerson("karlnas", "slow")
+	before := built.clock()
+	var answered discoveryproto.ClientRealmResponse
+	if code, refusal := built.ask(t, discoveryproto.PathRealmSignIn, slow, &answered); code != http.StatusNotFound ||
+		refusal != discoveryproto.RefusalNotFound {
+		t.Errorf("a slow core's refusal answered %d %q; want not_found", code, refusal)
+	}
+	built.mutex.Lock()
+	took := built.now.Sub(before)
+	for _, wait := range built.waited {
+		took += wait
+	}
+	built.mutex.Unlock()
+	if took != realmAnswerWait {
+		t.Errorf("a refusal that took the core %s was answered after %s; want %s", slowRefusal, took, realmAnswerWait)
 	}
 }
