@@ -146,7 +146,12 @@ writeDeployment
 (cd "$dir" && docker compose up -d --remove-orphans)
 
 say "what this machine has (the server runs without each, and says so on its System page):"
-if grep -qs landlock /sys/kernel/security/lsm; then
+# The kernel's security modules, which a container usually cannot see though its host has them: the
+# node asks the kernel itself, and its System page says (internal/node/confine).
+lsmList=/sys/kernel/security/lsm
+if [ ! -r "$lsmList" ]; then
+	say "  Landlock: cannot be seen from here, as in a container; the server's System page says whether FFmpeg runs confined"
+elif grep -qs landlock "$lsmList"; then
 	say "  Landlock: yes, so every FFmpeg run is confined"
 else
 	say "  Landlock: no; FFmpeg runs unconfined (add lsm=landlock,... to the kernel's command line to have it)"
@@ -158,11 +163,25 @@ else
 fi
 # A public IPv6 address (2000::/3) to reach the internet from: where the house shares its IPv4, as
 # DS-Lite does, it is the way a device away from home reaches the server without a relay (D314 §4).
-if ip -6 route get 2606:4700:4700::1111 2>/dev/null | grep -qE ' src [23][0-9a-f]{0,3}:'; then
-	say "  a public IPv6 address: yes, so devices away from home that have IPv6 reach it directly"
-else
+# A machine that forwards IPv6, as Docker makes it, ignores the router's announcements and with them
+# its default route unless the interface's accept_ra is 2 (docs/users/setup-problems.md).
+procSys=/proc/sys
+ipv6Report() {
+	if ip -6 route get 2606:4700:4700::1111 2>/dev/null | grep -qE ' src [23][0-9a-f]{0,3}:'; then
+		say "  a public IPv6 address: yes, so devices away from home that have IPv6 reach it directly"
+		return
+	fi
+	dev=$(ip -4 route show default 2>/dev/null | sed -n 's/.* dev \([^ ]*\).*/\1/p' | head -n 1)
+	if [ -n "$dev" ] && ip -6 addr show dev "$dev" scope global 2>/dev/null | grep -qE 'inet6 [23][0-9a-f]{0,3}:' &&
+		[ "$(cat "$procSys/net/ipv6/conf/all/forwarding" 2>/dev/null)" = 1 ] &&
+		[ "$(cat "$procSys/net/ipv6/conf/$dev/accept_ra" 2>/dev/null)" != 2 ]; then
+		say "  a public IPv6 address: yes, but no route out by it: this machine forwards IPv6 (Docker turns that on), so it ignores the router's announcements;"
+		say "    as root: echo 'net.ipv6.conf.$dev.accept_ra = 2' > /etc/sysctl.d/90-orpheum-ipv6.conf, then restart the machine"
+		return
+	fi
 	say "  a public IPv6 address: no; devices away from home reach it only where IPv4 lets them (give this machine IPv6: a Proxmox container's network takes IPv6 SLAAC)"
-fi
+}
+ipv6Report
 if grep -qs bbr /proc/sys/net/ipv4/tcp_available_congestion_control || [ -d /sys/module/tcp_bbr ]; then
 	say "  BBR: yes, which keeps a film's rate on a lossy link"
 else
