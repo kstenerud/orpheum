@@ -174,13 +174,14 @@ function Enrolment(props: {
   const { standing } = props;
   return (
     <>
-      {standing.removedAt === 0 ? null : (
+      {/* A server older than removedAt sends none: missing is not removed. */}
+      {standing.removedAt > 0 ? (
         <p role="alert">
           {t("system.discovery.removed", {
             at: dateTimeText(standing.removedAt, i18n.language),
           })}
         </p>
-      )}
+      ) : null}
       {standing.state === undefined ? null : <p>{t(`system.discovery.state.${standing.state}`)}</p>}
       {standing.account === undefined ? null : (
         <p>{t("system.discovery.account", { account: standing.account })}</p>
