@@ -315,6 +315,46 @@ func TestPairing_TooManyWrongCodesLimitThePersonEnteringThem(t *testing.T) {
 		"too many failed sign-ins; wait and try again")
 }
 
+// The admin sends an invitation another link, which leaves the first live; using one makes the
+// account, ends the other, and the list then names the account it made, with nothing to send again
+// or withdraw (D318; D311 §4).
+func TestInvitations_AnotherLinkAndTheListNamingTheAccountTheUsedOneMade(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	invitation := harness.invite(t, admin, "user", "the cousin")
+	path := fmt.Sprintf("/invitations/%d/links", invitation.Invitation.ID)
+	another := harness.do(t, http.MethodPost, path, admin, nil)
+	var link IssuedSecretBody
+	if err := json.Unmarshal([]byte(another.body), &link); err != nil || another.status != http.StatusCreated ||
+		link.Secret == "" || link.Secret == invitation.Link.Secret {
+		t.Fatalf("POST %s = %d %s; want another link", path, another.status, another.body)
+	}
+	listed := harness.do(t, http.MethodGet, "/invitations", admin, nil)
+	if !strings.Contains(listed.body, `"liveLinks":2`) {
+		t.Errorf("GET /invitations = %s; want two live links", listed.body)
+	}
+	registered := harness.do(t, http.MethodPost, "/registration", "", map[string]any{
+		"secret": link.Secret, "name": "cousin", "password": "cousin-password", "device": testDevice,
+	})
+	readSignIn(t, registered)
+	wantError(t, harness.do(t, http.MethodPost, "/registration", "", map[string]any{
+		"secret": invitation.Link.Secret, "name": "another", "password": "x", "device": testDevice,
+	}), http.StatusUnauthorized, CodeAuthRequired)
+	var after InvitationsOutput
+	answer := harness.do(t, http.MethodGet, "/invitations", admin, nil)
+	if err := json.Unmarshal([]byte(answer.body), &after.Body); err != nil || len(after.Body.Invitations) != 1 ||
+		after.Body.Invitations[0].Made == nil || after.Body.Invitations[0].Made.Name != "cousin" ||
+		after.Body.Invitations[0].LiveLinks != 0 {
+		t.Errorf("GET /invitations = %s; want the used invitation naming cousin, with no live link", answer.body)
+	}
+	wantError(t, harness.do(t, http.MethodPost, path, admin, nil), http.StatusConflict, CodeConflict)
+	withdraw := fmt.Sprintf("/invitations/%d", invitation.Invitation.ID)
+	wantError(t, harness.do(t, http.MethodDelete, withdraw, admin, nil), http.StatusConflict, CodeConflict)
+	wantError(t, harness.do(t, http.MethodPost, "/invitations/999/links", admin, nil),
+		http.StatusNotFound, CodeNotFound)
+}
+
 // invite makes an invitation into role, with the admin's note, and returns it and its link.
 func (harness testHarness) invite(t *testing.T, admin, role, note string) InvitationAndLink {
 	t.Helper()

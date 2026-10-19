@@ -190,6 +190,9 @@ func (service *Service) DeleteRole(ctx context.Context, roleID int64) error {
 		}); err != nil {
 			return fmt.Errorf("withdraw role %d's invitations: %w", roleID, err)
 		}
+		if err = queries.DeleteInvitationLinksOfRole(ctx, roleID); err != nil {
+			return fmt.Errorf("delete role %d's invitations' links: %w", roleID, err)
+		}
 		if err = queries.DeleteInvitationsOfRole(ctx, roleID); err != nil {
 			return fmt.Errorf("delete role %d's invitations: %w", roleID, err)
 		}

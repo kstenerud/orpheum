@@ -91,7 +91,9 @@ INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at,
 INSERT INTO locator (session_secret_sha256, hash, issued_at) VALUES (X'01', X'0E0F', 1790000000000);
 INSERT INTO realm_key (user_id, master_realm, key, made_at) VALUES (1, 'karlnas', X'0A0B', 1790000000000);
 INSERT INTO guessed_match (item_id, guessed_at) VALUES (1, 1790000000000);
-INSERT INTO invitation (id, secret_sha256, role_id, admin_note) VALUES (1, X'02', 2, 'Grandma');
+INSERT INTO invitation (id, role_id, admin_note, issued_at, made_user_id, made_at)
+  VALUES (1, 2, 'Grandma', 1790000000000, NULL, NULL);
+INSERT INTO invitation_link (secret_sha256, invitation_id) VALUES (X'02', 1);
 INSERT INTO setting (key, value_json, set_by_user_id, set_at)
   VALUES ('should_check_for_updates', 'false', 1, 1790000000000);
 INSERT INTO secret (scope, user_id, name, key_id, nonce, ciphertext, last_chars, set_by_user_id, set_at)

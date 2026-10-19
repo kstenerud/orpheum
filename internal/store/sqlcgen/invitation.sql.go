@@ -18,6 +18,25 @@ func (q *Queries) DeleteInvitation(ctx context.Context, id int64) error {
 	return err
 }
 
+const deleteInvitationLinks = `-- name: DeleteInvitationLinks :exec
+DELETE FROM invitation_link WHERE invitation_id = ?1
+`
+
+func (q *Queries) DeleteInvitationLinks(ctx context.Context, invitationID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteInvitationLinks, invitationID)
+	return err
+}
+
+const deleteInvitationLinksOfRole = `-- name: DeleteInvitationLinksOfRole :exec
+DELETE FROM invitation_link
+WHERE invitation_id IN (SELECT id FROM invitation WHERE role_id = ?1)
+`
+
+func (q *Queries) DeleteInvitationLinksOfRole(ctx context.Context, roleID int64) error {
+	_, err := q.db.ExecContext(ctx, deleteInvitationLinksOfRole, roleID)
+	return err
+}
+
 const deleteInvitationsOfRole = `-- name: DeleteInvitationsOfRole :exec
 DELETE FROM invitation WHERE role_id = ?1
 `
@@ -28,96 +47,138 @@ func (q *Queries) DeleteInvitationsOfRole(ctx context.Context, roleID int64) err
 }
 
 const getInvitation = `-- name: GetInvitation :one
-SELECT invitation.id, invitation.secret_sha256 FROM invitation WHERE invitation.id = ?1
+SELECT invitation.id, invitation.made_user_id FROM invitation WHERE invitation.id = ?1
 `
 
 type GetInvitationRow struct {
-	ID           int64
-	SecretSha256 []byte
+	ID         int64
+	MadeUserID *int64
 }
 
 func (q *Queries) GetInvitation(ctx context.Context, id int64) (GetInvitationRow, error) {
 	row := q.db.QueryRowContext(ctx, getInvitation, id)
 	var i GetInvitationRow
-	err := row.Scan(&i.ID, &i.SecretSha256)
+	err := row.Scan(&i.ID, &i.MadeUserID)
 	return i, err
 }
 
 const getInvitationBySecret = `-- name: GetInvitationBySecret :one
-SELECT invitation.id, invitation.role_id, invitation.admin_note
-FROM invitation
-WHERE invitation.secret_sha256 = ?1
+SELECT invitation.id, invitation.role_id, invitation.admin_note, invitation.made_user_id
+FROM invitation_link
+JOIN invitation ON invitation.id = invitation_link.invitation_id
+WHERE invitation_link.secret_sha256 = ?1
 `
 
 type GetInvitationBySecretRow struct {
-	ID        int64
-	RoleID    int64
-	AdminNote string
+	ID         int64
+	RoleID     int64
+	AdminNote  string
+	MadeUserID *int64
 }
 
+// The invitation one of whose links secret is.
 func (q *Queries) GetInvitationBySecret(ctx context.Context, secretSha256 []byte) (GetInvitationBySecretRow, error) {
 	row := q.db.QueryRowContext(ctx, getInvitationBySecret, secretSha256)
 	var i GetInvitationBySecretRow
-	err := row.Scan(&i.ID, &i.RoleID, &i.AdminNote)
+	err := row.Scan(
+		&i.ID,
+		&i.RoleID,
+		&i.AdminNote,
+		&i.MadeUserID,
+	)
 	return i, err
 }
 
 const insertInvitation = `-- name: InsertInvitation :one
 
-INSERT INTO invitation (secret_sha256, role_id, admin_note)
+INSERT INTO invitation (role_id, admin_note, issued_at)
 VALUES (?1, ?2, ?3)
 RETURNING id
 `
 
 type InsertInvitationParams struct {
-	SecretSha256 []byte
-	RoleID       int64
-	AdminNote    string
+	RoleID    int64
+	AdminNote string
+	IssuedAt  int64
 }
 
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Invitations not yet used (D246 section 2): each a single-use link's grant, the role the account
-// will have, and the admin's note of who it is for. Registering through one makes the account.
+// Invitations (D246 section 2): the role the account will have and the admin's note of who it is
+// for, with one or more links, each a single-use grant; using any one makes the account and ends
+// the others (D318), and the invitation then names the account it made (D311 section 4).
 func (q *Queries) InsertInvitation(ctx context.Context, arg InsertInvitationParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, insertInvitation, arg.SecretSha256, arg.RoleID, arg.AdminNote)
+	row := q.db.QueryRowContext(ctx, insertInvitation, arg.RoleID, arg.AdminNote, arg.IssuedAt)
 	var id int64
 	err := row.Scan(&id)
 	return id, err
 }
 
-const listLiveInvitations = `-- name: ListLiveInvitations :many
-SELECT invitation.id, invitation.admin_note, role.name AS role_name, "grant".issued_at, "grant".expires_at
-FROM invitation
-JOIN "grant" ON "grant".secret_sha256 = invitation.secret_sha256
-JOIN role ON role.id = invitation.role_id
-WHERE "grant".revoked_at IS NULL AND ("grant".expires_at IS NULL OR "grant".expires_at > ?1)
-ORDER BY "grant".issued_at DESC, invitation.id DESC
+const insertInvitationLink = `-- name: InsertInvitationLink :exec
+INSERT INTO invitation_link (secret_sha256, invitation_id)
+VALUES (?1, ?2)
 `
 
-type ListLiveInvitationsRow struct {
-	ID        int64
-	AdminNote string
-	RoleName  string
-	IssuedAt  int64
-	ExpiresAt *int64
+type InsertInvitationLinkParams struct {
+	SecretSha256 []byte
+	InvitationID int64
 }
 
-// The invitations whose link still works, newest first, for the admin's list of people.
-func (q *Queries) ListLiveInvitations(ctx context.Context, now *int64) ([]ListLiveInvitationsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listLiveInvitations, now)
+func (q *Queries) InsertInvitationLink(ctx context.Context, arg InsertInvitationLinkParams) error {
+	_, err := q.db.ExecContext(ctx, insertInvitationLink, arg.SecretSha256, arg.InvitationID)
+	return err
+}
+
+const listInvitations = `-- name: ListInvitations :many
+SELECT invitation.id, invitation.admin_note, role.name AS role_name, invitation.issued_at,
+  invitation.made_user_id, made.name AS made_name, invitation.made_at,
+  CAST((SELECT count(*) FROM invitation_link
+        CROSS JOIN "grant" ON "grant".secret_sha256 = invitation_link.secret_sha256
+        WHERE invitation_link.invitation_id = invitation.id AND "grant".kind = 'issued_secret'
+          AND "grant".revoked_at IS NULL AND "grant".expires_at > ?1) AS INTEGER) AS live_links,
+  CAST((SELECT coalesce(max("grant".expires_at), 0) FROM invitation_link
+        CROSS JOIN "grant" ON "grant".secret_sha256 = invitation_link.secret_sha256
+        WHERE invitation_link.invitation_id = invitation.id AND "grant".kind = 'issued_secret'
+          AND "grant".revoked_at IS NULL) AS INTEGER) AS last_expires_at
+FROM invitation
+JOIN role ON role.id = invitation.role_id
+LEFT JOIN user AS made ON made.id = invitation.made_user_id
+ORDER BY invitation.issued_at DESC, invitation.id DESC
+`
+
+type ListInvitationsRow struct {
+	ID            int64
+	AdminNote     string
+	RoleName      string
+	IssuedAt      int64
+	MadeUserID    *int64
+	MadeName      *string
+	MadeAt        *int64
+	LiveLinks     int64
+	LastExpiresAt int64
+}
+
+// Every invitation, newest first, for the admin's list: its links still live and when the last of
+// them ends, or the account its use made. CROSS JOIN keeps SQLite's order: an invitation's links by
+// their index, then each one's grant by its key, never every grant for each invitation.
+func (q *Queries) ListInvitations(ctx context.Context, now *int64) ([]ListInvitationsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listInvitations, now)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListLiveInvitationsRow{}
+	items := []ListInvitationsRow{}
 	for rows.Next() {
-		var i ListLiveInvitationsRow
+		var i ListInvitationsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.AdminNote,
 			&i.RoleName,
 			&i.IssuedAt,
-			&i.ExpiresAt,
+			&i.MadeUserID,
+			&i.MadeName,
+			&i.MadeAt,
+			&i.LiveLinks,
+			&i.LastExpiresAt,
 		); err != nil {
 			return nil, err
 		}
@@ -132,10 +193,28 @@ func (q *Queries) ListLiveInvitations(ctx context.Context, now *int64) ([]ListLi
 	return items, nil
 }
 
+const markInvitationMade = `-- name: MarkInvitationMade :exec
+UPDATE invitation SET made_user_id = ?1, made_at = ?2
+WHERE id = ?3 AND made_user_id IS NULL
+`
+
+type MarkInvitationMadeParams struct {
+	MadeUserID *int64
+	MadeAt     *int64
+	ID         int64
+}
+
+func (q *Queries) MarkInvitationMade(ctx context.Context, arg MarkInvitationMadeParams) error {
+	_, err := q.db.ExecContext(ctx, markInvitationMade, arg.MadeUserID, arg.MadeAt, arg.ID)
+	return err
+}
+
 const revokeInvitationGrantsOfRole = `-- name: RevokeInvitationGrantsOfRole :exec
 UPDATE "grant" SET revoked_at = ?1
-WHERE revoked_at IS NULL
-  AND secret_sha256 IN (SELECT secret_sha256 FROM invitation WHERE role_id = ?2)
+WHERE revoked_at IS NULL AND kind = 'issued_secret'
+  AND secret_sha256 IN (SELECT invitation_link.secret_sha256 FROM invitation_link
+                        JOIN invitation ON invitation.id = invitation_link.invitation_id
+                        WHERE invitation.role_id = ?2)
 `
 
 type RevokeInvitationGrantsOfRoleParams struct {
@@ -146,5 +225,23 @@ type RevokeInvitationGrantsOfRoleParams struct {
 // A role deleted withdraws the invitations into it.
 func (q *Queries) RevokeInvitationGrantsOfRole(ctx context.Context, arg RevokeInvitationGrantsOfRoleParams) error {
 	_, err := q.db.ExecContext(ctx, revokeInvitationGrantsOfRole, arg.RevokedAt, arg.RoleID)
+	return err
+}
+
+const revokeInvitationLinks = `-- name: RevokeInvitationLinks :exec
+UPDATE "grant" SET revoked_at = ?1
+WHERE revoked_at IS NULL AND kind = 'issued_secret'
+  AND secret_sha256 IN (SELECT secret_sha256 FROM invitation_link WHERE invitation_id = ?2)
+`
+
+type RevokeInvitationLinksParams struct {
+	RevokedAt    *int64
+	InvitationID int64
+}
+
+// Every link of the invitation not yet used (D318 sections 2, 3); a used one is its person's own
+// link by now, kind 'link', and stays.
+func (q *Queries) RevokeInvitationLinks(ctx context.Context, arg RevokeInvitationLinksParams) error {
+	_, err := q.db.ExecContext(ctx, revokeInvitationLinks, arg.RevokedAt, arg.InvitationID)
 	return err
 }

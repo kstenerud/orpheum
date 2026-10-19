@@ -204,13 +204,14 @@ func wholeReadsAllowed() map[string]string {
 		"ClearOverridesSetByRemovedUser":     "the overrides people typed, a few hundred at most",
 		"DeleteGrantsOfRemovedUser":          "every credential ever made, which retention bounds",
 		"DeleteLocatorsOfRemovedUser":        "every credential, for the removed person's sessions' locators",
-		"DeleteInvitationsOfRemovedUser":     "every credential, for the removed person's links' invitations",
+		"DeleteInvitationLinksOfRemovedUser": "every credential, for the removed person's invitations' links",
 		"DeleteGrantsDerivedFromRemovedUser": "every credential, for those derived from the removed person's",
 		"DeleteDevicesOfRemovedUser":         few + "devices",
 		// The daily retention sweep over every credential, which it bounds (D304 section 6).
-		"DeleteLocatorsOfEndedGrants":    "every credential, for the ended ones' locators; a daily sweep",
-		"DeleteInvitationsOfEndedGrants": "every credential, for the ended ones' invitations; a daily sweep",
-		"DeleteEndedGrants":              "every credential, for the ended ones; a daily sweep that bounds them",
+		"DeleteLocatorsOfEndedGrants":         "every credential, for the ended ones' locators; a daily sweep",
+		"DeleteInvitationLinksOfEndedGrants":  "every credential, for the invitations' ended links; a daily sweep",
+		"DeleteWaitingInvitationsWithNoLinks": few + "invitations, for those whose every link went; a daily sweep",
+		"DeleteEndedGrants":                   "every credential, for the ended ones; a daily sweep that bounds them",
 		// A union of reads each narrowed by an index, read once as it is made (D306 section 8).
 		"FoldWatchingOfPurgedFiles": "the spans and finishes of a batch of deleted files, each found by its file",
 		"GetWatchStats":             "a person's spans and their watching of deleted files, each found by the person",
@@ -218,7 +219,7 @@ func wholeReadsAllowed() map[string]string {
 		"CountLiveUsers":            few + "people; setup counts them",
 		"GetLiveUserByName":         few + "people; a name is checked when one is made or renamed",
 		"ListLiveUsers":             few + "people; the admin lists them",
-		"ListLiveInvitations":       few + "people's grants; the admin lists the invitations",
+		"ListInvitations":           few + "roles and invitations; the admin lists the invitations",
 		"ListAllSealedSecrets":      few + "secrets; doctor lists them",
 		"ListSettings":              few + "settings, a fixed registry; the admin lists them",
 		"ListSeriesByAdded": "newest first reads the series, which are few (200 at the reference scale), " +

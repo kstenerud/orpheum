@@ -527,7 +527,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The invitations not yet used (admin) */
+        /** Every invitation: those waiting, and those used with the account each made (admin) */
         get: operations["listInvitations"];
         put?: never;
         /** Invite someone to make their own account under a role, noting who it is for (admin; D246) */
@@ -548,8 +548,25 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Withdraw an invitation: its link admits no one (admin) */
+        /** Withdraw an invitation still waiting: none of its links admits anyone (admin) */
         delete: operations["withdrawInvitation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invitations/{id}/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Another link for an invitation still waiting; its other links stay live until one is used (admin; D318) */
+        post: operations["createInvitationLink"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2597,7 +2614,7 @@ export interface components {
             adminNote: string;
             /**
              * Format: int64
-             * @description Unix milliseconds
+             * @description When the last live link ends, Unix milliseconds; 0 with none
              */
             expiresAt: number;
             /** Format: int64 */
@@ -2607,6 +2624,13 @@ export interface components {
              * @description Unix milliseconds
              */
             issuedAt: number;
+            /**
+             * Format: int64
+             * @description Its links that still work; another link leaves them live
+             */
+            liveLinks: number;
+            /** @description The account its use made; absent while it waits */
+            made?: components["schemas"]["MadeAccountBody"];
             role: string;
         };
         InvitationsOutputBody: {
@@ -2810,6 +2834,16 @@ export interface components {
         };
         LocatorOutputBody: {
             locator: string;
+        };
+        MadeAccountBody: {
+            /**
+             * Format: int64
+             * @description Unix milliseconds
+             */
+            at: number;
+            name: string;
+            /** Format: int64 */
+            userId: number;
         };
         MadeBackupOutputBody: {
             includesKey: boolean;
@@ -5315,6 +5349,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createInvitationLink: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssuedSecretBody"];
+                };
             };
             /** @description Error */
             default: {

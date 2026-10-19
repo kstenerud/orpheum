@@ -51,14 +51,14 @@ func (q *Queries) DeleteEndedGrants(ctx context.Context, endedBefore *int64) (in
 	return result.RowsAffected()
 }
 
-const deleteInvitationsOfEndedGrants = `-- name: DeleteInvitationsOfEndedGrants :exec
-DELETE FROM invitation WHERE secret_sha256 IN (
+const deleteInvitationLinksOfEndedGrants = `-- name: DeleteInvitationLinksOfEndedGrants :exec
+DELETE FROM invitation_link WHERE secret_sha256 IN (
   SELECT ended.secret_sha256 FROM "grant" AS ended
   WHERE ended.revoked_at < ?1 OR ended.expires_at < ?1)
 `
 
-func (q *Queries) DeleteInvitationsOfEndedGrants(ctx context.Context, endedBefore *int64) error {
-	_, err := q.db.ExecContext(ctx, deleteInvitationsOfEndedGrants, endedBefore)
+func (q *Queries) DeleteInvitationLinksOfEndedGrants(ctx context.Context, endedBefore *int64) error {
+	_, err := q.db.ExecContext(ctx, deleteInvitationLinksOfEndedGrants, endedBefore)
 	return err
 }
 
@@ -73,6 +73,18 @@ DELETE FROM locator WHERE session_secret_sha256 IN (
 // section 6): every sign-in ever made was kept.
 func (q *Queries) DeleteLocatorsOfEndedGrants(ctx context.Context, endedBefore *int64) error {
 	_, err := q.db.ExecContext(ctx, deleteLocatorsOfEndedGrants, endedBefore)
+	return err
+}
+
+const deleteWaitingInvitationsWithNoLinks = `-- name: DeleteWaitingInvitationsWithNoLinks :exec
+DELETE FROM invitation
+WHERE made_user_id IS NULL
+  AND NOT EXISTS (SELECT 1 FROM invitation_link WHERE invitation_link.invitation_id = invitation.id)
+`
+
+// An invitation still waiting whose every link has gone; a used one stays, naming its account.
+func (q *Queries) DeleteWaitingInvitationsWithNoLinks(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteWaitingInvitationsWithNoLinks)
 	return err
 }
 

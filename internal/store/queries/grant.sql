@@ -87,10 +87,16 @@ DELETE FROM locator WHERE session_secret_sha256 IN (
   SELECT ended.secret_sha256 FROM "grant" AS ended
   WHERE ended.revoked_at < sqlc.arg(ended_before) OR ended.expires_at < sqlc.arg(ended_before));
 
--- name: DeleteInvitationsOfEndedGrants :exec
-DELETE FROM invitation WHERE secret_sha256 IN (
+-- name: DeleteInvitationLinksOfEndedGrants :exec
+DELETE FROM invitation_link WHERE secret_sha256 IN (
   SELECT ended.secret_sha256 FROM "grant" AS ended
   WHERE ended.revoked_at < sqlc.arg(ended_before) OR ended.expires_at < sqlc.arg(ended_before));
+
+-- name: DeleteWaitingInvitationsWithNoLinks :exec
+-- An invitation still waiting whose every link has gone; a used one stays, naming its account.
+DELETE FROM invitation
+WHERE made_user_id IS NULL
+  AND NOT EXISTS (SELECT 1 FROM invitation_link WHERE invitation_link.invitation_id = invitation.id);
 
 -- name: DeleteEndedGrants :execrows
 -- Those no credential derived from them still names (D177); a derived one goes first, and its

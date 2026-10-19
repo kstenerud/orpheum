@@ -25,8 +25,11 @@ func (service *Service) PurgeEndedCredentials(ctx context.Context) (int, error) 
 		if locatorsErr := queries.DeleteLocatorsOfEndedGrants(ctx, &endedBefore); locatorsErr != nil {
 			return fmt.Errorf("delete the locators of ended credentials: %w", locatorsErr)
 		}
-		if invitationsErr := queries.DeleteInvitationsOfEndedGrants(ctx, &endedBefore); invitationsErr != nil {
-			return fmt.Errorf("delete the invitations of ended credentials: %w", invitationsErr)
+		if invitationsErr := queries.DeleteInvitationLinksOfEndedGrants(ctx, &endedBefore); invitationsErr != nil {
+			return fmt.Errorf("delete the invitations' links of ended credentials: %w", invitationsErr)
+		}
+		if invitationsErr := queries.DeleteWaitingInvitationsWithNoLinks(ctx); invitationsErr != nil {
+			return fmt.Errorf("delete the invitations whose every link ended: %w", invitationsErr)
 		}
 		var deleteErr error
 		deleted, deleteErr = queries.DeleteEndedGrants(ctx, &endedBefore)

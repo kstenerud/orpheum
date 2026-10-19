@@ -18,8 +18,12 @@ import (
 // ErrNoNote is an invitation without the admin's note of who it is for, which it must have (D246 §2).
 var ErrNoNote = errors.New("an invitation needs a note of who it is for")
 
-// ErrNoInvitation is an invitation that is not there, or no longer waits.
+// ErrNoInvitation is an invitation that is not there.
 var ErrNoInvitation = errors.New("no such invitation")
+
+// ErrInvitationUsed is an invitation whose link was used: it made its account, and has no link to
+// send again or withdraw.
+var ErrInvitationUsed = errors.New("that invitation was used: it made its account")
 
 // NewInvitation is an invitation the admin issues: the role the account will have, and the admin's
 // note of who it is for, which only the admin sees (D246 §2).
@@ -28,45 +32,96 @@ type NewInvitation struct {
 	AdminNote string
 }
 
-// Invitation is an invitation not yet used, as the admin's list shows it.
+// Invitation is an invitation as the admin's list shows it: waiting, with its links still live and
+// when the last of them ends, or used, with the account it made (D311 §3, §4).
 type Invitation struct {
 	ID        int64
 	Role      Role
 	AdminNote string
 	IssuedAt  time.Time
+	// LiveLinks are how many of its links still work; ExpiresAt is when the last of them ends, the
+	// zero time when none does.
+	LiveLinks int
 	ExpiresAt time.Time
+	// MadeUserID and MadeName are the account its use made, zero while it waits; MadeAt is when.
+	MadeUserID int64
+	MadeName   string
+	MadeAt     time.Time
 }
 
-// Invite issues an invitation: a single-use link, which lasts registration_invitation_life_days,
-// for a person to make their own account under role, filling in their own name and password
-// (D246 §2). It returns the invitation's id and its link's secret.
+// Invite issues an invitation with its first link: single use, lasting
+// registration_invitation_life_days, for a person to make their own account under role, filling in
+// their own name and password (D246 §2). It returns the invitation's id and its link's secret.
 func (service *Service) Invite(ctx context.Context, invitation NewInvitation) (int64, IssuedSecret, error) {
 	note := textindex.Line(invitation.AdminNote)
 	if note == "" {
 		return 0, IssuedSecret{}, ErrNoNote
 	}
-	secret, err := randomSecret(service.random)
+	var id int64
+	issued, err := service.issueInvitationLink(ctx, func(queries *sqlcgen.Queries, now time.Time) (int64, error) {
+		role, roleErr := store.OrNotFound(queries.GetRoleByName(ctx, string(invitation.Role)))
+		if errors.Is(roleErr, store.ErrNotFound) {
+			return 0, ErrNoRole
+		}
+		if roleErr != nil {
+			return 0, fmt.Errorf("find role %q: %w", invitation.Role, roleErr)
+		}
+		var insertErr error
+		id, insertErr = queries.InsertInvitation(ctx, sqlcgen.InsertInvitationParams{
+			RoleID: role.ID, AdminNote: note, IssuedAt: now.UnixMilli(),
+		})
+		if insertErr != nil {
+			return 0, fmt.Errorf("record the invitation: %w", insertErr)
+		}
+		return id, nil
+	})
 	if err != nil {
 		return 0, IssuedSecret{}, err
+	}
+	return id, issued, nil
+}
+
+// AnotherInvitationLink issues one more link for an invitation still waiting, lasting
+// registration_invitation_life_days from now; its other links stay live until one is used (D318
+// §1). An invitation all of whose links ended is sent again this way.
+func (service *Service) AnotherInvitationLink(ctx context.Context, id int64) (IssuedSecret, error) {
+	return service.issueInvitationLink(ctx, func(queries *sqlcgen.Queries, _ time.Time) (int64, error) {
+		invitation, err := store.OrNotFound(queries.GetInvitation(ctx, id))
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			return 0, ErrNoInvitation
+		case err != nil:
+			return 0, fmt.Errorf("look up invitation %d: %w", id, err)
+		case invitation.MadeUserID != nil:
+			return 0, ErrInvitationUsed
+		}
+		return id, nil
+	})
+}
+
+// issueInvitationLink makes a link for the invitation invitationOf names, in the same write, and
+// returns its secret.
+func (service *Service) issueInvitationLink(
+	ctx context.Context, invitationOf func(queries *sqlcgen.Queries, now time.Time) (int64, error),
+) (IssuedSecret, error) {
+	secret, err := randomSecret(service.random)
+	if err != nil {
+		return IssuedSecret{}, err
 	}
 	life, err := service.settings.Duration(ctx, settings.RegistrationInvitationLifeDays)
 	if err != nil {
-		return 0, IssuedSecret{}, fmt.Errorf("read registration_invitation_life_days: %w", err)
+		return IssuedSecret{}, fmt.Errorf("read registration_invitation_life_days: %w", err)
 	}
 	kept, err := service.keepOfLink(secret)
 	if err != nil {
-		return 0, IssuedSecret{}, err
+		return IssuedSecret{}, err
 	}
 	now := service.clock.Now()
 	expires := now.Add(life)
-	var id int64
 	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		role, roleErr := store.OrNotFound(queries.GetRoleByName(ctx, string(invitation.Role)))
-		if errors.Is(roleErr, store.ErrNotFound) {
-			return ErrNoRole
-		}
-		if roleErr != nil {
-			return fmt.Errorf("find role %q: %w", invitation.Role, roleErr)
+		invitationID, ofErr := invitationOf(queries, now)
+		if ofErr != nil {
+			return ofErr
 		}
 		if insertErr := queries.InsertGrant(ctx, sqlcgen.InsertGrantParams{
 			SecretSha256: tokenHash(secret), Kind: grantKindIssuedSecret, Scope: grantScopeInvitation,
@@ -76,53 +131,70 @@ func (service *Service) Invite(ctx context.Context, invitation NewInvitation) (i
 		}); insertErr != nil {
 			return fmt.Errorf("record the invitation's link: %w", insertErr)
 		}
-		var insertErr error
-		id, insertErr = queries.InsertInvitation(ctx, sqlcgen.InsertInvitationParams{
-			SecretSha256: tokenHash(secret), RoleID: role.ID, AdminNote: note,
+		return queries.InsertInvitationLink(ctx, sqlcgen.InsertInvitationLinkParams{
+			SecretSha256: tokenHash(secret), InvitationID: invitationID,
 		})
-		return insertErr
 	})
 	if err != nil {
-		return 0, IssuedSecret{}, err
+		return IssuedSecret{}, err
 	}
 	service.linksChanged()
-	return id, IssuedSecret{Secret: secret, ExpiresAt: expires}, nil
+	return IssuedSecret{Secret: secret, ExpiresAt: expires}, nil
 }
 
-// Invitations are the invitations whose link still works, newest first.
+// Invitations are every invitation, newest first: those waiting, with their links, and those used,
+// with the account each made.
 func (service *Service) Invitations(ctx context.Context) ([]Invitation, error) {
-	rows, err := service.database.Read().ListLiveInvitations(ctx, new(service.clock.Now().UnixMilli()))
+	rows, err := service.database.Read().ListInvitations(ctx, new(service.clock.Now().UnixMilli()))
 	if err != nil {
 		return nil, fmt.Errorf("list invitations: %w", err)
 	}
 	invitations := make([]Invitation, 0, len(rows))
 	for _, row := range rows {
-		invitations = append(invitations, Invitation{
+		invitation := Invitation{
 			ID: row.ID, Role: Role(row.RoleName), AdminNote: row.AdminNote, IssuedAt: time.UnixMilli(row.IssuedAt),
-			ExpiresAt: time.UnixMilli(ptr.ValueOrZero(row.ExpiresAt)),
-		})
+			LiveLinks: int(row.LiveLinks),
+		}
+		if row.LiveLinks > 0 {
+			invitation.ExpiresAt = time.UnixMilli(row.LastExpiresAt)
+		}
+		if row.MadeUserID != nil && row.MadeAt != nil {
+			invitation.MadeUserID, invitation.MadeName = *row.MadeUserID, ptr.ValueOrZero(row.MadeName)
+			invitation.MadeAt = time.UnixMilli(*row.MadeAt)
+		}
+		invitations = append(invitations, invitation)
 	}
 	return invitations, nil
 }
 
-// WithdrawInvitation withdraws an invitation: its link admits no one from now on.
+// WithdrawInvitation withdraws an invitation still waiting: every link of it admits no one from now
+// on (D318 §3), and it leaves the list. A used one is refused, as it made its account.
 func (service *Service) WithdrawInvitation(ctx context.Context, id int64) error {
 	now := service.clock.Now().UnixMilli()
-	return service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		invitation, err := store.OrNotFound(queries.GetInvitation(ctx, id))
-		if errors.Is(err, store.ErrNotFound) {
+		switch {
+		case errors.Is(err, store.ErrNotFound):
 			return ErrNoInvitation
-		}
-		if err != nil {
+		case err != nil:
 			return fmt.Errorf("look up invitation %d: %w", id, err)
+		case invitation.MadeUserID != nil:
+			return ErrInvitationUsed
 		}
-		if err = queries.MarkGrantRevoked(ctx, sqlcgen.MarkGrantRevokedParams{
-			SecretSha256: invitation.SecretSha256, RevokedAt: &now,
+		if err = queries.RevokeInvitationLinks(ctx, sqlcgen.RevokeInvitationLinksParams{
+			RevokedAt: &now, InvitationID: id,
 		}); err != nil {
-			return fmt.Errorf("withdraw invitation %d's link: %w", id, err)
+			return fmt.Errorf("withdraw invitation %d's links: %w", id, err)
+		}
+		if err = queries.DeleteInvitationLinks(ctx, id); err != nil {
+			return fmt.Errorf("forget invitation %d's links: %w", id, err)
 		}
 		return queries.DeleteInvitation(ctx, id)
 	})
+	if err == nil {
+		service.linksChanged()
+	}
+	return err
 }
 
 // LinkKind is what a link is for, so the page that opened it asks for what it needs: an invitation,
@@ -184,21 +256,9 @@ func (service *Service) acceptInvitation(
 	secretHash := tokenHash(secret)
 	var userID int64
 	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		grant, lookErr := store.OrNotFound(queries.GetLiveGrant(ctx, sqlcgen.GetLiveGrantParams{
-			SecretSha256: secretHash, Now: &now,
-		}))
-		if errors.Is(lookErr, store.ErrNotFound) || (lookErr == nil && grant.Scope != grantScopeInvitation) {
-			return ErrBadInvitation
-		}
+		grant, invitation, lookErr := liveInvitationOf(ctx, queries, secretHash, now)
 		if lookErr != nil {
-			return fmt.Errorf("look up the invitation: %w", lookErr)
-		}
-		invitation, lookErr := store.OrNotFound(queries.GetInvitationBySecret(ctx, secretHash))
-		if errors.Is(lookErr, store.ErrNotFound) {
-			return ErrBadInvitation
-		}
-		if lookErr != nil {
-			return fmt.Errorf("look up the invitation: %w", lookErr)
+			return lookErr
 		}
 		if takenErr := refuseTakenName(ctx, queries, name, 0); takenErr != nil {
 			return takenErr
@@ -211,12 +271,9 @@ func (service *Service) acceptInvitation(
 		if insertErr != nil {
 			return fmt.Errorf("insert user %q: %w", name, insertErr)
 		}
-		// Used, the invitation's link becomes the new person's own link (D292 §4; A12).
-		if spendErr := becomeOwnLink(ctx, queries, secretHash, grant.LocateHash, userID,
-			service.clock.Now()); spendErr != nil {
-			return fmt.Errorf("spend the invitation: %w", spendErr)
-		}
-		return queries.DeleteInvitation(ctx, invitation.ID)
+		return spendInvitation(ctx, queries, spentLink{
+			invitationID: invitation.ID, secretHash: secretHash, locateHash: grant.LocateHash, userID: userID, now: now,
+		})
 	})
 	if err != nil {
 		return Issued{}, err
@@ -225,6 +282,56 @@ func (service *Service) acceptInvitation(
 		return Issued{}, keepErr
 	}
 	return service.issueSession(ctx, userID, device, grantScopeRole)
+}
+
+// liveInvitationOf is the live link secretHash names and its invitation still waiting, or
+// ErrBadInvitation.
+func liveInvitationOf(
+	ctx context.Context, queries *sqlcgen.Queries, secretHash []byte, now int64,
+) (sqlcgen.GetLiveGrantRow, sqlcgen.GetInvitationBySecretRow, error) {
+	grant, err := store.OrNotFound(queries.GetLiveGrant(ctx, sqlcgen.GetLiveGrantParams{
+		SecretSha256: secretHash, Now: &now,
+	}))
+	if errors.Is(err, store.ErrNotFound) || (err == nil && grant.Scope != grantScopeInvitation) {
+		return grant, sqlcgen.GetInvitationBySecretRow{}, ErrBadInvitation
+	}
+	if err != nil {
+		return grant, sqlcgen.GetInvitationBySecretRow{}, fmt.Errorf("look up the invitation: %w", err)
+	}
+	invitation, err := store.OrNotFound(queries.GetInvitationBySecret(ctx, secretHash))
+	if errors.Is(err, store.ErrNotFound) || (err == nil && invitation.MadeUserID != nil) {
+		return grant, invitation, ErrBadInvitation
+	}
+	if err != nil {
+		return grant, invitation, fmt.Errorf("look up the invitation: %w", err)
+	}
+	return grant, invitation, nil
+}
+
+// spentLink is an invitation's link being used: the invitation, the link's secret's and locate
+// hashes, the account it made, and when (Unix ms).
+type spentLink struct {
+	invitationID           int64
+	secretHash, locateHash []byte
+	userID, now            int64
+}
+
+// spendInvitation spends an invitation by one of its links: that link becomes the new person's own
+// link (D292 §4; A12), its other links end in the same write (D318 §2), and it names the account it
+// made (D311 §4).
+func spendInvitation(ctx context.Context, queries *sqlcgen.Queries, spent spentLink) error {
+	now, userID := spent.now, spent.userID
+	if err := becomeOwnLink(ctx, queries, spent.secretHash, spent.locateHash, userID, time.UnixMilli(now)); err != nil {
+		return fmt.Errorf("spend the invitation: %w", err)
+	}
+	if err := queries.RevokeInvitationLinks(ctx, sqlcgen.RevokeInvitationLinksParams{
+		RevokedAt: &now, InvitationID: spent.invitationID,
+	}); err != nil {
+		return fmt.Errorf("end the invitation's other links: %w", err)
+	}
+	return queries.MarkInvitationMade(ctx, sqlcgen.MarkInvitationMadeParams{
+		MadeUserID: &userID, MadeAt: &now, ID: spent.invitationID,
+	})
 }
 
 // SetAdminNote changes the admin's note of who a person is for; empty removes it (D246 §2).

@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 
 import { ConfirmButton } from "./confirm-button.tsx";
 import {
+  anotherInvitationLink,
   createAccount,
   invite,
   listAccounts,
@@ -31,7 +32,7 @@ import { Loaded } from "./title.tsx";
 import { useServices } from "./services.tsx";
 import { Share } from "./share.tsx";
 import { BusyGroup } from "./busy-group.tsx";
-import { useRequest } from "./use-request.ts";
+import { useRequest, type RequestState } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 
 /** What the admin last issued, to pass on: a person's link or a device's code. */
@@ -43,7 +44,8 @@ export interface IssuedInvitation {
 /**
  * The household, for the admin (D218, D246 §2): everyone, with the admin's note of who each is for;
  * an account set up in full, or an invitation for someone to fill in their own, under a role and
- * with that note; and the invitations not yet used.
+ * with that note; the invitations waiting, each sent again or withdrawn, and those used, with the
+ * person each made (D311 §3, §4; D318).
  */
 export function People(): JSX.Element {
   const { t } = useTranslation();
@@ -57,6 +59,7 @@ export function People(): JSX.Element {
   const { isBusy, problem, runRequest } = useRequest((cause) =>
     fieldProblemText(t, cause, personWords(t)),
   );
+  const invitationActions = useInvitationActions(runRequest, setIssued, reloadInvitations);
   return (
     <section className="people" aria-labelledby="people-heading">
       <h1 id="people-heading">{t("people.heading")}</h1>
@@ -88,22 +91,39 @@ export function People(): JSX.Element {
       {problem === undefined ? null : <p role="alert">{problem}</p>}
       <Loaded
         resource={invitations}
-        render={(list) => (
-          <PendingInvitations
-            invitations={list}
-            onWithdraw={(invitationId) => {
-              runRequest(async () => {
-                await withdrawInvitation(api, invitationId);
-                reloadInvitations();
-              });
-            }}
-          />
-        )}
+        render={(list) => <Invitations invitations={list} {...invitationActions} />}
       />
       <Loaded resource={accounts} render={(list) => <PeopleList accounts={list} />} />
       <RolesSection onChange={reloadRoles} />
     </section>
   );
+}
+
+/**
+ * Sending a waiting invitation another link, which shows it to pass on, and withdrawing one; the
+ * list is read again after each.
+ */
+function useInvitationActions(
+  runRequest: RequestState["runRequest"],
+  setIssued: (issued: IssuedInvitation) => void,
+  reloadInvitations: () => void,
+): Pick<InvitationsProps, "onSendAgain" | "onWithdraw"> {
+  const { api } = useServices();
+  return {
+    onSendAgain: (invitation) => {
+      runRequest(async (idempotencyKey) => {
+        const link = await anotherInvitationLink(api, invitation.id, idempotencyKey);
+        setIssued({ name: invitation.adminNote, invitation: link });
+        reloadInvitations();
+      });
+    },
+    onWithdraw: (invitationId) => {
+      runRequest(async () => {
+        await withdrawInvitation(api, invitationId);
+        reloadInvitations();
+      });
+    },
+  };
 }
 
 /** What was just issued, to pass on: a link also as a QR code a phone's camera opens (D218 §1). */
@@ -247,9 +267,37 @@ function SetUpAccount(props: {
   );
 }
 
-/** The invitations not yet used, each with who it is for, its role, until when, and a withdrawal. */
-function PendingInvitations(props: {
+/** The invitations, and what the admin does with one still waiting. */
+interface InvitationsProps {
   readonly invitations: readonly Invitation[];
+  readonly onSendAgain: (invitation: Invitation) => void;
+  readonly onWithdraw: (invitationId: number) => void;
+}
+
+/**
+ * The invitations: those waiting, each with who it is for, its role and until when its links work,
+ * sent again by another link, which leaves the others live, or withdrawn; and those used, each with
+ * the person it made (D311 §3, §4; D318).
+ */
+function Invitations(props: InvitationsProps): JSX.Element {
+  const waiting = props.invitations.filter((invitation) => invitation.made === undefined);
+  const used = props.invitations.filter((invitation) => invitation.made !== undefined);
+  return (
+    <>
+      <WaitingInvitations
+        invitations={waiting}
+        onSendAgain={props.onSendAgain}
+        onWithdraw={props.onWithdraw}
+      />
+      <UsedInvitations invitations={used} />
+    </>
+  );
+}
+
+/** The invitations waiting, each sent again or withdrawn; nothing when there are none. */
+function WaitingInvitations(props: {
+  readonly invitations: readonly Invitation[];
+  readonly onSendAgain: (invitation: Invitation) => void;
   readonly onWithdraw: (invitationId: number) => void;
 }): JSX.Element | null {
   const { t } = useTranslation();
@@ -262,11 +310,24 @@ function PendingInvitations(props: {
       <ul>
         {props.invitations.map((invitation) => (
           <li key={invitation.id}>
-            {t("people.invitation", {
-              note: invitation.adminNote,
-              role: roleLabel(t, invitation.role),
-              until: dateTimeText(invitation.expiresAt, i18n.language),
-            })}{" "}
+            {invitation.liveLinks > 0
+              ? t("people.invitation", {
+                  note: invitation.adminNote,
+                  role: roleLabel(t, invitation.role),
+                  until: dateTimeText(invitation.expiresAt, i18n.language),
+                })
+              : t("people.invitationEnded", {
+                  note: invitation.adminNote,
+                  role: roleLabel(t, invitation.role),
+                })}{" "}
+            <button
+              type="button"
+              onClick={() => {
+                props.onSendAgain(invitation);
+              }}
+            >
+              {t("people.sendAgain")}
+            </button>{" "}
             <ConfirmButton
               label={t("people.withdraw")}
               consequence={t("people.withdrawConsequence")}
@@ -277,6 +338,36 @@ function PendingInvitations(props: {
             />
           </li>
         ))}
+      </ul>
+    </section>
+  );
+}
+
+/** The invitations used, each with the person it made and when; nothing when there are none. */
+function UsedInvitations(props: {
+  readonly invitations: readonly Invitation[];
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  if (props.invitations.length === 0) {
+    return null;
+  }
+  return (
+    <section aria-labelledby="people-used-invitations">
+      <h2 id="people-used-invitations">{t("people.usedInvitations")}</h2>
+      <ul>
+        {props.invitations.map((invitation) =>
+          invitation.made === undefined ? null : (
+            <li key={invitation.id}>
+              {t("people.usedInvitation", {
+                note: invitation.adminNote,
+                at: dateTimeText(invitation.made.at, i18n.language),
+              })}{" "}
+              <Link to={{ screen: "person", userId: invitation.made.userId }}>
+                {invitation.made.name}
+              </Link>
+            </li>
+          ),
+        )}
       </ul>
     </section>
   );

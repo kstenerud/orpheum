@@ -767,25 +767,41 @@ only as a hash: `invite`, an invitation, with no person yet, whose `invitation` 
 and the admin's note, and which makes the account its person fills in
 ([D246](../../decisions/working-notes.md) §2; seven days); `register`, a registration link for a
 person who forgot their password, which sets a new one
-([D218](../../decisions/working-notes.md) §5; a new one withdraws the old); and `add_device`, a
+([D218](../../decisions/working-notes.md) §5; every one sent works until one is used, which ends
+the others, [D318](../../decisions/working-notes.md)); and `add_device`, a
 device code whose `device_name` was the name the device would be listed under (ten minutes). Since
 [D288](../../decisions/working-notes.md) no `add_device` grant is made: a device is activated by a
 code it asks for, kept in memory, and `device_name` and `device_id` wait to be dropped with the next
 schema change.
 
 ```sql
-CREATE TABLE invitation (                                  -- class A (D246 section 2), step 0034
+CREATE TABLE invitation (                                  -- class A (D246 section 2, D318), step 0053
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  secret_sha256 BLOB NOT NULL UNIQUE REFERENCES "grant"(secret_sha256) ON DELETE RESTRICT,
   role_id       INTEGER NOT NULL REFERENCES role(id) ON DELETE RESTRICT,
-  admin_note    TEXT NOT NULL CHECK (admin_note <> '')
+  admin_note    TEXT NOT NULL CHECK (admin_note <> ''),
+  issued_at     INTEGER NOT NULL,
+  made_user_id  INTEGER REFERENCES user(id) ON DELETE RESTRICT,  -- the account its use made
+  made_at       INTEGER,
+  CHECK ((made_user_id IS NULL) = (made_at IS NULL))
 );
 CREATE INDEX invitation_role ON invitation(role_id);
+CREATE INDEX invitation_made_user ON invitation(made_user_id) WHERE made_user_id IS NOT NULL;
+
+CREATE TABLE invitation_link (                             -- class A (D318), step 0053
+  secret_sha256 BLOB PRIMARY KEY REFERENCES "grant"(secret_sha256) ON DELETE RESTRICT,
+  invitation_id INTEGER NOT NULL REFERENCES invitation(id) ON DELETE RESTRICT
+) WITHOUT ROWID;
+CREATE INDEX invitation_link_invitation ON invitation_link(invitation_id);
 ```
 
-An invitation not yet used. Registering through it makes the account, with the name and password
-its person chose, the role and the note, and deletes the row; withdrawing it, or deleting its role,
-revokes the grant and deletes the row. An expired one's row stays until then, and is not listed.
+An invitation, with one or more links, each an `issued_secret` grant of scope `invitation`
+([D318](../../decisions/working-notes.md)): another link leaves the earlier live. Registering
+through any one makes the account, with the name and password its person chose, the role and the
+note; that link becomes the person's own, the others are revoked in the same write, and the
+invitation keeps `made_user_id` and `made_at`, which the admin's list shows
+([D311](../../decisions/working-notes.md) §4). Withdrawing one still waiting, or deleting its role,
+revokes its links and deletes it. The retention sweep deletes the links of grants long ended, and a
+waiting invitation left with none; removing a person deletes the invitation that made them.
 
 ```sql
 CREATE TABLE setting (                                     -- class A: the server's (D200)
@@ -1293,6 +1309,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `refresh_request` | persistent.db | `internal/core/identify` | |
 | `role` | persistent.db | `internal/core/auth` | the baseline seeds the built-in roles; the admin makes the rest (D243 §4) |
 | `invitation` | persistent.db | `internal/core/auth` | |
+| `invitation_link` | persistent.db | `internal/core/auth` | |
 | `role_library` | persistent.db | `internal/core/auth` | step 0033 gives the built-in user role every live library |
 | `root_mount` | persistent.db | `internal/core/library` | |
 | `root_scan` | persistent.db | `internal/core/library` | |
@@ -1334,7 +1351,7 @@ rows. Each class that would grow with no bound but time is kept to a limit a set
 | People and their devices | `user`, `device`, `"grant"`, `locator` | the people and devices there are, and a removed person's nameless row (D305 §1); a credential that ended, revoked or expired, is deleted `ended_credentials_kept_days` (90) after, with its locator (D304 §6); a removed device stays as a row while a play names it |
 | Watching | `play_event`, `play_span`, `play_position`, `progress_hide`, `purged_watching` | every play of the files there are; a deleted file's plays fold into one `purged_watching` row a person a version (D306 §8); all deleted with the person who watched (`ForgetWatchingOf`) |
 | Scans | `root_scan`, `root_mount`, `root_state` | one row a root, deleted with the root |
-| Settings, roles, invitations, secrets | `setting`, `role`, `role_library`, `invitation`, `secret` | what an admin made; deleted when they delete it |
+| Settings, roles, invitations, secrets | `setting`, `role`, `role_library`, `invitation`, `invitation_link`, `secret` | what an admin made; deleted when they delete it |
 
 `cache.db` is bounded by its own rules ([below](#cachedb--never-backed-up)): a job that ended is
 pruned once its keeping time passes (D233 §8), and renditions and chunks are evicted by their
