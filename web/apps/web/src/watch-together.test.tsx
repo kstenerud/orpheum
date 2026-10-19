@@ -192,7 +192,7 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
     mounted.unmount();
   });
 
-  it("gives a guest a new link, removing them so the devices they came in on are cut off (D267 §4)", async () => {
+  it("gives a guest a new link for their place, keeping them in until it is used (D311 §5, D312 §3)", async () => {
     hostSession();
     const heard: Heard[] = [];
     const gran = { id: 2, name: "Gran", hostNote: "Grandma", isHost: false };
@@ -206,26 +206,25 @@ describe("the host's Watch Together screen (D246 §3, §5)", () => {
               sessionId: 3,
               nextRights: allRights,
               links: [{ id: 5, rights: allRights, hostNote: "Grandma" }],
-              members: [karl],
+              members: [karl, gran],
             },
           ],
         ],
-        "POST /together/3/eject/2": [204, undefined],
-        "POST /together/3/links": [201, { linkId: 5, secret: "n3w" }],
+        "POST /together/3/members/2/links": [201, { linkId: 5, secret: "n3w" }],
       },
       heard,
       "token",
     );
     const mounted = await mount(withServices(<WatchTogether />, services));
     await click(rowStarting(mounted.container, "Gran (Grandma)"));
+    expect(mounted.container.textContent).toContain("Gran stays in until the new link is used.");
     await click(buttonWithText(mounted.container, "New link"));
+    // No one is removed: the new link takes Gran's place only once it is used.
     expect(heard.map((each) => each.methodAndPath)).toEqual([
       "GET /together/3",
-      "POST /together/3/eject/2",
-      "POST /together/3/links",
+      "POST /together/3/members/2/links",
       "GET /together/3",
     ]);
-    expect(heard[2]?.body).toEqual({ hostNote: "Grandma" });
     expect(mounted.container.querySelector("output")?.textContent).toBe(
       "http://orpheum.test/together#n3w",
     );

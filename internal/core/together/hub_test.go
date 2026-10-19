@@ -467,6 +467,76 @@ func TestHub_AnEjectedMemberIsGone(t *testing.T) {
 	}
 }
 
+// A guest given a new link keeps their place on the devices they came in on until it is used; whoever
+// joins by it takes the place over, with its rights and the name they give, those devices cut off and
+// the place's other links ended; once they are removed, a new link for them admits no one (D311 §5,
+// D312 §3, D318; the owner, 2026-10-19).
+func TestHub_ANewLinkForAGuestMovesTheirPlaceOnlyOnceItIsUsed(t *testing.T) {
+	t.Parallel()
+	stage := newStage(t)
+	session, host := stage.opened.SessionID, stage.owner.UserID
+	first, err := stage.hub.AddLink(session, host, "my partner", Rights{CanSeek: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	guest, err := stage.hub.Join(first.Secret, "partner", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, brave := stage.attach(t, guest.MembershipCredential, RolePlayback)
+	moved, err := stage.hub.AnotherLinkFor(session, host, guest.MemberID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Until the new link is used, the guest is still in on the browser they came in on.
+	_, err = stage.hub.Attach(guest.MembershipCredential, RoleVoice, true, nil, testTuning, (&inbox{}).send)
+	if err != nil {
+		t.Errorf("the guest's credential before the new link is used = %v; want it still to admit them", err)
+	}
+	chrome, err := stage.hub.Join(moved.Secret, "partner on chrome", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if chrome.MemberID != guest.MemberID {
+		t.Errorf("the new link joined as member %d; want the guest's place, %d", chrome.MemberID, guest.MemberID)
+	}
+	stage.wantMovedAway(t, guest.MembershipCredential, brave, moved.LinkID)
+	again, err := stage.hub.AnotherLinkFor(session, host, guest.MemberID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = stage.hub.Eject(session, host, guest.MemberID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = stage.hub.Join(again.Secret, "someone", nil); !errors.Is(err, ErrNoSession) {
+		t.Errorf("a new link for a guest since removed = %v; want it to admit no one", err)
+	}
+}
+
+// wantMovedAway fails unless the old browser, on inbox, was told its place moved away and its
+// credential admits nothing, and the session holds only the new link, linkID, with the place's
+// rights, its guest renamed "partner on chrome".
+func (stage sessionStage) wantMovedAway(t *testing.T, credential string, old *inbox, linkID int64) {
+	t.Helper()
+	if ended := old.last(MessageEnded); ended.Reason != "movedAway" {
+		t.Errorf("the old browser was told %+v; want ended, movedAway", ended)
+	}
+	_, err := stage.hub.Attach(credential, RolePlayback, true, nil, testTuning, (&inbox{}).send)
+	if !errors.Is(err, ErrNoSession) {
+		t.Errorf("the old browser's credential = %v; want it to admit nothing", err)
+	}
+	details, err := stage.hub.DetailsOf(stage.opened.SessionID, stage.owner.UserID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	isRenamed := slices.ContainsFunc(details.Members, func(each MemberDetail) bool {
+		return each.Name == "partner on chrome"
+	})
+	if len(details.Links) != 1 || details.Links[0].ID != linkID || !details.Links[0].Rights.CanSeek || !isRenamed {
+		t.Errorf("the session = %+v; want the new link alone, with the place's rights, and the guest renamed", details)
+	}
+}
+
 // A host has one session: opening again gives it back, with a new credential for a reloaded page,
 // and the old one still names the host's devices already attached (D246 §5).
 func TestHub_OpeningAgainGivesTheHostTheirSession(t *testing.T) {

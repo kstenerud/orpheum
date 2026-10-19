@@ -116,7 +116,8 @@ export interface RosterMember {
  * Why a session ended for this device: the host ended it, the host removed this member, the
  * member left, or the server no longer knows the membership at all ("gone").
  */
-export type TogetherEndReason = "hostEnded" | "ejected" | "left" | "gone" | "uploadFull";
+export type TogetherEndReason =
+  "hostEnded" | "ejected" | "movedAway" | "left" | "gone" | "uploadFull";
 
 /** How a device follows its group, as the server's settings said when it was welcomed (D250 §1). */
 export interface SyncTuning {
@@ -318,7 +319,13 @@ function cannotKeepUpIn(value: unknown): CannotKeepUp | undefined {
   };
 }
 
-const endReasons: readonly TogetherEndReason[] = ["hostEnded", "ejected", "left", "uploadFull"];
+const endReasons: readonly TogetherEndReason[] = [
+  "hostEnded",
+  "ejected",
+  "movedAway",
+  "left",
+  "uploadFull",
+];
 
 /** A welcome's tuning, each value the starting one where it says none. */
 function parseTuning(value: unknown): SyncTuning {

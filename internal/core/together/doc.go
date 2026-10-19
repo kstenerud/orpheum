@@ -45,6 +45,10 @@
 //     is refused as stale (D246 §5, §8). Enforced by TestHub_OnlyTheHostControlsPlayback,
 //     TestHub_AGuestDoesToPlaybackWhatTheirLinkAllows, TestHub_ANewLinkStartsWithTheLastOnesRights,
 //     TestHub_TheHostStoppingLeavesNothingPlaying and TestHub_ASeekAgainstAnotherSeekIsRefusedAsStale.
+//   - A new link for a guest gives their place: they stay in until it is used, whoever joins by it
+//     takes the place over, the devices they came in on cut off, and the place's other links end;
+//     removed, their place's links admit no one (D267 §4 amended, D318). Enforced by
+//     TestHub_ANewLinkForAGuestMovesTheirPlaceOnlyOnceItIsUsed.
 //   - Each link admits the one person it was made for, once, its note the host's alone; a withdrawn
 //     link admits no one; an ejected member's credential admits nothing; a host has one session.
 //     Enforced by TestHub_EachLinkAdmitsOnePersonOnce, TestHub_AnEjectedMemberIsGone,
@@ -100,7 +104,8 @@
 // # Where to change
 //
 //   - messages.go: the wire messages, as cut-a §5.1 lists them.
-//   - hub.go: sessions, memberships and devices.
+//   - hub.go: sessions, memberships and devices. links.go: the links a person joins by, and the
+//     place each gives (D267 §4 amended, D318).
 //   - discovery.go: what a discovery finds the core by: links' locate hashes and devices' locators.
 //   - group.go: the group's state machine: the host's commands, waiting for players, and stalls.
 package together

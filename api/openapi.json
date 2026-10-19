@@ -12945,6 +12945,68 @@
         ]
       }
     },
+    "/together/{id}/members/{member}/links": {
+      "post": {
+        "operationId": "addTogetherLinkFor",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "member",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TogetherLinkOutputBody"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "A new link for a guest's place: they stay in until it is used, and whoever joins by it takes the place over, cutting off the devices they came in on (host; D311 §5, D312 §3)",
+        "tags": [
+          "Watch Together"
+        ]
+      }
+    },
     "/users": {
       "get": {
         "operationId": "listAccounts",

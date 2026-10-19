@@ -638,6 +638,23 @@ describe("a device's connection to its session (cut-a §5.1)", () => {
     ]);
   });
 
+  it("ends, saying so, when its guest's place moved to another device by a new link", () => {
+    const moved = fakeSockets();
+    const connection = createTogetherConnection({
+      credential: "c",
+      openSocket: moved.open,
+      monotonicMs,
+    });
+    connection.open();
+    moved.opened[0]!.onOpen();
+    moved.opened[0]!.onMessage(JSON.stringify(welcome));
+    moved.opened[0]!.onMessage(JSON.stringify({ v: 2, type: "ended", reason: "movedAway" }));
+    moved.opened[0]!.onClose(1000);
+    vi.advanceTimersByTime(longestReconnectWaitMs);
+    expect(connection.snapshot()).toMatchObject({ status: "ended", endReason: "movedAway" });
+    expect(moved.opened).toHaveLength(1);
+  });
+
   it("ends, without connecting again, when the server ends it or refuses the hello", () => {
     const ended = fakeSockets();
     const endedConnection = createTogetherConnection({
