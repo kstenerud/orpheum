@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# ABOUTME: Tests for py_tests.py: every module runs, a failure fails the run and is shown, and a
-# ABOUTME: pass prints one line.
+# ABOUTME: Tests for py_tests.py: every module runs, a failure fails the run and is shown, a pass
+# ABOUTME: prints one line, and a module sees only the environment the runner names.
 import os
 import subprocess
 import sys
@@ -30,14 +30,19 @@ class Runner(unittest.TestCase):
         self.assertNotIn("test_b.py failed", done.stdout)
         self.assertIn("py_tests: 2 modules, 1 failed", done.stdout)
 
-    def test_no_module_sees_the_hooks_repository(self):
+    def test_a_module_sees_only_the_environment_the_runner_names(self):
+        """Only PATH passes through: not a hook's GIT_DIR, an owner's flag or the caller's home."""
         sees = ("import os\nimport unittest\n\n\nclass T(unittest.TestCase):\n    def test_env(self):\n"
-                "        self.assertNotIn('GIT_DIR', os.environ)\n")
+                "        self.assertEqual(sorted(os.environ), ['GIT_CONFIG_GLOBAL', 'GIT_CONFIG_NOSYSTEM', "
+                "'HOME', 'LC_ALL', 'PATH', 'TZ'])\n"
+                "        self.assertNotEqual(os.environ['HOME'], '/home/caller')\n")
         root = Path(tempfile.mkdtemp(prefix="py-tests-"))
         (root / "scripts" / "tests").mkdir(parents=True)
         (root / "scripts" / "tests" / "test_env.py").write_text(sees)
+        caller = {"PATH": os.environ["PATH"], "GIT_DIR": "/nowhere/.git", "HOME": "/home/caller",
+                  "ORPHEUM_ALLOW_GATE_EDIT": "1", "SOMETHING_ELSE": "x"}
         done = subprocess.run([sys.executable, str(RUNNER)], cwd=root, capture_output=True, text=True,
-                              check=False, env={**os.environ, "GIT_DIR": "/nowhere/.git"})
+                              check=False, env=caller)
         self.assertEqual(done.returncode, 0, done.stdout)
 
     def test_a_pass_is_one_line(self):

@@ -15,6 +15,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -23,17 +24,21 @@ from pathlib import Path
 TESTS = Path("scripts/tests")
 
 
-# Run from a git hook, the environment names the repository being committed to, and a test's own
-# `git init` in a scratch directory then reinitialised that repository instead: it set core.bare
-# on this one (2026-10-01). No test may inherit them.
-HOOK_GIT_VARIABLES = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR", "GIT_PREFIX",
-                      "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES")
+# A test sees only what is named here, as the code it tests is handed its configuration rather
+# than reading the machine's (testing.md section 12): PATH, to find the tools, and the hermetic
+# settings, with a home of its own, so no ~/.gitconfig, owner's flag, session variable or git hook's
+# GIT_DIR (which once had a test's `git init` reinitialise this repository, 2026-10-01) reaches it.
+# The rest is the test's own to set.
+PASSED_THROUGH = ("PATH",)
+HERMETIC = {"TZ": "UTC", "LC_ALL": "C.UTF-8", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
 
 
 def run(module: Path) -> tuple[Path, subprocess.CompletedProcess[str]]:
-    env = {name: value for name, value in os.environ.items() if name not in HOOK_GIT_VARIABLES}
-    done = subprocess.run([sys.executable, "-m", "unittest", "-q", str(module)], capture_output=True,
-                          text=True, check=False, env=env)
+    with tempfile.TemporaryDirectory(prefix="py-tests-home-") as home:
+        env = {name: os.environ[name] for name in PASSED_THROUGH if name in os.environ}
+        env |= HERMETIC | {"HOME": home}
+        done = subprocess.run([sys.executable, "-m", "unittest", "-q", str(module)], capture_output=True,
+                              text=True, check=False, env=env)
     return module, done
 
 
