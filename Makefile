@@ -28,9 +28,12 @@ PYTHON := python3
 
 # The pinned golangci-lint and sqlc (scripts/fetch_tools.py links them into TOOLS_BIN) come first
 # on every target's PATH, before any other copy the machine has. GOPATH/bin holds what `go install`
-# put there (dlv); a fresh container's PATH often lacks it.
+# put there (dlv); a fresh container's PATH often lacks it. Asked only where Go is: a machine that
+# only deploys (`make deploy`) has git and Docker alone, and printed "go: command not found" at every
+# make (nas.example, 2026-10-19).
 TOOLS_BIN := $(or $(ORPHEUM_TOOLS_DIR),$(CURDIR)/.tools)/bin
-export PATH := $(TOOLS_BIN):$(shell go env GOPATH)/bin:$(PATH)
+GOPATH_BIN := $(shell command -v go >/dev/null 2>&1 && echo "$$(go env GOPATH)/bin:")
+export PATH := $(TOOLS_BIN):$(GOPATH_BIN)$(PATH)
 
 .PHONY: help
 help: ## List the targets
