@@ -69,9 +69,9 @@ func (service *Service) Accounts(ctx context.Context) ([]Account, error) {
 	return accounts, nil
 }
 
-// IssueRegistrationInvitation makes a person's registration link, withdrawing any earlier one: for
-// a forgotten password, when the old password works until the new one is set (D218 §5). It takes
-// the person out of the failed-sign-in limit.
+// IssueRegistrationInvitation makes a person's registration link, leaving any earlier one live until
+// one is used (D318): for a forgotten password, when the old password works until the new one is set
+// (D218 §5). It takes the person out of the failed-sign-in limit.
 func (service *Service) IssueRegistrationInvitation(ctx context.Context, userID int64) (IssuedSecret, error) {
 	user, err := liveUser(ctx, service.database.Read(), userID)
 	if err != nil {
@@ -93,13 +93,8 @@ func (service *Service) IssueRegistrationInvitation(ctx context.Context, userID 
 	}
 	now := service.clock.Now()
 	expires := now.Add(life)
+	// The links sent before stay live, each for its own life, until one is used (D318 §1).
 	err = service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		revokeErr := queries.RevokeLiveGrantsOfUser(ctx, sqlcgen.RevokeLiveGrantsOfUserParams{
-			RevokedAt: new(now.UnixMilli()), UserID: &userID, Kind: grantKindIssuedSecret, Scope: grantScopeRegister,
-		})
-		if revokeErr != nil {
-			return fmt.Errorf("withdraw the earlier invitation: %w", revokeErr)
-		}
 		return queries.InsertGrant(ctx, sqlcgen.InsertGrantParams{
 			SecretSha256: tokenHash(secret), Kind: grantKindIssuedSecret, UserID: &userID, Scope: grantScopeRegister,
 			IssuedAt: now.UnixMilli(), ExpiresAt: new(expires.UnixMilli()),
@@ -242,7 +237,13 @@ func (service *Service) spend(ctx context.Context, secret, scope string) (sqlcge
 		grant = found
 		// Used, a registration link becomes its person's own link, in place of the one they had
 		// (D292 §4; A12): a new password from it is also how the old link is revoked.
-		return becomeOwnLink(ctx, queries, hash, found.LocateHash, *found.UserID, time.UnixMilli(now))
+		if err := becomeOwnLink(ctx, queries, hash, found.LocateHash, *found.UserID, time.UnixMilli(now)); err != nil {
+			return err
+		}
+		// Every other registration link of theirs ends with it, in the same write (D318 §2).
+		return queries.RevokeLiveGrantsOfUser(ctx, sqlcgen.RevokeLiveGrantsOfUserParams{
+			RevokedAt: &now, UserID: found.UserID, Kind: grantKindIssuedSecret, Scope: grantScopeRegister,
+		})
 	})
 	if errors.Is(err, store.ErrNotFound) {
 		return sqlcgen.GetLiveGrantRow{}, ErrBadInvitation
