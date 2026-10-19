@@ -62,7 +62,9 @@
 //     TestMediaCookie_OverTLSItIsHostOnlyAndThePlainNameNoLongerCounts.
 //   - An admin administers only from the house's network: at home a sign-in from any origin carries
 //     the whole role, directly or over a WebRTC connection whose selected pair reaches the core from
-//     the house with no relay between, as the core's own end of the pair says; from any other network,
+//     the house with no relay between, as the core's own end of the pair says, the house's IPv6 /64
+//     being the core's own public IPv6 address's on that connection
+//     (TestIsHomeOverWebRTC_CountsTheCoresOwnIPv6NetworkAsTheHouses); from any other network,
 //     over WebRTC too, it carries a person's (D297 §6, D300 §3, revising D294 §1, §4), unless the admin
 //     set administering from away to always, from home (D302).
 //     TestAdmin_AdministersFromAwayOnlyByTheirOwnSettingSetFromHome. Enforced by

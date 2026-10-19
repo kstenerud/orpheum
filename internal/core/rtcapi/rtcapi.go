@@ -281,6 +281,7 @@ func (server *Server) open(api *webrtc.API) (*webrtc.PeerConnection, error) {
 	}
 	server.connections[connection] = true
 	var isConnected atomic.Bool
+	own := &heldNetworks{}
 	unconnected := time.AfterFunc(server.bounds.connectWithin, func() {
 		if !isConnected.Load() {
 			local, remote, pairs := candidatesOf(connection.GetStats())
@@ -293,6 +294,7 @@ func (server *Server) open(api *webrtc.API) (*webrtc.PeerConnection, error) {
 	connection.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
 		if state == webrtc.PeerConnectionStateConnected && isConnected.CompareAndSwap(false, true) {
 			unconnected.Stop()
+			own.keep(connection.GetStats())
 			server.recordPath(connection, selectedPath(connection))
 			server.holdWithinItsSourcesShare(connection)
 		}
@@ -318,7 +320,8 @@ func (server *Server) open(api *webrtc.API) (*webrtc.PeerConnection, error) {
 		remote := func() string { return remoteAddress(connection) }
 		serveChannel(server.ctx, server.handler, channel, remote, server.logger, servedChannel{
 			deadline: server.bounds.requestDeadline, ended: func() { inFlight.Add(-1) },
-			path: func() Path { return selectedPath(connection) },
+			path:        func() Path { return selectedPath(connection) },
+			ownNetworks: own.held,
 		})
 	})
 	return connection, nil

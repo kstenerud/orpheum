@@ -412,3 +412,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   (`web/apps/web/src/still-reading.css`, `status-cues.css`)
   — colour done 2026-10-17 by the owner, against staging at an earlier commit: *"Color looks right now."*
   — sizes done 2026-10-17 by the owner, against staging at an earlier commit: *"ok, size looks good now"*
+
+- [ ] **VQ43** — On nas.example, from a device at home that has IPv6 (the owner's Mac): sign in at
+  `app.orpheum-app.com`, and once the core's log says the connection took `path=direct_ipv6` (or
+  `punched_ipv6`) from the house's `/64`, the side menu's admin places show and **Libraries** lists
+  the libraries and lets one be made. A connection's own public IPv6 candidate, which only a
+  machine with public IPv6 gathers, is what marks its requests as from home, and no test machine
+  here has one (the owner's Mac, 2026-10-19: admin menu shown, Libraries refused).
+  (`internal/core/rtcapi/own_network.go`, `internal/core/api/home_network.go`)

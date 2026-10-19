@@ -30,6 +30,9 @@
 //   - Each connection's path (direct, punched or relayed, by family; or failed) is counted and
 //     logged, told by the core's end of its selected pair (D274 §3).
 //     TestAnswer_CountsThePathEachConnectionTook, TestPathOf_IsToldByTheCoresEndOfThePair.
+//   - A request over WebRTC carries the core's own public IPv6 /64s on its connection, from its host
+//     and STUN-found candidates alone, never a private, link-local, relayed or client address (D297
+//     §6). TestOwnIPv6Networks_AreThePublicIPv6CandidatesOfTheCoresOwnEnd.
 //   - A core taking WebRTC at home gathers its host candidates on one UDP port and answers with the
 //     house's address at it, so a device in the house reaches it directly (D300 §1).
 //     TestListenLAN_AnswersWithTheHousesAddressAtItsPort.

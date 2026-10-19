@@ -30,16 +30,23 @@ func (server *Server) markingHome(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		isHome := server.isHomeAddress(request.RemoteAddr)
 		if rtcapi.IsOverWebRTC(request.Context()) {
-			// Its remote address is the client's end of the pair the core's own end selected, which no
-			// page writes; through a relay it is the relay's, so a relayed pair never counts (D300 §3).
-			isHome = isHome && isDirectPath(rtcapi.PathOf(request.Context()))
+			isHome = isHomeOverWebRTC(isHome, request.RemoteAddr, rtcapi.OwnIPv6NetworksOf(request.Context()),
+				rtcapi.PathOf(request.Context()))
 		}
 		next.ServeHTTP(writer, request.WithContext(context.WithValue(request.Context(), homeKey{}, isHome)))
 	})
 }
 
-// isHomeAddress is whether remote, a request's "host:port", is in one of the home networks.
-func (server *Server) isHomeAddress(remote string) bool {
+// isHomeOverWebRTC is whether a request over WebRTC is from home: its remote address, the client's end
+// of the pair the core's own end selected, which no page writes, is in a home network, or in one of
+// the core's own public IPv6 networks on that connection, the house's IPv6 network (D297 §6); and no
+// relay is between, whose address it would be otherwise (D300 §3).
+func isHomeOverWebRTC(isHomeAddress bool, remote string, ownNetworks []netip.Prefix, path rtcapi.Path) bool {
+	return (isHomeAddress || isInAny(remote, ownNetworks)) && isDirectPath(path)
+}
+
+// isInAny is whether remote, a "host:port", is in one of networks.
+func isInAny(remote string, networks []netip.Prefix) bool {
 	host, _, err := net.SplitHostPort(remote)
 	if err != nil {
 		host = remote
@@ -49,13 +56,16 @@ func (server *Server) isHomeAddress(remote string) bool {
 		return false
 	}
 	address = address.Unmap().WithZone("")
+	return slices.ContainsFunc(networks, func(network netip.Prefix) bool { return network.Contains(address) })
+}
+
+// isHomeAddress is whether remote, a request's "host:port", is in one of the home networks.
+func (server *Server) isHomeAddress(remote string) bool {
 	networks := server.homeNetworks.Load()
 	if networks == nil {
 		return false
 	}
-	return slices.ContainsFunc(*networks, func(network netip.Prefix) bool {
-		return network.Contains(address)
-	})
+	return isInAny(remote, *networks)
 }
 
 // isFromHome is whether the request whose context ctx is came from a home network.
