@@ -39,15 +39,19 @@ jobs:
       - name: The development image's tag
         id: image
         run: echo "tag=$(./dev --image-tag)" >> "$GITHUB_OUTPUT"
+      # v2: the v1 entries could hold an empty archive, saved by a nightly run before anything had
+      # built the image (2026-10-19), and a cache entry is never replaced.
       - name: Restore the development image
         id: restore-image
         uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/dev-image.tar.zst
-          key: dev-image-${{ steps.image.outputs.tag }}
+          key: dev-image-v2-${{ steps.image.outputs.tag }}
       - name: Load the development image
         if: steps.restore-image.outputs.cache-hit == 'true'
-        run: zstd -d -c "$RUNNER_TEMP/dev-image.tar.zst" | docker load
+        run: |
+          set -o pipefail
+          zstd -d -c "$RUNNER_TEMP/dev-image.tar.zst" | docker load
       - uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/dev-cache
@@ -56,14 +60,19 @@ jobs:
       - name: make check
         if: github.event_name == 'push' || github.event_name == 'pull_request'
         run: ./dev make check VERBOSE=1
+      # A run that skipped make check (the nightly one) has not built the image yet: ./dev true builds
+      # it. pipefail keeps a failed docker save from leaving an empty archive to be cached.
       - name: Save the development image
         if: steps.restore-image.outputs.cache-hit != 'true'
-        run: docker save "${{ steps.image.outputs.tag }}" | zstd -T0 -3 > "$RUNNER_TEMP/dev-image.tar.zst"
+        run: |
+          set -o pipefail
+          ./dev true
+          docker save "${{ steps.image.outputs.tag }}" | zstd -T0 -3 > "$RUNNER_TEMP/dev-image.tar.zst"
       - if: steps.restore-image.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: ${{ runner.temp }}/dev-image.tar.zst
-          key: dev-image-${{ steps.image.outputs.tag }}
+          key: dev-image-v2-${{ steps.image.outputs.tag }}
       # The integration tier runs the pinned FFmpeg and MKVToolNix, which the image holds.
       - name: Integration tier
         if: github.event_name == 'push' || github.event_name == 'pull_request'
