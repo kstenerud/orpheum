@@ -10,6 +10,8 @@ import {
   rememberHousehold,
   switchAddress,
   switchedFrom,
+  goneAddress,
+  goneFrom,
 } from "./loader-households.ts";
 
 function memoryStorage(): StringStorage {
@@ -76,5 +78,16 @@ describe("the households a browser reached (D308 §8)", () => {
       expect(switchedFrom(search, referrer, originOf)).toBeUndefined();
     }
     expect(asksForTheList("")).toBe(false);
+  });
+
+  it("takes a household as gone only from that household's own client origin", () => {
+    const originOf = (coreId: string): string | undefined =>
+      /^[a-z0-9]+$/u.test(coreId) ? `https://${coreId}.client.example` : undefined;
+    const search = new URL(goneAddress("https://app.example", "k7xq2")).search;
+    expect(asksForTheList(search)).toBe(true);
+    expect(goneFrom(search, "https://k7xq2.client.example/", originOf)).toBe("k7xq2");
+    for (const referrer of ["", "https://m3dz9.client.example/", "https://evil.example/"]) {
+      expect(goneFrom(search, referrer, originOf)).toBeUndefined();
+    }
   });
 });

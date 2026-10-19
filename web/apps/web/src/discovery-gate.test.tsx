@@ -139,6 +139,26 @@ describe("the gate a discovery's page opens on", () => {
     expect(mounted.container.textContent).toContain("This link no longer finds its server");
   });
 
+  it("sends a remembered server found no more back to the loader's list, but says so of a link", async () => {
+    let gone = 0;
+    const parts: GateParts = {
+      ...partsOf(discovery({}, [])),
+      onGone: () => {
+        gone += 1;
+      },
+    };
+    const remembered = { kind: "remembered", core: { coreId: "k7xq2", fingerprint } } as const;
+    mounted = await mount(<DiscoveryGate start={remembered} parts={parts} />);
+    await settleUntil(() => gone > 0);
+    expect(gone).toBe(1);
+    mounted.unmount();
+    mounted = await mount(<DiscoveryGate start={linkStart} parts={parts} />);
+    await click(buttonWithText(mounted.container, "Connect"));
+    const page = mounted.container;
+    await settleUntil(() => page.textContent.includes("This link no longer finds its server"));
+    expect(gone).toBe(1);
+  });
+
   it("says when nothing reaches the server, and tells the discovery so", async () => {
     const heard: string[] = [];
     const located = {

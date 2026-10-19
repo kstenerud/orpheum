@@ -153,6 +153,32 @@ function isFromOrigin(referrer: string, origin: string): boolean {
   }
 }
 
+/** The query parameter a client origin names its core by when the discovery no longer finds it. */
+export const goneParameter = "gone";
+
+/**
+ * The address of the list at loaderOrigin, telling it the household of coreId is gone: the
+ * discovery found no core by it, so the list forgets it and the page offers the realm sign-in.
+ */
+export function goneAddress(loaderOrigin: string, coreId: string): string {
+  const query = new URLSearchParams({ [listParameter]: "", [goneParameter]: coreId });
+  return `${loaderOrigin}/?${query.toString()}`;
+}
+
+/**
+ * The core a request for the list says is gone, taken only from that core's own client origin, as
+ * its referrer says, as switchedFrom takes a household: no other page strikes one off the list.
+ */
+export function goneFrom(
+  search: string,
+  referrer: string,
+  clientOriginOf: (coreId: string) => string | undefined,
+): string | undefined {
+  const coreId = new URLSearchParams(search).get(goneParameter) ?? "";
+  const origin = clientOriginOf(coreId);
+  return origin !== undefined && isFromOrigin(referrer, origin) ? coreId : undefined;
+}
+
 /** Whether a request for the loader's page asks for the list however many it holds. */
 export function asksForTheList(search: string): boolean {
   return new URLSearchParams(search).has(listParameter);

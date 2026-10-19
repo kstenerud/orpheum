@@ -50,6 +50,13 @@ export interface GateParts {
   ) => void | Promise<void>;
   /** Forgets the core this device reached, which no longer leads anywhere. */
   readonly forgetCore: () => void;
+  /**
+   * Where the page goes when the core this device remembers is found no more, with no link to say
+   * so to: at a client origin, back to the loader's list, which forgets the household and offers the
+   * realm sign-in (the owner's staging, 2026-10-19, wiped and set up afresh, stuck on "This link no
+   * longer finds its server"). Absent, the page says it was not found.
+   */
+  readonly onGone?: () => void;
   /** Whether the discovery has realms, so a person with no link signs in by one (D298 §1). */
   readonly hasRealms: boolean;
   /** Where this device keeps the realm its person asked it to remember (D297 §5). */
@@ -236,6 +243,11 @@ export function DiscoveryGate(props: {
       }
     });
   };
+  useEffect(() => {
+    if (phase === "notFound" && start.kind !== "link" && parts.onGone !== undefined) {
+      parts.onGone();
+    }
+  }, [phase, start.kind, parts]);
   useEffect(() => {
     if (start.kind === "handoff") {
       reachThen(start.core, () => targetOfHandOff(parts.client, start.core, start.handOff));

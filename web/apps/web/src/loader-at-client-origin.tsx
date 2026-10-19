@@ -28,7 +28,7 @@ import { keepPath, type KeptPath } from "./kept-path.ts";
 import type { ClientFilesMessage } from "./client-files.ts";
 import type { LoaderConfig } from "./loader-config.ts";
 import { loaderMajor, loaderMinor, type OrpheumLoader } from "./loader-interface.ts";
-import { switchAddress } from "./loader-households.ts";
+import { goneAddress, switchAddress } from "./loader-households.ts";
 import { checkedClient, mountClient } from "./loader-run-client.ts";
 import { corePrefix, createSession, type Session } from "./session.ts";
 import { readMembership } from "./together-storage.ts";
@@ -99,6 +99,19 @@ export function startAtClient(at: AtClientOrigin): Start {
   return core === undefined ? { kind: "none" } : { kind: "remembered", core };
 }
 
+/**
+ * Goes to address at the loader's origin by a link whose referrer policy is the origin alone, under
+ * the page's no-referrer: the list takes what a client origin tells it only from that origin's page
+ * (D308 §8).
+ */
+function goBy(address: string): void {
+  const link = document.createElement("a");
+  link.href = address;
+  link.referrerPolicy = "origin";
+  document.body.append(link);
+  link.click();
+}
+
 /** The loader's interface over a kept path, for the client to take. */
 function loaderOver(
   at: AtClientOrigin,
@@ -115,18 +128,14 @@ function loaderOver(
     session,
     setMediaCredentials: kept.setMediaCredentials,
     switchHousehold: () => {
-      // A link's own referrer policy, the origin alone, under the page's no-referrer: the list
-      // takes the household only from its own client origin's page (D308 §8).
-      const link = document.createElement("a");
-      link.href = switchAddress(at.loaderOrigin, {
-        coreId: core.coreId,
-        fingerprint: core.fingerprint,
-        realm: core.realm ?? "",
-        name: "",
-      });
-      link.referrerPolicy = "origin";
-      document.body.append(link);
-      link.click();
+      goBy(
+        switchAddress(at.loaderOrigin, {
+          coreId: core.coreId,
+          fingerprint: core.fingerprint,
+          realm: core.realm ?? "",
+          name: "",
+        }),
+      );
     },
   };
 }
@@ -158,6 +167,10 @@ export function AtClientOriginPage(props: { readonly at: AtClientOrigin }): JSX.
       heldWith(core, sessionOfCore(), readMembership(browserStorage(), "viewer")),
     forgetCore: () => {
       storageThatNeverThrows(at.storage).removeItem(keptCoreKey);
+    },
+    onGone: () => {
+      storageThatNeverThrows(at.storage).removeItem(keptCoreKey);
+      goBy(goneAddress(at.loaderOrigin, at.coreId));
     },
     onConnected: async (core: KeptCore, reaching: Reaching) => {
       const session = sessionOfCore();

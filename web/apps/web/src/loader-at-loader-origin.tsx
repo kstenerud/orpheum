@@ -20,6 +20,7 @@ import { clientOriginOf } from "./loader-config.ts";
 import {
   asksForTheList,
   forgetHousehold,
+  goneFrom,
   households,
   rememberHousehold,
   switchedFrom,
@@ -88,6 +89,10 @@ export function startAtLoaderOrigin(at: AtLoaderOrigin): JSX.Element | undefined
   );
   if (from !== undefined) {
     rememberHousehold(storage, { ...from, lastUsedAt: at.now() });
+  }
+  const gone = goneFrom(location.search, at.referrer, (coreId) => clientAddressOf(config, coreId));
+  if (gone !== undefined) {
+    forgetHousehold(storage, gone);
   }
   const kept = households(storage);
   const [only] = kept;
