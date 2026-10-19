@@ -20893,7 +20893,7 @@ machine that runs it) and builds D272 §3's optional tunnel.
    `http://localhost:<port>` through an SSH forward over WireGuard**, since WebAuthn accepts no IP
    address as its relying party, which the WireGuard address is; `localhost` is a secure context
    and needs no certificate or name (D312 §4).
-5. **An account holds no e-mail address in the closed beta**: nothing in the beta sends mail, a
+5. *(Replaced by D316 the next day.)* **An account holds no e-mail address in the closed beta**: nothing in the beta sends mail, a
    person locked out asks the operator for a new invitation (D312 §3), and a household learns its
    core changed on the core's pages and in the app (D312 §2). The address, mail on each new
    sign-in and recovery by mail come with the open beta.
@@ -20905,3 +20905,37 @@ machine that runs it) and builds D272 §3's optional tunnel.
    re-confirmation in front of what matters.
 
 **Status:** Decided 2026-10-18; §6 the same day, after the owner asked what a session is here.
+
+## D316 — The service's accounts hold a verified e-mail address: sign in by it or the username, and a forgotten password or username is sent to it; a reset restores the account at once
+
+**Decided** (2026-10-19), by the project owner, replacing D315 §5. The owner, on the failed sign-in
+limits: *"A user who has forgotten their password will likely try 5 times and then get locked out
+for 15 minutes, and also be very aggravated already. I think 5 minutes is better. They're also going
+to forget their usernames. I think it would be good if they could also be able to log in with their
+email address."* On the agent's proposal that a reset by e-mail hold back a new core key for days
+(itself corrected the same day, agent-failures A36): *"I think we may be getting a little too
+paranoid. If an attacker has compromised someone's email account, a home video collection is the
+least of their worries. … The more likely situation will be: Someone's core dies in a fire, and they
+want to set up a new one, but they don't remember their password … only to discover they now have to
+wait days just to get their core attached so that their kids can watch videos again."*
+
+1. **An account holds an e-mail address, verified before it signs in or resets anything**, and
+   the sign-in form takes the username or the address. The failed sign-in counts run over five
+   minutes, not fifteen (orpheum-connect).
+2. **A forgotten password or username is sent to the address**: "forgot password" sends a link
+   (once, about 30 minutes, its secret in the fragment, spent only by a button on its page, D312
+   §10, §11), and its answer never says whether an account matched; "forgot username" sends the
+   username.
+3. **A reset restores the account at once**: no wait before a new core key, which D310 §9 makes
+   at once as before. Setting the new password ends every other session. A notice of the reset and
+   of each core change goes to the address. A device that knew the old core still stops with a
+   warning at a new one (D312 §2).
+4. **No sign-in with Google, Apple, Amazon or others** for now: it adds those companies to every
+   sign-in and a second identity per person, and passkeys and the e-mail reset already answer a
+   forgotten password.
+5. **Passkeys stay in the closed beta** (D312 §7, D315 §1), offered right after the first sign-in.
+6. **The mail provider is chosen by the owner** from a current comparison, before the e-mail is
+   built; SPF, DKIM and DMARC on `orpheum-app.com`, and a mail catcher on staging so no test sends
+   real mail.
+
+**Status:** Decided 2026-10-19; §6's provider still to be chosen.
