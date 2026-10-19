@@ -10,7 +10,7 @@ import { dateTimeText } from "./date-time-text.ts";
 import { i18n } from "./i18n.ts";
 import { idempotent } from "./idempotent.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
-import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
+import { ApiProblem, dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useRequest } from "./use-request.ts";
@@ -45,21 +45,7 @@ export function SystemDiscovery(): JSX.Element {
       reload();
     });
   };
-  // The key's own refusals in its words; any other failure as every request's.
-  const claiming = useRequest((cause) =>
-    problemText(t, cause, {
-      invalidRequest: t("system.discovery.wrongKey"),
-      conflict: t("system.discovery.notPending"),
-    }),
-  );
-  const claim = (key: string): void => {
-    claiming.runRequest(async (idempotencyKey) => {
-      dataOrThrow(
-        await api.POST("/system/discovery/claim", { body: { key }, ...idempotent(idempotencyKey) }),
-      );
-      reload();
-    });
-  };
+  const claiming = useClaim(reload);
   const leave = (): void => {
     runRequest(async (idempotencyKey) => {
       throwIfRefused(await api.DELETE("/system/discovery", idempotent(idempotencyKey)));
@@ -77,11 +63,7 @@ export function SystemDiscovery(): JSX.Element {
           value.baseUrl === "" ? (
             <ConnectForm isBusy={isBusy} onConnect={connect} />
           ) : (
-            <StandingView
-              standing={value}
-              claiming={{ isBusy: claiming.isBusy, problem: claiming.problem, onClaim: claim }}
-              onLeave={leave}
-            />
+            <StandingView standing={value} claiming={claiming} onLeave={leave} />
           )
         }
       />
@@ -199,11 +181,47 @@ function Enrolment(props: {
   );
 }
 
+/**
+ * Claiming by the account's key and the admin's password: the key's and the password's own refusals
+ * in their words, any other failure as every request's, and the standing read again after.
+ */
+function useClaim(reload: () => void): Claiming {
+  const { t } = useTranslation();
+  const { api } = useServices();
+  const claiming = useRequest((cause) =>
+    isRefusedAt(cause, "body.password")
+      ? t("system.discovery.wrongPassword")
+      : problemText(t, cause, {
+          invalidRequest: t("system.discovery.wrongKey"),
+          conflict: t("system.discovery.notPending"),
+        }),
+  );
+  const claim = (key: string, password: string): void => {
+    claiming.runRequest(async (idempotencyKey) => {
+      dataOrThrow(
+        await api.POST("/system/discovery/claim", {
+          body: { key, password },
+          ...idempotent(idempotencyKey),
+        }),
+      );
+      reload();
+    });
+  };
+  return { isBusy: claiming.isBusy, problem: claiming.problem, onClaim: claim };
+}
+
+/** Whether the server refused what was entered at location ("body.password"). */
+function isRefusedAt(cause: unknown, location: string): boolean {
+  const problems =
+    cause instanceof ApiProblem ? (cause.withCode("invalid_request")?.detail?.problems ?? []) : [];
+  return problems.some((problem) => problem.location === location);
+}
+
 /** Claiming by the account's key: whether a claim is under way, why the last failed, and making one. */
 interface Claiming {
   readonly isBusy: boolean;
   readonly problem: string | undefined;
-  readonly onClaim: (key: string) => void;
+  readonly onClaim: (key: string, password: string) => void;
 }
 
 /**
@@ -214,11 +232,12 @@ function KeyForm(props: { readonly claiming: Claiming }): JSX.Element {
   const { t } = useTranslation();
   const { isBusy, problem, onClaim } = props.claiming;
   const [key, setKey] = useState("");
+  const [password, setPassword] = useState("");
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        onClaim(key.trim());
+        onClaim(key.trim(), password);
       }}
     >
       <label>
@@ -232,7 +251,18 @@ function KeyForm(props: { readonly claiming: Claiming }): JSX.Element {
           }}
         />
       </label>{" "}
-      <button type="submit" disabled={isBusy || key.trim() === ""}>
+      <label>
+        {t("system.discovery.yourPassword")}{" "}
+        <input
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(event) => {
+            setPassword(event.currentTarget.value);
+          }}
+        />
+      </label>{" "}
+      <button type="submit" disabled={isBusy || key.trim() === "" || password === ""}>
         {t("system.discovery.claimByKey")}
       </button>
       {problem === undefined ? null : <p role="alert">{problem}</p>}

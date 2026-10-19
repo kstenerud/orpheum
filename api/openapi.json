@@ -469,10 +469,17 @@
             "maxLength": 64,
             "minLength": 1,
             "type": "string"
+          },
+          "password": {
+            "description": "The admin's own password, from which the core makes their realm key once it has the account's realm, so they sign in from away (D297 §3)",
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
           }
         },
         "required": [
-          "key"
+          "key",
+          "password"
         ],
         "type": "object"
       },

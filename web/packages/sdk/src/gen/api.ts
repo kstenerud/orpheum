@@ -2038,6 +2038,8 @@ export interface components {
         ClaimDiscoveryInputBody: {
             /** @description The key from the household's account: 16 letters and digits, as typed */
             key: string;
+            /** @description The admin's own password, from which the core makes their realm key once it has the account's realm, so they sign in from away (D297 §3) */
+            password: string;
         };
         ClientManifestBody: {
             manifest: string;
