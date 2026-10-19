@@ -6,6 +6,7 @@ import {
   grantEvery,
   maxMessageBytes,
   replaceFirstMs,
+  closingHoldsMs,
   requestsPerConnection,
   RtcTransport,
   sendOnChannel,
@@ -190,6 +191,11 @@ describe("the WebRTC transport", () => {
     channels[0]?.answer(new ArrayBuffer(0));
     expect(await first?.text()).toBe("");
     await settle();
+    // Its body ended and the client closed it, but the core counts it until its end closes too.
+    expect(channels[0]?.isClosed).toBe(true);
+    expect(channels).toHaveLength(requestsPerConnection);
+    channels[0]?.closeFromTheCore();
+    await settle();
     expect(channels).toHaveLength(requestsPerConnection + 1);
     // A request that fails gives its room back too.
     channels[1]?.closeFromTheCore();
@@ -198,6 +204,38 @@ describe("the WebRTC transport", () => {
     await settle();
     expect(channels).toHaveLength(requestsPerConnection + 2);
   });
+});
+
+it("gives a closed channel's room back after closingHoldsMs when its close never comes", async () => {
+  vi.useFakeTimers();
+  try {
+    const channels: FakeChannel[] = [];
+    const peer: PeerLike = {
+      createDataChannel: () => {
+        const channel = new FakeChannel();
+        channel.readyState = "open";
+        channels.push(channel);
+        return channel;
+      },
+      close: () => undefined,
+    };
+    const transport = new RtcTransport([peer]);
+    const answered = Array.from({ length: requestsPerConnection + 1 }, (_, index) =>
+      transport.fetch(new Request(`https://app.example/poster/${String(index)}`)),
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    channels[0]?.answer(JSON.stringify({ status: 200 }));
+    const first = await answered[0];
+    channels[0]?.answer(new ArrayBuffer(0));
+    expect(await first?.text()).toBe("");
+    expect(channels[0]?.isClosed).toBe(true);
+    await vi.advanceTimersByTimeAsync(closingHoldsMs - 1);
+    expect(channels).toHaveLength(requestsPerConnection);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(channels).toHaveLength(requestsPerConnection + 1);
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 describe("the switchable fetch", () => {
