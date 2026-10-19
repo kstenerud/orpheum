@@ -4,7 +4,7 @@ Docs are organised by **role** — the layer you are operating in. Pick your tie
 
 | Tier | Start here |
 | --- | --- |
-| **Users** — running the server | `GUIDE.md` (not written yet — nothing to run) |
+| **Users** — running the server | [`users/setup-problems.md`](users/setup-problems.md): problems seen setting up a server, and their fixes; `GUIDE.md` is not written yet |
 | **Contributors** — building the thing | [`contributors/`](contributors/) |
 
 The project is **pre-implementation**. Nothing has been built. Everything currently in this

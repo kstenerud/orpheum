@@ -181,6 +181,11 @@ User-Agent (D263; the User-Agent is logged only).
 | "Patch is empty". | [`yoloai apply` replays with `git am`, which stops on an empty patch](#yoloai-apply-replays-with-git-am-which-stops-on-an-empty-patch) |
 | A Cloudflare-proxied record ends TLS, carries no UDP/TURN, and the terms restrict video | [A Cloudflare-proxied record ends TLS, carries no UDP/TURN, and the terms restrict video](#a-cloudflare-proxied-record-ends-tls-carries-no-udpturn-and-the-terms-restrict-video) |
 | There is no publicly trusted certificate for a bare IP, and private-IP DNS answers trip rebinding protection | [There is no publicly trusted certificate for a bare IP, and private-IP DNS answers trip rebinding protection](#there-is-no-publicly-trusted-certificate-for-a-bare-ip-and-private-ip-dns-answers-trip-rebinding-protection) |
+| A machine has a public IPv6 address but no IPv6 default route, and IPv6 fails with "network is unreachable". | [A host that forwards IPv6 ignores the router's announcements, and its default route, unless `accept_ra` is 2](#a-host-that-forwards-ipv6-ignores-the-routers-announcements-and-its-default-route-unless-accept_ra-is-2) |
+| Inside a Proxmox container there is no IPv6 but Docker's own. | [A Proxmox container has no IPv6 until its `net0` is given it](#a-proxmox-container-has-no-ipv6-until-its-net0-is-given-it) |
+| After an interface was taken down and up in a container, IPv4 had no route. | [Taking an LXC container's interface down and up loses its IPv4 default route](#taking-an-lxc-containers-interface-down-and-up-loses-its-ipv4-default-route) |
+| Pulling the image fails with "network is unreachable" though IPv6 works. | [GitHub's image registry, `ghcr.io`, has no IPv6 address](#githubs-image-registry-ghcrio-has-no-ipv6-address) |
+| A phone on a travel eSIM reaches no server: one IPv4 candidate abroad, no IPv6. | [A travel eSIM's data leaves through its operator's gateway, over IPv4 alone](#a-travel-esims-data-leaves-through-its-operators-gateway-over-ipv4-alone) |
 
 ---
 
@@ -1870,6 +1875,65 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **Evidence:** an agent's working note; `research/direct-reachability.md`. This is an ISP limitation.
   **[web]** [RFC 6333](https://www.rfc-editor.org/rfc/rfc6333.txt) defines DS-Lite as IPv4 carried to the
   ISP's AFTR and NATed there, so the subscriber holds no public IPv4 by design (checked 2026-10-08).
+
+### A host that forwards IPv6 ignores the router's announcements, and its default route, unless `accept_ra` is 2
+
+- **Symptom:** the machine has a public IPv6 address but `ip -6 route show default` prints nothing;
+  anything over IPv6 fails with `network is unreachable`, a DNS server given as an IPv6 address
+  included, so even names do not resolve.
+- **Cause:** Docker sets `net.ipv6.conf.all.forwarding = 1` for a network with IPv6, as the
+  release's `outside` network has. With forwarding on, the kernel takes router advertisements only
+  where the interface's `accept_ra` is 2, and the address can still come by DHCPv6, so the machine
+  has an address and no route.
+- **What we do:** the install script names the case and its fix (`ipv6Report` in
+  `internal/deployment/templates/install.sh`, `test_an_ipv6_address_with_no_route_out_while_forwarding_is_named_with_its_fix`);
+  `docs/users/setup-problems.md` says it for households.
+- **Evidence:** **[owner]** nas.example's Proxmox container, 2026-10-19: `forwarding = 1`,
+  `accept_ra = 1`, a `/128` address and no default route; `accept_ra = 2` brought `default via
+  fe80::… proto ra`. **[doc]** the kernel's `ip-sysctl` documentation: `accept_ra` 1 accepts
+  advertisements "if forwarding is disabled", 2 "overrule forwarding behaviour".
+
+### A Proxmox container has no IPv6 until its `net0` is given it
+
+- **Symptom:** inside the container `ip -6 addr show scope global` lists only Docker's own
+  addresses; the house's other machines have IPv6.
+- **Cause:** a container's `net0` takes IPv6 only when `ip6` is set (`auto` for SLAAC, `dhcp`, or a
+  static address); left unset, it has none.
+- **What we do:** the install script says "a public IPv6 address: no" and how to set it;
+  `docs/users/setup-problems.md`.
+- **Evidence:** **[owner]** nas.example, CT 102, 2026-10-19. **[doc]** `pct` manual, `--net[n]`'s `ip6`.
+
+### Taking an LXC container's interface down and up loses its IPv4 default route
+
+- **Symptom:** after `ip link set eth0 down && ip link set eth0 up` in the container, IPv6's route
+  came back (from the next router advertisement) but IPv4 had none: `network is unreachable` to
+  any IPv4 address.
+- **Cause:** the kernel drops a link's routes when it goes down, and a static route is set again
+  only by what configured it, at the container's start; nothing re-adds it on link up.
+- **What we do:** `docs/users/setup-problems.md` says to restart the container instead.
+- **Evidence:** **[owner]** nas.example, 2026-10-19; `pct reboot` restored both routes.
+
+### GitHub's image registry, `ghcr.io`, has no IPv6 address
+
+- **Symptom:** a pull fails with `dial tcp 140.82.…:443: connect: network is unreachable` on a
+  machine whose IPv6 works and whose IPv4 does not.
+- **Cause:** `ghcr.io` and `github.com` publish no AAAA record; only the blob host,
+  `pkg-containers.githubusercontent.com`, has IPv6. An install or update needs IPv4.
+- **What we do:** `docs/users/setup-problems.md`.
+- **Evidence:** **[measured]** `getent ahostsv6` here, 2026-10-19: none for `ghcr.io` or
+  `github.com`, `2606:50c0:8000::154` for the blob host. **[owner]** nas.example, 2026-10-19.
+
+### A travel eSIM's data leaves through its operator's gateway, over IPv4 alone
+
+- **Symptom:** a phone on mobile data offers one ICE candidate, a server-reflexive IPv4 address
+  in another country, and no IPv6; it reaches no server behind DS-Lite without a relay.
+- **Cause:** unverified beyond one eSIM (bcengi): such eSIMs route their data through the
+  operator's own network (home routing), behind a shared IPv4 address, without IPv6. A VPN does
+  the same.
+- **What we do:** nothing can: without a relay the pair cannot meet (D314 §4), and the failure is
+  counted; `docs/users/setup-problems.md` tells a household what to try.
+- **Evidence:** **[owner]** 2026-10-19: candidates `srflx 11.22.55.141` alone, against nas.example's
+  `srflx 11.22.33.144` (DS-Lite's AFTR), every pair failed.
 
 ---
 
