@@ -12,7 +12,8 @@ REPO = Path(__file__).resolve().parents[2]
 TEMPLATE = REPO / "internal" / "deployment" / "templates" / "install.sh"
 
 # A docker that logs each call, begins a values file the first time a write-deployment runs over a
-# directory that has none, and answers setup-code with a code.
+# directory that has none, failing then as the real one does to say what to fill in, and answers
+# setup-code with a code.
 FAKE_DOCKER = """#!/bin/sh
 echo "docker $*" >> "$FAKE_LOG"
 case "$1 $2" in
@@ -20,7 +21,15 @@ case "$1 $2" in
     for arg in "$@"; do
         case $arg in *:/var/lib/orpheum) dir=${arg%%:/var/lib/orpheum} ;; esac
     done
-    [ -f "$dir/values.toml" ] || printf '[media]\\nroots = []\\n[lan]\\naddress = ""\\n' > "$dir/values.toml"
+    if [ "$FAKE_BEGIN_FAILS" = 1 ]; then
+        echo "write the values file: permission denied" >&2
+        exit 1
+    fi
+    if [ ! -f "$dir/values.toml" ]; then
+        printf '[media]\\nroots = []\\n[lan]\\naddress = ""\\n' > "$dir/values.toml"
+        echo "began a release deployment. Before it can start: fill in values.toml" >&2
+        exit 1
+    fi
     ;;
 "compose exec") echo "abcd-efgh" ;;
 esac
@@ -96,6 +105,14 @@ class Install(unittest.TestCase):
         done = self.install("--media", str(self.root / "nothing here"), "--dir", str(self.root / "o"))
         self.assertEqual(done.returncode, 1)
         self.assertIn("is not a folder", done.stderr)
+
+    def test_a_deployment_that_cannot_begin_stops_and_says_why(self):
+        films = self.root / "films"
+        films.mkdir()
+        done = self.install("--media", str(films), "--dir", str(self.dir), FAKE_BEGIN_FAILS="1")
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("permission denied", done.stderr)
+        self.assertNotIn("compose up", self.logged())
 
     def test_an_image_built_here_is_not_pulled(self):
         films = self.root / "films"

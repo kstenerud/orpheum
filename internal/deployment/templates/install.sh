@@ -133,7 +133,12 @@ if $pull; then
 	docker pull --quiet "$image" >/dev/null
 fi
 if $isNew; then
-	writeDeployment >/dev/null
+	# Beginning writes the values file and fails, saying what to fill in, which this script fills in
+	# itself; it failed for another reason when it wrote none.
+	if ! began=$(writeDeployment 2>&1 >/dev/null) && [ ! -f "$values" ]; then
+		printf '%s\n' "$began" >&2
+		exit 1
+	fi
 	fillAddress
 fi
 [ -z "$media" ] || addMedia
