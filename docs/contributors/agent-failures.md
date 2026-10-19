@@ -49,6 +49,21 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A37 — Put staging's client origins in the household zone that forbids every certificate (2026-10-19)
+
+- **What happened:** to give staging's client origins one wildcard route, the agent recommended
+  `<core>-client.orpheum-test.com`, staging's household zone, checked only that a CNAME could not sit
+  beside a core's CAA record, and the owner set it up. Cloudflare's edge then refused every handshake:
+  the zone's apex holds `CAA 0 issue ";"` and Universal SSL is kept off on purpose, so no CA but a
+  core's own Let's Encrypt account issues there (orpheum-connect's spec §7, D292 §1, X21), and a
+  Cloudflare-certified name in it would need both undone. The false belief came from reasoning about
+  the zone's DNS shape without reading what the spec says the zone is for.
+- **Caught by:** the agent, from the TLS alert on the owner's first try, after the owner had already
+  made the tunnel route and the wildcard record.
+- **Gate:** none checks a deployment recommendation against the spec. The lesson: before naming a
+  zone, domain or route for a new use, grep the spec and the runbooks for every rule on that zone
+  (`CAA`, `Universal SSL`, what it carries) and say which apply.
+
 ### A36 — Proposed warning the mailbox's owner through the mailbox an attacker took (2026-10-19)
 
 - **What happened:** proposing password reset by e-mail for the service's accounts, the agent named
