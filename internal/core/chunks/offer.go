@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/chunks/qualities"
+	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/renditions"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -103,17 +104,15 @@ func soundStream(sound renditions.AudioRendition, kbps int, isUnlevelled bool) S
 }
 
 // offerOf is what the film offers the playback (chunks.md §3): its picture copied, unless the
-// player cannot decode it; then each quality of chunk_qualities below the film's own picture, in
-// bit rate and in height, where each is known; and every sound a prepare would make, unlevelled
-// while the film's loudness is not measured (D259 §2).
+// player cannot decode it, when its twin, H.264 at its own height, takes its place (D323 §1); then each
+// quality of the ladder below the film's own picture, in bit rate and in height, where each is known,
+// the ladder chunk_qualities_hardware where the film's node encodes on a GPU, else chunk_qualities
+// (D323 §3); and every sound a prepare would make, unlevelled while the film's loudness is not
+// measured (D259 §2).
 func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Playback) (offer, error) {
-	text, err := service.settings.String(ctx, settings.ChunkQualities)
+	all, err := service.ladderOf(ctx, film)
 	if err != nil {
-		return offer{}, fmt.Errorf("read chunk_qualities: %w", err)
-	}
-	all, err := qualities.Parse(text)
-	if err != nil {
-		return offer{}, fmt.Errorf("read chunk_qualities: %w", err)
+		return offer{}, err
 	}
 	soundKbps, err := service.settings.Int(ctx, settings.ChunkSoundKbps)
 	if err != nil {
@@ -127,11 +126,9 @@ func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Play
 		sounds: renditions.AudioRenditionsOf(renditions.PreparedAudio(film.probe)), soundKbps: int(soundKbps),
 		isUnlevelled: isUnlevelled,
 	}
-	// A picture copied begins each chunk on a keyframe: a film cut on time has none there (D269 §1).
-	if playback.IsSourcePictureDecodable && film.kind == OnKeyframes {
-		offered.pictures = append(offered.pictures, Stream{Kind: nodeproto.StreamPicture})
-	}
-	averageBps, height := film.pictureAverageBps(), film.picture.Video.Height
+	height := film.picture.Video.Height
+	top, averageBps := topOf(film, playback)
+	offered.pictures = append(offered.pictures, top...)
 	for _, quality := range all {
 		if (averageBps <= 0 || int64(quality.Kbps)*1000 < averageBps) && (height <= 0 || quality.Height < height) {
 			offered.pictures = append(offered.pictures, Stream{Kind: nodeproto.StreamQuality, Quality: quality})
@@ -142,6 +139,50 @@ func (service *Service) offerOf(ctx context.Context, film cutFilm, playback Play
 		offered.pictures = append(offered.pictures, Stream{Kind: nodeproto.StreamQuality, Quality: only})
 	}
 	return offered, nil
+}
+
+// topOf is the top of the film's ladder for the playback, and the rate the qualities below it step
+// down from: its own picture copied, where the player decodes it and the film is cut on its keyframes,
+// which a copy needs (D269 §1); its twin where the player does not decode it, from whose rate the
+// qualities below step down, since they are H.264 as the twin is and the original packs more into a
+// bit (D323 §1, the owner, 2026-10-20); else none, below its own picture's rate.
+func topOf(film cutFilm, playback Playback) ([]Stream, int64) {
+	switch {
+	case playback.IsSourcePictureDecodable && film.kind == OnKeyframes:
+		return []Stream{{Kind: nodeproto.StreamPicture}}, film.pictureAverageBps()
+	case !playback.IsSourcePictureDecodable && film.picture.Video.Height >= qualities.MinHeight:
+		twin := twinOf(film)
+		return []Stream{twin}, int64(twin.Quality.Kbps) * 1000
+	default:
+		return nil, film.pictureAverageBps()
+	}
+}
+
+// twinOf is the film's twin: its picture in H.264 at its own height, even, as H.264's 4:2:0 picture
+// needs, and at most qualities.MaxHeight, at decide.TwinKbps (D323 §1).
+func twinOf(film cutFilm) Stream {
+	height := min(film.picture.Video.Height, qualities.MaxHeight)
+	return Stream{Kind: nodeproto.StreamQuality, Quality: qualities.Quality{
+		Kbps: decide.TwinKbps(film.probe), Height: height - height%2,
+	}}
+}
+
+// ladderOf are the qualities the film may be cut at: chunk_qualities_hardware where its node encodes
+// on a GPU, chunk_qualities where it does not (D323 §3).
+func (service *Service) ladderOf(ctx context.Context, film cutFilm) ([]qualities.Quality, error) {
+	key := settings.ChunkQualities
+	if service.encoders != nil && service.encoders.EncodesOnAGPU(film.file.NodeID) {
+		key = settings.ChunkQualitiesHardware
+	}
+	text, err := service.settings.String(ctx, key)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", key, err)
+	}
+	all, err := qualities.Parse(text)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", key, err)
+	}
+	return all, nil
 }
 
 // onlyQuality is the one quality a film cut on time is offered when none is below its own picture,

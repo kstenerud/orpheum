@@ -640,6 +640,24 @@ func TestFacts_KeepTheHellosHardwareAndTheLastStatussDisks(t *testing.T) {
 	}
 }
 
+// A node encodes on a GPU when its hello chose Quick Sync or NVENC; one that chose x264, or has not
+// said hello, does not (D323 §3).
+func TestEncodesOnAGPU_IsTheHellosChosenEncoderOtherThanX264(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	if harness.service.EncodesOnAGPU(1) {
+		t.Error("a node that has not said hello encodes on a GPU")
+	}
+	reply := harness.hello(t, nodeproto.Hello{Name: "local", Hardware: nodeproto.Hardware{ChosenEncoder: "h264_qsv"}})
+	if !harness.service.EncodesOnAGPU(reply.NodeID) {
+		t.Error("a node whose hello chose Quick Sync does not encode on a GPU")
+	}
+	harness.hello(t, nodeproto.Hello{Name: "local", Hardware: nodeproto.Hardware{ChosenEncoder: "x264"}})
+	if harness.service.EncodesOnAGPU(reply.NodeID) {
+		t.Error("a node whose hello chose x264 encodes on a GPU")
+	}
+}
+
 // heldResultReader is a node's byte socket holding results, by token.
 type heldResultReader struct {
 	held map[string]nodeproto.Result

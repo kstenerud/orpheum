@@ -72,6 +72,7 @@ const (
 	MediaTokenIdleExpiryHours                      Key = "media_token_idle_expiry_hours"
 	HLSSegmentLengthSeconds                        Key = "hls_segment_length_seconds"
 	ChunkQualities                                 Key = "chunk_qualities"
+	ChunkQualitiesHardware                         Key = "chunk_qualities_hardware"
 	ResumeMinPercent                               Key = "resume_min_percent"
 	FinishedAfterPercent                           Key = "finished_after_percent"
 	RegistrationInvitationLifeDays                 Key = "registration_invitation_life_days"
@@ -555,6 +556,14 @@ func chunkDefinitions() []Definition {
 				"picture's height, the width following the film's shape (D247 §6)",
 		}, "D247 §6: Apple's HLS authoring spec's low rungs, to be tuned on the owner's films; 400k@360p "+
 			"added by the owner, 2026-10-06, for an airplane's 0.6 Mb/s link"),
+		sourced(Definition{
+			Key: ChunkQualitiesHardware, Kind: KindString,
+			StartJSON: json.RawMessage(`"6000k@1080p,3000k@720p,2000k@540p,1200k@480p,700k@432p,400k@360p"`),
+			IsValid:   qualities.IsValid,
+			Description: "the lower qualities a film is cut into chunks at where its node encodes on a GPU (Quick " +
+				"Sync, NVENC), highest first, as chunk_qualities, which a node encoding in software uses (D323 §3)",
+		}, "D323 §3: chunk_qualities with Apple's HLS authoring spec's 1080p rung above it, which a GPU "+
+			"encodes as fast as it plays"),
 		sourced(integerSetting(ChunkRunSlowestSpeedPercent, "110", 100, 1000,
 			"percent of playback speed every run of chunks on a node must keep: when one of two or more is "+
 				"slower, one is evicted, the oldest no one plays from or else the newest, and its players are "+
