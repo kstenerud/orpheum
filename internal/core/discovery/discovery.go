@@ -93,6 +93,9 @@ type Parts struct {
 	// Answerer answers the WebRTC offers the discovery passes on: rtcapi.Server, which checks each
 	// itself first; nil answers none.
 	Answerer Answerer
+	// HasCertificate is whether the certificate for the names the discovery publishes is held, which
+	// the core's home addresses need (Status.IsHomeAddressReady); nil says none is.
+	HasCertificate func() bool
 	// OnClaimed is told when the discovery has claimed the core, or moved it to another zone: its
 	// certificate's name (Status.CertificateName) is then known. Nil tells nothing.
 	OnClaimed func(ctx context.Context)
@@ -259,6 +262,10 @@ func (service *Service) Status() Status {
 	status.Published = slices.Clone(status.Published)
 	status.Probe = slices.Clone(status.Probe)
 	status.ICEServers = slices.Clone(status.ICEServers)
+	if status.IsPublished() {
+		status.HomeAddresses = homeAddresses(service.lastSent, status.CoreID, status.Zone)
+		status.IsHomeAddressReady = service.parts.HasCertificate != nil && service.parts.HasCertificate()
+	}
 	return status
 }
 

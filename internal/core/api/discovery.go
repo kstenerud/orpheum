@@ -34,20 +34,22 @@ type DiscoveryStatusBody struct {
 	Zone    string `json:"zone,omitempty"`
 	Realm   string `doc:"What a person signs in to the server by at the discovery's page, beside their name and password: the realm the host's account there gave it; empty at a discovery with none (D297)" json:"realm,omitempty"` //nolint:lll // one struct tag
 	// ClaimCode is what the owner types at the discovery to claim the core, while it is pending.
-	ClaimCode        string               `json:"claimCode,omitempty"`
-	ClaimExpiresAt   int64                `doc:"Unix milliseconds; 0 when there is no code" json:"claimExpiresAt"`
-	Account          string               `doc:"The address of the account the server is enrolled with, at a discovery with accounts (D310 §5)" json:"account,omitempty"`                 //nolint:lll // one struct tag
-	RemovedAt        int64                `doc:"Unix milliseconds the server was removed from its account, another enrolled in its place (D312 §15); 0 when it was not" json:"removedAt"` //nolint:lll // one struct tag
-	ReachableFrom    string               `doc:"As the probe found; absent before it ran" enum:"public_ipv4,public_ipv4_other_port,ipv6,nowhere" json:"reachableFrom,omitempty"`          //nolint:lll // one struct tag
-	Published        []string             `doc:"The addresses the discovery publishes" json:"published"`
-	DeadEndsLastWeek int                  `doc:"How many times a client found no path to the server in the last week" json:"deadEndsLastWeek"` //nolint:lll // one struct tag
-	Probe            []DiscoveryProbeBody `json:"probe"`
-	LastHeartbeatAt  int64                `doc:"Unix milliseconds; 0 before the first" json:"lastHeartbeatAt"`
-	Problem          string               `doc:"Why the last call to the discovery failed; empty when it did not" json:"problem,omitempty"`                             //nolint:lll // one struct tag
-	DeprecatedUntil  string               `doc:"When the discovery stops speaking this core's protocol, when it said so" json:"deprecatedUntil,omitempty"`              //nolint:lll // one struct tag
-	ClientOrigin     string               `doc:"Where the discovery serves its client, which the server's links lead to" json:"clientOrigin,omitempty"`                 //nolint:lll // one struct tag
-	Fingerprint      string               `doc:"The identity key's fingerprint as a person reads it, in safe32 groups; links carry the same digest" json:"fingerprint"` //nolint:lll // one struct tag
-	PortMapping      PortMappingBody      `json:"portMapping"`
+	ClaimCode          string               `json:"claimCode,omitempty"`
+	ClaimExpiresAt     int64                `doc:"Unix milliseconds; 0 when there is no code" json:"claimExpiresAt"`
+	Account            string               `doc:"The address of the account the server is enrolled with, at a discovery with accounts (D310 §5)" json:"account,omitempty"`                 //nolint:lll // one struct tag
+	RemovedAt          int64                `doc:"Unix milliseconds the server was removed from its account, another enrolled in its place (D312 §15); 0 when it was not" json:"removedAt"` //nolint:lll // one struct tag
+	ReachableFrom      string               `doc:"As the probe found; absent before it ran" enum:"public_ipv4,public_ipv4_other_port,ipv6,nowhere" json:"reachableFrom,omitempty"`          //nolint:lll // one struct tag
+	Published          []string             `doc:"The addresses the discovery publishes" json:"published"`
+	DeadEndsLastWeek   int                  `doc:"How many times a client found no path to the server in the last week" json:"deadEndsLastWeek"` //nolint:lll // one struct tag
+	Probe              []DiscoveryProbeBody `json:"probe"`
+	LastHeartbeatAt    int64                `doc:"Unix milliseconds; 0 before the first" json:"lastHeartbeatAt"`
+	Problem            string               `doc:"Why the last call to the discovery failed; empty when it did not" json:"problem,omitempty"`                                                                                         //nolint:lll // one struct tag
+	DeprecatedUntil    string               `doc:"When the discovery stops speaking this core's protocol, when it said so" json:"deprecatedUntil,omitempty"`                                                                          //nolint:lll // one struct tag
+	ClientOrigin       string               `doc:"Where the discovery serves its client, which the server's links lead to" json:"clientOrigin,omitempty"`                                                                             //nolint:lll // one struct tag
+	HomeAddresses      []string             `doc:"The server's addresses at home, which reach it directly in the house (D292 §6); none until the discovery publishes it" json:"homeAddresses"`                                        //nolint:lll // one struct tag
+	IsHomeAddressReady bool                 `doc:"Whether the certificate the home addresses need is held: until it is, a browser at home reaches the server the long way, which gives no admin (D297 §6)" json:"isHomeAddressReady"` //nolint:lll // one struct tag
+	Fingerprint        string               `doc:"The identity key's fingerprint as a person reads it, in safe32 groups; links carry the same digest" json:"fingerprint"`                                                             //nolint:lll // one struct tag
+	PortMapping        PortMappingBody      `json:"portMapping"`
 	// WebRTCPaths are how many WebRTC connections took each path since the core started (D274 §3).
 	WebRTCPaths []WebRTCPathBody `json:"webrtcPaths"`
 }
@@ -229,6 +231,7 @@ func discoveryStatusBody(status discovery.Status) DiscoveryStatusBody {
 		Published: append([]string{}, status.Published...), Probe: []DiscoveryProbeBody{},
 		Problem: status.Problem, DeprecatedUntil: status.DeprecatedUntil,
 		ClientOrigin: status.ClientOrigin, Fingerprint: status.FingerprintText, Account: status.Account,
+		HomeAddresses: append([]string{}, status.HomeAddresses...), IsHomeAddressReady: status.IsHomeAddressReady,
 	}
 	if !status.RemovedAt.IsZero() {
 		body.RemovedAt = status.RemovedAt.UnixMilli()

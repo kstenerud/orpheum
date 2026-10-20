@@ -38,6 +38,33 @@ describe("AppShell", () => {
     expect(markup).toContain("partner on Firefox on Mac");
   });
 
+  it("tells an admin away from home where they administer, under Manage, in place of its places (D297 §6)", () => {
+    const shell = (administersFromHomeAt: string | undefined): string =>
+      renderToStaticMarkup(
+        withServices(
+          <AppShell
+            isAdmin={false}
+            canHostWatchTogether={false}
+            currentScreen="films"
+            onSignOut={ignore}
+            signedInAs={{ name: "karl", deviceName: undefined }}
+            administersFromHomeAt={administersFromHomeAt}
+          >
+            <p>screen</p>
+          </AppShell>,
+        ),
+      );
+    const away = shell("https://192-168-1-250.k7xq2.orpheum-core.com:8443");
+    expect(away).toContain("Manage");
+    expect(away).toContain(
+      'You administer this server from home, at <a href="https://192-168-1-250.k7xq2.orpheum-core.com:8443">',
+    );
+    expect(away).not.toContain("/libraries");
+    expect(shell("")).toContain("on its own page or the discovery&#x27;s page at home");
+    // A person who is no admin is told nothing of administering.
+    expect(shell(undefined)).not.toContain("You administer this server");
+  });
+
   it("shows the realm its person signed in to in the banner, and none where there is none (D297 §5)", () => {
     const shell = (realm: string | undefined): string =>
       renderToStaticMarkup(

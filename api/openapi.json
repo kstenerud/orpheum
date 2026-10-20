@@ -1102,6 +1102,20 @@
             "description": "The identity key's fingerprint as a person reads it, in safe32 groups; links carry the same digest",
             "type": "string"
           },
+          "homeAddresses": {
+            "description": "The server's addresses at home, which reach it directly in the house (D292 §6); none until the discovery publishes it",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "isHomeAddressReady": {
+            "description": "Whether the certificate the home addresses need is held: until it is, a browser at home reaches the server the long way, which gives no admin (D297 §6)",
+            "type": "boolean"
+          },
           "lastHeartbeatAt": {
             "description": "Unix milliseconds; 0 before the first",
             "format": "int64",
@@ -1185,6 +1199,8 @@
           "deadEndsLastWeek",
           "probe",
           "lastHeartbeatAt",
+          "homeAddresses",
+          "isHomeAddressReady",
           "fingerprint",
           "portMapping",
           "webrtcPaths"
@@ -6423,6 +6439,15 @@
           },
           "hasNoLibrary": {
             "type": "boolean"
+          },
+          "homeAddresses": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "id": {
             "format": "int64",

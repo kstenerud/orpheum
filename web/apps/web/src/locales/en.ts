@@ -25,6 +25,9 @@ export const en = {
   ...enGallery,
   ...enWarning,
   nav: {
+    administerFromHome:
+      "You administer this server from home, on its own page or the discovery's page at home.",
+    administerFromHomeAt: "You administer this server from home, at",
     films: "Films",
     series: "Series",
     search: "Search",
@@ -161,6 +164,11 @@ export const en = {
     refused: "{{refusalText}}",
     badLink:
       "This link does not work: it was used, replaced by a newer one, or has expired. Ask the person who made it for a new one.",
+  },
+  homeAddress: {
+    heading: "Your server at home",
+    text: "At home, this server is at",
+    qr: "The server's home address, as a QR code",
   },
   account: {
     heading: "Your account",
@@ -445,6 +453,8 @@ export const en = {
       heartbeat: "Last told the discovery its addresses at {{at}}.",
       problem: "The last call to the discovery failed: {{problem}}",
       clientOrigin: "Links to this server open at {{origin}}.",
+      homeAddressWaiting:
+        "This server's home address is being set up: its certificate usually comes within a few minutes of the claim. Until it does, the discovery's page at home reaches the server the long way, and you can't administer through it; this server's own page, at its address on your home network, works meanwhile.",
       fingerprint:
         "This server's fingerprint is {{fingerprint}}. Its links carry it, so a client knows it reached this server and no other; to check by eye, compare the first and last groups.",
       deprecated:

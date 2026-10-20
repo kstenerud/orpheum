@@ -13,6 +13,7 @@ import {
 
 import { ActivateDevice } from "./device-activation.tsx";
 import { FormRow } from "./form-row.tsx";
+import { HomeAddress } from "./home-address.tsx";
 import { dataOrThrow, fieldProblemText } from "./problem.ts";
 import { PasswordField } from "./credentials-form.tsx";
 import { QrCode } from "./qr-code.tsx";
@@ -22,7 +23,8 @@ import { YourDevices } from "./your-devices.tsx";
 
 /**
  * A person's own account: at the top, activating a device by the code it shows (D288); their
- * devices, the link they registered by, and their password (D218, D221). A device activated joins the list. A session that may not
+ * devices, the link they registered by, the server's home address (D292 §6), and their password
+ * (D218, D221). A device activated joins the list. A session that may not
  * change the account's security (a device a code activated, D292 §4) sees its devices and is told
  * where to do the rest.
  */
@@ -38,6 +40,9 @@ export function Account(): JSX.Element {
       {canManage ? <ActivateDevice onActivated={reload} /> : null}
       <YourDevices devices={devices} onChanged={reload} canManage={canManage} />
       <YourLink />
+      <YourServerAtHome
+        addresses={me.state === "loaded" ? (me.value.homeAddresses ?? undefined) : undefined}
+      />
       {canManage ? <ChangePassword /> : null}
       {me.state === "loaded" && me.value.adminAway !== undefined ? (
         <AdminAway adminAway={me.value.adminAway} onChanged={reloadMe} />
@@ -85,6 +90,22 @@ function AdminAway(props: {
         {t("account.adminAwayAlways")}
       </label>
       {problem === undefined ? null : <output>{problem}</output>}
+    </section>
+  );
+}
+
+/** The server's home address, told every household (D292 §6); nothing until it has one. */
+function YourServerAtHome(props: {
+  readonly addresses: readonly string[] | undefined;
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  if (props.addresses === undefined || props.addresses.length === 0) {
+    return null;
+  }
+  return (
+    <section aria-labelledby="home-address-heading">
+      <h2 id="home-address-heading">{t("homeAddress.heading")}</h2>
+      <HomeAddress addresses={props.addresses} />
     </section>
   );
 }

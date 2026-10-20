@@ -249,3 +249,27 @@ it("shows no removal to a server too old to say whether it was removed, which se
   expect(mounted.container.textContent).not.toContain("Another server was enrolled");
   expect(mounted.container.querySelector('[role="alert"]')).toBeNull();
 });
+
+it("shows a claimed server's home address once its certificate is held, and before then that it is coming (D292 §6, D297 §6)", async () => {
+  const claimed = {
+    ...none,
+    baseUrl: serviceDiscoveryUrl,
+    state: "claimed",
+    homeAddresses: ["https://192-168-1-250.k7xq2.orpheum-core.com:8443"],
+  };
+  const services = servedBy({
+    "GET /system/discovery": [
+      [200, { ...claimed, isHomeAddressReady: false }],
+      [200, { ...claimed, isHomeAddressReady: true }],
+    ],
+  });
+  mounted = await mount(withServices(<SystemDiscovery />, services));
+  expect(mounted.container.textContent).toContain("This server's home address is being set up");
+  expect(mounted.container.querySelector(".home-address")).toBeNull();
+  mounted.unmount();
+  mounted = await mount(withServices(<SystemDiscovery />, services));
+  const link = mounted.container.querySelector<HTMLAnchorElement>(".home-address a");
+  expect(link?.href).toBe("https://192-168-1-250.k7xq2.orpheum-core.com:8443/");
+  expect(mounted.container.querySelector(".home-address svg, .home-address img")).not.toBeNull();
+  expect(mounted.container.textContent).not.toContain("is being set up");
+});

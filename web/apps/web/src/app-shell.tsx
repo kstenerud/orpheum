@@ -109,6 +109,12 @@ export function AppShell(props: {
    * the page (D308 §8); undefined, and the menu offers none.
    */
   readonly onSwitchHousehold?: (() => void) | undefined;
+  /**
+   * For an admin who does not administer here, away from home (D297 §6): the server's home address,
+   * where they do, or "" when it has none ready; undefined for anyone else. Under Manage the menu
+   * then says so, in place of places it cannot offer.
+   */
+  readonly administersFromHomeAt?: string | undefined;
   readonly children: ReactNode;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -144,7 +150,10 @@ export function AppShell(props: {
         <nav className="app-shell__nav" aria-label={t("nav.label")}>
           <ul className="app-shell__watching">{links("watching")}</ul>
           <BannerEnd shell={props} isMenuCurrent={isIn("manage") || isIn("develop") || isIn("own")}>
-            <MenuSection heading={t("nav.manage")} places={links("manage")} />
+            <MenuSection
+              heading={t("nav.manage")}
+              places={managePlaces(props.administersFromHomeAt, links("manage"))}
+            />
             <MenuSection heading={t("nav.develop")} places={links("develop")} />
             {links("own")}
           </BannerEnd>
@@ -196,6 +205,35 @@ function MenuSection(props: {
       {props.places}
       <li className="app-shell__divider" aria-hidden="true" />
     </>
+  );
+}
+
+/** Manage's places: the admin's, or for an admin away from home where they administer instead. */
+function managePlaces(
+  administersFromHomeAt: string | undefined,
+  places: JSX.Element[],
+): JSX.Element[] {
+  return administersFromHomeAt === undefined
+    ? places
+    : [<AdministerFromHome key="home" address={administersFromHomeAt} />];
+}
+
+/**
+ * Where an admin away from home administers: at home, at the server's home address when it has one
+ * ready (D297 §6, D292 §6).
+ */
+function AdministerFromHome(props: { readonly address: string }): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <li className="app-shell__note">
+      {props.address === "" ? (
+        t("nav.administerFromHome")
+      ) : (
+        <>
+          {t("nav.administerFromHomeAt")} <a href={props.address}>{props.address}</a>
+        </>
+      )}
+    </li>
   );
 }
 

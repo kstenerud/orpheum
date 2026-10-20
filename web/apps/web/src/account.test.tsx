@@ -77,6 +77,40 @@ describe("your account", () => {
     const none = await accountOf(true);
     expect(none.textContent).not.toContain("Your link");
   });
+
+  it("shows everyone the server's home address, as a link and a QR code, once it has one (D292 §6)", async () => {
+    const home = "https://192-168-1-250.k7xq2.orpheum-core.com:8443";
+    mounted = await mount(
+      withServices(
+        <Account />,
+        servedBy({
+          "GET /me/devices": [200, { devices: [] }],
+          "GET /me": [
+            200,
+            {
+              id: 2,
+              name: "partner",
+              role: "user",
+              isAdmin: false,
+              canManageAccount: true,
+              homeAddresses: [home],
+            },
+          ],
+          "GET /me/own-link": refusal(404, "not_found"),
+        }),
+      ),
+    );
+    const section = mounted.container.querySelector(
+      'section[aria-labelledby="home-address-heading"]',
+    );
+    expect(section?.querySelector("a")?.getAttribute("href")).toBe(home);
+    expect(
+      section?.querySelector('img[alt="The server\'s home address, as a QR code"]'),
+    ).not.toBeNull();
+    mounted.unmount();
+    const without = await accountOf(true);
+    expect(without.querySelector('section[aria-labelledby="home-address-heading"]')).toBeNull();
+  });
 });
 
 describe("an admin's administering from away (D302)", () => {

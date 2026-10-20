@@ -66,6 +66,7 @@ func discoveryParts(
 		// realm sign-ins it passes on (D297 §3).
 		RealmSignIn: opened.auth.TakeRealmSignIn, OnRealm: opened.auth.SetRealm,
 		TURN: relayForFound(newRelayIssuer(config, opened), logger), ProbeNonce: opened.reachability.ProbeNonce,
+		HasCertificate: opened.jobServices.certificates.hasDiscoveryCertificate,
 	}
 }
 
