@@ -591,6 +591,12 @@ class OrpheumAbrController extends AbrController {
 
   constructor(hls: Hls, options: ChoosingOptions) {
     super(hls);
+    // hls.js's own giving up of a chunk on its way is off: choosing's is the one (D265 §3, D323). It
+    // timed a chunk from its first ask, so one the core answered 425 while it made it looked stalled,
+    // and with little loaded ahead it switched down to the quality it reckoned would arrive in time,
+    // every quality waiting as long: from the twin to 360p on a 120 Mb/s link, mid-film (the owner's
+    // Firefox on nas.example, 2026-10-20). Its check runs from its own timer, read when each chunk loads.
+    Reflect.set(this, "_abandonRulesCheck", () => undefined);
     this.choosing = new Choosing<Fragment>(hls, options, {
       estimateBps: () => this.bwEstimator.getEstimate(),
       measureGivenUp: (durationMs, bytes) => {

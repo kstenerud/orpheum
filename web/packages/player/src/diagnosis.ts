@@ -42,6 +42,8 @@ interface Kept {
   mapping: string[];
   mediaSourceState: string;
   steps: string[];
+  /** The player's own last choices of quality, with why, kept apart so the steps never push them out. */
+  choices: string[];
 }
 
 /** The longest a diagnosis's mapping may be, as the server takes it. */
@@ -49,6 +51,8 @@ const mappingTextMost = 300;
 
 /** How many of the player's last steps a diagnosis keeps, and the longest they may be, as the server takes them. */
 const stepsKept = 12;
+/** How many of the player's own last choices of quality a diagnosis keeps, after its steps. */
+const choicesKept = 3;
 const stepsTextMost = 400;
 
 /** The hls.js events a diagnosis keeps as steps, beside its errors and its video's attaching. */
@@ -183,6 +187,7 @@ export function diagnose(hls: DiagnosedHls, video: EventTarget): void {
     mapping: [],
     mediaSourceState: "",
     steps: [],
+    choices: [],
   };
   diagnoses.set(video, diagnosis);
   keepSteps(hls, diagnosis);
@@ -237,12 +242,17 @@ export function diagnose(hls: DiagnosedHls, video: EventTarget): void {
   });
 }
 
-/** What keeps a step among video's diagnosis's steps, as the player's own choices are; nothing for a video not diagnosed. */
+/**
+ * What keeps one of the player's own choices of quality, with why, in video's diagnosis: its last
+ * choicesKept, after its steps, which a dozen chunks' loads pushed out before a seek's report was sent
+ * (the owner's Firefox on nas.example, 2026-10-20); nothing for a video not diagnosed.
+ */
 export function stepNoter(video: object): (step: string) => void {
   return (step) => {
     const diagnosis = diagnoses.get(video);
     if (diagnosis !== undefined) {
-      keepStep(diagnosis, step);
+      diagnosis.choices.push(step);
+      diagnosis.choices.splice(0, Math.max(0, diagnosis.choices.length - choicesKept));
     }
   };
 }
@@ -265,6 +275,9 @@ export function diagnosisOf(
         : `media error ${String(elementError.code)}: ${elementError.message}`.slice(0, 200),
     mapping: diagnosis.mapping.join("; ").slice(0, mappingTextMost),
     mediaSourceState: diagnosis.mediaSourceState,
-    steps: diagnosis.steps.join("; ").slice(-stepsTextMost),
+    // The choices last, which the cut to stepsTextMost keeps: the steps around them are many.
+    steps: [...diagnosis.steps, ...diagnosis.choices.map((choice) => `chose ${choice}`)]
+      .join("; ")
+      .slice(-stepsTextMost),
   };
 }

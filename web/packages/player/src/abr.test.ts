@@ -623,6 +623,40 @@ describe("the bitrate controller inside hls.js (D265 §1)", () => {
   });
 });
 
+describe("a chunk on its way while the video plays (D265 §3, D323)", () => {
+  it("is given up by choosing alone, never by hls.js's own check, which took a chunk being made for a stalled one", () => {
+    const abr = orpheumAbr({
+      startAtBps: 0,
+      monotonicMs: () => nowMs,
+      isVoiceLive: () => false,
+      fromCache: () => undefined,
+    });
+    const hls = new Hls({ abrController: abr.controller });
+    const video = { ...videoAt(10, { isPaused: false, readyState: 4 }), playbackRate: 1 };
+    Object.defineProperty(hls, "media", { value: video });
+    // hls.js reckons a quality's chunk by its peak, maxBitrate, and checks only qualities it may play.
+    const reckoned = levels.map((level) => ({ ...level, maxBitrate: level.bitrate, details: {} }));
+    Object.defineProperty(hls, "levels", { value: reckoned });
+    Object.defineProperty(hls, "minAutoLevel", { value: 0 });
+    Object.defineProperty(hls, "maxAutoLevel", { value: 3 });
+    Object.defineProperty(hls, "autoLevelEnabled", { value: true });
+    Object.defineProperty(hls, "mainForwardBufferInfo", { value: { len: 4 } });
+    const chunk = new Fragment(PlaylistLevelType.MAIN, "");
+    chunk.level = 3;
+    chunk.duration = 10;
+    chunk.stats.loading = { start: performance.now() - 30_000, first: 0, end: 0 };
+    const controller: unknown = Reflect.get(hls, "abrController");
+    Reflect.set(controller as object, "fragCurrent", chunk);
+    const check: unknown = Reflect.get(controller as object, "_abandonRulesCheck");
+    if (typeof check !== "function") {
+      throw new Error("hls.js has no abandon check to call");
+    }
+    check.call(controller, undefined);
+    expect(abr.choosing()?.forcedLevel()).toBe(-1);
+    hls.destroy();
+  });
+});
+
 describe("a hole hls.js cannot step over (D266; the owner's group test, 2026-10-13)", () => {
   it("is recovered from by giving the quality up, so the playback is not failed", () => {
     const abr = orpheumAbr({
