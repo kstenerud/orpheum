@@ -482,13 +482,7 @@ type settingReader interface {
 // lengthOrStarting is a loop's wait, read afresh each time so a change takes effect at the next
 // one; when it cannot be read, the loop goes on at the setting's starting value and says so.
 func lengthOrStarting(ctx context.Context, config settingReader, key settings.Key, logger *slog.Logger) time.Duration {
-	length, err := config.Duration(ctx, key)
-	if err != nil {
-		length = settings.StartingDuration(key)
-		logger.WarnContext(ctx, "could not read a setting; going on at its starting value", "key", string(key),
-			"startingValue", length.String(), "err", err)
-	}
-	return length
+	return settings.DurationOrStarting(ctx, config, key, logger)
 }
 
 // newRunner is a runner of one kind, with its retry schedule and the recording of its failures.

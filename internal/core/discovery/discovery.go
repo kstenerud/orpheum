@@ -404,16 +404,11 @@ var ErrAnotherCopy = errors.New("another copy of this server is connected to the
 // wait is the setting key's length of time: how long the loop waits before its next look, or its
 // starting value when it cannot be read (each setting's description says when it applies).
 func (service *Service) wait(ctx context.Context, key settings.Key) time.Duration {
-	if service.parts.Settings == nil {
-		return settings.StartingDuration(key)
+	var reader settings.DurationReader
+	if service.parts.Settings != nil {
+		reader = service.parts.Settings
 	}
-	every, err := service.parts.Settings.Duration(ctx, key)
-	if err != nil {
-		every = settings.StartingDuration(key)
-		service.parts.Logger.WarnContext(ctx, "discovery: could not read a setting; going on at its starting value",
-			"key", string(key), "startingValue", every.String(), "err", err)
-	}
-	return every
+	return settings.DurationOrStarting(ctx, reader, key, service.parts.Logger)
 }
 
 // enrolAgain enrols the core again with its discovery, which no longer holds it, and returns the wait

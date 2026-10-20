@@ -620,3 +620,37 @@ func TestChunkQualities_IsCheckedByTheParserThatReadsIt(t *testing.T) {
 		t.Errorf("chunk_qualities reads %q, %v; want the value set", text, err)
 	}
 }
+
+// failingReader fails every read, as a database that is gone.
+type failingReader struct{}
+
+func (failingReader) Duration(context.Context, Key) (time.Duration, error) {
+	return 0, errors.New("the database is gone")
+}
+
+// A loop's wait is the setting as read, or its starting value when it cannot be read or there is no
+// reader at all, said in the log.
+func TestDurationOrStarting_IsTheSettingOrItsStart(t *testing.T) {
+	t.Parallel()
+	var logged bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logged, nil))
+	service, owner := newSeededService(t)
+	if err := service.Set(t.Context(), jsonByKey(string(DiscoveryEndedCheckEverySeconds), "900"), &owner,
+		false); err != nil {
+		t.Fatal(err)
+	}
+	key := DiscoveryEndedCheckEverySeconds
+	if wait := DurationOrStarting(t.Context(), service, key, logger); wait != 15*time.Minute {
+		t.Errorf("read: %s; want the 900 s set", wait)
+	}
+	start := StartingDuration(key)
+	if wait := DurationOrStarting(t.Context(), failingReader{}, key, logger); wait != start {
+		t.Errorf("a failing read: %s; want the starting %s", wait, start)
+	}
+	if !strings.Contains(logged.String(), "going on at its starting value") {
+		t.Errorf("a failing read was not logged: %q", logged.String())
+	}
+	if wait := DurationOrStarting(t.Context(), nil, key, logger); wait != start {
+		t.Errorf("no reader: %s; want the starting %s", wait, start)
+	}
+}
