@@ -9,6 +9,7 @@
  */
 
 import {
+  apiPrefix,
   browserTogetherSocket,
   carryMediaOver,
   directFetch,
@@ -107,7 +108,7 @@ export function keepPath(
   // carried over per path would answer each load once for every path the page ever used.
   const carried = carryMediaOver(keeper.fetch, () => credentials(), sendingOn(reaching.first).name);
   carried.catch(reportFailure);
-  const looking = lookForBetterPaths(keeper, reaching);
+  const looking = lookForBetterPaths(keeper, reaching, (path) => carriesRequests(path, session));
   return {
     fetch: keeper.fetch,
     openTogetherSocket: (listeners) => openSocket(listeners),
@@ -130,6 +131,31 @@ export function keepPath(
   };
 }
 
+/**
+ * Whether path carries a request as the page's own requests go: with the session's Authorization
+ * header, which needs the CORS preflight a bare health check never makes. Firefox's Local Network
+ * Access answers the bare check at a LAN name and then fails every request the page makes there, so a
+ * page moved by the check alone went to the LAN name and back off it at each look, losing a request
+ * each time and a film's posters with them (staging and nas.example, 2026-10-20; idiosyncrasies.md).
+ */
+async function carriesRequests(
+  path: Reached,
+  session: { readonly token: () => string | undefined },
+): Promise<boolean> {
+  const token = session.token();
+  const headers = new Headers();
+  if (token !== undefined) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  const request = new Request(`${globalThis.location.origin}${apiPrefix}/health`, { headers });
+  try {
+    const answer = await sendingOn(path).send(request);
+    return answer.ok || answer.status === 503;
+  } catch {
+    return false;
+  }
+}
+
 /** The page's look for a better path, as keepPath runs it. */
 interface BetterPaths {
   /** Told each move: one it did not make itself is away from a path that failed. */
@@ -138,25 +164,41 @@ interface BetterPaths {
 }
 
 /**
- * Looks for a better path than keeper's every betterPathFirstMs, and moves to it: twice as long after
- * each move away from a path that failed, up to betterPathMostMs, and at once, as often as at first,
+ * Looks for a better path than keeper's every betterPathFirstMs, and moves to it once it carries a
+ * request as the page's go (carries): twice as long after each move away from a path that failed, or
+ * a better path that did not carry one, up to betterPathMostMs, and at once, as often as at first,
  * when the browser is back online.
  */
 function lookForBetterPaths(
   keeper: PathKeeper<Reached>,
   reaching: Pick<Reaching, "better">,
+  carries: (path: Reached) => Promise<boolean>,
 ): BetterPaths {
   let waitMs = betterPathFirstMs;
   let isMoving = false;
   let isStopped = false;
   let next: ReturnType<typeof setTimeout> | undefined;
+  const backOff = (): void => {
+    waitMs = Math.min(waitMs * 2, betterPathMostMs);
+    clearTimeout(next);
+    lookLater();
+  };
   const look = (): void => {
-    void reaching.better(keeper.path).then((better) => {
-      if (better !== undefined && !isStopped) {
-        isMoving = true;
-        keeper.moveTo(better);
-        isMoving = false;
+    void reaching.better(keeper.path).then(async (better) => {
+      if (better === undefined) {
+        return;
       }
+      const isCarried = await carries(better);
+      if (isStopped) {
+        return;
+      }
+      if (!isCarried) {
+        backOff();
+        return;
+      }
+      isMoving = true;
+      keeper.moveTo(better);
+      isMoving = false;
     });
   };
   const lookLater = (): void => {
@@ -176,9 +218,7 @@ function lookForBetterPaths(
   return {
     moved: () => {
       if (!isMoving) {
-        waitMs = Math.min(waitMs * 2, betterPathMostMs);
-        clearTimeout(next);
-        lookLater();
+        backOff();
       }
     },
     stop: () => {

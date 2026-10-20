@@ -480,3 +480,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   A real TV's browser, a phone's camera and both the paid service and a core from main meet only
   here. (`web/apps/web/src/loader-device-code.tsx`, `web/apps/web/src/loader-activate.tsx`,
   `internal/core/auth/devicecodes.go`, orpheum-connect `internal/devicecodes/`)
+
+- [ ] **VQ49** — In Firefox at home (Local Network Access on), in a private window, sign in to staging
+  through `app-staging.orpheum-app.com` and stay on the films for two minutes: the console says
+  "requests now go over" once or twice, not again and again, every poster loads, and staging's core logs
+  no "refused a request past a connection's limit". Firefox's Local Network Access failing a LAN name's
+  preflighted requests while it answers a bare one only shows in Firefox on a real LAN.
+  (`web/apps/web/src/kept-path.ts`)

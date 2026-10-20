@@ -232,6 +232,14 @@ User-Agent (D263; the User-Agent is logged only).
   did not stall, but a request failed at each move. The look for a better path now waits twice as long
   after each move away from a failed path, from 30 s up to 10 minutes, and as at first once the browser
   is back online (`betterPathFirstMs` in `web/apps/web/src/kept-path.ts`).
+- **The look proved less than the requests need** (staging and nas.example, 2026-10-20, the owner's
+  Firefox, a private window and a normal one): the look's health check is a bare GET, with no CORS
+  preflight, and passed at the LAN name, while every request carrying the session's `Authorization`
+  header, which a preflight goes before, failed there with "CORS request did not succeed". A fresh tab
+  moved to the LAN name and back off it several times in its first minute, its posters lost to the
+  moves and a hand-off's requests with them. A better path is now moved to only once a request carrying
+  the session's header, sent the way the page's requests go, comes back from it; one that does not is
+  backed off from as a failed move is (`carriesRequests` in `kept-path.ts`). VQ49 asks Firefox at home.
 - **Evidence:** nas.example's and staging's logs, 2026-10-15, Firefox 157 on macOS; [Mozilla bug
   2059274](https://bugzilla.mozilla.org/show_bug.cgi?id=2059274) on when Firefox asks;
   undoing a block: the site's permissions in the address bar, or `about:preferences#privacy`'s
