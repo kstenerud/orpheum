@@ -133,8 +133,8 @@ func TestIsDirectPath_CountsNoRelayedOrFailedPath(t *testing.T) {
 }
 
 // A device a code activated watches and hosts but may not change the account's security: its
-// password, removing a device, signing out the others, or entering a code for another device (D292
-// §4; the security audit's A11).
+// password, removing a device, signing out the others, entering a code for another device, or reading
+// the person's own link (D292 §4; the security audit's A11; the device code audit's M4).
 func TestPairing_ACodeActivatedDeviceMayNotChangeTheAccountsSecurity(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -160,6 +160,17 @@ func TestPairing_ACodeActivatedDeviceMayNotChangeTheAccountsSecurity(t *testing.
 	if me := harness.do(t, http.MethodGet, "/me", television, nil); !strings.Contains(me.body,
 		`"canManageAccount":false`) {
 		t.Errorf("GET /me for the television = %s; want canManageAccount false", me.body)
+	}
+	// The person's devices say which a code activated, which their account page names (M4).
+	if listed := harness.do(t, http.MethodGet, "/me/devices", admin, nil); !strings.Contains(listed.body,
+		`"name":"Living room TV"`) || strings.Count(listed.body, `"isByCode":true`) != 1 {
+		t.Errorf("GET /me/devices = %s; want the television alone marked as activated by a code", listed.body)
+	}
+	// Nor carry away the person's own link, which outlives the device removed (the device code
+	// audit's M4); a password sign-in reads it.
+	wantError(t, harness.do(t, http.MethodGet, "/me/own-link", television, nil), http.StatusForbidden, CodeForbidden)
+	if own := harness.do(t, http.MethodGet, "/me/own-link", admin, nil); own.status == http.StatusForbidden {
+		t.Errorf("GET /me/own-link for the admin's own sign-in = %d %s", own.status, own.body)
 	}
 }
 

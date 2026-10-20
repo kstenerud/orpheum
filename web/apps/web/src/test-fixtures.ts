@@ -33,6 +33,7 @@ export function television(changes: Partial<Device> = {}): Device {
     addedAt: 1,
     lastUsedAt: 1,
     isSignedIn: true,
+    isByCode: false,
     isThisDevice: false,
     ...changes,
   };

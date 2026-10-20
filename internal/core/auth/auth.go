@@ -176,6 +176,8 @@ type Service struct {
 	// serviceDeviceCodes claims the codes the paid service issued (ClaimDeviceCodesFrom); nil claims
 	// none.
 	serviceDeviceCodes ServiceDeviceCodes
+	// onActivated is told of each device a code activates (OnDeviceActivated); nil tells no one.
+	onActivated func(context.Context, Activation)
 }
 
 // NewService returns a Service.
@@ -636,12 +638,16 @@ func (service *Service) sessionPrincipal(
 	}, nil
 }
 
-// sessionCapabilities are a session's capabilities: its role's, stored, but for administering in a
-// device-scoped session.
+// sessionCapabilities are a session's capabilities: its role's, stored, but in a device-scoped
+// session for administering and for changing what the libraries say, which a device someone talked
+// a person into activating should not do to the household (D292 §4, narrowed by the owner after the
+// device code audit's M4, 2026-10-20).
 func sessionCapabilities(stored string, isDeviceScoped bool) []string {
 	capabilities := strings.Split(stored, ",")
 	if isDeviceScoped {
-		capabilities = slices.DeleteFunc(capabilities, func(each string) bool { return each == capabilityAdminister })
+		capabilities = slices.DeleteFunc(capabilities, func(each string) bool {
+			return each == capabilityAdminister || each == capabilityEditMetadata
+		})
 	}
 	return capabilities
 }

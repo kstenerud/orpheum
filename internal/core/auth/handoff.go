@@ -20,6 +20,10 @@ const (
 	// How long a code works: a redirect's moment, with room for a slow phone. Fixed, not a setting,
 	// since it bounds how long a code left in a browser's history means anything.
 	handOffLife = time.Minute
+	// How long a device code's hand-off works: the TV polls the service every two seconds, opens the
+	// outcome and reaches the core, which an old television's engine over WebRTC may take a while to
+	// do (the device code audit's L2).
+	deviceHandOffLife = 3 * time.Minute
 	// How many wait at once, a bound on memory: each was a sign-in, which the failure limiter already
 	// paces.
 	handOffsAtMost = 1000
@@ -45,13 +49,15 @@ type handOff struct {
 	issued Issued
 	madeAt time.Time
 	person string
+	// life is how long it works: handOffLife, or deviceHandOffLife for a device code's.
+	life time.Duration
 }
 
 // expiredLocked removes every hand-off expired at now and returns their sessions; the mutex is held.
 func (kept *handOffs) expiredLocked(now time.Time) []Issued {
 	expired := []Issued{}
 	for code, waiting := range kept.byCode {
-		if now.Sub(waiting.madeAt) >= handOffLife {
+		if now.Sub(waiting.madeAt) >= waiting.life {
 			expired = append(expired, waiting.issued)
 			delete(kept.byCode, code)
 		}
@@ -72,13 +78,15 @@ func (service *Service) HandOff(
 	if realm := service.currentRealm(); realm != "" {
 		person = proof.RealmPerson(realm, name)
 	}
-	return service.keepHandOff(ctx, issued, person)
+	return service.keepHandOff(ctx, issued, person, handOffLife)
 }
 
 // keepHandOff keeps issued for a client origin to take by the code it answers, once, within
-// handOffLife, for person: whom the bootstrap token the client origin holds names, by whom its offers
+// life, for person: whom the bootstrap token the client origin holds names, by whom its offers
 // are proven under the code (HandOffOfferKeys). The session ends if it cannot be kept.
-func (service *Service) keepHandOff(ctx context.Context, issued Issued, person string) (string, error) {
+func (service *Service) keepHandOff(
+	ctx context.Context, issued Issued, person string, life time.Duration,
+) (string, error) {
 	code, err := randomSecret(service.random)
 	if err != nil {
 		return "", errors.Join(err, service.SignOut(ctx, issued.Token))
@@ -87,7 +95,7 @@ func (service *Service) keepHandOff(ctx context.Context, issued Issued, person s
 	expired := service.handOffs.expiredLocked(service.clock.Now())
 	isFull := len(service.handOffs.byCode) >= handOffsAtMost
 	if !isFull {
-		service.handOffs.byCode[code] = handOff{issued: issued, madeAt: service.clock.Now(), person: person}
+		service.handOffs.byCode[code] = handOff{issued: issued, madeAt: service.clock.Now(), person: person, life: life}
 	}
 	service.handOffs.mutex.Unlock()
 	err = service.endUntaken(ctx, expired)
@@ -123,7 +131,7 @@ func (service *Service) HandOffOfferKeys(person string) [][]byte {
 	now := service.clock.Now()
 	keys := [][]byte{}
 	for code, waiting := range service.handOffs.byCode {
-		if person != "" && waiting.person == person && now.Sub(waiting.madeAt) < handOffLife {
+		if person != "" && waiting.person == person && now.Sub(waiting.madeAt) < waiting.life {
 			keys = append(keys, proof.HandOffOfferKey(code))
 		}
 	}

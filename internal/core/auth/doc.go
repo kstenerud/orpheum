@@ -108,8 +108,13 @@
 //   - A code the core did not issue is claimed from the paid service: its check code is made of the
 //     device's key, a match keeps the device-scoped session as a hand-off under the code's person and
 //     passes its code on to be sealed to that key, and no match ends the code there (D293 §2).
-//     Enforced by TestPairing_AServiceCodeChecksByTheDevicesKeyAndHandsTheSessionOff and
-//     TestPairing_AServiceCodeNotMatchedEndsThereAndAnUnknownOneIsNone.
+//     The person is shown the device's platform and how long ago it asked, the outcome names the
+//     person, a code's hand-off waits three minutes, a claim the service refuses as one too many is
+//     the person's too many codes, and each activation is told for the core's log; the device scope
+//     leaves out editing metadata too (the device code audit, 2026-10-20). Enforced by
+//     TestPairing_AServiceCodeChecksByTheDevicesKeyAndHandsTheSessionOff,
+//     TestPairing_AServiceCodeNotMatchedEndsThereAndAnUnknownOneIsNone and
+//     TestPairing_AServiceCodesHandOffWaitsThreeMinutesAndTooManyClaimsSlowThePerson.
 //
 //   - A sign-in, or a device activated by its code, resumes the device the client remembers only when
 //     it is the same person's and the client proves it was that device, by the device secret its

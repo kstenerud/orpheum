@@ -42,8 +42,9 @@ type Device struct {
 	AudioOutput string
 	AddedAt     time.Time
 	LastUsedAt  time.Time
-	// IsSignedIn is whether any of its sessions is still live.
-	IsSignedIn bool
+	// IsSignedIn is whether any of its sessions is still live, and IsByCode whether a code activated
+	// one of them (the device scope).
+	IsSignedIn, IsByCode bool
 }
 
 // Devices lists a person's devices, most recently used first.
@@ -63,7 +64,7 @@ func (service *Service) Devices(ctx context.Context, userID int64) ([]Device, er
 		devices = append(devices, Device{
 			ID: row.ID, Name: row.Name, Platform: row.Platform, AudioOutput: ptr.ValueOrZero(row.AudioOutput),
 			AddedAt:    time.UnixMilli(row.AddedAt),
-			LastUsedAt: time.UnixMilli(lastUsedAt), IsSignedIn: row.IsSignedIn == 1,
+			LastUsedAt: time.UnixMilli(lastUsedAt), IsSignedIn: row.IsSignedIn == 1, IsByCode: row.IsByCode == 1,
 		})
 	}
 	slices.SortStableFunc(devices, func(a, b Device) int {

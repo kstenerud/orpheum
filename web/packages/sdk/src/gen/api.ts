@@ -1947,8 +1947,14 @@ export interface components {
             userId?: number;
         };
         ActivationOutputBody: {
+            /**
+             * Format: int64
+             * @description How long ago the device asked for its code, by the server's clock
+             */
+            askedSecondsAgo: number;
             checkCode: string;
             deviceName: string;
+            platform: string;
         };
         AdminAwayInputBody: {
             /** @enum {string} */
@@ -2221,6 +2227,8 @@ export interface components {
             audioOutput?: "built_in_speakers" | "receiver" | "headphones";
             /** Format: int64 */
             id: number;
+            /** @description A code activated it: it neither administers nor changes the account */
+            isByCode: boolean;
             isSignedIn: boolean;
             /** @description The device asking */
             isThisDevice: boolean;

@@ -35,6 +35,8 @@ func (service *Service) ClaimDeviceCode(
 	switch {
 	case errors.As(err, &refused) && refused.code == discoveryproto.RefusalNotFound:
 		return discoveryproto.DeviceCodeClaimResponse{}, false, nil
+	case errors.As(err, &refused) && refused.code == discoveryproto.RefusalTooManyClaims:
+		return discoveryproto.DeviceCodeClaimResponse{}, false, discoveryproto.ErrTooManyClaims
 	case err != nil:
 		return discoveryproto.DeviceCodeClaimResponse{}, false, fmt.Errorf("claim a device code: %w", err)
 	}
@@ -42,13 +44,14 @@ func (service *Service) ClaimDeviceCode(
 }
 
 // ActivateDeviceCode tells the discovery the device asking with code and publicKey is activated: it
-// seals the core's id, its identity key's fingerprint, its realm and handOffCode, the session's the
-// core keeps for the device's client origin, to the device's key (proof.SealDeviceOutcome), which the
-// discovery passes on unread.
-func (service *Service) ActivateDeviceCode(ctx context.Context, code, publicKey, handOffCode string) error {
+// seals the core's id, its identity key's fingerprint, its realm, handOffCode, the session's the core
+// keeps for the device's client origin, and the name of the person it signs in as to the device's key
+// (proof.SealDeviceOutcome), which the discovery passes on unread.
+func (service *Service) ActivateDeviceCode(ctx context.Context, code, publicKey, handOffCode, person string) error {
 	status := service.Status()
 	sealed, err := proof.SealDeviceOutcome(publicKey, proof.DeviceOutcome{
 		CoreID: status.CoreID, Fingerprint: status.Fingerprint, Realm: status.Realm, HandOffCode: handOffCode,
+		Person: person,
 	})
 	if err != nil {
 		return fmt.Errorf("seal a device's outcome: %w", err)
