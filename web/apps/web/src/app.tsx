@@ -43,7 +43,7 @@ import { useMembership } from "./together-membership.ts";
 import { HostVoiceProvider } from "./together-voice.tsx";
 import { TogetherViewer } from "./together-viewer.tsx";
 import { Remembered, useRemembered } from "./remembered.ts";
-import { useResource } from "./use-resource.ts";
+import { useResource, type Resource } from "./use-resource.ts";
 import { UiGallery } from "./ui-gallery.tsx";
 import { WatchTogether } from "./watch-together.tsx";
 
@@ -121,6 +121,7 @@ function SignedIn(): JSX.Element {
                 : undefined
             }
             currentScreen={route.screen}
+            administersFromHomeAt={administersFromHomeAt(me)}
             realm={realm}
             showsDeveloperPages={clientSettings?.shouldShowDeveloperPages === true}
             onSwitchHousehold={switchHousehold}
@@ -269,4 +270,17 @@ function signOutHere(api: Api, session: Session): void {
         session.signOutBecause("sign_out_unheard");
       },
     );
+}
+
+/**
+ * For an admin who does not administer here (away from home, D297 §6): the server's home address,
+ * or "" when it has none ready; undefined for anyone else, or before /me is read.
+ */
+function administersFromHomeAt(
+  me: Resource<components["schemas"]["UserBody"]>,
+): string | undefined {
+  if (me.state !== "loaded" || me.value.role !== "admin" || me.value.isAdmin) {
+    return undefined;
+  }
+  return me.value.homeAddresses?.[0] ?? "";
 }

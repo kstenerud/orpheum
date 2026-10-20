@@ -4,6 +4,8 @@ import type { components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { HomeAddress } from "./home-address.tsx";
+
 import { camelKey } from "./catalogue-key.ts";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { dateTimeText } from "./date-time-text.ts";
@@ -287,7 +289,26 @@ function Reach(props: { readonly standing: Standing }): JSX.Element {
       {deadEndsLastWeek === 0 ? null : (
         <p role="alert">{t("system.discovery.deadEnds", { count: deadEndsLastWeek })}</p>
       )}
+      <HomeAddressOf standing={props.standing} />
     </>
+  );
+}
+
+/**
+ * The server's home address once its certificate is held; before then, that it comes within a few
+ * minutes, and that until it does admin through the discovery's page at home waits too (D297 §6:
+ * the owner, after nas.example's claim, 2026-10-19, met a person's view with nothing saying why).
+ */
+function HomeAddressOf(props: { readonly standing: Standing }): JSX.Element | null {
+  const { t } = useTranslation();
+  const addresses = props.standing.homeAddresses ?? [];
+  if (addresses.length === 0) {
+    return null;
+  }
+  return props.standing.isHomeAddressReady ? (
+    <HomeAddress addresses={addresses} />
+  ) : (
+    <p>{t("system.discovery.homeAddressWaiting")}</p>
   );
 }
 

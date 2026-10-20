@@ -42,6 +42,10 @@ type UserBody struct {
 	// CanManageAccount is whether this session may change the account's security (its password, its
 	// devices, codes it enters for others): a client offers those only when it may (D292 §4).
 	CanManageAccount bool `json:"canManageAccount"`
+	// HomeAddresses are the server's addresses at home, which reach it directly in the house, once
+	// their certificate is held: every household is told them (D292 §6), and an admin administers
+	// from them (D297 §6). None before then, or without a discovery.
+	HomeAddresses []string `json:"homeAddresses,omitempty"`
 	// HasNoLibrary is a person whose role the admin has given no library yet, so a client tells
 	// them why their lists are empty (D243 §4).
 	HasNoLibrary bool `json:"hasNoLibrary"`
@@ -346,6 +350,11 @@ func (server *Server) userBody(
 		IsAdmin: administersHere(ctx, principal), CanHostWatchTogether: principal.CanHostWatchTogether(),
 		CanManageAccount: principal.CanManageAccount(), HasNoLibrary: principal.Reach.ReachesNone(),
 		AdminAway: adminAwayOf(principal),
+	}
+	if dependencies.Discovery != nil {
+		if status := dependencies.Discovery.Status(); status.IsHomeAddressReady {
+			body.HomeAddresses = status.HomeAddresses
+		}
 	}
 	if principal.DeviceID != 0 {
 		device, err := dependencies.Auth.DeviceOf(ctx, principal.UserID, principal.DeviceID)

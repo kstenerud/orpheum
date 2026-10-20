@@ -72,6 +72,8 @@ type world struct {
 	claimedCount atomic.Int32
 	// probeNonces is how many nonces the service made for the probe.
 	probeNonces atomic.Int32
+	// hasCertificate is whether the certificate for the discovery's names is held.
+	hasCertificate atomic.Bool
 }
 
 func newWorld(t *testing.T) *world {
@@ -99,7 +101,8 @@ func (built *world) restart(t *testing.T) *Service {
 		Candidates: func() []discoveryproto.Candidate { return built.candidates },
 		OnClaimed:  func(context.Context) { built.claimedCount.Add(1) },
 		RetryFirst: time.Second, RetryMost: time.Minute, Random: unjittered{},
-		ProbeNonce: func() (string, error) { return fmt.Sprintf("probe-%d", built.probeNonces.Add(1)), nil },
+		ProbeNonce:     func() (string, error) { return fmt.Sprintf("probe-%d", built.probeNonces.Add(1)), nil },
+		HasCertificate: built.hasCertificate.Load,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -519,5 +522,39 @@ func TestStep_KeepsTheClientOriginTheDiscoveryNamesWhenItIsAnHTTPSOrigin(t *test
 		if got := built.service.Status().LoaderOrigin; got != want {
 			t.Errorf("named the loader at %q, the core keeps %q; want %q", named, got, want)
 		}
+	}
+}
+
+// The core's home addresses are its house addresses under its names, none until the discovery
+// publishes it, and ready once the certificate they need is held (D292 §6, D297 §6).
+func TestStatus_NamesTheHomeAddressesOnceClaimedAndSaysWhenTheirCertificateIsHeld(t *testing.T) {
+	t.Parallel()
+	built := newWorld(t)
+	ctx := t.Context()
+	lan := discoveryproto.ScopeLAN
+	built.candidates = append(built.candidates,
+		discoveryproto.Candidate{Address: "192.168.1.250", Port: 8443, Source: "configured", Scope: lan},
+		discoveryproto.Candidate{Address: "192.168.1.251", Port: 443, Source: "interface", Scope: lan})
+	if _, err := built.service.Connect(ctx, built.baseURL); err != nil {
+		t.Fatal(err)
+	}
+	if pending := built.service.Status(); len(pending.HomeAddresses) != 0 || pending.IsHomeAddressReady {
+		t.Errorf("a pending core's status = %+v; want no home address", pending)
+	}
+	built.fake.claim()
+	built.service.step(ctx) // learns it is claimed
+	built.service.step(ctx) // sends its addresses
+	want := []string{
+		"https://192-168-1-250." + fakeCoreID + ".orpheum-core.example:8443",
+		"https://192-168-1-251." + fakeCoreID + ".orpheum-core.example",
+	}
+	claimed := built.service.Status()
+	if !slices.Equal(claimed.HomeAddresses, want) || claimed.IsHomeAddressReady {
+		t.Errorf("claimed, before the certificate: %v ready %v; want %v, not ready",
+			claimed.HomeAddresses, claimed.IsHomeAddressReady, want)
+	}
+	built.hasCertificate.Store(true)
+	if ready := built.service.Status(); !ready.IsHomeAddressReady {
+		t.Error("with the certificate held, the home addresses are not ready")
 	}
 }

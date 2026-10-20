@@ -6,6 +6,7 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 )
 
@@ -36,5 +37,19 @@ func TestIsHomeOverWebRTC_CountsTheCoresOwnIPv6NetworkAsTheHouses(t *testing.T) 
 			t.Errorf("isHomeOverWebRTC(%v, %s, %v, %s) = %v; want %v",
 				each.isHomeAddress, each.remote, each.own, each.path, got, each.want)
 		}
+	}
+}
+
+// The System page is told the server's home addresses and whether their certificate is held, as the
+// discovery status holds them (D292 §6, D297 §6).
+func TestDiscoveryStatusBody_CarriesTheHomeAddressesAndWhetherTheyAreReady(t *testing.T) {
+	t.Parallel()
+	home := "https://192-168-1-250.k7xq2.orpheum-core.com:8443"
+	body := discoveryStatusBody(discovery.Status{HomeAddresses: []string{home}, IsHomeAddressReady: true})
+	if len(body.HomeAddresses) != 1 || body.HomeAddresses[0] != home || !body.IsHomeAddressReady {
+		t.Errorf("the body = %+v; want the home address, ready", body)
+	}
+	if none := discoveryStatusBody(discovery.Status{}); none.HomeAddresses == nil || len(none.HomeAddresses) != 0 {
+		t.Errorf("with none, the body's home addresses = %#v; want an empty list, never null", none.HomeAddresses)
 	}
 }

@@ -2277,6 +2277,10 @@ export interface components {
             deprecatedUntil?: string;
             /** @description The identity key's fingerprint as a person reads it, in safe32 groups; links carry the same digest */
             fingerprint: string;
+            /** @description The server's addresses at home, which reach it directly in the house (D292 §6); none until the discovery publishes it */
+            homeAddresses: string[] | null;
+            /** @description Whether the certificate the home addresses need is held: until it is, a browser at home reaches the server the long way, which gives no admin (D297 §6) */
+            isHomeAddressReady: boolean;
             /**
              * Format: int64
              * @description Unix milliseconds; 0 before the first
@@ -3946,6 +3950,7 @@ export interface components {
             canManageAccount: boolean;
             device?: components["schemas"]["CurrentDeviceBody"];
             hasNoLibrary: boolean;
+            homeAddresses?: string[] | null;
             /** Format: int64 */
             id: number;
             isAdmin: boolean;

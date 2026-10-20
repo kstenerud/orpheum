@@ -13,6 +13,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/certificate"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
 // servedCertificates are the certificates HTTPS serves: the owner's own name's (https.domain,
@@ -62,6 +63,20 @@ func (served *servedCertificates) useDiscoveryName(name string) error {
 	served.underDiscovery.Store(service)
 	served.tellIfServable()
 	return nil
+}
+
+// hasDiscoveryCertificate is whether a certificate for the names the discovery publishes is held and
+// not yet expired, which the core's home addresses need.
+func (served *servedCertificates) hasDiscoveryCertificate() bool {
+	if served == nil {
+		return false
+	}
+	discovered := served.underDiscovery.Load()
+	if discovered == nil {
+		return false
+	}
+	expires, isHeld := discovered.ExpiresAt()
+	return isHeld && expires.After(clock.System{}.Now())
 }
 
 // whenServable has start told once there is a certificate to serve: at once when there is one.

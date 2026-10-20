@@ -3,6 +3,8 @@
 package discovery
 
 import (
+	"net/netip"
+	"strconv"
 	"time"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
@@ -44,6 +46,12 @@ type Status struct {
 	// LoaderOrigin is where the discovery serves the loader that hands a browser on to the client
 	// origin (D308); empty until it says, or when what it said is not an https origin.
 	LoaderOrigin string
+	// HomeAddresses are the core's addresses at home, "https://<label>.<coreId>.<zone>:<port>", from
+	// the house's addresses it sends, which reach it directly in the house; none until the discovery
+	// publishes it (D292 §6). IsHomeAddressReady is whether the certificate they need is held yet:
+	// until it is, a browser at home reaches the core the long way, which gives no admin (D297 §6).
+	HomeAddresses      []string
+	IsHomeAddressReady bool
 	// Fingerprint is the identity key's, which the core's links carry (proof.Fingerprint), and
 	// FingerprintText the same as a person reads and compares it, in safe32 groups
 	// (proof.FingerprintText).
@@ -64,3 +72,31 @@ func (status Status) CertificateName() string {
 	}
 	return "*." + status.CoreID + "." + status.Zone
 }
+
+// homeAddresses are the https addresses of candidates only a client at home reaches, under the
+// core's names: "https://<label>.<coreId>.<zone>", with the port unless it is 443.
+func homeAddresses(candidates []discoveryproto.Candidate, coreID, zone string) []string {
+	if coreID == "" || zone == "" {
+		return nil
+	}
+	var addresses []string
+	for _, candidate := range candidates {
+		address, err := netip.ParseAddr(candidate.Address)
+		if candidate.Scope != discoveryproto.ScopeLAN || err != nil {
+			continue
+		}
+		label, isLabel := discoveryproto.AddressLabel(address)
+		if !isLabel {
+			continue
+		}
+		home := "https://" + label + "." + coreID + "." + zone
+		if candidate.Port != 0 && candidate.Port != httpsPort {
+			home += ":" + strconv.Itoa(candidate.Port)
+		}
+		addresses = append(addresses, home)
+	}
+	return addresses
+}
+
+// httpsPort is HTTPS's own port, which an address leaves unsaid.
+const httpsPort = 443
