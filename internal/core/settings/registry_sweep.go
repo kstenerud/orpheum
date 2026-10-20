@@ -12,6 +12,10 @@ import "time"
 // each was a constant until the constants sweep (the owner, 2026-10-20).
 func upkeepSweepDefinitions() []Definition {
 	return []Definition{
+		sourced(durationSetting(JobLongestRetryDelayHours, time.Hour, "24", 1, 168,
+			"the longest a failing job's retry waits: its doubling back-off stops there, and a job that "+
+				"keeps failing retries about this often until job_attempt_limit (D231 §10)"),
+			"D231: a day, as job_first_retry_delay_seconds' description says"),
 		sourced(durationSetting(JobHealthWindowHours, time.Hour, "24", 1, 720,
 			"hours back the System page's job health counts each kind's failed jobs (D233 §8)"),
 			"D233 §8: a day"),

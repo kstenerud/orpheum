@@ -22,11 +22,12 @@ var ErrCancelled = errors.New("the job was cancelled")
 // ErrNotOpen is a cancel of a job that is no longer queued or running, or was never there.
 var ErrNotOpen = errors.New("no such job queued or running")
 
-// RetryPolicy is what the queue reads when a job fails: how many attempts a job may spend, and
-// how long the first retry waits before the back-off doubles it.
+// RetryPolicy is what the queue reads when a job fails: how many attempts a job may spend, how long
+// the first retry waits before the back-off doubles it, and the longest any retry waits.
 type RetryPolicy interface {
 	AttemptLimit(ctx context.Context) (int64, error)
 	FirstRetryDelay(ctx context.Context) (time.Duration, error)
+	LongestRetryDelay(ctx context.Context) (time.Duration, error)
 }
 
 // ArgsMerge is how a kind folds a repeat request's arguments into the job already open for its

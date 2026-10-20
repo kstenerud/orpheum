@@ -133,6 +133,7 @@ const (
 	PairingCodesPerNetworkMost                Key = "pairing_codes_per_network_most"
 	PairingCodesPerSiteMost                   Key = "pairing_codes_per_site_most"
 	DeviceCodeRevealWaitSeconds               Key = "device_code_reveal_wait_seconds"
+	JobLongestRetryDelayHours                 Key = "job_longest_retry_delay_hours"
 	JobHealthWindowHours                      Key = "job_health_window_hours"
 	RetentionSweepEveryHours                  Key = "retention_sweep_every_hours"
 	InvariantsCheckEveryHours                 Key = "invariants_check_every_hours"
@@ -459,7 +460,8 @@ func jobMetadataAndPlaybackDefinitions() []Definition {
 				"apart from it"),
 			"D233 §8, the owner's: a month of what ended"),
 		sourced(durationSetting(JobFirstRetryDelaySeconds, time.Second, "30", 1, 86400,
-			"seconds before a failed job's first retry; each later retry waits twice as long, up to a day"),
+			"seconds before a failed job's first retry; each later retry waits twice as long, up to "+
+				"job_longest_retry_delay_hours"),
 			"best guess (M2): doubling from 30 s reaches the day cap in about a dozen tries"),
 		sourced(durationSetting(ProviderTimeoutSeconds, time.Second, "20", 1, 600,
 			"seconds a call to a metadata provider such as TMDB may take; read when the server starts"),

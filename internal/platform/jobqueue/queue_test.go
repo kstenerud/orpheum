@@ -3,6 +3,7 @@
 package jobqueue_test
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"io"
@@ -26,10 +27,11 @@ const (
 	kindMake  jobqueue.Kind = "make"
 )
 
-// fixedPolicy is a retry policy that does not change.
+// fixedPolicy is a retry policy that does not change; its longest retry delay is a day unless named.
 type fixedPolicy struct {
-	attemptLimit    int64
-	firstRetryDelay time.Duration
+	attemptLimit      int64
+	firstRetryDelay   time.Duration
+	longestRetryDelay time.Duration
 }
 
 func (policy fixedPolicy) AttemptLimit(context.Context) (int64, error) {
@@ -38,6 +40,10 @@ func (policy fixedPolicy) AttemptLimit(context.Context) (int64, error) {
 
 func (policy fixedPolicy) FirstRetryDelay(context.Context) (time.Duration, error) {
 	return policy.firstRetryDelay, nil
+}
+
+func (policy fixedPolicy) LongestRetryDelay(context.Context) (time.Duration, error) {
+	return cmp.Or(policy.longestRetryDelay, 24*time.Hour), nil
 }
 
 type fixture struct {
@@ -57,12 +63,15 @@ func newFixture(t *testing.T, random io.Reader, merges map[jobqueue.Kind]jobqueu
 	return newFixtureWith(t, jobqueue.Config{Random: random, ArgsMerges: merges})
 }
 
-// newFixtureWith is a fixture whose queue has config, with the fixture's policy and a logger.
+// newFixtureWith is a fixture whose queue has config, with a logger, and the fixture's policy unless
+// config names one.
 func newFixtureWith(t *testing.T, config jobqueue.Config) fixture {
 	t.Helper()
 	storage := &jobqueuetest.Memory[target]{}
 	fakeClock := clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
-	config.Policy = fixedPolicy{attemptLimit: attemptLimit, firstRetryDelay: firstRetryDelay}
+	if config.Policy == nil {
+		config.Policy = fixedPolicy{attemptLimit: attemptLimit, firstRetryDelay: firstRetryDelay}
+	}
 	config.Logger = slog.New(slog.NewTextHandler(t.Output(), nil))
 	queue := jobqueue.New(storage, fakeClock, config)
 	return fixture{queue: queue, storage: storage, clock: fakeClock}
@@ -277,13 +286,31 @@ func TestRunDue_NoJitterTakesAWaitPastADay(t *testing.T) {
 	runner := jobs.queue.NewRunner(kindFetch, func(context.Context, jobqueue.Job[target]) error {
 		return errors.New("the image server answered 503")
 	}).WithRetrySchedule([]time.Duration{23 * time.Hour, 48 * time.Hour})
-	for _, want := range []time.Duration{jobqueue.LongestRetryDelay, jobqueue.LongestRetryDelay} {
+	for _, want := range []time.Duration{24 * time.Hour, 24 * time.Hour} {
 		jobs.runDue(t, runner)
 		row := jobs.row(t, "a")
 		if wait := row.RunnableAt.Sub(jobs.clock.Now()); wait != want {
 			t.Fatalf("a wait jittered to its latest came to %v, want %v: no retry waits past a day", wait, want)
 		}
 		jobs.clock.Set(row.RunnableAt)
+	}
+}
+
+// The longest retry delay is the policy's, job_longest_retry_delay_hours (the constants sweep,
+// 2026-10-20): at two hours, a retry scheduled for a day waits two hours.
+func TestRunDue_NoRetryWaitsPastThePolicysLongest(t *testing.T) {
+	t.Parallel()
+	jobs := newFixtureWith(t, jobqueue.Config{
+		Random: jobqueuetest.LatestJitter(),
+		Policy: fixedPolicy{attemptLimit: 5, firstRetryDelay: time.Minute, longestRetryDelay: 2 * time.Hour},
+	})
+	jobs.enqueue(t, jobqueue.Request[target]{Kind: kindFetch, Target: "a"})
+	runner := jobs.queue.NewRunner(kindFetch, func(context.Context, jobqueue.Job[target]) error {
+		return errors.New("the image server answered 503")
+	}).WithRetrySchedule([]time.Duration{24 * time.Hour})
+	jobs.runDue(t, runner)
+	if wait := jobs.row(t, "a").RunnableAt.Sub(jobs.clock.Now()); wait != 2*time.Hour {
+		t.Errorf("a retry scheduled for a day, the longest at two hours, waits %v; want 2h", wait)
 	}
 }
 

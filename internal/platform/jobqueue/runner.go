@@ -407,7 +407,7 @@ func (runner *Runner[T]) retryOrFail(
 			"attemptCount", job.AttemptNumber, "err", answer)
 		return runner.fail(ctx, job, answer.Error())
 	}
-	wait := doubledDelay(firstRetryDelay, job.AttemptNumber-1)
+	wait := runner.queue.doubledDelay(ctx, firstRetryDelay, job.AttemptNumber-1)
 	if runner.retrySchedule != nil {
 		wait = runner.retrySchedule[job.AttemptNumber-1]
 	}

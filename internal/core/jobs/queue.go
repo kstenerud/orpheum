@@ -365,6 +365,15 @@ func (policy settingsPolicy) FirstRetryDelay(ctx context.Context) (time.Duration
 	return firstRetryDelay, nil
 }
 
+// LongestRetryDelay is job_longest_retry_delay_hours.
+func (policy settingsPolicy) LongestRetryDelay(ctx context.Context) (time.Duration, error) {
+	longest, err := policy.settings.Duration(ctx, settings.JobLongestRetryDelayHours)
+	if err != nil {
+		return 0, fmt.Errorf("read job_longest_retry_delay_hours: %w", err)
+	}
+	return longest, nil
+}
+
 // MarkStalled marks a handler's error as a tool that stalled on the job, a hang that says nothing
 // of the target: the job is tried again after job_first_retry_delay_seconds at no cost of an
 // attempt, and its next attempt knows the last one's tool failed (Job.PreviousAttemptToolFailed),
