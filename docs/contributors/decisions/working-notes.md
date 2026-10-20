@@ -21156,4 +21156,7 @@ film's node encodes on Quick Sync. **Refines** [D266](#d266--a-quality-whose-vid
 4. **An encoder that cannot keep up steps its players down**, the twin included, as D286 §4 already
    does for any quality.
 
-**Status:** Decided 2026-10-20; to be built at once.
+**Status:** Built 2026-10-20: §1 and §3 in internal/core/chunks (`topOf`, `twinOf`, `ladderOf`) and
+`decide.TwinKbps`; §2 on the Play page. A Watch Together guest's page still
+falls to the quality below the picture given up, as before §2; §4 is D286 §4's move, which goes by
+stream and so moves a twin's players too.
