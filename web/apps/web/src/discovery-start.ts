@@ -7,6 +7,7 @@
  * answers the core signed. On the core's own origin none of it runs.
  */
 
+import { browserLocalNetwork, type LocalNetwork } from "./local-network.ts";
 import {
   connectRtc,
   discoverySignaller,
@@ -309,6 +310,8 @@ export interface Reaching {
   readonly first: Reached;
   readonly another: (failed: Reached) => Promise<Reached>;
   readonly better: (current: Reached) => Promise<Reached | undefined>;
+  /** Tells listener when the browser's local-network permission is granted; returns its removal. */
+  readonly onLocalNetworkGranted: (listener: () => void) => () => void;
 }
 
 /** Whether path is one of the target's LAN names. */
@@ -328,9 +331,18 @@ function rankOf(target: Target, path: Reached): number {
 /**
  * Reaches the target: at the first of its published names to answer, else over WebRTC through the
  * discovery (the protocol's §3.3; W2c, which races the names and then falls back). Its WebRTC
- * connection, once made, serves every later move to WebRTC.
+ * connection, once made, serves every later move to WebRTC. The LAN name is tried as the browser's
+ * local-network permission allows (W2c item 1): never once denied, and while the browser is still to
+ * ask, only in the first race, whose request is what has it ask; the look for a better path leaves
+ * it out until the person answers.
  */
-export async function reachCore(client: DiscoveryClient, target: Target): Promise<Reaching> {
+export async function reachCore(
+  client: DiscoveryClient,
+  target: Target,
+  localNetwork: LocalNetwork = browserLocalNetwork(),
+): Promise<Reaching> {
+  const notLan = (urls: readonly string[]): readonly string[] =>
+    urls.filter((url) => !target.lanUrls.includes(url));
   let webrtc: Promise<Reached> | undefined;
   const overWebrtc = (): Promise<Reached> => {
     webrtc ??= connectThrough(client, target).then(
@@ -346,7 +358,10 @@ export async function reachCore(client: DiscoveryClient, target: Target): Promis
     const origin = await firstDirectPath(urls, client.fetch);
     return origin === undefined ? undefined : { kind: "direct", origin };
   };
-  const first = (await direct(target.directUrls)) ?? (await overWebrtc());
+  const isDenied = (await localNetwork.state()) === "denied";
+  const first =
+    (await direct(isDenied ? notLan(target.directUrls) : target.directUrls)) ??
+    (await overWebrtc());
   // Whether the page is in the house: its LAN name answered. There WebRTC finds the LAN pair, and
   // the core's public names are never better than it: through them the page is away, with no admin
   // (D300 §4; the owner's Firefox at home, 2026-10-15, moved to the public IPv6 name and lost admin).
@@ -373,12 +388,17 @@ export async function reachCore(client: DiscoveryClient, target: Target): Promis
       return (await direct(others)) ?? (await overWebrtc());
     },
     better: async (current) => {
+      const state = await localNetwork.state();
+      const isLanAllowed = state === "granted" || state === "unknown";
       const candidates = isAtHome ? target.lanUrls : target.directUrls;
-      const best = rankOf(target, current) === 0 ? undefined : await direct(candidates);
+      const asked = isLanAllowed ? candidates : notLan(candidates);
+      const best =
+        rankOf(target, current) === 0 || asked.length === 0 ? undefined : await direct(asked);
       return best !== undefined && rankOf(target, best) < rankOf(target, current)
         ? best
         : undefined;
     },
+    onLocalNetworkGranted: (listener) => localNetwork.onGranted(listener),
   };
 }
 

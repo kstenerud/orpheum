@@ -246,6 +246,11 @@ User-Agent (D263; the User-Agent is logged only).
   `kept-path.ts`); at home it stays on WebRTC, a direct pair in the house, which counts as home (D300).
   The hand-off's redemption carries an idempotency key, so a repeat on another path after its answer
   was dropped is given the same session rather than a spent code. VQ49 asks Firefox at home.
+- **While its prompt waits** ("prompt action: (null)" in the console, every time in a private
+  window, which keeps no permission), Firefox fails each request to the LAN name at once. The page now
+  reads the permission (`local-network`, or `local-network-access` before) and leaves the LAN name out
+  of its look for a better path until it is granted, then looks at once; one denied is never tried
+  (`web/apps/web/src/local-network.ts`).
 - **Evidence:** nas.example's and staging's logs, 2026-10-15, Firefox 157 on macOS; [Mozilla bug
   2059274](https://bugzilla.mozilla.org/show_bug.cgi?id=2059274) on when Firefox asks;
   undoing a block: the site's permissions in the address bar, or `about:preferences#privacy`'s
