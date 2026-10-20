@@ -18,6 +18,7 @@ import (
 	"github.com/kstenerud/orpheum/discovery/link"
 	"github.com/kstenerud/orpheum/discovery/proof"
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
@@ -168,6 +169,26 @@ func TestDiscoveryParts_APendingCoreAsksAsOftenAsTheServersSettingSays(t *testin
 	}
 	if every, err := parts.Settings.Duration(ctx, key); err != nil || every != 7*time.Second {
 		t.Errorf("the discovery reads %s = %s, %v; want the 7 s an admin set", key, every, err)
+	}
+}
+
+// The port mapping asks for as long a lease as the server's setting says (the constants sweep,
+// 2026-10-20).
+func TestPortMappingParts_TheLeaseIsTheServersSetting(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	var config Config
+	var opened openedServices
+	opened.settings = settingstest.Seeded(t, storetest.OpenMigrated(t))
+	settingstest.Set(t, opened.settings, settings.PortMappingLeaseSeconds, "900")
+	parts := portMappingParts(config, opened, func() discovery.Status { return discovery.Status{} },
+		slog.New(slog.DiscardHandler))
+	if parts.Settings == nil {
+		t.Fatal("the port mapping's parts have no settings; it asks at the starting values")
+	}
+	lease, err := parts.Settings.Duration(ctx, settings.PortMappingLeaseSeconds)
+	if err != nil || lease != 15*time.Minute {
+		t.Errorf("the port mapping reads a lease of %s, %v; want the 900 s set", lease, err)
 	}
 }
 

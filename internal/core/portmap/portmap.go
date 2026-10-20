@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
@@ -26,25 +27,24 @@ const (
 	MethodUPnP   = "upnp"
 )
 
-// lifetime is what each mapping is asked for; it is renewed at half of what the router grants.
-const lifetime = time.Hour
-
 // checkEvery is how often the loop looks whether the mappings are still wanted and whether the
 // machine's addresses changed.
 const checkEvery = time.Minute
 
-// retryAfter is how long the loop waits to ask again when no router took a mapping.
-const retryAfter = 5 * time.Minute
-
-// permanentRenewal is how often a mapping the router made for good is asked for again, in case
-// the router restarted and forgot it.
-const permanentRenewal = 30 * time.Minute
+// How long each mapping is asked for (renewed at half of what the router grants), how long the loop
+// waits to ask again when no router took one, and how often one the router made for good is asked
+// for again, in case the router restarted and forgot it, are settings: port_mapping_lease_seconds,
+// port_mapping_retry_seconds and port_mapping_permanent_renew_seconds (the constants sweep,
+// 2026-10-20), read at each use (wait).
 
 // releaseWait bounds the removal of the mappings when the core stops.
 const releaseWait = 3 * time.Second
 
 // Parts are what the service is built from.
 type Parts struct {
+	// Settings are the server's settings, read for how long mappings are asked for and how often
+	// asked again; nil uses the starting values.
+	Settings settings.DurationReader
 	// HTTP is the client UPnP's requests to the router go through: internal/platform/outbound's.
 	HTTP   *http.Client
 	Clock  clock.Clock
@@ -175,6 +175,7 @@ func (service *Service) step(ctx context.Context) {
 		service.mutex.Unlock()
 		return
 	}
+	retryAfter := service.wait(ctx, settings.PortMappingRetrySeconds)
 	routerAddress, gatewayErr := service.parts.Gateway()
 	local, localErr := service.localAddress(ctx, routerAddress, gatewayErr)
 	ipv6 := service.parts.IPv6Addresses()
@@ -268,6 +269,7 @@ func (service *Service) mapIPv4(
 	ctx context.Context, routerAddress, local netip.Addr, findUPnP func() (router, error), report *Report,
 ) (held, bool) {
 	internal := netip.AddrPortFrom(local, uint16(service.parts.Port)) //nolint:gosec // a port
+	lifetime := service.wait(ctx, settings.PortMappingLeaseSeconds)
 	asked := service.gatewayAt(routerAddress)
 	external, granted, err := asked.mapPCP(ctx, service.nonce, internal, internal.Port(), lifetime)
 	method := MethodPCP
@@ -276,7 +278,7 @@ func (service *Service) mapIPv4(
 		external, granted, err = asked.mapNATPMP(ctx, internal, internal.Port(), lifetime)
 	}
 	if err == nil {
-		return service.heldFor(method, internal, external, granted, router{}), true
+		return service.heldFor(ctx, method, internal, external, granted, router{}), true
 	}
 	report.Problems = append(report.Problems, method+": "+err.Error())
 	found, err := findUPnP()
@@ -287,7 +289,7 @@ func (service *Service) mapIPv4(
 		report.Problems = append(report.Problems, "upnp: "+err.Error())
 		return held{}, false
 	}
-	return service.heldFor(MethodUPnP, internal, external, granted, found), true
+	return service.heldFor(ctx, MethodUPnP, internal, external, granted, found), true
 }
 
 // mapIPv6 asks the router's IPv6 firewall, by UPnP, to let the internet reach address's port.
@@ -295,6 +297,7 @@ func (service *Service) mapIPv6(
 	ctx context.Context, address netip.Addr, findUPnP func() (router, error), report *Report,
 ) (held, bool) {
 	internal := netip.AddrPortFrom(address, uint16(service.parts.Port)) //nolint:gosec // a port
+	lifetime := service.wait(ctx, settings.PortMappingLeaseSeconds)
 	found, err := findUPnP()
 	var id string
 	if err == nil {
@@ -304,19 +307,19 @@ func (service *Service) mapIPv6(
 		report.Problems = append(report.Problems, "upnp, IPv6 "+address.String()+": "+err.Error())
 		return held{}, false
 	}
-	opened := service.heldFor(MethodUPnP, internal, internal, lifetime, found)
+	opened := service.heldFor(ctx, MethodUPnP, internal, internal, lifetime, found)
 	opened.pinhole, opened.isIPv6 = id, true
 	return opened, true
 }
 
 // heldFor is a mapping the router granted for granted, zero for good, renewed at half of it.
 func (service *Service) heldFor(
-	method string, internal, external netip.AddrPort, granted time.Duration, upnp router,
+	ctx context.Context, method string, internal, external netip.AddrPort, granted time.Duration, upnp router,
 ) held {
 	now := service.parts.Clock.Now()
 	mapping := held{
 		Mapping:  Mapping{Method: method, Internal: internal, External: external},
-		renewAt:  now.Add(permanentRenewal),
+		renewAt:  now.Add(service.wait(ctx, settings.PortMappingPermanentRenewSeconds)),
 		upnp:     upnp,
 		external: external.Port(),
 	}
@@ -324,6 +327,15 @@ func (service *Service) heldFor(
 		mapping.ExpiresAt, mapping.renewAt = now.Add(granted), now.Add(granted/2)
 	}
 	return mapping
+}
+
+// wait is the setting key's length of time, or its starting value when it cannot be read.
+func (service *Service) wait(ctx context.Context, key settings.Key) time.Duration {
+	var reader settings.DurationReader
+	if service.parts.Settings != nil {
+		reader = service.parts.Settings
+	}
+	return settings.DurationOrStarting(ctx, reader, key, service.parts.Logger)
 }
 
 // release removes every mapping the core holds; one the router will not remove lapses by itself.

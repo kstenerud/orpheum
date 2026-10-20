@@ -8,6 +8,48 @@ import "time"
 // have them configurable db values unless there's a solid reason not to";
 // docs/contributors/design/research/constants-sweep-2026-10-20.md), by concern.
 
+// The constants sweep's keys.
+const (
+	DiscoveryPendingCheckEverySeconds     Key = "discovery_pending_check_every_seconds"
+	DiscoveryAddressCheckEverySeconds     Key = "discovery_address_check_every_seconds"
+	DiscoveryAnotherCopyCheckEverySeconds Key = "discovery_another_copy_check_every_seconds"
+	DiscoveryEndedCheckEverySeconds       Key = "discovery_ended_check_every_seconds"
+	DiscoveryRetryFirstSeconds            Key = "discovery_retry_first_seconds"
+	DiscoveryRetryMostSeconds             Key = "discovery_retry_most_seconds"
+	SignInFailureLimitNetworkMultiple     Key = "signin_failure_limit_network_multiple"
+	SignInFailureLimitEverywhereMultiple  Key = "signin_failure_limit_everywhere_multiple"
+	SignInEverywherePaceSeconds           Key = "signin_everywhere_pace_seconds"
+	PairingCodesPerNetworkMost            Key = "pairing_codes_per_network_most"
+	PairingCodesPerSiteMost               Key = "pairing_codes_per_site_most"
+	DeviceCodeRevealWaitSeconds           Key = "device_code_reveal_wait_seconds"
+	JobLongestRetryDelayHours             Key = "job_longest_retry_delay_hours"
+	UploadFilmsSharePercent               Key = "upload_films_share_percent"
+	UploadCrowdedSlowUnderPercent         Key = "upload_crowded_slow_under_percent"
+	UploadCrowdedSlowPlayersAtLeast       Key = "upload_crowded_slow_players_at_least"
+	UploadCrowdedKeepsPercent             Key = "upload_crowded_keeps_percent"
+	UploadCrowdedLowerEverySeconds        Key = "upload_crowded_lower_every_seconds"
+	UploadCrowdedFloorPercent             Key = "upload_crowded_floor_percent"
+	UploadUncrowdedForSeconds             Key = "upload_uncrowded_for_seconds"
+	UploadUncrowdedGrowsPercent           Key = "upload_uncrowded_grows_percent"
+	UploadUncrowdedRaiseEverySeconds      Key = "upload_uncrowded_raise_every_seconds"
+	UploadRaiseUnderPercent               Key = "upload_raise_under_percent"
+	UploadRaiseRoomSeconds                Key = "upload_raise_room_seconds"
+	UploadSendAwayAfterSeconds            Key = "upload_send_away_after_seconds"
+	ChunkInterestLapsesAfterSeconds       Key = "chunk_interest_lapses_after_seconds"
+	ChunkCPUCeilingKeptSeconds            Key = "chunk_cpu_ceiling_kept_seconds"
+	LinkSpeedFreshHours                   Key = "link_speed_fresh_hours"
+	ChunkLookaheadSeconds                 Key = "chunk_lookahead_seconds"
+	ChunkRunSpanSeconds                   Key = "chunk_run_span_seconds"
+	ChunkRunSpeedWindowSeconds            Key = "chunk_run_speed_window_seconds"
+	TogetherSnapSeeksBeyondSeconds        Key = "together_snap_seeks_beyond_seconds"
+	PortMappingLeaseSeconds               Key = "port_mapping_lease_seconds"
+	PortMappingRetrySeconds               Key = "port_mapping_retry_seconds"
+	PortMappingPermanentRenewSeconds      Key = "port_mapping_permanent_renew_seconds"
+	JobHealthWindowHours                  Key = "job_health_window_hours"
+	RetentionSweepEveryHours              Key = "retention_sweep_every_hours"
+	InvariantsCheckEveryHours             Key = "invariants_check_every_hours"
+)
+
 // upkeepSweepDefinitions are how often the core's upkeep looks, and how far back the job view counts:
 // each was a constant until the constants sweep (the owner, 2026-10-20).
 func upkeepSweepDefinitions() []Definition {
@@ -201,5 +243,21 @@ func togetherSweepDefinitions() []Definition {
 			"seconds a Watch Together seek must jump to be snapped to a keyframe: a jump along the timeline "+
 				"is imprecise, but a short skip by a key or a button snapped back would never move on (D285 §1)"),
 			"D285 §1: thirty seconds"),
+	}
+}
+
+// portMappingDefinitions are how the core asks the home router to open its HTTPS port (D273 §7).
+func portMappingDefinitions() []Definition {
+	return []Definition{
+		sourced(durationSetting(PortMappingLeaseSeconds, time.Second, "3600", 120, 86400,
+			"seconds each port mapping is asked of the router for, renewed at half of what it grants (D273 §7)"),
+			"best guess: an hour, a common lease"),
+		sourced(durationSetting(PortMappingRetrySeconds, time.Second, "300", 10, 86400,
+			"seconds before asking the router again when none took a mapping (D273 §7)"),
+			"best guess: five minutes"),
+		sourced(durationSetting(PortMappingPermanentRenewSeconds, time.Second, "1800", 60, 86400,
+			"seconds between asks again for a mapping the router made for good, in case it restarted and "+
+				"forgot it (D273 §7)"),
+			"best guess: half an hour"),
 	}
 }
