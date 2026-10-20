@@ -153,3 +153,23 @@ func uploadDefinitions() []Definition {
 			"D286 §5: twenty seconds"),
 	}
 }
+
+// playbackTimingDefinitions are how long the server holds what its players tell it.
+func playbackTimingDefinitions() []Definition {
+	return []Definition{
+		sourced(durationSetting(ChunkInterestLapsesAfterSeconds, time.Second, "120", 30, 1800,
+			"seconds a playing player's interest in its film's chunks lasts with it silent: no word, no "+
+				"chunk asked for, no report. A playing player asks every few seconds and reports every ten, "+
+				"so a crash or a lost link holds an encoder at most this long (D309 §3)"),
+			"D309 §3: two minutes"),
+		sourced(durationSetting(ChunkCPUCeilingKeptSeconds, time.Second, "120", 10, 3600,
+			"seconds a playback moved off a quality its node could not make fast enough keeps to the one it "+
+				"was moved to: long enough for the node's other runs to settle, after which it may climb "+
+				"again (D309 §6, D286 §4)"),
+			"D286 §4: two minutes"),
+		sourced(durationSetting(LinkSpeedFreshHours, time.Hour, "24", 1, 720,
+			"hours a measured link speed stands for its player on its network, after which a link may have "+
+				"changed for a reason no address shows, and a new measurement is waited for (D257 §1)"),
+			"D257 §1: a day, \"counting for less after a day\""),
+	}
+}

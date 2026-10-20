@@ -21,9 +21,9 @@
 //   - Each playback holds what its player wants of its film's chunks, which decides the runs that go
 //     on (D309): one picture and its sound from a position, read off each chunk it asks for, said by
 //     its player, set as it starts on its ladder, with its stall's offer beside it; and where its
-//     player stands: playing, lapsing after interestLapsesAfter of silence; paused or gone from its
-//     page, wanting only what it keeps ahead; gone to another film, said so or by starting one,
-//     wanting nothing. TestInterestsIn_AreWhatEachPlayerLastAskedFor,
+//     player stands: playing, lapsing after chunk_interest_lapses_after_seconds of silence; paused or
+//     gone from its page, wanting only what it keeps ahead; gone to another film, said so or by
+//     starting one, wanting nothing. TestInterestsIn_AreWhatEachPlayerLastAskedFor,
 //     TestSayInterest_ReplacesWhatThePlayerWantedAndLeavingSaysWhy,
 //     TestReplaceOthers_APlayerStartingAnotherFilmLeavesTheOthersForGood; through the API,
 //     TestInterest_ARunOfAQualityThePlayerLeftStops (internal/core/api).

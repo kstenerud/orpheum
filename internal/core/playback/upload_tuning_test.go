@@ -24,6 +24,13 @@ var (
 	sentAwaySettles   = starting.sentAwaySettles()
 )
 
+// The playbacks' timing in tests: its starting values, by the names its constants had.
+var (
+	interestLapsesAfter = startingPlaybackTiming().interestLapsesAfter
+	cpuCeilingFor       = startingPlaybackTiming().cpuCeilingFor
+	speedFreshFor       = startingPlaybackTiming().speedFreshFor
+)
+
 // keyedSettings answers each key it has, and fails every other.
 type keyedSettings map[settings.Key]int64
 

@@ -166,7 +166,7 @@ func (resort *lastResort) isDue(isOverAtLowest bool, now time.Time, tuning uploa
 // each player with its next chunk (CeilingOf). Unanswered, it lifts every ceiling. Each change is
 // logged, and the need still over the share with every quality at its lowest, once each time it
 // comes to be; staying so for upload_send_away_after_seconds, the newest member is sent away
-// (SendAwayBy). Its tuning is read at each look.
+// (SendAwayBy). Its tuning, and the playbacks' timing (playbackTiming), are read at each look.
 func (service *Service) KeepUnderShare(ctx context.Context, tick <-chan time.Time, logger *slog.Logger) {
 	control := &uploadControl{}
 	crowded := &crowding{}
@@ -178,6 +178,7 @@ func (service *Service) KeepUnderShare(ctx context.Context, tick <-chan time.Tim
 			return
 		case <-tick:
 		}
+		service.refreshTiming(ctx, logger)
 		uploadMbps, err := service.uploadMbps(ctx)
 		if err != nil {
 			logger.WarnContext(ctx, "could not read the server's upload", "err", err)

@@ -146,6 +146,9 @@ const (
 	UploadRaiseUnderPercent                   Key = "upload_raise_under_percent"
 	UploadRaiseRoomSeconds                    Key = "upload_raise_room_seconds"
 	UploadSendAwayAfterSeconds                Key = "upload_send_away_after_seconds"
+	ChunkInterestLapsesAfterSeconds           Key = "chunk_interest_lapses_after_seconds"
+	ChunkCPUCeilingKeptSeconds                Key = "chunk_cpu_ceiling_kept_seconds"
+	LinkSpeedFreshHours                       Key = "link_speed_fresh_hours"
 	JobHealthWindowHours                      Key = "job_health_window_hours"
 	RetentionSweepEveryHours                  Key = "retention_sweep_every_hours"
 	InvariantsCheckEveryHours                 Key = "invariants_check_every_hours"
@@ -275,7 +278,7 @@ func buildRegistry() []Definition {
 		scanDefinitions(), jobMetadataAndPlaybackDefinitions(), deviceDefinitions(), upkeepAndDisplayDefinitions(),
 		retentionDefinitions(), backupDefinitions(), togetherDefinitions(), signInDefinitions(),
 		discoveryDefinitions(), upkeepSweepDefinitions(), signInStretchDefinitions(), pairingDefinitions(),
-		uploadDefinitions(),
+		uploadDefinitions(), playbackTimingDefinitions(),
 	)...)
 }
 
