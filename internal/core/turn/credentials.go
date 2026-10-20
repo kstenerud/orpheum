@@ -10,17 +10,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/secrets"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 )
-
-// credentialLifetime is how long voice's relay credentials are good for: a day, longer than any
-// evening's film, and a membership that ends first ends them with it (D243 §8).
-const credentialLifetime = 24 * time.Hour
 
 // secretBytes is the TURN shared secret's length before encoding: 256 random bits.
 const secretBytes = 32
@@ -65,11 +63,11 @@ type Credentials struct {
 	ExpiresAt time.Time
 }
 
-// Issue makes membership's relay credentials, good until now plus credentialLifetime and while the
-// membership lasts: the username says whose they are and until when, and the password is derived
-// from the shared secret, so the relay checks them without keeping them (the TURN REST form).
-func Issue(secret secrets.Value, membership Membership, now time.Time) Credentials {
-	expiresAt := now.Add(credentialLifetime)
+// Issue makes membership's relay credentials, good until now plus lifetime and while the membership
+// lasts: the username says whose they are and until when, and the password is derived from the
+// shared secret, so the relay checks them without keeping them (the TURN REST form).
+func Issue(secret secrets.Value, membership Membership, now time.Time, lifetime time.Duration) Credentials {
+	expiresAt := now.Add(lifetime)
 	username := fmt.Sprintf("%d:%d.%d", expiresAt.Unix(), membership.SessionID, membership.MemberID)
 	return Credentials{Username: username, Password: password(secret, username), ExpiresAt: expiresAt}
 }
@@ -144,6 +142,11 @@ type Issuer struct {
 	// Address is the relay's public host:port: turn.public_address and turn.listen's port.
 	Address string
 	Secrets Secrets
+	// Settings are the server's settings, read for how long a member's credentials last:
+	// voice_relay_credential_hours, a day to start, longer than any evening's film, a membership that
+	// ends first ending them with it (D243 §8); nil uses the starting value.
+	Settings settings.DurationReader
+	Logger   *slog.Logger
 }
 
 // ICEServer is one of a browser's ICE servers (its RTCIceServer): where, and the credentials.
@@ -154,7 +157,28 @@ type ICEServer struct {
 
 // ICEServersFor is membership's ICE servers now; none when the server relays nothing.
 func (issuer *Issuer) ICEServersFor(ctx context.Context, membership Membership, now time.Time) ([]ICEServer, error) {
-	return issuer.iceServers(ctx, func(secret secrets.Value) Credentials { return Issue(secret, membership, now) })
+	lifetime := settings.DurationOrStarting(
+		ctx, issuer.settingsReader(), settings.VoiceRelayCredentialHours, issuer.logger(),
+	)
+	return issuer.iceServers(ctx, func(secret secrets.Value) Credentials {
+		return Issue(secret, membership, now, lifetime)
+	})
+}
+
+// settingsReader is the issuer's settings as a reader, nil when there are none.
+func (issuer *Issuer) settingsReader() settings.DurationReader {
+	if issuer == nil || issuer.Settings == nil {
+		return nil
+	}
+	return issuer.Settings
+}
+
+// logger is the issuer's logger, or one that says nothing for an issuer made without one, a test's.
+func (issuer *Issuer) logger() *slog.Logger {
+	if issuer == nil || issuer.Logger == nil {
+		return slog.New(slog.DiscardHandler)
+	}
+	return issuer.Logger
 }
 
 // ICEServersForFound is the ICE servers a core sends its discovery for the devices it finds the core

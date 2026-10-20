@@ -47,9 +47,11 @@ const (
 	PortMappingPermanentRenewSeconds      Key = "port_mapping_permanent_renew_seconds"
 	CertificateRenewBeforeDays            Key = "certificate_renew_before_days"
 	CertificateDNSWaitSeconds             Key = "certificate_dns_wait_seconds"
-	JobHealthWindowHours                  Key = "job_health_window_hours"
-	RetentionSweepEveryHours              Key = "retention_sweep_every_hours"
-	InvariantsCheckEveryHours             Key = "invariants_check_every_hours"
+	//nolint:gosec // G101: a setting's name, not a credential
+	VoiceRelayCredentialHours Key = "voice_relay_credential_hours"
+	JobHealthWindowHours      Key = "job_health_window_hours"
+	RetentionSweepEveryHours  Key = "retention_sweep_every_hours"
+	InvariantsCheckEveryHours Key = "invariants_check_every_hours"
 )
 
 // upkeepSweepDefinitions are how often the core's upkeep looks, and how far back the job view counts:
@@ -276,5 +278,9 @@ func certificateDefinitions() []Definition {
 				"asked to look: Cloudflare's answer within seconds, and a margin costs nothing every two "+
 				"months (D243 §6)"),
 			"D243 §6: thirty seconds"),
+		sourced(durationSetting(VoiceRelayCredentialHours, time.Hour, "24", 1, 168,
+			"hours a Watch Together member's voice relay credentials are good for: longer than any "+
+				"evening's film, and a membership that ends first ends them with it (D243 §8)"),
+			"D243 §8: a day"),
 	}
 }

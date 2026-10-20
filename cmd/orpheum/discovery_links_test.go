@@ -100,6 +100,25 @@ func TestRelayForFound_HandsTheDiscoveryTheCoresRelayWithFreshCredentials(t *tes
 	}
 }
 
+// The relay a server runs hands members credentials that last as long as its setting says, and is
+// reached at the public address and the listen's port (the constants sweep, 2026-10-20).
+func TestNewRelayIssuer_ReadsTheServersSettingAndIsAtThePublicAddress(t *testing.T) {
+	t.Parallel()
+	var config Config
+	config.TURN.PublicAddress, config.TURN.Listen = "11.22.44.146", ":3478"
+	var opened openedServices
+	opened.settings = settingstest.Seeded(t, storetest.OpenMigrated(t))
+	settingstest.Set(t, opened.settings, settings.VoiceRelayCredentialHours, "3")
+	issuer := newRelayIssuer(config, opened, slog.New(slog.DiscardHandler))
+	if issuer == nil || issuer.Address != "11.22.44.146:3478" || issuer.Settings == nil {
+		t.Fatalf("the relay's issuer is %+v; want one at 11.22.44.146:3478 with the server's settings", issuer)
+	}
+	if hours, err := issuer.Settings.Duration(t.Context(), settings.VoiceRelayCredentialHours); err != nil ||
+		hours != 3*time.Hour {
+		t.Errorf("the issuer reads %s, %v; want the 3 hours set", hours, err)
+	}
+}
+
 // Each heartbeat sends the addresses the config names beside the router's mappings, as configured
 // candidates (the protocol's §2.4).
 func TestHeartbeatCandidates_SendTheConfiguredAddressesBesideTheMapped(t *testing.T) {
