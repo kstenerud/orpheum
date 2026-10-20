@@ -454,3 +454,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   — done 2026-10-20 by the owner, prod-api repackaged and nas.example built from main at an earlier commit
   (an admin's code-activated device first reached no library, fixed there): *"I have access to the
   libraries and can play videos through a device code linked browser now."*
+
+- [ ] **VQ47** — On a deployment with a VPS tunnel, built from main after the Plex-chain review's
+  L2: `docker compose exec orpheum-tunnel ip rule` lists `iif wg0` blackholes for the private
+  ranges at preference 20, the tunnel's own subnet at 10 and the local table at 100;
+  `docker compose exec orpheum-tunnel ip route get <the tunnel's IPv4> from 192.168.1.5 iif wg0`
+  is refused while `… from 203.0.113.9 iif wg0` says `local`; and a film still plays from away
+  through the VPS. The test runs the script against a fake `ip`, and the sandbox's network
+  namespace (a dummy wg0, 2026-10-20) is no real WireGuard tunnel with the VPS keeping sources.
+  (`deploy/staging/tunnel.sh`)
