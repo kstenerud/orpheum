@@ -21140,13 +21140,19 @@ film's node encodes on Quick Sync. **Refines** [D266](#d266--a-quality-whose-vid
    copy at the picture's own height, its width following, at the rate that height takes, raised
    from the original's own for a codec that packs more into a bit (HEVC and VP9 by half, AV1 by
    twice), and at most the height's rate on Apple's HLS authoring ladder. It is the one quality that
-   may carry more than the original. The lower qualities below it are as before.
+   may carry more than the original. **The qualities below it step down from the twin**: each is
+   offered below the twin's rate and the picture's height, since they are H.264 as the twin is, so an
+   HEVC original of 2.2 Mb/s whose twin takes 4 Mb/s steps down to a 3 Mb/s quality, not past it to
+   2 Mb/s (the owner: *"it should act as if it were originally playing the h264 twin when deciding
+   [...] we haven't actually figured out the pipe's bandwidth yet since the movie has only just
+   started playing"*).
 2. **A picture given up mid-film is played again from where it stood**, the page asking for the
    playback afresh once its player has told the core, so the new ladder starts at the twin rather than
    at the quality below the original (D266 §2's fall, for the film's own picture alone).
 3. **The ladder follows the film's node's encoder**: `chunk_qualities` where it encodes in software,
    and `chunk_qualities_hardware`, starting at 1080p, where it encodes on a GPU (Quick Sync, NVENC).
-   Each quality is still offered only below the original in rate and height.
+   Each quality is still offered only below the original in rate, or below the twin where it plays
+   in the original's place (§1), and below the picture in height.
 4. **An encoder that cannot keep up steps its players down**, the twin included, as D286 §4 already
    does for any quality.
 

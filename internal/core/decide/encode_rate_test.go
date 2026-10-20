@@ -45,3 +45,30 @@ func TestEncodeKbps_FollowsThePicturesHeightNeverAboveTheOriginal(t *testing.T) 
 		}
 	}
 }
+
+// The twin's rate is the original's, raised by half for HEVC and twice for AV1, at most its height's:
+// The Big Parade's 696-line HEVC at 2.6 Mb/s takes 3.9 Mb/s in H.264, more than the original, which no
+// other encode may (D323 §1).
+func TestTwinKbps_RaisesTheOriginalsRateForItsCodecAtMostItsHeights(t *testing.T) {
+	t.Parallel()
+	coded := func(codec string, height int, kbps int64) nodeproto.Probe {
+		probe := pictureProbe(height, 0, kbps)
+		probe.Streams[0].Codec = codec
+		return probe
+	}
+	for _, tc := range []struct {
+		what  string
+		probe nodeproto.Probe
+		kbps  int
+	}{
+		{"The Big Parade's HEVC", coded("hevc", 696, 2600), 3900},
+		{"an AV1 1080p at 3 Mb/s", coded("av1", 1080, 3000), 6000},
+		{"an H.264 1080p at 3 Mb/s", coded("h264", 1080, 3000), 3000},
+		{"an HEVC 720p at 6 Mb/s, past its height's", coded("hevc", 720, 6000), 4500},
+		{"an unknown rate", coded("hevc", 1080, 0), 8000},
+	} {
+		if got := decide.TwinKbps(tc.probe); got != tc.kbps {
+			t.Errorf("%s: the twin's rate = %d kb/s; want %d", tc.what, got, tc.kbps)
+		}
+	}
+}

@@ -7,6 +7,9 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/chunks/qualities"
+	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
 // startedOnLadder is film 1's playback started on its ladder at 95 s, on a link remembered at
@@ -61,12 +64,15 @@ func TestStartOnLadder_StartsAtTheHighestPictureTheRememberedLinkCarries(t *test
 	}
 }
 
-// A player that cannot decode the film's own picture starts at the highest quality made from it.
-func TestStartOnLadder_APlayerThatCannotDecodeThePictureStartsAtTheHighestQuality(t *testing.T) {
+// A player that cannot decode the film's own picture starts at its twin, H.264 at its own height at
+// the twin's rate, the highest quality made from it, not at the highest quality below the picture
+// (D323 §1).
+func TestStartOnLadder_APlayerThatCannotDecodeThePictureStartsAtItsTwin(t *testing.T) {
 	t.Parallel()
 	service, _ := chunksFixture(t, newFakeQueue(), fakeNode{})
-	if offer := startedOnLadder(t, service, 0, false); offer.Quality != (qualities.Quality{Kbps: 3000, Height: 720}) {
-		t.Errorf("the offer = %+v; want the highest quality below the picture, 3000k at 720p", offer)
+	offer := startedOnLadder(t, service, 0, false)
+	if offer.Quality != (qualities.Quality{Kbps: 4000, Height: 1080}) || offer.StreamName != "q4000k1080p" {
+		t.Errorf("the offer = %+v; want the twin, H.264 at the picture's 1080 lines at its 4 Mb/s", offer)
 	}
 }
 
@@ -98,5 +104,71 @@ func TestStartOnLadder_StartsWithinTheUploadLeft(t *testing.T) {
 	}
 	if tiny.Quality.Kbps != 400 || !tiny.IsHeldByUpload || tiny.IsBelowTheLowest {
 		t.Errorf("with nothing left, the offer = %+v; want the lowest, held by the upload, not beyond the link", tiny)
+	}
+}
+
+// onAGPU says every node encodes on a GPU, or none does.
+type onAGPU bool
+
+func (gpu onAGPU) EncodesOnAGPU(int64) bool { return bool(gpu) }
+
+// A film whose node encodes on a GPU is cut at chunk_qualities_hardware's qualities, one encoding in
+// software at chunk_qualities' (D323 §3).
+func TestOffered_TheLadderFollowsTheFilmsNodesEncoder(t *testing.T) {
+	t.Parallel()
+	names := func(gpu onAGPU) []string {
+		service, _ := chunksFixture(t, newFakeQueue(), fakeNode{})
+		service.encoders = gpu
+		seeded, isSeeded := service.settings.(*settings.Service)
+		if !isSeeded {
+			t.Fatalf("the fixture's settings are a %T", service.settings)
+		}
+		settingstest.Set(t, seeded, settings.ChunkQualitiesHardware, `"2500k@900p,400k@360p"`)
+		offered, err := service.Offered(t.Context(), Playback{FileID: 1, IsSourcePictureDecodable: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var named []string
+		for _, picture := range offered.Pictures {
+			named = append(named, picture.Name())
+		}
+		return named
+	}
+	if got := names(true); !slices.Equal(got, []string{"picture", "q2500k900p", "q400k360p"}) {
+		t.Errorf("on a GPU the film offers %v; want its picture and chunk_qualities_hardware's", got)
+	}
+	if got := names(false); !slices.Equal(got,
+		[]string{"picture", "q3000k720p", "q2000k540p", "q1200k480p", "q700k432p", "q400k360p"}) {
+		t.Errorf("in software the film offers %v; want its picture and chunk_qualities'", got)
+	}
+}
+
+// Where the twin plays in an HEVC original's place, the qualities below it step down from the twin's
+// rate, not from the original's: a 2.2 Mb/s HEVC film's twin takes 3.3 Mb/s, and the 3 Mb/s quality,
+// which is above the original's rate, comes next (the owner, 2026-10-20; D323 §1).
+func TestOffered_BelowTheTwinTheQualitiesStepDownFromItsRate(t *testing.T) {
+	t.Parallel()
+	service, _ := chunksFixture(t, newFakeQueue(), fakeNode{})
+	picture := nodeproto.ProbeStream{
+		Kind: "video", Codec: "hevc", Video: nodeproto.ProbeVideo{Width: 1920, Height: 1080},
+	}
+	film := cutFilm{
+		probe: nodeproto.Probe{
+			Format:  nodeproto.ProbeFormat{BitRateBps: 2_200_000},
+			Streams: []nodeproto.ProbeStream{picture},
+		},
+		picture: picture, bytesInEachSecond: []int64{275_000}, kind: OnKeyframes,
+	}
+	offered, err := service.offerOf(t.Context(), film, Playback{FileID: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var named []string
+	for _, stream := range offered.pictures {
+		named = append(named, stream.Name())
+	}
+	want := []string{"q3300k1080p", "q3000k720p", "q2000k540p", "q1200k480p", "q700k432p", "q400k360p"}
+	if !slices.Equal(named, want) {
+		t.Errorf("an HEVC film's player that cannot decode it is offered %v; want %v", named, want)
 	}
 }

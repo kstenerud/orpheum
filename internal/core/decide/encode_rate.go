@@ -30,6 +30,41 @@ func EncodeKbps(probe nodeproto.Probe) int {
 	return kbps
 }
 
+// TwinKbps is the average rate of the twin, the H.264 copy of probe's picture at its own height that
+// a device which cannot play the picture gets in its place (D323 §1): the original's own rate, raised
+// for a codec that packs more into a bit than H.264, by half for HEVC and VP9 and twice for AV1, and
+// at most its height's on Apple's HLS authoring ladder, the profile's 8 Mb/s at the most. The one
+// encode that may carry more than the original, which EncodeKbps never does: at the original's rate
+// an H.264 copy of an HEVC picture is visibly worse, and the owner asked for the same quality.
+func TwinKbps(probe nodeproto.Probe) int {
+	picture, found := MainVideo(probe)
+	if !found {
+		return encodeKbpsMost
+	}
+	kbps := encodeKbpsForHeight(picture.Video.Height)
+	originalKbps := int(picture.BitRateBps / 1000)
+	if originalKbps <= 0 {
+		originalKbps = int(probe.Format.BitRateBps / 1000)
+	}
+	if originalKbps < kbps/4 {
+		return kbps
+	}
+	return min(kbps, originalKbps*twinRatePercent(picture.Codec)/100)
+}
+
+// twinRatePercent is how much more rate an H.264 copy takes than an original in codec does for the
+// same picture, in percent.
+func twinRatePercent(codec string) int {
+	switch codec {
+	case "hevc", "vp9":
+		return 150
+	case "av1":
+		return 200
+	default:
+		return 100
+	}
+}
+
 // encodeKbpsForHeight is the top of Apple's HLS authoring ladder for a picture height lines tall, at
 // most the profile's rate; an unknown height gets the profile's rate.
 func encodeKbpsForHeight(height int) int {

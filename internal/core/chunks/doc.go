@@ -15,11 +15,16 @@
 // # Invariants
 //
 //   - A playback starts on its film's ladder at the top, the film's own picture where its player
-//     decodes it, or, with its link remembered, at the highest picture within linkShareForQuality of
-//     it, the lowest when none is (D260 §2). Enforced by
-//     TestStartOnLadder_StartsAtTheFilmsOwnPictureWithNoLinkRemembered,
+//     decodes it, its twin, H.264 at its own height, where it does not (D323 §1), or, with its link
+//     remembered, at the highest picture within linkShareForQuality of it, the lowest when none is
+//     (D260 §2). Enforced by TestStartOnLadder_StartsAtTheFilmsOwnPictureWithNoLinkRemembered,
 //     TestStartOnLadder_StartsAtTheHighestPictureTheRememberedLinkCarries and
-//     TestStartOnLadder_APlayerThatCannotDecodeThePictureStartsAtTheHighestQuality.
+//     TestStartOnLadder_APlayerThatCannotDecodeThePictureStartsAtItsTwin.
+//
+//   - The qualities below the top step down from the twin's rate where it plays, not the original's,
+//     and are chunk_qualities_hardware's where the film's node encodes on a GPU (D323 §1, §3).
+//     Enforced by TestOffered_BelowTheTwinTheQualitiesStepDownFromItsRate and
+//     TestOffered_TheLadderFollowsTheFilmsNodesEncoder.
 //
 //   - A film whose loudness is not measured offers its sounds unlevelled, each a store of its own
 //     ("-raw"), so a levelled chunk never follows an unlevelled one; a playback goes on with the

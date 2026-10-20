@@ -85,6 +85,14 @@ type Parts struct {
 	Logger *slog.Logger
 	// Clock times each run's speed (D250 §6).
 	Clock clock.Clock
+	// Encoders say whether a film's node encodes on a GPU, which chooses its ladder (D323 §3); nil
+	// encodes every film in software.
+	Encoders Encoders
+}
+
+// Encoders say whether a node encodes on a GPU: nodes.Service.
+type Encoders interface {
+	EncodesOnAGPU(nodeID int64) bool
 }
 
 // Service cuts films into chunks made on request (D247 §10): the grid each is cut on, the
@@ -101,6 +109,7 @@ type Service struct {
 	readThrough ReadThrough
 	logger      *slog.Logger
 	clock       clock.Clock
+	encoders    Encoders
 	// runs are the chunks known made and the runs making more, by store: in memory, since a node's
 	// answer for a chunk is the truth and a restart only asks it again.
 	runs *runTracker
@@ -125,6 +134,6 @@ func NewService(parts Parts) *Service {
 	return &Service{
 		database: parts.Database, cache: parts.Cache, settings: parts.Settings, queue: parts.Queue, nodes: parts.Nodes,
 		exchanges: parts.Exchanges, loudness: parts.Loudness, readThrough: parts.ReadThrough, logger: parts.Logger,
-		clock: parts.Clock, runs: newRunTracker(),
+		clock: parts.Clock, encoders: parts.Encoders, runs: newRunTracker(),
 	}
 }

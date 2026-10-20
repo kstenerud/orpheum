@@ -56,6 +56,22 @@ func (service *Service) Facts(name string) (Facts, bool) {
 	return Facts{}, false
 }
 
+// softwareEncoder is the encoder a node encodes with when it found no GPU's that works.
+const softwareEncoder = "x264"
+
+// EncodesOnAGPU is whether the node encodes on a GPU, Quick Sync or NVENC, as its last hello said; false
+// when it encodes in software or has not said hello since the core started (D323 §3).
+func (service *Service) EncodesOnAGPU(nodeID int64) bool {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
+	node, found := service.nodesHeardSinceStart[nodeID]
+	if !found {
+		return false
+	}
+	chosen := node.hello.Hardware.ChosenEncoder
+	return chosen != "" && chosen != softwareEncoder
+}
+
 // RootWatches are whether a node watches each of its roots for changes, by root, as its last status
 // said; none when it has said none since the core started (D272 §9).
 func (service *Service) RootWatches(nodeID int64) map[string]nodeproto.RootWatch {
