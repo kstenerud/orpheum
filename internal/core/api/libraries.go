@@ -343,7 +343,8 @@ func (server *Server) getLibraries(ctx context.Context, input *AuthorizationHead
 			IsWritable: summary.IsWritable == 1,
 			CreatedAt:  summary.CreatedAt,
 		}
-		if principal.IsAdmin() {
+		// Roots are shown where the admin administers, never from away (the Plex-chain review's T2).
+		if administersHere(ctx, principal) {
 			body.FileCountsByFiling = summary.FileCountByFiling
 			for _, root := range summary.Roots {
 				body.Roots = append(body.Roots, RootBody{

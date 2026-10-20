@@ -6,7 +6,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -53,6 +55,9 @@ var (
 	ErrTooManyPairings = errors.New("too many devices are waiting with a code; try again in a few minutes")
 	// ErrNoDeviceName is a new device entered with no name to list it by.
 	ErrNoDeviceName = errors.New("a new device needs a name")
+	// ErrActivatesAnAdmin is a code entered for another person who is an admin: an admin's devices
+	// are their own to activate.
+	ErrActivatesAnAdmin = errors.New("an admin's devices are activated by that admin alone")
 )
 
 // PreviousDevice is the device a client asking for a code says it was signed in as, and that device's
@@ -268,7 +273,7 @@ func (service *Service) ClaimPairing(
 	if service.limiter.isLimited(maxFailures, window, limitKey) {
 		return PairingClaim{}, ErrRateLimited
 	}
-	if _, userErr := liveUser(ctx, service.database.Read(), forUserID); userErr != nil {
+	if userErr := service.mayActivateFor(ctx, byUserID, forUserID); userErr != nil {
 		return PairingClaim{}, userErr
 	}
 	code, readErr := safe32code.Read(typed, safe32code.DeviceLength)
@@ -384,4 +389,18 @@ func (service *Service) answered(byUserID int64, code string, isMatch bool) (pai
 	}
 	known.isConfirmed = true
 	return *known, nil
+}
+
+// mayActivateFor is whether byUserID may enter a code for forUserID: a live person, and an admin's
+// device activated by that admin alone, since another admin's session, stolen or not, would
+// otherwise plant a device that administers as them (the Plex-chain review's T1).
+func (service *Service) mayActivateFor(ctx context.Context, byUserID, forUserID int64) error {
+	forUser, err := liveUser(ctx, service.database.Read(), forUserID)
+	if err != nil {
+		return err
+	}
+	if forUserID != byUserID && slices.Contains(strings.Split(forUser.Capabilities, ","), capabilityAdminister) {
+		return ErrActivatesAnAdmin
+	}
+	return nil
 }

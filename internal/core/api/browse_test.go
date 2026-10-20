@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"slices"
 	"strings"
 	"testing"
@@ -95,6 +96,14 @@ func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
 		`"path":"/m/Metropolis (1995).mkv"`) {
 		t.Errorf("an admin's detail = %s; want the path", adminDetail.body)
 	}
+	// From away, where the admin does not administer, no path (the Plex-chain review's T2).
+	harness.server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")})
+	if away := harness.do(t, http.MethodGet, "/items/10", admin, nil); strings.Contains(away.body, "Metropolis (1995).mkv") {
+		t.Errorf("an admin's detail from away = %s; want no path", away.body)
+	}
+	harness.server.SetHomeNetworks([]netip.Prefix{
+		netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128"),
+	})
 	episode := harness.do(t, http.MethodGet, "/items/21", user, nil)
 	if !strings.Contains(episode.body,
 		`"episode":{"seriesId":20,"seriesName":"Brass Arena","seasonNumber":1,"episodeNumber":1}`) {
