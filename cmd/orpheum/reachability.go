@@ -18,10 +18,7 @@ const reachabilityDialWait = 5 * time.Second
 // newReachability is the System page's check of the server's public name and the voice relay's
 // port, from outside in (D243 §7): either is left unchecked when the config has none.
 func newReachability(config Config, opened openedServices) *reachability.Checker {
-	relayAddress := ""
-	if issuer := newRelayIssuer(config, opened); issuer != nil {
-		relayAddress = issuer.Address
-	}
+	relayAddress := relayAddressOf(config)
 	return reachability.New(reachability.Parts{
 		Name: config.HTTPS.Domain, RelayAddress: relayAddress, HTTP: opened.jobServices.outboundClient,
 		Resolver: net.DefaultResolver, Dialer: &net.Dialer{Timeout: reachabilityDialWait},

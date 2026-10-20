@@ -131,7 +131,7 @@ func (stage relayStage) issue(t *testing.T) Credentials {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return Issue(secret, Membership{SessionID: 4, MemberID: 9}, stage.clock.Now())
+	return Issue(secret, Membership{SessionID: 4, MemberID: 9}, stage.clock.Now(), testLifetime)
 }
 
 // The relay admits the credentials it issued to a live membership, and refuses them once the
@@ -149,20 +149,20 @@ func TestRelay_AdmitsAMembershipsCredentialsUntilItEndsOrTheyExpire(t *testing.T
 		t.Fatalf("a live membership's credentials: %v; want a relayed address", err)
 	}
 	forged := issued
-	forged.Password = Issue(secrets.NewValue("another secret"), member, stage.clock.Now()).Password
+	forged.Password = Issue(secrets.NewValue("another secret"), member, stage.clock.Now(), testLifetime).Password
 	if err = stage.allocate(t, forged); err == nil {
 		t.Error("credentials made with another secret were admitted")
 	}
-	stranger := Issue(secret, Membership{SessionID: 4, MemberID: 10}, stage.clock.Now())
+	stranger := Issue(secret, Membership{SessionID: 4, MemberID: 10}, stage.clock.Now(), testLifetime)
 	if err = stage.allocate(t, stranger); err == nil {
 		t.Error("credentials of a membership that is not live were admitted")
 	}
-	stage.clock.Advance(credentialLifetime)
+	stage.clock.Advance(testLifetime)
 	if err = stage.allocate(t, issued); err == nil {
 		t.Error("expired credentials were admitted")
 	}
 	stage.ended.Store(member, true)
-	if err = stage.allocate(t, Issue(secret, member, stage.clock.Now())); err == nil {
+	if err = stage.allocate(t, Issue(secret, member, stage.clock.Now(), testLifetime)); err == nil {
 		t.Error("an ended membership's fresh credentials were admitted")
 	}
 }
@@ -235,7 +235,7 @@ func TestRelay_AdmitsTheDiscoverysCredentialsUntilTheyExpire(t *testing.T) {
 	if err = stage.allocate(t, forged); err == nil {
 		t.Error("the discovery's credentials made with another secret were admitted")
 	}
-	stage.clock.Advance(credentialLifetime)
+	stage.clock.Advance(testLifetime)
 	if err = stage.allocate(t, found); err == nil {
 		t.Error("the discovery's expired credentials were admitted")
 	}

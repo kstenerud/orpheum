@@ -67,7 +67,7 @@ func discoveryParts(
 		// A person's realm key is made for the realm the discovery finds the core by, and checks the
 		// realm sign-ins it passes on (D297 §3).
 		RealmSignIn: opened.auth.TakeRealmSignIn, OnRealm: opened.auth.SetRealm,
-		TURN: relayForFound(newRelayIssuer(config, opened), logger), ProbeNonce: opened.reachability.ProbeNonce,
+		TURN: relayForFound(newRelayIssuer(config, opened, logger), logger), ProbeNonce: opened.reachability.ProbeNonce,
 		HasCertificate: opened.jobServices.certificates.hasDiscoveryCertificate,
 	}
 }
