@@ -14,6 +14,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/chunks/qualities"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -50,6 +51,24 @@ func TestEnsure_QueuesOneRunFromTheChunkThroughFiveMinutesOfFilmAtPlayPriority(t
 	ensured(t, service, picture, 100)
 	if runs := queue.runs(t, service); len(runs) != 2 || runs[1].firstChunk != 100 || runs[1].lastChunk != 119 {
 		t.Errorf("the runs asked for = %+v; want a second, chunks 100 to the last, 119", runs)
+	}
+}
+
+// A run's span is chunk_run_span_seconds as Ensure finds it, not as the tracker started (the
+// constants sweep, 2026-10-20): at a minute, a run from chunk 3, at 30 s, ends with chunk 8, at 80 s.
+func TestEnsure_ARunSpansTheSettingsLength(t *testing.T) {
+	t.Parallel()
+	queue := newFakeQueue()
+	service, _ := chunksFixture(t, queue, fakeNode{})
+	seeded, isSeeded := service.settings.(*settings.Service)
+	if !isSeeded {
+		t.Fatalf("the fixture's settings are %T; want the seeded service", service.settings)
+	}
+	settingstest.Set(t, seeded, settings.ChunkRunSpanSeconds, "60")
+	ensured(t, service, Stream{Kind: nodeproto.StreamPicture}, 3)
+	want := []askedRun{{stream: "picture", firstChunk: 3, lastChunk: 8}}
+	if runs := queue.runs(t, service); !slices.Equal(runs, want) {
+		t.Errorf("the runs asked for at a minute's span = %+v; want chunks 3 to 8", runs)
 	}
 }
 
