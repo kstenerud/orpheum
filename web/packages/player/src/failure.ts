@@ -52,6 +52,9 @@ export function mediaErrorFailure(error: Pick<MediaError, "code"> | null): Playb
 /** HTTP's 429: on a chunk's path, the core's word that it has no room to make it (D250 §6). */
 export const noRoomToMakeStatus = 429;
 
+/** HTTP's 425 Too Early: on a chunk's path, the core's word that it is being made, and to ask again. */
+export const tooEarlyStatus = 425;
+
 /** A fatal hls.js error as a failure, by its type, and a load's by the core's answer. */
 export function hlsErrorFailure(data: Pick<ErrorData, "type" | "response">): PlaybackFailure {
   switch (data.type) {
