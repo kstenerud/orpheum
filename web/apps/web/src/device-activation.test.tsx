@@ -14,12 +14,15 @@ import {
   mount,
   refusal,
   servedBy,
+  settleUntil,
   submit,
   type Answers,
   type Heard,
   type Mounted,
 } from "./test-dom.tsx";
-import { withServices } from "./test-services.tsx";
+import { createNavigation } from "./navigation.ts";
+import { parseRoute, routeHref } from "./router.ts";
+import { fakePlace, withServices } from "./test-services.tsx";
 
 let mounted: Mounted | undefined;
 
@@ -174,5 +177,55 @@ describe("activating a device by the code it shows (D288)", () => {
     expect(mounted.container.textContent).toContain(
       "open app.orpheum-app.com and choose Get a code",
     );
+  });
+});
+
+describe("activating a device whose QR code was scanned (D321)", () => {
+  const scannedAddress = "/account?code=abcd-efgh&key=rTBVo-NI60s-RZ3ENfKqkw";
+
+  it("reads the scanned code from the account's address, and writes it back the same", () => {
+    const route = parseRoute("/account", "?code=abcd-efgh&key=rTBVo-NI60s-RZ3ENfKqkw");
+    expect(route).toEqual({
+      screen: "account",
+      scanned: { code: "abcd-efgh", keyHash: "rTBVo-NI60s-RZ3ENfKqkw" },
+    });
+    expect(routeHref(route)).toBe(scannedAddress);
+    expect(parseRoute("/account", "?code=abcd-efgh")).toEqual({ screen: "account" });
+  });
+
+  it("enters it at once with the key's hash, asks one question with no check code, and activates on a tap", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /me/devices": [200, { devices: [] }],
+        "GET /me": [200, { ...owner, canManageAccount: true }],
+        "POST /activations": [
+          200,
+          { checkCode: "", deviceName: "Tizen", platform: "Tizen", askedSecondsAgo: 5 },
+        ],
+        "POST /activations/answer": [204, undefined],
+      },
+      heard,
+    );
+    const navigation = createNavigation(fakePlace(scannedAddress));
+    mounted = await mount(withServices(<Account />, { ...services, navigation }));
+    const { container } = mounted;
+    await settleUntil(() => container.textContent.includes("Activate Tizen?"));
+    expect(heard.find((each) => each.methodAndPath === "POST /activations")?.body).toEqual({
+      code: "abcd-efgh",
+      deviceName: "",
+      keyHash: "rTBVo-NI60s-RZ3ENfKqkw",
+    });
+    expect(container.textContent).toContain("Activate Tizen? It will be signed in as you.");
+    expect(container.textContent).toContain("Only activate a device you can see in front of you");
+    expect(container.querySelector(".device-activation__check-code")).toBeNull();
+    await click(buttonWithText(container, "Activate"));
+    await settleUntil(() => container.textContent.includes("Tizen is activated and signed in."));
+    expect(heard.find((each) => each.methodAndPath === "POST /activations/answer")?.body).toEqual({
+      code: "abcd-efgh",
+      isMatch: true,
+    });
+    // The address no longer carries the code, so a reload enters nothing again.
+    expect(navigation.route()).toEqual({ screen: "account" });
   });
 });

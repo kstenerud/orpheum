@@ -29,3 +29,8 @@
 .credentials-form__form .loader-households button {
   width: auto;
 }
+
+/* The /activate link to copy, which a phone's narrow screen breaks anywhere (D321). */
+.loader-activate__link {
+  overflow-wrap: anywhere;
+}

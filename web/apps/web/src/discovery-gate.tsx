@@ -16,6 +16,7 @@ import { RealmSignIn, type RealmCredentials, type RealmProblem } from "./realm-s
 
 import type { StringStorage } from "./browser-storage.ts";
 import { CredentialsForm } from "./credentials-form.tsx";
+import { copyToClipboard } from "./clipboard.ts";
 import { dateTimeText } from "./date-time-text.ts";
 import {
   provingOf,
@@ -377,11 +378,6 @@ function useReachingAtOnce(
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps -- the start and the parts never change
   }, []);
-}
-
-/** Copies text with the browser's clipboard, which rejects where the page may not use it. */
-async function copyToClipboard(text: string): Promise<void> {
-  await globalThis.navigator.clipboard.writeText(text);
 }
 
 /** A realm sign-in stopped at another server than before: what was typed, and when it was claimed. */

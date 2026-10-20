@@ -225,6 +225,11 @@ export const en = {
     noMatch: "They don't match",
     activated: "{{device}} is activated and signed in.",
     notActivated: "Nothing was activated.",
+    scannedQuestion: "Activate {{device}}? It will be signed in as you.",
+    scannedWarning:
+      "Only activate a device you can see in front of you, whose QR code you scanned yourself. A QR code someone sent you lets their device into your account.",
+    scannedActivate: "Activate",
+    scannedCancel: "Cancel",
   },
   nowPlaying: {
     heading: "Now playing",

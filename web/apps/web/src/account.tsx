@@ -37,7 +37,7 @@ export function Account(): JSX.Element {
   return (
     <section className="account" aria-labelledby="account-heading">
       <h1 id="account-heading">{t("account.heading")}</h1>
-      {canManage ? <ActivateDevice onActivated={reload} /> : null}
+      {canManage ? <ActivateHere onActivated={reload} /> : null}
       <YourDevices devices={devices} onChanged={reload} canManage={canManage} />
       {canManage ? <YourLink /> : null}
       <YourServerAtHome
@@ -49,6 +49,28 @@ export function Account(): JSX.Element {
       ) : null}
       <NotOnThisDevice isShown={me.state === "loaded" && !canManage} />
     </section>
+  );
+}
+
+/**
+ * Activate a device on one's account, with the device's QR code the address carries, if any (D321),
+ * which leaves the address once answered.
+ */
+function ActivateHere(props: { readonly onActivated: () => void }): JSX.Element {
+  const { navigation } = useServices();
+  const route = navigation.route();
+  const scanned = route.screen === "account" ? route.scanned : undefined;
+  if (scanned === undefined) {
+    return <ActivateDevice onActivated={props.onActivated} />;
+  }
+  return (
+    <ActivateDevice
+      onActivated={props.onActivated}
+      scanned={scanned}
+      onScannedAnswered={() => {
+        navigation.replace({ screen: "account" });
+      }}
+    />
   );
 }
 

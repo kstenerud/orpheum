@@ -2,13 +2,14 @@
 
 import "./device-activation.css";
 
-import { useState, type JSX } from "react";
+import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 
 import { activateDevice, answerActivation, type Activation } from "./accounts.ts";
 import { FormRow } from "./form-row.tsx";
 import { fieldProblemText } from "./problem.ts";
+import type { Scanned } from "./router.ts";
 import { useServices } from "./services.tsx";
 import { useRequest } from "./use-request.ts";
 import { WarningIcon } from "./warning-sign.tsx";
@@ -29,6 +30,12 @@ export function ActivateDevice(props: {
   readonly userId?: number;
   /** Told once a device is activated, so the list can show it. */
   readonly onActivated: () => void;
+  /**
+   * A device's QR code the phone scanned (D321): entered at once, with its key's hash, and answered
+   * by one tap, there being no check code; onScannedAnswered is told once it was.
+   */
+  readonly scanned?: Scanned;
+  readonly onScannedAnswered?: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
@@ -49,6 +56,7 @@ export function ActivateDevice(props: {
       setStep({ kind: "checking", code, activation });
     });
   };
+  useScannedEntry(props.scanned, runRequest, setStep);
   const answer = (isMatch: boolean): void => {
     if (step.kind !== "checking") {
       return;
@@ -59,27 +67,37 @@ export function ActivateDevice(props: {
       if (isMatch) {
         props.onActivated();
       }
+      if (step.activation.checkCode === "") {
+        props.onScannedAnswered?.();
+      }
     });
   };
   return (
     <div className="device-activation">
       <h2>{t("activate.heading")}</h2>
       {step.kind === "checking" ? (
-        <CheckCode activation={step.activation} isBusy={isBusy} onAnswer={answer} />
+        <Checking activation={step.activation} isBusy={isBusy} onAnswer={answer} />
       ) : (
         <>
-          {step.kind === "done" ? (
-            <output>
-              {step.isActivated
-                ? t("activate.activated", { device: step.deviceName })
-                : t("activate.notActivated")}
-            </output>
-          ) : null}
+          {step.kind === "done" ? <Done step={step} /> : null}
           <EnterCode isBusy={isBusy} onEnter={enter} />
         </>
       )}
       {problem === undefined ? null : <p role="alert">{problem}</p>}
     </div>
+  );
+}
+
+/** What came of the last code entered. */
+function Done(props: { readonly step: Extract<Step, { kind: "done" }> }): JSX.Element {
+  const { t } = useTranslation();
+  const { step } = props;
+  return (
+    <output>
+      {step.isActivated
+        ? t("activate.activated", { device: step.deviceName })
+        : t("activate.notActivated")}
+    </output>
   );
 }
 
@@ -180,6 +198,89 @@ function CheckCode(props: {
           }}
         >
           {t("activate.noMatch")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Enters a scanned device's code once, as the page opens, with its key's hash (D321), going on to the
+ * question it asks.
+ */
+function useScannedEntry(
+  scanned: Scanned | undefined,
+  runRequest: (request: (idempotencyKey: string) => Promise<void>) => void,
+  setStep: (step: Step) => void,
+): void {
+  const { api } = useServices();
+  const isEnteredRef = useRef(false);
+  useEffect(() => {
+    if (scanned === undefined || isEnteredRef.current) {
+      return;
+    }
+    isEnteredRef.current = true;
+    runRequest(async (idempotencyKey) => {
+      const activation = await activateDevice(
+        api,
+        { code: scanned.code, deviceName: "", keyHash: scanned.keyHash },
+        idempotencyKey,
+      );
+      setStep({ kind: "checking", code: scanned.code, activation });
+    });
+  }, [api, runRequest, scanned, setStep]);
+}
+
+/** What a code entered asks: one question for a scanned one, with no check code, else the check. */
+function Checking(props: {
+  readonly activation: Activation;
+  readonly isBusy: boolean;
+  readonly onAnswer: (isMatch: boolean) => void;
+}): JSX.Element {
+  return props.activation.checkCode === "" ? (
+    <ScannedConfirm {...props} />
+  ) : (
+    <CheckCode {...props} />
+  );
+}
+
+/**
+ * A scanned device's one question, with no check code to compare (D321): what it is and how long ago
+ * it asked, the warning that only a device in front of one is to be activated, and Activate.
+ */
+function ScannedConfirm(props: {
+  readonly activation: Activation;
+  readonly isBusy: boolean;
+  readonly onAnswer: (isActivating: boolean) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <div className="device-activation__check">
+      <p>{t("activate.scannedQuestion", { device: props.activation.deviceName })}</p>
+      <AskedBy activation={props.activation} />
+      <div className="device-activation__warning" role="note">
+        <WarningIcon />
+        <p>{t("activate.scannedWarning")}</p>
+      </div>
+      <div className="device-activation__answers">
+        <button
+          type="button"
+          className="device-activation__match"
+          disabled={props.isBusy}
+          onClick={() => {
+            props.onAnswer(true);
+          }}
+        >
+          {t("activate.scannedActivate")}
+        </button>
+        <button
+          type="button"
+          disabled={props.isBusy}
+          onClick={() => {
+            props.onAnswer(false);
+          }}
+        >
+          {t("activate.scannedCancel")}
         </button>
       </div>
     </div>

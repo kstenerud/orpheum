@@ -33,6 +33,8 @@ import { ConfirmButton } from "./confirm-button.tsx";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { CredentialsForm } from "./credentials-form.tsx";
 import { DeviceCodeSignIn, type DeviceCodeParts } from "./loader-device-code.tsx";
+import { activateHere, ActivateWhere, scannedAt } from "./loader-activate.tsx";
+import type { Scanned } from "./router.ts";
 import "./loader-households.css";
 
 /** What the page at the loader's origin starts from. */
@@ -98,24 +100,45 @@ export function startAtLoaderOrigin(at: AtLoaderOrigin): JSX.Element | undefined
     markHouseholdGone(storage, gone);
   }
   const kept = households(storage).filter((household) => household.isGone !== true);
-  const [only] = kept;
-  if (!asksForTheList(location.search) && kept.length === 1 && only !== undefined) {
-    const origin = clientAddressOf(config, only.coreId);
-    if (origin !== undefined) {
-      location.replace(`${origin}/`);
-      return undefined;
-    }
+  const scanned = scannedAt(location);
+  if (wentToTheOne(at, kept, scanned)) {
+    return undefined;
   }
-  return <LoaderPage at={at} isListFirst={kept.length > 0} />;
+  return <LoaderPage at={at} isListFirst={kept.length > 0} scanned={scanned} />;
+}
+
+/**
+ * Goes to the one household kept, unless the list was asked for, and says whether it went: to its
+ * home, or for a TV's QR code to its Activate a device, the code filled in, even when the list was
+ * asked for (D321).
+ */
+function wentToTheOne(
+  at: AtLoaderOrigin,
+  kept: readonly Household[],
+  scanned: Scanned | undefined,
+): boolean {
+  const [only] = kept;
+  const isListAsked = asksForTheList(at.location.search) && scanned === undefined;
+  if (isListAsked || kept.length !== 1 || only === undefined) {
+    return false;
+  }
+  const origin = clientAddressOf(at.config, only.coreId);
+  if (origin === undefined) {
+    return false;
+  }
+  at.location.replace(`${origin}${scanned === undefined ? "/" : activateHere(scanned)}`);
+  return true;
 }
 
 /** The loader's page: the household list, or the sign-in that adds to it. */
 function LoaderPage(props: {
   readonly at: AtLoaderOrigin;
   readonly isListFirst: boolean;
+  /** A TV's QR code the page was opened by, which the sign-in carries on to activate (D321). */
+  readonly scanned?: Scanned | undefined;
 }): JSX.Element {
-  const { at } = props;
-  const [isJoining, setIsJoining] = useState(!props.isListFirst);
+  const { at, scanned } = props;
+  const [isJoining, setIsJoining] = useState(!props.isListFirst && scanned === undefined);
   const [isUsingCode, setIsUsingCode] = useState(false);
   // A household gone is kept for the warning a realm sign-in gives (D312 §2), never listed.
   const live = (): readonly Household[] =>
@@ -135,8 +158,22 @@ function LoaderPage(props: {
     return (
       <JoinByRealm
         at={at}
+        then={scanned === undefined ? "/" : activateHere(scanned)}
         onUseCode={() => {
           setIsUsingCode(true);
+        }}
+      />
+    );
+  }
+  if (scanned !== undefined) {
+    return (
+      <ActivateWhere
+        scanned={scanned}
+        listed={listed}
+        originOf={(coreId) => clientAddressOf(at.config, coreId)}
+        link={`${at.config.loaderOrigin}${at.location.pathname}${at.location.search}`}
+        onSignInHere={() => {
+          setIsJoining(true);
         }}
       />
     );
@@ -202,13 +239,17 @@ function householdName(household: Household): string {
   return household.realm === "" ? household.coreId : household.realm;
 }
 
-/** The sign-in by realm, which hands the browser on to the core it finds, or a code instead. */
+/**
+ * The sign-in by realm, which hands the browser on to the core it finds, at then on its client
+ * origin, or a code instead.
+ */
 function JoinByRealm(props: {
   readonly at: AtLoaderOrigin;
+  readonly then: string;
   readonly onUseCode: () => void;
 }): JSX.Element {
-  const { at, onUseCode } = props;
-  const parts = useMemo(() => ({ ...joinParts(at), onUseCode }), [at, onUseCode]);
+  const { at, then, onUseCode } = props;
+  const parts = useMemo(() => ({ ...joinParts(at, then), onUseCode }), [at, then, onUseCode]);
   return <DiscoveryGate start={{ kind: "none" }} parts={parts} />;
 }
 
@@ -230,8 +271,12 @@ export function codeParts(at: AtLoaderOrigin): DeviceCodeParts {
   };
 }
 
-/** What the realm sign-in at the loader's origin reaches the core with, and hands the browser on by. */
-export function joinParts(at: AtLoaderOrigin): GateParts {
+/**
+ * What the realm sign-in at the loader's origin reaches the core with, and hands the browser on by:
+ * to then on the core's client origin, its home unless a TV's QR code asked for Activate (D321). The
+ * hand-off rides in the fragment, which the client origin clears, so then's query outlives it.
+ */
+export function joinParts(at: AtLoaderOrigin, then = "/"): GateParts {
   return {
     client: { clientApi: at.config.clientApi },
     hasRealms: at.config.hasRealms,
@@ -257,7 +302,7 @@ export function joinParts(at: AtLoaderOrigin): GateParts {
         lastUsedAt: at.now(),
       });
       at.location.assign(
-        `${origin}/${handOffFragment({
+        `${origin}${then}${handOffFragment({
           code,
           bootstrapToken: signIn.held.bootstrapToken,
           fingerprint: core.fingerprint,

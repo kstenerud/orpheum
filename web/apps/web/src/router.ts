@@ -1,5 +1,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
+/** A device's QR code as the phone scanned it: its code and its key's hash (D321). */
+export interface Scanned {
+  readonly code: string;
+  readonly keyHash: string;
+}
+
 /** Every screen the client shows, and what it needs from the address to show it. */
 export type Route =
   | { readonly screen: "films" }
@@ -19,7 +25,8 @@ export type Route =
   | { readonly screen: "needs-attention" }
   | { readonly screen: "people" }
   | { readonly screen: "person"; readonly userId: number }
-  | { readonly screen: "account" }
+  /** One's account; with scanned, a device's QR code was scanned, to activate it there (D321). */
+  | { readonly screen: "account"; readonly scanned?: Scanned }
   | { readonly screen: "this-device" }
   | { readonly screen: "register" }
   | { readonly screen: "together" }
@@ -73,7 +80,7 @@ const shapes: readonly Shape[] = [
   { pattern: /^\/needs-attention\/?$/u, toRoute: () => ({ screen: "needs-attention" }) },
   { pattern: /^\/people\/?$/u, toRoute: () => ({ screen: "people" }) },
   { pattern: /^\/people\/([1-9]\d{0,15})$/u, toRoute: (userId) => ({ screen: "person", userId }) },
-  { pattern: /^\/account\/?$/u, toRoute: () => ({ screen: "account" }) },
+  { pattern: /^\/account\/?$/u, toRoute: (_, search) => accountRoute(search) },
   { pattern: /^\/this-device\/?$/u, toRoute: () => ({ screen: "this-device" }) },
   { pattern: /^\/register\/?$/u, toRoute: () => ({ screen: "register" }) },
   { pattern: /^\/together\/?$/u, toRoute: () => ({ screen: "together" }) },
@@ -82,6 +89,15 @@ const shapes: readonly Shape[] = [
 ];
 
 /** The route an address names; an address the client does not know is not-found, never a guess. */
+/** The account's route, with the scanned code its address carries, if both its parts are there. */
+function accountRoute(search: URLSearchParams): Route {
+  const code = search.get("code") ?? "";
+  const keyHash = search.get("key") ?? "";
+  return code === "" || keyHash === ""
+    ? { screen: "account" }
+    : { screen: "account", scanned: { code, keyHash } };
+}
+
 export function parseRoute(pathname: string, search: string): Route {
   for (const shape of shapes) {
     const match = shape.pattern.exec(pathname);
@@ -92,8 +108,26 @@ export function parseRoute(pathname: string, search: string): Route {
   return { screen: "not-found" };
 }
 
+/** The address of a route whose query carries its state, or undefined for another. */
+function queryRouteHref(route: Route): string | undefined {
+  if (route.screen === "account" && route.scanned !== undefined) {
+    const query = new URLSearchParams({ code: route.scanned.code, key: route.scanned.keyHash });
+    return `/account?${query.toString()}`;
+  }
+  if (route.screen === "search") {
+    return route.query === ""
+      ? "/search"
+      : `/search?${new URLSearchParams({ query: route.query }).toString()}`;
+  }
+  return undefined;
+}
+
 /** The address of a route: what parseRoute reads back as the same route. */
 export function routeHref(route: Route): string {
+  const withQuery = queryRouteHref(route);
+  if (withQuery !== undefined) {
+    return withQuery;
+  }
   if (route.screen === "title") {
     return `/titles/${String(route.itemId)}`;
   }
@@ -109,11 +143,6 @@ export function routeHref(route: Route): string {
   }
   if (route.screen === "files") {
     return `/libraries/${String(route.libraryId)}/files`;
-  }
-  if (route.screen === "search") {
-    return route.query === ""
-      ? "/search"
-      : `/search?${new URLSearchParams({ query: route.query }).toString()}`;
   }
   return route.screen === "not-found" ? "/" : `/${route.screen}`;
 }
