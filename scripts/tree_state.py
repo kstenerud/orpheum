@@ -7,10 +7,11 @@ file's name and content.
 check-pr saves one as it starts and checks it as it ends. Its steps read the tree for minutes, and
 revert-red rewrites files in it and puts them back; an edit made meanwhile was gated partly or not
 at all, and could be overwritten by a probe putting its file back. The agent did that three times
-in one day though a written rule forbade it, so the gate says so (the owner, 2026-10-06). Since
-2026-10-20 check-pr runs in its own tree (check_pr_snapshot.py), which nothing edits, so a change
-found there is a step's own: a probe that left its file reverted.
+in one day though a written rule forbade it, so the gate says so (the owner, 2026-10-06).
 """
+
+# Since 2026-10-20 check-pr runs in its own tree (check_pr_snapshot.py), which nothing edits, so a
+# change found there is a step's own: a probe that left its file reverted.
 
 from __future__ import annotations
 
