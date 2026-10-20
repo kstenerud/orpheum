@@ -23,6 +23,9 @@
 //     expire, and nothing else. Enforced by TestRelay_AdmitsAMembershipsCredentialsUntilItEndsOrTheyExpire.
 //     The credentials a core sends its discovery name no membership and last until they expire
 //     (the discovery protocol's §2.4). Enforced by TestRelay_AdmitsTheDiscoverysCredentialsUntilTheyExpire.
+//     They last a quarter of an hour, and an allocation made while they were good is served after
+//     (the Plex-chain review's relay credential).
+//     TestRelay_KeepsServingAnAllocationTheDiscoverysCredentialsMadeAfterTheyExpire.
 //   - The relay serves TCP beside UDP on its port, for a browser that cannot send UDP, and relays
 //     to peers on the public internet only: never to the server's own machine or the networks it
 //     is on, which would make a membership a way into the house. Enforced by

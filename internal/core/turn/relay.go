@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"net/netip"
+	"sync"
 
 	pionturn "github.com/pion/turn/v4"
 
@@ -74,9 +75,11 @@ func Start(ctx context.Context, config Config, parts Parts) (*Relay, error) {
 			MinPort: config.RelayPortMin, MaxPort: config.RelayPortMax,
 		}
 	}
+	granted := &grantedAllocations{held: map[grantKey]bool{}}
 	server, err := pionturn.NewServer(pionturn.ServerConfig{
 		Realm:         realm,
-		AuthHandler:   authHandler(ctx, parts),
+		AuthHandler:   authHandler(ctx, parts, granted),
+		EventHandler:  granted.events(),
 		LoggerFactory: slogFactory{ctx: ctx, logger: parts.Logger},
 		PacketConnConfigs: []pionturn.PacketConnConfig{{
 			PacketConn: packets, RelayAddressGenerator: relayed(), PermissionHandler: mayRelayTo,
@@ -136,13 +139,54 @@ func (relay *Relay) Close() error {
 	return nil
 }
 
+// grantKey is an allocation by the address it was asked from and the username it was granted to.
+type grantKey struct{ source, username string }
+
+// grantedAllocations are the allocations made with a discovery's credentials while they were good,
+// which their refreshes, permissions and channels keep being admitted for after the credentials
+// expire: they last foundLifetime, shorter than a film, and the allocation ends with the device.
+type grantedAllocations struct {
+	mutex sync.Mutex
+	held  map[grantKey]bool
+}
+
+// events keeps an allocation from when it is made with a discovery's credentials until it is
+// deleted.
+func (granted *grantedAllocations) events() pionturn.EventHandler {
+	return pionturn.EventHandler{
+		OnAllocationCreated: func(source, _ net.Addr, _, username, _ string, _ net.Addr, _ int) {
+			if held, _, err := parseUsername(username); err == nil && held.isFound {
+				granted.mutex.Lock()
+				defer granted.mutex.Unlock()
+				granted.held[grantKey{source: source.String(), username: username}] = true
+			}
+		},
+		OnAllocationDeleted: func(source, _ net.Addr, _, username, _ string) {
+			granted.mutex.Lock()
+			defer granted.mutex.Unlock()
+			delete(granted.held, grantKey{source: source.String(), username: username})
+		},
+	}
+}
+
+// has is whether an allocation from source with username is held.
+func (granted *grantedAllocations) has(source net.Addr, username string) bool {
+	granted.mutex.Lock()
+	defer granted.mutex.Unlock()
+	return source != nil && granted.held[grantKey{source: source.String(), username: username}]
+}
+
 // authHandler admits a username Issue made, unexpired, of a live membership, or one IssueFound
-// made, unexpired, and gives TURN the key its password makes; anything else is refused.
-func authHandler(ctx context.Context, parts Parts) pionturn.AuthHandler {
-	return func(username, _ string, _ net.Addr) ([]byte, bool) {
+// made, unexpired or held by an allocation it was granted, and gives TURN the key its password
+// makes; anything else is refused.
+func authHandler(ctx context.Context, parts Parts, granted *grantedAllocations) pionturn.AuthHandler {
+	return func(username, _ string, source net.Addr) ([]byte, bool) {
 		held, expiresAt, err := parseUsername(username)
-		if err != nil || !parts.Clock.Now().Before(expiresAt) ||
-			!held.isFound && !parts.IsMember(held.membership.SessionID, held.membership.MemberID) {
+		if err != nil {
+			return nil, false
+		}
+		isGood := parts.Clock.Now().Before(expiresAt) || held.isFound && granted.has(source, username)
+		if !isGood || !held.isFound && !parts.IsMember(held.membership.SessionID, held.membership.MemberID) {
 			return nil, false
 		}
 		secret, err := parts.Secrets.Open(ctx, secrets.TURNSecret)

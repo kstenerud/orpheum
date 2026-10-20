@@ -74,6 +74,13 @@ func Issue(secret secrets.Value, membership Membership, now time.Time) Credentia
 	return Credentials{Username: username, Password: password(secret, username), ExpiresAt: expiresAt}
 }
 
+// foundLifetime is how long the credentials a core sends its discovery are good for: longer than the
+// five minutes between heartbeats, each of which carries new ones, and short, since every device
+// that finds the core by a link in that time holds the same ones (the Plex-chain review's relay
+// credential). An allocation made with them outlives them (relay.go's grantedAllocations), so a
+// relayed film is not cut when they end.
+const foundLifetime = 15 * time.Minute
+
 // foundName is what a username names for a device its core's discovery found the core for (the
 // discovery protocol's §2.4): it holds no membership, so the credential is good until it expires,
 // and the relay still relays only to the public internet (relay.go's mayRelayTo).
@@ -82,9 +89,9 @@ const foundName = "found"
 // IssueFound makes the relay credentials a core sends its discovery with each heartbeat, which the
 // discovery hands the devices it finds the core for, so WebRTC through the discovery has a relay
 // where no direct path works (the protocol's §2.4, the TURN REST form, C14). They last
-// credentialLifetime, as a member's do, so an evening's film is not cut when they would end [I].
+// foundLifetime.
 func IssueFound(secret secrets.Value, now time.Time) Credentials {
-	expiresAt := now.Add(credentialLifetime)
+	expiresAt := now.Add(foundLifetime)
 	username := fmt.Sprintf("%d:%s", expiresAt.Unix(), foundName)
 	return Credentials{Username: username, Password: password(secret, username), ExpiresAt: expiresAt}
 }

@@ -240,3 +240,33 @@ func TestRelay_AdmitsTheDiscoverysCredentialsUntilTheyExpire(t *testing.T) {
 		t.Error("the discovery's expired credentials were admitted")
 	}
 }
+
+// The credentials a core sends its discovery last a quarter of an hour, each heartbeat bringing new
+// ones, since every device finding the core in that time holds them; an allocation made while they
+// were good keeps being served after, so a relayed film is not cut, and they make no new one (the
+// Plex-chain review's relay credential).
+func TestRelay_KeepsServingAnAllocationTheDiscoverysCredentialsMadeAfterTheyExpire(t *testing.T) {
+	t.Parallel()
+	stage := newRelayStage(t)
+	secret, err := stage.secrets.Open(t.Context(), secrets.TURNSecret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := IssueFound(secret, stage.clock.Now())
+	if lasts := found.ExpiresAt.Sub(stage.clock.Now()); lasts > 15*time.Minute {
+		t.Errorf("the discovery's credentials last %v; want a quarter of an hour at most", lasts)
+	}
+	relayed, err := stage.allocateOver(t, "udp", found)
+	if err != nil {
+		t.Fatalf("the discovery's credentials: %v; want a relayed address", err)
+	}
+	defer func() { _ = relayed.Close() }() //nolint:errcheck // the test's end
+	stage.clock.Advance(time.Hour)
+	// A new peer asks the relay for a permission, under the credentials, now expired.
+	if _, err = relayed.WriteTo([]byte("hello"), &net.UDPAddr{IP: net.IPv4(203, 0, 113, 8), Port: 9}); err != nil {
+		t.Errorf("relaying to a new peer after the credentials expired: %v; want the allocation still served", err)
+	}
+	if err = stage.allocate(t, found); err == nil {
+		t.Error("the discovery's expired credentials made a new allocation")
+	}
+}
