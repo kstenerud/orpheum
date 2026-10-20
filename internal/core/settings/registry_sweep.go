@@ -48,10 +48,12 @@ const (
 	CertificateRenewBeforeDays            Key = "certificate_renew_before_days"
 	CertificateDNSWaitSeconds             Key = "certificate_dns_wait_seconds"
 	//nolint:gosec // G101: a setting's name, not a credential
-	VoiceRelayCredentialHours Key = "voice_relay_credential_hours"
-	JobHealthWindowHours      Key = "job_health_window_hours"
-	RetentionSweepEveryHours  Key = "retention_sweep_every_hours"
-	InvariantsCheckEveryHours Key = "invariants_check_every_hours"
+	VoiceRelayCredentialHours              Key = "voice_relay_credential_hours"
+	ArtworkCacheSweepToPercent             Key = "artwork_cache_sweep_to_percent"
+	ArtworkCacheRecommendedHeadroomPercent Key = "artwork_cache_recommended_headroom_percent"
+	JobHealthWindowHours                   Key = "job_health_window_hours"
+	RetentionSweepEveryHours               Key = "retention_sweep_every_hours"
+	InvariantsCheckEveryHours              Key = "invariants_check_every_hours"
 )
 
 // upkeepSweepDefinitions are how often the core's upkeep looks, and how far back the job view counts:
@@ -282,5 +284,19 @@ func certificateDefinitions() []Definition {
 			"hours a Watch Together member's voice relay credentials are good for: longer than any "+
 				"evening's film, and a membership that ends first ends them with it (D243 §8)"),
 			"D243 §8: a day"),
+	}
+}
+
+// artworkCacheDefinitions are how the artwork cache keeps under its ceiling (D212 §6, §7).
+func artworkCacheDefinitions() []Definition {
+	return []Definition{
+		sourced(integerSetting(ArtworkCacheSweepToPercent, "90", 50, 99,
+			"percent of artwork_cache_ceiling_gib a sweep evicts the artwork cache down to, so it does not "+
+				"run again at the next write (D212 §6)"),
+			"D212 §6: 90%"),
+		sourced(integerSetting(ArtworkCacheRecommendedHeadroomPercent, "115", 100, 300,
+			"the ceiling the System page recommends for the artwork cache, in percent of what is never "+
+				"evicted (D212 §7)"),
+			"D212 §7: what is never evicted, plus 15%"),
 	}
 }
