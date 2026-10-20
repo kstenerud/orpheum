@@ -18,6 +18,9 @@ describe("the kept path", () => {
       kind: "direct",
       origin: "https://192-168-1-2.core1.orpheum-core.com:8443",
     };
+    // Every path answers, the request that confirms the better one too; no network is reached.
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (): Promise<Response> => Promise.resolve(new Response("{}"));
     const kept = keepPath(
       {
         first: away,
@@ -33,6 +36,7 @@ describe("the kept path", () => {
     });
     await vi.advanceTimersByTimeAsync(30_000);
     kept.close();
+    globalThis.fetch = realFetch;
     expect(told).toEqual([`the core's name, ${home.origin}`]);
   });
 
@@ -43,12 +47,14 @@ describe("the kept path", () => {
       kind: "direct",
       origin: "https://192-168-1-2.core1.orpheum-core.com:8443",
     };
-    // Firefox under the page's service worker: the LAN name answers the look, then fails a request.
+    // A LAN name that answers the look and the request that confirms it, then fails a request.
     const realFetch = globalThis.fetch;
-    globalThis.fetch = (input: RequestInfo | URL): Promise<Response> =>
-      String(input instanceof Request ? input.url : input).startsWith(home.origin)
+    globalThis.fetch = (input: RequestInfo | URL): Promise<Response> => {
+      const url = String(input instanceof Request ? input.url : input);
+      return url.startsWith(home.origin) && !url.endsWith("/api/v1/health")
         ? Promise.reject(new TypeError("NetworkError when attempting to fetch resource."))
         : Promise.resolve(new Response("{}"));
+    };
     const kept = keepPath(
       {
         first: away,
@@ -77,6 +83,52 @@ describe("the kept path", () => {
     expect(told).toEqual(["home", "away", "home", "away"]); // four times as long
     await vi.advanceTimersByTimeAsync(betterPathFirstMs);
     expect(told).toEqual(["home", "away", "home", "away", "home"]);
+    kept.close();
+    globalThis.fetch = realFetch;
+  });
+
+  it("never moves to a better path that fails a request carrying the session, as Firefox's LAN name does under Local Network Access (2026-10-20)", async () => {
+    vi.useFakeTimers();
+    const away: Reached = { kind: "direct", origin: "https://2a01-db8--1.core1.orpheum-core.com" };
+    const home: Reached = {
+      kind: "direct",
+      origin: "https://192-168-1-2.core1.orpheum-core.com:8443",
+    };
+    // The LAN name answers the bare look, but fails any request with the session's header, which
+    // needs a preflight; the confirming request carries it.
+    const confirming: string[] = [];
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = String(input instanceof Request ? input.url : input);
+      const authorization = new Headers(init?.headers).get("Authorization");
+      if (url.startsWith(home.origin)) {
+        confirming.push(authorization ?? "none");
+        return Promise.reject(new TypeError("NetworkError when attempting to fetch resource."));
+      }
+      return Promise.resolve(new Response("{}"));
+    };
+    const kept = keepPath(
+      {
+        first: away,
+        another: () => Promise.resolve(away),
+        better: (current) => Promise.resolve(current === away ? home : undefined),
+      },
+      { token: () => "a-session" },
+    );
+    kept.carried.catch(() => undefined);
+    const told: string[] = [];
+    kept.onPathMove((to) => {
+      told.push(to);
+    });
+    await vi.advanceTimersByTimeAsync(betterPathFirstMs);
+    expect(told).toEqual([]);
+    expect(confirming).toEqual(["Bearer a-session"]);
+    // It looks again twice as long after, not at the first wait.
+    await vi.advanceTimersByTimeAsync(betterPathFirstMs);
+    expect(confirming).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(betterPathFirstMs);
+    expect(confirming).toHaveLength(2);
+    expect(told).toEqual([]);
     kept.close();
     globalThis.fetch = realFetch;
   });
