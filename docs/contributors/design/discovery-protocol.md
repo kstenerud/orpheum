@@ -761,14 +761,25 @@ code.
     Berlin, on Telekom", neutral rather than a verdict, A11, U2-9) waits until after the beta,
     since it needs an IP-location database.
   - **The wire** (`discoveryproto/devicecodes.go`, `proof/devicecode.go`). The device posts its
-    public key (the uncompressed point, base64url) and platform to `POST /client/v1/device-codes`
-    and is given a code, `xxxx-xxxx` in safe32, a secret and a life of ten minutes; it asks
+    public key (the uncompressed point, base64url), its platform and a commitment to a nonce of its
+    own (`proof.DeviceCommitment`) to `POST /client/v1/device-codes` and is given a code,
+    `xxxx-xxxx` in safe32, a secret and a life of ten minutes; it asks
     `POST /client/v1/device-codes/state` by the secret: `waiting`, `entered`, `activated` (with the
     sealed outcome and a bootstrap token) or `ended`. The person enters the code on their core as
     any code; a code the core did not issue it claims at `POST /core/v1/device-codes/claim`, which
-    gives the device's key and platform, once a core has it no other. **The check code is made of
-    the device's key** (`proof.DeviceCheckCode`), so the device shows it without another trip and a
-    key the service swapped in shows the person another code. On a match the core keeps the session
+    gives the device's key, platform and commitment, once a core has it no other. **The check code
+    is committed** (D321, replacing a check code made of the key alone): the core claims with a
+    nonce of its own, which the device's state carries once entered; the device then reveals its
+    nonce at `POST /client/v1/device-codes/reveal`, which the service keeps only when it opens the
+    commitment; the core claims again for it, checks the commitment itself, and both show 40 bits
+    of the key and the two nonces (`proof.DeviceCheckCode`). No one knows the check code before the
+    code is entered, and a key the service swapped in has one try in 2⁴⁰ at the person's code.
+  - **A QR code beside the code** (D321): the device shows a QR code of the loader's
+    `/activate?code=…&key=…`, whose `key` is 128 bits of its key's hash (`proof.DeviceKeyHash`).
+    The phone that scans it opens Activate a device in the person's realm, which claims the code
+    with no nonce and activates only a key with that hash: the key came by camera, past the
+    service, so no check code is shown, and the device, entered with no core nonce, reveals
+    nothing. On a match the core keeps the session
     as a realm sign-in's hand-off (D308 §4) under `proof.DeviceCodePerson` of the code, seals the
     hand-off's code, its `coreId`, fingerprint and realm (`proof.SealDeviceOutcome`; HPKE's info
     names the use), and posts it to `POST /core/v1/device-codes/outcome`; no match posts none,
@@ -1167,7 +1178,8 @@ later changed an item, it says so.
     last good LAN address kept for an outage became the home address (D292 §6; §3.1).
 19. **U8:** a list of locators with a switcher for a person on two servers. **After the beta**
     (D291 §6).
-20. **U9:** a QR beside the TV's code; a default device name; picking the check code from three;
+20. **U9:** a QR beside the TV's code (built for the paid service's codes, D321, with the
+    device's platform as its default name when scanned); picking the check code from three;
     renaming *Get a code*; a two-sentence warning.
 21. **U11, U12:** "Connecting to …" after a second; a "how this device is connected" line; mail to
     the customer when `reachableFrom` drops (with the accounts, after the beta).
