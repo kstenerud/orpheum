@@ -35,6 +35,13 @@ TOOLS_BIN := $(or $(ORPHEUM_TOOLS_DIR),$(CURDIR)/.tools)/bin
 GOPATH_BIN := $(shell command -v go >/dev/null 2>&1 && echo "$$(go env GOPATH)/bin:")
 export PATH := $(TOOLS_BIN):$(GOPATH_BIN)$(PATH)
 
+# Every Go build and test leaves its tree's path out of the build cache's keys (-trimpath), so the
+# working tree, check-pr's tree and revert-red's probe trees reuse each other's compiled packages:
+# check-pr's tree compiled the integration tier's tests in 69 s after the working tree had, and in
+# 13 s with it (2026-10-20). A recorded path is then the import path, so no code finds a file from
+# its own source's path (internal/testutil finds go.mod instead). dev-debug clears it for Delve.
+export GOFLAGS := $(strip $(GOFLAGS) -trimpath)
+
 .PHONY: help
 help: ## List the targets
 	@grep -E '^[a-z][a-z-]*:.*## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*## "} {printf "  %-22s %s\n", $$1, $$2}'
@@ -649,7 +656,7 @@ dev-doctor: ## Run `orpheum doctor` on the dev core's instance (.dev/core)
 dev-debug: ## Run the dev server under delve, headless on 127.0.0.1:2345, for an IDE to attach
 	@dlv version 2>/dev/null | grep -qx "Version: $(DELVE_VERSION)" || go install github.com/go-delve/delve/cmd/dlv@v$(DELVE_VERSION)
 	@$(PYTHON) scripts/dev.py config >/dev/null
-	@dlv debug ./cmd/orpheum --build-flags="-tags=dev" --headless --listen=127.0.0.1:2345 \
+	@GOFLAGS= dlv debug ./cmd/orpheum --build-flags="-tags=dev" --headless --listen=127.0.0.1:2345 \
 	  --api-version=2 --accept-multiclient -- core --instance $(DEV_CORE)
 
 .PHONY: pprof
