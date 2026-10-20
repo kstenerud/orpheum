@@ -14,6 +14,8 @@ import (
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/discovery/proof"
+	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 )
 
 // fakeServiceCodes is the paid service's device codes as the core sees them: the devices waiting, by
@@ -241,6 +243,25 @@ func TestPairing_AServiceCodesHandOffWaitsThreeMinutesAndTooManyClaimsSlowThePer
 	}
 }
 
+// How long a typed code waits for its device's nonce is a setting (the constants sweep, 2026-10-20).
+func TestPairing_ATypedServiceCodeWaitsAsLongAsTheSettingSays(t *testing.T) {
+	t.Parallel()
+	built := newFixture(t)
+	ctx := t.Context()
+	id := built.createUser(t, "partner", "pw", RoleUser)
+	silent := newWaitingDevice(t, "", 0)
+	silent.silent = true
+	built.service.ClaimDeviceCodesFrom(newFakeServiceCodes(map[string]fakeDevice{"abcd-efgh": silent}))
+	settingstest.Set(t, built.settings, settings.DeviceCodeRevealWaitSeconds, "4")
+	startedAt := built.clock.Now()
+	if _, err := built.service.ClaimPairing(ctx, id, id, "abcd-efgh", "TV"); !errors.Is(err, ErrDeviceSilent) {
+		t.Errorf("a device that never reveals, the wait at 4 s: %v; want ErrDeviceSilent", err)
+	}
+	if waited := built.clock.Now().Sub(startedAt); waited < 4*time.Second || waited >= revealWait {
+		t.Errorf("with the wait at 4 s, gave up after %v", waited)
+	}
+}
+
 // A typed code's check code waits for the device to reveal the nonce it committed to: a device that
 // does not within revealWait, or reveals one that breaks its commitment, is refused and its code
 // ended, the core's own nonce chosen afresh and claimed with (D321; the device code audit's M2).
@@ -260,6 +281,7 @@ func TestPairing_ATypedServiceCodeWaitsForTheDevicesNonceAndRefusesOneThatBreaks
 	if waited := built.clock.Now().Sub(startedAt); waited < revealWait {
 		t.Errorf("gave up after %v; want %v", waited, revealWait)
 	}
+
 	if _, err := built.service.ClaimPairing(ctx, id, id, "abcd-efgj", "TV"); !errors.Is(err, ErrNotThatDevice) {
 		t.Errorf("a device revealing a nonce that breaks its commitment: %v; want ErrNotThatDevice", err)
 	}

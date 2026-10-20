@@ -26,6 +26,13 @@ var (
 	accountPace            = settings.StartingDuration(settings.SignInEverywherePaceSeconds)
 )
 
+// The pairing limits and the reveal wait where no setting says: their starting values.
+var (
+	pairingsPerNetworkAtMost = startingInt(settings.PairingCodesPerNetworkMost)
+	pairingsPerSiteAtMost    = startingInt(settings.PairingCodesPerSiteMost)
+	revealWait               = settings.StartingDuration(settings.DeviceCodeRevealWaitSeconds)
+)
+
 // startingInt is an integer setting's starting value.
 func startingInt(key settings.Key) int64 {
 	definition, _ := settings.Lookup(key)

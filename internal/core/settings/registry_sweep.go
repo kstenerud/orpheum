@@ -79,3 +79,22 @@ func signInStretchDefinitions() []Definition {
 			"the third audit's A13: ten seconds"),
 	}
 }
+
+// pairingDefinitions are how a device not signed in gets to be: the codes one network and one site may
+// hold, and how long a typed code waits for its device.
+func pairingDefinitions() []Definition {
+	return []Definition{
+		sourced(integerSetting(PairingCodesPerNetworkMost, "5", 1, 100,
+			"how many pairing codes not yet entered one network may hold at once (an IPv6 /64 or an IPv4 "+
+				"address); past it a new one is refused, never an older one dropped (S13, D288 §6)"),
+			"the security audit's S13, 2026-10-13: five"),
+		sourced(integerSetting(PairingCodesPerSiteMost, "20", 1, 1000,
+			"how many pairing codes not yet entered one site may hold at once (an IPv6 /48, which holds "+
+				"many networks): twenty networks' five codes each left no television a code (K5)"),
+			"the second audit's K5, 2026-10-13: twenty"),
+		sourced(durationSetting(DeviceCodeRevealWaitSeconds, time.Second, "15", 3, 120,
+			"seconds entering a typed device code waits for the device to reveal its nonce; the device "+
+				"asks every two seconds, so at least three (D321)"),
+			"D321: fifteen seconds"),
+	}
+}

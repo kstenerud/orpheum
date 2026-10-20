@@ -130,6 +130,9 @@ const (
 	SignInFailureLimitNetworkMultiple         Key = "signin_failure_limit_network_multiple"
 	SignInFailureLimitEverywhereMultiple      Key = "signin_failure_limit_everywhere_multiple"
 	SignInEverywherePaceSeconds               Key = "signin_everywhere_pace_seconds"
+	PairingCodesPerNetworkMost                Key = "pairing_codes_per_network_most"
+	PairingCodesPerSiteMost                   Key = "pairing_codes_per_site_most"
+	DeviceCodeRevealWaitSeconds               Key = "device_code_reveal_wait_seconds"
 	JobHealthWindowHours                      Key = "job_health_window_hours"
 	RetentionSweepEveryHours                  Key = "retention_sweep_every_hours"
 	InvariantsCheckEveryHours                 Key = "invariants_check_every_hours"
@@ -258,7 +261,7 @@ func buildRegistry() []Definition {
 	}, slices.Concat(
 		scanDefinitions(), jobMetadataAndPlaybackDefinitions(), deviceDefinitions(), upkeepAndDisplayDefinitions(),
 		retentionDefinitions(), backupDefinitions(), togetherDefinitions(), signInDefinitions(),
-		discoveryDefinitions(), upkeepSweepDefinitions(), signInStretchDefinitions(),
+		discoveryDefinitions(), upkeepSweepDefinitions(), signInStretchDefinitions(), pairingDefinitions(),
 	)...)
 }
 
