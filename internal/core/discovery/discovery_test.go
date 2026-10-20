@@ -525,16 +525,18 @@ func TestStep_KeepsTheClientOriginTheDiscoveryNamesWhenItIsAnHTTPSOrigin(t *test
 	}
 }
 
-// The core's home addresses are its house addresses under its names, none until the discovery
-// publishes it, and ready once the certificate they need is held (D292 §6, D297 §6).
+// The core's home addresses are its house addresses under its names, marked or, as a core in a
+// container configures them, not; none until the discovery publishes it, and ready once the
+// certificate they need is held (D292 §6, D297 §6).
 func TestStatus_NamesTheHomeAddressesOnceClaimedAndSaysWhenTheirCertificateIsHeld(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)
 	ctx := t.Context()
 	lan := discoveryproto.ScopeLAN
 	built.candidates = append(built.candidates,
-		discoveryproto.Candidate{Address: "192.168.1.250", Port: 8443, Source: "configured", Scope: lan},
-		discoveryproto.Candidate{Address: "192.168.1.251", Port: 443, Source: "interface", Scope: lan})
+		discoveryproto.Candidate{Address: "192.168.1.250", Port: 8443, Source: "configured"},
+		discoveryproto.Candidate{Address: "192.168.1.251", Port: 443, Source: "interface", Scope: lan},
+		discoveryproto.Candidate{Address: "2001:db8:1::5", Port: 8443, Source: "configured"})
 	if _, err := built.service.Connect(ctx, built.baseURL); err != nil {
 		t.Fatal(err)
 	}

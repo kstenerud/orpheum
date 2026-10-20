@@ -74,7 +74,9 @@ func (status Status) CertificateName() string {
 }
 
 // homeAddresses are the https addresses of candidates only a client at home reaches, under the
-// core's names: "https://<label>.<coreId>.<zone>", with the port unless it is 443.
+// core's names: "https://<label>.<coreId>.<zone>", with the port unless it is 443. A private address
+// is one, as the discovery publishes it, whatever its scope says: a core in a container names its
+// house addresses in its configuration, unmarked (nas.example, 2026-10-20).
 func homeAddresses(candidates []discoveryproto.Candidate, coreID, zone string) []string {
 	if coreID == "" || zone == "" {
 		return nil
@@ -82,7 +84,7 @@ func homeAddresses(candidates []discoveryproto.Candidate, coreID, zone string) [
 	var addresses []string
 	for _, candidate := range candidates {
 		address, err := netip.ParseAddr(candidate.Address)
-		if candidate.Scope != discoveryproto.ScopeLAN || err != nil {
+		if err != nil || !address.Unmap().IsPrivate() {
 			continue
 		}
 		label, isLabel := discoveryproto.AddressLabel(address)
