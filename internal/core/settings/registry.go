@@ -122,6 +122,9 @@ const (
 	ChunkKeptMaybeSeconds                     Key = "chunk_kept_maybe_seconds"
 	PlayLadderWaitMs                          Key = "play_ladder_wait_ms"
 	DiscoveryPendingCheckEverySeconds         Key = "discovery_pending_check_every_seconds"
+	DiscoveryAddressCheckEverySeconds         Key = "discovery_address_check_every_seconds"
+	DiscoveryAnotherCopyCheckEverySeconds     Key = "discovery_another_copy_check_every_seconds"
+	DiscoveryEndedCheckEverySeconds           Key = "discovery_ended_check_every_seconds"
 )
 
 // Kind is a setting value's JSON type.
@@ -251,7 +254,8 @@ func buildRegistry() []Definition {
 	)...)
 }
 
-// discoveryDefinitions are the core's side of its discovery: how often it asks after its claim.
+// discoveryDefinitions are the core's side of its discovery: how often it looks, in each state. The
+// minimums of those that call the discovery protect the service from a core asking too often.
 func discoveryDefinitions() []Definition {
 	return []Definition{
 		sourced(durationSetting(DiscoveryPendingCheckEverySeconds, time.Second, "2", 1, 600,
@@ -259,6 +263,18 @@ func discoveryDefinitions() []Definition {
 				"its owner to type its claim code there: the longest the owner waits after typing it"),
 			"the owner, 2026-10-20: 10 s kept each claim waiting, the owner and the browser tests alike; a "+
 				"status call is small, and a code waits minutes at most"),
+		sourced(durationSetting(DiscoveryAddressCheckEverySeconds, time.Second, "60", 10, 300,
+			"seconds between a claimed core's looks whether its addresses changed, sending them to its "+
+				"discovery at once when they did; at most the 5 minutes between its heartbeats"),
+			"discovery-core.md C2: a minute; a look sends only on a change, so it costs the discovery nothing"),
+		sourced(durationSetting(DiscoveryAnotherCopyCheckEverySeconds, time.Second, "180", 30, 3600,
+			"seconds between the asks of a core its discovery refused as a copy of another still "+
+				"connected: when the other stops, this one takes its place (D293 §1)"),
+			"D293 §1: three minutes"),
+		sourced(durationSetting(DiscoveryEndedCheckEverySeconds, time.Second, "3600", 300, 86400,
+			"seconds between the asks of a core whose discovery has ended, or that has none, in case its "+
+				"owner pays again"),
+			"best guess: hourly, as the owner paying again is rare and a minute's wait no one notices"),
 	}
 }
 

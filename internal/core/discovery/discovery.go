@@ -39,20 +39,9 @@ const ServiceURL = "https://api.orpheum-app.com/core/v1"
 
 // The waits between the loop's looks are discovery-core.md's.
 
-// addressesEvery is how often a core looks whether its addresses changed, sending them at once
-// if they did.
-const addressesEvery = time.Minute
-
 // heartbeatEvery is how often a core sends its addresses when they have not changed (the
 // spec's §3.4).
 const heartbeatEvery = 5 * time.Minute
-
-// anotherCopyEvery is how often a core its discovery refused as a copy of another, still connected,
-// asks again: if the other stops, this one takes its place (D293 §1).
-const anotherCopyEvery = 3 * time.Minute
-
-// endedEvery is how often a core whose discovery has ended asks again, in case its owner pays.
-const endedEvery = time.Hour
 
 // sessionMargin is how long before its end a session is renewed.
 const sessionMargin = 5 * time.Minute
@@ -75,8 +64,8 @@ type Durations interface {
 // Parts are what the service is built from.
 type Parts struct {
 	Files Files
-	// Settings are the server's settings, read for how often a pending core asks whether it is
-	// claimed; nil uses the starting values.
+	// Settings are the server's settings, read for how long the loop waits between its looks in each
+	// state; nil uses the starting values.
 	Settings Durations
 	Key      identity.Key
 	// HTTP is the one client every call to another host goes through.
@@ -382,7 +371,7 @@ func (service *Service) nudge() {
 func (service *Service) step(ctx context.Context) time.Duration {
 	status := service.Status()
 	if status.BaseURL == "" {
-		return endedEvery
+		return service.wait(ctx, settings.DiscoveryEndedCheckEverySeconds)
 	}
 	_, err := service.session(ctx)
 	var refused *refusal
@@ -416,10 +405,9 @@ func (service *Service) step(ctx context.Context) time.Duration {
 var ErrAnotherCopy = errors.New("another copy of this server is connected to the discovery; this one stays " +
 	"off it, and asks again every few minutes")
 
-// pendingEvery is how often a pending core asks whether it has been claimed: the setting, or its
-// starting value when it cannot be read.
-func (service *Service) pendingEvery(ctx context.Context) time.Duration {
-	key := settings.DiscoveryPendingCheckEverySeconds
+// wait is the setting key's length of time: how long the loop waits before its next look, or its
+// starting value when it cannot be read (each setting's description says when it applies).
+func (service *Service) wait(ctx context.Context, key settings.Key) time.Duration {
 	if service.parts.Settings == nil {
 		return settings.StartingDuration(key)
 	}
@@ -440,7 +428,7 @@ func (service *Service) enrolAgain(ctx context.Context, baseURL string) time.Dur
 	if _, err := service.enrol(ctx, baseURL); err != nil {
 		return service.failed(ctx, "enrol again", err)
 	}
-	return service.pendingEvery(ctx)
+	return service.wait(ctx, settings.DiscoveryPendingCheckEverySeconds)
 }
 
 // askStatus asks the discovery how the core stands, and returns the wait its state calls for.
@@ -472,13 +460,13 @@ func (service *Service) askStatus(ctx context.Context, status Status) time.Durat
 	service.changed(ctx, was, answered)
 	switch answered.State {
 	case discoveryproto.StatePending:
-		return service.pendingEvery(ctx)
+		return service.wait(ctx, settings.DiscoveryPendingCheckEverySeconds)
 	case discoveryproto.StateClaimed, discoveryproto.StateGrace:
 		return 0
 	case discoveryproto.StateFrozen, discoveryproto.StateReleased, discoveryproto.StateDisabled:
-		return endedEvery
+		return service.wait(ctx, settings.DiscoveryEndedCheckEverySeconds)
 	}
-	return endedEvery
+	return service.wait(ctx, settings.DiscoveryEndedCheckEverySeconds)
 }
 
 // changed says what changed in the core's standing: a new state is logged, a new zone kept, and a
@@ -525,7 +513,7 @@ func (service *Service) heartbeat(ctx context.Context, status Status) time.Durat
 		service.parts.Clock.Now().Sub(service.status.LastHeartbeatAt) >= heartbeatEvery
 	service.mutex.Unlock()
 	if !isDue {
-		return addressesEvery
+		return service.wait(ctx, settings.DiscoveryAddressCheckEverySeconds)
 	}
 	// A claimed core's standing can change too, its subscription lapsing or renewed: it asks with
 	// each heartbeat, and sends its addresses only while it is still claimed.
@@ -561,7 +549,7 @@ func (service *Service) heartbeat(ctx context.Context, status Status) time.Durat
 	service.status.ReachableFrom, service.status.Problem = answered.ReachableFrom, ""
 	service.status.DeadEndsLastWeek = answered.DeadEndsLastWeek
 	service.mutex.Unlock()
-	return addressesEvery
+	return service.wait(ctx, settings.DiscoveryAddressCheckEverySeconds)
 }
 
 // failed records why a call failed, and returns the wait before trying again. A session refused
@@ -589,7 +577,7 @@ func (service *Service) failed(ctx context.Context, what string, err error) time
 		service.parts.Logger.WarnContext(ctx, "discovery: a call failed; trying again", "what", what, "err", err)
 	}
 	if isCopy {
-		return anotherCopyEvery
+		return service.wait(ctx, settings.DiscoveryAnotherCopyCheckEverySeconds)
 	}
 	return service.retryWait(ctx, failures)
 }
