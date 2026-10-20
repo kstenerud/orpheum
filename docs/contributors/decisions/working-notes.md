@@ -21063,3 +21063,39 @@ Revises D308 §6's staging names.
 
 **Status:** Decided 2026-10-20; built 2026-10-20: §1 by `DELETE /session` through
 `auth.SignOutHere`, §2 by every other ending, which leaves the device as it was.
+
+## D321 — A TV shows a QR code carrying its key's hash, which activates it with one tap; the typed code's check code is committed
+
+**Decided** (2026-10-20), by the project owner, from the device code audit's options (b) and M2
+([device-code-audit-2026-10-20.md](../design/research/device-code-audit-2026-10-20.md) §2, §3).
+Refines [D293](#d293--the-discoverys-open-questions-answered-a-live-instance-is-pinged-before-it-is-replaced-device-codes-through-the-service-sealed-by-hpke-on-p-256-in-the-beta-stagings-dns-token-in-the-sandbox-until-production)
+§2's device codes through the paid service; the core's own codes (D288) are unchanged.
+
+1. **The TV shows a QR code beside its typed code.** It is a link to the loader,
+   `https://app.orpheum-app.com/activate?code=<code>&key=<hash>`, whose hash is 128 bits of the
+   SHA-256 of the TV's key (`proof.DeviceKeyHash`). The key's hash reaches the phone by camera,
+   past the service, which can then drop or delay an activation but not substitute its own key.
+2. **The QR path needs no check code.** The loader opens the realm's client at Activate a device,
+   the code filled in; the phone names the device and how long ago it asked, with the warning, and
+   one tap on **Activate** activates it. The core claims the code with no nonce and activates only a
+   key whose hash is the QR code's; any other is refused. The TV then asks its own question,
+   "Sign this TV in to the household ‹realm› as ‹person›?" (the audit's M1).
+3. **The typed path's check code is committed**, as Bluetooth's numeric comparison does (the audit's
+   M2):
+   1. The TV commits to `H(key ‖ n_t)` when it asks for its code.
+   2. The core claims the code with a random `n_c`.
+   3. The TV, told `n_c`, reveals `n_t`; the service and the core check it against the commitment.
+   4. Both show `H(key ‖ n_t ‖ n_c)`'s first 40 bits.
+
+   No one knows the check code before the code is entered, so a fixed phishing message cannot name
+   one (the audit's M3), and a service swapping in a key gets one try in 2⁴⁰, not a search. A TV that
+   sends no commitment is refused.
+4. **The loader chooses by realm** (the owner: *"access should be by realm, which right now is
+   already one core"*): with one realm it goes there; with several it asks which; with none it shows
+   a page to **Copy link** to a phone that is signed in, or **Sign in here** and carry on to
+   Activate a device. On an iPhone a home-screen app cannot be opened from a link, so Safari's
+   sign-in is the practical way.
+5. **Activating needs a session that manages the account**, one signed in with a password, never a
+   device a code activated (D292 §4).
+
+**Status:** Decided 2026-10-20.
