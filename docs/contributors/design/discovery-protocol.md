@@ -348,8 +348,11 @@ the signalling connection.
   paid service's. Its credentials are **time-limited** (the TURN REST pattern: a username of
   `<expiry>:<id>`, a password that is an HMAC under a secret the core and the TURN server share),
   minted by the core and refreshed with each heartbeat, never the static long-term ones (C14). Built
-  2026-10-14: a username of `<expiry>:found`, lasting a day [I], which the relay admits with no
-  membership, still relaying only to the public internet.
+  2026-10-14: a username of `<expiry>:found`, which the relay admits with no membership, still
+  relaying only to the public internet. Since 2026-10-20 it lasts a quarter of an hour, not a day:
+  every device that finds the core by a link in its lifetime holds the same one. An allocation made
+  while it was good keeps its refreshes and permissions after, so a relayed film is not cut (the
+  Plex-chain review's relay credential).
 - The discovery records the request's source address too, but never publishes it unprobed: behind
   carrier NAT it is shared and unreachable. Behind Cloudflare (the paid service, reached through a
   Cloudflare Tunnel, D292 §2–§3) the source is taken from `CF-Connecting-IP`, trusted only from
