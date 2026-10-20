@@ -172,7 +172,18 @@ export class Choosing<Chunk extends FollowedChunk> {
   /** The highest quality it may choose: the start, lowered by each step down, raised by the step-up. */
   #ceiling: number | undefined;
   #changedAtMs: number;
-  #onItsWay: { readonly chunk: Chunk; readonly sinceMs: number } | undefined;
+  /**
+   * The chunk of picture on its way: since when it is judged, and how many of its bytes were the
+   * core's 425 answers, which say it is being made and are none of it (beingMade).
+   */
+  #onItsWay:
+    | {
+        readonly chunk: Chunk;
+        readonly sinceMs: number;
+        readonly answeredBytes: number;
+        readonly isBeingMade: boolean;
+      }
+    | undefined;
   /** The pace each paced chunk was asked to arrive at, bits a second. */
   readonly #paces = new WeakMap<Chunk, number>();
   /** A quality hls.js forced, after a load error, until a chunk of it loads (D265 §8). */
@@ -290,7 +301,12 @@ export class Choosing<Chunk extends FollowedChunk> {
 
   /** A chunk of picture began loading, at the pace asked while voice is live. */
   loading(chunk: Chunk): void {
-    this.#onItsWay = { chunk, sinceMs: this.#options.monotonicMs() };
+    this.#onItsWay = {
+      chunk,
+      sinceMs: this.#options.monotonicMs(),
+      answeredBytes: 0,
+      isBeingMade: false,
+    };
     const paceKbps = this.paceKbps();
     if (paceKbps !== undefined) {
       this.#paces.set(chunk, paceKbps * 1000);
@@ -307,7 +323,14 @@ export class Choosing<Chunk extends FollowedChunk> {
    */
   beingMade(chunk: Chunk): void {
     if (this.#onItsWay?.chunk === chunk) {
-      this.#onItsWay = { chunk, sinceMs: this.#options.monotonicMs() };
+      // Its 425's own body is counted loaded, its first byte with it: 81 bytes in two seconds gave
+      // the twin up for 360p and measured the link at 667 kb/s (the owner's Firefox, 2026-10-20).
+      this.#onItsWay = {
+        chunk,
+        sinceMs: this.#options.monotonicMs(),
+        answeredBytes: chunk.stats.loaded,
+        isBeingMade: true,
+      };
     }
   }
 
@@ -382,16 +405,23 @@ export class Choosing<Chunk extends FollowedChunk> {
     if (onItsWay === undefined || onItsWay.chunk.stats.aborted) {
       return;
     }
-    const { chunk, sinceMs } = onItsWay;
+    const { chunk, sinceMs, answeredBytes } = onItsWay;
     const { loading, loaded, total } = chunk.stats;
+    // Only bytes past the core's 425 answers are the chunk arriving. One the core is making is
+    // waited for until it arrives: a lower quality would be made too, and slower, and an encoder that
+    // cannot keep up moves its players down itself (D286 §4, D323 §4).
+    const hasArrived = loaded > answeredBytes && loading.first > 0;
+    if (onItsWay.isBeingMade && !hasArrived) {
+      return;
+    }
     const chosen = giveUpFor({
       levels: this.#hls.levels,
       loadingLevel: chunk.level,
       lowestLevel: this.#hls.minAutoLevel,
       durationS: chunk.duration,
       loadingMs: this.#options.monotonicMs() - sinceMs,
-      firstByteMs: loading.first > 0 ? loading.first - loading.start : undefined,
-      loadedBytes: loaded,
+      firstByteMs: hasArrived ? loading.first - loading.start : undefined,
+      loadedBytes: hasArrived ? loaded : 0,
       totalBytes: total,
       linkBps: this.#linkBps(),
       bufferAheadS: this.#bufferAheadS(),
@@ -402,7 +432,7 @@ export class Choosing<Chunk extends FollowedChunk> {
     this.#onItsWay = undefined;
     this.#link.measureGivenUp(
       Math.max(1, this.#options.monotonicMs() - sinceMs),
-      Math.max(1, loaded),
+      Math.max(1, hasArrived ? loaded : 0),
     );
     this.#hasMeasured = true;
     this.#lower(chosen, () => {

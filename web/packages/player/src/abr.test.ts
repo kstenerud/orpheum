@@ -200,18 +200,24 @@ describe("choosing a chunked playback's quality (D265)", () => {
   it("judges a chunk the core is making from when it is made, and measures nothing by its wait", () => {
     const { choosing, givenUp } = choosingFrom(40_000_000);
     choosing.firstLevel();
-    const chunk = chunkAt(3);
+    // The twin's length: half of it shorter than the answers' two seconds apart.
+    const chunk = { ...chunkAt(3), duration: 2.3 };
     choosing.loading(chunk);
-    // Being made for six seconds, the core answering 425 each time it is asked again.
-    for (nowMs = 1000; nowMs <= 6000; nowMs += 1000) {
-      choosing.beingMade(chunk);
+    // Being made for six seconds, the core answering 425 two seconds apart, each answer's 81-byte
+    // body counted loaded with its first byte, as hls.js counts it (the owner's Firefox, 2026-10-20).
+    chunk.stats.loaded = 81;
+    chunk.stats.loading = { start: 0, first: 20, end: 0 };
+    for (nowMs = 0; nowMs <= 6000; nowMs += 500) {
+      if (nowMs % 2000 === 0) {
+        choosing.beingMade(chunk);
+      }
       vi.advanceTimersByTime(lookAtChunkEveryMs);
     }
     expect(givenUp).toEqual([]);
     expect(choosing.linkKbps()).toBeUndefined();
     expect(choosing.nextLevel()).toBe(3); // the film's own picture, not the lowest
     // Made, it arrives slowly, and is judged as any chunk is from there.
-    chunk.stats.loaded = 750_000;
+    chunk.stats.loaded = 750_081;
     chunk.stats.loading = { start: 6000, first: 6100, end: 0 }; // hls.js times each ask afresh
     nowMs = 12_000;
     vi.advanceTimersByTime(lookAtChunkEveryMs);
