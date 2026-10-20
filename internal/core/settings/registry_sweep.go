@@ -193,3 +193,13 @@ func chunkTimingDefinitions() []Definition {
 			"D250 §6: twenty seconds"),
 	}
 }
+
+// togetherSweepDefinitions are Watch Together's server-side values the constants sweep made settings.
+func togetherSweepDefinitions() []Definition {
+	return []Definition{
+		sourced(durationSetting(TogetherSnapSeeksBeyondSeconds, time.Second, "30", 5, 600,
+			"seconds a Watch Together seek must jump to be snapped to a keyframe: a jump along the timeline "+
+				"is imprecise, but a short skip by a key or a button snapped back would never move on (D285 §1)"),
+			"D285 §1: thirty seconds"),
+	}
+}

@@ -19,6 +19,7 @@ import (
 	"github.com/coder/websocket/wsjson"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/together"
 )
 
@@ -559,6 +560,23 @@ func TestTogether_ALinkCarriesTheRightsTheHostGaveIt(t *testing.T) {
 	for _, each := range details.Body.Links {
 		if each.Rights != pauseOnly {
 			t.Errorf("the link for %s has %+v; want play and pause alone", each.HostNote, each.Rights)
+		}
+	}
+}
+
+// internal/core/together reads no settings and keeps its waits' starting values as copies: they are
+// the settings' starting values (the registry's rule: a fallback is the registry's, never a copy).
+func TestTogether_TheStartingWaitsAreTheSettingsStarts(t *testing.T) {
+	t.Parallel()
+	for _, held := range []struct {
+		key    settings.Key
+		copied time.Duration
+	}{
+		{settings.TogetherSyncWaitSeconds, together.StartingSyncWait},
+		{settings.TogetherSnapSeeksBeyondSeconds, together.StartingSnapSeeksBeyond},
+	} {
+		if start := settings.StartingDuration(held.key); start != held.copied {
+			t.Errorf("%s starts at %s; together's copy is %s", held.key, start, held.copied)
 		}
 	}
 }

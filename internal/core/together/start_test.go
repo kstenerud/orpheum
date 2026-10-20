@@ -113,9 +113,10 @@ func TestHub_APlayerLoadingBeforeTheGroupStartsIsNoStall(t *testing.T) {
 	}
 }
 
-// A jump of more than 30 s is snapped back to the keyframe at or before it, the group starting the
-// run-up after it; a shorter skip, or one whose film's keyframes are not known, lands where asked
-// (D285 §1; the owner: "Using the scroll bar to jump is by nature imprecise").
+// A jump of more than 30 s, or the setting's distance, is snapped back to the keyframe at or before
+// it, the group starting the run-up after it; a shorter skip, or one whose film's keyframes are not
+// known, lands where asked (D285 §1; the owner: "Using the scroll bar to jump is by nature
+// imprecise").
 func TestHub_ALongJumpIsSnappedBackToItsKeyframeAndAShortSkipIsNot(t *testing.T) {
 	t.Parallel()
 	for _, jump := range []struct {
@@ -123,10 +124,14 @@ func TestHub_ALongJumpIsSnappedBackToItsKeyframeAndAShortSkipIsNot(t *testing.T)
 		toMs    int64
 		isKnown bool
 		wantMs  int64
+		// snapMs is together_snap_seeks_beyond_seconds as the device brought it; zero brings none.
+		snapMs int64
 	}{
-		{"a long jump", 1_461_502, true, 1_461_541},
-		{"a short skip", 70_000, true, 70_000},
-		{"a long jump, keyframes unknown", 1_461_502, false, 1_461_502},
+		{"a long jump", 1_461_502, true, 1_461_541, 0},
+		{"a short skip", 70_000, true, 70_000, 0},
+		{"a long jump, keyframes unknown", 1_461_502, false, 1_461_502, 0},
+		// The distance is a setting (the constants sweep, 2026-10-20): at 5 s, a 10 s skip is snapped.
+		{"a 10 s skip, snapped beyond 5 s", 70_000, true, 1_461_541, 5000},
 	} {
 		stage := newStage(t)
 		var asked []int64
@@ -135,7 +140,7 @@ func TestHub_ALongJumpIsSnappedBackToItsKeyframeAndAShortSkipIsNot(t *testing.T)
 			return 1_459_541, jump.isKnown // the chunk holding 24:21.502 starts at 24:19.541
 		})
 		tuning := testTuning
-		tuning.RunUpMs = 2000
+		tuning.RunUpMs, tuning.SnapSeeksBeyondMs = 2000, jump.snapMs
 		box := &inbox{}
 		host, err := stage.hub.Attach(stage.opened.MembershipCredential, RolePlayback, true, nil, tuning, box.send)
 		if err != nil {
