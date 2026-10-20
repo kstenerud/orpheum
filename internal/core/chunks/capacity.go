@@ -15,13 +15,8 @@ import (
 
 // How a run of chunks is watched to stay faster than playback, or the players waiting on it never
 // catch up: the owner, "Live transcoding only works when it's faster than playback" (D250 §6).
-const (
-	// How far back a run's speed is measured, and how long after an eviction its node is left to
-	// settle before another.
-	speedWindow = 20 * time.Second
-	// How much of the window a run must have been sampled over to be judged.
-	speedSpanAtLeast = 10 * time.Second
-)
+// The window a run's speed is measured over is chunk_run_speed_window_seconds (chunkTiming); a run must
+// have been sampled over half of it to be judged.
 
 // ErrNoRoomToMake is a store whose run was evicted to keep its node's other runs faster than
 // playback (D250 §6): its players are told why their playback stops, until a stall asks for it
@@ -44,21 +39,21 @@ func (tracker *runTracker) sample(dir string, first int, now time.Time, madeEndM
 		return
 	}
 	each.samples = append(slices.DeleteFunc(each.samples, func(old speedSample) bool {
-		return now.Sub(old.at) > 2*speedWindow
+		return now.Sub(old.at) > 2*tracker.timing.speedWindow
 	}), speedSample{at: now, madeEndMs: madeEndMs})
 }
 
-// speedAt is the run's speed at now, film made per wall time over the last speedWindow (6.2 is 6.2
-// times playback), and whether it has been sampled long enough to say.
-func (each *run) speedAt(now time.Time) (float64, bool) {
+// speedAt is the run's speed at now, film made per wall time over the last window (6.2 is 6.2 times
+// playback), and whether it has been sampled over half the window, long enough to say.
+func (each *run) speedAt(now time.Time, window time.Duration) (float64, bool) {
 	from := slices.IndexFunc(each.samples, func(sample speedSample) bool {
-		return now.Sub(sample.at) <= speedWindow
+		return now.Sub(sample.at) <= window
 	})
 	if from < 0 {
 		return 0, false
 	}
 	first, latest := each.samples[from], each.samples[len(each.samples)-1]
-	if latest.at.Sub(first.at) < speedSpanAtLeast {
+	if latest.at.Sub(first.at) < window/2 {
 		return 0, false
 	}
 	return float64(latest.madeEndMs-first.madeEndMs) / float64(latest.at.Sub(first.at).Milliseconds()), true
@@ -86,7 +81,7 @@ func (tracker *runTracker) runningOn(
 			if each.nodeID != nodeID || each.jobID == 0 {
 				continue
 			}
-			speed, isMeasured := each.speedAt(now)
+			speed, isMeasured := each.speedAt(now, tracker.timing.speedWindow)
 			running = append(running, runningRun{
 				dir: dir, first: each.first, last: each.last, startedAt: each.startedAt, speed: speed,
 				isMeasured: isMeasured, isInUse: true, jobID: each.jobID,
@@ -149,10 +144,11 @@ func (tracker *runTracker) unevict(dir string) {
 // more measures slower than chunk_run_slowest_speed_percent of it, one run is cancelled: the oldest no
 // player wants, its store refusing no one; or, when players want every one, the newest, its players
 // moved down a quality (D309 §6), or, when one cannot move, evicted, and its players told why their
-// playback stops. After any the node's runs are left speedWindow to settle.
+// playback stops. After any the node's runs are left chunk_run_speed_window_seconds to settle.
 func (service *Service) keepRunsFast(ctx context.Context, nodeID int64) error {
 	now := service.clock.Now()
-	if last := service.runs.lastEvictionOn(nodeID); !last.IsZero() && now.Sub(last) < speedWindow {
+	timing := service.refreshChunkTiming(ctx)
+	if last := service.runs.lastEvictionOn(nodeID); !last.IsZero() && now.Sub(last) < timing.speedWindow {
 		return nil
 	}
 	slowestPercent, err := service.settings.Int(ctx, settings.ChunkRunSlowestSpeedPercent)

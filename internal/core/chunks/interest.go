@@ -99,7 +99,7 @@ func (stopped stoppedRun) attributes(cancelled int) []any {
 }
 
 // cutQueuedAhead forgets a run of the store still waiting in the queue that begins within
-// lookaheadMs of film after chunk wanted, which is not made and no run will make, with nothing made
+// the timing's lookaheadMs of film after chunk wanted, which is not made and no run will make, with nothing made
 // or on its way between: the run planned from wanted then makes its chunks too, as one run from where
 // the player is. Left, the queue folded wanted's run into it, which keeps one job of a store queued,
 // and a jump that landed just before it waited for it to make chunks after the jump's (D286 §1).
@@ -111,7 +111,7 @@ func (tracker *runTracker) cutQueuedAhead(dir string, grid Grid, wanted int) (st
 		return stoppedRun{}, false
 	}
 	next := wanted + 1
-	for next <= grid.lastChunk() && grid.StartsMs[next]-grid.StartsMs[wanted] <= lookaheadMs &&
+	for next <= grid.lastChunk() && grid.StartsMs[next]-grid.StartsMs[wanted] <= tracker.timing.lookaheadMs &&
 		!known.isCoveredLocked(next) {
 		next++
 	}
@@ -138,7 +138,7 @@ func (tracker *runTracker) cutUnwanted(fileID int64, interests []Interest, keptA
 			continue
 		}
 		for first, each := range known.runByFirst {
-			if known.isWantedLocked(each, stream, interests, keptAheadMs) {
+			if known.isWantedLocked(each, stream, interests, keptAheadMs, tracker.timing.lookaheadMs) {
 				continue
 			}
 			stopped = append(stopped, stoppedRun{
@@ -162,14 +162,16 @@ func (tracker *runTracker) isWanted(dir string, first int, interests []Interest,
 		return true
 	}
 	stream, _ := streamOfStore(dir, fileOfStore(dir))
-	return known.isWantedLocked(each, stream, interests, keptAheadMs)
+	return known.isWantedLocked(each, stream, interests, keptAheadMs, tracker.timing.lookaheadMs)
 }
 
 // isWantedLocked is whether any interest in the store's stream wants the run: one playing from a
 // chunk the run has not gone past, the run starting within lookaheadMs of film of the first chunk
 // after it not made, as a run is planned (runTracker.plan); or one stopped, whose keptAheadMs after
 // it the run is still to make some of. A store whose grid is not known yet is wanted: nothing can say.
-func (known *storeRuns) isWantedLocked(each *run, stream string, interests []Interest, keptAheadMs int64) bool {
+func (known *storeRuns) isWantedLocked(
+	each *run, stream string, interests []Interest, keptAheadMs, lookaheadMs int64,
+) bool {
 	if known.grid == nil {
 		return true
 	}
@@ -222,8 +224,10 @@ func (service *Service) wantednessOf(
 		return nil, fmt.Errorf("read %s: %w", settings.ChunkKeptAheadSeconds, err)
 	}
 	name := stream.Name()
+	// Read now: the closure runs under the tracker's lock.
+	lookaheadMs := service.runs.timingNow().lookaheadMs
 	return func(known *storeRuns, each *run) bool {
-		return known.isWantedLocked(each, name, interests, keptAhead.Milliseconds())
+		return known.isWantedLocked(each, name, interests, keptAhead.Milliseconds(), lookaheadMs)
 	}, nil
 }
 

@@ -290,3 +290,6 @@ func chunksFixture(t *testing.T, queue Queue, node fakeNode) (*Service, *fakeRea
 	})
 	return service, reader
 }
+
+// speedWindow is the speed window's starting value, by the name its constant had (chunkTiming).
+var speedWindow = startingChunkTiming().speedWindow
