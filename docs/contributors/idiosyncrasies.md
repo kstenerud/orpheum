@@ -257,6 +257,14 @@ User-Agent (D263; the User-Agent is logged only).
   which raises the prompt, races without it (`raced` in `web/apps/web/src/discovery-start.ts`), and
   leaves it out of its look for a better path until it is granted, then looks at once; one denied is
   never tried (`web/apps/web/src/local-network.ts`).
+- **So Firefox never uses the LAN name** (the owner's choice, 2026-10-20). With the prompt raised
+  only at home and allowed, on nas.example, the page moved to the LAN name and its API requests went
+  through, and the film's chunks, which the service worker fetches, failed there at once, as on every
+  test before. Allowing it bought the person a prompt and nothing else, so in Firefox the page treats
+  the permission as refused: it never tries the LAN name and never prompts, and WebRTC carries
+  everything, a direct pair in the house (`usesLanName` in `web/apps/web/src/local-network.ts`). The
+  browser is named because nothing can be tested for in advance; re-check when Mozilla bug 1594177's
+  fault is fixed.
 - **Evidence:** nas.example's and staging's logs, 2026-10-15, Firefox 157 on macOS; [Mozilla bug
   2059274](https://bugzilla.mozilla.org/show_bug.cgi?id=2059274) on when Firefox asks;
   undoing a block: the site's permissions in the address bar, or `about:preferences#privacy`'s
