@@ -3,9 +3,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/netip"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
@@ -65,17 +67,27 @@ func (discovery DiscoveryConfig) lanIPs() []netip.Addr {
 // WebRTCConfig is where the core takes WebRTC from devices at home: the UDP port its connections'
 // host candidates share, which a deployment publishes at the house's address on the same port, so a
 // device in the house reaches the core directly over WebRTC (D300 §1). Zero gives each connection
-// ports of its own, which nothing at home reaches in a container.
+// ports of its own, which nothing at home reaches in a container. STUNServers are the servers its
+// connections find its public addresses through: its own, not its discovery's (the Plex-chain
+// review's L3).
 type WebRTCConfig struct {
-	UDPPort int `toml:"udp_port"`
+	UDPPort     int      `toml:"udp_port"`
+	STUNServers []string `toml:"stun_servers"`
 }
 
-// check refuses a port that is not one.
+// check refuses a port that is not one, and a STUN server that is not a stun: URL.
 func (webrtc WebRTCConfig) check() error {
+	var problems []error
 	if webrtc.UDPPort < 0 || webrtc.UDPPort > 65535 {
-		return fmt.Errorf("webrtc.udp_port %d: want a UDP port, or 0 for none", webrtc.UDPPort)
+		problems = append(problems, fmt.Errorf("webrtc.udp_port %d: want a UDP port, or 0 for none", webrtc.UDPPort))
 	}
-	return nil
+	for _, server := range webrtc.STUNServers {
+		if !strings.HasPrefix(server, "stun:") && !strings.HasPrefix(server, "stuns:") {
+			problems = append(problems,
+				fmt.Errorf("webrtc.stun_servers %q: want a STUN server, \"stun:stun.example.org:3478\"", server))
+		}
+	}
+	return errors.Join(problems...)
 }
 
 // retries are the waits as the discovery service takes them.

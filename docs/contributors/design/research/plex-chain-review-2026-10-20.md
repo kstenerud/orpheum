@@ -61,4 +61,8 @@ then checked T1 and N1 against the code; both hold.
 | C1 | low | connectd trusts `CF-Connecting-IP`, and its listeners and operator panel listen on every address of a network that also holds wg0 | Bind to the addresses meant |
 | T2 | low | Libraries' file paths are shown to admins away from home (`IsAdmin()` in `browse.go`, `libraries.go`) | `administersHere` |
 
-The owner chose all of them on 2026-10-20.
+The owner chose all of them on 2026-10-20. L3 was built otherwise than the table says, by the owner's
+choice that day: a deployed core sits on Docker's translated IPv6 network, so it has no public host
+candidate, and host candidates alone would have ended admin over IPv6 at home (VQ43). The core instead
+gathers through STUN servers of its own config (`webrtc.stun_servers`; a deployment's
+`stun.cloudflare.com`), never its discovery's, and takes only TURN servers from the discovery.

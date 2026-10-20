@@ -55,6 +55,9 @@ send_interface_addresses = false
 # the core offers devices at home so they reach it in the house, not through the VPS; 0 with no address
 # at home (D300).
 udp_port = {{.Values.WebRTCUDPPort}}
+# The STUN servers the core finds its public addresses through: its own, never its discovery's, since
+# an IPv6 address one finds names the house's network, which administers (the Plex-chain review's L3).
+stun_servers = ["stun:stun.cloudflare.com:3478"]
 
 [database]
 read_connections_minimum = 4

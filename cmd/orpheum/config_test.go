@@ -189,6 +189,7 @@ send_interface_addresses = true
 
 [webrtc]
 udp_port = 0
+stun_servers = []
 
 [database]
 read_connections_minimum = 4
@@ -357,5 +358,21 @@ func TestServerConfig_HomeNetworksAreNetworks(t *testing.T) {
 	server.HomeNetworks = []string{"192.168.1.7"}
 	if err := server.check(); err == nil || !strings.Contains(err.Error(), "server.home_networks") {
 		t.Errorf("an address alone = %v; want refused by server.home_networks", err)
+	}
+}
+
+// The core's own STUN servers are stun: URLs; a host alone, or a TURN server, which a discovery names
+// and the core takes from it, is refused (the Plex-chain review's L3).
+func TestWebRTCConfig_STUNServersAreSTUNURLs(t *testing.T) {
+	t.Parallel()
+	webrtc := WebRTCConfig{STUNServers: []string{"stun:stun.cloudflare.com:3478", "stuns:stun.example.org:5349"}}
+	if err := webrtc.check(); err != nil {
+		t.Fatal(err)
+	}
+	for _, wrong := range []string{"stun.cloudflare.com:3478", "turn:turn.example.org:3478"} {
+		webrtc.STUNServers = []string{wrong}
+		if err := webrtc.check(); err == nil || !strings.Contains(err.Error(), "webrtc.stun_servers") {
+			t.Errorf("STUN server %q = %v; want refused by webrtc.stun_servers", wrong, err)
+		}
 	}
 }

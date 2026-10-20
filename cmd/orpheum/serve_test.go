@@ -139,6 +139,7 @@ send_interface_addresses = true
 
 [webrtc]
 udp_port = 0
+stun_servers = []
 
 [database]
 read_connections_minimum = 4
