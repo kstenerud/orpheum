@@ -413,8 +413,8 @@ export const en = {
       backup: "{{name}}, {{size}}, made {{at}}",
     },
     discovery: {
-      heading: "Discovery",
-      what: "A discovery tells your clients where to find this server, so it can be reached from outside the house without a VPS of your own in front of it. It passes on addresses, never your films.",
+      heading: "Remote access",
+      what: "A discovery tells your devices where to find this server, so you reach it from outside the house without a VPS of your own in front of it. It passes on addresses, never your films.",
       address: "The discovery's address",
       connect: "Connect",
       at: "Connected to {{address}}.",
@@ -455,7 +455,7 @@ export const en = {
       },
       published: "Published as {{names}}.",
       deadEnds:
-        "Times in the last week a client found no way to reach this server: {{count}}. The discovery's check of how it is reached says what may help.",
+        "Times in the last week a device found no way to reach this server: {{count}}. Most often the device was on a VPN or a travel eSIM, which can't reach a home server. Giving this machine a public IPv6 address helps the most: devices with IPv6 then reach it directly. Turning on UPnP, NAT-PMP or PCP on the home router helps devices without.",
       heartbeat: "Last told the discovery its addresses at {{at}}.",
       problem: "The last call to the discovery failed: {{problem}}",
       clientOrigin: "Links to this server open at {{origin}}.",

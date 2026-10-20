@@ -116,7 +116,8 @@ it("says where a claimed server is reached from, and warns of the discovery's de
   expect(text).toContain("Clients with IPv6 reach it directly; the rest connect over WebRTC.");
   expect(text).toContain("Published as k7xq2.orpheum-core.com.");
   // How often a client found no way in, as the discovery counted (D293 §7).
-  expect(text).toContain("Times in the last week a client found no way to reach this server: 3.");
+  expect(text).toContain("Times in the last week a device found no way to reach this server: 3.");
+  expect(text).toContain("Giving this machine a public IPv6 address helps the most");
   expect(text).toContain("stops speaking this server's protocol on 2027-03-01");
   // Where its links open, and the fingerprint they carry (D293 §4; the protocol's §3.1).
   expect(text).toContain("Links to this server open at https://app.orpheum-app.com.");
