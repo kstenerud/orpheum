@@ -16,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/providers/cloudflare"
 	"github.com/kstenerud/orpheum/internal/core/providers/cloudflare/cloudflaretest"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 )
@@ -162,6 +163,35 @@ func TestQueueRenewal_AsksWhenThereIsNoneOrItExpiresWithinAMonth(t *testing.T) {
 	}
 	if len(bench.queue.requests) != 2 || bench.queue.requests[1].Kind != jobs.KindRenewCertificate {
 		t.Errorf("asked for %+v; want two renewals", bench.queue.requests)
+	}
+}
+
+// renewSettings answers certificate_renew_before_days with its days.
+type renewSettings struct{ days int }
+
+func (renew renewSettings) Duration(_ context.Context, key settings.Key) (time.Duration, error) {
+	if key != settings.CertificateRenewBeforeDays {
+		return 0, errors.New("not asked for")
+	}
+	return time.Duration(renew.days) * 24 * time.Hour, nil
+}
+
+// How early a certificate is renewed is a setting (the constants sweep, 2026-10-20): at five days, one
+// 29 days from expiring is not yet due, and one four days from it is.
+func TestQueueRenewal_AsksWithinTheSettingsDays(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, cloudflaretest.Token)
+	bench.service.parts.Settings = renewSettings{days: 5}
+	if err := bench.service.Obtain(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	bench.clock.Advance(61 * 24 * time.Hour)
+	if asked, err := bench.service.QueueRenewal(t.Context()); err != nil || asked != 0 {
+		t.Errorf("29 days before it expires, renewing 5 days before, asked for %d (%v); want none", asked, err)
+	}
+	bench.clock.Advance(25 * 24 * time.Hour)
+	if asked, err := bench.service.QueueRenewal(t.Context()); err != nil || asked != 1 {
+		t.Errorf("4 days before it expires, renewing 5 days before, asked for %d (%v); want one", asked, err)
 	}
 }
 

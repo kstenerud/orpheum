@@ -147,10 +147,11 @@ type wiring struct {
 	tmdbImagesBaseURL string
 	// openSubtitlesBaseURL is where OpenSubtitles answers (opensubtitles.BaseURL, or a test's fake).
 	openSubtitlesBaseURL string
-	// cloudflareBaseURL is the DNS provider's API (cloudflare.BaseURL, or a fake), and
-	// dnsPropagationWait how long a challenge's record is given (D243 §6).
-	cloudflareBaseURL  string
-	dnsPropagationWait time.Duration
+	// cloudflareBaseURL is the DNS provider's API (cloudflare.BaseURL, or a fake).
+	cloudflareBaseURL string
+	// waitsForDNS is whether a challenge's record is given certificate_dns_wait_seconds to reach the
+	// name's servers before the CA looks (D243 §6): a test's fake DNS needs none.
+	waitsForDNS bool
 	// machineZone is the machine's own time zone, the server's until the admin chooses one
 	// (D246 §7); a test's is UTC.
 	machineZone localtime.Zone

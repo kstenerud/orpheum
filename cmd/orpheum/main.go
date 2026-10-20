@@ -228,7 +228,7 @@ func usage() string {
 func releaseWiring() wiring {
 	return wiring{
 		tmdbBaseURL: tmdb.BaseURL, tmdbImagesBaseURL: tmdb.ImageBaseURL, openSubtitlesBaseURL: opensubtitles.BaseURL,
-		cloudflareBaseURL:  cloudflare.BaseURL,
-		dnsPropagationWait: dnsPropagationWait,
+		cloudflareBaseURL: cloudflare.BaseURL,
+		waitsForDNS:       true,
 	}
 }

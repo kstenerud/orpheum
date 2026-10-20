@@ -45,6 +45,8 @@ const (
 	PortMappingLeaseSeconds               Key = "port_mapping_lease_seconds"
 	PortMappingRetrySeconds               Key = "port_mapping_retry_seconds"
 	PortMappingPermanentRenewSeconds      Key = "port_mapping_permanent_renew_seconds"
+	CertificateRenewBeforeDays            Key = "certificate_renew_before_days"
+	CertificateDNSWaitSeconds             Key = "certificate_dns_wait_seconds"
 	JobHealthWindowHours                  Key = "job_health_window_hours"
 	RetentionSweepEveryHours              Key = "retention_sweep_every_hours"
 	InvariantsCheckEveryHours             Key = "invariants_check_every_hours"
@@ -259,5 +261,20 @@ func portMappingDefinitions() []Definition {
 			"seconds between asks again for a mapping the router made for good, in case it restarted and "+
 				"forgot it (D273 §7)"),
 			"best guess: half an hour"),
+	}
+}
+
+// certificateDefinitions are how the server's certificates are obtained and renewed (D243 §6).
+func certificateDefinitions() []Definition {
+	return []Definition{
+		sourced(durationSetting(CertificateRenewBeforeDays, 24*time.Hour, "30", 1, 60,
+			"days before it expires a certificate is renewed, so a renewal that fails has days of daily "+
+				"tries before it matters (D243 §6)"),
+			"Let's Encrypt's advice: a third of its ninety days"),
+		sourced(durationSetting(CertificateDNSWaitSeconds, time.Second, "30", 5, 600,
+			"seconds a DNS-01 challenge's record is given to reach the name's servers before the CA is "+
+				"asked to look: Cloudflare's answer within seconds, and a margin costs nothing every two "+
+				"months (D243 §6)"),
+			"D243 §6: thirty seconds"),
 	}
 }

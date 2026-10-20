@@ -18,8 +18,11 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/providers/cloudflare"
 	"github.com/kstenerud/orpheum/internal/core/providers/cloudflare/cloudflaretest"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
+	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 // The server's public name is served over HTTPS with the certificate obtained for it, which a
@@ -128,5 +131,21 @@ func TestRenewWhenTokenSet_SettingTheTokenAsksForTheCertificateAtOnce(t *testing
 	}
 	if got := renewals(); got != 1 {
 		t.Errorf("setting the token queued %d renewals; want one, at once", got)
+	}
+}
+
+// A challenge's record is given as long as certificate_dns_wait_seconds says, read at each challenge;
+// a wiring that waits for none, a test's, waits none (the constants sweep, 2026-10-20).
+func TestPropagationWaitOf_IsTheSettingOrNoneForAFakeDNS(t *testing.T) {
+	t.Parallel()
+	config := settingstest.Seeded(t, storetest.OpenMigrated(t))
+	settingstest.Set(t, config, settings.CertificateDNSWaitSeconds, "45")
+	logger := slog.New(slog.DiscardHandler)
+	wait := propagationWaitOf(true, config, logger)
+	if wait == nil || wait(t.Context()) != 45*time.Second {
+		t.Errorf("a server's wait is not the 45 s set")
+	}
+	if propagationWaitOf(false, config, logger) != nil {
+		t.Errorf("a fake DNS's wiring waits; want none")
 	}
 }
