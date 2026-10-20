@@ -80,4 +80,20 @@ describe("the browser's local-network permission (W2c item 1)", () => {
     await without.state();
     expect(none).toEqual([false]);
   });
+
+  it("is refused in Firefox, whatever its permission says, and never asks there (the owner, 2026-10-20)", async () => {
+    const firefox =
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:157.0) Gecko/20100101 Firefox/157.0";
+    const chrome =
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
+    const asking = () => permissionsKnowing({ "local-network": new FakeStatus("prompt") });
+    const inFirefox = browserLocalNetwork(asking(), firefox);
+    expect(await inFirefox.state()).toBe("denied");
+    const told: boolean[] = [];
+    inFirefox.onAsking((isAsking) => {
+      told.push(isAsking);
+    });
+    expect(told).toEqual([false]);
+    expect(await browserLocalNetwork(asking(), chrome).state()).toBe("prompt");
+  });
 });

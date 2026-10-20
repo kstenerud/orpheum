@@ -44,10 +44,39 @@ function browserPermissions(): PermissionsByName | undefined {
   return "permissions" in globalThis.navigator ? globalThis.navigator.permissions : undefined;
 }
 
-/** The permission as a browser's Permissions API answers it, or "unknown" where it has none. */
+/**
+ * Whether the page uses the core's LAN name in a browser of userAgent: never in Firefox, whose Local
+ * Network Access fails the film's chunks a service worker fetches from it even once allowed, so the
+ * prompt bought nothing; WebRTC reaches the core directly in the house instead (the owner's choice,
+ * 2026-10-20, after three tests on staging and nas.example). No feature tells it, so the browser is named.
+ */
+export function usesLanName(userAgent: string): boolean {
+  return !/\bFirefox\//u.test(userAgent);
+}
+
+/** The permission as the page never asks for it: refused, and so never asked by a prompt. */
+const declined: LocalNetwork = {
+  state: () => Promise.resolve("denied"),
+  onGranted: () => () => undefined,
+  onAsking: (listener) => {
+    listener(false);
+    return () => undefined;
+  },
+};
+
+/**
+ * The permission as a browser's Permissions API answers it, or "unknown" where it has none; refused
+ * where the page does not use the LAN name (usesLanName), so it is never tried and never prompts.
+ */
 export function browserLocalNetwork(
   permissions: PermissionsByName | undefined = browserPermissions(),
+  userAgent: string = globalThis.navigator.userAgent,
 ): LocalNetwork {
+  return usesLanName(userAgent) ? permissionOf(permissions) : declined;
+}
+
+/** The permission as permissions answers it, or "unknown" where there are none or it has none. */
+function permissionOf(permissions: PermissionsByName | undefined): LocalNetwork {
   let status: Promise<PermissionStatus | undefined> | undefined;
   const statusOf = (): Promise<PermissionStatus | undefined> => {
     status ??= (async () => {
