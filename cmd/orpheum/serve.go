@@ -248,10 +248,7 @@ func openAndWire(
 		return opened, errors.Join(err, opened.cache.Close(), database.Close())
 	}
 	dependencies.Chooser, dependencies.Refresher = opened.jobServices.chooser, opened.jobServices.refresher
-	dependencies.Libraries = library.NewAdmin(database, clock.System{}, opened.nodes, opened.jobServices.scans,
-		library.Retirement{
-			Work: opened.jobServices.queue, Titles: opened.jobServices.pass,
-		})
+	dependencies.Libraries = libraryAdminOf(database, opened)
 	dependencies.Browser = library.NewBrowser(database, opened.settings)
 	dependencies.Browser.SetNodeConnections(opened.nodes)
 	opened.jobServices, dependencies.Playback = openPlayback(opened, database, dependencies.Preferences, logger)
@@ -668,4 +665,12 @@ func warnSignInLimitFull(ctx context.Context, logger *slog.Logger) func() {
 		logger.WarnContext(ctx, "the failed-sign-in limit is full, so sign-ins from places with no recent failure "+
 			"are refused until its counts age out: many networks are failing sign-ins at once")
 	}
+}
+
+// libraryAdminOf is the library admin service, reading the server's settings.
+func libraryAdminOf(database *store.Database, opened openedServices) *library.Admin {
+	admin := library.NewAdmin(database, clock.System{}, opened.nodes, opened.jobServices.scans,
+		library.Retirement{Work: opened.jobServices.queue, Titles: opened.jobServices.pass})
+	admin.UseSettings(opened.settings)
+	return admin
 }

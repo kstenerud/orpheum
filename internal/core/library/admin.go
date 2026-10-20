@@ -57,6 +57,8 @@ type Admin struct {
 	nodes      Nodes
 	scans      ScanRequests
 	retirement Retirement
+	// settings are where it reads its settings (UseSettings); nil reads their starting values.
+	settings AdminSettings
 }
 
 // NewAdmin returns the admin service; scans is how it asks for a scan, and retirement what a retire
