@@ -25,6 +25,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/identity"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/backoff"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
@@ -37,10 +38,6 @@ const StateFileName = "discovery.json"
 const ServiceURL = "https://api.orpheum-app.com/core/v1"
 
 // The waits between the loop's looks are discovery-core.md's.
-
-// pendingEvery is how often a pending core asks whether it has been claimed: soon after its
-// owner types the code.
-const pendingEvery = 10 * time.Second
 
 // addressesEvery is how often a core looks whether its addresses changed, sending them at once
 // if they did.
@@ -70,10 +67,18 @@ type Files interface {
 	RemovePersistentFile(name string) error
 }
 
+// Durations reads a length-of-time setting: settings.Service.
+type Durations interface {
+	Duration(ctx context.Context, key settings.Key) (time.Duration, error)
+}
+
 // Parts are what the service is built from.
 type Parts struct {
 	Files Files
-	Key   identity.Key
+	// Settings are the server's settings, read for how often a pending core asks whether it is
+	// claimed; nil uses the starting values.
+	Settings Durations
+	Key      identity.Key
 	// HTTP is the one client every call to another host goes through.
 	HTTP   *http.Client
 	Clock  clock.Clock
@@ -411,6 +416,22 @@ func (service *Service) step(ctx context.Context) time.Duration {
 var ErrAnotherCopy = errors.New("another copy of this server is connected to the discovery; this one stays " +
 	"off it, and asks again every few minutes")
 
+// pendingEvery is how often a pending core asks whether it has been claimed: the setting, or its
+// starting value when it cannot be read.
+func (service *Service) pendingEvery(ctx context.Context) time.Duration {
+	key := settings.DiscoveryPendingCheckEverySeconds
+	if service.parts.Settings == nil {
+		return settings.StartingDuration(key)
+	}
+	every, err := service.parts.Settings.Duration(ctx, key)
+	if err != nil {
+		every = settings.StartingDuration(key)
+		service.parts.Logger.WarnContext(ctx, "discovery: could not read a setting; going on at its starting value",
+			"key", string(key), "startingValue", every.String(), "err", err)
+	}
+	return every
+}
+
 // enrolAgain enrols the core again with its discovery, which no longer holds it, and returns the wait
 // before the next step: the new code shows on the System page (the protocol's §2.2, C12).
 func (service *Service) enrolAgain(ctx context.Context, baseURL string) time.Duration {
@@ -419,7 +440,7 @@ func (service *Service) enrolAgain(ctx context.Context, baseURL string) time.Dur
 	if _, err := service.enrol(ctx, baseURL); err != nil {
 		return service.failed(ctx, "enrol again", err)
 	}
-	return pendingEvery
+	return service.pendingEvery(ctx)
 }
 
 // askStatus asks the discovery how the core stands, and returns the wait its state calls for.
@@ -451,7 +472,7 @@ func (service *Service) askStatus(ctx context.Context, status Status) time.Durat
 	service.changed(ctx, was, answered)
 	switch answered.State {
 	case discoveryproto.StatePending:
-		return pendingEvery
+		return service.pendingEvery(ctx)
 	case discoveryproto.StateClaimed, discoveryproto.StateGrace:
 		return 0
 	case discoveryproto.StateFrozen, discoveryproto.StateReleased, discoveryproto.StateDisabled:

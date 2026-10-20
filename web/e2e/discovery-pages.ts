@@ -108,11 +108,23 @@ export function signedIn(token: string): Record<string, string> {
 }
 
 /** Connects the core to the discovery as its admin does, and claims it in the operator's place. */
+/** The setting for how often a pending core asks whether it is claimed, as the core names it. */
+const pendingCheckSetting = "discovery_pending_check_every_seconds";
+
 export async function connectAndClaim(
   api: APIRequestContext,
   token: string,
   discovery: string,
 ): Promise<void> {
+  // A pending core asks whether it is claimed every so often, 2 s on a new server; here each second,
+  // as a claim waited its whole interval out (the browser timings, 2026-10-20).
+  const quicker = await api.put(`${serverUrl()}/api/v1/config`, {
+    headers: signedIn(token),
+    data: { valuesByKey: { [pendingCheckSetting]: 1 } },
+  });
+  expect(quicker.ok(), `the setting: ${String(quicker.status())} ${await quicker.text()}`).toBe(
+    true,
+  );
   const connected = await api.post(`${serverUrl()}/api/v1/system/discovery`, {
     headers: signedIn(token),
     data: { baseUrl: `${discovery}/core/v1` },

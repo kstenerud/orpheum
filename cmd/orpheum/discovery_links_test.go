@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"slices"
@@ -18,6 +19,7 @@ import (
 	"github.com/kstenerud/orpheum/discovery/proof"
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/core/turn"
@@ -143,6 +145,29 @@ func TestDiscoveryParts_TheProbesNonceIsOneTheEchoRecognises(t *testing.T) {
 	nonce, err := parts.ProbeNonce()
 	if err != nil || !opened.reachability.Recognises(nonce) {
 		t.Errorf("the heartbeat's probe nonce is %q, %v; want one the echo recognises", nonce, err)
+	}
+}
+
+// A pending core asks whether it is claimed as often as the server's setting says, as an admin set it
+// (the owner, 2026-10-20: constants become settings).
+func TestDiscoveryParts_APendingCoreAsksAsOftenAsTheServersSettingSays(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	var config Config
+	var opened openedServices
+	opened.settings = settingstest.Seeded(t, storetest.OpenMigrated(t))
+	opened.reachability = newReachability(config, opened)
+	key := settings.DiscoveryPendingCheckEverySeconds
+	if err := opened.settings.Set(ctx, map[string]json.RawMessage{string(key): json.RawMessage("7")}, nil,
+		false); err != nil {
+		t.Fatal(err)
+	}
+	parts := discoveryParts(config, opened, nil, nil, nil, slog.New(slog.DiscardHandler))
+	if parts.Settings == nil {
+		t.Fatal("the discovery's parts have no settings; a pending core asks at the starting value")
+	}
+	if every, err := parts.Settings.Duration(ctx, key); err != nil || every != 7*time.Second {
+		t.Errorf("the discovery reads %s = %s, %v; want the 7 s an admin set", key, every, err)
 	}
 }
 

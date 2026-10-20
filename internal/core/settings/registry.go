@@ -121,6 +121,7 @@ const (
 	ChunkKeptLeftSeconds                      Key = "chunk_kept_left_seconds"
 	ChunkKeptMaybeSeconds                     Key = "chunk_kept_maybe_seconds"
 	PlayLadderWaitMs                          Key = "play_ladder_wait_ms"
+	DiscoveryPendingCheckEverySeconds         Key = "discovery_pending_check_every_seconds"
 )
 
 // Kind is a setting value's JSON type.
@@ -246,7 +247,19 @@ func buildRegistry() []Definition {
 	}, slices.Concat(
 		scanDefinitions(), jobMetadataAndPlaybackDefinitions(), deviceDefinitions(), upkeepAndDisplayDefinitions(),
 		retentionDefinitions(), backupDefinitions(), togetherDefinitions(), signInDefinitions(),
+		discoveryDefinitions(),
 	)...)
+}
+
+// discoveryDefinitions are the core's side of its discovery: how often it asks after its claim.
+func discoveryDefinitions() []Definition {
+	return []Definition{
+		sourced(durationSetting(DiscoveryPendingCheckEverySeconds, time.Second, "2", 1, 600,
+			"seconds between a core's asks of its discovery whether it is claimed yet, while it waits for "+
+				"its owner to type its claim code there: the longest the owner waits after typing it"),
+			"the owner, 2026-10-20: 10 s kept each claim waiting, the owner and the browser tests alike; a "+
+				"status call is small, and a code waits minutes at most"),
+	}
 }
 
 // signInDefinitions are signing in, its limits and its answer's time, sessions, and argon2id's costs
