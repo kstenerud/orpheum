@@ -109,8 +109,9 @@ through `index.ts`, so revert-red's related set stays small, devloop §2) and
    discovery being down. When nothing answers and the device seems to be at home, the
    page offers the core's home address as a link that leaves the discovery's origin, not as a path
    it races (protocol §3.1; D292 §6, replacing the last good LAN address).
-8. A line explaining Chrome's prompt before the LAN name is tried, and a help page for undoing a
-   block (§7 item 14, U1). The service worker's own requests need the permission granted to its
+8. A line explaining the browser's local-network prompt, and a help page for undoing a block (§7
+   item 14, U1). *The line is built (2026-10-20): shown above the screen while the prompt waits,
+   which the loader tells the client since its interface's minor 1; the help page is not.* The service worker's own requests need the permission granted to its
    origin first (protocol §3.4).
 
 `SwitchableFetch`'s comment still states D273 §7's replaced rule; it follows this section (C5).

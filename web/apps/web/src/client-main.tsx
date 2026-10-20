@@ -61,6 +61,8 @@ interface Reaches {
   readonly realm?: string | undefined;
   readonly switchHousehold?: (() => void) | undefined;
   readonly codeAddress?: string | undefined;
+  readonly onLocalNetworkAsking?:
+    ((listener: (isAsking: boolean) => void) => () => void) | undefined;
 }
 
 /**
@@ -94,6 +96,7 @@ function mountApp(session: Session, reaches: Reaches, mountedOn: Root): Api {
     pathMoves: reaches.pathMoves,
     switchHousehold: reaches.switchHousehold,
     codeAddress: reaches.codeAddress,
+    onLocalNetworkAsking: reaches.onLocalNetworkAsking,
   };
   mountedOn.render(
     <StrictMode>
@@ -157,6 +160,7 @@ function mountUnderLoader(loader: OrpheumLoader): void {
       realm: loader.core.realm,
       switchHousehold: loader.switchHousehold,
       codeAddress: codeAddressOf(document),
+      onLocalNetworkAsking: loader.onLocalNetworkAsking,
     },
     root,
   );

@@ -8,6 +8,7 @@ import { useTranslation } from "react-i18next";
 import logo from "./assets/orpheum-logo.svg";
 import { StatusTray } from "./status-tray.tsx";
 import { Link } from "./link.tsx";
+import { LocalNetworkNote } from "./local-network-note.tsx";
 import { productName } from "./product-name.ts";
 import type { Route } from "./router.ts";
 
@@ -159,8 +160,18 @@ export function AppShell(props: {
           </BannerEnd>
         </nav>
       </header>
-      <main className="app-shell__main">{props.children}</main>
+      <ShellMain>{props.children}</ShellMain>
     </div>
+  );
+}
+
+/** The screen, under any word the page has about what the browser is doing. */
+function ShellMain(props: { readonly children: ReactNode }): JSX.Element {
+  return (
+    <main className="app-shell__main">
+      <LocalNetworkNote />
+      {props.children}
+    </main>
   );
 }
 

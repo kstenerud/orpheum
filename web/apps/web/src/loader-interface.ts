@@ -17,7 +17,7 @@ import type { Session } from "./session.ts";
 export const loaderMajor = 1;
 
 /** The loader interface's minor version: what this source adds within the major. */
-export const loaderMinor = 0;
+export const loaderMinor = 1;
 
 /** The core the loader reached: its id, the fingerprint it holds for it, and the realm, when any. */
 export interface LoadedCore {
@@ -40,6 +40,12 @@ export interface OrpheumLoader {
    * they went to (an older loader names none); returns its removal.
    */
   readonly onPathMove: (listener: (to?: string) => void) => () => void;
+  /**
+   * Tells listener whether the browser waits on the person to allow the local network, so the client
+   * can say why it asks (webrtc-transport.md W2c item 8); returns its removal. Since minor 1: an
+   * older loader has none, and its client says nothing.
+   */
+  readonly onLocalNetworkAsking?: (listener: (isAsking: boolean) => void) => () => void;
   /**
    * The session at this client origin, which the loader keeps, so the two never disagree about
    * where it is stored: the client signs in and out through it alone.

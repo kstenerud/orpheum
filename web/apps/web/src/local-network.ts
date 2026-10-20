@@ -16,6 +16,11 @@ export interface LocalNetwork {
   readonly state: () => Promise<LocalNetworkState>;
   /** Tells listener each time the permission becomes granted; returns its removal. */
   readonly onGranted: (listener: () => void) => () => void;
+  /**
+   * Tells listener whether the browser is still to ask the person, once it is known and on each
+   * change after; returns its removal. A browser with no such permission never asks.
+   */
+  readonly onAsking: (listener: (isAsking: boolean) => void) => () => void;
 }
 
 /**
@@ -57,30 +62,51 @@ export function browserLocalNetwork(
     })();
     return status;
   };
+  /**
+   * Tells listener the state once it is known, when shouldTellNow, and on each change after; returns its
+   * removal.
+   */
+  const watch = (
+    listener: (state: LocalNetworkState) => void,
+    shouldTellNow: boolean,
+  ): (() => void) => {
+    let isRemoved = false;
+    let remove = (): void => {
+      isRemoved = true;
+    };
+    void statusOf().then((held) => {
+      if (isRemoved) {
+        return;
+      }
+      if (shouldTellNow) {
+        listener(held?.state ?? "unknown");
+      }
+      if (held === undefined) {
+        return;
+      }
+      const changed = (): void => {
+        listener(held.state);
+      };
+      held.addEventListener("change", changed);
+      remove = () => {
+        held.removeEventListener("change", changed);
+      };
+    });
+    return () => {
+      remove();
+    };
+  };
   return {
     state: async () => (await statusOf())?.state ?? "unknown",
-    onGranted: (listener) => {
-      let isRemoved = false;
-      let remove = (): void => {
-        isRemoved = true;
-      };
-      void statusOf().then((held) => {
-        if (held === undefined || isRemoved) {
-          return;
+    onGranted: (listener) =>
+      watch((state) => {
+        if (state === "granted") {
+          listener();
         }
-        const changed = (): void => {
-          if (held.state === "granted") {
-            listener();
-          }
-        };
-        held.addEventListener("change", changed);
-        remove = () => {
-          held.removeEventListener("change", changed);
-        };
-      });
-      return () => {
-        remove();
-      };
-    },
+      }, false),
+    onAsking: (listener) =>
+      watch((state) => {
+        listener(state === "prompt");
+      }, true),
   };
 }

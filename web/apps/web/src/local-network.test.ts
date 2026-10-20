@@ -59,4 +59,25 @@ describe("the browser's local-network permission (W2c item 1)", () => {
     status.change("granted");
     expect(told).toBe(1);
   });
+
+  it("tells whether the browser is still to ask, at once and on each change; never where it has no such permission", async () => {
+    const status = new FakeStatus("prompt");
+    const localNetwork = browserLocalNetwork(permissionsKnowing({ "local-network": status }));
+    const told: boolean[] = [];
+    const remove = localNetwork.onAsking((isAsking) => {
+      told.push(isAsking);
+    });
+    await localNetwork.state();
+    status.change("granted");
+    remove();
+    status.change("prompt");
+    expect(told).toEqual([true, false]);
+    const none: boolean[] = [];
+    const without = browserLocalNetwork(undefined);
+    without.onAsking((isAsking) => {
+      none.push(isAsking);
+    });
+    await without.state();
+    expect(none).toEqual([false]);
+  });
 });

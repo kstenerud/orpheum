@@ -27,6 +27,7 @@ describe("the kept path", () => {
         another: () => Promise.resolve(away),
         better: (current) => Promise.resolve(current === away ? home : undefined),
         onLocalNetworkGranted: () => () => undefined,
+        onLocalNetworkAsking: () => () => undefined,
       },
       { token: () => undefined },
     );
@@ -62,6 +63,7 @@ describe("the kept path", () => {
         another: () => Promise.resolve(away),
         better: (current) => Promise.resolve(current === away ? home : undefined),
         onLocalNetworkGranted: () => () => undefined,
+        onLocalNetworkAsking: () => () => undefined,
       },
       { token: () => undefined },
     );
@@ -115,6 +117,7 @@ describe("the kept path", () => {
         another: () => Promise.resolve(away),
         better: (current) => Promise.resolve(current === away ? home : undefined),
         onLocalNetworkGranted: () => () => undefined,
+        onLocalNetworkAsking: () => () => undefined,
       },
       { token: () => "a-session" },
     );
@@ -155,6 +158,7 @@ describe("the kept path", () => {
           granted = listener;
           return () => undefined;
         },
+        onLocalNetworkAsking: () => () => undefined,
       },
       { token: () => undefined },
     );

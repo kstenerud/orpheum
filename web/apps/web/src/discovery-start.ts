@@ -312,6 +312,12 @@ export interface Reaching {
   readonly better: (current: Reached) => Promise<Reached | undefined>;
   /** Tells listener when the browser's local-network permission is granted; returns its removal. */
   readonly onLocalNetworkGranted: (listener: () => void) => () => void;
+  /**
+   * Tells listener whether the browser waits on the person to allow the local network, which the
+   * first race's request to the LAN name had it ask (W2c item 8); never told where the target has
+   * no LAN name or the browser refuses it. Returns its removal.
+   */
+  readonly onLocalNetworkAsking: (listener: (isAsking: boolean) => void) => () => void;
 }
 
 /** Whether path is one of the target's LAN names. */
@@ -399,7 +405,21 @@ export async function reachCore(
         : undefined;
     },
     onLocalNetworkGranted: (listener) => localNetwork.onGranted(listener),
+    onLocalNetworkAsking: askingWhereTried(target, isDenied, localNetwork),
   };
+}
+
+/**
+ * Whether the browser asks for the local network, told only where the first race tried the target's
+ * LAN name, which is what has it ask (W2c item 8): never where it has none, or the browser refuses it.
+ */
+function askingWhereTried(
+  target: Target,
+  isDenied: boolean,
+  localNetwork: LocalNetwork,
+): Reaching["onLocalNetworkAsking"] {
+  return (listener) =>
+    isDenied || target.lanUrls.length === 0 ? () => undefined : localNetwork.onAsking(listener);
 }
 
 /** Connects to the target through the discovery, its offers proven and its answers checked. */
