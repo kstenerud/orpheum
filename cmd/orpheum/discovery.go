@@ -57,7 +57,8 @@ func discoveryParts(
 ) discovery.Parts {
 	retryFirst, retryMost := config.Discovery.retries()
 	return discovery.Parts{
-		Files: opened.directories, HTTP: opened.jobServices.outboundClient, Clock: clock.System{},
+		Files: opened.directories, Settings: opened.settings, HTTP: opened.jobServices.outboundClient,
+		Clock:  clock.System{},
 		Logger: logger, Version: thisBuild().Version, APIMajor: apiMajor,
 		Candidates: heartbeatCandidates(config, mapped.Candidates),
 		Answerer:   answerer, OnClaimed: onClaimed,

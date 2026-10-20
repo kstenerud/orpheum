@@ -24,6 +24,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/identity"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -128,6 +129,38 @@ func TestConnect_EnrolsWithASignatureAndKeepsTheDiscoveryAcrossARestart(t *testi
 	}
 }
 
+// startingPendingEvery is how often a pending core asks whether it is claimed, where no setting says.
+var startingPendingEvery = settings.StartingDuration(settings.DiscoveryPendingCheckEverySeconds)
+
+// durations is a settings reader that answers every length of time with one, or with err.
+type durations struct {
+	every time.Duration
+	err   error
+}
+
+func (read durations) Duration(context.Context, settings.Key) (time.Duration, error) {
+	return read.every, read.err
+}
+
+// A pending core asks as often as the setting says, and at its starting value when it cannot be read:
+// its 10 s kept every claim waiting, the owner and the browser tier's tests alike (2026-10-20).
+func TestStep_APendingCoreAsksWhetherItIsClaimedAsOftenAsTheSettingSays(t *testing.T) {
+	t.Parallel()
+	built := newWorld(t)
+	ctx := t.Context()
+	if _, err := built.service.Connect(ctx, built.baseURL); err != nil {
+		t.Fatal(err)
+	}
+	built.service.parts.Settings = durations{every: 1500 * time.Millisecond}
+	if wait := built.service.step(ctx); wait != 1500*time.Millisecond {
+		t.Errorf("a pending core with the setting at 1.5 s waited %s", wait)
+	}
+	built.service.parts.Settings = durations{err: errors.New("the database is gone")}
+	if wait := built.service.step(ctx); wait != startingPendingEvery || startingPendingEvery != 2*time.Second {
+		t.Errorf("a pending core whose setting cannot be read waited %s; want its starting value, 2 s", wait)
+	}
+}
+
 func TestStep_WaitsToBeClaimedThenSendsItsAddressesWhenTheyChangeOrEveryFiveMinutes(t *testing.T) {
 	t.Parallel()
 	built := newWorld(t)
@@ -135,9 +168,9 @@ func TestStep_WaitsToBeClaimedThenSendsItsAddressesWhenTheyChangeOrEveryFiveMinu
 	if _, err := built.service.Connect(ctx, built.baseURL); err != nil {
 		t.Fatal(err)
 	}
-	if wait := built.service.step(ctx); wait != pendingEvery || len(built.fake.heartbeats) != 0 {
+	if wait := built.service.step(ctx); wait != startingPendingEvery || len(built.fake.heartbeats) != 0 {
 		t.Fatalf("a pending core waited %s and sent %d heartbeats; want %s and none", wait,
-			len(built.fake.heartbeats), pendingEvery)
+			len(built.fake.heartbeats), startingPendingEvery)
 	}
 	built.fake.claim()
 	built.service.step(ctx) // learns it is claimed
@@ -181,9 +214,9 @@ func TestStep_OpensANewSessionWhenTheDiscoveryRefusesTheOld(t *testing.T) {
 	built.fake.mutex.Unlock()
 	// The refused call opens a new session at once and is made again with it, rather than failing
 	// and waiting a retry's length (the protocol's §2.3; C11).
-	if wait := built.service.step(ctx); wait != pendingEvery || built.service.Status().Problem != "" {
+	if wait := built.service.step(ctx); wait != startingPendingEvery || built.service.Status().Problem != "" {
 		t.Errorf("a refused session waited %s with problem %q; want the step's own wait, %s, and no problem",
-			wait, built.service.Status().Problem, pendingEvery)
+			wait, built.service.Status().Problem, startingPendingEvery)
 	}
 	if count := built.fake.sessionCount; count != 2 {
 		t.Errorf("%d sessions opened; want a second one opened at once", count)
@@ -479,8 +512,8 @@ func TestStep_EnrolsAgainWhenTheDiscoveryNoLongerHoldsTheCore(t *testing.T) {
 	built.service.step(ctx)
 	built.fake.refuse(discoveryproto.RefusalEnrolAgain)
 	built.service.step(ctx) // its session refused: it opens another, refused as unknown
-	if wait := built.service.step(ctx); wait != pendingEvery {
-		t.Errorf("a core its discovery no longer holds waited %s; want %s, enrolled again", wait, pendingEvery)
+	if wait := built.service.step(ctx); wait != startingPendingEvery {
+		t.Errorf("a core its discovery no longer holds waited %s; want %s, enrolled again", wait, startingPendingEvery)
 	}
 	status := built.service.Status()
 	if built.fake.enrolCount != 2 || status.State != discoveryproto.StatePending || status.ClaimCode == "" {
