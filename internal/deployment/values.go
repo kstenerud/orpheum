@@ -191,12 +191,14 @@ const (
 )
 
 // HomeNetworks are the networks an admin administers from (D297 §6): the house's, the LAN address's
-// /24, never the tunnel's 10.77.0.0/24 nor its fd77::/64, which a private range would take in; with no
-// LAN address, the private ranges a home router gives, which leave the tunnel's out.
+// /24, never the tunnel's 10.77.0.0/24 nor its fd77::/64, which a private range would take in. With no
+// LAN address, which Problems refuses, there are none: a private range in its place took in Docker's
+// networks, so a port published through docker-proxy made the internet look like home (the
+// Plex-chain review's L1).
 func (values Values) HomeNetworks() []string {
 	address, err := netip.ParseAddr(values.LAN.Address)
 	if err != nil {
-		return []string{"192.168.0.0/16", "172.16.0.0/12"}
+		return []string{}
 	}
 	bits := homeNetworkBitsIPv4
 	if address.Is6() {
@@ -322,10 +324,11 @@ func (values Values) httpProblems() []string {
 // lanProblems is what [lan] holds wrongly.
 func (values Values) lanProblems() []string {
 	var problems []string
-	if address, err := netip.ParseAddr(values.LAN.Address); values.LAN.Address != "" &&
-		(err != nil || !address.Unmap().IsPrivate()) {
-		problems = append(problems, fmt.Sprintf("lan.address %q: want this machine's address on the house's "+
-			`network, "192.168.1.20", or leave it empty`, values.LAN.Address))
+	// Required: the house's network is where an admin administers from, and nothing else names it
+	// (the Plex-chain review's L1).
+	if address, err := netip.ParseAddr(values.LAN.Address); err != nil || !address.Unmap().IsPrivate() {
+		problems = append(problems, fmt.Sprintf("lan.address %q: fill in this machine's address on the house's "+
+			`network, "192.168.1.20"`, values.LAN.Address))
 	}
 	if port := values.LAN.HTTPSPort; port == devServerPort || port == devVitePort || port == values.HTTP.Port ||
 		port < 1 || port > 65535 {

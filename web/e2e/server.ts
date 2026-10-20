@@ -183,10 +183,15 @@ function freePort(): Promise<number> {
   });
 }
 
-/** The core instance's full config (D242): where it listens, and its log. */
+/**
+ * The core instance's full config (D242): where it listens, its home network and its log. The browser
+ * reaches it on loopback, which a deployment never counts as home (the Plex-chain review's L1), so the
+ * tests' admin names it.
+ */
 function coreConfigToml(port: number): string {
   return `[server]
 listen = "127.0.0.1:${String(port)}"
+home_networks = ["127.0.0.0/8", "::1/128"]
 
 [log]
 level = "info"
