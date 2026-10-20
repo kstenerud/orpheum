@@ -41,6 +41,8 @@ class ItsOwnTree(unittest.TestCase):
         self.assertIn("film=committed", done.stdout)
         self.assertIn(f"'head': '{head}'", done.stdout)
         self.assertEqual((tree / ".tools").resolve(), (repo.root / ".tools").resolve())
+        # Every suite's timings, written in its tree, are kept where the working tree reads them.
+        self.assertEqual((tree / ".dev" / "test-timings").resolve(), (repo.root / ".dev" / "test-timings").resolve())
         # Ended, it holds nothing: the hooks let tests run again.
         self.assertIsNone(check_pr_snapshot.running(repo.root))
         # The working tree's edit is untouched.

@@ -22,14 +22,21 @@ cheaply and always, and a run found slow is explained from what it already wrote
 it again to profile it (the owner, 2026-10-20). A new suite or tier keeps its timings from the
 start.
 
-- **The browser tier and the home acceptance** keep each test's time and each step's (a
-  navigation, a click, an `expect`'s wait, a `test.step`) in `.dev/browser-timings/`, the last 20
-  passes (`web/e2e/timings.ts`). `python3 scripts/browser_timings.py` lists the latest pass's
-  slowest tests against their median over the passes before, with their longest steps.
+- **Every suite** keeps its last 20 passes in `.dev/test-timings/<suite>/`, one shape for all
+  (`web/e2e/test-timings.ts`): `browser` and `acceptance` each test's time and each step's (a
+  navigation, a click, an `expect`'s wait, a `test.step`; `web/e2e/timings.ts`); `vitest` and
+  `vitest-browser` each test's and each file's, its loading apart (`web/e2e/vitest-timings.ts`);
+  `go`, `go-dev` and `go-integration` each test's and package's, from `go test -json`, which
+  `scripts/go_test_timings.py` turns back into go test's own text. check-pr's own tree links the
+  directory, so its runs are kept too.
+- `python3 scripts/test_timings.py [--suite go]` lists a suite's latest pass's slowest tests and
+  files against their median over the passes before, with each test's longest steps; `--list`
+  names the suites kept.
 - **check-pr** prints each step's time, and revert-red each file's.
 
-The first reading (2026-10-20) found two claims waiting about 10 s each on the core's
-`pendingEvery`, mechanism 1 below in the browser tier.
+The first reading (2026-10-20) found each claim waiting about 10 s on the core's constant
+`pendingEvery`, mechanism 1 below in the browser tier: it became the setting
+`discovery_pending_check_every_seconds`, which the tier sets to 1 s.
 
 ## The mechanisms
 
