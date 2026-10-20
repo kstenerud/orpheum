@@ -73,6 +73,8 @@ let isVoiceLive = false;
 let isInAGroup = false;
 /** The chunks the browser says it took from its cache, by URL; any other it says nothing of. */
 let cachedUrls = new Set<string>();
+/** The steps the choosing noted, by each test's choosing. */
+let steps: string[] = [];
 
 /** A playback's choosing, offered startAtBps, the link estimated at what the test sets. */
 function choosingFrom(startAtBps: number): {
@@ -100,6 +102,7 @@ function choosingFrom(startAtBps: number): {
       isInAGroup: () => isInAGroup,
       fromCache: (url) => (cachedUrls.has(url) ? true : undefined),
       onUnplayable: (found) => unplayable.push(found),
+      noteStep: (step) => steps.push(step),
     },
     {
       estimateBps: () => link.estimateBps,
@@ -137,6 +140,7 @@ beforeEach(() => {
   isVoiceLive = false;
   isInAGroup = false;
   cachedUrls = new Set<string>();
+  steps = [];
 });
 
 afterEach(() => {
@@ -233,6 +237,27 @@ describe("choosing a chunked playback's quality (D265)", () => {
         response: { url: "/c/3.m4s", code: 425 },
       }),
     ).toBe(false);
+  });
+
+  it("notes each change of its ceiling with why: the link, a chunk given up, a step up", () => {
+    const { hls, choosing, link } = choosingFrom(40_000_000);
+    link.estimateBps = 5_000_000;
+    load(choosing, 3, { bytes: 6_400_000, loadMs: 10_000 });
+    choosing.nextLevel();
+    expect(steps).toEqual(["ceiling 3 to 2: link 5000 kb/s, 0.0 s ahead"]);
+    const chunk = chunkAt(2);
+    choosing.loading(chunk);
+    chunk.stats.loaded = 100_000;
+    link.estimateBps = 0;
+    nowMs = 6000;
+    vi.advanceTimersByTime(lookAtChunkEveryMs);
+    expect(steps[1]).toMatch(/^ceiling 2 to 0: gave up a chunk of 2: 100000 B in 6000 ms$/u);
+    hls.mainForwardBufferInfo = { len: stepUpBufferMs / 1000 };
+    hls.currentLevel = 0;
+    link.estimateBps = 50_000_000;
+    nowMs += holdBeforeStepUpMs;
+    vi.advanceTimersByTime(lookForStepUpEveryMs);
+    expect(steps[2]).toBe("ceiling 0 to 1: stepped up");
   });
 
   it("waits for a chunk that loaded before it was looked at", () => {

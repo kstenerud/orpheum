@@ -5060,6 +5060,10 @@
             "minimum": 0,
             "type": "integer"
           },
+          "steps": {
+            "maxLength": 400,
+            "type": "string"
+          },
           "toPositionMs": {
             "format": "int64",
             "minimum": 0,

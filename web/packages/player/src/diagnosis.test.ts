@@ -6,7 +6,7 @@ import Hls from "hls.js";
 
 import { playerBufferedFirstEvent } from "@orpheum/sdk";
 
-import { diagnose, diagnosisOf, rangesText, type DiagnosedHls } from "./diagnosis.ts";
+import { diagnose, diagnosisOf, rangesText, stepNoter, type DiagnosedHls } from "./diagnosis.ts";
 
 /** Time ranges from [start, end] pairs, in seconds. */
 function ranges(...pairs: [number, number][]): TimeRanges {
@@ -92,6 +92,17 @@ describe("what a stalled video held, for its report (D266)", () => {
     told(Hls.Events.LEVEL_LOADING, { level: 3 });
     told(Hls.Events.LEVEL_LOADED, { level: 3 });
     expect(diagnosisOf(video)?.steps?.startsWith("playlist 4 loading; ")).toBe(true);
+  });
+
+  it("keeps the player's own choices among its steps, and none for a video not diagnosed", () => {
+    const hls = { on: () => undefined } as unknown as DiagnosedHls;
+    const video = Object.assign(new EventTarget(), { error: null });
+    diagnose(hls, video);
+    stepNoter(video)("ceiling 4 to 0: link 900 kb/s, 0.0 s ahead");
+    expect(diagnosisOf(video)?.steps).toBe("ceiling 4 to 0: link 900 kb/s, 0.0 s ahead");
+    const other = Object.assign(new EventTarget(), { error: null });
+    stepNoter(other)("nothing keeps this");
+    expect(diagnosisOf(other)).toBeUndefined();
   });
 
   it("keeps how hls.js placed each playlist's first chunk, telling the video, and whether it may load", () => {

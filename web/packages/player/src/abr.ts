@@ -99,6 +99,12 @@ export interface ChoosingOptions {
   readonly isInAGroup?: () => boolean;
   /** Whether the browser took the chunk at url from its cache; undefined where it does not say. */
   readonly fromCache: (url: string) => boolean | undefined;
+  /**
+   * Told each change of the ceiling it chooses under, and why, for the diagnosis's steps: a player
+   * that dropped from the twin to 360p after a jump on a 77 Mb/s link said nothing of why (the owner's
+   * Firefox on nas.example, 2026-10-20).
+   */
+  readonly noteStep?: (step: string) => void;
   /** Told of a quality given up as one this device cannot play, and where (D266). */
   readonly onUnplayable?: (unplayable: {
     readonly qualityKbps: number;
@@ -224,7 +230,11 @@ export class Choosing<Chunk extends FollowedChunk> {
       linkBps,
       bufferAheadS: this.#bufferAheadS(),
     });
-    this.#lower(steady);
+    this.#lower(steady, () => {
+      const link =
+        linkBps === undefined ? "unmeasured" : `${String(Math.round(linkBps / 1000))} kb/s`;
+      return `link ${link}, ${this.#bufferAheadS().toFixed(1)} s ahead`;
+    });
     const level = this.#options.isVoiceLive()
       ? Math.min(steady, voiceCeiling(this.#hls.levels, linkBps))
       : steady;
@@ -275,7 +285,7 @@ export class Choosing<Chunk extends FollowedChunk> {
       return;
     }
     this.#forced = clamped;
-    this.#lower(clamped);
+    this.#lower(clamped, () => "forced by hls.js");
   }
 
   /** A chunk of picture began loading, at the pace asked while voice is live. */
@@ -395,7 +405,10 @@ export class Choosing<Chunk extends FollowedChunk> {
       Math.max(1, loaded),
     );
     this.#hasMeasured = true;
-    this.#lower(chosen);
+    this.#lower(chosen, () => {
+      const loadingMs = this.#options.monotonicMs() - sinceMs;
+      return `gave up a chunk of ${String(chunk.level)}: ${String(loaded)} B in ${String(loadingMs)} ms`;
+    });
     this.#lastChosen = chosen;
     this.#link.giveUp(chunk);
   }
@@ -478,7 +491,7 @@ export class Choosing<Chunk extends FollowedChunk> {
     }
     this.#still = undefined;
     this.#onItsWay = undefined;
-    this.#lower(level - 1);
+    this.#lower(level - 1, () => "unplayable here");
     this.#lastChosen = -1;
     this.#options.onUnplayable?.({
       qualityKbps: Math.round((this.#hls.levels[level]?.bitrate ?? 0) / 1000),
@@ -502,6 +515,7 @@ export class Choosing<Chunk extends FollowedChunk> {
       sinceChangeMs: this.#options.monotonicMs() - this.#changedAtMs,
     });
     if (raised !== ceiling && raised < (this.#unplayableFrom ?? Number.POSITIVE_INFINITY)) {
+      this.#options.noteStep?.(`ceiling ${String(ceiling)} to ${String(raised)}: stepped up`);
       this.#ceiling = raised;
       this.#changedAtMs = this.#options.monotonicMs();
     }
@@ -516,8 +530,11 @@ export class Choosing<Chunk extends FollowedChunk> {
   }
 
   /** Lowers the ceiling to level, a step down; one at or above it changes nothing. */
-  #lower(level: number): void {
+  #lower(level: number, why: () => string): void {
     if (level < this.#ceilingNow()) {
+      this.#options.noteStep?.(
+        `ceiling ${String(this.#ceilingNow())} to ${String(level)}: ${why()}`,
+      );
       this.#ceiling = level;
       this.#changedAtMs = this.#options.monotonicMs();
     }

@@ -237,6 +237,16 @@ export function diagnose(hls: DiagnosedHls, video: EventTarget): void {
   });
 }
 
+/** What keeps a step among video's diagnosis's steps, as the player's own choices are; nothing for a video not diagnosed. */
+export function stepNoter(video: object): (step: string) => void {
+  return (step) => {
+    const diagnosis = diagnoses.get(video);
+    if (diagnosis !== undefined) {
+      keepStep(diagnosis, step);
+    }
+  };
+}
+
 /** The video's diagnosis, its element error over hls.js's; undefined for a video not diagnosed. */
 export function diagnosisOf(
   video: object & { readonly error?: MediaError | null },

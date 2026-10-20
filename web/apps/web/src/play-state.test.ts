@@ -19,6 +19,7 @@ import {
   decisionTimesOf,
   noteDecisionTimes,
   sendReport,
+  stepsOf,
   tellUnplayable,
   whenOwnPictureGivenUp,
 } from "./play-state.ts";
@@ -410,6 +411,14 @@ describe("play state", () => {
     expect(seeks[0]?.["soundAfterMs"]).toBeGreaterThanOrEqual(
       (seeks[0]?.["pictureAfterMs"] ?? 0) + 10,
     );
+  });
+
+  it("sends the player's last steps with a seek, its quality's choices among them, and nothing when it kept none (2026-10-20)", () => {
+    const video = document.createElement("video");
+    const steps = "ceiling 4 to 0: link 900 kb/s, 0.0 s ahead; level 0";
+    expect(stepsOf(video, () => ({ steps }))).toEqual({ steps });
+    expect(stepsOf(video, () => ({ steps: "" }))).toEqual({});
+    expect(stepsOf(video, () => undefined)).toEqual({});
   });
 
   it("tells where each pause and hls.js's own skip came from, and each path the page moved to (the owner, 2026-10-17)", async () => {

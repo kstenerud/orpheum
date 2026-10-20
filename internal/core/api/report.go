@@ -62,6 +62,10 @@ type SeekBody struct {
 	// the seek, absent when none had: a slow seek waited on one of them, or on neither.
 	PictureAfterMs *int64 `json:"pictureAfterMs,omitempty" minimum:"0" required:"false"`
 	SoundAfterMs   *int64 `json:"soundAfterMs,omitempty"   minimum:"0" required:"false"`
+	// Steps are the player's last steps when the seek was ready, its quality's choices among them,
+	// each with why: a player that dropped to 360p after a jump on a 77 Mb/s link said nothing of
+	// why (the owner's Firefox on nas.example, 2026-10-20).
+	Steps string `json:"steps,omitempty" maxLength:"400" required:"false"`
 }
 
 // StandstillBody is what a video showed when, asked to play and not waiting, it had kept its
@@ -338,6 +342,9 @@ func (server *Server) logSeeks(ctx context.Context, reporter reporter, seeks []S
 		}
 		if seek.SoundAfterMs != nil {
 			attributes = append(attributes, "soundAfterMs", *seek.SoundAfterMs)
+		}
+		if seek.Steps != "" {
+			attributes = append(attributes, "steps", seek.Steps)
 		}
 		server.logger.InfoContext(ctx, "a player's seek was ready to play", attributes...)
 	}
