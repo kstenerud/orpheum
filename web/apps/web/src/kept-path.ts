@@ -70,6 +70,15 @@ export const betterPathFirstMs = 30_000;
 export const betterPathMostMs = 10 * 60_000;
 
 /**
+ * How many times a page moves away from a path for a failed request before it moves to it no more:
+ * Firefox's Local Network Access fails some of a LAN name's requests and lets others through,
+ * whatever they carry, so a page that went back each time a look found it answering lost a request
+ * at each move (the owner's Firefox on staging, 2026-10-20). A reload tries it again; at home the
+ * page stays on WebRTC, a direct pair in the house, which counts as home (D300).
+ */
+export const failuresBeforeGivingUp = 2;
+
+/**
  * Keeps the paths reaching found, moving to another when the one in use fails and to a better one
  * when it answers later, as at home once Firefox's local-network prompt is allowed; media loads are
  * signed in with the session's token until setMediaCredentials says more.
@@ -79,6 +88,7 @@ export function keepPath(
   session: { readonly token: () => string | undefined },
 ): KeptPath {
   let isFirst = true;
+  let inUse: Reached = reaching.first;
   let openSocket = socketOn(reaching.first);
   let credentials = (): MediaCredentials => ({ token: session.token(), viewer: undefined });
   const moveListeners = new Set<(to: string) => void>();
@@ -88,8 +98,9 @@ export function keepPath(
     onUse: (path) => {
       if (!isFirst) {
         // Never the first path's use, which the keeper tells as it is made, before looking is.
-        looking.moved();
+        looking.moved(inUse);
       }
+      inUse = path;
       // eslint-disable-next-line no-console -- which path a tab's requests take is read in its console (D273 §7)
       console.info(`Orpheum: requests now go over ${sendingOn(path).name}`);
       openSocket = socketOn(path);
@@ -108,7 +119,7 @@ export function keepPath(
   // carried over per path would answer each load once for every path the page ever used.
   const carried = carryMediaOver(keeper.fetch, () => credentials(), sendingOn(reaching.first).name);
   carried.catch(reportFailure);
-  const looking = lookForBetterPaths(keeper, reaching, (path) => carriesRequests(path, session));
+  const looking = lookForBetterPaths(keeper, reaching, pathJudge(session));
   return {
     fetch: keeper.fetch,
     openTogetherSocket: (listeners) => openSocket(listeners),
@@ -156,10 +167,33 @@ async function carriesRequests(
   }
 }
 
+/** How the look judges a path: whether it carries a request, and whether the page gave it up. */
+interface PathJudge {
+  /** Whether path carries a request as the page's go (carriesRequests). */
+  readonly carries: (path: Reached) => Promise<boolean>;
+  /** Counts a move away from a path for a request that failed there. */
+  readonly count: (from: Reached) => void;
+  /** Whether the page moved away from path failuresBeforeGivingUp times. */
+  readonly isGivenUp: (path: Reached) => boolean;
+}
+
+/** The judge of the paths of a page signed in as session. */
+function pathJudge(session: { readonly token: () => string | undefined }): PathJudge {
+  const byName = new Map<string, number>();
+  return {
+    carries: (path) => carriesRequests(path, session),
+    count: (from) => {
+      const name = sendingOn(from).name;
+      byName.set(name, (byName.get(name) ?? 0) + 1);
+    },
+    isGivenUp: (path) => (byName.get(sendingOn(path).name) ?? 0) >= failuresBeforeGivingUp,
+  };
+}
+
 /** The page's look for a better path, as keepPath runs it. */
 interface BetterPaths {
-  /** Told each move: one it did not make itself is away from a path that failed. */
-  readonly moved: () => void;
+  /** Told each move, from the path left: one it did not make itself is away from a path that failed. */
+  readonly moved: (from: Reached) => void;
   readonly stop: () => void;
 }
 
@@ -167,12 +201,13 @@ interface BetterPaths {
  * Looks for a better path than keeper's every betterPathFirstMs, and moves to it once it carries a
  * request as the page's go (carries): twice as long after each move away from a path that failed, or
  * a better path that did not carry one, up to betterPathMostMs, and at once, as often as at first,
- * when the browser is back online.
+ * when the browser is back online. A path the page moved away from failuresBeforeGivingUp times is
+ * moved to no more.
  */
 function lookForBetterPaths(
   keeper: PathKeeper<Reached>,
   reaching: Pick<Reaching, "better">,
-  carries: (path: Reached) => Promise<boolean>,
+  judge: PathJudge,
 ): BetterPaths {
   let waitMs = betterPathFirstMs;
   let isMoving = false;
@@ -185,15 +220,14 @@ function lookForBetterPaths(
   };
   const look = (): void => {
     void reaching.better(keeper.path).then(async (better) => {
-      if (better === undefined) {
+      if (better === undefined || judge.isGivenUp(better)) {
         return;
       }
-      const isCarried = await carries(better);
-      if (isStopped) {
-        return;
-      }
-      if (!isCarried) {
-        backOff();
+      const isCarried = await judge.carries(better);
+      if (isStopped || !isCarried) {
+        if (!isStopped) {
+          backOff();
+        }
         return;
       }
       isMoving = true;
@@ -216,8 +250,9 @@ function lookForBetterPaths(
   lookLater();
   window.addEventListener("online", backOnline);
   return {
-    moved: () => {
+    moved: (from) => {
       if (!isMoving) {
+        judge.count(from);
         backOff();
       }
     },
