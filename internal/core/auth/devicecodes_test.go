@@ -101,8 +101,9 @@ func TestPairing_AServiceCodeChecksByTheDevicesKeyAndHandsTheSessionOff(t *testi
 		t.Fatal(err)
 	}
 	principal, err := service.Authenticate(ctx, issued.Token)
-	if err != nil || principal.UserID != id || principal.IsAdmin() {
-		t.Errorf("the device is %+v, %v; want the person, without administering (the device scope)", principal, err)
+	if err != nil || principal.UserID != id || principal.IsAdmin() || !principal.Reach.IsEveryLibrary() {
+		t.Errorf("the device is %+v, %v; want the person, without administering (the device scope) but "+
+			"reaching every library their role does", principal, err)
 	}
 }
 
