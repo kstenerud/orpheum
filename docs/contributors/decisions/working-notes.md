@@ -21102,3 +21102,24 @@ Refines [D293](#d293--the-discoverys-open-questions-answered-a-live-instance-is-
 claims in an earlier commit, the service's commitment and reveal in orpheum-connect, §2's one tap and
 §4 in an earlier commit, §5 by Activate a device's existing need of a session that manages the account. On a
 real TV: VQ48.
+
+## D322 — Activating a device names the country it asks from, as Cloudflare names it; the network's name waits
+
+**Decided** (2026-10-20), by the project owner (*"Put that as a decision so that it doesn't get
+lost"*), for the device code audit's M3 and the protocol's deferred line naming where the asking device
+is (D290 §5, S4). Refines D321's Activate a device.
+
+1. **The service names the country a device asks for its code from**, by the two-letter code
+   Cloudflare's `CF-IPCountry` header gives each request reaching connectd through its tunnel: no
+   location database, no dependency, and only a header read, as `CF-Connecting-IP` already is. It is
+   kept with the code and passed to the core in the claim's answer as an optional field; a discovery
+   that has none, as a self-hosted one, sends none.
+2. **Activate a device shows it**: "A TV in Germany asked 12 s ago", and, when it differs from the
+   country the phone's own request comes from, says so plainly, the case a code someone sent the person
+   is. It is a hint, never proof (a VPN or a carrier's NAT names its exit), so the warning stays as it is.
+3. **No city, and nothing stored**: Cloudflare's city headers guess wrong too often (DS-Lite and mobile
+   networks), and the country lives only as long as the code. The privacy page says the service reads it.
+4. **The network's name** ("on Vodafone") **waits**: it needs an IP-to-network database (IPinfo Lite or
+   DB-IP Lite), a dependency for the owner to approve (AGENTS rule 3).
+
+**Status:** Decided 2026-10-20; to be built after the closed beta's current work.
