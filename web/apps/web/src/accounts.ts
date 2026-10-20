@@ -224,9 +224,19 @@ export async function activateDevice(
   },
   idempotencyKey: string,
 ): Promise<Activation> {
-  return dataOrThrow(
-    await api.POST("/activations", { body: { ...activation }, ...idempotent(idempotencyKey) }),
-  );
+  // Named on the server's schema, so a field the schema has not is a type error here, not a silent
+  // drop: a scanned code's keyHash among them (D321).
+  const body: components["schemas"]["ActivationInputBody"] = {
+    code: activation.code,
+    deviceName: activation.deviceName,
+  };
+  if (activation.userId !== undefined) {
+    body.userId = activation.userId;
+  }
+  if (activation.keyHash !== undefined) {
+    body.keyHash = activation.keyHash;
+  }
+  return dataOrThrow(await api.POST("/activations", { body, ...idempotent(idempotencyKey) }));
 }
 
 /** Says whether the two check codes match: only a match activates the device (D288 §3). */

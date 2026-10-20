@@ -506,10 +506,7 @@ func buildDependencies(
 	authService := auth.NewService(database, systemClock, rand.Reader, settingsService)
 	// Each link keeps its secret sealed, so a person's own link can be shown to them again (K7).
 	authService.SealLinksWith(secretStore)
-	authService.OnSignInLimitFull(func() {
-		logger.WarnContext(ctx, "the failed-sign-in limit is full, so sign-ins from places with no recent failure "+
-			"are refused until its counts age out: many networks are failing sign-ins at once")
-	})
+	authService.OnSignInLimitFull(warnSignInLimitFull(ctx, logger))
 	codes := runSetupCodes{directories: directories}
 	code, err := authService.EnsureSetupCode(ctx, codes)
 	if err != nil {
@@ -660,4 +657,13 @@ func listenForWebRTCAtHome(ctx context.Context, rtc *rtcapi.Server, config Confi
 // lets a discovery's offers reach the machine's own addresses, a release never (relaxForDevelopment).
 func newWebRTC(ctx context.Context, handler http.Handler, logger *slog.Logger) *rtcapi.Server {
 	return relaxForDevelopment(rtcapi.New(ctx, handler, logger))
+}
+
+// warnSignInLimitFull warns, once a minute at most as auth tells it, that the failed-sign-in limit is
+// full and refuses sign-ins it holds no count for: only an attack from many networks fills it.
+func warnSignInLimitFull(ctx context.Context, logger *slog.Logger) func() {
+	return func() {
+		logger.WarnContext(ctx, "the failed-sign-in limit is full, so sign-ins from places with no recent failure "+
+			"are refused until its counts age out: many networks are failing sign-ins at once")
+	}
 }
