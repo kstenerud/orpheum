@@ -298,11 +298,12 @@ func (server *Server) newSessionOutput(
 }
 
 func (server *Server) signOut(ctx context.Context, input *SignOutInput) (*SignOutOutput, error) {
-	dependencies, _, err := server.requireSignedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}
-	if err = dependencies.Auth.SignOut(ctx, bearerToken(input.Authorization)); err != nil {
+	// Signed out on itself, the device leaves the person's devices (D320 §1).
+	if err = dependencies.Auth.SignOutHere(ctx, principal, bearerToken(input.Authorization)); err != nil {
 		return nil, server.authError(ctx, "sign out", err)
 	}
 	return &SignOutOutput{SetCookie: clearedCookies(MediaCookieName, input.isOverTLS)}, nil

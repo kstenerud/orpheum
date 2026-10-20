@@ -101,6 +101,24 @@ func (service *Service) RemoveDevice(ctx context.Context, userID, deviceID int64
 	})
 }
 
+// SignOutHere signs out the asking session on its own device, and removes the device (D320 §1): every
+// session of it ends with its device secret, and it leaves the person's devices, so a sign-in there
+// after makes a new one. A session from before devices were made at sign-in, or whose device is gone
+// already, ends alone. Ended any other way, a session leaves its device listed (D320 §2).
+func (service *Service) SignOutHere(ctx context.Context, principal Principal, token string) error {
+	if principal.DeviceID == 0 {
+		return service.SignOut(ctx, token)
+	}
+	err := service.RemoveDevice(ctx, principal.UserID, principal.DeviceID)
+	if errors.Is(err, ErrNoDevice) {
+		return service.SignOut(ctx, token)
+	}
+	if err != nil {
+		return fmt.Errorf("sign out on device %d: %w", principal.DeviceID, err)
+	}
+	return nil
+}
+
 // SignOutElsewhere ends every session of the person's but keepToken's, the one asking: the "sign out
 // everywhere" D218 §5 keeps separate from a password reset. The devices stay listed. It kept every
 // session of the asking device, so a session that had resumed this device stayed (the second
