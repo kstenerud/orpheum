@@ -367,7 +367,10 @@ function NodeFacts(props: {
           <RecentPrepares prepares={node.recentPrepares ?? []} />
         </>
       ) : (
-        <p>{notConnectedText(t, node, i18n.language)}</p>
+        <>
+          <p>{notConnectedText(t, node, i18n.language)}</p>
+          <p>{t("system.notConnectedHint")}</p>
+        </>
       )}
       <ConfirmButton
         label={t("system.retireNode")}

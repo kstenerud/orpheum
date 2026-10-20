@@ -17,7 +17,8 @@
 //   - A value reaches a TOML config quoted, and a template naming a value it was not given is an
 //     error, not a blank. TestQuoteTOML_QuotesOrRefuses, TestRender_ANameWithNoValueIsAnError.
 //   - Release refuses a database it cannot migrate; staging sets it aside and starts again (D249
-//     §4). TestWrite_ReleaseRefusesAnUnmigratableDatabaseAndStagingStartsOver.
+//     §4). A release node requires FFmpeg's confinement, and staging's reports it (D273 §5 as
+//     revised 2026-10-20). TestWrite_ReleaseRefusesAnUnmigratableDatabaseAndStagingStartsOver.
 //   - The tunnel's key pair is WireGuard's: a clamped X25519 key and its public key.
 //     TestNewKeyPair_IsAClampedX25519PairAsWgMakesOne.
 //   - Each deployment's end of the tunnel is the values file's (10.77.0.2 and fd77::2 when it names

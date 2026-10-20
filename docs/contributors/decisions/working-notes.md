@@ -7085,6 +7085,9 @@ its violation would be **silent**.
 ## D112 — The node probes its confinement and reports it; the escape test asserts what is in force
 
 > **Revised by [D273](#d273--clients-reach-a-core-through-apporpheum-appcom-or-the-owners-own-discovery-by-whatever-methods-work-with-no-traffic-relayed-by-us-a-node-without-landlock-runs-and-warns)** (2026-10-09): a node without Landlock runs and warns; `node.confinement_policy` starts at `"report"`.
+> **D273 §5's default revised** (2026-10-20, the owner, taking the Plex-chain review's N2): a release
+> node's `confinement_policy` is `"require"`, so it does not start where the kernel lacks Landlock or
+> seccomp; `"report"` stays the knowing choice to run unconfined.
 
 **Decided** (2026-09-20). Research:
 [testing-strategy.md](../design/research/testing-strategy.md) §7.
@@ -19260,7 +19263,7 @@ D214, D249 and D272 §1–§2, and D112's refusal.
     - D218's safe32 shape, single use and short life hold for both codes. Not built: M3 built
       D218's direction, which this replaces.
 
-**Status:** Decided 2026-10-09; §7's choice among paths amended 2026-10-13.
+**Status:** Decided 2026-10-09; §7's choice among paths amended 2026-10-13; §5's default revised 2026-10-20 (the owner, the Plex-chain review's N2): a release node requires confinement, and `"report"` is the knowing choice to run unconfined.
 
 ## D274 — A core is reached first by what needs nothing from its owner, WebRTC through the discovery; direct paths are upgrades, and a relay waits for demand
 
