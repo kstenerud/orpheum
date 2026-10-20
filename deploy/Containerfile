@@ -69,8 +69,8 @@ RUN apt-get update -q \
 # else. Each checksum is a sha256sum line naming the archive it is for, with the SHA-256 go.dev/dl
 # publishes; a toolchain bump without new checksums stops the build here and fails
 # test_dev_image.py. GOTOOLCHAIN=local keeps Go from fetching another toolchain behind the pin.
-ARG GO_SHA256_AMD64="990e6b4bbba816dc3ee129eaeaf4b42f17c2800b88a2166c265ac1a200262282  go1.26.2.linux-amd64.tar.gz"
-ARG GO_SHA256_ARM64="c958a1fe1b361391db163a485e21f5f228142d6f8b584f6bef89b26f66dc5b23  go1.26.2.linux-arm64.tar.gz"
+ARG GO_SHA256_AMD64="ccfe7ae822d2c2f41f4fe7c956199967a4dac22d0ee0d2b2bfdb440aab3b20c5  go1.26.10.linux-amd64.tar.gz"
+ARG GO_SHA256_ARM64="3f4227ce7b206a513e794f1393adb473a07b46e94d18bd15d1c684bbb7319797  go1.26.10.linux-arm64.tar.gz"
 COPY go.mod /opt/orpheum/src/go.mod
 RUN set -eu; arch="$(dpkg --print-architecture)"; \
     case "$arch" in \
