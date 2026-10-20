@@ -462,10 +462,13 @@ func TestTogether_ASilentDeviceIsClosedAndSaysWhy(t *testing.T) {
 	admin := harness.createAdminAndSignIn(t)
 	opened := harness.openTogether(t, admin)
 	membership := harness.joinByLink(t, admin, opened.Body.SessionID, "my partner", "Anna")
-	viewer := harness.dialTogether(t, membership.Body.MembershipCredential)
-	viewer.awaitWelcome()
+	// Attached, as the core logs it: not its welcome, which a 50 ms limit can close the socket
+	// under before it is written (coder/websocket closes the connection when a read's context ends).
+	harness.dialTogether(t, membership.Body.MembershipCredential)
+	member := fmt.Sprintf(`"memberId":%d`, membership.Body.MemberID)
+	harness.logs.AwaitLine(t, `"watch together: a device connected"`, member)
 	harness.logs.AwaitLine(t, `"watch together: a device disconnected"`,
-		fmt.Sprintf(`"memberId":%d`, membership.Body.MemberID), "sent nothing for 50ms: ")
+		member, "sent nothing for 50ms: ")
 }
 
 // The server takes a device for gone after three of the pings the web client sends, so a client
