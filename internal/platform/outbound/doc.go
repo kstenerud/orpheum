@@ -12,6 +12,10 @@
 //   - It follows a redirect only within the request's origin: Go would carry a provider's key in a
 //     header of its own to wherever another origin's redirect pointed (the Plex-chain review's O1).
 //     TestNewClient_FollowsARedirectOnlyWithinItsOrigin.
+//   - It dials a host's IPv6 addresses first, IPv4 after 300 ms or at once when IPv6 fails: Go puts
+//     IPv4 first from a private IPv6 address, as a core in Docker has, and the paid service saw the
+//     house's shared IPv4, never its own IPv6 (nas.example, 2026-10-20).
+//     TestIPv6First_DialsIPv6FirstAndIPv4WhenItFails, TestNewClient_DialsThroughIPv6First.
 //   - No other package uses http.DefaultClient, http.DefaultTransport, http.Get and its
 //     siblings, or http.ProxyFromEnvironment. Enforced by the forbidigo rule tagged [outbound].
 //   - A provider's 429 is one RateLimitedError whichever provider answered it, with the wait its
@@ -34,7 +38,8 @@
 //
 // # Where to change
 //
-//   - client.go: transport settings every outbound request shares. exchange.go: sending a
+//   - client.go: transport settings every outbound request shares; dial.go: the order it dials a
+//     host's addresses in. exchange.go: sending a
 //     provider's request, reading its answer and the statuses every provider shares.
 //     retryafter.go: reading a provider's Retry-After, which every provider client shares.
 //     ratelimited.go: the one error a provider's 429 becomes.
