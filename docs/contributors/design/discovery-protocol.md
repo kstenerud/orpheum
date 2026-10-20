@@ -636,7 +636,10 @@ until it is built, after the beta (D293 §5; §9 item 3).
 ### 2.9 STUN
 
 The discovery runs a STUN server (UDP 3478), given to clients and cores as their ICE server through
-`GET /status`'s `iceServers` (built on the core, D274). It answers Binding requests only,
+`GET /status`'s `iceServers` (built on the core, D274). Orpheum's core no longer gathers through the
+cores' copy: it uses the STUN servers of its own config (`webrtc.stun_servers`, a deployment's
+`stun.cloudflare.com`), since an IPv6 address a STUN server finds names the house's network, from
+which an admin administers, and a discovery must not choose that (the Plex-chain review's L3). It answers Binding requests only,
 rate-limited per source, without `SOFTWARE`, which discloses the version (S16; F13). It carries
 nothing else. Paid: on `prod-probe`'s addresses (D292 §3, the bring-up plan), never the API's,
 which sits behind Cloudflare and whose address must not be given away [I, availability research].

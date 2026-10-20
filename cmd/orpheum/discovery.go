@@ -11,7 +11,9 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/pion/webrtc/v4"
 
@@ -177,7 +179,9 @@ func openReachedFromOutside(
 	// asked (D293 §2).
 	opened.auth.ClaimDeviceCodesFrom(discovered)
 	opened.auth.OnDeviceActivated(logActivation(logger))
-	rtc.UseICEServers(func() []webrtc.ICEServer { return iceServersOf(discovered.Status().ICEServers) })
+	rtc.UseICEServers(func() []webrtc.ICEServer {
+		return iceServersFor(config.WebRTC.STUNServers, discovered.Status().ICEServers)
+	})
 	opened.jobServices.discovery, opened.jobServices.portMapping = discovered, mapped
 	served.discoveryParts.DNS = discovered
 	if useErr := served.useDiscoveryName(discovered.Status().CertificateName()); useErr != nil {
@@ -187,15 +191,27 @@ func openReachedFromOutside(
 	return opened, err
 }
 
-// iceServersOf are the discovery's STUN servers as a WebRTC connection takes them.
-func iceServersOf(servers []discoveryproto.ICEServer) []webrtc.ICEServer {
-	converted := make([]webrtc.ICEServer, 0, len(servers))
-	for _, server := range servers {
-		converted = append(converted, webrtc.ICEServer{
-			URLs: server.URLs, Username: server.Username, Credential: server.Credential,
-		})
+// iceServersFor are the servers a WebRTC connection gathers through: the core's own STUN servers, and
+// the TURN servers its discovery names with their credentials. The discovery's STUN servers are left
+// out: an IPv6 address a STUN server finds names the house's network, from which an admin
+// administers, so a discovery naming its own would make its network home (the Plex-chain review's
+// L3). A relay's candidates never count as home (rtcapi's isOwnCandidate).
+func iceServersFor(ownSTUN []string, named []discoveryproto.ICEServer) []webrtc.ICEServer {
+	var servers []webrtc.ICEServer
+	if len(ownSTUN) > 0 {
+		servers = append(servers, webrtc.ICEServer{URLs: slices.Clone(ownSTUN)})
 	}
-	return converted
+	for _, server := range named {
+		turnURLs := slices.DeleteFunc(slices.Clone(server.URLs), func(url string) bool {
+			return strings.HasPrefix(url, "stun:") || strings.HasPrefix(url, "stuns:")
+		})
+		if len(turnURLs) > 0 {
+			servers = append(servers, webrtc.ICEServer{
+				URLs: turnURLs, Username: server.Username, Credential: server.Credential,
+			})
+		}
+	}
+	return servers
 }
 
 // newPortMapping keeps the core's HTTPS port open at the home router while its discovery publishes

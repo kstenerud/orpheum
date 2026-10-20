@@ -160,8 +160,10 @@ type StatusResponse struct {
 	// because another core was claimed for it (D312 §15), in Unix ms.
 	Account   string `json:"account,omitempty"`
 	RemovedAt int64  `json:"removedAt,omitempty"`
-	// ICEServers are the STUN servers the core gathers its WebRTC candidates through, so its
-	// answers carry the public address its NAT gives it (D274): the discovery's own.
+	// ICEServers are the discovery's own STUN servers, for the core's WebRTC candidates (D274). Orpheum's
+	// core gathers through its configured STUN servers instead, and takes only TURN servers from here:
+	// an IPv6 address a STUN server finds names the house's network, which administers, so a
+	// discovery's must not choose it (the Plex-chain review's L3).
 	ICEServers []ICEServer `json:"iceServers,omitempty"`
 	// ClientOrigin is where the discovery serves its client, "https://app.example": the origin the
 	// core's links lead to, and its CORS allows (the protocol's §3.4; D293 §4).

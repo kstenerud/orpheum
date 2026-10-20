@@ -25,8 +25,9 @@
 //     context (MessageConnFrom); once accepted, a text message each way is one message and the core's
 //     binary message its close, with the WebSocket's code. internal/core/api's
 //     TestRTCOffer_AWatchTogetherDeviceConnectsOverADataChannel.
-//   - With its discovery's STUN servers (UseICEServers), an answer carries the public address the
-//     core's NAT gives it. TestUseICEServers_TheAnswerCarriesThePublicAddressSTUNFound.
+//   - With the STUN servers it is given (UseICEServers: the core's own, never its discovery's, the
+//     Plex-chain review's L3), an answer carries the public address the core's NAT gives it.
+//     TestUseICEServers_TheAnswerCarriesThePublicAddressSTUNFound.
 //   - Each connection's path (direct, punched or relayed, by family; or failed) is counted and
 //     logged, told by the core's end of its selected pair (D274 §3).
 //     TestAnswer_CountsThePathEachConnectionTook, TestPathOf_IsToldByTheCoresEndOfThePair.

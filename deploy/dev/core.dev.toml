@@ -45,6 +45,8 @@ send_interface_addresses = true
 
 [webrtc]
 udp_port = 0
+# None: the dev loop and the tests reach no STUN server, gathering only the machine's own addresses.
+stun_servers = []
 
 [database]
 read_connections_minimum = 4

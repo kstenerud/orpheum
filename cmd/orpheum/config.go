@@ -277,9 +277,28 @@ func serverConfigKeys() []configKey {
 	}
 }
 
+// webRTCConfigKeys are the core's [webrtc] keys, in the order the file is written.
+func webRTCConfigKeys() []configKey {
+	return []configKey{
+		{
+			tableWebRTC, "udp_port", "0",
+			"the UDP port every WebRTC connection's host candidates share, published at the house's " +
+				"address on the same port, which the core then offers too (D300); 0 gives each connection " +
+				"ports of its own",
+		},
+		{
+			tableWebRTC, "stun_servers", "[]",
+			"the STUN servers WebRTC connections find the core's public addresses through, \"stun:host:port\": " +
+				"the core's own choice, never its discovery's, since an IPv6 address one finds names the " +
+				"house's network, from which an admin administers (the Plex-chain review's L3); none finds " +
+				"only the machine's own addresses",
+		},
+	}
+}
+
 // coreConfigKeys are the full config's keys for the core, in the order the file is written.
 func coreConfigKeys() []configKey {
-	return append(serverConfigKeys(), []configKey{
+	return append(append(append(serverConfigKeys(), []configKey{
 		{
 			tableHTTPS, "domain", `""`,
 			`the public name served over HTTPS, "media.orpheum-app.com"; empty serves none (D243 §6)`,
@@ -323,12 +342,7 @@ func coreConfigKeys() []configKey {
 			"whether the core sends its discovery the addresses of the interfaces it sees; false in a " +
 				"container, whose interfaces nothing at home reaches",
 		},
-		{
-			tableWebRTC, "udp_port", "0",
-			"the UDP port every WebRTC connection's host candidates share, published at the house's " +
-				"address on the same port, which the core then offers too (D300); 0 gives each connection " +
-				"ports of its own",
-		},
+	}...), webRTCConfigKeys()...), []configKey{
 		{
 			tableDatabase, "read_connections_minimum", "4",
 			"the smallest pool of read connections; a machine with more CPUs gets one per CPU",
