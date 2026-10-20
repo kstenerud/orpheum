@@ -62,6 +62,10 @@ type fakeDiscovery struct {
 	// locateHashes and locators are each set of links and locators the core sent, in turn.
 	locateHashes []discoveryproto.LocateHashesRequest
 	locators     []discoveryproto.LocatorsRequest
+	// deviceCodes are the devices waiting with a code the discovery issued, by code, and
+	// deviceOutcomes how the core said each code it claimed ended (its sealed outcome, or "" refused).
+	deviceCodes    map[string]discoveryproto.DeviceCodeClaimResponse
+	deviceOutcomes map[string]string
 	// realm is the realm the discovery gave the core, which its status names.
 	realm string
 	// account is the account a key claimed the core for, which its status names; removedAt when the
@@ -84,6 +88,7 @@ func startDiscovery(t *testing.T) (*fakeDiscovery, *httptest.Server) {
 	t.Helper()
 	fake := &fakeDiscovery{
 		t: t, nonces: map[string]bool{}, tokens: map[string]bool{}, txt: map[string]string{},
+		deviceCodes: map[string]discoveryproto.DeviceCodeClaimResponse{}, deviceOutcomes: map[string]string{},
 		signals: make(chan discoveryproto.SignalMessage), replies: make(chan discoveryproto.SignalMessage, 4),
 		sessionLasts: int64((24 * time.Hour) / time.Second), failing: map[string]bool{},
 	}
@@ -189,6 +194,28 @@ func (fake *fakeDiscovery) serveSigned(writer http.ResponseWriter, request *http
 		var sent discoveryproto.LocatorsRequest
 		fake.read(request, &sent)
 		fake.locators = append(fake.locators, sent)
+	default:
+		fake.serveMore(writer, request, route)
+	}
+}
+
+// serveMore answers the rest of serveSigned's calls: the device codes and the certificates'.
+func (fake *fakeDiscovery) serveMore(writer http.ResponseWriter, request *http.Request, route string) {
+	switch route {
+	case "POST /device-codes/claim":
+		var claim discoveryproto.DeviceCodeClaimRequest
+		fake.read(request, &claim)
+		waiting, isWaiting := fake.deviceCodes[claim.Code]
+		if !isWaiting {
+			writer.WriteHeader(http.StatusNotFound)
+			fake.answer(writer, discoveryproto.Refusal{Code: discoveryproto.RefusalNotFound, Message: "no such code"})
+			return
+		}
+		fake.answer(writer, waiting)
+	case "POST /device-codes/outcome":
+		var outcome discoveryproto.DeviceCodeOutcomeRequest
+		fake.read(request, &outcome)
+		fake.deviceOutcomes[outcome.Code] = outcome.Sealed
 	case "PUT /acme-account":
 		var reported discoveryproto.ACMEAccountRequest
 		fake.read(request, &reported)
