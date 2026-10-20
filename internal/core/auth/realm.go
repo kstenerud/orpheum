@@ -126,9 +126,13 @@ func (service *Service) TakeRealmSignIn(ctx context.Context, person, ask string)
 	if err != nil {
 		return nil, err
 	}
+	stretch, err := service.failureStretchOf(ctx)
+	if err != nil {
+		return nil, err
+	}
 	limitKey := realmLimitPrefix + person
 	attemptedAt, isAllowed, _ := service.limiter.attempt(window, map[string]int64{
-		limitKey: maxFailures * accountEverywhereTimes,
+		limitKey: maxFailures * stretch.everywhere,
 	}, nil)
 	if !isAllowed {
 		return nil, ErrRateLimited

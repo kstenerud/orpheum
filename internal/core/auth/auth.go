@@ -303,32 +303,10 @@ func (service *Service) SignIn(
 func (service *Service) signIn(
 	ctx context.Context, name, password, clientAddress string, device NewDevice,
 ) (Issued, error) {
-	maxFailures, window, err := service.failurePolicy(ctx)
-	if err != nil {
-		return Issued{}, err
-	}
 	keys := signInLimitKeys(name, clientAddress)
-	isKnownDevice, err := service.provesAnEarlierSignIn(ctx, name, device)
+	attemptedAt, err := service.admitSignIn(ctx, name, device, keys)
 	if err != nil {
 		return Issued{}, err
-	}
-	// The person everywhere slows a sign-in rather than refusing it, and a device that proves it was
-	// signed in before is not held to it at all: a stranger failing in someone's name from many
-	// networks locked them out everywhere (the third audit's A13).
-	pacing := map[string]int64{}
-	if !isKnownDevice {
-		pacing[keys.accountEverywhere] = maxFailures * accountEverywhereTimes
-	}
-	attemptedAt, isAllowed, isPaced := service.limiter.attempt(window, map[string]int64{
-		keys.accountHere: maxFailures, keys.network: maxFailures * networkTimes,
-	}, pacing)
-	if !isAllowed {
-		return Issued{}, ErrRateLimited
-	}
-	if isPaced {
-		if err = service.clock.Sleep(ctx, accountPace); err != nil {
-			return Issued{}, fmt.Errorf("wait before a sign-in the account's failures slow: %w", err)
-		}
 	}
 	parameters, err := service.argon2Parameters(ctx)
 	if err != nil {
@@ -362,6 +340,44 @@ func (service *Service) signIn(
 	return service.issueSession(ctx, user.ID, device, grantScopeRole)
 }
 
+// admitSignIn holds a sign-in to the failed sign-in limits, refusing it as ErrRateLimited past one, or
+// waiting the pace past the person's everywhere; it returns when the attempt was counted. The person
+// everywhere slows a sign-in rather than refusing it, and a device that proves it was signed in before
+// is not held to it at all: a stranger failing in someone's name from many networks locked them out
+// everywhere (the third audit's A13).
+func (service *Service) admitSignIn(
+	ctx context.Context, name string, device NewDevice, keys signInKeys,
+) (time.Time, error) {
+	maxFailures, window, err := service.failurePolicy(ctx)
+	if err != nil {
+		return time.Time{}, err
+	}
+	stretch, err := service.failureStretchOf(ctx)
+	if err != nil {
+		return time.Time{}, err
+	}
+	isKnownDevice, err := service.provesAnEarlierSignIn(ctx, name, device)
+	if err != nil {
+		return time.Time{}, err
+	}
+	pacing := map[string]int64{}
+	if !isKnownDevice {
+		pacing[keys.accountEverywhere] = maxFailures * stretch.everywhere
+	}
+	attemptedAt, isAllowed, isPaced := service.limiter.attempt(window, map[string]int64{
+		keys.accountHere: maxFailures, keys.network: maxFailures * stretch.network,
+	}, pacing)
+	if !isAllowed {
+		return time.Time{}, ErrRateLimited
+	}
+	if isPaced {
+		if err = service.clock.Sleep(ctx, stretch.pace); err != nil {
+			return time.Time{}, fmt.Errorf("wait before a sign-in the account's failures slow: %w", err)
+		}
+	}
+	return attemptedAt, nil
+}
+
 // hashWithCurrentCosts hashes a password with the costs the settings name now.
 func (service *Service) hashWithCurrentCosts(ctx context.Context, password string) ([]byte, error) {
 	parameters, err := service.argon2Parameters(ctx)
@@ -386,21 +402,6 @@ func (service *Service) rehash(ctx context.Context, userID int64, password strin
 		})
 	})
 }
-
-// How far the failed-sign-in limit (sign_in_failure_limit) stretches beyond one person on one network:
-// a network is a household or a carrier's shared address, many people's failures; and a person
-// everywhere slows guessing spread across many networks without letting a stranger lock them out by
-// their name alone, which the account-wide limit at sign_in_failure_limit did (the second audit's
-// K2, 2026-10-13).
-const (
-	networkTimes           = 4
-	accountEverywhereTimes = 10
-)
-
-// accountPace is how long a sign-in waits once the person everywhere has failed past their limit:
-// a guesser spread over many networks makes a few guesses a minute, and the person, who signs in
-// once, waits seconds rather than being locked out (the third audit's A13).
-const accountPace = 10 * time.Second
 
 // provesAnEarlierSignIn is whether device proves, by its device secret, that it is a device of the
 // person name names: one that signed in before, which the person-everywhere limit does not hold.

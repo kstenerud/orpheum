@@ -4,6 +4,7 @@ package auth
 
 import (
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -18,6 +19,20 @@ import (
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
+
+// The failed sign-in limit's stretch where no setting says: the settings' starting values.
+var (
+	accountEverywhereTimes = startingInt(settings.SignInFailureLimitEverywhereMultiple)
+	accountPace            = settings.StartingDuration(settings.SignInEverywherePaceSeconds)
+)
+
+// startingInt is an integer setting's starting value.
+func startingInt(key settings.Key) int64 {
+	definition, _ := settings.Lookup(key)
+	var value int64
+	_ = json.Unmarshal(definition.StartJSON, &value) //nolint:errcheck // a registry test checks every start
+	return value
+}
 
 // rfc9106SecondParameters is RFC 9106's second recommended option, the argon2id costs a new server starts
 // with (D194 §2); the unit tests run under the cheap costs settingstest sets.
@@ -359,6 +374,44 @@ func tokenOf(issued Issued, err error) (string, error) {
 }
 
 // A site's many IPv6 networks are one network in the limit: an IPv6 /48 (the third audit's A13).
+// How far the limit stretches is settings (the constants sweep, 2026-10-20): a network's limit at
+// once the limit, and a person everywhere paced after once the limit, for the setting's two seconds.
+func TestSignIn_TheLimitsStretchAsTheSettingsSay(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	settingstest.Set(t, fixture.settings, settings.SignInFailureLimit, "2")
+	settingstest.Set(t, fixture.settings, settings.SignInFailureWindowSeconds, "300")
+	settingstest.Set(t, fixture.settings, settings.SignInFailureLimitNetworkMultiple, "1")
+	settingstest.Set(t, fixture.settings, settings.SignInFailureLimitEverywhereMultiple, "1")
+	settingstest.Set(t, fixture.settings, settings.SignInEverywherePaceSeconds, "2")
+	for _, name := range []string{"guest-a", "guest-b", "partner"} {
+		fixture.createUser(t, name, "right", RoleUser)
+	}
+	for _, name := range []string{"guest-a", "guest-b"} {
+		if _, err := fixture.service.SignIn(ctx, name, "wrong", "2001:db8:5:5::1", laptop); !errors.Is(err,
+			ErrBadCredentials) {
+			t.Fatalf("a failed sign-in: %v", err)
+		}
+	}
+	if _, err := fixture.service.SignIn(ctx, "partner", "right", "2001:db8:5:5::2", laptop); !errors.Is(err,
+		ErrRateLimited) {
+		t.Errorf("a third person on a network that failed twice, its limit at once the limit: %v, want "+
+			"ErrRateLimited", err)
+	}
+	for _, address := range []string{"198.51.100.1", "198.51.100.2"} {
+		//nolint:errcheck // failing on purpose
+		_, _ = tokenOf(fixture.service.SignIn(ctx, "partner", "wrong", address, laptop))
+	}
+	before := fixture.clock.Now()
+	if _, err := fixture.service.SignIn(ctx, "partner", "right", "203.0.113.4", laptop); err != nil {
+		t.Fatalf("the person, paced but not refused: %v", err)
+	}
+	if waited := fixture.clock.Now().Sub(before); waited < 2*time.Second || waited >= accountPace {
+		t.Errorf("the paced sign-in waited %s; want the setting's 2 s, not the starting %s", waited, accountPace)
+	}
+}
+
 func TestSignIn_ASitesNetworksCountAsOne(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
