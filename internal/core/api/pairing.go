@@ -60,12 +60,14 @@ type ActivationInput struct {
 		Code       string `doc:"As typed: case, dashes and spaces do not matter" json:"code" maxLength:"20" minLength:"1"`             //nolint:lll // one struct tag
 		DeviceName string `doc:"A new device's name: \"Living room TV\"" json:"deviceName,omitempty" maxLength:"100" required:"false"` //nolint:lll // one struct tag
 		UserID     int64  `doc:"Whose device; an admin's to name" json:"userId,omitempty" required:"false"`
+		KeyHash    string `doc:"The device's key's hash, as its QR code carries it: the code was scanned, not typed (D321)" json:"keyHash,omitempty" maxLength:"64" required:"false"` //nolint:lll // one struct tag
 	}
 }
 
-// ActivationOutput is the check code the device now shows too, the name it will be listed by, and
-// what it says it is and when it asked for its code, which the person is shown: a code asked for
-// long before is more likely one someone sent them (the device code audit's M3).
+// ActivationOutput is the check code the device now shows too, none for a scanned code (D321), the
+// name it will be listed by, and what it says it is and when it asked for its code, which the person
+// is shown: a code asked for long before is more likely one someone sent them (the device code
+// audit's M3).
 type ActivationOutput struct {
 	Body struct {
 		CheckCode       string `json:"checkCode"`
@@ -165,8 +167,14 @@ func (server *Server) activateDevice(ctx context.Context, input *ActivationInput
 		}
 		forUserID = input.Body.UserID
 	}
-	claim, err := dependencies.Auth.ClaimPairing(
-		ctx, principal.UserID, forUserID, input.Body.Code, input.Body.DeviceName)
+	var claim auth.PairingClaim
+	if input.Body.KeyHash != "" {
+		claim, err = dependencies.Auth.ClaimScannedPairing(
+			ctx, principal.UserID, forUserID, input.Body.Code, input.Body.KeyHash, input.Body.DeviceName)
+	} else {
+		claim, err = dependencies.Auth.ClaimPairing(
+			ctx, principal.UserID, forUserID, input.Body.Code, input.Body.DeviceName)
+	}
 	if err != nil {
 		return nil, server.authError(ctx, "enter a device's code", err)
 	}
@@ -197,6 +205,10 @@ func pairingRefusal(err error) *Error {
 		return newError(http.StatusTooManyRequests, CodeRateLimited, auth.ErrTooManyPairings.Error())
 	case errors.Is(err, auth.ErrActivatesAnAdmin):
 		return newError(http.StatusForbidden, CodeForbidden, auth.ErrActivatesAnAdmin.Error())
+	case errors.Is(err, auth.ErrDeviceSilent):
+		return newError(http.StatusConflict, CodeConflict, auth.ErrDeviceSilent.Error())
+	case errors.Is(err, auth.ErrNotThatDevice):
+		return newError(http.StatusConflict, CodeConflict, auth.ErrNotThatDevice.Error())
 	case errors.Is(err, auth.ErrNoDeviceName):
 		return invalidRequestAt(http.StatusUnprocessableEntity, "body.deviceName", auth.ErrNoDeviceName.Error())
 	}

@@ -265,6 +265,26 @@ func (service *Service) TakePairedSession(_ context.Context, secret string) (Iss
 func (service *Service) ClaimPairing(
 	ctx context.Context, byUserID, forUserID int64, typed, deviceName string,
 ) (PairingClaim, error) {
+	return service.claimPairing(ctx, byUserID, forUserID, typed, "", deviceName)
+}
+
+// ClaimScannedPairing is ClaimPairing for a code a person's phone read from a device's QR code with
+// its key's hash (D321): only the paid service's codes are shown so, the core activates only the key
+// the hash names, the claim has no check code, and with no name given the device is listed by its
+// platform.
+func (service *Service) ClaimScannedPairing(
+	ctx context.Context, byUserID, forUserID int64, code, keyHash, deviceName string,
+) (PairingClaim, error) {
+	if keyHash == "" {
+		return PairingClaim{}, ErrNoPairing
+	}
+	return service.claimPairing(ctx, byUserID, forUserID, code, keyHash, deviceName)
+}
+
+// claimPairing is ClaimPairing, or with keyHash ClaimScannedPairing.
+func (service *Service) claimPairing(
+	ctx context.Context, byUserID, forUserID int64, typed, keyHash, deviceName string,
+) (PairingClaim, error) {
 	maxFailures, window, err := service.failurePolicy(ctx)
 	if err != nil {
 		return PairingClaim{}, err
@@ -278,15 +298,25 @@ func (service *Service) ClaimPairing(
 	}
 	code, readErr := safe32code.Read(typed, safe32code.DeviceLength)
 	// A code the core did not issue may be the paid service's (D293 §2).
-	claim, isServices, claimErr := service.claimFromService(ctx, byUserID, forUserID, code, deviceName)
+	claim, isServices, claimErr := service.claimFromService(ctx, byUserID, forUserID, code, keyHash, deviceName)
 	if claimErr != nil || isServices {
 		return claim, claimErr
 	}
 	previous, found := service.waitingDevice(code)
-	if readErr != nil || !found {
+	// A scanned code is the service's alone (D321): none of the core's own devices waits with it.
+	if readErr != nil || !found || keyHash != "" {
 		service.limiter.recordFailure(window, limitKey)
 		return PairingClaim{}, ErrNoPairing
 	}
+	return service.claimOwnPairing(ctx, byUserID, forUserID, code, previous, deviceName)
+}
+
+// claimOwnPairing is ClaimPairing for a code the core issued, which a device waits with that may have
+// been forUserID's before (D288 §2): the device is listed by its own name then, else by deviceName,
+// and the pairing gets a check code made at random.
+func (service *Service) claimOwnPairing(
+	ctx context.Context, byUserID, forUserID int64, code string, previous PreviousDevice, deviceName string,
+) (PairingClaim, error) {
 	name := textindex.Line(deviceName)
 	isProven, err := isProvenDevice(ctx, service.database.Read(), service.clock.Now().UnixMilli(), forUserID,
 		previous.ID, previous.Proof)

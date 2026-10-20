@@ -17,9 +17,10 @@ import (
 )
 
 // fakeServiceCodes is the paid service's device codes as the core sees them: the devices waiting, by
-// code, and how the core ended each it claimed.
+// code, the nonces the core claimed them with, and how the core ended each it claimed.
 type fakeServiceCodes struct {
-	waiting   map[string]discoveryproto.DeviceCodeClaimResponse
+	waiting   map[string]fakeDevice
+	claims    map[string][]string
 	activated map[string]string
 	people    []string
 	refused   []string
@@ -27,18 +28,39 @@ type fakeServiceCodes struct {
 	claimErr error
 }
 
+// fakeDevice is a device waiting with a code: what the service holds of it, and the nonce it
+// committed to, which it reveals once the core's nonce is given, as a device does on its next poll;
+// a silent one never does, and a liar reveals one that breaks its commitment (D321).
+type fakeDevice struct {
+	claim          discoveryproto.DeviceCodeClaimResponse
+	nonce          string
+	silent, isLiar bool
+}
+
 func (fake *fakeServiceCodes) ClaimDeviceCode(
-	_ context.Context, code string,
+	_ context.Context, code, coreNonce string,
 ) (discoveryproto.DeviceCodeClaimResponse, bool, error) {
 	if fake.claimErr != nil {
 		return discoveryproto.DeviceCodeClaimResponse{}, false, fake.claimErr
 	}
-	waiting, isWaiting := fake.waiting[code]
-	return waiting, isWaiting, nil
+	device, isWaiting := fake.waiting[code]
+	if !isWaiting {
+		return discoveryproto.DeviceCodeClaimResponse{}, false, nil
+	}
+	fake.claims[code] = append(fake.claims[code], coreNonce)
+	answer := device.claim
+	// The first claim's nonce is the one kept; the device reveals after it, so from the next claim on.
+	if first := fake.claims[code][0]; first != "" && len(fake.claims[code]) > 1 && !device.silent {
+		answer.DeviceNonce = device.nonce
+		if device.isLiar {
+			answer.DeviceNonce = "ICEiIyQlJicoKSorLC0uLw"
+		}
+	}
+	return answer, true, nil
 }
 
 func (fake *fakeServiceCodes) ActivateDeviceCode(_ context.Context, code, publicKey, handOffCode, person string) error {
-	if publicKey != fake.waiting[code].PublicKey {
+	if publicKey != fake.waiting[code].claim.PublicKey {
 		return errors.New("sealed to another key than the device's")
 	}
 	fake.activated[code] = handOffCode
@@ -49,6 +71,26 @@ func (fake *fakeServiceCodes) ActivateDeviceCode(_ context.Context, code, public
 func (fake *fakeServiceCodes) RefuseDeviceCode(_ context.Context, code string) error {
 	fake.refused = append(fake.refused, code)
 	return nil
+}
+
+// newFakeServiceCodes is a service with devices waiting by code.
+func newFakeServiceCodes(waiting map[string]fakeDevice) *fakeServiceCodes {
+	return &fakeServiceCodes{waiting: waiting, claims: map[string][]string{}, activated: map[string]string{}}
+}
+
+// newWaitingDevice is a device of platform that asked askedSecondsAgo, with a fresh key and nonce and
+// its commitment to them.
+func newWaitingDevice(t *testing.T, platform string, askedSecondsAgo int) fakeDevice {
+	t.Helper()
+	publicKey := newDevicePublicKey(t)
+	nonce := base64.RawURLEncoding.EncodeToString([]byte("0123456789abcdef"))
+	commitment, err := proof.DeviceCommitment(publicKey, nonce)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fakeDevice{claim: discoveryproto.DeviceCodeClaimResponse{
+		PublicKey: publicKey, Platform: platform, AskedSecondsAgo: askedSecondsAgo, Commitment: commitment,
+	}, nonce: nonce}
 }
 
 // newDevicePublicKey is a device's P-256 public key as it sends it.
@@ -86,13 +128,10 @@ func serviceCodesWorld(t *testing.T) serviceCodes {
 		*told = append(*told, activated)
 	})
 	id := built.createUser(t, "partner", "pw", RoleAdmin)
-	codes := &fakeServiceCodes{
-		waiting: map[string]discoveryproto.DeviceCodeClaimResponse{
-			"abcd-efgh": {PublicKey: newDevicePublicKey(t), Platform: "Tizen", AskedSecondsAgo: 40},
-			"abcd-efgj": {PublicKey: newDevicePublicKey(t)},
-		},
-		activated: map[string]string{},
-	}
+	codes := newFakeServiceCodes(map[string]fakeDevice{
+		"abcd-efgh": newWaitingDevice(t, "Tizen", 40),
+		"abcd-efgj": newWaitingDevice(t, "", 0),
+	})
 	built.service.ClaimDeviceCodesFrom(codes)
 	return serviceCodes{service: built.service, codes: codes, id: id, told: told}
 }
@@ -122,9 +161,11 @@ func TestPairing_AServiceCodeChecksByTheDevicesKeyAndHandsTheSessionOff(t *testi
 	if claim.Platform != "Tizen" || service.clock.Now().Sub(claim.AskedAt) != 40*time.Second {
 		t.Errorf("the claim shows %q asked at %v; want Tizen, 40 s ago", claim.Platform, claim.AskedAt)
 	}
-	want, checkErr := proof.DeviceCheckCode(codes.waiting["abcd-efgh"].PublicKey)
+	device := codes.waiting["abcd-efgh"]
+	want, checkErr := proof.DeviceCheckCode(device.claim.PublicKey, device.nonce, codes.claims["abcd-efgh"][0])
 	if err != nil || checkErr != nil || claim.CheckCode != want {
-		t.Fatalf("entering the service's code: %+v, %v; want the check code %q of the device's key", claim, err, want)
+		t.Fatalf("entering the service's code: %+v, %v; want the check code %q of the device's key and both "+
+			"nonces (D321)", claim, err, want)
 	}
 	again, err := service.ClaimPairing(ctx, id, id, "abcd-efgh", "Living room TV")
 	if err != nil || again != claim {
@@ -182,10 +223,7 @@ func TestPairing_AServiceCodesHandOffWaitsThreeMinutesAndTooManyClaimsSlowThePer
 	built := newFixture(t)
 	ctx := t.Context()
 	id := built.createUser(t, "partner", "pw", RoleUser)
-	codes := &fakeServiceCodes{
-		waiting:   map[string]discoveryproto.DeviceCodeClaimResponse{"abcd-efgh": {PublicKey: newDevicePublicKey(t)}},
-		activated: map[string]string{},
-	}
+	codes := newFakeServiceCodes(map[string]fakeDevice{"abcd-efgh": newWaitingDevice(t, "", 0)})
 	built.service.ClaimDeviceCodesFrom(codes)
 	if _, err := built.service.ClaimPairing(ctx, id, id, "abcd-efgh", "TV"); err != nil {
 		t.Fatal(err)
@@ -200,5 +238,66 @@ func TestPairing_AServiceCodesHandOffWaitsThreeMinutesAndTooManyClaimsSlowThePer
 	codes.claimErr = discoveryproto.ErrTooManyClaims
 	if _, err := built.service.ClaimPairing(ctx, id, id, "abcd-efgj", "TV"); !errors.Is(err, ErrRateLimited) {
 		t.Errorf("a claim the service refused as too many: %v; want ErrRateLimited", err)
+	}
+}
+
+// A typed code's check code waits for the device to reveal the nonce it committed to: a device that
+// does not within revealWait, or reveals one that breaks its commitment, is refused and its code
+// ended, the core's own nonce chosen afresh and claimed with (D321; the device code audit's M2).
+func TestPairing_ATypedServiceCodeWaitsForTheDevicesNonceAndRefusesOneThatBreaksItsCommitment(t *testing.T) {
+	t.Parallel()
+	built := newFixture(t)
+	ctx := t.Context()
+	id := built.createUser(t, "partner", "pw", RoleUser)
+	silent, liar := newWaitingDevice(t, "", 0), newWaitingDevice(t, "", 0)
+	silent.silent, liar.isLiar = true, true
+	codes := newFakeServiceCodes(map[string]fakeDevice{"abcd-efgh": silent, "abcd-efgj": liar})
+	built.service.ClaimDeviceCodesFrom(codes)
+	startedAt := built.clock.Now()
+	if _, err := built.service.ClaimPairing(ctx, id, id, "abcd-efgh", "TV"); !errors.Is(err, ErrDeviceSilent) {
+		t.Errorf("a device that never reveals: %v; want ErrDeviceSilent", err)
+	}
+	if waited := built.clock.Now().Sub(startedAt); waited < revealWait {
+		t.Errorf("gave up after %v; want %v", waited, revealWait)
+	}
+	if _, err := built.service.ClaimPairing(ctx, id, id, "abcd-efgj", "TV"); !errors.Is(err, ErrNotThatDevice) {
+		t.Errorf("a device revealing a nonce that breaks its commitment: %v; want ErrNotThatDevice", err)
+	}
+	if !slices.Equal(codes.refused, []string{"abcd-efgh", "abcd-efgj"}) || len(codes.activated) != 0 {
+		t.Errorf("refused %v, activated %v; want both codes ended, neither activated", codes.refused, codes.activated)
+	}
+	if nonce := codes.claims["abcd-efgj"][0]; len(nonce) != 22 || nonce == codes.claims["abcd-efgh"][0] {
+		t.Errorf("the core claimed with nonces %q and %q; want a fresh 128-bit one each", nonce,
+			codes.claims["abcd-efgh"][0])
+	}
+}
+
+// A code scanned from the device's QR code is claimed with no nonce and needs no check code: the core
+// activates only the key the QR code's hash names, listing the device by its platform when no name is
+// given, and ends a code whose key is another (D321).
+func TestPairing_AScannedCodeActivatesOnlyTheKeyItsHashNamesWithNoCheckCode(t *testing.T) {
+	t.Parallel()
+	world := serviceCodesWorld(t)
+	service, codes, id := world.service, world.codes, world.id
+	ctx := t.Context()
+	hash, err := proof.DeviceKeyHash(codes.waiting["abcd-efgh"].claim.PublicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claim, err := service.ClaimScannedPairing(ctx, id, id, "abcd-efgh", hash, "")
+	if err != nil || claim.CheckCode != "" || claim.DeviceName != "Tizen" {
+		t.Fatalf("a scanned code: %+v, %v; want no check code, the device named by its platform", claim, err)
+	}
+	if nonces := codes.claims["abcd-efgh"]; !slices.Equal(nonces, []string{""}) {
+		t.Errorf("claimed with nonces %q; want one claim, with none", nonces)
+	}
+	if err = service.AnswerPairing(ctx, id, "abcd-efgh", true); err != nil || codes.activated["abcd-efgh"] == "" {
+		t.Errorf("activating the scanned code: %v, activated %v", err, codes.activated)
+	}
+	if _, err = service.ClaimScannedPairing(ctx, id, id, "abcd-efgj", hash, ""); !errors.Is(err, ErrNotThatDevice) {
+		t.Errorf("a code whose key the hash does not name: %v; want ErrNotThatDevice", err)
+	}
+	if !slices.Equal(codes.refused, []string{"abcd-efgj"}) {
+		t.Errorf("refused %v; want the code with another key ended", codes.refused)
 	}
 }

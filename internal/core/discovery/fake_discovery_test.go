@@ -64,7 +64,9 @@ type fakeDiscovery struct {
 	locators     []discoveryproto.LocatorsRequest
 	// deviceCodes are the devices waiting with a code the discovery issued, by code, and
 	// deviceOutcomes how the core said each code it claimed ended (its sealed outcome, or "" refused).
-	deviceCodes    map[string]discoveryproto.DeviceCodeClaimResponse
+	deviceCodes map[string]discoveryproto.DeviceCodeClaimResponse
+	// coreNonces are the nonces the core claimed each code with, by code (D321).
+	coreNonces     map[string]string
 	deviceOutcomes map[string]string
 	// claimsRefused refuses every claim as one too many.
 	claimsRefused bool
@@ -91,7 +93,8 @@ func startDiscovery(t *testing.T) (*fakeDiscovery, *httptest.Server) {
 	fake := &fakeDiscovery{
 		t: t, nonces: map[string]bool{}, tokens: map[string]bool{}, txt: map[string]string{},
 		deviceCodes: map[string]discoveryproto.DeviceCodeClaimResponse{}, deviceOutcomes: map[string]string{},
-		signals: make(chan discoveryproto.SignalMessage), replies: make(chan discoveryproto.SignalMessage, 4),
+		coreNonces: map[string]string{},
+		signals:    make(chan discoveryproto.SignalMessage), replies: make(chan discoveryproto.SignalMessage, 4),
 		sessionLasts: int64((24 * time.Hour) / time.Second), failing: map[string]bool{},
 	}
 	server := httptest.NewServer(fake)
@@ -207,6 +210,7 @@ func (fake *fakeDiscovery) serveMore(writer http.ResponseWriter, request *http.R
 	case "POST /device-codes/claim":
 		var claim discoveryproto.DeviceCodeClaimRequest
 		fake.read(request, &claim)
+		fake.coreNonces[claim.Code] = claim.CoreNonce
 		waiting, isWaiting := fake.deviceCodes[claim.Code]
 		if fake.claimsRefused {
 			writer.WriteHeader(http.StatusTooManyRequests)

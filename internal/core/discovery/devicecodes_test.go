@@ -32,26 +32,33 @@ func claimedWithDevice(t *testing.T) (*world, *ecdh.PrivateKey) {
 	return built, private
 }
 
+// coreNonce is the nonce the core claims with in these tests (D321).
+const coreNonce = "EBESExQVFhcYGRobHB0eHw"
+
 // A device code the discovery issued is claimed only once the discovery publishes the core, and one
 // no device waits with is none (D293 §2).
 func TestDeviceCode_IsClaimedOnlyOnceTheDiscoveryPublishesTheCore(t *testing.T) {
 	t.Parallel()
 	built, _ := claimedWithDevice(t)
 	ctx := t.Context()
-	if _, isWaiting, err := built.service.ClaimDeviceCode(ctx, "abcd-efgh"); isWaiting || err != nil {
+	if _, isWaiting, err := built.service.ClaimDeviceCode(ctx, "abcd-efgh", coreNonce); isWaiting || err != nil {
 		t.Errorf("a pending core claimed a device code: %v, %v; want none", isWaiting, err)
 	}
 	built.fake.claim()
 	built.service.step(ctx)
-	if _, isWaiting, err := built.service.ClaimDeviceCode(ctx, "zzzz-zzzz"); isWaiting || err != nil {
+	if _, isWaiting, err := built.service.ClaimDeviceCode(ctx, "zzzz-zzzz", ""); isWaiting || err != nil {
 		t.Errorf("a code no device waits with: %v, %v; want none waiting, no error", isWaiting, err)
 	}
-	claimed, isWaiting, err := built.service.ClaimDeviceCode(ctx, "abcd-efgh")
+	claimed, isWaiting, err := built.service.ClaimDeviceCode(ctx, "abcd-efgh", coreNonce)
 	if !isWaiting || err != nil || claimed != built.fake.deviceCodes["abcd-efgh"] {
 		t.Errorf("claimed %+v, %v, %v; want the device's key and platform", claimed, isWaiting, err)
 	}
+	if sent := built.fake.coreNonces["abcd-efgh"]; sent != coreNonce {
+		t.Errorf("the claim carried the core's nonce %q; want the one given (D321)", sent)
+	}
 	built.fake.claimsRefused = true
-	if _, _, err = built.service.ClaimDeviceCode(ctx, "abcd-efgh"); !errors.Is(err, discoveryproto.ErrTooManyClaims) {
+	_, _, err = built.service.ClaimDeviceCode(ctx, "abcd-efgh", coreNonce)
+	if !errors.Is(err, discoveryproto.ErrTooManyClaims) {
 		t.Errorf("a claim the discovery refused as too many: %v; want ErrTooManyClaims", err)
 	}
 }

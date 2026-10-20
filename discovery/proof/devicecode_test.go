@@ -80,19 +80,57 @@ func TestSealDeviceOutcome_OpensOnlyWithTheDevicesKeyAndAsTheBrowserOpensIt(t *t
 	}
 }
 
-func TestDeviceCheckCode_IsTheKeysAndTheBrowsersAlike(t *testing.T) {
+// The fixture's nonces, the device's and the core's, which web/packages/sdk/src/device-code.test.ts
+// holds too.
+const (
+	fixtureDeviceNonce = "AAECAwQFBgcICQoLDA0ODw"
+	fixtureCoreNonce   = "EBESExQVFhcYGRobHB0eHw"
+)
+
+// The check code is made of the key and both nonces (D321), alike in the browser; another key, or
+// another nonce of either side's, makes another, and a key or nonce that is none is refused. Renamed
+// from TestDeviceCheckCode_IsTheKeysAndTheBrowsersAlike, when the code was the key's alone.
+func TestDeviceCheckCode_IsTheKeysAndBothNoncesAndTheBrowsersAlike(t *testing.T) {
 	t.Parallel()
-	check, err := DeviceCheckCode(fixturePublic)
-	// The browser's test makes the same code of the same key.
-	if err != nil || check != "tasv-f9te" {
-		t.Errorf("the fixture's check code = %q, %v; want tasv-f9te", check, err)
+	check, err := DeviceCheckCode(fixturePublic, fixtureDeviceNonce, fixtureCoreNonce)
+	// The browser's test makes the same code of the same key and nonces.
+	if err != nil || check != "dx9y-jewz" {
+		t.Errorf("the fixture's check code = %q, %v; want dx9y-jewz", check, err)
 	}
 	_, other := newDeviceKey(t)
-	if otherCheck, err := DeviceCheckCode(other); err != nil || otherCheck == check {
+	if otherCheck, err := DeviceCheckCode(other, fixtureDeviceNonce, fixtureCoreNonce); err != nil ||
+		otherCheck == check {
 		t.Error("another key made the same check code")
 	}
-	if _, err := DeviceCheckCode(""); !errors.Is(err, ErrNotADeviceKey) {
+	if otherCheck, err := DeviceCheckCode(fixturePublic, fixtureDeviceNonce, fixtureDeviceNonce); err != nil ||
+		otherCheck == check {
+		t.Error("another core nonce made the same check code")
+	}
+	if _, err := DeviceCheckCode("", fixtureDeviceNonce, fixtureCoreNonce); !errors.Is(err, ErrNotADeviceKey) {
 		t.Errorf("no key: %v; want ErrNotADeviceKey", err)
+	}
+	if _, err := DeviceCheckCode(fixturePublic, "short", fixtureCoreNonce); !errors.Is(err, ErrNotADeviceNonce) {
+		t.Errorf("a short nonce: %v; want ErrNotADeviceNonce", err)
+	}
+}
+
+// The device's commitment is its key's and its nonce's, alike in the browser, and the QR code's key
+// hash is 128 bits of its key's (D321).
+func TestDeviceCommitmentAndKeyHash_AreTheBrowsersAlike(t *testing.T) {
+	t.Parallel()
+	commitment, err := DeviceCommitment(fixturePublic, fixtureDeviceNonce)
+	if err != nil || commitment != "T9zJEIeNk5Oc91YyHh_bg_HeQpq9RZ9huSJhR3SrysU" {
+		t.Errorf("the fixture's commitment = %q, %v", commitment, err)
+	}
+	if err = CheckDeviceCommitment(commitment); err != nil {
+		t.Errorf("a commitment refused: %v", err)
+	}
+	if err = CheckDeviceCommitment("short"); !errors.Is(err, ErrNotACommitment) {
+		t.Errorf("a short commitment: %v; want ErrNotACommitment", err)
+	}
+	hash, err := DeviceKeyHash(fixturePublic)
+	if err != nil || hash != "rTBVo-NI60s-RZ3ENfKqkw" {
+		t.Errorf("the fixture's key hash = %q, %v", hash, err)
 	}
 }
 

@@ -123,6 +123,13 @@
 //     TestPairing_AServiceCodeNotMatchedEndsThereAndAnUnknownOneIsNone and
 //     TestPairing_AServiceCodesHandOffWaitsThreeMinutesAndTooManyClaimsSlowThePerson.
 //
+//   - A typed service code's check code is committed: the core claims with a fresh nonce of its own,
+//     waits at most revealWait for the device's, refuses one that breaks the device's commitment, and
+//     makes the check code of the key and both. A scanned one is claimed with no nonce, has no check
+//     code, and activates only the key its QR code's hash names (D321). Enforced by
+//     TestPairing_ATypedServiceCodeWaitsForTheDevicesNonceAndRefusesOneThatBreaksItsCommitment and
+//     TestPairing_AScannedCodeActivatesOnlyTheKeyItsHashNamesWithNoCheckCode.
+//
 //   - A sign-in, or a device activated by its code, resumes the device the client remembers only when
 //     it is the same person's and the client proves it was that device, by the device secret its
 //     latest sign-in gave (never a session token, the third audit's A8); else it is a new device; a
