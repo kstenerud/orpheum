@@ -19,7 +19,7 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: true,
   retries: 0,
-  reporter: [["list"]],
+  reporter: [["list"], ["./timings.ts", { pass: "acceptance" }]],
   timeout: (acceptanceMinutes() + 10) * 60_000,
   projects: [
     {
