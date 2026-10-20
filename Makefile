@@ -551,6 +551,9 @@ generate: web-deps ## Regenerate committed generated code (sqlc for persistent.d
 	  --output src/gen/api.ts --alphabetize --empty-objects-unknown >/dev/null
 
 .PHONY: fmt
+fmt-staged: ## Format the staged files in place and stage them again (the pre-commit hook runs it)
+	@$(PYTHON) scripts/format_files.py --staged
+
 fmt: ## Format Go and web sources in place
 	@golangci-lint fmt ./...
 	@npm --prefix web run --silent format
