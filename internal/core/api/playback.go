@@ -62,8 +62,12 @@ type StartPlaybackInput struct {
 		// Cause and PageStarts are for the log alone: why the page asked, and how many playbacks it
 		// has asked for since it loaded, so a playback started again by itself says what started it
 		// (staging, 2026-10-14, where a phone's playback started over and nothing said why).
-		Cause      string `doc:"Why the page asked for this playback, for the log" enum:"filmPage,playPage,warmUpStale,warmUpOffLadder,warmUpFailed,soundAnswered,soundChanged,subtitleFetched,audioChosen,playbackGone" json:"cause,omitempty" required:"false"` //nolint:lll // one struct tag
-		PageStarts int    `doc:"How many playbacks the page has asked for since it loaded, this one included" json:"pageStarts,omitempty" minimum:"0" required:"false"`                                                                                           //nolint:lll // one struct tag
+		Cause      string `doc:"Why the page asked for this playback, for the log" enum:"filmPage,playPage,warmUpStale,warmUpOffLadder,warmUpFailed,soundAnswered,soundChanged,subtitleFetched,audioChosen,playbackGone,ownPictureGivenUp" json:"cause,omitempty" required:"false"` //nolint:lll // one struct tag
+		PageStarts int    `doc:"How many playbacks the page has asked for since it loaded, this one included" json:"pageStarts,omitempty" minimum:"0" required:"false"`                                                                                                             //nolint:lll // one struct tag
+		// HasGivenUpOwnPicture is the page's word that its player gave the film's own picture up as
+		// unplayable on this device (D266), so the playback starts at its twin (D323 §2); the core
+		// keeps it before it decides, whether or not the player's report reached it first.
+		HasGivenUpOwnPicture bool `doc:"Whether the player gave the film's own picture up as unplayable here" json:"hasGivenUpOwnPicture,omitempty" required:"false"` //nolint:lll // one struct tag
 	}
 	ClientFacts
 }
@@ -241,6 +245,7 @@ func (server *Server) startPlayback(ctx context.Context, input *StartPlaybackInp
 		FileID: input.Body.FileID, DeviceID: principal.DeviceID,
 		PlayableFormats:   playableFormatsOf(input.Body.PlayableFormats),
 		PreferredDelivery: decide.Delivery(input.Body.PreferredDelivery), ClientAddress: input.clientAddress,
+		HasGivenUpOwnPicture: input.Body.HasGivenUpOwnPicture,
 	}
 	started, err := dependencies.Playback.Start(ctx, playback.HolderOf(principal), request)
 	who := []any{

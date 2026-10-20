@@ -20,6 +20,7 @@ import {
   noteDecisionTimes,
   sendReport,
   tellUnplayable,
+  whenOwnPictureGivenUp,
 } from "./play-state.ts";
 import { ApiProblem } from "./problem.ts";
 import { reopenWaitsMs } from "./reopen.ts";
@@ -546,6 +547,20 @@ describe("a quality the player cannot play here (D266)", () => {
     stop();
     video.dispatchEvent(new CustomEvent(playerFoundUnplayableEvent, { detail: found }));
     expect(recorded).toEqual([[found, 420_500]]);
+  });
+
+  it("tells the page where the video stood when the film's own picture is given up, and only then (D323 §2)", () => {
+    const video = new EventTarget();
+    const told: unknown[] = [];
+    const stop = whenOwnPictureGivenUp(video, (at) => told.push(at));
+    const at = (detail: object): void => {
+      video.dispatchEvent(new CustomEvent(playerFoundUnplayableEvent, { detail }));
+    };
+    at({ qualityKbps: 2000, positionMs: 100_000, isFilmsOwnPicture: false });
+    at({ qualityKbps: 3096, positionMs: 420_500, isPaused: false, isFilmsOwnPicture: true });
+    stop();
+    at({ qualityKbps: 3096, positionMs: 500_000, isFilmsOwnPicture: true });
+    expect(told).toEqual([{ positionMs: 420_500, isPaused: false }]);
   });
 
   it("keeps the decision times of the newest playbacks alone, as warm-ups never played go (the M4 closing audit)", () => {

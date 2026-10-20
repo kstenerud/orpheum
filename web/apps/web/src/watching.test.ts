@@ -94,6 +94,20 @@ function watchingServed(
   return { watching: new Watching(api, () => clock.ms, preloads.start), clock };
 }
 
+describe("a playback asked for again because its player gave the film's own picture up (D323 §2)", () => {
+  it("tells the core so, which no other start does", async () => {
+    const heard: Heard[] = [];
+    const { watching } = watchingServed(heard);
+    await watching.decide(7, playableFormats);
+    await watching.decide(7, playableFormats, "ownPictureGivenUp");
+    const asked = heard.filter((request) => request.methodAndPath === "POST /playback");
+    expect(asked.map((request) => bodyField(request, "hasGivenUpOwnPicture"))).toEqual([
+      undefined,
+      true,
+    ]);
+  });
+});
+
 describe("the film being watched (D258)", () => {
   it("plays on the decision its film's page warmed up, asking once", async () => {
     const heard: Heard[] = [];
