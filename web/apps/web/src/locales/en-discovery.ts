@@ -65,12 +65,15 @@ export const enDiscovery = {
     },
     code: {
       heading: "Sign in with a code",
+      scan: "Scan this with a phone where you are signed in, and tap Activate.",
+      qr: "QR code that activates this TV",
       explain:
-        "On a phone or computer where you are signed in, open Your account and enter this code under Activate a device.",
+        "Or, on a phone or computer where you are signed in, open Your account and enter this code under Activate a device.",
       code: "Code",
       checkCode: "Check code",
       checkExplain:
         "Your other device now shows a check code too. If it is this same code, say so there.",
+      scannedExplain: "Waiting for them to activate it…",
       renewed: "The last code ended, so here is a new one.",
       enteredBy: "Someone in the household {{household}} entered this code.",
       confirm: "Sign this TV in to the household {{household}}?",

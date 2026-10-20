@@ -6,7 +6,8 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { handOffFragment } from "./discovery-start.ts";
-import { DeviceCodeSignIn, type DeviceCodeParts } from "./loader-device-code.tsx";
+import { activateLink, DeviceCodeSignIn, type DeviceCodeParts } from "./loader-device-code.tsx";
+import { qrDataUrl } from "./qr-code.tsx";
 import { buttonWithText, click, mount, settleUntil, type Mounted } from "./test-dom.tsx";
 
 let mounted: Mounted | undefined;
@@ -24,8 +25,13 @@ function fromBase64url(text: string): Uint8Array<ArrayBuffer> {
   );
 }
 
-// The key and outcome discovery/proof/devicecode_test.go holds: what the core's seal made.
+// The key, outcome and nonces discovery/proof/devicecode_test.go holds: what the core's seal made, and
+// the check code and key hash the core makes of them (D321).
 const fixture = {
+  deviceNonce: "AAECAwQFBgcICQoLDA0ODw",
+  coreNonce: "EBESExQVFhcYGRobHB0eHw",
+  checkCode: "dx9y-jewz",
+  keyHash: "rTBVo-NI60s-RZ3ENfKqkw",
   d: "xeruaKT9s4YsierbGsVdrQk8RzKuhPC2k453oBOIjJo",
   publicKey:
     "BMbJRSPCf69nfVclsx77C19vrA1JS1lRUkmpU5kSQdr53_JGKknN2W0eAMmPYZsdP_8JtRtLggy7CKKoOkhGKLg",
@@ -116,16 +122,19 @@ function partsAnswering(answers: unknown[]): {
           waiting.push(resolve);
         }),
       newKey: fixtureKey,
+      newNonce: () => fixture.deviceNonce,
+      loaderOrigin: "https://app.example",
     },
   };
 }
 
 describe("a television's sign-in by a code from the discovery's service (D293 §2)", () => {
-  it("shows its code, then the check code of its key, and goes on to the core with the hand-off", async () => {
+  it("shows its code and QR code, reveals its nonce once typed, shows the committed check code, and goes on with the hand-off", async () => {
     const service = partsAnswering([
       { code: "abcd-efgh", secret: "s", expiresIn: 600 },
       { state: "waiting" },
-      { state: "entered", coreId: "k7xq2", realm: "nas" },
+      { state: "entered", coreId: "k7xq2", realm: "nas", coreNonce: fixture.coreNonce },
+      {},
       { state: "slowDownIsAnsweredBy429" },
       {
         state: "activated",
@@ -139,16 +148,24 @@ describe("a television's sign-in by a code from the discovery's service (D293 §
     const page = mounted.container;
     await settleUntil(() => page.textContent.includes("abcd-efgh"));
     expect(page.querySelector('output[aria-label="Code"]')?.textContent).toBe("abcd-efgh");
+    // The QR code is the link that activates it, carrying its key's hash (D321).
+    const qr = page.querySelector('img[alt="QR code that activates this TV"]');
+    expect(qr?.getAttribute("src")).toBe(
+      qrDataUrl(activateLink("https://app.example", "abcd-efgh", fixture.keyHash)),
+    );
     service.release();
     await settleUntil(() => service.asked.length === 2);
     service.release();
     await settleUntil(() => page.querySelector('output[aria-label="Check code"]') !== null);
-    // The core makes the same check code of this key (discovery/proof's TestDeviceCheckCode_…), and
-    // the service names the household that entered it (the device code audit's M1).
-    expect(page.querySelector('output[aria-label="Check code"]')?.textContent).toBe("tasv-f9te");
+    // The core makes the same check code of this key and both nonces (discovery/proof's
+    // TestDeviceCheckCode_…), and the service names the household that entered it (the device code
+    // audit's M1).
+    expect(page.querySelector('output[aria-label="Check code"]')?.textContent).toBe(
+      fixture.checkCode,
+    );
     expect(page.textContent).toContain("Someone in the household nas entered this code.");
     service.release();
-    await settleUntil(() => service.asked.length === 4);
+    await settleUntil(() => service.asked.length === 5);
     service.release();
     await settleUntil(() => buttonWithText(page, "Yes, sign in") !== undefined);
     // It asks before it goes, "no" first, and goes only once told yes.
@@ -161,6 +178,7 @@ describe("a television's sign-in by a code from the discovery's service (D293 §
       "/device-codes",
       "/device-codes/state",
       "/device-codes/state",
+      "/device-codes/reveal",
       "/device-codes/state",
       "/device-codes/state",
     ]);
@@ -176,6 +194,21 @@ describe("a television's sign-in by a code from the discovery's service (D293 §
     expect(service.remembered).toEqual([
       expect.objectContaining({ coreId: "k7xq2", fingerprint, realm: "nas" }),
     ]);
+  });
+
+  it("shows no check code and reveals nothing when its QR code was scanned (D321)", async () => {
+    const service = partsAnswering([
+      { code: "abcd-efgh", secret: "s", expiresIn: 600 },
+      { state: "entered", coreId: "k7xq2", realm: "nas" },
+    ]);
+    mounted = await mount(<DeviceCodeSignIn parts={service.parts} onBack={() => undefined} />);
+    const page = mounted.container;
+    await settleUntil(() => page.textContent.includes("abcd-efgh"));
+    service.release();
+    await settleUntil(() => page.textContent.includes("Waiting for them to activate it"));
+    expect(page.textContent).toContain("Someone in the household nas entered this code.");
+    expect(page.querySelector('output[aria-label="Check code"]')).toBeNull();
+    expect(service.asked).toEqual(["/device-codes", "/device-codes/state"]);
   });
 
   it("goes nowhere when told no, nor when the outcome names another server than claimed it", async () => {
@@ -238,5 +271,13 @@ describe("a television's sign-in by a code from the discovery's service (D293 §
     const page = mounted.container;
     await settleUntil(() => page.querySelector('[role="alert"]') !== null);
     expect(page.textContent).toContain("No code could be had just now.");
+  });
+});
+
+describe("the link a TV's QR code carries (D321)", () => {
+  it("opens the loader's /activate with the code and the key's hash in the query", () => {
+    expect(activateLink("https://app.example", "abcd-efgh", "rTBVo-NI60s-RZ3ENfKqkw")).toBe(
+      "https://app.example/activate?code=abcd-efgh&key=rTBVo-NI60s-RZ3ENfKqkw",
+    );
   });
 });

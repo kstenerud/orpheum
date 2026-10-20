@@ -33,12 +33,17 @@ export type { RealmFound, RealmTyped } from "./realm.ts";
 export {
   deviceCheckCode,
   deviceCodeState,
+  deviceCommitment,
+  deviceKeyHash,
   newDeviceKey,
+  newDeviceNonce,
   openDeviceOutcome,
   requestDeviceCode,
+  revealDeviceNonce,
 } from "./device-code.ts";
 export type {
   ClaimedBy,
+  DeviceAsking,
   DeviceCode,
   DeviceCodeState,
   DeviceKey,
