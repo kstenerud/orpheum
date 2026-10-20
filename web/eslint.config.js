@@ -14,12 +14,13 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 const testFiles = ["**/*.test.{ts,tsx}"];
-// Playwright loads its config and its global setup by their default export.
+// Playwright loads its config, its global setup and a reporter by their default export.
 const toolingFiles = [
   "*.{js,cjs,ts}",
   "*/*/vite.config.ts",
   "e2e/playwright.config.ts",
   "e2e/server.ts",
+  "e2e/timings.ts",
   "e2e/acceptance.config.ts",
   "e2e/acceptance-server.ts",
 ];

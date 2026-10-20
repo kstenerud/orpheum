@@ -38,7 +38,8 @@ export default defineConfig({
   forbidOnly: true,
   ...pass,
   retries: 0,
-  reporter: [["list"]],
+  // The list as it runs, and every test's and step's timings kept (timings.ts).
+  reporter: [["list"], ["./timings.ts"]],
   timeout: 120_000,
   projects: [
     {

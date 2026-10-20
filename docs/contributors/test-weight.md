@@ -15,6 +15,22 @@ it found. Add a new entry when a new one turns up, in the commit that fixes it.
 Each entry says: the **mechanism**, the **instance** we found, **why it was invisible**, the
 **fix**, and the **warning sign**.
 
+## Every run keeps its timings
+
+Expect the tests to grow heavier and slower over time. So every run records where its time went,
+cheaply and always, and a run found slow is explained from what it already wrote, never by running
+it again to profile it (the owner, 2026-10-20). A new suite or tier keeps its timings from the
+start.
+
+- **The browser tier and the home acceptance** keep each test's time and each step's (a
+  navigation, a click, an `expect`'s wait, a `test.step`) in `.dev/browser-timings/`, the last 20
+  passes (`web/e2e/timings.ts`). `python3 scripts/browser_timings.py` lists the latest pass's
+  slowest tests against their median over the passes before, with their longest steps.
+- **check-pr** prints each step's time, and revert-red each file's.
+
+The first reading (2026-10-20) found two claims waiting about 10 s each on the core's
+`pendingEvery`, mechanism 1 below in the browser tier.
+
 ## The mechanisms
 
 ### 1. A production timer in a test's config, behind a start-up race
