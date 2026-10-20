@@ -61,6 +61,33 @@ func (service *Service) failurePolicy(ctx context.Context) (int64, time.Duration
 	return maxFailures, window, nil
 }
 
+// failureStretch is how far the failed sign-in limit stretches beyond one person on one network: a
+// network's limit is network times it, a household or a carrier's shared address being many people's
+// failures; and a person everywhere is held to everywhere times it, past which each sign-in waits
+// pace, slowing guessing spread across many networks without letting a stranger lock them out by
+// their name alone (the second audit's K2, the third's A13).
+type failureStretch struct {
+	network, everywhere int64
+	pace                time.Duration
+}
+
+// failureStretchOf reads the stretch's settings.
+func (service *Service) failureStretchOf(ctx context.Context) (failureStretch, error) {
+	network, err := service.settings.Int(ctx, settings.SignInFailureLimitNetworkMultiple)
+	if err != nil {
+		return failureStretch{}, err
+	}
+	everywhere, err := service.settings.Int(ctx, settings.SignInFailureLimitEverywhereMultiple)
+	if err != nil {
+		return failureStretch{}, err
+	}
+	pace, err := service.settings.Duration(ctx, settings.SignInEverywherePaceSeconds)
+	if err != nil {
+		return failureStretch{}, err
+	}
+	return failureStretch{network: network, everywhere: everywhere, pace: pace}, nil
+}
+
 // answerFailureAt waits until signin_failure_answer_seconds after began; a setting that cannot be read
 // waits nothing, the failure being told all the same.
 func (service *Service) answerFailureAt(ctx context.Context, began time.Time) {

@@ -58,3 +58,24 @@ func discoveryDefinitions() []Definition {
 			"the config file's retry_most_milliseconds until the constants sweep, 2026-10-20"),
 	}
 }
+
+// signInStretchDefinitions are how far the failed sign-in limit stretches beyond one person on one
+// network (the second audit's K2, the third's A13).
+func signInStretchDefinitions() []Definition {
+	return []Definition{
+		sourced(integerSetting(SignInFailureLimitNetworkMultiple, "4", 1, 100,
+			"how many times signin_failure_limit one network may fail to sign in within its window: a "+
+				"household or a carrier's shared address is many people's failures (K2)"),
+			"the second audit's K2, 2026-10-13: four"),
+		sourced(integerSetting(SignInFailureLimitEverywhereMultiple, "10", 1, 1000,
+			"how many times signin_failure_limit a person may fail to sign in from every network at once "+
+				"within its window before each of their sign-ins waits signin_everywhere_pace_seconds; a "+
+				"device that signed in before is not held to it (A13)"),
+			"the second audit's K2, 2026-10-13: ten"),
+		sourced(durationSetting(SignInEverywherePaceSeconds, time.Second, "10", 1, 300,
+			"seconds each sign-in of a person waits once they have failed past "+
+				"signin_failure_limit_everywhere_multiple: a guesser on many networks makes a few guesses a "+
+				"minute, and the person, who signs in once, waits seconds (A13)"),
+			"the third audit's A13: ten seconds"),
+	}
+}

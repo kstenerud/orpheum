@@ -127,6 +127,9 @@ const (
 	DiscoveryEndedCheckEverySeconds           Key = "discovery_ended_check_every_seconds"
 	DiscoveryRetryFirstSeconds                Key = "discovery_retry_first_seconds"
 	DiscoveryRetryMostSeconds                 Key = "discovery_retry_most_seconds"
+	SignInFailureLimitNetworkMultiple         Key = "signin_failure_limit_network_multiple"
+	SignInFailureLimitEverywhereMultiple      Key = "signin_failure_limit_everywhere_multiple"
+	SignInEverywherePaceSeconds               Key = "signin_everywhere_pace_seconds"
 	JobHealthWindowHours                      Key = "job_health_window_hours"
 	RetentionSweepEveryHours                  Key = "retention_sweep_every_hours"
 	InvariantsCheckEveryHours                 Key = "invariants_check_every_hours"
@@ -255,7 +258,7 @@ func buildRegistry() []Definition {
 	}, slices.Concat(
 		scanDefinitions(), jobMetadataAndPlaybackDefinitions(), deviceDefinitions(), upkeepAndDisplayDefinitions(),
 		retentionDefinitions(), backupDefinitions(), togetherDefinitions(), signInDefinitions(),
-		discoveryDefinitions(), upkeepSweepDefinitions(),
+		discoveryDefinitions(), upkeepSweepDefinitions(), signInStretchDefinitions(),
 	)...)
 }
 
