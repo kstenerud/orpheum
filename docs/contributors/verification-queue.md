@@ -440,3 +440,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   `libmfx-gen.so.1.2` and the iHD driver from the system, which only a machine with an Intel GPU
   can try; without a GPU the sandbox shows the same `-9` with the packages and without.
   (`deploy/Containerfile`)
+
+- [ ] **VQ46** — With orpheum-connect repackaged from main and nas.example built from main: on a TV's
+  browser (or any browser with no household), open `app.orpheum-app.com`, choose **Get a code**;
+  on the phone, Your account → Activate a device names `app.orpheum-app.com`; enter the TV's code
+  there; both screens show the same check code; **Yes, they match** opens the films on the TV, and
+  the TV is listed under Your devices. The code crosses the real service, and the outcome is sealed
+  to a key only that browser made, which no test here runs end to end.
+  (`web/apps/web/src/loader-device-code.tsx`, `internal/core/auth/devicecodes.go`, orpheum-connect
+  `internal/devicecodes/`)
