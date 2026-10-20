@@ -49,13 +49,15 @@ func DeviceCheckCode(publicKey string) (string, error) {
 
 // DeviceOutcome is what an activated device needs, sealed to its key so the service passes it on
 // unread: the core's id and identity key's fingerprint, which the device checks what it reaches by,
-// the realm it signs in by, and the code of the session the core keeps for its client origin to take
-// (D308 §4).
+// the realm it signs in by, the code of the session the core keeps for its client origin to take
+// (D308 §4), and the name of the person it signs in as, which the device asks its person to confirm
+// before going on (the device code audit's M1).
 type DeviceOutcome struct {
 	CoreID      string `json:"coreId"`
 	Fingerprint string `json:"fingerprint"`
 	Realm       string `json:"realm"`
 	HandOffCode string `json:"handOffCode"`
+	Person      string `json:"person,omitempty"`
 }
 
 // SealDeviceOutcome seals outcome to the device's publicKey, base64url, with HPKE's base mode

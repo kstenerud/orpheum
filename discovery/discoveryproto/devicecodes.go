@@ -63,11 +63,16 @@ type DeviceCodeStateRequest struct {
 
 // DeviceCodeStateResponse is how a device's code stands: one of the DeviceCode states and, once
 // activated, the outcome the core sealed to the device's key, base64url, and a bootstrap token that
-// finds the core, as a realm sign-in's does.
+// finds the core, as a realm sign-in's does. Once entered, the service names the core that claimed
+// the code and that core's realm, as the service knows them, not as the core says: what the device
+// shows its person to confirm before going on, and checks the sealed outcome against (the device
+// code audit's M1, 2026-10-20). A core with no realm is named by its id alone.
 type DeviceCodeStateResponse struct {
 	State          string `json:"state"`
 	Sealed         string `json:"sealed,omitempty"`
 	BootstrapToken string `json:"bootstrapToken,omitempty"`
+	CoreID         string `json:"coreId,omitempty"`
+	Realm          string `json:"realm,omitempty"`
 }
 
 // DeviceCodeClaimRequest is a core claiming the code a person entered on it, as safe32code.Read
@@ -76,11 +81,14 @@ type DeviceCodeClaimRequest struct {
 	Code string `json:"code"`
 }
 
-// DeviceCodeClaimResponse is the device's public key and platform, as it asked with them. A code no
-// device waits with, or one another core claimed, is not_found.
+// DeviceCodeClaimResponse is the device's public key and platform, as it asked with them, and how
+// many seconds ago it asked, which the person entering the code is shown: a code asked for long
+// before is more likely one someone sent them (the device code audit's M3). A code no device waits
+// with, or one another core claimed, is not_found.
 type DeviceCodeClaimResponse struct {
-	PublicKey string `json:"publicKey"`
-	Platform  string `json:"platform,omitempty"`
+	PublicKey       string `json:"publicKey"`
+	Platform        string `json:"platform,omitempty"`
+	AskedSecondsAgo int    `json:"askedSecondsAgo"`
 }
 
 // DeviceCodeOutcomeRequest is the core that claimed a code saying how it ended: the outcome sealed to
