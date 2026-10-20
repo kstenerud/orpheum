@@ -506,6 +506,10 @@ func buildDependencies(
 	authService := auth.NewService(database, systemClock, rand.Reader, settingsService)
 	// Each link keeps its secret sealed, so a person's own link can be shown to them again (K7).
 	authService.SealLinksWith(secretStore)
+	authService.OnSignInLimitFull(func() {
+		logger.WarnContext(ctx, "the failed-sign-in limit is full, so sign-ins from places with no recent failure "+
+			"are refused until its counts age out: many networks are failing sign-ins at once")
+	})
 	codes := runSetupCodes{directories: directories}
 	code, err := authService.EnsureSetupCode(ctx, codes)
 	if err != nil {

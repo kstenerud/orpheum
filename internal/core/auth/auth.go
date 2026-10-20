@@ -180,6 +180,13 @@ type Service struct {
 	onActivated func(context.Context, Activation)
 }
 
+// OnSignInLimitFull has onFull told when the failed-sign-in limit holds all the keys it may and
+// refuses an attempt that needs another, at most once a minute: only an attack from thousands of
+// networks at once fills it (failureLimiter's maxLimiterKeys).
+func (service *Service) OnSignInLimitFull(onFull func()) {
+	service.limiter.tellWhenFull(onFull)
+}
+
 // NewService returns a Service.
 func NewService(database *store.Database, clockSource clock.Clock, random io.Reader, settings Settings) *Service {
 	return &Service{

@@ -43,6 +43,11 @@
 //     TestSignIn_SaysNothingAboutWhichPartWasWrong and
 //     TestHashSlots_RunAtMostSoManyAtOnceAndRefuseOneThatWaitsTooLong.
 //
+//   - The limit's memory is bounded: a key with no failure left in the window is dropped within a
+//     minute, and with maxLimiterKeys held an attempt needing a new key is refused, no count dropped
+//     to make room (the owner, 2026-10-20). TestFailureLimiter_DropsKeysWithNoFailureLeftInTheWindow,
+//     TestFailureLimiter_FullRefusesAnAttemptNeedingANewKeyAndKeepsEveryCount.
+//
 //   - A session is stored only as its token's SHA-256 and ends when revoked, and belongs to the
 //     device it was signed in on: the one the client remembers, or a new one the client names
 //     (D217 §8, D221). Enforced by TestSignIn_IssuesASessionUntilSignedOut. Signed out on itself,
