@@ -305,8 +305,10 @@ func TestWrite_TheConfigsServeTheNameRelayThroughTheVPSAndNameTheMedia(t *testin
 		t.Fatal(err)
 	}
 	if string(roots) != `["/mnt/tank/media/video/movies","/srv/a \"b\""]` || node["name"] != "nas" ||
-		node["confinement_policy"] != "report" || node["core_socket"] != "/run/orpheum/core/core.sock" {
-		t.Errorf("the node config is %v; want the media, the machine's name, confinement reported and "+
+		node["confinement_policy"] != "require" || node["core_socket"] != "/run/orpheum/core/core.sock" {
+		// Confinement required: a node does not run FFmpeg unconfined (D273 §5 as revised by the
+		// owner, 2026-10-20, the Plex-chain review's N2).
+		t.Errorf("the node config is %v; want the media, the machine's name, confinement required and "+
 			"the core's socket", node)
 	}
 	tunnel := readFile(t, filepath.Join(dir, tunnelConfig))
@@ -356,9 +358,12 @@ func TestWrite_ReleaseRefusesAnUnmigratableDatabaseAndStagingStartsOver(t *testi
 		kind                Kind
 		wantWhen, wantLevel string
 		wantProject         string
+		// A release node requires confinement; staging, in a sandbox that may lack it, reports (D273
+		// §5 as revised by the owner, 2026-10-20, the Plex-chain review's N2).
+		wantConfinement string
 	}{
-		{Release, "refuse", "info", "orpheum"},
-		{Staging, "start_over", "debug", "orpheum-staging"},
+		{Release, "refuse", "info", "orpheum", "require"},
+		{Staging, "start_over", "debug", "orpheum-staging", "report"},
 	} {
 		t.Run(string(tc.kind), func(t *testing.T) {
 			t.Parallel()
@@ -370,6 +375,11 @@ func TestWrite_ReleaseRefusesAnUnmigratableDatabaseAndStagingStartsOver(t *testi
 			if core["database"]["when_unmigratable"] != tc.wantWhen || core["log"]["level"] != tc.wantLevel {
 				t.Errorf("%s's core config: when_unmigratable %v, log level %v; want %s and %s", tc.kind,
 					core["database"]["when_unmigratable"], core["log"]["level"], tc.wantWhen, tc.wantLevel)
+			}
+			node := decodeTOML(t, filepath.Join(dir, nodeConfig))
+			if node["node"]["confinement_policy"] != tc.wantConfinement {
+				t.Errorf("%s's node config: confinement_policy %v; want %s", tc.kind,
+					node["node"]["confinement_policy"], tc.wantConfinement)
 			}
 			if env := readFile(t, filepath.Join(dir, environmentFile)); !strings.Contains(env,
 				"COMPOSE_PROJECT_NAME="+tc.wantProject+"\n") {

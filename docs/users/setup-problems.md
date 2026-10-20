@@ -73,3 +73,20 @@ so it cannot tell. The server checks for itself: its **System** page warns if FF
 unconfined. To check the host itself, run `cat /sys/kernel/security/lsm` on it (on Proxmox, the
 host's shell, not the container's): the list must include `landlock`; if it does not,
 `cat /proc/cmdline` shows whether the kernel was started with `lsm=landlock,…`.
+
+## The media node keeps restarting, or System says it is not answering
+
+Its log (`docker compose logs orpheum-node`, in the server's directory) says
+`node.confinement_policy is "require", and not every mechanism is in force`. The node runs FFmpeg
+on every film it reads, and a crafted file can attack FFmpeg, so a release node runs it only inside
+Landlock and seccomp, and does not start without them (since 2026-10-20; before, it ran and warned).
+
+- **Landlock missing:** the host's kernel must list it. On the host (on Proxmox, the host's shell,
+  not the container's), `cat /sys/kernel/security/lsm` must include `landlock`; if it does not, add
+  `lsm=landlock,` before the list `cat /proc/cmdline` shows, in the kernel's command line
+  (`GRUB_CMDLINE_LINUX` in `/etc/default/grub`, then `update-grub` and a restart), or use a newer
+  kernel.
+- **seccomp missing:** the kernel was built without `CONFIG_SECCOMP_FILTER`; use one with it.
+- **If you cannot fix the kernel** and accept the risk, set `confinement_policy = "report"` under
+  `[node]` in the node's config: it then runs FFmpeg unconfined, and the System page warns.
+

@@ -374,6 +374,8 @@ export const en = {
     action: "What to do: {{action}}",
     node: "Machine: {{node}}",
     awaitingHello: "Not heard from since the server started.",
+    notConnectedHint:
+      "If it stops each time it starts, its log says why. A machine whose kernel lacks Landlock or seccomp does not start its node, so that FFmpeg never runs unconfined: see Setting up a server: problems seen, and their fixes.",
     needsUpdate:
       "The media machine needs updating: it runs another version of Orpheum than the server, and its work waits until it is updated.",
     retireNode: "This machine is gone for good…",

@@ -205,6 +205,10 @@ it("the System page says a machine that stopped answering is silent, and when it
     stuck: [],
   });
   expect(silent).toContain("Not answering. Last heard from at");
+  // Where to look when it stops as it starts: a kernel without Landlock or seccomp (N2).
+  expect(silent).toContain(
+    "A machine whose kernel lacks Landlock or seccomp does not start its node",
+  );
   expect(silent).not.toContain("FFmpeg runs");
   mounted?.unmount();
   const awaiting = await shown({
