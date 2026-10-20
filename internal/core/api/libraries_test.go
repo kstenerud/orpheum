@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"slices"
 	"strings"
 	"sync"
@@ -396,6 +397,14 @@ func TestLibraries_AnAdminCreatesOneOverTheNodesRoots(t *testing.T) {
 		`"missingMountPaths":[],"watch":{"isWatching":false,"cause":"watch-limit","reason":"too many folders"}}]`) {
 		t.Errorf("an admin's GET /libraries = %s", listed.body)
 	}
+	// From away, where the admin does not administer, no roots (the Plex-chain review's T2).
+	harness.server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")})
+	if away := harness.do(t, http.MethodGet, "/libraries", admin, nil); strings.Contains(away.body, "/media/shows") {
+		t.Errorf("an admin's GET /libraries from away = %s; want no roots", away.body)
+	}
+	harness.server.SetHomeNetworks([]netip.Prefix{
+		netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128"),
+	})
 	scanned := harness.do(t, http.MethodPost, "/libraries/1/scan", admin, nil)
 	if scanned.status != http.StatusAccepted || !strings.Contains(scanned.body, `"askedRootCount":1`) {
 		t.Errorf("POST /libraries/1/scan = %d %s", scanned.status, scanned.body)

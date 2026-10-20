@@ -157,7 +157,9 @@ func (server *Server) activateDevice(ctx context.Context, input *ActivationInput
 	}
 	forUserID := principal.UserID
 	if input.Body.UserID != 0 && input.Body.UserID != forUserID {
-		if !principal.IsAdmin() {
+		// Administering here, not the role alone: a stolen admin session away from home must not
+		// plant devices as others (the Plex-chain review's T1).
+		if !administersHere(ctx, principal) {
 			return nil, newError(http.StatusForbidden, CodeForbidden,
 				"only an administrator may activate a device for someone else")
 		}
@@ -193,6 +195,8 @@ func pairingRefusal(err error) *Error {
 		return newError(http.StatusNotFound, CodeNotFound, auth.ErrNoPairing.Error())
 	case errors.Is(err, auth.ErrTooManyPairings):
 		return newError(http.StatusTooManyRequests, CodeRateLimited, auth.ErrTooManyPairings.Error())
+	case errors.Is(err, auth.ErrActivatesAnAdmin):
+		return newError(http.StatusForbidden, CodeForbidden, auth.ErrActivatesAnAdmin.Error())
 	case errors.Is(err, auth.ErrNoDeviceName):
 		return invalidRequestAt(http.StatusUnprocessableEntity, "body.deviceName", auth.ErrNoDeviceName.Error())
 	}

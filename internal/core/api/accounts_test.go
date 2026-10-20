@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"slices"
 	"strconv"
 	"strings"
@@ -300,6 +301,20 @@ func TestPairing_AnAdminActivatesADeviceForSomeoneElseAndOnlyAnAdmin(t *testing.
 		map[string]any{"code": pairing.Body.Code}), http.StatusUnprocessableEntity, "body.deviceName")
 	wantError(t, harness.do(t, http.MethodPost, "/activations", partner,
 		map[string]any{"code": "zzzz-zzzz", "deviceName": "TV"}), http.StatusNotFound, CodeNotFound)
+	// Never for another admin, and never from away, where the admin does not administer (the
+	// Plex-chain review's T1).
+	other, err := harness.authService.CreateUser(t.Context(),
+		auth.NewUser{Name: "second", Password: "second-password", Role: auth.RoleAdmin})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantError(t, harness.do(t, http.MethodPost, "/activations", admin,
+		map[string]any{"code": pairing.Body.Code, "deviceName": "TV", "userId": other}),
+		http.StatusForbidden, CodeForbidden)
+	harness.server.SetHomeNetworks([]netip.Prefix{netip.MustParsePrefix("192.168.1.0/24")})
+	wantError(t, harness.do(t, http.MethodPost, "/activations", admin,
+		map[string]any{"code": pairing.Body.Code, "deviceName": "TV", "userId": made}),
+		http.StatusForbidden, CodeForbidden)
 }
 
 // Codes no device shows, entered again and again, limit the person entering them, as failed

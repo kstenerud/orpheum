@@ -304,7 +304,8 @@ func (server *Server) getTitle(ctx context.Context, input *ItemInput) (*ItemDeta
 		versionBody := VersionBody{ID: version.ID, EditionID: version.EditionID, Files: []FileDetailBody{}}
 		for _, file := range version.Files {
 			fileBody := FileDetailBody{ID: file.ID, SizeBytes: file.SizeBytes, Streams: []StreamBody{}}
-			if principal.IsAdmin() {
+			// Paths are shown where the admin administers, never from away (the Plex-chain review's T2).
+			if administersHere(ctx, principal) {
 				fileBody.Path = file.Path
 			}
 			for _, stream := range file.Streams {
