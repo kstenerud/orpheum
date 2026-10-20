@@ -24,6 +24,10 @@
 //     and any part wrong proves nothing either way: an ask holds for its person, a tag for its core
 //     and identity key (D297 §3). Enforced by TestRealmKey_IsTheVectorsWhateverTheCaseAndSpacesTyped
 //     and TestRealmKey_AnyPartWrongProvesNothing.
+//   - A device code's outcome opens only with the key of the device that asked, and the check code
+//     both screens show is made of that key, so a key swapped in shows another (D293 §2). Enforced by
+//     TestSealDeviceOutcome_OpensOnlyWithTheDevicesKeyAndAsTheBrowserOpensIt and
+//     TestDeviceCheckCode_IsTheKeysAndTheBrowsersAlike.
 //   - The fingerprint is the public key's SHA-256 in base64url. Enforced by
 //     TestFingerprint_IsTheKeysSHA256InBase64URL.
 //   - Imports nothing from internal/, which a module outside Orpheum cannot import. Enforced by
@@ -38,4 +42,5 @@
 //
 //   - proof.go: what is signed, and the check.
 //   - realm.go: a realm sign-in's key, and what it proves.
+//   - devicecode.go: a device code through the paid service: its check code, and its sealed outcome.
 package proof

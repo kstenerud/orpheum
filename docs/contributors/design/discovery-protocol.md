@@ -736,8 +736,9 @@ code.
   password sign-in where §3.7 allows admin. An admin entering a code for another admin confirms it,
   and the core logs who did it for whom (A11, code K10) [I]. **The code must change:** every pairing
   issues the whole role (`auth.go`, `issueSession`).
-- **Paid: in the closed beta, sealed by HPKE** (D293 §2, revising D292 §3's deferral). Not built;
-  the design:
+- **Paid: in the closed beta, sealed by HPKE** (D293 §2, revising D292 §3's deferral). Being built
+  (2026-10-20; the owner, after nas.example's Activate a device named the core's client origin, which no
+  TV remote types); the design:
   - the page names no core, so the **service issues the code**; the core of the signed-in person who
     enters it claims it from the service. The service limits asking for codes per source site and
     fairly across sources (S13);
@@ -753,6 +754,20 @@ code.
     (D293 §2). The line naming where the asking device is (D290 §5, S4: "The TV asking is near
     Berlin, on Telekom", neutral rather than a verdict, A11, U2-9) waits until after the beta,
     since it needs an IP-location database.
+  - **The wire** (`discoveryproto/devicecodes.go`, `proof/devicecode.go`). The device posts its
+    public key (the uncompressed point, base64url) and platform to `POST /client/v1/device-codes`
+    and is given a code, `xxxx-xxxx` in safe32, a secret and a life of ten minutes; it asks
+    `POST /client/v1/device-codes/state` by the secret: `waiting`, `entered`, `activated` (with the
+    sealed outcome and a bootstrap token) or `ended`. The person enters the code on their core as
+    any code; a code the core did not issue it claims at `POST /core/v1/device-codes/claim`, which
+    gives the device's key and platform, once a core has it no other. **The check code is made of
+    the device's key** (`proof.DeviceCheckCode`), so the device shows it without another trip and a
+    key the service swapped in shows the person another code. On a match the core keeps the session
+    as a realm sign-in's hand-off (D308 §4) under `proof.DeviceCodePerson` of the code, seals the
+    hand-off's code, its `coreId`, fingerprint and realm (`proof.SealDeviceOutcome`; HPKE's info
+    names the use), and posts it to `POST /core/v1/device-codes/outcome`; no match posts none,
+    which ends the code. The service gives the device the blob with a bootstrap token for the core
+    under that person, and the device goes on to the client origin as a realm sign-in does.
 
 ### 3.2 The paths
 
@@ -1009,7 +1024,7 @@ the core must act on (enrol again, another instance running) carries a code of i
 | `DELETE /core` | leave; closes the connection and ends the tokens | yes |
 | claim approval (§2.2) | the core's admin allows or refuses an account's claim | after the beta |
 | re-key (§2.8) | a new key's enrolment, countersigned by the old key | deferred |
-| paid device codes (§3.1) | the core claims a code the service issued, and passes back the outcome sealed by HPKE | no; in the beta (D293 §2) |
+| paid device codes (§3.1) | `POST /device-codes/claim`, `POST /device-codes/outcome`: the core claims a code the service issued, and passes back the outcome sealed by HPKE | being built (D293 §2) |
 
 ### Client (`<discovery>/client/v1`): a hash, code or locator the device holds; no account
 
@@ -1018,7 +1033,7 @@ the core must act on (enrol again, another instance running) carries a code of i
 | `POST /locate` | link-secret hash → paths + a bootstrap token; by the hash's use policy |
 | `POST /paths` | locator or bootstrap token → current paths, ICE servers, the core's API major, its `state`, the client's `clientPrefix` |
 | `POST /cores/{id}/offer` | locator + SDP offers (up to four), each with its proof → the core's answers, signed |
-| device codes (§3.1) | own: the core's `/pairings`, passed through (D288); paid: issued by the service, the outcome sealed to the device (D293 §2) |
+| device codes (§3.1) | own: the core's `/pairings`, passed through (D288); paid: `POST /device-codes`, `POST /device-codes/state`, issued by the service, the outcome sealed to the device (D293 §2) |
 | dead-end report (§3.6) | a locator or bootstrap token → counted for its core's week, with no device identifier (D293 §7) |
 | `GET /client-floor` | nothing → the client versions the discovery refuses, which its loader runs none of (D308 §6); an own discovery refuses none |
 
