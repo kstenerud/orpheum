@@ -3,10 +3,14 @@
 package main
 
 import (
+	"bytes"
+	"log/slog"
 	"net"
+	"strings"
 	"testing"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
+	"github.com/kstenerud/orpheum/internal/core/auth"
 )
 
 // The heartbeat's own candidates are the machine's global addresses, a private one marked as
@@ -52,5 +56,23 @@ func TestICEServersOf_PassesTheDiscoverysServersWhole(t *testing.T) {
 	if len(got) != 2 || got[0].URLs[0] != "stun:discovery.example:3478" || got[1].Username != "user" ||
 		got[1].Credential != "secret" {
 		t.Errorf("iceServersOf = %+v; want both servers, the TURN one with its credentials", got)
+	}
+}
+
+// Each device a code activates is logged with who entered the code and for whom, so a device
+// someone talked a person into activating is on the record (the device code audit's M4).
+func TestLogActivation_NamesWhoActivatedWhatForWhom(t *testing.T) {
+	t.Parallel()
+	var logged bytes.Buffer
+	logActivation(slog.New(slog.NewJSONHandler(&logged, nil)))(t.Context(), auth.Activation{
+		ByUserID: 1, ForUserID: 2, DeviceName: "Living room TV", Platform: "Tizen", IsThroughService: true,
+	})
+	for _, want := range []string{
+		`"msg":"a device was activated by a code"`, `"byUser":1`, `"forUser":2`, `"device":"Living room TV"`,
+		`"platform":"Tizen"`, `"throughService":true`,
+	} {
+		if !strings.Contains(logged.String(), want) {
+			t.Errorf("logged %s; want %s in it", logged.String(), want)
+		}
 	}
 }
