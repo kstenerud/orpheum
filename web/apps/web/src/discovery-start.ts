@@ -7,7 +7,7 @@
  * answers the core signed. On the core's own origin none of it runs.
  */
 
-import { browserLocalNetwork, type LocalNetwork } from "./local-network.ts";
+import { browserLocalNetwork, type LocalNetwork, type LocalNetworkState } from "./local-network.ts";
 import {
   connectRtc,
   discoverySignaller,
@@ -339,8 +339,8 @@ function rankOf(target: Target, path: Reached): number {
  * discovery (the protocol's §3.3; W2c, which races the names and then falls back). Its WebRTC
  * connection, once made, serves every later move to WebRTC. The LAN name is tried as the browser's
  * local-network permission allows (W2c item 1): never once denied, and while the browser is still to
- * ask, only in the first race, whose request is what has it ask; the look for a better path leaves
- * it out until the person answers.
+ * ask, asked once to raise the prompt, the race never waiting on it (raced); the look for a better
+ * path leaves it out until the person answers.
  */
 export async function reachCore(
   client: DiscoveryClient,
@@ -364,10 +364,9 @@ export async function reachCore(
     const origin = await firstDirectPath(urls, client.fetch);
     return origin === undefined ? undefined : { kind: "direct", origin };
   };
-  const isDenied = (await localNetwork.state()) === "denied";
-  const first =
-    (await direct(isDenied ? notLan(target.directUrls) : target.directUrls)) ??
-    (await overWebrtc());
+  const state = await localNetwork.state();
+  const isDenied = state === "denied";
+  const first = (await direct(raced(target, state, client.fetch))) ?? (await overWebrtc());
   // Whether the page is in the house: its LAN name answered. There WebRTC finds the LAN pair, and
   // the core's public names are never better than it: through them the page is away, with no admin
   // (D300 §4; the owner's Firefox at home, 2026-10-15, moved to the public IPv6 name and lost admin).
@@ -407,6 +406,26 @@ export async function reachCore(
     onLocalNetworkGranted: (listener) => localNetwork.onGranted(listener),
     onLocalNetworkAsking: askingWhereTried(target, isDenied, localNetwork),
   };
+}
+
+/**
+ * The names the first race tries, as the browser's local-network permission allows. While the browser
+ * is still to ask, the LAN name is asked once apart, which is what raises its prompt, and left out of
+ * the race: Firefox holds that request until the person answers, and a race waiting on it kept the
+ * page on "Connecting" with the prompt up and no word of why (the owner's staging test, 2026-10-20).
+ */
+function raced(
+  target: Target,
+  state: LocalNetworkState,
+  send: typeof fetch | undefined,
+): readonly string[] {
+  if (state === "granted" || state === "unknown") {
+    return target.directUrls;
+  }
+  if (state === "prompt" && target.lanUrls.length > 0) {
+    firstDirectPath(target.lanUrls, send).catch(() => undefined);
+  }
+  return target.directUrls.filter((url) => !target.lanUrls.includes(url));
 }
 
 /**
