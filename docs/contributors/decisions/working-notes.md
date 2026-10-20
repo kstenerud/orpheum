@@ -21098,4 +21098,7 @@ Refines [D293](#d293--the-discoverys-open-questions-answered-a-live-instance-is-
 5. **Activating needs a session that manages the account**, one signed in with a password, never a
    device a code activated (D292 §4).
 
-**Status:** Decided 2026-10-20.
+**Status:** Decided 2026-10-20; built 2026-10-20: §1 and the TV's side of §2–§3 in an earlier commit, the core's
+claims in an earlier commit, the service's commitment and reveal in orpheum-connect, §2's one tap and
+§4 in an earlier commit, §5 by Activate a device's existing need of a session that manages the account. On a
+real TV: VQ48.
