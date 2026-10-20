@@ -93,6 +93,36 @@ describe("the paths a core is reached by after the first (webrtc-transport.md W2
     expect(isToldAsking(noLan)).toBe(false);
   });
 
+  it("while the browser asks, raises its prompt with the LAN name and never waits on the answer", async () => {
+    const tried: string[] = [];
+    // Firefox holds the LAN name's request until the person answers its prompt: here, never.
+    const fetched: typeof fetch = (url) => {
+      const origin = new URL(url instanceof Request ? url.url : url.toString()).origin;
+      tried.push(origin);
+      return origin === lan
+        ? new Promise<Response>(() => undefined)
+        : Promise.resolve(new Response("{}", { status: 200 }));
+    };
+    // Waiting on the LAN name, the race would hold the public one for betterPathGraceMs (1 s).
+    const reaching = await Promise.race([
+      reachCore({ clientApi: "https://discovery.example/client/v1", fetch: fetched }, target, {
+        state: () => Promise.resolve("prompt"),
+        onGranted: () => () => undefined,
+        onAsking: () => () => undefined,
+      }),
+      new Promise<"waited">((resolve) =>
+        setTimeout(() => {
+          resolve("waited");
+        }, 500),
+      ),
+    ]);
+    if (reaching === "waited") {
+      throw new Error("the first race waited on the LAN name the browser's prompt holds");
+    }
+    expect(reaching.first).toEqual({ kind: "direct", origin: ipv6 });
+    expect(tried).toContain(lan);
+  });
+
   it("tries WebRTC first when the LAN name fails, the public names only after (D300 §4)", async () => {
     const tried: string[] = [];
     const fetched: typeof fetch = (url) => {

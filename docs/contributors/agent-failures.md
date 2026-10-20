@@ -49,6 +49,20 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A38 — Said Firefox fails a LAN request at once while its prompt waits; it holds it (2026-10-20)
+
+- **What happened:** the agent recorded in idiosyncrasies.md, and built the local-network permission
+  check on, the claim that while Firefox's Local Network Access prompt waits, each request to the LAN
+  name fails at once. Firefox holds the request that raised the prompt until it goes, so the page's
+  first race, which waited on it, kept the page on "Connecting to the server…" for as long as the
+  prompt was up, and the line explaining the prompt, shown only in the app, never appeared. The false
+  belief came from one console log read without timings: "prompt action: (null)" followed by a
+  failure looked immediate.
+- **Caught by:** the owner, testing the line on staging with the console open.
+- **Gate:** `discovery-paths.test.ts`'s "while the browser asks, raises its prompt with the LAN name
+  and never waits on the answer", whose LAN request never settles. The lesson: a claim about when a
+  browser fails a request needs the timing seen, not inferred from the order of log lines.
+
 ### A37 — Put staging's client origins in the household zone that forbids every certificate (2026-10-19)
 
 - **What happened:** to give staging's client origins one wildcard route, the agent recommended

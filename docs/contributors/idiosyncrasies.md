@@ -201,16 +201,17 @@ User-Agent (D263; the User-Agent is logged only).
   normal one.
 - **Cause:** Firefox's Local Network Access (on for everyone from Firefox 151; first behind Strict
   tracking protection in 149) asks before a public origin's page reaches a private address, as the
-  core's LAN name resolves to. Until the prompt is answered the request fails at once, rather than
-  waiting; a grant without "Remember" lasts only for a while, after which requests fail again; and
+  core's LAN name resolves to. Until the prompt is answered the request does not go through (held
+  while it is up, see below); a grant without "Remember" lasts only for a while, after which requests fail again; and
   one the prompt answered "Block" with is kept per site, so a profile that once blocked never asks
   again. The page had chosen the LAN name while it answered, and kept it.
 - **What we do:** the page keeps its requests on a path that works (`web/packages/sdk/src/path-keeper.ts`):
   a request that fails for the network's sake moves the page to another path, the next of the core's
   names that answers, else WebRTC, and is sent again; every 30 s, and when the browser comes back
   online, the page asks whether a better path answers now, so the LAN is moved to once the prompt is
-  allowed (webrtc-transport.md W2c items 5 and 6). Asking the permission's state first (W2c item 1)
-  and the line explaining the prompt (item 8) are still to come.
+  allowed (webrtc-transport.md W2c items 5 and 6). The page reads the permission's state first (W2c
+  item 1) and says why the browser asks (item 8), and the discovery offers the LAN name only to a
+  device that seems to be at home (the protocol's §3.2).
 - **And with a service worker:** even granted ("prompt action: auto_allow" in the console), every
   request a page made to the LAN name failed once the page's service worker controlled it: the
   health check and the sign-in, made before, went through; the core received each request after
@@ -246,11 +247,16 @@ User-Agent (D263; the User-Agent is logged only).
   `kept-path.ts`); at home it stays on WebRTC, a direct pair in the house, which counts as home (D300).
   The hand-off's redemption carries an idempotency key, so a repeat on another path after its answer
   was dropped is given the same session rather than a spent code. VQ49 asks Firefox at home.
-- **While its prompt waits** ("prompt action: (null)" in the console, every time in a private
-  window, which keeps no permission), Firefox fails each request to the LAN name at once. The page now
-  reads the permission (`local-network`, or `local-network-access` before) and leaves the LAN name out
-  of its look for a better path until it is granted, then looks at once; one denied is never tried
-  (`web/apps/web/src/local-network.ts`).
+- **While its prompt waits** (every time in a private window, which keeps no permission), Firefox
+  holds the request that raised it until the prompt goes, then logs "prompt action: (null)" for one
+  never answered and fails it. Requests to the LAN name after it fail too. First read as failing at
+  once (2026-10-20); the owner's next run (the same day) showed the page on "Connecting to the
+  server…" for as long as the prompt was up, its first race waiting on that request, the line
+  explaining the prompt not yet shown. The page now reads the permission (`local-network`, or
+  `local-network-access` before): while the browser is still to ask, it asks the LAN name once apart,
+  which raises the prompt, races without it (`raced` in `web/apps/web/src/discovery-start.ts`), and
+  leaves it out of its look for a better path until it is granted, then looks at once; one denied is
+  never tried (`web/apps/web/src/local-network.ts`).
 - **Evidence:** nas.example's and staging's logs, 2026-10-15, Firefox 157 on macOS; [Mozilla bug
   2059274](https://bugzilla.mozilla.org/show_bug.cgi?id=2059274) on when Firefox asks;
   undoing a block: the site's permissions in the address bar, or `about:preferences#privacy`'s

@@ -15,7 +15,7 @@ export const enDiscovery = {
     connecting: "Connecting to the server…",
     localNetwork: {
       asking:
-        "Your browser is asking to reach devices on your network. Allow it, and films play over your home network instead of going out and back.",
+        "Your browser is asking to reach devices on your network. Allow it, and films play over your home network instead of going out and back. If you're not at home right now, it's fine to choose Block.",
       dismiss: "Dismiss",
     },
     none: {

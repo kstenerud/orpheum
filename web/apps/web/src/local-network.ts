@@ -3,9 +3,10 @@
 /**
  * The browser's local-network permission (webrtc-transport.md W2c item 1): whether a page on a public
  * origin may reach the core's LAN name. Firefox's Local Network Access and Chrome's ask the person
- * first, and while the prompt waits every request to the LAN name fails at once; a private window
- * asks again each time (the owner's Firefox on staging, 2026-10-20). A browser that has no such
- * permission says "unknown", and the page tries the LAN name as it always did.
+ * first; while the prompt waits Firefox holds the request that raised it, and fails it once the
+ * prompt goes unanswered; a private window asks again each time (the owner's Firefox on staging,
+ * 2026-10-20). A browser that has no such permission says "unknown", and the page tries the LAN name
+ * as it always did.
  */
 
 /** Where the permission stands. */
