@@ -343,6 +343,41 @@ Each entry says: the **mechanism**, the **instance** we found, **why it was invi
 - **Warning sign:** a browser-tier test whose assertions are a layout's boxes or computed styles; a
   browser-mode test that imports a page needing the API (it belongs in the tier).
 
+### 20. A probe's red run to its end
+
+- **Mechanism:** a revert-red probe asks whether any test goes red, and one red answers it; but
+  its runs (vitest, `go test`) ran every test after the first failure, the whole of a widely
+  imported file's importers' tests.
+- **Instance** (check-pr, 2026-10-20): reverting `locales/en.ts` turned five of 73 test files
+  red in 34 s; stopped at its first, 6 s. Most of the batch's web probes were red, many at 40 to
+  60 s, so its code part took 284 s.
+- **Why it was invisible:** a red is the probe's success, so a slow red read as a check doing its
+  job. The browser tier already stopped at its first failure (`--max-failures=1`); the cheap runs
+  never did.
+- **Fix:** every test run a probe makes stops at its first red: vitest `--bail=1`, `go test
+  -failfast` (`revert_red_attempts.py`'s `FIRST_RED_VITEST`, `FIRST_RED_GO`). A green run still
+  runs everything, so nothing is passed on less. Which red is met first may differ, so a file that
+  both fails a test and breaks a build may be reported by either; both are covered. The spot check
+  still runs to the end, to list every failure.
+- **Warning sign:** a red probe whose time is close to its green suite's.
+
+### 21. A probe tree's type check, cold every time
+
+- **Mechanism:** revert-red's kept worktrees keep their ignored files between runs, yet the app's
+  `.tsbuild` in them held no build info, so `tsc -b` there built the app from nothing. Why is not
+  known: a red type check keeps its build info in the working tree, and the next run takes 5 s.
+- **Instance** (check-pr, 2026-10-20): `client-main.tsx`'s type-check probe took 122 s beside
+  three other trees' probes, the first tree's `web/apps/web/.tsbuild` empty; cold alone 22 s,
+  warm 4 s.
+- **Why it was invisible:** the probe trees are out of sight under the repository's own
+  directory, and a type check is "only" its type check.
+- **Fix:** each probe tree is given the working tree's `.tsbuild` outputs as it is set to the
+  head (`revert_red_trees.py`'s `seed_type_builds`). `tsc -b` checks each source against the hash
+  its build info records, so a stale copy costs only a rebuild of what differs, and an importer
+  of a changed export still fails (measured, an SDK export renamed).
+- **Warning sign:** a type-check probe slower than `npm --prefix web run typecheck` in the working
+  tree after a small change.
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of
