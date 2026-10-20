@@ -16605,6 +16605,8 @@ a subtitle file beside the media is converted at first play.
 ## D218 — Accounts: the admin creates a person, who sets a password from a one-time link; a signed-in person adds a TV by a short safe32 code
 
 > **Replaced in part by [D288](#d288--a-device-is-activated-by-the-code-it-shows-entered-on-a-device-already-signed-in-and-a-check-code-both-show)** (2026-10-12): §3–§4 no longer hold; a device not signed in asks for a code, a signed-in person enters it, and a check code both show confirms it.
+>
+> **Refined by [D320](#d320--a-device-signed-out-on-itself-leaves-the-persons-devices-one-signed-out-another-way-stays)** (2026-10-20): a device signed out on itself is removed, so §1 resumes only one signed out another way.
 
 > **Revised by [D273](#d273--clients-reach-a-core-through-apporpheum-appcom-or-the-owners-own-discovery-by-whatever-methods-work-with-no-traffic-relayed-by-us-a-node-without-landlock-runs-and-warns)** §10 (2026-10-09): a TV shows a code the core gave it, a signed-in device enters it, and a check code shown on both confirms the pairing; not built yet.
 
@@ -16710,6 +16712,8 @@ package whose published archive has no commit in it is traced) is designed with 
 ## D221 — A device keeps its identity across sign-ins, and a signed-out device is signed back in with a code made for it
 
 > **Replaced in part by [D288](#d288--a-device-is-activated-by-the-code-it-shows-entered-on-a-device-already-signed-in-and-a-check-code-both-show)** (2026-10-12): §3–§4 no longer hold; a device not signed in asks for a code, a signed-in person enters it, and a check code both show confirms it.
+>
+> **Refined by [D320](#d320--a-device-signed-out-on-itself-leaves-the-persons-devices-one-signed-out-another-way-stays)** (2026-10-20): a device signed out on itself is removed, so §1 resumes only one signed out another way.
 
 **Decided** (2026-09-27), by the project owner, after trying D218's devices on a phone: every
 sign-in made a new device, so a signed-out device could never come back and a browser signed in
@@ -21044,3 +21048,17 @@ Revises D308 §6's staging names.
 
 **Status:** Decided 2026-10-19; staging's connectd takes it at once, the route by the owner
 (orpheum-ops production/README.md §6c).
+## D320 — A device signed out on itself leaves the person's devices; one signed out another way stays
+
+**Decided** (2026-10-20), by the project owner. Refines
+[D221](#d221--a-device-keeps-its-identity-across-sign-ins-and-a-signed-out-device-is-signed-back-in-with-a-code-made-for-it)
+§1.
+
+1. **Signing out on the device itself removes it.** Sign out on a device ends every session of that
+   device and its device secret, and the device leaves Your devices, as Remove does (D218 §4). A
+   sign-in there afterwards makes a new device. A person who signs out of a browser means to be done
+   with it, and the list kept every browser they had ever left.
+2. **A device signed out another way stays**, so it comes back as itself (D221 §1): one whose
+   session expired, one ended by Sign out everywhere else, a hand-off's temporary session.
+
+**Status:** Decided 2026-10-20.
