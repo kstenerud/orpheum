@@ -145,9 +145,13 @@ function timingFilmArguments(assPath: string, hueDegrees: number): string[] {
 export const longTrackName =
   "Timing.Film.2026.Directors.Cut.1080p.BluRay.x264.DTS-HD.MA.5.1-ReleaseGroupName";
 
-/** A short film every browser plays as it is: answering the sound question costs no prepare. */
+/**
+ * A short film no browser decodes, MPEG-2, so it is prepared: 160×120, under the 144 lines a twin is
+ * made at, and every quality of the ladder, so it is offered nothing on its ladder in its picture's
+ * place (D323 §1); at 320×240 its twin played and nothing was prepared (check-pr, 2026-10-20).
+ */
 const preparedFilmArguments = [
-  ...["-f", "lavfi", "-i", "testsrc2=size=320x240:rate=24:duration=10"],
+  ...["-f", "lavfi", "-i", "testsrc2=size=160x120:rate=24:duration=10"],
   ...["-f", "lavfi", "-i", "sine=frequency=330:sample_rate=48000:duration=10"],
   ...["-c:v", "mpeg2video", "-q:v", "5", "-c:a", "aac", "-ac", "2"],
 ];
