@@ -7,7 +7,8 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import type { StringStorage } from "./browser-storage.ts";
 import { handOffFragment } from "./discovery-start.ts";
-import { startAtClient, type AtClientOrigin } from "./loader-at-client-origin.tsx";
+import { redeem, startAtClient, type AtClientOrigin } from "./loader-at-client-origin.tsx";
+import { createSession } from "./session.ts";
 import {
   codeParts,
   joinParts,
@@ -287,5 +288,48 @@ describe("the loader's /activate, which a TV's QR code opens (D321)", () => {
         realm: "nas",
       })}`,
     ]);
+  });
+});
+
+describe("taking a hand-off's session at the client origin", () => {
+  it("asks once, so a repeat on another path after its answer was lost gets the same session (2026-10-20)", async () => {
+    const keys: (string | null)[] = [];
+    let attempts = 0;
+    // The first attempt reaches the core and its answer is lost, as Firefox's Local Network Access
+    // drops a LAN name's; the keeper sends the same request again on another path.
+    const send = (request: Request): Promise<Response> => {
+      keys.push(request.headers.get("Idempotency-Key"));
+      attempts += 1;
+      if (attempts === 1) {
+        return Promise.reject(new TypeError("NetworkError when attempting to fetch resource."));
+      }
+      return Promise.resolve(
+        Response.json({
+          token: "a-token",
+          deviceSecret: "a-secret",
+          user: {
+            id: 1,
+            name: "karl",
+            role: "admin",
+            isAdmin: true,
+            device: { id: 7, name: "Firefox" },
+          },
+        }),
+      );
+    };
+    const again = async (request: Request): Promise<Response> => {
+      const copy = request.clone();
+      try {
+        return await send(request);
+      } catch {
+        return await send(copy);
+      }
+    };
+    const session = createSession(memoryStorage());
+    await redeem(again, session, "a-code");
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).not.toBeNull();
+    expect(keys[1]).toBe(keys[0]);
+    expect(session.token()).toBe("a-token");
   });
 });
