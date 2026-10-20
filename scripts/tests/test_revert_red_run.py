@@ -36,14 +36,25 @@ def gone_soon(pid: int) -> bool:
 
 class WholeGroup(unittest.TestCase):
     def started(self, script: str, timeout: int) -> tuple[subprocess.CompletedProcess[str] | None, int]:
-        with tempfile.TemporaryDirectory() as tree:
-            pid_file = Path(tree) / "pid"
-            command = ["sh", "-c", f"sleep 60 & echo $! > {pid_file}; {script}"]
-            try:
-                done = run_whole_group(command, tree, timeout)
-            except subprocess.TimeoutExpired:
-                done = None
-            return done, int(pid_file.read_text())
+        """The run of script, after starting a process it leaves behind, and that process's pid. A run
+        its timeout ends before the shell even writes the pid, as under a loaded gate's 1 s (make
+        check, 2026-10-20), proves nothing, so it is run again, each second for up to 5 s."""
+        deadline = time.monotonic() + 5
+        while True:
+            with tempfile.TemporaryDirectory() as tree:
+                pid_file = Path(tree) / "pid"
+                # Written whole or not at all: the pid's file is moved into place once written.
+                leave = f"sleep 60 & echo $! > {pid_file}.part && mv {pid_file}.part {pid_file}"
+                command = ["sh", "-c", f"{leave}; {script}"]
+                try:
+                    done = run_whole_group(command, tree, timeout)
+                except subprocess.TimeoutExpired:
+                    done = None
+                if pid_file.exists():
+                    return done, int(pid_file.read_text())
+            if time.monotonic() > deadline:
+                self.fail("no run lived long enough to start the process it leaves behind, in 5 s")
+            time.sleep(1)
 
     def test_a_process_the_run_left_behind_is_ended_with_it(self):
         done, left = self.started("echo said; exit 3", timeout=30)

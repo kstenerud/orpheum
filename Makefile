@@ -73,13 +73,16 @@ spot: ## Spot check while working: tests of what changed since BASE (default HEA
 # installs at once raced each other (2026-10-01). It does nothing when the install is current.
 check-verbose: check-tools web-deps go-warm ## The gate with every step's output
 	@$(MAKE) --no-print-directory -j$(CHECK_JOBS) --output-sync=target check-parallel
+	@# The browser-mode tests after the rest, never beside it: beside a cold Go build their Firefox
+	@# failed to connect in vitest's 60 s twice, and they took 65 s for 10 s of tests (2026-10-20).
+	@$(MAKE) --no-print-directory web-test-browser
 	@$(PYTHON) scripts/check_stamp.py write
 	@echo "make check: all gates passed"
 
 .PHONY: check-parallel
 # check-generated runs beside the rest: nothing reads what it generates, which goes to a temporary
 # directory, and as a prerequisite it held every other step back by 7.6 s (2026-10-01).
-check-parallel: check-generated check-docs check-scripts check-source check-deps check-claims check-architecture check-go check-web
+check-parallel: check-generated check-docs check-scripts check-source check-deps check-claims check-architecture check-go check-web-parallel
 
 .PHONY: check-tools
 check-tools: ## Fetch the pinned golangci-lint and sqlc if missing; fail if another pinned tool is missing or at the wrong version
@@ -191,10 +194,11 @@ go-speculative: ## Fail on declarations whose only callers are tests
 check-generated: ## Fail if committed generated code differs from what its source generates
 	@$(PYTHON) scripts/check_generated.py
 
-.PHONY: check-web
-check-web: web-deps ## Typecheck, lint, format, dependency rules and tests for web/, at once
-	@$(MAKE) --no-print-directory -j6 --output-sync=target web-typecheck web-lint web-format-check web-deps-check web-test \
-	  web-test-browser
+.PHONY: check-web check-web-parallel
+check-web: check-web-parallel ## Typecheck, lint, format, dependency rules and tests for web/, the browser-mode tests last
+	@$(MAKE) --no-print-directory web-test-browser
+check-web-parallel: web-deps ## check-web but its browser-mode tests, at once: make check runs those after the rest
+	@$(MAKE) --no-print-directory -j6 --output-sync=target web-typecheck web-lint web-format-check web-deps-check web-test
 
 # The web checks, each one of web/package.json's scripts. check-web runs them at once: one after
 # another they took 16 s, the longest step of make check (2026-10-01).
