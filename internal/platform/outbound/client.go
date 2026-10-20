@@ -4,14 +4,22 @@ package outbound
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"time"
+)
+
+// dialTimeout and dialKeepAlive are Go's default transport's.
+const (
+	dialTimeout   = 30 * time.Second
+	dialKeepAlive = 30 * time.Second
 )
 
 // NewClient returns a client for requests to other hosts, each bounded by timeout and each
 // saying it comes from Orpheum at version (D213 §6). It starts from Go's default transport for
 // its connection limits and HTTP/2 support, and drops the proxy that transport would read from
-// the environment (D204). It follows a redirect only to the same origin (sameOriginOnly).
+// the environment (D204). It follows a redirect only to the same origin (sameOriginOnly), and dials
+// a host's IPv6 addresses first (ipv6First).
 func NewClient(timeout time.Duration, version string) (*http.Client, error) {
 	base, ok := http.DefaultTransport.(*http.Transport)
 	if !ok {
@@ -19,6 +27,8 @@ func NewClient(timeout time.Duration, version string) (*http.Client, error) {
 	}
 	transport := base.Clone()
 	transport.Proxy = nil
+	dialer := &net.Dialer{Timeout: dialTimeout, KeepAlive: dialKeepAlive}
+	transport.DialContext = ipv6First(net.DefaultResolver.LookupNetIP, dialer.DialContext)
 	identified := userAgentTransport{Transport: transport, userAgent: "Orpheum/" + version}
 	return &http.Client{Transport: identified, Timeout: timeout, CheckRedirect: sameOriginOnly}, nil
 }
