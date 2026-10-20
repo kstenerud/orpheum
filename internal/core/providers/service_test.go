@@ -274,6 +274,9 @@ type noRetries struct{}
 
 func (noRetries) AttemptLimit(context.Context) (int64, error)            { return 1, nil }
 func (noRetries) FirstRetryDelay(context.Context) (time.Duration, error) { return time.Hour, nil }
+func (noRetries) LongestRetryDelay(context.Context) (time.Duration, error) {
+	return 24 * time.Hour, nil
+}
 
 func TestCredentialsChanged_BringsBackAHostParkedForItsKeyAndNoOtherPark(t *testing.T) {
 	t.Parallel()
