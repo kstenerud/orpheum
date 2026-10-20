@@ -75,6 +75,12 @@ func DeviceCommitment(publicKey, deviceNonce string) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(digest[:]), nil
 }
 
+// CheckDeviceNonce refuses a device's or a core's nonce that is not DeviceNonceBytes, base64url.
+func CheckDeviceNonce(nonce string) error {
+	_, err := nonceOf(nonce)
+	return err
+}
+
 // CheckDeviceCommitment refuses a commitment that is not a SHA-256, base64url.
 func CheckDeviceCommitment(commitment string) error {
 	raw, err := base64.RawURLEncoding.DecodeString(commitment)

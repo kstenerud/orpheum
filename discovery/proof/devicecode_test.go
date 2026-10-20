@@ -128,6 +128,12 @@ func TestDeviceCommitmentAndKeyHash_AreTheBrowsersAlike(t *testing.T) {
 	if err = CheckDeviceCommitment("short"); !errors.Is(err, ErrNotACommitment) {
 		t.Errorf("a short commitment: %v; want ErrNotACommitment", err)
 	}
+	if err = CheckDeviceNonce(fixtureCoreNonce); err != nil {
+		t.Errorf("a nonce refused: %v", err)
+	}
+	if err = CheckDeviceNonce("AAAA"); !errors.Is(err, ErrNotADeviceNonce) {
+		t.Errorf("a short nonce: %v; want ErrNotADeviceNonce", err)
+	}
 	hash, err := DeviceKeyHash(fixturePublic)
 	if err != nil || hash != "rTBVo-NI60s-RZ3ENfKqkw" {
 		t.Errorf("the fixture's key hash = %q, %v", hash, err)
