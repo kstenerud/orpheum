@@ -17,6 +17,21 @@
   color: var(--color-muted);
 }
 
+/* The tracks playing (tracks-note.tsx): muted as the reason line, the list under its heading. */
+.play__tracks {
+  color: var(--color-muted);
+}
+
+.play__tracks p,
+.play__tracks ul {
+  margin: 0;
+}
+
+.play__tracks ul {
+  padding-inline-start: var(--space-4);
+  list-style: none;
+}
+
 /* Under the picture, a button is as wide as its words, never the page's width. */
 .play > button,
 .play > * > button {

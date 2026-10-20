@@ -44,6 +44,7 @@ import type { LadderOffer } from "./moving-down.ts";
 import { dataOrThrow, problemText, unavailableText } from "./problem.ts";
 import { rateText } from "./rate-text.ts";
 import { useServices } from "./services.tsx";
+import { playingPicture, TracksNote, type PlayingSound } from "./tracks-note.tsx";
 import { monotonicMs } from "./use-together.ts";
 import type { PlaybackDecision } from "./watching.ts";
 
@@ -120,6 +121,7 @@ export function FilmPlayer(props: {
       <ChunkedFilm offer={moved.offer} positionMs={moved.positionMs} composition={composition} />
     );
   }
+  const sound = playingSoundOf(decision);
   if (onLadder !== undefined) {
     return (
       <ChunkedFilm
@@ -127,13 +129,29 @@ export function FilmPlayer(props: {
         positionMs={props.ladderStartMs}
         composition={composition}
         isOnLadder
+        tracks={decision.tracks}
+        sound={sound}
       />
     );
   }
-  if (decision.delivery === "direct") {
-    return <DirectFilm decision={decision} composition={composition} />;
-  }
-  return <PreparedFilm decision={decision} composition={composition} />;
+  return (
+    <>
+      {decision.delivery === "direct" ? (
+        <DirectFilm decision={decision} composition={composition} />
+      ) : (
+        <PreparedFilm decision={decision} composition={composition} />
+      )}
+      <TracksNote tracks={decision.tracks} sound={sound} />
+    </>
+  );
+}
+
+/** The sound a decision starts with: its starting track, its boosted mix when the boost is on. */
+function playingSoundOf(decision: PlaybackDecision): PlayingSound {
+  return {
+    audioTrackIndex: startingAudioTrack(decision)?.audioTrackIndex ?? 0,
+    isBoosted: decision.preferences.isDialogueBoostOn,
+  };
 }
 
 /**
@@ -387,6 +405,9 @@ function ChunkedFilm(props: {
   readonly positionMs: number;
   readonly isOnLadder?: boolean;
   readonly composition: FilmComposition;
+  /** What the film on its ladder may play, which its tracks are named from as its level moves. */
+  readonly tracks?: PlaybackDecision["tracks"] | undefined;
+  readonly sound?: PlayingSound | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
   const { offer, positionMs } = props;
@@ -403,6 +424,10 @@ function ChunkedFilm(props: {
     { offer, positionMs },
     onFailed,
   );
+  const height = playing?.height ?? offer.height;
+  // Its tracks are named while the level playing is one of the pictures they list.
+  const hasTracks =
+    props.tracks !== undefined && playingPicture(props.tracks, height) !== undefined;
   return (
     <>
       <Stage
@@ -412,11 +437,15 @@ function ChunkedFilm(props: {
         failure={failure}
         ladder={{ offer, positionMs, playing, cannotKeepUp }}
       />
+      {hasTracks && props.sound !== undefined ? (
+        <TracksNote tracks={props.tracks} height={height} sound={props.sound} />
+      ) : null}
       <LadderNotes
         offer={offer}
         playing={playing}
         cannotKeepUp={cannotKeepUp}
         isOnLadder={props.isOnLadder === true}
+        hasTracks={hasTracks}
       />
       {/* Its qualities are cut as it plays, no copy prepared (the owner's test, 2026-10-18). */}
       {failure === undefined || props.composition.isFailureHidden === true ? null : (
@@ -618,27 +647,16 @@ export function LadderNotes(props: {
   readonly cannotKeepUp: CannotKeepUp | undefined;
   /** Whether the playback started on its film's ladder (D260), rather than moved to it after a stall (D253). */
   readonly isOnLadder?: boolean;
+  /** Whether the tracks playing are named beside it, which say the quality in its place. */
+  readonly hasTracks?: boolean;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { offer, playing, cannotKeepUp } = props;
-  const isOnLadder = props.isOnLadder === true;
-  const startingKey = isOnLadder ? "play.ladderStarting" : "play.lowerQualityStarting";
-  const playingKey = isOnLadder ? "play.ladderPlaying" : "play.lowerQuality";
+  const { offer, cannotKeepUp } = props;
   const isBeyondTheLink = cannotKeepUp !== undefined || offer.isBelowTheLowest;
   const lowest = rateText(cannotKeepUp?.lowestKbps ?? offer.startAtBps / 1000);
   return (
     <>
-      <p className="play__reason">
-        {playing === undefined
-          ? t(startingKey, {
-              height: offer.height,
-              rate: rateText(offer.qualityKbps),
-            })
-          : t(playingKey, {
-              height: playing.height,
-              rate: rateText(playing.averageBitrate / 1000),
-            })}
-      </p>
+      {props.hasTracks === true ? null : <QualityLine {...props} />}
       {isBeyondTheLink ? (
         <p role="alert">
           {cannotKeepUp?.linkKbps === undefined
@@ -647,6 +665,26 @@ export function LadderNotes(props: {
         </p>
       ) : null}
     </>
+  );
+}
+
+/** The quality a chunked playback plays, where no tracks are named: starting, then as it plays. */
+function QualityLine(props: {
+  readonly offer: LadderOffer;
+  readonly playing: PlayedLevel | undefined;
+  readonly isOnLadder?: boolean;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { offer, playing } = props;
+  const isOnLadder = props.isOnLadder === true;
+  const startingKey = isOnLadder ? "play.ladderStarting" : "play.lowerQualityStarting";
+  const playingKey = isOnLadder ? "play.ladderPlaying" : "play.lowerQuality";
+  return (
+    <p className="play__reason">
+      {playing === undefined
+        ? t(startingKey, { height: offer.height, rate: rateText(offer.qualityKbps) })
+        : t(playingKey, { height: playing.height, rate: rateText(playing.averageBitrate / 1000) })}
+    </p>
   );
 }
 

@@ -294,18 +294,14 @@ function PlayUnder(props: PlayProps & FilmParts): JSX.Element {
   return <DirectUnder {...props} />;
 }
 
-/** Under the original: what sits under every video, and why it plays as it is. */
+/** Under the original: what sits under every video; its tracks say it plays as it is. */
 function DirectUnder(props: PlayProps & FilmParts): JSX.Element {
-  const { t } = useTranslation();
   return (
-    <>
-      <UnderTheVideo
-        {...props}
-        level={soundLevelOf(props.decision, undefined)}
-        onAudioChosen={decideAgainFor(props, "audioChosen")}
-      />
-      {props.failure === undefined ? <p className="play__reason">{t("play.direct")}</p> : null}
-    </>
+    <UnderTheVideo
+      {...props}
+      level={soundLevelOf(props.decision, undefined)}
+      onAudioChosen={decideAgainFor(props, "audioChosen")}
+    />
   );
 }
 

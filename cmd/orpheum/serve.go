@@ -330,7 +330,8 @@ func openPlayback(
 	services.playback = playback.NewService(playback.Parts{
 		Database: database, Nodes: opened.nodes, Settings: opened.settings, Clock: clock.System{},
 		Random: rand.Reader, Renditions: services.renditions, Subtitles: services.subtitles,
-		Preferences: preferencesService, Loudness: levels, Chunks: services.chunks, Reads: opened.jobServices.scans,
+		Preferences: preferencesService, Loudness: levels, Chunks: services.chunks, Offers: services.chunks,
+		Reads: opened.jobServices.scans,
 	})
 	// A run its node cannot make fast enough moves its players down a quality, before it is evicted
 	// (D286 §4, D309 §6).

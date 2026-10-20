@@ -2491,6 +2491,20 @@ export interface components {
             sizeBytes?: number;
             streams: components["schemas"]["StreamBody"][] | null;
         };
+        FilePictureBody: {
+            codec: string;
+            /** Format: int64 */
+            height: number;
+            /** Format: int64 */
+            width: number;
+        };
+        FileSoundBody: {
+            /** Format: int64 */
+            audioTrackIndex: number;
+            /** Format: int64 */
+            channelCount: number;
+            codec: string;
+        };
         FilesOutputBody: {
             files: components["schemas"]["FileBody"][] | null;
             /** @description Empty on the last page */
@@ -3094,6 +3108,29 @@ export interface components {
             /** @description The role's name */
             role: string;
         };
+        PictureTrackBody: {
+            /** @description ffprobe's name for it: hevc, h264, av1 ... */
+            codec: string;
+            /**
+             * Format: int64
+             * @description 0 when not known
+             */
+            height: number;
+            /** @description Whether it is the file's own, played as it is */
+            isOriginal: boolean;
+            /**
+             * Format: int64
+             * @description Its average rate; 0 when not known
+             */
+            kbps: number;
+            /** @description Its stream on the film's ladder, as the player's level names it; absent off it */
+            stream?: string;
+            /**
+             * Format: int64
+             * @description 0 when not known
+             */
+            width: number;
+        };
         PlayableFormatsBody: {
             /** @description Must list aac-stereo */
             audioCodecs: ("aac-stereo" | "aac-multi" | "ac3" | "eac3" | "opus" | "flac")[] | null;
@@ -3613,6 +3650,23 @@ export interface components {
             name: string;
             password: string;
         };
+        SoundTrackBody: {
+            /** Format: int64 */
+            audioTrackIndex: number;
+            /** Format: int64 */
+            channelCount: number;
+            /** @description ffprobe's name for it: aac, eac3, opus ... */
+            codec: string;
+            /** @description Whether it is the mix with the dialogue boost */
+            isBoosted: boolean;
+            /** @description Whether it is the file's own, played as it is */
+            isOriginal: boolean;
+            /**
+             * Format: int64
+             * @description Its rate; 0 when not known, as a file's own is not
+             */
+            kbps: number;
+        };
         SpanBody: {
             /** Format: int64 */
             endedMonoMs: number;
@@ -3705,6 +3759,7 @@ export interface components {
             startingAudioStreamId?: number;
             subtitles: components["schemas"]["SubtitleTrackBody"][] | null;
             titleName?: string;
+            tracks: components["schemas"]["TracksBody"];
             /** @description Where the bytes are: the file, or a rendition's master playlist */
             url: string;
         };
@@ -3908,6 +3963,14 @@ export interface components {
             canPlayPause: boolean;
             /** @description Change the position for everyone */
             canSeek: boolean;
+        };
+        TracksBody: {
+            /** @description The file's own picture, as the server probed it */
+            filePicture: components["schemas"]["FilePictureBody"];
+            /** @description The file's own audio tracks, as the server probed them */
+            fileSounds: components["schemas"]["FileSoundBody"][] | null;
+            pictures: components["schemas"]["PictureTrackBody"][] | null;
+            sounds: components["schemas"]["SoundTrackBody"][] | null;
         };
         UnavailableBody: {
             /** @description The machine that holds it */
