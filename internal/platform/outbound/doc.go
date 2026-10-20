@@ -9,6 +9,9 @@
 //
 //   - A client from NewClient uses no proxy, whatever the environment says, and says it is
 //     Orpheum in every request's User-Agent (D213 §6). TestNewClient_TakesNoProxyFromTheEnvironment.
+//   - It follows a redirect only within the request's origin: Go would carry a provider's key in a
+//     header of its own to wherever another origin's redirect pointed (the Plex-chain review's O1).
+//     TestNewClient_FollowsARedirectOnlyWithinItsOrigin.
 //   - No other package uses http.DefaultClient, http.DefaultTransport, http.Get and its
 //     siblings, or http.ProxyFromEnvironment. Enforced by the forbidigo rule tagged [outbound].
 //   - A provider's 429 is one RateLimitedError whichever provider answered it, with the wait its
