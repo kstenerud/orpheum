@@ -5,14 +5,30 @@ package chunks
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/kstenerud/orpheum/internal/core/chunks/qualities"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// linkShareForQuality is the share of a link's measured speed a quality may take: the rest is the
-// sound's, a peak's and the link's own variation (D247 §6; slow-links.md §2, players' 0.7).
-const linkShareForQuality = 0.7
+// The share of a link's measured speed a quality may take is link_share_for_quality_percent: the rest
+// is the sound's, a peak's and the link's own variation (D247 §6; slow-links.md §2, players' 0.7). The
+// web client's player chooses by the same share, read from the client settings.
+
+// linkSharePercent is link_share_for_quality_percent.
+func (service *Service) linkSharePercent(ctx context.Context) (int64, error) {
+	percent, err := service.settings.Int(ctx, settings.LinkShareForQualityPercent)
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", settings.LinkShareForQualityPercent, err)
+	}
+	return percent, nil
+}
+
+// isWithinShare is whether a quality of kbps fits within sharePercent of a link of linkKbps.
+func isWithinShare(kbps, linkKbps, sharePercent int64) bool {
+	return kbps*100 <= linkKbps*sharePercent
+}
 
 // Offer is the quality a stalled playback is offered (D247 §2, §6): the one to start at, by its
 // master playlist's BANDWIDTH, which is how a player names it among the playlist's pictures.
@@ -97,7 +113,11 @@ func (service *Service) startLower(
 ) (Offer, error) {
 	film, lower := lowering.film, lowering.lower
 	chunk := film.grid.chunkAt(positionMs)
-	chosen, isBelowTheLowest := chooseQuality(lower, linkKbps)
+	sharePercent, err := service.linkSharePercent(ctx)
+	if err != nil {
+		return Offer{}, err
+	}
+	chosen, isBelowTheLowest := chooseQuality(lower, linkKbps, sharePercent)
 	below := chosen + 1
 	if below < len(lower) && service.runs.isCovered(StoreDir(playback.FileID, lower[below], film.grid.ID()), chunk) {
 		chosen++ // another's, already on its way, and near enough (D247 §7)
@@ -170,16 +190,16 @@ func startingSound(playback Playback, soundKbps int, isUnlevelled bool) Stream {
 	}
 }
 
-// chooseQuality is the place among lower, highest first, of the highest quality within
-// linkShareForQuality of linkKbps, or of the lowest when none is, which is then below the lowest, or
-// when the link is not measured.
-func chooseQuality(lower []Stream, linkKbps int64) (int, bool) {
+// chooseQuality is the place among lower, highest first, of the highest quality within sharePercent
+// of linkKbps, or of the lowest when none is, which is then below the lowest, or when the link is not
+// measured.
+func chooseQuality(lower []Stream, linkKbps, sharePercent int64) (int, bool) {
 	lowest := len(lower) - 1
 	if linkKbps <= 0 {
 		return lowest, false
 	}
 	for index, quality := range lower {
-		if float64(quality.Quality.Kbps) <= linkShareForQuality*float64(linkKbps) {
+		if isWithinShare(int64(quality.Quality.Kbps), linkKbps, sharePercent) {
 			return index, false
 		}
 	}

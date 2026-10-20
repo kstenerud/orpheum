@@ -8,7 +8,7 @@ import (
 
 // StartOnLadder starts a playback on its film's ladder (D260 §1, §2): every picture it is offered,
 // its own copied first where its player decodes it, then each quality below. It starts at the top,
-// or, with its link remembered at linkKbps, at the highest within linkShareForQuality of it, or the
+// or, with its link remembered at linkKbps, at the highest within link_share_for_quality_percent of it, or the
 // lowest when none is; it starts that picture's run and the starting sound's from the chunk at
 // positionMs, and returns the offer. Its player moves along the ladder by itself from there. A film
 // with no grid yet is ErrNoGrid, and is read through; one that offers no picture,
@@ -27,7 +27,11 @@ func (service *Service) StartOnLadder(
 	if len(offered.pictures) == 0 {
 		return Offer{}, ErrNoQualityOffered
 	}
-	chosen, isBelowTheLowest := film.startingPicture(offered.pictures, linkKbps)
+	sharePercent, err := service.linkSharePercent(ctx)
+	if err != nil {
+		return Offer{}, err
+	}
+	chosen, isBelowTheLowest := film.startingPicture(offered.pictures, linkKbps, sharePercent)
 	held := film.heldByUpload(offered, chosen, playback.StartAtMostKbps)
 	return service.startAt(ctx, playback, film, offered, chosenPicture{
 		stream: offered.pictures[held], isBelowTheLowest: isBelowTheLowest, chunk: film.grid.chunkAt(positionMs),
@@ -51,16 +55,16 @@ func (film cutFilm) heldByUpload(offered offer, chosen int, atMostKbps int64) in
 }
 
 // startingPicture is the place among pictures, highest first, a playback starts at: the top with
-// the link not known; else the highest whose rate is within linkShareForQuality of linkKbps, or the
+// the link not known; else the highest whose rate is within sharePercent of linkKbps, or the
 // lowest, then below the lowest, when none is. A picture copied whose rate is not known is passed
 // over for a link that is known.
-func (film cutFilm) startingPicture(pictures []Stream, linkKbps int64) (int, bool) {
+func (film cutFilm) startingPicture(pictures []Stream, linkKbps, sharePercent int64) (int, bool) {
 	if linkKbps <= 0 {
 		return 0, false
 	}
 	for index, picture := range pictures {
 		kbps := film.qualityOf(picture).Kbps
-		if kbps > 0 && float64(kbps) <= linkShareForQuality*float64(linkKbps) {
+		if kbps > 0 && isWithinShare(int64(kbps), linkKbps, sharePercent) {
 			return index, false
 		}
 	}

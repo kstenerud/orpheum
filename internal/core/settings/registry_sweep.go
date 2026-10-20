@@ -52,6 +52,7 @@ const (
 	ArtworkCacheSweepToPercent             Key = "artwork_cache_sweep_to_percent"
 	ArtworkCacheRecommendedHeadroomPercent Key = "artwork_cache_recommended_headroom_percent"
 	ScanWithheldRemovalsNamed              Key = "scan_withheld_removals_named"
+	LinkShareForQualityPercent             Key = "link_share_for_quality_percent"
 	JobHealthWindowHours                   Key = "job_health_window_hours"
 	RetentionSweepEveryHours               Key = "retention_sweep_every_hours"
 	InvariantsCheckEveryHours              Key = "invariants_check_every_hours"
@@ -310,5 +311,17 @@ func libraryAdminDefinitions() []Definition {
 				"(D208): enough to recognise a season or a folder, few enough to read at a glance; the rest "+
 				"are counted"),
 			"best guess: ten"),
+	}
+}
+
+// linkShareDefinitions are how much of a measured link a quality may take, the core's choice and the
+// web player's alike.
+func linkShareDefinitions() []Definition {
+	return []Definition{
+		sourced(integerSetting(LinkShareForQualityPercent, "70", 10, 100,
+			"percent of a link's measured speed a quality may take, by which the server chooses a "+
+				"playback's starting and lower quality and the web player its own: the rest is the "+
+				"sound's, a peak's and the link's own variation (D247 §6)"),
+			"D247 §6: 0.7, as players choose (slow-links.md §2)"),
 	}
 }
