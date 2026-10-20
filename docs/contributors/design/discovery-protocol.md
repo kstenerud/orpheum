@@ -736,9 +736,9 @@ code.
   password sign-in where §3.7 allows admin. An admin entering a code for another admin confirms it,
   and the core logs who did it for whom (A11, code K10) [I]. **The code must change:** every pairing
   issues the whole role (`auth.go`, `issueSession`).
-- **Paid: in the closed beta, sealed by HPKE** (D293 §2, revising D292 §3's deferral). Being built
-  (2026-10-20; the owner, after nas.example's Activate a device named the core's client origin, which no
-  TV remote types); the design:
+- **Paid: in the closed beta, sealed by HPKE** (D293 §2, revising D292 §3's deferral). Built
+  2026-10-20 (b0.md Phase E item 4; the owner, after nas.example's Activate a device named the core's
+  client origin, which no TV remote types); the design:
   - the page names no core, so the **service issues the code**; the core of the signed-in person who
     enters it claims it from the service. The service limits asking for codes per source site and
     fairly across sources (S13);
@@ -1024,7 +1024,7 @@ the core must act on (enrol again, another instance running) carries a code of i
 | `DELETE /core` | leave; closes the connection and ends the tokens | yes |
 | claim approval (§2.2) | the core's admin allows or refuses an account's claim | after the beta |
 | re-key (§2.8) | a new key's enrolment, countersigned by the old key | deferred |
-| paid device codes (§3.1) | `POST /device-codes/claim`, `POST /device-codes/outcome`: the core claims a code the service issued, and passes back the outcome sealed by HPKE | being built (D293 §2) |
+| paid device codes (§3.1) | `POST /device-codes/claim`, `POST /device-codes/outcome`: the core claims a code the service issued, and passes back the outcome sealed by HPKE | yes (D293 §2); `single` issues none |
 
 ### Client (`<discovery>/client/v1`): a hash, code or locator the device holds; no account
 
