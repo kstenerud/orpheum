@@ -7,8 +7,10 @@ import {
   type Held,
   type LinkFragment,
 } from "@orpheum/sdk";
-import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
+
+import { CopyWhatHappened, whatHappened } from "./what-happened.tsx";
 
 import { RealmSignIn, type RealmCredentials, type RealmProblem } from "./realm-sign-in.tsx";
 
@@ -75,6 +77,11 @@ export interface GateParts {
    * network once, at the client origin, not twice (the owner's Firefox, 2026-10-17).
    */
   readonly shouldSkipLanNames?: boolean;
+  /**
+   * Told what happened when the core was found but nothing reached it, for its person to copy and
+   * send (K16); the gate gives its own.
+   */
+  readonly onDeadEnd?: (happened: string) => void;
 }
 
 /**
@@ -130,11 +137,9 @@ async function reachByRealm(
   typed: RealmCredentials,
   isChangeAccepted = false,
 ): Promise<"realmWrong" | "realmUnreached" | Changed | undefined> {
-  let found: Awaited<ReturnType<typeof targetOfRealm>>;
-  try {
-    found = await targetOfRealm(parts.client, typed);
-  } catch (problem: unknown) {
-    return problem instanceof NotFound ? "realmWrong" : "realmUnreached";
+  const found = await findByRealm(parts, typed);
+  if (typeof found === "string") {
+    return found;
   }
   const before = isChangeAccepted ? undefined : parts.changedFrom?.(found.core);
   if (before !== undefined) {
@@ -144,7 +149,8 @@ async function reachByRealm(
   let reaching: Reaching;
   try {
     reaching = await reachCore(parts.client, target);
-  } catch {
+  } catch (problem: unknown) {
+    parts.onDeadEnd?.(deadEndOf(found.core.coreId, target, problem));
     await reportDeadEnd(parts.client, target.held);
     return "realmUnreached";
   }
@@ -156,6 +162,25 @@ async function reachByRealm(
     });
     return undefined;
   } catch {
+    return "realmUnreached";
+  }
+}
+
+/**
+ * What the discovery found for a realm sign-in: the core, or the sign-in wrong as one, or the
+ * discovery not reached, which is a dead end.
+ */
+async function findByRealm(
+  parts: GateParts,
+  typed: RealmCredentials,
+): Promise<Awaited<ReturnType<typeof targetOfRealm>> | "realmWrong" | "realmUnreached"> {
+  try {
+    return await targetOfRealm(parts.client, typed);
+  } catch (problem: unknown) {
+    if (problem instanceof NotFound) {
+      return "realmWrong";
+    }
+    parts.onDeadEnd?.(deadEndOf(undefined, undefined, problem));
     return "realmUnreached";
   }
 }
@@ -216,11 +241,24 @@ async function reach(
     if (problem instanceof NotFound) {
       return "notFound";
     }
+    parts.onDeadEnd?.(deadEndOf(core.coreId, target, problem));
     if (target !== undefined) {
       await reportDeadEnd(parts.client, target.held);
     }
     return "deadEnd";
   }
+}
+
+/** What happened at a dead end, for its person to copy and send (K16). */
+function deadEndOf(
+  coreId: string | undefined,
+  target: Target | undefined,
+  problem: unknown,
+): string {
+  return whatHappened(
+    { coreId, addressesTried: target?.directUrls ?? [], problem },
+    globalThis.navigator.userAgent,
+  );
 }
 
 /**
@@ -246,7 +284,10 @@ export function DiscoveryGate(props: {
   readonly start: Start;
   readonly parts: GateParts;
 }): JSX.Element {
-  const { start, parts } = props;
+  const { start } = props;
+  // What happened at the last dead end, for its person to copy and send (K16).
+  const [happened, setHappened] = useState<string | undefined>(undefined);
+  const parts = useMemo(() => ({ ...props.parts, onDeadEnd: setHappened }), [props.parts]);
   const [phase, setPhase] = useState<Phase>(() => firstPhase(start, parts));
   // A realm sign-in under way keeps its form, its button saying so (D297 §5).
   const [isRealmSending, setIsRealmSending] = useState(false);
@@ -263,32 +304,23 @@ export function DiscoveryGate(props: {
       }
     });
   };
-  useEffect(() => {
-    if (phase === "notFound" && start.kind !== "link" && parts.onGone !== undefined) {
-      parts.onGone();
-    }
-  }, [phase, start.kind, parts]);
-  useEffect(() => {
-    if (start.kind === "handoff") {
-      reachThen(start.core, () => targetOfHandOff(parts.client, start.core, start.handOff));
-      return;
-    }
-    const held = start.kind === "remembered" ? parts.sessionOf(start.core) : undefined;
-    if (held !== undefined) {
-      reachThen(held.core, () => targetOfSession(parts.client, held));
-    }
-    // Once, as the page opens: a remembered core is reached at once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps -- the start and the parts never change
-  }, []);
+  useGoneOnceNotFound(phase, start, parts);
+  useReachingAtOnce(start, parts, reachThen);
   if (phase === "realm" || realmProblems[phase] !== undefined || isRealmSending) {
     return (
-      <RealmGate
-        parts={parts}
-        problem={realmProblems[phase]}
-        reachingRef={reachingRef}
-        onSending={setIsRealmSending}
-        onEnded={setPhase}
-      />
+      <>
+        <RealmGate
+          parts={parts}
+          problem={realmProblems[phase]}
+          reachingRef={reachingRef}
+          onSending={setIsRealmSending}
+          onEnded={setPhase}
+        />
+        <CopyWhatHappened
+          text={phase === "realmUnreached" && !isRealmSending ? happened : undefined}
+          copy={copyToClipboard}
+        />
+      </>
     );
   }
   if (start.kind === "link" && phase === "waiting") {
@@ -303,7 +335,48 @@ export function DiscoveryGate(props: {
       />
     );
   }
-  return <GateMessage phase={start.kind === "none" ? "none" : phase} />;
+  return (
+    <>
+      <GateMessage phase={start.kind === "none" ? "none" : phase} />
+      <CopyWhatHappened text={phase === "deadEnd" ? happened : undefined} copy={copyToClipboard} />
+    </>
+  );
+}
+
+/** A remembered core found no more sends the page where the parts say, a link's page excepted. */
+function useGoneOnceNotFound(phase: Phase, start: Start, parts: GateParts): void {
+  useEffect(() => {
+    if (phase === "notFound" && start.kind !== "link" && parts.onGone !== undefined) {
+      parts.onGone();
+    }
+  }, [phase, start.kind, parts]);
+}
+
+/**
+ * Once, as the page opens: a hand-off's core, or a remembered one this device holds a session with,
+ * is reached at once.
+ */
+function useReachingAtOnce(
+  start: Start,
+  parts: GateParts,
+  reachThen: (core: KeptCore, find: () => Promise<Target>) => void,
+): void {
+  useEffect(() => {
+    if (start.kind === "handoff") {
+      reachThen(start.core, () => targetOfHandOff(parts.client, start.core, start.handOff));
+      return;
+    }
+    const held = start.kind === "remembered" ? parts.sessionOf(start.core) : undefined;
+    if (held !== undefined) {
+      reachThen(held.core, () => targetOfSession(parts.client, held));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps -- the start and the parts never change
+  }, []);
+}
+
+/** Copies text with the browser's clipboard, which rejects where the page may not use it. */
+async function copyToClipboard(text: string): Promise<void> {
+  await globalThis.navigator.clipboard.writeText(text);
 }
 
 /**

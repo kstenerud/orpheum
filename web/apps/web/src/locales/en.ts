@@ -165,6 +165,12 @@ export const en = {
     badLink:
       "This link does not work: it was used, replaced by a newer one, or has expired. Ask the person who made it for a new one.",
   },
+  whatHappened: {
+    copy: "Copy what happened",
+    copied: "Copied. Send it to whoever runs your server.",
+    refused: "This browser wouldn't copy it: select the text below instead.",
+    show: "What happened",
+  },
   homeAddress: {
     heading: "Your server at home",
     text: "At home, this server is at",

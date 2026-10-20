@@ -33,7 +33,7 @@ export const enDiscovery = {
     },
     deadEnd: {
       heading: "Can't reach the server from this network",
-      text: "Try your phone's mobile data, or another Wi-Fi. If it keeps happening, tell the person who sent you this link.",
+      text: "Try your phone's mobile data, or another Wi-Fi. A VPN or a travel eSIM often can't reach a home server: turn it off, or use the phone's own mobile data. If it keeps happening, copy what happened and send it to the person who sent you this link.",
     },
     realm: {
       heading: "Sign in",
@@ -46,7 +46,7 @@ export const enDiscovery = {
       signingIn: "Signing in…",
       wrong: "The realm, name or password is wrong, or the server can't be reached right now.",
       unreached:
-        "Your server was found, but can't be reached from this network right now. Try again.",
+        "Your server was found, but can't be reached from this network right now. A VPN or a travel eSIM often can't reach a home server: turn it off, or try the phone's own mobile data or another Wi-Fi. If it keeps happening, copy what happened and send it to whoever runs your server.",
       again: "Your server couldn't be reached as this device last reached it. Sign in again.",
       orLink: "Or open the link you were sent.",
     },
