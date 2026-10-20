@@ -31,6 +31,7 @@ import { loaderMajor, loaderMinor, type OrpheumLoader } from "./loader-interface
 import { goneAddress, switchAddress } from "./loader-households.ts";
 import { checkedClient, mountClient } from "./loader-run-client.ts";
 import { corePrefix, createSession, type Session } from "./session.ts";
+import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { readMembership } from "./together-storage.ts";
 import { browserStorage } from "./browser-storage.ts";
 
@@ -140,10 +141,19 @@ function loaderOver(
   };
 }
 
-/** Takes the session a hand-off kept, by its code, over the path just reached. */
-async function redeem(send: FetchRequest, session: Session, code: string): Promise<void> {
+/**
+ * Takes the session a hand-off kept, by its code, over the path just reached. Its code works once, so
+ * the request carries an idempotency key (D244 §4): sent again on another path after its answer was
+ * lost, the core answers the session it gave the first time. Without one, Firefox's Local Network
+ * Access, which lets a LAN name's request reach the core and then drops its answer, left the code
+ * spent and the page on the core's own sign-in (the owner's nas.example sign-in, 2026-10-20).
+ */
+export async function redeem(send: FetchRequest, session: Session, code: string): Promise<void> {
   const api = createApi({ getToken: () => undefined, fetch: send });
-  const { data, response } = await api.POST("/session/redeem", { body: { code } });
+  const { data, response } = await api.POST("/session/redeem", {
+    body: { code },
+    ...idempotent(newIdempotencyKey()),
+  });
   if (data === undefined) {
     throw new Error(`the server answered ${String(response.status)} for the hand-off's code`);
   }
