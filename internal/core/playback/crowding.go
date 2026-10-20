@@ -7,29 +7,13 @@ import (
 )
 
 // How the server tells that other traffic in the house, a video call say, crowds the upload its
-// films share, from the link speeds its players report, and how far it then lowers the films' share
-// (plans/upload-budget.md §4c; the owner, 2026-10-12: "likely the clients could just as quickly
-// report back about how quickly they're receiving the bytes").
-const (
-	// A player is slow when the link it reports carries less than this many tenths of what its
-	// quality needs: too little to load ahead of what it plays.
-	slowUnderTenths = 15
-	// How many players must be slow at once for the house's upload to be crowded: one alone is its
-	// own link, which its quality controller handles.
-	slowPlayersAtLeast = 2
-	// How lately a player must have reported its link for the report to count.
-	linkReportedWithin = 30 * time.Second
-	// How much each lowering keeps of the films' share, in percent, at most how often, and how low
-	// it may go, in percent of the setting's share.
-	crowdedKeepsPercent = 80
-	crowdedLowerEvery   = 10 * time.Second
-	crowdedFloorPercent = 10
-	// How long without a sign of crowding before the share grows again, and by how much each time,
-	// in percent, every crowdedRaiseEvery.
-	uncrowdedFor        = time.Minute
-	crowdedGrowsPercent = 10
-	crowdedRaiseEvery   = 30 * time.Second
-)
+// films share, from the link speeds its players report, and how far it then lowers the films' share:
+// uploadTuning's settings (plans/upload-budget.md §4c; the owner, 2026-10-12: "likely the clients
+// could just as quickly report back about how quickly they're receiving the bytes").
+
+// linkReportedWithin is how lately a player must have reported its link for the report to count:
+// three of its ten-second reports.
+const linkReportedWithin = 30 * time.Second
 
 // linkReport is the link speed a playback's player last reported, and when.
 type linkReport struct {
@@ -37,10 +21,11 @@ type linkReport struct {
 	at   time.Time
 }
 
-// isSlowFor is whether the report, fresh at now, says a link too slow for a need of needKbps.
-func (report linkReport) isSlowFor(needKbps int64, now time.Time) bool {
+// isSlowFor is whether the report, fresh at now, says a link too slow for a need of needKbps: under
+// slowUnderPercent of it.
+func (report linkReport) isSlowFor(needKbps int64, now time.Time, slowUnderPercent int64) bool {
 	return !report.at.IsZero() && now.Sub(report.at) <= linkReportedWithin && needKbps > 0 &&
-		report.kbps*10 < needKbps*slowUnderTenths
+		report.kbps*100 < needKbps*slowUnderPercent
 }
 
 // crowding is the films' share as other traffic in the house leaves it: lowered while players say
@@ -52,31 +37,34 @@ type crowding struct {
 	lastRaisedAt                 time.Time
 }
 
-// look is the films' share at now: settingShareKbps, the setting's, lowered by crowdedKeepsPercent at
-// most every crowdedLowerEvery while isCrowded, down to crowdedFloorPercent of it, and grown back by
-// crowdedGrowsPercent every crowdedRaiseEvery once uncrowdedFor has passed without a sign of it. It
-// says whether it changed.
-func (crowded *crowding) look(settingShareKbps int64, isCrowded bool, now time.Time) (int64, bool) {
+// look is the films' share at now: settingShareKbps, the setting's, lowered by the tuning's
+// crowdedKeepsPercent at most every crowdedLowerEvery while isCrowded, down to crowdedFloorPercent of
+// it, and grown back by uncrowdedGrowsPercent every uncrowdedRaiseEvery once uncrowdedFor has passed
+// without a sign of it. It says whether it changed.
+func (crowded *crowding) look(
+	settingShareKbps int64, isCrowded bool, now time.Time, tuning uploadTuning,
+) (int64, bool) {
 	current := crowded.shareKbps
 	if current == 0 || current > settingShareKbps {
 		current = settingShareKbps
 	}
 	if isCrowded {
 		crowded.lastCrowdedAt = now
-		if !crowded.lastLoweredAt.IsZero() && now.Sub(crowded.lastLoweredAt) < crowdedLowerEvery {
+		if !crowded.lastLoweredAt.IsZero() && now.Sub(crowded.lastLoweredAt) < tuning.crowdedLowerEvery {
 			return current, false
 		}
-		lowered := max(current*crowdedKeepsPercent/100, settingShareKbps*crowdedFloorPercent/100)
+		lowered := max(current*tuning.crowdedKeepsPercent/100, settingShareKbps*tuning.crowdedFloorPercent/100)
 		crowded.lastLoweredAt = now
 		return crowded.keep(lowered, current, settingShareKbps)
 	}
-	isQuiet := crowded.lastCrowdedAt.IsZero() || now.Sub(crowded.lastCrowdedAt) >= uncrowdedFor
-	isDue := crowded.lastRaisedAt.IsZero() || now.Sub(crowded.lastRaisedAt) >= crowdedRaiseEvery
+	isQuiet := crowded.lastCrowdedAt.IsZero() || now.Sub(crowded.lastCrowdedAt) >= tuning.uncrowdedFor
+	isDue := crowded.lastRaisedAt.IsZero() || now.Sub(crowded.lastRaisedAt) >= tuning.uncrowdedRaiseEvery
 	if current == settingShareKbps || !isQuiet || !isDue {
 		return current, false
 	}
 	crowded.lastRaisedAt = now
-	return crowded.keep(min(settingShareKbps, current*(100+crowdedGrowsPercent)/100), current, settingShareKbps)
+	grown := current * (100 + tuning.uncrowdedGrowsPercent) / 100
+	return crowded.keep(min(settingShareKbps, grown), current, settingShareKbps)
 }
 
 // keep keeps share as the films' share, zero when it is the setting's whole, and says it and whether
@@ -101,10 +89,10 @@ func (service *Service) keepLink(token string, kbps int64, now time.Time) {
 	}
 }
 
-// isCrowded is whether the house's upload looks crowded at now: slowPlayersAtLeast players report
-// links too slow for what they need while all of them need no more than settingShareKbps, so
-// something other than the films fills it.
-func (service *Service) isCrowded(settingShareKbps int64, now time.Time) bool {
+// isCrowded is whether the house's upload looks crowded at now: the tuning's slowPlayersAtLeast
+// players report links too slow for what they need while all of them need no more than
+// settingShareKbps, so something other than the films fills it.
+func (service *Service) isCrowded(settingShareKbps int64, now time.Time, tuning uploadTuning) bool {
 	service.tokens.mutex.Lock()
 	defer service.tokens.mutex.Unlock()
 	slow := 0
@@ -112,11 +100,11 @@ func (service *Service) isCrowded(settingShareKbps int64, now time.Time) bool {
 	for _, playback := range service.tokens.playbackByToken {
 		need := playback.picturesNeed.within(now) + playback.soundsNeed.within(now)
 		total += need
-		if playback.link.isSlowFor(need, now) {
+		if playback.link.isSlowFor(need, now, tuning.slowUnderPercent) {
 			slow++
 		}
 	}
-	return slow >= slowPlayersAtLeast && total <= settingShareKbps
+	return slow >= tuning.slowPlayersAtLeast && total <= settingShareKbps
 }
 
 // filmsShareKbps is the films' share now: the setting's, settingShareKbps, or less while the house's

@@ -33,7 +33,7 @@ func TestUploadControl_LowersTheOneNeedingMostOntoAQualityAlreadyMade(t *testing
 	now := time.Date(2026, 10, 12, 14, 0, 0, 0, time.UTC)
 	playbacks := []lowerable{playingAt("mac", 3, now), playingAt("phone", 1, now)}
 	control := &uploadControl{}
-	isChanged, isOverAtLowest := control.look(playbacks, 0, 5000, now)
+	isChanged, isOverAtLowest := control.look(playbacks, 0, 5000, now, starting)
 	if !isChanged || isOverAtLowest || playbacks[0].ceiling != 1 || playbacks[1].ceiling != 3 {
 		t.Errorf("over the share, ceilings = %d, %d (%t, %t); want the Mac's at the phone's 480p",
 			playbacks[0].ceiling, playbacks[1].ceiling, isChanged, isOverAtLowest)
@@ -48,7 +48,7 @@ func TestUploadControl_LowersTheNewestOfThoseNeedingTheSame(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 10, 12, 14, 0, 0, 0, time.UTC)
 	playbacks := []lowerable{playingAt("first", 2, now), playingAt("second", 2, now.Add(time.Minute))}
-	if isChanged, _ := (&uploadControl{}).look(playbacks, 0, 4000, now); !isChanged ||
+	if isChanged, _ := (&uploadControl{}).look(playbacks, 0, 4000, now, starting); !isChanged ||
 		playbacks[0].rung() != 2 || playbacks[1].rung() != 1 {
 		t.Errorf("rungs = %d, %d; want the newer lowered", playbacks[0].rung(), playbacks[1].rung())
 	}
@@ -64,16 +64,16 @@ func TestUploadControl_RaisesOneQualityAtATimeOnceThereIsRoom(t *testing.T) {
 	playbacks := []lowerable{mac, playingAt("phone", 1, now)}
 	control := &uploadControl{}
 	const shareKbps = 5000 // raised needs at most 3750
-	if isChanged, _ := control.look(playbacks, 0, shareKbps, now); isChanged {
+	if isChanged, _ := control.look(playbacks, 0, shareKbps, now, starting); isChanged {
 		t.Fatal("raised at once; want room for roomFor first")
 	}
-	if isChanged, _ := control.look(playbacks, 0, shareKbps, now.Add(roomFor)); !isChanged ||
+	if isChanged, _ := control.look(playbacks, 0, shareKbps, now.Add(roomFor), starting); !isChanged ||
 		playbacks[0].ceiling != 2 {
 		t.Fatalf("after roomFor, the Mac's ceiling = %d; want raised to 2", playbacks[0].ceiling)
 	}
 	playbacks[0].loads = 2 // its player climbed
 	for _, at := range []time.Duration{roomFor + time.Second, 3 * roomFor} {
-		if isChanged, _ := control.look(playbacks, 0, shareKbps, now.Add(at)); isChanged {
+		if isChanged, _ := control.look(playbacks, 0, shareKbps, now.Add(at), starting); isChanged {
 			t.Errorf("at %v the Mac was raised to %d; want it kept, its own picture leaving no room", at,
 				playbacks[0].ceiling)
 		}
@@ -86,7 +86,7 @@ func TestUploadControl_SaysWhenEveryoneIsAtTheirLowestAndItIsStillOver(t *testin
 	t.Parallel()
 	now := time.Date(2026, 10, 12, 14, 0, 0, 0, time.UTC)
 	playbacks := []lowerable{playingAt("one", 1, now), playingAt("two", 1, now)}
-	if _, isOverAtLowest := (&uploadControl{}).look(playbacks, 500, 1000, now); !isOverAtLowest ||
+	if _, isOverAtLowest := (&uploadControl{}).look(playbacks, 500, 1000, now, starting); !isOverAtLowest ||
 		playbacks[0].rung() != 0 || playbacks[1].rung() != 0 {
 		t.Errorf("rungs = %d, %d, over at lowest %t; want both at the lowest, still over",
 			playbacks[0].rung(), playbacks[1].rung(), isOverAtLowest)
@@ -100,20 +100,20 @@ func TestLastResort_IsDueAfterOverAtLowestForAndSettlesAfterEach(t *testing.T) {
 	t.Parallel()
 	start := time.Date(2026, 10, 12, 14, 0, 0, 0, time.UTC)
 	resort := &lastResort{}
-	if resort.isDue(true, start) || resort.isDue(true, start.Add(overAtLowestFor-time.Second)) {
+	if resort.isDue(true, start, starting) || resort.isDue(true, start.Add(overAtLowestFor-time.Second), starting) {
 		t.Fatal("due before overAtLowestFor")
 	}
-	if !resort.isDue(true, start.Add(overAtLowestFor)) {
+	if !resort.isDue(true, start.Add(overAtLowestFor), starting) {
 		t.Fatal("not due after overAtLowestFor")
 	}
 	resort.sentAwayAt = start.Add(overAtLowestFor)
-	if resort.isDue(true, start.Add(overAtLowestFor+askedWithin)) {
+	if resort.isDue(true, start.Add(overAtLowestFor+askedWithin), starting) {
 		t.Error("due again before the one sent away stopped counting")
 	}
-	if !resort.isDue(true, resort.sentAwayAt.Add(sentAwaySettles)) {
+	if !resort.isDue(true, resort.sentAwayAt.Add(sentAwaySettles), starting) {
 		t.Error("not due again after sentAwaySettles")
 	}
-	if resort.isDue(false, start.Add(time.Hour)) || resort.isDue(true, start.Add(time.Hour)) {
+	if resort.isDue(false, start.Add(time.Hour), starting) || resort.isDue(true, start.Add(time.Hour), starting) {
 		t.Error("due at once after the need fell under the share; want overAtLowestFor again")
 	}
 }

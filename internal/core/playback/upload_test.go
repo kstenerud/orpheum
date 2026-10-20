@@ -14,17 +14,23 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// uploadSettings answers server_upload_mbps, or that it is unanswered.
+// uploadSettings answers server_upload_mbps, or that it is unanswered, and every other setting with
+// its starting value.
 type uploadSettings struct{ mbps int64 }
 
 func (answers uploadSettings) Int(_ context.Context, key settings.Key) (int64, error) {
-	if key != settings.ServerUploadMbps || answers.mbps == 0 {
+	if key != settings.ServerUploadMbps {
+		return settings.StartingInt(key), nil
+	}
+	if answers.mbps == 0 {
 		return 0, settings.ErrUnanswered
 	}
 	return answers.mbps, nil
 }
 
-func (uploadSettings) Duration(context.Context, settings.Key) (time.Duration, error) { return 0, nil }
+func (uploadSettings) Duration(_ context.Context, key settings.Key) (time.Duration, error) {
+	return settings.StartingDuration(key), nil
+}
 
 // uploadService is a service whose players are playbacks, by token, at the fake clock's now.
 func uploadService(clock *clocktest.Fake, mbps int64, playbacks map[string]*tokenPlayback) *Service {
