@@ -443,7 +443,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   — done 2026-10-20 by the owner, on nas.example built from main at an earlier commit: *"quick sync worked. I
   can also play films no problem."*
 
-- [ ] **VQ46** — With orpheum-connect repackaged from main and nas.example built from main: on a TV's
+- [x] **VQ46** — With orpheum-connect repackaged from main and nas.example built from main: on a TV's
   browser (or any browser with no household), open `app.orpheum-app.com`, choose **Get a code**;
   on the phone, Your account → Activate a device names `app.orpheum-app.com`; enter the TV's code
   there; both screens show the same check code; **Yes, they match** opens the films on the TV, and
@@ -451,3 +451,6 @@ An item is ticked only by the person who did it, and only with what they saw.
   to a key only that browser made, which no test here runs end to end.
   (`web/apps/web/src/loader-device-code.tsx`, `internal/core/auth/devicecodes.go`, orpheum-connect
   `internal/devicecodes/`)
+  — done 2026-10-20 by the owner, prod-api repackaged and nas.example built from main at an earlier commit
+  (an admin's code-activated device first reached no library, fixed there): *"I have access to the
+  libraries and can play videos through a device code linked browser now."*
