@@ -94,8 +94,8 @@
 //     check code; only that person's "they match" activates the device, signed in as the person,
 //     resuming the device it was before when it is theirs; a wrong code counts against the person's
 //     failed sign-ins; pairings are kept in memory, a new one refused, never an old one dropped, past pairingsAtMost
-//     waiting, pairingsPerNetworkAtMost not yet entered from one network or pairingsPerSiteAtMost
-//     from one site (D288). Enforced
+//     waiting, pairing_codes_per_network_most not yet entered from one network or
+//     pairing_codes_per_site_most from one site (D288). Enforced
 //     by discovery/safe32code's TestDeviceCode_IsSafe32AndReadsWhatAPersonTypes,
 //     TestPairing_ADeviceKeepsItsCodeUntilEnteredAndThenShowsThePersonsCheckCode,
 //     TestPairing_OnlyTheMatchSignsTheDeviceInAndItsSessionIsTakenOnce,
@@ -124,9 +124,10 @@
 //     TestPairing_AServiceCodesHandOffWaitsThreeMinutesAndTooManyClaimsSlowThePerson.
 //
 //   - A typed service code's check code is committed: the core claims with a fresh nonce of its own,
-//     waits at most revealWait for the device's, refuses one that breaks the device's commitment, and
-//     makes the check code of the key and both. A scanned one is claimed with no nonce, has no check
-//     code, and activates only the key its QR code's hash names (D321). Enforced by
+//     waits at most device_code_reveal_wait_seconds for the device's, refuses one that breaks the
+//     device's commitment, and makes the check code of the key and both. A scanned one is claimed
+//     with no nonce, has no check code, and activates only the key its QR code's hash names (D321).
+//     Enforced by
 //     TestPairing_ATypedServiceCodeWaitsForTheDevicesNonceAndRefusesOneThatBreaksItsCommitment and
 //     TestPairing_AScannedCodeActivatesOnlyTheKeyItsHashNamesWithNoCheckCode.
 //

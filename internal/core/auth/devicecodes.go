@@ -10,6 +10,7 @@ import (
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/discovery/proof"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 )
@@ -28,13 +29,10 @@ type ServiceDeviceCodes interface {
 	RefuseDeviceCode(ctx context.Context, code string) error
 }
 
-// revealWait is how long entering a typed code waits for the device to reveal its nonce, and
-// revealEvery how often the core asks the service meanwhile: the device asks how its code stands
-// every two seconds and reveals at once (D321).
-const (
-	revealWait  = 15 * time.Second
-	revealEvery = 500 * time.Millisecond
-)
+// revealEvery is how often the core asks the service, while entering a typed code waits
+// device_code_reveal_wait_seconds for the device to reveal its nonce: the device asks how its code
+// stands every two seconds and reveals at once (D321).
+const revealEvery = 500 * time.Millisecond
 
 // ErrDeviceSilent is a device whose typed code was entered that did not reveal its nonce in time, and
 // ErrNotThatDevice a device that is not the one that showed the code: its nonce breaks its commitment,
@@ -168,10 +166,15 @@ func (service *Service) claimedServiceCode(code string) (pairing, bool) {
 
 // checkCodeOnceRevealed is a typed code's check code, made once the device reveals the nonce it
 // committed to: the core claims again, with the same nonce, until the service has it, at most
-// revealWait. A nonce that breaks the commitment is another device's, and ends the code (D321).
+// device_code_reveal_wait_seconds. A nonce that breaks the commitment is another device's, and ends the
+// code (D321).
 func (service *Service) checkCodeOnceRevealed(
 	ctx context.Context, code, coreNonce string, waiting discoveryproto.DeviceCodeClaimResponse,
 ) (string, error) {
+	revealWait, readErr := service.settings.Duration(ctx, settings.DeviceCodeRevealWaitSeconds)
+	if readErr != nil {
+		return "", readErr
+	}
 	deadline := service.clock.Now().Add(revealWait)
 	for waiting.DeviceNonce == "" {
 		if !service.clock.Now().Before(deadline) {

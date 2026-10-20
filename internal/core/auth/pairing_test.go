@@ -8,6 +8,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 )
 
 // pairDevice activates a device by its code, entered by byUserID for forUserID under name, the
@@ -243,6 +246,33 @@ func TestPairing_ADeviceSignedInBeforeResumesItselfAndANewOneNeedsAName(t *testi
 // and no code already waiting is dropped for it: the oldest giving way let a stranger push out a
 // television's code before it was typed (the security audit's S13), and twenty networks filled a cap
 // of a hundred (the second audit's K5, 2026-10-13; D288 §6).
+// The pairing caps are settings (the constants sweep, 2026-10-20): at two a network and three a site,
+// a third code from one /64 and a fourth from one /48 are refused.
+func TestPairing_TheCapsAreTheSettings(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	settingstest.Set(t, fixture.settings, settings.PairingCodesPerNetworkMost, "2")
+	settingstest.Set(t, fixture.settings, settings.PairingCodesPerSiteMost, "3")
+	for index := range 2 {
+		if _, err := fixture.service.RequestPairing(ctx, "", "web", PreviousDevice{},
+			fmt.Sprintf("2001:db8:1:2::%x", index+1)); err != nil {
+			t.Fatalf("code %d from one /64: %v", index+1, err)
+		}
+	}
+	if _, err := fixture.service.RequestPairing(ctx, "", "web", PreviousDevice{}, "2001:db8:1:2::ff"); !errors.Is(err,
+		ErrTooManyPairings) {
+		t.Errorf("a third code from one /64 at a cap of two: %v, want ErrTooManyPairings", err)
+	}
+	if _, err := fixture.service.RequestPairing(ctx, "", "web", PreviousDevice{}, "2001:db8:1:3::1"); err != nil {
+		t.Fatalf("a third code of the /48, from another /64: %v", err)
+	}
+	if _, err := fixture.service.RequestPairing(ctx, "", "web", PreviousDevice{}, "2001:db8:1:4::1"); !errors.Is(err,
+		ErrTooManyPairings) {
+		t.Errorf("a fourth code from one /48 at a cap of three: %v, want ErrTooManyPairings", err)
+	}
+}
+
 func TestPairing_ANewCodeIsRefusedPastTheCapsAndNoWaitingOneIsPushedOut(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)

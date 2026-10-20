@@ -14,6 +14,7 @@ import (
 
 	"github.com/kstenerud/orpheum/discovery/safe32code"
 	"github.com/kstenerud/orpheum/internal/core/clientnet"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 )
@@ -24,16 +25,19 @@ const (
 	// How long a pairing works from its code's making: fixed, not a setting, since it bounds how long
 	// a code shown on a screen can be taken by someone else (D218 §3).
 	pairingLife = 10 * time.Minute
-	// How many pairings wait at once, and how many not yet entered one network may hold (clientnet: an
-	// IPv6 /64 or an IPv4 address). Past either a new one is refused, never an older one dropped: the
-	// oldest giving way let a stranger push out a television's code before it was typed (the security
-	// audit's S13, 2026-10-13; D288 §6). A bound on memory and on one network, not on who asks.
-	pairingsAtMost           = 1000
-	pairingsPerNetworkAtMost = 5
-	// A site (clientnet.SiteOf: an IPv6 /48) holds many networks: twenty networks' five codes each
-	// filled a hundred, and no television could get a code (the second audit's K5, 2026-10-13).
-	pairingsPerSiteAtMost = 20
+	// How many pairings wait at once: a bound on memory. Past it, or past
+	// pairing_codes_per_network_most not yet entered from one network (clientnet: an IPv6 /64 or an
+	// IPv4 address) or pairing_codes_per_site_most from one site (an IPv6 /48, which holds many
+	// networks; the second audit's K5), a new one is refused, never an older one dropped: the oldest
+	// giving way let a stranger push out a television's code before it was typed (the security
+	// audit's S13, 2026-10-13; D288 §6).
+	pairingsAtMost = 1000
 )
+
+// pairingRoom is how many pairings not yet entered one network, and one site, may hold.
+type pairingRoom struct {
+	perNetwork, perSite int64
+}
 
 // The states of a pairing, as the device asking sees them (D288).
 const (
@@ -151,10 +155,9 @@ func (kept *pairings) byCodeLocked(code string) (*pairing, bool) {
 }
 
 // hasRoomLocked is whether another pairing may wait, asked for from network in site: fewer than
-// pairingsAtMost wait, and fewer than pairingsPerNetworkAtMost of network's and
-// pairingsPerSiteAtMost of site's not yet entered.
-func (kept *pairings) hasRoomLocked(network, site string) bool {
-	fromNetwork, fromSite := 0, 0
+// pairingsAtMost wait, and fewer than room's of network's and of site's not yet entered.
+func (kept *pairings) hasRoomLocked(network, site string, room pairingRoom) bool {
+	var fromNetwork, fromSite int64
 	for _, known := range kept.bySecret {
 		if known.isClaimed {
 			continue
@@ -166,8 +169,20 @@ func (kept *pairings) hasRoomLocked(network, site string) bool {
 			fromSite++
 		}
 	}
-	return len(kept.bySecret) < pairingsAtMost && fromNetwork < pairingsPerNetworkAtMost &&
-		fromSite < pairingsPerSiteAtMost
+	return len(kept.bySecret) < pairingsAtMost && fromNetwork < room.perNetwork && fromSite < room.perSite
+}
+
+// pairingRoomOf reads how many pairings not yet entered a network and a site may hold.
+func (service *Service) pairingRoomOf(ctx context.Context) (pairingRoom, error) {
+	perNetwork, err := service.settings.Int(ctx, settings.PairingCodesPerNetworkMost)
+	if err != nil {
+		return pairingRoom{}, err
+	}
+	perSite, err := service.settings.Int(ctx, settings.PairingCodesPerSiteMost)
+	if err != nil {
+		return pairingRoom{}, err
+	}
+	return pairingRoom{perNetwork: perNetwork, perSite: perSite}, nil
 }
 
 // RequestPairing gives a device not signed in a code to show (D288 §1): the one it already has while
@@ -175,8 +190,12 @@ func (kept *pairings) hasRoomLocked(network, site string) bool {
 // The device names its platform, and the device it was signed in as before, which a person of its
 // own resumes (D221); address is where it asks from. ErrTooManyPairings while no new one has room.
 func (service *Service) RequestPairing(
-	_ context.Context, secret, platform string, previous PreviousDevice, address string,
+	ctx context.Context, secret, platform string, previous PreviousDevice, address string,
 ) (Pairing, error) {
+	room, err := service.pairingRoomOf(ctx)
+	if err != nil {
+		return Pairing{}, err
+	}
 	service.pairings.mutex.Lock()
 	defer service.pairings.mutex.Unlock()
 	now := service.clock.Now()
@@ -184,7 +203,7 @@ func (service *Service) RequestPairing(
 		return Pairing{Secret: known.secret, Code: known.code, ExpiresAt: known.madeAt.Add(pairingLife)}, nil
 	}
 	network, site := clientnet.Of(address), clientnet.SiteOf(address)
-	if !service.pairings.hasRoomLocked(network, site) {
+	if !service.pairings.hasRoomLocked(network, site, room) {
 		return Pairing{}, ErrTooManyPairings
 	}
 	newSecret, err := randomSecret(service.random)
