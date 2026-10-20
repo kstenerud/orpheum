@@ -3559,6 +3559,7 @@ export interface components {
             readyAfterMs: number;
             /** Format: int64 */
             soundAfterMs?: number;
+            steps?: string;
             /** Format: int64 */
             toPositionMs: number;
         };

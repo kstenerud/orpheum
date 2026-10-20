@@ -6,8 +6,8 @@ import { groupJumpedEvent, isFollowingAGroup, isVoiceLive, type CannotKeepUp } f
 
 import { fromCacheBy } from "./cache-hit.ts";
 import { noRoomToMakeStatus, tooEarlyStatus, type PlaybackFailure } from "./failure.ts";
-import { orpheumAbr } from "./abr.ts";
-import { diagnose, diagnosisOf } from "./diagnosis.ts";
+import { orpheumAbr, type OrpheumAbr } from "./abr.ts";
+import { diagnose, diagnosisOf, stepNoter } from "./diagnosis.ts";
 import {
   failOnFatal,
   hlsMethod,
@@ -303,6 +303,26 @@ function playWithoutHlsJs(
 }
 
 /**
+ * The bitrate controller of video's chunked playback (D265): starting within startAtBps, giving way
+ * to live voice and to its group, telling the page of a quality unplayable here (D266), and keeping
+ * each of its choices, with why, among the video's steps.
+ */
+function abrOf(
+  video: HTMLVideoElement,
+  options: { readonly startAtBps: number; readonly monotonicMs: () => number },
+): OrpheumAbr {
+  return orpheumAbr({
+    startAtBps: options.startAtBps,
+    monotonicMs: options.monotonicMs,
+    isVoiceLive,
+    isInAGroup: isFollowingAGroup,
+    fromCache: typeof performance === "undefined" ? () => undefined : fromCacheBy(performance),
+    onUnplayable: sendUnplayable(video),
+    noteStep: stepNoter(video),
+  });
+}
+
+/**
  * Plays the chunked master playlist at url (D247 §10): with hls.js where the page has MSE, its
  * quality chosen by a bitrate controller of our own from startAtBps (D265); else with the element's
  * own HLS, which adapts by itself.
@@ -328,14 +348,7 @@ export function playChunked(
   if (withoutHlsJs !== undefined) {
     return withoutHlsJs;
   }
-  const abr = orpheumAbr({
-    startAtBps: options.startAtBps,
-    monotonicMs: options.monotonicMs,
-    isVoiceLive,
-    isInAGroup: isFollowingAGroup,
-    fromCache: typeof performance === "undefined" ? () => undefined : fromCacheBy(performance),
-    onUnplayable: sendUnplayable(video),
-  });
+  const abr = abrOf(video, options);
   const seeks = markSeeks(video);
   const hls = new Hls({
     ...chunkedHlsConfig({

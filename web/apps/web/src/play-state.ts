@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import {
+  diagnosisOf,
   eventContextOf,
   PlayReporter,
   playerFoundUnplayableEvent,
@@ -236,6 +237,7 @@ function timeSeeks(
       ...(video.paused ? { isPaused: true } : {}),
       ...(pending.pictureAfterMs === undefined ? {} : { pictureAfterMs: pending.pictureAfterMs }),
       ...(pending.soundAfterMs === undefined ? {} : { soundAfterMs: pending.soundAfterMs }),
+      ...stepsOf(video),
     });
     pending = undefined;
     return true;
@@ -476,6 +478,19 @@ export function whenOwnPictureGivenUp(
   return () => {
     video.removeEventListener(playerFoundUnplayableEvent, listener);
   };
+}
+
+/**
+ * The player's last steps, its quality's choices among them with why, for a seek's report, as read
+ * reads them, the player's diagnosis; none when it kept none. A player that dropped from the twin to
+ * 360p after a jump on a 77 Mb/s link said nothing of why (the owner's Firefox on nas.example, 2026-10-20).
+ */
+export function stepsOf(
+  video: HTMLVideoElement,
+  read: (video: HTMLVideoElement) => { readonly steps?: string } | undefined = diagnosisOf,
+): { readonly steps?: string } {
+  const steps = read(video)?.steps ?? "";
+  return steps === "" ? {} : { steps };
 }
 
 /**
