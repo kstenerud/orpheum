@@ -233,13 +233,19 @@ User-Agent (D263; the User-Agent is logged only).
   after each move away from a failed path, from 30 s up to 10 minutes, and as at first once the browser
   is back online (`betterPathFirstMs` in `web/apps/web/src/kept-path.ts`).
 - **The look proved less than the requests need** (staging and nas.example, 2026-10-20, the owner's
-  Firefox, a private window and a normal one): the look's health check is a bare GET, with no CORS
-  preflight, and passed at the LAN name, while every request carrying the session's `Authorization`
-  header, which a preflight goes before, failed there with "CORS request did not succeed". A fresh tab
-  moved to the LAN name and back off it several times in its first minute, its posters lost to the
-  moves and a hand-off's requests with them. A better path is now moved to only once a request carrying
-  the session's header, sent the way the page's requests go, comes back from it; one that does not is
-  backed off from as a failed move is (`carriesRequests` in `kept-path.ts`). VQ49 asks Firefox at home.
+  Firefox, a private window and a normal one): the look's health check, a bare GET, passed at the LAN
+  name, and the requests after it failed there with "CORS request did not succeed"; a fresh tab moved
+  to the LAN name and back off it several times in its first minute. A better path is now moved to only
+  once a request carrying the session's `Authorization` header, sent the way the page's requests go,
+  comes back from it (`carriesRequests` in `kept-path.ts`).
+- **But no request predicts the next** (staging, the same day, after that): the confirming request
+  passed, `/me` after it passed, and `/home` failed; the client's own files had failed the same way
+  minutes before. So it is not the preflight alone: Firefox fails some of a LAN name's requests and
+  lets others through, whatever they carry. Once the page has moved away from a path twice for a
+  request that failed there, it moves to it no more until a reload (`failuresBeforeGivingUp` in
+  `kept-path.ts`); at home it stays on WebRTC, a direct pair in the house, which counts as home (D300).
+  The hand-off's redemption carries an idempotency key, so a repeat on another path after its answer
+  was dropped is given the same session rather than a spent code. VQ49 asks Firefox at home.
 - **Evidence:** nas.example's and staging's logs, 2026-10-15, Firefox 157 on macOS; [Mozilla bug
   2059274](https://bugzilla.mozilla.org/show_bug.cgi?id=2059274) on when Firefox asks;
   undoing a block: the site's permissions in the address bar, or `about:preferences#privacy`'s
