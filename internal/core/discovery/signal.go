@@ -39,8 +39,8 @@ const maxSignalBytes = 64 << 10
 // signal holds the signalling connection while the core is claimed (discovery-core.md C3): the
 // offers the discovery passes on are answered by the core's WebRTC server, which checks each itself;
 // every request over a connection still carries its own sign-in. A dropped connection is dialled
-// again after RetryFirst, jittered, and each failure in a row doubles the wait (the protocol's §2.5;
-// D292 §9), so a restarted discovery has its cores back within seconds.
+// again after discovery_retry_first_seconds, jittered, and each failure in a row doubles the wait
+// (the protocol's §2.5; D292 §9), so a restarted discovery has its cores back within seconds.
 func (service *Service) signal(ctx context.Context) {
 	var failures int64
 	for ctx.Err() == nil {

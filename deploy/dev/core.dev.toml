@@ -35,10 +35,7 @@ listen = ":3478"
 relay_port_min = 49160
 relay_port_max = 49199
 
-# A restart of the development discovery has the core back within about two seconds (D292 §9).
 [discovery]
-retry_first_milliseconds = 1000
-retry_most_milliseconds = 1000
 configured_addresses = []
 lan_addresses = []
 send_interface_addresses = true

@@ -22,6 +22,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/identity"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -99,7 +100,7 @@ func TestCore_ACoreEnrolsIsClaimedAndSendsItsAddresses(t *testing.T) {
 			return []discoveryproto.Candidate{{Address: "2a0f:1000::1", Port: 443, Source: "interface"}}
 		},
 		Answerer: answering{}, OnClaimed: func(context.Context) {}, Random: rand.Reader,
-		RetryFirst: 10 * time.Millisecond, RetryMost: 100 * time.Millisecond,
+		Settings: quickRetries{},
 		OfferKey: func(_ context.Context, hash string) ([]byte, error) {
 			if hash != link.LocatorHash("a device's locator") {
 				return nil, errors.New("no such locator")
@@ -158,4 +159,18 @@ func TestCore_ACoreEnrolsIsClaimedAndSendsItsAddresses(t *testing.T) {
 	if !proof.VerifyAnswer(key.Public(), signed, answer.Signature) {
 		t.Error("the answer through the discovery is not the core's, signed over its SDP")
 	}
+}
+
+// quickRetries is the core's settings with its retries on the discovery quick, a test's: the first
+// 10 ms and the most 100 ms; every other wait its starting value.
+type quickRetries struct{}
+
+func (quickRetries) Duration(_ context.Context, key settings.Key) (time.Duration, error) {
+	if key == settings.DiscoveryRetryFirstSeconds {
+		return 10 * time.Millisecond, nil
+	}
+	if key == settings.DiscoveryRetryMostSeconds {
+		return 100 * time.Millisecond, nil
+	}
+	return settings.StartingDuration(key), nil
 }

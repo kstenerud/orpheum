@@ -131,8 +131,6 @@ relay_port_min = 49160
 relay_port_max = 49199
 
 [discovery]
-retry_first_milliseconds = 1000
-retry_most_milliseconds = 300000
 configured_addresses = []
 lan_addresses = []
 send_interface_addresses = true

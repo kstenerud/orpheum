@@ -185,8 +185,6 @@ relay_port_min = 49160
 relay_port_max = 49199
 
 [discovery]
-retry_first_milliseconds = 1000
-retry_most_milliseconds = 300000
 configured_addresses = []
 lan_addresses = []
 send_interface_addresses = true
@@ -279,31 +277,12 @@ func TestConfinementPolicy_StartsAtReport(t *testing.T) {
 	t.Error("the node has no confinement_policy key")
 }
 
-func TestDiscoveryConfig_RefusesAWaitThatIsNoneAndAMostShorterThanTheFirst(t *testing.T) {
-	t.Parallel()
-	for _, tc := range []struct {
-		first, most int64
-		isRefused   bool
-	}{
-		{1000, 300000, false},
-		{1000, 1000, false},
-		{0, 1000, true},
-		{2000, 1000, true},
-	} {
-		err := DiscoveryConfig{RetryFirstMilliseconds: tc.first, RetryMostMilliseconds: tc.most}.check()
-		if (err != nil) != tc.isRefused {
-			t.Errorf("first %d ms, most %d ms: %v; want refused: %t", tc.first, tc.most, err, tc.isRefused)
-		}
-	}
-}
-
 // A house's address is a private address with its port, the machine's at home and its published HTTPS
 // port, sent beside the configured public ones so the discovery names it for devices at home; a public
 // or loopback address is refused there (the owner, 2026-10-14).
 func TestDiscoveryConfig_LANAddressesArePrivateAndSentBesideThePublic(t *testing.T) {
 	t.Parallel()
 	discovery := DiscoveryConfig{
-		RetryFirstMilliseconds: 1000, RetryMostMilliseconds: 1000,
 		ConfiguredAddresses: []string{"11.22.44.146:443"}, LANAddresses: []string{"192.168.1.199:8443"},
 	}
 	if err := discovery.check(); err != nil {
@@ -326,7 +305,6 @@ func TestDiscoveryConfig_LANAddressesArePrivateAndSentBesideThePublic(t *testing
 func TestDiscoveryConfig_ConfiguredAddressesArePublicAndSentAsConfigured(t *testing.T) {
 	t.Parallel()
 	discovery := DiscoveryConfig{
-		RetryFirstMilliseconds: 1000, RetryMostMilliseconds: 1000,
 		ConfiguredAddresses: []string{"11.22.44.146:443", "[2a0f:4000:1c16:2684::3]:8443"},
 	}
 	if err := discovery.check(); err != nil {
