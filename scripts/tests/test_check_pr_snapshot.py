@@ -3,6 +3,8 @@
 # ABOUTME: lock the hooks read while it runs, and lets it go when it ends.
 import fcntl
 import json
+import os
+import re
 import subprocess
 import sys
 import unittest
@@ -63,13 +65,28 @@ class ItsOwnTree(unittest.TestCase):
 
 
 class TheMakefileHandsItOver(unittest.TestCase):
-    def test_check_pr_and_its_rerun_run_in_its_own_tree(self):
-        root = SCRIPTS.parent
+    # Read, never run: make runs a recipe line naming $(MAKE) even under -n, and this one runs check-pr.
+    MAKEFILE = (SCRIPTS.parent / "Makefile").read_text()
+
+    def test_check_pr_and_its_rerun_hand_themselves_to_their_own_tree(self):
         for target in ("check-pr-verbose", "check-pr-failed"):
-            recipe = subprocess.run(["make", "--no-print-directory", "-n", target], cwd=root,
-                                    capture_output=True, text=True, check=False).stdout
-            self.assertIn(f'if [ -z "$ORPHEUM_CHECK_PR_TREE" ]; then exec python3 scripts/check_pr_snapshot.py '
-                          f"{target}", recipe, target)
+            recipe = re.search(rf"^{target}:.*\n\t(.*)", self.MAKEFILE, re.M)
+            self.assertIsNotNone(recipe, target)
+            self.assertIn(f"$(CHECK_PR_IN_ITS_TREE) {target} BASE=", recipe.group(1), target)
+
+    def test_the_hand_over_runs_outside_its_tree_and_not_inside_under_makes_shell_flags(self):
+        defined = re.search(r"^CHECK_PR_IN_ITS_TREE = (.*)$", self.MAKEFILE, re.M)
+        self.assertIsNotNone(defined)
+        line = defined.group(1).replace("$$", "$").replace("$(PYTHON)", "echo") + " handed; fi; echo stayed"
+        environment = {"PATH": os.environ["PATH"]}
+        outside = subprocess.run(["bash", "-eu", "-o", "pipefail", "-c", line], env=environment,
+                                 capture_output=True, text=True, check=False)
+        self.assertEqual((outside.returncode, outside.stdout), (0, "scripts/check_pr_snapshot.py handed\n"),
+                         outside.stderr)
+        inside = subprocess.run(["bash", "-eu", "-o", "pipefail", "-c", line],
+                                env=environment | {"ORPHEUM_CHECK_PR_TREE": "/tree"},
+                                capture_output=True, text=True, check=False)
+        self.assertEqual((inside.returncode, inside.stdout), (0, "stayed\n"), inside.stderr)
 
 
 if __name__ == "__main__":
