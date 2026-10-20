@@ -134,6 +134,18 @@ const (
 	PairingCodesPerSiteMost                   Key = "pairing_codes_per_site_most"
 	DeviceCodeRevealWaitSeconds               Key = "device_code_reveal_wait_seconds"
 	JobLongestRetryDelayHours                 Key = "job_longest_retry_delay_hours"
+	UploadFilmsSharePercent                   Key = "upload_films_share_percent"
+	UploadCrowdedSlowUnderPercent             Key = "upload_crowded_slow_under_percent"
+	UploadCrowdedSlowPlayersAtLeast           Key = "upload_crowded_slow_players_at_least"
+	UploadCrowdedKeepsPercent                 Key = "upload_crowded_keeps_percent"
+	UploadCrowdedLowerEverySeconds            Key = "upload_crowded_lower_every_seconds"
+	UploadCrowdedFloorPercent                 Key = "upload_crowded_floor_percent"
+	UploadUncrowdedForSeconds                 Key = "upload_uncrowded_for_seconds"
+	UploadUncrowdedGrowsPercent               Key = "upload_uncrowded_grows_percent"
+	UploadUncrowdedRaiseEverySeconds          Key = "upload_uncrowded_raise_every_seconds"
+	UploadRaiseUnderPercent                   Key = "upload_raise_under_percent"
+	UploadRaiseRoomSeconds                    Key = "upload_raise_room_seconds"
+	UploadSendAwayAfterSeconds                Key = "upload_send_away_after_seconds"
 	JobHealthWindowHours                      Key = "job_health_window_hours"
 	RetentionSweepEveryHours                  Key = "retention_sweep_every_hours"
 	InvariantsCheckEveryHours                 Key = "invariants_check_every_hours"
@@ -263,6 +275,7 @@ func buildRegistry() []Definition {
 		scanDefinitions(), jobMetadataAndPlaybackDefinitions(), deviceDefinitions(), upkeepAndDisplayDefinitions(),
 		retentionDefinitions(), backupDefinitions(), togetherDefinitions(), signInDefinitions(),
 		discoveryDefinitions(), upkeepSweepDefinitions(), signInStretchDefinitions(), pairingDefinitions(),
+		uploadDefinitions(),
 	)...)
 }
 
@@ -494,9 +507,9 @@ func jobMetadataAndPlaybackDefinitions() []Definition {
 			Minimum: 1, Maximum: 100_000, IsExposed: true,
 			Question: "How fast can this server send, in Mbit/s? Your connection's upload speed, or as much of " +
 				"it as you want Orpheum to use.",
-			Description: "how fast the server can send, in Mbit/s, of which its films may use 85%: past that it " +
-				"lowers its players' qualities, and last removes a Watch Together group's newest member " +
-				"(D286 §5); unanswered, it lowers nothing",
+			Description: "how fast the server can send, in Mbit/s, of which its films may use " +
+				"upload_films_share_percent: past that it lowers its players' qualities, and last removes a " +
+				"Watch Together group's newest member (D286 §5); unanswered, it lowers nothing",
 			StartSource: "the owner, 2026-10-12: a setting the owner gives, a button to measure it later (D286 §5)",
 		},
 		{
@@ -763,4 +776,15 @@ func StartingDuration(key Key) time.Duration {
 		return 0
 	}
 	return definition.LengthOf(count)
+}
+
+// StartingInt is an integer setting's starting value, what a reader that cannot read it falls back
+// on, as StartingDuration; zero for a key that is not an integer.
+func StartingInt(key Key) int64 {
+	definition, known := Lookup(key)
+	var count int64
+	if !known || json.Unmarshal(definition.StartJSON, &count) != nil {
+		return 0
+	}
+	return count
 }

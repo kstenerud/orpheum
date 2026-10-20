@@ -17,7 +17,7 @@ func TestCrowding_LowersTheShareWhileCrowdedAndGrowsItBackOnceItStops(t *testing
 	start := time.Date(2026, 10, 12, 16, 0, 0, 0, time.UTC)
 	crowded := &crowding{}
 	lookAfter := func(after time.Duration, isCrowded bool) (int64, bool) {
-		return crowded.look(10_000, isCrowded, start.Add(after))
+		return crowded.look(10_000, isCrowded, start.Add(after), starting)
 	}
 	if share, isChanged := lookAfter(0, false); share != 10_000 || isChanged {
 		t.Fatalf("uncrowded: %d, changed %t; want the setting's 10000, unchanged", share, isChanged)
@@ -67,23 +67,23 @@ func TestIsCrowded_IsTwoSlowPlayersWhileTheFilmsAreWithinTheShare(t *testing.T) 
 	slowTwo := uploadService(clock, 0, map[string]*tokenPlayback{
 		"tv": playing(1296, 1500), "phone": playing(796, 900), "tablet": playing(796, 5000),
 	})
-	if !slowTwo.isCrowded(10_000, now) {
+	if !slowTwo.isCrowded(10_000, now, starting) {
 		t.Error("two slow players within the share: not crowded; want crowded")
 	}
-	if slowTwo.isCrowded(2000, now) {
+	if slowTwo.isCrowded(2000, now, starting) {
 		t.Error("two slow players with the films over the share: crowded; want the films' own doing")
 	}
 	slowOne := uploadService(clock, 0, map[string]*tokenPlayback{
 		"tv": playing(1296, 1500), "phone": playing(796, 5000),
 	})
-	if slowOne.isCrowded(10_000, now) {
+	if slowOne.isCrowded(10_000, now, starting) {
 		t.Error("one slow player: crowded; want its own link")
 	}
 	clock.Advance(linkReportedWithin + time.Second)
 	for _, playback := range slowTwo.tokens.playbackByToken {
 		playback.picturesNeed.at = clock.Now() // still playing, its reports old
 	}
-	if slowTwo.isCrowded(10_000, clock.Now()) {
+	if slowTwo.isCrowded(10_000, clock.Now(), starting) {
 		t.Error("slow reports older than linkReportedWithin: crowded; want them not counted")
 	}
 }

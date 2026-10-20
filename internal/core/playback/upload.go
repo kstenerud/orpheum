@@ -15,16 +15,11 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 )
 
-// What the server's upload is counted by (D286 §5, plans/upload-budget.md §1, §2).
-const (
-	// How much of server_upload_mbps its films may use: the rest is for voice, playlists, pictures
-	// and the bursts a player loading ahead sends above its quality's average.
-	filmsShareOfUploadPercent = 85
-	// How lately a playback of chunks must have asked for a stream for it to need the stream's rate:
-	// a playing player asks every chunk, every few seconds, and a paused one with its buffer full
-	// asks nothing and needs nothing (as the chunks' inUseWithin).
-	askedWithin = 30 * time.Second
-)
+// askedWithin is how lately a playback of chunks must have asked for a stream for it to need the
+// stream's rate: a playing player asks every chunk, every few seconds, and a paused one with its
+// buffer full asks nothing and needs nothing (as the chunks' inUseWithin; D286 §5,
+// plans/upload-budget.md §1, §2).
+const askedWithin = 30 * time.Second
 
 // streamNeed is a stream's average rate, in kbit/s, as a playback last asked for it, and when.
 type streamNeed struct {
@@ -115,7 +110,7 @@ func (service *Service) WatchUpload(ctx context.Context, tick <-chan time.Time, 
 		if err != nil {
 			logger.WarnContext(ctx, "could not read the server's upload", "err", err)
 		}
-		shareKbps := uploadMbps * 1000 * filmsShareOfUploadPercent / 100
+		shareKbps := service.uploadTuningOf(ctx, logger).shareKbps(uploadMbps)
 		logger.InfoContext(ctx, "the server's upload", "playbacks", upload.Playbacks,
 			"needKbps", upload.NeedKbps, "sentKbps", upload.SentKbps, "uploadMbps", uploadMbps,
 			"filmsShareKbps", shareKbps, "isOverShare", shareKbps > 0 && upload.NeedKbps > shareKbps)
@@ -138,14 +133,6 @@ func (service *Service) uploadMbps(ctx context.Context) (int64, error) {
 // connection cannot carry everyone (D286 §5).
 const UploadFullReason = "uploadFull"
 
-// How long the need must stay over the share with every quality at its lowest before the newest
-// member is sent away, and how long after one is before another may be: what the one sent away asked
-// for counts for askedWithin after (D286 §5).
-const (
-	overAtLowestFor = 20 * time.Second
-	sentAwaySettles = askedWithin + overAtLowestFor
-)
-
 // SendAway sends away the Watch Together member who joined most recently of those with a player,
 // never a host, saying whom, and whether there was anyone: together.Hub.SendAwayNewest.
 type SendAway func() (sessionID, memberID int64, isSent bool)
@@ -161,8 +148,8 @@ type lastResort struct {
 }
 
 // isDue is whether a member is to be sent away now: the need over the share at every lowest quality
-// for overAtLowestFor, and sentAwaySettles since the last one sent away.
-func (resort *lastResort) isDue(isOverAtLowest bool, now time.Time) bool {
+// for the tuning's sendAwayAfter, and its sentAwaySettles since the last one sent away (D286 §5).
+func (resort *lastResort) isDue(isOverAtLowest bool, now time.Time, tuning uploadTuning) bool {
 	if !isOverAtLowest {
 		resort.overSince = time.Time{}
 		return false
@@ -170,15 +157,16 @@ func (resort *lastResort) isDue(isOverAtLowest bool, now time.Time) bool {
 	if resort.overSince.IsZero() {
 		resort.overSince = now
 	}
-	return now.Sub(resort.overSince) >= overAtLowestFor &&
-		(resort.sentAwayAt.IsZero() || now.Sub(resort.sentAwayAt) >= sentAwaySettles)
+	return now.Sub(resort.overSince) >= tuning.sendAwayAfter &&
+		(resort.sentAwayAt.IsZero() || now.Sub(resort.sentAwayAt) >= tuning.sentAwaySettles())
 }
 
 // KeepUnderShare looks at each tick at what the server's players need of its upload, and lowers or
 // raises their qualities to keep it under the films' share of server_upload_mbps (D286 §5), telling
 // each player with its next chunk (CeilingOf). Unanswered, it lifts every ceiling. Each change is
 // logged, and the need still over the share with every quality at its lowest, once each time it
-// comes to be; staying so for overAtLowestFor, the newest member is sent away (SendAwayBy).
+// comes to be; staying so for upload_send_away_after_seconds, the newest member is sent away
+// (SendAwayBy). Its tuning is read at each look.
 func (service *Service) KeepUnderShare(ctx context.Context, tick <-chan time.Time, logger *slog.Logger) {
 	control := &uploadControl{}
 	crowded := &crowding{}
@@ -195,8 +183,9 @@ func (service *Service) KeepUnderShare(ctx context.Context, tick <-chan time.Tim
 			logger.WarnContext(ctx, "could not read the server's upload", "err", err)
 			continue
 		}
-		shareKbps := service.crowdedShare(ctx, crowded, uploadMbps*1000*filmsShareOfUploadPercent/100, logger)
-		changes, isOverAtLowest := service.lookAtUpload(control, shareKbps)
+		tuning := service.uploadTuningOf(ctx, logger)
+		shareKbps := service.crowdedShare(ctx, crowded, tuning.shareKbps(uploadMbps), tuning, logger)
+		changes, isOverAtLowest := service.lookAtUpload(control, shareKbps, tuning)
 		for _, change := range changes {
 			logger.InfoContext(ctx, "a playback's quality was kept within the server's upload",
 				append(change.logAttributes(), "shareKbps", shareKbps)...)
@@ -206,7 +195,7 @@ func (service *Service) KeepUnderShare(ctx context.Context, tick <-chan time.Tim
 				"shareKbps", shareKbps)
 		}
 		wasOverAtLowest = isOverAtLowest
-		if resort.isDue(isOverAtLowest, service.clock.Now()) && service.sendAway != nil {
+		if resort.isDue(isOverAtLowest, service.clock.Now(), tuning) && service.sendAway != nil {
 			if sessionID, memberID, isSent := service.sendAway(); isSent {
 				resort.sentAwayAt = service.clock.Now()
 				logger.WarnContext(ctx, "sent away the newest member: the server's upload cannot carry everyone",
@@ -219,15 +208,15 @@ func (service *Service) KeepUnderShare(ctx context.Context, tick <-chan time.Tim
 // crowdedShare is the films' share at this look, settingShareKbps lowered while players say the
 // house's upload is crowded and grown back once they stop, kept for the starts; each change logged.
 func (service *Service) crowdedShare(
-	ctx context.Context, crowded *crowding, settingShareKbps int64, logger *slog.Logger,
+	ctx context.Context, crowded *crowding, settingShareKbps int64, tuning uploadTuning, logger *slog.Logger,
 ) int64 {
 	if settingShareKbps == 0 {
 		service.crowdedShareKbps.Store(0)
 		return 0
 	}
 	now := service.clock.Now()
-	isCrowded := service.isCrowded(settingShareKbps, now)
-	share, isChanged := crowded.look(settingShareKbps, isCrowded, now)
+	isCrowded := service.isCrowded(settingShareKbps, now, tuning)
+	share, isChanged := crowded.look(settingShareKbps, isCrowded, now, tuning)
 	service.crowdedShareKbps.Store(crowded.shareKbps)
 	if isChanged {
 		logger.InfoContext(ctx, "the films' share of the server's upload changed with the house's other traffic",
@@ -251,7 +240,9 @@ func (change ceilingChange) logAttributes() []any {
 // lookAtUpload is one look (uploadControl.look) at the playbacks now, under shareKbps, its ceilings
 // kept: every ceiling lifted with no share. It says each change, and whether the need is over the
 // share with every quality at its lowest.
-func (service *Service) lookAtUpload(control *uploadControl, shareKbps int64) ([]ceilingChange, bool) {
+func (service *Service) lookAtUpload(
+	control *uploadControl, shareKbps int64, tuning uploadTuning,
+) ([]ceilingChange, bool) {
 	now := service.clock.Now()
 	service.tokens.mutex.Lock()
 	defer service.tokens.mutex.Unlock()
@@ -287,7 +278,7 @@ func (service *Service) lookAtUpload(control *uploadControl, shareKbps int64) ([
 	for index, playback := range playbacks {
 		before[index] = playback.ceilingKbps()
 	}
-	_, isOverAtLowest := control.look(playbacks, otherKbps, shareKbps, now)
+	_, isOverAtLowest := control.look(playbacks, otherKbps, shareKbps, now, tuning)
 	var changes []ceilingChange
 	for index, playback := range playbacks {
 		if playback.ceilingKbps() == before[index] {
@@ -335,6 +326,10 @@ func (service *Service) startAtMostKbps(ctx context.Context, holder Holder, file
 	if err != nil || uploadMbps == 0 {
 		return 0, err
 	}
+	sharePercent, err := service.settings.Int(ctx, settings.UploadFilmsSharePercent)
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", settings.UploadFilmsSharePercent, err)
+	}
 	players := 0
 	if service.groupPlayers != nil {
 		players = service.groupPlayers(cmp.Or(holder.HostUserID, holder.UserID))
@@ -342,7 +337,7 @@ func (service *Service) startAtMostKbps(ctx context.Context, holder Holder, file
 	now := service.clock.Now()
 	service.tokens.mutex.Lock()
 	defer service.tokens.mutex.Unlock()
-	share := service.filmsShareKbps(uploadMbps * 1000 * filmsShareOfUploadPercent / 100)
+	share := service.filmsShareKbps(uploadTuning{filmsSharePercent: sharePercent}.shareKbps(uploadMbps))
 	left, othersLeave := share, share
 	for _, playback := range service.tokens.playbackByToken {
 		need := playback.picturesNeed.within(now) + playback.soundsNeed.within(now)

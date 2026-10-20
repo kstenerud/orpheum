@@ -102,3 +102,54 @@ func pairingDefinitions() []Definition {
 			"D321: fifteen seconds"),
 	}
 }
+
+// uploadDefinitions are how the server keeps its films within its upload, server_upload_mbps: their
+// share of it, how players tell the house's upload is crowded by other traffic and how far the share
+// then falls and grows back, when a lowered player is raised, and when the last resort sends a Watch
+// Together member away (D286 §4, §5; plans/upload-budget.md §4c). One controller: tune them together.
+func uploadDefinitions() []Definition {
+	return []Definition{
+		sourced(integerSetting(UploadFilmsSharePercent, "85", 10, 100,
+			"percent of server_upload_mbps the films may use: the rest is for voice, playlists, pictures and "+
+				"the bursts a player loading ahead sends above its quality's average (D286 §5)"),
+			"D286 §5: 85%"),
+		sourced(integerSetting(UploadCrowdedSlowUnderPercent, "150", 100, 500,
+			"a player is slow when the link it reports carries less than this percent of what its quality "+
+				"needs: too little to load ahead of what it plays (upload-budget.md §4c)"),
+			"upload-budget.md §4c: one and a half times"),
+		sourced(integerSetting(UploadCrowdedSlowPlayersAtLeast, "2", 1, 20,
+			"how many players must be slow at once for the house's upload to count as crowded by other "+
+				"traffic: one alone is its own link, which its quality controller handles"),
+			"upload-budget.md §4c: two"),
+		sourced(integerSetting(UploadCrowdedKeepsPercent, "80", 10, 99,
+			"percent of the films' share each lowering for a crowded upload keeps"),
+			"upload-budget.md §4c: best guess"),
+		sourced(durationSetting(UploadCrowdedLowerEverySeconds, time.Second, "10", 1, 300,
+			"the fewest seconds between lowerings of the films' share for a crowded upload"),
+			"upload-budget.md §4c: best guess, a player's report interval"),
+		sourced(integerSetting(UploadCrowdedFloorPercent, "10", 1, 100,
+			"the lowest a crowded upload lowers the films' share to, in percent of their whole share"),
+			"upload-budget.md §4c: best guess"),
+		sourced(durationSetting(UploadUncrowdedForSeconds, time.Second, "60", 5, 3600,
+			"seconds without a sign of crowding before the films' share grows back"),
+			"upload-budget.md §4c: best guess"),
+		sourced(integerSetting(UploadUncrowdedGrowsPercent, "10", 1, 100,
+			"percent the films' share grows by at each step back once the upload is no longer crowded"),
+			"upload-budget.md §4c: best guess"),
+		sourced(durationSetting(UploadUncrowdedRaiseEverySeconds, time.Second, "30", 1, 3600,
+			"seconds between the films' share's steps back once the upload is no longer crowded"),
+			"upload-budget.md §4c: best guess"),
+		sourced(integerSetting(UploadRaiseUnderPercent, "75", 10, 99,
+			"percent of the films' share the need must stay under, for upload_raise_room_seconds, before a "+
+				"lowered playback is raised a quality: room enough that raising one does not lower it again "+
+				"at once (D286 §4)"),
+			"D286 §4: three quarters"),
+		sourced(durationSetting(UploadRaiseRoomSeconds, time.Second, "30", 1, 600,
+			"seconds the need must have had room before each raise of a lowered playback (D286 §4)"),
+			"D286 §4: thirty seconds"),
+		sourced(durationSetting(UploadSendAwayAfterSeconds, time.Second, "20", 5, 600,
+			"seconds the need must stay over the films' share with every quality at its lowest before the "+
+				"newest Watch Together member is sent away, the last resort (D286 §5)"),
+			"D286 §5: twenty seconds"),
+	}
+}
