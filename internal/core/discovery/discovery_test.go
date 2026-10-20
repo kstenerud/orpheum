@@ -132,6 +132,12 @@ func TestConnect_EnrolsWithASignatureAndKeepsTheDiscoveryAcrossARestart(t *testi
 // startingPendingEvery is how often a pending core asks whether it is claimed, where no setting says.
 var startingPendingEvery = settings.StartingDuration(settings.DiscoveryPendingCheckEverySeconds)
 
+// The other waits, where no setting says.
+var (
+	endedEvery       = settings.StartingDuration(settings.DiscoveryEndedCheckEverySeconds)
+	anotherCopyEvery = settings.StartingDuration(settings.DiscoveryAnotherCopyCheckEverySeconds)
+)
+
 // durations is a settings reader that answers every length of time with one, or with err.
 type durations struct {
 	every time.Duration
@@ -158,6 +164,52 @@ func TestStep_APendingCoreAsksWhetherItIsClaimedAsOftenAsTheSettingSays(t *testi
 	built.service.parts.Settings = durations{err: errors.New("the database is gone")}
 	if wait := built.service.step(ctx); wait != startingPendingEvery || startingPendingEvery != 2*time.Second {
 		t.Errorf("a pending core whose setting cannot be read waited %s; want its starting value, 2 s", wait)
+	}
+}
+
+// byKey is a settings reader that answers each key with its own length of time.
+type byKey map[settings.Key]time.Duration
+
+func (read byKey) Duration(_ context.Context, key settings.Key) (time.Duration, error) {
+	return read[key], nil
+}
+
+// Each state's wait is its own setting's (the owner, 2026-10-20: constants become settings): a core
+// with no discovery, a claimed core whose addresses did not change, and one refused as a copy.
+func TestStep_EachStateWaitsAsItsOwnSettingSays(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	waits := byKey{}
+	waits[settings.DiscoveryEndedCheckEverySeconds] = 7 * time.Minute
+	waits[settings.DiscoveryAddressCheckEverySeconds] = 11 * time.Second
+	waits[settings.DiscoveryAnotherCopyCheckEverySeconds] = 13 * time.Second
+	waits[settings.DiscoveryPendingCheckEverySeconds] = time.Second
+	alone := newWorld(t)
+	alone.service.parts.Settings = waits
+	if wait := alone.service.step(ctx); wait != 7*time.Minute {
+		t.Errorf("a core with no discovery waited %s; want the ended setting's 7 min", wait)
+	}
+	claimed := newWorld(t)
+	claimed.service.parts.Settings = waits
+	if _, err := claimed.service.Connect(ctx, claimed.baseURL); err != nil {
+		t.Fatal(err)
+	}
+	claimed.service.step(ctx)
+	claimed.fake.claim()
+	claimed.service.step(ctx) // learns it is claimed
+	claimed.service.step(ctx) // sends its addresses
+	if wait := claimed.service.step(ctx); wait != 11*time.Second {
+		t.Errorf("a claimed core whose addresses did not change waited %s; want the address setting's 11 s", wait)
+	}
+	copied := newWorld(t)
+	copied.service.parts.Settings = waits
+	if _, err := copied.service.Connect(ctx, copied.baseURL); err != nil {
+		t.Fatal(err)
+	}
+	copied.service.step(ctx)
+	copied.fake.refuse(discoveryproto.RefusalAnotherInstance)
+	if wait := copied.service.step(ctx); wait != 13*time.Second {
+		t.Errorf("a core refused as a copy waited %s; want the copy setting's 13 s", wait)
 	}
 }
 
