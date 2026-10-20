@@ -163,7 +163,7 @@ func (service *Service) Report(
 	// (D257 §1).
 	service.speeds.remember(speedKey{
 		player: playerOf(playback.deviceID, playback.sessionKey), network: clientnet.Of(report.ClientAddress),
-	}, report.LinkKbps, now)
+	}, report.LinkKbps, now, service.timingNow().speedFreshFor)
 	service.keepLink(token, report.LinkKbps, now)
 	offer, isOffered, err := service.offerFor(ctx, token, playback, report)
 	if err != nil || !isOffered {

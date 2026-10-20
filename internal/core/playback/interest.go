@@ -13,11 +13,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// interestLapsesAfter is how long a playing player's interest in its film's chunks lasts with it
-// silent: no word, no chunk asked for, no report (D309 §3). A playing player asks every few seconds
-// and reports every ten, so a crash or a lost link hold an encoder at most this long.
-const interestLapsesAfter = 2 * time.Minute
-
 // Disposition is where a playback's player stands with its film (D309 §7): playing it, paused,
 // gone from its page, or gone to another film.
 type Disposition string
@@ -99,15 +94,16 @@ func (service *Service) stopUnwanted(ctx context.Context, fileID int64) error {
 // InterestsIn is every interest the playbacks of fileID hold now (chunks.Interests): each one's
 // picture and sound, stopped once its player paused or left, and the lower quality and sound a stall
 // made ready for it (D247 §2); none once its player went to another film, or fell silent while
-// playing (interestLapsesAfter).
+// playing for chunk_interest_lapses_after_seconds (D309 §3).
 func (service *Service) InterestsIn(fileID int64) []chunks.Interest {
 	now := service.clock.Now()
+	lapsesAfter := service.timingNow().interestLapsesAfter
 	service.tokens.mutex.Lock()
 	defer service.tokens.mutex.Unlock()
 	var interests []chunks.Interest
 	for _, playback := range service.tokens.playbackByToken {
 		interest := playback.interest
-		isLapsed := interest.disposition == Playing && now.Sub(playback.lastUsedAt) > interestLapsesAfter
+		isLapsed := interest.disposition == Playing && now.Sub(playback.lastUsedAt) > lapsesAfter
 		if playback.fileID != fileID || interest.disposition == Replaced || isLapsed {
 			continue
 		}
@@ -176,11 +172,11 @@ func (service *Service) goneToAnother(ctx context.Context, player string, fileID
 	return stopped
 }
 
-// isWatching is whether the playback's player is playing, heard within interestLapsesAfter, or paused:
-// one whose quality a node cannot keep up with is moved, as its next request will be (D309 §6).
-func (playback *tokenPlayback) isWatching(now time.Time) bool {
+// isWatching is whether the playback's player is playing, heard within lapsesAfter, or paused: one
+// whose quality a node cannot keep up with is moved, as its next request will be (D309 §6).
+func (playback *tokenPlayback) isWatching(now time.Time, lapsesAfter time.Duration) bool {
 	disposition := playback.interest.disposition
-	return disposition == Paused || (disposition == Playing && now.Sub(playback.lastUsedAt) <= interestLapsesAfter)
+	return disposition == Paused || (disposition == Playing && now.Sub(playback.lastUsedAt) <= lapsesAfter)
 }
 
 // leave marks a token's player gone, Left or Replaced (D309 §7).
@@ -238,6 +234,8 @@ func (service *Service) StoreTiers(ctx context.Context) (map[string]nodeproto.Ke
 // for likelyFor; maybe to maybeFor; and maybe for leftFor once it left its page.
 type keeping struct {
 	likelyFor, leftFor, maybeFor time.Duration
+	// lapsesAfter is how long a playing player's interest lasts with it silent (playbackTiming).
+	lapsesAfter time.Duration
 }
 
 // keepingTimes are the settings' keeping.
@@ -251,7 +249,10 @@ func (service *Service) keepingTimes(ctx context.Context) (keeping, error) {
 			return keeping{}, fmt.Errorf("read %s: %w", key, err)
 		}
 	}
-	return keeping{likelyFor: times[0], leftFor: times[1], maybeFor: times[2]}, nil
+	return keeping{
+		likelyFor: times[0], leftFor: times[1], maybeFor: times[2],
+		lapsesAfter: service.timingNow().interestLapsesAfter,
+	}, nil
 }
 
 // tierOf is the tier a player's stores are kept at, by where it stands and how long since it was
@@ -267,7 +268,7 @@ func (times keeping) tierOf(disposition Disposition, silentFor time.Duration) no
 			return nodeproto.KeepMaybe
 		}
 		return nodeproto.KeepUnlikely
-	case disposition == Playing && silentFor <= interestLapsesAfter:
+	case disposition == Playing && silentFor <= times.lapsesAfter:
 		return nodeproto.KeepInUse
 	case silentFor < times.likelyFor:
 		return nodeproto.KeepLikely

@@ -107,6 +107,8 @@ type Service struct {
 	// crowdedShareKbps is the films' share while other traffic crowds the house's upload, zero while
 	// it is the setting's whole share (KeepUnderShare).
 	crowdedShareKbps atomic.Int64
+	// timing is how long it holds what its players tell it, as last read (playbackTiming); nil before.
+	timing atomic.Pointer[playbackTiming]
 }
 
 // NewService returns the playback service.
@@ -314,7 +316,7 @@ func (service *Service) startOnLadder(
 		return nil, "", err
 	}
 	key := speedKey{player: playerOf(request.DeviceID, holder.SessionKey), network: clientnet.Of(request.ClientAddress)}
-	kbps, _ := service.speeds.fresh(key, service.clock.Now())
+	kbps, _ := service.speeds.fresh(key, service.clock.Now(), service.timingNow().speedFreshFor)
 	playback.positionMs = positionMs
 	waitMs, err := service.settings.Int(ctx, settings.PlayLadderWaitMs)
 	if err != nil {
