@@ -592,6 +592,40 @@ describe("a page at a discovery with realms leaves nothing kept in the way (the 
     expect(page.querySelector('input[name="realm"]')).not.toBeNull();
   });
 
+  it("offers what happened to copy when a realm's server was found but nothing reached it (K16)", async () => {
+    const key = await realmKey("karlnas", "karl", "a password");
+    const publicKey = "A6EHv_POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg";
+    const found = {
+      coreId: "k7xq2",
+      bootstrapToken: "a-bootstrap-token",
+      iceServers: [],
+      paths: [{ kind: "ipv4", url: "https://v4.k7xq2.zone.example" }],
+      publicKey,
+      tag: await realmTag(key, "k7xq2", fromBase64(publicKey)),
+    };
+    const toDiscovery = discovery({ "/realm": [200, found], "/dead-end": [204, undefined] }, []);
+    const fetched: typeof fetch = (url, init) =>
+      (url instanceof Request ? url.url : url.toString()).startsWith(
+        "https://v4.k7xq2.zone.example/",
+      )
+        ? Promise.reject(new TypeError("NetworkError when attempting to fetch resource."))
+        : toDiscovery(url, init);
+    mounted = await mount(
+      <DiscoveryGate start={{ kind: "none" }} parts={{ ...partsOf(fetched), hasRealms: true }} />,
+    );
+    const page = mounted.container;
+    await enter(page.querySelector('input[name="realm"]'), "karlnas");
+    await enter(page.querySelector('input[name="name"]'), "karl");
+    await enter(page.querySelector('input[type="password"]'), "a password");
+    await click(buttonWithText(page, "Sign in"));
+    await settleUntil(() => page.textContent.includes("Copy what happened"));
+    const happened = page.querySelector(".what-happened pre")?.textContent ?? "";
+    expect(happened).toContain("Server: k7xq2");
+    expect(happened).toContain("Addresses tried: https://v4.k7xq2.zone.example");
+    expect(happened).toContain("What failed:");
+    expect(page.textContent).toContain("A VPN or a travel eSIM");
+  });
+
   it("starts again once signed out, and never for a page that was never signed in", () => {
     let token: string | undefined = "a-session";
     const listeners = new Set<() => void>();
