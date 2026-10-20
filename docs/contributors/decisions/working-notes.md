@@ -21123,3 +21123,31 @@ is (D290 §5, S4). Refines D321's Activate a device.
    DB-IP Lite), a dependency for the owner to approve (AGENTS rule 3).
 
 **Status:** Decided 2026-10-20; to be built after the closed beta's current work.
+
+## D323 — A picture the device cannot play is converted at its own size first, and the ladder follows the encoder
+
+**Decided** (2026-10-20), by the project owner: *"When we hit encoding issues like the HEVC one on ff,
+or an encoding the client can't handle at all, we try converting it directly to a compatible encoding
+at the same size and quality, and then step down as necessary much like today if we hit bandwidth
+problems. If the encoder can't keep up (for example we're software encoding), we step down. The
+quality ladder is different depending on whether hardware acceleration is available."* On Firefox on
+macOS giving up The Big Parade's HEVC picture after a jump and dropping to 540p and 360p, though the
+film's node encodes on Quick Sync. **Refines** [D266](#d266--a-quality-whose-video-stands-still-while-its-chunks-arrive-is-one-the-device-cannot-play-and-is-given-up)
+§2 and [D247](#d247--a-slow-link-gets-a-lower-version-made-at-its-first-stall-and-played-from-its-second-and-a-group-waits-for-a-stalled-viewer-once-then-lets-them-catch-up-alone) §6.
+
+1. **The twin.** When the film's own picture is not for this player, because the decision says the
+   device cannot decode it or the player gave it up (D266), its ladder's top quality is an H.264
+   copy at the picture's own height, its width following, at the rate that height takes, raised
+   from the original's own for a codec that packs more into a bit (HEVC and VP9 by half, AV1 by
+   twice), and at most the height's rate on Apple's HLS authoring ladder. It is the one quality that
+   may carry more than the original. The lower qualities below it are as before.
+2. **A picture given up mid-film is played again from where it stood**, the page asking for the
+   playback afresh once its player has told the core, so the new ladder starts at the twin rather than
+   at the quality below the original (D266 §2's fall, for the film's own picture alone).
+3. **The ladder follows the film's node's encoder**: `chunk_qualities` where it encodes in software,
+   and `chunk_qualities_hardware`, starting at 1080p, where it encodes on a GPU (Quick Sync, NVENC).
+   Each quality is still offered only below the original in rate and height.
+4. **An encoder that cannot keep up steps its players down**, the twin included, as D286 §4 already
+   does for any quality.
+
+**Status:** Decided 2026-10-20; to be built at once.
