@@ -311,10 +311,6 @@ const (
 // roots, nothing more.
 const scheduledScansCheckEvery = 15 * time.Minute
 
-// retentionSweepEvery is how often what is kept a number of days is pruned to it (D304 §6): daily,
-// as the limits are in days.
-const retentionSweepEvery = 24 * time.Hour
-
 // purgeEndedCredentials is the ended credentials' sweep: it queues no work, and deletes those past
 // their keeping.
 func purgeEndedCredentials(purger credentialPurger) func(ctx context.Context) (int, error) {
@@ -346,10 +342,6 @@ func purgeRemovedFiles(
 		return 0, nil
 	}
 }
-
-// invariantsCheckEvery is how often persistent.db's invariants are checked beside the check at
-// start: daily, as D303 (M7) says, a few full reads of tables at this scale.
-const invariantsCheckEvery = 24 * time.Hour
 
 // invariantChecker checks persistent.db's invariants: store.Database.
 type invariantChecker interface {
@@ -456,16 +448,22 @@ func (services jobServices) sweeps(logger *slog.Logger) []jobs.Sweep {
 		},
 		{
 			Name: sweepEndedCredentials, Derive: purgeEndedCredentials(services.credentials),
-			Every: func(context.Context) time.Duration { return retentionSweepEvery },
+			Every: func(ctx context.Context) time.Duration {
+				return lengthOrStarting(ctx, services.settings, settings.RetentionSweepEveryHours, logger)
+			},
 		},
 		{
 			Name:   sweepRemovedFiles,
 			Derive: purgeRemovedFiles(services.removedFiles, services.settings, clock.System{}),
-			Every:  func(context.Context) time.Duration { return retentionSweepEvery },
+			Every: func(ctx context.Context) time.Duration {
+				return lengthOrStarting(ctx, services.settings, settings.RetentionSweepEveryHours, logger)
+			},
 		},
 		{
 			Name: sweepInvariants, Derive: checkInvariants(services.invariants, logger),
-			Every: func(context.Context) time.Duration { return invariantsCheckEvery },
+			Every: func(ctx context.Context) time.Duration {
+				return lengthOrStarting(ctx, services.settings, settings.InvariantsCheckEveryHours, logger)
+			},
 		},
 		{
 			Name: sweepReadThroughs, Derive: services.readThrough.QueueReadThroughs,

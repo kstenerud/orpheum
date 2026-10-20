@@ -5,6 +5,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -16,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	corenodes "github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/build"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
@@ -347,6 +349,41 @@ func TestSystem_ShowsTheQueuesHealth(t *testing.T) {
 		system.Body.Queue[0].QueuedCount != 2 || system.Body.Queue[0].OldestQueuedAt == nil ||
 		*system.Body.Queue[0].OldestQueuedAt != queuedAt.UnixMilli() {
 		t.Errorf("the queue's health = %+v; want two measurements queued since %v", system.Body.Queue, queuedAt)
+	}
+}
+
+// The System page counts a kind's failed jobs back as far as job_health_window_hours says, a day to
+// start (D233 §8; the constants sweep, 2026-10-20).
+func TestSystem_CountsFailedJobsBackAsFarAsTheSettingSays(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	if _, err := harness.queue.Enqueue(t.Context(), jobs.Request{
+		Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 1}, Reason: "test",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	failing := harness.queue.NewRunner(jobs.KindReadThrough, func(context.Context, jobs.Job) error {
+		return jobs.MarkPermanent(errors.New("the file is unreadable"))
+	})
+	if err := failing.RunDue(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	harness.clock.Advance(2 * time.Hour)
+	failedOf := func() int64 {
+		for _, kind := range harness.system(t, admin).Body.Queue {
+			if kind.Kind == string(jobs.KindReadThrough) {
+				return kind.FailedLastDayCount
+			}
+		}
+		return 0
+	}
+	if failed := failedOf(); failed != 1 {
+		t.Errorf("two hours after it failed, the day's count is %d; want the 1 failed", failed)
+	}
+	harness.setSetting(t, string(settings.JobHealthWindowHours), "1")
+	if failed := failedOf(); failed != 0 {
+		t.Errorf("with the window an hour, a job failed two hours ago is counted: %d", failed)
 	}
 }
 

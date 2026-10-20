@@ -125,6 +125,9 @@ const (
 	DiscoveryAddressCheckEverySeconds         Key = "discovery_address_check_every_seconds"
 	DiscoveryAnotherCopyCheckEverySeconds     Key = "discovery_another_copy_check_every_seconds"
 	DiscoveryEndedCheckEverySeconds           Key = "discovery_ended_check_every_seconds"
+	JobHealthWindowHours                      Key = "job_health_window_hours"
+	RetentionSweepEveryHours                  Key = "retention_sweep_every_hours"
+	InvariantsCheckEveryHours                 Key = "invariants_check_every_hours"
 )
 
 // Kind is a setting value's JSON type.
@@ -250,8 +253,25 @@ func buildRegistry() []Definition {
 	}, slices.Concat(
 		scanDefinitions(), jobMetadataAndPlaybackDefinitions(), deviceDefinitions(), upkeepAndDisplayDefinitions(),
 		retentionDefinitions(), backupDefinitions(), togetherDefinitions(), signInDefinitions(),
-		discoveryDefinitions(),
+		discoveryDefinitions(), upkeepSweepDefinitions(),
 	)...)
+}
+
+// upkeepSweepDefinitions are how often the core's upkeep looks, and how far back the job view counts:
+// each was a constant until the constants sweep (the owner, 2026-10-20).
+func upkeepSweepDefinitions() []Definition {
+	return []Definition{
+		sourced(durationSetting(JobHealthWindowHours, time.Hour, "24", 1, 720,
+			"hours back the System page's job health counts each kind's failed jobs (D233 §8)"),
+			"D233 §8: a day"),
+		sourced(durationSetting(RetentionSweepEveryHours, time.Hour, "24", 1, 168,
+			"hours between the sweeps that forget what is kept a number of days past its days: ended "+
+				"credentials and removed files (D304 §6)"),
+			"D304 §6: daily, as the limits are in days"),
+		sourced(durationSetting(InvariantsCheckEveryHours, time.Hour, "24", 1, 720,
+			"hours between the checks of the database's invariants, beside the one at start (D303)"),
+			"D303 (M7): daily, a few full reads of tables at this scale"),
+	}
 }
 
 // discoveryDefinitions are the core's side of its discovery: how often it looks, in each state. The

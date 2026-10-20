@@ -395,7 +395,8 @@ func TestSweeps_TheDatabasesInvariantsAreCheckedDailyAndEachBrokenOneLoggedAsAnE
 	t.Parallel()
 	var logged bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&logged, nil))
-	services := jobServices{invariants: brokenInvariants{
+	config := settingstest.Seeded(t, storetest.OpenMigrated(t))
+	services := jobServices{settings: config, invariants: brokenInvariants{
 		{Invariant: "every live title has a version", Rows: []string{"607", "608"}},
 	}}
 	for _, sweep := range services.sweeps(logger) {
@@ -404,6 +405,10 @@ func TestSweeps_TheDatabasesInvariantsAreCheckedDailyAndEachBrokenOneLoggedAsAnE
 		}
 		if every := sweep.Every(t.Context()); every != 24*time.Hour {
 			t.Errorf("the invariants are checked every %s, want daily", every)
+		}
+		settingstest.Set(t, config, settings.InvariantsCheckEveryHours, "6")
+		if every := sweep.Every(t.Context()); every != 6*time.Hour {
+			t.Errorf("with invariants_check_every_hours at 6, the invariants are checked every %s", every)
 		}
 		if _, err := sweep.Derive(t.Context()); err != nil {
 			t.Fatal(err)
@@ -444,12 +449,17 @@ func (purger *countingPurger) PurgeEndedCredentials(context.Context) (int, error
 func TestSweeps_EndedCredentialsArePurgedDaily(t *testing.T) {
 	t.Parallel()
 	purger := &countingPurger{}
-	for _, sweep := range (jobServices{credentials: purger}).sweeps(slog.New(slog.DiscardHandler)) {
+	config := settingstest.Seeded(t, storetest.OpenMigrated(t))
+	for _, sweep := range (jobServices{credentials: purger, settings: config}).sweeps(slog.New(slog.DiscardHandler)) {
 		if sweep.Name != sweepEndedCredentials {
 			continue
 		}
 		if every := sweep.Every(t.Context()); every != 24*time.Hour {
 			t.Errorf("ended credentials are purged every %s, want daily", every)
+		}
+		settingstest.Set(t, config, settings.RetentionSweepEveryHours, "12")
+		if every := sweep.Every(t.Context()); every != 12*time.Hour {
+			t.Errorf("with retention_sweep_every_hours at 12, ended credentials are purged every %s", every)
 		}
 		if _, err := sweep.Derive(t.Context()); err != nil || purger.purges != 1 {
 			t.Errorf("the sweep purged %d times (%v); want once", purger.purges, err)
