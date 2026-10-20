@@ -204,3 +204,42 @@ func TestRenameUser_KeepsNamesUnique(t *testing.T) {
 		t.Errorf("signing in by the new name: %v", err)
 	}
 }
+
+// Signing out on the device itself removes it: it leaves the person's devices, and a sign-in there
+// after, naming it with its proof, makes a new one (D320 §1). Signed out another way, it stays and
+// comes back as itself (D320 §2, D221 §1).
+func TestSignOutHere_RemovesTheDeviceSoTheNextSignInMakesANewOne(t *testing.T) {
+	t.Parallel()
+	fixture := newFixture(t)
+	ctx := t.Context()
+	id := fixture.createUser(t, "partner", "pw", RoleUser)
+	issued, err := fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", laptop)
+	if err != nil {
+		t.Fatal(err)
+	}
+	principal, err := fixture.service.Authenticate(ctx, issued.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = fixture.service.SignOutHere(ctx, principal, issued.Token); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = fixture.service.Authenticate(ctx, issued.Token); err == nil {
+		t.Error("the session still works after signing out on its device")
+	}
+	if devices, listErr := fixture.service.Devices(ctx, id); listErr != nil || len(devices) != 0 {
+		t.Errorf("the person's devices after signing out on the laptop: %+v, %v; want none", devices, listErr)
+	}
+	again, err := tokenOf(fixture.service.SignIn(ctx, "partner", "pw", "192.0.2.1", NewDevice{
+		Name: laptop.Name, Platform: laptop.Platform, PreviousDeviceID: principal.DeviceID,
+		PreviousDeviceProof: issued.DeviceSecret,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, authErr := fixture.service.Authenticate(ctx, again)
+	if authErr != nil || after.DeviceID == principal.DeviceID {
+		t.Errorf("signing in again on the laptop gave device %d, %v; want a new one, not %d",
+			after.DeviceID, authErr, principal.DeviceID)
+	}
+}

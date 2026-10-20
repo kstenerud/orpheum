@@ -45,7 +45,9 @@
 //
 //   - A session is stored only as its token's SHA-256 and ends when revoked, and belongs to the
 //     device it was signed in on: the one the client remembers, or a new one the client names
-//     (D217 §8, D221). Enforced by TestSignIn_IssuesASessionUntilSignedOut.
+//     (D217 §8, D221). Enforced by TestSignIn_IssuesASessionUntilSignedOut. Signed out on itself,
+//     the device is removed, every session and its secret ended, so a sign-in there after makes a
+//     new one; ended any other way, it stays (D320). TestSignOutHere_RemovesTheDeviceSoTheNextSignInMakesANewOne.
 //
 //   - Authenticating writes nothing: a session's use is remembered and written in a batch by
 //     FlushSessionUses, which never moves a stored use back; the idle check and a person's devices

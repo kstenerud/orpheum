@@ -168,8 +168,11 @@ func TestSession_ASignInNamingThePreviousDeviceWithItsProofResumesIt(t *testing.
 	}
 	first := issued.Token
 	before := harness.thisDeviceID(t, first)
-	if out := harness.do(t, http.MethodDelete, "/session", first, nil); out.status != http.StatusNoContent {
-		t.Fatalf("DELETE /session = %d %s", out.status, out.body)
+	// Ended from another device, as sign out everywhere else does, the device stays listed (D320 §2).
+	elsewhere := harness.signIn(t, "owner", "owner-password")
+	if out := harness.do(t, http.MethodPost, "/me/devices/sign-out-elsewhere", elsewhere, nil); out.status !=
+		http.StatusNoContent {
+		t.Fatalf("POST /me/devices/sign-out-elsewhere = %d %s", out.status, out.body)
 	}
 	signedIn := harness.do(t, http.MethodPost, "/session", "", map[string]any{
 		"name": "owner", "password": "owner-password",
@@ -492,5 +495,23 @@ func TestPeople_ARemovedPersonsWatchingOfDeletedFilesGoesWithThem(t *testing.T) 
 	if got := storetest.QueryRaw(t, harness.databasePath, "SELECT user_id FROM purged_watching"); !slices.Equal(got,
 		[]string{"1"}) {
 		t.Errorf("watching of deleted files after removing person 2: %v; want only person 1's", got)
+	}
+}
+
+// DELETE /session signs out on the device itself, which leaves the person's devices (D320 §1).
+func TestSignOut_TheDeviceSignedOutOnLeavesThePersonsDevices(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	second := harness.signIn(t, "owner", "owner-password")
+	if out := harness.do(t, http.MethodDelete, "/session", second, nil); out.status != http.StatusNoContent {
+		t.Fatalf("DELETE /session = %d %s", out.status, out.body)
+	}
+	listed := harness.do(t, http.MethodGet, "/me/devices", admin, nil)
+	var mine DevicesOutput
+	if err := json.Unmarshal([]byte(listed.body), &mine.Body); err != nil || len(mine.Body.Devices) != 1 ||
+		!mine.Body.Devices[0].IsThisDevice {
+		t.Errorf("GET /me/devices after the other device signed out = %d %s; want this device alone",
+			listed.status, listed.body)
 	}
 }
