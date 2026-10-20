@@ -458,6 +458,27 @@ interface Reporting {
  * hidden. The admin's stop pauses the video and ends the reports (D243 §9).
  */
 /**
+ * Tells onGivenUp where the video stood when its player gave the film's own picture up as one its
+ * device cannot play (D266), for the page to ask for the playback again from there, at the twin
+ * (D323 §2). Returns the stopping.
+ */
+export function whenOwnPictureGivenUp(
+  video: EventTarget,
+  onGivenUp: (at: ReopenAt) => void,
+): () => void {
+  const listener = (event: Event): void => {
+    const unplayable = unplayableOf(event);
+    if (unplayable?.isFilmsOwnPicture === true) {
+      onGivenUp({ positionMs: unplayable.positionMs, isPaused: unplayable.isPaused ?? false });
+    }
+  };
+  video.addEventListener(playerFoundUnplayableEvent, listener);
+  return () => {
+    video.removeEventListener(playerFoundUnplayableEvent, listener);
+  };
+}
+
+/**
  * Reports each quality the video's player gives up as one its device cannot play, at once (D266).
  * Returns the stopping.
  */
@@ -635,6 +656,11 @@ interface PlayStateOf {
    */
   readonly onGone?: ((whereNow: () => ReopenAt) => boolean) | undefined;
   /**
+   * Told where the video stood when its player gave the film's own picture up, for the page to ask
+   * for the playback again from there, at the twin (D323 §2); undefined keeps playing below it.
+   */
+  readonly onOwnPictureGivenUp?: ((at: ReopenAt) => void) | undefined;
+  /**
    * What failed in the player, undefined while nothing has: a failure is reported on at once, so a
    * playback the server lost before the video played, which sends no report, is learned of.
    */
@@ -698,6 +724,16 @@ export function usePlayState(
       reportNow.current?.();
     }
   }, [failure]);
+  const ownPictureHearer = useRef(playback.onOwnPictureGivenUp);
+  ownPictureHearer.current = playback.onOwnPictureGivenUp;
+  useEffect(() => {
+    const video = videoRef.current;
+    return video === null
+      ? undefined
+      : whenOwnPictureGivenUp(video, (at) => {
+          ownPictureHearer.current?.(at);
+        });
+  }, [videoRef, mediaToken]);
   return { refusal, stopMessage, lowerQuality };
 }
 

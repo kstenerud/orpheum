@@ -5595,7 +5595,8 @@
               "soundChanged",
               "subtitleFetched",
               "audioChosen",
-              "playbackGone"
+              "playbackGone",
+              "ownPictureGivenUp"
             ],
             "type": "string"
           },
@@ -5603,6 +5604,10 @@
             "format": "int64",
             "minimum": 1,
             "type": "integer"
+          },
+          "hasGivenUpOwnPicture": {
+            "description": "Whether the player gave the film's own picture up as unplayable here",
+            "type": "boolean"
           },
           "pageStarts": {
             "description": "How many playbacks the page has asked for since it loaded, this one included",

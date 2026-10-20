@@ -37,6 +37,8 @@ export async function requestPlayback(
         playableFormats: asked.playableFormats,
         cause: asked.cause,
         pageStarts: pageStarts.count,
+        // Its player gave the film's own picture up, which the core keeps before it decides (D323 §2).
+        ...(asked.cause === "ownPictureGivenUp" ? { hasGivenUpOwnPicture: true } : {}),
       },
     }),
   );

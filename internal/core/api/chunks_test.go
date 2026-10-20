@@ -17,6 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 // keepFilmOnesTimeline keeps the timeline a read-through of film 1 finds: a keyframe every ten
@@ -311,6 +312,37 @@ func TestChunks_AFilmsOwnPictureGivenUpIsNotOfferedToThePlayersNextPlayback(t *t
 		t.Errorf("another player's master playlist lost the picture:\n%s", master.body)
 	}
 	harness.logs.AwaitLine(t, `"msg":"a player found a quality its device cannot play"`, `"isFilmsOwnPicture":true`)
+}
+
+// A page asking again because its player gave the film's own picture up starts at the twin, H.264 at
+// the picture's own height, whether or not the player's report reached the core first; another player
+// still gets the picture (D323 §2).
+func TestChunks_APageThatGaveUpTheOwnPictureStartsAgainAtTheTwin(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.keepFilmOnesTimeline(t)
+	// Film one's picture is 1080 lines, the height its twin is made at.
+	storetest.ExecRaw(t, harness.databasePath,
+		`UPDATE file_probe SET probe_json = json_set(probe_json, '$.streams[0].video.width', 1920, `+
+			`'$.streams[0].video.height', 1080) WHERE file_id = 1`)
+	asked := chrome(1)
+	asked["hasGivenUpOwnPicture"] = true
+	asked["cause"] = "ownPictureGivenUp"
+	again := harness.play(t, user, asked)
+	master := harness.getBytePath(t, Prefix+"/bytes/media/chunks/"+again.MediaToken+"/master.m3u8", user, true, "")
+	if master.status != http.StatusOK || strings.Contains(master.body, "picture/stream.m3u8") ||
+		!strings.Contains(master.body, "q2400k1080p/stream.m3u8") {
+		t.Errorf("a page that gave up the picture is not offered the twin, H.264 at 1080p at 2.4 Mb/s:\n%s",
+			master.body)
+	}
+	other := harness.signIn(t, "owner", "owner-password")
+	elsewhere := Prefix + "/bytes/media/chunks/" + harness.play(t, other, chrome(1)).MediaToken + "/master.m3u8"
+	if master := harness.getBytePath(t, elsewhere, other, true, ""); !strings.Contains(master.body,
+		"picture/stream.m3u8") {
+		t.Errorf("another player's master playlist lost the picture:\n%s", master.body)
+	}
 }
 
 // A chunk of a quality whose run was evicted to keep its machine's other runs faster than playback

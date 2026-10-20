@@ -140,6 +140,9 @@ type Request struct {
 	// ClientAddress is the address the request came from, whose network the link speed remembered
 	// for the player is kept by (D257 §1).
 	ClientAddress string
+	// HasGivenUpOwnPicture is the player's word that it gave the film's own picture up as unplayable
+	// on its device (D266): kept before the playback is decided, so it starts at the twin (D323 §2).
+	HasGivenUpOwnPicture bool
 }
 
 // Started is a playback: its media token and the decision.
@@ -228,8 +231,7 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	playback := tokenPlayback{
 		userID: userID, sessionKey: holder.SessionKey, fileID: file.ID, libraryID: file.LibraryID,
 		deviceID: request.DeviceID, decision: decision,
-		isOwnPictureUnplayable: service.unplayablePictures.has(
-			playerOf(request.DeviceID, holder.SessionKey), file.ID),
+		isOwnPictureUnplayable: service.isOwnPictureUnplayable(holder, request, file.ID),
 	}
 	playback.used, playback.startingAudio = used, started.StartingAudio
 	started.OnLadder, started.NotOnLadderBecause, err = service.startOnLadder(ctx, holder, request, playback,
@@ -246,6 +248,17 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 		}
 	}
 	return service.issued(ctx, playback, probe, started, idle)
+}
+
+// isOwnPictureUnplayable is whether the asking player gave fileID's own picture up as unplayable on
+// its device (D266): on an earlier playback, as its report said, or as this request says, which is
+// kept first, so a page asking again at once is offered the twin (D323 §2).
+func (service *Service) isOwnPictureUnplayable(holder Holder, request Request, fileID int64) bool {
+	player := playerOf(request.DeviceID, holder.SessionKey)
+	if request.HasGivenUpOwnPicture {
+		service.unplayablePictures.remember(player, fileID)
+	}
+	return service.unplayablePictures.has(player, fileID)
 }
 
 // issued is started with its tracks named and its media token issued, which an idle playback loses

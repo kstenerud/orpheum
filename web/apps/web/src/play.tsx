@@ -61,6 +61,11 @@ export function PlayView(props: {
    * it again from there; false, or undefined, tells the person.
    */
   readonly onPlaybackGone?: ((whereNow: () => ReopenAt) => boolean) | undefined;
+  /**
+   * Told where the video stood when its player gave the film's own picture up, for the page to ask
+   * for the playback again from there, at the twin (D323 §2).
+   */
+  readonly onOwnPictureGivenUp?: ((at: ReopenAt) => void) | undefined;
   /** Whether the film waits to be played, as one the person had paused when it was opened again. */
   readonly isStartPaused?: boolean;
   /**
@@ -84,18 +89,19 @@ export function PlayView(props: {
     },
     [mediaToken],
   );
-  const { fileId, decision, onDecideAgain, onPlaybackGone } = props;
+  const { fileId, decision, onDecideAgain, onPlaybackGone, onOwnPictureGivenUp } = props;
   const ways = useMemo(
     () => ({
       fileId,
       decision,
       onDecideAgain,
       onPlaybackGone,
+      onOwnPictureGivenUp,
       onLowerQuality,
       onVideo: setVideo,
       onCannotKeepUp: setCannotKeepUp,
     }),
-    [fileId, decision, onDecideAgain, onPlaybackGone, onLowerQuality],
+    [fileId, decision, onDecideAgain, onPlaybackGone, onOwnPictureGivenUp, onLowerQuality],
   );
   const { titleName } = props.decision;
   return (
@@ -189,6 +195,7 @@ function useReportedPlayState(
     resumePositionMs: props.decision.resumePositionMs,
     readLinkKbps: props.readLinkKbps,
     onGone: props.onPlaybackGone,
+    onOwnPictureGivenUp: props.onOwnPictureGivenUp,
     failure: props.failure,
   });
   const startPositionMs = props.decision.resumePositionMs;
@@ -407,7 +414,9 @@ interface Opened {
 export function Play(props: { readonly fileId: number }): JSX.Element {
   const { session } = useServices();
   const { t } = useTranslation();
-  const { opened, held, decideAgain, reopenPlayback } = useOpenedPlayback(props.fileId);
+  const { opened, held, decideAgain, reopenPlayback, startAtTheTwin } = useOpenedPlayback(
+    props.fileId,
+  );
   const render = ({ decision, isStartPaused }: Opened): JSX.Element =>
     decision.audioOutput === undefined && session.deviceId() !== undefined ? (
       <div className="play">
@@ -424,6 +433,7 @@ export function Play(props: { readonly fileId: number }): JSX.Element {
         decision={decision}
         onDecideAgain={decideAgain}
         onPlaybackGone={reopenPlayback}
+        onOwnPictureGivenUp={startAtTheTwin}
         isStartPaused={isStartPaused === true}
         isReconnecting={opened.state !== "loaded"}
       />
@@ -452,6 +462,61 @@ function shownOf(opened: Resource<Opened>, held: Opened | undefined): Opened | u
 }
 
 /**
+ * A playback opened again from where it was: the server lost it, or its player gave the film's own
+ * picture up and is offered the twin in its place (D323 §2).
+ */
+interface Reopening {
+  readonly whereNow: () => ReopenAt;
+  readonly cause: "playbackGone" | "ownPictureGivenUp";
+}
+
+/**
+ * How the Play page opens its playback again: a lost one at most every reopenAtMostEveryMs, saying
+ * whether it does, and one whose player gave the film's own picture up from where the video stood,
+ * asked for again at the twin (D323 §2). What played before is held on screen meanwhile.
+ */
+function useReopening(parts: {
+  readonly reopenRef: RefObject<Reopening | undefined>;
+  readonly reload: () => void;
+  readonly hold: () => void;
+}): {
+  readonly reopenPlayback: (whereNow: () => ReopenAt) => boolean;
+  readonly startAtTheTwin: (at: ReopenAt) => void;
+} {
+  const { reopenRef, reload, hold } = parts;
+  // When the last lost one was opened again, on the page's clock.
+  const lastReopenMsRef = useRef<number | undefined>(undefined);
+  const reopen = useCallback(
+    (asked: Reopening): void => {
+      reopenRef.current = asked;
+      hold();
+      reload();
+    },
+    [reopenRef, reload, hold],
+  );
+  const reopenPlayback = useCallback(
+    (whereNow: () => ReopenAt): boolean => {
+      const nowMs = performance.now();
+      const lastMs = lastReopenMsRef.current;
+      if (lastMs !== undefined && nowMs - lastMs < reopenAtMostEveryMs) {
+        return false;
+      }
+      lastReopenMsRef.current = nowMs;
+      reopen({ whereNow, cause: "playbackGone" });
+      return true;
+    },
+    [reopen],
+  );
+  const startAtTheTwin = useCallback(
+    (at: ReopenAt): void => {
+      reopen({ whereNow: () => at, cause: "ownPictureGivenUp" });
+    },
+    [reopen],
+  );
+  return { reopenPlayback, startAtTheTwin };
+}
+
+/**
  * The Play page's decision for the file, asked for again when decideAgain says why, and opened again
  * where a playback the server lost is when its new one comes, once reopenPlayback is told so, which
  * says whether it is: not within reopenAtMostEveryMs of the last. held is what played before, shown
@@ -462,30 +527,34 @@ function useOpenedPlayback(fileId: number): {
   readonly held: Opened | undefined;
   readonly decideAgain: (cause: DecideAgainCause) => void;
   readonly reopenPlayback: (whereNow: () => ReopenAt) => boolean;
+  readonly startAtTheTwin: (at: ReopenAt) => void;
 } {
   const { api, playableFormats } = useServices();
   // Why the next decision is asked for: the page's opening, unless something asked it again.
   const nextCauseRef = useRef<StartCause>("playPage");
-  // Where a playback the server lost is, read as its new one comes, for that to start from; and
-  // when the last was opened again, on the page's clock.
-  const reopenRef = useRef<(() => ReopenAt) | undefined>(undefined);
-  const lastReopenMsRef = useRef<number | undefined>(undefined);
+  // Where a playback opened again is, read as its new one comes, for that to start from, and why it
+  // is: the server lost it, or its player gave the film's own picture up; and when the last lost one
+  // was opened again, on the page's clock.
+  const reopenRef = useRef<
+    | { readonly whereNow: () => ReopenAt; readonly cause: "playbackGone" | "ownPictureGivenUp" }
+    | undefined
+  >(undefined);
   const [held, setHeld] = useState<Opened | undefined>(undefined);
   const [opened, reload] = useResource(`play/${String(fileId)}`, async (): Promise<Opened> => {
     const cause = nextCauseRef.current;
     nextCauseRef.current = "playPage";
-    const whereNow = reopenRef.current;
+    const reopen = reopenRef.current;
     reopenRef.current = undefined;
     const watching = watchingOf(api);
-    if (whereNow === undefined) {
+    if (reopen === undefined) {
       setHeld(undefined);
       return { decision: await watching.decide(fileId, playableFormats(), cause) };
     }
     // The server may still be starting: asked again for about a minute.
     const decision = await askUntilAnswered(() =>
-      watching.decide(fileId, playableFormats(), "playbackGone"),
+      watching.decide(fileId, playableFormats(), reopen.cause),
     );
-    const at = whereNow();
+    const at = reopen.whereNow();
     const resumePositionMs = Math.round(at.positionMs);
     return { decision: { ...decision, resumePositionMs }, isStartPaused: at.isPaused };
   });
@@ -496,21 +565,12 @@ function useOpenedPlayback(fileId: number): {
     },
     [reload],
   );
-  const shownNow = opened.state === "loaded" ? opened.value : undefined;
-  const reopenPlayback = useCallback(
-    (whereNow: () => ReopenAt): boolean => {
-      const nowMs = performance.now();
-      const lastMs = lastReopenMsRef.current;
-      if (lastMs !== undefined && nowMs - lastMs < reopenAtMostEveryMs) {
-        return false;
-      }
-      lastReopenMsRef.current = nowMs;
-      reopenRef.current = whereNow;
-      setHeld(shownNow);
-      reload();
-      return true;
+  const { reopenPlayback, startAtTheTwin } = useReopening({
+    reopenRef,
+    reload,
+    hold: () => {
+      setHeld(opened.state === "loaded" ? opened.value : undefined);
     },
-    [reload, shownNow],
-  );
-  return { opened, held, decideAgain, reopenPlayback };
+  });
+  return { opened, held, decideAgain, reopenPlayback, startAtTheTwin };
 }
