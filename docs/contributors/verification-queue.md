@@ -424,10 +424,9 @@ An item is ticked only by the person who did it, and only with what they saw.
   `path=direct_ipv6` from the house's /64: *"I can add libraries, and am watching them update, so
   admin is fully functional"*
 
-- [ ] **VQ44** — On nas.example, after the release with the home address: the account page of a person
-  who is not the admin shows **Your server at home** with a link and a QR code; the admin's
-  System → Discovery shows the same address once claimed; and away from home (a phone off Wi-Fi)
-  the admin's menu, under Manage, says "You administer this server from home, at …" with that
-  address. `/me` reads the address from the live discovery, which only a claimed server with its
-  certificate has, and no test machine here is one.
+- [ ] **VQ44** — On nas.example, built with the home address: the account page shows **Your server at
+  home** with a link and a QR code, and the link opens the server at home; System → Remote access
+  shows the same address. `/me` reads the address from the live discovery, which only a claimed
+  server with its certificate has, and no test machine here is one. (The away-from-home menu's
+  line is the page's own, held by app-shell.test.tsx.)
   (`internal/core/api/session.go`, `cmd/orpheum/certificates.go`)
