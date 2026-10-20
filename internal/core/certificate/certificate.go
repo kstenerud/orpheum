@@ -25,6 +25,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/providers/cloudflare"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
@@ -54,10 +55,6 @@ func PrivateFileNames() []string {
 
 // wildcardPrefix begins a name that stands for every name one label under it (RFC 6125 §6.4.3).
 const wildcardPrefix = "*."
-
-// renewBefore is how long before it expires a certificate is renewed: a third of Let's Encrypt's
-// ninety days, as it advises, so a renewal that fails has a month of daily tries before it matters.
-const renewBefore = 30 * 24 * time.Hour
 
 // ErrNoCertificate is a server with no certificate yet.
 var ErrNoCertificate = errors.New("the server has no certificate for its name yet")
@@ -121,9 +118,13 @@ type Parts struct {
 	Queue Queue
 	Clock clock.Clock
 	// PropagationWait is how long the TXT record is given to reach the name's servers before the
-	// CA is asked to look: Cloudflare's own servers answer within seconds.
-	PropagationWait time.Duration
-	Logger          *slog.Logger
+	// CA is asked to look: certificate_dns_wait_seconds, Cloudflare's own servers answering within
+	// seconds; nil waits none, as a test's.
+	PropagationWait func(ctx context.Context) time.Duration
+	// Settings are the server's settings, read for how early a certificate is renewed; nil uses the
+	// starting value.
+	Settings settings.DurationReader
+	Logger   *slog.Logger
 }
 
 // Service obtains the server's certificate by ACME DNS-01 and renews it, and hands the HTTPS
@@ -191,10 +192,11 @@ func (service *Service) ExpiresAt() (time.Time, bool) {
 	return current.Leaf.NotAfter, true
 }
 
-// QueueRenewal asks for the certificate when there is none, or when it expires within renewBefore,
+// QueueRenewal asks for the certificate when there is none, or when it expires within
+// certificate_renew_before_days,
 // and says how many it asked for. A sweep calls it.
 func (service *Service) QueueRenewal(ctx context.Context) (int, error) {
-	if !service.IsDue() {
+	if !service.IsDue(ctx) {
 		return 0, nil
 	}
 	if _, err := service.parts.Queue.Enqueue(ctx, jobs.Request{
@@ -206,9 +208,16 @@ func (service *Service) QueueRenewal(ctx context.Context) (int, error) {
 	return 1, nil
 }
 
-// IsDue is whether there is no certificate, or the one there expires within renewBefore.
-func (service *Service) IsDue() bool {
+// IsDue is whether there is no certificate, or the one there expires within
+// certificate_renew_before_days: a third of Let's Encrypt's ninety days to start, as it advises, so a
+// renewal that fails has a month of daily tries before it matters.
+func (service *Service) IsDue(ctx context.Context) bool {
 	expiresAt, isAny := service.ExpiresAt()
+	var reader settings.DurationReader
+	if service.parts.Settings != nil {
+		reader = service.parts.Settings
+	}
+	renewBefore := settings.DurationOrStarting(ctx, reader, settings.CertificateRenewBeforeDays, service.parts.Logger)
 	return !isAny || expiresAt.Sub(service.parts.Clock.Now()) <= renewBefore
 }
 
@@ -328,10 +337,14 @@ func (service *Service) authorize(ctx context.Context, client *acme.Client, auth
 
 // waitForPropagation waits PropagationWait, or until ctx ends.
 func (service *Service) waitForPropagation(ctx context.Context) error {
-	if service.parts.PropagationWait <= 0 {
+	if service.parts.PropagationWait == nil {
 		return nil
 	}
-	timer := service.parts.Clock.NewTimer(service.parts.PropagationWait)
+	wait := service.parts.PropagationWait(ctx)
+	if wait <= 0 {
+		return nil
+	}
+	timer := service.parts.Clock.NewTimer(wait)
 	defer timer.Stop()
 	select {
 	case <-timer.C():

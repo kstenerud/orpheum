@@ -167,7 +167,7 @@ func (served *servedCertificates) HandleRenew(ctx context.Context, job jobs.Job)
 	}
 	var retried, permanent []error
 	for _, each := range held {
-		if !each.IsDue() {
+		if !each.IsDue(ctx) {
 			continue
 		}
 		err := each.HandleRenew(ctx, job)

@@ -381,8 +381,9 @@ day, which is the discovery's.
 ### K9 — Certificates
 
 - **Changes.** `internal/core/certificate`: renewal at two-thirds of the lifetime, replacing
-  `renewBefore`'s fixed 30 days (§2.7, C1); the TXT record checked to resolve before the CA is
-  asked, in place of the fixed 30 s, by `golang.org/x/net/dns/dnsmessage` (direct by D292 §9); the
+  `renewBefore`'s fixed 30 days (§2.7, C1; the setting `certificate_renew_before_days` since the
+  constants sweep, 2026-10-20); the TXT record checked to resolve before the CA is asked, in place
+  of the fixed 30 s (`certificate_dns_wait_seconds` since then), by `golang.org/x/net/dns/dnsmessage` (direct by D292 §9); the
   record cleared by its path (K1); after leaving, the discovery's certificate no longer served
   (C16); the core's ACME account URI reported to the discovery for CAA, and reported again whenever
   the core makes a new account (a restore leaves the account key out), before it orders (§2.7; G2).

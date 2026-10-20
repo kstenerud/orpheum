@@ -17,14 +17,24 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/certificate"
 	"github.com/kstenerud/orpheum/internal/core/providers/cloudflare"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/pacing"
 )
 
-// dnsPropagationWait is how long a challenge's TXT record is given to reach the name's servers
-// before the CA looks: Cloudflare's own servers answer within seconds, and a margin over that costs
-// nothing once every two months (D243 §6).
-const dnsPropagationWait = 30 * time.Second
+// propagationWaitOf is how long a DNS-01 challenge's record is given to reach the name's servers:
+// certificate_dns_wait_seconds as reader holds it, read at each challenge; nil, no wait, for a wiring
+// that waits for none, a test's fake DNS (D243 §6).
+func propagationWaitOf(
+	waitsForDNS bool, reader settings.DurationReader, logger *slog.Logger,
+) func(ctx context.Context) time.Duration {
+	if !waitsForDNS {
+		return nil
+	}
+	return func(ctx context.Context) time.Duration {
+		return settings.DurationOrStarting(ctx, reader, settings.CertificateDNSWaitSeconds, logger)
+	}
+}
 
 // openCertificates makes the certificates HTTPS serves: the server's public name's, through
 // Cloudflare, for a server with an https.domain (D243 §6); the discovery's is made once the
@@ -35,8 +45,9 @@ func openCertificates(
 	parts := certificate.Parts{
 		Contact: config.HTTPS.Contact, DirectoryURL: config.HTTPS.ACMEDirectory,
 		HTTP: opened.jobServices.outboundClient, Files: opened.directories, Queue: opened.jobServices.queue,
-		Clock: clock.System{}, PropagationWait: outside.dnsPropagationWait, Logger: logger,
+		Clock: clock.System{}, Settings: opened.settings, Logger: logger,
 	}
+	parts.PropagationWait = propagationWaitOf(outside.waitsForDNS, opened.settings, logger)
 	served := &servedCertificates{discoveryParts: parts}
 	opened.jobServices.certificates = served
 	if !config.HTTPS.isOn() {
