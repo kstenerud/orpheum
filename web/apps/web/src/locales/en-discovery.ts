@@ -54,6 +54,16 @@ export const enDiscovery = {
   },
   loader: {
     notConfigured: "This page was served without what it needs to find a server.",
+    activate: {
+      heading: "Activate a TV",
+      whichRealm: "Activate the TV in which realm?",
+      notSignedIn:
+        "This browser is not signed in to a household. Open this link on a phone or computer that is, or sign in here and then activate the TV.",
+      copy: "Copy link",
+      copied: "Copied.",
+      refused: "This browser would not copy it; select the link above instead.",
+      signInHere: "Sign in here",
+    },
     households: {
       heading: "Your households",
       forget: "Forget",

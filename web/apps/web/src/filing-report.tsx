@@ -10,6 +10,7 @@ import { idempotent } from "./idempotent.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
+import { copyToClipboard } from "./clipboard.ts";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 import { IsAdminContext } from "./warning-sign.tsx";
@@ -61,18 +62,13 @@ export function ReportText(props: { readonly report: Report }): JSX.Element {
   const [isCopied, setIsCopied] = useState(false);
   const copy = (): void => {
     const area = textRef.current;
-    // The clipboard is there in a secure context alone (the owner's LAN address is plain HTTP);
-    // elsewhere the text is selected to copy.
-    if (window.isSecureContext) {
-      navigator.clipboard.writeText(props.report.markdown).then(
-        () => {
-          setIsCopied(true);
-        },
-        () => area?.select(),
-      );
-    } else {
-      area?.select();
-    }
+    // Where the clipboard is not, as at the owner's plain-HTTP LAN address, the text is selected to copy.
+    copyToClipboard(props.report.markdown).then(
+      () => {
+        setIsCopied(true);
+      },
+      () => area?.select(),
+    );
   };
   return (
     <div className="filing-report__text">

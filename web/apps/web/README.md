@@ -62,6 +62,13 @@ The web client: the browser and phone interface, served embedded by the core. MP
   signed; and the loader clears every cookie it can see. `loader-config.test.ts`,
   `loader-households.test.ts`, `loader-pages.test.tsx`, `loader-run-client.test.ts`,
   `loader-sweep.test.ts`, and the SDK's `discovery.test.ts`.
+- **A TV's code is activated by its QR code with one tap, or typed with a committed check code**
+  (D321): the TV shows a QR code of the loader's `/activate` carrying its key's hash; `/activate`
+  goes to the one realm's Activate a device, asks which of several, or offers the link to copy or a
+  sign-in that carries on there; a scanned code is entered at once and answered by one tap, with no
+  check code; a typed one's check code is made of the key, the nonce the TV committed to and the
+  core's. `loader-device-code.test.tsx`, `loader-pages.test.tsx`, `device-activation.test.tsx`, and
+  the SDK's `device-code.test.ts`.
 - **The session token travels in the Authorization header**; images load through the media
   cookie sign-in sets (D154), by addresses from `artUrl` in `@orpheum/sdk`.
 - **A screen showing what the server changes in the background asks again** — the lists, a title,

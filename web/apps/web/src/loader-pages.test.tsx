@@ -48,7 +48,12 @@ const config = {
 
 /** The loader's origin at an address, where it went heard. */
 function loaderAt(
-  address: { readonly hash?: string; readonly search?: string; readonly referrer?: string },
+  address: {
+    readonly hash?: string;
+    readonly search?: string;
+    readonly referrer?: string;
+    readonly pathname?: string;
+  },
   storage: StringStorage,
   went: string[],
 ): AtLoaderOrigin {
@@ -57,7 +62,7 @@ function loaderAt(
     storage,
     location: {
       hash: address.hash ?? "",
-      pathname: "/register",
+      pathname: address.pathname ?? "/register",
       search: address.search ?? "",
       replace: (to: string) => {
         went.push(to);
@@ -212,5 +217,75 @@ describe("the loader the client finds on the window (D308)", () => {
     expect(loaderOf({ orpheumLoader: { major: 1 } })).toBeUndefined();
     expect(loaderRefusal({ major: 1 })).toBeUndefined();
     expect(loaderRefusal({ major: 2 })).toEqual({ needs: 1, has: 2 });
+  });
+});
+
+describe("the loader's /activate, which a TV's QR code opens (D321)", () => {
+  const scanned = { pathname: "/activate", search: "?code=abcd-efgh&key=rTBVo-NI60s-RZ3ENfKqkw" };
+  const activate = "/account?code=abcd-efgh&key=rTBVo-NI60s-RZ3ENfKqkw";
+
+  it("with one realm, goes straight to its Activate a device, the code filled in", () => {
+    const storage = memoryStorage();
+    rememberHousehold(storage, household);
+    const went: string[] = [];
+    expect(startAtLoaderOrigin(loaderAt(scanned, storage, went))).toBeUndefined();
+    expect(went).toEqual([`https://k7xq2.client.example${activate}`]);
+  });
+
+  it("with several, asks which realm, each going to its Activate a device", async () => {
+    const storage = memoryStorage();
+    rememberHousehold(storage, household);
+    rememberHousehold(storage, { ...household, coreId: "m3dz9", realm: "cottage" });
+    mounted = await mount(startAtLoaderOrigin(loaderAt(scanned, storage, [])) ?? <p>nothing</p>);
+    const page = mounted.container;
+    expect(page.textContent).toContain("Activate the TV in which realm?");
+    const links = [...page.querySelectorAll(".loader-households a")].map((link) => [
+      link.textContent,
+      link.getAttribute("href"),
+    ]);
+    expect(links).toEqual(
+      expect.arrayContaining([
+        ["nas", `https://k7xq2.client.example${activate}`],
+        ["cottage", `https://m3dz9.client.example${activate}`],
+      ]),
+    );
+  });
+
+  it("with none, offers the link to copy, or a sign-in here", async () => {
+    mounted = await mount(
+      startAtLoaderOrigin(loaderAt(scanned, memoryStorage(), [])) ?? <p>nothing</p>,
+    );
+    const page = mounted.container;
+    expect(page.textContent).toContain("This browser is not signed in to a household.");
+    expect(page.querySelector(".loader-activate__link")?.textContent).toBe(
+      `https://app.example/activate${scanned.search}`,
+    );
+    expect(buttonWithText(page, "Copy link")).not.toBeUndefined();
+    await click(buttonWithText(page, "Sign in here"));
+    expect(page.querySelector('input[name="name"]')).not.toBeNull();
+  });
+
+  it("hands a sign-in it carries on to the client origin's Activate a device, the hand-off after", async () => {
+    const went: string[] = [];
+    const parts = joinParts(loaderAt(scanned, memoryStorage(), went), activate);
+    const transport = {
+      fetch: () => Promise.resolve(Response.json({ code: "a-hand-off-code" })),
+      close: () => undefined,
+    };
+    const reaching = {
+      first: { kind: "webrtc", transport },
+      another: () => Promise.reject(new Error("none")),
+      better: () => Promise.resolve(undefined),
+    } as unknown as Parameters<typeof parts.onConnected>[1];
+    const signIn = { name: "karl", password: "pw", held: { bootstrapToken: "a-token" } };
+    await parts.onConnected({ coreId: "k7xq2", fingerprint, realm: "nas" }, reaching, signIn);
+    expect(went).toEqual([
+      `https://k7xq2.client.example${activate}${handOffFragment({
+        code: "a-hand-off-code",
+        bootstrapToken: "a-token",
+        fingerprint,
+        realm: "nas",
+      })}`,
+    ]);
   });
 });

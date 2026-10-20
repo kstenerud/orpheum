@@ -211,11 +211,17 @@ export type Activation = components["schemas"]["ActivationOutputBody"];
 
 /**
  * Enters the code a device shows (D288 §2): for oneself, or, an admin, for the person userId, under
- * the name the device will be listed by.
+ * the name the device will be listed by; with keyHash, the code was scanned from the device's QR code,
+ * and the answer has no check code (D321).
  */
 export async function activateDevice(
   api: Api,
-  activation: { readonly code: string; readonly deviceName: string; readonly userId?: number },
+  activation: {
+    readonly code: string;
+    readonly deviceName: string;
+    readonly userId?: number;
+    readonly keyHash?: string;
+  },
   idempotencyKey: string,
 ): Promise<Activation> {
   return dataOrThrow(
