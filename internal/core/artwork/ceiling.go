@@ -17,12 +17,10 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
 
-// The ceiling's workings (D212 §6, §7).
+// The ceiling's workings (D212 §6, §7): a sweep evicts down to artwork_cache_sweep_to_percent of the
+// ceiling, so it does not run again at the next write, and the recommended ceiling is what is never
+// evicted, plus artwork_cache_recommended_headroom_percent.
 const (
-	// A sweep evicts down to 90% of the ceiling, so it does not run again at the next write.
-	lowWaterFraction = 0.9
-	// The recommended ceiling is what is never evicted, plus 15%.
-	headroomFactor   = 1.15
 	day              = 24 * time.Hour
 	cannotMakeSuffix = ".none"
 )
@@ -192,6 +190,14 @@ func (service *Service) Sweep(ctx context.Context) (Pressure, error) {
 	if err != nil {
 		return Pressure{}, fmt.Errorf("read removed_item_artwork_kept_days: %w", err)
 	}
+	sweepToPercent, err := service.parts.Settings.Int(ctx, settings.ArtworkCacheSweepToPercent)
+	if err != nil {
+		return Pressure{}, fmt.Errorf("read %s: %w", settings.ArtworkCacheSweepToPercent, err)
+	}
+	headroomPercent, err := service.parts.Settings.Int(ctx, settings.ArtworkCacheRecommendedHeadroomPercent)
+	if err != nil {
+		return Pressure{}, fmt.Errorf("read %s: %w", settings.ArtworkCacheRecommendedHeadroomPercent, err)
+	}
 	rows, err := service.parts.Database.Read().ListArtworkSourceSha256s(ctx)
 	if err != nil {
 		return Pressure{}, fmt.Errorf("list the stored images: %w", err)
@@ -205,7 +211,7 @@ func (service *Service) Sweep(ctx context.Context) (Pressure, error) {
 	sorted := service.classify(isLiveBySourceSha256, goneAtBySourceSha256)
 	candidates, required, total := sorted.candidates, sorted.requiredBytes, sorted.totalBytes
 	graceEndsAt := service.parts.Clock.Now().Add(-grace).UnixMilli()
-	isOverCeiling, lowWaterBytes := total > ceiling, int64(float64(ceiling)*lowWaterFraction)
+	isOverCeiling, lowWaterBytes := total > ceiling, ceiling*sweepToPercent/100
 	for _, file := range candidates {
 		isPastGrace := file.class == classRemoved && file.goneAt < graceEndsAt
 		if !isPastGrace && (!isOverCeiling || total <= lowWaterBytes) {
@@ -220,7 +226,7 @@ func (service *Service) Sweep(ctx context.Context) (Pressure, error) {
 		TotalBytes: total, RequiredBytes: required, CeilingBytes: ceiling, IsHighWater: required > ceiling,
 	}
 	if pressure.IsHighWater {
-		pressure.RecommendedBytes = (int64(float64(required)*headroomFactor) + diskspace.BytesPerGiB - 1) /
+		pressure.RecommendedBytes = (required*headroomPercent/100 + diskspace.BytesPerGiB - 1) /
 			diskspace.BytesPerGiB * diskspace.BytesPerGiB
 	}
 	service.recordPressure(ctx, pressure)

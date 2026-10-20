@@ -249,6 +249,7 @@ func buildRegistry() []Definition {
 		discoveryDefinitions(), upkeepSweepDefinitions(), signInStretchDefinitions(), pairingDefinitions(),
 		uploadDefinitions(), playbackTimingDefinitions(), chunkTimingDefinitions(),
 		togetherSweepDefinitions(), portMappingDefinitions(), certificateDefinitions(),
+		artworkCacheDefinitions(),
 	)...)
 }
 

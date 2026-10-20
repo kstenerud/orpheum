@@ -142,6 +142,41 @@ func TestSweep_HighWaterWhenWhatIsNeverEvictedExceedsTheCeiling(t *testing.T) {
 	}
 }
 
+// Where a sweep stops and what the System page recommends are settings (the constants sweep,
+// 2026-10-20): swept to half the ceiling, four posters' on-request sizes of 0.3 GiB under a 1 GiB
+// ceiling leave one, where the starting 90% would leave three; and at a headroom of 200%, 2.5 GiB never evicted
+// recommends 5 GiB.
+func TestSweep_StopsAndRecommendsAsTheSettingsSay(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t, fakeFetcher{})
+	settingstest.Set(t, bench.settings, settings.ArtworkCacheCeilingGiB, "1")
+	settingstest.Set(t, bench.settings, settings.ArtworkCacheSweepToPercent, "50")
+	for _, shown := range []string{"a", "b", "c", "d"} {
+		bench.show(t, library.ArtPoster, sourceSha256HexOf(shown), 0)
+		bench.hold(sourceSha256HexOf(shown), map[string]float64{"portrait-l.webp": 0.3})
+	}
+	pressure, err := bench.service.Sweep(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pressure.TotalBytes > gibToBytes(0.5) || pressure.TotalBytes < gibToBytes(0.3) {
+		t.Errorf("swept to half the ceiling, %d bytes are left; want one poster's 0.3 GiB", pressure.TotalBytes)
+	}
+	walled := newBench(t, fakeFetcher{})
+	settingstest.Set(t, walled.settings, settings.ArtworkCacheCeilingGiB, "2")
+	settingstest.Set(t, walled.settings, settings.ArtworkCacheRecommendedHeadroomPercent, "200")
+	wall := sourceSha256HexOf("a")
+	walled.show(t, library.ArtPoster, wall, 0)
+	walled.hold(wall, map[string]float64{"portrait-m.webp": 2.5})
+	walledPressure, err := walled.service.Sweep(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if walledPressure.RecommendedBytes != 5*diskspace.BytesPerGiB {
+		t.Errorf("at a 200%% headroom the recommendation is %d; want 5 GiB", walledPressure.RecommendedBytes)
+	}
+}
+
 func TestFlush_WritesWhenImagesWereServedAndLoadHoldingsReadsItBack(t *testing.T) {
 	t.Parallel()
 	bench := newBench(t, fakeFetcher{})
