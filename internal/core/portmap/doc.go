@@ -17,6 +17,9 @@
 //   - A router that speaks neither is found by an SSDP search answered from the gateway's own
 //     address; it forwards IPv4 and opens IPv6 by UPnP, and both are removed when the core stops.
 //     TestStep_OpensByUPnPForIPv4AndIPv6AndReleaseClosesThem.
+//   - Every UPnP request goes to the gateway's own address over plain HTTP: the search's location, the
+//     description's URL base and its control URLs on any other host are left out (the Plex-chain
+//     review's O2). TestRouterOf_TakesOnlyURLsOnTheGateway.
 //   - The gateway is the default route's, from Linux's routing table.
 //     TestGatewayOf_ReadsTheDefaultRoutesGateway.
 //

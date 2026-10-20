@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -345,4 +346,39 @@ func udpPort(t *testing.T, connection net.PacketConn) int {
 		t.Fatalf("%v is not a UDP address", connection.LocalAddr())
 	}
 	return address.Port
+}
+
+// A router's description, and the search's answer naming it, may point the core only at the
+// gateway itself: a control URL or URL base on another host is left out, so neither a device on the
+// LAN nor the router can make the core send requests elsewhere, to itself among them (the Plex-chain
+// review's O2).
+func TestRouterOf_TakesOnlyURLsOnTheGateway(t *testing.T) {
+	t.Parallel()
+	gateway := netip.MustParseAddr("192.168.1.1")
+	location, err := url.Parse("http://192.168.1.1:5000/rootDesc.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	elsewhere := strings.NewReplacer("/ctl/IPConn", "http://127.0.0.1:8440/api/v1/x",
+		"/ctl/IP6FCtl", "http://user@192.168.1.1/ctl/IP6FCtl").Replace(description)
+	if refused, refusedErr := routerOf([]byte(elsewhere), location, gateway); refusedErr == nil {
+		t.Errorf("a description whose services are all elsewhere gave %+v; want it refused", refused)
+	}
+	based := strings.Replace(description, "<device>", "<URLBase>http://192.168.1.50:80/</URLBase><device>", 1)
+	found, err := routerOf([]byte(based), location, gateway)
+	if err != nil || found.connection != "http://192.168.1.1:5000/ctl/IPConn" {
+		t.Errorf("a URL base on another host gave %+v, %v; want it ignored, the location taken", found, err)
+	}
+	for _, address := range []string{
+		"http://192.168.1.50:5000/d.xml", "https://192.168.1.1/d.xml",
+		"http://router.lan/d.xml",
+	} {
+		parsed, err := url.Parse(address)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if isOnGateway(parsed, gateway) {
+			t.Errorf("%s is taken as the gateway's; want refused", address)
+		}
+	}
 }

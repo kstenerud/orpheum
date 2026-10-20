@@ -67,7 +67,7 @@ func (service *Service) findRouter(ctx context.Context, gateway netip.Addr, sear
 	if err != nil {
 		return router{}, fmt.Errorf("read the router's UPnP description: %w", err)
 	}
-	return routerOf(description, location)
+	return routerOf(description, location, gateway)
 }
 
 // searchRouter sends an SSDP search for an Internet Gateway Device and returns the description's
@@ -105,7 +105,7 @@ func (service *Service) searchRouter(ctx context.Context, gateway netip.Addr, se
 		if !isUDP || sender.AddrPort().Addr().Unmap() != gateway {
 			continue
 		}
-		if location := locationOf(buffer[:count]); location != nil {
+		if location := locationOf(buffer[:count]); location != nil && isOnGateway(location, gateway) {
 			return location, nil
 		}
 	}
@@ -123,6 +123,18 @@ func locationOf(answer []byte) *url.URL {
 		return nil
 	}
 	return location
+}
+
+// isOnGateway is whether address is plain HTTP to the gateway's own address. The router names its
+// description's location and its services' URLs itself; held to the gateway, no device on the LAN
+// answering a search, nor a description, can point the core's requests at another host, the core
+// itself among them (the Plex-chain review's O2).
+func isOnGateway(address *url.URL, gateway netip.Addr) bool {
+	if address.Scheme != "http" || address.User != nil {
+		return false
+	}
+	host, err := netip.ParseAddr(address.Hostname())
+	return err == nil && host.Unmap() == gateway
 }
 
 // fetch reads a URL on the router.
@@ -162,26 +174,22 @@ type device struct {
 }
 
 // routerOf is where a router's description says to ask it for each job, resolved against its
-// location.
-func routerOf(description []byte, location *url.URL) (router, error) {
+// location; a URL not on gateway is left out (isOnGateway).
+func routerOf(description []byte, location *url.URL, gateway netip.Addr) (router, error) {
 	var parsed deviceDescription
 	if err := xml.Unmarshal(description, &parsed); err != nil {
 		return router{}, fmt.Errorf("read the router's UPnP description: %w", err)
 	}
-	base := location
-	if parsed.URLBase != "" {
-		if declared, err := url.Parse(parsed.URLBase); err == nil {
-			base = declared
-		}
-	}
+	base := baseOf(parsed.URLBase, location, gateway)
 	services := map[string]string{}
 	var walk func(device)
 	walk = func(each device) {
 		for _, offered := range each.Services {
-			if _, isKnown := services[offered.ServiceType]; !isKnown {
-				if control, err := base.Parse(offered.ControlURL); err == nil {
-					services[offered.ServiceType] = control.String()
-				}
+			if _, isKnown := services[offered.ServiceType]; isKnown {
+				continue
+			}
+			if control, isOnIt := onGateway(base, offered.ControlURL, gateway); isOnIt {
+				services[offered.ServiceType] = control
 			}
 		}
 		for _, embedded := range each.Devices {
@@ -200,6 +208,27 @@ func routerOf(description []byte, location *url.URL) (router, error) {
 		return router{}, errors.New("the router's UPnP offers neither port mapping nor IPv6 firewall control")
 	}
 	return found, nil
+}
+
+// baseOf is what a description's URLs are resolved against: its declared base when that is on
+// gateway, else its location.
+func baseOf(declared string, location *url.URL, gateway netip.Addr) *url.URL {
+	if declared == "" {
+		return location
+	}
+	if parsed, err := url.Parse(declared); err == nil && isOnGateway(parsed, gateway) {
+		return parsed
+	}
+	return location
+}
+
+// onGateway is reference resolved against base, and whether it is on gateway.
+func onGateway(base *url.URL, reference string, gateway netip.Addr) (string, bool) {
+	resolved, err := base.Parse(reference)
+	if err != nil || !isOnGateway(resolved, gateway) {
+		return "", false
+	}
+	return resolved.String(), true
 }
 
 // soapArgument is one of an action's arguments, in the order the action declares them.
