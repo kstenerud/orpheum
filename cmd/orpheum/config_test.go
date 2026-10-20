@@ -4,10 +4,14 @@ package main
 
 import (
 	"fmt"
+	"net/netip"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
+
+	"github.com/BurntSushi/toml"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/internal/core/certificate"
@@ -374,5 +378,37 @@ func TestWebRTCConfig_STUNServersAreSTUNURLs(t *testing.T) {
 		if err := webrtc.check(); err == nil || !strings.Contains(err.Error(), "webrtc.stun_servers") {
 			t.Errorf("STUN server %q = %v; want refused by webrtc.stun_servers", wrong, err)
 		}
+	}
+}
+
+// A config that names no home networks starts on the house range alone: never loopback, Docker's
+// 172.16.0.0/12, 10.0.0.0/8 or a ULA, where a reverse proxy, docker-proxy or a tunnel would make the
+// internet look like home (the Plex-chain review's L1).
+func TestServerConfig_StartsOnNoHomeNetworkAProxyOrTunnelSpeaksFrom(t *testing.T) {
+	t.Parallel()
+	var starting string
+	for _, key := range serverConfigKeys() {
+		if key.name == "home_networks" {
+			starting = key.startingValue
+		}
+	}
+	var parsed struct {
+		Networks []string `toml:"networks"`
+	}
+	if _, err := toml.Decode("networks = "+starting, &parsed); err != nil {
+		t.Fatalf("home_networks' starting value %q: %v", starting, err)
+	}
+	server := ServerConfig{HomeNetworks: parsed.Networks}
+	for _, address := range []string{"127.0.0.1", "::1", "172.17.0.1", "10.0.0.5", "fd00::5"} {
+		if slices.ContainsFunc(server.homeNetworks(), func(network netip.Prefix) bool {
+			return network.Contains(netip.MustParseAddr(address))
+		}) {
+			t.Errorf("home_networks' starting value %s counts %s as home", starting, address)
+		}
+	}
+	if !slices.ContainsFunc(server.homeNetworks(), func(network netip.Prefix) bool {
+		return network.Contains(netip.MustParseAddr("192.168.1.20"))
+	}) {
+		t.Errorf("home_networks' starting value %s leaves out a home router's 192.168.1.20", starting)
 	}
 }
