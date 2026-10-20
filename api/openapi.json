@@ -81,6 +81,11 @@
             "maxLength": 100,
             "type": "string"
           },
+          "keyHash": {
+            "description": "The device's key's hash, as its QR code carries it: the code was scanned, not typed (D321)",
+            "maxLength": 64,
+            "type": "string"
+          },
           "userId": {
             "description": "Whose device; an admin's to name",
             "format": "int64",

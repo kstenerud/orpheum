@@ -25,9 +25,11 @@
 //     and identity key (D297 §3). Enforced by TestRealmKey_IsTheVectorsWhateverTheCaseAndSpacesTyped
 //     and TestRealmKey_AnyPartWrongProvesNothing.
 //   - A device code's outcome opens only with the key of the device that asked, and the check code
-//     both screens show is made of that key, so a key swapped in shows another (D293 §2). Enforced by
-//     TestSealDeviceOutcome_OpensOnlyWithTheDevicesKeyAndAsTheBrowserOpensIt and
-//     TestDeviceCheckCode_IsTheKeysAndTheBrowsersAlike.
+//     both screens show is made of that key, the nonce the device committed to and the core's, so a
+//     key swapped in shows another, and no one knows it before the code is entered (D293 §2, D321).
+//     Enforced by TestSealDeviceOutcome_OpensOnlyWithTheDevicesKeyAndAsTheBrowserOpensIt,
+//     TestDeviceCheckCode_IsTheKeysAndBothNoncesAndTheBrowsersAlike and
+//     TestDeviceCommitmentAndKeyHash_AreTheBrowsersAlike.
 //   - The fingerprint is the public key's SHA-256 in base64url. Enforced by
 //     TestFingerprint_IsTheKeysSHA256InBase64URL.
 //   - Imports nothing from internal/, which a module outside Orpheum cannot import. Enforced by

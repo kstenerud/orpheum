@@ -1940,6 +1940,8 @@ export interface components {
             code: string;
             /** @description A new device's name: "Living room TV" */
             deviceName?: string;
+            /** @description The device's key's hash, as its QR code carries it: the code was scanned, not typed (D321) */
+            keyHash?: string;
             /**
              * Format: int64
              * @description Whose device; an admin's to name

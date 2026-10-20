@@ -16,11 +16,13 @@ import (
 // protocol's §3.1): the core claims it from the service, learning the device's key, and once the
 // person says the check codes match, seals what the device needs to that key.
 
-// ClaimDeviceCode is the device waiting at the discovery with code: its public key and platform, and
-// whether one waits. None waits while the discovery does not publish the core, or when it has no
-// device with that code, or another core claimed it; an error is a discovery not reached.
+// ClaimDeviceCode is the device waiting at the discovery with code: its public key and platform, its
+// commitment and once revealed its nonce, and whether one waits; coreNonce is the core's part of the
+// check code, none for a scanned code (D321). None waits while the discovery does not publish the
+// core, or when it has no device with that code, or another core claimed it; an error is a discovery
+// not reached.
 func (service *Service) ClaimDeviceCode(
-	ctx context.Context, code string,
+	ctx context.Context, code, coreNonce string,
 ) (discoveryproto.DeviceCodeClaimResponse, bool, error) {
 	status := service.Status()
 	if !status.IsPublished() {
@@ -29,7 +31,7 @@ func (service *Service) ClaimDeviceCode(
 	var claimed discoveryproto.DeviceCodeClaimResponse
 	err := service.signedCall(ctx, callOf{
 		base: status.BaseURL, method: http.MethodPost, path: discoveryproto.PathDeviceCodeClaim,
-		body: discoveryproto.DeviceCodeClaimRequest{Code: code}, into: &claimed,
+		body: discoveryproto.DeviceCodeClaimRequest{Code: code, CoreNonce: coreNonce}, into: &claimed,
 	})
 	var refused *refusal
 	switch {
