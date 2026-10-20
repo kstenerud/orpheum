@@ -42,6 +42,12 @@ export interface Services {
    * own origin, which has no list to go to.
    */
   readonly switchHousehold?: (() => void) | undefined;
+  /**
+   * Where a device that knows no core asks for a code, as a person types it: the discovery loader's
+   * host, "app.orpheum-app.com", under its loader, whose service issues the code (D293 §2); undefined
+   * on the core's own origin, which issues its own.
+   */
+  readonly codeAddress?: string | undefined;
 }
 
 /** How many times the page's requests moved path, and who is told of each move. */

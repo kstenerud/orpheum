@@ -25,6 +25,7 @@ import { App } from "./app.tsx";
 import { removeLeftOverKeys } from "./client-keys.ts";
 import { storageIfAllowed } from "./browser-storage.ts";
 import { sendFailuresToCore } from "./failure-reports.ts";
+import { loaderConfigOf } from "./loader-config.ts";
 import { loaderOf, loaderRefusal, type OrpheumLoader } from "./loader-interface.ts";
 import { createNavigation } from "./navigation.ts";
 import { i18n } from "./i18n.ts";
@@ -59,6 +60,17 @@ interface Reaches {
   readonly ownScript: string | undefined;
   readonly realm?: string | undefined;
   readonly switchHousehold?: (() => void) | undefined;
+  readonly codeAddress?: string | undefined;
+}
+
+/**
+ * Where a TV asks for a code under a discovery's loader: the loader's host, from the page the loader
+ * served this client in, so a remote types it (the owner, 2026-10-20: the client origin's 26
+ * characters are not); undefined when the page names none.
+ */
+function codeAddressOf(page: Document): string | undefined {
+  const origin = loaderConfigOf(page)?.loaderOrigin;
+  return origin === undefined ? undefined : new URL(origin).host;
 }
 
 /** Mounts the app over session on root, its requests sent as reaches says. */
@@ -81,6 +93,7 @@ function mountApp(session: Session, reaches: Reaches, mountedOn: Root): Api {
     realm: reaches.realm,
     pathMoves: reaches.pathMoves,
     switchHousehold: reaches.switchHousehold,
+    codeAddress: reaches.codeAddress,
   };
   mountedOn.render(
     <StrictMode>
@@ -143,6 +156,7 @@ function mountUnderLoader(loader: OrpheumLoader): void {
       ownScript: builtScriptOf(document),
       realm: loader.core.realm,
       switchHousehold: loader.switchHousehold,
+      codeAddress: codeAddressOf(document),
     },
     root,
   );

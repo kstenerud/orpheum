@@ -88,7 +88,7 @@ function EnterCode(props: {
   readonly onEnter: (code: string, deviceName: string) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { navigation } = useServices();
+  const { navigation, codeAddress } = useServices();
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   return (
@@ -97,7 +97,7 @@ function EnterCode(props: {
         props.onEnter(code, name);
       }}
     >
-      <p>{t("activate.explain", { origin: navigation.origin() })}</p>
+      <p>{t("activate.explain", { origin: codeAddress ?? navigation.origin() })}</p>
       <label>
         {t("activate.code")}{" "}
         <input
