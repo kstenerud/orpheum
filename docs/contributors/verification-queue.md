@@ -463,3 +463,20 @@ An item is ticked only by the person who did it, and only with what they saw.
   through the VPS. The test runs the script against a fake `ip`, and the sandbox's network
   namespace (a dummy wg0, 2026-10-20) is no real WireGuard tunnel with the VPS keeping sources.
   (`deploy/staging/tunnel.sh`)
+
+- [ ] **VQ48** — With orpheum-connect repackaged from main and nas.example built from main (D321): on a
+  TV's browser (or any browser with no household) at `app.orpheum-app.com`, choose **Get a code**;
+  the TV shows a QR code beside its code.
+  1. Scan it with a phone signed in to realm `karlnas` by password: the phone opens Activate a
+     device on the household's own page with no code to type, names the TV and how long ago it
+     asked, shows no check code, and one tap on **Activate** has the TV ask "Sign this TV in to the
+     household karlnas as ‹you›?"; **Yes** opens the films.
+  2. Ask for another code, and type it under Activate a device instead: after a few seconds both
+     screens show the same check code, which is not the one an earlier code showed.
+  3. Scan a code with a phone whose browser has no household (a private window): the page offers
+     **Copy link** and **Sign in here**, and signing in there lands on Activate a device with the
+     code filled in.
+
+  A real TV's browser, a phone's camera and both the paid service and a core from main meet only
+  here. (`web/apps/web/src/loader-device-code.tsx`, `web/apps/web/src/loader-activate.tsx`,
+  `internal/core/auth/devicecodes.go`, orpheum-connect `internal/devicecodes/`)
