@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -52,11 +51,31 @@ func findFFmpeg(directory string) (string, error) {
 // open file, and running it then fails with "text file busy" (ETXTBSY).
 func fakeScript(tb testing.TB) string {
 	tb.Helper()
-	_, source, _, found := runtime.Caller(0)
-	if !found {
-		tb.Fatal("cannot locate internal/testutil's source to find the fake ffmpeg")
+	root, err := moduleRoot()
+	if err != nil {
+		tb.Fatalf("cannot find the fake ffmpeg: %v", err)
 	}
-	return filepath.Join(filepath.Dir(source), "testdata", "fake-ffmpeg.sh")
+	return filepath.Join(root, "internal", "testutil", "testdata", "fake-ffmpeg.sh")
+}
+
+// moduleRoot is the directory holding go.mod, found from the working directory up, where a test runs
+// in its package's directory. Not from this file's own path (runtime.Caller), which a build with
+// -trimpath, as the Makefile's are, records as an import path.
+func moduleRoot() (string, error) {
+	directory, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("the working directory: %w", err)
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(directory, "go.mod")); err == nil {
+			return directory, nil
+		}
+		parent := filepath.Dir(directory)
+		if parent == directory {
+			return "", errors.New("no go.mod in the working directory or above it")
+		}
+		directory = parent
+	}
 }
 
 // FakeReply is what every run of a fake tool writes and the status it exits with.
