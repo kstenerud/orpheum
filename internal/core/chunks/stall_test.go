@@ -44,6 +44,21 @@ func TestStalled_OffersTheHighestQualityTheLinkCarriesAndStartsItWhereThePlayerI
 	}
 }
 
+// The share of the link a quality may take is a setting (the constants sweep, 2026-10-20): at half,
+// a 2000 kb/s link carries 700k, not the 1200k the starting 70% lets it.
+func TestStalled_OffersWithinTheSettingsShareOfTheLink(t *testing.T) {
+	t.Parallel()
+	service, _ := chunksFixture(t, newFakeQueue(), fakeNode{})
+	seeded, isSeeded := service.settings.(*settings.Service)
+	if !isSeeded {
+		t.Fatalf("the fixture's settings are %T; want the seeded service", service.settings)
+	}
+	settingstest.Set(t, seeded, settings.LinkShareForQualityPercent, "50")
+	if offer := stalledAt(t, service, 2000); offer.Quality.Kbps != 700 {
+		t.Errorf("at half of 2000 kb/s the offer is %+v; want 700k", offer.Quality)
+	}
+}
+
 // With the link not measured the lowest quality is offered; with one too slow even for it, the
 // lowest is offered and said to be beyond the link (D247 §8).
 func TestStalled_OffersTheLowestWhenTheLinkIsUnknownOrTooSlowForAny(t *testing.T) {

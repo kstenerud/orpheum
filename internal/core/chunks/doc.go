@@ -16,7 +16,7 @@
 //
 //   - A playback starts on its film's ladder at the top, the film's own picture where its player
 //     decodes it, its twin, H.264 at its own height, where it does not (D323 §1), or, with its link
-//     remembered, at the highest picture within linkShareForQuality of it, the lowest when none is
+//     remembered, at the highest picture within link_share_for_quality_percent of it, the lowest when none is
 //     (D260 §2). Enforced by TestStartOnLadder_StartsAtTheFilmsOwnPictureWithNoLinkRemembered,
 //     TestStartOnLadder_StartsAtTheHighestPictureTheRememberedLinkCarries and
 //     TestStartOnLadder_APlayerThatCannotDecodeThePictureStartsAtItsTwin.
