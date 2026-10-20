@@ -85,7 +85,10 @@ through `index.ts`, so revert-red's related set stays small, devloop §2) and
 1. Every path the discovery gave is tried at once; the LAN name only when `paths` returned it
    (D290 §2); WebRTC with one connection (protocol §3.3 item 1, C5). Where the browser says whether
    the local-network permission is granted, denied or not yet asked, the client asks it first, and
-   in a browser with no prompt the LAN name may be raced always (protocol §3.2; U2-8) [I].
+   in a browser with no prompt the LAN name may be raced always (protocol §3.2; U2-8) [I]. *Built
+   2026-10-20 (`web/apps/web/src/local-network.ts`): denied, the LAN name is never tried; still to ask,
+   only the first race tries it, which has the browser ask, and the look for a better path leaves it
+   out until granted, when it looks at once.*
 2. **The first to answer becomes the control connection**: the page signs in and shows the household
    over it. Over it the page reads the core's API major and swaps to the build for that major if it
    holds another (§3.3 item 2, D289 §4).

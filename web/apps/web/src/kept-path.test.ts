@@ -26,6 +26,7 @@ describe("the kept path", () => {
         first: away,
         another: () => Promise.resolve(away),
         better: (current) => Promise.resolve(current === away ? home : undefined),
+        onLocalNetworkGranted: () => () => undefined,
       },
       { token: () => undefined },
     );
@@ -60,6 +61,7 @@ describe("the kept path", () => {
         first: away,
         another: () => Promise.resolve(away),
         better: (current) => Promise.resolve(current === away ? home : undefined),
+        onLocalNetworkGranted: () => () => undefined,
       },
       { token: () => undefined },
     );
@@ -112,6 +114,7 @@ describe("the kept path", () => {
         first: away,
         another: () => Promise.resolve(away),
         better: (current) => Promise.resolve(current === away ? home : undefined),
+        onLocalNetworkGranted: () => () => undefined,
       },
       { token: () => "a-session" },
     );
@@ -129,6 +132,40 @@ describe("the kept path", () => {
     await vi.advanceTimersByTimeAsync(betterPathFirstMs);
     expect(confirming).toHaveLength(2);
     expect(told).toEqual([]);
+    kept.close();
+    globalThis.fetch = realFetch;
+  });
+
+  it("looks for a better path at once when the browser's local-network permission is granted (W2c item 1)", async () => {
+    vi.useFakeTimers();
+    const away: Reached = { kind: "direct", origin: "https://2a01-db8--1.core1.orpheum-core.com" };
+    const home: Reached = {
+      kind: "direct",
+      origin: "https://192-168-1-2.core1.orpheum-core.com:8443",
+    };
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (): Promise<Response> => Promise.resolve(new Response("{}"));
+    let granted = (): void => undefined;
+    const kept = keepPath(
+      {
+        first: away,
+        another: () => Promise.resolve(away),
+        better: (current) => Promise.resolve(current === away ? home : undefined),
+        onLocalNetworkGranted: (listener) => {
+          granted = listener;
+          return () => undefined;
+        },
+      },
+      { token: () => undefined },
+    );
+    kept.carried.catch(() => undefined);
+    const told: string[] = [];
+    kept.onPathMove((to) => {
+      told.push(to);
+    });
+    granted();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(told).toEqual([`the core's name, ${home.origin}`]);
     kept.close();
     globalThis.fetch = realFetch;
   });

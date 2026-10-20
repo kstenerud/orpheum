@@ -701,6 +701,32 @@ describe("the paths a core is reached by after the first (webrtc-transport.md W2
     });
   });
 
+  it("never tries a LAN name the browser was told to refuse, and leaves it out of the look while it asks (W2c item 1)", async () => {
+    const tried: string[] = [];
+    const fetched: typeof fetch = (url) => {
+      tried.push(new URL(url instanceof Request ? url.url : url.toString()).origin);
+      return Promise.resolve(new Response("{}", { status: 200 }));
+    };
+    const client = { clientApi: "https://discovery.example/client/v1", fetch: fetched };
+    const asking = (state: "denied" | "prompt") => ({
+      state: () => Promise.resolve(state),
+      onGranted: () => () => undefined,
+    });
+    const refused = await reachCore(client, target, asking("denied"));
+    expect(refused.first).toEqual({ kind: "direct", origin: ipv6 });
+    expect(tried).not.toContain(lan);
+    tried.length = 0;
+    expect(await refused.better(refused.first)).toBeUndefined();
+    expect(tried).not.toContain(lan);
+    // Still to ask: the first race tries it, which is what has the browser ask; the look does not.
+    tried.length = 0;
+    const waiting = await reachCore(client, target, asking("prompt"));
+    expect(tried).toContain(lan);
+    tried.length = 0;
+    expect(await waiting.better({ kind: "direct", origin: ipv6 })).toBeUndefined();
+    expect(tried).not.toContain(lan);
+  });
+
   it("tries WebRTC first when the LAN name fails, the public names only after (D300 §4)", async () => {
     const tried: string[] = [];
     const fetched: typeof fetch = (url) => {

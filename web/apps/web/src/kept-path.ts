@@ -190,6 +190,22 @@ function pathJudge(session: { readonly token: () => string | undefined }): PathJ
   };
 }
 
+/**
+ * Tells chance each time a better path may answer at once: the browser back online, or allowed to
+ * reach the LAN name at last (W2c item 1). Returns the end of telling.
+ */
+function hearChances(
+  reaching: Pick<Reaching, "onLocalNetworkGranted">,
+  chance: () => void,
+): () => void {
+  window.addEventListener("online", chance);
+  const unhear = reaching.onLocalNetworkGranted(chance);
+  return () => {
+    window.removeEventListener("online", chance);
+    unhear();
+  };
+}
+
 /** The page's look for a better path, as keepPath runs it. */
 interface BetterPaths {
   /** Told each move, from the path left: one it did not make itself is away from a path that failed. */
@@ -206,7 +222,7 @@ interface BetterPaths {
  */
 function lookForBetterPaths(
   keeper: PathKeeper<Reached>,
-  reaching: Pick<Reaching, "better">,
+  reaching: Pick<Reaching, "better" | "onLocalNetworkGranted">,
   judge: PathJudge,
 ): BetterPaths {
   let waitMs = betterPathFirstMs;
@@ -248,7 +264,7 @@ function lookForBetterPaths(
     look();
   };
   lookLater();
-  window.addEventListener("online", backOnline);
+  const unhear = hearChances(reaching, backOnline);
   return {
     moved: (from) => {
       if (!isMoving) {
@@ -259,7 +275,7 @@ function lookForBetterPaths(
     stop: () => {
       isStopped = true;
       clearTimeout(next);
-      window.removeEventListener("online", backOnline);
+      unhear();
     },
   };
 }
