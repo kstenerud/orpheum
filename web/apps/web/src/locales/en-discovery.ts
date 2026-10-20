@@ -13,6 +13,11 @@ export const enDiscovery = {
       connect: "Connect",
     },
     connecting: "Connecting to the server…",
+    localNetwork: {
+      asking:
+        "Your browser is asking to reach devices on your network. Allow it, and films play over your home network instead of going out and back.",
+      dismiss: "Dismiss",
+    },
     none: {
       heading: "Which server?",
       text: "Open the link you were sent, or ask the person who runs your server for your link.",

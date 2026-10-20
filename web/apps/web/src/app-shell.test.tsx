@@ -3,11 +3,12 @@
 // @vitest-environment happy-dom
 import "./i18n.ts";
 
+import { act } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { AppShell } from "./app-shell.tsx";
-import { buttonWithText, click, fire, mount } from "./test-dom.tsx";
+import { buttonWithText, click, fire, mount, settleUntil } from "./test-dom.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 
 const ignore = (): void => undefined;
@@ -281,5 +282,62 @@ describe("AppShell", () => {
     await fire(manage.querySelector("summary"), new Event("pointerdown", { bubbles: true }));
     expect(manage.open).toBe(true);
     mounted.unmount();
+  });
+
+  it("says why the browser asks for the local network while it waits on the person, and goes once they answer or dismiss it (W2c item 8)", async () => {
+    const asking = "Your browser is asking to reach devices on your network.";
+    let tell: (isAsking: boolean) => void = () => undefined;
+    const shell = withServices(
+      <AppShell
+        isAdmin={false}
+        canHostWatchTogether={false}
+        currentScreen="films"
+        onSignOut={ignore}
+        signedInAs={undefined}
+      >
+        <p>screen</p>
+      </AppShell>,
+      {
+        ...testServices(),
+        onLocalNetworkAsking: (listener) => {
+          tell = listener;
+          listener(true);
+          return () => {
+            tell = () => undefined;
+          };
+        },
+      },
+    );
+    // Nothing asks where no loader tells of the prompt.
+    expect(
+      renderToStaticMarkup(
+        withServices(
+          <AppShell
+            isAdmin={false}
+            canHostWatchTogether={false}
+            currentScreen="films"
+            onSignOut={ignore}
+            signedInAs={undefined}
+          >
+            <p>screen</p>
+          </AppShell>,
+        ),
+      ),
+    ).not.toContain(asking);
+    const shown = await mount(shell);
+    await settleUntil(() => shown.container.textContent.includes(asking));
+    expect(shown.container.textContent).toContain(asking);
+    act(() => {
+      tell(false);
+    });
+    await settleUntil(() => !shown.container.textContent.includes(asking));
+    expect(shown.container.textContent).not.toContain(asking);
+    act(() => {
+      tell(true);
+    });
+    await settleUntil(() => shown.container.textContent.includes(asking));
+    await click(buttonWithText(shown.container, "Dismiss"));
+    expect(shown.container.textContent).not.toContain(asking);
+    shown.unmount();
   });
 });

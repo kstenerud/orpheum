@@ -48,6 +48,13 @@ export interface Services {
    * on the core's own origin, which issues its own.
    */
   readonly codeAddress?: string | undefined;
+  /**
+   * Tells listener whether the browser waits on the person to allow the local network, under a
+   * discovery's loader that tells it (webrtc-transport.md W2c item 8); returns its removal.
+   * Undefined where nothing asks.
+   */
+  readonly onLocalNetworkAsking?:
+    ((listener: (isAsking: boolean) => void) => () => void) | undefined;
 }
 
 /** How many times the page's requests moved path, and who is told of each move. */

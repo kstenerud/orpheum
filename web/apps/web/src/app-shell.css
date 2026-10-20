@@ -293,6 +293,22 @@
   padding: var(--space-4) var(--space-page) var(--space-7);
 }
 
+/*
+ * A word from the page above the screen, about something the browser is doing: the local-network
+ * prompt (local-network-note.tsx). In the status blue, which says what is going on (D280).
+ */
+.app-shell__note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-status);
+  border-radius: var(--radius-card);
+  max-width: none;
+}
+
 /* A label and its control sit side by side with room between them; a theme restyles this. */
 .app-shell__main label {
   display: inline-flex;

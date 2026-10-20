@@ -116,9 +116,14 @@ function goBy(address: string): void {
 /** The loader's interface over a kept path, for the client to take. */
 function loaderOver(
   at: AtClientOrigin,
-  reached: { readonly core: KeptCore; readonly session: Session; readonly kept: KeptPath },
+  reached: {
+    readonly core: KeptCore;
+    readonly session: Session;
+    readonly kept: KeptPath;
+    readonly reaching: Reaching;
+  },
 ): OrpheumLoader {
-  const { core, session, kept } = reached;
+  const { core, session, kept, reaching } = reached;
   return {
     major: loaderMajor,
     minor: loaderMinor,
@@ -126,6 +131,7 @@ function loaderOver(
     fetch: kept.fetch,
     openTogetherSocket: kept.openTogetherSocket,
     onPathMove: kept.onPathMove,
+    onLocalNetworkAsking: reaching.onLocalNetworkAsking,
     session,
     setMediaCredentials: kept.setMediaCredentials,
     switchHousehold: () => {
@@ -205,7 +211,7 @@ export function AtClientOriginPage(props: { readonly at: AtClientOrigin }): JSX.
           tellWorker: at.tellWorker,
         });
         at.unmount();
-        run(loaderOver(at, { core, session, kept }));
+        run(loaderOver(at, { core, session, kept, reaching }));
       } catch (cause: unknown) {
         kept.close();
         reportFailure(cause);
