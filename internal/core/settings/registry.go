@@ -121,41 +121,6 @@ const (
 	ChunkKeptLeftSeconds                      Key = "chunk_kept_left_seconds"
 	ChunkKeptMaybeSeconds                     Key = "chunk_kept_maybe_seconds"
 	PlayLadderWaitMs                          Key = "play_ladder_wait_ms"
-	DiscoveryPendingCheckEverySeconds         Key = "discovery_pending_check_every_seconds"
-	DiscoveryAddressCheckEverySeconds         Key = "discovery_address_check_every_seconds"
-	DiscoveryAnotherCopyCheckEverySeconds     Key = "discovery_another_copy_check_every_seconds"
-	DiscoveryEndedCheckEverySeconds           Key = "discovery_ended_check_every_seconds"
-	DiscoveryRetryFirstSeconds                Key = "discovery_retry_first_seconds"
-	DiscoveryRetryMostSeconds                 Key = "discovery_retry_most_seconds"
-	SignInFailureLimitNetworkMultiple         Key = "signin_failure_limit_network_multiple"
-	SignInFailureLimitEverywhereMultiple      Key = "signin_failure_limit_everywhere_multiple"
-	SignInEverywherePaceSeconds               Key = "signin_everywhere_pace_seconds"
-	PairingCodesPerNetworkMost                Key = "pairing_codes_per_network_most"
-	PairingCodesPerSiteMost                   Key = "pairing_codes_per_site_most"
-	DeviceCodeRevealWaitSeconds               Key = "device_code_reveal_wait_seconds"
-	JobLongestRetryDelayHours                 Key = "job_longest_retry_delay_hours"
-	UploadFilmsSharePercent                   Key = "upload_films_share_percent"
-	UploadCrowdedSlowUnderPercent             Key = "upload_crowded_slow_under_percent"
-	UploadCrowdedSlowPlayersAtLeast           Key = "upload_crowded_slow_players_at_least"
-	UploadCrowdedKeepsPercent                 Key = "upload_crowded_keeps_percent"
-	UploadCrowdedLowerEverySeconds            Key = "upload_crowded_lower_every_seconds"
-	UploadCrowdedFloorPercent                 Key = "upload_crowded_floor_percent"
-	UploadUncrowdedForSeconds                 Key = "upload_uncrowded_for_seconds"
-	UploadUncrowdedGrowsPercent               Key = "upload_uncrowded_grows_percent"
-	UploadUncrowdedRaiseEverySeconds          Key = "upload_uncrowded_raise_every_seconds"
-	UploadRaiseUnderPercent                   Key = "upload_raise_under_percent"
-	UploadRaiseRoomSeconds                    Key = "upload_raise_room_seconds"
-	UploadSendAwayAfterSeconds                Key = "upload_send_away_after_seconds"
-	ChunkInterestLapsesAfterSeconds           Key = "chunk_interest_lapses_after_seconds"
-	ChunkCPUCeilingKeptSeconds                Key = "chunk_cpu_ceiling_kept_seconds"
-	LinkSpeedFreshHours                       Key = "link_speed_fresh_hours"
-	ChunkLookaheadSeconds                     Key = "chunk_lookahead_seconds"
-	ChunkRunSpanSeconds                       Key = "chunk_run_span_seconds"
-	ChunkRunSpeedWindowSeconds                Key = "chunk_run_speed_window_seconds"
-	TogetherSnapSeeksBeyondSeconds            Key = "together_snap_seeks_beyond_seconds"
-	JobHealthWindowHours                      Key = "job_health_window_hours"
-	RetentionSweepEveryHours                  Key = "retention_sweep_every_hours"
-	InvariantsCheckEveryHours                 Key = "invariants_check_every_hours"
 )
 
 // Kind is a setting value's JSON type.
@@ -283,7 +248,7 @@ func buildRegistry() []Definition {
 		retentionDefinitions(), backupDefinitions(), togetherDefinitions(), signInDefinitions(),
 		discoveryDefinitions(), upkeepSweepDefinitions(), signInStretchDefinitions(), pairingDefinitions(),
 		uploadDefinitions(), playbackTimingDefinitions(), chunkTimingDefinitions(),
-		togetherSweepDefinitions(),
+		togetherSweepDefinitions(), portMappingDefinitions(),
 	)...)
 }
 

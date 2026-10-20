@@ -219,8 +219,17 @@ func iceServersFor(ownSTUN []string, named []discoveryproto.ICEServer) []webrtc.
 func newPortMapping(
 	config Config, opened openedServices, standing func() discovery.Status, logger *slog.Logger,
 ) (*portmap.Service, error) {
-	return portmap.New(portmap.Parts{
-		HTTP: opened.jobServices.outboundClient, Clock: clock.System{}, Logger: logger, Port: httpsPort(config),
+	return portmap.New(portMappingParts(config, opened, standing, logger))
+}
+
+// portMappingParts are what the port mapping is made of: the server's settings among them, which say
+// how long it asks for a mapping and how often again.
+func portMappingParts(
+	config Config, opened openedServices, standing func() discovery.Status, logger *slog.Logger,
+) portmap.Parts {
+	return portmap.Parts{
+		Settings: opened.settings, HTTP: opened.jobServices.outboundClient, Clock: clock.System{}, Logger: logger,
+		Port: httpsPort(config),
 		IsWanted: func(ctx context.Context) bool {
 			if !standing().IsPublished() {
 				return false
@@ -233,7 +242,7 @@ func newPortMapping(
 		},
 		Gateway: defaultGateway, IPv6Addresses: portmap.GlobalIPv6Addresses,
 		GatewayPort: portmap.GatewayPort, SearchAddress: portmap.SSDPAddress,
-	})
+	}
 }
 
 // routesFile is Linux's IPv4 routing table.

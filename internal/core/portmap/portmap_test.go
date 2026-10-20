@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 )
 
@@ -270,6 +271,35 @@ func TestStep_MapsByPCPRenewsAtHalfItsLifetimeAndRemovesIt(t *testing.T) {
 	}
 	if report := service.Report(); report.IsWanted || len(report.Mappings) != 0 || len(service.Candidates()) != 0 {
 		t.Errorf("after it is no longer wanted the report is %+v; want nothing mapped", report)
+	}
+}
+
+// leaseSettings answers port_mapping_lease_seconds with its seconds and every other with its start.
+type leaseSettings struct{ seconds int64 }
+
+func (lease leaseSettings) Duration(_ context.Context, key settings.Key) (time.Duration, error) {
+	if key == settings.PortMappingLeaseSeconds {
+		return time.Duration(lease.seconds) * time.Second, nil
+	}
+	return settings.StartingDuration(key), nil
+}
+
+// How long a mapping is asked for is a setting (the constants sweep, 2026-10-20): at ten minutes,
+// the router is asked for 600 s.
+func TestStep_AsksForTheSettingsLease(t *testing.T) {
+	t.Parallel()
+	router := startRouter(t, speaksPCP)
+	clock := clocktest.NewFake(time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC))
+	isWanted := true
+	parts := router.parts(clock, &isWanted)
+	parts.Settings = leaseSettings{seconds: 600}
+	service, err := New(parts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service.step(t.Context())
+	if asked := router.lifetimesAsked(); len(asked) != 1 || asked[0] != 600 {
+		t.Errorf("lifetimes asked = %v; want the setting's 600", asked)
 	}
 }
 
