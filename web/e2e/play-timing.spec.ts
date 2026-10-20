@@ -10,8 +10,12 @@ import { longTrackName, preparedFilm, timingFilm, warmUpFilm } from "./server.ts
 /** How long pressing play may take to start the picture moving (cut-a §8, M3's acceptance). */
 const playsWithinMs = 8000;
 
-/** Says the quality a film on its ladder plays at, and that it follows the connection (D260). */
-const onTheLadder = "The quality follows your connection.";
+/**
+ * Says a film plays on its ladder (D260): its tracks name the sound transcoded at the ladder's rate,
+ * chunk_sound_kbps's 96 kb/s, where a prepared copy's is 192 and the original's names none (the
+ * tracks the player names, the owner, 2026-10-20).
+ */
+const onTheLadder = "AAC stereo, 96 kb/s (transcoded from";
 
 test(
   "an MKV with H.264, TrueHD and ASS loads its first chunks on its page and plays from its ladder within 8 s of pressing play",
@@ -26,7 +30,7 @@ test(
     await page.getByRole("link", { name: "Play" }).click();
     await page.getByRole("button", { name: /Built-in speakers/ }).click();
     await expect.poll(() => isPlaying(page), { timeout: 30_000 }).toBe(true);
-    await expect(page.locator(".play__reason")).toContainText(onTheLadder);
+    await expect(page.locator(".play__tracks")).toContainText(onTheLadder);
 
     // Its page fills the player's first buffer before Play is pressed (D260 §3).
     await openFilmOnItsLadder(page, timingFilm(browserName));
@@ -39,7 +43,7 @@ test(
     test.info().annotations.push({ type: "played after", description: `${String(tookMs)} ms` });
     expect(tookMs).toBeLessThanOrEqual(playsWithinMs);
     // Its own picture, copied, is the ladder's top, its TrueHD made into sound a browser plays.
-    await expect(page.locator(".play__reason")).toContainText(onTheLadder);
+    await expect(page.locator(".play__tracks")).toContainText(onTheLadder);
   },
 );
 
