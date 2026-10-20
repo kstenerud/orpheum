@@ -8,6 +8,7 @@ from __future__ import annotations
 import contextlib
 import fcntl
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -50,6 +51,27 @@ def _mirror_packages(installed: Path, into: Path, scoped: bool) -> None:
             _mirror_packages(entry, target, scoped=False)
         else:
             target.symlink_to(entry.resolve())
+
+
+def seed_type_builds(source: Path, tree: Path) -> int:
+    """Give the worktree the working tree's TypeScript build outputs (each web `.tsbuild`), so the type
+    check a probe runs is incremental: a probe tree's app build info was found missing, its type
+    check cold, 22 s alone and 122 s beside three other trees' probes (check-pr, 2026-10-20), where
+    a seeded one takes 4 s. Sound however stale the copy: `tsc -b` checks each
+    source against the hash its build info records and rebuilds what differs, and an importer of a
+    changed export still fails (measured 2026-10-20, an SDK export renamed). Returns how many it
+    seeded."""
+    web = source / "web"
+    seeded = 0
+    for built in sorted(web.rglob(".tsbuild")) if web.is_dir() else []:
+        relative = built.relative_to(source)
+        if "node_modules" in relative.parts or not built.is_dir():
+            continue
+        target = tree / relative
+        shutil.rmtree(target, ignore_errors=True)
+        shutil.copytree(built, target, symlinks=True)
+        seeded += 1
+    return seeded
 
 
 @contextlib.contextmanager
@@ -97,5 +119,6 @@ def probe_trees(head: str, count: int) -> list[str]:
             if added.returncode != 0:
                 raise RuntimeError(f"could not make {tree}: {added.stderr}")
             link_installed_packages(source, tree)
+        seed_type_builds(source, tree)
         trees.append(str(tree))
     return trees

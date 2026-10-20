@@ -81,15 +81,15 @@ import revert_red_reruns as reruns
 from revert_red_report import failure_advice, report
 from revert_red_parts import (BROWSER_DEFERRED, BROWSER_INLINE, BROWSER_ONLY, CSS_SOURCE, PARTS,  # noqa: F401 (tests reach them here)
                               browser_mode, is_in_part)
-from revert_red_attempts import (BROWSER_MODE_RELATED, TS_SOURCE, Attempt, browser_mode_tests, browser_tier,  # noqa: F401 (tests reach them here)
-                                 browser_tier_command, is_browser_run)
+from revert_red_attempts import (BROWSER_MODE_RELATED, FIRST_RED_GO, FIRST_RED_VITEST, TS_SOURCE, Attempt,  # noqa: F401 (tests reach them here)
+                                 browser_mode_tests, browser_tier, browser_tier_command, is_browser_run)
 from revert_red_run import RUNNER_MISSING, is_build_failure, run_whole_group  # noqa: F401 (tests reach RUNNER_MISSING here)
 from revert_red_claims import VQ_FILE, refactor_only, verification_queue_problem, verified_out_of_suite  # noqa: F401 (tests reach VQ_FILE here)
 from emitted_js import emits_the_same_between
 from revert_red_cosmetic import GO_SOURCE, PY_SOURCE, is_cosmetic, is_package_clause_only
 from revert_red_dependents import go_dependents, python_tests_naming, python_tests_reaching, toplevel, web_source_readers
 from revert_red_stylesheets import settle as settle_stylesheets
-from revert_red_trees import hold_probe_trees, link_installed_packages, probe_trees  # noqa: F401 (tests reach them here)
+from revert_red_trees import hold_probe_trees, link_installed_packages, probe_trees, seed_type_builds  # noqa: F401 (tests reach them here)
 from revert_red_units import MIGRATION_STEP, companions, query_source, restore, revert_companion
 from revert_red_unreachable import is_unreachable_removal
 from revert_red_web import added_file_scope
@@ -134,7 +134,7 @@ GO_GENERATED_QUERIES = ("internal/store/sqlcgen/", "internal/store/cachegen/")
 # The schemas: a migration step (reverted with its checksum line and golden) and cache.db's,
 # which only internal/store's tests read.
 STORE_SCHEMA = "internal/store/cache/schema.sql"
-STORE_INTEGRATION = ["go", "test", "-tags", "integration", "./internal/store/..."]
+STORE_INTEGRATION = ["go", "test", FIRST_RED_GO, "-tags", "integration", "./internal/store/..."]
 # `*_test.go` is safe to match by name because in Go the compiler agrees; the same
 # suffix in Python is a borrowed idiom that only ever matched the wrong file.
 PY_TEST = re.compile(r"(^|/)tests/")
@@ -297,7 +297,7 @@ def scope_for(path: str) -> list[str] | None:
     if CSS_SOURCE.search(path):
         return browser_tier_command()
     if GO_SOURCE.search(path):
-        return ["go", "test", "./" + str(Path(path).parent) + "/..."]
+        return ["go", "test", FIRST_RED_GO, "./" + str(Path(path).parent) + "/..."]
     if is_python(path):
         # The test modules that import it or name it, all of them when none does (revert_red_dependents).
         return [*PY_TESTS_COMMAND, *(python_tests_reaching(toplevel(), path) or [])]
@@ -318,8 +318,9 @@ def scope_for(path: str) -> list[str] | None:
 
 GENERATED_API_TYPES = "web/packages/sdk/src/gen/api.ts"
 TYPECHECK = ["npm", "--prefix", "web", "run", "typecheck"]
-VITEST_RELATED = ["npx", "--prefix", "web", "vitest", "related", "--run", "--passWithNoTests", "--root", "web"]
-WEB_SUITE = ["npm", "--prefix", "web", "run", "test"]
+VITEST_RELATED = ["npx", "--prefix", "web", "vitest", "related", "--run", "--passWithNoTests", "--root", "web",
+                  FIRST_RED_VITEST]
+WEB_SUITE = ["npm", "--prefix", "web", "run", "test", "--", FIRST_RED_VITEST]
 WEB_BUILD = ["npm", "--prefix", "web", "run", "build"]
 
 
@@ -332,14 +333,14 @@ def wide_scope(path: str) -> list[str] | None:
         return PY_TESTS_COMMAND
     if GO_SOURCE.search(path):
         dependents = go_dependents(root, path)
-        return ["go", "test", *dependents] if dependents else None
+        return ["go", "test", FIRST_RED_GO, *dependents] if dependents else None
     if TS_SOURCE.search(path):
         readers = web_source_readers(root)
         return [*VITEST_RUN, *readers] if readers else None
     return None
 
 
-VITEST_RUN = ["npx", "--prefix", "web", "vitest", "run", "--root", "web"]
+VITEST_RUN = ["npx", "--prefix", "web", "vitest", "run", "--root", "web", FIRST_RED_VITEST]
 
 
 def other_builds(path: str) -> list[Attempt]:
@@ -353,7 +354,8 @@ def other_builds(path: str) -> list[Attempt]:
         return []
     # Its own package and those its revert can reach (wide_scope), built as the tagged suite builds them.
     reached = ["./" + str(Path(path).parent), *go_dependents(toplevel(), path)]
-    attempts = [Attempt(["go", "test", "-tags", GO_EXTRA_TAGS, *reached], f", found by the -tags {GO_EXTRA_TAGS} suite")]
+    attempts = [Attempt(["go", "test", FIRST_RED_GO, "-tags", GO_EXTRA_TAGS, *reached],
+                        f", found by the -tags {GO_EXTRA_TAGS} suite")]
     other_os = GO_OS_SUFFIX.search(path)
     if other_os:
         goos = other_os.group(1)

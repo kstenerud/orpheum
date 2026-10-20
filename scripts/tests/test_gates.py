@@ -333,10 +333,10 @@ class RevertRed(unittest.TestCase):
         self.assertFalse(rr.is_test_file("internal/core/testutility.go"))
         self.assertTrue(rr.is_test_file("web/packages/sdk/src/pick.test.ts"))
         self.assertFalse(rr.is_test_file("web/packages/sdk/src/pick.ts"))
-        self.assertEqual(rr.scope_for("internal/core/api/x.go"), ["go", "test", "./internal/core/api/..."])
+        self.assertEqual(rr.scope_for("internal/core/api/x.go"), ["go", "test", "-failfast", "./internal/core/api/..."])
         self.assertEqual(rr.scope_for("web/apps/web/src/App.tsx"),
                          ["npx", "--prefix", "web", "vitest", "related", "--run", "--passWithNoTests", "--root", "web",
-                          "apps/web/src/App.tsx"])
+                          "--bail=1", "apps/web/src/App.tsx"])
         # Past its importers' tests, only the tests that read the sources by path, never the whole suite.
         wide = rr.wide_scope("web/apps/web/src/App.tsx")
         self.assertEqual(wide[:len(rr.VITEST_RUN)], rr.VITEST_RUN)
@@ -346,7 +346,7 @@ class RevertRed(unittest.TestCase):
         self.assertEqual(rr.scope_for("web/packages/sdk/src/gen/api.ts"), rr.TYPECHECK,
                          "types alone, which vitest strips: the type check, not its importers' tests")
         self.assertEqual(rr.scope_for("internal/store/sqlcgen/browse.sql.go"),
-                         ["go", "test", "-tags", "integration", "./internal/store/..."])
+                         ["go", "test", "-failfast", "-tags", "integration", "./internal/store/..."])
 
     def test_a_go_file_past_its_package_reaches_its_importers_never_the_whole_suite(self):
         wide = rr.wide_scope("internal/core/playback/report.go")
@@ -375,11 +375,29 @@ class RevertRed(unittest.TestCase):
             self.assertTrue(rr.is_package_clause_only(tree, "doc.go"))
             self.assertFalse(rr.is_package_clause_only(tree, "x.go"))
 
+    def test_every_probe_run_stops_at_its_first_red(self):
+        # A red settles a probe, so each test run it makes stops at its first failure: a locale file's
+        # red probe took 34 s run to its end, 6 s stopped at its first (2026-10-20). Builds, the type
+        # check and vet, which report no test, are left as they are.
+        for path in ("internal/core/api/x.go", "web/apps/web/src/App.tsx", "web/apps/web/src/x.css",
+                     "internal/store/sqlcgen/x.go"):
+            runs = [rr.scope_for(path), rr.wide_scope(path), *[a.command for a in rr.attempts_for(
+                rr.Change(path, "M"), rr.scope_for(path) or [])]]
+            for command in (run for run in runs if run):
+                text = " ".join(command)
+                if command[:2] == ["go", "test"]:
+                    self.assertIn("-failfast", command, text)
+                elif "vitest" in text or command[-2:] == ["run", "test"] or "--" in command:
+                    self.assertIn("--bail=1", command, text)
+                elif "browser-tier" in text:
+                    self.assertIn("E2E_ARGS=--max-failures=1", command, text)
+
     def test_files_only_other_builds_compile_are_run_against_those_builds(self):
         dev = rr.other_builds("cmd/orpheum/dev_seed.go")
         # Its own package and what its revert can reach: the source-reading arch tests, as nothing
         # imports a main package; never the whole suite.
-        self.assertEqual([a.command for a in dev], [["go", "test", "-tags", "dev", "./cmd/orpheum", "./internal/archtest"]])
+        self.assertEqual([a.command for a in dev],
+                         [["go", "test", "-failfast", "-tags", "dev", "./cmd/orpheum", "./internal/archtest"]])
         darwin = rr.other_builds("internal/store/space_darwin.go")
         self.assertEqual(darwin[-1].command, ["go", "vet", "./..."])
         self.assertEqual(darwin[-1].env, {"GOOS": "darwin"})
@@ -435,6 +453,20 @@ class RevertRed(unittest.TestCase):
         self.assertFalse((mirrored / ".vite").exists())
         self.assertTrue((tree / "web" / "packages" / "sdk" / "node_modules" / "typescript").is_symlink())
         self.assertEqual(list((installed / "vitest" / "node_modules").iterdir()), [])  # untouched
+
+    def test_the_worktree_gets_the_working_trees_type_builds_in_place_of_its_own(self):
+        # A probe's type check starts from them, incremental, where it was cold each time (2026-10-20).
+        source, tree = Path(tempfile.mkdtemp()), Path(tempfile.mkdtemp())
+        (source / "web" / "apps" / "web" / ".tsbuild").mkdir(parents=True)
+        (source / "web" / "apps" / "web" / ".tsbuild" / "tsbuildinfo").write_text("now")
+        (source / "web" / "node_modules" / "x" / ".tsbuild").mkdir(parents=True)
+        (tree / "web" / "apps" / "web" / ".tsbuild").mkdir(parents=True)
+        (tree / "web" / "apps" / "web" / ".tsbuild" / "stale.d.ts").write_text("old")
+        self.assertEqual(rr.seed_type_builds(source, tree), 1)
+        built = tree / "web" / "apps" / "web" / ".tsbuild"
+        self.assertEqual((built / "tsbuildinfo").read_text(), "now")
+        self.assertFalse((built / "stale.d.ts").exists())
+        self.assertFalse((tree / "web" / "node_modules").exists())
 
     def test_a_kept_tree_is_set_to_the_working_trees_head_not_its_own(self):
         root = git_repo({"a.txt": "one\n"})

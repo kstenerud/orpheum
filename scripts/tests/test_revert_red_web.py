@@ -38,7 +38,7 @@ class ImportingTests(unittest.TestCase):
         self.assertIsNone(web.added_file_scope(str(repo.root), f"{SRC}/alone.tsx"))
         self.assertIsNone(web.added_file_scope(str(repo.root), f"{SRC}/missing.tsx"))
         scope = web.added_file_scope(str(repo.root), f"{SRC}/other.tsx")
-        self.assertEqual(scope, [*web.VITEST_RUN, "apps/web/src/other.test.tsx"])
+        self.assertEqual(scope, [*web.PROBE_RUN, "apps/web/src/other.test.tsx"])
 
 
 class AddedFileProbe(unittest.TestCase):
@@ -56,7 +56,7 @@ class AddedFileProbe(unittest.TestCase):
         with repo.cwd(), mock.patch.object(rr, "run_whole_group", side_effect=fake_run), \
                 mock.patch.object(rr, "browser_tier_command", return_value=["make", "browser-tier"]):
             outcome = rr.probe_unclaimed(str(repo.root), base, "HEAD", rr.Change(f"{SRC}/sign.tsx", "A"), 60)
-        self.assertEqual(ran[0], [*web.VITEST_RUN, "apps/web/src/list.test.tsx", "apps/web/src/row.test.tsx",
+        self.assertEqual(ran[0], [*web.PROBE_RUN, "apps/web/src/list.test.tsx", "apps/web/src/row.test.tsx",
                                   "packages/sdk/src/api.test.ts"])
         self.assertEqual((outcome.verdict, len(ran)), ("RED_TEST", 1), "red from the importing tests, no whole suite")
         self.assertTrue((repo.root / SRC / "sign.tsx").exists(), "the file is put back")
