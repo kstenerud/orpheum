@@ -3,6 +3,7 @@
 package auth
 
 import (
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -11,24 +12,86 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
+// sweepEvery is how often the limiter drops the keys with no failure left in the window: a key is
+// made from whatever name a sign-in types, so keys nobody touches again would otherwise be kept for
+// good, and grow without bound across networks (the RAM gap, 2026-10-20).
+const sweepEvery = time.Minute
+
+// maxLimiterKeys is how many keys the limiter holds at most. Each network is held to its own limit
+// per window, so only an attack from thousands of networks at once reaches it; then an attempt that
+// needs a new key is refused, not let in uncounted, and no count is dropped to make room, which
+// would let a flood reset a person's lockout (the owner, 2026-10-20).
+const maxLimiterKeys = 50_000
+
 // failureLimiter counts recent failures per key and refuses once a key reaches the limit, because
 // each attempt costs argon2id's memory and is a memory-exhaustion lever as well as a guess
 // (D194 §2). The limit and window are settings, passed in on each call. It is safe for
 // concurrent use.
 type failureLimiter struct {
-	clock    clock.Clock
-	mutex    sync.Mutex
-	failures map[string][]time.Time // guarded by mutex
+	clock clock.Clock
+	// maxKeys is maxLimiterKeys, fewer in the tests.
+	maxKeys int
+	mutex   sync.Mutex
+	// Guarded by mutex: failures are each key's recent failures, sweptAt when idle keys were last
+	// dropped, and onFull is told, once a sweep at most, that an attempt was refused for want of room.
+	failures   map[string][]time.Time
+	sweptAt    time.Time
+	toldFullAt time.Time
+	onFull     func()
 }
 
 func newFailureLimiter(clockSource clock.Clock) *failureLimiter {
-	return &failureLimiter{clock: clockSource, failures: map[string][]time.Time{}}
+	return &failureLimiter{clock: clockSource, maxKeys: maxLimiterKeys, failures: map[string][]time.Time{}}
 }
 
-// isLimited reports whether any of keys has reached limit within window.
+// tellWhenFull has onFull told when an attempt is refused for want of room, once a sweep at most.
+func (limiter *failureLimiter) tellWhenFull(onFull func()) {
+	limiter.mutex.Lock()
+	defer limiter.mutex.Unlock()
+	limiter.onFull = onFull
+}
+
+// sweep drops every key with no failure left in window, at most once a sweepEvery. The caller holds
+// the mutex.
+func (limiter *failureLimiter) sweep(window time.Duration) {
+	now := limiter.clock.Now()
+	if now.Sub(limiter.sweptAt) < sweepEvery {
+		return
+	}
+	limiter.sweptAt = now
+	for key := range limiter.failures {
+		limiter.recent(key, window)
+	}
+}
+
+// hasRoomFor is whether the keys among keys not held yet fit under maxKeys; when they do not, onFull
+// is told, once a sweep at most. The caller holds the mutex.
+func (limiter *failureLimiter) hasRoomFor(keys []string) bool {
+	added := 0
+	for _, key := range keys {
+		if _, isHeld := limiter.failures[key]; !isHeld {
+			added++
+		}
+	}
+	if len(limiter.failures)+added <= limiter.maxKeys {
+		return true
+	}
+	if limiter.onFull != nil && !limiter.toldFullAt.Equal(limiter.sweptAt) {
+		limiter.toldFullAt = limiter.sweptAt
+		limiter.onFull()
+	}
+	return false
+}
+
+// isLimited reports whether any of keys has reached limit within window, or has no room to be counted
+// (hasRoomFor).
 func (limiter *failureLimiter) isLimited(maxFailures int64, window time.Duration, keys ...string) bool {
 	limiter.mutex.Lock()
 	defer limiter.mutex.Unlock()
+	limiter.sweep(window)
+	if !limiter.hasRoomFor(keys) {
+		return true
+	}
 	for _, key := range keys {
 		if int64(len(limiter.recent(key, window))) >= maxFailures {
 			return true
@@ -48,10 +111,14 @@ func (limiter *failureLimiter) attempt(
 ) (attemptedAt time.Time, isAllowed, isPaced bool) {
 	limiter.mutex.Lock()
 	defer limiter.mutex.Unlock()
+	limiter.sweep(window)
 	for key, most := range refusing {
 		if int64(len(limiter.recent(key, window))) >= most {
 			return time.Time{}, false, false
 		}
+	}
+	if !limiter.hasRoomFor(append(slices.Collect(maps.Keys(refusing)), slices.Collect(maps.Keys(pacing))...)) {
+		return time.Time{}, false, false
 	}
 	for key, most := range pacing {
 		isPaced = isPaced || int64(len(limiter.recent(key, window))) >= most
@@ -95,10 +162,14 @@ func (limiter *failureLimiter) forgetPrefixed(prefix string) {
 	}
 }
 
-// recordFailure records one failure against each of keys.
+// recordFailure records one failure against each of keys; with no room for them, none (hasRoomFor).
 func (limiter *failureLimiter) recordFailure(window time.Duration, keys ...string) {
 	limiter.mutex.Lock()
 	defer limiter.mutex.Unlock()
+	limiter.sweep(window)
+	if !limiter.hasRoomFor(keys) {
+		return
+	}
 	now := limiter.clock.Now()
 	for _, key := range keys {
 		limiter.failures[key] = append(limiter.recent(key, window), now)
