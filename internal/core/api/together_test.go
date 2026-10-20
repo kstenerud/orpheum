@@ -580,3 +580,15 @@ func TestTogether_TheStartingWaitsAreTheSettingsStarts(t *testing.T) {
 		}
 	}
 }
+
+// A device's tuning carries how far a seek must jump to be snapped, as the setting says, for the
+// session to keep (the constants sweep, 2026-10-20).
+func TestTogetherTuning_CarriesTheSnapSetting(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	harness.setSetting(t, string(settings.TogetherSnapSeeksBeyondSeconds), "12")
+	tuning, err := harness.server.togetherTuning(t.Context(), harness.server.dependencies.Load())
+	if err != nil || tuning.SnapSeeksBeyondMs != 12_000 {
+		t.Errorf("the tuning's snap = %d ms (%v); want the 12 s set", tuning.SnapSeeksBeyondMs, err)
+	}
+}
