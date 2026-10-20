@@ -266,7 +266,7 @@ check-pr: ## Branch gates against BASE, quietly (VERBOSE=1 prints all; the log i
 # free to edit and nothing tests beside it (scripts/check_pr_snapshot.py; the owner, 2026-10-20).
 # Followed by the target and its variables, then `; fi`: outside that tree, it hands the target over,
 # with the base resolved here, in the working tree.
-CHECK_PR_IN_ITS_TREE = if [ -z "$$ORPHEUM_CHECK_PR_TREE" ]; then exec $(PYTHON) scripts/check_pr_snapshot.py
+CHECK_PR_IN_ITS_TREE = if [ -z "$${ORPHEUM_CHECK_PR_TREE:-}" ]; then exec $(PYTHON) scripts/check_pr_snapshot.py
 
 .PHONY: check-pr-verbose
 check-pr-verbose: ## Branch gates against BASE (default: where the last pass ended, or the owner's mark), its tiers from the quickest, every one run to its end, revert-red's browser runs last, in check-pr's own tree; a pass marks HEAD as checked
