@@ -7,13 +7,34 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// namedRemovalsLimit is how many of a held-back scan's removals are named: enough to recognise a
-// season or a folder, few enough to read at a glance; the rest are counted.
-const namedRemovalsLimit = 10
+// AdminSettings are the settings the admin service reads: how many of a held-back scan's removals
+// are named, scan_withheld_removals_named.
+type AdminSettings interface {
+	Int(ctx context.Context, key settings.Key) (int64, error)
+}
+
+// UseSettings has the admin service read its settings from reader; without, each is its starting
+// value. Set once, before the server serves.
+func (admin *Admin) UseSettings(reader AdminSettings) { admin.settings = reader }
+
+// namedRemovals is how many of a held-back scan's removals are named: scan_withheld_removals_named,
+// enough to recognise a season or a folder, few enough to read at a glance; the rest are counted (the
+// constants sweep, 2026-10-20).
+func (admin *Admin) namedRemovals(ctx context.Context) (int, error) {
+	if admin.settings == nil {
+		return int(settings.StartingInt(settings.ScanWithheldRemovalsNamed)), nil
+	}
+	named, err := admin.settings.Int(ctx, settings.ScanWithheldRemovalsNamed)
+	if err != nil {
+		return 0, fmt.Errorf("read %s: %w", settings.ScanWithheldRemovalsNamed, err)
+	}
+	return int(named), nil
+}
 
 // WaitingRemovals is a root whose last scan's removals wait for the admin (D208 §3): why, since
 // when, how many files it would remove and the first of them by path (D277 §2).
@@ -25,13 +46,17 @@ type WaitingRemovals struct {
 	Reason      string
 	Since       time.Time
 	FileCount   int
-	// FirstPaths are the first namedRemovalsLimit of the files, by path.
+	// FirstPaths are the first scan_withheld_removals_named of the files, by path.
 	FirstPaths []string
 }
 
 // Waiting is every root of the live libraries whose removals wait for the admin, the longest
 // waiting first.
 func (admin *Admin) Waiting(ctx context.Context) ([]WaitingRemovals, error) {
+	named, err := admin.namedRemovals(ctx)
+	if err != nil {
+		return nil, err
+	}
 	queries := admin.database.Read()
 	roots, err := queries.ListWithheldRoots(ctx)
 	if err != nil {
@@ -50,7 +75,7 @@ func (admin *Admin) Waiting(ctx context.Context) ([]WaitingRemovals, error) {
 			LibraryID: root.LibraryID, LibraryName: root.LibraryName, NodeName: root.NodeName,
 			RootPath: root.RootPath, Reason: ptr.ValueOrZero(root.WithheldReason),
 			Since: time.UnixMilli(root.WithheldScanStartedAt), FileCount: len(paths),
-			FirstPaths: paths[:min(len(paths), namedRemovalsLimit)],
+			FirstPaths: paths[:min(len(paths), named)],
 		})
 	}
 	return waiting, nil

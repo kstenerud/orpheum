@@ -252,7 +252,7 @@ func newHarness(t *testing.T) testHarness {
 		Relay:         &turn.Issuer{Address: "203.0.113.7:3478", Secrets: secretStore},
 		Chooser:       identify.NewChooser(matcher, pass),
 		FilingReports: identify.NewFilingReports(database, directories, "test", now),
-		Libraries:     library.NewAdmin(database, now, nodes, nodes, library.Retirement{Work: queue, Titles: pass}),
+		Libraries:     libraryAdmin(database, now, nodes, library.Retirement{Work: queue, Titles: pass}, seeded),
 		Refresher:     identify.NewRefresher(database, queue, seeded, now, slog.New(slog.DiscardHandler)),
 		Browser:       browser,
 		Artwork: artwork.NewService(artwork.Parts{
@@ -750,4 +750,14 @@ func TestConfig_FiltersToWhatDiffersFromTheStartingValue(t *testing.T) {
 		!strings.Contains(all.body, `"key":"should_check_for_updates"`) {
 		t.Errorf("the filter kept an unchanged setting or dropped the changed one:\n%s", changed.body)
 	}
+}
+
+// libraryAdmin is the library admin service reading the harness's settings, as the server wires it.
+func libraryAdmin(
+	database *store.Database, now *clocktest.Fake, nodes *fakeNodes, retirement library.Retirement,
+	reader library.AdminSettings,
+) *library.Admin {
+	admin := library.NewAdmin(database, now, nodes, nodes, retirement)
+	admin.UseSettings(reader)
+	return admin
 }

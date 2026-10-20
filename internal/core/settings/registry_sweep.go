@@ -51,6 +51,7 @@ const (
 	VoiceRelayCredentialHours              Key = "voice_relay_credential_hours"
 	ArtworkCacheSweepToPercent             Key = "artwork_cache_sweep_to_percent"
 	ArtworkCacheRecommendedHeadroomPercent Key = "artwork_cache_recommended_headroom_percent"
+	ScanWithheldRemovalsNamed              Key = "scan_withheld_removals_named"
 	JobHealthWindowHours                   Key = "job_health_window_hours"
 	RetentionSweepEveryHours               Key = "retention_sweep_every_hours"
 	InvariantsCheckEveryHours              Key = "invariants_check_every_hours"
@@ -298,5 +299,16 @@ func artworkCacheDefinitions() []Definition {
 			"the ceiling the System page recommends for the artwork cache, in percent of what is never "+
 				"evicted (D212 §7)"),
 			"D212 §7: what is never evicted, plus 15%"),
+	}
+}
+
+// libraryAdminDefinitions are what the library's admin pages show.
+func libraryAdminDefinitions() []Definition {
+	return []Definition{
+		sourced(integerSetting(ScanWithheldRemovalsNamed, "10", 1, 1000,
+			"how many of the files a held-back scan would remove are named on the page that asks the admin "+
+				"(D208): enough to recognise a season or a folder, few enough to read at a glance; the rest "+
+				"are counted"),
+			"best guess: ten"),
 	}
 }

@@ -457,6 +457,29 @@ func TestSystem_ShowsWhenThePublicNamesCertificateExpires(t *testing.T) {
 	}
 }
 
+// How many of a held-back scan's removals are named is a setting (the constants sweep, 2026-10-20):
+// at two, two are, and all three counted.
+func TestSystem_NamesAsManyOfAHeldBackScansRemovalsAsTheSettingSays(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	storetest.ExecRaw(t, harness.databasePath,
+		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, withheld_scan_started_at,
+		 withheld_reason) VALUES (1, '/media', 'withheld', 9000, 5000, 'the scan would remove 3 of 5 files')`)
+	harness.setSetting(t, string(settings.ScanWithheldRemovalsNamed), "2")
+	got := harness.do(t, http.MethodGet, "/system", admin, nil)
+	var system SystemOutput
+	if err := json.Unmarshal([]byte(got.body), &system.Body); err != nil || got.status != http.StatusOK {
+		t.Fatalf("GET /system = %d %s", got.status, got.body)
+	}
+	want := []string{"/media/Film (2001).mp4", "/media/Film (2002).mkv"}
+	if len(system.Body.Waiting) != 1 || !slices.Equal(system.Body.Waiting[0].FirstPaths, want) ||
+		system.Body.Waiting[0].FileCount != 3 {
+		t.Errorf("waiting, two named = %+v; want the first two of three", system.Body.Waiting)
+	}
+}
+
 func TestSystem_SaysWhatAHeldBackScanWouldRemoveAndWhatCouldNotBeRead(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
