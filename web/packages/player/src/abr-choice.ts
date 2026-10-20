@@ -129,9 +129,10 @@ function canBeGivenUp(chunk: ChunkOnItsWay): boolean {
  * has loaded for half the time it plays, a chunk arriving slower than its quality plays, the rest
  * of which would take longer than what is loaded ahead lasts, is given up for the highest quality
  * within linkShareForQuality of the speed it arrives at, the lowest included, when that quality's
- * whole chunk would arrive sooner. hls.js gives up on a chunk only while the video plays, and never
- * for the lowest quality: a film's page filling its hidden player, and a player waiting for its
- * first frame, waited out a whole chunk of the film's own picture (staging, 2026-10-07).
+ * whole chunk would arrive sooner. It is the one giving up: hls.js's own, which gave up only while
+ * the video played and never for the lowest, left a film's page filling its hidden player, and a
+ * player waiting for its first frame, waiting out a whole chunk of the film's own picture (staging,
+ * 2026-10-07), and took a chunk the core was making for a stalled one, so it is off (abr.ts).
  */
 export function giveUpFor(chunk: ChunkOnItsWay): number | undefined {
   const { levels, loadingLevel, durationS } = chunk;

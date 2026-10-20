@@ -94,12 +94,16 @@ describe("what a stalled video held, for its report (D266)", () => {
     expect(diagnosisOf(video)?.steps?.startsWith("playlist 4 loading; ")).toBe(true);
   });
 
-  it("keeps the player's own choices among its steps, and none for a video not diagnosed", () => {
+  it("keeps the player's own last three choices after its steps, and none for a video not diagnosed", () => {
     const hls = { on: () => undefined } as unknown as DiagnosedHls;
     const video = Object.assign(new EventTarget(), { error: null });
     diagnose(hls, video);
-    stepNoter(video)("ceiling 4 to 0: link 900 kb/s, 0.0 s ahead");
-    expect(diagnosisOf(video)?.steps).toBe("ceiling 4 to 0: link 900 kb/s, 0.0 s ahead");
+    for (const step of ["one", "two", "three", "ceiling 4 to 0: link 900 kb/s, 0.0 s ahead"]) {
+      stepNoter(video)(step);
+    }
+    expect(diagnosisOf(video)?.steps).toBe(
+      "chose two; chose three; chose ceiling 4 to 0: link 900 kb/s, 0.0 s ahead",
+    );
     const other = Object.assign(new EventTarget(), { error: null });
     stepNoter(other)("nothing keeps this");
     expect(diagnosisOf(other)).toBeUndefined();
