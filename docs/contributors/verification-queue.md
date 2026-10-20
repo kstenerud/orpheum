@@ -434,12 +434,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   now show up in both places"*; *"When I clicked the link, it brought me to the login page for the
   server. I entered my name and pw and it showed me the films list"*
 
-- [ ] **VQ45** — On nas.example (an Intel GPU, its render node passed through), on the image built
+- [x] **VQ45** — On nas.example (an Intel GPU, its render node passed through), on the image built
   with Intel's runtime: System → Hardware encoding says **Intel Quick Sync** works, and a film
   prepared then is encoded with `h264_qsv` (the node's log). The portable FFmpeg loads
   `libmfx-gen.so.1.2` and the iHD driver from the system, which only a machine with an Intel GPU
   can try; without a GPU the sandbox shows the same `-9` with the packages and without.
   (`deploy/Containerfile`)
+  — done 2026-10-20 by the owner, on nas.example built from main at an earlier commit: *"quick sync worked. I
+  can also play films no problem."*
 
 - [ ] **VQ46** — With orpheum-connect repackaged from main and nas.example built from main: on a TV's
   browser (or any browser with no household), open `app.orpheum-app.com`, choose **Get a code**;
