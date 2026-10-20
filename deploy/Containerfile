@@ -171,8 +171,17 @@ RUN --mount=type=cache,target=/root/.npm \
 # ---------------------------------------------------------------------------------------------
 FROM base AS runtime
 # wireguard-tools and iproute2: orpheum-tunnel, the core's end of the tunnel to the VPS (D249 §2).
-RUN apt-get update -q \
- && apt-get install -y -q --no-install-recommends iproute2 wireguard-tools \
+# On amd64, Intel's GPU runtime and VA driver, which the portable FFmpeg loads from the system for
+# Quick Sync; without them every QSV encode fails with "Error creating a MFX session: -9" (nas.example,
+# 2026-10-20). The non-free driver is the one with every encoder the GPU has (the owner,
+# 2026-10-20).
+RUN set -eu; packages="iproute2 wireguard-tools"; \
+    if [ "$(dpkg --print-architecture)" = amd64 ]; then \
+      sed -i 's/^Components: main$/Components: main non-free/' /etc/apt/sources.list.d/debian.sources; \
+      packages="$packages libmfx-gen1.2 intel-media-va-driver-non-free"; \
+    fi; \
+    apt-get update -q \
+ && apt-get install -y -q --no-install-recommends $packages \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=build /src/bin/orpheum /usr/local/bin/orpheum
 COPY deploy/staging/tunnel.sh /usr/local/bin/orpheum-tunnel

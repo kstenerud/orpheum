@@ -424,9 +424,19 @@ An item is ticked only by the person who did it, and only with what they saw.
   `path=direct_ipv6` from the house's /64: *"I can add libraries, and am watching them update, so
   admin is fully functional"*
 
-- [ ] **VQ44** — On nas.example, built with the home address: the account page shows **Your server at
+- [x] **VQ44** — On nas.example, built with the home address: the account page shows **Your server at
   home** with a link and a QR code, and the link opens the server at home; System → Remote access
   shows the same address. `/me` reads the address from the live discovery, which only a claimed
   server with its certificate has, and no test machine here is one. (The away-from-home menu's
   line is the page's own, held by app-shell.test.tsx.)
   (`internal/core/api/session.go`, `cmd/orpheum/certificates.go`)
+  — done 2026-10-20 by the owner, on nas.example built from main at an earlier commit: *"the URL and QR code
+  now show up in both places"*; *"When I clicked the link, it brought me to the login page for the
+  server. I entered my name and pw and it showed me the films list"*
+
+- [ ] **VQ45** — On nas.example (an Intel GPU, its render node passed through), on the image built
+  with Intel's runtime: System → Hardware encoding says **Intel Quick Sync** works, and a film
+  prepared then is encoded with `h264_qsv` (the node's log). The portable FFmpeg loads
+  `libmfx-gen.so.1.2` and the iHD driver from the system, which only a machine with an Intel GPU
+  can try; without a GPU the sandbox shows the same `-9` with the packages and without.
+  (`deploy/Containerfile`)
