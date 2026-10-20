@@ -173,6 +173,9 @@ func openReachedFromOutside(
 	}
 	opened.auth.OnLinksChanged(discovered.LinksChanged)
 	opened.together.OnLinksChanged(discovered.LinksChanged)
+	// A code the core did not issue is claimed from the paid service, which a TV that knows no core
+	// asked (D293 §2).
+	opened.auth.ClaimDeviceCodesFrom(discovered)
 	rtc.UseICEServers(func() []webrtc.ICEServer { return iceServersOf(discovered.Status().ICEServers) })
 	opened.jobServices.discovery, opened.jobServices.portMapping = discovered, mapped
 	served.discoveryParts.DNS = discovered

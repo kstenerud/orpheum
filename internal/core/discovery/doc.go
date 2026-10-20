@@ -25,6 +25,10 @@
 //     TestRetryWait_TwoCoresWaitDifferentlyAndNeverPastTheMost. A dropped signalling connection is
 //     dialled again after the first wait. TestSignal_ADroppedConnectionIsDialledAgainWithinAboutASecond.
 //   - Two Connects at once enrol once (C12). TestConnect_TwoAtOnceEnrolOnce.
+//   - A device code the paid service issued is claimed only while the discovery publishes the core,
+//     and the outcome sent opens with the device's key alone (D293 §2).
+//     TestDeviceCode_IsClaimedOnlyOnceTheDiscoveryPublishesTheCore,
+//     TestDeviceCode_ItsOutcomeOpensWithTheDevicesKeyAndARefusalSendsNone.
 //   - A claimed core tells its discovery every link and device locator it may find the core by, as
 //     their hashes, the full sets, when they change and under each new session (discovery-core.md
 //     K7). TestStep_AClaimedCoreTellsItsDiscoveryItsLinksWhenTheyChangeAndUnderEachNewSession.

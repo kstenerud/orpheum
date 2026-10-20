@@ -173,6 +173,9 @@ type Service struct {
 	// realm is the realm the core is found by at its discovery (SetRealm), a string; none, or empty,
 	// and no realm key is made.
 	realm atomic.Value
+	// serviceDeviceCodes claims the codes the paid service issued (ClaimDeviceCodesFrom); nil claims
+	// none.
+	serviceDeviceCodes ServiceDeviceCodes
 }
 
 // NewService returns a Service.

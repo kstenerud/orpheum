@@ -68,13 +68,20 @@ func (service *Service) HandOff(
 	if err != nil {
 		return "", err
 	}
-	code, err := randomSecret(service.random)
-	if err != nil {
-		return "", errors.Join(err, service.SignOut(ctx, issued.Token))
-	}
 	person := ""
 	if realm := service.currentRealm(); realm != "" {
 		person = proof.RealmPerson(realm, name)
+	}
+	return service.keepHandOff(ctx, issued, person)
+}
+
+// keepHandOff keeps issued for a client origin to take by the code it answers, once, within
+// handOffLife, for person: whom the bootstrap token the client origin holds names, by whom its offers
+// are proven under the code (HandOffOfferKeys). The session ends if it cannot be kept.
+func (service *Service) keepHandOff(ctx context.Context, issued Issued, person string) (string, error) {
+	code, err := randomSecret(service.random)
+	if err != nil {
+		return "", errors.Join(err, service.SignOut(ctx, issued.Token))
 	}
 	service.handOffs.mutex.Lock()
 	expired := service.handOffs.expiredLocked(service.clock.Now())

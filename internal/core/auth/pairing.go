@@ -101,6 +101,9 @@ type pairing struct {
 	// isConfirmed is the person's match, and issued the session it made, until the device takes it.
 	isConfirmed bool
 	issued      Issued
+	// deviceKey is the public key of the device a code the service issued is for (claimFromService),
+	// which its outcome is sealed to; empty for the core's own codes.
+	deviceKey string
 }
 
 // pairings are the pairings under way, in memory (D288 §6): a restart ends them.
@@ -262,6 +265,11 @@ func (service *Service) ClaimPairing(
 		return PairingClaim{}, userErr
 	}
 	code, readErr := safe32code.Read(typed, safe32code.DeviceLength)
+	// A code the core did not issue may be the paid service's (D293 §2).
+	claim, isServices, claimErr := service.claimFromService(ctx, byUserID, forUserID, code, deviceName)
+	if claimErr != nil || isServices {
+		return claim, claimErr
+	}
 	previous, found := service.waitingDevice(code)
 	if readErr != nil || !found {
 		service.limiter.recordFailure(window, limitKey)
@@ -319,8 +327,14 @@ func (service *Service) AnswerPairing(ctx context.Context, byUserID int64, typed
 		return ErrNoPairing
 	}
 	known, err := service.answered(byUserID, code, isMatch)
-	if err != nil || !isMatch {
+	if err != nil {
 		return err
+	}
+	if known.deviceKey != "" && !isMatch {
+		return service.answerService(ctx, known, Issued{}, false)
+	}
+	if !isMatch {
+		return nil
 	}
 	// Made with the pairing let go, as a database write is: confirmed, it is answered no more. A
 	// device a code activated carries the device scope, whoever entered the code (D292 §4; A11).
@@ -330,6 +344,9 @@ func (service *Service) AnswerPairing(ctx context.Context, byUserID int64, typed
 	}, grantScopeDevice)
 	if err != nil {
 		return err
+	}
+	if known.deviceKey != "" {
+		return service.answerService(ctx, known, issued, true)
 	}
 	service.pairings.mutex.Lock()
 	defer service.pairings.mutex.Unlock()

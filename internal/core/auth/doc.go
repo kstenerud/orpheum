@@ -105,6 +105,12 @@
 //     TestHandOff_ACodeNotTakenInItsMinuteEndsWithItsSession and
 //     TestHandOffOfferKeys_AreTheLiveCodesOfThePersonTheRealmNames.
 //
+//   - A code the core did not issue is claimed from the paid service: its check code is made of the
+//     device's key, a match keeps the device-scoped session as a hand-off under the code's person and
+//     passes its code on to be sealed to that key, and no match ends the code there (D293 §2).
+//     Enforced by TestPairing_AServiceCodeChecksByTheDevicesKeyAndHandsTheSessionOff and
+//     TestPairing_AServiceCodeNotMatchedEndsThereAndAnUnknownOneIsNone.
+//
 //   - A sign-in, or a device activated by its code, resumes the device the client remembers only when
 //     it is the same person's and the client proves it was that device, by the device secret its
 //     latest sign-in gave (never a session token, the third audit's A8); else it is a new device; a
@@ -209,7 +215,8 @@
 //     failure counts.
 //   - auth.go: users, sign-in, sessions on the grant table. setup.go: the setup code and the first
 //     admin. accounts.go: accounts, registration invitations and changing a password (D218).
-//     pairing.go: a device activated by its code and a check code (D288). devices.go: a person's
+//     pairing.go: a device activated by its code and a check code (D288); devicecodes.go: one the paid
+//     service issued (D293 §2). devices.go: a person's
 //     devices. locators.go: links' hashes, own links and device locators (discovery-core.md K7). A code's safe32 is
 //     discovery/safe32code's, which a discovery's claim code shares.
 package auth
