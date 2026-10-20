@@ -1708,6 +1708,50 @@
         ],
         "type": "object"
       },
+      "FilePictureBody": {
+        "additionalProperties": false,
+        "properties": {
+          "codec": {
+            "type": "string"
+          },
+          "height": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "width": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "codec",
+          "width",
+          "height"
+        ],
+        "type": "object"
+      },
+      "FileSoundBody": {
+        "additionalProperties": false,
+        "properties": {
+          "audioTrackIndex": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "channelCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "codec": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "audioTrackIndex",
+          "codec",
+          "channelCount"
+        ],
+        "type": "object"
+      },
       "FilesOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -3553,6 +3597,46 @@
         ],
         "type": "object"
       },
+      "PictureTrackBody": {
+        "additionalProperties": false,
+        "properties": {
+          "codec": {
+            "description": "ffprobe's name for it: hevc, h264, av1 ...",
+            "type": "string"
+          },
+          "height": {
+            "description": "0 when not known",
+            "format": "int64",
+            "type": "integer"
+          },
+          "isOriginal": {
+            "description": "Whether it is the file's own, played as it is",
+            "type": "boolean"
+          },
+          "kbps": {
+            "description": "Its average rate; 0 when not known",
+            "format": "int64",
+            "type": "integer"
+          },
+          "stream": {
+            "description": "Its stream on the film's ladder, as the player's level names it; absent off it",
+            "type": "string"
+          },
+          "width": {
+            "description": "0 when not known",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "codec",
+          "width",
+          "height",
+          "kbps",
+          "isOriginal"
+        ],
+        "type": "object"
+      },
       "PlayableFormatsBody": {
         "additionalProperties": false,
         "properties": {
@@ -5293,6 +5377,45 @@
         ],
         "type": "object"
       },
+      "SoundTrackBody": {
+        "additionalProperties": false,
+        "properties": {
+          "audioTrackIndex": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "channelCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "codec": {
+            "description": "ffprobe's name for it: aac, eac3, opus ...",
+            "type": "string"
+          },
+          "isBoosted": {
+            "description": "Whether it is the mix with the dialogue boost",
+            "type": "boolean"
+          },
+          "isOriginal": {
+            "description": "Whether it is the file's own, played as it is",
+            "type": "boolean"
+          },
+          "kbps": {
+            "description": "Its rate; 0 when not known, as a file's own is not",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "audioTrackIndex",
+          "isBoosted",
+          "codec",
+          "channelCount",
+          "kbps",
+          "isOriginal"
+        ],
+        "type": "object"
+      },
       "SpanBody": {
         "additionalProperties": false,
         "properties": {
@@ -5605,6 +5728,9 @@
           "titleName": {
             "type": "string"
           },
+          "tracks": {
+            "$ref": "#/components/schemas/TracksBody"
+          },
           "url": {
             "description": "Where the bytes are: the file, or a rendition's master playlist",
             "type": "string"
@@ -5621,7 +5747,8 @@
           "resumePositionMs",
           "mediaToken",
           "levelling",
-          "fileBitRateKbps"
+          "fileBitRateKbps",
+          "tracks"
         ],
         "type": "object"
       },
@@ -6283,6 +6410,50 @@
         "required": [
           "canPlayPause",
           "canSeek"
+        ],
+        "type": "object"
+      },
+      "TracksBody": {
+        "additionalProperties": false,
+        "properties": {
+          "filePicture": {
+            "$ref": "#/components/schemas/FilePictureBody",
+            "description": "The file's own picture, as the server probed it"
+          },
+          "fileSounds": {
+            "description": "The file's own audio tracks, as the server probed them",
+            "items": {
+              "$ref": "#/components/schemas/FileSoundBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "pictures": {
+            "items": {
+              "$ref": "#/components/schemas/PictureTrackBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "sounds": {
+            "items": {
+              "$ref": "#/components/schemas/SoundTrackBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "pictures",
+          "sounds",
+          "filePicture",
+          "fileSounds"
         ],
         "type": "object"
       },

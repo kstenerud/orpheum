@@ -19,6 +19,10 @@ const (
 	StartingSegmentLengthSeconds = 2
 )
 
+// PreparedSoundKbps is the rate a prepared copy's sound is encoded at, AAC in stereo: the node makes
+// it, and the core names it to the player beside the track it was made from.
+const PreparedSoundKbps = 192
+
 // PrepareProfile is a rendition's recipe (cut-a §6).
 type PrepareProfile string
 

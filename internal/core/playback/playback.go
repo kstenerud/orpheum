@@ -61,6 +61,9 @@ type Parts struct {
 	Loudness Loudness
 	// Chunks offers a stalled playback a lower quality (D247 §2); nil offers none.
 	Chunks Chunks
+	// Offers says what a film's ladder offers a playback, which its player names (Tracks); nil names
+	// none.
+	Offers Offers
 	// Reads has a file not yet read taken first, for a person who asked to play it (D304 §4); nil
 	// asks for none.
 	Reads FileReads
@@ -89,6 +92,7 @@ type Service struct {
 	preferences *preferences.Service
 	loudness    Loudness
 	chunks      Chunks
+	offers      Offers
 	reads       FileReads
 	// speeds are the link speeds players measured, by player and network (D257 §1).
 	speeds *linkSpeeds
@@ -112,7 +116,8 @@ func NewService(parts Parts) *Service {
 		clock: parts.Clock, random: parts.Random,
 		tokens: newTokens(), renditions: parts.Renditions,
 		subtitles: parts.Subtitles, preferences: parts.Preferences, loudness: parts.Loudness,
-		chunks: parts.Chunks, reads: parts.Reads, speeds: newLinkSpeeds(), unplayablePictures: newUnplayablePictures(),
+		chunks: parts.Chunks, offers: parts.Offers, reads: parts.Reads, speeds: newLinkSpeeds(),
+		unplayablePictures: newUnplayablePictures(),
 	}
 	// The runs that go on are those its playbacks' players want (D309).
 	if parts.Chunks != nil {
@@ -173,6 +178,8 @@ type Started struct {
 	// "noQualityOffered" or "noLadder"; empty when it does. A film played as its decision says, with
 	// nothing to say why, left a browser test's failure to a guess (the M4 closing audit, 2026-10-08).
 	NotOnLadderBecause string
+	// Tracks are what the playback may play and what the file holds, which its player names.
+	Tracks Tracks
 }
 
 // Start decides how a file plays for this client and issues the playback's media token, bound
@@ -238,8 +245,19 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 			return Started{}, prepareErr
 		}
 	}
-	started.Token, err = service.tokens.issue(service.random, playback, service.clock.Now(), idle)
-	if err != nil {
+	return service.issued(ctx, playback, probe, started, idle)
+}
+
+// issued is started with its tracks named and its media token issued, which an idle playback loses
+// after idle.
+func (service *Service) issued(
+	ctx context.Context, playback tokenPlayback, probe nodeproto.Probe, started Started, idle time.Duration,
+) (Started, error) {
+	var err error
+	if started.Tracks, err = service.tracksOf(ctx, playback, probe, started); err != nil {
+		return Started{}, err
+	}
+	if started.Token, err = service.tokens.issue(service.random, playback, service.clock.Now(), idle); err != nil {
 		return Started{}, err
 	}
 	return started, nil

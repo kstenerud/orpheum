@@ -16,7 +16,6 @@ import (
 // hls_segment_length_seconds (D217 §3), and an EVENT playlist that grows while the job runs, so
 // playback starts before it ends.
 const (
-	audioBitRate   = "192k"
 	masterPlaylist = "master.m3u8"
 )
 
@@ -86,7 +85,7 @@ func Arguments(sourcePath, renditionPath string, command nodeproto.Prepare, enco
 		}
 	}
 	return append(arguments,
-		"-c:a", "aac", "-b:a", audioBitRate, "-ac", "2", "-sn", "-dn",
+		"-c:a", "aac", "-b:a", strconv.Itoa(nodeproto.PreparedSoundKbps)+"k", "-ac", "2", "-sn", "-dn",
 		"-f", "hls", "-hls_time", strconv.Itoa(segmentLengthSeconds(command.SegmentLengthSeconds)),
 		"-hls_playlist_type", "event",
 		"-hls_segment_type", "fmp4", "-hls_fmp4_init_filename", "init.mp4",

@@ -7,7 +7,6 @@
 export const enPlay = {
   play: {
     updateAfterFilm: "A new version of this app is ready: it loads as you leave the film.",
-    direct: "Playing the original file, as it is.",
     directFailed: "This browser could not play the original file: {{reason}}.",
     prepared: "Playing a copy prepared for this browser, because {{reasons}}.",
     preparing: "Preparing — ready in a few seconds.",
@@ -17,6 +16,21 @@ export const enPlay = {
       "Your connection could not keep up, so this moves to a lower quality: {{height}}p, {{rate}}.",
     ladderStarting: "Starting at {{height}}p, {{rate}}. The quality follows your connection.",
     ladderPlaying: "Playing at {{height}}p, {{rate}}. The quality follows your connection.",
+    tracks: {
+      heading: "Tracks:",
+      video: "Video: {{line}}",
+      audio: "Audio: {{line}}",
+      original: "{{what}} (original)",
+      transcoded: "{{what}} (transcoded from {{from}})",
+      transcodedBoosted: "{{what}} (transcoded from {{from}}, dialogue boost)",
+      channels: {
+        mono: "mono",
+        stereo: "stereo",
+        surround51: "5.1",
+        surround71: "7.1",
+        other: "{{count}} channels",
+      },
+    },
     lowerQuality:
       "Playing a lower quality for your connection: {{height}}p, {{rate}}. It goes back up when the connection allows.",
     cannotKeepUpUnmeasured:

@@ -320,6 +320,32 @@ func (service *Service) Ladder(ctx context.Context, playback Playback) ([]Rung, 
 	return rungs, nil
 }
 
+// Offered is what a playback on its film's ladder may play, as its player names it beside what it
+// is made from: its pictures, highest first, the rate every sound is made at, and the film's own
+// picture's average rate (the owner, 2026-10-20: which tracks are the original's, and which are
+// converted, and from what).
+type Offered struct {
+	Pictures  []Stream
+	SoundKbps int
+	// OwnPictureKbps is the film's own picture's average rate, 0 when not known.
+	OwnPictureKbps int64
+}
+
+// Offered is what the playback's film offers it. ErrNoGrid as MasterPlaylist says.
+func (service *Service) Offered(ctx context.Context, playback Playback) (Offered, error) {
+	film, err := service.cutForPlay(ctx, playback)
+	if err != nil {
+		return Offered{}, err
+	}
+	offered, err := service.offerOf(ctx, film, playback)
+	if err != nil {
+		return Offered{}, err
+	}
+	return Offered{
+		Pictures: offered.pictures, SoundKbps: offered.soundKbps, OwnPictureKbps: film.pictureAverageBps() / 1000,
+	}, nil
+}
+
 // averageWithSoundKbps is a picture's average rate with its sound's, in kbit/s, as its master
 // playlist says it, placed by its peak where its average is not known; rounded up, since a player
 // keeps a level whose average is at most the ceiling it is told (D286 §5).

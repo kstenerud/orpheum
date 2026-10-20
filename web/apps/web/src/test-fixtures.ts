@@ -20,6 +20,21 @@ export function directDecision(changes: Partial<PlaybackDecision> = {}): Playbac
     mediaToken: "t",
     levelling: unlevelled.levelling,
     fileBitRateKbps: 2400,
+    tracks: {
+      pictures: [{ codec: "h264", width: 1920, height: 1080, kbps: 2400, isOriginal: true }],
+      sounds: [
+        {
+          audioTrackIndex: 0,
+          isBoosted: false,
+          codec: "aac",
+          channelCount: 2,
+          kbps: 0,
+          isOriginal: true,
+        },
+      ],
+      filePicture: { codec: "h264", width: 1920, height: 1080 },
+      fileSounds: [{ audioTrackIndex: 0, codec: "aac", channelCount: 2 }],
+    },
     ...changes,
   };
 }

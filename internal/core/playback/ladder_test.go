@@ -16,9 +16,10 @@ import (
 )
 
 // cutAfterChunks is a chunks service whose film has no grid for its first noGridFor asks, then
-// starts on its ladder; it counts the asks.
+// starts on its ladder; it counts the asks, and offers what offered says.
 type cutAfterChunks struct {
 	noGridFor, asked int
+	offered          chunks.Offered
 }
 
 func (*cutAfterChunks) Stalled(context.Context, chunks.Playback, int64, int64) (chunks.Offer, error) {
@@ -35,6 +36,10 @@ func (cut *cutAfterChunks) StartOnLadder(context.Context, chunks.Playback, int64
 
 func (*cutAfterChunks) IsReadyAt(context.Context, chunks.Playback, chunks.Offer, int64) (bool, error) {
 	return false, nil
+}
+
+func (cut *cutAfterChunks) Offered(context.Context, chunks.Playback) (chunks.Offered, error) {
+	return cut.offered, nil
 }
 
 func (*cutAfterChunks) ReleaseWanted(context.Context, int64) error { return nil }

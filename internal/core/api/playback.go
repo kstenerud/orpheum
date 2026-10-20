@@ -117,6 +117,9 @@ type StartPlaybackOutputBody struct {
 	// by itself (D260); absent for a film not cut yet, or one that cannot be, which plays as Delivery
 	// says.
 	OnLadder *LadderBody `json:"onLadder,omitempty"`
+	// Tracks are what the playback may play and what the file holds, each named original or
+	// converted, and from what.
+	Tracks TracksBody `json:"tracks"`
 }
 
 // AudioTrackBody is one of a file's own audio tracks.
@@ -340,6 +343,7 @@ func startedOutput(started playback.Started) *StartPlaybackOutput {
 	output.Body.MediaToken = started.Token
 	output.Body.AudioOutput = AudioOutputKind(started.AudioOutput)
 	output.Body.Levelling = levellingBody(started.Levelling)
+	output.Body.Tracks = tracksBody(started.Tracks)
 	return output
 }
 

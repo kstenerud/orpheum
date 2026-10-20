@@ -129,6 +129,7 @@ type decision struct {
 	Levelling        LevellingBody `json:"levelling"`
 	TitleName        string        `json:"titleName"`
 	OnLadder         *LadderBody   `json:"onLadder"`
+	Tracks           TracksBody    `json:"tracks"`
 }
 
 type subtitleTrack struct {
@@ -227,6 +228,27 @@ func TestPlayback_NamesTheTitleItPlaysAndNeverAPath(t *testing.T) {
 	harness.fileFilmAsTitle(t, "Metropolis")
 	if named := harness.play(t, user, chrome(1)); named.TitleName != "Metropolis" {
 		t.Errorf("the title's name = %q, want Metropolis", named.TitleName)
+	}
+}
+
+// A playback names its tracks beside the file's own: played as it is, every one original; prepared,
+// its sound converted to AAC in stereo from the file's track (the owner, 2026-10-20).
+func TestPlayback_NamesEachTrackOriginalOrConvertedBesideTheFilesOwn(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	direct := harness.play(t, user, chrome(1)).Tracks
+	if len(direct.Pictures) != 1 || !direct.Pictures[0].IsOriginal || direct.Pictures[0].Codec == "" ||
+		direct.Pictures[0].Codec != direct.FilePicture.Codec || len(direct.Sounds) == 0 ||
+		!direct.Sounds[0].IsOriginal {
+		t.Errorf("a file played as it is names %+v; want every track original, as the file's own", direct)
+	}
+	prepared := harness.play(t, user, chrome(2)).Tracks
+	if len(prepared.Sounds) == 0 || prepared.Sounds[0].IsOriginal || prepared.Sounds[0].Codec != "aac" ||
+		prepared.Sounds[0].ChannelCount != 2 || len(prepared.FileSounds) == 0 ||
+		prepared.FileSounds[0].Codec == "aac" {
+		t.Errorf("a prepared copy names %+v; want its sound converted to AAC stereo from another codec", prepared)
 	}
 }
 
