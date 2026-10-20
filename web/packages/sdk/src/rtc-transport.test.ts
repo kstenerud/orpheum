@@ -206,6 +206,44 @@ describe("the WebRTC transport", () => {
   });
 });
 
+// One room freed lets one waiting request through, not every one: woken together, each saw the room
+// before any took it, and a films page's posters crowded past the core's 16 on one connection, which
+// refused them (staging, 2026-10-20: twenty request channels open at once on one connection).
+it("lets one waiting request through for each room freed, however many wait", async () => {
+  const channels: FakeChannel[] = [];
+  const peer: PeerLike = {
+    createDataChannel: () => {
+      const channel = new FakeChannel();
+      channel.readyState = "open";
+      channels.push(channel);
+      return channel;
+    },
+    close: () => undefined,
+  };
+  const transport = new RtcTransport([peer]);
+  const posters = 60;
+  const answered = Array.from({ length: posters }, (_, index) =>
+    transport.fetch(new Request(`https://app.example/poster/${String(index)}`)),
+  );
+  await settle();
+  expect(channels).toHaveLength(requestsPerConnection);
+  channels[0]?.closeFromTheCore();
+  await expect(answered[0]).rejects.toThrow("closed before its response ended");
+  await settle();
+  expect(channels).toHaveLength(requestsPerConnection + 1);
+  channels[1]?.closeFromTheCore();
+  channels[2]?.closeFromTheCore();
+  await Promise.allSettled([answered[1], answered[2]]);
+  await settle();
+  expect(channels).toHaveLength(requestsPerConnection + 3);
+  // The rest fail as the transport closes: those waiting at once, those under way as their channels do.
+  transport.close();
+  for (const each of channels) {
+    each.closeFromTheCore();
+  }
+  await Promise.allSettled(answered);
+});
+
 it("gives a closed channel's room back after closingHoldsMs when its close never comes", async () => {
   vi.useFakeTimers();
   try {

@@ -462,8 +462,7 @@ export class RtcTransport {
   /** Sends a request to the core and resolves with its response. */
   readonly fetch = async (request: Request): Promise<Response> => {
     // Chosen at once while one has room, so requests made together spread across the connections.
-    const link = this.leastLoadedNow() ?? (await this.leastLoaded());
-    link.underWay += 1;
+    const link = this.claimNow() ?? (await this.claim());
     const channel = countedChannel(link.peer.createDataChannel("request"), () => {
       link.underWay -= 1;
       this.wakeWaiting();
@@ -558,15 +557,25 @@ export class RtcTransport {
     }
   }
 
-  /** The connection with the fewest under way, when one is up and has room. */
-  private leastLoadedNow(): Link | undefined {
-    return fewestUnderWay(this.links.filter((link) => link.underWay < requestsPerConnection));
+  /**
+   * A room on the connection with the fewest under way, taken at once, when one is up and has room.
+   * Taken in the same step as it is found: every request waiting is woken together when a room frees,
+   * and one that only found it, to take it after an await, let each of them see the same room free,
+   * so one freed room sent the whole queue past the core's 16 on one connection, which refused them
+   * (staging, 2026-10-20).
+   */
+  private claimNow(): Link | undefined {
+    const link = fewestUnderWay(this.links.filter((each) => each.underWay < requestsPerConnection));
+    if (link !== undefined) {
+      link.underWay += 1;
+    }
+    return link;
   }
 
-  /** The connection with the fewest under way, waiting for one while none is up or has room. */
-  private async leastLoaded(): Promise<Link> {
+  /** A room claimNow takes, waiting for one while none is up or has room. */
+  private async claim(): Promise<Link> {
     for (;;) {
-      const link = this.leastLoadedNow();
+      const link = this.claimNow();
       if (link !== undefined) {
         return link;
       }
