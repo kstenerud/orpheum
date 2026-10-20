@@ -97,9 +97,14 @@ type session struct {
 	startLead time.Duration
 	// runUp is the start's lead while a player has not yet learned how late it starts (D282): the
 	// setting's, as the last device to attach brought it; none until one has.
-	runUp   time.Duration
-	links   map[int64]*link
-	members map[int64]*member
+	runUp time.Duration
+	// snapSeeksBeyond is how far a seek must jump to be snapped to a keyframe: a jump along the
+	// timeline is imprecise, and no one notices it land a little early, but a short skip, 5 to 15 s by
+	// a key or a button, snapped back to where it started would never move on (D285 §1). The
+	// setting's, as the last device to attach brought it.
+	snapSeeksBeyond time.Duration
+	links           map[int64]*link
+	members         map[int64]*member
 	// lastRights are the rights of the last link made, which the next one starts with (D271 §4).
 	lastRights Rights
 	// logger is the hub's: each change of the group is logged with the session's id.
@@ -231,7 +236,7 @@ func (hub *Hub) Open(host Person) (Opened, error) {
 	opened := &session{
 		id: hub.lastID, hostUserID: host.UserID, links: map[int64]*link{}, members: map[int64]*member{},
 		group: group{state: GroupIdle, rate: 1, at: hub.clock.Now()}, logger: hub.logger,
-		syncWait: startingSyncWait, lastRights: everyRight(),
+		syncWait: StartingSyncWait, snapSeeksBeyond: StartingSnapSeeksBeyond, lastRights: everyRight(),
 	}
 	hub.lastID++
 	hostPerson := host
@@ -425,6 +430,9 @@ func (hub *Hub) Attach(
 	}
 	if tuning.SyncWaitMs > 0 {
 		attached.syncWait = time.Duration(tuning.SyncWaitMs) * time.Millisecond
+	}
+	if tuning.SnapSeeksBeyondMs > 0 {
+		attached.snapSeeksBeyond = time.Duration(tuning.SnapSeeksBeyondMs) * time.Millisecond
 	}
 	attached.startLead = time.Duration(tuning.StartLeadMs) * time.Millisecond
 	attached.runUp = time.Duration(tuning.RunUpMs) * time.Millisecond

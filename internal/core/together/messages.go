@@ -509,6 +509,9 @@ type Tuning struct {
 	// SettleAfterChangeMs is how long after it starts playing, finishes a seek or changes its rate
 	// a player's position is not read for drift: Safari's stands still for a moment then (D250 §7).
 	SettleAfterChangeMs int64 `json:"settleAfterChangeMs"`
+	// SnapSeeksBeyondMs is how far a seek must jump to be snapped to a keyframe (D285 §1): the
+	// server's own, not sent; zero keeps the session's.
+	SnapSeeksBeyondMs int64 `json:"-"`
 	// ShouldNudgeKeepPitch is whether a nudged player's sound keeps its pitch (D250 §7).
 	ShouldNudgeKeepPitch bool `json:"shouldNudgeKeepPitch"`
 	// ShouldCancelMicrophoneEcho is whether the browser cancels echo on a person's microphone for

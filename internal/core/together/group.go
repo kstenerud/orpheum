@@ -7,9 +7,15 @@ import (
 	"time"
 )
 
-// startingSyncWait is how long a sync point waits for the players before a device has brought the
-// setting's, together_sync_wait_seconds: its starting value (D250 §3).
-const startingSyncWait = 20 * time.Second
+// StartingSyncWait and StartingSnapSeeksBeyond are how long a sync point waits for the players
+// (D250 §3), and how far a seek must jump to be snapped to a keyframe (D285 §1), before a device has
+// brought the settings', together_sync_wait_seconds and together_snap_seeks_beyond_seconds (Tuning):
+// their starting values. This package keeps nothing past the process and reads no settings, so they
+// are copies, which internal/core/api's TestTogether_TheStartingWaitsAreTheSettingsStarts holds equal.
+const (
+	StartingSyncWait        = 20 * time.Second
+	StartingSnapSeeksBeyond = 30 * time.Second
+)
 
 // command applies a member's command in arrival order (cut-a §5.1): the host's, or a guest's their
 // link allows (D271 §4); a seek based on a group another seek has changed since is refused as stale.
@@ -121,20 +127,15 @@ func (current *session) changeItem(now time.Time, sender *member, from *device, 
 	current.settle(now)
 }
 
-// snapSeeksBeyond is how far a seek must jump for it to be snapped to a keyframe: a jump along the
-// timeline is imprecise, and no one notices it land a little early, but a short skip, 5 to 15 s by
-// a key or a button, snapped back to where it started would never move on (D285 §1).
-const snapSeeksBeyond = 30 * time.Second
-
-// seekTarget is where a seek takes the group: where it was asked, or, for a jump of more than
-// snapSeeksBeyond whose keyframe is known, the run-up after the keyframe at or before it. Every
+// seekTarget is where a seek takes the group: where it was asked, or, for a jump of more than the
+// session's snapSeeksBeyond whose keyframe is known, the run-up after the keyframe at or before it. Every
 // player then loads from a chunk's start, the encoded qualities' too, and none needs a second chunk
 // for what lies past where it aimed; a run-up runs on what is loaded (D285 §1). A jump along the
 // timeline is imprecise, the owner said, and no one would notice it land a little early.
 func (current *session) seekTarget(now time.Time, message Inbound) time.Duration {
 	asked := time.Duration(message.PositionMs) * time.Millisecond
 	jump := asked - current.positionAt(now)
-	if !message.isKeyframeKnown || (jump <= snapSeeksBeyond && jump >= -snapSeeksBeyond) {
+	if !message.isKeyframeKnown || (jump <= current.snapSeeksBeyond && jump >= -current.snapSeeksBeyond) {
 		return asked
 	}
 	return time.Duration(message.keyframeMs)*time.Millisecond + current.runUp

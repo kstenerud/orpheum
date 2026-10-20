@@ -152,6 +152,7 @@ const (
 	ChunkLookaheadSeconds                     Key = "chunk_lookahead_seconds"
 	ChunkRunSpanSeconds                       Key = "chunk_run_span_seconds"
 	ChunkRunSpeedWindowSeconds                Key = "chunk_run_speed_window_seconds"
+	TogetherSnapSeeksBeyondSeconds            Key = "together_snap_seeks_beyond_seconds"
 	JobHealthWindowHours                      Key = "job_health_window_hours"
 	RetentionSweepEveryHours                  Key = "retention_sweep_every_hours"
 	InvariantsCheckEveryHours                 Key = "invariants_check_every_hours"
@@ -282,6 +283,7 @@ func buildRegistry() []Definition {
 		retentionDefinitions(), backupDefinitions(), togetherDefinitions(), signInDefinitions(),
 		discoveryDefinitions(), upkeepSweepDefinitions(), signInStretchDefinitions(), pairingDefinitions(),
 		uploadDefinitions(), playbackTimingDefinitions(), chunkTimingDefinitions(),
+		togetherSweepDefinitions(),
 	)...)
 }
 
