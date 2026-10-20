@@ -188,6 +188,25 @@ class PostEditAndStop(unittest.TestCase):
             (cache / f"check-pending-{kind}").unlink(missing_ok=True)
 
 
+class PostEditFormats(unittest.TestCase):
+    def test_an_edited_go_file_is_formatted_where_it_is(self):
+        # A formatting slip is fixed after the edit, not found by the gate (the owner, 2026-10-20).
+        import shutil
+        import tempfile
+        project = Path(tempfile.mkdtemp(prefix="post-edit-format-"))
+        shutil.copytree(ROOT / "scripts", project / "scripts", ignore=shutil.ignore_patterns("__pycache__"))
+        tools = project / "bin"
+        tools.mkdir()
+        (tools / "golangci-lint").write_text('#!/bin/sh\nshift\nfor f in "$@"; do echo "// formatted" >> "$f"; done\n')
+        (tools / "golangci-lint").chmod(0o755)
+        edited = project / "internal" / "x.go"
+        edited.parent.mkdir(parents=True)
+        edited.write_text("package x\n")
+        run_hook("post_edit.py", {"tool_input": {"file_path": str(edited)}},
+                 CLAUDE_PROJECT_DIR=str(project), PATH=f"{tools}:{os.environ['PATH']}")
+        self.assertIn("// formatted", edited.read_text())
+
+
 class StopRunsTheGateForWhatChanged(unittest.TestCase):
     def test_a_documentation_only_turn_runs_the_documentation_gate_and_code_the_whole(self):
         import tempfile
