@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { handOffFragment } from "./discovery-start.ts";
 import { DeviceCodeSignIn, type DeviceCodeParts } from "./loader-device-code.tsx";
-import { mount, settleUntil, type Mounted } from "./test-dom.tsx";
+import { buttonWithText, click, mount, settleUntil, type Mounted } from "./test-dom.tsx";
 
 let mounted: Mounted | undefined;
 
@@ -89,7 +89,19 @@ function partsAnswering(answers: unknown[]): {
         fetch: (url: string | URL | Request): Promise<Response> => {
           const path = url instanceof Request ? url.url : url.toString();
           asked.push(path.replace("https://api.example/client/v1", ""));
-          return Promise.resolve(Response.json(answers.shift()));
+          const answer = answers.shift();
+          // The service asking the device to slow down, which it waits out.
+          if (
+            answer !== null &&
+            typeof answer === "object" &&
+            "state" in answer &&
+            answer.state === "slowDownIsAnsweredBy429"
+          ) {
+            return Promise.resolve(
+              Response.json({ code: "slow_down", message: "m" }, { status: 429 }),
+            );
+          }
+          return Promise.resolve(Response.json(answer));
         },
       },
       originOf: (coreId) => (coreId === "k7xq2" ? "https://k7xq2.client.example" : undefined),
@@ -113,8 +125,15 @@ describe("a television's sign-in by a code from the discovery's service (D293 §
     const service = partsAnswering([
       { code: "abcd-efgh", secret: "s", expiresIn: 600 },
       { state: "waiting" },
-      { state: "entered" },
-      { state: "activated", sealed: fixture.sealed, bootstrapToken: "a-bootstrap" },
+      { state: "entered", coreId: "k7xq2", realm: "nas" },
+      { state: "slowDownIsAnsweredBy429" },
+      {
+        state: "activated",
+        sealed: fixture.sealed,
+        bootstrapToken: "a-bootstrap",
+        coreId: "k7xq2",
+        realm: "nas",
+      },
     ]);
     mounted = await mount(<DeviceCodeSignIn parts={service.parts} onBack={() => undefined} />);
     const page = mounted.container;
@@ -124,12 +143,23 @@ describe("a television's sign-in by a code from the discovery's service (D293 §
     await settleUntil(() => service.asked.length === 2);
     service.release();
     await settleUntil(() => page.querySelector('output[aria-label="Check code"]') !== null);
-    // The core makes the same check code of this key (discovery/proof's TestDeviceCheckCode_…).
+    // The core makes the same check code of this key (discovery/proof's TestDeviceCheckCode_…), and
+    // the service names the household that entered it (the device code audit's M1).
     expect(page.querySelector('output[aria-label="Check code"]')?.textContent).toBe("tasv-f9te");
+    expect(page.textContent).toContain("Someone in the household nas entered this code.");
     service.release();
+    await settleUntil(() => service.asked.length === 4);
+    service.release();
+    await settleUntil(() => buttonWithText(page, "Yes, sign in") !== undefined);
+    // It asks before it goes, "no" first, and goes only once told yes.
+    expect(page.textContent).toContain("Sign this TV in to the household nas?");
+    expect(document.activeElement?.textContent).toBe("No, that's not mine");
+    expect(service.went).toEqual([]);
+    await click(buttonWithText(page, "Yes, sign in"));
     await settleUntil(() => service.went.length > 0);
     expect(service.asked).toEqual([
       "/device-codes",
+      "/device-codes/state",
       "/device-codes/state",
       "/device-codes/state",
       "/device-codes/state",
@@ -146,6 +176,39 @@ describe("a television's sign-in by a code from the discovery's service (D293 §
     expect(service.remembered).toEqual([
       expect.objectContaining({ coreId: "k7xq2", fingerprint, realm: "nas" }),
     ]);
+  });
+
+  it("goes nowhere when told no, nor when the outcome names another server than claimed it", async () => {
+    const activated = {
+      state: "activated",
+      sealed: fixture.sealed,
+      bootstrapToken: "b",
+      coreId: "k7xq2",
+      realm: "nas",
+    };
+    const refused = partsAnswering([{ code: "abcd-efgh", secret: "s", expiresIn: 600 }, activated]);
+    mounted = await mount(<DeviceCodeSignIn parts={refused.parts} onBack={() => undefined} />);
+    await settleUntil(() => mounted?.container.textContent.includes("abcd-efgh") === true);
+    refused.release();
+    const first = mounted.container;
+    await settleUntil(() => buttonWithText(first, "No, that's not mine") !== undefined);
+    await click(buttonWithText(first, "No, that's not mine"));
+    expect(first.textContent).toContain("Nothing was signed in.");
+    expect(refused.went).toEqual([]);
+    mounted.unmount();
+    // A core that claimed the code sealing an outcome naming another (a service's or a claimer's
+    // forgery) is refused before anything is asked.
+    const forged = partsAnswering([
+      { code: "abcd-efgh", secret: "s", expiresIn: 600 },
+      { ...activated, coreId: "m3dz9" },
+    ]);
+    mounted = await mount(<DeviceCodeSignIn parts={forged.parts} onBack={() => undefined} />);
+    await settleUntil(() => mounted?.container.textContent.includes("abcd-efgh") === true);
+    forged.release();
+    const second = mounted.container;
+    await settleUntil(() => second.querySelector('[role="alert"]') !== null);
+    expect(buttonWithText(second, "Yes, sign in")).toBeUndefined();
+    expect(forged.went).toEqual([]);
   });
 
   it("asks for a new code when the last one ended, and says so", async () => {

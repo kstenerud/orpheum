@@ -4,6 +4,7 @@ import "./device-activation.css";
 
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 import { activateDevice, answerActivation, type Activation } from "./accounts.ts";
 import { FormRow } from "./form-row.tsx";
@@ -98,6 +99,9 @@ function EnterCode(props: {
       }}
     >
       <p>{t("activate.explain", { origin: codeAddress ?? navigation.origin() })}</p>
+      <p className="device-activation__entry-warning" role="note">
+        {t("activate.entryWarning")}
+      </p>
       <label>
         {t("activate.code")}{" "}
         <input
@@ -146,6 +150,7 @@ function CheckCode(props: {
   return (
     <div className="device-activation__check">
       <p>{t("activate.checkExplain", { device: props.activation.deviceName })}</p>
+      <AskedBy activation={props.activation} />
       <output className="device-activation__check-code" aria-label={t("activate.checkCode")}>
         {props.activation.checkCode}
       </output>
@@ -178,5 +183,39 @@ function CheckCode(props: {
         </button>
       </div>
     </div>
+  );
+}
+
+/** How long ago seconds is, as the person reads it. */
+function ageText(t: TFunction, seconds: number): string {
+  if (seconds < 10) {
+    return t("activate.justNow");
+  }
+  if (seconds < 60) {
+    return t("activate.secondsAgo", { count: seconds });
+  }
+  return t("activate.minutesAgo", { count: Math.floor(seconds / 60) });
+}
+
+/** How long ago a code asked for long since counts as a while: two minutes. */
+const longAgoSeconds = 120;
+
+/**
+ * What asked for the code, and how long ago: a code asked for a while before is more likely one
+ * someone sent the person than one in front of them (the device code audit's M3).
+ */
+function AskedBy(props: { readonly activation: Activation }): JSX.Element {
+  const { t } = useTranslation();
+  const seconds = props.activation.askedSecondsAgo;
+  const age = ageText(t, seconds);
+  return (
+    <>
+      <p>{t("activate.asked", { platform: props.activation.platform, age })}</p>
+      {seconds >= longAgoSeconds ? (
+        <p className="device-activation__long-ago" role="alert">
+          {t("activate.askedLongAgo")}
+        </p>
+      ) : null}
+    </>
   );
 }

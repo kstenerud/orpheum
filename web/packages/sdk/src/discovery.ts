@@ -327,6 +327,28 @@ export class NotFound extends Error {
   }
 }
 
+/** The discovery refusing a request as one too many, with the refusal's code: slow_down, too_many_codes. */
+export class TooMany extends Error {
+  readonly code: string;
+  constructor(code: string) {
+    super(`the discovery refused one request too many (${code})`);
+    this.name = "TooMany";
+    this.code = code;
+  }
+}
+
+/** The code a refusal's body names, or "" when it names none. */
+async function refusalCodeOf(response: Response): Promise<string> {
+  try {
+    const body: unknown = await response.json();
+    const code: unknown =
+      typeof body === "object" && body !== null ? Reflect.get(body, "code") : "";
+    return typeof code === "string" ? code : "";
+  } catch {
+    return "";
+  }
+}
+
 /** A call to a discovery's client API: where, what, and how to post. */
 export interface ClientCall {
   readonly clientApi: string;
@@ -345,6 +367,9 @@ export async function postToDiscovery(call: ClientCall): Promise<unknown> {
   });
   if (response.status === 404) {
     throw new NotFound();
+  }
+  if (response.status === 429) {
+    throw new TooMany(await refusalCodeOf(response));
   }
   if (!response.ok) {
     throw new Error(`the discovery answered ${String(response.status)}`);
@@ -418,10 +443,31 @@ const directKinds = new Set(["lan", "ipv6", "ipv4"]);
 const lanKinds = new Set(["lan"]);
 
 /**
- * The direct paths' URLs a discovery's answer names, in its order, of the kinds asked for; anything
- * else is left out.
+ * Whether url is at one of coreId's own names, "https://<label>.<coreId>.<zone>": the only direct
+ * path a page takes for the core, so a discovery naming another host, another core's among them,
+ * is never sent what the page holds for this one, a hand-off's code above all (the device code
+ * audit's H1, 2026-10-20). The page's CSP holds the zone.
  */
-function directUrlsOf(paths: unknown, kinds: ReadonlySet<string> = directKinds): string[] {
+function isAtCoresName(url: string, coreId: string): boolean {
+  let host: string;
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    return false;
+  }
+  const labels = host.split(".");
+  return labels.length >= 4 && labels[1] === coreId;
+}
+
+/**
+ * The direct paths' URLs a discovery's answer names for coreId, in its order, of the kinds asked
+ * for; anything else is left out, a URL at another host than one of the core's own names too.
+ */
+function directUrlsOf(
+  paths: unknown,
+  coreId: string,
+  kinds: ReadonlySet<string> = directKinds,
+): string[] {
   if (!Array.isArray(paths)) {
     return [];
   }
@@ -434,7 +480,8 @@ function directUrlsOf(paths: unknown, kinds: ReadonlySet<string> = directKinds):
     return typeof kind === "string" &&
       kinds.has(kind) &&
       typeof url === "string" &&
-      url.startsWith("https://")
+      url.startsWith("https://") &&
+      isAtCoresName(url, coreId)
       ? [url]
       : [];
   });
@@ -452,8 +499,8 @@ export function locatedOf(answer: unknown): Located {
   return {
     coreId,
     iceServers: Array.isArray(iceServers) ? iceServers.flatMap(iceServerOf) : [],
-    directUrls: directUrlsOf(field("paths")),
-    lanUrls: directUrlsOf(field("paths"), lanKinds),
+    directUrls: directUrlsOf(field("paths"), coreId),
+    lanUrls: directUrlsOf(field("paths"), coreId, lanKinds),
     ...(typeof bootstrapToken === "string" ? { bootstrapToken } : {}),
   };
 }

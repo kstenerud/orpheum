@@ -8,7 +8,7 @@ import { expect, it } from "vitest";
 import { buttonWithText, click, mount } from "./test-dom.tsx";
 import { television } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
-import { DeviceList } from "./your-devices.tsx";
+import { DeviceList, YourDevices } from "./your-devices.tsx";
 
 it("removes a device only when asked again, its button in the irreversible red", async () => {
   const removed: number[] = [];
@@ -32,5 +32,25 @@ it("removes a device only when asked again, its button in the irreversible red",
   );
   await click(buttonWithText(mounted.container, "Remove it"));
   expect(removed).toEqual([5]);
+  mounted.unmount();
+});
+
+it("names each device a code activated, and asks the person to remove one they don't know (M4)", async () => {
+  const mounted = await mount(
+    withServices(
+      <YourDevices
+        devices={{
+          state: "loaded",
+          value: [television({ id: 5, isByCode: true }), television({ id: 6, name: "Phone" })],
+        }}
+        onChanged={() => undefined}
+        canManage
+      />,
+    ),
+  );
+  expect(mounted.container.querySelectorAll(".your-devices__by-code")).toHaveLength(1);
+  expect(mounted.container.querySelector(".your-devices__by-code-notice")?.textContent).toContain(
+    "If you don't know one of those below, remove it.",
+  );
   mounted.unmount();
 });

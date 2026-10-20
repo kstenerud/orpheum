@@ -39,7 +39,7 @@ export function Account(): JSX.Element {
       <h1 id="account-heading">{t("account.heading")}</h1>
       {canManage ? <ActivateDevice onActivated={reload} /> : null}
       <YourDevices devices={devices} onChanged={reload} canManage={canManage} />
-      <YourLink />
+      {canManage ? <YourLink /> : null}
       <YourServerAtHome
         addresses={me.state === "loaded" ? (me.value.homeAddresses ?? undefined) : undefined}
       />
@@ -47,9 +47,15 @@ export function Account(): JSX.Element {
       {me.state === "loaded" && me.value.adminAway !== undefined ? (
         <AdminAway adminAway={me.value.adminAway} onChanged={reloadMe} />
       ) : null}
-      {me.state === "loaded" && !canManage ? <p>{t("account.notOnThisDevice")}</p> : null}
+      <NotOnThisDevice isShown={me.state === "loaded" && !canManage} />
     </section>
   );
+}
+
+/** What a device a code activated cannot do here, said once the page knows it is one. */
+function NotOnThisDevice(props: { readonly isShown: boolean }): JSX.Element | null {
+  const { t } = useTranslation();
+  return props.isShown ? <p>{t("account.notOnThisDevice")}</p> : null;
 }
 
 /**
