@@ -6,6 +6,7 @@ import Hls, { ErrorDetails, ErrorTypes, Events, Fragment, PlaylistLevelType } fr
 
 import {
   Choosing,
+  isBeingMade,
   isRecovered,
   lookAtChunkEveryMs,
   lookForStepUpEveryMs,
@@ -190,6 +191,48 @@ describe("choosing a chunked playback's quality (D265)", () => {
     expect(givenUp).toEqual([chunk]);
     expect(choosing.nextLevel()).toBe(0);
     expect(choosing.firstLevel()).toBe(0); // a first chunk given up starts again from there
+  });
+
+  it("judges a chunk the core is making from when it is made, and measures nothing by its wait", () => {
+    const { choosing, givenUp } = choosingFrom(40_000_000);
+    choosing.firstLevel();
+    const chunk = chunkAt(3);
+    choosing.loading(chunk);
+    // Being made for six seconds, the core answering 425 each time it is asked again.
+    for (nowMs = 1000; nowMs <= 6000; nowMs += 1000) {
+      choosing.beingMade(chunk);
+      vi.advanceTimersByTime(lookAtChunkEveryMs);
+    }
+    expect(givenUp).toEqual([]);
+    expect(choosing.linkKbps()).toBeUndefined();
+    expect(choosing.nextLevel()).toBe(3); // the film's own picture, not the lowest
+    // Made, it arrives slowly, and is judged as any chunk is from there.
+    chunk.stats.loaded = 750_000;
+    chunk.stats.loading = { start: 6000, first: 6100, end: 0 }; // hls.js times each ask afresh
+    nowMs = 12_000;
+    vi.advanceTimersByTime(lookAtChunkEveryMs);
+    expect(givenUp).toEqual([chunk]);
+  });
+
+  it("knows the core's 425 for a chunk from hls.js's other load errors", () => {
+    expect(
+      isBeingMade({
+        details: ErrorDetails.FRAG_LOAD_ERROR,
+        response: { url: "/c/3.m4s", code: 425 },
+      }),
+    ).toBe(true);
+    expect(
+      isBeingMade({
+        details: ErrorDetails.FRAG_LOAD_ERROR,
+        response: { url: "/c/3.m4s", code: 404 },
+      }),
+    ).toBe(false);
+    expect(
+      isBeingMade({
+        details: ErrorDetails.FRAG_LOAD_TIMEOUT,
+        response: { url: "/c/3.m4s", code: 425 },
+      }),
+    ).toBe(false);
   });
 
   it("waits for a chunk that loaded before it was looked at", () => {

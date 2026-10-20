@@ -32,6 +32,7 @@ import {
   voiceCeiling,
   type ChoiceLevel,
 } from "./abr-choice.ts";
+import { tooEarlyStatus } from "./failure.ts";
 import { nextCap } from "./step-up.ts";
 
 /** Fatal errors the player recovers from by itself, which are no failure (failOnFatal). */
@@ -56,6 +57,11 @@ export const lookForStepUpEveryMs = 10_000;
  * live: enough that a busy chunk still arrives well before it plays (D262 §2).
  */
 export const paceAboveQuality = 1.25;
+
+/** Whether hls.js's error is the core's 425 for a chunk, being made, which hls.js asks for again. */
+export function isBeingMade(data: Pick<ErrorData, "details" | "response">): boolean {
+  return data.details === ErrorDetails.FRAG_LOAD_ERROR && data.response?.code === tooEarlyStatus;
+}
 
 /** A chunk as choosing follows it: hls.js's Fragment, or a test's. */
 export interface FollowedChunk {
@@ -278,6 +284,20 @@ export class Choosing<Chunk extends FollowedChunk> {
     const paceKbps = this.paceKbps();
     if (paceKbps !== undefined) {
       this.#paces.set(chunk, paceKbps * 1000);
+    }
+  }
+
+  /**
+   * The core answered a chunk of picture on its way with 425, being made: it is judged from when it
+   * is made, not from when it was first asked for. Judged from then, a film's first play after the
+   * core's start gave its own picture up for the lowest quality within two seconds, nothing having
+   * arrived yet, and measured the link at a byte in two seconds, so it stayed there (A Man Called
+   * Otto on nas.example, the owner's Firefox, 2026-10-20). A lower quality is made from the film too, and
+   * slower than the copy of its own picture, so giving one up for it never brings a chunk sooner.
+   */
+  beingMade(chunk: Chunk): void {
+    if (this.#onItsWay?.chunk === chunk) {
+      this.#onItsWay = { chunk, sinceMs: this.#options.monotonicMs() };
     }
   }
 
@@ -602,6 +622,9 @@ class OrpheumAbrController extends AbrController {
         this.onError(event, data);
         this.passAHole(data);
         const { frag } = data;
+        if (frag !== undefined && isPicture(frag) && isBeingMade(data)) {
+          this.choosing.beingMade(frag);
+        }
         if (
           data.details === ErrorDetails.BUFFER_APPEND_NO_PROGRESS &&
           frag !== undefined &&

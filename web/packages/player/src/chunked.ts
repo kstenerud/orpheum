@@ -5,7 +5,7 @@ import Hls, { type HlsConfig, type LoaderResponse, type LoadPolicy } from "hls.j
 import { groupJumpedEvent, isFollowingAGroup, isVoiceLive, type CannotKeepUp } from "@orpheum/sdk";
 
 import { fromCacheBy } from "./cache-hit.ts";
-import { noRoomToMakeStatus, type PlaybackFailure } from "./failure.ts";
+import { noRoomToMakeStatus, tooEarlyStatus, type PlaybackFailure } from "./failure.ts";
 import { orpheumAbr } from "./abr.ts";
 import { diagnose, diagnosisOf } from "./diagnosis.ts";
 import {
@@ -125,9 +125,6 @@ export function ceilingOf(header: string | null): number | undefined {
 /** The header a download asks the server to pace it in: the core's PaceHeader (D262 §2). */
 export const paceHeader = "Orpheum-Pace-Kbps";
 
-/** HTTP's 425 Too Early: the core's word that a chunk is being made, and to ask again. */
-const tooEarly = 425;
-
 /** Whether a chunk's load is tried again: as hls.js would, and after the core's 425 too. */
 // eslint-disable-next-line max-params -- hls.js's own signature for shouldRetry
 function retriesTooEarly(
@@ -140,7 +137,7 @@ function retriesTooEarly(
   if (response?.code === noRoomToMakeStatus) {
     return false; // the core has no room to make it: asking again finds none (D250 §6)
   }
-  return isRetry || response?.code === tooEarly;
+  return isRetry || response?.code === tooEarlyStatus;
 }
 
 /**
