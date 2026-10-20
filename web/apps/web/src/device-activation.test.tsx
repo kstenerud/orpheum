@@ -127,4 +127,16 @@ describe("activating a device by the code it shows (D288)", () => {
       },
     ]);
   });
+
+  it("names the loader's short address under a discovery, which a TV remote types (D293 §2)", async () => {
+    mounted = await mount(
+      withServices(<ActivateDevice onActivated={() => undefined} />, {
+        ...servedBy({}),
+        codeAddress: "app.orpheum-app.com",
+      }),
+    );
+    expect(mounted.container.textContent).toContain(
+      "open app.orpheum-app.com and choose Get a code",
+    );
+  });
 });

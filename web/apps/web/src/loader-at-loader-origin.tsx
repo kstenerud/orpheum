@@ -8,7 +8,7 @@
  */
 
 import { createApi, readLinkFragment, type FetchRequest } from "@orpheum/sdk";
-import { useState, type JSX } from "react";
+import { useMemo, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { DiscoveryGate, type GateParts, type SignInWith } from "./discovery-gate.tsx";
@@ -32,6 +32,7 @@ import type { StringStorage } from "./browser-storage.ts";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { idempotent, newIdempotencyKey } from "./idempotent.ts";
 import { CredentialsForm } from "./credentials-form.tsx";
+import { DeviceCodeSignIn, type DeviceCodeParts } from "./loader-device-code.tsx";
 import "./loader-households.css";
 
 /** What the page at the loader's origin starts from. */
@@ -115,12 +116,30 @@ function LoaderPage(props: {
 }): JSX.Element {
   const { at } = props;
   const [isJoining, setIsJoining] = useState(!props.isListFirst);
+  const [isUsingCode, setIsUsingCode] = useState(false);
   // A household gone is kept for the warning a realm sign-in gives (D312 §2), never listed.
   const live = (): readonly Household[] =>
     households(at.storage).filter((household) => household.isGone !== true);
   const [listed, setListed] = useState(live);
+  if (isUsingCode) {
+    return (
+      <DeviceCodeSignIn
+        parts={codeParts(at)}
+        onBack={() => {
+          setIsUsingCode(false);
+        }}
+      />
+    );
+  }
   if (isJoining) {
-    return <JoinByRealm at={at} />;
+    return (
+      <JoinByRealm
+        at={at}
+        onUseCode={() => {
+          setIsUsingCode(true);
+        }}
+      />
+    );
   }
   return (
     <HouseholdList
@@ -183,9 +202,31 @@ function householdName(household: Household): string {
   return household.realm === "" ? household.coreId : household.realm;
 }
 
-/** The sign-in by realm, which hands the browser on to the core it finds. */
-function JoinByRealm(props: { readonly at: AtLoaderOrigin }): JSX.Element {
-  return <DiscoveryGate start={{ kind: "none" }} parts={joinParts(props.at)} />;
+/** The sign-in by realm, which hands the browser on to the core it finds, or a code instead. */
+function JoinByRealm(props: {
+  readonly at: AtLoaderOrigin;
+  readonly onUseCode: () => void;
+}): JSX.Element {
+  const { at, onUseCode } = props;
+  const parts = useMemo(() => ({ ...joinParts(at), onUseCode }), [at, onUseCode]);
+  return <DiscoveryGate start={{ kind: "none" }} parts={parts} />;
+}
+
+/**
+ * What a code from the discovery's service reaches the core with and hands the browser on by, as a
+ * realm sign-in does (D293 §2).
+ */
+export function codeParts(at: AtLoaderOrigin): DeviceCodeParts {
+  return {
+    client: { clientApi: at.config.clientApi },
+    originOf: (coreId) => clientAddressOf(at.config, coreId),
+    remember: (core) => {
+      rememberHousehold(at.storage, { ...core, name: "", lastUsedAt: at.now() });
+    },
+    go: (address) => {
+      at.location.assign(address);
+    },
+  };
 }
 
 /** What the realm sign-in at the loader's origin reaches the core with, and hands the browser on by. */

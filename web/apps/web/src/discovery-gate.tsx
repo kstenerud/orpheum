@@ -69,6 +69,11 @@ export interface GateParts {
   readonly changedFrom?: (found: KeptCore) => KeptCore | undefined;
   /** Whether the discovery has realms, so a person with no link signs in by one (D298 §1). */
   readonly hasRealms: boolean;
+  /**
+   * Offers a code from the discovery's service beside the realm sign-in, for a device no one types a
+   * password on (D293 §2); absent offers none.
+   */
+  readonly onUseCode?: () => void;
   /** Where this device keeps the realm its person asked it to remember (D297 §5). */
   readonly realmStorage: StringStorage | undefined;
   /**
@@ -379,6 +384,12 @@ async function copyToClipboard(text: string): Promise<void> {
   await globalThis.navigator.clipboard.writeText(text);
 }
 
+/** A realm sign-in stopped at another server than before: what was typed, and when it was claimed. */
+interface ChangedServer {
+  readonly typed: RealmCredentials;
+  readonly claimedAt: number;
+}
+
 /**
  * The realm sign-in's page and what its submit does: the realm kept or forgotten as asked, the core
  * reached by realm, and the form kept, its button saying so, until that ends (D297 §5).
@@ -392,9 +403,7 @@ function RealmGate(props: {
 }): JSX.Element {
   const { parts, reachingRef } = props;
   const [isSending, setIsSending] = useState(false);
-  const [changed, setChanged] = useState<
-    { readonly typed: RealmCredentials; readonly claimedAt: number } | undefined
-  >(undefined);
+  const [changed, setChanged] = useState<ChangedServer | undefined>(undefined);
   const send = (typed: RealmCredentials, isChangeAccepted: boolean): void => {
     if (reachingRef.current) {
       return;
@@ -433,6 +442,7 @@ function RealmGate(props: {
       rememberedRealm={rememberedRealm(parts.realmStorage)}
       isSending={isSending}
       problem={props.problem}
+      onUseCode={parts.onUseCode}
       onSubmit={(typed) => {
         rememberRealm(
           parts.realmStorage,

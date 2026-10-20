@@ -49,6 +49,7 @@ export const enDiscovery = {
         "Your server was found, but can't be reached from this network right now. A VPN or a travel eSIM often can't reach a home server: turn it off, or try the phone's own mobile data or another Wi-Fi. If it keeps happening, copy what happened and send it to whoever runs your server.",
       again: "Your server couldn't be reached as this device last reached it. Sign in again.",
       orLink: "Or open the link you were sent.",
+      useCode: "Get a code",
     },
   },
   loader: {
@@ -61,6 +62,19 @@ export const enDiscovery = {
         "This browser will forget {{name}}. You can sign in to it again by its realm.",
       forgetConfirm: "Forget it",
       join: "Sign in to another household",
+    },
+    code: {
+      heading: "Sign in with a code",
+      explain:
+        "On a phone or computer where you are signed in, open Your account and enter this code under Activate a device.",
+      code: "Code",
+      checkCode: "Check code",
+      checkExplain:
+        "Your other device now shows a check code too. If it is this same code, say so there.",
+      renewed: "The last code ended, so here is a new one.",
+      signingIn: "Activated. Opening your server…",
+      failed: "No code could be had just now. Go back and try again in a minute.",
+      back: "Sign in with a realm, name and password instead",
     },
     refused:
       "This server's client needs version {{needs}} of the page that reaches it, which serves version {{has}}. Ask the person who runs your server to update it.",

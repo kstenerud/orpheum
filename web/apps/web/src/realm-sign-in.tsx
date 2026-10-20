@@ -24,17 +24,22 @@ export interface RealmCredentials {
   readonly isRemembered: boolean;
 }
 
+/** What the realm sign-in shows, and is told. */
+interface RealmSignInProps {
+  readonly rememberedRealm: string | undefined;
+  readonly isSending: boolean;
+  readonly problem: RealmProblem | undefined;
+  readonly onSubmit: (typed: RealmCredentials) => void;
+  /** Offers a code instead, for a device no one types a password on: a television (D293 §2). */
+  readonly onUseCode?: (() => void) | undefined;
+}
+
 /**
  * The sign-in at a paid discovery's page for a person with no link: realm, name and password
  * together, and "this is my own device: remember my realm", ticked when a realm was kept (D297 §2,
  * §5). Any part wrong says so as one, as the discovery does.
  */
-export function RealmSignIn(props: {
-  readonly rememberedRealm: string | undefined;
-  readonly isSending: boolean;
-  readonly problem: RealmProblem | undefined;
-  readonly onSubmit: (typed: RealmCredentials) => void;
-}): JSX.Element {
+export function RealmSignIn(props: RealmSignInProps): JSX.Element {
   const { t } = useTranslation();
   const [realm, setRealm] = useState(props.rememberedRealm ?? "");
   const [name, setName] = useState("");
@@ -85,8 +90,23 @@ export function RealmSignIn(props: {
       <button type="submit" disabled={props.isSending}>
         {props.isSending ? t("discovery.realm.signingIn") : t("discovery.realm.submit")}
       </button>
-      <p>{t("discovery.realm.orLink")}</p>
+      <OtherWays onUseCode={props.onUseCode} />
     </CredentialsForm>
+  );
+}
+
+/** The other ways in than a realm: the link sent, and a code where one is offered. */
+function OtherWays(props: { readonly onUseCode: (() => void) | undefined }): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <>
+      <p>{t("discovery.realm.orLink")}</p>
+      {props.onUseCode === undefined ? null : (
+        <button type="button" onClick={props.onUseCode}>
+          {t("discovery.realm.useCode")}
+        </button>
+      )}
+    </>
   );
 }
 

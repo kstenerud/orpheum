@@ -8,7 +8,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { StringStorage } from "./browser-storage.ts";
 import { handOffFragment } from "./discovery-start.ts";
 import { startAtClient, type AtClientOrigin } from "./loader-at-client-origin.tsx";
-import { joinParts, startAtLoaderOrigin, type AtLoaderOrigin } from "./loader-at-loader-origin.tsx";
+import {
+  codeParts,
+  joinParts,
+  startAtLoaderOrigin,
+  type AtLoaderOrigin,
+} from "./loader-at-loader-origin.tsx";
 import { households, rememberHousehold } from "./loader-households.ts";
 import { loaderOf, loaderRefusal } from "./loader-interface.ts";
 import { buttonWithText, click, mount, type Mounted } from "./test-dom.tsx";
@@ -141,6 +146,21 @@ describe("the loader at its own origin (D308)", () => {
   it("with none, opens the realm sign-in", async () => {
     mounted = await mount(startAtLoaderOrigin(loaderAt({}, memoryStorage(), [])) ?? <p>nothing</p>);
     expect(mounted.container.querySelector('input[name="name"]')).not.toBeNull();
+  });
+
+  it("offers a television a code beside the realm sign-in, and keeps its household as a sign-in does (D293 §2)", async () => {
+    mounted = await mount(startAtLoaderOrigin(loaderAt({}, memoryStorage(), [])) ?? <p>nothing</p>);
+    expect(buttonWithText(mounted.container, "Get a code")).not.toBeNull();
+    const storage = memoryStorage();
+    const went: string[] = [];
+    const parts = codeParts(loaderAt({}, storage, went));
+    expect(parts.originOf("k7xq2")).toBe("https://k7xq2.client.example");
+    parts.remember({ coreId: "k7xq2", fingerprint, realm: "nas" });
+    parts.go("https://k7xq2.client.example/#handoff=x");
+    expect(households(storage).map((each) => [each.coreId, each.realm, each.lastUsedAt])).toEqual([
+      ["k7xq2", "nas", 5],
+    ]);
+    expect(went).toEqual(["https://k7xq2.client.example/#handoff=x"]);
   });
 
   it("reaches the core without its LAN names, which the client origin asks the browser for alone", () => {
