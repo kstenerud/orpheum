@@ -22,6 +22,9 @@ type runTracker struct {
 	// a progress of one after its cancel would take it as running again (begin), and the chunks it
 	// was to make as on their way, which no run then makes (staging, 2026-10-18). Guarded by mutex.
 	cancelledJobs map[int64]bool
+	// timing is how far ahead and how long runs are made, and their speed measured, as last read
+	// (chunkTiming); guarded by mutex.
+	timing chunkTiming
 }
 
 // storeRuns are one store's chunks known made and its runs making more, each by its first chunk.
@@ -58,6 +61,7 @@ func (each *run) willMake(n int) bool { return n > each.madeThrough && n <= each
 func newRunTracker() *runTracker {
 	return &runTracker{
 		storeByDir: map[string]*storeRuns{}, evictedOnAt: map[int64]time.Time{}, cancelledJobs: map[int64]bool{},
+		timing: startingChunkTiming(),
 	}
 }
 
@@ -105,8 +109,8 @@ func (tracker *runTracker) isMadeFromThrough(dir string, first, last int) bool {
 }
 
 // plan finds the run a player asking for chunk wanted of the store needs, and records it on its
-// way: the first chunk of those that start within lookaheadMs of film from wanted's start that is
-// neither made nor to be made by a run, through the earliest of runSpanMs of film, the chunk before
+// way: the first chunk of those that start within the timing's lookaheadMs of film from wanted's
+// start that is neither made nor to be made by a run, through the earliest of its runSpanMs of film, the chunk before
 // the next that is made or to be made, and the grid's last. It reports false when every chunk in
 // the look-ahead is made or on its way; for an evicted store, which starts no run until a stall
 // asks for it again (D250 §6); and for a run wants says no player wants (D309). The
@@ -118,7 +122,7 @@ func (tracker *runTracker) plan(dir string, grid Grid, wanted int, wants wantedn
 	if !known.evictedAt.IsZero() {
 		return 0, 0, false
 	}
-	lookUntilMs := grid.StartsMs[wanted] + lookaheadMs
+	lookUntilMs := grid.StartsMs[wanted] + tracker.timing.lookaheadMs
 	first = -1
 	for n := wanted; n <= grid.lastChunk() && grid.StartsMs[n] < lookUntilMs; n++ {
 		if !known.isCoveredLocked(n) {
@@ -129,7 +133,7 @@ func (tracker *runTracker) plan(dir string, grid Grid, wanted int, wants wantedn
 	if first < 0 {
 		return 0, 0, false
 	}
-	spanUntilMs := grid.StartsMs[first] + runSpanMs
+	spanUntilMs := grid.StartsMs[first] + tracker.timing.runSpanMs
 	last = first
 	for last < grid.lastChunk() && grid.StartsMs[last+1] < spanUntilMs && !known.isCoveredLocked(last+1) {
 		last++

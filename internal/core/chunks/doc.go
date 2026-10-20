@@ -118,7 +118,7 @@
 //     TestInterest_ARunOfAQualityThePlayerLeftStops (internal/core/api).
 //
 //   - Every run on a node stays faster than playback (D250 §6): when one of two or more measures
-//     below chunk_run_slowest_speed_percent of it over speedWindow, one is cancelled: the oldest no
+//     below chunk_run_slowest_speed_percent of it over chunk_run_speed_window_seconds, one is cancelled: the oldest no
 //     player wants, its store refusing no one, so a player that comes to its chunks later starts a
 //     run of its own; or else the newest, its players moved down a quality (MovePlayersBy, D309 §6)
 //     and its store not evicted, by
@@ -126,7 +126,7 @@
 //     the lowest, evicted, its store refusing its players with ErrNoRoomToMake until a stall asks for
 //     it again: the chunks it was to make, not those made or another of its runs is making, and it
 //     starts no run, by TestEnsure_AnEvictedStoreGivesWhatIsMadeOrOnItsWayAndStartsNoRun. The node is
-//     then left speedWindow to settle. Enforced by
+//     then left chunk_run_speed_window_seconds to settle. Enforced by
 //     TestKeepRunsFast_EvictsTheNewestWhenEveryRunIsInUse,
 //     TestKeepRunsFast_CancelsTheOldestRunNoOneIsPlayingFromRefusingNoOne,
 //     TestKeepRunsFast_EvictsARunASeekLeftThoughItsQualityIsStillPlayed and

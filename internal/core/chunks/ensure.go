@@ -12,16 +12,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
 
-// lookaheadMs is how far past a chunk a player asks for the chunks are made or on their way before
-// it waits for none: a minute of film, Kyoo's look-ahead (slow-links.md §4), about what hls.js
-// buffers ahead, so a player never asks for a chunk no run is making (D247 §10).
-const lookaheadMs = 60_000
-
-// runSpanMs is the most film one run makes: five minutes, so a seek starts encoding where the
-// player is rather than finishing a long run elsewhere, and a run's FFmpeg is started about once
-// every five minutes of film rather than for each chunk (D247 §10; Kyoo's runs, slow-links.md §4).
-const runSpanMs = 300_000
-
 // ErrNoGrid is a film with no grid yet: its picture's timeline is being read (ReadForPlay).
 var ErrNoGrid = errors.New("the film is not cut into chunks yet")
 
@@ -33,9 +23,11 @@ type runArgs struct {
 }
 
 // Ensure makes sure a player asking for chunk wanted of a film's stream will have it and the chunks
-// after it: of those that start within lookaheadMs of film from it, the first neither made nor on
-// its way starts a run, at play priority on the film's node, through the earliest of runSpanMs of
-// film, the chunk before the next made or on its way, and the film's last chunk. A run is never
+// after it: of those that start within chunk_lookahead_seconds of film from it, the first neither made
+// nor on its way starts a run, at play priority on the film's node, through the earliest of
+// chunk_run_span_seconds of film, the chunk before the next made or on its way, and the film's last
+// chunk (D247 §10: a minute ahead, Kyoo's look-ahead, about what hls.js buffers; five minutes a run,
+// so a seek starts encoding where the player is and FFmpeg starts about every five minutes). A run is never
 // queued over chunks a run will make. Each store is the target of its own runs' jobs, so the runs of
 // a film's streams queue side by side, and a run asked for while another of its store waits queued
 // is folded into that one, as the queue folds any repeat request: the next ask plans it again. A
@@ -77,6 +69,7 @@ func (service *Service) ensure(ctx context.Context, asked ensuring) error {
 	if wanted < 0 || wanted > film.grid.lastChunk() {
 		return fmt.Errorf("file %d has no chunk %d: its last is %d", fileID, wanted, film.grid.lastChunk())
 	}
+	service.refreshChunkTiming(ctx)
 	gridID := film.grid.ID()
 	dir := StoreDir(fileID, stream, gridID)
 	wants, askErr := service.ask(ctx, film, stream, wanted, asked.isAsked)

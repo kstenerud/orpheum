@@ -149,6 +149,9 @@ const (
 	ChunkInterestLapsesAfterSeconds           Key = "chunk_interest_lapses_after_seconds"
 	ChunkCPUCeilingKeptSeconds                Key = "chunk_cpu_ceiling_kept_seconds"
 	LinkSpeedFreshHours                       Key = "link_speed_fresh_hours"
+	ChunkLookaheadSeconds                     Key = "chunk_lookahead_seconds"
+	ChunkRunSpanSeconds                       Key = "chunk_run_span_seconds"
+	ChunkRunSpeedWindowSeconds                Key = "chunk_run_speed_window_seconds"
 	JobHealthWindowHours                      Key = "job_health_window_hours"
 	RetentionSweepEveryHours                  Key = "retention_sweep_every_hours"
 	InvariantsCheckEveryHours                 Key = "invariants_check_every_hours"
@@ -278,7 +281,7 @@ func buildRegistry() []Definition {
 		scanDefinitions(), jobMetadataAndPlaybackDefinitions(), deviceDefinitions(), upkeepAndDisplayDefinitions(),
 		retentionDefinitions(), backupDefinitions(), togetherDefinitions(), signInDefinitions(),
 		discoveryDefinitions(), upkeepSweepDefinitions(), signInStretchDefinitions(), pairingDefinitions(),
-		uploadDefinitions(), playbackTimingDefinitions(),
+		uploadDefinitions(), playbackTimingDefinitions(), chunkTimingDefinitions(),
 	)...)
 }
 

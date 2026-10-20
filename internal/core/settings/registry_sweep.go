@@ -173,3 +173,23 @@ func playbackTimingDefinitions() []Definition {
 			"D257 §1: a day, \"counting for less after a day\""),
 	}
 }
+
+// chunkTimingDefinitions are how far chunks are made ahead of a player and in one run, and over how
+// long a run's speed is measured.
+func chunkTimingDefinitions() []Definition {
+	return []Definition{
+		sourced(durationSetting(ChunkLookaheadSeconds, time.Second, "60", 10, 600,
+			"seconds of film past a chunk a player asks for that are made or on their way before the run "+
+				"waits for the player to come closer: about what hls.js buffers ahead, so a player never asks "+
+				"for a chunk no run is making (D247 §10)"),
+			"D247 §10: a minute, Kyoo's look-ahead (slow-links.md §4)"),
+		sourced(durationSetting(ChunkRunSpanSeconds, time.Second, "300", 30, 3600,
+			"the most seconds of film one run of FFmpeg makes, and at least chunk_lookahead_seconds: a seek "+
+				"starts encoding where the player is rather than waiting for a long run elsewhere (D247 §10)"),
+			"D247 §10: five minutes, as Kyoo's runs"),
+		sourced(durationSetting(ChunkRunSpeedWindowSeconds, time.Second, "20", 5, 300,
+			"seconds back a run's speed is measured over, half of them sampled before it is judged, and "+
+				"how long after an eviction its node is left to settle before another (D250 §6)"),
+			"D250 §6: twenty seconds"),
+	}
+}
