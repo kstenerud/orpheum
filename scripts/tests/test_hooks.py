@@ -20,7 +20,9 @@ import gate_paths  # noqa: E402
 # hooks are installed by GIT_CONFIG_COUNT, which git reads over the clone's config, and an owner's
 # flag (ORPHEUM_ALLOW_GATE_EDIT, ORPHEUM_ALLOW_DEPS) is set only by the test it is about.
 HOOKS_INSTALLED = {"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "core.hooksPath", "GIT_CONFIG_VALUE_0": ".githooks"}
-HERMETIC = {"TZ": "UTC", "LC_ALL": "C.UTF-8", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
+# A check-pr running on the machine is set aside the same way: the tests of its refusals say when one is.
+HERMETIC = {"TZ": "UTC", "LC_ALL": "C.UTF-8", "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1",
+            "ORPHEUM_HOOKS_IGNORE_CHECK_PR": "1"}
 
 
 def run_hook(name: str, event: dict, **env: str) -> dict:
@@ -162,6 +164,76 @@ class CommitNeedsHooks(unittest.TestCase):
         self.assertFalse(pre_bash.hooks_installed(bare))
 
 
+class NothingTestsBesideCheckPr(unittest.TestCase):
+    """While check-pr runs, a command that tests, lints or commits is refused and an edit is not; and the
+    Stop hook leaves its make check for later (the owner, 2026-10-20)."""
+
+    def test_tests_lints_and_commits_are_told_apart_from_reading_and_editing(self):
+        sys.path.insert(0, str(HOOKS))
+        import pre_bash  # noqa: PLC0415
+
+        for cmd in ("./dev make check-pr > /tmp/log 2>&1", "make check", "make -j6 spot", "make test-browser",
+                    "./dev go test -run X ./internal/core/api/", "go vet ./...", "npm --prefix web test -- x.ts",
+                    "./dev npm --prefix web run test:browser -- x", "npx vitest run", "./dev git commit -q -F -",
+                    "cd /x && env A=1 ./dev make check-pr-failed", "python3 scripts/check_revert_red.py",
+                    "golangci-lint run ./..."):
+            self.assertTrue(pre_bash.loads_the_machine(cmd), cmd)
+        for cmd in ("git status --short", "git diff 0b9a HEAD", "git stash", "make help", "make",
+                    "grep -n check Makefile", "npm --prefix web ci", "go build ./...", "tail -5 /tmp/log",
+                    "ps aux | grep '[c]heck_pr_snapshot'", "echo make check"):
+            self.assertFalse(pre_bash.loads_the_machine(cmd), cmd)
+
+    def test_while_check_pr_runs_a_test_is_refused_and_a_read_is_not(self):
+        from unittest import mock
+
+        sys.path.insert(0, str(HOOKS))
+        import pre_bash  # noqa: PLC0415
+
+        def verdict(command, run):
+            refused = []
+            event = {"tool_name": "Bash", "tool_input": {"command": command}}
+            with mock.patch.object(pre_bash.hooklib, "read_event", lambda: event), \
+                    mock.patch.object(pre_bash.hooklib, "check_pr_running", lambda: run), \
+                    mock.patch.object(pre_bash.hooklib, "deny", refused.append):
+                pre_bash.main()
+            return refused
+
+        run = {"head": "1306f7b8fe48abc", "target": "check-pr-verbose", "started": "2026-10-20 19:05:00 UTC"}
+        refused = verdict("./dev make check", run)
+        self.assertEqual(len(refused), 1)
+        self.assertIn("check-pr is running (make check-pr-verbose on 1306f7b8fe48", refused[0])
+        self.assertEqual(verdict("git diff --stat", run), [])
+        self.assertEqual(verdict("./dev make check", None), [])
+
+    def test_the_stop_hook_leaves_its_check_for_after_check_pr(self):
+        import tempfile
+        from unittest import mock
+
+        sys.path.insert(0, str(HOOKS))
+        import on_stop  # noqa: PLC0415
+
+        pending = Path(tempfile.mkdtemp())
+        targets = []
+
+        def command(target, env):
+            targets.append(target)
+            return ["true"]
+
+        running = {"head": "abc"}
+        with mock.patch.object(on_stop, "PENDING", pending), \
+                mock.patch.object(on_stop.hooklib, "read_event", lambda: {}), \
+                mock.patch.object(on_stop.hooklib, "check_pr_running", lambda: running or None), \
+                mock.patch.object(on_stop.run_gate, "gate_command", command):
+            (pending / "check-pending-code").touch()
+            on_stop.main()
+            self.assertEqual(targets, [])
+            self.assertTrue((pending / "check-pending-code").exists())
+            running.clear()
+            on_stop.main()
+        self.assertEqual(targets, ["check"])
+        self.assertFalse((pending / "check-pending-code").exists())
+
+
 class GatePaths(unittest.TestCase):
     def test_classification(self):
         self.assertTrue(gate_paths.is_gate("web/apps/web/tsconfig.json"))
@@ -224,6 +296,7 @@ class StopRunsTheGateForWhatChanged(unittest.TestCase):
 
         with mock.patch.object(on_stop, "PENDING", pending), \
                 mock.patch.object(on_stop.hooklib, "read_event", lambda: {}), \
+                mock.patch.object(on_stop.hooklib, "check_pr_running", lambda: None), \
                 mock.patch.object(on_stop.run_gate, "gate_command", command):
             (pending / "check-pending-docs").touch()
             on_stop.main()

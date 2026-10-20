@@ -108,17 +108,24 @@ def probe_trees(head: str, count: int) -> list[str]:
     trees = []
     for index in range(count):
         tree = common / "revert-red" / f"wt-{index}"
-        if (tree / ".git").exists():
-            reset = _git("checkout", "--detach", "--force", head, cwd=str(tree))
-            cleaned = _git("clean", "-fdq", cwd=str(tree))
-            if reset.returncode != 0 or cleaned.returncode != 0:
-                raise RuntimeError(f"could not reset {tree}: {reset.stderr}{cleaned.stderr}")
-        else:
-            _git("worktree", "prune")
-            added = _git("worktree", "add", "--detach", str(tree), head)
-            if added.returncode != 0:
-                raise RuntimeError(f"could not make {tree}: {added.stderr}")
-            link_installed_packages(source, tree)
-        seed_type_builds(source, tree)
+        set_kept_tree(source, tree, head)
         trees.append(str(tree))
     return trees
+
+
+def set_kept_tree(source: Path, tree: Path, head: str) -> None:
+    """Sets the kept worktree at `tree` to the commit `head`, cleaned of untracked files but keeping
+    the ignored ones (the linked node_modules), or makes it there; then seeds its type builds from
+    `source`, the working tree."""
+    if (tree / ".git").exists():
+        reset = _git("checkout", "--detach", "--force", head, cwd=str(tree))
+        cleaned = _git("clean", "-fdq", cwd=str(tree))
+        if reset.returncode != 0 or cleaned.returncode != 0:
+            raise RuntimeError(f"could not reset {tree}: {reset.stderr}{cleaned.stderr}")
+    else:
+        _git("worktree", "prune")
+        added = _git("worktree", "add", "--detach", str(tree), head)
+        if added.returncode != 0:
+            raise RuntimeError(f"could not make {tree}: {added.stderr}")
+        link_installed_packages(source, tree)
+    seed_type_builds(source, tree)

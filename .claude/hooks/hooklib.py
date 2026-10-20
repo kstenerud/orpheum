@@ -44,3 +44,14 @@ def owner_allows(variable: str) -> bool:
     change.
     """
     return os.environ.get(variable) == "1"
+
+
+def check_pr_running() -> dict[str, str] | None:
+    """The check-pr run that holds this project's lock (scripts/check_pr_snapshot.py), as it recorded
+    itself; None when none does. ORPHEUM_HOOKS_IGNORE_CHECK_PR=1, which only the hooks' tests set,
+    says none does, so their verdicts never hang on a run elsewhere on the machine."""
+    if os.environ.get("ORPHEUM_HOOKS_IGNORE_CHECK_PR") == "1":
+        return None
+    import check_pr_snapshot  # noqa: PLC0415 — only the hooks that ask pay for it
+
+    return check_pr_snapshot.running(ROOT)

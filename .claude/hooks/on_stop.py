@@ -25,6 +25,10 @@ def main() -> None:
         target = "check-documentation"
     else:
         return
+    if hooklib.check_pr_running() is not None:
+        # Run beside check-pr, make check slowed it and failed a test on the load (2026-10-20). The
+        # mark stays, so the first turn to end after check-pr does runs it.
+        return
     try:
         # Here, or in the development image through ./dev, wherever the tools are.
         command = run_gate.gate_command(target, os.environ)
