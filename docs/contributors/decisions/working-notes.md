@@ -21061,4 +21061,5 @@ Revises D308 §6's staging names.
 2. **A device signed out another way stays**, so it comes back as itself (D221 §1): one whose
    session expired, one ended by Sign out everywhere else, a hand-off's temporary session.
 
-**Status:** Decided 2026-10-20.
+**Status:** Decided 2026-10-20; built 2026-10-20: §1 by `DELETE /session` through
+`auth.SignOutHere`, §2 by every other ending, which leaves the device as it was.
