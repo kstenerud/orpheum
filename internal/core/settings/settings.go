@@ -388,3 +388,23 @@ func (service *Service) Zone(ctx context.Context) (localtime.Zone, error) {
 	}
 	return zone, nil
 }
+
+// DurationReader reads a length-of-time setting: Service.
+type DurationReader interface {
+	Duration(ctx context.Context, key Key) (time.Duration, error)
+}
+
+// DurationOrStarting is key's length of time, read from reader, or its starting value when it cannot
+// be read or there is no reader, said in logger: for a loop that goes on whatever the database does.
+func DurationOrStarting(ctx context.Context, reader DurationReader, key Key, logger *slog.Logger) time.Duration {
+	if reader == nil {
+		return StartingDuration(key)
+	}
+	length, err := reader.Duration(ctx, key)
+	if err != nil {
+		length = StartingDuration(key)
+		logger.WarnContext(ctx, "could not read a setting; going on at its starting value", "key", string(key),
+			"startingValue", length.String(), "err", err)
+	}
+	return length
+}
