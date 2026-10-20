@@ -95,16 +95,26 @@
       "ActivationOutputBody": {
         "additionalProperties": false,
         "properties": {
+          "askedSecondsAgo": {
+            "description": "How long ago the device asked for its code, by the server's clock",
+            "format": "int64",
+            "type": "integer"
+          },
           "checkCode": {
             "type": "string"
           },
           "deviceName": {
             "type": "string"
+          },
+          "platform": {
+            "type": "string"
           }
         },
         "required": [
           "checkCode",
-          "deviceName"
+          "deviceName",
+          "platform",
+          "askedSecondsAgo"
         ],
         "type": "object"
       },
@@ -959,6 +969,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "isByCode": {
+            "description": "A code activated it: it neither administers nor changes the account",
+            "type": "boolean"
+          },
           "isSignedIn": {
             "type": "boolean"
           },
@@ -985,6 +999,7 @@
           "addedAt",
           "lastUsedAt",
           "isSignedIn",
+          "isByCode",
           "isThisDevice"
         ],
         "type": "object"

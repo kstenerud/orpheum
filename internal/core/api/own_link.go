@@ -22,8 +22,11 @@ type OwnLinkOutput struct {
 }
 
 // getOwnLink is the person's own link, to open on another device or scan; 404 when they have none.
+// Only a session that manages the account reads it: the link outlives a device removed, so a device
+// someone talked the person into activating by a code must not carry it away (the device code
+// audit's M4).
 func (server *Server) getOwnLink(ctx context.Context, input *MeInput) (*OwnLinkOutput, error) {
-	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireAccountManager(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
 	}

@@ -34,6 +34,7 @@ type DeviceBody struct {
 	AddedAt      int64           `doc:"Unix milliseconds" json:"addedAt"`
 	LastUsedAt   int64           `doc:"Unix milliseconds" json:"lastUsedAt"`
 	IsSignedIn   bool            `json:"isSignedIn"`
+	IsByCode     bool            `doc:"A code activated it: it neither administers nor changes the account" json:"isByCode"` //nolint:lll // one struct tag
 	IsThisDevice bool            `doc:"The device asking" json:"isThisDevice"`
 }
 
@@ -119,7 +120,7 @@ func (server *Server) devicesOf(ctx context.Context, dependencies *Dependencies,
 			ID: device.ID, Name: device.Name, Platform: device.Platform,
 			AudioOutput: AudioOutputKind(device.AudioOutput),
 			AddedAt:     device.AddedAt.UnixMilli(),
-			LastUsedAt:  device.LastUsedAt.UnixMilli(), IsSignedIn: device.IsSignedIn,
+			LastUsedAt:  device.LastUsedAt.UnixMilli(), IsSignedIn: device.IsSignedIn, IsByCode: device.IsByCode,
 			IsThisDevice: device.ID == thisDeviceID,
 		})
 	}

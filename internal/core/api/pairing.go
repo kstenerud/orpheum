@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -62,11 +63,15 @@ type ActivationInput struct {
 	}
 }
 
-// ActivationOutput is the check code the device now shows too, and the name it will be listed by.
+// ActivationOutput is the check code the device now shows too, the name it will be listed by, and
+// what it says it is and when it asked for its code, which the person is shown: a code asked for
+// long before is more likely one someone sent them (the device code audit's M3).
 type ActivationOutput struct {
 	Body struct {
-		CheckCode  string `json:"checkCode"`
-		DeviceName string `json:"deviceName"`
+		CheckCode       string `json:"checkCode"`
+		DeviceName      string `json:"deviceName"`
+		Platform        string `json:"platform"`
+		AskedSecondsAgo int64  `doc:"How long ago the device asked for its code, by the server's clock" json:"askedSecondsAgo"` //nolint:lll // one struct tag
 	}
 }
 
@@ -165,6 +170,8 @@ func (server *Server) activateDevice(ctx context.Context, input *ActivationInput
 	}
 	output := &ActivationOutput{}
 	output.Body.CheckCode, output.Body.DeviceName = claim.CheckCode, claim.DeviceName
+	output.Body.Platform = claim.Platform
+	output.Body.AskedSecondsAgo = max(int64(dependencies.Clock.Now().Sub(claim.AskedAt)/time.Second), 0)
 	return output, nil
 }
 

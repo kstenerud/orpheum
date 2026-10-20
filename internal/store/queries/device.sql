@@ -8,10 +8,12 @@ RETURNING id;
 
 -- name: ListLiveDevicesOfUser :many
 -- A person's devices, most recently used first: when each was last used, by the latest use of any
--- of its sessions, and whether any is still live.
+-- of its sessions, whether any is still live, and whether a live one a code activated (the device
+-- scope), which the person's account page names (the device code audit's M4).
 SELECT device.id, device.name, device.platform, device.audio_output, device.added_at,
   CAST(coalesce(max("grant".last_used_at), device.added_at) AS INTEGER) AS last_used_at,
-  CAST(coalesce(max("grant".revoked_at IS NULL AND ("grant".expires_at IS NULL OR "grant".expires_at > sqlc.arg(now))), 0) AS INTEGER) AS is_signed_in
+  CAST(coalesce(max("grant".revoked_at IS NULL AND ("grant".expires_at IS NULL OR "grant".expires_at > sqlc.arg(now))), 0) AS INTEGER) AS is_signed_in,
+  CAST(coalesce(max("grant".scope = 'device' AND "grant".revoked_at IS NULL), 0) AS INTEGER) AS is_by_code
 FROM device
 LEFT JOIN "grant" ON "grant".device_id = device.id AND "grant".kind = 'session'
 WHERE device.user_id = sqlc.arg(user_id) AND device.removed_at IS NULL

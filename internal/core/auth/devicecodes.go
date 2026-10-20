@@ -4,6 +4,8 @@ package auth
 
 import (
 	"context"
+	"errors"
+	"time"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 	"github.com/kstenerud/orpheum/discovery/proof"
@@ -19,7 +21,7 @@ type ServiceDeviceCodes interface {
 	ClaimDeviceCode(ctx context.Context, code string) (discoveryproto.DeviceCodeClaimResponse, bool, error)
 	// ActivateDeviceCode seals what the device needs, with the code of the session kept for it, to its
 	// key, and passes it on.
-	ActivateDeviceCode(ctx context.Context, code, publicKey, handOffCode string) error
+	ActivateDeviceCode(ctx context.Context, code, publicKey, handOffCode, person string) error
 	// RefuseDeviceCode ends the code, the check codes not matching.
 	RefuseDeviceCode(ctx context.Context, code string) error
 }
@@ -45,6 +47,9 @@ func (service *Service) claimFromService(
 		return PairingClaim{}, false, nil
 	}
 	waiting, isWaiting, err := service.serviceDeviceCodes.ClaimDeviceCode(ctx, code)
+	if errors.Is(err, discoveryproto.ErrTooManyClaims) {
+		return PairingClaim{}, false, ErrRateLimited
+	}
 	if err != nil || !isWaiting {
 		return PairingClaim{}, false, err
 	}
@@ -67,14 +72,24 @@ func (service *Service) claimFromService(
 		if known.deviceKey == "" || known.byUserID != byUserID || known.isConfirmed {
 			return PairingClaim{}, false, nil
 		}
-		return PairingClaim{CheckCode: known.checkCode, DeviceName: known.deviceName}, true, nil
+		return claimOf(*known), true, nil
 	}
-	service.pairings.bySecret[secret] = &pairing{
-		secret: secret, code: code, platform: textindex.Line(waiting.Platform), madeAt: service.clock.Now(),
+	now := service.clock.Now()
+	known := &pairing{
+		secret: secret, code: code, platform: textindex.Line(waiting.Platform), madeAt: now,
 		isClaimed: true, byUserID: byUserID, forUserID: forUserID, deviceName: name, checkCode: checkCode,
-		deviceKey: waiting.PublicKey,
+		deviceKey: waiting.PublicKey, askedAt: now.Add(-time.Duration(max(waiting.AskedSecondsAgo, 0)) * time.Second),
 	}
-	return PairingClaim{CheckCode: checkCode, DeviceName: name}, true, nil
+	service.pairings.bySecret[secret] = known
+	return claimOf(*known), true, nil
+}
+
+// claimOf is what entering a service's code shows the person: its check code, the device's name and
+// platform, and when it asked.
+func claimOf(known pairing) PairingClaim {
+	return PairingClaim{
+		CheckCode: known.checkCode, DeviceName: known.deviceName, Platform: known.platform, AskedAt: known.askedAt,
+	}
 }
 
 // answerService is AnswerPairing's end for a pairing the service's code made: a match keeps the
@@ -84,12 +99,41 @@ func (service *Service) answerService(ctx context.Context, known pairing, issued
 	if !isMatch {
 		return service.serviceDeviceCodes.RefuseDeviceCode(ctx, known.code)
 	}
-	handOffCode, err := service.keepHandOff(ctx, issued, proof.DeviceCodePerson(known.code))
+	handOffCode, err := service.keepHandOff(ctx, issued, proof.DeviceCodePerson(known.code), deviceHandOffLife)
 	if err != nil {
 		return err
 	}
 	service.pairings.mutex.Lock()
 	delete(service.pairings.bySecret, known.secret)
 	service.pairings.mutex.Unlock()
-	return service.serviceDeviceCodes.ActivateDeviceCode(ctx, known.code, known.deviceKey, handOffCode)
+	person, err := liveUser(ctx, service.database.Read(), known.forUserID)
+	if err != nil {
+		return err
+	}
+	return service.serviceDeviceCodes.ActivateDeviceCode(ctx, known.code, known.deviceKey, handOffCode, person.Name)
+}
+
+// Activation is a device a code activated, as the core's log records it (the device code audit's
+// M4): who entered the code, for whom, the device's name and platform, and whether the code was the
+// paid service's.
+type Activation struct {
+	ByUserID, ForUserID  int64
+	DeviceName, Platform string
+	IsThroughService     bool
+}
+
+// OnDeviceActivated tells activated of each device a code activates; set before the core serves.
+func (service *Service) OnDeviceActivated(activated func(context.Context, Activation)) {
+	service.onActivated = activated
+}
+
+// tellActivated tells OnDeviceActivated's listener of known's activation, when there is one.
+func (service *Service) tellActivated(ctx context.Context, known pairing) {
+	if service.onActivated == nil {
+		return
+	}
+	service.onActivated(ctx, Activation{
+		ByUserID: known.byUserID, ForUserID: known.forUserID, DeviceName: known.deviceName,
+		Platform: known.platform, IsThroughService: known.deviceKey != "",
+	})
 }

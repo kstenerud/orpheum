@@ -66,6 +66,8 @@ type fakeDiscovery struct {
 	// deviceOutcomes how the core said each code it claimed ended (its sealed outcome, or "" refused).
 	deviceCodes    map[string]discoveryproto.DeviceCodeClaimResponse
 	deviceOutcomes map[string]string
+	// claimsRefused refuses every claim as one too many.
+	claimsRefused bool
 	// realm is the realm the discovery gave the core, which its status names.
 	realm string
 	// account is the account a key claimed the core for, which its status names; removedAt when the
@@ -206,6 +208,11 @@ func (fake *fakeDiscovery) serveMore(writer http.ResponseWriter, request *http.R
 		var claim discoveryproto.DeviceCodeClaimRequest
 		fake.read(request, &claim)
 		waiting, isWaiting := fake.deviceCodes[claim.Code]
+		if fake.claimsRefused {
+			writer.WriteHeader(http.StatusTooManyRequests)
+			fake.answer(writer, discoveryproto.Refusal{Code: discoveryproto.RefusalTooManyClaims, Message: "slow"})
+			return
+		}
 		if !isWaiting {
 			writer.WriteHeader(http.StatusNotFound)
 			fake.answer(writer, discoveryproto.Refusal{Code: discoveryproto.RefusalNotFound, Message: "no such code"})

@@ -19983,7 +19983,10 @@ took its 28 recommendations (*"agreed on the rest of the stuff"*) and changed tw
    two cores in the dev loop; `pion/transport/v5` and `golang.org/x/net` direct.
 
 **Status:** Decided 2026-10-13; to fold into the protocol, the plans and the specification in one
-pass before development.
+pass before development. *§4 narrowed 2026-10-20* (the owner, taking the device code audit's fixes,
+docs/contributors/design/research/device-code-audit-2026-10-20.md): the device scope also leaves
+out editing metadata and reading the person's own link, and the person's account page names each
+device a code activated in the past week.
 
 ## D293 — The discovery's open questions answered: a live instance is pinged before it is replaced, device codes through the service sealed by HPKE on P-256 in the beta, staging's DNS token in the sandbox until production
 

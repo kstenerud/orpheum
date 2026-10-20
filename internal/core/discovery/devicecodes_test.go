@@ -7,6 +7,7 @@ import (
 	"crypto/hpke"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"testing"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
@@ -49,6 +50,10 @@ func TestDeviceCode_IsClaimedOnlyOnceTheDiscoveryPublishesTheCore(t *testing.T) 
 	if !isWaiting || err != nil || claimed != built.fake.deviceCodes["abcd-efgh"] {
 		t.Errorf("claimed %+v, %v, %v; want the device's key and platform", claimed, isWaiting, err)
 	}
+	built.fake.claimsRefused = true
+	if _, _, err = built.service.ClaimDeviceCode(ctx, "abcd-efgh"); !errors.Is(err, discoveryproto.ErrTooManyClaims) {
+		t.Errorf("a claim the discovery refused as too many: %v; want ErrTooManyClaims", err)
+	}
 }
 
 // The outcome the core sends opens with the device's key alone, naming this core, its fingerprint,
@@ -61,7 +66,7 @@ func TestDeviceCode_ItsOutcomeOpensWithTheDevicesKeyAndARefusalSendsNone(t *test
 	built.fake.realm = "karlnas"
 	built.service.step(ctx)
 	publicKey := built.fake.deviceCodes["abcd-efgh"].PublicKey
-	if err := built.service.ActivateDeviceCode(ctx, "abcd-efgh", publicKey, "a-hand-off-code"); err != nil {
+	if err := built.service.ActivateDeviceCode(ctx, "abcd-efgh", publicKey, "a-hand-off-code", "karl"); err != nil {
 		t.Fatal(err)
 	}
 	key, err := hpke.NewDHKEMPrivateKey(private)
@@ -71,7 +76,7 @@ func TestDeviceCode_ItsOutcomeOpensWithTheDevicesKeyAndARefusalSendsNone(t *test
 	opened, err := proof.OpenDeviceOutcome(key, built.fake.deviceOutcomes["abcd-efgh"])
 	want := proof.DeviceOutcome{
 		CoreID: fakeCoreID, Fingerprint: built.service.Status().Fingerprint, Realm: "karlnas",
-		HandOffCode: "a-hand-off-code",
+		HandOffCode: "a-hand-off-code", Person: "karl",
 	}
 	if err != nil || opened != want {
 		t.Errorf("the device opened %+v, %v; want %+v", opened, err, want)

@@ -247,6 +247,11 @@ func (harness testHarness) activate(t *testing.T, enteredBy string, body map[str
 	if err := json.Unmarshal([]byte(entered.body), &claim.Body); err != nil || entered.status != http.StatusOK {
 		t.Fatalf("POST /activations = %d %s", entered.status, entered.body)
 	}
+	// The person is shown what asked for the code, and when (the device code audit's M3).
+	if claim.Body.Platform != "web" || claim.Body.AskedSecondsAgo != 0 {
+		t.Errorf("POST /activations shows the platform %q asked %d s ago; want web, just now",
+			claim.Body.Platform, claim.Body.AskedSecondsAgo)
+	}
 	secret := map[string]string{"secret": pairing.Body.Secret}
 	if state := harness.do(t, http.MethodPost, "/pairings/state", "", secret); !strings.Contains(state.body,
 		`"state":"checking","checkCode":"`+claim.Body.CheckCode+`"`) {

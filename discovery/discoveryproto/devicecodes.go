@@ -2,6 +2,8 @@
 
 package discoveryproto
 
+import "errors"
+
 // A device code through the paid service (D293 §2; the protocol's §3.1): a device that knows no
 // core asks the service for a code with a P-256 public key of its own; a person signed in enters the
 // code on their core, which claims it from the service, learning the key; both show the check code
@@ -26,6 +28,19 @@ const (
 	// PathDeviceCodeOutcome is posted a DeviceCodeOutcomeRequest by the core that claimed the code.
 	PathDeviceCodeOutcome = "/device-codes/outcome"
 )
+
+// The refusals of the device-code paths, each with 429, beside RefusalNotFound's 404: too many codes
+// asked for from one place, too many claims by one core (failed, or claimed and unfinished), and a
+// device asking how its code stands faster than it may, which asks again later.
+const (
+	RefusalTooManyCodes  = "too_many_codes"
+	RefusalTooManyClaims = "too_many_claims"
+	RefusalSlowDown      = "slow_down"
+)
+
+// ErrTooManyClaims is the discovery refusing a core's claim with RefusalTooManyClaims: the person
+// entering the code is told to wait, as after too many wrong codes.
+var ErrTooManyClaims = errors.New("too many device codes claimed that did not work; wait and try again")
 
 // The states of a device code, as the device asking sees them.
 const (

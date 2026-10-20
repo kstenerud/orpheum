@@ -176,6 +176,7 @@ func openReachedFromOutside(
 	// A code the core did not issue is claimed from the paid service, which a TV that knows no core
 	// asked (D293 §2).
 	opened.auth.ClaimDeviceCodesFrom(discovered)
+	opened.auth.OnDeviceActivated(logActivation(logger))
 	rtc.UseICEServers(func() []webrtc.ICEServer { return iceServersOf(discovered.Status().ICEServers) })
 	opened.jobServices.discovery, opened.jobServices.portMapping = discovered, mapped
 	served.discoveryParts.DNS = discovered
@@ -282,4 +283,14 @@ func candidatesOf(addresses []net.Addr, port int) []discoveryproto.Candidate {
 		candidates = append(candidates, candidate)
 	}
 	return candidates
+}
+
+// logActivation logs each device a code activates, who entered the code and for whom, so a device
+// someone talked a person into activating is on the record (the device code audit's M4).
+func logActivation(logger *slog.Logger) func(context.Context, auth.Activation) {
+	return func(ctx context.Context, activated auth.Activation) {
+		logger.InfoContext(ctx, "a device was activated by a code",
+			"byUser", activated.ByUserID, "forUser", activated.ForUserID, "device", activated.DeviceName,
+			"platform", activated.Platform, "throughService", activated.IsThroughService)
+	}
 }

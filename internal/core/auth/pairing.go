@@ -82,6 +82,11 @@ type PairingState struct {
 type PairingClaim struct {
 	CheckCode  string
 	DeviceName string
+	// Platform is the device's own name for what it is, and AskedAt when it asked for its code: what
+	// the person entering it is shown, a code asked for long before being more likely one someone
+	// sent them (the device code audit's M3).
+	Platform string
+	AskedAt  time.Time
 }
 
 // pairing is one device's pairing as the core keeps it.
@@ -102,8 +107,10 @@ type pairing struct {
 	isConfirmed bool
 	issued      Issued
 	// deviceKey is the public key of the device a code the service issued is for (claimFromService),
-	// which its outcome is sealed to; empty for the core's own codes.
+	// which its outcome is sealed to, and askedAt when it asked the service; empty for the core's own
+	// codes, whose madeAt is when they were asked for.
 	deviceKey string
+	askedAt   time.Time
 }
 
 // pairings are the pairings under way, in memory (D288 §6): a restart ends them.
@@ -302,7 +309,7 @@ func (service *Service) ClaimPairing(
 	}
 	known.isClaimed, known.byUserID, known.forUserID = true, byUserID, forUserID
 	known.deviceName, known.checkCode = name, checkCode
-	return PairingClaim{CheckCode: checkCode, DeviceName: name}, nil
+	return PairingClaim{CheckCode: checkCode, DeviceName: name, Platform: known.platform, AskedAt: known.madeAt}, nil
 }
 
 // waitingDevice is the device a live pairing not yet entered says it was signed in as before, none
@@ -346,13 +353,18 @@ func (service *Service) AnswerPairing(ctx context.Context, byUserID int64, typed
 		return err
 	}
 	if known.deviceKey != "" {
-		return service.answerService(ctx, known, issued, true)
+		if answerErr := service.answerService(ctx, known, issued, true); answerErr != nil {
+			return answerErr
+		}
+		service.tellActivated(ctx, known)
+		return nil
 	}
 	service.pairings.mutex.Lock()
-	defer service.pairings.mutex.Unlock()
 	if kept, found := service.pairings.bySecret[known.secret]; found {
 		kept.issued = issued
 	}
+	service.pairings.mutex.Unlock()
+	service.tellActivated(ctx, known)
 	return nil
 }
 
