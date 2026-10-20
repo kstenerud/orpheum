@@ -2,19 +2,24 @@
 
 /**
  * A device that knows no core signs in by a code from the discovery's service (D293 §2): a
- * television at the loader's origin shows the code, a person signed in on their phone enters it under
- * Activate a device, both show the check code made of this page's key, and once the person says they
- * match, this page opens what the core sealed to that key and goes on to the core's client origin as
- * a realm sign-in does, with the hand-off's code. Nothing the service passes on is readable to it.
+ * television at the loader's origin shows the code and a QR code of the link that activates it,
+ * carrying its key's hash (D321). Scanned, the person's phone activates it with one tap, and no check
+ * code is shown. Typed under Activate a device, the page is told the core's nonce, reveals the one it
+ * committed to, and both show the check code made of its key and the two nonces. Once the person says
+ * yes, this page opens what the core sealed to its key and goes on to the core's client origin as a
+ * realm sign-in does, with the hand-off's code. Nothing the service passes on is readable to it.
  */
 
 import {
   type ClaimedBy,
   deviceCheckCode,
   deviceCodeState,
+  deviceKeyHash,
   newDeviceKey,
+  newDeviceNonce,
   openDeviceOutcome,
   requestDeviceCode,
+  revealDeviceNonce,
   type DeviceCode,
   type DeviceCodeState,
   type DeviceKey,
@@ -27,6 +32,7 @@ import "./code-sign-in.css";
 import { CredentialsForm, CredentialsProblem } from "./credentials-form.tsx";
 import { thisDevice } from "./device.ts";
 import { handOffFragment } from "./discovery-start.ts";
+import { QrCode } from "./qr-code.tsx";
 
 /** How often the page asks how its code stands: the person is entering it now, so every 2 s. */
 const pollMs = 2000;
@@ -40,17 +46,37 @@ export interface DeviceCodeParts {
   readonly remember: (core: { coreId: string; fingerprint: string; realm: string }) => void;
   /** Goes on to address, leaving the loader's page. */
   readonly go: (address: string) => void;
+  /** The loader's origin, which the QR code's link opens on the phone (D321). */
+  readonly loaderOrigin: string;
   /** Waits ms before the page asks again; a test answers at once. */
   readonly wait?: (ms: number) => Promise<void>;
   /** Makes the key each code is asked for with; a test's is one the core sealed a fixture to. */
   readonly newKey?: () => Promise<DeviceKey>;
+  /** Makes the nonce each code commits to; a test's is a fixture's. */
+  readonly newNonce?: () => string;
+}
+
+/**
+ * The link the TV's QR code carries: the loader's /activate, with the code and the key's hash, which
+ * opens Activate a device in the person's realm with the code filled in (D321). A query, not a
+ * fragment, so it outlives a sign-in's hand-off on the way.
+ */
+export function activateLink(loaderOrigin: string, code: string, keyHash: string): string {
+  const query = new URLSearchParams({ code, key: keyHash });
+  return `${loaderOrigin}/activate?${query.toString()}`;
 }
 
 /** What the page shows: its code, then the check code, or that it signs in; or what went wrong. */
 type Shown =
   | { readonly kind: "asking" }
-  | { readonly kind: "code"; readonly code: string; readonly isRenewed: boolean }
+  | {
+      readonly kind: "code";
+      readonly code: string;
+      readonly link: string;
+      readonly isRenewed: boolean;
+    }
   | { readonly kind: "check"; readonly checkCode: string; readonly household: string }
+  | { readonly kind: "scanned"; readonly household: string }
   | {
       readonly kind: "confirm";
       readonly household: string;
@@ -81,9 +107,11 @@ async function runCode(
   let isRenewed = false;
   while (isLive()) {
     const key = await (parts.newKey ?? newDeviceKey)();
-    const code = await requestDeviceCode(parts.client, key, platform);
-    show({ kind: "code", code: code.code, isRenewed });
-    const isEnded = await followCode({ parts, key, code, show, isLive, wait });
+    const nonce = (parts.newNonce ?? newDeviceNonce)();
+    const code = await requestDeviceCode(parts.client, { key, nonce, platform });
+    const link = activateLink(parts.loaderOrigin, code.code, await deviceKeyHash(key.publicKey));
+    show({ kind: "code", code: code.code, link, isRenewed });
+    const isEnded = await followCode({ parts, key, nonce, code, show, isLive, wait });
     if (!isEnded) {
       return;
     }
@@ -91,10 +119,14 @@ async function runCode(
   }
 }
 
-/** One code the page follows: what it reaches by, its key and code, and how it shows and waits. */
+/**
+ * One code the page follows: what it reaches by, its key, the nonce it committed to and its code, and
+ * how it shows and waits.
+ */
 interface Following {
   readonly parts: DeviceCodeParts;
   readonly key: DeviceKey;
+  readonly nonce: string;
   readonly code: DeviceCode;
   readonly show: (shown: Shown) => void;
   readonly isLive: () => boolean;
@@ -103,21 +135,17 @@ interface Following {
 
 /** Follows code until it ends, true, or the page went on to the core or stopped showing it, false. */
 async function followCode(following: Following): Promise<boolean> {
-  const { parts, key, code, show, isLive, wait } = following;
-  let isChecking = false;
+  const { parts, code, show, isLive, wait } = following;
+  let isEntered = false;
   while (isLive()) {
     await wait(pollMs);
     const stands = await deviceCodeState(parts.client, code.secret);
     if (stands.state === "ended") {
       return true;
     }
-    if (stands.state === "entered" && !isChecking) {
-      isChecking = true;
-      show({
-        kind: "check",
-        checkCode: await deviceCheckCode(key.publicKey),
-        household: householdOf(stands.claimedBy),
-      });
+    if (stands.state === "entered" && !isEntered) {
+      isEntered = true;
+      show(await entered(following, stands));
     }
     if (stands.state === "activated") {
       await goOnIfConfirmed(following, stands);
@@ -125,6 +153,28 @@ async function followCode(following: Following): Promise<boolean> {
     }
   }
   return false;
+}
+
+/**
+ * What the page shows once its code is entered: typed, it reveals its nonce, now that the core's is
+ * known, and shows the check code of its key and both; scanned, with no core nonce, no check code
+ * (D321).
+ */
+async function entered(
+  following: Following,
+  stands: Extract<DeviceCodeState, { state: "entered" }>,
+): Promise<Shown> {
+  const household = householdOf(stands.claimedBy);
+  if (stands.coreNonce === "") {
+    return { kind: "scanned", household };
+  }
+  const { parts, key, nonce, code } = following;
+  await revealDeviceNonce(parts.client, code.secret, nonce);
+  return {
+    kind: "check",
+    checkCode: await deviceCheckCode(key.publicKey, nonce, stands.coreNonce),
+    household,
+  };
 }
 
 /** The household a core is, to its person: its realm, else its id. */
@@ -231,6 +281,13 @@ function CodeView(props: { readonly shown: Shown }): JSX.Element | null {
       return <p>{t("loader.code.refused")}</p>;
     case "confirm":
       return <Confirm shown={shown} />;
+    case "scanned":
+      return (
+        <>
+          <p>{t("loader.code.enteredBy", { household: shown.household })}</p>
+          <p>{t("loader.code.scannedExplain")}</p>
+        </>
+      );
     case "check":
       return (
         <>
@@ -245,6 +302,8 @@ function CodeView(props: { readonly shown: Shown }): JSX.Element | null {
       return (
         <>
           {shown.isRenewed ? <p>{t("loader.code.renewed")}</p> : null}
+          <p>{t("loader.code.scan")}</p>
+          <QrCode text={shown.link} label={t("loader.code.qr")} />
           <p>{t("loader.code.explain")}</p>
           <output className="code-sign-in__code" aria-label={t("loader.code.code")}>
             {shown.code}

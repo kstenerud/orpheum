@@ -226,6 +226,7 @@ export function codeParts(at: AtLoaderOrigin): DeviceCodeParts {
     go: (address) => {
       at.location.assign(address);
     },
+    loaderOrigin: at.config.loaderOrigin,
   };
 }
 

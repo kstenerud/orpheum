@@ -2,9 +2,11 @@
 
 /**
  * A device code through the paid service (D293 §2; discovery/proof's devicecode.go): a device that
- * knows no core makes a P-256 key, asks the service for a code with its public half, shows the code,
- * then the check code made of its key once a person entered the code, and opens what the core sealed
- * to its key once they said the two match. HPKE's base mode (RFC 9180) over DHKEM(P-256,
+ * knows no core makes a P-256 key and a nonce, asks the service for a code with its public half and a
+ * commitment to the nonce, and shows the code with a QR code carrying its key's hash. Entered by its
+ * typed code, it is told the core's nonce, reveals its own, and shows the check code made of the key
+ * and both; scanned, it shows none (D321). It opens what the core sealed to its key once its person
+ * said yes. HPKE's base mode (RFC 9180) over DHKEM(P-256,
  * HKDF-SHA256), HKDF-SHA256 and AES-128-GCM is built on Web Crypto alone, so no library is needed and
  * a television's old engine serves; its tests hold it to RFC 9180's vectors and to a blob the core's
  * own seal made.
@@ -37,13 +39,64 @@ export async function newDeviceKey(): Promise<DeviceKey> {
 /** The safe32 alphabet: discovery/safe32code's. */
 const safe32 = "0123456789abcdefghjkmnpqrstvwxyz";
 
+/** A device's or a core's nonce for the check code, before encoding: proof.DeviceNonceBytes. */
+const nonceBytes = 16;
+
+/** A new nonce for the check code, base64url, which the device commits to before revealing (D321). */
+export function newDeviceNonce(): string {
+  return base64url(crypto.getRandomValues(new Uint8Array(nonceBytes)));
+}
+
+/** The SHA-256 of parts after a purpose of the discovery's own. */
+async function purposed(
+  purpose: string,
+  ...parts: Uint8Array<ArrayBuffer>[]
+): Promise<Uint8Array<ArrayBuffer>> {
+  const label = encoder.encode(`${prefix}${purpose}\n`);
+  return new Uint8Array(await crypto.subtle.digest("SHA-256", concat(label, ...parts)));
+}
+
+/** A nonce as bytes, refused when it is not nonceBytes of base64url. */
+function nonceOf(nonce: string): Uint8Array<ArrayBuffer> {
+  const raw = fromBase64(nonce);
+  if (raw.length !== nonceBytes) {
+    throw new Error("not a device code's nonce");
+  }
+  return raw;
+}
+
+/** The commitment a device asks with: proof.DeviceCommitment of its key and its nonce, base64url. */
+export async function deviceCommitment(
+  publicKey: Uint8Array<ArrayBuffer>,
+  nonce: string,
+): Promise<string> {
+  return base64url(await purposed("device-commitment", publicKey, nonceOf(nonce)));
+}
+
 /**
- * The check code both screens show for a device asking with publicKey: proof.DeviceCheckCode, 40
- * bits of the key's SHA-256 under its purpose, as a device code is written, "xxxx-xxxx".
+ * What the device's QR code carries of its key: proof.DeviceKeyHash, 128 bits of its SHA-256,
+ * base64url, which the core holds the key it activates to (D321).
  */
-export async function deviceCheckCode(publicKey: Uint8Array<ArrayBuffer>): Promise<string> {
-  const purpose = encoder.encode(`${prefix}device-check-code\n`);
-  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", concat(purpose, publicKey)));
+export async function deviceKeyHash(publicKey: Uint8Array<ArrayBuffer>): Promise<string> {
+  return base64url((await purposed("device-key-hash", publicKey)).subarray(0, 16));
+}
+
+/**
+ * The check code both screens show for a device asking with publicKey, which committed to
+ * deviceNonce, once the core gave coreNonce: proof.DeviceCheckCode, 40 bits of the SHA-256 of all
+ * three under its purpose, as a device code is written, "xxxx-xxxx" (D321).
+ */
+export async function deviceCheckCode(
+  publicKey: Uint8Array<ArrayBuffer>,
+  deviceNonce: string,
+  coreNonce: string,
+): Promise<string> {
+  const digest = await purposed(
+    "device-check-code",
+    publicKey,
+    nonceOf(deviceNonce),
+    nonceOf(coreNonce),
+  );
   let value = 0n;
   for (const byte of digest.subarray(0, 5)) {
     value = (value << 8n) | BigInt(byte);
@@ -63,16 +116,26 @@ export interface DeviceCode {
   readonly expiresInSeconds: number;
 }
 
-/** Asks the service for a code for key, the device naming its platform. */
+/** What a device asks for a code with: its key, the nonce it commits to, and its platform. */
+export interface DeviceAsking {
+  readonly key: DeviceKey;
+  readonly nonce: string;
+  readonly platform: string;
+}
+
+/** Asks the service for a code for the asking device's key, committed to its nonce (D321). */
 export async function requestDeviceCode(
   client: DiscoveryClient,
-  key: DeviceKey,
-  platform: string,
+  { key, nonce, platform }: DeviceAsking,
 ): Promise<DeviceCode> {
   const answer = await postToDiscovery({
     ...client,
     path: "/device-codes",
-    body: { publicKey: base64url(key.publicKey), platform },
+    body: {
+      publicKey: base64url(key.publicKey),
+      platform,
+      commitment: await deviceCommitment(key.publicKey, nonce),
+    },
   });
   const code = field(answer, "code");
   const secret = field(answer, "secret");
@@ -93,13 +156,13 @@ export interface ClaimedBy {
 }
 
 /**
- * How a device's code stands: entered, by the core the service names; activated, with the sealed
- * outcome and a bootstrap token besides; or, while the service asks the device to slow down, as it
- * stood.
+ * How a device's code stands: entered, by the core the service names, with that core's nonce when
+ * its code was typed and "" when it was scanned (D321); activated, with the sealed outcome and a
+ * bootstrap token besides; or, while the service asks the device to slow down, as it stood.
  */
 export type DeviceCodeState =
   | { readonly state: "waiting" | "ended" | "slowDown" }
-  | { readonly state: "entered"; readonly claimedBy: ClaimedBy }
+  | { readonly state: "entered"; readonly claimedBy: ClaimedBy; readonly coreNonce: string }
   | {
       readonly state: "activated";
       readonly claimedBy: ClaimedBy;
@@ -136,7 +199,22 @@ function stateOf(answer: unknown): DeviceCodeState {
   if (state === "activated" && typeof sealed === "string" && typeof bootstrapToken === "string") {
     return { state, claimedBy, sealed, bootstrapToken };
   }
-  return state === "entered" ? { state, claimedBy } : { state: "ended" };
+  const coreNonce = field(answer, "coreNonce");
+  return state === "entered"
+    ? { state, claimedBy, coreNonce: typeof coreNonce === "string" ? coreNonce : "" }
+    : { state: "ended" };
+}
+
+/**
+ * Reveals the nonce the device committed to, once its code stands entered with the core's (D321).
+ * The service refuses one that does not open the commitment.
+ */
+export async function revealDeviceNonce(
+  client: DiscoveryClient,
+  secret: string,
+  nonce: string,
+): Promise<void> {
+  await postToDiscovery({ ...client, path: "/device-codes/reveal", body: { secret, nonce } });
 }
 
 /** The core the answer names as having claimed the code, or undefined when it names none. */
