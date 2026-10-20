@@ -50,7 +50,15 @@ async function accountWithCodeEntered(answers: Answers, heard: Heard[]): Promise
         {
           "GET /me/devices": [200, { devices: [] }],
           "GET /me": [200, { ...owner, canManageAccount: true }],
-          "POST /activations": [200, { checkCode: "wxyz-0123", deviceName: "Living room TV" }],
+          "POST /activations": [
+            200,
+            {
+              checkCode: "wxyz-0123",
+              deviceName: "Living room TV",
+              platform: "Tizen",
+              askedSecondsAgo: 30,
+            },
+          ],
           "POST /activations/answer": [204, undefined],
           ...answers,
         },
@@ -74,6 +82,11 @@ describe("activating a device by the code it shows (D288)", () => {
     );
     expect(container.textContent).toContain("Look at the device's screen yourself.");
     expect(container.textContent).toContain("Never go on what someone tells you");
+    // What asked for the code, and when (the device code audit's M3); not a while ago.
+    expect(container.textContent).toContain(
+      "It says it is Tizen, and asked for its code 30 s ago.",
+    );
+    expect(container.querySelector(".device-activation__long-ago")).toBeNull();
     await click(buttonWithText(container, "Yes, they match"));
     expect(container.textContent).toContain("Living room TV is activated and signed in.");
     expect(heard.filter((request) => !request.methodAndPath.startsWith("GET /me"))).toEqual([
@@ -84,6 +97,29 @@ describe("activating a device by the code it shows (D288)", () => {
       { methodAndPath: "POST /activations/answer", body: { code: "ABCD EFGH", isMatch: true } },
     ]);
     expect(heard.filter((request) => request.methodAndPath === "GET /me/devices")).toHaveLength(2);
+  });
+
+  it("warns where the code is entered, and again when the code was asked for a while ago (M3)", async () => {
+    mounted = await accountWithCodeEntered(
+      {
+        "POST /activations": [
+          200,
+          { checkCode: "wxyz-0123", deviceName: "TV", platform: "web", askedSecondsAgo: 300 },
+        ],
+      },
+      [],
+    );
+    expect(mounted.container.querySelector(".device-activation__long-ago")?.textContent).toContain(
+      "That was a while ago.",
+    );
+    expect(mounted.container.textContent).toContain("asked for its code 5 min ago");
+    mounted.unmount();
+    mounted = await mount(
+      withServices(<ActivateDevice onActivated={() => undefined} />, servedBy({})),
+    );
+    expect(mounted.container.textContent).toContain(
+      "Only enter a code shown on a screen in front of you.",
+    );
   });
 
   it("activates nothing when the check codes do not match", async () => {

@@ -37,7 +37,13 @@ export {
   openDeviceOutcome,
   requestDeviceCode,
 } from "./device-code.ts";
-export type { DeviceCode, DeviceCodeState, DeviceKey, DeviceOutcome } from "./device-code.ts";
+export type {
+  ClaimedBy,
+  DeviceCode,
+  DeviceCodeState,
+  DeviceKey,
+  DeviceOutcome,
+} from "./device-code.ts";
 export {
   base64url,
   clientManifestMessage,
@@ -48,6 +54,7 @@ export {
   locateHash,
   locatorHash,
   NotFound,
+  TooMany,
   offerKey,
   pathsOf,
   protocolVersion,

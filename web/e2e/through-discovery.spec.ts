@@ -151,8 +151,16 @@ test("a browser registers and plays through a discovery, over WebRTC, its core's
   await expect.poll(() => isPlaying(page), { timeout: 60_000 }).toBe(true);
 });
 
-/** The core's name as a published one is: HTTPS, which a page takes as a direct path (§3.3). */
-const coreName = "https://core.orpheum.test";
+/**
+ * The core's name as a published one is: HTTPS, under its id, which alone a page takes as a direct
+ * path to it (§3.3; the device code audit's H1).
+ */
+function coreNameOf(coreId: string): string {
+  return `https://v4.${coreId}.orpheum.test`;
+}
+
+/** Whether url is at any core's published name, as coreNameOf makes them. */
+const atACoreName = /^https:\/\/v4\.[a-z0-9]+\.orpheum\.test(?=\/|$)/u;
 
 /** A discovery's answer with the core's own name as its one path, its other fields as they were. */
 function withDirectPath(body: unknown): Record<string, unknown> {
@@ -166,7 +174,7 @@ function withDirectPath(body: unknown): Record<string, unknown> {
     "bootstrapToken",
   ];
   const entries: [string, unknown][] = fields.map((name) => [name, fieldOf(body, name)]);
-  entries.push(["paths", [{ kind: "ipv4", url: coreName }]]);
+  entries.push(["paths", [{ kind: "ipv4", url: coreNameOf(String(fieldOf(body, "coreId"))) }]]);
   return Object.fromEntries(entries);
 }
 
@@ -198,7 +206,7 @@ async function registerAndOpenFilms(page: Page, name: string): Promise<void> {
 }
 
 /**
- * Has the page's discovery name the core directly, at coreName, as the paid service names a core's
+ * Has the page's discovery name the core directly, at its coreNameOf, as the paid service names a core's
  * published name (the single-target discovery publishes none), and carries each request to that name
  * to the core's own listener, with the page's headers as they are: the browser applies CORS to the
  * answers as it would to the core's at its name.
@@ -218,16 +226,16 @@ async function nameTheCoreDirectly(
       await route.fulfill({ response: answer, json: withDirectPath(await answer.json()) });
     });
   }
-  await page.context().route(`${coreName}/**`, async (route) => {
+  await page.context().route(atACoreName, async (route) => {
     // Firefox's routed request lacks the Origin header the browser sends, which CORS answers by,
-    // and names coreName as its Host, which the core's listener refuses as a name it was not given:
+    // and names the core's name as its Host, which the core's listener refuses as a name it was not given:
     // at its real name the core would be asked by that name, over HTTPS.
     const headers = Object.fromEntries(
       Object.entries(route.request().headers()).filter(([name]) => name !== "host"),
     );
     try {
       const answer = await route.fetch({
-        url: route.request().url().replace(coreName, serverUrl()),
+        url: route.request().url().replace(atACoreName, serverUrl()),
         headers: { ...headers, origin: clientOrigin },
       });
       await route.fulfill({ response: answer });
@@ -261,7 +269,7 @@ test("a page on the discovery's origin plays from its core's own name, its poste
   const toCore: { url: string; authorization: string | undefined; cookie: string | undefined }[] =
     [];
   page.on("request", (made) => {
-    if (made.url().startsWith(coreName) && !made.url().endsWith("/api/v1/health")) {
+    if (atACoreName.test(made.url()) && !made.url().endsWith("/api/v1/health")) {
       const headers = made.headers();
       toCore.push({
         url: made.url(),

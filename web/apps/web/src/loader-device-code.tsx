@@ -9,16 +9,18 @@
  */
 
 import {
+  type ClaimedBy,
   deviceCheckCode,
   deviceCodeState,
   newDeviceKey,
   openDeviceOutcome,
   requestDeviceCode,
   type DeviceCode,
+  type DeviceCodeState,
   type DeviceKey,
   type DiscoveryClient,
 } from "@orpheum/sdk";
-import { useEffect, useState, type JSX } from "react";
+import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import "./code-sign-in.css";
@@ -48,8 +50,15 @@ export interface DeviceCodeParts {
 type Shown =
   | { readonly kind: "asking" }
   | { readonly kind: "code"; readonly code: string; readonly isRenewed: boolean }
-  | { readonly kind: "check"; readonly checkCode: string }
+  | { readonly kind: "check"; readonly checkCode: string; readonly household: string }
+  | {
+      readonly kind: "confirm";
+      readonly household: string;
+      readonly person: string;
+      readonly onAnswer: (isJoining: boolean) => void;
+    }
   | { readonly kind: "signingIn" }
+  | { readonly kind: "refused" }
   | { readonly kind: "failed" };
 
 /** Waits ms, by the browser's clock. */
@@ -104,28 +113,70 @@ async function followCode(following: Following): Promise<boolean> {
     }
     if (stands.state === "entered" && !isChecking) {
       isChecking = true;
-      show({ kind: "check", checkCode: await deviceCheckCode(key.publicKey) });
+      show({
+        kind: "check",
+        checkCode: await deviceCheckCode(key.publicKey),
+        household: householdOf(stands.claimedBy),
+      });
     }
     if (stands.state === "activated") {
-      show({ kind: "signingIn" });
-      const outcome = await openDeviceOutcome(key, stands.sealed);
-      const origin = parts.originOf(outcome.coreId);
-      if (origin === undefined) {
-        throw new Error("the activated device's server has no client origin here");
-      }
-      parts.remember(outcome);
-      parts.go(
-        `${origin}/${handOffFragment({
-          code: outcome.handOffCode,
-          bootstrapToken: stands.bootstrapToken,
-          fingerprint: outcome.fingerprint,
-          realm: outcome.realm,
-        })}`,
-      );
+      await goOnIfConfirmed(following, stands);
       return false;
     }
   }
   return false;
+}
+
+/** The household a core is, to its person: its realm, else its id. */
+function householdOf(claimedBy: ClaimedBy): string {
+  return claimedBy.realm === "" ? claimedBy.coreId : claimedBy.realm;
+}
+
+/**
+ * Opens what the core sealed, which must be the core the service says claimed the code, under its
+ * realm; asks the TV's person to confirm the household and the person it signs in as, defaulting to
+ * no; and only then goes on to its client origin with the hand-off (the device code audit's M1).
+ */
+async function goOnIfConfirmed(
+  following: Following,
+  activated: Extract<DeviceCodeState, { state: "activated" }>,
+): Promise<void> {
+  const { parts, key, show } = following;
+  const outcome = await openDeviceOutcome(key, activated.sealed);
+  const { claimedBy } = activated;
+  if (
+    outcome.coreId !== claimedBy.coreId ||
+    (claimedBy.realm !== "" && outcome.realm !== claimedBy.realm)
+  ) {
+    throw new Error("the sealed outcome names another server than the one that claimed the code");
+  }
+  const origin = parts.originOf(outcome.coreId);
+  if (origin === undefined) {
+    throw new Error("the activated device's server has no client origin here");
+  }
+  const isJoining = await new Promise<boolean>((answer) => {
+    show({
+      kind: "confirm",
+      household: householdOf(claimedBy),
+      person: outcome.person,
+      onAnswer: answer,
+    });
+  });
+  if (!isJoining) {
+    // The session the core keeps for it ends untaken with its hand-off.
+    show({ kind: "refused" });
+    return;
+  }
+  show({ kind: "signingIn" });
+  parts.remember(outcome);
+  parts.go(
+    `${origin}/${handOffFragment({
+      code: outcome.handOffCode,
+      bootstrapToken: activated.bootstrapToken,
+      fingerprint: outcome.fingerprint,
+      realm: outcome.realm,
+    })}`,
+  );
 }
 
 /**
@@ -176,9 +227,14 @@ function CodeView(props: { readonly shown: Shown }): JSX.Element | null {
       return <CredentialsProblem isAlert>{t("loader.code.failed")}</CredentialsProblem>;
     case "signingIn":
       return <p>{t("loader.code.signingIn")}</p>;
+    case "refused":
+      return <p>{t("loader.code.refused")}</p>;
+    case "confirm":
+      return <Confirm shown={shown} />;
     case "check":
       return (
         <>
+          <p>{t("loader.code.enteredBy", { household: shown.household })}</p>
           <p>{t("loader.code.checkExplain")}</p>
           <output className="code-sign-in__code" aria-label={t("loader.code.checkCode")}>
             {shown.checkCode}
@@ -196,4 +252,40 @@ function CodeView(props: { readonly shown: Shown }): JSX.Element | null {
         </>
       );
   }
+}
+
+/** The question before the TV goes on: this household, as this person? No has the focus. */
+function Confirm(props: { readonly shown: Extract<Shown, { kind: "confirm" }> }): JSX.Element {
+  const { t } = useTranslation();
+  const { shown } = props;
+  const notMineRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    notMineRef.current?.focus();
+  }, []);
+  return (
+    <fieldset className="loader-code__confirm">
+      <legend>
+        {shown.person === ""
+          ? t("loader.code.confirm", { household: shown.household })
+          : t("loader.code.confirmAs", { household: shown.household, person: shown.person })}
+      </legend>
+      <button
+        ref={notMineRef}
+        type="button"
+        onClick={() => {
+          shown.onAnswer(false);
+        }}
+      >
+        {t("loader.code.notMine")}
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          shown.onAnswer(true);
+        }}
+      >
+        {t("loader.code.join")}
+      </button>
+    </fieldset>
+  );
 }

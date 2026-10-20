@@ -54,7 +54,7 @@ export function YourDevices(props: {
   return (
     <BusyGroup isBusy={isBusy}>
       <div className="your-devices">
-        <h2>{t("devices.heading")}</h2>
+        <DevicesHeading devices={props.devices} />
         <Loaded
           resource={props.devices}
           render={(list) => (
@@ -135,6 +135,9 @@ export function DeviceList(props: {
             <DeviceName device={device} onRename={props.onRename} />
           )}
           <span>{t(`devices.${deviceState(device)}`)}</span>
+          {device.isByCode ? (
+            <span className="your-devices__by-code">{t("devices.byCode")}</span>
+          ) : null}
           <DeviceSound device={device} onSoundChange={props.onSoundChange} />
           <span>
             {t("devices.addedAndUsed", {
@@ -240,5 +243,28 @@ export function DeviceName(props: {
       />
       <button type="submit">{t("devices.save")}</button>
     </form>
+  );
+}
+
+/**
+ * The section's heading and, while a device a code activated is among the person's others, a word
+ * that such a device watches and hosts as them, and to remove one they don't know (the device code
+ * audit's M4).
+ */
+function DevicesHeading(props: { readonly devices: Resource<Device[]> }): JSX.Element {
+  const { t } = useTranslation();
+  const { devices } = props;
+  const hasByCode =
+    devices.state === "loaded" &&
+    devices.value.some((device) => device.isByCode && !device.isThisDevice);
+  return (
+    <>
+      <h2>{t("devices.heading")}</h2>
+      {hasByCode ? (
+        <p className="your-devices__by-code-notice" role="note">
+          {t("devices.byCodeNotice")}
+        </p>
+      ) : null}
+    </>
   );
 }

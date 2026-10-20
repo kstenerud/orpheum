@@ -10,7 +10,7 @@
  * own seal made.
  */
 
-import { base64url, fromBase64, postToDiscovery } from "./discovery.ts";
+import { base64url, fromBase64, postToDiscovery, TooMany } from "./discovery.ts";
 import type { DiscoveryClient } from "./discovery.ts";
 
 const prefix = "orpheum-discovery-v1:";
@@ -83,28 +83,70 @@ export async function requestDeviceCode(
   return { code, secret, expiresInSeconds: expiresIn };
 }
 
-/** How a device's code stands: activated with the sealed outcome and a bootstrap token. */
+/**
+ * The core that claimed a code, as the service names it: its id and its realm ("" for none), which
+ * the device shows its person and checks the sealed outcome against (the device code audit's M1).
+ */
+export interface ClaimedBy {
+  readonly coreId: string;
+  readonly realm: string;
+}
+
+/**
+ * How a device's code stands: entered, by the core the service names; activated, with the sealed
+ * outcome and a bootstrap token besides; or, while the service asks the device to slow down, as it
+ * stood.
+ */
 export type DeviceCodeState =
-  | { readonly state: "waiting" | "entered" | "ended" }
-  | { readonly state: "activated"; readonly sealed: string; readonly bootstrapToken: string };
+  | { readonly state: "waiting" | "ended" | "slowDown" }
+  | { readonly state: "entered"; readonly claimedBy: ClaimedBy }
+  | {
+      readonly state: "activated";
+      readonly claimedBy: ClaimedBy;
+      readonly sealed: string;
+      readonly bootstrapToken: string;
+    };
 
 /** How the code its secret names stands. Anything the service says that is none is ended. */
 export async function deviceCodeState(
   client: DiscoveryClient,
   secret: string,
 ): Promise<DeviceCodeState> {
-  const answer = await postToDiscovery({
-    ...client,
-    path: "/device-codes/state",
-    body: { secret },
-  });
+  let answer: unknown;
+  try {
+    answer = await postToDiscovery({ ...client, path: "/device-codes/state", body: { secret } });
+  } catch (error) {
+    if (error instanceof TooMany && error.code === "slow_down") {
+      return { state: "slowDown" };
+    }
+    throw error;
+  }
+  return stateOf(answer);
+}
+
+/** The state the service's answer says; anything it does not say right is ended. */
+function stateOf(answer: unknown): DeviceCodeState {
   const state = field(answer, "state");
+  const claimedBy = claimedByOf(answer);
+  if (claimedBy === undefined) {
+    return state === "waiting" ? { state } : { state: "ended" };
+  }
   const sealed = field(answer, "sealed");
   const bootstrapToken = field(answer, "bootstrapToken");
   if (state === "activated" && typeof sealed === "string" && typeof bootstrapToken === "string") {
-    return { state, sealed, bootstrapToken };
+    return { state, claimedBy, sealed, bootstrapToken };
   }
-  return state === "waiting" || state === "entered" ? { state } : { state: "ended" };
+  return state === "entered" ? { state, claimedBy } : { state: "ended" };
+}
+
+/** The core the answer names as having claimed the code, or undefined when it names none. */
+function claimedByOf(answer: unknown): ClaimedBy | undefined {
+  const coreId = field(answer, "coreId");
+  const realm = field(answer, "realm");
+  if (typeof coreId !== "string" || coreId === "") {
+    return undefined;
+  }
+  return { coreId, realm: typeof realm === "string" ? realm : "" };
 }
 
 /** What an activated device needs: proof.DeviceOutcome. */
@@ -113,6 +155,8 @@ export interface DeviceOutcome {
   readonly fingerprint: string;
   readonly realm: string;
   readonly handOffCode: string;
+  /** The name of the person it signs in as; "" from a core that names none. */
+  readonly person: string;
 }
 
 /** HPKE's info for a device's outcome: proof's deviceOutcomeInfo. */
@@ -143,7 +187,14 @@ export async function openDeviceOutcome(key: DeviceKey, sealed: string): Promise
   ) {
     throw new Error("the device's outcome is not what it should be");
   }
-  return { coreId, fingerprint, realm, handOffCode };
+  const person = field(outcome, "person");
+  return {
+    coreId,
+    fingerprint,
+    realm,
+    handOffCode,
+    person: typeof person === "string" ? person : "",
+  };
 }
 
 /** RFC 9180's suite ids: DHKEM(P-256, HKDF-SHA256) 0x0010, HKDF-SHA256 0x0001, AES-128-GCM 0x0001. */

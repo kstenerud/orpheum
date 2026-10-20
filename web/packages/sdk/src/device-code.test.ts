@@ -78,6 +78,7 @@ describe("a device code's HPKE (D293 §2)", () => {
       fingerprint: "Vkdap1RjR0wChd9dvyvKtz2mUTWIOem3dIGy6rEHcIw",
       realm: "nas",
       handOffCode: "a-hand-off-code",
+      person: "",
     });
     await expect(openDeviceOutcome(await newDeviceKey(), fixture.sealed)).rejects.toThrow();
   });
@@ -90,14 +91,28 @@ describe("a device code's HPKE (D293 §2)", () => {
   });
 });
 
+describe("a device code at the service, asked too fast", () => {
+  it("stands as it stood when the service says slow down, and fails on any other refusal", async () => {
+    const refusals = ["slow_down", "too_many_codes"];
+    const client = {
+      clientApi: "https://api.example/client/v1",
+      fetch: (): Promise<Response> =>
+        Promise.resolve(Response.json({ code: refusals.shift(), message: "m" }, { status: 429 })),
+    };
+    expect(await deviceCodeState(client, "s")).toEqual({ state: "slowDown" });
+    await expect(deviceCodeState(client, "s")).rejects.toThrow("too_many_codes");
+  });
+});
+
 describe("a device code at the service", () => {
   it("is asked for with the key's public half, and stands as the service says, anything else ended", async () => {
     const asked: { path: string; body: unknown }[] = [];
     const answers: unknown[] = [
       { code: "abcd-efgh", secret: "s", expiresIn: 600 },
+      { state: "entered", coreId: "k7xq2", realm: "nas" },
+      { state: "activated", sealed: "x", bootstrapToken: "b", coreId: "k7xq2", realm: "nas" },
+      { state: "activated", coreId: "k7xq2" },
       { state: "entered" },
-      { state: "activated", sealed: "x", bootstrapToken: "b" },
-      { state: "activated" },
     ];
     const client = {
       clientApi: "https://api.example/client/v1",
@@ -117,13 +132,16 @@ describe("a device code at the service", () => {
       path: "https://api.example/client/v1/device-codes",
       body: { publicKey: base64url(key.publicKey), platform: "Tizen" },
     });
-    expect(await deviceCodeState(client, "s")).toEqual({ state: "entered" });
+    const claimedBy = { coreId: "k7xq2", realm: "nas" };
+    expect(await deviceCodeState(client, "s")).toEqual({ state: "entered", claimedBy });
     expect(await deviceCodeState(client, "s")).toEqual({
       state: "activated",
+      claimedBy,
       sealed: "x",
       bootstrapToken: "b",
     });
-    // An activation without its outcome is none.
+    // An activation without its outcome is none, and an entry naming no core is none either.
+    expect(await deviceCodeState(client, "s")).toEqual({ state: "ended" });
     expect(await deviceCodeState(client, "s")).toEqual({ state: "ended" });
     expect(asked[1]?.path).toBe("https://api.example/client/v1/device-codes/state");
   });

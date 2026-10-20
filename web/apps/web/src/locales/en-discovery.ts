@@ -72,6 +72,12 @@ export const enDiscovery = {
       checkExplain:
         "Your other device now shows a check code too. If it is this same code, say so there.",
       renewed: "The last code ended, so here is a new one.",
+      enteredBy: "Someone in the household {{household}} entered this code.",
+      confirm: "Sign this TV in to the household {{household}}?",
+      confirmAs: "Sign this TV in to the household {{household}} as {{person}}?",
+      join: "Yes, sign in",
+      notMine: "No, that's not mine",
+      refused: "Nothing was signed in. Go back to ask for a new code.",
       signingIn: "Activated. Opening your server…",
       failed: "No code could be had just now. Go back and try again in a minute.",
       back: "Sign in with a realm, name and password instead",

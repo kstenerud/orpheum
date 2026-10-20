@@ -202,7 +202,7 @@ describe("a signaller through a discovery", () => {
 });
 
 describe("the paths a discovery's answer names", () => {
-  it("are its direct names in its order, the LAN's told apart, and nothing it does not know", () => {
+  it("are its direct names in its order, the LAN's told apart, and nothing it does not know or another core's", () => {
     const located = locatedOf({
       coreId: "k7xq2",
       paths: [
@@ -210,6 +210,9 @@ describe("the paths a discovery's answer names", () => {
         { kind: "ipv6", url: "https://2a00-1.k7xq2.zone.example" },
         { kind: "webrtc", offer: "/cores/k7xq2/offer" },
         { kind: "lan", url: "http://plain.example" },
+        // Another core's name, and a host under no core's: never a path to this one (H1).
+        { kind: "ipv4", url: "https://v4.m3dz9.zone.example" },
+        { kind: "ipv4", url: "https://k7xq2.example" },
       ],
     });
     expect(located.directUrls).toEqual([

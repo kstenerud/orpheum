@@ -208,7 +208,15 @@ export const en = {
     noSuchCode:
       "No device is showing that code. Check it, or choose Get a code on the device again: a code lasts ten minutes.",
     tooManyCodes: "Too many codes that did not work. Wait a few minutes and try again.",
+    entryWarning:
+      "Only enter a code shown on a screen in front of you. A code someone sent you, in a message or on a call, lets their device into your account.",
     checkExplain: "{{device}} now shows a check code. This is the one it should show:",
+    asked: "It says it is {{platform}}, and asked for its code {{age}}.",
+    justNow: "just now",
+    secondsAgo: "{{count}} s ago",
+    minutesAgo: "{{count}} min ago",
+    askedLongAgo:
+      "That was a while ago. Unless you asked for this code on the device in front of you a while ago yourself, say they don't match.",
     checkCode: "Check code",
     warningHeading: "Look at the device's screen yourself.",
     warning:
