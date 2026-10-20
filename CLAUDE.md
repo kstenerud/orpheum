@@ -17,6 +17,10 @@ the `AGENTS.md` convention read the same rules. Only Claude-specific mechanics b
   `make check-documentation`, which runs no test of the code, after a documentation-only turn; the
   pre-commit hook and check-pr's tiers skip the code's tests for it too). On failure it **blocks the turn** and hands you the
   output. Fix it; don't argue with it.
+- **While `make check-pr` runs**, it runs on HEAD in its own worktree (`scripts/check_pr_snapshot.py`)
+  and holds a lock: edit freely, but `.claude/hooks/pre_bash.py` refuses tests, lints and commits
+  until it ends, and the Stop hook leaves its `make check` for the first turn after. If it fails
+  while you have worked ahead, `git stash`, fix and commit, re-run what failed, then `git stash pop`.
 - **Before an edit**, `.claude/hooks/pre_edit.py` refuses changes to a gate (configuration,
   `Makefile`, `scripts/`, hooks, allowlists, baselines, `internal/archtest/`), to generated code
   and to committed migrations, and says what to do instead. The list is

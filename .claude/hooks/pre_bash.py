@@ -285,6 +285,46 @@ def git_subcommand(words: list[str]) -> str:
     return ""
 
 
+# Make targets that run tests or lints: every gate's, whose names start so (`make help`).
+LOADING_TARGET = re.compile(r"^(?:check|spot|test|cover|lint|go-test|go-lint|go-vet|web-test|web-lint)")
+MAKE_VALUE_FLAGS = frozenset({"-C", "-f", "-j", "-l", "--directory", "--file", "--jobs"})
+# Test runners and linters run by their own names, or through npx.
+TEST_RUNNERS = frozenset({"vitest", "playwright", "golangci-lint", "pytest"})
+# The gate's scripts that run tests or probes themselves.
+GATE_SCRIPT = re.compile(r"(?:^|/)scripts/(?:check_\w+|spot_check|py_tests|web_tests|quiet_gate|revert_red_\w+)\.py$")
+
+
+def loads_the_machine(command: str) -> bool:
+    """Whether a simple command of command runs tests, a lint, or a commit (whose hook runs
+    `make check`), through ./dev or not: work that beside a running check-pr slows both and makes
+    their tests flaky (the owner, 2026-10-20)."""
+    for args, _ in simple_commands(tokens(command)):
+        words = [word for word in args if not ASSIGNMENT.match(word)]
+        while words and (words[0] in PREFIXES or Path(words[0]).name == "dev"):
+            words = words[1:]
+        if words and _runs_tests(Path(words[0]).name, words[1:]):
+            return True
+    return False
+
+
+def _runs_tests(name: str, rest: list[str]) -> bool:
+    if name == "make":
+        return any(LOADING_TARGET.match(target) for target in operands(rest, MAKE_VALUE_FLAGS))
+    if name == "git":
+        return git_subcommand(rest) == "commit"
+    if name == "go":
+        return operands(rest)[:1] in (["test"], ["vet"])
+    if name == "npm":
+        named = operands(rest, NPM_VALUE_FLAGS)
+        return named[:1] in (["test"], ["t"]) or (
+            named[:1] == ["run"] and len(named) > 1 and re.match(r"(?:test|lint|check)", named[1]) is not None)
+    if name == "npx":
+        return any(word in TEST_RUNNERS for word in operands(rest)[:1])
+    if name.startswith("python"):
+        return any(GATE_SCRIPT.search(word) for word in operands(rest))
+    return name in TEST_RUNNERS
+
+
 def hooks_installed(root: Path) -> bool:
     """Whether git runs this project's hooks in root: core.hooksPath is its .githooks, as `make setup`
     sets it, or the same directory by its absolute path, as a tool that adds a worktree rewrites it.
@@ -323,6 +363,18 @@ def main() -> None:
         )
     elif FORCE_PUSH.search(shell_text(command)):
         hooklib.deny("No force-pushes. Add a commit that fixes the problem instead.")
+    elif loads_the_machine(command) and (run := hooklib.check_pr_running()) is not None:
+        # Edits made while check-pr ran, and tests run beside it, failed its runs again and again
+        # though a written rule forbade them (the owner, 2026-10-20: "trying to remember will lead
+        # to failures"). It runs in its own tree now, so edits are fine; tests and commits wait.
+        import check_pr_snapshot  # noqa: PLC0415
+
+        hooklib.deny(
+            f"check-pr is running ({check_pr_snapshot.describe(run)}) in its own tree. This command "
+            "runs tests, a lint or a commit, which beside it slow both and make tests flaky. Edit "
+            "freely; test and commit when it ends (you are told). If it is stuck, find its processes "
+            "with `ps aux | grep '[c]heck_pr_snapshot'` and stop them."
+        )
     elif not hooklib.owner_allows("ORPHEUM_ALLOW_GATE_EDIT"):
         hits = gate_writes(command, cwd)
         if hits:

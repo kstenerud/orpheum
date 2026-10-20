@@ -262,9 +262,16 @@ CHECK_PR_BUDGET_S := 300
 check-pr: ## Branch gates against BASE, quietly (VERBOSE=1 prints all; the log is in .git/gate-logs)
 	@$(PYTHON) scripts/quiet_gate.py "make check-pr" check-pr-verbose $(if $(BASE),BASE=$(BASE))
 
+# check-pr runs on HEAD in its own worktree, holding a lock the hooks read, so the working tree stays
+# free to edit and nothing tests beside it (scripts/check_pr_snapshot.py; the owner, 2026-10-20).
+# Followed by the target and its variables, then `; fi`: outside that tree, it hands the target over,
+# with the base resolved here, in the working tree.
+CHECK_PR_IN_ITS_TREE = if [ -z "$$ORPHEUM_CHECK_PR_TREE" ]; then exec $(PYTHON) scripts/check_pr_snapshot.py
+
 .PHONY: check-pr-verbose
-check-pr-verbose: ## Branch gates against BASE (default: where the last pass ended, or the owner's mark), its tiers from the quickest, every one run to its end, revert-red's browser runs last; a pass marks HEAD as checked
-	@started="$$(date +%s)"; base="$$($(RESOLVE_BASE))"; head="$$(git rev-parse HEAD)"; \
+check-pr-verbose: ## Branch gates against BASE (default: where the last pass ended, or the owner's mark), its tiers from the quickest, every one run to its end, revert-red's browser runs last, in check-pr's own tree; a pass marks HEAD as checked
+	@base="$$($(RESOLVE_BASE))"; $(CHECK_PR_IN_ITS_TREE) check-pr-verbose BASE="$$base"; fi; \
+	  started="$$(date +%s)"; head="$$(git rev-parse HEAD)"; \
 	  if $(PYTHON) scripts/documentation_only.py --base "$$base"; then \
 	    exec $(MAKE) --no-print-directory check-pr-documentation BASE="$$base"; fi; \
 	  state="$$(git rev-parse --git-common-dir)/check-pr/tree-state"; mkdir -p "$$(dirname "$$state")"; \
@@ -292,8 +299,8 @@ check-pr-verbose: ## Branch gates against BASE (default: where the last pass end
 
 # The loop's re-run: never a pass of check-pr, which is still required before a branch is done.
 .PHONY: check-pr-failed
-check-pr-failed: ## Re-run only the check-pr steps that failed last time (revert-red: only its failed files); then run the full check-pr
-	@base="$$($(RESOLVE_BASE))"; \
+check-pr-failed: ## Re-run only the check-pr steps that failed last time (revert-red: only its failed files), in check-pr's own tree; then run the full check-pr
+	@base="$$($(RESOLVE_BASE))"; $(CHECK_PR_IN_ITS_TREE) check-pr-failed BASE="$$base"; fi; \
 	  if $(PYTHON) scripts/documentation_only.py --base "$$base"; then \
 	    exec $(MAKE) --no-print-directory check-pr-documentation BASE="$$base"; fi; \
 	  $(PYTHON) scripts/check_pr_steps.py rerun --base "$$base" --jobs $(CHECK_JOBS) \
