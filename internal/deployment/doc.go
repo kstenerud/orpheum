@@ -25,9 +25,13 @@
 //     none), so several deployments, each with its own key, share one VPS (D292 §7); the tunnel and
 //     TURN take it from there. TestWrite_ADeploymentTakesItsOwnTunnelAddressesForTheTunnelAndTURN.
 //   - A values file naming no VPS writes a deployment with no tunnel (D314 §3): the core
-//     publishes its own ports, serves no relay, and asks for nothing but the media; a tunnel half
-//     described is a problem, not no tunnel. TestWrite_ACoreWithNoTunnelPublishesItsOwnPortsAndServesNoRelay,
+//     publishes its own ports, serves no relay, and asks for nothing but the media and the address
+//     at home; a tunnel half described is a problem, not no tunnel.
+//     TestWrite_ACoreWithNoTunnelPublishesItsOwnPortsAndServesNoRelay,
 //     TestValues_ATunnelHalfDescribedIsAProblemNotNoTunnel.
+//   - The address at home is required, and its /24 is the only home network an admin administers
+//     from: no private range stands in for it (the Plex-chain review's L1).
+//     TestWrite_TheCoreAdministersOnlyFromTheHousesNetwork.
 //   - Keys and the configs naming one are readable by their owner alone.
 //     TestWrite_RewritesTheFilesAndKeepsTheValuesAndKeys.
 //
