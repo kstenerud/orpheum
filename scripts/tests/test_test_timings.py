@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# ABOUTME: Tests for the browser timings reader: the latest pass's slowest tests, against their median
-# ABOUTME: over the passes kept before it, each with its longest steps.
+# ABOUTME: Tests for the timings reader: the latest pass's slowest tests and files, against their median
+# ABOUTME: over the passes kept before it, each test with its longest steps.
 import json
 import sys
 import tempfile
@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import browser_timings  # noqa: E402
+import test_timings  # noqa: E402
 
 
 def a_pass(started: str, guest_ms: int) -> dict:
@@ -29,15 +29,25 @@ class Report(unittest.TestCase):
                                ("2026-10-20T10-00-00.000Z", 15000)):
             (directory / f"{started}-side-by-side.json").write_text(json.dumps(a_pass(started, guest)))
         (directory / "2026-10-20T11-00-00.000Z-timed.json").write_text(json.dumps(a_pass("t", 99000)))
-        lines = browser_timings.report(browser_timings.passes(directory, "side-by-side"), top=1, steps=1)
+        lines = test_timings.report(test_timings.passes(directory, "side-by-side"), top=1, steps=1)
         self.assertIn("medians over the 2 passes before it", lines[0])
         self.assertEqual(lines[1], "  15.0 s  (median   5.0 s)  [firefox] together.spec.ts:70 a guest joins")
         self.assertEqual(lines[2], "             14.5 s  expect: Expect \"poll toBe\"")
         self.assertEqual(len(lines), 3)
 
     def test_with_nothing_kept_it_says_where_timings_come_from(self):
-        lines = browser_timings.report([], top=10, steps=5)
-        self.assertIn("web/e2e/timings.ts", lines[0])
+        lines = test_timings.report([], top=10, steps=5)
+        self.assertIn("web/e2e/test-timings.ts", lines[0])
+
+
+class Files(unittest.TestCase):
+    def test_a_suite_that_keeps_its_files_lists_the_slowest_with_their_loading(self):
+        run = {"startedAt": "2026-10-20T10-00-00.000Z", "pass": "run", "ms": 9000, "tests": [],
+               "files": [{"file": "src/play.test.tsx", "project": "vitest", "ms": 4200, "loadMs": 3100},
+                         {"file": "src/quick.test.ts", "project": "vitest", "ms": 100}]}
+        lines = test_timings.report([run], top=1, steps=0)
+        self.assertEqual(lines[1:], ["Slowest files, their loading and setup included:",
+                                     "   4.2 s  (no earlier pass, loading 3.1 s)  [vitest] src/play.test.tsx"])
 
 
 if __name__ == "__main__":

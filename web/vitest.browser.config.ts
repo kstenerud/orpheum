@@ -5,6 +5,7 @@ import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
 
 import { chromiumArguments, firefoxUserPrefs } from "./e2e/browsers.ts";
+import { VitestTimings } from "./e2e/vitest-timings.ts";
 
 /**
  * The browser-mode tests (*.browser.test.tsx): what only a real engine does (layout, a stylesheet,
@@ -20,6 +21,8 @@ export default defineConfig({
     passWithNoTests: false,
     testTimeout: 15_000,
     fsModuleCache: true,
+    // The list as it runs, and every test's and file's timings kept (e2e/vitest-timings.ts).
+    reporters: ["default", new VitestTimings({ suite: "vitest-browser" })],
     // A failure's screenshot, beside the browser tier's results and ignored by git.
     attachmentsDir: "../.dev/browser-mode-results",
     browser: {

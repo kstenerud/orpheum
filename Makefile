@@ -42,6 +42,10 @@ export PATH := $(TOOLS_BIN):$(GOPATH_BIN)$(PATH)
 # its own source's path (internal/testutil finds go.mod instead). dev-debug clears it for Delve.
 export GOFLAGS := $(strip $(GOFLAGS) -trimpath)
 
+# A Go suite's run keeps its timings, each test's and package's, always (scripts/go_test_timings.py,
+# web/e2e/test-timings.ts; the owner, 2026-10-20): it reads `go test -json` and prints go test's own text.
+GO_TIMINGS = $(PYTHON) scripts/go_test_timings.py
+
 .PHONY: help
 help: ## List the targets
 	@grep -E '^[a-z][a-z-]*:.*## ' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*## "} {printf "  %-22s %s\n", $$1, $$2}'
@@ -171,9 +175,9 @@ DEV_ONLY_TESTS = $(shell grep -l '^//go:build dev$$' cmd/*/*_test.go 2>/dev/null
 .PHONY: go-test
 go-test: ## Unit and architecture tests, for the release build and the dev build's own
 	@$(UNCONTROLLED)
-	@$(HERMETIC) go test ./...
+	@$(HERMETIC) go test -json ./... | $(GO_TIMINGS) go
 	@test -n '$(DEV_ONLY_TESTS)' || { echo "go-test: no test file builds only with -tags dev; the dev pass would test nothing"; exit 1; }
-	@$(HERMETIC) go test -tags dev -run '^($(DEV_ONLY_TESTS))$$' ./cmd/...
+	@$(HERMETIC) go test -json -tags dev -run '^($(DEV_ONLY_TESTS))$$' ./cmd/... | $(GO_TIMINGS) go-dev
 
 .PHONY: go-tidy
 go-tidy: ## Fail if go.mod or go.sum is not tidy
@@ -433,7 +437,8 @@ test-integration-run:
 	@$(UNCONTROLLED)
 	@test -n '$(INTEGRATION_ONLY_TESTS)' || { echo "test-integration: no test file builds only with -tags integration; the tier would test nothing"; exit 1; }
 	@$(HERMETIC) ORPHEUM_TEST_FFMPEG_DIR="$(FFMPEG_DIR)" ORPHEUM_TEST_MKVTOOLNIX_DIR="$(MKVTOOLNIX_DIR)" \
-		go test -tags integration -count=1 -run '^($(INTEGRATION_ONLY_TESTS))$$' $(INTEGRATION_PACKAGES)
+		go test -json -tags integration -count=1 -run '^($(INTEGRATION_ONLY_TESTS))$$' $(INTEGRATION_PACKAGES) | \
+		$(GO_TIMINGS) go-integration
 
 .PHONY: test-browser
 # Within check-pr (a BASE given), the tier is skipped when nothing it builds or runs changed: docs,

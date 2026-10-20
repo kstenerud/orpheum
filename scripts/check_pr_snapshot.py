@@ -35,10 +35,14 @@ from pathlib import Path
 
 import revert_red_trees
 
+# Where every suite keeps its timings (web/e2e/test-timings.ts), made in the working tree if it is not
+# there yet, so check-pr's runs, the slow ones, are kept where the working tree reads them.
+TIMINGS = ".dev/test-timings"
 # Set, to the tree's path, in the environment of the make that runs in check-pr's tree.
 IN_TREE = "ORPHEUM_CHECK_PR_TREE"
-# What a fresh checkout lacks and check-pr's steps read: ignored, so the tree keeps the links.
-SHARED = (".tools", ".dev/browser-map", ".dev/browser-films")
+# What a fresh checkout lacks and check-pr's steps read, or write for the working tree to read (every
+# suite's timings): ignored, so the tree keeps the links.
+SHARED = (".tools", ".dev/browser-map", ".dev/browser-films", TIMINGS)
 # The make variables of the make that ran this one, which name its jobserver's descriptors.
 MAKE_STATE = ("MAKEFLAGS", "MFLAGS", "MAKELEVEL", "MAKEOVERRIDES")
 
@@ -114,6 +118,7 @@ def main(argv: list[str]) -> int:
         tree = folder / "tree"
         began = time.monotonic()
         revert_red_trees.set_kept_tree(source, tree, head)
+        (source / TIMINGS).mkdir(parents=True, exist_ok=True)
         link_shared(source, tree)
         print(f"check-pr: checking {head[:12]} in its own tree, {tree}, set up in "
               f"{time.monotonic() - began:.0f} s (not in check-pr's own time); the working tree is free to "

@@ -6,7 +6,8 @@ import path from "node:path";
 import type { FullResult, TestCase, TestResult, TestStep } from "@playwright/test/reporter";
 import { afterEach, describe, expect, it } from "vitest";
 
-import Timings, { keepNewest, keptPasses } from "./timings.ts";
+import { keepNewest, keptPasses } from "./test-timings.ts";
+import Timings from "./timings.ts";
 
 const scratches: string[] = [];
 
@@ -41,7 +42,7 @@ interface KeptPass {
 describe("the browser tier's timings (the owner, 2026-10-20)", () => {
   it("keeps each test's time and its long steps, however deep, with the pass they ran in", () => {
     const directory = scratch();
-    const reporter = new Timings({ pass: "side-by-side", directory });
+    const reporter = new Timings({ root: directory });
     const test = {
       title: "a guest joins",
       parent: { project: () => ({ name: "firefox" }) },
@@ -60,9 +61,11 @@ describe("the browser tier's timings (the owner, 2026-10-20)", () => {
     reporter.onTestEnd(test, result);
     reporter.onEnd({ status: "passed", duration: 16_000 } as FullResult);
 
-    const [written] = readdirSync(directory);
+    const [written] = readdirSync(path.join(directory, "browser"));
     expect(written).toMatch(/-side-by-side\.json$/u);
-    const kept = JSON.parse(readFileSync(path.join(directory, written ?? ""), "utf8")) as KeptPass;
+    const kept = JSON.parse(
+      readFileSync(path.join(directory, "browser", written ?? ""), "utf8"),
+    ) as KeptPass;
     expect(kept.pass).toBe("side-by-side");
     expect(kept.tests).toEqual([
       {

@@ -3,6 +3,8 @@
 import react from "@vitejs/plugin-react";
 import { configDefaults, defineConfig } from "vitest/config";
 
+import { VitestTimings } from "./e2e/vitest-timings.ts";
+
 export default defineConfig({
   plugins: [react()],
   test: {
@@ -22,5 +24,7 @@ export default defineConfig({
     // whole module graph afresh, and revert-red's 54 runs of the related tests took 38 s each, most of
     // it that (check-pr's timings, 2026-10-13).
     fsModuleCache: true,
+    // The list as it runs, and every test's and file's timings kept (e2e/vitest-timings.ts).
+    reporters: ["default", new VitestTimings({ suite: "vitest" })],
   },
 });
