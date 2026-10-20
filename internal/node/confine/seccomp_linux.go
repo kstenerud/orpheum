@@ -22,21 +22,18 @@ func deniedSyscalls() []uint32 {
 		unix.SYS_KEYCTL, unix.SYS_ADD_KEY, unix.SYS_REQUEST_KEY,
 		unix.SYS_INIT_MODULE, unix.SYS_FINIT_MODULE, unix.SYS_DELETE_MODULE, unix.SYS_KEXEC_LOAD,
 		unix.SYS_OPEN_BY_HANDLE_AT, unix.SYS_REBOOT, unix.SYS_SWAPON, unix.SYS_SWAPOFF, unix.SYS_ACCT,
+		// No socket of any family, a Unix one included: a run reads files and pipes alone (execx), so
+		// it talks to no network and, beside it, to none of the node's or the core's sockets, which a
+		// decoder bug could otherwise reach past Landlock, which governs no connect(2) to a named
+		// socket (the Plex-chain review's N1, 2026-10-20).
+		unix.SYS_SOCKET, unix.SYS_SOCKETPAIR,
 	}
 }
 
-// deniedSocketFamilies are the address families a run may not open a socket in: no FFmpeg run
-// talks to a network (cut-a §7).
-func deniedSocketFamilies() []uint32 {
-	return []uint32{unix.AF_INET, unix.AF_INET6, unix.AF_PACKET}
-}
-
-// Offsets into struct seccomp_data: the syscall's number, its architecture, and its first
-// argument's low 32 bits on a little-endian machine.
+// Offsets into struct seccomp_data: the syscall's number and its architecture.
 const (
-	offsetNumber   = 0
-	offsetArch     = 4
-	offsetArgument = 16
+	offsetNumber = 0
+	offsetArch   = 4
 )
 
 // seccompState is seccomp's state on this machine: whether the kernel filters system calls.
@@ -65,7 +62,7 @@ func seccompState() State {
 }
 
 // denylist is the filter: another architecture's system calls are refused whole, and each denied
-// system call, and a socket in a denied family, fails with EPERM; everything else is allowed.
+// system call fails with EPERM; everything else is allowed.
 func denylist() []unix.SockFilter {
 	deny := unix.SockFilter{Code: unix.BPF_RET | unix.BPF_K, K: unix.SECCOMP_RET_ERRNO | uint32(unix.EPERM)}
 	allowAll := unix.SockFilter{Code: unix.BPF_RET | unix.BPF_K, K: unix.SECCOMP_RET_ALLOW}
@@ -85,15 +82,6 @@ func denylist() []unix.SockFilter {
 	program = append(program, refuseForeignCalls()...)
 	for _, number := range deniedSyscalls() {
 		program = append(program, equal(number), deny)
-	}
-	// A socket(2) call goes on to its family; every other call is allowed.
-	program = append(program,
-		unix.SockFilter{Code: unix.BPF_JMP | unix.BPF_JEQ | unix.BPF_K, K: unix.SYS_SOCKET, Jt: 1, Jf: 0},
-		allowAll,
-		load(offsetArgument),
-	)
-	for _, family := range deniedSocketFamilies() {
-		program = append(program, equal(family), deny)
 	}
 	return append(program, allowAll)
 }

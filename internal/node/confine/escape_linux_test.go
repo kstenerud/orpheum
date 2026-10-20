@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"slices"
@@ -66,6 +67,21 @@ func attemptEscape(what string, arguments []string) string {
 		socket, err = syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
 		if err == nil {
 			_ = syscall.Close(socket) //nolint:errcheck // closing a probe
+		}
+	case "unix-connect":
+		// The node's and the core's sockets are named Unix sockets, which Landlock does not guard.
+		var socket int
+		socket, err = syscall.Socket(syscall.AF_UNIX, syscall.SOCK_STREAM, 0)
+		if err == nil {
+			err = syscall.Connect(socket, &syscall.SockaddrUnix{Name: arguments[0]})
+			_ = syscall.Close(socket) //nolint:errcheck // closing a probe
+		}
+	case "unix-pair":
+		var pair [2]int
+		pair, err = syscall.Socketpair(syscall.AF_UNIX, syscall.SOCK_STREAM, 0)
+		if err == nil {
+			_ = syscall.Close(pair[0]) //nolint:errcheck // closing a probe
+			_ = syscall.Close(pair[1]) //nolint:errcheck // closing a probe
 		}
 	}
 	if err != nil {
@@ -153,14 +169,18 @@ func TestEscape_AConfinedToolReadsAndWritesOnlyWhatItWasGivenAndOpensNoNetwork(t
 	}
 	output := t.TempDir()
 	access := confine.Access{Read: []string{source}, Write: []string{output}}
+	listening := listenUnix(t, filepath.Join(elsewhere, "core.sock"))
 	for _, check := range []struct {
 		what      string
 		arguments []string
 	}{
 		{"read", []string{secret}},
 		{"write", []string{filepath.Join(elsewhere, "planted.txt")}},
-		// Refused by our seccomp filter alone: Landlock limits TCP's connect and bind, not the socket.
+		// Refused by our seccomp filter alone: Landlock limits TCP's connect and bind, not the socket,
+		// and governs no connect(2) to a named Unix socket, as the core's and the node's are (N1).
 		{"inet-socket", nil},
+		{"unix-connect", []string{listening}},
+		{"unix-pair", nil},
 	} {
 		if got := attemptUnconfined(t, check.what, check.arguments...); got != "allowed" {
 			t.Fatalf("unconfined, %s %v: %s; want allowed, so the refusal below is ours (D190 §3)",
@@ -227,4 +247,25 @@ func lookPath(tool string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("no %s in /usr/bin or /bin", tool)
+}
+
+// listenUnix listens on a Unix socket at path, as the core's node socket does, accepting and
+// closing what connects until the test ends, and returns path.
+func listenUnix(t *testing.T, path string) string {
+	t.Helper()
+	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "unix", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = listener.Close() }) //nolint:errcheck // the test's own listener
+	go func() {
+		for {
+			connection, acceptErr := listener.Accept()
+			if acceptErr != nil {
+				return
+			}
+			_ = connection.Close() //nolint:errcheck // a probe's connection
+		}
+	}()
+	return path
 }

@@ -21,7 +21,8 @@
 //   - Imports nothing from internal/core. Enforced by the depguard rule node-boundary and
 //     TestArch_NodeNeverImportsCore.
 //   - A confined run reads and writes only what its Access names, beside its tool and the
-//     system's libraries, and opens no internet socket; each refusal is first shown to succeed
+//     system's libraries, and opens no socket of any family, the node's and the core's Unix sockets
+//     among them (N1); each refusal is first shown to succeed
 //     unconfined (D112, D190 §3). Enforced by
 //     TestEscape_AConfinedToolReadsAndWritesOnlyWhatItWasGivenAndOpensNoNetwork, and for a
 //     dynamically linked tool, as FFmpeg is, by
