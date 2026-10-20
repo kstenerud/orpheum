@@ -8,19 +8,14 @@ import (
 	"net/netip"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
 )
 
-// DiscoveryConfig is how long the core waits before calling its discovery again after a call
-// failed, or before dialling its signalling connection again after it dropped: the first wait, each
-// failure in a row doubling it to the most, every wait jittered (the discovery protocol's §2; C7).
-// The development stack keeps the most near a second, so a restart of its discovery has the core
-// back within about two (D292 §9).
+// DiscoveryConfig is what reaches the core that its discovery is told of: addresses the machine does
+// not hold. How long the core waits between its calls are settings (discovery_retry_*_seconds; the
+// constants sweep, 2026-10-20).
 type DiscoveryConfig struct {
-	RetryFirstMilliseconds int64 `toml:"retry_first_milliseconds"`
-	RetryMostMilliseconds  int64 `toml:"retry_most_milliseconds"`
 	// ConfiguredAddresses are public addresses that reach the core which the machine does not hold,
 	// "address:port": the admin's port-forward, or their own VPS through its tunnel, sent to the
 	// discovery as configured candidates (the protocol's §2.4; discovery-core.md K5; N11).
@@ -90,20 +85,9 @@ func (webrtc WebRTCConfig) check() error {
 	return errors.Join(problems...)
 }
 
-// retries are the waits as the discovery service takes them.
-func (discovery DiscoveryConfig) retries() (first, most time.Duration) {
-	return time.Duration(discovery.RetryFirstMilliseconds) * time.Millisecond,
-		time.Duration(discovery.RetryMostMilliseconds) * time.Millisecond
-}
-
-// check refuses waits that are not waits, a most shorter than the first, and a configured address
-// that is not a public address with a port: a private one is the machine's own, sent already.
+// check refuses a configured address that is not a public address with a port: a private one is the
+// machine's own, sent already.
 func (discovery DiscoveryConfig) check() error {
-	if discovery.RetryFirstMilliseconds < 1 || discovery.RetryMostMilliseconds < discovery.RetryFirstMilliseconds {
-		return fmt.Errorf("discovery.retry_first_milliseconds %d and discovery.retry_most_milliseconds %d: want "+
-			"the first at least 1, and the most at least the first", discovery.RetryFirstMilliseconds,
-			discovery.RetryMostMilliseconds)
-	}
 	for _, configured := range discovery.ConfiguredAddresses {
 		endpoint, err := netip.ParseAddrPort(configured)
 		if err != nil || endpoint.Port() == 0 || !discoveryproto.IsPublic(endpoint.Addr()) {

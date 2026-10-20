@@ -45,6 +45,7 @@ roles = ["user"]                     # D243 §4: the partner's role reaches it; 
 should_check_for_updates = false
 should_serve_debug_pprof = true       # /debug/pprof on the listen address, loopback only (D91: off to start with)
 should_serve_debug_metrics = true     # /metrics (D91); not built yet, and the log says so
+discovery_retry_most_seconds = 1     # a restart of the dev discovery has the core back within about two seconds (D292 §9)
 
 # Secrets are not seeded. To try TMDB or OpenSubtitles in dev, export ORPHEUM_DEV_TMDB_KEY or
 # ORPHEUM_DEV_OPENSUBTITLES_USERNAME and _PASSWORD before `make dev`; the seed seals whichever are

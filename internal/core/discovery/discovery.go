@@ -93,12 +93,8 @@ type Parts struct {
 	// OnClaimed is told when the discovery has claimed the core, or moved it to another zone: its
 	// certificate's name (Status.CertificateName) is then known. Nil tells nothing.
 	OnClaimed func(ctx context.Context)
-	// RetryFirst is the wait after a call failed, or the signalling connection dropped; each failure
-	// in a row doubles it, to RetryMost, every wait jittered from Random, so a discovery's restart is
-	// not met by every core at once (the protocol's §2; C7). The config's discovery table sets both;
-	// the development stack keeps RetryMost near a second (D292 §9).
-	RetryFirst, RetryMost time.Duration
-	Random                io.Reader
+	// Random jitters the retry waits (the protocol's §2; C7).
+	Random io.Reader
 	// OfferKey is the key an offer passed on under hash is proven under: a live session's, by its
 	// locator's hash, or a live link's, by its locate hash (auth.Service.OfferKey; the protocol's §2.5
 	// item 3). Nil proves none, and every offer is refused.
@@ -583,11 +579,13 @@ func (service *Service) failed(ctx context.Context, what string, err error) time
 }
 
 // retryWait is the wait after a failure that followed earlier ones in a row, as many as earlier
-// counts: RetryFirst doubled for each, to RetryMost, jittered.
+// counts: discovery_retry_first_seconds doubled for each, to discovery_retry_most_seconds, jittered
+// from Random, so a discovery's restart is not met by every core at once. A most below the first
+// waits the first.
 func (service *Service) retryWait(ctx context.Context, earlier int64) time.Duration {
-	most := service.parts.RetryMost
-	wait, err := backoff.Jittered(service.parts.Random, backoff.Doubled(service.parts.RetryFirst, most, earlier),
-		most, retryJitter)
+	first := service.wait(ctx, settings.DiscoveryRetryFirstSeconds)
+	most := max(service.wait(ctx, settings.DiscoveryRetryMostSeconds), first)
+	wait, err := backoff.Jittered(service.parts.Random, backoff.Doubled(first, most, earlier), most, retryJitter)
 	if err != nil {
 		service.parts.Logger.WarnContext(ctx, "discovery: could not jitter a retry's wait", "err", err)
 	}

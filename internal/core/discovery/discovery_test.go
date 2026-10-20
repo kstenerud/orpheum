@@ -99,9 +99,9 @@ func (built *world) restart(t *testing.T) *Service {
 	service, err := New(Parts{
 		Files: built.files, Key: built.key, HTTP: &http.Client{}, Clock: built.clock,
 		Logger: slog.New(slog.DiscardHandler), Version: "v0.1.0", APIMajor: 1,
-		Candidates: func() []discoveryproto.Candidate { return built.candidates },
-		OnClaimed:  func(context.Context) { built.claimedCount.Add(1) },
-		RetryFirst: time.Second, RetryMost: time.Minute, Random: unjittered{},
+		Candidates:     func() []discoveryproto.Candidate { return built.candidates },
+		OnClaimed:      func(context.Context) { built.claimedCount.Add(1) },
+		Random:         unjittered{},
 		ProbeNonce:     func() (string, error) { return fmt.Sprintf("probe-%d", built.probeNonces.Add(1)), nil },
 		HasCertificate: built.hasCertificate.Load,
 	})

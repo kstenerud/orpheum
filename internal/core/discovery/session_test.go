@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
@@ -62,8 +63,11 @@ func TestStep_AFailedCallWaitsLongerEachTimeInARowAndASuccessStartsOver(t *testi
 func TestRetryWait_TwoCoresWaitDifferentlyAndNeverPastTheMost(t *testing.T) {
 	t.Parallel()
 	waitOf := func(random byte, failures int64) time.Duration {
+		waits := byKey{}
+		waits[settings.DiscoveryRetryFirstSeconds] = time.Second
+		waits[settings.DiscoveryRetryMostSeconds] = time.Minute
 		service := &Service{parts: Parts{
-			RetryFirst: time.Second, RetryMost: time.Minute, Logger: slog.New(slog.DiscardHandler),
+			Logger: slog.New(slog.DiscardHandler), Settings: waits,
 			Random: bytes.NewReader(bytes.Repeat([]byte{random}, 8)),
 		}}
 		return service.retryWait(t.Context(), failures)
@@ -75,6 +79,31 @@ func TestRetryWait_TwoCoresWaitDifferentlyAndNeverPastTheMost(t *testing.T) {
 	}
 	if most := waitOf(0xff, 30); most != time.Minute {
 		t.Errorf("after thirty failures the wait was %s; want the most, a minute", most)
+	}
+}
+
+// The retry waits are settings, the first at least a second (the registry's bounds), and a most set
+// below the first waits the first: they were the config file's, which refused such a pair, until the
+// constants sweep (2026-10-20).
+func TestRetryWait_AMostBelowTheFirstWaitsTheFirst(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		first, most, want time.Duration
+	}{
+		{time.Second, 300 * time.Second, 300 * time.Second},
+		{time.Second, time.Second, time.Second},
+		{2 * time.Second, time.Second, 2 * time.Second},
+	} {
+		waits := byKey{}
+		waits[settings.DiscoveryRetryFirstSeconds] = tc.first
+		waits[settings.DiscoveryRetryMostSeconds] = tc.most
+		service := &Service{parts: Parts{Logger: slog.New(slog.DiscardHandler), Settings: waits, Random: unjittered{}}}
+		if wait := service.retryWait(t.Context(), 30); wait != tc.want {
+			t.Errorf("first %s, most %s: thirty failures in a row waited %s; want %s", tc.first, tc.most, wait, tc.want)
+		}
+	}
+	if definition, _ := settings.Lookup(settings.DiscoveryRetryFirstSeconds); definition.Minimum != 1 {
+		t.Errorf("discovery_retry_first_seconds may be %d; want a wait of at least a second", definition.Minimum)
 	}
 }
 

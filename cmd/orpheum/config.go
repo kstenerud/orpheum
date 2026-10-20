@@ -318,15 +318,6 @@ func coreConfigKeys() []configKey {
 		{tableTURN, "relay_port_min", "49160", "the least UDP port relayed voice flows through (D243 §8)"},
 		{tableTURN, "relay_port_max", "49199", "the greatest UDP port relayed voice flows through (D243 §8)"},
 		{
-			tableDiscovery, "retry_first_milliseconds", "1000",
-			"the wait before calling the discovery again after a failed call, or dialling its signalling " +
-				"connection again after it dropped; each failure in a row doubles it, jittered",
-		},
-		{
-			tableDiscovery, "retry_most_milliseconds", "300000",
-			"the longest a retry of a call to the discovery waits; the development stack keeps it near a second",
-		},
-		{
 			tableDiscovery, "configured_addresses", "[]",
 			"public addresses that reach the core which the machine does not hold, \"address:port\": a " +
 				"port-forward, or the VPS's addresses through its tunnel; the discovery publishes them",
