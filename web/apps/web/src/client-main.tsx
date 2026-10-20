@@ -15,26 +15,20 @@ import {
   reportFailure,
   SwitchableFetch,
   type Api,
-  type OpenTogetherSocket,
 } from "@orpheum/sdk";
 import { StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
-import { builtScriptOf, ownScriptOf, pageUpdateWatch } from "./app-update.ts";
+import { ownScriptOf, pageUpdateWatch } from "./app-update.ts";
 import { App } from "./app.tsx";
+import { reachesUnderLoader, type Reaches } from "./client-reaches.ts";
 import { removeLeftOverKeys } from "./client-keys.ts";
 import { storageIfAllowed } from "./browser-storage.ts";
 import { sendFailuresToCore } from "./failure-reports.ts";
-import { loaderConfigOf } from "./loader-config.ts";
 import { loaderOf, loaderRefusal, type OrpheumLoader } from "./loader-interface.ts";
 import { createNavigation } from "./navigation.ts";
 import { i18n } from "./i18n.ts";
-import {
-  createPathMoves,
-  pathMovesHeardFrom,
-  ServicesContext,
-  type PathMoves,
-} from "./services.tsx";
+import { createPathMoves, ServicesContext } from "./services.tsx";
 import { createSession, type Session } from "./session.ts";
 import { checkSessionWhileShown, watchForSignOut } from "./signed-out-watch.ts";
 import { mediaCredentialsOf } from "./together-playback.ts";
@@ -50,30 +44,6 @@ if (rootElement === null) {
 keepPageAudio(document);
 const navigation = createNavigation(window);
 const root = createRoot(rootElement);
-
-/** How the app reaches its core: what its requests are sent by, and the session socket's opener. */
-interface Reaches {
-  readonly fetch: (request: Request) => Promise<Response>;
-  readonly openTogetherSocket: OpenTogetherSocket;
-  readonly pathMoves: PathMoves;
-  /** The page's own client script, which the core's answers are compared with for an update. */
-  readonly ownScript: string | undefined;
-  readonly realm?: string | undefined;
-  readonly switchHousehold?: (() => void) | undefined;
-  readonly codeAddress?: string | undefined;
-  readonly onLocalNetworkAsking?:
-    ((listener: (isAsking: boolean) => void) => () => void) | undefined;
-}
-
-/**
- * Where a TV asks for a code under a discovery's loader: the loader's host, from the page the loader
- * served this client in, so a remote types it (the owner, 2026-10-20: the client origin's 26
- * characters are not); undefined when the page names none.
- */
-function codeAddressOf(page: Document): string | undefined {
-  const origin = loaderConfigOf(page)?.loaderOrigin;
-  return origin === undefined ? undefined : new URL(origin).host;
-}
 
 /** Mounts the app over session on root, its requests sent as reaches says. */
 function mountApp(session: Session, reaches: Reaches, mountedOn: Root): Api {
@@ -148,22 +118,8 @@ function mountOnOwnOrigin(): void {
  * client origin (D308): every request, the session socket and the media go the loader's way.
  */
 function mountUnderLoader(loader: OrpheumLoader): void {
-  const pathMoves = pathMovesHeardFrom(loader.onPathMove);
   loader.setMediaCredentials(mediaCredentialsOf(loader.session));
-  mountApp(
-    loader.session,
-    {
-      fetch: loader.fetch,
-      openTogetherSocket: loader.openTogetherSocket,
-      pathMoves,
-      ownScript: builtScriptOf(document),
-      realm: loader.core.realm,
-      switchHousehold: loader.switchHousehold,
-      codeAddress: codeAddressOf(document),
-      onLocalNetworkAsking: loader.onLocalNetworkAsking,
-    },
-    root,
-  );
+  mountApp(loader.session, reachesUnderLoader(loader, document), root);
 }
 
 // What an older release kept, and no part of this one reads, goes (the owner, 2026-10-17).
