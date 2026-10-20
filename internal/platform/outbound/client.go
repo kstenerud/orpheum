@@ -11,7 +11,7 @@ import (
 // NewClient returns a client for requests to other hosts, each bounded by timeout and each
 // saying it comes from Orpheum at version (D213 §6). It starts from Go's default transport for
 // its connection limits and HTTP/2 support, and drops the proxy that transport would read from
-// the environment (D204).
+// the environment (D204). It follows a redirect only to the same origin (sameOriginOnly).
 func NewClient(timeout time.Duration, version string) (*http.Client, error) {
 	base, ok := http.DefaultTransport.(*http.Transport)
 	if !ok {
@@ -20,7 +20,25 @@ func NewClient(timeout time.Duration, version string) (*http.Client, error) {
 	transport := base.Clone()
 	transport.Proxy = nil
 	identified := userAgentTransport{Transport: transport, userAgent: "Orpheum/" + version}
-	return &http.Client{Transport: identified, Timeout: timeout}, nil
+	return &http.Client{Transport: identified, Timeout: timeout, CheckRedirect: sameOriginOnly}, nil
+}
+
+// maxRedirects is how many redirects a request follows, as Go's own client does.
+const maxRedirects = 10
+
+// sameOriginOnly follows a redirect within the first request's scheme, host and port, and stops at
+// one to anywhere else, handing back the redirect itself: Go carries a request's own headers on, so
+// OpenSubtitles' Api-Key would go wherever a provider, or whoever answers in its place, sent it (the
+// Plex-chain review's O1).
+func sameOriginOnly(request *http.Request, via []*http.Request) error {
+	first := via[0].URL
+	if request.URL.Scheme != first.Scheme || request.URL.Host != first.Host {
+		return http.ErrUseLastResponse
+	}
+	if len(via) >= maxRedirects {
+		return fmt.Errorf("stopped after %d redirects", maxRedirects)
+	}
+	return nil
 }
 
 // userAgentTransport sends every request with our User-Agent: a provider's terms ask an application
