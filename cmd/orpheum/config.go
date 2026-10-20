@@ -268,9 +268,11 @@ func serverConfigKeys() []configKey {
 		{tableServer, "shutdown_grace_seconds", "10", "seconds in-flight requests get to finish when the server stops"},
 		{
 			tableServer, "home_networks",
-			`["127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"]`,
+			`["192.168.0.0/16"]`,
 			"the networks an admin administers from, reaching the server directly rather than over WebRTC; " +
-				"a deployment names its house's alone, so that its tunnel's never counts (D297)",
+				"a deployment names its house's alone, so that its tunnel's never counts (D297). Loopback, " +
+				"Docker's 172.16.0.0/12, 10.0.0.0/8 and ULAs are left out: a reverse proxy, docker-proxy or a " +
+				"tunnel would make the internet look like home (the Plex-chain review's L1)",
 		},
 	}
 }

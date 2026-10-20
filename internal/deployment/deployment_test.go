@@ -34,6 +34,8 @@ public_ipv4 = "203.0.113.7"
 public_key = "`+vpsKey+`"
 [media]
 roots = ["/mnt/tank/media/video/movies", "/srv/a \"b\""]
+[lan]
+address = "192.168.1.20"
 `, "nas")
 	if err != nil {
 		t.Fatal(err)
@@ -97,8 +99,9 @@ func TestValues_TheTemplateAsBegunSaysWhatToFillInAndNothingElse(t *testing.T) {
 	for _, problem := range values.Problems() {
 		keys = append(keys, strings.Fields(problem)[0])
 	}
-	// A household with no VPS gives only its media (D314 §3).
-	want := []string{"media.roots:"}
+	// A household with no VPS gives only its media (D314 §3) and its address at home, which the install
+	// script fills in where it can tell it (the Plex-chain review's L1).
+	want := []string{"media.roots:", "lan.address"}
 	if !slices.Equal(keys, want) {
 		t.Errorf("a begun values file needs %v; want %v: what the owner fills in, and nothing else", keys, want)
 	}
@@ -540,8 +543,9 @@ func TestNewKeyPair_IsAClampedX25519PairAsWgMakesOne(t *testing.T) {
 }
 
 // The house's network, the LAN address's /24, is where the deployed core's admin administers from,
-// never the tunnel's 10.77.0.0/24; with no LAN address, the private ranges a home router gives, which
-// leave the tunnel's out (D297 §6).
+// never the tunnel's 10.77.0.0/24 (D297 §6). With no LAN address no network is home, and the values
+// name the address as a problem: a private range in its place took in Docker's networks, through which
+// a port published by docker-proxy comes from the internet (the Plex-chain review's L1).
 func TestWrite_TheCoreAdministersOnlyFromTheHousesNetwork(t *testing.T) {
 	t.Parallel()
 	dir := begun(t, Staging)
@@ -555,12 +559,11 @@ func TestWrite_TheCoreAdministersOnlyFromTheHousesNetwork(t *testing.T) {
 		t.Errorf("the core's server.home_networks are %s; want the house's /24", got)
 	}
 	values.LAN.Address = ""
-	if err := Write(dir, values, runtime); err != nil {
-		t.Fatal(err)
+	if got := values.HomeNetworks(); len(got) != 0 {
+		t.Errorf("with no address at home the home networks are %v; want none", got)
 	}
-	got = fmt.Sprint(decodeTOML(t, filepath.Join(dir, coreConfig))["server"]["home_networks"])
-	if got != "[192.168.0.0/16 172.16.0.0/12]" {
-		t.Errorf("with no address at home the core's server.home_networks are %s; want the home ranges", got)
+	if err := Write(dir, values, runtime); err == nil || !strings.Contains(err.Error(), "lan.address") {
+		t.Errorf("writing with no address at home = %v; want it refused, naming lan.address", err)
 	}
 }
 
@@ -588,11 +591,12 @@ func TestWrite_TheCoreSendsItsDiscoveryTheMachinesAddressAtHome(t *testing.T) {
 		t.Error("the compose file does not publish HTTPS at home")
 	}
 	values.LAN.Address = ""
-	if err := Write(dir, values, runtime); err != nil {
-		t.Fatal(err)
+	if got := values.LANAddresses(); len(got) != 0 {
+		t.Errorf("with no address at home the LAN addresses are %v; want none", got)
 	}
-	if got := fmt.Sprint(decodeTOML(t, filepath.Join(dir, coreConfig))["discovery"]["lan_addresses"]); got != "[]" {
-		t.Errorf("with no address at home the core's discovery.lan_addresses are %s; want none", got)
+	if problems := values.Problems(); !strings.Contains(strings.Join(problems, " "), "lan.address") {
+		t.Errorf("no address at home is no problem: %v; want lan.address named (the Plex-chain review's L1)",
+			problems)
 	}
 	for _, wrong := range []string{"11.22.44.146", "a-name"} {
 		values.LAN.Address = wrong
@@ -625,12 +629,13 @@ func TestWrite_TheCoreTakesWebRTCAtHomeOnItsPublishedPort(t *testing.T) {
 		t.Errorf("the environment does not name the WebRTC port:\n%s", environment)
 	}
 	values.LAN.Address = ""
-	if err := Write(dir, values, runtime); err != nil {
-		t.Fatal(err)
+	if got := values.WebRTCUDPPort(); got != 0 {
+		t.Errorf("with no address at home the core's WebRTC port is %d; want 0", got)
 	}
-	if got := fmt.Sprint(decodeTOML(t, filepath.Join(dir, coreConfig))["webrtc"]["udp_port"]); got != "0" {
-		t.Errorf("with no address at home the core's webrtc.udp_port is %s; want 0", got)
+	if err := Write(dir, values, runtime); err == nil || !strings.Contains(err.Error(), "lan.address") {
+		t.Errorf("writing with no address at home = %v; want it refused, naming lan.address", err)
 	}
+	values.LAN.Address = "192.168.1.199"
 	values.LAN.WebRTCPort = 0
 	if problems := values.Problems(); !strings.Contains(strings.Join(problems, " "), "lan.webrtc_port") {
 		t.Errorf("lan.webrtc_port 0 is no problem: %v", problems)

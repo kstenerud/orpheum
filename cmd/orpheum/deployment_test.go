@@ -28,6 +28,7 @@ func fillValues(t *testing.T, dir string) {
 		`public_ipv4 = ""`, `public_ipv4 = "11.22.44.146"`,
 		`public_key = ""`, `public_key = "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE="`,
 		`roots = []`, `roots = ["/srv/media"]`,
+		`address = ""`, `address = "192.168.1.20"`,
 	).Replace(string(text))
 	if err = os.WriteFile(path, []byte(filled), 0o600); err != nil { //nolint:gosec // G703: a test's own temporary file
 		t.Fatal(err)
