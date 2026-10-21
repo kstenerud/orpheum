@@ -7,6 +7,10 @@
     ./staging             build the image from the checkout, write the deployment into .staging/ with
                           the image's own write-deployment, and start or restart it, keeping the run
                           it replaces' logs in .staging/logs/
+    ./staging quick       the same, the image only the last full one with this checkout's binary and
+                          tunnel script laid over it, the binary built in ./dev's warm caches: a
+                          minute in place of several, for trying a fix live; a change to anything
+                          else the image holds (FFmpeg, the system's packages) needs the full one
     ./staging logs        follow the three services' logs
     ./staging status      show the services and whether they are healthy
     ./staging setup-code  print the one-time code that makes the first admin
@@ -29,6 +33,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
@@ -40,6 +45,13 @@ VALUES = DIR / "values.toml"
 # Each deploy keeps the run it replaces here, since recreating a container drops its logs.
 LOGS = DIR / "logs"
 IMAGE = "orpheum-runtime:staging"
+# The last image built in full, which `./staging quick` lays a new binary over: over IMAGE, each
+# quick build would pile its layer on the last one's.
+FULL_IMAGE = "orpheum-runtime:staging-full"
+# Where the runtime image keeps the binary and the tunnel script (deploy/Containerfile's runtime stage).
+BINARY_IN_IMAGE = "/usr/local/bin/orpheum"
+TUNNEL_IN_IMAGE = "/usr/local/bin/orpheum-tunnel"
+TUNNEL = ROOT / "deploy" / "staging" / "tunnel.sh"
 # Where write-deployment sees the deployment's directory and its run directory (cmd/orpheum's
 # deploymentMount and deploymentRun), and where the core's instance is in its container.
 MOUNT = "/var/lib/orpheum"
@@ -108,10 +120,41 @@ def save_logs(now: datetime) -> Path | None:
 def build_image() -> str:
     """Build the runtime image from the checkout, and return its ID."""
     print(f"staging: building {IMAGE} from this checkout", flush=True)
-    run(["docker", "build", "--file", str(CONTAINERFILE), "--target", "runtime", "--tag", IMAGE, str(ROOT)],
-        env={**os.environ, "DOCKER_BUILDKIT": "1"})
-    return run(["docker", "image", "inspect", "--format", "{{.Id}}", IMAGE],
-               capture_output=True, text=True).stdout.strip()
+    run(["docker", "build", "--file", str(CONTAINERFILE), "--target", "runtime", "--tag", IMAGE,
+         "--tag", FULL_IMAGE, str(ROOT)], env={**os.environ, "DOCKER_BUILDKIT": "1"})
+    return image_id(IMAGE)
+
+
+def image_id(name: str) -> str | None:
+    """An image's ID, or None when there is no such image."""
+    inspected = subprocess.run(["docker", "image", "inspect", "--format", "{{.Id}}", name], capture_output=True,
+                               text=True, check=False)
+    return inspected.stdout.strip() if inspected.returncode == 0 else None
+
+
+def quick_containerfile(full_image: str) -> str:
+    """The quick image: the full one, named by its tag (BuildKit pulls an image named by a bare ID),
+    with the binary and the tunnel script where the runtime stage puts them."""
+    return (f"FROM {full_image}\n"
+            f"COPY orpheum {BINARY_IN_IMAGE}\n"
+            f"COPY tunnel.sh {TUNNEL_IN_IMAGE}\n")
+
+
+def quick_image() -> str | None:
+    """Build the binary in ./dev, lay it over the last full image, and return the new image's ID;
+    None, having said why, when there is no full image to lay it over."""
+    if image_id(FULL_IMAGE) is None:
+        print(f"staging: no {FULL_IMAGE} to lay the binary over; run ./staging once first", file=sys.stderr)
+        return None
+    print("staging: building the binary in ./dev", flush=True)
+    run([str(ROOT / "dev"), "make", "build"])
+    print(f"staging: laying it over {FULL_IMAGE}", flush=True)
+    with tempfile.TemporaryDirectory() as context:
+        shutil.copy2(ROOT / "bin" / "orpheum", Path(context) / "orpheum")
+        shutil.copy2(TUNNEL, Path(context) / "tunnel.sh")
+        run(["docker", "build", "--tag", IMAGE, "--file", "-", context], input=quick_containerfile(FULL_IMAGE),
+            text=True, env={**os.environ, "DOCKER_BUILDKIT": "1"})
+    return image_id(IMAGE)
 
 
 def write_deployment_command(image: str, uid: int, gid: int, host_name: str, has_gpu: bool) -> list[str]:
@@ -124,7 +167,7 @@ def write_deployment_command(image: str, uid: int, gid: int, host_name: str, has
             image, "write-deployment", "--deployment", "staging", "--image", image]
 
 
-def up() -> int:
+def up(quick: bool = False) -> int:
     DIR.mkdir(exist_ok=True)
     (DIR / "run").mkdir(exist_ok=True)
     if adopt_old_layout():
@@ -133,7 +176,9 @@ def up() -> int:
         print("staging: " + ", ".join(f'media.roots "{root}": no such directory on this machine'
                                        for root in missing), file=sys.stderr)
         return 1
-    image = build_image()
+    image = quick_image() if quick else build_image()
+    if image is None:
+        return 1
     written = subprocess.run(write_deployment_command(image, os.getuid(), os.getgid(), socket.gethostname(),
                                                       RENDER_DEVICES.is_dir()), check=False)
     if written.returncode != 0:
@@ -176,8 +221,8 @@ def main(argv: list[str]) -> int:
         print("staging: needs Docker with the compose plugin (https://docs.docker.com/engine/install/)",
               file=sys.stderr)
         return 1
-    if command == "up":
-        return up()
+    if command in ("up", "quick"):
+        return up(quick=command == "quick")
     if command == "wipe":
         return wipe()
     passthrough = {"logs": ("logs", "--follow", "--tail", "200"), "status": ("ps",), "down": ("down",),

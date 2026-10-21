@@ -43,18 +43,18 @@ class WriteDeployment(unittest.TestCase):
         self.assertEqual(staging.RUN_MOUNT, go_constant("deploymentRun"))
 
     def test_it_runs_as_the_owner_with_the_machine_s_name_and_names_the_image_by_its_id(self):
-        command = staging.write_deployment_command("sha256:abc", 1000, 1001, "devnas", has_gpu=False)
+        command = staging.write_deployment_command("orpheum-runtime:full", 1000, 1001, "devnas", has_gpu=False)
         self.assertEqual(command[:2], ["docker", "run"])
         self.assertIn("--rm", command)
         self.assertEqual(command[command.index("--user") + 1], "1000:1001")
         self.assertEqual(command[command.index("--hostname") + 1], "devnas")
         volumes = [command[i + 1] for i, part in enumerate(command) if part == "--volume"]
         self.assertEqual(volumes, [f"{staging.DIR}:{staging.MOUNT}", f"{staging.DIR / 'run'}:{staging.RUN_MOUNT}"])
-        self.assertEqual(command[command.index("sha256:abc") + 1:],
-                         ["write-deployment", "--deployment", "staging", "--image", "sha256:abc"])
+        self.assertEqual(command[command.index("orpheum-runtime:full") + 1:],
+                         ["write-deployment", "--deployment", "staging", "--image", "orpheum-runtime:full"])
 
     def test_the_gpu_is_mounted_when_the_machine_has_one(self):
-        command = staging.write_deployment_command("sha256:abc", 1, 1, "devnas", has_gpu=True)
+        command = staging.write_deployment_command("orpheum-runtime:full", 1, 1, "devnas", has_gpu=True)
         self.assertIn("/dev/dri:/dev/dri:ro", command)
 
 
@@ -112,6 +112,31 @@ class SavedLogs(unittest.TestCase):
         saved, directory = self.run_logs("")
         self.assertIsNone(saved)
         self.assertFalse((directory / "logs").exists())
+
+
+class Quick(unittest.TestCase):
+    def test_the_binary_and_tunnel_script_go_where_the_runtime_stage_puts_them_over_the_full_image(self):
+        runtime = (REPO / "deploy" / "Containerfile").read_text().split("AS runtime", 1)[1]
+        self.assertIn(f"COPY --from=build /src/bin/orpheum {staging.BINARY_IN_IMAGE}\n", runtime)
+        self.assertIn(f"COPY deploy/staging/tunnel.sh {staging.TUNNEL_IN_IMAGE}\n", runtime)
+        self.assertEqual(staging.quick_containerfile("orpheum-runtime:full").splitlines(), [
+            "FROM orpheum-runtime:full", f"COPY orpheum {staging.BINARY_IN_IMAGE}", f"COPY tunnel.sh {staging.TUNNEL_IN_IMAGE}"])
+
+    def test_a_full_build_tags_the_image_quick_lays_over(self):
+        inspected = subprocess.CompletedProcess([], 0, stdout="sha256:full\n")
+        with mock.patch.object(staging.subprocess, "run", return_value=inspected) as run:
+            staging.build_image()
+        built = run.call_args_list[0].args[0]
+        tags = [built[index + 1] for index, word in enumerate(built) if word == "--tag"]
+        self.assertEqual(tags, [staging.IMAGE, staging.FULL_IMAGE])
+
+    def test_without_a_full_image_quick_builds_nothing_and_says_so(self):
+        missing = subprocess.CompletedProcess([], 1, stdout="")
+        with mock.patch.object(staging.subprocess, "run", return_value=missing) as run, \
+                mock.patch("sys.stderr") as stderr:
+            self.assertIsNone(staging.quick_image())
+        self.assertEqual(len(run.call_args_list), 1)  # the inspect, no build
+        self.assertIn("run ./staging once first", "".join(call.args[0] for call in stderr.write.call_args_list))
 
 
 if __name__ == "__main__":
