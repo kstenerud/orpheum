@@ -530,6 +530,12 @@ func (server *Server) relay(
 	source := request.source
 	//nolint:bodyclose // closed by the stream below, or on refusal
 	answer, err := dependencies.NodeBytes.Do(ctx, source.NodeID, request.method, source.Target, request.header)
+	if stalled, isStalled := errors.AsType[*nodes.StalledRootError](err); isStalled {
+		// Its root's disk does not answer: the root is unavailable now, and the player told so (D241 §7).
+		return nil, mediaUnreachable(&library.UnreadableError{Unreadable: library.Unreadable{
+			Reason: library.RootMissing, NodeID: stalled.NodeID, Path: stalled.RootPath, Since: stalled.Since,
+		}}, server.nodeNamer(ctx, dependencies))
+	}
 	if err != nil {
 		return nil, server.nodeReadError(ctx, err)
 	}

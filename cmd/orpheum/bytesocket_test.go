@@ -71,7 +71,7 @@ func TestOpenByteSocket_LetsTheNodeChannelTakeAResultTheNodeHolds(t *testing.T) 
 	}), ReadHeaderTimeout: time.Second}
 	go func() { _ = nodeSocket.Serve(listener) }() //nolint:errcheck // closed at cleanup
 	t.Cleanup(func() { _ = nodeSocket.Close() })   //nolint:errcheck // as above
-	openByteSocket(service)
+	openByteSocket(service, nil)
 	channel := httptest.NewServer(service.Handler())
 	t.Cleanup(channel.Close)
 	post := func(path string, nodeID int64, body any) (int, []byte) {

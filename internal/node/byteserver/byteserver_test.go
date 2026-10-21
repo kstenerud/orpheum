@@ -17,9 +17,11 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/node/byteserver"
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/diskwatch"
 	"github.com/kstenerud/orpheum/internal/node/hash"
 	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
+	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 )
 
 // film is a root with one file in it, and the file's payload hash.
@@ -326,5 +328,29 @@ func TestServeResult_ServesAHeldResultByItsTokenAndNothingElse(t *testing.T) {
 	if none := request(t, servingNone, http.MethodGet, nodeproto.PathBytesResult+"a5", nil); none.Code !=
 		http.StatusNotFound {
 		t.Errorf("a server serving no results: %d, want 404", none.Code)
+	}
+}
+
+// A file whose root holds a reading that has not returned, its disk not answering, is answered 504
+// at once, naming the root, which the core makes unavailable; a file its gate lets through is served
+// as before (D233 §10; staging, 2026-10-21).
+func TestServeFile_AFileOnARootWhoseDiskDoesNotAnswerIs504NamingTheRoot(t *testing.T) {
+	t.Parallel()
+	movie := newFilm(t, "Film (1999).mkv")
+	gate := diskwatch.NewGate(clocktest.NewFake(time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)))
+	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).WatchingOpens(gate, time.Minute).Handler()
+	if served := movie.get(t, handler, movie.payloadHash, nil); served.Code != http.StatusOK {
+		t.Fatalf("GET through an open gate = %d, want 200", served.Code)
+	}
+	release, isHeld := gate.Hold(movie.root.Path(), movie.root.Path()+"/other.mkv")
+	if !isHeld {
+		t.Fatal("the root could not be held")
+	}
+	t.Cleanup(release)
+	stalled := movie.get(t, handler, movie.payloadHash, nil)
+	if stalled.Code != http.StatusGatewayTimeout ||
+		stalled.Header().Get(nodeproto.HeaderStalledRoot) != movie.root.Path() {
+		t.Errorf("GET on a stuck root = %d, root %q; want 504 naming %s", stalled.Code,
+			stalled.Header().Get(nodeproto.HeaderStalledRoot), movie.root.Path())
 	}
 }
