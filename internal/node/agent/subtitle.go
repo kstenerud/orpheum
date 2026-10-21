@@ -166,7 +166,10 @@ func (agent *Agent) runExtraction(ctx context.Context, command nodeproto.Extract
 func (agent *Agent) extractTrack(
 	ctx context.Context, video nodeproto.BytesFile, streamIndex int,
 ) (subtitle.Text, error) {
-	videoPath, err := agent.verifiedSourcePath(video)
+	videoPath, err := agent.verifiedSourcePath(ctx, video)
+	if stallOf(err) != nil {
+		return subtitle.Text{}, err
+	}
 	if err != nil {
 		return subtitle.Text{}, notTriedError{err}
 	}
@@ -176,7 +179,10 @@ func (agent *Agent) extractTrack(
 // convertSidecar converts a subtitle file beside the media, read through the root it is under and
 // checked to be the one the core named (D100).
 func (agent *Agent) convertSidecar(ctx context.Context, sidecar nodeproto.BytesFile) (subtitle.Text, error) {
-	file, err := agent.openNamed(sidecar)
+	file, err := agent.openNamed(ctx, sidecar)
+	if stallOf(err) != nil {
+		return subtitle.Text{}, err
+	}
 	if err != nil {
 		return subtitle.Text{}, notTriedError{err}
 	}

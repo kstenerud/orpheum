@@ -47,8 +47,10 @@ func (agent *Agent) runReadThrough(ctx context.Context, command nodeproto.ReadTh
 		return refuse(errors.New("this node does not read videos through"))
 	}
 	if command.VideoTimeline != nil && command.VideoTimeline.IsFromIndexOnly {
-		keyframes, err := agent.indexedKeyframes(command)
-		switch {
+		keyframes, err := agent.indexedKeyframes(ctx, command)
+		switch stall := stallOf(err); {
+		case stall != nil:
+			return nodeproto.ReadThroughResult{Stall: stall}
 		case errors.Is(err, container.ErrNoIndex):
 			return nodeproto.ReadThroughResult{HasNoIndex: true}
 		case err != nil:
@@ -56,7 +58,10 @@ func (agent *Agent) runReadThrough(ctx context.Context, command nodeproto.ReadTh
 		}
 		return nodeproto.ReadThroughResult{VideoTimeline: &nodeproto.VideoTimeline{KeyframesMs: keyframes}}
 	}
-	videoPath, err := agent.verifiedSourcePath(command.Video)
+	videoPath, err := agent.verifiedSourcePath(ctx, command.Video)
+	if stall := stallOf(err); stall != nil {
+		return nodeproto.ReadThroughResult{Stall: stall}
+	}
 	if err != nil {
 		return refuse(err)
 	}
@@ -77,8 +82,8 @@ func (agent *Agent) runReadThrough(ctx context.Context, command nodeproto.ReadTh
 // a read through finds. A file with no index the reader follows, Matroska's cues or an MP4's sync
 // samples, is container.ErrNoIndex: its film is cut on time (D269 §2). A file that cannot be opened
 // or read is the error that says so, a refusal tried again.
-func (agent *Agent) indexedKeyframes(command nodeproto.ReadThrough) ([]int64, error) {
-	file, err := agent.openNamed(command.Video)
+func (agent *Agent) indexedKeyframes(ctx context.Context, command nodeproto.ReadThrough) ([]int64, error) {
+	file, err := agent.openNamed(ctx, command.Video)
 	if err != nil {
 		return nil, err
 	}

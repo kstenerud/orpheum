@@ -11,9 +11,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"maps"
 	"net/http"
+	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -22,6 +24,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/namedfile"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -86,10 +89,19 @@ type Workers struct {
 	// before the node answers it as stalled on its disk (D233 §10): ReadStallWindowFor the probe's
 	// timeout. Zero is defaultReadStallWindow.
 	ReadStallWindow time.Duration
+	// OpenStallWindow is how long opening a file to read may take before the node answers the work
+	// as stalled on its disk (D233 §10). Zero is defaultOpenStallWindow.
+	OpenStallWindow time.Duration
 	// SetStatusEvery sets how often the tick Run is given comes, when the core says (a time.Ticker's
 	// Reset); nil keeps the tick as it is.
 	SetStatusEvery func(every time.Duration)
 }
+
+// defaultOpenStallWindow is how long the node waits for a file it is to read to open: a disk asleep
+// spins up within it, and a disk whose network share's host is gone never answers, where a person
+// waiting to play was left with a spinning player until the core's half hour without movement
+// (staging, 2026-10-21, nas.example's NFS share down).
+const defaultOpenStallWindow = 30 * time.Second
 
 // defaultReadStallWindow is the least time a reading in the node's own process may go without
 // moving: a listing lists each entry and an examining reads a hash in chunks, so minutes without
@@ -135,6 +147,11 @@ type Agent struct {
 	ended *endedAttempts
 	// stuckReads are the readings the node answered as stalled that have not ended.
 	stuckReads stuckReads
+	// opensStalled counts the opens answered as stalled, naming each among the stuck readings.
+	opensStalled atomic.Int64
+	// openFile opens a file a command names: namedfile.OpenNamed; a test's may block as a disk that
+	// does not answer does.
+	openFile func(roots map[string]*confine.MediaRoot, named nodeproto.BytesFile) (*os.File, fs.FileInfo, error)
 	// takenCommandSeq is the last command this session took, which the status says.
 	takenCommandSeq atomic.Int64
 	// storeTiers are the chunk stores' tiers the core last said (D309 §8), which a change is logged
@@ -175,6 +192,7 @@ func New(
 		clock:   clockSource, logger: logger, work: newWorkList(hello.Capacity, clockSource),
 		ended:       newEndedAttempts(),
 		answerRetry: defaultAnswerRetry(),
+		openFile:    namedfile.OpenNamed,
 	}
 	agent.statusEvery.Store(int64(nodeproto.StartingStatusEverySeconds))
 	agent.progressEverySeconds.Store(int64(nodeproto.StartingProgressEverySeconds))

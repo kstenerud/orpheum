@@ -47,7 +47,10 @@
 //     TestMovement_PausedTimeIsNotTimeWithoutMoving.
 //   - A listing or an examining whose reading does not move for the read window is answered as
 //     stalled on its disk, its reading listed as stuck until it returns and its late answer dropped
-//     (D233 §10). TestAgent_AListingThatStopsMovingIsAnsweredStalledAndListedAsStuck. The status
+//     (D233 §10). TestAgent_AListingThatStopsMovingIsAnsweredStalledAndListedAsStuck. A file to read
+//     that does not open within the open stall window is the same: its work is answered stalled on
+//     its disk, waiting on the file, and the open listed as stuck until it returns.
+//     TestAgent_AFileThatDoesNotOpenIsAnsweredStalledOnItsDiskAndListedAsStuck. The status
 //     lists the processes the runner left running too. TestStatus_ListsTheProcessesLeftRunning.
 //   - Losing the core ends the session and the next tick starts another.
 //     TestAgent_SaysHelloAgainAfterLosingTheCore. Only the session's own requests, a status and
