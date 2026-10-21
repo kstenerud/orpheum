@@ -157,6 +157,9 @@ func (service *Service) CoveringRun(file StoreFile) (RunSpan, bool) {
 // stream and grid.
 func (file StoreFile) StoreDir() string { return file.storeDir }
 
+// FileID is the film's file its store is of.
+func (file StoreFile) FileID() int64 { return file.fileID }
+
 // WantedChunk is the chunk a run must make for the file: the chunk itself, or, for the init, the
 // chunk the playback is at.
 func (file StoreFile) WantedChunk() int { return file.runFrom }
