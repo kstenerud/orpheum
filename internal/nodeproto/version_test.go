@@ -80,6 +80,8 @@ var wireShapeByVersion = map[int]string{
 	38: "caf44b4145f192a52a5b4e20128850afdf39ae3df07df587ec5cf0353163cd36",
 	// 39 adds whether a status's disk is not answering (the dead-share tests, 2026-10-21).
 	39: "eea95fc59020a791583ec1fe5af5d18a9bb257651e30bcf0d2e558961e883ae6",
+	// 40 adds a root's disk's device and whether it is a mount point (the dead-share tests, 2026-10-21).
+	40: "7866b0da4ab3bbaf08275dc1e008da4f4b58bc843d3324212885654f8322f333",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

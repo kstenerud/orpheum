@@ -5,6 +5,7 @@ package agent
 import (
 	"errors"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -79,15 +80,18 @@ func TestAgent_AFileThatDoesNotOpenIsAnsweredStalledOnItsDiskAndListedAsStuck(t 
 }
 
 // A root holding a reading that has not returned is not read again: a listing of it is answered
-// stalled on its disk at once, without listing, so a scan's retries add no reading stuck beside it
-// (diskwatch; staging, 2026-10-21).
+// stalled on its disk at once, without listing, so a scan's retries add no reading stuck beside it,
+// and the log says so (diskwatch; staging, 2026-10-21).
 func TestAgent_AListingOfARootHoldingAStuckReadingIsAnsweredStalledAtOnce(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
 	release := make(chan struct{})
 	t.Cleanup(func() { close(release) })
 	gate := diskwatch.NewGate(clocktest.NewFake(time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)))
-	root, tick := startAgentWithWorkers(t, socket, Workers{Scanner: fakeScanner{}, Disks: gate})
+	logged := &testutil.Log{}
+	root, tick := startAgentWithWorkers(t, socket, Workers{Scanner: fakeScanner{}, Disks: gate}, func(node *Agent) {
+		node.logger = slog.New(slog.NewTextHandler(logged, nil))
+	})
 	held, isHeld := gate.Hold(root.Path(), root.Path()+"/film.mkv") // a reading of it that has not returned
 	if !isHeld {
 		t.Fatal("the root could not be held")
@@ -103,6 +107,7 @@ func TestAgent_AListingOfARootHoldingAStuckReadingIsAnsweredStalledAtOnce(t *tes
 		listed.Listing.Stall.Condition != nodeproto.ConditionWaitingOnDisk || len(listed.Listing.Records) != 0 {
 		t.Errorf("the listing of a root holding a stuck reading = %+v; want it stalled on its disk, unlisted", listed)
 	}
+	logged.AwaitLine(t, "a job was not tried: its root is still waiting on its disk", "jobId=1")
 }
 
 // A disk whose space does not measure leaves the status sent, saying the disk is not answering,

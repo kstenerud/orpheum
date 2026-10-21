@@ -119,3 +119,33 @@ func (ingester *Ingester) MarkRootUnavailable(ctx context.Context, nodeID int64,
 	}
 	return time.UnixMilli(since), nil
 }
+
+// BringBackRoot makes an unavailable root available again before a scan reads it, when its disk
+// answers with the facts of the root's last complete scan, and says whether it did: the work parked
+// on it resumes as a complete scan's finding it would make it (D208, D233 §10). A share back took a
+// minute to bring a film back, behind the listing of every root on its disk (staging, 2026-10-21).
+func (ingester *Ingester) BringBackRoot(
+	ctx context.Context, nodeID int64, rootPath string, device uint64, isMountPoint bool,
+) (bool, error) {
+	facts := sqlcgen.BringBackRootParams{
+		NodeID: nodeID, RootPath: rootPath,
+		FilesystemDevice: new(int64(device)), //nolint:gosec // a device id fits
+		IsMountPoint:     new(boolInt(isMountPoint)),
+	}
+	var broughtBack int64
+	err := ingester.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		var bringErr error
+		broughtBack, bringErr = queries.BringBackRoot(ctx, facts)
+		return bringErr
+	})
+	if err != nil {
+		return false, fmt.Errorf("bring back root %s on node %d: %w", rootPath, nodeID, err)
+	}
+	if broughtBack == 0 {
+		return false, nil
+	}
+	if ingester.onPathsFound != nil {
+		ingester.onPathsFound(ctx, nodeID, []string{rootPath})
+	}
+	return true, nil
+}

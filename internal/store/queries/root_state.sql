@@ -52,6 +52,15 @@ UPDATE root_state SET unavailable_since = coalesce(unavailable_since, sqlc.arg(n
 WHERE node_id = sqlc.arg(node_id) AND root_path = sqlc.arg(root_path)
 RETURNING CAST(unavailable_since AS INTEGER) AS unavailable_since;
 
+-- name: BringBackRoot :execrows
+-- The root's disk answers again with the facts of its last complete scan, its device and whether it
+-- is a mount point: the root is available again before a scan reads it, the scan following for what
+-- changed meanwhile. Other facts are the empty directory an unmounted disk leaves, which stays
+-- unavailable until a scan reads it (D208, D233 section 10).
+UPDATE root_state SET unavailable_since = NULL
+WHERE node_id = sqlc.arg(node_id) AND root_path = sqlc.arg(root_path) AND unavailable_since IS NOT NULL
+  AND filesystem_device = sqlc.arg(filesystem_device) AND is_mount_point = sqlc.arg(is_mount_point);
+
 -- name: ListRootMounts :many
 SELECT mount_path, filesystem_device, is_present
 FROM root_mount

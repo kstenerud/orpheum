@@ -121,6 +121,7 @@ func (service *Service) keepStatus(ctx context.Context, nodeID int64, status *no
 	}
 	service.mutex.Unlock()
 	service.markRootsNotAnswering(ctx, nodeID, previous, status)
+	service.bringBackRootsAnswering(ctx, nodeID, previous, status)
 	if service.resultSink != nil {
 		service.resultSink.Reconcile(ctx, nodeID, status.Held, onTheirWay)
 	}
@@ -173,6 +174,28 @@ func (service *Service) markRootsNotAnswering(
 		if _, err := service.scans.MarkRootStalled(ctx, nodeID, root); err != nil {
 			service.logger.WarnContext(ctx, "could not make a root whose disk is not answering unavailable",
 				"nodeId", nodeID, "rootPath", root, "err", err)
+		}
+	}
+}
+
+// bringBackRootsAnswering brings back each root whose disk its node's previous status said was not
+// answering and this one measures: a full scan of every root on the disk stood between a share's
+// return and its films, a minute and more (staging, 2026-10-21). A root on another device than its
+// last complete scan read stays unavailable until a scan reads it, as the empty directory an
+// unmounted disk leaves would.
+func (service *Service) bringBackRootsAnswering(
+	ctx context.Context, nodeID int64, previous, status *nodeproto.Status,
+) {
+	if service.scans == nil {
+		return
+	}
+	for _, disk := range status.Disks {
+		if disk.Failure != "" || disk.Device == 0 || !isNotAnswering(previous, disk.Path) {
+			continue
+		}
+		if _, err := service.scans.BringBackRoot(ctx, nodeID, disk.Path, disk.Device, disk.IsMountPoint); err != nil {
+			service.logger.WarnContext(ctx, "could not bring back a root whose disk answers again",
+				"nodeId", nodeID, "rootPath", disk.Path, "err", err)
 		}
 	}
 }

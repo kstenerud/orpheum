@@ -131,6 +131,12 @@ type Disk struct {
 	// IsNotAnswering is a failure that is its disk not answering, or failing a read as a network
 	// share whose host is gone does: what is under it cannot be read now (D233 §10).
 	IsNotAnswering bool `json:"isNotAnswering,omitempty"`
+	// Device is the id of the filesystem a root is on, and IsMountPoint whether it differs from its
+	// parent's, as a scan's facts say them (D42, D208): the core compares them with the root's last
+	// complete scan to tell its disk back from the empty directory an unmounted one leaves. Zero for
+	// the prepared directory, and when the measure failed.
+	Device       uint64 `json:"device,omitempty"`
+	IsMountPoint bool   `json:"isMountPoint,omitempty"`
 }
 
 // PreparedUsage is what a node's prepared directory holds, against its budget and its disk's

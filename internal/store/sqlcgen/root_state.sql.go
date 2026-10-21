@@ -29,6 +29,36 @@ func (q *Queries) ApproveRootRemovals(ctx context.Context, arg ApproveRootRemova
 	return result.RowsAffected()
 }
 
+const bringBackRoot = `-- name: BringBackRoot :execrows
+UPDATE root_state SET unavailable_since = NULL
+WHERE node_id = ?1 AND root_path = ?2 AND unavailable_since IS NOT NULL
+  AND filesystem_device = ?3 AND is_mount_point = ?4
+`
+
+type BringBackRootParams struct {
+	NodeID           int64
+	RootPath         string
+	FilesystemDevice *int64
+	IsMountPoint     *int64
+}
+
+// The root's disk answers again with the facts of its last complete scan, its device and whether it
+// is a mount point: the root is available again before a scan reads it, the scan following for what
+// changed meanwhile. Other facts are the empty directory an unmounted disk leaves, which stays
+// unavailable until a scan reads it (D208, D233 section 10).
+func (q *Queries) BringBackRoot(ctx context.Context, arg BringBackRootParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, bringBackRoot,
+		arg.NodeID,
+		arg.RootPath,
+		arg.FilesystemDevice,
+		arg.IsMountPoint,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const forgetMissingRootMount = `-- name: ForgetMissingRootMount :execrows
 DELETE FROM root_mount
 WHERE node_id = ?1 AND mount_path = ?2 AND is_present = 0
