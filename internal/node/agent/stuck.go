@@ -6,6 +6,7 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/kstenerud/orpheum/internal/node/diskwatch"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -44,4 +45,22 @@ func (stuck *stuckReads) all() []nodeproto.Stuck {
 	}
 	slices.SortFunc(readings, func(a, b nodeproto.Stuck) int { return int(a.Since - b.Since) })
 	return readings
+}
+
+// stuckOfGate are the gate's stuck readings as the status says them, but those listed already, a
+// listing's reading of its root.
+func stuckOfGate(gated []diskwatch.Stuck, listed []nodeproto.Stuck) []nodeproto.Stuck {
+	stuck := make([]nodeproto.Stuck, 0, len(gated))
+	for _, each := range gated {
+		isListed := slices.ContainsFunc(listed, func(other nodeproto.Stuck) bool {
+			return slices.Contains(other.Paths, each.Path)
+		})
+		if !isListed {
+			stuck = append(stuck, nodeproto.Stuck{
+				Tool: stuckReadTool, Paths: []string{each.Path},
+				Since: each.Since.UnixMilli(),
+			})
+		}
+	}
+	return stuck
 }

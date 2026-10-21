@@ -59,6 +59,15 @@ func (agent *Agent) answeringWork(ctx context.Context, nodeID int64, job answeri
 	}
 	return heldWork{stalls: stalls, run: func(jobCtx context.Context) {
 		agent.sayProgress(ctx, nodeID, job.progress(nodeproto.ProgressRunning))
+		if stuck, isStuck := agent.diskGate.IsStuck(job.reading); isStuck && job.stalledAnswer != nil {
+			// Its root holds a reading that has not returned: this one would only wait beside it.
+			agent.postResult(ctx, nodeID, job.jobKind, job.named(job.stalledAnswer(nodeproto.Stall{
+				Cause: nodeproto.StallNeverMoved, Condition: nodeproto.ConditionWaitingOnDisk,
+				WaitingOnPath: stuck.Path, Detail: "not tried: an earlier reading of " + job.reading +
+					" is still waiting on its disk",
+			})))
+			return
+		}
 		result, refusalOrFailure, didStall := agent.answerUnlessStalled(jobCtx, job, stalls)
 		if didStall {
 			agent.postResult(ctx, nodeID, job.jobKind, job.named(result))
@@ -106,9 +115,12 @@ func (agent *Agent) answerUnlessStalled(
 		agent.stuckReads.add(job.token, nodeproto.Stuck{
 			Tool: stuckReadTool, Paths: []string{job.reading}, Since: agent.clock.Now().UnixMilli(),
 		})
+		// Its root holds no other reading until this one returns (diskwatch).
+		release, _ := agent.diskGate.Hold(job.reading, job.reading)
 		go func() {
 			<-answered
 			agent.stuckReads.remove(job.token)
+			release()
 		}()
 		detail := fmt.Sprintf("%s of %s did not move for %s: its disk is not answering", job.jobKind, job.reading,
 			stood.Round(time.Second))

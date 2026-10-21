@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/diskwatch"
 	"github.com/kstenerud/orpheum/internal/node/namedfile"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -92,6 +93,9 @@ type Workers struct {
 	// OpenStallWindow is how long opening a file to read may take before the node answers the work
 	// as stalled on its disk (D233 §10). Zero is defaultOpenStallWindow.
 	OpenStallWindow time.Duration
+	// Disks is the gate the node's readings of its roots go through, which its byte socket shares, so
+	// one stuck root holds one stuck reading of the node's (diskwatch); nil is a gate of its own.
+	Disks *diskwatch.Gate
 	// SetStatusEvery sets how often the tick Run is given comes, when the core says (a time.Ticker's
 	// Reset); nil keeps the tick as it is.
 	SetStatusEvery func(every time.Duration)
@@ -147,8 +151,11 @@ type Agent struct {
 	ended *endedAttempts
 	// stuckReads are the readings the node answered as stalled that have not ended.
 	stuckReads stuckReads
-	// opensStalled counts the opens answered as stalled, naming each among the stuck readings.
-	opensStalled atomic.Int64
+	// diskGate is the gate every reading of a root goes through, one stuck at most on each (diskwatch).
+	diskGate *diskwatch.Gate
+	// measureSpace measures a disk's space: diskspace.Measure; a test's may block as a disk that does
+	// not answer does.
+	measureSpace func(path string) (diskspace.Space, error)
 	// openFile opens a file a command names: namedfile.OpenNamed; a test's may block as a disk that
 	// does not answer does.
 	openFile func(roots map[string]*confine.MediaRoot, named nodeproto.BytesFile) (*os.File, fs.FileInfo, error)
@@ -193,6 +200,10 @@ func New(
 		ended:       newEndedAttempts(),
 		answerRetry: defaultAnswerRetry(),
 		openFile:    namedfile.OpenNamed,
+		diskGate:    workers.Disks, measureSpace: diskspace.Measure,
+	}
+	if agent.diskGate == nil {
+		agent.diskGate = diskwatch.NewGate(clockSource)
 	}
 	agent.statusEvery.Store(int64(nodeproto.StartingStatusEverySeconds))
 	agent.progressEverySeconds.Store(int64(nodeproto.StartingProgressEverySeconds))
@@ -601,7 +612,7 @@ func (agent *Agent) postChanges(ctx context.Context, nodeID int64) {
 
 // postStatus posts the node's status, now (D234 §6).
 func (agent *Agent) postStatus(ctx context.Context, nodeID int64) error {
-	encoded, err := json.Marshal(agent.status())
+	encoded, err := json.Marshal(agent.status(ctx))
 	if err != nil {
 		return fmt.Errorf("encode the status: %w", err)
 	}
@@ -610,8 +621,8 @@ func (agent *Agent) postStatus(ctx context.Context, nodeID int64) error {
 }
 
 // status is what the node is doing and holds, and its disks, now.
-func (agent *Agent) status() nodeproto.Status {
-	disks := agent.disks()
+func (agent *Agent) status(ctx context.Context) nodeproto.Status {
+	disks := agent.disks(ctx)
 	agent.mutex.Lock()
 	defer agent.mutex.Unlock()
 	takenCommandSeq, held := takenThenHeld(&agent.takenCommandSeq, agent.held)
@@ -622,6 +633,7 @@ func (agent *Agent) status() nodeproto.Status {
 		status.Stuck = agent.workers.Stuck()
 	}
 	status.Stuck = append(status.Stuck, agent.stuckReads.all()...)
+	status.Stuck = append(status.Stuck, stuckOfGate(agent.diskGate.Stuck(), status.Stuck)...)
 	if agent.workers.Watcher != nil {
 		status.Watches = agent.workers.Watcher.States()
 	}
@@ -672,7 +684,7 @@ func (agent *Agent) held() []nodeproto.HeldAttempt {
 
 // disks are the filesystems the node's roots and prepared directory are on, each measured now
 // (D225 §3).
-func (agent *Agent) disks() []nodeproto.Disk {
+func (agent *Agent) disks(ctx context.Context) []nodeproto.Disk {
 	paths := slices.Clone(agent.hello.RootPaths)
 	if agent.workers.PreparedDirectory != "" {
 		paths = append(paths, agent.workers.PreparedDirectory)
@@ -680,7 +692,12 @@ func (agent *Agent) disks() []nodeproto.Disk {
 	disks := make([]nodeproto.Disk, 0, len(paths))
 	for _, path := range paths {
 		disk := nodeproto.Disk{Path: path}
-		if space, err := diskspace.Measure(path); err != nil {
+		// Through the disk gate, so a disk that does not answer leaves the status sent, saying so, where
+		// the measure blocked it, and the node fell silent (staging, 2026-10-21).
+		measuring := diskwatch.Operation{Root: path, Path: path, Window: measureStallWindow}
+		space, err := diskwatch.Run(ctx, agent.diskGate, measuring,
+			func() (diskspace.Space, error) { return agent.measureSpace(path) }, func(diskspace.Space) {})
+		if err != nil {
 			disk.Failure = err.Error()
 		} else {
 			disk.TotalBytes, disk.AvailableBytes = space.TotalBytes, space.AvailableBytes
@@ -689,6 +706,11 @@ func (agent *Agent) disks() []nodeproto.Disk {
 	}
 	return disks
 }
+
+// measureStallWindow is how long measuring a disk's space may take before the status says it is not
+// answering: a statfs answers in milliseconds, or from a disk asleep within seconds, and the status
+// waits on it.
+const measureStallWindow = 5 * time.Second
 
 // exchange makes one request and decodes its JSON answer.
 func (agent *Agent) exchange(ctx context.Context, method, path string, nodeID int64, body io.Reader, into any) error {

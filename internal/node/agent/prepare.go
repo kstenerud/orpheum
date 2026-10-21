@@ -8,9 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/node/diskwatch"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/namedfile"
 	"github.com/kstenerud/orpheum/internal/node/prepare"
@@ -131,59 +131,31 @@ func (agent *Agent) verifiedSourcePath(ctx context.Context, source nodeproto.Byt
 }
 
 // openNamed opens the regular file named, under one of the node's roots, once its payload hash is
-// the one named (D100). The caller closes it. An open that has not returned within the open stall
-// window, its disk not answering, is a stall on that disk, as an FFmpeg's would be (D233 §10): the
-// open is left to end on its own, listed as stuck until it does, and the file it opens closed then.
+// the one named (D100). The caller closes it. It opens through the node's disk gate: an open that has
+// not returned within the open stall window, its disk not answering, is a stall on that disk, as an
+// FFmpeg's would be (D233 §10), left to end on its own, listed as stuck until it does; and while it is,
+// every other open under its root is the same stall at once, touching nothing (diskwatch).
 func (agent *Agent) openNamed(ctx context.Context, named nodeproto.BytesFile) (*os.File, error) {
-	done := make(chan openedFile, 1)
-	go func() {
-		file, _, err := agent.openFile(agent.roots, named)
-		done <- openedFile{file: file, err: err}
-	}()
-	window := cmp.Or(agent.workers.OpenStallWindow, defaultOpenStallWindow)
-	timer := agent.clock.NewTimer(window)
-	defer timer.Stop()
-	select {
-	case open := <-done:
-		if open.err != nil {
-			return nil, fmt.Errorf("open the file named: %w", open.err)
-		}
-		return open.file, nil
-	case <-ctx.Done():
-		go closeWhenOpened(done)
-		return nil, fmt.Errorf("open the file named: %w", ctx.Err())
-	case <-timer.C():
-	}
 	path := named.RootPath + "/" + string(named.Path)
 	if root, known := agent.roots[named.RootPath]; known {
 		path = root.Path() + "/" + string(named.Path)
 	}
-	key := "open:" + strconv.FormatInt(agent.opensStalled.Add(1), 10)
-	agent.stuckReads.add(key, nodeproto.Stuck{
-		Tool: stuckReadTool, Paths: []string{path}, Since: agent.clock.Now().UnixMilli(),
-	})
-	go func() {
-		closeWhenOpened(done)
-		agent.stuckReads.remove(key)
-	}()
-	agent.logger.WarnContext(ctx, "a file to read did not open: its disk is not answering", "path", path,
-		"waitedFor", window)
-	return nil, &execx.StalledError{
-		Tool: stuckReadTool, Cause: execx.StallNeverMoved, Condition: execx.ConditionWaitingOnDisk,
-		WithoutAdvance: window, WaitingOnPath: path, IsLeftRunning: true,
-		StderrTail: "opening " + path + " did not return",
+	window := cmp.Or(agent.workers.OpenStallWindow, defaultOpenStallWindow)
+	operation := diskwatch.Operation{Root: named.RootPath, Path: path, Window: window}
+	file, err := diskwatch.Run(ctx, agent.diskGate, operation, func() (*os.File, error) {
+		opened, _, openErr := agent.openFile(agent.roots, named)
+		return opened, openErr
+	}, func(late *os.File) { readonly.Close(late) })
+	if stalled, isStalled := errors.AsType[*diskwatch.StalledError](err); isStalled {
+		agent.logger.WarnContext(ctx, "a file to read did not open: its disk is not answering", "path", path,
+			"waitingOn", stalled.Path, "isBehindAnother", stalled.IsBehindAnother)
+		return nil, &execx.StalledError{
+			Tool: stuckReadTool, Cause: execx.StallNeverMoved, Condition: execx.ConditionWaitingOnDisk,
+			WithoutAdvance: stalled.Waited, WaitingOnPath: path, IsLeftRunning: true, StderrTail: stalled.Error(),
+		}
 	}
-}
-
-// openedFile is what an open of a file gave.
-type openedFile struct {
-	file *os.File
-	err  error
-}
-
-// closeWhenOpened closes the file an open the node no longer waits for gives, once it returns.
-func closeWhenOpened(done <-chan openedFile) {
-	if opened := <-done; opened.file != nil {
-		readonly.Close(opened.file)
+	if err != nil {
+		return nil, fmt.Errorf("open the file named: %w", err)
 	}
+	return file, nil
 }
