@@ -390,7 +390,10 @@ func TestReadThrough_APlayersReadAsksForTheTimelineAloneAndTheSweepReadsTheRest(
 	harness.shelveFilms(t)
 	harness.shelveAudioStreams(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 2)
-	job := jobs.Job{ID: 95, Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 2}, Priority: jobs.PriorityPlayNow}
+	job := jobs.Job{
+		ID: 95, Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 2}, Priority: jobs.PriorityPlayNow,
+		ArgsJSON: `{"isFromIndexOnly":true}`,
+	}
 	finished := harness.handle(t, harness.readThrough.HandleReadThrough, job)
 	command := harness.nextCommand(t).ReadThrough
 	if command == nil || command.VideoTimeline == nil || len(command.LoudnessTracks) != 0 {
@@ -408,5 +411,28 @@ func TestReadThrough_APlayersReadAsksForTheTimelineAloneAndTheSweepReadsTheRest(
 	swept, err := harness.readThroughWith(t, 96, 2, nodeproto.ReadThroughResult{})
 	if err != nil || swept == nil || swept.VideoTimeline == nil || len(swept.LoudnessTracks) == 0 {
 		t.Errorf("the sweep's read-through asked %+v (%v); want the loudness and the timeline", swept, err)
+	}
+}
+
+// A full read a person's interest raised to a play's priority reads the loudness still: what a
+// read-through asks is its arguments', never its priority's (D324; the owner's staging, 2026-10-21,
+// where a played film's raised read asked for the index alone and its loudness was never measured).
+func TestReadThrough_AFullReadRaisedToAPlaysPriorityStillMeasuresTheLoudness(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.shelveAudioStreams(t)
+	harness.nodes.commanded = make(chan nodeproto.Command, 1)
+	job := jobs.Job{ID: 97, Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 2}, Priority: jobs.PriorityPlayNow}
+	finished := harness.handle(t, harness.readThrough.HandleReadThrough, job)
+	command := harness.nextCommand(t).ReadThrough
+	if command == nil || len(command.LoudnessTracks) == 0 || command.VideoTimeline == nil ||
+		command.VideoTimeline.IsFromIndexOnly {
+		t.Fatalf("a raised full read asked %+v; want the loudness and the timeline read through", command)
+	}
+	harness.answerReadThrough(t, 97, nodeproto.ReadThroughResult{Refusal: "a test"})
+	if err := testutil.Receive(t, finished, "the read-through job to end"); err == nil {
+		t.Error("a refused read-through ended without an error; want it tried again")
 	}
 }

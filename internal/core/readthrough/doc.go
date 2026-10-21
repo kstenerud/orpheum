@@ -17,7 +17,11 @@
 //     so, which is remembered in memory, keeping nothing; the sweep reads a file of a container whose
 //     index the node does not read ahead of the others (D269 §2, §4). The sweep reads the index alone
 //     of each film with no timeline first, its fast tier, and each index read is followed by the
-//     film's full read, a file with no index ahead of the background (D269 §5).
+//     film's full read, a file with no index ahead of the background (D269 §5). Which a job reads is
+//     its arguments', never its priority, which a person's interest raises a full read to (D324); a
+//     player's index read folds into a queued full read and makes it one (ArgsMerge).
+//     TestArgsMerge_APlayersIndexReadWinsOverAQueuedFullReadAndARunningOneCoversOnlyItsOwn,
+//     TestReadThrough_AFullReadRaisedToAPlaysPriorityStillMeasuresTheLoudness,
 //     TestReadThrough_APlayersReadAsksForTheTimelineAloneAndTheSweepReadsTheRest,
 //     TestChunks_AFilmWithNoIndexIsCutOnTimeAndItsPlaybackStaysSo and
 //     TestReadThrough_TheSweepReadsAFileWithNoIndexReaderFirst (internal/core/api),

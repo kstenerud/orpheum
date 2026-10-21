@@ -221,10 +221,12 @@ func newHostProviders(
 }
 
 // jobArgsMerges are the kinds whose repeat requests merge their arguments their own way (D231 §8):
-// a fetch's, which identify's arguments are. The others keep the queued job's.
+// a fetch's, a backup's and a read-through's, whose packages say how. The others keep the queued
+// job's.
 func jobArgsMerges() map[jobs.Kind]jobs.ArgsMerge {
 	return map[jobs.Kind]jobs.ArgsMerge{
 		jobs.KindFetchMetadata: identify.FetchArgsMerge(), jobs.KindBackup: backup.JobArgsMerge(),
+		jobs.KindReadThrough: readthrough.ArgsMerge(),
 	}
 }
 

@@ -158,8 +158,8 @@ func (args readThroughArgs) argsJSON() string {
 
 // argsOf are a read-through job's arguments; a job whose arguments do not read as them reads through.
 func argsOf(job jobs.Job) readThroughArgs {
-	var args readThroughArgs
-	if err := json.Unmarshal([]byte(job.ArgsJSON), &args); err != nil {
+	args, err := decodeArgs(job.ArgsJSON)
+	if err != nil {
 		return readThroughArgs{}
 	}
 	return args
@@ -185,9 +185,51 @@ func sweptRead(file sweptFile) jobs.Request {
 }
 
 // isIndexReadJob is whether a read-through job asks for the picture's keyframes from its file's
-// index alone: a player's, waiting on them, or the sweep's fast tier (D259 §2, D269 §5).
+// index alone: a player's, waiting on them, or the sweep's fast tier (D259 §2, D269 §5). Its
+// arguments say so, never its priority, which a person's interest raises a full read to (D324).
 func isIndexReadJob(job jobs.Job) bool {
-	return job.Priority >= jobs.PriorityPlayNow || argsOf(job).IsFromIndexOnly
+	return argsOf(job).IsFromIndexOnly
+}
+
+// ArgsMerge is how a repeat request for a file's read-through folds into the one open (D231 §8): a
+// player waiting on the picture's keyframes makes a queued full read an index read, which its full
+// read follows (followIndexRead). A running read covers only a request with its own arguments, so a
+// player's beside a running full read is queued to answer in a fraction of a second.
+func ArgsMerge() jobs.ArgsMerge {
+	return jobs.ArgsMerge{
+		Merge: func(queued, requested string) (string, error) {
+			queuedArgs, err := decodeArgs(queued)
+			if err != nil {
+				return "", err
+			}
+			requestedArgs, err := decodeArgs(requested)
+			if err != nil {
+				return "", err
+			}
+			isFromIndexOnly := queuedArgs.IsFromIndexOnly || requestedArgs.IsFromIndexOnly
+			return readThroughArgs{IsFromIndexOnly: isFromIndexOnly}.argsJSON(), nil
+		},
+		Covers: func(running, requested string) (bool, error) {
+			runningArgs, err := decodeArgs(running)
+			if err != nil {
+				return false, err
+			}
+			requestedArgs, err := decodeArgs(requested)
+			return runningArgs == requestedArgs, err
+		},
+	}
+}
+
+// decodeArgs reads a read-through's arguments as a job or request carries them; "" is none.
+func decodeArgs(encoded string) (readThroughArgs, error) {
+	var args readThroughArgs
+	if encoded == "" {
+		return args, nil
+	}
+	if err := json.Unmarshal([]byte(encoded), &args); err != nil {
+		return readThroughArgs{}, fmt.Errorf("read a read-through's arguments: %w", err)
+	}
+	return args, nil
 }
 
 // hasIndexReader is whether the file at path, as its node reported it, is of a container the node

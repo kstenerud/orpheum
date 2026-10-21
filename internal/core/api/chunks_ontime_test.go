@@ -66,7 +66,8 @@ func (harness testHarness) findFilmOneHasNoIndex(t *testing.T) {
 		t.Fatalf("the read-throughs queued = %+v; want film 1's", read)
 	}
 	finished := harness.handle(t, harness.readThrough.HandleReadThrough, jobs.Job{
-		ID: read[0].ID, Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 1}, Priority: jobs.PriorityPlayNow,
+		ID: read[0].ID, Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 1}, Priority: read[0].Priority,
+		ArgsJSON: read[0].ArgsJSON,
 	})
 	command := harness.nextCommand(t).ReadThrough
 	if command == nil || command.VideoTimeline == nil || !command.VideoTimeline.IsFromIndexOnly {
