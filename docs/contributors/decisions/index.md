@@ -330,6 +330,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D322](working-notes.md#d322--activating-a-device-names-the-country-it-asks-from-as-cloudflare-names-it-the-networks-name-waits) Activating a device names the country it asks from, as Cloudflare names it; the network's name waits
 - [D323](working-notes.md#d323--a-picture-the-device-cannot-play-is-converted-at-its-own-size-first-and-the-ladder-follows-the-encoder) A picture the device cannot play is converted at its own size first, and the ladder follows the encoder
 - [D324](working-notes.md#d324--work-follows-interest-what-is-played-comes-first-then-what-is-being-looked-at-then-everything-else-work-in-the-way-is-stopped-and-what-waits-says-how-long) Work follows interest: what is played comes first, then what is being looked at, then everything else; work in the way is stopped, and what waits says how long
+- [D325](working-notes.md#d325--a-page-pulls-what-it-needs-to-know-the-server-never-pushes-it) A page pulls what it needs to know; the server never pushes it
 
 ## Archived
 

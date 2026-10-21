@@ -21207,3 +21207,25 @@ loudness was not measured: 3,412 read-throughs waited in id order, and 41 of 324
    what is ahead of it.
 
 **Status:** Planned: [interest-priority.md](../design/plans/interest-priority.md).
+
+## D325 — A page pulls what it needs to know; the server never pushes it
+
+**Decided** (2026-10-21), by the project owner: *"we should make this a general policy: Avoid server
+push and keep it client pull in order to avoid adding yet another queueing problem."* Asked whether
+the server should tell a player at once that its film can be read again, rather than the page asking
+every ten seconds, the risks were a message lost to a connection severed as it was sent, which leaves
+the page waiting for ever (the wedged player of the dead-share tests that day), the page's
+re-subscribing after every reconnection, and the server's keeping who listens. **Generalises**
+[D168](#d168--entitlement-is-resolved-at-the-point-of-use-never-pushed-revocation-needs-no-message-and-the-notification-is-a-latency-optimisation-that-may-always-be-lost), whose notification may always be lost, from entitlements to everything a page shows.
+
+1. **A page asks for the state it shows; the server never sends it unasked.** Each ask carries the
+   whole current state, so a lost or late answer costs only the time until the next ask, and there
+   is no event to miss, no subscription to restore and no listener to keep.
+2. **Where waiting matters, the ask may be held.** A long poll, answered at once when the state
+   changes and otherwise after a bound, is still a pull: it fails as an ask fails, and the page asks
+   again.
+3. **The node is not a page.** The node's reports to the core ([D234](#d234--the-core-drives-the-node-the-node-keeps-a-durable-journal-of-its-jobs-and-schedules-them-pushes-progress-and-acknowledged-results-and-the-core-checks-and-reconciles))
+   are outside this decision.
+
+**Status:** Holds: the player's check whether its film can be read again (`mediaBackAskEveryMs`) asks.
+
