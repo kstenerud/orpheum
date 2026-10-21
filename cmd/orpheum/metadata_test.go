@@ -384,14 +384,15 @@ func TestSweeps_TheScanScheduleIsASweepCheckedEveryQuarterHour(t *testing.T) {
 }
 
 // An unavailable root is scanned again every unavailable_root_rescan_seconds, by a sweep of its own:
-// the scan schedule's quarter hour was too long for a NAS back in a minute (staging, 2026-10-21).
+// the scan schedule's quarter hour was too long for a NAS back in a minute, and a minute left a film
+// 45 s from resuming (staging, 2026-10-21).
 func TestSweeps_UnavailableRootsAreScannedAgainEveryRescanInterval(t *testing.T) {
 	t.Parallel()
 	services := jobServices{settings: settingstest.Seeded(t, storetest.OpenMigrated(t))}
 	for _, sweep := range services.sweeps(slog.New(slog.DiscardHandler)) {
 		if sweep.Name == sweepUnavailableRoots {
-			if every := sweep.Every(t.Context()); every != time.Minute {
-				t.Errorf("the unavailable roots are scanned again every %s, want 1m0s", every)
+			if every := sweep.Every(t.Context()); every != 10*time.Second {
+				t.Errorf("the unavailable roots are scanned again every %s, want 10s", every)
 			}
 			return
 		}
