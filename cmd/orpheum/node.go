@@ -402,9 +402,7 @@ type nodeCapabilities struct {
 // it reports names the user and group the hello gives, so it can be read against them.
 func newScanner(config Config, roots []*confine.MediaRoot, runner *execx.Runner, hello nodeproto.Hello) *scan.Scanner {
 	prober := probe.NewProber(runner, time.Duration(config.Node.ProbeTimeoutSeconds)*time.Second)
-	return scan.NewScanner(roots, prober, scan.Options{
-		MaxErrors: config.Node.MaxErrorsPerRoot, UID: hello.UID, GID: hello.GID,
-	})
+	return scan.NewScanner(roots, prober, scan.Options{UID: hello.UID, GID: hello.GID})
 }
 
 // startIDBytes is a start id's random bytes before hex: eight never repeat between two starts of a

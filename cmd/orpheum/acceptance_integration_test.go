@@ -33,10 +33,10 @@ type recordingScanner struct {
 	examined map[string]nodeproto.ScanRecord
 }
 
-func (recorder *recordingScanner) List(ctx context.Context, root *confine.MediaRoot, start string, depth int) (
+func (recorder *recordingScanner) List(ctx context.Context, root *confine.MediaRoot, command nodeproto.List) (
 	[]nodeproto.ScanRecord, error,
 ) {
-	records, err := recorder.inner.List(ctx, root, start, depth)
+	records, err := recorder.inner.List(ctx, root, command)
 	recorder.mutex.Lock()
 	defer recorder.mutex.Unlock()
 	if recorder.listings == nil {
@@ -78,7 +78,7 @@ func examinedPath(record nodeproto.ScanRecord) nodeproto.Path {
 // P9.
 type replayingScanner struct{ recorder *recordingScanner }
 
-func (replay replayingScanner) List(_ context.Context, root *confine.MediaRoot, _ string, _ int) (
+func (replay replayingScanner) List(_ context.Context, root *confine.MediaRoot, _ nodeproto.List) (
 	[]nodeproto.ScanRecord, error,
 ) {
 	return replay.recorder.listings[root.Path()], nil

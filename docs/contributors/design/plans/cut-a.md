@@ -153,10 +153,11 @@ loop to work:**
     `slowest_read_mib_per_second` (plan-deviations P36). Its prepared renditions, in its
     instance's `cache/prepared/`, are kept within D217 §5's budget by `prepared_budget_gib` (200),
     `prepared_kept_after_play_hours` (72), `prepared_disk_used_limit_percent` (95) and
-    `prepared_disk_min_free_mib`. And `max_errors_per_root`, `probe_timeout_seconds`,
-    `progress_every_seconds`, `ended_work_kept_hours`, `read_header_timeout_seconds`. How often
-    the node posts its status was `status_interval_seconds` until the constants sweep
-    (2026-10-21): the core now says it, a third of `node_silent_after_seconds`.
+    `prepared_disk_min_free_mib`. And `probe_timeout_seconds`, `progress_every_seconds`,
+    `ended_work_kept_hours`, `read_header_timeout_seconds`. Two were node keys until the
+    constants sweep (2026-10-21), and the core now says them: how often the node posts its
+    status (`status_interval_seconds`), a third of `node_silent_after_seconds`; and how many
+    errors a listing may meet (`max_errors_per_root`), the setting `scan_root_error_limit`.
   - both's `[log]`: `level`, `format` (`text` or `json`), `destination` (`stderr` or a file)
 
   A missing key with a starting value runs on it, and doctor lists it; one with none refuses

@@ -56,6 +56,7 @@ const (
 	JobHealthWindowHours                   Key = "job_health_window_hours"
 	RetentionSweepEveryHours               Key = "retention_sweep_every_hours"
 	InvariantsCheckEveryHours              Key = "invariants_check_every_hours"
+	ScanRootErrorLimit                     Key = "scan_root_error_limit"
 )
 
 // upkeepSweepDefinitions are how often the core's upkeep looks, and how far back the job view counts:
@@ -311,6 +312,10 @@ func libraryAdminDefinitions() []Definition {
 				"(D208): enough to recognise a season or a folder, few enough to read at a glance; the rest "+
 				"are counted"),
 			"best guess: ten"),
+		sourced(integerSetting(ScanRootErrorLimit, "1000", 1, 1_000_000,
+			"errors one root's listing may meet before its node stops listing it and says it stopped (D40): "+
+				"a dead share must not flood the scan; was the node's max_errors_per_root"),
+			"D40: a thousand"),
 	}
 }
 

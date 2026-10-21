@@ -178,7 +178,6 @@ type NodeConfig struct {
 	RootPaths            []string `toml:"root_paths"`
 	FFmpegDir            string   `toml:"ffmpeg_dir"`
 	ConfinementPolicy    string   `toml:"confinement_policy"`
-	MaxErrorsPerRoot     int      `toml:"max_errors_per_root"`
 	ProbeTimeoutSeconds  int64    `toml:"probe_timeout_seconds"`
 	ProgressEverySeconds int64    `toml:"progress_every_seconds"`
 	EndedWorkKeptHours   int64    `toml:"ended_work_kept_hours"`
@@ -363,10 +362,6 @@ func nodeConfigKeys() []configKey {
 			tableNode, "confinement_policy", `"report"`,
 			`"report" runs FFmpeg with what confinement the kernel offers and says what is missing; "require" ` +
 				`refuses to run it unconfined (D273 §5)`,
-		},
-		{
-			tableNode, "max_errors_per_root", "1000",
-			"errors one root may produce in a scan before the node stops enumerating it (D40)",
 		},
 		{tableNode, "probe_timeout_seconds", "60", "seconds ffprobe gets for one file before it is stopped"},
 		{
@@ -599,7 +594,6 @@ func (database DatabaseConfig) check() error {
 // check refuses what a node cannot run with.
 func (node NodeConfig) check() error {
 	problems := []error{atLeastOne(map[string]int64{
-		"node.max_errors_per_root":            int64(node.MaxErrorsPerRoot),
 		"node.probe_timeout_seconds":          node.ProbeTimeoutSeconds,
 		"node.progress_every_seconds":         node.ProgressEverySeconds,
 		"node.ended_work_kept_hours":          node.EndedWorkKeptHours,

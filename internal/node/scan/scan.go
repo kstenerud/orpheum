@@ -25,9 +25,6 @@ type emitFunc func(record nodeproto.ScanRecord) error
 
 // Options are the scanner's settings, from the node's config file.
 type Options struct {
-	// MaxErrors is how many errors one root may produce before the scanner stops listing it and
-	// reports the root as unreadable (D40: a dead share must not flood the listing).
-	MaxErrors int
 	// UID and GID are the node's effective ids, reported so an error can be read against them.
 	UID, GID int
 }
@@ -66,11 +63,11 @@ func (place location) child(name string) location {
 
 func (place location) absolute() string { return path.Join(place.mediaRoot.Path(), place.relativePath) }
 
-// List lists what is under start, a path relative to root, to depth levels below it, 0 for the whole
-// tree, and returns its records (nodeproto.Listing says which): it reads no file (D240 §2). A
-// cancelled listing ends with a run-scoped error and no scan_complete, so the core removes nothing
-// for it (D39).
-func (scanner *Scanner) List(ctx context.Context, root *confine.MediaRoot, start string, depth int) (
+// List lists what is under the command's path, relative to root, to its depth below it, 0 for the
+// whole tree, stopping at its error limit, and returns its records (nodeproto.Listing says which): it
+// reads no file (D240 §2). A cancelled listing ends with a run-scoped error and no scan_complete, so
+// the core removes nothing for it (D39).
+func (scanner *Scanner) List(ctx context.Context, root *confine.MediaRoot, command nodeproto.List) (
 	[]nodeproto.ScanRecord, error,
 ) {
 	var records []nodeproto.ScanRecord
@@ -80,9 +77,9 @@ func (scanner *Scanner) List(ctx context.Context, root *confine.MediaRoot, start
 	}
 	walk := &walk{
 		scanner: scanner, ctx: ctx, emit: emit, visited: map[string]bool{},
-		errors: newErrorLog(emit, scanner.options.MaxErrors), depth: depth,
+		errors: newErrorLog(emit, command.ErrorLimit), depth: command.Depth,
 	}
-	err := walk.run(root, path.Clean(start))
+	err := walk.run(root, path.Clean(command.Path))
 	return records, err
 }
 

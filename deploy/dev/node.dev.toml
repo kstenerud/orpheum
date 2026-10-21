@@ -17,7 +17,6 @@ core_socket = "{root}/.dev/core/run/core.sock"   # the dev core instance's run d
 root_paths = ["{root}/.dev/media/movies", "{root}/.dev/media/shows"]   # one per library in deploy/dev/seed.toml
 ffmpeg_dir = "{ffmpeg_dir}"
 confinement_policy = "report"   # "require" refuses to start unconfined; "report" runs and says so
-max_errors_per_root = 1000
 probe_timeout_seconds = 60
 progress_every_seconds = 2
 ended_work_kept_hours = 168

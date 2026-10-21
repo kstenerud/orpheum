@@ -35,6 +35,10 @@ type List struct {
 	// Path is relative to the root, "." for the root itself.
 	Path  string `json:"path"`
 	Depth int    `json:"depth"`
+	// ErrorLimit is how many errors the listing may meet before the node stops listing the root and
+	// says it stopped (D40: a dead share must not flood the listing): the core's scan_root_error_limit.
+	// Zero lists without one.
+	ErrorLimit int `json:"errorLimit"`
 }
 
 // Listing is a listing's answer: scan_begin with the root's facts, then a record for every entry,
