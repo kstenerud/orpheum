@@ -67,5 +67,52 @@ class Callers(unittest.TestCase):
         self.assertEqual(attempts[1].command, rr.STORE_INTEGRATION)
 
 
+class ExportedNames(unittest.TestCase):
+    def test_an_exported_declaration_that_changed_or_went_is_found_and_unexported_ones_are_not(self):
+        before = ("package x\n\nfunc A() int { return 1 }\n\nfunc (s *S) Method() {}\n\ntype S struct{}\n\n"
+                  "const Gone = 2\n\nvar hidden = 3\n")
+        after = before.replace("return 1", "return 2").replace("const Gone = 2\n\n", "").replace(
+            "hidden = 3", "hidden = 4")
+        self.assertEqual(queries.changed_exported_names(before, after), ["A", "Gone"])
+
+    def test_a_grouped_name_is_found_by_its_group(self):
+        before = "package x\n\nconst (\n\tKept = 1\n\tChanged = 2\n)\n"
+        after = before.replace("Changed = 2", "Changed = 3")
+        self.assertIn("Changed", queries.changed_exported_names(before, after))
+
+
+class Users(unittest.TestCase):
+    def setUp(self):
+        self.repo = Repo({
+            "internal/store/jobs.go": "package store\n\nfunc Open() int { return 1 }\n\nfunc Other() {}\n",
+            "internal/core/a/a.go": "package a\n\nfunc f() { store.Open() }\n",
+            "internal/core/b/b.go": "package b\n\nfunc g() { store.Other() }\n",
+            "internal/core/c/c.go": "package c\n\nfunc h() { store.Open() }\n",
+        })
+        self.base = self.repo.commit("base")
+        self.head = self.repo.commit("change Open", {
+            "internal/store/jobs.go": "package store\n\nfunc Open() int { return 2 }\n\nfunc Other() {}\n"})
+
+    def test_the_users_are_the_dependents_naming_a_changed_exported_name(self):
+        found = queries.users_of_change(str(self.repo.root), self.base, self.head, "internal/store/jobs.go",
+                                        ["./internal/core/a", "./internal/core/b"])
+        self.assertEqual(found, ["./internal/core/a"])  # c names it but is no dependent; b names another
+
+    def test_a_go_files_probe_runs_its_users_tests_after_its_own_and_before_every_dependent(self):
+        dependents = ["./internal/core/a", "./internal/core/b"]
+        saved = rr.go_dependents
+        rr.go_dependents = lambda _root, _path: dependents
+        try:
+            with self.repo.cwd():
+                own = ["go", "test", rr.FIRST_RED_GO, "./internal/store/..."]
+                attempts = rr.attempts_for(rr.Change("internal/store/jobs.go", "M"), own, self.base, self.head)
+        finally:
+            rr.go_dependents = saved
+        self.assertEqual([attempt.command for attempt in attempts[:3]], [
+            own, ["go", "test", rr.FIRST_RED_GO, "./internal/core/a"],
+            ["go", "test", rr.FIRST_RED_GO, *dependents],
+        ])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -79,7 +79,7 @@ from pathlib import Path
 import browser_map
 import revert_red_known as known_red
 import revert_red_reruns as reruns
-from revert_red_queries import callers_of_change
+from revert_red_queries import callers_of_change, users_of_change
 from revert_red_report import failure_advice, report
 from revert_red_parts import (BROWSER_DEFERRED, BROWSER_INLINE, BROWSER_ONLY, CSS_SOURCE, PARTS,  # noqa: F401 (tests reach them here)
                               browser_mode, is_in_part)
@@ -387,6 +387,13 @@ def attempts_for(change: Change, first: list[str], base: str = "", head: str = "
         if callers:
             attempts.insert(0, Attempt(["go", "test", FIRST_RED_GO, *callers],
                                        ", found by the tests of the code that calls its changed queries"))
+    elif GO_SOURCE.search(change.path) and base and head:
+        # Before every dependent, those that use what the change touched: a red is nearly always there
+        # (check-pr, 2026-10-21: a store file 37 s green in its own package, then 177 s of dependents).
+        users = users_of_change(toplevel(), base, head, change.path, go_dependents(toplevel(), change.path))
+        if users:
+            attempts.append(Attempt(["go", "test", FIRST_RED_GO, *users],
+                                    ", found by the tests of the code that uses what it changed"))
     wide = wide_scope(change.path)
     if wide is not None and wide != scope_for(change.path):
         attempts.append(Attempt(wide, ", found by the tests its revert can reach"))
