@@ -429,8 +429,11 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
 - **Fix:** a red revert is recorded with the file's two blobs and the git trees of what its red run
   tested, and a later probe of the same revert over the same trees takes it without running
   (`revert_red_known.py`); the nightly `make check-everything` trusts no record. A generated query
-  file's probe runs first the packages that call the queries its change touched
-  (`revert_red_queries.py`), then the rest as before; only a green run settles a green verdict.
+  file's probe runs first the packages that call the queries its change touched, and any other Go
+  file's runs, after its own package's, the dependents that use an exported name its change touched,
+  before every dependent (`revert_red_queries.py`; check-pr, later on 2026-10-21: a store file 37 s
+  green in its package, then 177 s of dependents, its user's test seconds). Only a green run of all
+  of them settles a green verdict.
 - **Warning sign:** check-pr's revert-red over a batch whose commits each passed check-commit-red
   taking as long as it did before; a sqlc file's probe red only in "its dependents".
 

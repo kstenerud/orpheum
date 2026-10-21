@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# ABOUTME: For a probe of generated query code, the packages that call the queries its change touched:
-# ABOUTME: the tests likeliest to go red, run before the store's whole tier and every dependent.
-"""The first run of a generated query file's probe (check_revert_red.attempts_for).
+# ABOUTME: For a probe of Go code, the packages that use what its change touched: a generated query file's
+# ABOUTME: changed queries, or any file's changed exported names; run before every dependent's tests.
+"""The callers' run of a Go file's probe (check_revert_red.attempts_for).
 
 A sqlc file's revert is red in the tests of the code that calls the query it changed, nearly
 always, and those were reached only after the store's integration tier and every dependent
@@ -57,12 +57,70 @@ def caller_packages(root: str, rev: str, names: list[str]) -> list[str]:
 def callers_of_change(root: str, base: str, head: str, path: str) -> list[str]:
     """The packages that call the queries a generated file's change touched, by the two versions in
     git; none when either cannot be read."""
+    before, after = versions_of(root, base, head, path)
+    if after is None:
+        return []
+    return caller_packages(root, head, changed_queries(before or "", after))
+
+
+def versions_of(root: str, base: str, head: str, path: str) -> tuple[str | None, str | None]:
+    """A file's text at base and at head, None where it has none."""
     def at(rev: str) -> str | None:
         shown = subprocess.run(["git", "show", f"{rev}:{path}"], cwd=root, capture_output=True, text=True,
                                check=False)
         return shown.stdout if shown.returncode == 0 else None
 
-    before, after = at(base), at(head)
+    return at(base), at(head)
+
+
+# A top-level declaration's first line: a function or method, a type, or a var or const, alone or
+# opening a group.
+DECLARATION = re.compile(r"^(?:func (?:\([^)]*\) )?(\w+)|type (\w+)|(?:var|const) (\w+|\())", re.MULTILINE)
+GROUPED_NAME = re.compile(r"^\t(\w+)", re.MULTILINE)
+
+
+def declarations_of(source: str) -> dict[str, str]:
+    """Each top-level declaration of a Go file, by its name: the stretch from its first line to the
+    next declaration's; a grouped var or const block gives each name it declares the whole block."""
+    starts = list(DECLARATION.finditer(source))
+    found: dict[str, str] = {}
+    for index, match in enumerate(starts):
+        code = source[match.start(): starts[index + 1].start() if index + 1 < len(starts) else None]
+        name = match.group(1) or match.group(2) or match.group(3)
+        names = GROUPED_NAME.findall(code.split(")\n", 1)[0]) if name == "(" else [name]
+        for each in names:
+            found[each] = found.get(each, "") + code
+    return found
+
+
+def changed_exported_names(before: str, after: str) -> list[str]:
+    """The exported names whose declarations differ between the two versions, or that only one has:
+    what another package can use, and so what a revert can break there."""
+    old, new = declarations_of(before), declarations_of(after)
+    names = {name for name in old.keys() | new.keys() if name[:1].isupper() and old.get(name) != new.get(name)}
+    return sorted(names)
+
+
+def packages_using(root: str, rev: str, path: str, names: list[str], among: list[str]) -> list[str]:
+    """The packages among among, as `./dir`, whose Go code at rev outside the file's own package uses
+    one of names as a word."""
+    if not names or not among:
+        return []
+    pattern = r"\b(" + "|".join(re.escape(name) for name in names) + r")\b"
+    own = "./" + path.rsplit("/", 1)[0]
+    found = subprocess.run(["git", "grep", "-l", "-E", pattern, rev, "--", "*.go"], cwd=root, capture_output=True,
+                           text=True, check=False).stdout
+    using = set()
+    for line in found.splitlines():
+        file = line.split(":", 1)[1] if ":" in line else line
+        using.add("./" + (file.rsplit("/", 1)[0] if "/" in file else "."))
+    return sorted((using & set(among)) - {own})
+
+
+def users_of_change(root: str, base: str, head: str, path: str, dependents: list[str]) -> list[str]:
+    """The dependents of a Go file's package that use an exported name its change touched, by the two
+    versions in git; none when its head cannot be read."""
+    before, after = versions_of(root, base, head, path)
     if after is None:
         return []
-    return caller_packages(root, head, changed_queries(before or "", after))
+    return packages_using(root, head, path, changed_exported_names(before or "", after), dependents)
