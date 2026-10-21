@@ -60,6 +60,8 @@ type fakeCore struct {
 	helloHeard chan struct{}
 	// keptRenditionDirs are the renditions the reply to a hello keeps. Guarded by mutex.
 	keptRenditionDirs []string
+	// statusEverySeconds is the status cadence the reply to a hello says. Guarded by mutex.
+	statusEverySeconds int
 	// tokenlessJobIDs are the jobs whose commands it sends naming no attempt, as no core does.
 	tokenlessJobIDs map[int64]bool
 }
@@ -112,15 +114,14 @@ func startFakeCore(t *testing.T) (*fakeCore, string) {
 		}
 		core.mutex.Lock()
 		core.hellos = append(core.hellos, hello)
-		kept := core.keptRenditionDirs
+		kept, statusEvery := core.keptRenditionDirs, core.statusEverySeconds
 		core.mutex.Unlock()
 		select {
 		case core.helloHeard <- struct{}{}:
 		default:
 		}
 		if err := json.NewEncoder(writer).Encode(nodeproto.HelloReply{
-			NodeID:            7,
-			KeptRenditionDirs: kept,
+			NodeID: 7, KeptRenditionDirs: kept, Tuning: nodeproto.Tuning{StatusEverySeconds: statusEvery},
 		}); err != nil {
 			t.Error(err)
 		}

@@ -220,8 +220,9 @@ func buildRegistry() []Definition {
 			Description: "serve /metrics, on a loopback listen address only (D91); not built yet",
 			StartSource: "D91: off by default, local when on",
 		},
-		sourced(durationSetting(NodeSilentAfterSeconds, time.Second, "30", 1, 24*3600,
-			"seconds without a record from a node before the core shows it as silent (cut-a §4)"),
+		sourced(durationSetting(NodeSilentAfterSeconds, time.Second, "30", 3, 24*3600,
+			"seconds without a record from a node before the core shows it as silent (cut-a §4); each node "+
+				"posts its status every third of it"),
 			"cut-a §4: silent after 30 s with no record, three status intervals"),
 		sourced(durationSetting(AssignedJobLimitHours, time.Hour, "24", 1, 24*30,
 			"hours a job given to a node may stay without its outcome before it is its own failure (D234 §7)"),

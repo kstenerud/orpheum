@@ -154,8 +154,9 @@ loop to work:**
     instance's `cache/prepared/`, are kept within D217 §5's budget by `prepared_budget_gib` (200),
     `prepared_kept_after_play_hours` (72), `prepared_disk_used_limit_percent` (95) and
     `prepared_disk_min_free_mib`. And `max_errors_per_root`, `probe_timeout_seconds`,
-    `status_interval_seconds`, `progress_every_seconds`, `ended_work_kept_hours`,
-    `read_header_timeout_seconds`.
+    `progress_every_seconds`, `ended_work_kept_hours`, `read_header_timeout_seconds`. How often
+    the node posts its status was `status_interval_seconds` until the constants sweep
+    (2026-10-21): the core now says it, a third of `node_silent_after_seconds`.
   - both's `[log]`: `level`, `format` (`text` or `json`), `destination` (`stderr` or a file)
 
   A missing key with a starting value runs on it, and doctor lists it; one with none refuses

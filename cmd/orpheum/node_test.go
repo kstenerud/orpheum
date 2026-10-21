@@ -236,15 +236,16 @@ func openDatabase(t *testing.T, config Config) *store.Database {
 	return database
 }
 
-// fakeFFmpegSeams run the node with the fake FFmpeg, a shell script no confined run may start.
-var fakeFFmpegSeams = nodeSeams{isUnconfined: true}
+// fakeFFmpegSeams run the node with the fake FFmpeg, a shell script no confined run may start, posting
+// its status every second (nodeSeams.statusEvery).
+var fakeFFmpegSeams = nodeSeams{isUnconfined: true, statusEvery: time.Second}
 
 func TestRunNode_RefusesToRunUnconfinedWhenConfinementIsRequired(t *testing.T) {
 	t.Parallel()
 	config, _ := testConfig(t)
 	config.Node.ConfinementPolicy = "require"
 	captured := newCapturedLog()
-	withoutLandlock := nodeSeams{isUnconfined: true, mechanismStates: func() []confine.State {
+	withoutLandlock := nodeSeams{isUnconfined: true, statusEvery: time.Second, mechanismStates: func() []confine.State {
 		return []confine.State{
 			{Mechanism: confine.MechanismLandlock, Reason: "not enabled at boot", Remedy: "add lsm=landlock"},
 			{Mechanism: confine.MechanismSeccomp, IsInForce: true},
@@ -436,7 +437,6 @@ func TestRunNode_AListingStalledOnItsDiskMakesItsRootUnavailable(t *testing.T) {
 	t.Parallel()
 	shelved := filmOnNode(t, "nfo")
 	config := shelved.config
-	config.Node.StatusIntervalSeconds = 1
 	const stalled = "work stalled on a root's disk; it is unavailable until a scan reads it"
 	captured := newCapturedLog("ready", stalled)
 	seams := fakeFFmpegSeams

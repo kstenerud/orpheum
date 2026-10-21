@@ -68,6 +68,9 @@ var wireShapeByVersion = map[int]string{
 	// file moved on its disk (D304 §5).
 	32: "6193ac0e641a4dbaefbf2f1d37a06e958fdf23d2415aafa5b0303ca151862e4c",
 	33: "8a094d78ee941cd24b40719b1ab30d899d9465b61ec6524b43094e1ddd77e03e",
+	// 34 adds the core's Tuning of the node, in the hello reply and each poll's answer: first how often
+	// the node posts its status, in place of its own config (the constants sweep, 2026-10-21).
+	34: "97484e9114c9f3556ae2bc64055042b31149b03b622ff057df198ed07b274a87",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

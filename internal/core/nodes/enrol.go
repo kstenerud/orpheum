@@ -89,7 +89,7 @@ func (service *Service) hello(writer http.ResponseWriter, request *http.Request)
 	}
 	writeJSON(writer, nodeproto.HelloReply{
 		NodeID: node.ID, KeptRenditionDirs: service.keptRenditions(ctx, node.ID, hello.Renditions),
-		DeviceReaderLimits: limits,
+		DeviceReaderLimits: limits, Tuning: service.tuning(ctx),
 	})
 }
 

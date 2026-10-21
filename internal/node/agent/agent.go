@@ -89,6 +89,9 @@ type Workers struct {
 	// before the node answers it as stalled on its disk (D233 §10): ReadStallWindowFor the probe's
 	// timeout. Zero is defaultReadStallWindow.
 	ReadStallWindow time.Duration
+	// SetStatusEvery sets how often the tick Run is given comes, when the core says (a time.Ticker's
+	// Reset); nil keeps the tick as it is.
+	SetStatusEvery func(every time.Duration)
 }
 
 // defaultReadStallWindow is the least time a reading in the node's own process may go without
@@ -141,6 +144,9 @@ type Agent struct {
 	// against; read and written by the poll alone.
 	storeTiers  map[string]nodeproto.KeepTier
 	answerRetry answerRetry
+	// statusEvery is how often the core last said to post the status, which a change is set against;
+	// starts at nodeproto.StartingStatusEverySeconds.
+	statusEvery atomic.Int64
 
 	mutex sync.Mutex
 	// devices are what the roots are on, as the last hello found them. Guarded by mutex.
@@ -163,12 +169,31 @@ func New(
 		byPath[root.Path()] = root
 		hello.RootPaths = append(hello.RootPaths, root.Path())
 	}
-	return &Agent{
+	agent := &Agent{
 		client: &http.Client{Transport: unixsocket.Transport(socketPath)}, hello: hello, roots: byPath,
 		workers: workers,
 		clock:   clockSource, logger: logger, work: newWorkList(hello.Capacity, clockSource),
 		ended:       newEndedAttempts(),
 		answerRetry: defaultAnswerRetry(),
+	}
+	agent.statusEvery.Store(int64(nodeproto.StartingStatusEverySeconds))
+	return agent
+}
+
+// takeTuning takes how the core's settings say the node behaves (nodeproto.Tuning).
+func (agent *Agent) takeTuning(ctx context.Context, tuning nodeproto.Tuning) {
+	agent.setStatusEvery(ctx, tuning.StatusEverySeconds)
+}
+
+// setStatusEvery posts the status every seconds from now, when the core says a cadence other than the
+// last; zero, from a core that says none, keeps the last.
+func (agent *Agent) setStatusEvery(ctx context.Context, seconds int) {
+	if seconds <= 0 || agent.statusEvery.Swap(int64(seconds)) == int64(seconds) {
+		return
+	}
+	agent.logger.InfoContext(ctx, "posting the status at the core's cadence", "everySeconds", seconds)
+	if agent.workers.SetStatusEvery != nil {
+		agent.workers.SetStatusEvery(time.Duration(seconds) * time.Second)
 	}
 }
 
@@ -203,6 +228,7 @@ func (agent *Agent) session(ctx context.Context, tick <-chan time.Time) error {
 	agent.logger.InfoContext(ctx, "said hello to the core", "nodeId", reply.NodeID)
 	agent.evictUnkept(ctx, hello.Renditions, reply.KeptRenditionDirs)
 	agent.work.setReaderLimits(reply.DeviceReaderLimits)
+	agent.takeTuning(ctx, reply.Tuning)
 	agent.ended.saidHello()
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
@@ -295,9 +321,10 @@ func (agent *Agent) sayHello(ctx context.Context, hello nodeproto.Hello) (nodepr
 }
 
 // takeAnswersSettings takes what a poll's answer says of the core's settings and players beside its
-// commands: each device's readers (D240 §5), and how strongly each chunk store is kept (D309 §8). One
-// it does not say leaves the last.
+// commands: each device's readers (D240 §5), its tuning, and how strongly each chunk
+// store is kept (D309 §8). One it does not say leaves the last.
 func (agent *Agent) takeAnswersSettings(ctx context.Context, answer nodeproto.Commands) {
+	agent.takeTuning(ctx, answer.Tuning)
 	if answer.DeviceReaderLimits != nil {
 		agent.work.setReaderLimits(answer.DeviceReaderLimits)
 	}
