@@ -116,7 +116,7 @@ func (service *Service) isRefused(
 }
 
 // askForScans asks for a scan of each of a node's roots a live library covers on it, no person
-// waiting for it (D240 §1).
+// waiting for it (D240 §1); an unavailable one's first, as the scan that brings its films back.
 func (service *Service) askForScans(ctx context.Context, nodeID int64, rootPaths []string) error {
 	if service.scans == nil {
 		return nil
@@ -125,8 +125,18 @@ func (service *Service) askForScans(ctx context.Context, nodeID int64, rootPaths
 	if err != nil {
 		return fmt.Errorf("read the libraries' roots: %w", err)
 	}
+	unavailable, err := service.database.Read().ListUnavailableRoots(ctx)
+	if err != nil {
+		return fmt.Errorf("read the unavailable roots: %w", err)
+	}
 	for _, root := range roots {
-		if err := service.scans.Request(ctx, nodeID, root, jobs.PriorityBackground); err != nil {
+		priority := jobs.PriorityBackground
+		if slices.ContainsFunc(unavailable, func(row sqlcgen.ListUnavailableRootsRow) bool {
+			return row.NodeID == nodeID && row.RootPath == root
+		}) {
+			priority = jobs.PriorityBringsBack
+		}
+		if err := service.scans.Request(ctx, nodeID, root, priority); err != nil {
 			return err
 		}
 	}
