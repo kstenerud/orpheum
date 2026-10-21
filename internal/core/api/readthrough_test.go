@@ -183,8 +183,8 @@ func TestReadThrough_AFileUnderAMissingRootIsNotSweptAndItsReadThroughWaitsForTh
 	harness.shelveFilms(t)
 	harness.shelveAudioStreams(t)
 	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at)
-		 VALUES (1, '/media', 'unreadable', 5000)`)
+		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, unavailable_since)
+		 VALUES (1, '/media', 'unreadable', 5000, 5000)`)
 	if ids := harness.filesToReadThrough(t); len(ids) != 0 {
 		t.Errorf("with its root unreadable, a sweep finds %v to measure; want none (G6)", ids)
 	}
@@ -209,7 +209,7 @@ func TestReadThrough_AFileUnderAMissingRootIsNotSweptAndItsReadThroughWaitsForTh
 		t.Errorf("the measurement = %+v; want queued on the missing root with no attempt spent", job)
 	}
 	storetest.ExecRaw(t, harness.databasePath,
-		`UPDATE root_state SET last_scan_outcome = 'complete'`,
+		`UPDATE root_state SET last_scan_outcome = 'complete', unavailable_since = NULL`,
 		`INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_present)
 		 VALUES (1, '/media', '/media', 9, 0)`)
 	if ids := harness.filesToReadThrough(t); len(ids) != 0 {

@@ -102,10 +102,13 @@ WHERE node_id = sqlc.arg(node_id) AND mount_path = sqlc.arg(mount_path);
 -- name: ListUnavailableRootsOfNode :many
 -- A node's roots whose last scan could not read them, or held back its removals having seen none
 -- of the root, or whose disk work stalled on since: their files are not there to read, since the
--- first of those in a row (D208, D231 section 5, D233 section 10, D277 section 1).
-SELECT root_path, CAST(coalesce(unavailable_since, last_scan_at) AS INTEGER) AS unavailable_since
+-- first of those in a row (D208, D231 section 5, D233 section 10, D277 section 1). Each of those
+-- sets unavailable_since, which alone says it, as every other reader of it reads it: one also read
+-- from an unreadable last scan kept a root its disk had brought back unavailable (D326; staging,
+-- 2026-10-21).
+SELECT root_path, CAST(unavailable_since AS INTEGER) AS unavailable_since
 FROM root_state
-WHERE node_id = sqlc.arg(node_id) AND (last_scan_outcome = 'unreadable' OR unavailable_since IS NOT NULL)
+WHERE node_id = sqlc.arg(node_id) AND unavailable_since IS NOT NULL
 ORDER BY root_path;
 
 -- name: ListMissingMountsOfNode :many
