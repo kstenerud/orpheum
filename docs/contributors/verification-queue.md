@@ -487,3 +487,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   no "refused a request past a connection's limit". Firefox's Local Network Access failing a LAN name's
   preflighted requests while it answers a bare one only shows in Firefox on a real LAN.
   (`web/apps/web/src/kept-path.ts`)
+
+- [ ] **VQ50** — On staging, with a film whose loudness is not measured (most are): open its page
+  and play it on a laptop, and open the sound panel under the video. The note says "Its loudness is
+  being measured, about N minutes" or "is waiting to be measured, about N minutes", N falls as you
+  watch (it asks again every 15 s), and within a few minutes the switch says the film was raised or
+  lowered to the level of other films. Then open a series you are partway through: within a minute
+  its next three episodes' read-throughs are at priority 100 in Jobs (the System page's job view),
+  the one you are partway through first, and the background's are at 0 or 1. Play a film a device
+  needs prepared in software (an HEVC film in Firefox): the player says "Preparing this film for this
+  device: about N minutes", and while it plays no other prepare runs on the node. A real player's
+  reports, a real disk's speed and a real software encode meet only here (D324; I6 of
+  `docs/contributors/design/plans/interest-priority.md`). (`internal/core/interest`,
+  `internal/core/waits`, `internal/core/nodes/playing.go`, `web/apps/web/src/file-waits.ts`)
