@@ -257,9 +257,9 @@ func openAndWire(
 	dependencies.Subtitles, dependencies.Renditions, dependencies.Artwork, dependencies.Chunks, dependencies.Discovery =
 		opened.jobServices.subtitles, opened.jobServices.renditions, opened.jobServices.artwork,
 		opened.jobServices.chunks, opened.jobServices.discovery
-	opened.jobServices.nodes = opened.nodes
-	opened.nodes.SetRenditionIndex(opened.jobServices.renditions)
-	opened = wireJobsInto(&dependencies, opened, logger)
+	if opened, err = wireJobsInto(&dependencies, opened, logger); err != nil {
+		return opened, errors.Join(err, opened.cache.Close(), database.Close())
+	}
 	dependencies.NodeReports, dependencies.NodeWork = opened.nodes, opened.exchanges
 	dependencies.NodeBytes, dependencies.Reachability, dependencies.Relay = openByteSocket(opened.nodes),
 		opened.reachability, newRelayIssuer(config, opened, logger)
@@ -284,9 +284,13 @@ func newTogether(dependencies *api.Dependencies, logger *slog.Logger) *together.
 }
 
 // wireJobsInto gives the API the job queue, the outside hosts' provider services and the port
-// mapping's report, and makes a
-// backup a job, the scheduled ones and an admin's (D243 §11); and the Watch Together sessions.
-func wireJobsInto(dependencies *api.Dependencies, opened openedServices, logger *slog.Logger) openedServices {
+// mapping's report, and makes a backup a job, the scheduled ones and an admin's (D243 §11); the
+// Watch Together sessions; and what orders the work by interest (D324).
+func wireJobsInto(
+	dependencies *api.Dependencies, opened openedServices, logger *slog.Logger,
+) (openedServices, error) {
+	opened.jobServices.nodes = opened.nodes
+	opened.nodes.SetRenditionIndex(opened.jobServices.renditions)
 	dependencies.Together = opened.together
 	dependencies.Together.SnapSeeksBy(dependencies.Chunks.KeyframeAtOrBefore)
 	// The last resort when the server's upload cannot carry its players at their lowest (D286 §5).
@@ -299,15 +303,26 @@ func wireJobsInto(dependencies *api.Dependencies, opened openedServices, logger 
 	dependencies.PortMapping = opened.jobServices.portMapping
 	dependencies.Backups.UseQueue(opened.jobServices.queue, opened.settings)
 	opened.jobServices.backups = dependencies.Backups
-	// What people play and look at orders the work (D324).
+	var err error
+	opened.jobServices.interest, err = newInterestRaiser(dependencies, opened, logger)
+	return opened, err
+}
+
+// newInterestRaiser is what orders the work by what people play and look at (D324), its register
+// handed to the API.
+func newInterestRaiser(
+	dependencies *api.Dependencies, opened openedServices, logger *slog.Logger,
+) (*interest.Raiser, error) {
 	dependencies.Interest = interest.NewRegister(clock.System{})
-	opened.jobServices.interest = interest.NewRaiser(interest.Parts{
+	raiser, err := interest.NewRaiser(interest.Parts{
 		Register: dependencies.Interest, Jobs: jobs.NewInterestJobs(opened.cache, clock.System{}),
 		Nodes: opened.exchanges, Waiting: opened.jobServices.queue, Playing: playingFiles(dependencies.Playback),
-		Database: opened.database,
-		Settings: opened.settings, Clock: clock.System{}, Logger: logger,
+		Database: opened.database, Settings: opened.settings, Clock: clock.System{}, Logger: logger,
 	})
-	return opened
+	if err != nil {
+		return nil, fmt.Errorf("order the work by interest: %w", err)
+	}
+	return raiser, nil
 }
 
 // openPlayback is what plays a file and the work a play asks of the nodes: the read-through for its

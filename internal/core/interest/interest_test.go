@@ -4,6 +4,7 @@ package interest
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"slices"
 	"testing"
@@ -61,6 +62,26 @@ func (record *raising) Raise(
 	return record.answers[priority], nil
 }
 
+// mustRaiser is the raiser of parts, which name every one.
+func mustRaiser(t *testing.T, parts Parts) *Raiser {
+	t.Helper()
+	raiser, err := NewRaiser(parts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raiser
+}
+
+// A raiser built without one of its parts is refused, rather than failing at the raise that
+// reaches it.
+func TestNewRaiser_RefusesPartsThatLeaveOneOut(t *testing.T) {
+	t.Parallel()
+	if _, err := NewRaiser(Parts{Register: NewRegister(clocktest.NewFake(time.Time{}))}); !errors.Is(err,
+		ErrMissingPart) {
+		t.Errorf("NewRaiser of a register alone = %v; want ErrMissingPart", err)
+	}
+}
+
 // waitingRoom records the destinations brought back, and the nodes told a new priority.
 type waitingRoom struct {
 	unparked      []jobs.Destination
@@ -106,8 +127,9 @@ func TestRaiser_RaisesThePlayedTheLookedAtAndTheWatched(t *testing.T) {
 	now := clocktest.NewFake(time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC))
 	register := NewRegister(now)
 	record := &raising{}
-	raiser := NewRaiser(Parts{
-		Register: register, Jobs: record, Nodes: nil, Playing: func() []int64 { return []int64{200} },
+	room := &waitingRoom{}
+	raiser := mustRaiser(t, Parts{
+		Register: register, Jobs: record, Nodes: room, Waiting: room, Playing: func() []int64 { return []int64{200} },
 		Database: database, Settings: settingstest.Seeded(t, database), Clock: now,
 		Logger: slog.New(slog.DiscardHandler),
 	})
@@ -159,8 +181,9 @@ func TestRaiser_ALookThatGoesOnReleasesWhatLeftIt(t *testing.T) {
 	now := clocktest.NewFake(time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC))
 	register := NewRegister(now)
 	record := &raising{}
-	raiser := NewRaiser(Parts{
-		Register: register, Jobs: record, Nodes: nil, Playing: func() []int64 { return nil },
+	room := &waitingRoom{}
+	raiser := mustRaiser(t, Parts{
+		Register: register, Jobs: record, Nodes: room, Waiting: room, Playing: func() []int64 { return nil },
 		Database: database, Settings: settingstest.Seeded(t, database), Clock: now,
 		Logger: slog.New(slog.DiscardHandler),
 	})
@@ -200,7 +223,7 @@ func TestRaiser_BringsBackRaisedWorkWaitingForRoomOnANode(t *testing.T) {
 		jobs.PriorityShownInterest: {{ID: 6, Priority: jobs.PriorityShownInterest, Destination: reader}},
 	}}
 	room := &waitingRoom{}
-	raiser := NewRaiser(Parts{
+	raiser := mustRaiser(t, Parts{
 		Register: NewRegister(now), Jobs: record, Nodes: room, Waiting: room,
 		Playing: func() []int64 { return []int64{100} }, Database: database,
 		Settings: settingstest.Seeded(t, database), Clock: now, Logger: slog.New(slog.DiscardHandler),
