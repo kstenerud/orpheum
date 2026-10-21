@@ -297,6 +297,8 @@ func TestSet_RefusesAndChangesNothing(t *testing.T) {
 		{"below the minimum", jsonByKey("signin_failure_limit", "0"), false, ErrInvalidValue},
 		{"above the maximum", jsonByKey("secret_last_chars_shown", "9"), false, ErrInvalidValue},
 		{"a fraction", jsonByKey("signin_failure_limit", "2.5"), false, ErrInvalidValue},
+		// A node posts every third of it, at least a second (the constants sweep, 2026-10-21).
+		{"a node silence under three seconds", jsonByKey("node_silent_after_seconds", "2"), false, ErrInvalidValue},
 		{"a hidden key on the settings page", jsonByKey("signin_failure_limit", "3"), true, ErrNotExposed},
 		{
 			"one bad among good",
