@@ -17,6 +17,7 @@ export { canSetVolume, gainAfterVolume } from "./gain.ts";
 export type { Gain } from "./gain.ts";
 export { canFollowAGroup, hlsSupport, hlsMethod, playHls, playNative } from "./hls.ts";
 export type { HlsSupport, HlsMethod, HlsPlayback, NativeTarget } from "./hls.ts";
+export { linkShareForQuality } from "./abr-choice.ts";
 export { playChunked, playerFoundUnplayableEvent, unplayableOf } from "./chunked.ts";
 export type { ChunkedPlayback, PlayedLevel, UnplayableQuality } from "./chunked.ts";
 export { meterBufferGrowth } from "./link.ts";

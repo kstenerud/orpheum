@@ -40,7 +40,7 @@ import { useTranslation } from "react-i18next";
 
 import { mixIndices, startingAudioTrack } from "./audio-tracks.tsx";
 import { camelKey } from "./catalogue-key.ts";
-import type { LadderOffer } from "./moving-down.ts";
+import { startOn, type LadderOffer } from "./moving-down.ts";
 import { dataOrThrow, problemText, unavailableText } from "./problem.ts";
 import { rateText } from "./rate-text.ts";
 import { useServices } from "./services.tsx";
@@ -616,8 +616,10 @@ export function useChunkedPlayback(
     }
     const playback = playChunked(video, offer.url, {
       onFailed,
-      startAtBps: offer.startAtBps,
-      startPositionS: positionMs / 1000,
+      ...startOn(
+        { startAtBps: offer.startAtBps, linkSharePercent: offer.linkSharePercent },
+        positionMs,
+      ),
       monotonicMs,
     });
     playbackRef.current = playback;
@@ -636,7 +638,7 @@ export function useChunkedPlayback(
       playback.destroy();
       playbackRef.current = undefined;
     };
-  }, [videoRef, offer.url, offer.startAtBps, positionMs, onFailed]);
+  }, [videoRef, offer.url, offer.startAtBps, offer.linkSharePercent, positionMs, onFailed]);
   return { playbackRef, playing, cannotKeepUp };
 }
 

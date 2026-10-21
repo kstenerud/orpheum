@@ -35,7 +35,7 @@ func (service *Service) StartOnLadder(
 	held := film.heldByUpload(offered, chosen, playback.StartAtMostKbps)
 	return service.startAt(ctx, playback, film, offered, chosenPicture{
 		stream: offered.pictures[held], isBelowTheLowest: isBelowTheLowest, chunk: film.grid.chunkAt(positionMs),
-		isHeldByUpload: held != chosen,
+		isHeldByUpload: held != chosen, sharePercent: sharePercent,
 	})
 }
 

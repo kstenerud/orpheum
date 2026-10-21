@@ -2742,6 +2742,10 @@
           "isReady": {
             "type": "boolean"
           },
+          "linkSharePercent": {
+            "format": "int64",
+            "type": "integer"
+          },
           "qualityKbps": {
             "format": "int64",
             "type": "integer"
@@ -2767,7 +2771,8 @@
           "isBelowTheLowest",
           "soundCarriedGainDb",
           "isReady",
-          "filmPictureKbps"
+          "filmPictureKbps",
+          "linkSharePercent"
         ],
         "type": "object"
       },
