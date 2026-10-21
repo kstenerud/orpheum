@@ -219,10 +219,9 @@ func (chooser *Chooser) searchAgain(ctx context.Context, item target) ([]Candida
 	if !known {
 		return []Candidate{}, "", nil // an NFO library's item has no provider to ask
 	}
-	query := item.searchQuery()
-	candidates, err := provider.Search(ctx, query)
+	_, candidates, err := searchWithSpellings(ctx, provider, item.searchQuery())
 	if err != nil {
-		return nil, "", fmt.Errorf("search %s for %q: %w", provider.Name(), query.Name, err)
+		return nil, "", err
 	}
 	if err := chooser.matcher.keepCandidates(ctx, provider, item.id(), candidates); err != nil {
 		return nil, "", err

@@ -365,6 +365,8 @@ func TestMatch_NothingFoundIsRecordedAndNotSearchedAgain(t *testing.T) {
 	if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeNoMatch {
 		t.Fatalf("outcome %s, want no match", outcome)
 	}
+	// The first match searches the name, and its other spellings (spellingVariants).
+	searched := len(lib.provider.Calls)
 	report := lib.scan(videoRecord(rel))
 	file := lib.titlesByPath()[rel]
 	why := identify.NoMatchReason("nfo_then_tmdb")
@@ -374,8 +376,10 @@ func TestMatch_NothingFoundIsRecordedAndNotSearchedAgain(t *testing.T) {
 	if len(report.AwaitingMatch) != 0 {
 		t.Errorf("the pass queued it again: %v", report.AwaitingMatch)
 	}
-	if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeNothingToDo || len(lib.provider.Calls) != 1 {
-		t.Errorf("matching again: %s after calls %v; want nothing done, one search", outcome, lib.provider.Calls)
+	if outcome := lib.matchFileTitle(rel); outcome != identify.OutcomeNothingToDo ||
+		len(lib.provider.Calls) != searched {
+		t.Errorf("matching again: %s after calls %v; want nothing done, no search past the first match's %d",
+			outcome, lib.provider.Calls, searched)
 	}
 }
 

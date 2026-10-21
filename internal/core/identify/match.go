@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"unicode"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
@@ -99,10 +98,10 @@ func (matcher *Matcher) matchTitle(ctx context.Context, titleID int64) (Outcome,
 	if id != "" {
 		return OutcomeMatched, matcher.accept(ctx, provider, title, id, identificationIdentified)
 	}
-	query := Query{Kind: title.Kind, Name: ptr.ValueOrZero(title.Name), Year: int(ptr.ValueOrZero(title.Year))}
-	candidates, err := provider.Search(ctx, query)
+	query, candidates, err := searchWithSpellings(ctx, provider,
+		Query{Kind: title.Kind, Name: ptr.ValueOrZero(title.Name), Year: int(ptr.ValueOrZero(title.Year))})
 	if err != nil {
-		return "", fmt.Errorf("search %s for %q: %w", provider.Name(), query.Name, err)
+		return "", err
 	}
 	switch chosen, how := settleMatch(query, candidates, true); how {
 	case clearly:
@@ -380,55 +379,6 @@ func matchTiers(query Query) []func(Candidate) bool {
 				(beginsByWords(query.Name, candidate.Name) || beginsByWords(query.Name, candidate.OriginalName))
 		},
 	}
-}
-
-// beginsByWords is whether name begins with every word of prefix, and has more: "Wild Rex 2 The
-// Road Warrior" begins with "Wild Rex 2", not "Wild Rex" alone being "Wild Rex 2", and "Wings" does
-// not begin with "Wing". Words compare as SameWork does.
-func beginsByWords(name, prefix string) bool {
-	words, start := withoutArticle(wordsOf(name)), withoutArticle(wordsOf(prefix))
-	if len(start) == 0 || len(words) <= len(start) {
-		return false
-	}
-	for index, word := range start {
-		if textindex.SameWork(word) != textindex.SameWork(words[index]) {
-			return false
-		}
-	}
-	return true
-}
-
-// isArticle is whether a word is one a name may begin with or not and name the same work: a file's
-// "The Girl in the Crate" is TMDB's "Girl in the Crate" (the owner's staging, 2026-10-21). English only:
-// the provider is searched in English.
-func isArticle(word string) bool {
-	switch textindex.SameWork(word) {
-	case "the", "a", "an":
-		return true
-	}
-	return false
-}
-
-// withoutArticle is a name's words less a leading article, when a word follows it: "The" alone, or
-// "A" in "A 1", stays.
-func withoutArticle(words []string) []string {
-	if len(words) > 1 && isArticle(words[0]) {
-		return words[1:]
-	}
-	return words
-}
-
-// workName is a name as the matcher compares it: by the one identity fold (D232), its leading
-// article aside.
-func workName(name string) string {
-	return textindex.SameWork(strings.Join(withoutArticle(wordsOf(name)), " "))
-}
-
-// wordsOf is a name's words: what lies between its spaces and its marks, "&" a word of its own.
-func wordsOf(name string) []string {
-	return strings.FieldsFunc(strings.ReplaceAll(name, "&", " and "), func(character rune) bool {
-		return !unicode.IsLetter(character) && !unicode.IsNumber(character) && !unicode.Is(unicode.Mc, character)
-	})
 }
 
 // accept fetches the work, stores the response and re-derives the title from it, identified by
