@@ -48,7 +48,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D38](working-notes.md#d38--three-tier-state-reporting-and-an-ordered-command-list-in-the-config) Three-tier state reporting, and an ordered command list in the config
 - [D39](working-notes.md#d39--reports-are-jsonl-completeness-is-in-the-filename-and-is-scoped-not-global) Reports are JSONL; completeness is in the filename and is scoped, not global — *revisited by D59, D118*
 - [D40](working-notes.md#d40--error-and-skip-records-and-why-the-error-record-carries-the-completeness-scope) `error` and `skip` records, and why the error record carries the completeness scope — *revisited by D41*
-- [D41](working-notes.md#d41--diagnose-the-failure-boundary-by-walking-up-and-guard-the-silent-case-which-is-worse) Diagnose the failure boundary by walking up; and guard the silent case, which is worse — *revisited by D42, D231*
+- [D41](working-notes.md#d41--diagnose-the-failure-boundary-by-walking-up-and-guard-the-silent-case-which-is-worse) Diagnose the failure boundary by walking up; and guard the silent case, which is worse — *revisited by D42, D231, D328*
 - [D42](working-notes.md#d42--nodes-are-sensors-the-core-is-the-only-thing-that-decides) Nodes are sensors; the core is the only thing that decides
 - [D43](working-notes.md#d43--one-binary-one-process-per-role-and-a-thin-optional-supervisor) One binary, one process per role, and a thin optional supervisor — *revisited by D193*
 - [D44](working-notes.md#d44--prefer-the-platforms-supervisor-ship-the-units-and-never-exit-when-you-could-report) Prefer the platform's supervisor; ship the units; and never exit when you could report
@@ -333,6 +333,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D325](working-notes.md#d325--a-page-pulls-what-it-needs-to-know-the-server-never-pushes-it) A page pulls what it needs to know; the server never pushes it — *revisited by D327*
 - [D326](working-notes.md#d326--a-root-whose-disk-answers-again-as-its-last-complete-scan-read-it-is-available-at-once) A root whose disk answers again as its last complete scan read it is available at once
 - [D327](working-notes.md#d327--whoever-needs-to-know-whether-a-root-can-be-read-asks-and-the-node-answers-at-once-outside-every-queue) Whoever needs to know whether a root can be read asks, and the node answers at once, outside every queue
+- [D328](working-notes.md#d328--availability-is-kept-per-place-a-root-or-a-disk-mounted-inside-one-in-one-table-with-one-writer-and-one-reader) Availability is kept per place, a root or a disk mounted inside one, in one table with one writer and one reader
 
 ## Archived
 

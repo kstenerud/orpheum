@@ -21283,3 +21283,46 @@ to the core asking its node, and [D326](#d326--a-root-whose-disk-answers-again-a
    the mount of a network share should be, which research settles.
 
 **Status:** Decided.
+
+## D328 — Availability is kept per place, a root or a disk mounted inside one, in one table with one writer and one reader
+
+**Decided** (2026-10-21), by the project owner, from their proposal: *"What if we used a tree
+structure for availability like the directory tree structure the actual files exist in? If a file
+becomes unavailable, we check its parent, and keep going back until we find something readable.
+Then we mark unavailable at that level, so that when it becomes available again, you don't need to
+scan everything under it to make them available again."* Answered with the tree's levels being
+filesystems, not every directory, the level found from what the scans know of the mounts rather
+than by reading up a dead share, and one store; approved (*"yes"*). The day's tests had found
+availability kept four ways: a root's `unavailable_since`, a mount's `is_present` and
+`missing_since`, the queue's parked destinations, and the node's connection; written by scans,
+stalls, hellos, statuses and probes each its own way; and read by one query that also counted a
+scan's outcome, which held a root a probe had brought back unavailable. A disk dead
+inside a root made the whole root unavailable, and only roots could be probed and brought back.
+**Extends** [D41](#d41--diagnose-the-failure-boundary-by-walking-up-and-guard-the-silent-case-which-is-worse),
+[D208](#d208--the-scenario-walks-answers-re-identify-on-rename-unless-confirmed-a-title-follows-its-files-between-libraries-withhold-removals-past-half-and-twenty-and-a-returning-payload-revives-its-tombstone),
+[D231 §5](#d231--work-is-derived-from-state-the-job-queue-is-a-regenerable-cache-and-a-destination-that-is-down-parks-its-work),
+D326 and D327.
+
+1. **A place is where availability fails: a node, a root, or a disk mounted inside a root.** Below
+   a mount point every directory of a dead disk is dead alike, and one that vanishes or turns
+   unreadable while its disk answers is content, which scans judge. A file can be read when its node
+   is connected and no place above it is unavailable; the deepest one that is says why. The places
+   a node has are few, so the check is a match of the file's path against them. D41's walk up to a
+   broken subtree stays the scanner's, within one scan; what lasts between scans is a place.
+2. **One table holds the unavailable places**, each with since when, and why: its disk did not
+   answer, a scan could not read it, a scan found its disk gone from its mount point, or its node's
+   hello no longer names it. What a place's disk should be (its device, and whether it is a mount
+   point) stays the last complete scan's fact, where the scans keep it. A root's scan outcome and a
+   mount's boundary are the scans' facts, and say nothing of availability.
+3. **One writer.** Every change of a place's availability, from any cause, goes through one place
+   in the core, which also unparks the work waiting on the place. Nothing else writes the table.
+4. **One reader.** Whether a file can be read, which places the System page shows offline and
+   since when, and which the sweep probes are all read from the table through one function.
+5. **Work that stalls marks the deepest known place holding what it read:** a disk mounted inside
+   the root when the read was under one the scans know, else the root. It is found from the
+   scans' record of the mounts, so nothing on the dead disk is read to find it.
+6. **Every place can be probed and brought back** (D327): a probe of a mount inside a root is
+   answered as a root's is, and a place comes back when its disk answers with the facts its last
+   complete scan recorded; a scan follows in the background.
+
+**Status:** Decided.
