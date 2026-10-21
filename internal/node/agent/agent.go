@@ -699,6 +699,7 @@ func (agent *Agent) disks(ctx context.Context) []nodeproto.Disk {
 			func() (diskspace.Space, error) { return agent.measureSpace(path) }, func(diskspace.Space) {})
 		if err != nil {
 			disk.Failure = err.Error()
+			disk.IsNotAnswering = errors.Is(err, diskwatch.ErrStalled) || diskwatch.IsDiskFailure(err)
 		} else {
 			disk.TotalBytes, disk.AvailableBytes = space.TotalBytes, space.AvailableBytes
 		}

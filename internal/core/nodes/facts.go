@@ -98,7 +98,9 @@ func (service *Service) RootWatches(nodeID int64) map[string]nodeproto.RootWatch
 func (service *Service) keepStatus(ctx context.Context, nodeID int64, status *nodeproto.Status) {
 	service.mutex.Lock()
 	onTheirWay := map[string]bool{}
+	var previous *nodeproto.Status
 	if existing, found := service.nodesHeardSinceStart[nodeID]; found {
+		previous = existing.status
 		kept := *status
 		existing.status = &kept
 		for token, seq := range existing.seqByToken {
@@ -118,6 +120,7 @@ func (service *Service) keepStatus(ctx context.Context, nodeID int64, status *no
 		}
 	}
 	service.mutex.Unlock()
+	service.markRootsNotAnswering(ctx, nodeID, previous, status)
 	if service.resultSink != nil {
 		service.resultSink.Reconcile(ctx, nodeID, status.Held, onTheirWay)
 	}
@@ -140,4 +143,43 @@ func (service *Service) ConnectedNodeRoots(ctx context.Context, name string) (in
 		}
 	}
 	return 0, nil, false
+}
+
+// markRootsNotAnswering makes each library root whose disk a node's status newly says is not
+// answering unavailable, as work stalled on it would: with nothing reading it, nothing else noticed,
+// and its films were listed as playable until someone pressed play and waited (the owner's test,
+// 2026-10-21, nas.example off). A root its previous status said so of already was.
+func (service *Service) markRootsNotAnswering(
+	ctx context.Context, nodeID int64, previous, status *nodeproto.Status,
+) {
+	if service.scans == nil {
+		return
+	}
+	var newly []string
+	for _, disk := range status.Disks {
+		if disk.IsNotAnswering && !isNotAnswering(previous, disk.Path) {
+			newly = append(newly, disk.Path)
+		}
+	}
+	if len(newly) == 0 {
+		return
+	}
+	roots, err := service.coveredRoots(ctx, nodeID, newly)
+	if err != nil {
+		service.logger.WarnContext(ctx, "could not read the libraries' roots", "nodeId", nodeID, "err", err)
+		return
+	}
+	for _, root := range roots {
+		if _, err := service.scans.MarkRootStalled(ctx, nodeID, root); err != nil {
+			service.logger.WarnContext(ctx, "could not make a root whose disk is not answering unavailable",
+				"nodeId", nodeID, "rootPath", root, "err", err)
+		}
+	}
+}
+
+// isNotAnswering is whether status, which may be nil, says the disk at path is not answering.
+func isNotAnswering(status *nodeproto.Status, path string) bool {
+	return status != nil && slices.ContainsFunc(status.Disks, func(disk nodeproto.Disk) bool {
+		return disk.Path == path && disk.IsNotAnswering
+	})
 }

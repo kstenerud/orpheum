@@ -128,6 +128,9 @@ type Disk struct {
 	AvailableBytes int64 `json:"availableBytes"`
 	// Failure says why the node could not measure it; the sizes are zero then.
 	Failure string `json:"failure,omitempty"`
+	// IsNotAnswering is a failure that is its disk not answering, or failing a read as a network
+	// share whose host is gone does: what is under it cannot be read now (D233 §10).
+	IsNotAnswering bool `json:"isNotAnswering,omitempty"`
 }
 
 // PreparedUsage is what a node's prepared directory holds, against its budget and its disk's

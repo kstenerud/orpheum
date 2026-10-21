@@ -105,8 +105,9 @@ func TestAgent_AListingOfARootHoldingAStuckReadingIsAnsweredStalledAtOnce(t *tes
 	}
 }
 
-// A disk whose space does not measure leaves the status sent, saying the disk is not answering:
-// the measure blocked the status, and the node fell silent (staging, 2026-10-21).
+// A disk whose space does not measure leaves the status sent, saying the disk is not answering,
+// which the core makes its root unavailable by: the measure blocked the status, and the node fell
+// silent (staging, 2026-10-21).
 func TestAgent_ADiskThatDoesNotMeasureLeavesTheStatusSentSayingSo(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
@@ -132,7 +133,7 @@ func TestAgent_ADiskThatDoesNotMeasureLeavesTheStatusSentSayingSo(t *testing.T) 
 		select {
 		case status := <-core.statuses:
 			if len(status.Disks) == 0 || status.Disks[0].Path != root.Path() ||
-				!strings.Contains(status.Disks[0].Failure, "not answering") {
+				!strings.Contains(status.Disks[0].Failure, "not answering") || !status.Disks[0].IsNotAnswering {
 				t.Fatalf("the status's disks = %+v; want %s said not to be answering", status.Disks, root.Path())
 			}
 			return

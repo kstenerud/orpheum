@@ -236,6 +236,38 @@ func TestHello_AsksForAnUnavailableRootsScanFirst(t *testing.T) {
 	}
 }
 
+// A status saying a library root's disk is not answering makes the root unavailable, once while
+// it says so: with nothing reading it, nothing else noticed, and its films were listed as playable
+// (the owner's test, 2026-10-21, nas.example off). A disk failing otherwise, and a directory no library
+// covers, are left alone.
+func TestStatus_ARootWhoseDiskIsNotAnsweringIsMadeUnavailableOnce(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	settingstest.Set(t, harness.settings, settings.ShouldScanOnNodeHello, "false")
+	local := librarytest.Node(t, harness.database, "local")
+	librarytest.LibraryOn(t, harness.database, local,
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/media/films"})
+	librarytest.LibraryOn(t, harness.database, local,
+		librarytest.Library{Name: "Shows", Kind: "shows", MetadataSource: "nfo", Root: "/media/shows"})
+	scans := &recordingScans{}
+	harness.service.SetScans(scans)
+	hello := harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/media/films", "/media/shows"}})
+	away := nodeproto.Status{Disks: []nodeproto.Disk{
+		{Path: "/media/films", Failure: "its disk is not answering", IsNotAnswering: true},
+		{Path: "/media/shows", Failure: "permission denied"},
+		{Path: "/prepared", Failure: "its disk is not answering", IsNotAnswering: true},
+	}}
+	harness.postStatus(t, hello.NodeID, away)
+	harness.postStatus(t, hello.NodeID, away)
+	harness.postStatus(t, hello.NodeID, nodeproto.Status{Disks: []nodeproto.Disk{{Path: "/media/films"}}})
+	harness.postStatus(t, hello.NodeID, away)
+	scans.mutex.Lock()
+	defer scans.mutex.Unlock()
+	if !slices.Equal(scans.stalled, []string{"/media/films", "/media/films"}) {
+		t.Errorf("roots made unavailable: %q; want /media/films each time its disk stopped answering", scans.stalled)
+	}
+}
+
 // A hello that no longer names a library root on its node makes it unavailable, whether or not a
 // hello asks for scans; one that names it again asks for its scan, which brings it back (D241 §2).
 func TestHello_MakesALibraryRootItNoLongerNamesUnavailable(t *testing.T) {
@@ -260,12 +292,20 @@ func TestHello_MakesALibraryRootItNoLongerNamesUnavailable(t *testing.T) {
 }
 
 // recordingScans keeps the scans asked of it, and the roots made unavailable for a hello not naming
-// them.
+// them or for their disk not answering.
 type recordingScans struct {
 	mutex      sync.Mutex
 	roots      []string
 	priorities []int64
 	notNamed   []string
+	stalled    []string
+}
+
+func (scans *recordingScans) MarkRootStalled(_ context.Context, _ int64, root string) (time.Time, error) {
+	scans.mutex.Lock()
+	defer scans.mutex.Unlock()
+	scans.stalled = append(scans.stalled, root)
+	return time.Time{}, nil
 }
 
 func (scans *recordingScans) MarkRootNotNamed(_ context.Context, _ int64, root string) error {
