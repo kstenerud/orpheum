@@ -36,7 +36,7 @@ type InProgress struct {
 }
 
 // ContinueWatching is what the person stopped in the middle of (play-state.md): each work once,
-// most recent watching first, at its most recent position that is past resume_min_percent and not
+// most recent watching first, at its most recent position that is past in_progress_after_percent and not
 // past finished_after_percent of its file's length. A file of unknown length counts at any
 // position. A work hidden since its last watching is left out (D188); extras never appear (D162).
 func (browser *Browser) ContinueWatching(ctx context.Context, userID int64, reach auth.Reach) ([]InProgress, error) {
@@ -121,11 +121,11 @@ func (browser *Browser) withPostersAndFileNames(
 	return rows, nil
 }
 
-// ResumeThresholds are resume_min_percent and finished_after_percent: where in a file a position
+// ResumeThresholds are in_progress_after_percent and finished_after_percent: where in a file a position
 // counts as partway through it (play-state.md). Continue Watching and a playback's starting point
 // both read them here.
 type ResumeThresholds struct {
-	resumeMinPercent, finishedAfterPercent int64
+	inProgressAfterPercent, finishedAfterPercent int64
 }
 
 // IntSettings reads an integer setting: settings.Service.
@@ -135,15 +135,15 @@ type IntSettings interface {
 
 // ReadResumeThresholds reads the two thresholds from the settings.
 func ReadResumeThresholds(ctx context.Context, config IntSettings) (ResumeThresholds, error) {
-	minimum, err := config.Int(ctx, settings.ResumeMinPercent)
+	minimum, err := config.Int(ctx, settings.InProgressAfterPercent)
 	if err != nil {
-		return ResumeThresholds{}, fmt.Errorf("read resume_min_percent: %w", err)
+		return ResumeThresholds{}, fmt.Errorf("read in_progress_after_percent: %w", err)
 	}
 	finished, err := config.Int(ctx, settings.FinishedAfterPercent)
 	if err != nil {
 		return ResumeThresholds{}, fmt.Errorf("read finished_after_percent: %w", err)
 	}
-	return ResumeThresholds{resumeMinPercent: minimum, finishedAfterPercent: finished}, nil
+	return ResumeThresholds{inProgressAfterPercent: minimum, finishedAfterPercent: finished}, nil
 }
 
 // IsPartwayThrough is whether a position is partway through a file: past the first threshold and not
@@ -153,6 +153,6 @@ func (thresholds ResumeThresholds) IsPartwayThrough(positionMs, durationMs int64
 	if durationMs <= 0 {
 		return positionMs > 0
 	}
-	return positionMs*100 >= thresholds.resumeMinPercent*durationMs &&
+	return positionMs*100 >= thresholds.inProgressAfterPercent*durationMs &&
 		positionMs*100 <= thresholds.finishedAfterPercent*durationMs
 }

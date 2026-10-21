@@ -106,8 +106,8 @@
 //     Enforced by TestHealth_AnswersBeforeTheDatabaseIsReady.
 //   - Secrets are write-only. Enforced by TestSecrets_AreWriteOnly.
 //   - /config shows every setting beside its starting value, filters to the changed ones, seeds
-//     and resets; /settings shows only what the settings page exposes (D200). Enforced by
-//     TestConfig_ShowsEverySettingAndTheFileAndResets, TestConfig_ListsAndDeletesOnlyUnusedRows,
+//     and resets; /settings shows only the important ones, the settings page's normal view
+//     (D200). Enforced by TestConfig_ShowsEverySettingAndTheFileAndResets, TestConfig_ListsAndDeletesOnlyUnusedRows,
 //     TestConfig_FiltersToWhatDiffersFromTheStartingValue
 //     and TestSettings_OnlyAnAdminChangesTheServersAndABadValueChangesNothing.
 //   - Any signed-in user sees which titles and series are ambiguous; only a role with edit_metadata sees

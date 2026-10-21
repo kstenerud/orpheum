@@ -1,342 +1,335 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import "./settings.css";
+
 import type { components } from "@orpheum/sdk";
-import { useState, type JSX } from "react";
+import type { TFunction } from "i18next";
+import { memo, useCallback, useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { ConfirmButton } from "./confirm-button.tsx";
-import { BusyGroup } from "./busy-group.tsx";
-import { useRequest } from "./use-request.ts";
-import { idempotent } from "./idempotent.ts";
-import { submitWith } from "./form-row.tsx";
-import { dataOrThrow, fieldProblemText, throwIfRefused } from "./problem.ts";
+import { camelKey } from "./catalogue-key.ts";
+import { fieldProblemText, dataOrThrow, throwIfRefused } from "./problem.ts";
+import {
+  AboutButton,
+  isFound,
+  ResetIcon,
+  ServerSettings,
+  SettingsFilters,
+} from "./server-settings.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useResource } from "./use-resource.ts";
 
 /** A key or password, as the server shows it: never its value (D194). */
 export type Secret = components["schemas"]["SecretBody"];
-/** A server setting, with its value and its starting value. */
-export type Setting = components["schemas"]["SettingBody"];
 
-/** A request's answer, as the SDK gives it: a refusal carries the server's error. */
-type RefusableAnswer = Parameters<typeof throwIfRefused>[0];
-
-/** A setting's value as a person reads it. */
-export function settingText(value: unknown): string {
-  if (typeof value === "string") {
-    return value;
-  }
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-  return "";
-}
-
-/** The value a field's text means for a setting of this kind. */
-export function parseSettingText(kind: Setting["kind"], text: string): string | number | boolean {
-  if (kind === "bool") {
-    return text === "true";
-  }
-  return kind === "integer" ? Number(text) : text;
+/** What a secret is for, in the person's words: the catalogue's, or the server's for one it lacks. */
+function secretDescription(t: TFunction, secret: Secret): string {
+  return t(`settings.secretDescriptions.${camelKey(secret.name)}`, {
+    defaultValue: secret.description,
+  });
 }
 
 /** Whether a secret is set, in words: with its last characters where it has them. */
-function SecretState(props: { readonly secret: Secret }): JSX.Element {
-  const { t } = useTranslation();
-  const { secret } = props;
+export function secretState(t: TFunction, secret: Secret): string {
   if (!secret.isSet) {
-    return <p>{t("settings.secretUnset")}</p>;
+    return t("settings.secretUnset");
   }
+  return secret.lastChars === undefined
+    ? t("settings.secretSetNoLastChars")
+    : t("settings.secretSet", { lastChars: secret.lastChars });
+}
+
+/**
+ * A secret's field and what saves it: what is typed is sent on Enter or on leaving the field, the
+ * page included (a move to another screen unmounts the row; a reload or a closed tab only hides the
+ * page), and the field is emptied, never showing it again.
+ */
+function useSecretField(
+  name: string,
+  onSave: (name: string, value: string) => void,
+): {
+  readonly text: string;
+  readonly setText: (text: string) => void;
+  readonly commit: () => void;
+} {
+  const [fieldText, setFieldText] = useState("");
+  const typedRef = useRef("");
+  const setText = useCallback((next: string): void => {
+    typedRef.current = next;
+    setFieldText(next);
+  }, []);
+  const commit = useCallback((): void => {
+    if (typedRef.current === "") {
+      return;
+    }
+    onSave(name, typedRef.current);
+    typedRef.current = "";
+    setFieldText("");
+  }, [name, onSave]);
+  useEffect(() => {
+    const onPageHide = (): void => {
+      commit();
+    };
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      window.removeEventListener("pagehide", onPageHide);
+      commit();
+    };
+  }, [commit]);
+  return { text: fieldText, setText, commit };
+}
+
+/** The bin's question before a secret is removed, which cannot be undone (D278 §4). */
+function RemoveQuestion(props: {
+  readonly onRemove: () => void;
+  readonly onKeep: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
   return (
-    <p>
-      {secret.lastChars === undefined
-        ? t("settings.secretSetNoLastChars")
-        : t("settings.secretSet", { lastChars: secret.lastChars })}
+    <p className="settings__question">
+      <span className="irreversible-words">{t("settings.removeConsequence")}</span>{" "}
+      <button type="button" className="irreversible" onClick={props.onRemove}>
+        {t("settings.removeConfirm")}
+      </button>{" "}
+      <button type="button" onClick={props.onKeep}>
+        {t("common.keepIt")}
+      </button>
     </p>
   );
 }
 
-/** One secret: whether it is set, and setting or removing it. */
-function SecretRow(props: {
+/**
+ * A secret's buttons: what it is for, and a bin that asks before removing it while it is set.
+ */
+function SecretControls(props: {
   readonly secret: Secret;
-  readonly note: string;
-  readonly onSave: (value: string) => void;
-  readonly onRemove: () => void;
+  readonly isAsking: boolean;
+  readonly onAsk: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { secret } = props;
-  const [value, setValue] = useState("");
-  const save = submitWith(() => {
-    props.onSave(value);
-    setValue("");
-  });
+  const { name, isSet } = props.secret;
+  const remove = t("settings.removeSecret", { key: name });
   return (
-    <form onSubmit={save} aria-labelledby={`secret-${secret.name}`}>
-      <h3 id={`secret-${secret.name}`}>{secret.name}</h3>
-      <p>{secret.description}</p>
-      <SecretState secret={secret} />
-      {secret.needsReentry ? <p role="alert">{t("settings.secretReentry")}</p> : null}
-      <label>
-        {t("settings.newValue")}
-        <input
-          type="password"
-          autoComplete="off"
-          required
-          value={value}
-          onChange={(event) => {
-            setValue(event.target.value);
-          }}
-        />
-      </label>
-      <button type="submit">{t("settings.save")}</button>{" "}
-      {secret.isSet ? (
-        <ConfirmButton
-          label={t("settings.remove")}
-          consequence={t("settings.removeConsequence")}
-          confirmLabel={t("settings.removeConfirm")}
-          onConfirm={props.onRemove}
-        />
-      ) : null}
-      {props.note === "" ? null : <output>{props.note}</output>}
-    </form>
+    <span className="settings__controls">
+      <AboutButton name={name} description={secretDescription(t, props.secret)} />
+      <button
+        type="button"
+        className="settings__control"
+        disabled={!isSet || props.isAsking}
+        aria-label={remove}
+        data-tip={isSet ? t("settings.tipRemove") : t("settings.tipNotSet")}
+        onClick={props.onAsk}
+      >
+        <ResetIcon />
+      </button>
+    </span>
   );
 }
 
-/** The keys and passwords: each one set, replaced or removed, never shown. */
-export function SecretsView(props: {
-  readonly secrets: readonly Secret[];
-  readonly notes: ReadonlyMap<string, string>;
+/** What a secret's row says below it: the bin's question, and why it must be entered again or was refused. */
+function SecretNotes(props: {
+  readonly isAsking: boolean;
+  readonly needsReentry: boolean;
+  /** Why the server refused the secret's last change; "" when it did not. */
+  readonly problem: string;
+  readonly onRemove: () => void;
+  readonly onKeep: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <>
+      {props.isAsking ? <RemoveQuestion onRemove={props.onRemove} onKeep={props.onKeep} /> : null}
+      {props.needsReentry ? (
+        <p className="settings__problem" role="alert">
+          {t("settings.secretReentry")}
+        </p>
+      ) : null}
+      {props.problem === "" ? null : (
+        <p className="settings__problem" role="alert">
+          {props.problem}
+        </p>
+      )}
+    </>
+  );
+}
+
+/**
+ * One secret's row: its name, a field to type a new one in, which says whether one is set, what it
+ * is for, and a bin that removes it once asked again.
+ */
+const SecretRow = memo(function SecretRow(props: {
+  readonly secret: Secret;
+  /** Why the server refused this secret's last change; "" when it did not. */
+  readonly problem: string;
   readonly onSave: (name: string, value: string) => void;
   readonly onRemove: (name: string) => void;
 }): JSX.Element {
   const { t } = useTranslation();
+  const { secret } = props;
+  const { text, setText, commit } = useSecretField(secret.name, props.onSave);
+  const [isAsking, setIsAsking] = useState(false);
+  const state = secretState(t, secret);
+  return (
+    <form
+      className="settings__row"
+      aria-labelledby={`secret-${secret.name}`}
+      onSubmit={(event) => {
+        event.preventDefault();
+        commit();
+      }}
+    >
+      <code className="settings__key" id={`secret-${secret.name}`}>
+        {secret.name}
+      </code>
+      <input
+        className="settings__value"
+        type="password"
+        autoComplete="off"
+        aria-labelledby={`secret-${secret.name}`}
+        placeholder={state}
+        value={text}
+        onChange={(event) => {
+          setText(event.target.value);
+        }}
+        onBlur={commit}
+      />
+      <SecretControls
+        secret={secret}
+        isAsking={isAsking}
+        onAsk={() => {
+          setIsAsking(true);
+        }}
+      />
+      <SecretNotes
+        isAsking={isAsking}
+        needsReentry={secret.needsReentry}
+        problem={props.problem}
+        onRemove={() => {
+          setIsAsking(false);
+          props.onRemove(secret.name);
+        }}
+        onKeep={() => {
+          setIsAsking(false);
+        }}
+      />
+    </form>
+  );
+});
+
+/** The keys and passwords, each set, replaced or removed, never shown, found by the search. */
+export function SecretsView(props: {
+  readonly secrets: readonly Secret[];
+  /** What the person searched for: a secret shows when it has every word. */
+  readonly search: string;
+  /** Why the server refused a secret's last change, by name. */
+  readonly problems: ReadonlyMap<string, string>;
+  readonly onSave: (name: string, value: string) => void;
+  readonly onRemove: (name: string) => void;
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  const shown = props.secrets
+    .filter((secret) => isFound(props.search, secret.name, secretDescription(t, secret)))
+    .sort((first, second) => first.name.localeCompare(second.name));
+  if (shown.length === 0) {
+    return null;
+  }
   return (
     <section aria-labelledby="secrets-heading">
-      <h2 id="secrets-heading">{t("settings.secretsHeading")}</h2>
-      <p>{t("settings.secretsIntro")}</p>
-      {props.secrets.map((secret) => (
+      <h2 className="settings__section" id="secrets-heading">
+        {t("settings.secretsHeading")}
+      </h2>
+      {shown.map((secret) => (
         <SecretRow
           key={secret.name}
           secret={secret}
-          note={props.notes.get(secret.name) ?? ""}
-          onSave={(value) => {
-            props.onSave(secret.name, value);
-          }}
-          onRemove={() => {
-            props.onRemove(secret.name);
-          }}
+          problem={props.problems.get(secret.name) ?? ""}
+          onSave={props.onSave}
+          onRemove={props.onRemove}
         />
       ))}
     </section>
   );
 }
 
-/** One setting: its value, edited by its kind, and a way back to its starting value. */
-function SettingRow(props: {
-  readonly setting: Setting;
-  /** Why the server refused this setting's last change, beside it; "" when it did not. */
-  readonly problem: string;
-  readonly onSave: (value: string | number | boolean) => void;
-  readonly onReset: () => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const { setting } = props;
-  const [text, setText] = useState(() => settingText(setting.value));
-  const save = submitWith(() => {
-    props.onSave(parseSettingText(setting.kind, text));
-  });
-  return (
-    <form onSubmit={save} aria-labelledby={`setting-${setting.key}`}>
-      <h3 id={`setting-${setting.key}`}>
-        <code>{setting.key}</code>
-      </h3>
-      <p>{setting.question ?? setting.description}</p>
-      <label>
-        {setting.kind === "bool" ? t("settings.on") : setting.key}
-        {setting.kind === "bool" ? (
-          <input
-            type="checkbox"
-            checked={text === "true"}
-            onChange={(event) => {
-              setText(String(event.target.checked));
-            }}
-          />
-        ) : (
-          <input
-            type={setting.kind === "integer" ? "number" : "text"}
-            min={setting.minimum}
-            max={setting.maximum}
-            value={text}
-            onChange={(event) => {
-              setText(event.target.value);
-            }}
-          />
-        )}
-      </label>
-      <button type="submit">{t("settings.save")}</button>{" "}
-      {setting.isModified ? (
-        <>
-          <span>{t("settings.changed", { start: settingText(setting.startingValue) })}</span>{" "}
-          <button type="button" onClick={props.onReset}>
-            {t("settings.reset")}
-          </button>
-        </>
-      ) : null}
-      {props.problem === "" ? null : <p role="alert">{props.problem}</p>}
-    </form>
-  );
-}
-
-/** Every server setting, beside its starting value (D200), and a refusal beside its setting. */
-export function SettingsView(props: {
-  readonly settings: readonly Setting[];
-  /** Why the server refused a setting's last change, by key. */
-  readonly problems: ReadonlyMap<string, string>;
-  readonly onSave: (key: string, value: string | number | boolean) => void;
-  readonly onReset: (key: string) => void;
-}): JSX.Element {
-  const { t } = useTranslation();
-  return (
-    <section aria-labelledby="server-settings-heading">
-      <h2 id="server-settings-heading">{t("settings.settingsHeading")}</h2>
-      {props.settings.map((setting) => (
-        <SettingRow
-          key={`${setting.key}/${settingText(setting.value)}`}
-          setting={setting}
-          problem={props.problems.get(setting.key) ?? ""}
-          onSave={(value) => {
-            props.onSave(setting.key, value);
-          }}
-          onReset={() => {
-            props.onReset(setting.key);
-          }}
-        />
-      ))}
-    </section>
-  );
-}
-
-/** Settings, for an admin: the keys and passwords, and every server setting. */
+/**
+ * Settings, for an admin: one list of rows by section, the keys and passwords first, then the
+ * server's settings; the important ones, or with Advanced every one, found by the search.
+ */
 export function Settings(): JSX.Element {
   const { t } = useTranslation();
+  // Unticked at every visit: the page opens on the few most households set.
+  const [isAdvanced, setIsAdvanced] = useState(false);
+  const [search, setSearch] = useState("");
   return (
-    <section aria-labelledby="settings-heading">
+    <section className="settings" aria-labelledby="settings-heading">
       <h1 id="settings-heading">{t("settings.heading")}</h1>
-      <Secrets />
-      <ServerSettings />
+      <SettingsFilters
+        isAdvanced={isAdvanced}
+        onAdvanced={setIsAdvanced}
+        search={search}
+        onSearch={setSearch}
+      />
+      <Secrets search={search} />
+      <ServerSettings isAdvanced={isAdvanced} search={search} />
     </section>
   );
 }
 
-/** The secrets, loaded, with saving and removing. */
-function Secrets(): JSX.Element {
+/** The secrets, loaded, with saving and removing; a refusal is shown beside its secret. */
+function Secrets(props: { readonly search: string }): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [notes, setNotes] = useState<ReadonlyMap<string, string>>(() => new Map());
+  const [problems, setProblems] = useState<ReadonlyMap<string, string>>(() => new Map());
   const [secrets, reload] = useResource("secrets", async () => {
     const secretsBody = dataOrThrow(await api.GET("/secrets"));
     return secretsBody.secrets ?? [];
   });
-  // Each secret's own note says how its change went; the request only makes the buttons wait.
-  const changing = useRequest(() => "");
-  /** Shows how a change to a secret went, then loads the secrets again. */
-  const noteOutcome = (
-    name: string,
-    successNote: string,
-    send: (idempotencyKey: string) => Promise<RefusableAnswer>,
-  ): void => {
-    const showNote = (text: string): void => {
-      setNotes((previous) => new Map(previous).set(name, text));
-      reload();
-    };
-    changing.runRequest(async (idempotencyKey) => {
+  /** Shows a change's refusal beside its secret, or clears it, then loads the secrets again. */
+  const settle = useCallback(
+    async (name: string, send: () => Promise<Parameters<typeof throwIfRefused>[0]>) => {
+      let problem = "";
       try {
-        throwIfRefused(await send(idempotencyKey));
-        showNote(successNote);
+        throwIfRefused(await send());
       } catch (cause: unknown) {
-        showNote(fieldProblemText(t, cause, { fields: { "body.value": t("settings.newValue") } }));
+        problem = fieldProblemText(t, cause, { fields: { "body.value": name } });
       }
-    });
-  };
-  return (
-    <BusyGroup isBusy={changing.isBusy}>
-      <Loaded
-        resource={secrets}
-        render={(loadedSecrets) => (
-          <SecretsView
-            secrets={loadedSecrets}
-            notes={notes}
-            onSave={(name, value) => {
-              noteOutcome(name, t("settings.saved"), () =>
-                api.PUT("/secrets/{name}", { params: { path: { name } }, body: { value } }),
-              );
-            }}
-            onRemove={(name) => {
-              noteOutcome(name, t("settings.removed"), () =>
-                api.DELETE("/secrets/{name}", { params: { path: { name } } }),
-              );
-            }}
-          />
-        )}
-      />
-    </BusyGroup>
+      setProblems((previous) => new Map(previous).set(name, problem));
+      reload();
+    },
+    [t, reload],
   );
-}
-
-/** The server's settings, loaded, with saving and resetting; a refusal is shown beside its setting. */
-function ServerSettings(): JSX.Element {
-  const { t } = useTranslation();
-  const { api } = useServices();
-  const [problems, setProblems] = useState<ReadonlyMap<string, string>>(() => new Map());
-  const [settings, reload] = useResource("config", async () => {
-    const configBody = dataOrThrow(await api.GET("/config"));
-    return configBody.settings ?? [];
-  });
-  // Each setting's own problem says how its change went; the request only makes the buttons wait.
-  const changing = useRequest(() => "");
-  /** Shows a change's refusal beside its setting, or clears it, then loads the settings again. */
-  const showRefusalAndReload = (
-    key: string,
-    send: (idempotencyKey: string) => Promise<RefusableAnswer>,
-  ): void => {
-    const showProblem = (text: string): void => {
-      setProblems((previous) => new Map(previous).set(key, text));
-      reload();
-    };
-    changing.runRequest(async (idempotencyKey) => {
-      try {
-        throwIfRefused(await send(idempotencyKey));
-        showProblem("");
-      } catch (cause: unknown) {
-        showProblem(fieldProblemText(t, cause, { fields: { [`body.valuesByKey.${key}`]: key } }));
-      }
-    });
-  };
+  const save = useCallback(
+    (name: string, value: string): void => {
+      // Kept alive, so a save the page's leaving sends outlives the page.
+      void settle(name, () =>
+        api.PUT("/secrets/{name}", {
+          params: { path: { name } },
+          body: { value },
+          keepalive: true,
+        }),
+      );
+    },
+    [api, settle],
+  );
+  const remove = useCallback(
+    (name: string): void => {
+      void settle(name, () => api.DELETE("/secrets/{name}", { params: { path: { name } } }));
+    },
+    [api, settle],
+  );
   return (
-    <BusyGroup isBusy={changing.isBusy}>
-      <Loaded
-        resource={settings}
-        render={(loadedSettings) => (
-          <SettingsView
-            settings={loadedSettings}
-            problems={problems}
-            onSave={(key, newValue) => {
-              showRefusalAndReload(key, () =>
-                api.PUT("/config", { body: { valuesByKey: { [key]: newValue } } }),
-              );
-            }}
-            onReset={(key) => {
-              showRefusalAndReload(key, (idempotencyKey) =>
-                api.POST("/config/{key}/reset", {
-                  params: { path: { key } },
-                  ...idempotent(idempotencyKey),
-                }),
-              );
-            }}
-          />
-        )}
-      />
-    </BusyGroup>
+    <Loaded
+      resource={secrets}
+      render={(loaded) => (
+        <SecretsView
+          secrets={loaded}
+          search={props.search}
+          problems={problems}
+          onSave={save}
+          onRemove={remove}
+        />
+      )}
+    />
   );
 }

@@ -120,7 +120,7 @@ func TestPlayState_APositionResumesOnlyBetweenTheThresholdsOfAKnownLength(t *tes
 			` duration_ms = 1000000 WHERE file_id = 1`)
 	decided := harness.play(t, user, chrome(1))
 	for seq, check := range []struct{ positionMs, want int64 }{
-		{30_000, 0},        // 3%: before resume_min_percent, it plays from the start
+		{30_000, 0},        // 3%: before in_progress_after_percent, it plays from the start
 		{500_000, 500_000}, // halfway
 		{950_000, 0},       // 95%: finished, it plays from the start
 	} {

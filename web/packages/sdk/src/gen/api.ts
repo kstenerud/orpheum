@@ -1471,9 +1471,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The server settings the settings page shows (admin) */
+        /** The important server settings, the settings page's normal view (admin) */
         get: operations["getSettings"];
-        /** Change server settings the settings page shows, all or none (admin) */
+        /** Change important server settings, all or none (admin) */
         put: operations["putSettings"];
         post?: never;
         delete?: never;
@@ -3611,8 +3611,8 @@ export interface components {
         };
         SettingBody: {
             description: string;
-            /** @description Shown on the settings page; every setting is in /config */
-            isExposed: boolean;
+            /** @description In /settings, the settings page's normal view */
+            isImportant: boolean;
             isModified: boolean;
             key: string;
             /** @enum {string} */
@@ -3622,6 +3622,11 @@ export interface components {
             /** Format: int64 */
             minimum?: number;
             question?: string;
+            /**
+             * @description The part of the settings page it is listed in, in this order
+             * @enum {string}
+             */
+            section: "general" | "accounts" | "libraries" | "metadata" | "playback" | "slow_links" | "upload" | "together" | "nodes" | "jobs" | "remote_access" | "backups" | "diagnostics";
             /** Format: int64 */
             setAt: number;
             /** Format: int64 */

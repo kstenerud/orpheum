@@ -156,7 +156,7 @@ func assertSeedKeepsTheLimitAt(t *testing.T, service *Service, want int64) {
 	}
 }
 
-func TestList_SaysWhatWasChangedAndShowsOnlyExposedOnTheSettingsPage(t *testing.T) {
+func TestList_SaysWhatWasChangedAndShowsOnlyTheImportantOnesWhenAsked(t *testing.T) {
 	t.Parallel()
 	service, owner := newSeededService(t)
 	ctx := t.Context()
@@ -165,8 +165,8 @@ func TestList_SaysWhatWasChangedAndShowsOnlyExposedOnTheSettingsPage(t *testing.
 		t.Fatal(err)
 	}
 	for _, entry := range page {
-		if !entry.Definition.IsExposed {
-			t.Errorf("the settings page lists %s, which it does not show", entry.Definition.Key)
+		if !entry.Definition.IsImportant {
+			t.Errorf("the important settings list %s, which is not one", entry.Definition.Key)
 		}
 	}
 	if entry := entryFor(t, page,
@@ -285,10 +285,10 @@ func TestSet_RefusesAndChangesNothing(t *testing.T) {
 	service, _ := newSeededService(t)
 	ctx := t.Context()
 	cases := []struct {
-		name        string
-		values      map[string]json.RawMessage
-		exposedOnly bool
-		want        error
+		name          string
+		values        map[string]json.RawMessage
+		importantOnly bool
+		want          error
 	}{
 		{"an unknown key", jsonByKey("transcode_quality", "1"), false, ErrUnknownSetting},
 		{"a string for a bool", jsonByKey("should_check_for_updates", `"yes"`), false, ErrInvalidValue},
@@ -299,14 +299,14 @@ func TestSet_RefusesAndChangesNothing(t *testing.T) {
 		{"a fraction", jsonByKey("signin_failure_limit", "2.5"), false, ErrInvalidValue},
 		// A node posts every third of it, at least a second (the constants sweep, 2026-10-21).
 		{"a node silence under three seconds", jsonByKey("node_silent_after_seconds", "2"), false, ErrInvalidValue},
-		{"a hidden key on the settings page", jsonByKey("signin_failure_limit", "3"), true, ErrNotExposed},
+		{"one not important, among the important", jsonByKey("signin_failure_limit", "3"), true, ErrNotImportant},
 		{
 			"one bad among good",
 			jsonByKey("should_scan_on_node_hello", "true", "should_check_for_updates", "1"), false, ErrInvalidValue,
 		},
 	}
 	for _, tc := range cases {
-		if err := service.Set(ctx, tc.values, nil, tc.exposedOnly); !errors.Is(err, tc.want) {
+		if err := service.Set(ctx, tc.values, nil, tc.importantOnly); !errors.Is(err, tc.want) {
 			t.Errorf("%s: error = %v, want %v", tc.name, err, tc.want)
 		}
 	}
@@ -576,6 +576,16 @@ func TestRegistry_TheWebPlayersShareBeforeAnOfferSaysIsTheLinkShareSettingsStart
 	if start := StartingInt(LinkShareForQualityPercent); int64(math.Round(web*100)) != start {
 		t.Errorf("the web player chooses within %v of a link before an offer says; the setting starts at %d%%",
 			web, start)
+	}
+}
+
+// Every setting is listed in one of the settings page's sections (the owner, 2026-10-21).
+func TestRegistry_EverySettingIsInASection(t *testing.T) {
+	t.Parallel()
+	for _, definition := range Registry() {
+		if !slices.Contains(Sections(), definition.Section) {
+			t.Errorf("%s is in section %q, which is none of %v", definition.Key, definition.Section, Sections())
+		}
 	}
 }
 

@@ -1,0 +1,148 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* The server settings: one to a row, by section, as about:config lists them. */
+.settings__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  align-items: center;
+  margin-block-end: var(--space-3);
+}
+
+/* The search is wide enough to show its hint whole. */
+.settings__filters input[type="search"] {
+  inline-size: min(22rem, 70vw);
+}
+
+/* A section's name, half again the size of a subheading's, in coral over a coral bar (the owner,
+   2026-10-21). */
+.settings__section {
+  margin-block: var(--space-5) var(--space-1);
+  padding-block-end: var(--space-1);
+  border-block-end: 2px solid var(--color-accent);
+  color: var(--color-accent);
+  font-size: calc(var(--font-size-h3) * 1.5);
+}
+
+/* A row: the key, its value, then its controls; a refusal takes the row's whole width below. */
+.settings__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(8rem, 16rem) auto;
+  gap: var(--space-1) var(--space-3);
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  border-block-end: 1px solid var(--color-border);
+}
+
+.settings__key {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+/* A checkbox keeps its own size, at the start of its column. */
+.settings__row > input[type="checkbox"] {
+  justify-self: start;
+}
+
+.settings__value {
+  inline-size: 100%;
+}
+
+.settings__controls {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.settings__control {
+  display: inline-grid;
+  place-items: center;
+  inline-size: var(--size-control);
+  block-size: var(--size-control);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-control);
+  background: none;
+  color: var(--color-text);
+}
+
+/*
+ * A control's tooltip, above it so the pointer does not hide it (the owner, 2026-10-21), which the
+ * browser's own title tooltip, drawn under the pointer, cannot be. Its end lines up with the
+ * control's, the controls being at the row's end.
+ */
+.settings__control[data-tip] {
+  position: relative;
+}
+
+.settings__control[data-tip]:is(:hover, :focus-visible)::after {
+  position: absolute;
+  z-index: 1;
+  inset-block-end: calc(100% + var(--space-1));
+  inset-inline-end: 0;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-raised);
+  color: var(--color-text);
+  font-size: var(--font-size-small);
+  white-space: nowrap;
+  content: attr(data-tip);
+  pointer-events: none;
+}
+
+.settings__control:hover:not(:disabled) {
+  background: var(--color-surface);
+}
+
+/*
+ * A setting at its starting value has nothing to return to: its icon is dimmed, not the button,
+ * whose tooltip keeps the text's own white whatever it is about (the owner, 2026-10-21).
+ */
+.settings__control:disabled {
+  opacity: 1;
+}
+
+.settings__control:disabled .settings__icon {
+  opacity: 0.35;
+}
+
+.settings__icon {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  fill: currentcolor;
+}
+
+/* The bin's question, before a key or password is removed, takes the row's whole width. */
+.settings__question {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.settings__problem {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--color-warning);
+}
+
+/* What a setting is for: a modal sized to the screen, scrolling inside where it is long. */
+.settings__about {
+  width: min(36rem, 92vw);
+}
+
+.settings__about-name {
+  margin-block-start: 0;
+  font-size: var(--font-size-h3);
+  overflow-wrap: anywhere;
+}
+
+/* On a narrow screen the key takes its own line above the value and controls. */
+@media (width < 36rem) {
+  .settings__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .settings__key {
+    grid-column: 1 / -1;
+  }
+}

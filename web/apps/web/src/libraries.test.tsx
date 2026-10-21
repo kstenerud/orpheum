@@ -251,7 +251,8 @@ describe("libraries", () => {
       value: 6,
       startingValue: 24,
       isModified: true,
-      isExposed: false,
+      isImportant: false,
+      section: "libraries" as const,
       description: "",
       setAt: 1,
     };

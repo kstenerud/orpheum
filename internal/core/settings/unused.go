@@ -25,7 +25,18 @@ func RetiredKeys() []RetiredKey {
 			Key: "remote_bit_rate_ceiling_kbps", Release: "M4",
 			Reason: "nothing knows where a client is; a slow link shows itself by its stalls (D247 §11)",
 		},
+		renamed("resume_min_percent", InProgressAfterPercent),
+		renamed("spinning_disk_reader_limit", ReaderLimitSpinningDisk),
+		renamed("ssd_reader_limit", ReaderLimitSSD),
+		renamed("network_share_reader_limit", ReaderLimitNetworkShare),
+		renamed("unknown_disk_reader_limit", ReaderLimitUnknownDisk),
 	}
+}
+
+// renamed is a key the settings page's names renamed (the owner, 2026-10-21): its value, set by a
+// person, is not carried to the new key, which starts at its starting value.
+func renamed(old string, now Key) RetiredKey {
+	return RetiredKey{Key: old, Release: "0.3.0-beta.5", Reason: "renamed " + string(now)}
 }
 
 // UnusedSetting is a setting row no setting of this release reads: a key a release retired, or

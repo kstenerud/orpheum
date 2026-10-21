@@ -44,6 +44,9 @@ type Definition struct {
 	Name           Name
 	ShowsLastChars bool
 	Description    string
+	// IsMadeByServer is a secret the server makes and keeps for itself, which no person sets: the
+	// settings page does not show it, and the API neither sets nor removes it (the owner, 2026-10-21).
+	IsMadeByServer bool
 }
 
 // Registry lists every secret, in the order a settings page shows them.
@@ -54,7 +57,13 @@ func Registry() []Definition {
 			Name: DNSProviderToken, ShowsLastChars: true,
 			Description: "the DNS provider token for the certificate",
 		},
-		{Name: TURNSecret, ShowsLastChars: false, Description: "the TURN shared secret voice relays use"},
+		// The relay is the server's own (D243 §8), which makes the secret at start (turn.EnsureSecret):
+		// a person's value would only weaken it, and removing it would refuse every relay until the
+		// next start.
+		{
+			Name: TURNSecret, ShowsLastChars: false, IsMadeByServer: true,
+			Description: "the TURN shared secret the server's own voice relay uses",
+		},
 		{
 			Name: OpenSubtitlesUsername, ShowsLastChars: false,
 			Description: "the OpenSubtitles username every person's subtitle downloads use (D224)",
@@ -251,7 +260,8 @@ func (secrets *Store) Statuses(ctx context.Context) ([]Status, error) {
 }
 
 // NeedingReentry lists every stored secret sealed under a key this server does
-// not have: what doctor and the settings page report after a restore without secret.key.
+// not have: what doctor and the settings page report after a restore without secret.key. One the
+// server makes for itself is left out: it makes it again at its next start, and no person can.
 func (secrets *Store) NeedingReentry(ctx context.Context) ([]Status, error) {
 	rows, err := secrets.database.Read().ListAllSealedSecrets(ctx)
 	if err != nil {
@@ -259,6 +269,9 @@ func (secrets *Store) NeedingReentry(ctx context.Context) ([]Status, error) {
 	}
 	needing := []Status{}
 	for _, row := range rows {
+		if definition, known := Lookup(Name(row.Name)); known && definition.IsMadeByServer {
+			continue
+		}
 		if row.KeyID != secrets.key.ID() {
 			needing = append(needing, Status{
 				Name: Name(row.Name), IsSet: true, NeedsReentry: true,

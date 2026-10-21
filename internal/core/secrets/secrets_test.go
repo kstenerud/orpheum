@@ -195,8 +195,11 @@ func TestStore_AnotherKeyMarksSecretsNeedingReentry(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
-	if err := fixture.secrets.Set(ctx, TMDBAPIKey, NewValue(canary), nil); err != nil {
-		t.Fatal(err)
+	// Both a person's key and the voice relay's, which the server makes for itself.
+	for _, name := range []Name{TMDBAPIKey, TURNSecret} {
+		if err := fixture.secrets.Set(ctx, name, NewValue(canary), nil); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if status := serverStatus(t, fixture.secrets, TMDBAPIKey); !status.IsSet || status.NeedsReentry {
 		t.Errorf("under its own key: %+v, want set and not needing re-entry", status)
@@ -216,7 +219,7 @@ func TestStore_AnotherKeyMarksSecretsNeedingReentry(t *testing.T) {
 	}
 	needing, err := afterRestore.NeedingReentry(ctx)
 	if err != nil || len(needing) != 1 || needing[0].Name != TMDBAPIKey {
-		t.Errorf("NeedingReentry = %+v, %v; want the TMDB key", needing, err)
+		t.Errorf("NeedingReentry = %+v, %v; want the TMDB key alone, not the secret the server remakes", needing, err)
 	}
 	if err = afterRestore.Set(ctx, TMDBAPIKey, NewValue("re-entered"), nil); err != nil {
 		t.Fatal(err)
