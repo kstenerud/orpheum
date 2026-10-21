@@ -348,7 +348,7 @@ func openPlayback(
 	services.chunks = chunks.NewService(chunks.Parts{
 		Database: database, Cache: opened.cache, Settings: opened.settings, Queue: queue, Nodes: opened.nodes,
 		Exchanges: opened.exchanges, Loudness: levels, ReadThrough: services.readThrough, Logger: logger,
-		Clock: clock.System{}, Encoders: opened.nodes, HoldBack: opened.exchanges,
+		Clock: clock.System{}, Encoders: opened.nodes,
 	})
 	services.playback = playback.NewService(playback.Parts{
 		Database: database, Nodes: opened.nodes, Settings: opened.settings, Clock: clock.System{},
