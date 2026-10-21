@@ -206,12 +206,13 @@ func TestScenario_S76_ADownNodeBlocksNoOtherNodesWork(t *testing.T) {
 	}
 }
 
-// missingMedia records the last scan of node 1's root /media as unable to read it.
+// missingMedia records the last scan of node 1's root /media as unable to read it, which makes it
+// unavailable since, as the ingest records one.
 func (harness testHarness) missingMedia(t *testing.T) {
 	t.Helper()
 	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at)
-		 VALUES (1, '/media', 'unreadable', 5000)`)
+		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, unavailable_since)
+		 VALUES (1, '/media', 'unreadable', 5000, 5000)`)
 }
 
 func TestPrepare_APrepareOfAFileUnderAMissingRootParksOnItAndSendsNothing(t *testing.T) {

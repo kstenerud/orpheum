@@ -432,6 +432,33 @@ func TestScans_AnUnavailableRootWhoseDiskAnswersAgainAsItWasIsBroughtBackAtOnce(
 	}
 }
 
+// A root whose last scan could not read it is brought back as one a stall made unavailable is: its
+// files read as missing for the scan's outcome after the probe had brought the root back, and the
+// film waited on stayed stopped (staging, 2026-10-21).
+func TestScans_ARootAnUnreadableScanLeftIsBroughtBackToo(t *testing.T) {
+	t.Parallel()
+	bench := newScanBench(t)
+	bench.scan([]nodeproto.ScanRecord{observedRecord("Wing.mkv", "alien")}, true)
+	bench.scan([]nodeproto.ScanRecord{errorRecord(".", nodeproto.ScopeRoot)}, true)
+	isUnavailable := func() bool {
+		t.Helper()
+		_, isMissing, err := UnavailableUnder(t.Context(), bench.database.Read(), bench.nodeID,
+			[]byte(root+"/Wing.mkv"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return isMissing
+	}
+	if !isUnavailable() {
+		t.Fatal("a root whose last scan could not read it is available; want it unavailable")
+	}
+	isBack, err := bench.scans.BringBackRoot(t.Context(), bench.nodeID, root, 7, true)
+	if err != nil || !isBack || isUnavailable() {
+		t.Errorf("brought back %t, %v, its film still missing %t; want it back and readable", isBack, err,
+			isUnavailable())
+	}
+}
+
 // A root whose disk answers on another device than its last complete scan read, or no longer as a
 // mount point, is the empty directory an unmounted disk leaves, and stays unavailable (D208).
 func TestScans_AnUnavailableRootOnAnotherDiskIsNotBroughtBack(t *testing.T) {
