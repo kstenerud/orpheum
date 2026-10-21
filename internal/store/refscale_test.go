@@ -439,6 +439,8 @@ func fullScansAllowed() map[string]string {
 			"from them, never from every item (D303)",
 		"ListCheckedRoots": "a household's libraries have a handful of roots; the scan schedule reads " +
 			"each one's last scan every 15 minutes (D272 section 1)",
+		"ListUnavailableRoots": "a household's libraries have a handful of roots; the sweep of unavailable " +
+			"ones reads them every unavailable_root_rescan_seconds (D233 section 10, D327 section 3)",
 	}
 }
 
