@@ -2976,6 +2976,23 @@
         ],
         "type": "object"
       },
+      "MatchByLinkInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "link": {
+            "description": "A TMDB address or id, or an IMDb address or tt id",
+            "examples": [
+              "https://www.imdb.com/title/tt0456789/"
+            ],
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "link"
+        ],
+        "type": "object"
+      },
       "MatchInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -9332,6 +9349,27 @@
               "format": "int64",
               "type": "integer"
             }
+          },
+          {
+            "description": "A name to search for instead of the item's; empty searches as the item is named, or lists what was found before",
+            "explode": false,
+            "in": "query",
+            "name": "name",
+            "schema": {
+              "description": "A name to search for instead of the item's; empty searches as the item is named, or lists what was found before",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The year to search in with name; 0 for any",
+            "explode": false,
+            "in": "query",
+            "name": "year",
+            "schema": {
+              "description": "The year to search in with name; 0 for any",
+              "format": "int64",
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -9356,7 +9394,7 @@
             "description": "Error"
           }
         },
-        "summary": "An ambiguous film's or series' search results, to choose from (edit_metadata)",
+        "summary": "An ambiguous film's or series' search results, to choose from, or those of a person's own search (edit_metadata)",
         "tags": [
           "Identification"
         ]
@@ -9550,6 +9588,60 @@
           }
         },
         "summary": "Choose a film's or series' match; permanent (edit_metadata)",
+        "tags": [
+          "Identification"
+        ]
+      }
+    },
+    "/items/{id}/match-by-link": {
+      "post": {
+        "operationId": "postItemMatchByLink",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchByLinkInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Choose a film's or series' match by its address or id at TMDB or IMDb; permanent (edit_metadata)",
         "tags": [
           "Identification"
         ]
