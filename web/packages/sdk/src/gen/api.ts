@@ -613,7 +613,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** An ambiguous film's or series' search results, to choose from (edit_metadata) */
+        /** An ambiguous film's or series' search results, to choose from, or those of a person's own search (edit_metadata) */
         get: operations["getItemCandidates"];
         put?: never;
         post?: never;
@@ -669,6 +669,23 @@ export interface paths {
         put?: never;
         /** Choose a film's or series' match; permanent (edit_metadata) */
         post: operations["postItemMatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/items/{id}/match-by-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Choose a film's or series' match by its address or id at TMDB or IMDb; permanent (edit_metadata) */
+        post: operations["postItemMatchByLink"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2898,6 +2915,13 @@ export interface components {
         MakeBackupInputBody: {
             /** @description Put secret.key in it, for moving to another machine (D194 §4) */
             includesKey: boolean;
+        };
+        MatchByLinkInputBody: {
+            /**
+             * @description A TMDB address or id, or an IMDb address or tt id
+             * @example https://www.imdb.com/title/tt0456789/
+             */
+            link: string;
         };
         MatchInputBody: {
             /** @example tmdb */
@@ -5570,7 +5594,12 @@ export interface operations {
     };
     getItemCandidates: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description A name to search for instead of the item's; empty searches as the item is named, or lists what was found before */
+                name?: string;
+                /** @description The year to search in with name; 0 for any */
+                year?: number;
+            };
             header?: {
                 /** @description Bearer <session token> */
                 Authorization?: string;
@@ -5715,6 +5744,42 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["MatchInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    postItemMatchByLink: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MatchByLinkInputBody"];
             };
         };
         responses: {

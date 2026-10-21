@@ -698,6 +698,16 @@ export const en = {
     candidate: "{{name}} ({{year}})",
     originalName: "Originally “{{name}}”",
     refresh: "Look again",
+    noneFound: "The search found nothing.",
+    notListed: "Not here? Search for another name, or paste its page at TMDB or IMDb.",
+    searchName: "Name",
+    searchYear: "Year",
+    search: "Search",
+    link: "TMDB or IMDb page",
+    linkHint: "https://www.themoviedb.org/… or https://www.imdb.com/title/tt…",
+    useLink: "Use this match",
+    linkRefused:
+      "That is not a TMDB or IMDb page or id of this kind of work, or TMDB has no such work. Check what was pasted and try again.",
     refreshed: "It will be looked up again shortly.",
     refreshedWaiting:
       "It will be looked up again once {{name}} answers: it has not been answering since {{since}}.",

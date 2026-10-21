@@ -252,3 +252,25 @@ func TestIdentification_ARefreshWhileTMDBIsDownSaysWhatItWaitsFor(t *testing.T) 
 		t.Errorf("a refresh while TMDB is down = %d %s; want %s", refreshed.status, refreshed.body, want)
 	}
 }
+
+// A person matches a title by pasting its address at TMDB, and a paste that names no work of its
+// kind is refused beside the field it was typed in (the owner's staging, 2026-10-21).
+func TestIdentification_APersonMatchesATitleByAPastedLink(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.ambiguousTitle(t)
+	for _, refused := range []string{"The General", "https://www.themoviedb.org/tv/2-solaris"} {
+		wantInvalidAt(t, harness.do(t, http.MethodPost, "/items/10/match-by-link", admin,
+			map[string]string{"link": refused}), http.StatusUnprocessableEntity, "body.link")
+	}
+	chosen := harness.do(t, http.MethodPost, "/items/10/match-by-link", admin,
+		map[string]string{"link": "https://www.themoviedb.org/movie/2-solaris"})
+	if chosen.status != http.StatusNoContent {
+		t.Fatalf("POST /items/10/match-by-link = %d %s", chosen.status, chosen.body)
+	}
+	confirmed := harness.do(t, http.MethodGet, "/items?identificationState=confirmed", admin, nil)
+	if !strings.Contains(confirmed.body, `"id":10`) || !strings.Contains(confirmed.body, `"followedSourceId":"2"`) {
+		t.Errorf("after pasting TMDB's address: %s", confirmed.body)
+	}
+}

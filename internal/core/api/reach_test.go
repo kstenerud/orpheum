@@ -153,6 +153,8 @@ func TestReach_AnEditorReachesOnlyTheLibrariesTheirRoleLists(t *testing.T) {
 	}{
 		{http.MethodGet, "/items/30/candidates", nil},
 		{http.MethodPost, "/items/30/match", map[string]any{"provider": "tmdb", "providerId": "1"}},
+		{http.MethodPost, "/items/30/match-by-link", map[string]any{"link": "tt0456789"}},
+		{http.MethodGet, "/items/30/candidates?name=Civilisation", nil},
 		{http.MethodPut, "/items/30/overrides/name", map[string]any{"value": "Other"}},
 		{http.MethodDelete, "/items/30/overrides/name", nil},
 		{http.MethodPost, "/items/30/refresh", nil},
@@ -176,7 +178,7 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"headDirect", "getMasterPlaylist", "getRenditionFile", "getChunksMasterPlaylist", "getChunkFile",
 		"getSubtitle", "reportPlayback",
 		"setFilePreferences", "hideProgress", "getArt", "getItemCandidates", "postItemMatch", "putOverride",
-		"deleteOverride", "postItemRefresh",
+		"deleteOverride", "postItemRefresh", "postItemMatchByLink",
 		// A viewer's playback is reach-checked against the host's libraries
 		// (TestTogether_AViewerPlaysOnlyTheFilmOnInTheHostsLibraries).
 		"playTogether",

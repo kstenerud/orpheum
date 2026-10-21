@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -94,6 +95,23 @@ type MatchInput struct {
 	}
 }
 
+// CandidatesInput names an item, and, for a person's own search, the name and year to search for.
+type CandidatesInput struct {
+	AuthorizationHeader
+	ID   int64  `path:"id"`
+	Name string `doc:"A name to search for instead of the item's; empty searches as the item is named, or lists what was found before" query:"name"`   //nolint:lll // one struct tag
+	Year int    `doc:"The year to search in with name; 0 for any"                                                                        query:"year"` //nolint:lll // one struct tag
+}
+
+// MatchByLinkInput is a pasted address or id of a work at TMDB or IMDb.
+type MatchByLinkInput struct {
+	AuthorizationHeader
+	ID   int64 `path:"id"`
+	Body struct {
+		Link string `doc:"A TMDB address or id, or an IMDb address or tt id" example:"https://www.imdb.com/title/tt0456789/" json:"link" minLength:"1"` //nolint:lll // one struct tag
+	}
+}
+
 // OverrideInput names one field of an item.
 type OverrideInput struct {
 	AuthorizationHeader
@@ -130,8 +148,14 @@ func (server *Server) registerIdentification() {
 	}, server.getItemsByIdentification)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getItemCandidates", Method: http.MethodGet, Path: "/items/{id}/candidates",
-		Summary: "An ambiguous film's or series' search results, to choose from (edit_metadata)", Tags: tags,
+		Summary: "An ambiguous film's or series' search results, to choose from, or those of a person's own " +
+			"search (edit_metadata)", Tags: tags,
 	}, server.getItemCandidates)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "postItemMatchByLink", Method: http.MethodPost, Path: "/items/{id}/match-by-link",
+		DefaultStatus: http.StatusNoContent, Tags: tags,
+		Summary: "Choose a film's or series' match by its address or id at TMDB or IMDb; permanent (edit_metadata)",
+	}, server.postItemMatchByLink)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "postItemMatch", Method: http.MethodPost, Path: "/items/{id}/match",
 		DefaultStatus: http.StatusNoContent, Tags: tags,
@@ -181,12 +205,18 @@ func (server *Server) getItemsByIdentification(ctx context.Context, input *Items
 	return output, nil
 }
 
-func (server *Server) getItemCandidates(ctx context.Context, input *ItemInput) (*CandidatesOutput, error) {
+func (server *Server) getItemCandidates(ctx context.Context, input *CandidatesInput) (*CandidatesOutput, error) {
 	dependencies, _, err := server.requireMetadataEditorReaching(ctx, input.Authorization, input.ID)
 	if err != nil {
 		return nil, err
 	}
-	candidates, provider, err := dependencies.Chooser.Candidates(ctx, input.ID)
+	var candidates []identify.Candidate
+	var provider string
+	if strings.TrimSpace(input.Name) == "" {
+		candidates, provider, err = dependencies.Chooser.Candidates(ctx, input.ID)
+	} else {
+		candidates, provider, err = dependencies.Chooser.SearchAs(ctx, input.ID, input.Name, input.Year)
+	}
 	if err != nil {
 		return nil, server.identifyError(ctx, "list candidates", err)
 	}
@@ -209,6 +239,22 @@ func (server *Server) postItemMatch(ctx context.Context, input *MatchInput) (*st
 	}
 	err = dependencies.Chooser.Choose(ctx, input.ID, input.Body.Provider, input.Body.ProviderID)
 	return &struct{}{}, server.identifyError(ctx, "choose a match", err)
+}
+
+func (server *Server) postItemMatchByLink(ctx context.Context, input *MatchByLinkInput) (*struct{}, error) {
+	dependencies, _, err := server.requireMetadataEditorReaching(ctx, input.Authorization, input.ID)
+	if err != nil {
+		return nil, err
+	}
+	err = dependencies.Chooser.ChooseByLink(ctx, input.ID, input.Body.Link)
+	switch {
+	case errors.Is(err, identify.ErrBadLink):
+		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "body.link", identify.ErrBadLink.Error())
+	case errors.Is(err, identify.ErrNoMatch):
+		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "body.link",
+			"the provider has no work of this kind for that id")
+	}
+	return &struct{}{}, server.identifyError(ctx, "choose a match by its link", err)
 }
 
 func (server *Server) postItemRefresh(ctx context.Context, input *ItemInput) (*RefreshOutput, error) {
