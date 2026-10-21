@@ -335,6 +335,10 @@ func (admin *Admin) ForgetMount(ctx context.Context, libraryID int64, nodeName, 
 		if _, forgetErr := queries.ForgetMissingRootMount(ctx, forget); forgetErr != nil {
 			return fmt.Errorf("forget the mount: %w", forgetErr)
 		}
+		// Gone for good is no longer waited for: its files are removed by the next scan (D328).
+		if clearErr := clearPlace(ctx, queries, nodeID, mountPath); clearErr != nil {
+			return clearErr
+		}
 		approve := sqlcgen.ApproveRootRemovalsParams{NodeID: nodeID, RootPath: mount.RootPath}
 		if _, approveErr := queries.ApproveRootRemovals(ctx, approve); approveErr != nil {
 			return fmt.Errorf("approve the root's removals: %w", approveErr)

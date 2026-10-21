@@ -157,8 +157,10 @@ func TestBrowse_ATitleThatCannotBeReadNowIsListedAndMarkedUnavailable(t *testing
 	harness.shelve(t)
 	storetest.ExecRaw(t, harness.databasePath,
 		"UPDATE file SET reported_path_raw = CAST(path AS BLOB)",
-		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, unavailable_since)
-		 VALUES (1, '/m', 'unreadable', 5000, 4000)`)
+		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at)
+		 VALUES (1, '/m', 'unreadable', 5000)`,
+		`INSERT INTO unavailable_place (node_id, path, root_path, since, cause)
+		 VALUES (1, '/m', '/m', 4000, 'unread')`)
 	const missing = `"unavailable":{"reason":"root_missing","nodeName":"local","path":"/m","unavailableAt":4000}`
 	for _, path := range []string{
 		"/titles?kind=movie&sort=name&limit=10", "/titles?kind=series&sort=added&limit=10", "/items/10",
@@ -174,7 +176,7 @@ func TestBrowse_ATitleThatCannotBeReadNowIsListedAndMarkedUnavailable(t *testing
 		nil); !strings.Contains(season.body, `"name":"Pilot"`) || strings.Count(season.body, missing) != 1 {
 		t.Errorf("the season = %s; want its episode marked", season.body)
 	}
-	storetest.ExecRaw(t, harness.databasePath, "DELETE FROM root_state")
+	storetest.ExecRaw(t, harness.databasePath, "DELETE FROM root_state", "DELETE FROM unavailable_place")
 	harness.nodes.isAway.Store(true)
 	away := harness.do(t, http.MethodGet, "/items/10", user, nil)
 	if !strings.Contains(away.body, `"unavailable":{"reason":"node_away","nodeName":"local"`) {

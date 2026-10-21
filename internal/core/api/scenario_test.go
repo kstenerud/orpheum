@@ -211,8 +211,10 @@ func TestScenario_S76_ADownNodeBlocksNoOtherNodesWork(t *testing.T) {
 func (harness testHarness) missingMedia(t *testing.T) {
 	t.Helper()
 	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, unavailable_since)
-		 VALUES (1, '/media', 'unreadable', 5000, 5000)`)
+		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at)
+		 VALUES (1, '/media', 'unreadable', 5000)`,
+		`INSERT INTO unavailable_place (node_id, path, root_path, since, cause)
+		 VALUES (1, '/media', '/media', 5000, 'unread')`)
 }
 
 func TestPrepare_APrepareOfAFileUnderAMissingRootParksOnItAndSendsNothing(t *testing.T) {
@@ -346,8 +348,10 @@ func TestScenario_S22_ARetiredRootsFilesAreTombstonesItsWorkIsCancelledAndItsHis
 	harness.shelveAudioStreams(t)
 	harness.watchedFilm2(t)
 	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, unavailable_since)
-		 VALUES (1, '/media', 'unreadable', 9000, 5000)`)
+		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at)
+		 VALUES (1, '/media', 'unreadable', 9000)`,
+		`INSERT INTO unavailable_place (node_id, path, root_path, since, cause)
+		 VALUES (1, '/media', '/media', 5000, 'unread')`)
 	root := jobs.RootDestination(1, "/media")
 	harness.queueWork(t, []jobs.Request{
 		{Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 1}, Destination: root},

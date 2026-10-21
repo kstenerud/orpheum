@@ -127,11 +127,22 @@
 //     scan crossed with the last complete scan's — removes nothing under it (D208, as corrected).
 //     TestScenario_S7b_ADiskUnpluggedInsideARootRemovesNothingUnderIt.
 //
-//   - A file under a root the last scan could not read, or whose held-back scan saw none of it, or
-//     under a disk missing from a mount point inside one, is not there to read: UnavailableUnder
-//     names that root or disk, and work that reads the file parks on it; a complete scan says which
-//     root and disks it found, so that work resumes (D231 §5, §6).
-//     TestUnavailableUnder_AFileUnderAMissingRootOrDiskWaitsAndAScanThatFindsThemSaysSo.
+//   - Availability is kept per place, a root or a disk mounted inside one, in unavailable_place,
+//     with since when and why (D328): a root the last scan could not read, or whose held-back scan
+//     saw none of it, a disk missing from a mount point inside one, a place whose disk did not
+//     answer, a root its hello no longer names. A file under one is not there to read:
+//     UnavailableUnder names the deepest, read from that table alone (unavailableOfNode), and work
+//     that reads the file parks on it; a complete scan says which root and disks it found, so that
+//     work resumes (D231 §5, §6).
+//     TestUnavailableUnder_AFileUnderAMissingRootOrDiskWaitsAndAScanThatFindsThemSaysSo,
+//     TestScans_ARootAnUnreadableScanLeftIsBroughtBackToo. Only this package writes the table
+//     (TestArch_EachTableHasOneWritingPackage), and within it only availability.go (review).
+//
+//   - A place unavailable comes back without a scan when its disk answers with the facts its last
+//     complete scan recorded, and a scan follows in the background; on other facts it is the empty
+//     directory an unmounted disk leaves, and waits for a scan (D326, D327, D328 §6).
+//     TestScans_AnUnavailableRootWhoseDiskAnswersAgainAsItWasIsBroughtBackAtOnce,
+//     TestScans_AnUnavailableRootOnAnotherDiskIsNotBroughtBack.
 //
 //   - Work that stalls waiting on a root's disk makes the root unavailable from then, and asks for a
 //     scan of it, which brings it back (D233 §10).
@@ -240,7 +251,8 @@
 //     roots, list, scan, the scanner view); browse.go and detail.go: lists, a title's detail, a
 //     series' episodes, and search; home.go: Continue Watching and the resume thresholds;
 //     subtitle_sidecar.go: a subtitle file's track; rootpath.go: which root a file is under, and a
-//     path's text; unavailable.go: the missing root or disk a file is under; vocabulary.go: the
+//     path's text; availability.go: the one writer of a place's availability (D328);
+//     unavailable.go: the unavailable root or disk a file is under; vocabulary.go: the
 //     filings, title kinds and image kinds identification shares; filing.go: FileAs and
 //     PutInVersion, through which identification records how a file is filed and which version
 //     holds it (this package writes the file table, schema.md).

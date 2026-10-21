@@ -29,36 +29,6 @@ func (q *Queries) ApproveRootRemovals(ctx context.Context, arg ApproveRootRemova
 	return result.RowsAffected()
 }
 
-const bringBackRoot = `-- name: BringBackRoot :execrows
-UPDATE root_state SET unavailable_since = NULL
-WHERE node_id = ?1 AND root_path = ?2 AND unavailable_since IS NOT NULL
-  AND filesystem_device = ?3 AND is_mount_point = ?4
-`
-
-type BringBackRootParams struct {
-	NodeID           int64
-	RootPath         string
-	FilesystemDevice *int64
-	IsMountPoint     *int64
-}
-
-// The root's disk answers again with the facts of its last complete scan, its device and whether it
-// is a mount point: the root is available again before a scan reads it, the scan following for what
-// changed meanwhile. Other facts are the empty directory an unmounted disk leaves, which stays
-// unavailable until a scan reads it (D208, D233 section 10).
-func (q *Queries) BringBackRoot(ctx context.Context, arg BringBackRootParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, bringBackRoot,
-		arg.NodeID,
-		arg.RootPath,
-		arg.FilesystemDevice,
-		arg.IsMountPoint,
-	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
 const forgetMissingRootMount = `-- name: ForgetMissingRootMount :execrows
 DELETE FROM root_mount
 WHERE node_id = ?1 AND mount_path = ?2 AND is_present = 0
@@ -105,8 +75,7 @@ func (q *Queries) GetRootMount(ctx context.Context, arg GetRootMountParams) (Get
 
 const getRootState = `-- name: GetRootState :one
 
-SELECT filesystem_device, is_mount_point, last_scan_outcome, withheld_scan_started_at, withheld_reason, are_removals_approved,
-  unavailable_since
+SELECT filesystem_device, is_mount_point, last_scan_outcome, withheld_scan_started_at, withheld_reason, are_removals_approved
 FROM root_state
 WHERE node_id = ? AND root_path = ?
 `
@@ -123,7 +92,6 @@ type GetRootStateRow struct {
 	WithheldScanStartedAt *int64
 	WithheldReason        *string
 	AreRemovalsApproved   int64
-	UnavailableSince      *int64
 }
 
 // SPDX-License-Identifier: AGPL-3.0-or-later
@@ -138,150 +106,8 @@ func (q *Queries) GetRootState(ctx context.Context, arg GetRootStateParams) (Get
 		&i.WithheldScanStartedAt,
 		&i.WithheldReason,
 		&i.AreRemovalsApproved,
-		&i.UnavailableSince,
 	)
 	return i, err
-}
-
-const listMissingMountsOfNode = `-- name: ListMissingMountsOfNode :many
-SELECT root_mount.mount_path, root_state.last_scan_at
-FROM root_mount
-LEFT JOIN root_state ON root_state.node_id = root_mount.node_id AND root_state.root_path = root_mount.root_path
-WHERE root_mount.node_id = ?1 AND root_mount.is_present = 0
-ORDER BY root_mount.mount_path
-`
-
-type ListMissingMountsOfNodeRow struct {
-	MountPath  string
-	LastScanAt *int64
-}
-
-// The disks mounted inside a node's roots that the last complete scan did not find, with when
-// their root was last scanned (D208, D231 section 5).
-func (q *Queries) ListMissingMountsOfNode(ctx context.Context, nodeID int64) ([]ListMissingMountsOfNodeRow, error) {
-	rows, err := q.db.QueryContext(ctx, listMissingMountsOfNode, nodeID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListMissingMountsOfNodeRow{}
-	for rows.Next() {
-		var i ListMissingMountsOfNodeRow
-		if err := rows.Scan(&i.MountPath, &i.LastScanAt); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listOfflineDisks = `-- name: ListOfflineDisks :many
-SELECT library.id AS library_id, library.name AS library_name, node.name AS node_name, root_mount.root_path,
-  root_mount.mount_path, CAST(root_mount.missing_since AS INTEGER) AS missing_since
-FROM root_mount
-JOIN library_root ON library_root.node_id = root_mount.node_id AND library_root.root_path = root_mount.root_path
-  AND library_root.retired_at IS NULL
-JOIN library ON library.id = library_root.library_id AND library.removed_at IS NULL
-JOIN node ON node.id = root_mount.node_id AND node.removed_at IS NULL
-WHERE root_mount.is_present = 0 AND root_mount.missing_since IS NOT NULL
-ORDER BY root_mount.missing_since, library.id, root_mount.mount_path
-`
-
-type ListOfflineDisksRow struct {
-	LibraryID    int64
-	LibraryName  string
-	NodeName     string
-	RootPath     string
-	MountPath    string
-	MissingSince int64
-}
-
-// The disks mounted inside such roots that scans have found missing, and since when.
-func (q *Queries) ListOfflineDisks(ctx context.Context) ([]ListOfflineDisksRow, error) {
-	rows, err := q.db.QueryContext(ctx, listOfflineDisks)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListOfflineDisksRow{}
-	for rows.Next() {
-		var i ListOfflineDisksRow
-		if err := rows.Scan(
-			&i.LibraryID,
-			&i.LibraryName,
-			&i.NodeName,
-			&i.RootPath,
-			&i.MountPath,
-			&i.MissingSince,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listOfflineRoots = `-- name: ListOfflineRoots :many
-SELECT library.id AS library_id, library.name AS library_name, node.name AS node_name, library_root.root_path,
-  CAST(root_state.unavailable_since AS INTEGER) AS unavailable_since
-FROM library_root
-JOIN library ON library.id = library_root.library_id AND library.removed_at IS NULL
-JOIN node ON node.id = library_root.node_id AND node.removed_at IS NULL
-JOIN root_state ON root_state.node_id = library_root.node_id AND root_state.root_path = library_root.root_path
-WHERE library_root.retired_at IS NULL AND root_state.unavailable_since IS NOT NULL
-ORDER BY root_state.unavailable_since, library.id, library_root.root_path
-`
-
-type ListOfflineRootsRow struct {
-	LibraryID        int64
-	LibraryName      string
-	NodeName         string
-	RootPath         string
-	UnavailableSince int64
-}
-
-// The roots of live libraries, on live nodes and not retired, that scans have found unavailable,
-// and since when: what the System page says is offline until an admin retires it or a scan finds
-// it (D41, D231 section 7).
-func (q *Queries) ListOfflineRoots(ctx context.Context) ([]ListOfflineRootsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listOfflineRoots)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListOfflineRootsRow{}
-	for rows.Next() {
-		var i ListOfflineRootsRow
-		if err := rows.Scan(
-			&i.LibraryID,
-			&i.LibraryName,
-			&i.NodeName,
-			&i.RootPath,
-			&i.UnavailableSince,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const listRootMounts = `-- name: ListRootMounts :many
@@ -312,47 +138,6 @@ func (q *Queries) ListRootMounts(ctx context.Context, arg ListRootMountsParams) 
 	for rows.Next() {
 		var i ListRootMountsRow
 		if err := rows.Scan(&i.MountPath, &i.FilesystemDevice, &i.IsPresent); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listUnavailableRootsOfNode = `-- name: ListUnavailableRootsOfNode :many
-SELECT root_path, CAST(unavailable_since AS INTEGER) AS unavailable_since
-FROM root_state
-WHERE node_id = ?1 AND unavailable_since IS NOT NULL
-ORDER BY root_path
-`
-
-type ListUnavailableRootsOfNodeRow struct {
-	RootPath         string
-	UnavailableSince int64
-}
-
-// A node's roots whose last scan could not read them, or held back its removals having seen none
-// of the root, or whose disk work stalled on since: their files are not there to read, since the
-// first of those in a row (D208, D231 section 5, D233 section 10, D277 section 1). Each of those
-// sets unavailable_since, which alone says it, as every other reader of it reads it: one also read
-// from an unreadable last scan kept a root its disk had brought back unavailable (D326; staging,
-// 2026-10-21).
-func (q *Queries) ListUnavailableRootsOfNode(ctx context.Context, nodeID int64) ([]ListUnavailableRootsOfNodeRow, error) {
-	rows, err := q.db.QueryContext(ctx, listUnavailableRootsOfNode, nodeID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListUnavailableRootsOfNodeRow{}
-	for rows.Next() {
-		var i ListUnavailableRootsOfNodeRow
-		if err := rows.Scan(&i.RootPath, &i.UnavailableSince); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -422,40 +207,16 @@ func (q *Queries) ListWithheldRoots(ctx context.Context) ([]ListWithheldRootsRow
 	return items, nil
 }
 
-const markRootUnavailable = `-- name: MarkRootUnavailable :one
-UPDATE root_state SET unavailable_since = coalesce(unavailable_since, ?1)
-WHERE node_id = ?2 AND root_path = ?3
-RETURNING CAST(unavailable_since AS INTEGER) AS unavailable_since
-`
-
-type MarkRootUnavailableParams struct {
-	Now      *int64
-	NodeID   int64
-	RootPath string
-}
-
-// Work stalled waiting on the root's disk: the root is unavailable from now, unless it already
-// was, until a scan reads it again (D233 section 10). A root no scan has read yet has no state, and
-// returns nothing.
-func (q *Queries) MarkRootUnavailable(ctx context.Context, arg MarkRootUnavailableParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, markRootUnavailable, arg.Now, arg.NodeID, arg.RootPath)
-	var unavailable_since int64
-	err := row.Scan(&unavailable_since)
-	return unavailable_since, err
-}
-
 const recordRootComplete = `-- name: RecordRootComplete :exec
 INSERT INTO root_state (node_id, root_path, filesystem_device, is_mount_point, last_scan_outcome, last_scan_at)
 VALUES (?1, ?2, ?3, ?4, 'complete', ?5)
 ON CONFLICT (node_id, root_path) DO UPDATE SET
   filesystem_device = excluded.filesystem_device, is_mount_point = excluded.is_mount_point, last_scan_outcome = 'complete',
-  last_scan_at = excluded.last_scan_at, withheld_scan_started_at = NULL, withheld_reason = NULL, are_removals_approved = 0,
-  unavailable_since = NULL
+  last_scan_at = excluded.last_scan_at, withheld_scan_started_at = NULL, withheld_reason = NULL, are_removals_approved = 0
 WHERE (root_state.filesystem_device, root_state.is_mount_point, root_state.last_scan_outcome,
   root_state.last_scan_at, root_state.withheld_scan_started_at, root_state.withheld_reason,
-  root_state.are_removals_approved, root_state.unavailable_since)
-  IS NOT (excluded.filesystem_device, excluded.is_mount_point, 'complete', excluded.last_scan_at, NULL, NULL,
-    0, NULL)
+  root_state.are_removals_approved)
+  IS NOT (excluded.filesystem_device, excluded.is_mount_point, 'complete', excluded.last_scan_at, NULL, NULL, 0)
 `
 
 type RecordRootCompleteParams struct {
@@ -466,8 +227,8 @@ type RecordRootCompleteParams struct {
 	LastScanAt       int64
 }
 
-// A complete scan: its facts become the known-good ones later scans are compared against, and the
-// root is no longer unavailable.
+// A complete scan: its facts become the known-good ones later scans are compared against. That the
+// root is available again is its place's (ClearUnavailablePlace, D328).
 // Only when it changes something (D303, DL9).
 func (q *Queries) RecordRootComplete(ctx context.Context, arg RecordRootCompleteParams) error {
 	_, err := q.db.ExecContext(ctx, recordRootComplete,
@@ -481,19 +242,18 @@ func (q *Queries) RecordRootComplete(ctx context.Context, arg RecordRootComplete
 }
 
 const recordRootMountMissing = `-- name: RecordRootMountMissing :exec
-UPDATE root_mount SET is_present = 0, missing_since = coalesce(missing_since, ?1)
-WHERE node_id = ?2 AND mount_path = ?3
+UPDATE root_mount SET is_present = 0
+WHERE node_id = ?1 AND mount_path = ?2 AND is_present = 1
 `
 
 type RecordRootMountMissingParams struct {
-	MissingSince *int64
-	NodeID       int64
-	MountPath    string
+	NodeID    int64
+	MountPath string
 }
 
-// A disk a scan did not find where it was: missing since the first such scan in a row.
+// A disk a scan did not find where it was; since when is its place's (D328).
 func (q *Queries) RecordRootMountMissing(ctx context.Context, arg RecordRootMountMissingParams) error {
-	_, err := q.db.ExecContext(ctx, recordRootMountMissing, arg.MissingSince, arg.NodeID, arg.MountPath)
+	_, err := q.db.ExecContext(ctx, recordRootMountMissing, arg.NodeID, arg.MountPath)
 	return err
 }
 
@@ -501,9 +261,9 @@ const recordRootMountPresent = `-- name: RecordRootMountPresent :exec
 INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_present)
 VALUES (?1, ?2, ?3, ?4, 1)
 ON CONFLICT (node_id, mount_path) DO UPDATE SET
-  root_path = excluded.root_path, filesystem_device = excluded.filesystem_device, is_present = 1, missing_since = NULL
-WHERE (root_mount.root_path, root_mount.filesystem_device, root_mount.is_present, root_mount.missing_since)
-  IS NOT (excluded.root_path, excluded.filesystem_device, 1, NULL)
+  root_path = excluded.root_path, filesystem_device = excluded.filesystem_device, is_present = 1
+WHERE (root_mount.root_path, root_mount.filesystem_device, root_mount.is_present)
+  IS NOT (excluded.root_path, excluded.filesystem_device, 1)
 `
 
 type RecordRootMountPresentParams struct {
@@ -525,20 +285,16 @@ func (q *Queries) RecordRootMountPresent(ctx context.Context, arg RecordRootMoun
 }
 
 const recordRootNotComplete = `-- name: RecordRootNotComplete :exec
-INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, withheld_scan_started_at, withheld_reason,
-  unavailable_since)
+INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, withheld_scan_started_at, withheld_reason)
 VALUES (?1, ?2, ?3, ?4, ?5,
-  ?6, ?7)
+  ?6)
 ON CONFLICT (node_id, root_path) DO UPDATE SET
   last_scan_outcome = excluded.last_scan_outcome, last_scan_at = excluded.last_scan_at,
-  withheld_scan_started_at = excluded.withheld_scan_started_at, withheld_reason = excluded.withheld_reason,
-  unavailable_since = CASE WHEN excluded.unavailable_since IS NULL THEN NULL
-    ELSE coalesce(root_state.unavailable_since, excluded.unavailable_since) END
+  withheld_scan_started_at = excluded.withheld_scan_started_at, withheld_reason = excluded.withheld_reason
 WHERE (root_state.last_scan_outcome, root_state.last_scan_at, root_state.withheld_scan_started_at,
-  root_state.withheld_reason, root_state.unavailable_since)
+  root_state.withheld_reason)
   IS NOT (excluded.last_scan_outcome, excluded.last_scan_at, excluded.withheld_scan_started_at,
-    excluded.withheld_reason,
-    CASE WHEN excluded.unavailable_since IS NULL THEN NULL ELSE coalesce(root_state.unavailable_since, excluded.unavailable_since) END)
+    excluded.withheld_reason)
 `
 
 type RecordRootNotCompleteParams struct {
@@ -548,13 +304,10 @@ type RecordRootNotCompleteParams struct {
 	LastScanAt            int64
 	WithheldScanStartedAt *int64
 	WithheldReason        *string
-	UnavailableSince      *int64
 }
 
 // A scan that could not read its root, or whose removals wait for the admin: the known-good
-// facts stay as they were. A root the scan could not read, or whose held-back scan saw none of it,
-// is unavailable since the first such scan in a row (D41, D231 section 7); one whose scan read it
-// and only holds back removals is available (D277 section 1).
+// facts stay as they were. Whether that makes the root unavailable is its place's (D328).
 // Only when it changes something (D303, DL9).
 func (q *Queries) RecordRootNotComplete(ctx context.Context, arg RecordRootNotCompleteParams) error {
 	_, err := q.db.ExecContext(ctx, recordRootNotComplete,
@@ -564,7 +317,6 @@ func (q *Queries) RecordRootNotComplete(ctx context.Context, arg RecordRootNotCo
 		arg.LastScanAt,
 		arg.WithheldScanStartedAt,
 		arg.WithheldReason,
-		arg.UnavailableSince,
 	)
 	return err
 }

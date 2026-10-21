@@ -59,16 +59,6 @@ LEFT JOIN root_state ON root_state.node_id = library_root.node_id AND root_state
 WHERE library_root.retired_at IS NULL AND library.change_detection IN ('watch', 'interval')
 ORDER BY library_root.node_id, library_root.root_path;
 
--- name: ListUnavailableRoots :many
--- Every live root of a library that is unavailable, its disk or its share not answering or its node
--- away, with when it was last scanned: what is scanned again until one reads it (D233 section 10).
-SELECT DISTINCT library_root.node_id, library_root.root_path, root_state.last_scan_at
-FROM library_root
-JOIN library ON library.id = library_root.library_id AND library.removed_at IS NULL
-JOIN root_state ON root_state.node_id = library_root.node_id AND root_state.root_path = library_root.root_path
-WHERE library_root.retired_at IS NULL AND root_state.unavailable_since IS NOT NULL
-ORDER BY library_root.node_id, library_root.root_path;
-
 -- name: CountLibraryFilings :many
 -- How many live files a library has in each filing: the scanner view's summary (D163).
 SELECT filing, count(*) AS files

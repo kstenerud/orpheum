@@ -125,18 +125,8 @@ func (service *Service) askForScans(ctx context.Context, nodeID int64, rootPaths
 	if err != nil {
 		return fmt.Errorf("read the libraries' roots: %w", err)
 	}
-	unavailable, err := service.database.Read().ListUnavailableRoots(ctx)
-	if err != nil {
-		return fmt.Errorf("read the unavailable roots: %w", err)
-	}
 	for _, root := range roots {
-		priority := jobs.PriorityBackground
-		if slices.ContainsFunc(unavailable, func(row sqlcgen.ListUnavailableRootsRow) bool {
-			return row.NodeID == nodeID && row.RootPath == root
-		}) {
-			priority = jobs.PriorityBringsBack
-		}
-		if err := service.scans.Request(ctx, nodeID, root, priority); err != nil {
+		if err := service.scans.RequestOnHello(ctx, nodeID, root); err != nil {
 			return err
 		}
 	}

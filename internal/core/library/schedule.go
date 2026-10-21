@@ -85,16 +85,17 @@ func (schedule *ScanSchedule) QueueDue(ctx context.Context) (int, error) {
 	return asked, nil
 }
 
-// RescanUnavailable asks for a scan of every library root that is unavailable, its disk or its
-// share not answering, whose last scan ended unavailable_root_rescan_seconds ago or more, and says
-// how many it asked for: the scan that reads it brings it back (D233 §10). A stall asked for one at
-// once, and nothing asked again once the share came back, so its films stayed unavailable until a
-// restart of the node happened to (staging, 2026-10-21, nas.example off). While the share is still away,
-// the node's disk gate answers such a scan at once, touching nothing.
+// RescanUnavailable asks each unavailable place of a library's root, a root or a disk mounted inside
+// one, of its node, and brings back those that answer; it asks for a scan of the root of one that
+// does not come back, unless its disk is not answering, a scan of the root is running, or its last
+// scan ended unavailable_root_rescan_seconds ago or less. It says how many it brought back or asked
+// for (D233 §10, D327 §3, D328). A stall asked for a scan at once, and nothing asked again once the
+// share came back, so its films stayed unavailable until a restart of the node happened to (staging,
+// 2026-10-21, nas.example off).
 func (schedule *ScanSchedule) RescanUnavailable(ctx context.Context) (int, error) {
-	rows, err := schedule.database.Read().ListUnavailableRoots(ctx)
+	places, err := schedule.database.Read().ListUnavailablePlaces(ctx)
 	if err != nil {
-		return 0, fmt.Errorf("list the unavailable roots: %w", err)
+		return 0, fmt.Errorf("list the unavailable places: %w", err)
 	}
 	every, err := schedule.settings.Duration(ctx, settings.UnavailableRootRescanSeconds)
 	if err != nil {
@@ -104,12 +105,12 @@ func (schedule *ScanSchedule) RescanUnavailable(ctx context.Context) (int, error
 	if err != nil {
 		return 0, err
 	}
-	now, asked := schedule.clock.Now(), 0
-	for _, row := range rows {
-		root := ScanRoot{NodeID: row.NodeID, RootPath: row.RootPath}
+	now, asked, scanned := schedule.clock.Now(), 0, map[ScanRoot]bool{}
+	for _, place := range places {
+		root := ScanRoot{NodeID: place.NodeID, RootPath: place.RootPath}
 		// Its node asked first, outside every queue (D327 §3): one back is brought back at once, with
 		// a scan behind it, and one not answering is not scanned, which would only wait on its disk.
-		probe, isBack, err := schedule.scans.ProbeAndBringBack(ctx, root.NodeID, root.RootPath)
+		probe, isBack, err := schedule.scans.ProbeAndBringBack(ctx, place.NodeID, place.Path)
 		if err != nil {
 			return asked, err
 		}
@@ -117,19 +118,20 @@ func (schedule *ScanSchedule) RescanUnavailable(ctx context.Context) (int, error
 			asked++
 			continue
 		}
-		if probe.State == nodeproto.ProbeNotAnswering {
+		if probe.State == nodeproto.ProbeNotAnswering || scanned[root] {
 			continue
 		}
 		if _, isRunning := running[root]; isRunning {
 			continue
 		}
-		if now.Sub(time.UnixMilli(row.LastScanAt)) < every {
+		if now.Sub(time.UnixMilli(place.LastScanAt)) < every {
 			continue
 		}
 		if err := schedule.scans.RequestUnder(ctx, root.NodeID, root.RootPath, wholeRoot,
 			jobs.PriorityBringsBack); err != nil {
 			return asked, err
 		}
+		scanned[root] = true
 		asked++
 	}
 	return asked, nil

@@ -4,12 +4,9 @@ package library
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/platform/ptr"
-	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
@@ -62,23 +59,17 @@ func (unavailability *Unavailability) Under(
 	return found, isFound, nil
 }
 
-// unavailableOfNode is every root and mount of a node that is missing.
+// unavailableOfNode is every place of a node that cannot be read now: the one reader of them (D328
+// §4).
 func unavailableOfNode(ctx context.Context, queries *sqlcgen.Queries, nodeID int64) ([]Unavailable, error) {
-	roots, err := queries.ListUnavailableRootsOfNode(ctx, nodeID)
+	places, err := queries.ListUnavailablePlacesOfNode(ctx, nodeID)
 	if err != nil {
-		return nil, fmt.Errorf("read node %d's unavailable roots: %w", nodeID, err)
+		return nil, fmt.Errorf("read node %d's unavailable places: %w", nodeID, err)
 	}
-	mounts, err := queries.ListMissingMountsOfNode(ctx, nodeID)
-	if err != nil {
-		return nil, fmt.Errorf("read node %d's missing mounts: %w", nodeID, err)
-	}
-	candidates := make([]Unavailable, 0, len(roots)+len(mounts))
-	for _, root := range roots {
-		candidates = append(candidates, Unavailable{Path: root.RootPath, Since: time.UnixMilli(root.UnavailableSince)})
-	}
-	for _, mount := range mounts {
+	candidates := make([]Unavailable, 0, len(places))
+	for _, place := range places {
 		candidates = append(candidates, Unavailable{
-			Path: mount.MountPath, Since: time.UnixMilli(ptr.ValueOrZero(mount.LastScanAt)), IsMount: true,
+			Path: place.Path, Since: time.UnixMilli(place.Since), IsMount: place.Path != place.RootPath,
 		})
 	}
 	return candidates, nil
@@ -97,25 +88,21 @@ func deepestUnder(candidates []Unavailable, reportedPath []byte) (Unavailable, b
 	return found, isFound
 }
 
-// MarkRootUnavailable makes a root unavailable from now, unless it already was, because work
-// stalled waiting on its disk (D233 §10): what is under it is not there to read until a scan reads
-// it again (RecordRootComplete). It returns since when; a root no scan has read has no state, and is
-// unavailable from now without being kept so.
-func (ingester *Ingester) MarkRootUnavailable(ctx context.Context, nodeID int64, rootPath string) (time.Time, error) {
+// MarkRootUnavailable makes a root unavailable for cause from now, unless it already was (D328):
+// what is under it is not there to read until it comes back. It returns since when.
+func (ingester *Ingester) MarkRootUnavailable(
+	ctx context.Context, nodeID int64, rootPath, cause string,
+) (time.Time, error) {
 	now := ingester.clock.Now()
 	var since int64
 	err := ingester.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		var markErr error
-		since, markErr = store.OrNotFound(queries.MarkRootUnavailable(ctx, sqlcgen.MarkRootUnavailableParams{
-			Now: new(now.UnixMilli()), NodeID: nodeID, RootPath: rootPath,
-		}))
-		if errors.Is(markErr, store.ErrNotFound) {
-			since, markErr = now.UnixMilli(), nil
-		}
+		place := placeUnavailable{nodeID: nodeID, path: rootPath, rootPath: rootPath, cause: cause}
+		since, markErr = markPlaceUnavailable(ctx, queries, place, now.UnixMilli())
 		return markErr
 	})
 	if err != nil {
-		return time.Time{}, fmt.Errorf("make root %s on node %d unavailable: %w", rootPath, nodeID, err)
+		return time.Time{}, err
 	}
 	return time.UnixMilli(since), nil
 }
@@ -127,22 +114,14 @@ func (ingester *Ingester) MarkRootUnavailable(ctx context.Context, nodeID int64,
 func (ingester *Ingester) BringBackRoot(
 	ctx context.Context, nodeID int64, rootPath string, device uint64, isMountPoint bool,
 ) (bool, error) {
-	facts := sqlcgen.BringBackRootParams{
-		NodeID: nodeID, RootPath: rootPath,
-		FilesystemDevice: new(int64(device)), //nolint:gosec // a device id fits
-		IsMountPoint:     new(boolInt(isMountPoint)),
-	}
-	var broughtBack int64
+	var isBack bool
 	err := ingester.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		var bringErr error
-		broughtBack, bringErr = queries.BringBackRoot(ctx, facts)
+		isBack, bringErr = bringBackPlace(ctx, queries, nodeID, rootPath, device, isMountPoint)
 		return bringErr
 	})
-	if err != nil {
-		return false, fmt.Errorf("bring back root %s on node %d: %w", rootPath, nodeID, err)
-	}
-	if broughtBack == 0 {
-		return false, nil
+	if err != nil || !isBack {
+		return false, err
 	}
 	if ingester.onPathsFound != nil {
 		ingester.onPathsFound(ctx, nodeID, []string{rootPath})

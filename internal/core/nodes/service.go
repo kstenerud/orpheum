@@ -30,7 +30,9 @@ type Settings interface {
 
 // ScanRequester asks for a scan of a node's root: library.Scans (D240).
 type ScanRequester interface {
-	Request(ctx context.Context, nodeID int64, root string, priority int64) error
+	// RequestOnHello asks for the scan a node's hello brings of a root a library covers: before other
+	// work when the root is unavailable, as the scan that brings it back (D240 §1, D328).
+	RequestOnHello(ctx context.Context, nodeID int64, root string) error
 	// MarkRootNotNamed makes a library root its node's hello no longer names unavailable from now
 	// (D241 §2).
 	MarkRootNotNamed(ctx context.Context, nodeID int64, root string) error

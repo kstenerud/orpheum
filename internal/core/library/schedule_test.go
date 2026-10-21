@@ -180,10 +180,14 @@ func TestScanSchedule_ScansAnUnavailableRootAgainUntilOneReadsIt(t *testing.T) {
 	}
 	now := world.clock.Now().UnixMilli()
 	storetest.ExecRaw(t, world.database.Path(), fmt.Sprintf(`INSERT INTO root_state
-		(node_id, root_path, last_scan_outcome, last_scan_at, unavailable_since) VALUES
-		(%[1]d, '/media/away', 'unreadable', %[2]d, %[2]d), (%[1]d, '/media/lately', 'unreadable', %[3]d, %[2]d),
-		(%[1]d, '/media/running', 'unreadable', %[2]d, %[2]d), (%[1]d, '/media/fine', 'complete', %[2]d, NULL)`,
-		world.nodeID, now-2*60_000, now-2_000))
+		(node_id, root_path, last_scan_outcome, last_scan_at) VALUES
+		(%[1]d, '/media/away', 'unreadable', %[2]d), (%[1]d, '/media/lately', 'unreadable', %[3]d),
+		(%[1]d, '/media/running', 'unreadable', %[2]d), (%[1]d, '/media/fine', 'complete', %[2]d)`,
+		world.nodeID, now-2*60_000, now-2_000), fmt.Sprintf(`INSERT INTO unavailable_place
+		(node_id, path, root_path, since, cause) VALUES
+		(%[1]d, '/media/away', '/media/away', %[2]d, 'unread'),
+		(%[1]d, '/media/lately', '/media/lately', %[2]d, 'unread'),
+		(%[1]d, '/media/running', '/media/running', %[2]d, 'unread')`, world.nodeID, now-2*60_000))
 	requests := &scheduledRequests{priority: jobs.PriorityBringsBack, running: map[ScanRoot]ScanProgress{
 		{NodeID: world.nodeID, RootPath: "/media/running"}: {},
 	}}
@@ -215,10 +219,13 @@ func TestScanSchedule_ProbesAnUnavailableRootBeforeScanningIt(t *testing.T) {
 	}
 	long := world.clock.Now().UnixMilli() - 2*60_000
 	storetest.ExecRaw(t, world.database.Path(), fmt.Sprintf(`INSERT INTO root_state
-		(node_id, root_path, last_scan_outcome, last_scan_at, unavailable_since) VALUES
-		(%[1]d, '/media/dead', 'unreadable', %[2]d, %[2]d), (%[1]d, '/media/back', 'unreadable', %[2]d, %[2]d),
-		(%[1]d, '/media/moved', 'unreadable', %[2]d, %[2]d), (%[1]d, '/media/running', 'unreadable', %[2]d, %[2]d)`,
-		world.nodeID, long))
+		(node_id, root_path, last_scan_outcome, last_scan_at) VALUES
+		(%[1]d, '/media/dead', 'unreadable', %[2]d), (%[1]d, '/media/back', 'unreadable', %[2]d),
+		(%[1]d, '/media/moved', 'unreadable', %[2]d), (%[1]d, '/media/running', 'unreadable', %[2]d)`,
+		world.nodeID, long), fmt.Sprintf(`INSERT INTO unavailable_place (node_id, path, root_path, since, cause) VALUES
+		(%[1]d, '/media/dead', '/media/dead', %[2]d, 'unread'), (%[1]d, '/media/back', '/media/back', %[2]d, 'unread'),
+		(%[1]d, '/media/moved', '/media/moved', %[2]d, 'unread'),
+		(%[1]d, '/media/running', '/media/running', %[2]d, 'unread')`, world.nodeID, long))
 	requests := &scheduledRequests{
 		priority: jobs.PriorityBringsBack,
 		running:  map[ScanRoot]ScanProgress{{NodeID: world.nodeID, RootPath: "/media/running"}: {}},
