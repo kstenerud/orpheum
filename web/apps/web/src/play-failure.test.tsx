@@ -12,9 +12,17 @@ import {
   mediaBackAskAgainMs,
   mediaBackWaitSeconds,
 } from "./playback-failure.ts";
-import { PlayView } from "./play.tsx";
+import { Play, PlayView } from "./play.tsx";
 import type { ReopenAt } from "./reopen.ts";
-import { fire, mount, servedBy, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
+import {
+  fire,
+  mount,
+  playbackCauses,
+  servedBy,
+  settleUntil,
+  type Heard,
+  type Mounted,
+} from "./test-dom.tsx";
 import { directDecision } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
 
@@ -157,6 +165,51 @@ describe("a playback its film's being unreachable stopped (the owner, 2026-10-21
       });
       expect(back).toHaveLength(1); // told once
       expect(asks()).toHaveLength(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("is opened again once, though the page draws itself again as it opens it (staging, 2026-10-21)", async () => {
+    // The page holds the film it played on screen while it asks for the new playback, drawn again
+    // with a new onMediaBack; a page that asked again whether the film could be read then was told
+    // at once that it could, and opened it a second time, 60 ms after the first.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+    try {
+      const unavailable = {
+        unavailable: { reason: "root_missing", nodeName: "orpheum", path: "/tank/media/video" },
+      };
+      const heard: Heard[] = [];
+      const services = servedBy(
+        {
+          "POST /playback": [
+            [200, directDecision()],
+            [200, directDecision({ mediaToken: "again" })],
+          ],
+          "GET /files/2/availability": [
+            [200, unavailable],
+            [200, unavailable],
+            [200, {}],
+          ],
+        },
+        heard,
+      );
+      services.session.signIn("token");
+      mounted = await mount(withServices(<Play fileId={2} />, services));
+      await fire(mounted.container.querySelector("video"), new Event("error"));
+      const asks = (): Heard[] =>
+        heard.filter((each) => each.methodAndPath.endsWith("/availability"));
+      await settleUntil(() => asks().length === 2);
+      act(() => {
+        vi.advanceTimersByTime(mediaBackAskAgainMs);
+      });
+      await settleUntil(() => playbackCauses(heard).length === 2);
+      act(() => {
+        vi.advanceTimersByTime(3 * mediaBackAfterFailureMs);
+      });
+      let turns = 0;
+      await settleUntil(() => (turns += 1) > 20); // what a second opening would ask, answered
+      expect(playbackCauses(heard)).toEqual(["playPage", "mediaBack"]);
     } finally {
       vi.useRealTimers();
     }
