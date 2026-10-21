@@ -424,8 +424,10 @@ func TestChunks_AnUnmadeChunkOfAFilmWhoseRootIsUnavailableIsUnreachable(t *testi
 	base := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
 	harness.keepFilmOnesTimeline(t)
 	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, unavailable_since)
-		 VALUES (1, '/media', 'unreadable', 5000, 4000)`)
+		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at)
+		 VALUES (1, '/media', 'unreadable', 5000)`,
+		`INSERT INTO unavailable_place (node_id, path, root_path, since, cause)
+		 VALUES (1, '/media', '/media', 4000, 'unread')`)
 	unmade := harness.getBytePath(t, base+"q1200k480p/00000.m4s", user, true, "")
 	if unmade.status != http.StatusServiceUnavailable || !strings.Contains(unmade.body, `"code":"media_unreachable"`) ||
 		!strings.Contains(unmade.body, `"reason":"root_missing"`) {

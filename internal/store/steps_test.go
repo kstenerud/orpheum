@@ -436,3 +436,36 @@ func TestMigrate_Step0052KeepsEachPlayAndKeepsNothingOfDeletedFilesYet(t *testin
 		t.Errorf("after the step: %s; want %s: the play kept, nothing kept of deleted files", got, want)
 	}
 }
+
+// Step 0054 keeps every unavailable root and missing disk as an unavailable place, since when it
+// was, and why: a root a complete scan read is unavailable for its disk not answering, one a scan
+// could not read for that scan, and a disk missing from its mount point for being missing (D328).
+func TestMigrate_Step0054KeepsEachUnavailableRootAndMissingDiskAsAPlace(t *testing.T) {
+	t.Parallel()
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	step0054 := stepIndex(t, steps, 54)
+	database := openTemporary(t)
+	if err = database.migrate(t.Context(), steps[:step0054], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	execRaw(t, database, `INSERT INTO node (id, name, enrolled_at) VALUES (1, 'nas', 1)`,
+		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, unavailable_since) VALUES
+		(1, '/media/stalled', 'complete', 1, 5), (1, '/media/unread', 'unreadable', 1, 6),
+		(1, '/media/fine', 'complete', 1, NULL)`,
+		`INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_present, missing_since) VALUES
+		(1, '/media/fine', '/media/fine/disk1', 9, 0, 7), (1, '/media/fine', '/media/fine/disk2', 10, 1, NULL)`)
+	if err = database.migrate(t.Context(), steps[:step0054+1], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	got := fmt.Sprint(queryRows(t, database,
+		"SELECT path, root_path, since, cause FROM unavailable_place ORDER BY path", 4),
+		queryRows(t, database, "SELECT count(*) FROM root_mount WHERE is_present = 0", 1))
+	want := "[[/media/fine/disk1 /media/fine 7 missing] [/media/stalled /media/stalled 5 not_answering] " +
+		"[/media/unread /media/unread 6 unread]] [[1]]"
+	if got != want {
+		t.Errorf("after the step: %s; want %s", got, want)
+	}
+}

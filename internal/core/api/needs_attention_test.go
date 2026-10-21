@@ -33,10 +33,14 @@ func TestNeedsAttention_CountsTheFoldersAndDisksOffline(t *testing.T) {
 		t.Errorf("with nothing offline: %+v, want nothing counted", nothing)
 	}
 	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, unavailable_since)
-		 VALUES (1, '/media', 'unreadable', 9000, 5000)`,
-		`INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_present, missing_since)
-		 VALUES (1, '/media', '/media/disk1', 21, 0, 3000)`)
+		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at)
+		 VALUES (1, '/media', 'unreadable', 9000)`,
+		`INSERT INTO unavailable_place (node_id, path, root_path, since, cause)
+		 VALUES (1, '/media', '/media', 5000, 'unread')`,
+		`INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_present)
+		 VALUES (1, '/media', '/media/disk1', 21, 0)`,
+		`INSERT INTO unavailable_place (node_id, path, root_path, since, cause)
+		 VALUES (1, '/media/disk1', '/media', 3000, 'missing')`)
 	if offline := counts().Body; offline.RootCount != 1 || offline.DiskCount != 1 {
 		t.Errorf("counts = %+v, want one folder and one disk offline", offline)
 	}

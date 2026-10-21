@@ -133,6 +133,9 @@ func (batch *ingestBatch) recordComplete(ctx context.Context, scan *scanState) e
 	if err != nil {
 		return fmt.Errorf("record %s's facts: %w", scan.root, err)
 	}
+	if err := clearPlace(ctx, batch.queries, batch.nodeID, scan.root); err != nil {
+		return err
+	}
 	batch.foundPaths = append(batch.foundPaths, scan.root)
 	return nil
 }
@@ -154,7 +157,12 @@ func (batch *ingestBatch) checkScopeMayJudge(
 		return fmt.Errorf("%w: the root has had no complete scan", errScopeNeedsTheRoot)
 	case err != nil:
 		return err
-	case prior.LastScanOutcome != outcomeComplete || prior.UnavailableSince != nil:
+	}
+	isUnavailable, err := isPlaceUnavailable(ctx, batch.queries, batch.nodeID, scan.root)
+	switch {
+	case err != nil:
+		return err
+	case prior.LastScanOutcome != outcomeComplete || isUnavailable:
 		return fmt.Errorf("%w: the root's last scan was %s, or it is unavailable", errScopeNeedsTheRoot,
 			prior.LastScanOutcome)
 	}
@@ -193,14 +201,21 @@ func (batch *ingestBatch) missingMounts(ctx context.Context, scan *scanState) (m
 }
 
 // recordMounts keeps a complete scan's mount boundaries as the known-good ones, and marks those
-// it did not find as missing since the first scan that did not, keeping the device they were on.
+// it did not find as missing, keeping the device they were on, and their places unavailable since the
+// first scan that did not (D328); those it found are available.
 func (batch *ingestBatch) recordMounts(ctx context.Context, scan *scanState, missing map[string]bool) error {
 	for mountPath := range missing {
 		err := batch.queries.RecordRootMountMissing(ctx, sqlcgen.RecordRootMountMissingParams{
-			NodeID: batch.nodeID, MountPath: mountPath, MissingSince: &batch.nowMs,
+			NodeID: batch.nodeID, MountPath: mountPath,
 		})
 		if err != nil {
 			return fmt.Errorf("record %s as missing: %w", mountPath, err)
+		}
+		missingPlace := placeUnavailable{
+			nodeID: batch.nodeID, path: mountPath, rootPath: scan.root, cause: causeMissing,
+		}
+		if _, err := markPlaceUnavailable(ctx, batch.queries, missingPlace, batch.nowMs); err != nil {
+			return err
 		}
 	}
 	for mountPath, device := range scan.mounts {
@@ -213,6 +228,9 @@ func (batch *ingestBatch) recordMounts(ctx context.Context, scan *scanState, mis
 		})
 		if err != nil {
 			return fmt.Errorf("record the mount %s: %w", mountPath, err)
+		}
+		if err := clearPlace(ctx, batch.queries, batch.nodeID, mountPath); err != nil {
+			return err
 		}
 		batch.foundPaths = append(batch.foundPaths, mountPath)
 	}
@@ -308,13 +326,18 @@ func (batch *ingestBatch) withholdReason(ctx context.Context, scan *scanState, r
 }
 
 // recordNotComplete records a scan that could not read its root, or whose removals wait, and
-// whether its root is unavailable for it.
+// whether its root is unavailable for it: a root a scan read and only holds back removals of is
+// available (D277 §1).
 func (batch *ingestBatch) recordNotComplete(
 	ctx context.Context, scan *scanState, outcome, reason string, isUnavailable bool,
 ) error {
-	var unavailableSince *int64
 	if isUnavailable {
-		unavailableSince = &batch.nowMs
+		unread := placeUnavailable{nodeID: batch.nodeID, path: scan.root, rootPath: scan.root, cause: causeUnread}
+		if _, err := markPlaceUnavailable(ctx, batch.queries, unread, batch.nowMs); err != nil {
+			return err
+		}
+	} else if err := clearPlace(ctx, batch.queries, batch.nodeID, scan.root); err != nil {
+		return err
 	}
 	var withheldSince *int64
 	var withheldReason *string
@@ -323,7 +346,7 @@ func (batch *ingestBatch) recordNotComplete(
 	}
 	err := batch.queries.RecordRootNotComplete(ctx, sqlcgen.RecordRootNotCompleteParams{
 		NodeID: batch.nodeID, RootPath: scan.root, LastScanOutcome: outcome, LastScanAt: batch.nowMs,
-		WithheldScanStartedAt: withheldSince, WithheldReason: withheldReason, UnavailableSince: unavailableSince,
+		WithheldScanStartedAt: withheldSince, WithheldReason: withheldReason,
 	})
 	if err != nil {
 		return fmt.Errorf("record the scan of %s as %s: %w", scan.root, outcome, err)

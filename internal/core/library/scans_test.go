@@ -5,6 +5,7 @@ package library
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
 	"strings"
@@ -472,6 +473,36 @@ func TestScans_AnUnavailableRootOnAnotherDiskIsNotBroughtBack(t *testing.T) {
 		if err != nil || isBack || !isUnavailable() || len(*found) != 0 {
 			t.Errorf("on device %d, mount point %t: brought back %t, %v, found %q; want it left unavailable",
 				other.device, other.isMountPoint, isBack, err, *found)
+		}
+	}
+}
+
+// A hello asks for the scan of a root that is unavailable, or holds a disk that is, before other
+// work, as the scan that brings its films back, and of any other in the background: behind a routine
+// scan of a larger root on the same disk, it waited a minute for the disk's one reader (D233 §10,
+// D328; staging, 2026-10-21).
+func TestScans_AHellosScanOfAnUnavailableRootGoesFirst(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name  string
+		place string
+		want  int64
+	}{
+		{"available", "", jobs.PriorityBackground},
+		{"unavailable", root, jobs.PriorityBringsBack},
+		{"a disk inside it unavailable", root + "/disk1", jobs.PriorityBringsBack},
+	} {
+		bench := newScanBench(t)
+		if tc.place != "" {
+			storetest.ExecRaw(t, bench.database.Path(), fmt.Sprintf(`INSERT INTO unavailable_place
+				(node_id, path, root_path, since, cause) VALUES (%d, '%s', '%s', 1, 'missing')`,
+				bench.nodeID, tc.place, root))
+		}
+		if err := bench.scans.RequestOnHello(t.Context(), bench.nodeID, root); err != nil {
+			t.Fatal(err)
+		}
+		if asked := bench.jobs.requests; len(asked) != 1 || asked[0].Priority != tc.want {
+			t.Errorf("%s: scans asked for %+v; want one at priority %d", tc.name, asked, tc.want)
 		}
 	}
 }

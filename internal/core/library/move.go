@@ -167,5 +167,8 @@ func moveRoot(ctx context.Context, queries *sqlcgen.Queries, repoint Repoint, no
 	if err := queries.ForgetRootScan(ctx, sqlcgen.ForgetRootScanParams(place)); err != nil {
 		return 0, fmt.Errorf("forget %s's last scan: %w", repoint.Path, err)
 	}
+	if err := forgetRootPlaces(ctx, queries, nodeID, repoint.Path); err != nil {
+		return 0, err
+	}
 	return moved, nil
 }

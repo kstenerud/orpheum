@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
@@ -262,9 +261,9 @@ func (retire *retiring) work(ctx context.Context) (jobs.RetiredWork, error) {
 	}, nil
 }
 
-// Offline is a root, or a disk mounted inside one, that scans have found missing, and since the
-// first that did: offline never ends without an admin, who retires it, or a scan that finds it
-// (D41, D231 §7).
+// Offline is a place, a root or a disk mounted inside one, that cannot be read now, and since the
+// first time in a row it was found so: offline ends when an admin retires it, or it comes back (D41,
+// D231 §7, D328).
 type Offline struct {
 	LibraryID   int64
 	LibraryName string
@@ -275,30 +274,22 @@ type Offline struct {
 	Since     time.Time
 }
 
-// Offline is every offline root and disk of the live libraries, the longest offline first.
+// Offline is every offline place of the live libraries, the longest offline first.
 func (admin *Admin) Offline(ctx context.Context) ([]Offline, error) {
-	queries := admin.database.Read()
-	roots, err := queries.ListOfflineRoots(ctx)
+	places, err := admin.database.Read().ListOfflinePlaces(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("list the offline roots: %w", err)
+		return nil, fmt.Errorf("list the offline places: %w", err)
 	}
-	disks, err := queries.ListOfflineDisks(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list the offline disks: %w", err)
-	}
-	offline := make([]Offline, 0, len(roots)+len(disks))
-	for _, root := range roots {
+	offline := make([]Offline, 0, len(places))
+	for _, place := range places {
+		var mountPath string
+		if place.Path != place.RootPath {
+			mountPath = place.Path
+		}
 		offline = append(offline, Offline{
-			LibraryID: root.LibraryID, LibraryName: root.LibraryName, NodeName: root.NodeName, RootPath: root.RootPath,
-			Since: time.UnixMilli(root.UnavailableSince),
+			LibraryID: place.LibraryID, LibraryName: place.LibraryName, NodeName: place.NodeName,
+			RootPath: place.RootPath, MountPath: mountPath, Since: time.UnixMilli(place.Since),
 		})
 	}
-	for _, disk := range disks {
-		offline = append(offline, Offline{
-			LibraryID: disk.LibraryID, LibraryName: disk.LibraryName, NodeName: disk.NodeName, RootPath: disk.RootPath,
-			MountPath: disk.MountPath, Since: time.UnixMilli(disk.MissingSince),
-		})
-	}
-	slices.SortStableFunc(offline, func(one, other Offline) int { return one.Since.Compare(other.Since) })
 	return offline, nil
 }

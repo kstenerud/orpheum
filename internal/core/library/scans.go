@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -137,6 +138,22 @@ func (scans *Scans) Request(ctx context.Context, nodeID int64, root string, prio
 	return scans.RequestUnder(ctx, nodeID, root, wholeRoot, priority)
 }
 
+// RequestOnHello asks for the scan a node's hello brings of a root a library covers: in the
+// background, and before the queue's own work when the root, or a disk inside it, is unavailable, as
+// the scan that brings it back (D240 §1, D328): behind a routine scan of a larger root on the same
+// disk, it waited a minute for the disk's one reader (staging, 2026-10-21).
+func (scans *Scans) RequestOnHello(ctx context.Context, nodeID int64, root string) error {
+	places, err := unavailableOfNode(ctx, scans.ingester.database.Read(), nodeID)
+	if err != nil {
+		return err
+	}
+	priority := jobs.PriorityBackground
+	if slices.ContainsFunc(places, func(place Unavailable) bool { return isAtOrUnder([]byte(place.Path), root) }) {
+		priority = jobs.PriorityBringsBack
+	}
+	return scans.Request(ctx, nodeID, root, priority)
+}
+
 // RequestUnder asks for a scan of what is under scope, a folder relative to a node's root, which
 // removes nothing outside it: a watcher's notice that something changed there (D272 §9). One asked
 // for while the root's scan runs starts none: one more runs after it, of a scope that covers every
@@ -239,7 +256,7 @@ func (scans *Scans) ReadNow(ctx context.Context, libraryID, nodeID int64, report
 // scan of it is asked for, whose reading it brings it back and the work parked on it (D231 §6). It
 // returns since when it is unavailable. A scan already running is asked for again after it ends.
 func (scans *Scans) MarkRootStalled(ctx context.Context, nodeID int64, rootPath string) (time.Time, error) {
-	since, err := scans.ingester.MarkRootUnavailable(ctx, nodeID, rootPath)
+	since, err := scans.ingester.MarkRootUnavailable(ctx, nodeID, rootPath, causeNotAnswering)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -268,7 +285,7 @@ func (scans *Scans) BringBackRoot(
 // already was: plays of what is under it fail at once and say so, and nothing is removed on the
 // absence; a hello that names it again asks for its scan, which brings it back (D241 §2).
 func (scans *Scans) MarkRootNotNamed(ctx context.Context, nodeID int64, rootPath string) error {
-	since, err := scans.ingester.MarkRootUnavailable(ctx, nodeID, rootPath)
+	since, err := scans.ingester.MarkRootUnavailable(ctx, nodeID, rootPath, causeNotNamed)
 	if err != nil {
 		return err
 	}

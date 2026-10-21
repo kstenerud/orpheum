@@ -183,8 +183,10 @@ func TestReadThrough_AFileUnderAMissingRootIsNotSweptAndItsReadThroughWaitsForTh
 	harness.shelveFilms(t)
 	harness.shelveAudioStreams(t)
 	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, unavailable_since)
-		 VALUES (1, '/media', 'unreadable', 5000, 5000)`)
+		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at)
+		 VALUES (1, '/media', 'unreadable', 5000)`,
+		`INSERT INTO unavailable_place (node_id, path, root_path, since, cause)
+		 VALUES (1, '/media', '/media', 5000, 'unread')`)
 	if ids := harness.filesToReadThrough(t); len(ids) != 0 {
 		t.Errorf("with its root unreadable, a sweep finds %v to measure; want none (G6)", ids)
 	}
@@ -209,13 +211,15 @@ func TestReadThrough_AFileUnderAMissingRootIsNotSweptAndItsReadThroughWaitsForTh
 		t.Errorf("the measurement = %+v; want queued on the missing root with no attempt spent", job)
 	}
 	storetest.ExecRaw(t, harness.databasePath,
-		`UPDATE root_state SET last_scan_outcome = 'complete', unavailable_since = NULL`,
+		`UPDATE root_state SET last_scan_outcome = 'complete'`, `DELETE FROM unavailable_place`,
 		`INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_present)
-		 VALUES (1, '/media', '/media', 9, 0)`)
+		 VALUES (1, '/media', '/media', 9, 0)`,
+		`INSERT INTO unavailable_place (node_id, path, root_path, since, cause)
+		 VALUES (1, '/media', '/media', 5000, 'missing')`)
 	if ids := harness.filesToReadThrough(t); len(ids) != 0 {
 		t.Errorf("with the disk under its root missing, a sweep finds %v to measure; want none (G6)", ids)
 	}
-	storetest.ExecRaw(t, harness.databasePath, `DELETE FROM root_mount`)
+	storetest.ExecRaw(t, harness.databasePath, `DELETE FROM root_mount`, `DELETE FROM unavailable_place`)
 	harness.queue.Unpark(t.Context(), jobs.RootDestination(1, "/media"))
 	answered := make(chan struct{})
 	go func() {
@@ -246,12 +250,14 @@ func TestReadThrough_AFileUnderARootWhoseDiskStalledIsNotSwept(t *testing.T) {
 	harness.shelveFilms(t)
 	harness.shelveAudioStreams(t)
 	storetest.ExecRaw(t, harness.databasePath,
-		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, unavailable_since)
-		 VALUES (1, '/media', 'complete', 5000, 6000)`)
+		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at)
+		 VALUES (1, '/media', 'complete', 5000)`,
+		`INSERT INTO unavailable_place (node_id, path, root_path, since, cause)
+		 VALUES (1, '/media', '/media', 6000, 'not_answering')`)
 	if ids := harness.filesToReadThrough(t); len(ids) != 0 {
 		t.Errorf("with its root's disk stalled, a sweep finds %v to measure; want none", ids)
 	}
-	storetest.ExecRaw(t, harness.databasePath, `UPDATE root_state SET unavailable_since = NULL`)
+	storetest.ExecRaw(t, harness.databasePath, `DELETE FROM unavailable_place`)
 	if ids := harness.filesToReadThrough(t); len(ids) == 0 {
 		t.Error("once a scan read the root again, a sweep finds nothing to measure; want its films")
 	}

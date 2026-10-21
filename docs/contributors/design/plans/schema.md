@@ -181,7 +181,6 @@ CREATE TABLE root_state (                                  -- class O; migration
   withheld_scan_started_at  INTEGER,                -- the withheld scan's start: what it did not see goes
   withheld_reason TEXT,                   -- once the admin confirms
   are_removals_approved INTEGER NOT NULL DEFAULT 0 CHECK (are_removals_approved IN (0, 1)),  -- class A
-  unavailable_since INTEGER,              -- the first of the scans since the last complete one; 0029
   PRIMARY KEY (node_id, root_path)
 );
 CREATE TABLE root_mount (                                  -- class O; migration 0004
@@ -190,8 +189,15 @@ CREATE TABLE root_mount (                                  -- class O; migration
   mount_path    TEXT NOT NULL,           -- NFC, absolute on the node, like file.path
   filesystem_device   INTEGER NOT NULL,             -- st_dev when it was last seen where expected
   is_present  INTEGER NOT NULL CHECK (is_present IN (0, 1)),
-  missing_since INTEGER,                 -- the first scan that found it missing; migration 0029
   PRIMARY KEY (node_id, mount_path)
+);
+CREATE TABLE unavailable_place (                           -- class O; migration 0054 (D328)
+  node_id   INTEGER NOT NULL REFERENCES node(id) ON DELETE RESTRICT,
+  path      TEXT NOT NULL,             -- the root, or the disk's mount point inside it
+  root_path TEXT NOT NULL,             -- the root it is, or is inside
+  since     INTEGER NOT NULL,          -- the first time in a row it was found so
+  cause     TEXT NOT NULL CHECK (cause IN ('not_answering', 'unread', 'missing', 'not_named')),
+  PRIMARY KEY (node_id, path)
 );
 ```
 
@@ -203,10 +209,16 @@ removed more than `scan_withhold_removals_over_percent` of the root and more tha
 authored column here, cleared by the scan it lets remove).
 `root_mount` is each mount boundary a complete scan crossed: a boundary that comes back as an
 empty directory on the root's own device is a disk that is not there, and its files wait
-rather than go, until it returns or an admin says it is gone. `unavailable_since` and
-`missing_since` are when scans began finding a root or a disk missing: the System page's
-"offline since", and the admin's reminder after `offline_reminder_after_days`, since offline never
-ends without the admin ([D41](../../decisions/working-notes.md), D231 §7).
+rather than go, until it returns or an admin says it is gone. These are the scans' facts.
+
+**Availability is kept per place, in `unavailable_place`** (D328): a root, or a disk mounted inside
+one, that cannot be read now, since when and why: its disk did not answer, a scan could not read
+it, a scan found its disk gone from its mount point, or its node's hello no longer names it. A file
+under one is not there to read. `since` is the System page's "offline since", and the admin's
+reminder after `offline_reminder_after_days` ([D41](../../decisions/working-notes.md), D231 §7). A
+place comes back when a scan reads it, or when its disk answers with the facts its last complete
+scan recorded in `root_state` or `root_mount` (D326, D327). Only `internal/core/library`'s
+`availability.go` writes it.
 
 **The Cut A node has no enrolment credential.** It is the core's child on a Unix socket whose
 permissions are the boundary ([D193](../../decisions/working-notes.md)); a remote node's credential arrives with remote nodes, as a
@@ -1323,6 +1335,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `subtitle_text` | persistent.db | `internal/core/subtitles` | |
 | `tag` | persistent.db | none yet | |
 | `title` | persistent.db | `internal/core/identify` | |
+| `unavailable_place` | persistent.db | `internal/core/library` | only its `availability.go` (D328) |
 | `user` | persistent.db | `internal/core/auth` | |
 | `user_deny` | persistent.db | none yet | |
 | `user_rating` | persistent.db | none yet | |
@@ -1350,7 +1363,7 @@ rows. Each class that would grow with no bound but time is kept to a limit a set
 | The library's open questions | `fetch_failure`, `refresh_request`, `guessed_match` | one row an item at most; each is deleted when its question is answered |
 | People and their devices | `user`, `device`, `"grant"`, `locator` | the people and devices there are, and a removed person's nameless row (D305 §1); a credential that ended, revoked or expired, is deleted `ended_credentials_kept_days` (90) after, with its locator (D304 §6); a removed device stays as a row while a play names it |
 | Watching | `play_event`, `play_span`, `play_position`, `progress_hide`, `purged_watching` | every play of the files there are; a deleted file's plays fold into one `purged_watching` row a person a version (D306 §8); all deleted with the person who watched (`ForgetWatchingOf`) |
-| Scans | `root_scan`, `root_mount`, `root_state` | one row a root, deleted with the root |
+| Scans | `root_scan`, `root_mount`, `root_state`, `unavailable_place` | one row a root or a disk in it, deleted with the root |
 | Settings, roles, invitations, secrets | `setting`, `role`, `role_library`, `invitation`, `invitation_link`, `secret` | what an admin made; deleted when they delete it |
 
 `cache.db` is bounded by its own rules ([below](#cachedb--never-backed-up)): a job that ended is

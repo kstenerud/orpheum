@@ -9,6 +9,7 @@ INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/media/
 INSERT INTO root_scan (node_id, root_path, completed_at) VALUES (1, '/media/films', 1790000002000);
 INSERT INTO root_mount (node_id, root_path, mount_path, filesystem_device, is_present) VALUES (1, '/media/films', '/media/films/disk2', 2050, 1);
 INSERT INTO root_state (node_id, root_path, filesystem_device, is_mount_point, last_scan_outcome, last_scan_at) VALUES (1, '/media/films', 2049, 1, 'complete', 1790000002000);
+INSERT INTO unavailable_place (node_id, path, root_path, since, cause) VALUES (1, '/media/films/disk2', '/media/films', 1790000003000, 'not_answering');
 
 INSERT INTO user (id, name, role_id, password_hash, admin_note, created_at)
   VALUES (1, 'owner', 1, CAST('$argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA' AS BLOB), NULL, 1790000000000),

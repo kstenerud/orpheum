@@ -54,9 +54,11 @@ func unavailableFilm(t *testing.T, roots *probedRoots) *Service {
 		 VALUES (2, %[1]d, %[2]d, '/media/Film.mkv', CAST('/media/Film.mkv' AS BLOB), 10, X'0c0d', 'listed', 1, 1)`,
 		libraryID, nodeID), "INSERT INTO file_probe (file_id, probe_json) VALUES (2, '{}')",
 		fmt.Sprintf(`INSERT INTO root_state (node_id, root_path, filesystem_device, is_mount_point, last_scan_outcome,
-		 last_scan_at, unavailable_since) VALUES (%d, '/media', 7, 1, 'complete', 1, 1)`, nodeID))
+		 last_scan_at) VALUES (%[1]d, '/media', 7, 1, 'complete', 1)`, nodeID),
+		fmt.Sprintf(`INSERT INTO unavailable_place (node_id, path, root_path, since, cause)
+		 VALUES (%d, '/media', '/media', 1, 'not_answering')`, nodeID))
 	roots.bringBack = func() {
-		storetest.ExecRaw(t, database.Path(), "UPDATE root_state SET unavailable_since = NULL")
+		storetest.ExecRaw(t, database.Path(), "DELETE FROM unavailable_place")
 	}
 	return &Service{
 		database: database, nodes: connectedNodes{}, roots: roots,
