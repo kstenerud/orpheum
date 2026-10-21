@@ -201,3 +201,34 @@ func TestMountHolding_IsTheLongestMountPointThePathIsUnderTheRootHoldingTheRest(
 		}
 	}
 }
+
+// How a share's reads behave when its server goes away is its mount's: NFS waits for good unless
+// mounted soft, SMB only when mounted hard, virtiofs and FUSE may wait as what they pass on does,
+// and a local disk has no server (D233 §10; staging, 2026-10-21).
+func TestDevices_SayWhetherAShareWaitsForeverWhenItsServerGoes(t *testing.T) {
+	t.Parallel()
+	system := fakeSystem{t: t, root: t.TempDir()}
+	system.write("proc/self/mountinfo", `20 1 0:30 / / rw - overlay rootfs rw
+31 20 0:41 / /hard rw - nfs4 nas:/films rw,vers=4.2,hard,proto=tcp,timeo=600,retrans=2
+32 20 0:42 / /soft rw - nfs nas:/shows rw,vers=3,soft,proto=tcp,timeo=100,retrans=3
+33 20 0:43 / /smb rw - cifs //nas/music rw,vers=3.1.1,soft
+34 20 0:44 / /smb-hard rw - cifs //nas/books rw,vers=3.1.1,hard
+35 20 0:45 / /passed rw - virtiofs media rw
+`)
+	paths := []string{"/hard", "/soft", "/smb", "/smb-hard", "/passed", "/local"}
+	devices, err := devicesUnder(system.root, paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]nodeproto.ShareWhenGone{
+		"/hard": nodeproto.ShareWaitsForever, "/soft": "", "/smb": "", "/smb-hard": nodeproto.ShareWaitsForever,
+		"/passed": nodeproto.ShareMayWaitForever, "/local": "",
+	}
+	for _, path := range paths {
+		key := nodeproto.Devices(devices).KeyOf(path)
+		index := slices.IndexFunc(devices, func(device nodeproto.Device) bool { return device.Key == key })
+		if index < 0 || devices[index].WhenGone != want[path] {
+			t.Errorf("%s is on %+v; want its share to be %q when gone", path, devices, want[path])
+		}
+	}
+}

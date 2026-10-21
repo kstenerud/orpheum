@@ -76,12 +76,45 @@ func (server *Server) collectFindings(ctx context.Context, dependencies *Depende
 		}
 		findings = append(findings, nodeBuildFinding(node.Name, facts.Hello.Build, dependencies.System.Build),
 			ConfinementFinding("node "+node.Name, facts.Hello.Confinement),
-			hardwareFinding(node.Name, facts.Hello.Hardware))
+			hardwareFinding(node.Name, facts.Hello.Hardware), shareFinding(node.Name, facts.Hello.Devices))
 		if facts.Status != nil && facts.Status.PreparedUsage != nil {
 			findings = append(findings, preparedFinding(node.Name, *facts.Status.PreparedUsage))
 		}
 	}
 	return findings, nil
+}
+
+// shareFinding is whether a node reads a network share that waits for its server for good: when the
+// server goes away, every read of it hangs in the kernel and cannot be ended, and the node holds
+// one such read at most (D233 §10; staging, 2026-10-21). A warning for a share mounted so, with how
+// to mount it to give up; a note for a filesystem passed on from elsewhere, whose mounts the node
+// cannot see.
+func shareFinding(nodeName string, devices []nodeproto.Device) FindingBody {
+	finding := FindingBody{
+		Check: "network shares on node " + nodeName, Verdict: VerdictOK, Detail: "none waits for its server for good",
+	}
+	var waiting, passedOn []string
+	for _, device := range devices {
+		switch device.WhenGone {
+		case nodeproto.ShareWaitsForever:
+			waiting = append(waiting, strings.Join(device.MountPaths, ", "))
+		case nodeproto.ShareMayWaitForever:
+			passedOn = append(passedOn, strings.Join(device.MountPaths, ", ")+" ("+device.Filesystem+")")
+		}
+	}
+	switch {
+	case len(waiting) > 0:
+		finding.Verdict = VerdictWarning
+		finding.Detail = "mounted to wait for its server for good: " + strings.Join(waiting, "; ") +
+			". If the server goes away, every read of it hangs until it is back, and its films cannot play"
+		finding.Action = "mount the share with soft,timeo=100,retrans=3 (NFS) so its reads give up after " +
+			"about 30 seconds, and restart the node"
+	case len(passedOn) > 0:
+		finding.Detail = "passed on from another machine or program, whose mount the node cannot see: " +
+			strings.Join(passedOn, "; ") + ". If that is a network share mounted to wait for its server, mount " +
+			"it with soft,timeo=100,retrans=3 (NFS) there"
+	}
+	return finding
 }
 
 // preparedFinding is what a node's prepared directory holds against its budget and its disk's
