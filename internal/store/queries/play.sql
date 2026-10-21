@@ -128,3 +128,15 @@ DELETE FROM play_position WHERE file_id IN (SELECT value FROM json_each(CAST(sql
 -- name: DeletePurgedWatchingOfUser :exec
 -- A removed person's watching of deleted files goes with them too (D305 section 1).
 DELETE FROM purged_watching WHERE user_id = sqlc.arg(user_id);
+
+-- name: ListWatchedLiveFiles :many
+-- The live files of live films and episodes anyone has a position in, with their titles: what a
+-- person has shown interest in by watching it, whose work keeps the rung above the background
+-- (D324).
+SELECT DISTINCT play_position.file_id, title.id AS title_id
+FROM play_position
+JOIN file ON file.id = play_position.file_id AND file.removed_at IS NULL
+JOIN version ON version.id = file.version_id AND version.removed_at IS NULL
+JOIN title ON title.id = version.title_id AND title.kind IN ('movie', 'episode')
+JOIN item ON item.id = title.id AND item.removed_at IS NULL
+ORDER BY play_position.file_id;

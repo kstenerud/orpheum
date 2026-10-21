@@ -30,6 +30,8 @@ export const enSettingsCatalogue = {
     tmdbApiKey: "The TMDB API key films' and series' details and artwork are fetched with.",
   },
   details: {
+    interestLapsesAfterSeconds:
+      "What someone plays comes first, then the films and series whose pages are open, the latest opened first, then everything else. A page left, or a playback stopped, gives its work back its place after this long; it then stays a rung above work no one has shown interest in.",
     argon2MemoryKib:
       "Passwords are stored as Argon2id hashes, which take memory and time on purpose so that guessing them is slow. More memory makes guessing harder and each sign-in heavier for the server. A change applies to each password the next time its person signs in.",
     artworkCacheCeilingGib:
@@ -168,6 +170,10 @@ export const enSettingsCatalogue = {
       "A watched library notices changes as they happen, but watching can miss one without knowing, for instance across a restart. A full scan this often finds anything missed.",
   },
   descriptions: {
+    interestSaidEverySeconds:
+      "How often an open film or series page tells the server it is still open, which puts its work first.",
+    interestLapsesAfterSeconds:
+      "How long after a page or a playback last said so that its work stops coming first.",
     argon2Iterations: "How many passes each password check makes.",
     argon2MemoryKib:
       "The memory each password check uses, in KiB. A change applies at each person's next sign-in.",

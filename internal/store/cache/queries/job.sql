@@ -162,3 +162,31 @@ SELECT kind,
 FROM job
 GROUP BY kind
 ORDER BY kind;
+
+-- name: ListOpenJobsOfItemsAndFiles :many
+-- The queued, running and assigned jobs about any of some items or files: the work a person's
+-- interest in them raises (D324 section 3).
+SELECT id, priority, state FROM job
+WHERE state IN ('queued', 'running', 'assigned')
+  AND (item_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_ids_json) AS TEXT)))
+    OR file_id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT))))
+ORDER BY id;
+
+-- name: RaiseJob :one
+-- An open job raised to the priority a person's interest gives it, never lowered: kept wanted until
+-- a time, after which the next demotion gives it background priority, when until is not zero, and
+-- for good when it is (D324 section 2).
+UPDATE job SET priority = MAX(priority, CAST(sqlc.arg(priority) AS INTEGER)),
+  wanted_until = CASE WHEN CAST(sqlc.arg(until) AS INTEGER) = 0 THEN wanted_until
+    ELSE MAX(COALESCE(wanted_until, 0), CAST(sqlc.arg(until) AS INTEGER)) END
+WHERE id = sqlc.arg(id) AND state IN ('queued', 'running', 'assigned')
+RETURNING id, state, priority;
+
+-- name: ReleaseJobsOfItemsAndFiles :exec
+-- The jobs a person's interest raised, below a play's priority, that no one is interested in any
+-- more: their wanted time ends now, and the next demotion gives them background priority (D324
+-- section 2).
+UPDATE job SET wanted_until = CAST(sqlc.arg(now) AS INTEGER)
+WHERE wanted_until IS NOT NULL AND priority < sqlc.arg(below) AND state IN ('queued', 'running', 'assigned')
+  AND (item_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_ids_json) AS TEXT)))
+    OR file_id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT))));

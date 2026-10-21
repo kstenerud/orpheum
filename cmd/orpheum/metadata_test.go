@@ -359,12 +359,13 @@ func TestDemoteUnwanted_APlaysJobNoOneWaitsForFallsAndItsNodeIsTold(t *testing.T
 	stop()
 	testutil.Receive(t, done, "the loop's end")
 	if command.Type != nodeproto.CommandReprioritize || command.JobID != job ||
-		command.Priority != jobs.PriorityBackground {
-		t.Errorf("the node was told %+v, want job %d at background priority", command, job)
+		command.Priority != jobs.PriorityShownInterest {
+		t.Errorf("the node was told %+v, want job %d at the shown-interest priority", command, job)
 	}
+	// Someone wanted it, so it stays a rung above the background (D324).
 	again, err := cache.Read().ListJobs(t.Context(), 1)
-	if err != nil || len(again) != 1 || again[0].Priority != jobs.PriorityBackground {
-		t.Errorf("the job is %+v (%v), want it at background priority", again, err)
+	if err != nil || len(again) != 1 || again[0].Priority != jobs.PriorityShownInterest {
+		t.Errorf("the job is %+v (%v), want it at the shown-interest priority", again, err)
 	}
 }
 

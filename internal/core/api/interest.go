@@ -32,6 +32,7 @@ func (server *Server) registerInterest() {
 		Summary: "Say which quality and sound the player wants, from where, and whether it is paused (D309)",
 		Tags:    []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
 	}, server.sayInterest)
+	server.registerPageInterest()
 }
 
 func (server *Server) sayInterest(ctx context.Context, input *InterestInput) (*struct{}, error) {

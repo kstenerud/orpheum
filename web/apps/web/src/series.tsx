@@ -14,6 +14,7 @@ import { MatchCorrection } from "./match-correction.tsx";
 import { StatusNotes } from "./status-cues.tsx";
 import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
+import { usePageInterest } from "./page-interest.ts";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { Remembered, useRemembered } from "./remembered.ts";
@@ -247,6 +248,7 @@ export function Series(props: {
     useBackgroundChangesPoller(),
   );
   const series = useRemembered(`series/${String(props.id)}`, loaded, rememberedSeries);
+  usePageInterest(props.id);
   return (
     <Loaded
       resource={series}

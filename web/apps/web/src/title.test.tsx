@@ -167,20 +167,56 @@ describe("Title", () => {
           200,
           { delivery: "direct", url: "/u", notDirectReasons: [], mediaToken: "a" },
         ],
+        "PUT /interest/10": [204, null],
+        "DELETE /interest/10": [204, null],
+        "PUT /interest/11": [204, null],
+        "DELETE /interest/11": [204, null],
       },
       heard,
     );
+    // The page's word that it is shown is the test below's.
+    const warming = (): string[] =>
+      heard
+        .filter((request) => !request.methodAndPath.includes("/interest/"))
+        .map((request) => request.methodAndPath);
     const playable = await mount(withServices(<Title id={10} />, services));
     playable.unmount();
-    expect(heard.map((request) => request.methodAndPath)).toEqual([
-      "GET /items/10",
-      "POST /playback",
-    ]);
-    expect(heard[1]?.body).toMatchObject({ fileId: 1 });
+    expect(warming()).toEqual(["GET /items/10", "POST /playback"]);
+    expect(heard.find((request) => request.methodAndPath === "POST /playback")?.body).toMatchObject(
+      {
+        fileId: 1,
+      },
+    );
     heard.length = 0;
     const unplayable = await mount(withServices(<Title id={11} />, services));
     unplayable.unmount();
-    expect(heard.map((request) => request.methodAndPath)).toEqual(["GET /items/11"]);
+    expect(warming()).toEqual(["GET /items/11"]);
+  });
+
+  it("says its film's work should come first while it is shown, and that it left (D324 §1)", async () => {
+    const heard: Heard[] = [];
+    const page = await mount(
+      withServices(
+        <Title id={11} />,
+        servedBy(
+          {
+            "GET /items/11": [
+              200,
+              { ...heat, id: 11, unavailable: { reason: "node_away" as const, nodeName: "devnas" } },
+            ],
+            "PUT /interest/11": [204, null],
+            "DELETE /interest/11": [204, null],
+          },
+          heard,
+        ),
+      ),
+    );
+    expect(heard.map((request) => request.methodAndPath)).toContain("PUT /interest/11");
+    page.unmount();
+    await settleUntil(() =>
+      heard.some((request) => request.methodAndPath === "DELETE /interest/11"),
+    );
+    expect(heard.at(-1)?.methodAndPath).toBe("DELETE /interest/11");
   });
 });
 
