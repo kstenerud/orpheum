@@ -210,7 +210,6 @@ root_paths = ["/media"]
 ffmpeg_dir = "/opt/ffmpeg"
 confinement_policy = "require"
 probe_timeout_seconds = 60
-progress_every_seconds = 2
 ended_work_kept_hours = 168
 read_header_timeout_seconds = 10
 prepared_budget_gib = 1

@@ -102,7 +102,7 @@
 //   - Every attempt the node holds says where it is on the progress path, best effort and never
 //     sent again (D234 §5): running when it starts, waiting at once when its slot is taken, and
 //     each again at every status tick; a running prepare says how far it is as FFmpeg moves on, at
-//     most every node.progress_every_seconds, instead of at the tick.
+//     most every prepare_progress_every_seconds the core's tuning says, instead of at the tick.
 //     TestAgent_EveryKindOfWorkSaysWhereItIsWhenItStartsAndAtEachTick,
 //     TestAgent_APrepareWaitingForASlotSaysSoAtOnceAndAtEachTick.
 //   - The work the node holds is in memory, never on disk (D238 §3), held by its attempt's token,

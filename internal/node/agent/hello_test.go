@@ -92,6 +92,22 @@ func TestAgent_PostsItsStatusAsOftenAsTheCoreSays(t *testing.T) {
 	}
 }
 
+// A running prepare says how far it is as often as the core's tuning last said, and at the starting
+// cadence before it says (D234 §5; the constants sweep, 2026-10-21).
+func TestAgent_SaysAPreparesProgressAsOftenAsTheCoreSays(t *testing.T) {
+	t.Parallel()
+	agent := New("", nodeproto.Hello{}, nil, Workers{}, nil, slog.New(slog.DiscardHandler))
+	if every := agent.progressEvery(); every != nodeproto.StartingProgressEverySeconds*time.Second {
+		t.Errorf("before the core says, progress is said every %v; want the starting %d s", every,
+			nodeproto.StartingProgressEverySeconds)
+	}
+	agent.takeTuning(t.Context(), nodeproto.Tuning{ProgressEverySeconds: 5})
+	agent.takeTuning(t.Context(), nodeproto.Tuning{})
+	if every := agent.progressEvery(); every != 5*time.Second {
+		t.Errorf("progress is said every %v; want the 5 s the core said, which a tuning saying none leaves", every)
+	}
+}
+
 // reconcilingShelf holds renditions, which it lists for the hello, and tells reconciled of each
 // reconciliation: the renditions listed and those kept.
 type reconcilingShelf struct {

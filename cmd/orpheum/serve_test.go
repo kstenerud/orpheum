@@ -159,7 +159,7 @@ destination = "stderr"
 	config.Node = NodeConfig{
 		Name: "local", CoreSocket: filepath.Join(config.Instance.RunDir, coreSocketName), RootPaths: []string{},
 		FFmpegDir: filepath.Join(dir, "ffmpeg"), ConfinementPolicy: "report",
-		ProbeTimeoutSeconds: 60, ProgressEverySeconds: 2, EndedWorkKeptHours: 168,
+		ProbeTimeoutSeconds: 60, EndedWorkKeptHours: 168,
 		ReadHeaderTimeoutSeconds: 10, PreparedBudgetGiB: 1, PreparedKeptAfterPlayHours: 72,
 		PreparedDiskUsedLimitPercent: 95, PreparedDiskMinFreeMiB: 100, EncodeSlotCount: 1, RemuxSlotCount: 2,
 		SlowestReadMiBPerSecond: 20,

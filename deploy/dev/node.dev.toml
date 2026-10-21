@@ -18,7 +18,6 @@ root_paths = ["{root}/.dev/media/movies", "{root}/.dev/media/shows"]   # one per
 ffmpeg_dir = "{ffmpeg_dir}"
 confinement_policy = "report"   # "require" refuses to start unconfined; "report" runs and says so
 probe_timeout_seconds = 60
-progress_every_seconds = 2
 ended_work_kept_hours = 168
 read_header_timeout_seconds = 10
 prepared_budget_gib = 5            # the sandbox's disk is small; a real node's starts at 200

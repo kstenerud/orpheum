@@ -174,13 +174,12 @@ const (
 type NodeConfig struct {
 	Name string `toml:"name"`
 	// CoreSocket is the core's socket, which the node dials (D242 §7).
-	CoreSocket           string   `toml:"core_socket"`
-	RootPaths            []string `toml:"root_paths"`
-	FFmpegDir            string   `toml:"ffmpeg_dir"`
-	ConfinementPolicy    string   `toml:"confinement_policy"`
-	ProbeTimeoutSeconds  int64    `toml:"probe_timeout_seconds"`
-	ProgressEverySeconds int64    `toml:"progress_every_seconds"`
-	EndedWorkKeptHours   int64    `toml:"ended_work_kept_hours"`
+	CoreSocket          string   `toml:"core_socket"`
+	RootPaths           []string `toml:"root_paths"`
+	FFmpegDir           string   `toml:"ffmpeg_dir"`
+	ConfinementPolicy   string   `toml:"confinement_policy"`
+	ProbeTimeoutSeconds int64    `toml:"probe_timeout_seconds"`
+	EndedWorkKeptHours  int64    `toml:"ended_work_kept_hours"`
 	// ReadHeaderTimeoutSeconds is how long the core has to send a request's headers to the byte
 	// socket.
 	ReadHeaderTimeoutSeconds int64 `toml:"read_header_timeout_seconds"`
@@ -364,10 +363,6 @@ func nodeConfigKeys() []configKey {
 				`refuses to run it unconfined (D273 §5)`,
 		},
 		{tableNode, "probe_timeout_seconds", "60", "seconds ffprobe gets for one file before it is stopped"},
-		{
-			tableNode, "progress_every_seconds", "2",
-			"seconds, at least, between a running prepare's words to the core on how far it is (D234 §5)",
-		},
 		{
 			tableNode, "ended_work_kept_hours", "168",
 			"hours the node remembers work whose result the core took, so the same command is not run twice (D238 §2)",
@@ -595,7 +590,6 @@ func (database DatabaseConfig) check() error {
 func (node NodeConfig) check() error {
 	problems := []error{atLeastOne(map[string]int64{
 		"node.probe_timeout_seconds":          node.ProbeTimeoutSeconds,
-		"node.progress_every_seconds":         node.ProgressEverySeconds,
 		"node.ended_work_kept_hours":          node.EndedWorkKeptHours,
 		"node.read_header_timeout_seconds":    node.ReadHeaderTimeoutSeconds,
 		"node.prepared_disk_min_free_mib":     node.PreparedDiskMinFreeMiB,

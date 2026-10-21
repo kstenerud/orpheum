@@ -104,7 +104,12 @@ func (service *Service) isConnectedLocked(node *connectedNode, silentAfter time.
 
 // tuning is how the core's settings say its nodes behave now (nodeproto.Tuning).
 func (service *Service) tuning(ctx context.Context) nodeproto.Tuning {
-	return nodeproto.Tuning{StatusEverySeconds: StatusEveryFor(service.silentAfter(ctx))}
+	progressEvery := settings.DurationOrStarting(ctx, service.settings, settings.PrepareProgressEverySeconds,
+		service.logger)
+	return nodeproto.Tuning{
+		StatusEverySeconds:   StatusEveryFor(service.silentAfter(ctx)),
+		ProgressEverySeconds: int(progressEvery.Seconds()),
+	}
 }
 
 // StatusEveryFor is how often a node posts its status when the core shows a node silent after

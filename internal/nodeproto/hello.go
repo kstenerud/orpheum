@@ -24,7 +24,7 @@ const QueryAfterCommandSeq = "afterCommandSeq"
 // records and results. It is raised with any change a node or core of another build would misread,
 // so the two refuse each other at hello instead (D233 §9). Core and node ship as one build today,
 // so the two match unless a node is updated apart from its core.
-const ProtocolVersion = 35
+const ProtocolVersion = 36
 
 // Hello is the first thing a node says, and it says it again after every reconnection.
 type Hello struct {
@@ -144,11 +144,19 @@ type HelloReply struct {
 type Tuning struct {
 	// StatusEverySeconds is how often the node posts its status: the core's nodes.StatusEveryFor.
 	StatusEverySeconds int `json:"statusEverySeconds"`
+	// ProgressEverySeconds is how often, at most, a running prepare tells the core how far it is
+	// (D234 §5): the core's prepare_progress_every_seconds.
+	ProgressEverySeconds int `json:"progressEverySeconds"`
 }
 
 // StartingStatusEverySeconds is how often a node posts its status before a core has said: the
 // cadence node_silent_after_seconds' starting value gives, which a test of the core's nodes holds.
 const StartingStatusEverySeconds = 10
+
+// StartingProgressEverySeconds is how often, at most, a running prepare tells the core how far it is
+// before a core has said: prepare_progress_every_seconds' starting value, defined once here for the
+// core's registry and the node.
+const StartingProgressEverySeconds = 2
 
 // DeviceKind is how a device reads, which sets how many may read it at once (D240 §5).
 type DeviceKind string
