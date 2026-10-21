@@ -33,7 +33,7 @@ func TestList_ListsEveryEntryWithItsStatAndReadsNoFile(t *testing.T) {
 	}
 	media := nodetest.OpenMediaRoot(t, root)
 	prober := &fakeProber{}
-	records, err := NewScanner([]*confine.MediaRoot{media}, prober, options).List(t.Context(), media, ".", 0)
+	records, err := NewScanner([]*confine.MediaRoot{media}, prober, options).List(t.Context(), media, everything)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,9 @@ func TestList_GoesOnlyAsDeepAsAskedFromWhereAsked(t *testing.T) {
 			"listed Movies/loose.mkv", "scan_complete",
 		}},
 	} {
-		records, err := scanner.List(t.Context(), media, each.start, each.depth)
+		listing := everything
+		listing.Path, listing.Depth = each.start, each.depth
+		records, err := scanner.List(t.Context(), media, listing)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -251,7 +253,7 @@ func TestListAndExamine_MoveWithEachRecordAndEachRead(t *testing.T) {
 	scanner := NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options)
 	var moves atomic.Int64
 	ctx := execx.WithMoved(t.Context(), func() { moves.Add(1) })
-	records, err := scanner.List(ctx, media, ".", 0)
+	records, err := scanner.List(ctx, media, everything)
 	if err != nil {
 		t.Fatal(err)
 	}

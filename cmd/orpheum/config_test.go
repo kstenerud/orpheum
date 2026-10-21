@@ -209,7 +209,6 @@ core_socket = "/srv/core/run/core.sock"
 root_paths = ["/media"]
 ffmpeg_dir = "/opt/ffmpeg"
 confinement_policy = "require"
-max_errors_per_root = 1000
 probe_timeout_seconds = 60
 progress_every_seconds = 2
 ended_work_kept_hours = 168

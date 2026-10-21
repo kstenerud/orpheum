@@ -13,6 +13,8 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -175,6 +177,21 @@ func TestScans_AScanListsReadsWhatIsNewAndCompletesOnceItIsRead(t *testing.T) {
 
 // A scan asked for while one of the root runs starts none, however many ask; one more runs after
 // it (D236 §3).
+// A scan's listing stops at the errors scan_root_error_limit says, which the node is told with it
+// (D40; the constants sweep, 2026-10-21).
+func TestScans_AListingSaysTheErrorLimitTheSettingSays(t *testing.T) {
+	t.Parallel()
+	bench := newScanBench(t)
+	settingstest.Set(t, bench.settings, settings.ScanRootErrorLimit, "25")
+	if err := bench.scans.Request(t.Context(), bench.nodeID, root, jobs.PriorityPersonsRequest); err != nil {
+		t.Fatal(err)
+	}
+	bench.list()
+	if sent := bench.sent.commands[len(bench.sent.commands)-1]; sent.List.ErrorLimit != 25 {
+		t.Errorf("the listing's error limit is %d; want the setting's 25", sent.List.ErrorLimit)
+	}
+}
+
 func TestScans_AScanAskedForWhileOneRunsRunsOnceMoreAfterIt(t *testing.T) {
 	t.Parallel()
 	bench := newScanBench(t)

@@ -31,7 +31,7 @@ func (agent *Agent) runList(ctx context.Context, command nodeproto.List) nodepro
 	if !known {
 		return nodeproto.Listing{Refusal: "this node was not given the root " + command.RootPath}
 	}
-	records, err := agent.workers.Scanner.List(ctx, root, command.Path, command.Depth)
+	records, err := agent.workers.Scanner.List(ctx, root, command)
 	if err != nil && ctx.Err() == nil {
 		agent.logger.WarnContext(ctx, "a listing ended early", "rootPath", root.Path(), "err", err)
 	}

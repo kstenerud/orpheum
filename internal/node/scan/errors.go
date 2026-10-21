@@ -16,7 +16,7 @@ import (
 // errProbe marks a failure to look inside a file that could be opened: probe_failed.
 var errProbe = errors.New("probe failed")
 
-// errTooManyErrors is returned once a root has produced MaxErrors errors.
+// errTooManyErrors is returned once a root has produced its listing's error limit of errors.
 var errTooManyErrors = errors.New("too many errors; the node stopped enumerating this root")
 
 // errorLog turns errors into error records: it classifies each into the closed vocabulary,

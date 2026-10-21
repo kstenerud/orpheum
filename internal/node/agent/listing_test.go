@@ -74,10 +74,10 @@ func TestAgent_RefusesToListOrExamineARootItWasNotGiven(t *testing.T) {
 }
 
 // List lists as the node's scanner does.
-func (fakeScanner) List(ctx context.Context, root *confine.MediaRoot, start string, depth int) (
+func (fakeScanner) List(ctx context.Context, root *confine.MediaRoot, command nodeproto.List) (
 	[]nodeproto.ScanRecord, error,
 ) {
-	return realScanner().List(ctx, root, start, depth)
+	return realScanner().List(ctx, root, command)
 }
 
 // Examine examines as the node's scanner does, with a prober that finds every video a Matroska.
@@ -107,7 +107,9 @@ type hangingScanner struct {
 	testCtx                    context.Context //nolint:containedctx // the test's, which bounds the hang
 }
 
-func (scanner hangingScanner) List(context.Context, *confine.MediaRoot, string, int) ([]nodeproto.ScanRecord, error) {
+func (scanner hangingScanner) List(context.Context, *confine.MediaRoot, nodeproto.List) (
+	[]nodeproto.ScanRecord, error,
+) {
 	close(scanner.started)
 	select {
 	case <-scanner.release:

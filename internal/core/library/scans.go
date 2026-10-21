@@ -317,8 +317,14 @@ func (scans *Scans) HandleScan(ctx context.Context, job jobs.Job) error {
 	if scan.ListedAt != nil {
 		return nil
 	}
+	errorLimit, err := scans.settings.Int(ctx, settings.ScanRootErrorLimit)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", settings.ScanRootErrorLimit, err)
+	}
 	return scans.assigner.Assign(ctx, scan.NodeID, job, nodeproto.Command{Work: nodeproto.Work{
-		Type: nodeproto.CommandList, List: &nodeproto.List{RootPath: scan.RootPath, Path: scan.ScopePath},
+		Type: nodeproto.CommandList, List: &nodeproto.List{
+			RootPath: scan.RootPath, Path: scan.ScopePath, ErrorLimit: int(errorLimit),
+		},
 	}})
 }
 

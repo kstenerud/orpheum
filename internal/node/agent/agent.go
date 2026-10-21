@@ -39,7 +39,7 @@ const coreURL = "http://orpheum-core"
 
 // Scanner lists under a media root and examines files there; scan.Scanner is the real one.
 type Scanner interface {
-	List(ctx context.Context, root *confine.MediaRoot, start string, depth int) ([]nodeproto.ScanRecord, error)
+	List(ctx context.Context, root *confine.MediaRoot, command nodeproto.List) ([]nodeproto.ScanRecord, error)
 	Examine(ctx context.Context, root *confine.MediaRoot, files []nodeproto.ExamineFile, between func() error) (
 		[]nodeproto.ScanRecord, error)
 }

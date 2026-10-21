@@ -419,7 +419,7 @@ type hangingListings struct {
 	testCtx context.Context //nolint:containedctx // the test's, which bounds the hang
 }
 
-func (scanner hangingListings) List(ctx context.Context, _ *confine.MediaRoot, _ string, _ int) (
+func (scanner hangingListings) List(ctx context.Context, _ *confine.MediaRoot, _ nodeproto.List) (
 	[]nodeproto.ScanRecord, error,
 ) {
 	// Answered as stalled, its job is ended, which ends ctx: the stall is answered first.

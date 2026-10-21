@@ -56,7 +56,10 @@ func writeTree(t *testing.T, files map[string]string) string {
 	return root
 }
 
-var options = Options{MaxErrors: 100, UID: 1000, GID: 1000}
+var options = Options{UID: 1000, GID: 1000}
+
+// everything is a listing of a whole root, which stops at a hundred errors.
+var everything = nodeproto.List{Path: ".", ErrorLimit: 100}
 
 // summary is one line per record, "type path detail", for comparing whole reports.
 func summary(records []nodeproto.ScanRecord) []string {
@@ -122,7 +125,7 @@ func checkSidecarIdentity(t *testing.T, sidecar *nodeproto.Sidecar) {
 // listAll lists all of root and returns every record, failing the test if the listing fails.
 func listAll(t *testing.T, scanner *Scanner, root *confine.MediaRoot) []nodeproto.ScanRecord {
 	t.Helper()
-	records, err := scanner.List(t.Context(), root, ".", 0)
+	records, err := scanner.List(t.Context(), root, everything)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,9 +245,11 @@ func TestList_StopsARootThatKeepsFailing(t *testing.T) {
 		})
 	}
 	media := nodetest.OpenMediaRoot(t, root)
-	limited := options
-	limited.MaxErrors = 3
-	records := listAll(t, NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, limited), media)
+	records, err := NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options).List(t.Context(), media,
+		nodeproto.List{Path: ".", ErrorLimit: 3})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	want := []string{
 		"scan_begin",
@@ -271,7 +276,7 @@ func TestList_ACancelledListingNeverSaysComplete(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	media := nodetest.OpenMediaRoot(t, root)
-	records, err := NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options).List(ctx, media, ".", 0)
+	records, err := NewScanner([]*confine.MediaRoot{media}, &fakeProber{}, options).List(ctx, media, everything)
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("error = %v, want context.Canceled", err)
 	}

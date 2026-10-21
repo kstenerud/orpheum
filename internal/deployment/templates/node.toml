@@ -11,7 +11,6 @@ ffmpeg_dir = "/opt/orpheum/ffmpeg"
 # A release node refuses to start where the kernel lacks Landlock or seccomp, so FFmpeg never runs
 # unconfined; staging, in a sandbox that may lack one, runs and warns (D273 §5, revised 2026-10-20).
 confinement_policy = {{if .IsStaging}}"report"{{else}}"require"{{end}}
-max_errors_per_root = 1000
 probe_timeout_seconds = 60
 progress_every_seconds = 2
 ended_work_kept_hours = 168
