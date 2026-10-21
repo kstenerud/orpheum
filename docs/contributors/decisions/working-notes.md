@@ -21246,3 +21246,40 @@ time behind its one reader. **Extends** [D233 §10](#d233--work-handed-to-a-node
 4. **A scan of the root follows in the background** for what changed while it was away.
 
 **Status:** Decided.
+
+## D327 — Whoever needs to know whether a root can be read asks, and the node answers at once, outside every queue
+
+**Decided** (2026-10-21), by the project owner: *"Pull is usually better (and far less complex)
+because then the interested party is in charge of getting the information it wants, rather than
+hoping the machinery from the other side works to inform it in a timely manner. But pull has the
+problem that we have concurrency limits on disks. So what we need is a special queue that side-steps
+all limitations, but is restricted to quick status checks that don't tax any resources."* After the
+dead-share tests, the core learnt a share was back only from the node's next status (D326), and a
+listing asked for to bring a root back waited 163 s on the node behind a viewer's read-through for
+the disk's one reader. **Extends** [D325](#d325--a-page-pulls-what-it-needs-to-know-the-server-never-pushes-it)
+to the core asking its node, and [D326](#d326--a-root-whose-disk-answers-again-as-its-last-complete-scan-read-it-is-available-at-once).
+
+1. **A probe is a question, not work.** The core asks a node whether one of its roots can be read
+   now, on the node's byte socket, the core's one way to ask a node directly. The node answers it
+   without a slot, a reader or a queue: a probe measures the root's filesystem and its facts (its
+   device, and whether it is a mount point), and opens and reads nothing under it.
+2. **A probe is bounded, and shared, not retried.** A read on a share that is gone waits in the
+   kernel, and no asking again makes it answer sooner; each try left waiting is one more thread held.
+   So the node runs at most one probe of a root at a time, every ask meanwhile sharing its answer; it
+   answers within a probe window, from the disk gate
+   ([D233 §10](#d233--work-handed-to-a-node-survives-restarts-and-lost-messages-an-outbox-reconciliation-at-hello-results-known-by-what-they-are-and-a-watchdog-on-both-sides)):
+   readable, with the root's facts; not answering, since when and on what; or missing. A probe that
+   outlives its window leaves the root held stuck, as any reading does, later probes answered at
+   once from that, and its return is the news the disk answers again.
+3. **The core asks when someone is waiting.** A page asking whether its file can be read again is
+   held (D325 §2) while the core probes the file's root, one probe of a root at a time however many
+   pages wait, and answered as soon as a probe finds it readable with its last complete scan's facts,
+   which brings the root back (D326 §2–4), or else at the hold's bound. The sweep of unavailable
+   roots probes them, and a scan follows only once one is back.
+4. **The status stays the background signal.** A node's status still measures its disks and brings
+   a root back by itself (D326); the probe is how a waiting party need not wait for it.
+5. **Outside this decision:** how the core's queue and the node's work list share a disk's capacity
+   between work a person waits for and maintenance (the 163 s wait), a design of its own; and what
+   the mount of a network share should be, which research settles.
+
+**Status:** Decided.
