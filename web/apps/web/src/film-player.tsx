@@ -40,6 +40,7 @@ import { useTranslation } from "react-i18next";
 
 import { mixIndices, startingAudioTrack } from "./audio-tracks.tsx";
 import { camelKey } from "./catalogue-key.ts";
+import { useFileWaits, waitText, type FileWait } from "./file-waits.ts";
 import { startOn, type LadderOffer } from "./moving-down.ts";
 import { dataOrThrow, problemText, unavailableText } from "./problem.ts";
 import { rateText } from "./rate-text.ts";
@@ -378,6 +379,8 @@ function PreparedFilm(props: {
     decision,
     startIndex,
   );
+  // How long the copy will take, as the server says; a Watch Together viewer asks nothing (D324 §6).
+  const preparing = useFileWaits(props.composition.askAbout, isWaiting)?.prepare;
   return (
     <>
       <Stage
@@ -387,7 +390,7 @@ function PreparedFilm(props: {
         failure={failure}
         preparedRef={playbackRef}
       />
-      {isWaiting && failure === undefined ? <p>{t("play.preparing")}</p> : null}
+      {isWaiting && failure === undefined ? <p>{preparingText(t, preparing)}</p> : null}
       {failure === undefined || props.composition.isFailureHidden === true ? null : (
         <p role="alert">{t("play.preparedFailed", { reason: failure })}</p>
       )}
@@ -466,6 +469,17 @@ export function audioRenditionIndex(
 ): number | undefined {
   const mixes = mixIndices(decision, audioTrackIndex);
   return isBoostOn && mixes?.boosted !== undefined ? mixes.boosted : mixes?.standard;
+}
+
+/**
+ * What a viewer waiting for a prepared copy is told: about how long it will take where the server
+ * says, a few seconds otherwise (D324 §6).
+ */
+export function preparingText(t: TFunction, preparing: FileWait | undefined): string {
+  const seconds = preparing?.secondsLeft;
+  return seconds === undefined
+    ? t("play.preparing")
+    : t("play.preparingFor", { wait: waitText(t, seconds) });
 }
 
 /**

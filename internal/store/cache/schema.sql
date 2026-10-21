@@ -3,7 +3,7 @@
 -- the version below differs from the file's user_version, the file is deleted and built again
 -- from this schema. Raise it on any change. Nothing here is referenced by persistent.db, and
 -- nothing here references it with a foreign key: SQLite cannot enforce one across files.
--- cache schema version 38
+-- cache schema version 39
 
 CREATE TABLE job (                                         -- the one work queue (D193)
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -142,6 +142,10 @@ CREATE TABLE prepared_rendition (                          -- D175, D180, D217 s
   finished_at  INTEGER,
   UNIQUE (source_file, profile)
 ) STRICT;
+
+-- A node's latest prepare of a profile, for how fast its next will go (D324 section 6).
+CREATE INDEX prepared_rendition_finished ON prepared_rendition(node_id, profile, finished_at)
+  WHERE realtime_factor IS NOT NULL;
 
 CREATE TABLE node_attempt (                                -- D234 section 7: work given to a node
   attempt_token TEXT PRIMARY KEY,        -- made for this sending; every result names it (D238 section 2)

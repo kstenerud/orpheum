@@ -5,6 +5,7 @@ package api
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"slices"
 	"strings"
 	"testing"
@@ -434,5 +435,30 @@ func TestReadThrough_AFullReadRaisedToAPlaysPriorityStillMeasuresTheLoudness(t *
 	harness.answerReadThrough(t, 97, nodeproto.ReadThroughResult{Refusal: "a test"})
 	if err := testutil.Receive(t, finished, "the read-through job to end"); err == nil {
 		t.Error("a refused read-through ended without an error; want it tried again")
+	}
+}
+
+// A file's viewer is told how long its read-through will take, its bytes at its node's read speed;
+// a file with none open has none to wait for (D324 §6).
+func TestFileWaits_SayHowLongAFilesReadThroughWillTake(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	storetest.ExecRaw(t, harness.databasePath, `UPDATE file SET size_bytes = 1200 * 1048576 WHERE id = 2`)
+	if _, err := harness.queue.Enqueue(t.Context(), jobs.Request{
+		Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 2}, Priority: jobs.PriorityBackground, Reason: "test",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	waiting := harness.do(t, http.MethodGet, "/files/2/waits", user, nil)
+	if waiting.status != http.StatusOK ||
+		strings.TrimSpace(waiting.body) != `{"readThrough":{"isRunning":false,"secondsLeft":60}}` {
+		t.Errorf("file 2's waits = %d %s; want its read-through waiting, a minute at 20 MiB a second",
+			waiting.status, waiting.body)
+	}
+	if none := harness.do(t, http.MethodGet, "/files/1/waits", user, nil); none.status != http.StatusOK ||
+		strings.TrimSpace(none.body) != `{}` {
+		t.Errorf("file 1's waits = %d %s; want nothing to wait for", none.status, none.body)
 	}
 }

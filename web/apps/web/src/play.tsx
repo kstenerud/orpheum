@@ -242,18 +242,7 @@ function UnderTheVideo(
       {reportRefusal === undefined || stopMessage !== undefined ? null : (
         <p role="alert">{t("play.positionNotKept", { reason: problemText(t, reportRefusal) })}</p>
       )}
-      <button
-        type="button"
-        className="play__start-over"
-        onClick={() => {
-          const video = props.videoRef.current;
-          if (video !== null) {
-            seekTo(video, 0);
-          }
-        }}
-      >
-        {t("play.startOver")}
-      </button>
+      <StartOver videoRef={props.videoRef} />
       <Subtitles
         fileId={props.fileId}
         tracks={props.decision.subtitles ?? []}
@@ -269,11 +258,31 @@ function UnderTheVideo(
         />
       )}
       <LevelSwitch
+        fileId={props.fileId}
         level={props.level}
         isInitiallyOn={props.decision.preferences.isLevellingOn}
         videoRef={props.videoRef}
       />
     </>
+  );
+}
+
+/** The button that takes the film back to its start. */
+function StartOver(props: { readonly videoRef: RefObject<HTMLVideoElement | null> }): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      className="play__start-over"
+      onClick={() => {
+        const video = props.videoRef.current;
+        if (video !== null) {
+          seekTo(video, 0);
+        }
+      }}
+    >
+      {t("play.startOver")}
+    </button>
   );
 }
 

@@ -89,6 +89,7 @@ func TestReach_ALibraryTakenBackIsGoneAtTheNextRequestEverywhere(t *testing.T) {
 		{"the identified list", get("/items?identificationState=identified"), contains(`"id":30`)},
 		{"the libraries", get("/libraries"), contains(`"name":"Films"`)},
 		{"whether a file can be read", get("/files/1/availability"), served},
+		{"how long a file's work will take", get("/files/1/waits"), served},
 		{"subtitle candidates", get("/files/2/subtitle-candidates?language=de"), served},
 		{"a new playback", send(http.MethodPost, "/playback", chrome(1)), served},
 		{"the playing film's bytes", func() response {
@@ -175,7 +176,8 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 	reachChecked := []string{
 		"getTitles", "getTitle", "getSeries", "getSeason", "search", "getHome", "getItemsByIdentification",
 		"getLibraries",
-		"getFileAvailability", "getSubtitleCandidates", "postFileSubtitle", "startPlayback", "getDirect",
+		"getFileAvailability", "getFileWaits", "getSubtitleCandidates", "postFileSubtitle", "startPlayback",
+		"getDirect",
 		"headDirect", "getMasterPlaylist", "getRenditionFile", "getChunksMasterPlaylist", "getChunkFile",
 		"getSubtitle", "reportPlayback",
 		"setFilePreferences", "hideProgress", "getArt", "getItemCandidates", "postItemMatch", "putOverride",

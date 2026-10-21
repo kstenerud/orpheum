@@ -364,6 +364,44 @@ func TestReportedProgressOf_IsWhereTheNodeLastSaidAJobsWorkIs(t *testing.T) {
 	}
 }
 
+// How long a job's work has run is from when its node first said it runs, by its progress or its
+// status, never from its sending or its waiting there; it is not known before (D324 §6).
+func TestRunningSinceOf_IsWhenTheNodeFirstSaidTheWorkRuns(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(make(answers, 2), nil))
+	sent := bench.assign(t)
+	say := func(state nodeproto.ProgressState) {
+		bench.exchanges.DeliverProgress(t.Context(), 1, nodeproto.Progress{
+			JobID: 7, AttemptToken: sent.AttemptToken, State: state,
+		})
+	}
+	bench.now.Advance(time.Minute)
+	say(nodeproto.ProgressWaiting)
+	if since, isRunning := bench.exchanges.RunningSinceOf(7); isRunning {
+		t.Errorf("waiting at its node, job 7 runs since %v; want it not running", since)
+	}
+	bench.now.Advance(time.Minute)
+	began := bench.now.Now()
+	say(nodeproto.ProgressRunning)
+	bench.now.Advance(time.Minute)
+	say(nodeproto.ProgressRunning)
+	bench.exchanges.Reconcile(t.Context(), 1,
+		[]nodeproto.HeldAttempt{{JobID: 7, AttemptToken: sent.AttemptToken, State: nodeproto.HeldRunning}}, nil)
+	if since, isRunning := bench.exchanges.RunningSinceOf(7); !isRunning || !since.Equal(began) {
+		t.Errorf("job 7 runs since %v (%t); want %v, when its node first said so", since, isRunning, began)
+	}
+	other := newExchanges(t)
+	other.exchanges.Handle(jobs.KindPrepare, assignedPrepare(make(answers, 2), nil))
+	held := other.assign(t)
+	other.now.Advance(time.Minute)
+	other.exchanges.Reconcile(t.Context(), 1,
+		[]nodeproto.HeldAttempt{{JobID: 7, AttemptToken: held.AttemptToken, State: nodeproto.HeldRunning}}, nil)
+	if since, isRunning := other.exchanges.RunningSinceOf(7); !isRunning || !since.Equal(other.now.Now()) {
+		t.Errorf("by its status alone, job 7 runs since %v (%t); want %v", since, isRunning, other.now.Now())
+	}
+}
+
 // The core holds work only while its node says it moves: running or waiting work the node says has
 // not moved for the core's window is stopped and answered as not moving, the tool's failure, which a
 // kind's UnansweredOutcome takes as a stall; under the window it is held (D233 §5).

@@ -33,3 +33,12 @@ WHERE f.id > sqlc.arg(after_id) AND f.id <= sqlc.arg(through_id) AND f.removed_a
         AND (v.bytes_in_each_second_json <> '[]' OR v.failure IS NOT NULL OR v.read_failure IS NOT NULL)
         LIMIT 1) IS NULL))
 ORDER BY f.id;
+
+-- name: ListFileSizesAndNodes :many
+-- The node, the size and the length of each live file named, by its id: the bytes ahead of a
+-- read-through on its node, and the film a prepare makes (D324 section 6). A length not probed is 0.
+SELECT id, node_id, size_bytes,
+  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
+    AS duration_ms
+FROM file
+WHERE id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT))) AND removed_at IS NULL;

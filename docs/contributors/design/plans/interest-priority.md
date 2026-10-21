@@ -119,7 +119,12 @@ and a read-through is one file).
    stops it if the next run falls behind. `play_priority_kept_seconds` is not folded: it keeps a
    playback's own prepare and runs wanted, which interest finds by neither film nor file.
 5. **I5 — how long.** Each device's read speed and each prepare's speed; the API's waiting work and
-   seconds; the film page's note and the player's wait.
+   seconds; the film page's note and the player's wait. *Built 2026-10-21* (`internal/core/waits`,
+   `GET /files/{id}/waits`): the read speed is a node's, the mean of its last five full reads timed
+   from when the node said each ran, its slowest read before any; a node reads one file at a time,
+   so the bytes ahead are read at that speed. A prepare not yet saying how far it is goes at its
+   node's last realtime factor for the profile, or says nothing. The loudness note is the player's,
+   under the levelling switch, where the sentence was; the film page has none.
 6. **I6 — the owner's check on staging**, with a VQ item: open a film whose loudness is unmeasured
    and see its estimate fall and the level arrive; play a series episode and see the next ones
    measured.

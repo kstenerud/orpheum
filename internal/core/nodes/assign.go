@@ -26,6 +26,8 @@ type Attempt struct {
 	// Work is the work as sent, without the bytes it carried.
 	Work   nodeproto.Work
 	SentAt time.Time
+	// RunningSince is when its node first said it runs, past any wait for a slot there; zero before.
+	RunningSince time.Time
 	// Priority is its job's, as given and as told since (Reprioritize); 0, the lowest, for one taken
 	// back after a restart, which cache.db keeps none of.
 	Priority int64
@@ -356,7 +358,8 @@ func (all *Exchanges) takeProgress(ctx context.Context, nodeID int64, progress n
 	attempt, assignee := held.Attempt, held.assignee
 	all.mutex.Lock()
 	if held, isHeld := all.attempts[attempt.Token]; isHeld {
-		held.lastHeard, held.lastWord = all.clock.Now(), progress.State
+		held.lastHeard = all.clock.Now()
+		held.hear(progress.State, held.lastHeard)
 	}
 	all.mutex.Unlock()
 	if assignee.Progress == nil {
@@ -482,5 +485,26 @@ func (all *Exchanges) Cancelled(ctx context.Context, jobID int64) {
 		if err = errors.Join(err, all.forgetAttempt(ctx, attempt.Token)); err != nil {
 			all.logger.WarnContext(ctx, "could not end a cancelled job's work", "jobId", jobID, "err", err)
 		}
+	}
+}
+
+// RunningSinceOf is when the node holding a job's attempt first said it runs, and false when none
+// holds one that runs: how long the work has run, for how long it will take (D324 §6).
+func (all *Exchanges) RunningSinceOf(jobID int64) (time.Time, bool) {
+	all.mutex.Lock()
+	defer all.mutex.Unlock()
+	for _, held := range all.attempts {
+		if held.JobID == jobID && !held.RunningSince.IsZero() {
+			return held.RunningSince, true
+		}
+	}
+	return time.Time{}, false
+}
+
+// hear keeps where its node says an attempt is, at now, and when it first said it runs.
+func (held *heldAttempt) hear(word nodeproto.ProgressState, now time.Time) {
+	held.lastWord = word
+	if word == nodeproto.ProgressRunning && held.RunningSince.IsZero() {
+		held.RunningSince = now
 	}
 }

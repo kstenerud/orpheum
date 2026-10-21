@@ -36,6 +36,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/core/turn"
+	"github.com/kstenerud/orpheum/internal/core/waits"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/waiting"
 )
@@ -103,6 +104,8 @@ type Dependencies struct {
 	NodeBytes NodeBytes
 	// Interest is what each session looks at, which orders the work (D324).
 	Interest *interest.Register
+	// Waits say how long the work a viewer waits on will take (D324 §6).
+	Waits *waits.Estimator
 	// Jobs is the one work queue, the one whose runners run the jobs, for the job view, cancel and
 	// the destinations that are down.
 	Jobs *jobs.Queue

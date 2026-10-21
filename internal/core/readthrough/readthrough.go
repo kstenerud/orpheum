@@ -51,6 +51,12 @@ type Parts struct {
 	Clock     clock.Clock
 }
 
+// Timings are told each node's full read-throughs: the bytes read and how long their reading took
+// once it ran: waits.Estimator.
+type Timings interface {
+	ReadThroughFinished(nodeID, bytes int64, took time.Duration)
+}
+
 // Service has each video read through once, and keeps what the read learned by the file's payload
 // hash in persistent.db: its sounds' loudness (D226) and its picture's timeline (D247 §10).
 type Service struct {
@@ -59,6 +65,9 @@ type Service struct {
 	nodes     Nodes
 	exchanges *nodes.Exchanges
 	clock     clock.Clock
+	// timings are told how long each full read took, for how long the next will (D324 §6); nil tells
+	// nothing (TimeReadsBy).
+	timings Timings
 	// noIndex are the pictures whose files a read from the index found none in, by payload hash and
 	// stream index, in memory: a restart asks the node again, which answers at once (D269 §2).
 	noIndex noIndexes
@@ -474,12 +483,31 @@ func (service *Service) Assignee(runner nodes.Resolver) nodes.Assignee {
 			case answer.Failure != "":
 				return jobs.MarkPermanent(errors.New(answer.Failure))
 			}
+			service.timeRead(ctx, job, attempt)
 			return service.followIndexRead(ctx, job, attempt.Work.ReadThrough, answer)
 		},
 		Unanswered: func(ctx context.Context, job jobs.Job, attempt nodes.Attempt, err error) error {
 			return nodes.UnansweredOutcome(job, err, keepFailure(ctx, attempt))
 		},
 	}
+}
+
+// TimeReadsBy names what is told how long each full read took. Set it once, before the server
+// serves.
+func (service *Service) TimeReadsBy(timings Timings) { service.timings = timings }
+
+// timeRead tells the timings how long a full read of a file took, from when its node said it ran:
+// an index read says nothing of how fast the node reads.
+func (service *Service) timeRead(ctx context.Context, job jobs.Job, attempt nodes.Attempt) {
+	command := attempt.Work.ReadThrough
+	if service.timings == nil || command == nil || command.IsFromIndexOnly() || attempt.RunningSince.IsZero() {
+		return
+	}
+	file, err := library.PlayableFile(ctx, service.database.Read(), job.FileID)
+	if err != nil || file.SizeBytes == nil {
+		return // a file gone since says nothing of the node's speed
+	}
+	service.timings.ReadThroughFinished(attempt.NodeID, *file.SizeBytes, service.clock.Now().Sub(attempt.RunningSince))
 }
 
 // followIndexRead queues a file's full read once its index was read (D269 §5): for its loudness
@@ -633,4 +661,11 @@ func timelineRow(
 		return nil, nil //nolint:nilnil // no timeline to keep is not an error
 	}
 	return &row, nil
+}
+
+// IsIndexRead is whether a read-through job's arguments ask for its picture's keyframes from its
+// file's index alone, which takes a fraction of a second, rather than a read through.
+func IsIndexRead(argsJSON string) bool {
+	args, err := decodeArgs(argsJSON)
+	return err == nil && args.IsFromIndexOnly
 }
