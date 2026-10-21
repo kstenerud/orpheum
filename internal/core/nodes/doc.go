@@ -125,8 +125,9 @@
 //     tier or lower waits. TestAssign_WorkOfAHigherTierBumpsTheLowestWhereNothingIsFree.
 //   - Background work that reads whole films, a read-through or a subtitle extracted from inside one,
 //     waits while a scan is on its quick pass of the film's disk, on that disk's quick pass rather
-//     than its readers, asking again every half minute (D255).
-//     TestAssign_ABackgroundReadThroughWaitsForAScansQuickPassOfItsDisk and, for when a root is on it,
+//     than its readers, asking again every half minute (D255); a person's goes ahead (D324 §4).
+//     TestAssign_ABackgroundReadThroughWaitsForAScansQuickPassOfItsDisk,
+//     TestAssign_APersonsReadThroughGoesAheadOfAScansQuickPass and, for when a root is on it,
 //     TestScans_ARootIsOnItsQuickPassUntilItsNewFilesAreRead (internal/core/library).
 //   - A job no one waits for any more is told to its node at its new priority, no longer
 //     play-driven (D234 §3). TestReprioritize_TellsTheNodeHoldingAJobsAttemptItsNewPriority.

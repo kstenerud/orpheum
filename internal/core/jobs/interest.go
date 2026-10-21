@@ -35,11 +35,13 @@ func (interested Interested) isEmpty() bool {
 	return len(interested.ItemIDs) == 0 && len(interested.FileIDs) == 0
 }
 
-// Raised is an open job a person's interest raised: one given to a node is the node's to be told.
+// Raised is an open job a person's interest raised: one given to a node is the node's to be told,
+// and one waiting is waiting on Destination, "" for none.
 type Raised struct {
-	ID         int64
-	Priority   int64
-	IsAssigned bool
+	ID          int64
+	Priority    int64
+	IsAssigned  bool
+	Destination Destination
 }
 
 // InterestJobs raises and releases the jobs a person's interest is in (D324 §2): cache.db's job
@@ -73,7 +75,10 @@ func (interest *InterestJobs) Raise(
 	}
 	raised := make([]Raised, 0, len(rows))
 	for _, row := range rows {
-		raised = append(raised, Raised{ID: row.ID, Priority: row.Priority, IsAssigned: row.State == "assigned"})
+		raised = append(raised, Raised{
+			ID: row.ID, Priority: row.Priority, IsAssigned: row.State == "assigned",
+			Destination: Destination(row.Destination),
+		})
 	}
 	return raised, nil
 }

@@ -43,14 +43,15 @@ func readsWholeFiles(work nodeproto.Work) bool {
 // its quick pass of, so the whole library is listed, identified and playable before any film is read
 // through (D255; the owner, 2026-10-07: "It should be doing a quick scan first and then fill in with
 // the more detailed scan after"). It waits on a destination of its own, not the device's readers,
-// which the scan's own work needs, and asks again every quickPassRecheckEvery. It is nil otherwise.
+// which the scan's own work needs, and asks again every quickPassRecheckEvery. It is nil otherwise,
+// and for a person's work: a film someone looks at is read ahead of the scan (D324 §4).
 func (all *Exchanges) parkBehindQuickPass(
-	ctx context.Context, nodeID int64, resources Resources, work nodeproto.Work, device string,
+	ctx context.Context, nodeID int64, resources Resources, work nodeproto.Work, priority int64, device string,
 ) error {
 	all.mutex.Lock()
 	passes := all.quickPasses
 	all.mutex.Unlock()
-	if passes == nil || device == "" || !readsWholeFiles(work) {
+	if passes == nil || device == "" || !readsWholeFiles(work) || tierOf(work, priority) == tierPersons {
 		return nil
 	}
 	roots, err := passes.RootsOnQuickPass(ctx, nodeID)

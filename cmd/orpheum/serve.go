@@ -303,7 +303,8 @@ func wireJobsInto(dependencies *api.Dependencies, opened openedServices, logger 
 	dependencies.Interest = interest.NewRegister(clock.System{})
 	opened.jobServices.interest = interest.NewRaiser(interest.Parts{
 		Register: dependencies.Interest, Jobs: jobs.NewInterestJobs(opened.cache, clock.System{}),
-		Nodes: opened.exchanges, Playing: playingFiles(dependencies.Playback), Database: opened.database,
+		Nodes: opened.exchanges, Waiting: opened.jobServices.queue, Playing: playingFiles(dependencies.Playback),
+		Database: opened.database,
 		Settings: opened.settings, Clock: clock.System{}, Logger: logger,
 	})
 	return opened

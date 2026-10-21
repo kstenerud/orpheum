@@ -48,6 +48,8 @@ func TestRegister_KeepsEachSessionsPageTheLatestFirstUntilItLapses(t *testing.T)
 type raising struct {
 	raised   []string
 	released []jobs.Interested
+	// answers are what each raise at a priority answers: the jobs it raised.
+	answers map[int64][]jobs.Raised
 }
 
 func (record *raising) Raise(
@@ -56,7 +58,21 @@ func (record *raising) Raise(
 	if len(interested.ItemIDs)+len(interested.FileIDs) > 0 {
 		record.raised = append(record.raised, describe(interested, priority, until.IsZero()))
 	}
-	return nil, nil
+	return record.answers[priority], nil
+}
+
+// waitingRoom records the destinations brought back, and the nodes told a new priority.
+type waitingRoom struct {
+	unparked      []jobs.Destination
+	reprioritized []int64
+}
+
+func (room *waitingRoom) Unpark(_ context.Context, destination jobs.Destination) {
+	room.unparked = append(room.unparked, destination)
+}
+
+func (room *waitingRoom) Reprioritize(jobID, _ int64) {
+	room.reprioritized = append(room.reprioritized, jobID)
 }
 
 func (record *raising) Release(_ context.Context, interested jobs.Interested) error {
@@ -162,5 +178,47 @@ func TestRaiser_ALookThatGoesOnReleasesWhatLeftIt(t *testing.T) {
 	}
 	if want := describe(jobs.Interested{FileIDs: []int64{101}}, 0, false); !slices.Equal(released, []string{want}) {
 		t.Errorf("released %q; want the removed file alone, the film still looked at", released)
+	}
+}
+
+// Work raised to a person's tier that waits for room on a node is brought back, once for each room,
+// so its claim bumps the lowest work holding it; work given to a node is told its priority; work
+// waiting on anything else, or raised only to the shown-interest rung, waits on (D324 §4).
+func TestRaiser_BringsBackRaisedWorkWaitingForRoomOnANode(t *testing.T) {
+	t.Parallel()
+	database := storetest.OpenMigrated(t)
+	now := clocktest.NewFake(time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC))
+	reader, slot := jobs.ReaderDestination(1, "disk:sda"), jobs.SlotDestination(1, "read_through")
+	record := &raising{answers: map[int64][]jobs.Raised{
+		jobs.PriorityPlayNow: {
+			{ID: 1, Priority: jobs.PriorityPlayNow, Destination: reader},
+			{ID: 2, Priority: jobs.PriorityPlayNow, Destination: reader},
+			{ID: 3, Priority: jobs.PriorityPlayNow, Destination: slot},
+			{ID: 4, Priority: jobs.PriorityPlayNow, Destination: jobs.DestinationTMDBAPI},
+			{ID: 5, Priority: jobs.PriorityPlayNow, IsAssigned: true, Destination: slot},
+		},
+		jobs.PriorityShownInterest: {{ID: 6, Priority: jobs.PriorityShownInterest, Destination: reader}},
+	}}
+	room := &waitingRoom{}
+	raiser := NewRaiser(Parts{
+		Register: NewRegister(now), Jobs: record, Nodes: room, Waiting: room,
+		Playing: func() []int64 { return []int64{100} }, Database: database,
+		Settings: settingstest.Seeded(t, database), Clock: now, Logger: slog.New(slog.DiscardHandler),
+	})
+	if err := raiser.Raise(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if want := []jobs.Destination{reader, slot}; !slices.Equal(room.unparked, want) {
+		t.Errorf("brought back %q; want %q, each once", room.unparked, want)
+	}
+	if !slices.Equal(room.reprioritized, []int64{5}) {
+		t.Errorf("told the nodes of %v; want job 5, the one given to a node", room.reprioritized)
+	}
+	room.unparked = nil
+	if err := raiser.RaiseWatched(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if len(room.unparked) != 0 {
+		t.Errorf("a raise to the shown-interest rung brought back %q; want nothing", room.unparked)
 	}
 }
