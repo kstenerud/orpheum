@@ -88,6 +88,38 @@ func TestMatch_ACandidateIsNamedAsTheFileIsByTheOneIdentityFold(t *testing.T) {
 	}
 }
 
+// A leading article is no part of a work's name: the file's "The Girl in the Crate" is TMDB's one "Girl
+// in the Box" of its year, and a file named without it matches a work named with it (the owner's
+// staging, 2026-10-21). An article alone is a name.
+func TestMatch_ALeadingArticleIsNoPartOfTheName(t *testing.T) {
+	t.Parallel()
+	for _, each := range []struct {
+		file, query, candidate string
+		year                   int
+	}{
+		{"The Girl in the Crate (2016).mkv", "The Girl in the Crate", "Girl in the Crate", 2016},
+		{"Navigator (2015).mkv", "Navigator", "The Navigator", 2015},
+		{"A Fool There Was (2018).mkv", "A Fool There Was", "Quiet Place", 2018},
+	} {
+		lib := newTestLibrary(t, "movies", "tmdb")
+		year := each.year
+		lib.provider.Searches[identifytest.SearchKey(each.query, year)] = []identify.Candidate{
+			lib.provider.Add(identify.Metadata{
+				ID: "413337", Name: each.candidate, OriginalName: each.candidate,
+				Year: year,
+			}),
+			{ID: "945222", Name: "Mira Holloway: " + each.candidate, Year: year},
+		}
+		lib.scan(videoRecord(each.file))
+		if outcome := lib.matchFileTitle(each.file); outcome != identify.OutcomeMatched {
+			t.Errorf("%s: outcome %s, want matched to %q", each.file, outcome, each.candidate)
+		}
+	}
+	if workName := identify.WorkName("The"); workName != "the" {
+		t.Errorf("WorkName(\"The\") = %q; an article alone is the whole name", workName)
+	}
+}
+
 // isGuessed is whether an item's match is marked a guess.
 func (lib *testLibrary) isGuessed(itemID int64) bool {
 	lib.t.Helper()

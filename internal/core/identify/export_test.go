@@ -38,6 +38,8 @@ var (
 	NoMatchReason = noMatchReason
 	// DueAfter is how long after its fetch the rolling refresh queues an item.
 	DueAfter = dueAfter
+	// WorkName is a name as the matcher compares it.
+	WorkName = workName
 )
 
 // ReadAsItGoes has a pass read each row when it needs it rather than from its snapshot, as a
