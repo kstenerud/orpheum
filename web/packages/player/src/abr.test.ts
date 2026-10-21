@@ -713,6 +713,33 @@ describe("a hole hls.js cannot step over (D266; the owner's group test, 2026-10-
   });
 });
 
+describe("a chunk whose film cannot be read now (the owner's test, 2026-10-21)", () => {
+  it("fails the playback at once and stops its loading, though hls.js holds a sound chunk's 503 no failure", () => {
+    let onError: ((event: unknown, data: unknown) => void) | undefined;
+    let stops = 0;
+    const hls = {
+      on: (event: Events, listener: (event: unknown, data: unknown) => void) => {
+        if (event === Events.ERROR) {
+          onError = listener;
+        }
+      },
+      stopLoad: () => (stops += 1),
+    } as unknown as Parameters<typeof failOnFatal>[0];
+    const failures: string[] = [];
+    failOnFatal(hls, (failure) => failures.push(failure));
+    const loadFailed = (code: number) => ({
+      type: ErrorTypes.NETWORK_ERROR,
+      details: ErrorDetails.FRAG_LOAD_ERROR,
+      fatal: false,
+      response: { code, text: "" },
+    });
+    onError?.(Events.ERROR, loadFailed(404));
+    expect([failures, stops]).toEqual([[], 0]);
+    onError?.(Events.ERROR, loadFailed(503));
+    expect([failures, stops]).toEqual([["network"], 1]);
+  });
+});
+
 describe("loading again after the video's decoding is built anew (D266)", () => {
   it("starts loading from where the video stood once the new media source is attached (the owner's test, 2026-10-18)", () => {
     const calls: string[] = [];
