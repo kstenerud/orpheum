@@ -70,6 +70,7 @@ On the VPS, `wg show` shows a handshake with the house once staging is up.
 | Command | What it does |
 | --- | --- |
 | `./staging` | build the image from the checkout and start or restart staging |
+| `./staging quick` | the same in about half a minute, for trying a fix live: the binary is built in `./dev` and laid over the last full image, so a change to anything else the image holds (FFmpeg, system packages) needs `./staging` |
 | `./staging logs` | follow the three services' logs; each `./staging` keeps the run it replaces in `.staging/logs/` |
 | `./staging status` | the services and whether they are healthy |
 | `./staging setup-code` | the code that makes the first admin |
