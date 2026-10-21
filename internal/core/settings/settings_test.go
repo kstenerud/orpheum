@@ -378,6 +378,26 @@ func TestRead_HealsARemovedSettingAndSaysSo(t *testing.T) {
 	}
 }
 
+// A row under a key the settings page renamed reads as retired, naming the key it is now, and the
+// new key starts at its starting value (the owner, 2026-10-21).
+func TestUnused_ARenamedKeysRowSaysWhatItIsNow(t *testing.T) {
+	t.Parallel()
+	service, _ := newSeededService(t)
+	ctx := t.Context()
+	storetest.ExecRaw(t, service.database.Path(),
+		"INSERT INTO setting (key, value_json, set_at) VALUES ('resume_min_percent', '12', 1)")
+	unused, err := service.Unused(ctx)
+	if err != nil || len(unused) != 1 || unused[0].Retired == nil ||
+		unused[0].Retired.Reason != "renamed in_progress_after_percent" {
+		t.Fatalf("Unused = %+v, %v; want resume_min_percent retired as renamed in_progress_after_percent",
+			unused, err)
+	}
+	if percent, err := service.Int(ctx, InProgressAfterPercent); err != nil || percent != 5 {
+		t.Errorf("in_progress_after_percent = %d, %v; want its starting 5, the old value not carried", percent,
+			err)
+	}
+}
+
 func TestUnused_ListsRowsNothingReadsAndDeletesOnlyThem(t *testing.T) {
 	t.Parallel()
 	service, _ := newSeededService(t)
