@@ -33,8 +33,9 @@ func tierOf(work nodeproto.Work, priority int64) tier {
 }
 
 // bumpFor makes room for work of the incoming tier on a node's slot or device, which uses picks the
-// attempts of: of those held there in a lower tier, the lowest, and of those one its node holds
-// waiting before one it runs, and the newest, losing the least, is bumped (D255 §2). Its node is told
+// attempts of: of those held there in a lower tier, the lowest tier, then the lowest priority, and
+// of those one its node holds waiting before one it runs, and the newest, losing the least, is
+// bumped (D255 §2, D324 §4). Its node is told
 // to stop and its work is thrown away; its job goes back to the head of its priority's queue at no
 // cost of an attempt. It reports whether one was.
 func (all *Exchanges) bumpFor(ctx context.Context, nodeID int64, incoming tier, uses func(held Attempt) bool) bool {
@@ -71,12 +72,16 @@ func (all *Exchanges) bumpFor(ctx context.Context, nodeID int64, incoming tier, 
 	return true
 }
 
-// isBumpedBefore is whether one held attempt is bumped before another: the lower tier, then the one
-// its node holds waiting, then the newer, and of two sent at once the later job.
+// isBumpedBefore is whether one held attempt is bumped before another: the lower tier, then the
+// lower priority, as the background's below the shown-interest rung's (D324 §4), then the one its
+// node holds waiting, then the newer, and of two sent at once the later job.
 func isBumpedBefore(one, other heldAttempt) bool {
 	oneTier, otherTier := tierOf(one.Work, one.Priority), tierOf(other.Work, other.Priority)
 	if oneTier != otherTier {
 		return oneTier < otherTier
+	}
+	if one.Priority != other.Priority {
+		return one.Priority < other.Priority
 	}
 	oneWaits, otherWaits := one.lastWord == nodeproto.ProgressWaiting, other.lastWord == nodeproto.ProgressWaiting
 	if oneWaits != otherWaits {
