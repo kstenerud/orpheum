@@ -689,8 +689,8 @@ export const en = {
   },
   identify: {
     heading: "Needs a match",
-    ambiguous: "Several matches",
-    unidentified: "No match",
+    ambiguous: "Several matches ({{count}})",
+    unidentified: "No match ({{count}})",
     none: "Nothing is waiting.",
     choose: "Choose its match",
     candidates: "Possible matches",

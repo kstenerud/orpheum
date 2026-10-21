@@ -307,6 +307,10 @@ func TestRecordFailure_AnItemsOwnFailureIsShownPassedOverAndClearedByAPersonsRef
 		t.Fatal(err)
 	}
 	listed := lib.onlyUnidentified()
+	// It waits for a person's look again, so the count that leads to it counts it.
+	if count, err := lib.chooser.WaitingForAPerson(t.Context()); err != nil || count != 1 {
+		t.Errorf("WaitingForAPerson = %d, %v; want Metropolis, whose fetch failed", count, err)
+	}
 	if failure := listed.FetchFailure; failure == nil || failure.Failure != "TMDB answered 500 five times" ||
 		!failure.FailedAt.Equal(lib.clock.Now()) {
 		t.Fatalf("listed %+v; want Metropolis with its failure and when, for its page to show", listed)

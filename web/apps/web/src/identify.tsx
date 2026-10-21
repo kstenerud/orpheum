@@ -101,45 +101,83 @@ function WaitingRow(props: {
   );
 }
 
-/** Needs a match: the films and series with several possible matches, or none. */
-export function Identify(): JSX.Element {
+/** The two lists of what waits, by why. */
+interface WaitingLists {
+  readonly ambiguous: readonly WaitingItem[];
+  readonly unidentified: readonly WaitingItem[];
+}
+
+/**
+ * The tab to show: the one chosen, or, until one is, the first with anything in it, so the page
+ * never opens on an empty list while the other has what the count said (the owner, 2026-10-21).
+ */
+export function shownFilter(chosen: WaitingFilter | undefined, lists: WaitingLists): WaitingFilter {
+  if (chosen !== undefined) {
+    return chosen;
+  }
+  return lists.ambiguous.length === 0 && lists.unidentified.length > 0
+    ? "unidentified"
+    : "ambiguous";
+}
+
+/** The tabs, each with how many it holds, and the list of the one shown. */
+export function WaitingTabs(props: {
+  readonly lists: WaitingLists;
+  readonly chosen: WaitingFilter | undefined;
+  readonly onChoose: (filter: WaitingFilter) => void;
+  readonly onChanged: () => void;
+}): JSX.Element {
   const { t } = useTranslation();
-  const { api } = useServices();
-  const [waitingFilter, setWaitingFilter] = useState<WaitingFilter>("ambiguous");
-  const [items, reload] = useResource(
-    `items/${waitingFilter}`,
-    async () => {
-      const itemsBody = dataOrThrow(
-        await api.GET("/items", {
-          params: { query: { identificationState: waitingFilter } },
-        }),
-      );
-      return itemsBody.items ?? [];
-    },
-    useBackgroundChangesPoller(),
-  );
+  const shown = shownFilter(props.chosen, props.lists);
   return (
-    <section aria-labelledby="identify-heading">
-      <h1 id="identify-heading">{t("identify.heading")}</h1>
+    <>
       <fieldset>
         <legend>{t("common.show")}</legend>
         {(["ambiguous", "unidentified"] as const).map((choice) => (
           <button
             key={choice}
             type="button"
-            aria-pressed={waitingFilter === choice}
+            aria-pressed={shown === choice}
             onClick={() => {
-              setWaitingFilter(choice);
+              props.onChoose(choice);
             }}
           >
-            {t(`identify.${choice}`)}
+            {t(`identify.${choice}`, { count: props.lists[choice].length })}
           </button>
         ))}
       </fieldset>
+      <WaitingList items={props.lists[shown]} waitingFilter={shown} onChanged={props.onChanged} />
+    </>
+  );
+}
+
+/** Needs a match: the films and series with several possible matches, or none. */
+export function Identify(): JSX.Element {
+  const { t } = useTranslation();
+  const { api } = useServices();
+  const [chosen, setChosen] = useState<WaitingFilter | undefined>(undefined);
+  const [lists, reload] = useResource(
+    "items/waiting",
+    async (): Promise<WaitingLists> => {
+      const [ambiguous, unidentified] = await Promise.all(
+        (["ambiguous", "unidentified"] as const).map(async (identificationState) => {
+          const itemsBody = dataOrThrow(
+            await api.GET("/items", { params: { query: { identificationState } } }),
+          );
+          return itemsBody.items ?? [];
+        }),
+      );
+      return { ambiguous: ambiguous ?? [], unidentified: unidentified ?? [] };
+    },
+    useBackgroundChangesPoller(),
+  );
+  return (
+    <section aria-labelledby="identify-heading">
+      <h1 id="identify-heading">{t("identify.heading")}</h1>
       <Loaded
-        resource={items}
+        resource={lists}
         render={(value) => (
-          <WaitingList items={value} waitingFilter={waitingFilter} onChanged={reload} />
+          <WaitingTabs lists={value} chosen={chosen} onChoose={setChosen} onChanged={reload} />
         )}
       />
     </section>
