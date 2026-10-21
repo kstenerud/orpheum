@@ -37,6 +37,7 @@ func (jobStorage *JobStorage) OpenReadThroughs(ctx context.Context) ([]OpenJob, 
 		open = append(open, OpenJob{
 			ID: row.ID, Priority: row.Priority, IsAssigned: row.State == "assigned",
 			FileID: ptr.ValueOrZero(row.FileID), ArgsJSON: row.ArgsJSON,
+			DoneFraction: ptr.ValueOrZero(row.ProgressFraction),
 		})
 	}
 	return open, nil

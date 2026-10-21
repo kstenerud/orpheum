@@ -3,6 +3,7 @@
 package readthrough
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -57,5 +58,44 @@ func TestTimeRead_AFullReadTellsItsBytesAndHowLongItRan(t *testing.T) {
 	if want := []timing{{nodeID: 1, bytes: 4000, took: 40 * time.Second}}; len(record.told) != 1 ||
 		record.told[0] != want[0] {
 		t.Errorf("the timings were told %+v; want %+v, the full read alone", record.told, want)
+	}
+}
+
+// progressing records the progress a read-through's job is given.
+type progressing struct {
+	Queue
+	fractions []float64
+}
+
+func (queue *progressing) SetProgress(_ context.Context, _ int64, fraction float64) error {
+	queue.fractions = append(queue.fractions, fraction)
+	return nil
+}
+
+// How far into its film a running read-through is, as its node says, is its job's progress, for how
+// long the rest will take; a word without a position, or of a film of no known length, keeps none
+// (D324 §6).
+func TestTakeProgress_ARunningReadsPositionIsItsJobsProgress(t *testing.T) {
+	t.Parallel()
+	queue := &progressing{}
+	service := &Service{queue: queue}
+	attempt := nodes.Attempt{JobID: 9, Work: nodeproto.Work{ReadThrough: &nodeproto.ReadThrough{DurationMs: 40_000}}}
+	for _, progress := range []nodeproto.Progress{
+		{State: nodeproto.ProgressRunning, ReadThroughMs: 10_000},
+		{State: nodeproto.ProgressWaiting, ReadThroughMs: 20_000},
+		{State: nodeproto.ProgressRunning},
+	} {
+		if err := service.takeProgress(t.Context(), attempt, progress); err != nil {
+			t.Fatal(err)
+		}
+	}
+	unknownLength := nodes.Attempt{JobID: 9, Work: nodeproto.Work{ReadThrough: &nodeproto.ReadThrough{}}}
+	if err := service.takeProgress(t.Context(), unknownLength,
+		nodeproto.Progress{State: nodeproto.ProgressRunning, ReadThroughMs: 10_000}); err != nil {
+		t.Fatal(err)
+	}
+	if len(queue.fractions) != 1 || queue.fractions[0] != 0.25 {
+		t.Errorf("the progress kept = %v; want a quarter, from the running word with a position alone",
+			queue.fractions)
 	}
 }

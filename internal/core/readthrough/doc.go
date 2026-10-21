@@ -69,6 +69,9 @@
 //     core-boundary and sql-only-in-store, TestArch_CoreNeverImportsNode and
 //     TestArch_OnlyStoreImportsDatabaseSQL.
 //
+//   - How far into its film a running read-through is, as its node says, is its job's progress (D324
+//     §6). TestTakeProgress_ARunningReadsPositionIsItsJobsProgress.
+//
 // # Read before changing
 //
 //   - D226: loudness is measured by the node and levelled by the player.

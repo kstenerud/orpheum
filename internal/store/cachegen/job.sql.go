@@ -559,18 +559,19 @@ func (q *Queries) ListOpenPreparesOfFile(ctx context.Context, fileID int64) ([]L
 }
 
 const listOpenReadThroughs = `-- name: ListOpenReadThroughs :many
-SELECT id, file_id, priority, state, args_json
+SELECT id, file_id, priority, state, args_json, progress_fraction
 FROM job
 WHERE kind = 'read_through' AND state IN ('queued', 'running', 'assigned') AND file_id IS NOT NULL
 ORDER BY id
 `
 
 type ListOpenReadThroughsRow struct {
-	ID       int64
-	FileID   *int64
-	Priority int64
-	State    string
-	ArgsJSON string
+	ID               int64
+	FileID           *int64
+	Priority         int64
+	State            string
+	ArgsJSON         string
+	ProgressFraction *float64
 }
 
 // Every open read-through, by file, with its priority, state and arguments: what is ahead of a
@@ -590,6 +591,7 @@ func (q *Queries) ListOpenReadThroughs(ctx context.Context) ([]ListOpenReadThrou
 			&i.Priority,
 			&i.State,
 			&i.ArgsJSON,
+			&i.ProgressFraction,
 		); err != nil {
 			return nil, err
 		}

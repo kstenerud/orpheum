@@ -19,7 +19,7 @@ import (
 type ThroughReader interface {
 	Read(
 		ctx context.Context, videoPath string, loudnessTracks []nodeproto.LoudnessTrack,
-		timeline *nodeproto.VideoTimelineAsk, duration time.Duration,
+		timeline *nodeproto.VideoTimelineAsk, duration time.Duration, onProgress func(readThroughMs int64),
 	) (readthrough.Findings, error)
 }
 
@@ -31,7 +31,16 @@ func (agent *Agent) readThroughWork(
 	return agent.answeringWork(ctx, nodeID, answeringJob{
 		attempt: held, jobKind: "a read-through",
 		makeAnswer: func(jobCtx context.Context) (nodeproto.Result, string) {
-			answer := agent.runReadThrough(jobCtx, command)
+			var lastSaidAt time.Time
+			sayRead := func(readThroughMs int64) {
+				if now := agent.clock.Now(); now.Sub(lastSaidAt) >= agent.progressEvery() {
+					lastSaidAt = now
+					running := held.progress(nodeproto.ProgressRunning)
+					running.ReadThroughMs = readThroughMs
+					agent.sayProgress(ctx, nodeID, running)
+				}
+			}
+			answer := agent.runReadThrough(jobCtx, command, sayRead)
 			return nodeproto.Result{ReadThrough: &answer}, answer.Refusal + answer.Failure + stallDetail(answer.Stall)
 		},
 	})
@@ -39,7 +48,9 @@ func (agent *Agent) readThroughWork(
 
 // runReadThrough reads a video checked to be the one the core named (D100) through, or says why
 // not: that FFmpeg could not, which is the file's, or that the node did not try.
-func (agent *Agent) runReadThrough(ctx context.Context, command nodeproto.ReadThrough) nodeproto.ReadThroughResult {
+func (agent *Agent) runReadThrough(
+	ctx context.Context, command nodeproto.ReadThrough, sayRead func(readThroughMs int64),
+) nodeproto.ReadThroughResult {
 	refuse := func(err error) nodeproto.ReadThroughResult {
 		return nodeproto.ReadThroughResult{Refusal: err.Error(), RefusalCode: refusalCodeOf(err)}
 	}
@@ -66,7 +77,7 @@ func (agent *Agent) runReadThrough(ctx context.Context, command nodeproto.ReadTh
 		return refuse(err)
 	}
 	findings, err := agent.workers.ThroughReader.Read(ctx, videoPath, command.LoudnessTracks, command.VideoTimeline,
-		time.Duration(command.DurationMs)*time.Millisecond)
+		time.Duration(command.DurationMs)*time.Millisecond, sayRead)
 	if stall := stallOf(err); stall != nil {
 		return nodeproto.ReadThroughResult{Stall: stall}
 	}

@@ -38,7 +38,7 @@ func TestRead_IsWatchedForAPositionThatStandsStillAndSaysWhenItStalled(t *testin
 	}
 	const slowestRead = 20 << 20
 	_, err = NewReader(stallingRunner{&watches}, slowestRead).Read(t.Context(), video,
-		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 2}}, &nodeproto.VideoTimelineAsk{}, 0)
+		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 2}}, &nodeproto.VideoTimelineAsk{}, 0, nil)
 	stalled, isStalled := errors.AsType[*execx.StalledError](err)
 	if !isStalled || stalled.Cause != execx.StallStoodStill {
 		t.Errorf("a stalled read: %v, want the stall", err)
@@ -64,10 +64,10 @@ func TestRead_ALongFilmIsAllowedAsLongAsDecodingItsSoundTakesOnlyWhenItsSoundIsM
 	twoHours := 2 * time.Hour
 	reader := NewReader(stallingRunner{&watches}, slowestRead)
 	if _, err := reader.Read(t.Context(), video,
-		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 6}}, nil, twoHours); err == nil {
+		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 6}}, nil, twoHours, nil); err == nil {
 		t.Fatal("the stalling runner's read succeeded")
 	}
-	if _, err := reader.Read(t.Context(), video, nil, &nodeproto.VideoTimelineAsk{}, twoHours); err == nil {
+	if _, err := reader.Read(t.Context(), video, nil, &nodeproto.VideoTimelineAsk{}, twoHours, nil); err == nil {
 		t.Fatal("the stalling runner's read succeeded")
 	}
 	if len(watches) != 2 || watches[0].Deadline != execx.DeadlineFor(twoHours) ||
@@ -77,5 +77,27 @@ func TestRead_ALongFilmIsAllowedAsLongAsDecodingItsSoundTakesOnlyWhenItsSoundIsM
 	}
 	if len(watches) == 2 && watches[1].Deadline != execx.ReadingDeadline(video, slowestRead) {
 		t.Errorf("a two-hour film's timeline alone was watched %+v; want reading's deadline", watches[1])
+	}
+}
+
+// progressingRunner says one position, as FFmpeg's progress would, then stalls.
+type progressingRunner struct{ at time.Duration }
+
+func (runner progressingRunner) RunWatched(_ context.Context, run execx.WatchedRun) (execx.Ran, error) {
+	if run.Watch.OnProgress != nil {
+		run.Watch.OnProgress(execx.Progress{Position: runner.at})
+	}
+	return execx.Ran{}, &execx.StalledError{Tool: execx.FFmpeg, Cause: execx.StallStoodStill}
+}
+
+// A read tells its caller how far into the film FFmpeg says it is (D324 §6).
+func TestRead_SaysHowFarIntoTheFilmItIs(t *testing.T) {
+	t.Parallel()
+	var said []int64
+	_, err := NewReader(progressingRunner{at: 12 * time.Second}, 20<<20).Read(t.Context(), "/media/film.mkv",
+		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 2}}, nil, time.Minute,
+		func(readThroughMs int64) { said = append(said, readThroughMs) })
+	if err == nil || len(said) != 1 || said[0] != 12_000 {
+		t.Errorf("the read said %v (%v); want 12000 ms, as FFmpeg's progress said", said, err)
 	}
 }
