@@ -12,7 +12,6 @@ ffmpeg_dir = "/opt/orpheum/ffmpeg"
 # unconfined; staging, in a sandbox that may lack one, runs and warns (D273 §5, revised 2026-10-20).
 confinement_policy = {{if .IsStaging}}"report"{{else}}"require"{{end}}
 probe_timeout_seconds = 60
-progress_every_seconds = 2
 ended_work_kept_hours = 168
 read_header_timeout_seconds = 10
 prepared_budget_gib = 200

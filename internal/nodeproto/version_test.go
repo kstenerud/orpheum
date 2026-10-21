@@ -74,6 +74,8 @@ var wireShapeByVersion = map[int]string{
 	// 35 has a listing say its error limit, the core's scan_root_error_limit, in place of the node's own
 	// config (the constants sweep, 2026-10-21).
 	35: "494b119bde4383d8dd578766fdcec651dc2759938fbb394eb745c1f0f0f9d36c",
+	// 36 adds how often a prepare's progress is said to the Tuning (the constants sweep, 2026-10-21).
+	36: "9370144c4db938cbce07c6c4d2976ccd9ad033ad1deec4c4e038488f677ee268",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

@@ -407,6 +407,22 @@ func TestHelloAndCommands_SayTheStatusCadenceTheSilenceSettingGives(t *testing.T
 	}
 }
 
+// The tuning says how often a running prepare tells the core how far it is, as
+// prepare_progress_every_seconds says then (D234 §5; the constants sweep, 2026-10-21).
+func TestHelloAndCommands_SayHowOftenAPreparesProgressIsSaid(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
+	if every := reply.Tuning.ProgressEverySeconds; every != nodeproto.StartingProgressEverySeconds {
+		t.Errorf("the hello's reply says progress every %d s; want the setting's starting %d", every,
+			nodeproto.StartingProgressEverySeconds)
+	}
+	settingstest.Set(t, harness.settings, settings.PrepareProgressEverySeconds, "7")
+	if commands, _ := harness.pollThroughHold(t, reply.NodeID, 0); commands.Tuning.ProgressEverySeconds != 7 {
+		t.Errorf("the poll says progress every %d s; want the 7 set", commands.Tuning.ProgressEverySeconds)
+	}
+}
+
 // A node posts its status at its own starting cadence until a core says one, so that cadence is the
 // one the silence setting's starting value gives (the constants sweep, 2026-10-21).
 func TestStatusEveryFor_ANodesCadenceBeforeACoreSaysIsTheSilenceSettingsStart(t *testing.T) {

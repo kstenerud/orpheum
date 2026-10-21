@@ -23,7 +23,7 @@ const (
 
 // Progress is the node's word on where an attempt it holds is, said when it starts to wait or to
 // run, at each status tick while it does, and, for a prepare, as FFmpeg moves on, at most every
-// node.progress_every_seconds. The core hears from it that the node still holds the work.
+// Tuning.ProgressEverySeconds. The core hears from it that the node still holds the work.
 type Progress struct {
 	JobID        int64         `json:"jobId"`
 	AttemptToken string        `json:"attemptToken"`

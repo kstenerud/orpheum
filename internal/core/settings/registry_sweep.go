@@ -2,7 +2,12 @@
 
 package settings
 
-import "time"
+import (
+	"strconv"
+	"time"
+
+	"github.com/kstenerud/orpheum/internal/nodeproto"
+)
 
 // The settings that were constants until the constants sweep (the owner, 2026-10-20: "preferring to
 // have them configurable db values unless there's a solid reason not to";
@@ -57,6 +62,7 @@ const (
 	RetentionSweepEveryHours               Key = "retention_sweep_every_hours"
 	InvariantsCheckEveryHours              Key = "invariants_check_every_hours"
 	ScanRootErrorLimit                     Key = "scan_root_error_limit"
+	PrepareProgressEverySeconds            Key = "prepare_progress_every_seconds"
 )
 
 // upkeepSweepDefinitions are how often the core's upkeep looks, and how far back the job view counts:
@@ -316,6 +322,19 @@ func libraryAdminDefinitions() []Definition {
 			"errors one root's listing may meet before its node stops listing it and says it stopped (D40): "+
 				"a dead share must not flood the scan; was the node's max_errors_per_root"),
 			"D40: a thousand"),
+	}
+}
+
+// nodeTuningDefinitions are how the nodes behave, which the core sends them (nodeproto.Tuning).
+func nodeTuningDefinitions() []Definition {
+	return []Definition{
+		// The core retries a prepare it has not heard of in prepareMaxSilence, five minutes: a
+		// minute's most stays well within it.
+		sourced(durationSetting(PrepareProgressEverySeconds, time.Second,
+			strconv.Itoa(nodeproto.StartingProgressEverySeconds), 1, 60,
+			"seconds, at least, between a running prepare's words to the core on how far it is (D234 §5); "+
+				"was the node's progress_every_seconds"),
+			"D234 §5: throttled; two seconds"),
 	}
 }
 

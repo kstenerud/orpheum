@@ -67,9 +67,6 @@ type Workers struct {
 	// PreparedDirectory is where renditions are written, whose disk the status reports; empty on
 	// a node that does not prepare.
 	PreparedDirectory string
-	// ProgressEvery is how often, at most, a running prepare tells the core how far it is:
-	// node.progress_every_seconds.
-	ProgressEvery time.Duration
 	// EndedWorkKept is how long the node remembers an attempt whose result the core acknowledged,
 	// so the same command sent again is not run again: node.ended_work_kept_hours.
 	EndedWorkKept time.Duration
@@ -147,6 +144,9 @@ type Agent struct {
 	// statusEvery is how often the core last said to post the status, which a change is set against;
 	// starts at nodeproto.StartingStatusEverySeconds.
 	statusEvery atomic.Int64
+	// progressEverySeconds is how often, at most, a running prepare tells the core how far it is, as
+	// the core last said (nodeproto.Tuning); starts at nodeproto.StartingProgressEverySeconds.
+	progressEverySeconds atomic.Int64
 
 	mutex sync.Mutex
 	// devices are what the roots are on, as the last hello found them. Guarded by mutex.
@@ -177,12 +177,21 @@ func New(
 		answerRetry: defaultAnswerRetry(),
 	}
 	agent.statusEvery.Store(int64(nodeproto.StartingStatusEverySeconds))
+	agent.progressEverySeconds.Store(int64(nodeproto.StartingProgressEverySeconds))
 	return agent
 }
 
 // takeTuning takes how the core's settings say the node behaves (nodeproto.Tuning).
 func (agent *Agent) takeTuning(ctx context.Context, tuning nodeproto.Tuning) {
 	agent.setStatusEvery(ctx, tuning.StatusEverySeconds)
+	if tuning.ProgressEverySeconds > 0 {
+		agent.progressEverySeconds.Store(int64(tuning.ProgressEverySeconds))
+	}
+}
+
+// progressEvery is how often, at most, a running prepare tells the core how far it is.
+func (agent *Agent) progressEvery() time.Duration {
+	return time.Duration(agent.progressEverySeconds.Load()) * time.Second
 }
 
 // setStatusEvery posts the status every seconds from now, when the core says a cadence other than the

@@ -80,7 +80,7 @@ func (agent *Agent) runPrepare(
 	}
 	var lastProgressSentAt time.Time
 	onProgress := func(preparedThroughMs int64) {
-		if now := agent.clock.Now(); now.Sub(lastProgressSentAt) >= agent.workers.ProgressEvery {
+		if now := agent.clock.Now(); now.Sub(lastProgressSentAt) >= agent.progressEvery() {
 			lastProgressSentAt = now
 			running := held.progress(nodeproto.ProgressRunning)
 			running.PreparedThroughMs = preparedThroughMs
