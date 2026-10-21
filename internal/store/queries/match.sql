@@ -85,7 +85,11 @@ ORDER BY title.id;
 -- The titles in one state of identification, for the chooser's list (cut-a section 5), with a
 -- failure of their own to be fetched and a person's refresh waiting (D231 section 4). Only those
 -- with a live file: a title whose files went elsewhere waits for no one (the owner's NAS,
--- 2026-10-13, where a series library's films became its episodes).
+-- 2026-10-13, where a series library's films became its episodes). An episode is its series'
+-- (D209). An unidentified one not searched yet waits for no one, unless its fetch failed on its
+-- own, which waits for a person's look again, or a person asked for it again, which the list says
+-- is coming. So the list is what CountWaitingForAPerson counts, and those asked for (the owner's
+-- staging, 2026-10-21, where the count said 15 and the list was hundreds of episodes).
 SELECT title.id, title.kind, title.year, title.identification_state, title.followed_source, title.followed_source_id, item.library_id,
   item_text.name, fetch_failure.failure AS fetch_failure, fetch_failure.failed_at AS fetch_failed_at,
   refresh_request.requested_at AS refresh_requested_at
@@ -95,6 +99,9 @@ LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 
 LEFT JOIN fetch_failure ON fetch_failure.item_id = title.id
 LEFT JOIN refresh_request ON refresh_request.item_id = title.id
 WHERE title.identification_state = sqlc.arg(identification_state) AND item.removed_at IS NULL
+  AND title.kind != 'episode'
+  AND (title.identification_state != 'unidentified' OR title.followed_source = 'none'
+    OR fetch_failure.item_id IS NOT NULL OR refresh_request.item_id IS NOT NULL)
   AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
     OR item.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
   AND EXISTS (
@@ -134,8 +141,9 @@ WHERE id = sqlc.arg(id) AND identification_state = 'ambiguous';
 
 -- name: CountWaitingForAPerson :one
 -- The films and series whose match waits for a person, as "Needs a match" lists them: several
--- found, or none found after a search, with a live file; an episode is its series' (D209). Each
--- part repeats the index it is counted by, title_ambiguous or title_waiting (D303, DL4).
+-- found, or none found after a search, or a fetch that failed on its own, with a live file; an
+-- episode is its series' (D209). Each part repeats the index it is counted by, title_ambiguous or
+-- title_waiting (D303, DL4), or the few fetch_failure rows.
 SELECT CAST((
   SELECT count(*) FROM title CROSS JOIN item ON item.id = title.id
   WHERE title.identification_state = 'ambiguous' AND item.removed_at IS NULL AND EXISTS (
@@ -153,6 +161,23 @@ SELECT CAST((
     AND (collection.identification_state = 'ambiguous'
       OR (collection.identification_state = 'unidentified' AND collection.followed_source = 'none'))
     AND EXISTS (
+    SELECT 1 FROM collection_member
+    CROSS JOIN version ON version.title_id = collection_member.member_title
+    CROSS JOIN file ON file.version_id = version.id
+    WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
+      AND file.removed_at IS NULL)
+) + (
+  SELECT count(*) FROM fetch_failure CROSS JOIN title ON title.id = fetch_failure.item_id
+  CROSS JOIN item ON item.id = title.id
+  WHERE title.identification_state = 'unidentified' AND IFNULL(title.followed_source, '') != 'none'
+    AND title.kind != 'episode' AND item.removed_at IS NULL AND EXISTS (
+    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+    WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL)
+) + (
+  SELECT count(*) FROM fetch_failure CROSS JOIN collection ON collection.id = fetch_failure.item_id
+  CROSS JOIN item ON item.id = collection.id
+  WHERE collection.kind = 'series' AND collection.identification_state = 'unidentified'
+    AND IFNULL(collection.followed_source, '') != 'none' AND item.removed_at IS NULL AND EXISTS (
     SELECT 1 FROM collection_member
     CROSS JOIN version ON version.title_id = collection_member.member_title
     CROSS JOIN file ON file.version_id = version.id

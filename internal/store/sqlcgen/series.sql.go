@@ -192,6 +192,8 @@ LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_origin
 LEFT JOIN fetch_failure ON fetch_failure.item_id = collection.id
 LEFT JOIN refresh_request ON refresh_request.item_id = collection.id
 WHERE collection.kind = 'series' AND collection.identification_state = ?1 AND item.removed_at IS NULL
+  AND (collection.identification_state != 'unidentified' OR collection.followed_source = 'none'
+    OR fetch_failure.item_id IS NOT NULL OR refresh_request.item_id IS NOT NULL)
   AND (CAST(?2 AS INTEGER) = 1
     OR item.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
   AND EXISTS (
@@ -226,7 +228,9 @@ type ListSeriesByIdentificationRow struct {
 // The series in one state of identification, for the chooser's list, with a failure of their own
 // to be fetched and a person's refresh waiting (D231 section 4). Only those with an episode's live
 // file: a series an older reading of the folders made, its episodes filed again elsewhere, waits
-// for no one (the owner's NAS, 2026-10-13).
+// for no one (the owner's NAS, 2026-10-13), as does an unidentified one not searched yet unless its
+// fetch failed on its own or a person asked for it again: the list is what CountWaitingForAPerson
+// counts, and those asked for.
 func (q *Queries) ListSeriesByIdentification(ctx context.Context, arg ListSeriesByIdentificationParams) ([]ListSeriesByIdentificationRow, error) {
 	rows, err := q.db.QueryContext(ctx, listSeriesByIdentification, arg.IdentificationState, arg.IsEveryLibrary, arg.LibraryIdsJSON)
 	if err != nil {

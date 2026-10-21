@@ -6,10 +6,19 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { CandidateList } from "./candidate-chooser.tsx";
-import { Identify, WaitingList } from "./identify.tsx";
+import { shownFilter, WaitingList, WaitingTabs } from "./identify.tsx";
 import { withServices } from "./test-services.tsx";
 
 const ignore = (): void => undefined;
+
+/** A film waiting, no search having found it. */
+const waiting = {
+  id: 7,
+  kind: "movie",
+  name: "Harbor Lights",
+  identificationState: "unidentified",
+  libraryId: 1,
+} as const;
 
 describe("identify", () => {
   it("lists each waiting item with a way to choose its match and to look again", () => {
@@ -59,8 +68,27 @@ describe("identify", () => {
     expect(markup.match(/This one/gu)).toHaveLength(2);
   });
 
-  it("starts with the items that have several matches", () => {
-    const markup = renderToStaticMarkup(withServices(<Identify />));
-    expect(markup).toContain('aria-pressed="true">Several matches');
+  it("opens on the items with several matches, or on those with none while there are no others", () => {
+    const one = [waiting];
+    expect(shownFilter(undefined, { ambiguous: one, unidentified: one })).toBe("ambiguous");
+    expect(shownFilter(undefined, { ambiguous: [], unidentified: [] })).toBe("ambiguous");
+    expect(shownFilter(undefined, { ambiguous: [], unidentified: one })).toBe("unidentified");
+    // A tab a person chose stays, empty or not.
+    expect(shownFilter("ambiguous", { ambiguous: [], unidentified: one })).toBe("ambiguous");
+  });
+
+  it("says on each tab how many it holds, and opens on one that holds any", () => {
+    const markup = renderToStaticMarkup(
+      withServices(
+        <WaitingTabs
+          lists={{ ambiguous: [], unidentified: [waiting, { ...waiting, id: 8 }] }}
+          chosen={undefined}
+          onChoose={ignore}
+          onChanged={ignore}
+        />,
+      ),
+    );
+    expect(markup).toContain('aria-pressed="false">Several matches (0)</button>');
+    expect(markup).toContain('aria-pressed="true">No match (2)</button>');
   });
 });
