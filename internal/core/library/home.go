@@ -146,6 +146,12 @@ func ReadResumeThresholds(ctx context.Context, config IntSettings) (ResumeThresh
 	return ResumeThresholds{inProgressAfterPercent: minimum, finishedAfterPercent: finished}, nil
 }
 
+// IsFinished is whether a position is past the file's finishing threshold: watched, as Continue
+// Watching takes it. A file of unknown length is never finished by its position.
+func (thresholds ResumeThresholds) IsFinished(positionMs, durationMs int64) bool {
+	return durationMs > 0 && positionMs*100 > thresholds.finishedAfterPercent*durationMs
+}
+
 // IsPartwayThrough is whether a position is partway through a file: past the first threshold and not
 // past the second, compared as products so no rounding moves the edges. A file of unknown length
 // is partway through at any position but its start: a missing fact never becomes "finished".

@@ -15,6 +15,10 @@
 //     highest, a film with its live files; a look that ended is released, and what anyone watched
 //     is raised for good to the shown-interest rung (D324 §2, §3).
 //     Enforced by TestRaiser_RaisesThePlayedTheLookedAtAndTheWatched.
+//   - A look at a series raises series_episodes_ahead episodes from its person's place: the one
+//     partway through, the latest watched of several; else the one after the latest finished; else
+//     the first (D324 §3). Enforced by TestEpisodesAhead_StartAtThePersonsPlaceInTheSeries and
+//     TestEpisodesOf_ReadThePersonsPositionsAgainstTheThresholds.
 //   - Interest never lowers a job: a play's stays a play's. Enforced in internal/core/jobs by
 //     TestInterestJobs_RaiseTheWorkOfInterestAndLetItFallToTheShownInterestRung.
 //   - Imports nothing from internal/node, never os/exec. Enforced by the depguard rule
@@ -30,4 +34,5 @@
 //
 //   - register.go: each session's look, said by PUT and DELETE /interest/{id} (api's page_interest.go).
 //   - raise.go: what a look, a playback and a watching raise, and the loop that raises them.
+//   - series.go: a series' episodes ahead of its person.
 package interest

@@ -8,6 +8,7 @@ import "time"
 const (
 	InterestSaidEverySeconds   Key = "interest_said_every_seconds"
 	InterestLapsesAfterSeconds Key = "interest_lapses_after_seconds"
+	SeriesEpisodesAhead        Key = "series_episodes_ahead"
 )
 
 // interestDefinitions are how a person's interest in a film or series is said and how long it
@@ -22,5 +23,9 @@ func interestDefinitions() []Definition {
 			"seconds after a page or a playback last said so that its interest lapses and its work falls to "+
 				"the shown-interest rung (D324 §1)"),
 			"D324: three missed words, as a node's silence (cut-a §4)"),
+		sourced(integerSetting(SeriesEpisodesAhead, "3", 1, 20,
+			"how many of a series' episodes a look at its page raises the work of, from the one its person is "+
+				"partway through, or the one after the last they finished, or the first (D324 §3)"),
+			"the owner, 2026-10-21: the next three"),
 	}
 }
