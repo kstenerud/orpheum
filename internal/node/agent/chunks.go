@@ -91,7 +91,10 @@ func (agent *Agent) runChunks(
 	if agent.workers.ChunkMaker == nil {
 		return refused(errors.New("this node does not make chunks"))
 	}
-	sourcePath, err := agent.verifiedSourcePath(command.Video)
+	sourcePath, err := agent.verifiedSourcePath(ctx, command.Video)
+	if stall := stallOf(err); stall != nil {
+		return nodeproto.MakeChunksReport{State: nodeproto.PrepareStalled, LastChunk: -1, Stall: stall}
+	}
 	if err != nil {
 		return refused(err)
 	}
