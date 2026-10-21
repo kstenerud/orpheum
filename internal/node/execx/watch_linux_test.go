@@ -347,3 +347,28 @@ func TestBlockedPathFrom_IsTheFileTheBlockedCallsDescriptorNames(t *testing.T) {
 		}
 	}
 }
+
+// A run that ends because its disk failed a read, as a network share mounted to give up on a host
+// that is gone says, is a stall waiting on its disk, not FFmpeg's word on the bytes; a run that fails
+// otherwise is a RunError as before (D233 §10; staging, 2026-10-21).
+func TestRunWatched_ARunItsDiskFailedIsAStallOnItsDisk(t *testing.T) {
+	t.Parallel()
+	for _, check := range []struct {
+		stderr      string
+		isDiskStall bool
+	}{
+		{"[matroska @ 0x1] Error reading: Input/output error\n", true},
+		{"/media/film.mkv: Stale file handle\n", true},
+		{"[hevc @ 0x1] Invalid data found when processing input\n", false},
+	} {
+		fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stderr: check.stderr, ExitStatus: 1})
+		run := WatchedRun{Arguments: []string{"-i", "x"}, Watch: testWatch}
+		_, err := newRunner(t, fake).RunWatched(t.Context(), run)
+		stalled, isStalled := errors.AsType[*StalledError](err)
+		if isStalled != check.isDiskStall ||
+			(isStalled && (stalled.Cause != StallDiskFailed || stalled.Condition != ConditionWaitingOnDisk)) {
+			t.Errorf("a run that logged %q ended %v; want a stall on its disk: %t", check.stderr, err,
+				check.isDiskStall)
+		}
+	}
+}

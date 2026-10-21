@@ -38,6 +38,9 @@ type Server struct {
 	// long the open may take; nil opens unwatched (WatchingOpens).
 	disks      *diskwatch.Gate
 	openWindow time.Duration
+	// openFile opens a file a request names: the payload hashes' OpenNamed; a test's may fail as a
+	// disk that does not answer does.
+	openFile func(roots map[string]*confine.MediaRoot, named nodeproto.BytesFile) (*os.File, fs.FileInfo, error)
 }
 
 // WatchingOpens has the server open each file through the node's disk gate, answering one that does
@@ -54,7 +57,9 @@ func New(roots []*confine.MediaRoot, prepared *confine.MediaRoot) *Server {
 	for _, root := range roots {
 		byPath[root.Path()] = root
 	}
-	return &Server{roots: byPath, prepared: prepared, payloadHashes: namedfile.NewHashes()}
+	server := &Server{roots: byPath, prepared: prepared, payloadHashes: namedfile.NewHashes()}
+	server.openFile = server.payloadHashes.OpenNamed
+	return server
 }
 
 // Results are the results a node holds, too large to post, by their attempt's token:
@@ -116,7 +121,7 @@ func (server *Server) serveFile(writer http.ResponseWriter, request *http.Reques
 	named := nodeproto.BytesFile{RootPath: query.Get("rootPath"), Path: rawPath, PayloadHash: wantPayloadHash}
 	file, info, err := server.openNamed(request.Context(), named)
 	switch {
-	case errors.Is(err, diskwatch.ErrStalled):
+	case errors.Is(err, diskwatch.ErrStalled), diskwatch.IsDiskFailure(err):
 		writer.Header().Set(nodeproto.HeaderStalledRoot, named.RootPath)
 		http.Error(writer, "the disk this file is on is not answering", http.StatusGatewayTimeout)
 		return
@@ -150,7 +155,7 @@ func (server *Server) serveFile(writer http.ResponseWriter, request *http.Reques
 // openNamed opens the file named through the disk gate, when the server has one.
 func (server *Server) openNamed(ctx context.Context, named nodeproto.BytesFile) (*os.File, fs.FileInfo, error) {
 	if server.disks == nil {
-		return server.payloadHashes.OpenNamed(server.roots, named)
+		return server.openFile(server.roots, named)
 	}
 	type opened struct {
 		file *os.File
@@ -160,7 +165,7 @@ func (server *Server) openNamed(ctx context.Context, named nodeproto.BytesFile) 
 		Root: named.RootPath, Path: named.RootPath + "/" + string(named.Path), Window: server.openWindow,
 	}
 	got, err := diskwatch.Run(ctx, server.disks, operation, func() (opened, error) {
-		file, info, openErr := server.payloadHashes.OpenNamed(server.roots, named)
+		file, info, openErr := server.openFile(server.roots, named)
 		return opened{file: file, info: info}, openErr
 	}, func(late opened) { readonly.Close(late.file) })
 	if err != nil {

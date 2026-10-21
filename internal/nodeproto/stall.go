@@ -13,6 +13,9 @@ const (
 	StallStoodStill StallCause = "stood_still"
 	// StallPastDeadline is a run that moved but did not end by its deadline.
 	StallPastDeadline StallCause = "past_deadline"
+	// StallDiskFailed is a read its disk failed as one that does not answer does: a network share
+	// mounted to give up returns an I/O error, a stale handle or a timeout (D233 §10).
+	StallDiskFailed StallCause = "disk_failed"
 )
 
 // StallCondition is what a stalled run was doing, as the node read it from /proc (D233 §5).

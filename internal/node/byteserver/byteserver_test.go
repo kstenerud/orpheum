@@ -4,6 +4,7 @@ package byteserver_test
 
 import (
 	"encoding/hex"
+	"io/fs"
 	"maps"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -352,5 +354,23 @@ func TestServeFile_AFileOnARootWhoseDiskDoesNotAnswerIs504NamingTheRoot(t *testi
 		stalled.Header().Get(nodeproto.HeaderStalledRoot) != movie.root.Path() {
 		t.Errorf("GET on a stuck root = %d, root %q; want 504 naming %s", stalled.Code,
 			stalled.Header().Get(nodeproto.HeaderStalledRoot), movie.root.Path())
+	}
+}
+
+// A file whose disk fails the read as a network share mounted to give up does is answered 504
+// naming its root, as one whose disk does not answer is (D233 §10).
+func TestServeFile_AFileItsDiskFailsIs504NamingTheRoot(t *testing.T) {
+	t.Parallel()
+	movie := newFilm(t, "Film (1999).mkv")
+	gate := diskwatch.NewGate(clocktest.NewFake(time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)))
+	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).WatchingOpens(gate, time.Minute).
+		OpeningWith(func(map[string]*confine.MediaRoot, nodeproto.BytesFile) (*os.File, fs.FileInfo, error) {
+			return nil, nil, &fs.PathError{Op: "open", Path: movie.path, Err: syscall.EIO}
+		}).Handler()
+	failed := movie.get(t, handler, movie.payloadHash, nil)
+	if failed.Code != http.StatusGatewayTimeout ||
+		failed.Header().Get(nodeproto.HeaderStalledRoot) != movie.root.Path() {
+		t.Errorf("GET of a file its disk failed = %d, root %q; want 504 naming %s", failed.Code,
+			failed.Header().Get(nodeproto.HeaderStalledRoot), movie.root.Path())
 	}
 }
