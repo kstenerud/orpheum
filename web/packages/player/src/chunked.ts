@@ -5,7 +5,12 @@ import Hls, { type HlsConfig, type LoaderResponse, type LoadPolicy } from "hls.j
 import { groupJumpedEvent, isFollowingAGroup, isVoiceLive, type CannotKeepUp } from "@orpheum/sdk";
 
 import { fromCacheBy } from "./cache-hit.ts";
-import { noRoomToMakeStatus, tooEarlyStatus, type PlaybackFailure } from "./failure.ts";
+import {
+  noRoomToMakeStatus,
+  tooEarlyStatus,
+  unreachableStatus,
+  type PlaybackFailure,
+} from "./failure.ts";
 import { orpheumAbr, type OrpheumAbr } from "./abr.ts";
 import { diagnose, diagnosisOf, stepNoter } from "./diagnosis.ts";
 import {
@@ -125,7 +130,10 @@ export function ceilingOf(header: string | null): number | undefined {
 /** The header a download asks the server to pace it in: the core's PaceHeader (D262 §2). */
 export const paceHeader = "Orpheum-Pace-Kbps";
 
-/** Whether a chunk's load is tried again: as hls.js would, and after the core's 425 too. */
+/**
+ * Whether a chunk's load is tried again: as hls.js would, and after the core's 425 too; never after
+ * its 429 or 503, which asking again does not change.
+ */
 // eslint-disable-next-line max-params -- hls.js's own signature for shouldRetry
 function retriesTooEarly(
   _config: unknown,
@@ -136,6 +144,11 @@ function retriesTooEarly(
 ): boolean {
   if (response?.code === noRoomToMakeStatus) {
     return false; // the core has no room to make it: asking again finds none (D250 §6)
+  }
+  if (response?.code === unreachableStatus) {
+    // Its film cannot be read now: the page says why and plays again once it can, where ninety asks
+    // again spun the player for minutes, saying nothing (the owner's test, 2026-10-21).
+    return false;
   }
   return isRetry || response?.code === tooEarlyStatus;
 }
