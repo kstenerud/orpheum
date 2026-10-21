@@ -68,7 +68,7 @@ type Parts struct {
 // ErrMissingPart is an estimator built without one of its parts.
 var ErrMissingPart = errors.New("the estimator is missing a part")
 
-// readsMeasured is how many of a node's latest read-throughs its read speed is the mean of: enough
+// readsMeasured is how many of a node's latest read-throughs its read speed is the median of: enough
 // that one odd file moves it little, few enough that a disk that slowed shows within the hour.
 const readsMeasured = 5
 
@@ -116,8 +116,10 @@ func (estimator *Estimator) ReadThroughFinished(nodeID, bytes int64, took time.D
 	estimator.readSpeeds[nodeID] = slices.Clone(speeds[max(0, len(speeds)-readsMeasured):])
 }
 
-// readSpeed is a node's read speed in bytes a second: the mean of its latest read-throughs, else its
-// slowest read as its configuration says; zero when neither is known.
+// readSpeed is a node's read speed in bytes a second: the median of its latest read-throughs, which
+// one read an outage held for an hour moves little, as it made "about 59 minutes" of a mean (the
+// owner's test, 2026-10-21); else its slowest read as its configuration says; zero when neither is
+// known.
 func (estimator *Estimator) readSpeed(nodeID int64) float64 {
 	estimator.mutex.Lock()
 	speeds := slices.Clone(estimator.readSpeeds[nodeID])
@@ -125,11 +127,12 @@ func (estimator *Estimator) readSpeed(nodeID int64) float64 {
 	if len(speeds) == 0 {
 		return float64(estimator.parts.Nodes.SlowestReadBytesPerSecond(nodeID))
 	}
-	var sum float64
-	for _, speed := range speeds {
-		sum += speed
+	slices.Sort(speeds)
+	middle := len(speeds) / 2
+	if len(speeds)%2 == 0 {
+		return (speeds[middle-1] + speeds[middle]) / 2
 	}
-	return sum / float64(len(speeds))
+	return speeds[middle]
 }
 
 // Of is the work a file's viewer waits on, and how long each will take.

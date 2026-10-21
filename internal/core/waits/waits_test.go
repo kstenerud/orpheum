@@ -150,7 +150,7 @@ func TestEstimator_AReadThroughWaitsForTheBytesAheadOfItOnItsNode(t *testing.T) 
 	}
 }
 
-// A node's read speed is the mean of its latest five read-throughs, each its bytes over its time
+// A node's read speed is the median of its latest five read-throughs, each its bytes over its time
 // once it ran, timed as the read-throughs end; before any, its slowest read (D324 §6).
 func TestEstimator_AReadThroughsNodeSpeedIsWhatItsLastReadsMeasured(t *testing.T) {
 	t.Parallel()
@@ -161,12 +161,13 @@ func TestEstimator_AReadThroughsNodeSpeedIsWhatItsLastReadsMeasured(t *testing.T
 		t.Errorf("before any read, file 100's read-through takes %v; want 1m0s at the slowest read", left)
 	}
 	bench.reads.timings.ReadThroughFinished(1, 1000*mib, time.Second) // the oldest, forgotten
-	for _, seconds := range []int64{10, 20, 30, 15, 12} {
+	for _, seconds := range []int64{10, 3600, 30, 15, 12} {
 		bench.reads.timings.ReadThroughFinished(1, 600*mib, time.Duration(seconds)*time.Second)
 	}
-	// 60, 30, 20, 40 and 50 MiB a second: 40 on average.
+	// 60, 1/6, 20, 40 and 50 MiB a second, the second held by an outage: 40 their median.
 	if left, _ := bench.left(t); left != 15*time.Second {
-		t.Errorf("after five reads, file 100's read-through takes %v; want 15s at their mean", left)
+		t.Errorf("after five reads, one held an hour, file 100's read-through takes %v; want 15s at their median",
+			left)
 	}
 }
 

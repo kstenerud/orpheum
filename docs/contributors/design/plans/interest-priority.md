@@ -120,7 +120,7 @@ and a read-through is one file).
    playback's own prepare and runs wanted, which interest finds by neither film nor file.
 5. **I5 — how long.** Each device's read speed and each prepare's speed; the API's waiting work and
    seconds; the film page's note and the player's wait. *Built 2026-10-21* (`internal/core/waits`,
-   `GET /files/{id}/waits`): the read speed is a node's, the mean of its last five full reads timed
+   `GET /files/{id}/waits`): the read speed is a node's, the median of its last five full reads timed
    from when the node said each ran, its slowest read before any; a node reads one file at a time,
    so the bytes ahead are read at that speed. A prepare not yet saying how far it is goes at its
    node's last realtime factor for the profile, or says nothing. The loudness note is the player's,
