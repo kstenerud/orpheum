@@ -5,6 +5,7 @@ package main
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -192,6 +193,11 @@ func TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled(t *testing.T) {
 	if timeline.KeyframesMsJSON != "[0]" || timeline.BytesInEachSecondJSON != "[930]" {
 		t.Errorf("the film's timeline in persistent.db = %+v (%v); want its one keyframe and its second's bytes, from "+
 			"the same read", timeline, err)
+	}
+	// Measured, it has nothing left to wait for (D324 §6).
+	waits := requestAPI(t, http.MethodGet, fmt.Sprintf("%s/files/%d/waits", server.baseURL, filmFileID), token, nil)
+	if waits.status != http.StatusOK || strings.Contains(waits.body, "readThrough") {
+		t.Errorf("once measured, the film's waits = %d %s; want none", waits.status, waits.body)
 	}
 }
 
