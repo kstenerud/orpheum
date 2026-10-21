@@ -11,6 +11,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kstenerud/orpheum/internal/core/chunks"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 )
@@ -168,19 +169,17 @@ func (server *Server) relayChunkFile(
 	for {
 		answer, err := server.relay(ctx, dependencies, request, func() error { return errNotMadeYet })
 		if !errors.Is(err, errNotMadeYet) {
-			if err == nil {
-				if servedErr := dependencies.Chunks.Served(ctx, file); servedErr != nil {
-					return nil, server.logInternalError(ctx, "record a chunk served", servedErr)
-				}
-			}
-			server.logChunkWait(ctx, dependencies, file, wait, chunkWaitOutcomeOf(err))
-			return answer, err
+			return server.relayed(ctx, dependencies, file, wait, answer, err)
 		}
 		if err = dependencies.Chunks.Want(ctx, file); err != nil {
 			server.logChunkWait(ctx, dependencies, file, wait, chunkWaitFailed)
 			return nil, server.chunksError(ctx, "have a chunk made", err)
 		}
 		if wait == nil {
+			if unreachable := server.unreachableFilm(ctx, dependencies, file.FileID()); unreachable != nil {
+				server.logChunkWait(ctx, dependencies, file, &chunkWait{askedAt: askedAt}, chunkWaitFailed)
+				return nil, unreachable
+			}
 			wait = &chunkWait{askedAt: askedAt}
 			wait.run, wait.isCovered = dependencies.Chunks.CoveringRun(file)
 		}
@@ -193,6 +192,34 @@ func (server *Server) relayChunkFile(
 			return nil, tooEarly()
 		}
 	}
+}
+
+// relayed ends a wait for a store's file its node answered: served, and known made, or failed.
+func (server *Server) relayed(
+	ctx context.Context, dependencies *Dependencies, file chunks.StoreFile, wait *chunkWait,
+	answer *huma.StreamResponse, err error,
+) (*huma.StreamResponse, error) {
+	if err == nil {
+		if servedErr := dependencies.Chunks.Served(ctx, file); servedErr != nil {
+			return nil, server.logInternalError(ctx, "record a chunk served", servedErr)
+		}
+	}
+	server.logChunkWait(ctx, dependencies, file, wait, chunkWaitOutcomeOf(err))
+	return answer, err
+}
+
+// unreachableFilm is why a chunk not made yet will not be: its film's root unavailable, its node
+// away or its disk not answering, so the player is told now, not "being prepared" for as long as it
+// asks (D241 §7; staging, 2026-10-21, nas.example off). Nil when its film can be read.
+func (server *Server) unreachableFilm(ctx context.Context, dependencies *Dependencies, fileID int64) error {
+	unreadable, err := dependencies.Playback.Unreadable(ctx, fileID)
+	if err != nil {
+		return server.playbackError(ctx, "ask whether a chunk's film can be read", err)
+	}
+	if unreadable == nil {
+		return nil
+	}
+	return mediaUnreachable(&library.UnreadableError{Unreadable: *unreadable}, server.nodeNamer(ctx, dependencies))
 }
 
 // chunkWait is a store's file a player waits for, its node not having made it when first asked:

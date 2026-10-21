@@ -412,3 +412,24 @@ func (harness testHarness) checkOneRunQueued(t *testing.T, gridID string) {
 		t.Errorf("the run's store = %+v, %v; want film 1's q700k432p on its grid", store, err)
 	}
 }
+
+// A chunk not made yet of a film whose root has become unavailable, its disk not answering or its
+// node away, is answered media_unreachable at once, saying why, rather than "being prepared" for as
+// long as the player asks: no run will make it (D241 §7; staging, 2026-10-21, nas.example off).
+func TestChunks_AnUnmadeChunkOfAFilmWhoseRootIsUnavailableIsUnreachable(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	base := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	harness.keepFilmOnesTimeline(t)
+	storetest.ExecRaw(t, harness.databasePath,
+		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, unavailable_since)
+		 VALUES (1, '/media', 'unreadable', 5000, 4000)`)
+	unmade := harness.getBytePath(t, base+"q1200k480p/00000.m4s", user, true, "")
+	if unmade.status != http.StatusServiceUnavailable || !strings.Contains(unmade.body, `"code":"media_unreachable"`) ||
+		!strings.Contains(unmade.body, `"reason":"root_missing"`) {
+		t.Errorf("an unmade chunk under an unavailable root: %d %s; want media_unreachable, its root missing",
+			unmade.status, unmade.body)
+	}
+}
