@@ -9,12 +9,20 @@ import (
 )
 
 // listWork is a listing held until its device has a reader free, which posts what it found to the
-// core (D240 §2).
+// core (D240 §2). Its start and end are logged with how long each wait took: where the minute a root
+// took to come back went was not in the log (staging, 2026-10-21).
 func (agent *Agent) listWork(ctx context.Context, nodeID int64, held attempt, command nodeproto.List) heldWork {
+	heldAt := agent.clock.Now()
 	return agent.answeringWork(ctx, nodeID, answeringJob{
 		attempt: held, jobKind: "a listing", reading: command.RootPath,
 		makeAnswer: func(jobCtx context.Context) (nodeproto.Result, string) {
+			startedAt := agent.clock.Now()
+			agent.logger.InfoContext(ctx, "a listing started", "jobId", held.jobID, "rootPath", command.RootPath,
+				"path", command.Path, "waitedMs", startedAt.Sub(heldAt).Milliseconds())
 			listing := agent.runList(jobCtx, command)
+			agent.logger.InfoContext(ctx, "a listing ended", "jobId", held.jobID, "rootPath", command.RootPath,
+				"recordCount", len(listing.Records), "tookMs", agent.clock.Now().Sub(startedAt).Milliseconds(),
+				"refusal", listing.Refusal)
 			return nodeproto.Result{Listing: &listing}, listing.Refusal
 		},
 		stalledAnswer: func(stall nodeproto.Stall) nodeproto.Result {

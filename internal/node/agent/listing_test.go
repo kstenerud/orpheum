@@ -4,6 +4,7 @@ package agent
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
@@ -18,11 +19,15 @@ import (
 )
 
 // The core lists a root, then asks for the files it needs read: the node answers each as a result
-// of the job (D240 §2, §4).
+// of the job (D240 §2, §4). The listing's start and end are logged with how long each took.
 func TestAgent_ListsARootAndExaminesTheFilesTheCoreAsksFor(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
-	root, _ := startAgent(t, socket)
+	logged := &testutil.Log{}
+	root, _ := startAgentWithWorkers(t, socket, Workers{
+		Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Preparer: fakePreparer{}, Subtitler: fakeSubtitler{},
+		ThroughReader: fakeThroughReader{}, ChunkMaker: fakeChunkMaker{},
+	}, func(node *Agent) { node.logger = slog.New(slog.NewTextHandler(logged, nil)) })
 	if err := os.WriteFile(filepath.Join(root.Path(), "Wing.mkv"), []byte("alien"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -36,6 +41,8 @@ func TestAgent_ListsARootAndExaminesTheFilesTheCoreAsksFor(t *testing.T) {
 		}) {
 		t.Errorf("job 1's answer = %+v, want a listing naming Wing.mkv", listed)
 	}
+	logged.AwaitLine(t, "a listing started", "jobId=1", "waitedMs=")
+	logged.AwaitLine(t, "a listing ended", "jobId=1", "recordCount=", "tookMs=")
 	core.commands <- nodeproto.Command{CommandSeq: 2, JobID: 2, Work: nodeproto.Work{
 		Type: nodeproto.CommandExamine, Examine: &nodeproto.Examine{
 			RootPath: root.Path(),

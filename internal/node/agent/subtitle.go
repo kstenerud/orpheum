@@ -61,6 +61,9 @@ func (agent *Agent) answeringWork(ctx context.Context, nodeID int64, job answeri
 		agent.sayProgress(ctx, nodeID, job.progress(nodeproto.ProgressRunning))
 		if stuck, isStuck := agent.diskGate.IsStuck(job.reading); isStuck && job.stalledAnswer != nil {
 			// Its root holds a reading that has not returned: this one would only wait beside it.
+			agent.logger.InfoContext(ctx, "a job was not tried: its root is still waiting on its disk",
+				"jobKind", job.jobKind, "jobId", job.jobID, "rootPath", job.reading, "waitingOn", stuck.Path,
+				"stuckSince", stuck.Since)
 			agent.postResult(ctx, nodeID, job.jobKind, job.named(job.stalledAnswer(nodeproto.Stall{
 				Cause: nodeproto.StallNeverMoved, Condition: nodeproto.ConditionWaitingOnDisk,
 				WaitingOnPath: stuck.Path, Detail: "not tried: an earlier reading of " + job.reading +

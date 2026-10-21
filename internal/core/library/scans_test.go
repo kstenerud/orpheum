@@ -18,6 +18,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // queuedJobs keeps the jobs the scans queue.
@@ -360,6 +361,91 @@ func TestScans_AStallOnARootsDiskMakesItUnavailableUntilAScanReadsIt(t *testing.
 	if _, isMissing, err := UnavailableUnder(ctx, bench.database.Read(), bench.nodeID,
 		[]byte(root+"/Wing.mkv")); err != nil || isMissing {
 		t.Errorf("after a scan read the root, a file under it is missing: %t, %v; want it back", isMissing, err)
+	}
+}
+
+// A scan's listing going to its node is logged with how long it waited in the core's queue: where a
+// root's minute to come back went was not in the log (staging, 2026-10-21).
+func TestScans_AListingGoingToItsNodeSaysHowLongItWaited(t *testing.T) {
+	t.Parallel()
+	bench := newScanBench(t)
+	logged := &testutil.Log{}
+	bench.scans = NewScans(ScansParts{
+		Cache: bench.cache, Ingester: bench.ingester, Jobs: bench.jobs, Assigner: bench.sent,
+		Settings: bench.settings, Clock: bench.clock, Logger: slog.New(slog.NewTextHandler(logged, nil)),
+	})
+	ctx := t.Context()
+	if err := bench.scans.Request(ctx, bench.nodeID, root, jobs.PriorityBackground); err != nil {
+		t.Fatal(err)
+	}
+	bench.clock.Advance(90 * time.Second)
+	if err := bench.scans.HandleScan(ctx, bench.jobs.last(t, jobs.KindScan)); err != nil {
+		t.Fatal(err)
+	}
+	logged.AwaitLine(t, "a scan's listing goes to its node", "rootPath="+root, "waitedMs=90000")
+}
+
+// unavailableRootBench is a scan bench whose root was read whole and is then unavailable, with no
+// scan of it in progress, which a request would only merge into; found are the paths found since.
+func unavailableRootBench(t *testing.T) (bench *scanBench, found *[]string, isUnavailable func() bool) {
+	t.Helper()
+	bench = newScanBench(t)
+	found = &[]string{}
+	bench.ingester.SetOnPathsFound(func(_ context.Context, _ int64, paths []string) {
+		*found = append(*found, paths...)
+	})
+	bench.scan([]nodeproto.ScanRecord{observedRecord("Wing.mkv", "alien")}, true)
+	if err := bench.scans.MarkRootNotNamed(t.Context(), bench.nodeID, root); err != nil {
+		t.Fatal(err)
+	}
+	*found = nil
+	return bench, found, func() bool {
+		t.Helper()
+		_, isMissing, err := UnavailableUnder(t.Context(), bench.database.Read(), bench.nodeID,
+			[]byte(root+"/Wing.mkv"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return isMissing
+	}
+}
+
+// An unavailable root comes back at once when its disk answers again as the one its last complete
+// scan read: what is under it is no longer missing, the work parked on it resumes, and a scan reads
+// what changed meanwhile in the background. A share back took a minute behind the listing of every
+// root on its disk (staging, 2026-10-21).
+func TestScans_AnUnavailableRootWhoseDiskAnswersAgainAsItWasIsBroughtBackAtOnce(t *testing.T) {
+	t.Parallel()
+	bench, found, isUnavailable := unavailableRootBench(t)
+	ctx := t.Context()
+	queuedBefore := len(bench.jobs.requests)
+	isBack, err := bench.scans.BringBackRoot(ctx, bench.nodeID, root, 7, true)
+	if err != nil || !isBack || isUnavailable() || !slices.Equal(*found, []string{root}) {
+		t.Errorf("brought back %t, %v, found %q; want it available, its work resumed", isBack, err, *found)
+	}
+	asked := bench.jobs.requests[queuedBefore:]
+	if len(asked) != 1 || asked[0].Priority != jobs.PriorityBackground {
+		t.Errorf("scans asked for after it came back: %+v; want one in the background", asked)
+	}
+	if isBack, err := bench.scans.BringBackRoot(ctx, bench.nodeID, root, 7, true); err != nil || isBack {
+		t.Errorf("a root available already: brought back %t, %v; want nothing done", isBack, err)
+	}
+}
+
+// A root whose disk answers on another device than its last complete scan read, or no longer as a
+// mount point, is the empty directory an unmounted disk leaves, and stays unavailable (D208).
+func TestScans_AnUnavailableRootOnAnotherDiskIsNotBroughtBack(t *testing.T) {
+	t.Parallel()
+	bench, found, isUnavailable := unavailableRootBench(t)
+	for _, other := range []struct {
+		device       uint64
+		isMountPoint bool
+	}{{8, true}, {7, false}} {
+		isBack, err := bench.scans.BringBackRoot(t.Context(), bench.nodeID, root, other.device, other.isMountPoint)
+		if err != nil || isBack || !isUnavailable() || len(*found) != 0 {
+			t.Errorf("on device %d, mount point %t: brought back %t, %v, found %q; want it left unavailable",
+				other.device, other.isMountPoint, isBack, err, *found)
+		}
 	}
 }
 

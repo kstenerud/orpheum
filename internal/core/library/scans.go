@@ -196,6 +196,22 @@ func (scans *Scans) MarkRootStalled(ctx context.Context, nodeID int64, rootPath 
 	return since, scans.Request(ctx, nodeID, rootPath, jobs.PriorityPersonsRequest)
 }
 
+// BringBackRoot is the core's answer to a node's status saying a root's disk, which had stopped
+// answering, answers again: the root is available again at once when its disk is the one its last
+// complete scan read, and a scan in the background reads what changed meanwhile (D233 §10). It says
+// whether it was brought back.
+func (scans *Scans) BringBackRoot(
+	ctx context.Context, nodeID int64, rootPath string, device uint64, isMountPoint bool,
+) (bool, error) {
+	isBack, err := scans.ingester.BringBackRoot(ctx, nodeID, rootPath, device, isMountPoint)
+	if err != nil || !isBack {
+		return false, err
+	}
+	scans.logger.InfoContext(ctx, "a root's disk answers again; it is available before its scan reads it",
+		"nodeId", nodeID, "rootPath", rootPath)
+	return true, scans.Request(ctx, nodeID, rootPath, jobs.PriorityBackground)
+}
+
 // MarkRootNotNamed makes a library root its node's hello no longer names unavailable from now, unless it
 // already was: plays of what is under it fail at once and say so, and nothing is removed on the
 // absence; a hello that names it again asks for its scan, which brings it back (D241 §2).
@@ -321,6 +337,11 @@ func (scans *Scans) HandleScan(ctx context.Context, job jobs.Job) error {
 	if err != nil {
 		return fmt.Errorf("read %s: %w", settings.ScanRootErrorLimit, err)
 	}
+	// With how long it waited in the core's queue: where the minute a root took to come back went was
+	// not in the log (staging, 2026-10-21).
+	scans.logger.InfoContext(ctx, "a scan's listing goes to its node", "nodeId", scan.NodeID, "rootPath",
+		scan.RootPath, "scopePath", scan.ScopePath, "jobId", job.ID, "attempt", job.AttemptNumber,
+		"waitedMs", scans.clock.Now().UnixMilli()-scan.StartedAt)
 	return scans.assigner.Assign(ctx, scan.NodeID, job, nodeproto.Command{Work: nodeproto.Work{
 		Type: nodeproto.CommandList, List: &nodeproto.List{
 			RootPath: scan.RootPath, Path: scan.ScopePath, ErrorLimit: int(errorLimit),

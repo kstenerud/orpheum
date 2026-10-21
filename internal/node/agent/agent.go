@@ -17,7 +17,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -156,6 +155,8 @@ type Agent struct {
 	// measureSpace measures a disk's space: diskspace.Measure; a test's may block as a disk that does
 	// not answer does.
 	measureSpace func(path string) (diskspace.Space, error)
+	// answering is which disks the last status found not answering.
+	answering diskAnswering
 	// openFile opens a file a command names: namedfile.OpenNamed; a test's may block as a disk that
 	// does not answer does.
 	openFile func(roots map[string]*confine.MediaRoot, named nodeproto.BytesFile) (*os.File, fs.FileInfo, error)
@@ -681,37 +682,6 @@ func (agent *Agent) held() []nodeproto.HeldAttempt {
 	}
 	return append(held, agent.ended.awaitingAcknowledgement()...)
 }
-
-// disks are the filesystems the node's roots and prepared directory are on, each measured now
-// (D225 §3).
-func (agent *Agent) disks(ctx context.Context) []nodeproto.Disk {
-	paths := slices.Clone(agent.hello.RootPaths)
-	if agent.workers.PreparedDirectory != "" {
-		paths = append(paths, agent.workers.PreparedDirectory)
-	}
-	disks := make([]nodeproto.Disk, 0, len(paths))
-	for _, path := range paths {
-		disk := nodeproto.Disk{Path: path}
-		// Through the disk gate, so a disk that does not answer leaves the status sent, saying so, where
-		// the measure blocked it, and the node fell silent (staging, 2026-10-21).
-		measuring := diskwatch.Operation{Root: path, Path: path, Window: measureStallWindow}
-		space, err := diskwatch.Run(ctx, agent.diskGate, measuring,
-			func() (diskspace.Space, error) { return agent.measureSpace(path) }, func(diskspace.Space) {})
-		if err != nil {
-			disk.Failure = err.Error()
-			disk.IsNotAnswering = errors.Is(err, diskwatch.ErrStalled) || diskwatch.IsDiskFailure(err)
-		} else {
-			disk.TotalBytes, disk.AvailableBytes = space.TotalBytes, space.AvailableBytes
-		}
-		disks = append(disks, disk)
-	}
-	return disks
-}
-
-// measureStallWindow is how long measuring a disk's space may take before the status says it is not
-// answering: a statfs answers in milliseconds, or from a disk asleep within seconds, and the status
-// waits on it.
-const measureStallWindow = 5 * time.Second
 
 // exchange makes one request and decodes its JSON answer.
 func (agent *Agent) exchange(ctx context.Context, method, path string, nodeID int64, body io.Reader, into any) error {

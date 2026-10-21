@@ -268,6 +268,39 @@ func TestStatus_ARootWhoseDiskIsNotAnsweringIsMadeUnavailableOnce(t *testing.T) 
 	}
 }
 
+// A status measuring a root's disk that the one before said was not answering asks to bring the
+// root back, with the facts the core tells its disk by: a full scan of every root on the disk stood
+// between a share's return and its films (staging, 2026-10-21). A disk that answered all along, one
+// failing otherwise, and a directory measured without facts, are not asked of.
+func TestStatus_ARootWhoseDiskAnswersAgainIsAskedToBeBroughtBack(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	settingstest.Set(t, harness.settings, settings.ShouldScanOnNodeHello, "false")
+	scans := &recordingScans{}
+	harness.service.SetScans(scans)
+	hello := harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/media/films", "/media/shows"}})
+	notAnswering := func(path string) nodeproto.Disk {
+		return nodeproto.Disk{Path: path, Failure: "its disk is not answering", IsNotAnswering: true}
+	}
+	harness.postStatus(t, hello.NodeID, nodeproto.Status{Disks: []nodeproto.Disk{
+		notAnswering("/media/films"), notAnswering("/media/shows"), notAnswering("/prepared"),
+	}})
+	harness.postStatus(t, hello.NodeID, nodeproto.Status{Disks: []nodeproto.Disk{
+		{Path: "/media/films", Device: 41, IsMountPoint: true},
+		{Path: "/media/shows", Failure: "permission denied"},
+		{Path: "/prepared", TotalBytes: 1 << 30},
+	}})
+	harness.postStatus(t, hello.NodeID, nodeproto.Status{Disks: []nodeproto.Disk{
+		{Path: "/media/films", Device: 41, IsMountPoint: true}, {Path: "/media/shows", Device: 41},
+	}})
+	scans.mutex.Lock()
+	defer scans.mutex.Unlock()
+	if !slices.Equal(scans.broughtBack, []string{"/media/films@41/mount"}) {
+		t.Errorf("roots asked to be brought back: %q; want /media/films, on device 41 as a mount point, once",
+			scans.broughtBack)
+	}
+}
+
 // A hello that no longer names a library root on its node makes it unavailable, whether or not a
 // hello asks for scans; one that names it again asks for its scan, which brings it back (D241 §2).
 func TestHello_MakesALibraryRootItNoLongerNamesUnavailable(t *testing.T) {
@@ -299,6 +332,21 @@ type recordingScans struct {
 	priorities []int64
 	notNamed   []string
 	stalled    []string
+	// broughtBack are root@device, with /mount for a mount point.
+	broughtBack []string
+}
+
+func (scans *recordingScans) BringBackRoot(
+	_ context.Context, _ int64, root string, device uint64, isMountPoint bool,
+) (bool, error) {
+	scans.mutex.Lock()
+	defer scans.mutex.Unlock()
+	asked := root + "@" + strconv.FormatUint(device, 10)
+	if isMountPoint {
+		asked += "/mount"
+	}
+	scans.broughtBack = append(scans.broughtBack, asked)
+	return true, nil
 }
 
 func (scans *recordingScans) MarkRootStalled(_ context.Context, _ int64, root string) (time.Time, error) {
