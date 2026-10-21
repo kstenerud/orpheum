@@ -413,11 +413,12 @@ func scanDefinitions() []Definition {
 				"a change and never says so (D27, D272 §1)"),
 			"best guess: daily, as new_library_default_scan_every_hours; scanner.md: periodic full scans "+
 				"are mandatory even with a perfect watcher"),
-		sourced(durationSetting(UnavailableRootRescanSeconds, time.Second, "60", 15, 3600,
+		sourced(durationSetting(UnavailableRootRescanSeconds, time.Second, "10", 5, 3600,
 			"seconds between scans of a library folder that is unavailable, its disk or its share not "+
 				"answering, which bring it back once one reads it (D233 §10, D241)"),
-			"staging, 2026-10-21: a NAS back in a minute; a scan of a share still away is answered at once "+
-				"by the node's disk gate"),
+			"staging, 2026-10-21: a scan of a share still away is answered at once by the node's disk gate, so "+
+				"one every ten seconds costs nearly nothing, where one a minute left a film 45 s from resuming "+
+				"(the owner)"),
 	}
 }
 
