@@ -90,3 +90,27 @@ Landlock and seccomp, and does not start without them (since 2026-10-20; before,
 - **If you cannot fix the kernel** and accept the risk, set `confinement_policy = "report"` under
   `[node]` in the node's config: it then runs FFmpeg unconfined, and the System page warns.
 
+## Films on a NAS stop playing when the NAS is off, or System warns "mounted to wait for its server for good"
+
+When the machine your films are shared from goes away (switched off, asleep, rebooting), a share
+mounted the way NFS mounts by default ("hard") makes every read of it wait until it is back. The
+wait happens in the kernel, so nothing can end it: not the media node, and not `docker stop`. The
+node gives up on such a read after 30 seconds and says the folder cannot be reached. Players then
+say so too, rather than spin. But the read itself stays stuck until the share answers, and the node
+cannot restart until then.
+
+Mount the share so its reads give up instead. **As root**, on the machine that mounts it, add
+`soft,timeo=100,retrans=3` to its options in `/etc/fstab`, for example:
+
+```
+nas:/films  /media/films  nfs  ro,soft,timeo=100,retrans=3  0  0
+```
+
+Then remount it (`umount /media/films && mount /media/films`) and restart the node. A read then
+fails after about 30 seconds while the NAS is away; the server makes the folder unavailable, and
+brings it back by itself once a scan reads it again. For read-only media, `soft` loses nothing.
+
+If the films reach the server through a virtual machine or container that passes on a share from
+its host (virtiofs, 9p), the System page notes that it cannot see how the share behind is mounted:
+set these options where the share is actually mounted, on the host.
+

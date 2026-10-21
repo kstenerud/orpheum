@@ -25,6 +25,28 @@ func isNetworkFilesystem(filesystem string) bool {
 	return false
 }
 
+// whenGone is how a read of a mount behaves when what it is shared from goes away (D233 §10): NFS
+// waits for good unless mounted soft, SMB only when mounted hard; virtiofs, 9p and FUSE pass on
+// another's filesystem, whose mounts the node cannot see; a local disk has no server to lose.
+func whenGone(each mount) nodeproto.ShareWhenGone {
+	has := func(option string) bool { return slices.Contains(each.superOptions, option) }
+	switch {
+	case each.filesystem == "nfs" || each.filesystem == "nfs4":
+		if has("soft") || has("softerr") {
+			return ""
+		}
+		return nodeproto.ShareWaitsForever
+	case each.filesystem == "cifs" || each.filesystem == "smb3":
+		if has("hard") {
+			return nodeproto.ShareWaitsForever
+		}
+		return ""
+	case each.filesystem == "virtiofs" || each.filesystem == "9p" || strings.HasPrefix(each.filesystem, "fuse"):
+		return nodeproto.ShareMayWaitForever
+	}
+	return ""
+}
+
 // maxSlaveDepth bounds how far a volume is followed through the devices beneath it: an LVM volume
 // on an md array is two.
 const maxSlaveDepth = 4
@@ -77,6 +99,8 @@ type mount struct {
 	mountPoint string
 	filesystem string
 	source     string
+	// superOptions are the filesystem's own options, as the mount table's last field says them.
+	superOptions []string
 }
 
 // readMounts reads a mountinfo file (proc(5)). A mount point mounted over again is the later one.
@@ -96,6 +120,9 @@ func readMounts(path string) ([]mount, error) {
 		next := mount{
 			majorMinor: fields[2], mountPoint: unescapeMountField(fields[4]), filesystem: tail[0],
 			source: unescapeMountField(tail[1]),
+		}
+		if len(tail) > 2 {
+			next.superOptions = strings.Split(tail[2], ",")
 		}
 		mounts = slices.DeleteFunc(mounts, func(each mount) bool { return each.mountPoint == next.mountPoint })
 		mounts = append(mounts, next)
@@ -174,7 +201,9 @@ func (system sysTree) path(parts ...string) string {
 
 // describe is the device a mount is on, without its mount paths.
 func (system sysTree) describe(each mount) *nodeproto.Device {
-	device := &nodeproto.Device{Key: each.key(system), Kind: nodeproto.DeviceUnknown, Filesystem: each.filesystem}
+	device := &nodeproto.Device{
+		Key: each.key(system), Kind: nodeproto.DeviceUnknown, Filesystem: each.filesystem, WhenGone: whenGone(each),
+	}
 	if isNetworkFilesystem(each.filesystem) {
 		device.Kind = nodeproto.DeviceNetwork
 		return device

@@ -91,7 +91,8 @@ func TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings(t *testing.T) {
 	}
 	checkLocalFacts(t, system.Nodes[1])
 	if !strings.Contains(got.body, `"check":"build on node local","verdict":"ok"`) ||
-		!strings.Contains(got.body, `"check":"hardware encoding on node local","verdict":"ok"`) {
+		!strings.Contains(got.body, `"check":"hardware encoding on node local","verdict":"ok"`) ||
+		!strings.Contains(got.body, `"check":"network shares on node local","verdict":"ok"`) {
 		t.Errorf("the findings are %+v; want doctor's, with the node's hardware encoding", system.Findings)
 	}
 	if _, err := harness.authService.CreateUser(t.Context(),
@@ -516,5 +517,35 @@ func TestSystem_SaysWhatAHeldBackScanWouldRemoveAndWhatCouldNotBeRead(t *testing
 	counted := harness.do(t, http.MethodGet, "/needs-attention", admin, nil)
 	if !strings.Contains(counted.body, `"waitingRootCount":1`) || !strings.Contains(counted.body, `"unreadCount":1`) {
 		t.Errorf("GET /needs-attention = %s; want one folder waiting and one path unread", counted.body)
+	}
+}
+
+// A node reading a share mounted to wait for its server for good is warned of, with how to mount it
+// to give up; a filesystem passed on from elsewhere is noted; local disks are fine (D233 §10).
+func TestShareFinding_WarnsOfAShareThatWaitsForItsServerForGood(t *testing.T) {
+	t.Parallel()
+	local := shareFinding("local", []nodeproto.Device{{Key: "disk:sda", MountPaths: []string{"/media"}}})
+	if local.Verdict != VerdictOK {
+		t.Errorf("a node on a local disk: %+v, want ok", local)
+	}
+	hard := shareFinding("local", []nodeproto.Device{
+		{
+			Key: "network:nas:/films", Filesystem: "nfs4", MountPaths: []string{"/media/films"},
+			WhenGone: nodeproto.ShareWaitsForever,
+		},
+	})
+	if hard.Verdict != VerdictWarning || !strings.Contains(hard.Detail, "/media/films") ||
+		!strings.Contains(hard.Action, "soft,timeo=100,retrans=3") {
+		t.Errorf("a node on a hard NFS share: %+v, want a warning naming it, saying to mount it soft", hard)
+	}
+	passed := shareFinding("local", []nodeproto.Device{
+		{
+			Key: "unknown:0:45", Filesystem: "virtiofs", MountPaths: []string{"/tank/media"},
+			WhenGone: nodeproto.ShareMayWaitForever,
+		},
+	})
+	if passed.Verdict != VerdictOK || !strings.Contains(passed.Detail, "/tank/media (virtiofs)") ||
+		!strings.Contains(passed.Detail, "soft,timeo=100,retrans=3") {
+		t.Errorf("a node on a filesystem passed on: %+v, want a note naming it and the mount to use behind it", passed)
 	}
 }

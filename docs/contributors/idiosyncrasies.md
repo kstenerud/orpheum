@@ -135,6 +135,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Unix socket paths are limited to 108 bytes on Linux and 104 on macOS | [Unix socket paths are limited to 108 bytes on Linux and 104 on macOS](#unix-socket-paths-are-limited-to-108-bytes-on-linux-and-104-on-macos) |
 | Inotify does not work over SMB/NFS and runs out of watches silently | [inotify does not work over SMB/NFS and runs out of watches silently](#inotify-does-not-work-over-smbnfs-and-runs-out-of-watches-silently) |
 | The NFS client's default timeout is 60 s, retransmitted twice | [The NFS client's default timeout is 60 s, retransmitted twice](#the-nfs-clients-default-timeout-is-60-s-retransmitted-twice) |
+| Staging's node, reading a hard NFS share through virtiofs, hung with 103 threads when the share's host went away, and could not be stopped. | [A hard NFS share passed on by virtiofs hangs its readers past SIGKILL](#a-hard-nfs-share-passed-on-by-virtiofs-hangs-its-readers-past-sigkill) |
 | `./staging status` shows the core unhealthy after the tunnel's container restarted on its own. | [A container sharing another's network loses it when that container restarts alone](#a-container-sharing-anothers-network-loses-it-when-that-container-restarts-alone) |
 | A second `./dev make dev` ran two dev loops that fought over ports. | [Killing the `docker exec` client leaves the process running inside the container](#killing-the-docker-exec-client-leaves-the-process-running-inside-the-container) |
 | The dev container had no `tc` and no right to shape its network, and CI's container lacks `NET_ADMIN` | [The dev container had no `tc` and no right to shape its network, and CI's container lacks `NET_ADMIN`](#the-dev-container-had-no-tc-and-no-right-to-shape-its-network-and-cis-container-lacks-net_admin) |
@@ -1803,6 +1804,24 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   s); without `retrans` "the NFS client tries ... each TCP request twice", then logs "server not responding";
   and the default `hard` mount retries "indefinitely", so a read on a dead server never fails on its own, it
   only stalls (`soft` returns EIO, `softerr` ETIMEDOUT).
+
+### A hard NFS share passed on by virtiofs hangs its readers past SIGKILL
+
+- **What we do:** every read of a root goes through the node's disk gate (`internal/node/diskwatch`):
+  one that has not returned within its window (30 s for an open, 5 s for a measure) is answered as a
+  stall on its disk, which makes the root unavailable, and every other read of that root is answered
+  so at once while it stays stuck, so a dead share holds one stuck thread of the node's. An I/O error,
+  stale handle or timeout, what a `soft` mount returns, is the same stall. The node reads the mount
+  options and the System page warns of a hard NFS share, or notes a virtiofs, 9p or FUSE one whose
+  share it cannot see (`shareFinding`); docs/users/setup-problems.md says to mount it `soft`.
+- **Evidence:** staging, 2026-10-21: nas.example went down with its NFS export mounted `hard` on the VM
+  and passed into the sandbox by virtiofs; a chunk run's open of a film blocked, the node's status
+  blocked on statfs, and after SIGQUIT the node stayed a zombie with 103 threads in the share, which
+  `docker` could neither stop nor replace until nas.example came back. **[web]**
+  [nfs(5)](https://man7.org/linux/man-pages/man5/nfs.5.html) as above: `hard` retries "indefinitely".
+  Through virtiofs the wait is a FUSE request to virtiofsd on the host, itself stuck on the hard
+  mount, so the NFS client's `TASK_KILLABLE` (see "A process in uninterruptible disk wait ignores
+  even SIGKILL") did not let SIGKILL through.
 
 ---
 

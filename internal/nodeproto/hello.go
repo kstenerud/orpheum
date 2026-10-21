@@ -24,7 +24,7 @@ const QueryAfterCommandSeq = "afterCommandSeq"
 // records and results. It is raised with any change a node or core of another build would misread,
 // so the two refuse each other at hello instead (D233 §9). Core and node ship as one build today,
 // so the two match unless a node is updated apart from its core.
-const ProtocolVersion = 37
+const ProtocolVersion = 38
 
 // Hello is the first thing a node says, and it says it again after every reconnection.
 type Hello struct {
@@ -190,7 +190,23 @@ type Device struct {
 	// MountPaths are where it is mounted at or inside the node's roots and prepared directory: a
 	// path is on the device of the longest of every device's mount paths it is under.
 	MountPaths []string `json:"mountPaths"`
+	// WhenGone is how a read of it behaves when what it is shared from goes away, as its mount says:
+	// empty for a local disk, or a share mounted to give up (D233 §10).
+	WhenGone ShareWhenGone `json:"whenGone,omitempty"`
 }
+
+// ShareWhenGone is how a read of a share behaves when its server goes away.
+type ShareWhenGone string
+
+// How a share's reads behave when its server goes away.
+const (
+	// ShareWaitsForever is a share mounted to wait for its server for good, as NFS is by default
+	// ("hard"): every read of it hangs in the kernel, unkillable, until the server is back.
+	ShareWaitsForever ShareWhenGone = "waits_forever"
+	// ShareMayWaitForever is a filesystem passed through from another machine or program (virtiofs,
+	// 9p, FUSE), whose own mounts the node cannot see: a hard share behind it hangs as one does.
+	ShareMayWaitForever ShareWhenGone = "may_wait_forever"
+)
 
 // Devices are the devices a node's roots and prepared directory are on.
 type Devices []Device
