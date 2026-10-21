@@ -159,6 +159,7 @@ var sectionByKey = map[Key]Section{
 	PlayPriorityKeptSeconds:                        SectionNodes,
 	InterestSaidEverySeconds:                       SectionJobs,
 	InterestLapsesAfterSeconds:                     SectionJobs,
+	UnavailableRootRescanSeconds:                   SectionLibraries,
 	SeriesEpisodesAhead:                            SectionJobs,
 	PrepareProgressEverySeconds:                    SectionNodes,
 	ReaderLimitSpinningDisk:                        SectionNodes,

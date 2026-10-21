@@ -477,6 +477,7 @@ func TestScenario_S78_DiscardingCacheDBLosesOnlyTiming(t *testing.T) {
 		// not this scenario's work.
 		if !slices.Contains([]string{
 			sweepReadThroughs, sweepRollingRefresh, sweepScheduledBackup, sweepScheduledScans, sweepEndedCredentials,
+			sweepUnavailableRoots,
 		}, sweep.Name) {
 			world.queue.AddSweep(sweep)
 		}

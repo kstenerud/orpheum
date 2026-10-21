@@ -372,6 +372,46 @@ func (q *Queries) ListLibraryRootStates(ctx context.Context, libraryID int64) ([
 	return items, nil
 }
 
+const listUnavailableRoots = `-- name: ListUnavailableRoots :many
+SELECT DISTINCT library_root.node_id, library_root.root_path, root_state.last_scan_at
+FROM library_root
+JOIN library ON library.id = library_root.library_id AND library.removed_at IS NULL
+JOIN root_state ON root_state.node_id = library_root.node_id AND root_state.root_path = library_root.root_path
+WHERE library_root.retired_at IS NULL AND root_state.unavailable_since IS NOT NULL
+ORDER BY library_root.node_id, library_root.root_path
+`
+
+type ListUnavailableRootsRow struct {
+	NodeID     int64
+	RootPath   string
+	LastScanAt int64
+}
+
+// Every live root of a library that is unavailable, its disk or its share not answering or its node
+// away, with when it was last scanned: what is scanned again until one reads it (D233 section 10).
+func (q *Queries) ListUnavailableRoots(ctx context.Context) ([]ListUnavailableRootsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUnavailableRoots)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListUnavailableRootsRow{}
+	for rows.Next() {
+		var i ListUnavailableRootsRow
+		if err := rows.Scan(&i.NodeID, &i.RootPath, &i.LastScanAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setLibraryChangeDetection = `-- name: SetLibraryChangeDetection :execrows
 UPDATE library SET change_detection = ?1, check_every_hours = ?2
 WHERE id = ?3 AND removed_at IS NULL

@@ -83,6 +83,43 @@ func (schedule *ScanSchedule) QueueDue(ctx context.Context) (int, error) {
 	return asked, nil
 }
 
+// RescanUnavailable asks for a scan of every library root that is unavailable, its disk or its
+// share not answering, whose last scan ended unavailable_root_rescan_seconds ago or more, and says
+// how many it asked for: the scan that reads it brings it back (D233 §10). A stall asked for one at
+// once, and nothing asked again once the share came back, so its films stayed unavailable until a
+// restart of the node happened to (staging, 2026-10-21, nas.example off). While the share is still away,
+// the node's disk gate answers such a scan at once, touching nothing.
+func (schedule *ScanSchedule) RescanUnavailable(ctx context.Context) (int, error) {
+	rows, err := schedule.database.Read().ListUnavailableRoots(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("list the unavailable roots: %w", err)
+	}
+	every, err := schedule.settings.Duration(ctx, settings.UnavailableRootRescanSeconds)
+	if err != nil {
+		return 0, fmt.Errorf("read unavailable_root_rescan_seconds: %w", err)
+	}
+	running, err := schedule.scans.InProgress(ctx)
+	if err != nil {
+		return 0, err
+	}
+	now, asked := schedule.clock.Now(), 0
+	for _, row := range rows {
+		root := ScanRoot{NodeID: row.NodeID, RootPath: row.RootPath}
+		if _, isRunning := running[root]; isRunning {
+			continue
+		}
+		if now.Sub(time.UnixMilli(row.LastScanAt)) < every {
+			continue
+		}
+		if err := schedule.scans.RequestUnder(ctx, root.NodeID, root.RootPath, wholeRoot,
+			jobs.PriorityBackground); err != nil {
+			return asked, err
+		}
+		asked++
+	}
+	return asked, nil
+}
+
 // TakeChange is a node watcher's word that something changed under folder, relative to a root of
 // the node's: the folder is scanned when a watched library covers the root, and the notice is
 // dropped otherwise, since only a watched library asked to be told (D272 §9).
