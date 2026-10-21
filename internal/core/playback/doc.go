@@ -106,7 +106,7 @@
 //   - The dialogue boost is the person's, in every file, off until they turn it on (D83, D222).
 //     Enforced by TestFilePreferences_TheDialogueBoostIsThePersonsInEveryFile.
 //
-//   - A playback starts where the person left the file, unless that is before resume_min_percent
+//   - A playback starts where the person left the file, unless that is before in_progress_after_percent
 //     or after finished_after_percent of a known length; an unknown length is never read as
 //     finished. Enforced by TestPlayState_APositionResumesOnlyBetweenTheThresholdsOfAKnownLength.
 //

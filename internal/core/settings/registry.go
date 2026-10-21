@@ -41,10 +41,10 @@ const (
 	AssignedJobLimitHours                          Key = "assigned_job_limit_hours"
 	ShouldScanOnNodeHello                          Key = "should_scan_on_node_hello"
 	ShouldMapPorts                                 Key = "should_map_ports"
-	SpinningDiskReaderLimit                        Key = "spinning_disk_reader_limit"
-	SSDReaderLimit                                 Key = "ssd_reader_limit"
-	NetworkShareReaderLimit                        Key = "network_share_reader_limit"
-	UnknownDiskReaderLimit                         Key = "unknown_disk_reader_limit"
+	ReaderLimitSpinningDisk                        Key = "reader_limit_spinning_disk"
+	ReaderLimitSSD                                 Key = "reader_limit_ssd"
+	ReaderLimitNetworkShare                        Key = "reader_limit_network_share"
+	ReaderLimitUnknownDisk                         Key = "reader_limit_unknown_disk"
 	NodeJobsBeyondFreeSlots                        Key = "node_jobs_beyond_free_slots"
 	PlayPriorityKeptSeconds                        Key = "play_priority_kept_seconds"
 	ScanWithholdRemovalsOverPercent                Key = "scan_withhold_removals_over_percent"
@@ -73,7 +73,7 @@ const (
 	HLSSegmentLengthSeconds                        Key = "hls_segment_length_seconds"
 	ChunkQualities                                 Key = "chunk_qualities"
 	ChunkQualitiesHardware                         Key = "chunk_qualities_hardware"
-	ResumeMinPercent                               Key = "resume_min_percent"
+	InProgressAfterPercent                         Key = "in_progress_after_percent"
 	FinishedAfterPercent                           Key = "finished_after_percent"
 	RegistrationInvitationLifeDays                 Key = "registration_invitation_life_days"
 	//nolint:gosec // G101: a setting's name, not a credential
@@ -148,9 +148,13 @@ type Definition struct {
 	IsValid func(text string) bool
 	// Unit, for an integer that is a length of time, is what one of it is: the unit its key's
 	// suffix spells out (_seconds, _hours, _days). Duration reads such a setting; zero is not a length of time.
-	Unit        time.Duration
-	Question    string
-	IsExposed   bool
+	Unit     time.Duration
+	Question string
+	// IsImportant puts the setting in the settings page's normal view, the few most households set;
+	// the advanced view shows every setting.
+	IsImportant bool
+	// Section is the part of the settings page it is listed in (sections.go).
+	Section     Section
 	Description string
 	// StartSource says where the starting value came from: the owner's choice on a date, a best
 	// guess and its basis, what was measured and when, or a provider's documentation. The owner
@@ -188,8 +192,9 @@ type builtRegistry struct {
 var built = sync.OnceValue(func() builtRegistry {
 	definitions := buildRegistry()
 	byKey := make(map[Key]Definition, len(definitions))
-	for _, definition := range definitions {
-		byKey[definition.Key] = definition
+	for index := range definitions {
+		definitions[index].Section = sectionByKey[definitions[index].Key]
+		byKey[definitions[index].Key] = definitions[index]
 	}
 	return builtRegistry{definitions: definitions, byKey: byKey}
 })
@@ -199,7 +204,7 @@ func buildRegistry() []Definition {
 	return append([]Definition{
 		{
 			Key: ShouldCheckForUpdates, Kind: KindBool, StartJSON: json.RawMessage("null"),
-			IsExposed:   true,
+			IsImportant: true,
 			Question:    "Check GitHub for a new release once a day? The check sends nothing but the request.",
 			Description: "whether the server checks for a new release (D184: asked, never assumed)",
 			StartSource: "D184: a question, asked and never assumed, so it starts unanswered",
@@ -228,7 +233,7 @@ func buildRegistry() []Definition {
 			"hours a job given to a node may stay without its outcome before it is its own failure (D234 §7)"),
 			"the owner, 2026-10-02: a backstop; silence and the node's own list find a lost job first"),
 		{
-			Key: ShouldMapPorts, Kind: KindBool, StartJSON: json.RawMessage("true"),
+			Key: ShouldMapPorts, Kind: KindBool, StartJSON: json.RawMessage("true"), IsImportant: true,
 			Description: "whether the core asks the home router to open its HTTPS port to the internet, by PCP, " +
 				"NAT-PMP or UPnP, while a discovery publishes it (D273 §7)",
 			StartSource: "D273 §7, the owner: on by default, said on the System page, and can be turned off",
@@ -269,9 +274,9 @@ func signInDefinitions() []Definition {
 			"seconds after it arrived that a failed sign-in is answered, whatever failed, so its timing "+
 				"tells no name or realm apart (D312 §17); a success is answered at once"),
 			"D312 §17: longer than a password hash takes under the hash slots' usual wait"),
-		sourced(durationSetting(SessionIdleExpiryHours, time.Hour, "2160", 1, 10*365*24,
+		important(sourced(durationSetting(SessionIdleExpiryHours, time.Hour, "2160", 1, 10*365*24,
 			"hours a session may go unused before it ends; 90 days, so a television rarely signs out (D154)"),
-			"D154: 90 days, so a television rarely signs out"),
+			"D154: 90 days, so a television rarely signs out")),
 		sourced(durationSetting(SessionLastUsedWriteIntervalSeconds, time.Second, "60", 1, 24*3600,
 			"how often, in seconds, a session's last use is written; idle expiry needs no finer grain"),
 			"best guess (M1): a minute is far finer than a 90-day idle expiry needs"),
@@ -360,20 +365,20 @@ func togetherDefinitions() []Definition {
 // skipped when nothing changed, thinned to so many hourly, daily and weekly (D305 §2).
 func backupDefinitions() []Definition {
 	return []Definition{
-		exposed(sourced(durationSetting(BackupEveryHours, time.Hour, "1", 1, 7*24,
+		important(sourced(durationSetting(BackupEveryHours, time.Hour, "1", 1, 7*24,
 			"hours between the backups the server makes on its own, skipped when nothing changed, never "+
 				"holding secret.key (D305 §2)"),
 			"D305 §2: hourly")),
-		exposed(sourced(integerSetting(BackupsKeptHourly, "24", 1, 1000,
+		sourced(integerSetting(BackupsKeptHourly, "24", 1, 1000,
 			"how many of the newest backups are kept, one an hour (D305 §2)"),
-			"D305 §2: a day's hours")),
-		exposed(sourced(integerSetting(BackupsKeptDaily, "7", 0, 1000,
+			"D305 §2: a day's hours"),
+		sourced(integerSetting(BackupsKeptDaily, "7", 0, 1000,
 			"how many days back the newest backup of each day is kept, past the hourly ones (D305 §2)"),
-			"D305 §2: a week's days")),
-		exposed(sourced(integerSetting(BackupsKeptWeekly, "4", 0, 520,
+			"D305 §2: a week's days"),
+		sourced(integerSetting(BackupsKeptWeekly, "4", 0, 520,
 			"how many weeks back the newest backup of each week is kept, past the daily ones; the copies "+
 				"kept before a restore or a migration are never pruned (D305 §2)"),
-			"D305 §2: a month's weeks")),
+			"D305 §2: a month's weeks"),
 	}
 }
 
@@ -422,16 +427,16 @@ func deviceDefinitions() []Definition {
 			"how many more jobs than its free slots and readers allow the core gives a node of each kind, "+
 				"so the next starts without waiting for the core (D240 §5)"),
 			"D234 §3: a window a little beyond its free slots"),
-		sourced(integerSetting(SpinningDiskReaderLimit, "1", 1, 64,
+		sourced(integerSetting(ReaderLimitSpinningDisk, "1", 1, 64,
 			"how many may read a spinning disk at once, or a pool or array with one among its disks (D240 §5)"),
 			"D240 §5: a second reader makes a spinning disk seek between them"),
-		sourced(integerSetting(SSDReaderLimit, "4", 1, 64,
+		sourced(integerSetting(ReaderLimitSSD, "4", 1, 64,
 			"how many may read a solid-state disk at once, or a pool or array of them only (D240 §5)"),
 			"best guess (D240 §5): an SSD serves several readers without seeking"),
-		sourced(integerSetting(NetworkShareReaderLimit, "2", 1, 64,
+		sourced(integerSetting(ReaderLimitNetworkShare, "2", 1, 64,
 			"how many may read a filesystem mounted over the network at once (D240 §5)"),
 			"best guess (D240 §5): one reading while another waits on the network"),
-		sourced(integerSetting(UnknownDiskReaderLimit, "1", 1, 64,
+		sourced(integerSetting(ReaderLimitUnknownDisk, "1", 1, 64,
 			"how many may read a device whose disks the node cannot see at once (D240 §5)"),
 			"D240 §5: as for a spinning disk, which it may be"),
 	}
@@ -480,7 +485,7 @@ func jobMetadataAndPlaybackDefinitions() []Definition {
 				"the owner's choice of a percentage, 2026-09-30"),
 		{
 			Key: ServerUploadMbps, Kind: KindInteger, StartJSON: json.RawMessage("null"),
-			Minimum: 1, Maximum: 100_000, IsExposed: true,
+			Minimum: 1, Maximum: 100_000, IsImportant: true,
 			Question: "How fast can this server send, in Mbit/s? Your connection's upload speed, or as much of " +
 				"it as you want Orpheum to use.",
 			Description: "how fast the server can send, in Mbit/s, of which its films may use " +
@@ -490,7 +495,7 @@ func jobMetadataAndPlaybackDefinitions() []Definition {
 		},
 		{
 			Key: TimeZone, Kind: KindString, StartJSON: json.RawMessage(`""`), IsValid: isTimeZoneOrMachines,
-			IsExposed: true,
+			IsImportant: true,
 			Description: "the server's time zone, a name such as Europe/Berlin, which the hours of scheduled " +
 				"work such as backups are in, and the settings whose keys end _local_tz; empty is the " +
 				"machine's own, as the server read it at start (D246 §7)",
@@ -499,7 +504,7 @@ func jobMetadataAndPlaybackDefinitions() []Definition {
 		{
 			Key: SortLocale, Kind: KindString, StartJSON: json.RawMessage(`"en"`),
 			Pattern:     regexp.MustCompile(langtag.WellFormedPattern),
-			IsExposed:   true,
+			IsImportant: true,
 			Description: "the language whose alphabetical order the libraries are listed in (BCP 47: en, sv, de...)",
 			StartSource: "best guess: the language the owner reads; any BCP 47 tag works",
 		},
@@ -524,9 +529,9 @@ func artworkAndPlaybackDefinitions() []Definition {
 		sourced(durationSetting(MetadataRefreshCheckEveryHours, time.Hour, "24", 1, 8760,
 			"hours between looks for titles whose data is due to be fetched again (D213)"),
 			"D213 §3: one look a day"),
-		sourced(integerSetting(ArtworkCacheCeilingGiB, "20", 1, 1<<20,
+		important(sourced(integerSetting(ArtworkCacheCeilingGiB, "20", 1, 1<<20,
 			"GiB the artwork cache may hold; past it, what can be made again is evicted (D212 §6)"),
-			"D212 §6: 20 GiB, measured against a large library's 5 to 13 GiB"),
+			"D212 §6: 20 GiB, measured against a large library's 5 to 13 GiB")),
 		sourced(durationSetting(RemovedItemArtworkKeptDays, day, "30", 0, 3650,
 			"days a removed item's artwork is kept, in case its disk comes back (D212 §6)"),
 			"best guess (M3): a month, long enough for an unplugged disk to come back (D212 §6)"),
@@ -539,14 +544,15 @@ func artworkAndPlaybackDefinitions() []Definition {
 			"seconds per segment of a prepared copy: shorter switches the dialogue boost sooner, longer "+
 				"makes fewer requests; a copy made with another length is made again when next played (D217 §3)"),
 			"D217 §3: the owner's two seconds, 2026-09-26, over six"),
-		sourced(integerSetting(ResumeMinPercent, "5", 0, 50,
-			"percent of a file's length before which a position is not resumed and the file plays from the "+
-				"start; a file of unknown length always resumes (play-state.md)"),
-			"play-state.md: best guess, from what other players do"),
-		sourced(integerSetting(FinishedAfterPercent, "90", 50, 100,
+		important(sourced(integerSetting(InProgressAfterPercent, "5", 0, 50,
+			"percent of a file's length after which it counts as in progress: it resumes there and shows in "+
+				"Continue Watching; before it, it plays from the start. A file of unknown length always resumes "+
+				"(play-state.md)"),
+			"play-state.md: best guess, from what other players do")),
+		important(sourced(integerSetting(FinishedAfterPercent, "90", 50, 100,
 			"percent of a file's length after which it counts as finished: it leaves Continue Watching and plays "+
 				"from the start (play-state.md)"),
-			"play-state.md: best guess, from what other players do; credits run the last tenth"),
+			"play-state.md: best guess, from what other players do; credits run the last tenth")),
 	}, chunkDefinitions()...)
 }
 
@@ -688,23 +694,23 @@ func upkeepAndDisplayDefinitions() []Definition {
 // deleted (D304 §6): each a limit a setting holds.
 func retentionDefinitions() []Definition {
 	return []Definition{
-		exposed(sourced(durationSetting(EndedCredentialsKeptDays, day, "90", 1, 3650,
+		sourced(durationSetting(EndedCredentialsKeptDays, day, "90", 1, 3650,
 			"days a credential is kept once it ended, revoked or expired, before it is deleted: every sign-in "+
 				"ever made was kept (D304 §6)"),
-			"best guess: a season, long enough to say why a device was signed out")),
-		exposed(sourced(durationSetting(RemovedFilesKeptDays, day, "90", 1, 3650,
+			"best guess: a season, long enough to say why a device was signed out"),
+		sourced(durationSetting(RemovedFilesKeptDays, day, "90", 1, 3650,
 			"days a file is kept once it is gone from its disk, so that putting it back keeps what was "+
 				"read of it, before it is deleted; what was watched of it stays on its title (D306 §8)"),
-			"best guess: a season, long enough to put back a disk that was away")),
+			"best guess: a season, long enough to put back a disk that was away"),
 	}
 }
 
 // isTimeZoneOrMachines is whether name is a time zone the server knows, or empty, the machine's.
 func isTimeZoneOrMachines(name string) bool { return name == "" || localtime.IsName(name) }
 
-// exposed is definition shown on the settings page.
-func exposed(definition Definition) Definition {
-	definition.IsExposed = true
+// important is definition in the settings page's normal view.
+func important(definition Definition) Definition {
+	definition.IsImportant = true
 	return definition
 }
 

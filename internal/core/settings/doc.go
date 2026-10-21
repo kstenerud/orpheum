@@ -32,12 +32,12 @@
 //     TestRetiredKeys_AreNotInUseAndSayWhen.
 //   - A missing row is healed: its starting value is written to the database and the heal logged,
 //     never held only in memory (D202). Enforced by TestRead_HealsARemovedSettingAndSaysSo.
-//   - A change is checked against the registry's kind and bounds, and against what the settings
-//     page shows, and applied all or none. Enforced by TestSet_RefusesAndChangesNothing.
+//   - A change is checked against the registry's kind and bounds, and, through /settings, against
+//     the important ones, and applied all or none. Enforced by TestSet_RefusesAndChangesNothing.
 //   - Reset writes the starting value back, and refuses a key that is no server setting as
 //     ErrNoServerSetting: the setting it names is not there, where Set's ErrUnknownSetting is a
 //     value it was given that cannot be set. Enforced by
-//     TestList_SaysWhatWasChangedAndShowsOnlyExposedOnTheSettingsPage and
+//     TestList_SaysWhatWasChangedAndShowsOnlyTheImportantOnesWhenAsked and
 //     TestReset_WritesTheStartingValueBack.
 //   - What is derived from a server setting follows a set or reset of it at once, through
 //     OnChange, not at some later event (agent-failures A4); a string setting with a pattern

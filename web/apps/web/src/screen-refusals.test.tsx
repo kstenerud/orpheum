@@ -12,6 +12,7 @@ import { Settings } from "./settings.tsx";
 import {
   buttonWithText,
   click,
+  enter,
   mount,
   refusal,
   servedBy,
@@ -64,7 +65,8 @@ const setting = {
   value: true,
   startingValue: false,
   isModified: true,
-  isExposed: false,
+  isImportant: true,
+  section: "libraries",
   setAt: 1,
 };
 
@@ -76,7 +78,8 @@ const libraryCheck = {
   value: 24,
   startingValue: 24,
   isModified: false,
-  isExposed: false,
+  isImportant: true,
+  section: "libraries",
   setAt: 1,
 };
 
@@ -153,9 +156,13 @@ describe("a screen the server refuses tells the viewer in their words (cut-a §5
       "POST /config/should_scan_on_node_hello/reset": refusal(404, "not_found"),
     });
     mounted = await mount(withServices(<Settings />, services));
-    await submit(mounted.container.querySelector('form[aria-labelledby="secret-tmdb_api_key"]'));
+    const secretForm = 'form[aria-labelledby="secret-tmdb_api_key"]';
+    await enter(mounted.container.querySelector(`${secretForm} input`), "a new key");
+    await submit(mounted.container.querySelector(secretForm));
     expectSays(conflict);
-    await click(buttonWithText(mounted.container, "Reset to the starting value"));
+    await click(
+      mounted.container.querySelector('button[aria-label^="Return should_scan_on_node_hello"]'),
+    );
     expectSays(notFound);
   });
 });
@@ -185,6 +192,7 @@ describe("a refused setting is named beside it, in the form's words", () => {
     });
     mounted = await mount(withServices(<Settings />, services));
     const form = 'form[aria-labelledby="setting-new_library_default_scan_every_hours"]';
+    await enter(mounted.container.querySelector(`${form} input`), "100000");
     await submit(mounted.container.querySelector(form));
     expect(mounted.container.querySelector(`${form} [role="alert"]`)?.textContent).toBe(
       "The server did not accept what was entered in new_library_default_scan_every_hours. Correct what is there and try again.",
@@ -239,7 +247,9 @@ describe("a request that never reaches the server says so, rather than nothing",
       "POST /config/should_scan_on_node_hello/reset": unreachable,
     });
     mounted = await mount(withServices(<Settings />, services));
-    await click(buttonWithText(mounted.container, "Reset to the starting value"));
+    await click(
+      mounted.container.querySelector('button[aria-label^="Return should_scan_on_node_hello"]'),
+    );
     expectSays(cannotReach);
   });
 });

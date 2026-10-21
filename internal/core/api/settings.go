@@ -25,7 +25,8 @@ type SettingBody struct {
 	Maximum       *int64          `json:"maximum,omitempty"`
 	Question      string          `json:"question,omitempty"`
 	Description   string          `json:"description"`
-	IsExposed     bool            `doc:"Shown on the settings page; every setting is in /config" json:"isExposed"`
+	Section       string          `doc:"The part of the settings page it is listed in, in this order" enum:"general,accounts,libraries,metadata,playback,slow_links,upload,together,nodes,jobs,remote_access,backups,diagnostics" json:"section"` //nolint:lll // one struct tag
+	IsImportant   bool            `doc:"In /settings, the settings page's normal view" json:"isImportant"`
 	SetByUserID   *int64          `json:"setByUserId,omitempty"`
 	SetAt         int64           `json:"setAt"`
 }
@@ -49,19 +50,19 @@ func (server *Server) registerSettings() {
 	tags := []string{tagSettings}
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getSettings", Method: http.MethodGet, Path: "/settings",
-		Summary: "The server settings the settings page shows (admin)", Tags: tags,
+		Summary: "The important server settings, the settings page's normal view (admin)", Tags: tags,
 	}, server.getSettings)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "putSettings", Method: http.MethodPut, Path: "/settings",
-		Summary: "Change server settings the settings page shows, all or none (admin)", Tags: tags,
+		Summary: "Change important server settings, all or none (admin)", Tags: tags,
 	}, server.putSettings)
 	server.registerConfig()
 }
 
 func (server *Server) listSettings(
-	ctx context.Context, service *settings.Service, isExposedOnly bool,
+	ctx context.Context, service *settings.Service, isImportantOnly bool,
 ) (*SettingsOutput, error) {
-	entries, err := service.List(ctx, isExposedOnly)
+	entries, err := service.List(ctx, isImportantOnly)
 	if err != nil {
 		return nil, server.settingsError(ctx, "list settings", err)
 	}
@@ -98,7 +99,8 @@ func settingBody(entry settings.Entry) SettingBody {
 		Key: string(definition.Key), Kind: string(definition.Kind), Value: entry.Value,
 		StartingValue: definition.StartJSON,
 		IsModified:    entry.IsModified, Question: definition.Question, Description: definition.Description,
-		IsExposed: definition.IsExposed, SetByUserID: entry.SetByUserID, SetAt: entry.SetAt,
+		IsImportant: definition.IsImportant, Section: string(definition.Section), SetByUserID: entry.SetByUserID,
+		SetAt: entry.SetAt,
 	}
 	if definition.Kind == settings.KindInteger {
 		body.Minimum, body.Maximum = &definition.Minimum, &definition.Maximum
@@ -108,15 +110,15 @@ func settingBody(entry settings.Entry) SettingBody {
 
 func (server *Server) writeSettings(
 	ctx context.Context, service *settings.Service, values map[string]json.RawMessage, setByUserID int64,
-	isExposedOnly bool,
+	isImportantOnly bool,
 ) (*SettingsOutput, error) {
-	if err := service.Set(ctx, values, &setByUserID, isExposedOnly); err != nil {
+	if err := service.Set(ctx, values, &setByUserID, isImportantOnly); err != nil {
 		return nil, server.settingsError(ctx, "set settings", err)
 	}
-	return server.listSettings(ctx, service, isExposedOnly)
+	return server.listSettings(ctx, service, isImportantOnly)
 }
 
-// getSettings answers GET /settings: the server settings the settings page shows (admin).
+// getSettings answers GET /settings: the important server settings (admin).
 func (server *Server) getSettings(ctx context.Context, input *AuthorizationHeader) (*SettingsOutput, error) {
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
@@ -125,7 +127,7 @@ func (server *Server) getSettings(ctx context.Context, input *AuthorizationHeade
 	return server.listSettings(ctx, dependencies.Settings, true)
 }
 
-// putSettings answers PUT /settings: change server settings the settings page shows, all or none (admin).
+// putSettings answers PUT /settings: change important server settings, all or none (admin).
 func (server *Server) putSettings(ctx context.Context, input *PutSettingsInput) (*SettingsOutput, error) {
 	dependencies, principal, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {

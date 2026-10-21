@@ -636,6 +636,14 @@ func TestSecrets_AreWriteOnly(t *testing.T) {
 	if strings.Contains(malformed.body, "CANARY") || !strings.Contains(malformed.body, "body.value") {
 		t.Errorf("a malformed secret's error must name where, not echo the value: %s", malformed.body)
 	}
+	// The voice relay's secret is the server's own: not listed, and neither set nor removed by anyone.
+	if strings.Contains(listed.body, "turn_secret") {
+		t.Errorf("GET /secrets = %s; it lists the secret the server makes for itself", listed.body)
+	}
+	wantError(t, harness.do(t, http.MethodPut, "/secrets/turn_secret", admin, map[string]string{"value": canary}),
+		http.StatusNotFound, CodeNotFound)
+	wantError(t, harness.do(t, http.MethodDelete, "/secrets/turn_secret", admin, nil), http.StatusNotFound,
+		CodeNotFound)
 	cleared := harness.do(t, http.MethodDelete, "/secrets/tmdb_api_key", admin, nil)
 	if cleared.status != http.StatusNoContent {
 		t.Errorf("DELETE /secrets/tmdb_api_key = %d %s", cleared.status, cleared.body)

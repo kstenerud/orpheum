@@ -5,6 +5,7 @@ import { enDiscovery } from "./en-discovery.ts";
 import { enLibraries } from "./en-libraries.ts";
 import { enPeople } from "./en-people.ts";
 import { enPlay } from "./en-play.ts";
+import { enSettingsCatalogue } from "./en-settings.ts";
 import { enGallery } from "./en-gallery.ts";
 import { enStatus } from "./en-status.ts";
 import { enTogether } from "./en-together.ts";
@@ -711,22 +712,31 @@ export const en = {
   settings: {
     heading: "Settings",
     secretsHeading: "Keys and passwords",
-    secretsIntro: "What is stored here is never shown again, only whether it is set.",
     secretSet: "Set, ending in {{lastChars}}",
     secretSetNoLastChars: "Set",
     secretUnset: "Not set",
     secretReentry: "Must be entered again: this server no longer has the key it was sealed with.",
-    newValue: "New value",
-    save: "Save",
-    remove: "Remove",
+    removeSecret: "Remove {{key}}",
     removeConsequence: "The server can't use it until it's entered again.",
     removeConfirm: "Remove it",
-    saved: "Saved.",
-    removed: "Removed.",
-    settingsHeading: "Server settings",
-    changed: "Changed; the starting value is {{start}}",
-    reset: "Reset to the starting value",
-    on: "On",
+    advanced: "Show advanced settings",
+    search: "Search",
+    searchHint: "A key or words of its description",
+    noneFound: "No setting matches.",
+    about: "What {{key}} is for",
+    reset: "Return {{key}} to its starting value, {{start}}",
+    isStart: "{{key}} is at its starting value",
+    unanswered: "unanswered",
+    on: "on",
+    off: "off",
+    nothing: "nothing",
+    tipAbout: "What it is for",
+    tipReset: "Return to default value ({{start}})",
+    tipAtDefault: "Already at default",
+    tipResetting: "Returning to default",
+    tipRemove: "Remove it",
+    tipNotSet: "Not set, so nothing to remove",
+    ...enSettingsCatalogue,
   },
   shell: {
     notFound: "There is nothing at this address.",

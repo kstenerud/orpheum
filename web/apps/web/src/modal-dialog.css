@@ -14,6 +14,22 @@
   box-shadow: var(--shadow-card-hover);
 }
 
+/*
+ * While a modal is open, the page behind it does not scroll (the owner, 2026-10-21: "the parent page
+ * should be inaccessible to user manipulation until the modal is dismissed"): a wheel or a swipe the
+ * dialog cannot use, as over one too short to scroll or over the backdrop, would otherwise move the
+ * page. The scrollbar's room stays, so the page does not shift sideways as it goes.
+ */
+:root:has(.modal-dialog:modal) {
+  overflow: hidden;
+  scrollbar-gutter: stable;
+}
+
+/* A dialog that scrolls stops at its own ends rather than handing the rest to the page. */
+.modal-dialog {
+  overscroll-behavior: contain;
+}
+
 .modal-dialog::backdrop {
   background: rgb(0 0 0 / 65%);
 }

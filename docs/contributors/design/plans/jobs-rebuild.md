@@ -551,7 +551,7 @@ What the earlier 4d and 4e found still holds:
   hello's reply and again when one changes.
   *4d.1 built 2026-10-02:* the node finds the devices of its roots and prepared directory at each
   hello (`hardware.Devices`) and lists them; the core's reply gives each the reader limit of its
-  kind's setting (`spinning_disk_reader_limit` 1, `_ssd` 4, `_network` 2, `_unknown` 1) and logs
+  kind's setting (`reader_limit_spinning_disk` 1, `_ssd` 4, `_network_share` 2, `_unknown_disk` 1) and logs
   them; `./dev` mounts the host's `/run/udev` read-only. Sending them again when a setting changes comes
   with 4d.2, where the node first uses them. *Since 2026-10-03:* an admin sets a device's limit
   over its kind's (`device_reader_limit`, migration 0030; `PUT /nodes/device-reader-limit`), and

@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import { camelKey } from "../catalogue-key.ts";
+import { sectionOrder } from "../server-settings.tsx";
 import { en } from "./en.ts";
 
 /** Every source file of the app, as text, tests left out. */
@@ -123,5 +124,14 @@ describe("the English catalogue", () => {
     );
     expect(Object.keys(sources).length).toBeGreaterThan(20);
     expect(missing).toEqual([]);
+  });
+
+  it("names every section of the settings page, listed in the order the API document declares them", () => {
+    const schemas = field(field(JSON.parse(apiDocuments[0] ?? ""), "components"), "schemas");
+    const section = field(field(field(schemas, "SettingBody"), "properties"), "section");
+    expect(field(section, "enum")).toEqual(sectionOrder);
+    expect(
+      sectionOrder.filter((each) => !hasText(en, `settings.sections.${camelKey(each)}`)),
+    ).toEqual([]);
   });
 });

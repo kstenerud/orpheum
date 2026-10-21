@@ -5236,8 +5236,8 @@
           "description": {
             "type": "string"
           },
-          "isExposed": {
-            "description": "Shown on the settings page; every setting is in /config",
+          "isImportant": {
+            "description": "In /settings, the settings page's normal view",
             "type": "boolean"
           },
           "isModified": {
@@ -5265,6 +5265,25 @@
           "question": {
             "type": "string"
           },
+          "section": {
+            "description": "The part of the settings page it is listed in, in this order",
+            "enum": [
+              "general",
+              "accounts",
+              "libraries",
+              "metadata",
+              "playback",
+              "slow_links",
+              "upload",
+              "together",
+              "nodes",
+              "jobs",
+              "remote_access",
+              "backups",
+              "diagnostics"
+            ],
+            "type": "string"
+          },
           "setAt": {
             "format": "int64",
             "type": "integer"
@@ -5287,7 +5306,8 @@
           "startingValue",
           "isModified",
           "description",
-          "isExposed",
+          "section",
+          "isImportant",
           "setAt"
         ],
         "type": "object"
@@ -12149,7 +12169,7 @@
             "description": "Error"
           }
         },
-        "summary": "The server settings the settings page shows (admin)",
+        "summary": "The important server settings, the settings page's normal view (admin)",
         "tags": [
           "Settings"
         ]
@@ -12199,7 +12219,7 @@
             "description": "Error"
           }
         },
-        "summary": "Change server settings the settings page shows, all or none (admin)",
+        "summary": "Change important server settings, all or none (admin)",
         "tags": [
           "Settings"
         ]

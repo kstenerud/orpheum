@@ -178,11 +178,13 @@ it("removes a stored secret only when asked again", async () => {
       ),
     ),
   );
-  await pressAndConfirm(heard, {
-    label: "Remove",
-    confirmLabel: "Remove it",
-    methodAndPath: "DELETE /secrets/tmdb_api_key",
-  });
+  // The bin asks first; only its question's red button removes the key.
+  await click(mounted.container.querySelector('button[aria-label="Remove tmdb_api_key"]'));
+  expect(heard.map((each) => each.methodAndPath)).not.toContain("DELETE /secrets/tmdb_api_key");
+  const confirm = buttonWithText(mounted.container, "Remove it");
+  expect(confirm?.className).toBe("irreversible");
+  await click(confirm);
+  expect(heard.map((each) => each.methodAndPath)).toContain("DELETE /secrets/tmdb_api_key");
 });
 
 it("ends a person's own link only when asked again, saying until when it led them back (D292 §4)", async () => {

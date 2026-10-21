@@ -44,6 +44,10 @@ func TestCanary_ASecretAppearsNowhereButAsCiphertext(t *testing.T) {
 	var responses strings.Builder
 	record := func(answer apiReply) { responses.WriteString(answer.body + "\n") }
 	for _, definition := range secrets.Registry() {
+		if definition.IsMadeByServer {
+			// No person sets it, and this server, with no relay, makes none (startRelay).
+			continue
+		}
 		path := "/secrets/"
 		value := canaryPrefix + "-" + string(definition.Name) + "-0123456789"
 		answer := requestAPI(t, http.MethodPut, server.baseURL+path+string(definition.Name), token,

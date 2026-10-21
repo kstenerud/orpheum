@@ -70,6 +70,9 @@ func (server *Server) listSecrets(ctx context.Context, secretStore *secrets.Stor
 	output.Body.Secrets = []SecretBody{}
 	for _, status := range statuses {
 		definition, _ := secrets.Lookup(status.Name)
+		if definition.IsMadeByServer {
+			continue
+		}
 		output.Body.Secrets = append(output.Body.Secrets, SecretBody{
 			Name: string(status.Name), Description: definition.Description, IsSet: status.IsSet,
 			LastChars:   status.LastChars,
@@ -77,6 +80,15 @@ func (server *Server) listSecrets(ctx context.Context, secretStore *secrets.Stor
 		})
 	}
 	return output, nil
+}
+
+// refuseMadeByServer refuses a person's change to a secret the server makes and keeps for itself,
+// as one it does not show: it is no secret a person has.
+func refuseMadeByServer(name secrets.Name) error {
+	if definition, known := secrets.Lookup(name); known && definition.IsMadeByServer {
+		return newError(http.StatusNotFound, CodeNotFound, "no such secret: the server makes and keeps it itself")
+	}
+	return nil
 }
 
 // secretError maps the secrets package's refusals to API errors.
@@ -106,6 +118,9 @@ func (server *Server) putSecret(ctx context.Context, input *PutSecretInput) (*st
 	if err != nil {
 		return nil, err
 	}
+	if refusal := refuseMadeByServer(secrets.Name(input.Name)); refusal != nil {
+		return nil, refusal
+	}
 	err = dependencies.Secrets.Set(ctx, secrets.Name(input.Name), value, &principal.UserID)
 	return &struct{}{}, server.secretError(ctx, "set a secret", err)
 }
@@ -115,6 +130,9 @@ func (server *Server) deleteSecret(ctx context.Context, input *SecretNameInput) 
 	dependencies, _, err := server.requireAdmin(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
+	}
+	if refusal := refuseMadeByServer(secrets.Name(input.Name)); refusal != nil {
+		return nil, refusal
 	}
 	err = dependencies.Secrets.Clear(ctx, secrets.Name(input.Name))
 	return &struct{}{}, server.secretError(ctx, "clear a secret", err)

@@ -24,9 +24,9 @@ var (
 	// ErrInvalidValue is returned for a value of the wrong JSON type, or out of its bounds, and
 	// for a setting read as the wrong kind.
 	ErrInvalidValue = errors.New("the value has the wrong type or is out of bounds")
-	// ErrNotExposed is returned when the settings page is asked to change a setting it does not
-	// show; /config changes every setting.
-	ErrNotExposed = errors.New("the setting is not on the settings page; change it through /config")
+	// ErrNotImportant is returned when /settings, the important settings, is asked to change one that
+	// is not; /config changes every setting.
+	ErrNotImportant = errors.New("the setting is not one of the important ones; change it through /config")
 	// ErrNoServerSetting is returned when a setting is named that the registry does not declare:
 	// Reset names the setting it resets, where Set's ErrUnknownSetting is a value it was given
 	// that cannot be set.
@@ -120,16 +120,16 @@ func (service *Service) heal(ctx context.Context, definition Definition) error {
 	return nil
 }
 
-// List returns every setting with its value in force. With exposedOnly it returns only what the
-// settings page shows.
-func (service *Service) List(ctx context.Context, exposedOnly bool) ([]Entry, error) {
+// List returns every setting with its value in force. With importantOnly it returns only the
+// important ones, the settings page's normal view.
+func (service *Service) List(ctx context.Context, importantOnly bool) ([]Entry, error) {
 	storedByKey, err := service.storedSettings(ctx)
 	if err != nil {
 		return nil, err
 	}
 	entries := []Entry{}
 	for _, definition := range Registry() {
-		if exposedOnly && !definition.IsExposed {
+		if importantOnly && !definition.IsImportant {
 			continue
 		}
 		row, isSeeded := storedByKey[string(definition.Key)]
@@ -231,7 +231,7 @@ func (service *Service) read(ctx context.Context, key Key, kind Kind, target any
 }
 
 // ValueError is a value Set refused, with the key it was given for, so the refusal can say which
-// setting was wrong. It wraps ErrUnknownSetting, ErrNotExposed or ErrInvalidValue.
+// setting was wrong. It wraps ErrUnknownSetting, ErrNotImportant or ErrInvalidValue.
 type ValueError struct {
 	Key Key
 	Err error
@@ -242,13 +242,13 @@ func (refused *ValueError) Error() string { return refused.Err.Error() }
 func (refused *ValueError) Unwrap() error { return refused.Err }
 
 // Set stores values, each checked against the registry, in one transaction: all of them or
-// none. The person who changed them is setByUserID, nil for the dev seed. With exposedOnly, a key
-// the settings page does not show is refused. A value it refuses is a *ValueError.
+// none. The person who changed them is setByUserID, nil for the dev seed. With importantOnly, a key
+// that is not one of the important ones is refused. A value it refuses is a *ValueError.
 func (service *Service) Set(
-	ctx context.Context, values map[string]json.RawMessage, setByUserID *int64, exposedOnly bool,
+	ctx context.Context, values map[string]json.RawMessage, setByUserID *int64, importantOnly bool,
 ) error {
 	for key, value := range values {
-		if err := checkValue(Key(key), value, exposedOnly); err != nil {
+		if err := checkValue(Key(key), value, importantOnly); err != nil {
 			return &ValueError{Key: Key(key), Err: err}
 		}
 	}
@@ -317,13 +317,13 @@ func upsert(ctx context.Context, queries *sqlcgen.Queries, write settingWrite) e
 
 // checkValue refuses an unknown key, a hidden key on the settings page, or a value of the wrong
 // kind or out of bounds.
-func checkValue(key Key, value json.RawMessage, exposedOnly bool) error {
+func checkValue(key Key, value json.RawMessage, importantOnly bool) error {
 	definition, known := Lookup(key)
 	if !known {
 		return fmt.Errorf("%q: %w", key, ErrUnknownSetting)
 	}
-	if exposedOnly && !definition.IsExposed {
-		return fmt.Errorf("%s: %w", key, ErrNotExposed)
+	if importantOnly && !definition.IsImportant {
+		return fmt.Errorf("%s: %w", key, ErrNotImportant)
 	}
 	var decoded any
 	if err := json.Unmarshal(value, &decoded); err != nil {
