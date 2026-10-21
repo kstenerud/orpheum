@@ -102,15 +102,21 @@ type jobServices struct {
 // writes a tick, for the few films people play and look at.
 const raiseInterestEvery = 5 * time.Second
 
-// playingFiles are the files played now, as the playback service last heard them.
+// playingFiles are the files played now, as the playback service last heard them: a playback a
+// film's page warmed up, which has not played, is no one watching (D324 §2).
 func playingFiles(service *playback.Service) func() []int64 {
-	return func() []int64 {
-		var files []int64
-		for _, playing := range service.NowPlaying() {
+	return func() []int64 { return filesPlayed(service.NowPlaying()) }
+}
+
+// filesPlayed are the files of the playbacks that have played.
+func filesPlayed(nowPlaying []playback.NowPlaying) []int64 {
+	var files []int64
+	for _, playing := range nowPlaying {
+		if playing.HasPlayed {
 			files = append(files, playing.FileID)
 		}
-		return files
 	}
+	return files
 }
 
 // removedFilePurger deletes the files removed before a time: library.FilePurger.

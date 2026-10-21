@@ -251,6 +251,9 @@ type NowPlaying struct {
 	LastHeard  time.Time
 	PositionMs int64
 	Decision   decide.Decision
+	// HasPlayed is whether a report said it played: a film page's warm-up never has (D258 §1),
+	// and is no one watching (D324 §2).
+	HasPlayed bool
 }
 
 // nowPlaying are the playbacks used since heardSince, oldest first.
@@ -265,7 +268,7 @@ func (all *tokens) nowPlaying(heardSince time.Time) []NowPlaying {
 		playing = append(playing, NowPlaying{
 			PlaybackID: known.playbackID, UserID: known.userID, DeviceID: known.deviceID, FileID: known.fileID,
 			StartedAt: known.startedAt, LastHeard: known.lastUsedAt, PositionMs: known.positionMs,
-			Decision: known.decision,
+			Decision: known.decision, HasPlayed: known.hasPlayed,
 		})
 	}
 	slices.SortFunc(playing, func(first, second NowPlaying) int {
