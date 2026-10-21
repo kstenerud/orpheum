@@ -5661,7 +5661,8 @@
               "subtitleFetched",
               "audioChosen",
               "playbackGone",
-              "ownPictureGivenUp"
+              "ownPictureGivenUp",
+              "mediaBack"
             ],
             "type": "string"
           },

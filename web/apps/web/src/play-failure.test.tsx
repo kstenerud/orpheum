@@ -4,10 +4,13 @@
 import "./i18n.ts";
 
 import { sendFailuresTo } from "@orpheum/sdk";
-import { afterEach, describe, expect, it } from "vitest";
+import { act } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { mediaBackAskEveryMs } from "./film-player.tsx";
 import { PlayView } from "./play.tsx";
-import { fire, mount, servedBy, type Mounted } from "./test-dom.tsx";
+import type { ReopenAt } from "./reopen.ts";
+import { fire, mount, servedBy, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
 import { directDecision } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
 
@@ -94,5 +97,65 @@ describe("a playback that fails (D241 §7)", () => {
     const alert = mounted.container.querySelector('[role="alert"]')?.textContent ?? "";
     expect(alert).not.toContain("cannot be played now");
     expect(alert).not.toBe("");
+  });
+});
+
+describe("a playback its film's being unreachable stopped (the owner, 2026-10-21)", () => {
+  it("asks again until the film can be read, then is opened again from where it stood", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    try {
+      const unavailable = {
+        unavailable: {
+          reason: "root_missing",
+          nodeName: "orpheum",
+          path: "/tank/media/video/movies",
+        },
+      };
+      const heard: Heard[] = [];
+      const services = servedBy(
+        {
+          "GET /files/2/availability": [
+            [200, unavailable],
+            [200, unavailable],
+            [200, {}],
+          ],
+        },
+        heard,
+      );
+      const back: ReopenAt[] = [];
+      mounted = await mount(
+        withServices(
+          <PlayView
+            fileId={2}
+            decision={directDecision()}
+            onDecideAgain={() => undefined}
+            onMediaBack={(at) => back.push(at)}
+          />,
+          services,
+        ),
+      );
+      await fire(mounted.container.querySelector("video"), new Event("error"));
+      expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
+        "/tank/media/video/movies",
+      );
+      act(() => {
+        vi.advanceTimersByTime(mediaBackAskEveryMs);
+      });
+      const asks = (): number =>
+        heard.filter((each) => each.methodAndPath.endsWith("/availability")).length;
+      await settleUntil(() => asks() === 2); // the first ask again, still unreachable
+      expect(back).toEqual([]);
+      act(() => {
+        vi.advanceTimersByTime(mediaBackAskEveryMs);
+      });
+      await settleUntil(() => back.length > 0);
+      expect(back).toEqual([{ positionMs: 0, isPaused: true }]);
+      act(() => {
+        vi.advanceTimersByTime(3 * mediaBackAskEveryMs);
+      });
+      expect(back).toHaveLength(1); // told once
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
