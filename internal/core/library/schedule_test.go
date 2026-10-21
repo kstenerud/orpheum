@@ -4,6 +4,7 @@ package library
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"slices"
 	"testing"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
+	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 // scheduledRequests are the scans the schedule asked for, and the scans in progress it sees.
@@ -145,5 +147,38 @@ func TestScanSchedule_AWatchersNoticeScansTheFolderOnlyForAWatchedLibrary(t *tes
 	if !slices.Equal(requests.asked, want) || !slices.Equal(requests.scopes, []string{"Shows/Dag"}) {
 		t.Errorf("the notices asked for %v, of %v; want the watched library's folder alone", requests.asked,
 			requests.scopes)
+	}
+}
+
+// A library root that is unavailable, its disk or share not answering, is scanned again once
+// unavailable_root_rescan_seconds have passed since its last scan, until one reads it; one scanned
+// lately, one being scanned and one available are not (D233 §10; staging, 2026-10-21).
+func TestScanSchedule_ScansAnUnavailableRootAgainUntilOneReadsIt(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	made := NewLibrary{
+		Name: "Away", ChangeDetection: "manual", Kind: "movies", MetadataSource: "nfo", NodeID: world.nodeID,
+		Roots: []string{"/media/away", "/media/lately", "/media/running", "/media/fine"},
+	}
+	if _, err := Create(t.Context(), world.database, world.clock, made); err != nil {
+		t.Fatal(err)
+	}
+	now := world.clock.Now().UnixMilli()
+	storetest.ExecRaw(t, world.database.Path(), fmt.Sprintf(`INSERT INTO root_state
+		(node_id, root_path, last_scan_outcome, last_scan_at, unavailable_since) VALUES
+		(%[1]d, '/media/away', 'unreadable', %[2]d, %[2]d), (%[1]d, '/media/lately', 'unreadable', %[3]d, %[2]d),
+		(%[1]d, '/media/running', 'unreadable', %[2]d, %[2]d), (%[1]d, '/media/fine', 'complete', %[2]d, NULL)`,
+		world.nodeID, now-2*60_000, now-10_000))
+	requests := &scheduledRequests{running: map[ScanRoot]ScanProgress{
+		{NodeID: world.nodeID, RootPath: "/media/running"}: {},
+	}}
+	schedule := NewScanSchedule(world.database, requests, world.settings, world.clock, slog.New(slog.DiscardHandler))
+	asked, err := schedule.RescanUnavailable(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []ScanRoot{{NodeID: world.nodeID, RootPath: "/media/away"}}; asked != 1 ||
+		!slices.Equal(requests.asked, want) {
+		t.Errorf("asked for %d scans, %v; want %v alone", asked, requests.asked, want)
 	}
 }

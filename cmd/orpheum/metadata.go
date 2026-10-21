@@ -328,6 +328,7 @@ const (
 	sweepScheduledBackup  = "the scheduled backup"
 	sweepCertificate      = "the certificate's renewal"
 	sweepScheduledScans   = "the scheduled scans"
+	sweepUnavailableRoots = "the unavailable roots scanned again"
 	sweepInvariants       = "the database's invariants"
 	sweepEndedCredentials = "ended credentials past their keeping" //nolint:gosec // G101: a sweep's name
 	sweepRemovedFiles     = "removed files past their keeping"
@@ -472,6 +473,12 @@ func (services jobServices) sweeps(logger *slog.Logger) []jobs.Sweep {
 		{
 			Name: sweepScheduledScans, Derive: services.scanSchedule.QueueDue,
 			Every: func(context.Context) time.Duration { return scheduledScansCheckEvery },
+		},
+		{
+			Name: sweepUnavailableRoots, Derive: services.scanSchedule.RescanUnavailable,
+			Every: func(ctx context.Context) time.Duration {
+				return lengthOrStarting(ctx, services.settings, settings.UnavailableRootRescanSeconds, logger)
+			},
 		},
 		{
 			Name: sweepEndedCredentials, Derive: purgeEndedCredentials(services.credentials),

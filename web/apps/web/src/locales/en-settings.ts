@@ -170,6 +170,8 @@ export const enSettingsCatalogue = {
       "A watched library notices changes as they happen, but watching can miss one without knowing, for instance across a restart. A full scan this often finds anything missed.",
   },
   descriptions: {
+    unavailableRootRescanSeconds:
+      "How often a library folder that can't be reached, its disk or network share not answering, is scanned again, which brings it back once it answers.",
     seriesEpisodesAhead:
       "How many episodes of a series get their work done first while its page is open, starting where you are in it.",
     interestSaidEverySeconds:

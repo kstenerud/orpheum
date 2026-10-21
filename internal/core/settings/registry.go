@@ -81,6 +81,7 @@ const (
 	RemovedFilesKeptDays                      Key = "removed_files_kept_days"
 	NewLibraryDefaultScanEveryHours           Key = "new_library_default_scan_every_hours"
 	WatchedLibraryScanEveryHours              Key = "watched_library_scan_every_hours"
+	UnavailableRootRescanSeconds              Key = "unavailable_root_rescan_seconds"
 	LoudnessTargetLUFS                        Key = "loudness_target_lufs"
 	LoudnessMaxRaiseDB                        Key = "loudness_max_raise_db"
 	ReadThroughSweepEveryHours                Key = "read_through_sweep_every_hours"
@@ -412,6 +413,11 @@ func scanDefinitions() []Definition {
 				"a change and never says so (D27, D272 §1)"),
 			"best guess: daily, as new_library_default_scan_every_hours; scanner.md: periodic full scans "+
 				"are mandatory even with a perfect watcher"),
+		sourced(durationSetting(UnavailableRootRescanSeconds, time.Second, "60", 15, 3600,
+			"seconds between scans of a library folder that is unavailable, its disk or its share not "+
+				"answering, which bring it back once one reads it (D233 §10, D241)"),
+			"staging, 2026-10-21: a NAS back in a minute; a scan of a share still away is answered at once "+
+				"by the node's disk gate"),
 	}
 }
 
