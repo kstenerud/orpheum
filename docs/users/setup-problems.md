@@ -100,17 +100,30 @@ say so too, rather than spin. But the read itself stays stuck until the share an
 cannot restart until then.
 
 Mount the share so its reads give up instead. **As root**, on the machine that mounts it, add
-`soft,timeo=100,retrans=3` to its options in `/etc/fstab`, for example:
+`vers=3,soft,timeo=100,retrans=3,nolock` to its options in `/etc/fstab`, for example:
 
 ```
-nas:/films  /media/films  nfs  ro,soft,timeo=100,retrans=3  0  0
+nas:/films  /media/films  nfs  ro,vers=3,soft,timeo=100,retrans=3,nolock  0  0
 ```
 
 Then remount it (`umount /media/films && mount /media/films`) and restart the node. A read then
-fails after about 30 seconds while the NAS is away; the server makes the folder unavailable, and
-brings it back by itself once a scan reads it again. For read-only media, `soft` loses nothing.
+fails after about 40 seconds while the NAS is away; the server makes the folder unavailable at once,
+and brings it back by itself within seconds of the share answering again. For read-only media,
+`soft` loses nothing. Do not add `softreval`: it lets a check of the share pass while the NAS is
+away.
+
+Use NFS version 3 (`vers=3`). Versions 4.1 and later can stop answering for good after the NAS has
+been unreachable, until the machine restarts, and their reads do not give up while the connection
+looks alive.
+
+**After a network outage, the share may come back up to a minute after the NAS does.** That is the
+Linux network stack waiting longer between each retry; nothing in Orpheum can shorten it. On Linux
+6.15 or later, setting `net.ipv4.tcp_rto_max_ms = 5000` (in `/etc/sysctl.d/`, then a remount) on
+the machine that mounts the share should cut the wait to a few seconds (not yet tested here).
 
 If the films reach the server through a virtual machine or container that passes on a share from
 its host (virtiofs, 9p), the System page notes that it cannot see how the share behind is mounted:
-set these options where the share is actually mounted, on the host.
+set these options where the share is actually mounted, on the host. With virtiofs, also give its daemon a
+pool of threads (`--thread-pool-size=16`, or your VM manager's equivalent): without one, a single
+read waiting on the NAS holds up every other file request from the VM.
 

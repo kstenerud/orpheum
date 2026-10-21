@@ -136,6 +136,9 @@ User-Agent (D263; the User-Agent is logged only).
 | Inotify does not work over SMB/NFS and runs out of watches silently | [inotify does not work over SMB/NFS and runs out of watches silently](#inotify-does-not-work-over-smbnfs-and-runs-out-of-watches-silently) |
 | The NFS client's default timeout is 60 s, retransmitted twice | [The NFS client's default timeout is 60 s, retransmitted twice](#the-nfs-clients-default-timeout-is-60-s-retransmitted-twice) |
 | Staging's node, reading a hard NFS share through virtiofs, hung with 103 threads when the share's host went away, and could not be stopped. | [A hard NFS share passed on by virtiofs hangs its readers past SIGKILL](#a-hard-nfs-share-passed-on-by-virtiofs-hangs-its-readers-past-sigkill) |
+| Reads of an NFS share returned only about 48 s after its server's cable went back in. | [A Linux NFS client resumes reads only tens of seconds after its server is back](#a-linux-nfs-client-resumes-reads-only-tens-of-seconds-after-its-server-is-back) |
+| An NFSv4.2 soft mount stopped answering for good after cable pulls; READs never sent, callback state DOWN. | [NFSv4.1 and later clients can deadlock after the server is unreachable](#nfsv41-and-later-clients-can-deadlock-after-the-server-is-unreachable) |
+| A `stat` of a share's directory succeeded while its server was gone. | [On a network share, `stat` may answer from cache after the server is gone; `statfs` never does](#on-a-network-share-stat-may-answer-from-cache-after-the-server-is-gone-statfs-never-does) |
 | `./staging status` shows the core unhealthy after the tunnel's container restarted on its own. | [A container sharing another's network loses it when that container restarts alone](#a-container-sharing-anothers-network-loses-it-when-that-container-restarts-alone) |
 | A second `./dev make dev` ran two dev loops that fought over ports. | [Killing the `docker exec` client leaves the process running inside the container](#killing-the-docker-exec-client-leaves-the-process-running-inside-the-container) |
 | The dev container had no `tc` and no right to shape its network, and CI's container lacks `NET_ADMIN` | [The dev container had no `tc` and no right to shape its network, and CI's container lacks `NET_ADMIN`](#the-dev-container-had-no-tc-and-no-right-to-shape-its-network-and-cis-container-lacks-net_admin) |
@@ -1822,6 +1825,52 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   Through virtiofs the wait is a FUSE request to virtiofsd on the host, itself stuck on the hard
   mount, so the NFS client's `TASK_KILLABLE` (see "A process in uninterruptible disk wait ignores
   even SIGKILL") did not let SIGKILL through.
+  **A `soft` mount does not change this through virtiofs:** once a request has reached virtiofsd
+  the guest waits for it uninterruptibly, since virtio-fs implements no FUSE interrupt (a TODO in
+  the kernel source), and the flush a killed process sends as it closes its files waits too; staging
+  saw FFmpeg children outlive their kill on the soft NFSv3 share, 2026-10-21, and exit only once the
+  share answered. **[source]** [nfs-client-recovery-2026-10-21.md](design/research/nfs-client-recovery-2026-10-21.md) §3, §5.
+
+### A Linux NFS client resumes reads only tens of seconds after its server is back
+
+- **Symptom:** the NAS's cable was out for about 50 s; reads blocked on the soft NFSv3 share returned
+  only about 48 s after it went back in, while nothing in Orpheum waited.
+- **Cause:** TCP's retransmission back-off on the NFS connection, which no NFS option controls. For
+  NFSv3 the kernel keeps the connection for 180 s whatever `timeo` and `retrans` say, so a shorter
+  outage never closes it and sunrpc's reconnect never runs; meanwhile TCP doubles its wait between
+  retransmissions (0.2 s up to 120 s), and the next one after the server is back can be most of a
+  minute away. The mechanism is read in the source; that it is exactly this 48 s is unverified (no
+  capture was taken).
+- **What we do:** nothing in the code can shorten it; a root comes back within a status or a probe
+  of the reads resuming (D326, D327). `net.ipv4.tcp_rto_max_ms` (kernel 6.15 or later; Debian 13's
+  6.12 has none) caps the back-off on the host that mounts the share; docs/users/setup-problems.md.
+- **Evidence:** **[staging]** 2026-10-21: stuck chunk runs returned at 19:08:05 and 19:08:09 for a
+  cable back at about 19:07:17. **[web]** [nfs-client-recovery-2026-10-21.md](design/research/nfs-client-recovery-2026-10-21.md) §1, §2, with the
+  linux-nfs and LKML threads it cites.
+
+### NFSv4.1 and later clients can deadlock after the server is unreachable
+
+- **Symptom:** after cable pulls, the client's NFSv4.2 soft mount of the NAS stopped answering for
+  good: its state manager waited in `nfs4_begin_drain_session`, READs queued at `call_start` were
+  never sent, so the soft timeout never fired, and the NAS showed the client's callback state DOWN.
+- **Cause:** a known client deadlock around a down callback path and session slot draining,
+  reported on linux-nfs in 2025-12, 2026-03 and 2026-05 with no fix yet. Separately, every NFSv4
+  client marks its requests so a soft request already sent does not time out while the connection
+  counts as up, so v4 reads hang through an outage where v3's fail.
+- **What we do:** the media share is mounted NFSv3 soft (docs/users/setup-problems.md).
+- **Evidence:** **[staging]** 2026-10-21, the VM host's mount of nas.example. **[web]**
+  [nfs-client-recovery-2026-10-21.md](design/research/nfs-client-recovery-2026-10-21.md) §6.
+
+### On a network share, `stat` may answer from cache after the server is gone; `statfs` never does
+
+- **Symptom:** a `stat` of a share's directory can succeed for up to a minute after its server went
+  away; a `statfs` waits on the server.
+- **Cause:** the NFS (and FUSE) attribute cache answers `stat` within its timeout, and `softreval`
+  (which `softerr` turns on too) makes a failed revalidation report success; `statfs` is always an
+  RPC to the server.
+- **What we do:** a probe of a root ends in a `statfs`, which is what makes "readable" mean the share
+  is there (`internal/node/byteserver/probe.go`, D327); setup-problems.md says not to add `softreval`.
+- **Evidence:** **[source]** [nfs-client-recovery-2026-10-21.md](design/research/nfs-client-recovery-2026-10-21.md) §4.
 
 ---
 
