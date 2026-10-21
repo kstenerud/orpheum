@@ -49,6 +49,20 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A40 — Held back a design change as "Cut A's design is frozen" after Cut A had shipped (2026-10-21)
+
+- **What happened:** asked to fix how slowly a library root came back after its share returned, the
+  agent offered a small reordering and a status-driven bring-back, and said the second "changes how
+  a folder comes back (D233 §10, D241). Cut A's design is frozen, so that's your call before I build
+  anything", citing AGENTS.md rule 1. Cut A was done: the owner had watched with their partner that
+  weekend, and the project was preparing a closed beta, whose focus is making things work properly.
+  The false belief came from AGENTS.md, which still says the design is frozen, read without asking
+  whether the milestone it names was still the current one.
+- **Caught by:** the owner: "We're beyond cut A now."
+- **Gate:** none. AGENTS.md rule 1 and its "Start here" still name Cut A as the build contract; the
+  owner's to update. The lesson: a rule tied to a milestone is checked against the project's state
+  before it is cited.
+
 ### A39 — Read the owner's own cable pulls in a NAS's log as a failing network card (2026-10-21)
 
 - **What happened:** diagnosing an NFS share that hung during the dead-share tests, the agent read
