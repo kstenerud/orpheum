@@ -16,6 +16,10 @@
 //     IPv4 first from a private IPv6 address, as a core in Docker has, and the paid service saw the
 //     house's shared IPv4, never its own IPv6 (nas.example, 2026-10-20).
 //     TestIPv6First_DialsIPv6FirstAndIPv4WhenItFails, TestNewClient_DialsThroughIPv6First.
+//   - It refuses a chain through eMudhra's eight compromised intermediate CAs, as the Go it is built
+//     with does from 1.26.10 (CVE-2026-111943): Go checks no revocation, and the system's store
+//     still trusts them through Sectigo's AAA Certificate Services.
+//     TestGoRefusesEMudhrasEightCompromisedCAs.
 //   - No other package uses http.DefaultClient, http.DefaultTransport, http.Get and its
 //     siblings, or http.ProxyFromEnvironment. Enforced by the forbidigo rule tagged [outbound].
 //   - A provider's 429 is one RateLimitedError whichever provider answered it, with the wait its
