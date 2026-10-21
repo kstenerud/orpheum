@@ -61,6 +61,8 @@ export function PlayView(props: {
    * it again from there; false, or undefined, tells the person.
    */
   readonly onPlaybackGone?: ((whereNow: () => ReopenAt) => boolean) | undefined;
+  /** Told, with where the video stood, that its film can be read again after it could not. */
+  readonly onMediaBack?: ((at: ReopenAt) => void) | undefined;
   /**
    * Told where the video stood when its player gave the film's own picture up, for the page to ask
    * for the playback again from there, at the twin (D323 §2).
@@ -135,6 +137,7 @@ function pageComposition(props: Parameters<typeof PlayView>[0]): FilmComposition
     isAutoPlay: props.isStartPaused !== true,
     isFailureHidden: props.isReconnecting === true,
     askAbout: props.fileId,
+    onMediaBack: props.onMediaBack,
     under: PlayUnderOfPage,
   };
 }
@@ -423,9 +426,8 @@ interface Opened {
 export function Play(props: { readonly fileId: number }): JSX.Element {
   const { session } = useServices();
   const { t } = useTranslation();
-  const { opened, held, decideAgain, reopenPlayback, startAtTheTwin } = useOpenedPlayback(
-    props.fileId,
-  );
+  const { opened, held, decideAgain, reopenPlayback, startAtTheTwin, reopenWhenBack } =
+    useOpenedPlayback(props.fileId);
   const render = ({ decision, isStartPaused }: Opened): JSX.Element =>
     decision.audioOutput === undefined && session.deviceId() !== undefined ? (
       <div className="play">
@@ -442,6 +444,7 @@ export function Play(props: { readonly fileId: number }): JSX.Element {
         decision={decision}
         onDecideAgain={decideAgain}
         onPlaybackGone={reopenPlayback}
+        onMediaBack={reopenWhenBack}
         onOwnPictureGivenUp={startAtTheTwin}
         isStartPaused={isStartPaused === true}
         isReconnecting={opened.state !== "loaded"}
@@ -476,8 +479,12 @@ function shownOf(opened: Resource<Opened>, held: Opened | undefined): Opened | u
  */
 interface Reopening {
   readonly whereNow: () => ReopenAt;
-  readonly cause: "playbackGone" | "ownPictureGivenUp";
+  readonly cause: ReopenCause;
 }
+
+/** Why a playback is opened again: the server lost it, its player gave the film's own picture up, or
+ * its film could not be read and can again. */
+type ReopenCause = "playbackGone" | "ownPictureGivenUp" | "mediaBack";
 
 /**
  * How the Play page opens its playback again: a lost one at most every reopenAtMostEveryMs, saying
@@ -491,6 +498,7 @@ function useReopening(parts: {
 }): {
   readonly reopenPlayback: (whereNow: () => ReopenAt) => boolean;
   readonly startAtTheTwin: (at: ReopenAt) => void;
+  readonly reopenWhenBack: (at: ReopenAt) => void;
 } {
   const { reopenRef, reload, hold } = parts;
   // When the last lost one was opened again, on the page's clock.
@@ -522,7 +530,13 @@ function useReopening(parts: {
     },
     [reopen],
   );
-  return { reopenPlayback, startAtTheTwin };
+  const reopenWhenBack = useCallback(
+    (at: ReopenAt): void => {
+      reopen({ whereNow: () => at, cause: "mediaBack" });
+    },
+    [reopen],
+  );
+  return { reopenPlayback, startAtTheTwin, reopenWhenBack };
 }
 
 /**
@@ -537,6 +551,7 @@ function useOpenedPlayback(fileId: number): {
   readonly decideAgain: (cause: DecideAgainCause) => void;
   readonly reopenPlayback: (whereNow: () => ReopenAt) => boolean;
   readonly startAtTheTwin: (at: ReopenAt) => void;
+  readonly reopenWhenBack: (at: ReopenAt) => void;
 } {
   const { api, playableFormats } = useServices();
   // Why the next decision is asked for: the page's opening, unless something asked it again.
@@ -544,10 +559,7 @@ function useOpenedPlayback(fileId: number): {
   // Where a playback opened again is, read as its new one comes, for that to start from, and why it
   // is: the server lost it, or its player gave the film's own picture up; and when the last lost one
   // was opened again, on the page's clock.
-  const reopenRef = useRef<
-    | { readonly whereNow: () => ReopenAt; readonly cause: "playbackGone" | "ownPictureGivenUp" }
-    | undefined
-  >(undefined);
+  const reopenRef = useRef<Reopening | undefined>(undefined);
   const [held, setHeld] = useState<Opened | undefined>(undefined);
   const [opened, reload] = useResource(`play/${String(fileId)}`, async (): Promise<Opened> => {
     const cause = nextCauseRef.current;
@@ -574,12 +586,12 @@ function useOpenedPlayback(fileId: number): {
     },
     [reload],
   );
-  const { reopenPlayback, startAtTheTwin } = useReopening({
+  const { reopenPlayback, startAtTheTwin, reopenWhenBack } = useReopening({
     reopenRef,
     reload,
     hold: () => {
       setHeld(opened.state === "loaded" ? opened.value : undefined);
     },
   });
-  return { opened, held, decideAgain, reopenPlayback, startAtTheTwin };
+  return { opened, held, decideAgain, reopenPlayback, startAtTheTwin, reopenWhenBack };
 }

@@ -44,6 +44,7 @@ import { useFileWaits, waitText, type FileWait } from "./file-waits.ts";
 import { startOn, type LadderOffer } from "./moving-down.ts";
 import { dataOrThrow, problemText, unavailableText } from "./problem.ts";
 import { rateText } from "./rate-text.ts";
+import type { ReopenAt } from "./reopen.ts";
 import { useServices } from "./services.tsx";
 import { playingPicture, TracksNote, type PlayingSound } from "./tracks-note.tsx";
 import { monotonicMs } from "./use-together.ts";
@@ -88,6 +89,8 @@ export interface FilmComposition {
   readonly hasControls: boolean;
   readonly isAutoPlay: boolean;
   readonly askAbout: number | undefined;
+  /** Told, with where the video stood, that its film can be read again after it could not. */
+  readonly onMediaBack?: ((at: ReopenAt) => void) | undefined;
   readonly over?: FilmPiece;
   readonly under?: FilmPiece;
   readonly keptVideo?: HTMLVideoElement | undefined;
@@ -336,7 +339,10 @@ function DirectFilm(props: {
 }): JSX.Element {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [failure, setFailure] = usePlaybackFailure(props.composition.askAbout);
+  const [failure, setFailure] = usePlaybackFailure(props.composition.askAbout, {
+    onMediaBack: props.composition.onMediaBack,
+    videoRef,
+  });
   const readLinkKbps = useBufferMeter(videoRef, props.decision.fileBitRateKbps);
   return (
     <>
@@ -375,7 +381,7 @@ function PreparedFilm(props: {
     ),
   );
   const { videoRef, playbackRef, isWaiting, failure } = usePreparedPlayback(
-    props.composition.askAbout,
+    props.composition,
     decision,
     startIndex,
   );
@@ -415,7 +421,10 @@ function ChunkedFilm(props: {
   const { t } = useTranslation();
   const { offer, positionMs } = props;
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [failure, setFailure] = usePlaybackFailure(props.composition.askAbout);
+  const [failure, setFailure] = usePlaybackFailure(props.composition.askAbout, {
+    onMediaBack: props.composition.onMediaBack,
+    videoRef,
+  });
   const onFailed = useCallback(
     (seen: PlaybackFailure) => {
       setFailure(playbackFailureText(t, seen));
@@ -485,11 +494,11 @@ export function preparingText(t: TFunction, preparing: FileWait | undefined): st
 /**
  * A prepared copy's playback: it waits while the copy's first part is made, then plays it,
  * starting with the audio rendition startAudioRenditionIndex when one is given. A failure asks the
- * server why the file askedAbout cannot be read; undefined asks nothing, for a Watch Together
+ * server why the file asking.askAbout names cannot be read; undefined asks nothing, for a Watch Together
  * viewer, who may not ask of the host's files and is told the player's own words.
  */
 export function usePreparedPlayback(
-  askedAbout: number | undefined,
+  asking: Pick<FilmComposition, "askAbout" | "onMediaBack">,
   decision: PlaybackDecision,
   startAudioRenditionIndex: number | undefined,
 ): {
@@ -503,7 +512,10 @@ export function usePreparedPlayback(
   const videoRef = useRef<HTMLVideoElement>(null);
   const playbackRef = useRef<HlsPlayback | undefined>(undefined);
   const [isWaiting, setIsWaiting] = useState(decision.isPreparing);
-  const [failure, setFailure] = usePlaybackFailure(askedAbout);
+  const [failure, setFailure] = usePlaybackFailure(asking.askAbout, {
+    onMediaBack: asking.onMediaBack,
+    videoRef,
+  });
   useEffect(() => {
     const element = videoRef.current;
     if (element === null) {
@@ -541,13 +553,18 @@ export function usePreparedPlayback(
  * What the viewer is told when playback fails: what the player saw, at once, and, when the server
  * says the file cannot be read now, why instead: its machine away, or its folder or disk missing
  * (D241 §7). A file that can be read leaves the player's words. The server is told what the player saw.
+ * While the file cannot be read, the server is asked again every mediaBackAskEveryMs, and once it
+ * can, onMediaBack is told where the video stood, to open the film again from there (the owner,
+ * 2026-10-21: a player an outage stopped stayed stopped once the films' NAS was back).
  */
 function usePlaybackFailure(
   fileId: number | undefined,
+  back?: MediaBack,
 ): [string | undefined, (seen: string) => void] {
   const { api } = useServices();
   const { t } = useTranslation();
   const [failure, setFailure] = useState<string | undefined>(undefined);
+  const [isUnreachable, setIsUnreachable] = useState(false);
   const fail = useCallback(
     (seen: string) => {
       setFailure(seen);
@@ -561,6 +578,7 @@ function usePlaybackFailure(
         (unavailable) => {
           if (unavailable !== undefined) {
             setFailure(unavailableText(t, unavailable));
+            setIsUnreachable(true);
           }
         },
         () => undefined, // the player's own words stand
@@ -568,7 +586,62 @@ function usePlaybackFailure(
     },
     [api, fileId, t],
   );
+  useMediaBack(fileId, isUnreachable, back);
   return [failure, fail];
+}
+
+/** What a player tells once its film can be read again, and the video it reads where it stood from. */
+interface MediaBack {
+  readonly onMediaBack?: ((at: ReopenAt) => void) | undefined;
+  readonly videoRef: RefObject<HTMLVideoElement | null>;
+}
+
+/** How often a player its film's being unreachable stopped asks whether it can be read again. */
+export const mediaBackAskEveryMs = 10_000;
+
+/**
+ * Asks whether the file can be read again, every mediaBackAskEveryMs while isUnreachable, and once it
+ * can tells onMediaBack, once, where the video stood: its position once it had loaded enough to say,
+ * else the start, and whether it was paused.
+ */
+function useMediaBack(
+  fileId: number | undefined,
+  isUnreachable: boolean,
+  back: MediaBack | undefined,
+): void {
+  const { api } = useServices();
+  const onMediaBack = back?.onMediaBack;
+  const videoRef = back?.videoRef;
+  useEffect(() => {
+    if (!isUnreachable || fileId === undefined || onMediaBack === undefined) {
+      return undefined;
+    }
+    let isWaiting = true;
+    const ask = (): void => {
+      fetchUnavailability(api, fileId).then(
+        (unavailable) => {
+          if (isWaiting && unavailable === undefined) {
+            isWaiting = false;
+            clearInterval(timer);
+            const video = videoRef?.current;
+            const haveMetadata = 1; // HTMLMediaElement.HAVE_METADATA
+            const isLoaded =
+              video !== undefined && video !== null && video.readyState >= haveMetadata;
+            onMediaBack({
+              positionMs: isLoaded ? video.currentTime * 1000 : 0,
+              isPaused: video?.paused ?? false,
+            });
+          }
+        },
+        () => undefined, // asked again at the next tick
+      );
+    };
+    const timer = setInterval(ask, mediaBackAskEveryMs);
+    return () => {
+      isWaiting = false;
+      clearInterval(timer);
+    };
+  }, [api, fileId, isUnreachable, onMediaBack, videoRef]);
 }
 
 /** Why a file cannot be read now, as the server says, or undefined when it can. */
