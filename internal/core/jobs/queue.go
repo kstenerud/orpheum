@@ -130,7 +130,12 @@ const (
 	PriorityAheadOfSweep int64 = 1
 	// PriorityIndexFirst is the read of a file's index alone, milliseconds, before any full read:
 	// the fast tier, so most films are cut on their keyframes before anyone plays them (D269 §5).
-	PriorityIndexFirst     int64 = 2
+	PriorityIndexFirst int64 = 2
+	// PriorityBringsBack is the scan of a library root that is unavailable, which brings its films
+	// back: everyone using the library waits on it, so it goes before the queue's own work. Behind a
+	// routine scan of a larger root on the same disk, it waited a minute for the disk's one reader
+	// (staging, 2026-10-21).
+	PriorityBringsBack     int64 = 10
 	PriorityPersonsRequest int64 = 20
 )
 

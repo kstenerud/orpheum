@@ -210,6 +210,32 @@ func TestHello_EnrolsANodeByNameOnceAndQueuesAScanOfEachRootALibraryCovers(t *te
 	}
 }
 
+// A hello asks for the scan of a root that is unavailable before the others, as the scan that
+// brings its films back: behind a routine scan of a larger root on the same disk, it waited a minute
+// for the disk's one reader (D233 §10; staging, 2026-10-21).
+func TestHello_AsksForAnUnavailableRootsScanFirst(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	local := librarytest.Node(t, harness.database, "local")
+	librarytest.LibraryOn(t, harness.database, local,
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/media/films"})
+	librarytest.LibraryOn(t, harness.database, local,
+		librarytest.Library{Name: "Shows", Kind: "shows", MetadataSource: "nfo", Root: "/media/shows"})
+	storetest.ExecRaw(t, harness.database.Path(), fmt.Sprintf(`INSERT INTO root_state
+		(node_id, root_path, last_scan_outcome, last_scan_at, unavailable_since)
+		VALUES (%d, '/media/films', 'unreadable', 1, 1)`, local))
+	scans := &recordingScans{}
+	harness.service.SetScans(scans)
+	harness.hello(t, nodeproto.Hello{Name: "local", RootPaths: []string{"/media/films", "/media/shows"}})
+	scans.mutex.Lock()
+	defer scans.mutex.Unlock()
+	if !slices.Equal(scans.roots, []string{"/media/films", "/media/shows"}) ||
+		!slices.Equal(scans.priorities, []int64{jobs.PriorityBringsBack, jobs.PriorityBackground}) {
+		t.Errorf("scans asked for of %q at %v; want the unavailable /media/films's first, the other's in the "+
+			"background", scans.roots, scans.priorities)
+	}
+}
+
 // A hello that no longer names a library root on its node makes it unavailable, whether or not a
 // hello asks for scans; one that names it again asks for its scan, which brings it back (D241 §2).
 func TestHello_MakesALibraryRootItNoLongerNamesUnavailable(t *testing.T) {

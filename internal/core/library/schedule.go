@@ -112,7 +112,7 @@ func (schedule *ScanSchedule) RescanUnavailable(ctx context.Context) (int, error
 			continue
 		}
 		if err := schedule.scans.RequestUnder(ctx, root.NodeID, root.RootPath, wholeRoot,
-			jobs.PriorityBackground); err != nil {
+			jobs.PriorityBringsBack); err != nil {
 			return asked, err
 		}
 		asked++

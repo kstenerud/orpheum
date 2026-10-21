@@ -15,17 +15,19 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
-// scheduledRequests are the scans the schedule asked for, and the scans in progress it sees.
+// scheduledRequests are the scans the schedule asked for at the priority they are wanted at,
+// background unless said, and the scans in progress it sees.
 type scheduledRequests struct {
-	asked   []ScanRoot
-	scopes  []string
-	running map[ScanRoot]ScanProgress
+	asked    []ScanRoot
+	scopes   []string
+	running  map[ScanRoot]ScanProgress
+	priority int64
 }
 
 func (requests *scheduledRequests) RequestUnder(
 	_ context.Context, nodeID int64, root, scope string, priority int64,
 ) error {
-	if priority == jobs.PriorityBackground {
+	if priority == requests.priority {
 		requests.asked = append(requests.asked, ScanRoot{NodeID: nodeID, RootPath: root})
 		requests.scopes = append(requests.scopes, scope)
 	}
@@ -152,7 +154,8 @@ func TestScanSchedule_AWatchersNoticeScansTheFolderOnlyForAWatchedLibrary(t *tes
 
 // A library root that is unavailable, its disk or share not answering, is scanned again once
 // unavailable_root_rescan_seconds have passed since its last scan, until one reads it; one scanned
-// lately, one being scanned and one available are not (D233 §10; staging, 2026-10-21).
+// lately, one being scanned and one available are not; and it goes before the queue's own scans,
+// one of which held the disk's one reader for a minute (D233 §10; staging, 2026-10-21).
 func TestScanSchedule_ScansAnUnavailableRootAgainUntilOneReadsIt(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
@@ -168,8 +171,8 @@ func TestScanSchedule_ScansAnUnavailableRootAgainUntilOneReadsIt(t *testing.T) {
 		(node_id, root_path, last_scan_outcome, last_scan_at, unavailable_since) VALUES
 		(%[1]d, '/media/away', 'unreadable', %[2]d, %[2]d), (%[1]d, '/media/lately', 'unreadable', %[3]d, %[2]d),
 		(%[1]d, '/media/running', 'unreadable', %[2]d, %[2]d), (%[1]d, '/media/fine', 'complete', %[2]d, NULL)`,
-		world.nodeID, now-2*60_000, now-10_000))
-	requests := &scheduledRequests{running: map[ScanRoot]ScanProgress{
+		world.nodeID, now-2*60_000, now-2_000))
+	requests := &scheduledRequests{priority: jobs.PriorityBringsBack, running: map[ScanRoot]ScanProgress{
 		{NodeID: world.nodeID, RootPath: "/media/running"}: {},
 	}}
 	schedule := NewScanSchedule(world.database, requests, world.settings, world.clock, slog.New(slog.DiscardHandler))
