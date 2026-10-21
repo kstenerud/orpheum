@@ -25,6 +25,12 @@ export const en = {
   ...enStatus,
   ...enGallery,
   ...enWarning,
+  waits: {
+    underAMinute: "less than a minute",
+    aMinute: "about a minute",
+    minutes: "about {{count}} minutes",
+    hours: "about {{count}} hours",
+  },
   nav: {
     administerFromHome:
       "You administer this server from home, on its own page or the discovery's page at home.",

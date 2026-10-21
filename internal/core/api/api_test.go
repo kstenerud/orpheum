@@ -49,6 +49,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/core/together"
 	"github.com/kstenerud/orpheum/internal/core/turn"
+	"github.com/kstenerud/orpheum/internal/core/waits"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/build"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -250,9 +251,16 @@ func newHarness(t *testing.T) testHarness {
 	// As serve.go wires them: a group's players share the upload evenly from their start (D286 §5).
 	playbackService.GroupPlayersBy(hub.PlayersHostedBy)
 	looks := interest.NewRegister(now)
+	estimator, estimatorErr := waits.NewEstimator(waits.Parts{
+		Database: database, Cache: cache, Attempts: exchanges, Nodes: nodes, ReadThroughs: readThroughService,
+		Clock: now,
+	})
+	if estimatorErr != nil {
+		t.Fatal(estimatorErr)
+	}
 	server.Ready(Dependencies{
-		Interest: looks,
-		Auth:     service, Settings: seeded, Discovery: discoveryService, PortMapping: portMapping,
+		Interest: looks, Waits: estimator,
+		Auth: service, Settings: seeded, Discovery: discoveryService, PortMapping: portMapping,
 		Secrets: secretStore, SetupCodes: codes,
 		Relay:         &turn.Issuer{Address: "203.0.113.7:3478", Secrets: secretStore},
 		Chooser:       identify.NewChooser(matcher, pass),

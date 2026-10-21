@@ -68,3 +68,13 @@ VALUES (sqlc.arg(source_file), sqlc.arg(source_payload_hash), sqlc.arg(profile),
   sqlc.arg(realtime_factor), sqlc.arg(carried_gains_db_json), sqlc.arg(audio_languages_json), sqlc.arg(made_at),
   sqlc.arg(made_at))
 ON CONFLICT (source_file, profile) DO NOTHING;
+
+-- name: GetLatestRealtimeFactor :one
+-- The realtime factor of the latest prepare a node finished of a profile, film made per second of
+-- encoding: how fast its next will go before it says how far it is (D324 section 6).
+SELECT CAST(realtime_factor AS REAL) AS realtime_factor
+FROM prepared_rendition
+WHERE node_id = sqlc.arg(node_id) AND profile = sqlc.arg(profile) AND realtime_factor IS NOT NULL
+  AND realtime_factor > 0
+ORDER BY finished_at DESC
+LIMIT 1;

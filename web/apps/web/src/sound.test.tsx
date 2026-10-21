@@ -68,7 +68,13 @@ describe("how a device makes sound (D222)", () => {
       "a copy prepared for another reason is stereo, and the dialogue boost works on it",
     );
     await click(answerButton("Built-in speakers"));
-    expect(asked(heard)).toEqual(["POST /playback", "PUT /me/devices/5", "POST /playback"]);
+    // The film is not measured yet, so the page asks how long its measuring will take (D324 §6).
+    expect(asked(heard)).toEqual([
+      "POST /playback",
+      "PUT /me/devices/5",
+      "POST /playback",
+      "GET /files/2/waits",
+    ]);
     expect(playbackCauses(heard)).toEqual(["playPage", "soundAnswered"]);
     expect(heard[1]?.body).toEqual({ audioOutput: "built_in_speakers" });
     expect(mounted.container.querySelector("video")).not.toBeNull();
@@ -100,7 +106,8 @@ describe("how a device makes sound (D222)", () => {
     await click(answerButton("Change"));
     expect(answerButton("Built-in speakers")?.getAttribute("aria-pressed")).toBe("true");
     await click(answerButton("Headphones"));
-    expect(heard[1]?.body).toEqual({ audioOutput: "headphones" });
+    const told = heard.find((each) => each.methodAndPath === "PUT /me/devices/5");
+    expect(told?.body).toEqual({ audioOutput: "headphones" });
     expect(playbackCauses(heard)).toEqual(["playPage", "soundChanged"]);
     expect(mounted.container.textContent).toContain("Sound: Headphones");
   });

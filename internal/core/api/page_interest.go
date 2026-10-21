@@ -5,8 +5,11 @@ package api
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+
+	"github.com/kstenerud/orpheum/internal/core/waits"
 )
 
 // PageInterestInput names the film or series whose page a session shows or left.
@@ -28,6 +31,54 @@ func (server *Server) registerPageInterest() {
 		DefaultStatus: http.StatusNoContent, Tags: tags,
 		Summary: "Say this session left a film's or series' page, which lets its work fall back (D324)",
 	}, server.deleteInterest)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "getFileWaits", Method: http.MethodGet, Path: "/files/{id}/waits", Tags: tags,
+		Summary: "The work a file's viewer waits on, its read-through for its loudness and its prepared copy, " +
+			"and about how long each will take (D324 §6)",
+	}, server.getFileWaits)
+}
+
+// WaitBody is one piece of work a viewer waits on.
+type WaitBody struct {
+	IsRunning   bool   `doc:"Whether it is being done now, rather than waiting its turn" json:"isRunning"`
+	SecondsLeft *int64 `doc:"About how long until it is done; absent when nothing says" json:"secondsLeft,omitempty"`
+}
+
+// FileWaitsOutput is the work a file's viewer waits on: each absent when none is open.
+type FileWaitsOutput struct {
+	Body struct {
+		ReadThrough *WaitBody `doc:"Its read-through, for its loudness" json:"readThrough,omitempty"`
+		Prepare     *WaitBody `doc:"Its prepared copy, for a device that plays one" json:"prepare,omitempty"`
+	}
+}
+
+// getFileWaits answers GET /files/{id}/waits: the work a viewer of a file it reaches waits on, and
+// about how long each will take.
+func (server *Server) getFileWaits(ctx context.Context, input *ItemInput) (*FileWaitsOutput, error) {
+	dependencies, _, err := server.requireSignedInReachingFile(ctx, input.Authorization, input.ID)
+	if err != nil {
+		return nil, err
+	}
+	found, err := dependencies.Waits.Of(ctx, input.ID)
+	if err != nil {
+		return nil, server.playbackError(ctx, "say how long a file's work will take", err)
+	}
+	output := &FileWaitsOutput{}
+	output.Body.ReadThrough, output.Body.Prepare = waitBody(found.ReadThrough), waitBody(found.Prepare)
+	return output, nil
+}
+
+// waitBody is a wait as the API says it; nil for none.
+func waitBody(wait *waits.Wait) *WaitBody {
+	if wait == nil {
+		return nil
+	}
+	body := &WaitBody{IsRunning: wait.IsRunning}
+	if wait.IsKnown {
+		seconds := int64(wait.Left.Round(time.Second) / time.Second)
+		body.SecondsLeft = &seconds
+	}
+	return body
 }
 
 // putInterest answers PUT /interest/{id}: the session shows the item's page, which it reaches.

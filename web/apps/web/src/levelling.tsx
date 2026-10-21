@@ -7,6 +7,7 @@ import type { components } from "@orpheum/sdk";
 import { useEffect, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useFileWaits, waitText, type FileWait } from "./file-waits.ts";
 import { tenthsText } from "./number-text.ts";
 import { OwnChoiceSwitch } from "./sound.tsx";
 
@@ -66,6 +67,22 @@ export function levelNote(
   return isOn ? gainNote(level.levelling.gainDb) : { key: "asMixed", db: 0 };
 }
 
+/**
+ * A note that the sound is not measured yet, saying instead about how many seconds measuring it
+ * will take, or how long it waits to be, as the server says of its read-through (D324 §6); any other
+ * note as it is.
+ */
+export function measuringNote(
+  note: { key: string; db: number },
+  measuring: FileWait | undefined,
+): { key: string; db: number; seconds?: number } {
+  const seconds = measuring?.secondsLeft;
+  if (note.key !== "notMeasured" || measuring === undefined || seconds === undefined) {
+    return note;
+  }
+  return { key: measuring.isRunning ? "measuring" : "waitingToMeasure", db: 0, seconds };
+}
+
 /** The note for a gain of db: at the level, raised or lowered, and by how much. */
 function gainNote(db: number): { key: string; db: number } {
   if (db === 0) {
@@ -87,6 +104,8 @@ function pageCanSetVolume(): boolean {
  * page may set the volume, and a note saying what was done (D226 §4–§6).
  */
 export function LevelSwitch(props: {
+  /** The file playing, whose read-through measures its loudness. */
+  readonly fileId: number;
   readonly level: SoundLevel;
   /** Whether levelling starts on; the switch keeps its own state after that. */
   readonly isInitiallyOn: boolean;
@@ -103,8 +122,11 @@ export function LevelSwitch(props: {
       gainAfterVolume(video).setDb(addedDb);
     }
   }, [addedDb, props.videoRef]);
-  const note = levelNote(props.level, isOn, canApplyGain);
+  const isUnmeasured = canApplyGain && !props.level.levelling.isMeasured;
+  const measuring = useFileWaits(props.fileId, isUnmeasured)?.readThrough;
+  const note = measuringNote(levelNote(props.level, isOn, canApplyGain), measuring);
   const dbText = tenthsText(note.db, i18n.language);
+  const wait = note.seconds === undefined ? "" : waitText(t, note.seconds);
   return (
     <>
       <OwnChoiceSwitch
@@ -113,7 +135,7 @@ export function LevelSwitch(props: {
         isInitiallyOn={isOn}
         onSwitched={setIsOn}
       />
-      <p className="levelling__note">{t(`play.level.${note.key}`, { db: dbText })}</p>
+      <p className="levelling__note">{t(`play.level.${note.key}`, { db: dbText, wait })}</p>
     </>
   );
 }

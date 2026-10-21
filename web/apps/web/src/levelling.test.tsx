@@ -10,10 +10,11 @@ import {
   addedGainDb,
   LevelSwitch,
   levelNote,
+  measuringNote,
   soundLevelOf,
   type SoundLevel,
 } from "./levelling.tsx";
-import { click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import { click, mount, servedBy, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 
 let mounted: Mounted | undefined;
@@ -82,11 +83,49 @@ describe("levelling a film's loudness (D226)", () => {
     });
   });
 
+  it("says how long a sound not measured yet will take, as the server says of its read-through", () => {
+    const unmeasured = { levelling: { isMeasured: false, gainDb: 0 }, carriedGainDb: 0 };
+    const note = levelNote(unmeasured, true, true);
+    expect(measuringNote(note, { isRunning: true, secondsLeft: 180 })).toEqual({
+      key: "measuring",
+      db: 0,
+      seconds: 180,
+    });
+    expect(measuringNote(note, { isRunning: false, secondsLeft: 720 })).toEqual({
+      key: "waitingToMeasure",
+      db: 0,
+      seconds: 720,
+    });
+    expect(measuringNote(note, { isRunning: false })).toEqual({ key: "notMeasured", db: 0 });
+    const raised = levelNote(alien, true, true);
+    expect(measuringNote(raised, { isRunning: true, secondsLeft: 180 })).toEqual(raised);
+  });
+
+  it("asks the server how long the measuring will take, and says so", async () => {
+    const unmeasured = { levelling: { isMeasured: false, gainDb: 0 }, carriedGainDb: 0 };
+    const services = servedBy({
+      "GET /files/1/waits": [200, { readThrough: { isRunning: false, secondsLeft: 720 } }],
+    });
+    mounted = await mount(
+      withServices(
+        <LevelSwitch fileId={1} level={unmeasured} isInitiallyOn videoRef={createRef()} />,
+        services,
+      ),
+    );
+    const said =
+      "Its loudness is waiting to be measured, about 12 minutes; until then it plays as it is.";
+    await settleUntil(() => mounted?.container.textContent.includes(said) === true);
+    expect(mounted.container.textContent).toContain(said);
+  });
+
   it("starts as the person left it, says the gain, and switching it off is kept for every file", async () => {
     const heard: Heard[] = [];
     const services = servedBy({ "PUT /me/preferences": [204, undefined] }, heard);
     mounted = await mount(
-      withServices(<LevelSwitch level={alien} isInitiallyOn videoRef={createRef()} />, services),
+      withServices(
+        <LevelSwitch fileId={1} level={alien} isInitiallyOn videoRef={createRef()} />,
+        services,
+      ),
     );
     const box = mounted.container.querySelector("input");
     expect(box?.checked).toBe(true);

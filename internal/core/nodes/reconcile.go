@@ -34,7 +34,7 @@ func (all *Exchanges) Reconcile(
 		if each, isHeld := heldByToken[token]; isHeld && attempt.NodeID == nodeID {
 			attempt.lastHeard = now
 			if word, isWord := wordOfHeld(each.State); isWord {
-				attempt.lastWord = word
+				attempt.hear(word, now)
 			}
 		}
 	}

@@ -449,6 +449,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/files/{id}/waits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The work a file's viewer waits on, its read-through for its loudness and its prepared copy, and about how long each will take (D324 §6) */
+        get: operations["getFileWaits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/filing-reports": {
         parameters: {
             query?: never;
@@ -2547,6 +2564,12 @@ export interface components {
             /** @description Empty on the last page */
             nextCursor?: string;
         };
+        FileWaitsOutputBody: {
+            /** @description Its prepared copy, for a device that plays one */
+            prepare?: components["schemas"]["WaitBody"];
+            /** @description Its read-through, for its loudness */
+            readThrough?: components["schemas"]["WaitBody"];
+        };
         FilingReportBody: {
             markdown: string;
             name: string;
@@ -4102,6 +4125,15 @@ export interface components {
             audioOutput?: "built_in_speakers" | "receiver" | "headphones";
             playableFormats: components["schemas"]["PlayableFormatsBody"];
         };
+        WaitBody: {
+            /** @description Whether it is being done now, rather than waiting its turn */
+            isRunning: boolean;
+            /**
+             * Format: int64
+             * @description About how long until it is done; absent when nothing says
+             */
+            secondsLeft?: number;
+        };
         WaitingBody: {
             /**
              * Format: int64
@@ -5270,6 +5302,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FetchSubtitleOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getFileWaits: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileWaitsOutputBody"];
                 };
             };
             /** @description Error */

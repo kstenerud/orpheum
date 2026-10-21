@@ -1757,6 +1757,20 @@
         ],
         "type": "object"
       },
+      "FileWaitsOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "prepare": {
+            "$ref": "#/components/schemas/WaitBody",
+            "description": "Its prepared copy, for a device that plays one"
+          },
+          "readThrough": {
+            "$ref": "#/components/schemas/WaitBody",
+            "description": "Its read-through, for its loudness"
+          }
+        },
+        "type": "object"
+      },
       "FilesOutputBody": {
         "additionalProperties": false,
         "properties": {
@@ -6770,6 +6784,24 @@
         ],
         "type": "object"
       },
+      "WaitBody": {
+        "additionalProperties": false,
+        "properties": {
+          "isRunning": {
+            "description": "Whether it is being done now, rather than waiting its turn",
+            "type": "boolean"
+          },
+          "secondsLeft": {
+            "description": "About how long until it is done; absent when nothing says",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "isRunning"
+        ],
+        "type": "object"
+      },
       "WaitingBody": {
         "additionalProperties": false,
         "properties": {
@@ -8867,6 +8899,57 @@
         "summary": "Fetch a subtitle for a file; spends one of the account's daily downloads (D224)",
         "tags": [
           "Playback"
+        ]
+      }
+    },
+    "/files/{id}/waits": {
+      "get": {
+        "operationId": "getFileWaits",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileWaitsOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "The work a file's viewer waits on, its read-through for its loudness and its prepared copy, and about how long each will take (D324 §6)",
+        "tags": [
+          "Browse"
         ]
       }
     },

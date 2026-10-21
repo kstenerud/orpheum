@@ -25,6 +25,51 @@ func (q *Queries) GetMaxFileID(ctx context.Context) (int64, error) {
 	return last_id, err
 }
 
+const listFileSizesAndNodes = `-- name: ListFileSizesAndNodes :many
+SELECT id, node_id, size_bytes,
+  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
+    AS duration_ms
+FROM file
+WHERE id IN (SELECT value FROM json_each(CAST(?1 AS TEXT))) AND removed_at IS NULL
+`
+
+type ListFileSizesAndNodesRow struct {
+	ID         int64
+	NodeID     int64
+	SizeBytes  *int64
+	DurationMs int64
+}
+
+// The node, the size and the length of each live file named, by its id: the bytes ahead of a
+// read-through on its node, and the film a prepare makes (D324 section 6). A length not probed is 0.
+func (q *Queries) ListFileSizesAndNodes(ctx context.Context, fileIdsJson string) ([]ListFileSizesAndNodesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listFileSizesAndNodes, fileIdsJson)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListFileSizesAndNodesRow{}
+	for rows.Next() {
+		var i ListFileSizesAndNodesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.NodeID,
+			&i.SizeBytes,
+			&i.DurationMs,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFilesToReadThrough = `-- name: ListFilesToReadThrough :many
 SELECT f.id, f.node_id, f.reported_path_raw,
   CAST((SELECT 1 FROM video_timeline v WHERE v.payload_hash = f.payload_hash LIMIT 1) IS NOT NULL AS INTEGER)

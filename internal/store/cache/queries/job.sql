@@ -190,3 +190,21 @@ UPDATE job SET wanted_until = CAST(sqlc.arg(now) AS INTEGER)
 WHERE wanted_until IS NOT NULL AND priority < sqlc.arg(below) AND state IN ('queued', 'running', 'assigned')
   AND (item_id IN (SELECT value FROM json_each(CAST(sqlc.arg(item_ids_json) AS TEXT)))
     OR file_id IN (SELECT value FROM json_each(CAST(sqlc.arg(file_ids_json) AS TEXT))));
+
+-- name: ListOpenReadThroughs :many
+-- Every open read-through, by file, with its priority, state and arguments: what is ahead of a
+-- file's own on its node, for how long it will take (D324 section 6).
+SELECT id, file_id, priority, state, args_json
+FROM job
+WHERE kind = 'read_through' AND state IN ('queued', 'running', 'assigned') AND file_id IS NOT NULL
+ORDER BY id;
+
+-- name: ListOpenPreparesOfFile :many
+-- The open prepares of a file's renditions, with how far each is, and its node and profile: what a
+-- player waiting for a prepared copy waits on (D324 section 6).
+SELECT job.id, job.state, job.progress_fraction, prepared_rendition.node_id, prepared_rendition.profile
+FROM job
+JOIN prepared_rendition ON prepared_rendition.id = job.rendition_id
+WHERE job.kind = 'prepare' AND job.state IN ('queued', 'running', 'assigned')
+  AND prepared_rendition.source_file = sqlc.arg(file_id)
+ORDER BY job.priority DESC, job.id;

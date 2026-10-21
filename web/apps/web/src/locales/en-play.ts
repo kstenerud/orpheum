@@ -10,6 +10,7 @@ export const enPlay = {
     directFailed: "This browser could not play the original file: {{reason}}.",
     prepared: "Playing a copy prepared for this browser, because {{reasons}}.",
     preparing: "Preparing — ready in a few seconds.",
+    preparingFor: "Preparing this film for this device: {{wait}}.",
     preparedFailed: "The prepared copy could not play: {{reason}}.",
     ladderFailed: "The film could not play: {{reason}}.",
     lowerQualityStarting:
@@ -55,6 +56,9 @@ export const enPlay = {
       atLevel: "Already at the level of other films.",
       asMixed: "Playing as it was mixed.",
       notMeasured: "Its loudness is not measured yet, so it plays as it is.",
+      measuring: "Its loudness is being measured, {{wait}}; until then it plays as it is.",
+      waitingToMeasure:
+        "Its loudness is waiting to be measured, {{wait}}; until then it plays as it is.",
       deviceVolume:
         "This device sets its own volume, so only a copy prepared after measuring is levelled here.",
     },

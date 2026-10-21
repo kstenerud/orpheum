@@ -36,6 +36,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/core/together"
+	"github.com/kstenerud/orpheum/internal/core/waits"
 	"github.com/kstenerud/orpheum/internal/core/webclient"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/localtime"
@@ -304,8 +305,18 @@ func wireJobsInto(
 	dependencies.Backups.UseQueue(opened.jobServices.queue, opened.settings)
 	opened.jobServices.backups = dependencies.Backups
 	var err error
-	opened.jobServices.interest, err = newInterestRaiser(dependencies, opened, logger)
-	return opened, err
+	if opened.jobServices.interest, err = newInterestRaiser(dependencies, opened, logger); err != nil {
+		return opened, err
+	}
+	// How long the work a viewer waits on will take, timing the read-throughs as they end (D324 §6).
+	dependencies.Waits, err = waits.NewEstimator(waits.Parts{
+		Database: opened.database, Cache: opened.cache, Attempts: opened.exchanges, Nodes: opened.nodes,
+		ReadThroughs: opened.jobServices.readThrough, Clock: clock.System{},
+	})
+	if err != nil {
+		return opened, fmt.Errorf("say how long work will take: %w", err)
+	}
+	return opened, nil
 }
 
 // newInterestRaiser is what orders the work by what people play and look at (D324), its register

@@ -510,6 +510,100 @@ func (q *Queries) ListOpenJobsOfTarget(ctx context.Context, arg ListOpenJobsOfTa
 	return items, nil
 }
 
+const listOpenPreparesOfFile = `-- name: ListOpenPreparesOfFile :many
+SELECT job.id, job.state, job.progress_fraction, prepared_rendition.node_id, prepared_rendition.profile
+FROM job
+JOIN prepared_rendition ON prepared_rendition.id = job.rendition_id
+WHERE job.kind = 'prepare' AND job.state IN ('queued', 'running', 'assigned')
+  AND prepared_rendition.source_file = ?1
+ORDER BY job.priority DESC, job.id
+`
+
+type ListOpenPreparesOfFileRow struct {
+	ID               int64
+	State            string
+	ProgressFraction *float64
+	NodeID           int64
+	Profile          string
+}
+
+// The open prepares of a file's renditions, with how far each is, and its node and profile: what a
+// player waiting for a prepared copy waits on (D324 section 6).
+func (q *Queries) ListOpenPreparesOfFile(ctx context.Context, fileID int64) ([]ListOpenPreparesOfFileRow, error) {
+	rows, err := q.db.QueryContext(ctx, listOpenPreparesOfFile, fileID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOpenPreparesOfFileRow{}
+	for rows.Next() {
+		var i ListOpenPreparesOfFileRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.State,
+			&i.ProgressFraction,
+			&i.NodeID,
+			&i.Profile,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOpenReadThroughs = `-- name: ListOpenReadThroughs :many
+SELECT id, file_id, priority, state, args_json
+FROM job
+WHERE kind = 'read_through' AND state IN ('queued', 'running', 'assigned') AND file_id IS NOT NULL
+ORDER BY id
+`
+
+type ListOpenReadThroughsRow struct {
+	ID       int64
+	FileID   *int64
+	Priority int64
+	State    string
+	ArgsJSON string
+}
+
+// Every open read-through, by file, with its priority, state and arguments: what is ahead of a
+// file's own on its node, for how long it will take (D324 section 6).
+func (q *Queries) ListOpenReadThroughs(ctx context.Context) ([]ListOpenReadThroughsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listOpenReadThroughs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOpenReadThroughsRow{}
+	for rows.Next() {
+		var i ListOpenReadThroughsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.FileID,
+			&i.Priority,
+			&i.State,
+			&i.ArgsJSON,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const mergeQueuedJob = `-- name: MergeQueuedJob :execrows
 UPDATE job SET args_json = ?1, priority = ?2, reason = ?3,
                runnable_at = ?4, destination = ?5

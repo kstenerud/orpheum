@@ -9,6 +9,29 @@ import (
 	"context"
 )
 
+const getLatestRealtimeFactor = `-- name: GetLatestRealtimeFactor :one
+SELECT CAST(realtime_factor AS REAL) AS realtime_factor
+FROM prepared_rendition
+WHERE node_id = ?1 AND profile = ?2 AND realtime_factor IS NOT NULL
+  AND realtime_factor > 0
+ORDER BY finished_at DESC
+LIMIT 1
+`
+
+type GetLatestRealtimeFactorParams struct {
+	NodeID  int64
+	Profile string
+}
+
+// The realtime factor of the latest prepare a node finished of a profile, film made per second of
+// encoding: how fast its next will go before it says how far it is (D324 section 6).
+func (q *Queries) GetLatestRealtimeFactor(ctx context.Context, arg GetLatestRealtimeFactorParams) (float64, error) {
+	row := q.db.QueryRowContext(ctx, getLatestRealtimeFactor, arg.NodeID, arg.Profile)
+	var realtime_factor float64
+	err := row.Scan(&realtime_factor)
+	return realtime_factor, err
+}
+
 const getRenditionByID = `-- name: GetRenditionByID :one
 SELECT id, source_file, source_payload_hash, profile, node_id, state, segment_length_seconds, run_id, prepared_through_ms, size_bytes, failure, video_encoder, realtime_factor, carried_gains_db_json, audio_languages_json, created_at, finished_at
 FROM prepared_rendition WHERE id = ?
