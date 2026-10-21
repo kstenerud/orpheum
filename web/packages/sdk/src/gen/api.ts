@@ -520,6 +520,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/interest/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Say this session shows a film's or series' page, which raises its work, again every interest_said_every_seconds while it does (D324) */
+        put: operations["putInterest"];
+        post?: never;
+        /** Say this session left a film's or series' page, which lets its work fall back (D324) */
+        delete: operations["deleteInterest"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/invitations": {
         parameters: {
             query?: never;
@@ -2112,6 +2130,8 @@ export interface components {
             page: string;
         };
         ClientSettingsBody: {
+            /** Format: int64 */
+            interestSaidEverySeconds: number;
             /** Format: int64 */
             screenRefreshFailedWaitSeconds: number;
             /** Format: int64 */
@@ -5378,6 +5398,72 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HomeOutputBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    putInterest: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                /** @description The film or series whose page it is */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteInterest: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                /** @description The film or series whose page it is */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

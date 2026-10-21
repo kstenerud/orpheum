@@ -19,6 +19,7 @@ import { MatchCorrection } from "./match-correction.tsx";
 import { StatusNotes } from "./status-cues.tsx";
 import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
+import { usePageInterest } from "./page-interest.ts";
 import { useServices } from "./services.tsx";
 import { useResource, type Resource } from "./use-resource.ts";
 import { watchingOf } from "./watching.ts";
@@ -266,6 +267,7 @@ export function Title(props: { readonly id: number }): JSX.Element {
     useBackgroundChangesPoller(),
   );
   const title = useRemembered(`title/${String(props.id)}`, loaded, rememberedTitles);
+  usePageInterest(props.id);
   const warmFileId = title.state === "loaded" ? firstPlayableFile(title.value) : undefined;
   useEffect(() => {
     if (warmFileId !== undefined) {

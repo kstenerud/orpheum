@@ -33,6 +33,7 @@ import { Search } from "./search.tsx";
 import { Series } from "./series.tsx";
 import type { Session } from "./session.ts";
 import { Settings } from "./settings.tsx";
+import { InterestSaidEveryContext } from "./page-interest.ts";
 import { usePathMoveCount, useRoute, useServices, useToken } from "./services.tsx";
 import { SignIn } from "./sign-in.tsx";
 import { System } from "./system.tsx";
@@ -111,24 +112,26 @@ function SignedIn(): JSX.Element {
     <IsAdminContext value={isAdmin}>
       <HostVoiceProvider membership={hostMembership}>
         <BackgroundChangesContext value={poller}>
-          <AppShell
-            isAdmin={isAdmin}
-            canHostWatchTogether={me.state === "loaded" && me.value.canHostWatchTogether}
-            isHostingTogether={isHostingTogether}
-            signedInAs={
-              me.state === "loaded"
-                ? { name: me.value.name, deviceName: me.value.device?.name }
-                : undefined
-            }
-            currentScreen={route.screen}
-            administersFromHomeAt={administersFromHomeAt(me)}
-            realm={realm}
-            showsDeveloperPages={clientSettings?.shouldShowDeveloperPages === true}
-            onSwitchHousehold={switchHousehold}
-            onSignOut={signOut}
-          >
-            <Screen route={route} />
-          </AppShell>
+          <InterestSaidEveryContext value={clientSettings?.interestSaidEverySeconds ?? 15}>
+            <AppShell
+              isAdmin={isAdmin}
+              canHostWatchTogether={me.state === "loaded" && me.value.canHostWatchTogether}
+              isHostingTogether={isHostingTogether}
+              signedInAs={
+                me.state === "loaded"
+                  ? { name: me.value.name, deviceName: me.value.device?.name }
+                  : undefined
+              }
+              currentScreen={route.screen}
+              administersFromHomeAt={administersFromHomeAt(me)}
+              realm={realm}
+              showsDeveloperPages={clientSettings?.shouldShowDeveloperPages === true}
+              onSwitchHousehold={switchHousehold}
+              onSignOut={signOut}
+            >
+              <Screen route={route} />
+            </AppShell>
+          </InterestSaidEveryContext>
         </BackgroundChangesContext>
       </HostVoiceProvider>
     </IsAdminContext>

@@ -21,6 +21,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/identify"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
+	"github.com/kstenerud/orpheum/internal/core/interest"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/loudness"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
@@ -257,7 +259,7 @@ func openAndWire(
 		opened.jobServices.chunks, opened.jobServices.discovery
 	opened.jobServices.nodes = opened.nodes
 	opened.nodes.SetRenditionIndex(opened.jobServices.renditions)
-	opened = wireJobsInto(&dependencies, opened)
+	opened = wireJobsInto(&dependencies, opened, logger)
 	dependencies.NodeReports, dependencies.NodeWork = opened.nodes, opened.exchanges
 	dependencies.NodeBytes, dependencies.Reachability, dependencies.Relay = openByteSocket(opened.nodes),
 		opened.reachability, newRelayIssuer(config, opened, logger)
@@ -284,7 +286,7 @@ func newTogether(dependencies *api.Dependencies, logger *slog.Logger) *together.
 // wireJobsInto gives the API the job queue, the outside hosts' provider services and the port
 // mapping's report, and makes a
 // backup a job, the scheduled ones and an admin's (D243 §11); and the Watch Together sessions.
-func wireJobsInto(dependencies *api.Dependencies, opened openedServices) openedServices {
+func wireJobsInto(dependencies *api.Dependencies, opened openedServices, logger *slog.Logger) openedServices {
 	dependencies.Together = opened.together
 	dependencies.Together.SnapSeeksBy(dependencies.Chunks.KeyframeAtOrBefore)
 	// The last resort when the server's upload cannot carry its players at their lowest (D286 §5).
@@ -297,6 +299,13 @@ func wireJobsInto(dependencies *api.Dependencies, opened openedServices) openedS
 	dependencies.PortMapping = opened.jobServices.portMapping
 	dependencies.Backups.UseQueue(opened.jobServices.queue, opened.settings)
 	opened.jobServices.backups = dependencies.Backups
+	// What people play and look at orders the work (D324).
+	dependencies.Interest = interest.NewRegister(clock.System{})
+	opened.jobServices.interest = interest.NewRaiser(interest.Parts{
+		Register: dependencies.Interest, Jobs: jobs.NewInterestJobs(opened.cache, clock.System{}),
+		Nodes: opened.exchanges, Playing: playingFiles(dependencies.Playback), Database: opened.database,
+		Settings: opened.settings, Clock: clock.System{}, Logger: logger,
+	})
 	return opened
 }
 

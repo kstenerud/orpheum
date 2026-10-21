@@ -21,6 +21,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/interest"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/playback"
@@ -100,6 +101,8 @@ type Dependencies struct {
 	Preferences *preferences.Service
 	// NodeBytes reads a file's bytes from its node.
 	NodeBytes NodeBytes
+	// Interest is what each session looks at, which orders the work (D324).
+	Interest *interest.Register
 	// Jobs is the one work queue, the one whose runners run the jobs, for the job view, cancel and
 	// the destinations that are down.
 	Jobs *jobs.Queue

@@ -139,7 +139,7 @@ func TestGeneratedQueries_EachHasACaller(t *testing.T) {
 			t.Fatal(readErr)
 		}
 		for _, method := range queryMethods(t, source, contents) {
-			if !regexp.MustCompile(`\.`+method+`\b`).MatchString(callers) {
+			if !regexp.MustCompile(`\.` + method + `\b`).MatchString(callers) {
 				t.Errorf("%s: %s has no caller; remove its query", source, method)
 			}
 		}

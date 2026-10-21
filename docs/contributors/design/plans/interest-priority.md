@@ -32,14 +32,18 @@ and a read-through is one file).
   page's interest gives way to it.
 - **Interest lapses** `interest_lapses_after_seconds` (45) after it was last said: a page closed
   without a word, a player that crashed. `play_priority_kept_seconds` (D234 §3's "wanted until")
-  becomes this, and is retired.
+  stays for a play's own work, its prepare and chunks, which a playback asks for as it plays and
+  interest does not find by its film or files; folding the two waits for I4.
 
 ## 3. What interest raises, and how high
 
 - **The order** (D324 §2): played work at `PriorityPlayNow` (1000, as today); looked-at work at
   `PriorityLookedAt`, between it and a person's request, the latest look highest, so of a few films
   perused the last one's work runs first; a person's request (20) and the background (0 to 2) as
-  today. Everyone's interest counts.
+  today. Below a person's request, **"user has shown interest"** (`PriorityShownInterest`, a rung
+  above the background): the work of anything anyone has watched, raised for good, and the work of
+  any look or play once its interest is past, where the demotion of work no one waits for now puts
+  it (it put it on the background before). Everyone's interest counts.
 - **A film's work** (D324 §3): its files' read-throughs, its artwork's sizes, its subtitles'
   extractions, its metadata fetch when owed, and, for a device whose playback decision needs one
   (decide), its prepared copy. A playing film's work is what its playback is already waiting on.
@@ -93,7 +97,7 @@ and a read-through is one file).
 | `interest_lapses_after_seconds` | 45 | 15–600 | three missed words, as a node's silence (cut-a §4) |
 | `series_episodes_ahead` | 3 | 1–20 | the owner, 2026-10-21 |
 
-`play_priority_kept_seconds` is retired into `interest_lapses_after_seconds`.
+`play_priority_kept_seconds` stays for now (§2).
 
 ## 8. Steps
 

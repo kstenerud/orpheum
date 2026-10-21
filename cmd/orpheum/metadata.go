@@ -16,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/discovery"
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/interest"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
@@ -92,6 +93,24 @@ type jobServices struct {
 	credentials credentialPurger
 	// removedFiles deletes the files removed past their keeping, daily (D304 §6, D306 §8).
 	removedFiles removedFilePurger
+	// interest orders the work by what people play and look at (D324).
+	interest *interest.Raiser
+}
+
+// raiseInterestEvery is how often the work of interest is raised and released: a bound on how late
+// a page opened raises its work, short against a person's look of tens of seconds; a few cache.db
+// writes a tick, for the few films people play and look at.
+const raiseInterestEvery = 5 * time.Second
+
+// playingFiles are the files played now, as the playback service last heard them.
+func playingFiles(service *playback.Service) func() []int64 {
+	return func() []int64 {
+		var files []int64
+		for _, playing := range service.NowPlaying() {
+			files = append(files, playing.FileID)
+		}
+		return files
+	}
 }
 
 // removedFilePurger deletes the files removed before a time: library.FilePurger.
@@ -557,6 +576,13 @@ func (services jobServices) startBackgroundLoops(ctx context.Context, logger *sl
 		defer ticker.Stop()
 		demoteUnwanted(loopsContext, services.queue, services.exchanges, ticker.C, logger)
 	})
+	if services.interest != nil {
+		loops.Go(func() {
+			ticker := time.NewTicker(raiseInterestEvery)
+			defer ticker.Stop()
+			services.interest.Run(loopsContext, ticker.C)
+		})
+	}
 	loops.Go(func() {
 		ticker := time.NewTicker(pruneFinishedEvery)
 		defer ticker.Stop()
@@ -624,11 +650,11 @@ func demoteUnwanted(
 		}
 		for _, job := range demoted {
 			if job.IsAssigned {
-				exchanges.Reprioritize(job.ID, jobs.PriorityBackground)
+				exchanges.Reprioritize(job.ID, jobs.PriorityShownInterest)
 			}
 		}
 		if len(demoted) > 0 {
-			logger.InfoContext(ctx, "jobs no one waits for any more fell to background priority",
+			logger.InfoContext(ctx, "jobs no one waits for any more fell to the shown-interest priority",
 				"jobCount", len(demoted))
 		}
 	}

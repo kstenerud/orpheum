@@ -417,6 +417,47 @@ func (q *Queries) ListRecentPlayPositions(ctx context.Context, arg ListRecentPla
 	return items, nil
 }
 
+const listWatchedLiveFiles = `-- name: ListWatchedLiveFiles :many
+SELECT DISTINCT play_position.file_id, title.id AS title_id
+FROM play_position
+JOIN file ON file.id = play_position.file_id AND file.removed_at IS NULL
+JOIN version ON version.id = file.version_id AND version.removed_at IS NULL
+JOIN title ON title.id = version.title_id AND title.kind IN ('movie', 'episode')
+JOIN item ON item.id = title.id AND item.removed_at IS NULL
+ORDER BY play_position.file_id
+`
+
+type ListWatchedLiveFilesRow struct {
+	FileID  int64
+	TitleID int64
+}
+
+// The live files of live films and episodes anyone has a position in, with their titles: what a
+// person has shown interest in by watching it, whose work keeps the rung above the background
+// (D324).
+func (q *Queries) ListWatchedLiveFiles(ctx context.Context) ([]ListWatchedLiveFilesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listWatchedLiveFiles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListWatchedLiveFilesRow{}
+	for rows.Next() {
+		var i ListWatchedLiveFilesRow
+		if err := rows.Scan(&i.FileID, &i.TitleID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const movePlayPosition = `-- name: MovePlayPosition :exec
 INSERT INTO play_position (user_id, file_id, position_ms, report_seq, device_id, updated_at, position_read_at)
 VALUES (?1, ?2, ?3, ?4, ?5,

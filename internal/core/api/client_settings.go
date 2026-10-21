@@ -22,6 +22,8 @@ type ClientSettingsBody struct {
 	// ScreenRefreshFailedWaitSeconds is how long it waits after a read that failed, every time
 	// (D237).
 	ScreenRefreshFailedWaitSeconds int64 `json:"screenRefreshFailedWaitSeconds"`
+	// InterestSaidEverySeconds is how often a shown film's or series' page says so (D324 §1).
+	InterestSaidEverySeconds int64 `json:"interestSaidEverySeconds"`
 	// ShouldShowDeveloperPages is whether the client's menu offers its pages for development, such
 	// as the UI gallery (the owner, 2026-10-17).
 	ShouldShowDeveloperPages bool `json:"shouldShowDeveloperPages"`
@@ -56,6 +58,7 @@ func (server *Server) getClientSettings(
 		{settings.ScreenRefreshFirstWaitSeconds, &output.Body.ScreenRefreshFirstWaitSeconds},
 		{settings.ScreenRefreshLongestWaitSeconds, &output.Body.ScreenRefreshLongestWaitSeconds},
 		{settings.ScreenRefreshFailedWaitSeconds, &output.Body.ScreenRefreshFailedWaitSeconds},
+		{settings.InterestSaidEverySeconds, &output.Body.InterestSaidEverySeconds},
 	} {
 		value, err := dependencies.Settings.Int(ctx, read.key)
 		if err != nil {

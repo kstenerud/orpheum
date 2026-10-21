@@ -29,6 +29,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/identify/identifytest"
 	"github.com/kstenerud/orpheum/internal/core/identity"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
+	"github.com/kstenerud/orpheum/internal/core/interest"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/loudness"
@@ -79,10 +80,12 @@ type testHarness struct {
 	setupCodes   *authtest.SetupCodes
 	databasePath string
 	database     *store.Database
-	directories  *instancedir.Directories
-	clock        *clocktest.Fake
-	nodeBytes    *fakeNodeBytes
-	queue        *jobs.Queue
+	// looks are what each session shows, as PUT /interest says (D324).
+	looks       *interest.Register
+	directories *instancedir.Directories
+	clock       *clocktest.Fake
+	nodeBytes   *fakeNodeBytes
+	queue       *jobs.Queue
 	// subtitler is OpenSubtitles, faked (D224).
 	subtitler *fakeSubtitler
 	// resolver takes the outcome of each job given to the node, and hands a test its answer.
@@ -246,8 +249,10 @@ func newHarness(t *testing.T) testHarness {
 	}, slog.New(slog.NewJSONHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug})))
 	// As serve.go wires them: a group's players share the upload evenly from their start (D286 §5).
 	playbackService.GroupPlayersBy(hub.PlayersHostedBy)
+	looks := interest.NewRegister(now)
 	server.Ready(Dependencies{
-		Auth: service, Settings: seeded, Discovery: discoveryService, PortMapping: portMapping,
+		Interest: looks,
+		Auth:     service, Settings: seeded, Discovery: discoveryService, PortMapping: portMapping,
 		Secrets: secretStore, SetupCodes: codes,
 		Relay:         &turn.Issuer{Address: "203.0.113.7:3478", Secrets: secretStore},
 		Chooser:       identify.NewChooser(matcher, pass),
@@ -291,7 +296,7 @@ func newHarness(t *testing.T) testHarness {
 	return testHarness{
 		server: server, httpServer: served, logs: logs, authService: service, setupCodes: codes,
 		databasePath: database.Path(),
-		database:     database,
+		database:     database, looks: looks,
 		tmdbProvider: provider, cache: cache, nodes: nodes, exchanges: exchanges, directories: directories, clock: now,
 		nodeBytes: nodeBytes, queue: queue, resolver: resolver, backups: backups,
 		subtitler: subtitler, readThrough: readThroughService, subtitles: subtitlesService,

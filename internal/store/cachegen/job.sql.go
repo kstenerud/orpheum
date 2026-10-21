@@ -381,6 +381,50 @@ func (q *Queries) ListJobs(ctx context.Context, maxRows int64) ([]Job, error) {
 	return items, nil
 }
 
+const listOpenJobsOfItemsAndFiles = `-- name: ListOpenJobsOfItemsAndFiles :many
+SELECT id, priority, state FROM job
+WHERE state IN ('queued', 'running', 'assigned')
+  AND (item_id IN (SELECT value FROM json_each(CAST(?1 AS TEXT)))
+    OR file_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT))))
+ORDER BY id
+`
+
+type ListOpenJobsOfItemsAndFilesParams struct {
+	ItemIdsJSON string
+	FileIdsJSON string
+}
+
+type ListOpenJobsOfItemsAndFilesRow struct {
+	ID       int64
+	Priority int64
+	State    string
+}
+
+// The queued, running and assigned jobs about any of some items or files: the work a person's
+// interest in them raises (D324 section 3).
+func (q *Queries) ListOpenJobsOfItemsAndFiles(ctx context.Context, arg ListOpenJobsOfItemsAndFilesParams) ([]ListOpenJobsOfItemsAndFilesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listOpenJobsOfItemsAndFiles, arg.ItemIdsJSON, arg.FileIdsJSON)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOpenJobsOfItemsAndFilesRow{}
+	for rows.Next() {
+		var i ListOpenJobsOfItemsAndFilesRow
+		if err := rows.Scan(&i.ID, &i.Priority, &i.State); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOpenJobsOfTarget = `-- name: ListOpenJobsOfTarget :many
 SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, state, destination, runnable_at,
        is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at, assigned_until, wanted_until
@@ -521,6 +565,63 @@ func (q *Queries) NextQueuedJob(ctx context.Context, arg NextQueuedJobParams) (i
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const raiseJob = `-- name: RaiseJob :one
+UPDATE job SET priority = MAX(priority, CAST(?1 AS INTEGER)),
+  wanted_until = CASE WHEN CAST(?2 AS INTEGER) = 0 THEN wanted_until
+    ELSE MAX(COALESCE(wanted_until, 0), CAST(?2 AS INTEGER)) END
+WHERE id = ?3 AND state IN ('queued', 'running', 'assigned')
+RETURNING id, state, priority
+`
+
+type RaiseJobParams struct {
+	Priority int64
+	Until    int64
+	ID       int64
+}
+
+type RaiseJobRow struct {
+	ID       int64
+	State    string
+	Priority int64
+}
+
+// An open job raised to the priority a person's interest gives it, never lowered: kept wanted until
+// a time, after which the next demotion gives it background priority, when until is not zero, and
+// for good when it is (D324 section 2).
+func (q *Queries) RaiseJob(ctx context.Context, arg RaiseJobParams) (RaiseJobRow, error) {
+	row := q.db.QueryRowContext(ctx, raiseJob, arg.Priority, arg.Until, arg.ID)
+	var i RaiseJobRow
+	err := row.Scan(&i.ID, &i.State, &i.Priority)
+	return i, err
+}
+
+const releaseJobsOfItemsAndFiles = `-- name: ReleaseJobsOfItemsAndFiles :exec
+UPDATE job SET wanted_until = CAST(?1 AS INTEGER)
+WHERE wanted_until IS NOT NULL AND priority < ?2 AND state IN ('queued', 'running', 'assigned')
+  AND (item_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT)))
+    OR file_id IN (SELECT value FROM json_each(CAST(?4 AS TEXT))))
+`
+
+type ReleaseJobsOfItemsAndFilesParams struct {
+	Now         int64
+	Below       int64
+	ItemIdsJSON string
+	FileIdsJSON string
+}
+
+// The jobs a person's interest raised, below a play's priority, that no one is interested in any
+// more: their wanted time ends now, and the next demotion gives them background priority (D324
+// section 2).
+func (q *Queries) ReleaseJobsOfItemsAndFiles(ctx context.Context, arg ReleaseJobsOfItemsAndFilesParams) error {
+	_, err := q.db.ExecContext(ctx, releaseJobsOfItemsAndFiles,
+		arg.Now,
+		arg.Below,
+		arg.ItemIdsJSON,
+		arg.FileIdsJSON,
+	)
+	return err
 }
 
 const requeueRunningJobs = `-- name: RequeueRunningJobs :execrows

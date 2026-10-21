@@ -309,13 +309,13 @@ type Demoted struct {
 	IsAssigned bool
 }
 
-// DemoteUnwanted gives the open jobs no person waits for any more background priority (D234 §3,
-// S87), and returns them.
+// DemoteUnwanted gives the open jobs no person waits for any more the rung above the background's,
+// PriorityShownInterest: each was wanted by someone (D234 §3, S87; D324), and returns them.
 func (queue *Queue) DemoteUnwanted(ctx context.Context) ([]Demoted, error) {
 	if err := queue.writeWanted(ctx); err != nil {
 		return nil, err
 	}
-	rows, err := queue.queue.DemoteUnwanted(ctx, PriorityBackground)
+	rows, err := queue.queue.DemoteUnwanted(ctx, PriorityShownInterest)
 	if err != nil {
 		return nil, err
 	}

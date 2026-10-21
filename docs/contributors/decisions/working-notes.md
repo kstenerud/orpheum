@@ -21181,8 +21181,12 @@ loudness was not measured: 3,412 read-throughs waited in id order, and 41 of 324
    the film or series page it shows. A page says it is shown while it is, and a playback is shown
    by its reports; either lapses within seconds of the page left or the playing stopped.
 2. **Interest orders the work.** Anything played comes first; then what is looked at, the latest
-   look first; then a person's own request, such as Look again; then the background, whose sweeps
-   keep their order. Everyone's interest counts, and anyone's playing comes before anyone's looking.
+   look first; then a person's own request, such as Look again; then the work of anything anyone
+   has shown interest in, played, looked at or partly watched, once that interest is past ("user
+   has shown interest", a rung above the background: the owner, *"Anything that a user has signaled
+   any level of interest in goes to the just-above-bg priority if it would otherwise drop to bg
+   priority"*); then the background, whose sweeps keep their order. Everyone's interest counts, and
+   anyone's playing comes before anyone's looking.
 3. **What interest raises.** For a film, every job its playing needs or shows: its read-through
    (loudness and timeline), its prepared copy where it needs one, its artwork, its subtitles and its
    metadata. For a series, the same for three episodes in its order, from the one its person is

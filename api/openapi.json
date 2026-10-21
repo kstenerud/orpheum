@@ -542,6 +542,10 @@
       "ClientSettingsBody": {
         "additionalProperties": false,
         "properties": {
+          "interestSaidEverySeconds": {
+            "format": "int64",
+            "type": "integer"
+          },
           "screenRefreshFailedWaitSeconds": {
             "format": "int64",
             "type": "integer"
@@ -562,6 +566,7 @@
           "screenRefreshFirstWaitSeconds",
           "screenRefreshLongestWaitSeconds",
           "screenRefreshFailedWaitSeconds",
+          "interestSaidEverySeconds",
           "shouldShowDeveloperPages"
         ],
         "type": "object"
@@ -9026,6 +9031,96 @@
           }
         },
         "summary": "The home screen: what the person stopped in the middle of",
+        "tags": [
+          "Browse"
+        ]
+      }
+    },
+    "/interest/{id}": {
+      "delete": {
+        "operationId": "deleteInterest",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The film or series whose page it is",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "The film or series whose page it is",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Say this session left a film's or series' page, which lets its work fall back (D324)",
+        "tags": [
+          "Browse"
+        ]
+      },
+      "put": {
+        "operationId": "putInterest",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The film or series whose page it is",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "description": "The film or series whose page it is",
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Say this session shows a film's or series' page, which raises its work, again every interest_said_every_seconds while it does (D324)",
         "tags": [
           "Browse"
         ]

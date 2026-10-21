@@ -155,6 +155,7 @@ func TestReach_AnEditorReachesOnlyTheLibrariesTheirRoleLists(t *testing.T) {
 		{http.MethodPost, "/items/30/match", map[string]any{"provider": "tmdb", "providerId": "1"}},
 		{http.MethodPost, "/items/30/match-by-link", map[string]any{"link": "tt0456789"}},
 		{http.MethodGet, "/items/30/candidates?name=Civilisation", nil},
+		{http.MethodPut, "/interest/30", nil},
 		{http.MethodPut, "/items/30/overrides/name", map[string]any{"value": "Other"}},
 		{http.MethodDelete, "/items/30/overrides/name", nil},
 		{http.MethodPost, "/items/30/refresh", nil},
@@ -178,7 +179,7 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"headDirect", "getMasterPlaylist", "getRenditionFile", "getChunksMasterPlaylist", "getChunkFile",
 		"getSubtitle", "reportPlayback",
 		"setFilePreferences", "hideProgress", "getArt", "getItemCandidates", "postItemMatch", "putOverride",
-		"deleteOverride", "postItemRefresh", "postItemMatchByLink",
+		"deleteOverride", "postItemRefresh", "postItemMatchByLink", "putInterest",
 		// A viewer's playback is reach-checked against the host's libraries
 		// (TestTogether_AViewerPlaysOnlyTheFilmOnInTheHostsLibraries).
 		"playTogether",
@@ -187,6 +188,7 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// The caller's own rows, which say nothing of what a library holds.
 		"unhideProgress", "getMe", "freshLocator", "getOwnLink", "listMyDevices", "changeMyDevice", "removeMyDevice",
 		"signOutElsewhere", "activateDevice", "answerActivation", "changePassword", "setMyPreferences",
+		"deleteInterest",
 		"getClientSettings",
 		// A WebRTC connection, which grants nothing: each request over it checks its own reach (D273 §8).
 		"postRTCOffer",

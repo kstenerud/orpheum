@@ -14,8 +14,9 @@
 // # Invariants
 //
 //   - A job a person asks for to play is wanted for play_priority_kept_seconds from the last ask; past it,
-//     it falls to background priority, and one given to a node says so, for its node to be told
-//     (D234 §3, S87). TestDemoteUnwanted_APlaysJobFallsToBackgroundOnceNoOneWaits.
+//     it falls to the shown-interest rung, above the background (D324), and one given to a node says
+//     so, for its node to be told (D234 §3, S87).
+//     TestDemoteUnwanted_APlaysJobFallsToTheShownInterestRungOnceNoOneWaits.
 //   - The job view shows a job given to a node as running, with where its node last said it is:
 //     waiting, running or paused (D240 §6).
 //     TestList_AJobGivenToANodeRunsThereAndSaysWhereItsNodeSaysItIs.
