@@ -21185,8 +21185,11 @@ loudness was not measured: 3,412 read-throughs waited in id order, and 41 of 324
    keep their order. Everyone's interest counts, and anyone's playing comes before anyone's looking.
 3. **What interest raises.** For a film, every job its playing needs or shows: its read-through
    (loudness and timeline), its prepared copy where it needs one, its artwork, its subtitles and its
-   metadata. For a series, the same for the episode after the last one watched and the two after it
-   (the first episode when none is watched).
+   metadata. For a series, the same for three episodes in its order, from the one its person is
+   partway through, the latest played when several are; or else the one after the last they
+   finished; or else the first (the owner: *"'last one watched' means the last one completed. If
+   they're in the middle of an episode, it counts as the first of 3. If no other videos of the series
+   has been completed, it's the first episode, or the most recent one they're partway through"*).
 4. **Work in the way is stopped.** When raised work needs what other work holds, a device's only
    reader or an encoder slot, the other work is stopped, even part done, and queued again at its own
    priority. Work not in the way runs on, and work that can resume resumes. Interest that lapses

@@ -5,7 +5,8 @@
 # Work follows interest
 
 - **Status:** PLANNED — written 2026-10-21 on the owner's word (*"Go with your recommendations. 1:
-  next 3 eps. 2: kill only what's in the way. 3: those two are fine."*).
+  next 3 eps. 2: kill only what's in the way. 3: those two are fine."*), and to build (*"Yes sounds
+  good"*), the series' place clarified the same day.
 - **Depends on:** D324; D234 §3 (a job's priority and its "wanted until"), D240 §5 and §6 (the core
   schedules, the node keeps its devices' limits), D309 (a player's interest in its chunks), D286 §4
   (an encoder that cannot keep up), D226 (loudness measured by the read-through).
@@ -42,9 +43,11 @@ and a read-through is one file).
 - **A film's work** (D324 §3): its files' read-throughs, its artwork's sizes, its subtitles'
   extractions, its metadata fetch when owed, and, for a device whose playback decision needs one
   (decide), its prepared copy. A playing film's work is what its playback is already waiting on.
-- **A series' work**: the same for the next episode after the last one any of the session's person
-  watched to its end, by season and number, and the two after it; the first episode when none is
-  (`series_episodes_ahead`, 3). Its artwork and metadata are the series'.
+- **A series' work**: the same for `series_episodes_ahead` (3) episodes in season and number order,
+  starting from the session's person's place in it: the episode they are partway through (in
+  progress by `in_progress_after_percent` and `finished_after_percent`), the latest played when
+  several are; else the episode after the last one they finished, the latest finished; else the
+  first. Its artwork and metadata are the series'.
 - **Raising** reprioritises the item's jobs that wait or run (`CommandReprioritize`, D234 §3), and
   queues those owed that the sweeps have not queued yet. **Lapsing** gives each its own priority
   again; nothing is cancelled for a lapse, and work that ran on keeps its result.
