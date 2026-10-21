@@ -5,6 +5,7 @@ package nodes_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -16,15 +17,24 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// stalledRoots is the core's answer to a stall on a disk, noting each root made unavailable.
+// stalledRoots is the core's answer to a stall on a disk, noting each root made unavailable and
+// what the stall waited on; the place it makes unavailable is place, or the root when empty.
 type stalledRoots struct {
-	since time.Time
-	roots []string
+	since      time.Time
+	place      string
+	roots      []string
+	waitingOns []string
 }
 
-func (stalled *stalledRoots) MarkRootStalled(_ context.Context, _ int64, rootPath string) (time.Time, error) {
+func (stalled *stalledRoots) MarkStalled(
+	_ context.Context, _ int64, rootPath, waitingOn string,
+) (string, time.Time, error) {
 	stalled.roots = append(stalled.roots, rootPath)
-	return stalled.since, nil
+	stalled.waitingOns = append(stalled.waitingOns, waitingOn)
+	if stalled.place != "" {
+		return stalled.place, stalled.since, nil
+	}
+	return rootPath, stalled.since, nil
 }
 
 // answersAfter is an assignee's runner whose jobs' last attempt's tool failed, or not, as told.
@@ -82,6 +92,35 @@ func TestExchange_AStallOnTheDiskParksOnItsRootTheFirstTimeAndIsTheKindsToAnswer
 		case isAfterToolFailure && (isParked || answer == nil || answer.Error() != "the node said stalled"):
 			t.Errorf("a stall on the disk after a tool failure was answered %v; want the kind's answer", answer)
 		}
+	}
+}
+
+// A stall waiting on a disk mounted inside the root tells the core what it waited on, and parks on
+// the place the core made unavailable for it, the disk, which its coming back unparks (D328 §5).
+func TestExchange_AStallOnADiskInsideTheRootParksOnThatDisk(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	disks := &stalledRoots{since: time.Date(2026, 10, 21, 22, 0, 0, 0, time.UTC), place: "/media/films/disk1"}
+	bench.exchanges.SetDiskStalls(disks)
+	resolved := answersAfter{answers: make(answers, 1)}
+	assignee := assignedPrepare(resolved.answers, nil)
+	assignee.Runner = resolved
+	bench.exchanges.Handle(jobs.KindPrepare, assignee)
+	command := nodeproto.Command{Work: nodeproto.Work{Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
+		Video: nodeproto.BytesFile{RootPath: "/media/films", Path: []byte("disk1/Wing.mkv")},
+	}}}
+	handed := bench.exchanges.Assign(t.Context(), 1, jobs.Job{ID: 7, Kind: jobs.KindPrepare}, command)
+	jobqueue.HandOver(t.Context(), handed)
+	sent := testutil.Receive(t, bench.sender.sent, "the prepare command")
+	stalled := diskStall(sent)
+	stalled.Prepare.Stall.WaitingOnPath = "/media/films/disk1/Wing.mkv"
+	deliver(t, bench.exchanges, 1, stalled)
+	answer := testutil.Receive(t, resolved.answers, "job 7's answer")
+	parking, isParked := jobqueue.ParkingOf(answer)
+	if !slices.Equal(disks.waitingOns, []string{"/media/films/disk1/Wing.mkv"}) || !isParked ||
+		parking.Destination != jobs.RootDestination(1, "/media/films/disk1") {
+		t.Errorf("waited on %q, answered %v; want the disk's path told, and parked on the disk", disks.waitingOns,
+			answer)
 	}
 }
 

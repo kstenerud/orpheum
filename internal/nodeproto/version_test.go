@@ -82,8 +82,10 @@ var wireShapeByVersion = map[int]string{
 	39: "eea95fc59020a791583ec1fe5af5d18a9bb257651e30bcf0d2e558961e883ae6",
 	// 40 adds a root's disk's device and whether it is a mount point (the dead-share tests, 2026-10-21).
 	40: "7866b0da4ab3bbaf08275dc1e008da4f4b58bc843d3324212885654f8322f333",
-	// 41 adds the probe of a root on the byte socket, RootProbe (D327).
+	// 41 adds the probe of a root on the byte socket, PlaceProbe (D327).
 	41: "1514f7e736a75243c304c27e9370072da046d898c94ce7c11dbbee4ffa4fc29d",
+	// 42 probes any place, a root or a disk inside one, PlaceProbe naming its Path (D328 §6).
+	42: "c0d627168692620ce61b4247709be8bc076034e0259bc812fbdc17dba2143994",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this
@@ -105,7 +107,7 @@ func wireShape() string {
 	for _, message := range []reflect.Type{
 		reflect.TypeFor[Hello](), reflect.TypeFor[HelloReply](), reflect.TypeFor[Commands](),
 		reflect.TypeFor[Result](), reflect.TypeFor[Progress](), reflect.TypeFor[Status](), reflect.TypeFor[Changed](),
-		reflect.TypeFor[RootProbe](),
+		reflect.TypeFor[PlaceProbe](),
 	} {
 		fields = append(fields, fieldsOf(message, seen)...)
 	}

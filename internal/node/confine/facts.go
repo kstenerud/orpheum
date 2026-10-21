@@ -72,3 +72,36 @@ func DeviceOf(info fs.FileInfo) (uint64, bool) {
 	}
 	return uint64(system.Dev), true //nolint:unconvert // uint64 on Linux, int32 on macOS
 }
+
+// FactsOf reads the facts of a directory inside the root, as Facts does the root's: its device id,
+// whether it is a mount point (its device differs from its parent's) and whether its filesystem is
+// mounted read-only. Both are stat'ed through the root, so nothing outside it is reached; the statfs
+// asks the filesystem's server, which a stat may answer from cache (D328 §6).
+func (media *MediaRoot) FactsOf(relativePath string) (Facts, error) {
+	if relativePath == "." || relativePath == "" {
+		return media.Facts()
+	}
+	info, err := media.root.Stat(relativePath)
+	if err != nil {
+		return Facts{}, fmt.Errorf("stat %s: %w", relativePath, err)
+	}
+	parent, err := media.root.Stat(filepath.Dir(relativePath))
+	if err != nil {
+		return Facts{}, fmt.Errorf("stat %s's parent: %w", relativePath, err)
+	}
+	device, isDevice := DeviceOf(info)
+	parentDevice, isParentDevice := DeviceOf(parent)
+	if !isDevice || !isParentDevice {
+		return Facts{}, fmt.Errorf("stat %s: no device id on this platform", relativePath)
+	}
+	var filesystem syscall.Statfs_t
+	if err := syscall.Statfs(filepath.Join(media.path, relativePath), &filesystem); err != nil {
+		return Facts{}, fmt.Errorf("statfs %s: %w", relativePath, err)
+	}
+	const readOnly = 1 // ST_RDONLY on Linux, MNT_RDONLY on macOS
+	return Facts{
+		FilesystemDevice: device,
+		IsMountPoint:     device != parentDevice,
+		IsReadOnly:       uint64(filesystem.Flags)&readOnly != 0, //nolint:gosec // int64 on Linux, uint32 on macOS
+	}, nil
+}

@@ -43,9 +43,9 @@ type Server struct {
 	openFile func(roots map[string]*confine.MediaRoot, named nodeproto.BytesFile) (*os.File, fs.FileInfo, error)
 	// probes are the probes of the roots running (D327).
 	probes probes
-	// rootFacts reads a root's facts: (*confine.MediaRoot).Facts; a test's may block as a disk that
-	// does not answer does.
-	rootFacts func(root *confine.MediaRoot) (confine.Facts, error)
+	// placeFacts reads the facts of a place inside a root, relative to it: (*confine.MediaRoot).FactsOf;
+	// a test's may block as a disk that does not answer does.
+	placeFacts func(root *confine.MediaRoot, relative string) (confine.Facts, error)
 }
 
 // WatchingOpens has the server open each file through the node's disk gate, answering one that does
@@ -64,7 +64,7 @@ func New(roots []*confine.MediaRoot, prepared *confine.MediaRoot) *Server {
 	}
 	server := &Server{roots: byPath, prepared: prepared, payloadHashes: namedfile.NewHashes()}
 	server.openFile = server.payloadHashes.OpenNamed
-	server.rootFacts = (*confine.MediaRoot).Facts
+	server.placeFacts = (*confine.MediaRoot).FactsOf
 	return server
 }
 

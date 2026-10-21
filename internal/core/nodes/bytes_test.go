@@ -24,9 +24,9 @@ type markedRoots struct {
 	roots []string
 }
 
-func (marked *markedRoots) MarkRootStalled(_ context.Context, _ int64, rootPath string) (time.Time, error) {
+func (marked *markedRoots) MarkStalled(_ context.Context, _ int64, rootPath, _ string) (string, time.Time, error) {
 	marked.roots = append(marked.roots, rootPath)
-	return marked.since, nil
+	return rootPath, marked.since, nil
 }
 
 // A node that answers a read 504 naming a root, its disk not answering, has the root made
@@ -196,29 +196,29 @@ func TestProbeRoot_AsksTheNodesByteSocket(t *testing.T) {
 	t.Cleanup(func() { close(hold) })
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET "+nodeproto.PathBytesProbe, func(writer http.ResponseWriter, request *http.Request) {
-		root := request.URL.Query().Get("rootPath")
+		root := request.URL.Query().Get("path")
 		if root == "/media/away" {
 			select { // its disk does not answer
 			case <-hold:
 			case <-request.Context().Done():
 			}
 		}
-		_ = json.NewEncoder(writer).Encode(nodeproto.RootProbe{ //nolint:errcheck // the test reads what arrives
-			RootPath: root, State: nodeproto.ProbeReadable, Device: 41, IsMountPoint: true,
+		_ = json.NewEncoder(writer).Encode(nodeproto.PlaceProbe{ //nolint:errcheck // the test reads what arrives
+			Path: root, State: nodeproto.ProbeReadable, Device: 41, IsMountPoint: true,
 		})
 	})
 	server := &http.Server{Handler: mux, ReadHeaderTimeout: time.Second}
 	go func() { _ = server.Serve(listener) }() //nolint:errcheck // closed at cleanup
 	t.Cleanup(func() { _ = server.Close() })   //nolint:errcheck // as above
 	client := NewByteSocketClient(harness.service, nil)
-	probe, err := client.ProbeRoot(t.Context(), reply.NodeID, "/media/films")
-	if err != nil || probe.State != nodeproto.ProbeReadable || probe.RootPath != "/media/films" || probe.Device != 41 ||
+	probe, err := client.ProbePlace(t.Context(), reply.NodeID, "/media/films")
+	if err != nil || probe.State != nodeproto.ProbeReadable || probe.Path != "/media/films" || probe.Device != 41 ||
 		!probe.IsMountPoint {
 		t.Errorf("the probe = %+v, %v; want /media/films readable on device 41, a mount point", probe, err)
 	}
 	bounded, cancel := context.WithCancel(t.Context())
 	cancel() // the caller's wait is over
-	if _, err := client.ProbeRoot(bounded, reply.NodeID, "/media/away"); err == nil {
+	if _, err := client.ProbePlace(bounded, reply.NodeID, "/media/away"); err == nil {
 		t.Error("a probe the caller stopped waiting on answered; want it failed")
 	}
 }

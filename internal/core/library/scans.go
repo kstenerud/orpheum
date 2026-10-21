@@ -12,7 +12,6 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
@@ -72,70 +71,6 @@ type Scans struct {
 	// prober asks a node whether a root can be read now (SetProber); nil probes nothing. Guarded by
 	// mutex: it is set once the sweeps may already run.
 	prober RootProber
-}
-
-// RootProber asks a node whether one of its roots can be read now, outside every queue:
-// nodes.ByteSocketClient (D327).
-type RootProber interface {
-	ProbeRoot(ctx context.Context, nodeID int64, root string) (nodeproto.RootProbe, error)
-}
-
-// SetProber has the scans probe roots through prober, which is made after them: the byte socket's
-// client tells them of stalls.
-func (scans *Scans) SetProber(prober RootProber) {
-	scans.mutex.Lock()
-	defer scans.mutex.Unlock()
-	scans.prober = prober
-}
-
-// probeWait bounds how long one ask waits on a node's probe: one that has not answered by then is a
-// disk not answering, the node's probe going on for the next ask to share (D327 §2). A filesystem
-// that answers does so in milliseconds.
-const probeWait = 2 * time.Second
-
-// ProbeAndBringBack asks the root's node whether it can be read now, and brings it back when it can
-// with its last complete scan's facts (D326, D327 §3); it says what the probe found and whether the
-// root came back. A node that did not answer in time is not answering; with no prober, the probe's
-// state is empty: nothing was asked.
-func (scans *Scans) ProbeAndBringBack(ctx context.Context, nodeID int64, root string) (
-	nodeproto.RootProbe, bool, error,
-) {
-	scans.mutex.Lock()
-	prober := scans.prober
-	scans.mutex.Unlock()
-	if prober == nil {
-		return nodeproto.RootProbe{RootPath: root}, false, nil
-	}
-	probeCtx, cancel := context.WithTimeout(ctx, probeWait)
-	defer cancel()
-	probe, err := prober.ProbeRoot(probeCtx, nodeID, root)
-	if err != nil {
-		if ctx.Err() != nil {
-			return nodeproto.RootProbe{}, false, ctx.Err()
-		}
-		return nodeproto.RootProbe{RootPath: root, State: nodeproto.ProbeNotAnswering, Failure: err.Error()}, false,
-			nil
-	}
-	if probe.State != nodeproto.ProbeReadable {
-		return probe, false, nil
-	}
-	isBack, err := scans.BringBackRoot(ctx, nodeID, root, probe.Device, probe.IsMountPoint)
-	return probe, isBack, err
-}
-
-// NewScans returns the scans.
-func NewScans(parts ScansParts) *Scans {
-	return &Scans{
-		cache: parts.Cache, ingester: parts.Ingester, jobs: parts.Jobs, assigner: parts.Assigner,
-		settings: parts.Settings, clock: parts.Clock, logger: parts.Logger,
-		completions: map[int64]nodeproto.ScanComplete{},
-	}
-}
-
-// Request asks for a scan of a node's whole root at priority. One asked for while the root's scan
-// runs starts none: that one runs once more after it, however many ask (D236 §3).
-func (scans *Scans) Request(ctx context.Context, nodeID int64, root string, priority int64) error {
-	return scans.RequestUnder(ctx, nodeID, root, wholeRoot, priority)
 }
 
 // RequestOnHello asks for the scan a node's hello brings of a root a library covers: in the
@@ -248,49 +183,6 @@ func (scans *Scans) ReadNow(ctx context.Context, libraryID, nodeID int64, report
 			return scans.RequestUnder(ctx, nodeID, root, path.Dir(string(relative)), jobs.PriorityPersonsRequest)
 		}
 	}
-	return nil
-}
-
-// MarkRootStalled is the core's answer to work that stalled waiting on a root's disk (D233 §10): the
-// root is unavailable from now, so plays of what is under it fail at once and say so (D241), and a
-// scan of it is asked for, whose reading it brings it back and the work parked on it (D231 §6). It
-// returns since when it is unavailable. A scan already running is asked for again after it ends.
-func (scans *Scans) MarkRootStalled(ctx context.Context, nodeID int64, rootPath string) (time.Time, error) {
-	since, err := scans.ingester.MarkRootUnavailable(ctx, nodeID, rootPath, causeNotAnswering)
-	if err != nil {
-		return time.Time{}, err
-	}
-	scans.logger.WarnContext(ctx, "work stalled on a root's disk; it is unavailable until a scan reads it",
-		"nodeId", nodeID, "rootPath", rootPath, "since", since)
-	return since, scans.Request(ctx, nodeID, rootPath, jobs.PriorityPersonsRequest)
-}
-
-// BringBackRoot is the core's answer to a node's status saying a root's disk, which had stopped
-// answering, answers again: the root is available again at once when its disk is the one its last
-// complete scan read, and a scan in the background reads what changed meanwhile (D233 §10). It says
-// whether it was brought back.
-func (scans *Scans) BringBackRoot(
-	ctx context.Context, nodeID int64, rootPath string, device uint64, isMountPoint bool,
-) (bool, error) {
-	isBack, err := scans.ingester.BringBackRoot(ctx, nodeID, rootPath, device, isMountPoint)
-	if err != nil || !isBack {
-		return false, err
-	}
-	scans.logger.InfoContext(ctx, "a root's disk answers again; it is available before its scan reads it",
-		"nodeId", nodeID, "rootPath", rootPath)
-	return true, scans.Request(ctx, nodeID, rootPath, jobs.PriorityBackground)
-}
-
-// MarkRootNotNamed makes a library root its node's hello no longer names unavailable from now, unless it
-// already was: plays of what is under it fail at once and say so, and nothing is removed on the
-// absence; a hello that names it again asks for its scan, which brings it back (D241 §2).
-func (scans *Scans) MarkRootNotNamed(ctx context.Context, nodeID int64, rootPath string) error {
-	since, err := scans.ingester.MarkRootUnavailable(ctx, nodeID, rootPath, causeNotNamed)
-	if err != nil {
-		return err
-	}
-	scans.logger.WarnContext(ctx, "a node no longer names a library root; it is unavailable until it does",
-		"nodeId", nodeID, "rootPath", rootPath, "since", since)
 	return nil
 }
 

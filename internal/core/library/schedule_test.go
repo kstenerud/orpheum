@@ -31,9 +31,9 @@ type scheduledRequests struct {
 
 func (requests *scheduledRequests) ProbeAndBringBack(
 	_ context.Context, _ int64, root string,
-) (nodeproto.RootProbe, bool, error) {
+) (nodeproto.PlaceProbe, bool, error) {
 	requests.probed = append(requests.probed, root)
-	return nodeproto.RootProbe{RootPath: root, State: requests.probes[root]}, requests.back[root], nil
+	return nodeproto.PlaceProbe{Path: root, State: requests.probes[root]}, requests.back[root], nil
 }
 
 func (requests *scheduledRequests) RequestUnder(

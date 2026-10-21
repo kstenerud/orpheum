@@ -36,9 +36,10 @@ type ScanRequester interface {
 	// MarkRootNotNamed makes a library root its node's hello no longer names unavailable from now
 	// (D241 §2).
 	MarkRootNotNamed(ctx context.Context, nodeID int64, root string) error
-	// MarkRootStalled makes a library root whose disk is not answering unavailable from now, and asks
-	// for the scan that brings it back (D233 §10).
-	MarkRootStalled(ctx context.Context, nodeID int64, root string) (since time.Time, err error)
+	// MarkStalled makes the deepest place the scans know under a root that holds waitingOn, whose
+	// disk is not answering, unavailable from now, and asks for the scan that brings it back (D233
+	// §10, D328 §5).
+	MarkStalled(ctx context.Context, nodeID int64, root, waitingOn string) (place string, since time.Time, err error)
 	// BringBackRoot makes an unavailable root whose disk answers again available at once, when the disk
 	// is the one its last complete scan read, and says whether it did (D233 §10).
 	BringBackRoot(ctx context.Context, nodeID int64, root string, device uint64, isMountPoint bool) (bool, error)

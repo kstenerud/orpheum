@@ -75,7 +75,7 @@ type Parts struct {
 // RootProbes asks a root's node whether it can be read now, and brings it back when it can:
 // library.Scans.
 type RootProbes interface {
-	ProbeAndBringBack(ctx context.Context, nodeID int64, root string) (nodeproto.RootProbe, bool, error)
+	ProbeAndBringBack(ctx context.Context, nodeID int64, root string) (nodeproto.PlaceProbe, bool, error)
 }
 
 // FileReads has a file its listing stored unread read before what else waits: library.Scans.

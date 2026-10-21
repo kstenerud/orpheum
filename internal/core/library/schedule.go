@@ -26,7 +26,7 @@ type ScheduleSettings interface {
 type ScheduledScans interface {
 	RequestUnder(ctx context.Context, nodeID int64, root, scope string, priority int64) error
 	InProgress(ctx context.Context) (map[ScanRoot]ScanProgress, error)
-	ProbeAndBringBack(ctx context.Context, nodeID int64, root string) (nodeproto.RootProbe, bool, error)
+	ProbeAndBringBack(ctx context.Context, nodeID int64, root string) (nodeproto.PlaceProbe, bool, error)
 }
 
 // ScanSchedule asks for the scans that libraries noticing changes by themselves are due: one

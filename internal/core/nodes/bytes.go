@@ -92,7 +92,7 @@ func (socketClient *ByteSocketClient) Do(ctx context.Context, nodeID int64, meth
 	if root := response.Header.Get(nodeproto.HeaderStalledRoot); response.StatusCode == http.StatusGatewayTimeout &&
 		root != "" {
 		_ = response.Body.Close() //nolint:errcheck // the answer is the header's
-		since, markErr := socketClient.disks.MarkRootStalled(ctx, nodeID, root)
+		_, since, markErr := socketClient.disks.MarkStalled(ctx, nodeID, root, "")
 		if markErr != nil {
 			return nil, fmt.Errorf("make root %s unavailable after its disk did not answer: %w", root, markErr)
 		}
@@ -128,24 +128,24 @@ func (socketClient *ByteSocketClient) ReadHeldResult(
 	return takeHeld(posted, encoded)
 }
 
-// ProbeRoot asks a node whether one of its roots can be read now, on its byte socket, outside every
+// ProbePlace asks a node whether one of its roots can be read now, on its byte socket, outside every
 // queue: the node answers without a slot or a reader, one probe of a root at a time shared by every
 // ask (D327). The caller bounds its wait by ctx; the node's probe goes on, for the next ask.
-func (socketClient *ByteSocketClient) ProbeRoot(ctx context.Context, nodeID int64, root string) (
-	nodeproto.RootProbe, error,
+func (socketClient *ByteSocketClient) ProbePlace(ctx context.Context, nodeID int64, root string) (
+	nodeproto.PlaceProbe, error,
 ) {
-	response, err := socketClient.Do(ctx, nodeID, http.MethodGet, nodeproto.ProbeRequest{RootPath: root}.Target(), nil)
+	response, err := socketClient.Do(ctx, nodeID, http.MethodGet, nodeproto.ProbeRequest{Path: root}.Target(), nil)
 	if err != nil {
-		return nodeproto.RootProbe{}, fmt.Errorf("probe root %s on node %d: %w", root, nodeID, err)
+		return nodeproto.PlaceProbe{}, fmt.Errorf("probe root %s on node %d: %w", root, nodeID, err)
 	}
 	defer func() { _ = response.Body.Close() }() //nolint:errcheck // read-only
 	if response.StatusCode != http.StatusOK {
-		return nodeproto.RootProbe{}, fmt.Errorf("probe root %s on node %d: the node answered %s", root, nodeID,
+		return nodeproto.PlaceProbe{}, fmt.Errorf("probe root %s on node %d: the node answered %s", root, nodeID,
 			response.Status)
 	}
-	var probe nodeproto.RootProbe
+	var probe nodeproto.PlaceProbe
 	if err := json.NewDecoder(io.LimitReader(response.Body, maxProbeBytes)).Decode(&probe); err != nil {
-		return nodeproto.RootProbe{}, fmt.Errorf("read the probe of root %s on node %d: %w", root, nodeID, err)
+		return nodeproto.PlaceProbe{}, fmt.Errorf("read the probe of root %s on node %d: %w", root, nodeID, err)
 	}
 	return probe, nil
 }

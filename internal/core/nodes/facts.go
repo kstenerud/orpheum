@@ -171,7 +171,7 @@ func (service *Service) markRootsNotAnswering(
 		return
 	}
 	for _, root := range roots {
-		if _, err := service.scans.MarkRootStalled(ctx, nodeID, root); err != nil {
+		if _, _, err := service.scans.MarkStalled(ctx, nodeID, root, root); err != nil {
 			service.logger.WarnContext(ctx, "could not make a root whose disk is not answering unavailable",
 				"nodeId", nodeID, "rootPath", root, "err", err)
 		}

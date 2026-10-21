@@ -436,7 +436,7 @@ func TestRunNode_AListingStalledOnItsDiskMakesItsRootUnavailable(t *testing.T) {
 	t.Parallel()
 	shelved := filmOnNode(t, "nfo")
 	config := shelved.config
-	const stalled = "work stalled on a root's disk; it is unavailable until a scan reads it"
+	const stalled = "work stalled on a disk; it is unavailable until it answers or a scan reads it"
 	captured := newCapturedLog("ready", stalled)
 	seams := fakeFFmpegSeams
 	seams.readStallWindow = 100 * time.Millisecond

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io/fs"
 	"net/http"
+	"path/filepath"
 	"sync"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
@@ -26,13 +27,13 @@ type probes struct {
 // probeCall is one probe running, its answer ready once done is closed.
 type probeCall struct {
 	done   chan struct{}
-	answer nodeproto.RootProbe
+	answer nodeproto.PlaceProbe
 	// asks are how many asks share it; guarded by the probes' mutex.
 	asks int
 }
 
 // join is the probe of root running, or one started by probe when none is.
-func (running *probes) join(root string, probe func() nodeproto.RootProbe) *probeCall {
+func (running *probes) join(root string, probe func() nodeproto.PlaceProbe) *probeCall {
 	running.mutex.Lock()
 	defer running.mutex.Unlock()
 	if call, isRunning := running.running[root]; isRunning {
@@ -54,18 +55,19 @@ func (running *probes) join(root string, probe func() nodeproto.RootProbe) *prob
 	return call
 }
 
-// serveProbe answers nodeproto.PathBytesProbe: whether a root can be read now, without a slot, a
-// reader or a queue, its facts measured and nothing under it opened (D327 §1). An ask that leaves
-// before the probe ends leaves it running, for the next ask to share.
+// serveProbe answers nodeproto.PathBytesProbe: whether a place, one of the node's roots or a
+// directory inside one, can be read now, without a slot, a reader or a queue, its facts measured and
+// nothing under it opened (D327 §1, D328 §6). An ask that leaves before the probe ends leaves it
+// running, for the next ask to share.
 func (server *Server) serveProbe(writer http.ResponseWriter, request *http.Request) {
-	rootPath := request.URL.Query().Get("rootPath")
-	root, isRoot := server.roots[rootPath]
-	if !isRoot {
-		http.Error(writer, "the root is not one of this node's", http.StatusNotFound)
+	path := request.URL.Query().Get("path")
+	root, relative, isPlace := server.placeOf(path)
+	if !isPlace {
+		http.Error(writer, "the place is not one of this node's roots or inside one", http.StatusNotFound)
 		return
 	}
 	ctx := context.WithoutCancel(request.Context())
-	call := server.probes.join(rootPath, func() nodeproto.RootProbe { return server.probe(ctx, rootPath, root) })
+	call := server.probes.join(path, func() nodeproto.PlaceProbe { return server.probe(ctx, path, root, relative) })
 	select {
 	case <-call.done:
 	case <-request.Context().Done():
@@ -81,21 +83,40 @@ func (server *Server) serveProbe(writer http.ResponseWriter, request *http.Reque
 	_, _ = writer.Write(encoded) //nolint:errcheck // a core that hung up asks again
 }
 
-// probe measures root's facts through the disk gate: at once not answering when the root holds a
-// reading that has not returned, and otherwise within the window a file's open has. The facts end in
-// a statfs, which a network share answers only from its server, where a stat may answer from the
-// attribute cache for a minute after the server is gone (design/research/nfs-client-recovery-2026-10-21.md): the
-// statfs is what makes a readable answer mean the share is there.
-func (server *Server) probe(ctx context.Context, rootPath string, root *confine.MediaRoot) nodeproto.RootProbe {
-	answer := nodeproto.RootProbe{RootPath: rootPath}
+// placeOf is the root that holds path, and path relative to it; false when no root does.
+func (server *Server) placeOf(path string) (*confine.MediaRoot, string, bool) {
+	if root, isRoot := server.roots[path]; isRoot {
+		return root, ".", true
+	}
+	if !filepath.IsAbs(path) {
+		return nil, "", false
+	}
+	for _, root := range server.roots {
+		if relative, isInside := root.RelativeIfInside(filepath.Clean(path)); isInside {
+			return root, relative, true
+		}
+	}
+	return nil, "", false
+}
+
+// probe measures a place's facts through the disk gate, keyed by its root: at once not answering
+// when the root holds a reading that has not returned, and otherwise within the window a file's open
+// has. The facts end in a statfs, which a network share answers only from its server, where a stat
+// may answer from the attribute cache for a minute after the server is gone
+// (design/research/nfs-client-recovery-2026-10-21.md): the statfs is what makes a readable answer
+// mean the share is there.
+func (server *Server) probe(
+	ctx context.Context, path string, root *confine.MediaRoot, relative string,
+) nodeproto.PlaceProbe {
+	answer := nodeproto.PlaceProbe{Path: path}
 	var facts confine.Facts
 	var err error
 	if server.disks == nil {
-		facts, err = server.rootFacts(root)
+		facts, err = server.placeFacts(root, relative)
 	} else {
-		operation := diskwatch.Operation{Root: rootPath, Path: rootPath, Window: server.openWindow}
+		operation := diskwatch.Operation{Root: root.Path(), Path: path, Window: server.openWindow}
 		facts, err = diskwatch.Run(ctx, server.disks, operation,
-			func() (confine.Facts, error) { return server.rootFacts(root) }, func(confine.Facts) {})
+			func() (confine.Facts, error) { return server.placeFacts(root, relative) }, func(confine.Facts) {})
 	}
 	switch {
 	case err == nil:
@@ -105,7 +126,7 @@ func (server *Server) probe(ctx context.Context, rootPath string, root *confine.
 	case errors.Is(err, diskwatch.ErrStalled) || diskwatch.IsDiskFailure(err):
 		answer.State = nodeproto.ProbeNotAnswering
 		if server.disks != nil {
-			if stuck, isStuck := server.disks.IsStuck(rootPath); isStuck {
+			if stuck, isStuck := server.disks.IsStuck(root.Path()); isStuck {
 				answer.StuckSinceMs, answer.WaitingOnPath = stuck.Since.UnixMilli(), stuck.Path
 			}
 		}

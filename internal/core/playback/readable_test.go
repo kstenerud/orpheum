@@ -33,13 +33,13 @@ type probedRoots struct {
 
 func (roots *probedRoots) ProbeAndBringBack(
 	_ context.Context, _ int64, root string,
-) (nodeproto.RootProbe, bool, error) {
+) (nodeproto.PlaceProbe, bool, error) {
 	roots.probes++
 	if roots.probes != roots.backAt {
-		return nodeproto.RootProbe{RootPath: root, State: nodeproto.ProbeNotAnswering}, false, nil
+		return nodeproto.PlaceProbe{Path: root, State: nodeproto.ProbeNotAnswering}, false, nil
 	}
 	roots.bringBack()
-	return nodeproto.RootProbe{RootPath: root, State: nodeproto.ProbeReadable}, true, nil
+	return nodeproto.PlaceProbe{Path: root, State: nodeproto.ProbeReadable}, true, nil
 }
 
 // unavailableFilm is a service over one film, file 2, under a root that is unavailable.
