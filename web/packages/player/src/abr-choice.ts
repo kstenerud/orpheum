@@ -20,7 +20,9 @@ export interface ChoiceLevel {
 
 /**
  * The share of a link's measured speed a quality may take with little loaded ahead, and when a
- * chunk is given up: the core chooses a quality by the same share (D247 §6).
+ * chunk is given up, where the playback's offer does not say: the core chooses a quality by the same
+ * share, link_share_for_quality_percent, and its offer carries it (D247 §6). This is that setting's
+ * starting value, which a test of the core's settings holds equal.
  */
 export const linkShareForQuality = 0.7;
 
@@ -62,11 +64,14 @@ export function startingLevel(levels: readonly ChoiceLevel[], startAtBps: number
   );
 }
 
-/** The share of the link a quality may take with bufferAheadS loaded ahead (D265 §4). */
-export function linkShare(bufferAheadS: number): number {
+/**
+ * The share of the link a quality may take with bufferAheadS loaded ahead (D265 §4): rising from
+ * forQuality, the share with little loaded ahead, to linkShareWhenAhead.
+ */
+export function linkShare(bufferAheadS: number, forQuality = linkShareForQuality): number {
   const along = (bufferAheadS - shareRisesFromS) / (shareRisesToS - shareRisesFromS);
   const clamped = Math.min(1, Math.max(0, along));
-  return linkShareForQuality + clamped * (linkShareWhenAhead - linkShareForQuality);
+  return forQuality + clamped * (Math.max(forQuality, linkShareWhenAhead) - forQuality);
 }
 
 /** The highest quality no higher than highest whose average is within bps; the lowest when none is. */
@@ -99,6 +104,8 @@ export interface ChunkOnItsWay {
   readonly linkBps: number | undefined;
   /** How long what is loaded ahead of the position plays for, in seconds. */
   readonly bufferAheadS: number;
+  /** The share of a link a quality may take, as the offer says; linkShareForQuality when absent. */
+  readonly shareForQuality?: number | undefined;
 }
 
 /**
@@ -124,11 +131,16 @@ function canBeGivenUp(chunk: ChunkOnItsWay): boolean {
   return chunk.loadingLevel > chunk.lowestLevel && chunk.loadingMs >= (chunk.durationS * 1000) / 2;
 }
 
+/** The share of the link a quality may take, as the offer said it to the chunk's player. */
+function shareFor(chunk: ChunkOnItsWay): number {
+  return chunk.shareForQuality ?? linkShareForQuality;
+}
+
 /**
  * The quality a chunk on its way is given up for, or undefined to wait for it (D265 §3): once it
  * has loaded for half the time it plays, a chunk arriving slower than its quality plays, the rest
  * of which would take longer than what is loaded ahead lasts, is given up for the highest quality
- * within linkShareForQuality of the speed it arrives at, the lowest included, when that quality's
+ * within the share for quality of the speed it arrives at, the lowest included, when that quality's
  * whole chunk would arrive sooner. It is the one giving up: hls.js's own, which gave up only while
  * the video played and never for the lowest, left a film's page filling its hidden player, and a
  * player waiting for its first frame, waiting out a whole chunk of the film's own picture (staging,
@@ -151,7 +163,7 @@ export function giveUpFor(chunk: ChunkOnItsWay): number | undefined {
     return undefined;
   }
   const chosen = Math.max(
-    highestWithin(levels, loadingLevel - 1, linkShareForQuality * bps),
+    highestWithin(levels, loadingLevel - 1, shareFor(chunk) * bps),
     chunk.lowestLevel,
   );
   const chosenS = secondsFor(((levels[chosen]?.averageBitrate ?? 0) * durationS) / 8, bps);
@@ -167,11 +179,17 @@ export function steadyLevel(choice: {
   readonly ceiling: number;
   readonly linkBps: number | undefined;
   readonly bufferAheadS: number;
+  /** The share of a link a quality may take, as the offer says; linkShareForQuality when absent. */
+  readonly shareForQuality?: number | undefined;
 }): number {
   const { levels, ceiling, linkBps } = choice;
   return linkBps === undefined
     ? ceiling
-    : highestWithin(levels, ceiling, linkShare(choice.bufferAheadS) * linkBps);
+    : highestWithin(
+        levels,
+        ceiling,
+        linkShare(choice.bufferAheadS, choice.shareForQuality) * linkBps,
+      );
 }
 
 /**

@@ -20,6 +20,7 @@ import {
   playerFoundUnplayableEvent,
   sendUnplayable,
   settledAtBps,
+  shareForQualityOf,
   unplayableOf,
 } from "./chunked.ts";
 import { markSeeks, soughtHeader } from "./hls.ts";
@@ -207,5 +208,13 @@ describe("the server's ceiling on what the player loads (D286 §5)", () => {
     answer(425, "700"); // not made yet: says nothing of the ceiling
     answer(200, "lots");
     expect(told).toEqual([1296, undefined, undefined]);
+  });
+});
+
+describe("the share of the link an offer says (the constants sweep, 2026-10-20)", () => {
+  it("is its percent as a fraction, and none where it says none", () => {
+    expect(shareForQualityOf(80)).toBe(0.8);
+    expect(shareForQualityOf(0)).toBeUndefined();
+    expect(shareForQualityOf(undefined)).toBeUndefined();
   });
 });

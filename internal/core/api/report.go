@@ -199,6 +199,9 @@ type LadderBody struct {
 	// FilmPictureKbps is the film's own picture's average rate, which the player weighs its link
 	// against once the quality is ready (D253 §2); 0 when not known.
 	FilmPictureKbps int64 `json:"filmPictureKbps"`
+	// LinkSharePercent is the share of a measured link a quality may take, by which the server chose
+	// this one and the player chooses its own: link_share_for_quality_percent (D247 §6).
+	LinkSharePercent int64 `json:"linkSharePercent"`
 }
 
 // lowerQualityBody is a lower quality offered to the playback a media token names, by its chunks'
@@ -208,6 +211,7 @@ func ladderBody(token string, offer chunks.Offer, isReady bool) *LadderBody {
 		URL: Prefix + "/bytes/media/chunks/" + token + "/master.m3u8", StartAtBps: offer.StartAtBps,
 		QualityKbps: offer.Quality.Kbps, Height: offer.Quality.Height, IsBelowTheLowest: offer.IsBelowTheLowest,
 		SoundCarriedGainDB: offer.SoundCarriedGainDB, IsReady: isReady, FilmPictureKbps: offer.FilmPictureKbps,
+		LinkSharePercent: offer.LinkSharePercent,
 	}
 }
 

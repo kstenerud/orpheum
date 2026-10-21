@@ -269,6 +269,7 @@ describe("play state", () => {
       soundCarriedGainDb: 0,
       isReady: true,
       filmPictureKbps: 2_400,
+      linkSharePercent: 70,
     };
     const playView = createElement(PlayView, {
       fileId: 2,
@@ -530,6 +531,7 @@ describe("play state", () => {
       soundCarriedGainDb: 0,
       isReady: false,
       filmPictureKbps: 4000,
+      linkSharePercent: 70,
     };
     const playView = createElement(PlayView, {
       fileId: 2,

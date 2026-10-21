@@ -2828,6 +2828,8 @@ export interface components {
             isBelowTheLowest: boolean;
             isReady: boolean;
             /** Format: int64 */
+            linkSharePercent: number;
+            /** Format: int64 */
             qualityKbps: number;
             /** Format: double */
             soundCarriedGainDb: number;

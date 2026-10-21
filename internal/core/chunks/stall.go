@@ -56,6 +56,9 @@ type Offer struct {
 	// the film both are made from: what the playback wants until its player says (D309 §1).
 	SoundStreamName string
 	FromMs          int64
+	// LinkSharePercent is the share of a measured link the quality was chosen within,
+	// link_share_for_quality_percent, which the player chooses its own qualities by (D247 §6).
+	LinkSharePercent int64
 }
 
 // ErrNoQualityOffered is a film that offers no quality below its own picture: nothing lower to go to.
@@ -123,7 +126,9 @@ func (service *Service) startLower(
 		chosen++ // another's, already on its way, and near enough (D247 §7)
 	}
 	return service.startAt(ctx, playback, lowering.film, lowering.offered,
-		chosenPicture{stream: lower[chosen], isBelowTheLowest: isBelowTheLowest, chunk: chunk})
+		chosenPicture{
+			stream: lower[chosen], isBelowTheLowest: isBelowTheLowest, chunk: chunk, sharePercent: sharePercent,
+		})
 }
 
 // chosenPicture is the picture of a film a playback starts at, whether even the lowest is beyond its
@@ -134,6 +139,8 @@ type chosenPicture struct {
 	chunk            int
 	// isHeldByUpload is whether it is lower than the link chose, to keep within the upload left.
 	isHeldByUpload bool
+	// sharePercent is the share of the link it was chosen within, which the player chooses by too.
+	sharePercent int64
 }
 
 // startAt starts the runs of the chosen picture of the film's and the playback's starting sound from
@@ -156,6 +163,7 @@ func (service *Service) startAt(
 		AverageKbps:      film.averageWithSoundKbps(picture, offered.soundKbps),
 		IsHeldByUpload:   chosen.isHeldByUpload,
 		FromMs:           film.grid.StartsMs[chunk],
+		LinkSharePercent: chosen.sharePercent,
 	}
 	if playback.HasStartingAudio {
 		sound := startingSound(playback, offered.soundKbps, offered.isUnlevelled)

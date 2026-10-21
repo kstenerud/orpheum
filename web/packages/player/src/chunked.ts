@@ -303,16 +303,31 @@ function playWithoutHlsJs(
 }
 
 /**
+ * The share of a measured link a quality may take, as an offer's percent says it; undefined, the
+ * controller's starting share, where the offer says none.
+ */
+export function shareForQualityOf(linkSharePercent: number | undefined): number | undefined {
+  return linkSharePercent !== undefined && linkSharePercent > 0
+    ? linkSharePercent / 100
+    : undefined;
+}
+
+/**
  * The bitrate controller of video's chunked playback (D265): starting within startAtBps, giving way
  * to live voice and to its group, telling the page of a quality unplayable here (D266), and keeping
  * each of its choices, with why, among the video's steps.
  */
 function abrOf(
   video: HTMLVideoElement,
-  options: { readonly startAtBps: number; readonly monotonicMs: () => number },
+  options: {
+    readonly startAtBps: number;
+    readonly monotonicMs: () => number;
+    readonly linkSharePercent?: number | undefined;
+  },
 ): OrpheumAbr {
   return orpheumAbr({
     startAtBps: options.startAtBps,
+    shareForQuality: shareForQualityOf(options.linkSharePercent),
     monotonicMs: options.monotonicMs,
     isVoiceLive,
     isInAGroup: isFollowingAGroup,
@@ -333,6 +348,11 @@ export function playChunked(
   options: {
     readonly onFailed: (failure: PlaybackFailure) => void;
     readonly startAtBps: number;
+    /**
+     * The share of a measured link, in percent, a quality may take, as the playback's offer says
+     * (link_share_for_quality_percent); the starting 70% when absent or 0.
+     */
+    readonly linkSharePercent?: number | undefined;
     /** Where in the film it starts: where the player was when it stalled. */
     readonly startPositionS: number;
     readonly startAudioRenditionIndex?: number;

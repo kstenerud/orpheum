@@ -53,6 +53,25 @@ describe("the share of the link a quality may take as it plays (D265 §4)", () =
   });
 });
 
+describe("the share of the link the offer says (the constants sweep, 2026-10-20)", () => {
+  it("is where the share rises from, with little ahead, and what a steady choice is made within", () => {
+    expect(linkShare(0, 0.5)).toBe(0.5);
+    expect(linkShare(17.5, 0.5)).toBeCloseTo((0.5 + linkShareWhenAhead) / 2);
+    expect(linkShare(25, 0.5)).toBe(linkShareWhenAhead);
+    // 5 Mb/s carries 3.1 Mb/s at the starting 70%, and only 1.3 Mb/s at half.
+    expect(steadyLevel({ levels, ceiling: 3, linkBps: 5_000_000, bufferAheadS: 0 })).toBe(2);
+    expect(
+      steadyLevel({
+        levels,
+        ceiling: 3,
+        linkBps: 5_000_000,
+        bufferAheadS: 0,
+        shareForQuality: 0.5,
+      }),
+    ).toBe(1);
+  });
+});
+
 /** A ten-second chunk of the film's own picture on its way, nothing ahead, nothing measured. */
 const pictureOnItsWay: ChunkOnItsWay = {
   levels,

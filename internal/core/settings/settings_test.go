@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -551,6 +552,28 @@ func TestRegistry_TheWebClientsWaitsBeforeItReadsThemAreTheScreenRefreshSettings
 		if web, start := time.Duration(milliseconds)*time.Millisecond, StartingDuration(key); web != start {
 			t.Errorf("the web client waits %v before it reads %s, which starts at %v", web, key, start)
 		}
+	}
+}
+
+// The web player chooses within the core's share of a link until a playback's offer says it, so its
+// copy is the setting's starting value (the constants sweep, 2026-10-20).
+func TestRegistry_TheWebPlayersShareBeforeAnOfferSaysIsTheLinkShareSettingsStart(t *testing.T) {
+	t.Parallel()
+	source, err := os.ReadFile(filepath.Join("..", "..", "..", "web", "packages", "player", "src", "abr-choice.ts"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	share := regexp.MustCompile(`export const linkShareForQuality = ([\d.]+);`).FindSubmatch(source)
+	if share == nil {
+		t.Fatal("abr-choice.ts has no linkShareForQuality this test can read; say where the player's copy went")
+	}
+	web, parseErr := strconv.ParseFloat(string(share[1]), 64)
+	if parseErr != nil {
+		t.Fatal(parseErr)
+	}
+	if start := StartingInt(LinkShareForQualityPercent); int64(math.Round(web*100)) != start {
+		t.Errorf("the web player chooses within %v of a link before an offer says; the setting starts at %d%%",
+			web, start)
 	}
 }
 

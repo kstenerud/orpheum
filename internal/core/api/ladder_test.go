@@ -41,6 +41,10 @@ func TestPlayback_ACutFilmStartsOnItsLadderAndPreparesNoCopy(t *testing.T) {
 		after.OnLadder.URL != Prefix+"/bytes/media/chunks/"+after.MediaToken+"/master.m3u8" {
 		t.Errorf("film 2, cut, started %+v; want it on its ladder, nothing prepared", after)
 	}
+	// The start says the share of the link its player chooses within (the constants sweep, 2026-10-20).
+	if after.OnLadder != nil && after.OnLadder.LinkSharePercent != 70 {
+		t.Errorf("the start's share of the link is %d%%; want the setting's 70", after.OnLadder.LinkSharePercent)
+	}
 	if prepares := harness.openJobs(t, jobs.KindPrepare); len(prepares) != 1 {
 		t.Errorf("the prepares open = %d; want only the first start's", len(prepares))
 	}

@@ -4,7 +4,7 @@ import { diagnosisOf, playChunked } from "@orpheum/player";
 import type { Api, components, PlayableFormats } from "@orpheum/sdk";
 
 import { browserStorage } from "./browser-storage.ts";
-import type { LadderOffer } from "./moving-down.ts";
+import { startOn, type LadderOffer } from "./moving-down.ts";
 import { noteDecisionTimes } from "./play-state.ts";
 import { leavePlayback } from "./interest.ts";
 import { dataOrThrow } from "./problem.ts";
@@ -105,8 +105,7 @@ export const preloadInHiddenVideo: StartPreload = (offer, positionMs) => {
   document.body.append(video);
   const playback = playChunked(video, offer.url, {
     onFailed: () => undefined,
-    startAtBps: offer.startAtBps,
-    startPositionS: positionMs / 1000,
+    ...startOn(offer, positionMs),
     monotonicMs,
     loadsAheadAtMostS: preloadAheadS,
   });

@@ -76,8 +76,14 @@ let cachedUrls = new Set<string>();
 /** The steps the choosing noted, by each test's choosing. */
 let steps: string[] = [];
 
-/** A playback's choosing, offered startAtBps, the link estimated at what the test sets. */
-function choosingFrom(startAtBps: number): {
+/**
+ * A playback's choosing, offered startAtBps and, where the test names one, the share of the link a
+ * quality may take; the link estimated at what the test sets.
+ */
+function choosingFrom(
+  startAtBps: number,
+  shareForQuality?: number,
+): {
   hls: FakeHls;
   choosing: Choosing<FollowedChunk>;
   link: { estimateBps: number };
@@ -97,6 +103,7 @@ function choosingFrom(startAtBps: number): {
     hls,
     {
       startAtBps,
+      shareForQuality,
       monotonicMs: () => nowMs,
       isVoiceLive: () => isVoiceLive,
       isInAGroup: () => isInAGroup,
@@ -163,6 +170,13 @@ describe("choosing a chunked playback's quality (D265)", () => {
     expect(choosing.nextLevel()).toBe(2); // 70% of 5 Mb/s carries 720p, not the picture
     link.estimateBps = 50_000_000;
     expect(choosing.nextLevel()).toBe(2); // the step-up's to raise, not the next look's
+  });
+
+  it("steps down within the share of the link its offer says (the constants sweep, 2026-10-20)", () => {
+    const { choosing, link } = choosingFrom(40_000_000, 0.5);
+    link.estimateBps = 5_000_000;
+    expect(load(choosing, 3, { bytes: 6_400_000, loadMs: 10_000 })).toBe(true);
+    expect(choosing.nextLevel()).toBe(1); // half of 5 Mb/s carries 480p, where 70% carries 720p
   });
 
   it("steps up one quality once the link has held well above it, and holds again after", () => {

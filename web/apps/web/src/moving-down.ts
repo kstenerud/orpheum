@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { linkShareForQuality } from "@orpheum/player";
 import type { components } from "@orpheum/sdk";
 
 /**
@@ -8,14 +9,27 @@ import type { components } from "@orpheum/sdk";
  */
 export type LadderOffer = components["schemas"]["LadderBody"];
 
+/**
+ * Where a chunked player starts on an offer, at positionMs of the film: the quality the offer chose,
+ * from there, choosing its own within the share of the link the offer says (D247 §6).
+ */
+export function startOn(
+  offer: Pick<LadderOffer, "startAtBps" | "linkSharePercent">,
+  positionMs: number,
+): {
+  readonly startAtBps: number;
+  readonly linkSharePercent: number;
+  readonly startPositionS: number;
+} {
+  return {
+    startAtBps: offer.startAtBps,
+    linkSharePercent: offer.linkSharePercent,
+    startPositionS: positionMs / 1000,
+  };
+}
+
 /** How often a player told of a lower quality not ready yet asks again whether it is (D253 §1). */
 export const askReadyEveryMs = 3_000;
-
-/**
- * The share of a link's measured speed a quality may take: the server chooses the lower quality by
- * the same share (D247 §6, the core's linkShareForQuality).
- */
-const linkShareForQuality = 0.7;
 
 /** What a stalled player knows when its lower quality is ready (D253 §2). */
 export interface KeepingUp {
@@ -25,6 +39,12 @@ export interface KeepingUp {
   readonly linkKbps: number | undefined;
   /** The film's own picture's average rate, as the offer says it; 0 when not known. */
   readonly filmPictureKbps: number;
+  /**
+   * The share of a link's measured speed a quality may take, in percent, as the offer says, by which
+   * the server chose the lower quality (link_share_for_quality_percent, D247 §6); the player's
+   * starting share when 0.
+   */
+  readonly linkSharePercent: number;
 }
 
 /**
@@ -36,7 +56,8 @@ export function stillCannotKeepUp(seen: KeepingUp): boolean {
   if (seen.hasStalledSinceOffered || seen.linkKbps === undefined || seen.filmPictureKbps <= 0) {
     return true;
   }
-  return seen.filmPictureKbps > linkShareForQuality * seen.linkKbps;
+  const share = seen.linkSharePercent > 0 ? seen.linkSharePercent / 100 : linkShareForQuality;
+  return seen.filmPictureKbps > share * seen.linkKbps;
 }
 
 /** What MovingDown needs: the link's rate, how to ask again, and where a move goes. */
@@ -85,6 +106,7 @@ export class MovingDown {
       hasStalledSinceOffered: this.#hasStalledSinceOffered,
       linkKbps: this.#options.readLinkKbps(),
       filmPictureKbps: offer.filmPictureKbps,
+      linkSharePercent: offer.linkSharePercent,
     };
     if (stillCannotKeepUp(seen)) {
       this.#hasMoved = true;
