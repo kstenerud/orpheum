@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -23,10 +24,10 @@ import (
 )
 
 // probe asks handler to probe root, and decodes its answer.
-func probe(t *testing.T, handler http.Handler, root string) (int, nodeproto.RootProbe) {
+func probe(t *testing.T, handler http.Handler, root string) (int, nodeproto.PlaceProbe) {
 	t.Helper()
-	recorder := request(t, handler, http.MethodGet, nodeproto.ProbeRequest{RootPath: root}.Target(), nil)
-	var answer nodeproto.RootProbe
+	recorder := request(t, handler, http.MethodGet, nodeproto.ProbeRequest{Path: root}.Target(), nil)
+	var answer nodeproto.PlaceProbe
 	if recorder.Code == http.StatusOK {
 		if err := json.Unmarshal(recorder.Body.Bytes(), &answer); err != nil {
 			t.Fatal(err)
@@ -44,11 +45,11 @@ func TestServeProbe_AnswersAReadableRootWithItsFacts(t *testing.T) {
 	root := nodetest.OpenMediaRoot(t, directory)
 	gone := nodetest.OpenMediaRoot(t, t.TempDir())
 	handler := byteserver.New([]*confine.MediaRoot{root, gone}, nil).
-		ProbingWith(func(probed *confine.MediaRoot) (confine.Facts, error) {
+		ProbingWith(func(probed *confine.MediaRoot, relative string) (confine.Facts, error) {
 			if probed == gone {
 				return confine.Facts{}, &fs.PathError{Op: "stat", Path: gone.Path(), Err: fs.ErrNotExist}
 			}
-			return probed.Facts()
+			return probed.FactsOf(relative)
 		}).Handler()
 	info, err := os.Stat(directory)
 	if err != nil {
@@ -67,6 +68,34 @@ func TestServeProbe_AnswersAReadableRootWithItsFacts(t *testing.T) {
 	}
 }
 
+// A probe of a directory inside a root, a disk's mount point there, is answered as a root's is, with
+// its own facts; a path outside every root, or climbing out of one, is refused (D328 §6).
+func TestServeProbe_AnswersAPlaceInsideARoot(t *testing.T) {
+	t.Parallel()
+	directory := t.TempDir()
+	if err := os.Mkdir(filepath.Join(directory, "disk1"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	root := nodetest.OpenMediaRoot(t, directory)
+	handler := byteserver.New([]*confine.MediaRoot{root}, nil).Handler()
+	info, err := os.Stat(filepath.Join(directory, "disk1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	device, _ := confine.DeviceOf(info)
+	place := filepath.Join(root.Path(), "disk1")
+	if code, answer := probe(t, handler, place); code != http.StatusOK || answer.Path != place ||
+		answer.State != nodeproto.ProbeReadable || answer.Device != device || answer.IsMountPoint {
+		t.Errorf("a directory inside a root: %d, %+v; want readable on device %d, not a mount point", code, answer,
+			device)
+	}
+	for _, outside := range []string{"/etc", root.Path() + "/../elsewhere", "disk1"} {
+		if code, _ := probe(t, handler, outside); code != http.StatusNotFound {
+			t.Errorf("%s: %d, want 404", outside, code)
+		}
+	}
+}
+
 // A root holding a reading that has not returned is not answering at once, since when and on what,
 // its probe not tried: it would only wait beside the reading (D233 §10, D327 §2).
 func TestServeProbe_ARootHoldingAStuckReadingIsNotAnsweringAtOnce(t *testing.T) {
@@ -76,9 +105,9 @@ func TestServeProbe_ARootHoldingAStuckReadingIsNotAnsweringAtOnce(t *testing.T) 
 	gate := diskwatch.NewGate(clocktest.NewFake(stuckAt))
 	var measured atomic.Int32
 	handler := byteserver.New([]*confine.MediaRoot{root}, nil).WatchingOpens(gate, time.Minute).
-		ProbingWith(func(root *confine.MediaRoot) (confine.Facts, error) {
+		ProbingWith(func(root *confine.MediaRoot, relative string) (confine.Facts, error) {
 			measured.Add(1)
-			return root.Facts()
+			return root.FactsOf(relative)
 		}).Handler()
 	release, isHeld := gate.Hold(root.Path(), root.Path()+"/Ditchwater.mkv")
 	if !isHeld {
@@ -102,23 +131,23 @@ func TestServeProbe_AsksWhileAProbeRunsShareIt(t *testing.T) {
 	release := make(chan struct{})
 	var measured atomic.Int32
 	server := byteserver.New([]*confine.MediaRoot{root}, nil).
-		ProbingWith(func(root *confine.MediaRoot) (confine.Facts, error) {
+		ProbingWith(func(root *confine.MediaRoot, relative string) (confine.Facts, error) {
 			measured.Add(1)
 			select { // the share's host is gone, then back
 			case <-release:
 			case <-t.Context().Done():
 			}
-			return root.Facts()
+			return root.FactsOf(relative)
 		})
 	handler := server.Handler()
 	var answered sync.WaitGroup
-	answers := make(chan nodeproto.RootProbe, 3)
+	answers := make(chan nodeproto.PlaceProbe, 3)
 	for range 3 {
 		answered.Go(func() {
 			recorder := httptest.NewRecorder()
 			handler.ServeHTTP(recorder, httptest.NewRequestWithContext(t.Context(), http.MethodGet,
-				nodeproto.ProbeRequest{RootPath: root.Path()}.Target(), nil))
-			var answer nodeproto.RootProbe
+				nodeproto.ProbeRequest{Path: root.Path()}.Target(), nil))
+			var answer nodeproto.PlaceProbe
 			_ = json.Unmarshal(recorder.Body.Bytes(), &answer) //nolint:errcheck // a bad answer fails below
 			answers <- answer
 		})

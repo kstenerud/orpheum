@@ -25,7 +25,11 @@ const UnreadableOnDisk = "its disk could not be read: "
 // unavailable, so what is under it is said to be so, and a scan of it is asked for, which brings it
 // back once it reads it again (D233 §10, D241): library.Scans.
 type DiskStalls interface {
-	MarkRootStalled(ctx context.Context, nodeID int64, rootPath string) (since time.Time, err error)
+	// MarkStalled makes the deepest place the scans know under rootPath that holds waitingOn
+	// unavailable, and says which and since when (D328 §5).
+	MarkStalled(
+		ctx context.Context, nodeID int64, rootPath, waitingOn string,
+	) (place string, since time.Time, err error)
 }
 
 // SetDiskStalls names what the core does when work stalls on its disk. Set it before the channel
@@ -67,15 +71,15 @@ func (all *Exchanges) parkOnStalledDisk(
 	if stall.WaitingOnPath != "" && !pathtree.IsAtOrUnder(stall.WaitingOnPath, file.RootPath) {
 		return parkOnStalledPreparedDisk(attempt, *stall)
 	}
-	since, err := disks.MarkRootStalled(ctx, attempt.NodeID, file.RootPath)
+	place, since, err := disks.MarkStalled(ctx, attempt.NodeID, file.RootPath, stall.WaitingOnPath)
 	if err != nil {
-		return true, fmt.Errorf("make root %s unavailable after a stall on its disk: %w", file.RootPath, err)
+		return true, fmt.Errorf("make %s unavailable after a stall on its disk: %w", file.RootPath, err)
 	}
 	if job.PreviousAttemptToolFailed || attempt.Work.List != nil || attempt.Work.Examine != nil {
 		return false, nil
 	}
 	stalled := StallError(attempt.NodeID, fmt.Sprintf("%s job %d", attempt.Kind, attempt.JobID), *stall)
-	return true, jobs.ParkOnMissingRoot(attempt.NodeID, file.RootPath, since, jobs.MarkStalled(stalled))
+	return true, jobs.ParkOnMissingRoot(attempt.NodeID, place, since, jobs.MarkStalled(stalled))
 }
 
 // parkOnStalledPreparedDisk answers a prepare whose run waited on a disk that is not its source's,

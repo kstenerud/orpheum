@@ -27,10 +27,12 @@
 //   - A result the node holds, too large to post, is served whole by its attempt's token, and
 //     nothing for a token it does not hold (D234 §5).
 //     TestServeResult_ServesAHeldResultByItsTokenAndNothingElse.
-//   - A probe of a root answers whether it can be read now, with its facts, opening nothing under
-//     it, outside every queue (D327 §1): a root holding a reading that has not returned is not
-//     answering at once, and asks while a probe of a root runs share it, one probe at a time
+//   - A probe of a place, a root or a directory inside one, answers whether it can be read now, with
+//     its facts, opening nothing under it, outside every queue (D327 §1, D328 §6); a path outside
+//     every root is refused. A place whose root holds a reading that has not returned is not
+//     answering at once, and asks while a probe of a place runs share it, one probe at a time
 //     (D327 §2). TestServeProbe_AnswersAReadableRootWithItsFacts,
+//     TestServeProbe_AnswersAPlaceInsideARoot,
 //     TestServeProbe_ARootHoldingAStuckReadingIsNotAnsweringAtOnce,
 //     TestServeProbe_AsksWhileAProbeRunsShareIt.
 //   - GET and HEAD only; Range and If-Range are honoured. Enforced by TestServeFile_OnlyReads and

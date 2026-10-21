@@ -18,9 +18,9 @@ func (server *Server) OpeningWith(
 	return server
 }
 
-// ProbingWith has the server read a root's facts with facts, as a test's disk does.
-func (server *Server) ProbingWith(facts func(root *confine.MediaRoot) (confine.Facts, error)) *Server {
-	server.rootFacts = facts
+// ProbingWith has the server read a place's facts with facts, as a test's disk does.
+func (server *Server) ProbingWith(facts func(root *confine.MediaRoot, relative string) (confine.Facts, error)) *Server {
+	server.placeFacts = facts
 	return server
 }
 

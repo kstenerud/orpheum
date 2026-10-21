@@ -148,14 +148,14 @@ func TestOpenByteSocket_LetsTheScansProbeARoot(t *testing.T) {
 			http.NotFound(writer, request)
 			return
 		}
-		_ = json.NewEncoder(writer).Encode(nodeproto.RootProbe{ //nolint:errcheck // the test reads what arrives
-			RootPath: request.URL.Query().Get("rootPath"), State: nodeproto.ProbeNotAnswering,
+		_ = json.NewEncoder(writer).Encode(nodeproto.PlaceProbe{ //nolint:errcheck // the test reads what arrives
+			Path: request.URL.Query().Get("path"), State: nodeproto.ProbeNotAnswering,
 		})
 	})
 	scans := library.NewScans(library.ScansParts{Logger: slog.New(slog.DiscardHandler)})
 	openByteSocket(bench.service, scans)
 	probe, isBack, err := scans.ProbeAndBringBack(t.Context(), bench.nodeID, "/media/films")
-	if err != nil || isBack || probe.State != nodeproto.ProbeNotAnswering || probe.RootPath != "/media/films" {
+	if err != nil || isBack || probe.State != nodeproto.ProbeNotAnswering || probe.Path != "/media/films" {
 		t.Errorf("a probe through the wired socket: %+v, %t, %v; want the node's answer, not answering", probe,
 			isBack, err)
 	}

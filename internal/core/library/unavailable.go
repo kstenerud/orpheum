@@ -88,16 +88,17 @@ func deepestUnder(candidates []Unavailable, reportedPath []byte) (Unavailable, b
 	return found, isFound
 }
 
-// MarkRootUnavailable makes a root unavailable for cause from now, unless it already was (D328):
-// what is under it is not there to read until it comes back. It returns since when.
-func (ingester *Ingester) MarkRootUnavailable(
-	ctx context.Context, nodeID int64, rootPath, cause string,
+// MarkPlaceUnavailable makes a place, a root or a disk mounted inside rootPath, unavailable for cause
+// from now, unless it already was (D328): what is under it is not there to read until it comes back.
+// It returns since when.
+func (ingester *Ingester) MarkPlaceUnavailable(
+	ctx context.Context, nodeID int64, path, rootPath, cause string,
 ) (time.Time, error) {
 	now := ingester.clock.Now()
 	var since int64
 	err := ingester.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		var markErr error
-		place := placeUnavailable{nodeID: nodeID, path: rootPath, rootPath: rootPath, cause: cause}
+		place := placeUnavailable{nodeID: nodeID, path: path, rootPath: rootPath, cause: cause}
 		since, markErr = markPlaceUnavailable(ctx, queries, place, now.UnixMilli())
 		return markErr
 	})

@@ -319,11 +319,11 @@ func (scans *recordingScans) BringBackRoot(
 	return true, nil
 }
 
-func (scans *recordingScans) MarkRootStalled(_ context.Context, _ int64, root string) (time.Time, error) {
+func (scans *recordingScans) MarkStalled(_ context.Context, _ int64, root, _ string) (string, time.Time, error) {
 	scans.mutex.Lock()
 	defer scans.mutex.Unlock()
 	scans.stalled = append(scans.stalled, root)
-	return time.Time{}, nil
+	return root, time.Time{}, nil
 }
 
 func (scans *recordingScans) MarkRootNotNamed(_ context.Context, _ int64, root string) error {

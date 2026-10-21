@@ -144,9 +144,11 @@
 //     TestScans_AnUnavailableRootWhoseDiskAnswersAgainAsItWasIsBroughtBackAtOnce,
 //     TestScans_AnUnavailableRootOnAnotherDiskIsNotBroughtBack.
 //
-//   - Work that stalls waiting on a root's disk makes the root unavailable from then, and asks for a
-//     scan of it, which brings it back (D233 §10).
-//     TestScans_AStallOnARootsDiskMakesItUnavailableUntilAScanReadsIt.
+//   - Work that stalls waiting on a disk makes the deepest place the scans know that holds what it
+//     waited on unavailable from then, a disk mounted inside the root or else the root, found from
+//     the scans' record of the mounts, and asks for a scan of the root, which brings it back (D233
+//     §10, D328 §5). TestScans_AStallOnARootsDiskMakesItUnavailableUntilAScanReadsIt,
+//     TestScans_AStallOnADiskInsideARootMakesOnlyThatDiskUnavailable.
 //
 //   - A library root its node's hello no longer names is unavailable from then, nothing removed
 //     (D241 §2). TestScans_ARootTheHelloNoLongerNamesIsUnavailableUntilAScanReadsIt. Whether a file
@@ -251,7 +253,8 @@
 //     roots, list, scan, the scanner view); browse.go and detail.go: lists, a title's detail, a
 //     series' episodes, and search; home.go: Continue Watching and the resume thresholds;
 //     subtitle_sidecar.go: a subtitle file's track; rootpath.go: which root a file is under, and a
-//     path's text; availability.go: the one writer of a place's availability (D328);
+//     path's text; availability.go: the one writer of a place's availability (D328); places.go:
+//     the scans' answers to it, a probe, a stall, a bring-back;
 //     unavailable.go: the unavailable root or disk a file is under; vocabulary.go: the
 //     filings, title kinds and image kinds identification shares; filing.go: FileAs and
 //     PutInVersion, through which identification records how a file is filed and which version

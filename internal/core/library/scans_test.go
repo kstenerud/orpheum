@@ -342,9 +342,9 @@ func TestScans_AStallOnARootsDiskMakesItUnavailableUntilAScanReadsIt(t *testing.
 	ctx := t.Context()
 	queuedBefore := len(bench.jobs.requests)
 	stalledAt := bench.clock.Now()
-	since, err := bench.scans.MarkRootStalled(ctx, bench.nodeID, root)
-	if err != nil || !since.Equal(stalledAt) {
-		t.Fatalf("MarkRootStalled = %v, %v; want unavailable since now, %v", since, err, stalledAt)
+	place, since, err := bench.scans.MarkStalled(ctx, bench.nodeID, root, root+"/Wing.mkv")
+	if err != nil || place != root || !since.Equal(stalledAt) {
+		t.Fatalf("MarkStalled = %s, %v, %v; want the root unavailable since now, %v", place, since, err, stalledAt)
 	}
 	missing, isMissing, err := UnavailableUnder(ctx, bench.database.Read(), bench.nodeID, []byte(root+"/Wing.mkv"))
 	if err != nil || !isMissing || missing.Path != root || !missing.Since.Equal(stalledAt) {
@@ -355,7 +355,7 @@ func TestScans_AStallOnARootsDiskMakesItUnavailableUntilAScanReadsIt(t *testing.
 		t.Fatal("no scan of the stalled root was asked for")
 	}
 	bench.clock.Advance(time.Minute)
-	if again, err := bench.scans.MarkRootStalled(ctx, bench.nodeID, root); err != nil || !again.Equal(stalledAt) {
+	if _, again, err := bench.scans.MarkStalled(ctx, bench.nodeID, root, ""); err != nil || !again.Equal(stalledAt) {
 		t.Errorf("a second stall = %v, %v; want it unavailable since the first, %v", again, err, stalledAt)
 	}
 	bench.list(listedFile("Wing.mkv", 5, 1))
@@ -504,6 +504,35 @@ func TestScans_AHellosScanOfAnUnavailableRootGoesFirst(t *testing.T) {
 		if asked := bench.jobs.requests; len(asked) != 1 || asked[0].Priority != tc.want {
 			t.Errorf("%s: scans asked for %+v; want one at priority %d", tc.name, asked, tc.want)
 		}
+	}
+}
+
+// Work that stalls on a disk mounted inside a root makes that disk unavailable, not the root: a film
+// on it waits, and one beside it can still be read; the stall's work parks on the disk (D328 §5). A
+// disk dead inside a root made every film of the root unavailable.
+func TestScans_AStallOnADiskInsideARootMakesOnlyThatDiskUnavailable(t *testing.T) {
+	t.Parallel()
+	bench := newScanBench(t)
+	records := append([]nodeproto.ScanRecord{mountRecord("disk1", 21)}, inDirectory("disk1", filmRecords(2))...)
+	bench.scan(append(records, observedRecord("Wing.mkv", "alien")), true)
+	ctx := t.Context()
+	place, _, err := bench.scans.MarkStalled(ctx, bench.nodeID, root, root+"/disk1/Film00.mkv")
+	if err != nil || place != root+"/disk1" {
+		t.Fatalf("MarkStalled = %s, %v; want the disk %s/disk1 unavailable", place, err, root)
+	}
+	unavailable := func(path string) (Unavailable, bool) {
+		t.Helper()
+		missing, isMissing, err := UnavailableUnder(ctx, bench.database.Read(), bench.nodeID, []byte(path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return missing, isMissing
+	}
+	if missing, isMissing := unavailable(root + "/disk1/Film00.mkv"); !isMissing || missing.Path != root+"/disk1" {
+		t.Errorf("a film on the stalled disk: %+v, %t; want it under the disk, unavailable", missing, isMissing)
+	}
+	if missing, isMissing := unavailable(root + "/Wing.mkv"); isMissing {
+		t.Errorf("a film beside the stalled disk is unavailable under %+v; want it readable", missing)
 	}
 }
 
