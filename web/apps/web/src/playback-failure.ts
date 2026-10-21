@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { reportFailure, type Api, type components } from "@orpheum/sdk";
-import { useCallback, useEffect, useState, type RefObject } from "react";
+import { useCallback, useEffect, useEffectEvent, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { dataOrThrow, unavailableText } from "./problem.ts";
@@ -82,9 +82,16 @@ function useMediaBack(
 ): void {
   const { api } = useServices();
   const onMediaBack = back?.onMediaBack;
+  const canTellBack = onMediaBack !== undefined;
+  // Told through an effect event, not a dependency: the page draws itself again as it opens the
+  // film again, with a new onMediaBack, and a loop begun again for it asked again, was told at once
+  // that the film could be read, and opened it a second time (staging, 2026-10-21).
+  const tellBack = useEffectEvent((at: ReopenAt) => {
+    onMediaBack?.(at);
+  });
   const videoRef = back?.videoRef;
   useEffect(() => {
-    if (!isUnreachable || fileId === undefined || onMediaBack === undefined) {
+    if (!isUnreachable || fileId === undefined || !canTellBack) {
       return undefined;
     }
     let isWaiting = true;
@@ -107,7 +114,7 @@ function useMediaBack(
           const haveMetadata = 1; // HTMLMediaElement.HAVE_METADATA
           const isLoaded =
             video !== undefined && video !== null && video.readyState >= haveMetadata;
-          onMediaBack({
+          tellBack({
             positionMs: isLoaded ? video.currentTime * 1000 : 0,
             isPaused: video?.paused ?? false,
           });
@@ -124,7 +131,7 @@ function useMediaBack(
       isWaiting = false;
       clearTimeout(timer);
     };
-  }, [api, fileId, isUnreachable, onMediaBack, videoRef]);
+  }, [api, fileId, isUnreachable, canTellBack, videoRef]);
 }
 
 /** Why a file cannot be read now, as the server says, or undefined when it can. */
