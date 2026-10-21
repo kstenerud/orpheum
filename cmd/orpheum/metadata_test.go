@@ -525,3 +525,34 @@ func TestFilesPlayed_AreThoseOfThePlaybacksThatPlayed(t *testing.T) {
 		t.Errorf("files played %v; want file 1 alone, file 2 only warmed up", files)
 	}
 }
+
+// The queue the server runs folds a player's index read into the sweep's queued full read, which
+// becomes the index read the player waits on (readthrough.ArgsMerge, D269 §5).
+func TestJobArgsMerges_APlayersIndexReadFoldsIntoTheSweepsQueuedFullRead(t *testing.T) {
+	t.Parallel()
+	cache := storetest.OpenCache(t)
+	now := clocktest.NewFake(time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC))
+	queue := jobs.NewQueue(jobs.QueueParts{
+		Cache: cache, Clock: now, Settings: settingstest.Seeded(t, storetest.OpenMigrated(t)),
+		Random: jobqueuetest.Unjittered(), Logger: slog.New(slog.DiscardHandler), ArgsMerges: jobArgsMerges(),
+	})
+	for _, request := range []jobs.Request{
+		{
+			Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 4}, Priority: jobs.PriorityBackground,
+			Reason: "sweep",
+		},
+		{
+			Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 4}, Priority: jobs.PriorityPlayNow, Reason: "play",
+			ArgsJSON: `{"isFromIndexOnly":true}`,
+		},
+	} {
+		if _, err := queue.Enqueue(t.Context(), request); err != nil {
+			t.Fatal(err)
+		}
+	}
+	listed, err := cache.Read().ListJobs(t.Context(), 10)
+	if err != nil || len(listed) != 1 || listed[0].ArgsJSON != `{"isFromIndexOnly":true}` ||
+		listed[0].Priority != jobs.PriorityPlayNow {
+		t.Errorf("the jobs are %+v (%v); want the one, an index read at a play's priority", listed, err)
+	}
+}
