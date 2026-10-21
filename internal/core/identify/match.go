@@ -363,9 +363,9 @@ func likeliest(found []Candidate, isOldestFirst bool) Candidate {
 // matchTiers are settleMatch's tiers, in order: the name and the year; the name and a year one
 // off; the name beginning the query's, word by word, in its year.
 func matchTiers(query Query) []func(Candidate) bool {
-	want := textindex.SameWork(query.Name)
+	want := workName(query.Name)
 	named := func(candidate Candidate) bool {
-		return textindex.SameWork(candidate.Name) == want || textindex.SameWork(candidate.OriginalName) == want
+		return workName(candidate.Name) == want || workName(candidate.OriginalName) == want
 	}
 	withinYears := func(candidate Candidate, years int) bool {
 		return query.Year == 0 || (candidate.Year >= query.Year-years && candidate.Year <= query.Year+years)
@@ -386,7 +386,7 @@ func matchTiers(query Query) []func(Candidate) bool {
 // Road Warrior" begins with "Wild Rex 2", not "Wild Rex" alone being "Wild Rex 2", and "Wings" does
 // not begin with "Wing". Words compare as SameWork does.
 func beginsByWords(name, prefix string) bool {
-	words, start := wordsOf(name), wordsOf(prefix)
+	words, start := withoutArticle(wordsOf(name)), withoutArticle(wordsOf(prefix))
 	if len(start) == 0 || len(words) <= len(start) {
 		return false
 	}
@@ -396,6 +396,32 @@ func beginsByWords(name, prefix string) bool {
 		}
 	}
 	return true
+}
+
+// isArticle is whether a word is one a name may begin with or not and name the same work: a file's
+// "The Girl in the Crate" is TMDB's "Girl in the Crate" (the owner's staging, 2026-10-21). English only:
+// the provider is searched in English.
+func isArticle(word string) bool {
+	switch textindex.SameWork(word) {
+	case "the", "a", "an":
+		return true
+	}
+	return false
+}
+
+// withoutArticle is a name's words less a leading article, when a word follows it: "The" alone, or
+// "A" in "A 1", stays.
+func withoutArticle(words []string) []string {
+	if len(words) > 1 && isArticle(words[0]) {
+		return words[1:]
+	}
+	return words
+}
+
+// workName is a name as the matcher compares it: by the one identity fold (D232), its leading
+// article aside.
+func workName(name string) string {
+	return textindex.SameWork(strings.Join(withoutArticle(wordsOf(name)), " "))
 }
 
 // wordsOf is a name's words: what lies between its spaces and its marks, "&" a word of its own.
