@@ -42,7 +42,7 @@ func TestStatus_ListsTheProcessesLeftRunning(t *testing.T) {
 	node := New("/nowhere", nodeproto.Hello{Name: "local"}, nil,
 		Workers{Stuck: func() []nodeproto.Stuck { return StuckOf(left) }},
 		clocktest.NewFake(since), slog.New(slog.DiscardHandler))
-	stuck := node.status().Stuck
+	stuck := node.status(t.Context()).Stuck
 	want := nodeproto.Stuck{Tool: "ffprobe", PID: 42, Paths: []string{"/media/films/a.mkv"}, Since: since.UnixMilli()}
 	if len(stuck) != 1 || stuck[0].Tool != want.Tool || stuck[0].PID != want.PID || stuck[0].Since != want.Since ||
 		len(stuck[0].Paths) != 1 || stuck[0].Paths[0] != want.Paths[0] {

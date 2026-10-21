@@ -580,7 +580,7 @@ func TestStatus_CarriesWhatThePreparedDirectoryHolds(t *testing.T) {
 	usage := prepared.Usage{UsedBytes: 10, BudgetBytes: 100, DiskUsedPercent: 50, DiskUsedLimitPercent: 95}
 	node := New("/nowhere", nodeproto.Hello{Name: "local"}, nil, Workers{PreparedShelf: fakePreparedShelf{usage}},
 		clocktest.NewFake(time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	got := node.status().PreparedUsage
+	got := node.status(t.Context()).PreparedUsage
 	want := nodeproto.PreparedUsage{UsedBytes: 10, BudgetBytes: 100, DiskUsedPercent: 50, DiskUsedLimitPercent: 95}
 	if got == nil || *got != want {
 		t.Errorf("the status's prepared usage = %+v, want %+v (D217 §5)", got, want)
@@ -594,7 +594,7 @@ func TestStatus_CarriesTheDisksOfTheRootsAndThePreparedDirectory(t *testing.T) {
 	node := New("/nowhere", nodeproto.Hello{Name: "local"}, []*confine.MediaRoot{root},
 		Workers{PreparedDirectory: gone},
 		clocktest.NewFake(time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	disks := node.status().Disks
+	disks := node.status(t.Context()).Disks
 	if len(disks) != 2 || disks[0].Path != root.Path() || disks[0].TotalBytes <= 0 || disks[0].Failure != "" {
 		t.Fatalf("the status's disks = %+v; want the root's measured, then the prepared directory's (D225)", disks)
 	}
