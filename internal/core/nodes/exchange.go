@@ -53,6 +53,8 @@ type Resources struct {
 	Capacity     nodeproto.Capacity
 	Devices      nodeproto.Devices
 	ReaderLimits map[string]int
+	// EncodesInSoftware is whether its encodes use the CPU, not a GPU (D324 §5).
+	EncodesInSoftware bool
 }
 
 // readerLimit is how many may read a device at once: one for a device the core named no limit for.
@@ -102,6 +104,9 @@ type Exchanges struct {
 	stopping    map[string]time.Time // guarded by mutex
 	disks       DiskStalls           // guarded by mutex
 	quickPasses QuickPasses          // guarded by mutex
+	// heldBackUntil is, by node, until when it is given only played work: its played encode, in
+	// software, fell behind playback (D324 §5, HoldBackFor).
+	heldBackUntil map[int64]time.Time // guarded by mutex
 }
 
 // ExchangeParts are what the exchanges are built from.
@@ -203,7 +208,7 @@ func NewExchanges(parts ExchangeParts) *Exchanges {
 		sender: parts.Sender, clock: parts.Clock, random: parts.Random, logger: parts.Logger, cache: parts.Cache,
 		settings: parts.Settings, maxSilence: parts.MaxSilence, rooms: parts.Rooms,
 		recorders: map[nodeproto.CommandType]Recorder{},
-		attempts:  map[string]*heldAttempt{}, assignees: map[jobs.Kind]Assignee{},
+		attempts:  map[string]*heldAttempt{}, assignees: map[jobs.Kind]Assignee{}, heldBackUntil: map[int64]time.Time{},
 		brokenInvariants: map[int64]int{}, stopping: map[string]time.Time{},
 	}
 }

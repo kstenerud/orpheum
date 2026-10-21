@@ -119,6 +119,13 @@ func (tracker *runTracker) drop(dir string, first int, nodeID int64, now time.Ti
 	tracker.evictedOnAt[nodeID] = now
 }
 
+// settle leaves nodeID's runs to settle from now, as after an eviction: its other work was stopped.
+func (tracker *runTracker) settle(nodeID int64, now time.Time) {
+	tracker.mutex.Lock()
+	defer tracker.mutex.Unlock()
+	tracker.evictedOnAt[nodeID] = now
+}
+
 // lastEvictionOn is when a run was last evicted from nodeID; zero for never.
 func (tracker *runTracker) lastEvictionOn(nodeID int64) time.Time {
 	tracker.mutex.Lock()
@@ -160,10 +167,12 @@ func (service *Service) keepRunsFast(ctx context.Context, nodeID int64) error {
 		return fmt.Errorf("read %s: %w", settings.ChunkKeptAheadSeconds, err)
 	}
 	running := service.runs.runningOn(nodeID, now, service.interestsOf, keptAhead.Milliseconds())
-	isTooSlow := slices.ContainsFunc(running, func(each runningRun) bool {
-		return each.isMeasured && each.speed*100 < float64(slowestPercent)
-	})
-	if len(running) < 2 || !isTooSlow {
+	isTooSlow := func(each runningRun) bool { return each.isMeasured && each.speed*100 < float64(slowestPercent) }
+	if service.holdBackFor(ctx, nodeID, running, isTooSlow, now.Add(timing.speedWindow)) {
+		service.runs.settle(nodeID, now)
+		return nil
+	}
+	if len(running) < 2 || !slices.ContainsFunc(running, isTooSlow) {
 		return nil
 	}
 	victim := evictee(running)
@@ -198,14 +207,46 @@ func (service *Service) keepRunsFast(ctx context.Context, nodeID int64) error {
 	return service.queue.Cancel(ctx, victim.jobID)
 }
 
+// holdBackFor holds back the node's other work, to the time until, when a run players want of a
+// quality, an encode, is too slow on a node that encodes in software (D324 §5): the node stops the work no one
+// plays and is given none, so the played encode has the CPU. It reports whether it stopped any, after
+// which the node's runs are left to settle before any is evicted.
+func (service *Service) holdBackFor(
+	ctx context.Context, nodeID int64, running []runningRun, isTooSlow func(runningRun) bool, until time.Time,
+) bool {
+	if service.holdBack == nil || (service.encoders != nil && service.encoders.EncodesOnAGPU(nodeID)) {
+		return false
+	}
+	isPlayedEncodeBehind := slices.ContainsFunc(running, func(each runningRun) bool {
+		return each.isInUse && isQualityStore(each.dir) && isTooSlow(each)
+	})
+	if !isPlayedEncodeBehind {
+		return false
+	}
+	stopped := service.holdBack.HoldBackFor(ctx, nodeID, until)
+	if stopped > 0 {
+		service.logger.WarnContext(ctx, "stopped a node's other work: the film it encodes for a player, in "+
+			"software, fell behind playback", "nodeId", nodeID, "stoppedCount", stopped, "heldBackUntil", until)
+	}
+	return stopped > 0
+}
+
 // isMovedOff is whether every player of a run in use, of a quality made for players, was moved onto
 // the quality below, so the run is no longer needed and is cancelled rather than evicted: an eviction
 // stops its players (D286 §4, D309 §6).
 func (service *Service) isMovedOff(victim runningRun) bool {
 	fileID := fileOfStore(victim.dir)
-	streamName, isStore := streamOfStore(victim.dir, fileID)
-	return victim.isInUse && service.movePlayers != nil && isStore && fileID != 0 &&
-		strings.HasPrefix(streamName, "q") && service.movePlayers(fileID, streamName)
+	streamName, _ := streamOfStore(victim.dir, fileID)
+	return victim.isInUse && service.movePlayers != nil && isQualityStore(victim.dir) &&
+		service.movePlayers(fileID, streamName)
+}
+
+// isQualityStore is whether a store's directory is of a quality, a picture encoded for players
+// (its stream "q…"), rather than the film's own picture copied or a sound.
+func isQualityStore(dir string) bool {
+	fileID := fileOfStore(dir)
+	streamName, isStore := streamOfStore(dir, fileID)
+	return isStore && fileID != 0 && strings.HasPrefix(streamName, "q")
 }
 
 // evictee is the run to evict of those running: the oldest no player wants, or, when players want

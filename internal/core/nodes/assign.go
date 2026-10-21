@@ -136,6 +136,9 @@ func (all *Exchanges) parkIfWindowFull(
 		return jobs.Park(parking,
 			fmt.Errorf("node %d has no room for more %s work: %w", nodeID, slot, errWindowFull))
 	}
+	if parked := all.parkBesidePlaying(nodeID, resources, work); parked != nil {
+		return parked
+	}
 	incoming := tierOf(work, priority)
 	if inSlot, _ := all.heldOn(nodeID, resources, slot, ""); slot != "" &&
 		inSlot >= resources.Capacity.SlotCount(slot)+int(extra) {

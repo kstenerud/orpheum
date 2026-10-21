@@ -60,16 +60,20 @@ func (all *Exchanges) bumpFor(ctx context.Context, nodeID int64, incoming tier, 
 	chosen.isBeingBumped = true
 	attempt := chosen.Attempt
 	all.mutex.Unlock()
+	all.bump(ctx, attempt, fmt.Errorf("work of a higher priority took its place on node %d", nodeID))
+	return true
+}
+
+// bump stops an attempt a bump chose, marked isBeingBumped: its node is told to stop and its work is
+// thrown away, and its job goes back to the head of its priority's queue at no cost, why.
+func (all *Exchanges) bump(ctx context.Context, attempt Attempt, why error) {
 	assignee, _ := all.assigneeOf(attempt.Kind)
 	all.stop(ctx, attempt)
-	why := fmt.Errorf("work of a higher priority took its place on node %d", nodeID)
 	if err := all.resolve(ctx, attempt, assignee, func(jobs.Job) error { return jobs.Bump(why) }); err != nil {
-		all.logger.WarnContext(ctx, "could not bump a job for work of a higher priority", "jobId", attempt.JobID,
-			"err", err)
+		all.logger.WarnContext(ctx, "could not bump a job", "jobId", attempt.JobID, "why", why, "err", err)
 	}
-	all.logger.InfoContext(ctx, "a job was bumped for work of a higher priority", "jobId", attempt.JobID,
-		"kind", attempt.Kind, "nodeId", nodeID)
-	return true
+	all.logger.InfoContext(ctx, "a job was bumped", "jobId", attempt.JobID, "kind", attempt.Kind,
+		"nodeId", attempt.NodeID, "why", why)
 }
 
 // isBumpedBefore is whether one held attempt is bumped before another: the lower tier, then the

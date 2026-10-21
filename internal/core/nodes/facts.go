@@ -68,7 +68,11 @@ func (service *Service) EncodesOnAGPU(nodeID int64) bool {
 	if !found {
 		return false
 	}
-	chosen := node.hello.Hardware.ChosenEncoder
+	return isGPUEncoder(node.hello.Hardware.ChosenEncoder)
+}
+
+// isGPUEncoder is whether a node's chosen encoder is a GPU's: not software's, and named.
+func isGPUEncoder(chosen string) bool {
 	return chosen != "" && chosen != softwareEncoder
 }
 
