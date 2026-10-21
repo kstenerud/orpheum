@@ -401,3 +401,16 @@ func TestPlayback_AFileRemovedWhilePlayingIsNoFileToPlayAsItIsToStart(t *testing
 	wantErrorSaying(t, harness.do(t, http.MethodPost, "/playback", user, chrome(1)), http.StatusNotFound,
 		CodeNotFound, "no such file to play")
 }
+
+// A player whose film could not be read and can again asks for a new playback saying so, which the
+// log keeps (the owner, 2026-10-21).
+func TestPlayback_APlaybackAskedForOnceItsFilmIsBackSaysSo(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	asked := chrome(2)
+	asked["cause"] = "mediaBack"
+	harness.play(t, user, asked)
+	harness.logs.AwaitLine(t, `"msg":"a playback started"`, `"fileId":2`, `"cause":"mediaBack"`)
+}
