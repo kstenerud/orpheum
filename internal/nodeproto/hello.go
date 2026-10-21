@@ -24,7 +24,7 @@ const QueryAfterCommandSeq = "afterCommandSeq"
 // records and results. It is raised with any change a node or core of another build would misread,
 // so the two refuse each other at hello instead (D233 §9). Core and node ship as one build today,
 // so the two match unless a node is updated apart from its core.
-const ProtocolVersion = 33
+const ProtocolVersion = 34
 
 // Hello is the first thing a node says, and it says it again after every reconnection.
 type Hello struct {
@@ -134,7 +134,21 @@ type HelloReply struct {
 	// DeviceReaderLimits are how many may read each of the hello's devices at once, by its key: the
 	// core's settings for its kind (D240 §5).
 	DeviceReaderLimits map[string]int `json:"deviceReaderLimits"`
+	// Tuning is how the node behaves, as the core's settings say.
+	Tuning Tuning `json:"tuning"`
 }
+
+// Tuning is how a node behaves where the core's settings decide, sent in the hello's reply and each
+// poll's answer (the constants sweep, 2026-10-21). A value of zero, from a core that says none, leaves
+// the node's last.
+type Tuning struct {
+	// StatusEverySeconds is how often the node posts its status: the core's nodes.StatusEveryFor.
+	StatusEverySeconds int `json:"statusEverySeconds"`
+}
+
+// StartingStatusEverySeconds is how often a node posts its status before a core has said: the
+// cadence node_silent_after_seconds' starting value gives, which a test of the core's nodes holds.
+const StartingStatusEverySeconds = 10
 
 // DeviceKind is how a device reads, which sets how many may read it at once (D240 §5).
 type DeviceKind string

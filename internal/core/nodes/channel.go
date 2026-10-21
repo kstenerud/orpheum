@@ -41,6 +41,7 @@ func (service *Service) serveCommands(writer http.ResponseWriter, request *http.
 		}
 		writeJSON(writer, nodeproto.Commands{
 			Commands: pending, DeviceReaderLimits: limits, StoreTiers: service.storeTiersNow(ctx, nodeID),
+			Tuning: service.tuning(ctx),
 		})
 	}
 	for {

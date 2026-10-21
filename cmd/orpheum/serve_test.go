@@ -156,13 +156,10 @@ destination = "stderr"
 	if err != nil || len(report.Notes()) != 0 {
 		t.Fatalf("the test config does not load cleanly: %v, %v", err, report.Notes())
 	}
-	// A node started with its core says its first hello before the core's socket is up, and waits a
-	// status tick to say it again: 1 s, not 10, or seven tests each waited 10 s of the real clock
-	// (the test audit, 2026-10-08).
 	config.Node = NodeConfig{
 		Name: "local", CoreSocket: filepath.Join(config.Instance.RunDir, coreSocketName), RootPaths: []string{},
 		FFmpegDir: filepath.Join(dir, "ffmpeg"), ConfinementPolicy: "report", MaxErrorsPerRoot: 1000,
-		ProbeTimeoutSeconds: 60, StatusIntervalSeconds: 1, ProgressEverySeconds: 2, EndedWorkKeptHours: 168,
+		ProbeTimeoutSeconds: 60, ProgressEverySeconds: 2, EndedWorkKeptHours: 168,
 		ReadHeaderTimeoutSeconds: 10, PreparedBudgetGiB: 1, PreparedKeptAfterPlayHours: 72,
 		PreparedDiskUsedLimitPercent: 95, PreparedDiskMinFreeMiB: 100, EncodeSlotCount: 1, RemuxSlotCount: 2,
 		SlowestReadMiBPerSecond: 20,

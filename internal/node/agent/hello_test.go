@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -55,6 +56,39 @@ func TestAgent_KeepsTheChunkStoresByTheTiersThePollSays(t *testing.T) {
 	if lines := strings.Count(logged.String(), "kept the chunk stores"); lines != 1 ||
 		!strings.Contains(logged.String(), "inUse=1") {
 		t.Errorf("the log = %q; want the change said once, with one store in use", logged.String())
+	}
+}
+
+// The node posts its status as often as the core's hello reply says, and then as each poll's answer
+// says when it changes; an answer that says none leaves the last (the constants sweep, 2026-10-21).
+func TestAgent_PostsItsStatusAsOftenAsTheCoreSays(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	core.mutex.Lock()
+	core.statusEverySeconds = 4
+	core.mutex.Unlock()
+	cadences := make(chan time.Duration, 4)
+	workers := Workers{Scanner: fakeScanner{}, Artworker: fakeArtworker{}}
+	workers.SetStatusEvery = func(every time.Duration) { cadences <- every }
+	startAgentWithWorkers(t, socket, workers)
+	if every := testutil.Receive(t, cadences, "the hello's cadence"); every != 4*time.Second {
+		t.Errorf("after the hello the node posts every %v; want the 4 s its reply said", every)
+	}
+	var logged bytes.Buffer
+	agent := &Agent{logger: slog.New(slog.NewTextHandler(&logged, nil)), workers: Workers{
+		SetStatusEvery: func(every time.Duration) { cadences <- every },
+	}}
+	agent.statusEvery.Store(nodeproto.StartingStatusEverySeconds)
+	for _, said := range []int{nodeproto.StartingStatusEverySeconds, 0, 2, 2, 0} {
+		agent.takeAnswersSettings(t.Context(), nodeproto.Commands{Tuning: nodeproto.Tuning{StatusEverySeconds: said}})
+	}
+	if every := testutil.Receive(t, cadences, "the poll's cadence"); every != 2*time.Second {
+		t.Errorf("after the polls the node posts every %v; want the 2 s they said", every)
+	}
+	select {
+	case every := <-cadences:
+		t.Errorf("the node set its cadence again, to %v, though no poll changed it", every)
+	default:
 	}
 }
 

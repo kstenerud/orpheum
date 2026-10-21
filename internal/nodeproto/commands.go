@@ -71,6 +71,9 @@ type Commands struct {
 	// stand now, every store not named KeepUnlikely: a change reaches the node with the next answer
 	// (D309 §8). Nil from a core that sends none, which leaves the node's last.
 	StoreTiers map[string]KeepTier `json:"storeTiers"`
+	// Tuning is how the node behaves, as the core's settings say now: a change reaches the node with
+	// the next answer.
+	Tuning Tuning `json:"tuning"`
 }
 
 // MediaFile is the file of the node's media a command reads, and whether it reads one: the device it

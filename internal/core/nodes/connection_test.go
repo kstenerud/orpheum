@@ -387,6 +387,37 @@ func TestCommands_EachAnswerCarriesTheReaderLimitsTheSettingsSayNow(t *testing.T
 	}
 }
 
+// The reply to a hello and each answer to a poll say how often the node posts its status: three
+// times within node_silent_after_seconds as it is then, so the node's cadence follows the setting it
+// is judged silent by (cut-a §4; the constants sweep, 2026-10-21).
+func TestHelloAndCommands_SayTheStatusCadenceTheSilenceSettingGives(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	settingstest.Set(t, harness.settings, settings.NodeSilentAfterSeconds, "60")
+	reply := harness.hello(t, nodeproto.Hello{Name: "local"})
+	if reply.Tuning.StatusEverySeconds != 20 {
+		t.Errorf("the hello's reply says every %d s; want 20, a third of the 60 s silence",
+			reply.Tuning.StatusEverySeconds)
+	}
+	settingstest.Set(t, harness.settings, settings.NodeSilentAfterSeconds, "9")
+	if commands, status := harness.pollThroughHold(t, reply.NodeID, 0); status != http.StatusOK ||
+		commands.Tuning.StatusEverySeconds != 3 {
+		t.Errorf("the poll answered %d saying every %d s; want 3, a third of the 9 s silence now", status,
+			commands.Tuning.StatusEverySeconds)
+	}
+}
+
+// A node posts its status at its own starting cadence until a core says one, so that cadence is the
+// one the silence setting's starting value gives (the constants sweep, 2026-10-21).
+func TestStatusEveryFor_ANodesCadenceBeforeACoreSaysIsTheSilenceSettingsStart(t *testing.T) {
+	t.Parallel()
+	if every := StatusEveryFor(settings.StartingDuration(settings.NodeSilentAfterSeconds)); every !=
+		nodeproto.StartingStatusEverySeconds {
+		t.Errorf("a node posts every %d s before a core says; node_silent_after_seconds' start gives %d s",
+			nodeproto.StartingStatusEverySeconds, every)
+	}
+}
+
 // Each answer to a poll carries how strongly each chunk store is kept as the players stand then; with
 // nothing to say them, or when they cannot be read, none, which leaves the node its last (D309 §8).
 func TestCommands_EachAnswerCarriesHowStronglyEachChunkStoreIsKept(t *testing.T) {

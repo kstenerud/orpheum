@@ -102,6 +102,18 @@ func (service *Service) isConnectedLocked(node *connectedNode, silentAfter time.
 	return node.openPollCount > 0 || service.clock.Now().Sub(node.lastHeard) < silentAfter
 }
 
+// tuning is how the core's settings say its nodes behave now (nodeproto.Tuning).
+func (service *Service) tuning(ctx context.Context) nodeproto.Tuning {
+	return nodeproto.Tuning{StatusEverySeconds: StatusEveryFor(service.silentAfter(ctx))}
+}
+
+// StatusEveryFor is how often a node posts its status when the core shows a node silent after
+// silentAfter: three statuses within it (cut-a §4), so one lost or late status does not make it
+// silent; at least a second.
+func StatusEveryFor(silentAfter time.Duration) int {
+	return max(1, int(silentAfter/time.Second)/3)
+}
+
 // silentAfter is node_silent_after_seconds, or its starting value when it cannot be read, so a
 // node's connection is still judged when the settings cannot be read.
 func (service *Service) silentAfter(ctx context.Context) time.Duration {

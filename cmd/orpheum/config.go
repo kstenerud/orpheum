@@ -174,15 +174,14 @@ const (
 type NodeConfig struct {
 	Name string `toml:"name"`
 	// CoreSocket is the core's socket, which the node dials (D242 §7).
-	CoreSocket            string   `toml:"core_socket"`
-	RootPaths             []string `toml:"root_paths"`
-	FFmpegDir             string   `toml:"ffmpeg_dir"`
-	ConfinementPolicy     string   `toml:"confinement_policy"`
-	MaxErrorsPerRoot      int      `toml:"max_errors_per_root"`
-	ProbeTimeoutSeconds   int64    `toml:"probe_timeout_seconds"`
-	StatusIntervalSeconds int64    `toml:"status_interval_seconds"`
-	ProgressEverySeconds  int64    `toml:"progress_every_seconds"`
-	EndedWorkKeptHours    int64    `toml:"ended_work_kept_hours"`
+	CoreSocket           string   `toml:"core_socket"`
+	RootPaths            []string `toml:"root_paths"`
+	FFmpegDir            string   `toml:"ffmpeg_dir"`
+	ConfinementPolicy    string   `toml:"confinement_policy"`
+	MaxErrorsPerRoot     int      `toml:"max_errors_per_root"`
+	ProbeTimeoutSeconds  int64    `toml:"probe_timeout_seconds"`
+	ProgressEverySeconds int64    `toml:"progress_every_seconds"`
+	EndedWorkKeptHours   int64    `toml:"ended_work_kept_hours"`
 	// ReadHeaderTimeoutSeconds is how long the core has to send a request's headers to the byte
 	// socket.
 	ReadHeaderTimeoutSeconds int64 `toml:"read_header_timeout_seconds"`
@@ -370,10 +369,6 @@ func nodeConfigKeys() []configKey {
 			"errors one root may produce in a scan before the node stops enumerating it (D40)",
 		},
 		{tableNode, "probe_timeout_seconds", "60", "seconds ffprobe gets for one file before it is stopped"},
-		{
-			tableNode, "status_interval_seconds", "10",
-			"seconds between the node's status records; keep it well under the core's node_silent_after_seconds",
-		},
 		{
 			tableNode, "progress_every_seconds", "2",
 			"seconds, at least, between a running prepare's words to the core on how far it is (D234 §5)",
@@ -606,7 +601,6 @@ func (node NodeConfig) check() error {
 	problems := []error{atLeastOne(map[string]int64{
 		"node.max_errors_per_root":            int64(node.MaxErrorsPerRoot),
 		"node.probe_timeout_seconds":          node.ProbeTimeoutSeconds,
-		"node.status_interval_seconds":        node.StatusIntervalSeconds,
 		"node.progress_every_seconds":         node.ProgressEverySeconds,
 		"node.ended_work_kept_hours":          node.EndedWorkKeptHours,
 		"node.read_header_timeout_seconds":    node.ReadHeaderTimeoutSeconds,

@@ -92,6 +92,10 @@ type nodeSeams struct {
 	// readStallWindow, when set, stands in for the node's read window, minutes long, so a test can see
 	// a reading that stops moving answered as stalled.
 	readStallWindow time.Duration
+	// statusEvery, when set, is how often the node posts its status whatever the core says: a node
+	// started beside its core says its first hello before the core's socket is up, and says it again a
+	// tick later, 1 s and not 10 in a test (the test audit, 2026-10-08).
+	statusEvery time.Duration
 }
 
 // checkConfinement is what the machine can confine FFmpeg with (D112): each mechanism missing is
@@ -171,7 +175,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	}
 	defer stopBytes()
 	hello.ByteSocketPath = byteSocketPath
-	ticker := time.NewTicker(time.Duration(config.Node.StatusIntervalSeconds) * time.Second)
+	ticker, setStatusEvery := statusTicker(seams)
 	defer ticker.Stop()
 	// An image's probe and each of its encodes are one FFmpeg run over one untrusted input each,
 	// bounded as a file's probe is.
@@ -184,7 +188,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		Scanner: activeScanner, Artworker: deriver,
 		Subtitler:     subtitle.NewExtractor(runner, hello.Capacity.SlowestReadBytesPerSecond),
 		ThroughReader: readthrough.NewReader(runner, hello.Capacity.SlowestReadBytesPerSecond),
-		HeldResults:   heldResults, Stuck: stuckOf(runner),
+		HeldResults:   heldResults, Stuck: stuckOf(runner), SetStatusEvery: setStatusEvery,
 	}
 	workers.ProgressEvery, workers.EndedWorkKept, workers.ReadStallWindow = workPacing(config)
 	workers.ReadStallWindow = cmp.Or(seams.readStallWindow, workers.ReadStallWindow)
@@ -194,6 +198,16 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	defer stopWatching()
 	workers.Watcher = watcher
 	return agent.New(config.Node.CoreSocket, hello, roots, workers, clock.System{}, logger).Run(ctx, ticker.C)
+}
+
+// statusTicker is the tick the node posts its status on, with what sets its cadence when the core
+// says one: the starting cadence until then, or the seam's whatever the core says.
+func statusTicker(seams nodeSeams) (*time.Ticker, func(time.Duration)) {
+	if seams.statusEvery > 0 {
+		return time.NewTicker(seams.statusEvery), nil
+	}
+	ticker := time.NewTicker(nodeproto.StartingStatusEverySeconds * time.Second)
+	return ticker, ticker.Reset
 }
 
 // withPreparedDirectory has workers prepare and make chunks in directory, when it opened.
