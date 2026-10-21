@@ -10,9 +10,11 @@ import (
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
-// Look is a session looking at a film's or series' page: since when, and when it last said so.
+// Look is a session looking at a film's or series' page: whose session, since when, and when it
+// last said so.
 type Look struct {
 	ItemID int64
+	UserID int64
 	Since  time.Time
 	SaidAt time.Time
 }
@@ -31,14 +33,15 @@ func NewRegister(clockSource clock.Clock) *Register {
 	return &Register{clock: clockSource, looks: map[string]Look{}}
 }
 
-// Look says the session shows itemID's page now; a session that showed another moves to this one.
-func (register *Register) Look(sessionKey string, itemID int64) {
+// Look says the session, userID's, shows itemID's page now; a session that showed another moves to
+// this one.
+func (register *Register) Look(sessionKey string, userID, itemID int64) {
 	now := register.clock.Now()
 	register.mutex.Lock()
 	defer register.mutex.Unlock()
 	look, isLooking := register.looks[sessionKey]
 	if !isLooking || look.ItemID != itemID {
-		look = Look{ItemID: itemID, Since: now}
+		look = Look{ItemID: itemID, UserID: userID, Since: now}
 	}
 	look.SaidAt = now
 	register.looks[sessionKey] = look

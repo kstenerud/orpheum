@@ -170,6 +170,8 @@ export const enSettingsCatalogue = {
       "A watched library notices changes as they happen, but watching can miss one without knowing, for instance across a restart. A full scan this often finds anything missed.",
   },
   descriptions: {
+    seriesEpisodesAhead:
+      "How many episodes of a series get their work done first while its page is open, starting where you are in it.",
     interestSaidEverySeconds:
       "How often an open film or series page tells the server it is still open, which puts its work first.",
     interestLapsesAfterSeconds:

@@ -227,3 +227,20 @@ JOIN file ON file.version_id = version.id
 WHERE version.title_id = sqlc.arg(title_id) AND version.removed_at IS NULL AND file.removed_at IS NULL
   AND file.payload_hash IS NULL AND file.sidecar_kind IS NULL
 ORDER BY file.id;
+
+-- name: ListSeriesEpisodeFilesWithPositions :many
+-- A series' episodes in aired order, each live file of each with a person's position in it and
+-- when it was watched, and the file's length where its probe knows it: where the person is in the
+-- series, which a look at its page raises the next episodes of (D324 section 3).
+SELECT position.title_id, file.id AS file_id,
+  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
+    AS duration_ms,
+  play_position.position_ms, play_position.position_read_at
+FROM ordering
+JOIN position ON position.ordering_id = ordering.id
+JOIN item ON item.id = position.title_id AND item.removed_at IS NULL
+JOIN version ON version.title_id = position.title_id AND version.removed_at IS NULL
+JOIN file ON file.version_id = version.id AND file.removed_at IS NULL AND file.filing IN ('listed', 'unidentified')
+LEFT JOIN play_position ON play_position.file_id = file.id AND play_position.user_id = sqlc.arg(user_id)
+WHERE ordering.collection_id = sqlc.arg(collection_id) AND ordering.name = 'aired'
+ORDER BY position.sort_order, file.id;

@@ -22,17 +22,18 @@ func TestRegister_KeepsEachSessionsPageTheLatestFirstUntilItLapses(t *testing.T)
 	t.Parallel()
 	now := clocktest.NewFake(time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC))
 	register := NewRegister(now)
-	register.Look("first", 10)
+	register.Look("first", 1, 10)
 	now.Advance(time.Second)
-	register.Look("second", 20)
-	register.Look("first", 30) // moved on from 10
+	register.Look("second", 1, 20)
+	now.Advance(time.Second)
+	register.Look("first", 1, 30) // moved on from 10
 	looks := register.Looks(time.Minute)
 	if len(looks) != 2 || looks[0].ItemID != 30 || looks[1].ItemID != 20 {
 		t.Fatalf("looks %+v; want 30, begun last, then 20", looks)
 	}
 	register.Leave("second", 99) // a page it is not on
 	now.Advance(30 * time.Second)
-	register.Look("first", 30)
+	register.Look("first", 1, 30)
 	now.Advance(40 * time.Second)
 	if looks = register.Looks(time.Minute); len(looks) != 1 || looks[0].ItemID != 30 {
 		t.Errorf("looks %+v; want 30 alone, said lately, and 20 lapsed", looks)
@@ -94,9 +95,9 @@ func TestRaiser_RaisesThePlayedTheLookedAtAndTheWatched(t *testing.T) {
 		Database: database, Settings: settingstest.Seeded(t, database), Clock: now,
 		Logger: slog.New(slog.DiscardHandler),
 	})
-	register.Look("first", 20)
+	register.Look("first", 1, 20)
 	now.Advance(time.Second)
-	register.Look("second", 10)
+	register.Look("second", 1, 10)
 	if err := raiser.Raise(t.Context()); err != nil {
 		t.Fatal(err)
 	}

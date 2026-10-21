@@ -731,6 +731,66 @@ func (q *Queries) ListSeriesEpisodeDetails(ctx context.Context, collectionID int
 	return items, nil
 }
 
+const listSeriesEpisodeFilesWithPositions = `-- name: ListSeriesEpisodeFilesWithPositions :many
+SELECT position.title_id, file.id AS file_id,
+  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
+    AS duration_ms,
+  play_position.position_ms, play_position.position_read_at
+FROM ordering
+JOIN position ON position.ordering_id = ordering.id
+JOIN item ON item.id = position.title_id AND item.removed_at IS NULL
+JOIN version ON version.title_id = position.title_id AND version.removed_at IS NULL
+JOIN file ON file.version_id = version.id AND file.removed_at IS NULL AND file.filing IN ('listed', 'unidentified')
+LEFT JOIN play_position ON play_position.file_id = file.id AND play_position.user_id = ?1
+WHERE ordering.collection_id = ?2 AND ordering.name = 'aired'
+ORDER BY position.sort_order, file.id
+`
+
+type ListSeriesEpisodeFilesWithPositionsParams struct {
+	UserID       int64
+	CollectionID int64
+}
+
+type ListSeriesEpisodeFilesWithPositionsRow struct {
+	TitleID        int64
+	FileID         int64
+	DurationMs     int64
+	PositionMs     *int64
+	PositionReadAt *int64
+}
+
+// A series' episodes in aired order, each live file of each with a person's position in it and
+// when it was watched, and the file's length where its probe knows it: where the person is in the
+// series, which a look at its page raises the next episodes of (D324 section 3).
+func (q *Queries) ListSeriesEpisodeFilesWithPositions(ctx context.Context, arg ListSeriesEpisodeFilesWithPositionsParams) ([]ListSeriesEpisodeFilesWithPositionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSeriesEpisodeFilesWithPositions, arg.UserID, arg.CollectionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSeriesEpisodeFilesWithPositionsRow{}
+	for rows.Next() {
+		var i ListSeriesEpisodeFilesWithPositionsRow
+		if err := rows.Scan(
+			&i.TitleID,
+			&i.FileID,
+			&i.DurationMs,
+			&i.PositionMs,
+			&i.PositionReadAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStreamsOfVideoFile = `-- name: ListStreamsOfVideoFile :many
 SELECT id, kind, codec, language, container_title, channel_count, disposition_flags
 FROM stream

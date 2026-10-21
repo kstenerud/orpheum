@@ -39,7 +39,7 @@ func (server *Server) putInterest(ctx context.Context, input *PageInterestInput)
 	if err = dependencies.Browser.ReachItem(ctx, principal.Reach, input.ID); err != nil {
 		return nil, server.identifyError(ctx, "reach an item", err)
 	}
-	dependencies.Interest.Look(principal.SessionKey, input.ID)
+	dependencies.Interest.Look(principal.SessionKey, principal.UserID, input.ID)
 	return &struct{}{}, nil
 }
 

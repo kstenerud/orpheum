@@ -10,9 +10,11 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
 // Jobs raises and releases the work interest is in: jobs.InterestJobs.
@@ -34,9 +36,15 @@ type Parts struct {
 	// Playing are the files played now: the playback service's NowPlaying.
 	Playing  func() []int64
 	Database *store.Database
-	Settings settings.DurationReader
+	Settings Settings
 	Clock    clock.Clock
 	Logger   *slog.Logger
+}
+
+// Settings are the settings the raiser reads: settings.Service.
+type Settings interface {
+	settings.DurationReader
+	library.IntSettings
 }
 
 // Raiser orders the work by interest (D324 §2): what is played at a play's priority, what is looked
@@ -67,7 +75,7 @@ func (raiser *Raiser) Raise(ctx context.Context) error {
 		if _, isRaised := looked[look.ItemID]; isRaised {
 			continue // another session's look at it, which began earlier
 		}
-		interested, err := raiser.worksOf(ctx, look.ItemID)
+		interested, err := raiser.worksOf(ctx, look)
 		if err != nil {
 			return err
 		}
@@ -118,9 +126,10 @@ func (raiser *Raiser) raise(ctx context.Context, interested jobs.Interested, pri
 	return nil
 }
 
-// worksOf is what interest in an item raises: a film's or episode's own jobs and its live files'
-// (D324 §3); a series' own, its episodes' coming with I2.
-func (raiser *Raiser) worksOf(ctx context.Context, itemID int64) (jobs.Interested, error) {
+// worksOf is what a look at an item raises (D324 §3): a film's or episode's own jobs and its live
+// files'; a series' own, and its next episodes' and their files' from its person's place in it.
+func (raiser *Raiser) worksOf(ctx context.Context, look Look) (jobs.Interested, error) {
+	itemID := look.ItemID
 	queries := raiser.parts.Database.Read()
 	kind, err := store.OrNotFound(queries.GetItemKind(ctx, itemID))
 	if errors.Is(err, store.ErrNotFound) {
@@ -131,7 +140,7 @@ func (raiser *Raiser) worksOf(ctx context.Context, itemID int64) (jobs.Intereste
 	}
 	interested := jobs.Interested{ItemIDs: []int64{itemID}}
 	if kind != "title" {
-		return interested, nil
+		return raiser.withEpisodesAhead(ctx, look, interested)
 	}
 	files, err := queries.ListLiveFilesOfTitle(ctx, itemID)
 	if err != nil {
@@ -166,4 +175,29 @@ func (raiser *Raiser) Run(ctx context.Context, tick <-chan time.Time) {
 		case <-tick:
 		}
 	}
+}
+
+// withEpisodesAhead is interested with the series' episodes ahead of its person (episodesAhead):
+// each episode and its live files.
+func (raiser *Raiser) withEpisodesAhead(
+	ctx context.Context, look Look, interested jobs.Interested,
+) (jobs.Interested, error) {
+	thresholds, err := library.ReadResumeThresholds(ctx, raiser.parts.Settings)
+	if err != nil {
+		return jobs.Interested{}, err
+	}
+	count, err := raiser.parts.Settings.Int(ctx, settings.SeriesEpisodesAhead)
+	if err != nil {
+		return jobs.Interested{}, fmt.Errorf("read %s: %w", settings.SeriesEpisodesAhead, err)
+	}
+	rows, err := raiser.parts.Database.Read().ListSeriesEpisodeFilesWithPositions(ctx,
+		sqlcgen.ListSeriesEpisodeFilesWithPositionsParams{CollectionID: look.ItemID, UserID: look.UserID})
+	if err != nil {
+		return jobs.Interested{}, fmt.Errorf("list series %d's episodes: %w", look.ItemID, err)
+	}
+	for _, ahead := range episodesAhead(episodesOf(rows, thresholds), int(count)) {
+		interested.ItemIDs = append(interested.ItemIDs, ahead.titleID)
+		interested.FileIDs = append(interested.FileIDs, ahead.fileIDs...)
+	}
+	return interested, nil
 }
