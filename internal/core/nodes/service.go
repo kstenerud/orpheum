@@ -34,6 +34,9 @@ type ScanRequester interface {
 	// MarkRootNotNamed makes a library root its node's hello no longer names unavailable from now
 	// (D241 §2).
 	MarkRootNotNamed(ctx context.Context, nodeID int64, root string) error
+	// MarkRootStalled makes a library root whose disk is not answering unavailable from now, and asks
+	// for the scan that brings it back (D233 §10).
+	MarkRootStalled(ctx context.Context, nodeID int64, root string) (since time.Time, err error)
 }
 
 // ChangeTaker takes a node watcher's word that something changed under a root: library.ScanSchedule,
