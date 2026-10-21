@@ -38,6 +38,7 @@ type Nodes interface {
 type Queue interface {
 	Enqueue(ctx context.Context, job jobs.Request) (bool, error)
 	ReleaseWanted(ctx context.Context, kind jobs.Kind, target jobs.Target) error
+	SetProgress(ctx context.Context, id int64, fraction float64) error
 }
 
 // Parts are what the read-through service is built from.
@@ -464,7 +465,8 @@ func (service *Service) Assignee(runner nodes.Resolver) nodes.Assignee {
 		}
 	}
 	return nodes.Assignee{
-		Runner: runner,
+		Runner:   runner,
+		Progress: service.takeProgress,
 		Answer: func(ctx context.Context, job jobs.Job, attempt nodes.Attempt, result nodeproto.Result) error {
 			about := fmt.Sprintf("reading file %d through", job.FileID)
 			if result.ReadThrough == nil {
@@ -490,6 +492,21 @@ func (service *Service) Assignee(runner nodes.Resolver) nodes.Assignee {
 			return nodes.UnansweredOutcome(job, err, keepFailure(ctx, attempt))
 		},
 	}
+}
+
+// takeProgress keeps how far into its film a running read-through is, as its job's progress, for
+// how long the rest will take (D324 §6).
+func (service *Service) takeProgress(ctx context.Context, attempt nodes.Attempt, progress nodeproto.Progress) error {
+	command := attempt.Work.ReadThrough
+	if progress.State != nodeproto.ProgressRunning || command == nil || command.DurationMs <= 0 ||
+		progress.ReadThroughMs <= 0 {
+		return nil
+	}
+	fraction := min(float64(progress.ReadThroughMs)/float64(command.DurationMs), 1)
+	if err := service.queue.SetProgress(ctx, attempt.JobID, fraction); err != nil {
+		return fmt.Errorf("keep read-through %d's progress: %w", attempt.JobID, err)
+	}
+	return nil
 }
 
 // TimeReadsBy names what is told how long each full read took. Set it once, before the server

@@ -221,3 +221,19 @@ func TestNewEstimator_RefusesPartsThatLeaveOneOut(t *testing.T) {
 		t.Errorf("NewEstimator of no parts = %v; want ErrMissingPart", err)
 	}
 }
+
+// A running read-through that says how far it is goes at its own pace, where its node's speed said
+// it was done: a share slower than the node's slowest read left "less than a minute" for minutes
+// (the owner's Captain Splendid on staging, 2026-10-21; D324 §6).
+func TestEstimator_ARunningReadThatSaysHowFarItIsGoesAtItsOwnPace(t *testing.T) {
+	t.Parallel()
+	bench := newBench(t)
+	bench.file(t, 100, 1, 200, 90)
+	bench.readThrough(t, 1, 100, jobs.PriorityPlayNow, "assigned", "{}")
+	bench.running[1] = bench.clock.Now().Add(-3 * time.Minute) // at 10 MiB a second, done long ago
+	storetest.ExecRaw(t, bench.cachePath, `UPDATE job SET progress_fraction = 0.75 WHERE id = 1`)
+	if left, isRunning := bench.left(t); left != time.Minute || !isRunning {
+		t.Errorf("three-quarters read in three minutes, file 100's read-through takes %v (running %t); want 1m0s",
+			left, isRunning)
+	}
+}

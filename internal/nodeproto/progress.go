@@ -31,6 +31,9 @@ type Progress struct {
 	// PreparedThroughMs is how much of a running prepare's source is prepared, in milliseconds of
 	// its time; zero for other work.
 	PreparedThroughMs int64 `json:"preparedThroughMs,omitempty"`
+	// ReadThroughMs is how far into its film a running read-through is, in milliseconds of its time;
+	// zero for other work (D324 §6).
+	ReadThroughMs int64 `json:"readThroughMs,omitempty"`
 	// ChunksMadeThrough is the last chunk a running run of chunks has made, absent until it has
 	// made one (CommandMakeChunks).
 	ChunksMadeThrough *int `json:"chunksMadeThrough,omitempty"`

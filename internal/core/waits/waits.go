@@ -194,7 +194,7 @@ func (estimator *Estimator) readThroughOf(ctx context.Context, fileID int64) (*W
 		return wait, nil
 	}
 	if wait.IsRunning {
-		wait.Left, wait.IsKnown = durationOf(estimator.bytesLeft(own, ownFile), speed), true
+		wait.Left, wait.IsKnown = estimator.runningLeft(own, ownFile, speed), true
 		return wait, nil
 	}
 	together, err := estimator.readsAtOnce(ctx, ownFile.nodeID)
@@ -259,6 +259,18 @@ func (estimator *Estimator) bytesLeft(row store.OpenJob, file sizedFile) float64
 	}
 	read := estimator.readSpeed(file.nodeID) * estimator.parts.Clock.Now().Sub(since).Seconds()
 	return max(0, float64(file.sizeBytes)-read)
+}
+
+// runningLeft is how long a running read-through has left: at its own pace once its node says how
+// far into the film it is, which a disk slower than the node's measured speed is read at; before,
+// its bytes left at that speed.
+func (estimator *Estimator) runningLeft(own store.OpenJob, file sizedFile, speed float64) time.Duration {
+	since, isRunning := estimator.parts.Attempts.RunningSinceOf(own.ID)
+	ran := estimator.parts.Clock.Now().Sub(since)
+	if done := own.DoneFraction; isRunning && done > 0 && ran > 0 {
+		return time.Duration(float64(ran) * (1 - done) / done)
+	}
+	return durationOf(estimator.bytesLeft(own, file), speed)
 }
 
 // readsAtOnce is how many read-throughs a node runs at once: its read-through slots, at least one;

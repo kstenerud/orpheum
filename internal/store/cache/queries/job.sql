@@ -194,7 +194,7 @@ WHERE wanted_until IS NOT NULL AND priority < sqlc.arg(below) AND state IN ('que
 -- name: ListOpenReadThroughs :many
 -- Every open read-through, by file, with its priority, state and arguments: what is ahead of a
 -- file's own on its node, for how long it will take (D324 section 6).
-SELECT id, file_id, priority, state, args_json
+SELECT id, file_id, priority, state, args_json, progress_fraction
 FROM job
 WHERE kind = 'read_through' AND state IN ('queued', 'running', 'assigned') AND file_id IS NOT NULL
 ORDER BY id;

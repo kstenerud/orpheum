@@ -76,6 +76,7 @@ var wireShapeByVersion = map[int]string{
 	35: "494b119bde4383d8dd578766fdcec651dc2759938fbb394eb745c1f0f0f9d36c",
 	// 36 adds how often a prepare's progress is said to the Tuning (the constants sweep, 2026-10-21).
 	36: "9370144c4db938cbce07c6c4d2976ccd9ad033ad1deec4c4e038488f677ee268",
+	37: "727f6701763679738cf8331a8cda1b2959374d01bf3e570946c8e9d920e19348",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

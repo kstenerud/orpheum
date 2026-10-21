@@ -12,6 +12,9 @@
 //
 // # Invariants
 //
+//   - A read tells its caller how far into the film FFmpeg says it is (D324 §6).
+//     TestRead_SaysHowFarIntoTheFilmItIs.
+//
 //   - Imports nothing from internal/core and never touches the database. Enforced by the depguard
 //     rule node-boundary and, transitively, TestArch_NodeNeverImportsCore.
 //

@@ -54,9 +54,11 @@ type Findings struct {
 // (D226 §1); and, when timeline is set, its picture's timeline (D247 §10). The film's length,
 // duration, is 0 when unknown: decoding its sound takes as long as the film plays on the slowest
 // machine, so when loudness is asked the watchdog allows the longer of that and reading the file.
+// When set, onProgress is told how far into the film the read is, as FFmpeg says, for how long the
+// rest will take (D324 §6).
 func (reader *Reader) Read(
 	ctx context.Context, videoPath string, loudnessTracks []nodeproto.LoudnessTrack,
-	timeline *nodeproto.VideoTimelineAsk, duration time.Duration,
+	timeline *nodeproto.VideoTimelineAsk, duration time.Duration, onProgress func(readThroughMs int64),
 ) (Findings, error) {
 	if len(loudnessTracks) == 0 && timeline == nil {
 		return Findings{}, errors.New("a read-through asked for nothing")
@@ -69,6 +71,9 @@ func (reader *Reader) Read(
 			StartGrace: readStartGrace, StallWindow: readStallWindow,
 			Deadline: reader.deadline(videoPath, len(loudnessTracks) > 0, duration),
 		},
+	}
+	if onProgress != nil {
+		run.Watch.OnProgress = func(progress execx.Progress) { onProgress(progress.Position.Milliseconds()) }
 	}
 	var packets *packetLines
 	if timeline != nil {

@@ -25,13 +25,19 @@ import (
 // file it cannot decode.
 type fakeThroughReader struct{}
 
+// readHalfwayMs is how far into the film the fake reader says it is, once, as it starts.
+const readHalfwayMs = 30_000
+
 // unmeasurable is the stream index FFmpeg cannot measure.
 const unmeasurable = 99
 
 func (fakeThroughReader) Read(
 	_ context.Context, videoPath string, tracks []nodeproto.LoudnessTrack, timeline *nodeproto.VideoTimelineAsk,
-	_ time.Duration,
+	_ time.Duration, onProgress func(readThroughMs int64),
 ) (readthrough.Findings, error) {
+	if onProgress != nil {
+		onProgress(readHalfwayMs)
+	}
 	var findings readthrough.Findings
 	if timeline != nil {
 		findings.VideoTimeline = &nodeproto.VideoTimeline{
@@ -184,5 +190,30 @@ func TestAgent_ATimelineAloneIsReadFromTheFilesIndex(t *testing.T) {
 	if readThrough.VideoTimeline == nil || !slices.Equal(readThrough.VideoTimeline.KeyframesMs, []int64{2000}) {
 		t.Errorf("a timeline of an indexed film, not from its index alone, answered %+v; want it read through",
 			readThrough)
+	}
+}
+
+// A running read-through tells the core how far into its film it is, as FFmpeg says, for how long
+// the rest will take (D324 §6).
+func TestAgent_ARunningReadThroughSaysHowFarIntoItsFilmItIs(t *testing.T) {
+	t.Parallel()
+	video, _, core := startExtractionAgent(t)
+	core.sendReadThrough(1, nodeproto.ReadThrough{
+		Video: video, LoudnessTracks: []nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 2}}, DurationMs: 60_000,
+	})
+	for {
+		select {
+		case progress := <-core.progress:
+			if progress.JobID != 1 || progress.ReadThroughMs == 0 {
+				continue
+			}
+			if progress.State != nodeproto.ProgressRunning || progress.ReadThroughMs != readHalfwayMs {
+				t.Errorf("the read's progress = %+v; want running, %d ms in", progress, readHalfwayMs)
+			}
+			receiveReadThrough(t, core)
+			return
+		case <-t.Context().Done():
+			t.Fatal("the read-through never said how far it was")
+		}
 	}
 }

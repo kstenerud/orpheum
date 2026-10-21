@@ -12,7 +12,9 @@
 //     waiting adds the bytes ahead of it on its node, over the node's read-throughs at once: running
 //     work it would not bump, and waiting work above it, or level and older. Enforced by
 //     TestEstimator_AReadThroughWaitsForTheBytesAheadOfItOnItsNode and
-//     TestEstimator_AReadThroughsNodeSpeedIsWhatItsLastReadsMeasured.
+//     TestEstimator_AReadThroughsNodeSpeedIsWhatItsLastReadsMeasured. One running that says how far
+//     into its film it is goes at its own pace instead.
+//     TestEstimator_ARunningReadThatSaysHowFarItIsGoesAtItsOwnPace.
 //   - A prepare says what is left at the rate it has gone, once it says how far it is; before, the
 //     film's length over its node's last realtime factor for the profile; nothing known, it says
 //     so rather than guess. Enforced by TestEstimator_APrepareGoesAtItsOwnRateOrItsNodesLast.
