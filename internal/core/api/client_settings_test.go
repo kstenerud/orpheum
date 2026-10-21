@@ -19,6 +19,7 @@ func TestClientSettings_EveryClientReadsHowOftenAScreenAsksAgain(t *testing.T) {
 	token := harness.createAdminAndSignIn(t)
 	wantError(t, harness.do(t, http.MethodGet, "/client-settings", "", nil), http.StatusUnauthorized, CodeAuthRequired)
 	settingstest.Set(t, harness.server.dependencies.Load().Settings, settings.ScreenRefreshLongestWaitSeconds, "45")
+	settingstest.Set(t, harness.server.dependencies.Load().Settings, settings.InterestSaidEverySeconds, "20")
 	served := harness.do(t, http.MethodGet, "/client-settings", token, nil)
 	var got ClientSettingsBody
 	if err := json.Unmarshal([]byte(served.body), &got); err != nil || served.status != http.StatusOK {
@@ -28,6 +29,10 @@ func TestClientSettings_EveryClientReadsHowOftenAScreenAsksAgain(t *testing.T) {
 		got.ScreenRefreshFailedWaitSeconds != 5 {
 		t.Errorf("client settings = %+v, want the first wait's starting 2 s, the 45 s the admin set and "+
 			"the failed wait's starting 5 s", got)
+	}
+	if got.InterestSaidEverySeconds != 20 {
+		t.Errorf("a page says it is shown every %d s; want the 20 s the admin set (D324 §1)",
+			got.InterestSaidEverySeconds)
 	}
 }
 

@@ -73,3 +73,17 @@ func TestChooseByLink_MatchesTheWorkAPastedAddressOrIDNames(t *testing.T) {
 		t.Errorf("an IMDb id TMDB has no work for: %v; want ErrNoMatch", err)
 	}
 }
+
+// Searching again for a series' candidates, as its page asks when none are kept, tries the name's
+// other spellings as the first search does: Harbor Lights finds TMDB's Harbour Lights.
+func TestCandidates_SearchingAgainTriesTheNamesOtherSpellings(t *testing.T) {
+	t.Parallel()
+	lib, seriesID := harborLightsLibrary(t)
+	lib.provider.Searches[identifytest.SearchKey("Harbour Lights", 0)] = []identify.Candidate{
+		{ID: "4808", Name: "Harbour Lights", Year: 1969},
+	}
+	found, provider, err := lib.chooser.Candidates(t.Context(), seriesID)
+	if err != nil || provider != "tmdb" || len(found) != 1 || found[0].ID != "4808" {
+		t.Errorf("Candidates = %+v, %q, %v; want TMDB's Harbour Lights, by its British spelling", found, provider, err)
+	}
+}
