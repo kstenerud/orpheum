@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -42,17 +43,47 @@ type Stuck struct {
 	Since      time.Time
 }
 
-// Gate runs the operations on the node's roots, one stuck operation at most on each.
+// Gate runs the operations on the node's roots, one stuck operation at most on each place: a root,
+// or a disk mounted inside one when it knows the mounts (KeyingByMounts), so a disk dead inside a
+// root holds up only what is on it (D328 §1).
 type Gate struct {
 	clock clock.Clock
+	// mountPointOf is the mount point holding a path, read from the mount table, which reads nothing
+	// on the disk; nil keys every operation by its root.
+	mountPointOf func(path string) (string, bool)
 
 	mutex sync.Mutex
-	stuck map[string]Stuck // guarded by mutex: by root
+	stuck map[string]Stuck // guarded by mutex: by place
 }
 
 // NewGate returns a gate with no root stuck.
 func NewGate(clockSource clock.Clock) *Gate {
 	return &Gate{clock: clockSource, stuck: map[string]Stuck{}}
+}
+
+// KeyingByMounts has the gate hold an operation on a disk mounted inside a root apart from the
+// root's others: mountPointOf says the mount point holding a path.
+func (gate *Gate) KeyingByMounts(mountPointOf func(path string) (string, bool)) *Gate {
+	gate.mountPointOf = mountPointOf
+	return gate
+}
+
+// placeOf is the place an operation on root waiting on path holds when it is stuck: the mount point
+// holding path when that is inside root, else root.
+func (gate *Gate) placeOf(root, path string) string {
+	if gate.mountPointOf == nil {
+		return root
+	}
+	mountPoint, isKnown := gate.mountPointOf(path)
+	if !isKnown || mountPoint == root || !isUnder(mountPoint, root) {
+		return root
+	}
+	return mountPoint
+}
+
+// isUnder is whether path is under directory, not at it.
+func isUnder(path, directory string) bool {
+	return strings.HasPrefix(path, strings.TrimSuffix(directory, "/")+"/")
 }
 
 // Operation is what an operation on a root reads, and how long it may take before it is stalled.
@@ -70,8 +101,9 @@ func Run[Value any](
 	ctx context.Context, gate *Gate, operation Operation, operate func() (Value, error), release func(Value),
 ) (Value, error) {
 	root, path, window := operation.Root, operation.Path, operation.Window
+	place := gate.placeOf(root, path)
 	var none Value
-	if behind := gate.stuckOn(root); behind != nil {
+	if behind := gate.stuckOn(place); behind != nil {
 		return none, &StalledError{Root: root, Path: behind.Path, IsBehindAnother: true}
 	}
 	type returned struct {
@@ -97,8 +129,8 @@ func Run[Value any](
 		return none, fmt.Errorf("waiting on %s: %w", path, ctx.Err())
 	case <-timer.C():
 	}
-	if !gate.markStuck(Stuck{Root: root, Path: path, Since: gate.clock.Now()}) {
-		// Another operation on the root got stuck first: this one is as good as behind it.
+	if !gate.markStuck(place, Stuck{Root: root, Path: path, Since: gate.clock.Now()}) {
+		// Another operation on the place got stuck first: this one is as good as behind it.
 		go func() {
 			if got := <-done; got.err == nil {
 				release(got.value)
@@ -108,7 +140,7 @@ func Run[Value any](
 	}
 	go func() {
 		got := <-done
-		gate.unstick(root)
+		gate.unstick(place)
 		if got.err == nil {
 			release(got.value)
 		}
@@ -116,18 +148,21 @@ func Run[Value any](
 	return none, &StalledError{Root: root, Path: path, Waited: window}
 }
 
-// Hold marks root stuck on path, by an operation the caller watches itself, as a listing's reading
-// is, until the returned release is called; false, holding nothing, when the root is already stuck.
+// Hold marks the place of root holding path stuck on path, by an operation the caller watches itself,
+// as a listing's reading is, until the returned release is called; false, holding nothing, when the
+// place is already stuck.
 func (gate *Gate) Hold(root, path string) (release func(), isHeld bool) {
-	if !gate.markStuck(Stuck{Root: root, Path: path, Since: gate.clock.Now()}) {
+	place := gate.placeOf(root, path)
+	if !gate.markStuck(place, Stuck{Root: root, Path: path, Since: gate.clock.Now()}) {
 		return func() {}, false
 	}
-	return func() { gate.unstick(root) }, true
+	return func() { gate.unstick(place) }, true
 }
 
-// IsStuck is whether an operation on root is stuck, and on what.
-func (gate *Gate) IsStuck(root string) (Stuck, bool) {
-	stuck := gate.stuckOn(root)
+// IsStuck is whether an operation on the place of root holding path is stuck, and on what; path is
+// the root itself for the root's own place.
+func (gate *Gate) IsStuck(root, path string) (Stuck, bool) {
+	stuck := gate.stuckOn(gate.placeOf(root, path))
 	if stuck == nil {
 		return Stuck{}, false
 	}
@@ -146,30 +181,30 @@ func (gate *Gate) Stuck() []Stuck {
 	return stuck
 }
 
-func (gate *Gate) stuckOn(root string) *Stuck {
+func (gate *Gate) stuckOn(place string) *Stuck {
 	gate.mutex.Lock()
 	defer gate.mutex.Unlock()
-	if stuck, isStuck := gate.stuck[root]; isStuck {
+	if stuck, isStuck := gate.stuck[place]; isStuck {
 		return &stuck
 	}
 	return nil
 }
 
-// markStuck marks root stuck on an operation, and reports false when it already was.
-func (gate *Gate) markStuck(stuck Stuck) bool {
+// markStuck marks place stuck on an operation, and reports false when it already was.
+func (gate *Gate) markStuck(place string, stuck Stuck) bool {
 	gate.mutex.Lock()
 	defer gate.mutex.Unlock()
-	if _, isStuck := gate.stuck[stuck.Root]; isStuck {
+	if _, isStuck := gate.stuck[place]; isStuck {
 		return false
 	}
-	gate.stuck[stuck.Root] = stuck
+	gate.stuck[place] = stuck
 	return true
 }
 
-func (gate *Gate) unstick(root string) {
+func (gate *Gate) unstick(place string) {
 	gate.mutex.Lock()
 	defer gate.mutex.Unlock()
-	delete(gate.stuck, root)
+	delete(gate.stuck, place)
 }
 
 // IsDiskFailure is whether err is a read its disk failed as one that does not answer does: an I/O

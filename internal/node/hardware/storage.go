@@ -158,6 +158,21 @@ func mountHolding(mounts []mount, path string) (mount, bool) {
 	return holding, found
 }
 
+// MountPointOf is the mount point of the filesystem path is on, from the system's mount table, which
+// reads nothing on the filesystem: what the disk gate keys a disk mounted inside a root by (D328 §1).
+// False when the table cannot be read or holds none.
+func MountPointOf(path string) (string, bool) { return mountPointUnder("/", path) }
+
+// mountPointUnder is MountPointOf on the system whose root is at root.
+func mountPointUnder(root, path string) (string, bool) {
+	mounts, err := readMounts(filepath.Join(root, "proc", "self", "mountinfo"))
+	if err != nil {
+		return "", false
+	}
+	holding, found := mountHolding(mounts, path)
+	return holding.mountPoint, found
+}
+
 // mountsInside are the mounts whose mount points are under path, not at it.
 func mountsInside(mounts []mount, path string) []mount {
 	var inside []mount

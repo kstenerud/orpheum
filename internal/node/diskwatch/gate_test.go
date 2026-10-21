@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -147,5 +148,42 @@ func TestIsDiskFailure_IsWhatAShareThatGivesUpReturns(t *testing.T) {
 		if got := diskwatch.IsDiskFailure(check.err); got != check.want {
 			t.Errorf("IsDiskFailure(%v) = %t; want %t", check.err, got, check.want)
 		}
+	}
+}
+
+// With the mounts known, a disk mounted inside a root is a place of its own: one stuck there holds
+// up only what is on it, the root's other files and the root itself going on, where a disk dead
+// inside a root held up every reading of the root (D328 §1).
+func TestGate_ADiskStuckInsideARootHoldsUpOnlyWhatIsOnIt(t *testing.T) {
+	t.Parallel()
+	gate := diskwatch.NewGate(clocktest.NewFake(time.Date(2026, 10, 21, 23, 0, 0, 0, time.UTC))).
+		KeyingByMounts(func(path string) (string, bool) {
+			if path == "/media/disk1" || strings.HasPrefix(path, "/media/disk1/") {
+				return "/media/disk1", true
+			}
+			return "/", true // the root is on the system's own disk
+		})
+	release, isHeld := gate.Hold("/media", "/media/disk1/Wing.mkv")
+	if !isHeld {
+		t.Fatal("the disk could not be held")
+	}
+	t.Cleanup(release)
+	readOf := func(path string) error {
+		_, err := diskwatch.Run(t.Context(), gate, diskwatch.Operation{Root: "/media", Path: path, Window: time.Minute},
+			func() (string, error) { return "read", nil }, func(string) {})
+		return err
+	}
+	var stalled *diskwatch.StalledError
+	if err := readOf("/media/disk1/Metropolis.mkv"); !errors.As(err, &stalled) || !stalled.IsBehindAnother {
+		t.Errorf("a read on the stuck disk: %v; want it not tried, behind the stuck one", err)
+	}
+	if err := readOf("/media/Metropolis.mkv"); err != nil {
+		t.Errorf("a read beside the stuck disk: %v; want it run", err)
+	}
+	if _, isStuck := gate.IsStuck("/media", "/media"); isStuck {
+		t.Error("the root itself reads as stuck; want only the disk inside it")
+	}
+	if stuck, isStuck := gate.IsStuck("/media", "/media/disk1"); !isStuck || stuck.Path != "/media/disk1/Wing.mkv" {
+		t.Errorf("the disk: %+v, %t; want it stuck on Wing.mkv", stuck, isStuck)
 	}
 }

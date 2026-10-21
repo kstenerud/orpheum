@@ -126,7 +126,7 @@ func (server *Server) probe(
 	case errors.Is(err, diskwatch.ErrStalled) || diskwatch.IsDiskFailure(err):
 		answer.State = nodeproto.ProbeNotAnswering
 		if server.disks != nil {
-			if stuck, isStuck := server.disks.IsStuck(root.Path()); isStuck {
+			if stuck, isStuck := server.disks.IsStuck(root.Path(), path); isStuck {
 				answer.StuckSinceMs, answer.WaitingOnPath = stuck.Since.UnixMilli(), stuck.Path
 			}
 		}
