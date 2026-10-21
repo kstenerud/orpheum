@@ -68,6 +68,58 @@ type Scans struct {
 	// completions are each listed scan's end, as its listing gave it, held until its last batch is
 	// read. Guarded by mutex.
 	completions map[int64]nodeproto.ScanComplete
+	// prober asks a node whether a root can be read now (SetProber); nil probes nothing. Guarded by
+	// mutex: it is set once the sweeps may already run.
+	prober RootProber
+}
+
+// RootProber asks a node whether one of its roots can be read now, outside every queue:
+// nodes.ByteSocketClient (D327).
+type RootProber interface {
+	ProbeRoot(ctx context.Context, nodeID int64, root string) (nodeproto.RootProbe, error)
+}
+
+// SetProber has the scans probe roots through prober, which is made after them: the byte socket's
+// client tells them of stalls.
+func (scans *Scans) SetProber(prober RootProber) {
+	scans.mutex.Lock()
+	defer scans.mutex.Unlock()
+	scans.prober = prober
+}
+
+// probeWait bounds how long one ask waits on a node's probe: one that has not answered by then is a
+// disk not answering, the node's probe going on for the next ask to share (D327 §2). A filesystem
+// that answers does so in milliseconds.
+const probeWait = 2 * time.Second
+
+// ProbeAndBringBack asks the root's node whether it can be read now, and brings it back when it can
+// with its last complete scan's facts (D326, D327 §3); it says what the probe found and whether the
+// root came back. A node that did not answer in time is not answering; with no prober, the probe's
+// state is empty: nothing was asked.
+func (scans *Scans) ProbeAndBringBack(ctx context.Context, nodeID int64, root string) (
+	nodeproto.RootProbe, bool, error,
+) {
+	scans.mutex.Lock()
+	prober := scans.prober
+	scans.mutex.Unlock()
+	if prober == nil {
+		return nodeproto.RootProbe{RootPath: root}, false, nil
+	}
+	probeCtx, cancel := context.WithTimeout(ctx, probeWait)
+	defer cancel()
+	probe, err := prober.ProbeRoot(probeCtx, nodeID, root)
+	if err != nil {
+		if ctx.Err() != nil {
+			return nodeproto.RootProbe{}, false, ctx.Err()
+		}
+		return nodeproto.RootProbe{RootPath: root, State: nodeproto.ProbeNotAnswering, Failure: err.Error()}, false,
+			nil
+	}
+	if probe.State != nodeproto.ProbeReadable {
+		return probe, false, nil
+	}
+	isBack, err := scans.BringBackRoot(ctx, nodeID, root, probe.Device, probe.IsMountPoint)
+	return probe, isBack, err
 }
 
 // NewScans returns the scans.

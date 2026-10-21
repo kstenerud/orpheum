@@ -8639,6 +8639,19 @@
               "format": "int64",
               "type": "integer"
             }
+          },
+          {
+            "description": "Hold the answer up to this long while the file cannot be read, and answer as soon as it can (D327 §3); 0 answers at once",
+            "explode": false,
+            "in": "query",
+            "name": "waitSeconds",
+            "schema": {
+              "description": "Hold the answer up to this long while the file cannot be read, and answer as soon as it can (D327 §3); 0 answers at once",
+              "format": "int64",
+              "maximum": 30,
+              "minimum": 0,
+              "type": "integer"
+            }
           }
         ],
         "responses": {

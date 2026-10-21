@@ -27,6 +27,12 @@
 //   - A result the node holds, too large to post, is served whole by its attempt's token, and
 //     nothing for a token it does not hold (D234 §5).
 //     TestServeResult_ServesAHeldResultByItsTokenAndNothingElse.
+//   - A probe of a root answers whether it can be read now, with its facts, opening nothing under
+//     it, outside every queue (D327 §1): a root holding a reading that has not returned is not
+//     answering at once, and asks while a probe of a root runs share it, one probe at a time
+//     (D327 §2). TestServeProbe_AnswersAReadableRootWithItsFacts,
+//     TestServeProbe_ARootHoldingAStuckReadingIsNotAnsweringAtOnce,
+//     TestServeProbe_AsksWhileAProbeRunsShareIt.
 //   - GET and HEAD only; Range and If-Range are honoured. Enforced by TestServeFile_OnlyReads and
 //     TestServeFile_HonoursRangeAndIfRange.
 //
@@ -35,9 +41,11 @@
 //   - D193 §1: the core reads bytes from the node's socket.
 //   - D100: a command names its target by identity, not by path.
 //   - D128: the node keeps what it makes.
+//   - D327: the probe, a question answered outside every queue.
 //   - docs/contributors/design/plans/cut-a.md §4.
 //
 // # Where to change
 //
 //   - byteserver.go: the file route, the prepared route (D217 §5), and the held results' route.
+//   - probe.go: the probe of a root (D327).
 package byteserver

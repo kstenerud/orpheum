@@ -128,6 +128,31 @@ func (socketClient *ByteSocketClient) ReadHeldResult(
 	return takeHeld(posted, encoded)
 }
 
+// ProbeRoot asks a node whether one of its roots can be read now, on its byte socket, outside every
+// queue: the node answers without a slot or a reader, one probe of a root at a time shared by every
+// ask (D327). The caller bounds its wait by ctx; the node's probe goes on, for the next ask.
+func (socketClient *ByteSocketClient) ProbeRoot(ctx context.Context, nodeID int64, root string) (
+	nodeproto.RootProbe, error,
+) {
+	response, err := socketClient.Do(ctx, nodeID, http.MethodGet, nodeproto.ProbeRequest{RootPath: root}.Target(), nil)
+	if err != nil {
+		return nodeproto.RootProbe{}, fmt.Errorf("probe root %s on node %d: %w", root, nodeID, err)
+	}
+	defer func() { _ = response.Body.Close() }() //nolint:errcheck // read-only
+	if response.StatusCode != http.StatusOK {
+		return nodeproto.RootProbe{}, fmt.Errorf("probe root %s on node %d: the node answered %s", root, nodeID,
+			response.Status)
+	}
+	var probe nodeproto.RootProbe
+	if err := json.NewDecoder(io.LimitReader(response.Body, maxProbeBytes)).Decode(&probe); err != nil {
+		return nodeproto.RootProbe{}, fmt.Errorf("read the probe of root %s on node %d: %w", root, nodeID, err)
+	}
+	return probe, nil
+}
+
+// maxProbeBytes bounds a probe's answer: a few short fields, and a failure's text.
+const maxProbeBytes = 64 << 10
+
 // takeHeld is the result a held result's bytes encode, when they are the ones posted named and the
 // result is for the same job and attempt.
 func takeHeld(posted nodeproto.Result, encoded []byte) (nodeproto.Result, error) {

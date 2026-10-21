@@ -10,6 +10,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -25,6 +26,7 @@ type ScheduleSettings interface {
 type ScheduledScans interface {
 	RequestUnder(ctx context.Context, nodeID int64, root, scope string, priority int64) error
 	InProgress(ctx context.Context) (map[ScanRoot]ScanProgress, error)
+	ProbeAndBringBack(ctx context.Context, nodeID int64, root string) (nodeproto.RootProbe, bool, error)
 }
 
 // ScanSchedule asks for the scans that libraries noticing changes by themselves are due: one
@@ -105,6 +107,19 @@ func (schedule *ScanSchedule) RescanUnavailable(ctx context.Context) (int, error
 	now, asked := schedule.clock.Now(), 0
 	for _, row := range rows {
 		root := ScanRoot{NodeID: row.NodeID, RootPath: row.RootPath}
+		// Its node asked first, outside every queue (D327 §3): one back is brought back at once, with
+		// a scan behind it, and one not answering is not scanned, which would only wait on its disk.
+		probe, isBack, err := schedule.scans.ProbeAndBringBack(ctx, root.NodeID, root.RootPath)
+		if err != nil {
+			return asked, err
+		}
+		if isBack {
+			asked++
+			continue
+		}
+		if probe.State == nodeproto.ProbeNotAnswering {
+			continue
+		}
 		if _, isRunning := running[root]; isRunning {
 			continue
 		}
