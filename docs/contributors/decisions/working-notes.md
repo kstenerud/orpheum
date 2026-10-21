@@ -21229,3 +21229,20 @@ re-subscribing after every reconnection, and the server's keeping who listens. *
 
 **Status:** Holds: the player's check whether its film can be read again (`mediaBackAskEveryMs`) asks.
 
+## D326 — A root whose disk answers again as its last complete scan read it is available at once
+
+**Decided** (2026-10-21), by the project owner, choosing it over only ordering the scans: after the
+dead-share test, a share back took about a minute and a half to bring its film back, because only a
+complete scan of the root made it available, and the scans of every root on the disk ran one at a
+time behind its one reader. **Extends** [D233 §10](#d233--work-handed-to-a-node-survives-restarts-and-lost-messages-an-outbox-reconciliation-at-hello-results-known-by-what-they-are-and-a-watchdog-on-both-sides).
+
+1. **The node's status measures each root and says its facts:** the device it is on and whether it is
+   a mount point, as a scan's first record says them (D42, D208).
+2. **A root whose disk the previous status said was not answering, and this one measures, comes back
+   at once** when its facts are those of its last complete scan: the work parked on it resumes, and
+   a page waiting on its film sees it playable at its next ask (D325).
+3. **Other facts are the empty directory an unmounted disk leaves**, and the root stays unavailable
+   until a scan reads it, as before.
+4. **A scan of the root follows in the background** for what changed while it was away.
+
+**Status:** Decided.
