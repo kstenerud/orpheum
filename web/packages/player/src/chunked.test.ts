@@ -71,6 +71,14 @@ describe("loading a chunk the core is making (D250 §5)", () => {
       false,
     );
   });
+
+  it("does not ask again after a 503, its film unreachable now (the owner's test, 2026-10-21)", () => {
+    // The page says why, and plays again once the film can be read.
+    const retry = chunkLoadPolicy.default.errorRetry;
+    expect(retry?.shouldRetry?.(retry, 0, false, { url: "00001.m4s", code: 503 }, true)).toBe(
+      false,
+    );
+  });
 });
 
 describe("where a playback's stepping has settled (D260 §3)", () => {

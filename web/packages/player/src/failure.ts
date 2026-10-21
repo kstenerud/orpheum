@@ -52,6 +52,13 @@ export function mediaErrorFailure(error: Pick<MediaError, "code"> | null): Playb
 /** HTTP's 429: on a chunk's path, the core's word that it has no room to make it (D250 §6). */
 export const noRoomToMakeStatus = 429;
 
+/**
+ * HTTP's 503: on a chunk's path, the core's word that its film cannot be read now, its machine away
+ * or its disk not answering (media_unreachable, D241 §7), which asking again does not change: the
+ * page asks the server why, says so, and opens the film again once it can be read.
+ */
+export const unreachableStatus = 503;
+
 /** HTTP's 425 Too Early: on a chunk's path, the core's word that it is being made, and to ask again. */
 export const tooEarlyStatus = 425;
 
