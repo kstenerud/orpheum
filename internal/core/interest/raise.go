@@ -62,9 +62,31 @@ type Raiser struct {
 	lastLooked map[int64]jobs.Interested
 }
 
-// NewRaiser returns the raiser.
-func NewRaiser(parts Parts) *Raiser {
-	return &Raiser{parts: parts, lastLooked: map[int64]jobs.Interested{}}
+// ErrMissingPart is a raiser built without one of its parts.
+var ErrMissingPart = errors.New("the raiser is missing a part")
+
+// NewRaiser returns the raiser, or ErrMissingPart for parts that leave one out: a server wired
+// without one would fail only once its first raise reached it.
+func NewRaiser(parts Parts) (*Raiser, error) {
+	for _, part := range []struct {
+		name      string
+		isMissing bool
+	}{
+		{"Register", parts.Register == nil},
+		{"Jobs", parts.Jobs == nil},
+		{"Nodes", parts.Nodes == nil},
+		{"Waiting", parts.Waiting == nil},
+		{"Playing", parts.Playing == nil},
+		{"Database", parts.Database == nil},
+		{"Settings", parts.Settings == nil},
+		{"Clock", parts.Clock == nil},
+		{"Logger", parts.Logger == nil},
+	} {
+		if part.isMissing {
+			return nil, fmt.Errorf("%s: %w", part.name, ErrMissingPart)
+		}
+	}
+	return &Raiser{parts: parts, lastLooked: map[int64]jobs.Interested{}}, nil
 }
 
 // Raise raises the work of what is played and looked at now, kept wanted for interest's lapse, and

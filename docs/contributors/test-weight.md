@@ -401,6 +401,20 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
 - **Warning sign:** a type-check probe slower than `npm --prefix web run typecheck` in the working
   tree after a small change.
 
+### 22. A server that could not start, waited on for "ready"
+
+- **Mechanism:** `startServing` waited for the server to log "ready", or for `serve` to return;
+  a server whose start failed does neither, as it stays up degraded to report why, so the wait ran
+  to its limit.
+- **Instance** (2026-10-21): with the interest raiser wired without a part, a probe of
+  `TestServe_WritesASessionsUseByTheTimeItStops` failed after 300 s, the server's own log saying
+  why in its first quarter-second.
+- **Why it was invisible:** it shows only when a change breaks the start, and then as one slow red
+  among many.
+- **Fix:** every captured log also watches for "the server could not start", and a wait for
+  anything else fails at it (`cmd/orpheum/serve_test.go`'s `couldNotStart`): 0.25 s.
+- **Warning sign:** a serve test red at exactly its wait's limit.
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of

@@ -67,6 +67,10 @@ func (handler signallingHandler) WithAttrs(attributes []slog.Attr) slog.Handler 
 	return handler
 }
 
+// couldNotStart is what a server that could not start logs; a test waiting for anything else fails
+// at it rather than at its wait's limit.
+const couldNotStart = "the server could not start; it stays up to report why at /api/v1/health"
+
 // capturedLog is a debug-level JSON log in memory that can be waited on.
 type capturedLog struct {
 	mutex   *sync.Mutex
@@ -77,7 +81,7 @@ type capturedLog struct {
 
 func newCapturedLog(awaited ...string) capturedLog {
 	captured := capturedLog{mutex: &sync.Mutex{}, buffer: &bytes.Buffer{}, signals: map[string]chan struct{}{}}
-	for _, message := range awaited {
+	for _, message := range append(awaited, couldNotStart) {
 		captured.signals[message] = make(chan struct{})
 	}
 	waiting := maps.Clone(captured.signals)
@@ -211,8 +215,15 @@ func startServingOn(
 	} else {
 		go func() { nodeDone <- node(ctx) }()
 	}
+	failedToStart := captured.signals[couldNotStart]
+	if awaited == couldNotStart {
+		failedToStart = nil
+	}
 	select {
 	case <-captured.signals[awaited]:
+	case <-failedToStart:
+		cancel()
+		t.Fatalf("the server could not start, waiting for %q:\n%s", awaited, captured)
 	case err := <-done:
 		cancel()
 		t.Fatalf("serve returned before logging %q: %v\n%s", awaited, err, captured)
@@ -423,8 +434,7 @@ func TestServe_ReportsAFailedStartInsteadOfExiting(t *testing.T) {
 	if err := os.WriteFile(foreign, []byte("SQLite format 3\x00"+strings.Repeat("\x00", 84)), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	const failed = "the server could not start; it stays up to report why at /api/v1/health"
-	server := startServing(t, config, newCapturedLog(failed), failed, nil)
+	server := startServing(t, config, newCapturedLog(couldNotStart), couldNotStart, nil)
 	health := requestAPI(t, http.MethodGet, server.baseURL+"/health", "", nil)
 	if health.status != http.StatusServiceUnavailable || !strings.Contains(health.body, `"status":"degraded"`) {
 		t.Errorf("/health after a failed start = %d %s, want 503 degraded with the reason", health.status, health.body)
