@@ -304,6 +304,9 @@ func settleMatch(query Query, candidates []Candidate, isYearExpected bool) (Cand
 			return Candidate{}, unsettled
 		}
 	}
+	if near, found := nearlyNamed(query, candidates); found {
+		return near, byGuess
+	}
 	if other, found := underAnotherName(query, candidates); found {
 		return other, byGuess
 	}

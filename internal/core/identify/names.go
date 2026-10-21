@@ -60,3 +60,72 @@ func wordsOf(name string) []string {
 		return !unicode.IsLetter(character) && !unicode.IsNumber(character) && !unicode.Is(unicode.Mc, character)
 	})
 }
+
+// nearlyNamed is the one candidate whose name is the query's but for a letter or two, in its year
+// when the query has one: a file's misspelling, "Harry Poter" for "The Thief of Bagdad" (the owner,
+// 2026-10-21). It is always a guess, marked as one for a person to confirm (D301), and with several
+// so named, none: a person's choice.
+func nearlyNamed(query Query, candidates []Candidate) (Candidate, bool) {
+	want := workName(query.Name)
+	most := lettersOffAtMost(want)
+	if most == 0 {
+		return Candidate{}, false
+	}
+	var found []Candidate
+	for _, candidate := range candidates {
+		near := func(name string) bool {
+			named := workName(name)
+			return name != "" && !isPlural(named, want) && lettersOff(named, want) <= most
+		}
+		isNear := near(candidate.Name) || near(candidate.OriginalName)
+		if isNear && (query.Year == 0 || candidate.Year == query.Year) {
+			found = append(found, candidate)
+		}
+	}
+	if len(found) != 1 {
+		return Candidate{}, false
+	}
+	return found[0], true
+}
+
+// lettersOffAtMost is how many letters a name may be off by and still be nearly the name: none for a
+// short one, where a letter makes another word ("Metropolis", "Seat"; "Wings", "Wing"), one from eight
+// letters, two from fourteen.
+func lettersOffAtMost(name string) int {
+	switch length := len([]rune(name)); {
+	case length >= 14:
+		return 2
+	case length >= 8:
+		return 1
+	}
+	return 0
+}
+
+// isPlural is whether one name is the other with an s after it: a sequel's name, "Wings" after
+// "Wing", never a misspelling.
+func isPlural(first, second string) bool {
+	return first+"s" == second || second+"s" == first
+}
+
+// lettersOff is how many letters must be added, removed or changed to make one name the other (the
+// Levenshtein distance).
+func lettersOff(first, second string) int {
+	firstRunes, secondRunes := []rune(first), []rune(second)
+	previous := make([]int, len(secondRunes)+1)
+	for index := range previous {
+		previous[index] = index
+	}
+	for row, letter := range firstRunes {
+		current := make([]int, len(secondRunes)+1)
+		current[0] = row + 1
+		for column, other := range secondRunes {
+			cost := 1
+			if letter == other {
+				cost = 0
+			}
+			current[column+1] = min(previous[column+1]+1, current[column]+1, previous[column]+cost)
+		}
+		previous = current
+	}
+	return previous[len(secondRunes)]
+}
