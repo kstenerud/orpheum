@@ -15,7 +15,7 @@ import {
 import Hls, { PlaylistLevelType, type ErrorData } from "hls.js";
 
 import { isRecovered } from "./abr.ts";
-import { hlsErrorFailure, type PlaybackFailure } from "./failure.ts";
+import { hlsErrorFailure, unreachableStatus, type PlaybackFailure } from "./failure.ts";
 
 /** A prepared rendition playing in a video element. */
 export interface HlsPlayback {
@@ -262,14 +262,20 @@ export interface LoadingHls {
 
 /**
  * Tells onFailed why, when hls.js says the playback cannot go on, unless the player recovers from
- * it by itself (isRecovered).
+ * it by itself (isRecovered), or when the core says its film cannot be read now (a 503), which
+ * hls.js holds no failure: a sound chunk's 503 it only loaded again every two seconds, the player
+ * spinning and saying nothing (the owner's test, 2026-10-21).
  */
 export function failOnFatal(
-  hls: Pick<Hls, "on">,
+  hls: Pick<Hls, "on" | "stopLoad">,
   onFailed: (failure: PlaybackFailure) => void,
 ): void {
   hls.on(Hls.Events.ERROR, (_event, data) => {
-    if (data.fatal && !isRecovered(data)) {
+    if (data.response?.code === unreachableStatus) {
+      // Loading again finds it no more readable: the page plays it anew once it can be read.
+      hls.stopLoad();
+      onFailed(hlsErrorFailure(data));
+    } else if (data.fatal && !isRecovered(data)) {
       onFailed(hlsErrorFailure(data));
     }
   });
