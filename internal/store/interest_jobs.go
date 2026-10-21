@@ -7,20 +7,23 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
 
-// RaisedJob is an open job a person's interest raised, with its new priority, its state, and the
-// destination it last waited on, "" for none.
+// RaisedJob is an open job a person's interest is in, with its priority now, its state, the
+// destination it last waited on, "" for none, and whether this raise is what put it there.
 type RaisedJob struct {
 	ID          int64
 	Priority    int64
 	State       string
 	Destination string
+	HasRisen    bool
 }
 
 // RaiseJobsOfInterest gives every open job about the items or the files at least priority, wanted
-// until untilMs, or for good when it is zero, and returns those whose priority rose (D324 §2).
+// until untilMs, or for good when it is zero, and returns each, saying whether its priority rose
+// (D324 §2).
 func (jobStorage *JobStorage) RaiseJobsOfInterest(
 	ctx context.Context, itemIDs, fileIDs []int64, priority, untilMs int64,
 ) ([]RaisedJob, error) {
@@ -43,15 +46,10 @@ func (jobStorage *JobStorage) RaiseJobsOfInterest(
 			if raiseErr != nil {
 				return fmt.Errorf("raise job %d: %w", job.ID, raiseErr)
 			}
-			if row.Priority > job.Priority {
-				var destination string
-				if row.Destination != nil {
-					destination = *row.Destination
-				}
-				raised = append(raised, RaisedJob{
-					ID: row.ID, Priority: row.Priority, State: row.State, Destination: destination,
-				})
-			}
+			raised = append(raised, RaisedJob{
+				ID: row.ID, Priority: row.Priority, State: row.State, Destination: ptr.ValueOrZero(row.Destination),
+				HasRisen: row.Priority > job.Priority,
+			})
 		}
 		return nil
 	})
