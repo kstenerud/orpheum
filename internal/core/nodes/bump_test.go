@@ -116,6 +116,27 @@ func TestAssign_WorkOfAHigherTierBumpsTheLowestWhereNothingIsFree(t *testing.T) 
 	bench.wantBumped(1, "the person's examining")
 }
 
+// Of the work held in one tier, the lowest priority is bumped before the newest: a read-through no
+// one showed interest in goes before a newer one at the shown-interest rung (D324 §4).
+func TestAssign_OfOneTierTheLowestPriorityIsBumpedFirst(t *testing.T) {
+	t.Parallel()
+	bench := newBumpBench(t)
+	for _, held := range []struct{ id, priority int64 }{
+		{1, jobs.PriorityBackground}, {2, jobs.PriorityShownInterest},
+	} {
+		if answer := bench.assign(held.id, jobs.KindReadThrough, held.priority,
+			readThroughOf("/media")); !jobqueue.IsAssigned(answer) {
+			t.Fatalf("read-through %d within tank's readers was answered %v", held.id, answer)
+		}
+		bench.now.Advance(time.Second)
+	}
+	if answer := bench.assign(3, jobs.KindReadThrough, jobs.PriorityLookedAt,
+		readThroughOf("/media")); !jobqueue.IsAssigned(answer) {
+		t.Fatalf("a looked-at film's read-through on full tank was answered %v; want it given", answer)
+	}
+	bench.wantBumped(1, "the looked-at film's read-through")
+}
+
 // Two works bumping at once bump two attempts: one chosen is not chosen again while it is told to
 // stop and resolved, so the second does not count room the first already took (the M4 closing
 // audit, §6).
