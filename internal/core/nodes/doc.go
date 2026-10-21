@@ -136,7 +136,8 @@
 //     encode behind playback, it stops the work no one plays and is given none until the hold ends,
 //     on its playing destination. A node that encodes on a GPU runs work beside it.
 //     TestAssign_NoOtherEncodeIsGivenBesideAPlayedEncodeInSoftware,
-//     TestHoldBackFor_StopsWhatIsNotPlayedAndGivesNoneUntilItEnds.
+//     TestHoldBackFor_StopsWhatIsNotPlayedAndGivesNoneUntilItEnds; whether a node encodes in software
+//     is its last hello's, TestHello_TellsTheCoreWhetherEachNodeEncodesInSoftware.
 //   - A job no one waits for any more is told to its node at its new priority, no longer
 //     play-driven (D234 §3). TestReprioritize_TellsTheNodeHoldingAJobsAttemptItsNewPriority.
 //   - Work a person waits for, to play, is sent play-driven (D240 §6), and each answer to a poll for

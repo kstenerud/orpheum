@@ -285,3 +285,16 @@ func TestKeepRunsFast_ARunNoOneWantsHoldsNothingBack(t *testing.T) {
 		t.Errorf("for runs no one wants, the holds = %v; want none", hold.holds)
 	}
 }
+
+// The service holds a node back through the exchanges it gives its runs by, and with none holds
+// nothing back (D324 §5).
+func TestNewService_HoldsANodeBackThroughItsExchanges(t *testing.T) {
+	t.Parallel()
+	service, _ := chunksFixture(t, newFakeQueue(), fakeNode{})
+	if service.holdBack == nil || service.holdBack != HoldBack(service.exchanges) {
+		t.Errorf("the service holds back through %v; want its exchanges", service.holdBack)
+	}
+	if bare := NewService(Parts{}); bare.holdBack != nil {
+		t.Errorf("with no exchanges, the service holds back through %v; want nothing", bare.holdBack)
+	}
+}

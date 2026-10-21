@@ -489,6 +489,26 @@ func TestHello_TellsTheCoreEachNodesSlotsAndHowFastItReads(t *testing.T) {
 	}
 }
 
+// Whether a node encodes in software is its last hello's chosen encoder: x264, or none named, is the
+// CPU; Quick Sync and NVENC are a GPU (D324 §5).
+func TestHello_TellsTheCoreWhetherEachNodeEncodesInSoftware(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Millisecond)
+	for _, node := range []struct {
+		name, chosen string
+		isSoftware   bool
+	}{{"cpu", "x264", true}, {"unsaid", "", true}, {"quicksync", "h264_qsv", false}, {"nvenc", "h264_nvenc", false}} {
+		reply := harness.hello(t, nodeproto.Hello{
+			Name: node.name, Hardware: nodeproto.Hardware{ChosenEncoder: node.chosen},
+		})
+		resources, isConnected, err := harness.service.Resources(t.Context(), reply.NodeID)
+		if err != nil || !isConnected || resources.EncodesInSoftware != node.isSoftware {
+			t.Errorf("node %s, choosing %q, encodes in software: %t (%v, %v); want %t", node.name, node.chosen,
+				resources.EncodesInSoftware, isConnected, err, node.isSoftware)
+		}
+	}
+}
+
 // A device's reader limit an admin set wins over its kind's setting, in the hello's reply, each poll's
 // answer and the device's state; cleared, the device takes its kind's again; a node no live node is
 // named is refused (D240 §5).
