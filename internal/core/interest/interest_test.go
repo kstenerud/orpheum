@@ -125,3 +125,42 @@ func TestRaiser_RaisesThePlayedTheLookedAtAndTheWatched(t *testing.T) {
 		t.Errorf("raised %q; want the watched film for good, at the shown-interest rung", record.raised)
 	}
 }
+
+// A look that goes on gives back the work that left it, as a series' episode its person moved past
+// does: here a film's file, removed since the last pass (the owner's staging, 2026-10-21, where an
+// episode out of the window kept the looked-at priority until its interest lapsed).
+func TestRaiser_ALookThatGoesOnReleasesWhatLeftIt(t *testing.T) {
+	t.Parallel()
+	database := storetest.OpenMigrated(t)
+	librarytest.NodeWithLibrary(t, database, librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "tmdb"})
+	storetest.ExecRaw(t, database.Path(),
+		`INSERT INTO item (id, kind, library_id, added_at) VALUES (10, 'title', 1, 1)`,
+		`INSERT INTO title (id, kind, identification_state) VALUES (10, 'movie', 'identified')`,
+		`INSERT INTO version (id, title_id, created_at) VALUES (1, 10, 1)`,
+		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing, version_id, first_seen_at,
+		 last_seen_at) VALUES (100, 1, 1, '/m/a.mkv', 1, X'01', 'listed', 1, 1, 1),
+		 (101, 1, 1, '/m/a2.mkv', 1, X'02', 'listed', 1, 1, 1)`)
+	now := clocktest.NewFake(time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC))
+	register := NewRegister(now)
+	record := &raising{}
+	raiser := NewRaiser(Parts{
+		Register: register, Jobs: record, Nodes: nil, Playing: func() []int64 { return nil },
+		Database: database, Settings: settingstest.Seeded(t, database), Clock: now,
+		Logger: slog.New(slog.DiscardHandler),
+	})
+	register.Look("only", 1, 10)
+	if err := raiser.Raise(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	storetest.ExecRaw(t, database.Path(), `UPDATE file SET removed_at = 2 WHERE id = 101`)
+	if err := raiser.Raise(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	var released []string
+	for _, interested := range record.released {
+		released = append(released, describe(interested, 0, false))
+	}
+	if want := describe(jobs.Interested{FileIDs: []int64{101}}, 0, false); !slices.Equal(released, []string{want}) {
+		t.Errorf("released %q; want the removed file alone, the film still looked at", released)
+	}
+}

@@ -12,9 +12,10 @@
 //     interest_lapses_after_seconds lapses, and the latest begun is first.
 //     Enforced by TestRegister_KeepsEachSessionsPageTheLatestFirstUntilItLapses.
 //   - What is played is raised at a play's priority, what is looked at below it the latest
-//     highest, a film with its live files; a look that ended is released, and what anyone watched
-//     is raised for good to the shown-interest rung (D324 §2, §3).
-//     Enforced by TestRaiser_RaisesThePlayedTheLookedAtAndTheWatched.
+//     highest, a film with its live files; a look that ended is released, and so is what left a look
+//     that goes on, and what anyone watched is raised for good to the shown-interest rung (D324 §2,
+//     §3). Enforced by TestRaiser_RaisesThePlayedTheLookedAtAndTheWatched and
+//     TestRaiser_ALookThatGoesOnReleasesWhatLeftIt.
 //   - A look at a series raises series_episodes_ahead episodes from its person's place: the one
 //     partway through, the latest watched of several; else the one after the latest finished; else
 //     the first (D324 §3). Enforced by TestEpisodesAhead_StartAtThePersonsPlaceInTheSeries and
