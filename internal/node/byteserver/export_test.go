@@ -17,3 +17,19 @@ func (server *Server) OpeningWith(
 	server.openFile = open
 	return server
 }
+
+// ProbingWith has the server read a root's facts with facts, as a test's disk does.
+func (server *Server) ProbingWith(facts func(root *confine.MediaRoot) (confine.Facts, error)) *Server {
+	server.rootFacts = facts
+	return server
+}
+
+// ProbeAsks are how many asks share the probe of root running; 0 when none runs.
+func (server *Server) ProbeAsks(root string) int {
+	server.probes.mutex.Lock()
+	defer server.probes.mutex.Unlock()
+	if call, isRunning := server.probes.running[root]; isRunning {
+		return call.asks
+	}
+	return 0
+}

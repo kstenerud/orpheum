@@ -180,3 +180,45 @@ func TestReadHeldResult_FetchesItFromTheNodesByteSocket(t *testing.T) {
 		t.Error("a result the node does not hold was taken")
 	}
 }
+
+// The core probes a node's root on its byte socket, outside every queue, and takes its answer; a
+// node that does not answer in time leaves the probe failed, not waited on (D327).
+func TestProbeRoot_AsksTheNodesByteSocket(t *testing.T) {
+	t.Parallel()
+	harness := newFixture(t, time.Second)
+	socketDir := filepath.Join(t.TempDir(), "run")
+	reply := harness.hello(t, nodeproto.Hello{Name: "local", ByteSocketPath: filepath.Join(socketDir, "node.sock")})
+	listener, err := unixsocket.Listen(socketDir, "node.sock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hold := make(chan struct{})
+	t.Cleanup(func() { close(hold) })
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET "+nodeproto.PathBytesProbe, func(writer http.ResponseWriter, request *http.Request) {
+		root := request.URL.Query().Get("rootPath")
+		if root == "/media/away" {
+			select { // its disk does not answer
+			case <-hold:
+			case <-request.Context().Done():
+			}
+		}
+		_ = json.NewEncoder(writer).Encode(nodeproto.RootProbe{ //nolint:errcheck // the test reads what arrives
+			RootPath: root, State: nodeproto.ProbeReadable, Device: 41, IsMountPoint: true,
+		})
+	})
+	server := &http.Server{Handler: mux, ReadHeaderTimeout: time.Second}
+	go func() { _ = server.Serve(listener) }() //nolint:errcheck // closed at cleanup
+	t.Cleanup(func() { _ = server.Close() })   //nolint:errcheck // as above
+	client := NewByteSocketClient(harness.service, nil)
+	probe, err := client.ProbeRoot(t.Context(), reply.NodeID, "/media/films")
+	if err != nil || probe.State != nodeproto.ProbeReadable || probe.RootPath != "/media/films" || probe.Device != 41 ||
+		!probe.IsMountPoint {
+		t.Errorf("the probe = %+v, %v; want /media/films readable on device 41, a mount point", probe, err)
+	}
+	bounded, cancel := context.WithCancel(t.Context())
+	cancel() // the caller's wait is over
+	if _, err := client.ProbeRoot(bounded, reply.NodeID, "/media/away"); err == nil {
+		t.Error("a probe the caller stopped waiting on answered; want it failed")
+	}
+}

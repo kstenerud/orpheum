@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -220,14 +221,25 @@ type FileAvailabilityOutput struct {
 	}
 }
 
+// FileAvailabilityInput asks whether a file can be read now, held while it cannot for up to
+// WaitSeconds.
+type FileAvailabilityInput struct {
+	ItemInput
+	WaitSeconds int `doc:"Hold the answer up to this long while the file cannot be read, and answer as soon as it can (D327 §3); 0 answers at once" maximum:"30" minimum:"0" query:"waitSeconds"` //nolint:lll // one struct tag
+}
+
 // getFileAvailability answers whether a file can be read now: a player whose fetch failed mid-play
-// asks, and tells the viewer why, or tries again (D241 §7).
-func (server *Server) getFileAvailability(ctx context.Context, input *ItemInput) (*FileAvailabilityOutput, error) {
+// asks, and tells the viewer why, or tries again (D241 §7). Asked to wait, it holds the answer while
+// the file's root is unavailable, its node asked whether it is back, and answers once it is.
+func (server *Server) getFileAvailability(
+	ctx context.Context, input *FileAvailabilityInput,
+) (*FileAvailabilityOutput, error) {
 	dependencies, _, err := server.requireSignedInReachingFile(ctx, input.Authorization, input.ID)
 	if err != nil {
 		return nil, err
 	}
-	unreadable, err := dependencies.Playback.Unreadable(ctx, input.ID)
+	unreadable, err := dependencies.Playback.AwaitReadable(ctx, input.ID,
+		time.Duration(input.WaitSeconds)*time.Second)
 	if err != nil {
 		return nil, server.playbackError(ctx, "ask whether a file can be read", err)
 	}

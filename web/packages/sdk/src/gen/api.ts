@@ -5138,7 +5138,10 @@ export interface operations {
     };
     getFileAvailability: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Hold the answer up to this long while the file cannot be read, and answer as soon as it can (D327 §3); 0 answers at once */
+                waitSeconds?: number;
+            };
             header?: {
                 /** @description Bearer <session token> */
                 Authorization?: string;

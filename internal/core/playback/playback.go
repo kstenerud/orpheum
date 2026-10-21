@@ -67,6 +67,15 @@ type Parts struct {
 	// Reads has a file not yet read taken first, for a person who asked to play it (D304 §4); nil
 	// asks for none.
 	Reads FileReads
+	// Roots asks a root's node whether it can be read now, and brings it back when it can (D327); nil
+	// asks none.
+	Roots RootProbes
+}
+
+// RootProbes asks a root's node whether it can be read now, and brings it back when it can:
+// library.Scans.
+type RootProbes interface {
+	ProbeAndBringBack(ctx context.Context, nodeID int64, root string) (nodeproto.RootProbe, bool, error)
 }
 
 // FileReads has a file its listing stored unread read before what else waits: library.Scans.
@@ -94,6 +103,7 @@ type Service struct {
 	chunks      Chunks
 	offers      Offers
 	reads       FileReads
+	roots       RootProbes
 	// speeds are the link speeds players measured, by player and network (D257 §1).
 	speeds *linkSpeeds
 	// unplayablePictures are the films whose own picture each player gave up as unplayable.
@@ -118,7 +128,7 @@ func NewService(parts Parts) *Service {
 		clock: parts.Clock, random: parts.Random,
 		tokens: newTokens(), renditions: parts.Renditions,
 		subtitles: parts.Subtitles, preferences: parts.Preferences, loudness: parts.Loudness,
-		chunks: parts.Chunks, offers: parts.Offers, reads: parts.Reads, speeds: newLinkSpeeds(),
+		chunks: parts.Chunks, offers: parts.Offers, reads: parts.Reads, roots: parts.Roots, speeds: newLinkSpeeds(),
 		unplayablePictures: newUnplayablePictures(),
 	}
 	// The runs that go on are those its playbacks' players want (D309).
@@ -524,6 +534,40 @@ func (service *Service) Unreadable(ctx context.Context, fileID int64) (*library.
 	}
 	return &unreadable, nil
 }
+
+// AwaitReadable is Unreadable, held for up to wait while the file's root is unavailable: its node is
+// asked whether the root can be read every probeEvery, outside every queue, and the answer comes as
+// soon as one finds it back (D325 §2, D327 §3). A page waiting on a share's return asked every ten
+// seconds, and heard of it only from the node's next status (staging, 2026-10-21).
+func (service *Service) AwaitReadable(ctx context.Context, fileID int64, wait time.Duration) (
+	*library.Unreadable, error,
+) {
+	deadline := service.clock.Now().Add(wait)
+	for {
+		unreadable, err := service.Unreadable(ctx, fileID)
+		if err != nil || unreadable == nil || unreadable.Reason != library.RootMissing || service.roots == nil {
+			return unreadable, err
+		}
+		_, isBack, err := service.roots.ProbeAndBringBack(ctx, unreadable.NodeID, unreadable.Path)
+		if err != nil {
+			return nil, err
+		}
+		if isBack {
+			continue
+		}
+		left := deadline.Sub(service.clock.Now())
+		if left <= 0 {
+			return unreadable, nil
+		}
+		if err := service.clock.Sleep(ctx, min(left, probeEvery)); err != nil {
+			return unreadable, nil //nolint:nilerr // a page that left needs no answer; this one is as true as any
+		}
+	}
+}
+
+// probeEvery is how often a held ask probes the root of a file it waits on: a probe costs its node
+// nothing, and one running is shared, so a waiting page hears of a share back within it (D327 §2).
+const probeEvery = 2 * time.Second
 
 func (service *Service) tokenIdleExpiry(ctx context.Context) (time.Duration, error) {
 	idleExpiry, err := service.settings.Duration(ctx, settings.MediaTokenIdleExpiryHours)

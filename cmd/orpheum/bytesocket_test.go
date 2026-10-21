@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -42,39 +43,34 @@ func (*takenResults) DeliverProgress(context.Context, int64, nodeproto.Progress)
 func (*takenResults) Interrupt(context.Context, int64, string)                                   {}
 func (*takenResults) Reconcile(context.Context, int64, []nodeproto.HeldAttempt, map[string]bool) {}
 
-// The core's byte socket client is how its node channel fetches a result the node holds, too large
-// to post (D234 §5): wired so, a post naming one hands on the whole result from the node's socket.
-func TestOpenByteSocket_LetsTheNodeChannelTakeAResultTheNodeHolds(t *testing.T) {
-	t.Parallel()
+// byteSocketBench is a node channel whose node said hello, with its byte socket answered by
+// answer, and how to post to the channel as that node.
+type byteSocketBench struct {
+	service *nodes.Service
+	nodeID  int64
+	post    func(path string, body any) int
+}
+
+func newByteSocketBench(t *testing.T, answer http.HandlerFunc) byteSocketBench {
+	t.Helper()
 	database := storetest.OpenMigrated(t)
 	service := nodes.NewService(nodes.ServiceParts{
 		Database: database, Clock: clock.System{}, Settings: settingstest.Seeded(t, database),
 		Destinations: ignoringReports{}, Logger: slog.New(slog.DiscardHandler),
 		PollHold: time.Second,
 	})
-	taken := &takenResults{}
-	service.SetResultSink(taken)
-	whole, err := json.Marshal(nodeproto.Result{
-		JobID: 4, AttemptToken: "a4", Work: &nodeproto.Work{Type: nodeproto.CommandReadThrough},
-		ReadThrough: &nodeproto.ReadThroughResult{Failure: "too large to post, in a test's terms"},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
 	runDir := filepath.Join(t.TempDir(), "run")
 	listener, err := unixsocket.Listen(runDir, nodeSocketName)
 	if err != nil {
 		t.Fatal(err)
 	}
-	nodeSocket := &http.Server{Handler: http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-		_, _ = writer.Write(whole) //nolint:errcheck // the test reads what arrives
-	}), ReadHeaderTimeout: time.Second}
+	nodeSocket := &http.Server{Handler: answer, ReadHeaderTimeout: time.Second}
 	go func() { _ = nodeSocket.Serve(listener) }() //nolint:errcheck // closed at cleanup
 	t.Cleanup(func() { _ = nodeSocket.Close() })   //nolint:errcheck // as above
-	openByteSocket(service, nil)
 	channel := httptest.NewServer(service.Handler())
 	t.Cleanup(channel.Close)
-	post := func(path string, nodeID int64, body any) (int, []byte) {
+	bench := byteSocketBench{service: service}
+	postAs := func(path string, nodeID int64, body any) (int, []byte) {
 		t.Helper()
 		encoded, err := json.Marshal(body)
 		if err != nil {
@@ -100,19 +96,67 @@ func TestOpenByteSocket_LetsTheNodeChannelTakeAResultTheNodeHolds(t *testing.T) 
 		return response.StatusCode, answer
 	}
 	var reply nodeproto.HelloReply
-	_, hello := post(nodeproto.PathHello, 0, nodeproto.Hello{
+	_, hello := postAs(nodeproto.PathHello, 0, nodeproto.Hello{
 		Name: "local", ProtocolVersion: nodeproto.ProtocolVersion,
 		ByteSocketPath: filepath.Join(runDir, nodeSocketName),
 	})
 	if err := json.Unmarshal(hello, &reply); err != nil {
 		t.Fatal(err)
 	}
+	bench.nodeID = reply.NodeID
+	bench.post = func(path string, body any) int {
+		t.Helper()
+		status, _ := postAs(path, reply.NodeID, body)
+		return status
+	}
+	return bench
+}
+
+// The core's byte socket client is how its node channel fetches a result the node holds, too large
+// to post (D234 §5): wired so, a post naming one hands on the whole result from the node's socket.
+func TestOpenByteSocket_LetsTheNodeChannelTakeAResultTheNodeHolds(t *testing.T) {
+	t.Parallel()
+	whole, err := json.Marshal(nodeproto.Result{
+		JobID: 4, AttemptToken: "a4", Work: &nodeproto.Work{Type: nodeproto.CommandReadThrough},
+		ReadThrough: &nodeproto.ReadThroughResult{Failure: "too large to post, in a test's terms"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bench := newByteSocketBench(t, func(writer http.ResponseWriter, _ *http.Request) {
+		_, _ = writer.Write(whole) //nolint:errcheck // the test reads what arrives
+	})
+	taken := &takenResults{}
+	bench.service.SetResultSink(taken)
+	openByteSocket(bench.service, nil)
 	sum := sha256.Sum256(whole)
-	status, _ := post(nodeproto.PathResult, reply.NodeID, nodeproto.Result{
+	status := bench.post(nodeproto.PathResult, nodeproto.Result{
 		JobID: 4, AttemptToken: "a4", Work: &nodeproto.Work{Type: nodeproto.CommandReadThrough},
 		Held: &nodeproto.HeldResult{SizeBytes: int64(len(whole)), Sha256: hex.EncodeToString(sum[:])},
 	})
 	if status != http.StatusOK || len(taken.results) != 1 || taken.results[0].ReadThrough == nil {
 		t.Errorf("a post naming a held result: %d, handed on %+v; want the whole result", status, taken.results)
+	}
+}
+
+// The core's byte socket client is how the scans probe a root, outside every queue (D327): wired so,
+// a probe asks the node's socket and takes its answer.
+func TestOpenByteSocket_LetsTheScansProbeARoot(t *testing.T) {
+	t.Parallel()
+	bench := newByteSocketBench(t, func(writer http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != nodeproto.PathBytesProbe {
+			http.NotFound(writer, request)
+			return
+		}
+		_ = json.NewEncoder(writer).Encode(nodeproto.RootProbe{ //nolint:errcheck // the test reads what arrives
+			RootPath: request.URL.Query().Get("rootPath"), State: nodeproto.ProbeNotAnswering,
+		})
+	})
+	scans := library.NewScans(library.ScansParts{Logger: slog.New(slog.DiscardHandler)})
+	openByteSocket(bench.service, scans)
+	probe, isBack, err := scans.ProbeAndBringBack(t.Context(), bench.nodeID, "/media/films")
+	if err != nil || isBack || probe.State != nodeproto.ProbeNotAnswering || probe.RootPath != "/media/films" {
+		t.Errorf("a probe through the wired socket: %+v, %t, %v; want the node's answer, not answering", probe,
+			isBack, err)
 	}
 }

@@ -11,17 +11,29 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
 // scheduledRequests are the scans the schedule asked for at the priority they are wanted at,
-// background unless said, and the scans in progress it sees.
+// background unless said, and the scans in progress it sees; and what a probe of each root finds,
+// and whether it brings it back, by its path: nothing asked of a root not named.
 type scheduledRequests struct {
 	asked    []ScanRoot
 	scopes   []string
 	running  map[ScanRoot]ScanProgress
 	priority int64
+	probes   map[string]nodeproto.ProbeState
+	back     map[string]bool
+	probed   []string
+}
+
+func (requests *scheduledRequests) ProbeAndBringBack(
+	_ context.Context, _ int64, root string,
+) (nodeproto.RootProbe, bool, error) {
+	requests.probed = append(requests.probed, root)
+	return nodeproto.RootProbe{RootPath: root, State: requests.probes[root]}, requests.back[root], nil
 }
 
 func (requests *scheduledRequests) RequestUnder(
@@ -183,5 +195,52 @@ func TestScanSchedule_ScansAnUnavailableRootAgainUntilOneReadsIt(t *testing.T) {
 	if want := []ScanRoot{{NodeID: world.nodeID, RootPath: "/media/away"}}; asked != 1 ||
 		!slices.Equal(requests.asked, want) {
 		t.Errorf("asked for %d scans, %v; want %v alone", asked, requests.asked, want)
+	}
+}
+
+// The sweep asks each unavailable root's node whether it can be read before it scans it, outside
+// every queue, whether or not a scan of it is in progress: one back comes back at once, its scan
+// asked for by bringing it back; one not answering is not scanned, which would only wait on its
+// disk; one readable on another disk is scanned, which judges it (D208, D327 §3). A scan waited 163 s
+// on the node behind a viewer's read-through to bring a root back (staging, 2026-10-21).
+func TestScanSchedule_ProbesAnUnavailableRootBeforeScanningIt(t *testing.T) {
+	t.Parallel()
+	world := newHarness(t)
+	made := NewLibrary{
+		Name: "Away", ChangeDetection: "manual", Kind: "movies", MetadataSource: "nfo", NodeID: world.nodeID,
+		Roots: []string{"/media/dead", "/media/back", "/media/moved", "/media/running"},
+	}
+	if _, err := Create(t.Context(), world.database, world.clock, made); err != nil {
+		t.Fatal(err)
+	}
+	long := world.clock.Now().UnixMilli() - 2*60_000
+	storetest.ExecRaw(t, world.database.Path(), fmt.Sprintf(`INSERT INTO root_state
+		(node_id, root_path, last_scan_outcome, last_scan_at, unavailable_since) VALUES
+		(%[1]d, '/media/dead', 'unreadable', %[2]d, %[2]d), (%[1]d, '/media/back', 'unreadable', %[2]d, %[2]d),
+		(%[1]d, '/media/moved', 'unreadable', %[2]d, %[2]d), (%[1]d, '/media/running', 'unreadable', %[2]d, %[2]d)`,
+		world.nodeID, long))
+	requests := &scheduledRequests{
+		priority: jobs.PriorityBringsBack,
+		running:  map[ScanRoot]ScanProgress{{NodeID: world.nodeID, RootPath: "/media/running"}: {}},
+		probes: map[string]nodeproto.ProbeState{
+			"/media/dead": nodeproto.ProbeNotAnswering, "/media/back": nodeproto.ProbeReadable,
+			"/media/moved": nodeproto.ProbeReadable, "/media/running": nodeproto.ProbeReadable,
+		},
+		back: map[string]bool{"/media/back": true, "/media/running": true},
+	}
+	schedule := NewScanSchedule(world.database, requests, world.settings, world.clock, slog.New(slog.DiscardHandler))
+	asked, err := schedule.RescanUnavailable(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	slices.Sort(requests.probed)
+	if want := []string{"/media/back", "/media/dead", "/media/moved", "/media/running"}; !slices.Equal(requests.probed,
+		want) {
+		t.Errorf("roots probed: %q; want every unavailable one, %q", requests.probed, want)
+	}
+	if want := []ScanRoot{{NodeID: world.nodeID, RootPath: "/media/moved"}}; asked != 3 ||
+		!slices.Equal(requests.asked, want) {
+		t.Errorf("brought back or scanned %d, scans asked for %v; want two back and %v scanned", asked,
+			requests.asked, want)
 	}
 }

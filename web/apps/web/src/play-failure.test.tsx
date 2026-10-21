@@ -7,7 +7,11 @@ import { sendFailuresTo } from "@orpheum/sdk";
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { mediaBackAskEveryMs } from "./film-player.tsx";
+import {
+  mediaBackAfterFailureMs,
+  mediaBackAskAgainMs,
+  mediaBackWaitSeconds,
+} from "./playback-failure.ts";
 import { PlayView } from "./play.tsx";
 import type { ReopenAt } from "./reopen.ts";
 import { fire, mount, servedBy, settleUntil, type Heard, type Mounted } from "./test-dom.tsx";
@@ -102,7 +106,7 @@ describe("a playback that fails (D241 §7)", () => {
 
 describe("a playback its film's being unreachable stopped (the owner, 2026-10-21)", () => {
   it("asks again until the film can be read, then is opened again from where it stood", async () => {
-    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
     try {
       const unavailable = {
         unavailable: {
@@ -138,22 +142,21 @@ describe("a playback its film's being unreachable stopped (the owner, 2026-10-21
       expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
         "/tank/media/video/movies",
       );
-      act(() => {
-        vi.advanceTimersByTime(mediaBackAskEveryMs);
-      });
-      const asks = (): number =>
-        heard.filter((each) => each.methodAndPath.endsWith("/availability")).length;
-      await settleUntil(() => asks() === 2); // the first ask again, still unreachable
+      const asks = (): Heard[] =>
+        heard.filter((each) => each.methodAndPath.endsWith("/availability"));
+      await settleUntil(() => asks().length === 2); // asked again at once, held, still unreachable
+      expect(asks()[1]?.query).toBe(`?waitSeconds=${String(mediaBackWaitSeconds)}`);
       expect(back).toEqual([]);
       act(() => {
-        vi.advanceTimersByTime(mediaBackAskEveryMs);
+        vi.advanceTimersByTime(mediaBackAskAgainMs);
       });
       await settleUntil(() => back.length > 0);
       expect(back).toEqual([{ positionMs: 0, isPaused: true }]);
       act(() => {
-        vi.advanceTimersByTime(3 * mediaBackAskEveryMs);
+        vi.advanceTimersByTime(3 * mediaBackAfterFailureMs);
       });
       expect(back).toHaveLength(1); // told once
+      expect(asks()).toHaveLength(3);
     } finally {
       vi.useRealTimers();
     }

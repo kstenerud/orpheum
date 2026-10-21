@@ -41,6 +41,11 @@ type Server struct {
 	// openFile opens a file a request names: the payload hashes' OpenNamed; a test's may fail as a
 	// disk that does not answer does.
 	openFile func(roots map[string]*confine.MediaRoot, named nodeproto.BytesFile) (*os.File, fs.FileInfo, error)
+	// probes are the probes of the roots running (D327).
+	probes probes
+	// rootFacts reads a root's facts: (*confine.MediaRoot).Facts; a test's may block as a disk that
+	// does not answer does.
+	rootFacts func(root *confine.MediaRoot) (confine.Facts, error)
 }
 
 // WatchingOpens has the server open each file through the node's disk gate, answering one that does
@@ -59,6 +64,7 @@ func New(roots []*confine.MediaRoot, prepared *confine.MediaRoot) *Server {
 	}
 	server := &Server{roots: byPath, prepared: prepared, payloadHashes: namedfile.NewHashes()}
 	server.openFile = server.payloadHashes.OpenNamed
+	server.rootFacts = (*confine.MediaRoot).Facts
 	return server
 }
 
@@ -89,6 +95,7 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("GET "+nodeproto.PathBytesPrepared+"{name...}", server.serveRenditionFile)
 	mux.HandleFunc("GET "+nodeproto.PathBytesChunks+"{name...}", server.serveStoreFile)
 	mux.HandleFunc("GET "+nodeproto.PathBytesResult+"{token}", server.serveResult)
+	mux.HandleFunc("GET "+nodeproto.PathBytesProbe, server.serveProbe)
 	return mux
 }
 
