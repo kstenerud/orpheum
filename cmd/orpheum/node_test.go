@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/hex"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -451,5 +452,29 @@ func TestRunNode_AListingStalledOnItsDiskMakesItsRootUnavailable(t *testing.T) {
 	}
 	if log := captured.String(); !strings.Contains(log, `"rootPath":"`+shelved.media) {
 		t.Errorf("the log does not name the stalled root, %s:\n%s", shelved.media, log)
+	}
+}
+
+// The node's roots open through a gate keyed by the disks mounted inside them, so one stuck inside a
+// root holds up only what is on it (D328 §1): /proc is mounted inside / on any Linux, and a reading
+// held under it leaves / itself free.
+func TestOpenRoots_KeysTheGateByTheDisksMountedInsideARoot(t *testing.T) {
+	t.Parallel()
+	roots, gate := openRoots(t.Context(), []string{"/"}, slog.New(slog.DiscardHandler))
+	t.Cleanup(func() {
+		for _, root := range roots {
+			_ = root.Close() //nolint:errcheck // read-only
+		}
+	})
+	release, isHeld := gate.Hold("/", "/proc/self/status")
+	if !isHeld {
+		t.Fatal("/proc could not be held")
+	}
+	t.Cleanup(release)
+	if stuck, isStuck := gate.IsStuck("/", "/"); isStuck {
+		t.Errorf("/ itself reads as stuck on %+v; want only /proc, the disk held inside it", stuck)
+	}
+	if _, isStuck := gate.IsStuck("/", "/proc/1/status"); !isStuck {
+		t.Error("/proc reads as free; want it held")
 	}
 }
