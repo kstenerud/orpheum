@@ -232,3 +232,25 @@ func TestDevices_SayWhetherAShareWaitsForeverWhenItsServerGoes(t *testing.T) {
 		}
 	}
 }
+
+// A path's mount point is the deepest mount over it in the mount table, read without touching the
+// filesystem: what the disk gate keys a disk mounted inside a root by (D328 §1).
+func TestMountPointOf_IsTheDeepestMountHoldingThePath(t *testing.T) {
+	t.Parallel()
+	system := fakeSystem{t: t, root: t.TempDir()}
+	system.write("proc/self/mountinfo", `20 1 0:30 / / rw - overlay rootfs rw
+30 20 0:60 / /media rw - nfs nas:/media rw
+31 30 8:32 / /media/disk1 rw - ext4 /dev/sdc rw
+`)
+	for path, want := range map[string]string{
+		"/media/disk1/Wing.mkv": "/media/disk1", "/media/Metropolis.mkv": "/media", "/media/disk10/x": "/media",
+		"/srv/prepared": "/",
+	} {
+		if got, found := mountPointUnder(system.root, path); !found || got != want {
+			t.Errorf("%s: %s, %t; want %s", path, got, found, want)
+		}
+	}
+	if _, found := mountPointUnder(t.TempDir(), "/media"); found {
+		t.Error("with no mount table, a mount point was found")
+	}
+}

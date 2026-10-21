@@ -17,11 +17,17 @@
 //   - While an operation on a root is stuck, every operation on that root is stalled at once,
 //     running nothing, and those on other roots run; the root opens when it returns.
 //     Enforced by TestGate_ARootWithAStuckOperationRunsNothingMoreUntilItReturns.
+//   - With the mounts known (KeyingByMounts), a disk mounted inside a root is a place of its own:
+//     one stuck there holds up only what is on it, the root's other files and the root going on
+//     (D328 §1). Its mount point comes from the mount table, which reads nothing on the disk.
+//     Enforced by TestGate_ADiskStuckInsideARootHoldsUpOnlyWhatIsOnIt and, for the mount table,
+//     hardware's TestMountPointOf_IsTheDeepestMountHoldingThePath.
 //   - Imports nothing from internal/core. Enforced by the depguard rule node-boundary.
 //
 // # Read before changing
 //
 //   - D233 §10: a stall on a disk makes its root unavailable at the core.
+//   - D328: availability is kept per place, a root or a disk mounted inside one.
 //   - docs/contributors/idiosyncrasies.md: a hard-mounted network share.
 //
 // # Where to change

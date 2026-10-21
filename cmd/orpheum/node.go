@@ -419,7 +419,9 @@ func serveBytes(
 func openRoots(
 	ctx context.Context, paths []string, logger *slog.Logger,
 ) ([]*confine.MediaRoot, *diskwatch.Gate) {
-	disks := diskwatch.NewGate(clock.System{})
+	// Keyed by the disks mounted inside the roots too, so one dead inside a root holds up only what
+	// is on it (D328 §1).
+	disks := diskwatch.NewGate(clock.System{}).KeyingByMounts(hardware.MountPointOf)
 	return openRootsThrough(ctx, paths, disks, logger), disks
 }
 
