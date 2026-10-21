@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
@@ -86,15 +87,33 @@ func (raiser *Raiser) Raise(ctx context.Context) error {
 		looked[look.ItemID] = interested
 	}
 	for itemID, interested := range raiser.lastLooked {
-		if _, isLooked := looked[itemID]; isLooked {
+		// A look that goes on releases what left it: a series' episode its person has moved past.
+		gone := without(interested, looked[itemID])
+		if len(gone.ItemIDs)+len(gone.FileIDs) == 0 {
 			continue
 		}
-		if err := raiser.parts.Jobs.Release(ctx, interested); err != nil {
+		if err := raiser.parts.Jobs.Release(ctx, gone); err != nil {
 			return fmt.Errorf("release item %d's work: %w", itemID, err)
 		}
 	}
 	raiser.lastLooked = looked
 	return nil
+}
+
+// without is what interested names that kept does not.
+func without(interested, kept jobs.Interested) jobs.Interested {
+	gone := func(ids, keptIDs []int64) []int64 {
+		var left []int64
+		for _, id := range ids {
+			if !slices.Contains(keptIDs, id) {
+				left = append(left, id)
+			}
+		}
+		return left
+	}
+	return jobs.Interested{
+		ItemIDs: gone(interested.ItemIDs, kept.ItemIDs), FileIDs: gone(interested.FileIDs, kept.FileIDs),
+	}
 }
 
 // RaiseWatched raises, for good, the work of every live file anyone has watched, and its film's or
