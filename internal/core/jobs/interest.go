@@ -35,13 +35,15 @@ func (interested Interested) isEmpty() bool {
 	return len(interested.ItemIDs) == 0 && len(interested.FileIDs) == 0
 }
 
-// Raised is an open job a person's interest raised: one given to a node is the node's to be told,
-// and one waiting is waiting on Destination, "" for none.
+// Raised is an open job a person's interest is in, at its priority now: one given to a node is the
+// node's to be told when HasRisen, and one waiting is waiting on Destination, "" for none.
 type Raised struct {
 	ID          int64
 	Priority    int64
 	IsAssigned  bool
 	Destination Destination
+	// HasRisen is whether this raise is what gave it its priority.
+	HasRisen bool
 }
 
 // InterestJobs raises and releases the jobs a person's interest is in (D324 §2): cache.db's job
@@ -57,8 +59,8 @@ func NewInterestJobs(cache *store.Cache, clockSource clock.Clock) *InterestJobs 
 }
 
 // Raise gives every open job about what is interested at least priority, wanted until until, or
-// for good when until is zero, and returns those whose priority rose. A job already higher, as a
-// play's, keeps its priority.
+// for good when until is zero, and returns each, saying whether its priority rose. A job already
+// higher, as a play's, keeps its priority.
 func (interest *InterestJobs) Raise(
 	ctx context.Context, interested Interested, priority int64, until time.Time,
 ) ([]Raised, error) {
@@ -77,7 +79,7 @@ func (interest *InterestJobs) Raise(
 	for _, row := range rows {
 		raised = append(raised, Raised{
 			ID: row.ID, Priority: row.Priority, IsAssigned: row.State == "assigned",
-			Destination: Destination(row.Destination),
+			Destination: Destination(row.Destination), HasRisen: row.HasRisen,
 		})
 	}
 	return raised, nil

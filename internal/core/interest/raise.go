@@ -159,9 +159,11 @@ func (raiser *Raiser) RaiseWatched(ctx context.Context) error {
 	return raiser.raise(ctx, interested, jobs.PriorityShownInterest, time.Time{})
 }
 
-// raise raises interested's work and tells each node holding a raised job. Work raised to a
-// person's tier that waits for room on a node, its slot or its device's readers full, is brought
-// back, so its claim bumps the lowest work of a lower tier holding the room (D324 §4, D255 §2).
+// raise raises interested's work and tells each node holding a job it raised. Work of a person's
+// tier that waits for room on a node, its slot or its device's readers full or a scan's quick pass
+// on its disk, is brought back at each pass, so its claim bumps the lowest work of a lower tier
+// holding the room (D324 §4, D255 §2): background work parks the room again as often as it is
+// brought back, and the person's work, parked there before it was raised, would wait with it.
 func (raiser *Raiser) raise(ctx context.Context, interested jobs.Interested, priority int64, until time.Time) error {
 	raised, err := raiser.parts.Jobs.Raise(ctx, interested, priority, until)
 	if err != nil {
@@ -171,7 +173,9 @@ func (raiser *Raiser) raise(ctx context.Context, interested jobs.Interested, pri
 	for _, job := range raised {
 		switch {
 		case job.IsAssigned:
-			raiser.parts.Nodes.Reprioritize(job.ID, job.Priority)
+			if job.HasRisen {
+				raiser.parts.Nodes.Reprioritize(job.ID, job.Priority)
+			}
 		case job.Priority >= jobs.PriorityPersonsRequest && isRoomOnANode(job.Destination) &&
 			!slices.Contains(waitingOn, job.Destination):
 			waitingOn = append(waitingOn, job.Destination)

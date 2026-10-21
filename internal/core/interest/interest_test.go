@@ -204,9 +204,10 @@ func TestRaiser_ALookThatGoesOnReleasesWhatLeftIt(t *testing.T) {
 	}
 }
 
-// Work raised to a person's tier that waits for room on a node is brought back, once for each room,
-// so its claim bumps the lowest work holding it; work given to a node is told its priority; work
-// waiting on anything else, or raised only to the shown-interest rung, waits on (D324 §4).
+// Work of a person's tier that waits for room on a node is brought back, once for each room, at
+// each pass, so its claim bumps the lowest work holding it; work given to a node is told the
+// priority a raise gave it; work waiting on anything else, or raised only to the shown-interest
+// rung, waits on (D324 §4).
 func TestRaiser_BringsBackRaisedWorkWaitingForRoomOnANode(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
@@ -218,7 +219,8 @@ func TestRaiser_BringsBackRaisedWorkWaitingForRoomOnANode(t *testing.T) {
 			{ID: 2, Priority: jobs.PriorityPlayNow, Destination: reader},
 			{ID: 3, Priority: jobs.PriorityPlayNow, Destination: slot},
 			{ID: 4, Priority: jobs.PriorityPlayNow, Destination: jobs.DestinationTMDBAPI},
-			{ID: 5, Priority: jobs.PriorityPlayNow, IsAssigned: true, Destination: slot},
+			{ID: 5, Priority: jobs.PriorityPlayNow, IsAssigned: true, Destination: slot, HasRisen: true},
+			{ID: 7, Priority: jobs.PriorityPlayNow, IsAssigned: true}, // its node told before
 		},
 		jobs.PriorityShownInterest: {{ID: 6, Priority: jobs.PriorityShownInterest, Destination: reader}},
 	}}
@@ -236,6 +238,14 @@ func TestRaiser_BringsBackRaisedWorkWaitingForRoomOnANode(t *testing.T) {
 	}
 	if !slices.Equal(room.reprioritized, []int64{5}) {
 		t.Errorf("told the nodes of %v; want job 5, the one given to a node", room.reprioritized)
+	}
+	// Background work parks the room again as often as it is brought back: each pass brings it back.
+	room.unparked = nil
+	if err := raiser.Raise(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if want := []jobs.Destination{reader, slot}; !slices.Equal(room.unparked, want) {
+		t.Errorf("the next pass brought back %q; want %q again", room.unparked, want)
 	}
 	room.unparked = nil
 	if err := raiser.RaiseWatched(t.Context()); err != nil {

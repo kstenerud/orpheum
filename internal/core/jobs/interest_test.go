@@ -27,8 +27,9 @@ func TestInterestJobs_RaiseTheWorkOfInterestAndLetItFallToTheShownInterestRung(t
 	until := fixed.clock.Now().Add(time.Minute)
 	raised, err := interest.Raise(ctx, Interested{ItemIDs: []int64{1, 2}, FileIDs: []int64{file}}, PriorityLookedAt,
 		until)
-	if err != nil || len(raised) != 2 {
-		t.Fatalf("Raise = %+v, %v; want item 1's job and the file's raised, item 2's play kept", raised, err)
+	if err != nil || len(raised) != 3 || risenCount(raised) != 2 {
+		t.Fatalf("Raise = %+v, %v; want the three, item 1's job and the file's risen, item 2's play kept",
+			raised, err)
 	}
 	if got := fixed.job(t, 1).Priority; got != PriorityLookedAt {
 		t.Errorf("item 1's job is at %d; want the looked-at priority", got)
@@ -57,4 +58,15 @@ func TestInterestJobs_RaiseTheWorkOfInterestAndLetItFallToTheShownInterestRung(t
 	if got := fixed.job(t, 3).Priority; got != PriorityShownInterest {
 		t.Errorf("item 3's job, raised for good, is at %d; want the shown-interest rung", got)
 	}
+}
+
+// risenCount is how many of the jobs a raise returned it raised.
+func risenCount(raised []Raised) int {
+	risen := 0
+	for _, job := range raised {
+		if job.HasRisen {
+			risen++
+		}
+	}
+	return risen
 }
