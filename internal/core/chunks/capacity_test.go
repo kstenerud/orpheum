@@ -3,6 +3,7 @@
 package chunks
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -221,5 +222,66 @@ func TestKeepRunsFast_EvictsARunASeekLeftThoughItsQualityIsStillPlayed(t *testin
 	}
 	if !slices.Equal(stage.queue.cancelledJobs, []int64{11}) {
 		t.Errorf("the jobs cancelled = %v; want the run the seek left, 11", stage.queue.cancelledJobs)
+	}
+}
+
+// holding records the node's holds, each stopping stopped jobs.
+type holding struct {
+	stopped int
+	holds   []time.Time
+}
+
+func (hold *holding) HoldBackFor(_ context.Context, nodeID int64, until time.Time) int {
+	if nodeID == 1 {
+		hold.holds = append(hold.holds, until)
+	}
+	return hold.stopped
+}
+
+// gpuEncoders say node 1 encodes on a GPU.
+type gpuEncoders struct{}
+
+func (gpuEncoders) EncodesOnAGPU(nodeID int64) bool { return nodeID == 1 }
+
+// A run players want of a quality, encoded in software, that falls behind playback holds its node
+// back for a speed window: the node's other work is stopped, and no run is evicted while the node
+// settles. With nothing stopped, a run is evicted as before; on a GPU nothing is held back (D324 §5).
+func TestKeepRunsFast_APlayedEncodeBehindPlaybackHoldsItsNodeBackBeforeAnyRunIsEvicted(t *testing.T) {
+	t.Parallel()
+	stage := newCapacityStage(t)
+	hold := &holding{stopped: 1}
+	stage.service.holdBack = hold
+	stage.progress(t, 3, 1.05, func(string) bool { return true })
+	if want := stage.clock.Now().Add(speedWindow); len(hold.holds) != 1 || !hold.holds[0].Equal(want) {
+		t.Errorf("the holds = %v; want one, until %v", hold.holds, want)
+	}
+	if len(stage.queue.cancelledJobs) != 0 {
+		t.Errorf("with the node's other work stopped, the jobs cancelled = %v; want none", stage.queue.cancelledJobs)
+	}
+	stage.clock.Advance(speedWindow)
+	hold.stopped = 0
+	stage.progress(t, 3, 1.05, func(string) bool { return true })
+	if !slices.Equal(stage.queue.cancelledJobs, []int64{12}) {
+		t.Errorf("with nothing left to stop, the jobs cancelled = %v; want the newer run's, 12",
+			stage.queue.cancelledJobs)
+	}
+	onGPU := newCapacityStage(t)
+	gpuHold := &holding{stopped: 1}
+	onGPU.service.holdBack, onGPU.service.encoders = gpuHold, gpuEncoders{}
+	onGPU.progress(t, 3, 1.05, func(string) bool { return true })
+	if len(gpuHold.holds) != 0 {
+		t.Errorf("on a GPU, the holds = %v; want none", gpuHold.holds)
+	}
+}
+
+// A run no player wants holds nothing back, however slow (D324 §5).
+func TestKeepRunsFast_ARunNoOneWantsHoldsNothingBack(t *testing.T) {
+	t.Parallel()
+	stage := newCapacityStage(t)
+	hold := &holding{stopped: 1}
+	stage.service.holdBack = hold
+	stage.progress(t, 0.5, 0.5, func(string) bool { return false })
+	if len(hold.holds) != 0 {
+		t.Errorf("for runs no one wants, the holds = %v; want none", hold.holds)
 	}
 }

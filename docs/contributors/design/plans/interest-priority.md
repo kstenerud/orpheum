@@ -112,7 +112,12 @@ and a read-through is one file).
    brings that room back, so the raised job's claim bumps; and a person's whole-file read no longer
    waits behind a scan's quick pass, which D255 §3 meant for the background.
 4. **I4 — playing and the CPU.** No other encode beside a software-encoded playback; lighter work
-   only while its run keeps up.
+   only while its run keeps up. *Built 2026-10-21:* a played encode is any play-priority encode a
+   node holds, a quality's run or a prepare a person waits on; a run that falls behind holds its
+   node back (nodes.Exchanges.HoldBackFor), and eviction among runs waits a window for it. Between
+   two runs of one playback no encode is held, so a queued encode may start in that gap; the hold
+   stops it if the next run falls behind. `play_priority_kept_seconds` is not folded: it keeps a
+   playback's own prepare and runs wanted, which interest finds by neither film nor file.
 5. **I5 — how long.** Each device's read speed and each prepare's speed; the API's waiting work and
    seconds; the film page's note and the player's wait.
 6. **I6 — the owner's check on staging**, with a VQ item: open a film whose loudness is unmeasured

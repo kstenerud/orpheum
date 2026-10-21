@@ -130,7 +130,11 @@
 //     TestKeepRunsFast_EvictsTheNewestWhenEveryRunIsInUse,
 //     TestKeepRunsFast_CancelsTheOldestRunNoOneIsPlayingFromRefusingNoOne,
 //     TestKeepRunsFast_EvictsARunASeekLeftThoughItsQualityIsStillPlayed and
-//     TestKeepRunsFast_EvictsNothingWhileEveryRunKeepsUpOrOneRunsAlone; through the API, the refusal
+//     TestKeepRunsFast_EvictsNothingWhileEveryRunKeepsUpOrOneRunsAlone. Before any is evicted, a run
+//     players want of a quality, encoded in software, that is behind holds its node back for a speed
+//     window, its other work stopped (HoldBack, D324 §5), and the node settles. Enforced by
+//     TestKeepRunsFast_APlayedEncodeBehindPlaybackHoldsItsNodeBackBeforeAnyRunIsEvicted and
+//     TestKeepRunsFast_ARunNoOneWantsHoldsNothingBack; through the API, the refusal
 //     is a 429 by TestChunks_AnEvictedQualityIsRefusedWithItsOwnStatusAndCode (internal/core/api).
 //
 //   - A run is sent as its film's main picture by identity, its stream's recipe, a sound with the

@@ -51,7 +51,10 @@ func (service *Service) Resources(ctx context.Context, nodeID int64) (Resources,
 	if err != nil {
 		return Resources{}, false, err
 	}
-	return Resources{Capacity: hello.Capacity, Devices: hello.Devices, ReaderLimits: limits}, true, nil
+	return Resources{
+		Capacity: hello.Capacity, Devices: hello.Devices, ReaderLimits: limits,
+		EncodesInSoftware: !isGPUEncoder(hello.Hardware.ChosenEncoder),
+	}, true, nil
 }
 
 // devicesOf are the devices a connected node's last hello listed.

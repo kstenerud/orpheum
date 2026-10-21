@@ -42,6 +42,11 @@ func TestDestinations_ANameSaysWhatItIsAndReadsAsAPersonSaysIt(t *testing.T) {
 			DestinationParts{NodeID: 5, IsQuickPass: true},
 			"a scan's first look at a disk on node node-5",
 		},
+		{
+			PlayingDestination(6),
+			DestinationParts{NodeID: 6, IsPlaying: true},
+			"the film playing on node node-6 to keep up",
+		},
 	} {
 		if parts := PartsOf(check.destination); parts != check.parts {
 			t.Errorf("%q reads as %+v, want %+v", check.destination, parts, check.parts)

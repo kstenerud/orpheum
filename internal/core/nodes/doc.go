@@ -131,6 +131,12 @@
 //     TestAssign_ABackgroundReadThroughWaitsForAScansQuickPassOfItsDisk,
 //     TestAssign_APersonsReadThroughGoesAheadOfAScansQuickPass and, for when a root is on it,
 //     TestScans_ARootIsOnItsQuickPassUntilItsNewFilesAreRead (internal/core/library).
+//   - Playing is not starved (D324 §5): a node that encodes in software and holds a played encode
+//     is given no other encode, which waits on its encode slot; held back (HoldBackFor), its played
+//     encode behind playback, it stops the work no one plays and is given none until the hold ends,
+//     on its playing destination. A node that encodes on a GPU runs work beside it.
+//     TestAssign_NoOtherEncodeIsGivenBesideAPlayedEncodeInSoftware,
+//     TestHoldBackFor_StopsWhatIsNotPlayedAndGivesNoneUntilItEnds.
 //   - A job no one waits for any more is told to its node at its new priority, no longer
 //     play-driven (D234 §3). TestReprioritize_TellsTheNodeHoldingAJobsAttemptItsNewPriority.
 //   - Work a person waits for, to play, is sent play-driven (D240 §6), and each answer to a poll for

@@ -88,6 +88,15 @@ type Parts struct {
 	// Encoders say whether a film's node encodes on a GPU, which chooses its ladder (D323 §3); nil
 	// encodes every film in software.
 	Encoders Encoders
+	// HoldBack stops a node's other work while a run players want, encoded in software, is behind
+	// playback (D324 §5); nil holds nothing back.
+	HoldBack HoldBack
+}
+
+// HoldBack stops the work on a node no one plays, and gives it none until a time, reporting how
+// many it stopped: nodes.Exchanges.
+type HoldBack interface {
+	HoldBackFor(ctx context.Context, nodeID int64, until time.Time) int
 }
 
 // Encoders say whether a node encodes on a GPU: nodes.Service.
@@ -110,6 +119,7 @@ type Service struct {
 	logger      *slog.Logger
 	clock       clock.Clock
 	encoders    Encoders
+	holdBack    HoldBack
 	// runs are the chunks known made and the runs making more, by store: in memory, since a node's
 	// answer for a chunk is the truth and a restart only asks it again.
 	runs *runTracker
@@ -134,6 +144,6 @@ func NewService(parts Parts) *Service {
 	return &Service{
 		database: parts.Database, cache: parts.Cache, settings: parts.Settings, queue: parts.Queue, nodes: parts.Nodes,
 		exchanges: parts.Exchanges, loudness: parts.Loudness, readThrough: parts.ReadThrough, logger: parts.Logger,
-		clock: parts.Clock, encoders: parts.Encoders, runs: newRunTracker(),
+		clock: parts.Clock, encoders: parts.Encoders, holdBack: parts.HoldBack, runs: newRunTracker(),
 	}
 }
