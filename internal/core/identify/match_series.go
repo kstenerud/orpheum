@@ -42,10 +42,10 @@ func (matcher *Matcher) matchSeries(ctx context.Context, seriesID int64) (Outcom
 	if id != "" {
 		return OutcomeMatched, matcher.acceptSeries(ctx, provider, series, id, identificationIdentified)
 	}
-	query := Query{Kind: KindSeries, Name: ptr.ValueOrZero(series.Name), Year: int(ptr.ValueOrZero(series.Year))}
-	candidates, err := provider.Search(ctx, query)
+	query, candidates, err := searchWithSpellings(ctx, provider,
+		Query{Kind: KindSeries, Name: ptr.ValueOrZero(series.Name), Year: int(ptr.ValueOrZero(series.Year))})
 	if err != nil {
-		return "", fmt.Errorf("search %s for the series %q: %w", provider.Name(), query.Name, err)
+		return "", err
 	}
 	switch chosen, how := settleMatch(query, candidates, false); how {
 	case clearly:

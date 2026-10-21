@@ -40,6 +40,8 @@ var (
 	DueAfter = dueAfter
 	// WorkName is a name as the matcher compares it.
 	WorkName = workName
+	// SpellingVariants are the other spellings a match searches for.
+	SpellingVariants = spellingVariants
 )
 
 // ReadAsItGoes has a pass read each row when it needs it rather than from its snapshot, as a
