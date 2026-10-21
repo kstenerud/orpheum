@@ -24,6 +24,8 @@ func stallOf(err error) *nodeproto.Stall {
 		cause = nodeproto.StallStoodStill
 	case execx.StallPastDeadline:
 		cause = nodeproto.StallPastDeadline
+	case execx.StallDiskFailed:
+		cause = nodeproto.StallDiskFailed
 	}
 	return &nodeproto.Stall{
 		Cause: cause, Condition: nodeproto.StallCondition(stalled.Condition), IsLeftRunning: stalled.IsLeftRunning,

@@ -111,6 +111,9 @@ const (
 	StallStoodStill StallCause = "stood_still"
 	// StallPastDeadline is a run that moved but did not end by its deadline.
 	StallPastDeadline StallCause = "past_deadline"
+	// StallDiskFailed is a run that ended because its disk failed a read as one that does not answer
+	// does, as its log said (diskFailures).
+	StallDiskFailed StallCause = "disk_failed"
 )
 
 // StallCondition is what the tool was doing when the watchdog stopped it, as /proc said (D233 §5).

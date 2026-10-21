@@ -5,6 +5,8 @@ package diskwatch_test
 import (
 	"context"
 	"errors"
+	"io/fs"
+	"syscall"
 	"testing"
 	"time"
 
@@ -123,5 +125,27 @@ func TestGate_ARootWithAStuckOperationRunsNothingMoreUntilItReturns(t *testing.T
 		diskwatch.Operation{Root: "/m", Path: "/m/b.mkv", Window: time.Minute},
 		func() (string, error) { return "opened", nil }, func(string) {}); err != nil || value != "opened" {
 		t.Errorf("once the stuck one returned, an operation = %q, %v; want it run", value, err)
+	}
+}
+
+// The errors a network share mounted to give up returns for a host that is gone are a disk failing a
+// read; a file missing or refused is not (D233 §10).
+func TestIsDiskFailure_IsWhatAShareThatGivesUpReturns(t *testing.T) {
+	t.Parallel()
+	for _, check := range []struct {
+		err  error
+		want bool
+	}{
+		{&fs.PathError{Op: "open", Path: "/m/a.mkv", Err: syscall.EIO}, true},
+		{&fs.PathError{Op: "open", Path: "/m/a.mkv", Err: syscall.ESTALE}, true},
+		{&fs.PathError{Op: "open", Path: "/m/a.mkv", Err: syscall.ETIMEDOUT}, true},
+		{&fs.PathError{Op: "open", Path: "/m/a.mkv", Err: syscall.EHOSTDOWN}, true},
+		{&fs.PathError{Op: "open", Path: "/m/a.mkv", Err: syscall.ENOENT}, false},
+		{&fs.PathError{Op: "open", Path: "/m/a.mkv", Err: syscall.EACCES}, false},
+		{nil, false},
+	} {
+		if got := diskwatch.IsDiskFailure(check.err); got != check.want {
+			t.Errorf("IsDiskFailure(%v) = %t; want %t", check.err, got, check.want)
+		}
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"slices"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -169,4 +170,12 @@ func (gate *Gate) unstick(root string) {
 	gate.mutex.Lock()
 	defer gate.mutex.Unlock()
 	delete(gate.stuck, root)
+}
+
+// IsDiskFailure is whether err is a read its disk failed as one that does not answer does: an I/O
+// error, a stale handle, a timeout or a host down, which a network share mounted to give up on a
+// host that is gone returns (D233 §10).
+func IsDiskFailure(err error) bool {
+	return errors.Is(err, syscall.EIO) || errors.Is(err, syscall.ESTALE) || errors.Is(err, syscall.ETIMEDOUT) ||
+		errors.Is(err, syscall.EHOSTDOWN)
 }

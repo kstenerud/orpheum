@@ -154,6 +154,13 @@ func (agent *Agent) openNamed(ctx context.Context, named nodeproto.BytesFile) (*
 			WithoutAdvance: stalled.Waited, WaitingOnPath: path, IsLeftRunning: true, StderrTail: stalled.Error(),
 		}
 	}
+	if diskwatch.IsDiskFailure(err) {
+		agent.logger.WarnContext(ctx, "a file to read did not open: its disk failed the read", "path", path, "err", err)
+		return nil, &execx.StalledError{
+			Tool: stuckReadTool, Cause: execx.StallDiskFailed, Condition: execx.ConditionWaitingOnDisk,
+			WaitingOnPath: path, StderrTail: err.Error(),
+		}
+	}
 	if err != nil {
 		return nil, fmt.Errorf("open the file named: %w", err)
 	}

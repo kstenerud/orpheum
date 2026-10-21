@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -140,5 +141,31 @@ func TestAgent_ADiskThatDoesNotMeasureLeavesTheStatusSentSayingSo(t *testing.T) 
 		case <-time.After(5 * time.Millisecond):
 			clockSource.AdvanceToNext() // the measure's window, once it is armed
 		}
+	}
+}
+
+// A file whose disk fails the read as a network share mounted to give up does is a stall on that
+// disk, not a refusal tried again as though the file had changed (D233 §10).
+func TestAgent_AFileItsDiskFailsIsAnsweredStalledOnItsDisk(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	root, tick := startAgentWithWorkers(t, socket, Workers{ChunkMaker: fakeChunkMaker{}}, func(node *Agent) {
+		node.openFile = func(map[string]*confine.MediaRoot, nodeproto.BytesFile) (*os.File, fs.FileInfo, error) {
+			return nil, nil, &fs.PathError{Op: "open", Path: "film.mkv", Err: syscall.EIO}
+		}
+	})
+	tick <- time.Time{}
+	testutil.Receive(t, core.statuses, "the first status")
+	core.sendMakeChunks(1, nodeproto.MakeChunks{
+		Video: nodeproto.BytesFile{
+			RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: strings.Repeat("ab", 32),
+		},
+		StoreDir: "1/chunks-picture/0123456789abcdef", BoundsMs: []int64{0, 2000},
+		Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamPicture},
+	})
+	report := receiveChunksReport(t, core)
+	if report.State != nodeproto.PrepareStalled || report.Stall == nil ||
+		report.Stall.Cause != nodeproto.StallDiskFailed || report.Stall.Condition != nodeproto.ConditionWaitingOnDisk {
+		t.Errorf("the run ended %+v (stall %+v); want stalled, its disk failing the read", report, report.Stall)
 	}
 }

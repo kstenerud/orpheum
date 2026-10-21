@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -429,11 +430,23 @@ func outcome(
 	case isStalled:
 		stalled.StderrTail = stderr.String()
 		return stalled
+	case waitErr != nil && isDiskFailure(stderr.String()):
+		// Not the file's: its disk did not answer, as a network share mounted to give up says (D233 §10).
+		return &StalledError{
+			Tool: tool, Cause: StallDiskFailed, Condition: ConditionWaitingOnDisk, StderrTail: stderr.String(),
+		}
 	case waitErr != nil:
 		status := command.ProcessState.ExitCode()
 		return &RunError{Tool: tool, ExitStatus: status, StderrTail: stderr.String(), Err: waitErr}
 	}
 	return nil
+}
+
+// isDiskFailure is whether a tool's log says a read failed for its disk, not its bytes: one of the
+// errors a network share that gives up on a host that is gone returns, as strerror words them.
+func isDiskFailure(log string) bool {
+	diskFailures := []string{"Input/output error", "Stale file handle", "Connection timed out", "Host is down"}
+	return slices.ContainsFunc(diskFailures, func(words string) bool { return strings.Contains(log, words) })
 }
 
 // watched is a run the watchdog judges: its watchdog, its process group, and its stdout counted.
