@@ -77,7 +77,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import browser_map
+import revert_red_known as known_red
 import revert_red_reruns as reruns
+from revert_red_queries import callers_of_change
 from revert_red_report import failure_advice, report
 from revert_red_parts import (BROWSER_DEFERRED, BROWSER_INLINE, BROWSER_ONLY, CSS_SOURCE, PARTS,  # noqa: F401 (tests reach them here)
                               browser_mode, is_in_part)
@@ -371,14 +373,20 @@ def other_builds(path: str) -> list[Attempt]:
     return attempts
 
 
-def attempts_for(change: Change, first: list[str]) -> list[Attempt]:
+def attempts_for(change: Change, first: list[str], base: str = "", head: str = "") -> list[Attempt]:
     """The runs that may notice a file's revert, in order, the first that fails deciding: its own
     tests (`first`), the whole suite, the other builds, the browser-mode tests, the browser tier. A new stylesheet's revert
     deletes it, which breaks the build of whatever imports it with no browser to start; one nothing
-    imports changes nothing."""
+    imports changes nothing. Generated query code's runs begin with the tests of the packages that
+    call the queries its change touched (revert_red_queries), given base and head."""
     if change.status == "A" and CSS_SOURCE.search(change.path):
         return [Attempt(WEB_BUILD, ", found by building the web client", None, True)]
     attempts = [Attempt(first, "")]
+    if change.path.startswith(GO_GENERATED_QUERIES) and base and head:
+        callers = callers_of_change(toplevel(), base, head, change.path)
+        if callers:
+            attempts.insert(0, Attempt(["go", "test", FIRST_RED_GO, *callers],
+                                       ", found by the tests of the code that calls its changed queries"))
     wide = wide_scope(change.path)
     if wide is not None and wide != scope_for(change.path):
         attempts.append(Attempt(wide, ", found by the tests its revert can reach"))
@@ -396,6 +404,11 @@ def is_not_linux(path: str) -> bool:
     except OSError:
         return False
     return bool(GO_NOT_LINUX.search(head))
+
+
+# Whether a probe takes a red the record holds for the same revert over the same code
+# (revert_red_known); the nightly run, trusting no record, sets it off (--trust-no-record).
+TRUST_RECORD = True
 
 
 def probe(tree: str, base: str, head: str, change: Change, timeout: int,
@@ -450,6 +463,10 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
         return Outcome(change.path, "UNCHECKED", "deleted; reverting would re-add it")
 
     unit = companions(change.path)
+    revert = known_red.revert_key(tree, base, head, [change.path, *unit])
+    if TRUST_RECORD and (seen := known_red.known(tree, head, revert)) is not None:
+        return Outcome(change.path, seen["verdict"], f"{seen['detail']}, as its probe at {seen['head'][:12]} "
+                       "found; nothing that run read has changed since")
     first = added_file_scope(tree, change.path) if change.status == "A" and TS_SOURCE.search(change.path) else None
     try:
         if change.status == "A":
@@ -462,7 +479,7 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
             revert_companion(tree, base, change.path, companion)
 
         unreached = False
-        attempts = attempts_for(change, first or scope)
+        attempts = attempts_for(change, first or scope, base, head)
         if TS_SOURCE.search(change.path) and emits_the_same_between(tree, base, head, change.path):
             # The browser runs the same JavaScript either way, so no browser run can notice it (emitted_js.py).
             attempts = [a for a in attempts if not is_browser_run(a)]
@@ -499,8 +516,11 @@ def probe_unclaimed(tree: str, base: str, head: str, change: Change, timeout: in
                                "found no runner, so nothing was checked")
             combined = done.stdout + done.stderr
             if attempt.compile_only or is_build_failure(combined):
-                return Outcome(change.path, "RED_BUILD", f"reverting it breaks the build{attempt.label}")
-            return Outcome(change.path, "RED_TEST", f"a test fails when it is reverted{attempt.label}")
+                red = Outcome(change.path, "RED_BUILD", f"reverting it breaks the build{attempt.label}")
+            else:
+                red = Outcome(change.path, "RED_TEST", f"a test fails when it is reverted{attempt.label}")
+            known_red.remember(tree, head, revert, attempt.command, red.verdict, red.detail)
+            return red
         if deferred:
             return Outcome(change.path, "BROWSER_OWED", "no cheap run turned red; its browser runs come in "
                            "the last tier, after check-pr's own browser run")
@@ -617,7 +637,12 @@ def main() -> int:
                     "the record of failures keeps the other part's")
     ap.add_argument("--unrecorded", action="store_true", help="keep no record of the failures: a check of "
                     "one commit (make check-commit-red) leaves the batch's record to check-pr")
+    ap.add_argument("--trust-no-record", action="store_true", help="probe every file, taking no red an "
+                    "earlier probe of the same revert over the same code found (make check-everything)")
     args = ap.parse_args()
+    if args.trust_no_record:
+        global TRUST_RECORD  # noqa: PLW0603 (the run's one setting, read by each probe)
+        TRUST_RECORD = False
     if args.unrecorded:
         reruns.begin = lambda _base: None  # type: ignore[assignment]
         reruns.finish = lambda *_args, **_kwargs: None  # type: ignore[assignment]

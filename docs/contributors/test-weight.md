@@ -415,6 +415,25 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
   anything else fails at it (`cmd/orpheum/serve_test.go`'s `couldNotStart`): 0.25 s.
 - **Warning sign:** a serve test red at exactly its wait's limit.
 
+### 23. A batch's reds probed twice, and a query's callers reached last
+
+- **Mechanism:** check-pr's revert-red probed every file of the batch again, though
+  check-commit-red had already turned most of them red as each commit was made; and a generated
+  query file's probe ran the store's integration tier and then every dependent package's tests,
+  where the test that goes red is nearly always the one calling the query that changed.
+- **Instance** (check-pr, 2026-10-21): 24 commits, 78 files, 754 s on 4 worktrees, 2921 s of
+  probing; six sqlc files 110 to 291 s each, series.sql.go 148 s green in the store's tier before
+  142 s of dependents found it red.
+- **Why it was invisible:** a red is the probe's success, and a batch's probes are each a few
+  minutes; only the summary's slowest files showed where the time went.
+- **Fix:** a red revert is recorded with the file's two blobs and the git trees of what its red run
+  tested, and a later probe of the same revert over the same trees takes it without running
+  (`revert_red_known.py`); the nightly `make check-everything` trusts no record. A generated query
+  file's probe runs first the packages that call the queries its change touched
+  (`revert_red_queries.py`), then the rest as before; only a green run settles a green verdict.
+- **Warning sign:** check-pr's revert-red over a batch whose commits each passed check-commit-red
+  taking as long as it did before; a sqlc file's probe red only in "its dependents".
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of

@@ -411,7 +411,7 @@ check-everything: browsers ## Everything, trusting no stamp, cache or map: CI's 
 	  base="$$(git rev-list -1 --before='$(SINCE)' HEAD)"; \
 	  if [ -z "$$base" ] || [ "$$base" = "$$(git rev-parse HEAD)" ]; then \
 	    echo "check-everything: no commit since $(SINCE), so revert-red has nothing to probe"; \
-	  else $(PYTHON) scripts/check_revert_red.py --base "$$base" --part all --unrecorded || failed=1; fi; \
+	  else $(PYTHON) scripts/check_revert_red.py --base "$$base" --part all --unrecorded --trust-no-record || failed=1; fi; \
 	  if [ "$$failed" -ne 0 ]; then echo "make check-everything: FAILED; every step ran, so each failure is above"; exit 1; fi; \
 	  echo "make check-everything: everything passed"
 
