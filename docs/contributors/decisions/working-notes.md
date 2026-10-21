@@ -21160,3 +21160,43 @@ film's node encodes on Quick Sync. **Refines** [D266](#d266--a-quality-whose-vid
 `decide.TwinKbps`; §2 on the Play page. A Watch Together guest's page still
 falls to the quality below the picture given up, as before §2; §4 is D286 §4's move, which goes by
 stream and so moves a twin's players too.
+
+## D324 — Work follows interest: what is played comes first, then what is being looked at, then everything else; work in the way is stopped, and what waits says how long
+
+**Decided** (2026-10-21), by the project owner: *"When a user opens a film or series page, he
+expresses interest in it, which should shift all priorities for that item. For a series, it starts
+going through the episodes, starting with the one after the last one watched. When a user starts
+playing a video, it gets the highest priority over all. If jobs for it are not done yet, we should
+give an estimate of how long until it's done. If a user goes away from a page or stops playing and
+goes to another page, his interest has shifted, and we switch priorities even if it means throwing
+out work. [...] We allow processing while a video is playing so long as it doesn't starve the CPU for
+the playing video (if the video is using hardware codecs or direct play, that changes the
+equation)."* Then, to the proposal: *"Go with your recommendations. 1: next 3 eps. 2: kill only
+what's in the way. 3: those two are fine."* On the owner's staging, where every film said its
+loudness was not measured: 3,412 read-throughs waited in id order, and 41 of 324 films were measured.
+**Revises** [D234](#d234--the-core-drives-the-node-the-node-keeps-a-durable-journal-of-its-jobs-and-schedules-them-pushes-progress-and-acknowledged-results-and-the-core-checks-and-reconciles) §3's play priority, [D240](#d240--the-core-keeps-the-smarts-a-scan-is-a-listing-the-core-compares-the-work-it-implies-is-the-cores-to-schedule-and-the-node-enforces-its-devices-limits-and-pauses-background-work-for-play) §6's pause, and the order of
+[D226](#d226--loudness-is-levelled-in-cut-a-the-node-measures-each-sound-and-its-stereo-mix-the-core-sets-a-gain-towards--23-lufs-that-no-peak-exceeds-and-the-player-applies-it-after-its-volume)'s measuring; **generalises** [D309](#d309--a-player-says-which-quality-it-wants-and-from-where-and-a-run-no-player-wants-stops)'s interest.
+
+1. **Interest is what people play and look at, now.** The core keeps each session's playback and
+   the film or series page it shows. A page says it is shown while it is, and a playback is shown
+   by its reports; either lapses within seconds of the page left or the playing stopped.
+2. **Interest orders the work.** Anything played comes first; then what is looked at, the latest
+   look first; then a person's own request, such as Look again; then the background, whose sweeps
+   keep their order. Everyone's interest counts, and anyone's playing comes before anyone's looking.
+3. **What interest raises.** For a film, every job its playing needs or shows: its read-through
+   (loudness and timeline), its prepared copy where it needs one, its artwork, its subtitles and its
+   metadata. For a series, the same for the episode after the last one watched and the two after it
+   (the first episode when none is watched).
+4. **Work in the way is stopped.** When raised work needs what other work holds, a device's only
+   reader or an encoder slot, the other work is stopped, even part done, and queued again at its own
+   priority. Work not in the way runs on, and work that can resume resumes. Interest that lapses
+   gives its work back its own priority; nothing is thrown out for it.
+5. **Playing is not starved.** A film played as it is, or encoded on a GPU, leaves the CPU free:
+   work runs beside it within its devices' reader limits. A film encoded in software keeps the CPU:
+   other encodes wait, and lighter work runs while the playing encode stays faster than playback.
+6. **What waits says how long.** The film's page, where it says the loudness is not measured, and
+   the player, where it waits for a prepared copy, say what is being done and about how long it
+   will take, from the file's size and the device's measured speed, the encoder's measured speed, and
+   what is ahead of it.
+
+**Status:** Planned: [interest-priority.md](../design/plans/interest-priority.md).
