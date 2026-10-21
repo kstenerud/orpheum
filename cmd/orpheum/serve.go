@@ -262,8 +262,8 @@ func openAndWire(
 		return opened, errors.Join(err, opened.cache.Close(), database.Close())
 	}
 	dependencies.NodeReports, dependencies.NodeWork = opened.nodes, opened.exchanges
-	dependencies.NodeBytes, dependencies.Reachability, dependencies.Relay = openByteSocket(opened.nodes),
-		opened.reachability, newRelayIssuer(config, opened, logger)
+	dependencies.NodeBytes = openByteSocket(opened.nodes, opened.jobServices.scans)
+	dependencies.Reachability, dependencies.Relay = opened.reachability, newRelayIssuer(config, opened, logger)
 	dependencies.System = api.System{
 		Build: thisBuild(), StartedAt: clock.System{}.Now(), PersistentDirectory: directories.PersistentDirectory(),
 		CacheDirectory: directories.CacheDirectory(), PersistentDatabase: database, CacheDatabase: opened.cache,
@@ -422,8 +422,8 @@ func holdSlowReadsForQuickPasses(exchanges *nodes.Exchanges, scans nodes.QuickPa
 
 // openByteSocket is the core's client of the node's byte socket: media bytes for the API, and
 // results the node holds, too large to post, for the node channel (D234 §5).
-func openByteSocket(service *nodes.Service) *nodes.ByteSocketClient {
-	byteSocket := nodes.NewByteSocketClient(service)
+func openByteSocket(service *nodes.Service, disks nodes.DiskStalls) *nodes.ByteSocketClient {
+	byteSocket := nodes.NewByteSocketClient(service, disks)
 	service.SetHeldResultReader(byteSocket)
 	return byteSocket
 }

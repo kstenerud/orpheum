@@ -24,6 +24,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/byteserver"
 	"github.com/kstenerud/orpheum/internal/node/chunks"
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/diskwatch"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/hardware"
 	"github.com/kstenerud/orpheum/internal/node/prepare"
@@ -129,7 +130,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	if err != nil {
 		return err
 	}
-	roots := openRoots(ctx, config.Node.RootPaths, logger)
+	roots, disks := openRoots(ctx, config.Node.RootPaths, logger)
 	defer func() {
 		for _, root := range roots {
 			if closeErr := root.Close(); closeErr != nil {
@@ -169,7 +170,8 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		}
 	}
 	heldResults := agent.NewHeldResults()
-	stopBytes, byteSocketPath, err := serveBytes(ctx, config, roots, directory, heldResults, logger)
+	stopBytes, byteSocketPath, err := serveBytes(ctx, config, roots, directory,
+		byteSocketShares{heldResults: heldResults, disks: disks}, logger)
 	if err != nil {
 		return err
 	}
@@ -188,12 +190,12 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		Scanner: activeScanner, Artworker: deriver,
 		Subtitler:     subtitle.NewExtractor(runner, hello.Capacity.SlowestReadBytesPerSecond),
 		ThroughReader: readthrough.NewReader(runner, hello.Capacity.SlowestReadBytesPerSecond),
-		HeldResults:   heldResults, Stuck: stuckOf(runner), SetStatusEvery: setStatusEvery,
+		HeldResults:   heldResults, Stuck: stuckOf(runner), SetStatusEvery: setStatusEvery, Disks: disks,
 	}
 	workers.EndedWorkKept, workers.ReadStallWindow = workPacing(config)
 	workers.ReadStallWindow = cmp.Or(seams.readStallWindow, workers.ReadStallWindow)
 	withPreparedDirectory(&workers, directory)
-	workers.FindDevices = devicesOf(roots, workers.PreparedDirectory)
+	workers.FindDevices = devicesOf(ctx, roots, workers.PreparedDirectory, disks)
 	watcher, stopWatching := startWatching(ctx, config, roots, workers.FindDevices, logger)
 	defer stopWatching()
 	workers.Watcher = watcher
@@ -268,7 +270,9 @@ func stuckOf(runner *execx.Runner) func() []nodeproto.Stuck {
 }
 
 // devicesOf finds what the roots and the prepared directory, when there is one, are on (D240 §5).
-func devicesOf(roots []*confine.MediaRoot, preparedDirectory string) func() ([]nodeproto.Device, error) {
+func devicesOf(
+	ctx context.Context, roots []*confine.MediaRoot, preparedDirectory string, disks *diskwatch.Gate,
+) func() ([]nodeproto.Device, error) {
 	paths := make([]string, 0, len(roots)+1)
 	for _, root := range roots {
 		paths = append(paths, root.Path())
@@ -276,8 +280,36 @@ func devicesOf(roots []*confine.MediaRoot, preparedDirectory string) func() ([]n
 	if preparedDirectory != "" {
 		paths = append(paths, preparedDirectory)
 	}
-	return func() ([]nodeproto.Device, error) { return hardware.Devices(paths) }
+	return func() ([]nodeproto.Device, error) { return hardware.Devices(answering(ctx, paths, disks)) }
 }
+
+// answering are the paths whose disks answer a stat within a few seconds, through the gate: one that
+// does not is left out of what is found of the devices rather than hold the hello that asks.
+func answering(ctx context.Context, paths []string, disks *diskwatch.Gate) []string {
+	found := make([]string, 0, len(paths))
+	for _, path := range paths {
+		operation := diskwatch.Operation{Root: path, Path: path, Window: statStallWindow}
+		_, err := diskwatch.Run(ctx, disks, operation,
+			func() (os.FileInfo, error) { return os.Stat(path) }, func(os.FileInfo) {})
+		if !errors.Is(err, diskwatch.ErrStalled) {
+			found = append(found, path)
+		}
+	}
+	return found
+}
+
+// fileOpenWindow is how long a file the byte socket serves may take to open, as the agent's opens
+// (agent.Workers.OpenStallWindow): a disk asleep spins up within it.
+const fileOpenWindow = 30 * time.Second
+
+// statStallWindow is how long a stat of a root or the prepared directory may take: milliseconds, or
+// seconds for a disk asleep.
+const statStallWindow = 5 * time.Second
+
+// rootOpenWindow is how long a media root may take to open at the node's start: a disk asleep spins
+// up within it; one whose share's host is gone is left out, which the core makes unavailable
+// (D241 §2), rather than hold the node's start for good.
+const rootOpenWindow = 30 * time.Second
 
 // workPacing is how long the node remembers work whose result the core took, and how long its own
 // reading may go without moving: node.ended_work_kept_hours, and the read window past
@@ -340,17 +372,25 @@ func openPreparedDirectory(
 	return preparedDirectory{root: root, preparer: preparer, chunkMaker: chunkMaker, shelf: shelf}, nil
 }
 
+// byteSocketShares are what the byte socket shares with the node's agent: the results it holds,
+// too large to post, and the gate every reading of the roots goes through.
+type byteSocketShares struct {
+	heldResults *agent.HeldResults
+	disks       *diskwatch.Gate
+}
+
 // serveBytes serves the node's byte socket, in its instance's run directory, until the returned stop
 // is called, and says where the socket is.
 func serveBytes(
 	ctx context.Context, config Config, roots []*confine.MediaRoot, directory preparedDirectory,
-	heldResults *agent.HeldResults, logger *slog.Logger,
+	shares byteSocketShares, logger *slog.Logger,
 ) (stop func(), socketPath string, err error) {
 	listener, err := unixsocket.Listen(config.Instance.RunDir, nodeSocketName)
 	if err != nil {
 		return nil, "", err
 	}
-	server := byteserver.New(roots, directory.root).ServingResults(heldResults)
+	server := byteserver.New(roots, directory.root).ServingResults(shares.heldResults).
+		WatchingOpens(shares.disks, fileOpenWindow)
 	if directory.shelf != nil {
 		server.OnRenditionServed(directory.shelf.MarkServed)
 	}
@@ -372,12 +412,28 @@ func serveBytes(
 	}, listener.Addr().String(), nil
 }
 
-// openRoots opens each configured media root. One that cannot be opened is logged and left out
+// openRoots opens each configured media root, and returns them with the gate every reading of them
+// in this process goes through, the byte socket's too, so a root whose disk does not answer holds
+// one stuck reading of the node's (diskwatch). One that cannot be opened is logged and left out
 // rather than stopping the node: a mount missing at boot must not take the others with it.
-func openRoots(ctx context.Context, paths []string, logger *slog.Logger) []*confine.MediaRoot {
+func openRoots(
+	ctx context.Context, paths []string, logger *slog.Logger,
+) ([]*confine.MediaRoot, *diskwatch.Gate) {
+	disks := diskwatch.NewGate(clock.System{})
+	return openRootsThrough(ctx, paths, disks, logger), disks
+}
+
+// openRootsThrough opens the media roots at paths through disks, leaving out one that does not open,
+// its disk not answering within rootOpenWindow among them.
+func openRootsThrough(
+	ctx context.Context, paths []string, disks *diskwatch.Gate, logger *slog.Logger,
+) []*confine.MediaRoot {
 	roots := make([]*confine.MediaRoot, 0, len(paths))
 	for _, path := range paths {
-		root, err := confine.OpenMediaRoot(path)
+		opening := diskwatch.Operation{Root: path, Path: path, Window: rootOpenWindow}
+		root, err := diskwatch.Run(ctx, disks, opening, func() (*confine.MediaRoot, error) {
+			return confine.OpenMediaRoot(path)
+		}, func(late *confine.MediaRoot) { _ = late.Close() }) //nolint:errcheck // a root never served
 		if err != nil {
 			logger.ErrorContext(ctx, "a media root cannot be opened; the node serves the others", "rootPath", path,
 				"err", err)

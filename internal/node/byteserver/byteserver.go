@@ -3,14 +3,19 @@
 package byteserver
 
 import (
+	"context"
 	"encoding/base64"
 	"errors"
+	"io/fs"
 	"net/http"
+	"os"
 	"path"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/diskwatch"
 	"github.com/kstenerud/orpheum/internal/node/namedfile"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/readonly"
@@ -29,6 +34,18 @@ type Server struct {
 	payloadHashes *namedfile.Hashes
 	// results are the results the node holds, too large to post; nil serves none.
 	results Results
+	// disks is the gate a file's open goes through, the node's agent sharing it, and openWindow how
+	// long the open may take; nil opens unwatched (WatchingOpens).
+	disks      *diskwatch.Gate
+	openWindow time.Duration
+}
+
+// WatchingOpens has the server open each file through the node's disk gate, answering one that does
+// not open within window, its disk not answering, with 504 and the root in HeaderStalledRoot, as one
+// whose root holds a stuck reading at once (D233 §10).
+func (server *Server) WatchingOpens(disks *diskwatch.Gate, window time.Duration) *Server {
+	server.disks, server.openWindow = disks, window
+	return server
 }
 
 // New returns a server over the node's roots and its prepared directory, which may be nil.
@@ -96,10 +113,13 @@ func (server *Server) serveFile(writer http.ResponseWriter, request *http.Reques
 		rawPath = nil // named with no path
 	}
 	wantPayloadHash := query.Get("payloadHash")
-	file, info, err := server.payloadHashes.OpenNamed(server.roots, nodeproto.BytesFile{
-		RootPath: query.Get("rootPath"), Path: rawPath, PayloadHash: wantPayloadHash,
-	})
+	named := nodeproto.BytesFile{RootPath: query.Get("rootPath"), Path: rawPath, PayloadHash: wantPayloadHash}
+	file, info, err := server.openNamed(request.Context(), named)
 	switch {
+	case errors.Is(err, diskwatch.ErrStalled):
+		writer.Header().Set(nodeproto.HeaderStalledRoot, named.RootPath)
+		http.Error(writer, "the disk this file is on is not answering", http.StatusGatewayTimeout)
+		return
 	case errors.Is(err, namedfile.ErrNoRoot):
 		http.Error(writer, "the root is not one of this node's", http.StatusNotFound)
 		return
@@ -125,6 +145,28 @@ func (server *Server) serveFile(writer http.ResponseWriter, request *http.Reques
 	writer.Header().Set("Content-Type", "application/octet-stream")
 	writer.Header().Set("ETag", `"`+payloadHash+`"`)
 	http.ServeContent(writer, request, "", info.ModTime(), file)
+}
+
+// openNamed opens the file named through the disk gate, when the server has one.
+func (server *Server) openNamed(ctx context.Context, named nodeproto.BytesFile) (*os.File, fs.FileInfo, error) {
+	if server.disks == nil {
+		return server.payloadHashes.OpenNamed(server.roots, named)
+	}
+	type opened struct {
+		file *os.File
+		info fs.FileInfo
+	}
+	operation := diskwatch.Operation{
+		Root: named.RootPath, Path: named.RootPath + "/" + string(named.Path), Window: server.openWindow,
+	}
+	got, err := diskwatch.Run(ctx, server.disks, operation, func() (opened, error) {
+		file, info, openErr := server.payloadHashes.OpenNamed(server.roots, named)
+		return opened{file: file, info: info}, openErr
+	}, func(late opened) { readonly.Close(late.file) })
+	if err != nil {
+		return nil, nil, err
+	}
+	return got.file, got.info, nil
 }
 
 // renditionNamePattern is the only shape a rendition's file may be named by: "<file_id>/<profile>/<run_id>/" and

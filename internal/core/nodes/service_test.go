@@ -766,7 +766,7 @@ func TestReadHeldResult_FetchesItFromTheNodesByteSocket(t *testing.T) {
 	posted := nodeproto.Result{JobID: 4, AttemptToken: "a4", Held: &nodeproto.HeldResult{
 		SizeBytes: int64(len(encoded)), Sha256: hex.EncodeToString(sum[:]),
 	}}
-	client := NewByteSocketClient(harness.service)
+	client := NewByteSocketClient(harness.service, nil)
 	result, err := client.ReadHeldResult(t.Context(), reply.NodeID, posted)
 	if err != nil || result.ReadThrough == nil || result.JobID != 4 {
 		t.Errorf("the held result = %+v, %v; want job 4's measurement", result, err)

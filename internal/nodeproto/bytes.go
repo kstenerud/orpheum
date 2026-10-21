@@ -19,6 +19,11 @@ type BytesFile struct {
 	PayloadHash string `json:"payloadHash"`
 }
 
+// HeaderStalledRoot names, on the byte socket's 504, the root whose disk did not answer an open of
+// the file asked for, or holds a reading that has not returned (D233 §10): the core makes it
+// unavailable.
+const HeaderStalledRoot = "X-Orpheum-Stalled-Root"
+
 // Target is the file's path and query on the byte socket; Path travels as unpadded base64url.
 func (file BytesFile) Target() string {
 	query := url.Values{

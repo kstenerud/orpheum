@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
@@ -26,16 +27,33 @@ var ErrNodeSilent = errors.New("the node is not answering")
 // (D242 §7).
 type ByteSocketClient struct {
 	service *Service
+	// disks make a root unavailable when its node says its disk does not answer (DiskStalls).
+	disks DiskStalls
 
 	mutex sync.Mutex
 	// clientBySocket is a client for each socket a node's hello named; guarded by mutex.
 	clientBySocket map[string]*http.Client
 }
 
-// NewByteSocketClient reads from the byte sockets of the nodes the service has heard from.
-func NewByteSocketClient(service *Service) *ByteSocketClient {
-	return &ByteSocketClient{service: service, clientBySocket: map[string]*http.Client{}}
+// NewByteSocketClient reads from the byte sockets of the nodes the service has heard from, telling
+// disks of a root whose disk a node says does not answer.
+func NewByteSocketClient(service *Service, disks DiskStalls) *ByteSocketClient {
+	return &ByteSocketClient{service: service, disks: disks, clientBySocket: map[string]*http.Client{}}
 }
+
+// StalledRootError is a read a node answered that a root's disk does not answer: the root is
+// unavailable since Since, until a scan reads it again (D233 §10, D241).
+type StalledRootError struct {
+	NodeID   int64
+	RootPath string
+	Since    time.Time
+}
+
+func (stalled *StalledRootError) Error() string {
+	return fmt.Sprintf("node %d's root %s: %s", stalled.NodeID, stalled.RootPath, ErrStalledOnDisk)
+}
+
+func (*StalledRootError) Unwrap() error { return ErrStalledOnDisk }
 
 // clientFor is the client for the socket at socketPath, made on first use.
 func (socketClient *ByteSocketClient) clientFor(socketPath string) *http.Client {
@@ -70,6 +88,15 @@ func (socketClient *ByteSocketClient) Do(ctx context.Context, nodeID int64, meth
 	response, err := socketClient.clientFor(socketPath).Do(request)
 	if err != nil {
 		return nil, errors.Join(ErrNodeSilent, err)
+	}
+	if root := response.Header.Get(nodeproto.HeaderStalledRoot); response.StatusCode == http.StatusGatewayTimeout &&
+		root != "" {
+		_ = response.Body.Close() //nolint:errcheck // the answer is the header's
+		since, markErr := socketClient.disks.MarkRootStalled(ctx, nodeID, root)
+		if markErr != nil {
+			return nil, fmt.Errorf("make root %s unavailable after its disk did not answer: %w", root, markErr)
+		}
+		return nil, &StalledRootError{NodeID: nodeID, RootPath: root, Since: since}
 	}
 	return response, nil
 }

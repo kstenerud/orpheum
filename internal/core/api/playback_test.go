@@ -25,19 +25,24 @@ type fakeNodeBytes struct {
 	mutex    sync.Mutex
 	files    map[string]string // guarded by mutex
 	isSilent bool              // guarded by mutex
-	status   int               // guarded by mutex: answer this instead, when set
+	// stalledRoot, when set, is a root whose disk the node says does not answer (guarded by mutex).
+	stalledRoot string
+	status      int // guarded by mutex: answer this instead, when set
 	// asksBeforeFound is, by target, how many more asks for it are answered 404 before it is found:
 	// a chunk its node makes while the core waits for it. Guarded by mutex.
 	asksBeforeFound map[string]int
 }
 
 func (fake *fakeNodeBytes) Do(
-	ctx context.Context, _ int64, method, target string, header http.Header,
+	ctx context.Context, nodeID int64, method, target string, header http.Header,
 ) (*http.Response, error) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	if fake.isSilent {
 		return nil, nodes.ErrNodeSilent
+	}
+	if fake.stalledRoot != "" {
+		return nil, &nodes.StalledRootError{NodeID: nodeID, RootPath: fake.stalledRoot}
 	}
 	recorder := httptest.NewRecorder()
 	contents, found := fake.files[target]
@@ -353,6 +358,16 @@ func TestPlayback_SaysWhichLegFailed(t *testing.T) {
 	changed := harness.getBytePath(t, decided.URL, user, false, "")
 	if changed.status != http.StatusNotFound || !strings.Contains(changed.body, `"code":"file_unavailable"`) {
 		t.Errorf("a file the node no longer has as it was: %d %s, want file_unavailable", changed.status, changed.body)
+	}
+	harness.nodeBytes.mutex.Lock()
+	harness.nodeBytes.status, harness.nodeBytes.stalledRoot = 0, "/media"
+	harness.nodeBytes.mutex.Unlock()
+	stalled := harness.getBytePath(t, decided.URL, user, false, "")
+	if stalled.status != http.StatusServiceUnavailable ||
+		!strings.Contains(stalled.body, `"code":"media_unreachable"`) ||
+		!strings.Contains(stalled.body, `"reason":"root_missing"`) || !strings.Contains(stalled.body, `"/media"`) {
+		t.Errorf("a file on a root whose disk does not answer: %d %s, want media_unreachable, /media missing",
+			stalled.status, stalled.body)
 	}
 }
 
