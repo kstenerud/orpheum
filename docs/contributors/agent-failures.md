@@ -49,6 +49,20 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A39 — Read the owner's own cable pulls in a NAS's log as a failing network card (2026-10-21)
+
+- **What happened:** diagnosing an NFS share that hung during the dead-share tests, the agent read
+  nas.example's `dmesg`, a run of r8169 "Link is Down … Link is Up" lines, as the RTL8125's known link
+  drops, called it "the cause", tied the day's earlier outages to it and recommended turning off EEE,
+  ASPM or the in-kernel driver. The drops were the owner unplugging the cable for those same tests,
+  earlier that afternoon. The false belief came from a log read without wall-clock times
+  (`dmesg` gives seconds since boot) against the session's own history: the agent did not ask
+  whether the drops lined up with the tests it knew had pulled the cable, and the newest drop was
+  38 minutes before the hang it was explaining.
+- **Caught by:** the owner, reading the diagnosis.
+- **Gate:** none; it is a reading of a host's log, not the code. The lesson: map an event log to
+  wall-clock time (`dmesg -T`) and to what the session itself did before naming a cause from it.
+
 ### A38 — Said Firefox fails a LAN request at once while its prompt waits; it holds it (2026-10-20)
 
 - **What happened:** the agent recorded in idiosyncrasies.md, and built the local-network permission
