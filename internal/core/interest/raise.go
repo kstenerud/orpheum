@@ -29,11 +29,17 @@ type Nodes interface {
 	Reprioritize(jobID, priority int64)
 }
 
+// Waiting brings back the work waiting on a destination: jobs.Queue.
+type Waiting interface {
+	Unpark(ctx context.Context, destination jobs.Destination)
+}
+
 // Parts are what the raiser reads and raises.
 type Parts struct {
 	Register *Register
 	Jobs     Jobs
 	Nodes    Nodes
+	Waiting  Waiting
 	// Playing are the files played now: the playback service's NowPlaying.
 	Playing  func() []int64
 	Database *store.Database
@@ -131,18 +137,35 @@ func (raiser *Raiser) RaiseWatched(ctx context.Context) error {
 	return raiser.raise(ctx, interested, jobs.PriorityShownInterest, time.Time{})
 }
 
-// raise raises interested's work and tells each node holding a raised job.
+// raise raises interested's work and tells each node holding a raised job. Work raised to a
+// person's tier that waits for room on a node, its slot or its device's readers full, is brought
+// back, so its claim bumps the lowest work of a lower tier holding the room (D324 §4, D255 §2).
 func (raiser *Raiser) raise(ctx context.Context, interested jobs.Interested, priority int64, until time.Time) error {
 	raised, err := raiser.parts.Jobs.Raise(ctx, interested, priority, until)
 	if err != nil {
 		return fmt.Errorf("raise the work of interest: %w", err)
 	}
+	var waitingOn []jobs.Destination
 	for _, job := range raised {
-		if job.IsAssigned {
+		switch {
+		case job.IsAssigned:
 			raiser.parts.Nodes.Reprioritize(job.ID, job.Priority)
+		case job.Priority >= jobs.PriorityPersonsRequest && isRoomOnANode(job.Destination) &&
+			!slices.Contains(waitingOn, job.Destination):
+			waitingOn = append(waitingOn, job.Destination)
 		}
 	}
+	for _, destination := range waitingOn {
+		raiser.parts.Waiting.Unpark(ctx, destination)
+	}
 	return nil
+}
+
+// isRoomOnANode is whether destination is room on a node, which work in it holds: a slot, a
+// device's readers, or a disk a scan's quick pass is on.
+func isRoomOnANode(destination jobs.Destination) bool {
+	parts := jobs.PartsOf(destination)
+	return parts.IsSlot || parts.IsQuickPass
 }
 
 // worksOf is what a look at an item raises (D324 §3): a film's or episode's own jobs and its live

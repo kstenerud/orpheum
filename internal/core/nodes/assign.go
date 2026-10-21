@@ -150,7 +150,7 @@ func (all *Exchanges) parkIfWindowFull(
 			return full(jobs.ReaderDestination(nodeID, device))
 		}
 	}
-	return all.parkBehindQuickPass(ctx, nodeID, resources, work, device)
+	return all.parkBehindQuickPass(ctx, nodeID, resources, work, priority, device)
 }
 
 // heldOn counts the attempts a node holds in slot, and reading device; none for "".

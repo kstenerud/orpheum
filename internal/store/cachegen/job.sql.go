@@ -572,7 +572,7 @@ UPDATE job SET priority = MAX(priority, CAST(?1 AS INTEGER)),
   wanted_until = CASE WHEN CAST(?2 AS INTEGER) = 0 THEN wanted_until
     ELSE MAX(COALESCE(wanted_until, 0), CAST(?2 AS INTEGER)) END
 WHERE id = ?3 AND state IN ('queued', 'running', 'assigned')
-RETURNING id, state, priority
+RETURNING id, state, priority, destination
 `
 
 type RaiseJobParams struct {
@@ -582,18 +582,24 @@ type RaiseJobParams struct {
 }
 
 type RaiseJobRow struct {
-	ID       int64
-	State    string
-	Priority int64
+	ID          int64
+	State       string
+	Priority    int64
+	Destination *string
 }
 
 // An open job raised to the priority a person's interest gives it, never lowered: kept wanted until
-// a time, after which the next demotion gives it background priority, when until is not zero, and
-// for good when it is (D324 section 2).
+// a time, after which the next demotion gives it the shown-interest rung, when until is not zero,
+// and for good when it is (D324 section 2). Its destination is the one it waits on, if any.
 func (q *Queries) RaiseJob(ctx context.Context, arg RaiseJobParams) (RaiseJobRow, error) {
 	row := q.db.QueryRowContext(ctx, raiseJob, arg.Priority, arg.Until, arg.ID)
 	var i RaiseJobRow
-	err := row.Scan(&i.ID, &i.State, &i.Priority)
+	err := row.Scan(
+		&i.ID,
+		&i.State,
+		&i.Priority,
+		&i.Destination,
+	)
 	return i, err
 }
 
@@ -612,8 +618,8 @@ type ReleaseJobsOfItemsAndFilesParams struct {
 }
 
 // The jobs a person's interest raised, below a play's priority, that no one is interested in any
-// more: their wanted time ends now, and the next demotion gives them background priority (D324
-// section 2).
+// more: their wanted time ends now, and the next demotion gives them the shown-interest rung
+// (D324 section 2).
 func (q *Queries) ReleaseJobsOfItemsAndFiles(ctx context.Context, arg ReleaseJobsOfItemsAndFilesParams) error {
 	_, err := q.db.ExecContext(ctx, releaseJobsOfItemsAndFiles,
 		arg.Now,

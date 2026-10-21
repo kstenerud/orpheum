@@ -10,11 +10,13 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 )
 
-// RaisedJob is an open job a person's interest raised, with its new priority and its state.
+// RaisedJob is an open job a person's interest raised, with its new priority, its state, and the
+// destination it last waited on, "" for none.
 type RaisedJob struct {
-	ID       int64
-	Priority int64
-	State    string
+	ID          int64
+	Priority    int64
+	State       string
+	Destination string
 }
 
 // RaiseJobsOfInterest gives every open job about the items or the files at least priority, wanted
@@ -42,7 +44,13 @@ func (jobStorage *JobStorage) RaiseJobsOfInterest(
 				return fmt.Errorf("raise job %d: %w", job.ID, raiseErr)
 			}
 			if row.Priority > job.Priority {
-				raised = append(raised, RaisedJob{ID: row.ID, Priority: row.Priority, State: row.State})
+				var destination string
+				if row.Destination != nil {
+					destination = *row.Destination
+				}
+				raised = append(raised, RaisedJob{
+					ID: row.ID, Priority: row.Priority, State: row.State, Destination: destination,
+				})
 			}
 		}
 		return nil

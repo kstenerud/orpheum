@@ -109,3 +109,33 @@ func TestAssign_ABackgroundReadThroughWaitsForAScansQuickPassOfItsDisk(t *testin
 		t.Errorf("a background read-through on tank after its quick pass still waits on it: %v", answer)
 	}
 }
+
+// A read-through of a film someone looks at, a person's work below a play's priority, goes ahead of
+// a scan's quick pass of its disk as a play's does; one at the shown-interest rung waits (D324 §4).
+func TestAssign_APersonsReadThroughGoesAheadOfAScansQuickPass(t *testing.T) {
+	t.Parallel()
+	bench := newExchanges(t)
+	bench.exchanges.Handle(jobs.KindReadThrough, assignedPrepare(make(answers, 8), nil))
+	bench.sender.resources = &nodes.Resources{
+		Capacity:     nodeproto.Capacity{EncodeSlotCount: 4, RemuxSlotCount: 4},
+		Devices:      nodeproto.Devices{{Key: "zfs:tank", MountPaths: []string{"/media"}}},
+		ReaderLimits: map[string]int{"zfs:tank": 8},
+	}
+	passes := &fakeQuickPasses{}
+	passes.set("/media/films")
+	bench.exchanges.SetQuickPasses(passes)
+	shown := bench.exchanges.Assign(t.Context(), 1,
+		jobs.Job{ID: 1, Kind: jobs.KindReadThrough, Priority: jobs.PriorityShownInterest}, readThroughOf("/media"))
+	if parking, isParked := jobqueue.ParkingOf(shown); !isParked ||
+		parking.Destination != jobs.QuickPassDestination(1, "zfs:tank") {
+		t.Errorf("a read-through at the shown-interest rung during tank's quick pass was answered %v; want it "+
+			"waiting on the quick pass", shown)
+	}
+	looked := bench.exchanges.Assign(t.Context(), 1,
+		jobs.Job{ID: 2, Kind: jobs.KindReadThrough, Priority: jobs.PriorityLookedAt}, readThroughOf("/media"))
+	if !jobqueue.IsAssigned(looked) {
+		t.Fatalf("a read-through of a film someone looks at during tank's quick pass was answered %v; want it "+
+			"given to the node", looked)
+	}
+	jobqueue.HandOver(t.Context(), looked)
+}

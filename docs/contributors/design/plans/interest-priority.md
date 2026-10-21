@@ -106,7 +106,11 @@ and a read-through is one file).
 2. **I2 — series.** The next episode after the last watched and the two after it; the series page
    says it is shown.
 3. **I3 — work in the way.** The core stops the lowest work holding a reader or an encoder slot that
-   raised work waits on.
+   raised work waits on. *Built 2026-10-21:* D255 §2's bump already stops the lowest work of a lower
+   tier where a slot or a device is full, and looked-at work is a person's tier; what was missing is
+   that raised work parked on the full room waited there until something ended. The raiser now
+   brings that room back, so the raised job's claim bumps; and a person's whole-file read no longer
+   waits behind a scan's quick pass, which D255 §3 meant for the background.
 4. **I4 — playing and the CPU.** No other encode beside a software-encoded playback; lighter work
    only while its run keeps up.
 5. **I5 — how long.** Each device's read speed and each prepare's speed; the API's waiting work and

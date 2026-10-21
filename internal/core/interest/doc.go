@@ -16,6 +16,11 @@
 //     that goes on, and what anyone watched is raised for good to the shown-interest rung (D324 §2,
 //     §3). Enforced by TestRaiser_RaisesThePlayedTheLookedAtAndTheWatched and
 //     TestRaiser_ALookThatGoesOnReleasesWhatLeftIt.
+//   - Work raised to a person's tier that waits for room on a node, a slot, a device's readers or a
+//     scan's quick pass, is brought back, so its claim bumps the lowest work of a lower tier holding
+//     the room (D324 §4, D255 §2); work given to a node is told its new priority.
+//     Enforced by TestRaiser_BringsBackRaisedWorkWaitingForRoomOnANode, and the bump in
+//     internal/core/nodes by TestAssign_WorkOfAHigherTierBumpsTheLowestWhereNothingIsFree.
 //   - A look at a series raises series_episodes_ahead episodes from its person's place: the one
 //     partway through, the latest watched of several; else the one after the latest finished; else
 //     the first (D324 §3). Enforced by TestEpisodesAhead_StartAtThePersonsPlaceInTheSeries and
