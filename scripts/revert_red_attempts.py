@@ -11,6 +11,7 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 import browser_map
 from revert_red_parts import CSS_SOURCE
@@ -93,3 +94,42 @@ def _installed_ffmpeg() -> str:
     done = subprocess.run([sys.executable, "scripts/fetch_ffmpeg.py"], cwd=root, capture_output=True,
                           text=True, check=False)
     return done.stdout.strip()
+
+
+GO_OS_SUFFIX = re.compile(r"_(darwin|windows|freebsd|openbsd|netbsd)(?:_[a-z0-9]+)?\.go$")
+# A Linux file for another architecture than the machine's, compiled only there.
+GO_LINUX_ARCH_SUFFIX = re.compile(r"_linux_(arm64|riscv64|arm|386|ppc64le|s390x)\.go$")
+# A build line that leaves Linux out: the file is compiled only for another system.
+GO_NOT_LINUX = re.compile(r"^//go:build .*!linux", re.MULTILINE)
+# A build line that leaves the machine's architecture out: a Linux stub for architectures with no file of
+# their own, compiled only by make check's riscv64 vet.
+GO_NOT_AMD64 = re.compile(r"^//go:build .*!amd64", re.MULTILINE)
+
+
+def other_platforms(path: str) -> list[Attempt]:
+    """The compiles for another system or architecture that make check makes, for a Go file only they build."""
+    attempts: list[Attempt] = []
+    other_os = GO_OS_SUFFIX.search(path)
+    if other_os:
+        goos = other_os.group(1)
+        attempts.append(Attempt(["go", "vet", "./..."], f", found by compiling for {goos}", {"GOOS": goos}, True))
+    other_arch = GO_LINUX_ARCH_SUFFIX.search(path)
+    not_linux = build_line_matches(path, GO_NOT_LINUX)
+    stub = not other_os and not not_linux and build_line_matches(path, GO_NOT_AMD64)
+    goarch = other_arch.group(1) if other_arch else "riscv64" if stub else None
+    if goarch:
+        attempts.append(Attempt(["go", "vet", "./..."], f", found by compiling for linux/{goarch}",
+                                {"GOOS": "linux", "GOARCH": goarch}, True))
+    if not other_os and not_linux:
+        # macOS is the other system make check compiles for (lint-speculative-api).
+        attempts.append(Attempt(["go", "vet", "./..."], ", found by compiling for darwin", {"GOOS": "darwin"}, True))
+    return attempts
+
+
+def build_line_matches(path: str, pattern: re.Pattern[str]) -> bool:
+    """Whether a Go file's build line, as the working tree has it, matches: marks a file only another build compiles."""
+    try:
+        head = Path(path).read_text(encoding="utf-8", errors="replace")[:2048]
+    except OSError:
+        return False
+    return bool(pattern.search(head))

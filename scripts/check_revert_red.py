@@ -84,7 +84,8 @@ from revert_red_report import failure_advice, report
 from revert_red_parts import (BROWSER_DEFERRED, BROWSER_INLINE, BROWSER_ONLY, CSS_SOURCE, PARTS,  # noqa: F401 (tests reach them here)
                               browser_mode, is_in_part)
 from revert_red_attempts import (BROWSER_MODE_RELATED, FIRST_RED_GO, FIRST_RED_VITEST, TS_SOURCE, Attempt,  # noqa: F401 (tests reach them here)
-                                 browser_mode_tests, browser_tier, browser_tier_command, is_browser_run)
+                                 browser_mode_tests, browser_tier, browser_tier_command, is_browser_run,
+                                 other_platforms)
 from revert_red_run import RUNNER_MISSING, is_build_failure, run_whole_group  # noqa: F401 (tests reach RUNNER_MISSING here)
 from revert_red_claims import VQ_FILE, refactor_only, verification_queue_problem, verified_out_of_suite  # noqa: F401 (tests reach VQ_FILE here)
 from emitted_js import emits_the_same_between
@@ -111,11 +112,6 @@ GO_TEST = re.compile(r"_test\.go$")
 # `//go:build dev` file, a `_darwin.go` shim — is reverted against them too, rather than
 # reported as noticed by nothing.
 GO_EXTRA_TAGS = "dev"
-GO_OS_SUFFIX = re.compile(r"_(darwin|windows|freebsd|openbsd|netbsd)(?:_[a-z0-9]+)?\.go$")
-# A Linux file for another architecture than the machine's, compiled only there.
-GO_LINUX_ARCH_SUFFIX = re.compile(r"_linux_(arm64|riscv64|arm|386|ppc64le|s390x)\.go$")
-# A build line that leaves Linux out: the file is compiled only for another system.
-GO_NOT_LINUX = re.compile(r"^//go:build .*!linux", re.MULTILINE)
 
 # A Python file is a test because of WHERE it lives, not what it is called. Every
 # one of our Python tests sits in `scripts/tests/`. yoloAI identified them by
@@ -358,19 +354,7 @@ def other_builds(path: str) -> list[Attempt]:
     reached = ["./" + str(Path(path).parent), *go_dependents(toplevel(), path)]
     attempts = [Attempt(["go", "test", FIRST_RED_GO, "-tags", GO_EXTRA_TAGS, *reached],
                         f", found by the -tags {GO_EXTRA_TAGS} suite")]
-    other_os = GO_OS_SUFFIX.search(path)
-    if other_os:
-        goos = other_os.group(1)
-        attempts.append(Attempt(["go", "vet", "./..."], f", found by compiling for {goos}", {"GOOS": goos}, True))
-    other_arch = GO_LINUX_ARCH_SUFFIX.search(path)
-    if other_arch:
-        goarch = other_arch.group(1)
-        attempts.append(Attempt(["go", "vet", "./..."], f", found by compiling for linux/{goarch}",
-                                {"GOOS": "linux", "GOARCH": goarch}, True))
-    if not other_os and is_not_linux(path):
-        # macOS is the other system make check compiles for (lint-speculative-api).
-        attempts.append(Attempt(["go", "vet", "./..."], ", found by compiling for darwin", {"GOOS": "darwin"}, True))
-    return attempts
+    return [*attempts, *other_platforms(path)]
 
 
 def attempts_for(change: Change, first: list[str], base: str = "", head: str = "") -> list[Attempt]:
@@ -401,16 +385,6 @@ def attempts_for(change: Change, first: list[str], base: str = "", head: str = "
     # browser-mode tests, seconds, settle most sheets before it (the owner, 2026-10-18).
     every = [*attempts, *other_builds(change.path), *browser_mode_tests(change.path), *browser_tier(change.path)]
     return sorted(every, key=is_browser_run)
-
-
-def is_not_linux(path: str) -> bool:
-    """Whether a Go file's build line leaves Linux out, as the working tree has it: a file only
-    another system compiles, whose revert only that system's build can notice."""
-    try:
-        head = Path(path).read_text(encoding="utf-8", errors="replace")[:2048]
-    except OSError:
-        return False
-    return bool(GO_NOT_LINUX.search(head))
 
 
 # Whether a probe takes a red the record holds for the same revert over the same code
