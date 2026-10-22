@@ -348,9 +348,17 @@ So:
 - **Pieces need no SIGSTOP:** the scheduler holds back the next answer.
 - **A read can serve two consumers** (§8.5).
 
-**The risk** is FFmpeg's behaviour on HTTP input: probing, seeking in Matroska and MP4, and
-throughput at 4K remux rates. It is tested first (§16, phase 1), with the fake FFmpeg in tests and
-the real tools in the tier that has them.
+**Tested 2026-10-22** ([ffmpeg-http-input-2026-10-22.md](../research/ffmpeg-http-input-2026-10-22.md)):
+- every command shape the node runs gives identical output through the byte path;
+- seeks fetch only what they need;
+- it runs at 333–395 MB/s, for about 1.6 CPU-seconds per GB more than reading the file;
+- withholding bytes pauses FFmpeg at no CPU cost;
+- SIGKILL always works.
+
+A run is judged by the byte path (was the file served to its end?) and by the demuxer's I/O error
+in the log, never by FFmpeg's exit status alone. A source that dies leaves FFmpeg exiting 0 with a
+partial result. The program stays FFmpeg's own CLI (the owner, 2026-10-22). A separate media program
+of our own, if one is ever written, is to be considered in Rust, for safety and performance.
 
 ### 8.2 Shallow below, ordered above
 

@@ -67,15 +67,17 @@ gave up about 38 s after the source fell silent, after its own retries.
 3. **The node, not FFmpeg's exit status, decides whether a read finished.**
    - The byte path knows whether it served the file to its end. A run whose source didn't is failed
      by the node, whatever FFmpeg says.
-   - Every run also gets `-xerror`.
+   - A run whose log has FFmpeg's `Error during demuxing: Input/output error` is failed too.
+   - **`-xerror` is not the fix** (a second test, below). It makes every error fatal, and a damaged
+     frame that FFmpeg conceals today would fail the whole run.
    - The node doesn't rely on `-rw_timeout`. It closes the connection itself when its diskwatch gate
      declares the place stalled, and FFmpeg then errors at once.
 4. **The defect in today's file reads, very likely.** The same "error during demuxing, exit 0"
    behaviour belongs to FFmpeg's demuxer, not to the HTTP protocol. So a read error mid-film on a
    soft NFS mount (EIO) very likely ends today's read-through or extraction with **a measurement of
    part of the film, reported as complete**. It wasn't reproduced on a real share here: simulating
-   EIO on a file needs a device-mapper or FUSE fault. `-xerror` on every run fixes it either way. It
-   is a test plus a one-line fix, and is recorded as phase 1's first step.
+   EIO on a file needs a device-mapper or FUSE fault. The fix is to treat the demuxer's I/O error in
+   the log as a failure of the run. It is recorded as phase 1's first step.
 5. **Confinement.** Today FFmpeg is confined to the `file` protocol and Landlock read access to the
    one file (cut-a §7).
    - With HTTP input it needs `http,tcp` only. The URL is the node's own, and a filename never
@@ -84,6 +86,20 @@ gave up about 38 s after the source fell silent, after its own retries.
      node's one loopback port. On an older kernel, the URL's per-run token is the guard: the byte
      path serves only the file that run was given.
    - FFmpeg then needs no read access to media at all.
+
+## A second test: `-xerror` on a damaged film
+
+Damage was written into `film.mkv`: 4 KB of random bytes at every 5% of the file. The same runs
+followed, without and with `-xerror`:
+
+| Run | Without `-xerror` | With `-xerror` |
+| --- | --- | --- |
+| Loudness of the 5.1 track | exit 0, −16.3 LUFS; the demuxer resynchronised past the damage | exit 0, the same |
+| Decoding the picture (as an encode does) | exit 0; 61 lines of errors, the damaged frames concealed | **exit 183** at the first damaged frame |
+
+A real film with a few damaged frames plays and encodes today, with a glitch. Under `-xerror` its
+prepare and its chunks would fail. So the fix fails a run on the I/O error alone, not on every
+error.
 
 ## Recommendation
 
@@ -95,6 +111,7 @@ and it confirmed the gains the design relies on:
 - one read that can be shared.
 
 Two conditions come with it:
-- **`-xerror` on every run, and success judged by the byte path.** The `-xerror` fix should land
-  first, for today's file reads too.
+- **Success judged by the byte path, and by the demuxer's I/O error in the log**, not by FFmpeg's
+  exit status and not with `-xerror`. The fix for the log line lands first, for today's file reads
+  too.
 - **Landlock's network rule where the kernel has it, and a per-run token always.**
