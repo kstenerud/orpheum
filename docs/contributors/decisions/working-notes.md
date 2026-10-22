@@ -21410,7 +21410,11 @@ whose pinned FFmpeg becomes jellyfin-ffmpeg with our patches.
   , so a kill reaches everything it is.
 5. **Runs that read bytes the node holds in memory** (artwork, subtitle text) keep reading stdin.
 
-**Status:** Decided. The patches are in orpheum-ffmpeg, tested on amd64 and arm64; the node's side is next.
+**Status:** Decided. The patches are in orpheum-ffmpeg, tested on amd64 and arm64. The node's side is
+built (internal/node/ffstreamer; every run's film from execx.Runner's FilmOf, a scan's probe too) and
+streams a film only when its FFmpeg has the protocol, so it waits on two things: published patched
+builds to pin (orpheum-ffmpeg's release workflow), and FFmpeg's block cache, which thrashes on a film
+whose tracks are stored one after another (orpheum-ffmpeg's bench/RESULTS.md).
 
 ## D331 — The node proves itself on both sockets, so a GPU encode may open a Unix socket
 
