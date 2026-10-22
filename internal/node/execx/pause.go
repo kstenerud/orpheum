@@ -8,6 +8,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/node/ffstreamer"
 )
 
 // Pausing pauses a watched run and continues it (D240 §6): its process group stopped with SIGSTOP
@@ -19,6 +21,15 @@ type Pausing struct {
 	isPaused bool        // guarded by mutex
 	process  *os.Process // guarded by mutex: the running tool's, nil when none runs
 	dog      *watchdog   // guarded by mutex: the running tool's watchdog
+	// film is the running tool's streamed film, whose READs a pause holds, so a paused run reads
+	// nothing (ffstreamer's PROTOCOL.md §2); nil for a run that reads a file. Guarded by mutex.
+	film filmHolder
+}
+
+// filmHolder holds a streamed film's READs back and releases them: *ffstreamer.Channel.
+type filmHolder interface {
+	Hold()
+	Release()
 }
 
 // pausingKey is the context key a Pausing travels under.
@@ -71,6 +82,9 @@ func (pausing *Pausing) Pause() {
 		return
 	}
 	pausing.isPaused = true
+	if pausing.film != nil {
+		pausing.film.Hold()
+	}
 	pausing.signal(syscall.SIGSTOP)
 	if pausing.dog != nil {
 		pausing.dog.pause()
@@ -89,6 +103,9 @@ func (pausing *Pausing) Continue() {
 		pausing.dog.resume()
 	}
 	pausing.signal(syscall.SIGCONT)
+	if pausing.film != nil {
+		pausing.film.Release()
+	}
 }
 
 // IsPaused is whether the run is paused.
@@ -98,12 +115,19 @@ func (pausing *Pausing) IsPaused() bool {
 	return pausing.isPaused
 }
 
-// attach binds a started tool to the pausing, stopping it at once when the run is paused.
-func (pausing *Pausing) attach(process *os.Process, dog *watchdog) {
+// attach binds a started tool, and its streamed film if it reads one, to the pausing, stopping it
+// at once when the run is paused.
+func (pausing *Pausing) attach(process *os.Process, dog *watchdog, film *ffstreamer.Channel) {
 	pausing.mutex.Lock()
 	defer pausing.mutex.Unlock()
-	pausing.process, pausing.dog = process, dog
+	pausing.process, pausing.dog, pausing.film = process, dog, nil
+	if film != nil {
+		pausing.film = film
+	}
 	if pausing.isPaused {
+		if pausing.film != nil {
+			pausing.film.Hold()
+		}
 		pausing.signal(syscall.SIGSTOP)
 		dog.pause()
 	}
@@ -113,7 +137,7 @@ func (pausing *Pausing) attach(process *os.Process, dog *watchdog) {
 func (pausing *Pausing) detach() {
 	pausing.mutex.Lock()
 	defer pausing.mutex.Unlock()
-	pausing.process, pausing.dog = nil, nil
+	pausing.process, pausing.dog, pausing.film = nil, nil, nil
 }
 
 // signal sends sig to the running tool, if one runs: its process and its group (signalRun). The
