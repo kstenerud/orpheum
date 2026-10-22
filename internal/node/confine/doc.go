@@ -28,6 +28,12 @@
 //     dynamically linked tool, as FFmpeg is, by
 //     TestEscape_ADynamicallyLinkedToolStartsConfinedAndReadsOnlyWhatItWasGiven. Both fail on a
 //     machine without a mechanism unless the job lists it in ORPHEUM_TEST_UNCONTROLLED.
+//   - A confined run starts no process and leaves neither its session nor its process group, so
+//     the kill that ends a run always reaches it, and its threads still start: seccomp refuses fork,
+//     vfork, clone without CLONE_THREAD, setsid and setpgid, and answers clone3 with ENOSYS, so that
+//     glibc and Go fall back to a clone it can read (EPERM there failed FFmpeg's threads).
+//     TestEscape_AConfinedToolStartsNoProcessAndStaysInItsGroupButStartsThreads, and for the pinned
+//     FFmpeg's threads, TestEscape_ThePinnedFFmpegEncodesWithThreadsWhenConfined.
 //   - A mechanism the machine offers but the shim could not put in force stops the run
 //     (ErrNotConfined), so no run has less than the node reported.
 //   - Only a run that uses the GPU is granted its devices, and it is granted every NVIDIA GPU that

@@ -21,3 +21,7 @@ func refuseForeignCalls() []unix.SockFilter {
 		{Code: unix.BPF_RET | unix.BPF_K, K: unix.SECCOMP_RET_ERRNO | uint32(unix.EPERM)},
 	}
 }
+
+// archDeniedSyscalls are this architecture's own ways of starting a process: fork and vfork, which
+// arm64 does not have.
+func archDeniedSyscalls() []uint32 { return []uint32{unix.SYS_FORK, unix.SYS_VFORK} }

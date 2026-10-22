@@ -190,7 +190,7 @@ func TestRunWatched_APausedRunNeitherStallsNorSpendsItsDeadlineAndIsJudgedAgainO
 	testutil.Receive(t, reported, "the watch's report")
 	pausing.Pause()
 	pausing.mutex.Lock()
-	pid := pausing.pid
+	pid := pausing.process.Pid
 	pausing.mutex.Unlock()
 	if state := stateOf(t, pid, true); state != "T" {
 		t.Errorf("the paused run's process is in state %q, want stopped (T)", state)
@@ -251,7 +251,7 @@ func TestRunWatched_ARunThatOutlivesItsKillIsAnsweredAndListedAsStuckUntilItEnds
 	clockSource := clocktest.NewFake(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC))
 	runner, ticks := watchedRunner(t, fake, clockSource)
 	runner.quitGrace, runner.termGrace, runner.killGrace = 10*time.Millisecond, 10*time.Millisecond, 10*time.Millisecond
-	runner.signalGroup = func(int, syscall.Signal) error { return nil }
+	runner.signalRun = func(*os.Process, syscall.Signal) error { return nil }
 
 	err := runUntilStalled(t, runner, ticks, clockSource)
 	stalled, isStalled := errors.AsType[*StalledError](err)
@@ -281,7 +281,7 @@ func TestRun_ACancelledRunThatOutlivesItsKillIsAnsweredAndListedAsStuck(t *testi
 	fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Hang: testutil.HangUntilKilled})
 	runner := newRunner(t, fake)
 	runner.killGrace = 10 * time.Millisecond
-	runner.signalGroup = func(int, syscall.Signal) error { return nil }
+	runner.signalRun = func(*os.Process, syscall.Signal) error { return nil }
 	ctx, cancel := context.WithCancel(t.Context())
 	ended := make(chan error, 1)
 	go func() {

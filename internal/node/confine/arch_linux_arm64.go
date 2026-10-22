@@ -12,3 +12,6 @@ const auditArch = unix.AUDIT_ARCH_AARCH64
 
 // refuseForeignCalls is nothing: arm64 has one system-call table.
 func refuseForeignCalls() []unix.SockFilter { return nil }
+
+// archDeniedSyscalls is nothing: arm64 has no fork or vfork, and starts a process only by clone.
+func archDeniedSyscalls() []uint32 { return nil }

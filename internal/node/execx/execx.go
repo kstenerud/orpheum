@@ -106,9 +106,9 @@ type Runner struct {
 	quitGrace, termGrace, killGrace time.Duration
 	// sampleGroup reads /proc for a watched run's process group; a test's says what it is told.
 	sampleGroup func(pgid int) groupSample
-	// signalGroup sends a signal to a run's process group; a test's may ignore SIGKILL, as the
+	// signalRun sends a signal to a run's process and its group; a test's may ignore SIGKILL, as the
 	// kernel does for a process waiting on a device.
-	signalGroup func(pgid int, signal syscall.Signal) error
+	signalRun func(process *os.Process, signal syscall.Signal) error
 	// onStarted, when set by a test, is called once the process has started.
 	onStarted func()
 
@@ -134,14 +134,25 @@ func NewConfinedRunner(directory, shim string) (*Runner, error) {
 	return &Runner{
 		directory: directory, shim: shim, clock: clock.System{}, watchTicks: systemWatchTicks,
 		quitGrace: defaultQuitGrace, termGrace: defaultTermGrace, killGrace: defaultKillGrace,
-		sampleGroup: sampleGroup, signalGroup: signalProcessGroup,
+		sampleGroup: sampleGroup, signalRun: signalRun,
 		stuck: stuckProcesses{byPID: map[int]StuckProcess{}},
 	}, nil
 }
 
-// signalProcessGroup sends signal to process group pgid: the tool and anything it started.
-func signalProcessGroup(pgid int, signal syscall.Signal) error {
-	return syscall.Kill(-pgid, signal) //nolint:wrapcheck // the caller ignores it: a group already gone needs no signal
+// signalRun sends signal to the tool's process itself, through its pidfd where the kernel has one
+// (os.Process), so a process that left its group is still reached; then to its process group, which
+// also reaches anything an unconfined tool started. A confined tool can start nothing and leave no
+// group (confine's seccomp filter; ffstreamer's PROTOCOL.md §9.1, §9.8). A process or group already
+// gone needs no signal, so neither is an error.
+func signalRun(process *os.Process, signal syscall.Signal) error {
+	err := process.Signal(signal)
+	if errors.Is(err, os.ErrProcessDone) {
+		err = nil
+	}
+	if groupErr := syscall.Kill(-process.Pid, signal); groupErr != nil && !errors.Is(groupErr, syscall.ESRCH) {
+		err = errors.Join(err, groupErr)
+	}
+	return err
 }
 
 // systemWatchTicks ticks every watchCheckEvery.
@@ -313,7 +324,7 @@ func (runner *Runner) runToExit(
 		dog := newWatchdog(runner.clock, *streams.watch)
 		dog.moved = streams.moved
 		if streams.pausing != nil {
-			streams.pausing.attach(command.Process.Pid, dog)
+			streams.pausing.attach(command.Process, dog)
 			defer streams.pausing.detach()
 		}
 		progress.startReading(dog)
@@ -404,12 +415,11 @@ func (runner *Runner) command(
 	}
 	command.SysProcAttr = toolProcessAttributes()
 	command.Cancel = func() error {
-		pid := command.Process.Pid
 		if ctx.Err() == nil {
-			runner.stopStalled(pid, ending)
+			runner.stopStalled(command.Process, ending)
 			return nil
 		}
-		err := runner.signalGroup(pid, syscall.SIGKILL)
+		err := runner.signalRun(command.Process, syscall.SIGKILL)
 		go runner.leaveRunningUnlessExited(ending)
 		return err
 	}
@@ -478,11 +488,11 @@ func (runner *Runner) watchUntil(exited <-chan struct{}, run watched, tool Tool,
 	}
 }
 
-// stopStalled stops a stalled run's process group: SIGINT, FFmpeg's graceful quit, then SIGTERM,
-// then SIGKILL, each after its grace unless the run has exited by then; and leaves it running if
-// it outlives the SIGKILL.
-func (runner *Runner) stopStalled(pid int, ending runEnding) {
-	_ = runner.signalGroup(pid, syscall.SIGINT) //nolint:errcheck // a group already gone needs no stopping
+// stopStalled stops a stalled run: SIGINT, FFmpeg's graceful quit, then SIGTERM, then SIGKILL, each
+// after its grace unless the run has exited by then; and leaves it running if it outlives the
+// SIGKILL.
+func (runner *Runner) stopStalled(process *os.Process, ending runEnding) {
+	_ = runner.signalRun(process, syscall.SIGINT) //nolint:errcheck // a run already gone needs no stopping
 	escalation := []struct {
 		grace  time.Duration
 		signal syscall.Signal
@@ -492,7 +502,7 @@ func (runner *Runner) stopStalled(pid int, ending runEnding) {
 			if !waitUnlessExited(ending.exited, step.grace) {
 				return
 			}
-			_ = runner.signalGroup(pid, step.signal) //nolint:errcheck // a group already gone needs no stopping
+			_ = runner.signalRun(process, step.signal) //nolint:errcheck // a run already gone needs no stopping
 		}
 		runner.leaveRunningUnlessExited(ending)
 	}()
