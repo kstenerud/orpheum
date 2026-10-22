@@ -121,6 +121,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/platform/clock`, `internal/platform/localtime`, `internal/platform/slogx`, `internal/platform/errs`, `internal/platform/ptr`, `internal/platform/pathtree`, `internal/platform/randbytes`, `internal/platform/readonly`, `internal/platform/backoff`, `internal/platform/atomics` | PRIM | — |
 | `internal/store`, `internal/store/sqlcgen`, `internal/store/cachegen` | PERSIST | — (the `job` table's one writer since the jobs rebuild's Phase 1, as the queue's storage: D231 §2) |
 | `internal/archtest`, `internal/testutil`, `internal/store/storetest`, `internal/core/auth/authtest`, `internal/core/identify/identifytest`, `internal/core/jobs/jobstest`, `internal/core/certificate/certificatetest`, `internal/core/providers/cloudflare/cloudflaretest`, `internal/core/nodes/nodestest`, `internal/core/library/librarytest`, `internal/core/settings/settingstest`, `internal/node/nodetest`, `internal/node/container/containertest`, `internal/platform/clock/clocktest`, `internal/platform/jobqueue/jobqueuetest`, `internal/core/providers/providerstest` | TEST | — |
+| `internal/schedtest` | TEST | — (D329's scheduling bench, work-scheduling.md §16 phase 0: a discrete-event simulation of disks, playbacks and the policy between them, with today's node work list as the baseline; outside core and node so it can drive the deciders of both) |
 
 ### Web
 

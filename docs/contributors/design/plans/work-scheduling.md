@@ -609,7 +609,7 @@ Each phase leaves the system working.
 
 | Phase | What | Replaces |
 | --- | --- | --- |
-| 0 | The simulation, with today's scheduler modelled too, as the baseline it must beat | — |
+| 0 | The simulation, with today's scheduler modelled too, as the baseline it must beat. **Begun 2026-10-22:** `internal/schedtest`, its disk (seeks, sleep, death and NFS recovery), a direct-play client, and today's node work list, which reproduces the 2026-10-21 listing (`TestToday_AListingWaitsBehindAPlayRaisedReadThroughOnceTheShareAnswers`: 1 min 51 s after the share answered). The encoder, the uplink and the scenarios X1–X3 follow as the phases that need them land | — |
 | 1 | **The node's read path:** FFmpeg reads media through the node's loopback byte path; the disk scheduler with tiers, pieces of reads, and the latency feedback; stuck reads counted apart | SIGSTOP pausing; FFmpeg's own file reads |
 | 2 | **Wants and work keys in the core:** the tier table; ephemeral and durable wants; attributes sent to the node instead of priorities; cancel at the next piece | Numeric priorities, `IsPlayDriven`, interest raising, the window, bump and quick pass |
 | 3 | **Pieces for long work:** read-through with its coverage map and histogram, subtitle extraction, trick-play, prepare by segments | Whole-film runs |
