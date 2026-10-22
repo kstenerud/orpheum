@@ -42,6 +42,10 @@ var (
 	ErrOverBudget = errors.New("FFmpeg asked for more of the film than its run should need")
 )
 
+// largestBlockBytes is the largest block the node serves in, whatever FFmpeg offers: the largest
+// DATA body the patched FFmpeg accepts.
+const largestBlockBytes = 4 << 20
+
 // drainWait is how long Finish waits for FFmpeg's last frames once it has exited: they are in the
 // pipe already, so this bounds only a pipe some other process still holds.
 const drainWait = 5 * time.Second
@@ -286,10 +290,12 @@ func (channel *Channel) open() (Terms, error) {
 	if err != nil {
 		return Terms{}, err
 	}
+	// FFmpeg's preferred block, but never more than the node's largest: it holds a block's buffer for
+	// each run, and FFmpeg may have been taken over by its film (§7.3).
+	block := min(offered.preferredBlock, largestBlockBytes)
 	terms := Terms{
 		Version: version, Run: channel.config.Run, FileSize: channel.config.Source.Size(),
-		BlockSize: offered.preferredBlock, LongestRead: offered.preferredBlock,
-		Outstanding: min(offered.outstanding, channel.config.MostOutstanding),
+		BlockSize: block, LongestRead: block, Outstanding: min(offered.outstanding, channel.config.MostOutstanding),
 	}
 	channel.mutex.Lock()
 	channel.terms = terms

@@ -205,6 +205,27 @@ func TestChannel_ServesAFilmWholeAndJudgesARunByItsDone(t *testing.T) {
 	}
 }
 
+// However large a block FFmpeg offers, the node serves in blocks no larger than its own largest, so an
+// FFmpeg taken over by its film cannot make the node hold gigabytes for it (§7.3).
+func TestChannel_ServesInBlocksNoLargerThanItsOwnLargestWhateverFFmpegOffers(t *testing.T) {
+	t.Parallel()
+	channel, fake := startFake(t, testConfig(newFilm(1000)))
+	fake.send(typeHello, helloBody(versionRange{lowest: 1, highest: 1}))
+	fake.receive()
+	fake.send(typeCapability, put(put(put([]byte(nil), int32(1<<30)), int32(1<<30)), int8(2)))
+	got, body := fake.receive()
+	if got.kind != typeRequest || len(body) != requestBytes {
+		t.Fatalf("the node answered CAPABILITY with type %d, %d bytes", got.kind, len(body))
+	}
+	if block, longest := int32Of(body[18:22]), int32Of(body[22:26]); block != largestBlockBytes ||
+		longest != largestBlockBytes {
+		t.Errorf("offered blocks of 1 GiB, the node asked for blocks of %d and reads of %d; want %d",
+			block, longest, largestBlockBytes)
+	}
+	fake.exit()
+	channel.Finish()
+}
+
 // Every way FFmpeg can break the protocol ends its run: the node kills it and says why (§9.2).
 func TestChannel_KillsARunThatBreaksTheProtocol(t *testing.T) {
 	t.Parallel()
