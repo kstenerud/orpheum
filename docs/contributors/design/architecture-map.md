@@ -92,6 +92,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/node/container` | R2 (container structure: Matroska elements, MP4 boxes) | — (hash anchors identity on them; read-throughs read a film's keyframes from their indexes, D259 §2) |
 | `internal/node/confine` | CONTAIN | ⚑ also the read-only `MediaRoot` handle that scan, namedfile and byteserver use (scan.go:47, namedfile.go:64) |
 | `internal/node/execx` | CONTAIN | — |
+| `internal/node/ffstreamer` | CONTAIN | — (D330: the node's side of ffstreamer, over which FFmpeg reads its input film through the node, every frame FFmpeg sends judged and a breach, a failed read or a passed budget killing the run; not yet wired into execx, waiting on the patched FFmpeg being fetchable) |
 | `internal/node/hardware` | OPS | — |
 | `internal/node/hash` | R2 (file identity) | — |
 | `internal/node/namedfile` | R2 (identity-checked open) | — |
