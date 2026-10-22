@@ -7,15 +7,16 @@
 
 # Work scheduling
 
-- **Status:** SKETCH, proposed 2026-10-22 for the owner. When the owner approves it, it is recorded
-  as a decision and becomes PLANNED. The owner asked for it: *"If the fixes don't require my
-  attention, go ahead with the design when you're ready."* It answers the scenarios in
-  [data-timeliness.md](data-timeliness.md), which are the requirements. Their research is in
-  [the review](../research/data-timeliness-review-2026-10-22.md),
+- **Status:** PLANNED — decided as
+  [D329](../../decisions/working-notes.md#d329--work-is-scheduled-from-wants-each-resource-is-decided-next-to-it-playback-is-admitted-and-long-work-is-cut-into-pieces)
+  on 2026-10-22, except §8.1 (FFmpeg reading through the node's byte path), which waits on its test.
+  The owner: *"1: Yes. 2: Yes, test this and then we decide based on the results. 3: I'm fine with
+  whichever ordering is more efficient. I don't need the features in a hurry."* It answers the
+  scenarios in [data-timeliness.md](data-timeliness.md), which are the requirements. Their research
+  is in [the review](../research/data-timeliness-review-2026-10-22.md),
   [the follow-ups](../research/timeliness-followups-2026-10-22.md) and
   [the audit](../research/data-timeliness-audit-2026-10-22.md). The code it changes is mapped in
-  [the queue inventory](../research/job-queues-inventory-2026-10-21.md). Three choices here are the
-  owner's to confirm (§17).
+  [the queue inventory](../research/job-queues-inventory-2026-10-21.md).
 - **Depends on:** [data-timeliness.md](data-timeliness.md). It supersedes
   [interest-priority.md](interest-priority.md)'s priority numbers. That plan's interest register is
   kept as one source of wants (§3).
@@ -326,7 +327,8 @@ D255 §2's "throws out its work" goes. Work blocked on a dead place is not holdi
   `provider_quota_attended_reserve_percent`, 20% by default. Background calls stop first.
 - **When a disk or an encoder can't keep its admitted shares** (capacity shrank: a RAID scrub, the
   household's own upload), Background yields first, then Predicted, then Attended. Only then is an
-  admitted playback lowered, by the rule of data-timeliness §11 Q3, still open.
+  admitted playback lowered: **the most recently started first** (the owner: *"seniority wins if
+  someone has to suffer"*).
 
 ## 8. The node's disk scheduler
 
@@ -614,28 +616,15 @@ The user-facing pieces of the scenarios ride on these phases rather than in them
 with the daily email (A6), bare entries and unreadable files (B5), the HDR warning (W11), the
 wait-or-play choice (P5), captions (P4), and accessibility (§5.5).
 
-## 17. Questions for the owner
+## 17. The owner's answers, 2026-10-22
 
-Three choices of the design need the owner's word, because they revise decisions or carry a real
-risk.
+1. **The node decides its disks and encoders** (§5): yes. D240 §5 and §6 are revised by D329.
+2. **FFmpeg reads media only through the node's byte path** (§8.1): test it first, then decide on
+   the results. The test is phase 1's first step.
+3. **The scope.** The order is the agent's to choose, for efficiency. The user-facing pieces (§16)
+   are built as a batch after phase 4, when admission and the waiting states exist for them to
+   show, and not interleaved.
 
-1. **The node decides its disks and encoders** (§5).
-   - **Today:** the core schedules node work, and the node only enforces limits and pauses for play
-     (D240 §5 and §6).
-   - **In this design:** the core derives work, values it and sends it with its attributes, and the
-     node orders it. The node is the one place that sees each read's latency, each run's lead and
-     each stuck read as it happens. D240's reason, keeping the smarts in the core, still holds:
-     deriving work, its value and its tier stay there.
-   - The alternative is to keep the core as the decider and send the node umi no tobira at a time. It
-     works, because they share a machine, but every feedback loop then crosses the socket.
-   - **Revise D240 §5 and §6 this way?**
-2. **FFmpeg reads media only through the node's byte path** (§8.1). This is the change that makes
-   pieces, pacing, sharing a read, and escaping kernel-stuck processes all possible. Its risk is
-   FFmpeg's behaviour on HTTP input, which phase 1 tests first. **Go ahead, with phase 1 as the
-   test?**
-3. **The scope of the rebuild.** The phases above cover the scheduling. The user-facing pieces (§16
-   end) are features of their own. **Should they be built inside this rebuild, interleaved with the
-   phases, or as a batch after phase 4, when admission exists for them to show?**
-
-Data-timeliness §11's four questions stay open too: an immediate channel for the admin, the wording
-"This has been reported", who yields when capacity shrinks, and stopping a stream by hand.
+Data-timeliness §11's four questions were answered the same day: no immediate channel, no "This
+has been reported", seniority wins when capacity shrinks, and stopping a stream by hand only if a
+user asks.

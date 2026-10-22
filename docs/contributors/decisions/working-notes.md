@@ -17615,6 +17615,8 @@ alone."*
 
 ## D240 — The core keeps the smarts: a scan is a listing the core compares, the work it implies is the core's to schedule, and the node enforces its devices' limits and pauses background work for play
 
+> **§5 and §6 revised by [D329](#d329--work-is-scheduled-from-wants-each-resource-is-decided-next-to-it-playback-is-admitted-and-long-work-is-cut-into-pieces)** (2026-10-22): the node decides its disks and encoders from the wants the core sends, and play is admitted rather than exempted from limits.
+
 > **§5 revised by [D255](#d255--work-has-three-priorities-a-persons-a-fast-operations-and-a-slow-ones-and-a-higher-one-bumps-the-lowest-when-nothing-is-free)** (2026-10-07): work has three priorities, a person's, a fast operation's and a slow one's, and a higher one bumps a running job of the lowest when nothing is free.
 
 **Decided** (2026-10-02), by the project owner, on the proposal for the jobs rebuild's 4d: *"Let's
@@ -18499,6 +18501,8 @@ fullscreen, show the `<video>` element by itself, and the layer is left behind.
 ---
 
 ## D255 — Work has three priorities, a person's, a fast operation's and a slow one's, and a higher one bumps the lowest when nothing is free
+
+> **§2 and §3 revised by [D329](#d329--work-is-scheduled-from-wants-each-resource-is-decided-next-to-it-playback-is-admitted-and-long-work-is-cut-into-pieces)** (2026-10-22): tiers replace the three priorities; preemption happens at a piece boundary and throws no work away; the quick pass goes.
 
 **Decided** (2026-10-07), by the project owner, watching a new library of films on the NAS take
 minutes to list a dozen: *"It should be doing a quick scan first and then fill in with the more
@@ -21163,6 +21167,8 @@ stream and so moves a twin's players too.
 
 ## D324 — Work follows interest: what is played comes first, then what is being looked at, then everything else; work in the way is stopped, and what waits says how long
 
+> **§2 and §4 revised by [D329](#d329--work-is-scheduled-from-wants-each-resource-is-decided-next-to-it-playback-is-admitted-and-long-work-is-cut-into-pieces)** (2026-10-22): interest is a source of wants whose tier the core gives; numbers are no longer raised, and work in the way yields at its next piece.
+
 **Decided** (2026-10-21), by the project owner: *"When a user opens a film or series page, he
 expresses interest in it, which should shift all priorities for that item. For a series, it starts
 going through the episodes, starting with the one after the last one watched. When a user starts
@@ -21326,3 +21332,43 @@ D326 and D327.
    complete scan recorded; a scan follows in the background.
 
 **Status:** Decided.
+
+
+## D329 — Work is scheduled from wants, each resource is decided next to it, playback is admitted, and long work is cut into pieces
+
+**Decided** (2026-10-22), by the project owner, on the design
+[work-scheduling.md](../design/plans/work-scheduling.md), which answers the scenarios of
+[data-timeliness.md](../design/plans/data-timeliness.md). The owner had asked for the redesign:
+*"This is starting to feel like an architectural problem with how we queue and prioritize jobs"*;
+then *"a data system relying on a single dimension only is doomed to fail (which is why our numeric
+priority system became a mess) … I don't care even if we have to rip all the pieces out and
+greenfield them"*. To the design's questions: *"1: Yes. 2: Yes, test this and then we decide based on
+the results. 3: I'm fine with whichever ordering is more efficient."* **Revises** [D240](#d240--the-core-keeps-the-smarts-a-scan-is-a-listing-the-core-compares-the-work-it-implies-is-the-cores-to-schedule-and-the-node-enforces-its-devices-limits-and-pauses-background-work-for-play) §5 and §6,
+[D255](#d255--work-has-three-priorities-a-persons-a-fast-operations-and-a-slow-ones-and-a-higher-one-bumps-the-lowest-when-nothing-is-free) §2 and §3, and [D324](#d324--work-follows-interest-what-is-played-comes-first-then-what-is-being-looked-at-then-everything-else-work-in-the-way-is-stopped-and-what-waits-says-how-long) §2 and §4's ordering by raised numbers; **keeps** D231, D233, D234,
+D238, D309, D324's interest register, and D325–D328.
+
+1. **Wants, not priorities.** A want is someone's need for data by a deadline: ephemeral (a lease a
+   session holds, declared again on reconnecting) or durable (a fact the server keeps until done).
+   Its tier comes from a table in the core, from what the want is, never from a client. Deadlines
+   travel as remaining budgets. Numeric priorities and the play-driven flag go.
+2. **Work is keyed by its content** (kind, content, parameters); wants for the same data meet on
+   it; its tier is its wants' highest and its deadline their earliest; with no live want it is
+   cancelled at its next piece. Background work keeps D231's standing wants, derived by sweeps.
+3. **Each resource has one decider, next to it.** The node decides its disks and its encoders; the
+   core derives work, values it and sends it with its attributes. The core decides the uplink, the
+   providers and the database writer. The core's window, bump and quick pass go.
+4. **Playback is admitted, not prioritised**: all or nothing across disk, encoder and uplink, then
+   protected by feedback. No running playback is lowered to admit a newcomer; below a floor the
+   newcomer chooses to play now at less or to wait. When capacity itself shrinks, the most
+   recently started playback yields first (*"seniority wins if someone has to suffer"*).
+5. **Four tiers order the rest inside each decider**: interactive, attended, predicted (spare
+   capacity only, never waking a disk), background (Due by latest start; Eventually by value over
+   cost, shared between kinds with a minimum share).
+6. **Long work is made of pieces** of about two seconds of a resource, with progress kept between
+   them; preemption happens only at a piece boundary and throws nothing away.
+7. **FFmpeg reading media through the node's own byte path** (the design's §8.1) is decided on
+   the results of its test, which comes first.
+8. **Quiet hours, idleness and sleeping disks** govern background work as data-timeliness A8 says.
+
+**Status:** Decided 2026-10-22, except §7, which waits on its test. Phases in
+[work-scheduling.md](../design/plans/work-scheduling.md) §16.

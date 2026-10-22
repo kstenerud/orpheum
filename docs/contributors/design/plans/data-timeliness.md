@@ -27,8 +27,8 @@
     owner decided them the same day, with changes to the multi-viewer rule and the messages (§11).
     A final audit by a systems and a UX expert
     ([data-timeliness-audit-2026-10-22.md](../research/data-timeliness-audit-2026-10-22.md)) found the
-    direction in line with expert consensus and listed fixes. The fixes are folded in, and four
-    policy questions are open in §11.
+    direction in line with expert consensus and listed fixes. The fixes are folded in, and the
+    owner answered its four policy questions the same day (§11).
   - The design built from these scenarios is not written yet.
   - This replaces the five design questions of the
     [queue inventory](../research/job-queues-inventory-2026-10-21.md) §5, which the design answers.
@@ -273,9 +273,8 @@ There are two audiences:
   - **Transient**, said only when a probe can recover the cause: *"It will pick up by itself when
     it's back. [Keep waiting] [Watch something else]"*.
   - **Lasting**, for an unreadable or corrupt file or a full disk, which will not come back by
-    itself: *"This film can't be played right now. This has been reported."* The passive voice
-    names no one. It is true, because the admin's badge and email exist, and it gives the person
-    a reason to stop retrying (§11 Q2).
+    itself: *"This film can't be played right now."* It says nothing of reporting. Every error is
+    reported, and the admin gets them in the daily digest (the owner, 2026-10-22).
 - **The admin** gets the detail (the place, when it last answered, what waits behind it), and is
   **notified**, not left to find out from a text (A6).
 - **Both see a badge.** An issue shows as a badge in the app for every person it touches. A user's
@@ -627,7 +626,9 @@ rule for everyone: *once you are watching, nobody's arrival stalls you or lowers
   - The choice is remembered on the device for the evening.
 - **When capacity itself shrinks**, because a RAID scrub takes the disk or the household's own
   traffic takes the uplink, someone must yield. That is not an arrival, so the rule above doesn't
-  cover it. Who yields is §11 Q3.
+  cover it. **The most recently started playback yields first** (the owner, 2026-10-22:
+  *"seniority wins if someone has to suffer"*). A direct play becomes a transcode if the encoder has
+  room. Otherwise its viewer gets the wait-or-reduced choice.
 
 #### P6. Watch Together, one person remote
 
@@ -715,8 +716,10 @@ A share stops answering, a node goes offline, a certificate or backup is at risk
 failed, or a file can't be read (B5). The admin is notified, with what a user met: *"a user hit
 this at 21:14 on Film X"*. In a household the partner texts "it's broken" first, and the admin
 should already know. With a badge and a next-day email alone, the admin learns at the next open of
-the app or the next morning, so the text still comes first. Whether to add an immediate channel is
-§11 Q1.
+the app or the next morning, so the text still comes first, and that is accepted. The owner,
+2026-10-22: *"When an issue hits a playback in progress, we wait for the scheduled time to send an
+email. If the problem is annoying enough, the user will inform the admin via a social channel. The
+admin can see everything from a status page whenever he wants."* There is no immediate channel.
 
 The owner, 2026-10-22: *"Show the badge, and email at most once a day to inform of new issues. The
 badge will need to show for regular users as well, since the issue will likely lead to badges on
@@ -915,7 +918,7 @@ renamed. The job is offered again, and doing it twice does no harm.
 
 A RAID scrub or another media server takes the disk's throughput, and Orpheum can't see it. The
 playback's lead over the playhead shrinks, and background reads on that disk are throttled first
-(§8.6). If the playbacks themselves no longer fit, someone must yield (§11 Q3).
+(§8.6). If the playbacks themselves no longer fit, the most recently started yields first (P5).
 
 #### W15. A child presses Play five times (missing before)
 
@@ -1096,23 +1099,12 @@ This sketch does not decide these. The design does, against the scenarios.
 - **Quiet hours (A8)** as proposed, with their start and end configurable.
 - **A user's messages never mention the administrator.**
 
-### Open, from the final audit
+### Answered from the final audit, 2026-10-22
 
-The [final audit](../research/data-timeliness-audit-2026-10-22.md) left four questions that are the
-owner's. None of them blocks the design: each is a policy the design keeps as a setting.
+1. **No immediate channel.** The admin learns from the daily digest and the status page. A user who
+   is annoyed enough tells the admin themselves (A6).
+2. **No "This has been reported."** Every error is reported, and the digest carries it (§5.4).
+3. **Seniority wins when capacity shrinks:** the most recently started playback yields first (P5).
+4. **Stopping a stream by hand** is built only if a user asks for it.
 
-1. **An immediate channel for the admin.** A badge and a next-day email mean the partner's text
-   still comes first (A6). Add an opt-in immediate notice (web push, or a native one later) only for
-   issues that touch a playback now, silent in quiet hours? Or keep it as decided, and accept that
-   the admin learns at the next open of the app?
-2. **"This has been reported."** For a lasting fault, a user's message says this (§5.4). It names
-   no one, and it tells the person to stop retrying. Does it keep to "never mention the
-   administrator"?
-3. **Who yields when capacity itself shrinks.** A RAID scrub takes the disk, or the household's own
-   traffic takes the uplink, and the playbacks no longer fit (P5, W14). Nobody arrived, so the rule
-   "no arrival lowers you" doesn't decide it. The proposal: **the most recently started playback
-   steps down first.** A direct play becomes a transcode if the encoder has room, and otherwise its
-   viewer gets the wait-or-reduced choice.
-4. **Stopping a stream by hand.** Plex and Jellyfin let an admin stop someone's stream, with a
-   message. That keeps the automatic rule equal for everyone, and gives the owner a recourse on their
-   own server. Wanted?
+No question is open.
