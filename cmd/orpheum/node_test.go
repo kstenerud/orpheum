@@ -26,6 +26,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
+	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/cachegen"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -261,7 +262,10 @@ func TestRunNode_RefusesToRunUnconfinedWhenConfinementIsRequired(t *testing.T) {
 	}
 }
 
-func TestRunNode_ServesItsRootsOnTheByteSocket(t *testing.T) {
+// The byte socket serves its roots to the holder of the key it keeps beside itself, as the core
+// dials it, and nothing to a process of the same user without it: a GPU run may open a Unix socket
+// (D331 §1).
+func TestRunNode_ServesItsRootsOnTheByteSocketToTheHolderOfItsKeyOnly(t *testing.T) {
 	t.Parallel()
 	config, _ := testConfig(t)
 	media := t.TempDir()
@@ -287,7 +291,7 @@ func TestRunNode_ServesItsRootsOnTheByteSocket(t *testing.T) {
 		t.Fatalf("runNode returned before serving the byte socket: %v\n%s", early, captured)
 	}
 	socket := filepath.Join(config.Instance.RunDir, nodeSocketName)
-	client := &http.Client{Transport: &http.Transport{
+	stranger := &http.Client{Transport: &http.Transport{
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 			return (&net.Dialer{}).DialContext(ctx, "unix", socket)
 		},
@@ -305,7 +309,15 @@ func TestRunNode_ServesItsRootsOnTheByteSocket(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	response, err := client.Do(request)
+	refused, err := stranger.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = refused.Body.Close() //nolint:errcheck // only the status matters
+	if refused.StatusCode != http.StatusUnauthorized {
+		t.Errorf("the byte socket answered a request without its key %d; want 401", refused.StatusCode)
+	}
+	response, err := unixsocket.Client(socket, 0).Do(request)
 	if err != nil {
 		t.Fatal(err)
 	}

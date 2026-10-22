@@ -33,7 +33,11 @@ func runNodeChannel(
 	if err != nil {
 		return nil, err
 	}
-	server := &http.Server{Handler: service.Handler(), ReadHeaderTimeout: config.readHeaderTimeout()}
+	handler, err := keepSocketKey(ctx, listener.Addr().String(), service.Handler(), logger)
+	if err != nil {
+		return nil, errors.Join(err, listener.Close())
+	}
+	server := &http.Server{Handler: handler, ReadHeaderTimeout: config.readHeaderTimeout()}
 	var running sync.WaitGroup
 	running.Go(func() {
 		if serveErr := server.Serve(listener); !errors.Is(serveErr, http.ErrServerClosed) {

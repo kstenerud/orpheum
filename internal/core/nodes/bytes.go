@@ -61,11 +61,9 @@ func (socketClient *ByteSocketClient) clientFor(socketPath string) *http.Client 
 	defer socketClient.mutex.Unlock()
 	client, found := socketClient.clientBySocket[socketPath]
 	if !found {
-		transport := unixsocket.Transport(socketPath)
 		// A player's reads come one range after another; keep the connection for the next. Four is
 		// a few players at once, each with a request in flight; more would only hold idle sockets.
-		transport.MaxIdleConnsPerHost = 4
-		client = &http.Client{Transport: transport}
+		client = unixsocket.Client(socketPath, 4)
 		socketClient.clientBySocket[socketPath] = client
 	}
 	return client

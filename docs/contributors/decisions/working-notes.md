@@ -21383,3 +21383,61 @@ D238, D309, D324's interest register, and D325–D328.
 
 **Status:** Decided 2026-10-22; §7 on its tests the same day. Phases in
 [work-scheduling.md](../design/plans/work-scheduling.md) §16.
+
+## D330 — FFmpeg reads its input through the node, over a protocol of our own patched into jellyfin-ffmpeg
+
+**Decided** (2026-10-22), by the project owner, after the media-access scenarios, the own-binary
+research and the interposer wargame: *"OK, let's take the wide view of the ffmpeg thing... two viable
+options now: A small LD_PRELOAD library, or maintaining our own patches"*, choosing the patches, kept
+in a repository of their own, with our own media program in Rust kept as the way out *"if we hit a
+blocker"*. **Revises** [D329 §7](#d329--work-is-scheduled-from-wants-each-resource-is-decided-next-to-it-playback-is-admitted-and-long-work-is-cut-into-pieces),
+whose hybrid (a pipe where FFmpeg reads straight through, the file where it seeks) it replaces, and
+[D193 §6](#d193--the-audits-proposals-are-accepted-the-node-does-all-media-work-prepare-is-the-one-path-besides-direct-play-the-machinery-is-cut-and-cut-as-design-freezes),
+whose pinned FFmpeg becomes jellyfin-ffmpeg with our patches.
+
+1. **Every run that reads a film from storage reads it through the node,** by offset, over two
+   inherited pipes per input: the protocol *ffstreamer* (its PROTOCOL.md, draft 6, after five
+   audits). FFmpeg is given no path to the film, opens no socket, and never waits in the kernel on a
+   dead share; the node's disk scheduler serves, paces, holds or refuses every read.
+2. **The patches live in their own repository** (orpheum-ffmpeg), applied after jellyfin-ffmpeg's own
+   series and moved with each of its releases: the protocol in libavformat, and fftools exiting
+   non-zero when an input's reads failed. They know nothing of Orpheum.
+3. **The node kills; FFmpeg is never told to stop.** No message aborts, pauses or reports a read
+   error: the node holds reads and stops the process to pause it, and kills it, the process itself
+   by pidfd, to end it. A run's verdict is FFmpeg's exit status, the channel's DONE, and the node's
+   own account of its reads.
+4. **A confined run starts no process and leaves neither its session nor its process group**
+  , so a kill reaches everything it is.
+5. **Runs that read bytes the node holds in memory** (artwork, subtitle text) keep reading stdin.
+
+**Status:** Decided. The patches are in orpheum-ffmpeg, tested on amd64 and arm64; the node's side is next.
+
+## D331 — The node proves itself on both sockets, so a GPU encode may open a Unix socket
+
+**Decided** (2026-10-22), by the project owner (*"go with your recommendations"*), after a confined
+NVENC encode was found never to have worked: CUDA's initialisation needs a Unix socket (it asks
+NVIDIA's multi-process daemon, and listens on an abstract socket of its own), a few files under
+`/proc`, and to name its threads, and the node's encoder trial fell back to x264 on every NVIDIA
+machine. The Plex-chain review's N1 had refused FFmpeg every socket because the core took any
+process on its node socket as the node, by name alone; its second remedy, that the node prove
+itself, was never built. **Revises** N1's socket rule for GPU runs; **extends**
+[D242 §7](#d242--an-orpheum-instance-is-one-directory-a-small-top-level-config-pointing-at-persistent-cache-backups-and-run-and-a-backup-is-a-tarball-of-persistent).
+
+1. **Each socket asks for a key FFmpeg cannot read.** Each listener, the core's node socket and the
+   node's byte socket, makes a random key at every start and keeps it beside its socket
+   (`core.sock.key`, mode 0600), and serves nothing to a request that does not present it; whoever
+   dials a socket reads the key beside it, as it finds the socket (D242 §7). The two sides run as one
+   user, as FFmpeg does, so the file's mode keeps out other users and Landlock keeps out every run:
+   no key is in any place a run is granted.
+2. **A GPU run may create a Unix socket, and no other kind;** every other run still creates none. A
+   run's network stays refused by seccomp and Landlock alike.
+3. **A GPU run is granted what its driver reads to start:** `/proc/devices`, `/proc/cpuinfo`,
+   `/proc/sys/vm/mmap_min_addr`, its own `/proc/self/maps` and `status`, and to write its own
+   threads' names. Without `/proc/devices`, CUDA starts `nvidia-modprobe`, which a run may not.
+4. **What a hijacked GPU run can still reach** is any other named Unix socket on its machine that its
+   user may open. In the container image there is little; on a bare install, a private mount
+   namespace would close it, and is not built.
+5. **The encoder trial's failure stays visible**: the doctor warns of a node with a GPU that encodes
+   on the processor, and the System page shows each trial's error.
+
+**Status:** Decided.

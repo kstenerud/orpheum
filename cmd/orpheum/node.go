@@ -394,7 +394,10 @@ func serveBytes(
 	if directory.shelf != nil {
 		server.OnRenditionServed(directory.shelf.MarkServed)
 	}
-	handler := server.Handler()
+	handler, err := keepSocketKey(ctx, listener.Addr().String(), server.Handler(), logger)
+	if err != nil {
+		return nil, "", errors.Join(err, listener.Close())
+	}
 	httpServer := &http.Server{
 		Handler: handler, ReadHeaderTimeout: time.Duration(config.Node.ReadHeaderTimeoutSeconds) * time.Second,
 	}
