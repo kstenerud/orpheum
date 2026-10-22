@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/scan"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -102,7 +103,7 @@ func realScanner() *scan.Scanner {
 // matroskaProber finds every file a Matroska.
 type matroskaProber struct{}
 
-func (matroskaProber) Probe(context.Context, string) (nodeproto.Probe, error) {
+func (matroskaProber) Probe(context.Context, execx.Film) (nodeproto.Probe, error) {
 	return nodeproto.Probe{Format: nodeproto.ProbeFormat{FormatNames: []string{"matroska"}}}, nil
 }
 

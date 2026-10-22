@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"strings"
@@ -41,7 +42,8 @@ type Film struct {
 	Size int64
 	// Stream, when set, is the channel that serves it, and the run is granted no path to it.
 	Stream *ffstreamer.Config
-	// CacheBlocks is how many blocks of a streamed film FFmpeg keeps (ffstreamer.CacheBlocks).
+	// CacheBlocks is how many blocks of a streamed film FFmpeg keeps (ffstreamer's PROTOCOL.md
+	// §10.2): filmCacheBlocks, for every film alike.
 	CacheBlocks int
 }
 
@@ -66,6 +68,85 @@ func (film Film) Readable() []string {
 // size it had when the node opened it, so bounding a run never stats a file whose disk may not answer.
 func (film Film) ReadingDeadline(slowestReadBytesPerSecond int64) time.Duration {
 	return deadlineForReading(film.Size, slowestReadBytesPerSecond)
+}
+
+// The terms on which the node streams a film to the run that reads it (D330, ffstreamer's
+// PROTOCOL.md).
+
+// filmBudgetFloorBytes is the least a run may be served of its film, so a small film, its index or a
+// block's rounding never passes the budget (§9.6).
+const filmBudgetFloorBytes = 64 << 20
+
+// filmDataPipeBytes is the size asked for the pipe that carries a film's bytes: at the default 64 KiB,
+// throughput halved in measurement (§4.3).
+const filmDataPipeBytes = 1 << 20
+
+// filmMostOutstanding is how many READs FFmpeg may have unanswered: the block it waits for, and the
+// next, prefetched as it reads straight through.
+const filmMostOutstanding = 2
+
+// filmCacheBlocks is how many of a streamed film's blocks FFmpeg keeps (§10.2). FFmpeg reads a few
+// seconds of every track as it opens a film, whatever the run maps, so a film whose tracks are stored
+// one after another is read from as many places as it has tracks, sweeping them over and over, and a
+// cache smaller than the sweep thrashes: an 11-track film was served 25 times its size at 19 or 32
+// blocks of 1 MiB, and a third of it at 48 (orpheum-ffmpeg's bench/interleave.py, 2026-10-22).
+const filmCacheBlocks = 48
+
+// FilmReading is how much of its film a run reads, which sets how much it may be served (§9.6).
+type FilmReading int
+
+const (
+	// ReadsWholeFilm is a run that reads its film through: a read-through, a prepare, chunks, a
+	// subtitle track.
+	ReadsWholeFilm FilmReading = iota
+	// ReadsIndex is a probe: the film's index and a few seconds of each track.
+	ReadsIndex
+)
+
+// budget is the most a run reading a film of sizeBytes as reading may be served. A whole read: the
+// film once, a quarter more for blocks read twice (an interleaved film measured 1.04 to 1.12 times its
+// size), and the floor. A probe: a sixteenth of the film over the floor, which a probe passed only by
+// thrashing (bench/interleave.py measured at most 70 MiB).
+func (reading FilmReading) budget(sizeBytes int64) int64 {
+	if reading == ReadsIndex {
+		return sizeBytes/16 + filmBudgetFloorBytes
+	}
+	return sizeBytes + sizeBytes/4 + filmBudgetFloorBytes
+}
+
+// OpenedFilm is a film the node has opened and checked: the file, its facts as opened, and the gate of
+// its disk, under Root, through which each of its reads goes, given Window.
+type OpenedFilm struct {
+	File   *os.File
+	Facts  fs.FileInfo
+	Disks  *diskwatch.Gate
+	Root   string
+	Window time.Duration
+}
+
+// StreamFilms has the runner stream every film to the run that reads it from now on (D330): its
+// FFmpeg has the ffstreamer protocol (HasFFstreamer). It is called once, before any run.
+func (runner *Runner) StreamFilms() { runner.streamsFilms.Store(true) }
+
+// FilmOf is the film at path, an absolute path, opened and checked as opened, for a run that reads it
+// as reading: served from the opened file through its disk's gate when the runner streams films, the
+// run given no path to it; by its path otherwise. The caller closes the file once the run has ended.
+func (runner *Runner) FilmOf(path string, opened OpenedFilm, reading FilmReading) Film {
+	film := Film{Path: path, Size: opened.Facts.Size()}
+	if !runner.streamsFilms.Load() {
+		return film
+	}
+	film.Stream = &ffstreamer.Config{
+		Run: runner.filmRuns.Add(1),
+		Source: ffstreamer.NewFileSource(
+			opened.File, opened.Facts, opened.Disks, opened.Root, path, opened.Window,
+		),
+		MostOutstanding: filmMostOutstanding,
+		BudgetBytes:     reading.budget(film.Size),
+		DataPipeBytes:   filmDataPipeBytes,
+	}
+	film.CacheBlocks = filmCacheBlocks
+	return film
 }
 
 // openFilm makes a run's film channel and hands FFmpeg its ends at filmReadFD and filmWriteFD:

@@ -118,6 +118,10 @@ type Runner struct {
 	logger *slog.Logger
 	// pipeSizeTold is that telling, once.
 	pipeSizeTold sync.Once
+	// streamsFilms is whether FilmOf streams each film to its run (StreamFilms).
+	streamsFilms atomic.Bool
+	// filmRuns numbers the runs a film is streamed to, from 1, each FFmpeg's DONE naming its own.
+	filmRuns atomic.Int64
 
 	stuck stuckProcesses
 }

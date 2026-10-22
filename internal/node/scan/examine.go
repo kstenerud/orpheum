@@ -15,6 +15,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/hash"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/bounded"
+	"github.com/kstenerud/orpheum/internal/platform/readonly"
 )
 
 // maxNFOBytes bounds the NFO a sidecar record carries. Real ones are a few kilobytes; a larger
@@ -122,9 +123,9 @@ func (walk *walk) observe(place location, info fs.FileInfo) error {
 	if err != nil {
 		return walk.fail(place.reportedPath, nodeproto.ScopeEntry, err, info)
 	}
-	probed, err := walk.scanner.prober.Probe(walk.ctx, place.absolute())
+	probed, err := walk.probe(place)
 	if err != nil {
-		return walk.fail(place.reportedPath, nodeproto.ScopeEntry, fmt.Errorf("%w: %w", errProbe, err), info)
+		return walk.fail(place.reportedPath, nodeproto.ScopeEntry, err, info)
 	}
 	device, _ := confine.DeviceOf(info)
 	inode, _ := confine.InodeOf(info)
@@ -139,6 +140,31 @@ func (walk *walk) observe(place location, info fs.FileInfo) error {
 		FilesystemDevice:  device,
 		Inode:             inode,
 	}})
+}
+
+// probe probes the video at place: streamed from the file the scanner opens, when its options make
+// films (Options.Films), or by its path. Its failure is errProbe's.
+func (walk *walk) probe(place location) (nodeproto.Probe, error) {
+	film := execx.Film{Path: place.absolute()}
+	if options := walk.scanner.options; options.Films != nil {
+		file, err := place.mediaRoot.Open(place.relativePath)
+		if err != nil {
+			return nodeproto.Probe{}, fmt.Errorf("%w: open %s: %w", errProbe, place.relativePath, err)
+		}
+		defer readonly.Close(file)
+		facts, err := file.Stat()
+		if err != nil {
+			return nodeproto.Probe{}, fmt.Errorf("%w: stat %s: %w", errProbe, place.relativePath, err)
+		}
+		opened := execx.OpenedFilm{File: file, Facts: facts, Disks: options.Disks, Root: place.mediaRoot.Path()}
+		opened.Window = options.FilmReadWindow
+		film = options.Films.FilmOf(film.Path, opened, execx.ReadsIndex)
+	}
+	probed, err := walk.scanner.prober.Probe(walk.ctx, film)
+	if err != nil {
+		return nodeproto.Probe{}, fmt.Errorf("%w: %w", errProbe, err)
+	}
+	return probed, nil
 }
 
 // openSubtitlesHash is OpenSubtitles' moviehash of a video, from its first and last 64 KiB

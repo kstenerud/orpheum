@@ -157,7 +157,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	if err != nil {
 		return err
 	}
-	scanner := newScanner(config, roots, runner, hello)
+	scanner := newScanner(config, roots, runner, hello, disks)
 	// A node that cannot use its prepared directory still scans and serves files as they are; it
 	// says why it prepares nothing, and each prepare it is asked for fails with that reason.
 	directory, err := openPreparedDirectory(config, runner, encoderChoice.Chosen, logger)
@@ -191,7 +191,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		Subtitler:     subtitle.NewExtractor(runner, hello.Capacity.SlowestReadBytesPerSecond),
 		ThroughReader: readthrough.NewReader(runner, hello.Capacity.SlowestReadBytesPerSecond),
 		HeldResults:   heldResults, Stuck: stuckOf(runner), SetStatusEvery: setStatusEvery, Disks: disks,
-		StreamsFilms: streamsFilms(ctx, runner, logger),
+		Films: filmsOf(ctx, runner, logger),
 	}
 	workers.EndedWorkKept, workers.ReadStallWindow = workPacing(config)
 	workers.ReadStallWindow = cmp.Or(seams.readStallWindow, workers.ReadStallWindow)
@@ -458,11 +458,16 @@ type nodeCapabilities struct {
 	gpus          []nodeproto.GPU
 }
 
-// newScanner lists under the roots and examines their files, probing each video with runner; an error
-// it reports names the user and group the hello gives, so it can be read against them.
-func newScanner(config Config, roots []*confine.MediaRoot, runner *execx.Runner, hello nodeproto.Hello) *scan.Scanner {
+// newScanner lists under the roots and examines their files, probing each video with runner, which
+// streams it through the disks' gate when it streams films; an error it reports names the user and
+// group the hello gives, so it can be read against them.
+func newScanner(
+	config Config, roots []*confine.MediaRoot, runner *execx.Runner, hello nodeproto.Hello, disks *diskwatch.Gate,
+) *scan.Scanner {
 	prober := probe.NewProber(runner, time.Duration(config.Node.ProbeTimeoutSeconds)*time.Second)
-	return scan.NewScanner(roots, prober, scan.Options{UID: hello.UID, GID: hello.GID})
+	return scan.NewScanner(roots, prober, scan.Options{
+		UID: hello.UID, GID: hello.GID, Films: runner, Disks: disks, FilmReadWindow: fileOpenWindow,
+	})
 }
 
 // startIDBytes is a start id's random bytes before hex: eight never repeat between two starts of a
@@ -522,12 +527,15 @@ func capacityOf(config Config) nodeproto.Capacity {
 	}
 }
 
-// streamsFilms is whether the node serves each film to the run that reads it (D330), which it does
-// when its FFmpeg has the ffstreamer protocol, and says which; a node whose FFmpeg cannot be asked
-// reads films by path, as the stock build does. The runner logs to logger what concerns streamed
-// films as a whole.
-func streamsFilms(ctx context.Context, runner *execx.Runner, logger *slog.Logger) bool {
+// filmsOf is what makes the films the node's runs read: runner, which serves each film to the run that
+// reads it (D330) when its FFmpeg has the ffstreamer protocol, and otherwise has each read its film by
+// its path, as the stock build does, and a node whose FFmpeg cannot be asked. It says which. The
+// runner logs to logger what concerns streamed films as a whole.
+func filmsOf(ctx context.Context, runner *execx.Runner, logger *slog.Logger) *execx.Runner {
 	hasIt, err := runner.LoggingTo(logger).HasFFstreamer(ctx)
+	if hasIt {
+		runner.StreamFilms()
+	}
 	switch {
 	case err != nil:
 		logger.WarnContext(ctx, "could not ask FFmpeg for its protocols; each run reads its film by its path",
@@ -537,7 +545,7 @@ func streamsFilms(ctx context.Context, runner *execx.Runner, logger *slog.Logger
 	default:
 		logger.InfoContext(ctx, "FFmpeg has no ffstreamer protocol; each run reads its film by its path")
 	}
-	return hasIt
+	return runner
 }
 
 // hardwareReport is the hello's account of hardware encoding: the devices, each trial and the

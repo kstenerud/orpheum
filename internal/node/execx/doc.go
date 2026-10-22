@@ -78,6 +78,9 @@
 //     TestReadingDeadline_IsReadingTheFileAtTheSlowestReadTheNodeIsConfiguredFor.
 //   - A film is streamed only by an FFmpeg that lists ffstreamer among its input protocols
 //     (HasFFstreamer). TestHasFFstreamer_IsTheProtocolAmongTheInputsFFmpegLists.
+//   - FilmOf is the one place a run's film is made: by path, or, once StreamFilms, served from the file
+//     the node opened, through its disk's gate, each run numbered and bounded by what it reads, a
+//     probe far less than a whole read. TestFilmOf_StreamsTheOpenedFileOnTheTermsOfWhatTheRunReads.
 //   - That a streamed film's pipe kept its default size, the user's pipe memory spent, is logged once
 //     (LoggingTo). TestRunner_SaysOnceThatAStreamedFilmsPipeKeptItsDefaultSize.
 //

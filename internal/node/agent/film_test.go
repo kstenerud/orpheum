@@ -45,7 +45,7 @@ func TestAgent_ARunIsServedTheFileTheNodeCheckedOnlyWhenItsFFmpegReadsThroughIt(
 		core, socket := startFakeCore(t)
 		preparer := filmRecordingPreparer{films: make(chan filmSeen, 1)}
 		root, _ := startAgentWithWorkers(t, socket, Workers{
-			Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Preparer: preparer, StreamsFilms: isStreamed,
+			Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Preparer: preparer, Films: filmsRunner(t, isStreamed),
 		})
 		core.sendPrepare(1, preparableFilm(t, root), "3/remux/0123456789abcdef")
 		seen := testutil.Receive(t, preparer.films, "the prepare's film")
@@ -65,7 +65,7 @@ func TestAgent_ARunIsServedTheFileTheNodeCheckedOnlyWhenItsFFmpegReadsThroughIt(
 }
 
 // checkServedTheCheckedFile checks a run was given its film streamed, with no path, the stream serving
-// the file the node checked, on the terms of a whole read.
+// the file the node checked, within a whole read's budget.
 func checkServedTheCheckedFile(t *testing.T, seen filmSeen) {
 	t.Helper()
 	stream := seen.film.Stream
@@ -75,9 +75,20 @@ func checkServedTheCheckedFile(t *testing.T, seen filmSeen) {
 			seen.film)
 	case seen.readErr != nil || string(seen.contents) != "a film":
 		t.Errorf("the stream served %q, %v; want the file the node checked", seen.contents, seen.readErr)
-	case stream.Run < 1 || stream.BudgetBytes != wholeFilmBudget(6) || stream.MostOutstanding != 2 ||
-		stream.DataPipeBytes != 1<<20 || seen.film.CacheBlocks != filmCacheBlocks:
-		t.Errorf("the stream's terms are %+v, %d blocks kept; want a run's number, a whole read's "+
-			"budget, two READs, a 1 MiB pipe and %d blocks", *stream, seen.film.CacheBlocks, filmCacheBlocks)
+	case stream.BudgetBytes < 64<<20:
+		t.Errorf("the stream's budget is %d bytes; want a whole read's, past its floor", stream.BudgetBytes)
 	}
+}
+
+// filmsRunner is a runner that makes films, streaming them when isStreamed.
+func filmsRunner(t *testing.T, isStreamed bool) *execx.Runner {
+	t.Helper()
+	runner, err := execx.NewRunner(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if isStreamed {
+		runner.StreamFilms()
+	}
+	return runner
 }

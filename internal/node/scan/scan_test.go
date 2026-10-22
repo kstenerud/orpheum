@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/hash"
 	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -26,7 +27,8 @@ type fakeProber struct {
 	onProbe func()
 }
 
-func (fake *fakeProber) Probe(_ context.Context, absolutePath string) (nodeproto.Probe, error) {
+func (fake *fakeProber) Probe(_ context.Context, film execx.Film) (nodeproto.Probe, error) {
+	absolutePath := film.Path
 	fake.probed = append(fake.probed, absolutePath)
 	if fake.onProbe != nil {
 		fake.onProbe()
