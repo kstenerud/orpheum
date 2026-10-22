@@ -513,6 +513,16 @@ class RevertRedBuildLines(unittest.TestCase):
         self.assertEqual(rr.other_builds(str(other))[-1].env, {"GOOS": "darwin"})
         self.assertEqual(len(rr.other_builds(str(plain))), 1)
 
+    def test_a_linux_file_whose_build_line_leaves_amd64_out_is_compiled_for_riscv64(self):
+        directory = Path(tempfile.mkdtemp())
+        stub = directory / "arch_linux_other.go"
+        stub.write_text("// SPDX-License-Identifier: AGPL-3.0-or-later\n\n//go:build linux && !amd64 && !arm64\n\n"
+                        "package x\n")
+        built = rr.other_builds(str(stub))
+        self.assertEqual(built[-1].env, {"GOOS": "linux", "GOARCH": "riscv64"})
+        self.assertTrue(built[-1].compile_only)
+        self.assertEqual(len(built), 2)
+
 
 class CommitLint(unittest.TestCase):
     def lint(self, subject: str, body: str = "") -> list[str]:
