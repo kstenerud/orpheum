@@ -7,6 +7,9 @@
 - **Status:** PLANNED — written 2026-10-21 on the owner's word (*"Go with your recommendations. 1:
   next 3 eps. 2: kill only what's in the way. 3: those two are fine."*), and to build (*"Yes sounds
   good"*), the series' place clarified the same day.
+- **Revised by D329** (2026-10-22, [work-scheduling.md](work-scheduling.md)): the interest register
+  stays, as a source of wants. Raising and demoting numeric priorities, and stopping work in the
+  way by them, give way to tiers, admission and pieces.
 - **Depends on:** D324; D234 §3 (a job's priority and its "wanted until"), D240 §5 and §6 (the core
   schedules, the node keeps its devices' limits), D309 (a player's interest in its chunks), D286 §4
   (an encoder that cannot keep up), D226 (loudness measured by the read-through).
