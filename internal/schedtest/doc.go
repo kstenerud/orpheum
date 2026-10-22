@@ -8,7 +8,8 @@
 //
 // It is phase 0 of work-scheduling.md §16. Today's scheduler is modelled here as the baseline
 // (Today); each later phase plugs its real decider in behind the same Policy, so the bench judges
-// the code that runs, not a second model of it. It is test support: only tests import it.
+// the code that runs, not a second model of it: Decided is the node's own disk scheduler. It is test
+// support: only tests import it.
 //
 // # Invariants
 //
@@ -20,8 +21,11 @@
 //   - A direct play's client reads ahead to its buffer target and stalls only when its buffer is
 //     empty (Playback; playback_test.go).
 //   - Today is the node's work list as the queue inventory read it at 1bfd482c: numeric priority,
-//     a reader limit per device, play-driven work past it, a running job never displaced, and a
-//     stuck read holding its reader until its stall window ends (today.go; today_test.go).
+//     a reader limit per device that every reading job counts against, play-driven work past it, a
+//     running job never displaced, and a stuck read holding its reader until its stall window ends
+//     (today.go; today_test.go).
+//   - Decided asks the disk scheduler for every read, a playback's and each piece of a job's, and
+//     sends only what it lets go (decided.go; decided_test.go).
 //
 // # Read before changing
 //
@@ -34,5 +38,7 @@
 //   - sim.go: the event loop.
 //   - disk.go: what a disk does with reads.
 //   - playback.go: a client playing a film.
-//   - today.go: the baseline policy. A new policy implements Policy beside it.
+//   - today.go: the baseline policy.
+//   - decided.go: D329's policy, the node's disk scheduler (internal/node/diskschedule) deciding every
+//     read of the device.
 package schedtest

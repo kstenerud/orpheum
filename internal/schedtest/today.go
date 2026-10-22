@@ -5,6 +5,8 @@ package schedtest
 import (
 	"slices"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/node/diskschedule"
 )
 
 // Job is a piece of work that reads a disk: a scan's listing, a read-through, an extraction.
@@ -14,6 +16,8 @@ type Job struct {
 	Bytes, Piece int64
 	// Priority is today's number: 1000 or more is play-driven (the queue inventory §1.1).
 	Priority int
+	// Tier is its tier under D329, which Decided schedules by.
+	Tier diskschedule.Tier
 
 	// RequestedAt, StartedAt and FinishedAt are when it was asked for, began reading, and ended.
 	RequestedAt, StartedAt, FinishedAt time.Duration
