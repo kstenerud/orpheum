@@ -97,6 +97,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/node/namedfile` | R2 (identity-checked open) | — |
 | `internal/node/diskwatch` | R8 | — (D233 §10: one stuck operation at most on each root; a disk that does not answer is a stall, and its root is read no more until the stuck operation returns) |
 | `internal/node/chunks` | R3 | — (borrows prepare's encoder and mix filters; its stores are `internal/node/prepared`'s, D247 §10) |
+| `internal/node/diskschedule` | R8 | — (D329 §3, work-scheduling.md §8: for one device, which read goes next, by tier, deadline and arrival, with background reads held to a rate a slow playback read halves; a pure decider the node and `internal/schedtest` both drive; not yet wired into the node) |
 | `internal/node/prepare` | R3 | — |
 | `internal/node/prepared` | R3 (rendition store custody) | — |
 | `internal/node/probe` | R2 | — |
