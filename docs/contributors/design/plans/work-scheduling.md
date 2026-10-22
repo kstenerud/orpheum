@@ -9,7 +9,7 @@
 
 - **Status:** PLANNED — decided as
   [D329](../../decisions/working-notes.md#d329--work-is-scheduled-from-wants-each-resource-is-decided-next-to-it-playback-is-admitted-and-long-work-is-cut-into-pieces)
-  on 2026-10-22, except §8.1 (FFmpeg reading through the node's byte path), which waits on its test.
+  on 2026-10-22, and §8.1 (FFmpeg reading through the node's byte path) on its test the same day.
   The owner: *"1: Yes. 2: Yes, test this and then we decide based on the results. 3: I'm fine with
   whichever ordering is more efficient. I don't need the features in a hurry."* It answers the
   scenarios in [data-timeliness.md](data-timeliness.md), which are the requirements. Their research
@@ -627,8 +627,8 @@ wait-or-play choice (P5), captions (P4), and accessibility (§5.5).
 ## 17. The owner's answers, 2026-10-22
 
 1. **The node decides its disks and encoders** (§5): yes. D240 §5 and §6 are revised by D329.
-2. **FFmpeg reads media only through the node's byte path** (§8.1): test it first, then decide on
-   the results. The test is phase 1's first step.
+2. **FFmpeg reads media only through the node's byte path** (§8.1): tested, then decided: *"Yes, go
+   ahead. If we hit a blocker during our move to this setup, we have the rust binary option."*
 3. **The scope.** The order is the agent's to choose, for efficiency. The user-facing pieces (§16)
    are built as a batch after phase 4, when admission and the waiting states exist for them to
    show, and not interleaved.

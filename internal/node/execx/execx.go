@@ -430,8 +430,10 @@ func outcome(
 	case isStalled:
 		stalled.StderrTail = stderr.String()
 		return stalled
-	case waitErr != nil && isDiskFailure(stderr.String()):
+	case (waitErr != nil && isDiskFailure(stderr.String())) || stderr.sawDemuxingFail():
 		// Not the file's: its disk did not answer, as a network share mounted to give up says (D233 §10).
+		// FFmpeg whose demuxer's read fails so ends its input there and exits 0, its answer made of
+		// part of the file (ffmpeg-http-input-2026-10-22): the log is what says it.
 		return &StalledError{
 			Tool: tool, Cause: StallDiskFailed, Condition: ConditionWaitingOnDisk, StderrTail: stderr.String(),
 		}
@@ -603,6 +605,12 @@ type tailBuffer struct {
 	mutex      sync.Mutex
 	data       []byte // guarded by mutex
 	limitBytes int
+	// demuxingFailed is whether the log said, anywhere, that the demuxer's read failed as a disk that
+	// does not answer fails it: kept apart from the tail, which what follows may have pushed it out
+	// of. Guarded by mutex.
+	demuxingFailed bool
+	// unended is the start of a line whose end has not been written yet; guarded by mutex.
+	unended []byte
 }
 
 func (tail *tailBuffer) Write(data []byte) (int, error) {
@@ -612,7 +620,37 @@ func (tail *tailBuffer) Write(data []byte) (int, error) {
 	if excess := len(tail.data) - tail.limitBytes; excess > 0 {
 		tail.data = tail.data[excess:]
 	}
+	tail.noteDemuxing(data)
 	return len(data), nil
+}
+
+// noteDemuxing looks in each whole line written for FFmpeg's word that its demuxer's read failed
+// for its disk ("Error during demuxing: Input/output error").
+func (tail *tailBuffer) noteDemuxing(data []byte) {
+	const longestLineKept = 4096
+	lines := append(append([]byte(nil), tail.unended...), data...)
+	end := bytes.LastIndexByte(lines, '\n')
+	if end < 0 {
+		tail.unended = lines[max(0, len(lines)-longestLineKept):]
+		return
+	}
+	for line := range bytes.SplitSeq(lines[:end], []byte("\n")) {
+		if _, failure, isDemuxing := bytes.Cut(line, []byte(demuxingFailedWords)); isDemuxing &&
+			isDiskFailure(string(failure)) {
+			tail.demuxingFailed = true
+		}
+	}
+	tail.unended = append([]byte(nil), lines[end+1:]...)
+}
+
+// demuxingFailedWords begin FFmpeg's line for a read its demuxer could not make, followed by the
+// error as strerror words it.
+const demuxingFailedWords = "Error during demuxing: "
+
+func (tail *tailBuffer) sawDemuxingFail() bool {
+	tail.mutex.Lock()
+	defer tail.mutex.Unlock()
+	return tail.demuxingFailed
 }
 
 func (tail *tailBuffer) String() string {

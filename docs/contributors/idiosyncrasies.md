@@ -40,6 +40,7 @@ User-Agent (D263; the User-Agent is logged only).
 
 | Symptom | Entry |
 |---|---|
+| A read-through over a share that dropped mid-film was answered as complete, its loudness that of part of the film. | [FFmpeg whose input read fails part way exits 0 with an answer made of what it read](#ffmpeg-whose-input-read-fails-part-way-exits-0-with-an-answer-made-of-what-it-read) |
 | At a discovery's page at home, every request failed with "NetworkError when attempting to fetch resource." after a realm sign-in. | [Firefox fails a public page's requests to a LAN name until its local-network prompt is answered, and again after a grant not remembered](#firefox-fails-a-public-pages-requests-to-a-lan-name-until-its-local-network-prompt-is-answered-and-again-after-a-grant-not-remembered) |
 | `dig CAA` shows CAs nobody wrote beside the zone's own `issue ";"`. | [Cloudflare adds its own CAA records to any zone with CAA while Universal SSL is on](#cloudflare-adds-its-own-caa-records-to-any-zone-with-caa-while-universal-ssl-is-on) |
 | *Flow* (10-bit HEVC by x265) froze at the first frame of any chunk but the film's first. | [Firefox on macOS freezes on HEVC chunks that start on a CRA keyframe](#firefox-on-macos-freezes-on-hevc-chunks-that-start-on-a-cra-keyframe) |
@@ -1497,6 +1498,27 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   default" (`protocol_whitelist`), and the `file:` prefix forces the file protocol; [ffmpeg
   docs](https://ffmpeg.org/ffmpeg.html): stdin interaction is "on by default unless standard input is used as
   an input", disabled by `-nostdin`. Both documented (checked 2026-10-08).
+
+
+### FFmpeg whose input read fails part way exits 0 with an answer made of what it read
+
+- **Cause:** a demuxer whose read fails (an `EIO` from a soft NFS mount, or a source that falls
+  silent past `-rw_timeout`) logs `Error during demuxing: Input/output error`, ends its input there,
+  and FFmpeg finishes its outputs and **exits 0**. A loudness measurement, a timeline or an extracted
+  subtitle is then of part of the film, and looks complete.
+- **What we do:** the run's log decides. `execx`'s tail buffer watches every line for the demuxer's
+  failure with a disk's error (`noteDemuxing`), however far from the end of the log, and the run is
+  a stall on its disk (`StallDiskFailed`) whatever FFmpeg's exit status
+  (`TestRunWatched_ARunWhoseDemuxerCouldNotReadItsDiskFailsThoughItExitsZero`;
+  `TestRunWatched_ThePinnedFFmpegWhoseSourceGoesSilentIsAStallOnItsDisk`, the pinned FFmpeg). On the
+  node's byte path (D329 §7) the path also knows whether it served the file to its end.
+  **Not `-xerror`**: it makes every error fatal, so a picture's concealed decode errors fail the run
+  (exit 183 on a film with a few damaged frames, which plays and encodes without it).
+- **Evidence:** [ffmpeg-http-input-2026-10-22](design/research/ffmpeg-http-input-2026-10-22.md):
+  the pinned FFmpeg 8.1.2, a loopback source going silent at 20%, `-reconnect 0` and
+  `-err_detect explode` changing nothing. **[doc]** FFmpeg's `-xerror` is "exit on error"
+  ([ffmpeg docs](https://ffmpeg.org/ffmpeg.html)); a read error that is not fatal is its documented
+  default.
 
 
 ### ffprobe's output quirks

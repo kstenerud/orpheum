@@ -21366,9 +21366,13 @@ D238, D309, D324's interest register, and D325–D328.
    cost, shared between kinds with a minimum share).
 6. **Long work is made of pieces** of about two seconds of a resource, with progress kept between
    them; preemption happens only at a piece boundary and throws nothing away.
-7. **FFmpeg reading media through the node's own byte path** (the design's §8.1) is decided on
-   the results of its test, which comes first.
+7. **FFmpeg reads media only through the node's own byte path** (the design's §8.1), decided on
+   its test ([ffmpeg-http-input-2026-10-22](../design/research/ffmpeg-http-input-2026-10-22.md)).
+   A run is judged by whether the byte path served its file to the end and by the demuxer's I/O
+   error, never by FFmpeg's exit status alone. It stays FFmpeg's own CLI. The owner: *"Yes, go
+   ahead. If we hit a blocker during our move to this setup, we have the rust binary option"*, a
+   separate media program of our own, in Rust.
 8. **Quiet hours, idleness and sleeping disks** govern background work as data-timeliness A8 says.
 
-**Status:** Decided 2026-10-22, except §7, which waits on its test. Phases in
+**Status:** Decided 2026-10-22; §7 on its test the same day. Phases in
 [work-scheduling.md](../design/plans/work-scheduling.md) §16.
