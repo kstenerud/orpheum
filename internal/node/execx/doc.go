@@ -2,8 +2,10 @@
 
 // Package execx is the only place a shipping process starts. It runs the bundled ffmpeg and
 // ffprobe, and nothing else, with hardened arguments, an empty environment, the root directory as its
-// working directory and stdin closed, in a process group that is killed whole when the run is
-// cancelled, and that on Linux the kernel kills when the node dies. A failure carries the exit
+// working directory and stdin closed, in a process group, and that on Linux the kernel kills when the
+// node dies. Every signal it sends a run goes to the process itself, through its pidfd where the
+// kernel has one, then to its group (signalRun): a confined tool can neither start a process nor
+// leave its group (internal/node/confine), so the process is what must be reached. A failure carries the exit
 // status and the tail of the tool's stderr. A long FFmpeg run is watched (RunWatched): it reports
 // -progress on a pipe of its own, and the watchdog stops it when its position does not advance. A confined
 // runner (NewConfinedRunner) starts every run as orpheum's shim, which confines itself to the
@@ -12,8 +14,8 @@
 //
 // # Invariants
 //
-//   - A watched run made on a context carrying a Pausing is paused with SIGSTOP to its process
-//     group and continued with SIGCONT, and its paused time is neither a stall nor spent deadline
+//   - A watched run made on a context carrying a Pausing is paused with SIGSTOP to its process and
+//     its group and continued with SIGCONT, and its paused time is neither a stall nor spent deadline
 //     (D240 §6). TestRunWatched_APausedRunNeitherStallsNorSpendsItsDeadlineAndIsJudgedAgainOnceContinued.
 //   - It is the only shipping package that imports os/exec or calls exec.Command; the test-only
 //     internal/testutil is the other. Enforced by the depguard rule exec-only-in-execx, the
@@ -54,7 +56,7 @@
 //     the length is unknown.
 //     TestDeadlineFor_IsThreeTimesTheExpectedLengthAtLeastTenMinutesAndADayWhenUnknown.
 //   - A stalled run is stopped with SIGINT, FFmpeg's graceful quit, then SIGTERM, then SIGKILL of
-//     its whole group, and returns a StalledError, which is not a RunError: a hang is not the
+//     its process and its whole group, and returns a StalledError, which is not a RunError: a hang is not the
 //     tool's word on its input. TestRunWatched_AStalledRunIsQuitGracefullyAndSaysWhereItStood,
 //     TestRunWatched_AStalledRunThatIgnoresItsQuitIsKilledWithItsGroup.
 //   - On Linux no tool outlives the node that started it. TestRun_AToolDiesWithTheNode.

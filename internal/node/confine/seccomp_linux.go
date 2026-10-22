@@ -27,13 +27,40 @@ func deniedSyscalls() []uint32 {
 		// decoder bug could otherwise reach past Landlock, which governs no connect(2) to a named
 		// socket (the Plex-chain review's N1, 2026-10-20).
 		unix.SYS_SOCKET, unix.SYS_SOCKETPAIR,
+		// No session or process group of its own: a run that left its group would escape a kill sent
+		// to the group, and hold its descriptors open past it (ffstreamer's PROTOCOL.md, draft 6, §9.1;
+		// its third audit, M4).
+		unix.SYS_SETSID, unix.SYS_SETPGID,
 	}
 }
 
-// Offsets into struct seccomp_data: the syscall's number and its architecture.
+// startsNoProcess is the filter's end: no run starts a process, since FFmpeg starts none (its
+// binaries import no fork, exec or spawn), and a process a run started would outlive its kill. A
+// thread is a clone with CLONE_THREAD, and passes. The clone3 call keeps its flags in memory seccomp
+// cannot read, so it answers ENOSYS, and glibc (2.34 and later) and Go fall back to clone, whose flags
+// are its first argument. EPERM there would fail their threads instead (ffstreamer's third audit, M3).
+// Where an architecture has fork and vfork, they are refused with the denied calls above.
+func startsNoProcess(deny, allowAll unix.SockFilter) []unix.SockFilter {
+	notImplemented := unix.SockFilter{Code: unix.BPF_RET | unix.BPF_K, K: unix.SECCOMP_RET_ERRNO | uint32(unix.ENOSYS)}
+	return []unix.SockFilter{
+		{Code: unix.BPF_JMP | unix.BPF_JEQ | unix.BPF_K, K: unix.SYS_CLONE3, Jt: 0, Jf: 1},
+		notImplemented,
+		// clone with CLONE_THREAD in the low word of its flags is a thread: allowed. The kernel reads
+		// only those 32 bits of the flags, and both architectures are little-endian.
+		{Code: unix.BPF_JMP | unix.BPF_JEQ | unix.BPF_K, K: unix.SYS_CLONE, Jt: 0, Jf: 3},
+		{Code: unix.BPF_LD | unix.BPF_W | unix.BPF_ABS, K: offsetFirstArgument},
+		{Code: unix.BPF_JMP | unix.BPF_JSET | unix.BPF_K, K: unix.CLONE_THREAD, Jt: 1, Jf: 0},
+		deny,
+		allowAll,
+	}
+}
+
+// Offsets into struct seccomp_data: the syscall's number, its architecture, and the low word of its
+// first argument (after the 8-byte instruction pointer; little-endian on every architecture written).
 const (
-	offsetNumber = 0
-	offsetArch   = 4
+	offsetNumber        = 0
+	offsetArch          = 4
+	offsetFirstArgument = 16
 )
 
 // seccompState is seccomp's state on this machine: whether the kernel filters system calls.
@@ -61,8 +88,9 @@ func seccompState() State {
 	return state
 }
 
-// denylist is the filter: another architecture's system calls are refused whole, and each denied
-// system call fails with EPERM; everything else is allowed.
+// denylist is the filter: another architecture's system calls are refused whole, each denied
+// system call fails with EPERM, and no process is started (startsNoProcess); everything else is
+// allowed.
 func denylist() []unix.SockFilter {
 	deny := unix.SockFilter{Code: unix.BPF_RET | unix.BPF_K, K: unix.SECCOMP_RET_ERRNO | uint32(unix.EPERM)}
 	allowAll := unix.SockFilter{Code: unix.BPF_RET | unix.BPF_K, K: unix.SECCOMP_RET_ALLOW}
@@ -80,10 +108,10 @@ func denylist() []unix.SockFilter {
 		load(offsetNumber),
 	}
 	program = append(program, refuseForeignCalls()...)
-	for _, number := range deniedSyscalls() {
+	for _, number := range append(deniedSyscalls(), archDeniedSyscalls()...) {
 		program = append(program, equal(number), deny)
 	}
-	return append(program, allowAll)
+	return append(program, startsNoProcess(deny, allowAll)...)
 }
 
 // installSeccomp puts the denylist on the calling thread, which the tool it executes inherits. It

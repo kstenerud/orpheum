@@ -15,3 +15,6 @@ const auditArch = 0
 
 // refuseForeignCalls is unused here.
 func refuseForeignCalls() []unix.SockFilter { return nil }
+
+// archDeniedSyscalls is unused here.
+func archDeniedSyscalls() []uint32 { return nil }

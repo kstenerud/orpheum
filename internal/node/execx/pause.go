@@ -4,6 +4,7 @@ package execx
 
 import (
 	"context"
+	"os"
 	"sync"
 	"syscall"
 	"time"
@@ -15,9 +16,9 @@ import (
 // tool is started begins paused. The zero value is a run not paused.
 type Pausing struct {
 	mutex    sync.Mutex
-	isPaused bool      // guarded by mutex
-	pid      int       // guarded by mutex: the running tool's, 0 when none runs
-	dog      *watchdog // guarded by mutex: the running tool's watchdog
+	isPaused bool        // guarded by mutex
+	process  *os.Process // guarded by mutex: the running tool's, nil when none runs
+	dog      *watchdog   // guarded by mutex: the running tool's watchdog
 }
 
 // pausingKey is the context key a Pausing travels under.
@@ -98,10 +99,10 @@ func (pausing *Pausing) IsPaused() bool {
 }
 
 // attach binds a started tool to the pausing, stopping it at once when the run is paused.
-func (pausing *Pausing) attach(pid int, dog *watchdog) {
+func (pausing *Pausing) attach(process *os.Process, dog *watchdog) {
 	pausing.mutex.Lock()
 	defer pausing.mutex.Unlock()
-	pausing.pid, pausing.dog = pid, dog
+	pausing.process, pausing.dog = process, dog
 	if pausing.isPaused {
 		pausing.signal(syscall.SIGSTOP)
 		dog.pause()
@@ -112,14 +113,14 @@ func (pausing *Pausing) attach(pid int, dog *watchdog) {
 func (pausing *Pausing) detach() {
 	pausing.mutex.Lock()
 	defer pausing.mutex.Unlock()
-	pausing.pid, pausing.dog = 0, nil
+	pausing.process, pausing.dog = nil, nil
 }
 
-// signal sends sig to the running tool's process group, if one runs. The caller holds the mutex.
+// signal sends sig to the running tool, if one runs: its process and its group (signalRun). The
+// caller holds the mutex.
 func (pausing *Pausing) signal(sig syscall.Signal) {
-	if pausing.pid > 0 {
-		// The negative pid names the process group: the tool and anything it started.
-		_ = syscall.Kill(-pausing.pid, sig) //nolint:errcheck // a group already gone needs no signal
+	if pausing.process != nil {
+		_ = signalRun(pausing.process, sig) //nolint:errcheck // a run already gone needs no signal
 	}
 }
 

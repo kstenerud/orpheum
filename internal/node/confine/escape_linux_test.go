@@ -9,10 +9,14 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -76,6 +80,8 @@ func attemptEscape(what string, arguments []string) string {
 			err = syscall.Connect(socket, &syscall.SockaddrUnix{Name: arguments[0]})
 			_ = syscall.Close(socket) //nolint:errcheck // closing a probe
 		}
+	case "start-process", "session", "process-group", "clone3", "threads":
+		err = attemptProcess(what)
 	case "unix-pair":
 		var pair [2]int
 		pair, err = syscall.Socketpair(syscall.AF_UNIX, syscall.SOCK_STREAM, 0)
@@ -268,4 +274,88 @@ func listenUnix(t *testing.T, path string) string {
 		}
 	}()
 	return path
+}
+
+// attemptProcess tries to start a process, leave its session or process group, call clone3, or
+// start threads.
+func attemptProcess(what string) error {
+	switch what {
+	case "start-process":
+		//nolint:gosec // G204: it starts this test binary itself, to see whether starting a process is refused
+		child, err := syscall.ForkExec("/proc/self/exe", []string{"helper", "-test.run=^$"}, &syscall.ProcAttr{})
+		if err == nil {
+			_, err = syscall.Wait4(child, nil, 0, nil)
+		}
+		if err != nil {
+			return fmt.Errorf("start a process: %w", err)
+		}
+		return nil
+	case "session":
+		if _, err := syscall.Setsid(); err != nil {
+			return fmt.Errorf("leave its session: %w", err)
+		}
+		return nil
+	case "process-group":
+		if err := syscall.Setpgid(0, 0); err != nil {
+			return fmt.Errorf("leave its process group: %w", err)
+		}
+		return nil
+	case "clone3":
+		// A zero-sized clone_args: the kernel refuses it with EINVAL; the filter answers ENOSYS first.
+		_, _, errno := syscall.RawSyscall(unix.SYS_CLONE3, 0, 0, 0)
+		return errno
+	case "threads":
+		return startThreads()
+	}
+	return fmt.Errorf("no attempt %q", what)
+}
+
+// startThreads starts operating-system threads, as FFmpeg's decoders and encoders do, and has each
+// make a system call: Go creates a thread with clone(CLONE_THREAD) for each goroutine locked to one.
+func startThreads() error {
+	const threads = 8
+	var waiting sync.WaitGroup
+	var mutex sync.Mutex
+	var first error
+	for range threads {
+		waiting.Go(func() {
+			runtime.LockOSThread()
+			var facts syscall.Stat_t
+			if err := syscall.Fstat(0, &facts); err != nil {
+				mutex.Lock()
+				if first == nil {
+					first = fmt.Errorf("a thread's system call: %w", err)
+				}
+				mutex.Unlock()
+			}
+		})
+	}
+	waiting.Wait()
+	return first
+}
+
+// A confined run starts no process and leaves neither its session nor its process group, and its
+// threads still start: a process it started, or one in another group, would escape the kill that ends
+// the run (ffstreamer's PROTOCOL.md §9.1). The clone3 call answers ENOSYS, not EPERM, so glibc and Go
+// fall back to a clone the filter can read; EPERM there failed FFmpeg's threads (ffstreamer's third
+// audit, M3).
+func TestEscape_AConfinedToolStartsNoProcessAndStaysInItsGroupButStartsThreads(t *testing.T) {
+	t.Parallel()
+	requireMechanisms(t)
+	for _, what := range []string{"start-process", "session", "process-group", "clone3", "threads"} {
+		if got := attemptUnconfined(t, what); what != "clone3" && got != "allowed" {
+			t.Fatalf("unconfined, %s: %s; want allowed, so the refusal below is ours (D190 §3)", what, got)
+		}
+	}
+	for _, what := range []string{"start-process", "session", "process-group"} {
+		if got := attemptConfined(t, confine.Access{}, what); !strings.HasPrefix(got, "refused") {
+			t.Errorf("confined, %s: %s; want refused", what, got)
+		}
+	}
+	if got := attemptConfined(t, confine.Access{}, "clone3"); got != "refused: "+syscall.ENOSYS.Error() {
+		t.Errorf("confined, clone3: %s; want refused with ENOSYS, so the C library falls back to clone", got)
+	}
+	if got := attemptConfined(t, confine.Access{}, "threads"); got != "allowed" {
+		t.Errorf("confined, starting threads: %s; want allowed", got)
+	}
 }
