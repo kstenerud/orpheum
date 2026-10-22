@@ -25,12 +25,26 @@ func deniedSyscalls() []uint32 {
 		// No socket of any family, a Unix one included: a run reads files and pipes alone (execx), so
 		// it talks to no network and, beside it, to none of the node's or the core's sockets, which a
 		// decoder bug could otherwise reach past Landlock, which governs no connect(2) to a named
-		// socket (the Plex-chain review's N1, 2026-10-20).
+		// socket (the Plex-chain review's N1, 2026-10-20). A GPU run may create a Unix socket, which
+		// its driver needs (onlyUnixSockets).
 		unix.SYS_SOCKET, unix.SYS_SOCKETPAIR,
 		// No session or process group of its own: a run that left its group would escape a kill sent
 		// to the group, and hold its descriptors open past it (ffstreamer's PROTOCOL.md, draft 6, §9.1;
 		// its third audit, M4).
 		unix.SYS_SETSID, unix.SYS_SETPGID,
+	}
+}
+
+// onlyUnixSockets lets socket(2) create a Unix socket and refuses every other family: CUDA asks
+// NVIDIA's multi-process daemon over one and listens on one of its own as it starts (D331 §2). It
+// ends the filter for socket(2), since it loads the call's first argument, the family.
+func onlyUnixSockets(deny, allowAll unix.SockFilter) []unix.SockFilter {
+	return []unix.SockFilter{
+		{Code: unix.BPF_JMP | unix.BPF_JEQ | unix.BPF_K, K: unix.SYS_SOCKET, Jt: 0, Jf: 4},
+		{Code: unix.BPF_LD | unix.BPF_W | unix.BPF_ABS, K: offsetFirstArgument},
+		{Code: unix.BPF_JMP | unix.BPF_JEQ | unix.BPF_K, K: unix.AF_UNIX, Jt: 0, Jf: 1},
+		allowAll,
+		deny,
 	}
 }
 
@@ -90,8 +104,9 @@ func seccompState() State {
 
 // denylist is the filter: another architecture's system calls are refused whole, each denied
 // system call fails with EPERM, and no process is started (startsNoProcess); everything else is
-// allowed.
-func denylist() []unix.SockFilter {
+// allowed. With allowsUnixSockets, socket(2) may create a Unix socket and nothing else
+// (onlyUnixSockets).
+func denylist(allowsUnixSockets bool) []unix.SockFilter {
 	deny := unix.SockFilter{Code: unix.BPF_RET | unix.BPF_K, K: unix.SECCOMP_RET_ERRNO | uint32(unix.EPERM)}
 	allowAll := unix.SockFilter{Code: unix.BPF_RET | unix.BPF_K, K: unix.SECCOMP_RET_ALLOW}
 	load := func(offset uint32) unix.SockFilter {
@@ -109,15 +124,21 @@ func denylist() []unix.SockFilter {
 	}
 	program = append(program, refuseForeignCalls()...)
 	for _, number := range append(deniedSyscalls(), archDeniedSyscalls()...) {
+		if allowsUnixSockets && number == unix.SYS_SOCKET {
+			continue
+		}
 		program = append(program, equal(number), deny)
+	}
+	if allowsUnixSockets {
+		program = append(program, onlyUnixSockets(deny, allowAll)...)
 	}
 	return append(program, startsNoProcess(deny, allowAll)...)
 }
 
 // installSeccomp puts the denylist on the calling thread, which the tool it executes inherits. It
 // needs no_new_privs, which the shim has set.
-func installSeccomp() error {
-	program := denylist()
+func installSeccomp(allowsUnixSockets bool) error {
+	program := denylist(allowsUnixSockets)
 	filter := unix.SockFprog{Len: uint16(len(program)), Filter: &program[0]} //nolint:gosec // a few dozen instructions
 	//nolint:gosec // G103: the filter, passed as prctl defines it
 	if err := unix.Prctl(unix.PR_SET_SECCOMP, unix.SECCOMP_MODE_FILTER,

@@ -500,3 +500,18 @@ An item is ticked only by the person who did it, and only with what they saw.
   reports, a real disk's speed and a real software encode meet only here (D324; I6 of
   `docs/contributors/design/plans/interest-priority.md`). (`internal/core/interest`,
   `internal/core/waits`, `internal/core/nodes/playing.go`, `web/apps/web/src/file-waits.ts`)
+- [x] **VQ51** — On a machine with an NVIDIA GPU and its driver: run a node built from this change
+  and let it say hello; the System page's hardware lists h264_nvenc's trial with no failure, and an
+  encode confined as a prepare is (`orpheum __confined-exec` with `usesGpu`) gives frames identical
+  to the same encode run unconfined. CUDA's start meets a real driver only here (D331).
+  (`internal/node/confine/landlock_linux.go`, `seccomp_linux.go`, `shim_linux.go`)
+  — done 2026-10-22 by Claude on gpuhost.example (RTX 3090, driver 580.178.04, kernel 6.14), the shim
+  built from this change and jellyfin-ffmpeg 8.1.2-5 with the ffstreamer patches: h264_nvenc and
+  hevc_nvenc trials exited 0; a 10 s h264_nvenc encode of film.mkv, confined, gave a framemd5
+  identical to the unconfined run's; the same run without GPU access still failed (exit 171). The
+  build before it failed every confined NVENC run with `cuInit(0) failed ->
+  CUDA_ERROR_OPERATING_SYSTEM`.
+- [ ] **VQ52** — On the owner's Intel box with its AMD card: run a node built from main and let it
+  say hello; the System page's hardware shows each VAAPI or QSV trial, and any that fails names
+  what it was refused. A confined VAAPI encode, if one works unconfined, gives frames as the
+  unconfined run does. Mesa's start under confinement meets a real driver only here (D331 §3).

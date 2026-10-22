@@ -71,6 +71,24 @@ func gpuDescriptions() []string {
 	return []string{"/sys/devices", "/sys/class/drm", "/sys/bus/pci", "/proc/driver/nvidia", "/etc/OpenCL"}
 }
 
+// gpuDriverReads are the files a GPU's driver reads as it starts, CUDA's among them: the machine's
+// device numbers, its processor, the lowest address a mapping may take, and the run's own memory map
+// and status, none of them a user's (D331 §3). Without /proc/devices, CUDA starts nvidia-modprobe to
+// make its device nodes, which no run may. /proc/self names the shim, whose process the tool becomes.
+func gpuDriverReads() []string {
+	return []string{
+		"/proc/devices", "/proc/cpuinfo", "/proc/sys/vm/mmap_min_addr", "/proc/self/maps",
+		"/proc/self/status",
+	}
+}
+
+// gpuThreadNames is where a GPU's driver names its threads, its own process's: CUDA fails to start
+// when it cannot (D331 §3).
+const gpuThreadNames = "/proc/self/task"
+
+// nameThreads are the rights to name a thread: its comm file is opened to write, and truncated.
+const nameThreads = unix.LANDLOCK_ACCESS_FS_WRITE_FILE | unix.LANDLOCK_ACCESS_FS_TRUNCATE
+
 // devicesAlways are the device nodes any run may read and write.
 func devicesAlways() []string {
 	return []string{"/dev/null", "/dev/zero", "/dev/urandom", "/dev/random"}
@@ -168,6 +186,10 @@ func grantsFor(spec Spec) []grant {
 		for _, path := range gpuDescriptions() {
 			grants = append(grants, grant{path: path, rights: readTree})
 		}
+		for _, path := range gpuDriverReads() {
+			grants = append(grants, grant{path: path, rights: unix.LANDLOCK_ACCESS_FS_READ_FILE})
+		}
+		grants = append(grants, grant{path: gpuThreadNames, rights: nameThreads})
 	}
 	for _, path := range spec.Access.Read {
 		grants = append(grants, grant{path: path, rights: readTree, isRequired: true})

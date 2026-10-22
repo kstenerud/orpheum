@@ -22,7 +22,8 @@
 //     TestArch_NodeNeverImportsCore.
 //   - A confined run reads and writes only what its Access names, beside its tool and the
 //     system's libraries, and opens no socket of any family, the node's and the core's Unix sockets
-//     among them (N1); each refusal is first shown to succeed
+//     among them (N1), but a run that uses the GPU, which may create a Unix socket where Landlock
+//     holds (D331); each refusal is first shown to succeed
 //     unconfined (D112, D190 §3). Enforced by
 //     TestEscape_AConfinedToolReadsAndWritesOnlyWhatItWasGivenAndOpensNoNetwork, and for a
 //     dynamically linked tool, as FFmpeg is, by
@@ -40,6 +41,11 @@
 //     internal/node/hardware reports, from one list, NVIDIADevices.
 //     TestGrantsFor_OnlyARunThatUsesTheGPUIsGrantedItsDevices,
 //     TestGPUDevices_AreGrantedEveryNVIDIAGPUDetectionFinds.
+//   - Only a run that uses the GPU may do what its driver needs to start (D331): create a Unix
+//     socket, and no other kind, and only where Landlock keeps it from the keys to the core's and
+//     the node's sockets; read the machine's device numbers and its own memory map and status;
+//     and name its own threads. Without them CUDA does not start, and the node's encoder trial falls
+//     back to x264. TestEscape_OnlyAGPURunOpensAUnixSocketAndNamesItsThreadsAsItsDriverNeeds.
 //
 // # Read before changing
 //
@@ -47,6 +53,7 @@
 //   - D112: the escape test asserts what is in force.
 //   - D190 §3: the escape test first sees the unconfined read succeed.
 //   - D193 §4: the confinement ranking.
+//   - D331: what a GPU run may do, and why the node proves itself on both sockets.
 //   - principles §2: the user's files are not ours to touch.
 //   - docs/contributors/design/plans/cut-a.md §7.
 //

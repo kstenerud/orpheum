@@ -73,10 +73,21 @@ func TestGrantsFor_OnlyARunThatUsesTheGPUIsGrantedItsDevices(t *testing.T) {
 	}
 	plain := Spec{Tool: "/opt/ffmpeg/ffmpeg"}
 	gpu := Spec{Tool: "/opt/ffmpeg/ffmpeg", Access: Access{UsesGPU: true}}
-	if has(plain, "/dev/dri") || has(plain, "/sys/devices") {
-		t.Error("a run that does not use the GPU is granted its devices")
+	if has(plain, "/dev/dri") || has(plain, "/sys/devices") || has(plain, "/proc/devices") ||
+		has(plain, "/proc/self/task") {
+		t.Error("a run that does not use the GPU is granted its devices, or what its driver reads")
 	}
 	if !has(gpu, "/dev/dri") || !has(gpu, "/sys/class/drm") || !has(gpu, "/dev/nvidiactl") {
 		t.Error("a hardware encode is not granted the GPU's devices and the files that describe them")
+	}
+	// CUDA reads these as it starts, and names its threads; without /proc/devices it starts
+	// nvidia-modprobe, which no run may (D331 §3).
+	for _, path := range []string{
+		"/proc/devices", "/proc/cpuinfo", "/proc/sys/vm/mmap_min_addr",
+		"/proc/self/maps", "/proc/self/status", "/proc/self/task",
+	} {
+		if !has(gpu, path) {
+			t.Errorf("a hardware encode is not granted %s, which its driver needs to start", path)
+		}
 	}
 }

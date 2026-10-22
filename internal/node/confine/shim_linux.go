@@ -39,13 +39,17 @@ func confineAndExec(spec Spec) error {
 	if err := unix.Prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0); err != nil {
 		return fmt.Errorf("%w: set no_new_privs: %w", ErrNotConfined, err)
 	}
+	isLandlocked := false
 	if abi, err := landlockABI(); err == nil {
 		if err := restrictLandlock(abi, spec); err != nil {
 			return fmt.Errorf("%w: %w", ErrNotConfined, err)
 		}
+		isLandlocked = true
 	}
 	if seccompState().IsInForce {
-		if err := installSeccomp(); err != nil {
+		// A GPU run may create a Unix socket, which its driver needs, only where Landlock keeps it from
+		// the keys that admit a process to the core's and the node's sockets (D331 §1, §2).
+		if err := installSeccomp(spec.Access.UsesGPU && isLandlocked); err != nil {
 			return fmt.Errorf("%w: %w", ErrNotConfined, err)
 		}
 	}

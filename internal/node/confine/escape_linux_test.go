@@ -66,9 +66,34 @@ func attemptEscape(what string, arguments []string) string {
 		if score, err = os.ReadFile("/proc/self/oom_score_adj"); err == nil {
 			return "allowed " + strings.TrimSpace(string(score))
 		}
+	case "name-thread":
+		// As CUDA names its helper thread: through its own task's comm file.
+		runtime.LockOSThread()
+		err = os.WriteFile(fmt.Sprintf("/proc/self/task/%d/comm", syscall.Gettid()), []byte("probe"), 0o600)
+	case "inet-socket", "unix-socket", "unix-connect", "unix-pair":
+		err = attemptSocket(what, arguments)
+	case "start-process", "session", "process-group", "clone3", "threads":
+		err = attemptProcess(what)
+	}
+	if err != nil {
+		return "refused: " + err.Error()
+	}
+	return "allowed"
+}
+
+// attemptSocket tries to create a network socket, a Unix one, a connected Unix one, or a pair.
+func attemptSocket(what string, arguments []string) error {
+	var err error
+	switch what {
 	case "inet-socket":
 		var socket int
 		socket, err = syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
+		if err == nil {
+			_ = syscall.Close(socket) //nolint:errcheck // closing a probe
+		}
+	case "unix-socket":
+		var socket int
+		socket, err = syscall.Socket(syscall.AF_UNIX, syscall.SOCK_SEQPACKET, 0)
 		if err == nil {
 			_ = syscall.Close(socket) //nolint:errcheck // closing a probe
 		}
@@ -80,8 +105,6 @@ func attemptEscape(what string, arguments []string) string {
 			err = syscall.Connect(socket, &syscall.SockaddrUnix{Name: arguments[0]})
 			_ = syscall.Close(socket) //nolint:errcheck // closing a probe
 		}
-	case "start-process", "session", "process-group", "clone3", "threads":
-		err = attemptProcess(what)
 	case "unix-pair":
 		var pair [2]int
 		pair, err = syscall.Socketpair(syscall.AF_UNIX, syscall.SOCK_STREAM, 0)
@@ -91,9 +114,9 @@ func attemptEscape(what string, arguments []string) string {
 		}
 	}
 	if err != nil {
-		return "refused: " + err.Error()
+		return fmt.Errorf("%s: %w", what, err)
 	}
-	return "allowed"
+	return nil
 }
 
 // runSelfForAnswer runs this binary with arguments and returns what it printed.
@@ -225,6 +248,46 @@ func TestEscape_ADynamicallyLinkedToolStartsConfinedAndReadsOnlyWhatItWasGiven(t
 	}
 	if output, err := catConfined(t, cat, elsewhere, access); err == nil {
 		t.Errorf("cat, confined, of a file it was not given: %q; want refused", output)
+	}
+}
+
+// A run that uses the GPU may do what its driver needs to start, and nothing more: create a Unix
+// socket (CUDA asks NVIDIA's daemon over one, and listens on one of its own), read the machine's
+// device numbers, and name its threads (D331). Every other run may do none of it, and a GPU run still
+// opens no network socket and reads nothing it was not given, the keys to the core's and the node's
+// sockets among it.
+func TestEscape_OnlyAGPURunOpensAUnixSocketAndNamesItsThreadsAsItsDriverNeeds(t *testing.T) {
+	t.Parallel()
+	requireMechanisms(t)
+	secret := filepath.Join(t.TempDir(), "core.key")
+	if err := os.WriteFile(secret, []byte("key"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	needs := []struct {
+		what      string
+		arguments []string
+	}{{"unix-socket", nil}, {"read", []string{"/proc/devices"}}, {"name-thread", nil}}
+	for _, need := range needs {
+		if got := attemptUnconfined(t, need.what, need.arguments...); got != "allowed" {
+			t.Fatalf("unconfined, %s %v: %s; want allowed, so the refusal below is ours (D190 §3)",
+				need.what, need.arguments, got)
+		}
+		got := attemptConfined(t, confine.Access{}, need.what, need.arguments...)
+		if !strings.HasPrefix(got, "refused") {
+			t.Errorf("confined without the GPU, %s %v: %s; want refused", need.what, need.arguments, got)
+		}
+		if got := attemptConfined(t, confine.Access{UsesGPU: true}, need.what, need.arguments...); got != "allowed" {
+			t.Errorf("confined with the GPU, %s %v: %s; want allowed", need.what, need.arguments, got)
+		}
+	}
+	for _, refused := range []struct {
+		what      string
+		arguments []string
+	}{{"inet-socket", nil}, {"unix-pair", nil}, {"read", []string{secret}}} {
+		got := attemptConfined(t, confine.Access{UsesGPU: true}, refused.what, refused.arguments...)
+		if !strings.HasPrefix(got, "refused") {
+			t.Errorf("confined with the GPU, %s %v: %s; want refused", refused.what, refused.arguments, got)
+		}
 	}
 }
 
