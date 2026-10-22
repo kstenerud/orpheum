@@ -3,16 +3,18 @@
 package execx
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"syscall"
 	"testing"
@@ -27,14 +29,15 @@ import (
 // filmMode is the argument that tells the helper, standing in for the patched FFmpeg, what to do.
 const filmMode = "-test_film_mode"
 
-// TestFilmHelper is the patched FFmpeg of these tests: run with words after --, it reads its input
-// through the node over ffstreamer as filmMode says, and prints the SHA-256 of what it read. Run as a
-// plain test it does nothing.
-func TestFilmHelper(_ *testing.T) {
-	words := flag.Args()
-	if mode := valueAfter(words, filmMode); mode != "" {
-		os.Exit(actAsFilmReader(words, mode)) //nolint:forbidigo,revive // the stand-in FFmpeg's exit is its answer
+// TestMain runs the package's tests, or, when this test binary is run by the name ffmpeg (filmRunner
+// links it so), is the patched FFmpeg of these tests: it reads its input through the node over
+// ffstreamer as filmMode says, and prints the SHA-256 of what it read.
+func TestMain(m *testing.M) {
+	words := os.Args //nolint:forbidigo // the stand-in FFmpeg's own command line
+	if filepath.Base(words[0]) == string(FFmpeg) {
+		os.Exit(actAsFilmReader(words[1:], valueAfter(words, filmMode))) //nolint:forbidigo // its exit is its answer
 	}
+	os.Exit(m.Run()) //nolint:forbidigo // the tests' own exit
 }
 
 // actAsFilmReader reads the input as mode says and returns the exit status: 0, or which step failed.
@@ -88,8 +91,10 @@ func (film *memoryFilm) ReadAt(_ context.Context, buffer []byte, offset int64) e
 	return nil
 }
 
-// filmRunner is a runner whose ffmpeg is this test binary as TestFilmHelper, watched on a clock that
-// never ticks, so only the channel ends a run.
+// filmRunner is a runner whose ffmpeg is this test binary, linked as ffmpeg so TestMain acts as the
+// patched FFmpeg, watched on a clock that never ticks, so only the channel ends a run. A link, never a
+// script written here: writing an executable while a parallel test forks lets the child inherit it
+// open, and running it then fails with "text file busy" (testutil's fakeScript).
 func filmRunner(t *testing.T) *Runner {
 	t.Helper()
 	self, err := os.Executable()
@@ -97,9 +102,7 @@ func filmRunner(t *testing.T) *Runner {
 		t.Fatal(err)
 	}
 	directory := t.TempDir()
-	script := fmt.Sprintf("#!/bin/sh\nexec %q -test.run='^TestFilmHelper$' -- \"$@\"\n", self)
-	//nolint:gosec // G306: a test's own tool, run by the test alone
-	if err = os.WriteFile(filepath.Join(directory, "ffmpeg"), []byte(script), 0o700); err != nil {
+	if err = os.Symlink(self, filepath.Join(directory, string(FFmpeg))); err != nil {
 		t.Fatal(err)
 	}
 	runner, err := NewRunner(directory)
@@ -200,5 +203,63 @@ func TestRunWatched_APausedStreamedRunReadsNothingUntilContinued(t *testing.T) {
 	}
 	if film.reads.Load() == 0 {
 		t.Error("the continued run read nothing")
+	}
+}
+
+// A run that is not watched, as ffprobe's is, also reads a streamed film through the node: its
+// descriptors are where the input names them, though it has no progress pipe before them (D330).
+func TestRunOnFilm_AnUnwatchedRunReadsItsStreamedFilmThroughTheNode(t *testing.T) {
+	t.Parallel()
+	contents := newMemoryFilm()
+	film := Film{
+		Path: "/films/a.mkv", Size: contents.Size(),
+		Stream: &ffstreamer.Config{Run: 5, Source: contents, MostOutstanding: 2}, CacheBlocks: 4,
+	}
+	stdout, err := filmRunner(t).RunOnFilm(t.Context(), FFmpeg, film,
+		append([]string{filmMode, "read-all"}, film.Input()...), 1<<10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(contents.contents)
+	if got := string(stdout); got != hex.EncodeToString(sum[:])+"\n" {
+		t.Errorf("the run read %q; want the film's SHA-256", got)
+	}
+}
+
+// A streamed film's run is granted no path to it and names the protocol as its input; a film read by
+// path is granted its path and named by it, with the file protocol alone (cut-a §7).
+func TestFilm_AStreamedFilmGrantsNoPathAndAFilmByPathGrantsOnlyItsOwn(t *testing.T) {
+	t.Parallel()
+	byPath := Film{Path: "/films/a.mkv", Size: 10}
+	if got := byPath.Readable(); !slices.Equal(got, []string{"/films/a.mkv"}) {
+		t.Errorf("a film by path grants %q; want its path", got)
+	}
+	if got := byPath.Input(); !slices.Equal(got, FileInput("/films/a.mkv")) {
+		t.Errorf("a film by path is named %q; want FileInput", got)
+	}
+	streamed := Film{Path: "/films/a.mkv", Size: 10, Stream: &ffstreamer.Config{Run: 1}, CacheBlocks: 12}
+	if got := streamed.Readable(); len(got) != 0 {
+		t.Errorf("a streamed film grants %q; want nothing", got)
+	}
+	if got := streamed.Input(); !slices.Equal(got, StreamedInput(12)) {
+		t.Errorf("a streamed film is named %q; want StreamedInput keeping its 12 blocks", got)
+	}
+}
+
+// The node says once, not at every run, that its films' pipes are at their default size, since every
+// run after the first finds the same (ffstreamer's PROTOCOL.md §4.3).
+func TestRunner_SaysOnceThatAStreamedFilmsPipeKeptItsDefaultSize(t *testing.T) {
+	t.Parallel()
+	var logged bytes.Buffer
+	runner := filmRunner(t).LoggingTo(slog.New(slog.NewTextHandler(&logged, nil)))
+	runner.tellPipeSizeRefused(t.Context(), nil)
+	if logged.Len() != 0 {
+		t.Fatalf("a pipe that took its size was logged: %s", logged.String())
+	}
+	for range 3 {
+		runner.tellPipeSizeRefused(t.Context(), syscall.EPERM)
+	}
+	if got := strings.Count(logged.String(), "fs.pipe-user-pages-soft"); got != 1 {
+		t.Errorf("logged %d times; want once:\n%s", got, logged.String())
 	}
 }

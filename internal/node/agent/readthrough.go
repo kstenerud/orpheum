@@ -5,10 +5,10 @@ package agent
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/container"
+	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/readthrough"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/readonly"
@@ -18,7 +18,7 @@ import (
 // its audio tracks, the timeline of its picture, or both. The real one is readthrough.Reader.
 type ThroughReader interface {
 	Read(
-		ctx context.Context, videoPath string, loudnessTracks []nodeproto.LoudnessTrack,
+		ctx context.Context, film execx.Film, loudnessTracks []nodeproto.LoudnessTrack,
 		timeline *nodeproto.VideoTimelineAsk, duration time.Duration, onProgress func(readThroughMs int64),
 	) (readthrough.Findings, error)
 }
@@ -69,14 +69,15 @@ func (agent *Agent) runReadThrough(
 		}
 		return nodeproto.ReadThroughResult{VideoTimeline: &nodeproto.VideoTimeline{KeyframesMs: keyframes}}
 	}
-	videoPath, err := agent.verifiedSourcePath(ctx, command.Video)
+	film, closeFilm, err := agent.openFilm(ctx, command.Video)
 	if stall := stallOf(err); stall != nil {
 		return nodeproto.ReadThroughResult{Stall: stall}
 	}
 	if err != nil {
 		return refuse(err)
 	}
-	findings, err := agent.workers.ThroughReader.Read(ctx, videoPath, command.LoudnessTracks, command.VideoTimeline,
+	defer closeFilm()
+	findings, err := agent.workers.ThroughReader.Read(ctx, film, command.LoudnessTracks, command.VideoTimeline,
 		time.Duration(command.DurationMs)*time.Millisecond, sayRead)
 	if stall := stallOf(err); stall != nil {
 		return nodeproto.ReadThroughResult{Stall: stall}
@@ -94,14 +95,10 @@ func (agent *Agent) runReadThrough(
 // samples, is container.ErrNoIndex: its film is cut on time (D269 §2). A file that cannot be opened
 // or read is the error that says so, a refusal tried again.
 func (agent *Agent) indexedKeyframes(ctx context.Context, command nodeproto.ReadThrough) ([]int64, error) {
-	file, err := agent.openNamed(ctx, command.Video)
+	file, facts, err := agent.openNamed(ctx, command.Video)
 	if err != nil {
 		return nil, err
 	}
 	defer readonly.Close(file)
-	info, err := file.Stat()
-	if err != nil {
-		return nil, fmt.Errorf("the file to read the index of: %w", err)
-	}
-	return container.KeyframesMs(file, info.Size(), command.VideoTimeline.VideoStreamIndex)
+	return container.KeyframesMs(file, facts.Size(), command.VideoTimeline.VideoStreamIndex)
 }

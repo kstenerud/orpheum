@@ -191,6 +191,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		Subtitler:     subtitle.NewExtractor(runner, hello.Capacity.SlowestReadBytesPerSecond),
 		ThroughReader: readthrough.NewReader(runner, hello.Capacity.SlowestReadBytesPerSecond),
 		HeldResults:   heldResults, Stuck: stuckOf(runner), SetStatusEvery: setStatusEvery, Disks: disks,
+		StreamsFilms: streamsFilms(ctx, runner, logger),
 	}
 	workers.EndedWorkKept, workers.ReadStallWindow = workPacing(config)
 	workers.ReadStallWindow = cmp.Or(seams.readStallWindow, workers.ReadStallWindow)
@@ -519,6 +520,24 @@ func capacityOf(config Config) nodeproto.Capacity {
 		EncodeSlotCount: int(config.Node.EncodeSlotCount), RemuxSlotCount: int(config.Node.RemuxSlotCount),
 		SlowestReadBytesPerSecond: config.Node.SlowestReadMiBPerSecond << 20,
 	}
+}
+
+// streamsFilms is whether the node serves each film to the run that reads it (D330), which it does
+// when its FFmpeg has the ffstreamer protocol, and says which; a node whose FFmpeg cannot be asked
+// reads films by path, as the stock build does. The runner logs to logger what concerns streamed
+// films as a whole.
+func streamsFilms(ctx context.Context, runner *execx.Runner, logger *slog.Logger) bool {
+	hasIt, err := runner.LoggingTo(logger).HasFFstreamer(ctx)
+	switch {
+	case err != nil:
+		logger.WarnContext(ctx, "could not ask FFmpeg for its protocols; each run reads its film by its path",
+			"err", err)
+	case hasIt:
+		logger.InfoContext(ctx, "FFmpeg reads each film through the node (ffstreamer)")
+	default:
+		logger.InfoContext(ctx, "FFmpeg has no ffstreamer protocol; each run reads its film by its path")
+	}
+	return hasIt
 }
 
 // hardwareReport is the hello's account of hardware encoding: the devices, each trial and the

@@ -127,3 +127,15 @@ set these options where the share is actually mounted, on the host. With virtiof
 pool of threads (`--thread-pool-size=16`, or your VM manager's equivalent): without one, a single
 read waiting on the NAS holds up every other file request from the VM.
 
+
+## The node's log says "a streamed film's pipe could not take its size"
+
+The node feeds FFmpeg each film it reads through a pipe of 1 MiB. Linux limits the pipe memory one
+user may hold (`fs.pipe-user-pages-soft`, 64 MiB by default), and past it every new pipe holds
+8 KiB. Films still play and prepare, only slower. It takes dozens of runs at once to reach the
+limit, so a node that logs this is running many, or shares its user with other programs that hold
+pipes.
+
+Raise the limit on the host (a container shares its host's): add
+`fs.pipe-user-pages-soft = 65536` (256 MiB) to `/etc/sysctl.d/90-orpheum-pipes.conf`, then run
+`sysctl --system`. The node logs this once per start.

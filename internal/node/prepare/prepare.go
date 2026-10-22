@@ -93,11 +93,11 @@ type Made struct {
 	RealtimeFactor float64
 }
 
-// Prepare runs one prepare to its end: FFmpeg reads sourcePath, an absolute path, and writes the
+// Prepare runs one prepare to its end: FFmpeg reads source, a film the caller has checked, and writes the
 // rendition into its directory, reporting how much of the source is done as it goes. It returns
 // what it made.
 func (preparer *Preparer) Prepare(
-	ctx context.Context, sourcePath string, command nodeproto.Prepare, onProgress func(preparedThroughMs int64),
+	ctx context.Context, source execx.Film, command nodeproto.Prepare, onProgress func(preparedThroughMs int64),
 ) (Made, error) {
 	if !renditionDirPattern.MatchString(command.RenditionDir) {
 		return Made{}, fmt.Errorf("%w, not %q", ErrBadRenditionDir, command.RenditionDir)
@@ -114,7 +114,7 @@ func (preparer *Preparer) Prepare(
 	}
 	// It reads the source and writes the rendition, and an encode on the GPU opens it (cut-a §7).
 	isOnGPU := command.Profile == nodeproto.ProfileH264 && preparer.encoder.UsesGPU()
-	access := confine.Access{Read: []string{sourcePath}, Write: []string{renditionPath}, UsesGPU: isOnGPU}
+	access := confine.Access{Read: source.Readable(), Write: []string{renditionPath}, UsesGPU: isOnGPU}
 	var realtimeFactor float64
 	watch := execx.Watch{
 		StartGrace: prepareStartGrace, StallWindow: prepareStallWindow,
@@ -126,8 +126,10 @@ func (preparer *Preparer) Prepare(
 			}
 		},
 	}
-	arguments := Arguments(sourcePath, renditionPath, command, preparer.encoder)
-	_, err := preparer.runner.RunWatched(ctx, execx.WatchedRun{Access: access, Arguments: arguments, Watch: watch})
+	arguments := Arguments(source, renditionPath, command, preparer.encoder)
+	_, err := preparer.runner.RunWatched(ctx, execx.WatchedRun{
+		Access: access, Arguments: arguments, Watch: watch, Film: source.Stream,
+	})
 	if err != nil {
 		return Made{}, fmt.Errorf("prepare %s: %w", command.RenditionDir, err)
 	}

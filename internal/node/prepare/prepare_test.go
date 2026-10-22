@@ -29,6 +29,9 @@ type fakeFFmpeg struct {
 	watches *[]execx.Watch
 }
 
+// mediaFilm is a film read by its path, as a node whose FFmpeg cannot be streamed one reads it.
+var mediaFilm = execx.Film{Path: "/media/film.mkv"}
+
 func (fake fakeFFmpeg) RunWatched(_ context.Context, run execx.WatchedRun) (execx.Ran, error) {
 	err := fake.run(run.Access, run.Arguments)
 	if fake.watches != nil {
@@ -111,7 +114,7 @@ func TestPreparer_APrepareTheDiskHasNoRoomForIsRefusedAndRunsNothing(t *testing.
 		t.Fatal(err)
 	}
 	command := nodeproto.Prepare{Profile: nodeproto.ProfileRemux, RenditionDir: "3/remux/0123456789abcdef"}
-	_, err = preparer.Prepare(t.Context(), "/media/a.mkv", command, func(int64) {})
+	_, err = preparer.Prepare(t.Context(), execx.Film{Path: "/media/a.mkv"}, command, func(int64) {})
 	if err == nil || !strings.Contains(err.Error(), "past its limit") {
 		t.Errorf("a prepare with no room: %v, want refused with why, before FFmpeg runs (D217 §5)", err)
 	}
@@ -126,7 +129,7 @@ func TestPreparer_WritesUnderTheRenditionsDirectoryAndReportsProgressAndSize(t *
 	}
 	var progress []int64
 	command := nodeproto.Prepare{Profile: nodeproto.ProfileRemux, RenditionDir: "7/remux/0123456789abcdef"}
-	made, err := preparer.Prepare(t.Context(), "/media/film.mkv", command, func(ms int64) {
+	made, err := preparer.Prepare(t.Context(), execx.Film{Path: "/media/film.mkv"}, command, func(ms int64) {
 		progress = append(progress, ms)
 	})
 	if err != nil {
@@ -151,7 +154,7 @@ func TestPreparer_ShelvesAMadeRenditionsManifestWhileItIsStillBeingWritten(t *te
 		t.Fatal(err)
 	}
 	command := nodeproto.Prepare{Profile: nodeproto.ProfileRemux, RenditionDir: "7/remux/0123456789abcdef"}
-	if _, err := preparer.Prepare(t.Context(), "/media/film.mkv", command, func(int64) {}); err != nil {
+	if _, err := preparer.Prepare(t.Context(), mediaFilm, command, func(int64) {}); err != nil {
 		t.Fatal(err)
 	}
 	if len(keeper.shelved) != 1 || keeper.shelved[0].Prepare.RenditionDir != command.RenditionDir ||
@@ -172,7 +175,7 @@ func TestPreparer_ARenditionsSizeIsItsRegularFilesAsThePreparedBudgetCountsThem(
 		t.Fatal(err)
 	}
 	command := nodeproto.Prepare{Profile: nodeproto.ProfileRemux, RenditionDir: "7/remux/0123456789abcdef"}
-	made, err := preparer.Prepare(t.Context(), "/media/film.mkv", command, func(int64) {})
+	made, err := preparer.Prepare(t.Context(), execx.Film{Path: "/media/film.mkv"}, command, func(int64) {})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,7 +193,7 @@ func TestPreparer_SaysWhatMadeTheVideoAndHowFastFFmpegSaidItRan(t *testing.T) {
 			t.Fatal(err)
 		}
 		command := nodeproto.Prepare{Profile: profile, RenditionDir: "7/" + string(profile) + "/0123456789abcdef"}
-		made, err := preparer.Prepare(t.Context(), "/media/film.mkv", command, func(int64) {})
+		made, err := preparer.Prepare(t.Context(), execx.Film{Path: "/media/film.mkv"}, command, func(int64) {})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -213,7 +216,7 @@ func TestPreparer_OnlyAnEncodeOnTheGPUIsGrantedItsDevices(t *testing.T) {
 			t.Fatal(err)
 		}
 		command := nodeproto.Prepare{Profile: profile, RenditionDir: "7/" + string(profile) + "/0123456789abcdef"}
-		if _, err := preparer.Prepare(t.Context(), "/media/film.mkv", command, func(int64) {}); err != nil {
+		if _, err := preparer.Prepare(t.Context(), mediaFilm, command, func(int64) {}); err != nil {
 			t.Fatal(err)
 		}
 		return granted[0]
@@ -239,7 +242,7 @@ func TestPreparer_RefusesADirectoryThatIsNotARenditions(t *testing.T) {
 		"../7/remux", "7/remux", "7/remux/../x", "7/other/0123456789abcdef", "0/remux/0123456789abcdef",
 		"7/remux/0123456789ABCDEF",
 	} {
-		_, refused := preparer.Prepare(t.Context(), "/a", nodeproto.Prepare{RenditionDir: dir}, func(int64) {})
+		_, refused := preparer.Prepare(t.Context(), mediaFilm, nodeproto.Prepare{RenditionDir: dir}, func(int64) {})
 		if !errors.Is(refused, prepare.ErrBadRenditionDir) {
 			t.Errorf("%q: %v, want ErrBadRenditionDir", dir, refused)
 		}
@@ -250,7 +253,7 @@ func TestPreparer_RefusesADirectoryThatIsNotARenditions(t *testing.T) {
 		t.Fatal(err)
 	}
 	named := nodeproto.Prepare{RenditionDir: "7/remux/0123456789abcdef"}
-	if _, err := failing.Prepare(t.Context(), "/a", named, func(int64) {}); err == nil {
+	if _, err := failing.Prepare(t.Context(), execx.Film{Path: "/a"}, named, func(int64) {}); err == nil {
 		t.Error("a failed run reported success")
 	}
 	if _, err := prepare.New(fakeFFmpeg{}, "relative", roomyKeeper{}, prepare.EncoderX264); err == nil {
@@ -270,7 +273,7 @@ func TestPreparer_WatchesARunWithADeadlineFromTheSourcesLengthAndTheSpeedLastMea
 			Profile: profile, RenditionDir: "7/" + string(profile) + "/0123456789abcdef",
 			SourceDurationMs: sourceDurationMs,
 		}
-		if _, err := preparer.Prepare(t.Context(), "/media/film.mkv", command, func(int64) {}); err != nil {
+		if _, err := preparer.Prepare(t.Context(), mediaFilm, command, func(int64) {}); err != nil {
 			t.Fatal(err)
 		}
 	}

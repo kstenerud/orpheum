@@ -8,6 +8,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
@@ -15,7 +16,7 @@ import (
 // ChunkMaker makes a run of chunks of one stream of a film, telling onChunk each as it is in its
 // store, and returns the last it made, or -1; chunks.Maker is the real one.
 type ChunkMaker interface {
-	Make(ctx context.Context, sourcePath string, command nodeproto.MakeChunks, onChunk func(n int)) (int, error)
+	Make(ctx context.Context, source execx.Film, command nodeproto.MakeChunks, onChunk func(n int)) (int, error)
 }
 
 // chunksWork is a run of chunks held until a slot of its kind is free, an encode's for a quality
@@ -91,13 +92,14 @@ func (agent *Agent) runChunks(
 	if agent.workers.ChunkMaker == nil {
 		return refused(errors.New("this node does not make chunks"))
 	}
-	sourcePath, err := agent.verifiedSourcePath(ctx, command.Video)
+	source, closeSource, err := agent.openFilm(ctx, command.Video)
 	if stall := stallOf(err); stall != nil {
 		return nodeproto.MakeChunksReport{State: nodeproto.PrepareStalled, LastChunk: -1, Stall: stall}
 	}
 	if err != nil {
 		return refused(err)
 	}
+	defer closeSource()
 	onChunk := func(n int) {
 		if times.firstChunkAt.IsZero() {
 			times.firstChunkAt = agent.clock.Now()
@@ -106,7 +108,7 @@ func (agent *Agent) runChunks(
 		running.ChunksMadeThrough = &n
 		agent.sayProgress(ctx, nodeID, running)
 	}
-	last, err := agent.workers.ChunkMaker.Make(ctx, sourcePath, command, onChunk)
+	last, err := agent.workers.ChunkMaker.Make(ctx, source, command, onChunk)
 	switch stall := stallOf(err); {
 	case errors.Is(err, prepared.ErrNoRoom):
 		noRoom := refused(err)

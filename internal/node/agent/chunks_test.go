@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -24,7 +25,7 @@ import (
 type fakeChunkMaker struct{}
 
 func (fakeChunkMaker) Make(
-	_ context.Context, _ string, command nodeproto.MakeChunks, onChunk func(n int),
+	_ context.Context, _ execx.Film, command nodeproto.MakeChunks, onChunk func(n int),
 ) (int, error) {
 	if strings.Contains(command.StoreDir, "panicking") {
 		panic("a box shorter than its header")
@@ -141,7 +142,7 @@ type pacedChunkMaker struct {
 }
 
 func (maker pacedChunkMaker) Make(
-	ctx context.Context, _ string, command nodeproto.MakeChunks, onChunk func(n int),
+	ctx context.Context, _ execx.Film, command nodeproto.MakeChunks, onChunk func(n int),
 ) (int, error) {
 	last := command.FirstChunk + len(command.BoundsMs) - 2
 	for chunk := command.FirstChunk; chunk <= last; chunk++ {

@@ -100,12 +100,12 @@ func keyframeTimes(command nodeproto.MakeChunks) string {
 	return strings.Join(times, ",")
 }
 
-// Arguments is FFmpeg's command line for one run, after execx's hardening flags: the source's
-// absolute path, the run's raw directory, where the segment muxer writes, and the node's encoder.
-func Arguments(sourcePath, rawPath string, command nodeproto.MakeChunks, encoder prepare.Encoder) []string {
+// Arguments is FFmpeg's command line for one run, after execx's hardening flags: the source film, the
+// run's raw directory, where the segment muxer writes, and the node's encoder.
+func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, encoder prepare.Encoder) []string {
 	end := command.BoundsMs[len(command.BoundsMs)-1]
 	arguments := []string{"-v", "error", "-nostats", "-ss", seconds(seekMs(command)), "-to", seconds(end)}
-	arguments = append(arguments, execx.FileInput(sourcePath)...)
+	arguments = append(arguments, source.Input()...)
 	switch command.Stream.Kind {
 	case nodeproto.StreamPicture:
 		arguments = append(arguments, "-map", "0:"+strconv.Itoa(command.VideoStreamIndex), "-c:v", "copy")

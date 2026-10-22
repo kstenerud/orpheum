@@ -3,8 +3,6 @@
 package execx
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -109,24 +107,9 @@ func TestReadProgress_ReadsEachBlocksPositionFramesAndSpeed(t *testing.T) {
 	}
 }
 
-// sparseFile is a file of sizeBytes that takes no disk: a byte written at its end.
-func sparseFile(t *testing.T, sizeBytes int64) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "film.mkv")
-	file, err := os.Create(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = file.WriteAt([]byte{0}, sizeBytes-1)
-	if closeErr := file.Close(); err != nil || closeErr != nil {
-		t.Fatal(err, closeErr)
-	}
-	return path
-}
-
 func TestReadingDeadline_IsReadingTheFileAtTheSlowestReadTheNodeIsConfiguredFor(t *testing.T) {
 	t.Parallel()
-	film := sparseFile(t, 60<<30)
+	film := Film{Path: "/media/film.mkv", Size: 60 << 30}
 	for _, check := range []struct {
 		bytesPerSecond int64
 		want           time.Duration
@@ -135,9 +118,16 @@ func TestReadingDeadline_IsReadingTheFileAtTheSlowestReadTheNodeIsConfiguredFor(
 		{40 << 20, DeadlineFor(1537 * time.Second)},
 		{0, DeadlineFor(0)}, // a rate not known is an unknown length
 	} {
-		if got := ReadingDeadline(film, check.bytesPerSecond); got != check.want {
+		if got := film.ReadingDeadline(check.bytesPerSecond); got != check.want {
 			t.Errorf("60 GiB at %d bytes a second: %s, want %s", check.bytesPerSecond, got, check.want)
 		}
+	}
+	// A size not known is an unknown length, however fast the node reads.
+	if got := (Film{Path: "/media/film.mkv"}).ReadingDeadline(20 << 20); got != DeadlineFor(0) {
+		t.Errorf("a film of no known size: %s, want %s", got, DeadlineFor(0))
+	}
+	if got := (Film{Path: "/media/film.mkv", Size: -1}).ReadingDeadline(20 << 20); got != DeadlineFor(0) {
+		t.Errorf("a film of a negative size: %s, want %s", got, DeadlineFor(0))
 	}
 }
 

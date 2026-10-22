@@ -53,17 +53,17 @@ type Text struct {
 	VTT []byte
 }
 
-// ExtractTrack extracts the text track at streamIndex of the video at videoPath, an absolute
-// path the caller has checked.
-func (extractor *Extractor) ExtractTrack(ctx context.Context, videoPath string, streamIndex int) (Text, error) {
+// ExtractTrack extracts the text track at streamIndex of film, a video the caller has checked.
+func (extractor *Extractor) ExtractTrack(ctx context.Context, film execx.Film, streamIndex int) (Text, error) {
 	ran, err := extractor.runner.RunWatched(ctx, execx.WatchedRun{
-		Access:           confine.Access{Read: []string{videoPath}},
-		Arguments:        arguments(execx.FileInput(videoPath), "0:"+strconv.Itoa(streamIndex), codecASS),
+		Access:           confine.Access{Read: film.Readable()},
+		Arguments:        arguments(film.Input(), "0:"+strconv.Itoa(streamIndex), codecASS),
 		StdoutLimitBytes: MaxTextBytes,
 		Watch: execx.Watch{
 			StartGrace: trackStartGrace, StallWindow: trackStallWindow,
-			Deadline: execx.ReadingDeadline(videoPath, extractor.slowestReadBytesPerSecond),
+			Deadline: film.ReadingDeadline(extractor.slowestReadBytesPerSecond),
 		},
+		Film: film.Stream,
 	})
 	if err != nil {
 		return Text{}, fmt.Errorf("extract stream %d as ASS: %w", streamIndex, err)
@@ -110,7 +110,7 @@ const (
 	codecWebVTT = "webvtt"
 )
 
-// arguments read input, execx.FileInput or execx.PipeInput, and write the stream mapping names, as
+// arguments read input, execx.Film's Input or execx.PipeInput, and write the stream mapping names, as
 // codec, to stdout. When inputFormatArguments are given, they name the input's format rather than
 // letting FFmpeg guess.
 func arguments(input []string, mapping, codec string, inputFormatArguments ...string) []string {

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/subtitle"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/bounded"
@@ -16,7 +17,7 @@ import (
 
 // Subtitler makes a subtitle's ASS and WebVTT; subtitle.Extractor is the real one.
 type Subtitler interface {
-	ExtractTrack(ctx context.Context, videoPath string, streamIndex int) (subtitle.Text, error)
+	ExtractTrack(ctx context.Context, film execx.Film, streamIndex int) (subtitle.Text, error)
 	ConvertText(ctx context.Context, source []byte) (subtitle.Text, error)
 }
 
@@ -181,20 +182,21 @@ func (agent *Agent) runExtraction(ctx context.Context, command nodeproto.Extract
 func (agent *Agent) extractTrack(
 	ctx context.Context, video nodeproto.BytesFile, streamIndex int,
 ) (subtitle.Text, error) {
-	videoPath, err := agent.verifiedSourcePath(ctx, video)
+	film, closeFilm, err := agent.openFilm(ctx, video)
 	if stallOf(err) != nil {
 		return subtitle.Text{}, err
 	}
 	if err != nil {
 		return subtitle.Text{}, notTriedError{err}
 	}
-	return agent.workers.Subtitler.ExtractTrack(ctx, videoPath, streamIndex)
+	defer closeFilm()
+	return agent.workers.Subtitler.ExtractTrack(ctx, film, streamIndex)
 }
 
 // convertSidecar converts a subtitle file beside the media, read through the root it is under and
 // checked to be the one the core named (D100).
 func (agent *Agent) convertSidecar(ctx context.Context, sidecar nodeproto.BytesFile) (subtitle.Text, error) {
-	file, err := agent.openNamed(ctx, sidecar)
+	file, _, err := agent.openNamed(ctx, sidecar)
 	if stallOf(err) != nil {
 		return subtitle.Text{}, err
 	}

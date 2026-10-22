@@ -25,7 +25,7 @@ func TestRead_ReadsOnlyTheFileAndMeasuresEachSoundByName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	findings, err := NewReader(runner, 20<<20).Read(t.Context(), "/media/Film (2020)/film.mkv",
+	findings, err := NewReader(runner, 20<<20).Read(t.Context(), execx.Film{Path: "/media/Film (2020)/film.mkv"},
 		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 6}, {StreamIndex: 2, ChannelCount: 2}}, nil, 0, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -74,7 +74,7 @@ func TestRead_ATrackFFmpegSaidNothingOfIsAFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = NewReader(runner, 20<<20).Read(t.Context(), "/media/film.mkv",
+	_, err = NewReader(runner, 20<<20).Read(t.Context(), execx.Film{Path: "/media/film.mkv"},
 		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 2}, {StreamIndex: 3, ChannelCount: 2}}, nil, 0, nil)
 	if err == nil || !strings.Contains(err.Error(), "stream 3") {
 		t.Errorf("with no summary for stream 3: %v, want a failure naming it", err)
@@ -88,7 +88,8 @@ func TestRead_ARunAskedForNothingIsRefusedWithoutRunning(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := NewReader(runner, 20<<20).Read(t.Context(), "/media/film.mkv", nil, nil, 0, nil); err == nil {
+	_, err = NewReader(runner, 20<<20).Read(t.Context(), execx.Film{Path: "/media/film.mkv"}, nil, nil, 0, nil)
+	if err == nil {
 		t.Error("a read asked for nothing succeeded; want it refused")
 	}
 	if calls := fake.Calls(t); len(calls) != 0 {
