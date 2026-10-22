@@ -25,7 +25,10 @@
     whether running playbacks drop a rung, and quiet hours) were researched in
     [timeliness-followups-2026-10-22.md](../research/timeliness-followups-2026-10-22.md), and the
     owner decided them the same day, with changes to the multi-viewer rule and the messages (§11).
-    No question is open.
+    A final audit by a systems and a UX expert
+    ([data-timeliness-audit-2026-10-22.md](../research/data-timeliness-audit-2026-10-22.md)) found the
+    direction in line with expert consensus and listed fixes. The fixes are folded in, and four
+    policy questions are open in §11.
   - The design built from these scenarios is not written yet.
   - This replaces the five design questions of the
     [queue inventory](../research/job-queues-inventory-2026-10-21.md) §5, which the design answers.
@@ -59,7 +62,7 @@ and what it costs. Then a table has one row per moment where a person expects so
 | **Moment** | What the person does or looks at. |
 | **Expects** | What they should see. |
 | **By** | The deadline: a class from §3, or a time as p50 / p95, counted from the moment. |
-| **Late** | What a late answer is worth (§3.2): **hard**, **firm** or **soft**. |
+| **Late** | What a late answer is worth (§3.2): **visible**, **firm** or **soft**. "Must be right" marks a value that may not be shown wrong, whatever its timing: a matter of correctness, not of time. |
 | **Data** | What has to exist to show it, and where it comes from (§4). |
 | **Meanwhile** | What is shown until it is there (§5). |
 
@@ -77,8 +80,8 @@ of a video split out as its own class, and two classes for work no one sits and 
 | --- | --- | --- |
 | **Instant** | 0.1 s | It reacts like a physical object: a button, a scroll, a TV's focus moving. |
 | **Flow** | 1 s | The wait is noticed but the train of thought is kept: a page, a poster. |
-| **Start** | 2 s at p95, explained at 3 s | The first frame. Viewers begin to give up after 2 s, and each further second loses about 5.8% more of them (Krishnan and Sitaraman, IMC 2012). |
-| **Progress** | 10 s, with a determinate indicator | Still watching the screen, and needs to see how far along it is. |
+| **Start** | 2 s at p95 on the LAN from an awake disk; per path in the scenarios (P1, P2); explained by 3 s, or by 1.5 s when the cause is known | The first frame. Viewers begin to give up after 2 s, and each further second loses about 5.8% more of them (Krishnan and Sitaraman, IMC 2012). The same study found long-form viewers more patient, so 2 s is a conservative target for films, chosen and not forced. |
+| **Progress** | 10 s; an indicator once the wait is expected past about 1 s, and percent-done beyond 10 s (Nielsen) | Still watching the screen, and needs to see that it is moving. |
 | **Patient** | minutes | Does something else and comes back to check. |
 | **Due** | a time, hours to days ahead | No one waits, but it must be done by then: tonight's backup, a certificate before it expires. |
 | **Eventually** | no time | Improves things when done, and nothing is due: loudness for a film nobody has opened. |
@@ -88,9 +91,13 @@ the buffer runs out, again and again for two hours.
 
 **Percentiles.** A deadline is a p50 and a p95, not a single point.
 - Users calibrate to the typical case and punish the outliers. A start that is usually 0.3 s and
-  sometimes 8 s is worse than one that is always 1.5 s.
+  sometimes 8 s is worse than one that is always 1.5 s. This is judgement, in line with
+  Shneiderman's guidance on the variability of response times.
+- **A household produces few events.** Five plays a day make a p95 over a week a handful of samples.
+  So each target names its window of measurement, and each also has a rule per event that holds
+  every time: **no wait goes unexplained past 3 s.**
 - A stall during play costs more than a slower start: one rebuffer causes three times the
-  abandonment of one bitrate change (YouSlow, INFOCOM 2016). So the design may buy a better p95 for
+  abandonment of one bitrate change (YouSlow, INFOCOM 2016, measured on short YouTube videos). So the design may buy a better p95 for
   a continuous deadline with a little more startup, for example a longer first buffer for a remote
   play.
 
@@ -98,7 +105,7 @@ the buffer runs out, again and again for two hours.
 
 | Value | Means | Examples |
 | --- | --- | --- |
-| **Hard** | Missing it is a failure the person sees. | A chunk past the buffer: a stall. |
+| **Visible** | A miss is something the person sees. The target is still a percentile, so some misses are expected; it is not "hard" in the real-time sense, where any miss is a failure (Buttazzo). | A chunk past the buffer: a stall. |
 | **Firm** | Late is worth nothing. Drop the work; don't finish it. | A poster that scrolled past; chunks for a position someone seeked away from. |
 | **Soft** | Worth a little less the later it comes. | Loudness; a poster for the grid as a whole. |
 
@@ -115,6 +122,32 @@ prior art is consistent that the scheduler's vocabulary must stay tiny and absol
 - Ceph hides mClock's settings behind three profiles.
 
 How classes map to tiers is the design's to say (§9).
+
+### 3.4 Wants
+
+A **want** is someone's need for data by a deadline. The final audit ([audit](../research/data-timeliness-audit-2026-10-22.md)) found that the scenarios
+need two kinds of want, and rules for where a want's class comes from.
+
+- **Ephemeral wants** are held by a session as a lease: a page shown, a poster in view, a playback,
+  a prediction. They live in memory. They lapse when not renewed, and are declared again on
+  reconnecting (C3). They are never written to the database at each renewal.
+- **Durable wants** are kept by the server until done or cancelled: "Scan now" (A1), a match fixed
+  (A2), a file to show (B5), a backup or a certificate (A4), a library's first scan (T1). The person
+  may close the app: "Patient" means they come back later. These survive a restart of the client,
+  the core and the node.
+- **The class is the core's to give, not the client's to claim.** A client declares facts: what it
+  shows, plays and predicts. The core derives the class from them. "Start", for instance, belongs
+  only to a playback the core has admitted. This is where Google SRE sets criticality: at the
+  trusted frontend.
+- **Caps per holder.** A session may hold so many leases and so many predictions at once (Chrome
+  caps speculations at two). A lease's lifetime is capped too. Guests have their own, smaller caps.
+- **A deadline travels as a remaining budget, not a clock time.** TVs and phones keep wrong clocks.
+  Each hop turns the budget into its own monotonic clock, as gRPC carries `grpc-timeout`.
+- **A want has an identity.** It carries a key, so five presses of Play are one want (W15). Work is
+  keyed by its kind, the identity of its content and its parameters, so wants for the same work
+  meet on it.
+- **One person's wants compete too.** A person scrolling fast floods their own interactive wants;
+  the newest is served first, and the per-holder cap bounds the flood.
 
 ## 4. Where the data comes from, and what it costs
 
@@ -138,7 +171,7 @@ waits behind it, and §9 asks that it be short.
 | A node, encoding | Prepare, chunks, trick-play images | CPU or GPU, as long as the film plays or longer; a reader | A chunk; a prepare is the whole film |
 | A node's prepared directory | Prepared copies, chunks | Disk space, a budget (W9) | — |
 | An outside provider | TMDB, artwork originals, OpenSubtitles | Network; a **rate limit** and a **daily quota**; may be down | A request |
-| The household's uplink | Every byte to a remote viewer | Bits per second, shared by every remote viewer; often the tightest resource behind DS-Lite and a relay | — |
+| The household's uplink | Every byte to a remote viewer | Bits per second, shared by every remote viewer and by the household's own traffic; often the tightest resource behind DS-Lite and a relay. **Measured, not configured** | — |
 
 ### 4.2 Data kinds the first sketch missed
 
@@ -166,6 +199,11 @@ an encode first. Lowering a direct play's bitrate means starting an encode. When
 possible it is usually the right choice, ahead of a low transcoded rung (the owner, 2026-10-22).
 The "start low and climb" tactic applies only to a playback that is transcoded anyway.
 
+**Direct play is mostly a LAN rule.** A 1080p remux's bitrate peaks at 20–40 Mbit/s, and a 4K one
+at 40–80, against a household uplink of about 20 Mbit/s. So remote play is mostly a transcode, and
+with one guaranteed transcode per node (W11), a second remote viewer at the same time often waits
+or plays reduced.
+
 ### 4.4 One read can serve two needs
 
 During direct play the node already reads every byte of the film. Loudness, the timeline and
@@ -174,6 +212,14 @@ competing read of the same file. This is the "cooperative scan" from databases. 
 rebuild** (the owner, 2026-10-22: *"Take this on now. We want to get this rebuild right rather than
 doing things piecemeal."*). A read-through then becomes something a playback can do on the way, and
 a read of its own only for a film nobody plays.
+
+It is harder than the first review said (the final audit):
+- A playback's reads are partial. They jump after a seek and stop when the person stops.
+- So the read-through keeps a **map of what it has covered**, and a read of its own fills the gaps.
+- Integrated loudness (EBU R128) has two gates, so slices merge only through a **histogram of block
+  loudness**, not a running figure.
+- It is an **opportunistic consumer**: nothing may depend on it being there. The risk is scope, which
+  the owner accepted in taking it on now.
 
 ## 5. Freshness, and what is shown meanwhile
 
@@ -190,6 +236,8 @@ only for a complete one.
   focus never moves. On a TV, a row reordering under the D-pad reads as a broken remote.
 - **Availability is a lease, not a fact.** A probe's answer is stale the moment it returns. It is
   shown with its age, and becomes unknown when the lease runs out.
+- **An age is shown only where it matters**: availability, a disk's state, the status page. It is not
+  shown on every value a relative watching TV sees.
 - **A disk has three states:** ready, waking (up to about 30 s), and not answering. A sleeping disk is
   never shown as unavailable.
 - **After a core restart**, anything about "now" is unknown until the source says it again. It is
@@ -205,8 +253,11 @@ only for a complete one.
 
 ### 5.3 Filling the wait
 
-- Show nothing for a wait under about 300 ms. Once a spinner is shown, keep it at least 500 ms, so it
-  does not flash.
+- Show no indicator for a wait expected under about 1 s. A looped animation shorter than that only
+  distracts (NN/g). Once an indicator is shown, keep it at least 500 ms, so it does not flash.
+- A bar for a wait of known length eases near its end, since a pause near the end feels slowest
+  (Harrison et al.). If the wait passes its expected end, the wording changes ("Taking longer than
+  usual…") rather than the bar sitting full.
 - During a start, show the film's backdrop and title, not black with a spinner.
 - A long job shows a count and an estimate, never only a spinner.
 - A known, finite wait ("Waking the drive…") feels shorter than an unexplained one.
@@ -218,14 +269,37 @@ Every playback problem answers one question: **your side, the household's server
 There are two audiences:
 - **A user's message** never says disk, share or node, and **never mentions the administrator**
   (the owner, 2026-10-22). For example: *"The library is having trouble reaching this film. Your
-  connection is fine."* It also says what will happen next: *"It will pick up by itself when it's back. [Keep waiting] [Watch something else]"*.
+  connection is fine."* It also says what will happen next. A message is one of two kinds:
+  - **Transient**, said only when a probe can recover the cause: *"It will pick up by itself when
+    it's back. [Keep waiting] [Watch something else]"*.
+  - **Lasting**, for an unreadable or corrupt file or a full disk, which will not come back by
+    itself: *"This film can't be played right now. This has been reported."* The passive voice
+    names no one. It is true, because the admin's badge and email exist, and it gives the person
+    a reason to stop retrying (§11 Q2).
 - **The admin** gets the detail (the place, when it last answered, what waits behind it), and is
   **notified**, not left to find out from a text (A6).
-- **Both see a badge.** An issue shows as a badge in the app for every person it touches, and on
-  each film it affects. A user's badge carries only the friendly explanation. The admin's carries
-  the detail (A6).
+- **Both see a badge.** An issue shows as a badge in the app for every person it touches. A user's
+  badge carries only the friendly explanation. The admin's carries the detail (A6).
+  - An outage of a whole place (a share, a node) shows as **one banner for the household**, not a
+    badge on each of its 3,000 films.
+  - **Per-film badges** are for faults in one file.
+  - A user's badge clears when the issue resolves. The admin's clears when it resolves or is
+    acknowledged.
+- **Users are told what the admin can see**: which film failed for whom and when (A6).
 - A failure costs trust: viewers who meet one are less likely to come back (Krishnan and
   Sitaraman). So after recovery, playback resumes a few seconds before the freeze.
+
+### 5.5 Every state can be heard, not only seen
+
+The final audit found no accessibility model for these states:
+- **Every "Meanwhile" state has a text form**, announced to assistive technology as a status message
+  (WCAG 4.1.3): "Waking the drive…", "Subtitles loading", "updating", a value's age.
+- **Poster arrivals are silent.** Corrections in place don't move a screen reader's position.
+- **Nothing relies on colour alone** (WCAG 1.4.1): a badge or a stale state has a word or a shape.
+- **Reduced motion is honoured** for animated bars and shimmer.
+- **A countdown can be extended or switched off** (WCAG 2.2.1): the next episode's (P7).
+- **All copy goes through a message catalog** with plural rules ("1 new, 3 can't be read").
+  Relative ages and times are formatted for the viewer's locale and time zone.
 
 ## 6. The people and their devices
 
@@ -236,9 +310,12 @@ There are two audiences:
   playing at once on some evenings.
 - **A relative who is not technical**, on a TV with a remote. Every message is written for them by
   default, with the detail behind "Details".
-- **A child**: presses Play again and again, can't read an error, and has parental limits.
+- **A child**: presses Play again and again, can't read an error, and has parental limits. A
+  restricted profile sees **nothing that has no rating yet**: a file shown as soon as it is known
+  (B5) is held back from it until identified.
 - **A guest**: opens the household once, through discovery. That one open is their whole
-  impression.
+  impression. Guests and users see a cleaned title parsed from the file's name, never the raw
+  filename. Only the admin sees that.
 
 The devices are a TV with a D-pad, a phone (sometimes on a metered connection) and a laptop. **No
 TV or phone has hover.** The signal that predicts a play is focus resting on a tile (about 500 ms)
@@ -259,10 +336,10 @@ read-throughs total about a week of one disk's time at 20 GB and 100 MB/s each.
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
-| Picks the folder | Told it can be read, or why not | Flow | Hard | A probe of the place | A spinner, then "not answering" |
+| Picks the folder | Told it can be read, or why not | Flow | Visible | A probe of the place | A spinner, then "not answering" |
 | The library is created | Films appear, posters first in **grid order**, not folder order | First ~30 within Progress | Soft | The listing streams in; examine, identification and artwork for the first screenful first | "Looking through the folder: N found" |
 | Watches the grid | The rest fill in | Patient | Soft | Identification, artwork | Filename and a placeholder of the poster's size |
-| Clicks a film still unscanned | Its page, then it plays | Flow, then Start: **not in time cold** | Hard | That film's examine, identification and keyframe index, ahead of the other 2,999 | The page from the filename, saying what is still being read |
+| Clicks a film still unscanned | Its page, then it plays | Flow, then Start: **not in time cold** | Visible | That film's examine, identification and keyframe index, ahead of the other 2,999 | The page from the filename, saying what is still being read |
 | Comes back later | All identified and playable | Patient (under 1 h per 3,500 items) | Soft | All the above | A count, with an estimate |
 | Days later | Loudness measured, subtitles found | Eventually, by value over cost (§8.9) | Soft | Read-throughs, subtitle searches | "Not measured yet" |
 
@@ -278,15 +355,15 @@ read-throughs total about a week of one disk's time at 20 GB and 100 MB/s each.
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
-| Enrols it | Shown connected, with its disks | Flow | Hard | Its hello and status | "Connecting" |
+| Enrols it | Shown connected, with its disks | Flow | Visible | Its hello and status | "Connecting" |
 | Adds a library on it | As T1 | | | | |
 
 #### T4. Inviting the partner, and a guest's only visit
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
-| Makes the invite | A link or code | Flow | Hard | The database | — |
-| The partner or a guest opens it for the first time | The home page | ≤3 s p50, ≤5 s p95 | Hard | Discovery, the paths, the session, the home page | "Connecting to <household>", with the household's name |
+| Makes the invite | A link or code | Flow | Visible | The database | — |
+| The partner or a guest opens it for the first time | The home page | ≤3 s p50, ≤5 s p95 | Visible | Discovery, the paths, the session, the home page | "Connecting to <household>", with the household's name |
 
 ### Connecting
 
@@ -295,8 +372,8 @@ read-throughs total about a week of one disk's time at 20 GB and 100 MB/s each.
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
 | Opens the app | The home page | The shell from cache ≤0.3 s; fresh data ≤1 s p95 | Soft | The database; posters from the client's cache | The last page seen, corrected in place |
-| Looks at Continue Watching | Right, including last night on another device | Flow | Hard if wrong | Play state | Stale but labelled, never reordered under focus |
-| — | The first item warmed to play | Before any press | Soft | Its keyframe index and first chunks (§8.5) | — |
+| Looks at Continue Watching | Right, including last night on another device | Flow | Visible; must be right | Play state | Stale but labelled, never reordered under focus |
+| — | The first item warmed to play | Before any press | Soft | Its keyframe index and first chunks (§8.5); **a prediction never wakes a sleeping disk** | — |
 
 #### C2. The partner opens it remotely
 
@@ -360,11 +437,11 @@ they arrive.
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
-| Scrolls, or moves focus | The grid moves; focus moves | Instant | Hard | Already in the client | — |
+| Scrolls, or moves focus | The grid moves; focus moves | Instant | Visible | Already in the client | — |
 | Posters come into view | Each poster | **Before it is visible**: prefetched 1–2 screens ahead | Firm | The artwork size for this screen | A placeholder of the poster's size |
 | Posters scrolled past | Nothing | — | — | Their requests are cancelled in the client, and the newest asked is served first | — |
 | Looks at the side of the grid | A jump bar of first letters, in the locale's own alphabet, showing only letters some film starts with | With the grid | Soft | The **letter index** of the current view (below) | The bar without letters |
-| Jumps from "A" to "L" | The grid at "L", posters at once | Flow for the grid; posters as above | Hard for the grid, firm per poster | The window of the view at L's offset, and its posters, ahead of the ones scrolled past | Placeholders of the final size at the right place |
+| Jumps from "A" to "L" | The grid at "L", posters at once | Flow for the grid; posters as above | Visible for the grid, firm per poster | The window of the view at L's offset, and its posters, ahead of the ones scrolled past | Placeholders of the final size at the right place |
 
 **Jumping by letter** (the owner, 2026-10-22), as Jellyfin and Plex do:
 - **A jump is a fetch at an offset.** It is not a scroll through what lies between, so the posters
@@ -378,6 +455,11 @@ they arrive.
 - **Only letters some film starts with are shown.** The index is built from the titles, not from
   the alphabet.
 - **The index belongs to the view.** A filter or a search changes it (B8).
+- **The locale is the viewer's**, and the letters index the title as shown to them, the localized
+  one. Leading articles are skipped ("The", "Der", "Les"), as Plex and Jellyfin do.
+- **The bar shows only when the view is sorted by title.**
+- **On touch and on the web, letters with no film are dimmed**, not removed, so the strip keeps its
+  layout under a finger. On a TV they are hidden, which saves presses.
 
 #### B8. Filtering by genre and year, and searching within a view (missing before)
 
@@ -397,7 +479,7 @@ superseded view's fetches are worthless at once, so they are cancelled.
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
 | Opens it | Title, art, synopsis, cast | Flow | Soft | The database | — |
-| Reads it | Whether it can play now | ≤1 s, shown with its age | Hard if wrong | Availability's lease (§5.1) | Unknown; **Play stays pressable** |
+| Reads it | Whether it can play now | ≤1 s, shown with its age | Visible; must be right | Availability's lease (§5.1) | Unknown; **Play stays pressable** |
 | Reads it | Tracks, subtitles, length, loudness | Flow, or "not measured yet" | Soft | The examine; the read-through, maybe not | "Not measured yet" |
 | Focus rests on Play, or the page opens on a phone | — | — | — | A **prediction**: warm the keyframe index and the first chunks, within prediction's own small budget (§8.2) | — |
 
@@ -427,9 +509,9 @@ The owner, 2026-10-22:
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
-| Copies it, then opens the app or the library | **It is there**, at least as a bare grid entry with its file name and no poster, marked as being read | Flow to Progress, counted from opening the library | Hard: a missing entry sends the person looking for "Scan now" | The new file **known**, before it is examined or identified | — |
+| Copies it, then opens the app or the library | **It is there**, at least as a bare grid entry with a title cleaned from its file name and no poster, marked as being read | Flow to Progress, counted from opening the library; **not in time on a share** until the design measures NFS revalidation (the attribute cache, 60 s by default) | Visible: a missing entry sends the person looking for "Scan now" | The new file **known**, before it is examined or identified | — |
 | Watches it | Its title and poster arrive in place | Patient | Soft | Examine, identification, artwork | The bare entry |
-| The file can't be read (permissions, ownership, a name the system can't open) | **The entry is there, and says why**: "Orpheum can see this file but can't read it: check its permissions" | As the first row | Hard: silence here cost the owner a long debugging session | The failure, kept with the file (§4.2) | — |
+| The file can't be read (permissions, ownership, a name the system can't open) | **The entry is there, and says why**, by audience. The admin: "Orpheum can see this file but can't read it: check its permissions", with the path. A user: "Not available yet". A restricted profile: nothing (§6) | As the first row | Visible: silence here cost the owner a long debugging session | The failure, kept with the file (§4.2) | — |
 | Presses "Scan now" anyway | It says what it found: N new, M it can't read, and why | Instant acknowledgement, then Progress | Soft | The scan's result, by outcome | — |
 
 - **Knowing comes before understanding.** Seeing a new file is cheap (a listing). Examining and
@@ -445,12 +527,14 @@ The owner, 2026-10-22:
     on a share unless the check reads past the cache.
   - The check is a person's want, so it may wake a sleeping disk (A8). It runs when someone looks,
     never on a timer: a timer is what kept Jellyfin's disks from ever sleeping.
+  - **It has a minimum interval per root.** Otherwise every phone unlock (C5) becomes a timer in
+    disguise.
 - **Every file the scan sees appears**, readable or not. A file it can't use is never dropped
   silently. Its reason is shown on the entry, and it is counted in the scan's result and in the
   admin's issues (A6).
 
 **What it says:** the catalog's "is the file there" can't be minutes stale once someone looks. Its
-"what is the film" can be. Availability can never be stale. A notification bounds the catalog's
+"what is the film" can be. Availability is never stale without a label. A notification bounds the catalog's
 staleness too (A9).
 
 #### B6. Two people browse while a big scan runs
@@ -462,48 +546,55 @@ poster someone is looking at.
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
-| Stops a film, presses Back | Continue Watching shows the new position | Instant | Hard if wrong | The client's own last report, before the server confirms | — |
+| Stops a film, presses Back | Continue Watching shows the new position, the row reordered **before focus lands on it** (C1) | Instant | Visible; must be right | The client's own last report, before the server confirms | — |
 
 ### Playing
 
 #### P1. Play a film that plays directly
 
 **Load:** at most two playbacks at once per household on the evenings that have them; a
-1080p direct play needs about 10 Mbit/s; a 4K one about 40–80.
+1080p direct play needs about 10 Mbit/s; a 4K one about 40–80. The targets below are for a disk that
+is **awake**. A sleeping disk has its own target (W7), because spin-up alone can take 23 s.
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
-| Presses Play, LAN | The first frame | ≤1 s p50, ≤2 s p95 | Hard | Availability; the keyframe index; the first bytes | The backdrop and title; at 3 s, why ("waking the drive", "the drive is busy") |
-| Presses Play, remote | The first frame | ≤2 s p50, ≤4 s p95; may trade startup for fewer stalls | Hard | The same, over the uplink | As above |
-| Plays from Continue Watching | The first frame | ≤1 s | Hard | Warmed when the home page loaded (C1) | As above |
-| Watches | No stalls | Continuous | Hard | Bytes ahead of the playhead, under a **reservation** of disk throughput and uplink (§8.4) | A stall, said when it happens |
+| Presses Play, LAN | The first frame | ≤1 s p50, ≤2 s p95 | Visible | Availability; the keyframe index; the first bytes | The backdrop and title; why, by 1.5 s if the cause is known ("waking the drive"), and by 3 s at the latest |
+| Presses Play, remote | The first frame | ≤2 s p50, ≤4 s p95; may trade startup for fewer stalls | Visible | The same, over the uplink | As above |
+| Plays from Continue Watching | The first frame | ≤1 s | Visible | Warmed when the home page loaded (C1) | As above |
+| Watches | No stalls | Continuous | Visible | Bytes ahead of the playhead, under an **admission** against estimated disk throughput and uplink, protected by feedback (§8.4) | A stall, said when it happens |
 
 #### P2. Play a film that needs a remux or an encode
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
-| Presses Play | The first frame | ≤3 s p95; past 3 s, a stated reason | Hard | The first chunks, encoded on demand | Backdrop and title, then progress |
-| Watches | No stalls | Continuous: the encoder stays ahead of the playhead, then sleeps | Hard | CPU or GPU and a reader, reserved; the read rate limited to what it needs | A stall; a lower rung offered (D253) |
+| Presses Play | The first frame | ≤3 s p95; past 3 s, a stated reason | Visible | The first chunks, encoded on demand | Backdrop and title, then progress |
+| Watches | No stalls | Continuous: the encoder stays ahead of the playhead, then sleeps | Visible | CPU or GPU and a reader, reserved; the read rate limited to what it needs | A stall; a lower rung offered (D253) |
 
 #### P3. Seeking and scrubbing
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
 | Drags the bar | Thumbnails along it | Instant | Firm | **Trick-play images** (§4.2) | The bar alone |
-| Lets go at 1:10:00 | The picture there | ≤1 s LAN, ≤2 s remote | Hard | The chunk there; work for the old position is **dropped** | The last frame, then a spinner |
-| Skips ±10 s | The picture there | Instant | Hard | The buffer kept behind the playhead | — |
+| Lets go at 1:10:00 | The picture there | ≤1 s LAN, ≤2 s remote | Visible | The chunk there; work for the old position is **dropped** | The last frame, then a spinner |
+| Skips ±10 s | The picture there | Instant | Visible | The buffer kept behind the playhead | — |
 
 #### P4. Turning on an embedded subtitle
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
-| Picks a track | Subtitles from the current line | ≤2 s: **not in time cold**, since extraction reads the whole file | Hard | The track's text near the playhead | "Subtitles loading", then text from the playhead on |
-| Their profile always uses subtitles | Subtitles from the first line | Instant | Hard: for a deaf viewer the subtitles are the film | Predicted: extracted on the look, or from the playback's own read (§4.4) | — |
+| Picks a track | Subtitles from the current line | ≤2 s: **not in time cold**, since extraction reads the whole file | Visible | The track's text near the playhead | "Subtitles loading", then text from the playhead on |
+| Their profile always uses subtitles | Subtitles from the first line | Instant; **not in time cold** | Visible: for a deaf viewer the subtitles are the film | Predicted: extracted on the look, or from the playback's own read (§4.4). The partial result: the subtitle packets near the playhead, which the container interleaves with the picture | **The start waits for the subtitles**, and says "Preparing subtitles…" |
+
+For a profile that always uses subtitles:
+- **SDH tracks** (for the deaf and hard of hearing) are preferred over translations.
+- **Image subtitles** (PGS, VobSub) are drawn on the client, never burned in, so they never take the
+  encoder. A deaf viewer is never put in P5's "wait" for something a hearing viewer never needs.
 
 #### P5. Two people play two films from the same NAS disk
 
 Both have P1's or P2's continuous deadlines on one disk's throughput. Both hold, because each
-playback is admitted against its reservation (§8.4). Maintenance on that disk takes only what is
+playback is admitted against an estimate of what is left (§8.4). It is not a guarantee: Orpheum owns
+neither the NAS nor the uplink. Maintenance on that disk takes only what is
 left, at a limited read rate. All viewers are equal: admin or user, at home or remote (the owner,
 2026-10-22).
 
@@ -517,10 +608,10 @@ rule for everyone: *once you are watching, nobody's arrival stalls you or lowers
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
-| A newcomer presses Play and what is left fits | Plays at what is left, paced to it | Start | Hard | The budget: the uplink less headroom, counting each stream at its peak; the encoder's free slots; the disk's reservation | — |
-| What is left is below the floor | A choice: "wait, we'll say when there's room" or "play now at reduced quality" | Flow | Hard | The floor, which may depend on the screen (a phone needs less than a TV) | — |
-| Someone stops | A lowered stream rises once, one step | — | Soft | — | — |
-| The encoder is full | Offered a direct play or remux if the device can take one; otherwise wait | Flow | Hard | The encoder's strict admission | — |
+| A newcomer presses Play and what is left fits | Plays at what is left, paced to it | Start | Visible | The budget: the measured uplink less headroom, counting each stream at its peak (a token-bucket rate and burst over the client's buffer, not the average); the encoder's free slots; the disk's estimate | — |
+| What is left is below the floor | A choice: **"Play now" (focused by default)**, worded as picture quality, not bitrate, or "Wait", with an estimate of when there will be room that never names the other film | Flow | Visible | The floor, which may depend on the screen (a phone needs less than a TV) | — |
+| Someone stops | A lowered stream rises once, one step (raising quality often also raises abandonment: YouSlow); one who waited is told, and starts with one press | — | Soft | — | — |
+| The encoder is full | Offered a direct play or remux if the device can take one; otherwise wait | Flow | Visible | The encoder's strict admission | — |
 
 - **A direct play is a fixed reservation at its peak.** It is never stepped down to make room for
   someone else.
@@ -529,27 +620,34 @@ rule for everyone: *once you are watching, nobody's arrival stalls you or lowers
 - **If the encoder has no room,** the viewer gets the same choice as a newcomer below the floor:
   wait, or play at reduced quality, whatever can be had without the encoder.
 - **No running playback is ever lowered to admit a newcomer**: neither a direct play nor a
-  transcode. There is no option for it (the owner, 2026-10-22).
+  transcode. There is no option for it (the owner, 2026-10-22). The audit noted the risk: whoever
+  arrives first can hold the uplink all evening, so a waiting newcomer's estimate matters.
+- **The choice is made simple:**
+  - A child's profile skips it and plays reduced.
+  - The choice is remembered on the device for the evening.
+- **When capacity itself shrinks**, because a RAID scrub takes the disk or the household's own
+  traffic takes the uplink, someone must yield. That is not an arrival, so the rule above doesn't
+  cover it. Who yields is §11 Q3.
 
 #### P6. Watch Together, one person remote
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
-| Both press Play | Both start together | Start | Hard | The same chunks, perhaps at two qualities; the room's state | Wait for the slower one, and say so |
-| One pauses | The other pauses | Instant to Flow | Hard | The room's state, between the peers over WebRTC, outside the job machinery | Drift, corrected |
+| Both press Play | Both start together | Start | Visible | The same chunks, perhaps at two qualities; the room's state | Wait for the slower one, and say so |
+| One pauses | The other pauses | Instant to Flow | Visible | The room's state, between the peers over WebRTC, outside the job machinery | Drift, corrected |
 
 #### P7. Next episode
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
-| Credits roll | The next episode offered, with a countdown | Instant | Soft | Next Up | — |
-| It starts | The first frame | ≤1 s, since it was predicted | Hard | Warmed during the credits or before | As P1 |
+| Credits roll | The next episode offered, with a countdown that can be extended or switched off (§5.5) | Instant | Soft | Next Up | — |
+| It starts | The first frame | ≤1 s, since it was predicted | Visible | Warmed during the credits or before | As P1 |
 
 #### P8. Resuming on another device
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
-| Stops on the laptop, opens the TV | Resume where it stopped | Flow | Hard if wrong | Play state from the last report | At most 10 s back |
+| Stops on the laptop, opens the TV | Resume where it stopped | Flow | Visible; must be right | Play state from the last report | At most 10 s back |
 
 #### P9. Background work on the film being watched
 
@@ -572,7 +670,7 @@ It is the same kind of prediction as P4.
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
-| Casts | The TV plays from the same second | Start | Hard | The position, the TV's own play (new admission), and the phone's playback ended | The phone keeps playing until the TV starts |
+| Casts | The TV plays from the same second | Start | Visible | The position, the TV's own play (new admission), and the phone's playback ended | The phone keeps playing until the TV starts |
 
 ### Administering
 
@@ -580,7 +678,7 @@ It is the same kind of prediction as P4.
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
-| Presses it | Acknowledged | Instant (optimistic) | Hard | — | — |
+| Presses it | Acknowledged | Instant (optimistic) | Visible | — | — |
 | Watches | Progress, and an estimate | The estimate within 10 s | Soft | The scan's counts | The last count |
 | Waits | Done | Patient | Soft | The listing, examines | — |
 
@@ -596,7 +694,7 @@ An admin's request goes before maintenance and never before a playback.
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
-| Opens it | What is happening now: each disk's state, what runs, what waits and **why** | The last known, with its age, at once; live within 2 s | Hard if wrong | Pulled when looked at (D325): probes, the node's work, the core's queue | The last known, labelled |
+| Opens it | What is happening now: each disk's state, what runs, what waits and **why** | The last known, with its age, at once; live within 2 s | Visible; must be right | Pulled when looked at (D325): probes, the node's work, the core's queue | The last known, labelled |
 | Reads it | Whether the scheduler is keeping up | Flow | Soft | The deadline-miss ratio and lateness of each tier on each resource (§10) | — |
 
 #### A4. A backup and a certificate
@@ -608,15 +706,17 @@ A backup that slips misses its night, and a certificate that slips lapses.
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
-| Removes it | Gone from every page | Instant (optimistic) | Soft | The database | — |
-| — | Its work is gone too | Flow | Hard | The work's wants end, so it is cancelled at its next slice | — |
+| Removes it | Gone from every page, with an **undo** for a while, since removal is destructive | Instant (optimistic) | Soft | The database | — |
+| — | Its work is gone too | Flow | Visible | The work's wants end, so it is cancelled at its next slice | — |
 
 #### A6. The admin is told (missing before)
 
 A share stops answering, a node goes offline, a certificate or backup is at risk, a user's play
 failed, or a file can't be read (B5). The admin is notified, with what a user met: *"a user hit
 this at 21:14 on Film X"*. In a household the partner texts "it's broken" first, and the admin
-should already know.
+should already know. With a badge and a next-day email alone, the admin learns at the next open of
+the app or the next morning, so the text still comes first. Whether to add an immediate channel is
+§11 Q1.
 
 The owner, 2026-10-22: *"Show the badge, and email at most once a day to inform of new issues. The
 badge will need to show for regular users as well, since the issue will likely lead to badges on
@@ -624,10 +724,10 @@ particular films."*
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
-| An issue begins | A badge in the app, for the admin and for each user it touches, and on each film it affects | Flow, once the issue is known | Hard | The issue, its place, the films on that place | — |
+| An issue begins | A badge in the app, for the admin and for each user it touches, and on each film it affects | Flow, once the issue is known | Visible | The issue, its place, the films on that place | — |
 | The admin opens the badge | What happened, where, since when, who met it | Flow | Soft | The issue's record | — |
 | A user opens the badge | A plain explanation, with no mention of the administrator | Flow | Soft | The same, in the user's words | — |
-| The next day's email | New issues since the last email, **at most one email a day**, none when nothing is new | Due | Soft | The issues and when each began and ended | — |
+| The next day's email | New issues since the last email, **at most one email a day**, none when nothing is new; a place that dropped and returned several times is one issue | Due | Soft | The issues and when each began and ended, in the household's time zone | — |
 
 An issue that began and ended between two emails is still reported: the admin learns that a share
 dropped for ten minutes last night.
@@ -635,8 +735,8 @@ dropped for ten minutes last night.
 #### A7. Re-deriving everything (missing before)
 
 A new loudness algorithm or a provider change re-derives 3,000 films: about a week of one disk's
-time. It needs a budget and a rate. It is Eventually by value over cost, and it runs in quiet hours
-on a disk that is awake.
+time. It needs a budget and a rate. It is Eventually by value over cost, and it runs when idle,
+outside quiet hours, on a disk that is awake (A8).
 
 #### A8. Quiet hours and sleeping disks (missing before)
 
@@ -678,6 +778,26 @@ there's real work to be done."*
   wakes it.
 - **"Sound-isolated" lifts only the veto**, making night the preferred time. It is asked as a
   question about where the storage stands.
+- **What obeys what.** The final audit found the rules above contradicting other scenarios: a scan
+  "taking what the playback leaves" (W8), a backup due tonight (A4), batches "right after a
+  playback", which mostly fall after 22:00. Quiet hours govern **I/O on media disks only**. Work on
+  the core's own disk (a backup of its database, metadata) is not noise. Each kind of work:
+
+  | Work | Tier | Quiet hours | Waits for idle | May wake a disk |
+  | --- | --- | --- | --- | --- |
+  | A playback, its chunks, its index | Continuous | Ignores | No | Yes |
+  | What a page or a person waits for: a film opened, "Scan now", a match fixed, a subtitle asked for | Attended | Ignores | No | Yes |
+  | Knowing a new file is there (B5), from a look or a scan | Attended, at a limited rate | Ignores | No | Yes, from a look; no, from a schedule |
+  | A prediction (warming) | Its own budget | Obeys | No | **Never** |
+  | A library's first scan, after the knowing (T1) | Background, with the newest first | Obeys | Yes | Yes, once per batch |
+  | Examine, identification, artwork of new files | Background | Obeys | Yes | Batched |
+  | Read-throughs, trick-play, subtitle extraction | Background, value over cost | Obeys | Yes | Batched |
+  | The core's backup, a certificate | Due | Not media I/O | No | — |
+  | Due work on media disks | Due | **Its latest start overrides the veto** | No, once past its latest start | Yes, once past its latest start |
+
+- **Time zones.** Quiet hours are in the household's IANA time zone, held by the core. A node in
+  another zone follows the household's. On a daylight-saving change the hours follow the wall clock:
+  a night is an hour shorter or longer.
 - **The admin sees:**
   - the quiet hours;
   - each disk's waiting work and its next expected run;
@@ -695,10 +815,10 @@ so the catalog's staleness is bounded by the notification and not only by the sc
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
-| The picture freezes | Told it is the household's server, not their connection | ≤3 s | Hard | A probe of the place | The two-audience message (§5.4); the admin notified (A6) |
-| The share returns | Playback resumes, a few seconds before the freeze | Start, counted from when the share answers | Hard | A probe every 2 s (D327) | Today about 48 s of the host's NFS recovery, which no Orpheum code can shorten |
+| The picture freezes | Told it is the household's server, not their connection | ≤3 s | Visible | A probe of the place | The two-audience message (§5.4); the admin notified (A6) |
+| The share returns | Playback resumes, a few seconds before the freeze | Start, counted from when the share answers | Visible | A probe every 2 s (D327) | Today about 48 s of the host's NFS recovery, which no Orpheum code can shorten |
 | After it returns | Nothing else breaks | — | — | Work comes back **gradually**, playback first; retries have a budget (§8.7) | — |
-| Meanwhile | Browsing the rest is unaffected | Flow | Hard | Nothing waits on the dead place: its breaker is open | — |
+| Meanwhile | Browsing the rest is unaffected | Flow | Visible | Nothing waits on the dead place: its breaker is open | — |
 
 #### W2. Browsing while the share is down
 
@@ -730,13 +850,14 @@ sweep's.
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
-| Presses Play on a sleeping disk | Told the drive is waking | ≤1.5 s | Hard | The disk's state: waking | "Waking the drive…" with a determinate bar to about 30 s |
-| — | The play goes first once it wakes | Start, after spin-up | Hard | The play's read ahead of the scan that woke the disk | — |
+| Presses Play on a sleeping disk | Told the drive is waking | ≤1.5 s | Visible | The disk's state: waking | "Waking the drive…" with a bar to about 30 s that eases near its end, and "Taking longer than usual…" past it (§5.3) |
+| — | The play goes first once it wakes | Start, after spin-up | Visible | The play's read ahead of the scan that woke the disk | — |
 
 #### W8. 200 films copied in during a playback
 
-The playback holds (P1 or P2). The new films appear within Patient. The scan takes what the
-playback leaves, at a limited read rate, and never more.
+The playback holds (P1 or P2). Knowing the new files is there (B5) runs at once, at a limited read
+rate, taking what the playback leaves and never more. So the new films appear as bare entries
+within Patient. Examining and identifying them waits for idle (A8).
 
 #### W9. A full disk
 
@@ -757,7 +878,11 @@ third player is admitted at whatever fits (P5), and told why it got a lower rung
 the other person's film.
 
 **Load:** with no hardware encoder assumed (the owner, 2026-10-22), a 4-core node guarantees
-**one** 1080p software transcode, and a second as best effort. A hardware encoder the node finds is a
+**one** 1080p software transcode, and a second as best effort. "Best effort" has a mechanism,
+because an overcommitted encoder stalls every stream it feeds (jellyfin-chromecast #40):
+- the second runs at a lower CPU weight;
+- it is never charged against the first's lead over the playhead;
+- it steps down, or stops, first when that lead shrinks. A hardware encoder the node finds is a
 bonus. The choices go in order:
 1. direct play;
 2. a remux;
@@ -766,7 +891,14 @@ bonus. The choices go in order:
 
 4K HDR tone-mapped to an SDR screen can't run in real time in software. Without hardware, such a
 film is played directly, and a popup first warns the viewer what to expect: the colours may look
-washed out on this screen (the owner, 2026-10-22).
+washed out on this screen (the owner, 2026-10-22). So that the warning helps and doesn't become
+noise (NN/g: a dialog shown on every routine action stops being read):
+- **The device is checked first.** Many SDR screens can't decode HEVC Main10, the usual format of
+  4K HDR. If this device can't play the file at all, it is told so plainly, instead of a warning
+  that leads to a failure.
+- **The warning appears once per device and profile**, with "Don't warn me again on this screen".
+  On a TV, Play is focused by default.
+- **After that, a note in the player's info** says the colours are not shown as made.
 
 #### W12. Files moved or renamed, or a disk replaced (missing before)
 
@@ -782,13 +914,14 @@ renamed. The job is offered again, and doing it twice does no harm.
 #### W14. Another program on the NAS (missing before)
 
 A RAID scrub or another media server takes the disk's throughput, and Orpheum can't see it. The
-disk's limit, learned from read latency (§8.6), shrinks by itself. Playback keeps its reservation,
-and maintenance yields.
+playback's lead over the playhead shrinks, and background reads on that disk are throttled first
+(§8.6). If the playbacks themselves no longer fit, someone must yield (§11 Q3).
 
 #### W15. A child presses Play five times (missing before)
 
-The five presses are one want, not five. Nothing is queued twice. An error on a child's profile is
-shown as a picture, not as words.
+The five presses are one want, not five: they carry one key (§3.4). Nothing is queued twice. An
+error on a child's profile is shown as a picture **with** words, for the adult nearby and for a
+screen reader.
 
 ### Combinations (missing before)
 
@@ -814,13 +947,16 @@ the design itself.
    what requests a person made leave over. When a prediction comes true, a new want appears for
    exactly the data now needed, and the background job doesn't change class. Priority passes only
    along a real "X is blocked on Y" edge.
-3. **A want is a lease with a holder, an absolute deadline and a class**, carried from the client to
-   the core to the node. Work shared by several wants takes the earliest deadline and highest class
-   among them. When the last lease ends, the work is cancelled at its next slice.
+3. **A want has a holder, a deadline and a class (§3.4).** It is ephemeral (a lease) or durable
+   (kept until done). The class is derived by the core, never claimed by the client. The deadline
+   travels as a remaining budget. Work shared by several wants takes the earliest deadline and
+   highest class among them. When its last want ends, the work is cancelled at its next slice.
    - Firm wants that are abandonable (posters, search) serve the newest first.
    - Cancelling a poster begins in the client.
-4. **Continuous deadlines get a reservation and admission control.** A playback is admitted only if
-   its reservation fits: disk throughput, encode rate and uplink. Otherwise it is offered a lower
+4. **Continuous deadlines get admission control, against an estimate, protected by feedback.** A
+   playback is admitted only if it fits on every resource it needs at once (disk throughput,
+   encoder and uplink), all or nothing. It is not a guarantee: Orpheum owns neither the NAS nor the
+   uplink. Otherwise it is offered a lower
    rung that does fit. A running playback is protected over a new start, because a stall costs more
    than a slower start. All viewers are equal under that rule (P5).
 5. **Prediction turns expensive data into timely data.** These predict a play:
@@ -829,10 +965,14 @@ the design itself.
    - the credits, for the next episode;
    - a usual language, for a subtitle or audio track;
    - a slow link, for a lower rung.
-6. **Costs are a vector, and capacity is learned.** Two jobs compete only for the same resource. A
-   disk's safe concurrency is learned from its read latency, as Netflix's concurrency-limits and
-   Meta's IOCost do. A dead or busy disk then shrinks its own limit, and background reads have a
-   rate limit, not only a pause.
+6. **Costs are a vector, and capacity is watched, not assumed.** Two jobs compete only for the same
+   resource.
+   - The control is the **playback's lead over its playhead**, as Linux's io.latency protects a
+     group. When the lead shrinks, background reads on that disk are throttled by rate.
+   - Read latency is a hint, not the controller. Limiters that learn concurrency from latency
+     (Netflix's) work at tens to hundreds. At one to three readers over NFS, with read-ahead and the
+     NAS's cache in the way, they oscillate (the final audit).
+   - Background reads have a rate limit, not only a pause.
 7. **Fail fast on a dead place, and come back slowly.**
    - A dead place's breaker is open: it admits nothing new, and a read stuck in the kernel counts as
      gone until it returns.
@@ -849,7 +989,7 @@ the design itself.
    - the cheap examine covers every file first;
    - read-throughs are then ordered by predicted watching ÷ the film's size over the disk's
      throughput;
-   - they run in quiet hours, on an awake disk.
+   - they run when idle, outside quiet hours, on an awake disk (A8).
 10. **Derived data is a cache with rules:**
     - an identity that survives a move;
     - a size budget, with eviction weighing the cost to recompute;
@@ -872,12 +1012,35 @@ This sketch does not decide these. The design does, against the scenarios.
   next to the disk. A provider's rate is known in the core. The prior art says each resource has
   exactly one place that decides, with shallow queues below it. The queue inventory's "one scheduler
   or two in series" becomes "one decider per resource, next to it".
-- **The tiers**: perhaps three. Continuous or interactive; attended (a person's request, Patient);
-  and background (Due and Eventually, ordered by latest start and by value over cost). Each tier has
-  a reservation, a weight and a limit on each resource. EDF runs only inside a tier.
+- **Coordination between deciders.**
+  - The uplink belongs to the household. It spans nodes and the relay, so it has no single "next to
+    it": the design says where it is decided.
+  - A playback needs disk, encoder and uplink together, so its admission is all or nothing across
+    deciders, taken in a fixed order so that no hold is left half-made.
+- **Admission is separate from priority.** Continuous work (playbacks) is admitted and then holds
+  its share outside the priority order, as mClock keeps reservation apart from weight. The rest is
+  ordered in perhaps three tiers:
+  - interactive (a page, a poster, a seek);
+  - attended (a person's request: Patient);
+  - background (Due and Eventually, ordered by latest start and by value over cost).
+
+  EDF runs only inside a tier.
+- **Overload inside a tier:**
+  - caps per holder (§3.4);
+  - a minimum share for background work, so Due work never starves;
+  - an order of shedding when a provider's quota runs out: a person's requests are spent last.
+- **Fairness between people** in a tier: Dominant Resource Fairness or deficit round robin.
+- **The SQLite writer is a scheduled resource.** SQLite allows one writer at a time, and Jellyfin
+  #14366 showed a scan stalling playback through it.
+  - Write transactions are bounded in length and sliced like other long work.
+  - Play-state writes (B7, P8) go before scan batches.
+  - Leases are never written at each renewal.
+  - A long reader starving the checkpoint is watched.
 - **The length of a slice** for each kind of long work, and how a read-through's loudness merges
   across slices.
-- **How wants travel**: as leases from the client, which says what it shows, plays and predicts.
+- **How wants travel** (§3.4): ephemeral leases from the client, which declares facts; durable
+  wants kept by the core; the class derived by the core; budgets, not clock times; keys for
+  identity. And what each survives across a restart of the client, the core and the node.
 - **The cache's identities, budgets and eviction.**
 - **What is kept from D324, D327 and D328.** Interest becomes the source of wants. The probe and
   the place table stay.
@@ -886,9 +1049,14 @@ This sketch does not decide these. The design does, against the scenarios.
 
 - **A simulation first.** A discrete-event simulation of the scheduler on the fake clock
   (`clocktest`) replays the scenarios and the combinations X1–X3. It checks each tier's
-  deadline-miss ratio before anything is built.
-- **In shadow.** The new scheduler runs beside the old one, deciding nothing, until its decisions
-  are trusted. Figma did this before switching its load sets on.
+  deadline-miss ratio before anything is built. It models what started all this: reads stuck in the
+  kernel on a dead share, the 48 s NFS recovery, and a disk's 23 s spin-up.
+- **Replayed traces and injected faults, rather than shadow mode.** A shadow of a stateful scheduler
+  matches the real one only up to its first different decision, and a household rarely overloads.
+  So the checks are:
+  - recorded traces of staging's real days, replayed;
+  - faults injected on staging: a share dropped with netem or iptables, a slow disk with dm-delay;
+  - then a canary on one household.
 - **Measured.** The scheduler is judged by the deadline-miss ratio and the lateness of each tier on
   each resource. The status page shows the same numbers (A3).
 
@@ -928,6 +1096,23 @@ This sketch does not decide these. The design does, against the scenarios.
 - **Quiet hours (A8)** as proposed, with their start and end configurable.
 - **A user's messages never mention the administrator.**
 
-### Open
+### Open, from the final audit
 
-None. The next step is the design (§9), checked against these scenarios (§10).
+The [final audit](../research/data-timeliness-audit-2026-10-22.md) left four questions that are the
+owner's. None of them blocks the design: each is a policy the design keeps as a setting.
+
+1. **An immediate channel for the admin.** A badge and a next-day email mean the partner's text
+   still comes first (A6). Add an opt-in immediate notice (web push, or a native one later) only for
+   issues that touch a playback now, silent in quiet hours? Or keep it as decided, and accept that
+   the admin learns at the next open of the app?
+2. **"This has been reported."** For a lasting fault, a user's message says this (§5.4). It names
+   no one, and it tells the person to stop retrying. Does it keep to "never mention the
+   administrator"?
+3. **Who yields when capacity itself shrinks.** A RAID scrub takes the disk, or the household's own
+   traffic takes the uplink, and the playbacks no longer fit (P5, W14). Nobody arrived, so the rule
+   "no arrival lowers you" doesn't decide it. The proposal: **the most recently started playback
+   steps down first.** A direct play becomes a transcode if the encoder has room, and otherwise its
+   viewer gets the wait-or-reduced choice.
+4. **Stopping a stream by hand.** Plex and Jellyfin let an admin stop someone's stream, with a
+   message. That keeps the automatic rule equal for everyone, and gives the owner a recourse on their
+   own server. Wanted?
