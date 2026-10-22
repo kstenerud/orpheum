@@ -21,6 +21,10 @@
 //     TestKeyframesMs_MP4SyncSamplesAreThePicturesKeyframes, TestKeyframesMs_AFileWithNoIndexSaysSo,
 //     FuzzKeyframesMs, and against ffprobe on files the pinned tools make,
 //     TestKeyframesMs_AreTheKeyframesFFprobeShowsInRealFiles.
+//   - A file is read from a pipe only when its container reads in one pass from its start: Matroska,
+//     an MPEG transport stream, or an MP4 whose index comes before its media; anything else, or a
+//     file it cannot read, is read as a file (D329 §7).
+//     TestReadsStraightThrough_OnlyContainersReadInOnePassFromTheirStart.
 //
 // # Read before changing
 //
@@ -29,6 +33,7 @@
 //
 // # Where to change
 //
+//   - straight.go: whether a file reads in one pass from its start.
 //   - read.go: bounded reads; ebml.go: Matroska elements; mp4.go: MP4 boxes; keyframes.go: a
 //     picture's keyframes from either's index.
 package container
