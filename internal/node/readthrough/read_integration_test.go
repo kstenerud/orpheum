@@ -46,7 +46,7 @@ func TestRead_AToneOfKnownLevelMeasuresAsItIsAndItsPictureHasItsKeyframes(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	findings, err := readthrough.NewReader(runner, 20<<20).Read(t.Context(), film,
+	findings, err := readthrough.NewReader(runner, 20<<20).Read(t.Context(), execx.Film{Path: film},
 		[]nodeproto.LoudnessTrack{{StreamIndex: 1, ChannelCount: 6}, {StreamIndex: 2, ChannelCount: 2}},
 		&nodeproto.VideoTimelineAsk{VideoStreamIndex: 0}, 0, nil)
 	if err != nil {

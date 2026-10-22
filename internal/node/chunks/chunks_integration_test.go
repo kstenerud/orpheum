@@ -152,7 +152,7 @@ func makeInTwoRuns(
 		if stream.Kind == nodeproto.StreamSound && first > 0 {
 			command.SoundLeadInMs = grid[first-1]
 		}
-		if last, err := maker.Make(t.Context(), source, command, nil); err != nil || last != first+2 {
+		if last, err := maker.Make(t.Context(), execx.Film{Path: source}, command, nil); err != nil || last != first+2 {
 			t.Fatalf("the run from %d made through %d, %v", first, last, err)
 		}
 	}

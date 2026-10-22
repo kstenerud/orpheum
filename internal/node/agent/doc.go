@@ -96,6 +96,10 @@
 //     is made, and says how far it got however it ended; a quality runs in an encode slot, a copied
 //     picture or a sound in a remux slot (D247 §10).
 //     TestAgent_MakesChunksOfOnlyTheVideoTheCoreNamedAndSaysEachAsItIsMade.
+//   - Each run of FFmpeg on a film the core named gets it from openFilm: on a node whose FFmpeg reads
+//     through it (Workers.StreamsFilms, D330), served from the very file the node opened and checked,
+//     through its disk's gate and within a whole read's budget, the run given no path; otherwise by
+//     its path, as before. TestAgent_ARunIsServedTheFileTheNodeCheckedOnlyWhenItsFFmpegReadsThroughIt.
 //   - A cancel is carried out as it arrives, not queued behind other work: it stops the job's
 //     FFmpeg, frees its slot, and nothing more is reported for the job; a job cancelled while it
 //     waits for a slot never starts (cut-a §5.3).
@@ -157,7 +161,8 @@
 //   - agent.go: the session, its poll and its status, and the commands; listing.go: listing and
 //     examining;
 //     answer.go: posting a job's result, and trying it again; progress.go: saying where a job is;
-//     prepare.go: prepares; hello_test.go: the hello's renditions;
+//     prepare.go: prepares, and opening the file a command names; film.go: a run's film, read by
+//     path or streamed, and the terms it is streamed on; hello_test.go: the hello's renditions;
 //     subtitle.go: subtitle extraction, and work that posts its whole answer when it ends;
 //     readthrough.go: reading a video through; working.go: the work held, its slots and priority order,
 //     and cancel.

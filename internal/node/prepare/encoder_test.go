@@ -73,11 +73,12 @@ func TestChooseEncoder_EachTrialSaysWhyItFailedInFFmpegsWords(t *testing.T) {
 func TestArguments_AnEncodeUsesTheNodesEncoderAndARemuxCopies(t *testing.T) {
 	t.Parallel()
 	encode := nodeproto.Prepare{Profile: nodeproto.ProfileH264}
-	arguments := prepare.Arguments("/a", "/b", encode, prepare.EncoderQuickSync)
+	arguments := prepare.Arguments(execx.Film{Path: "/a"}, "/b", encode, prepare.EncoderQuickSync)
 	if codec := after(arguments, "-c:v"); codec != "h264_qsv" {
 		t.Errorf("an encode on a Quick Sync node uses %s, want h264_qsv", codec)
 	}
-	remux := prepare.Arguments("/a", "/b", nodeproto.Prepare{Profile: nodeproto.ProfileRemux}, prepare.EncoderQuickSync)
+	remux := prepare.Arguments(execx.Film{Path: "/a"}, "/b", nodeproto.Prepare{Profile: nodeproto.ProfileRemux},
+		prepare.EncoderQuickSync)
 	if codec := after(remux, "-c:v"); codec != "copy" {
 		t.Errorf("a remux uses %s, want copy whatever the encoder", codec)
 	}

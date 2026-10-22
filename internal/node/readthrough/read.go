@@ -48,7 +48,7 @@ type Findings struct {
 	VideoTimeline *nodeproto.VideoTimeline
 }
 
-// Read reads the video at videoPath, an absolute path the caller has checked, through once, and
+// Read reads film, a video the caller has checked, through once, and
 // learns what the command asks: the loudness of each of its loudnessTracks, a track with more than
 // two channels as it is and as the standard stereo mix a prepare makes of it, any other as stereo
 // (D226 §1); and, when timeline is set, its picture's timeline (D247 §10). The film's length,
@@ -57,20 +57,21 @@ type Findings struct {
 // When set, onProgress is told how far into the film the read is, as FFmpeg says, for how long the
 // rest will take (D324 §6).
 func (reader *Reader) Read(
-	ctx context.Context, videoPath string, loudnessTracks []nodeproto.LoudnessTrack,
+	ctx context.Context, film execx.Film, loudnessTracks []nodeproto.LoudnessTrack,
 	timeline *nodeproto.VideoTimelineAsk, duration time.Duration, onProgress func(readThroughMs int64),
 ) (Findings, error) {
 	if len(loudnessTracks) == 0 && timeline == nil {
 		return Findings{}, errors.New("a read-through asked for nothing")
 	}
-	arguments := append([]string{"-nostats"}, execx.FileInput(videoPath)...)
+	arguments := append([]string{"-nostats"}, film.Input()...)
 	arguments = append(arguments, loudnessOutput(loudnessTracks)...)
 	run := execx.WatchedRun{
-		Access: confine.Access{Read: []string{videoPath}}, LogLimitBytes: maxLogBytes,
+		Access: confine.Access{Read: film.Readable()}, LogLimitBytes: maxLogBytes,
 		Watch: execx.Watch{
 			StartGrace: readStartGrace, StallWindow: readStallWindow,
-			Deadline: reader.deadline(videoPath, len(loudnessTracks) > 0, duration),
+			Deadline: reader.deadline(film, len(loudnessTracks) > 0, duration),
 		},
+		Film: film.Stream,
 	}
 	if onProgress != nil {
 		run.Watch.OnProgress = func(progress execx.Progress) { onProgress(progress.Position.Milliseconds()) }
@@ -108,8 +109,8 @@ func (reader *Reader) Read(
 // minutes at 7.9 times real time, past the ten its reading allowed, and was stopped near its end
 // (the owner's first Watch Together test, 2026-10-05). Copying the picture's packets for its
 // timeline decodes nothing, so it takes as long as reading.
-func (reader *Reader) deadline(videoPath string, isMeasuringLoudness bool, duration time.Duration) time.Duration {
-	reading := execx.ReadingDeadline(videoPath, reader.slowestReadBytesPerSecond)
+func (reader *Reader) deadline(film execx.Film, isMeasuringLoudness bool, duration time.Duration) time.Duration {
+	reading := film.ReadingDeadline(reader.slowestReadBytesPerSecond)
 	if !isMeasuringLoudness || duration <= 0 {
 		return reading
 	}

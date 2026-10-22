@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -112,6 +113,11 @@ type Runner struct {
 	signalRun func(process *os.Process, signal syscall.Signal) error
 	// onStarted, when set by a test, is called once the process has started.
 	onStarted func()
+	// logger is told, once, that a streamed film's pipe could not take its size (LoggingTo); nil
+	// tells no one.
+	logger *slog.Logger
+	// pipeSizeTold is that telling, once.
+	pipeSizeTold sync.Once
 
 	stuck stuckProcesses
 }
@@ -138,6 +144,25 @@ func NewConfinedRunner(directory, shim string) (*Runner, error) {
 		sampleGroup: sampleGroup, signalRun: signalRun,
 		stuck: stuckProcesses{byPID: map[int]StuckProcess{}},
 	}, nil
+}
+
+// LoggingTo has the runner log to logger what concerns the node rather than one run: once, that a
+// streamed film's pipe kept its default size, the user's pipe memory spent (ffstreamer's
+// PROTOCOL.md §4.3), so every streamed run reads slower.
+func (runner *Runner) LoggingTo(logger *slog.Logger) *Runner {
+	runner.logger = logger
+	return runner
+}
+
+// tellPipeSizeRefused logs, once, that a streamed film's pipe kept its default size.
+func (runner *Runner) tellPipeSizeRefused(ctx context.Context, refused error) {
+	if refused == nil || runner.logger == nil {
+		return
+	}
+	runner.pipeSizeTold.Do(func() {
+		runner.logger.WarnContext(ctx, "a streamed film's pipe could not take its size, so streamed runs "+
+			"read slower: raise fs.pipe-user-pages-soft (docs/operators)", "err", refused)
+	})
 }
 
 // signalRun sends signal to the tool's process itself, through its pidfd where the kernel has one
@@ -181,6 +206,21 @@ func (runner *Runner) RunInput(
 	ctx context.Context, tool Tool, access confine.Access, arguments []string, input []byte, stdoutLimitBytes int,
 ) ([]byte, error) {
 	return runner.run(ctx, tool, access, arguments, input, stdoutLimitBytes)
+}
+
+// RunOnFilm is Run for a run whose input is film, which arguments name with film.Input: granted to
+// read its path, or, when it is streamed, served it through the node, the verdict then also taking
+// its channel's account (D330).
+func (runner *Runner) RunOnFilm(
+	ctx context.Context, tool Tool, film Film, arguments []string, stdoutLimitBytes int,
+) ([]byte, error) {
+	stdout := &limitedBuffer{limitBytes: stdoutLimitBytes}
+	stderrTail, err := runner.runToExit(ctx, tool, confine.Access{Read: film.Readable()}, arguments,
+		pipes{stdout: stdout, stderrTailLimitBytes: stderrTailBytes, film: film.Stream})
+	if err != nil {
+		return nil, err
+	}
+	return stdout.kept(tool, stderrTail)
 }
 
 // RunStreaming is Run for a run whose stdout is read as it is written: stdout goes to the

@@ -69,6 +69,17 @@
 //     TestRunWatched_AStreamedRunWhoseFilmCannotBeReadStalledOnItsDisk.
 //   - A paused streamed run reads nothing: its READs are held as its process is stopped.
 //     TestRunWatched_APausedStreamedRunReadsNothingUntilContinued.
+//   - A run names its film one way, Film: by its path, granted to read that path alone, or streamed,
+//     granted no path to it. A run that is not watched, as ffprobe's is, reads a streamed film at the
+//     same descriptors, after a closed descriptor 3 (RunOnFilm). Bounding a run by its film's size
+//     never stats the film: the size is the one the node opened it with.
+//     TestFilm_AStreamedFilmGrantsNoPathAndAFilmByPathGrantsOnlyItsOwn,
+//     TestRunOnFilm_AnUnwatchedRunReadsItsStreamedFilmThroughTheNode,
+//     TestReadingDeadline_IsReadingTheFileAtTheSlowestReadTheNodeIsConfiguredFor.
+//   - A film is streamed only by an FFmpeg that lists ffstreamer among its input protocols
+//     (HasFFstreamer). TestHasFFstreamer_IsTheProtocolAmongTheInputsFFmpegLists.
+//   - That a streamed film's pipe kept its default size, the user's pipe memory spent, is logged once
+//     (LoggingTo). TestRunner_SaysOnceThatAStreamedFilmsPipeKeptItsDefaultSize.
 //
 // # Read before changing
 //
@@ -83,9 +94,9 @@
 //
 //   - execx.go: starting a run, through the shim or not; the argument hardening and a run's
 //     input; the stderr tail on failure. watch.go: the watchdog, its progress and its deadlines.
-//     pause.go: pausing a watched run for play-driven work. film.go: a run's film served through
-//     the node (internal/node/ffstreamer). proc_linux.go: reading a process
-//     group from /proc. stuck.go: the processes left running.
+//     pause.go: pausing a watched run for play-driven work. film.go: a run's film, by path or
+//     served through the node (internal/node/ffstreamer), and whether FFmpeg can be served one.
+//     proc_linux.go: reading a process group from /proc. stuck.go: the processes left running.
 //     process_linux.go and process_other.go: a tool's process group and parent-death signal.
 //     The shim itself is internal/node/confine's.
 package execx

@@ -96,7 +96,7 @@ func TestRead_TheTimelineComesFromTheSameReadAsTheLoudness(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	findings, err := NewReader(runner, 20<<20).Read(t.Context(), "/media/film.mkv",
+	findings, err := NewReader(runner, 20<<20).Read(t.Context(), execx.Film{Path: "/media/film.mkv"},
 		[]nodeproto.LoudnessTrack{{StreamIndex: 2, ChannelCount: 2}},
 		&nodeproto.VideoTimelineAsk{VideoStreamIndex: 1}, 0, nil)
 	if err != nil {
@@ -118,7 +118,7 @@ func TestRead_TheTimelineComesFromTheSameReadAsTheLoudness(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	findings, err = NewReader(timelineRunner, 20<<20).Read(t.Context(), "/media/film.mkv", nil,
+	findings, err = NewReader(timelineRunner, 20<<20).Read(t.Context(), execx.Film{Path: "/media/film.mkv"}, nil,
 		&nodeproto.VideoTimelineAsk{VideoStreamIndex: 0}, 0, nil)
 	arguments = strings.Join(onlyTimeline.OnlyCall(t).Arguments, " ")
 	if err != nil || findings.Loudness != nil || findings.VideoTimeline == nil ||

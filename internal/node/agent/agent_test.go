@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
@@ -462,7 +463,7 @@ func TestAgent_ReEncodesArtworkAndPostsTheAnswer(t *testing.T) {
 type stopWatchingPreparer struct{ stopped chan struct{} }
 
 func (preparer stopWatchingPreparer) Prepare(
-	ctx context.Context, _ string, _ nodeproto.Prepare, progress func(preparedThroughMs int64),
+	ctx context.Context, _ execx.Film, _ nodeproto.Prepare, progress func(preparedThroughMs int64),
 ) (prepare.Made, error) {
 	progress(500)
 	<-ctx.Done()
@@ -611,7 +612,7 @@ type releasedPreparer struct {
 }
 
 func (preparer releasedPreparer) Prepare(
-	ctx context.Context, _ string, _ nodeproto.Prepare, progress func(preparedThroughMs int64),
+	ctx context.Context, _ execx.Film, _ nodeproto.Prepare, progress func(preparedThroughMs int64),
 ) (prepare.Made, error) {
 	progress(500)
 	close(preparer.started)

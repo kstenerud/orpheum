@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -61,16 +60,14 @@ func DeadlineFor(expected time.Duration) time.Duration {
 	return max(deadlineFactor*expected, shortestDeadline)
 }
 
-// ReadingDeadline is the deadline of a run that reads the whole file at path, an absolute path:
-// DeadlineFor the time reading it takes at slowestReadBytesPerSecond, the slowest the node's
-// config says it reads (nodeproto.Capacity), or for an unknown length when its size or the rate
-// is not known.
-func ReadingDeadline(path string, slowestReadBytesPerSecond int64) time.Duration {
-	info, err := os.Stat(path)
-	if err != nil || info.Size() <= 0 || slowestReadBytesPerSecond <= 0 {
+// deadlineForReading is the deadline of a run that reads a whole file of sizeBytes: DeadlineFor the
+// time reading it takes at slowestReadBytesPerSecond, the slowest the node's config says it reads
+// (nodeproto.Capacity), or for an unknown length when its size or the rate is not known.
+func deadlineForReading(sizeBytes, slowestReadBytesPerSecond int64) time.Duration {
+	if sizeBytes <= 0 || slowestReadBytesPerSecond <= 0 {
 		return DeadlineFor(0)
 	}
-	return DeadlineFor(time.Duration(info.Size()/slowestReadBytesPerSecond+1) * time.Second)
+	return DeadlineFor(time.Duration(sizeBytes/slowestReadBytesPerSecond+1) * time.Second)
 }
 
 // Progress is where a watched run is, as FFmpeg's -progress last said.

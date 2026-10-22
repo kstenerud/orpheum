@@ -105,7 +105,8 @@ func TestMake_PutsEachChunkAtItsTimeAsFFmpegFinishesIt(t *testing.T) {
 	}
 	maker, shelf, directory := makerOver(t, fake)
 	var told []int
-	last, err := maker.Make(t.Context(), "/films/a.mp4", command, func(n int) { told = append(told, n) })
+	last, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command,
+		func(n int) { told = append(told, n) })
 	if err != nil || last != 12 {
 		t.Fatalf("the run made through %d, %v; want 12", last, err)
 	}
@@ -149,7 +150,7 @@ func TestMake_TimesASoundBySamplesAfterItsLeadIn(t *testing.T) {
 		numbers: []int{9, 10, 11},
 	}
 	maker, shelf, directory := makerOver(t, fake)
-	if _, err := maker.Make(t.Context(), "/films/a.mp4", command, nil); err != nil {
+	if _, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command, nil); err != nil {
 		t.Fatal(err)
 	}
 	if shelf.HasFile(command.StoreDir, ChunkName(9)) {
@@ -174,7 +175,7 @@ func TestMake_AFailedRunKeepsWhatItFinished(t *testing.T) {
 		err:     errors.New("Invalid data found when processing input"),
 	}
 	maker, shelf, _ := makerOver(t, fake)
-	last, err := maker.Make(t.Context(), "/films/a.mp4", command, nil)
+	last, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command, nil)
 	if err == nil || last != 10 || !shelf.HasFile(command.StoreDir, ChunkName(10)) {
 		t.Errorf("a failed run made through %d, %v; want chunk 10 kept and the failure said", last, err)
 	}
@@ -206,7 +207,8 @@ func TestMake_RefusesARunNotOfARunsShape(t *testing.T) {
 	} {
 		fake := &fakeFFmpeg{}
 		maker, _, directory := makerOver(t, fake)
-		if _, err := maker.Make(t.Context(), "/films/a.mp4", command, nil); !errors.Is(err, ErrBadRun) {
+		_, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mp4"}, command, nil)
+		if !errors.Is(err, ErrBadRun) {
 			t.Errorf("%s: %v, want it refused", name, err)
 		}
 		if entries, err := os.ReadDir(directory); err != nil || len(entries) != 0 || fake.ran.Arguments != nil {
@@ -251,7 +253,7 @@ func TestMake_NeverMakesAChunkOfAFileNotCutAtItsBounds(t *testing.T) {
 		fake := &fakeFFmpeg{raw: picture(test.numbers...), numbers: test.numbers, spans: test.spans, err: test.err}
 		maker, shelf, _ := makerOver(t, fake)
 		command := run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture})
-		last, err := maker.Make(t.Context(), "/films/a.mkv", command, nil)
+		last, err := maker.Make(t.Context(), execx.Film{Path: "/films/a.mkv"}, command, nil)
 		if last != test.wantLast || (err != nil) != test.wantError {
 			t.Errorf("%s: the run made through %d, %v; want %d, failing %v", test.name, last, err, test.wantLast,
 				test.wantError)

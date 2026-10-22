@@ -130,11 +130,12 @@ func checkSeek(command nodeproto.MakeChunks) error {
 	return nil
 }
 
-// Make makes the run's chunks in order, telling onChunk each one as it is in its store, and returns
-// the last it made, or -1 for none. A chunk is in the store whole and at its time in the film once
-// told; a run that fails or is stopped keeps the chunks it made.
+// Make makes the run's chunks of source, a film the caller has checked, in order, telling onChunk
+// each one as it is in its store, and returns the last it made, or -1 for none. A chunk is in the
+// store whole and at its time in the film once told; a run that fails or is stopped keeps the chunks
+// it made.
 func (maker *Maker) Make(
-	ctx context.Context, sourcePath string, command nodeproto.MakeChunks, onChunk func(n int),
+	ctx context.Context, source execx.Film, command nodeproto.MakeChunks, onChunk func(n int),
 ) (int, error) {
 	if err := check(command); err != nil {
 		return -1, err
@@ -162,9 +163,10 @@ func (maker *Maker) Make(
 		OnProgress: func(execx.Progress) { _ = taker.takeFinished() }, //nolint:errcheck // see above
 	}
 	_, runErr := maker.runner.RunWatched(ctx, execx.WatchedRun{
-		Access:    confine.Access{Read: []string{sourcePath}, Write: []string{storePath}, UsesGPU: isOnGPU},
-		Arguments: Arguments(sourcePath, rawPath, command, maker.encoder),
+		Access:    confine.Access{Read: source.Readable(), Write: []string{storePath}, UsesGPU: isOnGPU},
+		Arguments: Arguments(source, rawPath, command, maker.encoder),
 		Watch:     watch,
+		Film:      source.Stream,
 	})
 	// What FFmpeg finished before it ended or was stopped is made into chunks either way.
 	taker.end(runErr == nil)

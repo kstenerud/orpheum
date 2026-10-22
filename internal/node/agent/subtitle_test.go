@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/node/subtitle"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -21,7 +22,7 @@ import (
 type fakeSubtitler struct{}
 
 // Track slowStreamIndex runs until it is stopped, and track unconvertibleStreamIndex fails as FFmpeg would.
-func (fakeSubtitler) ExtractTrack(ctx context.Context, videoPath string, streamIndex int) (subtitle.Text, error) {
+func (fakeSubtitler) ExtractTrack(ctx context.Context, film execx.Film, streamIndex int) (subtitle.Text, error) {
 	if streamIndex == slowStreamIndex {
 		<-ctx.Done()
 		return subtitle.Text{}, ctx.Err()
@@ -32,7 +33,7 @@ func (fakeSubtitler) ExtractTrack(ctx context.Context, videoPath string, streamI
 	if streamIndex == unconvertibleStreamIndex {
 		return subtitle.Text{}, errors.New("ffmpeg exited 1: Subtitle codec 94213 is not supported")
 	}
-	return subtitle.Text{ASS: []byte(videoPath), VTT: []byte(strconv.Itoa(streamIndex))}, nil
+	return subtitle.Text{ASS: []byte(film.Path), VTT: []byte(strconv.Itoa(streamIndex))}, nil
 }
 
 // slowStreamIndex is the stream index whose extraction runs until it is stopped, and

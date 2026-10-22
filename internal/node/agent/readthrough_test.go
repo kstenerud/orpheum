@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/container/containertest"
+	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/node/readthrough"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -32,7 +33,7 @@ const readHalfwayMs = 30_000
 const unmeasurable = 99
 
 func (fakeThroughReader) Read(
-	_ context.Context, videoPath string, tracks []nodeproto.LoudnessTrack, timeline *nodeproto.VideoTimelineAsk,
+	_ context.Context, film execx.Film, tracks []nodeproto.LoudnessTrack, timeline *nodeproto.VideoTimelineAsk,
 	_ time.Duration, onProgress func(readThroughMs int64),
 ) (readthrough.Findings, error) {
 	if onProgress != nil {
@@ -58,7 +59,7 @@ func (fakeThroughReader) Read(
 		measured = append(measured, nodeproto.TrackLoudness{
 			StreamIndex: track.StreamIndex,
 			Stereo: nodeproto.Measurement{
-				IntegratedLUFS: -float64(track.StreamIndex), RangeLU: float64(len(videoPath)),
+				IntegratedLUFS: -float64(track.StreamIndex), RangeLU: float64(len(film.Path)),
 			},
 		})
 	}

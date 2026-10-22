@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
@@ -27,7 +28,7 @@ import (
 type fakePreparer struct{}
 
 func (fakePreparer) Prepare(
-	ctx context.Context, input string, command nodeproto.Prepare, progress func(preparedThroughMs int64),
+	ctx context.Context, input execx.Film, command nodeproto.Prepare, progress func(preparedThroughMs int64),
 ) (prepare.Made, error) {
 	progress(500)
 	if strings.HasSuffix(command.RenditionDir, "/slow") {
@@ -43,7 +44,7 @@ func (fakePreparer) Prepare(
 	if strings.HasSuffix(command.RenditionDir, "/broken") {
 		return prepare.Made{}, errors.New("ffmpeg exited 1: Invalid data found when processing input")
 	}
-	return prepare.Made{SizeBytes: int64(len(input)), VideoEncoder: "h264_qsv", RealtimeFactor: 6.5}, nil
+	return prepare.Made{SizeBytes: int64(len(input.Path)), VideoEncoder: "h264_qsv", RealtimeFactor: 6.5}, nil
 }
 
 // answerTimeout is how long a test waits for the node's answer before it fails, so a report that

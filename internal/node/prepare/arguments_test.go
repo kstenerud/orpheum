@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
@@ -30,7 +31,8 @@ func TestArguments_CarryEveryTrackWithABoostedMixWhereThereIsACentre(t *testing.
 			{AudioTrackIndex: 2, Language: "bad tag,x", ChannelCount: 8},
 		},
 	}
-	arguments := prepare.Arguments("/media/a film.mkv", "/prep/7/remux/0123456789abcdef", command, prepare.EncoderX264)
+	arguments := prepare.Arguments(execx.Film{Path: "/media/a film.mkv"}, "/prep/7/remux/0123456789abcdef", command,
+		prepare.EncoderX264)
 	if after(arguments, "-i") != "file:/media/a film.mkv" || after(arguments, "-protocol_whitelist") != "file" {
 		t.Errorf("the input is %q, want file: and only the file protocol", after(arguments, "-i"))
 	}
@@ -69,7 +71,8 @@ func TestArguments_EachMixOfAMeasuredTrackCarriesItsLevellingGain(t *testing.T) 
 			{AudioTrackIndex: 2, Language: "fr", ChannelCount: 2},
 		},
 	}
-	arguments := prepare.Arguments("/media/film.mkv", "/prep/7/remux/0123456789abcdef", command, prepare.EncoderX264)
+	arguments := prepare.Arguments(execx.Film{Path: "/media/film.mkv"}, "/prep/7/remux/0123456789abcdef", command,
+		prepare.EncoderX264)
 	for slot, want := range []string{
 		prepare.StandardMix + ",volume=12.7dB", ",volume=12.7dB", prepare.StereoAsIsMix + ",volume=-3.4dB",
 		prepare.StereoAsIsMix,
@@ -85,12 +88,14 @@ func TestArguments_EachMixOfAMeasuredTrackCarriesItsLevellingGain(t *testing.T) 
 func TestArguments_TagCopiedHEVCForSafariAndReEncodeTo8BitH264(t *testing.T) {
 	t.Parallel()
 	hevc := prepare.Arguments(
-		"/a", "/b", nodeproto.Prepare{Profile: nodeproto.ProfileRemux, VideoCodec: "hevc"}, prepare.EncoderX264)
+		execx.Film{Path: "/a"}, "/b", nodeproto.Prepare{Profile: nodeproto.ProfileRemux, VideoCodec: "hevc"},
+		prepare.EncoderX264)
 	if after(hevc, "-tag:v") != "hvc1" {
 		t.Errorf("copied HEVC is %v, want tagged hvc1", hevc)
 	}
 	encoded := prepare.Arguments(
-		"/a", "/b", nodeproto.Prepare{Profile: nodeproto.ProfileH264, VideoCodec: "hevc"}, prepare.EncoderX264)
+		execx.Film{Path: "/a"}, "/b", nodeproto.Prepare{Profile: nodeproto.ProfileH264, VideoCodec: "hevc"},
+		prepare.EncoderX264)
 	if after(encoded, "-c:v") != "libx264" || after(encoded, "-pix_fmt") != "yuv420p" ||
 		after(encoded, "-b:v") != "8000k" || after(encoded, "-force_key_frames") != "expr:gte(t,n_forced*2)" {
 		t.Errorf("h264 is %v, want 8-bit H.264 at 8M with a keyframe every 2 s", encoded)
@@ -102,7 +107,7 @@ func TestArguments_TagCopiedHEVCForSafariAndReEncodeTo8BitH264(t *testing.T) {
 func TestArguments_AnEncodeIsMadeAtTheRateItsCommandNames(t *testing.T) {
 	t.Parallel()
 	command := nodeproto.Prepare{Profile: nodeproto.ProfileH264, VideoCodec: "mpeg4", VideoKbps: 1000}
-	encoded := prepare.Arguments("/a", "/b", command, prepare.EncoderX264)
+	encoded := prepare.Arguments(execx.Film{Path: "/a"}, "/b", command, prepare.EncoderX264)
 	if after(encoded, "-b:v") != "1000k" || after(encoded, "-maxrate") != "1250k" ||
 		after(encoded, "-bufsize") != "2000k" {
 		t.Errorf("an encode told 1000 kb/s is %v; want 1000k, its peak 1250k and its buffer 2000k", encoded)
@@ -113,7 +118,8 @@ func TestArguments_SegmentLengthIsTheOneAskedForWithinBounds(t *testing.T) {
 	t.Parallel()
 	for asked, want := range map[int]string{0: "2", 1: "1", 6: "6", 10: "10", 11: "2", 60: "2"} {
 		command := nodeproto.Prepare{Profile: nodeproto.ProfileRemux, SegmentLengthSeconds: asked}
-		if got := after(prepare.Arguments("/a", "/b", command, prepare.EncoderX264), "-hls_time"); got != want {
+		got := after(prepare.Arguments(execx.Film{Path: "/a"}, "/b", command, prepare.EncoderX264), "-hls_time")
+		if got != want {
 			t.Errorf("asked for %d-second segments: -hls_time %s, want %s", asked, got, want)
 		}
 	}
@@ -128,7 +134,7 @@ func TestArguments_AnEncodePutsAKeyframeAtEverySegmentLength(t *testing.T) {
 		0: "expr:gte(t,n_forced*2)", // out of bounds: the segments' own fallback length
 	} {
 		command := nodeproto.Prepare{Profile: nodeproto.ProfileH264, SegmentLengthSeconds: asked}
-		arguments := prepare.Arguments("/a", "/b", command, prepare.EncoderX264)
+		arguments := prepare.Arguments(execx.Film{Path: "/a"}, "/b", command, prepare.EncoderX264)
 		if got := after(arguments, "-force_key_frames"); got != want {
 			t.Errorf("%d-second segments: -force_key_frames %s, want %s (-hls_time %s)", asked, got, want,
 				after(arguments, "-hls_time"))
@@ -141,7 +147,8 @@ func TestArguments_AnEncodePutsAKeyframeAtEverySegmentLength(t *testing.T) {
 func TestArguments_LeaveTheProgressToTheWatchedRun(t *testing.T) {
 	t.Parallel()
 	command := nodeproto.Prepare{Profile: nodeproto.ProfileRemux, RenditionDir: "7/remux/0123456789abcdef"}
-	arguments := prepare.Arguments("/media/film.mkv", "/prep/7/remux/0123456789abcdef", command, prepare.EncoderX264)
+	arguments := prepare.Arguments(execx.Film{Path: "/media/film.mkv"}, "/prep/7/remux/0123456789abcdef", command,
+		prepare.EncoderX264)
 	if slices.Contains(arguments, "-progress") {
 		t.Errorf("a prepare's arguments %q name a -progress, which would take FFmpeg's from the watchdog",
 			arguments)
