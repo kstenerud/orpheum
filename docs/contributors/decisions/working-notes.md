@@ -21366,13 +21366,20 @@ D238, D309, D324's interest register, and D325–D328.
    cost, shared between kinds with a minimum share).
 6. **Long work is made of pieces** of about two seconds of a resource, with progress kept between
    them; preemption happens only at a piece boundary and throws nothing away.
-7. **FFmpeg reads media only through the node's own byte path** (the design's §8.1), decided on
-   its test ([ffmpeg-http-input-2026-10-22](../design/research/ffmpeg-http-input-2026-10-22.md)).
-   A run is judged by whether the byte path served its file to the end and by the demuxer's I/O
-   error, never by FFmpeg's exit status alone. It stays FFmpeg's own CLI. The owner: *"Yes, go
-   ahead. If we hit a blocker during our move to this setup, we have the rust binary option"*, a
-   separate media program of our own, in Rust.
+7. **FFmpeg's reads, for the closed beta: a pipe the node feeds where FFmpeg reads straight through,
+   the file itself where it must seek.** The byte path over HTTP was tested and works
+   ([ffmpeg-http-input-2026-10-22](../design/research/ffmpeg-http-input-2026-10-22.md)), but it
+   needs FFmpeg to open a socket, which its confinement forbids (the Plex-chain review's N1), and a
+   pipe cannot seek. So a whole-film read of a container that streams (Matroska, MPEG-TS, an MP4
+   with its index first) reads a pipe the node feeds through its disk scheduler: in pieces, paced,
+   its stuck reads the node's and not FFmpeg's. A run that seeks (a chunk run, a probe, an MP4 with
+   its index at the end) reads the file as today, and the scheduler counts it as a reader it cannot
+   see. A run is judged by whether its source was read to the end and by the demuxer's I/O error,
+   never by FFmpeg's exit status alone. The owner: *"I don't like the fuse idea. Rust is sounding
+   better, but for the closed beta it sounds like we can still do the easier hybrid approach"*: after
+   the beta, our own media program in Rust, reading through the node by offset with no socket, gives
+   the scheduler every read.
 8. **Quiet hours, idleness and sleeping disks** govern background work as data-timeliness A8 says.
 
-**Status:** Decided 2026-10-22; §7 on its test the same day. Phases in
+**Status:** Decided 2026-10-22; §7 on its tests the same day. Phases in
 [work-scheduling.md](../design/plans/work-scheduling.md) §16.
