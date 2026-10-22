@@ -115,3 +115,31 @@ Two conditions come with it:
   exit status and not with `-xerror`. The fix for the log line lands first, for today's file reads
   too.
 - **Landlock's network rule where the kernel has it, and a per-run token always.**
+
+## A third test: a pipe instead of a socket
+
+FFmpeg's confinement forbids it any socket: no socket of any family, so a decoder an exploit takes
+over talks to nothing (the Plex-chain review's N1). Landlock's network rule (Linux 6.7 and later)
+could narrow a socket to the node's one port, but not to its address. So the same runs were made
+reading a pipe fed with the file, which needs no socket:
+
+| Run | Matroska | MP4 with its index at the end |
+| --- | --- | --- |
+| Probe | the same | the same |
+| Read-through (loudness, timeline) | identical | **wrong**: −70 LUFS, `Invalid data found` |
+| Subtitle extraction | identical | **wrong** |
+| Chunk (seek to 2:30, copy 6 s) | **different**: a pipe cannot seek, so it reads from the start | **wrong** |
+
+A pipe serves a run that reads straight through a container that streams. It fails a run that seeks,
+and any run of an MP4 whose index comes after its data. A socket isn't what makes seeking work over
+HTTP: each read is a request naming its byte range. FFmpeg's stock binary can ask by offset only of a
+file, which the kernel answers, or of a network protocol, which needs a socket.
+
+**Decided** (D329 §7), for the closed beta:
+- **A pipe the node feeds** for whole-film reads of containers that stream;
+- **the file itself** for runs that seek;
+- **no socket at all**.
+
+After the beta, a media program of our own in Rust can ask the node by offset through FFmpeg's
+libraries, with no socket.
+

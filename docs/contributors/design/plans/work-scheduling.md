@@ -348,17 +348,21 @@ So:
 - **Pieces need no SIGSTOP:** the scheduler holds back the next answer.
 - **A read can serve two consumers** (§8.5).
 
-**Tested 2026-10-22** ([ffmpeg-http-input-2026-10-22.md](../research/ffmpeg-http-input-2026-10-22.md)):
-- every command shape the node runs gives identical output through the byte path;
-- seeks fetch only what they need;
-- it runs at 333–395 MB/s, for about 1.6 CPU-seconds per GB more than reading the file;
-- withholding bytes pauses FFmpeg at no CPU cost;
-- SIGKILL always works.
+**As decided for the closed beta** (D329 §7, after three tests in
+[ffmpeg-http-input-2026-10-22.md](../research/ffmpeg-http-input-2026-10-22.md)):
+- **A run that reads straight through a container that streams** (a read-through, an extraction, a
+  whole prepare, of Matroska, MPEG-TS, or an MP4 with its index first) reads **a pipe the node feeds**
+  through this scheduler. Its reads are pieces, paced, and shareable, and a dead share stops the
+  node's feeding, never FFmpeg in the kernel.
+- **A run that seeks** (a chunk run, a probe, any run of an MP4 with its index at the end) reads the
+  file itself, as today. The scheduler counts it as a reader it cannot see, holding one of the
+  device's places while it runs, and orders everything else around it.
+- **FFmpeg opens no socket** (N1 stands).
+- A run is judged by whether its source was read to the end and by the demuxer's I/O error, never by
+  FFmpeg's exit status alone.
 
-A run is judged by the byte path (was the file served to its end?) and by the demuxer's I/O error
-in the log, never by FFmpeg's exit status alone. A source that dies leaves FFmpeg exiting 0 with a
-partial result. The program stays FFmpeg's own CLI (the owner, 2026-10-22). A separate media program
-of our own, if one is ever written, is to be considered in Rust, for safety and performance.
+**After the beta,** a media program of our own, in Rust, reads by offset through the node with no
+socket, so the scheduler sees every read. The HTTP path was tested and works, but it needs a socket.
 
 ### 8.2 Shallow below, ordered above
 
