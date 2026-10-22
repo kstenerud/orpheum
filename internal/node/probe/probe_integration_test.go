@@ -36,7 +36,7 @@ func TestProbe_AFileThePinnedFFmpegMade(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	record, err := NewProber(runner, time.Minute).Probe(t.Context(), film)
+	record, err := NewProber(runner, time.Minute).Probe(t.Context(), execx.Film{Path: film})
 	if err != nil {
 		t.Fatal(err)
 	}

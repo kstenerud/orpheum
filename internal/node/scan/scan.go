@@ -8,16 +8,24 @@ import (
 	"io/fs"
 	"path"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/diskwatch"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
 // Prober looks inside one file; probe.Prober is the real one.
 type Prober interface {
-	Probe(ctx context.Context, absolutePath string) (nodeproto.Probe, error)
+	Probe(ctx context.Context, film execx.Film) (nodeproto.Probe, error)
+}
+
+// Films makes the film a probe reads from the file the scanner opened: execx.Runner's FilmOf, which
+// streams it when the node's FFmpeg can be streamed one (D330).
+type Films interface {
+	FilmOf(absolutePath string, opened execx.OpenedFilm, reading execx.FilmReading) execx.Film
 }
 
 // emitFunc takes one record of a listing or an examining.
@@ -27,6 +35,12 @@ type emitFunc func(record nodeproto.ScanRecord) error
 type Options struct {
 	// UID and GID are the node's effective ids, reported so an error can be read against them.
 	UID, GID int
+	// Films makes the film each probe reads from the file the scanner opens; nil probes each file by
+	// its path. Disks is the gate of its disks, through which a streamed film's reads go, each given
+	// FilmReadWindow.
+	Films          Films
+	Disks          *diskwatch.Gate
+	FilmReadWindow time.Duration
 }
 
 // Scanner lists under media roots and examines the files the core names (D240). It reports; the

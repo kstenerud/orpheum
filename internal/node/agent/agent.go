@@ -95,10 +95,9 @@ type Workers struct {
 	// Disks is the gate the node's readings of its roots go through, which its byte socket shares, so
 	// one stuck root holds one stuck reading of the node's (diskwatch); nil is a gate of its own.
 	Disks *diskwatch.Gate
-	// StreamsFilms is whether the node's FFmpeg reads each film through the node (D330), which it does
-	// when its FFmpeg has the ffstreamer protocol (execx.Runner.HasFFstreamer); otherwise each run
-	// reads its film by its path.
-	StreamsFilms bool
+	// Films makes each run's film from the file the node opened (openFilm); nil reads every film by
+	// its path.
+	Films Films
 	// SetStatusEvery sets how often the tick Run is given comes, when the core says (a time.Ticker's
 	// Reset); nil keeps the tick as it is.
 	SetStatusEvery func(every time.Duration)
@@ -166,8 +165,6 @@ type Agent struct {
 	openFile func(roots map[string]*confine.MediaRoot, named nodeproto.BytesFile) (*os.File, fs.FileInfo, error)
 	// takenCommandSeq is the last command this session took, which the status says.
 	takenCommandSeq atomic.Int64
-	// filmRuns numbers the runs a film is streamed to, from 1, each FFmpeg's DONE naming its own.
-	filmRuns atomic.Int64
 	// storeTiers are the chunk stores' tiers the core last said (D309 §8), which a change is logged
 	// against; read and written by the poll alone.
 	storeTiers  map[string]nodeproto.KeepTier

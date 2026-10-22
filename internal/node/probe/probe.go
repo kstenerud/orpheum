@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
@@ -29,26 +28,26 @@ func NewProber(runner *execx.Runner, timeout time.Duration) *Prober {
 	return &Prober{runner: runner, timeout: timeout}
 }
 
-// arguments are ffprobe's, for the file at an absolute path, read as execx.FileInput reads it.
-func arguments(absolutePath string) []string {
+// arguments are ffprobe's, for film, read as its Input names it.
+func arguments(film execx.Film) []string {
 	return append([]string{
 		"-v", "error",
 		"-print_format", "json",
 		"-show_format", "-show_streams", "-show_chapters",
-	}, execx.FileInput(absolutePath)...)
+	}, film.Input()...)
 }
 
-// Probe returns what is inside the file at absolutePath.
-func (prober *Prober) Probe(ctx context.Context, absolutePath string) (nodeproto.Probe, error) {
-	if !filepath.IsAbs(absolutePath) {
-		return nodeproto.Probe{}, fmt.Errorf("probe needs an absolute path, not %q", absolutePath)
+// Probe returns what is inside film, a file at an absolute path: read by that path, or streamed
+// through the node (D330).
+func (prober *Prober) Probe(ctx context.Context, film execx.Film) (nodeproto.Probe, error) {
+	if !filepath.IsAbs(film.Path) {
+		return nodeproto.Probe{}, fmt.Errorf("probe needs an absolute path, not %q", film.Path)
 	}
 	ctx, cancel := context.WithTimeout(ctx, prober.timeout)
 	defer cancel()
-	output, err := prober.runner.Run(ctx, execx.FFprobe, confine.Access{Read: []string{absolutePath}},
-		arguments(absolutePath), maxOutputBytes)
+	output, err := prober.runner.RunOnFilm(ctx, execx.FFprobe, film, arguments(film), maxOutputBytes)
 	if err != nil {
-		return nodeproto.Probe{}, fmt.Errorf("probe %s: %w", absolutePath, err)
+		return nodeproto.Probe{}, fmt.Errorf("probe %s: %w", film.Path, err)
 	}
 	return Parse(output)
 }

@@ -218,7 +218,7 @@ func TestProbe_RunsFFprobeOnTheFileProtocolOnly(t *testing.T) {
 	}
 	prober := NewProber(runner, time.Minute)
 
-	record, err := prober.Probe(t.Context(), "/media/http:evil|concat.mkv")
+	record, err := prober.Probe(t.Context(), execx.Film{Path: "/media/http:evil|concat.mkv"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,7 +234,7 @@ func TestProbe_RunsFFprobeOnTheFileProtocolOnly(t *testing.T) {
 		t.Errorf("arguments %q do not allow only the file protocol", call.Arguments)
 	}
 
-	_, err = prober.Probe(t.Context(), "relative/film.mkv")
+	_, err = prober.Probe(t.Context(), execx.Film{Path: "relative/film.mkv"})
 	if err == nil || !strings.Contains(err.Error(), "absolute") {
 		t.Errorf("a relative path: error = %v, want a refusal", err)
 	}
@@ -250,7 +250,7 @@ func TestProbe_AFailedProbeSaysWhy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = NewProber(runner, time.Minute).Probe(t.Context(), "/media/broken.mkv")
+	_, err = NewProber(runner, time.Minute).Probe(t.Context(), execx.Film{Path: "/media/broken.mkv"})
 	failure, isRunError := errors.AsType[*execx.RunError](err)
 	if !isRunError || failure.ExitStatus != 1 || !strings.Contains(err.Error(), "Invalid data found") {
 		t.Errorf("error = %v, want ffprobe's status and its reason", err)

@@ -13,7 +13,8 @@
 //     TestArch_OnlyExecxImportsOsExec.
 //   - Removes, renames and truncates nothing. Enforced by the forbidigo rule tagged [delete].
 //   - ffprobe reads the input by the file: protocol only, so no filename is read as a URL or a
-//     concat list. TestProbe_RunsFFprobeOnTheFileProtocolOnly.
+//     concat list, or, when the node streams the film, by the ffstreamer protocol only, given no
+//     path (execx.Film, D330). TestProbe_RunsFFprobeOnTheFileProtocolOnly.
 //   - A record is bounded: valid UTF-8, bounded strings, and a file with too many streams or
 //     chapters is refused rather than cut short. TestParse_BoundsWhatAHostileFileCanMakeTheNodeReport.
 //   - The same output always makes the same record, whatever order Go iterates a map in
