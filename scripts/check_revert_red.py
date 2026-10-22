@@ -85,7 +85,7 @@ from revert_red_parts import (BROWSER_DEFERRED, BROWSER_INLINE, BROWSER_ONLY, CS
                               browser_mode, is_in_part)
 from revert_red_attempts import (BROWSER_MODE_RELATED, FIRST_RED_GO, FIRST_RED_VITEST, TS_SOURCE, Attempt,  # noqa: F401 (tests reach them here)
                                  browser_mode_tests, browser_tier, browser_tier_command, is_browser_run,
-                                 other_platforms)
+                                 compiled_only_elsewhere, other_platforms)
 from revert_red_run import RUNNER_MISSING, is_build_failure, run_whole_group  # noqa: F401 (tests reach RUNNER_MISSING here)
 from revert_red_claims import VQ_FILE, refactor_only, verification_queue_problem, verified_out_of_suite  # noqa: F401 (tests reach VQ_FILE here)
 from emitted_js import emits_the_same_between
@@ -365,6 +365,8 @@ def attempts_for(change: Change, first: list[str], base: str = "", head: str = "
     call the queries its change touched (revert_red_queries), given base and head."""
     if change.status == "A" and CSS_SOURCE.search(change.path):
         return [Attempt(WEB_BUILD, ", found by building the web client", None, True)]
+    if GO_SOURCE.search(change.path) and compiled_only_elsewhere(change.path):
+        return other_platforms(change.path)
     attempts = [Attempt(first, "")]
     if change.path.startswith(GO_GENERATED_QUERIES) and base and head:
         callers = callers_of_change(toplevel(), base, head, change.path)

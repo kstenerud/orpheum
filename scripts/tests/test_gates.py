@@ -513,6 +513,26 @@ class RevertRedBuildLines(unittest.TestCase):
         self.assertEqual(rr.other_builds(str(other))[-1].env, {"GOOS": "darwin"})
         self.assertEqual(len(rr.other_builds(str(plain))), 1)
 
+    def test_a_file_the_host_never_compiles_is_judged_by_its_platforms_compile_alone(self):
+        # Its revert can turn no host test red: the dependents of a _linux_arm64.go file ran 610 s
+        # before the arm64 compile that went red (check-pr, 2026-10-22).
+        directory = Path(tempfile.mkdtemp())
+        stub = directory / "arch_linux_other.go"
+        stub.write_text("//go:build linux && !amd64 && !arm64\n\npackage x\n")
+        shim = directory / "pipe_other.go"
+        shim.write_text("//go:build !linux\n\npackage x\n")
+        plain = directory / "pipe.go"
+        plain.write_text("package x\n")
+        foreign = "internal/node/confine/arch_linux_s390x.go"
+        for path, env in ((foreign, {"GOOS": "linux", "GOARCH": "s390x"}),
+                          (str(stub), {"GOOS": "linux", "GOARCH": "riscv64"}),
+                          (str(shim), {"GOOS": "darwin"})):
+            attempts = rr.attempts_for(rr.Change(path, "M"), ["go", "test", "./x"])
+            self.assertEqual([attempt.env for attempt in attempts], [env], path)
+            self.assertTrue(all(attempt.compile_only for attempt in attempts), path)
+        self.assertEqual(rr.attempts_for(rr.Change(str(plain), "M"), ["go", "test", "./x"])[0].command,
+                         ["go", "test", "./x"])
+
     def test_a_linux_file_whose_build_line_leaves_amd64_out_is_compiled_for_riscv64(self):
         directory = Path(tempfile.mkdtemp())
         stub = directory / "arch_linux_other.go"

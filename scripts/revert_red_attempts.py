@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import functools
 import json
+import platform
 import re
 import subprocess
 import sys
@@ -124,6 +125,21 @@ def other_platforms(path: str) -> list[Attempt]:
         # macOS is the other system make check compiles for (lint-speculative-api).
         attempts.append(Attempt(["go", "vet", "./..."], ", found by compiling for darwin", {"GOOS": "darwin"}, True))
     return attempts
+
+
+# The host's architecture as Go names it, for a file named for one.
+HOST_GOARCH = {"x86_64": "amd64", "aarch64": "arm64", "arm64": "arm64", "riscv64": "riscv64"}.get(
+    platform.machine(), platform.machine())
+
+
+def compiled_only_elsewhere(path: str) -> bool:
+    """Whether the host builds a Go file not at all: named for another system or another architecture,
+    or with a build line that leaves Linux or the host's architecture out. Its revert can turn no test
+    on the host red, so only another platform's compile can notice it (check-pr, 2026-10-22: a
+    _linux_arm64.go file's dependents ran 610 s before the arm64 compile went red)."""
+    other_arch = GO_LINUX_ARCH_SUFFIX.search(path)
+    return bool(GO_OS_SUFFIX.search(path) or (other_arch and other_arch.group(1) != HOST_GOARCH)
+                or build_line_matches(path, GO_NOT_LINUX) or build_line_matches(path, GO_NOT_AMD64))
 
 
 def build_line_matches(path: str, pattern: re.Pattern[str]) -> bool:
