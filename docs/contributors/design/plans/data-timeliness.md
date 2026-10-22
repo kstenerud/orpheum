@@ -21,10 +21,11 @@
     - Reading once for two needs is taken on now.
     - The admin gets a badge and a daily email.
 
-    Those answers are folded in. The four questions still open (the metered connection, the GPU,
+    Those answers are folded in. The four questions they left open (the metered connection, the GPU,
     whether running playbacks drop a rung, and quiet hours) were researched in
-    [timeliness-followups-2026-10-22.md](../research/timeliness-followups-2026-10-22.md). Its
-    proposals are folded in as **Proposed** and wait on §11.
+    [timeliness-followups-2026-10-22.md](../research/timeliness-followups-2026-10-22.md), and the
+    owner decided them the same day, with changes to the multi-viewer rule and the messages (§11).
+    No question is open.
   - The design built from these scenarios is not written yet.
   - This replaces the five design questions of the
     [queue inventory](../research/job-queues-inventory-2026-10-21.md) §5, which the design answers.
@@ -215,14 +216,14 @@ only for a complete one.
 
 Every playback problem answers one question: **your side, the household's server, or this file?**
 There are two audiences:
-- **A user's message** never says disk, share or node. For example: *"Karl's library is having
-  trouble reaching this film. Your connection is fine. We've let Karl know."* It also says what will
-  happen next: *"It will pick up by itself when it's back. [Keep waiting] [Watch something else]"*.
+- **A user's message** never says disk, share or node, and **never mentions the administrator**
+  (the owner, 2026-10-22). For example: *"The library is having trouble reaching this film. Your
+  connection is fine."* It also says what will happen next: *"It will pick up by itself when it's back. [Keep waiting] [Watch something else]"*.
 - **The admin** gets the detail (the place, when it last answered, what waits behind it), and is
   **notified**, not left to find out from a text (A6).
 - **Both see a badge.** An issue shows as a badge in the app for every person it touches, and on
-  each film it affects. A user's badge carries only the friendly explanation and a note to let the
-  administrator know. The admin's carries the detail (A6).
+  each film it affects. A user's badge carries only the friendly explanation. The admin's carries
+  the detail (A6).
 - A failure costs trust: viewers who meet one are less likely to come back (Krishnan and
   Sitaraman). So after recovery, playback resumes a few seconds before the freeze.
 
@@ -343,7 +344,7 @@ phone nothing, so only what the client fetches counts. Researched in the [follow
 - **What the platforms say:** native apps get a reliable signal. The web client gets almost nothing:
   only Chrome for Android, and nothing from Safari.
 
-**Proposed** (§11 Q1):
+**Decided** (the owner, 2026-10-22, agreeing to the proposal):
 - On a connection the platform says is metered, the client doesn't prefetch video ahead of playback,
   and caps quality visibly and liftably.
 - When the signal is unknown, it behaves as usual.
@@ -511,8 +512,8 @@ When they don't all fit, the research ([follow-ups](../research/timeliness-follo
 - A stall costs more than a switch, and viewers punish a drop more than they reward a rise.
 - No competitor lowers running streams to admit a newcomer.
 
-**Proposed** (§11 Q3): "equal" means one rule for everyone: *once you are watching, nobody's arrival
-stalls you or lowers your picture.*
+**Decided** (the owner, 2026-10-22, agreeing to the proposal with two changes): "equal" means one
+rule for everyone: *once you are watching, nobody's arrival stalls you or lowers your picture.*
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
@@ -521,10 +522,14 @@ stalls you or lowers your picture.*
 | Someone stops | A lowered stream rises once, one step | — | Soft | — | — |
 | The encoder is full | Offered a direct play or remux if the device can take one; otherwise wait | Flow | Hard | The encoder's strict admission | — |
 
-- A direct play is a fixed reservation at its peak and never steps down. Stepping down would start
-  a transcode.
-- An option, off by default: running *transcodes* drop one rung, but only to lift a newcomer from
-  below the floor to it.
+- **A direct play is a fixed reservation at its peak.** It is never stepped down to make room for
+  someone else.
+- **It steps down when its own client can't keep up**, for example when the remote link degrades
+  (W5), if the encoder has room. Stepping down starts a transcode at a rung that fits.
+- **If the encoder has no room,** the viewer gets the same choice as a newcomer below the floor:
+  wait, or play at reduced quality, whatever can be had without the encoder.
+- **No running playback is ever lowered to admit a newcomer**: neither a direct play nor a
+  transcode. There is no option for it (the owner, 2026-10-22).
 
 #### P6. Watch Together, one person remote
 
@@ -621,7 +626,7 @@ particular films."*
 | --- | --- | --- | --- | --- | --- |
 | An issue begins | A badge in the app, for the admin and for each user it touches, and on each film it affects | Flow, once the issue is known | Hard | The issue, its place, the films on that place | — |
 | The admin opens the badge | What happened, where, since when, who met it | Flow | Soft | The issue's record | — |
-| A user opens the badge | A plain explanation and a note to let the administrator know | Flow | Soft | The same, in the user's words | — |
+| A user opens the badge | A plain explanation, with no mention of the administrator | Flow | Soft | The same, in the user's words | — |
 | The next day's email | New issues since the last email, **at most one email a day**, none when nothing is new | Due | Soft | The issues and when each began and ended | — |
 
 An issue that began and ended between two emails is still reported: the admin learns that a share
@@ -656,10 +661,11 @@ there's real work to be done."*
   - Windows moved from a fixed maintenance hour to idle-triggered work with deadlines. Android's
     Doze batches deferred work into one maintenance window.
 
-**Proposed** (§11 Q4):
+**Decided** (the owner, 2026-10-22, agreeing to the proposal):
 - **Quiet hours are a veto, and idleness is the trigger.**
   - Non-urgent work runs only when nothing plays, and stops when a playback starts.
-  - It never runs in quiet hours (on by default, for example 22:00–07:00).
+  - It never runs in quiet hours: on by default, 22:00–07:00, with the start and the end
+    configurable by the admin.
   - Each kind of work has a deadline. Overdue work runs at the next idle time outside quiet hours.
 - **A sleeping disk isn't woken for non-urgent work.** Its work is batched, and runs either right
   after a playback on that disk ends, while it still spins, or all at once when the batch passes a
@@ -750,9 +756,17 @@ The two playbacks' encodes come first, and the read-through waits or yields at i
 third player is admitted at whatever fits (P5), and told why it got a lower rung, without naming
 the other person's film.
 
-**Load:** with no hardware encoder (§11 Q2), a 4-core node guarantees **one** 1080p software
-transcode, and a second as best effort. 4K HDR tone-mapped to an SDR screen can't run in real time
-in software at all.
+**Load:** with no hardware encoder assumed (the owner, 2026-10-22), a 4-core node guarantees
+**one** 1080p software transcode, and a second as best effort. A hardware encoder the node finds is a
+bonus. The choices go in order:
+1. direct play;
+2. a remux;
+3. an audio-only transcode;
+4. a video transcode.
+
+4K HDR tone-mapped to an SDR screen can't run in real time in software. Without hardware, such a
+film is played directly, and a popup first warns the viewer what to expect: the colours may look
+washed out on this screen (the owner, 2026-10-22).
 
 #### W12. Files moved or renamed, or a disk replaced (missing before)
 
@@ -897,84 +911,23 @@ This sketch does not decide these. The design does, against the scenarios.
 - **Telling the admin:** a badge for the admin and for every user an issue touches, a badge on each
   film affected, and at most one email a day of new issues (A6).
 
+- **Metered connections (C6):**
+  - no detection in the beta;
+  - the client's own video prefetch kept small and cancellable;
+  - warming on the node unaffected;
+  - a per-device "Mobile data" setting only if it is cheap;
+  - detection once native apps exist.
+- **No GPU is assumed** (W11). A 4K HDR film on an SDR screen without hardware is played directly,
+  after a popup warning what to expect.
+- **Several viewers (P5):**
+  - the newcomer takes what is left, down to a floor that depends on the screen;
+  - below it, the newcomer chooses between waiting and playing reduced;
+  - no running playback is ever lowered for a newcomer;
+  - a direct play steps down to a transcode only when its own client can't keep up and the encoder
+    has room, and otherwise the viewer gets the same choice.
+- **Quiet hours (A8)** as proposed, with their start and end configurable.
+- **A user's messages never mention the administrator.**
+
 ### Open
 
-Each comes with a proposal from the
-[follow-up research](../research/timeliness-followups-2026-10-22.md).
-
-1. **Metered connections (C6).**
-   - *Found:*
-     - Mobile data in Germany is still mostly capped: 8.4 GB a SIM a month, against 3 GB or more
-       for an hour of full-quality video. Home lines are not capped.
-     - Netflix and Plex cap cellular quality by default. Jellyfin does nothing.
-     - Complaints of too much data are rare. Complaints of quality stuck too low are more common.
-     - The web client gets almost no signal: Chrome for Android only, nothing from Safari.
-   - *Proposed:*
-     - no detection in the beta;
-     - the client's own video prefetch kept small and cancellable;
-     - warming on the node unaffected, since it costs the phone nothing;
-     - a per-device "Mobile data" setting (Automatic, Save data, Unrestricted) only if it is cheap;
-     - detection once native apps exist.
-
-   Agree?
-2. **No GPU (§7 W11).**
-   - *Found:* nobody publishes the share of hosts without a hardware encoder, but large groups have
-     none:
-     - every 2025 Synology "plus" model;
-     - the Raspberry Pi 5;
-     - rented servers, a quarter of self-hosters in one survey;
-     - every free Plex user, since hardware transcoding needs Plex Pass.
-
-     Passing a GPU into a container often fails. On a 4-core CPU, Plex's rule gives about two
-     1080p software transcodes. A 4K HDR source tone-mapped to SDR runs at about a third of real
-     time.
-   - *Proposed:*
-     - assume no hardware encoder, and detect one as a bonus;
-     - guarantee one 1080p transcode per node, with a second as best effort;
-     - order the choices: direct play, then remux, then an audio-only transcode, then a video
-       transcode.
-
-   Agree? And a decision only you can make: **what does a 4K HDR film do for an SDR screen when
-   the node has no hardware?**
-   - (a) direct play only, leaving the client to tone-map or show washed-out colour;
-   - (b) a 1080p SDR version prepared ahead, in quiet time, which costs disk space;
-   - (c) "this film needs a screen that can show HDR", with the alternatives.
-3. **Several viewers on too little (P5).**
-   - *Found:*
-     - no study compares "the newcomer takes what is left" with "everyone drops a rung" at the
-       moment someone arrives;
-     - a stall costs three times a switch;
-     - viewers punish a drop more than they reward a rise;
-     - Plex, Jellyfin and Emby never lower a running stream for a newcomer;
-     - the newer research weighs each viewer by their screen, since a phone needs less than a TV.
-   - *Proposed:* "equal" means one rule for everyone: once watching, nobody's arrival stalls you or
-     lowers your picture.
-     - The newcomer takes what is left, down to a floor.
-     - Below the floor, the newcomer chooses: wait, or play reduced.
-     - The floor depends on the screen.
-     - A direct play never steps down.
-     - The encoder admits strictly.
-     - An option, off by default, lets running transcodes drop one rung to lift a newcomer to the
-       floor.
-
-   Agree, and should that option exist at all?
-4. **Quiet hours (A8).**
-   - *Found:*
-     - Plex and Jellyfin run heavy work at night, which is when a disk is heard, and both have
-       bugs that keep disks awake;
-     - modern drives take 600,000 load cycles, and no data shows spin-down wears them;
-     - a sleeping drive saves €9–19 a year and buys silence;
-     - seeking is what people hear;
-     - Windows and Android moved to idle-triggered work with deadlines, batched into windows.
-   - *Proposed:*
-     - quiet hours as a veto (on by default, 22:00–07:00), with idleness as the trigger;
-     - a deadline per kind of work;
-     - a sleeping disk woken only for a person's want, or for a batch that has grown large or
-       waited too long;
-     - "sound-isolated" lifts only the veto.
-
-   Agree? And are 22:00–07:00 the right default hours?
-5. **A user's badge.** The admin already gets a badge and the daily email, so a user's note could
-   say either *"The administrator has been told"* or *"Let the administrator know"*. Which did you
-   mean? The first stops a user texting about something already known. The second covers the time
-   before the next email.
+None. The next step is the design (§9), checked against these scenarios (§10).
