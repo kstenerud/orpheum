@@ -372,3 +372,31 @@ func TestRunWatched_ARunItsDiskFailedIsAStallOnItsDisk(t *testing.T) {
 		}
 	}
 }
+
+// FFmpeg whose demuxer's read fails for its disk ends its input there and exits 0 with an answer made
+// of part of the file, so the log decides: that run is a stall on its disk, even when the line is far
+// from the end of the log, while a run whose only errors are frames it concealed has succeeded
+// (ffmpeg-http-input-2026-10-22).
+func TestRunWatched_ARunWhoseDemuxerCouldNotReadItsDiskFailsThoughItExitsZero(t *testing.T) {
+	t.Parallel()
+	summary := strings.Repeat("  Integrated loudness:\n    I:         -34.8 LUFS\n", 200)
+	for _, check := range []struct {
+		stderr      string
+		isDiskStall bool
+	}{
+		{"[in#0/matroska,webm @ 0x1] Error during demuxing: Input/output error\n" + summary, true},
+		{"[in#0/mov @ 0x1] Error during demuxing: Stale file handle\n", true},
+		{"[h264 @ 0x1] error while decoding MB 10 49\n[h264 @ 0x1] concealing 2319 DC errors\n" + summary, false},
+		{"[in#0/matroska,webm @ 0x1] Error during demuxing: Invalid data found when processing input\n", false},
+	} {
+		fake := testutil.InstallFakeFFmpeg(t, testutil.FakeReply{Stderr: check.stderr})
+		run := WatchedRun{Arguments: []string{"-i", "x"}, Watch: testWatch, LogLimitBytes: 512}
+		_, err := newRunner(t, fake).RunWatched(t.Context(), run)
+		stalled, isStalled := errors.AsType[*StalledError](err)
+		if isStalled != check.isDiskStall || (!isStalled && err != nil) ||
+			(isStalled && (stalled.Cause != StallDiskFailed || stalled.Condition != ConditionWaitingOnDisk)) {
+			t.Errorf("a run that exited 0 having logged %q ended %v; want a stall on its disk: %t",
+				check.stderr[:min(80, len(check.stderr))], err, check.isDiskStall)
+		}
+	}
+}
