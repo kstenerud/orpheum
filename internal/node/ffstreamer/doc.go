@@ -19,6 +19,9 @@
 //     fields within the protocol's and the terms' rules, checked without arithmetic that can
 //     overflow. Any breach kills the run and is its account's failure (ErrViolation).
 //     TestChannel_KillsARunThatBreaksTheProtocol, TestChannel_KillsARunWhoseOpeningItCannotWorkWith.
+//     Whatever FFmpeg sends, the channel ends, serves no more than its budget, and kills the run
+//     exactly when it records a reason to: FuzzChannel_JudgesWhateverFFmpegSends, whose seeds run
+//     with the tests and which `go test -fuzz` explores beyond them.
 //   - A run read its film whole only when it exited 0 and said DONE OK for its own run, and the node
 //     had no reason to fail it. TestChannel_ServesAFilmWholeAndJudgesARunByItsDone.
 //   - A READ the film's storage cannot answer is never answered: the run is killed (ErrReadFailed),
