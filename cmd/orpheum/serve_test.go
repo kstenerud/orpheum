@@ -23,7 +23,9 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/api"
+	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
+	"github.com/kstenerud/orpheum/internal/platform/unixsocket"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -403,6 +405,42 @@ func TestServe_ComesUpReadyAndStopsCleanly(t *testing.T) {
 	}
 	if err := server.stop(); err != nil {
 		t.Errorf("serve returned %v after a clean stop, want nil", err)
+	}
+}
+
+// The core's node socket takes a hello only from the holder of the key it keeps beside itself: a
+// process of the same user without it, a GPU run that may open a Unix socket among them, cannot say
+// hello as a node (D331 §1, the Plex-chain review's N1).
+func TestServe_TheNodeSocketTakesNothingFromAProcessWithoutItsKey(t *testing.T) {
+	t.Parallel()
+	config, _ := testConfig(t)
+	server := startServing(t, config, newCapturedLog("ready"), "ready", nil)
+	defer func() { _ = server.stop() }() //nolint:errcheck // the test's own server
+	socket := filepath.Join(config.Instance.RunDir, coreSocketName)
+	hello := func(client *http.Client) int {
+		t.Helper()
+		request, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "http://core"+nodeproto.PathHello,
+			strings.NewReader(`{"name":"impostor"}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		response, err := client.Do(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = response.Body.Close() //nolint:errcheck // only the status matters
+		return response.StatusCode
+	}
+	stranger := &http.Client{Transport: &http.Transport{
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, "unix", socket)
+		},
+	}}
+	if got := hello(stranger); got != http.StatusUnauthorized {
+		t.Errorf("a hello without the socket's key: %d; want 401", got)
+	}
+	if got := hello(unixsocket.Client(socket, 0)); got == http.StatusUnauthorized {
+		t.Errorf("a hello with the socket's key: %d; want it taken past the key", got)
 	}
 }
 

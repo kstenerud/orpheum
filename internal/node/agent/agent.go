@@ -195,7 +195,7 @@ func New(
 		hello.RootPaths = append(hello.RootPaths, root.Path())
 	}
 	agent := &Agent{
-		client: &http.Client{Transport: unixsocket.Transport(socketPath)}, hello: hello, roots: byPath,
+		client: unixsocket.Client(socketPath, 0), hello: hello, roots: byPath,
 		workers: workers,
 		clock:   clockSource, logger: logger, work: newWorkList(hello.Capacity, clockSource),
 		ended:       newEndedAttempts(),
