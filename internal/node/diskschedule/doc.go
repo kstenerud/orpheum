@@ -7,9 +7,10 @@
 // reads to a rate that falls fast when a playback's read is slow and climbs back slowly
 // (work-scheduling.md §8).
 //
-// It decides and does nothing else: no goroutines, no clock of its own, no disk. The caller says
-// what happened and when, and asks what to send. So the scheduling bench (internal/schedtest) runs
-// the same code in virtual time that the node runs in real time.
+// Scheduler decides and does nothing else: no goroutines, no clock of its own, no disk. The caller
+// says what happened and when, and asks what to send. So the scheduling bench (internal/schedtest)
+// runs the same code in virtual time that the node runs in real time, through Device, which waits
+// each read's turn on the node's clock.
 //
 // # Invariants
 //
@@ -21,6 +22,9 @@
 //     (TestScheduler_OrdersByTierThenDeadlineThenArrival).
 //   - Background reads take no more than their rate; a slow playback read halves it, and it climbs
 //     back by a step a second (TestScheduler_ASlowPlaybackReadHalvesTheBackgroundRate).
+//   - Device runs the Scheduler in real time: a read waits for its turn and holds its place until it
+//     says it is done, a read given up while it waits holds nothing, and a read held back by the
+//     background rate goes when the clock passes its wait (device_test.go).
 //
 // # Read before changing
 //
@@ -29,6 +33,7 @@
 //
 // # Where to change
 //
+//   - device.go: waiting for turns in real time.
 //   - schedule.go: the order, the limit and the background rate. Run internal/schedtest's scenarios
 //     after any change: they judge it by what the people in them would have seen.
 package diskschedule
