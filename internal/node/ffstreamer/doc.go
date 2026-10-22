@@ -29,6 +29,9 @@
 //     freed, and a storage read stuck in the kernel is not waited for.
 //     TestChannel_FinishesWhateverStateFFmpegLeftItIn.
 //   - Frames after DONE change nothing. TestChannel_FramesAfterDoneChangeNothing.
+//   - A FileSource reads its film through the disk's gate, each read within its place's window, and
+//     fails a run whose film changed under it (ErrFilmChanged).
+//     TestFileSource_ServesTheFilmItOpenedAndFailsOneThatChanges.
 //   - Text from FFmpeg is made safe to log: every Cc and Cf character escaped.
 //     TestDecodeDone_ReadsAFailureAndMakesItsMessageSafeToLog.
 //   - The data pipe is sized through SyscallConn, never Fd, which would make it blocking and keep
@@ -44,5 +47,7 @@
 // # Where to change
 //
 //   - frame.go: the frames, their bounds and their checks. channel.go: serving one input.
+//     filesource.go: a film the node opened, read through its disk's gate. ffstreamertest: FFmpeg's
+//     side in Go, for tests that stand in for the patched FFmpeg.
 //     pipe_linux.go and pipe_other.go: the data pipe's size.
 package ffstreamer

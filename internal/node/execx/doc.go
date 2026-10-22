@@ -60,6 +60,15 @@
 //     tool's word on its input. TestRunWatched_AStalledRunIsQuitGracefullyAndSaysWhereItStood,
 //     TestRunWatched_AStalledRunThatIgnoresItsQuitIsKilledWithItsGroup.
 //   - On Linux no tool outlives the node that started it. TestRun_AToolDiesWithTheNode.
+//   - A watched run may read its film through the node (WatchedRun.Film, D330): its channel's pipes
+//     follow the progress pipe at descriptors 4 and 5, named by StreamedInput. Such a run passes only
+//     having said DONE OK for its own run, a breach of the protocol or a passed budget kills it at once
+//     and fails it as the node's verdict, and a film whose disk failed or did not answer is a stall on
+//     its disk. TestRunWatched_AStreamedRunReadsItsFilmThroughTheNodeAndPassesOnItsDone,
+//     TestRunWatched_AStreamedRunThatBreaksTheProtocolIsKilledAndFails,
+//     TestRunWatched_AStreamedRunWhoseFilmCannotBeReadStalledOnItsDisk.
+//   - A paused streamed run reads nothing: its READs are held as its process is stopped.
+//     TestRunWatched_APausedStreamedRunReadsNothingUntilContinued.
 //
 // # Read before changing
 //
@@ -74,7 +83,8 @@
 //
 //   - execx.go: starting a run, through the shim or not; the argument hardening and a run's
 //     input; the stderr tail on failure. watch.go: the watchdog, its progress and its deadlines.
-//     pause.go: pausing a watched run for play-driven work. proc_linux.go: reading a process
+//     pause.go: pausing a watched run for play-driven work. film.go: a run's film served through
+//     the node (internal/node/ffstreamer). proc_linux.go: reading a process
 //     group from /proc. stuck.go: the processes left running.
 //     process_linux.go and process_other.go: a tool's process group and parent-death signal.
 //     The shim itself is internal/node/confine's.

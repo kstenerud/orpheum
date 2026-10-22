@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/ffstreamer"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
@@ -209,6 +210,9 @@ type WatchedRun struct {
 	// log, as FFmpeg's ebur128 filter writes its summary when it ends; zero returns none.
 	LogLimitBytes int
 	Watch         Watch
+	// Film, when set, is the run's input served through the node over ffstreamer (D330), which the
+	// arguments name with StreamedInput. The run's verdict then also takes the channel's account.
+	Film *ffstreamer.Config
 }
 
 // Ran is what a watched run left: its stdout and the end of its log, as its WatchedRun asked.
@@ -225,7 +229,7 @@ type Ran struct {
 func (runner *Runner) RunWatched(ctx context.Context, run WatchedRun) (Ran, error) {
 	streams := pipes{
 		stdin: run.Input, stdout: io.Discard, stderrTailLimitBytes: stderrTailBytes, watch: &run.Watch,
-		pausing: pausingOf(ctx), moved: movedOf(ctx),
+		pausing: pausingOf(ctx), moved: movedOf(ctx), film: run.Film,
 	}
 	var stdout *limitedBuffer
 	switch {
@@ -277,6 +281,7 @@ type pipes struct {
 	watch                *Watch
 	pausing              *Pausing
 	moved                func()
+	film                 *ffstreamer.Config
 }
 
 // runToExit runs tool to its end, with its streams as streams says, and returns the end of its stderr.
@@ -316,15 +321,15 @@ func (runner *Runner) runToExit(
 		}
 	}
 
-	if err := command.Start(); err != nil {
-		progress.abandon()
-		return nil, &RunError{Tool: tool, ExitStatus: -1, Err: err}
+	film, err := runner.startCommand(ctx, tool, command, progress, streams.film)
+	if err != nil {
+		return nil, err
 	}
 	if progress != nil {
 		dog := newWatchdog(runner.clock, *streams.watch)
 		dog.moved = streams.moved
 		if streams.pausing != nil {
-			streams.pausing.attach(command.Process, dog)
+			streams.pausing.attach(command.Process, dog, film)
 			defer streams.pausing.detach()
 		}
 		progress.startReading(dog)
@@ -336,11 +341,13 @@ func (runner *Runner) runToExit(
 	waited := waitInBackground(command, ending, progress)
 	select {
 	case err := <-waited:
-		if ended := outcome(ctx, runCtx, tool, command, stderr, err); ended != nil {
+		ended := endFilm(film, tool, streams.film, stderr, outcome(ctx, runCtx, tool, command, stderr, err))
+		if ended != nil {
 			return nil, ended
 		}
 		return stderr, nil
 	case <-ending.leftRunning:
+		finishFilmOnceExited(film, ending)
 		left := leftRun{tool: tool, reading: access.Read, pid: command.Process.Pid, stderr: stderr, waited: waited}
 		return nil, runner.leaveRunning(ctx, runCtx, left)
 	}
@@ -415,10 +422,12 @@ func (runner *Runner) command(
 	}
 	command.SysProcAttr = toolProcessAttributes()
 	command.Cancel = func() error {
-		if ctx.Err() == nil {
+		if ctx.Err() == nil && streams.film == nil {
 			runner.stopStalled(command.Process, ending)
 			return nil
 		}
+		// A cancel, or a stalled run that reads a streamed film, which keeps nothing it would write
+		// after a graceful quit (ffstreamer's PROTOCOL.md §9.8): killed at once.
 		err := runner.signalRun(command.Process, syscall.SIGKILL)
 		go runner.leaveRunningUnlessExited(ending)
 		return err

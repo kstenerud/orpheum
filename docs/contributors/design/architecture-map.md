@@ -92,7 +92,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/node/container` | R2 (container structure: Matroska elements, MP4 boxes) | — (hash anchors identity on them; read-throughs read a film's keyframes from their indexes, D259 §2) |
 | `internal/node/confine` | CONTAIN | ⚑ also the read-only `MediaRoot` handle that scan, namedfile and byteserver use (scan.go:47, namedfile.go:64) |
 | `internal/node/execx` | CONTAIN | — |
-| `internal/node/ffstreamer` | CONTAIN | — (D330: the node's side of ffstreamer, over which FFmpeg reads its input film through the node, every frame FFmpeg sends judged and a breach, a failed read or a passed budget killing the run; not yet wired into execx, waiting on the patched FFmpeg being fetchable) |
+| `internal/node/ffstreamer` | CONTAIN | — (D330: the node's side of ffstreamer, over which FFmpeg reads its input film through the node, every frame FFmpeg sends judged and a breach, a failed read or a passed budget killing the run; execx runs a watched run's film through it (WatchedRun.Film); no run kind uses it yet, waiting on the patched FFmpeg being fetchable) |
 | `internal/node/hardware` | OPS | — |
 | `internal/node/hash` | R2 (file identity) | — |
 | `internal/node/namedfile` | R2 (identity-checked open) | — |
@@ -122,7 +122,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/platform/build`, `internal/platform/host`, `internal/platform/diskspace` | OPS | — |
 | `internal/platform/clock`, `internal/platform/localtime`, `internal/platform/slogx`, `internal/platform/errs`, `internal/platform/ptr`, `internal/platform/pathtree`, `internal/platform/randbytes`, `internal/platform/readonly`, `internal/platform/backoff`, `internal/platform/atomics` | PRIM | — |
 | `internal/store`, `internal/store/sqlcgen`, `internal/store/cachegen` | PERSIST | — (the `job` table's one writer since the jobs rebuild's Phase 1, as the queue's storage: D231 §2) |
-| `internal/archtest`, `internal/testutil`, `internal/store/storetest`, `internal/core/auth/authtest`, `internal/core/identify/identifytest`, `internal/core/jobs/jobstest`, `internal/core/certificate/certificatetest`, `internal/core/providers/cloudflare/cloudflaretest`, `internal/core/nodes/nodestest`, `internal/core/library/librarytest`, `internal/core/settings/settingstest`, `internal/node/nodetest`, `internal/node/container/containertest`, `internal/platform/clock/clocktest`, `internal/platform/jobqueue/jobqueuetest`, `internal/core/providers/providerstest` | TEST | — |
+| `internal/archtest`, `internal/testutil`, `internal/store/storetest`, `internal/core/auth/authtest`, `internal/core/identify/identifytest`, `internal/core/jobs/jobstest`, `internal/core/certificate/certificatetest`, `internal/core/providers/cloudflare/cloudflaretest`, `internal/core/nodes/nodestest`, `internal/core/library/librarytest`, `internal/core/settings/settingstest`, `internal/node/nodetest`, `internal/node/container/containertest`, `internal/node/ffstreamer/ffstreamertest`, `internal/platform/clock/clocktest`, `internal/platform/jobqueue/jobqueuetest`, `internal/core/providers/providerstest` | TEST | — |
 | `internal/schedtest` | TEST | — (D329's scheduling bench, work-scheduling.md §16 phase 0: a discrete-event simulation of disks, playbacks and the policy between them, with today's node work list as the baseline; outside core and node so it can drive the deciders of both) |
 
 ### Web
