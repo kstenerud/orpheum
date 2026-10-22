@@ -10,7 +10,9 @@
   Is the data there when the user expects it to be? … before we go into the redesign (and I don't
   care even if we have to rip all the pieces out and greenfield them), let's start with making user
   scenarios."* Every deadline here is the agent's proposal, for the owner to confirm or change. The
-  design that comes from them is not written yet.
+  design that comes from them is not written yet. Reviewed the same day, with prior art, in
+  [data-timeliness-review-2026-10-22.md](../research/data-timeliness-review-2026-10-22.md); its
+  corrections are not folded in yet.
 - **Depends on:** — (it reads [scenarios.md](scenarios.md), which asks whether the model is right,
   and asks something else: whether the data is there in time.)
 
