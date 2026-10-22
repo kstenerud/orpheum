@@ -13,8 +13,18 @@
   - The same day it was reviewed by a data-systems and a UX reviewer and set against prior art, in
     [data-timeliness-review-2026-10-22.md](../research/data-timeliness-review-2026-10-22.md).
     The review's corrections are folded in here, on the owner's word: *"yes, fold them in"*.
-  - Every deadline and load figure is the agent's proposal. The owner confirms or changes them in
-    §11.
+  - The owner answered §11 on 2026-10-22:
+    - The deadlines are right, and direct play is preferred.
+    - Comments on C6, B1, B5 and A8.
+    - The scale holds, except whether a GPU can be assumed.
+    - All viewers are equal.
+    - Reading once for two needs is taken on now.
+    - The admin gets a badge and a daily email.
+
+    Those answers are folded in. The four questions still open (the metered connection, the GPU,
+    whether running playbacks drop a rung, and quiet hours) were researched in
+    [timeliness-followups-2026-10-22.md](../research/timeliness-followups-2026-10-22.md). Its
+    proposals are folded in as **Proposed** and wait on §11.
   - The design built from these scenarios is not written yet.
   - This replaces the five design questions of the
     [queue inventory](../research/job-queues-inventory-2026-10-21.md) §5, which the design answers.
@@ -120,7 +130,7 @@ waits behind it, and §9 asks that it be short.
 | The core's database | Catalog, metadata, play state, availability | Milliseconds to read (performance-targets.md: under 50 ms a page); **one writer** for all writes | A write transaction |
 | A node, without touching media | Status, sessions, capacity | One round trip | — |
 | A probe of a place (D327) | Can this disk be read now? | One `statfs`: milliseconds, or as long as a dead share leaves it waiting; outside every queue | — |
-| A node, reading a little of a file | A keyframe index; a direct play's bytes | A seek and some throughput, per reader; **wakes a sleeping disk (5–10 s)** | A read |
+| A node, reading a little of a file | A keyframe index; a direct play's bytes | A seek and some throughput, per reader; **wakes a sleeping disk (6–30 s; 23 s typical for an 8 TB drive)** | A read |
 | A node, listing a directory tree | A scan's listing | Many metadata operations: seconds, more over a share | The whole listing today |
 | A node, FFprobe on each file | A scan's examine | One open and a short read per file; a batch takes seconds | One batch |
 | A node, reading a whole file | The full read-through (loudness, timeline); an embedded subtitle's extraction | The film's size over the disk's throughput: about 200 s for 20 GB at 100 MB/s; holds a reader | **The whole film today** |
@@ -148,11 +158,21 @@ Some demand can shrink to fit:
 Stepping quality down is the first way to shed load, before queueing, just as Unreal Engine drops
 texture detail "one mip at a time" to fit its budget.
 
+**A direct play is not elastic.** Netflix and YouTube convert every title into a ladder of rungs
+before they show it as available, so starting on a low rung costs them nothing. Orpheum plays
+originals in their own formats, with their own quirks. Some play directly, and some need a remux or
+an encode first. Lowering a direct play's bitrate means starting an encode. When direct play is
+possible it is usually the right choice, ahead of a low transcoded rung (the owner, 2026-10-22).
+The "start low and climb" tactic applies only to a playback that is transcoded anyway.
+
 ### 4.4 One read can serve two needs
 
 During direct play the node already reads every byte of the film. Loudness, the timeline and
 embedded subtitles can be computed from that stream at a cost in CPU only, instead of a second,
-competing read of the same file. This is the "cooperative scan" from databases.
+competing read of the same file. This is the "cooperative scan" from databases. **It is part of the
+rebuild** (the owner, 2026-10-22: *"Take this on now. We want to get this rebuild right rather than
+doing things piecemeal."*). A read-through then becomes something a playback can do on the way, and
+a read of its own only for a film nobody plays.
 
 ## 5. Freshness, and what is shown meanwhile
 
@@ -169,7 +189,7 @@ only for a complete one.
   focus never moves. On a TV, a row reordering under the D-pad reads as a broken remote.
 - **Availability is a lease, not a fact.** A probe's answer is stale the moment it returns. It is
   shown with its age, and becomes unknown when the lease runs out.
-- **A disk has three states:** ready, waking (about 10 s), and not answering. A sleeping disk is
+- **A disk has three states:** ready, waking (up to about 30 s), and not answering. A sleeping disk is
   never shown as unavailable.
 - **After a core restart**, anything about "now" is unknown until the source says it again. It is
   not stale.
@@ -200,6 +220,9 @@ There are two audiences:
   happen next: *"It will pick up by itself when it's back. [Keep waiting] [Watch something else]"*.
 - **The admin** gets the detail (the place, when it last answered, what waits behind it), and is
   **notified**, not left to find out from a text (A6).
+- **Both see a badge.** An issue shows as a badge in the app for every person it touches, and on
+  each film it affects. A user's badge carries only the friendly explanation and a note to let the
+  administrator know. The admin's carries the detail (A6).
 - A failure costs trust: viewers who meet one are less likely to come back (Krishnan and
   Sitaraman). So after recovery, playback resumes a few seconds before the freeze.
 
@@ -306,8 +329,26 @@ This is the most frequent "open" by far: a phone unlocked, a TV woken.
 
 #### C6. A phone on a metered connection (missing before)
 
-A data cap makes prediction cost the person money. Warming and prefetching are off, or small, on a
-metered connection. Playback starts at a lower rung, and posters come at small sizes.
+A data cap makes the client's own prefetch cost the person money. Warming on the node costs the
+phone nothing, so only what the client fetches counts. Researched in the [follow-ups](../research/timeliness-followups-2026-10-22.md) §1.
+
+- **Competitors:**
+  - Netflix and Plex cap quality on cellular by default and let the person raise it.
+  - Spotify downloads on Wi-Fi only.
+  - Jellyfin, Emby and Infuse do nothing for cellular.
+  - None documents switching prefetch off.
+- **Complaints:**
+  - Too much data is a real complaint, but rare.
+  - Quality stuck too low on cellular is the more persistent one.
+- **What the platforms say:** native apps get a reliable signal. The web client gets almost nothing:
+  only Chrome for Android, and nothing from Safari.
+
+**Proposed** (§11 Q1):
+- On a connection the platform says is metered, the client doesn't prefetch video ahead of playback,
+  and caps quality visibly and liftably.
+- When the signal is unknown, it behaves as usual.
+- A per-device "Mobile data" setting: Automatic, Save data, Unrestricted.
+- For the closed beta: no detection, a small cancellable prefetch, and the toggle only if cheap.
 
 ### Browsing
 
@@ -321,6 +362,34 @@ they arrive.
 | Scrolls, or moves focus | The grid moves; focus moves | Instant | Hard | Already in the client | — |
 | Posters come into view | Each poster | **Before it is visible**: prefetched 1–2 screens ahead | Firm | The artwork size for this screen | A placeholder of the poster's size |
 | Posters scrolled past | Nothing | — | — | Their requests are cancelled in the client, and the newest asked is served first | — |
+| Looks at the side of the grid | A jump bar of first letters, in the locale's own alphabet, showing only letters some film starts with | With the grid | Soft | The **letter index** of the current view (below) | The bar without letters |
+| Jumps from "A" to "L" | The grid at "L", posters at once | Flow for the grid; posters as above | Hard for the grid, firm per poster | The window of the view at L's offset, and its posters, ahead of the ones scrolled past | Placeholders of the final size at the right place |
+
+**Jumping by letter** (the owner, 2026-10-22), as Jellyfin and Plex do:
+- **A jump is a fetch at an offset.** It is not a scroll through what lies between, so the posters
+  between "A" and "L" are never asked for.
+- **The letter index is data of its own:** each first letter, with how many entries come before it,
+  for the view as it is now sorted and filtered.
+- **The letters are the locale's.** The ordering and the index letters come from the locale's
+  collation: CLDR's index characters and ICU's alphabetic index exist for exactly this. A German
+  library files "Ä" under "A"; a Swedish one shows "Ä" as a letter of its own after "Z". Titles in
+  other scripts fall into the scripts' own groups.
+- **Only letters some film starts with are shown.** The index is built from the titles, not from
+  the alphabet.
+- **The index belongs to the view.** A filter or a search changes it (B8).
+
+#### B8. Filtering by genre and year, and searching within a view (missing before)
+
+**Load:** a filter changes the whole set; a person tries several in a few seconds.
+
+| Moment | Expects | By | Late | Data | Meanwhile |
+| --- | --- | --- | --- | --- | --- |
+| Picks a genre or a year | The grid of matching films, its count, and its jump bar | Flow | Firm: superseded by the next pick | The view's first window, count and letter index, from the database | The previous view, marked as updating, never emptied first |
+| Changes the filter again quickly | Only the last one counts | Flow | Firm | The earlier fetches are cancelled | — |
+| Types a search inside the view | As B3, within the filter | As B3 | Firm per keystroke | As B3 | As B3 |
+
+**What it says:** a view is a query, and its window, count and letter index come together. A
+superseded view's fetches are worthless at once, so they are cancelled.
 
 #### B2. Opening a film's page
 
@@ -344,14 +413,44 @@ they arrive.
 | Opens the series | Seasons, episodes, Next Up | Flow | Soft | The database | — |
 | Will play the next episode | — | — | — | A prediction: warm the next three episodes (interest-priority.md) | — |
 
-#### B5. A film copied to the NAS while the app is open
+#### B5. A film copied to the NAS, then looked for in the app
+
+The owner, 2026-10-22:
+- *"When I copy a movie to my nas and then go back to orpheum, I get confused if the movie isn't
+  already shown — even if it's just the basic grid entry (with no poster) to show that orpheum is
+  aware of it now. When I don't see it, I start looking for the 'scan library now' button because I
+  don't know if orpheum is looking for it or not."*
+- *"What's also frustrating is copying a movie in, not seeing it, scanning, STILL not seeing it,
+  scanning again, no dice, going through a long debugging process, only to discover that it saw it
+  but did nothing because I had the file/directory permissions or ownership wrong."*
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
-| Copies it, then looks for it | It appears | Patient: a minute is fine | Soft | The watcher or a scheduled scan; one examine; identification | Not shown yet |
+| Copies it, then opens the app or the library | **It is there**, at least as a bare grid entry with its file name and no poster, marked as being read | Flow to Progress, counted from opening the library | Hard: a missing entry sends the person looking for "Scan now" | The new file **known**, before it is examined or identified | — |
+| Watches it | Its title and poster arrive in place | Patient | Soft | Examine, identification, artwork | The bare entry |
+| The file can't be read (permissions, ownership, a name the system can't open) | **The entry is there, and says why**: "Orpheum can see this file but can't read it: check its permissions" | As the first row | Hard: silence here cost the owner a long debugging session | The failure, kept with the file (§4.2) | — |
+| Presses "Scan now" anyway | It says what it found: N new, M it can't read, and why | Instant acknowledgement, then Progress | Soft | The scan's result, by outcome | — |
 
-**What it says:** the catalog can be minutes stale, except when a notification promised the film
-(A9). Availability can't be.
+- **Knowing comes before understanding.** Seeing a new file is cheap (a listing). Examining and
+  identifying it is not. The cheap step must not wait on the dear one, and the grid shows what is
+  known.
+- **Opening the library is a want for its freshness.** Over NFS there is no watcher: the kernel's
+  change notification doesn't see changes made by other machines, and the scenarios can't rely on a
+  scan's schedule. So opening the library, or returning to the app (C5), asks for a cheap check of
+  what changed. It is pulled when looked at (D325), as availability is.
+  - A directory's modification time changes when a file is added to it, so the check can start
+    with the directories, not the files.
+  - Over NFS the attribute cache can hide a change for up to a minute. That bounds this row's p95
+    on a share unless the check reads past the cache.
+  - The check is a person's want, so it may wake a sleeping disk (A8). It runs when someone looks,
+    never on a timer: a timer is what kept Jellyfin's disks from ever sleeping.
+- **Every file the scan sees appears**, readable or not. A file it can't use is never dropped
+  silently. Its reason is shown on the entry, and it is counted in the scan's result and in the
+  admin's issues (A6).
+
+**What it says:** the catalog's "is the file there" can't be minutes stale once someone looks. Its
+"what is the film" can be. Availability can never be stale. A notification bounds the catalog's
+staleness too (A9).
 
 #### B6. Two people browse while a big scan runs
 
@@ -368,7 +467,7 @@ poster someone is looking at.
 
 #### P1. Play a film that plays directly
 
-**Load:** at most two playbacks at once per household on the evenings that have them (§11 Q3); a
+**Load:** at most two playbacks at once per household on the evenings that have them; a
 1080p direct play needs about 10 Mbit/s; a 4K one about 40–80.
 
 | Moment | Expects | By | Late | Data | Meanwhile |
@@ -404,7 +503,28 @@ poster someone is looking at.
 
 Both have P1's or P2's continuous deadlines on one disk's throughput. Both hold, because each
 playback is admitted against its reservation (§8.4). Maintenance on that disk takes only what is
-left, at a limited read rate. When it can't fit, the newcomer gets a lower rung (§11 Q4).
+left, at a limited read rate. All viewers are equal: admin or user, at home or remote (the owner,
+2026-10-22).
+
+When they don't all fit, the research ([follow-ups](../research/timeliness-followups-2026-10-22.md) §3) points one way:
+- No study compares the two choices at the moment someone arrives.
+- A stall costs more than a switch, and viewers punish a drop more than they reward a rise.
+- No competitor lowers running streams to admit a newcomer.
+
+**Proposed** (§11 Q3): "equal" means one rule for everyone: *once you are watching, nobody's arrival
+stalls you or lowers your picture.*
+
+| Moment | Expects | By | Late | Data | Meanwhile |
+| --- | --- | --- | --- | --- | --- |
+| A newcomer presses Play and what is left fits | Plays at what is left, paced to it | Start | Hard | The budget: the uplink less headroom, counting each stream at its peak; the encoder's free slots; the disk's reservation | — |
+| What is left is below the floor | A choice: "wait, we'll say when there's room" or "play now at reduced quality" | Flow | Hard | The floor, which may depend on the screen (a phone needs less than a TV) | — |
+| Someone stops | A lowered stream rises once, one step | — | Soft | — | — |
+| The encoder is full | Offered a direct play or remux if the device can take one; otherwise wait | Flow | Hard | The encoder's strict admission | — |
+
+- A direct play is a fixed reservation at its peak and never steps down. Stepping down would start
+  a transcode.
+- An option, off by default: running *transcodes* drop one rung, but only to lift a newcomer from
+  below the floor to it.
 
 #### P6. Watch Together, one person remote
 
@@ -488,10 +608,24 @@ A backup that slips misses its night, and a certificate that slips lapses.
 
 #### A6. The admin is told (missing before)
 
-A share stops answering, a node goes offline, a certificate or backup is at risk, or a user's play
-failed. The admin is notified, with what a user met: *"a user hit this at 21:14 on Film X"*. In a
-household the partner texts "it's broken" first, and the admin should already know. The channel is
-the owner's to choose (§11 Q6).
+A share stops answering, a node goes offline, a certificate or backup is at risk, a user's play
+failed, or a file can't be read (B5). The admin is notified, with what a user met: *"a user hit
+this at 21:14 on Film X"*. In a household the partner texts "it's broken" first, and the admin
+should already know.
+
+The owner, 2026-10-22: *"Show the badge, and email at most once a day to inform of new issues. The
+badge will need to show for regular users as well, since the issue will likely lead to badges on
+particular films."*
+
+| Moment | Expects | By | Late | Data | Meanwhile |
+| --- | --- | --- | --- | --- | --- |
+| An issue begins | A badge in the app, for the admin and for each user it touches, and on each film it affects | Flow, once the issue is known | Hard | The issue, its place, the films on that place | — |
+| The admin opens the badge | What happened, where, since when, who met it | Flow | Soft | The issue's record | — |
+| A user opens the badge | A plain explanation and a note to let the administrator know | Flow | Soft | The same, in the user's words | — |
+| The next day's email | New issues since the last email, **at most one email a day**, none when nothing is new | Due | Soft | The issues and when each began and ended | — |
+
+An issue that began and ended between two emails is still reported: the admin learns that a share
+dropped for ten minutes last night.
 
 #### A7. Re-deriving everything (missing before)
 
@@ -501,8 +635,48 @@ on a disk that is awake.
 
 #### A8. Quiet hours and sleeping disks (missing before)
 
-Background work prefers times when nobody watches, and batches onto a disk that is already awake.
-Waking a disk is a cost, in latency and in noise. Spin-down is respected.
+The owner, 2026-10-22: *"Quiet hours by default, but if the machine is in a sound-isolated
+environment, allow the user to decide if quiet hours matter. We still avoid waking disks unless
+there's real work to be done."*
+
+- **Quiet hours are on by default.** Noisy background work, meaning anything that keeps a disk
+  seeking, doesn't run in them. An admin whose machine is sound-isolated can switch them off.
+- **A disk is never woken for nothing.** Whatever quiet hours say, a sleeping disk is woken only for
+  real work. Background work is batched so that one waking serves it all, and waits for a disk that
+  is awake anyway.
+- **A person's want wakes a disk at any hour.**
+- **Researched** ([follow-ups](../research/timeliness-followups-2026-10-22.md) §4):
+  - Plex (03:00–06:00) and Jellyfin (02:00–03:00) run heavy work at night because nobody watches
+    then, which is when a disk near a bedroom is heard.
+  - Both have public bugs that keep disks awake: retrying the same failed files every night, and
+    stat-ing files every 5 minutes.
+  - Modern drives are rated for 600,000 load cycles, and no data shows spin-down wears them.
+  - A sleeping drive saves about €9–19 a year at German prices. Mostly it buys silence.
+  - Seeking, not spinning, is what people hear.
+  - Windows moved from a fixed maintenance hour to idle-triggered work with deadlines. Android's
+    Doze batches deferred work into one maintenance window.
+
+**Proposed** (§11 Q4):
+- **Quiet hours are a veto, and idleness is the trigger.**
+  - Non-urgent work runs only when nothing plays, and stops when a playback starts.
+  - It never runs in quiet hours (on by default, for example 22:00–07:00).
+  - Each kind of work has a deadline. Overdue work runs at the next idle time outside quiet hours.
+- **A sleeping disk isn't woken for non-urgent work.** Its work is batched, and runs either right
+  after a playback on that disk ends, while it still spins, or all at once when the batch passes a
+  size or its oldest job passes its deadline.
+- **The known disk-wakers are avoided:**
+  - each failure is remembered until its file changes;
+  - no file is polled on a schedule;
+  - metadata and artwork stay off the media disks.
+- **Over a share, the disk's state can't be seen**, so the node only avoids being the one that
+  wakes it.
+- **"Sound-isolated" lifts only the veto**, making night the preferred time. It is asked as a
+  question about where the storage stands.
+- **The admin sees:**
+  - the quiet hours;
+  - each disk's waiting work and its next expected run;
+  - every wake Orpheum caused, and why;
+  - that the NAS's own sleep setting decides whether its disks ever sleep.
 
 #### A9. A notification of a new episode (missing before)
 
@@ -550,7 +724,7 @@ sweep's.
 
 | Moment | Expects | By | Late | Data | Meanwhile |
 | --- | --- | --- | --- | --- | --- |
-| Presses Play on a sleeping disk | Told the drive is waking | ≤1.5 s | Hard | The disk's state: waking | "Waking the drive…" with a determinate bar to about 10 s |
+| Presses Play on a sleeping disk | Told the drive is waking | ≤1.5 s | Hard | The disk's state: waking | "Waking the drive…" with a determinate bar to about 30 s |
 | — | The play goes first once it wakes | Start, after spin-up | Hard | The play's read ahead of the scan that woke the disk | — |
 
 #### W8. 200 films copied in during a playback
@@ -573,8 +747,12 @@ reader for everyone.
 #### W11. A node at its limit: two encodes and a read-through
 
 The two playbacks' encodes come first, and the read-through waits or yields at its next slice. A
-third player is admitted at whatever fits (§8.4), and told why it got a lower rung, without naming
+third player is admitted at whatever fits (P5), and told why it got a lower rung, without naming
 the other person's film.
+
+**Load:** with no hardware encoder (§11 Q2), a 4-core node guarantees **one** 1080p software
+transcode, and a second as best effort. 4K HDR tone-mapped to an SDR screen can't run in real time
+in software at all.
 
 #### W12. Files moved or renamed, or a disk replaced (missing before)
 
@@ -630,7 +808,7 @@ the design itself.
 4. **Continuous deadlines get a reservation and admission control.** A playback is admitted only if
    its reservation fits: disk throughput, encode rate and uplink. Otherwise it is offered a lower
    rung that does fit. A running playback is protected over a new start, because a stall costs more
-   than a slower start.
+   than a slower start. All viewers are equal under that rule (P5).
 5. **Prediction turns expensive data into timely data.** These predict a play:
    - focus resting, or the page opening;
    - the first item of Continue Watching;
@@ -702,55 +880,101 @@ This sketch does not decide these. The design does, against the scenarios.
 
 ## 11. Questions for the owner
 
-Each question comes with what the research suggests.
+### Answered 2026-10-22
 
-1. **The deadlines.** Are §3's classes, and the times in §7's rows, right?
-   - *Hints:* viewers begin to abandon at 2 s, +5.8% a second (Akamai data). Spotify reported a
-     265 ms median start in 2010. Google's RAIL: answer input within 100 ms, a repeat load in 2 s.
-     Netflix and YouTube start at a low rung and climb rather than wait.
-   - The review proposes tightening the sketch's first numbers: Start ≤2 s at p95, explained at
-     3 s. The figures in §7 are those.
-2. **Scenarios.** §7 added about twenty, marked "missing before". Which are wrong, out of scope for
-   the beta, or still missing?
-   - *Hints:* the UX review ranked the TV with a remote and the first 60 seconds highest, because
-     they decide whether a household keeps using it. Music, photos and offline download are left out
-     on purpose.
-3. **The scale to design for in the beta.** This is the one that matters most now. Without it no
-   design can be checked against the scenarios.
-   - The agent's proposal, to confirm or change:
-     - a household of four;
-     - two playbacks at once at peak, one of them remote;
-     - one node with four CPU cores and no GPU encoder;
-     - a NAS over 1 Gbit/s (about 110 MB/s);
-     - 3,000 films and 20,000 episodes;
-     - a remote viewer's slowest link of 5 Mbit/s;
-     - a household uplink of 20 Mbit/s.
-   - *Hints:* scans hurt playback at quite modest scale. Jellyfin #14366 was a full scan stuttering
-     every device through the database lock. Twitch and Netflix design for a guaranteed class plus
-     spare capacity, so the numbers decide how much is reserved and how much is left over.
-4. **Who yields when two people's wants collide?** The research mostly answers this:
-   - a stall costs more than a slower start;
-   - one rebuffer costs three times one bitrate change;
-   - so a running playback is never stalled or downgraded to admit a newcomer;
-   - the newcomer gets the lower rung, with a reason that doesn't name the other film.
+- **The deadlines** are right. Direct play is preferred over a low transcoded rung, because Orpheum
+  plays originals and is not a service with every title pre-converted (§4.3).
+- **The scenarios:**
+  - C6 was researched.
+  - B1 gained a jump bar by first letter, and B8 filters.
+  - B5 now has a file shown as soon as it is known, and an unreadable one says why.
+  - A8 has quiet hours by default and no disk woken for nothing.
+- **The scale:** a household of four, two playbacks at peak with one of them remote, one 4-core
+  node, a NAS on 1 Gbit/s, 3,000 films and 20,000 episodes, the slowest remote link at 5 Mbit/s,
+  and an uplink of 20 Mbit/s. Whether a GPU can be assumed is Q2.
+- **All viewers are equal:** admin or user, at home or remote.
+- **Reading once for two needs** is part of the rebuild (§4.4).
+- **Telling the admin:** a badge for the admin and for every user an issue touches, a badge on each
+  film affected, and at most one email a day of new issues (A6).
 
-   The open parts:
-   - Is the admin's own playback treated like anyone else's?
-   - Does a remote viewer rank below a viewer at home, or equal?
-   - Should two playbacks that don't fit both drop a rung, instead of the newcomer alone?
-5. **Reading once for two needs (§4.4).** Computing loudness, timeline and subtitles from the
-   playback's own read would remove most of the conflict on a playing film's disk. It changes how
-   the read-through is built. Should the design take it on now, or later?
-   - *Hints:* the data review called it the cheapest idea in the review.
-6. **Telling the admin (A6).** Through which channel should the admin be notified?
-   - Push through discovery, email, or only a badge in the app?
-   - Which events are worth it?
-   - *Hints:* the UX review ranked it high: in a household, the partner otherwise texts "it's broken"
-     first.
-7. **Quiet hours and sleeping disks (A8).** Should background work have a default window, or follow
-   observed idleness? Should Orpheum let disks spin down and batch work to their waking?
-   - *Hints:* Plex uses a fixed nightly window, 2–5 AM per third-party pages, but its spin-up bug
-     came from not remembering failures. Netflix Open Connect fills in off-peak windows.
-8. **A metered connection (C6).** Should prediction and warming switch off on a metered connection,
-   and should playback start at a lower rung there?
-   - *Hints:* the browser exposes this only partly, so this may be a per-device setting.
+### Open
+
+Each comes with a proposal from the
+[follow-up research](../research/timeliness-followups-2026-10-22.md).
+
+1. **Metered connections (C6).**
+   - *Found:*
+     - Mobile data in Germany is still mostly capped: 8.4 GB a SIM a month, against 3 GB or more
+       for an hour of full-quality video. Home lines are not capped.
+     - Netflix and Plex cap cellular quality by default. Jellyfin does nothing.
+     - Complaints of too much data are rare. Complaints of quality stuck too low are more common.
+     - The web client gets almost no signal: Chrome for Android only, nothing from Safari.
+   - *Proposed:*
+     - no detection in the beta;
+     - the client's own video prefetch kept small and cancellable;
+     - warming on the node unaffected, since it costs the phone nothing;
+     - a per-device "Mobile data" setting (Automatic, Save data, Unrestricted) only if it is cheap;
+     - detection once native apps exist.
+
+   Agree?
+2. **No GPU (§7 W11).**
+   - *Found:* nobody publishes the share of hosts without a hardware encoder, but large groups have
+     none:
+     - every 2025 Synology "plus" model;
+     - the Raspberry Pi 5;
+     - rented servers, a quarter of self-hosters in one survey;
+     - every free Plex user, since hardware transcoding needs Plex Pass.
+
+     Passing a GPU into a container often fails. On a 4-core CPU, Plex's rule gives about two
+     1080p software transcodes. A 4K HDR source tone-mapped to SDR runs at about a third of real
+     time.
+   - *Proposed:*
+     - assume no hardware encoder, and detect one as a bonus;
+     - guarantee one 1080p transcode per node, with a second as best effort;
+     - order the choices: direct play, then remux, then an audio-only transcode, then a video
+       transcode.
+
+   Agree? And a decision only you can make: **what does a 4K HDR film do for an SDR screen when
+   the node has no hardware?**
+   - (a) direct play only, leaving the client to tone-map or show washed-out colour;
+   - (b) a 1080p SDR version prepared ahead, in quiet time, which costs disk space;
+   - (c) "this film needs a screen that can show HDR", with the alternatives.
+3. **Several viewers on too little (P5).**
+   - *Found:*
+     - no study compares "the newcomer takes what is left" with "everyone drops a rung" at the
+       moment someone arrives;
+     - a stall costs three times a switch;
+     - viewers punish a drop more than they reward a rise;
+     - Plex, Jellyfin and Emby never lower a running stream for a newcomer;
+     - the newer research weighs each viewer by their screen, since a phone needs less than a TV.
+   - *Proposed:* "equal" means one rule for everyone: once watching, nobody's arrival stalls you or
+     lowers your picture.
+     - The newcomer takes what is left, down to a floor.
+     - Below the floor, the newcomer chooses: wait, or play reduced.
+     - The floor depends on the screen.
+     - A direct play never steps down.
+     - The encoder admits strictly.
+     - An option, off by default, lets running transcodes drop one rung to lift a newcomer to the
+       floor.
+
+   Agree, and should that option exist at all?
+4. **Quiet hours (A8).**
+   - *Found:*
+     - Plex and Jellyfin run heavy work at night, which is when a disk is heard, and both have
+       bugs that keep disks awake;
+     - modern drives take 600,000 load cycles, and no data shows spin-down wears them;
+     - a sleeping drive saves €9–19 a year and buys silence;
+     - seeking is what people hear;
+     - Windows and Android moved to idle-triggered work with deadlines, batched into windows.
+   - *Proposed:*
+     - quiet hours as a veto (on by default, 22:00–07:00), with idleness as the trigger;
+     - a deadline per kind of work;
+     - a sleeping disk woken only for a person's want, or for a batch that has grown large or
+       waited too long;
+     - "sound-isolated" lifts only the veto.
+
+   Agree? And are 22:00–07:00 the right default hours?
+5. **A user's badge.** The admin already gets a badge and the daily email, so a user's note could
+   say either *"The administrator has been told"* or *"Let the administrator know"*. Which did you
+   mean? The first stops a user texting about something already known. The second covers the time
+   before the next email.
