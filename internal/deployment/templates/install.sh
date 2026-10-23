@@ -17,9 +17,10 @@ image="{{.Image}}"
 dir="${HOME:-/root}/orpheum"
 media=""
 pull=true
+prune=true
 
 usage() {
-	echo "usage: sh install.sh --media <folder> [--media <folder>...] [--dir <folder>] [--image <image>] [--no-pull]" >&2
+	echo "usage: sh install.sh --media <folder> [--media <folder>...] [--dir <folder>] [--image <image>] [--no-pull] [--keep-images]" >&2
 	exit 2
 }
 
@@ -31,6 +32,8 @@ $2"; shift 2 ;;
 	--image) [ "$#" -ge 2 ] || usage; image=$2; shift 2 ;;
 	# An image built on this machine, as deploy/release/build.sh builds one from a tag.
 	--no-pull) pull=false; shift ;;
+	# Leave every older image of this one's repository in place.
+	--keep-images) prune=false; shift ;;
 	*) usage ;;
 	esac
 done
@@ -156,6 +159,44 @@ addMedia() {
 	mv "$values.new" "$values"
 }
 
+# dockerFormat is Docker's template for one field, two braces around .Field, written so that this
+# file, a Go template rendered for a household and run raw by deploy/release/build.sh, holds no
+# action of its own.
+dockerFormat() { printf '{%s}' "{$1}"; }
+
+# The image the deployment ran before this install, by its ID, taken before a pull can move its tag
+# to the new one: an update keeps it, to go back to, and removes the older ones (pruneImages).
+previousID=""
+if [ -f "$dir/.env" ]; then
+	previous=$(sed -n 's/^ORPHEUM_IMAGE=//p' "$dir/.env")
+	if [ -n "$previous" ]; then
+		previousID=$(docker image inspect --format "$(dockerFormat .Id)" "$previous" 2>/dev/null) || previousID=""
+	fi
+fi
+
+# pruneImages removes every image of this one's repository but this one and the one the deployment
+# ran before, once the server is up: each update left its image behind, and nas.example had some fifteen
+# (2026-10-23). An image a container still uses is refused by Docker and stays. An image named by
+# its digest has no repository to list, and prunes nothing.
+pruneImages() {
+	case $image in *@*) return 0 ;; esac
+	currentID=$(docker image inspect --format "$(dockerFormat .Id)" "$image" 2>/dev/null) || return 0
+	repository=$image
+	case ${image##*/} in *:*) repository=${image%:*} ;; esac
+	docker image ls --no-trunc --format "$(dockerFormat .ID) $(dockerFormat .Repository):$(dockerFormat .Tag)" "$repository" |
+		while read -r id name; do
+			if [ "$id" = "$currentID" ] || [ "$id" = "$previousID" ]; then
+				continue
+			fi
+			# An image whose tag moved on has none left, and goes by its ID.
+			target=$name
+			case $name in *:"<none>") target=$id ;; esac
+			if docker image rm "$target" >/dev/null 2>&1; then
+				say "  removed the old image $name"
+			fi
+		done
+}
+
 if $pull; then
 	say "pulling $image"
 	docker pull --quiet "$image" >/dev/null
@@ -261,6 +302,9 @@ while [ "$tries" -lt 60 ]; do
 	tries=$((tries + 1))
 	sleep 2
 done
+if $isUp && $prune; then
+	pruneImages
+fi
 address=$(homeAddress)
 [ -n "$address" ] || address="<this machine's address>"
 say "installed in $dir"

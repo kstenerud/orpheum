@@ -131,6 +131,10 @@ files are, `v0.0.0-<now>-<commit>-dirty`; either is warned of and asked about fi
 command a household runs (`docker run --rm ghcr.io/kstenerud/orpheum:<tag> install-script | sh -s --
 …`). `MEDIA="/path/one /path/two"` names the folders the first time, with either.
 
+Once the new server answers, the install removes every older image of its repository but the one
+the deployment ran before, which stays to go back to (§5); an image a container still uses stays
+too. `--keep-images` on the install script keeps them all.
+
 The build runs the new image's `write-deployment`, so the compose file and the configs are the new
 version's (D272 §7); `values.toml` and the keys are never touched. The core migrates the database
 at start, through every step since the version nas.example last ran (D272 §5), and keeps a snapshot
@@ -158,7 +162,8 @@ TMDB key among them) are made again, and every link anyone was given stops worki
 
 ## 5. Going back
 
-The same two commands with the older tag. An older binary refuses a database a newer one migrated,
+The same two commands with the older tag; the image of the version before the current one is still
+on the machine, so it needs no build. An older binary refuses a database a newer one migrated,
 unless the newer one declared it compatible, and its refusal names the snapshot taken before the
 migration (D181): stop the deployment, put the snapshot in place of `core/persistent/persistent.db`,
 and start it again. What happened since the snapshot is lost.
