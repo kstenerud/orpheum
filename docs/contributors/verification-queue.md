@@ -527,3 +527,12 @@ An item is ticked only by the person who did it, and only with what they saw.
   node is tested (`system.test.tsx`). The same kit on a staging host (Iris Plus 640, Kaby Lake, Gen 9.5)
   found Quick Sync failing in the release image ("Error creating a MFX session: -9") and VAAPI
   working: confined and streamed encodes decoded to the unconfined frames, keyframes where asked.
+- [ ] **VQ53** — On a machine with an NVIDIA card, its driver and the NVIDIA Container Toolkit under
+  rootful Docker, whose Docker has no CDI spec for the card: run the install script from main.
+  It reports "an NVIDIA GPU: yes", `compose.override.yaml` reserves the `nvidia` driver with the
+  gpu, compute, video and utility capabilities, and the node's log says it chose `h264_nvenc`.
+  Docker's nvidia device driver meets a real toolkit only here (D333 §1).
+  (`internal/deployment/templates/install.sh`, `internal/deployment/write.go`) The CDI route was
+  verified 2026-10-23 by Claude on gpuhost.example (RTX 3090, driver 580.178.04, rootless Docker 29.9.2,
+  a spec from `nvidia-ctk cdi generate`): the install chose CDI, and the node, confined under
+  `require`, chose `h264_nvenc`.
