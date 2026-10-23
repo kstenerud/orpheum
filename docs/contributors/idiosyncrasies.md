@@ -1542,8 +1542,11 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   Quick Sync run fails, confined or not, with `Error creating a MFX session: -9`.
 - **What we do:** VAAPI (D332), tried after Quick Sync, encodes on those through Intel's VA driver,
   which the image carries; the System page shows Quick Sync's trial failed and VAAPI's worked.
-- **Evidence:** a staging host (Iris Plus 640, Kaby Lake), 2026-10-23, in a container of the release image's
-  GPU packages: Quick Sync exit 171 with that message; `h264_vaapi` worked confined.
+- **Evidence:** a staging host (Iris Plus 640, Kaby Lake) and a ThinkPad T450 (HD 5500, Broadwell, Gen 8),
+  2026-10-23, in a container of the release image's GPU packages: Quick Sync exit 171 with that
+  message; `h264_vaapi` worked confined and through ffstreamer, its frames the unconfined run's. It
+  is Debian's non-free `intel-media-va-driver-non-free` that offers H.264 encoding on Broadwell; the
+  free build Linux Mint installs lists decoding only.
 
 
 ### `h264_vaapi` writes the driver's description, with the card's name, into the stream
