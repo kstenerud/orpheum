@@ -38,7 +38,7 @@ func fillValues(t *testing.T, dir string) {
 func TestWriteDeployment_BeginsThenMakesTheInstancesOnceAndWritesTheFiles(t *testing.T) {
 	t.Parallel()
 	dir, runDir := t.TempDir(), filepath.Join(t.TempDir(), "run")
-	begun, err := writeDeployment(dir, runDir, deployment.Staging, "orpheum:v0.1.0", "nas", -1)
+	begun, err := writeDeployment(dir, runDir, deployment.Staging, "nas", runtimeOf("orpheum:v0.1.0"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,13 +47,13 @@ func TestWriteDeployment_BeginsThenMakesTheInstancesOnceAndWritesTheFiles(t *tes
 		t.Errorf("the first run said %q; want it begun, giving the tunnel's public key and naming the "+
 			"tunnel addresses its peer on the VPS is given", begun.text)
 	}
-	if _, err = writeDeployment(dir, runDir, deployment.Staging, "orpheum:v0.1.0", "nas", -1); err == nil ||
+	if _, err = writeDeployment(dir, runDir, deployment.Staging, "nas", runtimeOf("orpheum:v0.1.0")); err == nil ||
 		!strings.Contains(err.Error(), "media.roots") {
 		t.Errorf("writing before the values are filled in = %v; want it refused, naming what they need: "+
 			"the media, all a household with no VPS gives (D314 §3)", err)
 	}
 	fillValues(t, dir)
-	written, err := writeDeployment(dir, runDir, deployment.Release, "orpheum:v0.1.0", "nas", -1)
+	written, err := writeDeployment(dir, runDir, deployment.Release, "nas", runtimeOf("orpheum:v0.1.0"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestWriteDeployment_BeginsThenMakesTheInstancesOnceAndWritesTheFiles(t *tes
 		t.Errorf("the core config says %v when unmigratable; want staging's start_over, as the values file began",
 			config["database"]["when_unmigratable"])
 	}
-	if _, err = writeDeployment(dir, runDir, deployment.Release, "orpheum:v0.2.0", "nas", -1); err != nil {
+	if _, err = writeDeployment(dir, runDir, deployment.Release, "nas", runtimeOf("orpheum:v0.2.0")); err != nil {
 		t.Errorf("writing again over the instances made = %v; want them kept and the files written", err)
 	}
 }
@@ -84,12 +84,12 @@ func TestWriteDeployment_BeginsThenMakesTheInstancesOnceAndWritesTheFiles(t *tes
 func TestWriteDeployment_TheVPSStepIsATunnelsAndACoreWithNoNameIsReachedThroughItsDiscovery(t *testing.T) {
 	t.Parallel()
 	dir, runDir := t.TempDir(), filepath.Join(t.TempDir(), "run")
-	begun, err := writeDeployment(dir, runDir, deployment.Release, "orpheum:v0.1.0", "nas", -1)
+	begun, err := writeDeployment(dir, runDir, deployment.Release, "nas", runtimeOf("orpheum:v0.1.0"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	fillValues(t, dir)
-	written, err := writeDeployment(dir, runDir, deployment.Release, "orpheum:v0.1.0", "nas", -1)
+	written, err := writeDeployment(dir, runDir, deployment.Release, "nas", runtimeOf("orpheum:v0.1.0"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,16 +111,28 @@ func TestDispatch_WriteDeploymentIsASubcommandThatNeedsItsImage(t *testing.T) {
 	}
 }
 
+func TestDispatch_WriteDeploymentTakesNVIDIAByCDIOrDriverAndRefusesAnythingElse(t *testing.T) {
+	t.Parallel()
+	var stdout, stderr bytes.Buffer
+	status := dispatch(t.Context(), []string{"write-deployment", "--image", "orpheum:v0.1.0", "--nvidia", "all"},
+		noEnvironment, nil, &stdout, &stderr)
+	if status != exitUsageError || !strings.Contains(stderr.String(), "[--nvidia cdi|driver]") ||
+		strings.Contains(stderr.String(), "not defined") {
+		t.Errorf("write-deployment --nvidia all: status %d, stderr %q; want its usage, naming cdi and driver",
+			status, stderr.String())
+	}
+}
+
 // The configs a deployment is written with set every key, so a key added to the binary is added to
 // the deployment's templates too, rather than run on its starting value with a warning at each start.
 func TestWriteDeployment_TheConfigsItWritesSetEveryKey(t *testing.T) {
 	t.Parallel()
 	dir, runDir := t.TempDir(), filepath.Join(t.TempDir(), "run")
-	if _, err := writeDeployment(dir, runDir, deployment.Release, "orpheum:v0.1.0", "nas", -1); err != nil {
+	if _, err := writeDeployment(dir, runDir, deployment.Release, "nas", runtimeOf("orpheum:v0.1.0")); err != nil {
 		t.Fatal(err)
 	}
 	fillValues(t, dir)
-	if _, err := writeDeployment(dir, runDir, deployment.Release, "orpheum:v0.1.0", "nas", -1); err != nil {
+	if _, err := writeDeployment(dir, runDir, deployment.Release, "nas", runtimeOf("orpheum:v0.1.0")); err != nil {
 		t.Fatal(err)
 	}
 	for _, kind := range []instanceKind{kindCore, kindNode} {
@@ -164,4 +176,9 @@ func TestDispatch_InstallScriptPrintsTheScriptInstallingThisImage(t *testing.T) 
 		t.Errorf("install-script: status %d, stdout begins %.80q; want the install script naming this image",
 			status, stdout.String())
 	}
+}
+
+// runtimeOf is the runtime write-deployment finds on a machine with no GPU, running image.
+func runtimeOf(image string) deployment.Runtime {
+	return deployment.Runtime{Image: image, UID: os.Getuid(), GID: os.Getgid(), RenderGID: -1}
 }

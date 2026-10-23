@@ -191,7 +191,9 @@ wg0 latest-handshakes`. Each keeps its own database, libraries and certificate.
   migrates from, which the checkpoint prevents while it is kept up to date.
 - **No GPU encoding**: `ls -l /dev/dri` in the container must show `renderD128` (§2's `dev0`), and
   `compose.override.yaml` must give the node `/dev/dri` and its group; `build.sh` writes both when
-  the render node is there, so run it again after adding it.
+  the render node is there, so run it again after adding it. An NVIDIA card also needs NVIDIA's
+  Container Toolkit, which the install script tries and reports on (D333;
+  docs/users/setup-problems.md).
 - **The libraries page says a folder is not watched, at the watch limit**: the media has more
   folders than the kernel lets one user watch. On the host, raise it
   (`sysctl fs.inotify.max_user_watches=1048576`, and the same line in

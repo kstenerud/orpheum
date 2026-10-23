@@ -73,7 +73,23 @@ writeDeployment() {
 	if [ -d /dev/dri ]; then
 		set -- "$@" --volume /dev/dri:/dev/dri:ro
 	fi
-	docker run "$@" "$image" write-deployment --deployment release --image "$image"
+	docker run "$@" "$image" write-deployment --deployment release --image "$image" ${nvidia:+--nvidia "$nvidia"}
+}
+
+# How Docker hands this machine's NVIDIA GPUs to a container, with the driver's libraries no image can
+# carry (D333): cdi, by the NVIDIA container toolkit's CDI spec (toolkit 1.18 or later, or after
+# `nvidia-ctk cdi generate`); driver, by Docker's nvidia device driver, which the toolkit's hook
+# provides; or empty, when neither works. Each is tried on the image itself, and only where an NVIDIA
+# driver is loaded.
+nvidiaControl=/dev/nvidiactl
+nvidia=""
+nvidiaAccess() {
+	[ -e "$nvidiaControl" ] || return 0
+	if docker run --rm --entrypoint true --device nvidia.com/gpu=all "$image" >/dev/null 2>&1; then
+		nvidia=cdi
+	elif docker run --rm --entrypoint true --gpus "driver=nvidia,count=all" "$image" >/dev/null 2>&1; then
+		nvidia=driver
+	fi
 }
 
 # The address this machine has at home, for its LAN name (D300); none when it has no private one.
@@ -132,6 +148,7 @@ if $pull; then
 	say "pulling $image"
 	docker pull --quiet "$image" >/dev/null
 fi
+nvidiaAccess
 if $isNew; then
 	# Beginning writes the values file and fails, saying what to fill in, which this script fills in
 	# itself; it failed for another reason when it wrote none.
@@ -160,6 +177,13 @@ if [ -e /dev/dri/renderD128 ]; then
 	say "  a GPU's render node: yes, for hardware encoding"
 else
 	say "  a GPU's render node: no; films that need preparing are encoded in software"
+fi
+if [ -e "$nvidiaControl" ]; then
+	if [ -n "$nvidia" ]; then
+		say "  an NVIDIA GPU: yes, for hardware encoding"
+	else
+		say "  an NVIDIA GPU: yes, but Docker cannot hand it to a container, so films are encoded in software; install the NVIDIA Container Toolkit (https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html), then run this again"
+	fi
 fi
 # A public IPv6 address (2000::/3) to reach the internet from: where the house shares its IPv4, as
 # DS-Lite does, it is the way a device away from home reaches the server without a relay (D314 §4).
