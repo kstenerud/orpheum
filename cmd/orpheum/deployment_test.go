@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -120,6 +121,18 @@ func TestDispatch_WriteDeploymentTakesNVIDIAByCDIOrDriverAndRefusesAnythingElse(
 		strings.Contains(stderr.String(), "not defined") {
 		t.Errorf("write-deployment --nvidia all: status %d, stderr %q; want its usage, naming cdi and driver",
 			status, stderr.String())
+	}
+}
+
+// The install script names the deployment's directory, which gives its network a subnet of its own.
+func TestParseWriteDeployment_TheDirectoryNamedReachesTheRuntime(t *testing.T) {
+	t.Parallel()
+	kind, runtime, isParsed := parseWriteDeployment(
+		[]string{"--image", "orpheum:v0.1.0", "--deployment", "staging", "--directory", "/srv/orpheum"}, io.Discard)
+	if !isParsed || kind != deployment.Staging || runtime.Image != "orpheum:v0.1.0" ||
+		runtime.Directory != "/srv/orpheum" {
+		t.Errorf("parsed %v: kind %q, runtime %+v; want staging, the image and the directory /srv/orpheum",
+			isParsed, kind, runtime)
 	}
 }
 

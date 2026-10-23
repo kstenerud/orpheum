@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -46,31 +47,15 @@ compose file and the configs from the values file, and ` + "`docker compose up -
 
 // commandWriteDeployment writes the deployment's directory (D272 §3).
 func commandWriteDeployment(_ context.Context, call invocation) int {
-	flags := flag.NewFlagSet("orpheum write-deployment", flag.ContinueOnError)
-	flags.SetOutput(call.stderr)
-	image := flags.String("image", "", "the runtime image the services run, as the .env file names it")
-	kind := flags.String("deployment", string(deployment.Release),
-		"the first time only: the kind the values file starts as, release or staging")
-	nvidiaName := flags.String("nvidia", "",
-		"how Docker hands this machine's NVIDIA GPUs to a container, as the install script found: cdi or driver")
-	directory := flags.String("directory", "",
-		"the deployment's directory on this machine, which gives its network a subnet of its own")
-	if err := flags.Parse(call.arguments); err != nil {
+	kind, runtime, isParsed := parseWriteDeployment(call.arguments, call.stderr)
+	if !isParsed {
 		return exitUsageError
-	}
-	nvidia, err := deployment.ParseNVIDIAAccess(*nvidiaName)
-	if flags.NArg() != 0 || *image == "" || err != nil {
-		return write(call.stderr, writeDeploymentUsage, exitUsageError)
 	}
 	hostName, err := os.Hostname()
 	if err != nil {
 		return call.fail(fmt.Errorf("this machine's host name: %w", err))
 	}
-	message, err := writeDeployment(deploymentMount, deploymentRun, deployment.Kind(*kind), hostName,
-		deployment.Runtime{
-			Image: *image, UID: os.Getuid(), GID: os.Getgid(), RenderGID: renderGroup(renderNode), NVIDIA: nvidia,
-			Directory: *directory,
-		})
+	message, err := writeDeployment(deploymentMount, deploymentRun, kind, hostName, runtime)
 	if err != nil {
 		return call.fail(err)
 	}
@@ -78,6 +63,33 @@ func commandWriteDeployment(_ context.Context, call invocation) int {
 		return write(call.stderr, message.text, exitFailure)
 	}
 	return write(call.stdout, message.text, exitSuccess)
+}
+
+// parseWriteDeployment reads write-deployment's flags: the kind a new deployment begins as, and the
+// runtime it is written with, this machine's own beside what the install script found. It is false
+// once it has written to stderr what was wrong.
+func parseWriteDeployment(arguments []string, stderr io.Writer) (deployment.Kind, deployment.Runtime, bool) {
+	flags := flag.NewFlagSet("orpheum write-deployment", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	image := flags.String("image", "", "the runtime image the services run, as the .env file names it")
+	kind := flags.String("deployment", string(deployment.Release),
+		"the first time only: the kind the values file starts as, release or staging")
+	nvidiaName := flags.String("nvidia", "",
+		"how Docker hands this machine's NVIDIA GPUs to a container, as the install script found: cdi or driver")
+	directory := flags.String("directory", "",
+		"the deployment's directory on this machine, which gives its network a subnet of its own")
+	if err := flags.Parse(arguments); err != nil {
+		return "", deployment.Runtime{}, false
+	}
+	nvidia, err := deployment.ParseNVIDIAAccess(*nvidiaName)
+	if flags.NArg() != 0 || *image == "" || err != nil {
+		write(stderr, writeDeploymentUsage, exitUsageError)
+		return "", deployment.Runtime{}, false
+	}
+	return deployment.Kind(*kind), deployment.Runtime{
+		Image: *image, UID: os.Getuid(), GID: os.Getgid(), RenderGID: renderGroup(renderNode), NVIDIA: nvidia,
+		Directory: *directory,
+	}, true
 }
 
 // deploymentMessage is what write-deployment says it did: begun, with what to fill in, or written.
