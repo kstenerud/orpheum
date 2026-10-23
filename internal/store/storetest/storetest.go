@@ -247,7 +247,7 @@ type readerWrites struct {
 func (writes *readerWrites) note(_, caller string) {
 	writes.mutex.Lock()
 	defer writes.mutex.Unlock()
-	if _, isAllowed := readerWritesAllowed()[shortName(caller)]; !isAllowed {
+	if _, isAllowed := store.ReaderWriteAllowed(caller); !isAllowed {
 		writes.callers = append(writes.callers, caller)
 	}
 }
@@ -259,30 +259,8 @@ func (writes *readerWrites) report(tb testing.TB) {
 	defer writes.mutex.Unlock()
 	for _, caller := range slices.Compact(slices.Sorted(slices.Values(writes.callers))) {
 		tb.Errorf("a request that only reads wrote to the database, through %s: reading never writes "+
-			"(D303, DL10); keep it in memory and write it later, or list it in storetest's "+
+			"(D303, DL10); keep it in memory and write it later, or list it in the store's "+
 			"readerWritesAllowed with why", caller)
-	}
-}
-
-// shortName is a function's name without its package path: "auth.(*Service).Authenticate".
-func shortName(function string) string {
-	return function[strings.LastIndex(function, "/")+1:]
-}
-
-// readerWritesAllowed are the writes a reading request may make, by the function that makes them,
-// each with why. An entry naming D303 is a defect the redesign removes.
-func readerWritesAllowed() map[string]string {
-	return map[string]string{
-		"settings.(*Service).heal": "a setting row removed while the server runs is written back once, with its " +
-			"starting value, the first time it is read (D202); every start writes them all",
-		// A play's GET asks for the work it plays, on cache.db's writer, once a run, never once a
-		// chunk: the person waits on it, and nothing else can ask for it (D234 §3, D247 §10).
-		"jobqueue.(*Queue[...]).Enqueue": "a play's GET queues the run of chunks, the read-through or the " +
-			"text it plays",
-		"jobqueue.(*Queue[...]).Cancel": "a play's GET cancels the run of chunks a seek went past (D250 §5)",
-		"chunks.(*Service).storeIDOf":   "a play's GET names the chunk store its first run makes",
-		"renditions.(*Service).want":    "a play's GET asks for the prepared copy it plays",
-		"renditions.(*Service).redo":    "a play's GET asks again for a prepared copy that failed",
 	}
 }
 

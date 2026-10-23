@@ -56,8 +56,9 @@
 //     why (DL2). Enforced by TestQueryPlans_EverySearchNarrowsToAFewRows.
 //   - A write made under a request that only reads (waiting.ForAReader) is reported to
 //     OnReaderWrite, and storetest's databases fail the test that made it unless
-//     readerWritesAllowed lists it with why (D303, DL10). Enforced by
-//     TestWrite_ReportsAWriteAReadingRequestMakes.
+//     ReaderWriteAllowed allows it, with why; the server warns of it on the same terms, one list
+//     for both (D303, DL10). Enforced by TestWrite_ReportsAWriteAReadingRequestMakes and
+//     cmd/orpheum's TestLoggingReaderWrites_WarnsOnlyOfAWriteNoReadingRequestMayMake.
 //   - CheckInvariants names every invariant of invariants.sql that does not hold, with a dangling
 //     foreign key and a full-text index that disagrees with its text, and storetest runs it after
 //     every test (D303, M7); the running server checks them at start and daily, logging each one

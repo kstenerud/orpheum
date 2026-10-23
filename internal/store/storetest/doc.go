@@ -13,7 +13,7 @@
 //     one). It may, being under internal/store: the depguard rule sql-only-in-store and
 //     TestArch_OnlyStoreImportsDatabaseSQL allow database/sql nowhere else.
 //   - A database OpenMigrated opens fails the test whose request that only reads wrote to it,
-//     unless readerWritesAllowed lists the writer with why (D303, DL10). Enforced by
+//     unless store.ReaderWriteAllowed allows the writer, with why (D303, DL10). Enforced by
 //     TestOpenMigrated_FailsATestWhoseReadingRequestWrote.
 //   - It fails the test that leaves its database breaking one of persistent.db's invariants
 //     (store.CheckInvariants; D303, M7). Enforced by TestOpenMigrated_FailsATestThatBreaksAnInvariant.
