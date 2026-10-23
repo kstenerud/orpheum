@@ -5,6 +5,7 @@ package rtcapi
 import (
 	"maps"
 	"net/netip"
+	"time"
 
 	"github.com/pion/webrtc/v4"
 )
@@ -61,12 +62,15 @@ func pathOf(local, remote *webrtc.ICECandidate) Path {
 	}
 }
 
-// recordPath counts the path a connection took, and says it in the log.
-func (server *Server) recordPath(connection *webrtc.PeerConnection, path Path) {
+// recordPath counts the path a connection took, and says it in the log with how long it took from
+// its offer: a sign-in that waited on its connections said nothing of where the wait was (staging,
+// 2026-10-23).
+func (server *Server) recordPath(connection *webrtc.PeerConnection, path Path, took time.Duration) {
 	server.mutex.Lock()
 	server.paths[path]++
 	server.mutex.Unlock()
-	server.logger.Info("webrtc: a client's connection", "path", string(path), "remote", remoteAddress(connection))
+	server.logger.Info("webrtc: a client's connection", "path", string(path), "remote", remoteAddress(connection),
+		"connectMs", took.Milliseconds())
 }
 
 // PathCounts are how many connections took each path since the core started (D274 §3).
