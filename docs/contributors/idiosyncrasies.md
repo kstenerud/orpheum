@@ -1534,6 +1534,18 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   trixie container with `libva2` 2.22 and `mesa-va-drivers` 25.0.7, `h264_vaapi` encoded.
 
 
+### Quick Sync fails on Intel graphics older than Gen 12 in the release image: "Error creating a MFX session: -9"
+
+- **Cause:** the image's Quick Sync runtime, oneVPL's `libmfx-gen1.2`, supports Intel graphics from
+  Gen 12 (Tiger Lake, the N100, Arc). Older ones (Gen 8 to 11: Broadwell to Ice Lake, the J4125 and
+  J5005 of many NAS boxes) need the legacy Media SDK runtime, which the image doesn't carry, so every
+  Quick Sync run fails, confined or not, with `Error creating a MFX session: -9`.
+- **What we do:** VAAPI (D332), tried after Quick Sync, encodes on those through Intel's VA driver,
+  which the image carries; the System page shows Quick Sync's trial failed and VAAPI's worked.
+- **Evidence:** a staging host (Iris Plus 640, Kaby Lake), 2026-10-23, in a container of the release image's
+  GPU packages: Quick Sync exit 171 with that message; `h264_vaapi` worked confined.
+
+
 ### `h264_vaapi` writes the driver's description, with the card's name, into the stream
 
 - **Cause:** FFmpeg's VAAPI H.264 encoder writes an SEI naming itself and the VA driver, whose

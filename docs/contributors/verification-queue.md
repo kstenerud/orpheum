@@ -511,7 +511,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   identical to the unconfined run's; the same run without GPU access still failed (exit 171). The
   build before it failed every confined NVENC run with `cuInit(0) failed ->
   CUDA_ERROR_OPERATING_SYSTEM`.
-- [ ] **VQ52** — On the owner's Intel box with its AMD card: run a node built from main and let it
+- [x] **VQ52** — On the owner's Intel box with its AMD card: run a node built from main and let it
   say hello; the System page's hardware shows each VAAPI or QSV trial, and any that fails names
   what it was refused. A confined VAAPI encode, if one works unconfined, gives frames as the
   unconfined run does. Mesa's start under confinement meets a real driver only here (D331 §3).
@@ -519,7 +519,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   Landlock on), in a Debian trixie container with `mesa-va-drivers` 25.0.7: a 10 s `h264_vaapi`
   encode of film.mkv confined with GPU access (the shim built from main) gave 240 decoded frames
   identical to the unconfined run's, and the same encode confined and reading through ffstreamer,
-  given no path to the film, ended DONE OK with the same output; without GPU access it failed. Not
-  ticked: the node has no VAAPI encoder to try, only Quick Sync and NVENC, which both fail here, so
-  it would encode on the processor; and the release image has no AMD VA driver. Both are the owner's
-  to decide.
+  given no path to the film, ended DONE OK with the same output; without GPU access it failed. The
+  node then had no VAAPI encoder, and the image no AMD VA driver: D332 added both. A node built from
+  main, with `confinement_policy = "require"`, in a container of the release image's GPU
+  packages, chose `h264_vaapi` (usable: h264_vaapi, x264); Quick Sync's and NVENC's trials failed.
+  Seen in the node's log, not on a System page, since no core ran; the page's rendering of a VAAPI
+  node is tested (`system.test.tsx`). The same kit on a staging host (Iris Plus 640, Kaby Lake, Gen 9.5)
+  found Quick Sync failing in the release image ("Error creating a MFX session: -9") and VAAPI
+  working: confined and streamed encodes decoded to the unconfined frames, keyframes where asked.

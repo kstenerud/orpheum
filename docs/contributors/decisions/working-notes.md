@@ -21469,4 +21469,8 @@ order; **extends** [D331](#d331--the-node-proves-itself-on-both-sockets-so-a-gpu
    on a machine with an Intel and an AMD card VAAPI uses whichever that is; Quick Sync, tried first,
    already takes an Intel card that has it.
 
-**Status:** Decided.
+**Status:** Built. Read back against the code: the node tries Quick Sync,
+NVENC, then VAAPI, each confined (`prepare.hardwareEncoders`); a VAAPI encode's arguments open the
+device and upload, with the others' rates and keyframes and no preset (`Encoder.encodeArguments`,
+`QualityArguments`); the image carries `mesa-va-drivers` on amd64. On the RX 6600 XT a node from
+main chose `h264_vaapi` (VQ52).
