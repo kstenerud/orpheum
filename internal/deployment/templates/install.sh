@@ -88,7 +88,8 @@ writeDeployment() {
 	if [ -d /dev/dri ]; then
 		set -- "$@" --volume /dev/dri:/dev/dri:ro
 	fi
-	docker run "$@" "$image" write-deployment --deployment release --image "$image" ${nvidia:+--nvidia "$nvidia"}
+	docker run "$@" "$image" write-deployment --deployment release --image "$image" --directory "$dir" \
+		${nvidia:+--nvidia "$nvidia"}
 }
 
 # How Docker hands this machine's NVIDIA GPUs to a container, with the driver's libraries no image can

@@ -73,7 +73,8 @@ class Build(unittest.TestCase):
         self.assertIn(f"{self.deployment}:/var/lib/orpheum", volumes)
         self.assertIn(f"{self.deployment}/run:/run/orpheum", volumes)
         self.assertEqual(run[run.index("orpheum:v0.1.0") + 1:],
-                         ["write-deployment", "--deployment", "release", "--image", "orpheum:v0.1.0"])
+                         ["write-deployment", "--deployment", "release", "--image", "orpheum:v0.1.0",
+                          "--directory", str(self.deployment)])
         self.assertTrue((self.deployment / "run").is_dir())
         # Built here, so nothing is pulled; installed as a household's is, the media filled in and started.
         self.assertNotIn("pull", [call[0] for call in calls])

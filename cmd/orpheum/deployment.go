@@ -38,7 +38,7 @@ driver, as the install script finds):
 
   docker run --rm --user "$(id -u):$(id -g)" --hostname "$(hostname)" \
     -v DIR:` + deploymentMount + ` -v DIR/run:` + deploymentRun + ` [-v /dev/dri:/dev/dri:ro] \
-    IMAGE write-deployment --image IMAGE [--nvidia cdi|driver]
+    IMAGE write-deployment --image IMAGE [--nvidia cdi|driver] [--directory DIR]
 
 The first time, it writes the values file and the tunnel's keys, and stops. After that it writes the
 compose file and the configs from the values file, and ` + "`docker compose up -d`" + ` in DIR starts them.
@@ -53,6 +53,8 @@ func commandWriteDeployment(_ context.Context, call invocation) int {
 		"the first time only: the kind the values file starts as, release or staging")
 	nvidiaName := flags.String("nvidia", "",
 		"how Docker hands this machine's NVIDIA GPUs to a container, as the install script found: cdi or driver")
+	directory := flags.String("directory", "",
+		"the deployment's directory on this machine, which gives its network a subnet of its own")
 	if err := flags.Parse(call.arguments); err != nil {
 		return exitUsageError
 	}
@@ -67,6 +69,7 @@ func commandWriteDeployment(_ context.Context, call invocation) int {
 	message, err := writeDeployment(deploymentMount, deploymentRun, deployment.Kind(*kind), hostName,
 		deployment.Runtime{
 			Image: *image, UID: os.Getuid(), GID: os.Getgid(), RenderGID: renderGroup(renderNode), NVIDIA: nvidia,
+			Directory: *directory,
 		})
 	if err != nil {
 		return call.fail(err)
