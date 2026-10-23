@@ -21399,7 +21399,7 @@ whose pinned FFmpeg becomes jellyfin-ffmpeg with our patches.
    inherited pipes per input: the protocol *ffstreamer* (its specification, after five
    audits). FFmpeg is given no path to the film, opens no socket, and never waits in the kernel on a
    dead share; the node's disk scheduler serves, paces, holds or refuses every read.
-2. **The patches live in their own repository** (orpheum-ffmpeg), applied after jellyfin-ffmpeg's own
+2. **The patches live in their own repository** (ffmpeg-ffstreamer, first named orpheum-ffmpeg), applied after jellyfin-ffmpeg's own
    series and moved with each of its releases: the protocol in libavformat, and fftools exiting
    non-zero when an input's reads failed. They know nothing of Orpheum.
 3. **The node kills; FFmpeg is never told to stop.** No message aborts, pauses or reports a read
@@ -21410,11 +21410,11 @@ whose pinned FFmpeg becomes jellyfin-ffmpeg with our patches.
   , so a kill reaches everything it is.
 5. **Runs that read bytes the node holds in memory** (artwork, subtitle text) keep reading stdin.
 
-**Status:** Decided. The patches are in orpheum-ffmpeg, tested on amd64 and arm64. The node's side is
+**Status:** Decided. The patches are in ffmpeg-ffstreamer, tested on amd64 and arm64. The node's side is
 built (internal/node/ffstreamer; every run's film from execx.Runner's FilmOf, a scan's probe too) and
 streams a film only when its FFmpeg has the protocol, so it waits on two things: published patched
-builds to pin (orpheum-ffmpeg's release workflow), and FFmpeg's block cache, which thrashes on a film
-whose tracks are stored one after another (orpheum-ffmpeg's bench/RESULTS.md).
+builds to pin (ffmpeg-ffstreamer's release workflow), and FFmpeg's block cache, which thrashes on a film
+whose tracks are stored one after another (ffmpeg-ffstreamer's bench/RESULTS.md).
 
 ## D331 — The node proves itself on both sockets, so a GPU encode may open a Unix socket
 

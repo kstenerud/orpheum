@@ -89,7 +89,7 @@ const filmMostOutstanding = 2
 // for each place in the film a run reads from at once, and a few more. FFmpeg reads every track as it
 // opens a film, and a prepare reads each track it maps, so a film whose tracks are stored one after
 // another needs a block a track: a prepare of all 25 tracks of one read it 1.4 times at 32 blocks of
-// 1 MiB and 1.3 at 48, and thrashed at 24 (orpheum-ffmpeg's bench/RESULTS.md, 2026-10-23). The
+// 1 MiB and 1.3 at 48, and thrashed at 24 (ffmpeg-ffstreamer's bench/RESULTS.md, 2026-10-23). The
 // library measured has at most 10 tracks in an MP4, the one container that stores them so.
 const filmCacheBlocks = 48
 
@@ -262,7 +262,7 @@ func judgeFilm(tool Tool, account ffstreamer.Account, run int64, stderr *tailBuf
 const protocolsOutputBytes = 64 << 10
 
 // HasFFstreamer is whether the runner's FFmpeg can read a film through the node (D330): a build with
-// the ffstreamer protocol among its input protocols, as orpheum-ffmpeg's patches add it.
+// the ffstreamer protocol among its input protocols, as ffmpeg-ffstreamer's patches add it.
 func (runner *Runner) HasFFstreamer(ctx context.Context) (bool, error) {
 	output, err := runner.Run(ctx, FFmpeg, confine.Access{}, []string{"-protocols"}, protocolsOutputBytes)
 	if err != nil {

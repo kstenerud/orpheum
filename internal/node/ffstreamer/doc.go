@@ -3,7 +3,7 @@
 // Package ffstreamer is the node's side of ffstreamer (D330), the protocol over which FFmpeg reads
 // its input film through the node: two pipes per input, FFmpeg asking for ranges of the film and the
 // node answering each with its bytes, read through the node's turn on the film's disk. FFmpeg, patched
-// for it (the orpheum-ffmpeg repository, its ffstreamer-specification.md), never opens the film, so a dead
+// for it (the ffmpeg-ffstreamer repository, its ffstreamer-specification.md), never opens the film, so a dead
 // share holds a goroutine of the node and never FFmpeg in the kernel; and every read is the node's
 // to schedule, hold or refuse.
 //
@@ -48,7 +48,7 @@
 // # Read before changing
 //
 //   - D330: why FFmpeg reads through the node.
-//   - ffstreamer-specification.md in orpheum-ffmpeg, and its grammar, ffstreamer.dogma: every rule here
+//   - ffstreamer-specification.md in ffmpeg-ffstreamer, and its grammar, ffstreamer.dogma: every rule here
 //     cites its section by name.
 //   - D329: the disk scheduler a Source reads through.
 //
