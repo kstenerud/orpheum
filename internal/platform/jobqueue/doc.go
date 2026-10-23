@@ -95,7 +95,8 @@
 //     is queued by the next sweep, and one already queued merges (D231 §3, §9).
 //     TestSweep_WorkLostFromTheQueueIsDerivedAgainAndARepeatMerges.
 //   - Sweeping runs every sweep at start, each again when its interval has passed, those asked
-//     for, and every one when a destination comes back.
+//     for, and every one when a destination that was down comes back, but none when a busy one has
+//     room again, whose work waited in the queue.
 //     TestSweeping_RunsEverySweepAtOnceThenEachOnItsTimerAndWhenAskedOrADestinationReturns.
 //   - A request a sweep derived looks at no parked destination, whatever its priority.
 //     TestEnqueue_APersonsRequestLooksAtAParkedDestinationAtOnce.
