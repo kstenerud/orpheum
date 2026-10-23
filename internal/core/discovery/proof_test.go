@@ -60,6 +60,40 @@ func TestSignal_AnOfferWhoseProofDoesNotHoldIsRefusedBeforeRTCSeesIt(t *testing.
 	})
 }
 
+// The log says which check an offer failed, so a refusal can be told from a race or a client's
+// mistake: three offers refused just after a sign-in on staging could not be (2026-10-23).
+func TestWhyUnproven_NamesTheCheckAnOfferFailed(t *testing.T) {
+	t.Parallel()
+	clientSDP := "a client's offer\r\na=fingerprint:sha-256 AB:CD"
+	proven := proof.Offer(aSessionKey, rtcapi.FingerprintOf(clientSDP))
+	service := &Service{parts: Parts{OfferKey: offerKeys}}
+	for _, each := range []struct {
+		offer discoveryproto.SignalMessage
+		want  string
+	}{
+		{discoveryproto.SignalMessage{LocatorHash: aLocatorHash, SDP: clientSDP, Proof: proven}, ""},
+		{discoveryproto.SignalMessage{SDP: clientSDP, Proof: proven}, "names no hash"},
+		{
+			discoveryproto.SignalMessage{LocatorHash: aLocatorHash, SDP: "no fingerprint", Proof: proven},
+			"no DTLS fingerprint",
+		},
+		{
+			discoveryproto.SignalMessage{LocatorHash: "a hash nobody registered", SDP: clientSDP, Proof: proven},
+			"no key for its hash",
+		},
+		{discoveryproto.SignalMessage{
+			LocatorHash: aLocatorHash, SDP: clientSDP,
+			Proof: proof.Offer(proof.SessionOfferKey("another session"), rtcapi.FingerprintOf(clientSDP)),
+		}, "not made under the key its hash has"},
+	} {
+		why := service.whyUnproven(t.Context(), each.offer)
+		if (each.want == "") != (why == "") || !strings.Contains(why, each.want) {
+			t.Errorf("an offer under %q with proof %q: why %q; want one saying %q", each.offer.LocatorHash,
+				each.offer.Proof, why, each.want)
+		}
+	}
+}
+
 // signallingWorld is a claimed core holding its signalling connection, its offers checked by keys.
 func signallingWorld(
 	t *testing.T, keys func(context.Context, string) ([]byte, error),

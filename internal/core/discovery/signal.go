@@ -207,9 +207,9 @@ func (service *Service) dialSignalling(ctx context.Context, baseURL, token strin
 func (service *Service) answerOffer(
 	ctx context.Context, offer discoveryproto.SignalMessage,
 ) discoveryproto.SignalMessage {
-	if !service.isProven(ctx, offer) {
+	if why := service.whyUnproven(ctx, offer); why != "" {
 		service.parts.Logger.WarnContext(ctx, "discovery: an offer's proof does not hold; refused",
-			"offerId", offer.OfferID)
+			"offerId", offer.OfferID, "why", why)
 		return discoveryproto.SignalMessage{
 			Type: discoveryproto.SignalRefusal, OfferID: offer.OfferID, Reason: "the offer's proof does not hold",
 		}
@@ -236,27 +236,37 @@ func (service *Service) answerOffer(
 	}
 }
 
-// isProven is whether the offer's proof holds under the key the core keeps for the hash the discovery
-// passed it on with: an HMAC over the offer's DTLS fingerprint, which the discovery cannot make, so an
-// offer it made up, or a client's with its own certificate swapped in, is refused before rtcapi sees
-// it (the protocol's §2.5 item 3; A9). Under a person a realm sign-in names, a live hand-off's key
-// holds too, which a client origin holding only the hand-off's code proves by (D308 §4).
-func (service *Service) isProven(ctx context.Context, offer discoveryproto.SignalMessage) bool {
+// whyUnproven says why the offer's proof does not hold under the key the core keeps for the hash the
+// discovery passed it on with, or is empty when it holds: an HMAC over the offer's DTLS fingerprint,
+// which the discovery cannot make, so an offer it made up, or a client's with its own certificate
+// swapped in, is refused before rtcapi sees it (the protocol's §2.5 item 3; A9). Under a person a
+// realm sign-in names, a live hand-off's key holds too, which a client origin holding only the
+// hand-off's code proves by (D308 §4). Which check failed goes to the log alone: three offers were
+// refused just after a sign-in on staging, and the log could not say whether their hash had no key
+// or their proof was made under another (2026-10-23).
+func (service *Service) whyUnproven(ctx context.Context, offer discoveryproto.SignalMessage) string {
 	fingerprint := rtcapi.FingerprintOf(offer.SDP)
-	if service.parts.OfferKey == nil || offer.LocatorHash == "" || fingerprint == "" {
-		return false
+	switch {
+	case service.parts.OfferKey == nil:
+		return "the core looks up no keys"
+	case offer.LocatorHash == "":
+		return "the offer names no hash"
+	case fingerprint == "":
+		return "the offer carries no DTLS fingerprint"
 	}
 	key, err := service.parts.OfferKey(ctx, offer.LocatorHash)
 	if err == nil && proof.VerifyOffer(key, fingerprint, offer.Proof) {
-		return true
+		return ""
 	}
-	if service.parts.HandOffOfferKeys == nil {
-		return false
-	}
-	for _, handedOff := range service.parts.HandOffOfferKeys(offer.LocatorHash) {
-		if proof.VerifyOffer(handedOff, fingerprint, offer.Proof) {
-			return true
+	if service.parts.HandOffOfferKeys != nil {
+		for _, handedOff := range service.parts.HandOffOfferKeys(offer.LocatorHash) {
+			if proof.VerifyOffer(handedOff, fingerprint, offer.Proof) {
+				return ""
+			}
 		}
 	}
-	return false
+	if err != nil {
+		return "no key for its hash: " + err.Error()
+	}
+	return "its proof was not made under the key its hash has"
 }
