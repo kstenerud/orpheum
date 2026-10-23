@@ -1980,6 +1980,27 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   regenerates its own spec (`nvidia-cdi-refresh`); one made by hand does not.
 
 
+### Rootless Docker's userland proxy hides every client's address
+
+- **Symptom:** under rootless Docker every request reached the core from Docker's own gateway
+  (`172.17.0.1` in a probe container, "direct from away" in the core's log), so no admin was ever at
+  home and every admin call failed with "administering works only from the server's own network".
+- **What we do:** the install script, under rootless Docker, reports whether the daemon's
+  `daemon.json` turns the userland proxy off, and if not gives the fix in order: `br_netfilter`
+  loaded by root, then `"userland-proxy": false`, then the daemon restarted
+  (`docs/users/setup-problems.md`). Verifying it is VQ54.
+- **Evidence:** gpuhost, 2026-10-23 (Docker 29.9.2 rootless, RootlessKit 3.3.0, builtin port driver).
+  With the proxy off and no `br_netfilter`, the daemon would not start: "cannot restrict
+  inter-container communication or run without the userland proxy: stat
+  /proc/sys/net/bridge/bridge-nf-call-iptables". **[web]** RootlessKit 3.0 keeps the source address
+  on its builtin port driver by IP_TRANSPARENT once Docker's proxy is off
+  ([v3.0.0](https://github.com/rootless-containers/rootlesskit/releases/tag/v3.0.0)); 3.2.0 broke it
+  and 3.3.0 (2026-10-14) fixed it
+  ([rootlesskit#648](https://github.com/rootless-containers/rootlesskit/issues/648)); Canasta met the
+  same and recommends the same fix
+  ([Canasta-CLI#2231](https://github.com/CanastaWiki/Canasta-CLI/issues/2231)) (checked 2026-10-23).
+
+
 ### Rootless Docker maps a container's root to the user, and every other user to a subordinate ID
 
 - **Symptom:** the install script failed under rootless Docker with "open /var/lib/orpheum/values.toml:

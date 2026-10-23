@@ -229,6 +229,37 @@ class Install(unittest.TestCase):
                 writes = [line for line in self.logged().splitlines() if "write-deployment" in line]
                 self.assertTrue(writes and all(f" --user {user} " in line for line in writes), writes)
 
+    def test_rootless_docker_whose_proxy_hides_addresses_is_named_with_its_fix_in_order(self):
+        films = self.root / "films"
+        films.mkdir()
+        config = self.root / "config"
+        done = self.install("--media", str(films), "--dir", str(self.dir), FAKE_ROOTLESS="1",
+                            XDG_CONFIG_HOME=str(config))
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn("rootless Docker: its userland proxy hides each device's address", done.stderr)
+        module = done.stderr.index("modprobe br_netfilter")
+        proxy = done.stderr.index(f'"userland-proxy": false to {config}/docker/daemon.json')
+        self.assertLess(module, proxy, "the module must be loaded before the proxy is turned off")
+        # With the module loaded already, only the proxy is left to turn off.
+        (self.proc_sys / "net/bridge").mkdir(parents=True)
+        (self.proc_sys / "net/bridge/bridge-nf-call-iptables").write_text("1\n")
+        done = self.install("--media", str(films), "--dir", str(self.dir), FAKE_ROOTLESS="1",
+                            XDG_CONFIG_HOME=str(config))
+        self.assertNotIn("br_netfilter", done.stderr)
+        self.assertIn('add "userland-proxy": false', done.stderr)
+
+    def test_rootless_docker_with_its_proxy_off_is_said_to_keep_addresses_and_rootful_says_nothing(self):
+        films = self.root / "films"
+        films.mkdir()
+        config = self.root / "config"
+        (config / "docker").mkdir(parents=True)
+        (config / "docker/daemon.json").write_text('{"data-root": "/big", "userland-proxy" : false}\n')
+        done = self.install("--media", str(films), "--dir", str(self.dir), FAKE_ROOTLESS="1",
+                            XDG_CONFIG_HOME=str(config))
+        self.assertIn("its userland proxy is off, so the server sees each device's own address", done.stderr)
+        done = self.install("--media", str(films), "--dir", str(self.dir), XDG_CONFIG_HOME=str(config))
+        self.assertNotIn("rootless", done.stderr)
+
     def test_an_image_built_here_is_not_pulled(self):
         films = self.root / "films"
         films.mkdir()
