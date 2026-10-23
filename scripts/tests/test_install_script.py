@@ -224,11 +224,23 @@ class Install(unittest.TestCase):
         log = self.logged()
         self.assertLess(log.index("image inspect --format {{.Id}} ghcr.io/example/orpheum:v1.2.2"), log.index("pull"))
 
-    def test_keep_images_removes_none(self):
+    def test_a_first_install_removes_no_image(self):
         films = self.root / "films"
         films.mkdir()
         images = "sha256:new ghcr.io/example/orpheum:v1.2.3\nsha256:older ghcr.io/example/orpheum:v1.2.1"
-        done = self.install("--media", str(films), "--dir", str(self.dir), "--keep-images", FAKE_IMAGES=images)
+        done = self.install("--media", str(films), "--dir", str(self.dir), FAKE_IMAGES=images)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertNotIn("image rm", self.logged())
+
+    def test_keep_images_removes_none(self):
+        films = self.root / "films"
+        films.mkdir()
+        self.assertEqual(self.install("--media", str(films), "--dir", str(self.dir)).returncode, 0)
+        (self.dir / ".env").write_text("ORPHEUM_IMAGE=ghcr.io/example/orpheum:v1.2.2\n")
+        images = "\n".join(["sha256:new ghcr.io/example/orpheum:v1.2.3", "sha256:previous ghcr.io/example/orpheum:v1.2.2",
+                            "sha256:older ghcr.io/example/orpheum:v1.2.1"])
+        self.log.unlink()
+        done = self.install("--dir", str(self.dir), "--keep-images", FAKE_IMAGES=images)
         self.assertEqual(done.returncode, 0, done.stderr)
         self.assertNotIn("image rm", self.logged())
 
