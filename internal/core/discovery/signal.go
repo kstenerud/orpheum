@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/coder/websocket"
@@ -119,23 +120,47 @@ func (service *Service) holdSignalling(ctx context.Context, baseURL string) (boo
 	pinging, stopPinging := context.WithCancel(ctx)
 	defer stopPinging()
 	go service.keepAlive(pinging, connection)
+	var answering sync.WaitGroup
+	defer answering.Wait()
+	slots := make(chan struct{}, answersAtOnce)
 	for {
 		var offer discoveryproto.SignalMessage
 		if err := wsjson.Read(ctx, connection, &offer); err != nil {
 			return true, fmt.Errorf("read an offer: %w", err)
 		}
-		var reply discoveryproto.SignalMessage
-		switch offer.Type {
-		case discoveryproto.SignalOffer:
-			reply = service.answerOffer(ctx, offer)
-		case discoveryproto.SignalRealm:
-			reply = service.answerRealm(ctx, offer)
-		default:
+		if offer.Type != discoveryproto.SignalOffer && offer.Type != discoveryproto.SignalRealm {
 			continue
 		}
-		if err := wsjson.Write(ctx, connection, reply); err != nil {
-			return true, fmt.Errorf("send an answer: %w", err)
+		select {
+		case slots <- struct{}{}:
+		case <-ctx.Done():
+			return true, fmt.Errorf("wait to answer an offer: %w", ctx.Err())
 		}
+		answering.Go(func() {
+			defer func() { <-slots }()
+			service.answerSignal(ctx, connection, offer)
+		})
+	}
+}
+
+// answersAtOnce is how many offers and realm sign-ins the core answers at once on its signalling
+// connection. Answering one waits on gathering the core's candidates, up to stunGatherTimeout, so
+// answered in turn a page's four connections took 2, 4, 6 and 8 s (staging, 2026-10-23).
+const answersAtOnce = 8
+
+// answerSignal answers an offer or a realm sign-in on the signalling connection. A reply that cannot
+// be sent closes the connection, which ends the reading and so the signalling.
+func (service *Service) answerSignal(
+	ctx context.Context, connection *websocket.Conn, offer discoveryproto.SignalMessage,
+) {
+	reply := service.answerRealm
+	if offer.Type == discoveryproto.SignalOffer {
+		reply = service.answerOffer
+	}
+	if err := wsjson.Write(ctx, connection, reply(ctx, offer)); err != nil && ctx.Err() == nil {
+		service.parts.Logger.WarnContext(ctx, "discovery: an answer could not be sent; closing the signalling",
+			"offerId", offer.OfferID, "err", err)
+		_ = connection.CloseNow() //nolint:errcheck // closing what may be closed
 	}
 }
 
