@@ -118,8 +118,8 @@ type PrepareReport struct {
 	// Stall is what the node saw of an FFmpeg it stopped because it stalled: it says nothing of
 	// the source's bytes the first time.
 	Stall *Stall `json:"stall,omitempty"`
-	// VideoEncoder is what made the video once done: h264_qsv, h264_nvenc, x264, or copy for a
-	// remux (D225 §3).
+	// VideoEncoder is what made the video once done: h264_qsv, h264_nvenc, h264_vaapi, x264, or copy
+	// for a remux (D225 §3).
 	VideoEncoder string `json:"videoEncoder,omitempty"`
 	// RealtimeFactor is seconds of the source prepared per second of running, as FFmpeg last said, once
 	// done; zero when it never said.

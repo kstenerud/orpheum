@@ -285,7 +285,7 @@ type HardwareBody struct {
 	// Trials are each hardware encoder's trial at startup, confined as a prepare is.
 	Trials []EncoderTrialBody `json:"trials"`
 	// ChosenEncoder is what its encodes use.
-	ChosenEncoder string `enum:"h264_qsv,h264_nvenc,x264" json:"chosenEncoder"`
+	ChosenEncoder string `enum:"h264_qsv,h264_nvenc,h264_vaapi,x264" json:"chosenEncoder"`
 }
 
 // GPUBody is one GPU device a node found.
@@ -298,7 +298,7 @@ type GPUBody struct {
 
 // EncoderTrialBody is one hardware encoder's trial: it worked, or why not, in FFmpeg's words.
 type EncoderTrialBody struct {
-	Encoder string `enum:"h264_qsv,h264_nvenc" json:"encoder"`
+	Encoder string `enum:"h264_qsv,h264_nvenc,h264_vaapi" json:"encoder"`
 	Failure string `json:"failure,omitempty"`
 }
 
@@ -318,7 +318,7 @@ type FinishedPrepareBody struct {
 	// Profile is what was made; State how it ended.
 	Profile        string  `enum:"remux,h264" json:"profile"`
 	State          string  `enum:"complete,failed" json:"state"`
-	VideoEncoder   string  `doc:"h264_qsv, h264_nvenc, x264, or copy for a remux" json:"videoEncoder,omitempty"`
+	VideoEncoder   string  `doc:"the encoder that made the video, or copy for a remux" json:"videoEncoder,omitempty"`
 	RealtimeFactor float64 `doc:"Seconds of the source prepared per second of running" json:"realtimeFactor,omitempty"`
 	SizeBytes      int64   `json:"sizeBytes,omitempty"`
 	Failure        string  `json:"failure,omitempty"`

@@ -174,11 +174,12 @@ FROM base AS runtime
 # On amd64, Intel's GPU runtime and VA driver, which the portable FFmpeg loads from the system for
 # Quick Sync; without them every QSV encode fails with "Error creating a MFX session: -9" (nas.example,
 # 2026-10-20). The non-free driver is the one with every encoder the GPU has (the owner,
-# 2026-10-20).
+# 2026-10-20). Mesa's VA drivers, for an AMD card's encodes through VAAPI (D332); they bring LLVM,
+# about 100 MB.
 RUN set -eu; packages="iproute2 wireguard-tools"; \
     if [ "$(dpkg --print-architecture)" = amd64 ]; then \
       sed -i 's/^Components: main$/Components: main non-free/' /etc/apt/sources.list.d/debian.sources; \
-      packages="$packages libmfx-gen1.2 intel-media-va-driver-non-free"; \
+      packages="$packages libmfx-gen1.2 intel-media-va-driver-non-free mesa-va-drivers"; \
     fi; \
     apt-get update -q \
  && apt-get install -y -q --no-install-recommends $packages \

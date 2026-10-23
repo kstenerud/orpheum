@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"time"
 
@@ -14,7 +15,8 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// Encoder is the H.264 encoder an encode uses: Quick Sync, else NVENC, else x264 (cut-a §6).
+// Encoder is the H.264 encoder an encode uses: Quick Sync, else NVENC, else VAAPI, else x264 (cut-a §6,
+// D332).
 type Encoder string
 
 // The encoders, in the order a node tries them. Their names are the hello's capabilities (cut-a
@@ -22,11 +24,21 @@ type Encoder string
 const (
 	EncoderQuickSync Encoder = "h264_qsv"
 	EncoderNVENC     Encoder = "h264_nvenc"
+	EncoderVAAPI     Encoder = "h264_vaapi"
 	EncoderX264      Encoder = "x264"
 )
 
 // hardwareEncoders are tried in order; x264 needs no trial.
-func hardwareEncoders() []Encoder { return []Encoder{EncoderQuickSync, EncoderNVENC} }
+func hardwareEncoders() []Encoder { return []Encoder{EncoderQuickSync, EncoderNVENC, EncoderVAAPI} }
+
+// vaapiDevice opens FFmpeg's own VAAPI device for the run, the first render node, and makes it the
+// one filters upload to (D332).
+func vaapiDevice() []string {
+	return []string{"-init_hw_device", "vaapi=va", "-filter_hw_device", "va"}
+}
+
+// vaapiUpload converts a picture to NV12 and uploads it to the card, which h264_vaapi encodes from.
+const vaapiUpload = "format=nv12,hwupload"
 
 // UsesGPU is whether an encode with it opens the GPU, which its confinement must grant.
 func (encoder Encoder) UsesGPU() bool { return encoder != EncoderX264 }
@@ -43,19 +55,23 @@ func (encoder Encoder) encodeArguments(segmentLengthSeconds, kbps int) []string 
 		kbps = encodeKbpsMost
 	}
 	rate := func(kbps int) string { return strconv.Itoa(kbps) + "k" }
+	rates := []string{
+		"-profile:v", "high", "-b:v", rate(kbps), "-maxrate", rate(kbps * 5 / 4), "-bufsize", rate(2 * kbps),
+		"-force_key_frames", "expr:gte(t,n_forced*" + strconv.Itoa(segmentLengthSeconds) + ")",
+	}
+	if encoder == EncoderVAAPI {
+		// It has no preset, and the picture reaches it uploaded rather than in a pixel format.
+		return slices.Concat(vaapiDevice(), []string{"-filter:v", vaapiUpload, codecFlag, "h264_vaapi"}, rates)
+	}
 	codec, preset, pixelFormat, extra := "libx264", "veryfast", "yuv420p", []string(nil)
 	switch encoder {
 	case EncoderQuickSync:
 		codec, pixelFormat = "h264_qsv", "nv12"
 	case EncoderNVENC:
 		codec, preset, extra = "h264_nvenc", "p4", []string{"-forced-idr", "1"}
-	case EncoderX264:
+	case EncoderVAAPI, EncoderX264:
 	}
-	return append([]string{
-		"-c:v", codec, "-preset", preset, "-profile:v", "high", "-pix_fmt", pixelFormat,
-		"-b:v", rate(kbps), "-maxrate", rate(kbps * 5 / 4), "-bufsize", rate(2 * kbps),
-		"-force_key_frames", "expr:gte(t,n_forced*" + strconv.Itoa(segmentLengthSeconds) + ")",
-	}, extra...)
+	return slices.Concat([]string{codecFlag, codec, "-preset", preset, "-pix_fmt", pixelFormat}, rates, extra)
 }
 
 // QualityArguments are the encoder's video arguments for a chunk's quality (D247 §6): 8-bit H.264
@@ -63,20 +79,27 @@ func (encoder Encoder) encodeArguments(segmentLengthSeconds, kbps int) []string 
 // at keyframesAt, a list of seconds, and nowhere else, so its chunks cut where the copied
 // picture's do (slow-links.md §10).
 func (encoder Encoder) QualityArguments(kbps, height int, keyframesAt string) []string {
+	rate := func(kbps int) string { return strconv.Itoa(kbps) + "k" }
+	scale := "scale=-2:" + strconv.Itoa(height)
+	rates := []string{
+		"-profile:v", "high", "-b:v", rate(kbps), "-maxrate", rate(kbps * 3 / 2), "-bufsize", rate(2 * kbps),
+		"-g", "100000", "-force_key_frames", keyframesAt,
+	}
+	if encoder == EncoderVAAPI {
+		// It has no preset, and the scaled picture reaches it uploaded rather than in a pixel format.
+		return slices.Concat(vaapiDevice(), []string{codecFlag, "h264_vaapi", "-vf", scale + "," + vaapiUpload}, rates)
+	}
 	codec, preset, pixelFormat, extra := "libx264", "veryfast", "yuv420p", []string{"-sc_threshold", "0"}
 	switch encoder {
 	case EncoderQuickSync:
 		codec, pixelFormat, extra = "h264_qsv", "nv12", []string{"-forced_idr", "1"}
 	case EncoderNVENC:
 		codec, preset, extra = "h264_nvenc", "p4", []string{"-forced-idr", "1"}
-	case EncoderX264:
+	case EncoderVAAPI, EncoderX264:
 	}
-	rate := func(kbps int) string { return strconv.Itoa(kbps) + "k" }
-	return append([]string{
-		"-c:v", codec, "-preset", preset, "-profile:v", "high", "-vf", "scale=-2:" + strconv.Itoa(height),
-		"-pix_fmt", pixelFormat, "-b:v", rate(kbps), "-maxrate", rate(kbps * 3 / 2), "-bufsize", rate(2 * kbps),
-		"-g", "100000", "-force_key_frames", keyframesAt,
-	}, extra...)
+	return slices.Concat(
+		[]string{codecFlag, codec, "-preset", preset, "-vf", scale, "-pix_fmt", pixelFormat}, rates, extra,
+	)
 }
 
 // trialTimeout bounds one encoder's trial: a GPU that hangs is not one to encode with.

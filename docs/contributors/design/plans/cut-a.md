@@ -437,7 +437,7 @@ audio renditions.
 | Profile | Chosen when | Video | Audio renditions |
 | --- | --- | --- | --- |
 | `remux` | the video codec is in the client's list | `-c:v copy` | `aac-stereo` (standard downmix) and `aac-stereo-boost` (centre raised) |
-| `h264` | the video codec is not in the list (nothing knows where the client is, D247 §11) | `h264_qsv`, else `h264_nvenc`, else `libx264`; ~8 Mbps, 2 s GOP | the same two |
+| `h264` | the video codec is not in the list (nothing knows where the client is, D247 §11) | `h264_qsv`, else `h264_nvenc`, else `h264_vaapi` (D332), else `libx264`; ~8 Mbps, 2 s GOP | the same two |
 
 **One FFmpeg run per job** (a sketch; M3 verifies the exact arguments):
 

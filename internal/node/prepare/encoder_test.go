@@ -58,15 +58,90 @@ func TestChooseEncoder_TakesTheFirstHardwareEncoderThatWorksConfinedOrX264(t *te
 func TestChooseEncoder_EachTrialSaysWhyItFailedInFFmpegsWords(t *testing.T) {
 	t.Parallel()
 	choice := prepare.ChooseEncoder(t.Context(), &fakeTrialRunner{worksByEncoder: map[string]bool{"h264_nvenc": true}})
-	if len(choice.Trials) != 2 {
-		t.Fatalf("trials %+v; want Quick Sync's and NVENC's (D225 §3)", choice.Trials)
+	if len(choice.Trials) != 3 {
+		t.Fatalf("trials %+v; want Quick Sync's, NVENC's and VAAPI's (D225 §3, D332)", choice.Trials)
 	}
-	quickSync, nvenc := choice.Trials[0], choice.Trials[1]
+	quickSync, nvenc, vaapi := choice.Trials[0], choice.Trials[1], choice.Trials[2]
 	if quickSync.Encoder != prepare.EncoderQuickSync || !strings.Contains(quickSync.Failure, "no such device") {
 		t.Errorf("Quick Sync's trial is %+v; want its failure in the words the run gave", quickSync)
 	}
 	if nvenc.Encoder != prepare.EncoderNVENC || nvenc.Failure != "" {
 		t.Errorf("NVENC's trial is %+v; want it worked", nvenc)
+	}
+	if vaapi.Encoder != prepare.EncoderVAAPI || !strings.Contains(vaapi.Failure, "no such device") {
+		t.Errorf("VAAPI's trial is %+v; want its failure in the words the run gave", vaapi)
+	}
+}
+
+// A node with only an AMD card encodes on it through VAAPI, which comes after Quick Sync and NVENC,
+// and before x264 (D332).
+func TestChooseEncoder_AnAMDCardEncodesThroughVAAPIAfterQuickSyncAndNVENC(t *testing.T) {
+	t.Parallel()
+	amd := &fakeTrialRunner{worksByEncoder: map[string]bool{"h264_vaapi": true}}
+	choice := prepare.ChooseEncoder(t.Context(), amd)
+	if want := []prepare.Encoder{prepare.EncoderVAAPI, prepare.EncoderX264}; choice.Chosen != prepare.EncoderVAAPI ||
+		!slices.Equal(choice.Usable(), want) {
+		t.Errorf("with an AMD card: %+v; want VAAPI, and x264 usable too", choice)
+	}
+	for _, access := range amd.accesses {
+		if !access.UsesGPU {
+			t.Errorf("a trial ran without the GPU granted: %+v", access)
+		}
+	}
+	nvidiaAndAMD := &fakeTrialRunner{worksByEncoder: map[string]bool{"h264_nvenc": true, "h264_vaapi": true}}
+	if chosen := prepare.ChooseEncoder(t.Context(), nvidiaAndAMD).Chosen; chosen != prepare.EncoderNVENC {
+		t.Errorf("with NVENC and VAAPI: %s, want NVENC first (D332)", chosen)
+	}
+}
+
+// A VAAPI encode opens its device, uploads the picture to the card, and takes the rate, profile and
+// keyframes every encoder does, with no preset or pixel format, which h264_vaapi has none of (D332).
+func TestArguments_AVAAPIEncodeUploadsToTheCardWithTheSameRateAndKeyframes(t *testing.T) {
+	t.Parallel()
+	encode := nodeproto.Prepare{Profile: nodeproto.ProfileH264, SegmentLengthSeconds: 4, VideoKbps: 3000}
+	vaapi := prepare.Arguments(execx.Film{Path: "/a"}, "/b", encode, prepare.EncoderVAAPI)
+	x264 := prepare.Arguments(execx.Film{Path: "/a"}, "/b", encode, prepare.EncoderX264)
+	for _, check := range []struct{ flag, want string }{
+		{"-init_hw_device", "vaapi=va"},
+		{"-filter_hw_device", "va"},
+		{"-filter:v", "format=nv12,hwupload"},
+		{"-c:v", "h264_vaapi"},
+		{"-profile:v", "high"},
+	} {
+		if got := after(vaapi, check.flag); got != check.want {
+			t.Errorf("a VAAPI encode's %s is %q, want %q", check.flag, got, check.want)
+		}
+	}
+	for _, flag := range []string{"-b:v", "-maxrate", "-bufsize", "-force_key_frames"} {
+		if after(vaapi, flag) != after(x264, flag) {
+			t.Errorf("a VAAPI encode's %s is %q, x264's %q; want the same", flag, after(vaapi, flag), after(x264, flag))
+		}
+	}
+	if slices.Contains(vaapi, "-preset") || slices.Contains(vaapi, "-pix_fmt") {
+		t.Errorf("a VAAPI encode names a preset or pixel format, which h264_vaapi refuses: %q", vaapi)
+	}
+}
+
+// A chunk's quality on VAAPI scales the picture and then uploads it, with keyframes at the chunk's
+// times and nowhere else, as every encoder's (D332, D247 §6).
+func TestQualityArguments_OnVAAPIScaleThenUploadWithTheChunksKeyframes(t *testing.T) {
+	t.Parallel()
+	vaapi := prepare.EncoderVAAPI.QualityArguments(1500, 480, "0,1.5,4")
+	x264 := prepare.EncoderX264.QualityArguments(1500, 480, "0,1.5,4")
+	if got := after(vaapi, "-vf"); got != "scale=-2:480,format=nv12,hwupload" {
+		t.Errorf("a VAAPI quality's filter is %q, want the scale and then the upload", got)
+	}
+	if after(vaapi, "-init_hw_device") != "vaapi=va" || after(vaapi, "-c:v") != "h264_vaapi" {
+		t.Errorf("a VAAPI quality: %q; want its device and h264_vaapi", vaapi)
+	}
+	for _, flag := range []string{"-b:v", "-maxrate", "-bufsize", "-g", "-force_key_frames", "-profile:v"} {
+		if after(vaapi, flag) != after(x264, flag) {
+			t.Errorf("a VAAPI quality's %s is %q, x264's %q; want the same", flag, after(vaapi, flag),
+				after(x264, flag))
+		}
+	}
+	if slices.Contains(vaapi, "-preset") || slices.Contains(vaapi, "-pix_fmt") {
+		t.Errorf("a VAAPI quality names a preset or pixel format: %q", vaapi)
 	}
 }
 
