@@ -49,6 +49,20 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A41 — Paired a second core with the owner's account, told it would sit beside the first (2026-10-23)
+
+- **What happened:** to test D334's pairing end to end, the agent asked the owner for a key to pair
+  the amd test box "as a second core in your staging realm", and paired it. The discovery service
+  allows one server per account (D312 §15): the claim removed staging's own core from the account
+  and gave the amd box the realm, so the owner could no longer sign in to realm staging as admin.
+  The false belief came from D298, which describes a subrealm for each further core, read in place
+  of the code that decides it (orpheum-connect `internal/cores`, its doc.go invariants), which says
+  one.
+- **Caught by:** the owner: "I can't log in to realm staging with admin/qqqqqqqq anymore".
+- **Gate:** none. The lesson: before an action on a shared service that changes what the owner
+  holds, read the owning package's invariants, not a decision about it, and say what the action
+  will undo.
+
 ### A40 — Held back a design change as "Cut A's design is frozen" after Cut A had shipped (2026-10-21)
 
 - **What happened:** asked to fix how slowly a library root came back after its share returned, the
