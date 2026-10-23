@@ -21500,4 +21500,9 @@ install.
 3. **Nothing else changes:** the node's own detection and confinement already handle NVIDIA's
    devices (D331 §3), and its trials choose NVENC when it works.
 
-**Status:** Decided.
+**Status:** Built. Read back against the code: the install script tries CDI, then the
+driver, on the image, only where `/dev/nvidiactl` exists (`nvidiaAccess`), passes
+`--nvidia cdi|driver` to write-deployment, and reports either way; the override names
+`nvidia.com/gpu=all` or reserves the `nvidia` driver with the four capabilities
+(`mediaOverride`). On gpuhost (rootless Docker, CDI) the node chose `h264_nvenc` confined. The
+driver's route waits on VQ53.
