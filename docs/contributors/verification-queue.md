@@ -542,10 +542,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   by hand to the `nvidia` driver's reservation and the node recreated, it chose `h264_nvenc` again
   and 8 of 8 played. Docker 29 may satisfy that reservation through the same CDI spec, so a machine
   with the hook and no spec at all (a toolkit before 1.18) is not covered.
-- [ ] **VQ54** — On a machine with rootless Docker 29 (RootlessKit 3.3 or later): with the
+- [x] **VQ54** — On a machine with rootless Docker 29 (RootlessKit 3.3 or later): with the
   userland proxy on, the install script reports that it hides each device's address and gives the
   fix; after `modprobe br_netfilter` as root, `"userland-proxy": false` in
   `~/.config/docker/daemon.json` and `systemctl --user restart docker`, it reports the proxy off, and
   a sign-in from another machine at home logs `path="direct from home"` and may administer. Only a
   real rootless daemon shows whose address the core sees.
   (`internal/deployment/templates/install.sh`, `docs/users/setup-problems.md`)
+  — done 2026-10-23 by Claude on gpuhost.example (rootless Docker 29.9.2, RootlessKit 3.3.0, the owner's
+  `modprobe br_netfilter`), the install script and image from "fix(deployment): the install script names rootless Docker's hidden addresses and their fix": with the proxy on, the
+  script reported it hid each address and, the module loaded, gave only the `daemon.json` step; a
+  sign-in from the sandbox (192.168.1.199) logged `path="direct from away"` and `GET /users` was
+  refused. With the proxy off and the daemon restarted, the script reported it off, the same sign-in
+  logged `path="direct from home" isAdmin=true` and `GET /users` answered 200.
