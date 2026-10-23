@@ -26,7 +26,7 @@ const (
 )
 
 // StreamedInput names a run's input as its film served through the node (WatchedRun.Film, D330),
-// FFmpeg keeping cacheBlocks blocks of it (ffstreamer.CacheBlocks): only the ffstreamer protocol is
+// FFmpeg keeping cacheBlocks blocks of it (filmCacheBlocks): only the ffstreamer protocol is
 // allowed, so the run reads nothing else.
 func StreamedInput(cacheBlocks int) []string {
 	return ffstreamer.InputArguments(filmReadFD, filmWriteFD, cacheBlocks)
