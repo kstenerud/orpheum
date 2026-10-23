@@ -85,11 +85,12 @@ const filmDataPipeBytes = 1 << 20
 // next, prefetched as it reads straight through.
 const filmMostOutstanding = 2
 
-// filmCacheBlocks is how many of a streamed film's blocks FFmpeg keeps (Reading in Blocks). FFmpeg reads a few
-// seconds of every track as it opens a film, whatever the run maps, so a film whose tracks are stored
-// one after another is read from as many places as it has tracks, sweeping them over and over, and a
-// cache smaller than the sweep thrashes: an 11-track film was served 25 times its size at 19 or 32
-// blocks of 1 MiB, and a third of it at 48 (orpheum-ffmpeg's bench/interleave.py, 2026-10-22).
+// filmCacheBlocks is how many of a streamed film's blocks FFmpeg keeps (Reading in Blocks): about one
+// for each place in the film a run reads from at once, and a few more. FFmpeg reads every track as it
+// opens a film, and a prepare reads each track it maps, so a film whose tracks are stored one after
+// another needs a block a track: a prepare of all 25 tracks of one read it 1.4 times at 32 blocks of
+// 1 MiB and 1.3 at 48, and thrashed at 24 (orpheum-ffmpeg's bench/RESULTS.md, 2026-10-23). The
+// library measured has at most 10 tracks in an MP4, the one container that stores them so.
 const filmCacheBlocks = 48
 
 // FilmReading is how much of its film a run reads, which sets how much it may be served (Budget).
