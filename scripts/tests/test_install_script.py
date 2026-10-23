@@ -64,6 +64,9 @@ case "$1 $2" in
         exit 0 ;;
     *" pair "*) cat > "$FAKE_LOG.pair"; echo "paired: realm the-smiths"; exit 0 ;;
     esac
+    # As docker compose exec does, it reads standard input, which is the script itself when piped
+    # to sh (the amd box, 2026-10-23).
+    cat > /dev/null
     if [ "$FAKE_SET_UP" = 1 ]; then
         echo "setup is complete: an admin exists; sign in instead"
         exit 1

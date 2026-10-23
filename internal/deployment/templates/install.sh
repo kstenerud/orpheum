@@ -13,6 +13,11 @@
 # everything.
 set -eu
 
+# The whole script is one block, which sh reads to its end before it runs any of it: piped to sh, it is
+# read from standard input as it runs, and a docker command in it that reads standard input, as
+# docker compose exec does, swallowed the rest, and sh stopped on "Unterminated quoted string" (the
+# amd box, 2026-10-23). Each docker command that needs no input is given none, besides.
+{
 image="{{.Image}}"
 dir="${HOME:-/root}/orpheum"
 media=""
@@ -302,7 +307,8 @@ setupCode=""
 isUp=false
 tries=0
 while [ "$tries" -lt 60 ]; do
-	if answer=$(cd "$dir" && docker compose exec -T orpheum-core orpheum setup-code --instance /var/lib/orpheum/core 2>/dev/null); then
+	if answer=$(cd "$dir" && docker compose exec -T orpheum-core orpheum setup-code --instance /var/lib/orpheum/core \
+		</dev/null 2>/dev/null); then
 		setupCode=$answer
 		isUp=true
 		break
@@ -412,3 +418,4 @@ if [ -n "$setupCode" ]; then
 elif [ -z "$admin" ]; then
 	say "it has its first admin already"
 fi
+}
