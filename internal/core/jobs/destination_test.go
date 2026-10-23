@@ -43,6 +43,11 @@ func TestDestinations_ANameSaysWhatItIsAndReadsAsAPersonSaysIt(t *testing.T) {
 			"a scan's first look at a disk on node node-5",
 		},
 		{
+			LastReaderDestination(5, "zfs:tank"),
+			DestinationParts{NodeID: 5, IsLastReader: true},
+			"quicker work on a disk of node node-5",
+		},
+		{
 			PlayingDestination(6),
 			DestinationParts{NodeID: 6, IsPlaying: true},
 			"the film playing on node node-6 to keep up",

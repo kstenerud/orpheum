@@ -125,6 +125,12 @@
 //     (D255 §2, D324 §4). Work of the same tier or lower waits.
 //     TestAssign_WorkOfAHigherTierBumpsTheLowestWhereNothingIsFree,
 //     TestAssign_OfOneTierTheLowestPriorityIsBumpedFirst.
+//   - Slow work leaves a device's last reader to work of a higher tier that came for it within the
+//     last five seconds, waiting on the device's last reader, its own destination, until then, so
+//     that work's next piece is not given the reader by bumping a read-through just started (D255
+//     §4). A person's work is never held for it.
+//     TestAssign_SlowWorkLeavesADisksLastReaderToFasterWorkThatCameLately,
+//     TestAssign_SlowWorkTakesTheLastReaderOnceFasterWorkIsQuiet.
 //   - Background work that reads whole films, a read-through or a subtitle extracted from inside one,
 //     waits while a scan is on its quick pass of the film's disk, on that disk's quick pass rather
 //     than its readers, asking again every half minute (D255); a person's goes ahead (D324 §4).

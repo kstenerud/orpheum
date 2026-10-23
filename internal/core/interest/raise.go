@@ -188,10 +188,10 @@ func (raiser *Raiser) raise(ctx context.Context, interested jobs.Interested, pri
 }
 
 // isRoomOnANode is whether destination is room on a node, which work in it holds: a slot, a
-// device's readers, or a disk a scan's quick pass is on.
+// device's readers, a disk a scan's quick pass is on, or a disk's last reader kept for faster work.
 func isRoomOnANode(destination jobs.Destination) bool {
 	parts := jobs.PartsOf(destination)
-	return parts.IsSlot || parts.IsQuickPass
+	return parts.IsSlot || parts.IsQuickPass || parts.IsLastReader
 }
 
 // worksOf is what a look at an item raises (D324 §3): a film's or episode's own jobs and its live

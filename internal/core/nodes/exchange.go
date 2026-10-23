@@ -107,6 +107,9 @@ type Exchanges struct {
 	// heldBackUntil is, by node, until when it is given only played work: its played encode, in
 	// software, fell behind playback (D324 §5, HoldBackFor).
 	heldBackUntil map[int64]time.Time // guarded by mutex
+	// fasterWorkAt is when work above the slow tier last came for each device of a node's, by
+	// deviceOfNode: until fasterWorkKeepsTheLastReader after, slow work leaves it the last reader.
+	fasterWorkAt map[string]time.Time // guarded by mutex
 }
 
 // ExchangeParts are what the exchanges are built from.
@@ -209,7 +212,7 @@ func NewExchanges(parts ExchangeParts) *Exchanges {
 		settings: parts.Settings, maxSilence: parts.MaxSilence, rooms: parts.Rooms,
 		recorders: map[nodeproto.CommandType]Recorder{},
 		attempts:  map[string]*heldAttempt{}, assignees: map[jobs.Kind]Assignee{}, heldBackUntil: map[int64]time.Time{},
-		brokenInvariants: map[int64]int{}, stopping: map[string]time.Time{},
+		brokenInvariants: map[int64]int{}, stopping: map[string]time.Time{}, fasterWorkAt: map[string]time.Time{},
 	}
 }
 
