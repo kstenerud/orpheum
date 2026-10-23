@@ -59,13 +59,13 @@ help: ## List the targets
 CHECK_JOBS ?= $(shell nproc 2>/dev/null || echo 4)
 
 .PHONY: check
-check: ## The gate: everything that runs on every change, quietly (VERBOSE=1 prints all; the log is in .git/gate-logs)
+check: hooks ## The gate: everything that runs on every change, quietly (VERBOSE=1 prints all; the log is in .git/gate-logs)
 	@$(PYTHON) scripts/quiet_gate.py --fail-fast "make check" check-verbose
 
 # The spot check, while working: the tests of what changed and of what imports it, about 30 s; not
 # the gate, which make check still is at the commit (D279, testing.md §10). BASE=<rev> checks commits.
 .PHONY: spot
-spot: ## Spot check while working: tests of what changed since BASE (default HEAD, so uncommitted) and its importers, ~30 s
+spot: hooks ## Spot check while working: tests of what changed since BASE (default HEAD, so uncommitted) and its importers, ~30 s
 	@$(PYTHON) scripts/spot_check.py $(if $(BASE),--base '$(BASE)') $(if $(SPOT_JOBS),--jobs $(SPOT_JOBS))
 
 .PHONY: check-verbose
@@ -275,7 +275,7 @@ PR_SERIAL_STEP := test-acceptance-home
 CHECK_PR_BUDGET_S := 300
 
 .PHONY: check-pr
-check-pr: ## Branch gates against BASE, quietly (VERBOSE=1 prints all; the log is in .git/gate-logs)
+check-pr: hooks browsers ## Branch gates against BASE, quietly (VERBOSE=1 prints all; the log is in .git/gate-logs)
 	@$(PYTHON) scripts/quiet_gate.py "make check-pr" check-pr-verbose $(if $(BASE),BASE=$(BASE))
 
 # check-pr runs on HEAD in its own worktree, holding a lock the hooks read, so the working tree stays
@@ -473,17 +473,21 @@ test-browser: browsers ## The browser tier: Chrome and Firefox against a server 
 # The browsers Playwright drives are fetched by Playwright itself, for its own version: the one
 # web/package-lock.json pins, which PLAYWRIGHT_VERSION repeats so a lockfile bump is seen here
 # (check-deps compares the two). Nothing else installed them, so a fresh machine or CI failed at
-# the browser tier (audit-2026-09-29 §6). The development image holds their system libraries, so CI,
-# which runs in it, needs no --with-deps. With the browsers already there, the install checks and
-# does nothing.
+# the browser tier (audit-2026-09-29 §6). Then each is started once, and on Linux one that cannot
+# start is given the system libraries Playwright names for it (scripts/ensure_browsers.py): a
+# rebuilt sandbox had none, and every browser test failed until they were found by hand (the owner,
+# 2026-10-23: prerequisites install themselves). The development image holds them already, so CI's
+# start passes at once. With the browsers there, the install checks and does nothing; the start
+# takes about 1.5 s, so check-pr and the browser tests run it, never make check's every turn.
 PLAYWRIGHT_VERSION := 1.63.0
 PLAYWRIGHT_INSTALL_FLAGS ?=
 
 .PHONY: browsers
-browsers: web-deps ## Install the pinned Playwright's Chromium and Firefox (outside the dev image: PLAYWRIGHT_INSTALL_FLAGS=--with-deps)
+browsers: web-deps ## Install the pinned Playwright's Chromium and Firefox, and on Linux the system libraries they need to start
 	@v="$$(npm --prefix web exec -- playwright --version)"; [ "$$v" = "Version $(PLAYWRIGHT_VERSION)" ] || \
 	  { echo "playwright is $$v; this project pins $(PLAYWRIGHT_VERSION)"; exit 1; }
 	@npm --prefix web exec -- playwright install $(PLAYWRIGHT_INSTALL_FLAGS) chromium firefox
+	@$(PYTHON) scripts/ensure_browsers.py
 
 # The browser tier without installing the web packages: revert-red runs it in a worktree whose
 # packages are links to the working tree's, which an install would replace.
@@ -612,7 +616,7 @@ mkvtoolnix: ## Fetch the pinned MKVToolNix, which the integration tier edits fil
 	@echo "mkvtoolnix: $(MKVTOOLNIX_DIR)"
 
 .PHONY: dev
-dev: web-deps ## Run the app: server + Vite (hot reload), seeded users and library, rebuilds on change
+dev: hooks web-deps ## Run the app: server + Vite (hot reload), seeded users and library, rebuilds on change
 	@$(PYTHON) scripts/dev.py loop $(if $(DEV_LISTEN),--listen $(DEV_LISTEN))
 
 .PHONY: dev-server
@@ -707,9 +711,15 @@ tools: ## Fetch the pinned golangci-lint and sqlc into .tools/ (make check does 
 	@$(PYTHON) scripts/fetch_tools.py
 
 .PHONY: setup
-setup: web-deps ## One-time setup of a clone: git hooks and web dependencies
-	@git config core.hooksPath .githooks
-	@echo "setup: git hooks now run from .githooks/"
+setup: hooks web-deps browsers ## Set up a clone: git hooks, web dependencies, the browsers (check, spot, dev and check-pr do their parts)
+
+# The git hooks, which a clone or a rebuilt sandbox lacks until set: without them a commit ran no gate,
+# and the pre-bash hook refused every commit until `make setup` was found (2026-10-23). The gates and
+# the dev loop set them first, so nothing has to be remembered.
+.PHONY: hooks
+hooks: ## Point git at .githooks/ if it is not already
+	@[ "$$(git config core.hooksPath)" = .githooks ] || \
+	  { git config core.hooksPath .githooks && echo "hooks: git hooks now run from .githooks/"; }
 
 .PHONY: clean
 clean: ## Remove build output
