@@ -78,6 +78,10 @@ class Build(unittest.TestCase):
         # Built here, so nothing is pulled; installed as a household's is, the media filled in and started.
         self.assertNotIn("pull", [call[0] for call in calls])
         self.assertIn(["compose", "up", "-d", "--remove-orphans"], calls)
+        # Once installed, the build cache a week of builds has not used goes.
+        prune = ["builder", "prune", "--force", "--filter", "until=168h"]
+        self.assertIn(prune, calls)
+        self.assertGreater(calls.index(prune), calls.index(["compose", "up", "-d", "--remove-orphans"]))
         self.assertIn(f'roots = ["{self.media}"]', (self.deployment / "values.toml").read_text())
 
     def deploy(self, *flags: str, answer: str = "") -> subprocess.CompletedProcess:
