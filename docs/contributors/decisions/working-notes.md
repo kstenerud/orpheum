@@ -21526,9 +21526,15 @@ key pasted on a System page afterwards, and an admin refused on the server's own
 3. **Then, optionally, for the core's key**, which it enters with the password just given, so the
    core is paired and the admin's realm key made in the same sitting; it ends by saying where to
    sign in, at home and from away. A key can still be entered later in the browser.
-4. **The server's own machine is home.** A request from it reaches the core from Docker's gateway,
-   which is now home, except under rootless Docker with its userland proxy on, where every request
-   arrives from the gateway and none may be.
+4. **The server's own machine is home, by a port only it reaches.** A browser there reaches the
+   core through Docker's published port, which hands the request on from Docker's gateway, never
+   home. The gateway itself is not made home: wherever Docker's own proxy carries outside connections
+   (rootless, or IPv6 without its firewall rules) the internet arrives from it too. The deployment
+   publishes a second port, `http.this_machine_port` (8441), on the host's loopback alone, and a
+   request on it is from home; the install names both addresses, the house's and
+   `http://localhost:8441`, and an admin refused away from home is told to open the latter on the
+   server's own computer (the owner, *"OK that sounds good"*). The core's own loopback is home too,
+   which only a command run in its container reaches, as §2 and §3's do.
 5. **Through the paid discovery service:** the owner sends an invitation (a link and a QR code); the
    person makes an account (name, password, e-mail confirmation; free for life in the closed beta),
    chooses a realm, then makes a key for a core (password or passkey) and gives it to the core. A
