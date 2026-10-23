@@ -87,6 +87,11 @@ processor.
   offers, CDI and Docker's `nvidia` driver, and uses whichever works.
 - **Rootless Docker** takes the card by CDI only: as the user Docker runs as,
   `nvidia-ctk cdi generate --output ~/.config/cdi/nvidia.yaml`, then run the installer again.
+- **It worked before, and stopped after an update.** A driver update replaces the driver's
+  libraries at once but its kernel module only at a restart, and until then nothing can use the
+  card: `nvidia-smi` says "Driver/library version mismatch". Restart the machine. A CDI spec made
+  by hand also names the driver's files as they were, so make it again after any driver update
+  (the toolkit 1.18 and later keeps its own up to date), then run the installer again.
 - **To check that it worked:** the server's System page names the media node's encoder, "NVIDIA
   NVENC".
 
