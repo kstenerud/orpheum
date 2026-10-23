@@ -102,6 +102,11 @@ func plannedSubcommands() []subcommand {
 				"read from standard input (D294)",
 			implementation: commandResetAdmin,
 		},
+		{
+			name: "pair", summary: "pair the running core with its discovery by the account's key, the admin's " +
+				"password and the key read from standard input (D334 §3)",
+			implementation: commandPair,
+		},
 		{name: "openapi", summary: "print the API's OpenAPI document", implementation: commandOpenAPI},
 	}
 	if isDevBuild {
