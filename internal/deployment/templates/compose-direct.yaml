@@ -12,6 +12,7 @@
 #   ORPHEUM_HTTP_PUBLISH, ORPHEUM_HTTP_PORT   where the house's network reaches plain HTTP
 #   ORPHEUM_LAN_HTTPS_PORT   where it reaches HTTPS, by the name the discovery gives this machine
 #   ORPHEUM_LAN_WEBRTC_PORT  the UDP port it reaches WebRTC on there, the same inside
+#   ORPHEUM_OUTSIDE_IPV6_SUBNET  the outside network's private IPv6 /64, this deployment's own
 #
 # The directory holds core/ and node/ (the instances) and run/ (their sockets).
 
@@ -70,4 +71,4 @@ networks:
     enable_ipv6: true
     ipam:
       config:
-        - subnet: fd77:5e::/64
+        - subnet: ${ORPHEUM_OUTSIDE_IPV6_SUBNET:-fd77:5e::/64}

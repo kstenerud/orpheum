@@ -32,6 +32,9 @@
 //   - The address at home is required, and its /24 is the only home network an admin administers
 //     from: no private range stands in for it (the Plex-chain review's L1).
 //     TestWrite_TheCoreAdministersOnlyFromTheHousesNetwork.
+//   - Each deployment's outside network has a private IPv6 /64 of its own, chosen by its directory,
+//     so two on one machine both start; one whose directory is not known keeps fd77:5e::/64.
+//     TestWrite_EachDeploymentsNetworkHasASubnetOfItsOwn.
 //   - Keys and the configs naming one are readable by their owner alone.
 //     TestWrite_RewritesTheFilesAndKeepsTheValuesAndKeys.
 //

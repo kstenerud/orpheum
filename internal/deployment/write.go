@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"crypto/ecdh"
 	"crypto/rand"
+	"crypto/sha256"
 	"embed"
 	"encoding/base64"
 	"encoding/json"
@@ -61,6 +62,26 @@ type Runtime struct {
 	// NVIDIA is how Docker hands the machine's NVIDIA GPUs to a container, which the install script
 	// found by trying it (D333); NVIDIANone when the machine has none or Docker cannot.
 	NVIDIA NVIDIAAccess
+	// Directory is the deployment's directory on the machine, which the install script names, or
+	// empty when it is not known: what tells two deployments on one machine apart (OutsideIPv6Subnet).
+	Directory string
+}
+
+// defaultOutsideIPv6Subnet is the outside network's IPv6 subnet for a deployment whose directory
+// is not known: the one every deployment had before each took its own.
+const defaultOutsideIPv6Subnet = "fd77:5e::/64"
+
+// OutsideIPv6Subnet is the private IPv6 subnet of a deployment's outside network: a /64 of
+// fd77:5e::/48 chosen by the hash of its directory, so two deployments on one machine, as a test
+// kit's beside production or staging beside a release (deploy/release/README.md §6), each create
+// their own network. Every one used fd77:5e::/64 before, and a second could not start (nas.example,
+// 2026-10-23). Nothing outside the machine sees it: Docker translates it on the way out.
+func OutsideIPv6Subnet(directory string) string {
+	if directory == "" {
+		return defaultOutsideIPv6Subnet
+	}
+	sum := sha256.Sum256([]byte(directory))
+	return fmt.Sprintf("fd77:5e:0:%x::/64", uint16(sum[0])<<8|uint16(sum[1]))
 }
 
 // NVIDIAAccess is how Docker hands a machine's NVIDIA GPUs to a container, with the driver's own
@@ -226,6 +247,7 @@ func environment(values Values, runtime Runtime) string {
 		"ORPHEUM_HTTP_PORT=" + strconv.Itoa(values.HTTP.Port),
 		"ORPHEUM_LAN_HTTPS_PORT=" + strconv.Itoa(values.LAN.HTTPSPort),
 		"ORPHEUM_LAN_WEBRTC_PORT=" + strconv.Itoa(values.LAN.WebRTCPort),
+		"ORPHEUM_OUTSIDE_IPV6_SUBNET=" + OutsideIPv6Subnet(runtime.Directory),
 	}
 	if values.HasTunnel() {
 		lines = append(lines,
