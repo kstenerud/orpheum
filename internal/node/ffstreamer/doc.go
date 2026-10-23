@@ -27,6 +27,10 @@
 //   - A READ the film's storage cannot answer is never answered: the run is killed (ErrReadFailed),
 //     as one served past its budget is before the read that would pass it (ErrOverBudget).
 //     TestChannel_KillsARunWhoseFilmCannotBeRead, TestChannel_KillsARunPastItsBudget.
+//   - No film past the protocol's largest size, 2^62 bytes, is offered to FFmpeg (§8), and no block
+//     larger than 4 MiB, whatever FFmpeg offers, so neither side's sums reach the largest int64 and the
+//     node holds no more than a block for a run. TestOpen_RefusesAFilmPastTheLargestSizeTheProtocolServes,
+//     TestChannel_ServesInBlocksNoLargerThanItsOwnLargestWhateverFFmpegOffers.
 //   - A held run is served nothing until released. TestChannel_AHeldRunIsAnsweredOnlyOnceReleased.
 //   - Finish returns whatever FFmpeg left: a writer blocked on a pipe FFmpeg stopped reading is
 //     freed, and a storage read stuck in the kernel is not waited for.

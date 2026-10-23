@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
+	"math"
 	"os"
 	"sync/atomic"
 	"syscall"
@@ -202,6 +203,31 @@ func TestChannel_ServesAFilmWholeAndJudgesARunByItsDone(t *testing.T) {
 	}
 	if fake.killed.Load() {
 		t.Error("a run that kept to the protocol was killed")
+	}
+}
+
+// sizedFilm is a film that says it is of size bytes, and is never read.
+type sizedFilm int64
+
+func (size sizedFilm) Size() int64 { return int64(size) }
+
+func (sizedFilm) ReadAt(context.Context, []byte, int64) error { return errors.New("never read") }
+
+// The node never offers FFmpeg a film past the protocol's largest size, 2^62 bytes, so no sum of the
+// size and a block can pass the largest int64 on either side (§8); a film of that size is served.
+func TestOpen_RefusesAFilmPastTheLargestSizeTheProtocolServes(t *testing.T) {
+	t.Parallel()
+	for _, example := range []struct {
+		size     int64
+		isServed bool
+	}{{1 << 62, true}, {1<<62 + 1, false}, {math.MaxInt64, false}, {-1, false}} {
+		channel, err := Open(testConfig(sizedFilm(example.size)))
+		if channel != nil {
+			channel.Abandon()
+		}
+		if isServed := err == nil; isServed != example.isServed || (!isServed && !errors.Is(err, ErrFilmTooLarge)) {
+			t.Errorf("a film of %d bytes: %v; want served %v", example.size, err, example.isServed)
+		}
 	}
 }
 
