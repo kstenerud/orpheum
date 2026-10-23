@@ -245,6 +245,7 @@ func environment(values Values, runtime Runtime) string {
 		"ORPHEUM_GID=" + strconv.Itoa(runtime.GID),
 		"ORPHEUM_HTTP_PUBLISH=" + values.HTTP.Publish,
 		"ORPHEUM_HTTP_PORT=" + strconv.Itoa(values.HTTP.Port),
+		"ORPHEUM_THIS_MACHINE_PORT=" + strconv.Itoa(values.HTTP.ThisMachinePort),
 		"ORPHEUM_LAN_HTTPS_PORT=" + strconv.Itoa(values.LAN.HTTPSPort),
 		"ORPHEUM_LAN_WEBRTC_PORT=" + strconv.Itoa(values.LAN.WebRTCPort),
 		"ORPHEUM_OUTSIDE_IPV6_SUBNET=" + OutsideIPv6Subnet(runtime.Directory),

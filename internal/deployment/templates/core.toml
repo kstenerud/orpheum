@@ -13,6 +13,9 @@
 
 [server]
 listen = "0.0.0.0:8440"
+# Plain HTTP for a browser on this machine alone, which the deployment publishes on its loopback: a
+# request on it is from home (D334 §4).
+this_machine_listen = "0.0.0.0:{{.Values.HTTP.ThisMachinePort}}"
 read_header_timeout_seconds = 10
 shutdown_grace_seconds = 10
 # Names the house reaches the plain listener by, beside its addresses and local names; the HTTPS

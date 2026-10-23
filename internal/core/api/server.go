@@ -149,6 +149,9 @@ type Server struct {
 	clientScript string
 	// homeNetworks are where an admin administers from (SetHomeNetworks; D297 §6).
 	homeNetworks atomic.Pointer[[]netip.Prefix]
+	// thisMachinePort is the port only the server's own machine reaches, 0 for none
+	// (SetThisMachinePort; D334 §4).
+	thisMachinePort atomic.Int32
 	// rtc answers WebRTC offers; nil takes none (SetRTC).
 	rtc *rtcapi.Server
 	// answers are the answers kept for repeats of an Idempotency-Key (D244 §4).
@@ -412,7 +415,8 @@ func (server *Server) requireAdmin(ctx context.Context, authorization string) (
 	// Administering is from the house alone, unless the admin chose otherwise (D297 §6, D302).
 	if !administersHere(ctx, principal) {
 		return nil, principal, newError(http.StatusForbidden, CodeForbidden,
-			"administering works only from the server's own network for now: open it at home")
+			"administering works only from the server's own network for now: open it at home"+
+				server.thisMachineHint())
 	}
 	return dependencies, principal, nil
 }

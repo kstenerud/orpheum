@@ -59,6 +59,7 @@ sh "$dir.install.sh" --no-pull --image "$image" --dir "$dir" --media "$media" >"
 sed -i.bak \
 	-e "s/^publish = \".*\"/publish = \"127.0.0.1\"/" \
 	-e "s/^port = 8440$/port = $port/" \
+	-e "s/^this_machine_port = 8441$/this_machine_port = $((port + 1))/" \
 	-e "s/^https_port = 8443$/https_port = $((port + 3))/" \
 	-e "s/^webrtc_port = 8443$/webrtc_port = $((port + 3))/" \
 	"$dir/values.toml"

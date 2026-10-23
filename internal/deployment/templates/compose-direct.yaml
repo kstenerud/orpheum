@@ -10,6 +10,7 @@
 #   ORPHEUM_IMAGE      the runtime image
 #   ORPHEUM_UID/GID    who the core and the node run as: the owner of the directory
 #   ORPHEUM_HTTP_PUBLISH, ORPHEUM_HTTP_PORT   where the house's network reaches plain HTTP
+#   ORPHEUM_THIS_MACHINE_PORT  plain HTTP for a browser on this machine alone, on its loopback
 #   ORPHEUM_LAN_HTTPS_PORT   where it reaches HTTPS, by the name the discovery gives this machine
 #   ORPHEUM_LAN_WEBRTC_PORT  the UDP port it reaches WebRTC on there, the same inside
 #   ORPHEUM_OUTSIDE_IPV6_SUBNET  the outside network's private IPv6 /64, this deployment's own
@@ -32,6 +33,8 @@ services:
       - ./run:/run/orpheum
     ports:
       - "${ORPHEUM_HTTP_PUBLISH:-0.0.0.0}:${ORPHEUM_HTTP_PORT:-8440}:8440"
+      # A browser on this machine alone, as from home (D334 §4): its loopback, the same port inside.
+      - "127.0.0.1:${ORPHEUM_THIS_MACHINE_PORT:-8441}:${ORPHEUM_THIS_MACHINE_PORT:-8441}"
       - "${ORPHEUM_HTTP_PUBLISH:-0.0.0.0}:${ORPHEUM_LAN_HTTPS_PORT:-8443}:443"
       # WebRTC from devices at home, on the same port inside, which the core offers them (D300).
       - "${ORPHEUM_HTTP_PUBLISH:-0.0.0.0}:${ORPHEUM_LAN_WEBRTC_PORT:-8443}:${ORPHEUM_LAN_WEBRTC_PORT:-8443}/udp"

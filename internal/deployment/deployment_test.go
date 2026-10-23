@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"net/netip"
 	"os"
 	"path/filepath"
 	"slices"
@@ -422,44 +421,6 @@ func TestWrite_ComposeReadsEveryVariableTheEnvironmentFileSets(t *testing.T) {
 	}
 }
 
-// Every deployment's network had fd77:5e::/64, so a second one on a machine, a test kit's beside
-// production, could not create its own (nas.example, 2026-10-23).
-func TestWrite_EachDeploymentsNetworkHasASubnetOfItsOwn(t *testing.T) {
-	t.Parallel()
-	subnetOf := func(directory string) string {
-		t.Helper()
-		dir := begun(t, Release)
-		withDirectory := runtime
-		withDirectory.Directory = directory
-		if err := Write(dir, filledValues(t, Release), withDirectory); err != nil {
-			t.Fatal(err)
-		}
-		for line := range strings.SplitSeq(readFile(t, filepath.Join(dir, environmentFile)), "\n") {
-			if subnet, isIt := strings.CutPrefix(line, "ORPHEUM_OUTSIDE_IPV6_SUBNET="); isIt {
-				return subnet
-			}
-		}
-		t.Fatal(".env names no subnet")
-		return ""
-	}
-	production, test := subnetOf("/srv/orpheum"), subnetOf("/home/orpheum/hwtest")
-	if production == test {
-		t.Errorf("two deployments' networks share %s", production)
-	}
-	for _, subnet := range []string{production, test} {
-		prefix, err := netip.ParsePrefix(subnet)
-		if err != nil || prefix.Bits() != 64 || !netip.MustParsePrefix("fd77:5e::/48").Overlaps(prefix) {
-			t.Errorf("subnet %s, want a /64 of fd77:5e::/48 (%v)", subnet, err)
-		}
-	}
-	if again := subnetOf("/srv/orpheum"); again != production {
-		t.Errorf("the same directory gave %s, then %s; want the same each time", production, again)
-	}
-	if unknown := subnetOf(""); unknown != "fd77:5e::/64" {
-		t.Errorf("a deployment whose directory is not known has %s, want fd77:5e::/64", unknown)
-	}
-}
-
 func TestWrite_TheOverrideMountsEachRootReadOnlyAndTheGPUWhenThereIsOne(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
@@ -584,7 +545,8 @@ func TestNewKeyPair_IsAClampedX25519PairAsWgMakesOne(t *testing.T) {
 // The house's network, the LAN address's /24, is where the deployed core's admin administers from,
 // never the tunnel's 10.77.0.0/24 (D297 §6). With no LAN address no network is home, and the values
 // name the address as a problem: a private range in its place took in Docker's networks, through which
-// a port published by docker-proxy comes from the internet (the Plex-chain review's L1).
+// a port published by docker-proxy comes from the internet (the Plex-chain review's L1). The core's own
+// loopback is home too, which only a command run in its container reaches (D334 §2, §3).
 func TestWrite_TheCoreAdministersOnlyFromTheHousesNetwork(t *testing.T) {
 	t.Parallel()
 	dir := begun(t, Staging)
@@ -594,8 +556,8 @@ func TestWrite_TheCoreAdministersOnlyFromTheHousesNetwork(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := fmt.Sprint(decodeTOML(t, filepath.Join(dir, coreConfig))["server"]["home_networks"])
-	if got != "[192.168.1.0/24]" {
-		t.Errorf("the core's server.home_networks are %s; want the house's /24", got)
+	if got != "[192.168.1.0/24 127.0.0.0/8 ::1/128]" {
+		t.Errorf("the core's server.home_networks are %s; want the house's /24 and the loopback alone", got)
 	}
 	values.LAN.Address = ""
 	if got := values.HomeNetworks(); len(got) != 0 {

@@ -50,6 +50,10 @@ roots = []
 # is every interface; "127.0.0.1" only this machine.
 publish = "0.0.0.0"
 port = 8440
+# Where a browser on this machine itself reaches the deployment, as from home: http://localhost:8441,
+# published on this machine's loopback alone. Opened at port's address instead, Docker hands the
+# request to the server from its own network, which is not home, and admin is refused (D334 §4).
+this_machine_port = 8441
 
 [lan]
 # This machine's address on the house's network, which the server's container cannot see: the
