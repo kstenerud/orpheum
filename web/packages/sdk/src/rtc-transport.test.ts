@@ -3,6 +3,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  connectTimeoutMs,
+  gatherAfterReflexiveMs,
+  gathered,
   grantEvery,
   maxMessageBytes,
   replaceFirstMs,
@@ -10,9 +13,12 @@ import {
   requestsPerConnection,
   RtcTransport,
   sendOnChannel,
+  slowConnection,
+  slowConnectMs,
   SwitchableFetch,
   type ChannelLike,
   type ChannelListener,
+  type GatheringPeer,
   type PeerLike,
 } from "./rtc-transport.ts";
 
@@ -406,5 +412,102 @@ describe("the WebRTC transport's connections (plans/webrtc-transport.md W2d)", (
     lonely.close();
     await vi.advanceTimersByTimeAsync(0);
     expect(outcome).toBe("failed"); // closed, it fails what waited
+  });
+});
+
+/** A peer gathering candidates as the test says: each found, and gathering complete. */
+class FakeGatheringPeer implements GatheringPeer {
+  iceGatheringState: RTCIceGatheringState = "gathering";
+  readonly #onState: (() => void)[] = [];
+  readonly #onCandidate: ((event: RTCPeerConnectionIceEvent) => void)[] = [];
+
+  addEventListener(type: "icegatheringstatechange", listener: () => void): void;
+  addEventListener(
+    type: "icecandidate",
+    listener: (event: RTCPeerConnectionIceEvent) => void,
+  ): void;
+  addEventListener(type: string, listener: (event: RTCPeerConnectionIceEvent) => void): void {
+    if (type === "icecandidate") {
+      this.#onCandidate.push(listener);
+    } else {
+      this.#onState.push(() => {
+        listener(undefined as never);
+      });
+    }
+  }
+
+  find(type: RTCIceCandidateType): void {
+    const event = { candidate: { type } } as unknown as RTCPeerConnectionIceEvent;
+    this.#onCandidate.forEach((listener) => {
+      listener(event);
+    });
+  }
+
+  complete(): void {
+    this.iceGatheringState = "complete";
+    this.#onState.forEach((listener) => {
+      listener();
+    });
+  }
+}
+
+describe("gathered", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  // Gathering completes only when every STUN attempt has answered or given up, some forty seconds
+  // on an interface with no way out, so each offer waited out connectTimeoutMs, and a realm sign-in
+  // took 28 s on staging (2026-10-23).
+  it("goes gatherAfterReflexiveMs after the first candidate that reaches past this machine", async () => {
+    vi.useFakeTimers();
+    const peer = new FakeGatheringPeer();
+    let isDone = false;
+    void gathered(peer).then(() => {
+      isDone = true;
+    });
+    peer.find("host");
+    await vi.advanceTimersByTimeAsync(gatherAfterReflexiveMs * 2);
+    expect(isDone).toBe(false);
+    peer.find("srflx");
+    peer.find("srflx");
+    await vi.advanceTimersByTimeAsync(gatherAfterReflexiveMs - 1);
+    expect(isDone).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(isDone).toBe(true);
+  });
+
+  it("goes when gathering completes, or at connectTimeoutMs with only host candidates", async () => {
+    vi.useFakeTimers();
+    const completes = new FakeGatheringPeer();
+    let isCompleteDone = false;
+    void gathered(completes).then(() => {
+      isCompleteDone = true;
+    });
+    completes.complete();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(isCompleteDone).toBe(true);
+    const hostOnly = new FakeGatheringPeer();
+    let isHostOnlyDone = false;
+    void gathered(hostOnly).then(() => {
+      isHostOnlyDone = true;
+    });
+    hostOnly.find("host");
+    await vi.advanceTimersByTimeAsync(connectTimeoutMs - 1);
+    expect(isHostOnlyDone).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(isHostOnlyDone).toBe(true);
+  });
+});
+
+describe("slowConnection", () => {
+  it("says where a slow connection's time went, and nothing of one within slowConnectMs", () => {
+    expect(
+      slowConnection({ gathering: 1_000, answer: 1_000, connecting: slowConnectMs - 2_000 }),
+    ).toBe(undefined);
+    expect(slowConnection({ gathering: 10_004.4, answer: 2_100, connecting: 300 })).toBe(
+      "a WebRTC connection took 12404 ms: gathering its candidates 10004 ms, the core's answer 2100 ms, " +
+        "connecting 300 ms",
+    );
   });
 });

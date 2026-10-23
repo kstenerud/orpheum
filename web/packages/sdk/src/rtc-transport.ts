@@ -8,6 +8,8 @@
  * `clientConnections` peer connections and sends each request on the one with the fewest under way.
  */
 
+import { reportFailure } from "./problem.ts";
+
 /** The most a message holds, which every browser carries; the core's rtcapi.MaxMessageBytes. */
 export const maxMessageBytes = 64 * 1024;
 
@@ -19,6 +21,43 @@ export const clientConnections = 4;
 
 /** How long a connection may take to gather its candidates and connect. */
 export const connectTimeoutMs = 10_000;
+
+/**
+ * How long an offer waits for more candidates after its first that reaches past this machine, a
+ * server-reflexive or a relayed one: those a core away from it can use are then mostly in, and a
+ * relayed one follows its server's first within this. Gathering itself completes only when every STUN
+ * attempt has answered or given up, and one on a family or interface with no way out retries for some
+ * forty seconds: each offer waited out connectTimeoutMs, and a realm sign-in, which makes two, took
+ * 28 s on staging (2026-10-23; idiosyncrasies.md).
+ */
+export const gatherAfterReflexiveMs = 1_000;
+
+/**
+ * A connection that takes longer than this to connect is reported to the core's log, with where its
+ * time went: a sign-in that waited half a minute on its connections said so nowhere (staging,
+ * 2026-10-23).
+ */
+export const slowConnectMs = 3_000;
+
+/** How long each step of making a connection took, in milliseconds. */
+export interface ConnectTimings {
+  readonly gathering: number;
+  readonly answer: number;
+  readonly connecting: number;
+}
+
+/** What to report of a connection that took over slowConnectMs, or undefined for one that did not. */
+export function slowConnection(timings: ConnectTimings): string | undefined {
+  const total = timings.gathering + timings.answer + timings.connecting;
+  if (total <= slowConnectMs) {
+    return undefined;
+  }
+  const ms = (value: number): string => `${String(Math.round(value))} ms`;
+  return (
+    `a WebRTC connection took ${ms(total)}: gathering its candidates ${ms(timings.gathering)}, ` +
+    `the core's answer ${ms(timings.answer)}, connecting ${ms(timings.connecting)}`
+  );
+}
 
 /** A session description: an offer or an answer, and its SDP. */
 export interface Description {
@@ -610,15 +649,26 @@ async function connectOne(signaller: Signaller, rtcConfig: RTCConfiguration): Pr
     // An offer needs something to negotiate: a channel opened and never used, which the core knows by
     // its label and never serves (internal/core/rtcapi.NegotiationLabel).
     peer.createDataChannel("hello");
+    const startedAt = performance.now();
     await peer.setLocalDescription(await peer.createOffer());
     await gathered(peer);
+    const gatheredAt = performance.now();
     const local = peer.localDescription;
     if (local === null) {
       throw new Error("the connection made no offer");
     }
     const answer = await signaller({ type: "offer", sdp: local.sdp });
+    const answeredAt = performance.now();
     await peer.setRemoteDescription(answer);
     await connected(peer);
+    const slow = slowConnection({
+      gathering: gatheredAt - startedAt,
+      answer: answeredAt - gatheredAt,
+      connecting: performance.now() - answeredAt,
+    });
+    if (slow !== undefined) {
+      reportFailure(new Error(slow));
+    }
     return peerOf(peer);
   } catch (error: unknown) {
     peer.close();
@@ -626,18 +676,40 @@ async function connectOne(signaller: Signaller, rtcConfig: RTCConfiguration): Pr
   }
 }
 
-/** Resolves once peer has gathered its candidates, or after connectTimeoutMs with those it has. */
-function gathered(peer: RTCPeerConnection): Promise<void> {
+/** What gathered needs of a peer connection: the browser's, or a test's. */
+export interface GatheringPeer {
+  readonly iceGatheringState: RTCIceGatheringState;
+  addEventListener(type: "icegatheringstatechange", listener: () => void): void;
+  addEventListener(
+    type: "icecandidate",
+    listener: (event: RTCPeerConnectionIceEvent) => void,
+  ): void;
+}
+
+/**
+ * Resolves once peer has gathered its candidates, gatherAfterReflexiveMs after its first
+ * server-reflexive or relayed one, or after connectTimeoutMs with those it has, whichever is first.
+ */
+export function gathered(peer: GatheringPeer): Promise<void> {
   return new Promise((resolve) => {
     if (peer.iceGatheringState === "complete") {
       resolve();
       return;
     }
-    const timer = setTimeout(resolve, connectTimeoutMs);
+    const timers = [setTimeout(done, connectTimeoutMs)];
+    function done(): void {
+      timers.forEach(clearTimeout);
+      resolve();
+    }
     peer.addEventListener("icegatheringstatechange", () => {
       if (peer.iceGatheringState === "complete") {
-        clearTimeout(timer);
-        resolve();
+        done();
+      }
+    });
+    peer.addEventListener("icecandidate", (event) => {
+      const type = event.candidate?.type;
+      if (timers.length === 1 && (type === "srflx" || type === "relay")) {
+        timers.push(setTimeout(done, gatherAfterReflexiveMs));
       }
     });
   });

@@ -13,6 +13,8 @@ import {
 describe("reportFailure", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    // What a test reported before any sink is held for the next one's: sent nowhere, here.
+    sendFailuresTo(() => undefined);
   });
 
   it("writes the failure's cause itself to the console, so what the words left out can be read", () => {
@@ -35,5 +37,18 @@ describe("reportFailure", () => {
     }
     expect(sent).toHaveLength(failuresSentMost);
     expect(failureText("x".repeat(600))).toHaveLength(500);
+  });
+
+  // A sign-in's own connections are made before the page has anywhere to send failures, and one that
+  // took half a minute said so nowhere (staging, 2026-10-23).
+  it("holds what fails before the page sends failures anywhere, and sends it once it does", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.resetModules();
+    const fresh = await import("./problem.ts");
+    fresh.reportFailure(new Error("before the sign-in"));
+    const sent: string[] = [];
+    fresh.sendFailuresTo((text) => sent.push(text));
+    fresh.reportFailure(new Error("after it"));
+    expect(sent).toEqual(["Error: before the sign-in", "Error: after it"]);
   });
 });

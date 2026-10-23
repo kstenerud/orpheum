@@ -131,7 +131,11 @@ export function isProblemBody(value: unknown): value is UnknownProblemBody {
 export function reportFailure(cause: unknown): void {
   // eslint-disable-next-line no-console -- this is the reporter the console is for (standards/typescript.md)
   console.error("Orpheum: a request failed", cause);
-  if (failureSink.send !== undefined && failureSink.sent < failureSink.most) {
+  if (failureSink.send === undefined) {
+    if (failureSink.held.length < failureSink.most) {
+      failureSink.held.push(failureText(cause));
+    }
+  } else if (failureSink.sent < failureSink.most) {
     failureSink.sent += 1;
     failureSink.send(failureText(cause));
   }
@@ -140,10 +144,15 @@ export function reportFailure(cause: unknown): void {
 /** How many failures one page load sends on at most: a few say what went wrong, more only flood. */
 export const failuresSentMost = 20;
 
-/** Where failures go beside the console, and how many this page load sent. */
-const failureSink: { send?: (text: string) => void; sent: number; most: number } = {
+/**
+ * Where failures go beside the console, how many this page load sent, and those met before there was
+ * anywhere to send them: a sign-in's own connections are made before it, and one that took half a
+ * minute said so nowhere (staging, 2026-10-23).
+ */
+const failureSink: { send?: (text: string) => void; sent: number; most: number; held: string[] } = {
   sent: 0,
   most: failuresSentMost,
+  held: [],
 };
 
 /**
@@ -155,6 +164,10 @@ const failureSink: { send?: (text: string) => void; sent: number; most: number }
 export function sendFailuresTo(send: (text: string) => void): void {
   failureSink.send = send;
   failureSink.sent = 0;
+  for (const text of failureSink.held.splice(0)) {
+    failureSink.sent += 1;
+    send(text);
+  }
 }
 
 /** A failure as a line of text, its kind and its words, at most 500 characters. */
