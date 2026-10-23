@@ -15,7 +15,7 @@ import (
 )
 
 // A file source serves the film it opened, and fails a run whose film changes under it: what it
-// made would be of two films (§7.4).
+// made would be of two films (READ).
 func TestFileSource_ServesTheFilmItOpenedAndFailsOneThatChanges(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()

@@ -10,7 +10,7 @@ import (
 	"os"
 )
 
-// The frame types, as PROTOCOL.md §7 numbers them.
+// The frame types, as the specification's Message Types numbers them.
 const (
 	typeHello      int8 = 1
 	typeCapability int8 = 2

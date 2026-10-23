@@ -179,7 +179,7 @@ func testConfig(source Source) Config {
 }
 
 // A film is served whole, block by block, two READs in flight, and a run that exits 0 after DONE OK
-// for its run succeeded (§7, §9.10).
+// for its run succeeded (Messages, Judging a Run).
 func TestChannel_ServesAFilmWholeAndJudgesARunByItsDone(t *testing.T) {
 	t.Parallel()
 	source := newFilm(1000)
@@ -214,7 +214,7 @@ func (size sizedFilm) Size() int64 { return int64(size) }
 func (sizedFilm) ReadAt(context.Context, []byte, int64) error { return errors.New("never read") }
 
 // The node never offers FFmpeg a film past the protocol's largest size, 2^62 bytes, so no sum of the
-// size and a block can pass the largest int64 on either side (§8); a film of that size is served.
+// size and a block can pass the largest int64 on either side (Checks Without Overflow); a film of that size is served.
 func TestOpen_RefusesAFilmPastTheLargestSizeTheProtocolServes(t *testing.T) {
 	t.Parallel()
 	for _, example := range []struct {
@@ -232,7 +232,7 @@ func TestOpen_RefusesAFilmPastTheLargestSizeTheProtocolServes(t *testing.T) {
 }
 
 // However large a block FFmpeg offers, the node serves in blocks no larger than its own largest, so an
-// FFmpeg taken over by its film cannot make the node hold gigabytes for it (§7.3).
+// FFmpeg taken over by its film cannot make the node hold gigabytes for it (REQUEST).
 func TestChannel_ServesInBlocksNoLargerThanItsOwnLargestWhateverFFmpegOffers(t *testing.T) {
 	t.Parallel()
 	channel, fake := startFake(t, testConfig(newFilm(1000)))
@@ -252,7 +252,7 @@ func TestChannel_ServesInBlocksNoLargerThanItsOwnLargestWhateverFFmpegOffers(t *
 	channel.Finish()
 }
 
-// Every way FFmpeg can break the protocol ends its run: the node kills it and says why (§9.2).
+// Every way FFmpeg can break the protocol ends its run: the node kills it and says why (Serving).
 func TestChannel_KillsARunThatBreaksTheProtocol(t *testing.T) {
 	t.Parallel()
 	for _, breach := range []struct {
@@ -278,7 +278,7 @@ func TestChannel_KillsARunThatBreaksTheProtocol(t *testing.T) {
 			_, _ = fake.writing.Write([]byte{byte(typeRead), 2, 12}) //nolint:errcheck // the fake then exits
 			fake.exit()
 		}},
-		// The writer stops counting a READ when it takes it (§7.4), so with two allowed, one taken
+		// The writer stops counting a READ when it takes it (READ), so with two allowed, one taken
 		// and two waiting keep to the rules, and a fourth does not.
 		{"too many READs outstanding", func(fake *fakeFFmpeg) {
 			for range 4 {
@@ -303,7 +303,7 @@ func TestChannel_KillsARunThatBreaksTheProtocol(t *testing.T) {
 }
 
 // The opening exchange is checked too: a version range the node does not share, or a CAPABILITY
-// outside its rules, ends the run before any terms are sent (§7.1, §7.2).
+// outside its rules, ends the run before any terms are sent (HELLO, CAPABILITY).
 func TestChannel_KillsARunWhoseOpeningItCannotWorkWith(t *testing.T) {
 	t.Parallel()
 	for _, opening := range []struct {
@@ -338,7 +338,7 @@ func TestChannel_KillsARunWhoseOpeningItCannotWorkWith(t *testing.T) {
 }
 
 // A READ the film's storage cannot answer is never answered: the run is killed, and its account
-// says the film could not be read, which is the disk's failure, not the film's (§7.4).
+// says the film could not be read, which is the disk's failure, not the film's (READ).
 func TestChannel_KillsARunWhoseFilmCannotBeRead(t *testing.T) {
 	t.Parallel()
 	source := newFilm(1000)
@@ -355,7 +355,7 @@ func TestChannel_KillsARunWhoseFilmCannotBeRead(t *testing.T) {
 	}
 }
 
-// A run served more than its budget is killed before the read that would pass it (§9.6).
+// A run served more than its budget is killed before the read that would pass it (Budget).
 func TestChannel_KillsARunPastItsBudget(t *testing.T) {
 	t.Parallel()
 	config := testConfig(newFilm(1000))
@@ -374,7 +374,7 @@ func TestChannel_KillsARunPastItsBudget(t *testing.T) {
 	}
 }
 
-// A held run is answered nothing until it is released, and its held time is no failure (§2).
+// A held run is answered nothing until it is released, and its held time is no failure (Pausing).
 func TestChannel_AHeldRunIsAnsweredOnlyOnceReleased(t *testing.T) {
 	t.Parallel()
 	source := newFilm(1000)
@@ -398,7 +398,7 @@ func TestChannel_AHeldRunIsAnsweredOnlyOnceReleased(t *testing.T) {
 }
 
 // An FFmpeg that ends before its HELLO sent no DONE and is not killed: its exit says it failed
-// (§7.5). One that stops reading leaves the node's writer blocked, which Finish frees.
+// (DONE). One that stops reading leaves the node's writer blocked, which Finish frees.
 func TestChannel_FinishesWhateverStateFFmpegLeftItIn(t *testing.T) {
 	t.Parallel()
 	channel, fake := startFake(t, testConfig(newFilm(10)))
@@ -427,7 +427,7 @@ func TestChannel_FinishesWhateverStateFFmpegLeftItIn(t *testing.T) {
 	_ = fake.reading.Close() //nolint:errcheck // the fake's last end
 }
 
-// Frames after DONE are counted and change nothing: FFmpeg is exiting (§7.5).
+// Frames after DONE are counted and change nothing: FFmpeg is exiting (DONE).
 func TestChannel_FramesAfterDoneChangeNothing(t *testing.T) {
 	t.Parallel()
 	channel, fake := startFake(t, testConfig(newFilm(100)))
@@ -441,7 +441,7 @@ func TestChannel_FramesAfterDoneChangeNothing(t *testing.T) {
 	}
 }
 
-// A DONE that failed carries its kind, code and message, and the message is safe to log (§9.11).
+// A DONE that failed carries its kind, code and message, and the message is safe to log (Logging Text).
 func TestDecodeDone_ReadsAFailureAndMakesItsMessageSafeToLog(t *testing.T) {
 	t.Parallel()
 	message := []byte("Input/output error \x1b[31m\u202e\xff")

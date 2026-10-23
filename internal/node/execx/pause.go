@@ -22,7 +22,7 @@ type Pausing struct {
 	process  *os.Process // guarded by mutex: the running tool's, nil when none runs
 	dog      *watchdog   // guarded by mutex: the running tool's watchdog
 	// film is the running tool's streamed film, whose READs a pause holds, so a paused run reads
-	// nothing (ffstreamer's PROTOCOL.md §2); nil for a run that reads a file. Guarded by mutex.
+	// nothing (ffstreamer's specification, Pausing); nil for a run that reads a file. Guarded by mutex.
 	film filmHolder
 }
 

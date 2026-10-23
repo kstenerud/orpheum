@@ -11,7 +11,7 @@ import (
 
 // sizePipe asks for a pipe of size bytes, through SyscallConn's Control and never Fd, which would
 // put the descriptor in blocking mode, and then closing it would no longer free a blocked writer
-// (§4.3).
+// (Pipe Sizes).
 func sizePipe(pipe *os.File, size int) error {
 	raw, err := pipe.SyscallConn()
 	if err != nil {

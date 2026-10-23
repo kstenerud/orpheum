@@ -2,7 +2,7 @@
 
 // Package ffstreamertest is FFmpeg's side of ffstreamer, in Go, for tests: a test binary that stands
 // in for the patched FFmpeg reads its input through the node with it, as the real one does
-// (orpheum-ffmpeg's PROTOCOL.md, draft 6). It keeps to the protocol unless told not to, so a node
+// (orpheum-ffmpeg's ffstreamer-specification.md). It keeps to the protocol unless told not to, so a node
 // that judges it wrongly is the node's fault. It is imported only by tests.
 //
 // # Invariants
@@ -12,7 +12,7 @@
 //
 // # Read before changing
 //
-//   - D330, and PROTOCOL.md §5 to §7: the frames FFmpeg's side sends and expects.
+//   - D330, and the specification's Frames and Messages: the frames FFmpeg's side sends and expects.
 //
 // # Where to change
 //

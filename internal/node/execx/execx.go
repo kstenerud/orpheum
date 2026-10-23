@@ -152,7 +152,7 @@ func NewConfinedRunner(directory, shim string) (*Runner, error) {
 
 // LoggingTo has the runner log to logger what concerns the node rather than one run: once, that a
 // streamed film's pipe kept its default size, the user's pipe memory spent (ffstreamer's
-// PROTOCOL.md §4.3), so every streamed run reads slower.
+// specification, Pipe Sizes), so every streamed run reads slower.
 func (runner *Runner) LoggingTo(logger *slog.Logger) *Runner {
 	runner.logger = logger
 	return runner
@@ -172,7 +172,7 @@ func (runner *Runner) tellPipeSizeRefused(ctx context.Context, refused error) {
 // signalRun sends signal to the tool's process itself, through its pidfd where the kernel has one
 // (os.Process), so a process that left its group is still reached; then to its process group, which
 // also reaches anything an unconfined tool started. A confined tool can start nothing and leave no
-// group (confine's seccomp filter; ffstreamer's PROTOCOL.md §9.1, §9.8). A process or group already
+// group (confine's seccomp filter; ffstreamer's specification, Launching and Stopping). A process or group already
 // gone needs no signal, so neither is an error.
 func signalRun(process *os.Process, signal syscall.Signal) error {
 	err := process.Signal(signal)
@@ -471,7 +471,7 @@ func (runner *Runner) command(
 			return nil
 		}
 		// A cancel, or a stalled run that reads a streamed film, which keeps nothing it would write
-		// after a graceful quit (ffstreamer's PROTOCOL.md §9.8): killed at once.
+		// after a graceful quit (ffstreamer's specification, Stopping): killed at once.
 		err := runner.signalRun(command.Process, syscall.SIGKILL)
 		go runner.leaveRunningUnlessExited(ending)
 		return err

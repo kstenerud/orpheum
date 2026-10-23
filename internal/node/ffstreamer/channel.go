@@ -28,9 +28,9 @@ type Config struct {
 	// MostOutstanding is the most READs the node lets FFmpeg have unanswered, 1 to 16; FFmpeg's
 	// CAPABILITY may lower it.
 	MostOutstanding int8
-	// BudgetBytes is the most the run may be served; a run past it is killed (§9.6). Zero is no budget.
+	// BudgetBytes is the most the run may be served; a run past it is killed (Budget). Zero is no budget.
 	BudgetBytes int64
-	// DataPipeBytes is the size asked for the pipe that carries the bytes (§4.3); zero leaves it.
+	// DataPipeBytes is the size asked for the pipe that carries the bytes (Pipe Sizes); zero leaves it.
 	DataPipeBytes int
 }
 
@@ -38,15 +38,15 @@ type Config struct {
 var (
 	// ErrReadFailed is the film's storage failing to answer a READ: a read error, or its deadline.
 	ErrReadFailed = errors.New("the film could not be read for FFmpeg")
-	// ErrOverBudget is a run served more than its kind should need (§9.6).
+	// ErrOverBudget is a run served more than its kind should need (Budget).
 	ErrOverBudget = errors.New("FFmpeg asked for more of the film than its run should need")
 )
 
-// largestFileBytes is the largest file a REQUEST may give (§8): headroom, so the size plus a block,
-// a READ or a seek from the end never passes the largest int64 on either side.
+// largestFileBytes is the largest file a REQUEST may give (Checks Without Overflow): headroom, so the
+// size plus a block, a READ or a seek from the end never passes the largest int64 on either side.
 const largestFileBytes = 1 << 62
 
-// ErrFilmTooLarge is a film larger than the protocol may serve (§8), which no file is.
+// ErrFilmTooLarge is a film larger than the protocol may serve (Checks Without Overflow), which no file is.
 var ErrFilmTooLarge = errors.New("the film is larger than ffstreamer serves")
 
 // largestBlockBytes is the largest block the node serves in, whatever FFmpeg offers: the largest
@@ -57,7 +57,7 @@ const largestBlockBytes = 4 << 20
 // pipe already, so this bounds only a pipe some other process still holds.
 const drainWait = 5 * time.Second
 
-// Channel serves one input film to one FFmpeg run over two pipes (PROTOCOL.md): FFmpeg's READs come
+// Channel serves one input film to one FFmpeg run over two pipes (ffstreamer's specification): FFmpeg's READs come
 // on one, and the parent's answers go on the other. The node judges every frame FFmpeg sends, and
 // kills the run on any violation, any read the film's storage fails, and a budget passed.
 type Channel struct {
@@ -81,7 +81,7 @@ type Channel struct {
 	changed *sync.Cond
 	// isClosing ends the writer once FFmpeg has exited. Guarded by mutex.
 	isClosing bool
-	// isHeld holds READs back: a paused run reads nothing (§2). Guarded by mutex.
+	// isHeld holds READs back: a paused run reads nothing (Pausing). Guarded by mutex.
 	isHeld bool
 	// terms are the REQUEST sent, once it is. Guarded by mutex.
 	terms Terms
@@ -101,7 +101,7 @@ type Account struct {
 }
 
 // Succeeded is whether the run read its film whole by the channel's account, given FFmpeg's exit
-// status: it exited 0, said DONE OK for this run, and the node had no reason to fail it (§9.10).
+// status: it exited 0, said DONE OK for this run, and the node had no reason to fail it (Judging a Run).
 func (account Account) Succeeded(exitStatus int, run int64) bool {
 	return exitStatus == 0 && account.Failure == nil && account.Done != nil && account.Done.IsOK &&
 		account.Done.Run == run
@@ -132,7 +132,7 @@ func Open(config Config) (*Channel, error) {
 	}
 	channel.changed = sync.NewCond(&channel.mutex)
 	if config.DataPipeBytes > 0 {
-		// The protocol works at any size, only slower: past the user's pipe memory, 8 KiB (§4.3).
+		// The protocol works at any size, only slower: past the user's pipe memory, 8 KiB (Pipe Sizes).
 		channel.pipeSizeRefused = sizePipe(data, config.DataPipeBytes)
 	}
 	return channel, nil
@@ -149,7 +149,7 @@ func (channel *Channel) ChildFiles() []*os.File {
 }
 
 // InputArguments name the input for FFmpeg: the protocol alone allowed, its descriptors, and the
-// blocks it keeps (§4.1, §10.2).
+// blocks it keeps (Naming the Input, Reading in Blocks).
 func InputArguments(readFD, writeFD, cacheBlocks int) []string {
 	return []string{
 		"-protocol_whitelist", "ffstreamer",
@@ -160,13 +160,13 @@ func InputArguments(readFD, writeFD, cacheBlocks int) []string {
 }
 
 // CacheBlocks is how many blocks FFmpeg should keep for a run that reads streams of the film: a
-// film whose tracks are stored one after another is read from that many places at once (§10.2).
+// film whose tracks are stored one after another is read from that many places at once (Reading in Blocks).
 func CacheBlocks(streams int) int {
 	return max(2, (3*streams+1)/2+2)
 }
 
 // Start serves the channel to a started FFmpeg, whose run kill ends: it closes the node's copies of
-// FFmpeg's ends, so the request pipe ends when FFmpeg does (§4.2).
+// FFmpeg's ends, so the request pipe ends when FFmpeg does (Descriptors).
 func (channel *Channel) Start(ctx context.Context, kill func()) {
 	channel.kill = kill
 	_ = channel.childReading.Close() //nolint:errcheck // FFmpeg holds its own copy
@@ -182,7 +182,7 @@ func (channel *Channel) Abandon() {
 	}
 }
 
-// Hold stops serving READs, for a paused run; Release serves them again (§2).
+// Hold stops serving READs, for a paused run; Release serves them again (Pausing).
 func (channel *Channel) Hold() { channel.setHeld(true) }
 
 // Release ends a Hold.
@@ -197,7 +197,7 @@ func (channel *Channel) setHeld(isHeld bool) {
 
 // Finish ends a channel whose FFmpeg has exited, and says what it saw: it closes the data pipe,
 // which frees a writer FFmpeg left blocked, reads what FFmpeg wrote before it exited, and closes
-// the request pipe (§9.9).
+// the request pipe (End of a Run).
 func (channel *Channel) Finish() Account {
 	channel.mutex.Lock()
 	channel.isClosing = true
@@ -213,7 +213,7 @@ func (channel *Channel) Finish() Account {
 	_ = channel.requests.Close() //nolint:errcheck // read to its end, or given up on
 	<-channel.readerDone
 	// A storage read that waits in the kernel keeps its buffer until it returns, and is not waited
-	// for: a dead share holds one goroutine, never the run (§9.7).
+	// for: a dead share holds one goroutine, never the run (Read Deadline).
 	select {
 	case <-channel.writerDone:
 	case <-time.After(drainWait):
@@ -271,7 +271,7 @@ func (channel *Channel) read(ctx context.Context) {
 	}
 }
 
-// open makes the opening exchange (§7.1–§7.3): FFmpeg's HELLO, the node's, FFmpeg's CAPABILITY,
+// open makes the opening exchange (HELLO to REQUEST): FFmpeg's HELLO, the node's, FFmpeg's CAPABILITY,
 // and the node's terms. FFmpeg ending first is io.EOF: no terms, and so no DONE.
 func (channel *Channel) open() (Terms, error) {
 	got, body, err := readFrame(channel.requests, 0)
@@ -301,7 +301,7 @@ func (channel *Channel) open() (Terms, error) {
 		return Terms{}, err
 	}
 	// FFmpeg's preferred block, but never more than the node's largest: it holds a block's buffer for
-	// each run, and FFmpeg may have been taken over by its film (§7.3).
+	// each run, and FFmpeg may have been taken over by its film (REQUEST).
 	block := min(offered.preferredBlock, largestBlockBytes)
 	terms := Terms{
 		Version: version, Run: channel.config.Run, FileSize: channel.config.Source.Size(),
@@ -318,7 +318,7 @@ func (channel *Channel) take(got header, body []byte, terms Terms) error {
 	channel.mutex.Lock()
 	defer channel.mutex.Unlock()
 	if channel.account.Done != nil {
-		channel.account.LateFrames++ // FFmpeg is exiting; the frame changes nothing (§7.5)
+		channel.account.LateFrames++ // FFmpeg is exiting; the frame changes nothing (DONE)
 		return nil
 	}
 	switch got.kind {
@@ -335,7 +335,7 @@ func (channel *Channel) take(got header, body []byte, terms Terms) error {
 		if err != nil {
 			return err
 		}
-		// The writer stops counting a READ when it takes it to answer (§7.4).
+		// The writer stops counting a READ when it takes it to answer (READ).
 		if len(channel.waiting) >= int(terms.Outstanding) {
 			return fmt.Errorf("%w: %d READs unanswered, %d allowed", ErrViolation, len(channel.waiting)+1,
 				terms.Outstanding)
@@ -348,7 +348,7 @@ func (channel *Channel) take(got header, body []byte, terms Terms) error {
 }
 
 // write answers the READs in order: it reads the film into its own buffer, then writes DATA. Its
-// buffers are the channel's own, so no write waits on another channel (§9.3).
+// buffers are the channel's own, so no write waits on another channel (Serving).
 func (channel *Channel) write(ctx context.Context, terms Terms) {
 	defer close(channel.writerDone)
 	buffer := make([]byte, headerBytes+int(terms.LongestRead))
@@ -390,7 +390,7 @@ func (channel *Channel) next() (readRequest, bool) {
 }
 
 // spend counts length bytes against the budget, before they are read, without overflowing:
-// served is compared with what is left of the budget, never added to (§8).
+// served is compared with what is left of the budget, never added to (Checks Without Overflow).
 func (channel *Channel) spend(length int32) error {
 	channel.mutex.Lock()
 	defer channel.mutex.Unlock()

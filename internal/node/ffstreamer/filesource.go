@@ -14,7 +14,7 @@ import (
 )
 
 // ErrFilmChanged is a film that changed while a run read it: its size or modification time is not
-// what it was when the run began, so what the run made would be of two films (§7.4).
+// what it was when the run began, so what the run made would be of two films (READ).
 var ErrFilmChanged = errors.New("the film changed while it was read")
 
 // FileSource serves a film the node has opened, through its disk's gate: each read waits on the

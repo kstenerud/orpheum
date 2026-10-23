@@ -153,7 +153,7 @@ func TestRunWatched_AStreamedRunReadsItsFilmThroughTheNodeAndPassesOnItsDone(t *
 	}
 }
 
-// A run that breaks the protocol is killed, and fails as the node's verdict, not FFmpeg's (§9.2).
+// A run that breaks the protocol is killed, and fails as the node's verdict, not FFmpeg's (Serving).
 func TestRunWatched_AStreamedRunThatBreaksTheProtocolIsKilledAndFails(t *testing.T) {
 	t.Parallel()
 	started := time.Now() //nolint:forbidigo // bounds how long the kill took, in real time
@@ -182,7 +182,7 @@ func TestRunWatched_AStreamedRunWhoseFilmCannotBeReadStalledOnItsDisk(t *testing
 }
 
 // A paused streamed run reads nothing until it is continued: its READs are held as its process is
-// stopped (ffstreamer's PROTOCOL.md §2, D240 §6).
+// stopped (ffstreamer's specification, Pausing, D240 §6).
 func TestRunWatched_APausedStreamedRunReadsNothingUntilContinued(t *testing.T) {
 	t.Parallel()
 	pausing := &Pausing{}
@@ -247,7 +247,7 @@ func TestFilm_AStreamedFilmGrantsNoPathAndAFilmByPathGrantsOnlyItsOwn(t *testing
 }
 
 // The node says once, not at every run, that its films' pipes are at their default size, since every
-// run after the first finds the same (ffstreamer's PROTOCOL.md §4.3).
+// run after the first finds the same (ffstreamer's specification, Pipe Sizes).
 func TestRunner_SaysOnceThatAStreamedFilmsPipeKeptItsDefaultSize(t *testing.T) {
 	t.Parallel()
 	var logged bytes.Buffer

@@ -21396,7 +21396,7 @@ whose hybrid (a pipe where FFmpeg reads straight through, the file where it seek
 whose pinned FFmpeg becomes jellyfin-ffmpeg with our patches.
 
 1. **Every run that reads a film from storage reads it through the node,** by offset, over two
-   inherited pipes per input: the protocol *ffstreamer* (its PROTOCOL.md, draft 6, after five
+   inherited pipes per input: the protocol *ffstreamer* (its specification, after five
    audits). FFmpeg is given no path to the film, opens no socket, and never waits in the kernel on a
    dead share; the node's disk scheduler serves, paces, holds or refuses every read.
 2. **The patches live in their own repository** (orpheum-ffmpeg), applied after jellyfin-ffmpeg's own

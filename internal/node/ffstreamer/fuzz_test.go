@@ -20,7 +20,7 @@ const mostFuzzedBytes = 60 << 10
 
 // FFmpeg may have been taken over by the film it reads, so whatever it sends, the node must judge it
 // and end: Finish returns, no more than the budget is served, and the node kills the run exactly
-// when it records a reason to (§9.2). The seeds run with the package's tests; `go test -fuzz
+// when it records a reason to (Serving). The seeds run with the package's tests; `go test -fuzz
 // FuzzChannel_JudgesWhateverFFmpegSends ./internal/node/ffstreamer/` explores beyond them.
 func FuzzChannel_JudgesWhateverFFmpegSends(f *testing.F) {
 	for _, seed := range fuzzSeeds() {

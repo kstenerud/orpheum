@@ -29,7 +29,7 @@ func deniedSyscalls() []uint32 {
 		// its driver needs (onlyUnixSockets).
 		unix.SYS_SOCKET, unix.SYS_SOCKETPAIR,
 		// No session or process group of its own: a run that left its group would escape a kill sent
-		// to the group, and hold its descriptors open past it (ffstreamer's PROTOCOL.md, draft 6, §9.1;
+		// to the group, and hold its descriptors open past it (ffstreamer's specification, Launching;
 		// its third audit, M4).
 		unix.SYS_SETSID, unix.SYS_SETPGID,
 	}
