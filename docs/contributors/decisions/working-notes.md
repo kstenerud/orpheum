@@ -18531,8 +18531,17 @@ to end. **Revises**
    which the scan's own work needs, asking again every half minute. Work a person waits for never
    waits for it. It stays beside §2: without it, each batch of a scan would bump a read-through that
    started again behind it, throwing its reading away each time.
+4. **Slow work leaves a disk's last reader to faster work that came for it in the last five
+   seconds** (added 2026-10-23, until D329's node-side disk scheduler replaces bumping). Each kind's
+   jobs are claimed by its own runner, so when a piece of fast work ended and freed a reader, a
+   read-through could take it first and be bumped by the next piece moments later, its reading
+   thrown away: on staging's first scan of 12,000 files, 2,654 times in half an hour, beside the
+   index reads and artwork, each 50 to 400 ms after a reader freed. Slow work now waits on the
+   disk's last reader, a destination of its own, until the faster work has been quiet five
+   seconds, which holds a read-through back no longer than that once it ends; while a reader stays free after it, it
+   starts as before. Work a person asked for is never held.
 
-**Status:** Decided 2026-10-07.
+**Status:** Decided 2026-10-07; §4 added 2026-10-23, after the owner asked for the churn's fix.
 
 ---
 

@@ -36,13 +36,14 @@ const (
 
 // The prefixes of the destinations named by a node.
 const (
-	nodePrefix      = "node:"
-	rootPrefix      = "root:"
-	preparedPrefix  = "prepared:"
-	slotPrefix      = "slot:"
-	readerPrefix    = "reader:"
-	quickPassPrefix = "quickpass:"
-	playingPrefix   = "playing:"
+	nodePrefix       = "node:"
+	rootPrefix       = "root:"
+	preparedPrefix   = "prepared:"
+	slotPrefix       = "slot:"
+	readerPrefix     = "reader:"
+	quickPassPrefix  = "quickpass:"
+	lastReaderPrefix = "lastreader:"
+	playingPrefix    = "playing:"
 )
 
 // NodeDestination is a node: down while it is not connected or silent; its hello brings it back.
@@ -86,6 +87,12 @@ func QuickPassDestination(nodeID int64, device string) Destination {
 	return Destination(quickPassPrefix + strconv.FormatInt(nodeID, 10) + ":" + device)
 }
 
+// LastReaderDestination is a device of a node's whose last free reader is kept for faster work that
+// used it lately (D255 §4): slow work waits on it until that work has been quiet for a while.
+func LastReaderDestination(nodeID int64, device string) Destination {
+	return Destination(lastReaderPrefix + strconv.FormatInt(nodeID, 10) + ":" + device)
+}
+
 // DestinationParts are what a destination's name says: which outside host or node it is.
 type DestinationParts struct {
 	// NodeID is the node a node's, a root's or a prepared directory's destination is on; 0 for
@@ -93,13 +100,14 @@ type DestinationParts struct {
 	NodeID int64
 	// Path is a root's or a mount's path on its node.
 	Path string
-	// IsNode, IsRoot, IsPreparedDirectory, IsSlot, IsQuickPass and IsPlaying say which of a node's
-	// destinations it is; a device's readers are a slot too, to a person.
+	// IsNode, IsRoot, IsPreparedDirectory, IsSlot, IsQuickPass, IsLastReader and IsPlaying say which
+	// of a node's destinations it is; a device's readers are a slot too, to a person.
 	IsNode              bool
 	IsRoot              bool
 	IsPreparedDirectory bool
 	IsSlot              bool
 	IsQuickPass         bool
+	IsLastReader        bool
 	IsPlaying           bool
 }
 
@@ -125,6 +133,10 @@ func PartsOf(destination Destination) DestinationParts {
 		idText, _, _ := strings.Cut(strings.TrimPrefix(name, quickPassPrefix), ":")
 		id, _ := strconv.ParseInt(idText, 10, 64) //nolint:errcheck // 0 if not
 		return DestinationParts{NodeID: id, IsQuickPass: true}
+	case strings.HasPrefix(name, lastReaderPrefix):
+		idText, _, _ := strings.Cut(strings.TrimPrefix(name, lastReaderPrefix), ":")
+		id, _ := strconv.ParseInt(idText, 10, 64) //nolint:errcheck // 0 if not
+		return DestinationParts{NodeID: id, IsLastReader: true}
 	case strings.HasPrefix(name, rootPrefix):
 		idText, path, _ := strings.Cut(strings.TrimPrefix(name, rootPrefix), ":")
 		id, _ := strconv.ParseInt(idText, 10, 64) //nolint:errcheck // 0 if not
@@ -160,6 +172,8 @@ func DescribeDestination(destination Destination, nodeName func(nodeID int64) st
 		return "a free slot on node " + nodeName(parts.NodeID)
 	case parts.IsQuickPass:
 		return "a scan's first look at a disk on node " + nodeName(parts.NodeID)
+	case parts.IsLastReader:
+		return "quicker work on a disk of node " + nodeName(parts.NodeID)
 	case parts.IsPlaying:
 		return "the film playing on node " + nodeName(parts.NodeID) + " to keep up"
 	}

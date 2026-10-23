@@ -117,7 +117,8 @@ func (all *Exchanges) Assign(ctx context.Context, nodeID int64, job jobs.Job, co
 // (D255 §2). Play-driven work is never held back for its slot or its device's readers: the node pauses
 // the background work reading it, and one person's watching never waits for another's (D240 §6).
 // Background work that reads whole files waits too while a scan is on its quick pass of its disk
-// (D255 §3). It is nil while there is room, and for a node whose resources are not known.
+// (D255 §3), and slow work leaves a disk's last reader to faster work that came for it lately (§4).
+// It is nil while there is room, and for a node whose resources are not known.
 func (all *Exchanges) parkIfWindowFull(
 	ctx context.Context, nodeID int64, work nodeproto.Work, priority int64,
 ) error {
@@ -142,18 +143,23 @@ func (all *Exchanges) parkIfWindowFull(
 		return parked
 	}
 	incoming := tierOf(work, priority)
+	all.noteFasterWork(nodeID, device, incoming)
 	if inSlot, _ := all.heldOn(nodeID, resources, slot, ""); slot != "" &&
 		inSlot >= resources.Capacity.SlotCount(slot)+int(extra) {
 		if !all.bumpFor(ctx, nodeID, incoming, func(held Attempt) bool { return held.Work.Slot() == slot }) {
 			return full(jobs.SlotDestination(nodeID, string(slot)))
 		}
 	}
-	if _, onDevice := all.heldOn(nodeID, resources, "", device); device != "" &&
-		onDevice >= resources.readerLimit(device)+int(extra) {
+	_, onDevice := all.heldOn(nodeID, resources, "", device)
+	readers := resources.readerLimit(device) + int(extra)
+	if device != "" && onDevice >= readers {
 		readsDevice := func(held Attempt) bool { return resources.deviceOf(held.Work) == device }
 		if !all.bumpFor(ctx, nodeID, incoming, readsDevice) {
 			return full(jobs.ReaderDestination(nodeID, device))
 		}
+	}
+	if parked := all.parkForFasterWork(nodeID, device, incoming, onDevice, readers); parked != nil {
+		return parked
 	}
 	return all.parkBehindQuickPass(ctx, nodeID, resources, work, priority, device)
 }
