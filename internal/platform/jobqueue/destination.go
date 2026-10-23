@@ -177,20 +177,21 @@ func (queue *Queue[T]) probeDelay(ctx context.Context, step int64) time.Duration
 }
 
 // Unpark marks a destination up and wakes every runner, so its work resumes, highest priority
-// first, and asks for every sweep, so work lost while it was down is derived again (D231 §3). A
-// destination not parked is left as it is.
+// first. One that was down asks for every sweep too, so work lost while it was down is derived again
+// (D231 §3); one that only had no room lost nothing, since its jobs waited in the queue, and asks for
+// none: a node frees a slot every few seconds. A destination not parked is left as it is.
 func (queue *Queue[T]) Unpark(ctx context.Context, destination Destination) {
 	queue.destinations.mutex.Lock()
 	parked, wasParked := queue.destinations.parkedBy[destination]
 	delete(queue.destinations.parkedBy, destination)
 	queue.destinations.mutex.Unlock()
 	if wasParked {
+		queue.Wake()
 		if parked.isBackPressure {
 			queue.logger.DebugContext(ctx, "a destination has room; its work resumes", "destination", destination)
-		} else {
-			queue.logger.InfoContext(ctx, "a destination is back; its work resumes", "destination", destination)
+			return
 		}
-		queue.Wake()
+		queue.logger.InfoContext(ctx, "a destination is back; its work resumes", "destination", destination)
 		queue.RequestSweeps()
 	}
 }
