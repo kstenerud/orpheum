@@ -1521,6 +1521,44 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   default.
 
 
+### jellyfin-ffmpeg's portable build needs libva 2.21 or later from the system
+
+- **Cause:** the portable build binds to the system's `libva.so.2` when it first calls it, and calls
+  `vaMapBuffer2`, which libva added in 2.21. On Ubuntu 24.04 and Linux Mint 22 (libva 2.20) any VAAPI
+  run aborts: `implib-gen: libva.so.2: failed to resolve symbol 'vaMapBuffer2'`, then an assertion,
+  exit 134. AMD's own encoder in the build, AMF, needs AMD's proprietary driver, so with Mesa's it
+  produces nothing.
+- **What we do:** the node runs in the release image, Debian trixie, whose libva is 2.22. A bare
+  install on an older distribution has no VAAPI.
+- **Evidence:** "amd" (Linux Mint 22.3, Radeon RX 6600 XT), 2026-10-23: aborted on the host; in a
+  trixie container with `libva2` 2.22 and `mesa-va-drivers` 25.0.7, `h264_vaapi` encoded.
+
+
+### `h264_vaapi` writes the driver's description, with the card's name, into the stream
+
+- **Cause:** FFmpeg's VAAPI H.264 encoder writes an SEI naming itself and the VA driver, whose
+  description on AMD takes the card's marketing name from libdrm's table,
+  `/usr/share/libdrm/amdgpu.ids`. A confined run may not read it, so the driver says "AMD Radeon
+  Graphics" where an unconfined run says "AMD Radeon RX 6600 XT": the first packet differs by two
+  bytes, and the pictures not at all.
+- **What we do:** nothing; compare decoded frames, not the encoded bytes, when checking a confined
+  VAAPI encode against an unconfined one.
+- **Evidence:** "amd", 2026-10-23 (VQ52): 240 decoded frames identical; hiding `amdgpu.ids` from an
+  unconfined run gave the confined run's bytes exactly.
+
+
+### FFmpeg takes any protocol it doesn't know as local for a network one, and reads forward rather than seek
+
+- **Cause:** opening an indexed file (MP4), `ff_configure_buffers_for_index` (`libavformat/seek.c`)
+  treats any protocol but `file`, `pipe` and `cache` as a network one, where a seek costs a round
+  trip: it enlarges the I/O buffer up to 16 MiB, and has a seek of up to 8 MiB read forward instead.
+- **What we do:** orpheum-ffmpeg's patch adds `ffstreamer` to those local protocols, so a streamed
+  film is read as a file is (D330).
+- **Evidence:** orpheum-ffmpeg's bench/RESULTS.md, 2026-10-23: through ffstreamer, a probe of an
+  11-track MP4 read in 16 MB runs and was served 25 times its size, where the same file read directly
+  touched 12 blocks of 1 MiB; with the patch it was served a tenth of its size.
+
+
 ### ffprobe's output quirks
 
 - **Cause:** numbers come as strings, and "N/A" appears. A Matroska stream's duration is only a `DURATION`
