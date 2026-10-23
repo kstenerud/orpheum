@@ -30,7 +30,8 @@ machine itself can come from it, as nothing else reaches 127.0.0.1.
 | Machine | GPU | Encoder | Docker | Situation it covers | Last run |
 | --- | --- | --- | --- | --- | --- |
 | gpuhost | RTX 3090 (driver 580) | `h264_nvenc` | 29, rootless, NVIDIA by CDI | NVIDIA; rootless Docker; the toolkit's CDI spec | 8/8, 2026-10-23 |
-| gpuhost | as above | `h264_nvenc` | rootful, NVIDIA by the toolkit's `nvidia` driver | NVIDIA as most households install it (VQ53) | not run: needs `orpheum` in the `docker` group |
+| gpuhost | as above | `h264_nvenc` | 29.9.2, rootful, toolkit 1.20 from apt | NVIDIA as most households install it: the install chose CDI, the toolkit's own spec | 8/8, 2026-10-23 |
+| gpuhost | as above | `h264_nvenc` | as above, the override switched by hand to the `nvidia` driver's reservation | Docker's `nvidia` driver (VQ53) | 8/8, 2026-10-23 |
 | amd | Radeon RX 6600 XT | `h264_vaapi` | 29, rootful, compose as a user plugin | AMD through Mesa (D332) | 8/8, 2026-10-23 |
 | staging host | Iris Plus 640, Gen 9.5 | `h264_vaapi` | as amd | Intel before Gen 12: Quick Sync fails, VAAPI by iHD | 8/8, 2026-10-23 |
 | T450 | HD Graphics 5500, Gen 8 | `h264_vaapi` | as amd | the oldest Intel: VAAPI by iHD | 8/8, 2026-10-23 |
@@ -45,7 +46,6 @@ Situations each machine met on the way, now handled or documented: rootless Dock
 update, and Docker without the compose plugin (the install script says to install it), in
 `docs/users/setup-problems.md` and `docs/contributors/idiosyncrasies.md`.
 
-**Open:** under rootless Docker the core sees every device at Docker's gateway, never at its own
-address, so no one administers it from home ("administering works only from the server's own
-network"). Docker's userland proxy re-originates each connection; turning it off needs the
-`br_netfilter` module, which only root loads.
+**Rootless Docker** hides each device's address behind its userland proxy, so no one administers
+from home; the install script now says so and gives the fix (`docs/users/setup-problems.md`),
+which waits on VQ54 to be seen working.

@@ -73,7 +73,9 @@ done
 # there it is the container's root, which is this user on the host and nobody more.
 runAs="$(id -u):$(id -g)"
 # docker info lists its security options one to a line, rootless among them when it is.
+isRootless=false
 if docker info 2>/dev/null | grep -qE '^[[:space:]]+rootless$'; then
+	isRootless=true
 	runAs=0:0
 fi
 
@@ -216,6 +218,24 @@ ipv6Report() {
 	say "  a public IPv6 address: no; devices away from home reach it only where IPv4 lets them (give this machine IPv6: a Proxmox container's network takes IPv6 SLAAC)"
 }
 ipv6Report
+# Rootless Docker hands each connection to a published port on through its userland proxy, so the
+# server sees every device at Docker's own gateway, none at home, and no one can administer it (D297
+# §6). RootlessKit 3 keeps the device's address once the proxy is off, which needs br_netfilter,
+# loaded by root; without the module, the daemon will not start with the proxy off.
+daemonConfig="${XDG_CONFIG_HOME:-$HOME/.config}/docker/daemon.json"
+if $isRootless; then
+	if grep -qsE '"userland-proxy"[[:space:]]*:[[:space:]]*false' "$daemonConfig"; then
+		say "  rootless Docker: its userland proxy is off, so the server sees each device's own address"
+	else
+		say "  rootless Docker: its userland proxy hides each device's address, so the server sees none at home and no one can administer it. To fix it:"
+		next="add"
+		if [ ! -e "$procSys/net/bridge/bridge-nf-call-iptables" ]; then
+			say "    as root: modprobe br_netfilter && echo br_netfilter > /etc/modules-load.d/br_netfilter.conf"
+			next="then add"
+		fi
+		say "    $next \"userland-proxy\": false to $daemonConfig, run systemctl --user restart docker, and run this again"
+	fi
+fi
 if grep -qs bbr /proc/sys/net/ipv4/tcp_available_congestion_control || [ -d /sys/module/tcp_bbr ]; then
 	say "  BBR: yes, which keeps a film's rate on a lossy link"
 else

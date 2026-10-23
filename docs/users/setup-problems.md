@@ -66,6 +66,24 @@ that the server has changed. Since 2026-10-19 the page is loaded fresh each time
 kept copy is used only when that fails, so this happens only to a device that kept a page from
 before then.
 
+## The installer says "rootless Docker: its userland proxy hides each device's address"
+
+Rootless Docker passes every connection to the server through a proxy of its own, so the server
+sees each phone and computer at Docker's address instead of its own, never at home. Administering
+works only from home, so no one can administer it, and the server says "administering works only
+from the server's own network for now: open it at home".
+
+RootlessKit 3, which Docker 29 ships, keeps each device's address once the proxy is off. In this
+order (turning the proxy off first stops Docker from starting at all):
+
+1. As root, load the kernel module it needs, now and at every start:
+   `modprobe br_netfilter && echo br_netfilter > /etc/modules-load.d/br_netfilter.conf`
+2. As the user Docker runs as, add `"userland-proxy": false` to `~/.config/docker/daemon.json`
+   (keep anything else it has), then `systemctl --user restart docker`.
+3. Run the installer again with the same command. It says the proxy is off.
+
+RootlessKit 3.2.0 alone lost the address even so; 3.3.0 fixed it (`rootlesskit --version`).
+
 ## The installer says Landlock "cannot be seen from here"
 
 In a container, as in Proxmox's, the installer cannot read the host's list of security modules,

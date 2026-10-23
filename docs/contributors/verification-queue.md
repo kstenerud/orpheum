@@ -527,7 +527,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   node is tested (`system.test.tsx`). The same kit on a staging host (Iris Plus 640, Kaby Lake, Gen 9.5)
   found Quick Sync failing in the release image ("Error creating a MFX session: -9") and VAAPI
   working: confined and streamed encodes decoded to the unconfined frames, keyframes where asked.
-- [ ] **VQ53** — On a machine with an NVIDIA card, its driver and the NVIDIA Container Toolkit under
+- [x] **VQ53** — On a machine with an NVIDIA card, its driver and the NVIDIA Container Toolkit under
   rootful Docker, whose Docker has no CDI spec for the card: run the install script from main.
   It reports "an NVIDIA GPU: yes", `compose.override.yaml` reserves the `nvidia` driver with the
   gpu, compute, video and utility capabilities, and the node's log says it chose `h264_nvenc`.
@@ -536,3 +536,16 @@ An item is ticked only by the person who did it, and only with what they saw.
   verified 2026-10-23 by Claude on gpuhost.example (RTX 3090, driver 580.178.04, rootless Docker 29.9.2,
   a spec from `nvidia-ctk cdi generate`): the install chose CDI, and the node, confined under
   `require`, chose `h264_nvenc`.
+  — done 2026-10-23 by Claude on gpuhost.example, rootful Docker 29.9.2 with the toolkit 1.20 from
+  NVIDIA's apt repository, by `deploy/hwtest/hwtest.sh`: the toolkit wrote its own CDI spec, so the
+  install chose CDI (8 of 8 films played, only `h264_nvenc` run); with the node's override switched
+  by hand to the `nvidia` driver's reservation and the node recreated, it chose `h264_nvenc` again
+  and 8 of 8 played. Docker 29 may satisfy that reservation through the same CDI spec, so a machine
+  with the hook and no spec at all (a toolkit before 1.18) is not covered.
+- [ ] **VQ54** — On a machine with rootless Docker 29 (RootlessKit 3.3 or later): with the
+  userland proxy on, the install script reports that it hides each device's address and gives the
+  fix; after `modprobe br_netfilter` as root, `"userland-proxy": false` in
+  `~/.config/docker/daemon.json` and `systemctl --user restart docker`, it reports the proxy off, and
+  a sign-in from another machine at home logs `path="direct from home"` and may administer. Only a
+  real rootless daemon shows whose address the core sees.
+  (`internal/deployment/templates/install.sh`, `docs/users/setup-problems.md`)
