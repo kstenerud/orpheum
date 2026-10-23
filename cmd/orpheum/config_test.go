@@ -3,7 +3,9 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -385,5 +387,24 @@ func TestServerConfig_StartsOnNoHomeNetworkAProxyOrTunnelSpeaksFrom(t *testing.T
 		return network.Contains(netip.MustParseAddr("192.168.1.20"))
 	}) {
 		t.Errorf("home_networks' starting value %s leaves out a home router's 192.168.1.20", starting)
+	}
+}
+
+// A play's GET queues the chunks it plays on purpose, which the store's tests allow; the server
+// warned of it on every play (nas.example, 2026-10-23). Only a write no reading request may make warns.
+func TestLoggingReaderWrites_WarnsOnlyOfAWriteNoReadingRequestMayMake(t *testing.T) {
+	t.Parallel()
+	var logged bytes.Buffer
+	logWrite := loggingReaderWrites(t.Context(), slog.New(slog.NewTextHandler(&logged,
+		&slog.HandlerOptions{Level: slog.LevelDebug})))
+	logWrite("cache.db", "github.com/kstenerud/orpheum/internal/core/chunks.(*Service).storeIDOf")
+	if text := logged.String(); !strings.Contains(text, "level=DEBUG") || strings.Contains(text, "level=WARN") ||
+		!strings.Contains(text, "chunk store") {
+		t.Errorf("an allowed write logged %q; want it at debug, with why", text)
+	}
+	logged.Reset()
+	logWrite("persistent.db", "github.com/kstenerud/orpheum/internal/core/auth.(*Service).Authenticate")
+	if text := logged.String(); !strings.Contains(text, "level=WARN") || !strings.Contains(text, "Authenticate") {
+		t.Errorf("a write no reading request may make logged %q; want a warning naming it", text)
 	}
 }

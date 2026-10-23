@@ -684,9 +684,15 @@ func loggingSlowWrites(ctx context.Context, logger *slog.Logger) func(store.Slow
 }
 
 // loggingReaderWrites logs each database write a request that only reads made: reading never
-// writes (D303, DL10), and the log names what did.
+// writes (D303, DL10), and the log names what did. A write the store allows a reading request, as a
+// play's GET queuing the chunks it plays, is logged at debug, with why; any other is a warning.
 func loggingReaderWrites(ctx context.Context, logger *slog.Logger) func(file, caller string) {
 	return func(file, caller string) {
+		if why, isAllowed := store.ReaderWriteAllowed(caller); isAllowed {
+			logger.DebugContext(ctx, "a request that only reads wrote to the database, as it may",
+				"file", file, "caller", caller, "why", why)
+			return
+		}
 		logger.WarnContext(ctx, "a request that only reads wrote to the database", "file", file, "caller", caller)
 	}
 }
