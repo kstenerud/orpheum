@@ -12,10 +12,15 @@ REPO = Path(__file__).resolve().parents[2]
 TEMPLATE = REPO / "internal" / "deployment" / "templates" / "install.sh"
 
 # A docker that logs each call, begins a values file the first time a write-deployment runs over a
-# directory that has none, failing then as the real one does to say what to fill in, and answers
-# setup-code with a code.
+# directory that has none, failing then as the real one does to say what to fill in, answers
+# setup-code with a code, and hands over NVIDIA's GPUs as FAKE_NVIDIA says.
 FAKE_DOCKER = """#!/bin/sh
 echo "docker $*" >> "$FAKE_LOG"
+case "$*" in
+# A trial of handing over NVIDIA's GPUs: FAKE_NVIDIA names the one way that works, if any.
+*"--entrypoint true --device nvidia.com/gpu=all"*) [ "$FAKE_NVIDIA" = cdi ]; exit ;;
+*"--entrypoint true --gpus driver=nvidia,count=all"*) [ "$FAKE_NVIDIA" = driver ]; exit ;;
+esac
 case "$1 $2" in
 "run "*)
     for arg in "$@"; do
@@ -79,7 +84,8 @@ class Install(unittest.TestCase):
             (self.proc_sys / "net/ipv6/conf" / setting).write_text(value + "\n")
         self.script = (TEMPLATE.read_text().replace("{{.Image}}", "ghcr.io/example/orpheum:v1.2.3")
                        .replace("procSys=/proc/sys", f"procSys={self.proc_sys}")
-                       .replace("lsmList=/sys/kernel/security/lsm", f"lsmList={self.root / 'lsm'}"))
+                       .replace("lsmList=/sys/kernel/security/lsm", f"lsmList={self.root / 'lsm'}")
+                       .replace("nvidiaControl=/dev/nvidiactl", f"nvidiaControl={self.root / 'nvidiactl'}"))
         self.dir = self.root / "orpheum"
 
     def install(self, *args: str, **env: str) -> subprocess.CompletedProcess:
@@ -174,6 +180,37 @@ class Install(unittest.TestCase):
         self.assertEqual(done.returncode, 1)
         self.assertIn("permission denied", done.stderr)
         self.assertNotIn("compose up", self.logged())
+
+    def test_an_nvidia_gpu_is_handed_over_the_way_docker_can_and_named_to_write_deployment(self):
+        films = self.root / "films"
+        films.mkdir()
+        (self.root / "nvidiactl").touch()
+        for way in ("cdi", "driver"):
+            with self.subTest(way=way):
+                self.log.unlink(missing_ok=True)
+                done = self.install("--media", str(films), "--dir", str(self.dir), FAKE_NVIDIA=way)
+                self.assertEqual(done.returncode, 0, done.stderr)
+                writes = [line for line in self.logged().splitlines() if "write-deployment" in line]
+                self.assertTrue(writes and all(line.endswith(f"--nvidia {way}") for line in writes), writes)
+                self.assertIn("an NVIDIA GPU: yes, for hardware encoding", done.stderr)
+
+    def test_an_nvidia_gpu_docker_cannot_hand_over_is_named_with_the_toolkit_to_install(self):
+        films = self.root / "films"
+        films.mkdir()
+        (self.root / "nvidiactl").touch()
+        done = self.install("--media", str(films), "--dir", str(self.dir))
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertNotIn("--nvidia", self.logged())
+        self.assertIn("install the NVIDIA Container Toolkit", done.stderr)
+
+    def test_a_machine_with_no_nvidia_driver_tries_nothing_and_says_nothing_of_nvidia(self):
+        films = self.root / "films"
+        films.mkdir()
+        done = self.install("--media", str(films), "--dir", str(self.dir), FAKE_NVIDIA="cdi")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertNotIn("--entrypoint", self.logged())
+        self.assertNotIn("--nvidia", self.logged())
+        self.assertNotIn("NVIDIA", done.stderr)
 
     def test_an_image_built_here_is_not_pulled(self):
         films = self.root / "films"

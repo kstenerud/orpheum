@@ -58,7 +58,40 @@ type Runtime struct {
 	UID, GID int
 	// RenderGID is the group of the GPU's render node, or -1 when the machine has none.
 	RenderGID int
+	// NVIDIA is how Docker hands the machine's NVIDIA GPUs to a container, which the install script
+	// found by trying it (D333); NVIDIANone when the machine has none or Docker cannot.
+	NVIDIA NVIDIAAccess
 }
+
+// NVIDIAAccess is how Docker hands a machine's NVIDIA GPUs to a container, with the driver's own
+// libraries, which no image can carry since they must match the host's kernel driver (D333).
+type NVIDIAAccess string
+
+const (
+	// NVIDIANone gives a container no NVIDIA GPU.
+	NVIDIANone NVIDIAAccess = ""
+	// NVIDIAByCDI names the GPUs as the NVIDIA container toolkit's CDI spec describes them.
+	NVIDIAByCDI NVIDIAAccess = "cdi"
+	// NVIDIAByDriver asks Docker's nvidia device driver, which the toolkit's hook provides.
+	NVIDIAByDriver NVIDIAAccess = "driver"
+)
+
+// ParseNVIDIAAccess is the NVIDIAAccess named name: cdi, driver, or empty for none.
+func ParseNVIDIAAccess(name string) (NVIDIAAccess, error) {
+	switch access := NVIDIAAccess(name); access {
+	case NVIDIANone, NVIDIAByCDI, NVIDIAByDriver:
+		return access, nil
+	default:
+		return NVIDIANone, fmt.Errorf("NVIDIA access %q: want cdi, driver or nothing", name)
+	}
+}
+
+// nvidiaCDIDevice is every NVIDIA GPU, by the name the toolkit's CDI spec gives them.
+const nvidiaCDIDevice = "nvidia.com/gpu=all"
+
+// nvidiaCapabilities are what of the driver an encode needs: CUDA, which NVENC opens its session
+// with, the video encoder and decoder, and nvidia-smi's library, which reports the card.
+func nvidiaCapabilities() []string { return []string{"gpu", "compute", "video", "utility"} }
 
 // Begin starts a deployment in dir: the values file, from its template, marked as kind, and the
 // tunnel's key pair. It returns the tunnel's public key, for the VPS. It refuses a directory that
@@ -111,7 +144,7 @@ func Write(dir string, values Values, runtime Runtime) error {
 			return writeErr
 		}
 	}
-	override, err := mediaOverride(values.Media.Roots, runtime.RenderGID)
+	override, err := mediaOverride(values.Media.Roots, runtime.RenderGID, runtime.NVIDIA)
 	if err != nil {
 		return err
 	}
@@ -205,17 +238,31 @@ func environment(values Values, runtime Runtime) string {
 }
 
 // mediaOverride is the compose override that gives the node the media, read-only at their own
-// paths, and the GPU when the machine has one (renderGID >= 0): what differs from machine to
-// machine. Compose reads compose.override.yaml beside compose.yaml by itself.
-func mediaOverride(roots []string, renderGID int) ([]byte, error) {
+// paths, the GPU when the machine has one (renderGID >= 0), and its NVIDIA GPUs as Docker hands them
+// over (D333): what differs from machine to machine. Compose reads compose.override.yaml beside
+// compose.yaml by itself.
+func mediaOverride(roots []string, renderGID int, nvidia NVIDIAAccess) ([]byte, error) {
 	volumes := make([]string, 0, len(roots))
 	for _, root := range roots {
 		volumes = append(volumes, root+":"+root+":ro")
 	}
 	node := map[string]any{"volumes": volumes}
+	var devices []string
 	if renderGID >= 0 {
-		node["devices"] = []string{"/dev/dri:/dev/dri"}
+		devices = append(devices, "/dev/dri:/dev/dri")
 		node["group_add"] = []string{strconv.Itoa(renderGID)}
+	}
+	switch nvidia {
+	case NVIDIAByCDI:
+		devices = append(devices, nvidiaCDIDevice)
+	case NVIDIAByDriver:
+		node["deploy"] = map[string]any{"resources": map[string]any{"reservations": map[string]any{
+			"devices": []map[string]any{{"driver": "nvidia", "count": "all", "capabilities": nvidiaCapabilities()}},
+		}}}
+	case NVIDIANone:
+	}
+	if devices != nil {
+		node["devices"] = devices
 	}
 	// JSON is YAML; written as JSON, no path needs quoting by hand.
 	text, err := json.MarshalIndent(map[string]any{"services": map[string]any{"orpheum-node": node}}, "", "  ")

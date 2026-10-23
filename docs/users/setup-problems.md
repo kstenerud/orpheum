@@ -74,6 +74,22 @@ unconfined. To check the host itself, run `cat /sys/kernel/security/lsm` on it (
 host's shell, not the container's): the list must include `landlock`; if it does not,
 `cat /proc/cmdline` shows whether the kernel was started with `lsm=landlock,…`.
 
+## The installer says "an NVIDIA GPU: yes, but Docker cannot hand it to a container"
+
+An NVIDIA card encodes only with its driver's own libraries, which must match the driver the
+machine runs, so the server's image cannot carry them. NVIDIA's Container Toolkit puts them into
+the container as it starts. Until it is installed, films that need preparing are encoded on the
+processor.
+
+- **Install the toolkit** as NVIDIA's guide says
+  (https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html),
+  then run the installer again with the same command. It tries the card both ways the toolkit
+  offers, CDI and Docker's `nvidia` driver, and uses whichever works.
+- **Rootless Docker** takes the card by CDI only: as the user Docker runs as,
+  `nvidia-ctk cdi generate --output ~/.config/cdi/nvidia.yaml`, then run the installer again.
+- **To check that it worked:** the server's System page names the media node's encoder, "NVIDIA
+  NVENC".
+
 ## The media node keeps restarting, or System says it is not answering
 
 Its log (`docker compose logs orpheum-node`, in the server's directory) says

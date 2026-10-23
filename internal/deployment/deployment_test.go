@@ -433,7 +433,7 @@ func TestWrite_TheOverrideMountsEachRootReadOnlyAndTheGPUWhenThereIsOne(t *testi
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			text, err := mediaOverride([]string{"/mnt/a b", "/srv/c"}, tc.renderGID)
+			text, err := mediaOverride([]string{"/mnt/a b", "/srv/c"}, tc.renderGID, NVIDIANone)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -33,11 +33,12 @@ const writeDeploymentUsage = `usage: orpheum write-deployment --image <image> [-
 
 Run in the runtime image, as the owner of the deployment's directory, with it mounted at ` +
 	deploymentMount + ` and its run/ at ` + deploymentRun + `, the machine's host name, and /dev/dri
-when the machine has a GPU:
+when the machine has a GPU, and --nvidia when Docker hands its NVIDIA GPUs to a container (cdi or
+driver, as the install script finds):
 
   docker run --rm --user "$(id -u):$(id -g)" --hostname "$(hostname)" \
     -v DIR:` + deploymentMount + ` -v DIR/run:` + deploymentRun + ` [-v /dev/dri:/dev/dri:ro] \
-    IMAGE write-deployment --image IMAGE
+    IMAGE write-deployment --image IMAGE [--nvidia cdi|driver]
 
 The first time, it writes the values file and the tunnel's keys, and stops. After that it writes the
 compose file and the configs from the values file, and ` + "`docker compose up -d`" + ` in DIR starts them.
@@ -50,18 +51,23 @@ func commandWriteDeployment(_ context.Context, call invocation) int {
 	image := flags.String("image", "", "the runtime image the services run, as the .env file names it")
 	kind := flags.String("deployment", string(deployment.Release),
 		"the first time only: the kind the values file starts as, release or staging")
+	nvidiaName := flags.String("nvidia", "",
+		"how Docker hands this machine's NVIDIA GPUs to a container, as the install script found: cdi or driver")
 	if err := flags.Parse(call.arguments); err != nil {
 		return exitUsageError
 	}
-	if flags.NArg() != 0 || *image == "" {
+	nvidia, err := deployment.ParseNVIDIAAccess(*nvidiaName)
+	if flags.NArg() != 0 || *image == "" || err != nil {
 		return write(call.stderr, writeDeploymentUsage, exitUsageError)
 	}
 	hostName, err := os.Hostname()
 	if err != nil {
 		return call.fail(fmt.Errorf("this machine's host name: %w", err))
 	}
-	message, err := writeDeployment(deploymentMount, deploymentRun, deployment.Kind(*kind), *image, hostName,
-		renderGroup(renderNode))
+	message, err := writeDeployment(deploymentMount, deploymentRun, deployment.Kind(*kind), hostName,
+		deployment.Runtime{
+			Image: *image, UID: os.Getuid(), GID: os.Getgid(), RenderGID: renderGroup(renderNode), NVIDIA: nvidia,
+		})
 	if err != nil {
 		return call.fail(err)
 	}
@@ -80,7 +86,7 @@ type deploymentMessage struct {
 // writeDeployment begins the deployment in dir when it has no values file yet, and otherwise makes
 // its instances when they are not there and writes its files. The instances' run directories go
 // in runDir.
-func writeDeployment(dir, runDir string, kind deployment.Kind, image, hostName string, renderGID int,
+func writeDeployment(dir, runDir string, kind deployment.Kind, hostName string, runtime deployment.Runtime,
 ) (deploymentMessage, error) {
 	text, err := os.ReadFile(filepath.Join(dir, deployment.ValuesFile)) //nolint:gosec // G304: the deployment's own
 	if errors.Is(err, fs.ErrNotExist) {
@@ -99,18 +105,15 @@ func writeDeployment(dir, runDir string, kind deployment.Kind, image, hostName s
 	if makeErr := makeMissingInstances(dir, runDir); makeErr != nil {
 		return deploymentMessage{}, makeErr
 	}
-	err = deployment.Write(dir, values, deployment.Runtime{
-		Image: image, UID: os.Getuid(), GID: os.Getgid(), RenderGID: renderGID,
-	})
-	if err != nil {
-		return deploymentMessage{}, err
+	if writeErr := deployment.Write(dir, values, runtime); writeErr != nil {
+		return deploymentMessage{}, writeErr
 	}
 	reached := "reached through its discovery"
 	if values.Domain != "" {
 		reached = "for " + values.Domain
 	}
 	return deploymentMessage{text: fmt.Sprintf("wrote the %s deployment %s, running %s; "+
-		"`docker compose up -d` in its directory starts it\n", values.Deployment, reached, image)}, nil
+		"`docker compose up -d` in its directory starts it\n", values.Deployment, reached, runtime.Image)}, nil
 }
 
 // beginDeployment writes a new deployment's values file, as kind, and the tunnel's keys, and says
