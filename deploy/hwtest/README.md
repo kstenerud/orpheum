@@ -35,11 +35,13 @@ machine itself can come from it, as nothing else reaches 127.0.0.1.
 | amd | Radeon RX 6600 XT | `h264_vaapi` | 29, rootful, compose as a user plugin | AMD through Mesa (D332) | 8/8, 2026-10-23 |
 | staging host | Iris Plus 640, Gen 9.5 | `h264_vaapi` | as amd | Intel before Gen 12: Quick Sync fails, VAAPI by iHD | 8/8, 2026-10-23 |
 | T450 | HD Graphics 5500, Gen 8 | `h264_vaapi` | as amd | the oldest Intel: VAAPI by iHD | 8/8, 2026-10-23 |
-| nas.example | i3-N305, Gen 12 | `h264_qsv` | Proxmox LXC | Intel Quick Sync; a container in a Proxmox container; beside production | not run yet |
+| nas.example | i3-N305, Gen 12 | `h264_qsv` | 29.9.0, Proxmox LXC | Intel Quick Sync; a container in a Proxmox container; beside production | 8/8, 2026-10-23, reading through ffstreamer |
 | MacBook Air M4 | none in a container | `libx264` | OrbStack, arm64 | Apple silicon; the arm64 image; software encoding | not run yet: needs an arm64 image |
 
-The 2026-10-23 runs used an image built from main at d1968b1b with jellyfin-ffmpeg 8.1.2-5 as
-published, before the ffstreamer build was pinned: films were read by their path.
+The other 2026-10-23 runs used an image built from main at d1968b1b with jellyfin-ffmpeg 8.1.2-5 as
+published, before the ffstreamer build was pinned: films were read by their path. nas.example's ran on
+v0.3.0-beta.7's image, with ffmpeg-ffstreamer 8.1.2-5-1, every film served to FFmpeg by the node; it
+could run beside production once each deployment's network had a subnet of its own.
 
 Situations each machine met on the way, now handled or documented: rootless Docker's user mapping
 (the install script runs as the container's root there), a CDI spec gone stale after a driver
