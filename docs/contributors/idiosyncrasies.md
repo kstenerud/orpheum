@@ -1567,9 +1567,9 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **Cause:** opening an indexed file (MP4), `ff_configure_buffers_for_index` (`libavformat/seek.c`)
   treats any protocol but `file`, `pipe` and `cache` as a network one, where a seek costs a round
   trip: it enlarges the I/O buffer up to 16 MiB, and has a seek of up to 8 MiB read forward instead.
-- **What we do:** orpheum-ffmpeg's patch adds `ffstreamer` to those local protocols, so a streamed
+- **What we do:** ffmpeg-ffstreamer's patch adds `ffstreamer` to those local protocols, so a streamed
   film is read as a file is (D330).
-- **Evidence:** orpheum-ffmpeg's bench/RESULTS.md, 2026-10-23: through ffstreamer, a probe of an
+- **Evidence:** ffmpeg-ffstreamer's bench/RESULTS.md, 2026-10-23: through ffstreamer, a probe of an
   11-track MP4 read in 16 MB runs and was served 25 times its size, where the same file read directly
   touched 12 blocks of 1 MiB; with the patch it was served a tenth of its size.
 
