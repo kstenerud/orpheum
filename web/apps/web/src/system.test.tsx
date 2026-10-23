@@ -151,6 +151,25 @@ it("the System page answers whether a machine sees its GPU, may open it, and enc
   expect(text).toContain("encodes use h264_qsv");
 });
 
+it("the System page names a machine that encodes on an AMD card through VAAPI (D332)", async () => {
+  const text = await shown({
+    ...connected,
+    hardware: {
+      gpus: [{ devicePath: "/dev/dri/renderD128", driver: "amdgpu" }],
+      trials: [
+        { encoder: "h264_qsv", failure: "Error creating a MFX session: -9" },
+        { encoder: "h264_nvenc", failure: "Cannot load libcuda.so.1" },
+        { encoder: "h264_vaapi" },
+      ],
+      chosenEncoder: "h264_vaapi",
+    },
+  });
+  expect(text).toContain(
+    "Video is encoded on the GPU, with VAAPI (AMD, or another card with a VA driver).",
+  );
+  expect(text).toContain("VAAPI (AMD, or another card with a VA driver): works");
+});
+
 it("the System page warns when a machine has a GPU but encodes on the processor", async () => {
   const text = await shown({
     ...connected,

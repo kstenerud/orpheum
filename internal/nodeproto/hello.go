@@ -90,9 +90,19 @@ type Hardware struct {
 	GPUs []GPU `json:"gpus"`
 	// Trials are the hardware encoders tried at startup, confined as a prepare is, in order.
 	Trials []EncoderTrial `json:"trials"`
-	// ChosenEncoder is the encoder its encodes use: h264_qsv, h264_nvenc, h264_vaapi or x264.
+	// ChosenEncoder is the encoder its encodes use: one of the encoders below.
 	ChosenEncoder string `json:"chosenEncoder"`
 }
+
+// The encoders a node reports, its trials' and its choice, the hardware ones in the order it tries them
+// (cut-a §6, D332).
+const (
+	EncoderQuickSync = "h264_qsv"
+	EncoderNVENC     = "h264_nvenc"
+	EncoderVAAPI     = "h264_vaapi"
+	// EncoderX264 is the processor's, which a node uses when no hardware encoder works.
+	EncoderX264 = "x264"
+)
 
 // GPU is one GPU device node the node found.
 type GPU struct {

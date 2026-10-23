@@ -553,3 +553,33 @@ func TestShareFinding_WarnsOfAShareThatWaitsForItsServerForGood(t *testing.T) {
 		t.Errorf("a node on a filesystem passed on: %+v, want a note naming it and the mount to use behind it", passed)
 	}
 }
+
+// Every encoder a node may report is one the schema names, for its trials and its choice: one the
+// schema lacks reaches a client whose types do not know it (D225 §3, D332).
+func TestSchema_NamesEveryEncoderANodeMayReport(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	schemas := harness.server.OpenAPI().Components.Schemas.Map()
+	hardware := []string{nodeproto.EncoderQuickSync, nodeproto.EncoderNVENC, nodeproto.EncoderVAAPI}
+	for _, check := range []struct {
+		schema, property string
+		encoders         []string
+	}{
+		{"EncoderTrialBody", "encoder", hardware},
+		{"HardwareBody", "chosenEncoder", append(slices.Clone(hardware), nodeproto.EncoderX264)},
+	} {
+		schema, found := schemas[check.schema]
+		if !found {
+			t.Fatalf("the schema has no %s", check.schema)
+		}
+		var named []string
+		for _, value := range schema.Properties[check.property].Enum {
+			named = append(named, fmt.Sprint(value))
+		}
+		for _, encoder := range check.encoders {
+			if !slices.Contains(named, encoder) {
+				t.Errorf("%s's %s names %v, lacking %q", check.schema, check.property, named, encoder)
+			}
+		}
+	}
+}

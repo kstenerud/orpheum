@@ -22,10 +22,10 @@ type Encoder string
 // The encoders, in the order a node tries them. Their names are the hello's capabilities (cut-a
 // §4): what the node found it can use.
 const (
-	EncoderQuickSync Encoder = "h264_qsv"
-	EncoderNVENC     Encoder = "h264_nvenc"
-	EncoderVAAPI     Encoder = "h264_vaapi"
-	EncoderX264      Encoder = "x264"
+	EncoderQuickSync Encoder = nodeproto.EncoderQuickSync
+	EncoderNVENC     Encoder = nodeproto.EncoderNVENC
+	EncoderVAAPI     Encoder = nodeproto.EncoderVAAPI
+	EncoderX264      Encoder = nodeproto.EncoderX264
 )
 
 // hardwareEncoders are tried in order; x264 needs no trial.
