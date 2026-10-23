@@ -336,7 +336,8 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D328](working-notes.md#d328--availability-is-kept-per-place-a-root-or-a-disk-mounted-inside-one-in-one-table-with-one-writer-and-one-reader) Availability is kept per place, a root or a disk mounted inside one, in one table with one writer and one reader
 - [D329](working-notes.md#d329--work-is-scheduled-from-wants-each-resource-is-decided-next-to-it-playback-is-admitted-and-long-work-is-cut-into-pieces) Work is scheduled from wants, each resource is decided next to it, playback is admitted, and long work is cut into pieces — *revisited by D330*
 - [D330](working-notes.md#d330--ffmpeg-reads-its-input-through-the-node-over-a-protocol-of-our-own-patched-into-jellyfin-ffmpeg) FFmpeg reads its input through the node, over a protocol of our own patched into jellyfin-ffmpeg
-- [D331](working-notes.md#d331--the-node-proves-itself-on-both-sockets-so-a-gpu-encode-may-open-a-unix-socket) The node proves itself on both sockets, so a GPU encode may open a Unix socket
+- [D331](working-notes.md#d331--the-node-proves-itself-on-both-sockets-so-a-gpu-encode-may-open-a-unix-socket) The node proves itself on both sockets, so a GPU encode may open a Unix socket — *revisited by D332*
+- [D332](working-notes.md#d332--the-node-encodes-on-an-amd-card-through-vaapi-tried-after-quick-sync-and-nvenc) The node encodes on an AMD card through VAAPI, tried after Quick Sync and NVENC
 
 ## Archived
 

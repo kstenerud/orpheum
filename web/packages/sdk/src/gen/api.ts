@@ -2393,7 +2393,7 @@ export interface components {
         };
         EncoderTrialBody: {
             /** @enum {string} */
-            encoder: "h264_qsv" | "h264_nvenc";
+            encoder: "h264_qsv" | "h264_nvenc" | "h264_vaapi";
             failure?: string;
         };
         EntryBody: {
@@ -2618,7 +2618,7 @@ export interface components {
             sourceFileId: number;
             /** @enum {string} */
             state: "complete" | "failed";
-            /** @description h264_qsv, h264_nvenc, x264, or copy for a remux */
+            /** @description the encoder that made the video, or copy for a remux */
             videoEncoder?: string;
         };
         GPUBody: {
@@ -2632,7 +2632,7 @@ export interface components {
         };
         HardwareBody: {
             /** @enum {string} */
-            chosenEncoder: "h264_qsv" | "h264_nvenc" | "x264";
+            chosenEncoder: "h264_qsv" | "h264_nvenc" | "h264_vaapi" | "x264";
             gpus: components["schemas"]["GPUBody"][] | null;
             trials: components["schemas"]["EncoderTrialBody"][] | null;
         };

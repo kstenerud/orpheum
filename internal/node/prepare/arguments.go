@@ -96,13 +96,15 @@ func Arguments(source execx.Film, renditionPath string, command nodeproto.Prepar
 	)
 }
 
+// codecFlag names a stream's codec on FFmpeg's command line.
+const codecFlag = "-c:v"
+
 // videoCopied is FFmpeg's name for a video copied, not encoded: a remux's.
 const videoCopied = "copy"
 
 // videoArguments copy the picture for remux, tagging HEVC as hvc1 for Safari, or re-encode it with
 // the node's encoder (cut-a §6).
 func videoArguments(command nodeproto.Prepare, encoder Encoder) []string {
-	const codecFlag = "-c:v"
 	if command.Profile == nodeproto.ProfileRemux {
 		if command.VideoCodec == "hevc" {
 			return []string{codecFlag, videoCopied, "-tag:v", "hvc1"}

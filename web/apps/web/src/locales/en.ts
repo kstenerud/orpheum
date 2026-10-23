@@ -577,6 +577,7 @@ export const en = {
     encoder: {
       h264Qsv: "Intel Quick Sync",
       h264Nvenc: "NVIDIA NVENC",
+      h264Vaapi: "VAAPI (AMD, or another card with a VA driver)",
       x264: "x264, on the processor",
       copy: "copied, not encoded",
       unknown: "not recorded",

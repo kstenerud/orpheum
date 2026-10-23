@@ -21445,3 +21445,28 @@ itself, was never built. **Revises** N1's socket rule for GPU runs; **extends**
    on the processor, and the System page shows each trial's error.
 
 **Status:** Decided.
+
+## D332 — The node encodes on an AMD card through VAAPI, tried after Quick Sync and NVENC
+
+**Decided** (2026-10-23), by the project owner (*"yes"*), after VQ52 on the owner's machine with a
+Radeon RX 6600 XT: a VAAPI encode there worked confined and through ffstreamer, but the node never
+tried one, since its encoders were Quick Sync, then NVENC, then x264, and it encoded on the
+processor beside an idle card. **Revises** [cut-a §6](../design/plans/cut-a.md#6-prepare)'s encoder
+order; **extends** [D331](#d331--the-node-proves-itself-on-both-sockets-so-a-gpu-encode-may-open-a-unix-socket)
+§3, a GPU run's grants, to VAAPI.
+
+1. **The node tries `h264_qsv`, then `h264_nvenc`, then `h264_vaapi`, then falls back to x264,**
+   each trial confined as a real encode runs, and the System page shows each (D225 §3). VAAPI covers
+   AMD cards through Mesa's `radeonsi` driver, and any card with a VA driver.
+2. **A VAAPI encode opens FFmpeg's own device for the run** (`-init_hw_device vaapi`, the first
+   render node), uploads each picture as NV12, and takes the same rate, profile and keyframes as the
+   other encoders. It has no preset. Forced keyframes are IDR pictures, at exactly the times asked,
+   for a prepare's segments and a chunk's times alike (measured on the RX 6600 XT).
+3. **The release image carries Mesa's VA drivers** (`mesa-va-drivers`) beside Intel's, so an AMD
+   card works in it. A bare install needs libva 2.21 or later, which Ubuntu 24.04 and Linux Mint 22
+   don't have (idiosyncrasies: jellyfin-ffmpeg's portable build needs libva 2.21).
+4. **Not built:** choosing among several cards. FFmpeg's default device is the first render node, so
+   on a machine with an Intel and an AMD card VAAPI uses whichever that is; Quick Sync, tried first,
+   already takes an Intel card that has it.
+
+**Status:** Decided.

@@ -63,7 +63,7 @@ export const enSettingsCatalogue = {
     chunkQualities:
       "When a player's link can't carry a film as it is, the server encodes it into smaller copies, cut in pieces as they're played. Each quality is written as its average bit rate and picture height, such as 2000k@540p. A player moves between them as its link allows.",
     chunkQualitiesHardware:
-      "A media node that encodes on its graphics card (Intel Quick Sync or NVIDIA NVENC) can make a higher quality fast enough to play, so it offers more. Written as chunk_qualities.",
+      "A media node that encodes on its graphics card (Intel Quick Sync, NVIDIA NVENC, or AMD through VAAPI) can make a higher quality fast enough to play, so it offers more. Written as chunk_qualities.",
     chunkRunSlowestSpeedPercent:
       "Encoding for slow links has to keep ahead of the people watching. When two or more encodings on one media node run slower than this share of playback speed, one is stopped so the others keep up: the oldest that nobody plays from, or else the newest. Its viewers are told why.",
     chunkRunSpanSeconds:

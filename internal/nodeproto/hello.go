@@ -50,7 +50,7 @@ type Hello struct {
 	// FFmpegSha256 is the SHA-256 of the ffmpeg binary, so the core can tell which build ran.
 	FFmpegSha256 string `json:"ffmpegSha256"`
 	// Capabilities are what the node found it can do (cut-a §4): remux and aac always, and the
-	// encoders it can use, h264_qsv, h264_nvenc and x264.
+	// encoders it can use, h264_qsv, h264_nvenc, h264_vaapi and x264.
 	Capabilities []string `json:"capabilities"`
 	// Confinement is what the node got, per mechanism (D112).
 	Confinement []Confinement `json:"confinement"`
@@ -90,7 +90,7 @@ type Hardware struct {
 	GPUs []GPU `json:"gpus"`
 	// Trials are the hardware encoders tried at startup, confined as a prepare is, in order.
 	Trials []EncoderTrial `json:"trials"`
-	// ChosenEncoder is the encoder its encodes use: h264_qsv, h264_nvenc or x264.
+	// ChosenEncoder is the encoder its encodes use: h264_qsv, h264_nvenc, h264_vaapi or x264.
 	ChosenEncoder string `json:"chosenEncoder"`
 }
 

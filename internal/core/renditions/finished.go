@@ -22,7 +22,7 @@ type FinishedPrepare struct {
 	Profile string
 	// State is complete or failed.
 	State string
-	// VideoEncoder is h264_qsv, h264_nvenc, x264 or copy; empty when the node did not say.
+	// VideoEncoder is h264_qsv, h264_nvenc, h264_vaapi, x264 or copy; empty when the node did not say.
 	VideoEncoder string
 	// RealtimeFactor is seconds of the source per second of running; zero when the node did not say.
 	RealtimeFactor float64
