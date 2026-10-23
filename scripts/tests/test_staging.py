@@ -141,3 +141,20 @@ class Quick(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WhereReached(unittest.TestCase):
+    # In a container the machine sees only its own Docker address, which nothing at home reaches;
+    # staging printed it, and an empty https:// for a staging with no name (2026-10-23).
+    def test_it_names_the_values_files_address_at_home_and_the_discovery_when_there_is_no_name(self):
+        said = staging.where_reached({"lan": {"address": "192.168.1.199"}, "domain": ""}, "172.17.0.2")
+        self.assertIn("http://192.168.1.199:8440", said)
+        self.assertNotIn("172.17.0.2", said)
+        self.assertNotIn("https://", said)
+        self.assertIn("through its discovery", said)
+
+    def test_a_name_is_reached_by_https_and_a_local_publish_by_loopback(self):
+        said = staging.where_reached({"domain": "media.example.org", "http": {"publish": "127.0.0.1", "port": 18440}},
+                                     "172.17.0.2")
+        self.assertIn("https://media.example.org", said)
+        self.assertIn("http://127.0.0.1:18440", said)
