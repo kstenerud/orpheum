@@ -100,6 +100,20 @@ func listenForMedia(ctx context.Context, address string, logger *slog.Logger) (n
 	return listener, nil
 }
 
+// listenForClients listens where the server's plain HTTP is served: its own address, and the port
+// only the server's own machine reaches beside it when the config names one (D334 §4), one listener.
+func listenForClients(ctx context.Context, server ServerConfig, logger *slog.Logger) (net.Listener, error) {
+	listener, err := listenForMedia(ctx, server.Listen, logger)
+	if err != nil || server.ThisMachineListen == "" {
+		return listener, err
+	}
+	thisMachine, err := listenForMedia(ctx, server.ThisMachineListen, logger)
+	if err != nil {
+		return nil, errors.Join(err, listener.Close())
+	}
+	return joinListeners(listener, thisMachine), nil
+}
+
 // listenAndServeHTTPS serves handler over HTTPS on https.listen, as serveHTTPS says: at once for a
 // server with a public name, and for one without, once its discovery's certificate can be served
 // (D273); nothing before. It returns what stops it.
