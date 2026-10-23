@@ -21546,6 +21546,15 @@ key pasted on a System page afterwards, and an admin refused on the server's own
    leads to a page that makes a name and a password ([D246](#d246--what-a-person-may-do-is-their-roles-an-invite-names-who-it-is-for-and-a-watch-together-viewer-is-an-ephemeral-account-that-sees-only-the-hosts-playback), [D311](#d311--a-code-establishes-an-entitlement-it-expires-its-issuer-sees-it-and-what-it-made-and-a-new-code-for-the-same-entitlement-moves-it-to-whoever-redeems-it)). An
    admin can still make a person directly, which a home with no discovery service needs.
 
-**Status:** Decided. §1's direct path and §6's invitations and admin-made accounts exist already
-(D246, D311); §2–§4 and §5's reserved realms are to do, and the self-hosted discovery mode waits for
-the open beta.
+**Status:** Built (earlier commits; orpheum-connect),
+but the self-hosted discovery mode, which waits for the open beta. Read back against the code: the
+install script asks at `/dev/tty` for the admin, makes them with `orpheum reset-admin`, then for
+the key, which `orpheum pair` enters with the same password, both on standard input, and prints the
+setup code instead with no terminal (§2, §3); the deployment publishes `http.this_machine_port` on
+`127.0.0.1` alone, the core marks a request on it as home and names it when it refuses an admin,
+and its home networks hold its own loopback (§4); connect refuses the reserved realms when one is
+chosen (§5); a page over plain HTTP says what is off (§1); the core's invitations and admin-made
+accounts are D246's and D311's (§6). On the amd box, 2026-10-23: installed at a terminal as a
+tester would, administered from `localhost:8441` and from another machine at home, refused at
+`localhost:8440` with the hint, paired by a staging key, and signed in to from away through its
+realm in 3.5 s.
