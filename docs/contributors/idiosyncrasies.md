@@ -100,6 +100,7 @@ User-Agent (D263; the User-Agent is logged only).
 | Two pages in the test container cannot call each other. | [mDNS-obfuscated host candidates cannot be resolved inside a container](#mdns-obfuscated-host-candidates-cannot-be-resolved-inside-a-container) |
 | A phone on Wi-Fi cannot connect over WebRTC; the discovery logs "… 11 candidates; at most 10". | [A phone on Wi-Fi gathers more than ten ICE candidates](#a-phone-on-wi-fi-gathers-more-than-ten-ice-candidates) |
 | Every offer refused: "gather the core's candidates: context deadline exceeded". | [pion waits 5 s for each STUN server while gathering, and a family with no way out never answers](#pion-waits-5-s-for-each-stun-server-while-gathering-and-a-family-with-no-way-out-never-answers) |
+| A sign-in through a discovery takes 25 s or more; each WebRTC offer goes 10 s after the last. | [A browser's ICE gathering completes some forty seconds after its useful candidates](#a-browsers-ice-gathering-completes-some-forty-seconds-after-its-useful-candidates) |
 | X265 makes every keyframe after the first a CRA (open GOP) | [x265 makes every keyframe after the first a CRA (open GOP)](#x265-makes-every-keyframe-after-the-first-a-cra-open-gop) |
 | The `segment` muxer misses a keyframe a hair before the cut time (10.009999 against 10.010) | [The `segment` muxer misses a keyframe a hair before the cut time (10.009999 against 10.010)](#the-segment-muxer-misses-a-keyframe-a-hair-before-the-cut-time-10009999-against-10010) |
 | A copied picture's chunks each held the chunk before, retimed: the film jumped back, and chunks overlapped. | [An input seek at a keyframe of a Matroska film lands on the keyframe before it](#an-input-seek-at-a-keyframe-of-a-matroska-film-lands-on-the-keyframe-before-it) |
@@ -1260,11 +1261,29 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   candidates: context deadline exceeded", and a phone with no direct path could not reach the core.
 - **What we do:** `rtcapi` sets pion's STUN gather timeout to 2 s (`stunGatherTimeout`), well within
   the 5 s an answer waits for its candidates. `TestUseICEServers_AStunServerThatNeverAnswersDoesNotSinkTheAnswer`.
+  Since 2026-10-23 an answer goes `gatherAfterReflexive` (300 ms) after the core's first
+  server-reflexive or relayed candidate rather than waiting gathering out: every answer on staging
+  took 2.1 s for the 2 s. `TestAnswer_GoesSoonAfterTheCoresPublicAddressNotWhenGatheringEnds`.
 - **Evidence:** staging, 2026-10-14. pion/ice v4.4.7 `agent_config.go`: `defaultSTUNGatherTimeout = 5 *
   time.Second`; gathering completes only once every server-reflexive attempt has answered or timed
   out. The core's container had an IPv6 default route to Docker's bridge and no IPv6 beyond its
   host, so the IPv6 binding to the STUN server never came back, and gathering took the answer's
   whole 5 s. pion's `SettingEngine.SetSTUNGatherTimeout` is the knob.
+
+### A browser's ICE gathering completes some forty seconds after its useful candidates
+
+- **Symptom:** a realm sign-in at staging's discovery took 28.5 s. The browser sent each of its two
+  offers 10 s after it was ready to (`connectTimeoutMs`), so each connection waited out the cap.
+- **What we do:** the page sends its offer `gatherAfterReflexiveMs` (1 s) after its first
+  server-reflexive or relayed candidate, or when gathering completes, whichever is first
+  (`web/packages/sdk/src/rtc-transport.ts`, `gathered`). A connection that takes over
+  `slowConnectMs` reports its gathering, answer and connecting times to the core's log.
+- **Evidence:** staging, 2026-10-23, headless Chromium in the sandbox with
+  `stun:stun.cloudflare.com:3478`: the host candidate came after 11 ms and the server-reflexive one
+  after 32 ms, and `iceGatheringState` became `complete` after 39.9 s. Gathering completes only when
+  every STUN attempt has answered or given up, and one on an interface or family with no way out
+  retries for some forty seconds (RFC 5389's seven retransmissions). The core's own pion has the
+  same rule, which `stunGatherTimeout` bounds (above).
 
 ### A phone on Wi-Fi gathers more than ten ICE candidates
 
