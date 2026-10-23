@@ -21506,3 +21506,40 @@ driver, on the image, only where `/dev/nvidiactl` exists (`nvidiaAccess`), passe
 `nvidia.com/gpu=all` or reserves the `nvidia` driver with the four capabilities
 (`mediaOverride`). On gpuhost (rootless Docker, CDI) the node chose `h264_nvenc` confined. The
 driver's route waits on VQ53.
+
+## D334 — A tester sets up a core from one command at a terminal, which asks for its admin and, if they have one, its key
+
+**Decided** (2026-10-23), by the project owner, for the closed beta (*"Yes this makes sense"*, to
+the flow below; *"(d) agreed"*, to the realm rules). The first-time experience was found while
+bringing staging back that day: the one-time setup code, a browser at home to type it, the core's
+key pasted on a System page afterwards, and an admin refused on the server's own machine. **Extends**
+[D314](#d314--a-core-is-installed-from-a-public-image-on-any-machine-that-runs-docker-with-the-hardware-it-needs-and-with-no-tunnel-a-connection-that-needs-a-relay-fails-and-is-counted)'s install and [D297](#d297--a-household-is-found-by-its-realm-realm-name-and-password-together-proven-both-ways-by-a-key-the-password-makes-admin-only-from-the-cores-own-network)'s admin-at-home rule.
+
+1. **The core works at home first, the discovery service never required.** The install command
+   carries what the core cannot find for itself (the folders it may serve). Everyone in the house
+   can reach it directly; over plain HTTP the browser withholds the microphone, the clipboard and
+   service workers, which the client says rather than leaves silently broken. A self-hosted
+   discovery service, a mode of the same binary, gives HTTPS without ours; it is for the open beta.
+2. **The install asks for the admin at its terminal**, read from `/dev/tty`, never a flag, which
+   would land in shell history and `ps`. With no terminal (a NAS's web panel, Portainer, a script)
+   it prints the one-time setup code as now, and the first admin is made in the browser.
+3. **Then, optionally, for the core's key**, which it enters with the password just given, so the
+   core is paired and the admin's realm key made in the same sitting; it ends by saying where to
+   sign in, at home and from away. A key can still be entered later in the browser.
+4. **The server's own machine is home.** A request from it reaches the core from Docker's gateway,
+   which is now home, except under rootless Docker with its userland proxy on, where every request
+   arrives from the gateway and none may be.
+5. **Through the paid discovery service:** the owner sends an invitation (a link and a QR code); the
+   person makes an account (name, password, e-mail confirmation; free for life in the closed beta),
+   chooses a realm, then makes a key for a core (password or passkey) and gives it to the core. A
+   realm is 5 to 32 lowercase letters and digits with hyphens inside, chosen once and never changed
+   ([D298](#d298--a-realm-is-the-hosts-accounts-a-master-realm-chosen-once-a-subrealm-per-further-core-none-when-self-hosting)), and names that would mislead, such as `admin`, `orpheum`, `support`,
+   `api`, `app`, `account` and `www`, are reserved. A rename, if complaints come, costs every member
+   one sign-in with their password, since each realm key is derived from the realm.
+6. **The rest of the household is invited by the admin, with no e-mail:** the core's invitation link
+   leads to a page that makes a name and a password ([D246](#d246--what-a-person-may-do-is-their-roles-an-invite-names-who-it-is-for-and-a-watch-together-viewer-is-an-ephemeral-account-that-sees-only-the-hosts-playback), [D311](#d311--a-code-establishes-an-entitlement-it-expires-its-issuer-sees-it-and-what-it-made-and-a-new-code-for-the-same-entitlement-moves-it-to-whoever-redeems-it)). An
+   admin can still make a person directly, which a home with no discovery service needs.
+
+**Status:** Decided. §1's direct path and §6's invitations and admin-made accounts exist already
+(D246, D311); §2–§4 and §5's reserved realms are to do, and the self-hosted discovery mode waits for
+the open beta.
