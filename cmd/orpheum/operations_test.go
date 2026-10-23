@@ -165,6 +165,7 @@ func TestDoctor_ListsWhatShouldBeFixedAndChangesNothingAPersonChose(t *testing.T
 		"config: server.shutdwn_grace_seconds is in the file, but nothing reads it",
 		"setting backup_age_warn_h is unused; no release has used this key: probably a typo",
 		"DELETE /api/v1/config/unused/backup_age_warn_h",
+		`delete it on the System page, under "Settings this release does not read"`,
 	} {
 		if !strings.Contains(doctor.stdout, want) {
 			t.Errorf("doctor does not say %q:\n%s", want, doctor.stdout)

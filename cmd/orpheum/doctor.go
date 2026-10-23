@@ -288,7 +288,8 @@ func unusedFindings(ctx context.Context, settingsService *settings.Service) []fi
 		}
 		findings = append(findings, finding{
 			api.VerdictWarning, "setting " + row.String() + " is unused; " + why,
-			"delete it with DELETE /api/v1/config/unused/" + row.Key + " if it is not needed",
+			"if it is not needed, delete it on the System page, under \"Settings this release does not read\", " +
+				"or with DELETE /api/v1/config/unused/" + row.Key,
 		})
 	}
 	return findings
