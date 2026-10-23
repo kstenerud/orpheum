@@ -434,6 +434,16 @@ export const en = {
       none: "There is no backup yet.",
       backup: "{{name}}, {{size}}, made {{at}}",
     },
+    unusedSettings: {
+      heading: "Settings this release does not read",
+      what: "These were left by an earlier release, or mistyped. The server ignores them, so deleting one changes nothing it does.",
+      retired: "{{key}} = {{value}}: retired in {{release}}, {{reason}}",
+      typo: "{{key}} = {{value}}: no release has read it, so probably a typo",
+      delete: "Delete",
+      deleteFor: "Delete {{key}}",
+      consequence: "{{key}} is deleted for good.",
+      confirm: "Delete it",
+    },
     discovery: {
       heading: "Remote access",
       what: "A discovery tells your devices where to find this server, so you reach it from outside the house without a VPS of your own in front of it. It passes on addresses, never your films.",

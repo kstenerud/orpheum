@@ -16,6 +16,7 @@ import { NodeConfinementView } from "./node-confinement.tsx";
 import { NodeStuckView } from "./node-stuck.tsx";
 import { NowPlaying } from "./now-playing.tsx";
 import { SystemBackups } from "./system-backups.tsx";
+import { SystemUnusedSettings } from "./system-unused-settings.tsx";
 import { SystemFilingReports } from "./filing-report.tsx";
 import { SystemDiscovery } from "./system-discovery.tsx";
 import { SystemReachability } from "./system-reachability.tsx";
@@ -75,6 +76,7 @@ export function System(): JSX.Element {
       </BusyGroup>
       <NowPlaying />
       <SystemBackups />
+      <SystemUnusedSettings />
       <SystemFilingReports />
       <SystemReachability />
       <SystemDiscovery />
