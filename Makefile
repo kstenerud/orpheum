@@ -494,9 +494,13 @@ browsers: web-deps ## Install the pinned Playwright's Chromium and Firefox, and 
 # M4's acceptance (D252): two browsers for ORPHEUM_ACCEPTANCE_MINUTES (30) under each of the four
 # netem profiles, each with some four minutes of voice alone after: two and a half hours (2.4 h on
 # 2026-10-08); at a milestone's end, never in check-pr. It shapes the dev
-# container's loopback with tc, so it runs in the development image (./dev make test-acceptance).
-.PHONY: test-acceptance
-test-acceptance: browsers ## M4's acceptance: two browsers for 30 minutes under each netem profile (D252); at a milestone's end
+# container's loopback with tc, so it runs in the development image, through ./dev when it is not in
+# it (scripts/in_dev_image.py): check-pr ran the short one on the host, where it failed asking to be
+# run through ./dev by hand (2026-10-23).
+.PHONY: test-acceptance test-acceptance-here
+test-acceptance: ## M4's acceptance: two browsers for 30 minutes under each netem profile (D252); at a milestone's end
+	@$(PYTHON) scripts/in_dev_image.py test-acceptance-here
+test-acceptance-here: browsers
 	@$(MAKE) --no-print-directory browser-tier E2E_CONFIG=web/e2e/acceptance.config.ts
 
 # The branch gate's short acceptance run (D252 §2, D261 §2): home alone, ACCEPTANCE_HOME_MINUTES
@@ -505,8 +509,11 @@ test-acceptance: browsers ## M4's acceptance: two browsers for 30 minutes under 
 # time (agent-failures A24).
 ACCEPTANCE_HOME_MINUTES ?= 0.5
 
-.PHONY: test-acceptance-home
-test-acceptance-home: browsers ## M4's acceptance under the home profile for ACCEPTANCE_HOME_MINUTES (D252 §2); in check-pr, only when Watch Together, voice, WebRTC, the player or playback changed
+.PHONY: test-acceptance-home test-acceptance-home-here
+test-acceptance-home: ## M4's acceptance under the home profile for ACCEPTANCE_HOME_MINUTES (D252 §2); in check-pr, only when Watch Together, voice, WebRTC, the player or playback changed
+	@$(PYTHON) scripts/in_dev_image.py test-acceptance-home-here $(if $(BASE),BASE='$(BASE)') \
+	  ACCEPTANCE_HOME_MINUTES=$(ACCEPTANCE_HOME_MINUTES)
+test-acceptance-home-here: browsers
 	@if [ -z '$(BASE)' ] || $(PYTHON) scripts/browser_tier_needed.py --base '$(BASE)' --acceptance; then \
 	  ORPHEUM_ACCEPTANCE_MINUTES=$(ACCEPTANCE_HOME_MINUTES) ORPHEUM_ACCEPTANCE_PROFILES=home \
 	    $(MAKE) --no-print-directory browser-tier E2E_CONFIG=web/e2e/acceptance.config.ts \
