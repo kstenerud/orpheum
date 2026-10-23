@@ -36,12 +36,21 @@ machine itself can come from it, as nothing else reaches 127.0.0.1.
 | staging host | Iris Plus 640, Gen 9.5 | `h264_vaapi` | as amd | Intel before Gen 12: Quick Sync fails, VAAPI by iHD | 8/8, 2026-10-23 |
 | T450 | HD Graphics 5500, Gen 8 | `h264_vaapi` | as amd | the oldest Intel: VAAPI by iHD | 8/8, 2026-10-23 |
 | nas.example | i3-N305, Gen 12 | `h264_qsv` | 29.9.0, Proxmox LXC | Intel Quick Sync; a container in a Proxmox container; beside production | 8/8, 2026-10-23, reading through ffstreamer |
-| MacBook Air M4 | none in a container | `libx264` | OrbStack, arm64 | Apple silicon; the arm64 image; software encoding | not run yet: needs an arm64 image |
+| MacBook Air M4 | none in a container | `libx264` (the node's `x264`) | OrbStack 2.2.1, Docker 29.4.0, arm64 | Apple silicon; the arm64 image, built on the Mac in 87 s; software encoding | 7/7 films, 2026-10-23, reading through ffstreamer; the encoder check by hand (below) |
 
 The other 2026-10-23 runs used an image built from main at d1968b1b with jellyfin-ffmpeg 8.1.2-5 as
 published, before the ffstreamer build was pinned: films were read by their path. nas.example's ran on
 v0.3.0-beta.7's image, with ffmpeg-ffstreamer 8.1.2-5-1, every film served to FFmpeg by the node; it
 could run beside production once each deployment's network had a subnet of its own.
+
+**On a Mac** the kit does not run as it stands, and the run above went around three things:
+`/bin/sh` there (bash 3.2) cannot parse `hwtest.sh` (a `case` inside `$( )`; run it with
+`zsh --emulate sh`); `hwplay.py` finds the node's FFmpeg in `/proc`, which macOS lacks and which
+could not see OrbStack's VM anyway, so its encoder check reports nothing (a watcher inside the VM
+saw 38 encodes, every one `libx264` reading `ffstreamer:`); and the install script finds the
+machine's address at home with `ip`, which macOS lacks, so a first install stops asking for
+`lan.address` (the run filled it in from `ipconfig getifaddr en0`). A household on a Mac meets that
+last one too.
 
 Situations each machine met on the way, now handled or documented: rootless Docker's user mapping
 (the install script runs as the container's root there), a CDI spec gone stale after a driver
