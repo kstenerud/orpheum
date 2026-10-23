@@ -56,9 +56,6 @@ func (service *Service) Facts(name string) (Facts, bool) {
 	return Facts{}, false
 }
 
-// softwareEncoder is the encoder a node encodes with when it found no GPU's that works.
-const softwareEncoder = "x264"
-
 // EncodesOnAGPU is whether the node encodes on a GPU, Quick Sync or NVENC, as its last hello said; false
 // when it encodes in software or has not said hello since the core started (D323 §3).
 func (service *Service) EncodesOnAGPU(nodeID int64) bool {
@@ -73,7 +70,7 @@ func (service *Service) EncodesOnAGPU(nodeID int64) bool {
 
 // isGPUEncoder is whether a node's chosen encoder is a GPU's: not software's, and named.
 func isGPUEncoder(chosen string) bool {
-	return chosen != "" && chosen != softwareEncoder
+	return chosen != "" && chosen != nodeproto.EncoderX264
 }
 
 // RootWatches are whether a node watches each of its roots for changes, by root, as its last status
