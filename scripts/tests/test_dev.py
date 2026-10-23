@@ -28,9 +28,17 @@ class FetchMkvtoolnix(unittest.TestCase):
 
 class FetchFfmpeg(unittest.TestCase):
     def test_every_pin_has_an_asset_and_a_sha256(self):
-        for target, (suffix, digest) in fetch_ffmpeg.PINS.items():
-            self.assertIn(suffix, fetch_ffmpeg.asset_name(target))
-            self.assertRegex(digest, r"^[0-9a-f]{64}$")
+        for target, pin in fetch_ffmpeg.PINS.items():
+            self.assertRegex(pin.asset, r"-gpl\.tar\.xz$", target)
+            self.assertRegex(pin.sha256, r"^[0-9a-f]{64}$", target)
+
+    def test_linux_runs_ffmpeg_with_the_ffstreamer_protocol(self):
+        # The node serves each film to the run that reads it on Linux (D330); only macOS, for
+        # development, keeps jellyfin's own build.
+        for target, pin in fetch_ffmpeg.PINS.items():
+            if target.startswith("linux/"):
+                self.assertIn("/kstenerud/ffmpeg-ffstreamer/", pin.url, target)
+                self.assertTrue(pin.asset.startswith("ffmpeg-ffstreamer_"), target)
 
     def test_a_wrong_hash_is_refused_and_deleted(self):
         path = Path(tempfile.mkdtemp()) / "ffmpeg.tar.xz"

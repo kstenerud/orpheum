@@ -7,8 +7,10 @@
 The server never downloads FFmpeg at runtime: a release bundles it. This script is for
 development and CI. `make ffmpeg` runs it, and the dev loop points the node at the result.
 
-The pin is a version plus one SHA-256 per platform, taken from the release's own asset
-digests (GitHub API, 2026-09-23). A download whose hash differs is deleted and refused. It is
+On Linux it is jellyfin-ffmpeg with the ffstreamer protocol added (ffmpeg-ffstreamer, D330), so
+the node serves each film to the run that reads it; on macOS, for development alone, jellyfin's
+own build, whose runs read each film by its path. The pin is a release plus one SHA-256 per
+platform, taken from the release's own asset digests. A download whose hash differs is deleted and refused. It is
 never "probably fine": a swapped binary is exactly what a hash exists to catch. Changing the
 pin is an owner action, like any gate.
 
@@ -27,14 +29,42 @@ import sys
 import tarfile
 import tempfile
 import urllib.request
+from dataclasses import dataclass
 from pathlib import Path
 
-VERSION = "8.1.2-5"
-BASE_URL = f"https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v{VERSION}"
+# ffmpeg-ffstreamer's release: jellyfin-ffmpeg v8.1.2-5 and its first patches (GitHub API, 2026-10-23).
+FFSTREAMER_VERSION = "8.1.2-5-1"
+FFSTREAMER_URL = f"https://github.com/kstenerud/ffmpeg-ffstreamer/releases/download/v{FFSTREAMER_VERSION}"
+# jellyfin-ffmpeg's own release, which ffmpeg-ffstreamer builds no macOS binary of (GitHub API, 2026-09-23).
+JELLYFIN_VERSION = "8.1.2-5"
+JELLYFIN_URL = f"https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v{JELLYFIN_VERSION}"
+
+
+@dataclass(frozen=True)
+class Pin:
+    """One platform's FFmpeg: the archive's URL and its SHA-256."""
+
+    url: str
+    sha256: str
+
+    @property
+    def asset(self) -> str:
+        return self.url.rsplit("/", 1)[1]
+
+
 PINS = {
-    "linux/amd64": ("linux64", "1fd859927053c44a4f2dbf67ae8b9ba8d29fb3b8930df0dd57d91aa60589363d"),
-    "linux/arm64": ("linuxarm64", "1bd4fafaf4c309cad896d3479152c31d6b7604d4be8b8526882ea16cc6d5f589"),
-    "darwin/arm64": ("macarm64", "b2ac80bb184e9a2f3f7c236876b2f56a5639596a95b42f41ced34fab66ad720d"),
+    "linux/amd64": Pin(
+        f"{FFSTREAMER_URL}/ffmpeg-ffstreamer_{FFSTREAMER_VERSION}_linux64-gpl.tar.xz",
+        "4d606cac0269a43ebb10ba0bc3fcc50cfee4d1c524c4cadbb9b8fa2ea0c970ff",
+    ),
+    "linux/arm64": Pin(
+        f"{FFSTREAMER_URL}/ffmpeg-ffstreamer_{FFSTREAMER_VERSION}_linuxarm64-gpl.tar.xz",
+        "20a4c22fb0356bd59ab88de46b034b8c699851d7535df1fc9244054a8b3f8324",
+    ),
+    "darwin/arm64": Pin(
+        f"{JELLYFIN_URL}/jellyfin-ffmpeg_{JELLYFIN_VERSION}_portable_macarm64-gpl.tar.xz",
+        "b2ac80bb184e9a2f3f7c236876b2f56a5639596a95b42f41ced34fab66ad720d",
+    ),
 }
 
 # The environment variable naming a directory that holds fetched tools in place of .tools/.
@@ -58,10 +88,6 @@ def tools_dir(root: Path) -> Path:
     return Path(override) if override else root / ".tools"
 
 
-def asset_name(target: str) -> str:
-    return f"jellyfin-ffmpeg_{VERSION}_portable_{PINS[target][0]}-gpl.tar.xz"
-
-
 def sha256_of(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as f:
@@ -81,23 +107,24 @@ def verify(path: Path, expected: str) -> None:
 
 
 def install(target: str, root: Path) -> Path:
-    dest = tools_dir(root) / "ffmpeg" / f"{VERSION}-{target.replace('/', '-')}"
-    if (dest / "ffmpeg").exists() and (dest / "ffprobe").exists():
-        return dest
     if target not in PINS:
         raise SystemExit(f"no pinned FFmpeg for {target}; pinned: {', '.join(sorted(PINS))}")
-    url = f"{BASE_URL}/{asset_name(target)}"
+    pin = PINS[target]
+    # The directory names the archive, so a new pin is fetched rather than taken for the old one.
+    dest = tools_dir(root) / "ffmpeg" / f"{pin.asset.removesuffix('.tar.xz')}-{target.replace('/', '-')}"
+    if (dest / "ffmpeg").exists() and (dest / "ffprobe").exists():
+        return dest
     with tempfile.TemporaryDirectory(prefix="ffmpeg-") as tmp:
-        archive = Path(tmp) / asset_name(target)
-        print(f"fetching {url}", file=sys.stderr)
-        with urllib.request.urlopen(url, timeout=120) as response, archive.open("wb") as out:
+        archive = Path(tmp) / pin.asset
+        print(f"fetching {pin.url}", file=sys.stderr)
+        with urllib.request.urlopen(pin.url, timeout=120) as response, archive.open("wb") as out:
             shutil.copyfileobj(response, out)
-        verify(archive, PINS[target][1])
+        verify(archive, pin.sha256)
         with tarfile.open(archive) as tar:
             tar.extractall(Path(tmp) / "x", filter="data")
         found = {p.name: p for p in (Path(tmp) / "x").rglob("*") if p.name in ("ffmpeg", "ffprobe")}
         if set(found) != {"ffmpeg", "ffprobe"}:
-            raise SystemExit(f"{asset_name(target)} did not contain ffmpeg and ffprobe")
+            raise SystemExit(f"{pin.asset} did not contain ffmpeg and ffprobe")
         dest.mkdir(parents=True, exist_ok=True)
         for name, src in found.items():
             shutil.copy2(src, dest / name)
