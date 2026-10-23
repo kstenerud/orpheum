@@ -3,6 +3,7 @@
 package discovery
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
@@ -58,7 +59,10 @@ type fakeDiscovery struct {
 	failing         map[string]bool
 	dropsSignalling bool
 	answersPings    bool
-	onSignal        func()
+	// passesAtOnce, offers are passed on as they come, each reply taken as it comes, as the real
+	// discovery passes a page's offers (discovery/single); without it, each waits for the last's reply.
+	passesAtOnce bool
+	onSignal     func()
 	// locateHashes and locators are each set of links and locators the core sent, in turn.
 	locateHashes []discoveryproto.LocateHashesRequest
 	locators     []discoveryproto.LocatorsRequest
@@ -297,7 +301,7 @@ func (fake *fakeDiscovery) TXT(name string) string {
 func (fake *fakeDiscovery) serveSignal(writer http.ResponseWriter, request *http.Request) {
 	fake.mutex.Lock()
 	isSignedIn := fake.tokens[strings.TrimPrefix(request.Header.Get("Authorization"), "Bearer ")]
-	drops, onSignal, answersPings := fake.dropsSignalling, fake.onSignal, fake.answersPings
+	drops, onSignal, answersPings, atOnce := fake.dropsSignalling, fake.onSignal, fake.answersPings, fake.passesAtOnce
 	fake.mutex.Unlock()
 	if onSignal != nil {
 		onSignal()
@@ -324,6 +328,9 @@ func (fake *fakeDiscovery) serveSignal(writer http.ResponseWriter, request *http
 		}
 		return
 	}
+	if atOnce {
+		go fake.takeReplies(ctx, connection)
+	}
 	for {
 		select {
 		case <-ctx.Done():
@@ -332,12 +339,26 @@ func (fake *fakeDiscovery) serveSignal(writer http.ResponseWriter, request *http
 			if err := wsjson.Write(ctx, connection, offer); err != nil {
 				return
 			}
+			if atOnce {
+				continue
+			}
 			var reply discoveryproto.SignalMessage
 			if err := wsjson.Read(ctx, connection, &reply); err != nil {
 				return
 			}
 			fake.replies <- reply
 		}
+	}
+}
+
+// takeReplies hands on each reply the core sends, as it comes, until the connection ends.
+func (fake *fakeDiscovery) takeReplies(ctx context.Context, connection *websocket.Conn) {
+	for {
+		var reply discoveryproto.SignalMessage
+		if err := wsjson.Read(ctx, connection, &reply); err != nil {
+			return
+		}
+		fake.replies <- reply
 	}
 }
 

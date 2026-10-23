@@ -5,6 +5,7 @@ package discovery
 import (
 	"context"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/kstenerud/orpheum/discovery/discoveryproto"
@@ -92,6 +93,65 @@ func TestWhyUnproven_NamesTheCheckAnOfferFailed(t *testing.T) {
 				each.offer.Proof, why, each.want)
 		}
 	}
+}
+
+// A page's offers are answered at once, not in turn: each answer waits on gathering the core's
+// candidates, and answered one after another a page's four connections took 2, 4, 6 and 8 s
+// (staging, 2026-10-23).
+func TestSignal_OffersAreAnsweredAtOnce(t *testing.T) {
+	t.Parallel()
+	built := newWorld(t)
+	answerer := &slowAnswering{bothIn: make(chan struct{})}
+	built.service.parts.Answerer, built.service.parts.OfferKey = answerer, offerKeys
+	built.fake.mutex.Lock()
+	built.fake.passesAtOnce = true
+	built.fake.mutex.Unlock()
+	if _, err := built.service.Connect(t.Context(), built.baseURL); err != nil {
+		t.Fatal(err)
+	}
+	built.fake.claim()
+	built.service.step(t.Context())
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		built.service.signal(ctx)
+	}()
+	t.Cleanup(func() { cancel(); testutil.Receive(t, done, "the signalling to stop") })
+	for _, id := range []string{"1", "2"} {
+		built.fake.signals <- provenOffer(id, "an offer\r\na=fingerprint:sha-256 "+id)
+	}
+	// Each answer is held until both offers are being answered, which a core answering in turn
+	// never reaches.
+	for range 2 {
+		if reply := testutil.Receive(t, built.fake.replies, "an answer"); reply.Type != discoveryproto.SignalAnswer {
+			t.Errorf("an offer was answered %+v; want an answer", reply)
+		}
+	}
+}
+
+// slowAnswering answers each offer only once two are being answered at the same time.
+type slowAnswering struct {
+	mutex  sync.Mutex
+	count  int
+	bothIn chan struct{}
+}
+
+func (answerer *slowAnswering) AnswerRelayed(
+	ctx context.Context, offer rtcapi.Description,
+) (rtcapi.Description, error) {
+	answerer.mutex.Lock()
+	answerer.count++
+	if answerer.count == 2 {
+		close(answerer.bothIn)
+	}
+	answerer.mutex.Unlock()
+	select {
+	case <-answerer.bothIn:
+	case <-ctx.Done():
+		return rtcapi.Description{}, ctx.Err()
+	}
+	return rtcapi.Description{Type: "answer", SDP: "answer to " + offer.SDP}, nil
 }
 
 // signallingWorld is a claimed core holding its signalling connection, its offers checked by keys.
