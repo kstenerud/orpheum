@@ -50,9 +50,12 @@ Python 3, shellcheck and a C compiler (for the race detector). The gate fetches 
 golangci-lint and sqlc into `.tools/` itself.
 
 ```
-make setup     # git hooks, web dependencies
 make check     # the gate; must pass before every commit
 ```
+
+The gates and `make dev` install what they need first: the git hooks, the web dependencies and,
+for the browser tests, the pinned browsers with, on Linux, the system libraries they need (through
+`sudo -n` when you are not root). `make setup` does all of it at once.
 
 `make help` lists every target.
 
