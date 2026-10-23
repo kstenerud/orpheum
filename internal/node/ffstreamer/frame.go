@@ -11,7 +11,7 @@ import (
 	"unicode/utf8"
 )
 
-// The message types (PROTOCOL.md §7).
+// The message types (the specification's Message Types).
 const (
 	typeHello      int8 = 1
 	typeCapability int8 = 2
@@ -21,7 +21,7 @@ const (
 	typeDone       int8 = 6
 )
 
-// The frame and its fixed bodies' lengths in bytes (§5, §7).
+// The frame and its fixed bodies' lengths in bytes (Frames, Messages).
 const (
 	headerBytes     = 6
 	helloBytes      = 4
@@ -42,7 +42,7 @@ const (
 	highestVersion = 1
 )
 
-// DONE's results and its error kinds (§7.5).
+// DONE's results and its error kinds (DONE).
 const (
 	resultOK  = 0
 	resultErr = 1
@@ -74,7 +74,7 @@ func (kind Kind) String() string {
 }
 
 // ErrViolation is a frame from FFmpeg that breaks the protocol. FFmpeg may have been taken over by
-// the film it reads, so a violation ends the run (§9.2).
+// the film it reads, so a violation ends the run (Serving).
 var ErrViolation = errors.New("FFmpeg broke the ffstreamer protocol")
 
 // header is one frame's header.
@@ -97,12 +97,12 @@ func frame(kind, sequence int8, body []byte) []byte {
 	return append(put(put(put(make([]byte, 0, headerBytes+len(body)), kind), sequence), length), body...)
 }
 
-// signed are the integers the protocol writes: signed, of a fixed size (§5).
+// signed are the integers the protocol writes: signed, of a fixed size (Frames).
 type signed interface {
 	~int8 | ~int16 | ~int32 | ~int64
 }
 
-// put appends value to raw, little-endian, as the protocol writes every field (§5).
+// put appends value to raw, little-endian, as the protocol writes every field (Frames).
 func put[T signed](raw []byte, value T) []byte {
 	//nolint:errcheck // binary.Append fails only for a type of no fixed size, which signed rules out
 	out, _ := binary.Append(raw, binary.LittleEndian, value)
@@ -125,7 +125,7 @@ func bodyBounds(kind int8) (low, high int32, isKnown bool) {
 }
 
 // checkHeader is whether a header FFmpeg sent may be read on: a known type from FFmpeg, the number
-// expected next, and a body within its type's bounds (§5, §6).
+// expected next, and a body within its type's bounds (Frames, Sequence Numbers).
 func checkHeader(got header, expectedSequence int8) error {
 	if got.sequence < 0 || got.length < 0 {
 		return fmt.Errorf("%w: a negative field in a header: sequence %d, length %d", ErrViolation, got.sequence,
@@ -156,7 +156,7 @@ func helloBody(versions versionRange) []byte {
 }
 
 // agreedVersion is the version two ranges share, the highest, or an error when either is invalid
-// or they share none (§7.1).
+// or they share none (HELLO).
 func agreedVersion(theirs, ours versionRange) (int16, error) {
 	if theirs.lowest < 1 || theirs.highest < theirs.lowest {
 		return 0, fmt.Errorf("%w: an invalid range of versions, %d to %d", ErrViolation, theirs.lowest, theirs.highest)
@@ -169,7 +169,7 @@ func agreedVersion(theirs, ours versionRange) (int16, error) {
 	return version, nil
 }
 
-// capability is FFmpeg's CAPABILITY (§7.2).
+// capability is FFmpeg's CAPABILITY.
 type capability struct {
 	preferredBlock, largestBody int32
 	outstanding                 int8
@@ -189,7 +189,7 @@ func decodeCapability(body []byte) (capability, error) {
 }
 
 // Terms are the parent's REQUEST: the run's identifier, the file's size, and how FFmpeg may read
-// it (§7.3).
+// it (REQUEST).
 type Terms struct {
 	Version     int16
 	Run         int64
@@ -212,7 +212,7 @@ type readRequest struct {
 }
 
 // decodeRead is a READ's range, checked against the terms without arithmetic that can overflow: a
-// bound is checked by subtraction from a known non-negative value, never by addition (§8).
+// bound is checked by subtraction from a known non-negative value, never by addition (Checks Without Overflow).
 func decodeRead(sequence int8, body []byte, terms Terms) (readRequest, error) {
 	got := readRequest{sequence: sequence, offset: int64Of(body[0:8]), length: int32Of(body[8:12])}
 	if got.offset < 0 || got.offset > terms.FileSize || got.length <= 0 || got.length > terms.LongestRead ||
@@ -223,7 +223,7 @@ func decodeRead(sequence int8, body []byte, terms Terms) (readRequest, error) {
 	return got, nil
 }
 
-// Done is FFmpeg's account of its channel (§7.5): the run it echoes, whether it saw a fault, and
+// Done is FFmpeg's account of its channel (DONE): the run it echoes, whether it saw a fault, and
 // when it did, the kind, FFmpeg's error code and its message, made safe to log.
 type Done struct {
 	Run     int64
@@ -263,7 +263,7 @@ func decodeDone(body []byte) (Done, error) {
 
 // Sanitised is text from FFmpeg made safe to log: decoded as UTF-8 with replacement, and every
 // character in the Unicode categories Cc and Cf escaped, which takes in the C0 and C1 controls, CSI in
-// either form, DEL and the bidirectional overrides (§9.11).
+// either form, DEL and the bidirectional overrides (Logging Text).
 func Sanitised(raw []byte) string {
 	var safe strings.Builder
 	for len(raw) > 0 {
@@ -278,7 +278,7 @@ func Sanitised(raw []byte) string {
 	return safe.String()
 }
 
-// nextSequence is the number after sequence, wrapping from 127 to 0 (§6).
+// nextSequence is the number after sequence, wrapping from 127 to 0 (Sequence Numbers).
 func nextSequence(sequence int8) int8 {
 	return int8((int(sequence) + 1) % sequenceModulus)
 }

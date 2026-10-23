@@ -19,7 +19,7 @@ import (
 )
 
 // Where a watched run's streamed film is: its channel's two pipes, after the progress pipe at 3, so
-// the descriptors FFmpeg inherits have no gap (ffstreamer's PROTOCOL.md §4.2).
+// the descriptors FFmpeg inherits have no gap (ffstreamer's specification, Descriptors).
 const (
 	filmReadFD  = progressFD + 1
 	filmWriteFD = progressFD + 2
@@ -42,8 +42,8 @@ type Film struct {
 	Size int64
 	// Stream, when set, is the channel that serves it, and the run is granted no path to it.
 	Stream *ffstreamer.Config
-	// CacheBlocks is how many blocks of a streamed film FFmpeg keeps (ffstreamer's PROTOCOL.md
-	// §10.2): filmCacheBlocks, for every film alike.
+	// CacheBlocks is how many blocks of a streamed film FFmpeg keeps (ffstreamer's specification,
+	// Reading in Blocks): filmCacheBlocks, for every film alike.
 	CacheBlocks int
 }
 
@@ -71,7 +71,7 @@ func (film Film) ReadingDeadline(slowestReadBytesPerSecond int64) time.Duration 
 }
 
 // The terms on which the node streams a film to the run that reads it (D330, ffstreamer's
-// PROTOCOL.md).
+// specification).
 
 // filmBudgetFloorBytes is the least a run may be served of its film, so a small film, its index or a
 // block's rounding never passes the budget (§9.6).
@@ -85,14 +85,14 @@ const filmDataPipeBytes = 1 << 20
 // next, prefetched as it reads straight through.
 const filmMostOutstanding = 2
 
-// filmCacheBlocks is how many of a streamed film's blocks FFmpeg keeps (§10.2). FFmpeg reads a few
+// filmCacheBlocks is how many of a streamed film's blocks FFmpeg keeps (Reading in Blocks). FFmpeg reads a few
 // seconds of every track as it opens a film, whatever the run maps, so a film whose tracks are stored
 // one after another is read from as many places as it has tracks, sweeping them over and over, and a
 // cache smaller than the sweep thrashes: an 11-track film was served 25 times its size at 19 or 32
 // blocks of 1 MiB, and a third of it at 48 (orpheum-ffmpeg's bench/interleave.py, 2026-10-22).
 const filmCacheBlocks = 48
 
-// FilmReading is how much of its film a run reads, which sets how much it may be served (§9.6).
+// FilmReading is how much of its film a run reads, which sets how much it may be served (Budget).
 type FilmReading int
 
 const (
