@@ -13,9 +13,23 @@ TEMPLATE = REPO / "internal" / "deployment" / "templates" / "install.sh"
 
 # A docker that logs each call, begins a values file the first time a write-deployment runs over a
 # directory that has none, failing then as the real one does to say what to fill in, answers
-# setup-code with a code, and hands over NVIDIA's GPUs as FAKE_NVIDIA says.
+# setup-code with a code, and hands over NVIDIA's GPUs as FAKE_NVIDIA says. Its images are
+# FAKE_IMAGES' lines, "<id> <repository>:<tag>"; removing one named in FAKE_IN_USE fails.
 FAKE_DOCKER = """#!/bin/sh
 echo "docker $*" >> "$FAKE_LOG"
+case "$1 $2" in
+"image inspect")
+    eval "name=\\${$#}"
+    printf '%s\\n' "$FAKE_IMAGES" | awk -v n="$name" '$2 == n { print $1; found = 1 } END { exit !found }'
+    exit ;;
+"image ls")
+    eval "repository=\\${$#}"
+    printf '%s\\n' "$FAKE_IMAGES" | awk -v r="$repository" 'index($2, r ":") == 1'
+    exit 0 ;;
+"image rm")
+    case " $FAKE_IN_USE " in *" $3 "*) exit 1 ;; esac
+    exit 0 ;;
+esac
 case "$*" in
 # Docker's security options, rootless among them with FAKE_ROOTLESS=1.
 info)
@@ -186,6 +200,37 @@ class Install(unittest.TestCase):
         self.assertEqual(done.returncode, 1)
         self.assertIn("permission denied", done.stderr)
         self.assertNotIn("compose up", self.logged())
+
+    def test_an_update_keeps_the_image_it_replaced_and_removes_the_older_ones(self):
+        films = self.root / "films"
+        films.mkdir()
+        self.assertEqual(self.install("--media", str(films), "--dir", str(self.dir)).returncode, 0)
+        (self.dir / ".env").write_text("ORPHEUM_IMAGE=ghcr.io/example/orpheum:v1.2.2\n")
+        images = "\n".join([
+            "sha256:new ghcr.io/example/orpheum:v1.2.3", "sha256:previous ghcr.io/example/orpheum:v1.2.2",
+            "sha256:older ghcr.io/example/orpheum:v1.2.1", "sha256:moved ghcr.io/example/orpheum:<none>",
+            "sha256:used ghcr.io/example/orpheum:v1.0.0", "sha256:other ghcr.io/example/other:v1.2.1",
+        ])
+        self.log.unlink()
+        done = self.install("--dir", str(self.dir), FAKE_IMAGES=images, FAKE_IN_USE="ghcr.io/example/orpheum:v1.0.0")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        removed = [line.removeprefix("docker image rm ") for line in self.logged().splitlines()
+                   if line.startswith("docker image rm ")]
+        self.assertEqual(sorted(removed), ["ghcr.io/example/orpheum:v1.0.0", "ghcr.io/example/orpheum:v1.2.1",
+                                           "sha256:moved"])
+        self.assertIn("removed the old image ghcr.io/example/orpheum:v1.2.1", done.stderr)
+        self.assertNotIn("v1.0.0", done.stderr)
+        # The previous image was found before the pull, which can move its tag.
+        log = self.logged()
+        self.assertLess(log.index("image inspect --format {{.Id}} ghcr.io/example/orpheum:v1.2.2"), log.index("pull"))
+
+    def test_keep_images_removes_none(self):
+        films = self.root / "films"
+        films.mkdir()
+        images = "sha256:new ghcr.io/example/orpheum:v1.2.3\nsha256:older ghcr.io/example/orpheum:v1.2.1"
+        done = self.install("--media", str(films), "--dir", str(self.dir), "--keep-images", FAKE_IMAGES=images)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertNotIn("image rm", self.logged())
 
     def test_an_nvidia_gpu_is_handed_over_the_way_docker_can_and_named_to_write_deployment(self):
         films = self.root / "films"
