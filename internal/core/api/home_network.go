@@ -4,6 +4,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"net/netip"
@@ -25,10 +26,30 @@ func (server *Server) SetHomeNetworks(networks []netip.Prefix) {
 	server.homeNetworks.Store(&held)
 }
 
-// markingHome notes in each request's context whether it came from a home network.
+// SetThisMachinePort names the port only the server's own machine reaches: the deployment publishes it
+// on the host's loopback alone, so a request on it is from that machine, and so from home, though
+// Docker hands it the core from its gateway, as every request the machine makes to its own published
+// ports (D334 §4). 0 names none.
+func (server *Server) SetThisMachinePort(port int) {
+	server.thisMachinePort.Store(int32(port)) //nolint:gosec // G115: a port, which int32 holds
+}
+
+// thisMachineHint is what the refusal of an admin away from home adds when the server has a port for
+// its own machine: on that machine, the browser opened the house's address and arrived from Docker's
+// gateway, and this is the address that administers.
+func (server *Server) thisMachineHint() string {
+	port := server.thisMachinePort.Load()
+	if port == 0 {
+		return ""
+	}
+	return fmt.Sprintf("; on the server's own computer, open http://localhost:%d", port)
+}
+
+// markingHome notes in each request's context whether it came from a home network, or through the
+// port only the server's own machine reaches.
 func (server *Server) markingHome(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		isHome := server.isHomeAddress(request.RemoteAddr)
+		isHome := server.isHomeAddress(request.RemoteAddr) || server.isOnThisMachinesPort(request)
 		if rtcapi.IsOverWebRTC(request.Context()) {
 			isHome = isHomeOverWebRTC(isHome, request.RemoteAddr, rtcapi.OwnIPv6NetworksOf(request.Context()),
 				rtcapi.PathOf(request.Context()))
@@ -57,6 +78,17 @@ func isInAny(remote string, networks []netip.Prefix) bool {
 	}
 	address = address.Unmap().WithZone("")
 	return slices.ContainsFunc(networks, func(network netip.Prefix) bool { return network.Contains(address) })
+}
+
+// isOnThisMachinesPort is whether request came in on the port only the server's own machine reaches.
+func (server *Server) isOnThisMachinesPort(request *http.Request) bool {
+	port := server.thisMachinePort.Load()
+	local, isAddress := request.Context().Value(http.LocalAddrContextKey).(net.Addr)
+	if port == 0 || !isAddress {
+		return false
+	}
+	address, err := netip.ParseAddrPort(local.String())
+	return err == nil && int32(address.Port()) == port
 }
 
 // isHomeAddress is whether remote, a request's "host:port", is in one of the home networks.

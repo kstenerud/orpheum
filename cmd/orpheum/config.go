@@ -69,6 +69,23 @@ type ServerConfig struct {
 	// with no relay between, for an admin's session to administer: the house's, not the tunnel's nor
 	// the internet's, until passkeys let an admin in from elsewhere (D297 §6, D300 §3).
 	HomeNetworks []string `toml:"home_networks"`
+	// ThisMachineListen is plain HTTP for a browser on the server's own machine alone, which the
+	// deployment publishes on that machine's loopback: a request on it is from home, though Docker
+	// hands it the core from its gateway (D334 §4). Empty serves none.
+	ThisMachineListen string `toml:"this_machine_listen"`
+}
+
+// thisMachinePort is the port ThisMachineListen names, 0 for none; check refused one that names none.
+func (server ServerConfig) thisMachinePort() int {
+	_, port, err := net.SplitHostPort(server.ThisMachineListen)
+	if err != nil {
+		return 0
+	}
+	number, err := strconv.Atoi(port)
+	if err != nil {
+		return 0
+	}
+	return number
 }
 
 // homeNetworks are HomeNetworks parsed; check refused any that is not one.
@@ -263,6 +280,11 @@ func serverConfigKeys() []configKey {
 				"public DNS never answers (nas, nas.example, nas.local), and refuses others against DNS rebinding",
 		},
 		{tableServer, "shutdown_grace_seconds", "10", "seconds in-flight requests get to finish when the server stops"},
+		{
+			tableServer, "this_machine_listen", `""`,
+			"plain HTTP for a browser on this machine alone, published on its loopback: a request on it is from " +
+				"home (D334 §4); empty serves none",
+		},
 		{
 			tableServer, "home_networks",
 			`["192.168.0.0/16"]`,
@@ -559,6 +581,10 @@ func (server ServerConfig) check() error {
 	var problems []error
 	if _, _, err := net.SplitHostPort(server.Listen); err != nil {
 		problems = append(problems, fmt.Errorf("server.listen %q: want host:port", server.Listen))
+	}
+	if server.ThisMachineListen != "" && server.thisMachinePort() == 0 {
+		problems = append(problems, fmt.Errorf("server.this_machine_listen %q: want host:port, or empty",
+			server.ThisMachineListen))
 	}
 	problems = append(problems, atLeastOne(map[string]int64{
 		"server.read_header_timeout_seconds": server.ReadHeaderTimeoutSeconds,

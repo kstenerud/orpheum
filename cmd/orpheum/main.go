@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -193,6 +194,14 @@ func commandCore(ctx context.Context, call invocation) int {
 	listener, err := listenForMedia(ctx, config.Server.Listen, logger)
 	if err != nil {
 		return call.fail(fmt.Errorf("listen on %s: %w", config.Server.Listen, err))
+	}
+	if config.Server.ThisMachineListen != "" {
+		thisMachine, listenErr := listenForMedia(ctx, config.Server.ThisMachineListen, logger)
+		if listenErr != nil {
+			return call.fail(errors.Join(fmt.Errorf("listen on %s: %w", config.Server.ThisMachineListen, listenErr),
+				listener.Close()))
+		}
+		listener = joinListeners(listener, thisMachine)
 	}
 	outside := releaseWiring()
 	outside.machineZone = machineZone(systemZoneSources(call.lookupEnv))

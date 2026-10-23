@@ -86,6 +86,10 @@ type Values struct {
 	HTTP struct {
 		Publish string `toml:"publish"`
 		Port    int    `toml:"port"`
+		// ThisMachinePort is plain HTTP for a browser on this machine alone, published on its
+		// loopback, the same port inside: a request on it is from home, though Docker hands it the
+		// core from its gateway (D334 §4).
+		ThisMachinePort int `toml:"this_machine_port"`
 	} `toml:"http"`
 	// LAN is where devices at home reach the core over HTTPS, by the name its discovery gives this
 	// machine's address there: the address, which the core's container cannot see, and the port HTTPS
@@ -99,6 +103,10 @@ type Values struct {
 	} `toml:"lan"`
 }
 
+// thisMachinePortDefault is the port a browser on this machine reaches the core on, as home, unless the
+// values file names another (D334 §4).
+const thisMachinePortDefault = 8441
+
 // lanHTTPSPortDefault is the port HTTPS is published on at home unless the values file names another.
 const lanHTTPSPortDefault = 8443
 
@@ -108,6 +116,7 @@ func ParseValues(text, hostName string) (Values, error) {
 	values := Values{}
 	values.HTTP.Publish = "0.0.0.0"
 	values.HTTP.Port = 8440
+	values.HTTP.ThisMachinePort = thisMachinePortDefault
 	values.LAN.HTTPSPort = lanHTTPSPortDefault
 	values.LAN.WebRTCPort = lanHTTPSPortDefault
 	values.VPS.TunnelIPv4 = firstTunnelIPv4
@@ -195,6 +204,10 @@ const (
 // LAN address, which Problems refuses, there are none: a private range in its place took in Docker's
 // networks, so a port published through docker-proxy made the internet look like home (the
 // Plex-chain review's L1).
+//
+// The core's own loopback is home too: only a command run in its container reaches it, as the install
+// script's, which makes the admin and pairs the core (D334 §2, §3); docker-proxy connects to the
+// container's own address, never its loopback.
 func (values Values) HomeNetworks() []string {
 	address, err := netip.ParseAddr(values.LAN.Address)
 	if err != nil {
@@ -204,7 +217,7 @@ func (values Values) HomeNetworks() []string {
 	if address.Is6() {
 		bits = homeNetworkBitsIPv6
 	}
-	return []string{netip.PrefixFrom(address, bits).Masked().String()}
+	return []string{netip.PrefixFrom(address, bits).Masked().String(), "127.0.0.0/8", "::1/128"}
 }
 
 // TURNPublicAddress is the address browsers reach the core's TURN at: the VPS's public IPv4 through
@@ -317,6 +330,11 @@ func (values Values) httpProblems() []string {
 	if port := values.HTTP.Port; port == devServerPort || port == devVitePort || port < 1 || port > 65535 {
 		problems = append(problems, fmt.Sprintf("http.port %d: want a port the dev loop does not use (%d, %d)",
 			port, devServerPort, devVitePort))
+	}
+	if port := values.HTTP.ThisMachinePort; port == values.HTTP.Port || port == devServerPort ||
+		port == devVitePort || port < 1 || port > 65535 {
+		problems = append(problems, fmt.Sprintf("http.this_machine_port %d: want a port of its own, not http.port's "+
+			"nor one the dev loop uses (%d, %d)", port, devServerPort, devVitePort))
 	}
 	return append(problems, values.lanProblems()...)
 }

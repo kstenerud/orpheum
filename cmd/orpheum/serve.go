@@ -647,6 +647,7 @@ func mountDebug(
 func newAPIServer(config Config, logger *slog.Logger) *api.Server {
 	server := api.NewServer(logger)
 	server.SetHomeNetworks(config.Server.homeNetworks())
+	server.SetThisMachinePort(config.Server.thisMachinePort())
 	return server
 }
 
