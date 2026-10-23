@@ -461,15 +461,6 @@ func TestDecodeDone_ReadsAFailureAndMakesItsMessageSafeToLog(t *testing.T) {
 	}
 }
 
-func TestCacheBlocks_IsOneAndAHalfTimesTheStreamsPlusTwo(t *testing.T) {
-	t.Parallel()
-	for streams, want := range map[int]int{0: 2, 1: 4, 2: 5, 10: 17} {
-		if got := CacheBlocks(streams); got != want {
-			t.Errorf("CacheBlocks(%d) = %d; want %d", streams, got, want)
-		}
-	}
-}
-
 // waitForKill waits for the node to kill the run, failing after a while.
 func (fake *fakeFFmpeg) waitForKill() {
 	fake.t.Helper()

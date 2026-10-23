@@ -159,12 +159,6 @@ func InputArguments(readFD, writeFD, cacheBlocks int) []string {
 	}
 }
 
-// CacheBlocks is how many blocks FFmpeg should keep for a run that reads streams of the film: a
-// film whose tracks are stored one after another is read from that many places at once (Reading in Blocks).
-func CacheBlocks(streams int) int {
-	return max(2, (3*streams+1)/2+2)
-}
-
 // Start serves the channel to a started FFmpeg, whose run kill ends: it closes the node's copies of
 // FFmpeg's ends, so the request pipe ends when FFmpeg does (Descriptors).
 func (channel *Channel) Start(ctx context.Context, kill func()) {
