@@ -21474,3 +21474,30 @@ NVENC, then VAAPI, each confined (`prepare.hardwareEncoders`); a VAAPI encode's 
 device and upload, with the others' rates and keyframes and no preset (`Encoder.encodeArguments`,
 `QualityArguments`); the image carries `mesa-va-drivers` on amd64. On the RX 6600 XT a node from
 main chose `h264_vaapi` (VQ52).
+
+## D333 — The container is given an NVIDIA card's GPU when Docker can hand it over
+
+**Decided** (2026-10-23), by the project owner (*"do the rest as well before we deploy to nas.example,
+including #7"*, #7 being NVIDIA in the release container). An install gives the node the machine's
+`/dev/dri` and its render group, which is all an Intel or AMD card needs, since the image carries
+their VA drivers ([D332](#d332--the-node-encodes-on-an-amd-card-through-vaapi-tried-after-quick-sync-and-nvenc)
+§3). An NVIDIA card's encoder also needs the driver's own libraries, which must match the host's
+kernel driver exactly, so no image can carry them: NVIDIA's container toolkit puts them into a
+container as it starts, but only when the container asks. None did, so on an NVIDIA machine the
+node found no NVENC and encoded on the processor. **Extends**
+[D314](#d314--a-core-is-installed-from-a-public-image-on-any-machine-that-runs-docker-with-the-hardware-it-needs-and-with-no-tunnel-a-connection-that-needs-a-relay-fails-and-is-counted)'s
+install.
+
+1. **The install script asks Docker for the GPU the two ways the toolkit offers, on the image
+   itself, and writes whichever worked into the node's compose override:** a CDI device,
+   `nvidia.com/gpu=all`, as the toolkit describes the cards since 1.18 or after
+   `nvidia-ctk cdi generate`, which rootless Docker also takes; else Docker's `nvidia` device
+   driver, which the toolkit's hook provides, asking for the compute, video and utility
+   capabilities NVENC needs. It tries only where the host has `/dev/nvidiactl`, so a machine without
+   an NVIDIA driver runs no trial.
+2. **A machine with an NVIDIA driver whose Docker can do neither is told so** in the install's
+   report, with the toolkit to install, and installs without the GPU, encoding in software, as before.
+3. **Nothing else changes:** the node's own detection and confinement already handle NVIDIA's
+   devices (D331 §3), and its trials choose NVENC when it works.
+
+**Status:** Decided.
