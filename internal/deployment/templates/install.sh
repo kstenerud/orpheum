@@ -110,7 +110,14 @@ nvidiaAccess() {
 
 # The address this machine has at home, for its LAN name (D300); none when it has no private one.
 homeAddress() {
-	address=$(ip -4 route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p')
+	if command -v ip >/dev/null 2>&1; then
+		address=$(ip -4 route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p')
+	else
+		# macOS has no ip: the default route's interface, and its address (the Mac hardware test,
+		# 2026-10-23, stopped asking for lan.address by hand).
+		interface=$(route -n get default 2>/dev/null | sed -n 's/.*interface: *//p')
+		address=$(ipconfig getifaddr "$interface" 2>/dev/null)
+	fi
 	case $address in
 	10.* | 192.168.* | 172.1[6-9].* | 172.2[0-9].* | 172.3[01].*) echo "$address" ;;
 	esac
@@ -309,15 +316,99 @@ done
 if $isUp && $prune; then
 	pruneImages
 fi
-address=$(homeAddress)
+
+# valueOf is the values file's value of key in section, its quotes taken off, or nothing.
+valueOf() {
+	awk -v section="[$1]" -v key="$2" '
+		/^\[/ { current = $0 }
+		current == section && $1 == key && $2 == "=" { value = $3; gsub(/"/, "", value); print value; exit }
+	' "$values"
+}
+
+# The terminal the person runs this at, which the script, itself read from standard input, asks at
+# (D334 §2): opened once, so each answer is read in turn; there is none in a NAS's panel, Portainer
+# or a script, where the one-time setup code is printed instead.
+ttyIn=/dev/tty
+ttyOut=/dev/tty
+hasTerminal=false
+if (exec 3<"$ttyIn" 4>"$ttyOut") 2>/dev/null; then
+	exec 3<"$ttyIn" 4>"$ttyOut"
+	hasTerminal=true
+	trap 'stty echo <&3 2>/dev/null || true' EXIT
+fi
+
+# askHidden asks at the terminal without echoing the answer, and prints it.
+askHidden() {
+	printf '%s' "$1" >&4
+	stty -echo <&3 2>/dev/null || true
+	readStatus=0
+	IFS= read -r hidden <&3 || readStatus=$?
+	stty echo <&3 2>/dev/null || true
+	printf '\n' >&4
+	[ "$readStatus" -eq 0 ] && printf '%s' "$hidden"
+}
+
+# The first admin, made at the terminal, and then, if the person has an account's key, the core
+# paired with its discovery with the password just given (D334 §2, §3): no setup code to copy, and no
+# key to paste on a System page afterwards. A password goes to the core on standard input alone.
+admin=""
+realm=""
+if [ -n "$setupCode" ] && $hasTerminal; then
+	say "the server is up; choose who administers it"
+	attempts=0
+	while [ -z "$admin" ] && [ "$attempts" -lt 3 ]; do
+		attempts=$((attempts + 1))
+		printf 'Administrator name: ' >&4
+		IFS= read -r name <&3 || break
+		[ -n "$name" ] || continue
+		password=$(askHidden "Password: ") || break
+		again=$(askHidden "The same again: ") || break
+		if [ "$password" != "$again" ]; then
+			say "the two passwords differ; once more"
+			continue
+		fi
+		if printf '%s\n' "$password" | (cd "$dir" && docker compose exec -T orpheum-core orpheum reset-admin \
+			--name "$name" --instance /var/lib/orpheum/core) >/dev/null; then
+			admin=$name
+		fi
+	done
+	if [ -n "$admin" ]; then
+		setupCode=""
+		say "$admin administers it"
+		printf 'The key from your Orpheum account, to reach it from away (Enter to skip): ' >&4
+		IFS= read -r key <&3 || key=""
+		if [ -n "$key" ]; then
+			if paired=$(printf '%s\n%s\n' "$password" "$key" | (cd "$dir" && docker compose exec -T orpheum-core \
+				orpheum pair --name "$admin" --instance /var/lib/orpheum/core)); then
+				case $paired in "paired: realm "*) realm=${paired#paired: realm } ;; esac
+				say "paired with your account"
+			else
+				say "not paired; enter the key later on the server's System page"
+			fi
+		fi
+	fi
+	password=""
+	again=""
+fi
+
+address=$(valueOf lan address)
 [ -n "$address" ] || address="<this machine's address>"
+port=$(valueOf http port)
+thisMachinePort=$(valueOf http this_machine_port)
 say "installed in $dir"
-if [ -n "$setupCode" ]; then
-	say "open http://$address:8440 and make the first admin with this one-time code:"
-	printf '%s\n' "$setupCode" >&2
-elif $isUp; then
-	say "open http://$address:8440: it has its first admin already"
-else
+if ! $isUp; then
 	say "the server did not answer within two minutes; \`docker compose logs orpheum-core\` in $dir says why"
 	exit 1
+fi
+say "open it:"
+say "  from a phone, laptop or TV at home:  http://$address:${port:-8440}"
+say "  in a browser on this computer:       http://localhost:${thisMachinePort:-8441}"
+if [ -n "$realm" ]; then
+	say "  from away: sign in at app.orpheum-app.com with the realm $realm, as $admin"
+fi
+if [ -n "$setupCode" ]; then
+	say "make the first admin there with this one-time code:"
+	printf '%s\n' "$setupCode" >&2
+elif [ -z "$admin" ]; then
+	say "it has its first admin already"
 fi
