@@ -162,8 +162,8 @@ TMDB key among them) are made again, and every link anyone was given stops worki
 
 ## 5. Going back
 
-The same two commands with the older tag; the image of the version before the current one is still
-on the machine, so it needs no build. An older binary refuses a database a newer one migrated,
+The same two commands with the older tag. The image of the version before the current one is still
+on the machine, so a household going back to it downloads nothing; a build from a tag builds again. An older binary refuses a database a newer one migrated,
 unless the newer one declared it compatible, and its refusal names the snapshot taken before the
 migration (D181): stop the deployment, put the snapshot in place of `core/persistent/persistent.db`,
 and start it again. What happened since the snapshot is lost.
