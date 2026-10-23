@@ -189,17 +189,30 @@ def up(quick: bool = False) -> int:
     # Recreated every time: a tunnel container restarted on its own leaves the core outside its
     # network, and recreating both is what mends it (the compose file).
     run(compose("up", "--detach", "--remove-orphans", "--force-recreate", "--wait"))
-    values = tomllib.loads(VALUES.read_text())
+    print(where_reached(tomllib.loads(VALUES.read_text()), lan_address()))
+    return 0
+
+
+def where_reached(values: dict, this_machine: str) -> str:
+    """Where staging is reached, as its values file says: at home by the address it names, which a
+    machine inside a container cannot see for itself (it printed the sandbox's own Docker address,
+    2026-10-23), and from outside by its name, or through its discovery when it has none."""
     http = values.get("http", {})
-    host = "127.0.0.1" if http.get("publish") == "127.0.0.1" else lan_address()
-    print(f"""
+    host = values.get("lan", {}).get("address") or this_machine
+    if http.get("publish") == "127.0.0.1":
+        host = "127.0.0.1"
+    domain = values.get("domain")
+    if domain:
+        outside = (f"https://{domain}  (once its certificate is issued: enter the DNS token in Settings,\n"
+                   "                           Keys and passwords, as dns_provider_token)")
+    else:
+        outside = "through its discovery, once it is claimed (orpheum-ops, staging/README.md)"
+    return f"""
 staging: up.
   On the house's network:  http://{host}:{http.get("port", 8440)}
-  From outside:            https://{values.get("domain")}  (once its certificate is issued: enter the DNS
-                           token in Settings, Keys and passwords, as dns_provider_token)
+  From outside:            {outside}
   A new server's first admin:  ./staging setup-code
-  Logs:                        ./staging logs""")
-    return 0
+  Logs:                        ./staging logs"""
 
 
 def wipe() -> int:
