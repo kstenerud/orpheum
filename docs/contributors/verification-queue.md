@@ -515,3 +515,11 @@ An item is ticked only by the person who did it, and only with what they saw.
   say hello; the System page's hardware shows each VAAPI or QSV trial, and any that fails names
   what it was refused. A confined VAAPI encode, if one works unconfined, gives frames as the
   unconfined run does. Mesa's start under confinement meets a real driver only here (D331 §3).
+  — partly done 2026-10-23 by Claude on "amd" (Linux Mint 22.3, Radeon RX 6600 XT, kernel 7.0,
+  Landlock on), in a Debian trixie container with `mesa-va-drivers` 25.0.7: a 10 s `h264_vaapi`
+  encode of film.mkv confined with GPU access (the shim built from main) gave 240 decoded frames
+  identical to the unconfined run's, and the same encode confined and reading through ffstreamer,
+  given no path to the film, ended DONE OK with the same output; without GPU access it failed. Not
+  ticked: the node has no VAAPI encoder to try, only Quick Sync and NVENC, which both fail here, so
+  it would encode on the processor; and the release image has no AMD VA driver. Both are the owner's
+  to decide.
