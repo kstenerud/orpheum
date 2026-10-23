@@ -66,7 +66,9 @@ func (encoder Encoder) encodeArguments(segmentLengthSeconds, kbps int) []string 
 	codec, preset, pixelFormat, extra := "libx264", "veryfast", "yuv420p", []string(nil)
 	switch encoder {
 	case EncoderQuickSync:
-		codec, pixelFormat = "h264_qsv", "nv12"
+		// Without it, Quick Sync makes a forced keyframe an I picture but not an IDR, which no segment
+		// can start on (measured on an i3-N305, 2026-10-23).
+		codec, pixelFormat, extra = "h264_qsv", "nv12", []string{"-forced_idr", "1"}
 	case EncoderNVENC:
 		codec, preset, extra = "h264_nvenc", "p4", []string{"-forced-idr", "1"}
 	case EncoderVAAPI, EncoderX264:

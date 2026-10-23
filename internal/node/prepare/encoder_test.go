@@ -158,3 +158,23 @@ func TestArguments_AnEncodeUsesTheNodesEncoderAndARemuxCopies(t *testing.T) {
 		t.Errorf("a remux uses %s, want copy whatever the encoder", codec)
 	}
 }
+
+// A prepare's encode makes its forced keyframes IDR pictures as a chunk's does, on every encoder: an
+// encoder that needs a flag for it gets it in both, or a prepare's segments, which can start only on
+// an IDR, come out longer than asked (Quick Sync's lacked it, 2026-10-23).
+func TestArguments_APreparesKeyframesAreIDRsAsAChunksAreOnEveryEncoder(t *testing.T) {
+	t.Parallel()
+	encode := nodeproto.Prepare{Profile: nodeproto.ProfileH264}
+	for _, encoder := range []prepare.Encoder{
+		prepare.EncoderQuickSync, prepare.EncoderNVENC, prepare.EncoderVAAPI, prepare.EncoderX264,
+	} {
+		prepared := prepare.Arguments(execx.Film{Path: "/a"}, "/b", encode, encoder)
+		chunk := encoder.QualityArguments(1500, 480, "0,4")
+		for _, flag := range []string{"-forced_idr", "-forced-idr"} {
+			if after(prepared, flag) != after(chunk, flag) {
+				t.Errorf("%s: a prepare's %s is %q, a chunk's %q; want the same", encoder, flag,
+					after(prepared, flag), after(chunk, flag))
+			}
+		}
+	}
+}
