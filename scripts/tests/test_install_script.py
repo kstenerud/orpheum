@@ -57,6 +57,13 @@ case "$1 $2" in
     fi
     ;;
 "compose exec")
+    # The admin made and the core paired at the terminal: what each was given on standard input.
+    case "$*" in
+    *" reset-admin "*) cat > "$FAKE_LOG.reset-admin"; echo "$*" >> "$FAKE_LOG.reset-admin"
+        [ "$FAKE_PASSWORD_REFUSED" = 1 ] && { echo "the password is too short" >&2; exit 1; }
+        exit 0 ;;
+    *" pair "*) cat > "$FAKE_LOG.pair"; echo "paired: realm the-smiths"; exit 0 ;;
+    esac
     if [ "$FAKE_SET_UP" = 1 ]; then
         echo "setup is complete: an admin exists; sign in instead"
         exit 1
@@ -105,7 +112,9 @@ class Install(unittest.TestCase):
         self.script = (TEMPLATE.read_text().replace("{{.Image}}", "ghcr.io/example/orpheum:v1.2.3")
                        .replace("procSys=/proc/sys", f"procSys={self.proc_sys}")
                        .replace("lsmList=/sys/kernel/security/lsm", f"lsmList={self.root / 'lsm'}")
-                       .replace("nvidiaControl=/dev/nvidiactl", f"nvidiaControl={self.root / 'nvidiactl'}"))
+                       .replace("nvidiaControl=/dev/nvidiactl", f"nvidiaControl={self.root / 'nvidiactl'}")
+                       .replace("ttyIn=/dev/tty", f"ttyIn={self.root / 'terminal-in'}")
+                       .replace("ttyOut=/dev/tty", f"ttyOut={self.root / 'terminal-out'}"))
         self.dir = self.root / "orpheum"
 
     def install(self, *args: str, **env: str) -> subprocess.CompletedProcess:
@@ -183,6 +192,51 @@ class Install(unittest.TestCase):
         self.assertIn("Landlock: yes", self.install("--dir", str(self.dir)).stderr)
         (self.root / "lsm").write_text("lockdown,capability,yama,apparmor\n")
         self.assertIn("Landlock: no", self.install("--dir", str(self.dir)).stderr)
+
+    def at_the_terminal(self, *answers: str) -> None:
+        """The person at the terminal, who answers each question in turn."""
+        (self.root / "terminal-in").write_text("".join(answer + "\n" for answer in answers))
+        (self.root / "terminal-out").write_text("")
+
+    # D334 §2, §3: the first admin is made at the terminal, and the core paired by the account's key
+    # with the password just given, each only on standard input; then both addresses are named.
+    def test_at_a_terminal_it_makes_the_admin_pairs_the_core_and_names_both_addresses(self):
+        films = self.root / "films"
+        films.mkdir()
+        self.at_the_terminal("karl", "a-long-password", "a-long-password", "abcd-efgh-jkmn-pqrs")
+        done = self.install("--media", str(films), "--dir", str(self.dir))
+        self.assertEqual(done.returncode, 0, done.stderr)
+        made = Path(f"{self.log}.reset-admin").read_text()
+        self.assertTrue(made.startswith("a-long-password\n"), made)
+        self.assertIn("reset-admin --name karl", made)
+        self.assertEqual(Path(f"{self.log}.pair").read_text(), "a-long-password\nabcd-efgh-jkmn-pqrs\n")
+        self.assertNotIn("a-long-password", self.logged())
+        self.assertNotIn("abcd-efgh-jkmn-pqrs", self.logged())
+        self.assertIn("http://192.168.1.20:8440", done.stderr)
+        self.assertIn("http://localhost:8441", done.stderr)
+        self.assertIn("realm the-smiths, as karl", done.stderr)
+        self.assertNotIn("abcd-efgh\n", done.stderr.replace("abcd-efgh-jkmn", ""))
+        self.assertNotIn("one-time code", done.stderr)
+
+    def test_at_a_terminal_a_skipped_key_pairs_nothing_and_a_mismatch_asks_again(self):
+        films = self.root / "films"
+        films.mkdir()
+        self.at_the_terminal("karl", "one-password", "another", "karl", "a-long-password", "a-long-password", "")
+        done = self.install("--media", str(films), "--dir", str(self.dir))
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn("differ", done.stderr)
+        self.assertTrue(Path(f"{self.log}.reset-admin").read_text().startswith("a-long-password\n"))
+        self.assertFalse(Path(f"{self.log}.pair").exists())
+        self.assertNotIn("realm", done.stderr)
+
+    def test_with_no_terminal_it_prints_the_setup_code(self):
+        films = self.root / "films"
+        films.mkdir()
+        done = self.install("--media", str(films), "--dir", str(self.dir))
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn("one-time code", done.stderr)
+        self.assertIn("abcd-efgh", done.stderr)
+        self.assertFalse(Path(f"{self.log}.reset-admin").exists())
 
     def test_a_server_with_its_admin_already_is_not_waited_on_for_a_code(self):
         films = self.root / "films"
