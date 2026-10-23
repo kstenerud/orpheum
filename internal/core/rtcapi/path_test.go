@@ -27,7 +27,7 @@ func TestAnswer_CountsThePathEachConnectionTook(t *testing.T) {
 	server := rtcapi.New(t.Context(), echo, slog.New(slog.NewTextHandler(log, nil)))
 	t.Cleanup(func() { _ = server.Close() }) //nolint:errcheck // the test is over
 	rtcapitest.Connect(t, server.Answer, rtcapitest.OverIPv4()).Do(rtcapi.RequestHead{Method: "GET", Path: "/"}, nil)
-	log.AwaitLine(t, "webrtc: a client's connection", "path=direct_ipv4")
+	log.AwaitLine(t, "webrtc: a client's connection", "path=direct_ipv4", "connectMs=")
 	if counts := server.PathCounts(); counts[rtcapi.PathDirectIPv4] != 1 || len(counts) != 1 {
 		t.Errorf("the paths counted are %v; want one direct over IPv4", counts)
 	}
@@ -113,6 +113,30 @@ func TestUseICEServers_AStunServerThatNeverAnswersDoesNotSinkTheAnswer(t *testin
 		defer cancel()
 		return server.Answer(ctx, offer)
 	})
+}
+
+// A STUN server the core cannot reach by one family holds its gathering for stunGatherTimeout; once
+// another has given it its public address, the answer goes without waiting that out, and carries it
+// (staging, 2026-10-23: every answer took 2.1 s).
+func TestAnswer_GoesSoonAfterTheCoresPublicAddressNotWhenGatheringEnds(t *testing.T) {
+	t.Parallel()
+	server := newServer(t)
+	answering, silent := startSTUN(t), silentSTUN(t)
+	server.UseICEServers(func() []webrtc.ICEServer {
+		return []webrtc.ICEServer{{URLs: []string{answering}}, {URLs: []string{silent}}}
+	})
+	var answered string
+	rtcapitest.Connect(t, func(ctx context.Context, offer rtcapi.Description) (rtcapi.Description, error) {
+		// Shorter than the 2 s the silent server holds gathering for.
+		ctx, cancel := context.WithTimeout(ctx, 1500*time.Millisecond)
+		defer cancel()
+		answer, err := server.Answer(ctx, offer)
+		answered = answer.SDP
+		return answer, err
+	})
+	if want := publicAddress + " " + strconv.Itoa(publicPort) + " typ srflx"; !strings.Contains(answered, want) {
+		t.Errorf("the answer's candidates are\n%s\nwant one %q", candidateLines(answered), want)
+	}
 }
 
 // candidateLines are an SDP's candidate lines.

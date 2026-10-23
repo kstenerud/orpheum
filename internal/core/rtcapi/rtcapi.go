@@ -17,6 +17,8 @@ import (
 	"time"
 
 	"github.com/pion/webrtc/v4"
+
+	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
 // MaxMessageBytes is the most a message on a channel holds, which every browser carries.
@@ -48,6 +50,13 @@ const gatherTimeout = 5 * time.Second
 // and no IPv6 beyond its host, never answers, and pion's own 5 s wait took the whole answer's time
 // (staging, 2026-10-14).
 const stunGatherTimeout = 2 * time.Second
+
+// gatherAfterReflexive is how long an answer waits for more candidates after the core's first that
+// reaches past its own machine, a server-reflexive or a relayed one: a STUN server it cannot reach by
+// one family still holds gathering for stunGatherTimeout, and every answer on staging took 2.1 s for
+// it (2026-10-23), a sign-in's two in turn. The page's offer waits the same way (web/packages/sdk's
+// gatherAfterReflexiveMs).
+const gatherAfterReflexive = 300 * time.Millisecond
 
 // The bounds on each connection (the protocol's §2.5; the security audit's A2, code K16):
 //   - connectWithin: an answered offer whose ICE has not connected by then is closed, so no one holds
@@ -88,6 +97,8 @@ type Server struct {
 	api        *webrtc.API
 	relayedAPI *webrtc.API
 	logger     *slog.Logger
+	// clock times each connection from its offer to its connecting, for the log.
+	clock clock.Clock
 	// bounds are the bounds on each connection: the constants above, shorter in the tests.
 	bounds bounds
 
@@ -167,7 +178,7 @@ func (server *Server) AcceptsAnyRelayedAddress() bool {
 // New returns a server whose channels' requests handler serves, until ctx ends.
 func New(ctx context.Context, handler http.Handler, logger *slog.Logger) *Server {
 	server := &Server{
-		ctx: ctx, handler: handler, logger: logger,
+		ctx: ctx, handler: handler, logger: logger, clock: clock.System{},
 		api: webrtc.NewAPI(webrtc.WithSettingEngine(settings())),
 		bounds: bounds{
 			connectWithin: connectWithin, perSource: perSourceLimit, channels: channelLimit,
@@ -280,6 +291,7 @@ func (server *Server) open(api *webrtc.API) (*webrtc.PeerConnection, error) {
 		return nil, fmt.Errorf("make a peer connection: %w", err)
 	}
 	server.connections[connection] = true
+	openedAt := server.clock.Now()
 	var isConnected atomic.Bool
 	own := &heldNetworks{}
 	unconnected := time.AfterFunc(server.bounds.connectWithin, func() {
@@ -295,11 +307,11 @@ func (server *Server) open(api *webrtc.API) (*webrtc.PeerConnection, error) {
 		if state == webrtc.PeerConnectionStateConnected && isConnected.CompareAndSwap(false, true) {
 			unconnected.Stop()
 			own.keep(connection.GetStats())
-			server.recordPath(connection, selectedPath(connection))
+			server.recordPath(connection, selectedPath(connection), server.clock.Now().Sub(openedAt))
 			server.holdWithinItsSourcesShare(connection)
 		}
 		if state == webrtc.PeerConnectionStateFailed && !isConnected.Load() {
-			server.recordPath(connection, PathFailed)
+			server.recordPath(connection, PathFailed, server.clock.Now().Sub(openedAt))
 		}
 		if state == webrtc.PeerConnectionStateFailed || state == webrtc.PeerConnectionStateClosed {
 			server.forget(connection)
@@ -340,6 +352,14 @@ func (server *Server) answer(
 		return Description{}, fmt.Errorf("make the answer: %w", err)
 	}
 	gathered := webrtc.GatheringCompletePromise(connection)
+	reachedOut := make(chan struct{})
+	var reaching sync.Once
+	connection.OnICECandidate(func(candidate *webrtc.ICECandidate) {
+		if candidate != nil &&
+			(candidate.Typ == webrtc.ICECandidateTypeSrflx || candidate.Typ == webrtc.ICECandidateTypeRelay) {
+			reaching.Do(func() { time.AfterFunc(gatherAfterReflexive, func() { close(reachedOut) }) })
+		}
+	})
 	if err = connection.SetLocalDescription(answer); err != nil {
 		return Description{}, fmt.Errorf("set the answer: %w", err)
 	}
@@ -347,6 +367,7 @@ func (server *Server) answer(
 	defer cancel()
 	select {
 	case <-gathered:
+	case <-reachedOut:
 	case <-waitCtx.Done():
 		return Description{}, fmt.Errorf("gather the core's candidates: %w", waitCtx.Err())
 	}
