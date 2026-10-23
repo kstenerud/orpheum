@@ -204,15 +204,16 @@ func TestRaiser_ALookThatGoesOnReleasesWhatLeftIt(t *testing.T) {
 	}
 }
 
-// Work of a person's tier that waits for room on a node is brought back, once for each room, at
-// each pass, so its claim bumps the lowest work holding it; work given to a node is told the
-// priority a raise gave it; work waiting on anything else, or raised only to the shown-interest
-// rung, waits on (D324 §4).
+// Work of a person's tier that waits for room on a node (a slot, a disk's readers, or its last reader
+// kept for faster work) is brought back, once for each room, at each pass, so its claim bumps the
+// lowest work holding it; work given to a node is told the priority a raise gave it; work waiting on
+// anything else, or raised only to the shown-interest rung, waits on (D324 §4, D255 §4).
 func TestRaiser_BringsBackRaisedWorkWaitingForRoomOnANode(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
 	now := clocktest.NewFake(time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC))
 	reader, slot := jobs.ReaderDestination(1, "disk:sda"), jobs.SlotDestination(1, "read_through")
+	lastReader := jobs.LastReaderDestination(1, "disk:sda")
 	record := &raising{answers: map[int64][]jobs.Raised{
 		jobs.PriorityPlayNow: {
 			{ID: 1, Priority: jobs.PriorityPlayNow, Destination: reader},
@@ -221,6 +222,7 @@ func TestRaiser_BringsBackRaisedWorkWaitingForRoomOnANode(t *testing.T) {
 			{ID: 4, Priority: jobs.PriorityPlayNow, Destination: jobs.DestinationTMDBAPI},
 			{ID: 5, Priority: jobs.PriorityPlayNow, IsAssigned: true, Destination: slot, HasRisen: true},
 			{ID: 7, Priority: jobs.PriorityPlayNow, IsAssigned: true}, // its node told before
+			{ID: 8, Priority: jobs.PriorityPlayNow, Destination: lastReader},
 		},
 		jobs.PriorityShownInterest: {{ID: 6, Priority: jobs.PriorityShownInterest, Destination: reader}},
 	}}
@@ -233,7 +235,7 @@ func TestRaiser_BringsBackRaisedWorkWaitingForRoomOnANode(t *testing.T) {
 	if err := raiser.Raise(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if want := []jobs.Destination{reader, slot}; !slices.Equal(room.unparked, want) {
+	if want := []jobs.Destination{reader, slot, lastReader}; !slices.Equal(room.unparked, want) {
 		t.Errorf("brought back %q; want %q, each once", room.unparked, want)
 	}
 	if !slices.Equal(room.reprioritized, []int64{5}) {
@@ -244,7 +246,7 @@ func TestRaiser_BringsBackRaisedWorkWaitingForRoomOnANode(t *testing.T) {
 	if err := raiser.Raise(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	if want := []jobs.Destination{reader, slot}; !slices.Equal(room.unparked, want) {
+	if want := []jobs.Destination{reader, slot, lastReader}; !slices.Equal(room.unparked, want) {
 		t.Errorf("the next pass brought back %q; want %q again", room.unparked, want)
 	}
 	room.unparked = nil
