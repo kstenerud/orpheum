@@ -604,7 +604,7 @@ FILE ?=
 DELVE_VERSION := 1.27.2
 
 .PHONY: ffmpeg
-ffmpeg: ## Fetch the pinned FFmpeg (jellyfin-ffmpeg) into .tools/ and verify its hash
+ffmpeg: ## Fetch the pinned FFmpeg (ffmpeg-ffstreamer on Linux) into .tools/ and verify its hash
 	@echo "ffmpeg: $(FFMPEG_DIR)"
 
 .PHONY: mkvtoolnix

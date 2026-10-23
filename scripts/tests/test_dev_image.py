@@ -82,7 +82,8 @@ class ToolsDir(unittest.TestCase):
 
     def test_ffmpeg_in_the_named_directory_is_used(self):
         tools = Path(tempfile.mkdtemp())
-        dest = tools / "ffmpeg" / f"{fetch_ffmpeg.VERSION}-linux-amd64"
+        asset = fetch_ffmpeg.PINS["linux/amd64"].asset.removesuffix(".tar.xz")
+        dest = tools / "ffmpeg" / f"{asset}-linux-amd64"
         dest.mkdir(parents=True)
         for name in ("ffmpeg", "ffprobe"):
             (dest / name).write_text("")
