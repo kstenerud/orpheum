@@ -42,6 +42,13 @@ var (
 	ErrOverBudget = errors.New("FFmpeg asked for more of the film than its run should need")
 )
 
+// largestFileBytes is the largest file a REQUEST may give (§8): headroom, so the size plus a block,
+// a READ or a seek from the end never passes the largest int64 on either side.
+const largestFileBytes = 1 << 62
+
+// ErrFilmTooLarge is a film larger than the protocol may serve (§8), which no file is.
+var ErrFilmTooLarge = errors.New("the film is larger than ffstreamer serves")
+
 // largestBlockBytes is the largest block the node serves in, whatever FFmpeg offers: the largest
 // DATA body the patched FFmpeg accepts.
 const largestBlockBytes = 4 << 20
@@ -107,6 +114,9 @@ func Open(config Config) (*Channel, error) {
 		config.MostOutstanding > mostOutstanding || config.BudgetBytes < 0 {
 		return nil, fmt.Errorf("a channel's config is outside its rules: run %d, outstanding %d, budget %d",
 			config.Run, config.MostOutstanding, config.BudgetBytes)
+	}
+	if size := config.Source.Size(); size < 0 || size > largestFileBytes {
+		return nil, fmt.Errorf("%w: %d bytes", ErrFilmTooLarge, size)
 	}
 	childReading, data, err := os.Pipe()
 	if err != nil {
