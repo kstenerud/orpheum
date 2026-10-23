@@ -24,13 +24,20 @@ export const connectTimeoutMs = 10_000;
 
 /**
  * How long an offer waits for more candidates after its first that reaches past this machine, a
- * server-reflexive or a relayed one: those a core away from it can use are then mostly in, and a
- * relayed one follows its server's first within this. Gathering itself completes only when every STUN
- * attempt has answered or given up, and one on a family or interface with no way out retries for some
- * forty seconds: each offer waited out connectTimeoutMs, and a realm sign-in, which makes two, took
- * 28 s on staging (2026-10-23; idiosyncrasies.md).
+ * server-reflexive or a relayed one, once it expects no relayed one: those a core away from it can use
+ * are then in. Gathering itself completes only when every STUN attempt has answered or given up, and
+ * one on a family or interface with no way out retries for some forty seconds: each offer waited out
+ * connectTimeoutMs, and a realm sign-in, which makes two, took 28 s on staging (2026-10-23;
+ * idiosyncrasies.md). The core's answer waits as long (rtcapi's gatherAfterReflexive).
  */
-export const gatherAfterReflexiveMs = 1_000;
+export const gatherAfterReflexiveMs = 300;
+
+/**
+ * How long, with a TURN server among its ICE servers, an offer waits for its relayed candidate after
+ * its first server-reflexive one: a relay is allocated a round trip or two after the STUN binding,
+ * and a client behind a NAT no punch gets through reaches the core only by it.
+ */
+export const gatherForRelayMs = 1_000;
 
 /**
  * A connection that takes longer than this to connect is reported to the core's log, with where its
@@ -651,7 +658,7 @@ async function connectOne(signaller: Signaller, rtcConfig: RTCConfiguration): Pr
     peer.createDataChannel("hello");
     const startedAt = performance.now();
     await peer.setLocalDescription(await peer.createOffer());
-    await gathered(peer);
+    await gathered(peer, hasRelayServer(rtcConfig));
     const gatheredAt = performance.now();
     const local = peer.localDescription;
     if (local === null) {
@@ -676,6 +683,13 @@ async function connectOne(signaller: Signaller, rtcConfig: RTCConfiguration): Pr
   }
 }
 
+/** Whether a configuration names a TURN server, through which a relayed candidate will come. */
+export function hasRelayServer(rtcConfig: RTCConfiguration): boolean {
+  return (rtcConfig.iceServers ?? []).some((server) =>
+    (Array.isArray(server.urls) ? server.urls : [server.urls]).some((url) => /^turns?:/i.test(url)),
+  );
+}
+
 /** What gathered needs of a peer connection: the browser's, or a test's. */
 export interface GatheringPeer {
   readonly iceGatheringState: RTCIceGatheringState;
@@ -687,10 +701,12 @@ export interface GatheringPeer {
 }
 
 /**
- * Resolves once peer has gathered its candidates, gatherAfterReflexiveMs after its first
- * server-reflexive or relayed one, or after connectTimeoutMs with those it has, whichever is first.
+ * Resolves once peer has gathered its candidates; gatherAfterReflexiveMs after its first
+ * server-reflexive or relayed one, but with a TURN server (willRelay) gatherForRelayMs after its
+ * first server-reflexive one unless a relayed one comes first; or after connectTimeoutMs with those it
+ * has: whichever is first.
  */
-export function gathered(peer: GatheringPeer): Promise<void> {
+export function gathered(peer: GatheringPeer, willRelay = false): Promise<void> {
   return new Promise((resolve) => {
     if (peer.iceGatheringState === "complete") {
       resolve();
@@ -706,9 +722,15 @@ export function gathered(peer: GatheringPeer): Promise<void> {
         done();
       }
     });
+    let hasReflexive = false;
+    let hasRelayed = false;
     peer.addEventListener("icecandidate", (event) => {
       const type = event.candidate?.type;
-      if (timers.length === 1 && (type === "srflx" || type === "relay")) {
+      if (type === "srflx" && !hasReflexive) {
+        hasReflexive = true;
+        timers.push(setTimeout(done, willRelay ? gatherForRelayMs : gatherAfterReflexiveMs));
+      } else if (type === "relay" && !hasRelayed) {
+        hasRelayed = true;
         timers.push(setTimeout(done, gatherAfterReflexiveMs));
       }
     });
