@@ -5,7 +5,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   connectTimeoutMs,
   gatherAfterReflexiveMs,
+  gatherForRelayMs,
   gathered,
+  hasRelayServer,
   grantEvery,
   maxMessageBytes,
   replaceFirstMs,
@@ -475,6 +477,39 @@ describe("gathered", () => {
     expect(isDone).toBe(false);
     await vi.advanceTimersByTimeAsync(1);
     expect(isDone).toBe(true);
+  });
+
+  it("with a TURN server, waits for the relayed candidate, up to gatherForRelayMs", async () => {
+    vi.useFakeTimers();
+    const relayed = new FakeGatheringPeer();
+    let isRelayedDone = false;
+    void gathered(relayed, true).then(() => {
+      isRelayedDone = true;
+    });
+    relayed.find("srflx");
+    await vi.advanceTimersByTimeAsync(gatherAfterReflexiveMs);
+    expect(isRelayedDone).toBe(false);
+    relayed.find("relay");
+    await vi.advanceTimersByTimeAsync(gatherAfterReflexiveMs);
+    expect(isRelayedDone).toBe(true);
+    const noRelay = new FakeGatheringPeer();
+    let isNoRelayDone = false;
+    void gathered(noRelay, true).then(() => {
+      isNoRelayDone = true;
+    });
+    noRelay.find("srflx");
+    await vi.advanceTimersByTimeAsync(gatherForRelayMs - 1);
+    expect(isNoRelayDone).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(isNoRelayDone).toBe(true);
+  });
+
+  it("expects a relayed candidate only from a TURN server", () => {
+    expect(hasRelayServer({ iceServers: [{ urls: "stun:stun.example.com:3478" }] })).toBe(false);
+    expect(
+      hasRelayServer({ iceServers: [{ urls: ["stun:a", "turns:relay.example.com:5349"] }] }),
+    ).toBe(true);
+    expect(hasRelayServer({})).toBe(false);
   });
 
   it("goes when gathering completes, or at connectTimeoutMs with only host candidates", async () => {
