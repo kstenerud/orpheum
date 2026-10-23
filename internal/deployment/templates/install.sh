@@ -67,8 +67,18 @@ printf '%s\n' "$media" | sed '/^$/d' | while IFS= read -r folder; do
 	esac
 done
 
+# Who write-deployment runs as, and so who the services run as (it writes the IDs it runs with):
+# this user, who owns the directory. Rootless Docker maps a container's root to the user running it
+# and every other ID to one of the user's subordinate IDs, which cannot write the directory, so
+# there it is the container's root, which is this user on the host and nobody more.
+runAs="$(id -u):$(id -g)"
+# docker info lists its security options one to a line, rootless among them when it is.
+if docker info 2>/dev/null | grep -qE '^[[:space:]]+rootless$'; then
+	runAs=0:0
+fi
+
 writeDeployment() {
-	set -- --rm --user "$(id -u):$(id -g)" --hostname "$(hostname)" \
+	set -- --rm --user "$runAs" --hostname "$(hostname)" \
 		--volume "$dir:/var/lib/orpheum" --volume "$dir/run:/run/orpheum"
 	if [ -d /dev/dri ]; then
 		set -- "$@" --volume /dev/dri:/dev/dri:ro

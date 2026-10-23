@@ -17,6 +17,12 @@ TEMPLATE = REPO / "internal" / "deployment" / "templates" / "install.sh"
 FAKE_DOCKER = """#!/bin/sh
 echo "docker $*" >> "$FAKE_LOG"
 case "$*" in
+# Docker's security options, rootless among them with FAKE_ROOTLESS=1.
+info)
+    printf ' Security Options:\n  seccomp\n   Profile: builtin\n'
+    [ "$FAKE_ROOTLESS" = 1 ] && printf '  rootless\n  cgroupns\n'
+    printf ' Kernel Version: 6.14.0\n'
+    exit 0 ;;
 # A trial of handing over NVIDIA's GPUs: FAKE_NVIDIA names the one way that works, if any.
 *"--entrypoint true --device nvidia.com/gpu=all"*) [ "$FAKE_NVIDIA" = cdi ]; exit ;;
 *"--entrypoint true --gpus driver=nvidia,count=all"*) [ "$FAKE_NVIDIA" = driver ]; exit ;;
@@ -211,6 +217,17 @@ class Install(unittest.TestCase):
         self.assertNotIn("--entrypoint", self.logged())
         self.assertNotIn("--nvidia", self.logged())
         self.assertNotIn("NVIDIA", done.stderr)
+
+    def test_the_deployment_is_written_as_this_user_or_under_rootless_docker_as_the_containers_root(self):
+        films = self.root / "films"
+        films.mkdir()
+        for rootless, user in (("0", f"{os.getuid()}:{os.getgid()}"), ("1", "0:0")):
+            with self.subTest(rootless=rootless):
+                self.log.unlink(missing_ok=True)
+                done = self.install("--media", str(films), "--dir", str(self.dir), FAKE_ROOTLESS=rootless)
+                self.assertEqual(done.returncode, 0, done.stderr)
+                writes = [line for line in self.logged().splitlines() if "write-deployment" in line]
+                self.assertTrue(writes and all(f" --user {user} " in line for line in writes), writes)
 
     def test_an_image_built_here_is_not_pulled(self):
         films = self.root / "films"

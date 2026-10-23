@@ -1954,6 +1954,42 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 ## Docker, hosts and the network path
 
 
+### Docker hands an NVIDIA card over by a CDI device or by its `nvidia` driver, and `--gpus all` may ask for neither
+
+- **Symptom:** on gpuhost (rootless Docker 29.9.2, a CDI spec from `nvidia-ctk cdi generate`, no
+  toolkit hook), `docker run --gpus all` failed with "AMD CDI spec not found", and `--gpus
+  driver=nvidia` and compose's `driver: nvidia` reservation with "could not select device driver
+  "nvidia""; `--device nvidia.com/gpu=all` worked, in `docker run` and in compose's `devices`.
+- **What we do:** the install script tries the CDI device, then the `nvidia` driver, on the image
+  itself, and writes whichever worked (D333; `internal/deployment/templates/install.sh`
+  `nvidiaAccess`).
+- **Evidence:** measured on gpuhost, 2026-10-23. Docker registers its `nvidia` device driver only
+  when `nvidia-container-runtime-hook` is on the daemon's path, which the toolkit's full package
+  installs; with no driver named, Docker 29 also tries AMD's CDI devices.
+
+
+### A CDI spec names the driver's files as they were when it was made
+
+- **Symptom:** a container given `nvidia.com/gpu=all` failed to start with "open
+  /run/nvidia-persistenced/socket: no such file or directory" an hour after its spec was made; then
+  `nvidia-ctk cdi generate` and `nvidia-smi` failed with "Driver/library version mismatch".
+- **What we do:** the install script's trial catches it and installs without the card, saying so;
+  `docs/users/setup-problems.md` says to restart after a driver update and make the spec again.
+- **Evidence:** gpuhost, 2026-10-23: unattended upgrades replaced the 580.178 driver's libraries with
+  580.196 at 10:57 while its kernel module stayed 580.178 until a restart. The toolkit 1.18 and later
+  regenerates its own spec (`nvidia-cdi-refresh`); one made by hand does not.
+
+
+### Rootless Docker maps a container's root to the user, and every other user to a subordinate ID
+
+- **Symptom:** the install script failed under rootless Docker with "open /var/lib/orpheum/values.toml:
+  permission denied": it ran write-deployment as `--user $(id -u):$(id -g)`, which rootless Docker
+  maps to one of the user's subordinate IDs, not to the user who owns the directory.
+- **What we do:** where `docker info` names `rootless` among its security options, the script runs
+  write-deployment as `0:0`, which is the user on the host, and the services run so.
+- **Evidence:** gpuhost, 2026-10-23 (Docker 29.9.2 rootless).
+
+
 ### A container sharing another's network loses it when that container restarts alone
 
 - **Symptom:** `./staging status` shows the core unhealthy after the tunnel's container restarted on its own.
