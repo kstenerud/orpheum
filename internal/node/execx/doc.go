@@ -60,6 +60,8 @@
 //     tool's word on its input. TestRunWatched_AStalledRunIsQuitGracefullyAndSaysWhereItStood,
 //     TestRunWatched_AStalledRunThatIgnoresItsQuitIsKilledWithItsGroup.
 //   - On Linux no tool outlives the node that started it. TestRun_AToolDiesWithTheNode.
+//   - A run already reaped is never signalled, nor is its group, whose id may be another's by then
+//     (ffstreamer's specification, Stopping). TestSignalRun_LeavesTheGroupOfARunAlreadyReapedAlone.
 //   - A watched run may read its film through the node (WatchedRun.Film, D330): its channel's pipes
 //     follow the progress pipe at descriptors 4 and 5, named by StreamedInput. Such a run passes only
 //     having said DONE OK for its own run, a breach of the protocol or a passed budget kills it at once
