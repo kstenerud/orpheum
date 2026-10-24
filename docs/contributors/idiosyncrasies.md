@@ -1309,7 +1309,7 @@ All except 5.9-5.13 are from reading hls.js 1.7.3's source (`research/abr-contro
   offers 10 s after it was ready to (`connectTimeoutMs`), so each connection waited out the cap.
 - **What we do:** the page sends its offer `gatherAfterReflexiveMs` (1 s) after its first
   server-reflexive or relayed candidate, or when gathering completes, whichever is first
-  (`web/packages/sdk/src/rtc-transport.ts`, `gathered`). A connection that takes over
+  (`web/packages/sdk/src/rtc-connect.ts`, `gathered`). A connection that takes over
   `slowConnectMs` reports its gathering, answer and connecting times to the core's log.
 - **Evidence:** staging, 2026-10-23, headless Chromium in the sandbox with
   `stun:stun.cloudflare.com:3478`: the host candidate came after 11 ms and the server-reflexive one

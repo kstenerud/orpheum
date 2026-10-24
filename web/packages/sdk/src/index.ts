@@ -15,7 +15,8 @@ export type { Api, ApiOptions, ArtSize } from "./client.ts";
 export type { components, operations, paths } from "./gen/api.ts";
 export { browserPlayableFormats, playableFormatsFrom } from "./playable-formats.ts";
 export { browserFetch, textWhenReady, whenReady } from "./ready.ts";
-export { connectRtc, RtcTransport, SwitchableFetch } from "./rtc-transport.ts";
+export { connectRtc } from "./rtc-connect.ts";
+export { RtcTransport, SwitchableFetch } from "./rtc-transport.ts";
 export { directFetch, directPathWaitMs, firstDirectPath } from "./direct-path.ts";
 export { isNetworkFailure, namingFailures, PathKeeper } from "./path-keeper.ts";
 export type { PathWays } from "./path-keeper.ts";
@@ -100,7 +101,8 @@ export type {
   PathQueryMessage,
   PortLike,
 } from "./rtc-media.ts";
-export type { Description, FetchRequest, Signaller } from "./rtc-transport.ts";
+export type { Description, Signaller } from "./rtc-connect.ts";
+export type { FetchRequest } from "./rtc-transport.ts";
 export {
   ApiProblem,
   dataOrThrow,

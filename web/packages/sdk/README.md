@@ -59,7 +59,11 @@ session over the session WebSocket (cut-a §5.1), and a player following its gro
 - **The API over WebRTC sends each request on a data channel of its own** (D273 §8): a text head,
   the body in messages of at most 64 KiB, an empty message ending it; the response's body is
   handed to its reader only as it reads, each 16 messages read granting the core 16 more, so a
-  film never sits whole in memory; a channel that closes first fails the request. Requests go
+  film never sits whole in memory; a channel that closes first fails the request. A request whose signal aborts fails with its
+  reason, as fetch does: at once, opening nothing, if it aborted before it was sent; out of the
+  queue if it waits for room; otherwise with its channel closed, which ends its work in the core
+  (rtcapi's `TestChannel_AChannelTheClientClosesEndsItsRequest`), its room given back when the
+  close comes. Requests go
   to the connection with the fewest under way, and a switchable fetch moves the API's requests to a
   new path while the app runs, saying so in the console. `src/rtc-transport.test.ts`; in a real
   browser against a real core, `web/e2e/webrtc.spec.ts`.

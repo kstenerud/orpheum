@@ -171,7 +171,7 @@ func (client *Client) Begin(head rtcapi.RequestHead, isWhole bool) *Channel {
 	if err != nil {
 		client.tb.Fatal(err)
 	}
-	begun := &Channel{closed: make(chan struct{}), answered: make(chan struct{})}
+	begun := &Channel{channel: channel, closed: make(chan struct{}), answered: make(chan struct{})}
 	var closeOnce, answerOnce sync.Once
 	channel.OnClose(func() { closeOnce.Do(func() { close(begun.closed) }) })
 	channel.OnMessage(func(webrtc.DataChannelMessage) { answerOnce.Do(func() { close(begun.answered) }) })
@@ -197,7 +197,14 @@ func (client *Client) Begin(head rtcapi.RequestHead, isWhole bool) *Channel {
 
 // Channel is a request Begin sent.
 type Channel struct {
+	channel          *webrtc.DataChannel
 	closed, answered chan struct{}
+}
+
+// Close closes the channel from the client's end, as a browser does with a request its caller
+// aborted.
+func (channel *Channel) Close() {
+	_ = channel.channel.Close() //nolint:errcheck // a channel already closed is as good
 }
 
 // IsAnsweredWithin is whether the core began its answer within wait.

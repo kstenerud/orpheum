@@ -8,6 +8,11 @@ import {
   gatherForRelayMs,
   gathered,
   hasRelayServer,
+  slowConnection,
+  slowConnectMs,
+  type GatheringPeer,
+} from "./rtc-connect.ts";
+import {
   grantEvery,
   maxMessageBytes,
   replaceFirstMs,
@@ -15,12 +20,9 @@ import {
   requestsPerConnection,
   RtcTransport,
   sendOnChannel,
-  slowConnection,
-  slowConnectMs,
   SwitchableFetch,
   type ChannelLike,
   type ChannelListener,
-  type GatheringPeer,
   type PeerLike,
 } from "./rtc-transport.ts";
 
@@ -282,6 +284,100 @@ it("gives a closed channel's room back after closingHoldsMs when its close never
   } finally {
     vi.useRealTimers();
   }
+});
+
+// A request its caller gave up, a background refresh's after a minute or a chunk hls.js no longer
+// wants, kept its channel open and its room taken, as the transport never read its signal.
+describe("a request whose signal aborts", () => {
+  /** A transport on one connection, and the channels opened on it. */
+  function onePeer(): { transport: RtcTransport; channels: FakeChannel[] } {
+    const channels: FakeChannel[] = [];
+    const peer: PeerLike = {
+      createDataChannel: () => {
+        const channel = new FakeChannel();
+        channel.readyState = "open";
+        channels.push(channel);
+        return channel;
+      },
+      close: () => undefined,
+    };
+    return { transport: new RtcTransport([peer]), channels };
+  }
+
+  it("fails at once with an AbortError, opening nothing, when it aborted before it was sent", async () => {
+    const { transport, channels } = onePeer();
+    const aborter = new AbortController();
+    aborter.abort();
+    await expect(
+      transport.fetch(new Request("https://app.example/a", { signal: aborter.signal })),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(channels).toHaveLength(0);
+  });
+
+  it("fails with the signal's reason and closes its channel, before its head or in its body", async () => {
+    const { transport, channels } = onePeer();
+    const beforeHead = new AbortController();
+    const unanswered = transport.fetch(
+      new Request("https://app.example/a", { signal: beforeHead.signal }),
+    );
+    await settle();
+    beforeHead.abort();
+    await expect(unanswered).rejects.toMatchObject({ name: "AbortError" });
+    expect(channels[0]?.isClosed).toBe(true);
+
+    const inBody = new AbortController();
+    const answered = transport.fetch(
+      new Request("https://app.example/film", { signal: inBody.signal }),
+    );
+    await settle();
+    channels[1]?.answer(JSON.stringify({ status: 206 }));
+    const reader = (await answered).body?.getReader();
+    channels[1]?.answer(new Uint8Array([1]).buffer);
+    expect((await reader?.read())?.value).toEqual(new Uint8Array([1]));
+    const givenUp = new Error("given up");
+    inBody.abort(givenUp);
+    await expect(reader?.read()).rejects.toBe(givenUp);
+    expect(channels[1]?.isClosed).toBe(true);
+  });
+
+  it("gives its room back once its channel's close comes", async () => {
+    const { transport, channels } = onePeer();
+    const aborter = new AbortController();
+    void transport
+      .fetch(new Request("https://app.example/0", { signal: aborter.signal }))
+      .catch(() => undefined);
+    for (let index = 1; index <= requestsPerConnection; index += 1) {
+      void transport.fetch(new Request(`https://app.example/${String(index)}`));
+    }
+    await settle();
+    expect(channels).toHaveLength(requestsPerConnection);
+    aborter.abort();
+    await settle();
+    expect(channels[0]?.isClosed).toBe(true);
+    channels[0]?.closeFromTheCore();
+    await settle();
+    expect(channels).toHaveLength(requestsPerConnection + 1);
+  });
+
+  it("leaves the queue when it aborts waiting for room, and the next waiting takes the room", async () => {
+    const { transport, channels } = onePeer();
+    const full = Array.from({ length: requestsPerConnection }, (_, index) =>
+      transport.fetch(new Request(`https://app.example/poster/${String(index)}`)),
+    );
+    const aborter = new AbortController();
+    const givenUp = transport.fetch(
+      new Request("https://app.example/given-up", { signal: aborter.signal }),
+    );
+    void transport.fetch(new Request("https://app.example/still-wanted"));
+    await settle();
+    aborter.abort();
+    await expect(givenUp).rejects.toMatchObject({ name: "AbortError" });
+    channels[0]?.closeFromTheCore();
+    await expect(full[0]).rejects.toThrow("closed before its response ended");
+    await settle();
+    expect(channels).toHaveLength(requestsPerConnection + 1);
+    expect(channels.at(-1)?.sentHead()).toMatchObject({ path: "/still-wanted" });
+  });
 });
 
 describe("the switchable fetch", () => {
