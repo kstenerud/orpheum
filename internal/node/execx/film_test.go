@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/diskwatch"
-	"github.com/kstenerud/orpheum/internal/node/ffstreamer"
+	"github.com/kstenerud/orpheum/internal/node/fdproxy"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -24,7 +24,7 @@ const protocolsListing = "Supported file protocols:\nInput:\n  async\n  bluray\n
 // A node streams its films only to an FFmpeg that lists ffstreamer among the protocols it reads: the
 // stock build, which does not, reads each film by its path (D330), and so does one that names it only
 // as an output.
-func TestHasFFstreamer_IsTheProtocolAmongTheInputsFFmpegLists(t *testing.T) {
+func TestHasFDProxy_IsTheProtocolAmongTheInputsFFmpegLists(t *testing.T) {
 	t.Parallel()
 	for _, example := range []struct {
 		name, listing string
@@ -35,7 +35,7 @@ func TestHasFFstreamer_IsTheProtocolAmongTheInputsFFmpegLists(t *testing.T) {
 		{"an output only", "Supported file protocols:\nInput:\n  file\nOutput:\n  ffstreamer\n", false},
 	} {
 		runner := newRunner(t, testutil.InstallFakeFFmpeg(t, testutil.FakeReply{FFmpegStdout: example.listing}))
-		got, err := runner.HasFFstreamer(t.Context())
+		got, err := runner.HasFDProxy(t.Context())
 		if err != nil || got != example.want {
 			t.Errorf("%s: %v, %v; want %v", example.name, got, err, example.want)
 		}
@@ -101,42 +101,42 @@ func openedTestFilm(t *testing.T) (string, OpenedFilm) {
 }
 
 // A streamed run passed only having exited 0, said DONE for its input, that DONE OK and for its own
-// run, and given the node no reason to fail it (ffstreamer's specification, Judging a Run): a run that
+// run, and given the node no reason to fail it (fdproxy's specification, Judging a Run): a run that
 // read part of its film never passes as complete.
 func TestJudgeFilm_PassesOnlyARunThatExited0WithDoneOKForItsOwnRun(t *testing.T) {
 	t.Parallel()
 	exitedNonZero := &RunError{Tool: FFmpeg, ExitStatus: 1, Err: errors.New("exit status 1")}
-	doneOK := &ffstreamer.Done{Run: 7, IsOK: true}
+	doneOK := &fdproxy.Done{Run: 7, IsOK: true}
 	for _, example := range []struct {
 		name    string
-		account ffstreamer.Account
+		account fdproxy.Account
 		ended   error
 		// says is something the verdict's error must say; empty for a pass.
 		says string
 		want error
 	}{
-		{name: "DONE OK for its run", account: ffstreamer.Account{Done: doneOK}},
-		{name: "no DONE", account: ffstreamer.Account{}, says: "no DONE"},
+		{name: "DONE OK for its run", account: fdproxy.Account{Done: doneOK}},
+		{name: "no DONE", account: fdproxy.Account{}, says: "no DONE"},
 		{
 			name: "DONE ERR, though it exited 0",
-			account: ffstreamer.Account{Done: &ffstreamer.Done{
-				Run: 7, Kind: ffstreamer.KindChannel, Code: 5, Message: "Input/output error",
+			account: fdproxy.Account{Done: &fdproxy.Done{
+				Run: 7, Kind: fdproxy.KindChannel, Code: 5, Message: "Input/output error",
 			}},
 			says: "Input/output error",
 		},
 		{
-			name: "DONE OK for another run", account: ffstreamer.Account{Done: &ffstreamer.Done{Run: 8, IsOK: true}},
-			says: "names run 8", want: ffstreamer.ErrViolation,
+			name: "DONE OK for another run", account: fdproxy.Account{Done: &fdproxy.Done{Run: 8, IsOK: true}},
+			says: "names run 8", want: fdproxy.ErrViolation,
 		},
 		{
 			name: "the node's own reason, its DONE OK",
-			account: ffstreamer.Account{
-				Done: doneOK, Failure: ffstreamer.ErrOverBudget,
+			account: fdproxy.Account{
+				Done: doneOK, Failure: fdproxy.ErrOverBudget,
 			},
-			want: ffstreamer.ErrOverBudget,
+			want: fdproxy.ErrOverBudget,
 		},
 		{
-			name: "a nonzero exit, its DONE OK", account: ffstreamer.Account{Done: doneOK},
+			name: "a nonzero exit, its DONE OK", account: fdproxy.Account{Done: doneOK},
 			ended: exitedNonZero, want: exitedNonZero,
 		},
 	} {

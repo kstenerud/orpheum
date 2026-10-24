@@ -2,7 +2,7 @@
 
 //go:build !linux
 
-package ffstreamer
+package fdproxy
 
 import (
 	"errors"

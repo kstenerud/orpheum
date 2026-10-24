@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/node/ffstreamer"
+	"github.com/kstenerud/orpheum/internal/node/fdproxy"
 )
 
 // Pausing pauses a watched run and continues it (D240 §6): its process group stopped with SIGSTOP
@@ -22,11 +22,11 @@ type Pausing struct {
 	process  *os.Process // guarded by mutex: the running tool's, nil when none runs
 	dog      *watchdog   // guarded by mutex: the running tool's watchdog
 	// film is the running tool's streamed film, whose READs a pause holds, so a paused run reads
-	// nothing (ffstreamer's specification, Pausing); nil for a run that reads a file. Guarded by mutex.
+	// nothing (fdproxy's specification, Pausing); nil for a run that reads a file. Guarded by mutex.
 	film filmHolder
 }
 
-// filmHolder holds a streamed film's READs back and releases them: *ffstreamer.Channel.
+// filmHolder holds a streamed film's READs back and releases them: *fdproxy.Channel.
 type filmHolder interface {
 	Hold()
 	Release()
@@ -117,7 +117,7 @@ func (pausing *Pausing) IsPaused() bool {
 
 // attach binds a started tool, and its streamed film if it reads one, to the pausing, stopping it
 // at once when the run is paused.
-func (pausing *Pausing) attach(process *os.Process, dog *watchdog, film *ffstreamer.Channel) {
+func (pausing *Pausing) attach(process *os.Process, dog *watchdog, film *fdproxy.Channel) {
 	pausing.mutex.Lock()
 	defer pausing.mutex.Unlock()
 	pausing.process, pausing.dog, pausing.film = process, dog, nil

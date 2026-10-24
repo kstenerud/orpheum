@@ -17,7 +17,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// A node streams its films only when its FFmpeg lists the ffstreamer protocol among its inputs, and
+// A node streams its films only when its FFmpeg lists the fdproxy protocol among its inputs, and
 // says at start which way its runs read their films; the stock build reads them by path (D330).
 func TestStreamsFilms_OnlyWhenTheNodesFFmpegHasTheProtocolAndSaysWhich(t *testing.T) {
 	t.Parallel()

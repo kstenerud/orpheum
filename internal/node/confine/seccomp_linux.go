@@ -29,7 +29,7 @@ func deniedSyscalls() []uint32 {
 		// its driver needs (onlyUnixSockets).
 		unix.SYS_SOCKET, unix.SYS_SOCKETPAIR,
 		// No session or process group of its own: a run that left its group would escape a kill sent
-		// to the group, and hold its descriptors open past it (ffstreamer's specification, Launching;
+		// to the group, and hold its descriptors open past it (fdproxy's specification, Launching;
 		// its third audit, M4).
 		unix.SYS_SETSID, unix.SYS_SETPGID,
 	}
@@ -52,7 +52,7 @@ func onlyUnixSockets(deny, allowAll unix.SockFilter) []unix.SockFilter {
 // binaries import no fork, exec or spawn), and a process a run started would outlive its kill. A
 // thread is a clone with CLONE_THREAD, and passes. The clone3 call keeps its flags in memory seccomp
 // cannot read, so it answers ENOSYS, and glibc (2.34 and later) and Go fall back to clone, whose flags
-// are its first argument. EPERM there would fail their threads instead (ffstreamer's third audit, M3).
+// are its first argument. EPERM there would fail their threads instead (fdproxy's third audit, M3).
 // Where an architecture has fork and vfork, they are refused with the denied calls above.
 func startsNoProcess(deny, allowAll unix.SockFilter) []unix.SockFilter {
 	notImplemented := unix.SockFilter{Code: unix.BPF_RET | unix.BPF_K, K: unix.SECCOMP_RET_ERRNO | uint32(unix.ENOSYS)}

@@ -399,8 +399,8 @@ func startThreads() error {
 
 // A confined run starts no process and leaves neither its session nor its process group, and its
 // threads still start: a process it started, or one in another group, would escape the kill that ends
-// the run (ffstreamer's specification, Launching). The clone3 call answers ENOSYS, not EPERM, so glibc and Go
-// fall back to a clone the filter can read; EPERM there failed FFmpeg's threads (ffstreamer's third
+// the run (fdproxy's specification, Launching). The clone3 call answers ENOSYS, not EPERM, so glibc and Go
+// fall back to a clone the filter can read; EPERM there failed FFmpeg's threads (fdproxy's third
 // audit, M3).
 func TestEscape_AConfinedToolStartsNoProcessAndStaysInItsGroupButStartsThreads(t *testing.T) {
 	t.Parallel()

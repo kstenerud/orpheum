@@ -528,11 +528,11 @@ func capacityOf(config Config) nodeproto.Capacity {
 }
 
 // filmsOf is what makes the films the node's runs read: runner, which serves each film to the run that
-// reads it (D330) when its FFmpeg has the ffstreamer protocol, and otherwise has each read its film by
+// reads it (D330) when its FFmpeg has the fdproxy protocol, and otherwise has each read its film by
 // its path, as the stock build does, and a node whose FFmpeg cannot be asked. It says which. The
 // runner logs to logger what concerns streamed films as a whole.
 func filmsOf(ctx context.Context, runner *execx.Runner, logger *slog.Logger) *execx.Runner {
-	hasIt, err := runner.LoggingTo(logger).HasFFstreamer(ctx)
+	hasIt, err := runner.LoggingTo(logger).HasFDProxy(ctx)
 	if hasIt {
 		runner.StreamFilms()
 	}
@@ -541,9 +541,9 @@ func filmsOf(ctx context.Context, runner *execx.Runner, logger *slog.Logger) *ex
 		logger.WarnContext(ctx, "could not ask FFmpeg for its protocols; each run reads its film by its path",
 			"err", err)
 	case hasIt:
-		logger.InfoContext(ctx, "FFmpeg reads each film through the node (ffstreamer)")
+		logger.InfoContext(ctx, "FFmpeg reads each film through the node (fdproxy)")
 	default:
-		logger.InfoContext(ctx, "FFmpeg has no ffstreamer protocol; each run reads its film by its path")
+		logger.InfoContext(ctx, "FFmpeg has no fdproxy protocol; each run reads its film by its path")
 	}
 	return runner
 }

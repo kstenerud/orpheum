@@ -7,7 +7,7 @@
 The server never downloads FFmpeg at runtime: a release bundles it. This script is for
 development and CI. `make ffmpeg` runs it, and the dev loop points the node at the result.
 
-On Linux it is jellyfin-ffmpeg with the ffstreamer protocol added (ffmpeg-ffstreamer, D330), so
+On Linux it is jellyfin-ffmpeg with the fdproxy protocol added (ffmpeg-fdproxy, formerly ffmpeg-ffstreamer, D330), so
 the node serves each film to the run that reads it; on macOS, for development alone, jellyfin's
 own build, whose runs read each film by its path. The pin is a release plus one SHA-256 per
 platform, taken from the release's own asset digests. A download whose hash differs is deleted and refused. It is
@@ -15,8 +15,8 @@ never "probably fine": a swapped binary is exactly what a hash exists to catch. 
 pin is an owner action, like any gate.
 
 ORPHEUM_FFMPEG_LOCAL, when set, names a directory holding an `ffmpeg` and an `ffprobe` to use in
-place of the pin: ffmpeg-ffstreamer's own build of fixes not yet released (`make remote-build` there
-fetches one into ../ffmpeg-ffstreamer/dist/bin-amd64). It is used as it is, with no hash, and said so
+place of the pin: ffmpeg-fdproxy's own build of fixes not yet released (`make remote-build` there
+fetches one into ../ffmpeg-fdproxy/dist/bin-amd64). It is used as it is, with no hash, and said so
 on stderr each time, so a local build is never taken for the pinned one. ./dev mounts it and ./staging
 builds it into the runtime image.
 
@@ -38,10 +38,12 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-# ffmpeg-ffstreamer's release: jellyfin-ffmpeg v8.1.2-5 and its first patches (GitHub API, 2026-10-23).
+# ffmpeg-fdproxy's release, made when it was ffmpeg-ffstreamer, under that name: jellyfin-ffmpeg
+# v8.1.2-5 and its first patches (GitHub API, 2026-10-23). GitHub sends the old repository's URLs to
+# the renamed one; the next pin names ffmpeg-fdproxy.
 FFSTREAMER_VERSION = "8.1.2-5-1"
 FFSTREAMER_URL = f"https://github.com/kstenerud/ffmpeg-ffstreamer/releases/download/v{FFSTREAMER_VERSION}"
-# jellyfin-ffmpeg's own release, which ffmpeg-ffstreamer builds no macOS binary of (GitHub API, 2026-09-23).
+# jellyfin-ffmpeg's own release, which ffmpeg-fdproxy builds no macOS binary of (GitHub API, 2026-09-23).
 JELLYFIN_VERSION = "8.1.2-5"
 JELLYFIN_URL = f"https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v{JELLYFIN_VERSION}"
 
@@ -93,7 +95,7 @@ def local_build() -> Path | None:
     if missing:
         raise SystemExit(f"{LOCAL_ENV}={named} holds no runnable {' or '.join(missing)}")
     commit = local / "COMMIT"
-    built = f" (ffmpeg-ffstreamer {commit.read_text().strip()})" if commit.is_file() else ""
+    built = f" (ffmpeg-fdproxy {commit.read_text().strip()})" if commit.is_file() else ""
     print(f"FFmpeg: the local build in {local}{built}, not the pin ({LOCAL_ENV})", file=sys.stderr)
     return local
 

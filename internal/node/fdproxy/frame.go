@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package ffstreamer
+package fdproxy
 
 import (
 	"encoding/binary"
@@ -75,7 +75,7 @@ func (kind Kind) String() string {
 
 // ErrViolation is a frame from FFmpeg that breaks the protocol. FFmpeg may have been taken over by
 // the film it reads, so a violation ends the run (Serving).
-var ErrViolation = errors.New("FFmpeg broke the ffstreamer protocol")
+var ErrViolation = errors.New("FFmpeg broke the fdproxy protocol")
 
 // header is one frame's header.
 type header struct {

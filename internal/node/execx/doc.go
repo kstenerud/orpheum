@@ -61,7 +61,7 @@
 //     TestRunWatched_AStalledRunThatIgnoresItsQuitIsKilledWithItsGroup.
 //   - On Linux no tool outlives the node that started it. TestRun_AToolDiesWithTheNode.
 //   - A run already reaped is never signalled, nor is its group, whose id may be another's by then
-//     (ffstreamer's specification, Stopping). TestSignalRun_LeavesTheGroupOfARunAlreadyReapedAlone.
+//     (fdproxy's specification, Stopping). TestSignalRun_LeavesTheGroupOfARunAlreadyReapedAlone.
 //   - A watched run may read its film through the node (WatchedRun.Film, D330): its channel's pipes
 //     follow the progress pipe at descriptors 4 and 5, named by StreamedInput. Such a run passes only
 //     having said DONE OK for its own run, a breach of the protocol or a passed budget kills it at once
@@ -80,8 +80,8 @@
 //     TestFilm_AStreamedFilmGrantsNoPathAndAFilmByPathGrantsOnlyItsOwn,
 //     TestRunOnFilm_AnUnwatchedRunReadsItsStreamedFilmThroughTheNode,
 //     TestReadingDeadline_IsReadingTheFileAtTheSlowestReadTheNodeIsConfiguredFor.
-//   - A film is streamed only by an FFmpeg that lists ffstreamer among its input protocols
-//     (HasFFstreamer). TestHasFFstreamer_IsTheProtocolAmongTheInputsFFmpegLists.
+//   - A film is streamed only by an FFmpeg that lists the fdproxy protocol (fdproxy.ProtocolName)
+//     among its input protocols (HasFDProxy). TestHasFDProxy_IsTheProtocolAmongTheInputsFFmpegLists.
 //   - FilmOf is the one place a run's film is made: by path, or, once StreamFilms, served from the file
 //     the node opened, through its disk's gate, each run numbered and bounded by what it reads, a
 //     probe far less than a whole read. TestFilmOf_StreamsTheOpenedFileOnTheTermsOfWhatTheRunReads.
@@ -102,7 +102,7 @@
 //   - execx.go: starting a run, through the shim or not; the argument hardening and a run's
 //     input; the stderr tail on failure. watch.go: the watchdog, its progress and its deadlines.
 //     pause.go: pausing a watched run for play-driven work. film.go: a run's film, by path or
-//     served through the node (internal/node/ffstreamer), and whether FFmpeg can be served one.
+//     served through the node (internal/node/fdproxy), and whether FFmpeg can be served one.
 //     proc_linux.go: reading a process group from /proc. stuck.go: the processes left running.
 //     process_linux.go and process_other.go: a tool's process group and parent-death signal.
 //     The shim itself is internal/node/confine's.

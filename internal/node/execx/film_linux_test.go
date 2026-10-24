@@ -20,8 +20,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/node/ffstreamer"
-	"github.com/kstenerud/orpheum/internal/node/ffstreamer/ffstreamertest"
+	"github.com/kstenerud/orpheum/internal/node/fdproxy"
+	"github.com/kstenerud/orpheum/internal/node/fdproxy/fdproxytest"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -31,7 +31,7 @@ const filmMode = "-test_film_mode"
 
 // TestMain runs the package's tests, or, when this test binary is run by the name ffmpeg (filmRunner
 // links it so), is the patched FFmpeg of these tests: it reads its input through the node over
-// ffstreamer as filmMode says, and prints the SHA-256 of what it read.
+// fdproxy as filmMode says, and prints the SHA-256 of what it read.
 func TestMain(m *testing.M) {
 	words := os.Args //nolint:forbidigo // the stand-in FFmpeg's own command line
 	if filepath.Base(words[0]) == string(FFmpeg) {
@@ -44,7 +44,7 @@ func TestMain(m *testing.M) {
 func actAsFilmReader(words []string, mode string) int {
 	readFD, _ := strconv.Atoi(valueAfter(words, "-ffstreamer_read_fd"))   //nolint:errcheck // the node's
 	writeFD, _ := strconv.Atoi(valueAfter(words, "-ffstreamer_write_fd")) //nolint:errcheck // as above
-	client := ffstreamertest.NewClient(readFD, writeFD)
+	client := fdproxytest.NewClient(readFD, writeFD)
 	if err := client.Open(64); err != nil {
 		return 2
 	}
@@ -120,7 +120,7 @@ func runFilm(t *testing.T, ctx context.Context, film *memoryFilm, mode string) (
 		Arguments:        append([]string{filmMode, mode}, StreamedInput(4)...),
 		StdoutLimitBytes: 1 << 10,
 		Watch:            Watch{StartGrace: time.Hour, StallWindow: time.Hour, Deadline: time.Hour},
-		Film:             &ffstreamer.Config{Run: 3, Source: film, MostOutstanding: 2},
+		Film:             &fdproxy.Config{Run: 3, Source: film, MostOutstanding: 2},
 	})
 }
 
@@ -159,7 +159,7 @@ func TestRunWatched_AStreamedRunThatBreaksTheProtocolIsKilledAndFails(t *testing
 	started := time.Now() //nolint:forbidigo // bounds how long the kill took, in real time
 	_, err := runFilm(t, t.Context(), newMemoryFilm(), "breach")
 	runError, isRunError := errors.AsType[*RunError](err)
-	if !isRunError || !errors.Is(err, ffstreamer.ErrViolation) {
+	if !isRunError || !errors.Is(err, fdproxy.ErrViolation) {
 		t.Fatalf("the run ended with %v; want a RunError for the violation", err)
 	}
 	if runError.ExitStatus != -1 || time.Since(started) > 30*time.Second { //nolint:forbidigo // as above
@@ -182,7 +182,7 @@ func TestRunWatched_AStreamedRunWhoseFilmCannotBeReadStalledOnItsDisk(t *testing
 }
 
 // A paused streamed run reads nothing until it is continued: its READs are held as its process is
-// stopped (ffstreamer's specification, Pausing, D240 §6).
+// stopped (fdproxy's specification, Pausing, D240 §6).
 func TestRunWatched_APausedStreamedRunReadsNothingUntilContinued(t *testing.T) {
 	t.Parallel()
 	pausing := &Pausing{}
@@ -213,7 +213,7 @@ func TestRunOnFilm_AnUnwatchedRunReadsItsStreamedFilmThroughTheNode(t *testing.T
 	contents := newMemoryFilm()
 	film := Film{
 		Path: "/films/a.mkv", Size: contents.Size(),
-		Stream: &ffstreamer.Config{Run: 5, Source: contents, MostOutstanding: 2}, CacheBlocks: 4,
+		Stream: &fdproxy.Config{Run: 5, Source: contents, MostOutstanding: 2}, CacheBlocks: 4,
 	}
 	stdout, err := filmRunner(t).RunOnFilm(t.Context(), FFmpeg, film,
 		append([]string{filmMode, "read-all"}, film.Input()...), 1<<10)
@@ -237,7 +237,7 @@ func TestFilm_AStreamedFilmGrantsNoPathAndAFilmByPathGrantsOnlyItsOwn(t *testing
 	if got := byPath.Input(); !slices.Equal(got, FileInput("/films/a.mkv")) {
 		t.Errorf("a film by path is named %q; want FileInput", got)
 	}
-	streamed := Film{Path: "/films/a.mkv", Size: 10, Stream: &ffstreamer.Config{Run: 1}, CacheBlocks: 12}
+	streamed := Film{Path: "/films/a.mkv", Size: 10, Stream: &fdproxy.Config{Run: 1}, CacheBlocks: 12}
 	if got := streamed.Readable(); len(got) != 0 {
 		t.Errorf("a streamed film grants %q; want nothing", got)
 	}
@@ -247,7 +247,7 @@ func TestFilm_AStreamedFilmGrantsNoPathAndAFilmByPathGrantsOnlyItsOwn(t *testing
 }
 
 // The node says once, not at every run, that its films' pipes are at their default size, since every
-// run after the first finds the same (ffstreamer's specification, Pipe Sizes).
+// run after the first finds the same (fdproxy's specification, Pipe Sizes).
 func TestRunner_SaysOnceThatAStreamedFilmsPipeKeptItsDefaultSize(t *testing.T) {
 	t.Parallel()
 	var logged bytes.Buffer
