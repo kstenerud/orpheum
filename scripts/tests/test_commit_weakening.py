@@ -29,6 +29,35 @@ class CommitBeingWritten(unittest.TestCase):
             explained = "test: drop B\n\nTest-Weakened: B tested what A does\n"
             self.assertEqual(tw.main(["--message-file", self.message(explained)]), 0)
 
+    def test_an_index_locked_for_a_moment_by_another_git_is_waited_for(self):
+        # An agent committing beside another found the index locked, and the check failed with
+        # "not a valid object name" (2026-10-24).
+        import threading
+        repo = Repo({"x_test.go": 'func TestA(t *testing.T) { t.Fatal("a") }\n'})
+        repo.commit("first")
+        repo.write({"x_test.go": 'func TestA(t *testing.T) { t.Fatal("a") }\nfunc TestB(t *testing.T) {}\n'})
+        with repo.cwd():
+            repo.git("add", "x_test.go")
+            lock = Path(".git") / "index.lock"
+            lock.write_text("")
+            threading.Timer(0.3, lock.unlink).start()
+            self.assertEqual(tw.main(["--message-file", self.message("test: add B\n")]), 0)
+
+    def test_an_index_locked_for_good_fails_the_check_saying_why(self):
+        repo = Repo({"x_test.go": 'func TestA(t *testing.T) {}\n'})
+        repo.commit("first")
+        with repo.cwd():
+            (Path(".git") / "index.lock").write_text("")
+            tries = tw.WRITE_TREE_RETRY_S
+            tw.WRITE_TREE_RETRY_S = 0.01
+            try:
+                with self.assertRaises(tw.CannotCheck) as cannot:
+                    tw.commit_being_written(self.message("test: anything\n"))
+            finally:
+                tw.WRITE_TREE_RETRY_S = tries
+                (Path(".git") / "index.lock").unlink()
+            self.assertIn("index.lock", str(cannot.exception))
+
     def test_nothing_to_check_before_a_first_commit(self):
         repo = Repo({"x_test.go": 'func TestA(t *testing.T) {}\n'})
         with repo.cwd():
