@@ -56,6 +56,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -439,6 +440,12 @@ def check_gates(base: str, head: str) -> int:
     return 1
 
 
+# How many times, and how far apart, the commit being written is made before the check gives up:
+# another git process holds the index's lock for well under a second.
+WRITE_TREE_TRIES = 5
+WRITE_TREE_RETRY_S = 0.5
+
+
 class CannotCheck(Exception):
     """The commit being written could not be made into a commit to check."""
 
@@ -447,20 +454,31 @@ def commit_being_written(message_file: str) -> tuple[str, str] | None:
     """(HEAD, a commit of the index with the message being written on HEAD), for the commit-msg
     hook: the commit is a dangling object no branch names, so the range's rules apply to the commit
     as it will be recorded, its own trailers alone explaining it (D270 §4). None before a first
-    commit; CannotCheck when the commit cannot be made, which fails rather than passes unchecked."""
-    head = git("rev-parse", "-q", "--verify", "HEAD").strip()
-    if not head:
-        return None
-    tree = git("write-tree").strip()
-    # The object is never recorded: a fixed name stands in where git has none, as under the gate.
-    env = {**os.environ, "GIT_AUTHOR_NAME": "commit-msg check", "GIT_AUTHOR_EMAIL": "check@localhost",
-           "GIT_COMMITTER_NAME": "commit-msg check", "GIT_COMMITTER_EMAIL": "check@localhost"}
-    done = subprocess.run(["git", "commit-tree", tree, "-p", head, "-F", message_file], capture_output=True,
-                          text=True, check=False, env=env)
-    commit = done.stdout.strip()
-    if not tree or done.returncode != 0 or not commit:
-        raise CannotCheck(f"the commit being written could not be checked: {done.stderr.strip()}")
-    return head, commit
+    commit; CannotCheck when the commit cannot be made, which fails rather than passes unchecked.
+    Another git process holding the index's lock, as an agent committing beside another does, makes
+    write-tree fail for a moment: it is tried again, HEAD read anew, before it fails (2026-10-24)."""
+    failure = ""
+    for attempt in range(WRITE_TREE_TRIES):
+        if attempt:
+            time.sleep(WRITE_TREE_RETRY_S)
+        head = git("rev-parse", "-q", "--verify", "HEAD").strip()
+        if not head:
+            return None
+        written = subprocess.run(["git", "write-tree"], capture_output=True, text=True, check=False)
+        tree = written.stdout.strip()
+        if written.returncode != 0 or not tree:
+            failure = written.stderr.strip()
+            continue
+        # The object is never recorded: a fixed name stands in where git has none, as under the gate.
+        env = {**os.environ, "GIT_AUTHOR_NAME": "commit-msg check", "GIT_AUTHOR_EMAIL": "check@localhost",
+               "GIT_COMMITTER_NAME": "commit-msg check", "GIT_COMMITTER_EMAIL": "check@localhost"}
+        done = subprocess.run(["git", "commit-tree", tree, "-p", head, "-F", message_file], capture_output=True,
+                              text=True, check=False, env=env)
+        commit = done.stdout.strip()
+        if done.returncode == 0 and commit:
+            return head, commit
+        failure = done.stderr.strip()
+    raise CannotCheck(f"the commit being written could not be checked: {failure}")
 
 
 def main(argv: list[str] | None = None) -> int:
