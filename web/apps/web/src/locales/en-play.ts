@@ -63,6 +63,7 @@ export const enPlay = {
         "This device sets its own volume, so only a copy prepared after measuring is levelled here.",
     },
     startOver: "Start over",
+    playOriginal: "Play the original file",
     stoppedByAdmin: "The administrator stopped this: {{message}}",
     positionNotKept: "Where you are is no longer being kept for next time. {{reason}}",
     reopening: "The server restarted. Opening the film again where you were…",

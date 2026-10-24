@@ -3796,7 +3796,7 @@ export interface components {
              * @description Why the page asked for this playback, for the log
              * @enum {string}
              */
-            cause?: "filmPage" | "playPage" | "warmUpStale" | "warmUpOffLadder" | "warmUpFailed" | "soundAnswered" | "soundChanged" | "subtitleFetched" | "audioChosen" | "playbackGone" | "ownPictureGivenUp" | "mediaBack";
+            cause?: "filmPage" | "playPage" | "warmUpStale" | "warmUpOffLadder" | "warmUpFailed" | "soundAnswered" | "soundChanged" | "subtitleFetched" | "audioChosen" | "originalChosen" | "playbackGone" | "ownPictureGivenUp" | "mediaBack";
             /** Format: int64 */
             fileId: number;
             /** @description Whether the player gave the film's own picture up as unplayable here */
@@ -3848,6 +3848,16 @@ export interface components {
             /** Format: int64 */
             playingAfterMs: number;
             preloadSteps?: string;
+            sound?: components["schemas"]["StartupSoundBody"];
+        };
+        StartupSoundBody: {
+            /** Format: int64 */
+            baseLatencyMs?: number;
+            codecs?: string;
+            isThroughWebAudio?: boolean;
+            mapping?: string;
+            /** Format: int64 */
+            outputLatencyMs?: number;
         };
         StopBody: {
             message: string;

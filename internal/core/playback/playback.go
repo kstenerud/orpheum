@@ -314,8 +314,9 @@ const ladderLookEvery = 100 * time.Millisecond
 // its player's link on the request's network remembered, where that link calls for (D257 §1). A
 // film with no grid yet is waited for, up to play_ladder_wait_ms, while its timeline is read, then nil,
 // playing as its decision says; one that cannot be cut, or offers no picture, is nil at once. A nil
-// offer comes with why, for the log. Its player's playbacks of other films are gone to this one
-// (goneToAnother).
+// offer comes with why, for the log. A person who chose the original file plays it, never the ladder
+// (web-client.md: playback is never a black box). Its player's playbacks of other films are gone to
+// this one (goneToAnother).
 func (service *Service) startOnLadder(
 	ctx context.Context, holder Holder, request Request, playback tokenPlayback, positionMs int64,
 ) (*chunks.Offer, string, error) {
@@ -324,6 +325,9 @@ func (service *Service) startOnLadder(
 	}
 	if err := service.goneToAnother(ctx, playerOf(request.DeviceID, holder.SessionKey), playback.fileID); err != nil {
 		return nil, "", err
+	}
+	if request.PreferredDelivery == decide.Direct {
+		return nil, "originalChosen", nil
 	}
 	key := speedKey{player: playerOf(request.DeviceID, holder.SessionKey), network: clientnet.Of(request.ClientAddress)}
 	kbps, _ := service.speeds.fresh(key, service.clock.Now(), service.timingNow().speedFreshFor)

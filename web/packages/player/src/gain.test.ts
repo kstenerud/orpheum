@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { canSetVolume, gainAfterVolume, type GainAudio } from "./gain.ts";
+import { canSetVolume, gainAfterVolume, soundRouteOf, type GainAudio } from "./gain.ts";
 import { settled } from "./test-timing.ts";
 
 /** A gain node, as the fake makes it. */
@@ -15,7 +15,10 @@ interface FakeGainNode {
  * Web Audio, faked: what was routed where, and each gain node's gain. Its context runs once resumed
  * while playing is allowed, as a browser's does once the page is played with.
  */
-function fakeAudio(permission: { isGranted: boolean }): {
+function fakeAudio(
+  permission: { isGranted: boolean },
+  latencies: { readonly baseLatency?: number; readonly outputLatency?: number } = {},
+): {
   createAudioContext: () => GainAudio;
   contextsMade: () => number;
   routed: string[];
@@ -28,6 +31,7 @@ function fakeAudio(permission: { isGranted: boolean }): {
   const createAudioContext = (): GainAudio => {
     contextsMade++;
     const faked = {
+      ...latencies,
       destination,
       state: "suspended",
       resume: () => {
@@ -74,6 +78,24 @@ describe("a gain after the element's volume (D226 §4)", () => {
     gainAfterVolume(video, fake.createAudioContext).setDb(0);
     expect(fake.contextsMade()).toBe(1);
     expect(fake.gainNodes[0]?.gain.value).toBe(1);
+  });
+
+  it("says whether the sound goes through Web Audio, with its context's latencies (2026-10-24)", async () => {
+    const video = document.createElement("video");
+    expect(soundRouteOf(video)).toEqual({ isThroughWebAudio: false });
+    const fake = fakeAudio({ isGranted: true }, { baseLatency: 0.0104, outputLatency: 0.48 });
+    gainAfterVolume(video, fake.createAudioContext).setDb(3);
+    await settled();
+    expect(soundRouteOf(video)).toEqual({
+      isThroughWebAudio: true,
+      baseLatencyMs: 10,
+      outputLatencyMs: 480,
+    });
+    // A browser that says no latency is told as none.
+    const quiet = document.createElement("video");
+    gainAfterVolume(quiet, fakeAudio({ isGranted: true }).createAudioContext).setDb(3);
+    await settled();
+    expect(soundRouteOf(quiet)).toEqual({ isThroughWebAudio: true });
   });
 
   it("leaves the sound alone until the page may play audio, so the video is never held", async () => {

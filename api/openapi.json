@@ -5662,6 +5662,7 @@
               "soundChanged",
               "subtitleFetched",
               "audioChosen",
+              "originalChosen",
               "playbackGone",
               "ownPictureGivenUp",
               "mediaBack"
@@ -5846,6 +5847,9 @@
           "preloadSteps": {
             "maxLength": 400,
             "type": "string"
+          },
+          "sound": {
+            "$ref": "#/components/schemas/StartupSoundBody"
           }
         },
         "required": [
@@ -5853,6 +5857,33 @@
           "firstDataAfterMs",
           "playingAfterMs"
         ],
+        "type": "object"
+      },
+      "StartupSoundBody": {
+        "additionalProperties": false,
+        "properties": {
+          "baseLatencyMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "codecs": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "isThroughWebAudio": {
+            "type": "boolean"
+          },
+          "mapping": {
+            "maxLength": 300,
+            "type": "string"
+          },
+          "outputLatencyMs": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
         "type": "object"
       },
       "StopBody": {

@@ -123,6 +123,23 @@ type StartupBody struct {
 	// first buffer (D260 §3), oldest first, as a stall's are: on the owner's LAN it stepped down to
 	// the lowest quality before Play was pressed, and nothing said why (staging, 2026-10-18).
 	PreloadSteps string `json:"preloadSteps,omitempty" maxLength:"400" required:"false"`
+	// Sound is how the player's sound reaches the speakers, said once it plays: the owner's TCL TV in
+	// TV Bro played every film's sound half a second late, YouTube's in time, and nothing in the log
+	// said why (2026-10-24).
+	Sound *StartupSoundBody `json:"sound,omitempty" required:"false"`
+}
+
+// StartupSoundBody is how a player's sound reaches the speakers: through Web Audio for its gain or
+// straight from the element, the latencies its audio context reports when through Web Audio, the
+// codecs its buffers took, and where its player placed each track's first chunk (the mapping).
+type StartupSoundBody struct {
+	IsThroughWebAudio bool `json:"isThroughWebAudio,omitempty" required:"false"`
+	// BaseLatencyMs and OutputLatencyMs are the audio context's baseLatency and outputLatency, absent
+	// when the sound is not through Web Audio or the browser does not say.
+	BaseLatencyMs   *int64 `json:"baseLatencyMs,omitempty"   minimum:"0" required:"false"`
+	OutputLatencyMs *int64 `json:"outputLatencyMs,omitempty" minimum:"0" required:"false"`
+	Codecs          string `json:"codecs,omitempty"          maxLength:"200" required:"false"`
+	Mapping         string `json:"mapping,omitempty"         maxLength:"300" required:"false"`
 }
 
 // StallBody is one stall: a wait for data, while the player played, where it was; and the video's
@@ -318,6 +335,12 @@ func (server *Server) logStartup(ctx context.Context, reporter reporter, startup
 		"deviceId", reporter.deviceID, "viewerOfFileId", reporter.holder.OnlyFileID,
 		"decidedAfterMs", startup.DecidedAfterMs, "firstDataAfterMs", startup.FirstDataAfterMs,
 		"playingAfterMs", startup.PlayingAfterMs, "linkKbps", linkKbps, "preloadSteps", startup.PreloadSteps)
+	if sound := startup.Sound; sound != nil {
+		server.logger.InfoContext(ctx, "a playback's sound", "userId", reporter.holder.UserID,
+			"deviceId", reporter.deviceID, "isThroughWebAudio", sound.IsThroughWebAudio,
+			"baseLatencyMs", sound.BaseLatencyMs, "outputLatencyMs", sound.OutputLatencyMs, "codecs", sound.Codecs,
+			"mapping", sound.Mapping)
+	}
 }
 
 // logUnplayables says each quality a player gave up as one its device cannot play, and where: Flow

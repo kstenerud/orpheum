@@ -43,7 +43,7 @@ import { watchingOf, type PlaybackDecision, type StartCause } from "./watching.t
 /** Why a playing page asks how the file plays again. */
 type DecideAgainCause = Extract<
   StartCause,
-  "soundAnswered" | "soundChanged" | "subtitleFetched" | "audioChosen"
+  "soundAnswered" | "soundChanged" | "subtitleFetched" | "audioChosen" | "originalChosen"
 >;
 
 /**
@@ -402,12 +402,29 @@ function LadderUnder(
     carriedGainDb: ladder.offer.soundCarriedGainDb,
   };
   return (
-    <UnderTheVideo
-      {...props}
-      decision={decision}
-      level={level}
-      onAudioChosen={decideAgainFor(props, "audioChosen")}
-    />
+    <>
+      <UnderTheVideo
+        {...props}
+        decision={decision}
+        level={level}
+        onAudioChosen={decideAgainFor(props, "audioChosen")}
+      />
+      <PlayOriginal onChosen={decideAgainFor(props, "originalChosen")} />
+    </>
+  );
+}
+
+/**
+ * The button that plays the film's own file in place of its ladder, as it is, from where it stands:
+ * playback is never a black box (web-client.md), and a browser that plays the ladder badly can be
+ * tried on the file itself.
+ */
+function PlayOriginal(props: { readonly onChosen: () => void }): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <button type="button" className="play__original" onClick={props.onChosen}>
+      {t("play.playOriginal")}
+    </button>
   );
 }
 

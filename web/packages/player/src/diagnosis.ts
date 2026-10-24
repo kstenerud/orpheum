@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { playerBufferedFirstEvent } from "@orpheum/sdk";
-import Hls, { type ErrorData } from "hls.js";
+import Hls, { type BufferCodecsData, type ErrorData } from "hls.js";
 
 /**
  * What a chunked playback's video holds and what went wrong last, for a stall's report (D266):
@@ -44,6 +44,8 @@ interface Kept {
   steps: string[];
   /** The player's own last choices of quality, with why, kept apart so the steps never push them out. */
   choices: string[];
+  /** The codecs each buffer took, by its track ("video avc1.64001f"), the latest for each. */
+  codecs: Map<string, string>;
 }
 
 /** The longest a diagnosis's mapping may be, as the server takes it. */
@@ -155,6 +157,13 @@ export interface DiagnosedHls {
       ) => void,
     ) => void) &
     ((
+      event: typeof Hls.Events.BUFFER_CODECS,
+      listener: (
+        event: string,
+        data: Pick<BufferCodecsData, "video" | "audio" | "audiovideo">,
+      ) => void,
+    ) => void) &
+    ((
       event: typeof Hls.Events.MEDIA_ATTACHED,
       listener: (event: string, data: { readonly mediaSource?: EventTarget }) => void,
     ) => void) &
@@ -180,15 +189,7 @@ export interface DiagnosedHls {
  * playerBufferedFirstEvent as each playlist's first chunk is buffered.
  */
 export function diagnose(hls: DiagnosedHls, video: EventTarget): void {
-  const diagnosis: Kept = {
-    video: "",
-    audio: "",
-    lastError: "",
-    mapping: [],
-    mediaSourceState: "",
-    steps: [],
-    choices: [],
-  };
+  const diagnosis = newKept();
   diagnoses.set(video, diagnosis);
   keepSteps(hls, diagnosis);
   hls.on(Hls.Events.BUFFER_APPENDED, (_event, data) => {
@@ -231,6 +232,7 @@ export function diagnose(hls: DiagnosedHls, video: EventTarget): void {
     );
     video.dispatchEvent(new CustomEvent(playerBufferedFirstEvent, { detail: data.id }));
   });
+  keepCodecs(hls, diagnosis);
   hls.on(Hls.Events.MEDIA_ATTACHED, (_event, data) => {
     keepStep(diagnosis, "attached");
     data.mediaSource?.addEventListener("startstreaming", () => {
@@ -239,6 +241,32 @@ export function diagnose(hls: DiagnosedHls, video: EventTarget): void {
     data.mediaSource?.addEventListener("endstreaming", () => {
       diagnosis.mediaSourceState = "stopped";
     });
+  });
+}
+
+/** A diagnosis with nothing kept yet. */
+function newKept(): Kept {
+  return {
+    video: "",
+    audio: "",
+    lastError: "",
+    mapping: [],
+    mediaSourceState: "",
+    steps: [],
+    choices: [],
+    codecs: new Map(),
+  };
+}
+
+/** Keeps the codecs each of hls.js's buffers takes in diagnosis, the latest for each track. */
+function keepCodecs(hls: DiagnosedHls, diagnosis: Kept): void {
+  hls.on(Hls.Events.BUFFER_CODECS, (_event, data) => {
+    for (const track of ["video", "audio", "audiovideo"] as const) {
+      const taken = data[track];
+      if (taken !== undefined) {
+        diagnosis.codecs.set(track, `${taken.container} ${taken.codec ?? "?"}`);
+      }
+    }
   });
 }
 
@@ -280,4 +308,18 @@ export function diagnosisOf(
       .join("; ")
       .slice(-stepsTextMost),
   };
+}
+
+/**
+ * The codecs video's buffers took, each with its track and container ("video video/mp4 avc1.64001f;
+ * audio audio/mp4 mp4a.40.2"), the latest for each; "" for a video not diagnosed or before any: the
+ * owner's TCL TV played every film's sound half a second late, and nothing said what it decoded
+ * (2026-10-24).
+ */
+export function codecsOf(video: object): string {
+  const diagnosis = diagnoses.get(video);
+  if (diagnosis === undefined) {
+    return "";
+  }
+  return [...diagnosis.codecs].map(([track, codec]) => `${track} ${codec}`).join("; ");
 }
