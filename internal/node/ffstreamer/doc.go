@@ -18,7 +18,8 @@
 //     film it reads: its type, its number in sequence, its length within its type's bounds, and its
 //     fields within the protocol's and the terms' rules, checked without arithmetic that can
 //     overflow. Any breach kills the run and is its account's failure (ErrViolation).
-//     TestChannel_KillsARunThatBreaksTheProtocol, TestChannel_KillsARunWhoseOpeningItCannotWorkWith.
+//     TestChannel_KillsARunThatBreaksTheProtocol, TestChannel_KillsARunWhoseOpeningItCannotWorkWith,
+//     TestDecodeDone_RefusesADoneThatBreaksItsRules.
 //     Whatever FFmpeg sends, the channel ends, serves no more than its budget, and kills the run
 //     exactly when it records a reason to: FuzzChannel_JudgesWhateverFFmpegSends, whose seeds run
 //     with the tests and which `go test -fuzz` explores beyond them.

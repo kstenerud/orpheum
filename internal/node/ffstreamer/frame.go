@@ -235,6 +235,9 @@ type Done struct {
 
 func decodeDone(body []byte) (Done, error) {
 	done := Done{Run: int64Of(body[0:8])}
+	if done.Run < 0 {
+		return Done{}, fmt.Errorf("%w: a DONE for run %d", ErrViolation, done.Run) // a negative field (Integers)
+	}
 	switch body[8] {
 	case resultOK:
 		if len(body) != doneOKBytes {
@@ -252,8 +255,8 @@ func decodeDone(body []byte) (Done, error) {
 	done.Kind = Kind(int8Of(body[9]))
 	done.Code = int32Of(body[10:14])
 	messageLength := int(int16Of(body[14:16]))
-	if done.Kind < KindTerms || done.Kind > KindInterrupted || done.Code < 0 || done.Run < 0 ||
-		messageLength < 0 || messageLength > longestMessage || len(body) != doneErrFixed+messageLength {
+	if done.Kind < KindTerms || done.Kind > KindInterrupted || done.Code < 0 || messageLength < 0 ||
+		messageLength > longestMessage || len(body) != doneErrFixed+messageLength {
 		return Done{}, fmt.Errorf("%w: a malformed DONE: kind %d, code %d, message of %d bytes in a body of %d",
 			ErrViolation, done.Kind, done.Code, messageLength, len(body))
 	}
