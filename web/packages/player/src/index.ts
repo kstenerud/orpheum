@@ -13,8 +13,14 @@ export { hlsErrorFailure, mediaErrorFailure, playbackFailures } from "./failure.
 export type { PlaybackFailure } from "./failure.ts";
 export { codecsOf, diagnosisOf } from "./diagnosis.ts";
 export type { PlaybackDiagnosis } from "./diagnosis.ts";
-export { canSetVolume, gainAfterVolume, soundRouteOf } from "./gain.ts";
-export type { Gain, SoundRoute } from "./gain.ts";
+export {
+  canSetVolume,
+  gainAfterVolume,
+  longestSoundDelayMs,
+  soundDelay,
+  soundRouteOf,
+} from "./gain.ts";
+export type { Gain, SoundDelay, SoundRoute } from "./gain.ts";
 export { canFollowAGroup, hlsSupport, hlsMethod, playHls, playNative } from "./hls.ts";
 export type { HlsSupport, HlsMethod, HlsPlayback, NativeTarget } from "./hls.ts";
 export { linkShareForQuality } from "./abr-choice.ts";

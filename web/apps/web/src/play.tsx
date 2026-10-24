@@ -30,7 +30,10 @@ import { askUntilAnswered, reopenAtMostEveryMs, type ReopenAt } from "./reopen.t
 import type { LadderOffer } from "./moving-down.ts";
 import { usePlayState } from "./play-state.ts";
 import { useServices } from "./services.tsx";
+import { BarePlayer } from "./bare-player.tsx";
+import { FrameTimingNote } from "./frame-timing-note.tsx";
 import { BoostSwitch, SoundLine, SoundQuestion } from "./sound.tsx";
+import { SoundDelayControl } from "./sound-delay.tsx";
 import { FindSubtitles } from "./subtitle-search.tsx";
 import { Subtitles } from "./subtitles.tsx";
 import { camelKey } from "./catalogue-key.ts";
@@ -46,12 +49,8 @@ type DecideAgainCause = Extract<
   "soundAnswered" | "soundChanged" | "subtitleFetched" | "audioChosen" | "originalChosen"
 >;
 
-/**
- * A decision, shown: the original playing, or a prepared copy and why. The reason is always on
- * screen (D188). Another audio track chosen in the original asks for the decision again, which
- * prepares a copy, since a browser plays the original's first (D230 §5).
- */
-export function PlayView(props: {
+/** What PlayView is given: the file, its decision, and its ways to ask again. */
+interface PlayViewProps {
   readonly fileId: number;
   readonly decision: PlaybackDecision;
   /** Asks the server again how the file plays: after the sound changed (D222) or a subtitle was fetched. */
@@ -75,7 +74,41 @@ export function PlayView(props: {
    * and its player's failures, its media gone with the playback, are not told.
    */
   readonly isReconnecting?: boolean;
-}): JSX.Element {
+}
+
+/**
+ * A decision, shown: the original playing, or a prepared copy and why. The reason is always on
+ * screen (D188). Another audio track chosen in the original asks for the decision again, which
+ * prepares a copy, since a browser plays the original's first (D230 §5).
+ */
+export function PlayView(props: PlayViewProps): JSX.Element {
+  // Whether the film's own file plays in the bare player, nothing drawn over it (bare-player.tsx),
+  // offered where the film plays its own file.
+  const [isBare, setIsBare] = useState(false);
+  const { decision } = props;
+  const isOwnFile = decision.delivery === "direct" && decision.onLadder === undefined;
+  if (isBare && isOwnFile) {
+    return (
+      <BarePlayer
+        url={decision.url}
+        resumePositionMs={decision.resumePositionMs}
+        onBack={() => {
+          setIsBare(false);
+        }}
+      />
+    );
+  }
+  const onBare = (): void => {
+    setIsBare(true);
+  };
+  return <PlayerView {...props} onBare={isOwnFile ? onBare : undefined} />;
+}
+
+/** PlayView's player, and the bare player's button where onBare is given. */
+function PlayerView(
+  props: PlayViewProps & { readonly onBare: (() => void) | undefined },
+): JSX.Element {
+  const { t } = useTranslation();
   // The lower quality a stalled player moved to, and where it was (D247 §2); per playback.
   const [moved, setMoved] = useState<MovedDown | undefined>(undefined);
   // The video playing now, which the host's Watch Together session follows: kept here, above the
@@ -117,6 +150,12 @@ export function PlayView(props: {
             ladderStartMs={props.decision.resumePositionMs}
             composition={pageComposition(props)}
           />
+          <FrameTimingNote video={video} />
+          {props.onBare === undefined ? null : (
+            <button type="button" onClick={props.onBare}>
+              {t("play.bare.open")}
+            </button>
+          )}
         </div>
       </PlayContext>
       <HostPlaysTogether
@@ -266,6 +305,7 @@ function UnderTheVideo(
         isInitiallyOn={props.decision.preferences.isLevellingOn}
         videoRef={props.videoRef}
       />
+      <SoundDelayControl videoRef={props.videoRef} />
     </>
   );
 }

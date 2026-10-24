@@ -64,6 +64,21 @@ export const enPlay = {
     },
     startOver: "Start over",
     playOriginal: "Play the original file",
+    soundDelay: {
+      label: "Sound delay on this device: {{ms}} ms",
+      less: "−{{ms}} ms",
+      more: "+{{ms}} ms",
+    },
+    bare: {
+      open: "Play in a bare player",
+      back: "Back to the player",
+    },
+    frameTiming: {
+      waiting: "Picture timing: measuring…",
+      unknown: "Picture timing: this browser does not say.",
+      timed:
+        "Picture timing: on screen {{displayAfterMs}} ms after it is ready, {{behindSoundMs}} ms behind the sound ({{frames}} frames).",
+    },
     stoppedByAdmin: "The administrator stopped this: {{message}}",
     positionNotKept: "Where you are is no longer being kept for next time. {{reason}}",
     reopening: "The server restarted. Opening the film again where you were…",
