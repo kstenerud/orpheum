@@ -105,6 +105,48 @@ describe("useResource", () => {
     written.mockRestore();
   });
 
+  it("hands a poll's read its signal, and drops the read its poll gave up, keeping what it shows (the owner, 2026-10-24)", async () => {
+    const poller = handPoller();
+    const written = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const signals: (AbortSignal | undefined)[] = [];
+    const seen: Resource<number>[] = [];
+    function Probe(): null {
+      const [resource] = useResource(
+        "probe",
+        (signal) => {
+          signals.push(signal);
+          if (signal === undefined) {
+            return Promise.resolve(1);
+          }
+          return new Promise<number>((_, fail) => {
+            signal.addEventListener("abort", () => {
+              fail(new Error("given up"));
+            });
+          });
+        },
+        poller,
+      );
+      seen.push(resource);
+      return null;
+    }
+    const mounted = await mount(createElement(Probe));
+    const ask = poller.asks.at(-1);
+    const aborter = new AbortController();
+    const outcomes: AskOutcome[] = [];
+    await act(async () => {
+      ask?.((outcome) => outcomes.push(outcome), aborter.signal);
+      aborter.abort();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(signals.at(-1)).toBe(aborter.signal);
+    // The poll reported it and asks again; the read's own failure is neither shown nor written.
+    expect(outcomes).toEqual([]);
+    expect(seen.at(-1)).toEqual({ state: "loaded", value: 1 });
+    expect(written).not.toHaveBeenCalled();
+    mounted.unmount();
+    written.mockRestore();
+  });
+
   it("keeps the cause, and an error the server sent becomes an ApiProblem", async () => {
     const services = servedBy({ "GET /me": refusal(404, "not_found") });
     const fromServer = await settledAfter(async () => dataOrThrow(await services.api.GET("/me")));

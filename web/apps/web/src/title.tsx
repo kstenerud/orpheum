@@ -285,7 +285,13 @@ export function Title(props: { readonly id: number }): JSX.Element {
   const { api, playableFormats } = useServices();
   const [loaded, reload] = useResource(
     `title/${String(props.id)}`,
-    async () => dataOrThrow(await api.GET("/items/{id}", { params: { path: { id: props.id } } })),
+    async (signal) =>
+      dataOrThrow(
+        await api.GET("/items/{id}", {
+          params: { path: { id: props.id } },
+          signal: signal ?? null,
+        }),
+      ),
     useBackgroundChangesPoller(),
   );
   const title = useRemembered(`title/${String(props.id)}`, loaded, rememberedTitles);

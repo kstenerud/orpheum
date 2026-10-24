@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { reportFailure } from "@orpheum/sdk";
 import { createContext, use } from "react";
 
 /**
@@ -16,8 +17,12 @@ export interface PollWaits {
 /** What one ask of a poll came to: what it read changed what is shown, or did not, or it failed. */
 export type AskOutcome = "changed" | "unchanged" | "failed";
 
-/** One ask of a poll: it reads, and tells answered what that came to. */
-export type Ask = (answered: (outcome: AskOutcome) => void) => void;
+/**
+ * One ask of a poll: it reads, and tells answered what that came to. signal aborts when the poll
+ * gives the ask up (askAnswersWithinMs), so a read that honours it stops, and what it answers after
+ * is no longer heard; a test's hand poller gives none.
+ */
+export type Ask = (answered: (outcome: AskOutcome) => void, signal?: AbortSignal) => void;
 
 /** What polls for a screen: start runs ask as its schedule says until the returned stop. */
 export interface Poller {
@@ -25,9 +30,23 @@ export interface Poller {
 }
 
 /** A poller on polling's schedule, backing off while nothing changes (pollUntilStopped). */
-export function backingOffPoller(polling: PollWaits): Poller {
-  return { start: (ask) => pollUntilStopped(polling, ask) };
+export function backingOffPoller(
+  polling: PollWaits,
+  answersWithinMs: number = askAnswersWithinMs,
+): Poller {
+  return { start: (ask) => pollUntilStopped(polling, ask, answersWithinMs) };
 }
+
+/**
+ * How long a poll waits for one ask to answer before it gives the ask up as failed and asks again
+ * after the failed wait. The client's requests have no timeout of their own, and a poll asks again
+ * only once the last ask answered, so one request that never answered (over the discovery's WebRTC
+ * transport on a TV, staging, 2026-10-24) stopped a page's refresh for good. A fixed safety bound,
+ * not a setting: twice the longest wait D237 starts with, and over twice the slowest answer staging
+ * has seen, a realm sign-in's two connections at 28 s (2026-10-23), so an ask still answering is
+ * never given up.
+ */
+export const askAnswersWithinMs = 60_000;
 
 /**
  * The waits of a screen showing what the server changes in the background, 2 s to 30 s, and 5 s
@@ -65,20 +84,42 @@ export function nextWaitMs(polling: PollWaits, lastWaitMs: number, outcome: AskO
 /**
  * Asks again and again as polling says, until the returned function stops it: the first ask after
  * polling.firstMs, and each after the wait nextWaitMs gives once the last ask said, through
- * answered, what it came to.
+ * answered, what it came to. An ask that has not answered within answersWithinMs is failed: its
+ * signal aborts, the failure is reported (reportFailure), and what it answers later is not heard.
  */
-export function pollUntilStopped(polling: PollWaits, ask: Ask): () => void {
+export function pollUntilStopped(
+  polling: PollWaits,
+  ask: Ask,
+  answersWithinMs: number = askAnswersWithinMs,
+): () => void {
   let isStopped = false;
   let waitMs = polling.firstMs;
   let timer = setTimeout(askNow, waitMs);
   function askNow(): void {
-    ask((outcome) => {
-      if (isStopped) {
+    const aborter = new AbortController();
+    let isAnswered = false;
+    const answer = (outcome: AskOutcome): void => {
+      if (isStopped || isAnswered) {
         return;
       }
+      isAnswered = true;
       waitMs = nextWaitMs(polling, waitMs, outcome);
       timer = setTimeout(askNow, waitMs);
-    });
+    };
+    timer = setTimeout(() => {
+      const givenUp = new Error(
+        `a background refresh had no answer within ${String(answersWithinMs / 1000)} s; it was given up and is asked again`,
+      );
+      givenUp.name = "TimeoutError";
+      answer("failed");
+      aborter.abort(givenUp);
+      reportFailure(givenUp);
+    }, answersWithinMs);
+    const timeout = timer;
+    ask((outcome) => {
+      clearTimeout(timeout);
+      answer(outcome);
+    }, aborter.signal);
   }
   return () => {
     isStopped = true;

@@ -4,11 +4,19 @@
 import "./i18n.ts";
 
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { BackgroundChangesContext, backingOffPoller } from "./polling.ts";
 import { ApiProblem } from "./problem.ts";
-import { buttonWithText, click, mount, servedBy, settleUntil, type Heard } from "./test-dom.tsx";
+import {
+  buttonWithText,
+  click,
+  mount,
+  servedBy,
+  settleUntil,
+  unanswered,
+  type Heard,
+} from "./test-dom.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 import { Loaded, Title, TitleView, type TitleDetail } from "./title.tsx";
 import { withServices } from "./test-services.tsx";
@@ -260,6 +268,47 @@ describe("Title", () => {
       expect(reads.length).toBeGreaterThan(1);
       page.unmount();
     }
+  });
+
+  it("offers Play by itself even after one of its asks never answered (the owner, 2026-10-24)", async () => {
+    // On a TV over the discovery's transport one request never answered, and the page, which asks
+    // again only once the last ask answered, never offered Play until a reload. The poll gives the
+    // ask up, aborting it, and asks again.
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const soon = backingOffPoller({ firstMs: 50, longestMs: 50, failedMs: 50 }, 100);
+    const title = { ...heat, id: 15 };
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /items/15": [
+          [200, { ...title, unavailable: { reason: "still_reading" as const, nodeName: "devnas" } }],
+          unanswered,
+          [200, title],
+        ],
+        "POST /playback": [
+          200,
+          { delivery: "direct", url: "/u", notDirectReasons: [], mediaToken: "a" },
+        ],
+        "PUT /interest/15": [204, null],
+        "DELETE /interest/15": [204, null],
+      },
+      heard,
+    );
+    const page = await mount(
+      <BackgroundChangesContext value={soon}>
+        {withServices(<Title id={15} />, services)}
+      </BackgroundChangesContext>,
+    );
+    const play = (): Element | null => page.container.querySelector("a.title__play");
+    await settleUntil(() => play() !== null);
+    expect(play()?.getAttribute("href")).toBe("/play/1");
+    const reads = heard.filter((each) => each.methodAndPath === "GET /items/15");
+    // The first read, the one never answered, and at least one after it, which offered Play.
+    expect(reads.length).toBeGreaterThanOrEqual(3);
+    // The ask given up was aborted, so its request does not stay open.
+    expect(reads[1]?.signal?.aborted).toBe(true);
+    page.unmount();
+    vi.restoreAllMocks();
   });
 });
 
