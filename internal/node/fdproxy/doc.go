@@ -22,9 +22,12 @@
 //     TestDecodeDone_RefusesADoneThatBreaksItsRules.
 //     Once the run has failed the node sends nothing more, the DATA of a read of the film under way
 //     included. TestChannel_SendsNothingOnceTheRunHasFailed.
-//     Whatever FFmpeg sends, the channel ends, serves no more than its budget, and kills the run
-//     exactly when it records a reason to: FuzzChannel_JudgesWhateverFFmpegSends, whose seeds run
-//     with the tests and which `go test -fuzz` explores beyond them.
+//     Whatever FFmpeg sends, at whatever pace, and however its film answers, the channel ends, serves
+//     exactly what a model of the specification says (each READ's bytes, in order and numbered as
+//     asked, within the budget, the READs outstanding agreed and nothing after a breach), accounts
+//     for it as the model does, and kills the run exactly when it records a reason to while the
+//     run runs: FuzzChannel_JudgesWhateverFFmpegSends and its model (fuzz_model_test.go), whose
+//     seeds run with the tests and which `go test -fuzz` explores beyond them.
 //   - The account carries FFmpeg's DONE as it sent it and the node's own reason to fail the run, the
 //     first one only, from which execx judges it (Judging a Run; execx's
 //     TestJudgeFilm_PassesOnlyARunThatExited0WithDoneOKForItsOwnRun).
