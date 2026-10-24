@@ -315,6 +315,40 @@ func TestChannel_KillsARunThatBreaksTheProtocol(t *testing.T) {
 	}
 }
 
+// A run that breaks the protocol while the node reads the film for an earlier READ is sent nothing
+// more: the read's DATA, once the film answers, is not written (Serving). The fake here keeps its
+// ends when killed, so the test reads all the node sent.
+func TestChannel_SendsNothingOnceTheRunHasFailed(t *testing.T) {
+	t.Parallel()
+	source := newFilm(1000)
+	source.readGate, source.entered = make(chan struct{}), make(chan struct{}, 1)
+	channel, err := Open(testConfig(source))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ends := channel.ChildFiles()
+	fake := &fakeFFmpeg{t: t, reading: duplicate(t, ends[0]), writing: duplicate(t, ends[1])}
+	killed := make(chan struct{})
+	channel.Start(t.Context(), func() { close(killed) })
+	fake.open(256, 2)
+	fake.send(typeRead, readBody(0, 256))
+	testutil.Receive(t, source.entered, "the READ to be taken")
+	fake.send(typeRead, readBody(900, 200))
+	testutil.Receive(t, killed, "the kill for the READ past the end")
+	source.readGate <- struct{}{}
+	testutil.Receive(t, channel.writerDone, "the writer to end")
+	_ = fake.writing.Close() //nolint:errcheck // FFmpeg exits
+	account := channel.Finish()
+	sent, err := io.ReadAll(fake.reading)
+	_ = fake.reading.Close() //nolint:errcheck // the fake's last end
+	if err != nil || len(sent) != 0 {
+		t.Errorf("after the breach the node sent %d bytes (%v); want none", len(sent), err)
+	}
+	if !errors.Is(account.Failure, ErrViolation) {
+		t.Errorf("the account's failure: %v; want a violation", account.Failure)
+	}
+}
+
 // The opening exchange is checked too: a version range the node does not share, or a CAPABILITY
 // outside its rules, ends the run before any terms are sent (HELLO, CAPABILITY).
 func TestChannel_KillsARunWhoseOpeningItCannotWorkWith(t *testing.T) {

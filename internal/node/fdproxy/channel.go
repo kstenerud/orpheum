@@ -366,6 +366,9 @@ func (channel *Channel) write(ctx context.Context, terms Terms) {
 			channel.failRead(fmt.Errorf("%w: %d bytes at %d: %w", ErrReadFailed, read.length, read.offset, err))
 			return
 		}
+		if !channel.isServing() {
+			return // the run failed, or Finish began, while the film was read: nothing more is sent (Serving)
+		}
 		put(put(put(buffer[:0], typeData), read.sequence), read.length)
 		if err := writeAll(channel.data, buffer[:headerBytes+int(read.length)]); err != nil {
 			return // FFmpeg has gone, or Finish closed the pipe
@@ -387,6 +390,14 @@ func (channel *Channel) next() (readRequest, bool) {
 	read := channel.waiting[0]
 	channel.waiting = channel.waiting[1:]
 	return read, true
+}
+
+// isServing is whether the writer may still send DATA: not once the run has failed, after which the
+// node sends nothing more (Serving), nor once Finish has begun.
+func (channel *Channel) isServing() bool {
+	channel.mutex.Lock()
+	defer channel.mutex.Unlock()
+	return !channel.isClosing && channel.account.Failure == nil
 }
 
 // failRead fails the run for a READ its film's storage did not answer, unless Finish has begun:
