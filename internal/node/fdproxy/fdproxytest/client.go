@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package ffstreamertest
+package fdproxytest
 
 import (
 	"encoding/binary"
@@ -36,8 +36,8 @@ type Client struct {
 // NewClient is the client over the descriptors FFmpeg was handed.
 func NewClient(readFD, writeFD int) *Client {
 	return &Client{
-		reading: os.NewFile(uintptr(readFD), "ffstreamer-read"),
-		writing: os.NewFile(uintptr(writeFD), "ffstreamer-write"),
+		reading: os.NewFile(uintptr(readFD), "fdproxy-read"),
+		writing: os.NewFile(uintptr(writeFD), "fdproxy-write"),
 	}
 }
 

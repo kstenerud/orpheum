@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package ffstreamer
+package fdproxy
 
 import (
 	"context"
@@ -47,7 +47,7 @@ var (
 const largestFileBytes = 1 << 62
 
 // ErrFilmTooLarge is a film larger than the protocol may serve (Checks Without Overflow), which no file is.
-var ErrFilmTooLarge = errors.New("the film is larger than ffstreamer serves")
+var ErrFilmTooLarge = errors.New("the film is larger than fdproxy serves")
 
 // largestBlockBytes is the largest block the node serves in, whatever FFmpeg offers: the largest
 // DATA body the patched FFmpeg accepts.
@@ -57,7 +57,7 @@ const largestBlockBytes = 4 << 20
 // pipe already, so this bounds only a pipe some other process still holds.
 const drainWait = 5 * time.Second
 
-// Channel serves one input film to one FFmpeg run over two pipes (ffstreamer's specification): FFmpeg's READs come
+// Channel serves one input film to one FFmpeg run over two pipes (fdproxy's specification): FFmpeg's READs come
 // on one, and the parent's answers go on the other. The node judges every frame FFmpeg sends, and
 // kills the run on any violation, any read the film's storage fails, and a budget passed.
 type Channel struct {
@@ -142,14 +142,23 @@ func (channel *Channel) ChildFiles() []*os.File {
 	return []*os.File{channel.childReading, channel.childWriter}
 }
 
+// ProtocolName is what FFmpeg calls the protocol, and optionPrefix what its options begin with: the
+// names it had before it was renamed fdproxy (2026-10-24). The pinned build knows only these, and
+// ffmpeg-fdproxy's builds take them beside fdproxy, read_fd, write_fd and cache_blocks; the next pin
+// moves both to the new names, and ffmpeg-fdproxy then drops the old ones.
+const (
+	ProtocolName = "ffstreamer"
+	optionPrefix = "ffstreamer_"
+)
+
 // InputArguments name the input for FFmpeg: the protocol alone allowed, its descriptors, and the
 // blocks it keeps (Naming the Input, Reading in Blocks).
 func InputArguments(readFD, writeFD, cacheBlocks int) []string {
 	return []string{
-		"-protocol_whitelist", "ffstreamer",
-		"-ffstreamer_read_fd", strconv.Itoa(readFD), "-ffstreamer_write_fd", strconv.Itoa(writeFD),
-		"-ffstreamer_cache_blocks", strconv.Itoa(cacheBlocks),
-		"-i", "ffstreamer:",
+		"-protocol_whitelist", ProtocolName,
+		"-" + optionPrefix + "read_fd", strconv.Itoa(readFD), "-" + optionPrefix + "write_fd", strconv.Itoa(writeFD),
+		"-" + optionPrefix + "cache_blocks", strconv.Itoa(cacheBlocks),
+		"-i", ProtocolName + ":",
 	}
 }
 

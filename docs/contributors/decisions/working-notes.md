@@ -21425,6 +21425,14 @@ streams a film only when its FFmpeg has the protocol, so it waits on two things:
 builds to pin (ffmpeg-ffstreamer's release workflow), and FFmpeg's block cache, which thrashes on a film
 whose tracks are stored one after another (ffmpeg-ffstreamer's bench/RESULTS.md).
 
+**Renamed** (2026-10-24), by the project owner: *"OK, let's call it ffmpeg-fdproxy. I want to rename it
+now so that we don't have to retool things around a different name later."* The protocol is
+*fdproxy* and its repository ffmpeg-fdproxy (the package internal/node/fdproxy), after research found
+that an "ff" prefix in FFmpeg marks a format FFmpeg owns or an internal helper, never an outside
+protocol users name (ffmpeg-fdproxy's docs/research/ff-prefix-names.md). The names above are those of
+their day. FFmpeg is still given the old names (fdproxy.ProtocolName) until the next pin, since the
+pinned build knows no other; ffmpeg-fdproxy's builds take both.
+
 ## D331 — The node proves itself on both sockets, so a GPU encode may open a Unix socket
 
 **Decided** (2026-10-22), by the project owner (*"go with your recommendations"*), after a confined

@@ -1563,7 +1563,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
   which the image carries; the System page shows Quick Sync's trial failed and VAAPI's worked.
 - **Evidence:** a staging host (Iris Plus 640, Kaby Lake) and a ThinkPad T450 (HD 5500, Broadwell, Gen 8),
   2026-10-23, in a container of the release image's GPU packages: Quick Sync exit 171 with that
-  message; `h264_vaapi` worked confined and through ffstreamer, its frames the unconfined run's. It
+  message; `h264_vaapi` worked confined and through fdproxy, its frames the unconfined run's. It
   is Debian's non-free `intel-media-va-driver-non-free` that offers H.264 encoding on Broadwell; the
   free build Linux Mint installs lists decoding only.
 
@@ -1586,9 +1586,9 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **Cause:** opening an indexed file (MP4), `ff_configure_buffers_for_index` (`libavformat/seek.c`)
   treats any protocol but `file`, `pipe` and `cache` as a network one, where a seek costs a round
   trip: it enlarges the I/O buffer up to 16 MiB, and has a seek of up to 8 MiB read forward instead.
-- **What we do:** ffmpeg-ffstreamer's patch adds `ffstreamer` to those local protocols, so a streamed
+- **What we do:** ffmpeg-fdproxy's patch adds its protocol (`ffstreamer` until 2026-10-24) to those local protocols, so a streamed
   film is read as a file is (D330).
-- **Evidence:** ffmpeg-ffstreamer's bench/RESULTS.md, 2026-10-23: through ffstreamer, a probe of an
+- **Evidence:** ffmpeg-fdproxy's bench/RESULTS.md, 2026-10-23: through fdproxy, a probe of an
   11-track MP4 read in 16 MB runs and was served 25 times its size, where the same file read directly
   touched 12 blocks of 1 MiB; with the patch it was served a tenth of its size.
 

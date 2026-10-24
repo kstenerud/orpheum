@@ -74,7 +74,7 @@ func processState(stat string) string {
 }
 
 // A run already reaped is never signalled, nor is its group: its pid, and so its group's, may be
-// another's by then (ffstreamer's specification, Stopping). A process left in the reaped run's group
+// another's by then (fdproxy's specification, Stopping). A process left in the reaped run's group
 // stands in for whatever holds that id now: the kill must not reach it, so the signal it is sent
 // after decides how it ends.
 func TestSignalRun_LeavesTheGroupOfARunAlreadyReapedAlone(t *testing.T) {

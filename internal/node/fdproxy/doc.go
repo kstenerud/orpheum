@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Package ffstreamer is the node's side of ffstreamer (D330), the protocol over which FFmpeg reads
+// Package fdproxy is the node's side of fdproxy (D330), the protocol over which FFmpeg reads
 // its input film through the node: two pipes per input, FFmpeg asking for ranges of the film and the
 // node answering each with its bytes, read through the node's turn on the film's disk. FFmpeg, patched
-// for it (the ffmpeg-ffstreamer repository, its ffstreamer-specification.md), never opens the film, so a dead
+// for it (the ffmpeg-fdproxy repository, its fdproxy-specification.md), never opens the film, so a dead
 // share holds a goroutine of the node and never FFmpeg in the kernel; and every read is the node's
 // to schedule, hold or refuse.
 //
@@ -58,14 +58,14 @@
 // # Read before changing
 //
 //   - D330: why FFmpeg reads through the node.
-//   - ffstreamer-specification.md in ffmpeg-ffstreamer, and its grammar, ffstreamer.dogma: every rule here
+//   - fdproxy-specification.md in ffmpeg-fdproxy, and its grammar, fdproxy.dogma: every rule here
 //     cites its section by name.
 //   - D329: the disk scheduler a Source reads through.
 //
 // # Where to change
 //
 //   - frame.go: the frames, their bounds and their checks. channel.go: serving one input.
-//     filesource.go: a film the node opened, read through its disk's gate. ffstreamertest: FFmpeg's
+//     filesource.go: a film the node opened, read through its disk's gate. fdproxytest: FFmpeg's
 //     side in Go, for tests that stand in for the patched FFmpeg.
 //     pipe_linux.go and pipe_other.go: the data pipe's size.
-package ffstreamer
+package fdproxy

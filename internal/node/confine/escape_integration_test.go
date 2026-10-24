@@ -16,7 +16,7 @@ import (
 // The pinned FFmpeg, confined by the real shim with the whole filter, encodes with several threads
 // and probes: threads are clones with CLONE_THREAD, and glibc reaches them through clone3's ENOSYS.
 // An EPERM there failed FFmpeg's threads, "Error while opening decoder: Operation not permitted"
-// (ffstreamer's third audit, M3).
+// (fdproxy's third audit, M3).
 func TestEscape_ThePinnedFFmpegEncodesWithThreadsWhenConfined(t *testing.T) {
 	t.Parallel()
 	requireMechanisms(t)

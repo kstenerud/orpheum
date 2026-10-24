@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Package ffstreamertest is FFmpeg's side of ffstreamer, in Go, for tests: a test binary that stands
+// Package fdproxytest is FFmpeg's side of fdproxy, in Go, for tests: a test binary that stands
 // in for the patched FFmpeg reads its input through the node with it, as the real one does
-// (ffmpeg-ffstreamer's ffstreamer-specification.md). It keeps to the protocol unless told not to, so a node
+// (ffmpeg-fdproxy's fdproxy-specification.md). It keeps to the protocol unless told not to, so a node
 // that judges it wrongly is the node's fault. It is imported only by tests.
 //
 // # Invariants
@@ -17,4 +17,4 @@
 // # Where to change
 //
 //   - client.go.
-package ffstreamertest
+package fdproxytest

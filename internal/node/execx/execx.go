@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
-	"github.com/kstenerud/orpheum/internal/node/ffstreamer"
+	"github.com/kstenerud/orpheum/internal/node/fdproxy"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 )
 
@@ -151,7 +151,7 @@ func NewConfinedRunner(directory, shim string) (*Runner, error) {
 }
 
 // LoggingTo has the runner log to logger what concerns the node rather than one run: once, that a
-// streamed film's pipe kept its default size, the user's pipe memory spent (ffstreamer's
+// streamed film's pipe kept its default size, the user's pipe memory spent (fdproxy's
 // specification, Pipe Sizes), so every streamed run reads slower.
 func (runner *Runner) LoggingTo(logger *slog.Logger) *Runner {
 	runner.logger = logger
@@ -172,7 +172,7 @@ func (runner *Runner) tellPipeSizeRefused(ctx context.Context, refused error) {
 // signalRun sends signal to the tool's process itself, through its pidfd where the kernel has one
 // (os.Process), so a process that left its group is still reached; then to its process group, which
 // also reaches anything an unconfined tool started. A confined tool can start nothing and leave no
-// group (confine's seccomp filter; ffstreamer's specification, Launching and Stopping). A process or group already
+// group (confine's seccomp filter; fdproxy's specification, Launching and Stopping). A process or group already
 // gone needs no signal, so neither is an error. A process already reaped has its group left alone: its
 // pid, and so the group's, may be another's by then (Stopping: signal only before reaping). The process's
 // own signal says so, by its pidfd, which a reaped process no longer answers, or by Go's own record of
@@ -257,9 +257,9 @@ type WatchedRun struct {
 	// log, as FFmpeg's ebur128 filter writes its summary when it ends; zero returns none.
 	LogLimitBytes int
 	Watch         Watch
-	// Film, when set, is the run's input served through the node over ffstreamer (D330), which the
+	// Film, when set, is the run's input served through the node over fdproxy (D330), which the
 	// arguments name with StreamedInput. The run's verdict then also takes the channel's account.
-	Film *ffstreamer.Config
+	Film *fdproxy.Config
 }
 
 // Ran is what a watched run left: its stdout and the end of its log, as its WatchedRun asked.
@@ -328,7 +328,7 @@ type pipes struct {
 	watch                *Watch
 	pausing              *Pausing
 	moved                func()
-	film                 *ffstreamer.Config
+	film                 *fdproxy.Config
 }
 
 // runToExit runs tool to its end, with its streams as streams says, and returns the end of its stderr.
@@ -474,7 +474,7 @@ func (runner *Runner) command(
 			return nil
 		}
 		// A cancel, or a stalled run that reads a streamed film, which keeps nothing it would write
-		// after a graceful quit (ffstreamer's specification, Stopping): killed at once.
+		// after a graceful quit (fdproxy's specification, Stopping): killed at once.
 		err := runner.signalRun(command.Process, syscall.SIGKILL)
 		go runner.leaveRunningUnlessExited(ending)
 		return err

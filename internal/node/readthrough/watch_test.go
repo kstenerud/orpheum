@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/execx"
-	"github.com/kstenerud/orpheum/internal/node/ffstreamer"
+	"github.com/kstenerud/orpheum/internal/node/fdproxy"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -109,7 +109,7 @@ func TestRead_ReadsAStreamedFilmThroughTheNodeAndAnyOtherByItsPathAlone(t *testi
 	reader := NewReader(recordingRunner{&runs}, 20<<20)
 	timeline := &nodeproto.VideoTimelineAsk{}
 	byPath := execx.Film{Path: "/media/film.mkv", Size: 10}
-	streamed := execx.Film{Path: "/media/film.mkv", Size: 10, Stream: &ffstreamer.Config{Run: 1}, CacheBlocks: 9}
+	streamed := execx.Film{Path: "/media/film.mkv", Size: 10, Stream: &fdproxy.Config{Run: 1}, CacheBlocks: 9}
 	for _, film := range []execx.Film{byPath, streamed} {
 		_, _ = reader.Read(t.Context(), film, nil, timeline, 0, nil) //nolint:errcheck // the run is what is checked
 	}
