@@ -82,8 +82,13 @@ func TestKernel_NoticesWhatChangesInEveryFolderAndInFoldersMadeSince(t *testing.
 	mustWrite(t, filepath.Join(root, "Shows", "Dag", "1.mkv"))
 	seenUntil(t, watcher, root, "Shows/Dag")
 
-	mustMkdir(t, filepath.Join(root, "Films", "Metropolis"))
+	// Each folder is made once the one above it is watched: made together, Metropolis could be made after
+	// Films was listed and before its own creation was read, and a file written in that gap is seen
+	// as Films' change, not its own (the ./dev pre-commit, under load, 2026-10-24).
+	mustMkdir(t, filepath.Join(root, "Films"))
 	seenUntil(t, watcher, root, wholeRoot) // Films made in the root
+	mustMkdir(t, filepath.Join(root, "Films", "Metropolis"))
+	seenUntil(t, watcher, root, "Films") // Metropolis made in Films, which is watched
 	mustWrite(t, filepath.Join(root, "Films", "Metropolis", "Metropolis.mkv"))
 	seenUntil(t, watcher, root, "Films/Metropolis") // a folder made since is watched too
 
