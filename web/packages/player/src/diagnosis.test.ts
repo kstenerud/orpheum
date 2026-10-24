@@ -6,7 +6,14 @@ import Hls from "hls.js";
 
 import { playerBufferedFirstEvent } from "@orpheum/sdk";
 
-import { diagnose, diagnosisOf, rangesText, stepNoter, type DiagnosedHls } from "./diagnosis.ts";
+import {
+  codecsOf,
+  diagnose,
+  diagnosisOf,
+  rangesText,
+  stepNoter,
+  type DiagnosedHls,
+} from "./diagnosis.ts";
 
 /** Time ranges from [start, end] pairs, in seconds. */
 function ranges(...pairs: [number, number][]): TimeRanges {
@@ -55,6 +62,25 @@ describe("what a stalled video held, for its report (D266)", () => {
     };
     video.error = decodeFailed as MediaError;
     expect(diagnosisOf(video)?.lastError).toBe("media error 3: decode failed");
+  });
+
+  it("keeps the codecs each buffer took, the latest for each (2026-10-24)", () => {
+    const listeners = new Map<string, (event: string, data: unknown) => void>();
+    const hls = {
+      on: (event: string, listener: (event: string, data: unknown) => void) => {
+        listeners.set(event, listener);
+      },
+    } as unknown as DiagnosedHls;
+    const video = Object.assign(new EventTarget(), { error: null });
+    expect(codecsOf(video)).toBe("");
+    diagnose(hls, video);
+    const codecs = listeners.get(Hls.Events.BUFFER_CODECS)!;
+    codecs("", { video: { container: "video/mp4", codec: "avc1.640028" } });
+    codecs("", {
+      video: { container: "video/mp4", codec: "avc1.64001f" },
+      audio: { container: "audio/mp4", codec: "mp4a.40.2" },
+    });
+    expect(codecsOf(video)).toBe("video video/mp4 avc1.64001f; audio audio/mp4 mp4a.40.2");
   });
 
   it("keeps the player's last steps, oldest first, the latest twelve: where it stopped (the owner's test, 2026-10-18)", () => {

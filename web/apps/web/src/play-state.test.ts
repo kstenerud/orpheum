@@ -322,6 +322,9 @@ describe("play state", () => {
     });
     const sent = heard.find((request) => request.methodAndPath === "POST /playback/timed/report");
     expect(sent?.body).toMatchObject({ startup: { decidedAfterMs: 200 } });
+    // How its sound reaches the speakers: a film played as it is, not through Web Audio, nothing
+    // buffered by hls.js (2026-10-24).
+    expect(sent?.body).toMatchObject({ startup: { sound: {} } });
     const { startup } = sent?.body as {
       startup: { firstDataAfterMs: number; playingAfterMs: number };
     };

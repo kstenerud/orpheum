@@ -29,6 +29,7 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 
 import { leavePlayback, sayInterestOf, sendInterest } from "./interest.ts";
 import { MovingDown, type LadderOffer } from "./moving-down.ts";
+import { soundOf } from "./startup-sound.ts";
 import { ApiProblem, throwIfRefused } from "./problem.ts";
 import { isPlaybackGone, mayPass, type ReopenAt } from "./reopen.ts";
 import { useServices, type PathMoves } from "./services.tsx";
@@ -203,6 +204,7 @@ function startupListeners(
         firstDataAfterMs: sinceAsked(firstDataAtMs ?? playingAtMs),
         playingAfterMs: sinceAsked(playingAtMs),
         ...preload,
+        sound: soundOf(video),
       });
     },
   };

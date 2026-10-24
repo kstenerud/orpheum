@@ -39,6 +39,8 @@ export async function requestPlayback(
         pageStarts: pageStarts.count,
         // Its player gave the film's own picture up, which the core keeps before it decides (D323 §2).
         ...(asked.cause === "ownPictureGivenUp" ? { hasGivenUpOwnPicture: true } : {}),
+        // The person chose the film's own file over its ladder.
+        ...(asked.cause === "originalChosen" ? { preferredDelivery: "direct" as const } : {}),
       },
     }),
   );

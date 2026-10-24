@@ -31,6 +31,19 @@ describe("playing a file", () => {
     expect(decision.delivery).toBe("direct");
   });
 
+  it("asks for the film's own file when the person chose the original over its ladder", async () => {
+    const playableFormats = testServices().playableFormats();
+    const heard: Heard[] = [];
+    const { api } = servedBy(
+      { "POST /playback": [200, { delivery: "direct", url: "/u", notDirectReasons: [] }] },
+      heard,
+    );
+    await requestPlayback(api, 7, { playableFormats, cause: "originalChosen" });
+    expect(heard.map((each) => each.body)).toEqual([
+      expect.objectContaining({ fileId: 7, cause: "originalChosen", preferredDelivery: "direct" }),
+    ]);
+  });
+
   it("plays the original in a video element and says so", () => {
     const markup = renderToStaticMarkup(
       withServices(

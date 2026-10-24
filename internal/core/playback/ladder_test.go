@@ -11,6 +11,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/chunks/qualities"
+	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 )
@@ -114,5 +115,22 @@ func TestStartOnLadder_LeavesThePlayersOtherFilmsForGood(t *testing.T) {
 	if before.interest.disposition != Replaced || !slices.Equal(fake.stopped, []int64{2}) {
 		t.Errorf("the device's other film: %q, stopped %v; want it replaced and film 2's runs stopped",
 			before.interest.disposition, fake.stopped)
+	}
+}
+
+// A person who chose the original file plays it, not its film's ladder, though the film is cut
+// (web-client.md: playback is never a black box).
+func TestStartOnLadder_APersonWhoChoseTheOriginalPlaysIt(t *testing.T) {
+	t.Parallel()
+	clock := clocktest.NewFake(time.Date(2026, 10, 24, 20, 0, 0, 0, time.UTC))
+	cut := &cutAfterChunks{}
+	service := &Service{
+		clock: clock, chunks: cut, speeds: newLinkSpeeds(), settings: waitSettings{}, tokens: newTokens(),
+	}
+	offer, why, err := service.startOnLadder(t.Context(), Holder{}, Request{PreferredDelivery: decide.Direct},
+		tokenPlayback{fileID: 1}, 0)
+	if err != nil || offer != nil || why != "originalChosen" || cut.asked != 0 {
+		t.Errorf("the original chosen: %+v, %q, %v, the ladder asked %d times; want no offer, originalChosen",
+			offer, why, err, cut.asked)
 	}
 }

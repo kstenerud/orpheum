@@ -13,7 +13,14 @@ export interface Gain {
 export type GainAudio = Pick<
   AudioContext,
   "destination" | "state" | "resume" | "createMediaElementSource" | "createGain"
->;
+> &
+  ReportedLatencies;
+
+/** The latencies an audio context reports, in seconds, where the browser says them. */
+interface ReportedLatencies {
+  readonly baseLatency?: number;
+  readonly outputLatency?: number;
+}
 
 /**
  * Whether a page may set this element's volume. iOS lets only its buttons set it, and there a
@@ -57,6 +64,16 @@ class ElementLevelling {
     this.resumeAndRoute();
   }
 
+  /** Whether the element's sound has been handed to Web Audio. */
+  isRouted(): boolean {
+    return this.gainNode !== undefined;
+  }
+
+  /** The latencies the audio context reports, in seconds, where the browser says them. */
+  latencies(): ReportedLatencies {
+    return this.context;
+  }
+
   setDb(db: number): void {
     this.wantedDb = db;
     if (this.gainNode !== undefined) {
@@ -93,6 +110,41 @@ class ElementLevelling {
 
 /** Each element's levelling: Web Audio takes an element's sound once, for the element's life. */
 const levellingByElement = new WeakMap<HTMLMediaElement, ElementLevelling>();
+
+/**
+ * How an element's sound reaches the speakers: through Web Audio, for its gain, with the latencies
+ * its audio context reports in milliseconds where the browser says them; or straight from the
+ * element. A sound through Web Audio may play later than its picture where the context's output is
+ * slow, as Android's can be (the owner's TCL TV, 2026-10-24).
+ */
+export interface SoundRoute {
+  readonly isThroughWebAudio: boolean;
+  readonly baseLatencyMs?: number;
+  readonly outputLatencyMs?: number;
+}
+
+/** How element's sound reaches the speakers now (SoundRoute). */
+export function soundRouteOf(element: HTMLMediaElement): SoundRoute {
+  const levelling = levellingByElement.get(element);
+  if (levelling?.isRouted() !== true) {
+    return { isThroughWebAudio: false };
+  }
+  const { baseLatency, outputLatency } = levelling.latencies();
+  const base = inMs(baseLatency);
+  const output = inMs(outputLatency);
+  return {
+    isThroughWebAudio: true,
+    ...(base === undefined ? {} : { baseLatencyMs: base }),
+    ...(output === undefined ? {} : { outputLatencyMs: output }),
+  };
+}
+
+/** Seconds as whole milliseconds; undefined for none, or for what is not a number. */
+function inMs(seconds: number | undefined): number | undefined {
+  return seconds === undefined || !Number.isFinite(seconds)
+    ? undefined
+    : Math.round(seconds * 1000);
+}
 
 /**
  * The gain for element's sound. The sound is handed to Web Audio only once a gain other than 0 dB
