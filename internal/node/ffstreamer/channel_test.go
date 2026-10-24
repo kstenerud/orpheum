@@ -518,6 +518,42 @@ func TestDecodeDone_ReadsAFailureAndMakesItsMessageSafeToLog(t *testing.T) {
 	}
 }
 
+// A DONE is checked like every frame: no negative field, OK or not, a kind the version defines, and a
+// failure's body exactly its fields' sum (Integers, Lengths, DONE). A run of 0, which FFmpeg sends
+// when it refused terms with no run, is no breach.
+func TestDecodeDone_RefusesADoneThatBreaksItsRules(t *testing.T) {
+	t.Parallel()
+	failed := func(run int64, kind int8, code int32, messageLength int16, message string) []byte {
+		body := put(put(put(put(put([]byte(nil), run), int8(resultErr)), kind), code), messageLength)
+		return append(body, message...)
+	}
+	for _, example := range []struct {
+		name     string
+		body     []byte
+		isBreach bool
+	}{
+		{"OK for run 0", put(put([]byte(nil), int64(0)), int8(resultOK)), false},
+		{"ERR for run 0", failed(0, int8(KindTerms), 0, 0, ""), false},
+		{"ERR with a message", failed(7, int8(KindChannel), 5, 3, "EIO"), false},
+		{"OK for a negative run", put(put([]byte(nil), int64(-1)), int8(resultOK)), true},
+		{"ERR for a negative run", failed(-1, int8(KindChannel), 5, 0, ""), true},
+		{"a kind below the first", failed(7, 0, 5, 0, ""), true},
+		{"a kind past the last", failed(7, int8(KindInterrupted)+1, 5, 0, ""), true},
+		{"a negative code", failed(7, int8(KindChannel), -5, 0, ""), true},
+		{"a negative message length", failed(7, int8(KindChannel), 5, -1, ""), true},
+		{"a message longer than the longest", failed(7, int8(KindChannel), 5, longestMessage+1,
+			string(make([]byte, longestMessage+1))), true},
+		{"a message shorter than its length", failed(7, int8(KindChannel), 5, 4, "EIO"), true},
+		{"a message longer than its length", failed(7, int8(KindChannel), 5, 2, "EIO"), true},
+		{"OK with more after it", append(put(put([]byte(nil), int64(7)), int8(resultOK)), 0), true},
+	} {
+		_, err := decodeDone(example.body)
+		if isBreach := err != nil; isBreach != example.isBreach || (isBreach && !errors.Is(err, ErrViolation)) {
+			t.Errorf("%s: %v; want a breach %v", example.name, err, example.isBreach)
+		}
+	}
+}
+
 // waitForKill waits for the node to kill the run, failing after a while.
 func (fake *fakeFFmpeg) waitForKill() {
 	fake.t.Helper()
