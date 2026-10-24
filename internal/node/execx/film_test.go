@@ -18,10 +18,10 @@ import (
 
 // protocolsListing is the start of ffmpeg -protocols from the patched build, then its output
 // protocols.
-const protocolsListing = "Supported file protocols:\nInput:\n  async\n  bluray\n  fd\n  ffstreamer\n  file\n" +
+const protocolsListing = "Supported file protocols:\nInput:\n  async\n  bluray\n  fd\n  fdproxy\n  file\n" +
 	"Output:\n  file\n  pipe\n"
 
-// A node streams its films only to an FFmpeg that lists ffstreamer among the protocols it reads: the
+// A node streams its films only to an FFmpeg that lists fdproxy among the protocols it reads: the
 // stock build, which does not, reads each film by its path (D330), and so does one that names it only
 // as an output.
 func TestHasFDProxy_IsTheProtocolAmongTheInputsFFmpegLists(t *testing.T) {
@@ -32,7 +32,7 @@ func TestHasFDProxy_IsTheProtocolAmongTheInputsFFmpegLists(t *testing.T) {
 	}{
 		{"the patched build", protocolsListing, true},
 		{"the stock build", "Supported file protocols:\nInput:\n  async\n  file\nOutput:\n  file\n", false},
-		{"an output only", "Supported file protocols:\nInput:\n  file\nOutput:\n  ffstreamer\n", false},
+		{"an output only", "Supported file protocols:\nInput:\n  file\nOutput:\n  fdproxy\n", false},
 	} {
 		runner := newRunner(t, testutil.InstallFakeFFmpeg(t, testutil.FakeReply{FFmpegStdout: example.listing}))
 		got, err := runner.HasFDProxy(t.Context())
