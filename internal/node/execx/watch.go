@@ -238,8 +238,15 @@ func (dog *watchdog) observeGroup(sample groupSample, stdoutBytes int64) {
 
 // advanced records movement now, and tells the run's movement hook. The caller holds the mutex.
 func (dog *watchdog) advanced() {
-	dog.lastAdvanceAt = dog.clock.Now()
 	dog.cpuTicksAtAdvance = dog.latest.cpuTicks
+	if !dog.pausedAt.IsZero() {
+		// A paused run's group is stopped: what a sample finds it did, it did before its pause, so it
+		// moved then, and is no movement of a job now (D240 §6). Dated now, its resume would carry its
+		// last movement past the present by the time it was paused.
+		dog.lastAdvanceAt = dog.pausedAt
+		return
+	}
+	dog.lastAdvanceAt = dog.clock.Now()
 	if dog.moved != nil {
 		dog.moved()
 	}
