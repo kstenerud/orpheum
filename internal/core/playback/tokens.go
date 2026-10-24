@@ -88,8 +88,9 @@ type tokenPlayback struct {
 	// isOnTime is whether its film's chunks were first offered to it cut on time, its file having no
 	// index of its keyframes: it keeps that grid to its end (D269 §3).
 	isOnTime bool
-	// isSoundUnlevelled is whether its film's sounds were first offered to it unlevelled, the film's
-	// loudness not measured yet: it keeps them so to its end.
+	// isSoundUnlevelled is whether its film's sounds are offered to it unlevelled: its person plays
+	// without levelling, or its film's loudness was not measured when they were first offered. It
+	// keeps them so to its end.
 	isSoundUnlevelled bool
 	// isOwnPictureUnplayable is whether its player, on an earlier playback of the film, gave up the
 	// film's own picture as one its device cannot play (D266): it is not offered (unplayablePictures).

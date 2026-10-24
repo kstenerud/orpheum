@@ -104,6 +104,26 @@ func TestChunks_ASoundOfferedBeforeItsLoudnessIsUnlevelledAndAPlaybackKeepsIt(t 
 	}
 }
 
+// A person who plays without levelling is offered the film's sound unlevelled, though its loudness is
+// measured: it carries no gain for the player to take back out through Web Audio, whose latency
+// plays the sound later on an Android TV (the owner's TCL TV, 2026-10-24).
+func TestChunks_APersonWithoutLevellingIsOfferedTheSoundUnlevelled(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	harness.keepFilmOnesTimeline(t)
+	harness.measureFilmOnesLoudness(t)
+	levelled := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	checkFilmOnesMaster(t, harness.getBytePath(t, levelled+"master.m3u8", user, true, ""), "sound0-96k")
+	answer := harness.do(t, http.MethodPut, "/me/preferences", user, map[string]any{"isLevellingOn": false})
+	if answer.status != http.StatusNoContent && answer.status != http.StatusOK {
+		t.Fatalf("PUT /me/preferences: %d %s", answer.status, answer.body)
+	}
+	unlevelled := Prefix + "/bytes/media/chunks/" + harness.play(t, user, chrome(1)).MediaToken + "/"
+	checkFilmOnesMaster(t, harness.getBytePath(t, unlevelled+"master.m3u8", user, true, ""), "sound0-96k-raw")
+}
+
 // A playback whose sound was offered unlevelled keeps it so: once the film's loudness is measured,
 // its stall starts, and its offer waits on, the unlevelled sound its player plays, not a levelled one
 // it never asks for (the M4 closing audit, §6).
