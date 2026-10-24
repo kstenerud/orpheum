@@ -3,7 +3,14 @@
 
 import { describe, expect, it } from "vitest";
 
-import { canSetVolume, gainAfterVolume, soundDelay, soundRouteOf, type GainAudio } from "./gain.ts";
+import { SoundShift } from "./audio-shift.ts";
+import {
+  canSetVolume,
+  gainAfterVolume,
+  soundOffset,
+  soundRouteOf,
+  type GainAudio,
+} from "./gain.ts";
 import { settled } from "./test-timing.ts";
 
 /** A gain node, as the fake makes it. */
@@ -139,7 +146,7 @@ describe("a gain after the element's volume (D226 §4)", () => {
   });
 });
 
-describe("a delay of the sound after its picture (the owner's TCL TV, 2026-10-24)", () => {
+describe("a move of the sound from its picture (the owner's TCL TV, 2026-10-24)", () => {
   /** Web Audio, faked as far as a delay needs: each node made and what each connects to. */
   function delayingAudio(latencies: { baseLatency?: number; outputLatency?: number }): {
     readonly create: () => GainAudio;
@@ -185,7 +192,7 @@ describe("a delay of the sound after its picture (the owner's TCL TV, 2026-10-24
   it("delays the sound by what is asked less Web Audio's own latency, never below none", async () => {
     const video = document.createElement("video");
     const audio = delayingAudio({ baseLatency: 0.096, outputLatency: 0.328 });
-    const delay = soundDelay(video, audio.create);
+    const delay = soundOffset(video, audio.create);
     delay.setMs(600);
     await settled();
     expect(audio.connections).toEqual([
@@ -201,10 +208,30 @@ describe("a delay of the sound after its picture (the owner's TCL TV, 2026-10-24
     expect(soundRouteOf(video).isThroughWebAudio).toBe(true);
   });
 
+  it("moves a sound wanted earlier by its chunks, and one through Web Audio earlier by its latency too", async () => {
+    const plain = document.createElement("video");
+    const plainShift = new SoundShift();
+    plainShift.attach({ trigger: () => true }, plain);
+    soundOffset(plain, delayingAudio({}).create).setMs(-450);
+    await settled();
+    expect(plainShift.earlierMs).toBe(450);
+    expect(soundRouteOf(plain).isThroughWebAudio).toBe(false);
+    // A sound through Web Audio, 424 ms late by its latency, wanted 300 ms late: moved 124 ms earlier.
+    const routed = document.createElement("video");
+    const routedShift = new SoundShift();
+    routedShift.attach({ trigger: () => true }, routed);
+    const audio = delayingAudio({ baseLatency: 0.096, outputLatency: 0.328 });
+    gainAfterVolume(routed, audio.create).setDb(3);
+    await settled();
+    soundOffset(routed, audio.create).setMs(300);
+    expect(routedShift.earlierMs).toBe(124);
+    expect(audio.delays).toEqual([]);
+  });
+
   it("leaves a sound not delayed as the element plays it", async () => {
     const video = document.createElement("video");
     const audio = delayingAudio({});
-    soundDelay(video, audio.create).setMs(0);
+    soundOffset(video, audio.create).setMs(0);
     await settled();
     expect(audio.connections).toEqual([]);
     expect(soundRouteOf(video).isThroughWebAudio).toBe(false);

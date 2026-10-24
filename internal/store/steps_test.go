@@ -469,3 +469,28 @@ func TestMigrate_Step0054KeepsEachUnavailableRootAndMissingDiskAsAPlace(t *testi
 		t.Errorf("after the step: %s; want %s", got, want)
 	}
 }
+
+// Step 0056 keeps each device's sound delay as its sound offset, now able to be negative too (the
+// owner's TCL TV, 2026-10-24).
+func TestMigrate_Step0056KeepsEachDevicesSoundDelayAsItsOffset(t *testing.T) {
+	t.Parallel()
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	step0056 := stepIndex(t, steps, 56)
+	database := openTemporary(t)
+	if err = database.migrate(t.Context(), steps[:step0056], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	execRaw(t, database, `INSERT INTO device (id, name, platform, added_at, last_signed_in_at, sound_delay_ms)
+		VALUES (1, 'TV', 'web', 1, 1, 600), (2, 'phone', 'web', 1, 1, 0)`)
+	if err = database.migrate(t.Context(), steps[:step0056+1], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	got := fmt.Sprint(queryRows(t, database, "SELECT id, sound_offset_ms FROM device ORDER BY id", 2))
+	if want := "[[1 600] [2 0]]"; got != want {
+		t.Errorf("after the step: %s; want %s: each device's delay kept as its offset", got, want)
+	}
+	execRaw(t, database, "UPDATE device SET sound_offset_ms = -450 WHERE id = 1")
+}

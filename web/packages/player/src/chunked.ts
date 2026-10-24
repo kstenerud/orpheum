@@ -2,6 +2,8 @@
 
 import Hls, { type HlsConfig, type LoaderResponse, type LoadPolicy } from "hls.js";
 
+import { shiftingFragmentLoader, SoundShift } from "./audio-shift.ts";
+
 import { groupJumpedEvent, isFollowingAGroup, isVoiceLive, type CannotKeepUp } from "@orpheum/sdk";
 
 import { fromCacheBy } from "./cache-hit.ts";
@@ -383,7 +385,9 @@ export function playChunked(
   }
   const abr = abrOf(video, options);
   const seeks = markSeeks(video);
+  const soundShift = new SoundShift();
   const hls = new Hls({
+    fLoader: shiftingFragmentLoader(Hls.DefaultConfig.loader, () => soundShift.earlierMs),
     ...chunkedHlsConfig({
       ...options,
       paceKbps: () => abr.choosing()?.paceKbps(),
@@ -400,6 +404,7 @@ export function playChunked(
   tellOwnMoves(hls, video);
   tellLoading(hls, video);
   const stopObeying = obeyGroup(hls, video, abr);
+  const stopShifting = soundShift.attach(hls, video);
   const linkKbps = (): number | undefined => abr.choosing()?.linkKbps();
   hls.loadSource(url);
   hls.attachMedia(video);
@@ -409,6 +414,7 @@ export function playChunked(
     },
     destroy: () => {
       stopObeying();
+      stopShifting();
       seeks.stop();
       hls.destroy();
     },

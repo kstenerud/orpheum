@@ -4,7 +4,7 @@ import { useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { FrameTimingNote } from "./frame-timing-note.tsx";
-import { SoundDelayControl } from "./sound-delay.tsx";
+import { SoundOffsetControl } from "./sound-delay.tsx";
 
 /**
  * The film's own file in a video element and nothing else: no subtitles, no drawing over it, the
@@ -15,8 +15,8 @@ import { SoundDelayControl } from "./sound-delay.tsx";
 export function BarePlayer(props: {
   readonly url: string;
   readonly resumePositionMs: number;
-  /** How long the device holds its sound back after its picture (sound-delay.tsx). */
-  readonly soundDelayMs: number;
+  /** How far the device moves its sound from its picture, + later (sound-delay.tsx). */
+  readonly soundOffsetMs: number;
   readonly onBack: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -41,7 +41,7 @@ export function BarePlayer(props: {
         }}
       />
       <FrameTimingNote video={video} />
-      <SoundDelayControl videoRef={videoRef} initialMs={props.soundDelayMs} />
+      <SoundOffsetControl videoRef={videoRef} initialMs={props.soundOffsetMs} />
       <button type="button" onClick={props.onBack}>
         {t("play.bare.back")}
       </button>

@@ -191,40 +191,43 @@ func TestDevices_TheDocumentNamesEveryAudioOutputAndAnOldNameIsRefused(t *testin
 	}
 }
 
-// A device's sound delay is its own, kept by the core: set on the device, it comes with every
-// playback the device asks for, and within 0 to 2 s (the owner's TCL TV, 2026-10-24).
-func TestPlayback_ADevicesSoundDelayIsKeptAndComesWithItsPlaybacks(t *testing.T) {
+// A device's sound offset is its own, kept by the core: set on the device, it comes with every
+// playback the device asks for, later or earlier, and within 2 s either way (the owner's TCL TV,
+// 2026-10-24).
+func TestPlayback_ADevicesSoundOffsetIsKeptAndComesWithItsPlaybacks(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	device := "/me/devices/" + strconv.FormatInt(harness.thisDeviceID(t, user), 10)
-	delayOf := func() int64 {
+	offsetOf := func() int64 {
 		t.Helper()
 		answer := harness.do(t, http.MethodPost, "/playback", user, chrome(1))
 		var answered struct {
-			SoundDelayMs int64 `json:"soundDelayMs"`
+			SoundOffsetMs int64 `json:"soundOffsetMs"`
 		}
 		if err := json.Unmarshal([]byte(answer.body), &answered); err != nil || answer.status != http.StatusOK {
 			t.Fatalf("POST /playback = %d %s", answer.status, answer.body)
 		}
-		return answered.SoundDelayMs
+		return answered.SoundOffsetMs
 	}
-	if got := delayOf(); got != 0 {
+	setOffset := func(ms int64) int {
+		return harness.do(t, http.MethodPut, device, user, map[string]int64{"soundOffsetMs": ms}).status
+	}
+	if got := offsetOf(); got != 0 {
 		t.Errorf("a device that set none: %d ms, want 0", got)
 	}
-	setDelay := func(ms int64) int {
-		return harness.do(t, http.MethodPut, device, user, map[string]int64{"soundDelayMs": ms}).status
+	for _, kept := range []int64{600, -450} {
+		if status := setOffset(kept); status != http.StatusNoContent {
+			t.Fatalf("PUT soundOffsetMs %d: %d", kept, status)
+		}
+		if got := offsetOf(); got != kept {
+			t.Errorf("after the device set %d ms: %d ms", kept, got)
+		}
 	}
-	if status := setDelay(600); status != http.StatusNoContent {
-		t.Fatalf("PUT soundDelayMs 600: %d", status)
-	}
-	if got := delayOf(); got != 600 {
-		t.Errorf("after the device set 600 ms: %d ms", got)
-	}
-	for _, refused := range []int64{-50, 2050} {
-		if status := setDelay(refused); status < 400 || status >= 500 {
-			t.Errorf("a delay of %d ms: %d, want refused", refused, status)
+	for _, refused := range []int64{-2050, 2050} {
+		if status := setOffset(refused); status < 400 || status >= 500 {
+			t.Errorf("an offset of %d ms: %d, want refused", refused, status)
 		}
 	}
 }

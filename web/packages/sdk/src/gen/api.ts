@@ -2126,9 +2126,9 @@ export interface components {
             name?: string;
             /**
              * Format: int64
-             * @description How long the device holds its sound back after its picture, in ms
+             * @description How far the device moves its sound from its picture, in ms: later when positive, earlier when negative
              */
-            soundDelayMs?: number;
+            soundOffsetMs?: number;
         };
         ChangePasswordInputBody: {
             currentPassword: string;
@@ -3838,7 +3838,7 @@ export interface components {
             /** Format: int64 */
             resumePositionMs: number;
             /** Format: int64 */
-            soundDelayMs: number;
+            soundOffsetMs: number;
             /** Format: int64 */
             startingAudioStreamId?: number;
             subtitles: components["schemas"]["SubtitleTrackBody"][] | null;
