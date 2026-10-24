@@ -1,0 +1,7 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* Above a title's backdrop, which rises into the space over it. */
+.back-button {
+  position: relative;
+  margin-block-end: var(--space-2);
+}
