@@ -36,6 +36,9 @@
 //   - Finish returns whatever FFmpeg left: a writer blocked on a pipe FFmpeg stopped reading is
 //     freed, and a storage read stuck in the kernel is not waited for.
 //     TestChannel_FinishesWhateverStateFFmpegLeftItIn.
+//   - Once Finish has begun, FFmpeg having exited, the channel kills nothing: a storage read it stops
+//     fails nothing, and a breach read from what FFmpeg left is the run's failure without a kill.
+//     TestChannel_KillsNothingOnceFinishHasBegun.
 //   - Frames after DONE change nothing. TestChannel_FramesAfterDoneChangeNothing.
 //   - A FileSource reads its film through the disk's gate, each read within its place's window, and
 //     fails a run whose film changed under it (ErrFilmChanged).

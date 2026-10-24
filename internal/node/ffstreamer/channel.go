@@ -67,6 +67,7 @@ type Channel struct {
 	requests, data            *os.File
 	childReading, childWriter *os.File
 
+	// kill ends the run; it is called under mutex, and never once isClosing is set (failLocked).
 	kill     func()
 	killOnce sync.Once
 	// stopWriting ends a storage read the writer waits on, once FFmpeg has exited.
@@ -217,16 +218,26 @@ func (channel *Channel) Finish() Account {
 	return channel.account
 }
 
-// fail records the node's reason to end the run, the first one only, and kills it.
+// fail records the node's reason to end the run, the first one only, and kills it (failLocked).
 func (channel *Channel) fail(reason error) {
 	channel.mutex.Lock()
+	defer channel.mutex.Unlock()
+	channel.failLocked(reason)
+}
+
+// failLocked records the node's reason to end the run, the first one only, and kills it unless
+// Finish has begun: FFmpeg has exited by then, and a process reaped is never signalled (Stopping).
+// A breach read from what FFmpeg left in the pipe is still the run's failure (Judging a Run). The
+// kill is under the mutex, so none is sent once Finish has set isClosing. Requires mutex.
+func (channel *Channel) failLocked(reason error) {
 	if channel.account.Failure == nil {
 		channel.account.Failure = reason
 	}
 	channel.waiting = nil
 	channel.changed.Broadcast()
-	channel.mutex.Unlock()
-	channel.killOnce.Do(channel.kill)
+	if !channel.isClosing {
+		channel.killOnce.Do(channel.kill)
+	}
 }
 
 // read reads FFmpeg's frames: the opening exchange, then its READs and its DONE, until the pipe
@@ -351,13 +362,12 @@ func (channel *Channel) write(ctx context.Context, terms Terms) {
 		if !isTaken {
 			return
 		}
-		if err := channel.spend(read.length); err != nil {
-			channel.fail(err)
+		if !channel.spend(read.length) {
 			return
 		}
 		body := buffer[headerBytes : headerBytes+int(read.length)]
 		if err := channel.config.Source.ReadAt(ctx, body, read.offset); err != nil {
-			channel.fail(fmt.Errorf("%w: %d bytes at %d: %w", ErrReadFailed, read.length, read.offset, err))
+			channel.failRead(fmt.Errorf("%w: %d bytes at %d: %w", ErrReadFailed, read.length, read.offset, err))
 			return
 		}
 		put(put(put(buffer[:0], typeData), read.sequence), read.length)
@@ -383,18 +393,35 @@ func (channel *Channel) next() (readRequest, bool) {
 	return read, true
 }
 
-// spend counts length bytes against the budget, before they are read, without overflowing:
-// served is compared with what is left of the budget, never added to (Checks Without Overflow).
-func (channel *Channel) spend(length int32) error {
+// failRead fails the run for a READ its film's storage did not answer, unless Finish has begun:
+// Finish stops a storage read under way, and a READ whose FFmpeg has exited fails nothing (End of
+// a Run): as ffprobe exits 0 after DONE OK, its prefetched block still being read.
+func (channel *Channel) failRead(reason error) {
 	channel.mutex.Lock()
 	defer channel.mutex.Unlock()
+	if !channel.isClosing {
+		channel.failLocked(reason)
+	}
+}
+
+// spend counts length bytes against the budget, before they are read, without overflowing:
+// served is compared with what is left of the budget, never added to (Checks Without Overflow). It
+// says whether to serve them: not past the budget, which fails the run, and not once Finish has
+// begun, FFmpeg having exited.
+func (channel *Channel) spend(length int32) bool {
+	channel.mutex.Lock()
+	defer channel.mutex.Unlock()
+	if channel.isClosing {
+		return false
+	}
 	budget := channel.config.BudgetBytes
 	if budget > 0 && int64(length) > budget-channel.account.ServedBytes {
-		return fmt.Errorf("%w: %d bytes served, %d more asked, budget %d", ErrOverBudget,
-			channel.account.ServedBytes, length, budget)
+		channel.failLocked(fmt.Errorf("%w: %d bytes served, %d more asked, budget %d", ErrOverBudget,
+			channel.account.ServedBytes, length, budget))
+		return false
 	}
 	channel.account.ServedBytes += int64(length)
-	return nil
+	return true
 }
 
 // readFrame reads one frame FFmpeg sent, checking its header before reading its body.

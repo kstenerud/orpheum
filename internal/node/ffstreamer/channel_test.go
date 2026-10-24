@@ -14,6 +14,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
 // film is a Source over bytes in memory, which can fail its reads.
@@ -22,6 +24,9 @@ type film struct {
 	failAt   int64 // a read at this offset fails; -1 for none
 	reads    atomic.Int32
 	readGate chan struct{} // when set, each read waits for a value on it
+	// entered, when set, is told each read that starts, and stopped each gated read its context
+	// ended.
+	entered, stopped chan struct{}
 }
 
 func newFilm(size int) *film {
@@ -36,10 +41,16 @@ func (source *film) Size() int64 { return int64(len(source.bytes)) }
 
 func (source *film) ReadAt(ctx context.Context, buffer []byte, offset int64) error {
 	source.reads.Add(1)
+	if source.entered != nil {
+		source.entered <- struct{}{}
+	}
 	if source.readGate != nil {
 		select {
 		case <-source.readGate:
 		case <-ctx.Done():
+			if source.stopped != nil {
+				source.stopped <- struct{}{}
+			}
 			return ctx.Err()
 		}
 	}
@@ -425,6 +436,50 @@ func TestChannel_FinishesWhateverStateFFmpegLeftItIn(t *testing.T) {
 		t.Fatal("Finish did not free a writer blocked on FFmpeg's full pipe")
 	}
 	_ = fake.reading.Close() //nolint:errcheck // the fake's last end
+}
+
+// FFmpeg has exited by the time Finish begins, and a process reaped is never signalled (Stopping),
+// so nothing Finish meets kills the run: a storage read it stops, the block FFmpeg prefetched before
+// it said DONE OK and exited 0, as ffprobe does, fails nothing; and a breach read from what FFmpeg
+// left in the pipe is the run's failure, but kills nothing (End of a Run, Judging a Run).
+func TestChannel_KillsNothingOnceFinishHasBegun(t *testing.T) {
+	t.Parallel()
+	for _, example := range []struct {
+		name string
+		// last is what FFmpeg sends, once Finish has stopped the prefetch's read, before it exits.
+		last []byte
+		want error
+	}{
+		{"DONE OK, its prefetch still being read", frame(typeDone, 4, doneOK()), nil},
+		{"a READ past the end", frame(typeRead, 4, readBody(900, 200)), ErrViolation},
+	} {
+		t.Run(example.name, func(t *testing.T) {
+			t.Parallel()
+			source := newFilm(1000)
+			source.readGate, source.entered, source.stopped = make(chan struct{}), make(chan struct{}, 2),
+				make(chan struct{}, 1)
+			channel, fake := startFake(t, testConfig(source))
+			fake.open(256, 2)
+			fake.send(typeRead, readBody(0, 256))
+			source.readGate <- struct{}{}
+			fake.receive()
+			fake.send(typeRead, readBody(256, 256)) // the prefetch
+			testutil.Receive(t, source.entered, "the first read")
+			testutil.Receive(t, source.entered, "the prefetch's read")
+			finished := make(chan Account, 1)
+			go func() { finished <- channel.Finish() }()
+			testutil.Receive(t, source.stopped, "Finish to stop the prefetch's read")
+			_, _ = fake.writing.Write(example.last) //nolint:errcheck // the fake then exits
+			fake.exit()
+			account := testutil.Receive(t, finished, "Finish")
+			if !errors.Is(account.Failure, example.want) || (example.want == nil && account.Failure != nil) {
+				t.Errorf("the account's failure: %v; want %v", account.Failure, example.want)
+			}
+			if fake.killed.Load() {
+				t.Error("the channel killed a run Finish had begun on: its process was reaped")
+			}
+		})
+	}
 }
 
 // Frames after DONE are counted and change nothing: FFmpeg is exiting (DONE).
