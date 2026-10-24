@@ -1,21 +1,24 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package interest orders the server's work by what people play and look at (D324): it keeps, in
-// memory, the film or series page each session shows, and at each tick raises the work of what is
-// played to a play's priority, of what is looked at below it, the latest look highest, and of what
-// anyone has watched, for good, to the shown-interest rung above the background. A look that ends
-// releases its work, which the next demotion gives the shown-interest rung.
+// memory, the film or series page each session shows, or the series' season, and at each tick
+// raises the work of what is played to a play's priority, of what is looked at below it, the latest
+// look highest, and of what anyone has watched, for good, to the shown-interest rung above the
+// background. A look that ends releases its work, which the next demotion gives the
+// shown-interest rung.
 //
 // # Invariants
 //
 //   - A session shows one page at a time; a look not said again within
-//     interest_lapses_after_seconds lapses, and the latest begun is first.
-//     Enforced by TestRegister_KeepsEachSessionsPageTheLatestFirstUntilItLapses.
+//     interest_lapses_after_seconds lapses, and the latest begun is first. A series' season's page
+//     is a page of its own. Enforced by TestRegister_KeepsEachSessionsPageTheLatestFirstUntilItLapses
+//     and TestRegister_ASeasonsPageIsALookOfItsOwn.
 //   - What is played is raised at a play's priority, what is looked at below it the latest
 //     highest, a film with its live files; a look that ended is released, and so is what left a look
 //     that goes on, and what anyone watched is raised for good to the shown-interest rung (D324 §2,
-//     §3). Enforced by TestRaiser_RaisesThePlayedTheLookedAtAndTheWatched and
-//     TestRaiser_ALookThatGoesOnReleasesWhatLeftIt.
+//     §3); what another look still raises is not released. Enforced by
+//     TestRaiser_RaisesThePlayedTheLookedAtAndTheWatched, TestRaiser_ALookThatGoesOnReleasesWhatLeftIt
+//     and TestRaiser_ALookAtASeasonRaisesItsEpisodes.
 //   - Work raised to a person's tier that waits for room on a node, a slot, a device's readers or a
 //     scan's quick pass, is brought back, so its claim bumps the lowest work of a lower tier holding
 //     the room (D324 §4, D255 §2); work given to a node is told its new priority.
@@ -25,6 +28,12 @@
 //     partway through, the latest watched of several; else the one after the latest finished; else
 //     the first (D324 §3). Enforced by TestEpisodesAhead_StartAtThePersonsPlaceInTheSeries and
 //     TestEpisodesOf_ReadThePersonsPositionsAgainstTheThresholds.
+//   - A look at a series' season raises the series and series_episodes_ahead of that season's
+//     episodes, from its person's place among them, the same way; else, its last finished or none
+//     watched, from its first (D324 §3, the owner, 2026-10-24). Enforced by
+//     TestEpisodesAheadInSeason_StartAtThePersonsPlaceInTheSeason and
+//     TestRaiser_ALookAtASeasonRaisesItsEpisodes; the page saying its season by
+//     TestInterest_ASeasonsPageSaysItsSeason in internal/core/api.
 //   - Interest never lowers a job: a play's stays a play's. Enforced in internal/core/jobs by
 //     TestInterestJobs_RaiseTheWorkOfInterestAndLetItFallToTheShownInterestRung.
 //   - Imports nothing from internal/node, never os/exec. Enforced by the depguard rule

@@ -261,7 +261,9 @@ export function Series(props: {
     useBackgroundChangesPoller(),
   );
   const series = useRemembered(`series/${String(props.id)}`, loaded, rememberedSeries);
-  usePageInterest(props.id);
+  // A season's page is that season's look; a series of one season shows its episodes on the
+  // series' own page, whose look is the series', the same episodes.
+  usePageInterest(props.id, props.season);
   return (
     <>
       <BackButton

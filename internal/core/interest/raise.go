@@ -58,9 +58,13 @@ type Settings interface {
 // at below it, the latest look highest, and what anyone has watched a rung above the background.
 type Raiser struct {
 	parts Parts
-	// lastLooked is what the last pass raised for each look, which a look that ended releases.
-	lastLooked map[int64]jobs.Interested
+	// lastLooked is what the last pass raised for each page looked at, which a look that ended
+	// releases.
+	lastLooked map[page]jobs.Interested
 }
+
+// page is what a look shows: a film's or series' page, or one season's of a series.
+type page struct{ itemID, season int64 }
 
 // ErrMissingPart is a raiser built without one of its parts.
 var ErrMissingPart = errors.New("the raiser is missing a part")
@@ -86,7 +90,7 @@ func NewRaiser(parts Parts) (*Raiser, error) {
 			return nil, fmt.Errorf("%s: %w", part.name, ErrMissingPart)
 		}
 	}
-	return &Raiser{parts: parts, lastLooked: map[int64]jobs.Interested{}}, nil
+	return &Raiser{parts: parts, lastLooked: map[page]jobs.Interested{}}, nil
 }
 
 // Raise raises the work of what is played and looked at now, kept wanted for interest's lapse, and
@@ -99,9 +103,11 @@ func (raiser *Raiser) Raise(ctx context.Context) error {
 		until); err != nil {
 		return err
 	}
-	looked := map[int64]jobs.Interested{}
+	looked := map[page]jobs.Interested{}
+	var stillLooked jobs.Interested
 	for _, look := range raiser.parts.Register.Looks(lapse) {
-		if _, isRaised := looked[look.ItemID]; isRaised {
+		shown := page{itemID: look.ItemID, season: look.Season}
+		if _, isRaised := looked[shown]; isRaised {
 			continue // another session's look at it, which began earlier
 		}
 		interested, err := raiser.worksOf(ctx, look)
@@ -112,16 +118,19 @@ func (raiser *Raiser) Raise(ctx context.Context) error {
 		if err := raiser.raise(ctx, interested, priority, until); err != nil {
 			return err
 		}
-		looked[look.ItemID] = interested
+		looked[shown] = interested
+		stillLooked.ItemIDs = append(stillLooked.ItemIDs, interested.ItemIDs...)
+		stillLooked.FileIDs = append(stillLooked.FileIDs, interested.FileIDs...)
 	}
-	for itemID, interested := range raiser.lastLooked {
+	for shown, interested := range raiser.lastLooked {
 		// A look that goes on releases what left it: a series' episode its person has moved past.
-		gone := without(interested, looked[itemID])
+		// What another look still raises stays: the series of a season its session moved on from.
+		gone := without(interested, stillLooked)
 		if len(gone.ItemIDs)+len(gone.FileIDs) == 0 {
 			continue
 		}
 		if err := raiser.parts.Jobs.Release(ctx, gone); err != nil {
-			return fmt.Errorf("release item %d's work: %w", itemID, err)
+			return fmt.Errorf("release item %d's work: %w", shown.itemID, err)
 		}
 	}
 	raiser.lastLooked = looked
@@ -195,7 +204,8 @@ func isRoomOnANode(destination jobs.Destination) bool {
 }
 
 // worksOf is what a look at an item raises (D324 §3): a film's or episode's own jobs and its live
-// files'; a series' own, and its next episodes' and their files' from its person's place in it.
+// files'; a series' own, and its next episodes' and their files' from its person's place in it, or
+// in the season looked at.
 func (raiser *Raiser) worksOf(ctx context.Context, look Look) (jobs.Interested, error) {
 	itemID := look.ItemID
 	queries := raiser.parts.Database.Read()
@@ -245,8 +255,8 @@ func (raiser *Raiser) Run(ctx context.Context, tick <-chan time.Time) {
 	}
 }
 
-// withEpisodesAhead is interested with the series' episodes ahead of its person (episodesAhead):
-// each episode and its live files.
+// withEpisodesAhead is interested with the series' episodes ahead of its person (episodesAhead), or
+// of the season looked at (episodesAheadInSeason): each episode and its live files.
 func (raiser *Raiser) withEpisodesAhead(
 	ctx context.Context, look Look, interested jobs.Interested,
 ) (jobs.Interested, error) {
@@ -263,9 +273,14 @@ func (raiser *Raiser) withEpisodesAhead(
 	if err != nil {
 		return jobs.Interested{}, fmt.Errorf("list series %d's episodes: %w", look.ItemID, err)
 	}
-	for _, ahead := range episodesAhead(episodesOf(rows, thresholds), int(count)) {
-		interested.ItemIDs = append(interested.ItemIDs, ahead.titleID)
-		interested.FileIDs = append(interested.FileIDs, ahead.fileIDs...)
+	episodes := episodesOf(rows, thresholds)
+	ahead := episodesAhead(episodes, int(count))
+	if look.Season != NoSeason {
+		ahead = episodesAheadInSeason(episodes, look.Season, int(count))
+	}
+	for _, each := range ahead {
+		interested.ItemIDs = append(interested.ItemIDs, each.titleID)
+		interested.FileIDs = append(interested.FileIDs, each.fileIDs...)
 	}
 	return interested, nil
 }

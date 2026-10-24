@@ -11,6 +11,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/identify"
+	"github.com/kstenerud/orpheum/internal/core/interest"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/platform/outbound"
@@ -293,5 +294,33 @@ func TestInterest_ASessionSaysThePageItShowsAndLeavesIt(t *testing.T) {
 	}
 	if looks := harness.looks.Looks(time.Minute); len(looks) != 0 {
 		t.Errorf("looks %+v after leaving; want none", looks)
+	}
+}
+
+// A series' page that shows a season says which, and its look is that season's, which leaving the
+// series' own page does not end (the owner, 2026-10-24); without one, it is the series' own.
+func TestInterest_ASeasonsPageSaysItsSeason(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.ambiguousTitle(t)
+	shown := harness.do(t, http.MethodPut, "/interest/10?season=2", admin, nil)
+	if shown.status != http.StatusNoContent {
+		t.Fatalf("PUT /interest/10?season=2 = %d %s", shown.status, shown.body)
+	}
+	if looks := harness.looks.Looks(time.Minute); len(looks) != 1 || looks[0].ItemID != 10 || looks[0].Season != 2 {
+		t.Errorf("looks %+v; want the session at item 10's season 2", looks)
+	}
+	if left := harness.do(t, http.MethodDelete, "/interest/10", admin, nil); left.status != http.StatusNoContent {
+		t.Fatalf("DELETE /interest/10 = %d %s", left.status, left.body)
+	}
+	if looks := harness.looks.Looks(time.Minute); len(looks) != 1 {
+		t.Errorf("looks %+v after leaving the page without a season; want season 2's still", looks)
+	}
+	if shown = harness.do(t, http.MethodPut, "/interest/10", admin, nil); shown.status != http.StatusNoContent {
+		t.Fatalf("PUT /interest/10 = %d %s", shown.status, shown.body)
+	}
+	if looks := harness.looks.Looks(time.Minute); len(looks) != 1 || looks[0].Season != interest.NoSeason {
+		t.Errorf("looks %+v; want the item's own page, no season", looks)
 	}
 }

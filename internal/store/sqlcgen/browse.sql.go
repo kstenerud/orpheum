@@ -732,7 +732,8 @@ func (q *Queries) ListSeriesEpisodeDetails(ctx context.Context, collectionID int
 }
 
 const listSeriesEpisodeFilesWithPositions = `-- name: ListSeriesEpisodeFilesWithPositions :many
-SELECT position.title_id, file.id AS file_id,
+SELECT position.title_id, CAST(coalesce(position.group_number, 0) AS INTEGER) AS season_number,
+  file.id AS file_id,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
     AS duration_ms,
   play_position.position_ms, play_position.position_read_at
@@ -753,6 +754,7 @@ type ListSeriesEpisodeFilesWithPositionsParams struct {
 
 type ListSeriesEpisodeFilesWithPositionsRow struct {
 	TitleID        int64
+	SeasonNumber   int64
 	FileID         int64
 	DurationMs     int64
 	PositionMs     *int64
@@ -761,7 +763,8 @@ type ListSeriesEpisodeFilesWithPositionsRow struct {
 
 // A series' episodes in aired order, each live file of each with a person's position in it and
 // when it was watched, and the file's length where its probe knows it: where the person is in the
-// series, which a look at its page raises the next episodes of (D324 section 3).
+// series, which a look at its page raises the next episodes of (D324 section 3), and the season
+// each is in, 0 for the specials and those with no season, which a look at one season keeps to.
 func (q *Queries) ListSeriesEpisodeFilesWithPositions(ctx context.Context, arg ListSeriesEpisodeFilesWithPositionsParams) ([]ListSeriesEpisodeFilesWithPositionsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listSeriesEpisodeFilesWithPositions, arg.UserID, arg.CollectionID)
 	if err != nil {
@@ -773,6 +776,7 @@ func (q *Queries) ListSeriesEpisodeFilesWithPositions(ctx context.Context, arg L
 		var i ListSeriesEpisodeFilesWithPositionsRow
 		if err := rows.Scan(
 			&i.TitleID,
+			&i.SeasonNumber,
 			&i.FileID,
 			&i.DurationMs,
 			&i.PositionMs,

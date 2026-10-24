@@ -9203,6 +9203,19 @@
               "format": "int64",
               "type": "integer"
             }
+          },
+          {
+            "description": "The season a series' page shows, whose episodes it raises, 0 for the specials; -1, the default, for a film's page or a series' own",
+            "explode": false,
+            "in": "query",
+            "name": "season",
+            "schema": {
+              "default": -1,
+              "description": "The season a series' page shows, whose episodes it raises, 0 for the specials; -1, the default, for a film's page or a series' own",
+              "format": "int64",
+              "minimum": -1,
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -9220,7 +9233,7 @@
             "description": "Error"
           }
         },
-        "summary": "Say this session left a film's or series' page, which lets its work fall back (D324)",
+        "summary": "Say this session left a film's or series' page, or a series' season's, which lets its work fall back (D324)",
         "tags": [
           "Browse"
         ]
@@ -9247,6 +9260,19 @@
               "format": "int64",
               "type": "integer"
             }
+          },
+          {
+            "description": "The season a series' page shows, whose episodes it raises, 0 for the specials; -1, the default, for a film's page or a series' own",
+            "explode": false,
+            "in": "query",
+            "name": "season",
+            "schema": {
+              "default": -1,
+              "description": "The season a series' page shows, whose episodes it raises, 0 for the specials; -1, the default, for a film's page or a series' own",
+              "format": "int64",
+              "minimum": -1,
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -9264,7 +9290,7 @@
             "description": "Error"
           }
         },
-        "summary": "Say this session shows a film's or series' page, which raises its work, again every interest_said_every_seconds while it does (D324)",
+        "summary": "Say this session shows a film's or series' page, or a series' season's, which raises its work, again every interest_said_every_seconds while it does (D324)",
         "tags": [
           "Browse"
         ]

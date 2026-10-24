@@ -545,10 +545,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Say this session shows a film's or series' page, which raises its work, again every interest_said_every_seconds while it does (D324) */
+        /** Say this session shows a film's or series' page, or a series' season's, which raises its work, again every interest_said_every_seconds while it does (D324) */
         put: operations["putInterest"];
         post?: never;
-        /** Say this session left a film's or series' page, which lets its work fall back (D324) */
+        /** Say this session left a film's or series' page, or a series' season's, which lets its work fall back (D324) */
         delete: operations["deleteInterest"];
         options?: never;
         head?: never;
@@ -5498,7 +5498,10 @@ export interface operations {
     };
     putInterest: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The season a series' page shows, whose episodes it raises, 0 for the specials; -1, the default, for a film's page or a series' own */
+                season?: number;
+            };
             header?: {
                 /** @description Bearer <session token> */
                 Authorization?: string;
@@ -5531,7 +5534,10 @@ export interface operations {
     };
     deleteInterest: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The season a series' page shows, whose episodes it raises, 0 for the specials; -1, the default, for a film's page or a series' own */
+                season?: number;
+            };
             header?: {
                 /** @description Bearer <session token> */
                 Authorization?: string;

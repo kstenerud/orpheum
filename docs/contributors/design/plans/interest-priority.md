@@ -55,6 +55,14 @@ and a read-through is one file).
   progress by `in_progress_after_percent` and `finished_after_percent`), the latest played when
   several are; else the episode after the last one they finished, the latest finished; else the
   first. Its artwork and metadata are the series'.
+- **A season's work** (D324 §3; the owner, 2026-10-24: interest follows the drill-down, a series'
+  page to the series, a season's to the season, an episode's to the episode): a series' page that
+  shows one season says which (`PUT /interest/{id}?season=<n>`, 0 for the specials), and its look
+  raises the series' own work and `series_episodes_ahead` of that season's episodes, from the
+  person's place among them by the same rules; else, when they have watched none of it or finished
+  its last, from its first. A session's look at one season and at another, or at the series' own
+  page, are different looks. A series of one season shows its episodes on the series' own page,
+  whose look is the series'.
 - **Raising** reprioritises the item's jobs that wait or run (`CommandReprioritize`, D234 §3), and
   queues those owed that the sweeps have not queued yet. **Lapsing** gives each its own priority
   again; nothing is cancelled for a lapse, and work that ran on keeps its result.
