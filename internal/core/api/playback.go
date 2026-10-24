@@ -109,9 +109,9 @@ type StartPlaybackOutputBody struct {
 	// AudioOutput is how the device asking makes sound, absent until it is asked: the player
 	// asks before it plays, and asks for the decision again with the answer (D222).
 	AudioOutput AudioOutputKind `json:"audioOutput,omitempty"`
-	// SoundDelayMs is how long the device asking holds its sound back after its picture, for a TV
-	// that shows its picture late: its person sets it there (changeMyDevice); 0 for none.
-	SoundDelayMs int64 `json:"soundDelayMs" maximum:"2000" minimum:"0"`
+	// SoundOffsetMs is how far the device asking moves its sound from its picture, later when
+	// positive and earlier when negative: its person sets it there (changeMyDevice); 0 for none.
+	SoundOffsetMs int64 `json:"soundOffsetMs" maximum:"2000" minimum:"-2000"`
 	// Levelling brings the main sound to the level: the file's own when played directly, the
 	// main track's stereo mix when prepared, where each audio rendition carries its own (D226).
 	Levelling LevellingBody `json:"levelling"`
@@ -362,7 +362,7 @@ func startedOutput(started playback.Started) *StartPlaybackOutput {
 	output.Body.ResumePositionMs = started.ResumePositionMs
 	output.Body.MediaToken = started.Token
 	output.Body.AudioOutput = AudioOutputKind(started.AudioOutput)
-	output.Body.SoundDelayMs = started.SoundDelayMs
+	output.Body.SoundOffsetMs = started.SoundOffsetMs
 	output.Body.Levelling = levellingBody(started.Levelling)
 	output.Body.Tracks = tracksBody(started.Tracks)
 	return output

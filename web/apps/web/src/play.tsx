@@ -33,7 +33,7 @@ import { useServices } from "./services.tsx";
 import { BarePlayer } from "./bare-player.tsx";
 import { FrameTimingNote } from "./frame-timing-note.tsx";
 import { BoostSwitch, SoundLine, SoundQuestion } from "./sound.tsx";
-import { SoundDelayControl } from "./sound-delay.tsx";
+import { SoundOffsetControl } from "./sound-delay.tsx";
 import { FindSubtitles } from "./subtitle-search.tsx";
 import { Subtitles } from "./subtitles.tsx";
 import { camelKey } from "./catalogue-key.ts";
@@ -92,7 +92,7 @@ export function PlayView(props: PlayViewProps): JSX.Element {
       <BarePlayer
         url={decision.url}
         resumePositionMs={decision.resumePositionMs}
-        soundDelayMs={decision.soundDelayMs}
+        soundOffsetMs={decision.soundOffsetMs}
         onBack={() => {
           setIsBare(false);
         }}
@@ -306,7 +306,7 @@ function UnderTheVideo(
         isInitiallyOn={props.decision.preferences.isLevellingOn}
         videoRef={props.videoRef}
       />
-      <SoundDelayControl videoRef={props.videoRef} initialMs={props.decision.soundDelayMs} />
+      <SoundOffsetControl videoRef={props.videoRef} initialMs={props.decision.soundOffsetMs} />
     </>
   );
 }

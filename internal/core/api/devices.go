@@ -51,17 +51,18 @@ type DeviceInput struct {
 	DeviceID int64 `minimum:"1" path:"id"`
 }
 
-// ChangeDeviceInput renames one of the asker's devices, says how it makes sound, or how long it
-// holds its sound back, or any of them.
+// ChangeDeviceInput renames one of the asker's devices, says how it makes sound, or how far it moves
+// its sound from its picture, or any of them.
 type ChangeDeviceInput struct {
 	AuthorizationHeader
 	DeviceID int64 `minimum:"1" path:"id"`
 	Body     struct {
 		Name        *string          `json:"name,omitempty" maxLength:"100" minLength:"1" required:"false"`
 		AudioOutput *AudioOutputKind `doc:"How the device makes sound; built-in speakers and headphones are stereo (D222)" json:"audioOutput,omitempty" required:"false"` //nolint:lll // one struct tag
-		// SoundDelayMs holds the device's sound back after its picture, for a TV that shows its picture
-		// late: the owner's TCL TV, in TV Bro, half a second (2026-10-24).
-		SoundDelayMs *int64 `doc:"How long the device holds its sound back after its picture, in ms" json:"soundDelayMs,omitempty" maximum:"2000" minimum:"0" required:"false"` //nolint:lll // one struct tag
+		// SoundOffsetMs moves the device's sound from its picture, later when positive and earlier when
+		// negative, for a device that plays one of them late: the owner's TCL TV, in TV Bro, plays its
+		// sound half a second late (2026-10-24).
+		SoundOffsetMs *int64 `doc:"How far the device moves its sound from its picture, in ms: later when positive, earlier when negative" json:"soundOffsetMs,omitempty" maximum:"2000" minimum:"-2000" required:"false"` //nolint:lll // one struct tag
 	}
 }
 
@@ -144,9 +145,9 @@ func (server *Server) changeMyDevice(ctx context.Context, input *ChangeDeviceInp
 	if err != nil {
 		return nil, err
 	}
-	if input.Body.Name == nil && input.Body.AudioOutput == nil && input.Body.SoundDelayMs == nil {
+	if input.Body.Name == nil && input.Body.AudioOutput == nil && input.Body.SoundOffsetMs == nil {
 		return nil, invalidRequestAt(http.StatusBadRequest, "body",
-			"a change names a new name, how the device makes sound or its sound delay")
+			"a change names a new name, how the device makes sound or its sound offset")
 	}
 	if name := input.Body.Name; name != nil {
 		err = dependencies.Auth.RenameDevice(ctx, principal.UserID, input.DeviceID, *name)
@@ -154,8 +155,8 @@ func (server *Server) changeMyDevice(ctx context.Context, input *ChangeDeviceInp
 	if audioOutput := input.Body.AudioOutput; err == nil && audioOutput != nil {
 		err = dependencies.Auth.SetAudioOutput(ctx, principal.UserID, input.DeviceID, string(*audioOutput))
 	}
-	if delayMs := input.Body.SoundDelayMs; err == nil && delayMs != nil {
-		err = dependencies.Auth.SetSoundDelay(ctx, principal.UserID, input.DeviceID, *delayMs)
+	if offsetMs := input.Body.SoundOffsetMs; err == nil && offsetMs != nil {
+		err = dependencies.Auth.SetSoundOffset(ctx, principal.UserID, input.DeviceID, *offsetMs)
 	}
 	return server.deviceAnswer(ctx, "change a device", err)
 }

@@ -87,11 +87,13 @@ func (service *Service) SetAudioOutput(ctx context.Context, userID, deviceID int
 	})
 }
 
-// SetSoundDelay keeps how long one of a person's devices holds its sound back after its picture, in
-// milliseconds: for a TV that shows its picture late.
-func (service *Service) SetSoundDelay(ctx context.Context, userID, deviceID, delayMs int64) error {
+// SetSoundOffset keeps how far one of a person's devices moves its sound from its picture, in
+// milliseconds: later when positive, earlier when negative, for a device that plays one of them late.
+func (service *Service) SetSoundOffset(ctx context.Context, userID, deviceID, offsetMs int64) error {
 	return service.onOwnDevice(ctx, userID, deviceID, func(queries *sqlcgen.Queries) error {
-		return queries.SetDeviceSoundDelay(ctx, sqlcgen.SetDeviceSoundDelayParams{SoundDelayMs: delayMs, ID: deviceID})
+		return queries.SetDeviceSoundOffset(ctx, sqlcgen.SetDeviceSoundOffsetParams{
+			SoundOffsetMs: offsetMs, ID: deviceID,
+		})
 	})
 }
 

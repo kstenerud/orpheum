@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { moveSoundEarlier } from "./audio-shift.ts";
+
 /**
  * A gain after a media element's own volume, so a quiet film can be raised past what the element
  * allows, and the volume control still runs to 100, where 100 is the film at the level (D226 §4).
@@ -50,7 +52,7 @@ function dbToGainFactor(db: number): number {
  */
 class ElementLevelling {
   private wantedDb: number;
-  private wantedDelayMs = 0;
+  private wantedOffsetMs = 0;
   private gainNode: GainNode | undefined = undefined;
   private source: MediaElementAudioSourceNode | undefined = undefined;
   private delayNode: DelayNode | undefined = undefined;
@@ -66,7 +68,7 @@ class ElementLevelling {
     });
     // The context's latencies settle once its sound plays: the delay is set again from them.
     element.addEventListener("playing", () => {
-      this.applyDelay();
+      this.applyOffset();
     });
     this.resumeAndRoute();
   }
@@ -82,12 +84,12 @@ class ElementLevelling {
   }
 
   /**
-   * Delays the sound by ms after the picture, less what Web Audio's own latency already delays it
-   * by: the sound of a TV that shows its picture late (soundDelay).
+   * Moves the sound by ms from its picture, later when positive and earlier when negative, counting
+   * what Web Audio's own latency already delays it by (soundOffset).
    */
-  setDelayMs(ms: number): void {
-    this.wantedDelayMs = ms;
-    this.applyDelay();
+  setOffsetMs(ms: number): void {
+    this.wantedOffsetMs = ms;
+    this.applyOffset();
   }
 
   setDb(db: number): void {
@@ -123,67 +125,79 @@ class ElementLevelling {
     gainNode.connect(destination);
     this.gainNode = gainNode;
     this.source = source;
-    this.applyDelay();
+    this.applyOffset();
   }
 
   /**
-   * Sets the delay node to the delay wanted less the context's latencies, never below none; puts
-   * one between the element and the gain the first time a delay is wanted, so a sound never delayed
-   * keeps the route it had.
+   * Moves the sound as wanted: what is left of the offset once Web Audio's own latency, which the
+   * sound takes once routed, is counted. A sound still later than wanted is moved earlier by its
+   * chunks (moveSoundEarlier); one still earlier is held back by a delay node, put between the
+   * element and the gain the first time one is needed, so a sound never delayed keeps its route.
    */
-  private applyDelay(): void {
+  private applyOffset(): void {
     const { source, gainNode } = this;
+    const latencyMs =
+      source === undefined
+        ? 0
+        : ((this.context.baseLatency ?? 0) + (this.context.outputLatency ?? 0)) * 1000;
+    const leftMs = this.wantedOffsetMs - latencyMs;
+    moveSoundEarlier(this.element, Math.round(Math.max(0, -leftMs)));
     if (source === undefined || gainNode === undefined) {
       return;
     }
     if (this.delayNode === undefined) {
-      if (this.wantedDelayMs <= 0) {
+      if (leftMs <= 0) {
         return;
       }
-      const delayNode = this.context.createDelay(longestSoundDelayMs / 1000);
+      const delayNode = this.context.createDelay(longestSoundOffsetMs / 1000);
       source.disconnect();
       source.connect(delayNode);
       delayNode.connect(gainNode);
       this.delayNode = delayNode;
     }
-    const latencyS = (this.context.baseLatency ?? 0) + (this.context.outputLatency ?? 0);
-    this.delayNode.delayTime.value = Math.max(0, this.wantedDelayMs / 1000 - latencyS);
+    this.delayNode.delayTime.value = Math.max(0, leftMs / 1000);
   }
 }
 
-/** The longest delay a sound may be given after its picture, in milliseconds. */
-export const longestSoundDelayMs = 2000;
+/** The furthest a sound may be moved from its picture either way, in milliseconds. */
+export const longestSoundOffsetMs = 2000;
 
 /** Each element's levelling: Web Audio takes an element's sound once, for the element's life. */
 const levellingByElement = new WeakMap<HTMLMediaElement, ElementLevelling>();
 
-/** A delay of an element's sound after its picture. */
-export interface SoundDelay {
-  /** Sets the delay, in milliseconds after the picture, 0 to longestSoundDelayMs. */
+/** A move of an element's sound from its picture. */
+export interface SoundOffset {
+  /**
+   * Sets the move, in milliseconds: later when positive, earlier when negative, at most
+   * longestSoundOffsetMs either way.
+   */
   readonly setMs: (ms: number) => void;
 }
 
 /**
- * A delay of element's sound after its picture, for a TV that shows its picture late: the owner's
- * TCL TV, in TV Bro, showed every film's picture half a second after its sound, and the browser
- * could not tell (2026-10-24). The sound is handed to Web Audio once a delay is asked for, as a gain
- * hands it, and Web Audio's own latency counts toward the delay. Where the page cannot set the
- * element's volume, as on iOS, nothing is delayed (canSetVolume).
+ * A move of element's sound from its picture, for a device that plays one of them late: the owner's
+ * TCL TV, in TV Bro, plays its sound half a second late, and the browser cannot tell (2026-10-24).
+ * Later is Web Audio's delay: the sound is handed to Web Audio, as a gain hands it, and its own
+ * latency counts toward the delay. Earlier is the chunks' (moveSoundEarlier), where a chunked
+ * playback plays the element: a sound already through Web Audio is moved earlier by its latency
+ * too. Where the page cannot set the element's volume, as on iOS, nothing is delayed (canSetVolume).
  */
-export function soundDelay(
+export function soundOffset(
   element: HTMLMediaElement,
   createAudioContext: () => GainAudio = () => new AudioContext(),
-): SoundDelay {
+): SoundOffset {
   return {
     setMs: (wanted) => {
-      const ms = Math.min(Math.max(wanted, 0), longestSoundDelayMs);
+      const ms = Math.min(Math.max(wanted, -longestSoundOffsetMs), longestSoundOffsetMs);
       const levelling = levellingByElement.get(element);
       if (levelling !== undefined) {
-        levelling.setDelayMs(ms);
+        levelling.setOffsetMs(ms);
       } else if (ms > 0 && canSetVolume(element)) {
         const made = new ElementLevelling(element, createAudioContext(), 0);
-        made.setDelayMs(ms);
+        made.setOffsetMs(ms);
         levellingByElement.set(element, made);
+      } else {
+        moveSoundEarlier(element, Math.max(0, -ms));
       }
     },
   };

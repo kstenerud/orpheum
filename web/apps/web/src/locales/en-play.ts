@@ -64,10 +64,14 @@ export const enPlay = {
     },
     startOver: "Start over",
     playOriginal: "Play the original file",
-    soundDelay: {
-      label: "Sound delay on this device: {{ms}} ms",
-      less: "−{{ms}} ms",
-      more: "+{{ms}} ms",
+    soundOffset: {
+      inStep: "Sound on this device: in step with the picture",
+      laterBy: "Sound on this device: {{ms}} ms later",
+      earlierBy: "Sound on this device: {{ms}} ms earlier",
+      earlier: "Sound {{ms}} ms earlier",
+      later: "Sound {{ms}} ms later",
+      cannotEarlier:
+        "This film plays as its own file, whose sound cannot be played earlier here; a streamed copy's can.",
     },
     bare: {
       open: "Play in a bare player",

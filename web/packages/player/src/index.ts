@@ -16,11 +16,12 @@ export type { PlaybackDiagnosis } from "./diagnosis.ts";
 export {
   canSetVolume,
   gainAfterVolume,
-  longestSoundDelayMs,
-  soundDelay,
+  longestSoundOffsetMs,
+  soundOffset,
   soundRouteOf,
 } from "./gain.ts";
-export type { Gain, SoundDelay, SoundRoute } from "./gain.ts";
+export type { Gain, SoundOffset, SoundRoute } from "./gain.ts";
+export { canMoveSoundEarlier } from "./audio-shift.ts";
 export { canFollowAGroup, hlsSupport, hlsMethod, playHls, playNative } from "./hls.ts";
 export type { HlsSupport, HlsMethod, HlsPlayback, NativeTarget } from "./hls.ts";
 export { linkShareForQuality } from "./abr-choice.ts";

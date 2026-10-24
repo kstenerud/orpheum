@@ -10,7 +10,7 @@ import (
 )
 
 const getLiveDeviceOfUser = `-- name: GetLiveDeviceOfUser :one
-SELECT id, name, platform, audio_output, sound_delay_ms FROM device
+SELECT id, name, platform, audio_output, sound_offset_ms FROM device
 WHERE id = ?1 AND user_id = ?2 AND removed_at IS NULL
 `
 
@@ -20,11 +20,11 @@ type GetLiveDeviceOfUserParams struct {
 }
 
 type GetLiveDeviceOfUserRow struct {
-	ID           int64
-	Name         string
-	Platform     string
-	AudioOutput  *string
-	SoundDelayMs int64
+	ID            int64
+	Name          string
+	Platform      string
+	AudioOutput   *string
+	SoundOffsetMs int64
 }
 
 // One of a person's devices, when it is theirs and has not been removed.
@@ -36,7 +36,7 @@ func (q *Queries) GetLiveDeviceOfUser(ctx context.Context, arg GetLiveDeviceOfUs
 		&i.Name,
 		&i.Platform,
 		&i.AudioOutput,
-		&i.SoundDelayMs,
+		&i.SoundOffsetMs,
 	)
 	return i, err
 }
@@ -226,18 +226,18 @@ func (q *Queries) SetDeviceAudioOutput(ctx context.Context, arg SetDeviceAudioOu
 	return err
 }
 
-const setDeviceSoundDelay = `-- name: SetDeviceSoundDelay :exec
-UPDATE device SET sound_delay_ms = ?1 WHERE id = ?2
+const setDeviceSoundOffset = `-- name: SetDeviceSoundOffset :exec
+UPDATE device SET sound_offset_ms = ?1 WHERE id = ?2
 `
 
-type SetDeviceSoundDelayParams struct {
-	SoundDelayMs int64
-	ID           int64
+type SetDeviceSoundOffsetParams struct {
+	SoundOffsetMs int64
+	ID            int64
 }
 
-// How long a device's sound is delayed after its picture, for a TV that shows its picture late: its
-// person sets it there.
-func (q *Queries) SetDeviceSoundDelay(ctx context.Context, arg SetDeviceSoundDelayParams) error {
-	_, err := q.db.ExecContext(ctx, setDeviceSoundDelay, arg.SoundDelayMs, arg.ID)
+// How far a device's sound is moved from its picture, in ms: later when positive, earlier when
+// negative, for a device that plays one of them late; its person sets it there.
+func (q *Queries) SetDeviceSoundOffset(ctx context.Context, arg SetDeviceSoundOffsetParams) error {
+	_, err := q.db.ExecContext(ctx, setDeviceSoundOffset, arg.SoundOffsetMs, arg.ID)
 	return err
 }
