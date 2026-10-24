@@ -6,6 +6,7 @@ import "./i18n.ts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import { BackgroundChangesContext, backingOffPoller } from "./polling.ts";
 import { ApiProblem } from "./problem.ts";
 import { buttonWithText, click, mount, servedBy, settleUntil, type Heard } from "./test-dom.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
@@ -218,6 +219,47 @@ describe("Title", () => {
       heard.some((request) => request.methodAndPath === "DELETE /interest/11"),
     );
     expect(heard.at(-1)?.methodAndPath).toBe("DELETE /interest/11");
+  });
+
+  it("offers Play by itself once its file is read, or can be read again (the owner, 2026-10-24)", async () => {
+    // Opened while its file is still being read, or while its machine is away, the page asks again
+    // on the background poller (D237) and offers Play once the server says the file plays.
+    const soon = backingOffPoller({ firstMs: 50, longestMs: 50, failedMs: 50 });
+    const cases = [
+      { id: 13, reason: "still_reading" as const },
+      { id: 14, reason: "node_away" as const },
+    ];
+    for (const { id, reason } of cases) {
+      const title = { ...heat, id };
+      const heard: Heard[] = [];
+      const services = servedBy(
+        {
+          [`GET /items/${String(id)}`]: [
+            [200, { ...title, unavailable: { reason, nodeName: "devnas" } }],
+            [200, title],
+          ],
+          "POST /playback": [
+            200,
+            { delivery: "direct", url: "/u", notDirectReasons: [], mediaToken: "a" },
+          ],
+          [`PUT /interest/${String(id)}`]: [204, null],
+          [`DELETE /interest/${String(id)}`]: [204, null],
+        },
+        heard,
+      );
+      const page = await mount(
+        <BackgroundChangesContext value={soon}>
+          {withServices(<Title id={id} />, services)}
+        </BackgroundChangesContext>,
+      );
+      const play = (): Element | null => page.container.querySelector("a.title__play");
+      await settleUntil(() => play() !== null);
+      expect(play()?.getAttribute("href")).toBe("/play/1");
+      // Play came from asking again: the first answer said the file could not play.
+      const reads = heard.filter((each) => each.methodAndPath === `GET /items/${String(id)}`);
+      expect(reads.length).toBeGreaterThan(1);
+      page.unmount();
+    }
   });
 });
 
