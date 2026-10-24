@@ -40,7 +40,7 @@ User-Agent (D263; the User-Agent is logged only).
 
 | Symptom | Entry |
 |---|---|
-| A TCL TV in TV Bro plays every film's picture about half a second after its sound, whatever the codec; YouTube there is in time. | [A TCL TV in TV Bro shows a page's video about half a second late, and the browser cannot tell](#a-tcl-tv-in-tv-bro-shows-a-pages-video-about-half-a-second-late-and-the-browser-cannot-tell) |
+| A TCL TV in TV Bro plays every film's sound about half a second after its picture, whatever the codec; YouTube there is in time. | [A TCL TV in TV Bro plays a page's sound about half a second late, and the browser cannot tell](#a-tcl-tv-in-tv-bro-plays-a-pages-sound-about-half-a-second-late-and-the-browser-cannot-tell) |
 | A read-through over a share that dropped mid-film was answered as complete, its loudness that of part of the film. | [FFmpeg whose input read fails part way exits 0 with an answer made of what it read](#ffmpeg-whose-input-read-fails-part-way-exits-0-with-an-answer-made-of-what-it-read) |
 | At a discovery's page at home, every request failed with "NetworkError when attempting to fetch resource." after a realm sign-in. | [Firefox fails a public page's requests to a LAN name until its local-network prompt is answered, and again after a grant not remembered](#firefox-fails-a-public-pages-requests-to-a-lan-name-until-its-local-network-prompt-is-answered-and-again-after-a-grant-not-remembered) |
 | `dig CAA` shows CAs nobody wrote beside the zone's own `issue ";"`. | [Cloudflare adds its own CAA records to any zone with CAA while Universal SSL is on](#cloudflare-adds-its-own-caa-records-to-any-zone-with-caa-while-universal-ssl-is-on) |
@@ -709,29 +709,37 @@ User-Agent (D263; the User-Agent is logged only).
 
 ## Chrome and Android (getUserMedia and audio)
 
-### A TCL TV in TV Bro shows a page's video about half a second late, and the browser cannot tell
+### A TCL TV in TV Bro plays a page's sound about half a second late, and the browser cannot tell
 
-- **Symptom:** on the owner's TCL TV, in the TV Bro browser (an Android WebView), every film's sound
-  ran about half a second ahead of its picture. Synthetic clips, a white flash and a 1 kHz beep at
-  each second, lagged alike as H.264 or VP9 with AAC or Opus, played by our chunks through hls.js,
-  as the film's own file in our player, and in a bare `<video>` with nothing drawn over it, full
-  screen or not. YouTube in the same browser played in time.
-- **Cause:** unverified. The delay is after the browser: `requestVideoFrameCallback` put each frame
-  on screen 16 ms after it was handed to the compositor and within 10 to 20 ms of the element's sound,
-  so the TV's own video path adds it, unseen by any web API. Why YouTube's page escapes it is not
-  known; it may get another video path (a different codec, or the hardware overlay).
-- **What we do:** a sound delay per device (`web/apps/web/src/sound-delay.tsx`, kept in the browser
-  as `orpheum.soundDelayMs`): the player delays the sound through Web Audio, counting the context's
-  base and output latency toward it (`soundDelay` in `web/packages/player/src/gain.ts`). 600 ms put
-  this TV in time on every path. Under the video, the frame timing (`frame-timing.ts`) says what the
+- **Symptom:** on the owner's TCL TV, in the TV Bro browser (an Android WebView), every film's voice
+  came about half a second after the lips. A clip with a white flash and a 1 kHz beep every **four**
+  seconds put the beep about 0.5 s after its flash. The same lag showed played by our chunks through
+  hls.js and as the film's own file; clips of H.264 or VP9 with AAC or Opus lagged alike. YouTube in
+  the same browser played in time.
+- **Cause:** unverified. The lag is after the browser: `requestVideoFrameCallback` put each frame on
+  screen 16 ms after it was handed to the compositor and within 10 to 20 ms of the element's sound,
+  so the TV's own sound path adds it, unseen by any web API. Why YouTube's page escapes it is not
+  known (research/youtube-tv-browser-av-sync-2026-10-24.md looks into it).
+- **Beware:** the first clips beeped and flashed every **second**, which can only tell a lag modulo a
+  second: a sound 0.5 s late landed 0.5 s *before* the next flash and read as a picture shown late,
+  and a sound delay was built and tuned the wrong way (agent-failures A43). A timing clip's period
+  must be much longer than any lag it measures, or each mark distinct.
+- **What we do:** a sound offset per device, kept by the core (`device.sound_offset_ms`, -2000 to
+  2000 ms; `web/apps/web/src/sound-delay.tsx`): earlier moves a streamed film's sound fragments
+  forward before hls.js reads them (`web/packages/player/src/audio-shift.ts`); later holds the sound
+  back through Web Audio (`soundOffset` in `web/packages/player/src/gain.ts`), counting the context's
+  own latency either way. A film playing its own file cannot have its sound moved earlier. A person
+  without levelling is offered the ladder's sound unlevelled, so no Web Audio is needed to take its
+  gain back out. Under the video, the frame timing (`frame-timing.ts`) says what the
   browser knows; for a film playing its own file, Play in a bare player tests the video alone.
 - **Note:** on this TV a Web Audio context reported a base latency of 96 ms and an output latency of
-  328 ms, which the element's clock does not count: a levelled sound, through Web Audio, came out
-  about 424 ms later than an unlevelled one, which hid most of the picture's lag on the ladder.
-- **Evidence:** [owner] 2026-10-24, staging, synthetic clips; the staging log's "a playback's sound".
-  **[web]** Chromium's [WebAudio high latency on Android (40103372)](https://issues.chromium.org/issues/40103372)
-  reports a total of about 330 ms on some Android devices; no report of a TV's video lagging its
-  element's sound in a WebView was found (searched 2026-10-24).
+  320 to 328 ms, which the element's clock does not count: a sound through Web Audio comes out about
+  420 ms later still.
+- **Evidence:** [owner] 2026-10-24, staging, synthetic clips (Sync Apple to Damson every second, Sync
+  Elder every four seconds); the staging log's "a playback's sound". **[web]** Chromium's
+  [WebAudio high latency on Android (40103372)](https://issues.chromium.org/issues/40103372) reports a
+  total of about 330 ms on some Android devices; no report of a TV's sound lagging its element's
+  clock in a WebView was found (searched 2026-10-24).
 
 
 ### Android: echo cancellation puts the phone in a call, which turns the film down and takes the volume buttons
