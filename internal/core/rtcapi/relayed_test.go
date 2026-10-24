@@ -237,3 +237,38 @@ func TestChannel_TheHandlerBelievesNothingTheHeadSaysOfWhereItCameFrom(t *testin
 		t.Error("the handler did not know the request came over WebRTC")
 	}
 }
+
+// A request whose channel the client closes, as the browser's transport does with one its caller
+// aborted, ends its handler's work: the request's context ends with the channel, so a refresh given
+// up or a chunk no longer wanted is not still made for no one.
+func TestChannel_AChannelTheClientClosesEndsItsRequest(t *testing.T) {
+	t.Parallel()
+	started, stopped := make(chan struct{}), make(chan struct{})
+	holding := http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
+		close(started)
+		select {
+		case <-request.Context().Done():
+			close(stopped)
+		case <-t.Context().Done():
+		}
+	})
+	server := rtcapi.New(t.Context(), holding, slog.New(slog.DiscardHandler))
+	t.Cleanup(func() { _ = server.Close() }) //nolint:errcheck // the test is over
+	client := rtcapitest.Connect(t, server.Answer)
+	begun := client.Begin(rtcapi.RequestHead{Method: http.MethodGet, Path: "/hold"}, true)
+	awaitClosed(t, started, "the handler to start")
+	begun.Close()
+	awaitClosed(t, stopped, "the handler's request to end once its channel closed")
+}
+
+// awaitClosed waits, ten seconds at most, for ready to close.
+func awaitClosed(t *testing.T, ready <-chan struct{}, what string) {
+	t.Helper()
+	giveUp := time.NewTimer(10 * time.Second)
+	defer giveUp.Stop()
+	select {
+	case <-ready:
+	case <-giveUp.C:
+		t.Fatalf("waited 10s for %s", what)
+	}
+}

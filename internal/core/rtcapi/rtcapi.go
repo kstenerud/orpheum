@@ -38,7 +38,7 @@ const ClientConnections = 4
 const cwndStepBytes = 64 << 10
 
 // NegotiationLabel is the channel a client opens only so its offer has something to negotiate
-// (web/packages/sdk's rtc-transport.ts, rtcapitest): it carries no request, so it is never served,
+// (web/packages/sdk's rtc-connect.ts, rtcapitest): it carries no request, so it is never served,
 // takes no request's place, and is not logged as one that did not arrive.
 const NegotiationLabel = "hello"
 

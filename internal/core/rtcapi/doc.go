@@ -11,6 +11,9 @@
 //     an empty message ending it; the response the same way back. The handler sees the method, the
 //     path and query, the headers and the body as sent, and the client's address as the request's.
 //     TestChannel_ARequestReachesTheHandlerAndItsResponseComesBackWhole.
+//   - A channel closing ends its request: the handler's context ends with it, so a request whose
+//     client gave it up, closing its channel, is not still worked on. There is no other cancel.
+//     TestChannel_AChannelTheClientClosesEndsItsRequest.
 //   - A response is sent in messages of at most MaxMessageBytes, which every browser carries, and
 //     waits while its channel holds too much, so no film is held in memory.
 //     TestChannel_ALargeResponseArrivesWholeInMessagesABrowserCarries.

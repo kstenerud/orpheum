@@ -5,10 +5,9 @@
  * no HTTPS address reaches. Each request goes on a data channel of its own: a text head (method, path,
  * headers), the body in binary messages of at most `maxMessageBytes`, an empty message ending it;
  * the core answers on the same channel the same way, and the client closes it. A client opens
- * `clientConnections` peer connections and sends each request on the one with the fewest under way.
+ * `clientConnections` peer connections and sends each request on the one with the fewest under way;
+ * making them is rtc-connect.ts.
  */
-
-import { reportFailure } from "./problem.ts";
 
 /** The most a message holds, which every browser carries; the core's rtcapi.MaxMessageBytes. */
 export const maxMessageBytes = 64 * 1024;
@@ -18,62 +17,6 @@ export const maxMessageBytes = 64 * 1024;
  * three times as much (reachability-approaches-2026-10-09.md §9.4); the core's ClientConnections.
  */
 export const clientConnections = 4;
-
-/** How long a connection may take to gather its candidates and connect. */
-export const connectTimeoutMs = 10_000;
-
-/**
- * How long an offer waits for more candidates after its first that reaches past this machine, a
- * server-reflexive or a relayed one, once it expects no relayed one: those a core away from it can use
- * are then in. Gathering itself completes only when every STUN attempt has answered or given up, and
- * one on a family or interface with no way out retries for some forty seconds: each offer waited out
- * connectTimeoutMs, and a realm sign-in, which makes two, took 28 s on staging (2026-10-23;
- * idiosyncrasies.md). The core's answer waits as long (rtcapi's gatherAfterReflexive).
- */
-export const gatherAfterReflexiveMs = 300;
-
-/**
- * How long, with a TURN server among its ICE servers, an offer waits for its relayed candidate after
- * its first server-reflexive one: a relay is allocated a round trip or two after the STUN binding,
- * and a client behind a NAT no punch gets through reaches the core only by it.
- */
-export const gatherForRelayMs = 1_000;
-
-/**
- * A connection that takes longer than this to connect is reported to the core's log, with where its
- * time went: a sign-in that waited half a minute on its connections said so nowhere (staging,
- * 2026-10-23).
- */
-export const slowConnectMs = 3_000;
-
-/** How long each step of making a connection took, in milliseconds. */
-export interface ConnectTimings {
-  readonly gathering: number;
-  readonly answer: number;
-  readonly connecting: number;
-}
-
-/** What to report of a connection that took over slowConnectMs, or undefined for one that did not. */
-export function slowConnection(timings: ConnectTimings): string | undefined {
-  const total = timings.gathering + timings.answer + timings.connecting;
-  if (total <= slowConnectMs) {
-    return undefined;
-  }
-  const ms = (value: number): string => `${String(Math.round(value))} ms`;
-  return (
-    `a WebRTC connection took ${ms(total)}: gathering its candidates ${ms(timings.gathering)}, ` +
-    `the core's answer ${ms(timings.answer)}, connecting ${ms(timings.connecting)}`
-  );
-}
-
-/** A session description: an offer or an answer, and its SDP. */
-export interface Description {
-  readonly type: "offer" | "answer";
-  readonly sdp: string;
-}
-
-/** Takes a client's offer to the core and returns its answer: the offer endpoint, or a discovery. */
-export type Signaller = (offer: Description) => Promise<Description>;
 
 /** What a channel says, to the one request it carries. */
 export interface ChannelListener {
@@ -217,13 +160,31 @@ export async function requestMessages(request: Request): Promise<(string | Array
 }
 
 /**
+ * What a request whose signal aborted fails with, as fetch fails: the signal's reason, an AbortError
+ * unless the one who aborted it gave another.
+ */
+function abortReason(signal: AbortSignal): Error {
+  const reason: unknown = signal.reason;
+  return reason instanceof Error
+    ? reason
+    : new DOMException("the request was aborted", "AbortError");
+}
+
+/**
  * Sends one request on a channel of its own, and resolves with the response once its head arrives,
- * its body streamed as its messages do. The channel closes when the body ends or is cancelled.
+ * its body streamed as its messages do. The channel closes when the body ends or is cancelled, or
+ * when the request's signal aborts: the request then fails, or its body does, with the signal's
+ * reason, and the core, its channel closed, ends the request's work (rtcapi's
+ * TestChannel_AChannelTheClientClosesEndsItsRequest).
  */
 export async function sendOnChannel(channel: ChannelLike, request: Request): Promise<Response> {
   const messages = await requestMessages(request);
-  const answered = receiveResponse(channel, new URL(request.url).pathname);
+  const { signal } = request;
+  const answered = receiveResponse(channel, new URL(request.url).pathname, signal);
   const sendAll = (): void => {
+    if (signal.aborted) {
+      return;
+    }
     for (const message of messages) {
       channel.send(message);
     }
@@ -307,7 +268,11 @@ class BodyQueue {
 }
 
 /** The response a channel carries: resolved at its head, its body streamed until the empty end. */
-function receiveResponse(channel: ChannelLike, path: string): Promise<Response> {
+function receiveResponse(
+  channel: ChannelLike,
+  path: string,
+  signal: AbortSignal,
+): Promise<Response> {
   return new Promise<Response>((resolve, reject) => {
     let isEnded = false;
     const body = new BodyQueue((messages) => {
@@ -320,34 +285,24 @@ function receiveResponse(channel: ChannelLike, path: string): Promise<Response> 
         return;
       }
       isEnded = true;
+      signal.removeEventListener("abort", aborted);
       body.finish(failure);
       if (failure !== undefined) {
         reject(failure);
       }
       channel.close();
     };
-    const takeHead = (text: string): void => {
-      let answered: ResponseHead;
-      try {
-        answered = readHead(text);
-      } catch (error: unknown) {
-        end(error instanceof Error ? error : new Error(String(error)));
-        return;
-      }
-      const stream = bodylessStatuses.has(answered.status)
-        ? null
-        : body.stream(() => {
-            end();
-          });
-      resolve(
-        new Response(stream, { status: answered.status, headers: toHeaders(answered.headers) }),
-      );
+    const aborted = (): void => {
+      end(abortReason(signal));
     };
     channel.listen({
       open: () => onceOpen.get(channel)?.(),
       message: (data) => {
         if (typeof data === "string") {
-          takeHead(data);
+          const response = responseOf(data, body, end);
+          if (response !== undefined) {
+            resolve(response);
+          }
         } else if (data.byteLength === 0) {
           end();
         } else {
@@ -361,7 +316,36 @@ function receiveResponse(channel: ChannelLike, path: string): Promise<Response> 
         end(new Error(`the channel for ${path} failed`));
       },
     });
+    if (signal.aborted) {
+      aborted();
+    } else {
+      signal.addEventListener("abort", aborted);
+    }
   });
+}
+
+/**
+ * The response a head begins, its body read from body, or undefined for a head that is not one,
+ * which ends the request with why.
+ */
+function responseOf(
+  text: string,
+  body: BodyQueue,
+  end: (failure?: Error) => void,
+): Response | undefined {
+  let answered: ResponseHead;
+  try {
+    answered = readHead(text);
+  } catch (error: unknown) {
+    end(error instanceof Error ? error : new Error(String(error)));
+    return undefined;
+  }
+  const stream = bodylessStatuses.has(answered.status)
+    ? null
+    : body.stream(() => {
+        end();
+      });
+  return new Response(stream, { status: answered.status, headers: toHeaders(answered.headers) });
 }
 
 /** A response head as the core sent it, or an error for one that is not. */
@@ -505,10 +489,18 @@ export class RtcTransport {
     return this.links.length;
   }
 
-  /** Sends a request to the core and resolves with its response. */
+  /**
+   * Sends a request to the core and resolves with its response. A request whose signal has aborted
+   * fails with its reason, as fetch does: at once and opening nothing when it aborted before, out of
+   * the queue when it aborts waiting for room, and with its channel closed once it has one.
+   */
   readonly fetch = async (request: Request): Promise<Response> => {
+    const { signal } = request;
+    if (signal.aborted) {
+      throw abortReason(signal);
+    }
     // Chosen at once while one has room, so requests made together spread across the connections.
-    const link = this.claimNow() ?? (await this.claim());
+    const link = this.claimNow() ?? (await this.claim(signal));
     const channel = countedChannel(link.peer.createDataChannel("request"), () => {
       link.underWay -= 1;
       this.wakeWaiting();
@@ -618,8 +610,11 @@ export class RtcTransport {
     return link;
   }
 
-  /** A room claimNow takes, waiting for one while none is up or has room. */
-  private async claim(): Promise<Link> {
+  /**
+   * A room claimNow takes, waiting for one while none is up or has room, until signal aborts: the
+   * request then leaves the queue and fails with its reason.
+   */
+  private async claim(signal: AbortSignal): Promise<Link> {
     for (;;) {
       const link = this.claimNow();
       if (link !== undefined) {
@@ -628,133 +623,26 @@ export class RtcTransport {
       if (this.isClosed) {
         throw new Error("the WebRTC transport is closed");
       }
-      await new Promise<void>((resolve) => {
-        this.waiting.push(resolve);
+      if (signal.aborted) {
+        throw abortReason(signal);
+      }
+      await new Promise<void>((resolve, reject) => {
+        const wake = (): void => {
+          signal.removeEventListener("abort", aborted);
+          resolve();
+        };
+        const aborted = (): void => {
+          const index = this.waiting.indexOf(wake);
+          if (index >= 0) {
+            this.waiting.splice(index, 1);
+          }
+          reject(abortReason(signal));
+        };
+        this.waiting.push(wake);
+        signal.addEventListener("abort", aborted, { once: true });
       });
     }
   }
-}
-
-/**
- * Connects to the core through signaller: resolves once one peer connection is up, each with every
- * candidate gathered before its offer is sent, and opens the rest up to `count` behind it, replacing
- * any that is gone (plans/webrtc-transport.md W2d).
- */
-export async function connectRtc(
-  signaller: Signaller,
-  rtcConfig: RTCConfiguration = {},
-  count: number = clientConnections,
-): Promise<RtcTransport> {
-  const open = (): Promise<PeerLike> => connectOne(signaller, rtcConfig);
-  return new RtcTransport([await open()], { open, size: count });
-}
-
-/** One peer connection, connected through signaller. */
-async function connectOne(signaller: Signaller, rtcConfig: RTCConfiguration): Promise<PeerLike> {
-  const peer = new RTCPeerConnection(rtcConfig);
-  try {
-    // An offer needs something to negotiate: a channel opened and never used, which the core knows by
-    // its label and never serves (internal/core/rtcapi.NegotiationLabel).
-    peer.createDataChannel("hello");
-    const startedAt = performance.now();
-    await peer.setLocalDescription(await peer.createOffer());
-    await gathered(peer, hasRelayServer(rtcConfig));
-    const gatheredAt = performance.now();
-    const local = peer.localDescription;
-    if (local === null) {
-      throw new Error("the connection made no offer");
-    }
-    const answer = await signaller({ type: "offer", sdp: local.sdp });
-    const answeredAt = performance.now();
-    await peer.setRemoteDescription(answer);
-    await connected(peer);
-    const slow = slowConnection({
-      gathering: gatheredAt - startedAt,
-      answer: answeredAt - gatheredAt,
-      connecting: performance.now() - answeredAt,
-    });
-    if (slow !== undefined) {
-      reportFailure(new Error(slow));
-    }
-    return peerOf(peer);
-  } catch (error: unknown) {
-    peer.close();
-    throw error;
-  }
-}
-
-/** Whether a configuration names a TURN server, through which a relayed candidate will come. */
-export function hasRelayServer(rtcConfig: RTCConfiguration): boolean {
-  return (rtcConfig.iceServers ?? []).some((server) =>
-    (Array.isArray(server.urls) ? server.urls : [server.urls]).some((url) => /^turns?:/i.test(url)),
-  );
-}
-
-/** What gathered needs of a peer connection: the browser's, or a test's. */
-export interface GatheringPeer {
-  readonly iceGatheringState: RTCIceGatheringState;
-  addEventListener(type: "icegatheringstatechange", listener: () => void): void;
-  addEventListener(
-    type: "icecandidate",
-    listener: (event: RTCPeerConnectionIceEvent) => void,
-  ): void;
-}
-
-/**
- * Resolves once peer has gathered its candidates; gatherAfterReflexiveMs after its first
- * server-reflexive or relayed one, but with a TURN server (willRelay) gatherForRelayMs after its
- * first server-reflexive one unless a relayed one comes first; or after connectTimeoutMs with those it
- * has: whichever is first.
- */
-export function gathered(peer: GatheringPeer, willRelay = false): Promise<void> {
-  return new Promise((resolve) => {
-    if (peer.iceGatheringState === "complete") {
-      resolve();
-      return;
-    }
-    const timers = [setTimeout(done, connectTimeoutMs)];
-    function done(): void {
-      timers.forEach(clearTimeout);
-      resolve();
-    }
-    peer.addEventListener("icegatheringstatechange", () => {
-      if (peer.iceGatheringState === "complete") {
-        done();
-      }
-    });
-    let hasReflexive = false;
-    let hasRelayed = false;
-    peer.addEventListener("icecandidate", (event) => {
-      const type = event.candidate?.type;
-      if (type === "srflx" && !hasReflexive) {
-        hasReflexive = true;
-        timers.push(setTimeout(done, willRelay ? gatherForRelayMs : gatherAfterReflexiveMs));
-      } else if (type === "relay" && !hasRelayed) {
-        hasRelayed = true;
-        timers.push(setTimeout(done, gatherAfterReflexiveMs));
-      }
-    });
-  });
-}
-
-/** Resolves once peer is connected; rejects when it fails or takes over connectTimeoutMs. */
-function connected(peer: RTCPeerConnection): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error("the WebRTC connection did not connect in time"));
-    }, connectTimeoutMs);
-    const settle = (): void => {
-      if (peer.connectionState === "connected") {
-        clearTimeout(timer);
-        resolve();
-      } else if (peer.connectionState === "failed" || peer.connectionState === "closed") {
-        clearTimeout(timer);
-        reject(new Error(`the WebRTC connection ${peer.connectionState}`));
-      }
-    };
-    peer.addEventListener("connectionstatechange", settle);
-    settle();
-  });
 }
 
 /** Sends a request and resolves with its response: the browser's fetch, or a transport's. */

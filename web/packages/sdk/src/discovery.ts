@@ -7,7 +7,7 @@
  * discovery/link and discovery/proof, byte for byte; the tests hold vectors the Go code made.
  */
 
-import type { Description, Signaller } from "./rtc-transport.ts";
+import type { Description, Signaller } from "./rtc-connect.ts";
 import { offerThroughDiscovery } from "./relayed-offer.ts";
 
 /** A core's link's fragment: `<coreId>.<secret>.<fingerprint>`, after `#`. */
