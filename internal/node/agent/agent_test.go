@@ -411,15 +411,12 @@ func TestAgent_SaysHelloAndPostsItsStatusEachTick(t *testing.T) {
 	}
 }
 
-func TestAgent_SaysHelloAgainAfterLosingTheCore(t *testing.T) {
-	t.Parallel()
-	core, socket := startFakeCore(t)
-	core.statusesToRefuse = 1
-	_, tick := startAgent(t, socket)
-	// Tick until the core hears something: the first status is refused, which ends the session, a
-	// tick starts the next, and a later one posts a status in it.
+// keepTicking ticks the node's status loop until the test ends: a session that ends, and the next
+// that begins, take ticks the test cannot count.
+func keepTicking(t *testing.T, tick chan<- time.Time) {
+	t.Helper()
 	ticking, stop := context.WithCancel(t.Context())
-	defer stop()
+	t.Cleanup(stop)
 	go func() {
 		for {
 			select {
@@ -429,6 +426,16 @@ func TestAgent_SaysHelloAgainAfterLosingTheCore(t *testing.T) {
 			}
 		}
 	}()
+}
+
+func TestAgent_SaysHelloAgainAfterLosingTheCore(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	core.statusesToRefuse = 1
+	_, tick := startAgent(t, socket)
+	// Tick until the core hears something: the first status is refused, which ends the session, a
+	// tick starts the next, and a later one posts a status in it.
+	keepTicking(t, tick)
 	testutil.Receive(t, core.statuses, "a status in the second session")
 	if count := core.helloCount(); count != 2 {
 		t.Errorf("%d hellos, want 2: one per session", count)
@@ -656,17 +663,7 @@ func TestAgent_ASessionThatEndsStopsNoWorkAndItsResultReachesTheNextSession(t *t
 	}
 	// The next tick starts the next session; the prepare ends only once it has.
 	testutil.Receive(t, core.helloHeard, "the first session's hello")
-	ticking, stopTicking := context.WithCancel(t.Context())
-	defer stopTicking()
-	go func() {
-		for {
-			select {
-			case tick <- time.Time{}:
-			case <-ticking.Done():
-				return
-			}
-		}
-	}()
+	keepTicking(t, tick)
 	testutil.Receive(t, core.helloHeard, "the next session's hello")
 	close(preparer.release)
 	if done := finalPrepareReport(t, core); done.JobID != 9 || done.State != nodeproto.PrepareDone {

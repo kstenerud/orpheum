@@ -3,7 +3,6 @@
 package agent
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -66,17 +65,7 @@ func TestAgent_AnUnacknowledgedResultIsSentAgainAtTheNextHello(t *testing.T) {
 	testutil.Receive(t, core.refusedPosts, "the refused post")
 	core.endSession <- struct{}{}
 	// The ended session's status loop may take a tick before it stops: tick until the next hello.
-	ticking, stopTicking := context.WithCancel(t.Context())
-	defer stopTicking()
-	go func() {
-		for {
-			select {
-			case tick <- time.Time{}:
-			case <-ticking.Done():
-				return
-			}
-		}
-	}()
+	keepTicking(t, tick)
 	testutil.Receive(t, core.helloHeard, "the next hello")
 	if result := testutil.Receive(t, core.artwork, "the answer, sent again"); result.JobID != 5 {
 		t.Errorf("after the hello the core took job %d's answer, want job 5's", result.JobID)
@@ -104,12 +93,16 @@ func TestAgent_ACommandSentAgainForAnAttemptThatEndedIsNotRunAgain(t *testing.T)
 
 // A result too large to post is held for the core to fetch from the byte socket (D234 §5): the post
 // names its job, attempt, work, size and hash, the node holds its JSON until the core acknowledges
-// it, and forgets it then.
+// it, and forgets it then. The refused post is tried again only at the next hello, which the test
+// brings once it has seen the result held: a retry after its wait could be taken first.
 func TestAgent_AResultTooLargeToPostIsHeldUntilAcknowledged(t *testing.T) {
 	t.Parallel()
 	core, socket := startFakeCore(t)
 	held := NewHeldResults()
-	startAgentWithWorkers(t, socket, Workers{Scanner: fakeScanner{}, Artworker: fakeArtworker{}, HeldResults: held})
+	_, tick := startAgentWithWorkers(t, socket,
+		Workers{Scanner: fakeScanner{}, Artworker: fakeArtworker{}, HeldResults: held},
+		func(node *Agent) { node.answerRetry = answerRetry{firstWait: time.Hour, longestWait: time.Hour} })
+	testutil.Receive(t, core.helloHeard, "the first hello")
 	core.refuseFirstPosts(heldResult, 1)
 	core.commands <- artworkCommand(1, 5, strings.Repeat("x", nodeproto.MaxPostedResultBytes))
 	testutil.Receive(t, core.refusedPosts, "the refused post")
@@ -121,6 +114,9 @@ func TestAgent_AResultTooLargeToPostIsHeldUntilAcknowledged(t *testing.T) {
 	if err := json.Unmarshal(encoded, &whole); err != nil || len(onlyImage(t, whole).Images) != 1 {
 		t.Fatalf("the held result = %+v, %v; want job 5's whole answer", whole, err)
 	}
+	core.endSession <- struct{}{}
+	// The ended session's status loop may take a tick before it stops: tick until the next hello.
+	keepTicking(t, tick)
 	posted := testutil.Receive(t, core.held, "the post naming the held result")
 	sum := sha256.Sum256(encoded)
 	if posted.JobID != 5 || posted.Artwork != nil || posted.Work == nil || posted.Held == nil ||
