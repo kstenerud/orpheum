@@ -64,6 +64,13 @@ export interface FilmParts {
         readonly playing: PlayedLevel | undefined;
         /** Even its lowest quality's word that it cannot keep up (D247 §8). */
         readonly cannotKeepUp: CannotKeepUp | undefined;
+        /**
+         * The sound playing, on a film's ladder whose sounds its tracks name; undefined on a ladder a
+         * stalled player moved to, whose sounds no decision named.
+         */
+        readonly sound: PlayingSound | undefined;
+        /** Plays another of the ladder's sounds at once, as the next of its playbacks starts with. */
+        readonly playSound: (sound: PlayingSound) => void;
       }
     | undefined;
 }
@@ -401,7 +408,9 @@ function PreparedFilm(props: {
 /**
  * The film on its ladder, every quality of it cut into chunks, from the one offered, stepping down
  * by itself and back up with care: from where it starts (D260), or where a stalled player moved to
- * it (D247 §2, §10). It says which quality plays, and when its lowest cannot keep up (D247 §8).
+ * it (D247 §2, §10). It says which quality plays, and when its lowest cannot keep up (D247 §8). On
+ * its film's ladder it starts with the sound the decision names, boosted as the person left the
+ * boost, and plays another its page chooses at once (playSound).
  */
 function ChunkedFilm(props: {
   readonly offer: LadderOffer;
@@ -425,15 +434,15 @@ function ChunkedFilm(props: {
     },
     [setFailure, t],
   );
-  const { playbackRef, playing, cannotKeepUp } = useChunkedPlayback(
+  const { tracks } = props;
+  const { playbackRef, playing, cannotKeepUp, sound, playSound } = useLadderPlayback(
     videoRef,
-    { offer, positionMs },
+    { offer, positionMs, tracks, sound: props.sound },
     onFailed,
   );
   const height = playing?.height ?? offer.height;
   // Its tracks are named while the level playing is one of the pictures they list.
-  const hasTracks =
-    props.tracks !== undefined && playingPicture(props.tracks, height) !== undefined;
+  const hasTracks = tracks !== undefined && playingPicture(tracks, height) !== undefined;
   return (
     <>
       <Stage
@@ -441,10 +450,10 @@ function ChunkedFilm(props: {
         videoRef={videoRef}
         readLinkKbps={() => playbackRef.current?.estimateKbps()}
         failure={failure}
-        ladder={{ offer, positionMs, playing, cannotKeepUp }}
+        ladder={{ offer, positionMs, playing, cannotKeepUp, sound, playSound }}
       />
-      {hasTracks && props.sound !== undefined ? (
-        <TracksNote tracks={props.tracks} height={height} sound={props.sound} />
+      {hasTracks && sound !== undefined ? (
+        <TracksNote tracks={tracks} height={height} sound={sound} />
       ) : null}
       <LadderNotes
         offer={offer}
@@ -459,6 +468,74 @@ function ChunkedFilm(props: {
       )}
     </>
   );
+}
+
+/**
+ * The audio rendition of a film's ladder that plays sound: its place among the ladder's sounds, which
+ * its tracks list in its master playlist's order, each track's standard mix then its boosted one,
+ * both made by renditions.AudioRenditionsOf; undefined where the ladder has no such mix, or the
+ * tracks are the file's own.
+ */
+export function ladderAudioRenditionIndex(
+  tracks: PlaybackDecision["tracks"] | undefined,
+  sound: PlayingSound,
+): number | undefined {
+  const index = (tracks?.sounds ?? []).findIndex(
+    (each) =>
+      !each.isOriginal &&
+      each.audioTrackIndex === sound.audioTrackIndex &&
+      each.isBoosted === sound.isBoosted,
+  );
+  return index < 0 ? undefined : index;
+}
+
+/**
+ * A chunked playback (useChunkedPlayback) with the sound it plays, among its tracks' sounds: the one
+ * it starts with, the boosted mix as the person left the boost, and another chosen by playSound at
+ * once, which a playback started again, as for another place, starts with too.
+ */
+function useLadderPlayback(
+  videoRef: RefObject<HTMLVideoElement | null>,
+  starting: {
+    readonly offer: LadderOffer;
+    readonly positionMs: number;
+    readonly tracks: PlaybackDecision["tracks"] | undefined;
+    readonly sound: PlayingSound | undefined;
+  },
+  onFailed: (failure: PlaybackFailure) => void,
+): ReturnType<typeof useChunkedPlayback> & {
+  readonly sound: PlayingSound | undefined;
+  readonly playSound: (sound: PlayingSound) => void;
+} {
+  const { offer, positionMs, tracks } = starting;
+  const [sound, setSound] = useState(starting.sound);
+  const startAudioRef = useRef(ladderStartingAudio(tracks, starting.sound));
+  const chunked = useChunkedPlayback(videoRef, { offer, positionMs, startAudioRef }, onFailed);
+  const { playbackRef } = chunked;
+  const playSound = useCallback(
+    (chosen: PlayingSound) => {
+      const index = ladderAudioRenditionIndex(tracks, chosen);
+      if (index !== undefined) {
+        setSound(chosen);
+        startAudioRef.current = index;
+        playbackRef.current?.setAudioRendition(index);
+      }
+    },
+    [tracks, playbackRef],
+  );
+  return { ...chunked, sound, playSound };
+}
+
+/**
+ * The audio rendition a film's ladder starts with, for its sound: the track's boosted mix when the
+ * boost is on and the ladder has it; else undefined, its master playlist's default, the track's
+ * standard mix (chunks.MasterPlaylist).
+ */
+export function ladderStartingAudio(
+  tracks: PlaybackDecision["tracks"] | undefined,
+  sound: PlayingSound | undefined,
+): number | undefined {
+  return sound?.isBoosted === true ? ladderAudioRenditionIndex(tracks, sound) : undefined;
 }
 
 /**
@@ -569,18 +646,23 @@ export function useBufferMeter(
 
 /**
  * Plays the offer's chunked master playlist in the video (D247 §10), and says which quality plays
- * and, once its lowest quality stalls, that the link cannot keep up (D247 §8).
+ * and, once its lowest quality stalls, that the link cannot keep up (D247 §8). Each playback starts
+ * with the audio rendition startAudioRef holds as it starts, the playlist's default when none.
  */
 export function useChunkedPlayback(
   videoRef: RefObject<HTMLVideoElement | null>,
-  starting: { readonly offer: LadderOffer; readonly positionMs: number },
+  starting: {
+    readonly offer: LadderOffer;
+    readonly positionMs: number;
+    readonly startAudioRef?: RefObject<number | undefined>;
+  },
   onFailed: (failure: PlaybackFailure) => void,
 ): {
   readonly playbackRef: RefObject<ChunkedPlayback | undefined>;
   readonly playing: PlayedLevel | undefined;
   readonly cannotKeepUp: CannotKeepUp | undefined;
 } {
-  const { offer, positionMs } = starting;
+  const { offer, positionMs, startAudioRef } = starting;
   const playbackRef = useRef<ChunkedPlayback | undefined>(undefined);
   const [playing, setPlaying] = useState<PlayedLevel | undefined>(undefined);
   const [cannotKeepUp, setCannotKeepUp] = useState<CannotKeepUp | undefined>(undefined);
@@ -589,8 +671,10 @@ export function useChunkedPlayback(
     if (video === null) {
       return undefined;
     }
+    const startAudioRenditionIndex = startAudioRef?.current;
     const playback = playChunked(video, offer.url, {
       onFailed,
+      ...(startAudioRenditionIndex === undefined ? {} : { startAudioRenditionIndex }),
       ...startOn(
         { startAtBps: offer.startAtBps, linkSharePercent: offer.linkSharePercent },
         positionMs,
@@ -613,7 +697,15 @@ export function useChunkedPlayback(
       playback.destroy();
       playbackRef.current = undefined;
     };
-  }, [videoRef, offer.url, offer.startAtBps, offer.linkSharePercent, positionMs, onFailed]);
+  }, [
+    videoRef,
+    offer.url,
+    offer.startAtBps,
+    offer.linkSharePercent,
+    positionMs,
+    onFailed,
+    startAudioRef,
+  ]);
   return { playbackRef, playing, cannotKeepUp };
 }
 

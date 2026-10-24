@@ -37,7 +37,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/use-pages.test.ts`, `src/items-in-view.test.ts`, `src/series.test.tsx`.
 - **A device not yet asked how it makes sound is asked before it plays**, and the decision is
   asked for again with the answer; it can be changed under the video and in Your devices, and
-  the dialogue boost starts as the person left it (D222). `src/sound.test.tsx`.
+  the dialogue boost starts as the person left it and switches the mix at once, under a prepared
+  copy and under a film on its ladder alike (D222). `src/sound.test.tsx`.
 - **A Watch Together viewer needs no sign-in and sees none of the app** (D246 §3, §5, §6): their
   page is only the host's playback, black while nothing plays, the speaker question as they join
   unless this browser has the answer, voice, their own volume and Leave; the link's secret leaves

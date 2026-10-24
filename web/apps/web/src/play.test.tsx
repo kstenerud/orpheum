@@ -5,7 +5,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { i18n } from "./i18n.ts";
-import { audioRenditionIndex, playbackFailureText } from "./film-player.tsx";
+import {
+  audioRenditionIndex,
+  ladderAudioRenditionIndex,
+  ladderStartingAudio,
+  playbackFailureText,
+} from "./film-player.tsx";
 import { ladderSoundLevel, PlayView, positionToMoveFrom } from "./play.tsx";
 import { servedBy, type Heard } from "./test-dom.tsx";
 import { directDecision, unlevelled } from "./test-fixtures.ts";
@@ -133,6 +138,35 @@ describe("playing a file", () => {
     expect(audioRenditionIndex(decision, 0, false)).toBe(0);
     expect(audioRenditionIndex(decision, 1, true)).toBe(2); // German has no centre to raise
     expect(audioRenditionIndex(decision, 2, false)).toBe(undefined);
+  });
+
+  it("plays a ladder's sound by its place among the ladder's sounds, each track's standard mix then its boosted one", () => {
+    const converted = { codec: "aac", channelCount: 2, kbps: 128, isOriginal: false };
+    const { tracks } = directDecision({
+      tracks: {
+        ...directDecision().tracks,
+        sounds: [
+          { audioTrackIndex: 0, isBoosted: false, ...converted },
+          { audioTrackIndex: 0, isBoosted: true, ...converted },
+          { audioTrackIndex: 1, isBoosted: false, ...converted },
+        ],
+      },
+    });
+    expect(ladderAudioRenditionIndex(tracks, { audioTrackIndex: 0, isBoosted: true })).toBe(1);
+    expect(ladderAudioRenditionIndex(tracks, { audioTrackIndex: 0, isBoosted: false })).toBe(0);
+    expect(ladderAudioRenditionIndex(tracks, { audioTrackIndex: 1, isBoosted: false })).toBe(2);
+    // German has no centre to raise, and the file's own sounds are no ladder's.
+    expect(ladderAudioRenditionIndex(tracks, { audioTrackIndex: 1, isBoosted: true })).toBe(
+      undefined,
+    );
+    const original = directDecision().tracks;
+    expect(ladderAudioRenditionIndex(original, { audioTrackIndex: 0, isBoosted: false })).toBe(
+      undefined,
+    );
+    // It starts boosted as the person left the boost, else on its playlist's default.
+    expect(ladderStartingAudio(tracks, { audioTrackIndex: 0, isBoosted: true })).toBe(1);
+    expect(ladderStartingAudio(tracks, { audioTrackIndex: 0, isBoosted: false })).toBe(undefined);
+    expect(ladderStartingAudio(tracks, { audioTrackIndex: 1, isBoosted: true })).toBe(undefined);
   });
 
   it("offers the file's audio tracks, starting with the one the playback starts with", () => {
