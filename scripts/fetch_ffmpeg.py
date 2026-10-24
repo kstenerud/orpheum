@@ -38,11 +38,10 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-# ffmpeg-fdproxy's release, made when it was ffmpeg-ffstreamer, under that name: jellyfin-ffmpeg
-# v8.1.2-5 and its first patches (GitHub API, 2026-10-23). GitHub sends the old repository's URLs to
-# the renamed one; the next pin names ffmpeg-fdproxy.
-FFSTREAMER_VERSION = "8.1.2-5-1"
-FFSTREAMER_URL = f"https://github.com/kstenerud/ffmpeg-ffstreamer/releases/download/v{FFSTREAMER_VERSION}"
+# ffmpeg-fdproxy's release: jellyfin-ffmpeg v8.1.2-5 and its patches, the protocol named fdproxy
+# (GitHub API, 2026-10-24).
+FDPROXY_VERSION = "8.1.2-5-2"
+FDPROXY_URL = f"https://github.com/kstenerud/ffmpeg-fdproxy/releases/download/v{FDPROXY_VERSION}"
 # jellyfin-ffmpeg's own release, which ffmpeg-fdproxy builds no macOS binary of (GitHub API, 2026-09-23).
 JELLYFIN_VERSION = "8.1.2-5"
 JELLYFIN_URL = f"https://github.com/jellyfin/jellyfin-ffmpeg/releases/download/v{JELLYFIN_VERSION}"
@@ -62,12 +61,12 @@ class Pin:
 
 PINS = {
     "linux/amd64": Pin(
-        f"{FFSTREAMER_URL}/ffmpeg-ffstreamer_{FFSTREAMER_VERSION}_linux64-gpl.tar.xz",
-        "4d606cac0269a43ebb10ba0bc3fcc50cfee4d1c524c4cadbb9b8fa2ea0c970ff",
+        f"{FDPROXY_URL}/ffmpeg-fdproxy_{FDPROXY_VERSION}_linux64-gpl.tar.xz",
+        "27ee2f006ac3ca77543e3d3f328e72e816e4f8ed88900b19c611215580d66608",
     ),
     "linux/arm64": Pin(
-        f"{FFSTREAMER_URL}/ffmpeg-ffstreamer_{FFSTREAMER_VERSION}_linuxarm64-gpl.tar.xz",
-        "20a4c22fb0356bd59ab88de46b034b8c699851d7535df1fc9244054a8b3f8324",
+        f"{FDPROXY_URL}/ffmpeg-fdproxy_{FDPROXY_VERSION}_linuxarm64-gpl.tar.xz",
+        "62ea684f02a9eff27761568f418faa93bb24f26aa89e9e057291333c2c8210ef",
     ),
     "darwin/arm64": Pin(
         f"{JELLYFIN_URL}/jellyfin-ffmpeg_{JELLYFIN_VERSION}_portable_macarm64-gpl.tar.xz",
