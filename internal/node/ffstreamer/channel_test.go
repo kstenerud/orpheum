@@ -185,13 +185,18 @@ func doneOK() []byte {
 	return put(put([]byte(nil), int64(7)), int8(resultOK))
 }
 
+// saidDoneOK is whether the account carries a DONE that said OK for the test's run, 7.
+func saidDoneOK(account Account) bool {
+	return account.Done != nil && account.Done.IsOK && account.Done.Run == 7
+}
+
 func testConfig(source Source) Config {
 	return Config{Run: 7, Source: source, MostOutstanding: 2, DataPipeBytes: 1 << 20}
 }
 
-// A film is served whole, block by block, two READs in flight, and a run that exits 0 after DONE OK
-// for its run succeeded (Messages, Judging a Run).
-func TestChannel_ServesAFilmWholeAndJudgesARunByItsDone(t *testing.T) {
+// A film is served whole, block by block, two READs in flight, and the account carries FFmpeg's DONE
+// OK for its run, by which execx judges it (Messages, Judging a Run).
+func TestChannel_ServesAFilmWholeAndAccountsForItsDone(t *testing.T) {
 	t.Parallel()
 	source := newFilm(1000)
 	channel, fake := startFake(t, testConfig(source))
@@ -206,11 +211,8 @@ func TestChannel_ServesAFilmWholeAndJudgesARunByItsDone(t *testing.T) {
 	if !bytes.Equal(read, source.bytes) {
 		t.Error("the bytes served are not the film's")
 	}
-	if !account.Succeeded(0, 7) || account.ServedBytes != 1000 || account.Failure != nil {
-		t.Errorf("the account: %+v; want a success that served 1000 bytes", account)
-	}
-	if account.Succeeded(1, 7) || account.Succeeded(0, 8) {
-		t.Error("a run that exited 1, or echoed another run, succeeded")
+	if !saidDoneOK(account) || account.ServedBytes != 1000 || account.Failure != nil {
+		t.Errorf("the account: %+v; want DONE OK for run 7, no failure, 1000 bytes served", account)
 	}
 	if fake.killed.Load() {
 		t.Error("a run that kept to the protocol was killed")
@@ -361,7 +363,7 @@ func TestChannel_KillsARunWhoseFilmCannotBeRead(t *testing.T) {
 	fake.send(typeRead, readBody(256, 256))
 	fake.waitForKill()
 	account := channel.Finish()
-	if !errors.Is(account.Failure, ErrReadFailed) || account.Succeeded(0, 7) {
+	if !errors.Is(account.Failure, ErrReadFailed) {
 		t.Errorf("the account: %+v; want the film's read failed", account)
 	}
 }
@@ -414,8 +416,8 @@ func TestChannel_FinishesWhateverStateFFmpegLeftItIn(t *testing.T) {
 	t.Parallel()
 	channel, fake := startFake(t, testConfig(newFilm(10)))
 	fake.exit()
-	if account := channel.Finish(); account.Done != nil || account.Failure != nil || account.Succeeded(0, 7) {
-		t.Errorf("an FFmpeg that ended at once: %+v; want no DONE, no failure, no success", account)
+	if account := channel.Finish(); account.Done != nil || account.Failure != nil {
+		t.Errorf("an FFmpeg that ended at once: %+v; want no DONE and no failure", account)
 	}
 	config := testConfig(newFilm(4 << 20))
 	config.DataPipeBytes = 0 // the default 64 KiB, which one block overfills
@@ -491,8 +493,8 @@ func TestChannel_FramesAfterDoneChangeNothing(t *testing.T) {
 	fake.send(typeRead, readBody(0, 64))
 	fake.exit()
 	account := channel.Finish()
-	if account.LateFrames != 1 || account.Failure != nil || !account.Succeeded(0, 7) {
-		t.Errorf("the account: %+v; want one late frame and a success", account)
+	if account.LateFrames != 1 || account.Failure != nil || !saidDoneOK(account) {
+		t.Errorf("the account: %+v; want one late frame, no failure and the DONE OK", account)
 	}
 }
 

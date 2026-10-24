@@ -10,7 +10,7 @@
 // A Channel is one input of one run: Open makes its pipes, FFmpeg inherits ChildFiles and is named
 // its input by InputArguments, Start serves it once FFmpeg has started, and Finish says what the
 // channel saw once FFmpeg has exited. The run's verdict is FFmpeg's exit status with the channel's
-// Account (Account.Succeeded).
+// Account, judged by internal/node/execx (judgeFilm), the one judge of a run.
 //
 // # Invariants
 //
@@ -22,8 +22,10 @@
 //     Whatever FFmpeg sends, the channel ends, serves no more than its budget, and kills the run
 //     exactly when it records a reason to: FuzzChannel_JudgesWhateverFFmpegSends, whose seeds run
 //     with the tests and which `go test -fuzz` explores beyond them.
-//   - A run read its film whole only when it exited 0 and said DONE OK for its own run, and the node
-//     had no reason to fail it. TestChannel_ServesAFilmWholeAndJudgesARunByItsDone.
+//   - The account carries FFmpeg's DONE as it sent it and the node's own reason to fail the run, the
+//     first one only, from which execx judges it (Judging a Run; execx's
+//     TestJudgeFilm_PassesOnlyARunThatExited0WithDoneOKForItsOwnRun).
+//     TestChannel_ServesAFilmWholeAndAccountsForItsDone.
 //   - A READ the film's storage cannot answer is never answered: the run is killed (ErrReadFailed),
 //     as one served past its budget is before the read that would pass it (ErrOverBudget).
 //     TestChannel_KillsARunWhoseFilmCannotBeRead, TestChannel_KillsARunPastItsBudget.

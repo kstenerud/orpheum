@@ -101,13 +101,6 @@ type Account struct {
 	LateFrames  int
 }
 
-// Succeeded is whether the run read its film whole by the channel's account, given FFmpeg's exit
-// status: it exited 0, said DONE OK for this run, and the node had no reason to fail it (Judging a Run).
-func (account Account) Succeeded(exitStatus int, run int64) bool {
-	return exitStatus == 0 && account.Failure == nil && account.Done != nil && account.Done.IsOK &&
-		account.Done.Run == run
-}
-
 // Open makes a channel's pipes. Hand ChildFiles to FFmpeg, contiguous and in order, and call Start
 // once it has started; Finish once it has exited.
 func Open(config Config) (*Channel, error) {

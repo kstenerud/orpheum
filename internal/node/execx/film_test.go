@@ -3,12 +3,15 @@
 package execx
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/diskwatch"
+	"github.com/kstenerud/orpheum/internal/node/ffstreamer"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -94,5 +97,60 @@ func openedTestFilm(t *testing.T) (string, OpenedFilm) {
 	}
 	return path, OpenedFilm{
 		File: file, Facts: facts, Disks: diskwatch.NewGate(clock.System{}), Root: "/", Window: time.Minute,
+	}
+}
+
+// A streamed run passed only having exited 0, said DONE for its input, that DONE OK and for its own
+// run, and given the node no reason to fail it (ffstreamer's specification, Judging a Run): a run that
+// read part of its film never passes as complete.
+func TestJudgeFilm_PassesOnlyARunThatExited0WithDoneOKForItsOwnRun(t *testing.T) {
+	t.Parallel()
+	exitedNonZero := &RunError{Tool: FFmpeg, ExitStatus: 1, Err: errors.New("exit status 1")}
+	doneOK := &ffstreamer.Done{Run: 7, IsOK: true}
+	for _, example := range []struct {
+		name    string
+		account ffstreamer.Account
+		ended   error
+		// says is something the verdict's error must say; empty for a pass.
+		says string
+		want error
+	}{
+		{name: "DONE OK for its run", account: ffstreamer.Account{Done: doneOK}},
+		{name: "no DONE", account: ffstreamer.Account{}, says: "no DONE"},
+		{
+			name: "DONE ERR, though it exited 0",
+			account: ffstreamer.Account{Done: &ffstreamer.Done{
+				Run: 7, Kind: ffstreamer.KindChannel, Code: 5, Message: "Input/output error",
+			}},
+			says: "Input/output error",
+		},
+		{
+			name: "DONE OK for another run", account: ffstreamer.Account{Done: &ffstreamer.Done{Run: 8, IsOK: true}},
+			says: "names run 8", want: ffstreamer.ErrViolation,
+		},
+		{
+			name: "the node's own reason, its DONE OK",
+			account: ffstreamer.Account{
+				Done: doneOK, Failure: ffstreamer.ErrOverBudget,
+			},
+			want: ffstreamer.ErrOverBudget,
+		},
+		{
+			name: "a nonzero exit, its DONE OK", account: ffstreamer.Account{Done: doneOK},
+			ended: exitedNonZero, want: exitedNonZero,
+		},
+	} {
+		err := judgeFilm(FFmpeg, example.account, 7, &tailBuffer{}, example.ended)
+		isPass := example.says == "" && example.want == nil
+		switch {
+		case isPass && err != nil:
+			t.Errorf("%s: %v; want a pass", example.name, err)
+		case !isPass && err == nil:
+			t.Errorf("%s: passed; want a failure", example.name)
+		case example.want != nil && !errors.Is(err, example.want):
+			t.Errorf("%s: %v; want %v", example.name, err, example.want)
+		case example.says != "" && !strings.Contains(err.Error(), example.says):
+			t.Errorf("%s: %v; want it to say %q", example.name, err, example.says)
+		}
 	}
 }
