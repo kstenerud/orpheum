@@ -338,9 +338,18 @@ func (server *Server) logStartup(ctx context.Context, reporter reporter, startup
 	if sound := startup.Sound; sound != nil {
 		server.logger.InfoContext(ctx, "a playback's sound", "userId", reporter.holder.UserID,
 			"deviceId", reporter.deviceID, "isThroughWebAudio", sound.IsThroughWebAudio,
-			"baseLatencyMs", sound.BaseLatencyMs, "outputLatencyMs", sound.OutputLatencyMs, "codecs", sound.Codecs,
+			"baseLatencyMs", msOrNone(sound.BaseLatencyMs), "outputLatencyMs", msOrNone(sound.OutputLatencyMs),
+			"codecs", sound.Codecs,
 			"mapping", sound.Mapping)
 	}
+}
+
+// msOrNone is a reported latency for the log: its milliseconds, or "none" where the browser said none.
+func msOrNone(ms *int64) any {
+	if ms == nil {
+		return "none"
+	}
+	return *ms
 }
 
 // logUnplayables says each quality a player gave up as one its device cannot play, and where: Flow
