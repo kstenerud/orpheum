@@ -114,7 +114,7 @@ describe("TitleView", () => {
     expect(forUser).not.toContain("This file is gone for good…");
   });
 
-  it("places an episode in its series, with its still", () => {
+  it("places an episode in its series and its season, each a link, with its still", () => {
     const episode: TitleDetail = {
       ...heat,
       kind: "episode",
@@ -125,8 +125,9 @@ describe("TitleView", () => {
       extras: null,
     };
     const markup = renderToStaticMarkup(withServices(<TitleView title={episode} />));
-    expect(markup).toContain('href="/series/20"');
-    expect(markup).toContain("Brass Arena · season 1, episode 1");
+    // The series and its season each a link up (research/back-navigation-2026-10-24.md).
+    expect(markup).toContain('<a href="/series/20">Brass Arena</a> · ');
+    expect(markup).toContain('<a href="/series/20?season=1">season 1</a>, episode 1');
     expect(markup).toContain('src="/api/v1/bytes/art/s1/landscape-m.webp"');
   });
 
