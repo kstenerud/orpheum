@@ -245,19 +245,28 @@ class GatePaths(unittest.TestCase):
 
 class PostEditAndStop(unittest.TestCase):
     def test_docs_and_code_edits_leave_different_marks(self):
-        cache = ROOT / ".claude" / ".cache"
-        for kind in ("docs", "code"):
-            (cache / f"check-pending-{kind}").unlink(missing_ok=True)
-        run_hook("post_edit.py", {"tool_input": {"file_path": str(ROOT / "docs/x.md")}})
+        # In a project of its own: the repository's marks are its live hooks', which an agent's edit
+        # sets and a Stop hook clears while the gate runs this test (2026-10-24), and which the test
+        # would otherwise clear under them.
+        import shutil
+        import tempfile
+        project = Path(tempfile.mkdtemp(prefix="post-edit-marks-"))
+        shutil.copytree(ROOT / "scripts", project / "scripts", ignore=shutil.ignore_patterns("__pycache__"))
+        cache = project / ".claude" / ".cache"
+
+        def edited(rel: str) -> None:
+            run_hook("post_edit.py", {"tool_input": {"file_path": str(project / rel)}},
+                     CLAUDE_PROJECT_DIR=str(project))
+
+        edited("docs/x.md")
         self.assertTrue((cache / "check-pending-docs").exists())
         self.assertFalse((cache / "check-pending-code").exists())
         # A package's README is documentation too: its edit runs no test of the code.
-        run_hook("post_edit.py", {"tool_input": {"file_path": str(ROOT / "web/packages/sdk/README.md")}})
+        edited("web/packages/sdk/README.md")
         self.assertFalse((cache / "check-pending-code").exists())
-        run_hook("post_edit.py", {"tool_input": {"file_path": str(ROOT / "internal/x.go")}})
+        edited("internal/x.go")
         self.assertTrue((cache / "check-pending-code").exists())
-        for kind in ("docs", "code"):
-            (cache / f"check-pending-{kind}").unlink(missing_ok=True)
+        shutil.rmtree(project)
 
 
 class PostEditFormats(unittest.TestCase):
