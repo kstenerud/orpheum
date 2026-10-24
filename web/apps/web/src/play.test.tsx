@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { i18n } from "./i18n.ts";
 import { audioRenditionIndex, playbackFailureText } from "./film-player.tsx";
-import { PlayView, positionToMoveFrom } from "./play.tsx";
+import { ladderSoundLevel, PlayView, positionToMoveFrom } from "./play.tsx";
 import { servedBy, type Heard } from "./test-dom.tsx";
 import { directDecision, unlevelled } from "./test-fixtures.ts";
 import { requestPlayback } from "./watching.ts";
@@ -29,6 +29,19 @@ describe("playing a file", () => {
       },
     ]);
     expect(decision.delivery).toBe("direct");
+  });
+
+  it("levels a ladder's sound by the gain it carries, or by the film's own levelling when it carries none (2026-10-24)", () => {
+    const measured = directDecision({ levelling: { isMeasured: true, gainDb: 4.5 } });
+    expect(ladderSoundLevel(measured, 3)).toEqual({
+      levelling: { isMeasured: true, gainDb: 3 },
+      carriedGainDb: 3,
+    });
+    // Offered unlevelled to a person who plays without levelling: measured, carrying nothing.
+    expect(ladderSoundLevel(measured, 0)).toEqual({
+      levelling: { isMeasured: true, gainDb: 4.5 },
+      carriedGainDb: 0,
+    });
   });
 
   it("asks for the film's own file when the person chose the original over its ladder", async () => {

@@ -435,13 +435,7 @@ function LadderUnder(
     };
   }, [ladder.cannotKeepUp, onCannotKeepUp]);
   const decision = { ...props.decision, resumePositionMs: Math.round(ladder.positionMs) };
-  const level: SoundLevel = {
-    levelling: {
-      isMeasured: ladder.offer.soundCarriedGainDb !== 0,
-      gainDb: ladder.offer.soundCarriedGainDb,
-    },
-    carriedGainDb: ladder.offer.soundCarriedGainDb,
-  };
+  const level = ladderSoundLevel(props.decision, ladder.offer.soundCarriedGainDb);
   return (
     <>
       <UnderTheVideo
@@ -467,6 +461,17 @@ function PlayOriginal(props: { readonly onChosen: () => void }): JSX.Element {
       {t("play.playOriginal")}
     </button>
   );
+}
+
+/**
+ * The level of a ladder's sound: the gain its chunks carry, levelled; or, for a sound that carries
+ * none, the film's own levelling from the decision, so a person who plays without levelling, whose
+ * sound is offered unlevelled, is told it plays as mixed and can turn levelling on (D226 §4).
+ */
+export function ladderSoundLevel(decision: PlaybackDecision, carriedGainDb: number): SoundLevel {
+  return carriedGainDb === 0
+    ? { levelling: decision.levelling, carriedGainDb: 0 }
+    : { levelling: { isMeasured: true, gainDb: carriedGainDb }, carriedGainDb };
 }
 
 /** A decision for the Play page, and whether its film waits to be played, as one opened again. */

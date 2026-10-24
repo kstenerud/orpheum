@@ -247,6 +247,10 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 		userID: userID, sessionKey: holder.SessionKey, fileID: file.ID, libraryID: file.LibraryID,
 		deviceID: request.DeviceID, decision: decision,
 		isOwnPictureUnplayable: service.isOwnPictureUnplayable(holder, request, file.ID),
+		// A person who plays without levelling hears the film's sound unlevelled, carrying no gain
+		// for the player to take back out through Web Audio, whose latency, half a second on an
+		// Android TV, plays the sound that much later (the owner's TCL TV, 2026-10-24).
+		isSoundUnlevelled: !started.Preferences.IsLevellingOn,
 	}
 	playback.used, playback.startingAudio = used, started.StartingAudio
 	started.OnLadder, started.NotOnLadderBecause, err = service.startOnLadder(ctx, holder, request, playback,
