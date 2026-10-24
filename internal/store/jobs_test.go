@@ -91,12 +91,12 @@ func TestJobStorage_ShowsThePlanTheOpenJobsAndMergesOnlyIntoAQueuedOne(t *testin
 	item := JobTarget{ItemID: 7}
 	storage.insert("fetch_metadata", item, 0, jobStart)
 	running, _ := storage.claim("fetch_metadata", jobStart)
-	if open := storage.insert("fetch_metadata", item, 0, jobStart); open.Running == nil ||
-		open.Running.ID != running.ID || open.Queued != nil {
+	if open := storage.insert("fetch_metadata", item, 0, jobStart); len(open.Running) != 1 ||
+		open.Running[0].ID != running.ID || open.Queued != nil {
 		t.Errorf("the open jobs for the item = %+v, want only the running one", open)
 	}
 	open := storage.insert("fetch_metadata", item, 0, jobStart)
-	if open.Queued == nil || open.Running == nil {
+	if open.Queued == nil || len(open.Running) != 1 {
 		t.Fatalf("the open jobs for the item = %+v, want the running one and its follow-up", open)
 	}
 	err := storage.jobs.Enqueue(t.Context(), "fetch_metadata", item,
@@ -255,8 +255,8 @@ func TestJobStorage_KeepsAnAssignedJobOpenAndRunningThroughARestart(t *testing.T
 		!row.AssignedUntil.Equal(until) || row.AttemptCount != 1 {
 		t.Fatalf("an assigned prepare = %+v, want assigned until %v with its attempt", row, until)
 	}
-	if open := storage.insert("prepare", JobTarget{RenditionID: 7}, 0, jobStart); open.Running == nil ||
-		open.Running.ID != prepare {
+	if open := storage.insert("prepare", JobTarget{RenditionID: 7}, 0, jobStart); len(open.Running) != 1 ||
+		open.Running[0].ID != prepare {
 		t.Errorf("a request's plan was shown %+v, want the assigned prepare as running", open)
 	}
 	if count, err := storage.jobs.RequeueRunning(t.Context()); err != nil || count != 0 {

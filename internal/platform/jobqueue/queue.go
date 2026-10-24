@@ -134,8 +134,8 @@ func New[T comparable](storage Storage[T], clockSource clock.Clock, config Confi
 // so a target has at most one queued and one running job (D231 §8). A request for a target with
 // a queued job merges into it: the higher priority wins, with its reason; a job waiting on its
 // start or its back-off runs no later than the request asks, and a snoozed one keeps its time;
-// the arguments merge as the kind says. A request for a target whose job is running is dropped
-// when that job covers it, and otherwise queued to follow it. A person's request for a job whose
+// the arguments merge as the kind says. A request for a target with jobs running is dropped when
+// any of them covers it, and otherwise queued to follow them. A person's request for a job whose
 // destination is parked looks at the destination at once (D231 §6), unless a sweep derived it
 // again (IsDerived). It says which it did.
 func (queue *Queue[T]) Enqueue(ctx context.Context, request Request[T]) (Action, error) {
@@ -221,7 +221,7 @@ func (queue *Queue[T]) plan(request Request[T], open Open[T], now time.Time) (Ch
 		}
 		return change, nil
 	}
-	if running := open.Running; running != nil {
+	for _, running := range open.Running {
 		covered, err := argsMerge.Covers(running.ArgsJSON, request.ArgsJSON)
 		if err != nil {
 			return Change{}, fmt.Errorf("compare a request with running job %d: %w", running.ID, err)

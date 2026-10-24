@@ -69,6 +69,34 @@ func TestAssign_AJobGivenToANodeFreesItsRunnerAndItsOutcomeIsTakenOnce(t *testin
 	}
 }
 
+// A job given to a node frees its runner, which claims a follow-up queued beside it, so a target has
+// two running; a request either covers is dropped. One covered by the first, compared with the
+// second alone, was queued: a full read-through asked for while a player's index read ran beside the
+// film's full read was queued again, to read the film twice (2026-10-24).
+func TestEnqueue_ARequestAnyRunningJobCoversIsDropped(t *testing.T) {
+	t.Parallel()
+	jobs := newFixture(t, jobqueuetest.Unjittered(), nil)
+	var ran []target
+	runner := assigningRunner(jobs, &ran)
+	for _, args := range []string{"full", "index"} {
+		jobs.enqueue(t, jobqueue.Request[target]{Kind: kindFetch, Target: "a", ArgsJSON: args})
+		jobs.runDue(t, runner)
+	}
+	if len(ran) != 2 {
+		t.Fatalf("ran %q, want the full job and the index job beside it", ran)
+	}
+	for _, args := range []string{"full", "index"} {
+		action, err := jobs.queue.Enqueue(t.Context(),
+			jobqueue.Request[target]{Kind: kindFetch, Target: "a", ArgsJSON: args})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if action != jobqueue.ActionDrop {
+			t.Errorf("a request for %q while both run was %v, want dropped: a running job covers it", args, action)
+		}
+	}
+}
+
 // The node's outcome is a handler's answer: its own failure retries after the back-off with the
 // attempt spent, and a destination down parks it at no cost.
 func TestResolve_TakesTheNodesOutcomeAsAHandlersAnswer(t *testing.T) {

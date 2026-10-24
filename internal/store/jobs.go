@@ -61,7 +61,7 @@ func (jobStorage *JobStorage) Enqueue(
 			if converted.State == jobqueue.StateQueued {
 				open.Queued = &converted
 			} else {
-				open.Running = &converted // running, or assigned, which counts as running
+				open.Running = append(open.Running, converted) // running, or assigned, which counts as running
 			}
 		}
 		change, err := plan(open)
