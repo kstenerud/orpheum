@@ -178,6 +178,13 @@ class RunArgs(unittest.TestCase):
         self.assertIn(f"ORPHEUM_DEV_MEDIA={media.resolve()}",
                       pairs(self.run_args(env={"ORPHEUM_DEV_MEDIA": str(media)}), "--env"))
 
+    def test_a_local_ffmpeg_is_mounted_read_only_and_named_to_the_command_only_when_given(self):
+        self.assertNotIn("ORPHEUM_FFMPEG_LOCAL", " ".join(pairs(self.run_args(), "--env")))
+        local = Path(tempfile.mkdtemp())
+        args = self.run_args(env={"ORPHEUM_FFMPEG_LOCAL": str(local)})
+        self.assertIn(f"type=bind,src={local.resolve()},dst={local.resolve()},readonly", pairs(args, "--mount"))
+        self.assertIn(f"ORPHEUM_FFMPEG_LOCAL={local.resolve()}", pairs(args, "--env"))
+
     def test_dri_is_passed_with_its_groups_only_when_present(self):
         self.assertEqual(pairs(self.run_args(), "--device"), [])
         dri = Path(tempfile.mkdtemp())

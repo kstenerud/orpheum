@@ -48,6 +48,10 @@ COPY scripts/fetch_tools.py /opt/orpheum/scripts/
 RUN python3 /opt/orpheum/scripts/fetch_tools.py
 
 # ---------------------------------------------------------------------------------------------
+# A local build of FFmpeg, in place of the pinned one, when ./staging is given ORPHEUM_FFMPEG_LOCAL
+# (scripts/fetch_ffmpeg.py): it names the directory as this stage's build context. Empty otherwise.
+FROM scratch AS ffmpeg-local
+
 FROM ${DEBIAN_IMAGE} AS base
 RUN apt-get update -q \
  && apt-get install -y -q --no-install-recommends ca-certificates \
@@ -186,8 +190,11 @@ RUN set -eu; packages="iproute2 wireguard-tools"; \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=build /src/bin/orpheum /usr/local/bin/orpheum
 COPY deploy/staging/tunnel.sh /usr/local/bin/orpheum-tunnel
-# The pinned FFmpeg at a path that names no version or architecture, for the node's ffmpeg_dir.
-RUN ln -s "$(find /opt/orpheum/tools/ffmpeg -mindepth 1 -maxdepth 1 -type d)" /opt/orpheum/ffmpeg \
+# The pinned FFmpeg, or the local build given in its place, at a path that names no version or
+# architecture, for the node's ffmpeg_dir.
+COPY --from=ffmpeg-local / /opt/orpheum/ffmpeg-local/
+RUN if [ -x /opt/orpheum/ffmpeg-local/ffmpeg ]; then ln -s /opt/orpheum/ffmpeg-local /opt/orpheum/ffmpeg; \
+    else ln -s "$(find /opt/orpheum/tools/ffmpeg -mindepth 1 -maxdepth 1 -type d)" /opt/orpheum/ffmpeg; fi \
  && test -x /opt/orpheum/ffmpeg/ffmpeg
 # The user the core and the node run as when compose names none; staging names the host's own, so
 # the files it writes in its directory are the owner's (internal/deployment/templates/compose.yaml).

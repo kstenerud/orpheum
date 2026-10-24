@@ -14,6 +14,12 @@ platform, taken from the release's own asset digests. A download whose hash diff
 never "probably fine": a swapped binary is exactly what a hash exists to catch. Changing the
 pin is an owner action, like any gate.
 
+ORPHEUM_FFMPEG_LOCAL, when set, names a directory holding an `ffmpeg` and an `ffprobe` to use in
+place of the pin: ffmpeg-ffstreamer's own build of fixes not yet released (`make remote-build` there
+fetches one into ../ffmpeg-ffstreamer/dist/bin-amd64). It is used as it is, with no hash, and said so
+on stderr each time, so a local build is never taken for the pinned one. ./dev mounts it and ./staging
+builds it into the runtime image.
+
 Prints the path of the directory that contains `ffmpeg` and `ffprobe`, and nothing else on
 stdout, so a Makefile can capture it.
 """
@@ -69,6 +75,27 @@ PINS = {
 
 # The environment variable naming a directory that holds fetched tools in place of .tools/.
 TOOLS_DIR_ENV = "ORPHEUM_TOOLS_DIR"
+# The environment variable naming a local build of FFmpeg to use in place of the pin.
+LOCAL_ENV = "ORPHEUM_FFMPEG_LOCAL"
+
+
+def local_build() -> Path | None:
+    """The local build ORPHEUM_FFMPEG_LOCAL names, said so on stderr; None when it names none.
+
+    A name that holds no runnable ffmpeg and ffprobe is refused, never fallen back from: the caller
+    asked for that build, and the pin in its place would test something else unnoticed.
+    """
+    named = os.environ.get(LOCAL_ENV)
+    if not named:
+        return None
+    local = Path(named).resolve()
+    missing = [name for name in ("ffmpeg", "ffprobe") if not os.access(local / name, os.X_OK)]
+    if missing:
+        raise SystemExit(f"{LOCAL_ENV}={named} holds no runnable {' or '.join(missing)}")
+    commit = local / "COMMIT"
+    built = f" (ffmpeg-ffstreamer {commit.read_text().strip()})" if commit.is_file() else ""
+    print(f"FFmpeg: the local build in {local}{built}, not the pin ({LOCAL_ENV})", file=sys.stderr)
+    return local
 
 
 def this_platform() -> str:
@@ -107,6 +134,9 @@ def verify(path: Path, expected: str) -> None:
 
 
 def install(target: str, root: Path) -> Path:
+    local = local_build()
+    if local is not None:
+        return local
     if target not in PINS:
         raise SystemExit(f"no pinned FFmpeg for {target}; pinned: {', '.join(sorted(PINS))}")
     pin = PINS[target]
