@@ -31,7 +31,10 @@ done
 /bin/cat >"$record.stdin"
 
 if [ -e "$directory/reply.hang" ]; then
-	printf '%s\n' "$$" >"$directory/hung.pid"
+	# Written whole and then renamed: a reader that sees hung.pid sees the pid, though this run is
+	# killed a moment after, as the node's death kills it.
+	printf '%s\n' "$$" >"$directory/hung.pid.$$"
+	/bin/mv "$directory/hung.pid.$$" "$directory/hung.pid"
 	if [ "$(/bin/cat "$directory/reply.hang")" = until-killed ]; then
 		# Before the progress, which the test waits for; an ignored signal stays ignored across exec.
 		trap '' INT TERM
