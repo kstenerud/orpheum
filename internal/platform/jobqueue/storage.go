@@ -84,11 +84,12 @@ type KindHealth struct {
 	FailedCount int64
 }
 
-// Open are a kind's open jobs for one target: at most one queued and one running, where an
-// assigned job counts as running.
+// Open are a kind's open jobs for one target: at most one queued, and those running, where an
+// assigned job counts as running. More than one runs when a job given to a node freed its runner to
+// claim the follow-up queued beside it, as a player's index read beside a full read-through.
 type Open[T comparable] struct {
 	Queued  *Row[T]
-	Running *Row[T]
+	Running []Row[T]
 }
 
 // Action is what a request does to the jobs open for its target.

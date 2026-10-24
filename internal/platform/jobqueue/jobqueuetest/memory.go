@@ -70,7 +70,7 @@ func (memory *Memory[T]) Enqueue(
 		case jobqueue.StateQueued:
 			open.Queued = &row
 		case jobqueue.StateRunning, jobqueue.StateAssigned:
-			open.Running = &row
+			open.Running = append(open.Running, row)
 		case jobqueue.StateDone, jobqueue.StateFailed, jobqueue.StateCancelled:
 		}
 	}

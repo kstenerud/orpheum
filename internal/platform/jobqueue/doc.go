@@ -20,7 +20,7 @@
 //   - A claim takes the highest priority whose time has come, then the earliest time, then the
 //     oldest, and only of its runner's kind.
 //     TestClaim_TakesTheHighestPriorityThenTheEarliestThenTheOldest.
-//   - A target has at most one queued and one running job of a kind (D231 §8). A repeat request
+//   - A target has at most one queued job of a kind (D231 §8). A repeat request
 //     while one is queued merges into it: the higher priority wins, with its reason, and the
 //     arguments merge as the kind's ArgsMerge says (the queued job's are kept by default).
 //     TestEnqueue_ARepeatRequestWhileQueuedTakesTheHigherPriorityAndMergesTheArguments.
@@ -29,7 +29,9 @@
 //     TestEnqueue_ARepeatRequestWakesAJobWaitingOnItsBackoffButNotASnoozedOne.
 //   - While a job runs, a request it covers (by default, the same arguments) is dropped, and
 //     another is queued once to follow it.
-//     TestEnqueue_WhileAJobRunsACoveredRequestIsDroppedAndAnotherQueuedOnceToFollow.
+//     TestEnqueue_WhileAJobRunsACoveredRequestIsDroppedAndAnotherQueuedOnceToFollow. A job given to
+//     a node frees its runner to claim that follow-up, so more than one may run; a request any of
+//     them covers is dropped. TestEnqueue_ARequestAnyRunningJobCoversIsDropped.
 //   - A job's own failure retries after the first retry delay, doubling, each wait jittered by up
 //     to a tenth either way (D231 §10), until the attempt limit, then fails.
 //     TestRunDue_RetriesAFailureWithJitteredDoublingBackoffThenFails.
