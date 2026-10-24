@@ -221,6 +221,33 @@ func TestWatchdog_BytesReadOrWrittenAreMovementThoughThePositionStands(t *testin
 	}
 }
 
+// What a sample of a paused run finds its group did, it did before its pause: it is dated at the
+// pause, so once continued the run is judged from where it stood, and it is no movement for the
+// node's work list while paused (D240 §6).
+func TestWatchdog_WhatAPausedRunsGroupDidIsMovementBeforeItsPause(t *testing.T) {
+	t.Parallel()
+	clockSource := clocktest.NewFake(time.Date(2026, 10, 24, 12, 0, 0, 0, time.UTC))
+	dog := newWatchdog(clockSource, testWatch)
+	moves := 0
+	dog.moved = func() { moves++ }
+	dog.observe(Progress{Position: time.Second})
+	dog.observeGroup(groupSample{processCount: 1, storageBytes: 1 << 20}, 0)
+	moves = 0
+	dog.pause()
+	clockSource.Advance(time.Hour)
+	dog.observeGroup(groupSample{processCount: 1, storageBytes: 2 << 20}, 0)
+	if moves != 0 {
+		t.Errorf("a paused run's sample told the movement hook %d times; want none", moves)
+	}
+	dog.resume()
+	clockSource.Advance(testWatch.StallWindow)
+	stalled := dog.verdict(FFmpeg)
+	if stalled == nil || stalled.Cause != StallStoodStill || stalled.WithoutAdvance != testWatch.StallWindow {
+		t.Errorf("a continued run still for its window: %+v; want stood still for the window since it continued",
+			stalled)
+	}
+}
+
 // Each movement of a watched run, its position's or its bytes', is told to the movement hook its
 // context carries, by which the node's work list counts how long a job has not moved.
 func TestWatchdog_TellsTheMovementHookOfEachMovement(t *testing.T) {
