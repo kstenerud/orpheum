@@ -446,6 +446,10 @@ func readFrame(from io.Reader, expectedSequence int8) (header, []byte, error) {
 	}
 	body := make([]byte, got.length)
 	if _, err := io.ReadFull(from, body); err != nil {
+		if errors.Is(err, io.EOF) {
+			// None of the body came: still a frame cut off, never the stream's own end (Frames).
+			err = io.ErrUnexpectedEOF
+		}
 		return header{}, nil, fmt.Errorf("%w: a frame ended inside its body: %w", ErrViolation, err)
 	}
 	return got, body, nil

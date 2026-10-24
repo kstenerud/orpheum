@@ -291,6 +291,10 @@ func TestChannel_KillsARunThatBreaksTheProtocol(t *testing.T) {
 			_, _ = fake.writing.Write([]byte{byte(typeRead), 2, 12}) //nolint:errcheck // the fake then exits
 			fake.exit()
 		}},
+		{"a frame whose body never came", func(fake *fakeFFmpeg) {
+			_, _ = fake.writing.Write([]byte{byte(typeRead), 2, 12, 0, 0, 0}) //nolint:errcheck // the fake then exits
+			fake.exit()
+		}},
 		// The writer stops counting a READ when it takes it (READ), so with two allowed, one taken
 		// and two waiting keep to the rules, and a fourth does not.
 		{"too many READs outstanding", func(fake *fakeFFmpeg) {
