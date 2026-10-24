@@ -23,25 +23,55 @@ func TestRegister_KeepsEachSessionsPageTheLatestFirstUntilItLapses(t *testing.T)
 	t.Parallel()
 	now := clocktest.NewFake(time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC))
 	register := NewRegister(now)
-	register.Look("first", 1, 10)
+	register.Look("first", 1, 10, NoSeason)
 	now.Advance(time.Second)
-	register.Look("second", 1, 20)
+	register.Look("second", 1, 20, NoSeason)
 	now.Advance(time.Second)
-	register.Look("first", 1, 30) // moved on from 10
+	register.Look("first", 1, 30, NoSeason) // moved on from 10
 	looks := register.Looks(time.Minute)
 	if len(looks) != 2 || looks[0].ItemID != 30 || looks[1].ItemID != 20 {
 		t.Fatalf("looks %+v; want 30, begun last, then 20", looks)
 	}
-	register.Leave("second", 99) // a page it is not on
+	register.Leave("second", 99, NoSeason) // a page it is not on
 	now.Advance(30 * time.Second)
-	register.Look("first", 1, 30)
+	register.Look("first", 1, 30, NoSeason)
 	now.Advance(40 * time.Second)
 	if looks = register.Looks(time.Minute); len(looks) != 1 || looks[0].ItemID != 30 {
 		t.Errorf("looks %+v; want 30 alone, said lately, and 20 lapsed", looks)
 	}
-	register.Leave("first", 30)
+	register.Leave("first", 30, NoSeason)
 	if looks = register.Looks(time.Minute); len(looks) != 0 {
 		t.Errorf("looks %+v after leaving; want none", looks)
+	}
+}
+
+// A series' season's page is a look of its own: a session that moves to another season begins a
+// new look, and leaving a season it has moved on from leaves the one it is on (the owner,
+// 2026-10-24).
+func TestRegister_ASeasonsPageIsALookOfItsOwn(t *testing.T) {
+	t.Parallel()
+	now := clocktest.NewFake(time.Date(2026, 10, 24, 12, 0, 0, 0, time.UTC))
+	register := NewRegister(now)
+	register.Look("only", 1, 20, NoSeason)
+	now.Advance(time.Second)
+	register.Look("only", 1, 20, 1)
+	looks := register.Looks(time.Minute)
+	if len(looks) != 1 || looks[0].ItemID != 20 || looks[0].Season != 1 || !looks[0].Since.Equal(now.Now()) {
+		t.Fatalf("looks %+v; want series 20's season 1, begun now", looks)
+	}
+	now.Advance(time.Second)
+	register.Look("only", 1, 20, 2)
+	register.Leave("only", 20, 1) // the season moved on from, said after
+	if looks = register.Looks(time.Minute); len(looks) != 1 || looks[0].Season != 2 {
+		t.Fatalf("looks %+v; want season 2, still shown", looks)
+	}
+	register.Leave("only", 20, NoSeason)
+	if looks = register.Looks(time.Minute); len(looks) != 1 {
+		t.Errorf("looks %+v after leaving the series' own page; want season 2 still", looks)
+	}
+	register.Leave("only", 20, 2)
+	if looks = register.Looks(time.Minute); len(looks) != 0 {
+		t.Errorf("looks %+v after leaving season 2; want none", looks)
 	}
 }
 
@@ -133,9 +163,9 @@ func TestRaiser_RaisesThePlayedTheLookedAtAndTheWatched(t *testing.T) {
 		Database: database, Settings: settingstest.Seeded(t, database), Clock: now,
 		Logger: slog.New(slog.DiscardHandler),
 	})
-	register.Look("first", 1, 20)
+	register.Look("first", 1, 20, NoSeason)
 	now.Advance(time.Second)
-	register.Look("second", 1, 10)
+	register.Look("second", 1, 10, NoSeason)
 	if err := raiser.Raise(t.Context()); err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +177,7 @@ func TestRaiser_RaisesThePlayedTheLookedAtAndTheWatched(t *testing.T) {
 	if !slices.Equal(record.raised, want) {
 		t.Errorf("raised\n  %q\nwant\n  %q", record.raised, want)
 	}
-	register.Leave("first", 20)
+	register.Leave("first", 20, NoSeason)
 	if err := raiser.Raise(t.Context()); err != nil {
 		t.Fatal(err)
 	}
@@ -187,7 +217,7 @@ func TestRaiser_ALookThatGoesOnReleasesWhatLeftIt(t *testing.T) {
 		Database: database, Settings: settingstest.Seeded(t, database), Clock: now,
 		Logger: slog.New(slog.DiscardHandler),
 	})
-	register.Look("only", 1, 10)
+	register.Look("only", 1, 10, NoSeason)
 	if err := raiser.Raise(t.Context()); err != nil {
 		t.Fatal(err)
 	}
@@ -201,6 +231,73 @@ func TestRaiser_ALookThatGoesOnReleasesWhatLeftIt(t *testing.T) {
 	}
 	if want := describe(jobs.Interested{FileIDs: []int64{101}}, 0, false); !slices.Equal(released, []string{want}) {
 		t.Errorf("released %q; want the removed file alone, the film still looked at", released)
+	}
+}
+
+// A look at a series' season raises the series and that season's episodes from its person's place
+// in it, not the series' next ones; a session that moves to another season releases the episodes
+// it left and keeps the series raised (the owner, 2026-10-24).
+func TestRaiser_ALookAtASeasonRaisesItsEpisodes(t *testing.T) {
+	t.Parallel()
+	database := storetest.OpenMigrated(t)
+	librarytest.NodeWithLibrary(t, database, librarytest.Library{Name: "Shows", Kind: "shows", MetadataSource: "tmdb"})
+	storetest.ExecRaw(t, database.Path(),
+		`INSERT INTO item (id, kind, library_id, added_at) VALUES (20, 'collection', 1, 1), (21, 'title', 1, 1),
+		 (22, 'title', 1, 1), (23, 'title', 1, 1), (24, 'title', 1, 1), (25, 'title', 1, 1), (26, 'title', 1, 1)`,
+		`INSERT INTO title (id, kind, identification_state) VALUES (21, 'episode', 'identified'),
+		 (22, 'episode', 'identified'), (23, 'episode', 'identified'), (24, 'episode', 'identified'),
+		 (25, 'episode', 'identified'), (26, 'episode', 'identified')`,
+		`INSERT INTO collection (id, kind, membership, created_by, identification_state)
+		 VALUES (20, 'series', 'explicit', 'scanner', 'identified')`,
+		`INSERT INTO ordering (id, collection_id, name) VALUES (1, 20, 'aired')`,
+		`INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order) VALUES
+		 (1, 21, 1, 1, 10001), (1, 22, 1, 2, 10002), (1, 23, 2, 1, 20001), (1, 24, 2, 2, 20002),
+		 (1, 25, 2, 3, 20003), (1, 26, 2, 4, 20004)`,
+		`INSERT INTO version (id, title_id, created_at) VALUES (1, 21, 1), (2, 22, 1), (3, 23, 1), (4, 24, 1),
+		 (5, 25, 1), (6, 26, 1)`,
+		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing, version_id, first_seen_at,
+		 last_seen_at) VALUES (210, 1, 1, '/s/1.mkv', 1, X'01', 'listed', 1, 1, 1),
+		 (220, 1, 1, '/s/2.mkv', 1, X'02', 'listed', 2, 1, 1), (230, 1, 1, '/s/3.mkv', 1, X'03', 'listed', 3, 1, 1),
+		 (240, 1, 1, '/s/4.mkv', 1, X'04', 'listed', 4, 1, 1), (250, 1, 1, '/s/5.mkv', 1, X'05', 'listed', 5, 1, 1),
+		 (260, 1, 1, '/s/6.mkv', 1, X'06', 'listed', 6, 1, 1)`,
+		`INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (230, '{}', 1000)`,
+		`INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1)`,
+		// Season 2's first episode finished: the series' next are 24 to 26.
+		`INSERT INTO play_position (user_id, file_id, position_ms, position_read_at, report_seq, updated_at)
+		 VALUES (1, 230, 1000, 5, 1, 1)`)
+	now := clocktest.NewFake(time.Date(2026, 10, 24, 12, 0, 0, 0, time.UTC))
+	register := NewRegister(now)
+	record := &raising{}
+	room := &waitingRoom{}
+	raiser := mustRaiser(t, Parts{
+		Register: register, Jobs: record, Nodes: room, Waiting: room, Playing: func() []int64 { return nil },
+		Database: database, Settings: settingstest.Seeded(t, database), Clock: now,
+		Logger: slog.New(slog.DiscardHandler),
+	})
+	register.Look("only", 1, 20, NoSeason)
+	if err := raiser.Raise(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	register.Look("only", 1, 20, 1)
+	if err := raiser.Raise(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		describe(jobs.Interested{ItemIDs: []int64{20, 24, 25, 26}, FileIDs: []int64{240, 250, 260}},
+			jobs.PriorityLookedAt, false),
+		describe(jobs.Interested{ItemIDs: []int64{20, 21, 22}, FileIDs: []int64{210, 220}}, jobs.PriorityLookedAt,
+			false),
+	}
+	if !slices.Equal(record.raised, want) {
+		t.Errorf("raised\n  %q\nwant\n  %q", record.raised, want)
+	}
+	var released []string
+	for _, interested := range record.released {
+		released = append(released, describe(interested, 0, false))
+	}
+	if gone := describe(jobs.Interested{ItemIDs: []int64{24, 25, 26}, FileIDs: []int64{240, 250, 260}}, 0,
+		false); !slices.Equal(released, []string{gone}) {
+		t.Errorf("released %q; want the series' next episodes, and the series still looked at", released)
 	}
 }
 

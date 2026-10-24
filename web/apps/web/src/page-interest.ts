@@ -13,13 +13,17 @@ export const InterestSaidEveryContext = createContext(15);
 /**
  * Says the server's work for itemId comes first while its page is shown (D324 §1): at once, again
  * every interest_said_every_seconds while the tab is visible, and that it left when the page goes,
- * the tab hides or the page unloads, the request kept alive past the page.
+ * the tab hides or the page unloads, the request kept alive past the page. A series' page that
+ * shows one season says which, whose episodes the server then raises (the owner, 2026-10-24).
  */
-export function usePageInterest(itemId: number): void {
+export function usePageInterest(itemId: number, season?: number): void {
   const { api } = useServices();
   const everySeconds = useContext(InterestSaidEveryContext);
   useEffect(() => {
-    const thisItem = { path: { id: itemId } };
+    const thisItem = {
+      path: { id: itemId },
+      ...(season === undefined ? {} : { query: { season } }),
+    };
     const say = (): void => {
       if (document.visibilityState === "visible") {
         void api.PUT("/interest/{id}", { params: thisItem }).catch(() => undefined);
@@ -47,5 +51,5 @@ export function usePageInterest(itemId: number): void {
       window.removeEventListener("pagehide", leave);
       leave();
     };
-  }, [api, itemId, everySeconds]);
+  }, [api, itemId, season, everySeconds]);
 }

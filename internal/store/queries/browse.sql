@@ -231,8 +231,10 @@ ORDER BY file.id;
 -- name: ListSeriesEpisodeFilesWithPositions :many
 -- A series' episodes in aired order, each live file of each with a person's position in it and
 -- when it was watched, and the file's length where its probe knows it: where the person is in the
--- series, which a look at its page raises the next episodes of (D324 section 3).
-SELECT position.title_id, file.id AS file_id,
+-- series, which a look at its page raises the next episodes of (D324 section 3), and the season
+-- each is in, 0 for the specials and those with no season, which a look at one season keeps to.
+SELECT position.title_id, CAST(coalesce(position.group_number, 0) AS INTEGER) AS season_number,
+  file.id AS file_id,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
     AS duration_ms,
   play_position.position_ms, play_position.position_read_at
