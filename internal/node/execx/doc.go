@@ -66,7 +66,9 @@
 //     follow the progress pipe at descriptors 4 and 5, named by StreamedInput. Such a run passes only
 //     having said DONE OK for its own run, a breach of the protocol or a passed budget kills it at once
 //     and fails it as the node's verdict, and a film whose disk failed or did not answer is a stall on
-//     its disk. TestRunWatched_AStreamedRunReadsItsFilmThroughTheNodeAndPassesOnItsDone,
+//     its disk. judgeFilm is the one judge of a streamed run's end:
+//     TestJudgeFilm_PassesOnlyARunThatExited0WithDoneOKForItsOwnRun,
+//     TestRunWatched_AStreamedRunReadsItsFilmThroughTheNodeAndPassesOnItsDone,
 //     TestRunWatched_AStreamedRunThatBreaksTheProtocolIsKilledAndFails,
 //     TestRunWatched_AStreamedRunWhoseFilmCannotBeReadStalledOnItsDisk.
 //   - A paused streamed run reads nothing: its READs are held as its process is stopped.
