@@ -77,6 +77,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   server's, from `/client-settings`, through `useBackgroundChanges`. One way to poll:
   `pollUntilStopped` in `src/polling.ts`, through `useResource` and `usePages`.
   `src/polling.test.ts`, `src/use-resource.test.ts`, `src/use-pages.test.ts`.
+- **A title's and a series' page have their own Back at the top** (the owner, 2026-10-24: a TV's
+  browser keeps its back out of the remote's reach): the page before when it was this app's, else
+  up in place of the current one: an episode to its season, a season to its series, a film, an
+  extra or a series to its list. `src/back-button.test.tsx`, `src/navigation.test.ts`.
 - **Lists have no pagination to click through** (web-client.md): the next page loads as the
   end comes into view, with a button that always asks too. `src/end-of-list.tsx`.
 - **About credits TMDB with its logo and exact notice, and names what we are built on**

@@ -7,6 +7,8 @@ import { useCallback, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 
+import { BackButton } from "./back-button.tsx";
+import type { Route } from "./router.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, unavailableText } from "./problem.ts";
 import { FilingReportButton } from "./filing-report.tsx";
@@ -227,6 +229,17 @@ function EpisodeList(props: {
   );
 }
 
+/**
+ * The page above a series' page: with a season chosen, the series' seasons, unless it has one season,
+ * whose episodes its own page shows; else the series.
+ */
+export function seriesUp(id: number, season: number | undefined, series?: SeriesDetail): Route {
+  const isOneSeason = series !== undefined && (series.seasons ?? []).length === 1;
+  return season === undefined || isOneSeason
+    ? { screen: "series" }
+    : { screen: "series-page", collectionId: id };
+}
+
 /** The series' pages this tab has shown. */
 const rememberedSeries = new Remembered<SeriesDetail>();
 
@@ -250,11 +263,16 @@ export function Series(props: {
   const series = useRemembered(`series/${String(props.id)}`, loaded, rememberedSeries);
   usePageInterest(props.id);
   return (
-    <Loaded
-      resource={series}
-      render={(value) => (
-        <SeriesView series={value} season={props.season} onMatchCorrected={reload} />
-      )}
-    />
+    <>
+      <BackButton
+        up={seriesUp(props.id, props.season, series.state === "loaded" ? series.value : undefined)}
+      />
+      <Loaded
+        resource={series}
+        render={(value) => (
+          <SeriesView series={value} season={props.season} onMatchCorrected={reload} />
+        )}
+      />
+    </>
   );
 }

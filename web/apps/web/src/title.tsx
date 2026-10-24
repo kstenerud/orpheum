@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { BackButton } from "./back-button.tsx";
 import { BusyGroup } from "./busy-group.tsx";
 import { useRequest } from "./use-request.ts";
 import { idempotent } from "./idempotent.ts";
@@ -19,6 +20,7 @@ import { MatchCorrection } from "./match-correction.tsx";
 import { StatusNotes } from "./status-cues.tsx";
 import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
+import type { Route } from "./router.ts";
 import { usePageInterest } from "./page-interest.ts";
 import { useServices } from "./services.tsx";
 import { useResource, type Resource } from "./use-resource.ts";
@@ -255,6 +257,17 @@ export function firstPlayableFile(title: TitleDetail): number | undefined {
   return title.versions?.[0]?.files?.[0]?.id;
 }
 
+/**
+ * The page above a title's: an episode's season, else the films. An extra names no film it belongs
+ * to, so its Back goes up to the films only when the history has no page of this app's before it.
+ */
+export function titleUp(title: TitleDetail | undefined): Route {
+  const place = title?.episode;
+  return place === undefined
+    ? { screen: "films" }
+    : { screen: "series-page", collectionId: place.seriesId, season: place.seasonNumber };
+}
+
 /** The titles' pages this tab has shown. */
 const rememberedTitles = new Remembered<TitleDetail>();
 
@@ -291,13 +304,16 @@ export function Title(props: { readonly id: number }): JSX.Element {
     });
   };
   return (
-    <BusyGroup isBusy={retiring.isBusy}>
-      <Loaded
-        resource={title}
-        render={(value) => (
-          <TitleView title={value} onRetireFile={retireFile} onMatchCorrected={reload} />
-        )}
-      />
-    </BusyGroup>
+    <>
+      <BackButton up={titleUp(title.state === "loaded" ? title.value : undefined)} />
+      <BusyGroup isBusy={retiring.isBusy}>
+        <Loaded
+          resource={title}
+          render={(value) => (
+            <TitleView title={value} onRetireFile={retireFile} onMatchCorrected={reload} />
+          )}
+        />
+      </BusyGroup>
+    </>
   );
 }

@@ -770,6 +770,7 @@ export const en = {
   },
   common: {
     loading: "Loading…",
+    back: "Back",
     show: "Show",
     showMore: "Show more",
     noPoster: "No poster",

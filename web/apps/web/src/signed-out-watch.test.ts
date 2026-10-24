@@ -22,6 +22,9 @@ function recordingNavigation(went: Route[]): Navigation {
     replace: (route) => {
       went.push(route);
     },
+    back: (up) => {
+      went.push(up);
+    },
     origin: () => testOrigin,
     fragment: () => "",
     subscribe: () => () => undefined,

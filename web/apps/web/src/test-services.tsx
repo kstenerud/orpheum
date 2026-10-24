@@ -22,6 +22,9 @@ export interface FakePlace extends Place {
 export function fakePlace(start: string): FakePlace {
   const location = { origin: testOrigin, pathname: "/", search: "", hash: "" };
   const addresses: string[] = [];
+  const states: unknown[] = [];
+  // The entry shown, which moves back by the history's own back.
+  let at = 0;
   let popstate = (): void => undefined;
   const show = (to: string): string => {
     const next = new URL(to, testOrigin + location.pathname);
@@ -31,15 +34,31 @@ export function fakePlace(start: string): FakePlace {
     return next.pathname + next.search + next.hash;
   };
   addresses.push(show(start));
+  states.push(null);
   return {
     location,
     addresses,
     history: {
-      pushState: (_data, _unused, to) => {
-        addresses.push(show(to));
+      get state() {
+        return states[at] ?? null;
       },
-      replaceState: (_data, _unused, to) => {
-        addresses[addresses.length - 1] = show(to);
+      back: () => {
+        if (at > 0) {
+          at -= 1;
+          show(addresses[at] ?? "/");
+          popstate();
+        }
+      },
+      pushState: (data, _unused, to) => {
+        addresses.length = at + 1;
+        states.length = at + 1;
+        addresses.push(show(to));
+        states.push(data);
+        at += 1;
+      },
+      replaceState: (data, _unused, to) => {
+        addresses[at] = show(to);
+        states[at] = data;
       },
     },
     addEventListener: (_type, listener) => {
