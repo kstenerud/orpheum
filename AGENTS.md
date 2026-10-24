@@ -1,17 +1,18 @@
 # AGENTS.md
 
 **Orpheum** (provisional name, D195) is a self-hosted video media server: a Go server with a
-media node, and a TypeScript/React web client and cast receiver. Two people use it first; that
-release is **Cut A**. This file is the contract for every agent changing the code. `CLAUDE.md`
+media node, and a TypeScript/React web client and cast receiver. Its first release, for two
+people, was **Cut A**, which shipped (the owner, 2026-10-21); the work now is a closed beta. This
+file is the contract for every agent changing the code. `CLAUDE.md`
 imports it. Rules, not reasons: each rule names what enforces it, and the reasons are behind the
 pointers.
 
 ## Start here
 
-1. **[`docs/contributors/design/plans/cut-a.md`](docs/contributors/design/plans/cut-a.md) is the
-   build contract.** It lists what to build, where it runs, the layout, every endpoint and
-   message, and milestones M0–M5 with acceptance tests. Build the milestone you are given, in
-   order.
+1. **[`docs/contributors/design/plans/cut-a.md`](docs/contributors/design/plans/cut-a.md) was
+   Cut A's build contract,** and still describes where things run, the layout and the first
+   endpoints and messages. The work now comes from the owner and the plans beside it; build what
+   you are given.
 2. **Read a package's `doc.go` (Go) or `README.md` (web) before changing it.** Its
    **Invariants** say what must stay true and which test or lint enforces each one. Its **Read
    before changing** names the few decisions that govern it. Read those; do not read the whole
@@ -45,9 +46,10 @@ done. *Standards: makefile.md §4.*
 
 ## Rules
 
-1. **Cut A's design is frozen** (D193 §8). If the plan is silent, ambiguous or wrong, stop and
-   ask the owner; do not invent design, and do not quietly build around it. *Review, and the
-   owner.*
+1. **Design is the owner's.** Cut A's design was frozen (D193 §8) until it shipped; it no longer
+   is, so never refuse or defer a change because of it (agent-failures A40). If the plan is
+   silent, ambiguous or wrong, propose and ask the owner; do not invent design, and do not
+   quietly build around it. *Review, and the owner.*
 2. **The gates are the owner's.** Edits to lint and compiler configuration, `Makefile`,
    `scripts/`, `.claude/`, `.githooks/`, `.github/`, `deps/*.allow`, `internal/archtest/` and
    test baselines are refused. Never loosen a gate to make code pass; if one is wrong, tell the
