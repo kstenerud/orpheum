@@ -190,3 +190,41 @@ func TestDevices_TheDocumentNamesEveryAudioOutputAndAnOldNameIsRefused(t *testin
 		t.Errorf("PUT audioOutput tv_speakers = %d, want refused: the answer is built_in_speakers now", old.status)
 	}
 }
+
+// A device's sound delay is its own, kept by the core: set on the device, it comes with every
+// playback the device asks for, and within 0 to 2 s (the owner's TCL TV, 2026-10-24).
+func TestPlayback_ADevicesSoundDelayIsKeptAndComesWithItsPlaybacks(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	device := "/me/devices/" + strconv.FormatInt(harness.thisDeviceID(t, user), 10)
+	delayOf := func() int64 {
+		t.Helper()
+		answer := harness.do(t, http.MethodPost, "/playback", user, chrome(1))
+		var answered struct {
+			SoundDelayMs int64 `json:"soundDelayMs"`
+		}
+		if err := json.Unmarshal([]byte(answer.body), &answered); err != nil || answer.status != http.StatusOK {
+			t.Fatalf("POST /playback = %d %s", answer.status, answer.body)
+		}
+		return answered.SoundDelayMs
+	}
+	if got := delayOf(); got != 0 {
+		t.Errorf("a device that set none: %d ms, want 0", got)
+	}
+	setDelay := func(ms int64) int {
+		return harness.do(t, http.MethodPut, device, user, map[string]int64{"soundDelayMs": ms}).status
+	}
+	if status := setDelay(600); status != http.StatusNoContent {
+		t.Fatalf("PUT soundDelayMs 600: %d", status)
+	}
+	if got := delayOf(); got != 600 {
+		t.Errorf("after the device set 600 ms: %d ms", got)
+	}
+	for _, refused := range []int64{-50, 2050} {
+		if status := setDelay(refused); status < 400 || status >= 500 {
+			t.Errorf("a delay of %d ms: %d, want refused", refused, status)
+		}
+	}
+}

@@ -15,6 +15,8 @@ import { SoundDelayControl } from "./sound-delay.tsx";
 export function BarePlayer(props: {
   readonly url: string;
   readonly resumePositionMs: number;
+  /** How long the device holds its sound back after its picture (sound-delay.tsx). */
+  readonly soundDelayMs: number;
   readonly onBack: () => void;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -39,7 +41,7 @@ export function BarePlayer(props: {
         }}
       />
       <FrameTimingNote video={video} />
-      <SoundDelayControl videoRef={videoRef} />
+      <SoundDelayControl videoRef={videoRef} initialMs={props.soundDelayMs} />
       <button type="button" onClick={props.onBack}>
         {t("play.bare.back")}
       </button>

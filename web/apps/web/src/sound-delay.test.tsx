@@ -6,35 +6,38 @@ import "./i18n.ts";
 import { createRef } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { browserStorage } from "./browser-storage.ts";
-import { keptSoundDelayMs, SoundDelayControl, soundDelayKey } from "./sound-delay.tsx";
-import { fire, mount, type Mounted } from "./test-dom.tsx";
+import { SoundDelayControl } from "./sound-delay.tsx";
+import { fire, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import { withServices } from "./test-services.tsx";
 
 let mounted: Mounted | undefined;
 
 afterEach(() => {
   mounted?.unmount();
   mounted = undefined;
-  browserStorage().removeItem(soundDelayKey);
 });
 
 describe("this device's sound delay (the owner's TCL TV, 2026-10-24)", () => {
-  it("starts as the browser keeps it, and keeps each step pressed", async () => {
-    browserStorage().setItem(soundDelayKey, "550");
-    mounted = await mount(<SoundDelayControl videoRef={createRef()} />);
+  it("starts as the playback gives it, and keeps each step pressed on the device", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy({ "PUT /me/devices/5": [204, undefined] }, heard);
+    services.session.signIn("token", { deviceId: 5 });
+    mounted = await mount(
+      withServices(<SoundDelayControl videoRef={createRef()} initialMs={550} />, services),
+    );
     expect(mounted.container.textContent).toContain("Sound delay on this device: 550 ms");
     const more = [...mounted.container.querySelectorAll("button")].find(
       (each) => each.textContent === "+50 ms",
     );
     await fire(more ?? null, new MouseEvent("click", { bubbles: true }));
     expect(mounted.container.textContent).toContain("Sound delay on this device: 600 ms");
-    expect(browserStorage().getItem(soundDelayKey)).toBe("600");
+    expect(heard).toEqual([{ methodAndPath: "PUT /me/devices/5", body: { soundDelayMs: 600 } }]);
   });
 
-  it("keeps none for what is not a delay", () => {
-    for (const kept of ["-50", "abc", "99999", "12.5"]) {
-      browserStorage().setItem(soundDelayKey, kept);
-      expect(keptSoundDelayMs()).toBe(0);
-    }
+  it("is not offered to a viewer with no device to keep it", async () => {
+    mounted = await mount(
+      withServices(<SoundDelayControl videoRef={createRef()} initialMs={0} />, servedBy({})),
+    );
+    expect(mounted.container.textContent).not.toContain("Sound delay");
   });
 });

@@ -717,6 +717,7 @@ CREATE TABLE device (                                      -- class A
   name          TEXT NOT NULL,
   platform      TEXT NOT NULL,
   audio_output  TEXT CHECK (audio_output IN ('built_in_speakers','receiver','headphones')),  -- migration 0020
+  sound_delay_ms INTEGER NOT NULL DEFAULT 0 CHECK (sound_delay_ms BETWEEN 0 AND 2000),  -- migration 0055: the sound held back after a late picture
                                          -- NULL until asked on first playback (D184)
   added_at    INTEGER NOT NULL,
   last_signed_in_at     INTEGER NOT NULL,

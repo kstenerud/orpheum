@@ -87,6 +87,14 @@ func (service *Service) SetAudioOutput(ctx context.Context, userID, deviceID int
 	})
 }
 
+// SetSoundDelay keeps how long one of a person's devices holds its sound back after its picture, in
+// milliseconds: for a TV that shows its picture late.
+func (service *Service) SetSoundDelay(ctx context.Context, userID, deviceID, delayMs int64) error {
+	return service.onOwnDevice(ctx, userID, deviceID, func(queries *sqlcgen.Queries) error {
+		return queries.SetDeviceSoundDelay(ctx, sqlcgen.SetDeviceSoundDelayParams{SoundDelayMs: delayMs, ID: deviceID})
+	})
+}
+
 // RemoveDevice revokes one of a person's devices (D218 §4): it leaves their list, and its
 // sessions end at their next request.
 func (service *Service) RemoveDevice(ctx context.Context, userID, deviceID int64) error {

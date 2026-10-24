@@ -27,6 +27,11 @@ UPDATE device SET name = sqlc.arg(name) WHERE id = sqlc.arg(id);
 -- How a device makes sound (D222): asked the first time it plays, changeable after.
 UPDATE device SET audio_output = sqlc.arg(audio_output) WHERE id = sqlc.arg(id);
 
+-- name: SetDeviceSoundDelay :exec
+-- How long a device's sound is delayed after its picture, for a TV that shows its picture late: its
+-- person sets it there.
+UPDATE device SET sound_delay_ms = sqlc.arg(sound_delay_ms) WHERE id = sqlc.arg(id);
+
 -- name: RemoveDevice :exec
 -- A device revoked (D218 section 4): it leaves the list, and its sessions end.
 UPDATE device SET removed_at = sqlc.arg(removed_at) WHERE id = sqlc.arg(id);
@@ -45,7 +50,7 @@ WHERE device_id = sqlc.arg(device_id) AND kind = 'issued_secret' AND scope = 'de
 
 -- name: GetLiveDeviceOfUser :one
 -- One of a person's devices, when it is theirs and has not been removed.
-SELECT id, name, platform, audio_output FROM device
+SELECT id, name, platform, audio_output, sound_delay_ms FROM device
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) AND removed_at IS NULL;
 
 -- name: RecordDeviceSignIn :exec

@@ -31,8 +31,6 @@ const clientKeys = new Set([
   "orpheum.debug.startOnFilmsPicture",
   // The realm a person asked the page to remember (discovery-start.ts).
   "orpheum.discovery.realm",
-  // How long this device's sound is delayed after its picture (sound-delay.tsx).
-  "orpheum.soundDelayMs",
 ]);
 
 /**

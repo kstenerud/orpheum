@@ -2124,6 +2124,11 @@ export interface components {
              */
             audioOutput?: "built_in_speakers" | "receiver" | "headphones";
             name?: string;
+            /**
+             * Format: int64
+             * @description How long the device holds its sound back after its picture, in ms
+             */
+            soundDelayMs?: number;
         };
         ChangePasswordInputBody: {
             currentPassword: string;
@@ -3832,6 +3837,8 @@ export interface components {
             profile?: "remux" | "h264";
             /** Format: int64 */
             resumePositionMs: number;
+            /** Format: int64 */
+            soundDelayMs: number;
             /** Format: int64 */
             startingAudioStreamId?: number;
             subtitles: components["schemas"]["SubtitleTrackBody"][] | null;
