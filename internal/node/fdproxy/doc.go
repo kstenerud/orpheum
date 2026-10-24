@@ -20,6 +20,8 @@
 //     overflow. Any breach kills the run and is its account's failure (ErrViolation).
 //     TestChannel_KillsARunThatBreaksTheProtocol, TestChannel_KillsARunWhoseOpeningItCannotWorkWith,
 //     TestDecodeDone_RefusesADoneThatBreaksItsRules.
+//     Once the run has failed the node sends nothing more, the DATA of a read of the film under way
+//     included. TestChannel_SendsNothingOnceTheRunHasFailed.
 //     Whatever FFmpeg sends, the channel ends, serves no more than its budget, and kills the run
 //     exactly when it records a reason to: FuzzChannel_JudgesWhateverFFmpegSends, whose seeds run
 //     with the tests and which `go test -fuzz` explores beyond them.
