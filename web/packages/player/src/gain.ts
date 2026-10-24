@@ -12,7 +12,7 @@ export interface Gain {
 /** The part of Web Audio a gain needs, so a test can stand in for the browser's. */
 export type GainAudio = Pick<
   AudioContext,
-  "destination" | "state" | "resume" | "createMediaElementSource" | "createGain"
+  "destination" | "state" | "resume" | "createMediaElementSource" | "createGain" | "createDelay"
 > &
   ReportedLatencies;
 
@@ -50,7 +50,10 @@ function dbToGainFactor(db: number): number {
  */
 class ElementLevelling {
   private wantedDb: number;
+  private wantedDelayMs = 0;
   private gainNode: GainNode | undefined = undefined;
+  private source: MediaElementAudioSourceNode | undefined = undefined;
+  private delayNode: DelayNode | undefined = undefined;
 
   constructor(
     private readonly element: HTMLMediaElement,
@@ -60,6 +63,10 @@ class ElementLevelling {
     this.wantedDb = db;
     element.addEventListener("play", () => {
       this.resumeAndRoute();
+    });
+    // The context's latencies settle once its sound plays: the delay is set again from them.
+    element.addEventListener("playing", () => {
+      this.applyDelay();
     });
     this.resumeAndRoute();
   }
@@ -72,6 +79,15 @@ class ElementLevelling {
   /** The latencies the audio context reports, in seconds, where the browser says them. */
   latencies(): ReportedLatencies {
     return this.context;
+  }
+
+  /**
+   * Delays the sound by ms after the picture, less what Web Audio's own latency already delays it
+   * by: the sound of a TV that shows its picture late (soundDelay).
+   */
+  setDelayMs(ms: number): void {
+    this.wantedDelayMs = ms;
+    this.applyDelay();
   }
 
   setDb(db: number): void {
@@ -102,14 +118,76 @@ class ElementLevelling {
     destination.channelCount = Math.max(destination.maxChannelCount, destination.channelCount);
     const gainNode = this.context.createGain();
     gainNode.gain.value = dbToGainFactor(this.wantedDb);
-    this.context.createMediaElementSource(this.element).connect(gainNode);
+    const source = this.context.createMediaElementSource(this.element);
+    source.connect(gainNode);
     gainNode.connect(destination);
     this.gainNode = gainNode;
+    this.source = source;
+    this.applyDelay();
+  }
+
+  /**
+   * Sets the delay node to the delay wanted less the context's latencies, never below none; puts
+   * one between the element and the gain the first time a delay is wanted, so a sound never delayed
+   * keeps the route it had.
+   */
+  private applyDelay(): void {
+    const { source, gainNode } = this;
+    if (source === undefined || gainNode === undefined) {
+      return;
+    }
+    if (this.delayNode === undefined) {
+      if (this.wantedDelayMs <= 0) {
+        return;
+      }
+      const delayNode = this.context.createDelay(longestSoundDelayMs / 1000);
+      source.disconnect();
+      source.connect(delayNode);
+      delayNode.connect(gainNode);
+      this.delayNode = delayNode;
+    }
+    const latencyS = (this.context.baseLatency ?? 0) + (this.context.outputLatency ?? 0);
+    this.delayNode.delayTime.value = Math.max(0, this.wantedDelayMs / 1000 - latencyS);
   }
 }
 
+/** The longest delay a sound may be given after its picture, in milliseconds. */
+export const longestSoundDelayMs = 2000;
+
 /** Each element's levelling: Web Audio takes an element's sound once, for the element's life. */
 const levellingByElement = new WeakMap<HTMLMediaElement, ElementLevelling>();
+
+/** A delay of an element's sound after its picture. */
+export interface SoundDelay {
+  /** Sets the delay, in milliseconds after the picture, 0 to longestSoundDelayMs. */
+  readonly setMs: (ms: number) => void;
+}
+
+/**
+ * A delay of element's sound after its picture, for a TV that shows its picture late: the owner's
+ * TCL TV, in TV Bro, showed every film's picture half a second after its sound, and the browser
+ * could not tell (2026-10-24). The sound is handed to Web Audio once a delay is asked for, as a gain
+ * hands it, and Web Audio's own latency counts toward the delay. Where the page cannot set the
+ * element's volume, as on iOS, nothing is delayed (canSetVolume).
+ */
+export function soundDelay(
+  element: HTMLMediaElement,
+  createAudioContext: () => GainAudio = () => new AudioContext(),
+): SoundDelay {
+  return {
+    setMs: (wanted) => {
+      const ms = Math.min(Math.max(wanted, 0), longestSoundDelayMs);
+      const levelling = levellingByElement.get(element);
+      if (levelling !== undefined) {
+        levelling.setDelayMs(ms);
+      } else if (ms > 0 && canSetVolume(element)) {
+        const made = new ElementLevelling(element, createAudioContext(), 0);
+        made.setDelayMs(ms);
+        levellingByElement.set(element, made);
+      }
+    },
+  };
+}
 
 /**
  * How an element's sound reaches the speakers: through Web Audio, for its gain, with the latencies

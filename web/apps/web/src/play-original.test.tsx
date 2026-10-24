@@ -50,7 +50,7 @@ describe("the original file, chosen over the ladder (web-client.md: playback is 
     expect(asked).toEqual(["originalChosen"]);
   });
 
-  it("is not offered for a film already playing its own file", async () => {
+  it("is not offered for a film already playing its own file, which may play in the bare player", async () => {
     mounted = await mount(
       withServices(
         <PlayView fileId={2} decision={directDecision()} onDecideAgain={() => undefined} />,
@@ -58,5 +58,14 @@ describe("the original file, chosen over the ladder (web-client.md: playback is 
       ),
     );
     expect(mounted.container.textContent).not.toContain("Play the original file");
+    const bare = [...mounted.container.querySelectorAll("button")].find(
+      (each) => each.textContent === "Play in a bare player",
+    );
+    await fire(bare ?? null, new MouseEvent("click", { bubbles: true }));
+    // The video alone, the browser's own controls, nothing over it (bare-player.tsx).
+    const video = mounted.container.querySelector("video.bare-player");
+    expect(video?.getAttribute("src")).toBe("/api/v1/bytes/media/direct/abc");
+    expect(video?.hasAttribute("controls")).toBe(true);
+    expect(mounted.container.querySelector(".film-player__stage")).toBeNull();
   });
 });

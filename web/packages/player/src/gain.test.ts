@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { canSetVolume, gainAfterVolume, soundRouteOf, type GainAudio } from "./gain.ts";
+import { canSetVolume, gainAfterVolume, soundDelay, soundRouteOf, type GainAudio } from "./gain.ts";
 import { settled } from "./test-timing.ts";
 
 /** A gain node, as the fake makes it. */
@@ -136,5 +136,77 @@ describe("a gain after the element's volume (D226 §4)", () => {
     await settled();
     expect(fake.contextsMade()).toBe(0);
     expect(fake.routed).toEqual([]);
+  });
+});
+
+describe("a delay of the sound after its picture (the owner's TCL TV, 2026-10-24)", () => {
+  /** Web Audio, faked as far as a delay needs: each node made and what each connects to. */
+  function delayingAudio(latencies: { baseLatency?: number; outputLatency?: number }): {
+    readonly create: () => GainAudio;
+    readonly delays: { delayTime: { value: number } }[];
+    readonly connections: string[];
+  } {
+    const delays: { delayTime: { value: number } }[] = [];
+    const connections: string[] = [];
+    const destination = { channelCount: 2, maxChannelCount: 2 };
+    const create = (): GainAudio => {
+      const faked = {
+        ...latencies,
+        destination,
+        state: "suspended",
+        resume: () => {
+          faked.state = "running";
+          return Promise.resolve();
+        },
+        createMediaElementSource: () => ({
+          connect: (to: { name: string }) => connections.push(`element → ${to.name}`),
+          disconnect: () => connections.push("element ×"),
+        }),
+        createGain: () => ({
+          name: "gain",
+          gain: { value: 1 },
+          connect: () => connections.push("gain → speakers"),
+        }),
+        createDelay: () => {
+          const delay = {
+            name: "delay",
+            delayTime: { value: 0 },
+            connect: (to: { name: string }) => connections.push(`delay → ${to.name}`),
+          };
+          delays.push(delay);
+          return delay;
+        },
+      };
+      return faked as unknown as GainAudio;
+    };
+    return { create, delays, connections };
+  }
+
+  it("delays the sound by what is asked less Web Audio's own latency, never below none", async () => {
+    const video = document.createElement("video");
+    const audio = delayingAudio({ baseLatency: 0.096, outputLatency: 0.328 });
+    const delay = soundDelay(video, audio.create);
+    delay.setMs(600);
+    await settled();
+    expect(audio.connections).toEqual([
+      "element → gain",
+      "gain → speakers",
+      "element ×",
+      "element → delay",
+      "delay → gain",
+    ]);
+    expect(audio.delays[0]?.delayTime.value).toBeCloseTo(0.176, 3);
+    delay.setMs(300);
+    expect(audio.delays[0]?.delayTime.value).toBe(0);
+    expect(soundRouteOf(video).isThroughWebAudio).toBe(true);
+  });
+
+  it("leaves a sound not delayed as the element plays it", async () => {
+    const video = document.createElement("video");
+    const audio = delayingAudio({});
+    soundDelay(video, audio.create).setMs(0);
+    await settled();
+    expect(audio.connections).toEqual([]);
+    expect(soundRouteOf(video).isThroughWebAudio).toBe(false);
   });
 });
