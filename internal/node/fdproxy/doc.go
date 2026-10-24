@@ -47,10 +47,12 @@
 //   - Once Finish has begun, FFmpeg having exited, the channel kills nothing: a storage read it stops
 //     fails nothing, and a breach read from what FFmpeg left is the run's failure without a kill.
 //     TestChannel_KillsNothingOnceFinishHasBegun.
-//   - Frames after DONE change nothing. TestChannel_FramesAfterDoneChangeNothing.
+//   - Frames after DONE change nothing, a malformed one included: each is counted late.
+//     TestChannel_FramesAfterDoneChangeNothing, TestChannel_AMalformedFrameAfterDoneChangesNothing.
 //   - The terms allow the fewer READs outstanding of FFmpeg's offer and the node's most, FFmpeg is
-//     held to exactly that many, a READ taken to answer no longer counted, and on DONE the READs
-//     still waiting are dropped. TestChannel_TermsAllowTheFewerREADsOutstandingOfWhatEitherSideOffers,
+//     held to exactly that many, a READ taken to answer no longer counted, and on DONE the node stops
+//     serving: the READs still waiting are dropped, the film's read under way is stopped, and no more
+//     DATA is sent. TestChannel_TermsAllowTheFewerREADsOutstandingOfWhatEitherSideOffers,
 //     TestChannel_HoldsFFmpegToExactlyTheREADsOutstandingAgreed, TestChannel_DropsTheREADsStillWaitingOnDone.
 //   - A FileSource reads its film through the disk's gate, each read within its place's window, and
 //     fails a run whose film changed under it (ErrFilmChanged).

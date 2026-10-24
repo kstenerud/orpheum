@@ -635,12 +635,14 @@ func TestChannel_HoldsFFmpegToExactlyTheREADsOutstandingAgreed(t *testing.T) {
 	}
 }
 
-// On DONE the node drops every READ still waiting, and a DONE that comes before READs it has not
-// answered is no breach (When DONE Is Sent).
+// On DONE the node stops serving the channel: it drops every READ still waiting, stops the film's
+// read under way and sends nothing more, and a DONE that comes before READs it has not answered is no
+// breach (When DONE Is Sent).
 func TestChannel_DropsTheREADsStillWaitingOnDone(t *testing.T) {
 	t.Parallel()
 	source := newFilm(1000)
 	source.readGate, source.entered = make(chan struct{}), make(chan struct{}, 2)
+	source.stopped = make(chan struct{}, 1)
 	channel, fake := startFake(t, testConfig(source))
 	fake.open(256, 2)
 	fake.send(typeRead, readBody(0, 256))
@@ -654,12 +656,34 @@ func TestChannel_DropsTheREADsStillWaitingOnDone(t *testing.T) {
 	if waiting != 0 {
 		t.Errorf("%d READs still waiting after DONE; want none", waiting)
 	}
-	source.readGate <- struct{}{}
-	fake.receive()
+	testutil.Receive(t, source.stopped, "the film's read under way to be stopped")
+	testutil.Receive(t, channel.writerDone, "the writer to end")
+	_ = fake.writing.Close() //nolint:errcheck // FFmpeg exits
+	account := channel.Finish()
+	sent, err := io.ReadAll(fake.reading)
+	_ = fake.reading.Close() //nolint:errcheck // the fake's last end
+	if err != nil || len(sent) != 0 {
+		t.Errorf("after DONE the node sent %d bytes (%v); want none", len(sent), err)
+	}
+	if account.Failure != nil || fake.killed.Load() || source.reads.Load() != 1 {
+		t.Errorf("a DONE before a READ was answered: failure %v, killed %v, %d film reads; want none, no, 1",
+			account.Failure, fake.killed.Load(), source.reads.Load())
+	}
+}
+
+// A frame after DONE that breaks the framing changes nothing either: FFmpeg has given its account,
+// and the frame is counted late, never the run's failure (DONE).
+func TestChannel_AMalformedFrameAfterDoneChangesNothing(t *testing.T) {
+	t.Parallel()
+	channel, fake := startFake(t, testConfig(newFilm(100)))
+	fake.open(64, 2)
+	fake.send(typeDone, doneOK())
+	fake.sendNumbered(typeRead, 9, readBody(0, 64)) // out of sequence
 	fake.exit()
-	if account := channel.Finish(); account.Failure != nil || fake.killed.Load() {
-		t.Errorf("a DONE before a READ was answered: failure %v, killed %v; want neither", account.Failure,
-			fake.killed.Load())
+	account := channel.Finish()
+	if account.LateFrames != 1 || account.Failure != nil || fake.killed.Load() || !saidDoneOK(account) {
+		t.Errorf("the account: %+v, killed %v; want one late frame, no failure, no kill and the DONE OK",
+			account, fake.killed.Load())
 	}
 }
 
