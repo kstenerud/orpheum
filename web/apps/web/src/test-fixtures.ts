@@ -18,6 +18,7 @@ export function directDecision(changes: Partial<PlaybackDecision> = {}): Playbac
     preferences: { subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true },
     resumePositionMs: 0,
     mediaToken: "t",
+    soundDelayMs: 0,
     levelling: unlevelled.levelling,
     fileBitRateKbps: 2400,
     tracks: {

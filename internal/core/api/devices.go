@@ -51,13 +51,17 @@ type DeviceInput struct {
 	DeviceID int64 `minimum:"1" path:"id"`
 }
 
-// ChangeDeviceInput renames one of the asker's devices, or says how it makes sound, or both.
+// ChangeDeviceInput renames one of the asker's devices, says how it makes sound, or how long it
+// holds its sound back, or any of them.
 type ChangeDeviceInput struct {
 	AuthorizationHeader
 	DeviceID int64 `minimum:"1" path:"id"`
 	Body     struct {
 		Name        *string          `json:"name,omitempty" maxLength:"100" minLength:"1" required:"false"`
 		AudioOutput *AudioOutputKind `doc:"How the device makes sound; built-in speakers and headphones are stereo (D222)" json:"audioOutput,omitempty" required:"false"` //nolint:lll // one struct tag
+		// SoundDelayMs holds the device's sound back after its picture, for a TV that shows its picture
+		// late: the owner's TCL TV, in TV Bro, half a second (2026-10-24).
+		SoundDelayMs *int64 `doc:"How long the device holds its sound back after its picture, in ms" json:"soundDelayMs,omitempty" maximum:"2000" minimum:"0" required:"false"` //nolint:lll // one struct tag
 	}
 }
 
@@ -140,15 +144,18 @@ func (server *Server) changeMyDevice(ctx context.Context, input *ChangeDeviceInp
 	if err != nil {
 		return nil, err
 	}
-	if input.Body.Name == nil && input.Body.AudioOutput == nil {
+	if input.Body.Name == nil && input.Body.AudioOutput == nil && input.Body.SoundDelayMs == nil {
 		return nil, invalidRequestAt(http.StatusBadRequest, "body",
-			"a change names a new name or how the device makes sound")
+			"a change names a new name, how the device makes sound or its sound delay")
 	}
 	if name := input.Body.Name; name != nil {
 		err = dependencies.Auth.RenameDevice(ctx, principal.UserID, input.DeviceID, *name)
 	}
 	if audioOutput := input.Body.AudioOutput; err == nil && audioOutput != nil {
 		err = dependencies.Auth.SetAudioOutput(ctx, principal.UserID, input.DeviceID, string(*audioOutput))
+	}
+	if delayMs := input.Body.SoundDelayMs; err == nil && delayMs != nil {
+		err = dependencies.Auth.SetSoundDelay(ctx, principal.UserID, input.DeviceID, *delayMs)
 	}
 	return server.deviceAnswer(ctx, "change a device", err)
 }

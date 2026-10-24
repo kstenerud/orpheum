@@ -454,6 +454,13 @@
             "maxLength": 100,
             "minLength": 1,
             "type": "string"
+          },
+          "soundDelayMs": {
+            "description": "How long the device holds its sound back after its picture, in ms",
+            "format": "int64",
+            "maximum": 2000,
+            "minimum": 0,
+            "type": "integer"
           }
         },
         "type": "object"
@@ -5786,6 +5793,12 @@
             "format": "int64",
             "type": "integer"
           },
+          "soundDelayMs": {
+            "format": "int64",
+            "maximum": 2000,
+            "minimum": 0,
+            "type": "integer"
+          },
           "startingAudioStreamId": {
             "format": "int64",
             "type": "integer"
@@ -5820,6 +5833,7 @@
           "preferences",
           "resumePositionMs",
           "mediaToken",
+          "soundDelayMs",
           "levelling",
           "fileBitRateKbps",
           "tracks"

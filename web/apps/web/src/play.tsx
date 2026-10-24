@@ -92,6 +92,7 @@ export function PlayView(props: PlayViewProps): JSX.Element {
       <BarePlayer
         url={decision.url}
         resumePositionMs={decision.resumePositionMs}
+        soundDelayMs={decision.soundDelayMs}
         onBack={() => {
           setIsBare(false);
         }}
@@ -305,7 +306,7 @@ function UnderTheVideo(
         isInitiallyOn={props.decision.preferences.isLevellingOn}
         videoRef={props.videoRef}
       />
-      <SoundDelayControl videoRef={props.videoRef} />
+      <SoundDelayControl videoRef={props.videoRef} initialMs={props.decision.soundDelayMs} />
     </>
   );
 }

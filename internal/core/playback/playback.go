@@ -178,6 +178,9 @@ type Started struct {
 	ResumePositionMs int64
 	// AudioOutput is how the device asking makes sound, or empty until it is asked (D222).
 	AudioOutput string
+	// SoundDelayMs is how long the device asking holds its sound back after its picture, for a TV
+	// that shows its picture late; 0 for none, and for a viewer with no device.
+	SoundDelayMs int64
 	// Levelling is what brings the main sound to the level: the one played as it is, or, when
 	// prepared, its stereo mix (D226). Each audio rendition carries its own.
 	Levelling decide.Levelling
@@ -218,11 +221,11 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	if err != nil {
 		return Started{}, err
 	}
-	output, err := service.audioOutputOf(ctx, userID, request)
+	sound, err := service.deviceSoundOf(ctx, userID, request)
 	if err != nil {
 		return Started{}, err
 	}
-	started := Started{AudioOutput: output}
+	started := Started{AudioOutput: sound.output, SoundDelayMs: sound.delayMs}
 	if started.Subtitles, err = service.subtitles.Want(ctx, file.ID); err != nil {
 		return Started{}, err
 	}
@@ -464,31 +467,37 @@ func isStereoOutput(audioOutput string) bool {
 	return audioOutput == auth.AudioOutputBuiltInSpeakers || audioOutput == auth.AudioOutputHeadphones
 }
 
-// audioOutputOf is how the device asking makes sound: a person's device's own answer, or, for a
-// viewer with no device row, what they chose as they joined (D246 §6).
-func (service *Service) audioOutputOf(ctx context.Context, userID int64, request Request) (string, error) {
-	if request.DeviceID == 0 {
-		return request.AudioOutput, nil
-	}
-	return service.audioOutput(ctx, userID, request.DeviceID)
+// deviceSound is how a device makes sound and how long it holds its sound back after its picture.
+type deviceSound struct {
+	output  string
+	delayMs int64
 }
 
-// audioOutput is how a person's device makes sound, or empty when it is not yet asked or there is
-// no device.
-func (service *Service) audioOutput(ctx context.Context, userID, deviceID int64) (string, error) {
+// deviceSoundOf is how the device asking makes sound: a person's device's own answer and delay, or,
+// for a viewer with no device row, what they chose as they joined (D246 §6), with no delay.
+func (service *Service) deviceSoundOf(ctx context.Context, userID int64, request Request) (deviceSound, error) {
+	if request.DeviceID == 0 {
+		return deviceSound{output: request.AudioOutput}, nil
+	}
+	return service.deviceSound(ctx, userID, request.DeviceID)
+}
+
+// deviceSound is how a person's device makes sound, empty when it is not yet asked, and its sound
+// delay; nothing when there is no device.
+func (service *Service) deviceSound(ctx context.Context, userID, deviceID int64) (deviceSound, error) {
 	if deviceID == 0 {
-		return "", nil
+		return deviceSound{}, nil
 	}
 	device, err := store.OrNotFound(service.database.Read().GetLiveDeviceOfUser(ctx, sqlcgen.GetLiveDeviceOfUserParams{
 		ID: deviceID, UserID: &userID,
 	}))
 	if errors.Is(err, store.ErrNotFound) {
-		return "", nil
+		return deviceSound{}, nil
 	}
 	if err != nil {
-		return "", fmt.Errorf("read device %d: %w", deviceID, err)
+		return deviceSound{}, fmt.Errorf("read device %d: %w", deviceID, err)
 	}
-	return ptr.ValueOrZero(device.AudioOutput), nil
+	return deviceSound{output: ptr.ValueOrZero(device.AudioOutput), delayMs: device.SoundDelayMs}, nil
 }
 
 // Source is where a direct playback's bytes are: a node, the target on its byte socket, and

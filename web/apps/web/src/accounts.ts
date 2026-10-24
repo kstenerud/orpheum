@@ -286,6 +286,20 @@ export async function renameMyDevice(api: Api, deviceId: number, name: string): 
 export type AudioOutput = NonNullable<Device["audioOutput"]>;
 
 /** Keeps how one of one's devices makes sound (D222). */
+/** Keeps how long one of the person's devices holds its sound back after its picture, in ms. */
+export async function setMyDeviceSoundDelay(
+  api: Api,
+  deviceId: number,
+  soundDelayMs: number,
+): Promise<void> {
+  throwIfRefused(
+    await api.PUT("/me/devices/{id}", {
+      params: { path: { id: deviceId } },
+      body: { soundDelayMs },
+    }),
+  );
+}
+
 export async function setMyDeviceAudioOutput(
   api: Api,
   deviceId: number,
