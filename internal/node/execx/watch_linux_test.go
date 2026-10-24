@@ -163,6 +163,22 @@ func stateOf(t *testing.T, pid int, wantStopped bool) string {
 	return state
 }
 
+// tickTaken ticks the watchdog of a paused run, failing the test if it is not taken: the watchdog
+// takes a tick only once it has judged the one before it and found no stall, and a stalled paused
+// run, which its stop cannot end until it is continued, never takes another.
+func tickTaken(t *testing.T, ticks chan<- time.Time, clockSource *clocktest.Fake, ended <-chan error) {
+	t.Helper()
+	timer := time.NewTimer(testutil.ReceiveLimit)
+	defer timer.Stop()
+	select {
+	case ticks <- clockSource.Now():
+	case err := <-ended:
+		t.Fatalf("a paused run ended %v; want it left paused, however long", err)
+	case <-timer.C:
+		t.Fatal("the paused run's watchdog took no tick: it judged the run stalled")
+	}
+}
+
 // A paused run is stopped where it stands, its process group sent SIGSTOP, and neither stalls nor
 // spends its deadline however long it is paused; continued, it is judged again from where it
 // stood, its paused time not counted (D240 §6).
@@ -196,19 +212,24 @@ func TestRunWatched_APausedRunNeitherStallsNorSpendsItsDeadlineAndIsJudgedAgainO
 		t.Errorf("the paused run's process is in state %q, want stopped (T)", state)
 	}
 	clockSource.Advance(testWatch.Deadline + testWatch.StallWindow)
-	ticks <- clockSource.Now()
-	select {
-	case err := <-ended:
-		t.Fatalf("a paused run ended %v; want it left paused, however long", err)
-	case <-time.After(100 * time.Millisecond):
-	}
+	// The watchdog takes a tick only once it has judged the one before and found no stall, so the
+	// second tick taken says the first was judged while the run was paused. A tick taken is not yet
+	// judged: the clock moves on only once the next is taken.
+	tickTaken(t, ticks, clockSource, ended)
+	tickTaken(t, ticks, clockSource, ended)
 	pausing.Continue()
 	if state := stateOf(t, pid, false); state == "T" {
 		t.Error("the continued run's process is still stopped")
 	}
 	clockSource.Advance(testWatch.StallWindow)
-	ticks <- clockSource.Now()
-	err := testutil.Receive(t, ended, "the continued run's end")
+	// The tick taken last is judged before the clock moved, and this one stops the run, or after,
+	// and that one does: either way the run is judged once continued and still for its window.
+	var err error
+	select {
+	case ticks <- clockSource.Now():
+		err = testutil.Receive(t, ended, "the continued run's end")
+	case err = <-ended:
+	}
 	stalled, isStalled := errors.AsType[*StalledError](err)
 	if !isStalled || stalled.Cause != StallStoodStill || stalled.WithoutAdvance != testWatch.StallWindow {
 		t.Errorf("the continued run, still for its window, ended %v; want stood still for the window alone", err)
