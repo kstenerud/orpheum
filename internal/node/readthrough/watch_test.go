@@ -121,7 +121,7 @@ func TestRead_ReadsAStreamedFilmThroughTheNodeAndAnyOtherByItsPathAlone(t *testi
 		t.Errorf("a film by path was read as %+v; want its path granted and named, and no stream", run)
 	}
 	if run := runs[1]; run.Film != streamed.Stream || len(run.Access.Read) != 0 ||
-		!slices.Contains(run.Arguments, "ffstreamer:") || slices.Contains(run.Arguments, "file:/media/film.mkv") {
+		!slices.Contains(run.Arguments, "fdproxy:") || slices.Contains(run.Arguments, "file:/media/film.mkv") {
 		t.Errorf("a streamed film was read as %+v; want it served through the node, no path granted or named", run)
 	}
 }

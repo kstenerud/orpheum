@@ -42,8 +42,8 @@ func TestMain(m *testing.M) {
 
 // actAsFilmReader reads the input as mode says and returns the exit status: 0, or which step failed.
 func actAsFilmReader(words []string, mode string) int {
-	readFD, _ := strconv.Atoi(valueAfter(words, "-ffstreamer_read_fd"))   //nolint:errcheck // the node's
-	writeFD, _ := strconv.Atoi(valueAfter(words, "-ffstreamer_write_fd")) //nolint:errcheck // as above
+	readFD, _ := strconv.Atoi(valueAfter(words, "-read_fd"))   //nolint:errcheck // the node's
+	writeFD, _ := strconv.Atoi(valueAfter(words, "-write_fd")) //nolint:errcheck // as above
 	client := fdproxytest.NewClient(readFD, writeFD)
 	if err := client.Open(64); err != nil {
 		return 2

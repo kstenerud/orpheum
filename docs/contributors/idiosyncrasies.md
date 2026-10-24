@@ -1586,7 +1586,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 - **Cause:** opening an indexed file (MP4), `ff_configure_buffers_for_index` (`libavformat/seek.c`)
   treats any protocol but `file`, `pipe` and `cache` as a network one, where a seek costs a round
   trip: it enlarges the I/O buffer up to 16 MiB, and has a seek of up to 8 MiB read forward instead.
-- **What we do:** ffmpeg-fdproxy's patch adds its protocol (`ffstreamer` until 2026-10-24) to those local protocols, so a streamed
+- **What we do:** ffmpeg-fdproxy's patch adds `fdproxy` to those local protocols, so a streamed
   film is read as a file is (D330).
 - **Evidence:** ffmpeg-fdproxy's bench/RESULTS.md, 2026-10-23: through fdproxy, a probe of an
   11-track MP4 read in 16 MB runs and was served 25 times its size, where the same file read directly

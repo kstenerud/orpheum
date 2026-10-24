@@ -26,7 +26,7 @@ func TestStreamsFilms_OnlyWhenTheNodesFFmpegHasTheProtocolAndSaysWhich(t *testin
 		want                    bool
 	}{
 		{
-			"the patched build", "Supported file protocols:\nInput:\n  ffstreamer\n  file\nOutput:\n  file\n",
+			"the patched build", "Supported file protocols:\nInput:\n  fdproxy\n  file\nOutput:\n  file\n",
 			"through the node", true,
 		},
 		{

@@ -142,22 +142,16 @@ func (channel *Channel) ChildFiles() []*os.File {
 	return []*os.File{channel.childReading, channel.childWriter}
 }
 
-// ProtocolName is what FFmpeg calls the protocol, and optionPrefix what its options begin with: the
-// names it had before it was renamed fdproxy (2026-10-24). The pinned build knows only these, and
-// ffmpeg-fdproxy's builds take them beside fdproxy, read_fd, write_fd and cache_blocks; the next pin
-// moves both to the new names, and ffmpeg-fdproxy then drops the old ones.
-const (
-	ProtocolName = "ffstreamer"
-	optionPrefix = "ffstreamer_"
-)
+// ProtocolName is what FFmpeg calls the protocol.
+const ProtocolName = "fdproxy"
 
 // InputArguments name the input for FFmpeg: the protocol alone allowed, its descriptors, and the
 // blocks it keeps (Naming the Input, Reading in Blocks).
 func InputArguments(readFD, writeFD, cacheBlocks int) []string {
 	return []string{
 		"-protocol_whitelist", ProtocolName,
-		"-" + optionPrefix + "read_fd", strconv.Itoa(readFD), "-" + optionPrefix + "write_fd", strconv.Itoa(writeFD),
-		"-" + optionPrefix + "cache_blocks", strconv.Itoa(cacheBlocks),
+		"-read_fd", strconv.Itoa(readFD), "-write_fd", strconv.Itoa(writeFD),
+		"-cache_blocks", strconv.Itoa(cacheBlocks),
 		"-i", ProtocolName + ":",
 	}
 }
