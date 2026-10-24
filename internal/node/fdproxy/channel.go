@@ -70,7 +70,7 @@ type Channel struct {
 	// kill ends the run; it is called under mutex, and never once isClosing is set (failLocked).
 	kill     func()
 	killOnce sync.Once
-	// stopWriting ends a storage read the writer waits on, once FFmpeg has exited.
+	// stopWriting ends a storage read the writer waits on, once FFmpeg has said DONE or exited.
 	stopWriting context.CancelFunc
 	// pipeSizeRefused is why the data pipe kept its default size, nil when it took the size asked.
 	pipeSizeRefused error
@@ -260,7 +260,7 @@ func (channel *Channel) read(ctx context.Context) {
 		got, body, err := readFrame(channel.requests, expected)
 		if err != nil {
 			if !errors.Is(err, io.EOF) && !errors.Is(err, os.ErrClosed) {
-				channel.fail(err)
+				channel.failUnlessDone(err)
 			}
 			return
 		}
@@ -314,7 +314,20 @@ func (channel *Channel) open() (Terms, error) {
 	return terms, writeAll(channel.data, frame(typeRequest, 1, requestBody(terms)))
 }
 
-// take takes one frame after the opening exchange: a READ to answer, or FFmpeg's DONE.
+// failUnlessDone fails the run for a frame it could not read, unless FFmpeg has said DONE: a frame
+// after DONE, malformed or not, changes nothing (DONE), and is counted late.
+func (channel *Channel) failUnlessDone(reason error) {
+	channel.mutex.Lock()
+	defer channel.mutex.Unlock()
+	if channel.account.Done != nil {
+		channel.account.LateFrames++
+		return
+	}
+	channel.failLocked(reason)
+}
+
+// take takes one frame after the opening exchange: a READ to answer, or FFmpeg's DONE, on which the
+// node stops serving the channel: the READs waiting are dropped, and the one being answered stopped.
 func (channel *Channel) take(got header, body []byte, terms Terms) error {
 	channel.mutex.Lock()
 	defer channel.mutex.Unlock()
@@ -330,6 +343,8 @@ func (channel *Channel) take(got header, body []byte, terms Terms) error {
 		}
 		channel.account.Done = &done
 		channel.waiting = nil
+		channel.changed.Broadcast()
+		channel.stopWriting()
 		return nil
 	case typeRead:
 		read, err := decodeRead(got.sequence, body, terms)
@@ -367,7 +382,7 @@ func (channel *Channel) write(ctx context.Context, terms Terms) {
 			return
 		}
 		if !channel.isServing() {
-			return // the run failed, or Finish began, while the film was read: nothing more is sent (Serving)
+			return // the run failed, said DONE, or Finish began, while the film was read (Serving, DONE)
 		}
 		put(put(put(buffer[:0], typeData), read.sequence), read.length)
 		if err := writeAll(channel.data, buffer[:headerBytes+int(read.length)]); err != nil {
@@ -377,14 +392,14 @@ func (channel *Channel) write(ctx context.Context, terms Terms) {
 }
 
 // next takes the oldest READ to answer, waiting while there is none or the run is held, and says
-// false once the channel is closing or failed.
+// false once the channel no longer serves (isServingLocked).
 func (channel *Channel) next() (readRequest, bool) {
 	channel.mutex.Lock()
 	defer channel.mutex.Unlock()
-	for !channel.isClosing && channel.account.Failure == nil && (len(channel.waiting) == 0 || channel.isHeld) {
+	for channel.isServingLocked() && (len(channel.waiting) == 0 || channel.isHeld) {
 		channel.changed.Wait()
 	}
-	if channel.isClosing || channel.account.Failure != nil {
+	if !channel.isServingLocked() {
 		return readRequest{}, false
 	}
 	read := channel.waiting[0]
@@ -392,33 +407,40 @@ func (channel *Channel) next() (readRequest, bool) {
 	return read, true
 }
 
-// isServing is whether the writer may still send DATA: not once the run has failed, after which the
-// node sends nothing more (Serving), nor once Finish has begun.
+// isServing is whether the writer may still send DATA (isServingLocked).
 func (channel *Channel) isServing() bool {
 	channel.mutex.Lock()
 	defer channel.mutex.Unlock()
-	return !channel.isClosing && channel.account.Failure == nil
+	return channel.isServingLocked()
 }
 
-// failRead fails the run for a READ its film's storage did not answer, unless Finish has begun:
-// Finish stops a storage read under way, and a READ whose FFmpeg has exited fails nothing (End of
-// a Run): as ffprobe exits 0 after DONE OK, its prefetched block still being read.
+// isServingLocked is whether the channel still serves: not once the run has failed, after which the
+// node sends nothing more (Serving), nor once FFmpeg has said DONE (DONE), nor once Finish has begun.
+// Requires mutex.
+func (channel *Channel) isServingLocked() bool {
+	return !channel.isClosing && channel.account.Failure == nil && channel.account.Done == nil
+}
+
+// failRead fails the run for a READ its film's storage did not answer, unless FFmpeg has said DONE
+// or Finish has begun: both stop a storage read under way, and a READ FFmpeg no longer waits for
+// fails nothing (DONE, End of a Run): as ffprobe exits 0 after DONE OK, its prefetched block still
+// being read.
 func (channel *Channel) failRead(reason error) {
 	channel.mutex.Lock()
 	defer channel.mutex.Unlock()
-	if !channel.isClosing {
+	if !channel.isClosing && channel.account.Done == nil {
 		channel.failLocked(reason)
 	}
 }
 
 // spend counts length bytes against the budget, before they are read, without overflowing:
 // served is compared with what is left of the budget, never added to (Checks Without Overflow). It
-// says whether to serve them: not past the budget, which fails the run, and not once Finish has
-// begun, FFmpeg having exited.
+// says whether to serve them: not past the budget, which fails the run, and not once FFmpeg has said
+// DONE or Finish has begun.
 func (channel *Channel) spend(length int32) bool {
 	channel.mutex.Lock()
 	defer channel.mutex.Unlock()
-	if channel.isClosing {
+	if channel.isClosing || channel.account.Done != nil {
 		return false
 	}
 	budget := channel.config.BudgetBytes

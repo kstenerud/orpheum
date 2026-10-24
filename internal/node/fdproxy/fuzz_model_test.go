@@ -121,7 +121,7 @@ func (model *fuzzModel) judgeNext() bool {
 	kind, sequence := int8(model.pending[0]), int8(model.pending[1])       //nolint:gosec // G115: signed bytes
 	length := int64(int32(binary.LittleEndian.Uint32(model.pending[2:6]))) //nolint:gosec // G115: as above
 	if !model.headerKeepsTheRules(kind, sequence, length) {
-		model.violate()
+		model.breakFraming()
 		return false
 	}
 	if int64(len(model.pending)-headerBytes) < length {
@@ -209,6 +209,9 @@ func (model *fuzzModel) take(kind int8, body []byte) {
 			return
 		}
 		model.done, model.waiting = &done, nil
+		if model.writer != writerNone {
+			model.writer = writerGone // DONE stops the read under way, and nothing more is served
+		}
 	case typeRead:
 		read := readRequest{
 			sequence: int8((int(model.expected) + 127) % 128),
@@ -331,11 +334,22 @@ func (model *fuzzModel) beginFinish() {
 	}
 }
 
-// end is the end of what FFmpeg sent: a frame it left cut off is a breach.
+// end is the end of what FFmpeg sent: a frame it left cut off breaks the framing.
 func (model *fuzzModel) end() {
 	if model.phase != phaseStopped && len(model.pending) > 0 {
-		model.violate()
+		model.breakFraming()
 	}
+	model.phase = phaseStopped
+}
+
+// breakFraming is a frame that breaks the framing, after which the reader stops: a breach, or after
+// DONE a late frame that changes nothing (DONE).
+func (model *fuzzModel) breakFraming() {
+	if model.done == nil {
+		model.violate()
+		return
+	}
+	model.late++
 	model.phase = phaseStopped
 }
 
