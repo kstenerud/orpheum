@@ -49,6 +49,21 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A42 — Reported a gate failure its own change caused as a flake, from one passing run alone (2026-10-24)
+
+- **What happened:** `make check` failed `TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled`
+  while committing an earlier commit, which made slow work wait up to 30 s, later 5 s, for a disk's last
+  reader. The test passed alone at both lengths, and the agent reported it to the owner as a flake
+  under load, "not caused by tonight's changes". Under load it failed 6 times in 96 with the change,
+  and never in 96 without it: the wait widened a race in the job queue, where an enqueue compared a
+  request with only one of a target's running jobs and queued a duplicate full read-through (fixed
+  in an earlier commit). The false belief came from a single passing run in an idle sandbox, taken as
+  evidence about a failure that had needed the full gate's load.
+- **Caught by:** the owner, asking for the flaky test to be investigated.
+- **Gate:** none. The lesson: a failure first seen beside a change is the change's until the same
+  load, with and without it, says otherwise; reproduce under load (several parallel runs beside a
+  CPU burn) before calling anything a flake.
+
 ### A41 — Paired a second core with the owner's account, told it would sit beside the first (2026-10-23)
 
 - **What happened:** to test D334's pairing end to end, the agent asked the owner for a key to pair
