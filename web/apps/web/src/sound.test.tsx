@@ -6,7 +6,7 @@ import "./i18n.ts";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { PlaybackDecision } from "./watching.ts";
-import { Play } from "./play.tsx";
+import { Play, PlayView } from "./play.tsx";
 import { BoostSwitch } from "./sound.tsx";
 import {
   choose,
@@ -164,5 +164,88 @@ describe("the dialogue boost's switch", () => {
     expect(heard).toEqual([
       { methodAndPath: "PUT /me/preferences", body: { isDialogueBoostOn: false } },
     ]);
+  });
+});
+
+describe("the dialogue boost on a film's ladder", () => {
+  /** A stereo device's film on its ladder: its surround track's standard mix and boosted one. */
+  function onLadder(isDialogueBoostOn: boolean): PlaybackDecision {
+    const converted = { codec: "aac", channelCount: 2, kbps: 128, isOriginal: false };
+    const plain = directDecision();
+    return directDecision({
+      onLadder: {
+        url: "/api/v1/bytes/media/chunks/t/master.m3u8",
+        startAtBps: 1_896_000,
+        qualityKbps: 1200,
+        height: 480,
+        isBelowTheLowest: false,
+        soundCarriedGainDb: 0,
+        isReady: false,
+        filmPictureKbps: 4000,
+        linkSharePercent: 70,
+      },
+      preferences: { ...plain.preferences, isDialogueBoostOn },
+      tracks: {
+        ...plain.tracks,
+        pictures: [{ codec: "h264", width: 854, height: 480, kbps: 1200, isOriginal: false }],
+        sounds: [
+          { audioTrackIndex: 0, isBoosted: false, ...converted },
+          { audioTrackIndex: 0, isBoosted: true, ...converted },
+        ],
+        fileSounds: [{ audioTrackIndex: 0, codec: "eac3", channelCount: 6 }],
+      },
+    });
+  }
+
+  it("is switched under the film as under a prepared copy, playing the other mix and kept for every file (the owner, 2026-10-24)", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy({ "PUT /me/preferences": [204, undefined] }, heard);
+    mounted = await mount(
+      withServices(
+        <PlayView fileId={2} decision={onLadder(false)} onDecideAgain={() => undefined} />,
+        services,
+      ),
+    );
+    const box = [...mounted.container.querySelectorAll("label")]
+      .find((label) => label.textContent === "Dialogue boost")
+      ?.querySelector("input");
+    expect(box?.checked).toBe(false);
+    expect(mounted.container.textContent).toContain(
+      "Audio: AAC stereo, 128 kb/s (transcoded from E-AC-3 5.1)",
+    );
+    await click(box);
+    expect(heard).toContainEqual({
+      methodAndPath: "PUT /me/preferences",
+      body: { isDialogueBoostOn: true },
+    });
+    expect(mounted.container.textContent).toContain(
+      "Audio: AAC stereo, 128 kb/s (transcoded from E-AC-3 5.1, dialogue boost)",
+    );
+  });
+
+  it("starts as the person left it, and is not offered for a track with no centre to raise", async () => {
+    mounted = await mount(
+      withServices(
+        <PlayView fileId={2} decision={onLadder(true)} onDecideAgain={() => undefined} />,
+        servedBy({}),
+      ),
+    );
+    expect(mounted.container.textContent).toContain("dialogue boost)");
+    const stereo = onLadder(false);
+    mounted.unmount();
+    mounted = await mount(
+      withServices(
+        <PlayView
+          fileId={2}
+          decision={{
+            ...stereo,
+            tracks: { ...stereo.tracks, sounds: stereo.tracks.sounds?.slice(0, 1) ?? [] },
+          }}
+          onDecideAgain={() => undefined}
+        />,
+        servedBy({}),
+      ),
+    );
+    expect(mounted.container.textContent).not.toContain("Dialogue boost");
   });
 });

@@ -21,6 +21,7 @@ import { AudioMenu, mixIndices, startingAudioTrack, type AudioTrack } from "./au
 import {
   audioRenditionIndex,
   FilmPlayer,
+  ladderAudioRenditionIndex,
   type FilmComposition,
   type FilmParts,
   type MovedDown,
@@ -419,7 +420,10 @@ function PreparedUnder(
 /**
  * Under the film on its ladder: what sits under every video, its play state kept from where it
  * started, not where the person last left the file; its sound carries its levelling, as a prepared
- * copy's does. Its lowest quality's word that it cannot keep up goes to a host's session (D247 §8).
+ * copy's does; and, as a prepared copy's, a switch for the dialogue boost where the track playing has
+ * a boosted mix (D217 §3, D222), which changes the ladder's sound at once. The boosted mix carries
+ * its track's gain, as the standard one does (D226 §3), so the level stays. Its lowest quality's word
+ * that it cannot keep up goes to a host's session (D247 §8).
  */
 function LadderUnder(
   props: PlayProps &
@@ -436,6 +440,10 @@ function LadderUnder(
   }, [ladder.cannotKeepUp, onCannotKeepUp]);
   const decision = { ...props.decision, resumePositionMs: Math.round(ladder.positionMs) };
   const level = ladderSoundLevel(props.decision, ladder.offer.soundCarriedGainDb);
+  const { sound, playSound } = ladder;
+  const canBoost =
+    sound !== undefined &&
+    ladderAudioRenditionIndex(props.decision.tracks, { ...sound, isBoosted: true }) !== undefined;
   return (
     <>
       <UnderTheVideo
@@ -444,6 +452,14 @@ function LadderUnder(
         level={level}
         onAudioChosen={decideAgainFor(props, "audioChosen")}
       />
+      {canBoost ? (
+        <BoostSwitch
+          isInitiallyOn={props.decision.preferences.isDialogueBoostOn}
+          onSwitched={(isOn) => {
+            playSound({ audioTrackIndex: sound.audioTrackIndex, isBoosted: isOn });
+          }}
+        />
+      ) : null}
       <PlayOriginal onChosen={decideAgainFor(props, "originalChosen")} />
     </>
   );
