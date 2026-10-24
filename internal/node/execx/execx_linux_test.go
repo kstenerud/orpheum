@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"syscall"
 	"testing"
@@ -70,4 +71,44 @@ func assertGone(t *testing.T, pid int) {
 func processState(stat string) string {
 	parsed, _ := parseStat(stat)
 	return parsed.state
+}
+
+// A run already reaped is never signalled, nor is its group: its pid, and so its group's, may be
+// another's by then (ffstreamer's specification, Stopping). A process left in the reaped run's group
+// stands in for whatever holds that id now: the kill must not reach it, so the signal it is sent
+// after decides how it ends.
+func TestSignalRun_LeavesTheGroupOfARunAlreadyReapedAlone(t *testing.T) {
+	t.Parallel()
+	leader := exec.CommandContext(t.Context(), "/bin/cat")
+	leader.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	input, err := leader.StdinPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := leader.Start(); err != nil {
+		t.Fatal(err)
+	}
+	other := exec.CommandContext(t.Context(), "/bin/sleep", "600")
+	other.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Pgid: leader.Process.Pid}
+	if err := other.Start(); err != nil {
+		_ = input.Close() //nolint:errcheck // the leader then exits
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = other.Process.Kill() }) //nolint:errcheck // already ended is the expected case
+	_ = input.Close()                              //nolint:errcheck // the leader exits at its input's end
+	if err := leader.Wait(); err != nil {
+		t.Fatal(err)
+	}
+	if err := signalRun(leader.Process, syscall.SIGKILL); err != nil {
+		t.Errorf("signalling a reaped run: %v; want nothing to do", err)
+	}
+	if err := other.Process.Signal(syscall.SIGTERM); err != nil {
+		t.Fatal(err)
+	}
+	_ = other.Wait() //nolint:errcheck // it ends by a signal, which is the point
+	status, isWaitStatus := other.ProcessState.Sys().(syscall.WaitStatus)
+	if !isWaitStatus || status.Signal() != syscall.SIGTERM {
+		t.Errorf("the process in the reaped run's group ended by %v; want SIGTERM, the kill never reaching it",
+			status.Signal())
+	}
 }

@@ -173,11 +173,14 @@ func (runner *Runner) tellPipeSizeRefused(ctx context.Context, refused error) {
 // (os.Process), so a process that left its group is still reached; then to its process group, which
 // also reaches anything an unconfined tool started. A confined tool can start nothing and leave no
 // group (confine's seccomp filter; ffstreamer's specification, Launching and Stopping). A process or group already
-// gone needs no signal, so neither is an error.
+// gone needs no signal, so neither is an error. A process already reaped has its group left alone: its
+// pid, and so the group's, may be another's by then (Stopping: signal only before reaping). The process's
+// own signal says so, by its pidfd, which a reaped process no longer answers, or by Go's own record of
+// the Wait.
 func signalRun(process *os.Process, signal syscall.Signal) error {
 	err := process.Signal(signal)
 	if errors.Is(err, os.ErrProcessDone) {
-		err = nil
+		return nil
 	}
 	if groupErr := syscall.Kill(-process.Pid, signal); groupErr != nil && !errors.Is(groupErr, syscall.ESRCH) {
 		err = errors.Join(err, groupErr)
