@@ -49,6 +49,26 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A43 — Concluded a TV showed its picture late from clips whose period hid a whole-period lag (2026-10-24)
+
+- **What happened:** to find why the owner's TCL TV in TV Bro played films out of sync, the agent
+  made sync clips with a white flash and a beep **every second**. The owner heard the beep before
+  the flash, and the agent concluded the TV showed its *picture* about half a second late, wrote it
+  into docs/contributors/idiosyncrasies.md, and built a per-device sound *delay*
+  (kept on the core in an earlier commit) that the owner tuned to 600 ms. The sound was in fact
+  about half a second *late*: a beep 0.5 s late lands 0.5 s before the next flash, and every reading
+  the agent took was only known modulo the clip's one-second period. The owner's first report, the
+  films' lateness at a delay of 0, and a film made worse by the 600 ms were each explained away
+  rather than taken as contradicting the conclusion. The false belief came from a measuring
+  instrument whose ambiguity the agent built in and did not notice.
+- **Caught by:** the owner, reporting that a film was further out of sync at 600 ms than at 0; a clip
+  with a beep every **four** seconds then read the sound 0.5 s late unambiguously (an earlier commit turned the
+  delay into a signed offset; the idiosyncrasies entry was corrected).
+- **Gate:** none. The lesson: a periodic test signal measures lag only within half its period;
+  make the period much longer than any lag expected, or make each mark distinct (the owner's
+  design that followed: four colours, four rising tones, a counter and a filling clock), and treat
+  a result that contradicts an earlier observation as a reason to doubt the instrument.
+
 ### A42 — Reported a gate failure its own change caused as a flake, from one passing run alone (2026-10-24)
 
 - **What happened:** `make check` failed `TestPlayback_AFilmIsMeasuredOnItsNodeAndPlaysLevelled`
