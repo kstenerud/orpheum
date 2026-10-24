@@ -554,6 +554,96 @@ func TestDecodeDone_RefusesADoneThatBreaksItsRules(t *testing.T) {
 	}
 }
 
+// The terms allow no more READs outstanding than either side offers: FFmpeg's CAPABILITY, or the
+// node's own most (REQUEST).
+func TestChannel_TermsAllowTheFewerREADsOutstandingOfWhatEitherSideOffers(t *testing.T) {
+	t.Parallel()
+	for _, example := range []struct{ offered, want int8 }{{1, 1}, {2, 2}, {4, 2}} {
+		channel, fake := startFake(t, testConfig(newFilm(100)))
+		if terms := fake.open(64, example.offered); terms.Outstanding != example.want {
+			t.Errorf("FFmpeg offered %d READs outstanding, the node at most 2: terms of %d; want %d",
+				example.offered, terms.Outstanding, example.want)
+		}
+		fake.exit()
+		channel.Finish()
+	}
+}
+
+// With two READs outstanding agreed, one READ taken to answer and two waiting keep to the rules,
+// and a third waiting does not: the node stops counting a READ when it takes it (READ).
+func TestChannel_HoldsFFmpegToExactlyTheREADsOutstandingAgreed(t *testing.T) {
+	t.Parallel()
+	source := newFilm(1000)
+	source.readGate, source.entered = make(chan struct{}), make(chan struct{}, 1)
+	channel, fake := startFake(t, testConfig(source))
+	fake.open(256, 2)
+	fake.send(typeRead, readBody(0, 256))
+	testutil.Receive(t, source.entered, "the first READ to be taken")
+	fake.send(typeRead, readBody(256, 256))
+	fake.send(typeRead, readBody(512, 256))
+	waitUntil(t, channel, "two READs to wait, or a failure", func() bool {
+		return len(channel.waiting) == 2 || channel.account.Failure != nil
+	})
+	channel.mutex.Lock()
+	failure := channel.account.Failure
+	channel.mutex.Unlock()
+	if failure != nil {
+		t.Fatalf("two READs waiting, one taken, of two agreed: %v; want no breach", failure)
+	}
+	fake.send(typeRead, readBody(768, 232))
+	fake.waitForKill()
+	if account := channel.Finish(); !errors.Is(account.Failure, ErrViolation) {
+		t.Errorf("a third READ waiting: %v; want a breach", account.Failure)
+	}
+}
+
+// On DONE the node drops every READ still waiting, and a DONE that comes before READs it has not
+// answered is no breach (When DONE Is Sent).
+func TestChannel_DropsTheREADsStillWaitingOnDone(t *testing.T) {
+	t.Parallel()
+	source := newFilm(1000)
+	source.readGate, source.entered = make(chan struct{}), make(chan struct{}, 2)
+	channel, fake := startFake(t, testConfig(source))
+	fake.open(256, 2)
+	fake.send(typeRead, readBody(0, 256))
+	testutil.Receive(t, source.entered, "the first READ to be taken")
+	fake.send(typeRead, readBody(256, 256))
+	fake.send(typeDone, doneOK())
+	waitUntil(t, channel, "the DONE", func() bool { return channel.account.Done != nil })
+	channel.mutex.Lock()
+	waiting := len(channel.waiting)
+	channel.mutex.Unlock()
+	if waiting != 0 {
+		t.Errorf("%d READs still waiting after DONE; want none", waiting)
+	}
+	source.readGate <- struct{}{}
+	fake.receive()
+	fake.exit()
+	if account := channel.Finish(); account.Failure != nil || fake.killed.Load() {
+		t.Errorf("a DONE before a READ was answered: failure %v, killed %v; want neither", account.Failure,
+			fake.killed.Load())
+	}
+}
+
+// waitUntil waits until condition, which reads the channel under its mutex, holds.
+func waitUntil(t *testing.T, channel *Channel, waitingFor string, condition func() bool) {
+	t.Helper()
+	held := make(chan struct{})
+	go func() {
+		defer close(held)
+		for {
+			channel.mutex.Lock()
+			isMet := condition()
+			channel.mutex.Unlock()
+			if isMet {
+				return
+			}
+			time.Sleep(time.Millisecond)
+		}
+	}()
+	testutil.Receive(t, held, waitingFor)
+}
+
 // waitForKill waits for the node to kill the run, failing after a while.
 func (fake *fakeFFmpeg) waitForKill() {
 	fake.t.Helper()
