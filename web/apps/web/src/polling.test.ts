@@ -1,8 +1,15 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { sendFailuresTo } from "@orpheum/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { backgroundChangeWaits, clientWaits, nextWaitMs, pollUntilStopped } from "./polling.ts";
+import {
+  askAnswersWithinMs,
+  backgroundChangeWaits,
+  clientWaits,
+  nextWaitMs,
+  pollUntilStopped,
+} from "./polling.ts";
 
 describe("polling (D237)", () => {
   afterEach(() => {
@@ -38,6 +45,44 @@ describe("polling (D237)", () => {
     stop();
     await vi.advanceTimersByTimeAsync(60_000);
     expect(asked).toBe(3);
+  });
+
+  it("gives up an ask that never answers, aborts it, says so, and asks again after the failed wait (the owner, 2026-10-24)", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const sent: string[] = [];
+    sendFailuresTo((text) => sent.push(text));
+    const signals: (AbortSignal | undefined)[] = [];
+    const lateAnswers: ((outcome: "unchanged") => void)[] = [];
+    const stop = pollUntilStopped(backgroundChangeWaits, (answered, signal) => {
+      signals.push(signal);
+      if (signals.length === 1) {
+        lateAnswers.push(answered);
+        return;
+      }
+      answered("unchanged");
+    });
+    await vi.advanceTimersByTimeAsync(2000 + askAnswersWithinMs - 1);
+    expect(signals).toHaveLength(1);
+    expect(signals[0]?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(signals[0]?.aborted).toBe(true);
+    expect(sent).toEqual([
+      "TimeoutError: a background refresh had no answer within 60 s; it was given up and is asked again",
+    ]);
+    // An answer after it was given up is not heard: it schedules no ask of its own.
+    lateAnswers[0]?.("unchanged");
+    await vi.advanceTimersByTimeAsync(backgroundChangeWaits.failedMs);
+    expect(signals).toHaveLength(2);
+    // Then on its usual schedule, from the failed wait: 10 s after an unchanged answer.
+    await vi.advanceTimersByTimeAsync(9999);
+    expect(signals).toHaveLength(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(signals).toHaveLength(3);
+    expect(signals[1]?.aborted).toBe(false);
+    stop();
+    sendFailuresTo(() => undefined);
+    vi.restoreAllMocks();
   });
 
   it("waits as the server's client settings say, D237's waits until they are read", () => {

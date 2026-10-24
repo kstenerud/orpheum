@@ -88,6 +88,32 @@ describe("usePages", () => {
     });
     mounted.unmount();
   });
+  it("shows nothing a read its poll gave up answers late (the owner, 2026-10-24)", async () => {
+    const poller = handPoller();
+    let titles = ["Wing", "Greed"];
+    const load = pagedBy2(() => titles);
+    let pages: Pages<string> | undefined;
+    function Probe(): null {
+      pages = usePages(load, poller);
+      return null;
+    }
+    const mounted = await mount(createElement(Probe));
+    titles = ["Nosferatu", "Wing", "Greed"];
+    const aborter = new AbortController();
+    aborter.abort();
+    await act(async () => {
+      poller.asks.at(-1)?.(() => undefined, aborter.signal);
+      for (let turn = 0; turn < 5; turn += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    });
+    expect(pages?.loadedSoFar).toEqual({
+      state: "loaded",
+      value: { items: ["Wing", "Greed"], nextCursor: "" },
+    });
+    mounted.unmount();
+  });
+
   it("reads a list whose first read failed again on the next poll, and shows it (2026-10-06)", async () => {
     const poller = handPoller();
     let isServerUp = false;

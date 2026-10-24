@@ -234,9 +234,10 @@ function usePagesPolling<T>(
     if (poller === undefined) {
       return undefined;
     }
-    return poller.start((answered) => {
+    return poller.start((answered, signal) => {
       readAgain(load, shown.current, (outcome, now) => {
-        if (now !== undefined) {
+        // A read its poll gave up is no longer heard: a later read may already have shown more.
+        if (now !== undefined && signal?.aborted !== true) {
           show(now);
         }
         answered(outcome);

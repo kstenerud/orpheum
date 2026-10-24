@@ -18,7 +18,8 @@ export type Resource<T> =
 
 /**
  * Loads a value when the component mounts and whenever key changes, and reloads when the returned
- * function is called. An answer that arrives after the key changed is dropped.
+ * function is called. An answer that arrives after the key changed is dropped. A poll's read hands
+ * load the ask's signal, which aborts when the poll gives it up (askAnswersWithinMs).
  *
  * Given a poller, it also asks again for as long as the component shows it, as the poller's
  * schedule says (D237): backgroundChangesPoller backs off while the answer is unchanged. It keeps what it shows meanwhile: a
@@ -28,7 +29,7 @@ export type Resource<T> =
  */
 export function useResource<T>(
   key: string,
-  load: () => Promise<T>,
+  load: (signal?: AbortSignal) => Promise<T>,
   poller?: Poller,
 ): [Resource<T>, () => void] {
   const [held, setHeld] = useState<{ readonly key: string; readonly resource: Resource<T> }>({
@@ -39,10 +40,14 @@ export function useResource<T>(
   useEffect(() => {
     let isCurrent = true;
     let lastAnswer: string | undefined;
-    // One read; answered, when polling, hears what it came to.
-    const read = (answered?: (outcome: AskOutcome) => void): void => {
-      load().then(
+    // One read; answered, when polling, hears what it came to. A read its poll gave up is dropped,
+    // its failure already reported, so the screen keeps what it shows.
+    const read = (answered?: (outcome: AskOutcome) => void, signal?: AbortSignal): void => {
+      load(signal).then(
         (value) => {
+          if (signal?.aborted === true) {
+            return;
+          }
           const answer = JSON.stringify(value);
           const isChanged = answer !== lastAnswer;
           lastAnswer = answer;
@@ -52,6 +57,9 @@ export function useResource<T>(
           answered?.(isChanged ? "changed" : "unchanged");
         },
         (cause: unknown) => {
+          if (signal?.aborted === true) {
+            return;
+          }
           reportFailure(cause);
           lastAnswer = undefined;
           if (isCurrent) {
