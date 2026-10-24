@@ -39,6 +39,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / "scripts"))
+import fetch_ffmpeg  # noqa: E402
+
 DIR = ROOT / ".staging"
 CONTAINERFILE = ROOT / "deploy" / "Containerfile"
 VALUES = DIR / "values.toml"
@@ -118,10 +121,14 @@ def save_logs(now: datetime) -> Path | None:
 
 
 def build_image() -> str:
-    """Build the runtime image from the checkout, and return its ID."""
+    """Build the runtime image from the checkout, and return its ID. ORPHEUM_FFMPEG_LOCAL, when set,
+    is a local build of FFmpeg the image carries in place of the pinned one (scripts/fetch_ffmpeg.py);
+    a quick build keeps whichever the last full one carried."""
     print(f"staging: building {IMAGE} from this checkout", flush=True)
+    local = fetch_ffmpeg.local_build()
+    context = ["--build-context", f"ffmpeg-local={local}"] if local is not None else []
     run(["docker", "build", "--file", str(CONTAINERFILE), "--target", "runtime", "--tag", IMAGE,
-         "--tag", FULL_IMAGE, str(ROOT)], env={**os.environ, "DOCKER_BUILDKIT": "1"})
+         "--tag", FULL_IMAGE, *context, str(ROOT)], env={**os.environ, "DOCKER_BUILDKIT": "1"})
     return image_id(IMAGE)
 
 

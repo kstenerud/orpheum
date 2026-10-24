@@ -23,6 +23,8 @@ container is replaced when the image or anything below changes.
   (VOLUMES), never on the host.
 - ORPHEUM_DEV_MEDIA, when set, is a media directory mounted read-only at its own path, and the dev
   loop gives the node it as a root, so a new library can choose it.
+- ORPHEUM_FFMPEG_LOCAL, when set, is a local build of FFmpeg mounted read-only at its own path and
+  named to the command, which uses it in place of the pin (scripts/fetch_ffmpeg.py).
 - /dev/dri is passed through when the host has it, for Quick Sync.
 - The dev loop's ports are published on ORPHEUM_DEV_PUBLISH (default 127.0.0.1; 0.0.0.0 opens
   them to the LAN, as `make dev-lan` does outside a container).
@@ -144,6 +146,11 @@ def run_args(engine: str, tag: str, root: Path, env: dict[str, str], dri: Path, 
         media_path = Path(media).resolve()
         args += ["--mount", f"type=bind,src={media_path},dst={media_path},readonly",
                  "--env", f"ORPHEUM_DEV_MEDIA={media_path}"]
+    local_ffmpeg = env.get("ORPHEUM_FFMPEG_LOCAL")
+    if local_ffmpeg:
+        local_path = Path(local_ffmpeg).resolve()
+        args += ["--mount", f"type=bind,src={local_path},dst={local_path},readonly",
+                 "--env", f"ORPHEUM_FFMPEG_LOCAL={local_path}"]
     if udev is not None and udev.is_dir():  # so the node can follow a ZFS pool to its disks (D240 §5)
         args += ["--mount", f"type=bind,src={udev},dst={udev},readonly"]
     if dri.is_dir():

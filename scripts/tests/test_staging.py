@@ -130,6 +130,25 @@ class Quick(unittest.TestCase):
         tags = [built[index + 1] for index, word in enumerate(built) if word == "--tag"]
         self.assertEqual(tags, [staging.IMAGE, staging.FULL_IMAGE])
 
+    def test_a_local_ffmpeg_is_the_build_context_the_runtime_image_takes_in_place_of_the_pin(self):
+        runtime = (REPO / "deploy" / "Containerfile").read_text().split("AS runtime", 1)[1]
+        self.assertIn("COPY --from=ffmpeg-local / /opt/orpheum/ffmpeg-local/\n", runtime)
+        inspected = subprocess.CompletedProcess([], 0, stdout="sha256:full\n")
+        with mock.patch.object(staging.subprocess, "run", return_value=inspected) as run, \
+                mock.patch.dict(staging.os.environ, {}, clear=False):
+            staging.os.environ.pop("ORPHEUM_FFMPEG_LOCAL", None)
+            staging.build_image()
+        self.assertNotIn("--build-context", run.call_args_list[0].args[0])
+        local = Path(tempfile.mkdtemp())
+        for name in ("ffmpeg", "ffprobe"):
+            (local / name).write_text("")
+            (local / name).chmod(0o755)
+        with mock.patch.object(staging.subprocess, "run", return_value=inspected) as run, \
+                mock.patch.dict(staging.os.environ, {"ORPHEUM_FFMPEG_LOCAL": str(local)}), mock.patch("sys.stderr"):
+            staging.build_image()
+        built = run.call_args_list[0].args[0]
+        self.assertEqual(built[built.index("--build-context") + 1], f"ffmpeg-local={local.resolve()}")
+
     def test_without_a_full_image_quick_builds_nothing_and_says_so(self):
         missing = subprocess.CompletedProcess([], 1, stdout="")
         with mock.patch.object(staging.subprocess, "run", return_value=missing) as run, \

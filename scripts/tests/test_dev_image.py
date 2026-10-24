@@ -89,6 +89,29 @@ class ToolsDir(unittest.TestCase):
             (dest / name).write_text("")
         self.assertEqual(self.install_with_tools_in(tools, fetch_ffmpeg.install), dest)
 
+    def test_a_local_build_is_used_in_place_of_the_pin_and_said_so(self):
+        local = Path(tempfile.mkdtemp())
+        for name in ("ffmpeg", "ffprobe"):
+            (local / name).write_text("")
+            (local / name).chmod(0o755)
+        (local / "COMMIT").write_text("abc123\n")
+        with mock.patch.dict(os.environ, {fetch_ffmpeg.LOCAL_ENV: str(local)}), \
+                mock.patch("urllib.request.urlopen", side_effect=AssertionError("fetched")), \
+                mock.patch("sys.stderr") as stderr:
+            self.assertEqual(fetch_ffmpeg.install("linux/amd64", Path(tempfile.mkdtemp())), local.resolve())
+        said = "".join(call.args[0] for call in stderr.write.call_args_list)
+        self.assertIn("not the pin", said)
+        self.assertIn("abc123", said)
+
+    def test_a_local_build_without_ffprobe_is_refused_not_fallen_back_from(self):
+        local = Path(tempfile.mkdtemp())
+        (local / "ffmpeg").write_text("")
+        (local / "ffmpeg").chmod(0o755)
+        with mock.patch.dict(os.environ, {fetch_ffmpeg.LOCAL_ENV: str(local)}), \
+                mock.patch("urllib.request.urlopen", side_effect=AssertionError("fetched")), \
+                self.assertRaisesRegex(SystemExit, "ffprobe"):
+            fetch_ffmpeg.install("linux/amd64", Path(tempfile.mkdtemp()))
+
     def test_mkvtoolnix_in_the_named_directory_is_used(self):
         tools = Path(tempfile.mkdtemp())
         dest = tools / "mkvtoolnix" / f"{fetch_mkvtoolnix.VERSION}-linux-amd64"
