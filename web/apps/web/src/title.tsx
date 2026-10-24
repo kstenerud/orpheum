@@ -114,14 +114,23 @@ function TitleFacts(props: { readonly title: TitleDetail }): JSX.Element {
     <div>
       <h1>{title.name}</h1>
       {episodePlace === undefined ? null : (
+        // The series and its season each a link up: one press from an episode reached by search
+        // or Continue Watching to its season (research/back-navigation-2026-10-24.md).
         <p>
           <Link to={{ screen: "series-page", collectionId: episodePlace.seriesId }}>
-            {t("title.place", {
-              series: episodePlace.seriesName,
-              season: episodePlace.seasonNumber,
-              number: episodePlace.episodeNumber,
-            })}
+            {episodePlace.seriesName}
           </Link>
+          {t("title.placeBetween")}
+          <Link
+            to={{
+              screen: "series-page",
+              collectionId: episodePlace.seriesId,
+              season: episodePlace.seasonNumber,
+            }}
+          >
+            {t("title.placeSeason", { season: episodePlace.seasonNumber })}
+          </Link>
+          {t("title.placeEpisode", { number: episodePlace.episodeNumber })}
         </p>
       )}
       <p className="title__facts">
