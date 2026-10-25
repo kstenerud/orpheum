@@ -7,21 +7,30 @@ import { useTranslation } from "react-i18next";
 import type { Sending } from "./lab-send.ts";
 import { Link } from "./link.tsx";
 
-/** A probe's page: its heading, the way back to the lab's menu, and its body. */
+/**
+ * A probe's page: the way back to the lab's menu and its heading, on one line where they fit, and
+ * its body; compact, its parts closer together, for a page that must fit a TV's screen unscrolled.
+ */
 export function LabFrame(props: {
   readonly id: string;
   readonly heading: string;
+  readonly isCompact?: boolean;
   readonly children: ReactNode;
 }): JSX.Element {
   const { t } = useTranslation();
   return (
-    <section className="lab" aria-labelledby={`${props.id}-heading`}>
-      <p>
-        <Link to={{ screen: "lab" }} className="lab__back">
-          {t("lab.backToMenu")}
-        </Link>
-      </p>
-      <h1 id={`${props.id}-heading`}>{props.heading}</h1>
+    <section
+      className={props.isCompact === true ? "lab lab--compact" : "lab"}
+      aria-labelledby={`${props.id}-heading`}
+    >
+      <div className="lab__top">
+        <p>
+          <Link to={{ screen: "lab" }} className="lab__back">
+            {t("lab.backToMenu")}
+          </Link>
+        </p>
+        <h1 id={`${props.id}-heading`}>{props.heading}</h1>
+      </div>
       {props.children}
     </section>
   );

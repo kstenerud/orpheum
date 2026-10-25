@@ -8,6 +8,40 @@
   font-size: var(--font-size-h3);
 }
 
+/* The way back and the heading, on one line where they fit. */
+.lab__top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-5);
+  align-items: baseline;
+}
+
+.lab__top > * {
+  margin: 0;
+}
+
+/* A page that must fit a TV's screen unscrolled (the button test): its parts closer, its buttons
+   a control's height. */
+.lab--compact {
+  gap: var(--space-2);
+}
+
+.lab--compact .lab__lead {
+  max-width: none;
+}
+
+.lab--compact .lab__button {
+  min-height: var(--size-control);
+  padding-inline: var(--space-4);
+  font-size: inherit;
+}
+
+.lab__small {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: var(--font-size-small);
+}
+
 .lab__lead {
   max-width: var(--size-reading);
   margin: 0;
@@ -134,30 +168,94 @@
   font-family: var(--font-mono);
 }
 
-/* The input probe's tiles: a header row, then a TV home screen's grid. */
-.lab__region {
-  display: grid;
-  gap: var(--space-4);
-}
-
-.lab__header-row {
+/* The button test's chips: each button's name, lit once heard, the last one in the accent. */
+.lab__chips {
   display: flex;
-  gap: var(--space-3);
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.lab__grid {
+.lab__chip {
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.lab__chip--heard {
+  border-color: var(--color-accent);
+  color: var(--color-text);
+  font-weight: var(--font-weight-strong);
+}
+
+.lab__chip--last {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+/* The last button heard, large, with what it was in small type after it. */
+.lab__heard {
+  display: block;
+  line-height: var(--line-height-heading);
+}
+
+.lab__heard-name {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-title);
+}
+
+/* The tiles the arrows move across: two rows of six, four of three on a phone. */
+.lab__tiles {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: var(--space-3);
+  gap: var(--space-2);
+}
+
+/* On a phone, three a row, so a tile's name stays on one line. */
+@media (max-width: 599px) {
+  .lab__tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .lab__tile {
-  min-height: calc(var(--size-control) * 2);
-  font-size: var(--font-size-h3);
+  min-height: var(--size-control);
+  font-size: inherit;
 }
 
-.lab__tile--header {
-  min-height: var(--size-control);
+.lab__controls,
+.lab__modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  align-items: center;
+}
+
+.lab__modes {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* Floated, the legend is a flex item beside the buttons, not drawn in the fieldset's border. */
+.lab__modes > legend {
+  float: left;
+  padding: 0;
+}
+
+.lab__details > summary {
+  cursor: pointer;
+  color: var(--color-muted);
+}
+
+.lab__details[open] {
+  display: grid;
+  gap: var(--space-3);
 }
 
 /* The extend probe's player, alone in its window on the TV's screen. */

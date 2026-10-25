@@ -581,7 +581,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   are the spike's findings. (`web/apps/cast-receiver/src/`, `web/apps/web/src/lab-cast.tsx`, the
   cast policies in `internal/core/webclient/webclient.go`)
 - [ ] **VQ59** — On the TCL in TV Bro's direct mode, and on a Fire TV stick in Silk, open
-  `/lab/input` and move across the grid about 20 times in each mode (plans/tv-device-tests.md H2,
+  `/lab/input` and move across the tiles about 20 times in each mode (plans/tv-device-tests.md H2,
   B2). Passes when the page logs the remote's keys and measures each move; D190's line is our
   geometric search's worst key-to-focus at or under 250 ms, which the result records whether or not
   it is met. (`web/apps/web/src/lab-input.tsx`, `lab-focus.ts`)
