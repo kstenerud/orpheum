@@ -6,8 +6,10 @@ import { useEffect, useRef, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 /**
- * The end of a list that has more: it asks for more as it comes into view, and holds a button
- * that asks too, for a keyboard, a screen reader, or a browser without IntersectionObserver.
+ * The end of a list that has more: it asks for more as it comes into view, which a remote's or a
+ * keyboard's focus moving down brings it into, and says so while more loads. It holds no button: a
+ * "Show more" that loaded more unpressed confused, and on a remote focus left on it was lost when
+ * more came, the next press jumping to the page's top (the owner, Fire TV, 2026-10-25).
  */
 export function EndOfList(props: {
   readonly onMore: () => void;
@@ -33,9 +35,7 @@ export function EndOfList(props: {
   }, [onVisible]);
   return (
     <div ref={endRef} className="end-of-list">
-      <button type="button" onClick={props.onMore} disabled={props.isLoadingMore}>
-        {t("common.showMore")}
-      </button>
+      <output>{props.isLoadingMore ? t("common.loading") : ""}</output>
     </div>
   );
 }

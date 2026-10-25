@@ -59,7 +59,8 @@ describe("browse", () => {
       '<span class="poster-card__name">Metropolis</span><span class="poster-card__detail">1995</span>',
     );
     expect(markup).toContain("No poster");
-    expect(markup).toContain("Show more");
+    expect(markup).toContain('class="end-of-list"');
+    expect(markup).not.toContain("Show more");
     expect(markup).not.toContain("This may be identified incorrectly");
   });
 
@@ -92,7 +93,7 @@ describe("browse", () => {
   it("says what an empty list means, and a failure's cause", () => {
     const empty = renderBrowseView({ state: "loaded", value: { nextCursor: "", items: [] } });
     expect(empty).toContain("Once a library is scanned");
-    expect(empty).not.toContain("Show more");
+    expect(empty).not.toContain('class="end-of-list"');
     expect(
       renderBrowseView({
         state: "failed",

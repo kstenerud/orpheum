@@ -155,7 +155,7 @@ describe("SeasonView", () => {
     expect(markup).toContain('src="/api/v1/bytes/art/s31/landscape-s.webp"');
     expect(markup).toContain("not on disk");
     expect(markup).toContain('href="/titles/32"');
-    expect(markup).toContain("Show more");
+    expect(markup).toContain('class="end-of-list"');
     const last = renderToStaticMarkup(
       withServices(
         <SeasonView
@@ -165,7 +165,7 @@ describe("SeasonView", () => {
         />,
       ),
     );
-    expect(last).not.toContain("Show more");
+    expect(last).not.toContain('class="end-of-list"');
   });
 });
 
