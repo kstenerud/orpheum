@@ -68,7 +68,7 @@ export interface CannotKeepUp {
 export type DeviceRole = "playback" | "voice" | "both";
 
 /** What a page waits on before its film can play, as it tells the session; "" for nothing. */
-export type Standing = "" | "choosingSound" | "needsTap";
+export type Standing = "" | "needsTap";
 
 /**
  * Where a playing device stands with its group, as the server reads it: what its page waits on,
@@ -76,10 +76,9 @@ export type Standing = "" | "choosingSound" | "needsTap";
  * device, or one waiting on nothing while the session plays nothing.
  */
 export type DeviceStatus =
-  "choosingSound" | "needsTap" | "loading" | "catchingUp" | "buffering" | "suspended" | "watching";
+  "needsTap" | "loading" | "catchingUp" | "buffering" | "suspended" | "watching";
 
 const deviceStatuses: readonly DeviceStatus[] = [
-  "choosingSound",
   "needsTap",
   "loading",
   "catchingUp",

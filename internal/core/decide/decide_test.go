@@ -191,20 +191,30 @@ func TestDecide_AFileOfAnyBitRatePlaysAsItIs(t *testing.T) {
 	}
 }
 
+// A surround sound the device can play is played as it is, the device mixing it down itself, until
+// the person turns the dialogue boost on, which the server must make (D336 §1, §2); a stereo sound
+// has no centre to raise, so the boost prepares nothing.
 func TestDecide_TheBoostPreparesOnlyASourceWithACentre(t *testing.T) {
 	t.Parallel()
 	picture := videoStream("h264", "High", "yuv420p", "")
 	surround := probeOf("mp4", picture, audioStream("aac", "LC", 6))
 	formats := browser
 	formats.AudioCodecs = append(formats.AudioCodecs, decide.AACMulti)
-	got := decide.Decide(decide.Input{Probe: surround, PlayableFormats: formats, IsStereoOutput: true})
+	if got := decide.Decide(decide.Input{Probe: surround, PlayableFormats: formats}); got.Delivery != decide.Direct {
+		t.Errorf("5.1 the device plays, the boost off: %+v, want direct: it plays as it is (D336 §1)", got)
+	}
+	got := decide.Decide(decide.Input{Probe: surround, PlayableFormats: formats, IsDialogueBoostOn: true})
 	if got.Profile != decide.Remux || !slices.Equal(got.NotDirectReasons, []decide.Reason{decide.ReasonDialogueBoost}) {
-		t.Errorf("5.1 on stereo output: %+v, want remux for dialogue_boost", got)
+		t.Errorf("5.1 with the boost on: %+v, want remux for dialogue_boost", got)
+	}
+	got = decide.Decide(decide.Input{Probe: surround, PlayableFormats: browser})
+	if !slices.Equal(got.NotDirectReasons, []decide.Reason{decide.ReasonAudioCodec}) {
+		t.Errorf("5.1 AAC on a device without aac-multi: %+v, want audio_codec: it cannot play the channels", got)
 	}
 	stereo := probeOf("mp4", picture, audioStream("aac", "LC", 2))
-	got = decide.Decide(decide.Input{Probe: stereo, PlayableFormats: browser, IsStereoOutput: true})
+	got = decide.Decide(decide.Input{Probe: stereo, PlayableFormats: browser, IsDialogueBoostOn: true})
 	if got.Delivery != decide.Direct {
-		t.Errorf("stereo on stereo output: %+v, want direct: there is no centre to raise", got)
+		t.Errorf("stereo with the boost on: %+v, want direct: there is no centre to raise", got)
 	}
 }
 

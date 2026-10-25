@@ -5,28 +5,20 @@ import "./your-devices.css";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import {
-  removeMyDevice,
-  renameMyDevice,
-  setMyDeviceAudioOutput,
-  signOutElsewhere,
-  type AudioOutput,
-  type Device,
-} from "./accounts.ts";
+import { removeMyDevice, renameMyDevice, signOutElsewhere, type Device } from "./accounts.ts";
 import { BusyGroup } from "./busy-group.tsx";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { dateTimeText } from "./date-time-text.ts";
 import { submitWith } from "./form-row.tsx";
 import { fieldProblemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
-import { audioOutputName, audioOutputs } from "./sound.tsx";
 import { Loaded } from "./title.tsx";
 import { useRequest } from "./use-request.ts";
 import type { Resource } from "./use-resource.ts";
 
 /**
  * This person's devices (D218 §4, D221): each named, when added and last used, and whether signed
- * in, with a way to rename it, to say how it makes sound (D222), and to remove it, which signs it out
+ * in, with a way to rename it and to remove it, which signs it out
  * at its next request; and a way to sign out everywhere but here. A device signed out signs in again
  * by a code it shows (D288).
  */
@@ -62,9 +54,6 @@ export function YourDevices(props: {
               devices={list}
               onRename={(device, name) => {
                 applyChange(() => renameMyDevice(api, device.id, name));
-              }}
-              onSoundChange={(device, output) => {
-                applyChange(() => setMyDeviceAudioOutput(api, device.id, output));
               }}
               onRemove={
                 props.canManage
@@ -119,8 +108,6 @@ export function DeviceList(props: {
   readonly devices: readonly Device[];
   /** Absent where the names are not the viewer's to change: an admin's view of someone's. */
   readonly onRename?: ((device: Device, name: string) => void) | undefined;
-  /** Absent where how the devices make sound is not the viewer's to change. */
-  readonly onSoundChange?: ((device: Device, output: AudioOutput) => void) | undefined;
   /** Absent where removing is not the viewer's to do: a session that may not change the account. */
   readonly onRemove?: ((device: Device) => void) | undefined;
 }): JSX.Element {
@@ -138,7 +125,6 @@ export function DeviceList(props: {
           {device.isByCode ? (
             <span className="your-devices__by-code">{t("devices.byCode")}</span>
           ) : null}
-          <DeviceSound device={device} onSoundChange={props.onSoundChange} />
           <span>
             {t("devices.addedAndUsed", {
               added: dateTimeText(device.addedAt, i18n.language),
@@ -160,45 +146,6 @@ export function DeviceList(props: {
         </li>
       ))}
     </ul>
-  );
-}
-
-/** How a device makes sound: chosen here when it is the viewer's to change, else only said. */
-function DeviceSound(props: {
-  readonly device: Device;
-  readonly onSoundChange: ((device: Device, output: AudioOutput) => void) | undefined;
-}): JSX.Element | null {
-  const { t } = useTranslation();
-  const { device, onSoundChange } = props;
-  if (onSoundChange === undefined) {
-    return device.audioOutput === undefined ? null : (
-      <span>{t("sound.current", { output: audioOutputName(t, device.audioOutput) })}</span>
-    );
-  }
-  return (
-    <label>
-      {t("sound.label")}{" "}
-      <select
-        value={device.audioOutput ?? ""}
-        onChange={(event) => {
-          const chosen = audioOutputs.find((output) => output === event.target.value);
-          if (chosen !== undefined) {
-            onSoundChange(device, chosen);
-          }
-        }}
-      >
-        {device.audioOutput === undefined ? (
-          <option value="" disabled>
-            {t("sound.notAsked")}
-          </option>
-        ) : null}
-        {audioOutputs.map((output) => (
-          <option key={output} value={output}>
-            {audioOutputName(t, output)}
-          </option>
-        ))}
-      </select>
-    </label>
   );
 }
 

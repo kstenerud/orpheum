@@ -26,15 +26,10 @@ afterEach(() => {
   mounted = undefined;
 });
 
-const laptop = television({
-  id: 5,
-  name: "Karl's laptop",
-  isThisDevice: true,
-  audioOutput: "built_in_speakers",
-});
+const laptop = television({ id: 5, name: "Karl's laptop", isThisDevice: true });
 
-describe("the This device page (D222 §1)", () => {
-  it("shows this device alone, and changes how it makes sound and its name", async () => {
+describe("the This device page", () => {
+  it("shows this device alone, and changes its name, asking nothing of how it makes sound (D336 §4)", async () => {
     const heard: Heard[] = [];
     const services = servedBy(
       {
@@ -48,19 +43,14 @@ describe("the This device page (D222 §1)", () => {
     const text = mounted.container.textContent;
     expect(text).toContain("Karl's laptop");
     expect(text).not.toContain("Living room TV");
-    const current = mounted.container.querySelector('button[aria-pressed="true"]');
-    expect(current?.textContent).toContain("Built-in speakers");
-    await click(
-      [...mounted.container.querySelectorAll("button")].find((each) =>
-        each.textContent.startsWith("Headphones"),
-      ),
-    );
+    expect(text).not.toContain("Headphones");
+    expect(mounted.container.querySelector("button[aria-pressed]")).toBeNull();
     await click(buttonWithText(mounted.container, "Rename"));
     await enter(mounted.container.querySelector("input"), "Desk");
     await submit(mounted.container.querySelector("form"));
     expect(
       heard.filter((each) => each.methodAndPath === "PUT /me/devices/5").map((each) => each.body),
-    ).toEqual([{ audioOutput: "headphones" }, { name: "Desk" }]);
+    ).toEqual([{ name: "Desk" }]);
   });
 
   it("says so when this browser is not one of the person's devices", async () => {

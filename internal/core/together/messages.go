@@ -82,8 +82,6 @@ type Standing string
 const (
 	// StandingNone is a page that waits on nothing of its person's.
 	StandingNone Standing = ""
-	// StandingChoosingSound is a page asking its person how its device makes sound (D222).
-	StandingChoosingSound Standing = "choosingSound"
 	// StandingNeedsTap is a page waiting for a tap before it may play with sound.
 	StandingNeedsTap Standing = "needsTap"
 )
@@ -91,7 +89,7 @@ const (
 // isKnown is whether standing is one a page may say.
 func (standing Standing) isKnown() bool {
 	switch standing {
-	case StandingNone, StandingChoosingSound, StandingNeedsTap:
+	case StandingNone, StandingNeedsTap:
 		return true
 	}
 	return false
@@ -99,14 +97,13 @@ func (standing Standing) isKnown() bool {
 
 // DeviceStatus is where a playing device stands with its group, in a word, for everyone's roster:
 // what its page waits on, or its player's state, the server's own reading (the owner's Watch
-// Together session, 2026-10-18: a guest still choosing her speakers was shown as nothing at all).
+// Together session, 2026-10-18: a guest not yet ready to play was shown as nothing at all).
 type DeviceStatus string
 
 // The statuses a roster gives a device.
 const (
-	// StatusChoosingSound and StatusNeedsTap are what the device's page waits on (Standing).
-	StatusChoosingSound DeviceStatus = "choosingSound"
-	StatusNeedsTap      DeviceStatus = "needsTap"
+	// StatusNeedsTap is what the device's page waits on (Standing).
+	StatusNeedsTap DeviceStatus = "needsTap"
 	// StatusLoading is a player loading its first buffer of the film, not yet once ready.
 	StatusLoading DeviceStatus = "loading"
 	// StatusCatchingUp is a player the group plays on without until it is ready again (D247 §4).

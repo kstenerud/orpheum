@@ -8,22 +8,33 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { PlaybackDecision } from "./watching.ts";
 import { Play, PlayView } from "./play.tsx";
 import { BoostSwitch } from "./sound.tsx";
-import {
-  choose,
-  click,
-  mount,
-  playbackCauses,
-  servedBy,
-  type Heard,
-  type Mounted,
-} from "./test-dom.tsx";
+import { click, mount, playbackCauses, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { directDecision, television } from "./test-fixtures.ts";
 import { withServices } from "./test-services.tsx";
 import { YourDevices } from "./your-devices.tsx";
 
-/** A decision to play the original, with how the device makes sound when it has been asked. */
-function direct(audioOutput?: PlaybackDecision["audioOutput"]): PlaybackDecision {
-  return directDecision(audioOutput === undefined ? {} : { audioOutput });
+/** A decision to play the original, its sound 5.1 where isSurround. */
+function direct(isSurround = false): PlaybackDecision {
+  const plain = directDecision();
+  if (!isSurround) {
+    return plain;
+  }
+  return directDecision({
+    tracks: {
+      ...plain.tracks,
+      sounds: [
+        {
+          audioTrackIndex: 0,
+          isBoosted: false,
+          codec: "eac3",
+          channelCount: 6,
+          kbps: 0,
+          isOriginal: true,
+        },
+      ],
+      fileSounds: [{ audioTrackIndex: 0, codec: "eac3", channelCount: 6 }],
+    },
+  });
 }
 
 let mounted: Mounted | undefined;
@@ -33,110 +44,112 @@ afterEach(() => {
   mounted = undefined;
 });
 
-/** The button whose text starts with text: an answer is its name and what it does. */
-function answerButton(text: string): HTMLButtonElement | undefined {
-  return [...(mounted?.container.querySelectorAll("button") ?? [])].find((each) =>
-    each.textContent.startsWith(text),
-  );
+/** The dialogue boost's box, by its label; undefined where it is not offered. */
+function boostBox(): HTMLInputElement | null | undefined {
+  return [...(mounted?.container.querySelectorAll("label") ?? [])]
+    .find((label) => label.textContent === "Dialogue boost")
+    ?.querySelector("input");
 }
 
-/** What was asked of the server, in order, without the bodies. */
-function asked(heard: readonly Heard[]): string[] {
-  return heard.map((each) => each.methodAndPath);
-}
-
-describe("how a device makes sound (D222)", () => {
-  it("is asked before the device's first playback, and the decision is asked again with the answer", async () => {
+describe("how a device makes sound, asked of no one (D336 §4)", () => {
+  it("is not asked before a device's first playback: the film plays at once", async () => {
     const heard: Heard[] = [];
-    const services = servedBy(
-      {
-        "POST /playback": [
-          [200, direct()],
-          [200, direct("built_in_speakers")],
-        ],
-        "PUT /me/devices/5": [204, undefined],
-      },
-      heard,
-    );
+    const services = servedBy({ "POST /playback": [200, direct(true)] }, heard);
     services.session.signIn("token", { deviceId: 5 });
-    mounted = await mount(withServices(<Play fileId={2} />, services));
-    expect(mounted.container.textContent).toContain("How does this device play sound?");
-    expect(mounted.container.querySelector("video")).toBeNull();
-    // A receiver's copy prepared for its container or codec is stereo, so the boost works there
-    // too, and the question must not promise otherwise (D222 §2).
-    expect(answerButton("Soundbar or receiver")?.textContent).toContain(
-      "a copy prepared for another reason is stereo, and the dialogue boost works on it",
-    );
-    await click(answerButton("Built-in speakers"));
-    // The film is not measured yet, so the page asks how long its measuring will take (D324 §6).
-    expect(asked(heard)).toEqual([
-      "POST /playback",
-      "PUT /me/devices/5",
-      "POST /playback",
-      "GET /files/2/waits",
-    ]);
-    expect(playbackCauses(heard)).toEqual(["playPage", "soundAnswered"]);
-    expect(heard[1]?.body).toEqual({ audioOutput: "built_in_speakers" });
-    expect(mounted.container.querySelector("video")).not.toBeNull();
-    expect(mounted.container.textContent).toContain("Sound: Built-in speakers");
-  });
-
-  it("is not asked of a session with no device to keep it on", async () => {
-    const services = servedBy({ "POST /playback": [200, direct()] });
-    services.session.signIn("token");
     mounted = await mount(withServices(<Play fileId={2} />, services));
     expect(mounted.container.querySelector("video")).not.toBeNull();
     expect(mounted.container.textContent).not.toContain("How does this device play sound?");
+    expect(mounted.container.textContent).not.toContain("Built-in speakers");
+    expect(playbackCauses(heard)).toEqual(["playPage"]);
+    expect(heard.some((each) => each.methodAndPath.startsWith("PUT /me/devices"))).toBe(false);
   });
 
-  it("can be changed under the video, which asks for the decision again", async () => {
-    const heard: Heard[] = [];
-    const services = servedBy(
-      {
-        "POST /playback": [
-          [200, direct("built_in_speakers")],
-          [200, direct("headphones")],
-        ],
-        "PUT /me/devices/5": [204, undefined],
-      },
-      heard,
-    );
-    services.session.signIn("token", { deviceId: 5 });
-    mounted = await mount(withServices(<Play fileId={2} />, services));
-    await click(answerButton("Change"));
-    expect(answerButton("Built-in speakers")?.getAttribute("aria-pressed")).toBe("true");
-    await click(answerButton("Headphones"));
-    const told = heard.find((each) => each.methodAndPath === "PUT /me/devices/5");
-    expect(told?.body).toEqual({ audioOutput: "headphones" });
-    expect(playbackCauses(heard)).toEqual(["playPage", "soundChanged"]);
-    expect(mounted.container.textContent).toContain("Sound: Headphones");
-  });
-
-  it("is chosen for each of one's devices in Your devices", async () => {
-    const heard: Heard[] = [];
-    const services = servedBy({ "PUT /me/devices/7": [204, undefined] }, heard);
-    const livingRoom = television();
-    let reloads = 0;
+  it("is not chosen for one's devices in Your devices", async () => {
     mounted = await mount(
       withServices(
         <YourDevices
           canManage
-          devices={{ state: "loaded", value: [livingRoom] }}
-          onChanged={() => {
-            reloads += 1;
-          }}
+          devices={{ state: "loaded", value: [television()] }}
+          onChanged={() => undefined}
         />,
-        services,
+        servedBy({}),
       ),
     );
-    const select = mounted.container.querySelector("select");
-    expect(select?.value).toBe("");
-    expect(select?.textContent).toContain("Not asked yet");
-    await choose(select, "receiver");
-    expect(heard).toEqual([
-      { methodAndPath: "PUT /me/devices/7", body: { audioOutput: "receiver" } },
+    expect(mounted.container.querySelector("select")).toBeNull();
+    expect(mounted.container.textContent).not.toContain("Not asked yet");
+  });
+});
+
+describe("the dialogue boost over the original (D336 §3)", () => {
+  it("is offered where the track has a centre to raise, and turned on asks again from where the video stands", async () => {
+    const heard: Heard[] = [];
+    const asked: { cause: string; at: unknown }[] = [];
+    mounted = await mount(
+      withServices(
+        <PlayView
+          fileId={2}
+          decision={direct(true)}
+          onDecideAgain={(cause, at) => asked.push({ cause, at })}
+        />,
+        servedBy({ "PUT /me/preferences": [204, undefined] }, heard),
+      ),
+    );
+    const video = mounted.container.querySelector("video");
+    if (video !== null) {
+      Object.defineProperty(video, "readyState", { value: 4, configurable: true });
+      Object.defineProperty(video, "currentTime", { value: 1234.5, configurable: true });
+      Object.defineProperty(video, "paused", { value: true, configurable: true });
+    }
+    // The original's own sound plays, which the device mixes down: the boost is not acting.
+    expect(boostBox()?.checked).toBe(false);
+    await click(boostBox());
+    expect(heard).toContainEqual({
+      methodAndPath: "PUT /me/preferences",
+      body: { isDialogueBoostOn: true },
+    });
+    expect(asked).toEqual([
+      { cause: "boostChosen", at: { positionMs: 1_234_500, isPaused: true } },
     ]);
-    expect(reloads).toBe(1);
+  });
+
+  it("asks the server again with the boost's cause once it is kept, and plays what it answers", async () => {
+    const heard: Heard[] = [];
+    const boosted = directDecision({
+      delivery: "hls",
+      url: "/api/v1/bytes/media/hls/u/master.m3u8",
+      notDirectReasons: ["dialogue_boost"],
+      mediaToken: "u",
+      preferences: { subtitleOffsetMs: 0, isDialogueBoostOn: true, isLevellingOn: true },
+    });
+    const services = servedBy(
+      {
+        "POST /playback": [
+          [200, direct(true)],
+          [200, boosted],
+        ],
+        "PUT /me/preferences": [204, undefined],
+      },
+      heard,
+    );
+    services.session.signIn("token", { deviceId: 5 });
+    mounted = await mount(withServices(<Play fileId={2} />, services));
+    await click(boostBox());
+    const order = heard
+      .map((each) => each.methodAndPath)
+      .filter((each) => each === "POST /playback" || each === "PUT /me/preferences");
+    expect(order).toEqual(["POST /playback", "PUT /me/preferences", "POST /playback"]);
+    expect(playbackCauses(heard)).toEqual(["playPage", "boostChosen"]);
+    expect(mounted.container.textContent).toContain("dialogue boost is on");
+  });
+
+  it("is not offered over a stereo original, which has no centre to raise", async () => {
+    mounted = await mount(
+      withServices(
+        <PlayView fileId={2} decision={direct()} onDecideAgain={() => undefined} />,
+        servedBy({}),
+      ),
+    );
+    expect(boostBox()).toBeUndefined();
   });
 });
 
@@ -168,7 +181,7 @@ describe("the dialogue boost's switch", () => {
 });
 
 describe("the dialogue boost on a film's ladder", () => {
-  /** A stereo device's film on its ladder: its surround track's standard mix and boosted one. */
+  /** A film on its ladder: its surround track's standard mix and boosted one. */
   function onLadder(isDialogueBoostOn: boolean): PlaybackDecision {
     const converted = { codec: "aac", channelCount: 2, kbps: 128, isOriginal: false };
     const plain = directDecision();

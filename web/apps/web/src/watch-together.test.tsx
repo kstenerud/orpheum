@@ -379,7 +379,6 @@ describe("the host's player in a session (D246 §5)", () => {
           video={null}
           startPositionMs={61_000}
           cannotKeepUp={undefined}
-          audioOutput="headphones"
         />,
         services,
       ),
@@ -425,7 +424,6 @@ describe("the host's player in a session (D246 §5)", () => {
           video={video}
           startPositionMs={61_000}
           cannotKeepUp={undefined}
-          audioOutput="headphones"
         />,
         services,
       ),
@@ -457,7 +455,6 @@ describe("the host's player in a session (D246 §5)", () => {
           video={video}
           startPositionMs={61_000}
           cannotKeepUp={undefined}
-          audioOutput="headphones"
         />
       );
     }

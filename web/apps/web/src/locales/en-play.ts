@@ -140,7 +140,7 @@ export const enPlay = {
       audioCodec: "the browser cannot decode its sound",
       bandwidth: "it is too large for the connection",
       dialogueBoost:
-        "this device plays stereo, so its surround sound is mixed here and the dialogue boost can act",
+        "the dialogue boost is on, so its surround sound is mixed here with the voices raised",
       audioTrack: "the sound you chose is not the one the file plays first",
       userChoice: "you asked for it to be prepared",
     },

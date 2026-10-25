@@ -68,7 +68,7 @@ func LevellingOf(measured Measured, aim LoudnessAim) (Levelling, bool) {
 }
 
 // DirectLevelling is the gain for a file played as it is: its main track's, as it is when it has
-// more than two channels, which only a receiver is sent as it is (D222), else as stereo.
+// more than two channels, which the device mixes down itself (D336 §1), else as stereo.
 func DirectLevelling(levels Levels, probe nodeproto.Probe) Levelling {
 	main, found := MainAudio(probe)
 	if !found {

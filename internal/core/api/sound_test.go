@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -33,9 +32,8 @@ func (harness testHarness) thisDeviceID(t *testing.T, token string) int64 {
 	answer := harness.do(t, http.MethodGet, "/me/devices", token, nil)
 	var listed struct {
 		Devices []struct {
-			ID           int64  `json:"id"`
-			AudioOutput  string `json:"audioOutput"`
-			IsThisDevice bool   `json:"isThisDevice"`
+			ID           int64 `json:"id"`
+			IsThisDevice bool  `json:"isThisDevice"`
 		} `json:"devices"`
 	}
 	if err := json.Unmarshal([]byte(answer.body), &listed); err != nil {
@@ -60,64 +58,45 @@ func surroundFormats() map[string]any {
 	return body
 }
 
-// soundDecision is a playback's answer with how the device makes sound.
-type soundDecision struct {
-	decision
-
-	AudioOutput string `json:"audioOutput"`
-}
-
-func (harness testHarness) playWithSound(t *testing.T, token string, body map[string]any) soundDecision {
+func (harness testHarness) playFor(t *testing.T, token string, body map[string]any) decision {
 	t.Helper()
 	answer := harness.do(t, http.MethodPost, "/playback", token, body)
-	var answered soundDecision
+	var answered decision
 	if err := json.Unmarshal([]byte(answer.body), &answered); err != nil || answer.status != http.StatusOK {
 		t.Fatalf("POST /playback = %d %s", answer.status, answer.body)
 	}
 	return answered
 }
 
-func TestPlayback_OnStereoOutputASurroundSoundIsAlwaysPreparedSoTheBoostCanAct(t *testing.T) {
+// A film's surround sound plays as it is where the browser plays it, with nothing asked of the
+// device, until its person turns the dialogue boost on: the server must make that mix, so the film
+// is prepared with its boosted mix (D336 §1, §2, §4).
+func TestPlayback_ASurroundSoundPlaysAsItIsUntilThePersonTurnsTheBoostOn(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	harness.shelveSurroundFilm(t)
-	device := "/me/devices/" + strconv.FormatInt(harness.thisDeviceID(t, user), 10)
-	answer := func(output string) int {
-		return harness.do(t, http.MethodPut, device, user, map[string]string{"audioOutput": output}).status
+	first := harness.playFor(t, user, surroundFormats())
+	if first.Delivery != "direct" || len(first.NotDirectReasons) != 0 {
+		t.Errorf("5.1 the browser plays, the boost off: %s %v, want direct: it plays as it is",
+			first.Delivery, first.NotDirectReasons)
 	}
-	first := harness.playWithSound(t, user, surroundFormats())
-	if first.Delivery != "direct" || first.AudioOutput != "" {
-		t.Errorf("before the device is asked: %s %q, want direct and no answer", first.Delivery, first.AudioOutput)
+	turnOn := map[string]bool{"isDialogueBoostOn": true}
+	if status := harness.do(t, http.MethodPut, "/me/preferences", user, turnOn).status; status != http.StatusNoContent {
+		t.Fatalf("PUT the boost: %d", status)
 	}
-	for _, output := range []string{"built_in_speakers", "headphones"} {
-		if status := answer(output); status != http.StatusNoContent {
-			t.Fatalf("PUT audioOutput %s: %d", output, status)
-		}
-		got := harness.playWithSound(t, user, surroundFormats())
-		if got.Delivery != "hls" || !slices.Equal(got.NotDirectReasons, []string{"dialogue_boost"}) ||
-			got.AudioOutput != output {
-			t.Errorf("on %s: %s %v %q, want prepared for dialogue_boost (D222)",
-				output, got.Delivery, got.NotDirectReasons,
-				got.AudioOutput)
-		}
-		if stereo := harness.playWithSound(t, user, chrome(1)); stereo.Delivery != "direct" {
-			t.Errorf("a stereo film on %s: %s, want direct: nothing to fold down", output, stereo.Delivery)
-		}
+	got := harness.playFor(t, user, surroundFormats())
+	isBoosted := false
+	for _, audio := range got.Audio {
+		isBoosted = isBoosted || audio.IsDialogueBoosted
 	}
-	if status := answer("receiver"); status != http.StatusNoContent {
-		t.Fatalf("PUT audioOutput receiver: %d", status)
+	if got.Delivery != "hls" || !slices.Equal(got.NotDirectReasons, []string{"dialogue_boost"}) || !isBoosted {
+		t.Errorf("5.1 with the boost on: %s %v, a boosted mix %v; want prepared for dialogue_boost, with it",
+			got.Delivery, got.NotDirectReasons, isBoosted)
 	}
-	got := harness.playWithSound(t, user, surroundFormats())
-	if got.Delivery != "direct" || got.AudioOutput != "receiver" {
-		t.Errorf("on a receiver: %s %q, want direct: it takes the sound as it is", got.Delivery, got.AudioOutput)
-	}
-	if status := answer("radio"); status < 400 || status >= 500 {
-		t.Errorf("an answer not among the three: %d, want refused", status)
-	}
-	if status := harness.do(t, http.MethodPut, device, user, map[string]string{}).status; status != 400 {
-		t.Errorf("a change naming nothing: %d, want 400", status)
+	if stereo := harness.playFor(t, user, chrome(1)); stereo.Delivery != "direct" {
+		t.Errorf("a stereo film with the boost on: %s, want direct: there is no centre to raise", stereo.Delivery)
 	}
 }
 
@@ -159,9 +138,9 @@ func TestFilePreferences_TheDialogueBoostIsThePersonsInEveryFile(t *testing.T) {
 	}
 }
 
-// The answers to how a device makes sound are auth's one list, wherever the API names them, and a
-// name not on it, as the old tv_speakers, is refused (D222).
-func TestDevices_TheDocumentNamesEveryAudioOutputAndAnOldNameIsRefused(t *testing.T) {
+// No one is asked how their device makes sound (D336 §4): nothing the API documents names it, and a
+// change to a device that says only that is refused, naming nothing it changes.
+func TestDevices_NothingTheAPIDocumentsAsksHowADeviceMakesSound(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
@@ -169,25 +148,22 @@ func TestDevices_TheDocumentNamesEveryAudioOutputAndAnOldNameIsRefused(t *testin
 	var document struct {
 		Components struct {
 			Schemas map[string]struct {
-				Properties map[string]struct {
-					Enum []string `json:"enum"`
-				} `json:"properties"`
+				Properties map[string]json.RawMessage `json:"properties"`
 			} `json:"schemas"`
 		} `json:"components"`
 	}
 	if err := json.Unmarshal([]byte(served.body), &document); err != nil {
 		t.Fatalf("GET /openapi.json = %d: %v", served.status, err)
 	}
-	for _, schema := range []string{"DeviceBody", "StartPlaybackOutputBody", "ChangeDeviceInputBody"} {
-		documented := document.Components.Schemas[schema].Properties["audioOutput"].Enum
-		if !slices.Equal(documented, auth.AudioOutputs()) {
-			t.Errorf("%s names the answers %v, want %v", schema, documented, auth.AudioOutputs())
+	for name, schema := range document.Components.Schemas {
+		if _, isNamed := schema.Properties["audioOutput"]; isNamed {
+			t.Errorf("%s names audioOutput, want no schema to ask how a device makes sound", name)
 		}
 	}
 	device := "/me/devices/" + strconv.FormatInt(harness.thisDeviceID(t, user), 10)
-	old := harness.do(t, http.MethodPut, device, user, map[string]string{"audioOutput": "tv_speakers"})
-	if old.status < 400 {
-		t.Errorf("PUT audioOutput tv_speakers = %d, want refused: the answer is built_in_speakers now", old.status)
+	changed := harness.do(t, http.MethodPut, device, user, map[string]string{"audioOutput": "receiver"})
+	if changed.status < 400 || changed.status >= 500 {
+		t.Errorf("PUT audioOutput alone = %d, want refused: a device's sound is asked of no one", changed.status)
 	}
 }
 

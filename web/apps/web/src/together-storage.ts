@@ -2,9 +2,7 @@
 
 import type { StartLagMemory } from "@orpheum/sdk";
 
-import type { AudioOutput } from "./accounts.ts";
 import type { StringStorage } from "./browser-storage.ts";
-import { audioOutputs } from "./sound.tsx";
 
 /**
  * A Watch Together membership as it is kept: its session, the credential it acts by, and, for a
@@ -109,22 +107,6 @@ export function membershipText(storage: StringStorage, role: MembershipRole): st
 export function forgetMembership(storage: StringStorage, role: MembershipRole): void {
   storage.removeItem(membershipKeys[role]);
   tellMembershipChanged();
-}
-
-const viewerAudioOutputKey = "orpheum.together.audioOutput";
-
-/**
- * How a viewer's device makes sound, as they answered when they first joined (D246 §6), kept in
- * this browser: a viewer has no device row on the server to keep it in.
- */
-export function readViewerAudioOutput(storage: StringStorage): AudioOutput | undefined {
-  const kept = storage.getItem(viewerAudioOutputKey);
-  return audioOutputs.find((output) => output === kept);
-}
-
-/** Keeps a viewer's answer to how their device makes sound, for every session they join here. */
-export function keepViewerAudioOutput(storage: StringStorage, output: AudioOutput): void {
-  storage.setItem(viewerAudioOutputKey, output);
 }
 
 /**

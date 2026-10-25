@@ -24,12 +24,8 @@ test("a chosen subtitle track is also the browser's own captions, shown only in 
   await signIn(page);
   await openFilm(page, timingFilm(browserName));
   await page.getByRole("link", { name: "Play" }).click();
-  const soundQuestion = page.getByRole("button", { name: /Built-in speakers/ });
   const subtitles = page.getByRole("combobox", { name: "Subtitles" });
-  await expect(soundQuestion.or(subtitles)).toBeVisible();
-  if (await soundQuestion.isVisible()) {
-    await soundQuestion.click();
-  }
+  await expect(subtitles).toBeVisible();
   await expect.poll(() => isPlaying(page), { timeout: 30_000 }).toBe(true);
   // The film's one track, after "Off".
   await expect(subtitles).toContainText(longTrackName);

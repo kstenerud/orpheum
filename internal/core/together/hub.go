@@ -155,7 +155,7 @@ type device struct {
 	suspended  SuspendReason
 	rttMs      int64
 	// hasBeenReady is whether it has once said it is ready to play along: until then the group
-	// does not wait for it, so one still choosing its speakers or loading holds no one up (D246 §6).
+	// does not wait for it, so one still waiting for its tap or loading holds no one up (D246 §6).
 	hasBeenReady bool
 	// isCatchingUp is whether the group plays on without it until it is ready again (D247 §4).
 	isCatchingUp bool

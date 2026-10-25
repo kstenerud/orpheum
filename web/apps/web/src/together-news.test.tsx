@@ -66,18 +66,18 @@ describe("what everyone in a session is told", () => {
     const shown = renderToStaticMarkup(<TogetherNews snapshot={snapshot} />);
     expect(shown).toContain("<li>Karl: watching</li>");
     expect(shown).toContain("<li>Kim: waiting for the film to load</li>");
-    const choosing = {
+    const tapping = {
       ...snapshot,
       roster: snapshot.roster.map((member) => ({
         ...member,
         devices: member.devices.map((device) => ({
           ...device,
-          status: member.isHost ? undefined : ("choosingSound" as const),
+          status: member.isHost ? undefined : ("needsTap" as const),
         })),
       })),
     };
-    const shownChoosing = renderToStaticMarkup(<TogetherNews snapshot={choosing} />);
-    expect(shownChoosing).toContain("<li>Kim: choosing how they hear the film</li>");
-    expect(shownChoosing).not.toContain("Karl:");
+    const shownTapping = renderToStaticMarkup(<TogetherNews snapshot={tapping} />);
+    expect(shownTapping).toContain("<li>Kim: needs to tap the page to start</li>");
+    expect(shownTapping).not.toContain("Karl:");
   });
 });

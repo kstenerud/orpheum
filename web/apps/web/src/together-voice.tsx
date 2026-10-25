@@ -25,7 +25,6 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-import type { AudioOutput } from "./accounts.ts";
 import { ownScriptOf } from "./app-update.ts";
 import { ModalDialog } from "./modal-dialog.tsx";
 import { dataOrThrow } from "./problem.ts";
@@ -362,14 +361,11 @@ export function movesSoundToTheEarpiece(
  * D281): everyone is heard from the start; Talk, one toggle, opens the microphone and closes it
  * again; and each person's volume, apart from the film's. A call that fails is said,
  * with a button to connect again. Headphones are the supported way to keep the film out of the
- * microphone (D63), so the controls say so. A microphone that cannot open says why.
+ * microphone (D63), so the controls say so, and an iPhone's first Talk warns that only they carry
+ * the film and the voices together: no one is asked whether theirs are on (D336 §4). A microphone
+ * that cannot open says why.
  */
-export function VoiceControls(
-  props: VoiceInUse & {
-    /** How this device makes sound: an iPhone without headphones is warned before Talk. */
-    readonly audioOutput: AudioOutput | undefined;
-  },
-): JSX.Element {
+export function VoiceControls(props: VoiceInUse): JSX.Element {
   const { t } = useTranslation();
   const { voice, snapshot } = props;
   const isTalking = snapshot.status === "on";
@@ -400,7 +396,7 @@ export function VoiceControls(
         voice={voice}
         snapshot={snapshot}
         tap={props.tap}
-        shouldWarnFirst={props.audioOutput !== "headphones" && movesSoundToTheEarpiece()}
+        shouldWarnFirst={movesSoundToTheEarpiece()}
       />
       {isTalking ? (
         <output className="together-voice__talking">{t("together.voice.talking")}</output>

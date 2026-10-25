@@ -23,12 +23,11 @@ test(
   async ({ page, browserName }) => {
     await signIn(page);
 
-    // A device is asked how it plays sound before its first film; a film played as it is answers
-    // it here, so the timed press is an ordinary one. Its page is opened once it is on its ladder,
-    // whose timeline a loaded machine may still be reading (failed 2 of 4 check-pr runs, 2026-10-09).
+    // A film played first, so the timed press is an ordinary one. Its page is opened once it is on
+    // its ladder, whose timeline a loaded machine may still be reading (failed 2 of 4 check-pr
+    // runs, 2026-10-09).
     await openFilmOnItsLadder(page, warmUpFilm);
     await page.getByRole("link", { name: "Play" }).click();
-    await page.getByRole("button", { name: /Built-in speakers/ }).click();
     await expect.poll(() => isPlaying(page), { timeout: 30_000 }).toBe(true);
     await expect(page.locator(".play__tracks")).toContainText(onTheLadder);
 
@@ -82,12 +81,6 @@ test("on a phone's screen, the play page is no wider than the screen, whatever i
   await signIn(page);
   await openFilm(page, timingFilm(browserName));
   await page.getByRole("link", { name: "Play" }).click();
-  // Each answer to the sound question puts what it does below its name, not run into it.
-  const answer = page.getByRole("button", { name: /Built-in speakers/ });
-  const nameBox = await answer.locator("strong").boundingBox();
-  const hintBox = await answer.locator("span").boundingBox();
-  expect(hintBox?.y ?? 0).toBeGreaterThanOrEqual((nameBox?.y ?? 0) + (nameBox?.height ?? 0));
-  await answer.click();
   await expect(page.getByRole("combobox", { name: "Subtitles" })).toContainText(longTrackName);
   const widths = await page.evaluate(() => ({
     page: document.documentElement.scrollWidth,

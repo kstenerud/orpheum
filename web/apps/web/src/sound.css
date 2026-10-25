@@ -1,39 +1,8 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
-/* The question is read, not scanned: no wider than a line of text is comfortable. */
-.sound {
-  max-width: var(--size-reading);
-}
-
-/* Each answer: its name, then what it does, on lines of their own. */
-.sound__answer {
-  display: grid;
-  gap: var(--space-1);
-  width: 100%;
-  margin-block-end: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-card);
-  font-weight: normal;
-  text-align: start;
-}
-
-.sound__answer > :first-child {
-  font-weight: var(--font-weight-strong);
-}
-
-.sound__answer > :not(:first-child) {
-  color: var(--color-muted);
-  font-size: var(--font-size-small);
-}
-
 /* A switch for one of the person's own choices: the box beside its label. */
 .sound__switch {
   display: flex;
   gap: var(--space-2);
   align-items: center;
-}
-
-.sound__answer[aria-pressed="true"] {
-  border-color: var(--color-accent);
-  box-shadow: inset 0 0 0 1px var(--color-accent);
 }

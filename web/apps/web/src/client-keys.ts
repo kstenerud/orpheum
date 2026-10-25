@@ -16,11 +16,10 @@ const clientKeys = new Set([
   "orpheum.deviceId",
   "orpheum.deviceProof",
   "orpheum.locator",
-  // Watch Together (together-storage.ts): a tab's hosting, a viewer's membership, how they listen,
-  // and the start lag learned.
+  // Watch Together (together-storage.ts): a tab's hosting, a viewer's membership and the start lag
+  // learned.
   "orpheum.together.host",
   "orpheum.together.viewer",
-  "orpheum.together.audioOutput",
   "orpheum.together.startLag",
   // A device being activated by a code (pairing.ts).
   "orpheum.pairing",

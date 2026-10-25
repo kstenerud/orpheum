@@ -36,7 +36,6 @@ export const enTogether = {
     here: "Here: {{names, list}}",
     away: "{{name}} (reconnecting)",
     status: {
-      choosingSound: "{{name}}: choosing how they hear the film",
       needsTap: "{{name}}: needs to tap the page to start",
       loading: "{{name}}: loading the film",
       catchingUp: "{{name}}: catching up",

@@ -7,16 +7,15 @@ import { listMyDevices, renameMyDevice } from "./accounts.ts";
 import { Link } from "./link.tsx";
 import { problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
-import { SoundQuestion } from "./sound.tsx";
 import { Loaded } from "./title.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 import { DeviceName } from "./your-devices.tsx";
 
 /**
- * The settings of the device the person is using, in one place: its name, and how it makes sound
- * (D222 §1), which the player otherwise asks once and changes under the video. The person's other
- * devices are on their account page.
+ * The settings of the device the person is using, in one place: its name. How it makes sound is
+ * asked of no one (D336 §4); its sound offset is set under the video. The person's other devices
+ * are on their account page.
  */
 export function ThisDevice(): JSX.Element {
   const { t } = useTranslation();
@@ -47,7 +46,6 @@ export function ThisDevice(): JSX.Element {
                 }}
               />
               {problem === undefined ? null : <p role="alert">{problem}</p>}
-              <SoundQuestion current={device.audioOutput} onAnswered={reload} />
             </>
           );
         }}

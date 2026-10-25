@@ -721,9 +721,8 @@ CREATE TABLE device (                                      -- class A
   user_id       INTEGER REFERENCES user(id) ON DELETE RESTRICT,
   name          TEXT NOT NULL,
   platform      TEXT NOT NULL,
-  audio_output  TEXT CHECK (audio_output IN ('built_in_speakers','receiver','headphones')),  -- migration 0020
+  audio_output  TEXT CHECK (audio_output IN ('built_in_speakers','receiver','headphones')),  -- migration 0020; unused since D336 §4: nothing reads or writes it, and no one is asked
   sound_offset_ms INTEGER NOT NULL DEFAULT 0 CHECK (sound_offset_ms BETWEEN -2000 AND 2000),  -- migration 0056 (0055's sound_delay_ms): the sound moved later (+) or earlier (-) than its picture
-                                         -- NULL until asked on first playback (D184)
   added_at    INTEGER NOT NULL,
   last_signed_in_at     INTEGER NOT NULL,
   removed_at    INTEGER

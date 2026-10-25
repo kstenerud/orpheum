@@ -39,10 +39,14 @@ type Reason string
 
 // The reasons.
 const (
-	ReasonContainer     Reason = "container"
-	ReasonAudioCodec    Reason = "audio_codec"
-	ReasonVideoCodec    Reason = "video_codec"
-	ReasonBandwidth     Reason = "bandwidth"
+	ReasonContainer Reason = "container"
+	// ReasonAudioCodec is a sound the device cannot play as it is: its codec, or, for AAC, its
+	// channels, since the menu names aac-stereo and aac-multi apart (D21, D336 §2).
+	ReasonAudioCodec Reason = "audio_codec"
+	ReasonVideoCodec Reason = "video_codec"
+	ReasonBandwidth  Reason = "bandwidth"
+	// ReasonDialogueBoost is the person's dialogue boost, on, over a sound of more than two channels:
+	// the server makes the mix that raises its centre (D222, D336 §2).
 	ReasonDialogueBoost Reason = "dialogue_boost"
 	// ReasonAudioTrack is an audio track a person chose that is not the one the original starts with:
 	// a browser plays the original's first, and a prepared copy carries every track (D217 §3, D230).
@@ -59,10 +63,11 @@ type Input struct {
 	// black box): Direct plays the original whatever it holds, HLS prepares a rendition, and empty
 	// leaves the decision its own.
 	PreferredDelivery Delivery
-	// IsStereoOutput is whether the device plays two channels that the server folds down for it: TV
-	// speakers or headphones. A sound of more than two channels is then always prepared, so the
-	// dialogue boost can act and be switched mid-film (D222).
-	IsStereoOutput bool
+	// IsDialogueBoostOn is whether the person plays with the dialogue boost (D83): a sound of more
+	// than two channels is then made by the server, its centre raised; with it off, the sound plays
+	// as it is wherever the playable formats say it can (D336 §1, §2). How the device makes sound
+	// plays no part (D336 §4).
+	IsDialogueBoostOn bool
 	// AudioStreamIndex is the stream index of the audio track a person chose (D230), or nil for the
 	// one a player starts with, MainAudio.
 	AudioStreamIndex *int
@@ -87,7 +92,7 @@ func Decide(input Input) Decision {
 	reasons, videoFits := axisReasons(input)
 	// The boost changes nothing on a source with no centre channel to raise.
 	audio, hasAudio := playedAudio(input)
-	if input.IsStereoOutput && hasAudio && audio.Audio.ChannelCount > 2 {
+	if input.IsDialogueBoostOn && hasAudio && audio.Audio.ChannelCount > 2 {
 		reasons = append(reasons, ReasonDialogueBoost)
 	}
 	if main, hasMain := MainAudio(input.Probe); hasAudio && hasMain && audio.StreamIndex != main.StreamIndex {

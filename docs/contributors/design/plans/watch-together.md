@@ -95,7 +95,8 @@ channel.
 **The group stops only at its own sync points** (D250 §2): a film put on or started over, the
 host's play after a pause, and the host's seek. There it is `Waiting` until every player that has
 once been ready is ready again, those catching up included. A player still loading its first
-picture, or whose person is still choosing their speakers, holds no one up (D246 §6). A player is
+picture, or whose page still waits for its tap, holds no one up (D246 §6; no one chooses their
+speakers since D336 §4). A player is
 ready after a stall only with 10 s loaded ahead (`refillAheadMs`,
 [D247](../../decisions/working-notes.md#d247--a-slow-link-gets-a-lower-version-made-at-its-first-stall-and-played-from-its-second-and-a-group-waits-for-a-stalled-viewer-once-then-lets-them-catch-up-alone)
 §5), and after a seek with 3 s when its link carried its last chunk at least 1.5 times faster than

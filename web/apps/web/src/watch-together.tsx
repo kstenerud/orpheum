@@ -318,7 +318,7 @@ function SessionView(props: {
   return (
     <div className="watch-together__controls">
       <p>{t("watchTogether.onExplain")}</p>
-      {voice === undefined ? null : <VoiceControls {...voice} audioOutput={undefined} />}
+      {voice === undefined ? null : <VoiceControls {...voice} />}
       <FilmVolumeSlider />
       {problem === undefined ? null : <p role="alert">{problem}</p>}
       <BusyGroup isBusy={isBusy}>

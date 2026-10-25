@@ -26,7 +26,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-import { secretFromHash, type AudioOutput } from "./accounts.ts";
+import { secretFromHash } from "./accounts.ts";
 import logo from "./assets/orpheum-logo.svg";
 import { browserStorage } from "./browser-storage.ts";
 import { idempotent } from "./idempotent.ts";
@@ -42,7 +42,6 @@ import { useShowsAFilm } from "./film-showing.ts";
 import { haveBackMySessions } from "./together-mine.ts";
 import { useMembership } from "./together-membership.ts";
 import { useServices, useToken } from "./services.tsx";
-import { SoundChoices, SoundLine } from "./sound.tsx";
 import { Loaded } from "./title.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { requestTogetherPlayback } from "./together-playback.ts";
@@ -56,10 +55,8 @@ import { useVoice, VoiceControls } from "./together-voice.tsx";
 import {
   forgetMembership,
   keepMembership,
-  keepViewerAudioOutput,
   membershipHeaders,
   readMembership,
-  readViewerAudioOutput,
   startLagMemory,
   type Membership,
 } from "./together-storage.ts";
@@ -71,9 +68,9 @@ import { useIsVolumeSettable, VolumeButtonsNote } from "./film-volume-slider.tsx
 
 /**
  * A Watch Together viewer's page (D246 §3, §5, §6), for someone who need not be signed in: they
- * join by their link with a name everyone sees, say how their device makes sound unless this
- * browser already knows, and then see only the host's playback, black while nothing plays, with
- * their own volume and Leave. The link's secret is after #, and leaves the address once used.
+ * join by their link with a name everyone sees, asked nothing of how their device makes sound
+ * (D336 §4), and then see only the host's playback, black while nothing plays, with their own
+ * volume and Leave. The link's secret is after #, and leaves the address once used.
  */
 export function TogetherViewer(): JSX.Element {
   const { api, navigation } = useServices();
@@ -210,18 +207,15 @@ function SessionOver(props: {
   );
 }
 
-/** What a viewer's page waits on before its film can play: its tap, then its person's speakers. */
-function standingOf(kept: KeptVideo, audioOutput: AudioOutput | undefined): Standing {
-  if (!kept.hasHadATap) {
-    return "needsTap";
-  }
-  return audioOutput === undefined ? "choosingSound" : "";
+/** What a viewer's page waits on before its film can play: its tap. */
+function standingOf(kept: KeptVideo): Standing {
+  return kept.hasHadATap ? "" : "needsTap";
 }
 
 /**
- * A viewer in the session: the speaker question first unless this browser has the answer, then the
- * playback; named events and who is here; the volume and Leave. Nobody waits for the question
- * (D246 §6): until the player is ready it holds no one up.
+ * A viewer in the session: the playback, with nothing asked of how they hear it (D336 §4); named
+ * events and who is here; the volume and Leave. Until the player is ready it holds no one up
+ * (D246 §6).
  */
 function ViewerSession(props: {
   readonly membership: Membership;
@@ -232,7 +226,6 @@ function ViewerSession(props: {
   readonly onOver: (reason: TogetherEndReason) => void;
 }): JSX.Element {
   const { t } = useTranslation();
-  const [audioOutput, keep] = useViewerAudioOutput();
   const [volume, setVolume] = useState(1);
   const { connection, snapshot } = useTogether({ credential: props.membership.credential });
   const { onOver, kept } = props;
@@ -244,7 +237,7 @@ function ViewerSession(props: {
     devices: props.devices,
   });
   useOverWhenEnded(snapshot, onOver);
-  useToldStanding(isConnected ? connection : undefined, standingOf(kept, audioOutput));
+  useToldStanding(isConnected ? connection : undefined, standingOf(kept));
   if (!kept.hasHadATap) {
     // As a page of its own: nothing of the session plays or shows under it (the owner, 2026-10-13).
     return (
@@ -259,43 +252,21 @@ function ViewerSession(props: {
     <main className="together-viewer">
       <img className="together-viewer__logo" src={logo} alt={productName} />
       <h1 className="together-viewer__heading">{t("together.viewerHeading")}</h1>
-      {audioOutput === undefined ? (
-        <SoundChoices current={undefined} isBusy={false} problem={undefined} onChosen={keep} />
-      ) : (
-        <>
-          <ViewingArea
-            kept={kept}
-            isVoiceWaiting={voice.tap.isWaiting}
-            membership={props.membership}
-            audioOutput={audioOutput}
-            connection={connection}
-            snapshot={snapshot}
-            volume={volume}
-          />
-          <SoundLine current={audioOutput} onChanged={() => undefined} keep={keep} />
-        </>
-      )}
+      <ViewingArea
+        kept={kept}
+        isVoiceWaiting={voice.tap.isWaiting}
+        membership={props.membership}
+        connection={connection}
+        snapshot={snapshot}
+        volume={volume}
+      />
       <TogetherNews snapshot={snapshot} />
       {/* The voices' tap is asked for over the stage, with the film's (ViewingArea). */}
-      <VoiceControls
-        {...voice}
-        tap={{ ...voice.tap, isWaiting: false }}
-        audioOutput={audioOutput}
-      />
+      <VoiceControls {...voice} tap={{ ...voice.tap, isWaiting: false }} />
       <VolumeSlider volume={volume} onChange={setVolume} />
       <LeaveButton membership={props.membership} onLeft={onOver} />
     </main>
   );
-}
-
-/** How this browser makes sound, as it said, and the keeping of a new answer. */
-function useViewerAudioOutput(): [AudioOutput | undefined, (output: AudioOutput) => void] {
-  const [audioOutput, setAudioOutput] = useState(() => readViewerAudioOutput(browserStorage()));
-  const keep = useCallback((output: AudioOutput): void => {
-    keepViewerAudioOutput(browserStorage(), output);
-    setAudioOutput(output);
-  }, []);
-  return [audioOutput, keep];
 }
 
 /** Ends the viewer's session as the server ends it, with its reason. */
@@ -370,7 +341,6 @@ function ViewingArea(props: {
   readonly kept: KeptVideo;
   readonly isVoiceWaiting: boolean;
   readonly membership: Membership;
-  readonly audioOutput: AudioOutput;
   readonly connection: (TogetherConnection & TellsCannotKeepUp) | undefined;
   readonly snapshot: TogetherSnapshot | undefined;
   readonly volume: number;
@@ -391,12 +361,11 @@ function ViewingArea(props: {
         </EmptyStage>
       ) : (
         <GroupFilm
-          key={`${String(fileId)}/${props.audioOutput}`}
+          key={fileId}
           keptVideo={props.kept.video}
           isVoiceWaiting={props.isVoiceWaiting}
           fileId={fileId}
           credential={props.membership.credential}
-          audioOutput={props.audioOutput}
           following={{ connection, volume: props.volume }}
         />
       )}
@@ -422,7 +391,6 @@ function GroupFilm(props: {
   readonly isVoiceWaiting: boolean;
   readonly fileId: number;
   readonly credential: string;
-  readonly audioOutput: AudioOutput;
   readonly following: Following;
 }): JSX.Element {
   const decision = useGroupFilmDecision(props);
@@ -481,14 +449,10 @@ function GroupFilm(props: {
 function useGroupFilmDecision(film: {
   readonly fileId: number;
   readonly credential: string;
-  readonly audioOutput: AudioOutput;
 }): ReturnType<typeof useResource<PlaybackDecision>>[0] {
   const { api, playableFormats } = useServices();
-  const [decision] = useResource(`together-play/${String(film.fileId)}/${film.audioOutput}`, () =>
-    requestTogetherPlayback(api, film.credential, {
-      playableFormats: playableFormats(),
-      audioOutput: film.audioOutput,
-    }),
+  const [decision] = useResource(`together-play/${String(film.fileId)}`, () =>
+    requestTogetherPlayback(api, film.credential, { playableFormats: playableFormats() }),
   );
   return decision;
 }

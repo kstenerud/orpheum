@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/clientnet"
 	"github.com/kstenerud/orpheum/internal/core/decide"
@@ -21,7 +20,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
-	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -141,14 +139,11 @@ func NewService(parts Parts) *Service {
 // Request is what a client asks to play, and what it can play (D21, D217 §1).
 type Request struct {
 	FileID int64
-	// DeviceID is the device asking, whose sound decides whether we fold it down (D222); 0 for
-	// a session with no device.
+	// DeviceID is the device asking, whose sound offset the playback carries; 0 for a session with
+	// no device.
 	DeviceID          int64
 	PlayableFormats   decide.PlayableFormats
 	PreferredDelivery decide.Delivery
-	// AudioOutput is how a device with no device row makes sound, a Watch Together viewer's, asked
-	// as they join (D246 §6); a person's device's own answer is read instead.
-	AudioOutput string
 	// ClientAddress is the address the request came from, whose network the link speed remembered
 	// for the player is kept by (D257 §1).
 	ClientAddress string
@@ -176,8 +171,6 @@ type Started struct {
 	Preferences preferences.Preferences
 	// ResumePositionMs is where the player starts: where the person left the file, or 0.
 	ResumePositionMs int64
-	// AudioOutput is how the device asking makes sound, or empty until it is asked (D222).
-	AudioOutput string
 	// SoundOffsetMs is how far the device asking moves its sound from its picture, later when
 	// positive and earlier when negative; 0 for none, and for a viewer with no device.
 	SoundOffsetMs int64
@@ -221,11 +214,11 @@ func (service *Service) Start(ctx context.Context, holder Holder, request Reques
 	if err != nil {
 		return Started{}, err
 	}
-	sound, err := service.deviceSoundOf(ctx, userID, request)
+	offsetMs, err := service.soundOffsetMs(ctx, userID, request.DeviceID)
 	if err != nil {
 		return Started{}, err
 	}
-	started := Started{AudioOutput: sound.output, SoundOffsetMs: sound.offsetMs}
+	started := Started{SoundOffsetMs: offsetMs}
 	if started.Subtitles, err = service.subtitles.Want(ctx, file.ID); err != nil {
 		return Started{}, err
 	}
@@ -399,12 +392,13 @@ func (service *Service) readIfStillReading(
 }
 
 // decisionFor is how a file plays for the client that asked, with the audio track the playback
-// starts with.
+// starts with and the person's dialogue boost, which alone of how they hear it needs the sound made
+// (D336 §2).
 func decisionFor(request Request, probe nodeproto.Probe, started Started) decide.Decision {
 	input := decide.Input{
 		Probe: probe, PlayableFormats: request.PlayableFormats,
 		PreferredDelivery: request.PreferredDelivery,
-		IsStereoOutput:    isStereoOutput(started.AudioOutput),
+		IsDialogueBoostOn: started.Preferences.IsDialogueBoostOn,
 	}
 	if started.StartingAudio != nil {
 		input.AudioStreamIndex = new(int(started.StartingAudio.StreamIndex))
@@ -465,43 +459,22 @@ func (service *Service) startingChoices(
 	return used, nil
 }
 
-// isStereoOutput is whether a device's sound is two channels the server folds down for it: its
-// built-in speakers or headphones, not a soundbar or receiver, nor a device not yet asked (D222).
-func isStereoOutput(audioOutput string) bool {
-	return audioOutput == auth.AudioOutputBuiltInSpeakers || audioOutput == auth.AudioOutputHeadphones
-}
-
-// deviceSound is how a device makes sound and how far it moves its sound from its picture.
-type deviceSound struct {
-	output   string
-	offsetMs int64
-}
-
-// deviceSoundOf is how the device asking makes sound: a person's device's own answer and offset, or,
-// for a viewer with no device row, what they chose as they joined (D246 §6), with no offset.
-func (service *Service) deviceSoundOf(ctx context.Context, userID int64, request Request) (deviceSound, error) {
-	if request.DeviceID == 0 {
-		return deviceSound{output: request.AudioOutput}, nil
-	}
-	return service.deviceSound(ctx, userID, request.DeviceID)
-}
-
-// deviceSound is how a person's device makes sound, empty when it is not yet asked, and its sound
-// offset; nothing when there is no device.
-func (service *Service) deviceSound(ctx context.Context, userID, deviceID int64) (deviceSound, error) {
+// soundOffsetMs is how far a person's device moves its sound from its picture; 0 when there is no
+// device, as for a Watch Together viewer, or none the person has.
+func (service *Service) soundOffsetMs(ctx context.Context, userID, deviceID int64) (int64, error) {
 	if deviceID == 0 {
-		return deviceSound{}, nil
+		return 0, nil
 	}
 	device, err := store.OrNotFound(service.database.Read().GetLiveDeviceOfUser(ctx, sqlcgen.GetLiveDeviceOfUserParams{
 		ID: deviceID, UserID: &userID,
 	}))
 	if errors.Is(err, store.ErrNotFound) {
-		return deviceSound{}, nil
+		return 0, nil
 	}
 	if err != nil {
-		return deviceSound{}, fmt.Errorf("read device %d: %w", deviceID, err)
+		return 0, fmt.Errorf("read device %d: %w", deviceID, err)
 	}
-	return deviceSound{output: ptr.ValueOrZero(device.AudioOutput), offsetMs: device.SoundOffsetMs}, nil
+	return device.SoundOffsetMs, nil
 }
 
 // Source is where a direct playback's bytes are: a node, the target on its byte socket, and

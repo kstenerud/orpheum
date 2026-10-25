@@ -28,7 +28,6 @@ import {
   useVoice,
   VoiceControls,
 } from "./together-voice.tsx";
-import type { AudioOutput } from "./accounts.ts";
 
 /** A call as a test sees it. */
 interface FakeCall extends VoiceCall {
@@ -164,9 +163,9 @@ function talkButton(container: Element, name: string): Element | undefined {
 }
 
 /** A person's voice and its controls, as a page has them. */
-function Voice(props: { readonly audioOutput: AudioOutput }): JSX.Element {
+function Voice(): JSX.Element {
   const voice = useVoice(membership, undefined);
-  return <VoiceControls {...voice} audioOutput={props.audioOutput} />;
+  return <VoiceControls {...voice} />;
 }
 
 beforeEach(() => {
@@ -179,7 +178,7 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
     const devices = fakeDevices();
     const heard: Heard[] = [];
     const { services, server } = voiceServices(devices, heard);
-    const mounted = await mount(withServices(<Voice audioOutput="headphones" />, services));
+    const mounted = await mount(withServices(<Voice />, services));
     expect(mounted.container.textContent).toContain("Use headphones");
     await server.accept();
     expect(server.heard[0]).toEqual({
@@ -208,7 +207,7 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
   it("talks on the call already up, the microphone processed as the session says", async () => {
     const devices = fakeDevices();
     const { services, server } = voiceServices(devices);
-    const mounted = await mount(withServices(<Voice audioOutput="headphones" />, services));
+    const mounted = await mount(withServices(<Voice />, services));
     await server.accept();
     await server.say(welcome);
     await click(talkButton(mounted.container, "Talk"));
@@ -241,7 +240,7 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
       },
     };
     const { services, server } = voiceServices({ ...devices, devices: waitingDevices });
-    const mounted = await mount(withServices(<Voice audioOutput="headphones" />, services));
+    const mounted = await mount(withServices(<Voice />, services));
     await server.accept();
     await server.say(welcome);
     await click(buttonWithText(mounted.container, "Tap to hear everyone's voices"));
@@ -253,7 +252,7 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
   it("says when no one else is here to hear", async () => {
     const devices = fakeDevices();
     const { services, server } = voiceServices(devices, []);
-    const mounted = await mount(withServices(<Voice audioOutput="headphones" />, services));
+    const mounted = await mount(withServices(<Voice />, services));
     await server.accept();
     await server.say({
       ...welcome,
@@ -270,7 +269,7 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
   it("talks by one toggle, closing the microphone and opening it again, still hearing, and sets each person's voice volume", async () => {
     const devices = fakeDevices();
     const { services, server } = voiceServices(devices);
-    const mounted = await mount(withServices(<Voice audioOutput="headphones" />, services));
+    const mounted = await mount(withServices(<Voice />, services));
     await server.accept();
     await server.say(welcome);
     const talk = (): Element | undefined =>
@@ -308,7 +307,7 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
   it("shows it connecting, a moving status line, while a call is made again after a failure (D281 §6)", async () => {
     const devices = fakeDevices();
     const { services, server } = voiceServices(devices);
-    const mounted = await mount(withServices(<Voice audioOutput="headphones" />, services));
+    const mounted = await mount(withServices(<Voice />, services));
     await server.accept();
     await server.say(welcome);
     const status = (): Element | null => mounted.container.querySelector(".together-voice__status");
@@ -330,7 +329,7 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
   it("says the microphone was not allowed when it is refused, still hearing, and Talk tries again", async () => {
     const devices = fakeDevices(() => Promise.reject(new DOMException("no", "NotAllowedError")));
     const { services, server } = voiceServices(devices);
-    const mounted = await mount(withServices(<Voice audioOutput="headphones" />, services));
+    const mounted = await mount(withServices(<Voice />, services));
     await server.accept();
     await click(talkButton(mounted.container, "Talk"));
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
@@ -346,7 +345,7 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
   it("says this page cannot use a microphone where the browser offers none", async () => {
     const devices = fakeDevices(() => Promise.reject(new DOMException("no", "NotSupportedError")));
     const { services } = voiceServices(devices);
-    const mounted = await mount(withServices(<Voice audioOutput="headphones" />, services));
+    const mounted = await mount(withServices(<Voice />, services));
     await click(talkButton(mounted.container, "Talk"));
     expect(mounted.container.querySelector('[role="alert"]')?.textContent).toContain(
       "needs the https:// address",
@@ -355,7 +354,6 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
   });
 
   it("is on the viewer's page and with the host's player, the host's one voice for the tab", async () => {
-    window.localStorage.setItem("orpheum.together.audioOutput", "headphones");
     window.localStorage.setItem("orpheum.together.viewer", JSON.stringify(membership));
     const hostMembership = { sessionId: 1, credential: "host-credential" };
     window.sessionStorage.setItem("orpheum.together.host", JSON.stringify(hostMembership));
@@ -372,13 +370,7 @@ describe("voice controls in a Watch Together session (watch-together.md, Voice; 
     const host = await mount(
       withServices(
         <HostVoiceProvider membership={hostMembership}>
-          <HostPlaysTogether
-            fileId={5}
-            video={null}
-            startPositionMs={0}
-            cannotKeepUp={undefined}
-            audioOutput="headphones"
-          />
+          <HostPlaysTogether fileId={5} video={null} startPositionMs={0} cannotKeepUp={undefined} />
         </HostVoiceProvider>,
         services,
       ),
@@ -408,40 +400,30 @@ describe("voice on an iPhone without headphones", () => {
     expect(movesSoundToTheEarpiece({ maxTouchPoints: 5 })).toBe(false);
   });
 
-  it("warns before Talk that the film goes quiet, unless headphones are on", async () => {
+  it("warns before Talk that the film goes quiet unless headphones are on, asking no one whether they are (D336 §4)", async () => {
     Object.defineProperty(navigator, "maxTouchPoints", { value: 5, configurable: true });
     Object.defineProperty(navigator, "audioSession", { value: {}, configurable: true });
     try {
-      for (const [audioOutput, isWarned] of [
-        ["built_in_speakers", true],
-        ["headphones", false],
-      ] as const) {
-        const devices = fakeDevices();
-        const { services } = voiceServices(devices);
-        const mounted = await mount(withServices(<Voice audioOutput={audioOutput} />, services));
-        const warning = (): Element | null =>
-          mounted.container.querySelector('[role="alertdialog"]');
-        // It pops up at the press of Talk, before the microphone opens (the owner, 2026-10-11).
-        expect(warning()).toBeNull();
-        await click(talkButton(mounted.container, "Talk"));
-        expect(warning() !== null).toBe(isWarned);
-        expect(mounted.container.textContent.includes("please connect your headphones")).toBe(
-          isWarned,
-        );
-        // The microphone opens at the press either way; OK only closes the notice.
-        expect(devices.processedAsked).toHaveLength(1);
-        if (isWarned) {
-          await click(buttonWithText(mounted.container, "OK"));
-          expect(warning()).toBeNull();
-          expect(devices.processedAsked).toHaveLength(1);
-          // Read once, it does not come back at the next press.
-          await click(talkButton(mounted.container, "Stop talking"));
-          await click(talkButton(mounted.container, "Talk"));
-          expect(warning()).toBeNull();
-          expect(devices.processedAsked).toHaveLength(2);
-        }
-        mounted.unmount();
-      }
+      const devices = fakeDevices();
+      const { services } = voiceServices(devices);
+      const mounted = await mount(withServices(<Voice />, services));
+      const warning = (): Element | null => mounted.container.querySelector('[role="alertdialog"]');
+      // It pops up at the press of Talk, before the microphone opens (the owner, 2026-10-11).
+      expect(warning()).toBeNull();
+      await click(talkButton(mounted.container, "Talk"));
+      expect(warning()).not.toBeNull();
+      expect(mounted.container.textContent).toContain("please connect your headphones");
+      // The microphone opens at the press; OK only closes the notice.
+      expect(devices.processedAsked).toHaveLength(1);
+      await click(buttonWithText(mounted.container, "OK"));
+      expect(warning()).toBeNull();
+      expect(devices.processedAsked).toHaveLength(1);
+      // Read once, it does not come back at the next press.
+      await click(talkButton(mounted.container, "Stop talking"));
+      await click(talkButton(mounted.container, "Talk"));
+      expect(warning()).toBeNull();
+      expect(devices.processedAsked).toHaveLength(2);
+      mounted.unmount();
     } finally {
       Reflect.deleteProperty(navigator, "audioSession");
       Reflect.deleteProperty(navigator, "maxTouchPoints");

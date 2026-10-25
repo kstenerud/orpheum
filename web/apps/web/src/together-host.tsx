@@ -12,7 +12,6 @@ import {
 import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import type { AudioOutput } from "./accounts.ts";
 import { browserStorage, tabStorage } from "./browser-storage.ts";
 import { useToken } from "./services.tsx";
 import { TogetherNews } from "./together-news.tsx";
@@ -35,8 +34,6 @@ interface HostPlayer {
   readonly startPositionMs: number;
   /** Whether even the host's lowest quality cannot keep up, which everyone is told (D247 §8). */
   readonly cannotKeepUp: CannotKeepUp | undefined;
-  /** How this device makes sound, which voice on an iPhone without headphones warns of. */
-  readonly audioOutput: AudioOutput | undefined;
 }
 
 /**
@@ -124,9 +121,7 @@ function HostLeading(
       <SoundOn video={video} connection={connection} />
       <p>{t("together.hostPlaying")}</p>
       <TogetherNews snapshot={snapshot} />
-      {hostVoice === undefined ? null : (
-        <VoiceControls {...hostVoice} audioOutput={props.audioOutput} />
-      )}
+      {hostVoice === undefined ? null : <VoiceControls {...hostVoice} />}
       <FilmVolumeSlider />
     </div>
   );

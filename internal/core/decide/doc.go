@@ -43,10 +43,10 @@
 //     else the first), never on cover art or a second track. Enforced by
 //     TestDecide_JudgesTheTrackAPlayerStartsWith.
 //
-//   - On stereo output (built-in speakers, headphones), a main sound of more than two channels is always
-//     prepared, for dialogue_boost, whether the boost is on or off, so it switches mid-film
-//     without a new job; a stereo sound is not (D222). Enforced by
-//     TestDecide_TheBoostPreparesOnlyASourceWithACentre.
+//   - A sound plays as it is wherever the playable formats say the device plays its codec and its
+//     channels; how the device makes sound plays no part. Only the person's dialogue boost, on, over
+//     a sound of more than two channels prepares it, for dialogue_boost; a stereo sound has no centre
+//     to raise (D336 §1, §2). Enforced by TestDecide_TheBoostPreparesOnlyASourceWithACentre.
 //
 //   - Every switch over a codec, container or reason names every value; a new codec breaks each
 //     switch that does not handle it. Enforced by exhaustive (default-signifies-exhaustive:
@@ -60,7 +60,8 @@
 //   - D22: video, audio and subtitles negotiate as independent axes.
 //   - D103: a device capability is never stored.
 //   - D193 §2: prepare is the one path besides direct play.
-//   - D222: who folds a surround sound down to stereo, and when that prepares.
+//   - D336, revising D222: a sound plays as it is unless the device cannot play it or the dialogue
+//     boost needs it made.
 //   - docs/contributors/design/plans/cut-a.md §6.
 //
 // # Where to change
