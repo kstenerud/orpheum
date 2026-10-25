@@ -16,7 +16,7 @@ import {
   stickStep,
   type PadLayout,
   type StickHold,
-} from "./lab-pads.ts";
+} from "./input-pads.ts";
 
 /**
  * Pads' ids as browsers give them. Verified: quoted from a published capture (Enichan's gist of

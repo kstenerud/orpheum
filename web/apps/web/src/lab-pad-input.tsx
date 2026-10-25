@@ -2,7 +2,7 @@
 
 /**
  * The button test's controllers (plans/tv-device-tests.md H8): the pads connected, polled each frame
- * only while one is (controller-input §6.1 item 5), each read by lab-pads.ts for its layout; each
+ * only while one is (controller-input §6.1 item 5), each read by input-pads.ts for its layout; each
  * button told as it goes down, a standard pad's left stick as a direction as it leans past half way
  * and as a repeating arrow while held, and a pad with no standard mapping's axes as they cross half
  * way either way.
@@ -11,9 +11,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
-import type { ButtonName } from "./lab-buttons.ts";
+import type { ButtonName, Direction, OkButton } from "./input-buttons.ts";
 import type { FocusMode, NotedEvent } from "./lab-events.ts";
-import { geometricFocus, moveFocus, type Direction } from "./lab-focus.ts";
+import { geometricFocus, moveFocus } from "./focus-engine.ts";
 import {
   axisLean,
   okButtonOf,
@@ -22,10 +22,9 @@ import {
   stickAtRest,
   stickDirectionOf,
   stickStep,
-  type OkButton,
   type PadLayout,
   type StickHold,
-} from "./lab-pads.ts";
+} from "./input-pads.ts";
 
 /** One pad as the test last read it. */
 export interface PadState {
@@ -76,7 +75,7 @@ export interface PadHandlers {
   readonly onSeen: (pad: PadState) => void;
   readonly onPress: (press: PadButtonPress | StickPress) => void;
   readonly onAxis: (crossing: AxisCrossing) => void;
-  /** A stick's arrow: as it leans a new way, then repeating while held (lab-pads.ts). */
+  /** A stick's arrow: as it leans a new way, then repeating while held (input-pads.ts). */
   readonly onStickArrow: (direction: Direction) => void;
 }
 

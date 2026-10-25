@@ -12,7 +12,8 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-import { buttonOf, chipsShown, type ButtonName } from "./lab-buttons.ts";
+import { buttonOf, type ButtonName, type Direction, type OkButton } from "./input-buttons.ts";
+import { chipsShown } from "./lab-buttons.ts";
 import {
   useInputEvents,
   type EventSending,
@@ -22,7 +23,7 @@ import {
 } from "./lab-events.ts";
 import { FieldTest, useViewportChanges } from "./lab-field.tsx";
 import { LabFrame, yesNo } from "./lab-frame.tsx";
-import { caretOf, driveFocus, geometricFocus, type Direction } from "./lab-focus.ts";
+import { caretOf, driveFocus, geometricFocus } from "./focus-engine.ts";
 import { FullscreenTest, fullscreenElementOf, leaveFullscreenAt } from "./lab-fullscreen.tsx";
 import { heardKeyOf, keyEntryOf, withKey, type KeyEntry } from "./lab-keys.ts";
 import {
@@ -35,7 +36,7 @@ import {
   type PadState,
   type StickPress,
 } from "./lab-pad-input.tsx";
-import { padButtonNameOf, type OkButton } from "./lab-pads.ts";
+import { padButtonNameOf } from "./input-pads.ts";
 import { eventTimeMs, latencySummary, type LatencySummary } from "./lab-timing.ts";
 import { toneUrl } from "./lab-tone.ts";
 import { useServices } from "./services.tsx";
