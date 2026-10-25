@@ -66,9 +66,8 @@ func (database *Database) loadStatistics(ctx context.Context, text string) error
 		return fmt.Errorf("load the planner's statistics: %w", err)
 	}
 	for _, pool := range []*sql.DB{database.readers, database.maintenance} {
-		idle := pool.Stats().MaxOpenConnections
 		pool.SetMaxIdleConns(0) // the idle connections close, and the next open loads the statistics
-		pool.SetMaxIdleConns(max(idle, 2))
+		pool.SetMaxIdleConns(pool.Stats().MaxOpenConnections)
 	}
 	return nil
 }
