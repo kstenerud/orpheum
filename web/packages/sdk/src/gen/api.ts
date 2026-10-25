@@ -483,6 +483,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/files/{id}/up-next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What plays after a file as it ends: the next episode in the ordering its person watches its series in */
+        get: operations["getUpNext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/files/{id}/waits": {
         parameters: {
             query?: never;
@@ -4539,6 +4556,18 @@ export interface components {
         UnusedOutputBody: {
             unusedSettings: components["schemas"]["UnusedBody"][] | null;
         };
+        UpNextBody: {
+            episode: components["schemas"]["NextUpBody"];
+            /** @description Whether the ordering is one run, whose label names no group */
+            isOnlyGroup?: boolean;
+            ordering: string;
+            /** @description Its still's hash: GET /bytes/art/{sourceSha256}/landscape-s.webp */
+            stillSha256?: string;
+        };
+        UpNextOutputBody: {
+            /** @description What the player offers as the file ends; absent for a film, an episode its person's ordering leaves out, and the last */
+            upNext?: components["schemas"]["UpNextBody"];
+        };
         UserBody: {
             /** @enum {string} */
             adminAway?: "never" | "always";
@@ -5820,6 +5849,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FetchSubtitleOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getUpNext: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpNextOutputBody"];
                 };
             };
             /** @description Error */

@@ -466,12 +466,8 @@ func (server *Server) getSeries(ctx context.Context, input *ItemInput) (*Collect
 		return nil, server.libraryError(ctx, "read a series' next episode", err)
 	}
 	if hasNext {
-		body.NextUp = &NextUpBody{
-			TitleID: next.TitleID, Name: next.Name, GroupNumber: next.Group, NumberInGroup: next.NumberInGroup,
-			GroupName: next.GroupName,
-			FileID:    next.FileID, IsPartway: next.IsPartway, PositionMs: next.PartwayAtMs,
-			Unavailable: unavailableBody(next.Unreadable, server.nodeNamer(ctx, dependencies)),
-		}
+		nextUp := server.nextUpBody(ctx, dependencies, next)
+		body.NextUp = &nextUp
 	}
 	return output, nil
 }

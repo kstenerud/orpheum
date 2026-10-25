@@ -184,6 +184,8 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"deleteOverride", "postItemRefresh", "postItemMatchByLink", "putInterest",
 		// TestOrderings_APersonChoosesAmongTheOrderingsASeriesHas.
 		"getNotInOrdering", "setSeriesPreferences",
+		// What plays after a file, which reaches the file (requireSignedInReachingFile).
+		"getUpNext",
 		// A viewer's playback is reach-checked against the host's libraries
 		// (TestTogether_AViewerPlaysOnlyTheFilmOnInTheHostsLibraries).
 		"playTogether",
