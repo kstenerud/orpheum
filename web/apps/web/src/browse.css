@@ -19,16 +19,19 @@
  * across a Fire TV's 960-pixel page.
  */
 .browse__layout {
+  --rail-width: clamp(1.5rem, calc((100vh - 6rem) / 20), 2.5rem);
+
   display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--space-page);
+  grid-template-columns: minmax(0, 1fr) var(--rail-width);
+  column-gap: var(--space-3);
   align-items: start;
-  margin-inline-end: calc(-1 * var(--space-page));
+  padding-inline-start: calc(var(--rail-width) + var(--space-3));
 }
 
-/* The rail stands in the page's right margin, centred there, so the posters keep the same margin on
-   both sides (the owner, 2026-10-25: the left one was half the right). */
+/* The rail on the right, and as much room kept on the left, so the posters keep the same margin on
+   both sides (the owner, 2026-10-25: the left one was half the right, then both too narrow). */
 .browse__layout > .alphabet-rail {
-  justify-self: center;
+  width: var(--rail-width);
 }
 
 @media (min-width: 600px) and (max-width: 1199px) {

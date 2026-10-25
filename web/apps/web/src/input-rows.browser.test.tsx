@@ -18,7 +18,6 @@ import { page, userEvent } from "vitest/browser";
 import {
   filmDetail,
   films,
-  focusedTile,
   isDrawn,
   isFocusIn,
   mountApp,
@@ -39,7 +38,7 @@ function partway(id: number, name: string): Record<string, unknown> {
   return { id, name, libraryId: 1, fileId: id * 10, positionMs: 500_000, durationMs: 1_000_000 };
 }
 
-/** The films' page with three films partway watched over a grid of twelve. */
+/** Home with three films partway watched, over the newest films and series, twelve each. */
 const withContinueWatching: WalkAnswers = {
   "GET /me": viewer,
   "GET /client-settings": {},
@@ -88,6 +87,15 @@ async function pressUntil(key: string, isThere: () => boolean, times = 8): Promi
   return isThere();
 }
 
+/** Home's row of the newest films. */
+const newestFilms = '[aria-labelledby="home-newest-movie"]';
+
+/** The newest films' card that has focus: its film's name; "" for none. */
+function focusedNewest(): string {
+  const card = document.activeElement?.closest(`${newestFilms} .poster-card`);
+  return card?.querySelector(".poster-card__name")?.textContent ?? "";
+}
+
 /** The Continue Watching card that has focus, or what is in it: its film's name; "" for none. */
 function focusedCard(): string {
   const row = document.activeElement?.closest(".continue-watching .poster-card");
@@ -131,25 +139,25 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
     walking = undefined;
   });
 
-  it("goes back to the film it left in Continue Watching, and to the one it left in the grid", async () => {
+  it("goes back to the film it left in Continue Watching, and to the one it left in the newest films", async () => {
     await page.viewport(width, height);
-    walking = await mountApp(walkServices(withContinueWatching));
-    await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
+    walking = await mountApp(walkServices(withContinueWatching, "/"));
+    await expect.poll(() => isDrawn(`${newestFilms} .poster-card__link`)).toBe(true);
     await expect.poll(() => isDrawn(".continue-watching .poster-card__link")).toBe(true);
     await userEvent.keyboard("{ArrowDown}");
     expect(focusedCard()).toBe("Metropolis");
     await userEvent.keyboard("{ArrowRight}");
     expect(focusedCard()).toBe("Nosferatu");
-    expect(await pressUntil("{ArrowDown}", () => focusedTile() !== "")).toBe(true);
-    expect(await pressUntil("{ArrowLeft}", () => focusedTile() === "Film 1")).toBe(true);
+    expect(await pressUntil("{ArrowDown}", () => focusedNewest() !== "")).toBe(true);
+    expect(await pressUntil("{ArrowLeft}", () => focusedNewest() === "Film 1")).toBe(true);
     // Up from under Metropolis, into the row at Nosferatu, where it was.
     expect(await pressUntil("{ArrowUp}", () => isFocusIn(".continue-watching"))).toBe(true);
     expect(focusedCard()).toBe("Nosferatu");
     await userEvent.keyboard("{ArrowRight}");
     expect(focusedCard()).toBe("Sunrise");
-    // Down from over Film 3, into the grid at Film 1, where it was.
-    expect(await pressUntil("{ArrowDown}", () => focusedTile() !== "")).toBe(true);
-    expect(focusedTile()).toBe("Film 1");
+    // Down from over Film 3, into the newest films at Film 1, where it was.
+    expect(await pressUntil("{ArrowDown}", () => focusedNewest() !== "")).toBe(true);
+    expect(focusedNewest()).toBe("Film 1");
   });
 
   it("opens an episode from its season's list and goes back to it there", async () => {
@@ -166,7 +174,7 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
 
   it("draws the whole focus ring of a card in Continue Watching and of a place in the banner, rows that scroll sideways", async () => {
     await page.viewport(width, height);
-    walking = await mountApp(walkServices(withContinueWatching));
+    walking = await mountApp(walkServices(withContinueWatching, "/"));
     await expect.poll(() => isDrawn(".continue-watching .poster-card__link")).toBe(true);
     await userEvent.keyboard("{ArrowDown}");
     expect(focusedCard()).toBe("Metropolis");
