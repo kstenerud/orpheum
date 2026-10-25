@@ -126,6 +126,7 @@ var sectionByKey = map[Key]Section{
 	LinkSpeedFreshHours:                            SectionSlowLinks,
 	PlayLadderWaitMs:                               SectionSlowLinks,
 	ServerUploadMbps:                               SectionUpload,
+	WebRTCConnectionsPerNetwork:                    SectionRemoteAccess,
 	UploadCrowdedFloorPercent:                      SectionUpload,
 	UploadCrowdedKeepsPercent:                      SectionUpload,
 	UploadCrowdedLowerEverySeconds:                 SectionUpload,

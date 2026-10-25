@@ -206,6 +206,20 @@ func TestAnswer_TellsAConnectionPastItsNetworksShareWhy(t *testing.T) {
 	}
 }
 
+// A network's share is its setting's (webrtc_connections_per_network, the owner, 2026-10-25): raised,
+// a connection the old share turned away is held.
+func TestServer_ANetworksShareIsAsItIsSet(t *testing.T) {
+	t.Parallel()
+	server, _ := waitingServer(t, rtcapi.Bounds{PerSource: 1})
+	server.SetConnectionsPerNetwork(2)
+	_ = rtcapitest.Connect(t, server.Answer, rtcapitest.OnLoopback())
+	awaitConnected(t, server, 1)
+	second := rtcapitest.Connect(t, server.Answer, rtcapitest.OnLoopback())
+	if verdict := second.Verdict(); verdict != (rtcapi.Verdict{Held: true}) {
+		t.Errorf("the second connection, within a share set to 2, was told %+v; want it held", verdict)
+	}
+}
+
 // The channel a client opens only to negotiate its offer takes no request's place: on a connection
 // that may hold one request at a time, a request is answered at once, not after the negotiation
 // channel's deadline (staging, 2026-10-14, where each connection's showed as a request that never

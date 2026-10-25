@@ -269,8 +269,15 @@ func openAndWire(
 		CacheDirectory: directories.CacheDirectory(), PersistentDatabase: database, CacheDatabase: opened.cache,
 		PublicName: config.HTTPS.Domain, Certificate: certificateExpiry(opened.jobServices.certificates),
 	}
-	server.Ready(dependencies)
+	readyToServe(ctx, server, dependencies, logger)
 	return opened, nil
+}
+
+// readyToServe hands the API server its dependencies, which it answers with from now on, and keeps
+// its WebRTC server's share of connections per network as its setting says.
+func readyToServe(ctx context.Context, server *api.Server, dependencies api.Dependencies, logger *slog.Logger) {
+	server.Ready(dependencies)
+	keepWebRTCShareCurrent(ctx, server.RTC(), dependencies.Settings, logger)
 }
 
 // newTogether is the Watch Together sessions, whose host may change what plays only to what they reach
@@ -676,6 +683,29 @@ func webRTCOf(ctx context.Context, server *api.Server, config Config, logger *sl
 	listenForWebRTCAtHome(ctx, rtc, config, logger)
 	server.SetRTC(rtc)
 	return rtc
+}
+
+// keepWebRTCShareCurrent gives the WebRTC server its network's share of connections from its setting
+// (webrtc_connections_per_network, the owner, 2026-10-25), now and at each change; one that cannot
+// be read leaves the share as it was, and says so.
+func keepWebRTCShareCurrent(
+	ctx context.Context, rtc *rtcapi.Server, settingsService *settings.Service, logger *slog.Logger,
+) {
+	if rtc == nil || settingsService == nil {
+		return
+	}
+	apply := func(ctx context.Context) error {
+		limit, err := settingsService.Int(ctx, settings.WebRTCConnectionsPerNetwork)
+		if err != nil {
+			return fmt.Errorf("read the WebRTC connections a network may hold: %w", err)
+		}
+		rtc.SetConnectionsPerNetwork(int(limit))
+		return nil
+	}
+	if err := apply(ctx); err != nil {
+		logger.ErrorContext(ctx, "the WebRTC connections a network may hold stay as they were", "err", err)
+	}
+	settingsService.OnChange(settings.WebRTCConnectionsPerNetwork, apply)
 }
 
 // listenForWebRTCAtHome names the house's networks to the WebRTC server and, when the config names a

@@ -330,6 +330,8 @@ export const enSettingsCatalogue = {
       "The longest a screen that follows the server's background work waits between asks, while nothing changes.",
     secretLastCharsShown:
       "How many of an API key's last characters are shown, to tell which key is set. Passwords show none.",
+    webrtcConnectionsPerNetwork:
+      "How many connections the devices behind one internet address may hold at once. Past it, a device is turned away and told so. A home's devices, and other homes sharing their provider's address, count together.",
     serverUploadMbps:
       "How fast the server can send, in Mbit/s. Past it, players are moved to lower qualities. Unset, nothing is lowered.",
     sessionIdleExpiryHours: "How long a device may go unused before it is signed out.",
