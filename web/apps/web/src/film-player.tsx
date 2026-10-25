@@ -4,6 +4,7 @@ import "./film-player.css";
 
 import {
   keepScreenAwake,
+  isHandheld,
   pauseWhenHidden,
   mediaErrorFailure,
   meterBufferGrowth,
@@ -188,7 +189,11 @@ function Stage(
   useHealedOnEmptied(videoRef);
   useEffect(() => {
     const video = videoRef.current;
-    return video === null ? undefined : pauseWhenHidden(video, document);
+    const signs = {
+      maxTouchPoints: navigator.maxTouchPoints,
+      matchMedia: (query: string) => window.matchMedia(query),
+    };
+    return video === null ? undefined : pauseWhenHidden(video, document, isHandheld(signs));
   }, [videoRef]);
   return (
     <>
