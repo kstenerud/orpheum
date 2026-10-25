@@ -88,7 +88,9 @@ func NewHub(clockSource clock.Clock, random io.Reader, mayPlay MayPlay, logger *
 type session struct {
 	id         int64
 	hostUserID int64
-	group      group
+	// isCast is a cast's session of one (cast.go), which only the cast's own calls find.
+	isCast bool
+	group  group
 	// syncWait is how long a sync point waits for the players (D250 §3): the setting's, as the last
 	// device to attach brought it.
 	syncWait time.Duration
@@ -222,7 +224,7 @@ func (hub *Hub) Open(host Person) (Opened, error) {
 	hub.mutex.Lock()
 	defer hub.mutex.Unlock()
 	for _, each := range hub.sessions {
-		if each.hostUserID != host.UserID {
+		if each.hostUserID != host.UserID || each.isCast {
 			continue
 		}
 		for _, hostMember := range each.members {
@@ -663,7 +665,7 @@ func (hub *Hub) hostOf(sessionID int64) int64 {
 // hostedSession is the session hostUserID hosts by sessionID.
 func (hub *Hub) hostedSession(sessionID, hostUserID int64) (*session, error) {
 	hosted, found := hub.sessions[sessionID]
-	if !found {
+	if !found || hosted.isCast {
 		return nil, ErrNoSession
 	}
 	if hosted.hostUserID != hostUserID {

@@ -1035,6 +1035,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/casts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The casts this device sends or receives, each with a credential for it */
+        get: operations["listMyCasts"];
+        put?: never;
+        /** Cast a film from this device to another of one's own, connected now (D337) */
+        post: operations["startCast"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/casts/{id}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End a cast this device sends or receives, and say where it stood */
+        post: operations["endCast"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/devices": {
         parameters: {
             query?: never;
@@ -2171,6 +2206,32 @@ export interface components {
             candidates: components["schemas"]["CandidateBody"][] | null;
             provider?: string;
         };
+        CastBody: {
+            /** Format: int64 */
+            castId: number;
+            /**
+             * Format: int64
+             * @description How long the film plays, 0 when unknown
+             */
+            durationMs: number;
+            /** Format: int64 */
+            fileId: number;
+            isSender: boolean;
+            /** @description What this device's session socket says hello with */
+            membershipCredential: string;
+            /** Format: int64 */
+            receiverDeviceId: number;
+            receiverName: string;
+            /** Format: int64 */
+            senderDeviceId: number;
+            senderName: string;
+            /**
+             * Format: int64
+             * @description The title the film is, 0 for none
+             */
+            titleId: number;
+            titleName: string;
+        };
         CertificateBody: {
             /** Format: int64 */
             expiresAt?: number;
@@ -2470,6 +2531,18 @@ export interface components {
             /** @enum {string} */
             encoder: "h264_qsv" | "h264_nvenc" | "h264_vaapi";
             failure?: string;
+        };
+        EndCastInputBody: {
+            /**
+             * @description takenBack on the receiver, stopped on the remote, filmEnded at the film's end
+             * @enum {string}
+             */
+            reason: "takenBack" | "stopped" | "filmEnded";
+        };
+        EndCastOutputBody: {
+            isPlaying: boolean;
+            /** Format: int64 */
+            positionMs: number;
         };
         EntryBody: {
             /** Format: int64 */
@@ -3248,6 +3321,9 @@ export interface components {
             reason: "node_away" | "root_missing" | "disk_missing" | "still_reading";
             /** Format: int64 */
             unavailableAt?: number;
+        };
+        MyCastsOutputBody: {
+            casts: components["schemas"]["CastBody"][] | null;
         };
         MyTogetherBody: {
             isHost: boolean;
@@ -4125,6 +4201,20 @@ export interface components {
             videoWidth: number;
             /** Format: double */
             volume: number;
+        };
+        StartCastInputBody: {
+            /** Format: int64 */
+            fileId: number;
+            /**
+             * Format: int64
+             * @description Where to start, in ms; absent, where the person left the film
+             */
+            positionMs?: number;
+            /**
+             * Format: int64
+             * @description Another of one's own devices, connected now
+             */
+            toDeviceId: number;
         };
         StartPlaybackInputBody: {
             /**
@@ -7005,6 +7095,112 @@ export interface operations {
             };
         };
     };
+    listMyCasts: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyCastsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    startCast: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartCastInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CastBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    endCast: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EndCastInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EndCastOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listMyDevices: {
         parameters: {
             query?: never;
@@ -8585,6 +8781,8 @@ export interface operations {
             query: {
                 /** @description From the previous page's nextCursor */
                 cursor?: string;
+                /** @description A name, by name only and with no cursor: the page starts at the first title sorted at or after it, as a letter of the alphabet does */
+                from?: string;
                 kind: "movie" | "series";
                 limit: number;
                 /** @description name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode */

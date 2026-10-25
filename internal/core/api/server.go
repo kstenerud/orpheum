@@ -25,6 +25,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/interest"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/live"
 	"github.com/kstenerud/orpheum/internal/core/playback"
 	"github.com/kstenerud/orpheum/internal/core/portmap"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
@@ -89,6 +90,8 @@ type Dependencies struct {
 	Renditions *renditions.Service
 	// Together holds the Watch Together sessions, in memory (D119).
 	Together *together.Hub
+	// Live is which of each person's devices are connected now, and the casts between them (D337).
+	Live *live.Registry
 	// Reachability checks the server's public name and voice relay from outside in (D243 §7).
 	Reachability *reachability.Checker
 	// Discovery keeps the core enrolled with its discovery, which an admin connects and leaves (D273).

@@ -66,9 +66,8 @@ func (server *Server) serveTogetherSocket(writer http.ResponseWriter, request *h
 	defer func() { _ = connection.closeNow() }() //nolint:errcheck // closing what may be closed
 	ctx, cancel := context.WithCancel(request.Context())
 	defer cancel()
-	hello, err := readHello(ctx, connection)
-	if err != nil {
-		_ = connection.closeWith(websocket.StatusPolicyViolation, "say hello first") //nolint:errcheck // closing
+	hello, isSession := server.sessionHello(ctx, connection, dependencies, request)
+	if !isSession {
 		return
 	}
 	person, err := signedInPerson(ctx, dependencies, hello.SessionToken)
@@ -185,13 +184,44 @@ func (server *Server) togetherTuning(ctx context.Context, dependencies *Dependen
 	return tuning, nil
 }
 
-// readHello reads a device's first message, which must be a hello, within helloWait.
-func readHello(ctx context.Context, connection togetherSocket) (together.Inbound, error) {
+// sessionHello reads a device's first message: a session's hello, which it returns; else, having
+// served the live connection a live hello opens, or closed the socket for want of a hello, false.
+func (server *Server) sessionHello(
+	ctx context.Context, connection togetherSocket, dependencies *Dependencies, request *http.Request,
+) (together.Inbound, bool) {
+	first, err := readFirst(ctx, connection)
+	if err == nil && isLiveHello(first) {
+		server.serveLiveSocket(ctx, connection, dependencies, first, request)
+		return together.Inbound{}, false
+	}
+	hello, err := togetherHelloOf(first, err)
+	if err != nil {
+		_ = connection.closeWith(websocket.StatusPolicyViolation, "say hello first") //nolint:errcheck // closing
+		return hello, false
+	}
+	return hello, true
+}
+
+// readFirst reads a device's first message, within helloWait: a session's hello, or a live one.
+func readFirst(ctx context.Context, connection togetherSocket) (json.RawMessage, error) {
 	helloContext, cancel := context.WithTimeout(ctx, helloWait)
 	defer cancel()
+	var first json.RawMessage
+	if err := connection.readJSON(helloContext, &first); err != nil {
+		return nil, err
+	}
+	return first, nil
+}
+
+// togetherHelloOf is a device's first message, read with err, as a session's hello, which must
+// carry a credential.
+func togetherHelloOf(first json.RawMessage, err error) (together.Inbound, error) {
 	var hello together.Inbound
-	if err := connection.readJSON(helloContext, &hello); err != nil {
+	if err != nil {
 		return hello, err
+	}
+	if err := json.Unmarshal(first, &hello); err != nil {
+		return hello, fmt.Errorf("the first message is not JSON: %w", err)
 	}
 	if hello.Type != together.MessageHello || hello.Credential == "" {
 		return hello, errors.New("the first message is not a hello with a credential")

@@ -83,6 +83,9 @@ func (hub *Hub) Mine(userID int64) ([]Membership, error) {
 	defer hub.mutex.Unlock()
 	mine := []Membership{}
 	for _, each := range hub.sessions {
+		if each.isCast {
+			continue // a cast is had back through its receiver and remote, never as a session (cast.go)
+		}
 		for _, candidate := range each.members {
 			if candidate.person == nil || candidate.person.UserID != userID {
 				continue
