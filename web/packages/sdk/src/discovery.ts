@@ -222,6 +222,44 @@ function firstOf(body: unknown): unknown {
   return Array.isArray(answers) ? answers[0] : undefined;
 }
 
+/**
+ * The refusal a discovery gives an offer for a core not connected to it: the text of discovery/single's
+ * ErrCoreNotConnected, which the discovery passes on as the offer's refusal. A core restarting, off,
+ * or without internet.
+ */
+export const coreNotConnectedRefusal = "the core is not connected to its discovery";
+
+/**
+ * A core its discovery cannot reach now, as while it restarts: the page says so and tries again, not
+ * that the device's network failed (the owner's Fire TV, 2026-10-25: a deploy's restart read as
+ * "can't be reached from this network").
+ */
+export class CoreOffline extends Error {
+  constructor() {
+    super("the server is not connected to its discovery: restarting, off, or without internet");
+    this.name = "CoreOffline";
+  }
+}
+
+/** Whether problem, or any cause or alternative behind it, is a core its discovery cannot reach. */
+export function isCoreOffline(problem: unknown): boolean {
+  const seen: unknown[] = [problem];
+  for (let index = 0; index < seen.length && index < 32; index += 1) {
+    const each = seen[index];
+    if (each instanceof CoreOffline) {
+      return true;
+    }
+    if (each instanceof AggregateError) {
+      const alternatives: readonly unknown[] = Array.from<unknown>(each.errors);
+      seen.push(...alternatives);
+    }
+    if (each instanceof Error && each.cause !== undefined) {
+      seen.push(each.cause);
+    }
+  }
+  return false;
+}
+
 /** The first answer in a discovery's offer response, or why there is none. */
 function firstAnswer(body: unknown): OfferAnswer | string {
   const first = firstOf(body);
@@ -296,6 +334,9 @@ export function discoverySignaller(signalling: DiscoverySignalling): Signaller {
       throw new Error(`the discovery answered ${String(response.status)}`);
     }
     const answered = firstAnswer(await response.json());
+    if (answered === coreNotConnectedRefusal) {
+      throw new CoreOffline();
+    }
     if (typeof answered === "string") {
       throw new Error(`the server refused the offer: ${answered}`);
     }

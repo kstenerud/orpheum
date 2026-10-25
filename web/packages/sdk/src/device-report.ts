@@ -138,6 +138,14 @@ export interface DeviceFacts {
   readonly viewport: { readonly width: number; readonly height: number };
   /** The window's own size, its toolbar and frame included: a full-screen window's is the screen's. */
   readonly window?: { readonly width: number; readonly height: number };
+  /** Where the window stands on the screen, and the screen's area a window may take (its menu bar's out). */
+  readonly placement?: {
+    readonly screenX: number;
+    readonly screenY: number;
+    readonly availWidth: number;
+    readonly availHeight: number;
+    readonly availTop: number;
+  };
   readonly devicePixelRatio: number;
   readonly features: Readonly<Record<LabFeature, boolean>>;
   readonly codecs: CodecProbe;
@@ -151,6 +159,14 @@ export interface DeviceReport {
   readonly viewport: { readonly width: number; readonly height: number };
   /** The window's own size, its toolbar and frame included: a full-screen window's is the screen's. */
   readonly window?: { readonly width: number; readonly height: number };
+  /** Where the window stands on the screen, and the screen's area a window may take (its menu bar's out). */
+  readonly placement?: {
+    readonly screenX: number;
+    readonly screenY: number;
+    readonly availWidth: number;
+    readonly availHeight: number;
+    readonly availTop: number;
+  };
   readonly devicePixelRatio: number;
   /** The names of the APIs the page has, then those it lacks. */
   readonly has: readonly LabFeature[];
@@ -175,6 +191,7 @@ export function deviceReportFrom(facts: DeviceFacts): DeviceReport {
     screen: facts.screen,
     viewport: facts.viewport,
     ...(facts.window === undefined ? {} : { window: facts.window }),
+    ...(facts.placement === undefined ? {} : { placement: facts.placement }),
     devicePixelRatio: facts.devicePixelRatio,
     has: labFeatureNames.filter((name) => facts.features[name]),
     lacks: labFeatureNames.filter((name) => !facts.features[name]),
@@ -231,6 +248,13 @@ export function browserDeviceFacts(): DeviceFacts {
     },
     viewport: { width: globalThis.innerWidth, height: globalThis.innerHeight },
     window: { width: globalThis.outerWidth, height: globalThis.outerHeight },
+    placement: {
+      screenX: globalThis.screenX,
+      screenY: globalThis.screenY,
+      availWidth: globalThis.screen.availWidth,
+      availHeight: globalThis.screen.availHeight,
+      availTop: Number(Reflect.get(globalThis.screen, "availTop") ?? 0),
+    },
     devicePixelRatio: globalThis.devicePixelRatio,
     features,
     codecs: {
