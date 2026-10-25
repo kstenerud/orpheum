@@ -96,13 +96,17 @@ export function TvControls(props: FilmParts): JSX.Element {
   const { videoRef } = props;
   const playRef = useRef<HTMLButtonElement>(null);
   const scrubRef = useRef<HTMLInputElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const stand = useStanding(videoRef);
   const [shown, setShown] = useState<OverlayShown>("all");
-  const notePress = useHiding({ isPaused: stand.isPaused, shown, setShown, videoRef });
+  const notePress = useHiding({ isPaused: stand.isPaused, shown, setShown, overlayRef, videoRef });
   useFullscreenStage(playRef);
   useCommands(
     "document",
     (detail, event) => {
+      if (detail.command === "select" && isOnAnotherControlOverTheFilm(overlayRef.current)) {
+        return; // OK on what else the page draws over the film, its Up next, presses it
+      }
       const isOnScrub = document.activeElement === scrubRef.current;
       const answer = overlayAnswer(shown, detail.command, isOnScrub);
       setShown(answer.shown);
@@ -121,7 +125,7 @@ export function TvControls(props: FilmParts): JSX.Element {
     { isCapture: true },
   );
   return (
-    <div className="tv-controls" data-shown={shown} data-focus-container="">
+    <div ref={overlayRef} className="tv-controls" data-shown={shown} data-focus-container="">
       <div className="tv-controls__buttons">
         <PlayButton playRef={playRef} videoRef={videoRef} isPaused={stand.isPaused} />
         <span className="tv-controls__ends">
@@ -142,6 +146,21 @@ export function TvControls(props: FilmParts): JSX.Element {
         }}
       />
     </div>
+  );
+}
+
+/**
+ * Whether focus is on a control the page draws over the film beside the overlay, as Up next: in the
+ * stage, neither the video nor in the overlay.
+ */
+function isOnAnotherControlOverTheFilm(overlay: HTMLElement | null): boolean {
+  const focused = document.activeElement;
+  const stage = overlay?.closest(".film-player__stage");
+  return (
+    focused instanceof HTMLElement &&
+    !(focused instanceof HTMLVideoElement) &&
+    stage?.contains(focused) === true &&
+    overlay?.contains(focused) !== true
   );
 }
 
@@ -232,16 +251,18 @@ function endsAt(leftMs: number): string {
 
 /**
  * Hides the overlay overlayShownForMs after the last press while the film plays, the whole overlay
- * never while it is paused; as it hides, focus in the stage moves to the video, so no hidden
- * control holds it. Returns what notes a press, which renews the time.
+ * never while it is paused; as it hides, focus in the overlay moves to the video, so no hidden
+ * control holds it, and what else over the film has focus, Up next, keeps it. Returns what notes a
+ * press, which renews the time.
  */
 function useHiding(hiding: {
   readonly isPaused: boolean;
   readonly shown: OverlayShown;
   readonly setShown: (shown: OverlayShown) => void;
+  readonly overlayRef: RefObject<HTMLElement | null>;
   readonly videoRef: RefObject<HTMLVideoElement | null>;
 }): () => void {
-  const { isPaused, shown, setShown, videoRef } = hiding;
+  const { isPaused, shown, setShown, overlayRef, videoRef } = hiding;
   const lastPressAtRef = useRef(0);
   useEffect(() => {
     if (shown === "none" || (isPaused && shown === "all")) {
@@ -253,8 +274,7 @@ function useHiding(hiding: {
       }
       setShown("none");
       const video = videoRef.current;
-      const stage = video?.closest(".film-player__stage");
-      if (video !== null && stage?.contains(document.activeElement) === true) {
+      if (video !== null && overlayRef.current?.contains(document.activeElement) === true) {
         video.tabIndex = -1;
         video.focus();
       }
@@ -262,7 +282,7 @@ function useHiding(hiding: {
     return () => {
       clearInterval(timer);
     };
-  }, [isPaused, shown, setShown, videoRef]);
+  }, [isPaused, shown, setShown, overlayRef, videoRef]);
   return () => {
     lastPressAtRef.current = performance.now();
   };

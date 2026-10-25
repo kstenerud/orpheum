@@ -118,6 +118,15 @@ The web client: the browser and phone interface, served embedded by the core. MP
   label an episode there ("Disc 1 · 2", "Episode 812"), its page with its aired place on a second
   line; what the ordering leaves out is listed under *Not in this order* (§7 Q4, Q8). Labels are
   `src/episode-place.ts`'s. `src/episode-orderings.test.tsx`.
+- **A playing episode offers what plays next, and the person's autoplay plays it** (plans/up-next.md):
+  the server's `GET /files/{id}/up-next`, the next episode in the person's ordering, shows as *Up
+  next: S1E3 · ‹name›* with its still over the film from `upNextLeadMs` (30 s) before its end and on
+  the end screen, a button a mouse, a remote's OK or a controller presses; with autoplay on (the
+  person's own switch, on until turned off, on their account) it counts `upNextCountdownMs` (10 s)
+  down from the end and plays it; any press stops the count, Back, Escape or its × dismisses it; it
+  takes focus as the film ends, and a television's overlay leaves OK on it to it. A film, the last
+  episode and one that cannot be read now offer nothing. `src/up-next.test.tsx`,
+  `src/autoplay-setting.test.tsx`, `src/tv-controls.test.tsx`; on devices, VQ67.
 - **Lists have no pagination to click through** (web-client.md): the next page loads as the
   end comes into view, with a button that always asks too. `src/end-of-list.tsx`.
 - **A list by name's alphabet rail moves it to a letter** (the owner, 2026-10-25): the server names
@@ -214,7 +223,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - The screens: `browse.tsx` (films and series), `title.tsx`, `series.tsx`, `search.tsx`,
   `identify.tsx` (needs a match), `libraries.tsx` and `create-library.tsx` (retiring a folder and deleting a library, each confirmed by `confirm-button.tsx`), `files.tsx` (what
   the scanner saw), `settings.tsx` (keys, passwords and server settings), `jobs.tsx` (the job view), `system.tsx` (the System page: the server's facts, doctor's findings, and each machine's software, sandbox, hardware encoding, disks and recent prepares, D225), `node-confinement.tsx` (a machine's FFmpeg sandbox, on the System page), `about.tsx`,
-  `sign-in.tsx`, `play.tsx` (the player, with `player-commands.ts`, its answers to a remote), `watching.ts` (the film a tab watches: its page's warm-up
+  `sign-in.tsx`, `play.tsx` (the player, with `player-commands.ts`, its answers to a remote, and
+  `up-next.tsx`, what plays next), `autoplay-setting.tsx` (the person's autoplay, on their account), `watching.ts` (the film a tab watches: its page's warm-up
   and letting go of the last film's playbacks, D258), `sound.tsx` (the switches of the person's own choices: the boost, levelling),
   `audio-tracks.tsx` (the audio track menu, D230), `watch-together.tsx` (the host's Watch Together
   screen: links with notes, members, ending it), `together-viewer.tsx` (a viewer's page, joined by

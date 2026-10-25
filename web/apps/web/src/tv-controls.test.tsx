@@ -3,9 +3,10 @@
 
 import "./i18n.ts";
 
-import { createRef } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { act, createRef } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { commandEventName } from "./input-commands.ts";
 import { mount, type Mounted } from "./test-dom.tsx";
 import { withServices } from "./test-services.tsx";
 import { clockText, overlayAnswer, TvControls } from "./tv-controls.tsx";
@@ -79,5 +80,47 @@ describe("the overlay as drawn", () => {
     expect(mounted.container.querySelector('button[aria-label="Play"]')).not.toBeNull();
     expect(mounted.container.querySelector('input[type="range"]')).not.toBeNull();
     expect(mounted.container.querySelectorAll("button")).toHaveLength(1);
+  });
+
+  it("leaves OK to another control over the film, Up next, and its hiding leaves focus there", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const videoRef = createRef<HTMLVideoElement>();
+    const video = document.createElement("video");
+    Object.defineProperty(video, "paused", { get: () => false }); // playing, so the overlay hides
+    Reflect.set(videoRef, "current", video);
+    mounted = await mount(
+      withServices(
+        <div className="film-player__stage">
+          <TvControls videoRef={videoRef} readLinkKbps={() => undefined} failure={undefined} />
+          <button type="button" className="beside">
+            Up next
+          </button>
+        </div>,
+      ),
+    );
+    const beside = mounted.container.querySelector<HTMLButtonElement>(".beside");
+    const overlay = mounted.container.querySelector(".tv-controls");
+    act(() => {
+      video.dispatchEvent(new Event("play"));
+      beside?.focus();
+    });
+    vi.spyOn(performance, "now").mockReturnValue(1_000_000); // long after the last press
+    act(() => {
+      vi.advanceTimersByTime(10_000); // well past overlayShownForMs, which hides it
+    });
+    expect(overlay?.getAttribute("data-shown")).toBe("none");
+    expect(document.activeElement).toBe(beside);
+    const select = new CustomEvent(commandEventName, {
+      detail: { command: "select", source: "key" },
+      bubbles: true,
+      cancelable: true,
+    });
+    act(() => {
+      beside?.dispatchEvent(select);
+    });
+    expect(select.defaultPrevented).toBe(false);
+    expect(overlay?.getAttribute("data-shown")).toBe("none");
+    vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 });

@@ -7,7 +7,6 @@
 export const enPlay = {
   upNext: {
     offer: "Up next: {{place}} · {{name}}",
-    offerFilm: "Up next: {{name}}",
     countdown: "Plays in {{seconds}} s",
     dismiss: "Dismiss Up next",
     settingHeading: "Playing",

@@ -33,7 +33,6 @@ import type { LadderOffer } from "./moving-down.ts";
 import { usePlayState } from "./play-state.ts";
 import { usePlayerCommands } from "./player-commands.ts";
 import { fillTheScreen } from "./film-fullscreen.ts";
-import { TvControls } from "./tv-controls.tsx";
 import { isBrowserFullscreen, isTelevision, thisBrowserWindow } from "./tv-device.ts";
 import { useServices } from "./services.tsx";
 import { BarePlayer } from "./bare-player.tsx";
@@ -48,6 +47,7 @@ import { Loaded } from "./title.tsx";
 import { PlaysAlong, useReceiving, type Receiving } from "./cast-receiver.tsx";
 import { CastToDevice, PlayOrSendOn } from "./cast-to.tsx";
 import { useResource, type Resource } from "./use-resource.ts";
+import { overTheFilm, UpNextContext, useUpNext } from "./up-next.tsx";
 import { watchingOf, type PlaybackDecision, type StartCause } from "./watching.ts";
 
 /** Why a playing page asks how the file plays again. */
@@ -162,8 +162,11 @@ function PlayerView(
   const { receiving } = props;
   // A cast's receiver shows the film and nothing else (D337 §3).
   const isOwn = receiving === undefined;
+  const upNext = useUpNext(fileId);
+  const { isAutoplayOn } = decision.preferences;
+  const offered = useMemo(() => ({ upNext, isAutoplayOn }), [upNext, isAutoplayOn]);
   return (
-    <>
+    <UpNextContext value={offered}>
       {titleName === undefined || !isOwn ? null : <h1 className="play__title">{titleName}</h1>}
       <PlayContext value={ways}>
         <div className="play" data-focus-container="">
@@ -183,7 +186,7 @@ function PlayerView(
         {...{ receiving, fileId, video, cannotKeepUp }}
         startPositionMs={resumePositionMs}
       />
-    </>
+    </UpNextContext>
   );
 }
 
@@ -235,7 +238,7 @@ function pageComposition(props: Parameters<typeof PlayView>[0]): FilmComposition
   const isOnTelevision = isTelevision(navigator.userAgent) && props.receiving === undefined;
   return {
     hasControls: !isOnTelevision && props.receiving === undefined,
-    ...(isOnTelevision ? { over: TvControls } : {}),
+    ...overTheFilm(isOnTelevision, props.receiving !== undefined),
     isAutoPlay: props.isStartPaused !== true,
     isFailureHidden: props.isReconnecting === true,
     askAbout: props.fileId,
