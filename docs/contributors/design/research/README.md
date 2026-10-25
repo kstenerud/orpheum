@@ -24,6 +24,7 @@ All of it was gathered **2026-09-17** unless a document says otherwise.
 | [change-detection.md](change-detection.md) | How the server learns the library changed, across the filesystems people actually use; evaluates the NAS-side index agent. Backs D27. |
 | [test-hardware.md](test-hardware.md) | What hardware the test matrix needs, measured against what is available; the gaps and the buying order. |
 | [device-testing.md](device-testing.md) | How Shaka, Media3, dash.js, Jellyfin, Immich, Netflix, YouTube, BBC and Roku test playback on devices; numeric pass criteria; what yoloAI's test machinery offers; the lab's hardware verified, with corrections to test-hardware.md. |
+| [casting-review-2026-10-25.md](casting-review-2026-10-25.md) | (2026-10-25) An outside review of [casting-2026-10-25.md](casting-2026-10-25.md): the phone remote's own endurance risk, an AirPlay grant that lasts the film, the Cast spike's additions (idle closing, memory, CAF's media controls), Fire OS against Vega OS, and proposed answers to its §6. The tests it asks for are in [tv-device-tests.md](../plans/tv-device-tests.md). |
 | [tech-playback.md](tech-playback.md) | The core problem: transcode-vs-direct-play, HLS/DASH, the device-profile trap, subtitles, hardware acceleration. |
 | [tech-backend.md](tech-backend.md) | Language, runtime, framework, job scheduling, API shape. |
 | [sqlite-reconsidered.md](sqlite-reconsidered.md) | Re-examination of the database choice against the real workload — corrects a misreading of the original evidence and reverses D5. Backs D31. |

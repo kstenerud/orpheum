@@ -745,6 +745,9 @@ these reasons:
 
 ### 6.2 Phases
 
+Step 0's runs, and the input probe at `/lab/input` that measures D190's latency line on a device,
+are planned in [tv-device-tests.md](../plans/tv-device-tests.md) (H2, B1, B2).
+
 - **Step 0: no code** (an evening, on the next TV visit).
   - In TV Bro, choose direct mode from the cursor menu and try Home, a poster grid, a title,
     a series, search and Play with the D-pad.
