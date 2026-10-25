@@ -345,4 +345,12 @@ address, so features a browser gives only to a secure context (the microphone, t
   pages. The run sent no timings of our search's moves, though the owner saw them; a test shows
   the probe times them, so the next run sends once per mode. Still to learn: whether Silk keeps the
   mode after a restart, and Back in it.
+- **H2, the stick, in spatial mode again** (`6IRKWCYO`, `UGVNKUGU`, `Q5JAAP2N`, `IDDJ6NL7`, after
+  An earlier commit let our search reach the whole page): our search 29 moves, median 71 ms, worst 136 ms;
+  Silk's own 17 moves, median 78 ms, worst 112 ms; both within D190's 250 ms. Silk keeps its mode
+  across a restart and reopens its page; changing the mode reloads the page. Back is two history
+  steps for two presses and never a key; OK is `Enter` (`NumpadEnter`); play/pause is keyCode 179;
+  rewind and fast forward never reach the page, and no Media Session action fired. Fire TV in Silk's
+  spatial mode can run the web client with our focus engine; seeking from the remote is by the
+  D-pad.
 
