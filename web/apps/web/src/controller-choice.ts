@@ -27,16 +27,50 @@ function choiceOf(kept: string | null): OkChoice {
   return kept === "bottom" || kept === "right" ? kept : "automatic";
 }
 
-/** The choice as last read or made, read once from storage: the poll asks for it every frame. */
+/**
+ * The choice as last read or made, read from storage once and again only as it changes: the poll
+ * asks for it every frame.
+ */
 let known: OkChoice | undefined;
 
 /** Who is told of a new choice. */
 const listeners = new Set<() => void>();
 
+/** Whether the choice made in another of this browser's tabs is heard (hearOtherTabs). */
+let isHearingOtherTabs = false;
+
 /** The person's choice of OK on this browser. */
 export function okChoice(storage: () => StringStorage = browserStorage): OkChoice {
-  known ??= choiceOf(storage().getItem(okChoiceKey));
+  if (known === undefined) {
+    hearOtherTabs();
+    known = choiceOf(storage().getItem(okChoiceKey));
+  }
   return known;
+}
+
+/**
+ * Takes the choice made in another tab of this browser, which the storage event tells (this tab's
+ * own are chooseOk's): what this tab read stays its choice otherwise, never read from storage again.
+ */
+function hearOtherTabs(): void {
+  if (isHearingOtherTabs || typeof globalThis.addEventListener !== "function") {
+    return;
+  }
+  isHearingOtherTabs = true;
+  globalThis.addEventListener("storage", (event: StorageEvent) => {
+    // A key of null is the whole storage cleared.
+    if (event.key === okChoiceKey || event.key === null) {
+      known = choiceOf(event.key === null ? null : event.newValue);
+      tellListeners();
+    }
+  });
+}
+
+/** Tells whoever listens that the choice changed. */
+function tellListeners(): void {
+  for (const listener of listeners) {
+    listener();
+  }
 }
 
 /** The face button the person chose as OK, or undefined for automatic. */
@@ -53,13 +87,11 @@ export function chooseOk(choice: OkChoice, storage: () => StringStorage = browse
     storage().setItem(okChoiceKey, choice);
   }
   known = choice;
-  for (const listener of listeners) {
-    listener();
-  }
+  tellListeners();
 }
 
 /** Tells listener of each new choice; returns the stopping. */
-function subscribe(listener: () => void): () => void {
+export function listenToOkChoice(listener: () => void): () => void {
   listeners.add(listener);
   return () => {
     listeners.delete(listener);
@@ -68,5 +100,5 @@ function subscribe(listener: () => void): () => void {
 
 /** The person's choice of OK, drawn again as it changes. */
 export function useOkChoice(): OkChoice {
-  return useSyncExternalStore(subscribe, () => okChoice());
+  return useSyncExternalStore(listenToOkChoice, () => okChoice());
 }
