@@ -5,9 +5,11 @@
 
 # Cast to another device
 
-- **Status:** PARTLY SPECIFIED — 2026-10-25. The owner decided the route and its behaviour
-  ([D337](../../decisions/working-notes.md#d337--casting-starts-with-a-persons-own-signed-in-devices-one-chosen-from-those-connected-now-plays-the-film-the-one-that-cast-becomes-its-remote-and-either-may-take-control-back));
-  open: the control channel (§3, a judgement for the owner) and §9's questions. Nothing is built.
+- **Status:** SPECIFIED, BEING BUILT — 2026-10-25. The owner decided the route and its behaviour
+  ([D337](../../decisions/working-notes.md#d337--casting-starts-with-a-persons-own-signed-in-devices-one-chosen-from-those-connected-now-plays-the-film-the-one-that-cast-becomes-its-remote-and-either-may-take-control-back)),
+  then, the same day, accepted every recommendation in §9, the control channel included (§3: A,
+  through Watch Together's hub, with a presence socket for presence and the hand-off). §8's steps
+  are being built in order.
 - **Depends on:** [closed-beta.md](closed-beta.md) (B5, the living room: TV sign-in by code, voice
   on a second device), [tv-device-tests.md](tv-device-tests.md) (what Silk and TV Bro let a page
   hear).
@@ -97,7 +99,7 @@ For control there are two shapes:
 | Cost to first use (unverified) | higher: about 4–6 days for the transport step | lower: about 3–4 days |
 | Rule 11 (one way to do each job) | kept | play, pause and seek in two protocols, which D88 was written to prevent |
 
-**Recommendation (judgement, for the owner):** A for control, with the presence socket for presence
+**Decided (the owner, 2026-10-25, §9 Q7): A** for control, with the presence socket for presence
 and the hand-off only. Watch Together needs the hub path regardless (D337 §5), so B saves days now
 and leaves two remote-control paths to keep in step, which is the outcome D88 records as the usual
 failure. The person's own choices (subtitles, track, boost, volume) are new in either shape; the
@@ -250,7 +252,12 @@ items added to [verification-queue.md](../../verification-queue.md) when the ste
 
 Steps 1–7 are casting alone, about 2.5–4 weeks; step 8 adds about 1. Unverified.
 
-## 9. Open questions for the owner
+## 9. The owner's questions, answered
+
+The owner accepted every recommendation below on 2026-10-25: the player first and a title's page
+next (Q1); the receiver reports (Q2); a sender playing another film sends it on (Q3); at the end,
+the next episode or the receiver's home page (Q4); "Play here from ‹position›" (Q5); background
+tabs count, no opt-out (Q6); control by A (Q7); the fading line is enough (Q8).
 
 1. **Where is "Cast to another device" offered?** The player only, or also a title's page (cast
    before anything plays), and the home page? *Recommend:* the player first; a title's page next,
