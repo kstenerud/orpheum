@@ -2,7 +2,6 @@
 
 import "./watch-together.css";
 
-import type { Api } from "@orpheum/sdk";
 import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -14,7 +13,7 @@ import { idempotent } from "./idempotent.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { ApiProblem, dataOrThrow, fieldProblemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
-import { Loaded } from "./title.tsx";
+import { Loaded } from "./loaded.tsx";
 import { useMembership } from "./together-membership.ts";
 import {
   ActionDialog,
@@ -28,6 +27,7 @@ import { forgetMembership, keepMembership, type Membership } from "./together-st
 import { useHostVoice, VoiceControls } from "./together-voice.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
+import { detailsOf, knownDetailsOf } from "./hosted-details.ts";
 
 /**
  * The host's Watch Together screen (D246 §3, §5): start a session, or have back the one this tab
@@ -125,34 +125,6 @@ function isSessionOver(cause: unknown): boolean {
 }
 
 /** The session this tab hosts, read again as people join; over, it offers a new one. */
-/**
- * The last details of each session this tab hosts, by its id: the tray's pop-up shows them the
- * moment it opens, and the server's answer replaces them as it comes. Opened, it waited for the
- * server first, and the owner found it slow: "Ideally that should be instantaneous" (2026-10-12).
- */
-const knownDetails = new Map<number, SessionDetails>();
-
-/** Asks for a session's details, and keeps them as its last known. */
-async function detailsOf(api: Api, sessionId: number): Promise<SessionDetails> {
-  const details = dataOrThrow(
-    await api.GET("/together/{id}", { params: { path: { id: sessionId } } }),
-  );
-  knownDetails.set(sessionId, details);
-  return details;
-}
-
-/** Has the details of the session this tab hosts at hand before its controls open (knownDetails). */
-export function usePrefetchedHostedDetails(): void {
-  const { api } = useServices();
-  const membership = useMembership(tabStorage, "host");
-  const sessionId = membership?.sessionId;
-  useEffect(() => {
-    if (sessionId !== undefined && !knownDetails.has(sessionId)) {
-      detailsOf(api, sessionId).catch(() => undefined); // the controls ask again as they open
-    }
-  }, [api, sessionId]);
-}
-
 function HostedSession(props: {
   readonly membership: Membership;
   readonly onStarted: (membership: Membership) => void;
@@ -166,7 +138,7 @@ function HostedSession(props: {
     async () => await detailsOf(api, sessionId),
     useBackgroundChangesPoller(),
   );
-  const known = knownDetails.get(sessionId);
+  const known = knownDetailsOf(sessionId);
   const details: typeof asked =
     asked.state === "loading" && known !== undefined ? { state: "loaded", value: known } : asked;
   if (details.state === "failed" && isSessionOver(details.cause)) {

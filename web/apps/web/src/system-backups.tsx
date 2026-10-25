@@ -11,7 +11,7 @@ import { byteSizeText } from "./number-text.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
-import { Loaded } from "./title.tsx";
+import { Loaded } from "./loaded.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 

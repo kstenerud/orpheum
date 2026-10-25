@@ -17,7 +17,7 @@ import {
 import { sendLabResult, useLabSending, type Sending } from "./lab-send.ts";
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
-import { firstPlayableFile } from "./title.tsx";
+import { firstPlayableFile } from "./first-playable.ts";
 import { requestPlayback } from "./watching.ts";
 
 /** Where the custom receiver's app id is kept, so a TV visit types it once. */

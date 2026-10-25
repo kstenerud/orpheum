@@ -42,7 +42,7 @@ import { useShowsAFilm } from "./film-showing.ts";
 import { haveBackMySessions } from "./together-mine.ts";
 import { useMembership } from "./together-membership.ts";
 import { useServices, useToken } from "./services.tsx";
-import { Loaded } from "./title.tsx";
+import { Loaded } from "./loaded.tsx";
 import { TogetherNews } from "./together-news.tsx";
 import { requestTogetherPlayback } from "./together-playback.ts";
 import {

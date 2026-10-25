@@ -13,7 +13,7 @@ import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { filingName } from "./files.tsx";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
-import { Loaded } from "./title.tsx";
+import { Loaded } from "./loaded.tsx";
 import { useResource } from "./use-resource.ts";
 import { ConfirmButton } from "./confirm-button.tsx";
 import { CreateLibrary } from "./create-library.tsx";

@@ -14,7 +14,7 @@ import { camelKey } from "./catalogue-key.ts";
 import { dateTimeText } from "./date-time-text.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
-import { Loaded } from "./title.tsx";
+import { Loaded } from "./loaded.tsx";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { useResource } from "./use-resource.ts";
 

@@ -28,7 +28,7 @@ import { FormRow } from "./form-row.tsx";
 import { fieldProblemText, type FormWords } from "./problem.ts";
 import { Link } from "./link.tsx";
 import { QrCode } from "./qr-code.tsx";
-import { Loaded } from "./title.tsx";
+import { Loaded } from "./loaded.tsx";
 import { useServices } from "./services.tsx";
 import { Share } from "./share.tsx";
 import { BusyGroup } from "./busy-group.tsx";

@@ -31,7 +31,7 @@ import { dataOrThrow, fieldProblemText } from "./problem.ts";
 import { listRoles, roleLabel, setPersonsRole } from "./roles.ts";
 import { NoLibraryNote } from "./roles-section.tsx";
 import { useServices } from "./services.tsx";
-import { Loaded } from "./title.tsx";
+import { Loaded } from "./loaded.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 import { DeviceList } from "./your-devices.tsx";

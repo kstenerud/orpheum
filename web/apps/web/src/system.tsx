@@ -29,7 +29,7 @@ import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { WhatWaits } from "./system-waiting.tsx";
 import { WarningIcon } from "./warning-sign.tsx";
-import { Loaded } from "./title.tsx";
+import { Loaded } from "./loaded.tsx";
 import { useResource } from "./use-resource.ts";
 
 /** Everything the server knows about itself and each machine, as the System page shows it (D225). */

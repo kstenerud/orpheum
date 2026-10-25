@@ -8,7 +8,7 @@ import { chooseOk, okChoices, useOkChoice } from "./controller-choice.ts";
 import { Link } from "./link.tsx";
 import { problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
-import { Loaded } from "./title.tsx";
+import { Loaded } from "./loaded.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";
 import { DeviceName } from "./your-devices.tsx";

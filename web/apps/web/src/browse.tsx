@@ -14,7 +14,7 @@ import { PosterCard, PosterDetail } from "./poster-card.tsx";
 import { itemRoute } from "./router.ts";
 import { EndOfList } from "./end-of-list.tsx";
 import { useServices } from "./services.tsx";
-import { Loaded } from "./title.tsx";
+import { Loaded } from "./loaded.tsx";
 import { useItemsInView } from "./items-in-view.ts";
 import { usePages, type Page, type Pages } from "./use-pages.ts";
 import { useResource, type Resource } from "./use-resource.ts";

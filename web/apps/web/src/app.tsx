@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { Api, components } from "@orpheum/sdk";
-import { useEffect, useState, type JSX } from "react";
+import { Suspense, useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ReloadWhenOutdated } from "./reload-when-outdated.tsx";
@@ -10,7 +10,6 @@ import { Account } from "./account.tsx";
 import { AppShell } from "./app-shell.tsx";
 import { tabStorage } from "./browser-storage.ts";
 import { Browse } from "./browse.tsx";
-import { Casting } from "./cast-remote.tsx";
 import { Home } from "./home.tsx";
 import { NeedsAttention } from "./needs-attention.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
@@ -19,8 +18,18 @@ import { LiveProvider } from "./live.tsx";
 import { Files } from "./files.tsx";
 import { Identify } from "./identify.tsx";
 import { Jobs } from "./jobs.tsx";
-import { Lab } from "./lab.tsx";
-import { LabExtendPlayer } from "./lab-extend-player.tsx";
+import {
+  Casting,
+  Lab,
+  LabExtendPlayer,
+  Play,
+  Series,
+  Settings,
+  Title,
+  TogetherViewer,
+  UiGallery,
+  WatchTogether,
+} from "./later-screens.tsx";
 import { DeviceTestsOfferedContext } from "./lab-offered.ts";
 import { Libraries } from "./libraries.tsx";
 import { People } from "./people.tsx";
@@ -33,27 +42,20 @@ import {
 } from "./polling.ts";
 import { ApiProblem, dataOrThrow, throwIfRefused } from "./problem.ts";
 import { PersonPage } from "./person.tsx";
-import { Play } from "./play.tsx";
 import { Register } from "./register.tsx";
 import type { Route } from "./router.ts";
 import { Search } from "./search.tsx";
-import { Series } from "./series.tsx";
 import type { Session } from "./session.ts";
-import { Settings } from "./settings.tsx";
 import { InterestSaidEveryContext } from "./page-interest.ts";
 import { usePathMoveCount, useRoute, useServices, useToken } from "./services.tsx";
 import { SignIn } from "./sign-in.tsx";
 import { System } from "./system.tsx";
 import { ThisDevice } from "./this-device.tsx";
-import { Title } from "./title.tsx";
 import { haveBackMySessions } from "./together-mine.ts";
 import { useMembership } from "./together-membership.ts";
 import { HostVoiceProvider } from "./together-voice.tsx";
-import { TogetherViewer } from "./together-viewer.tsx";
 import { Remembered, useRemembered } from "./remembered.ts";
 import { useResource, type Resource } from "./use-resource.ts";
-import { UiGallery } from "./ui-gallery.tsx";
-import { WatchTogether } from "./watch-together.tsx";
 
 /**
  * The client: sign-in until there is a session, then the shell and the route's screen, every one
@@ -78,11 +80,19 @@ function RoutedApp(props: { readonly route: ReturnType<typeof useRoute> }): JSX.
     return <Register />;
   }
   if (props.route.screen === "together") {
-    return <TogetherViewer />;
+    return (
+      <Suspense fallback={<ScreenLoading />}>
+        <TogetherViewer />
+      </Suspense>
+    );
   }
   if (props.route.screen === "lab-extend-player") {
     // The lab's test pattern on the TV's screen: no shell, and no server, so no sign-in.
-    return <LabExtendPlayer />;
+    return (
+      <Suspense fallback={<ScreenLoading />}>
+        <LabExtendPlayer />
+      </Suspense>
+    );
   }
   return token === undefined ? <SignIn /> : <SignedIn />;
 }
@@ -190,10 +200,18 @@ function useServersPoller(read: components["schemas"]["ClientSettingsBody"] | un
 export function Screen(props: { readonly route: Route }): JSX.Element {
   const { t } = useTranslation();
   return (
-    viewerScreen(props.route) ??
-    nonLibraryScreen(props.route) ??
-    adminScreen(props.route) ?? <p>{t("shell.notFound")}</p>
+    <Suspense fallback={<ScreenLoading />}>
+      {viewerScreen(props.route) ?? nonLibraryScreen(props.route) ?? adminScreen(props.route) ?? (
+        <p>{t("shell.notFound")}</p>
+      )}
+    </Suspense>
   );
+}
+
+/** What shows while a screen's code loads (later-screens.tsx). */
+function ScreenLoading(): JSX.Element {
+  const { t } = useTranslation();
+  return <p>{t("common.loading")}</p>;
 }
 
 /** The screens anyone signed in may see to watch: lists, a title, a series, playing and search. */

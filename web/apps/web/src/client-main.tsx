@@ -4,12 +4,12 @@ import "./tokens.css";
 import "./base.css";
 import "./i18n.ts";
 
-import { canFollowAGroup } from "@orpheum/player";
 import {
   browserFetch,
   browserPlayableFormats,
   browserTogetherSocket,
   browserVoiceDevices,
+  canFollowAGroup,
   createApi,
   keepPageAudio,
   reportFailure,

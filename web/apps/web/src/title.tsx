@@ -16,7 +16,7 @@ import { camelKey } from "./catalogue-key.ts";
 import { languageName } from "./language-name.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { ConfirmButton } from "./confirm-button.tsx";
-import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
+import { dataOrThrow, throwIfRefused } from "./problem.ts";
 import { FilingReportButton } from "./filing-report.tsx";
 import { MatchCorrection } from "./match-correction.tsx";
 import { StatusNotes } from "./status-cues.tsx";
@@ -25,10 +25,16 @@ import { Link } from "./link.tsx";
 import type { Route } from "./router.ts";
 import { usePageInterest } from "./page-interest.ts";
 import { useServices } from "./services.tsx";
-import { useResource, type Resource } from "./use-resource.ts";
+import { useResource } from "./use-resource.ts";
 import { watchingOf } from "./watching.ts";
+import { firstPlayableFile } from "./first-playable.ts";
+import { Loaded } from "./loaded.tsx";
 import { groupName, placeCode } from "./episode-place.ts";
 import { Remembered, useRemembered } from "./remembered.ts";
+
+// Where they were before a screen that shows no title used them: a title's page loads with the player
+// (later-screens.tsx), and they do not (the audit of 2026-10-25, W1).
+export { firstPlayableFile, Loaded };
 
 /** A title's detail, as the server sends it. */
 export type TitleDetail = components["schemas"]["ItemDetailOutputBody"];
@@ -288,41 +294,6 @@ function Extras(props: {
       </ul>
     </section>
   );
-}
-
-/**
- * Shows what a resource holds, or that it is loading, or why it failed: in problemText's words,
- * or in describeProblem's for a screen that knows more about its failures, and that it is asked
- * for again by itself when its poller will.
- */
-export function Loaded<T>(props: {
-  readonly resource: Resource<T>;
-  readonly render: (value: T) => JSX.Element;
-  readonly describeProblem?: (cause: unknown) => string;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const { resource } = props;
-  if (resource.state === "loading") {
-    return <p className="title__loading">{t("common.loading")}</p>;
-  }
-  if (resource.state === "failed") {
-    const describe = props.describeProblem ?? ((cause: unknown) => problemText(t, cause));
-    const why = describe(resource.cause);
-    return (
-      <p role="alert">
-        {resource.willAskAgain === true ? `${why} ${t("problem.askingAgain")}` : why}
-      </p>
-    );
-  }
-  return props.render(resource.value);
-}
-
-/** The file a title's Play goes to first, which its page warms up; undefined if none plays now. */
-export function firstPlayableFile(title: TitleDetail): number | undefined {
-  if (title.unavailable !== undefined) {
-    return undefined;
-  }
-  return title.versions?.[0]?.files?.[0]?.id;
 }
 
 /**

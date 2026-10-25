@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "./link.tsx";
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
-import { Loaded } from "./title.tsx";
+import { Loaded } from "./loaded.tsx";
 import { useResource } from "./use-resource.ts";
 import { WarningIcon } from "./warning-sign.tsx";
 

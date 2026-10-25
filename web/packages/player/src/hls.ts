@@ -41,15 +41,6 @@ export function hlsSupport(video: HTMLVideoElement): HlsSupport {
   };
 }
 
-/**
- * Whether this page can play in step with a Watch Together group: only hls.js can be nudged and
- * told what to load, so it needs MSE, or on an iPhone ManagedMediaSource, iOS 17.1 and later
- * (D250 §7). Below that an iPhone has only its own HLS, which watches alone.
- */
-export function canFollowAGroup(): boolean {
-  return Hls.isSupported();
-}
-
 /** How a page plays HLS: hls.js, the element's own HLS, or not at all. */
 export type HlsMethod = "hls.js" | "native" | "none";
 
