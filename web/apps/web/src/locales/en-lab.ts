@@ -1,0 +1,184 @@
+// SPDX-License-Identifier: MPL-2.0
+
+/**
+ * The English catalogue's device-lab part: the probes run on TVs, phones, laptops and Chromecasts
+ * before casting and controller input are built (plans/tv-device-tests.md), kept apart so the
+ * catalogue fits in one read (en.ts). The owner and testers read it, at a TV's distance.
+ */
+export const enLab = {
+  lab: {
+    heading: "Device lab",
+    explain:
+      "Tests to run on a TV, a phone, a laptop or a Chromecast. Each shows what it found here and sends it to the server's log, under a short name to note down.",
+    backToMenu: "Back to the lab",
+    menu: {
+      device: "Device report",
+      deviceWhat: "What this browser plays and which features it has",
+      input: "Remote and keys",
+      inputWhat: "What each key sends, Back, media keys, controllers, moving between tiles",
+      remote: "Phone as remote",
+      remoteWhat: "Keeps the screen on, the microphone and a call going for a whole film",
+      extend: "Extend to the TV",
+      extendWhat: "Put a test film on a second screen, and sound on two outputs at once",
+      cast: "Cast",
+      castWhat: "Cast to a Chromecast: Google's receiver or ours (opens on its own)",
+    },
+    send: "Send to server",
+    sending: "Sending…",
+    sent: "Sent as {{id}}",
+    sendFailed: "Could not send. Try again.",
+    yes: "yes",
+    no: "no",
+    unknown: "unknown",
+    device: {
+      heading: "Device report",
+      explain:
+        "What this browser says of itself is below. Press Run for the sound and WebRTC tests, which need a press; the report is sent when they end.",
+      run: "Run the sound and WebRTC tests",
+      running: "Running…",
+      fireTv: "Fire TV",
+      notFireTv: "not a Fire TV, by its user agent",
+      screen: "Screen",
+      size: "{{width}} × {{height}}, {{ratio}} device pixels per pixel",
+      viewport: "Page",
+      pixels: "{{width}} × {{height}}",
+      nativeHls: "Plays HLS by itself",
+      audioLatency: "Sound delay",
+      latencies: "base {{base}} ms, output {{output}} ms",
+      outputs: "Sound outputs",
+      webrtc: "WebRTC call with itself",
+      loopback: "connected in {{connect}} ms; round trips {{trips}} ms; sound arrived: {{heard}}",
+      has: "Has",
+      lacks: "Lacks",
+      codecs: "Codecs in fMP4",
+      codec: "Codec",
+      mse: "MSE",
+      managed: "Managed MSE",
+      element: "Element",
+      userAgent: "User agent",
+    },
+    input: {
+      heading: "Remote and keys",
+      explain:
+        "Press keys on the remote, a keyboard or a controller: each shows below. Move across the tiles with the arrows, first with the browser's own navigation, then with ours. Press Back a few times. Play the quiet tone, then try the media keys.",
+      modeLabel: "Who moves between tiles",
+      mode: {
+        browser: "Browser's own navigation",
+        geometric: "Our geometric search",
+      },
+      playTone: "Play a quiet tone",
+      mediaTitle: "Orpheum device lab",
+      latency: {
+        browser: "Key to focus, browser",
+        geometric: "Key to focus, ours",
+      },
+      noMoves: "no moves yet",
+      latencyIs:
+        "{{count}} moves: median {{median}} ms, worst {{worst}} ms; within 250 ms: {{within}}",
+      back: "Back",
+      backIs: "{{steps}} history steps back, {{keys}} Back keys",
+      media: "Media keys",
+      noMedia: "none heard",
+      pads: "Controllers",
+      noPads: "none connected",
+      pad: "{{id}}: buttons {{pressed}}, axes {{axes}}",
+      headerTile: "Header {{place}}",
+      tile: "Row {{row}}, tile {{column}}",
+      keys: "Keys heard, newest first",
+      keyType: "Event",
+      key: "key",
+      code: "code",
+      keyCode: "keyCode",
+      repeat: "Repeat",
+      since: "ms since the one before",
+    },
+    remote: {
+      heading: "Phone as remote",
+      explain:
+        "Press Start, then use the phone as you would during a film: lock it, switch apps, take a call. It keeps the screen on, sends the microphone through a call with itself and plays it back quietly (use earphones), and notes every time the page stops. The log reaches the server every 30 seconds.",
+      twice:
+        "On an iPhone, run it once in a Safari tab and once from the home screen (Share, Add to Home Screen).",
+      start: "Start",
+      stop: "Stop and send",
+      elapsed: "Running for",
+      sound: "Sound arriving",
+      soundIs: "{{flowing}} ({{share}}% of the time)",
+      frozen: "Page stopped",
+      frozenIs: "{{count}} times, longest {{longest}} s",
+      wakeLock: "Screen kept on",
+      wakeLockIs: "held {{acquired}} times, let go {{released}} times",
+      event: "{{at}} s: {{what}} {{detail}}",
+    },
+    extend: {
+      heading: "Extend to the TV",
+      explain:
+        "Connect the TV as a second screen, open the test film on it, and use this page as its remote.",
+      screens: "Screens",
+      findScreens: "Find screens",
+      noPlacing: "This browser cannot place a window on another screen. Do it by hand:",
+      recipeConnect:
+        "Windows: press Win+K and pick the TV, then Win+P and choose Extend. Mac: Control Centre, Screen Mirroring, pick the TV, then use it as a separate display. Fire TV: hold Home and choose Mirroring first.",
+      recipeDrag:
+        "Open the test film below, drag its window onto the TV, and press it there for full screen.",
+      recipeSound:
+        "Let the sound go to the TV, and use Talk rather than an open microphone, so the laptop does not send the film back.",
+      recipeControls: "Use this page, on the laptop's screen, as the remote.",
+      openOn: "Open the test film on {{screen}} ({{width}} × {{height}})",
+      openHere: "Open the test film in a new window",
+      remote: "Remote",
+      back: "Back 10 s",
+      toggle: "Play or pause",
+      forward: "Forward 10 s",
+      noPlayer: "No test film open yet",
+      playerIs: "At {{position}} s; playing: {{playing}}; full screen: {{fullscreen}}",
+      playerHint: "Press for full screen and sound. A flash and a beep mark each second.",
+      playerLabel: "The test film",
+      outputs: "Two sound outputs at once",
+      outputsExplain:
+        "Plays tone A on one output and tone B on another at the same time, as voice in earbuds while the film plays on the TV.",
+      noSinkId: "This browser cannot choose where a sound plays (no setSinkId).",
+      listOutputs: "List sound outputs",
+      tone: {
+        a: "Tone A on",
+        b: "Tone B on",
+      },
+      playBoth: "Play both",
+      stopBoth: "Stop both",
+      playingOn: "Tone {{tone}} playing on {{output}}",
+      couldNotPlay: "Tone {{tone}} could not play: {{why}}",
+    },
+    cast: {
+      heading: "Cast",
+      explain:
+        "Casts from Chrome to a Chromecast or a TV with Chromecast built in. It needs this page opened on its own over HTTPS; everything below is logged and sent.",
+      sdk: {
+        loading: "Loading Google's Cast software…",
+        ready: "Ready to cast",
+        unavailable: "Casting is not available in this browser",
+        failed:
+          "Google's Cast software did not load. Open this page by its own address (reload it), over HTTPS.",
+      },
+      film: "What to cast",
+      pickFilm: "Film",
+      noFilm: "Choose a film",
+      startPlayback: "Start a playback of it",
+      url: "Address to cast",
+      default: "Google's Default Media Receiver",
+      defaultExplain:
+        "Google's own receiver, which needs no registration. Our film's address carries no sign-in, so expect our server to refuse it; any public HLS address can be tried here.",
+      castDefault: "Cast it to Google's receiver",
+      ours: "Our receiver",
+      oursExplain:
+        "Our own receiver, by the app id registered in Google's Cast Developer Console. It reports what the Chromecast can do and plays our film with our player.",
+      appId: "Receiver app id",
+      sendSignIn:
+        "Send this device's sign-in with the film, so our receiver can fetch it (for this test only)",
+      castOurs: "Cast to our receiver",
+      askReport: "Ask for its report",
+      playOnOurs: "Play the film on it",
+      toggleOurs: "Pause or play on it",
+      stop: "Stop casting and send",
+      log: "What happened",
+    },
+  },
+};

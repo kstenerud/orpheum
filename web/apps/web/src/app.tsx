@@ -15,6 +15,8 @@ import { IsAdminContext } from "./warning-sign.tsx";
 import { Files } from "./files.tsx";
 import { Identify } from "./identify.tsx";
 import { Jobs } from "./jobs.tsx";
+import { Lab } from "./lab.tsx";
+import { LabExtendPlayer } from "./lab-extend-player.tsx";
 import { Libraries } from "./libraries.tsx";
 import { People } from "./people.tsx";
 import {
@@ -71,6 +73,10 @@ function RoutedApp(props: { readonly route: ReturnType<typeof useRoute> }): JSX.
   }
   if (props.route.screen === "together") {
     return <TogetherViewer />;
+  }
+  if (props.route.screen === "lab-extend-player") {
+    // The lab's test pattern on the TV's screen: no shell, and no server, so no sign-in.
+    return <LabExtendPlayer />;
   }
   return token === undefined ? <SignIn /> : <SignedIn />;
 }
@@ -203,7 +209,7 @@ function viewerScreen(route: Route): JSX.Element | undefined {
 
 /**
  * The screens anyone signed in may see beyond the library: their account, Watch Together (the
- * server refuses a session to a role that may not host) and About.
+ * server refuses a session to a role that may not host), the device lab and About.
  */
 function nonLibraryScreen(route: Route): JSX.Element | undefined {
   if (route.screen === "account") {
@@ -217,6 +223,9 @@ function nonLibraryScreen(route: Route): JSX.Element | undefined {
   }
   if (route.screen === "ui-gallery") {
     return <UiGallery />;
+  }
+  if (route.screen === "lab") {
+    return <Lab key={route.probe ?? "menu"} probe={route.probe} />;
   }
   return route.screen === "about" ? <About /> : undefined;
 }
