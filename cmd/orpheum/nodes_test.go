@@ -29,16 +29,22 @@ func (sweeps *requestedSweeps) RequestSweeps(names ...string) {
 	sweeps.names = append(sweeps.names, names...)
 }
 
+// A film found mid-scan owes its own library a pass, which the owed passes' sweep runs once however
+// many batches asked; the other libraries' passes wait for their own reasons (audit 2026-10-25, C8).
 func TestAskForAPassOnNewFiles_AFilmFoundMidScanAsksForTheIdentificationPasses(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
 	nodeID, _ := librarytest.NodeWithLibrary(t, database,
 		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/media/films"})
+	librarytest.LibraryOn(t, database, nodeID,
+		librarytest.Library{Name: "Shows", Kind: "shows", MetadataSource: "nfo", Root: "/media/shows"})
 	fakeClock := clocktest.NewFake(time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC))
 	seeded := settingstest.Seeded(t, database)
 	ingester := library.NewIngester(database, fakeClock, seeded, slog.New(slog.DiscardHandler))
+	pass := identify.NewPass(database, fakeClock, slog.New(slog.DiscardHandler), nil, seeded)
 	sweeps := &requestedSweeps{}
-	askForAPassOnNewFiles(ingester, sweeps)
+	wakeOwedPasses(pass, sweeps)
+	askForAPassOnNewFiles(ingester, pass)
 	film := nodeproto.ScanRecord{Type: nodeproto.RecordObserved, Observed: &nodeproto.Observed{
 		Path: nodeproto.Path{Text: "Film (2020)/Film (2020).mkv"}, SizeBytes: 1, ModifiedAt: 1,
 		Identity: nodeproto.Identity{
@@ -51,8 +57,11 @@ func TestAskForAPassOnNewFiles_AFilmFoundMidScanAsksForTheIdentificationPasses(t
 	if err := ingester.IngestScan(t.Context(), nodeID, "/media/films", stillScanning); err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(sweeps.names, []string{sweepPasses}) {
-		t.Errorf("a scan still going that stored a film asked for %v, want the %q sweep", sweeps.names, sweepPasses)
+	if !slices.Equal(sweeps.names, []string{sweepOwedPasses}) {
+		t.Errorf("a scan still going that stored a film asked for %v, want the %q sweep", sweeps.names, sweepOwedPasses)
+	}
+	if passed, err := pass.IdentifyOwed(t.Context()); err != nil || passed != 1 {
+		t.Errorf("the owed passes ran %d, %v; want the films' library's alone", passed, err)
 	}
 }
 

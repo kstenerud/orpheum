@@ -393,19 +393,23 @@ func TestIngest_AfterAScanEndsItsLibraryIsHandedOn(t *testing.T) {
 func TestIngest_ABatchThatAddsAFileAsksForAPassBeforeTheScanEnds(t *testing.T) {
 	t.Parallel()
 	world := newHarness(t)
-	asked := 0
-	world.ingester.SetOnNewFiles(func(context.Context) { asked++ })
+	var asked []int64
+	world.ingester.SetOnNewFiles(func(_ context.Context, libraryID int64) { asked = append(asked, libraryID) })
 	world.scan([]nodeproto.ScanRecord{observedRecord("a.mkv", "a")}, false)
-	if asked != 1 {
-		t.Errorf("a scan still going that found a new film asked for %d passes, want 1", asked)
+	library := world.liveFilesByPath()[root+"/a.mkv"].LibraryID
+	if !slices.Equal(asked, []int64{library}) {
+		t.Errorf("a scan still going that found a new film asked for passes of %v, want its library %d's",
+			asked, library)
 	}
 	world.scan([]nodeproto.ScanRecord{observedRecord("a.mkv", "a")}, false)
-	if asked != 1 {
-		t.Errorf("the same film read again unchanged asked for a pass (%d asked), want none", asked)
+	if len(asked) != 1 {
+		t.Errorf("the same film read again unchanged asked for a pass (%v asked), want none", asked)
 	}
-	world.scan([]nodeproto.ScanRecord{observedRecord("a.mkv", "a"), observedRecord("b.mkv", "b")}, true)
-	if asked != 2 {
-		t.Errorf("a second film asked for %d passes in all, want 2", asked)
+	world.scan([]nodeproto.ScanRecord{
+		observedRecord("a.mkv", "a"), observedRecord("b.mkv", "b"), observedRecord("c.mkv", "c"),
+	}, true)
+	if !slices.Equal(asked, []int64{library, library}) {
+		t.Errorf("a batch of two new films asked for passes of %v in all, want its library's once more", asked)
 	}
 }
 

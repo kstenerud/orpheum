@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path"
+	"slices"
 	"sync"
 
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -35,7 +36,7 @@ type Ingester struct {
 	scans        map[scanKey]*scanState // by node and root: guarded by mutex
 	onScanEnded  func(ctx context.Context, libraryID int64)
 	onPathsFound func(ctx context.Context, nodeID int64, paths []string)
-	onNewFiles   func(ctx context.Context)
+	onNewFiles   func(ctx context.Context, libraryID int64)
 	// onUnreadRetired is told each row a listing stored unread whose read found a file stored
 	// before (SetOnUnreadRetired).
 	onUnreadRetired UnreadRetirer
@@ -53,10 +54,11 @@ func (ingester *Ingester) SetOnUnreadRetired(retire UnreadRetirer) {
 }
 
 // SetOnNewFiles sets what runs once a batch that stored a new file is committed, while its scan
-// may still be going: a file read again unchanged is not new. It asks for an identification pass,
-// so a film found early in a long scan can be played before the scan ends (the owner, 2026-10-01).
-// It must return at once; the node's records wait behind it.
-func (ingester *Ingester) SetOnNewFiles(onNewFiles func(ctx context.Context)) {
+// may still be going, once for each library it stored one in: a file read again unchanged is not
+// new. It asks for that library's identification pass, so a film found early in a long scan can be
+// played before the scan ends (the owner, 2026-10-01). It must return at once; the node's records
+// wait behind it.
+func (ingester *Ingester) SetOnNewFiles(onNewFiles func(ctx context.Context, libraryID int64)) {
 	ingester.onNewFiles = onNewFiles
 }
 
@@ -154,23 +156,25 @@ func (ingester *Ingester) write(ctx context.Context, key scanKey, ingest func(ba
 	ingester.mutex.Lock()
 	defer ingester.mutex.Unlock()
 	nowMs := ingester.clock.Now().UnixMilli()
-	var endedLibraryIDs []int64
+	var endedLibraryIDs, newFilesLibraryIDs []int64
 	var foundPaths []string
-	hasNewFiles := false
 	err := ingester.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		batch := &ingestBatch{ingester: ingester, queries: queries, key: key, nodeID: key.nodeID, nowMs: nowMs}
 		if err := ingest(batch); err != nil {
 			return err
 		}
-		endedLibraryIDs, foundPaths, hasNewFiles = batch.endedLibraryIDs, batch.foundPaths, batch.hasNewFiles
+		endedLibraryIDs, foundPaths = batch.endedLibraryIDs, batch.foundPaths
+		newFilesLibraryIDs = batch.newFilesLibraryIDs
 		return nil
 	})
 	if err != nil {
 		return err
 	}
 	nodeID := key.nodeID
-	if ingester.onNewFiles != nil && hasNewFiles {
-		ingester.onNewFiles(ctx)
+	if ingester.onNewFiles != nil {
+		for _, libraryID := range newFilesLibraryIDs {
+			ingester.onNewFiles(ctx, libraryID)
+		}
 	}
 	if ingester.onPathsFound != nil && len(foundPaths) > 0 {
 		ingester.onPathsFound(ctx, nodeID, foundPaths)
@@ -194,8 +198,16 @@ type ingestBatch struct {
 	// foundPaths are the roots, and the disks mounted inside them, that a complete scan in this
 	// batch found.
 	foundPaths []string
-	// hasNewFiles is whether the batch added a file or brought one back from its tombstone.
-	hasNewFiles bool
+	// newFilesLibraryIDs are the libraries the batch added a file to, or brought one back in from
+	// its tombstone, each once.
+	newFilesLibraryIDs []int64
+}
+
+// noteNewFile records that the batch added a file to a library, or brought one back.
+func (batch *ingestBatch) noteNewFile(libraryID int64) {
+	if !slices.Contains(batch.newFilesLibraryIDs, libraryID) {
+		batch.newFilesLibraryIDs = append(batch.newFilesLibraryIDs, libraryID)
+	}
 }
 
 func (batch *ingestBatch) ingestRecord(ctx context.Context, record nodeproto.ScanRecord) error {
