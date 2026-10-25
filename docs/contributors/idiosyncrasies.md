@@ -728,10 +728,10 @@ User-Agent (D263; the User-Agent is logged only).
   on. Changing the mode reloads the page, so a page's state does not survive the change.
 - **The remote's other keys, in spatial mode:** OK arrives as `Enter` with `code` `NumpadEnter`
   (keyCode 13). Back is never a key: it steps the page's history (two presses, two steps), which a
-  page catches as `popstate`. Play/pause arrives as `MediaPlayPause` (keyCode 179). Rewind and
-  fast forward reach the page not at all, neither as keys nor as Media Session actions, even with
-  the page playing sound; no Media Session action fired for any key. A page on Silk can therefore
-  give play/pause its own meaning, but seeking from the remote needs the D-pad.
+  page catches as `popstate`. Play/pause arrives as `MediaPlayPause` (keyCode 179). No Media Session
+  action fired for any key, the page playing sound. Rewind and fast forward were not among the 30
+  keys the probe keeps, which suggests they do not reach the page; a run pressing only them is
+  owed before relying on it.
 - **Evidence:** [owner] 2026-10-25, staging, `/lab/input`, lab results `XOSUILPC` (pointer mode),
   `ECD3SZ56`, `6IRKWCYO`, `UGVNKUGU`, `Q5JAAP2N` and `IDDJ6NL7` (spatial mode);
   plans/tv-device-tests.md §5.
