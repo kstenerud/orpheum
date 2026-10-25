@@ -148,12 +148,12 @@ general socket of a signed-in device; that refactor is not needed for the first 
 
 - Any key that reaches the page, or a tap or click, shows **Take back control** with the sender's
   name; a second press confirms; a few seconds without one hides it again.
-- **Fire TV's Back:** in Silk, Back reaches the page only as a history step (the owner's lab
-  result `Q5JAAP2N`: two history steps, no Back key). The receiver mode pushes a history entry as
-  it starts and treats a `popstate` as the first press, pushing the entry again so a second Back
-  is caught too. In Silk's pointer mode no arrow and no OK key reaches the page (idiosyncrasies, Silk on Fire
-  TV); OK presumably clicks where the pointer is, which counts as a tap: UNVERIFIED, part of step
-  6's VQ.
+- **Fire TV's Back:** in Silk, Back is never a key: each press steps the page's history once, in
+  either navigation mode (lab results `Q5JAAP2N`, `HSH4M2QQ`, `BHJ6AJ7I`; idiosyncrasies, Silk on
+  Fire TV). The receiver mode pushes a history entry as it starts and treats a `popstate` as a
+  press, pushing the entry again so the confirming Back is caught too. In spatial mode OK arrives
+  as `Enter`; in pointer mode no arrow and no OK key reaches the page, and OK presumably clicks
+  where the pointer is, which counts as a tap: UNVERIFIED, part of step 6's VQ.
 - Taken back, the receiver keeps playing as an ordinary Play page, its controls shown, and the
   sender's remote says "‹receiver› took control back" (§9 Q5 for what it then offers).
 
@@ -176,8 +176,10 @@ unless another cast replaced it meanwhile.
 They work all the time (D337 §7), and every change is reported upward, never inferred from a
 position standing still (D136):
 
-- **Fire TV Silk**: play/pause arrives as a `keydown` of `MediaPlayPause`, keyCode 179, and never as
-  a Media Session action (tv-device-tests.md §5, H2). The receiver page listens for it.
+- **Fire TV Silk**: play/pause arrives as a `keydown` of `MediaPlayPause`, keyCode 179, one per
+  press, and never as a Media Session action; rewind, fast forward and the volume keys never reach
+  the page (tv-device-tests.md §5, H2). The receiver page listens for 179; seeking from the TV's
+  own remote is by the D-pad, which reaches the page only in Silk's spatial mode.
 - **Elsewhere**: Media Session's `play`, `pause` and, where offered, `seekbackward`, `seekforward`
   and `seekto`; `watchMediaSession` handles only the first two today.
 - **A keyboard**: space and the arrows, while no prompt is up; any other key raises the take-back
@@ -276,9 +278,9 @@ Steps 1–7 are casting alone, about 2.5–4 weeks; step 8 adds about 1. Unverif
 
 - **Starting without a press** (§4) on Silk and TV Bro is untested; a receiver that needs one press
   each time weakens the route but does not break it.
-- **Silk's two navigation modes**: the prompt must work in both; in pointer mode only play/pause reaches
-  a page as a key. Whether Back reaches a page in spatial mode was unknown at the
-  idiosyncrasies entry's writing; `Q5JAAP2N` is the owner's later result, not yet recorded there.
+- **Silk's two navigation modes**: the prompt must work in both. In pointer mode only play/pause
+  reaches a page as a key, and Back as a history step; whether OK's click reaches the receiver is
+  unverified.
 - **A TV browser killed on an input switch** drops off the list, and a cast to it ends; reopened, it
   comes back as a device but not receiving unless the core still holds the cast (§4).
 - **A held socket on every page** costs a ping every 15 s per open page; a phone's hidden tab is
