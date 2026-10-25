@@ -58,6 +58,9 @@
 //     bounded; its requests in flight limited, each arriving whole by a deadline.
 //     TestAnswerRelayed_ConnectsNoClientOnTheCoresOwnNetwork, TestAnswer_HoldsEachClientWithinItsBounds,
 //     TestChannel_ARequestThatDoesNotArriveInTimeIsCutOff.
+//   - A connection is told its Verdict on its negotiation channel once it connects: held, or why it is
+//     turned away (RefusedNetworkFull), which it then serves no request for, so the page can say why
+//     rather than blame the device's network. TestAnswer_TellsAConnectionPastItsNetworksShareWhy.
 //   - The handler believes nothing a request's head says of where it came from: Origin, Host,
 //     Forwarded and X-Forwarded-* are dropped, and IsOverWebRTC tells it the request came over a
 //     channel (the security audit's A1). TestChannel_TheHandlerBelievesNothingTheHeadSaysOfWhereItCameFrom.

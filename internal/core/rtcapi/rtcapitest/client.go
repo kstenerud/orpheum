@@ -41,6 +41,8 @@ type Client struct {
 	tb         testing.TB
 	connection *webrtc.PeerConnection
 	answerSDP  string
+	// verdicts carries what the core says on the negotiation channel (rtcapi.Verdict).
+	verdicts chan string
 }
 
 // Answerer takes the client's offer to the core and returns its answer: rtcapi.Server.Answer, or the
@@ -92,10 +94,19 @@ func Dial(tb testing.TB, answer Answerer, wait time.Duration, options ...Option)
 		tb.Fatal(err)
 	}
 	tb.Cleanup(func() { _ = connection.Close() }) //nolint:errcheck // the test is over
-	// An offer needs something to negotiate: a channel the client opens and never uses.
-	if _, err = connection.CreateDataChannel(rtcapi.NegotiationLabel, nil); err != nil {
+	// An offer needs something to negotiate: a channel the client opens and sends nothing on, on which
+	// the core tells its verdict.
+	hello, err := connection.CreateDataChannel(rtcapi.NegotiationLabel, nil)
+	if err != nil {
 		tb.Fatal(err)
 	}
+	verdicts := make(chan string, 1)
+	hello.OnMessage(func(message webrtc.DataChannelMessage) {
+		select {
+		case verdicts <- string(message.Data):
+		default:
+		}
+	})
 	offer, err := connection.CreateOffer(nil)
 	if err != nil {
 		tb.Fatal(err)
@@ -121,7 +132,7 @@ func Dial(tb testing.TB, answer Answerer, wait time.Duration, options ...Option)
 	if err != nil {
 		tb.Fatal(err)
 	}
-	client := &Client{tb: tb, connection: connection, answerSDP: answered.SDP}
+	client := &Client{tb: tb, connection: connection, answerSDP: answered.SDP, verdicts: verdicts}
 	timer := time.NewTimer(wait)
 	defer timer.Stop()
 	select {
@@ -130,6 +141,23 @@ func Dial(tb testing.TB, answer Answerer, wait time.Duration, options ...Option)
 	case <-timer.C:
 		return client, false
 	}
+}
+
+// Verdict is what the core told the client on its negotiation channel, once it did.
+func (client *Client) Verdict() rtcapi.Verdict {
+	client.tb.Helper()
+	ctx, cancel := context.WithTimeout(client.tb.Context(), waitLimit)
+	defer cancel()
+	var verdict rtcapi.Verdict
+	select {
+	case text := <-client.verdicts:
+		if err := json.Unmarshal([]byte(text), &verdict); err != nil {
+			client.tb.Fatalf("the core's verdict %q is not one: %v", text, err)
+		}
+	case <-ctx.Done():
+		client.tb.Fatalf("waited %s for the core's verdict", waitLimit)
+	}
+	return verdict
 }
 
 // AnswerSDP is the core's answer, as the client took it.
