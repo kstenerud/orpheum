@@ -440,6 +440,8 @@ func fullScansAllowed() map[string]string {
 			"each one's last scan every 15 minutes (D272 section 1)",
 		"ListUnavailablePlaces": "a household's libraries have a handful of roots and disks; the sweep of " +
 			"unavailable ones reads them every unavailable_root_rescan_seconds (D233 section 10, D327 section 3)",
+		"ListSeriesOwingOrderingParts": "the series, which are few (200 at the reference scale), each asked whether " +
+			"it owes a part of its orderings; the D335 sweep reads them hourly and at start, 20 at a time",
 	}
 }
 
