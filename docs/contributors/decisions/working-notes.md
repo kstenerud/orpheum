@@ -21566,7 +21566,7 @@ keeps
 [D120](#d120--a-participant-is-a-person-devices-attach-to-them-with-roles-and-the-cap-counts-people)
 and
 [D124](#d124--the-playback-role-may-be-a-cast-receiver-and-for-a-guest-that-is-the-best-path-the-phone-controls-it-does-not-relay).
-Its build plan follows, in plans/cast-to-device.md.
+The build plan is [cast-to-device.md](../design/plans/cast-to-device.md).
 
 1. **Only a device signed in as the same person can receive.** A receiver is signed in to one
    account, so only that person's devices can cast to it, and nothing new is minted for it: it
@@ -21629,12 +21629,12 @@ Its build plan follows, in plans/cast-to-device.md.
   (D267 §3).
 - **D88 is not decided against.** Whether the remote's commands travel through Watch Together's hub
   (a cast as a session of one, D88) or a channel of the person's own is the plan's judgement for
-  the owner (the build plan's §3).
+  the owner ([cast-to-device.md](../design/plans/cast-to-device.md) §3).
 - **The research's build order changes:** its remote page (casting-2026-10-25.md §5.2 step 1) is
   built first for this route, and its playback-only credential, Cast receiver and `orpheum.cc`
   steps wait for §8.
 
-**Open, for the owner** (the build plan's §9): where "Cast to another device" is offered; which
+**Open, for the owner** ([cast-to-device.md](../design/plans/cast-to-device.md) §9): where "Cast to another device" is offered; which
 device reports the viewing; whether the remote can put on another film; how receiving ends at a
 film's end; and what the sender shows once control is taken back.
 
