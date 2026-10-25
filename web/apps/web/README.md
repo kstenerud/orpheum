@@ -147,7 +147,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   anything else; one no one answers moves real DOM focus by the geometric engine
   (`src/focus-navigation.ts`, `src/focus-engine.ts`), searching the marked container around focus
   before the page (`data-focus-container`: the banner, its menu, a row or grid, the player), presses
-  what has focus, or goes back as the page's own Back does (`src/back-button.tsx`). An arrow inside a
+  what has focus (a list's choices opened by a key, stepped through by a controller's OK, which
+  cannot work a browser's own list), or goes back as the page's own Back does
+  (`src/back-button.tsx`). An arrow inside a
   text field's value or a range's is the field's; one with nowhere to go is the browser's. The
   first arrow starts in the main content, not the banner; an arrow into a container or the main
   content goes back to what last had focus there; the focused element is scrolled into view no

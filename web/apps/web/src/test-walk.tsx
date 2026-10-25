@@ -54,12 +54,20 @@ export function filmDetail(id: number, name: string): Record<string, unknown> {
   };
 }
 
-/** Services whose server answers answers by path, and every other request as not found. */
-export function walkServices(answers: WalkAnswers, path = "/films"): Services {
+/**
+ * Services whose server answers answers by path, and every other request as not found; each request
+ * is added to heard as "METHOD /path".
+ */
+export function walkServices(
+  answers: WalkAnswers,
+  path = "/films",
+  heard: string[] = [],
+): Services {
   return testServices("token", path, async (request) => {
     await Promise.resolve();
     const url = new URL(request.url);
     const methodAndPath = `${request.method} ${url.pathname.slice(apiPrefix.length)}`;
+    heard.push(methodAndPath);
     if (!(methodAndPath in answers)) {
       return Response.json(
         { error: { code: "not_found", message: "the walk serves no such thing" } },
