@@ -19,6 +19,51 @@ const contentSecurityPolicy = "default-src 'self'; script-src 'self' 'wasm-unsaf
 	"worker-src 'self' blob:; connect-src 'self'; font-src 'self' data:; manifest-src 'self'; " +
 	"object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
 
+// castSDKOrigin is where Google's Cast SDKs load from, the sender's and the receiver's alike
+// (developers.google.com/cast): their scripts, and the framework scripts they load in turn.
+const castSDKOrigin = "https://www.gstatic.com"
+
+// castSenderLabPath is the one page that loads Google's Cast sender SDK, the lab's cast probe
+// (plans/tv-device-tests.md), opened by its own load, never moved to in place, so the client's
+// other pages keep the policy that loads nothing from elsewhere.
+const castSenderLabPath = "lab/cast"
+
+// castSenderLabPolicy is contentSecurityPolicy with the Cast sender SDK's scripts and requests
+// allowed: the lab's cast probe alone.
+const castSenderLabPolicy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' " + castSDKOrigin + "; " +
+	"style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; " +
+	"worker-src 'self' blob:; connect-src 'self' " + castSDKOrigin + "; font-src 'self' data:; " +
+	"manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+
+// receiverDirectory is where the cast receiver's files are, beside the web client's, served under
+// /cast/ (web/apps/cast-receiver).
+const receiverDirectory = "cast"
+
+// receiverPolicy is the cast receiver's: its own files and the core's media, the CAF receiver SDK's
+// scripts, and the Cast platform's socket on the device itself (ws://localhost:8008), which CAF
+// talks to the sender through. Nothing else from elsewhere, and no framing.
+const receiverPolicy = "default-src 'self'; script-src 'self' " + castSDKOrigin + "; " +
+	"style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; " +
+	"worker-src 'self' blob:; connect-src 'self' ws://localhost:8008 " + castSDKOrigin + "; " +
+	"font-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+
+// policyFor is the content-security policy of the page or file at name, a path without its leading
+// slash: the receiver's under /cast/, the cast probe's at /lab/cast, the client's everywhere else.
+func policyFor(name string) string {
+	switch {
+	case isReceiverPath(name):
+		return receiverPolicy
+	case name == castSenderLabPath:
+		return castSenderLabPolicy
+	}
+	return contentSecurityPolicy
+}
+
+// isReceiverPath is whether name, a path without its leading slash, is the cast receiver's.
+func isReceiverPath(name string) bool {
+	return name == receiverDirectory || strings.HasPrefix(name, receiverDirectory+"/")
+}
+
 // strictTransportSecurity tells a browser that reached the client over HTTPS to come back only over
 // HTTPS, for a year: not its subdomains, which may be another's.
 const strictTransportSecurity = "max-age=31536000"
@@ -32,13 +77,13 @@ const notBuiltInMessage = "This Orpheum binary was built without the web client.
 // answered with the client.
 func Handler(files fs.FS, apiPrefix string) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		name := strings.TrimPrefix(path.Clean(request.URL.Path), "/")
 		writer.Header().Set("X-Content-Type-Options", "nosniff")
-		writer.Header().Set("Content-Security-Policy", contentSecurityPolicy)
+		writer.Header().Set("Content-Security-Policy", policyFor(name))
 		writer.Header().Set("Referrer-Policy", "no-referrer")
 		if request.TLS != nil {
 			writer.Header().Set("Strict-Transport-Security", strictTransportSecurity)
 		}
-		name := strings.TrimPrefix(path.Clean(request.URL.Path), "/")
 		if isServerPath("/"+name, apiPrefix) {
 			http.NotFound(writer, request)
 			return
@@ -60,7 +105,7 @@ func Handler(files fs.FS, apiPrefix string) http.Handler {
 				http.NotFound(writer, request)
 				return
 			}
-			name = "index.html"
+			name = indexOf(files, name)
 		}
 		if strings.HasPrefix(name, "assets/") {
 			writer.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
@@ -69,6 +114,16 @@ func Handler(files fs.FS, apiPrefix string) http.Handler {
 		}
 		http.ServeFileFS(writer, request, files, name)
 	})
+}
+
+// indexOf is the page that answers name, a screen's address rather than a file: the cast receiver's
+// under /cast/ where it is built in, the web client's everywhere else.
+func indexOf(files fs.FS, name string) string {
+	receiverIndex := receiverDirectory + "/index.html"
+	if isReceiverPath(name) && isFile(files, receiverIndex) {
+		return receiverIndex
+	}
+	return "index.html"
 }
 
 // isServerPath is a path the server answers itself, never with the client.
