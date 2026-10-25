@@ -308,6 +308,43 @@ and compare with `/lab/device`'s *Fire TV* line, which reads the user agent's `A
     pointer only.
 - **VQ60** (with H6 and H7).
 
+### H9. The app itself, by the remote in Silk and by a controller on a laptop
+
+The app's own pages now move focus by our navigation, as the button test did (web client README,
+"Every page is driven by a remote, a keyboard or a game controller"). This walks them.
+
+- **Devices:** the Fire TV stick, Silk in spatial navigation mode, signed in; a laptop's Chrome,
+  then Firefox, with the 8BitDo SN30 Pro in X-input mode (**Start + X**) and, on This device, *OK
+  is: The right button* (its A).
+- **Open:** the app at `/`, the films. On the stick, by its remote alone; on the laptop, by the
+  controller alone.
+- **Steps:**
+  1. Press Down: focus lands in the page (Continue Watching, else the list's order), not the
+     banner. Move across Continue Watching and the films; Up from the top row reaches the banner;
+     Down returns to the film it left.
+  2. Open a film with OK; reach each control of its page (its Back, Play, File details, the
+     extras); press Back: the films, focus on that film.
+  3. A series: Next Up, the episode order (OK opens its choices), a season, an episode; Back at
+     each step returns focus to what was left.
+  4. Search: OK on the field, type a word on the stick's keyboard, Down into the results, OK on
+     one, Back.
+  5. The banner's menu: OK opens it, Down to This device, OK; Back with the menu open closes it
+     and stays on the page.
+  6. Play a film: the arrows reach every control under the video; Left and Right on the video
+     seek 10 s; OK on the video pauses and plays; the remote's play/pause and the pad's Start too.
+     On the laptop, full screen by the video's own control, then B leaves full screen, then B
+     leaves the page.
+  7. Watch Together: start a session, *Invite someone* opens its dialog, the arrows stay in it,
+     Back closes it.
+- **Record:** at each step where focus went and whether its ring was seen whole and on screen;
+  anything the arrows could not reach; a press that moved focus twice (ours and Silk's), or
+  scrolled the page as well; on the laptop, a held stick's or D-pad's repeat.
+- **Decides:** whether the geometric choices feel right on a TV (Up from the films' first row
+  goes to the banner, the list's order only from under it, in the open questions of the
+  controller work); the 10 s seek; whether Back on the search field should clear it first; whether
+  Back on the films, with nothing before it, should do anything.
+- **VQ61** (the stick), **VQ62** (the laptop).
+
 ## 2. On the next Berlin visit (the TCL TV)
 
 ### B1. Controller step 0: today's client in TV Bro's direct mode

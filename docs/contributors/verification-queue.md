@@ -591,3 +591,17 @@ An item is ticked only by the person who did it, and only with what they saw.
   `fieldInput` (a length, no text), `fullscreenEnter` or `fullscreenRefused`, keys with
   `inFullscreen: true`, and a `pad` line per mode with its layout; what they show is the finding.
   (`web/apps/web/src/lab-field.tsx`, `lab-fullscreen.tsx`, `lab-pad-input.tsx`, `input-pads.ts`)
+- [ ] **VQ61** — On a Fire TV stick in Silk's spatial navigation mode, walk the app by the remote
+  alone (plans/tv-device-tests.md H9): Films with Continue Watching, a film, a series and a season,
+  search, the banner's menu, This device, Play and Watch Together. Passes when every control is
+  reached by the arrows with its focus ring seen whole and the focused element on screen clear of
+  the banner, OK presses it, Silk's Back returns to the page before with focus on what was left,
+  focus never moves twice for one press (ours and Silk's), and on the video play/pause plays and
+  pauses and Left and Right seek. (`web/apps/web/src/input-commands.ts`, `focus-navigation.ts`,
+  `focus-memory.ts`, `player-commands.ts`)
+- [ ] **VQ62** — On a laptop's Chrome and Firefox with the 8BitDo SN30 Pro in X-input mode, its OK
+  chosen as the right button on This device, walk the same pages by the controller alone (H9).
+  Passes when the D-pad and the left stick move focus, repeating while held, with focus shown as a
+  key's is; A presses; B goes back, closing the banner's menu and a dialog first; Start plays and
+  pauses; and B leaves the player's full screen before the page. (`web/apps/web/src/input-pad-poll.ts`,
+  `controller-choice.ts`, `player-commands.ts`)
