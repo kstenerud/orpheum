@@ -490,10 +490,12 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
 - **Left as load:** the first long walks still pass the 15 s `testTimeout` under such load: the
   player's on a Fire TV's page took 15.2 s and 15.5 s (Chromium, Firefox) and a film page's 15.2 s
   in a whole browser-mode run at a load of 25 to 39, against a median of 10.7 s in Firefox's last
-  twenty passes (5.5 s in Chromium); every press of a walk is a round trip to the browser. The
-  remedies are the owner's: a longer `testTimeout` for the browser-mode config, walks split per
-  page into tests of their own, or a machine-wide lock (mechanism 7's) so two gates' browser-mode
-  runs never overlap.
+  twenty passes (5.5 s in Chromium); every press of a walk is a round trip to the browser. Later
+  the same night it failed four of five whole-tree gate runs (23:49 to 23:56, both browsers), its
+  Firefox median over twenty passes risen to 13.5 s, while alone it took 3 to 4 s for its 72
+  presses. The remedies are the owner's: a longer `testTimeout` for the browser-mode config, walks
+  split per page into tests of their own, or a machine-wide lock (mechanism 7's) so two gates'
+  browser-mode runs never overlap.
 - **Warning sign:** a browser-mode test red only when another gate runs; `expect.poll` or a fixed
   `setTimeout` in a walk; a walk's next test red after its own timed out.
 
