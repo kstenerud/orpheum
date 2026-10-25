@@ -21525,6 +21525,39 @@ driver, on the image, only where `/dev/nvidiactl` exists (`nvidiaAccess`), passe
 (`mediaOverride`). On gpuhost (rootless Docker, CDI) the node chose `h264_nvenc` confined. The
 driver's route waits on VQ53.
 
+## D335 — What should have been fetched and was not is filled in by the sweeps; a refetch that replaces is the person's deliberate act
+
+**Decided** (2026-10-25), by the project owner, answering the episode-orderings sketch's question on
+when a series' orderings are fetched ([episode-orderings.md](../design/plans/episode-orderings.md)):
+
+> *"for any data that should have been populated, there will come edge cases where it wasn't
+> populated for some reason. Our regular sweeps should be checking for what's not populated and then
+> try to do so (with the usual back-off and give-up logic). This also solves the migration issue
+> where we add more metadata fields to a type but the existing data doesn't have it filled. There
+> should be two variants of this operation: (1) fill it in if it's missing (passive). (2) a
+> deliberate rescan order: fetch the metadata anew and replace (with an option to also replace
+> things manually set by the user)."*
+
+**Revisits**
+[D170](#d170--one-source-per-title-fetched-once-a-users-correction-is-permanent-and-every-refetch-is-an-act-of-the-user)
+("every refetch is an act of the user") and
+[D213](#d213--a-good-netizen-a-dead-image-is-checked-once-more-refresh-rolls-per-provider-and-nothing-is-deleted-because-a-provider-dropped-it)'s
+rolling refresh: a fetch that only fills what is missing is not a refetch, and the sweeps do it.
+
+1. **Fill in what is missing, passively.** The regular sweeps look for data an item should have and
+   does not: a field a fetch left empty, a part a failed fetch never stored, or a field added to a
+   type after its items were fetched (so a schema that grows needs no backfill of its own). Each is
+   fetched as the first fetch would have been, with the queue's usual back-off and its giving up
+   (D231), at the background's priority unless interest raises it (D324). It fills only what is
+   empty: nothing present is replaced.
+2. **Fetch anew and replace, deliberately.** A person's order, on an item or a library, fetches its
+   metadata again and replaces what was fetched before. By default what a person set by hand stays
+   (D170: a correction is permanent); an option replaces that too.
+3. **Etiquette holds.** Both go through the providers' limits as every fetch does (D213); a sweep
+   asks for what is missing a little at a time, never as a flood at startup.
+
+**Status:** Decided; not built.
+
 ## D334 — A tester sets up a core from one command at a terminal, which asks for its admin and, if they have one, its key
 
 **Decided** (2026-10-23), by the project owner, for the closed beta (*"Yes this makes sense"*, to
