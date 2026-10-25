@@ -20,6 +20,9 @@ const televisionPattern =
 export interface BrowserWindow {
   readonly width: number;
   readonly height: number;
+  /** The window's own size, its toolbar and frame included. */
+  readonly outerWidth: number;
+  readonly outerHeight: number;
   readonly screenWidth: number;
   readonly screenHeight: number;
   /** Whether Chromium says the fullscreen display mode. */
@@ -31,14 +34,20 @@ export interface BrowserWindow {
 /**
  * Whether the browser itself is full screen, as by F11 or a Mac's full-screen window, where the page
  * is told nothing: Chromium says it as the fullscreen display mode, and any browser's window then is
- * exactly its screen's size. A test's browser, whose screen is whatever its window was made, is
+ * exactly its screen's size, its page so too in Chromium and Firefox, its window with its toolbar in
+ * Safari, which keeps its toolbar showing in full screen (the owner's Mac, 2026-10-25: a page of
+ * 1710 by 1021 on a screen of 1710 by 1112). A maximised window is not: a menu bar or a taskbar
+ * keeps part of the screen. A test's browser, whose screen is whatever its window was made, is
  * judged by the display mode alone. A film there plays full screen at once, as on a television (the
  * owner, 2026-10-25: "Is there a way to detect if a desktop browser is in fullscreen mode? If so,
  * we should auto-fullscreen").
  */
 export function isBrowserFullscreen(browser: BrowserWindow): boolean {
-  const isScreenSized =
+  const isPageScreenSized =
     browser.width === browser.screenWidth && browser.height === browser.screenHeight;
+  const isWindowScreenSized =
+    browser.outerWidth === browser.screenWidth && browser.outerHeight === browser.screenHeight;
+  const isScreenSized = isPageScreenSized || isWindowScreenSized;
   return browser.isFullscreenDisplay || (isScreenSized && !browser.isAutomated);
 }
 
@@ -47,6 +56,8 @@ export function thisBrowserWindow(): BrowserWindow {
   return {
     width: window.innerWidth,
     height: window.innerHeight,
+    outerWidth: window.outerWidth,
+    outerHeight: window.outerHeight,
     screenWidth: window.screen.width,
     screenHeight: window.screen.height,
     isFullscreenDisplay: window.matchMedia("(display-mode: fullscreen)").matches,
