@@ -21525,6 +21525,38 @@ driver, on the image, only where `/dev/nvidiactl` exists (`nvidiaAccess`), passe
 (`mediaOverride`). On gpuhost (rootless Docker, CDI) the node chose `h264_nvenc` confined. The
 driver's route waits on VQ53.
 
+## D336 — A film's sound plays as it is unless the device cannot play it or the person asks for a feature that needs it made; no one is asked how their device makes sound
+
+**Decided** (2026-10-25), by the project owner. People were confused by the question of how their
+device makes sound, asked before their first playback (*"people get confused by the sound device
+selector"*), and the owner asked which answer taxes the server least, then:
+
+> *"I wonder if there's even any point in asking them the question. We could default to passthrough
+> unless the device can't handle it, in which case we transcode. If the user wants dialogue boost or
+> any feature that requires transcoding, we transcode. We'd also need transcode for 'night mode'."*
+
+**Revises**
+[D222](#d222--on-stereo-output-a-multichannel-sound-always-plays-through-our-prepared-copy-and-headphones-are-stereo),
+which had a multichannel sound on stereo output always played through our prepared copy so the
+dialogue boost could be switched mid-film.
+
+1. **The sound plays as it is by default.** The decision keeps a film's own sound wherever the
+   browser says it can play it (its playable formats: codec and channels); the device mixes it down
+   for its speakers itself. This is the least work for the server.
+2. **The server makes the sound only when it must:** the device cannot play the codec or the
+   channels; or the person turns on a feature that needs it made: the **dialogue boost**, or **night
+   mode** (the loud passages compressed, a new mix beside the standard and boosted ones).
+3. **Turning a feature on mid-film.** On the ladder it switches to that mix (as the boost already
+   does). A film playing directly moves onto its ladder at the same position.
+4. **No question is asked.** How a device makes sound (built-in speakers, receiver, headphones) no
+   longer changes a decision, so it is not asked before a first playback, nor of a Watch Together
+   guest; the sound button holds the features instead.
+5. **Night mode is made on the server,** not in the browser: a sound routed through Web Audio plays
+   late on an Android TV by the context's latency (the owner's TCL TV, 2026-10-24; research
+   youtube-tv-browser-av-sync-2026-10-24.md).
+
+**Status:** Decided; not built.
+
 ## D335 — What should have been fetched and was not is filled in by the sweeps; a refetch that replaces is the person's deliberate act
 
 **Decided** (2026-10-25), by the project owner, answering the episode-orderings sketch's question on
