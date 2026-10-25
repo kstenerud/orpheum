@@ -19,6 +19,8 @@ const start: LabInputRunStart = {
   devicePixelRatio: 2,
   mode: "geometric",
   hasMediaSession: true,
+  hasFullscreen: true,
+  hasCaptureStream: true,
 };
 
 /** A key going down at atMs. */

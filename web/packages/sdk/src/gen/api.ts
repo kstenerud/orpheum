@@ -2976,15 +2976,43 @@ export interface components {
              */
             atMs: number;
             /**
+             * Format: int64
+             * @description A controller's axis
+             */
+            axisIndex?: number;
+            /**
+             * Format: double
+             * @description The axis's value as it crossed half way
+             */
+            axisValue?: number;
+            /**
              * @description The button the test named it, where it is a press
              * @enum {string}
              */
             button?: "up" | "down" | "left" | "right" | "select" | "back" | "playPause" | "rewind" | "fastForward" | "volumeUp" | "volumeDown" | "mute" | "other";
             /** @description A key's code */
             code?: string;
+            /** @description The name of the error a refused request rejected with */
+            errorName?: string;
+            /**
+             * @description What was asked to go full screen: the video's box or the bare video
+             * @enum {string}
+             */
+            fullscreenTarget?: "container" | "video";
+            /**
+             * Format: int64
+             * @description The visual viewport's height in CSS pixels
+             */
+            height?: number;
+            /** @description Whether the test's text field had focus */
+            inField?: boolean;
+            /** @description Whether the page was full screen */
+            inFullscreen?: boolean;
+            /** @description An input event's inputType */
+            inputType?: string;
             /** @description Whether a key is its own repeat */
             isRepeat?: boolean;
-            /** @description A key's key */
+            /** @description A key's key; a character typed in the field is sent as Character */
             key?: string;
             /**
              * Format: int64
@@ -2995,7 +3023,7 @@ export interface components {
              * @description What it is
              * @enum {string}
              */
-            kind: "key" | "back" | "gamepad" | "media" | "move" | "mode";
+            kind: "key" | "back" | "gamepad" | "stick" | "axis" | "media" | "move" | "mode" | "fieldIn" | "fieldOut" | "fieldInput" | "compositionStart" | "compositionEnd" | "viewport" | "fullscreenEnter" | "fullscreenExit" | "fullscreenRefused" | "fullscreenExitAsked" | "pad" | "okChoice";
             /**
              * Format: int64
              * @description A move's time from its key to the frame after focus moved
@@ -3007,10 +3035,20 @@ export interface components {
              */
             mode?: "browser" | "geometric";
             /**
+             * @description Which face button confirms, as inferred or chosen
+             * @enum {string}
+             */
+            okButton?: "bottom" | "right";
+            /**
              * Format: int64
              * @description A controller's button, in its mapping
              */
             padButton?: number;
+            /**
+             * @description A standard controller's button by its place on the pad
+             * @enum {string}
+             */
+            padButtonName?: "faceBottom" | "faceRight" | "faceLeft" | "faceTop" | "shoulderLeft" | "shoulderRight" | "triggerLeft" | "triggerRight" | "select" | "start" | "stickLeft" | "stickRight" | "dpadUp" | "dpadDown" | "dpadLeft" | "dpadRight" | "home";
             /** @description A controller's own name for itself */
             padId?: string;
             /**
@@ -3019,10 +3057,30 @@ export interface components {
              */
             padIndex?: number;
             /**
+             * @description The layout the page inferred from the controller's name
+             * @enum {string}
+             */
+            padLayout?: "xbox" | "playstation" | "nintendo" | "unknown";
+            /**
+             * @description A controller's mapping: the standard one, none, or another
+             * @enum {string}
+             */
+            padMapping?: "standard" | "none" | "other";
+            /**
              * Format: int64
              * @description Its place in the run, from 0
              */
             seq: number;
+            /**
+             * Format: int64
+             * @description How many characters the field holds, never what they are
+             */
+            valueLength?: number;
+            /**
+             * Format: int64
+             * @description The visual viewport's width in CSS pixels
+             */
+            width?: number;
         };
         LabInputEventsInputBody: {
             /** @description What it heard since its last request, in order */
@@ -3038,6 +3096,10 @@ export interface components {
              * @description Device pixels to a CSS pixel
              */
             devicePixelRatio: number;
+            /** @description Whether a canvas has captureStream, for the full-screen test's video */
+            hasCaptureStream: boolean;
+            /** @description Whether elements have requestFullscreen */
+            hasFullscreen: boolean;
             /** @description Whether the browser has Media Session */
             hasMediaSession: boolean;
             /**

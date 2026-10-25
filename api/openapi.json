@@ -2793,6 +2793,20 @@
             "minimum": 0,
             "type": "integer"
           },
+          "axisIndex": {
+            "description": "A controller's axis",
+            "format": "int64",
+            "maximum": 63,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "axisValue": {
+            "description": "The axis's value as it crossed half way",
+            "format": "double",
+            "maximum": 1,
+            "minimum": -1,
+            "type": "number"
+          },
           "button": {
             "description": "The button the test named it, where it is a press",
             "enum": [
@@ -2817,12 +2831,47 @@
             "maxLength": 40,
             "type": "string"
           },
+          "errorName": {
+            "description": "The name of the error a refused request rejected with",
+            "maxLength": 40,
+            "pattern": "^[A-Za-z]*$",
+            "type": "string"
+          },
+          "fullscreenTarget": {
+            "description": "What was asked to go full screen: the video's box or the bare video",
+            "enum": [
+              "container",
+              "video"
+            ],
+            "type": "string"
+          },
+          "height": {
+            "description": "The visual viewport's height in CSS pixels",
+            "format": "int64",
+            "maximum": 100000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "inField": {
+            "description": "Whether the test's text field had focus",
+            "type": "boolean"
+          },
+          "inFullscreen": {
+            "description": "Whether the page was full screen",
+            "type": "boolean"
+          },
+          "inputType": {
+            "description": "An input event's inputType",
+            "maxLength": 40,
+            "pattern": "^[A-Za-z]*$",
+            "type": "string"
+          },
           "isRepeat": {
             "description": "Whether a key is its own repeat",
             "type": "boolean"
           },
           "key": {
-            "description": "A key's key",
+            "description": "A key's key; a character typed in the field is sent as Character",
             "maxLength": 40,
             "type": "string"
           },
@@ -2839,9 +2888,23 @@
               "key",
               "back",
               "gamepad",
+              "stick",
+              "axis",
               "media",
               "move",
-              "mode"
+              "mode",
+              "fieldIn",
+              "fieldOut",
+              "fieldInput",
+              "compositionStart",
+              "compositionEnd",
+              "viewport",
+              "fullscreenEnter",
+              "fullscreenExit",
+              "fullscreenRefused",
+              "fullscreenExitAsked",
+              "pad",
+              "okChoice"
             ],
             "type": "string"
           },
@@ -2860,12 +2923,43 @@
             ],
             "type": "string"
           },
+          "okButton": {
+            "description": "Which face button confirms, as inferred or chosen",
+            "enum": [
+              "bottom",
+              "right"
+            ],
+            "type": "string"
+          },
           "padButton": {
             "description": "A controller's button, in its mapping",
             "format": "int64",
             "maximum": 63,
             "minimum": 0,
             "type": "integer"
+          },
+          "padButtonName": {
+            "description": "A standard controller's button by its place on the pad",
+            "enum": [
+              "faceBottom",
+              "faceRight",
+              "faceLeft",
+              "faceTop",
+              "shoulderLeft",
+              "shoulderRight",
+              "triggerLeft",
+              "triggerRight",
+              "select",
+              "start",
+              "stickLeft",
+              "stickRight",
+              "dpadUp",
+              "dpadDown",
+              "dpadLeft",
+              "dpadRight",
+              "home"
+            ],
+            "type": "string"
           },
           "padId": {
             "description": "A controller's own name for itself",
@@ -2879,10 +2973,43 @@
             "minimum": 0,
             "type": "integer"
           },
+          "padLayout": {
+            "description": "The layout the page inferred from the controller's name",
+            "enum": [
+              "xbox",
+              "playstation",
+              "nintendo",
+              "unknown"
+            ],
+            "type": "string"
+          },
+          "padMapping": {
+            "description": "A controller's mapping: the standard one, none, or another",
+            "enum": [
+              "standard",
+              "none",
+              "other"
+            ],
+            "type": "string"
+          },
           "seq": {
             "description": "Its place in the run, from 0",
             "format": "int64",
             "maximum": 1000000000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "valueLength": {
+            "description": "How many characters the field holds, never what they are",
+            "format": "int64",
+            "maximum": 100000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "width": {
+            "description": "The visual viewport's width in CSS pixels",
+            "format": "int64",
+            "maximum": 100000,
             "minimum": 0,
             "type": "integer"
           }
@@ -2932,6 +3059,14 @@
             "minimum": 0,
             "type": "number"
           },
+          "hasCaptureStream": {
+            "description": "Whether a canvas has captureStream, for the full-screen test's video",
+            "type": "boolean"
+          },
+          "hasFullscreen": {
+            "description": "Whether elements have requestFullscreen",
+            "type": "boolean"
+          },
           "hasMediaSession": {
             "description": "Whether the browser has Media Session",
             "type": "boolean"
@@ -2964,7 +3099,9 @@
           "viewportHeight",
           "devicePixelRatio",
           "mode",
-          "hasMediaSession"
+          "hasMediaSession",
+          "hasFullscreen",
+          "hasCaptureStream"
         ],
         "type": "object"
       },
