@@ -61,6 +61,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/core/providers/tmdb` | R1 | — (also the TMDB image `artwork.Fetcher`, same responsibility; moved from `identify/tmdb` on 2026-09-30, the jobs rebuild's Phase 2) |
 | `internal/core/jobs` | R8 | — (Orpheum's use of `internal/platform/jobqueue` since the jobs rebuild's Phase 1: its kinds, targets and answers, and the job view) |
 | `internal/core/interest` | R8 | — (D324: what each session plays and looks at, kept in memory, raising and releasing the work of it on the one queue) |
+| `internal/core/live` | LIVE (D337: which of each person's devices are connected now, and the casts between them, in memory; built 2026-10-25) | — (the presence socket is internal/core/api's; a cast's control is internal/core/together's) |
 | `internal/core/waits` | R8 | — (D324 §6: how long the work a viewer waits on will take, a file's read-through and its prepared copy, from each node's measured read speed, kept in memory) |
 | `internal/core/library` | R2 | ⚑ R9 read models: browse.go, home.go, detail.go, art.go. ⚑ R6a: library creation and admin (create.go, admin.go, retire.go, move.go). ⚑ R8: scans as `list` and `examine` jobs (scans.go, batches.go; D241), and the one rule for parking work under an unavailable root (`Unavailability`, `ParkIfUnder`; unavailable.go, playable.go) |
 | `internal/core/nodes` | R8 | ⚑ R6a: an admin's reader limit for one of a node's devices (devices.go, D240 §5) |

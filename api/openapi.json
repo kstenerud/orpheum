@@ -399,6 +399,67 @@
         ],
         "type": "object"
       },
+      "CastBody": {
+        "additionalProperties": false,
+        "properties": {
+          "castId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "durationMs": {
+            "description": "How long the film plays, 0 when unknown",
+            "format": "int64",
+            "type": "integer"
+          },
+          "fileId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "isSender": {
+            "type": "boolean"
+          },
+          "membershipCredential": {
+            "description": "What this device's session socket says hello with",
+            "type": "string"
+          },
+          "receiverDeviceId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "receiverName": {
+            "type": "string"
+          },
+          "senderDeviceId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "senderName": {
+            "type": "string"
+          },
+          "titleId": {
+            "description": "The title the film is, 0 for none",
+            "format": "int64",
+            "type": "integer"
+          },
+          "titleName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "castId",
+          "isSender",
+          "fileId",
+          "titleId",
+          "titleName",
+          "durationMs",
+          "senderDeviceId",
+          "senderName",
+          "receiverDeviceId",
+          "receiverName",
+          "membershipCredential"
+        ],
+        "type": "object"
+      },
       "CertificateBody": {
         "additionalProperties": false,
         "properties": {
@@ -1310,6 +1371,41 @@
         },
         "required": [
           "encoder"
+        ],
+        "type": "object"
+      },
+      "EndCastInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "description": "takenBack on the receiver, stopped on the remote, filmEnded at the film's end",
+            "enum": [
+              "takenBack",
+              "stopped",
+              "filmEnded"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "type": "object"
+      },
+      "EndCastOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "isPlaying": {
+            "type": "boolean"
+          },
+          "positionMs": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "positionMs",
+          "isPlaying"
         ],
         "type": "object"
       },
@@ -3475,6 +3571,24 @@
         "required": [
           "reason",
           "nodeName"
+        ],
+        "type": "object"
+      },
+      "MyCastsOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "casts": {
+            "items": {
+              "$ref": "#/components/schemas/CastBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "casts"
         ],
         "type": "object"
       },
@@ -6184,6 +6298,33 @@
           "isMuted",
           "volume",
           "isPageHidden"
+        ],
+        "type": "object"
+      },
+      "StartCastInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "fileId": {
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          },
+          "positionMs": {
+            "description": "Where to start, in ms; absent, where the person left the film",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "toDeviceId": {
+            "description": "Another of one's own devices, connected now",
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "toDeviceId",
+          "fileId"
         ],
         "type": "object"
       },
@@ -11502,6 +11643,160 @@
         ]
       }
     },
+    "/me/casts": {
+      "get": {
+        "operationId": "listMyCasts",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyCastsOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "The casts this device sends or receives, each with a credential for it",
+        "tags": [
+          "Accounts"
+        ]
+      },
+      "post": {
+        "operationId": "startCast",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartCastInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CastBody"
+                }
+              }
+            },
+            "description": "Created"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Cast a film from this device to another of one's own, connected now (D337)",
+        "tags": [
+          "Accounts"
+        ]
+      }
+    },
+    "/me/casts/{id}/end": {
+      "post": {
+        "operationId": "endCast",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EndCastInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EndCastOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "End a cast this device sends or receives, and say where it stood",
+        "tags": [
+          "Accounts"
+        ]
+      }
+    },
     "/me/devices": {
       "get": {
         "operationId": "listMyDevices",
@@ -13701,6 +13996,17 @@
             "name": "cursor",
             "schema": {
               "description": "From the previous page's nextCursor",
+              "type": "string"
+            }
+          },
+          {
+            "description": "A name, by name only and with no cursor: the page starts at the first title sorted at or after it, as a letter of the alphabet does",
+            "explode": false,
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "description": "A name, by name only and with no cursor: the page starts at the first title sorted at or after it, as a letter of the alphabet does",
+              "maxLength": 100,
               "type": "string"
             }
           },

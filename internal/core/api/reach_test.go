@@ -187,6 +187,9 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		// A viewer's playback is reach-checked against the host's libraries
 		// (TestTogether_AViewerPlaysOnlyTheFilmOnInTheHostsLibraries).
 		"playTogether",
+		// A cast's film is reach-checked as its sender casts it
+		// (TestCast_ADeviceCastsOnlyToAnotherOfItsPersonsConnectedNow).
+		"startCast",
 	}
 	noLibraryContent := []string{
 		// The caller's own rows, which say nothing of what a library holds.
@@ -205,6 +208,9 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"openTogether", "getTogether", "addTogetherLink", "addTogetherLinkFor", "removeTogetherLink",
 		"joinTogether", "leaveTogether",
 		"listMyTogether",
+		// A person's own casts between their devices: the receiver plays by its own playback, which
+		// checks its reach (D337 §1).
+		"listMyCasts", "endCast",
 		"getTogetherICE",
 		"ejectFromTogether", "endTogether",
 		// A reachability check's own request: it says only whether this server made the nonce.

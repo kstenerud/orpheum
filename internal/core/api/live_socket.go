@@ -1,0 +1,125 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"sync"
+	"time"
+
+	"github.com/coder/websocket"
+
+	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/live"
+	"github.com/kstenerud/orpheum/internal/platform/slogx"
+)
+
+// The presence socket (D337 §2; plans/cast-to-device.md §3) is a second connection to the session
+// socket's address, opened with a hello of its own (live.MessageHello): every signed-in page holds
+// one, so the core knows which of a person's devices are open now and can hand one a cast. Sharing
+// the address, it travels wherever the session socket does, directly or over a WebRTC data channel
+// (D273 §8), with nothing new in the transports.
+
+// The keys a live connection's and a cast's log lines name their person and device by.
+const (
+	logKeyUserID   = "userId"
+	logKeyDeviceID = "deviceId"
+)
+
+// isLiveHello is whether a device's first message opens a live connection rather than a session's.
+func isLiveHello(first json.RawMessage) bool {
+	var hello struct {
+		Type live.MessageType `json:"type"`
+	}
+	return json.Unmarshal(first, &hello) == nil && hello.Type == live.MessageHello
+}
+
+// serveLiveSocket is a device's live connection, after its hello: registered while it lasts, its
+// person's connected devices and any cast handed to it written to it, its pings answered, until
+// either end closes or it stays silent past the silence limit. A sign-in of no device is refused, as
+// one that cannot be cast to (§2).
+func (server *Server) serveLiveSocket(
+	ctx context.Context, connection togetherSocket, dependencies *Dependencies, first json.RawMessage,
+	request *http.Request,
+) {
+	var hello live.Inbound
+	if err := json.Unmarshal(first, &hello); err != nil {
+		_ = connection.closeWith(websocket.StatusPolicyViolation, "say hello first") //nolint:errcheck // closing
+		return
+	}
+	principal, err := dependencies.Auth.Authenticate(ctx, hello.SessionToken)
+	if err != nil {
+		code, why := websocket.StatusPolicyViolation, "sign in first"
+		if !errors.Is(err, auth.ErrNotAuthenticated) {
+			server.logger.ErrorContext(ctx, "live: a device's sign-in could not be checked", "err", err)
+			code, why = websocket.StatusInternalError, "try again"
+		}
+		_ = connection.closeWith(code, why) //nolint:errcheck // closing
+		return
+	}
+	if principal.DeviceID == 0 {
+		const why = "this sign-in has no device"
+		_ = connection.closeWith(websocket.StatusPolicyViolation, why) //nolint:errcheck // closing
+		return
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	outbox := make(chan live.Outbound, outboxSize)
+	var closing sync.Once
+	send := func(message live.Outbound) {
+		select {
+		case outbox <- message:
+		default:
+			closing.Do(cancel) // too far behind: it reads nothing
+		}
+	}
+	registered := dependencies.Live.Connect(principal.UserID, principal.DeviceID, send)
+	device := []any{
+		logKeyUserID, principal.UserID, logKeyDeviceID, principal.DeviceID, "client", clientScriptOf(hello.Client),
+	}
+	server.logger.DebugContext(ctx, "live: a device connected", append(device, slogx.UserAgent(request))...)
+	written := make(chan struct{})
+	go func() {
+		defer close(written)
+		writeLive(ctx, connection, outbox, cancel)
+	}()
+	ended := readLive(ctx, connection, send, time.Duration(server.togetherSilence.Load()))
+	dependencies.Live.Disconnect(registered) // nothing is sent to it after this
+	server.logger.DebugContext(ctx, "live: a device disconnected", append(device, "why", ended.Error())...)
+	close(outbox)
+	<-written
+}
+
+// readLive answers each ping the device sends, until the socket or ctx ends or the device sends
+// nothing for silence, and says why it ended.
+func readLive(ctx context.Context, connection togetherSocket, send live.Sender, silence time.Duration) error {
+	for {
+		var message live.Inbound
+		readContext, cancel := context.WithTimeoutCause(ctx, silence, errSilent)
+		err := connection.readJSON(readContext, &message)
+		isSilent := errors.Is(context.Cause(readContext), errSilent)
+		cancel()
+		if isSilent {
+			return fmt.Errorf("sent nothing for %s: %w", silence, errSilent)
+		}
+		if err != nil {
+			return err
+		}
+		if message.Type == live.MessagePing {
+			send(live.Outbound{Type: live.MessagePong, TMono: message.TMono})
+		}
+	}
+}
+
+// writeLive writes the registry's messages to the device until the outbox closes.
+func writeLive(ctx context.Context, connection togetherSocket, outbox <-chan live.Outbound, cancel context.CancelFunc) {
+	for message := range outbox {
+		if err := connection.writeJSON(ctx, message); err != nil {
+			cancel()
+		}
+	}
+}

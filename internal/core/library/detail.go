@@ -336,11 +336,12 @@ func (browser *Browser) episodePage(
 }
 
 // FileWork is what a file is, as now playing names it: its title, when one is filed, by id and name,
-// and its path.
+// its path, and how long it plays, 0 before it is probed.
 type FileWork struct {
-	TitleID int64
-	Name    string
-	Path    string
+	TitleID    int64
+	Name       string
+	Path       string
+	DurationMs int64
 }
 
 // WorkOfFile is what a file is; library.ErrNoFile for one there is not.
@@ -352,5 +353,8 @@ func (browser *Browser) WorkOfFile(ctx context.Context, fileID int64) (FileWork,
 	if err != nil {
 		return FileWork{}, fmt.Errorf("read what file %d is: %w", fileID, err)
 	}
-	return FileWork{TitleID: ptr.ValueOrZero(row.TitleID), Name: ptr.ValueOrZero(row.Name), Path: row.Path}, nil
+	return FileWork{
+		TitleID: ptr.ValueOrZero(row.TitleID), Name: ptr.ValueOrZero(row.Name), Path: row.Path,
+		DurationMs: row.DurationMs,
+	}, nil
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/interest"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/live"
 	"github.com/kstenerud/orpheum/internal/core/loudness"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/playback"
@@ -301,6 +302,8 @@ func wireJobsInto(
 	opened.nodes.SetRenditionIndex(opened.jobServices.renditions)
 	dependencies.Together = opened.together
 	dependencies.Together.SnapSeeksBy(dependencies.Chunks.KeyframeAtOrBefore)
+	// Which of each person's devices are open now, and the casts between them (D337).
+	dependencies.Live = live.NewRegistry(dependencies.Together.CastCredential)
 	// The last resort when the server's upload cannot carry its players at their lowest (D286 §5).
 	dependencies.Playback.SendAwayBy(func() (int64, int64, bool) {
 		return dependencies.Together.SendAwayNewest(playback.UploadFullReason)

@@ -32,6 +32,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/interest"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
+	"github.com/kstenerud/orpheum/internal/core/live"
 	"github.com/kstenerud/orpheum/internal/core/loudness"
 	corenodes "github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/nodes/nodestest"
@@ -259,7 +260,7 @@ func newHarness(t *testing.T) testHarness {
 		t.Fatal(estimatorErr)
 	}
 	server.Ready(Dependencies{
-		Interest: looks, Waits: estimator,
+		Interest: looks, Waits: estimator, Live: live.NewRegistry(hub.CastCredential),
 		Auth: service, Settings: seeded, Discovery: discoveryService, PortMapping: portMapping,
 		Secrets: secretStore, SetupCodes: codes,
 		Relay:         &turn.Issuer{Address: "203.0.113.7:3478", Secrets: secretStore},
