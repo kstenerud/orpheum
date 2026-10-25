@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { isTelevision } from "./tv-device.ts";
+import { isBrowserFullscreen, isTelevision, type BrowserWindow } from "./tv-device.ts";
 
 describe("a television's browser, by its user agent", () => {
   it("knows the owner's Fire TV stick in Silk, and televisions of other makes", () => {
@@ -37,5 +37,32 @@ describe("a television's browser, by its user agent", () => {
         "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36",
       ),
     ).toBe(false);
+  });
+});
+
+describe("a browser that is itself full screen", () => {
+  const sized = (
+    inner: readonly [number, number],
+    screen: readonly [number, number],
+    more: { readonly isFullscreenDisplay?: boolean; readonly isAutomated?: boolean } = {},
+  ): BrowserWindow => ({
+    width: inner[0],
+    height: inner[1],
+    screenWidth: screen[0],
+    screenHeight: screen[1],
+    isFullscreenDisplay: more.isFullscreenDisplay ?? false,
+    isAutomated: more.isAutomated ?? false,
+  });
+
+  it("is known by a window exactly its screen's size, or by Chromium's fullscreen display mode", () => {
+    expect(isBrowserFullscreen(sized([1920, 1080], [1920, 1080]))).toBe(true);
+    expect(
+      isBrowserFullscreen(sized([1280, 700], [1920, 1080], { isFullscreenDisplay: true })),
+    ).toBe(true);
+  });
+
+  it("is not a window smaller than its screen, nor a test's browser by its size alone", () => {
+    expect(isBrowserFullscreen(sized([1920, 960], [1920, 1080]))).toBe(false);
+    expect(isBrowserFullscreen(sized([1280, 800], [1280, 800], { isAutomated: true }))).toBe(false);
   });
 });

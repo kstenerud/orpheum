@@ -15,3 +15,41 @@ export function isTelevision(userAgent: string): boolean {
 /** The words a television's or a streaming stick's user agent says of itself. */
 const televisionPattern =
   /\bAFT[A-Z0-9]+\b|Android TV|GoogleTV|Google TV|\bCrKey\b|Tizen|Web0S|webOS|BRAVIA|SmartTV|SMART-TV|HbbTV|\bAppleTV\b/iu;
+
+/** What isBrowserFullscreen reads of a window and its browser. */
+export interface BrowserWindow {
+  readonly width: number;
+  readonly height: number;
+  readonly screenWidth: number;
+  readonly screenHeight: number;
+  /** Whether Chromium says the fullscreen display mode. */
+  readonly isFullscreenDisplay: boolean;
+  /** Whether automation drives the browser (navigator.webdriver), as a test's does. */
+  readonly isAutomated: boolean;
+}
+
+/**
+ * Whether the browser itself is full screen, as by F11 or a Mac's full-screen window, where the page
+ * is told nothing: Chromium says it as the fullscreen display mode, and any browser's window then is
+ * exactly its screen's size. A test's browser, whose screen is whatever its window was made, is
+ * judged by the display mode alone. A film there plays full screen at once, as on a television (the
+ * owner, 2026-10-25: "Is there a way to detect if a desktop browser is in fullscreen mode? If so,
+ * we should auto-fullscreen").
+ */
+export function isBrowserFullscreen(browser: BrowserWindow): boolean {
+  const isScreenSized =
+    browser.width === browser.screenWidth && browser.height === browser.screenHeight;
+  return browser.isFullscreenDisplay || (isScreenSized && !browser.isAutomated);
+}
+
+/** This window and browser, as isBrowserFullscreen reads them. */
+export function thisBrowserWindow(): BrowserWindow {
+  return {
+    width: window.innerWidth,
+    height: window.innerHeight,
+    screenWidth: window.screen.width,
+    screenHeight: window.screen.height,
+    isFullscreenDisplay: window.matchMedia("(display-mode: fullscreen)").matches,
+    isAutomated: navigator.webdriver,
+  };
+}
