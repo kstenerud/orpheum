@@ -3,13 +3,18 @@
 import "./poster.css";
 
 import { artUrl } from "@orpheum/sdk";
-import type { JSX } from "react";
+import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-/** A poster, or a named blank where there is none; the card's own text names the item. */
+/**
+ * A poster, or a named blank where there is none, or where its image does not load: one not yet
+ * made in the sizes for screens answers "no such image" (the owner, Fire TV, 2026-10-25: Copper Kettle's
+ * seasons showed broken images while their art waited its turn). The card's own text names the item.
+ */
 export function Poster(props: { readonly sourceSha256: string | undefined }): JSX.Element {
   const { t } = useTranslation();
-  if (props.sourceSha256 === undefined) {
+  const [failedSha256, setFailedSha256] = useState<string | undefined>(undefined);
+  if (props.sourceSha256 === undefined || failedSha256 === props.sourceSha256) {
     return (
       <span className="poster poster--blank" aria-hidden="true">
         <Clapperboard />
@@ -17,14 +22,44 @@ export function Poster(props: { readonly sourceSha256: string | undefined }): JS
       </span>
     );
   }
+  const sha256 = props.sourceSha256;
   return (
     <img
       className="poster"
-      src={artUrl(props.sourceSha256, "portrait-m")}
+      src={artUrl(sha256, "portrait-m")}
       alt={""}
       loading="lazy"
       width={240}
       height={360}
+      onError={() => {
+        setFailedSha256(sha256);
+      }}
+    />
+  );
+}
+
+/**
+ * A season's or an episode's still, or a blank of its size where there is none or its image does
+ * not load, as a poster's (Poster).
+ */
+export function Still(props: {
+  readonly sourceSha256: string | undefined;
+  readonly className: string;
+}): JSX.Element {
+  const [failedSha256, setFailedSha256] = useState<string | undefined>(undefined);
+  if (props.sourceSha256 === undefined || failedSha256 === props.sourceSha256) {
+    return <span className={props.className} aria-hidden="true" />;
+  }
+  const sha256 = props.sourceSha256;
+  return (
+    <img
+      className={props.className}
+      src={artUrl(sha256, "landscape-s")}
+      alt={""}
+      loading="lazy"
+      onError={() => {
+        setFailedSha256(sha256);
+      }}
     />
   );
 }

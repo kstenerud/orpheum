@@ -2,7 +2,7 @@
 
 import "./series.css";
 
-import { artUrl, type components } from "@orpheum/sdk";
+import type { components } from "@orpheum/sdk";
 import { useCallback, useId, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -14,7 +14,7 @@ import { dataOrThrow, problemText, throwIfRefused, unavailableText } from "./pro
 import { FilingReportButton } from "./filing-report.tsx";
 import { MatchCorrection } from "./match-correction.tsx";
 import { StatusNotes } from "./status-cues.tsx";
-import { Poster } from "./poster.tsx";
+import { Poster, Still } from "./poster.tsx";
 import { Link } from "./link.tsx";
 import { usePageInterest } from "./page-interest.ts";
 import { useServices } from "./services.tsx";
@@ -256,16 +256,7 @@ function SeasonList(props: {
             }}
             className="series__episode"
           >
-            {season.stillSha256 === undefined ? (
-              <span className="series__still" aria-hidden="true" />
-            ) : (
-              <img
-                className="series__still"
-                src={artUrl(season.stillSha256, "landscape-s")}
-                alt={""}
-                loading="lazy"
-              />
-            )}
+            <Still sourceSha256={season.stillSha256} className="series__still" />
             <span>{seasonName(t, props.series, season)}</span>
             <span className="series__absent">
               {t("title.episodeCount", { count: season.episodeCount })}
@@ -392,16 +383,7 @@ function EpisodeList(props: {
           }
         >
           <Link to={{ screen: "title", itemId: episode.id }} className="series__episode">
-            {episode.stillSha256 === undefined ? (
-              <span className="series__still" aria-hidden="true" />
-            ) : (
-              <img
-                className="series__still"
-                src={artUrl(episode.stillSha256, "landscape-s")}
-                alt={""}
-                loading="lazy"
-              />
-            )}
+            <Still sourceSha256={episode.stillSha256} className="series__still" />
             <span>
               {t("title.episodeLabel", {
                 number:
