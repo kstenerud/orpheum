@@ -13,6 +13,7 @@ import {
   geometricFocus,
   isFocusTarget,
   nextInContainers,
+  searchBoxOf,
   type FocusEngine,
 } from "./focus-engine.ts";
 import { rememberingAround, type ContainerMemory } from "./focus-memory.ts";
@@ -142,8 +143,43 @@ export function moveFocus(
   if (next === undefined) {
     return false;
   }
+  if (from instanceof HTMLElement && isReadOnTheWay(from, next, direction)) {
+    return true;
+  }
   focusAndShow(next, isFromAController);
   return true;
+}
+
+/**
+ * How far apart two controls must be, in screens, for an arrow from one to the other to scroll the
+ * page first: half a screen and more of text between them, which a person moving by a remote would
+ * otherwise jump past unread (a film's overview, About, the System page). A justified constant.
+ */
+const readingGapScreens = 0.5;
+
+/** How far such an arrow scrolls the page, in screens: as Page Down does. A justified constant. */
+const readingStepScreens = 0.8;
+
+/**
+ * Scrolls the page a step toward next instead of moving focus to it, where Up or Down passes more
+ * than readingGapScreens of what takes no focus and next is not on the screen yet; whether it did.
+ * Once next comes on the screen, the arrow moves focus to it.
+ */
+function isReadOnTheWay(from: HTMLElement, next: HTMLElement, direction: Direction): boolean {
+  if (direction !== "up" && direction !== "down") {
+    return false;
+  }
+  const [fromBox, nextBox] = [searchBoxOf(from), searchBoxOf(next)];
+  const isDown = direction === "down";
+  const gap = isDown ? nextBox.top - fromBox.bottom : fromBox.top - nextBox.bottom;
+  const height = window.innerHeight;
+  const isNextOnScreen = nextBox.bottom > 0 && nextBox.top < height;
+  if (gap <= height * readingGapScreens || isNextOnScreen) {
+    return false;
+  }
+  const scrolledBefore = window.scrollY;
+  window.scrollBy({ top: (isDown ? 1 : -1) * height * readingStepScreens });
+  return window.scrollY !== scrolledBefore;
 }
 
 /** The input types whose value is typed. */
