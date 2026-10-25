@@ -278,7 +278,14 @@ func openAndWire(
 // its WebRTC server's share of connections per network as its setting says.
 func readyToServe(ctx context.Context, server *api.Server, dependencies api.Dependencies, logger *slog.Logger) {
 	server.Ready(dependencies)
-	keepWebRTCShareCurrent(ctx, server.RTC(), dependencies.Settings, logger)
+	if rtc := server.RTC(); rtc != nil {
+		keepWebRTCShareCurrent(ctx, rtc, dependencies.Settings, logger)
+	}
+}
+
+// connectionShare is what takes a network's share of WebRTC connections: the WebRTC server.
+type connectionShare interface {
+	SetConnectionsPerNetwork(limit int)
 }
 
 // newTogether is the Watch Together sessions, whose host may change what plays only to what they reach
@@ -692,9 +699,9 @@ func webRTCOf(ctx context.Context, server *api.Server, config Config, logger *sl
 // (webrtc_connections_per_network, the owner, 2026-10-25), now and at each change; one that cannot
 // be read leaves the share as it was, and says so.
 func keepWebRTCShareCurrent(
-	ctx context.Context, rtc *rtcapi.Server, settingsService *settings.Service, logger *slog.Logger,
+	ctx context.Context, rtc connectionShare, settingsService *settings.Service, logger *slog.Logger,
 ) {
-	if rtc == nil || settingsService == nil {
+	if settingsService == nil {
 		return
 	}
 	apply := func(ctx context.Context) error {
