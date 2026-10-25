@@ -173,9 +173,10 @@ export function stickDirectionOf(x: number, y: number): Direction | undefined {
 }
 
 /**
- * How long a stick held one way waits before it repeats, then between repeats, in milliseconds: a
- * TV's remote's held arrow, close to what a keyboard's repeat does. Justified constants, the feel of
- * a held arrow, which the button test lets the owner try; a setting once the real UI takes them.
+ * How long a stick or a D-pad held one way waits before it repeats, then between repeats, in
+ * milliseconds: a TV's remote's held arrow, close to what a keyboard's repeat does. Justified
+ * constants, the feel of a held arrow, which the button test lets the owner try (tv-device-tests.md
+ * H8); whether they become a setting now the app moves by them is the owner's call.
  */
 export const stickRepeatFirstMs = 400;
 export const stickRepeatEachMs = 100;
