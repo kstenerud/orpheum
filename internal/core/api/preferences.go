@@ -26,6 +26,21 @@ type PlaybackPreferencesBody struct {
 	IsDialogueBoostOn bool `json:"isDialogueBoostOn"`
 	// IsLevellingOn is whether the person plays with loudness levelled, in every file (D226 §5).
 	IsLevellingOn bool `json:"isLevellingOn"`
+	// IsAutoplayOn is whether the next episode plays by itself after a countdown as this one ends
+	// (plans/up-next.md).
+	IsAutoplayOn bool `json:"isAutoplayOn"`
+}
+
+// MyPreferencesBody are a person's own choices, which hold in every file they play.
+type MyPreferencesBody struct {
+	IsDialogueBoostOn bool `doc:"Whether they play with the dialogue boost (D83)" json:"isDialogueBoostOn"`
+	IsLevellingOn     bool `doc:"Whether they play with loudness levelled (D226 §5)" json:"isLevellingOn"`
+	IsAutoplayOn      bool `doc:"Whether the next episode plays by itself after a countdown" json:"isAutoplayOn"`
+}
+
+// MyPreferencesOutput are a person's own choices.
+type MyPreferencesOutput struct {
+	Body MyPreferencesBody
 }
 
 // SubtitleChoiceBody is a subtitle choice in one file: a track in it, or off.
@@ -70,15 +85,36 @@ func (server *Server) registerPreferences() {
 	}, server.setSeriesPreferences)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setMyPreferences", Method: http.MethodPut, Path: "/me/preferences",
-		Summary: "Keep a person's own choices, which hold in every file they play: the boost, levelling",
-		Tags:    []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
+		Summary: "Keep a person's own choices, which hold in every file they play: the boost, levelling, " +
+			"autoplay",
+		Tags: []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
 	}, server.setMyPreferences)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "getMyPreferences", Method: http.MethodGet, Path: "/me/preferences",
+		Summary: "A person's own choices, which hold in every file they play, as their settings show them",
+		Tags:    []string{tagPlayback},
+	}, server.getMyPreferences)
+}
+
+func (server *Server) getMyPreferences(ctx context.Context, input *AuthorizationHeader) (*MyPreferencesOutput, error) {
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	switches, err := dependencies.Preferences.Switches(ctx, principal.UserID)
+	if err != nil {
+		return nil, server.playbackError(ctx, "read a person's own choices", err)
+	}
+	return &MyPreferencesOutput{Body: MyPreferencesBody{
+		IsDialogueBoostOn: switches.IsDialogueBoostOn, IsLevellingOn: switches.IsLevellingOn,
+		IsAutoplayOn: switches.IsAutoplayOn,
+	}}, nil
 }
 
 func playbackPreferencesBody(prefs preferences.Preferences) PlaybackPreferencesBody {
 	body := PlaybackPreferencesBody{
 		SubtitleOffsetMs: prefs.SubtitleOffsetMs, IsDialogueBoostOn: prefs.IsDialogueBoostOn,
-		IsLevellingOn: prefs.IsLevellingOn,
+		IsLevellingOn: prefs.IsLevellingOn, IsAutoplayOn: prefs.IsAutoplayOn,
 	}
 	if track := prefs.Subtitle; track != nil {
 		body.SubtitleChoice = &SubtitleChoiceBody{StreamID: track.StreamID, FetchedSubtitleID: track.FetchedSubtitleID}
@@ -97,6 +133,8 @@ type SetMyPreferencesInput struct {
 		IsDialogueBoostOn *bool `json:"isDialogueBoostOn,omitempty" required:"false"`
 		// IsLevellingOn, when given, is whether the person plays with loudness levelled (D226 §5).
 		IsLevellingOn *bool `json:"isLevellingOn,omitempty" required:"false"`
+		// IsAutoplayOn, when given, is whether the next episode plays by itself (plans/up-next.md).
+		IsAutoplayOn *bool `json:"isAutoplayOn,omitempty" required:"false"`
 	}
 }
 
@@ -113,6 +151,11 @@ func (server *Server) setMyPreferences(ctx context.Context, input *SetMyPreferen
 	if isOn := input.Body.IsLevellingOn; isOn != nil {
 		if err := dependencies.Preferences.SetLevelling(ctx, principal.UserID, *isOn); err != nil {
 			return nil, server.playbackError(ctx, "keep whether a person's loudness is levelled", err)
+		}
+	}
+	if isOn := input.Body.IsAutoplayOn; isOn != nil {
+		if err := dependencies.Preferences.SetAutoplay(ctx, principal.UserID, *isOn); err != nil {
+			return nil, server.playbackError(ctx, "keep whether a person's next episode plays by itself", err)
 		}
 	}
 	return &struct{}{}, nil

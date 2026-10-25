@@ -108,6 +108,12 @@ func (service *Service) SetLevelling(ctx context.Context, userID int64, isOn boo
 	return service.setPersonalSwitch(ctx, userID, axisLevelling, isOn)
 }
 
+// SetAutoplay keeps whether the next episode plays by itself as one ends, for the person
+// (plans/up-next.md).
+func (service *Service) SetAutoplay(ctx context.Context, userID int64, isOn bool) error {
+	return service.setPersonalSwitch(ctx, userID, axisAutoplay, isOn)
+}
+
 // setPersonalSwitch keeps one of the person's own choices that is on or off, for every file.
 func (service *Service) setPersonalSwitch(ctx context.Context, userID int64, axis string, isOn bool) error {
 	value := valueFalse

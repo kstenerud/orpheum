@@ -11,6 +11,7 @@ import {
   setAdminAway,
 } from "./accounts.ts";
 
+import { AutoplaySetting } from "./autoplay-setting.tsx";
 import { ActivateDevice } from "./device-activation.tsx";
 import { FormRow } from "./form-row.tsx";
 import { HomeAddress } from "./home-address.tsx";
@@ -23,8 +24,8 @@ import { YourDevices } from "./your-devices.tsx";
 
 /**
  * A person's own account: at the top, activating a device by the code it shows (D288); their
- * devices, the link they registered by, the server's home address (D292 §6), and their password
- * (D218, D221). A device activated joins the list. A session that may not
+ * devices, the link they registered by, the server's home address (D292 §6), their password
+ * (D218, D221), and, last, how their episodes play on (plans/up-next.md). A device activated joins the list. A session that may not
  * change the account's security (a device a code activated, D292 §4) sees its devices and is told
  * where to do the rest.
  */
@@ -48,6 +49,7 @@ export function Account(): JSX.Element {
         <AdminAway adminAway={me.value.adminAway} onChanged={reloadMe} />
       ) : null}
       <NotOnThisDevice isShown={me.state === "loaded" && !canManage} />
+      <AutoplaySetting />
     </section>
   );
 }

@@ -1180,8 +1180,9 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        /** Keep a person's own choices, which hold in every file they play: the boost, levelling */
+        /** A person's own choices, which hold in every file they play, as their settings show them */
+        get: operations["getMyPreferences"];
+        /** Keep a person's own choices, which hold in every file they play: the boost, levelling, autoplay */
         put: operations["setMyPreferences"];
         post?: never;
         delete?: never;
@@ -3325,6 +3326,14 @@ export interface components {
         MyCastsOutputBody: {
             casts: components["schemas"]["CastBody"][] | null;
         };
+        MyPreferencesBody: {
+            /** @description Whether the next episode plays by itself after a countdown */
+            isAutoplayOn: boolean;
+            /** @description Whether they play with the dialogue boost (D83) */
+            isDialogueBoostOn: boolean;
+            /** @description Whether they play with loudness levelled (D226 §5) */
+            isLevellingOn: boolean;
+        };
         MyTogetherBody: {
             isHost: boolean;
             /** @description What this device finds the server by through a discovery; the host's has none */
@@ -3617,6 +3626,7 @@ export interface components {
         };
         PlaybackPreferencesBody: {
             audioChoice?: components["schemas"]["AudioChoiceBody"];
+            isAutoplayOn: boolean;
             isDialogueBoostOn: boolean;
             isLevellingOn: boolean;
             subtitleChoice?: components["schemas"]["SubtitleChoiceBody"];
@@ -4081,6 +4091,7 @@ export interface components {
             subtitleOffsetMs?: number;
         };
         SetMyPreferencesInputBody: {
+            isAutoplayOn?: boolean;
             isDialogueBoostOn?: boolean;
             isLevellingOn?: boolean;
         };
@@ -7417,6 +7428,38 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getMyPreferences: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyPreferencesBody"];
+                };
             };
             /** @description Error */
             default: {

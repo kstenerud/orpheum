@@ -3592,6 +3592,29 @@
         ],
         "type": "object"
       },
+      "MyPreferencesBody": {
+        "additionalProperties": false,
+        "properties": {
+          "isAutoplayOn": {
+            "description": "Whether the next episode plays by itself after a countdown",
+            "type": "boolean"
+          },
+          "isDialogueBoostOn": {
+            "description": "Whether they play with the dialogue boost (D83)",
+            "type": "boolean"
+          },
+          "isLevellingOn": {
+            "description": "Whether they play with loudness levelled (D226 §5)",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "isDialogueBoostOn",
+          "isLevellingOn",
+          "isAutoplayOn"
+        ],
+        "type": "object"
+      },
       "MyTogetherBody": {
         "additionalProperties": false,
         "properties": {
@@ -4401,6 +4424,9 @@
           "audioChoice": {
             "$ref": "#/components/schemas/AudioChoiceBody"
           },
+          "isAutoplayOn": {
+            "type": "boolean"
+          },
           "isDialogueBoostOn": {
             "type": "boolean"
           },
@@ -4419,7 +4445,8 @@
         "required": [
           "subtitleOffsetMs",
           "isDialogueBoostOn",
-          "isLevellingOn"
+          "isLevellingOn",
+          "isAutoplayOn"
         ],
         "type": "object"
       },
@@ -5903,6 +5930,9 @@
       "SetMyPreferencesInputBody": {
         "additionalProperties": false,
         "properties": {
+          "isAutoplayOn": {
+            "type": "boolean"
+          },
           "isDialogueBoostOn": {
             "type": "boolean"
           },
@@ -12102,6 +12132,46 @@
       }
     },
     "/me/preferences": {
+      "get": {
+        "operationId": "getMyPreferences",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyPreferencesBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "A person's own choices, which hold in every file they play, as their settings show them",
+        "tags": [
+          "Playback"
+        ]
+      },
       "put": {
         "operationId": "setMyPreferences",
         "parameters": [
@@ -12140,7 +12210,7 @@
             "description": "Error"
           }
         },
-        "summary": "Keep a person's own choices, which hold in every file they play: the boost, levelling",
+        "summary": "Keep a person's own choices, which hold in every file they play: the boost, levelling, autoplay",
         "tags": [
           "Playback"
         ]
