@@ -44,10 +44,16 @@ describe("a browser that is itself full screen", () => {
   const sized = (
     inner: readonly [number, number],
     screen: readonly [number, number],
-    more: { readonly isFullscreenDisplay?: boolean; readonly isAutomated?: boolean } = {},
+    more: {
+      readonly isFullscreenDisplay?: boolean;
+      readonly isAutomated?: boolean;
+      readonly outer?: readonly [number, number];
+    } = {},
   ): BrowserWindow => ({
     width: inner[0],
     height: inner[1],
+    outerWidth: more.outer?.[0] ?? inner[0],
+    outerHeight: more.outer?.[1] ?? inner[1] + 80,
     screenWidth: screen[0],
     screenHeight: screen[1],
     isFullscreenDisplay: more.isFullscreenDisplay ?? false,
@@ -56,6 +62,10 @@ describe("a browser that is itself full screen", () => {
 
   it("is known by a window exactly its screen's size, or by Chromium's fullscreen display mode", () => {
     expect(isBrowserFullscreen(sized([1920, 1080], [1920, 1080]))).toBe(true);
+    // Safari full screen on the owner's Mac, its toolbar showing over a smaller page.
+    expect(isBrowserFullscreen(sized([1710, 1021], [1710, 1112], { outer: [1710, 1112] }))).toBe(
+      true,
+    );
     expect(
       isBrowserFullscreen(sized([1280, 700], [1920, 1080], { isFullscreenDisplay: true })),
     ).toBe(true);
@@ -63,6 +73,10 @@ describe("a browser that is itself full screen", () => {
 
   it("is not a window smaller than its screen, nor a test's browser by its size alone", () => {
     expect(isBrowserFullscreen(sized([1920, 960], [1920, 1080]))).toBe(false);
+    // A maximised window under a Mac's menu bar.
+    expect(isBrowserFullscreen(sized([1710, 990], [1710, 1112], { outer: [1710, 1075] }))).toBe(
+      false,
+    );
     expect(isBrowserFullscreen(sized([1280, 800], [1280, 800], { isAutomated: true }))).toBe(false);
   });
 });
