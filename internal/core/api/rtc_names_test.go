@@ -37,7 +37,7 @@ func TestRTCOffer_NamesAConnectionByTheSignInOfItsRequests(t *testing.T) {
 		}
 		return rtcapi.Description{Type: body.Type, SDP: body.SDP}, nil
 	}
-	first := rtcapitest.Connect(t, answer)
+	first := rtcapitest.Connect(t, answer, rtcapitest.OnLoopback())
 	signedIn := first.Do(rtcapi.RequestHead{
 		Method: http.MethodGet, Path: Prefix + "/libraries",
 		Headers: http.Header{"Authorization": {"Bearer " + token}},
@@ -45,7 +45,8 @@ func TestRTCOffer_NamesAConnectionByTheSignInOfItsRequests(t *testing.T) {
 	if signedIn.Head.Status != http.StatusOK {
 		t.Fatalf("GET /libraries over a channel = %d %s", signedIn.Head.Status, signedIn.Body)
 	}
-	// The next connection from the network logs the ones it already holds, the first by its sign-in.
-	rtcapitest.Connect(t, answer)
+	// The next connection from the same network logs the ones it already holds, the first by its sign-in.
+	// Both are on the loopback, one network: a machine's other addresses would make them two.
+	rtcapitest.Connect(t, answer, rtcapitest.OnLoopback())
 	rtcLogs.AwaitLine(t, `"msg":"rtcapi: a connection is held"`, `"networkHeld":2`, `(user `, ` device `)
 }
