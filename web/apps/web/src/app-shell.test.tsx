@@ -88,6 +88,26 @@ describe("AppShell", () => {
     expect(shell(undefined)).not.toContain("app-shell__realm");
   });
 
+  it("marks home by its logo, underlined there, with no Home entry of its own (the owner, 2026-10-25)", () => {
+    const shellAt = (currentScreen: "home" | "films"): string =>
+      renderToStaticMarkup(
+        withServices(
+          <AppShell
+            isAdmin={false}
+            canHostWatchTogether={true}
+            currentScreen={currentScreen}
+            onSignOut={ignore}
+            signedInAs={{ name: "partner", deviceName: "Firefox on Mac" }}
+          >
+            <p>screen</p>
+          </AppShell>,
+        ),
+      );
+    expect(shellAt("home")).toContain('<a href="/" class="app-shell__home" aria-current="page">');
+    expect(shellAt("films")).toContain('<a href="/" class="app-shell__home">');
+    expect(shellAt("home")).not.toMatch(/>Home</u);
+  });
+
   it("takes a person home when the logo is clicked", async () => {
     const services = testServices(undefined, "/about");
     const mounted = await mount(

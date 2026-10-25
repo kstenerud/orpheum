@@ -36,7 +36,6 @@ export const en = {
     hours: "about {{count}} hours",
   },
   nav: {
-    home: "Home",
     administerFromHome:
       "You administer this server from home, on its own page or the discovery's page at home.",
     administerFromHomeAt: "You administer this server from home, at",
