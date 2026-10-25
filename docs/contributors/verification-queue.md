@@ -605,3 +605,14 @@ An item is ticked only by the person who did it, and only with what they saw.
   key's is; A presses; B goes back, closing the banner's menu and a dialog first; Start plays and
   pauses; and B leaves the player's full screen before the page. (`web/apps/web/src/input-pad-poll.ts`,
   `controller-choice.ts`, `player-commands.ts`)
+- [ ] **VQ63** — Once staging runs an earlier commit or later, open Orpheum on staging in the owner's four
+  browser tabs (Firefox, Chrome, Safari on the Mac; Firefox on Linux), leave them a minute, then sign
+  in on the Fire TV stick in Silk. Passes when the TV reaches the server, and the core's log
+  (`docker logs orpheum-staging-orpheum-core-1 2>&1 | grep rtcapi`) shows the network holding about
+  one connection per open page once each has been idle 30 s (`networkHeld` on the last "a connection
+  is held" line), more only while a page loads posters or a film. Then, with the limit lowered on a
+  test core or enough pages open, the TV's sign-in must say *This server is turning this device away:
+  too many Orpheum pages are open on your network. Close some and try again.*, never *can't be
+  reached from this network*, and the log must show one "turned a connection away" line per Try
+  again, not one a second. (`web/packages/sdk/src/rtc-transport.ts`, `rtc-connect.ts`,
+  `internal/core/rtcapi/verdict.go`, `web/apps/web/src/discovery-gate.tsx`)
