@@ -266,8 +266,10 @@ func wholeReadsAllowed() map[string]string {
 		"ListItemsDueRecheck":                   sweep + "the recheck sweep reads every image",
 		"ListItemsWithLiveUnchosenLocalArtwork": sweep + "each pass reads every image",
 		"ListResponsesAskedBefore":              sweep + "the rolling refresh reads every provider response",
-		"CountItemsMissingSortKey":              sweep + "start counts the names with no key in the locale",
-		"ListNamesWithSortAndSearchKeys":        sweep + "the key refresh reads every name, each with its key by item",
+		"ListSeriesOwingOrderingParts": sweep + "the sweep of what should have been fetched reads every series, " +
+			"hourly, for the few owed a part of their orderings (D335)",
+		"CountItemsMissingSortKey":       sweep + "start counts the names with no key in the locale",
+		"ListNamesWithSortAndSearchKeys": sweep + "the key refresh reads every name, each with its key by item",
 	}
 }
 
@@ -333,7 +335,9 @@ func weakSearchesAllowed() map[string]string {
 		"ListFilesToCompare":              library + "a scan's comparison",
 		"ListFilesAHeldBackScanDidNotSee": library + "what a withheld scan would remove",
 		"ListIdentifyFiles":               library + "the identification pass",
-		"ListLibraryTitles":               library + "the identification pass",
+		"ListLibrarySeriesWithFetchedGroups": library + "a pass's last step, its series with an episode group " +
+			"fetched, whose episodes it keeps placed (episode-orderings.md)",
+		"ListLibraryTitles": library + "the identification pass",
 		// What the pass reads of its library at its start, once a pass, so that it runs no
 		// statement per file (D303, DL7).
 		"ListLibraryVersionTitles":       library + snapshot,

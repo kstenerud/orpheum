@@ -169,7 +169,8 @@ export function NextUpPlay(props: {
  * The orderings a series has, to choose the one the person watches it in (D159 §1): offered only when
  * it has more than one, aired first, each by its label with its kind and how many of the series'
  * episodes it holds (or its provider lists, before it holds any). A choice keeps it and goes to the
- * series' top page, where a season of the order left means nothing (episode-orderings.md §7 Q10).
+ * series' top page, where a season of the order left means nothing (episode-orderings.md §7 Q10);
+ * one chosen before its contents were fetched says it is being fetched until it is (§4).
  */
 export function OrderingChoice(props: {
   readonly series: SeriesDetail;
@@ -211,6 +212,9 @@ export function OrderingChoice(props: {
           </option>
         ))}
       </select>
+      {orderings.find((ordering) => ordering.name === series.ordering)?.isAwaitingFetch === true ? (
+        <span className="series__absent"> {t("ordering.fetching")}</span>
+      ) : null}
       {problem === undefined ? null : (
         <span className="series__absent">{t("ordering.failed", { why: problem })}</span>
       )}

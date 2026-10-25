@@ -13,6 +13,7 @@ import (
 type Provider interface {
 	WorkSource
 	SeasonSource
+	EpisodeGroupSource
 }
 
 // WorkSource is what a provider says about films and series: search, find, fetch and read.
@@ -35,6 +36,48 @@ type SeasonSource interface {
 	FetchSeason(ctx context.Context, seriesID string, season int) ([]byte, error)
 	// ParseSeason reads a stored season listing.
 	ParseSeason(body []byte) ([]Episode, error)
+}
+
+// EpisodeGroupSource is how a provider lists a series' other orderings of its episodes, its episode
+// groups, and each one's contents (episode-orderings.md §2.1, §3.4): the list comes with the series'
+// own record where the provider allows, else from a request of its own; a group's contents are
+// fetched only when someone needs it (D170).
+type EpisodeGroupSource interface {
+	// EpisodeGroupsIn is the list of a series' episode groups its own stored record carries, as
+	// FetchEpisodeGroups returns it; false when the record does not carry one.
+	EpisodeGroupsIn(seriesBody []byte) ([]byte, bool)
+	// FetchEpisodeGroups returns the list of a series' episode groups, as stored.
+	FetchEpisodeGroups(ctx context.Context, seriesID string) ([]byte, error)
+	// ParseEpisodeGroups reads a stored list.
+	ParseEpisodeGroups(body []byte) ([]EpisodeGroup, error)
+	// FetchEpisodeGroup returns one episode group's contents, its parts and their episodes, as stored.
+	FetchEpisodeGroup(ctx context.Context, groupID string) ([]byte, error)
+	// ParseEpisodeGroup reads a stored group's contents.
+	ParseEpisodeGroup(body []byte) ([]EpisodeGroupPart, error)
+}
+
+// EpisodeGroup is one of a series' episode groups as its list says it: its id, its name, its kind
+// (Kind's values, "dvd" for TMDB's type 3) and how many episodes it lists.
+type EpisodeGroup struct {
+	ID           string
+	Name         string
+	Kind         string
+	EpisodeCount int
+}
+
+// EpisodeGroupPart is one part of an episode group (a disc, a volume): its order among the parts,
+// its name, and its episodes in order.
+type EpisodeGroupPart struct {
+	Order    int
+	Name     string
+	Episodes []EpisodeGroupEntry
+}
+
+// EpisodeGroupEntry is one episode of a part: its id at the provider, the one a season listing gives
+// it, and its order in the part, from 0.
+type EpisodeGroupEntry struct {
+	EpisodeID string
+	Order     int
 }
 
 // The kinds of work a provider is asked about: a title's kind, or a series.

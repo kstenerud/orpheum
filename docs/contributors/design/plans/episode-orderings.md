@@ -9,7 +9,7 @@
   episode ordering, *aired, DVD, absolute, production, custom*, with every ordering the same
   mechanism ([D160](../../decisions/working-notes.md): a sequence is what a Collection produces,
   and Next Up is a query over any of them). The owner answered §7 the same day. Building the
-  viewing order, §6's steps 1–4; steps 1 to 3 are built (each step says so below).
+  viewing order, §6's steps 1–4; steps 1 to 4 are built (each step says so below); 5 to 7 are not.
 - **Depends on:** [play-state.md](play-state.md) (Next Up over an ordering),
   [schema.md](schema.md) (`ordering`, `position`, `group_text`, `preference`),
   [closed-beta.md](closed-beta.md) (B2, "Episode orderings", D96 and D210, size M).
@@ -378,6 +378,23 @@ fixtures and the fake provider (`internal/core/identify/identifytest`), never TM
    positions and group names. *Test:* a stored *Emberwing*-shaped fixture group makes an ordering
    whose positions match it; an episode it omits has no position; choosing it twice fetches
    once.
+   *Built 2026-10-25:* the series fetch appends `episode_groups`; the list is stored as the part
+   `episode_groups`, taken from the record with no request, or, for a series whose stored record
+   lacks it, from `/tv/{id}/episode_groups`; each listed group becomes an ordering
+   `tmdb:<group id>` with its kind, label and listed count. Choosing one not fetched queues the
+   series' fetch at the person's priority, which fetches every chosen group not stored, once, as
+   `episode_group/<id>`; positions and `group_text` (language `und`) are derived from what is
+   stored, compare-before-write, after each fetch and at the end of every pass of the library, so
+   an episode that arrives later is placed. **D335, the part orderings need:**
+   `identify.Refresher.QueueMissing`, the sweep "what should have been fetched", hourly and at
+   start (never after each pass), queues at most 20 series a run (**flagged for the owner:** a
+   constant, `missingFetchesPerSweep`, not a setting), chosen groups first at a person's priority,
+   then missing lists behind other work; a fetch that gives up records the series' own failure,
+   which the sweep passes over until a person's refresh clears it. A new kind of missing part is a
+   query added beside `ListSeriesOwingOrderingParts` (`identify/missing.go`). A refresh refetches
+   stored groups as it does seasons and takes the list again from the new record; step 5's marking
+   of a group no longer listed is not built. **Flagged for the owner:** a provider whose record
+   cannot carry the list costs one request per series for it (TMDB's can).
 5. **Refresh.** A series' refresh refetches its fetched groups and re-materialises them; a group
    no longer listed is kept and marked. *Test:* a changed fixture group moves positions and no
    play state; a removed one keeps them.

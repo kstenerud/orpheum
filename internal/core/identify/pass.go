@@ -144,6 +144,9 @@ func (pass *Pass) IdentifyLibrary(ctx context.Context, libraryID int64) (Report,
 	if err != nil {
 		return Report{}, fmt.Errorf("identify library %d: %w", libraryID, err)
 	}
+	if err := pass.deriveLibraryOrderings(ctx, libraryID); err != nil {
+		return Report{}, fmt.Errorf("identify library %d: %w", libraryID, err)
+	}
 	if report.UnusedTitleCount > 0 {
 		pass.logger.WarnContext(ctx, "the pass made titles it gave no file, and merged them: a fault in filing",
 			"libraryId", libraryID, "titles", report.UnusedTitleCount)

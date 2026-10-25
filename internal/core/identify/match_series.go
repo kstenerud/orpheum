@@ -173,7 +173,8 @@ func recordSeries(
 }
 
 // fetchSeasonListings fetches every season listing the series' episodes need — one call a season, never
-// one an episode (D209) — stores them, and re-derives the library.
+// one an episode (D209) — and what its orderings are owed (fetchOwedOrderings), stores them, and
+// re-derives the library.
 func (matcher *Matcher) fetchSeasonListings(
 	ctx context.Context, provider Provider, series sqlcgen.GetSeriesForMatchRow,
 ) (Outcome, error) {
@@ -186,16 +187,23 @@ func (matcher *Matcher) fetchSeasonListings(
 		outcome = OutcomeNothingToDo
 	}
 	for _, season := range seasons {
-		body, err := provider.FetchSeason(ctx, ptr.ValueOrZero(series.FollowedSourceID), season)
-		if errors.Is(err, ErrNoMatch) {
-			body, err = []byte{}, nil // the provider has no such season: stored empty, so it is not asked again
+		body, fetchErr := provider.FetchSeason(ctx, ptr.ValueOrZero(series.FollowedSourceID), season)
+		if errors.Is(fetchErr, ErrNoMatch) {
+			body, fetchErr = []byte{}, nil // the provider has no such season: stored empty, so it is not asked again
 		}
-		if err != nil {
-			return "", fmt.Errorf("fetch series %d's season %d: %w", series.ID, season, err)
+		if fetchErr != nil {
+			return "", fmt.Errorf("fetch series %d's season %d: %w", series.ID, season, fetchErr)
 		}
-		if err := matcher.storeSeason(ctx, provider, series.ID, season, body); err != nil {
-			return "", err
+		if storeErr := matcher.storeSeason(ctx, provider, series.ID, season, body); storeErr != nil {
+			return "", storeErr
 		}
+	}
+	orderingsFetched, err := matcher.fetchOwedOrderings(ctx, provider, series)
+	if err != nil {
+		return "", err
+	}
+	if orderingsFetched {
+		outcome = OutcomeListingsFetched
 	}
 	return outcome, matcher.recordSeriesAndRederive(ctx, series, nil)
 }
@@ -203,20 +211,7 @@ func (matcher *Matcher) fetchSeasonListings(
 func (matcher *Matcher) storeSeason(
 	ctx context.Context, provider Provider, seriesID int64, season int, body []byte,
 ) error {
-	bodyGzip, err := bounded.Gzip(body)
-	if err != nil {
-		return fmt.Errorf("keep the provider's answer: %w", err)
-	}
-	err = matcher.database.Write(ctx, func(queries *sqlcgen.Queries) error {
-		return queries.UpsertProviderResponse(ctx, sqlcgen.UpsertProviderResponseParams{
-			ItemID: seriesID, Provider: provider.Name(), Part: seasonPart(season),
-			FetchedAt: matcher.clock.Now().UnixMilli(), BodyGzip: bodyGzip,
-		})
-	})
-	if err != nil {
-		return fmt.Errorf("store series %d's season %d: %w", seriesID, season, err)
-	}
-	return nil
+	return matcher.storePartBody(ctx, provider, seriesID, seasonPart(season), body)
 }
 
 // recordSeriesAndRederive writes what a match found, if anything, and marks the series' library as

@@ -34,6 +34,11 @@
 //     tmdb_background_rate_share_percent of it, and sends nothing to a parked host but a person's
 //     call, which is its probe (D231 §5, §6).
 //     TestGet_AsksTMDBsProviderFirstAndSendsNothingToAParkedHostForTheBackground.
+//   - A series' record is fetched with its episode groups appended, so their list costs no request
+//     of its own; a series fetched before has its list from /tv/{id}/episode_groups, and a group's
+//     contents come from /tv/episode_group/{id}, each group's type read as its kind
+//     (episode-orderings.md §2.1). TestEpisodeGroups_ASeriesRecordCarriesItsListOfGroups,
+//     TestEpisodeGroups_AGroupIsItsPartsAndTheirEpisodes.
 //   - Tests call a fake TMDB on loopback, never the network (standards/testing.md). Enforced by
 //     review; every test here builds its server with httptest.
 //
@@ -49,5 +54,6 @@
 //
 //   - client.go: authorisation (a v3 key as api_key, a v4 token as a bearer token), TMDB's
 //     refusals, and its provider services with their limits. works.go: the endpoints for films,
-//     series and seasons, and the reading of each response. images.go: the image downloader.
+//     series, seasons and episode groups, and the reading of each response. images.go: the image
+//     downloader.
 package tmdb

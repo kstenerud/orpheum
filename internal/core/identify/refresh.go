@@ -159,7 +159,9 @@ func (matcher *Matcher) refresh(ctx context.Context, itemID int64, shouldRetryIm
 	return OutcomeMatched, nil
 }
 
-// refreshSeries fetches a matched series' record and each season listing it keeps.
+// refreshSeries fetches a matched series' record and each season listing and episode group it keeps,
+// its list of groups taken again from its new record where that carries it, and derives its
+// orderings from them.
 func (matcher *Matcher) refreshSeries(ctx context.Context, seriesID int64, shouldRetryImages bool) (Outcome, error) {
 	queries := matcher.database.Read()
 	series, err := store.OrNotFound(queries.GetSeriesForMatch(ctx, seriesID))
@@ -184,6 +186,9 @@ func (matcher *Matcher) refreshSeries(ctx context.Context, seriesID int64, shoul
 	if err != nil {
 		return "", fmt.Errorf("list series %d's stored parts: %w", seriesID, err)
 	}
+	// The list of episode groups is taken again from the record, after it.
+	keepsList := slices.Contains(parts, groupListPart)
+	parts = slices.DeleteFunc(parts, func(part string) bool { return part == groupListPart })
 	outcome := OutcomeMatched
 	for _, part := range parts {
 		body, fetchErr := matcher.fetchPart(ctx, provider, ptr.ValueOrZero(series.FollowedSourceID), part)
@@ -201,13 +206,37 @@ func (matcher *Matcher) refreshSeries(ctx context.Context, seriesID int64, shoul
 			return "", err
 		}
 	}
+	if err := matcher.refreshOrderings(ctx, provider, series, keepsList); err != nil {
+		return "", err
+	}
 	return outcome, matcher.recordSeriesAndRederive(ctx, series, nil)
 }
 
-// fetchPart fetches one stored part of a series again: its own record, or a season's listing.
+// refreshOrderings takes a refreshed series' list of episode groups again, when it keeps one, from its
+// new record where that carries it, and derives its orderings from what is now stored.
+func (matcher *Matcher) refreshOrderings(
+	ctx context.Context, provider Provider, series sqlcgen.GetSeriesForMatchRow, keepsList bool,
+) error {
+	if keepsList {
+		list, err := matcher.groupList(ctx, provider, series.ID, ptr.ValueOrZero(series.FollowedSourceID))
+		if err != nil {
+			return err
+		}
+		if err := matcher.storePartBody(ctx, provider, series.ID, groupListPart, list); err != nil {
+			return err
+		}
+	}
+	return keepOrderingsDerived(ctx, matcher.database, provider, series.ID)
+}
+
+// fetchPart fetches one stored part of a series again: its own record, an episode group, or a
+// season's listing.
 func (matcher *Matcher) fetchPart(ctx context.Context, provider Provider, sourceID, part string) ([]byte, error) {
 	if part == "" {
 		return provider.Fetch(ctx, KindSeries, sourceID) //nolint:wrapcheck // wrapped by the caller
+	}
+	if groupID, isGroup := groupOfPart(part); isGroup {
+		return provider.FetchEpisodeGroup(ctx, groupID) //nolint:wrapcheck // wrapped by the caller
 	}
 	season, err := seasonOfPart(part)
 	if err != nil {
@@ -216,10 +245,14 @@ func (matcher *Matcher) fetchPart(ctx context.Context, provider Provider, source
 	return provider.FetchSeason(ctx, sourceID, season) //nolint:wrapcheck // wrapped by the caller
 }
 
-// storePart stores a part fetched again: a series' record with its match as it was, or a season.
+// storePart stores a part fetched again: a series' record with its match as it was, an episode
+// group, or a season.
 func (matcher *Matcher) storePart(
 	ctx context.Context, provider Provider, series sqlcgen.GetSeriesForMatchRow, part string, body []byte,
 ) error {
+	if _, isGroup := groupOfPart(part); isGroup {
+		return matcher.storePartBody(ctx, provider, series.ID, part, body)
+	}
 	if part != "" {
 		season, err := seasonOfPart(part)
 		if err != nil {

@@ -1306,7 +1306,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `locator` | persistent.db | `internal/core/auth` | |
 | `realm_key` | persistent.db | `internal/core/auth` | |
 | `guessed_match` | persistent.db | `internal/core/identify` | |
-| `group_text` | persistent.db | none yet | |
+| `group_text` | persistent.db | `internal/core/identify` | a provider's episode group's parts' names (episode-orderings.md) |
 | `item` | persistent.db | `internal/core/identify` | |
 | `item_fts`, `item_fts_tri` | persistent.db | `internal/core/identify` | kept by `item_text`'s triggers |
 | `item_provider_id` | persistent.db | `internal/core/identify` | |

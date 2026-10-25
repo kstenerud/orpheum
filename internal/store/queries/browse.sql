@@ -215,10 +215,16 @@ LIMIT sqlc.arg(max_rows);
 -- name: ListSeriesOrderings :many
 -- A series' orderings, as its page offers them (episode-orderings.md section 4): aired first, then each
 -- provider's by its label, then the household's own; each with its kind, its provider's label and
--- how many episodes the provider lists in it, and how many of the series' live episodes it holds.
+-- how many episodes the provider lists in it, how many of the series' live episodes it holds, and
+-- whether it is a provider's group whose contents are not fetched yet.
 SELECT ordering.name, ordering.kind, ordering.label, ordering.listed_count,
   (SELECT count(*) FROM position JOIN item ON item.id = position.title_id AND item.removed_at IS NULL
-   WHERE position.ordering_id = ordering.id) AS episode_count
+   WHERE position.ordering_id = ordering.id) AS episode_count,
+  CAST(ordering.source_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM provider_response
+    WHERE provider_response.item_id = ordering.collection_id AND provider_response.provider = ordering.provider
+      AND provider_response.part = 'episode_group/' || ordering.source_id
+  ) AS INTEGER) AS is_awaiting_fetch
 FROM ordering
 WHERE ordering.collection_id = sqlc.arg(collection_id)
 ORDER BY ordering.name <> 'aired', ordering.provider IS NULL, coalesce(ordering.label, ordering.name), ordering.id;

@@ -77,3 +77,27 @@ func (provider cleaningProvider) ParseSeason(body []byte) ([]Episode, error) {
 	}
 	return episodes, err //nolint:wrapcheck // the provider's own error, passed through as it is
 }
+
+// ParseEpisodeGroups cleans each group's id and name.
+func (provider cleaningProvider) ParseEpisodeGroups(body []byte) ([]EpisodeGroup, error) {
+	groups, err := provider.Provider.ParseEpisodeGroups(body)
+	for index, group := range groups {
+		group.ID, group.Name = textindex.Line(group.ID), textindex.Line(group.Name)
+		group.Kind = textindex.Line(group.Kind)
+		groups[index] = group
+	}
+	return groups, err //nolint:wrapcheck // the provider's own error, passed through as it is
+}
+
+// ParseEpisodeGroup cleans each part's name and each episode's id.
+func (provider cleaningProvider) ParseEpisodeGroup(body []byte) ([]EpisodeGroupPart, error) {
+	parts, err := provider.Provider.ParseEpisodeGroup(body)
+	for index, part := range parts {
+		part.Name = textindex.Line(part.Name)
+		for entry := range part.Episodes {
+			part.Episodes[entry].EpisodeID = textindex.Line(part.Episodes[entry].EpisodeID)
+		}
+		parts[index] = part
+	}
+	return parts, err //nolint:wrapcheck // the provider's own error, passed through as it is
+}

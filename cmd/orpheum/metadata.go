@@ -265,7 +265,9 @@ func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRun
 	return jobRunners{
 		{
 			jobs.KindFetchMetadata, services.matcher.Handle, services.matcher.RecordFailure, nil, 1,
-			[]string{sweepFirstMatches, sweepRefreshRequests, sweepRechecks, sweepRollingRefresh, sweepPasses},
+			[]string{
+				sweepFirstMatches, sweepRefreshRequests, sweepRechecks, sweepRollingRefresh, sweepPasses, sweepMissing,
+			},
 			nil,
 		},
 		{
@@ -318,6 +320,7 @@ func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRun
 // video through whose bytes lack their loudness or their picture's timeline (D226 §2, D247 §10).
 const (
 	sweepFirstMatches     = "first matches"
+	sweepMissing          = "what should have been fetched"
 	sweepReconsidered     = "ambiguous matches reconsidered"
 	sweepRefreshRequests  = "refreshes people asked for"
 	sweepRechecks         = "rechecks of missing images"
@@ -443,6 +446,8 @@ func (services jobServices) sweeps(logger *slog.Logger) []jobs.Sweep {
 		{Name: sweepReconsidered, Derive: services.matcher.ReconsiderAmbiguous, Every: derivedWorkEvery},
 		{Name: sweepFirstMatches, Derive: services.refresher.QueueFirstMatches, Every: derivedWorkEvery},
 		{Name: sweepRefreshRequests, Derive: services.refresher.QueueRequested, Every: derivedWorkEvery},
+		// A little at a time, hourly and at start, never after each pass (D335 §3).
+		{Name: sweepMissing, Derive: services.refresher.QueueMissing, Every: derivedWorkEvery},
 		{
 			Name: sweepRechecks, Every: derivedWorkEvery,
 			Derive: func(ctx context.Context) (int, error) {

@@ -189,5 +189,10 @@ func (server *Server) setSeriesPreferences(ctx context.Context, input *SetSeries
 	if err != nil {
 		return nil, server.libraryError(ctx, "keep the ordering a person watches a series in", err)
 	}
+	// An episode group chosen before anyone fetched it is fetched now, on their act (D170); the page
+	// says so until it is.
+	if _, err := dependencies.Refresher.QueueChosenOrderings(ctx, input.SeriesID); err != nil {
+		return nil, server.libraryError(ctx, "queue the fetch of a series' chosen ordering", err)
+	}
 	return &struct{}{}, nil
 }

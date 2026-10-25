@@ -25,8 +25,17 @@ type Provider struct {
 	TMDBIDsByOtherID map[string]string
 	// Seasons are FetchSeason's listings, by "<series id>/<season>".
 	Seasons map[string][]identify.Episode
+	// EpisodeGroupLists are each series' list of episode groups, by its id: its record, Fetch's, carries
+	// it, and FetchEpisodeGroups answers it alone, as TMDB's does.
+	EpisodeGroupLists map[string][]identify.EpisodeGroup
+	// RecordsWithoutGroups are the series whose record Fetch returns without their list, as one
+	// fetched before it was asked for.
+	RecordsWithoutGroups map[string]bool
+	// EpisodeGroups are each group's parts, FetchEpisodeGroup's, by the group's id.
+	EpisodeGroups map[string][]identify.EpisodeGroupPart
 	// Calls are the calls made, in order: "search <SearchKey>", "find <source> <id>",
-	// "fetch <id>" and "season <series id>/<season>".
+	// "fetch <id>", "season <series id>/<season>", "episode_groups <series id>" and
+	// "episode_group <group id>".
 	Calls []string
 	// Importances are how much each call said it mattered, in the order of Calls
 	// (providers.ImportanceOf).
@@ -43,6 +52,8 @@ func NewProvider() *Provider {
 	return &Provider{
 		Films: map[string]identify.Metadata{}, Searches: map[string][]identify.Candidate{},
 		TMDBIDsByOtherID: map[string]string{}, Seasons: map[string][]identify.Episode{},
+		EpisodeGroupLists: map[string][]identify.EpisodeGroup{}, RecordsWithoutGroups: map[string]bool{},
+		EpisodeGroups: map[string][]identify.EpisodeGroupPart{},
 	}
 }
 
@@ -100,8 +111,10 @@ func (fake *Provider) Find(ctx context.Context, _, source, id string) (string, e
 	return "", identify.ErrNoMatch
 }
 
-// Fetch returns the film with id as JSON.
-func (fake *Provider) Fetch(ctx context.Context, _, id string) ([]byte, error) {
+// Fetch returns the film with id as JSON; a series' carries its list of episode groups, empty when
+// EpisodeGroupLists has none, as TMDB's record carries what it appends, unless RecordsWithoutGroups
+// names it.
+func (fake *Provider) Fetch(ctx context.Context, kind, id string) ([]byte, error) {
 	fake.mutex.Lock()
 	defer fake.mutex.Unlock()
 	fake.note(ctx, "fetch "+id)
@@ -112,7 +125,70 @@ func (fake *Provider) Fetch(ctx context.Context, _, id string) ([]byte, error) {
 	if !found {
 		return nil, identify.ErrNoMatch
 	}
-	return json.Marshal(film) //nolint:wrapcheck,musttag // a test fake stores Metadata as Go names it
+	groups := fake.EpisodeGroupLists[id]
+	if kind != identify.KindSeries || fake.RecordsWithoutGroups[id] {
+		return json.Marshal(film) //nolint:wrapcheck,musttag // a test fake stores Metadata as Go names it
+	}
+	// The record carries its list, as TMDB's appends it: beside the Metadata, which Parse reads.
+	return json.Marshal(struct { //nolint:wrapcheck,musttag // as above
+		identify.Metadata
+		EpisodeGroups []identify.EpisodeGroup `json:"episodeGroups"`
+	}{film, append([]identify.EpisodeGroup{}, groups...)})
+}
+
+// EpisodeGroupsIn is the list a record Fetch returned carries.
+func (*Provider) EpisodeGroupsIn(seriesBody []byte) ([]byte, bool) {
+	var record struct {
+		EpisodeGroups json.RawMessage `json:"episodeGroups"`
+	}
+	if err := json.Unmarshal(seriesBody, &record); err != nil || len(record.EpisodeGroups) == 0 {
+		return nil, false
+	}
+	return record.EpisodeGroups, true
+}
+
+// FetchEpisodeGroups returns a series' list from EpisodeGroupLists as JSON; none listed is an empty
+// list.
+func (fake *Provider) FetchEpisodeGroups(ctx context.Context, seriesID string) ([]byte, error) {
+	fake.mutex.Lock()
+	defer fake.mutex.Unlock()
+	fake.note(ctx, "episode_groups "+seriesID)
+	if fake.failure != nil {
+		return nil, fake.failure
+	}
+	if _, found := fake.Films[seriesID]; !found {
+		return nil, identify.ErrNoMatch
+	}
+	return json.Marshal(fake.EpisodeGroupLists[seriesID]) //nolint:wrapcheck,musttag // as Fetch's
+}
+
+// ParseEpisodeGroups reads back what FetchEpisodeGroups returned.
+func (*Provider) ParseEpisodeGroups(body []byte) ([]identify.EpisodeGroup, error) {
+	var groups []identify.EpisodeGroup
+	err := json.Unmarshal(body, &groups) //nolint:musttag // as the fake stored it
+	return groups, err                   //nolint:wrapcheck // a test fake
+}
+
+// FetchEpisodeGroup returns a group's parts from EpisodeGroups as JSON.
+func (fake *Provider) FetchEpisodeGroup(ctx context.Context, groupID string) ([]byte, error) {
+	fake.mutex.Lock()
+	defer fake.mutex.Unlock()
+	fake.note(ctx, "episode_group "+groupID)
+	if fake.failure != nil {
+		return nil, fake.failure
+	}
+	parts, found := fake.EpisodeGroups[groupID]
+	if !found {
+		return nil, identify.ErrNoMatch
+	}
+	return json.Marshal(parts) //nolint:wrapcheck,musttag // as Fetch's
+}
+
+// ParseEpisodeGroup reads back what FetchEpisodeGroup returned.
+func (*Provider) ParseEpisodeGroup(body []byte) ([]identify.EpisodeGroupPart, error) {
+	var parts []identify.EpisodeGroupPart
+	err := json.Unmarshal(body, &parts) //nolint:musttag // as the fake stored it
+	return parts, err                   //nolint:wrapcheck // a test fake
 }
 
 // Parse reads back what Fetch returned.

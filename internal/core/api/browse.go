@@ -219,6 +219,9 @@ type OrderingBody struct {
 	// ListedCount is how many episodes its provider lists in it; absent when it did not say.
 	ListedCount  int64 `json:"listedCount,omitempty"`
 	EpisodeCount int64 `doc:"How many of the series' episodes it holds" json:"episodeCount"`
+	// IsAwaitingFetch is whether it is a provider's group whose contents are not fetched yet: choosing
+	// it fetches them, and it holds none until then.
+	IsAwaitingFetch bool `json:"isAwaitingFetch,omitempty"`
 }
 
 // NextUpBody is a person's Next Up in a collection's ordering (D160), for a series the one they watch
@@ -442,7 +445,7 @@ func (server *Server) getSeries(ctx context.Context, input *ItemInput) (*Collect
 	for _, ordering := range series.Orderings {
 		body.Orderings = append(body.Orderings, OrderingBody{
 			Name: ordering.Name, Kind: ordering.Kind, Label: ordering.Label, ListedCount: ordering.ListedCount,
-			EpisodeCount: ordering.EpisodeCount,
+			EpisodeCount: ordering.EpisodeCount, IsAwaitingFetch: ordering.IsAwaitingFetch,
 		})
 	}
 	body.NotInOrderingCount = series.NotInOrderingCount
