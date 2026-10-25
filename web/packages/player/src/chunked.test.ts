@@ -118,6 +118,23 @@ describe("asking the server to pace a download (D262 §2)", () => {
   });
 });
 
+describe("a page with no media cookie (plans/tv-device-tests.md)", () => {
+  it("signs each request in with the Authorization it was handed, and none without one", () => {
+    const headers: [string, string][] = [];
+    const xhr = {
+      setRequestHeader: (name: string, value: string) => {
+        headers.push([name, value]);
+      },
+      addEventListener: () => undefined,
+    } as unknown as XMLHttpRequest;
+    const loaderContext = {} as unknown as LoaderContext;
+    const signedIn = chunkedHlsConfig({ startPositionS: 0, authorization: "Bearer lab-token" });
+    void signedIn.xhrSetup?.(xhr, "/c/q1200k480p/00001.m4s", loaderContext);
+    void chunkedHlsConfig({ startPositionS: 0 }).xhrSetup?.(xhr, "/c/x.m4s", loaderContext);
+    expect(headers).toEqual([["Authorization", "Bearer lab-token"]]);
+  });
+});
+
 describe("saying a seek took the player where it loads (D284 §2)", () => {
   it("says so on each request while the video loads where its person's or group's seek took it", () => {
     const headers: [string, string][] = [];
