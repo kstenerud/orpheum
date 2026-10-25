@@ -13,7 +13,7 @@ import { useTranslation } from "react-i18next";
 
 import { LabFrame, LabSendButton, yesNo } from "./lab-frame.tsx";
 import { driveFocus, geometricFocus } from "./lab-focus.ts";
-import { heardKeyOf, keyEntryOf, withKey, type KeyEntry } from "./lab-keys.ts";
+import { heardKeyOf, keyEntryOf, useFirstPress, withKey, type KeyEntry } from "./lab-keys.ts";
 import { useLabSending } from "./lab-send.ts";
 import { eventTimeMs, latencySummary, type LatencySummary } from "./lab-timing.ts";
 import { toneUrl } from "./lab-tone.ts";
@@ -23,7 +23,7 @@ import { useServices } from "./services.tsx";
 type FocusMode = "browser" | "geometric";
 
 /** Both modes, in the order the page offers them. */
-const focusModes: readonly FocusMode[] = ["browser", "geometric"];
+const focusModes: readonly FocusMode[] = ["geometric", "browser"];
 
 /** The Media Session actions the probe listens for. */
 const mediaActions: readonly MediaSessionAction[] = [
@@ -204,6 +204,19 @@ function useQuietTone(isOn: boolean): void {
       URL.revokeObjectURL(url);
     };
   }, [isOn]);
+}
+
+/** The quiet tone, on from the page's first key or press and switched by its button after. */
+function useTone(): { readonly isToneOn: boolean; readonly toggleTone: () => void } {
+  const [isToneOn, setIsToneOn] = useState(false);
+  useFirstPress(() => {
+    setIsToneOn(true);
+  });
+  useQuietTone(isToneOn);
+  const toggleTone = useCallback(() => {
+    setIsToneOn((wasOn) => !wasOn);
+  }, []);
+  return { isToneOn, toggleTone };
 }
 
 /**
@@ -421,8 +434,8 @@ function InputActions(props: {
 export function LabInput(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
-  const [mode, setMode] = useState<FocusMode>("browser");
-  const [isToneOn, setIsToneOn] = useState(false);
+  const [mode, setMode] = useState<FocusMode>("geometric");
+  const { isToneOn, toggleTone } = useTone();
   const regionRef = useRef<HTMLDivElement>(null);
   const { latencies, noteKey } = useFocusLatency(regionRef, mode);
   const keys = useKeyLog(noteKey);
@@ -430,7 +443,6 @@ export function LabInput(): JSX.Element {
   const mediaFired = useMediaActions(t("lab.input.mediaTitle"));
   const { pads, seen } = usePads();
   const { sending, send } = useLabSending(api, "input");
-  useQuietTone(isToneOn);
   const summaries = {
     browser: latencySummary(latencies.browser),
     geometric: latencySummary(latencies.geometric),
@@ -439,14 +451,7 @@ export function LabInput(): JSX.Element {
   return (
     <LabFrame id="lab-input" heading={t("lab.input.heading")}>
       <p className="lab__lead">{t("lab.input.explain")}</p>
-      <InputActions
-        mode={mode}
-        onMode={setMode}
-        isToneOn={isToneOn}
-        onTone={() => {
-          setIsToneOn((wasOn) => !wasOn);
-        }}
-      >
+      <InputActions mode={mode} onMode={setMode} isToneOn={isToneOn} onTone={toggleTone}>
         <LabSendButton
           sending={sending}
           onSend={() => {

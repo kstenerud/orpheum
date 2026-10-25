@@ -302,3 +302,29 @@ The Default Media Receiver run (C1) needs none of this.
   than the device. The receiver of step 2 would carry both.
 - **`/lab/cast` starts its playback as a play page does** (`cause: playPage` in the core's log),
   since the playback's causes have no lab cause.
+
+## 5. Results
+
+### 2026-10-25, at home: Firefox on Linux, and one Fire TV stick
+
+Lab results `Z46BBSZ6` and `II3BRKYJ` (Firefox 158, Linux, keyboard); `D2F4K33W` and `XOSUILPC`
+(Fire TV Stick, model AFTSSS, Fire OS, Silk 138). Both opened over plain http on the house's
+address, so features a browser gives only to a secure context (the microphone, the wake lock,
+`setSinkId`, `getScreenDetails`) read as missing on both: rerun H1, H4 and H5 over HTTPS.
+
+- **H1, the stick:** MSE, with H.264 to High 5.1, HEVC including Main 10, AV1, VP9 profile 0,
+  AAC, Opus and FLAC; no VP9 profile 2, AC-3 or E-AC-3. Native HLS "maybe". Web Audio's delay
+  43 ms base + 312 ms output, the TCL's pattern (96 + 320 ms): sound routed through Web Audio is
+  likely late here too, so the sound offset can be tried at home. The in-page call connected in
+  294 ms with the tone heard. 960 × 540 CSS pixels at 2×.
+- **H2, the stick:** Silk's cursor takes the D-pad: no arrow reached the page, only play/pause, as
+  a key (`MediaPlayPause`, keyCode 179), never as a Media Session action. Back stepped the
+  page's history once and no Back key was heard. As controller research §2.1 expected; the owner
+  saw nothing respond to the media keys.
+- **H2, Firefox:** the arrows, Enter and Backspace all reached the page, but nothing moved, and
+  the media keys did nothing. Both were the probe's fault, not the browser's:
+  - It opened in the browser's own navigation, which Firefox does not have, and our search acted
+    only once a tile already had focus. It now opens in ours, and an arrow while no tile has focus
+    focuses the first.
+  - Media keys reach a page only while it plays sound, and the tone was off until pressed. The
+    first key or press now starts it.

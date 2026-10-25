@@ -60,7 +60,7 @@ export const enLab = {
     input: {
       heading: "Remote and keys",
       explain:
-        "Press keys on the remote, a keyboard or a controller: each shows below. Move across the tiles with the arrows, first with the browser's own navigation, then with ours. Press Back a few times. Play the quiet tone, then try the media keys.",
+        "Press keys on the remote, a keyboard or a controller: each shows below. The first press starts a quiet tone, so the media keys reach this page; try them. Move across the tiles with the arrows, first with our navigation, then with the browser's own. Press Back a few times.",
       modeLabel: "Who moves between tiles",
       mode: {
         browser: "Browser's own navigation",
