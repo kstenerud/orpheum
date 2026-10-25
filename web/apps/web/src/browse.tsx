@@ -8,7 +8,6 @@ import { useTranslation } from "react-i18next";
 
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, unavailableText } from "./problem.ts";
-import { ContinueWatching } from "./continue-watching.tsx";
 import { StatusTray } from "./status-cues.tsx";
 import { PosterCard, PosterDetail } from "./poster-card.tsx";
 import { itemRoute } from "./router.ts";
@@ -142,8 +141,6 @@ export function Browse(props: { readonly kind: BrowseKind }): JSX.Element {
   const [sort, setSort] = useState<BrowseSort>("name");
   return (
     <section className="browse" aria-labelledby="browse-heading">
-      {/* The home screen opens on what the person stopped in the middle of (D188). */}
-      {props.kind === "movie" ? <ContinueWatching /> : null}
       <div className="browse__bar">
         <h1 id="browse-heading">{t(props.kind === "movie" ? "browse.films" : "browse.series")}</h1>
         <SortChoice sort={sort} onSort={setSort} />
