@@ -194,4 +194,31 @@ describe("the input layer", () => {
     moveFocus("down", { memory: createContainerMemory(() => true) }, true);
     expect(asked).toEqual([expect.objectContaining({ focusVisible: true })]);
   });
+
+  it("opens a list's choices by OK, and chooses the next by a controller's OK, which cannot work them", () => {
+    const { main } = pageOfButtons();
+    const list = document.createElement("select");
+    for (const name of ["aired", "dvd"]) {
+      const option = document.createElement("option");
+      option.value = name;
+      option.textContent = name;
+      list.append(option);
+    }
+    main.append(list);
+    const opened: string[] = [];
+    list.showPicker = (): void => {
+      opened.push("picker");
+    };
+    list.focus();
+    expect(press("Enter", 13).defaultPrevented).toBe(true);
+    expect(opened).toEqual(["picker"]);
+    const changes: string[] = [];
+    list.addEventListener("change", () => {
+      changes.push(list.value);
+    });
+    running?.input.dispatch("select", "pad");
+    running?.input.dispatch("select", "pad");
+    expect(changes).toEqual(["dvd", "aired"]);
+    expect(opened).toEqual(["picker"]);
+  });
 });

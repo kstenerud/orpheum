@@ -216,8 +216,8 @@ function isEntersOwn(element: HTMLElement): boolean {
 }
 
 /**
- * Presses what has focus, as OK on a remote or a controller does: a list's choices opened, anything
- * else clicked. A key's Enter is left to the browser where it acts on its own (a link, a button, a
+ * Presses what has focus, as OK on a remote or a controller does: a list's choices opened by a key,
+ * its next chosen by a controller, anything else clicked. A key's Enter is left to the browser where it acts on its own (a link, a button, a
  * text field submitting its form), and a controller's OK does nothing to a text field, whose typing
  * is the keyboard's; a checkbox, which a browser's Enter does not tick, is clicked. Whether it
  * pressed anything.
@@ -228,7 +228,7 @@ export function pressFocused(isFromAController: boolean): boolean {
     return false;
   }
   if (focused instanceof HTMLSelectElement) {
-    return openChoices(focused);
+    return isFromAController ? chooseNext(focused) : openChoices(focused);
   }
   if (!isFromAController && isEntersOwn(focused)) {
     return false;
@@ -246,14 +246,32 @@ function isTextInput(element: HTMLElement): boolean {
 }
 
 /**
- * Opens a list's choices, where the browser lets a page (showPicker, which wants the person's
- * press): a remote's OK is the only way a TV opens one. Whether it opened.
+ * Opens a list's choices, where the browser lets a page (showPicker, which wants a key's press): a
+ * remote's OK is the only way a TV opens one; else chooses the next.
  */
 function openChoices(select: HTMLSelectElement): boolean {
   try {
     select.showPicker();
     return true;
   } catch {
+    return chooseNext(select);
+  }
+}
+
+/**
+ * Chooses select's next choice, after the last the first, telling the page as a choice made does;
+ * whether it could. A controller's OK does this in place of opening the choices: its press is no
+ * activation a browser opens them by (the HTML standard's are keys and pointers), and a list a key's
+ * recent press let open would stay open, its own popup out of the controller's reach.
+ */
+function chooseNext(select: HTMLSelectElement): boolean {
+  const count = select.options.length;
+  if (count < 2) {
     return false;
   }
+  // eslint-disable-next-line no-param-reassign -- choosing is what the press asks of the list
+  select.selectedIndex = (select.selectedIndex + 1) % count;
+  select.dispatchEvent(new Event("input", { bubbles: true }));
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+  return true;
 }

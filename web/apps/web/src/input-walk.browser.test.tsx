@@ -185,4 +185,21 @@ describe.each(screens)("the app by a game controller, on $name", ({ width, heigh
     await expect.poll(focusedTile).toBe("Film 2");
     expect(document.activeElement?.matches(":focus-visible")).toBe(true);
   });
+
+  it("steps through a list's choices by OK, which a controller's press may not open", async () => {
+    const pad = xboxPad();
+    Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => [pad.pad] });
+    const heard: string[] = [];
+    await page.viewport(width, height);
+    walking = await mountApp(walkServices(filmsAndOne, "/films", heard));
+    await expect.poll(() => isDrawn(".poster-grid__card")).toBe(true);
+    globalThis.dispatchEvent(new Event("gamepadconnected"));
+    await pressPad(pad, padButtons.down);
+    expect(document.activeElement?.tagName).toBe("SELECT");
+    await pressPad(pad, padButtons.ok);
+    await expect.poll(() => document.querySelector("select")?.value).toBe("added");
+    await expect
+      .poll(() => heard.filter((each) => each === "GET /titles").length)
+      .toBeGreaterThan(1);
+  });
 });
