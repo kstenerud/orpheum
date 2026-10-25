@@ -21628,18 +21628,25 @@ The build plan is [cast-to-device.md](../design/plans/cast-to-device.md).
   ([D267](#d267--a-watch-together-membership-is-kept-by-the-browser-that-joined-or-by-the-account-of-whoever-is-signed-in-and-one-member-may-be-on-several-devices)
   §2, §3), can cast; a host's receiver leads, as *"whichever device the host plays on leads"*
   (D267 §3).
-- **D88 is not decided against.** Whether the remote's commands travel through Watch Together's hub
-  (a cast as a session of one, D88) or a channel of the person's own is the plan's judgement for
-  the owner ([cast-to-device.md](../design/plans/cast-to-device.md) §3).
+- **D88 is kept.** The remote's commands travel through Watch Together's hub, a cast being a
+  session of one (D88), the owner chose on 2026-10-25 between that and a channel of the person's
+  own ([cast-to-device.md](../design/plans/cast-to-device.md) §3).
 - **The research's build order changes:** its remote page (casting-2026-10-25.md §5.2 step 1) is
   built first for this route, and its playback-only credential, Cast receiver and `orpheum.cc`
   steps wait for §8.
 
-**Open, for the owner** ([cast-to-device.md](../design/plans/cast-to-device.md) §9): where "Cast to another device" is offered; which
-device reports the viewing; whether the remote can put on another film; how receiving ends at a
-film's end; and what the sender shows once control is taken back.
+**Answered by the owner** (2026-10-25), accepting every recommendation of
+[cast-to-device.md](../design/plans/cast-to-device.md) §9: "Cast to another device" is offered
+from the player first and a title's page next; the receiver reports the viewing and the sender
+leaves its playback at the hand-off; a sender that plays another film while casting sends it to
+its receiver; at a film's end the receiver plays the next episode as the sender would, else goes
+to its home page and the remote is told; a sender whose control was taken back or replaced shows a
+note with "Play here from ‹position›"; a background tab counts while its socket lives, with no
+opt-out; the fading "Controlled from" line is enough; and the remote's commands travel through
+Watch Together's hub (a cast is a session of one, D88), with a presence socket for presence and
+the hand-off (the plan's §3, A).
 
-**Status:** Decided; not built.
+**Status:** Decided; its §9 questions answered 2026-10-25; being built.
 
 ## D336 — A film's sound plays as it is unless the device cannot play it or the person asks for a feature that needs it made; no one is asked how their device makes sound
 
