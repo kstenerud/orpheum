@@ -5,6 +5,16 @@
  * menus (play), kept apart so the catalogue fits in one read (en.ts).
  */
 export const enPlay = {
+  upNext: {
+    offer: "Up next: {{place}} · {{name}}",
+    offerFilm: "Up next: {{name}}",
+    countdown: "Plays in {{seconds}} s",
+    dismiss: "Dismiss Up next",
+    settingHeading: "Playing",
+    autoplay: "Play the next episode automatically",
+    autoplayText:
+      "As an episode ends, its Up next counts down and plays the next one. Any press stops the count.",
+  },
   tvControls: {
     play: "Play",
     pause: "Pause",

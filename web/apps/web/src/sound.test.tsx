@@ -119,7 +119,12 @@ describe("the dialogue boost over the original (D336 §3)", () => {
       url: "/api/v1/bytes/media/hls/u/master.m3u8",
       notDirectReasons: ["dialogue_boost"],
       mediaToken: "u",
-      preferences: { subtitleOffsetMs: 0, isDialogueBoostOn: true, isLevellingOn: true },
+      preferences: {
+        subtitleOffsetMs: 0,
+        isDialogueBoostOn: true,
+        isLevellingOn: true,
+        isAutoplayOn: true,
+      },
     });
     const services = servedBy(
       {

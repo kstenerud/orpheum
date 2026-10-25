@@ -76,6 +76,7 @@ describe("subtitles", () => {
             subtitleOffsetMs: -1500,
             isDialogueBoostOn: false,
             isLevellingOn: true,
+            isAutoplayOn: true,
             subtitleChoice: { streamId: 7 },
           }}
           videoRef={createRef()}
@@ -94,7 +95,12 @@ describe("subtitles", () => {
         <Subtitles
           fileId={2}
           tracks={[]}
-          preferences={{ subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true }}
+          preferences={{
+            subtitleOffsetMs: 0,
+            isDialogueBoostOn: false,
+            isLevellingOn: true,
+            isAutoplayOn: true,
+          }}
           videoRef={createRef()}
         />,
       ),
@@ -119,6 +125,7 @@ describe("subtitles", () => {
           subtitleOffsetMs: 0,
           isDialogueBoostOn: false,
           isLevellingOn: true,
+          isAutoplayOn: true,
           subtitleChoice: { streamId: 7 },
         },
         tracks,
@@ -130,6 +137,7 @@ describe("subtitles", () => {
           subtitleOffsetMs: 0,
           isDialogueBoostOn: false,
           isLevellingOn: true,
+          isAutoplayOn: true,
           subtitleChoice: { fetchedSubtitleId: 3 },
         },
         [...tracks, track({ streamId: 0, fetchedSubtitleId: 3 })],
@@ -141,6 +149,7 @@ describe("subtitles", () => {
           subtitleOffsetMs: 0,
           isDialogueBoostOn: false,
           isLevellingOn: true,
+          isAutoplayOn: true,
           subtitleChoice: { isOff: true },
         },
         tracks,
@@ -152,6 +161,7 @@ describe("subtitles", () => {
           subtitleOffsetMs: 0,
           isDialogueBoostOn: false,
           isLevellingOn: true,
+          isAutoplayOn: true,
           subtitleChoice: { streamId: 99 },
         },
         tracks,
@@ -159,7 +169,7 @@ describe("subtitles", () => {
     ).toBeUndefined();
     expect(
       startingTrackKey(
-        { subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true },
+        { subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true, isAutoplayOn: true },
         tracks,
       ),
     ).toBeUndefined();

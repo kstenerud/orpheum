@@ -3,9 +3,9 @@
 // Package preferences keeps a person's choices, the one place they live (the architecture map's F2
 // and F6): the subtitle and audio language last chosen in each work, what was last used in each
 // started file, a file's subtitle offset, and the switches that hold in every file, the dialogue
-// boost and levelling; and the ordering a person watches each series in (D159 §1), which
-// internal/core/library resolves (ViewingOrdering). A choice is worked
-// out against a file's tracks when it plays, never copied between files (D230). Playback lists a
+// boost, levelling and autoplay (plans/up-next.md); and the ordering a person watches each series
+// in (D159 §1), which internal/core/library resolves (ViewingOrdering). A choice is worked out
+// against a file's tracks when it plays, never copied between files (D230). Playback lists a
 // file's tracks and calls it in the transaction that reads them; the API keeps a person's switches
 // through it. A device's sound is a fact about the device, kept on its row by internal/core/auth,
 // and no setting is a person's.
@@ -39,10 +39,11 @@
 //     TestSubtitleChoice_IsFoundAgainWhenARescanRewritesTheFilesTracks (internal/core/api).
 //   - What a playback used is kept only where the file keeps nothing yet: a choice made in the file
 //     stands. Enforced by TestKeepUsed_LeavesAChoiceMadeInTheFile.
-//   - The dialogue boost is off until the person turns it on, and levelling on until they turn it
-//     off, in every file (D83, D222, D226 §5). Enforced by
-//     TestFilePreferences_TheDialogueBoostIsThePersonsInEveryFile and
-//     TestLoudness_LevellingIsOnUntilThePersonTurnsItOff (internal/core/api).
+//   - The dialogue boost is off until the person turns it on, and levelling and autoplay on until
+//     they turn them off, in every file (D83, D222, D226 §5; plans/up-next.md). Enforced by
+//     TestFilePreferences_TheDialogueBoostIsThePersonsInEveryFile,
+//     TestLoudness_LevellingIsOnUntilThePersonTurnsItOff and
+//     TestPreferences_AutoplayIsOnUntilThePersonTurnsItOff (internal/core/api).
 //
 // # Read before changing
 //
@@ -50,6 +51,7 @@
 //   - D24: what a choice is: a language and kind, off distinct from unset, a fallback never kept.
 //   - D219 §1: a choice is kept per person and per file (its §2 to §4 are replaced by D230).
 //   - D83, D222, D226 §5: the boost and levelling are a person's.
+//   - plans/up-next.md: autoplay, the next episode played by itself after a countdown.
 //
 // # Where to change
 //

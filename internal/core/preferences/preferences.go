@@ -97,12 +97,8 @@ type Preferences struct {
 	Subtitle *TrackRef
 	// Audio is the audio track to start with; nil plays the file's main one.
 	Audio *TrackRef
-	// IsDialogueBoostOn is whether the person plays with the dialogue boost: theirs, for every file,
-	// off until they turn it on (D83, D222).
-	IsDialogueBoostOn bool
-	// IsLevellingOn is whether the person plays with loudness levelled: theirs, for every file, on
-	// until they turn it off (D226 §5).
-	IsLevellingOn bool
+	// Switches are the person's own, for every file.
+	Switches
 }
 
 // The preference table's names for what is kept.
@@ -120,6 +116,7 @@ const (
 	// A person's own.
 	axisDialogueBoost = "dialogue_boost"
 	axisLevelling     = "levelling"
+	axisAutoplay      = "autoplay"
 	// A switch's value is JSON, as value_json keeps it.
 	valueTrue  = "true"
 	valueFalse = "false"
@@ -152,7 +149,7 @@ func NewService(database *store.Database, clockSource clock.Clock) *Service {
 func (service *Service) ForFile(
 	ctx context.Context, queries *sqlcgen.Queries, userID, fileID int64, tracks Tracks,
 ) (Preferences, error) {
-	prefs := Preferences{IsLevellingOn: true}
+	prefs := Preferences{}
 	own, err := queries.ListPreferencesAtScope(ctx, sqlcgen.ListPreferencesAtScopeParams{
 		UserID: userID, Scope: scopeFile, ScopeID: fileID,
 	})
@@ -179,21 +176,50 @@ func (service *Service) ForFile(
 	}
 	prefs.Subtitle = startingTrack(tracks.Subtitles, subtitleUsed, subtitleLanguage)
 	prefs.Audio = startingTrack(tracks.Audio, audioUsed, audioLanguage)
+	if prefs.Switches, err = personalSwitches(ctx, queries, userID); err != nil {
+		return Preferences{}, err
+	}
+	return prefs, nil
+}
+
+// Switches are a person's own choices that hold in every file, each on or off.
+type Switches struct {
+	// IsDialogueBoostOn is whether they play with the dialogue boost, off until they turn it on (D83,
+	// D222).
+	IsDialogueBoostOn bool
+	// IsLevellingOn is whether they play with loudness levelled, on until they turn it off (D226 §5).
+	IsLevellingOn bool
+	// IsAutoplayOn is whether the next episode plays by itself after a countdown as one ends, on until
+	// they turn it off (plans/up-next.md).
+	IsAutoplayOn bool
+}
+
+// Switches are userID's own switches, as they left them.
+func (service *Service) Switches(ctx context.Context, userID int64) (Switches, error) {
+	return personalSwitches(ctx, service.database.Read(), userID)
+}
+
+// personalSwitches are userID's own switches, read through queries: each at its starting value
+// until the person set it.
+func personalSwitches(ctx context.Context, queries *sqlcgen.Queries, userID int64) (Switches, error) {
+	switches := Switches{IsLevellingOn: true, IsAutoplayOn: true}
 	personal, err := queries.ListPreferencesAtScope(ctx, sqlcgen.ListPreferencesAtScopeParams{
 		UserID: userID, Scope: scopeUser, ScopeID: 0,
 	})
 	if err != nil {
-		return Preferences{}, fmt.Errorf("read user %d's preferences: %w", userID, err)
+		return Switches{}, fmt.Errorf("read user %d's preferences: %w", userID, err)
 	}
 	for _, preference := range personal {
 		switch preference.Axis {
 		case axisDialogueBoost:
-			prefs.IsDialogueBoostOn = preference.ValueJSON == valueTrue
+			switches.IsDialogueBoostOn = preference.ValueJSON == valueTrue
 		case axisLevelling:
-			prefs.IsLevellingOn = preference.ValueJSON != valueFalse
+			switches.IsLevellingOn = preference.ValueJSON != valueFalse
+		case axisAutoplay:
+			switches.IsAutoplayOn = preference.ValueJSON != valueFalse
 		}
 	}
-	return prefs, nil
+	return switches, nil
 }
 
 // workLanguages are the person's last subtitle and audio choices in the work a file is of, nil

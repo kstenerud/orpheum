@@ -15,7 +15,12 @@ export function directDecision(changes: Partial<PlaybackDecision> = {}): Playbac
     isPreparing: false,
     subtitles: [],
     audioTracks: [],
-    preferences: { subtitleOffsetMs: 0, isDialogueBoostOn: false, isLevellingOn: true },
+    preferences: {
+      subtitleOffsetMs: 0,
+      isDialogueBoostOn: false,
+      isLevellingOn: true,
+      isAutoplayOn: true,
+    },
     resumePositionMs: 0,
     mediaToken: "t",
     soundOffsetMs: 0,
