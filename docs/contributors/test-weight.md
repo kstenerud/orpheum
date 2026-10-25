@@ -467,6 +467,36 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
   still catch. If it recurs, raise it to testutil.ReceiveLimit's scale or measure the copy's CPU.
 - **Warning sign:** a backup or copy test red only in a loaded whole-tree run.
 
+### 26. A browser walk's fixed waits, under other gates' load
+
+- **Mechanism:** the browser-mode walks (`input-*.browser.test.tsx`) waited by deadlines set for
+  an idle machine: every `expect.poll` by its own default of 1 s, a game controller's press by a
+  fixed 50 ms hold that the page reads only once a frame, and the player's walk began before the
+  media's failure had moved the page under it. A walk that timed out at the 15 s `testTimeout` went
+  on pressing keys into the next test's page, which then saw seeks it never made.
+- **Instance** (2026-10-25, the owner's queue: browser tests red when several gates run at once):
+  four Firefox runs at once of the player, pages and walk files, at a load average of 40 to 75
+  from the other agents' gates, failed 22 tests in 8 runs, 7 of the 8 red: polls past 1 s (a video's
+  error, a list's order, a page drawn), the controller's presses never read (`focusedTile()` empty,
+  BODY for SELECT), and the player's Fire TV walk timed out, its next test then seeing 30 or 50 for
+  40. Each file passed alone, the player's 12 of 12 twice at a load of 60. With the fix, four
+  such runs of four files passed 160 of 160.
+- **Why it was invisible:** a deadline is generous on the idle machine it was set on, and the
+  failure reads as the page's: a focus that never moved, a seek that went twice.
+- **Fix:** a walk's polls wait up to `walkPoll` (10 s, inside the 15 s test); a controller's press
+  is held until the page has read it held, and let go until it has read it go; the player's walks
+  start once the video's load has failed (`theFailedVideo`); and a walk whose page is gone presses
+  nothing more (`test-walk.test.tsx`).
+- **Left as load:** the first long walks still pass the 15 s `testTimeout` under such load: the
+  player's on a Fire TV's page took 15.2 s and 15.5 s (Chromium, Firefox) and a film page's 15.2 s
+  in a whole browser-mode run at a load of 25 to 39, against a median of 10.7 s in Firefox's last
+  twenty passes (5.5 s in Chromium); every press of a walk is a round trip to the browser. The
+  remedies are the owner's: a longer `testTimeout` for the browser-mode config, walks split per
+  page into tests of their own, or a machine-wide lock (mechanism 7's) so two gates' browser-mode
+  runs never overlap.
+- **Warning sign:** a browser-mode test red only when another gate runs; `expect.poll` or a fixed
+  `setTimeout` in a walk; a walk's next test red after its own timed out.
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of

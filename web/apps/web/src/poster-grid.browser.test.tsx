@@ -20,6 +20,7 @@ import {
   isDrawn,
   mountApp,
   viewer,
+  walkPoll,
   walkServices,
   type Walking,
 } from "./test-walk.tsx";
@@ -34,7 +35,7 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
   it("shows six posters across beside the alphabet rail, each with room for its focus ring", async () => {
     await page.viewport(960, 480);
     walking = await mountApp(walkServices(filmsOnly));
-    await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
+    await expect.poll(() => isDrawn(".poster-grid .poster-card__link"), walkPoll).toBe(true);
     const items = [...document.querySelectorAll<HTMLElement>(".poster-grid > li")];
     const firstRowTop = items[0]?.getBoundingClientRect().top;
     const across = items.filter((item) => item.getBoundingClientRect().top === firstRowTop).length;
@@ -56,7 +57,7 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
   it("walks into the alphabet rail from the grid's right edge and back to the tile it left", async () => {
     await page.viewport(960, 480);
     walking = await mountApp(walkServices(filmsOnly));
-    await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
+    await expect.poll(() => isDrawn(".poster-grid .poster-card__link"), walkPoll).toBe(true);
     const sixth = document.querySelectorAll<HTMLElement>(".poster-grid .poster-card__link")[5];
     sixth?.focus();
     await userEvent.keyboard("{ArrowRight}");
@@ -75,7 +76,7 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
       await page.viewport(width, height);
       walking?.unmount();
       walking = await mountApp(walkServices(filmsOnly));
-      await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
+      await expect.poll(() => isDrawn(".poster-grid .poster-card__link"), walkPoll).toBe(true);
       const cards = [...document.querySelectorAll(".poster-grid .poster-card__link")].map((each) =>
         each.getBoundingClientRect(),
       );
@@ -102,7 +103,7 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
       await page.viewport(width, height);
       walking?.unmount();
       walking = await mountApp(walkServices(filmsOnly));
-      await expect.poll(() => isDrawn(".alphabet-rail__letter")).toBe(true);
+      await expect.poll(() => isDrawn(".alphabet-rail__letter"), walkPoll).toBe(true);
       window.scrollTo(0, 0);
       const rail = boxOf(".alphabet-rail");
       expect(rail.top).toBeGreaterThanOrEqual(boxOf(".app-shell__banner").bottom);
@@ -119,7 +120,7 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
       await page.viewport(width, height);
       walking?.unmount();
       walking = await mountApp(walkServices(filmsOnly));
-      await expect.poll(() => isDrawn(".alphabet-rail__letter")).toBe(true);
+      await expect.poll(() => isDrawn(".alphabet-rail__letter"), walkPoll).toBe(true);
       const letter = document.querySelector(".alphabet-rail__letter");
       return letter === null ? 0 : Number.parseFloat(getComputedStyle(letter).fontSize);
     };
