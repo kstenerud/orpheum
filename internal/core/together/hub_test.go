@@ -43,6 +43,19 @@ func (box *inbox) last(kind MessageType) Outbound {
 	return Outbound{}
 }
 
+// count is how many messages of a type the device was sent.
+func (box *inbox) count(kind MessageType) int {
+	box.mutex.Lock()
+	defer box.mutex.Unlock()
+	count := 0
+	for _, message := range box.messages {
+		if message.Type == kind {
+			count++
+		}
+	}
+	return count
+}
+
 // testTuning is how the tests' devices are welcomed to follow their group.
 var testTuning = Tuning{
 	LeaveDriftUpToMs: 500, NudgeMostPercent: 10, SeekDriftBeyondMs: 3000, CatchUpBufferPercent: 80, SyncWaitMs: 20_000,
@@ -761,6 +774,11 @@ func TestHub_TheRosterSaysWhereEachPlayerStands(t *testing.T) {
 	stage.hub.Handle(t.Context(), guestDevice, Inbound{Type: MessageStanding, Standing: "dancing"})
 	if got := guestBox.last(MessageRejected).Code; got != codeInvalid {
 		t.Errorf("a standing no page says was answered %q; want it refused", got)
+	}
+	refusedBefore := guestBox.count(MessageRejected)
+	stage.hub.Handle(t.Context(), guestDevice, Inbound{Type: MessageStanding, Standing: "choosingSound"})
+	if guestBox.count(MessageRejected) != refusedBefore+1 {
+		t.Error("a page still choosing its sound, which no page asks since D336, was not refused")
 	}
 	stage.hub.Handle(t.Context(), guestDevice, Inbound{Type: MessageStanding, Standing: StandingNeedsTap})
 	if !strings.Contains(stage.logs.String(), "standing=needsTap") {
