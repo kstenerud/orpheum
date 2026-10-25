@@ -114,6 +114,18 @@ describe("the button test's controllers", () => {
     Reflect.deleteProperty(navigator, "getGamepads");
   });
 
+  it("reads a pad the browser announced before the test opened, as on coming back to it", async () => {
+    // A browser fires gamepadconnected once a document; opened again within the app, the test
+    // hears of no pad but the one getGamepads gives (the owner, Firefox on a Mac, 2026-10-25).
+    connected = [fakePad("045e-02e0-8Bitdo SN30 Pro")];
+    const heard: Heard[] = [];
+    mounted = await mountTest(heard);
+    await settleUntil(() => eventsOf(heard, "pad").length > 0);
+    expect(eventsOf(heard, "pad")).toEqual([
+      expect.objectContaining({ padLayout: "xbox", padMapping: "standard" }),
+    ]);
+  });
+
   it("reads a Switch Pro as Nintendo's, whose right button is OK, and names its buttons by place", async () => {
     const heard: Heard[] = [];
     mounted = await mountTest(heard);

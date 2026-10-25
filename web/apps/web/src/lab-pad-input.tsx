@@ -228,6 +228,12 @@ export function usePads(handlers: PadHandlers, chosen: OkButton | undefined): re
     };
     globalThis.addEventListener("gamepadconnected", connected);
     globalThis.addEventListener("gamepaddisconnected", connected);
+    // A pad the page already knows is announced no more: a browser fires gamepadconnected once a
+    // document, so a test opened again within the app reads the pads there are (the owner, Firefox
+    // on a Mac, 2026-10-25: back and in again, the controller was heard no more).
+    if (readPads(chosenRef.current).length > 0) {
+      connected();
+    }
     return () => {
       globalThis.removeEventListener("gamepadconnected", connected);
       globalThis.removeEventListener("gamepaddisconnected", connected);
