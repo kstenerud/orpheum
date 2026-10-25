@@ -239,12 +239,12 @@ export function buttonWithText(
   return [...container.querySelectorAll("button")].find((each) => each.textContent === text);
 }
 
-/** Lets pending answers and the renders they cause finish. */
 /**
  * Lets work outside the page's requests settle until condition holds, for what waits on more than
  * answers (WebCrypto, which runs off the main thread and may take longer than a few turns on a busy
- * machine); it gives up after about two seconds, and the test's own expectation then says what was
- * missing.
+ * machine). It fails the test after about two seconds, naming the condition that never held: a wait
+ * that gave up silently let a test pass that never saw what it waited for (account.test.tsx held a
+ * checkbox the page had replaced, the audit of 2026-10-25, W11).
  */
 export async function settleUntil(condition: () => boolean): Promise<void> {
   for (let turn = 0; turn < 200 && !condition(); turn += 1) {
@@ -252,8 +252,12 @@ export async function settleUntil(condition: () => boolean): Promise<void> {
       await new Promise((resolve) => setTimeout(resolve, 10));
     });
   }
+  if (!condition()) {
+    throw new Error(`settleUntil: this never held within about 2 s: ${condition.toString()}`);
+  }
 }
 
+/** Lets pending answers and the renders they cause finish. */
 async function settleAnswers(): Promise<void> {
   for (let turn = 0; turn < 5; turn += 1) {
     await new Promise((resolve) => setTimeout(resolve, 0));
