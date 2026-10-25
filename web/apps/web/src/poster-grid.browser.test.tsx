@@ -23,7 +23,7 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
     walking = undefined;
   });
 
-  it("shows six posters across, each with room for its focus ring", async () => {
+  it("shows six posters across beside the alphabet rail, each with room for its focus ring", async () => {
     await page.viewport(960, 480);
     walking = await mountApp(
       walkServices({
@@ -38,6 +38,8 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
     const firstRowTop = items[0]?.getBoundingClientRect().top;
     const across = items.filter((item) => item.getBoundingClientRect().top === firstRowTop).length;
     expect(across).toBe(6);
+    // Beside the alphabet rail, the posters a little smaller to keep six (a prototype, 2026-10-25).
+    expect(document.querySelector(".alphabet-rail")?.children).toHaveLength(27);
     const card = items[0]?.querySelector(".poster-grid .poster-card__link");
     const item = items[0];
     if (card === null || card === undefined || item === undefined) {
