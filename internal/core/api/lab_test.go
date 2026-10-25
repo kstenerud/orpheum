@@ -84,3 +84,101 @@ func TestLab_ResultsAreRefusedAndTheTestsNotOfferedUntilTheAdminTurnsThemOn(t *t
 		t.Errorf("POST /lab-results with the tests on = %d %s", answer.status, answer.body)
 	}
 }
+
+// The button test's events, from a page whose run is named K3J9QW2A.
+func labInputEvents(events ...map[string]any) map[string]any {
+	return map[string]any{"run": "K3J9QW2A", "events": events}
+}
+
+// A key going down, as the button test sends it.
+func labKeyEvent(seq int) map[string]any {
+	return map[string]any{
+		"seq": seq, "atMs": 5310, "kind": "key", "button": "select", "mode": "geometric",
+		"key": "Enter", "code": "NumpadEnter", "keyCode": 13, "isRepeat": false,
+	}
+}
+
+// The button test's events are each logged as a line of their own, flat, by its run's name, with
+// a line for the run's start, so a run is read from the log by grepping its name (the owner,
+// 2026-10-25: "With the right logging it should be trivial to figure out the events"); a request
+// is bounded in its events and in each value, and names no attribute of its own.
+func TestLab_TheButtonTestsEventsAreLoggedALineEachAndBounded(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	settingstest.Set(t, harness.server.dependencies.Load().Settings, settings.ShouldOfferDeviceTests, "true")
+	sent := labInputEvents(labKeyEvent(0),
+		map[string]any{"seq": 1, "atMs": 5376, "kind": "move", "mode": "geometric", "latencyMs": 66},
+		map[string]any{
+			"seq": 2, "atMs": 6000, "kind": "gamepad", "button": "back", "padIndex": 0,
+			"padButton": 1, "padId": "Xbox Wireless Controller",
+		},
+		map[string]any{"seq": 3, "atMs": 7000, "kind": "media", "button": "playPause", "action": "play"},
+		map[string]any{"seq": 4, "atMs": 8000, "kind": "back", "button": "back"},
+		map[string]any{"seq": 5, "atMs": 9000, "kind": "mode", "mode": "browser"},
+	)
+	sent["start"] = map[string]any{
+		"viewportWidth": 960, "viewportHeight": 540, "devicePixelRatio": 2, "mode": "geometric",
+		"hasMediaSession": true,
+	}
+	answer := harness.do(t, http.MethodPost, "/lab-input-events", user, sent)
+	if answer.status != http.StatusNoContent {
+		t.Fatalf("POST /lab-input-events = %d %s", answer.status, answer.body)
+	}
+	harness.logs.AwaitLine(t, `"msg":"a button test started"`, `"labRun":"K3J9QW2A"`,
+		`"viewport":"960x540"`, `"devicePixelRatio":2`, `"mode":"geometric"`, `"hasMediaSession":true`,
+		`"userId":1`, `"userAgent":`)
+	harness.logs.AwaitLine(t, `"msg":"a button test heard a press"`, `"labRun":"K3J9QW2A"`,
+		`"seq":0,"atMs":5310,"kind":"key","button":"select","mode":"geometric","key":"Enter",`+
+			`"code":"NumpadEnter","keyCode":13`,
+		`"isRepeat":false`, `"userId":1`, `"deviceId":`)
+	harness.logs.AwaitLine(t, `"msg":"a button test measured a move"`, `"seq":1`, `"kind":"move"`,
+		`"latencyMs":66`)
+	harness.logs.AwaitLine(t, `"msg":"a button test heard a press"`, `"seq":2`, `"kind":"gamepad"`,
+		`"padId":"Xbox Wireless Controller"`, `"padIndex":0`, `"padButton":1`)
+	harness.logs.AwaitLine(t, `"msg":"a button test heard a press"`, `"seq":3`, `"kind":"media"`,
+		`"action":"play"`)
+	harness.logs.AwaitLine(t, `"msg":"a button test heard a press"`, `"seq":4`, `"kind":"back"`)
+	harness.logs.AwaitLine(t, `"msg":"a button test changed who moves focus"`, `"seq":5`, `"kind":"mode"`,
+		`"mode":"browser"`)
+
+	answer = harness.do(t, http.MethodPost, "/lab-input-events", "", sent)
+	if answer.status != http.StatusUnauthorized {
+		t.Errorf("a page signed in to nothing sent events: %d", answer.status)
+	}
+	tooMany := make([]map[string]any, 201)
+	for index := range tooMany {
+		tooMany[index] = labKeyEvent(index)
+	}
+	longKey := labKeyEvent(0)
+	longKey["key"] = strings.Repeat("x", 41)
+	ownAttribute := labKeyEvent(0)
+	ownAttribute["level"] = "ERROR"
+	for name, refused := range map[string]map[string]any{
+		"201 events":           labInputEvents(tooMany...),
+		"no events":            {"run": "K3J9QW2A", "events": []map[string]any{}},
+		"a kind of its own":    labInputEvents(map[string]any{"seq": 0, "atMs": 0, "kind": "anything"}),
+		"a key of 41":          labInputEvents(longKey),
+		"an attribute its own": labInputEvents(ownAttribute),
+		"a run of its own":     {"run": "../etc", "events": []map[string]any{labKeyEvent(0)}},
+	} {
+		answer := harness.do(t, http.MethodPost, "/lab-input-events", user, refused)
+		if answer.status != http.StatusUnprocessableEntity {
+			t.Errorf("%s were taken: %d %s", name, answer.status, answer.body)
+		}
+	}
+}
+
+// The button test's events are refused while the admin has the device tests off, as a result is.
+func TestLab_TheButtonTestsEventsAreRefusedUntilTheAdminTurnsTheTestsOn(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	sent := labInputEvents(labKeyEvent(0))
+	wantError(t, harness.do(t, http.MethodPost, "/lab-input-events", user, sent), http.StatusNotFound, CodeNotFound)
+	settingstest.Set(t, harness.server.dependencies.Load().Settings, settings.ShouldOfferDeviceTests, "true")
+	answer := harness.do(t, http.MethodPost, "/lab-input-events", user, sent)
+	if answer.status != http.StatusNoContent {
+		t.Errorf("POST /lab-input-events with the tests on = %d %s", answer.status, answer.body)
+	}
+}

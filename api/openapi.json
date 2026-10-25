@@ -2771,6 +2771,206 @@
         ],
         "type": "object"
       },
+      "LabInputEvent": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "description": "A Media Session action",
+            "enum": [
+              "play",
+              "pause",
+              "seekbackward",
+              "seekforward",
+              "previoustrack",
+              "nexttrack"
+            ],
+            "type": "string"
+          },
+          "atMs": {
+            "description": "Milliseconds since the page loaded",
+            "format": "int64",
+            "maximum": 1000000000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "button": {
+            "description": "The button the test named it, where it is a press",
+            "enum": [
+              "up",
+              "down",
+              "left",
+              "right",
+              "select",
+              "back",
+              "playPause",
+              "rewind",
+              "fastForward",
+              "volumeUp",
+              "volumeDown",
+              "mute",
+              "other"
+            ],
+            "type": "string"
+          },
+          "code": {
+            "description": "A key's code",
+            "maxLength": 40,
+            "type": "string"
+          },
+          "isRepeat": {
+            "description": "Whether a key is its own repeat",
+            "type": "boolean"
+          },
+          "key": {
+            "description": "A key's key",
+            "maxLength": 40,
+            "type": "string"
+          },
+          "keyCode": {
+            "description": "A key's keyCode",
+            "format": "int64",
+            "maximum": 100000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "kind": {
+            "description": "What it is",
+            "enum": [
+              "key",
+              "back",
+              "gamepad",
+              "media",
+              "move",
+              "mode"
+            ],
+            "type": "string"
+          },
+          "latencyMs": {
+            "description": "A move's time from its key to the frame after focus moved",
+            "format": "int64",
+            "maximum": 60000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "mode": {
+            "description": "Who moved focus when it came",
+            "enum": [
+              "browser",
+              "geometric"
+            ],
+            "type": "string"
+          },
+          "padButton": {
+            "description": "A controller's button, in its mapping",
+            "format": "int64",
+            "maximum": 63,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "padId": {
+            "description": "A controller's own name for itself",
+            "maxLength": 100,
+            "type": "string"
+          },
+          "padIndex": {
+            "description": "A controller's index",
+            "format": "int64",
+            "maximum": 63,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "seq": {
+            "description": "Its place in the run, from 0",
+            "format": "int64",
+            "maximum": 1000000000,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seq",
+          "atMs",
+          "kind"
+        ],
+        "type": "object"
+      },
+      "LabInputEventsInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "events": {
+            "description": "What it heard since its last request, in order",
+            "items": {
+              "$ref": "#/components/schemas/LabInputEvent"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "run": {
+            "description": "The run's name, made by the page as it loaded and shown on it",
+            "pattern": "^[A-Z0-9]{8}$",
+            "type": "string"
+          },
+          "start": {
+            "$ref": "#/components/schemas/LabInputRunStart",
+            "description": "The page as it opened, with the run's first events"
+          }
+        },
+        "required": [
+          "run",
+          "events"
+        ],
+        "type": "object"
+      },
+      "LabInputRunStart": {
+        "additionalProperties": false,
+        "properties": {
+          "devicePixelRatio": {
+            "description": "Device pixels to a CSS pixel",
+            "format": "double",
+            "maximum": 100,
+            "minimum": 0,
+            "type": "number"
+          },
+          "hasMediaSession": {
+            "description": "Whether the browser has Media Session",
+            "type": "boolean"
+          },
+          "mode": {
+            "description": "Who moves focus between the tiles",
+            "enum": [
+              "browser",
+              "geometric"
+            ],
+            "type": "string"
+          },
+          "viewportHeight": {
+            "description": "The page's height in CSS pixels",
+            "format": "int64",
+            "maximum": 100000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "viewportWidth": {
+            "description": "The page's width in CSS pixels",
+            "format": "int64",
+            "maximum": 100000,
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "viewportWidth",
+          "viewportHeight",
+          "devicePixelRatio",
+          "mode",
+          "hasMediaSession"
+        ],
+        "type": "object"
+      },
       "LabResultInputBody": {
         "additionalProperties": false,
         "properties": {
@@ -10468,6 +10668,51 @@
         "summary": "Cancel a queued or running job; a node's work is stopped (admin)",
         "tags": [
           "Jobs"
+        ]
+      }
+    },
+    "/lab-input-events": {
+      "post": {
+        "operationId": "reportLabInputEvents",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabInputEventsInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "What the button test heard, as it heard it, for the server's log (tv-device-tests.md H2)",
+        "tags": [
+          "Running it"
         ]
       }
     },

@@ -134,6 +134,13 @@
 //     device tests off (should_offer_device_tests, its start), it is refused as not_found, and
 //     /client-settings says whether they are offered. Enforced by
 //     TestLab_ResultsAreRefusedAndTheTestsNotOfferedUntilTheAdminTurnsThemOn.
+//   - The button test's events (POST /lab-input-events) are logged at info a line each, flat, by
+//     the run's name the page made, with a line for the run's start; a request carries 1 to 200
+//     events, each field named and bounded (a kind and a button from their lists, a key's key and
+//     code at most 40 characters), so a page writes no attribute of its own and no long value into
+//     the log; behind the same sign-in, setting and body bound as a result (requireDeviceTests).
+//     Enforced by TestLab_TheButtonTestsEventsAreLoggedALineEachAndBounded and
+//     TestLab_TheButtonTestsEventsAreRefusedUntilTheAdminTurnsTheTestsOn.
 //   - Every operation checks the caller's reach, is an admin's, or holds no library content
 //     (D243 §4). TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent.
 //
@@ -154,7 +161,8 @@
 //   - One file per endpoint group of cut-a §5: session.go (setup and auth), settings.go,
 //     config.go, secrets.go, health.go, identification.go, libraries.go, browse.go, art.go,
 //     doctor.go, system.go, playback.go, subtitle.go, subtitle_fetch.go, preferences.go, report.go,
-//     home.go, accounts.go, devices.go and jobs.go; lab.go, the lab pages' results.
+//     home.go, accounts.go, devices.go and jobs.go; lab.go, the lab pages' results and the
+//     button test's events.
 //   - server.go holds the readiness gate and the authentication helpers: requireSignedIn,
 //     requireAdmin and requireAccountManager; requireMetadataEditor is in identification.go, and
 //     requireSignedInForMedia,
