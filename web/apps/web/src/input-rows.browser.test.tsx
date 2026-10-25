@@ -94,6 +94,28 @@ function focusedCard(): string {
   return row?.querySelector(".continue-watching__name")?.textContent ?? "";
 }
 
+/**
+ * The sides of the focus ring around what has focus that the row selector names, which scrolls
+ * sideways, clips: none where the ring is seen whole.
+ */
+function ringOutside(selector: string): string[] {
+  const focused = document.activeElement;
+  const row = document.querySelector(selector);
+  if (focused === null || row === null) {
+    return ["nothing has focus in the row"];
+  }
+  const ringPx = Number.parseFloat(getComputedStyle(focused).outlineWidth) * 2;
+  const box = focused.getBoundingClientRect();
+  const clip = row.getBoundingClientRect();
+  const sides: [string, boolean][] = [
+    ["top", box.top - ringPx < clip.top - 0.5],
+    ["left", box.left - ringPx < clip.left - 0.5],
+    ["bottom", box.bottom + ringPx > clip.bottom + 0.5],
+    ["right", box.right + ringPx > clip.right + 0.5],
+  ];
+  return sides.filter(([, isClipped]) => isClipped).map(([side]) => side);
+}
+
 /** The episode that has focus, by its name; "" for none. */
 function focusedEpisode(): string {
   const focused = document.activeElement;
@@ -140,5 +162,18 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
     await userEvent.keyboard("{Escape}");
     await expect.poll(() => isDrawn(".series__episode")).toBe(true);
     await expect.poll(focusedEpisode).toBe("Episode 3");
+  });
+
+  it("draws the whole focus ring of a card in Continue Watching and of a place in the banner, rows that scroll sideways", async () => {
+    await page.viewport(width, height);
+    walking = await mountApp(walkServices(withContinueWatching));
+    await expect.poll(() => isDrawn(".continue-watching__play")).toBe(true);
+    await userEvent.keyboard("{ArrowDown}");
+    expect(focusedCard()).toBe("Metropolis");
+    expect(ringOutside(".continue-watching__rows")).toEqual([]);
+    document.querySelector<HTMLElement>('.app-shell__watching a[href="/series"]')?.focus();
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(document.activeElement?.getAttribute("href")).toBe("/films");
+    expect(ringOutside(".app-shell__watching")).toEqual([]);
   });
 });

@@ -88,6 +88,11 @@
   --focus-ring-outer-color: #ffffff;
   --focus-ring-inner-color: #0b0b0f;
   --focus-ring-width: 3px;
+  /*
+   * How far the focus ring reaches outside the focused element: what a row that scrolls sideways,
+   * which clips whatever leaves its box, keeps around its contents so a remote's focus is seen whole.
+   */
+  --focus-ring-room: calc(var(--focus-ring-width) * 2);
 }
 
 @media (min-width: 600px) {
