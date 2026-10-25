@@ -9,7 +9,7 @@ import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow } from "./problem.ts";
 import { EndOfList } from "./end-of-list.tsx";
 import { useServices } from "./services.tsx";
-import { Loaded } from "./title.tsx";
+import { Loaded } from "./loaded.tsx";
 import { usePages, type Page } from "./use-pages.ts";
 
 /** One file the scanner saw, as the server sends it. */

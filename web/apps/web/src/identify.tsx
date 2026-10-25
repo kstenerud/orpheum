@@ -12,7 +12,7 @@ import { dataOrThrow } from "./problem.ts";
 import { Link } from "./link.tsx";
 import { itemRoute } from "./router.ts";
 import { useServices } from "./services.tsx";
-import { Loaded } from "./title.tsx";
+import { Loaded } from "./loaded.tsx";
 import { CandidateChooser, identifyProblemText } from "./candidate-chooser.tsx";
 import { useRequest } from "./use-request.ts";
 import { useResource } from "./use-resource.ts";

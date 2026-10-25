@@ -14,6 +14,8 @@ export { apiPrefix, artUrl, createApi } from "./client.ts";
 export type { Api, ApiOptions, ArtSize } from "./client.ts";
 export type { components, operations, paths } from "./gen/api.ts";
 export { browserPlayableFormats, playableFormatsFrom } from "./playable-formats.ts";
+export { canFollowAGroup } from "./follow-support.ts";
+export type { GlobalOf } from "./follow-support.ts";
 export {
   audioContextClass,
   browserDeviceFacts,

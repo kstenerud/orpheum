@@ -12,6 +12,19 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 
 import { App } from "./app.tsx";
+// The screens the client loads as they are first shown (later-screens.tsx), loaded with the walk as
+// they were before they were split: a walk's time is its own, not the dev server's first build of a
+// screen, which under load took the player's walk past the 15 s a test has (2026-10-25).
+import "./cast-remote.tsx";
+import "./lab.tsx";
+import "./lab-extend-player.tsx";
+import "./play.tsx";
+import "./series.tsx";
+import "./settings.tsx";
+import "./title.tsx";
+import "./together-viewer.tsx";
+import "./ui-gallery.tsx";
+import "./watch-together.tsx";
 import { ServicesContext, type Services } from "./services.tsx";
 import { testServices } from "./test-services.tsx";
 

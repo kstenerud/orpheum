@@ -9,7 +9,7 @@ import { submitWith } from "./form-row.tsx";
 import { Link } from "./link.tsx";
 import { itemRoute } from "./router.ts";
 import { useServices } from "./services.tsx";
-import { Loaded } from "./title.tsx";
+import { Loaded } from "./loaded.tsx";
 import { useResource } from "./use-resource.ts";
 
 /** One search result, as the server sends it. */

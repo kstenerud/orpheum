@@ -12,7 +12,7 @@ import { dateTimeText } from "./date-time-text.ts";
 import { submitWith } from "./form-row.tsx";
 import { fieldProblemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
-import { Loaded } from "./title.tsx";
+import { Loaded } from "./loaded.tsx";
 import { useRequest } from "./use-request.ts";
 import type { Resource } from "./use-resource.ts";
 

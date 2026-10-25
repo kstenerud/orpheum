@@ -9,7 +9,7 @@ import { idempotent } from "./idempotent.ts";
 import { submitWith } from "./form-row.tsx";
 import { dataOrThrow, fieldProblemText, throwIfRefused } from "./problem.ts";
 import { useServices } from "./services.tsx";
-import { Loaded } from "./title.tsx";
+import { Loaded } from "./loaded.tsx";
 import { useResource } from "./use-resource.ts";
 
 /** A new library, as the server takes it. */

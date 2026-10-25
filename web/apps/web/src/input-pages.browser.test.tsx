@@ -290,6 +290,8 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
         "/watch-together",
       ),
     );
+    // Its code loads as the screen is first shown (later-screens.tsx).
+    await drawn(".watch-together");
     try {
       await press("{ArrowDown}");
       expect(await pressUntil("{ArrowDown}", () => focusedName() === "Start a session")).toBe(true);

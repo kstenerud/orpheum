@@ -2,7 +2,7 @@
 
 import "./status-tray.css";
 
-import { useState, type JSX } from "react";
+import { lazy, Suspense, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Link } from "./link.tsx";
@@ -11,7 +11,7 @@ import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
 import { useResource } from "./use-resource.ts";
 import { WarningIcon } from "./warning-sign.tsx";
-import { usePrefetchedHostedDetails, WatchTogetherControls } from "./watch-together.tsx";
+import { usePrefetchedHostedDetails } from "./hosted-details.ts";
 
 /**
  * The status tray at the banner's end (D280): what is on, in view on every screen, in the status
@@ -56,6 +56,15 @@ export function TogetherIcon(): JSX.Element {
 }
 
 /**
+ * Watch Together's controls, whose code loads as the tray first opens them: with them, the player's
+ * volume, and hls.js with it, was in the script every page loaded before it drew (the audit of
+ * 2026-10-25, W1).
+ */
+const WatchTogetherControls = lazy(async () => ({
+  default: (await import("./watch-together.tsx")).WatchTogetherControls,
+}));
+
+/**
  * The Watch Together sign, which opens the session's controls over whatever screen is shown: a
  * modal drop-down, the page behind it taking no press, so a control under it half hidden is never
  * pressed by mistake on a small screen; a press anywhere outside it, Escape or Close shuts it (the
@@ -94,7 +103,9 @@ function TogetherStatus(): JSX.Element {
               {t("status.close")}
             </button>
           </div>
-          <WatchTogetherControls />
+          <Suspense fallback={<p>{t("common.loading")}</p>}>
+            <WatchTogetherControls />
+          </Suspense>
         </ModalDialog>
       ) : null}
     </div>
