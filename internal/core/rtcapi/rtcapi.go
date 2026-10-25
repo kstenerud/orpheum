@@ -28,9 +28,10 @@ const MaxMessageBytes = 64 << 10
 // (ClientConnections), and a household has a handful of people and devices.
 const MaxConnections = 64
 
-// ClientConnections is how many peer connections a client opens and spreads its requests across:
-// one is bound by its congestion window, and four carried three times as much at a 50 ms round
-// trip (reachability-approaches-2026-10-09.md §9.4).
+// ClientConnections is how many peer connections a client opens at most and spreads its requests
+// across, keeping one and opening the others only while its requests crowd it: one is bound by its
+// congestion window, and four carried three times as much at a 50 ms round trip
+// (reachability-approaches-2026-10-09.md §9.4).
 const ClientConnections = 4
 
 // cwndStepBytes is how fast pion grows a connection's congestion window in congestion avoidance:
@@ -302,6 +303,7 @@ func (server *Server) open(api *webrtc.API) (*webrtc.PeerConnection, error) {
 	server.held[connection] = held
 	var isConnected atomic.Bool
 	own := &heldNetworks{}
+	verdict := &verdictTeller{}
 	unconnected := time.AfterFunc(server.bounds.connectWithin, func() {
 		if !isConnected.Load() {
 			local, remote, pairs := candidatesOf(connection.GetStats())
@@ -316,7 +318,7 @@ func (server *Server) open(api *webrtc.API) (*webrtc.PeerConnection, error) {
 			unconnected.Stop()
 			own.keep(connection.GetStats())
 			server.recordPath(connection, selectedPath(connection), server.clock.Now().Sub(openedAt))
-			server.holdWithinItsSourcesShare(connection)
+			server.holdWithinItsSourcesShare(connection, verdict)
 		}
 		if state == webrtc.PeerConnectionStateFailed && !isConnected.Load() {
 			server.recordPath(connection, PathFailed, server.clock.Now().Sub(openedAt))
@@ -329,6 +331,11 @@ func (server *Server) open(api *webrtc.API) (*webrtc.PeerConnection, error) {
 	inFlight := &atomic.Int32{}
 	connection.OnDataChannel(func(channel *webrtc.DataChannel) {
 		if channel.Label() == NegotiationLabel {
+			verdict.heard(channel)
+			return
+		}
+		if verdict.isRefused() {
+			_ = channel.Close() //nolint:errcheck // a connection turned away carries no request
 			return
 		}
 		if inFlight.Add(1) > int32(server.bounds.channels) { //nolint:gosec // a small constant
@@ -384,11 +391,13 @@ func (server *Server) answer(
 	return Description{Type: local.Type.String(), SDP: local.SDP}, nil
 }
 
-// holdWithinItsSourcesShare closes a connection that just connected when its client's network holds
-// more than its share of the core's connections already. Either way it logs the network's
+// holdWithinItsSourcesShare turns away a connection that just connected when its client's network
+// holds more than its share of the core's connections already: it tells the client why (Verdict),
+// serves it nothing, and closes it once the client has had turnedAwayClosesWithin to read that and
+// close it itself. A connection within the share is told it is held. Either way it logs the network's
 // connections by number and whose each is, so a network turned away says whose connections filled
 // its share.
-func (server *Server) holdWithinItsSourcesShare(connection *webrtc.PeerConnection) {
+func (server *Server) holdWithinItsSourcesShare(connection *webrtc.PeerConnection, verdict *verdictTeller) {
 	source := sourceOf(remoteAddress(connection))
 	server.mutex.Lock()
 	server.sources[connection] = source
@@ -407,13 +416,17 @@ func (server *Server) holdWithinItsSourcesShare(connection *webrtc.PeerConnectio
 		name = own.name()
 	}
 	if len(ofSource) > server.bounds.perSource {
-		server.logger.Warn("rtcapi: closed a connection past its network's share",
+		server.logger.Warn("rtcapi: turned a connection away past its network's share, telling its client why",
 			"limit", server.bounds.perSource, "connection", name, "network", source.String(),
-			"networkHolds", namesOf(ofSource))
+			"reason", RefusedNetworkFull, "networkHolds", namesOf(ofSource))
+		verdict.decide(Verdict{Refused: RefusedNetworkFull})
 		server.forget(connection)
-		_ = connection.Close() //nolint:errcheck // refused
+		time.AfterFunc(turnedAwayClosesWithin, func() {
+			_ = connection.Close() //nolint:errcheck // refused, closed by its client first or now
+		})
 		return
 	}
+	verdict.decide(Verdict{Held: true})
 	server.logger.Info("rtcapi: a connection is held", "connection", name, "network", source.String(),
 		"networkHeld", len(ofSource), "networkHolds", namesOf(ofSource))
 }

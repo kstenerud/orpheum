@@ -183,6 +183,29 @@ func TestAnswer_HoldsEachClientWithinItsBounds(t *testing.T) {
 	}
 }
 
+// A connection past its network's share is told why before it is closed, and serves nothing
+// meanwhile; one within it is told it is held: closed with nothing said, the owner's Fire TV said its
+// network could not reach the server (staging, 2026-10-25).
+func TestAnswer_TellsAConnectionPastItsNetworksShareWhy(t *testing.T) {
+	t.Parallel()
+	server, _ := waitingServer(t, rtcapi.Bounds{PerSource: 1})
+	first := rtcapitest.Connect(t, server.Answer, rtcapitest.OnLoopback())
+	if verdict := first.Verdict(); verdict != (rtcapi.Verdict{Held: true}) {
+		t.Errorf("the first connection was told %+v; want it held", verdict)
+	}
+	awaitConnected(t, server, 1)
+	second := rtcapitest.Connect(t, server.Answer, rtcapitest.OnLoopback())
+	if verdict := second.Verdict(); verdict != (rtcapi.Verdict{Refused: rtcapi.RefusedNetworkFull}) {
+		t.Errorf("the connection past its network's share was told %+v; want %q", verdict, rtcapi.RefusedNetworkFull)
+	}
+	if !second.Begin(rtcapi.RequestHead{Method: http.MethodGet, Path: "/now"}, true).IsClosedWithin(5 * time.Second) {
+		t.Error("a connection turned away served a request")
+	}
+	if !second.IsClosedWithin(10 * time.Second) {
+		t.Error("a connection turned away was kept")
+	}
+}
+
 // The channel a client opens only to negotiate its offer takes no request's place: on a connection
 // that may hold one request at a time, a request is answered at once, not after the negotiation
 // channel's deadline (staging, 2026-10-14, where each connection's showed as a request that never
