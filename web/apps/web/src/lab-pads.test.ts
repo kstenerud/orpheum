@@ -105,9 +105,11 @@ describe("a controller's layout", () => {
     expect(padLayoutOf("2dc8-6102-8BitDo Pro Controller")).toBe("unknown");
   });
 
-  it("confirms with the right button on Nintendo's, the bottom elsewhere, and by choice when unknown", () => {
-    expect(okButtonOf("nintendo", "bottom")).toBe("right");
-    expect(okButtonOf("xbox", "right")).toBe("bottom");
+  it("confirms by the person's choice where made, else the right button on Nintendo's and the bottom elsewhere", () => {
+    expect(okButtonOf("nintendo", undefined)).toBe("right");
+    expect(okButtonOf("nintendo", "bottom")).toBe("bottom");
+    expect(okButtonOf("xbox", undefined)).toBe("bottom");
+    expect(okButtonOf("xbox", "right")).toBe("right");
     expect(okButtonOf("playstation", undefined)).toBe("bottom");
     expect(okButtonOf("unknown", undefined)).toBe("bottom");
     expect(okButtonOf("unknown", "right")).toBe("right");

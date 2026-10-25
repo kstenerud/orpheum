@@ -129,6 +129,9 @@ describe("the button test's controllers", () => {
       }),
     ]);
     expect(mounted.container.textContent).toContain("Nintendo layout, OK is the right button");
+    // A known layout still offers the choice: an 8BitDo in X-input mode reports Xbox's, its labels
+    // Nintendo's (the owner, 2026-10-25).
+    expect(buttonWithText(mounted.container, "the bottom button")).toBeDefined();
     await pressPad(pad, 1, () => eventsOf(heard, "gamepad").length > 0);
     await pressPad(pad, 0, () => eventsOf(heard, "gamepad").length > 1);
     expect(eventsOf(heard, "gamepad")).toEqual([
@@ -140,7 +143,6 @@ describe("the button test's controllers", () => {
       }),
       expect.objectContaining({ button: "back", padButton: 0, padButtonName: "faceBottom" }),
     ]);
-    expect(buttonWithText(mounted.container, "the bottom button")).toBeUndefined();
   });
 
   it("offers the choice of OK for a pad of unknown layout, and reads its buttons by the choice", async () => {
