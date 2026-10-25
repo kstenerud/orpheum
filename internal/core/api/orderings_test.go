@@ -1,0 +1,156 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+package api
+
+import (
+	"cmp"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"slices"
+	"strings"
+	"testing"
+
+	"github.com/kstenerud/orpheum/internal/store/storetest"
+)
+
+// shelveDVDOrder adds to shelve's series three more aired episodes, S1E2 (22), S1E3 (23) and S2E1
+// (24), each with a file, and a DVD order, tmdb:dvd, whose disc 1 is 23 then 21 and disc 2 is 24:
+// 22 is not in it.
+func (harness testHarness) shelveDVDOrder(t *testing.T) {
+	t.Helper()
+	harness.shelve(t)
+	storetest.ExecRaw(t, harness.databasePath,
+		"INSERT INTO item (id, kind, library_id, added_at) VALUES (22, 'title', 1, 2), (23, 'title', 1, 2), "+
+			"(24, 'title', 1, 2)",
+		"INSERT INTO title (id, kind, identification_state) VALUES (22, 'episode', 'identified'), "+
+			"(23, 'episode', 'identified'), (24, 'episode', 'identified')",
+		"INSERT INTO item_text (item_id, language, is_original, name) VALUES (22, 'und', 1, 'Cat'), "+
+			"(23, 'und', 1, 'Bag'), (24, 'und', 1, 'Seven')",
+		"INSERT INTO version (id, title_id, created_at) VALUES (3, 22, 2), (4, 23, 2), (5, 24, 2)",
+		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing, version_id, first_seen_at,
+		 last_seen_at) VALUES (3, 1, 1, '/m/BB/S01E02.mkv', 10, X'03', 'listed', 3, 1, 1),
+		 (4, 1, 1, '/m/BB/S01E03.mkv', 10, X'04', 'listed', 4, 1, 1),
+		 (5, 1, 1, '/m/BB/S02E01.mkv', 10, X'05', 'listed', 5, 1, 1)`,
+		"INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (2, '{}', 1000), (3, '{}', 1000), "+
+			"(4, '{}', 1000), (5, '{}', 1000)",
+		"INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order) "+
+			"VALUES (1, 22, 1, 2, 10002), (1, 23, 1, 3, 10003), (1, 24, 2, 1, 20001)",
+		"INSERT INTO collection_member (collection_id, member_title, position) VALUES (20, 22, 10002), "+
+			"(20, 23, 10003), (20, 24, 20001)",
+		"INSERT INTO ordering (id, collection_id, name, provider) VALUES (2, 20, 'tmdb:dvd', 'tmdb')",
+		"INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order) "+
+			"VALUES (2, 23, 1, 1, 10001), (2, 21, 1, 2, 10002), (2, 24, 2, 1, 20001)")
+}
+
+// playState is every play position and event, which a choice of ordering must leave as they were.
+func (harness testHarness) playState(t *testing.T) []string {
+	t.Helper()
+	return slices.Concat(
+		storetest.QueryRaw(t, harness.databasePath, `SELECT user_id, file_id, position_ms, report_seq, device_id,
+		 updated_at, position_read_at FROM play_position ORDER BY user_id, file_id`),
+		storetest.QueryRaw(t, harness.databasePath, `SELECT id, user_id, file_id, device_id, kind, position_ms,
+		 happened_at, happened_mono_ms FROM play_event ORDER BY id`))
+}
+
+// seriesSeen is a series' page as a test reads it: the ordering, its seasons and its Next Up.
+type seriesSeen struct {
+	Ordering string `json:"ordering"`
+	Seasons  []struct {
+		SeasonNumber int64  `json:"seasonNumber"`
+		EpisodeCount int64  `json:"episodeCount"`
+		Name         string `json:"name"`
+	} `json:"seasons"`
+	NextUp *struct {
+		TitleID       int64 `json:"titleId"`
+		GroupNumber   int64 `json:"groupNumber"`
+		NumberInGroup int64 `json:"numberInGroup"`
+	} `json:"nextUp"`
+}
+
+// summary is the page in short: "ordering seasons[number:count,...] next title:group:number", its
+// ordering aired where the page names none.
+func (seen seriesSeen) summary() string {
+	seasons := []string{}
+	for _, season := range seen.Seasons {
+		seasons = append(seasons, fmt.Sprintf("%d:%d", season.SeasonNumber, season.EpisodeCount))
+	}
+	next := "none"
+	if seen.NextUp != nil {
+		next = fmt.Sprintf("%d:%d:%d", seen.NextUp.TitleID, seen.NextUp.GroupNumber, seen.NextUp.NumberInGroup)
+	}
+	return fmt.Sprintf("%s seasons[%s] next %s", cmp.Or(seen.Ordering, "aired"), strings.Join(seasons, ","), next)
+}
+
+// readJSON is GET path's answer, read into into; a failed request fails the test.
+func (harness testHarness) readJSON(t *testing.T, path, token string, into any) {
+	t.Helper()
+	answer := harness.do(t, http.MethodGet, path, token, nil)
+	if err := json.Unmarshal([]byte(answer.body), into); err != nil || answer.status != http.StatusOK {
+		t.Fatalf("GET %s = %d %s (%v)", path, answer.status, answer.body, err)
+	}
+}
+
+// seriesSummary is GET /collections/20's summary.
+func (harness testHarness) seriesSummary(t *testing.T, token string) string {
+	t.Helper()
+	var seen seriesSeen
+	harness.readJSON(t, "/collections/20", token, &seen)
+	return seen.summary()
+}
+
+// A person who chose a series' other ordering sees it in that one: its seasons are the ordering's
+// groups, a season's page a group's episodes in its order, an episode labelled by its place there
+// beside its aired place, here and in Continue Watching, and Next Up the one after the last they
+// finished there; and choosing it moves nothing they watched (D159's first assertion; D157). Who
+// never chose, or chose one the series no longer has, sees aired.
+func TestOrderings_APersonsChosenOrderingIsTheSeriesTheySee(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveDVDOrder(t)
+	harness.setPositionReadAt(t, 4, 1000, 9) // 23, aired S1E3 and disc 1's first, finished
+	storetest.ExecRaw(t, harness.databasePath, `INSERT INTO play_event (user_id, file_id, kind, position_ms,
+		happened_at) VALUES (1, 4, 'completed', 1000, 9)`)
+	if got, want := harness.seriesSummary(t, user), "aired seasons[1:3,2:1] next 24:2:1"; got != want {
+		t.Errorf("never chosen: %s; want %s", got, want)
+	}
+	before := harness.playState(t)
+	storetest.ExecRaw(t, harness.databasePath, `INSERT INTO preference (user_id, scope, scope_id, axis, value_json,
+		set_at) VALUES (1, 'work', 20, 'episode_ordering', '"tmdb:dvd"', 1)`)
+	if got, want := harness.seriesSummary(t, user), "tmdb:dvd seasons[1:2,2:1] next 21:1:2"; got != want {
+		t.Errorf("chosen: %s; want %s, the DVD order's discs and 21 after 23", got, want)
+	}
+	var disc struct {
+		Episodes []struct {
+			ID            int64 `json:"id"`
+			EpisodeNumber int64 `json:"episodeNumber"`
+		} `json:"episodes"`
+	}
+	harness.readJSON(t, "/collections/20/seasons/1?limit=10", user, &disc)
+	if got := fmt.Sprint(disc.Episodes); got != "[{23 1} {21 2}]" {
+		t.Errorf("disc 1 = %s; want 23 then 21, numbered in the DVD order", got)
+	}
+	episode := harness.do(t, http.MethodGet, "/items/21", user, nil)
+	if !strings.Contains(episode.body, `"episode":{"seriesId":20,"seriesName":"Brass Arena","seasonNumber":1,`+
+		`"episodeNumber":1,"ordering":"tmdb:dvd","inOrdering":{"groupNumber":1,"numberInGroup":2}}`) {
+		t.Errorf("an episode's detail = %s; want its aired place and its DVD place, disc 1's second", episode.body)
+	}
+	if left := harness.do(t, http.MethodGet, "/items/22", user, nil); !strings.Contains(left.body,
+		`"ordering":"tmdb:dvd"`) || strings.Contains(left.body, "inOrdering") {
+		t.Errorf("an episode the order leaves out = %s; want its aired place alone", left.body)
+	}
+	if after := harness.playState(t); !slices.Equal(after, before) {
+		t.Errorf("play state after choosing an ordering\n  %q\nwant as it was\n  %q", after, before)
+	}
+	harness.setPositionReadAt(t, 2, 500, 10) // 21 partway: Continue Watching labels it in the DVD order
+	rows := harness.continueWatching(t, user)
+	if len(rows) != 1 || rows[0].Episode == nil || fmt.Sprint(rows[0].Episode.InOrdering) != "&{1 2  false}" {
+		t.Errorf("Continue Watching = %+v; want 21, at disc 1's second", rows)
+	}
+	storetest.ExecRaw(t, harness.databasePath,
+		`UPDATE preference SET value_json = '"tmdb:gone"' WHERE axis = 'episode_ordering'`)
+	if got, want := harness.seriesSummary(t, user), "aired seasons[1:3,2:1] next 21:1:1"; got != want {
+		t.Errorf("a choice the series no longer has: %s; want %s", got, want)
+	}
+}

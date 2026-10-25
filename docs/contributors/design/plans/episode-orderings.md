@@ -5,11 +5,11 @@
 
 # Episode orderings
 
-- **Status:** SKETCH — 2026-10-25, at the owner's request: per-person choice of a series'
+- **Status:** BUILDING — 2026-10-25, at the owner's request: per-person choice of a series'
   episode ordering, *aired, DVD, absolute, production, custom*, with every ordering the same
   mechanism ([D160](../../decisions/working-notes.md): a sequence is what a Collection produces,
-  and Next Up is a query over any of them). The questions in §7 are the owner's to answer before
-  it is built.
+  and Next Up is a query over any of them). The owner answered §7 the same day. Building the
+  viewing order, §6's steps 1–4; step 1 is built (each step says so below).
 - **Depends on:** [play-state.md](play-state.md) (Next Up over an ordering),
   [schema.md](schema.md) (`ordering`, `position`, `group_text`, `preference`),
   [closed-beta.md](closed-beta.md) (B2, "Episode orderings", D96 and D210, size M).
@@ -342,6 +342,15 @@ fixtures and the fake provider (`internal/core/identify/identifytest`), never TM
    fixture, a preference for it changes the series page's groups, the season page, the episode
    label and Next Up; every play position and event is byte-identical afterwards (D159's
    assertion, as a `TestArch_` claim if it is cited from a `doc.go`).
+   *Built 2026-10-25:* `library.ViewingOrdering` is the resolver (the preference when it names an
+   ordering the series still has, else aired); the series page, a season page, an episode's label
+   on its page and in Continue Watching, Next Up and interest's raise take its answer.
+   `EpisodePlaceBody` keeps its aired `seasonNumber` and `episodeNumber` (the numbers other sites
+   use, §7 Q8's second line) and adds `ordering` and `inOrdering`, the place in the person's
+   ordering, absent in aired and when the ordering leaves the episode out. Tested by
+   `TestOrderings_APersonsChosenOrderingIsTheSeriesTheySee` and
+   `TestRaiser_ALookAtASeriesFollowsTheOrderingItsPersonWatchesItIn`; the **F** and **M** queries
+   of §5 are unchanged.
 2. **The schema step** (§3.5): `ordering` kind, source id and label; `group_text` by
    `ordering_id`. *Test:* store tests and the migration window test.
 3. **The selector.** `GET /collections/{id}` lists the orderings the series has and the one in

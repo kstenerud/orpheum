@@ -133,6 +133,27 @@ JOIN ordering ON ordering.id = position.ordering_id
 LEFT JOIN item_text ON item_text.item_id = ordering.collection_id AND item_text.is_original = 1
 WHERE position.title_id = sqlc.arg(title_id) AND ordering.name = 'aired';
 
+-- name: GetPlaceInOrdering :one
+-- A member's place in one of its collection's named orderings (D96, D159): its group and number in
+-- it, and how many groups the ordering has, one for an ordering that is a single run (absolute).
+SELECT position.group_number, position.number_in_group,
+  (SELECT count(DISTINCT coalesce(other.group_number, 0)) FROM position AS other WHERE other.ordering_id = ordering.id)
+    AS group_count
+FROM ordering
+JOIN position ON position.ordering_id = ordering.id
+WHERE ordering.collection_id = sqlc.arg(collection_id) AND ordering.name = sqlc.arg(ordering_name)
+  AND position.title_id = sqlc.arg(title_id);
+
+-- name: GetChosenOrdering :one
+-- The ordering a person chose to watch a series in (D159 section 1), a preference at the series'
+-- work scope, when the series still has it; none when they chose none, or one it no longer has.
+SELECT ordering.name
+FROM preference
+JOIN ordering ON ordering.collection_id = preference.scope_id
+  AND ordering.name = CAST(json_extract(preference.value_json, '$') AS TEXT)
+WHERE preference.user_id = sqlc.arg(user_id) AND preference.scope = 'work'
+  AND preference.scope_id = sqlc.arg(collection_id) AND preference.axis = sqlc.arg(axis);
+
 -- name: GetSeriesDetail :one
 -- A series, with a failure of its own to be fetched and a person's refresh waiting (D231 section 4).
 SELECT collection.id, collection.year, collection.identification_state, collection.followed_source, collection.followed_source_id,
@@ -147,7 +168,8 @@ LEFT JOIN refresh_request ON refresh_request.item_id = collection.id
 WHERE collection.id = sqlc.arg(id) AND collection.kind = 'series' AND item.removed_at IS NULL;
 
 -- name: ListSeriesEpisodeDetails :many
--- A series' episodes in aired order, each with whether it has a live file.
+-- A series' episodes in one of its named orderings (D159; the one its person watches in), each
+-- with whether it has a live file.
 SELECT position.title_id, position.group_number, position.number_in_group, item_text.name, title.year, title.runtime_ms,
   title.identification_state,
   EXISTS (
@@ -159,12 +181,13 @@ JOIN ordering ON ordering.id = position.ordering_id
 JOIN title ON title.id = position.title_id
 JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = position.title_id AND item_text.is_original = 1
-WHERE ordering.collection_id = sqlc.arg(collection_id) AND ordering.name = 'aired' AND item.removed_at IS NULL
+WHERE ordering.collection_id = sqlc.arg(collection_id) AND ordering.name = sqlc.arg(ordering_name) AND item.removed_at IS NULL
 ORDER BY position.sort_order;
 
 -- name: ListSeasonEpisodeDetails :many
--- A page of one season's episodes in aired order, after the episode at after_sort_order, each with
--- whether it has a live file; season 0 holds the specials and the episodes with no season.
+-- A page of one season's episodes, a group of one of the series' named orderings (D159; the one its
+-- person watches in), after the episode at after_sort_order, each with whether it has a live file;
+-- aired's season 0 holds the specials and the episodes with no season.
 SELECT position.title_id, position.group_number, position.number_in_group, position.sort_order, item_text.name,
   title.year, title.runtime_ms, title.identification_state,
   EXISTS (
@@ -176,7 +199,7 @@ JOIN ordering ON ordering.id = position.ordering_id
 JOIN title ON title.id = position.title_id
 JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = position.title_id AND item_text.is_original = 1
-WHERE ordering.collection_id = sqlc.arg(collection_id) AND ordering.name = 'aired' AND item.removed_at IS NULL
+WHERE ordering.collection_id = sqlc.arg(collection_id) AND ordering.name = sqlc.arg(ordering_name) AND item.removed_at IS NULL
   AND coalesce(position.group_number, 0) = CAST(sqlc.arg(season_number) AS INTEGER)
   AND position.sort_order > sqlc.arg(after_sort_order)
 ORDER BY position.sort_order

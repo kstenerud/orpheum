@@ -156,7 +156,7 @@ func TestBrowse_ATitlesDetailHasItsVersionsFilesAndStreams(t *testing.T) {
 	world := newShelf(t)
 	world.scan([]nodeproto.ScanRecord{observedRecord("metropolis.mkv", "heat")}, true)
 	heat := world.fileAsFilm("Metropolis", "metropolis.mkv")
-	detail, err := world.browser.Title(t.Context(), auth.EveryLibrary(), heat)
+	detail, err := world.browser.Title(t.Context(), auth.EveryLibrary(), 0, heat)
 	if err != nil || detail.Name == nil || *detail.Name != "Metropolis" || len(detail.Versions) != 1 {
 		t.Fatalf("Title = %+v, %v", detail, err)
 	}
@@ -164,7 +164,7 @@ func TestBrowse_ATitlesDetailHasItsVersionsFilesAndStreams(t *testing.T) {
 	if file.Path != root+"/metropolis.mkv" || len(file.Streams) != 2 || detail.Episode != nil {
 		t.Errorf("file %+v; want the video and audio streams, and no episode place", file)
 	}
-	if _, err := world.browser.Title(t.Context(), auth.EveryLibrary(), 999); err == nil {
+	if _, err := world.browser.Title(t.Context(), auth.EveryLibrary(), 0, 999); err == nil {
 		t.Error("the detail of no title was found")
 	}
 }
@@ -242,7 +242,7 @@ func TestBrowse_ATitlesExtrasAreOnlyThoseWithALiveFile(t *testing.T) {
 	world.scan([]nodeproto.ScanRecord{
 		observedRecord("metropolis.mkv", "heat"), observedRecord("trailer.mkv", "trailer"),
 	}, true)
-	detail, err := world.browser.Title(t.Context(), auth.EveryLibrary(), heat)
+	detail, err := world.browser.Title(t.Context(), auth.EveryLibrary(), 0, heat)
 	if err != nil {
 		t.Fatal(err)
 	}

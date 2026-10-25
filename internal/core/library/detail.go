@@ -23,7 +23,7 @@ type TitleDetail struct {
 	sqlcgen.GetTitleDetailRow
 	Versions []Version
 	Extras   []sqlcgen.ListTitleExtrasRow
-	Episode  *sqlcgen.GetEpisodePlaceRow
+	Episode  *EpisodePlace
 	Art      Art
 	// Unreadable is why none of its files can be read now, or nil when one can (D241 §3).
 	Unreadable *Unreadable
@@ -44,9 +44,9 @@ type FileDetail struct {
 	Streams   []sqlcgen.ListStreamsOfVideoFileRow
 }
 
-// Title is a title's detail; one in a library reach does not reach is ErrNoItem, as one that does
-// not exist (D243 §4).
-func (browser *Browser) Title(ctx context.Context, reach auth.Reach, titleID int64) (TitleDetail, error) {
+// Title is a title's detail as userID sees it, an episode placed in the ordering they watch its
+// series in; one in a library reach does not reach is ErrNoItem, as one that does not exist (D243 §4).
+func (browser *Browser) Title(ctx context.Context, reach auth.Reach, userID, titleID int64) (TitleDetail, error) {
 	queries := browser.database.Read()
 	title, err := store.OrNotFound(queries.GetTitleDetail(ctx, titleID))
 	if errors.Is(err, store.ErrNotFound) || (err == nil && !reach.Reaches(title.LibraryID)) {
@@ -65,7 +65,7 @@ func (browser *Browser) Title(ctx context.Context, reach auth.Reach, titleID int
 	if detail.Art, err = browser.itemArt(ctx, titleID); err != nil {
 		return TitleDetail{}, err
 	}
-	if detail.Episode, err = browser.episodePlace(ctx, titleID); err != nil {
+	if detail.Episode, err = browser.episodePlace(ctx, userID, titleID); err != nil {
 		return TitleDetail{}, err
 	}
 	unreadable, err := browser.unreadableItems(ctx, []int64{titleID}, false)
@@ -76,18 +76,6 @@ func (browser *Browser) Title(ctx context.Context, reach auth.Reach, titleID int
 		detail.Unreadable = &why
 	}
 	return detail, nil
-}
-
-// episodePlace is an episode's series and place in the aired order, or nil for a title in none.
-func (browser *Browser) episodePlace(ctx context.Context, titleID int64) (*sqlcgen.GetEpisodePlaceRow, error) {
-	place, err := store.OrNotFound(browser.database.Read().GetEpisodePlace(ctx, titleID))
-	switch {
-	case errors.Is(err, store.ErrNotFound):
-		return nil, nil //nolint:nilnil // no place is an answer, not an error
-	case err != nil:
-		return nil, fmt.Errorf("read title %d's place: %w", titleID, err)
-	}
-	return &place, nil
 }
 
 func (browser *Browser) versions(ctx context.Context, titleID int64) ([]Version, error) {
@@ -114,38 +102,47 @@ func (browser *Browser) versions(ctx context.Context, titleID int64) ([]Version,
 	return versions, nil
 }
 
-// SeriesDetail is a series with its episodes in aired order.
+// SeriesDetail is a series with its episodes in the ordering its person watches it in.
 type SeriesDetail struct {
 	sqlcgen.GetSeriesDetailRow
-	// Seasons are its seasons in aired order, the specials last: the series' page lists them, and
-	// each season's episodes are read by Season (D306 §9).
+	// Ordering is the ordering its person watches it in (ViewingOrdering).
+	Ordering string
+	// Seasons are the ordering's groups in its order, aired's seasons with the specials last: the
+	// series' page lists them, and each one's episodes are read by Season (D306 §9).
 	Seasons []SeasonSummary
 	Art     Art
 	// Unreadable is why none of the series' files can be read now, or nil when one can (D241 §3).
 	Unreadable *Unreadable
 }
 
-// SeasonSummary is one season of a series: its number, 0 for the specials and the episodes with no
-// season, how many episodes it has, and the still of its first episode that has one.
+// SeasonSummary is one season of a series, a group of the ordering it is shown in: its number,
+// aired's 0 for the specials and the episodes with no season, how many episodes it has, and the
+// still of its first episode that has one.
 type SeasonSummary struct {
 	Number       int64
 	EpisodeCount int64
 	StillSha256  string
 }
 
-// Series is a series' detail, its seasons summed up; one in a library reach does not reach is
-// ErrNoItem, as one that does not exist (D243 §4).
-func (browser *Browser) Series(ctx context.Context, reach auth.Reach, seriesID int64) (SeriesDetail, error) {
+// Series is a series' detail, its seasons summed up in the ordering userID watches it in; one in a
+// library reach does not reach is ErrNoItem, as one that does not exist (D243 §4).
+func (browser *Browser) Series(ctx context.Context, reach auth.Reach, userID, seriesID int64) (SeriesDetail, error) {
 	queries := browser.database.Read()
 	series, err := browser.reachedSeries(ctx, reach, seriesID)
 	if err != nil {
 		return SeriesDetail{}, err
 	}
-	episodes, err := queries.ListSeriesEpisodeDetails(ctx, seriesID)
+	ordering, err := ViewingOrdering(ctx, queries, userID, seriesID)
 	if err != nil {
-		return SeriesDetail{}, fmt.Errorf("list series %d's episodes: %w", seriesID, err)
+		return SeriesDetail{}, err
 	}
-	detail := SeriesDetail{GetSeriesDetailRow: series}
+	episodes, err := queries.ListSeriesEpisodeDetails(ctx, sqlcgen.ListSeriesEpisodeDetailsParams{
+		CollectionID: seriesID, OrderingName: ordering,
+	})
+	if err != nil {
+		return SeriesDetail{}, fmt.Errorf("list series %d's episodes in its %s ordering: %w", seriesID, ordering, err)
+	}
+	detail := SeriesDetail{GetSeriesDetailRow: series, Ordering: ordering}
 	if detail.Art, err = browser.itemArt(ctx, seriesID); err != nil {
 		return SeriesDetail{}, err
 	}
@@ -157,7 +154,7 @@ func (browser *Browser) Series(ctx context.Context, reach auth.Reach, seriesID i
 	if err != nil {
 		return SeriesDetail{}, err
 	}
-	detail.Seasons = seasonsOf(episodes, stills)
+	detail.Seasons = seasonsOf(episodes, stills, ordering == OrderingAired)
 	unreadable, err := browser.unreadableItems(ctx, []int64{seriesID}, true)
 	if err != nil {
 		return SeriesDetail{}, err
@@ -182,9 +179,12 @@ func (browser *Browser) reachedSeries(
 	return series, nil
 }
 
-// seasonsOf sums a series' episodes, in aired order, up by season: numbered seasons in order, then
-// the specials.
-func seasonsOf(episodes []sqlcgen.ListSeriesEpisodeDetailsRow, stills map[int64]string) []SeasonSummary {
+// seasonsOf sums a series' episodes, in an ordering's order, up by its groups, in order: in aired,
+// numbered seasons in order, then the specials; in another, whose group 0 is a part like the rest
+// (a TMDB episode group's first), by number alone.
+func seasonsOf(
+	episodes []sqlcgen.ListSeriesEpisodeDetailsRow, stills map[int64]string, isAired bool,
+) []SeasonSummary {
 	byNumber := map[int64]*SeasonSummary{}
 	var numbers []int64
 	for _, episode := range episodes {
@@ -200,9 +200,9 @@ func seasonsOf(episodes []sqlcgen.ListSeriesEpisodeDetailsRow, stills map[int64]
 			season.StillSha256 = stills[episode.TitleID]
 		}
 	}
-	// The specials, season 0, come after every numbered season.
+	// The specials, aired's season 0, come after every numbered season.
 	sortKey := func(number int64) int64 {
-		if number == 0 {
+		if number == 0 && isAired {
 			return math.MaxInt64
 		}
 		return number
@@ -215,17 +215,20 @@ func seasonsOf(episodes []sqlcgen.ListSeriesEpisodeDetailsRow, stills map[int64]
 	return seasons
 }
 
-// SeasonQuery asks for a page of one season's episodes: a series, its season, 0 for the specials,
-// a cursor from the page before ("" for the first) and how many at most.
+// SeasonQuery asks for a page of one season's episodes as a person sees them: a series, the person,
+// whose ordering's group the season is, its number, aired's 0 for the specials, a cursor from the
+// page before ("" for the first) and how many at most.
 type SeasonQuery struct {
 	SeriesID int64
+	UserID   int64
 	Season   int64
 	Cursor   string
 	Limit    int64
 }
 
-// SeasonPage is a page of a season's episodes in aired order, with each one's still and why none
-// of its files can be read now where none can, and the cursor of the next page, "" on the last.
+// SeasonPage is a page of a season's episodes, in the order of the ordering it is a group of, with
+// each one's still and why none of its files can be read now where none can, and the cursor of the
+// next page, "" on the last.
 type SeasonPage struct {
 	Episodes               []sqlcgen.ListSeasonEpisodeDetailsRow
 	StillSha256ByEpisodeID map[int64]string
@@ -247,8 +250,14 @@ func (browser *Browser) Season(ctx context.Context, reach auth.Reach, query Seas
 		}
 		after = parsed
 	}
-	episodes, err := browser.database.Read().ListSeasonEpisodeDetails(ctx, sqlcgen.ListSeasonEpisodeDetailsParams{
-		CollectionID: query.SeriesID, SeasonNumber: query.Season, AfterSortOrder: after, MaxRows: query.Limit + 1,
+	queries := browser.database.Read()
+	ordering, err := ViewingOrdering(ctx, queries, query.UserID, query.SeriesID)
+	if err != nil {
+		return SeasonPage{}, err
+	}
+	episodes, err := queries.ListSeasonEpisodeDetails(ctx, sqlcgen.ListSeasonEpisodeDetailsParams{
+		CollectionID: query.SeriesID, OrderingName: ordering, SeasonNumber: query.Season, AfterSortOrder: after,
+		MaxRows: query.Limit + 1,
 	})
 	if err != nil {
 		return SeasonPage{}, fmt.Errorf("list season %d of series %d: %w", query.Season, query.SeriesID, err)

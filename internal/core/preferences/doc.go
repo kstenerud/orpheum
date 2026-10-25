@@ -3,7 +3,8 @@
 // Package preferences keeps a person's choices, the one place they live (the architecture map's F2
 // and F6): the subtitle and audio language last chosen in each work, what was last used in each
 // started file, a file's subtitle offset, and the switches that hold in every file, the dialogue
-// boost and levelling. A choice is worked
+// boost and levelling; and the ordering a person watches each series in (D159 §1), which
+// internal/core/library resolves (ViewingOrdering). A choice is worked
 // out against a file's tracks when it plays, never copied between files (D230). Playback lists a
 // file's tracks and calls it in the transaction that reads them; the API keeps a person's switches
 // through it. A device's sound is a fact about the device, kept on its row by internal/core/auth,

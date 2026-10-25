@@ -251,7 +251,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** A page of one season's episodes in aired order */
+        /** A page of one season's episodes, in the ordering the person watches the series in */
         get: operations["getSeason"];
         put?: never;
         post?: never;
@@ -2177,6 +2177,8 @@ export interface components {
             name: string;
             /** @description The person's next episode, which the page offers to play; absent when every one is finished or none has a file */
             nextUp?: components["schemas"]["NextUpBody"];
+            /** @description The ordering its person watches it in, which its seasons are the groups of; absent for aired */
+            ordering?: string;
             overview?: string;
             /**
              * Format: int64
@@ -2439,9 +2441,18 @@ export interface components {
             year?: number;
         };
         EpisodePlaceBody: {
-            /** Format: int64 */
+            /**
+             * Format: int64
+             * @description Its number in its aired season
+             */
             episodeNumber: number;
-            /** Format: int64 */
+            inOrdering?: components["schemas"]["OrderingPlaceBody"];
+            /** @description The ordering the person watches the series in; absent for aired */
+            ordering?: string;
+            /**
+             * Format: int64
+             * @description Its season in the aired order
+             */
             seasonNumber: number;
             /** Format: int64 */
             seriesId: number;
@@ -3156,6 +3167,22 @@ export interface components {
             membershipCredential: string;
             /** Format: int64 */
             sessionId: number;
+        };
+        OrderingPlaceBody: {
+            /** @description The group's name, where the ordering names it (Disc 2) */
+            groupName?: string;
+            /**
+             * Format: int64
+             * @description Its group in the ordering, a disc or a part
+             */
+            groupNumber: number;
+            /** @description Whether the ordering is one run, with no headings */
+            isOnlyGroup?: boolean;
+            /**
+             * Format: int64
+             * @description Its number in its group
+             */
+            numberInGroup: number;
         };
         OwnLinkOutputBody: {
             /**
