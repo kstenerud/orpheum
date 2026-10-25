@@ -29,6 +29,7 @@ func (shelf *Shelf) OpenStore(manifest nodeproto.StoreManifest) (string, error) 
 	if err := os.MkdirAll(storePath, 0o750); err != nil {
 		return "", fmt.Errorf("make the store %s: %w", manifest.StoreDir, err)
 	}
+	shelf.knowStore(manifest.StoreDir)
 	if _, found := shelf.readStoreManifest(manifest.StoreDir); !found {
 		encoded, err := json.Marshal(manifest)
 		if err != nil {
@@ -42,6 +43,7 @@ func (shelf *Shelf) OpenStore(manifest nodeproto.StoreManifest) (string, error) 
 	if err != nil {
 		return "", fmt.Errorf("make a raw directory in %s: %w", manifest.StoreDir, err)
 	}
+	shelf.sizes.opened(manifest.StoreDir, rawPath)
 	return rawPath, nil
 }
 
@@ -52,9 +54,29 @@ func (shelf *Shelf) HasFile(storeDir, name string) bool {
 }
 
 // PutFile writes name into the store whole, so no reader ever sees part of it. Not durably: a chunk
-// is made again when a crash lost it, and a sync for each would slow the making.
+// is made again when a crash lost it, and a sync for each would slow the making. The store's size
+// grows by what it adds, the file it replaces apart.
 func (shelf *Shelf) PutFile(storeDir, name string, contents []byte) error {
-	return replaceIn(filepath.Join(shelf.directory, filepath.FromSlash(storeDir)), name, contents)
+	storePath := filepath.Join(shelf.directory, filepath.FromSlash(storeDir))
+	shelf.knowStore(storeDir)
+	var replacedBytes int64
+	if info, err := os.Lstat(filepath.Join(storePath, name)); err == nil && info.Mode().IsRegular() {
+		replacedBytes = info.Size()
+	}
+	if err := replaceIn(storePath, name, contents); err != nil {
+		shelf.sizes.forget(storeDir) // what it left is not known: walked again when next found
+		return err
+	}
+	shelf.sizes.grew(storeDir, int64(len(contents))-replacedBytes)
+	return nil
+}
+
+// knowStore makes sure the shelf knows the store's size before a file is put in it, so the put adds
+// itself to it once (runSizes.walking). A store that cannot be measured stays unknown, and is
+// walked, the file in it, when next found.
+func (shelf *Shelf) knowStore(storeDir string) {
+	storePath := filepath.Join(shelf.directory, filepath.FromSlash(storeDir))
+	_, _ = shelf.knownSize(storeDir, storePath) //nolint:errcheck // see above
 }
 
 // replaceIn writes name in directory whole (atomics.Replace).
@@ -104,8 +126,15 @@ func (shelf *Shelf) CloseRun(rawPath string) error {
 	if err != nil {
 		return err
 	}
-	if err := os.RemoveAll(dir); err != nil {
+	storeDir, err := filepath.Rel(shelf.directory, filepath.Dir(dir))
+	if err != nil {
 		return fmt.Errorf("close the run %s: %w", rawPath, err)
+	}
+	removeErr := os.RemoveAll(dir)
+	shelf.sizes.closed(filepath.ToSlash(storeDir), dir)
+	if removeErr != nil {
+		shelf.sizes.forget(filepath.ToSlash(storeDir)) // what it left is not known: walked again
+		return fmt.Errorf("close the run %s: %w", rawPath, removeErr)
 	}
 	return nil
 }

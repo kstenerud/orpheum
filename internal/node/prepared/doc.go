@@ -44,6 +44,12 @@
 //   - The disk keeps its floor of free space, node.prepared_disk_min_free_mib, whatever its percentage says:
 //     below it renditions are evicted, and a prepare with nothing left to evict is refused (the
 //     owner, 2026-10-02). TestMakeRoom_KeepsTheDisksFloorOfFreeSpace.
+//   - A run's size is walked once, when the shelf first finds it, never at every run start: a store's
+//     moves as the shelf puts files in it, and its open runs' raw directories count as they are; a
+//     rendition being written is measured as it is, and walked once more when written; one evicted
+//     is forgotten (audit 2026-10-25 N1). TestEvict_WalksARunOnceAndForgetsItWhenEvicted,
+//     TestStore_ItsSizeFollowsWhatIsPutInItAndItsOpenRunsRawFiles,
+//     TestEvict_MeasuresARenditionBeingWrittenAsItIsAndOnceMoreWhenWritten.
 //
 // # Read before changing
 //
@@ -55,4 +61,5 @@
 //   - shelf.go: the budget, last use, eviction and room.
 //   - manifest.go: the manifests, the inventory and the hello's eviction.
 //   - stores.go: the stores of chunks, their files and their runs' raw files.
+//   - sizes.go: the runs' sizes, as the shelf knows them without walking them again.
 package prepared

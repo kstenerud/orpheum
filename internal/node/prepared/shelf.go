@@ -72,6 +72,8 @@ type Shelf struct {
 	writersByRenditionDir map[string]int // guarded by mutex: run directories a prepare is writing, and how many
 	// lastUsage is what the last eviction left, for the node's status; zero before the first.
 	lastUsage Usage // guarded by mutex
+	// sizes are the runs' sizes, as the shelf knows them without walking them again.
+	sizes *runSizes
 	// storeTiers are how strongly the core's players want each chunk store kept, by its directory
 	// (D309 §8); nil until the core first said, when the stores are evicted as the renditions are.
 	storeTiers map[string]nodeproto.KeepTier // guarded by mutex
@@ -98,7 +100,7 @@ func New(directory string, budget Budget, clockSource clock.Clock, logger *slog.
 		directory: directory, budget: budget, clock: clockSource, logger: logger,
 		diskUsedPercent:       filesystemUsedPercent,
 		diskAvailableBytes:    filesystemAvailableBytes,
-		writersByRenditionDir: map[string]int{},
+		writersByRenditionDir: map[string]int{}, sizes: newRunSizes(),
 	}
 }
 
@@ -122,6 +124,9 @@ func (shelf *Shelf) MarkWriting(renditionDir string) (finishWriting func()) {
 		shelf.writersByRenditionDir[renditionDir]--
 		if shelf.writersByRenditionDir[renditionDir] <= 0 {
 			delete(shelf.writersByRenditionDir, renditionDir)
+			if !isStoreDir(renditionDir) {
+				shelf.sizes.forget(renditionDir) // written whole: walked once more when next found
+			}
 		}
 	}
 }
@@ -293,7 +298,7 @@ func (shelf *Shelf) isWriting(dir string) bool {
 }
 
 // listRuns are the run directories three levels down, <file_id>/<profile>/<run_id>, each with its
-// size and last use.
+// size, as the shelf knows it (sizeOf), and last use.
 func (shelf *Shelf) listRuns() ([]run, error) {
 	matches, err := filepath.Glob(filepath.Join(shelf.directory, "*", "*", "*"))
 	if err != nil {
@@ -305,16 +310,16 @@ func (shelf *Shelf) listRuns() ([]run, error) {
 		if statErr != nil || !info.IsDir() {
 			continue // a run gone meanwhile, or a stray file, is not a rendition
 		}
-		sizeBytes, err := diskspace.TreeBytes(path)
-		if err != nil {
-			return nil, err
-		}
 		relative, err := filepath.Rel(shelf.directory, path)
 		if err != nil {
 			return nil, fmt.Errorf("name %s: %w", path, err)
 		}
-		runs = append(runs,
-			run{renditionDir: filepath.ToSlash(relative), sizeBytes: sizeBytes, lastUse: info.ModTime()})
+		runDir := filepath.ToSlash(relative)
+		sizeBytes, err := shelf.sizeOf(runDir, path)
+		if err != nil {
+			return nil, err
+		}
+		runs = append(runs, run{renditionDir: runDir, sizeBytes: sizeBytes, lastUse: info.ModTime()})
 	}
 	return runs, nil
 }
@@ -322,6 +327,7 @@ func (shelf *Shelf) listRuns() ([]run, error) {
 // removeRun deletes one run directory, and its profile and file folders when it leaves them empty.
 func (shelf *Shelf) removeRun(dir string) error {
 	path := filepath.Join(shelf.directory, filepath.FromSlash(dir))
+	defer shelf.sizes.forget(dir)
 	if err := os.RemoveAll(path); err != nil {
 		return fmt.Errorf("evict %s: %w", dir, err)
 	}
