@@ -145,7 +145,7 @@ type LabInputEventsInput struct {
 		// its way, a few presses, and splits a longer wait's into requests of at most that many;
 		// more is refused whole, as a body that is not the page's. A justified constant, as
 		// labResultBytesAtMost is.
-		Events []LabInputEvent `doc:"What it heard since its last request, in order"               json:"events" maxItems:"200" minItems:"1"` //nolint:lll // one struct tag
+		Events []LabInputEvent `doc:"What it heard since its last request, in order"               json:"events" maxItems:"200" minItems:"1" nullable:"false"` //nolint:lll // one struct tag
 	}
 	ClientFacts
 }
