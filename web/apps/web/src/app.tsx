@@ -17,6 +17,7 @@ import { Identify } from "./identify.tsx";
 import { Jobs } from "./jobs.tsx";
 import { Lab } from "./lab.tsx";
 import { LabExtendPlayer } from "./lab-extend-player.tsx";
+import { DeviceTestsOfferedContext } from "./lab-offered.ts";
 import { Libraries } from "./libraries.tsx";
 import { People } from "./people.tsx";
 import {
@@ -132,10 +133,13 @@ function SignedIn(): JSX.Element {
               administersFromHomeAt={administersFromHomeAt(me)}
               realm={realm}
               showsDeveloperPages={clientSettings?.shouldShowDeveloperPages === true}
+              showsDeviceTests={clientSettings?.shouldOfferDeviceTests === true}
               onSwitchHousehold={switchHousehold}
               onSignOut={signOut}
             >
-              <Screen route={route} />
+              <DeviceTestsOfferedContext value={clientSettings?.shouldOfferDeviceTests}>
+                <Screen route={route} />
+              </DeviceTestsOfferedContext>
             </AppShell>
           </InterestSaidEveryContext>
         </BackgroundChangesContext>

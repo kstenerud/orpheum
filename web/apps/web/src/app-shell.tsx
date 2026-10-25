@@ -22,6 +22,7 @@ interface Destination {
     | "series"
     | "search"
     | "watchTogether"
+    | "deviceTests"
     | "identify"
     | "libraries"
     | "people"
@@ -33,10 +34,11 @@ interface Destination {
     | "about"
     | "uiGallery";
   /**
-   * Who it shows to: everyone, an admin, a person whose role may host Watch Together, or anyone
-   * while the admin has the pages for development turned on.
+   * Who it shows to: everyone, an admin, a person whose role may host Watch Together, anyone while
+   * the admin has the pages for development turned on, or anyone while the admin offers the device
+   * tests.
    */
-  readonly audience: "everyone" | "admin" | "host" | "developer";
+  readonly audience: "everyone" | "admin" | "host" | "developer" | "tester";
   /**
    * Where in the banner it is: the places for watching, always in view; or, in the one menu at the
    * banner's end, the admin's area under Manage, the pages for development, or the person's own
@@ -58,6 +60,12 @@ const destinations: readonly Destination[] = [
     route: { screen: "watch-together" },
     labelKey: "watchTogether",
     audience: "host",
+    group: "watching",
+  },
+  {
+    route: { screen: "lab" },
+    labelKey: "deviceTests",
+    audience: "tester",
     group: "watching",
   },
   { route: { screen: "identify" }, labelKey: "identify", audience: "admin", group: "manage" },
@@ -82,8 +90,9 @@ const destinations: readonly Destination[] = [
  * main landmark holding the screen. The places for watching are always in view; everything else is
  * in one menu behind a menu icon at the banner's end (the owner, 2026-10-11: "consolidate all the
  * extra functionality into a single pull-down menu on the right"): who is signed in, the admin's
- * destinations under Manage, shown to an admin only, the person's own places, and Sign out. Watch Together shows to a person whose role may host. The server refuses
- * a destination to anyone else whatever the menu shows.
+ * destinations under Manage, shown to an admin only, the person's own places, and Sign out. Watch
+ * Together shows to a person whose role may host, and Device tests, beside it, to everyone while the
+ * admin offers them. The server refuses a destination to anyone else whatever the menu shows.
  */
 export function AppShell(props: {
   readonly isAdmin: boolean;
@@ -107,6 +116,12 @@ export function AppShell(props: {
    */
   readonly showsDeveloperPages?: boolean;
   /**
+   * Whether the places for watching offer the device lab's tests, beside Watch Together: a server
+   * setting the admin turns on (the owner, 2026-10-25: for running device tests with beta
+   * participants).
+   */
+  readonly showsDeviceTests?: boolean;
+  /**
    * Goes to the discovery's list of households, offered in the menu while a discovery's loader runs
    * the page (D308 §8); undefined, and the menu offers none.
    */
@@ -120,13 +135,7 @@ export function AppShell(props: {
   readonly children: ReactNode;
 }): JSX.Element {
   const { t } = useTranslation();
-  const shown = destinations.filter(
-    (destination) =>
-      destination.audience === "everyone" ||
-      (destination.audience === "admin" && props.isAdmin) ||
-      (destination.audience === "host" && props.canHostWatchTogether) ||
-      (destination.audience === "developer" && props.showsDeveloperPages === true),
-  );
+  const shown = destinations.filter((destination) => isShownTo(destination.audience, props));
   const inGroup = (group: Destination["group"]): readonly Destination[] =>
     shown.filter((destination) => destination.group === group);
   const links = (group: Destination["group"]): JSX.Element[] =>
@@ -164,6 +173,25 @@ export function AppShell(props: {
       <ShellMain>{props.children}</ShellMain>
     </div>
   );
+}
+
+/** Whether the shell shows a destination for audience to the person it is drawn for. */
+function isShownTo(
+  audience: Destination["audience"],
+  shell: Parameters<typeof AppShell>[0],
+): boolean {
+  switch (audience) {
+    case "everyone":
+      return true;
+    case "admin":
+      return shell.isAdmin;
+    case "host":
+      return shell.canHostWatchTogether;
+    case "developer":
+      return shell.showsDeveloperPages === true;
+    case "tester":
+      return shell.showsDeviceTests === true;
+  }
 }
 
 /** The screen, under any word the page has about what the browser is doing. */

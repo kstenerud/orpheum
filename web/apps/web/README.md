@@ -25,8 +25,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   refusal is told by its reason (`providerProblemText`), with who can fix it.
   `no-restricted-syntax` on `error.error.message`; `src/screen-refusals.test.tsx`.
 - **The shell renders a banner with the product name and the menu, and one `main` landmark;**
-  an admin's destinations show to an admin only (the server refuses them to anyone else).
-  `src/app-shell.test.tsx`.
+  an admin's destinations show to an admin only (the server refuses them to anyone else); Device
+  tests, beside Watch Together, shows to everyone while the server offers them
+  (`should_offer_device_tests`). `src/app-shell.test.tsx`, `src/lab.test.tsx`.
 - **Every screen is a pure view of its data, tested by rendering it**; the loading around it is
   thin. `src/*.test.tsx`. What a screen does when clicked is tested in happy-dom against a
   stand-in server passed to the SDK as its fetch (`src/test-dom.tsx`), never the network.
@@ -102,7 +103,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   end comes into view, with a button that always asks too. `src/end-of-list.tsx`.
 - **About credits TMDB with its logo and exact notice, and names what we are built on**
   (D213 §7). `src/about.test.tsx`.
-- **The device lab is at `/lab`, each probe a page of its own** (plans/tv-device-tests.md): a menu
+- **The device lab is at `/lab`, each probe a page of its own** (plans/tv-device-tests.md), offered
+  only while the server's `should_offer_device_tests` is on (the owner, 2026-10-25): off, every lab
+  page says so in place of its probe, the test film excepted; a menu
   of big links a D-pad's own browser navigation reaches; each probe shows what it found in large
   type and sends it to the core's log through the SDK, showing the name the log keeps it by; the
   cast probe opens by its own load, the one page the core lets load Google's Cast SDK; the extend
@@ -147,7 +150,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   page and its Send), `lab-device.tsx`, `lab-input.tsx` (with `lab-focus.ts`, the focus engine, and
   `lab-keys.ts`), `lab-remote.tsx`, `lab-extend.tsx` and `lab-extend-player.tsx` (with
   `lab-extend-channel.ts`), `lab-cast.tsx` (with `lab-cast-sdk.ts`, Google's sender SDK),
-  `lab-send.ts`, `lab-timing.ts`, `lab-tone.ts`; its words in `src/locales/en-lab.ts`.
+  `lab-send.ts`, `lab-timing.ts`, `lab-tone.ts`, `lab-offered.ts` (whether the server offers it); its words in `src/locales/en-lab.ts`.
 - The look of plain elements everywhere: `src/base.css`; the skin's tokens: `src/tokens.css`
   (D251).
 - Every user-visible string: `src/locales/en.ts` and its parts (`en-together.ts`,

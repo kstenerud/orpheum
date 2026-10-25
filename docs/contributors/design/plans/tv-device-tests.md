@@ -22,8 +22,17 @@
 ## 0. The lab pages, and reading their results
 
 Every page is under **`/lab`** on the core, so a TV's remote types five characters after the
-address it already has. The menu is a vertical list of large links: the browser's own D-pad
-navigation, Tab or a pointer reaches each.
+address it already has, or it is reached by **Device tests**, beside Watch Together in the app's
+menu. The menu is a vertical list of large links: the browser's own D-pad navigation, Tab or a
+pointer reaches each.
+
+**Turning it on.** The lab is off on a new server. An admin turns it on in **Settings**, under
+*Show advanced settings*, in **Diagnostics and development**: *should_offer_device_tests* (the
+owner, 2026-10-25: for running device tests with beta participants). Then everyone signed in sees
+Device tests in the menu. While it is off, Device tests is not in the menu, every `/lab` page says
+*Device tests are turned off on this server*, and the core refuses a page's results as
+`not_found`; the test film at `/lab/extend/player` plays whatever the setting, since it asks the
+server nothing.
 
 | Page | Address | What it does |
 | --- | --- | --- |

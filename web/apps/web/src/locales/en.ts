@@ -43,6 +43,7 @@ export const en = {
     series: "Series",
     search: "Search",
     watchTogether: "Watch Together",
+    deviceTests: "Device tests",
     identify: "Needs a match",
     libraries: "Libraries",
     settings: "Settings",
