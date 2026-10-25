@@ -578,6 +578,7 @@ function InputDetails(props: {
   return (
     <details className="lab__details">
       <summary>{t("lab.input.details")}</summary>
+      <p className="lab__lead">{t("lab.input.explain")}</p>
       {props.children}
       <button
         type="button"
@@ -744,15 +745,14 @@ export function LabInput(): JSX.Element {
       isCompact={true}
       atTop={<SendingLine sending={sending} />}
     >
-      <p className="lab__lead">{t("lab.input.explain")}</p>
       <ButtonChips heard={heard} />
       <LastHeard heard={heard} />
       <TileRows ref={tilesRef} />
       <div className="lab__controls">
         <FieldTest noteEvent={noteEvent} />
         <FullscreenTest noteEvent={noteEvent} />
+        <InputControls mode={mode} onMode={changeMode} />
       </div>
-      <InputControls mode={mode} onMode={changeMode} />
       <PadLine pads={pads} onChoose={chooseOk} />
       <InputDetails isToneOn={isToneOn} onTone={toggleTone} keys={keys}>
         <p className="lab__small">{timingText(t, summaries[mode])}</p>
