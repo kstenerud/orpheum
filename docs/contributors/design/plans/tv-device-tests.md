@@ -17,7 +17,7 @@
   laptop, an iPhone and an Android phone; the TCL TV in Berlin (Google TV, TV Bro, Chromecast built
   in, most likely); a used Chromecast with Google TV, being sought.
 - **Device checks:** each test that settles something is a `VQ` item in
-  [verification-queue.md](../../verification-queue.md) (VQ55–VQ59), ticked with what was seen.
+  [verification-queue.md](../../verification-queue.md) (VQ55–VQ60), ticked with what was seen.
 
 ## 0. The lab pages, and reading their results
 
@@ -38,7 +38,7 @@ server nothing.
 | --- | --- | --- |
 | Menu | `/lab` | The probes, one big link each |
 | Device report | `/lab/device` | User agent and the Fire OS/Vega hint, screen and page size, devicePixelRatio; MSE, ManagedMediaSource and `canPlayType` for H.264 (five profiles and levels), HEVC, AV1, VP9, AAC-LC, HE-AAC (v1, v2), AC-3, E-AC-3, Opus and FLAC in fMP4; native HLS; then, after **Run**, the audio context's base and output latency, the number of audio outputs, and a WebRTC call with itself (data-channel round trips, a tone's received level). Lists which of setSinkId, Screen Wake Lock, getUserMedia, RTCPeerConnection, getScreenDetails, the Gamepad API, Media Session, Fullscreen, the Presentation API and Remote Playback the browser has |
-| Button test (was Remote and keys) | `/lab/input` | A chip for each button (Up, Down, Left, Right, OK / Enter, Back, Play / Pause, Rewind, Fast forward, Other; the volume keys once heard), lit as the page hears it as a key, a history step back, a controller button or a Media Session action; the last named large with its key, code and keyCode; two rows of six tiles, moved across by the browser's own navigation or Orpheum's, each move's latency from key to the frame after focus moved (median and worst, against D190's 250 ms). Fits a Fire TV's 960 × 540 unscrolled (the owner, 2026-10-25). Under **Details**: the last 30 key events (key, code, keyCode, repeat, ms since the one before; Backs marked), Media Session actions, Back as history steps, gamepads and the tone's switch, off: *Test a keyboard's media keys* (a TV's remote sends play/pause as a key without it). No Send: each press, each move and each change of mode goes to the log as it happens, under the run's name shown on the page |
+| Button test (was Remote and keys) | `/lab/input` | A chip for each button (Up, Down, Left, Right, OK / Enter, Back, Play / Pause, Rewind, Fast forward, Other; the volume keys once heard), lit as the page hears it as a key, a history step back, a controller button or stick, or a Media Session action; the last named large with its key, code and keyCode; a row of six tiles, moved across by the browser's own navigation or Orpheum's (which reaches the whole app, the title bar included), each move's latency from key to the frame after focus moved (median and worst, against D190's 250 ms); a *Type here* field (H6); **Full-screen test** and **Full screen: video only**, a small video drawn in the page (H7); the controller line: its name (cut to 32 characters), its mapping, the layout the page infers and which face button is OK, with *OK is: the bottom button / the right button* for a pad of unknown layout, or *This controller has no standard layout* (H8). Fits a Fire TV's 960 × 540 unscrolled (the owner, 2026-10-25). Under **Details**: the timing line, the last 30 key events (key, code, keyCode, repeat, ms since the one before; Backs marked), Media Session actions, Back as history steps, gamepads and the tone's switch, off: *Test a keyboard's media keys* (a TV's remote sends play/pause as a key without it). No Send: each press, each move and each change goes to the log as it happens, under the run's name shown beside the heading |
 | Phone as remote | `/lab/remote` | Screen Wake Lock held and asked again when shown; the microphone through a call with the page itself, played back through an `<audio>` element (not Web Audio), its level sampled each second; a 1 s ticker whose gaps over 2 s mean the page was stopped; visibility and page lifecycle. Sends its log every 30 s |
 | Extend to the TV | `/lab/extend` | Where the browser can place a window on another screen (Window Management API, Chromium), opens a test film there (a counter, a sweep, a flash and a beep each second, full screen at its first press) and stays as its remote (play/pause, ±10 s); elsewhere, says so and gives the manual recipe. Then two tones on two audio outputs at once (setSinkId) |
 | Cast | `/lab/cast` | Chromium only, over HTTPS. Google's Default Media Receiver handed an address, or our own receiver by its app id, spoken to on `urn:x-cast:org.orpheum.lab`. Must be opened by its own address (typed, or from the menu, which loads it afresh): only that page may load Google's Cast SDK |
@@ -61,11 +61,31 @@ then `userId` and `deviceId`:
 - *a button test started*: `viewport` (`960x540`), `devicePixelRatio`, `mode`, `hasMediaSession`,
   `userAgent`; once per run, with its first events.
 - *a button test heard a press*: `kind` `key` (a key going down; `button`, `key`, `code`,
-  `keyCode`, `isRepeat`), `back` (a step back in history), `gamepad` (`padIndex`, `padButton`,
-  `padId`) or `media` (`action`), each with its `button` and the `mode` it came in.
+  `keyCode`, `isRepeat`; `inField: true` while the text field has focus, where a key that is one
+  character is sent as `key: "Character"` with no `code` or `keyCode`, which would spell what was
+  typed), `back` (a step back in history), `gamepad` (`padIndex`, `padButton`, `padId`, `padLayout`,
+  and on a standard pad `padButtonName`: `faceBottom`, `faceRight`, `faceLeft`, `faceTop`,
+  `shoulderLeft`/`Right`, `triggerLeft`/`Right`, `select`, `start`, `stickLeft`/`Right`,
+  `dpadUp`/`Down`/`Left`/`Right`, `home`), `stick` (a standard pad's left stick leaning past half
+  way: `button` the direction, `axisIndex`, `axisValue`) or `media` (`action`), each with its
+  `button`, the `mode` it came in, and `inFullscreen: true` while the page is full screen.
 - *a button test measured a move*: `kind` `move`, `mode` and `latencyMs`, key to the frame after
   focus moved.
 - *a button test changed who moves focus*: `kind` `mode`, the new `mode`.
+- *a button test's text field changed*: `kind` `fieldIn`, `fieldOut`, `fieldInput` (with
+  `inputType`), `compositionStart` or `compositionEnd`, each with `valueLength`, never the text.
+- *a button test's visual viewport resized*: `kind` `viewport`, `width` and `height` (an on-screen
+  keyboard shrinking the page shows here).
+- *a button test's full screen changed*: `kind` `fullscreenEnter` or `fullscreenExit` with
+  `fullscreenTarget` (`container`, the video's box, or `video`, the bare element),
+  `fullscreenRefused` with `fullscreenTarget` and `errorName`, and `fullscreenExitAsked` with the
+  `button` (Back or Escape) at which the page asked to leave.
+- *a button test read a controller*: `kind` `pad` as a pad is first seen (`padIndex`, `padId`,
+  `padMapping` `standard`/`none`/`other`, `padLayout` `xbox`/`playstation`/`nintendo`/`unknown`,
+  `okButton` `bottom`/`right`), and `okChoice` with the `okButton` the person chose.
+- *a button test heard a controller's axis*: `kind` `axis`, a pad with no standard mapping's axis
+  crossing half way either way (`padIndex`, `axisIndex`, `axisValue`).
+- The run's start line also says `hasFullscreen` and `hasCaptureStream`.
 
 `grep '"labRun":"K3J7QW2A"'` in the core's log gives the run in order; add `'"kind":"key"'`, say,
 for its keys alone, or pipe through `jq -c '{seq, kind, button, key, keyCode, latencyMs}'` for a
@@ -109,7 +129,7 @@ and compare with `/lab/device`'s *Fire TV* line, which reads the user agent's `A
   2. Move across the tiles with the D-pad in **The browser's own**, then in **Orpheum's
      navigation**, about 20 moves each.
   3. Press **Back** three times.
-  4. Note the run's name in the status line under the tiles (*Sending as you press · run
+  4. Note the run's name in the status line beside the heading (*Sending as you press · run
      `K3J7QW2A` · 34 sent*). There is no Send: every press and move is in the log already, read by
      the run's name (§0, *The button test sends as you press*): `grep '"labRun":"K3J7QW2A"'`.
      A reload, as changing Silk's own navigation mode does, starts a new run with a new name.
@@ -191,6 +211,102 @@ and compare with `/lab/device`'s *Fire TV* line, which reads the user agent's `A
 - **Decides:** casting §6 Q7 — whether voice can go to earbuds while the film plays on the TV, and
   on which browsers, before *Voice through: [device]* is offered.
 - **VQ57** (with H3).
+
+### H6. The text field in Silk
+
+- **Device:** a Fire TV stick, Silk in spatial navigation mode, its remote; then a laptop's
+  Chrome and Firefox with a keyboard, for comparison.
+- **Open:** `/lab/input`, **Orpheum's navigation**. Note the run's name.
+- **Steps:**
+  1. Move to *Type here* with the D-pad (from the tiles, Down). Note whether focus alone opens Silk's
+     on-screen keyboard, or OK is needed.
+  2. Press OK on it. Type three letters with the on-screen keyboard; delete one; type one more.
+  3. With the keyboard open, press Left and Right; then Up; then Back. Note what each does (moves
+     the caret, leaves the field, closes the keyboard, leaves the page).
+  4. Close the keyboard (Back, or its own Done); press Left at the value's start and Right at its
+     end, then Down.
+- **Record:** from the log (`grep '"labRun":"…"' | grep -E 'field|viewport|inField'`): `fieldIn`
+  at focus or only at OK; `fieldInput` per letter (with `inputType`) or `compositionStart`/`End`
+  around them; whether any key reaches the page while the keyboard is open (`inField: true`, and
+  with which key and keyCode; 229 means the keyboard composes); `viewport` lines (the keyboard
+  shrinking the visual viewport, and how much); which arrow left the field (`fieldOut`, then a
+  `move`); Back's history step or key.
+- **Decides:**
+  - Arrows reaching the page with the caret at the value's ends → our focus engine's caret rule
+    (leave at start/end, Up and Down always) carries over to the real UI's search box.
+  - No key while the keyboard is open, only `fieldInput` → the UI cannot react to keys mid-typing;
+    search runs on `input`, not on keys.
+  - `viewport` shrinking → the real UI keeps the field above the keyboard by the visual viewport;
+    none → Silk's keyboard covers the page and the field must sit in its top half.
+  - Back closing the keyboard without a history step → Back in a field needs no handling of ours;
+    a history step → the page must take Back to mean "close the keyboard" first.
+
+### H7. Full screen in Silk
+
+- **Device:** a Fire TV stick in Silk (spatial mode), then a laptop's Chrome and Firefox.
+- **Open:** `/lab/input`. Note the run's name.
+- **Steps:**
+  1. Move to **Full-screen test** and press OK. A counter plays full screen. Press each D-pad
+     direction, OK and play/pause once, then **Back**.
+  2. Again, but leave by **Back** pressed twice quickly, and once by **Menu (≡)**, noting what
+     each does.
+  3. Move to **Full screen: video only** and repeat step 1.
+  4. On the laptop, both buttons again, leaving with **Escape**.
+- **Record:** `fullscreenEnter` with its `fullscreenTarget` or `fullscreenRefused` with
+  `errorName`; the keys heard while full screen (`inFullscreen: true`) for each target; at Back, a
+  `back` (history step) or a Back key, then `fullscreenExitAsked` and `fullscreenExit`, or the
+  browser leaving full screen by itself (`fullscreenExit` with no ask before it), or the page left;
+  whether Silk shows its own controls over the bare video; with Escape on the laptop, whether the
+  page heard the key at all before `fullscreenExit`. The run's start line says `hasCaptureStream`:
+  the video is a canvas streamed into a `<video>` by `captureStream`; where that is missing the
+  canvas itself is shown in the box, and the bare video's button shows nothing.
+- **Decides:**
+  - Keys reaching the page with the box full screen → our player goes full screen by its container
+    and keeps its own controls and keys on a TV.
+  - Keys only with the box, not the bare video → never put the bare `<video>` full screen there.
+  - Back leaving full screen by itself → no handling of ours; a history step that leaves full
+    screen only because we asked → the player must take Back while full screen; the page itself
+    leaving → the player must keep a history entry while full screen.
+  - Refused (`NotAllowedError`) → full screen needs the OK press itself; never asked from a
+    timer or a controller's button (see H8 step 5).
+
+### H8. The 8BitDo SN30 Pro in each of its modes
+
+- **Devices:** the 8BitDo SN30 Pro, paired to the Fire TV stick (Silk, spatial mode) and to a
+  laptop (Chrome, then Firefox). Its modes are chosen at power-on: **Start + Y** Switch,
+  **Start + X** X-input, **Start + B** D-input (Android), **Start + A** macOS; re-pair after each
+  change (hold Select 3 s to pair). Note the mode beside each run's name.
+- **Open:** `/lab/input`, **Orpheum's navigation**.
+- **Steps**, in each mode on each device:
+  1. Press any button so the page sees the pad. Read the controller line: its name, mapping and
+     the layout the page inferred (or *This controller has no standard layout*).
+  2. Press each face button in turn, labelled **A, B, X, Y** on the pad, then L, R, ZL, ZR,
+     Select, Start, Home and Star; then the D-pad's four directions.
+  3. Push the left stick each way, then hold it down for two seconds.
+  4. Where *OK is:* is offered, choose the button labelled **A** (on the SN30 Pro it is the right
+     one), then press A and B again.
+  5. With the D-pad move to **Full-screen test** and press the pad's OK.
+- **Record:** the `pad` line per mode (`padId` verbatim, `padMapping`, `padLayout`, `okButton`)
+  and the `okChoice` where chosen; each face button's `padButton` and `padButtonName` against its
+  printed label; for a pad with no standard layout, the raw `padButton` numbers and the `axis`
+  lines; the stick's `stick` lines and whether holding it moved focus repeatedly (about 400 ms,
+  then every 100 ms); whether the pad's OK opened full screen or was refused; on the Fire TV,
+  whether the pad reaches Silk's page at all (no `pad` line, or the D-pad heard as arrow keys by
+  Silk itself: `key` lines with `ArrowDown`).
+- **Decides:**
+  - Which ids read right: an inferred layout that is wrong for a mode (the page says Xbox and A
+    is the right button) corrects lab-pads.ts's table before the real UI takes it; the `padId`
+    strings replace the unverified ones in its tests.
+  - Switch mode reading as Nintendo, X-input as Xbox, D-input as unknown → the real UI infers by
+    vendor and asks only for unknown pads; every mode unknown on the Fire TV (Android's ids carry no
+    vendor) → the real UI asks once per pad and keeps the answer.
+  - The stick's repeat feeling right → 400/100 ms become the real UI's defaults; too fast or slow
+    → the numbers the owner prefers.
+  - The Fire TV turning the pad into arrow keys → the real UI needs no Gamepad API there; the
+    page seeing the pad → it does, as on laptops.
+  - A controller's OK refused full screen → the player's full screen is reached by a key or a
+    pointer only.
+- **VQ60** (with H6 and H7).
 
 ## 2. On the next Berlin visit (the TCL TV)
 
