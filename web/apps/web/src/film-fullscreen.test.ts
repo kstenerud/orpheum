@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { fillsWindowClass, fillTheScreen } from "./film-fullscreen.ts";
+import { fillsWindowClass, fillTheScreen, fullscreenAnswerWithinMs } from "./film-fullscreen.ts";
 
 describe("a player's stage put full screen (the owner's Mac, Safari, 2026-10-25)", () => {
   it("fills the window where the browser refuses full screen", async () => {
@@ -26,5 +26,19 @@ describe("a player's stage put full screen (the owner's Mac, Safari, 2026-10-25)
     await Promise.resolve();
     expect(asked).toBe(1);
     expect(stage.classList.contains(fillsWindowClass)).toBe(false);
+  });
+
+  it("fills the window where the browser does not answer in time", async () => {
+    vi.useFakeTimers();
+    try {
+      const stage = document.createElement("div");
+      stage.requestFullscreen = (): Promise<void> => new Promise(() => undefined);
+      fillTheScreen(stage, document);
+      expect(stage.classList.contains(fillsWindowClass)).toBe(false);
+      await vi.advanceTimersByTimeAsync(fullscreenAnswerWithinMs);
+      expect(stage.classList.contains(fillsWindowClass)).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

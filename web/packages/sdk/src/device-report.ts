@@ -136,6 +136,8 @@ export interface DeviceFacts {
   readonly userAgent: string;
   readonly screen: { readonly width: number; readonly height: number; readonly colorDepth: number };
   readonly viewport: { readonly width: number; readonly height: number };
+  /** The window's own size, its toolbar and frame included: a full-screen window's is the screen's. */
+  readonly window?: { readonly width: number; readonly height: number };
   readonly devicePixelRatio: number;
   readonly features: Readonly<Record<LabFeature, boolean>>;
   readonly codecs: CodecProbe;
@@ -147,6 +149,8 @@ export interface DeviceReport {
   readonly fireTv: string | undefined;
   readonly screen: { readonly width: number; readonly height: number; readonly colorDepth: number };
   readonly viewport: { readonly width: number; readonly height: number };
+  /** The window's own size, its toolbar and frame included: a full-screen window's is the screen's. */
+  readonly window?: { readonly width: number; readonly height: number };
   readonly devicePixelRatio: number;
   /** The names of the APIs the page has, then those it lacks. */
   readonly has: readonly LabFeature[];
@@ -170,6 +174,7 @@ export function deviceReportFrom(facts: DeviceFacts): DeviceReport {
     fireTv: fireTvHintOf(facts.userAgent),
     screen: facts.screen,
     viewport: facts.viewport,
+    ...(facts.window === undefined ? {} : { window: facts.window }),
     devicePixelRatio: facts.devicePixelRatio,
     has: labFeatureNames.filter((name) => facts.features[name]),
     lacks: labFeatureNames.filter((name) => !facts.features[name]),
@@ -225,6 +230,7 @@ export function browserDeviceFacts(): DeviceFacts {
       colorDepth: globalThis.screen.colorDepth,
     },
     viewport: { width: globalThis.innerWidth, height: globalThis.innerHeight },
+    window: { width: globalThis.outerWidth, height: globalThis.outerHeight },
     devicePixelRatio: globalThis.devicePixelRatio,
     features,
     codecs: {
