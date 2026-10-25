@@ -6,6 +6,12 @@ export interface Scanned {
   readonly keyHash: string;
 }
 
+/** The device lab's probes, each a page under /lab/. */
+export const labPages = ["device", "input", "remote", "extend", "cast"] as const;
+
+/** One of the device lab's probes. */
+export type LabPage = (typeof labPages)[number];
+
 /** Every screen the client shows, and what it needs from the address to show it. */
 export type Route =
   | { readonly screen: "films" }
@@ -31,6 +37,13 @@ export type Route =
   | { readonly screen: "register" }
   | { readonly screen: "together" }
   | { readonly screen: "watch-together" }
+  /**
+   * The device lab (plans/tv-device-tests.md): its menu, or one of its probes, at a short address a
+   * TV's remote types quickly; no menu leads to it.
+   */
+  | { readonly screen: "lab"; readonly probe?: LabPage }
+  /** The lab's extend probe's player, in a window of its own on the TV's screen: no shell. */
+  | { readonly screen: "lab-extend-player" }
   /** The client's own parts with made-up data, for seeing how they look; no menu leads to it. */
   | { readonly screen: "ui-gallery" }
   | { readonly screen: "not-found" };
@@ -86,6 +99,12 @@ const shapes: readonly Shape[] = [
   { pattern: /^\/together\/?$/u, toRoute: () => ({ screen: "together" }) },
   { pattern: /^\/watch-together\/?$/u, toRoute: () => ({ screen: "watch-together" }) },
   { pattern: /^\/ui-gallery\/?$/u, toRoute: () => ({ screen: "ui-gallery" }) },
+  { pattern: /^\/lab\/?$/u, toRoute: () => ({ screen: "lab" }) },
+  ...labPages.map((probe) => ({
+    pattern: new RegExp(`^/lab/${probe}/?$`, "u"),
+    toRoute: (): Route => ({ screen: "lab", probe }),
+  })),
+  { pattern: /^\/lab\/extend\/player\/?$/u, toRoute: () => ({ screen: "lab-extend-player" }) },
 ];
 
 /** The route an address names; an address the client does not know is not-found, never a guess. */
@@ -122,6 +141,14 @@ function queryRouteHref(route: Route): string | undefined {
   return undefined;
 }
 
+/** The address of one of the device lab's routes, or undefined for another. */
+function labRouteHref(route: Route): string | undefined {
+  if (route.screen === "lab") {
+    return route.probe === undefined ? "/lab" : `/lab/${route.probe}`;
+  }
+  return route.screen === "lab-extend-player" ? "/lab/extend/player" : undefined;
+}
+
 /** The address of a route: what parseRoute reads back as the same route. */
 export function routeHref(route: Route): string {
   const withQuery = queryRouteHref(route);
@@ -143,6 +170,10 @@ export function routeHref(route: Route): string {
   }
   if (route.screen === "files") {
     return `/libraries/${String(route.libraryId)}/files`;
+  }
+  const lab = labRouteHref(route);
+  if (lab !== undefined) {
+    return lab;
   }
   return route.screen === "not-found" ? "/" : `/${route.screen}`;
 }

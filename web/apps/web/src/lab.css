@@ -1,0 +1,175 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* The device lab (plans/tv-device-tests.md): read at a TV's distance, so large type and big targets. */
+.lab {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 72rem;
+  font-size: var(--font-size-h3);
+}
+
+.lab__lead {
+  max-width: var(--size-reading);
+  margin: 0;
+}
+
+.lab__big {
+  font-size: var(--font-size-h2);
+}
+
+.lab__huge {
+  font-size: var(--font-size-h1);
+}
+
+.lab__mono {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+/* The menu: one link a row, each a big target a D-pad's browser navigation reaches in order. */
+.lab__menu {
+  display: grid;
+  gap: var(--space-3);
+  max-width: 40rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lab__menu-link {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.lab__menu-name {
+  font-size: var(--font-size-h1);
+  font-weight: var(--font-weight-title);
+}
+
+.lab__menu-what {
+  color: var(--color-muted);
+}
+
+.lab__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.lab__button {
+  min-height: calc(var(--size-control) * 1.25);
+  padding-inline: var(--space-5);
+  font-size: var(--font-size-h2);
+}
+
+.lab__button[aria-pressed="true"] {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.lab__send {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.lab__field {
+  display: grid;
+  gap: var(--space-1);
+  max-width: 48rem;
+}
+
+.lab__facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+
+.lab__fact {
+  display: contents;
+}
+
+.lab__facts dt {
+  color: var(--color-muted);
+}
+
+.lab__facts dd {
+  margin: 0;
+}
+
+.lab__scroll {
+  overflow-x: auto;
+}
+
+.lab__table {
+  border-collapse: collapse;
+}
+
+.lab__table th,
+.lab__table td {
+  padding: var(--space-1) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  text-align: start;
+}
+
+.lab__back-key {
+  color: var(--color-status);
+}
+
+.lab__log,
+.lab__recipe {
+  margin: 0;
+  font-family: var(--font-mono);
+}
+
+/* The input probe's tiles: a header row, then a TV home screen's grid. */
+.lab__region {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.lab__header-row {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.lab__grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.lab__tile {
+  min-height: calc(var(--size-control) * 2);
+  font-size: var(--font-size-h3);
+}
+
+.lab__tile--header {
+  min-height: var(--size-control);
+}
+
+/* The extend probe's player, alone in its window on the TV's screen. */
+.lab-player {
+  position: fixed;
+  inset: 0;
+  background: var(--color-video-background);
+}
+
+.lab-player__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}

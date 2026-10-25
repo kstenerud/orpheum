@@ -24,6 +24,13 @@ describe("parseRoute and routeHref", () => {
       { screen: "settings" },
       { screen: "together" },
       { screen: "watch-together" },
+      { screen: "lab" },
+      { screen: "lab", probe: "device" },
+      { screen: "lab", probe: "input" },
+      { screen: "lab", probe: "remote" },
+      { screen: "lab", probe: "extend" },
+      { screen: "lab", probe: "cast" },
+      { screen: "lab-extend-player" },
     ];
     for (const route of routes) {
       const url = new URL(routeHref(route), "http://orpheum.test");
@@ -42,5 +49,14 @@ describe("parseRoute and routeHref", () => {
       expect(parseRoute(pathname, "")).toEqual({ screen: "not-found" });
     }
     expect(parseRoute("/", "")).toEqual({ screen: "films" });
+  });
+
+  it("reaches the device lab by a short address, with or without a slash, and no other probe", () => {
+    expect(parseRoute("/lab", "")).toEqual({ screen: "lab" });
+    expect(parseRoute("/lab/", "")).toEqual({ screen: "lab" });
+    expect(parseRoute("/lab/input/", "")).toEqual({ screen: "lab", probe: "input" });
+    expect(parseRoute("/lab/extend/player", "")).toEqual({ screen: "lab-extend-player" });
+    expect(parseRoute("/lab/elsewhere", "")).toEqual({ screen: "not-found" });
+    expect(parseRoute("/laboratory", "")).toEqual({ screen: "not-found" });
   });
 });

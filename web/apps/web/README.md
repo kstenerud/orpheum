@@ -102,6 +102,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   end comes into view, with a button that always asks too. `src/end-of-list.tsx`.
 - **About credits TMDB with its logo and exact notice, and names what we are built on**
   (D213 §7). `src/about.test.tsx`.
+- **The device lab is at `/lab`, each probe a page of its own** (plans/tv-device-tests.md): a menu
+  of big links a D-pad's own browser navigation reaches; each probe shows what it found in large
+  type and sends it to the core's log through the SDK, showing the name the log keeps it by; the
+  cast probe opens by its own load, the one page the core lets load Google's Cast SDK; the extend
+  probe's test film needs no sign-in. The input probe's focus engine sits behind `FocusEngine`
+  (`src/lab-focus.ts`), so another can be measured beside ours. `src/lab.test.tsx`,
+  `src/router.test.ts`, `src/lab-focus.test.ts`, `src/lab-timing.test.ts`, `src/lab-keys.test.ts`,
+  `src/lab-extend-channel.test.ts`, `src/lab-tone.test.ts`; on devices, VQ55–VQ59.
 - **Focus only adds** (D189): ring, lift and modest scale are custom properties in
   `src/tokens.css`. Review-only until the first tile lands; then the geometry and luminance
   tests of [testing-strategy.md](../../../docs/contributors/design/plans/testing-strategy.md) enforce it.
@@ -135,6 +143,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `roles-section.tsx` (roles and their libraries), `system-reachability.tsx` and `system-work.tsx`
   (the System page's reachability check and its queue's health), and `busy-group.tsx` (controls
   held while a request is answered).
+- The device lab (plans/tv-device-tests.md): `lab.tsx` (its menu), `lab-frame.tsx` (a probe's
+  page and its Send), `lab-device.tsx`, `lab-input.tsx` (with `lab-focus.ts`, the focus engine, and
+  `lab-keys.ts`), `lab-remote.tsx`, `lab-extend.tsx` and `lab-extend-player.tsx` (with
+  `lab-extend-channel.ts`), `lab-cast.tsx` (with `lab-cast-sdk.ts`, Google's sender SDK),
+  `lab-send.ts`, `lab-timing.ts`, `lab-tone.ts`; its words in `src/locales/en-lab.ts`.
 - The look of plain elements everywhere: `src/base.css`; the skin's tokens: `src/tokens.css`
   (D251).
 - Every user-visible string: `src/locales/en.ts` and its parts (`en-together.ts`,
