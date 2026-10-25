@@ -94,6 +94,26 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
     }
   });
 
+  it("runs the rail from under the banner to the window's bottom, its letters on it, unmoved as the list scrolls", async () => {
+    for (const [width, height] of [
+      [960, 480],
+      [1440, 1000],
+    ] as const) {
+      await page.viewport(width, height);
+      walking?.unmount();
+      walking = await mountApp(walkServices(filmsOnly));
+      await expect.poll(() => isDrawn(".alphabet-rail__letter")).toBe(true);
+      window.scrollTo(0, 0);
+      const rail = boxOf(".alphabet-rail");
+      expect(rail.top).toBeGreaterThanOrEqual(boxOf(".app-shell__banner").bottom);
+      expect(rail.bottom).toBeLessThanOrEqual(window.innerHeight);
+      expect(boxOf(".alphabet-rail > li:first-child").top).toBeGreaterThanOrEqual(rail.top);
+      expect(boxOf(".alphabet-rail > li:last-child").bottom).toBeLessThanOrEqual(rail.bottom);
+      // Where it sticks once the list scrolls, so it does not move then (the owner's Fire TV).
+      expect(Math.abs(rail.top - stickingTop())).toBeLessThanOrEqual(1);
+    }
+  });
+
   it("sizes the rail's letters by the window's height, larger on a desktop's than a Fire TV's", async () => {
     const letterSize = async (width: number, height: number): Promise<number> => {
       await page.viewport(width, height);
@@ -108,6 +128,12 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
     expect(onADesktop).toBeGreaterThan(onTheStick * 1.5);
   });
 });
+
+/** Where the alphabet rail sticks under the banner as the page scrolls, in pixels from the top. */
+function stickingTop(): number {
+  const rail = document.querySelector(".alphabet-rail");
+  return rail === null ? Number.NaN : Number.parseFloat(getComputedStyle(rail).top);
+}
 
 /** Where the element selector names stands on the page; the test fails where there is none. */
 function boxOf(selector: string): DOMRect {
