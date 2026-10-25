@@ -2975,7 +2975,6 @@
             "description": "Which lab page measured it",
             "enum": [
               "device",
-              "input",
               "remote",
               "extend",
               "cast",

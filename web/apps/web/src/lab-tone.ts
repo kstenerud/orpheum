@@ -3,8 +3,8 @@
 /**
  * Tones for the lab pages (plans/tv-device-tests.md), as WAV bytes an <audio> element plays from a
  * blob URL: the extend probe sends one to each of two outputs by setSinkId, which only a media
- * element has, and the input probe plays one so the page counts as playing media, which Media
- * Session's actions need. Made here, so the probes load nothing.
+ * element has, and the button test plays one, once its switch is on, so the page counts as playing
+ * media, which a desktop browser asks before it gives a page a keyboard's media keys. Made here, so the probes load nothing.
  */
 
 /** The bytes of a WAV file of a sine tone: 16-bit mono PCM, looping cleanly at whole cycles. */

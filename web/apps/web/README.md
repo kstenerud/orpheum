@@ -107,13 +107,19 @@ The web client: the browser and phone interface, served embedded by the core. MP
   only while the server's `should_offer_device_tests` is on (the owner, 2026-10-25): off, every lab
   page says so in place of its probe, the test film excepted; a menu
   of big links a D-pad's own browser navigation reaches; each probe shows what it found in large
-  type and sends it to the core's log through the SDK, showing the name the log keeps it by; the
+  type and sends it to the core's log through the SDK, showing the name the log keeps it by (the
+  button test as it goes, below); the
   cast probe opens by its own load, the one page the core lets load Google's Cast SDK; the extend
   probe's test film needs no sign-in. The input probe, the button test, lights a chip for each
   button heard, whether as a key, a step back, a controller's button or a Media Session action
   (`src/lab-buttons.ts`), and fits a Fire TV's 960 × 540 in the shell unscrolled (the owner,
-  2026-10-25); its focus engine sits behind `FocusEngine` (`src/lab-focus.ts`), so another can be
-  measured beside ours. `src/lab.test.tsx`, `src/lab-input.test.tsx`,
+  2026-10-25); it has no Send: each press (a key going down, not up), each move of focus with its
+  latency and each change of who moves it goes to the core's log as it happens, one request on its
+  way at most and what came meanwhile sent together after it, what waits sent kept alive as the page
+  hides or leaves, under the run's name the page makes as it loads and shows (`src/lab-events.ts`;
+  the owner, 2026-10-25); its quiet tone, for a keyboard's media keys alone, is off until switched
+  on in its details; its focus engine sits behind `FocusEngine` (`src/lab-focus.ts`), so another can
+  be measured beside ours. `src/lab.test.tsx`, `src/lab-input.test.tsx`, `src/lab-events.test.ts`,
   `src/lab-input.browser.test.tsx`, `src/lab-buttons.test.ts`,
   `src/router.test.ts`, `src/lab-focus.test.ts`, `src/lab-timing.test.ts`, `src/lab-keys.test.ts`,
   `src/lab-extend-channel.test.ts`, `src/lab-tone.test.ts`; on devices, VQ55–VQ59.
@@ -152,7 +158,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
   held while a request is answered).
 - The device lab (plans/tv-device-tests.md): `lab.tsx` (its menu), `lab-frame.tsx` (a probe's
   page and its Send), `lab-device.tsx`, `lab-input.tsx` (the button test, with `lab-buttons.ts`, which
-  button a press is, `lab-focus.ts`, the focus engine, and `lab-keys.ts`), `lab-remote.tsx`, `lab-extend.tsx` and `lab-extend-player.tsx` (with
+  button a press is, `lab-focus.ts`, the focus engine, `lab-keys.ts`, and `lab-events.ts`, its events on their way to the log), `lab-remote.tsx`, `lab-extend.tsx` and `lab-extend-player.tsx` (with
   `lab-extend-channel.ts`), `lab-cast.tsx` (with `lab-cast-sdk.ts`, Google's sender SDK),
   `lab-send.ts`, `lab-timing.ts`, `lab-tone.ts`, `lab-offered.ts` (whether the server offers it); its words in `src/locales/en-lab.ts`.
 - The look of plain elements everywhere: `src/base.css`; the skin's tokens: `src/tokens.css`

@@ -27,14 +27,14 @@ const labResultBytesAtMost = 64 << 10
 const labResultIDLength = 8
 
 // LabResultInput is what one of the lab pages measured on a device (plans/tv-device-tests.md): a
-// device's capabilities, its input, a phone's endurance, extending, casting or the cast receiver's
+// device's capabilities, a phone's endurance, extending, casting or the cast receiver's
 // own report. Signed in only, taken only while the admin offers the device tests
 // (should_offer_device_tests, the owner, 2026-10-25), bounded, and only logged, as a page's failure
 // is (ClientProblemInput): a TV's or a Chromecast's console is read by no one.
 type LabResultInput struct {
 	AuthorizationHeader
 	Body struct {
-		Probe  string         `doc:"Which lab page measured it" enum:"device,input,remote,extend,cast,receiver" json:"probe"`  //nolint:lll // one struct tag
+		Probe  string         `doc:"Which lab page measured it" enum:"device,remote,extend,cast,receiver" json:"probe"`        //nolint:lll // one struct tag
 		Result map[string]any `doc:"What it measured, as the page assembled it"                                 json:"result"` //nolint:lll // one struct tag
 	}
 	ClientFacts

@@ -3061,7 +3061,7 @@ export interface components {
              * @description Which lab page measured it
              * @enum {string}
              */
-            probe: "device" | "input" | "remote" | "extend" | "cast" | "receiver";
+            probe: "device" | "remote" | "extend" | "cast" | "receiver";
             /** @description What it measured, as the page assembled it */
             result: {
                 [key: string]: unknown;

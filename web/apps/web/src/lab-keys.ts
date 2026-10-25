@@ -6,8 +6,6 @@
  * platform's Back.
  */
 
-import { useEffect, useRef } from "react";
-
 /** How many keys the probe shows and sends, newest first: enough to read one walk across the grid. */
 export const keysKept = 30;
 
@@ -85,27 +83,4 @@ export function heardKeyOf(event: KeyboardEvent, atMs: number): HeardKey {
 /** The log with entry added at its head, keeping keysKept. */
 export function withKey(log: readonly KeyEntry[], entry: KeyEntry): KeyEntry[] {
   return [entry, ...log].slice(0, keysKept);
-}
-
-/**
- * Calls onFirst at the page's first key or press, once: the gesture a browser asks for before a page
- * plays sound, and the playing a browser asks for before it gives the page its media keys (owner,
- * Firefox and Silk, 2026-10-25: no media key did anything while the tone was off).
- */
-export function useFirstPress(onFirst: () => void): void {
-  const onFirstRef = useRef(onFirst);
-  onFirstRef.current = onFirst;
-  useEffect(() => {
-    const heard = (): void => {
-      stop();
-      onFirstRef.current();
-    };
-    const stop = (): void => {
-      globalThis.removeEventListener("keydown", heard, true);
-      globalThis.removeEventListener("pointerdown", heard, true);
-    };
-    globalThis.addEventListener("keydown", heard, true);
-    globalThis.addEventListener("pointerdown", heard, true);
-    return stop;
-  }, []);
 }

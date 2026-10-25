@@ -53,6 +53,12 @@ func TestLab_AResultIsLoggedAsOneLineNamedByItsIDAndIsBounded(t *testing.T) {
 	if answer.status != http.StatusUnprocessableEntity {
 		t.Errorf("a result from no lab page was taken: %d", answer.status)
 	}
+	// The button test sends its events as they come (/lab-input-events), never a whole result.
+	whole := map[string]any{"probe": "input", "result": map[string]any{}}
+	answer = harness.do(t, http.MethodPost, "/lab-results", user, whole)
+	if answer.status != http.StatusUnprocessableEntity {
+		t.Errorf("a whole result from the button test was taken: %d", answer.status)
+	}
 }
 
 // The device tests start off (the owner, 2026-10-25: for beta participants, once an admin turns
