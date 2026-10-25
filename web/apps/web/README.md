@@ -85,6 +85,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   browser keeps its back out of the remote's reach): the page before when it was this app's, else
   up in place of the current one: an episode to its season, a season to its series, a film, an
   extra or a series to its list. `src/back-button.test.tsx`, `src/navigation.test.ts`.
+- **A series' own page offers its person's next episode at once** (the owner, 2026-10-25): the
+  server's `nextUp`, played by *Continue S1E3* where they are partway through it, which resumes, else
+  *Play S1E4*; where it cannot be played now, why, and no Play, as a title's page does; none on a
+  season's page or when there is no next one. `src/series.test.tsx`.
 - **Lists have no pagination to click through** (web-client.md): the next page loads as the
   end comes into view, with a button that always asks too. `src/end-of-list.tsx`.
 - **About credits TMDB with its logo and exact notice, and names what we are built on**

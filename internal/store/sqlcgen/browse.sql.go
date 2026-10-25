@@ -433,6 +433,81 @@ func (q *Queries) ListLiveFileLocationsOfTitles(ctx context.Context, itemIDListJ
 	return items, nil
 }
 
+const listOrderingMemberFilesWithPositions = `-- name: ListOrderingMemberFilesWithPositions :many
+SELECT position.title_id, CAST(coalesce(position.group_number, 0) AS INTEGER) AS group_number,
+  CAST(coalesce(position.number_in_group, 0) AS INTEGER) AS number_in_group,
+  CAST(coalesce(item_text.name, '') AS TEXT) AS name,
+  file.id AS file_id,
+  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
+    AS duration_ms,
+  play_position.position_ms, play_position.position_read_at
+FROM ordering
+JOIN position ON position.ordering_id = ordering.id
+JOIN item ON item.id = position.title_id AND item.removed_at IS NULL
+JOIN version ON version.title_id = position.title_id AND version.removed_at IS NULL
+JOIN file ON file.version_id = version.id AND file.removed_at IS NULL AND file.filing IN ('listed', 'unidentified')
+LEFT JOIN item_text ON item_text.item_id = position.title_id AND item_text.is_original = 1
+LEFT JOIN play_position ON play_position.file_id = file.id AND play_position.user_id = ?1
+WHERE ordering.collection_id = ?2 AND ordering.name = ?3
+ORDER BY position.sort_order, version.id, file.part_index, file.id
+`
+
+type ListOrderingMemberFilesWithPositionsParams struct {
+	UserID       int64
+	CollectionID int64
+	OrderingName string
+}
+
+type ListOrderingMemberFilesWithPositionsRow struct {
+	TitleID        int64
+	GroupNumber    int64
+	NumberInGroup  int64
+	Name           string
+	FileID         int64
+	DurationMs     int64
+	PositionMs     *int64
+	PositionReadAt *int64
+}
+
+// A collection's members in one of its named orderings (D159; 'aired' for a series today), each
+// live file of each with a person's position in it and when it was watched, and the file's length
+// where its probe knows it: where the person is in the sequence, for its Next Up (D160) and the
+// members a look at its page raises (D324 section 3). Each member's group, a series' season, 0 for
+// the specials and those with none, which a look at one season keeps to, and its number in it and
+// name, which its Next Up shows. A member's files come as its page lists them, so the first is the
+// one its page plays first.
+func (q *Queries) ListOrderingMemberFilesWithPositions(ctx context.Context, arg ListOrderingMemberFilesWithPositionsParams) ([]ListOrderingMemberFilesWithPositionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listOrderingMemberFilesWithPositions, arg.UserID, arg.CollectionID, arg.OrderingName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOrderingMemberFilesWithPositionsRow{}
+	for rows.Next() {
+		var i ListOrderingMemberFilesWithPositionsRow
+		if err := rows.Scan(
+			&i.TitleID,
+			&i.GroupNumber,
+			&i.NumberInGroup,
+			&i.Name,
+			&i.FileID,
+			&i.DurationMs,
+			&i.PositionMs,
+			&i.PositionReadAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSeasonEpisodeDetails = `-- name: ListSeasonEpisodeDetails :many
 SELECT position.title_id, position.group_number, position.number_in_group, position.sort_order, item_text.name,
   title.year, title.runtime_ms, title.identification_state,
@@ -717,70 +792,6 @@ func (q *Queries) ListSeriesEpisodeDetails(ctx context.Context, collectionID int
 			&i.RuntimeMs,
 			&i.IdentificationState,
 			&i.Available,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listSeriesEpisodeFilesWithPositions = `-- name: ListSeriesEpisodeFilesWithPositions :many
-SELECT position.title_id, CAST(coalesce(position.group_number, 0) AS INTEGER) AS season_number,
-  file.id AS file_id,
-  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
-    AS duration_ms,
-  play_position.position_ms, play_position.position_read_at
-FROM ordering
-JOIN position ON position.ordering_id = ordering.id
-JOIN item ON item.id = position.title_id AND item.removed_at IS NULL
-JOIN version ON version.title_id = position.title_id AND version.removed_at IS NULL
-JOIN file ON file.version_id = version.id AND file.removed_at IS NULL AND file.filing IN ('listed', 'unidentified')
-LEFT JOIN play_position ON play_position.file_id = file.id AND play_position.user_id = ?1
-WHERE ordering.collection_id = ?2 AND ordering.name = 'aired'
-ORDER BY position.sort_order, file.id
-`
-
-type ListSeriesEpisodeFilesWithPositionsParams struct {
-	UserID       int64
-	CollectionID int64
-}
-
-type ListSeriesEpisodeFilesWithPositionsRow struct {
-	TitleID        int64
-	SeasonNumber   int64
-	FileID         int64
-	DurationMs     int64
-	PositionMs     *int64
-	PositionReadAt *int64
-}
-
-// A series' episodes in aired order, each live file of each with a person's position in it and
-// when it was watched, and the file's length where its probe knows it: where the person is in the
-// series, which a look at its page raises the next episodes of (D324 section 3), and the season
-// each is in, 0 for the specials and those with no season, which a look at one season keeps to.
-func (q *Queries) ListSeriesEpisodeFilesWithPositions(ctx context.Context, arg ListSeriesEpisodeFilesWithPositionsParams) ([]ListSeriesEpisodeFilesWithPositionsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listSeriesEpisodeFilesWithPositions, arg.UserID, arg.CollectionID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListSeriesEpisodeFilesWithPositionsRow{}
-	for rows.Next() {
-		var i ListSeriesEpisodeFilesWithPositionsRow
-		if err := rows.Scan(
-			&i.TitleID,
-			&i.SeasonNumber,
-			&i.FileID,
-			&i.DurationMs,
-			&i.PositionMs,
-			&i.PositionReadAt,
 		); err != nil {
 			return nil, err
 		}

@@ -223,6 +223,14 @@
 //     TestContinueWatching_EachWorkOnceAtItsLatestPositionPartwayThrough and
 //     TestContinueWatching_AHiddenWorkLeavesUntilItHasActivityAndUndoBringsItBack.
 //
+//   - Next Up is a query over a collection's named ordering, never over "a series" (D159, D160): the
+//     member its person is partway through, the latest watched of several; else the one after the
+//     latest finished; else the first; none past the last, by the resume thresholds. One rule,
+//     MembersAhead, serves the series' page's next episode and what interest raises (D324 §3).
+//     TestMembersAhead_StartAtThePersonsPlaceInTheOrdering,
+//     TestMembersAheadInGroup_StartAtThePersonsPlaceInTheGroup,
+//     TestMembersOf_ReadThePersonsPositionsAgainstTheThresholds.
+//
 //   - A removed file is deleted removed_files_kept_days after it went, by a daily sweep, in short
 //     writes, after each package that holds something of it has dealt with it; a video goes only
 //     once no sidecar of it stays, and its title and version stay (D304 §6, D306 §8).
@@ -252,6 +260,7 @@
 //     derives; create.go: libraries; admin.go: what an admin does with them (create over a node's
 //     roots, list, scan, the scanner view); browse.go and detail.go: lists, a title's detail, a
 //     series' episodes, and search; home.go: Continue Watching and the resume thresholds;
+//     next_up.go: a collection's members as a person stands in them, and their Next Up;
 //     subtitle_sidecar.go: a subtitle file's track; rootpath.go: which root a file is under, and a
 //     path's text; availability.go: the one writer of a place's availability (D328); places.go:
 //     the scans' answers to it, a probe, a stall, a bring-back;

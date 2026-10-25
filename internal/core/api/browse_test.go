@@ -265,6 +265,81 @@ func TestBrowse_ASeriesListsItsSeasonsAndASeasonComesAPageAtATime(t *testing.T) 
 		http.StatusNotFound, CodeNotFound)
 }
 
+// A series' page says its person's next episode, which it offers to play (the owner, 2026-10-25):
+// the one they are partway through, with where, which its Play resumes; else the one after the last
+// they finished; else the first; with why it cannot be read now, as its own page says; and none once
+// the last is finished (D160, D324 §3).
+func TestBrowse_ASeriesSaysItsPersonsNextEpisode(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	storetest.ExecRaw(t, harness.databasePath,
+		"INSERT INTO item (id, kind, library_id, added_at) VALUES (22, 'title', 1, 2), (23, 'title', 1, 2)",
+		"INSERT INTO title (id, kind, identification_state) VALUES (22, 'episode', 'identified'), "+
+			"(23, 'episode', 'identified')",
+		"INSERT INTO item_text (item_id, language, is_original, name) VALUES (22, 'und', 1, 'Cat'), "+
+			"(23, 'und', 1, 'Bag')",
+		"INSERT INTO version (id, title_id, created_at) VALUES (3, 22, 2), (4, 23, 2)",
+		`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, payload_hash, filing,
+		 version_id, first_seen_at, last_seen_at) VALUES
+		 (3, 1, 1, '/m/BB/S01E02.mkv', CAST('/m/BB/S01E02.mkv' AS BLOB), 10, X'03', 'listed', 3, 1, 1),
+		 (4, 1, 1, '/m/BB/S01E03.mkv', CAST('/m/BB/S01E03.mkv' AS BLOB), 10, X'04', 'listed', 4, 1, 1)`,
+		"INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (2, '{}', 1000), (3, '{}', 1000), "+
+			"(4, '{}', 1000)",
+		"INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order) "+
+			"VALUES (1, 22, 1, 2, 10002), (1, 23, 1, 3, 10003)")
+	type nextUp struct {
+		TitleID       int64  `json:"titleId"`
+		Name          string `json:"name"`
+		GroupNumber   int64  `json:"groupNumber"`
+		NumberInGroup int64  `json:"numberInGroup"`
+		FileID        int64  `json:"fileId"`
+		IsPartway     bool   `json:"isPartway"`
+		PositionMs    int64  `json:"positionMs"`
+		Unavailable   *struct {
+			Reason string `json:"reason"`
+		} `json:"unavailable"`
+	}
+	next := func(t *testing.T) *nextUp {
+		t.Helper()
+		answer := harness.do(t, http.MethodGet, "/collections/20", user, nil)
+		var series struct {
+			NextUp *nextUp `json:"nextUp"`
+		}
+		if err := json.Unmarshal([]byte(answer.body), &series); err != nil || answer.status != http.StatusOK {
+			t.Fatalf("GET /collections/20 = %d %s (%v)", answer.status, answer.body, err)
+		}
+		return series.NextUp
+	}
+	if got := next(t); got == nil || *got != (nextUp{
+		TitleID: 21, Name: "Pilot", GroupNumber: 1, NumberInGroup: 1, FileID: 2,
+	}) {
+		t.Errorf("nothing watched: next %+v; want the first, S1E1, to play from its start", got)
+	}
+	harness.setPositionReadAt(t, 3, 500, 9)
+	if got := next(t); got == nil || *got != (nextUp{
+		TitleID: 22, Name: "Cat", GroupNumber: 1, NumberInGroup: 2, FileID: 3, IsPartway: true, PositionMs: 500,
+	}) {
+		t.Errorf("partway: next %+v; want S1E2, partway at 500 ms", got)
+	}
+	harness.setPositionReadAt(t, 3, 1000, 10)
+	if got := next(t); got == nil || *got != (nextUp{
+		TitleID: 23, Name: "Bag", GroupNumber: 1, NumberInGroup: 3, FileID: 4,
+	}) {
+		t.Errorf("finished: next %+v; want S1E3, the one after", got)
+	}
+	storetest.ExecRaw(t, harness.databasePath, "UPDATE file SET payload_hash = NULL WHERE id = 4")
+	if got := next(t); got == nil || got.TitleID != 23 || got.Unavailable == nil ||
+		got.Unavailable.Reason != string(library.StillReading) {
+		t.Errorf("still being read: next %+v; want S1E3, still reading", got)
+	}
+	harness.setPositionReadAt(t, 4, 1000, 11)
+	if got := next(t); got != nil {
+		t.Errorf("the last finished: next %+v; want none", got)
+	}
+}
+
 // A film or series whose match is a guess says so in the lists and on its page, for its poster's
 // mark; one no guess settled says nothing of it (D301 §4).
 func TestBrowse_AGuessedMatchSaysSoWhereItsTitleIsShown(t *testing.T) {
