@@ -37,6 +37,22 @@
   max-width: none;
 }
 
+/* Home's link, the logo, underlined as the banner's links are while home is the page: the line
+   drawn below it, so the link stays exactly the logo's size. */
+.app-shell__home {
+  position: relative;
+  display: block;
+}
+
+.app-shell__home[aria-current="page"]::after {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: calc(-1 * var(--space-2));
+  height: 2px;
+  background: var(--color-accent);
+  content: "";
+}
+
 /* The wordmark: the laurel stands in for the O (the owner's logo, 2026-10-06). */
 .app-shell__logo {
   display: block;

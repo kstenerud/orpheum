@@ -11,6 +11,8 @@ export function Link(props: {
   readonly className?: string;
   /** Its name for a screen reader, when its content is only an icon. */
   readonly label?: string;
+  /** Whether it leads to the page shown now, marked for the eye and a screen reader alike. */
+  readonly isCurrent?: boolean;
   readonly children: ReactNode;
 }): JSX.Element {
   const { navigation } = useServices();
@@ -27,6 +29,7 @@ export function Link(props: {
       href={routeHref(props.to)}
       className={props.className}
       aria-label={props.label}
+      aria-current={props.isCurrent === true ? "page" : undefined}
       onClick={follow}
     >
       {props.children}
