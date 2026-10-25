@@ -2,7 +2,15 @@
 
 import { describe, expect, it } from "vitest";
 
-import { buttonOf, directionOfKey, type ButtonName, type HeardInput } from "./input-buttons.ts";
+import {
+  buttonOf,
+  commandOf,
+  directionOfKey,
+  isDirection,
+  type ButtonName,
+  type Command,
+  type HeardInput,
+} from "./input-buttons.ts";
 
 /** A standard pad's button, on a layout whose OK is okButton. */
 function pad(button: number, okButton: "bottom" | "right" = "bottom"): HeardInput {
@@ -68,5 +76,37 @@ describe("which button a press is", () => {
     expect(directionOfKey("Left", 0)).toBe("left");
     expect(directionOfKey("Unidentified", 40)).toBe("down");
     expect(directionOfKey("Enter", 13)).toBeUndefined();
+  });
+
+  it.each<[string, HeardInput, Command | undefined]>([
+    ["an arrow", { kind: "key", key: "ArrowLeft", keyCode: 37 }, "left"],
+    ["OK", { kind: "key", key: "Enter", keyCode: 13 }, "select"],
+    ["Escape, which goes back as Back does", { kind: "key", key: "Escape", keyCode: 27 }, "back"],
+    ["webOS's Back", { kind: "key", key: "Unidentified", keyCode: 461 }, "back"],
+    ["Fire TV's play/pause", { kind: "key", key: "Unidentified", keyCode: 179 }, "playPause"],
+    ["rewind, which seeks back", { kind: "key", key: "MediaRewind", keyCode: 227 }, "seekBack"],
+    [
+      "fast forward, which seeks on",
+      { kind: "key", key: "Unidentified", keyCode: 228 },
+      "seekForward",
+    ],
+    [
+      "a controller's Start",
+      { kind: "pad", button: 9, isStandard: true, okButton: "bottom" },
+      "playPause",
+    ],
+    [
+      "a volume key, which asks nothing of the app",
+      { kind: "key", key: "AudioVolumeUp", keyCode: 175 },
+      undefined,
+    ],
+    ["a letter, which is no shortcut", { kind: "key", key: "k", keyCode: 75 }, undefined],
+  ])("asks %s as its command", (_, input, command) => {
+    expect(commandOf(input)).toBe(command);
+  });
+
+  it("knows an arrow's command from the others", () => {
+    expect(isDirection("up")).toBe(true);
+    expect(isDirection("select")).toBe(false);
   });
 });

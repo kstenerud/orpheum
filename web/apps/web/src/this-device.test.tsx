@@ -5,6 +5,7 @@ import "./i18n.ts";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { chooseOk, chosenOkButton, okChoiceKey } from "./controller-choice.ts";
 import {
   buttonWithText,
   click,
@@ -58,5 +59,23 @@ describe("the This device page", () => {
     services.session.signIn("token");
     mounted = await mount(withServices(<ThisDevice />, services));
     expect(mounted.container.textContent).toContain("This browser is not one of your devices");
+  });
+
+  it("keeps which face button of a controller is OK in the browser, automatic until chosen", async () => {
+    chooseOk("automatic");
+    const services = servedBy({ "GET /me/devices": [200, { devices: [laptop] }] });
+    services.session.signIn("token");
+    mounted = await mount(withServices(<ThisDevice />, services));
+    const choice = (value: string): HTMLInputElement | null =>
+      mounted?.container.querySelector<HTMLInputElement>(`input[value="${value}"]`) ?? null;
+    expect(choice("automatic")?.checked).toBe(true);
+    expect(mounted.container.textContent).toContain("The right button");
+    await click(choice("right"));
+    expect(choice("right")?.checked).toBe(true);
+    expect(localStorage.getItem(okChoiceKey)).toBe("right");
+    expect(chosenOkButton()).toBe("right");
+    await click(choice("automatic"));
+    expect(localStorage.getItem(okChoiceKey)).toBeNull();
+    expect(chosenOkButton()).toBeUndefined();
   });
 });

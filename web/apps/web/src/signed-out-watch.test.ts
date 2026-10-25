@@ -23,11 +23,17 @@ function recordingNavigation(went: Route[]): Navigation {
       went.push(route);
     },
     back: (up) => {
-      went.push(up);
+      if (up !== undefined) {
+        went.push(up);
+      }
+      return up !== undefined;
     },
     origin: () => testOrigin,
     fragment: () => "",
     subscribe: () => () => undefined,
+    beforeLeaving: () => () => undefined,
+    noteOnEntry: () => undefined,
+    entryNote: () => undefined,
   };
 }
 

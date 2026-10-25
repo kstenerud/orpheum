@@ -30,7 +30,7 @@ describe("AppShell", () => {
     );
     expect(markup.match(/<main/gu)).toHaveLength(1);
     expect(markup).toMatch(
-      /<header class="app-shell__banner"><p class="app-shell__title"><a href="\/films" class="app-shell__home"><img class="app-shell__logo" src="[^"]*orpheum-logo\.svg" alt="Orpheum"\/><\/a><\/p>/u,
+      /<header class="app-shell__banner" data-focus-container="" data-focus-covers-top=""><p class="app-shell__title"><a href="\/films" class="app-shell__home"><img class="app-shell__logo" src="[^"]*orpheum-logo\.svg" alt="Orpheum"\/><\/a><\/p>/u,
     );
     expect(markup).toContain('<li aria-current="page"><a href="/films">Films</a></li>');
     expect(markup).toContain('<a href="/watch-together">Watch Together</a>');
@@ -173,7 +173,7 @@ describe("AppShell", () => {
       /<div class="app-shell__end"><section class="status-tray".*?<\/section><details/u,
     );
     expect(markup).toMatch(
-      /<details class="app-shell__menu app-shell__menu--current"><summary aria-label="Menu" title="Menu"><svg/u,
+      /<details class="app-shell__menu app-shell__menu--current" data-focus-container=""><summary aria-label="Menu" title="Menu"><svg/u,
     );
     expect(markup).toMatch(
       /<ul><li class="app-shell__who">karl<\/li><li class="app-shell__section">Manage<\/li>.*href="\/jobs".*class="app-shell__divider".*href="\/this-device".*href="\/account".*href="\/about".*Sign out/u,
@@ -306,6 +306,49 @@ describe("AppShell", () => {
     manage.open = true;
     await fire(manage.querySelector("summary"), new Event("pointerdown", { bubbles: true }));
     expect(manage.open).toBe(true);
+    mounted.unmount();
+  });
+
+  it("closes the open menu on a remote's Back, its icon keeping focus, before Back goes anywhere", async () => {
+    const services = testServices("token", "/films");
+    services.navigation.go({ screen: "about" });
+    const mounted = await mount(
+      withServices(
+        <AppShell
+          isAdmin={false}
+          canHostWatchTogether={true}
+          currentScreen="about"
+          onSignOut={ignore}
+          signedInAs={undefined}
+        >
+          <p>screen</p>
+        </AppShell>,
+        services,
+      ),
+    );
+    const menu = mounted.container.querySelector("details");
+    if (menu === null) {
+      throw new Error("the shell has no menu");
+    }
+    menu.open = true;
+    const place = menu.querySelector("ul a");
+    act(() => {
+      if (place instanceof HTMLElement) {
+        place.focus();
+      }
+    });
+    await fire(
+      place,
+      new KeyboardEvent("keydown", {
+        key: "Unidentified",
+        keyCode: 461,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(menu.open).toBe(false);
+    expect(document.activeElement).toBe(menu.querySelector("summary"));
+    expect(services.navigation.route()).toEqual({ screen: "about" });
     mounted.unmount();
   });
 

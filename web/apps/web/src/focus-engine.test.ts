@@ -49,6 +49,13 @@ describe("the geometric focus search", () => {
     expect(nearestInDirection(at(0, 0), [nearerAside, below], "down")).toBe("below");
   });
 
+  it("moves sideways only along its line, never up or down a row at a short row's end", () => {
+    const shortRow = grid.filter((each) => each.item !== "2,2" && each.item !== "2,3");
+    expect(nearestInDirection(at(2, 1), shortRow, "right")).toBeUndefined();
+    expect(nearestInDirection(at(1, 3), grid, "right")).toBeUndefined();
+    expect(nearestInDirection(at(2, 1), shortRow, "left")).toBe("2,0");
+  });
+
   it("from a header tile goes down to the tile beneath it, not the first of the row", () => {
     const header: Box = { left: 360, top: -200, right: 460, bottom: -120 };
     expect(nearestInDirection(header, grid, "down")).toBe("0,3");

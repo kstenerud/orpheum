@@ -210,3 +210,19 @@ export function stickStep(
   }
   return { hold, shouldMove: false };
 }
+
+/** The D-pad's buttons in the standard mapping, by the direction each points. */
+const dpadButtons: readonly (readonly [number, Direction])[] = [
+  [12, "up"],
+  [13, "down"],
+  [14, "left"],
+  [15, "right"],
+];
+
+/**
+ * The direction a standard pad's D-pad is held, from the buttons held: the first of its buttons held,
+ * up, down, left, right; undefined while none is.
+ */
+export function dpadDirectionOf(pressed: readonly number[]): Direction | undefined {
+  return dpadButtons.find(([button]) => pressed.includes(button))?.[1];
+}

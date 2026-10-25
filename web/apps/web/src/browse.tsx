@@ -43,7 +43,7 @@ export function PosterGrid(props: {
   readonly watchItemAt?: ((index: number) => (element: Element | null) => void) | undefined;
 }): JSX.Element {
   return (
-    <ul className="poster-grid">
+    <ul className="poster-grid" data-focus-container="">
       {props.entries.map((entry, index) => (
         <PosterCard
           key={entry.id}

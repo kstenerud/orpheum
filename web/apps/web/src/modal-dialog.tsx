@@ -2,7 +2,9 @@
 
 import "./modal-dialog.css";
 
-import { useEffect, useRef, type JSX, type ReactNode } from "react";
+import { useEffect, useRef, type JSX, type ReactNode, type RefObject } from "react";
+
+import { useCommands } from "./input-layer.tsx";
 
 /** Whether a press at event's point falls outside dialog's own box, on its backdrop. */
 function isOutside(dialog: HTMLDialogElement, event: MouseEvent): boolean {
@@ -15,6 +17,29 @@ function isOutside(dialog: HTMLDialogElement, event: MouseEvent): boolean {
   );
 }
 
+/** Opens dialog as the browser's own modal, unless it is open, its first field focused if asked. */
+function openModal(dialog: HTMLDialogElement, shouldFocusFirstField: boolean): void {
+  if (!dialog.open) {
+    dialog.showModal();
+    if (shouldFocusFirstField) {
+      dialog.querySelector<HTMLElement>(firstFieldSelector)?.focus();
+    }
+  }
+}
+
+/** Closes the dialog on a remote's or a controller's Back, told to onClose as Escape's is. */
+function useBackCloses(
+  ref: RefObject<HTMLDialogElement | null>,
+  toldRef: RefObject<{ readonly onClose: () => void }>,
+): void {
+  useCommands(ref, (detail, event) => {
+    if (detail.command === "back") {
+      event.preventDefault();
+      toldRef.current.onClose();
+    }
+  });
+}
+
 /** A field a person types in: not a checkbox, a radio or a button. */
 const firstFieldSelector =
   'input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]), textarea';
@@ -22,8 +47,9 @@ const firstFieldSelector =
 /**
  * A modal dialog, the one way the app shows one (the owner, 2026-10-11: "these dialogs should be
  * modal ... darken the rest"): opened as the browser's own modal, over a darkened page that takes no
- * press, with focus held inside it until it closes. Escape closes it, told to onClose, and goes no
- * further, so a menu or pop-up it opened from stays open.
+ * press, with focus held inside it until it closes, the arrows moving among its own controls alone
+ * (focus-navigation.ts). Escape closes it, told to onClose, and goes no further, so a menu or pop-up
+ * it opened from stays open; so does a remote's or a controller's Back (input-layer.tsx).
  */
 export function ModalDialog(props: {
   /** Its name for a screen reader: its heading, or its message where it has none. */
@@ -57,12 +83,7 @@ export function ModalDialog(props: {
     if (dialog === null) {
       return undefined;
     }
-    if (!dialog.open) {
-      dialog.showModal();
-      if (toldRef.current.shouldFocusFirstField === true) {
-        dialog.querySelector<HTMLElement>(firstFieldSelector)?.focus();
-      }
-    }
+    openModal(dialog, toldRef.current.shouldFocusFirstField === true);
     const cancel = (event: Event): void => {
       event.preventDefault(); // the page, not the browser, closes it, by unmounting it
       toldRef.current.onClose();
@@ -92,6 +113,7 @@ export function ModalDialog(props: {
       dialog.close();
     };
   }, []);
+  useBackCloses(ref, toldRef);
   const classes = ["modal-dialog", props.className].filter(Boolean).join(" ");
   return (
     <dialog ref={ref} className={classes} role={props.role} aria-label={props.label}>

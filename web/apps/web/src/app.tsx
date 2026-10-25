@@ -12,6 +12,7 @@ import { tabStorage } from "./browser-storage.ts";
 import { Browse } from "./browse.tsx";
 import { NeedsAttention } from "./needs-attention.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
+import { InputLayer } from "./input-layer.tsx";
 import { Files } from "./files.tsx";
 import { Identify } from "./identify.tsx";
 import { Jobs } from "./jobs.tsx";
@@ -52,17 +53,18 @@ import { UiGallery } from "./ui-gallery.tsx";
 import { WatchTogether } from "./watch-together.tsx";
 
 /**
- * The client: sign-in until there is a session, then the shell and the route's screen. A
+ * The client: sign-in until there is a session, then the shell and the route's screen, every one
+ * driven by a remote, a keyboard or a controller through the input layer (input-layer.tsx). A
  * registration invitation is its own page, signed in or not (D218 §2); so is a Watch Together
  * viewer's, who sees only the host's playback, never the app around it (D246 §3).
  */
 export function App(): JSX.Element {
   const route = useRoute();
   return (
-    <>
+    <InputLayer>
       <RoutedApp route={route} />
       <ReloadWhenOutdated route={route} />
-    </>
+    </InputLayer>
   );
 }
 

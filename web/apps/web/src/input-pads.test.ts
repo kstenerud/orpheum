@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   axisLean,
+  dpadDirectionOf,
   okButtonOf,
   padButtonNameOf,
   padLayoutOf,
@@ -167,5 +168,13 @@ describe("a controller's stick", () => {
     ]);
     expect(stickStep(hold, undefined, 710)).toEqual({ hold: stickAtRest, shouldMove: false });
     expect(stickStep(hold, "left", 710).shouldMove).toBe(true);
+  });
+});
+
+describe("a standard pad's D-pad", () => {
+  it("points the way its button held points, and nowhere while none is", () => {
+    expect(dpadDirectionOf([12])).toBe("up");
+    expect(dpadDirectionOf([0, 15])).toBe("right");
+    expect(dpadDirectionOf([0, 9])).toBeUndefined();
   });
 });
