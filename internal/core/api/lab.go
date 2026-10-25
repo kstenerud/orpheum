@@ -9,6 +9,8 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
+
+	"github.com/kstenerud/orpheum/internal/core/settings"
 )
 
 // labResultBytesAtMost bounds a lab page's results: a device report or a probe's log of a few
@@ -24,8 +26,9 @@ const labResultIDLength = 8
 
 // LabResultInput is what one of the lab pages measured on a device (plans/tv-device-tests.md): a
 // device's capabilities, its input, a phone's endurance, extending, casting or the cast receiver's
-// own report. Signed in only, bounded, and only logged, as a page's failure is (ClientProblemInput):
-// a TV's or a Chromecast's console is read by no one.
+// own report. Signed in only, taken only while the admin offers the device tests
+// (should_offer_device_tests, the owner, 2026-10-25), bounded, and only logged, as a page's failure
+// is (ClientProblemInput): a TV's or a Chromecast's console is read by no one.
 type LabResultInput struct {
 	AuthorizationHeader
 	Body struct {
@@ -53,9 +56,18 @@ func (server *Server) registerLab() {
 }
 
 func (server *Server) reportLabResult(ctx context.Context, input *LabResultInput) (*LabResultOutput, error) {
-	_, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
 	if err != nil {
 		return nil, err
+	}
+	isOffered, err := dependencies.Settings.Bool(ctx, settings.ShouldOfferDeviceTests)
+	if err != nil {
+		return nil, server.settingsError(ctx, "read "+string(settings.ShouldOfferDeviceTests), err)
+	}
+	if !isOffered {
+		// As a server that serves no client or takes no WebRTC connection says so: there is no
+		// such thing here while it is off.
+		return nil, newError(http.StatusNotFound, CodeNotFound, "device tests are turned off on this server")
 	}
 	result, err := json.Marshal(input.Body.Result)
 	if err != nil {

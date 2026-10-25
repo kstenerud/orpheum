@@ -196,5 +196,6 @@ var sectionByKey = map[Key]Section{
 	ShouldServeDebugMetrics:                        SectionDiagnostics,
 	ShouldServeDebugPProf:                          SectionDiagnostics,
 	ShouldShowDeveloperPages:                       SectionDiagnostics,
+	ShouldOfferDeviceTests:                         SectionDiagnostics,
 	SystemPageRecentPreparesPerNode:                SectionDiagnostics,
 }

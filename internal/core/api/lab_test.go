@@ -7,6 +7,9 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 )
 
 // What a lab page measured on a device is logged as one line, whose name the page is given to show,
@@ -16,6 +19,7 @@ func TestLab_AResultIsLoggedAsOneLineNamedByItsIDAndIsBounded(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
+	settingstest.Set(t, harness.server.dependencies.Load().Settings, settings.ShouldOfferDeviceTests, "true")
 	sent := map[string]any{"probe": "device", "result": map[string]any{
 		"screen": map[string]any{"width": 1920, "height": 1080}, "hasMediaSource": true,
 	}}
@@ -48,5 +52,35 @@ func TestLab_AResultIsLoggedAsOneLineNamedByItsIDAndIsBounded(t *testing.T) {
 	answer = harness.do(t, http.MethodPost, "/lab-results", user, unknown)
 	if answer.status != http.StatusUnprocessableEntity {
 		t.Errorf("a result from no lab page was taken: %d", answer.status)
+	}
+}
+
+// The device tests start off (the owner, 2026-10-25: for beta participants, once an admin turns
+// them on): until then no client is told to offer them and the server takes no result, refused as
+// a thing this server does not have; once on, both.
+func TestLab_ResultsAreRefusedAndTheTestsNotOfferedUntilTheAdminTurnsThemOn(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	isOffered := func() bool {
+		served := harness.do(t, http.MethodGet, "/client-settings", user, nil)
+		var got ClientSettingsBody
+		if err := json.Unmarshal([]byte(served.body), &got); err != nil || served.status != http.StatusOK {
+			t.Fatalf("GET /client-settings = %d %s (%v)", served.status, served.body, err)
+		}
+		return got.ShouldOfferDeviceTests
+	}
+	sent := map[string]any{"probe": "device", "result": map[string]any{"hasMediaSource": true}}
+	if isOffered() {
+		t.Error("the device tests are offered before the admin turned them on")
+	}
+	wantError(t, harness.do(t, http.MethodPost, "/lab-results", user, sent), http.StatusNotFound, CodeNotFound)
+
+	settingstest.Set(t, harness.server.dependencies.Load().Settings, settings.ShouldOfferDeviceTests, "true")
+	if !isOffered() {
+		t.Error("the device tests are not offered once the admin turned them on")
+	}
+	if answer := harness.do(t, http.MethodPost, "/lab-results", user, sent); answer.status != http.StatusOK {
+		t.Errorf("POST /lab-results with the tests on = %d %s", answer.status, answer.body)
 	}
 }
