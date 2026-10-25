@@ -127,6 +127,10 @@
 //   - A chosen match is confirmed, and an override is set and removed, through the identify
 //     package (D172, D183). Enforced by TestIdentification_APersonChoosesAnAmbiguousTitlesMatch and
 //     TestIdentification_OverridesAreSetAndRemoved.
+//   - What a lab page measured on a device is taken from a signed-in page only, at most
+//     labResultBytesAtMost bytes, and logged at info as one line under the name it answers with, the
+//     result whole inside it, for the device tests to be read from the log (plans/tv-device-tests.md).
+//     Enforced by TestLab_AResultIsLoggedAsOneLineNamedByItsIDAndIsBounded.
 //   - Every operation checks the caller's reach, is an admin's, or holds no library content
 //     (D243 §4). TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent.
 //
@@ -147,7 +151,7 @@
 //   - One file per endpoint group of cut-a §5: session.go (setup and auth), settings.go,
 //     config.go, secrets.go, health.go, identification.go, libraries.go, browse.go, art.go,
 //     doctor.go, system.go, playback.go, subtitle.go, subtitle_fetch.go, preferences.go, report.go,
-//     home.go, accounts.go, devices.go and jobs.go.
+//     home.go, accounts.go, devices.go and jobs.go; lab.go, the lab pages' results.
 //   - server.go holds the readiness gate and the authentication helpers: requireSignedIn,
 //     requireAdmin and requireAccountManager; requireMetadataEditor is in identification.go, and
 //     requireSignedInForMedia,

@@ -191,7 +191,7 @@ func NewServer(logger *slog.Logger) *Server {
 	server.registerPlayback()
 	server.registerPreferences()
 	server.registerReport()
-	server.registerClientProblems()
+	server.registerWhatPagesLog()
 	server.registerLeave()
 	server.registerHome()
 	server.registerAccounts()
@@ -209,6 +209,13 @@ func NewServer(logger *slog.Logger) *Server {
 	mux.HandleFunc("GET "+togetherSocketPath, server.serveTogetherSocket)
 	server.registerJobs()
 	return server
+}
+
+// registerWhatPagesLog registers what pages send for the server's log alone: a page's failure, and
+// what a lab page measured on a device.
+func (server *Server) registerWhatPagesLog() {
+	server.registerClientProblems()
+	server.registerLab()
 }
 
 // Handler is the HTTP handler to serve: the API, a POST with an Idempotency-Key answered once,

@@ -830,6 +830,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lab-results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** What a lab page measured on a device, for the server's log (tv-device-tests.md) */
+        post: operations["reportLabResult"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/libraries": {
         parameters: {
             query?: never;
@@ -2928,6 +2945,21 @@ export interface components {
             membershipCredential: string;
             /** Format: int64 */
             sessionId: number;
+        };
+        LabResultInputBody: {
+            /**
+             * @description Which lab page measured it
+             * @enum {string}
+             */
+            probe: "device" | "input" | "remote" | "extend" | "cast" | "receiver";
+            /** @description What it measured, as the page assembled it */
+            result: {
+                [key: string]: unknown;
+            };
+        };
+        LabResultOutputBody: {
+            /** @description The result's name in the server's log */
+            id: string;
         };
         LadderBody: {
             /** Format: int64 */
@@ -6313,6 +6345,42 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    reportLabResult: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabResultInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabResultOutputBody"];
+                };
             };
             /** @description Error */
             default: {
