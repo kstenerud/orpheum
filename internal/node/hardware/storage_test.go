@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sync/atomic"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -242,15 +243,70 @@ func TestMountPointOf_IsTheDeepestMountHoldingThePath(t *testing.T) {
 30 20 0:60 / /media rw - nfs nas:/media rw
 31 30 8:32 / /media/disk1 rw - ext4 /dev/sdc rw
 `)
+	table := fakeMountTable(system, nil)
 	for path, want := range map[string]string{
 		"/media/disk1/Wing.mkv": "/media/disk1", "/media/Metropolis.mkv": "/media", "/media/disk10/x": "/media",
 		"/srv/prepared": "/",
 	} {
-		if got, found := mountPointUnder(system.root, path); !found || got != want {
+		if got, found := table.MountPointOf(path); !found || got != want {
 			t.Errorf("%s: %s, %t; want %s", path, got, found, want)
 		}
 	}
-	if _, found := mountPointUnder(t.TempDir(), "/media"); found {
+	if _, found := fakeMountTable(fakeSystem{t: t, root: t.TempDir()}, nil).MountPointOf("/media"); found {
 		t.Error("with no mount table, a mount point was found")
+	}
+}
+
+// fakeMountTable is the mount table under system's root, changed whenever changed holds true; a nil
+// changed never changes.
+func fakeMountTable(system fakeSystem, changed *atomic.Bool) *MountTable {
+	return &MountTable{
+		path: filepath.Join(system.root, "proc", "self", "mountinfo"),
+		hasChanged: func(*os.File) bool {
+			return changed != nil && changed.Swap(false)
+		},
+	}
+}
+
+// The table is read once and kept until the kernel says it changed, a mount or an unmount, when it
+// is read again: every gated read asks it, and reading it each time cost 1.5-1.8 ms (audit N2).
+func TestMountTable_IsReadAgainOnlyWhenTheKernelSaysItChanged(t *testing.T) {
+	t.Parallel()
+	system := fakeSystem{t: t, root: t.TempDir()}
+	system.write("proc/self/mountinfo", `20 1 0:30 / / rw - overlay rootfs rw
+30 20 0:60 / /media rw - nfs nas:/media rw
+`)
+	var changed atomic.Bool
+	table := fakeMountTable(system, &changed)
+	if got, _ := table.MountPointOf("/media/disk1/Wing.mkv"); got != "/media" {
+		t.Fatalf("before the disk is mounted: %s; want /media", got)
+	}
+	system.write("proc/self/mountinfo", `20 1 0:30 / / rw - overlay rootfs rw
+30 20 0:60 / /media rw - nfs nas:/media rw
+31 30 8:32 / /media/disk1 rw - ext4 /dev/sdc rw
+`)
+	if got, _ := table.MountPointOf("/media/disk1/Wing.mkv"); got != "/media" {
+		t.Errorf("with no change signalled, the table was read again: %s; want /media, as kept", got)
+	}
+	changed.Store(true)
+	if got, _ := table.MountPointOf("/media/disk1/Wing.mkv"); got != "/media/disk1" {
+		t.Errorf("once the change is signalled: %s; want /media/disk1", got)
+	}
+}
+
+// A mount point mounted over again is the later mount, in the later's place among the others.
+func TestParseMounts_AMountPointMountedOverAgainIsTheLaterOne(t *testing.T) {
+	t.Parallel()
+	mounts := parseMounts([]byte(`20 1 0:30 / / rw - overlay rootfs rw
+30 20 0:60 / /media rw - nfs nas:/media rw
+31 30 8:32 / /media/disk1 rw - ext4 /dev/sdc rw
+32 30 8:48 / /media rw - ext4 /dev/sdd rw
+`))
+	var sources []string
+	for _, each := range mounts {
+		sources = append(sources, each.mountPoint+"="+each.source)
+	}
+	if want := []string{"/=rootfs", "/media/disk1=/dev/sdc", "/media=/dev/sdd"}; !slices.Equal(sources, want) {
+		t.Errorf("mounts = %v; want %v", sources, want)
 	}
 }

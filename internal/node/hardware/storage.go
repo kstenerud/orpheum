@@ -109,7 +109,14 @@ func readMounts(path string) ([]mount, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read the mount table: %w", err)
 	}
+	return parseMounts(content), nil
+}
+
+// parseMounts is the mounts a mountinfo file's content lists, in the order mounted; a mount point
+// mounted over again is the later one, in the place of the later.
+func parseMounts(content []byte) []mount {
 	var mounts []mount
+	latest := map[string]int{} // the index in mounts of each mount point's latest mount
 	scanner := bufio.NewScanner(bytes.NewReader(content))
 	for scanner.Scan() {
 		before, after, found := strings.Cut(scanner.Text(), " - ")
@@ -124,10 +131,13 @@ func readMounts(path string) ([]mount, error) {
 		if len(tail) > 2 {
 			next.superOptions = strings.Split(tail[2], ",")
 		}
-		mounts = slices.DeleteFunc(mounts, func(each mount) bool { return each.mountPoint == next.mountPoint })
+		if earlier, isMountedOver := latest[next.mountPoint]; isMountedOver {
+			mounts[earlier].mountPoint = "" // mounted over: dropped below
+		}
+		latest[next.mountPoint] = len(mounts)
 		mounts = append(mounts, next)
 	}
-	return mounts, nil
+	return slices.DeleteFunc(mounts, func(each mount) bool { return each.mountPoint == "" })
 }
 
 // unescapeMountField undoes the mount table's octal escapes: "\040" is a space.
@@ -156,21 +166,6 @@ func mountHolding(mounts []mount, path string) (mount, bool) {
 		}
 	}
 	return holding, found
-}
-
-// MountPointOf is the mount point of the filesystem path is on, from the system's mount table, which
-// reads nothing on the filesystem: what the disk gate keys a disk mounted inside a root by (D328 §1).
-// False when the table cannot be read or holds none.
-func MountPointOf(path string) (string, bool) { return mountPointUnder("/", path) }
-
-// mountPointUnder is MountPointOf on the system whose root is at root.
-func mountPointUnder(root, path string) (string, bool) {
-	mounts, err := readMounts(filepath.Join(root, "proc", "self", "mountinfo"))
-	if err != nil {
-		return "", false
-	}
-	holding, found := mountHolding(mounts, path)
-	return holding.mountPoint, found
 }
 
 // mountsInside are the mounts whose mount points are under path, not at it.
