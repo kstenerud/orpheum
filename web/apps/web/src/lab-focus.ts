@@ -208,15 +208,22 @@ export interface FocusDrive {
 export function moveFocus({ region, engine, start }: FocusDrive, direction: Direction): boolean {
   const from = document.activeElement;
   if (from instanceof HTMLElement && from !== region && region.contains(from)) {
-    engine.next(from, direction, region)?.focus();
+    engine.next(from, direction, region)?.focus(visibly);
     return true;
   }
   if (from instanceof HTMLInputElement || from instanceof HTMLSelectElement) {
     return false;
   }
-  start.querySelector<HTMLElement>(focusableSelector)?.focus();
+  start.querySelector<HTMLElement>(focusableSelector)?.focus(visibly);
   return true;
 }
+
+/**
+ * Focus moved by a controller, shown as a key's is: a browser draws :focus-visible only after a key,
+ * and a gamepad's press is none (the owner, Firefox on a Mac, 2026-10-25: the D-pad moved focus,
+ * the log said, and the page showed nothing move).
+ */
+const visibly: FocusOptions = { focusVisible: true };
 
 /**
  * Moves real DOM focus by engine on each arrow key the page hears, the browser's own handling of the

@@ -3,7 +3,7 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { driveFocus, geometricFocus } from "./lab-focus.ts";
+import { driveFocus, geometricFocus, moveFocus } from "./lab-focus.ts";
 
 /** A region of three buttons in the document, and a field outside it. */
 function regionOfButtons(): { readonly region: HTMLElement; readonly field: HTMLInputElement } {
@@ -81,5 +81,21 @@ describe("the input probe's focus driving", () => {
     driveFocus(region, geometricFocus)();
     press("ArrowDown");
     expect(document.activeElement).toBe(document.body);
+  });
+
+  it("moves focus for a controller so that the browser shows it, as it shows a key's", () => {
+    // A gamepad's press is no key, so a browser draws no :focus-visible after it unless asked
+    // (the owner, Firefox on a Mac, 2026-10-25).
+    const { region } = regionOfButtons();
+    const first = region.querySelector("button");
+    if (first === null) {
+      throw new Error("the region has no button");
+    }
+    const asked: unknown[] = [];
+    first.focus = (options?: FocusOptions): void => {
+      asked.push(options);
+    };
+    moveFocus({ region, engine: geometricFocus, start: region }, "down");
+    expect(asked).toEqual([{ focusVisible: true }]);
   });
 });
