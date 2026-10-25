@@ -112,7 +112,17 @@ describe.each(screens)("the player by a remote's keys, on $name", ({ width, heig
     walking = await mountApp(walkServices(filmToPlay, "/play/1030"));
     const video = await theVideo();
     video.focus();
-    video.currentTime = 30;
+    // The walk serves no media, so the browser's own position comes and goes as the load fails: the
+    // video stands where the player last moved it, 30 s into a ten-minute film.
+    let positionS = 30;
+    Object.defineProperty(video, "duration", { configurable: true, get: () => 600 });
+    Object.defineProperty(video, "currentTime", {
+      configurable: true,
+      get: () => positionS,
+      set: (toS: number) => {
+        positionS = toS;
+      },
+    });
     await press("{ArrowRight}");
     expect(video.currentTime).toBeCloseTo(30 + seekStepMs / 1000, 1);
     await press("{ArrowLeft}{ArrowLeft}");

@@ -7,7 +7,7 @@
  * page's element is found again when Back returns to it, once the page has drawn it.
  */
 
-import { focusContainerAttribute, focusTargetsIn } from "./focus-engine.ts";
+import { focusableSelector, focusContainerAttribute, isFocusTarget } from "./focus-engine.ts";
 
 /**
  * The attribute that marks what remembers its last focused element without bounding an arrow's
@@ -96,18 +96,37 @@ function isKeyed(element: HTMLElement, key: Pick<FocusNote, "href" | "name">): b
   return key.href === undefined ? own.name === key.name : own.href === key.href;
 }
 
+/** Every element of root that may take focus, shown now or not, in the document's order. */
+function focusablesIn(root: ParentNode): HTMLElement[] {
+  return [...root.querySelectorAll<HTMLElement>(focusableSelector)];
+}
+
 /** The note of element, which had focus among root's elements. */
 export function noteOf(element: HTMLElement, root: ParentNode): FocusNote {
   const key = keyOf(element);
-  const ordinal = focusTargetsIn(root)
+  const ordinal = focusablesIn(root)
     .filter((each) => isKeyed(each, key))
     .indexOf(element);
   return { ...key, ordinal: Math.max(ordinal, 0) };
 }
 
-/** The element of root note names, where root draws it now. */
+/**
+ * What takes focus in element's place: element, where it can; else the summary of the closed menu or
+ * details it is in, which Back then returns to (a place chosen from the banner's menu, which closed
+ * as the page was left); else nothing yet.
+ */
+function standInFor(element: HTMLElement): HTMLElement | undefined {
+  if (isFocusTarget(element)) {
+    return element;
+  }
+  const summary = element.closest("details:not([open])")?.querySelector("summary");
+  return summary instanceof HTMLElement && isFocusTarget(summary) ? summary : undefined;
+}
+
+/** The element of root note names, or what stands in for it, where root draws it now. */
 export function elementOfNote(note: FocusNote, root: ParentNode): HTMLElement | undefined {
-  return focusTargetsIn(root).filter((each) => isKeyed(each, note))[note.ordinal];
+  const element = focusablesIn(root).filter((each) => isKeyed(each, note))[note.ordinal];
+  return element === undefined ? undefined : standInFor(element);
 }
 
 /** A note kept in a history entry, read back: undefined where it is none. */
