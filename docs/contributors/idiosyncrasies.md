@@ -40,6 +40,7 @@ User-Agent (D263; the User-Agent is logged only).
 
 | Symptom | Entry |
 |---|---|
+| On a Fire TV in Silk, the remote's arrows moved a pointer and no arrow key reached the page; only play/pause did. | [Silk on Fire TV keeps the D-pad for its pointer unless its spatial navigation mode is on](#silk-on-fire-tv-keeps-the-d-pad-for-its-pointer-unless-its-spatial-navigation-mode-is-on) |
 | A TCL TV in TV Bro plays every film's sound about half a second after its picture, whatever the codec; YouTube there is in time. | [A TCL TV in TV Bro plays a page's sound about half a second late, and the browser cannot tell](#a-tcl-tv-in-tv-bro-plays-a-pages-sound-about-half-a-second-late-and-the-browser-cannot-tell) |
 | A read-through over a share that dropped mid-film was answered as complete, its loudness that of part of the film. | [FFmpeg whose input read fails part way exits 0 with an answer made of what it read](#ffmpeg-whose-input-read-fails-part-way-exits-0-with-an-answer-made-of-what-it-read) |
 | At a discovery's page at home, every request failed with "NetworkError when attempting to fetch resource." after a realm sign-in. | [Firefox fails a public page's requests to a LAN name until its local-network prompt is answered, and again after a grant not remembered](#firefox-fails-a-public-pages-requests-to-a-lan-name-until-its-local-network-prompt-is-answered-and-again-after-a-grant-not-remembered) |
@@ -708,6 +709,25 @@ User-Agent (D263; the User-Agent is logged only).
 ---
 
 ## Chrome and Android (getUserMedia and audio)
+
+### Silk on Fire TV keeps the D-pad for its pointer unless its spatial navigation mode is on
+
+- **Symptom:** on a Fire TV Stick (AFTSSS, Fire OS, Silk 138), the D-pad moved a pointer about the
+  page and the page heard no arrow key, no OK and no Back; play/pause alone reached it, as a key
+  (`MediaPlayPause`, keyCode 179) and never as a Media Session action. Back stepped the page's
+  history as the browser's Back does.
+- **Cause:** Silk's default is a pointer driven by the D-pad, which takes the keys before the page.
+  Silk also has a **spatial navigation mode**, found by the owner by chance: in it, focus jumps
+  between the page's focusable elements, the arrows and Enter reach the page as `keydown`s first,
+  and a page that prevents an arrow's default moves focus itself, Silk's own move not happening.
+- **What we do:** nothing yet; the web client has no focus engine (controller-input-2026-10-25.md
+  §6.1). With one, Silk's spatial mode gives the page the D-pad with no app. Silk's own moves there
+  are quick (median 69 ms, worst 96 ms over 20 moves) but jump oddly on our pages, whose layout
+  gives the nearest-element search nothing to follow.
+- **Unknown:** whether Silk remembers the mode across restarts, and whether Back reaches the page
+  in it.
+- **Evidence:** [owner] 2026-10-25, staging, `/lab/input`, lab results `XOSUILPC` (pointer mode)
+  and `ECD3SZ56` (spatial mode); plans/tv-device-tests.md §5.
 
 ### A TCL TV in TV Bro plays a page's sound about half a second late, and the browser cannot tell
 
