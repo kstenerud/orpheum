@@ -62,14 +62,24 @@
   margin: 0;
 }
 
-/* The places for watching: one row that scrolls sideways when the window is narrow. */
+/*
+ * The places for watching: one row that scrolls sideways when the window is narrow, keeping room for
+ * the focus ring around its places, which it would clip, and standing where it would without it.
+ */
 .app-shell__watching {
   display: flex;
   flex: 1 1 auto;
   gap: var(--space-1);
   min-width: 0;
   overflow-x: auto;
+  scroll-padding-inline: var(--focus-ring-room);
   scrollbar-width: none;
+}
+
+/* Its room for the ring, over the banner's lists' margin and padding of none. */
+.app-shell__nav .app-shell__watching {
+  margin: calc(-1 * var(--focus-ring-room));
+  padding: var(--focus-ring-room);
 }
 
 .app-shell__watching li {

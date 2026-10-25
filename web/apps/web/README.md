@@ -162,8 +162,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/input-commands.test.tsx`, `src/input-layer.test.tsx`,
   `src/focus-memory.test.ts`, `src/focus-engine.test.ts`, `src/input-buttons.test.ts`,
   `src/input-pads.test.ts`, `src/navigation.test.ts`, `src/app-shell.test.tsx`,
-  `src/modal-dialog.test.tsx`, `src/input-walk.browser.test.tsx` (Chromium and Firefox, at Silk's
-  960 × 480 and a desktop's size).
+  `src/modal-dialog.test.tsx`, `src/modal-dialog.browser.test.tsx`, and the walks of every page
+  in Chromium and Firefox at Silk's 960 × 480 and a desktop's size, `src/input-walk.browser.test.tsx`,
+  `src/input-rows.browser.test.tsx`, `src/input-pages.browser.test.tsx`; on devices, VQ61 and VQ62.
+  A row that scrolls sideways keeps room for the focus ring (`--focus-ring-room` in
+  `src/tokens.css`), which it would clip.
 - **Focus only adds** (D189): ring, lift and modest scale are custom properties in
   `src/tokens.css`. Review-only until the first tile lands; then the geometry and luminance
   tests of [testing-strategy.md](../../../docs/contributors/design/plans/testing-strategy.md) enforce it.

@@ -8,13 +8,18 @@
   margin-block-start: 0;
 }
 
-/* One row of posters that scrolls sideways, sized as the grid below is. */
+/*
+ * One row of posters that scrolls sideways, sized as the grid below is. A row that scrolls clips what
+ * leaves its box, so it keeps room for the focus ring around its posters, and stands where it would
+ * without it.
+ */
 .continue-watching__rows {
   display: flex;
   gap: var(--space-3);
-  margin: 0;
-  padding: 0 0 var(--space-2);
+  margin: calc(-1 * var(--focus-ring-room)) calc(-1 * var(--focus-ring-room)) 0;
+  padding: var(--focus-ring-room) var(--focus-ring-room) var(--space-2);
   overflow-x: auto;
+  scroll-padding-inline: var(--focus-ring-room);
   list-style: none;
   scroll-snap-type: x proximity;
 }

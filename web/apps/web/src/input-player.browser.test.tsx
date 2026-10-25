@@ -111,7 +111,10 @@ describe.each(screens)("the player by a remote's keys, on $name", ({ width, heig
     await page.viewport(width, height);
     walking = await mountApp(walkServices(filmToPlay, "/play/1030"));
     const video = await theVideo();
+    // The walk serves no media: once its load has failed, the player changes nothing more under it.
+    await expect.poll(() => video.error?.code).toBeDefined();
     video.focus();
+    expect(document.activeElement).toBe(video);
     // The walk serves no media, so the browser's own position comes and goes as the load fails: the
     // video stands where the player last moved it, 30 s into a ten-minute film.
     let positionS = 30;
