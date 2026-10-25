@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { seekTo } from "@orpheum/player";
 import { useTranslation } from "react-i18next";
 
+import { fillTheScreen } from "./film-fullscreen.ts";
 import type { FilmParts } from "./film-player.tsx";
 import type { Command } from "./input-buttons.ts";
 import { useCommands } from "./input-layer.tsx";
@@ -302,13 +303,13 @@ function useStanding(videoRef: RefObject<HTMLVideoElement | null>): {
 
 /**
  * Puts the stage the overlay is in full screen as the player opens, as a television's player is;
- * the press that opened the film lets the page ask. A browser that refuses leaves it in the page.
+ * where the browser refuses, it fills the window (fillTheScreen).
  */
 function useFullscreenStage(insideRef: RefObject<HTMLElement | null>): void {
   useEffect(() => {
     const stage = insideRef.current?.closest(".film-player__stage");
-    if (stage instanceof HTMLElement && document.fullscreenElement === null) {
-      stage.requestFullscreen().catch(() => undefined);
+    if (stage instanceof HTMLElement) {
+      fillTheScreen(stage, document);
     }
   }, [insideRef]);
 }

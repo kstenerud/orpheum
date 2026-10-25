@@ -31,6 +31,7 @@ import { askUntilAnswered, reopenAtMostEveryMs, type ReopenAt } from "./reopen.t
 import type { LadderOffer } from "./moving-down.ts";
 import { usePlayState } from "./play-state.ts";
 import { usePlayerCommands } from "./player-commands.ts";
+import { fillTheScreen } from "./film-fullscreen.ts";
 import { TvControls } from "./tv-controls.tsx";
 import { isBrowserFullscreen, isTelevision, thisBrowserWindow } from "./tv-device.ts";
 import { useServices } from "./services.tsx";
@@ -186,15 +187,15 @@ function PlayerView(
 
 /**
  * Puts the player's stage full screen as it opens where the browser itself is full screen (F11, a
- * Mac's full-screen window), as a television's player does (the owner, 2026-10-25); the press that
- * opened the film lets the page ask, and a browser that refuses leaves it in the page.
+ * Mac's full-screen window), as a television's player does (the owner, 2026-10-25); where the
+ * browser refuses, it fills the window (fillTheScreen).
  */
 function useFullscreenAsTheBrowserIs(video: HTMLVideoElement | null): void {
   useEffect(() => {
     const stage = video?.closest(".film-player__stage");
     const isAsked = !isTelevision(navigator.userAgent) && isBrowserFullscreen(thisBrowserWindow());
-    if (isAsked && stage instanceof HTMLElement && document.fullscreenElement === null) {
-      stage.requestFullscreen().catch(() => undefined);
+    if (isAsked && stage instanceof HTMLElement) {
+      fillTheScreen(stage, document);
     }
   }, [video]);
 }
