@@ -40,6 +40,9 @@ film's loudness with a gain after the element's volume (`src/gain.ts`, D226).
 - **A film's player holds a screen wake lock while its video plays on a shown page**, lets it go
   when the video pauses or ends, asks again when the page is shown, and plays on without one
   where the browser gives none (D287). `wake.test.ts`.
+- **A chunked playback's requests carry an Authorization only where one is handed in**, for a page
+  with no media cookie on the core's origin: the lab's cast receiver (plans/tv-device-tests.md).
+  `chunked.test.ts`.
 - **One public entry.** `exports` in `package.json` exposes only `src/index.ts`.
 - **One library per job:** hls.js for HLS and JASSUB for ASS/SSA; alternatives are named in
   `no-restricted-imports` (`web/eslint.config.js`).

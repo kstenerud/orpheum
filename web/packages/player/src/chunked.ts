@@ -242,6 +242,11 @@ export function chunkedHlsConfig(options: {
   readonly isSought?: () => boolean;
   /** Told the server's ceiling, kbps, with each answer, undefined where it sets none (D286 §5). */
   readonly onCeiling?: (kbps: number | undefined) => void;
+  /**
+   * The Authorization each request carries, for a page with no media cookie on the core's origin:
+   * the lab's cast receiver, handed its sender's sign-in (plans/tv-device-tests.md); none elsewhere.
+   */
+  readonly authorization?: string | undefined;
 }): Partial<HlsConfig> {
   return {
     xhrSetup: (xhr) => {
@@ -256,6 +261,9 @@ export function chunkedHlsConfig(options: {
       }
       if (options.isSought?.() === true) {
         xhr.setRequestHeader(soughtHeader, "true");
+      }
+      if (options.authorization !== undefined) {
+        xhr.setRequestHeader("Authorization", options.authorization);
       }
     },
     testBandwidth: false,
@@ -377,6 +385,8 @@ export function playChunked(
      * fills only its first buffer, so it does not hold a phone's link while its person browses.
      */
     readonly loadsAheadAtMostS?: number;
+    /** The Authorization each request carries, where the page has no media cookie (chunkedHlsConfig). */
+    readonly authorization?: string | undefined;
   },
 ): ChunkedPlayback {
   const withoutHlsJs = playWithoutHlsJs(video, url, options.onFailed);
