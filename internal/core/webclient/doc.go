@@ -19,6 +19,13 @@
 //     nothing from elsewhere and forbids framing, and `Referrer-Policy: no-referrer`; one over HTTPS
 //     carries `Strict-Transport-Security`. Enforced by TestHandler_ServesFilesAndFallsBackToIndex
 //     and TestHandler_EveryAnswerCarriesTheSecurityHeaders.
+//   - Only the cast pages load from elsewhere, and only Google's Cast SDK (www.gstatic.com): the lab's
+//     cast probe at /lab/cast its sender's, the receiver under /cast/ CAF's and the Cast platform's
+//     socket on the device (ws://localhost:8008); every other page keeps the policy above
+//     (plans/tv-device-tests.md). Enforced by TestHandler_OnlyTheCastPagesMayLoadGooglesCastSDK.
+//   - The cast receiver, where it is built in (dist/cast/, which web/apps/cast-receiver's build
+//     writes inside the web client's dist), answers its addresses under /cast/ with its own page.
+//     Enforced by TestHandler_ServesTheCastReceiverUnderCast.
 //   - The client's manifest names every file it serves by its size and SHA-256, in path order, so
 //     the same client is always the same bytes, which the core signs for a discovery's loader to
 //     check (D308 §6). Enforced by TestManifestOf_NamesEveryFileByItsHashInPathOrder.

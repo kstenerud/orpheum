@@ -125,3 +125,64 @@ func TestHandler_WithoutTheClientSaysSo(t *testing.T) {
 		t.Errorf("no client: %d %q, want 404 with a reason", response.Code, response.Body.String())
 	}
 }
+
+// Only the cast pages may load Google's Cast SDK: the lab's cast probe the sender's, by its own load,
+// and the receiver under /cast/ CAF's and the Cast platform's socket on the device; every other page
+// loads nothing from elsewhere (plans/tv-device-tests.md).
+func TestHandler_OnlyTheCastPagesMayLoadGooglesCastSDK(t *testing.T) {
+	t.Parallel()
+	files := builtClientFS()
+	files["cast/index.html"] = &fstest.MapFile{Data: []byte("<!doctype html><title>Receiver</title>")}
+	handler := webclient.Handler(files, "/api/v1")
+	policyOf := func(target string) string {
+		return get(t, handler, target).Header().Get("Content-Security-Policy")
+	}
+	for _, target := range []string{"/", "/films", "/lab", "/lab/device", "/lab/cast/x", "/favicon.svg", "/castle"} {
+		if policy := policyOf(target); strings.Contains(policy, "gstatic") || strings.Contains(policy, "localhost") {
+			t.Errorf("%s: the policy %q lets the page load from elsewhere", target, policy)
+		}
+	}
+	sender := policyOf("/lab/cast")
+	for _, want := range []string{"script-src 'self' 'wasm-unsafe-eval' https://www.gstatic.com;",
+		"connect-src 'self' https://www.gstatic.com;", "frame-ancestors 'none'"} {
+		if !strings.Contains(sender, want) {
+			t.Errorf("the cast probe's policy %q lacks %q", sender, want)
+		}
+	}
+	for _, target := range []string{"/cast", "/cast/", "/cast/assets/receiver-1a.js"} {
+		receiver := policyOf(target)
+		for _, want := range []string{"script-src 'self' https://www.gstatic.com;",
+			"connect-src 'self' ws://localhost:8008 https://www.gstatic.com;", "frame-ancestors 'none'"} {
+			if !strings.Contains(receiver, want) {
+				t.Errorf("%s: the receiver's policy %q lacks %q", target, receiver, want)
+			}
+		}
+	}
+}
+
+// The cast receiver, where it is built in, answers its own addresses under /cast/ with its own page,
+// never the web client's; where it is not, they are the client's as any other address is.
+func TestHandler_ServesTheCastReceiverUnderCast(t *testing.T) {
+	t.Parallel()
+	const receiverPage = "<!doctype html><title>Receiver</title>"
+	files := builtClientFS()
+	files["cast/index.html"] = &fstest.MapFile{Data: []byte(receiverPage)}
+	files["cast/assets/receiver-1a.js"] = &fstest.MapFile{Data: []byte("console.log(2)")}
+	handler := webclient.Handler(files, "/api/v1")
+	for target, want := range map[string]string{
+		"/cast/":                      receiverPage,
+		"/cast":                       receiverPage,
+		"/cast/lab":                   receiverPage,
+		"/cast/assets/receiver-1a.js": "console.log(2)",
+		"/castle":                     "<!doctype html><title>Orpheum</title>",
+	} {
+		response := get(t, handler, target)
+		if response.Code != http.StatusOK || response.Body.String() != want {
+			t.Errorf("%s: %d %q, want 200 %q", target, response.Code, response.Body.String(), want)
+		}
+	}
+	unbuilt := webclient.Handler(builtClientFS(), "/api/v1")
+	if response := get(t, unbuilt, "/cast/"); response.Body.String() != "<!doctype html><title>Orpheum</title>" {
+		t.Errorf("/cast/ with no receiver built: %q, want the client", response.Body.String())
+	}
+}
