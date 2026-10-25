@@ -125,6 +125,12 @@ const (
 	valueFalse = "false"
 )
 
+// AxisEpisodeOrdering is a series' axis at its work scope: the ordering its person watches it in,
+// by the ordering's name, "aired" or a provider's ("tmdb:<group id>"), as episode-orderings.md §4
+// has it (D159 §1). Only a person sets it, on the series' page; it is never inferred from what
+// they watch (D159 §4). Its resolver is internal/core/library's ViewingOrdering.
+const AxisEpisodeOrdering = "episode_ordering"
+
 // ErrNoTrack is a choice naming a track the file does not have.
 var ErrNoTrack = errors.New("no such track in this file")
 

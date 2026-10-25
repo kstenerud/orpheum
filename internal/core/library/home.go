@@ -31,8 +31,8 @@ type InProgress struct {
 	// FileName names the file when more than one of the work's files is partway through, so the
 	// row says which it resumes; empty otherwise.
 	FileName string
-	// Episode is an episode's series and place; nil for a film.
-	Episode *sqlcgen.GetEpisodePlaceRow
+	// Episode is an episode's series and place, as the person sees it; nil for a film.
+	Episode *EpisodePlace
 }
 
 // ContinueWatching is what the person stopped in the middle of (play-state.md): each work once,
@@ -83,7 +83,7 @@ func (browser *Browser) ContinueWatching(ctx context.Context, userID int64, reac
 			FileID: row.FileID, PositionMs: row.PositionMs, DurationMs: row.DurationMs, FileName: path.Base(row.Path),
 		})
 		if row.Kind == TitleKindEpisode {
-			if inProgress[len(inProgress)-1].Episode, err = browser.episodePlace(ctx, row.TitleID); err != nil {
+			if inProgress[len(inProgress)-1].Episode, err = browser.episodePlace(ctx, userID, row.TitleID); err != nil {
 				return nil, err
 			}
 		}

@@ -955,8 +955,9 @@ CREATE TABLE preference (                                  -- class A (D24, D57,
   scope_id    INTEGER NOT NULL DEFAULT 0,  -- 0 for 'user'; a work's is its series' or its title's item
   axis        TEXT NOT NULL,               -- a file's 'subtitle_offset_ms', 'subtitle_used',
                                            -- 'audio_used'; a work's 'subtitle_language',
-                                           -- 'audio_language'; a person's own 'dialogue_boost',
-                                           -- 'levelling'
+                                           -- 'audio_language', a series' 'episode_ordering'
+                                           -- (the ordering's name as a JSON string); a person's
+                                           -- own 'dialogue_boost', 'levelling'
   value_json  TEXT NOT NULL,               -- JSON; a switch is true or false, and unset is not false
   set_at      INTEGER NOT NULL,
   PRIMARY KEY (user_id, scope, scope_id, axis)

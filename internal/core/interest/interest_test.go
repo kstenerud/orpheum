@@ -370,6 +370,47 @@ func TestRaiser_ALookAtASeriesRaisesItsNextUpAlone(t *testing.T) {
 	}
 }
 
+// A look at a series follows the ordering its person watches it in (D159; episode-orderings.md
+// §7 Q4): its Next Up there, a season its group, and an episode the ordering leaves out never raised.
+func TestRaiser_ALookAtASeriesFollowsTheOrderingItsPersonWatchesItIn(t *testing.T) {
+	t.Parallel()
+	database := seriesOfSix(t)
+	// A DVD order: disc 1 is 23 then 21, disc 2 is 26; 22, 24 and 25 are not in it. 23 is finished.
+	storetest.ExecRaw(t, database.Path(),
+		`INSERT INTO ordering (id, collection_id, name, provider) VALUES (2, 20, 'tmdb:dvd', 'tmdb')`,
+		`INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order) VALUES
+		 (2, 23, 1, 1, 10001), (2, 21, 1, 2, 10002), (2, 26, 2, 1, 20001)`,
+		`INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
+		 VALUES (1, 'work', 20, 'episode_ordering', '"tmdb:dvd"', 1)`,
+		`INSERT INTO play_position (user_id, file_id, position_ms, position_read_at, report_seq, updated_at)
+		 VALUES (1, 230, 1000, 5, 1, 1)`)
+	now := clocktest.NewFake(time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC))
+	register := NewRegister(now)
+	record := &raising{}
+	room := &waitingRoom{}
+	raiser := mustRaiser(t, Parts{
+		Register: register, Jobs: record, Nodes: room, Waiting: room, Reads: &readsAsked{},
+		Playing: func() []int64 { return nil }, Database: database, Settings: settingstest.Seeded(t, database),
+		Clock: now, Logger: slog.New(slog.DiscardHandler),
+	})
+	register.Look("only", 1, 20, NoSeason)
+	if err := raiser.Raise(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	register.Look("only", 1, 20, 2)
+	if err := raiser.Raise(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		describe(jobs.Interested{ItemIDs: []int64{20, 21}, FileIDs: []int64{210}}, jobs.PriorityLookedAt, false),
+		describe(jobs.Interested{ItemIDs: []int64{20, 26}, FileIDs: []int64{260}}, jobs.PriorityLookedAt, false),
+	}
+	if !slices.Equal(record.raised, want) {
+		t.Errorf("raised\n  %q\nwant\n  %q; want the DVD order's Next Up, 21 after 23, then its disc 2", record.raised,
+			want)
+	}
+}
+
 // A look at a series' season asks for the read of every one of its episodes, in their order, once
 // for the look: said again it asks for none, and a look begun anew asks again (the owner,
 // 2026-10-25: a season's page quick-scans its episodes).

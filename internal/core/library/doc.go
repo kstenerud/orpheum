@@ -231,6 +231,15 @@
 //     TestMembersAheadInGroup_StartAtThePersonsPlaceInTheGroup,
 //     TestMembersOf_ReadThePersonsPositionsAgainstTheThresholds.
 //
+//   - Which ordering a person sees a series in is answered in one place, ViewingOrdering: their
+//     choice, the preference episode_ordering at the series' work scope, when the series still has
+//     it; else aired, the files' order until an admin can name another (D159 §1, D210 §5;
+//     episode-orderings.md §7 Q3). The series' page's seasons, a season's page, an episode's label
+//     on its page and in Continue Watching, Next Up and what interest raises all follow it; aired's
+//     specials come last, another ordering's groups by number. Choosing one moves no play position
+//     or event (D159's first assertion, D157). Enforced by
+//     TestOrderings_APersonsChosenOrderingIsTheSeriesTheySee (internal/core/api).
+//
 //   - A removed file is deleted removed_files_kept_days after it went, by a daily sweep, in short
 //     writes, after each package that holds something of it has dealt with it; a video goes only
 //     once no sidecar of it stays, and its title and version stay (D304 §6, D306 §8).
@@ -261,6 +270,7 @@
 //     roots, list, scan, the scanner view); browse.go and detail.go: lists, a title's detail, a
 //     series' episodes, and search; home.go: Continue Watching and the resume thresholds;
 //     next_up.go: a collection's members as a person stands in them, and their Next Up;
+//     ordering.go: the ordering a person sees a series in, and an episode's place in it;
 //     subtitle_sidecar.go: a subtitle file's track; rootpath.go: which root a file is under, and a
 //     path's text; availability.go: the one writer of a place's availability (D328); places.go:
 //     the scans' answers to it, a probe, a stall, a bring-back;

@@ -505,7 +505,9 @@ func checkPageBudgets(t *testing.T, database *Database) {
 			return err //nolint:wrapcheck // a test
 		},
 		"a series' episodes": func() error {
-			_, err := queries.ListSeriesEpisodeDetails(ctx, int64(refFilms)+1)
+			_, err := queries.ListSeriesEpisodeDetails(ctx, sqlcgen.ListSeriesEpisodeDetailsParams{
+				CollectionID: int64(refFilms) + 1, OrderingName: "aired",
+			})
 			return err //nolint:wrapcheck // a test
 		},
 	}

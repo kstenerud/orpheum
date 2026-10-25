@@ -9,6 +9,30 @@ import (
 	"context"
 )
 
+const getChosenOrdering = `-- name: GetChosenOrdering :one
+SELECT ordering.name
+FROM preference
+JOIN ordering ON ordering.collection_id = preference.scope_id
+  AND ordering.name = CAST(json_extract(preference.value_json, '$') AS TEXT)
+WHERE preference.user_id = ?1 AND preference.scope = 'work'
+  AND preference.scope_id = ?2 AND preference.axis = ?3
+`
+
+type GetChosenOrderingParams struct {
+	UserID       int64
+	CollectionID int64
+	Axis         string
+}
+
+// The ordering a person chose to watch a series in (D159 section 1), a preference at the series'
+// work scope, when the series still has it; none when they chose none, or one it no longer has.
+func (q *Queries) GetChosenOrdering(ctx context.Context, arg GetChosenOrderingParams) (string, error) {
+	row := q.db.QueryRowContext(ctx, getChosenOrdering, arg.UserID, arg.CollectionID, arg.Axis)
+	var name string
+	err := row.Scan(&name)
+	return name, err
+}
+
 const getEpisodePlace = `-- name: GetEpisodePlace :one
 SELECT ordering.collection_id, position.group_number, position.number_in_group, item_text.name AS series_name
 FROM position
@@ -47,6 +71,37 @@ func (q *Queries) GetLibraryOfItem(ctx context.Context, id int64) (*int64, error
 	var library_id *int64
 	err := row.Scan(&library_id)
 	return library_id, err
+}
+
+const getPlaceInOrdering = `-- name: GetPlaceInOrdering :one
+SELECT position.group_number, position.number_in_group,
+  (SELECT count(DISTINCT coalesce(other.group_number, 0)) FROM position AS other WHERE other.ordering_id = ordering.id)
+    AS group_count
+FROM ordering
+JOIN position ON position.ordering_id = ordering.id
+WHERE ordering.collection_id = ?1 AND ordering.name = ?2
+  AND position.title_id = ?3
+`
+
+type GetPlaceInOrderingParams struct {
+	CollectionID int64
+	OrderingName string
+	TitleID      int64
+}
+
+type GetPlaceInOrderingRow struct {
+	GroupNumber   *int64
+	NumberInGroup *int64
+	GroupCount    int64
+}
+
+// A member's place in one of its collection's named orderings (D96, D159): its group and number in
+// it, and how many groups the ordering has, one for an ordering that is a single run (absolute).
+func (q *Queries) GetPlaceInOrdering(ctx context.Context, arg GetPlaceInOrderingParams) (GetPlaceInOrderingRow, error) {
+	row := q.db.QueryRowContext(ctx, getPlaceInOrdering, arg.CollectionID, arg.OrderingName, arg.TitleID)
+	var i GetPlaceInOrderingRow
+	err := row.Scan(&i.GroupNumber, &i.NumberInGroup, &i.GroupCount)
+	return i, err
 }
 
 const getSeriesDetail = `-- name: GetSeriesDetail :one
@@ -520,15 +575,16 @@ JOIN ordering ON ordering.id = position.ordering_id
 JOIN title ON title.id = position.title_id
 JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = position.title_id AND item_text.is_original = 1
-WHERE ordering.collection_id = ?1 AND ordering.name = 'aired' AND item.removed_at IS NULL
-  AND coalesce(position.group_number, 0) = CAST(?2 AS INTEGER)
-  AND position.sort_order > ?3
+WHERE ordering.collection_id = ?1 AND ordering.name = ?2 AND item.removed_at IS NULL
+  AND coalesce(position.group_number, 0) = CAST(?3 AS INTEGER)
+  AND position.sort_order > ?4
 ORDER BY position.sort_order
-LIMIT ?4
+LIMIT ?5
 `
 
 type ListSeasonEpisodeDetailsParams struct {
 	CollectionID   int64
+	OrderingName   string
 	SeasonNumber   int64
 	AfterSortOrder float64
 	MaxRows        int64
@@ -546,11 +602,13 @@ type ListSeasonEpisodeDetailsRow struct {
 	Available           bool
 }
 
-// A page of one season's episodes in aired order, after the episode at after_sort_order, each with
-// whether it has a live file; season 0 holds the specials and the episodes with no season.
+// A page of one season's episodes, a group of one of the series' named orderings (D159; the one its
+// person watches in), after the episode at after_sort_order, each with whether it has a live file;
+// aired's season 0 holds the specials and the episodes with no season.
 func (q *Queries) ListSeasonEpisodeDetails(ctx context.Context, arg ListSeasonEpisodeDetailsParams) ([]ListSeasonEpisodeDetailsRow, error) {
 	rows, err := q.db.QueryContext(ctx, listSeasonEpisodeDetails,
 		arg.CollectionID,
+		arg.OrderingName,
 		arg.SeasonNumber,
 		arg.AfterSortOrder,
 		arg.MaxRows,
@@ -758,9 +816,14 @@ JOIN ordering ON ordering.id = position.ordering_id
 JOIN title ON title.id = position.title_id
 JOIN item ON item.id = title.id
 LEFT JOIN item_text ON item_text.item_id = position.title_id AND item_text.is_original = 1
-WHERE ordering.collection_id = ?1 AND ordering.name = 'aired' AND item.removed_at IS NULL
+WHERE ordering.collection_id = ?1 AND ordering.name = ?2 AND item.removed_at IS NULL
 ORDER BY position.sort_order
 `
+
+type ListSeriesEpisodeDetailsParams struct {
+	CollectionID int64
+	OrderingName string
+}
 
 type ListSeriesEpisodeDetailsRow struct {
 	TitleID             int64
@@ -773,9 +836,10 @@ type ListSeriesEpisodeDetailsRow struct {
 	Available           bool
 }
 
-// A series' episodes in aired order, each with whether it has a live file.
-func (q *Queries) ListSeriesEpisodeDetails(ctx context.Context, collectionID int64) ([]ListSeriesEpisodeDetailsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listSeriesEpisodeDetails, collectionID)
+// A series' episodes in one of its named orderings (D159; the one its person watches in), each
+// with whether it has a live file.
+func (q *Queries) ListSeriesEpisodeDetails(ctx context.Context, arg ListSeriesEpisodeDetailsParams) ([]ListSeriesEpisodeDetailsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSeriesEpisodeDetails, arg.CollectionID, arg.OrderingName)
 	if err != nil {
 		return nil, err
 	}

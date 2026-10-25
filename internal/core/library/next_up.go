@@ -9,8 +9,9 @@ import (
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
-// OrderingAired is the aired ordering, the one a series' members are in until a person's choice of
-// ordering exists (D159: a collection declares its named orderings; the choice is a preference).
+// OrderingAired is the aired ordering, TMDB's season listing, which every episode of a series is in
+// and a person watches it in until they choose another (D159: a collection declares its named
+// orderings; the choice is a preference, ViewingOrdering).
 const OrderingAired = "aired"
 
 // Member is one member of a collection's ordering, in its place (D160: a sequence is what a

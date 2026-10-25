@@ -302,12 +302,17 @@ func (raiser *Raiser) Run(ctx context.Context, tick <-chan time.Time) {
 // files, and the titles whose reads it asks for: on the series' own page, its person's Next Up
 // alone, as that episode's own page raises it (the owner, 2026-10-25), and its read; on a season's,
 // series_episodes_ahead of that season's from their place in it, and the read of all its members.
-// The ordering is the aired one until a person chooses theirs (D159).
+// The ordering is the one its person watches the series in (library.ViewingOrdering, D159), and a
+// season is a group of it: an episode it leaves out is never raised (episode-orderings.md §7 Q4).
 func (raiser *Raiser) withMembersAhead(
 	ctx context.Context, look Look, interested jobs.Interested,
 ) (jobs.Interested, []int64, error) {
-	members, err := library.ReadMembers(ctx, raiser.parts.Database.Read(), raiser.parts.Settings, look.ItemID,
-		look.UserID, library.OrderingAired)
+	queries := raiser.parts.Database.Read()
+	ordering, err := library.ViewingOrdering(ctx, queries, look.UserID, look.ItemID)
+	if err != nil {
+		return jobs.Interested{}, nil, err
+	}
+	members, err := library.ReadMembers(ctx, queries, raiser.parts.Settings, look.ItemID, look.UserID, ordering)
 	if err != nil {
 		return jobs.Interested{}, nil, err
 	}

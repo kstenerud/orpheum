@@ -615,6 +615,10 @@
             "$ref": "#/components/schemas/NextUpBody",
             "description": "The person's next episode, which the page offers to play; absent when every one is finished or none has a file"
           },
+          "ordering": {
+            "description": "The ordering its person watches it in, which its seasons are the groups of; absent for aired",
+            "type": "string"
+          },
           "overview": {
             "type": "string"
           },
@@ -1408,10 +1412,19 @@
         "additionalProperties": false,
         "properties": {
           "episodeNumber": {
+            "description": "Its number in its aired season",
             "format": "int64",
             "type": "integer"
           },
+          "inOrdering": {
+            "$ref": "#/components/schemas/OrderingPlaceBody"
+          },
+          "ordering": {
+            "description": "The ordering the person watches the series in; absent for aired",
+            "type": "string"
+          },
           "seasonNumber": {
+            "description": "Its season in the aired order",
             "format": "int64",
             "type": "integer"
           },
@@ -3534,6 +3547,34 @@
           "sessionId",
           "membershipCredential",
           "isNew"
+        ],
+        "type": "object"
+      },
+      "OrderingPlaceBody": {
+        "additionalProperties": false,
+        "properties": {
+          "groupName": {
+            "description": "The group's name, where the ordering names it (Disc 2)",
+            "type": "string"
+          },
+          "groupNumber": {
+            "description": "Its group in the ordering, a disc or a part",
+            "format": "int64",
+            "type": "integer"
+          },
+          "isOnlyGroup": {
+            "description": "Whether the ordering is one run, with no headings",
+            "type": "boolean"
+          },
+          "numberInGroup": {
+            "description": "Its number in its group",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "groupNumber",
+          "numberInGroup"
         ],
         "type": "object"
       },
@@ -8342,7 +8383,7 @@
             "description": "Error"
           }
         },
-        "summary": "A page of one season's episodes in aired order",
+        "summary": "A page of one season's episodes, in the ordering the person watches the series in",
         "tags": [
           "Browse"
         ]

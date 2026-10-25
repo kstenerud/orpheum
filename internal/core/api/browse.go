@@ -10,7 +10,6 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
-	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
 const tagBrowse = "Browse"
@@ -115,12 +114,27 @@ type ExtraBody struct {
 	Name      string `json:"name"`
 }
 
-// EpisodePlaceBody is an episode's series and place in its aired order.
+// EpisodePlaceBody is an episode's series, its place in the aired order, and its place in the
+// ordering the person watches the series in, which labels it wherever they see it (D159 §1;
+// episode-orderings.md §7 Q8).
 type EpisodePlaceBody struct {
 	SeriesID      int64  `json:"seriesId"`
 	SeriesName    string `json:"seriesName"`
-	SeasonNumber  int64  `json:"seasonNumber"`
-	EpisodeNumber int64  `json:"episodeNumber"`
+	SeasonNumber  int64  `doc:"Its season in the aired order" json:"seasonNumber"`
+	EpisodeNumber int64  `doc:"Its number in its aired season" json:"episodeNumber"`
+	// Ordering is the ordering the person watches the series in, when it is not aired: a provider's.
+	Ordering string `doc:"The ordering the person watches the series in; absent for aired" json:"ordering,omitempty"`
+	// InOrdering is its place in that ordering; absent in aired, whose place is the season and number,
+	// and when the ordering leaves it out.
+	InOrdering *OrderingPlaceBody `json:"inOrdering,omitempty"`
+}
+
+// OrderingPlaceBody is a member's place in a named ordering other than aired.
+type OrderingPlaceBody struct {
+	GroupNumber   int64  `doc:"Its group in the ordering, a disc or a part" json:"groupNumber"`
+	NumberInGroup int64  `doc:"Its number in its group" json:"numberInGroup"`
+	GroupName     string `doc:"The group's name, where the ordering names it (Disc 2)" json:"groupName,omitempty"`
+	IsOnlyGroup   bool   `doc:"Whether the ordering is one run, with no headings" json:"isOnlyGroup,omitempty"`
 }
 
 // ItemDetailOutput is a title's detail page.
@@ -169,8 +183,9 @@ type SeasonBody struct {
 	StillSha256  string `doc:"Its first episode's still that has one" json:"stillSha256,omitempty"`
 }
 
-// CollectionOutput is a series with its seasons in aired order, the specials last; each season's
-// episodes are GET /collections/{id}/seasons/{season} (D306 §9).
+// CollectionOutput is a series with its seasons, the groups of the ordering its person watches it in,
+// in its order (aired's with the specials last); each season's episodes are
+// GET /collections/{id}/seasons/{season} (D306 §9).
 type CollectionOutput struct {
 	Body struct {
 		ID                  int64             `json:"id"`
@@ -181,6 +196,7 @@ type CollectionOutput struct {
 		IdentificationState string            `json:"identificationState,omitempty"`
 		IsGuessed           bool              `doc:"Whether its match is a guess no person confirmed (D301)" json:"isGuessed,omitempty"` //nolint:lll // one struct tag
 		LibraryID           int64             `json:"libraryId"`
+		Ordering            string            `doc:"The ordering its person watches it in, which its seasons are the groups of; absent for aired" json:"ordering,omitempty"` //nolint:lll // one struct tag
 		Seasons             []SeasonBody      `json:"seasons"`
 		Art                 ArtBody           `json:"art"`
 		FetchFailure        *FetchFailureBody `json:"fetchFailure,omitempty"`
@@ -190,8 +206,8 @@ type CollectionOutput struct {
 	}
 }
 
-// NextUpBody is a person's Next Up in a collection's ordering (D160), the aired one for a series: the
-// member its page offers to play, and where it is in the ordering.
+// NextUpBody is a person's Next Up in a collection's ordering (D160), for a series the one they watch
+// it in: the member its page offers to play, and where it is in the ordering.
 type NextUpBody struct {
 	TitleID       int64            `json:"titleId"`
 	Name          string           `json:"name,omitempty"`
@@ -212,7 +228,8 @@ type SeasonInput struct {
 	Limit  int64  `maximum:"500" minimum:"1" query:"limit" required:"true"`
 }
 
-// SeasonOutput is a page of one season's episodes in aired order.
+// SeasonOutput is a page of one season's episodes, a group of the ordering its person watches the
+// series in, in its order.
 type SeasonOutput struct {
 	Body struct {
 		Episodes   []EpisodeBody `json:"episodes"`
@@ -258,7 +275,7 @@ func (server *Server) registerBrowse() {
 	}, server.getSeries)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getSeason", Method: http.MethodGet, Path: "/collections/{id}/seasons/{season}",
-		Summary: "A page of one season's episodes in aired order", Tags: tags,
+		Summary: "A page of one season's episodes, in the ordering the person watches the series in", Tags: tags,
 	}, server.getSeason)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "search", Method: http.MethodGet, Path: "/search",
@@ -297,7 +314,7 @@ func (server *Server) getTitle(ctx context.Context, input *ItemInput) (*ItemDeta
 	if err != nil {
 		return nil, err
 	}
-	detail, err := dependencies.Browser.Title(ctx, principal.Reach, input.ID)
+	detail, err := dependencies.Browser.Title(ctx, principal.Reach, principal.UserID, input.ID)
 	if err != nil {
 		return nil, server.libraryError(ctx, "read a title", err)
 	}
@@ -352,14 +369,24 @@ func (server *Server) getTitle(ctx context.Context, input *ItemInput) (*ItemDeta
 }
 
 // episodePlaceBody is an episode's place as the API shows it, or nil for a title in no series.
-func episodePlaceBody(place *sqlcgen.GetEpisodePlaceRow) *EpisodePlaceBody {
+func episodePlaceBody(place *library.EpisodePlace) *EpisodePlaceBody {
 	if place == nil {
 		return nil
 	}
-	return &EpisodePlaceBody{
+	body := &EpisodePlaceBody{
 		SeriesID: place.CollectionID, SeriesName: ptr.ValueOrZero(place.SeriesName),
 		SeasonNumber: ptr.ValueOrZero(place.GroupNumber), EpisodeNumber: ptr.ValueOrZero(place.NumberInGroup),
 	}
+	if place.Ordering != library.OrderingAired {
+		body.Ordering = place.Ordering
+	}
+	if in := place.InOrdering; in != nil {
+		body.InOrdering = &OrderingPlaceBody{
+			GroupNumber: in.Group, NumberInGroup: in.NumberInGroup, GroupName: in.GroupName,
+			IsOnlyGroup: in.IsOnlyGroup,
+		}
+	}
+	return body
 }
 
 func (server *Server) getSeries(ctx context.Context, input *ItemInput) (*CollectionOutput, error) {
@@ -367,13 +394,16 @@ func (server *Server) getSeries(ctx context.Context, input *ItemInput) (*Collect
 	if err != nil {
 		return nil, err
 	}
-	series, err := dependencies.Browser.Series(ctx, principal.Reach, input.ID)
+	series, err := dependencies.Browser.Series(ctx, principal.Reach, principal.UserID, input.ID)
 	if err != nil {
 		return nil, server.libraryError(ctx, "read a series", err)
 	}
 	output := &CollectionOutput{}
 	body := &output.Body
 	body.ID, body.Kind = series.ID, "series"
+	if series.Ordering != library.OrderingAired {
+		body.Ordering = series.Ordering
+	}
 	body.Name, body.Overview = ptr.ValueOrZero(series.Name), ptr.ValueOrZero(series.Overview)
 	body.Year, body.LibraryID = ptr.ValueOrZero(series.Year), ptr.ValueOrZero(series.LibraryID)
 	body.IdentificationState, body.IsGuessed = ptr.ValueOrZero(series.IdentificationState), series.IsGuessed
@@ -387,7 +417,7 @@ func (server *Server) getSeries(ctx context.Context, input *ItemInput) (*Collect
 		})
 	}
 	body.Art = artBody(series.Art)
-	next, hasNext, err := dependencies.Browser.NextUp(ctx, principal.UserID, series.ID, library.OrderingAired)
+	next, hasNext, err := dependencies.Browser.NextUp(ctx, principal.UserID, series.ID, series.Ordering)
 	if err != nil {
 		return nil, server.libraryError(ctx, "read a series' next episode", err)
 	}
@@ -407,7 +437,7 @@ func (server *Server) getSeason(ctx context.Context, input *SeasonInput) (*Seaso
 		return nil, err
 	}
 	page, err := dependencies.Browser.Season(ctx, principal.Reach, library.SeasonQuery{
-		SeriesID: input.ID, Season: input.Season, Cursor: input.Cursor, Limit: input.Limit,
+		SeriesID: input.ID, UserID: principal.UserID, Season: input.Season, Cursor: input.Cursor, Limit: input.Limit,
 	})
 	if err != nil {
 		return nil, server.libraryError(ctx, "read a season", err)
