@@ -2,7 +2,7 @@
 
 /**
  * The button test as a real browser lays it out in the app's shell: it fits a Fire TV's screen,
- * 960 × 540 CSS pixels, with no scrolling, its details closed (the owner, 2026-10-25: the browser's
+ * 960 × 480 CSS pixels below Silk's address bar (its run ONCULPN4), with no scrolling, its details closed (the owner, 2026-10-25: the browser's
  * address bar, the title bar and the test, all at once), and it spills sideways nowhere on a phone.
  */
 
@@ -49,8 +49,8 @@ describe("the button test, laid out by a real browser", () => {
     mounted = undefined;
   });
 
-  it("fits a Fire TV's 960 × 540 with no scrolling, in the shell", async () => {
-    await page.viewport(960, 540);
+  it("fits a Fire TV's 960 × 480 under Silk's address bar with no scrolling, in the shell", async () => {
+    await page.viewport(960, 480);
     mounted = await mount(withServices(inTheShell));
     expect(mounted.container.querySelector("#lab-input-heading")).not.toBeNull();
     expect(extent().height).toBeLessThanOrEqual(window.innerHeight);
@@ -68,7 +68,7 @@ describe("the button test, laid out by a real browser", () => {
     };
     Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => [pad] });
     try {
-      await page.viewport(960, 540);
+      await page.viewport(960, 480);
       mounted = await mount(withServices(inTheShell));
       globalThis.dispatchEvent(new Event("gamepadconnected"));
       await expect.poll(() => mounted?.container.textContent ?? "").toContain("the right button");
@@ -81,7 +81,7 @@ describe("the button test, laid out by a real browser", () => {
   it("moves up from the page's top control into the shell's title bar, by our navigation", async () => {
     // The owner, Silk in spatial mode, 2026-10-25: Up from the page's top reached nothing, our
     // navigation moving within the page alone and preventing Silk's own move.
-    await page.viewport(960, 540);
+    await page.viewport(960, 480);
     mounted = await mount(withServices(inTheShell));
     const top = mounted.container.querySelector<HTMLElement>(".lab__back");
     if (top === null) {
