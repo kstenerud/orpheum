@@ -126,6 +126,27 @@ func TestBrowse_ListsDetailsSeriesAndSearch(t *testing.T) {
 	}
 }
 
+// A list by name from a letter, the alphabet rail's, starts at the first title at or after it (the
+// owner, 2026-10-25); from is a list by name's start, and newest first, or after a cursor, refused.
+func TestBrowse_AListByNameFromALetterStartsAtItsFirstTitle(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelve(t)
+	if fromH := harness.do(t, http.MethodGet, "/titles?kind=movie&sort=name&from=H&limit=10", admin,
+		nil); !strings.Contains(fromH.body, `"name":"Metropolis"`) {
+		t.Errorf("films from H = %d %s", fromH.status, fromH.body)
+	}
+	if fromI := harness.do(t, http.MethodGet, "/titles?kind=movie&sort=name&from=I&limit=10", admin,
+		nil); fromI.status != http.StatusOK || strings.Contains(fromI.body, "Metropolis") {
+		t.Errorf("films from I = %d %s; want none, Metropolis before it", fromI.status, fromI.body)
+	}
+	wantError(t, harness.do(t, http.MethodGet, "/titles?kind=movie&sort=added&from=H&limit=10", admin, nil),
+		http.StatusUnprocessableEntity, CodeInvalidRequest)
+	wantError(t, harness.do(t, http.MethodGet, "/titles?kind=movie&sort=name&from=H&cursor=abc&limit=10", admin,
+		nil), http.StatusUnprocessableEntity, CodeInvalidRequest)
+}
+
 func TestBrowse_EachItemShowsItsChosenOrNewestStoredImage(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)

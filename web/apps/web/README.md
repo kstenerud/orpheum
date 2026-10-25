@@ -120,6 +120,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/episode-place.ts`'s. `src/episode-orderings.test.tsx`.
 - **Lists have no pagination to click through** (web-client.md): the next page loads as the
   end comes into view, with a button that always asks too. `src/end-of-list.tsx`.
+- **A list by name's alphabet rail moves it to a letter** (the owner, 2026-10-25): the server names
+  the first title at or after the letter in its own order (`/titles?from=`), # the first of all; the
+  list loads its pages up to it as scrolling would, and its poster takes focus at the view's top,
+  where no title comes after the letter the last. `src/alphabet-rail.test.tsx`.
 - **About credits TMDB with its logo and exact notice, and names what we are built on**
   (D213 §7). `src/about.test.tsx`.
 - **The device lab is at `/lab`, each probe a page of its own** (plans/tv-device-tests.md), offered

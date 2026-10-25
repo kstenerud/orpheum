@@ -129,6 +129,58 @@ func TestBrowse_FilmsInTheLocalesOrderAPageAtATime(t *testing.T) {
 	}
 }
 
+// A list by name from a name starts at the first title sorted at or after it, in the sort_locale,
+// a letter of the alphabet rail's at the first title it begins (the owner, 2026-10-25); its next
+// cursor goes on from there, and a name after every title is an empty page.
+func TestBrowse_FilmsFromANameStartAtTheFirstSortedAtOrAfterIt(t *testing.T) {
+	t.Parallel()
+	world := newShelf(t)
+	world.scan([]nodeproto.ScanRecord{
+		observedRecord("1.mkv", "1"), observedRecord("a.mkv", "a"), observedRecord("m.mkv", "m"),
+		observedRecord("m2.mkv", "m2"), observedRecord("o.mkv", "o"), observedRecord("z.mkv", "z"),
+	}, true)
+	world.fileAsFilm("12 Marrow Larks", "1.mkv")
+	world.fileAsFilm("Fièvre", "a.mkv")
+	world.fileAsFilm("M", "m.mkv")
+	world.fileAsFilm("memento", "m2.mkv")
+	world.fileAsFilm("Ödet", "o.mkv")
+	world.fileAsFilm("Destiny", "z.mkv")
+	from := func(name string, limit int64) Page {
+		t.Helper()
+		page, err := world.browser.List(t.Context(), ListQuery{
+			Reach: auth.EveryLibrary(), Kind: ListFilms, Sort: SortName, From: name, Limit: limit,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return page
+	}
+	// A title named the letter itself is at it; one in lower case beside it; accents fold in English.
+	if page := from("M", 2); !slices.Equal(entryNames(page), []string{"M", "memento"}) || page.NextCursor == "" {
+		t.Errorf("from M = %v", entryNames(page))
+	} else {
+		rest, err := world.browser.List(t.Context(), ListQuery{
+			Reach: auth.EveryLibrary(), Kind: ListFilms, Sort: SortName, Cursor: page.NextCursor, Limit: 10,
+		})
+		if err != nil || !slices.Equal(entryNames(rest), []string{"Ödet", "Destiny"}) {
+			t.Errorf("after from M = %v, %v", entryNames(rest), err)
+		}
+	}
+	if page := from("N", 1); !slices.Equal(entryNames(page), []string{"Ödet"}) {
+		t.Errorf("from N, which no title begins = %v; want the next title, Ödet", entryNames(page))
+	}
+	if page := from("A", 1); !slices.Equal(entryNames(page), []string{"Fièvre"}) {
+		t.Errorf("from A = %v; want Fièvre, after the title that begins with a digit", entryNames(page))
+	}
+	if page := from("Zz", 5); len(page.Entries) != 0 || page.NextCursor != "" {
+		t.Errorf("from past the last = %v", entryNames(page))
+	}
+	settingstest.Set(t, world.config, settings.SortLocale, `"sv"`)
+	if page := from("P", 5); !slices.Equal(entryNames(page), []string{"Destiny", "Ödet"}) {
+		t.Errorf("from P in Swedish = %v; want Destiny, then Ödet after Z", entryNames(page))
+	}
+}
+
 func TestBrowse_FilmsNewestFirst(t *testing.T) {
 	t.Parallel()
 	world := newShelf(t)

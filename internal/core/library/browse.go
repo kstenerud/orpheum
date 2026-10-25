@@ -100,8 +100,11 @@ type ListQuery struct {
 	Kind   string // ListFilms or ListSeries
 	Sort   string // SortName or SortAdded
 	Cursor string
-	Limit  int64
-	Reach  auth.Reach
+	// From is a name a list by name starts at, its first title sorted at or after it in the
+	// sort_locale, in place of its first page: the alphabet rail's letter. Only with no Cursor.
+	From  string
+	Limit int64
+	Reach auth.Reach
 	// UserID is the person listing, whose progress each entry shows.
 	UserID int64
 }
@@ -121,15 +124,20 @@ func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error)
 	return browser.withProgress(ctx, query.UserID, query.Kind, page)
 }
 
-// listByName is one page in the sort_locale's order (D47).
+// listByName is one page in the sort_locale's order (D47): after its cursor, or from its From.
 func (browser *Browser) listByName(ctx context.Context, query ListQuery) (Page, error) {
-	locale, err := browser.sortLocale(ctx)
+	sorter, err := browser.sorter(ctx)
 	if err != nil {
 		return Page{}, err
 	}
+	locale := sorter.Locale()
 	afterKey, afterID, err := decodeCursor(query.Cursor)
 	if err != nil {
 		return Page{}, err
+	}
+	if query.From != "" && query.Cursor == "" {
+		// Every title whose key is the name's or after it: no item's id is below zero.
+		afterKey, afterID = sorter.Key(query.From), -1
 	}
 	var entries []Entry
 	var keys [][]byte
@@ -261,16 +269,13 @@ func decodeCursor(cursor string) ([]byte, int64, error) {
 	return raw[:split], int64(binary.BigEndian.Uint64(raw[split:])), nil //nolint:gosec // an id we encoded
 }
 
-func (browser *Browser) sortLocale(ctx context.Context) (string, error) {
+// sorter is the sorter of the sort_locale lists sort in (D47).
+func (browser *Browser) sorter(ctx context.Context) (*textindex.Sorter, error) {
 	locale, err := browser.settings.String(ctx, settings.SortLocale)
 	if err != nil {
-		return "", fmt.Errorf("read sort_locale: %w", err)
+		return nil, fmt.Errorf("read sort_locale: %w", err)
 	}
-	sorter, err := textindex.NewSorter(locale)
-	if err != nil {
-		return "", err
-	}
-	return sorter.Locale(), nil
+	return textindex.NewSorter(locale)
 }
 
 // Search finds titles and series by name, through the index that can answer the query (D48), of

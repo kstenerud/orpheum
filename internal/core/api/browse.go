@@ -74,6 +74,7 @@ type TitlesInput struct {
 	Kind   string `enum:"movie,series" query:"kind" required:"true"`
 	Sort   string `doc:"name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode" enum:"name,added" query:"sort" required:"true"` //nolint:lll // one struct tag
 	Cursor string `doc:"From the previous page's nextCursor" query:"cursor"`
+	From   string `doc:"A name, by name only and with no cursor: the page starts at the first title sorted at or after it, as a letter of the alphabet does" maxLength:"100" query:"from"` //nolint:lll // one struct tag
 	Limit  int64  `maximum:"500" minimum:"1" query:"limit" required:"true"`
 }
 
@@ -315,9 +316,13 @@ func (server *Server) getTitles(ctx context.Context, input *TitlesInput) (*Title
 	if err != nil {
 		return nil, err
 	}
+	if input.From != "" && (input.Sort != library.SortName || input.Cursor != "") {
+		return nil, invalidRequestAt(http.StatusUnprocessableEntity, "query.from",
+			"from starts a list by name, in place of its first page: it takes no cursor")
+	}
 	page, err := dependencies.Browser.List(ctx, library.ListQuery{
-		Kind: input.Kind, Sort: input.Sort, Cursor: input.Cursor, Limit: input.Limit, Reach: principal.Reach,
-		UserID: principal.UserID,
+		Kind: input.Kind, Sort: input.Sort, Cursor: input.Cursor, From: input.From, Limit: input.Limit,
+		Reach: principal.Reach, UserID: principal.UserID,
 	})
 	if err != nil {
 		return nil, server.libraryError(ctx, "list titles", err)
