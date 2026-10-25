@@ -498,4 +498,16 @@ address, so features a browser gives only to a secure context (the microphone, t
   twice, two keys). Back, pressed alone, is one history step in either mode (`HSH4M2QQ`,
   `BHJ6AJ7I`); the runs with none were runs it was not pressed in. Fire TV in Silk's spatial
   mode can run the web client with our focus engine.
+- **H6, the stick** (`ONCULPN4`): Silk leaves the page 960 × 480 below its address bar, not the
+  screen's 540, so the fit test now checks 480. The text field took typing; Silk's
+  on-screen keyboard did not resize the page (no viewport change while typing).
+- **H7, the stick** (`ONCULPN4`): both full-screen kinds worked; the arrows, OK and play/pause
+  reached the page in the page's own full screen; Back left full screen without reaching the page,
+  so in full screen Back is Silk's. The bare video's full screen is the browser's player, where a
+  click (a controller's A) pauses and resumes.
+- **H8, the stick** (`ONCULPN4`, `QJRWQSNT`): a controller cannot move focus in Silk in either of the
+  8BitDo's modes (idiosyncrasies: "Fire TV keeps a game controller's D-pad and sticks from a page in
+  Silk"). Decided with the owner: the remote is Fire TV's input; controllers there wait for an app
+  shell. In X-input mode the pad reports Xbox's layout with Nintendo's labels, so the choice of OK is
+  now offered for every pad.
 
