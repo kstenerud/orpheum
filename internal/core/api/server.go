@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/netip"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -322,6 +323,8 @@ func (server *Server) requireSignedIn(
 	if err != nil {
 		return nil, auth.Principal{}, server.authError(ctx, "authenticate", err)
 	}
+	rtcapi.NoteClient(ctx,
+		"user "+strconv.FormatInt(principal.UserID, 10)+" device "+strconv.FormatInt(principal.DeviceID, 10))
 	return dependencies, principal, nil
 }
 

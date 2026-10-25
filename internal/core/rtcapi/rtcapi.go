@@ -119,6 +119,10 @@ type Server struct {
 	paths       map[Path]int
 	// sources are the networks connected clients are counted under, by their connections.
 	sources map[*webrtc.PeerConnection]netip.Prefix
+	// held are the records of the connections held, for the log, by their connections, numbered
+	// from numbered.
+	held     map[*webrtc.PeerConnection]*heldConnection
+	numbered int64
 }
 
 // bounds are the bounds on each connection.
@@ -186,6 +190,7 @@ func New(ctx context.Context, handler http.Handler, logger *slog.Logger) *Server
 		},
 		connections: map[*webrtc.PeerConnection]bool{}, paths: map[Path]int{},
 		sources: map[*webrtc.PeerConnection]netip.Prefix{},
+		held:    map[*webrtc.PeerConnection]*heldConnection{},
 	}
 	server.relayedAPI = webrtc.NewAPI(webrtc.WithSettingEngine(server.relayedSettings()))
 	return server
@@ -292,6 +297,9 @@ func (server *Server) open(api *webrtc.API) (*webrtc.PeerConnection, error) {
 	}
 	server.connections[connection] = true
 	openedAt := server.clock.Now()
+	server.numbered++
+	held := newHeldConnection(server.numbered, openedAt)
+	server.held[connection] = held
 	var isConnected atomic.Bool
 	own := &heldNetworks{}
 	unconnected := time.AfterFunc(server.bounds.connectWithin, func() {
@@ -334,6 +342,7 @@ func (server *Server) open(api *webrtc.API) (*webrtc.PeerConnection, error) {
 			deadline: server.bounds.requestDeadline, ended: func() { inFlight.Add(-1) },
 			path:        func() Path { return selectedPath(connection) },
 			ownNetworks: own.held,
+			held:        held,
 		})
 	})
 	return connection, nil
@@ -376,23 +385,37 @@ func (server *Server) answer(
 }
 
 // holdWithinItsSourcesShare closes a connection that just connected when its client's network holds
-// more than its share of the core's connections already.
+// more than its share of the core's connections already. Either way it logs the network's
+// connections by number and whose each is, so a network turned away says whose connections filled
+// its share.
 func (server *Server) holdWithinItsSourcesShare(connection *webrtc.PeerConnection) {
 	source := sourceOf(remoteAddress(connection))
 	server.mutex.Lock()
 	server.sources[connection] = source
-	held := 0
-	for _, each := range server.sources {
-		if each == source {
-			held++
+	var ofSource []*heldConnection
+	for each, eachSource := range server.sources {
+		if eachSource == source {
+			if record := server.held[each]; record != nil {
+				ofSource = append(ofSource, record)
+			}
 		}
 	}
+	own := server.held[connection]
 	server.mutex.Unlock()
-	if held > server.bounds.perSource {
-		server.logger.Warn("rtcapi: closed a connection past its network's share", "limit", server.bounds.perSource)
+	name := "?"
+	if own != nil {
+		name = own.name()
+	}
+	if len(ofSource) > server.bounds.perSource {
+		server.logger.Warn("rtcapi: closed a connection past its network's share",
+			"limit", server.bounds.perSource, "connection", name, "network", source.String(),
+			"networkHolds", namesOf(ofSource))
 		server.forget(connection)
 		_ = connection.Close() //nolint:errcheck // refused
+		return
 	}
+	server.logger.Info("rtcapi: a connection is held", "connection", name, "network", source.String(),
+		"networkHeld", len(ofSource), "networkHolds", namesOf(ofSource))
 }
 
 // sourceOf is the network a client's address is counted under: an IPv4 address, or an IPv6 /56.
@@ -408,12 +431,21 @@ func sourceOf(address string) netip.Prefix {
 	return netip.PrefixFrom(host, sourceIPv6Prefix).Masked()
 }
 
-// forget drops a connection from those held.
+// forget drops a connection from those held, and logs the end of one that had connected: whose it
+// was, how long it lived and how many requests it carried.
 func (server *Server) forget(connection *webrtc.PeerConnection) {
 	server.mutex.Lock()
 	defer server.mutex.Unlock()
+	record, wasHeld := server.held[connection]
+	_, hadConnected := server.sources[connection]
 	delete(server.connections, connection)
 	delete(server.sources, connection)
+	delete(server.held, connection)
+	if wasHeld && hadConnected {
+		server.logger.Info("rtcapi: a connection ended", "connection", record.name(),
+			"livedMs", server.clock.Now().Sub(record.openedAt).Milliseconds(),
+			"requests", record.requests.Load())
+	}
 }
 
 // Close closes every connection held.
