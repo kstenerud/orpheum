@@ -185,7 +185,9 @@ WHERE (collection_member.position) IS NOT (excluded.position);
 SELECT id FROM ordering WHERE collection_id = ? AND name = ?;
 
 -- name: InsertOrdering :one
-INSERT INTO ordering (collection_id, name, provider) VALUES (sqlc.arg(collection_id), sqlc.arg(name), NULL)
+-- A series' ordering its files' numbers place its episodes in, of its kind: aired.
+INSERT INTO ordering (collection_id, name, provider, kind)
+VALUES (sqlc.arg(collection_id), sqlc.arg(name), NULL, sqlc.arg(kind))
 RETURNING id;
 
 -- name: UpsertPosition :exec

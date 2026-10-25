@@ -80,9 +80,11 @@ INSERT INTO item_tag (item_id, tag_id) VALUES (1, 1);
 INSERT INTO collection (id, kind, membership, created_by, followed_source, followed_source_id, identification_state)
   VALUES (3, 'series', 'explicit', 'scanner', 'tmdb', '7615', 'identified');
 INSERT INTO collection_member (collection_id, member_title, position) VALUES (3, 1, 1.0);
-INSERT INTO ordering (id, collection_id, name, provider) VALUES (1, 3, 'aired', 'tmdb');
+INSERT INTO ordering (id, collection_id, name, provider, kind) VALUES (1, 3, 'aired', 'tmdb', 'aired');
+INSERT INTO ordering (id, collection_id, name, provider, kind, source_id, label, listed_count)
+  VALUES (2, 3, 'tmdb:5e9077d2e640d600151f32bd', 'tmdb', 'dvd', '5e9077d2e640d600151f32bd', 'DVD Order', 23);
 INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order) VALUES (1, 1, 1, 1, 1.0);
-INSERT INTO group_text (collection_id, group_number, language, name, overview) VALUES (3, 1, 'en', 'Season 1', 'The first.');
+INSERT INTO group_text (ordering_id, group_number, language, name, overview) VALUES (1, 1, 'en', 'Season 1', 'The first.');
 
 INSERT INTO user_deny (user_id, item_id) VALUES (2, 2);
 INSERT INTO "grant" (secret_sha256, kind, user_id, scope, issued_at, expires_at, last_used_at, device_name, device_id,

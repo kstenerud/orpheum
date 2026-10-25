@@ -9,7 +9,7 @@
   episode ordering, *aired, DVD, absolute, production, custom*, with every ordering the same
   mechanism ([D160](../../decisions/working-notes.md): a sequence is what a Collection produces,
   and Next Up is a query over any of them). The owner answered §7 the same day. Building the
-  viewing order, §6's steps 1–4; step 1 is built (each step says so below).
+  viewing order, §6's steps 1–4; steps 1 and 2 are built (each step says so below).
 - **Depends on:** [play-state.md](play-state.md) (Next Up over an ordering),
   [schema.md](schema.md) (`ordering`, `position`, `group_text`, `preference`),
   [closed-beta.md](closed-beta.md) (B2, "Episode orderings", D96 and D210, size M).
@@ -353,6 +353,12 @@ fixtures and the fake provider (`internal/core/identify/identifytest`), never TM
    of §5 are unchanged.
 2. **The schema step** (§3.5): `ordering` kind, source id and label; `group_text` by
    `ordering_id`. *Test:* store tests and the migration window test.
+   *Built 2026-10-25* as step 0057: `ordering.kind`, `source_id`, `label` (one label, in the language
+   fetched, not an `ordering_text` per language) and, **flagged for the owner**, `listed_count`, the
+   `episode_count` TMDB's list gives a group before its contents are fetched, so the selector can
+   say how many episodes an ordering lists before anyone chooses it (after, it says how many of the
+   series' episodes it holds); `group_text` re-keyed by `ordering_id`, any row it had moved to its
+   series' aired ordering. The aired ordering is written with `kind = 'aired'`.
 3. **The selector.** `GET /collections/{id}` lists the orderings the series has and the one in
    use; a `PUT` sets the preference. The series page shows the selector when there is more than
    one. *Test:* API and web tests; a series with one ordering shows none.

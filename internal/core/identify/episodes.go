@@ -394,7 +394,7 @@ func airedOrderingOf(ctx context.Context, queries *sqlcgen.Queries, seriesID int
 	ordering, err := queries.GetOrdering(ctx, aired)
 	if err != nil {
 		ordering, err = queries.InsertOrdering(ctx, sqlcgen.InsertOrderingParams{
-			CollectionID: seriesID, Name: airedOrdering,
+			CollectionID: seriesID, Name: airedOrdering, Kind: new(airedOrdering),
 		})
 		if err != nil {
 			return 0, fmt.Errorf("add series %d's aired order: %w", seriesID, err)
