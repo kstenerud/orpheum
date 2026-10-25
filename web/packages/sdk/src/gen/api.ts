@@ -2206,6 +2206,7 @@ export interface components {
             screenRefreshFirstWaitSeconds: number;
             /** Format: int64 */
             screenRefreshLongestWaitSeconds: number;
+            shouldOfferDeviceTests: boolean;
             shouldShowDeveloperPages: boolean;
         };
         CollectionOutputBody: {

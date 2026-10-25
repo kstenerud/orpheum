@@ -27,6 +27,9 @@ type ClientSettingsBody struct {
 	// ShouldShowDeveloperPages is whether the client's menu offers its pages for development, such
 	// as the UI gallery (the owner, 2026-10-17).
 	ShouldShowDeveloperPages bool `json:"shouldShowDeveloperPages"`
+	// ShouldOfferDeviceTests is whether the menu offers the device lab's tests to everyone signed
+	// in, and the server takes their results (the owner, 2026-10-25).
+	ShouldOfferDeviceTests bool `json:"shouldOfferDeviceTests"`
 }
 
 // ClientSettingsOutput is GET /client-settings's answer.
@@ -66,10 +69,18 @@ func (server *Server) getClientSettings(
 		}
 		*read.into = value
 	}
-	shouldShowDeveloperPages, boolErr := dependencies.Settings.Bool(ctx, settings.ShouldShowDeveloperPages)
-	if boolErr != nil {
-		return nil, server.settingsError(ctx, "read "+string(settings.ShouldShowDeveloperPages), boolErr)
+	for _, read := range []struct {
+		key  settings.Key
+		into *bool
+	}{
+		{settings.ShouldShowDeveloperPages, &output.Body.ShouldShowDeveloperPages},
+		{settings.ShouldOfferDeviceTests, &output.Body.ShouldOfferDeviceTests},
+	} {
+		value, err := dependencies.Settings.Bool(ctx, read.key)
+		if err != nil {
+			return nil, server.settingsError(ctx, "read "+string(read.key), err)
+		}
+		*read.into = value
 	}
-	output.Body.ShouldShowDeveloperPages = shouldShowDeveloperPages
 	return output, nil
 }

@@ -556,6 +556,9 @@
             "format": "int64",
             "type": "integer"
           },
+          "shouldOfferDeviceTests": {
+            "type": "boolean"
+          },
           "shouldShowDeveloperPages": {
             "type": "boolean"
           }
@@ -565,7 +568,8 @@
           "screenRefreshLongestWaitSeconds",
           "screenRefreshFailedWaitSeconds",
           "interestSaidEverySeconds",
-          "shouldShowDeveloperPages"
+          "shouldShowDeveloperPages",
+          "shouldOfferDeviceTests"
         ],
         "type": "object"
       },

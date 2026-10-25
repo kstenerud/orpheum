@@ -37,6 +37,7 @@ const (
 	ShouldServeDebugPProf                          Key = "should_serve_debug_pprof"
 	ShouldServeDebugMetrics                        Key = "should_serve_debug_metrics"
 	ShouldShowDeveloperPages                       Key = "should_show_developer_pages"
+	ShouldOfferDeviceTests                         Key = "should_offer_device_tests"
 	NodeSilentAfterSeconds                         Key = "node_silent_after_seconds"
 	AssignedJobLimitHours                          Key = "assigned_job_limit_hours"
 	ShouldScanOnNodeHello                          Key = "should_scan_on_node_hello"
@@ -257,7 +258,7 @@ func buildRegistry() []Definition {
 		uploadDefinitions(), playbackTimingDefinitions(), chunkTimingDefinitions(),
 		togetherSweepDefinitions(), portMappingDefinitions(), certificateDefinitions(),
 		artworkCacheDefinitions(), libraryAdminDefinitions(), linkShareDefinitions(),
-		nodeTuningDefinitions(), interestDefinitions(),
+		nodeTuningDefinitions(), interestDefinitions(), offeredPagesDefinitions(),
 	)...)
 }
 
@@ -622,17 +623,31 @@ func chunkDefinitions() []Definition {
 	}
 }
 
-// upkeepAndDisplayDefinitions are the rest of Registry: how long an invitation lasts, a new
-// library's check interval, the loudness level, artwork's quality and upkeep, and how many rows
-// the screens list. The owner made each a setting on 2026-09-30, answering the sweep for
-// hardcoded values ("We're basically giving full tweak capability"), each with its basis.
-func upkeepAndDisplayDefinitions() []Definition {
+// offeredPagesDefinitions are the pages the client offers only once an admin turns them on: those
+// for development, and the device lab's tests.
+func offeredPagesDefinitions() []Definition {
 	return []Definition{
 		{
 			Key: ShouldShowDeveloperPages, Kind: KindBool, StartJSON: json.RawMessage("false"),
 			Description: "whether the client's menu offers its pages for development, such as the UI gallery",
 			StartSource: "the owner, 2026-10-17: development items behind a setting, in the menu when on",
 		},
+		{
+			Key: ShouldOfferDeviceTests, Kind: KindBool, StartJSON: json.RawMessage("false"),
+			Description: "whether the device lab's tests are offered to everyone signed in, beside Watch Together " +
+				"in the menu, and the server takes their results (plans/tv-device-tests.md)",
+			StartSource: "the owner, 2026-10-25: the lab is for running device tests with beta participants, " +
+				"off unless an admin turns it on",
+		},
+	}
+}
+
+// upkeepAndDisplayDefinitions are the rest of Registry: how long an invitation lasts, a new
+// library's check interval, the loudness level, artwork's quality and upkeep, and how many rows
+// the screens list. The owner made each a setting on 2026-09-30, answering the sweep for
+// hardcoded values ("We're basically giving full tweak capability"), each with its basis.
+func upkeepAndDisplayDefinitions() []Definition {
+	return []Definition{
 		sourced(durationSetting(RegistrationInvitationLifeDays, day, "7", 1, 365,
 			"days a registration invitation works before its person needs a new one (D218 §1)"),
 			"D218 §1: the owner's flow, 2026-09-25"),
