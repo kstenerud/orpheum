@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   askAnswersWithinMs,
   backgroundChangeWaits,
+  changingWaitsPoller,
   clientWaits,
   nextWaitMs,
   pollUntilStopped,
@@ -31,6 +32,25 @@ describe("polling (D237)", () => {
     expect(nextWaitMs(backgroundChangeWaits, 30000, "failed")).toBe(5000);
     expect(nextWaitMs(backgroundChangeWaits, 5000, "failed")).toBe(5000);
     expect(nextWaitMs(backgroundChangeWaits, 5000, "unchanged")).toBe(10000);
+  });
+
+  it("goes on polling when its waits change, by the new waits from its next wait (W3)", async () => {
+    vi.useFakeTimers();
+    let asked = 0;
+    const changing = changingWaitsPoller(backgroundChangeWaits);
+    const stop = changing.poller.start((answered) => {
+      asked += 1;
+      answered("changed");
+    });
+    // The first wait was started on the waits before, 2 s; the one after it is the new first, 3 s.
+    changing.setWaits({ firstMs: 3000, longestMs: 60_000, failedMs: 7000 });
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(asked).toBe(1);
+    await vi.advanceTimersByTimeAsync(2999);
+    expect(asked).toBe(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(asked).toBe(2);
+    stop();
   });
 
   it("asks on its schedule until it is stopped, and not after", async () => {

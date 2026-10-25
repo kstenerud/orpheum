@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { Api, components } from "@orpheum/sdk";
-import { useEffect, useMemo, useState, type JSX } from "react";
+import { useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ReloadWhenOutdated } from "./reload-when-outdated.tsx";
@@ -26,8 +26,8 @@ import { Libraries } from "./libraries.tsx";
 import { People } from "./people.tsx";
 import {
   BackgroundChangesContext,
-  backgroundChangesPoller,
-  backingOffPoller,
+  backgroundChangeWaits,
+  changingWaitsPoller,
   clientWaits,
   type Poller,
 } from "./polling.ts";
@@ -167,19 +167,23 @@ function useClientSettings(): components["schemas"]["ClientSettingsBody"] | unde
 /**
  * The poller of screens showing what the server changes in the background, on the waits the
  * server's client settings say (D237); D237's starting waits until they are read. A longest wait
- * shorter than the first is the first.
+ * shorter than the first is the first. One poller for the page's life, which takes the waits read
+ * from its next wait on: a new one started every polled screen again, so each read twice at the
+ * start (the audit of 2026-10-25, W3).
  */
 function useServersPoller(read: components["schemas"]["ClientSettingsBody"] | undefined): Poller {
   const firstSeconds = read?.screenRefreshFirstWaitSeconds;
   const longestSeconds = read?.screenRefreshLongestWaitSeconds;
   const failedSeconds = read?.screenRefreshFailedWaitSeconds;
-  return useMemo(
-    () =>
+  const [changing] = useState(() => changingWaitsPoller(backgroundChangeWaits));
+  useEffect(() => {
+    changing.setWaits(
       firstSeconds === undefined || longestSeconds === undefined || failedSeconds === undefined
-        ? backgroundChangesPoller
-        : backingOffPoller(clientWaits({ firstSeconds, longestSeconds, failedSeconds })),
-    [firstSeconds, longestSeconds, failedSeconds],
-  );
+        ? backgroundChangeWaits
+        : clientWaits({ firstSeconds, longestSeconds, failedSeconds }),
+    );
+  }, [changing, firstSeconds, longestSeconds, failedSeconds]);
+  return changing.poller;
 }
 
 /** The screen a route names. */

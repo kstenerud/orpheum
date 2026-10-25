@@ -37,6 +37,32 @@ export function backingOffPoller(
   return { start: (ask) => pollUntilStopped(polling, ask, answersWithinMs) };
 }
 
+/** A backing-off poller whose waits change, and how to change them. */
+export interface ChangingWaitsPoller {
+  readonly poller: Poller;
+  /** Changes the waits: each poll waits by them from its next wait on. */
+  readonly setWaits: (polling: PollWaits) => void;
+}
+
+/**
+ * A backing-off poller on polling's schedule until setWaits changes it, when each poll it runs
+ * takes the new waits from its next wait on and goes on: the server's client settings, once read.
+ * One poller, so its screens are not started again: a new poller read every polled screen again at
+ * once, so each was read twice as the page started (the audit of 2026-10-25, W3).
+ */
+export function changingWaitsPoller(
+  polling: PollWaits,
+  answersWithinMs: number = askAnswersWithinMs,
+): ChangingWaitsPoller {
+  let waits = polling;
+  return {
+    poller: { start: (ask) => pollUntilStopped(() => waits, ask, answersWithinMs) },
+    setWaits: (changed) => {
+      waits = changed;
+    },
+  };
+}
+
 /**
  * How long a poll waits for one ask to answer before it gives the ask up as failed and asks again
  * after the failed wait. The client's requests have no timeout of their own, and a poll asks again
@@ -82,18 +108,19 @@ export function nextWaitMs(polling: PollWaits, lastWaitMs: number, outcome: AskO
 }
 
 /**
- * Asks again and again as polling says, until the returned function stops it: the first ask after
- * polling.firstMs, and each after the wait nextWaitMs gives once the last ask said, through
+ * Asks again and again as polling says (read again for each wait, when a function), until the
+ * returned function stops it: the first ask after polling.firstMs, and each after the wait nextWaitMs gives once the last ask said, through
  * answered, what it came to. An ask that has not answered within answersWithinMs is failed: its
  * signal aborts, the failure is reported (reportFailure), and what it answers later is not heard.
  */
 export function pollUntilStopped(
-  polling: PollWaits,
+  polling: PollWaits | (() => PollWaits),
   ask: Ask,
   answersWithinMs: number = askAnswersWithinMs,
 ): () => void {
+  const waits = typeof polling === "function" ? polling : (): PollWaits => polling;
   let isStopped = false;
-  let waitMs = polling.firstMs;
+  let waitMs = waits().firstMs;
   let timer = setTimeout(askNow, waitMs);
   function askNow(): void {
     const aborter = new AbortController();
@@ -103,7 +130,7 @@ export function pollUntilStopped(
         return;
       }
       isAnswered = true;
-      waitMs = nextWaitMs(polling, waitMs, outcome);
+      waitMs = nextWaitMs(waits(), waitMs, outcome);
       timer = setTimeout(askNow, waitMs);
     };
     timer = setTimeout(() => {
