@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/execx"
+	"github.com/kstenerud/orpheum/internal/node/namedfile"
 	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -219,4 +220,32 @@ func TestAgent_ARunOfChunksIsLoggedWithTheFilmItMadeAndHowFast(t *testing.T) {
 	checkLogLine(t, logs.AwaitLine(t, `"msg":"a run of chunks was cancelled"`), `"jobId":3,`,
 		`"storeDir":"1/chunks-waiting/0123456789abcdef"`, `"lastChunk":4,`, `"chunksMade":1,`,
 		`"filmMadeMs":2000,`, `"wallTimeMs":600,`, `"firstChunkAfterMs":600`)
+}
+
+// Each run of chunks after a seek opens the same unchanged film; the payload hashes the node shares
+// with its byte socket remember its hash, so it is hashed once, not at every run (audit N4).
+func TestAgent_RunsOfAnUnchangedFilmHashItOnceInTheHashesTheNodeShares(t *testing.T) {
+	t.Parallel()
+	core, socket := startFakeCore(t)
+	shared := namedfile.NewHashes()
+	root, _ := startAgentWithWorkers(t, socket, Workers{ChunkMaker: fakeChunkMaker{}, Hashes: shared})
+	if err := os.WriteFile(filepath.Join(root.Path(), "film.mkv"), []byte("a film"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	video := nodeproto.BytesFile{
+		RootPath: root.Path(), Path: []byte("film.mkv"), PayloadHash: nodetest.PayloadHashHex(t, "a film"),
+	}
+	for job := range int64(3) {
+		core.sendMakeChunks(job+1, nodeproto.MakeChunks{
+			Video: video, StoreDir: "1/chunks-picture/0123456789abcdef", FirstChunk: int(job),
+			BoundsMs: []int64{job * 2000, job*2000 + 2000},
+			Stream:   nodeproto.ChunkStream{Kind: nodeproto.StreamPicture},
+		})
+		if done := receiveChunksReport(t, core); done.State != nodeproto.PrepareDone {
+			t.Fatalf("run %d ended %+v; want done", job+1, done)
+		}
+	}
+	if computed := shared.Computed(); computed != 1 {
+		t.Errorf("three runs of one unchanged film computed %d payload hashes; want 1", computed)
+	}
 }

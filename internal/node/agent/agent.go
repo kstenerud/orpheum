@@ -95,6 +95,10 @@ type Workers struct {
 	// Disks is the gate the node's readings of its roots go through, which its byte socket shares, so
 	// one stuck root holds one stuck reading of the node's (diskwatch); nil is a gate of its own.
 	Disks *diskwatch.Gate
+	// Hashes are the payload hashes the node remembers, which its byte socket shares, so a film
+	// opened unchanged by each run of chunks, read-through and extraction is hashed once; nil is the
+	// agent's own.
+	Hashes *namedfile.Hashes
 	// Films makes each run's film from the file the node opened (openFilm); nil reads every film by
 	// its path.
 	Films Films
@@ -160,8 +164,8 @@ type Agent struct {
 	measureSpace func(path string) (diskspace.Space, error)
 	// answering is which disks the last status found not answering.
 	answering diskAnswering
-	// openFile opens a file a command names: namedfile.OpenNamed; a test's may block as a disk that
-	// does not answer does.
+	// openFile opens a file a command names: the workers' Hashes' OpenNamed; a test's may block as a
+	// disk that does not answer does.
 	openFile func(roots map[string]*confine.MediaRoot, named nodeproto.BytesFile) (*os.File, fs.FileInfo, error)
 	// takenCommandSeq is the last command this session took, which the status says.
 	takenCommandSeq atomic.Int64
@@ -190,6 +194,9 @@ func New(
 	if workers.HeldResults == nil {
 		workers.HeldResults = NewHeldResults()
 	}
+	if workers.Hashes == nil {
+		workers.Hashes = namedfile.NewHashes()
+	}
 	byPath := make(map[string]*confine.MediaRoot, len(roots))
 	hello.ProtocolVersion = nodeproto.ProtocolVersion
 	hello.RootPaths = make([]string, 0, len(roots))
@@ -203,7 +210,7 @@ func New(
 		clock:   clockSource, logger: logger, work: newWorkList(hello.Capacity, clockSource),
 		ended:       newEndedAttempts(),
 		answerRetry: defaultAnswerRetry(),
-		openFile:    namedfile.OpenNamed,
+		openFile:    workers.Hashes.OpenNamed,
 		diskGate:    workers.Disks, measureSpace: diskspace.Measure,
 	}
 	if agent.diskGate == nil {

@@ -18,6 +18,8 @@
 //     replaced at its path is refused, even after its identity was remembered. It is opened and
 //     checked by internal/node/namedfile, as every command's file is. Enforced by
 //     TestServeFile_RefusesAFileThatIsNoLongerTheOneAskedFor.
+//   - The payload hashes it remembers are the node's one namedfile.Hashes, which the agent shares
+//     (SharingHashes). TestServeFile_RemembersHashesInTheOnesItShares.
 //   - Nothing outside a root is served: not a path that climbs out, an absolute path, a
 //     directory or a root the node does not have. Enforced by TestServeFile_NamesNothingOutsideARoot.
 //   - A rendition's file is served only by a name of a rendition's shape, from the prepared

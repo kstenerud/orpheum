@@ -32,14 +32,17 @@ var (
 )
 
 // maxRemembered bounds the payload hashes remembered between opens. The byte socket's range
-// requests come for one file at a time; the bound only stops a long-running node growing.
+// requests and the agent's runs come for a few files at a time; the bound only stops a long-running
+// node growing.
 const maxRemembered = 1024
 
 // Hashes remembers each file's payload hash while its inode, size and times stay the same, so a file
-// opened again and again, as a player's range requests open it, is hashed once.
+// opened again and again, as a player's range requests and each run of chunks after a seek open it,
+// is hashed once. The node keeps one, which its agent and byte socket share.
 type Hashes struct {
 	mutex         sync.Mutex
 	hashByVersion map[fileVersion][]byte // guarded by mutex
+	computed      int                    // guarded by mutex
 }
 
 // fileVersion is what a file looked like when its payload hash was computed: a file whose inode,
@@ -57,6 +60,14 @@ type fileVersion struct {
 // NewHashes remembers nothing yet.
 func NewHashes() *Hashes {
 	return &Hashes{hashByVersion: make(map[fileVersion][]byte)}
+}
+
+// Computed is how many payload hashes these Hashes have computed, each a read of a file's two ends: a file
+// opened again unchanged adds none.
+func (hashes *Hashes) Computed() int {
+	hashes.mutex.Lock()
+	defer hashes.mutex.Unlock()
+	return hashes.computed
 }
 
 // Open opens the regular file at relativePath under root, once its payload hash is payloadHash.
@@ -152,6 +163,7 @@ func (hashes *Hashes) payloadHashOf(file *os.File, version fileVersion) ([]byte,
 	if hashes != nil {
 		hashes.mutex.Lock()
 		defer hashes.mutex.Unlock()
+		hashes.computed++
 		if len(hashes.hashByVersion) >= maxRemembered {
 			clear(hashes.hashByVersion)
 		}

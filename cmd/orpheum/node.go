@@ -27,6 +27,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/diskwatch"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/hardware"
+	"github.com/kstenerud/orpheum/internal/node/namedfile"
 	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/node/probe"
@@ -169,9 +170,9 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 			logger.WarnContext(ctx, "could not bring the prepared directory within its budget", "err", evictErr)
 		}
 	}
-	heldResults := agent.NewHeldResults()
+	heldResults, hashes := agent.NewHeldResults(), namedfile.NewHashes()
 	stopBytes, byteSocketPath, err := serveBytes(ctx, config, roots, directory,
-		byteSocketShares{heldResults: heldResults, disks: disks}, logger)
+		byteSocketShares{heldResults: heldResults, disks: disks, hashes: hashes}, logger)
 	if err != nil {
 		return err
 	}
@@ -190,8 +191,8 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		Scanner: activeScanner, Artworker: deriver,
 		Subtitler:     subtitle.NewExtractor(runner, hello.Capacity.SlowestReadBytesPerSecond),
 		ThroughReader: readthrough.NewReader(runner, hello.Capacity.SlowestReadBytesPerSecond),
-		HeldResults:   heldResults, Stuck: stuckOf(runner), SetStatusEvery: setStatusEvery, Disks: disks,
-		Films: filmsOf(ctx, runner, logger),
+		HeldResults:   heldResults, Hashes: hashes, Stuck: stuckOf(runner), SetStatusEvery: setStatusEvery,
+		Disks: disks, Films: filmsOf(ctx, runner, logger),
 	}
 	workers.EndedWorkKept, workers.ReadStallWindow = workPacing(config)
 	workers.ReadStallWindow = cmp.Or(seams.readStallWindow, workers.ReadStallWindow)
@@ -374,10 +375,12 @@ func openPreparedDirectory(
 }
 
 // byteSocketShares are what the byte socket shares with the node's agent: the results it holds,
-// too large to post, and the gate every reading of the roots goes through.
+// too large to post, the gate every reading of the roots goes through, and the payload hashes
+// remembered, so a film is hashed once for both.
 type byteSocketShares struct {
 	heldResults *agent.HeldResults
 	disks       *diskwatch.Gate
+	hashes      *namedfile.Hashes
 }
 
 // serveBytes serves the node's byte socket, in its instance's run directory, until the returned stop
@@ -391,7 +394,7 @@ func serveBytes(
 		return nil, "", err
 	}
 	server := byteserver.New(roots, directory.root).ServingResults(shares.heldResults).
-		WatchingOpens(shares.disks, fileOpenWindow)
+		WatchingOpens(shares.disks, fileOpenWindow).SharingHashes(shares.hashes)
 	if directory.shelf != nil {
 		server.OnRenditionServed(directory.shelf.MarkServed)
 	}

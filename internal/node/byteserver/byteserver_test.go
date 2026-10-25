@@ -21,6 +21,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/diskwatch"
 	"github.com/kstenerud/orpheum/internal/node/hash"
+	"github.com/kstenerud/orpheum/internal/node/namedfile"
 	"github.com/kstenerud/orpheum/internal/node/nodetest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -97,6 +98,23 @@ func TestServeFile_ServesTheBytesOfTheFileItsHashNames(t *testing.T) {
 	head := request(t, handler, http.MethodHead, movie.target(movie.path, strings.ToUpper(movie.payloadHash)), nil)
 	if head.Code != http.StatusOK || head.Body.Len() != 0 {
 		t.Errorf("HEAD with the hash in capitals = %d with %d bytes, want 200 and no body", head.Code, head.Body.Len())
+	}
+}
+
+// The payload hashes the server remembers are the ones it is given, which the node's agent shares:
+// a film a run hashed is not hashed again for a player's range requests, nor the other way round.
+func TestServeFile_RemembersHashesInTheOnesItShares(t *testing.T) {
+	t.Parallel()
+	movie := newFilm(t, "film.mkv")
+	shared := namedfile.NewHashes()
+	handler := byteserver.New([]*confine.MediaRoot{movie.root}, nil).SharingHashes(shared).Handler()
+	for range 3 {
+		if got := movie.get(t, handler, movie.payloadHash, nil); got.Code != http.StatusOK {
+			t.Fatalf("GET = %d; want 200", got.Code)
+		}
+	}
+	if computed := shared.Computed(); computed != 1 {
+		t.Errorf("the shared hashes computed %d hashes over three GETs; want the film's one", computed)
 	}
 }
 
