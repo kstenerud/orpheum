@@ -24,6 +24,7 @@ import {
   isFocusInView,
   mountApp,
   viewer,
+  walkPoll,
   walkServices,
   type Walking,
   type WalkAnswers,
@@ -60,40 +61,40 @@ describe.each(screens)("the app by a remote's keys, on $name", ({ width, height 
   it("starts in the page, not the banner, moves across the films, opens one and goes back to it", async () => {
     await page.viewport(width, height);
     walking = await mountApp(walkServices(filmsAndOne));
-    await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
+    await expect.poll(() => isDrawn(".poster-grid .poster-card__link"), walkPoll).toBe(true);
     await userEvent.keyboard("{ArrowDown}");
     // The list's order, at the bar's end, then the film below it, then along its row to the first.
-    await expect.poll(() => document.activeElement?.tagName).toBe("SELECT");
+    await expect.poll(() => document.activeElement?.tagName, walkPoll).toBe("SELECT");
     await userEvent.keyboard("{ArrowDown}");
     expect(focusedTile()).not.toBe("");
     await userEvent.keyboard("{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}");
-    await expect.poll(focusedTile).toBe("Film 1");
+    await expect.poll(focusedTile, walkPoll).toBe("Film 1");
     await userEvent.keyboard("{ArrowRight}{ArrowRight}");
-    await expect.poll(focusedTile).toBe("Film 3");
+    await expect.poll(focusedTile, walkPoll).toBe("Film 3");
     await userEvent.keyboard("{Enter}");
-    await expect.poll(() => isDrawn(".title")).toBe(true);
+    await expect.poll(() => isDrawn(".title"), walkPoll).toBe(true);
     expect(document.querySelector("h1")?.textContent).toBe("Film 3");
     await userEvent.keyboard("{Escape}");
-    await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
-    await expect.poll(focusedTile).toBe("Film 3");
+    await expect.poll(() => isDrawn(".poster-grid .poster-card__link"), walkPoll).toBe(true);
+    await expect.poll(focusedTile, walkPoll).toBe("Film 3");
     expect(isFocusInView()).toBe(true);
   });
 
   it("reaches the banner by Up from the page's top, and comes back down to where it left", async () => {
     await page.viewport(width, height);
     walking = await mountApp(walkServices(filmsAndOne));
-    await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
+    await expect.poll(() => isDrawn(".poster-grid .poster-card__link"), walkPoll).toBe(true);
     await userEvent.keyboard(
       "{ArrowDown}{ArrowDown}{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}{ArrowLeft}",
     );
     await userEvent.keyboard("{ArrowRight}");
-    await expect.poll(focusedTile).toBe("Film 2");
+    await expect.poll(focusedTile, walkPoll).toBe("Film 2");
     await userEvent.keyboard("{ArrowUp}");
     expect(isFocusIn(".app-shell__banner")).toBe(true);
     expect(isFocusInView()).toBe(true);
     // Back into the page at the film it left, not the nearest control below the banner.
     await userEvent.keyboard("{ArrowDown}");
-    await expect.poll(focusedTile).toBe("Film 2");
+    await expect.poll(focusedTile, walkPoll).toBe("Film 2");
   });
 
   it("keeps the focused film in view as it moves down a long list, clear of the banner", async () => {
@@ -101,7 +102,7 @@ describe.each(screens)("the app by a remote's keys, on $name", ({ width, height 
     walking = await mountApp(
       walkServices({ ...filmsAndOne, "GET /titles": { titles: films(40), nextCursor: "" } }),
     );
-    await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
+    await expect.poll(() => isDrawn(".poster-grid .poster-card__link"), walkPoll).toBe(true);
     await userEvent.keyboard("{ArrowDown}{ArrowDown}");
     for (let step = 0; step < 6; step += 1) {
       await userEvent.keyboard("{ArrowDown}");
@@ -121,11 +122,14 @@ interface HeldPad {
   };
   /** Holds button down, or lets every button go. */
   readonly hold: (button: number | undefined) => void;
+  /** How many times the page has read the pad's buttons. */
+  readonly reads: () => number;
 }
 
 /** An Xbox pad in the standard mapping, at rest. */
 function xboxPad(): HeldPad {
   let held: number | undefined;
+  let reads = 0;
   return {
     pad: {
       index: 0,
@@ -133,21 +137,33 @@ function xboxPad(): HeldPad {
       mapping: "standard",
       axes: [0, 0, 0, 0],
       get buttons() {
+        reads += 1;
         return Array.from({ length: 17 }, (_, index) => ({ pressed: index === held }));
       },
     },
     hold: (button) => {
       held = button;
     },
+    reads: () => reads,
   };
 }
 
-/** Presses pad's button, held over a few frames as a person's press is, then let go. */
+/** Waits until the page has read pad again, as it does once a frame. */
+async function untilRead(pad: HeldPad): Promise<void> {
+  const before = pad.reads();
+  await expect.poll(() => pad.reads() > before, walkPoll).toBe(true);
+}
+
+/**
+ * Presses pad's button, held until the page has read it held, as a person's press is over a few
+ * frames, then let go until the page has read it go. A press held for a fixed 50 ms was never read
+ * when a loaded machine drew no frame in it (2026-10-25).
+ */
 async function pressPad(pad: HeldPad, button: number): Promise<void> {
   pad.hold(button);
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  await untilRead(pad);
   pad.hold(undefined);
-  await new Promise((resolve) => setTimeout(resolve, 50));
+  await untilRead(pad);
 }
 
 /** The D-pad's and face buttons' numbers in the standard mapping. */
@@ -166,7 +182,7 @@ describe.each(screens)("the app by a game controller, on $name", ({ width, heigh
     Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => [pad.pad] });
     await page.viewport(width, height);
     walking = await mountApp(walkServices(filmsAndOne));
-    await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
+    await expect.poll(() => isDrawn(".poster-grid .poster-card__link"), walkPoll).toBe(true);
     globalThis.dispatchEvent(new Event("gamepadconnected"));
     await pressPad(pad, padButtons.down);
     await pressPad(pad, padButtons.down);
@@ -177,12 +193,12 @@ describe.each(screens)("the app by a game controller, on $name", ({ width, heigh
       await pressPad(pad, padButtons.left);
     }
     await pressPad(pad, padButtons.right);
-    await expect.poll(focusedTile).toBe("Film 2");
+    await expect.poll(focusedTile, walkPoll).toBe("Film 2");
     await pressPad(pad, padButtons.ok);
-    await expect.poll(() => isDrawn(".title")).toBe(true);
+    await expect.poll(() => isDrawn(".title"), walkPoll).toBe(true);
     await pressPad(pad, padButtons.back);
-    await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
-    await expect.poll(focusedTile).toBe("Film 2");
+    await expect.poll(() => isDrawn(".poster-grid .poster-card__link"), walkPoll).toBe(true);
+    await expect.poll(focusedTile, walkPoll).toBe("Film 2");
     expect(document.activeElement?.matches(":focus-visible")).toBe(true);
   });
 
@@ -192,12 +208,12 @@ describe.each(screens)("the app by a game controller, on $name", ({ width, heigh
     const heard: string[] = [];
     await page.viewport(width, height);
     walking = await mountApp(walkServices(filmsAndOne, "/films", heard));
-    await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
+    await expect.poll(() => isDrawn(".poster-grid .poster-card__link"), walkPoll).toBe(true);
     globalThis.dispatchEvent(new Event("gamepadconnected"));
     await pressPad(pad, padButtons.down);
     expect(document.activeElement?.tagName).toBe("SELECT");
     await pressPad(pad, padButtons.ok);
-    await expect.poll(() => document.querySelector("select")?.value).toBe("added");
+    await expect.poll(() => document.querySelector("select")?.value, walkPoll).toBe("added");
     await expect
       .poll(() => heard.filter((each) => each === "GET /titles").length)
       .toBeGreaterThan(1);

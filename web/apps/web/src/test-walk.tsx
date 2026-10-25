@@ -110,6 +110,14 @@ export async function mountApp(services: Services): Promise<Walking> {
   };
 }
 
+/**
+ * The deadline of a walk's expect.poll, for what a screen draws once its answers come, or where a
+ * press leaves focus: expect.poll's own second passed under the gate's load, with nothing wrong
+ * but a slow machine (four browser-mode runs at once, 2026-10-25; test-weight.md). Inside the test's
+ * own 15 s, so a walk that never gets there still fails as itself.
+ */
+export const walkPoll = { timeout: 10_000 } as const;
+
 /** What has focus, by its text or name, for a walk's checks. */
 export function focusedName(): string {
   const focused = document.activeElement;
@@ -190,10 +198,21 @@ export async function reachedFrom(
 ): Promise<Set<Element>> {
   const reached = new Set<Element>([start]);
   const waiting: HTMLElement[] = [start];
-  for (let next = waiting.shift(); next !== undefined; next = waiting.shift()) {
+  // A walk whose page is gone, its test over (timed out), presses nothing more: walking on, it
+  // pressed keys into the next test's page, which then saw seeks it never made (2026-10-25).
+  const pressOnItsPage = async (keys: string): Promise<void> => {
+    if (start.isConnected) {
+      await press(keys);
+    }
+  };
+  for (
+    let next = waiting.shift();
+    next !== undefined && start.isConnected;
+    next = waiting.shift()
+  ) {
     for (const arrow of arrows) {
       next.focus();
-      await pressThroughText(arrow, press);
+      await pressThroughText(arrow, pressOnItsPage);
       const now = document.activeElement;
       if (now instanceof HTMLElement && now !== document.body && !reached.has(now)) {
         reached.add(now);

@@ -24,6 +24,7 @@ import {
   mountApp,
   reachedFrom,
   viewer,
+  walkPoll,
   walkServices,
   type Walking,
   type WalkAnswers,
@@ -68,11 +69,22 @@ async function press(keys: string): Promise<void> {
 
 /** The page's video, once drawn. */
 async function theVideo(): Promise<HTMLVideoElement> {
-  await expect.poll(() => isDrawn("video")).toBe(true);
+  await expect.poll(() => isDrawn("video"), walkPoll).toBe(true);
   const video = document.querySelector("video");
   if (video === null) {
     throw new Error("the player draws no video");
   }
+  return video;
+}
+
+/**
+ * The page's video, once its load has failed, as it does with no media served: the player then
+ * says so under it and changes nothing more, so a walk from it meets the page as it stays. A walk
+ * begun before, on a loaded machine, met a page the failure's words then moved (2026-10-25).
+ */
+async function theFailedVideo(): Promise<HTMLVideoElement> {
+  const video = await theVideo();
+  await expect.poll(() => video.error?.code, walkPoll).toBeDefined();
   return video;
 }
 
@@ -87,7 +99,7 @@ describe.each(screens)("the player by a remote's keys, on $name", ({ width, heig
   it("reaches every control under the video by arrows, starting on the video", async () => {
     await page.viewport(width, height);
     walking = await mountApp(walkServices(filmToPlay, "/play/1030"));
-    const video = await theVideo();
+    const video = await theFailedVideo();
     await press("{ArrowDown}");
     expect(document.activeElement).toBe(video);
     const reached = await reachedFrom(video, press);
@@ -110,9 +122,7 @@ describe.each(screens)("the player by a remote's keys, on $name", ({ width, heig
     const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
     await page.viewport(width, height);
     walking = await mountApp(walkServices(filmToPlay, "/play/1030"));
-    const video = await theVideo();
-    // The walk serves no media: once its load has failed, the player changes nothing more under it.
-    await expect.poll(() => video.error?.code).toBeDefined();
+    const video = await theFailedVideo();
     video.focus();
     expect(document.activeElement).toBe(video);
     // The walk serves no media, so the browser's own position comes and goes as the load fails: the
@@ -139,12 +149,14 @@ describe.each(screens)("the player by a remote's keys, on $name", ({ width, heig
   it("goes back to the film's page by Back, to its Play", async () => {
     await page.viewport(width, height);
     walking = await mountApp(walkServices(filmToPlay, "/titles/103"));
-    await expect.poll(() => isDrawn(".title__play")).toBe(true);
+    await expect.poll(() => isDrawn(".title__play"), walkPoll).toBe(true);
     const playLink = document.querySelector<HTMLElement>(".title__play");
     playLink?.focus();
     await press("{Enter}");
     await theVideo();
     await press("{Escape}");
-    await expect.poll(() => document.activeElement?.classList.contains("title__play")).toBe(true);
+    await expect
+      .poll(() => document.activeElement?.classList.contains("title__play"), walkPoll)
+      .toBe(true);
   });
 });
