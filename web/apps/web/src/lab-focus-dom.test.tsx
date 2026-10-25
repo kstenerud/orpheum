@@ -1,13 +1,9 @@
 // @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
-import type { JSX } from "react";
-import { act } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { driveFocus, geometricFocus } from "./lab-focus.ts";
-import { useFirstPress } from "./lab-keys.ts";
-import { mount, type Mounted } from "./test-dom.tsx";
 
 /** A region of three buttons in the document, and a field outside it. */
 function regionOfButtons(): { readonly region: HTMLElement; readonly field: HTMLInputElement } {
@@ -64,29 +60,5 @@ describe("the input probe's focus driving", () => {
     driveFocus(region, geometricFocus)();
     press("ArrowDown");
     expect(document.activeElement).toBe(document.body);
-  });
-});
-
-describe("the input probe's first press", () => {
-  let mounted: Mounted | undefined;
-  afterEach(() => {
-    mounted?.unmount();
-    mounted = undefined;
-  });
-
-  it("is told of the page's first key, and of no key after", async () => {
-    let heard = 0;
-    function Listener(): JSX.Element {
-      useFirstPress(() => {
-        heard += 1;
-      });
-      return <p>listening</p>;
-    }
-    mounted = await mount(<Listener />);
-    act(() => {
-      press("MediaPlayPause");
-      press("ArrowDown");
-    });
-    expect(heard).toBe(1);
   });
 });

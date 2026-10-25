@@ -94,9 +94,11 @@ export const enLab = {
       },
       noMoves: "No moves yet: move between the tiles with the arrows.",
       timing: "Moves so far: {{count}}, typically {{median}} ms, slowest {{worst}} ms.",
-      toneOn: "A quiet tone plays, so play and pause can reach this page.",
+      sending: "Sending as you press · run {{run}} · {{count}} sent",
+      sendFailed: "Could not send; trying again at the next press · run {{run}} · {{count}} sent",
       details: "Details",
-      playTone: "Play a quiet tone",
+      playTone:
+        "Test a keyboard's media keys: plays a quiet tone so the browser passes them to this page",
       mediaTitle: "Orpheum button test",
       latency: {
         browser: "Key to focus, browser",

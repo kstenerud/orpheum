@@ -38,7 +38,7 @@ server nothing.
 | --- | --- | --- |
 | Menu | `/lab` | The probes, one big link each |
 | Device report | `/lab/device` | User agent and the Fire OS/Vega hint, screen and page size, devicePixelRatio; MSE, ManagedMediaSource and `canPlayType` for H.264 (five profiles and levels), HEVC, AV1, VP9, AAC-LC, HE-AAC (v1, v2), AC-3, E-AC-3, Opus and FLAC in fMP4; native HLS; then, after **Run**, the audio context's base and output latency, the number of audio outputs, and a WebRTC call with itself (data-channel round trips, a tone's received level). Lists which of setSinkId, Screen Wake Lock, getUserMedia, RTCPeerConnection, getScreenDetails, the Gamepad API, Media Session, Fullscreen, the Presentation API and Remote Playback the browser has |
-| Button test (was Remote and keys) | `/lab/input` | A chip for each button (Up, Down, Left, Right, OK / Enter, Back, Play / Pause, Rewind, Fast forward, Other; the volume keys once heard), lit as the page hears it as a key, a history step back, a controller button or a Media Session action; the last named large with its key, code and keyCode; two rows of six tiles, moved across by the browser's own navigation or Orpheum's, each move's latency from key to the frame after focus moved (median and worst, against D190's 250 ms). Fits a Fire TV's 960 × 540 unscrolled (the owner, 2026-10-25). Under **Details**: the last 30 key events (key, code, keyCode, repeat, ms since the one before; Backs marked), Media Session actions, Back as history steps, gamepads and the tone's switch. The report sends all of these and the buttons heard |
+| Button test (was Remote and keys) | `/lab/input` | A chip for each button (Up, Down, Left, Right, OK / Enter, Back, Play / Pause, Rewind, Fast forward, Other; the volume keys once heard), lit as the page hears it as a key, a history step back, a controller button or a Media Session action; the last named large with its key, code and keyCode; two rows of six tiles, moved across by the browser's own navigation or Orpheum's, each move's latency from key to the frame after focus moved (median and worst, against D190's 250 ms). Fits a Fire TV's 960 × 540 unscrolled (the owner, 2026-10-25). Under **Details**: the last 30 key events (key, code, keyCode, repeat, ms since the one before; Backs marked), Media Session actions, Back as history steps, gamepads and the tone's switch, off: *Test a keyboard's media keys* (a TV's remote sends play/pause as a key without it). No Send: each press, each move and each change of mode goes to the log as it happens, under the run's name shown on the page |
 | Phone as remote | `/lab/remote` | Screen Wake Lock held and asked again when shown; the microphone through a call with the page itself, played back through an `<audio>` element (not Web Audio), its level sampled each second; a 1 s ticker whose gaps over 2 s mean the page was stopped; visibility and page lifecycle. Sends its log every 30 s |
 | Extend to the TV | `/lab/extend` | Where the browser can place a window on another screen (Window Management API, Chromium), opens a test film there (a counter, a sweep, a flash and a beep each second, full screen at its first press) and stays as its remote (play/pause, ±10 s); elsewhere, says so and gives the manual recipe. Then two tones on two audio outputs at once (setSinkId) |
 | Cast | `/lab/cast` | Chromium only, over HTTPS. Google's Default Media Receiver handed an address, or our own receiver by its app id, spoken to on `urn:x-cast:org.orpheum.lab`. Must be opened by its own address (typed, or from the menu, which loads it afresh): only that page may load Google's Cast SDK |
@@ -49,7 +49,27 @@ the result to the core (and each page sends by itself when its test ends). The p
 **Sent as `K3J9QW2A`**: write that name down beside what you saw. In the core's log the result is
 one line at info, *a lab page sent its results*, with `labResultId`, `probe`, `userId`,
 `deviceId`, `userAgent` and the whole `result` in it. On staging, `grep K3J9QW2A` in the core's
-log finds it. A page needs sign-in like the rest of the app; a TV signs in with a device code from the
+log finds it.
+
+**The button test sends as you press** (the owner, 2026-10-25: "the page should just send events
+to the server rather than waiting for me to press send"). It names its run as it loads and shows
+*Sending as you press · run `K3J7QW2A` · 34 sent* (or *Could not send; trying again at the next
+press*): write the run's name down. Each event is a line of its own at info, flat, with `labRun`,
+`seq` (its place in the run), `atMs` (since the page loaded), `kind` and the fields of its kind,
+then `userId` and `deviceId`:
+
+- *a button test started*: `viewport` (`960x540`), `devicePixelRatio`, `mode`, `hasMediaSession`,
+  `userAgent`; once per run, with its first events.
+- *a button test heard a press*: `kind` `key` (a key going down; `button`, `key`, `code`,
+  `keyCode`, `isRepeat`), `back` (a step back in history), `gamepad` (`padIndex`, `padButton`,
+  `padId`) or `media` (`action`), each with its `button` and the `mode` it came in.
+- *a button test measured a move*: `kind` `move`, `mode` and `latencyMs`, key to the frame after
+  focus moved.
+- *a button test changed who moves focus*: `kind` `mode`, the new `mode`.
+
+`grep '"labRun":"K3J7QW2A"'` in the core's log gives the run in order; add `'"kind":"key"'`, say,
+for its keys alone, or pipe through `jq -c '{seq, kind, button, key, keyCode, latencyMs}'` for a
+table. What the page heard as it was hidden or left goes in a request kept alive past it. A page needs sign-in like the rest of the app; a TV signs in with a device code from the
 sign-in page (`/account`'s *Activate a device* on the phone).
 
 **Fire OS or Vega OS.** On the stick: **Settings → My Fire TV → About**. A version starting **5,
@@ -89,9 +109,13 @@ and compare with `/lab/device`'s *Fire TV* line, which reads the user agent's `A
   2. Move across the tiles with the D-pad in **The browser's own**, then in **Orpheum's
      navigation**, about 20 moves each.
   3. Press **Back** three times.
-  4. Press the media keys again: the first press started the quiet tone that lets them reach the
-     page (**Details** switches it).
-  5. Press **Send to server**.
+  4. Note the run's name in the status line under the tiles (*Sending as you press · run
+     `K3J7QW2A` · 34 sent*). There is no Send: every press and move is in the log already, read by
+     the run's name (§0, *The button test sends as you press*): `grep '"labRun":"K3J7QW2A"'`.
+     A reload, as changing Silk's own navigation mode does, starts a new run with a new name.
+     Play/pause reaches a Fire TV page as a key with no tone; **Details**' *Test a keyboard's media
+     keys* plays the quiet tone a desktop browser needs before it gives a page a keyboard's media
+     keys.
 - **Record:** which keys reach the page and their `key`/`keyCode`; whether Silk's own cursor
   takes the D-pad (no arrows in the log) or the arrows reach the page; whether either mode moves
   focus; median and worst latency per mode; Back's history steps and Back keys; Media Session
