@@ -374,10 +374,14 @@ On 5 the owner agreed and widened it into a rule for all fetched data,
 [D335](../../decisions/working-notes.md#d335--what-should-have-been-fetched-and-was-not-is-filled-in-by-the-sweeps-a-refetch-that-replaces-is-the-persons-deliberate-act):
 the sweeps fill in what should have been fetched and was not, so a series fetched before its
 orderings were has them filled in passively, with no "Look for other orders" action needed; a
-deliberate refetch replaces. 3 and 6 are open: what the files' order means is being explained
-(it is the order the episode *numbers in the file names* follow, not the order the files are
-listed in), with the owner's point that it cannot be assumed and needs cues, or the admin's
-choice. 9 was not answered.
+deliberate refetch replaces. On 3 and 6, once the files' order was explained as the numbering the
+episode numbers *in the file names* follow (not the order files are listed in), the owner pointed
+out it cannot be assumed and needs cues or the admin's choice, and agreed: **3**, the default is
+aired until cues or an admin say otherwise, and a person who never chose follows it; **6**, the
+viewing order is built first, then the files' order with the admin's choice per series and cues
+(each file's runtime against each ordering's episodes, episode titles in file names, two-part
+files, disc folder names) offered as a warning when they disagree with aired. **9**, a
+person-wide default such as "DVD wherever there is one", is not now.
 
 1. **Is an ordering a kind (DVD) or a particular list?** TMDB has any number of lists per type,
    contributed by its users and labelled loosely (§2.1). *Recommend:* a particular list, shown by
