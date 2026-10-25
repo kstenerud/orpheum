@@ -2767,6 +2767,46 @@
         ],
         "type": "object"
       },
+      "LabResultInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "probe": {
+            "description": "Which lab page measured it",
+            "enum": [
+              "device",
+              "input",
+              "remote",
+              "extend",
+              "cast",
+              "receiver"
+            ],
+            "type": "string"
+          },
+          "result": {
+            "additionalProperties": {},
+            "description": "What it measured, as the page assembled it",
+            "type": "object"
+          }
+        },
+        "required": [
+          "probe",
+          "result"
+        ],
+        "type": "object"
+      },
+      "LabResultOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "The result's name in the server's log",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
       "LadderBody": {
         "additionalProperties": false,
         "properties": {
@@ -10424,6 +10464,58 @@
         "summary": "Cancel a queued or running job; a node's work is stopped (admin)",
         "tags": [
           "Jobs"
+        ]
+      }
+    },
+    "/lab-results": {
+      "post": {
+        "operationId": "reportLabResult",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabResultInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabResultOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "What a lab page measured on a device, for the server's log (tv-device-tests.md)",
+        "tags": [
+          "Running it"
         ]
       }
     },

@@ -211,6 +211,8 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"echoReachability",
 		// A page's failure, which is only logged and answers nothing.
 		"reportClientProblem",
+		// What a lab page measured on a device, which is only logged and answers its name in the log.
+		"reportLabResult",
 		// A player's word that it left its own playback, by a token only its holder may use (D258 §2):
 		// it answers nothing (TestLeave_APlayerThatLeavesLetsGoOfTheWorkItsPlaybackAskedFor).
 		"leavePlayback",
