@@ -732,6 +732,12 @@ User-Agent (D263; the User-Agent is logged only).
   without levelling is offered the ladder's sound unlevelled, so no Web Audio is needed to take its
   gain back out. Under the video, the frame timing (`frame-timing.ts`) says what the
   browser knows; for a film playing its own file, Play in a bare player tests the video alone.
+- **Left as it is:** a film playing a *prepared copy* with levelling off still takes the copy's
+  carried gain back out through Web Audio, so on such a TV its sound comes out late by the context's
+  latency. A prepared copy is played only when the ladder cannot start (no grid within
+  `play_ladder_wait_ms`, a film that cannot be cut, no quality offered), and an unlevelled copy
+  would double the prepares and their disk; the owner chose to leave it (2026-10-25). The per-device
+  offset can still move a ladder's sound, not a prepared copy's.
 - **Note:** on this TV a Web Audio context reported a base latency of 96 ms and an output latency of
   320 to 328 ms, which the element's clock does not count: a sound through Web Audio comes out about
   420 ms later still.
