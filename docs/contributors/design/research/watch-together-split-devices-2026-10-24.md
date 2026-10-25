@@ -133,6 +133,8 @@ From Apple's guides ([Apple TV](https://support.apple.com/guide/tv/atvb65186d08/
   host's Wi-Fi network"* ([9to5Google, 2023-08-23](https://9to5google.com/2023/08/23/chromecast-guest-mode/)).
   For Orpheum this fits D124's cast path: Cast needs the phone and TV on one network, which a
   guest's own phone and own TV are.
+- **Casting, mirroring and extending as a first step**, and a custom receiver joined by the Cast
+  session itself rather than a code, are weighed in [casting-2026-10-25.md](casting-2026-10-25.md).
 
 ### 2.5 Spotify Connect and Jam
 
