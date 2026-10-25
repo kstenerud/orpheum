@@ -2,7 +2,14 @@
 
 import { describe, expect, it } from "vitest";
 
-import { directionOfKey, nearestInDirection, type Box, type Placed } from "./lab-focus.ts";
+import {
+  directionOfKey,
+  isArrowTheFields,
+  nearestInDirection,
+  type Box,
+  type Caret,
+  type Placed,
+} from "./lab-focus.ts";
 
 /** A 100-pixel tile at a row and column of a grid with 20-pixel gaps. */
 function tile(row: number, column: number): Placed<string> {
@@ -53,5 +60,40 @@ describe("the input probe's geometric focus search", () => {
     expect(directionOfKey("Left", 0)).toBe("left");
     expect(directionOfKey("Unidentified", 40)).toBe("down");
     expect(directionOfKey("Enter", 13)).toBeUndefined();
+  });
+});
+
+/** A one-line field holding three characters, its caret at. */
+function caretAt(at: number, end = at): Caret {
+  return { isSingleLine: true, selectionStart: at, selectionEnd: end, valueLength: 3 };
+}
+
+describe("an arrow in a text field", () => {
+  it("is the field's inside the value, and ours at the end it points to", () => {
+    expect(isArrowTheFields("left", caretAt(1))).toBe(true);
+    expect(isArrowTheFields("right", caretAt(1))).toBe(true);
+    expect(isArrowTheFields("left", caretAt(0))).toBe(false);
+    expect(isArrowTheFields("right", caretAt(3))).toBe(false);
+    expect(isArrowTheFields("right", caretAt(0))).toBe(true);
+  });
+
+  it("is the field's while a selection is made, and where the field has no caret", () => {
+    expect(isArrowTheFields("left", caretAt(0, 3))).toBe(true);
+    const noCaret: Caret = {
+      isSingleLine: true,
+      selectionStart: undefined,
+      selectionEnd: undefined,
+      valueLength: 2,
+    };
+    expect(isArrowTheFields("left", noCaret)).toBe(true);
+  });
+
+  it("is always ours up and down from one line, and at the ends from several", () => {
+    expect(isArrowTheFields("up", caretAt(1))).toBe(false);
+    expect(isArrowTheFields("down", caretAt(1))).toBe(false);
+    const lines: Caret = { ...caretAt(1), isSingleLine: false };
+    expect(isArrowTheFields("up", lines)).toBe(true);
+    expect(isArrowTheFields("down", { ...lines, selectionStart: 3, selectionEnd: 3 })).toBe(false);
+    expect(isArrowTheFields("up", { ...lines, selectionStart: 0, selectionEnd: 0 })).toBe(false);
   });
 });

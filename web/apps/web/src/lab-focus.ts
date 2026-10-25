@@ -122,13 +122,16 @@ export interface FocusEngine {
 /** What may take focus inside a region: its links, buttons and anything with a tabindex. */
 const focusableSelector = "a[href], button:not([disabled]), input, select, [tabindex]";
 
-/** Our geometric engine over the region's focusable elements. */
+/**
+ * Our geometric engine over the region's focusable elements that are laid out: one inside a closed
+ * menu or a closed details has no box, and would otherwise be found at the screen's corner.
+ */
 export const geometricFocus: FocusEngine = {
   name: "geometric",
   next: (from, direction, region) => {
     const candidates: Placed<HTMLElement>[] = [];
     for (const element of region.querySelectorAll<HTMLElement>(focusableSelector)) {
-      if (element !== from && element.tabIndex >= 0) {
+      if (element !== from && element.tabIndex >= 0 && element.getClientRects().length > 0) {
         candidates.push({ item: element, box: element.getBoundingClientRect() });
       }
     }
@@ -136,13 +139,94 @@ export const geometricFocus: FocusEngine = {
   },
 };
 
+/** Where a text field's caret stands, as an arrow reads it. */
+export interface Caret {
+  /** Whether the field is one line (an input) rather than several (a textarea). */
+  readonly isSingleLine: boolean;
+  /** The selection's start and end, or undefined where the field has none (a number input). */
+  readonly selectionStart: number | undefined;
+  readonly selectionEnd: number | undefined;
+  readonly valueLength: number;
+}
+
+/**
+ * Whether an arrow in direction is the text field's own, to move its caret, rather than ours, to
+ * move focus out (the usual TV practice, the owner, 2026-10-25): Left and Up are ours at the value's
+ * start, Right and Down at its end, with nothing selected; Up and Down always leave a one-line field.
+ */
+export function isArrowTheFields(direction: Direction, caret: Caret): boolean {
+  if (caret.isSingleLine && (direction === "up" || direction === "down")) {
+    return false;
+  }
+  const { selectionStart, selectionEnd } = caret;
+  if (selectionStart === undefined || selectionEnd === undefined) {
+    return true;
+  }
+  if (selectionStart !== selectionEnd) {
+    return true;
+  }
+  const isBackward = direction === "left" || direction === "up";
+  return isBackward ? selectionStart > 0 : selectionEnd < caret.valueLength;
+}
+
+/** The input types whose value is text with a caret. */
+const textInputTypes: readonly string[] = ["text", "search", "url", "tel", "email", "password"];
+
+/** The caret of element, where it is a text field; undefined for anything else. */
+export function caretOf(element: Element): Caret | undefined {
+  if (element instanceof HTMLTextAreaElement) {
+    return {
+      isSingleLine: false,
+      selectionStart: element.selectionStart,
+      selectionEnd: element.selectionEnd,
+      valueLength: element.value.length,
+    };
+  }
+  if (element instanceof HTMLInputElement && textInputTypes.includes(element.type)) {
+    return {
+      isSingleLine: true,
+      selectionStart: element.selectionStart ?? undefined,
+      selectionEnd: element.selectionEnd ?? undefined,
+      valueLength: element.value.length,
+    };
+  }
+  return undefined;
+}
+
+/** What our navigation moves focus within, by which engine, and where its first arrow starts. */
+export interface FocusDrive {
+  readonly region: HTMLElement;
+  readonly engine: FocusEngine;
+  readonly start: HTMLElement;
+}
+
+/**
+ * Moves real DOM focus from what has it in the drive's region by its engine, one step in direction;
+ * while nothing in region has focus, focuses start's first element. Whether it took the arrow:
+ * false where focus is in a field outside region, which keeps it.
+ */
+export function moveFocus({ region, engine, start }: FocusDrive, direction: Direction): boolean {
+  const from = document.activeElement;
+  if (from instanceof HTMLElement && from !== region && region.contains(from)) {
+    engine.next(from, direction, region)?.focus();
+    return true;
+  }
+  if (from instanceof HTMLInputElement || from instanceof HTMLSelectElement) {
+    return false;
+  }
+  start.querySelector<HTMLElement>(focusableSelector)?.focus();
+  return true;
+}
+
 /**
  * Moves real DOM focus by engine on each arrow key the page hears, the browser's own handling of the
  * key prevented, so the engine alone moves it; the input probe measures each move by the focus it
  * sees arrive. An arrow while nothing in region has focus (the page just opened, focus on its body)
  * focuses start's first element (region's, unless given), as a TV app's first press does (owner,
  * Firefox, 2026-10-25: the arrows reached the page and moved nothing). An arrow in a field of a
- * form is the field's. Returns the stopping.
+ * form outside region is the field's; in a text field inside it, the field's unless the caret is at
+ * the value's end the arrow points to (isArrowTheFields), or the field is composing. Returns the
+ * stopping.
  */
 export function driveFocus(
   region: HTMLElement,
@@ -155,12 +239,12 @@ export function driveFocus(
       return;
     }
     const from = document.activeElement;
-    if (from instanceof HTMLElement && region.contains(from)) {
+    const caret = from === null ? undefined : caretOf(from);
+    if (caret !== undefined && (event.isComposing || isArrowTheFields(direction, caret))) {
+      return;
+    }
+    if (moveFocus({ region, engine, start }, direction)) {
       event.preventDefault();
-      engine.next(from, direction, region)?.focus();
-    } else if (!(from instanceof HTMLInputElement || from instanceof HTMLSelectElement)) {
-      event.preventDefault();
-      start.querySelector<HTMLElement>(focusableSelector)?.focus();
     }
   };
   document.addEventListener("keydown", handle);

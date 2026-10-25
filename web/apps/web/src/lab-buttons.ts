@@ -7,8 +7,9 @@
  * then by the platforms' keyCodes an old TV browser alone gives (controller-input-2026-10-25.md §2).
  */
 
-import { directionOfKey } from "./lab-focus.ts";
+import { directionOfKey, type Direction } from "./lab-focus.ts";
 import { isBackKey } from "./lab-keys.ts";
+import type { OkButton } from "./lab-pads.ts";
 
 /** A button the test names. */
 export type ButtonName =
@@ -48,9 +49,23 @@ export const shownWhenHeard: readonly ButtonName[] = ["volumeUp", "volumeDown", 
 
 /** One press the page heard, by where it came from. */
 export type HeardInput =
-  | { readonly kind: "key"; readonly key: string; readonly keyCode: number }
+  | {
+      readonly kind: "key";
+      readonly key: string;
+      readonly keyCode: number;
+      /** Whether a text field had focus: its Backspace deletes, and is no Back. */
+      readonly isInField?: boolean;
+    }
   | { readonly kind: "historyStep" }
-  | { readonly kind: "pad"; readonly button: number }
+  | {
+      readonly kind: "pad";
+      readonly button: number;
+      /** Whether the pad has the standard mapping: another's buttons are only numbers. */
+      readonly isStandard: boolean;
+      /** Which face button confirms on the pad's layout (lab-pads.ts). */
+      readonly okButton: OkButton;
+    }
+  | { readonly kind: "stick"; readonly direction: Direction }
   | { readonly kind: "media"; readonly action: string };
 
 /** The buttons by key name. */
@@ -88,13 +103,11 @@ const buttonsByKeyCode = new Map<number, ButtonName>([
 ]);
 
 /**
- * The buttons by a controller's button in the standard mapping (the Gamepad spec's): A is Select and
- * B is Back, as on a TV's controller; the triggers rewind and fast forward, Start plays and pauses;
- * the D-pad is 12 to 15.
+ * The buttons by a controller's button in the standard mapping (the Gamepad spec's), but its bottom
+ * and right face buttons (0 and 1), which confirm or go back by the pad's layout: the triggers rewind
+ * and fast forward, Start plays and pauses; the D-pad is 12 to 15.
  */
 const buttonsByPadButton = new Map<number, ButtonName>([
-  [0, "select"],
-  [1, "back"],
   [6, "rewind"],
   [7, "fastForward"],
   [9, "playPause"],
@@ -112,13 +125,37 @@ const buttonsByMediaAction = new Map<string, ButtonName>([
   ["seekforward", "fastForward"],
 ]);
 
-/** The button a key is: by its name, then its keyCode; Other where neither names one. */
-function buttonOfKey(key: string, keyCode: number): ButtonName {
+/** The face button 0 or 1 is: the bottom one or the right one. */
+const faceButtons = new Map<number, OkButton>([
+  [0, "bottom"],
+  [1, "right"],
+]);
+
+/**
+ * The button a controller's is: Other for every button of a pad with no standard mapping, whose
+ * numbers mean nothing known; a face button confirms where its layout's OK is, else goes back.
+ */
+function buttonOfPad(button: number, isStandard: boolean, okButton: OkButton): ButtonName {
+  if (!isStandard) {
+    return "other";
+  }
+  const face = faceButtons.get(button);
+  if (face !== undefined) {
+    return face === okButton ? "select" : "back";
+  }
+  return buttonsByPadButton.get(button) ?? "other";
+}
+
+/**
+ * The button a key is: by its name, then its keyCode; Other where neither names one. Backspace in a
+ * text field deletes, so it is Other there.
+ */
+function buttonOfKey(key: string, keyCode: number, isInField: boolean): ButtonName {
   const direction = directionOfKey(key, keyCode);
   if (direction !== undefined) {
     return direction;
   }
-  if (isBackKey(key, keyCode)) {
+  if (isBackKey(key, keyCode) && !(isInField && (key === "Backspace" || keyCode === 8))) {
     return "back";
   }
   return buttonsByKey.get(key) ?? buttonsByKeyCode.get(keyCode) ?? "other";
@@ -128,11 +165,13 @@ function buttonOfKey(key: string, keyCode: number): ButtonName {
 export function buttonOf(input: HeardInput): ButtonName {
   switch (input.kind) {
     case "key":
-      return buttonOfKey(input.key, input.keyCode);
+      return buttonOfKey(input.key, input.keyCode, input.isInField ?? false);
     case "historyStep":
       return "back";
     case "pad":
-      return buttonsByPadButton.get(input.button) ?? "other";
+      return buttonOfPad(input.button, input.isStandard, input.okButton);
+    case "stick":
+      return input.direction;
     case "media":
       return buttonsByMediaAction.get(input.action) ?? "other";
   }

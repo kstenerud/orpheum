@@ -85,8 +85,37 @@ export const enLab = {
         historyStep: "a step back in the page's history",
         pad: "controller button {{button}} · {{pad}}",
         media: "Media Session {{action}}",
+        stick: "stick axis {{axis}} at {{value}} · {{pad}}",
       },
       tile: "Tile {{number}}",
+      field: {
+        placeholder: "Type here",
+        label: "Text field test: type here",
+      },
+      fullscreen: {
+        box: "Full-screen test",
+        video: "Full screen: video only",
+        label: "The full-screen test's video",
+        hint: "Press Back or Escape to leave full screen",
+      },
+      controller: {
+        none: "No controller yet: press a button on one to connect it.",
+        line: "Controller: {{id}} · {{mapping}} mapping · {{said}}",
+        standard: "{{layout}} layout, OK is {{ok}}",
+        unknown: "layout unknown",
+        noStandard: "This controller has no standard layout",
+        layout: {
+          xbox: "Xbox",
+          playstation: "PlayStation",
+          nintendo: "Nintendo",
+          unknown: "Unknown",
+        },
+        ok: {
+          bottom: "the bottom button",
+          right: "the right button",
+        },
+        choose: "OK is:",
+      },
       modeLabel: "Moving between tiles:",
       mode: {
         browser: "The browser's own",
