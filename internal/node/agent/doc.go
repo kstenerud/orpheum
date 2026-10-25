@@ -100,6 +100,9 @@
 //     through it (Workers.Films, D330), served from the very file the node opened and checked,
 //     through its disk's gate and within a whole read's budget, the run given no path; otherwise by
 //     its path, as before. TestAgent_ARunIsServedTheFileTheNodeCheckedOnlyWhenItsFFmpegReadsThroughIt.
+//   - A file a command names is checked against its payload hash through the node's one
+//     namedfile.Hashes (Workers.Hashes), which the byte socket shares: a film opened unchanged by
+//     run after run is hashed once. TestAgent_RunsOfAnUnchangedFilmHashItOnceInTheHashesTheNodeShares.
 //   - A cancel is carried out as it arrives, not queued behind other work: it stops the job's
 //     FFmpeg, frees its slot, and nothing more is reported for the job; a job cancelled while it
 //     waits for a slot never starts (cut-a §5.3).

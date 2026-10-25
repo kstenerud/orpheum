@@ -56,6 +56,14 @@ func (server *Server) WatchingOpens(disks *diskwatch.Gate, window time.Duration)
 	return server
 }
 
+// SharingHashes has the server remember payload hashes in hashes, which the node's agent shares, so
+// a film a run opened is not hashed again for its range requests, nor the other way round.
+func (server *Server) SharingHashes(hashes *namedfile.Hashes) *Server {
+	server.payloadHashes = hashes
+	server.openFile = hashes.OpenNamed
+	return server
+}
+
 // New returns a server over the node's roots and its prepared directory, which may be nil.
 func New(roots []*confine.MediaRoot, prepared *confine.MediaRoot) *Server {
 	byPath := make(map[string]*confine.MediaRoot, len(roots))
