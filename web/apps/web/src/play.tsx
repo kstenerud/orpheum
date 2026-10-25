@@ -31,6 +31,8 @@ import { askUntilAnswered, reopenAtMostEveryMs, type ReopenAt } from "./reopen.t
 import type { LadderOffer } from "./moving-down.ts";
 import { usePlayState } from "./play-state.ts";
 import { usePlayerCommands } from "./player-commands.ts";
+import { TvControls } from "./tv-controls.tsx";
+import { isTelevision } from "./tv-device.ts";
 import { useServices } from "./services.tsx";
 import { BarePlayer } from "./bare-player.tsx";
 import { FrameTimingNote } from "./frame-timing-note.tsx";
@@ -181,10 +183,17 @@ function PlayerView(
   );
 }
 
-/** How the Play page composes its player: its own controls, playing at once unless it waits. */
+/**
+ * How the Play page composes its player: the browser's controls, or a television's own bar, and
+ * playing at once unless it waits.
+ */
 function pageComposition(props: Parameters<typeof PlayView>[0]): FilmComposition {
+  // On a television the player's own bar, which a remote reaches, and full screen at once; on a
+  // computer or a phone the browser's own controls (the owner, 2026-10-25).
+  const isOnTelevision = isTelevision(navigator.userAgent);
   return {
-    hasControls: true,
+    hasControls: !isOnTelevision,
+    ...(isOnTelevision ? { over: TvControls } : {}),
     isAutoPlay: props.isStartPaused !== true,
     isFailureHidden: props.isReconnecting === true,
     askAbout: props.fileId,

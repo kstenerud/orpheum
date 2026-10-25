@@ -5,6 +5,12 @@
  * menus (play), kept apart so the catalogue fits in one read (en.ts).
  */
 export const enPlay = {
+  tvControls: {
+    play: "Play",
+    pause: "Pause",
+    where: "Where the film stands",
+    endsAt: "Ends at {{time}}",
+  },
   play: {
     updateAfterFilm: "A new version of this app is ready: it loads as you leave the film.",
     directFailed: "This browser could not play the original file: {{reason}}.",
