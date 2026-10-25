@@ -729,11 +729,12 @@ User-Agent (D263; the User-Agent is logged only).
 - **The remote's other keys, in spatial mode:** OK arrives as `Enter` with `code` `NumpadEnter`
   (keyCode 13). Back is never a key: it steps the page's history (two presses, two steps), which a
   page catches as `popstate`. Play/pause arrives as `MediaPlayPause` (keyCode 179). No Media Session
-  action fired for any key, the page playing sound. Rewind and fast forward were not among the 30
-  keys the probe keeps, which suggests they do not reach the page; a run pressing only them is
-  owed before relying on it.
+  action fired for any key, the page playing sound. Rewind, fast forward and the volume keys do
+  not reach the page at all: a run pressing each once in turn logged nothing for them
+  (`6NUMRA2E`). A page on Silk can give play/pause its own meaning; seeking from the remote must be
+  by the D-pad.
 - **Evidence:** [owner] 2026-10-25, staging, `/lab/input`, lab results `XOSUILPC` (pointer mode),
-  `ECD3SZ56`, `6IRKWCYO`, `UGVNKUGU`, `Q5JAAP2N` and `IDDJ6NL7` (spatial mode);
+  `ECD3SZ56`, `6IRKWCYO`, `UGVNKUGU`, `Q5JAAP2N`, `IDDJ6NL7` and `6NUMRA2E` (spatial mode);
   plans/tv-device-tests.md §5.
 
 ### A TCL TV in TV Bro plays a page's sound about half a second late, and the browser cannot tell

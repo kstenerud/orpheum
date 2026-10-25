@@ -350,7 +350,8 @@ address, so features a browser gives only to a secure context (the microphone, t
   Silk's own 17 moves, median 78 ms, worst 112 ms; both within D190's 250 ms. Silk keeps its mode
   across a restart and reopens its page; changing the mode reloads the page. Back is two history
   steps for two presses and never a key; OK is `Enter` (`NumpadEnter`); play/pause is keyCode 179;
-  no Media Session action fired; rewind and fast forward were not among the 30 keys kept, which
-  suggests they never reach the page (a run pressing only them is owed). Fire TV in Silk's spatial
+  no Media Session action fired; rewind, fast forward and the volume keys never reach the page
+  (`6NUMRA2E`, each pressed once in turn). In that run play/pause showed twice and Back stepped no
+  history; whether one press of play/pause sends two and why Back did nothing are unconfirmed. Fire TV in Silk's spatial
   mode can run the web client with our focus engine.
 
