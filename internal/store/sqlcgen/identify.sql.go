@@ -244,17 +244,20 @@ func (q *Queries) InsertItemProviderID(ctx context.Context, arg InsertItemProvid
 }
 
 const insertOrdering = `-- name: InsertOrdering :one
-INSERT INTO ordering (collection_id, name, provider) VALUES (?1, ?2, NULL)
+INSERT INTO ordering (collection_id, name, provider, kind)
+VALUES (?1, ?2, NULL, ?3)
 RETURNING id
 `
 
 type InsertOrderingParams struct {
 	CollectionID int64
 	Name         string
+	Kind         *string
 }
 
+// A series' ordering its files' numbers place its episodes in, of its kind: aired.
 func (q *Queries) InsertOrdering(ctx context.Context, arg InsertOrderingParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, insertOrdering, arg.CollectionID, arg.Name)
+	row := q.db.QueryRowContext(ctx, insertOrdering, arg.CollectionID, arg.Name, arg.Kind)
 	var id int64
 	err := row.Scan(&id)
 	return id, err

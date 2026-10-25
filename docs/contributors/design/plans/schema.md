@@ -636,8 +636,13 @@ CREATE TABLE collection_member (                           -- D159, D160
 CREATE TABLE ordering (                                    -- D96, D159
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   collection_id INTEGER NOT NULL REFERENCES collection(id) ON DELETE RESTRICT,
-  name          TEXT NOT NULL,           -- 'aired', 'dvd', 'absolute', a person's; 'release' for an album
+  name          TEXT NOT NULL,           -- 'aired', a TMDB episode group's 'tmdb:<group id>', a person's; 'release' for an album
   provider      TEXT,                    -- NULL when user-authored
+  kind          TEXT,                    -- 0057: 'aired', a TMDB group's type ('dvd', 'absolute', 'digital',
+                                         -- 'story_arc', 'production', 'tv', 'aired_alternate'), 'authored'
+  source_id     TEXT,                    -- 0057: the provider's id for it, a TMDB group's; NULL for aired
+  label         TEXT,                    -- 0057: its provider's name for it ("DVD Order"); name stays the key
+  listed_count  INTEGER,                 -- 0057: how many episodes its provider lists in it, before it is fetched
   UNIQUE (collection_id, name)
 );
 CREATE TABLE position (                                    -- season/episode, or disc/track
@@ -650,13 +655,13 @@ CREATE TABLE position (                                    -- season/episode, or
 );
 CREATE INDEX position_order ON position(ordering_id, sort_order);  -- 0023: was position_sort
 CREATE INDEX position_title ON position(title_id);
-CREATE TABLE group_text (                                  -- a season's name, a disc's subtitle
-  collection_id INTEGER NOT NULL REFERENCES collection(id) ON DELETE RESTRICT,
+CREATE TABLE group_text (                                  -- a season's name, a disc's, a part's
+  ordering_id     INTEGER NOT NULL REFERENCES ordering(id) ON DELETE RESTRICT,  -- 0057: was collection_id
   group_number         INTEGER NOT NULL,
   language        TEXT NOT NULL,
   name        TEXT,
   overview    TEXT,
-  PRIMARY KEY (collection_id, group_number, language)
+  PRIMARY KEY (ordering_id, group_number, language)
 );
 ```
 

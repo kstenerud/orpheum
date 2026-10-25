@@ -161,3 +161,15 @@ func (lib *testLibrary) seriesNames() map[int64]string {
 	}
 	return names
 }
+
+// A series' episodes are placed in its aired ordering, which says it is of the kind aired, the one
+// a person watches it in until they choose another (episode-orderings.md §3.5).
+func TestPass_ASeriesAiredOrderingIsOfTheKindAired(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "shows", "nfo")
+	lib.scan(videoRecord("Emberwing/Season 1/Emberwing.S01E01.mkv"))
+	orderings := storetest.QueryRaw(t, lib.database.Path(), "SELECT name, kind FROM ordering")
+	if !slices.Equal(orderings, []string{"aired|aired"}) {
+		t.Errorf("orderings %q; want aired, of the kind aired", orderings)
+	}
+}
