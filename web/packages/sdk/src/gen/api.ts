@@ -244,6 +244,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/collections/{id}/not-in-order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A page of a series' episodes the ordering the person watches it in leaves out, in aired order */
+        get: operations["getNotInOrdering"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/collections/{id}/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Keep a person's choices in one series: the ordering they watch it in, which its pages, its episodes' labels and its Next Up follow */
+        put: operations["setSeriesPreferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/collections/{id}/seasons/{season}": {
         parameters: {
             query?: never;
@@ -2177,8 +2211,15 @@ export interface components {
             name: string;
             /** @description The person's next episode, which the page offers to play; absent when every one is finished or none has a file */
             nextUp?: components["schemas"]["NextUpBody"];
+            /**
+             * Format: int64
+             * @description How many of its episodes the ordering in use leaves out: GET /collections/{id}/not-in-order
+             */
+            notInOrderingCount?: number;
             /** @description The ordering its person watches it in, which its seasons are the groups of; absent for aired */
             ordering?: string;
+            /** @description Every ordering it has, aired first; its page offers a choice when there is more than one */
+            orderings?: components["schemas"]["OrderingBody"][] | null;
             overview?: string;
             /**
              * Format: int64
@@ -3044,6 +3085,8 @@ export interface components {
              * @description The file its Play plays: the one the person is partway through, else its first
              */
             fileId: number;
+            /** @description The ordering's name for its group (Disc 2); absent where it names none */
+            groupName?: string;
             /**
              * Format: int64
              * @description Its group in the ordering, a series' season; 0 for the specials and those with none
@@ -3167,6 +3210,20 @@ export interface components {
             membershipCredential: string;
             /** Format: int64 */
             sessionId: number;
+        };
+        OrderingBody: {
+            /**
+             * Format: int64
+             * @description How many of the series' episodes it holds
+             */
+            episodeCount: number;
+            /** @description What order it is: aired, or a TMDB group's type (dvd, absolute, digital, story_arc, production, tv, aired_alternate) */
+            kind?: string;
+            label?: string;
+            /** Format: int64 */
+            listedCount?: number;
+            /** @description Its key, which a choice of it names: aired, or a provider's (tmdb:<group id>) */
+            name: string;
         };
         OrderingPlaceBody: {
             /** @description The group's name, where the ordering names it (Disc 2) */
@@ -3652,9 +3709,11 @@ export interface components {
         SeasonBody: {
             /** Format: int64 */
             episodeCount: number;
+            /** @description The ordering's name for it (Disc 2); absent where it names none, as aired names no season */
+            name?: string;
             /**
              * Format: int64
-             * @description 0 for the specials and the episodes with no season
+             * @description Its group's number; aired's 0 for the specials and the episodes with no season
              */
             seasonNumber: number;
             /** @description Its first episode's still that has one */
@@ -3738,6 +3797,9 @@ export interface components {
         SetMyPreferencesInputBody: {
             isDialogueBoostOn?: boolean;
             isLevellingOn?: boolean;
+        };
+        SetSeriesPreferencesInputBody: {
+            episodeOrdering?: string;
         };
         SettingBody: {
             description: string;
@@ -4920,6 +4982,80 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CollectionOutputBody"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getNotInOrdering: {
+        parameters: {
+            query: {
+                /** @description From the previous page's nextCursor */
+                cursor?: string;
+                limit: number;
+            };
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeasonOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    setSeriesPreferences: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetSeriesPreferencesInputBody"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

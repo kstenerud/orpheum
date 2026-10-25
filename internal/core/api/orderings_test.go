@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -38,7 +39,8 @@ func (harness testHarness) shelveDVDOrder(t *testing.T) {
 			"VALUES (1, 22, 1, 2, 10002), (1, 23, 1, 3, 10003), (1, 24, 2, 1, 20001)",
 		"INSERT INTO collection_member (collection_id, member_title, position) VALUES (20, 22, 10002), "+
 			"(20, 23, 10003), (20, 24, 20001)",
-		"INSERT INTO ordering (id, collection_id, name, provider) VALUES (2, 20, 'tmdb:dvd', 'tmdb')",
+		`INSERT INTO ordering (id, collection_id, name, provider, kind, source_id, label, listed_count)
+		 VALUES (2, 20, 'tmdb:dvd', 'tmdb', 'dvd', 'dvd', 'DVD Order', 5)`,
 		"INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order) "+
 			"VALUES (2, 23, 1, 1, 10001), (2, 21, 1, 2, 10002), (2, 24, 2, 1, 20001)")
 }
@@ -153,4 +155,103 @@ func TestOrderings_APersonsChosenOrderingIsTheSeriesTheySee(t *testing.T) {
 	if got, want := harness.seriesSummary(t, user), "aired seasons[1:3,2:1] next 21:1:1"; got != want {
 		t.Errorf("a choice the series no longer has: %s; want %s", got, want)
 	}
+}
+
+// A series' page offers every ordering it has, aired first, each with its kind, its provider's label
+// and how many of the series' episodes it holds; a person's choice of one is kept, and one the series
+// does not have is refused. In the ordering chosen, its groups carry its names for them, and the
+// episodes it leaves out are listed apart at their aired places, never as Next Up
+// (episode-orderings.md §4, §7 Q4, Q8).
+func TestOrderings_APersonChoosesAmongTheOrderingsASeriesHas(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveDVDOrder(t)
+	storetest.ExecRaw(t, harness.databasePath,
+		"INSERT INTO group_text (ordering_id, group_number, language, name) VALUES (2, 1, 'en', 'Disc 1')")
+	var offered struct {
+		Orderings []OrderingBody `json:"orderings"`
+	}
+	harness.readJSON(t, "/collections/20", user, &offered)
+	if got, want := fmt.Sprint(offered.Orderings), "[{aired aired  0 4} {tmdb:dvd dvd DVD Order 5 3}]"; got != want {
+		t.Errorf("orderings offered %s; want %s", got, want)
+	}
+	choose := func(ordering string) response {
+		return harness.do(t, http.MethodPut, "/collections/20/preferences", user,
+			map[string]string{"episodeOrdering": ordering})
+	}
+	wantError(t, choose("tmdb:none"), http.StatusBadRequest, CodeInvalidRequest)
+	wantError(t, harness.do(t, http.MethodPut, "/collections/99/preferences", user,
+		map[string]string{"episodeOrdering": "aired"}), http.StatusNotFound, CodeNotFound)
+	if got, want := harness.seriesSummary(t, user), "aired seasons[1:3,2:1] next 21:1:1"; got != want {
+		t.Errorf("after a refused choice: %s; want %s", got, want)
+	}
+	if answer := choose("tmdb:dvd"); answer.status != http.StatusNoContent {
+		t.Fatalf("choosing the DVD order = %d %s", answer.status, answer.body)
+	}
+	if got, want := harness.seriesSummary(t, user), "tmdb:dvd seasons[1:2,2:1] next 23:1:1"; got != want {
+		t.Errorf("chosen: %s; want %s", got, want)
+	}
+	series := harness.do(t, http.MethodGet, "/collections/20", user, nil)
+	for _, want := range []string{
+		`{"seasonNumber":1,"name":"Disc 1","episodeCount":2,`, `"notInOrderingCount":1`, `"groupName":"Disc 1"`,
+	} {
+		if !strings.Contains(series.body, want) {
+			t.Errorf("the series in the DVD order = %s; want %s", series.body, want)
+		}
+	}
+	if episode := harness.do(t, http.MethodGet, "/items/21", user, nil); !strings.Contains(episode.body,
+		`"inOrdering":{"groupNumber":1,"numberInGroup":2,"groupName":"Disc 1"}`) {
+		t.Errorf("an episode's detail = %s; want its place on Disc 1", episode.body)
+	}
+	var left struct {
+		Episodes []struct {
+			ID            int64 `json:"id"`
+			SeasonNumber  int64 `json:"seasonNumber"`
+			EpisodeNumber int64 `json:"episodeNumber"`
+		} `json:"episodes"`
+	}
+	harness.readJSON(t, "/collections/20/not-in-order?limit=10", user, &left)
+	if got := fmt.Sprint(left.Episodes); got != "[{22 1 2}]" {
+		t.Errorf("not in the DVD order: %s; want 22, at its aired S1E2", got)
+	}
+	// Watching every episode the DVD order holds leaves no Next Up, though 22 is unwatched.
+	for _, file := range []int64{2, 4, 5} {
+		harness.setPositionReadAt(t, file, 1000, file)
+	}
+	if got, want := harness.seriesSummary(t, user), "tmdb:dvd seasons[1:2,2:1] next none"; got != want {
+		t.Errorf("every episode of the DVD order watched: %s; want %s, never the one it leaves out", got, want)
+	}
+	if answer := choose("aired"); answer.status != http.StatusNoContent {
+		t.Fatalf("choosing aired = %d %s", answer.status, answer.body)
+	}
+	if got, want := harness.seriesSummary(t, user), "aired seasons[1:3,2:1] next none"; got != want {
+		t.Errorf("aired chosen again: %s; want %s", got, want)
+	}
+	harness.readJSON(t, "/collections/20/not-in-order?limit=10", user, &left)
+	if len(left.Episodes) != 0 {
+		t.Errorf("not in aired: %v; want none", left.Episodes)
+	}
+	harness.wantSeriesOrderingsUnreached(t, user)
+}
+
+// wantSeriesOrderingsUnreached checks that a person whose role does not reach series 20's library is
+// answered as for a series that does not exist, choosing its ordering or listing what it leaves out
+// (D243 §4).
+func (harness testHarness) wantSeriesOrderingsUnreached(t *testing.T, admin string) {
+	t.Helper()
+	if made := harness.do(t, http.MethodPost, "/roles", admin, map[string]any{
+		"name": "strangers", "capabilities": []string{}, "libraries": []any{},
+	}); made.status != http.StatusCreated {
+		t.Fatalf("POST /roles = %d %s", made.status, made.body)
+	}
+	if _, err := harness.authService.CreateUser(t.Context(),
+		auth.NewUser{Name: "partner", Password: "partner-password", Role: "strangers"}); err != nil {
+		t.Fatal(err)
+	}
+	partner := harness.signIn(t, "partner", "partner-password")
+	wantError(t, harness.do(t, http.MethodPut, "/collections/20/preferences", partner,
+		map[string]string{"episodeOrdering": "tmdb:dvd"}), http.StatusNotFound, CodeNotFound)
+	wantError(t, harness.do(t, http.MethodGet, "/collections/20/not-in-order?limit=10", partner, nil),
+		http.StatusNotFound, CodeNotFound)
 }

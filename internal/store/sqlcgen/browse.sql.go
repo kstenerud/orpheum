@@ -9,6 +9,32 @@ import (
 	"context"
 )
 
+const countEpisodesNotInOrdering = `-- name: CountEpisodesNotInOrdering :one
+SELECT count(*)
+FROM ordering AS aired_ordering
+JOIN position AS aired ON aired.ordering_id = aired_ordering.id
+JOIN item ON item.id = aired.title_id AND item.removed_at IS NULL
+WHERE aired_ordering.collection_id = ?1 AND aired_ordering.name = 'aired'
+  AND NOT EXISTS (
+    SELECT 1 FROM ordering AS chosen JOIN position AS there ON there.ordering_id = chosen.id
+    WHERE chosen.collection_id = aired_ordering.collection_id AND chosen.name = ?2
+      AND there.title_id = aired.title_id
+  )
+`
+
+type CountEpisodesNotInOrderingParams struct {
+	CollectionID int64
+	OrderingName string
+}
+
+// How many of a series' live episodes one of its orderings leaves out.
+func (q *Queries) CountEpisodesNotInOrdering(ctx context.Context, arg CountEpisodesNotInOrderingParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countEpisodesNotInOrdering, arg.CollectionID, arg.OrderingName)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getChosenOrdering = `-- name: GetChosenOrdering :one
 SELECT ordering.name
 FROM preference
@@ -76,7 +102,13 @@ func (q *Queries) GetLibraryOfItem(ctx context.Context, id int64) (*int64, error
 const getPlaceInOrdering = `-- name: GetPlaceInOrdering :one
 SELECT position.group_number, position.number_in_group,
   (SELECT count(DISTINCT coalesce(other.group_number, 0)) FROM position AS other WHERE other.ordering_id = ordering.id)
-    AS group_count
+    AS group_count,
+  CAST(coalesce((
+    SELECT group_text.name FROM group_text
+    WHERE group_text.ordering_id = ordering.id AND group_text.group_number = position.group_number
+      AND group_text.name IS NOT NULL
+    ORDER BY group_text.language LIMIT 1
+  ), '') AS TEXT) AS group_name
 FROM ordering
 JOIN position ON position.ordering_id = ordering.id
 WHERE ordering.collection_id = ?1 AND ordering.name = ?2
@@ -93,14 +125,21 @@ type GetPlaceInOrderingRow struct {
 	GroupNumber   *int64
 	NumberInGroup *int64
 	GroupCount    int64
+	GroupName     string
 }
 
 // A member's place in one of its collection's named orderings (D96, D159): its group and number in
-// it, and how many groups the ordering has, one for an ordering that is a single run (absolute).
+// it, how many groups the ordering has, one for an ordering that is a single run (absolute), and its
+// group's name where the ordering names it, ” where it does not.
 func (q *Queries) GetPlaceInOrdering(ctx context.Context, arg GetPlaceInOrderingParams) (GetPlaceInOrderingRow, error) {
 	row := q.db.QueryRowContext(ctx, getPlaceInOrdering, arg.CollectionID, arg.OrderingName, arg.TitleID)
 	var i GetPlaceInOrderingRow
-	err := row.Scan(&i.GroupNumber, &i.NumberInGroup, &i.GroupCount)
+	err := row.Scan(
+		&i.GroupNumber,
+		&i.NumberInGroup,
+		&i.GroupCount,
+		&i.GroupName,
+	)
 	return i, err
 }
 
@@ -231,6 +270,90 @@ func (q *Queries) GetTitleOfFile(ctx context.Context, id int64) (GetTitleOfFileR
 	var i GetTitleOfFileRow
 	err := row.Scan(&i.Path, &i.TitleID, &i.Name)
 	return i, err
+}
+
+const listEpisodesNotInOrdering = `-- name: ListEpisodesNotInOrdering :many
+SELECT aired.title_id, aired.group_number, aired.number_in_group, aired.sort_order, item_text.name,
+  title.year, title.runtime_ms, title.identification_state,
+  EXISTS (
+    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+    WHERE version.title_id = aired.title_id AND version.removed_at IS NULL AND file.removed_at IS NULL
+  ) AS available
+FROM ordering AS aired_ordering
+JOIN position AS aired ON aired.ordering_id = aired_ordering.id
+JOIN title ON title.id = aired.title_id
+JOIN item ON item.id = title.id
+LEFT JOIN item_text ON item_text.item_id = aired.title_id AND item_text.is_original = 1
+WHERE aired_ordering.collection_id = ?1 AND aired_ordering.name = 'aired'
+  AND item.removed_at IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM ordering AS chosen JOIN position AS there ON there.ordering_id = chosen.id
+    WHERE chosen.collection_id = aired_ordering.collection_id AND chosen.name = ?2
+      AND there.title_id = aired.title_id
+  )
+  AND aired.sort_order > ?3
+ORDER BY aired.sort_order
+LIMIT ?4
+`
+
+type ListEpisodesNotInOrderingParams struct {
+	CollectionID   int64
+	OrderingName   string
+	AfterSortOrder float64
+	MaxRows        int64
+}
+
+type ListEpisodesNotInOrderingRow struct {
+	TitleID             int64
+	GroupNumber         *int64
+	NumberInGroup       *int64
+	SortOrder           float64
+	Name                *string
+	Year                *int64
+	RuntimeMs           *int64
+	IdentificationState string
+	Available           bool
+}
+
+// A page of a series' episodes that one of its orderings leaves out, in aired order, which every
+// episode is in, after the one at after_sort_order, each at its aired place and with whether it has
+// a live file: what its page lists under "Not in this order" (episode-orderings.md section 7, Q4).
+func (q *Queries) ListEpisodesNotInOrdering(ctx context.Context, arg ListEpisodesNotInOrderingParams) ([]ListEpisodesNotInOrderingRow, error) {
+	rows, err := q.db.QueryContext(ctx, listEpisodesNotInOrdering,
+		arg.CollectionID,
+		arg.OrderingName,
+		arg.AfterSortOrder,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListEpisodesNotInOrderingRow{}
+	for rows.Next() {
+		var i ListEpisodesNotInOrderingRow
+		if err := rows.Scan(
+			&i.TitleID,
+			&i.GroupNumber,
+			&i.NumberInGroup,
+			&i.SortOrder,
+			&i.Name,
+			&i.Year,
+			&i.RuntimeMs,
+			&i.IdentificationState,
+			&i.Available,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listFilmsByAdded = `-- name: ListFilmsByAdded :many
@@ -475,6 +598,49 @@ func (q *Queries) ListLiveFileLocationsOfTitles(ctx context.Context, itemIDListJ
 			&i.ReportedPathRaw,
 			&i.IsUnread,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOrderingGroupNames = `-- name: ListOrderingGroupNames :many
+SELECT group_text.group_number, CAST(group_text.name AS TEXT) AS name
+FROM ordering
+JOIN group_text ON group_text.ordering_id = ordering.id AND group_text.name IS NOT NULL
+WHERE ordering.collection_id = ?1 AND ordering.name = ?2
+ORDER BY group_text.group_number, group_text.language
+`
+
+type ListOrderingGroupNamesParams struct {
+	CollectionID int64
+	OrderingName string
+}
+
+type ListOrderingGroupNamesRow struct {
+	GroupNumber int64
+	Name        string
+}
+
+// The names an ordering of a series gives its groups ("Disc 2", "Volume 3"), each group's in the first
+// language it has one in; a group it names none of is not listed.
+func (q *Queries) ListOrderingGroupNames(ctx context.Context, arg ListOrderingGroupNamesParams) ([]ListOrderingGroupNamesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listOrderingGroupNames, arg.CollectionID, arg.OrderingName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOrderingGroupNamesRow{}
+	for rows.Next() {
+		var i ListOrderingGroupNamesRow
+		if err := rows.Scan(&i.GroupNumber, &i.Name); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -856,6 +1022,55 @@ func (q *Queries) ListSeriesEpisodeDetails(ctx context.Context, arg ListSeriesEp
 			&i.RuntimeMs,
 			&i.IdentificationState,
 			&i.Available,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSeriesOrderings = `-- name: ListSeriesOrderings :many
+SELECT ordering.name, ordering.kind, ordering.label, ordering.listed_count,
+  (SELECT count(*) FROM position JOIN item ON item.id = position.title_id AND item.removed_at IS NULL
+   WHERE position.ordering_id = ordering.id) AS episode_count
+FROM ordering
+WHERE ordering.collection_id = ?1
+ORDER BY ordering.name <> 'aired', ordering.provider IS NULL, coalesce(ordering.label, ordering.name), ordering.id
+`
+
+type ListSeriesOrderingsRow struct {
+	Name         string
+	Kind         *string
+	Label        *string
+	ListedCount  *int64
+	EpisodeCount int64
+}
+
+// A series' orderings, as its page offers them (episode-orderings.md section 4): aired first, then each
+// provider's by its label, then the household's own; each with its kind, its provider's label and
+// how many episodes the provider lists in it, and how many of the series' live episodes it holds.
+func (q *Queries) ListSeriesOrderings(ctx context.Context, collectionID int64) ([]ListSeriesOrderingsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSeriesOrderings, collectionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSeriesOrderingsRow{}
+	for rows.Next() {
+		var i ListSeriesOrderingsRow
+		if err := rows.Scan(
+			&i.Name,
+			&i.Kind,
+			&i.Label,
+			&i.ListedCount,
+			&i.EpisodeCount,
 		); err != nil {
 			return nil, err
 		}

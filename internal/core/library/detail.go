@@ -105,8 +105,12 @@ func (browser *Browser) versions(ctx context.Context, titleID int64) ([]Version,
 // SeriesDetail is a series with its episodes in the ordering its person watches it in.
 type SeriesDetail struct {
 	sqlcgen.GetSeriesDetailRow
-	// Ordering is the ordering its person watches it in (ViewingOrdering).
-	Ordering string
+	// Ordering is the ordering its person watches it in (ViewingOrdering), and Orderings every one it
+	// has, as its page offers them.
+	Ordering  string
+	Orderings []Ordering
+	// NotInOrderingCount is how many of its episodes Ordering leaves out, listed after its groups.
+	NotInOrderingCount int64
 	// Seasons are the ordering's groups in its order, aired's seasons with the specials last: the
 	// series' page lists them, and each one's episodes are read by Season (D306 §9).
 	Seasons []SeasonSummary
@@ -119,7 +123,10 @@ type SeriesDetail struct {
 // aired's 0 for the specials and the episodes with no season, how many episodes it has, and the
 // still of its first episode that has one.
 type SeasonSummary struct {
-	Number       int64
+	Number int64
+	// Name is the ordering's name for the group ("Disc 2"), "" where it names none, as aired names
+	// none of its seasons.
+	Name         string
 	EpisodeCount int64
 	StillSha256  string
 }
@@ -155,6 +162,10 @@ func (browser *Browser) Series(ctx context.Context, reach auth.Reach, userID, se
 		return SeriesDetail{}, err
 	}
 	detail.Seasons = seasonsOf(episodes, stills, ordering == OrderingAired)
+	err = browser.withOrderings(ctx, &detail)
+	if err != nil {
+		return SeriesDetail{}, err
+	}
 	unreadable, err := browser.unreadableItems(ctx, []int64{seriesID}, true)
 	if err != nil {
 		return SeriesDetail{}, err
@@ -239,6 +250,52 @@ type SeasonPage struct {
 // Season is a page of one season's episodes; a series reach does not reach is ErrNoItem, and a
 // cursor this server did not give ErrBadCursor (D306 §9).
 func (browser *Browser) Season(ctx context.Context, reach auth.Reach, query SeasonQuery) (SeasonPage, error) {
+	return browser.episodePage(ctx, reach, query, func(
+		queries *sqlcgen.Queries, ordering string, after float64,
+	) ([]sqlcgen.ListSeasonEpisodeDetailsRow, error) {
+		episodes, err := queries.ListSeasonEpisodeDetails(ctx, sqlcgen.ListSeasonEpisodeDetailsParams{
+			CollectionID: query.SeriesID, OrderingName: ordering, SeasonNumber: query.Season, AfterSortOrder: after,
+			MaxRows: query.Limit + 1,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("list season %d of series %d: %w", query.Season, query.SeriesID, err)
+		}
+		return episodes, nil
+	})
+}
+
+// NotInOrdering is a page of the series' episodes the ordering its person watches it in leaves out,
+// in aired order and at their aired places, which its page lists after the ordering's groups, so
+// nothing in the library disappears by a viewing choice (episode-orderings.md §7 Q4). In aired it
+// is empty. The query's season is not read.
+func (browser *Browser) NotInOrdering(ctx context.Context, reach auth.Reach, query SeasonQuery) (SeasonPage, error) {
+	return browser.episodePage(ctx, reach, query, func(
+		queries *sqlcgen.Queries, ordering string, after float64,
+	) ([]sqlcgen.ListSeasonEpisodeDetailsRow, error) {
+		if ordering == OrderingAired {
+			return nil, nil
+		}
+		rows, err := queries.ListEpisodesNotInOrdering(ctx, sqlcgen.ListEpisodesNotInOrderingParams{
+			CollectionID: query.SeriesID, OrderingName: ordering, AfterSortOrder: after, MaxRows: query.Limit + 1,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("list series %d's episodes its %s ordering leaves out: %w", query.SeriesID,
+				ordering, err)
+		}
+		episodes := make([]sqlcgen.ListSeasonEpisodeDetailsRow, 0, len(rows))
+		for _, row := range rows {
+			episodes = append(episodes, sqlcgen.ListSeasonEpisodeDetailsRow(row))
+		}
+		return episodes, nil
+	})
+}
+
+// episodePage is a page of a series' episodes as list reads them, after the cursor, in the ordering
+// the query's person watches it in, with their stills and why none of their files can be read now.
+func (browser *Browser) episodePage(
+	ctx context.Context, reach auth.Reach, query SeasonQuery,
+	list func(queries *sqlcgen.Queries, ordering string, after float64) ([]sqlcgen.ListSeasonEpisodeDetailsRow, error),
+) (SeasonPage, error) {
 	if _, err := browser.reachedSeries(ctx, reach, query.SeriesID); err != nil {
 		return SeasonPage{}, err
 	}
@@ -255,12 +312,9 @@ func (browser *Browser) Season(ctx context.Context, reach auth.Reach, query Seas
 	if err != nil {
 		return SeasonPage{}, err
 	}
-	episodes, err := queries.ListSeasonEpisodeDetails(ctx, sqlcgen.ListSeasonEpisodeDetailsParams{
-		CollectionID: query.SeriesID, OrderingName: ordering, SeasonNumber: query.Season, AfterSortOrder: after,
-		MaxRows: query.Limit + 1,
-	})
+	episodes, err := list(queries, ordering, after)
 	if err != nil {
-		return SeasonPage{}, fmt.Errorf("list season %d of series %d: %w", query.Season, query.SeriesID, err)
+		return SeasonPage{}, err
 	}
 	page := SeasonPage{}
 	if int64(len(episodes)) > query.Limit {

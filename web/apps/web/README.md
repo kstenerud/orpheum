@@ -89,6 +89,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   server's `nextUp`, played by *Continue S1E3* where they are partway through it, which resumes, else
   *Play S1E4*; where it cannot be played now, why, and no Play, as a title's page does; none on a
   season's page or when there is no next one. `src/series.test.tsx`.
+- **A series is shown in the ordering its person chose** (D159 §1, episode-orderings.md §4): a series
+  with more than one offers them on its top page, aired first, each by its label with its kind and
+  how many episodes it holds; a choice is kept on the server and goes to the series' top page, where
+  `?season=N` is a group of the ordering in use (§7 Q10). Its seasons are that ordering's groups,
+  headed by their names ("Disc 1", else "Part 2"); Next Up, an episode's page and Continue Watching
+  label an episode there ("Disc 1 · 2", "Episode 812"), its page with its aired place on a second
+  line; what the ordering leaves out is listed under *Not in this order* (§7 Q4, Q8). Labels are
+  `src/episode-place.ts`'s. `src/episode-orderings.test.tsx`.
 - **Lists have no pagination to click through** (web-client.md): the next page loads as the
   end comes into view, with a button that always asks too. `src/end-of-list.tsx`.
 - **About credits TMDB with its logo and exact notice, and names what we are built on**

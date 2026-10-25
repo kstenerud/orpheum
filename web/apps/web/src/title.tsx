@@ -25,11 +25,13 @@ import { usePageInterest } from "./page-interest.ts";
 import { useServices } from "./services.tsx";
 import { useResource, type Resource } from "./use-resource.ts";
 import { watchingOf } from "./watching.ts";
+import { groupName, placeCode } from "./episode-place.ts";
 import { Remembered, useRemembered } from "./remembered.ts";
 
 /** A title's detail, as the server sends it. */
 export type TitleDetail = components["schemas"]["ItemDetailOutputBody"];
 type Stream = components["schemas"]["StreamBody"];
+type EpisodePlace = components["schemas"]["EpisodePlaceBody"];
 
 /** A stream in a line: its kind, codec, language and channels, where it has them. */
 export function StreamLine(props: { readonly stream: Stream }): JSX.Element | null {
@@ -105,6 +107,76 @@ function TitleArt(props: { readonly title: TitleDetail }): JSX.Element | null {
   );
 }
 
+/**
+ * An episode's series and its place, each a link up: one press from an episode reached by search or
+ * Continue Watching to its season (research/back-navigation-2026-10-24.md). In an ordering the person
+ * chose over aired, the place is its group there, "Disc 2 · 3", with its aired place as a second line,
+ * the number other sites use; one that ordering leaves out says so (episode-orderings.md §7 Q8).
+ */
+function EpisodePlaceFacts(props: { readonly place: EpisodePlace }): JSX.Element {
+  const { t } = useTranslation();
+  const { place } = props;
+  const series = (
+    <Link to={{ screen: "series-page", collectionId: place.seriesId }}>{place.seriesName}</Link>
+  );
+  if (place.ordering === undefined) {
+    return (
+      <p>
+        {series}
+        {t("title.placeBetween")}
+        <Link
+          to={{ screen: "series-page", collectionId: place.seriesId, season: place.seasonNumber }}
+        >
+          {t("title.placeSeason", { season: place.seasonNumber })}
+        </Link>
+        {t("title.placeEpisode", { number: place.episodeNumber })}
+      </p>
+    );
+  }
+  const inOrdering = place.inOrdering;
+  return (
+    <>
+      <p>
+        {series}
+        {t("title.placeBetween")}
+        {inOrdering === undefined ? (
+          t("ordering.notInThisOrderNote")
+        ) : (
+          <InOrdering place={place} inOrdering={inOrdering} />
+        )}
+      </p>
+      <p className="title__aired-place">
+        {t("ordering.airedPlace", { season: place.seasonNumber, number: place.episodeNumber })}
+      </p>
+    </>
+  );
+}
+
+/**
+ * An episode's place in the ordering its person chose: "Episode 812" in one run, else its group
+ * there, a link up to it, and its number in it.
+ */
+function InOrdering(props: {
+  readonly place: EpisodePlace;
+  readonly inOrdering: NonNullable<EpisodePlace["inOrdering"]>;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { place, inOrdering } = props;
+  if (inOrdering.isOnlyGroup === true) {
+    return <>{placeCode(t, place.ordering, inOrdering)}</>;
+  }
+  const group = { number: inOrdering.groupNumber, name: inOrdering.groupName };
+  return (
+    <>
+      <Link to={{ screen: "series-page", collectionId: place.seriesId, season: group.number }}>
+        {groupName(t, place.ordering, group)}
+      </Link>
+      {t("title.placeBetween")}
+      {inOrdering.numberInGroup}
+    </>
+  );
+}
+
 /** A title's name, its place in its series, its year and length, and what it is about. */
 function TitleFacts(props: { readonly title: TitleDetail }): JSX.Element {
   const { t } = useTranslation();
@@ -113,26 +185,7 @@ function TitleFacts(props: { readonly title: TitleDetail }): JSX.Element {
   return (
     <div>
       <h1>{title.name}</h1>
-      {episodePlace === undefined ? null : (
-        // The series and its season each a link up: one press from an episode reached by search
-        // or Continue Watching to its season (research/back-navigation-2026-10-24.md).
-        <p>
-          <Link to={{ screen: "series-page", collectionId: episodePlace.seriesId }}>
-            {episodePlace.seriesName}
-          </Link>
-          {t("title.placeBetween")}
-          <Link
-            to={{
-              screen: "series-page",
-              collectionId: episodePlace.seriesId,
-              season: episodePlace.seasonNumber,
-            }}
-          >
-            {t("title.placeSeason", { season: episodePlace.seasonNumber })}
-          </Link>
-          {t("title.placeEpisode", { number: episodePlace.episodeNumber })}
-        </p>
-      )}
+      {episodePlace === undefined ? null : <EpisodePlaceFacts place={episodePlace} />}
       <p className="title__facts">
         {title.year === undefined ? null : <span>{title.year}</span>}
         {title.runtimeMs === undefined ? null : (
@@ -272,9 +325,16 @@ export function firstPlayableFile(title: TitleDetail): number | undefined {
  */
 export function titleUp(title: TitleDetail | undefined): Route {
   const place = title?.episode;
-  return place === undefined
-    ? { screen: "films" }
-    : { screen: "series-page", collectionId: place.seriesId, season: place.seasonNumber };
+  if (place === undefined) {
+    return { screen: "films" };
+  }
+  if (place.ordering === undefined) {
+    return { screen: "series-page", collectionId: place.seriesId, season: place.seasonNumber };
+  }
+  // In an ordering the person chose, its group there; the series' top for one it leaves out.
+  return place.inOrdering === undefined
+    ? { screen: "series-page", collectionId: place.seriesId }
+    : { screen: "series-page", collectionId: place.seriesId, season: place.inOrdering.groupNumber };
 }
 
 /** The titles' pages this tab has shown. */

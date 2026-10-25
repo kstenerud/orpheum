@@ -10,6 +10,7 @@ import { enGallery } from "./en-gallery.ts";
 import { enStatus } from "./en-status.ts";
 import { enTogether } from "./en-together.ts";
 import { enWarning } from "./en-warning.ts";
+import { enOrderings } from "./en-orderings.ts";
 
 /**
  * The English catalogue, bundled as the offline floor (D51). Other languages are served by the
@@ -25,6 +26,7 @@ export const en = {
   ...enStatus,
   ...enGallery,
   ...enWarning,
+  ...enOrderings,
   waits: {
     underAMinute: "less than a minute",
     aMinute: "about a minute",
@@ -667,6 +669,7 @@ export const en = {
   continueWatching: {
     heading: "Continue watching",
     episode: "{{seriesName}} · S{{seasonNumber}}E{{episodeNumber}} · {{episodeName}}",
+    episodeInOrdering: "{{seriesName}} · {{place}} · {{episodeName}}",
     watched: "{{percent}}% watched",
     hide: "Hide",
     hideLabel: "Hide {{name}} from Continue watching",

@@ -132,7 +132,9 @@ func ReadMembers(
 // none of its files can be read now, nil when one can (D241 §3), as its own page judges it.
 type NextUp struct {
 	Member
-	FileID     int64
+	FileID int64
+	// GroupName is the ordering's name for its group ("Disc 2"), "" where it names none.
+	GroupName  string
 	Unreadable *Unreadable
 }
 
@@ -149,7 +151,11 @@ func (browser *Browser) NextUp(ctx context.Context, userID, collectionID int64, 
 	if len(ahead) == 0 {
 		return NextUp{}, false, nil
 	}
-	next := NextUp{Member: ahead[0], FileID: ahead[0].FileIDs[0]}
+	names, err := groupNames(ctx, browser.database.Read(), collectionID, ordering)
+	if err != nil {
+		return NextUp{}, false, err
+	}
+	next := NextUp{Member: ahead[0], FileID: ahead[0].FileIDs[0], GroupName: names[ahead[0].Group]}
 	if next.IsPartway {
 		next.FileID = next.PartwayFileID
 	}

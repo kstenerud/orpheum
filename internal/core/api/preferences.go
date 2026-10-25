@@ -63,6 +63,12 @@ func (server *Server) registerPreferences() {
 		Tags: []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
 	}, server.setFilePreferences)
 	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "setSeriesPreferences", Method: http.MethodPut, Path: "/collections/{id}/preferences",
+		Summary: "Keep a person's choices in one series: the ordering they watch it in, which its pages, " +
+			"its episodes' labels and its Next Up follow",
+		Tags: []string{tagBrowse}, DefaultStatus: http.StatusNoContent,
+	}, server.setSeriesPreferences)
+	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "setMyPreferences", Method: http.MethodPut, Path: "/me/preferences",
 		Summary: "Keep a person's own choices, which hold in every file they play: the boost, levelling",
 		Tags:    []string{tagPlayback}, DefaultStatus: http.StatusNoContent,
@@ -148,6 +154,40 @@ func (server *Server) setFilePreferences(ctx context.Context, input *SetFilePref
 	}
 	if err != nil {
 		return nil, server.playbackError(ctx, "keep a file's preferences", err)
+	}
+	return &struct{}{}, nil
+}
+
+// SetSeriesPreferencesInput changes a person's choices in one series: what it names only.
+type SetSeriesPreferencesInput struct {
+	AuthorizationHeader
+	SeriesID int64 `minimum:"1" path:"id"`
+	Body     struct {
+		// EpisodeOrdering, when given, is the ordering the person watches the series in, by its name,
+		// one the series has (D159 §1): aired, or a provider's.
+		EpisodeOrdering *string `json:"episodeOrdering,omitempty" maxLength:"200" required:"false"`
+	}
+}
+
+func (server *Server) setSeriesPreferences(ctx context.Context, input *SetSeriesPreferencesInput) (*struct{}, error) {
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	ordering := input.Body.EpisodeOrdering
+	if ordering == nil {
+		return &struct{}{}, nil
+	}
+	hasIt, err := dependencies.Browser.HasOrdering(ctx, principal.Reach, input.SeriesID, *ordering)
+	if err != nil {
+		return nil, server.libraryError(ctx, "read a series' orderings", err)
+	}
+	if !hasIt {
+		return nil, invalidRequestAt(http.StatusBadRequest, "body.episodeOrdering", "this series has no such ordering")
+	}
+	err = dependencies.Preferences.ChooseEpisodeOrdering(ctx, principal.UserID, input.SeriesID, *ordering)
+	if err != nil {
+		return nil, server.libraryError(ctx, "keep the ordering a person watches a series in", err)
 	}
 	return &struct{}{}, nil
 }

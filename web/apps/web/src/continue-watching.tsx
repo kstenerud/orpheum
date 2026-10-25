@@ -16,6 +16,7 @@ import { Poster } from "./poster.tsx";
 import { Link } from "./link.tsx";
 import { useServices } from "./services.tsx";
 import { useResource } from "./use-resource.ts";
+import { placeCode, type OrderingPlace } from "./episode-place.ts";
 
 /** One row of Continue Watching, as the server sends it. */
 export type ContinueWatchingRow = components["schemas"]["InProgressBody"];
@@ -57,18 +58,34 @@ export interface EpisodeNaming {
   readonly seasonNumber: number;
   readonly episodeNumber: number;
   readonly episodeName: string;
+  /**
+   * Its place in the ordering the person watches its series in, "Disc 2 · 3", when that is not
+   * aired and holds it (episode-orderings.md §7 Q8); else the aired season and number name it.
+   */
+  readonly place?: string | undefined;
 }
 
 /** What a row is called: a film's name, or an episode's series, place and name. */
 export function rowName(
   row: Pick<ContinueWatchingRow, "name" | "episode">,
   formatEpisodeName: (episode: EpisodeNaming) => string,
+  formatPlace: (ordering: string, place: OrderingPlace) => string = () => "",
 ): string {
   if (row.episode === undefined) {
     return row.name;
   }
-  const { seriesName, seasonNumber, episodeNumber } = row.episode;
-  return formatEpisodeName({ seriesName, seasonNumber, episodeNumber, episodeName: row.name });
+  const { seriesName, seasonNumber, episodeNumber, ordering, inOrdering } = row.episode;
+  const place =
+    ordering === undefined || inOrdering === undefined
+      ? undefined
+      : formatPlace(ordering, inOrdering);
+  return formatEpisodeName({
+    seriesName,
+    seasonNumber,
+    episodeNumber,
+    episodeName: row.name,
+    place,
+  });
 }
 
 /**
@@ -86,7 +103,14 @@ export function ContinueWatchingView(props: {
     return null;
   }
   const nameOf = (row: ContinueWatchingRow): string =>
-    rowName(row, (episode) => t("continueWatching.episode", { ...episode }));
+    rowName(
+      row,
+      (episode) =>
+        episode.place === undefined
+          ? t("continueWatching.episode", { ...episode })
+          : t("continueWatching.episodeInOrdering", { ...episode }),
+      (ordering, place) => placeCode(t, ordering, place),
+    );
   return (
     <section className="continue-watching" aria-labelledby="continue-watching-heading">
       <h2 id="continue-watching-heading">{t("continueWatching.heading")}</h2>
