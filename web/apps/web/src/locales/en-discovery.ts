@@ -40,6 +40,11 @@ export const enDiscovery = {
       continue: "Go on to the new server",
       cancel: "Stop",
     },
+    offline: {
+      heading: "Your server isn't connected right now",
+      text: "It may be restarting, switched off, or without internet. This page tries again by itself every few seconds.",
+      again: "Try again now",
+    },
     turnedAway: {
       heading: "Too many Orpheum pages are open on your network",
       text: "This server is turning this device away: too many Orpheum pages are open on your network. Close some and try again.",
@@ -63,6 +68,8 @@ export const enDiscovery = {
         "Your server was found, but can't be reached from this network right now. A VPN or a travel eSIM often can't reach a home server: turn it off, or try the phone's own mobile data or another Wi-Fi. If it keeps happening, copy what happened and send it to whoever runs your server.",
       turnedAway:
         "This server is turning this device away: too many Orpheum pages are open on your network. Close some and try again.",
+      offline:
+        "Your server isn't connected right now: it may be restarting, switched off, or without internet. Try again in a moment.",
       again: "Your server couldn't be reached as this device last reached it. Sign in again.",
       orLink: "Or open the link you were sent.",
       useCode: "Get a code",

@@ -6,6 +6,7 @@ import "./i18n.ts";
 import {
   fromBase64,
   locateHash,
+  CoreOffline,
   TurnedAway,
   realmAsk,
   realmKey,
@@ -13,9 +14,14 @@ import {
   realmTag,
   sessionOfferKey,
 } from "@orpheum/sdk";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { DiscoveryGate, withLatest, type GateParts } from "./discovery-gate.tsx";
+import {
+  DiscoveryGate,
+  offlineRetryAfterMs,
+  withLatest,
+  type GateParts,
+} from "./discovery-gate.tsx";
 import {
   discoveryClientApiOf,
   discoveryHasRealms,
@@ -670,6 +676,55 @@ describe("a page at a discovery with realms leaves nothing kept in the way (the 
     await click(buttonWithText(page, "Try again"));
     await settleUntil(() => tries === 2);
     expect(tries).toBe(2);
+  });
+
+  it("says a remembered server its discovery cannot reach is not connected, keeps it, and tries again by itself", async () => {
+    const core = { coreId: "k7xq2", fingerprint };
+    let isForgotten = false;
+    const held: HeldSession = { core, token: "a-session", locator: "a-locator" };
+    const located = {
+      coreId: "k7xq2",
+      iceServers: [],
+      paths: [{ kind: "ipv4", url: "https://v4.k7xq2.zone.example" }],
+    };
+    const heard: string[] = [];
+    const toDiscovery = discovery({ "/paths": [200, located] }, heard);
+    const fetched: typeof fetch = (url, init) =>
+      (url instanceof Request ? url.url : url.toString()).startsWith(
+        "https://v4.k7xq2.zone.example/",
+      )
+        ? Promise.resolve(new Response("{}", { status: 200 }))
+        : toDiscovery(url, init);
+    let tries = 0;
+    const parts: GateParts = {
+      ...partsOf(fetched),
+      hasRealms: true,
+      sessionOf: () => held,
+      forgetCore: () => {
+        isForgotten = true;
+      },
+      onConnected: () =>
+        (tries += 1) === 1
+          ? Promise.reject(new AggregateError([new CoreOffline()]))
+          : Promise.resolve(),
+    };
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      mounted = await mount(<DiscoveryGate start={{ kind: "remembered", core }} parts={parts} />);
+      const page = mounted.container;
+      await settleUntil(() => page.textContent.includes("isn't connected right now"));
+      expect(page.textContent).toContain(
+        "It may be restarting, switched off, or without internet.",
+      );
+      expect(page.textContent).not.toContain("can't be reached from this network");
+      expect(isForgotten).toBe(false);
+      expect(heard.some((each) => each.startsWith("/dead-end"))).toBe(false);
+      await vi.advanceTimersByTimeAsync(offlineRetryAfterMs);
+      await settleUntil(() => tries === 2);
+      expect(tries).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("offers what happened to copy when a realm's server was found but nothing reached it (K16)", async () => {

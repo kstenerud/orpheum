@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import {
+  isCoreOffline,
   isTurnedAway,
   NotFound,
   reportDeadEnd,
@@ -107,10 +108,12 @@ type Phase =
   | "notFound"
   | "deadEnd"
   | "turnedAway"
+  | "offline"
   | "realm"
   | "realmWrong"
   | "realmUnreached"
   | "realmTurnedAway"
+  | "realmOffline"
   | "realmAgain";
 
 /** What the realm sign-in says above its button, by the phase it shows in. */
@@ -118,6 +121,7 @@ const realmProblems: Partial<Record<Phase, RealmProblem>> = {
   realmWrong: "wrong",
   realmUnreached: "unreached",
   realmTurnedAway: "turnedAway",
+  realmOffline: "offline",
   realmAgain: "again",
 };
 
@@ -146,7 +150,9 @@ async function reachByRealm(
   parts: GateParts,
   typed: RealmCredentials,
   isChangeAccepted = false,
-): Promise<"realmWrong" | "realmUnreached" | "realmTurnedAway" | Changed | undefined> {
+): Promise<
+  "realmWrong" | "realmUnreached" | "realmTurnedAway" | "realmOffline" | Changed | undefined
+> {
   const found = await findByRealm(parts, typed);
   if (typeof found === "string") {
     return found;
@@ -167,8 +173,20 @@ async function reachByRealm(
     });
     return undefined;
   } catch (problem: unknown) {
-    return isTurnedAway(problem) ? "realmTurnedAway" : "realmUnreached";
+    return realmHeldBackBy(problem) ?? "realmUnreached";
   }
+}
+
+/**
+ * Why a realm sign-in's core held the device back without its network failing, or undefined: the
+ * core turned it away for its network's share, or its discovery cannot reach it, as while it
+ * restarts (the owner's Fire TV, 2026-10-25: both read as "can't be reached from this network").
+ */
+function realmHeldBackBy(problem: unknown): "realmTurnedAway" | "realmOffline" | undefined {
+  if (isTurnedAway(problem)) {
+    return "realmTurnedAway";
+  }
+  return isCoreOffline(problem) ? "realmOffline" : undefined;
 }
 
 /**
@@ -179,13 +197,14 @@ async function reachFound(
   parts: GateParts,
   core: KeptCore,
   found: Target,
-): Promise<Reaching | "realmTurnedAway" | "realmUnreached"> {
+): Promise<Reaching | "realmTurnedAway" | "realmOffline" | "realmUnreached"> {
   const target = withLatest(parts, core, withoutLanIfSkipped(parts, found));
   try {
     return await reachCore(parts.client, target);
   } catch (problem: unknown) {
-    if (isTurnedAway(problem)) {
-      return "realmTurnedAway";
+    const heldBack = realmHeldBackBy(problem);
+    if (heldBack !== undefined) {
+      return heldBack;
     }
     parts.onDeadEnd?.(deadEndOf(core.coreId, target, problem));
     await reportDeadEnd(parts.client, target.held);
@@ -258,7 +277,7 @@ async function reach(
   parts: GateParts,
   core: KeptCore,
   find: () => Promise<Target>,
-): Promise<"notFound" | "deadEnd" | "turnedAway" | undefined> {
+): Promise<"notFound" | "deadEnd" | "turnedAway" | "offline" | undefined> {
   let target: Target | undefined;
   try {
     target = withLatest(parts, core, withoutLanIfSkipped(parts, await find()));
@@ -272,6 +291,10 @@ async function reach(
     // core is still the one to reach once pages on the network close.
     if (isTurnedAway(problem)) {
       return "turnedAway";
+    }
+    // The discovery cannot reach the core now, as while it restarts: no dead end either.
+    if (isCoreOffline(problem)) {
+      return "offline";
     }
     parts.onDeadEnd?.(deadEndOf(core.coreId, target, problem));
     if (target !== undefined) {
@@ -298,8 +321,11 @@ function deadEndOf(
  * the discovery has realms, the core forgotten so nothing kept stands in the way again; else as it
  * ended. A core that turned the page away was reached, and stays remembered.
  */
-function afterRemembered(parts: GateParts, ended: "notFound" | "deadEnd" | "turnedAway"): Phase {
-  if (!parts.hasRealms || ended === "turnedAway") {
+function afterRemembered(
+  parts: GateParts,
+  ended: "notFound" | "deadEnd" | "turnedAway" | "offline",
+): Phase {
+  if (!parts.hasRealms || ended === "turnedAway" || ended === "offline") {
     return ended;
   }
   parts.forgetCore();
@@ -577,6 +603,34 @@ function TurnedAway(props: { readonly onRetry: () => void }): JSX.Element {
   );
 }
 
+/**
+ * How long the page waits before it tries a server its discovery cannot reach again, by itself: a
+ * restart takes some ten seconds. A justified constant.
+ */
+export const offlineRetryAfterMs = 5000;
+
+/**
+ * The page a server its discovery cannot reach leaves: restarting, switched off, or without
+ * internet, never this device's network; it tries again by itself every few seconds, and on the
+ * button (the owner's Fire TV, 2026-10-25: a restart read as "can't be reached from this network").
+ */
+function Offline(props: { readonly onRetry: () => void }): JSX.Element {
+  const { t } = useTranslation();
+  const { onRetry } = props;
+  useEffect(() => {
+    const timer = setTimeout(onRetry, offlineRetryAfterMs);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [onRetry]);
+  return (
+    <CredentialsForm heading={t("discovery.offline.heading")} onSubmit={onRetry}>
+      <output>{t("discovery.offline.text")}</output>
+      <button type="submit">{t("discovery.offline.again")}</button>
+    </CredentialsForm>
+  );
+}
+
 /** A page of the gate that says how it stands, and, for a device turned away, tries again. */
 function GateMessage(props: {
   readonly phase: Phase | "none";
@@ -585,6 +639,9 @@ function GateMessage(props: {
   const { t } = useTranslation();
   if (props.phase === "turnedAway") {
     return <TurnedAway onRetry={props.onRetry} />;
+  }
+  if (props.phase === "offline") {
+    return <Offline onRetry={props.onRetry} />;
   }
   if (props.phase === "connecting" || props.phase === "waiting") {
     return (
