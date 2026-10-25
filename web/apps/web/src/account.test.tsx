@@ -156,7 +156,11 @@ describe("an admin's administering from away (D302)", () => {
     const box = mounted.container.querySelector<HTMLInputElement>('input[type="checkbox"]');
     expect(box?.checked).toBe(false);
     await click(box);
-    await settleUntil(() => box?.checked === true);
+    // The page reads /me again once the server kept it, and draws the setting anew from its answer.
+    const checkedNow = (): boolean | undefined =>
+      mounted?.container.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked;
+    await settleUntil(() => checkedNow() === true);
+    expect(checkedNow()).toBe(true);
     expect(heard.find((request) => request.methodAndPath === "PUT /me/admin-away")?.body).toEqual({
       adminAway: "always",
     });
