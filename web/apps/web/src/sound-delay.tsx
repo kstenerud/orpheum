@@ -2,14 +2,24 @@
 
 import type { TFunction } from "i18next";
 import { canMoveSoundEarlier, longestSoundOffsetMs, soundOffset } from "@orpheum/player";
+import { reportFailure } from "@orpheum/sdk";
 import { useEffect, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import { setMyDeviceSoundOffset } from "./accounts.ts";
+import { latestWrite } from "./latest-write.ts";
+import { problemText } from "./problem.ts";
 import { useServices } from "./services.tsx";
 
 /** How much each press moves the sound, in milliseconds. */
 export const soundOffsetStepMs = 50;
+
+/**
+ * How long after the last press the device keeps the timing: a run of presses is one write, of
+ * where it ended. A justified constant: past a quick run of presses, short beside a person's wait
+ * to hear the change.
+ */
+export const soundOffsetKeptAfterMs = 500;
 
 /**
  * The offset this tab last set, which a playback asked for before it, as a film page's warm-up is,
@@ -37,8 +47,9 @@ export function SoundOffsetControl(props: {
   readonly initialMs: number;
 }): JSX.Element | null {
   const { t } = useTranslation();
-  const { api, session } = useServices();
+  const { session } = useServices();
   const [offsetMs, setOffsetMs] = useState(setInThisTab.ms ?? props.initialMs);
+  const { keep, failure } = useKeptOnDevice();
   // Whether the sound is wanted earlier than this film can play it: it plays as its own file.
   const [isEarlierRefused, setIsEarlierRefused] = useState(false);
   useEffect(() => {
@@ -57,7 +68,7 @@ export function SoundOffsetControl(props: {
     setInThisTab.ms = next;
     const video = props.videoRef.current;
     setIsEarlierRefused(next < 0 && video !== null && !canMoveSoundEarlier(video));
-    void setMyDeviceSoundOffset(api, deviceId, next).catch(() => undefined);
+    keep({ deviceId, ms: next });
   };
   return (
     <div className="play__sound-delay">
@@ -81,8 +92,52 @@ export function SoundOffsetControl(props: {
       {isEarlierRefused ? (
         <p className="play__reason">{t("play.soundOffset.cannotEarlier")}</p>
       ) : null}
+      {failure === undefined ? null : (
+        <p className="play__reason">
+          {t("thisDevice.soundOffsetNotKept", { problem: problemText(t, failure.cause) })}
+        </p>
+      )}
     </div>
   );
+}
+
+/**
+ * Keeps the timing with the device as presses settle (the audit of 2026-10-25, W9): the last of a
+ * run, soundOffsetKeptAfterMs after it, one write at a time, so a slower earlier write over the
+ * relay cannot land after a later one and leave the core an older value than the page shows. A
+ * press still waiting is kept as the control goes. A write that failed is reported, and its cause
+ * held until one is kept, for the control to say so.
+ */
+function useKeptOnDevice(): {
+  readonly keep: (offset: { readonly deviceId: number; readonly ms: number }) => void;
+  readonly failure: { readonly cause: unknown } | undefined;
+} {
+  const { api } = useServices();
+  const [failure, setFailure] = useState<{ readonly cause: unknown } | undefined>(undefined);
+  const [writes] = useState(() =>
+    latestWrite<{ readonly deviceId: number; readonly ms: number }>(
+      async ({ deviceId, ms }) => {
+        await setMyDeviceSoundOffset(api, deviceId, ms);
+      },
+      soundOffsetKeptAfterMs,
+      {
+        kept: () => {
+          setFailure(undefined);
+        },
+        failed: (cause) => {
+          reportFailure(cause);
+          setFailure({ cause });
+        },
+      },
+    ),
+  );
+  useEffect(
+    () => () => {
+      writes.flush();
+    },
+    [writes],
+  );
+  return { keep: writes.write, failure };
 }
 
 /** What the timing says: in step, or how much later or earlier the sound plays. */
