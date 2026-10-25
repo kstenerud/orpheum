@@ -63,14 +63,15 @@ const gatherAfterReflexive = 300 * time.Millisecond
 //   - connectWithin: an answered offer whose ICE has not connected by then is closed, so no one holds
 //     the core's slots with offers that never connect;
 //   - perSourceLimit: the connections one network holds at once (an IPv4 address, or an IPv6 /56, a
-//     household's usual delegation), a few households' clients behind one address;
+//     household's usual delegation), a few households' clients behind one address, until the core
+//     reads its setting, webrtc_connections_per_network (SetConnectionsPerNetwork), which replaces it;
 //   - channelLimit: the requests in flight on one connection, each a channel, its body bounded by
 //     MaxRequestBodyBytes;
 //   - requestDeadline: how long a request's head and body may take to arrive whole;
 //   - sctpReceiveBytes: the most SCTP buffers of what a client sends, which is requests' small bodies.
 const (
 	connectWithin    = 10 * time.Second
-	perSourceLimit   = 16
+	perSourceLimit   = 64
 	channelLimit     = 16
 	requestDeadline  = 30 * time.Second
 	sctpReceiveBytes = 1 << 20
@@ -251,6 +252,14 @@ func settings() webrtc.SettingEngine {
 	return engine
 }
 
+// SetConnectionsPerNetwork sets how many connections one network may hold at once, its share
+// (webrtc_connections_per_network): a connection past it is turned away. One already held is kept.
+func (server *Server) SetConnectionsPerNetwork(limit int) {
+	server.mutex.Lock()
+	defer server.mutex.Unlock()
+	server.bounds.perSource = limit
+}
+
 // UseICEServers has each new connection gather its candidates through the servers source names
 // then: the discovery's STUN, so an answer carries the public address the core's NAT gives it.
 func (server *Server) UseICEServers(source func() []webrtc.ICEServer) {
@@ -410,14 +419,15 @@ func (server *Server) holdWithinItsSourcesShare(connection *webrtc.PeerConnectio
 		}
 	}
 	own := server.held[connection]
+	limit := server.bounds.perSource
 	server.mutex.Unlock()
 	name := "?"
 	if own != nil {
 		name = own.name()
 	}
-	if len(ofSource) > server.bounds.perSource {
+	if len(ofSource) > limit {
 		server.logger.Warn("rtcapi: turned a connection away past its network's share, telling its client why",
-			"limit", server.bounds.perSource, "connection", name, "network", source.String(),
+			"limit", limit, "connection", name, "network", source.String(),
 			"reason", RefusedNetworkFull, "networkHolds", namesOf(ofSource))
 		verdict.decide(Verdict{Refused: RefusedNetworkFull})
 		server.forget(connection)

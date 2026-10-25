@@ -108,6 +108,7 @@ const (
 	TogetherSeekOnlyDriftLeftAloneMs          Key = "together_seek_only_drift_left_alone_ms"
 	ChunkSoundKbps                            Key = "chunk_sound_kbps"
 	ServerUploadMbps                          Key = "server_upload_mbps"
+	WebRTCConnectionsPerNetwork               Key = "webrtc_connections_per_network"
 	TogetherSyncWaitSeconds                   Key = "together_sync_wait_seconds"
 	TogetherStartLeadMs                       Key = "together_start_lead_ms"
 	TogetherRunUpMs                           Key = "together_run_up_ms"
@@ -245,6 +246,11 @@ func buildRegistry() []Definition {
 			Description: "whether a node is asked to scan each of its roots a library covers each time it says hello",
 			StartSource: "best guess (M2): a node that says hello may have been away while its files changed",
 		},
+		sourced(integerSetting(WebRTCConnectionsPerNetwork, "64", 4, 4096,
+			"WebRTC connections one network may hold at once (an IPv4 address, or an IPv6 /56); "+
+				"past it a device is turned away"),
+			"the owner, 2026-10-25: a setting, higher than the 16 it was; "+
+				"a home behind an address its provider shares counts as one network"),
 		sourced(integerSetting(ScanWithholdRemovalsOverPercent, "50", 1, 100,
 			"a scan that would remove more than this percentage of a root's files waits for the admin (D208)"),
 			"D208 §3: the owner's half, 2026-09-24"),
