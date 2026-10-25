@@ -134,8 +134,34 @@ export function Browse(props: { readonly kind: BrowseKind }): JSX.Element {
         <h1 id="browse-heading">{t(props.kind === "movie" ? "browse.films" : "browse.series")}</h1>
         <SortChoice sort={sort} onSort={setSort} />
       </div>
-      <BrowsePages key={`${props.kind}/${sort}`} kind={props.kind} sort={sort} />
+      <div className="browse__layout">
+        <div>
+          <BrowsePages key={`${props.kind}/${sort}`} kind={props.kind} sort={sort} />
+        </div>
+        {sort === "name" ? <AlphabetRail /> : null}
+      </div>
     </section>
+  );
+}
+
+/** The letters of the alphabet rail, a list's names' first characters: digits and marks, then A to Z. */
+const railLetters = [
+  "#",
+  ...Array.from({ length: 26 }, (_, index) => String.fromCodePoint(0x41 + index)),
+];
+
+/**
+ * A list's alphabet beside its grid, by name only, to jump to a letter: a prototype, drawn but not
+ * yet working (the owner, 2026-10-25: "It doesn't need to actually work yet, but I want to see how
+ * it looks on-screen"), so its letters are words, not controls, and take no focus.
+ */
+function AlphabetRail(): JSX.Element {
+  return (
+    <ol className="alphabet-rail" aria-hidden="true">
+      {railLetters.map((letter) => (
+        <li key={letter}>{letter}</li>
+      ))}
+    </ol>
   );
 }
 

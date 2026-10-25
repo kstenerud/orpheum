@@ -13,6 +13,49 @@
   margin: 0;
 }
 
+/*
+ * The grid and, listed by name, its alphabet rail beside it (a prototype, the owner, 2026-10-25):
+ * the rail takes a narrow column on the right, and the grid's posters shrink a little to keep six
+ * across a Fire TV's 960-pixel page.
+ */
+.browse__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: start;
+}
+
+@media (min-width: 600px) and (max-width: 1199px) {
+  .browse__layout .poster-grid {
+    --size-poster-min: 8rem;
+  }
+}
+
+/* Under the sticky banner, the height of what the window shows of the page. */
+.alphabet-rail {
+  position: sticky;
+  inset-block-start: 4.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  max-height: calc(100vh - 6rem);
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  color: var(--color-muted);
+  font-size: 0.7rem;
+  font-weight: var(--font-weight-strong);
+  line-height: 1;
+  list-style: none;
+  text-align: center;
+}
+
+.alphabet-rail > li {
+  margin: 0;
+  padding-block: 1px;
+}
+
 /* Posters sized by the window: three across a phone, more as it widens, one gutter throughout. */
 .poster-grid {
   display: grid;
