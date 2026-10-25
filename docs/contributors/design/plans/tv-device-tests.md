@@ -337,3 +337,12 @@ address, so features a browser gives only to a secure context (the microphone, t
     focuses the first.
   - Media keys reach a page only while it plays sound, and the tone was off until pressed. The
     first key or press now starts it.
+- **H2, the stick, in Silk's spatial navigation mode** (`ECD3SZ56`; the owner found the mode by
+  chance): the arrows and Enter reach the page. Our search, which prevents each arrow's default,
+  moved focus and Silk's own move did not happen, so a focus engine of ours can drive Silk; the
+  probe's search covers only its grid and header, which is why it reached nothing else. Silk's own
+  moves: 20, median 69 ms, worst 96 ms, within D190's 250 ms, but jumping oddly on our ordinary
+  pages. The run sent no timings of our search's moves, though the owner saw them; a test shows
+  the probe times them, so the next run sends once per mode. Still to learn: whether Silk keeps the
+  mode after a restart, and Back in it.
+
