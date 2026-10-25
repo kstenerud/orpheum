@@ -6,6 +6,7 @@ import "./i18n.ts";
 import {
   fromBase64,
   locateHash,
+  TurnedAway,
   realmAsk,
   realmKey,
   realmPerson,
@@ -588,6 +589,87 @@ describe("a page at a discovery with realms leaves nothing kept in the way (the 
     await click(buttonWithText(page, "Sign in"));
     await settleUntil(() => page.textContent.includes("can't be reached from this network"));
     expect(page.querySelector('input[name="realm"]')).not.toBeNull();
+  });
+
+  // Said as a network that could not reach the server, the owner's Fire TV looked broken when the
+  // server had turned it away for the pages already open on its network (staging, 2026-10-25).
+  it("says the server turned this device away for its network's share, not that its network failed", async () => {
+    const key = await realmKey("karlnas", "karl", "a password");
+    const publicKey = "A6EHv_POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg";
+    const found = {
+      coreId: "k7xq2",
+      bootstrapToken: "a-bootstrap-token",
+      iceServers: [],
+      paths: [{ kind: "ipv4", url: "https://v4.k7xq2.zone.example" }],
+      publicKey,
+      tag: await realmTag(key, "k7xq2", fromBase64(publicKey)),
+    };
+    const heard: string[] = [];
+    const toDiscovery = discovery({ "/realm": [200, found] }, heard);
+    const fetched: typeof fetch = (url, init) =>
+      (url instanceof Request ? url.url : url.toString()).startsWith(
+        "https://v4.k7xq2.zone.example/",
+      )
+        ? Promise.resolve(new Response("{}", { status: 200 }))
+        : toDiscovery(url, init);
+    const parts: GateParts = {
+      ...partsOf(fetched),
+      hasRealms: true,
+      onConnected: () =>
+        Promise.reject(new Error("the hand-off failed", { cause: new TurnedAway("network-full") })),
+    };
+    mounted = await mount(<DiscoveryGate start={{ kind: "none" }} parts={parts} />);
+    const page = mounted.container;
+    await enter(page.querySelector('input[name="realm"]'), "karlnas");
+    await enter(page.querySelector('input[name="name"]'), "karl");
+    await enter(page.querySelector('input[type="password"]'), "a password");
+    await click(buttonWithText(page, "Sign in"));
+    await settleUntil(() => page.textContent.includes("too many Orpheum pages are open"));
+    expect(page.textContent).toContain(
+      "This server is turning this device away: too many Orpheum pages are open on your network. Close some and try again.",
+    );
+    expect(page.textContent).not.toContain("can't be reached from this network");
+    expect(page.querySelector('input[name="realm"]')).not.toBeNull();
+    expect(heard.some((each) => each.startsWith("/dead-end"))).toBe(false);
+  });
+
+  it("keeps a remembered server that turned this device away, and tries it again when asked", async () => {
+    const core = { coreId: "k7xq2", fingerprint };
+    let isForgotten = false;
+    const held: HeldSession = { core, token: "a-session", locator: "a-locator" };
+    const located = {
+      coreId: "k7xq2",
+      iceServers: [],
+      paths: [{ kind: "ipv4", url: "https://v4.k7xq2.zone.example" }],
+    };
+    const toDiscovery = discovery({ "/paths": [200, located] }, []);
+    const fetched: typeof fetch = (url, init) =>
+      (url instanceof Request ? url.url : url.toString()).startsWith(
+        "https://v4.k7xq2.zone.example/",
+      )
+        ? Promise.resolve(new Response("{}", { status: 200 }))
+        : toDiscovery(url, init);
+    let tries = 0;
+    const parts: GateParts = {
+      ...partsOf(fetched),
+      hasRealms: true,
+      sessionOf: () => held,
+      forgetCore: () => {
+        isForgotten = true;
+      },
+      onConnected: () => {
+        tries += 1;
+        return tries === 1 ? Promise.reject(new TurnedAway("network-full")) : Promise.resolve();
+      },
+    };
+    mounted = await mount(<DiscoveryGate start={{ kind: "remembered", core }} parts={parts} />);
+    const page = mounted.container;
+    await settleUntil(() => page.textContent.includes("too many Orpheum pages are open"));
+    expect(page.textContent).not.toContain("Sign in again");
+    expect(isForgotten).toBe(false);
+    await click(buttonWithText(page, "Try again"));
+    await settleUntil(() => tries === 2);
+    expect(tries).toBe(2);
   });
 
   it("offers what happened to copy when a realm's server was found but nothing reached it (K16)", async () => {

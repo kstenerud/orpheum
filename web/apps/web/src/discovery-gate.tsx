@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import {
+  isTurnedAway,
   NotFound,
   reportDeadEnd,
   type DiscoveryClient,
@@ -105,15 +106,18 @@ type Phase =
   | "connecting"
   | "notFound"
   | "deadEnd"
+  | "turnedAway"
   | "realm"
   | "realmWrong"
   | "realmUnreached"
+  | "realmTurnedAway"
   | "realmAgain";
 
 /** What the realm sign-in says above its button, by the phase it shows in. */
 const realmProblems: Partial<Record<Phase, RealmProblem>> = {
   realmWrong: "wrong",
   realmUnreached: "unreached",
+  realmTurnedAway: "turnedAway",
   realmAgain: "again",
 };
 
@@ -142,7 +146,7 @@ async function reachByRealm(
   parts: GateParts,
   typed: RealmCredentials,
   isChangeAccepted = false,
-): Promise<"realmWrong" | "realmUnreached" | Changed | undefined> {
+): Promise<"realmWrong" | "realmUnreached" | "realmTurnedAway" | Changed | undefined> {
   const found = await findByRealm(parts, typed);
   if (typeof found === "string") {
     return found;
@@ -151,14 +155,9 @@ async function reachByRealm(
   if (before !== undefined) {
     return { kind: "changed", claimedAt: found.claimedAt };
   }
-  const target = withLatest(parts, found.core, withoutLanIfSkipped(parts, found.target));
-  let reaching: Reaching;
-  try {
-    reaching = await reachCore(parts.client, target);
-  } catch (problem: unknown) {
-    parts.onDeadEnd?.(deadEndOf(found.core.coreId, target, problem));
-    await reportDeadEnd(parts.client, target.held);
-    return "realmUnreached";
+  const reaching = await reachFound(parts, found.core, found.target);
+  if (typeof reaching === "string") {
+    return reaching;
   }
   try {
     await parts.onConnected(found.core, reaching, {
@@ -167,7 +166,29 @@ async function reachByRealm(
       held: found.target.held,
     });
     return undefined;
-  } catch {
+  } catch (problem: unknown) {
+    return isTurnedAway(problem) ? "realmTurnedAway" : "realmUnreached";
+  }
+}
+
+/**
+ * Reaches the core a realm sign-in found, or says why not: turned away for its network's share, or a
+ * dead end, told to the discovery.
+ */
+async function reachFound(
+  parts: GateParts,
+  core: KeptCore,
+  found: Target,
+): Promise<Reaching | "realmTurnedAway" | "realmUnreached"> {
+  const target = withLatest(parts, core, withoutLanIfSkipped(parts, found));
+  try {
+    return await reachCore(parts.client, target);
+  } catch (problem: unknown) {
+    if (isTurnedAway(problem)) {
+      return "realmTurnedAway";
+    }
+    parts.onDeadEnd?.(deadEndOf(core.coreId, target, problem));
+    await reportDeadEnd(parts.client, target.held);
     return "realmUnreached";
   }
 }
@@ -237,7 +258,7 @@ async function reach(
   parts: GateParts,
   core: KeptCore,
   find: () => Promise<Target>,
-): Promise<"notFound" | "deadEnd" | undefined> {
+): Promise<"notFound" | "deadEnd" | "turnedAway" | undefined> {
   let target: Target | undefined;
   try {
     target = withLatest(parts, core, withoutLanIfSkipped(parts, await find()));
@@ -246,6 +267,11 @@ async function reach(
   } catch (problem: unknown) {
     if (problem instanceof NotFound) {
       return "notFound";
+    }
+    // The core reached the page and turned it away for its network's share: no dead end, and the
+    // core is still the one to reach once pages on the network close.
+    if (isTurnedAway(problem)) {
+      return "turnedAway";
     }
     parts.onDeadEnd?.(deadEndOf(core.coreId, target, problem));
     if (target !== undefined) {
@@ -270,10 +296,10 @@ function deadEndOf(
 /**
  * Where a remembered core that was not reached leaves the page: at the realm sign-in, saying so, where
  * the discovery has realms, the core forgotten so nothing kept stands in the way again; else as it
- * ended.
+ * ended. A core that turned the page away was reached, and stays remembered.
  */
-function afterRemembered(parts: GateParts, ended: "notFound" | "deadEnd"): Phase {
-  if (!parts.hasRealms) {
+function afterRemembered(parts: GateParts, ended: "notFound" | "deadEnd" | "turnedAway"): Phase {
+  if (!parts.hasRealms || ended === "turnedAway") {
     return ended;
   }
   parts.forgetCore();
@@ -297,19 +323,7 @@ export function DiscoveryGate(props: {
   const [phase, setPhase] = useState<Phase>(() => firstPhase(start, parts));
   // A realm sign-in under way keeps its form, its button saying so (D297 §5).
   const [isRealmSending, setIsRealmSending] = useState(false);
-  const reachingRef = useRef(false);
-  const reachThen = (core: KeptCore, find: () => Promise<Target>): void => {
-    if (reachingRef.current) {
-      return;
-    }
-    reachingRef.current = true;
-    void reach(parts, core, find).then((ended) => {
-      reachingRef.current = false;
-      if (ended !== undefined) {
-        setPhase(start.kind === "remembered" ? afterRemembered(parts, ended) : ended);
-      }
-    });
-  };
+  const { reachingRef, reachThen, reachAgain } = useReach(parts, start, setPhase);
   useGoneOnceNotFound(phase, start, parts);
   useReachingAtOnce(start, parts, reachThen);
   if (phase === "realm" || realmProblems[phase] !== undefined || isRealmSending) {
@@ -343,10 +357,47 @@ export function DiscoveryGate(props: {
   }
   return (
     <>
-      <GateMessage phase={start.kind === "none" ? "none" : phase} />
+      <GateMessage phase={start.kind === "none" ? "none" : phase} onRetry={reachAgain} />
       <CopyWhatHappened text={phase === "deadEnd" ? happened : undefined} copy={copyToClipboard} />
     </>
   );
+}
+
+/**
+ * How the gate reaches its core: once at a time, the phase set to how it ended; reachAgain tries the
+ * last reach again, as a page turned away does once pages on its network are closed.
+ */
+function useReach(
+  parts: GateParts,
+  start: Start,
+  setPhase: (phase: Phase) => void,
+): {
+  readonly reachingRef: RefObject<boolean>;
+  readonly reachThen: (core: KeptCore, find: () => Promise<Target>) => void;
+  readonly reachAgain: () => void;
+} {
+  const reachingRef = useRef(false);
+  const lastReachRef = useRef<(() => void) | undefined>(undefined);
+  const reachThen = (core: KeptCore, find: () => Promise<Target>): void => {
+    if (reachingRef.current) {
+      return;
+    }
+    reachingRef.current = true;
+    lastReachRef.current = () => {
+      reachThen(core, find);
+    };
+    void reach(parts, core, find).then((ended) => {
+      reachingRef.current = false;
+      if (ended !== undefined) {
+        setPhase(start.kind === "remembered" ? afterRemembered(parts, ended) : ended);
+      }
+    });
+  };
+  const reachAgain = (): void => {
+    setPhase("connecting");
+    lastReachRef.current?.();
+  };
+  return { reachingRef, reachThen, reachAgain };
 }
 
 /** A remembered core found no more sends the page where the parts say, a link's page excepted. */
@@ -511,9 +562,30 @@ function LinkPage(props: { readonly onConnect: () => void }): JSX.Element {
   );
 }
 
-/** A page of the gate that only says how it stands. */
-function GateMessage(props: { readonly phase: Phase | "none" }): JSX.Element {
+/**
+ * The page a core that turned this device away for its network's share leaves: what to do, and a way
+ * to try again once pages are closed. It is no network failure, and says none (the owner's Fire TV,
+ * 2026-10-25, told its network could not reach the server).
+ */
+function TurnedAway(props: { readonly onRetry: () => void }): JSX.Element {
   const { t } = useTranslation();
+  return (
+    <CredentialsForm heading={t("discovery.turnedAway.heading")} onSubmit={props.onRetry}>
+      <output>{t("discovery.turnedAway.text")}</output>
+      <button type="submit">{t("discovery.turnedAway.again")}</button>
+    </CredentialsForm>
+  );
+}
+
+/** A page of the gate that says how it stands, and, for a device turned away, tries again. */
+function GateMessage(props: {
+  readonly phase: Phase | "none";
+  readonly onRetry: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  if (props.phase === "turnedAway") {
+    return <TurnedAway onRetry={props.onRetry} />;
+  }
   if (props.phase === "connecting" || props.phase === "waiting") {
     return (
       <CredentialsForm heading={t("discovery.connecting")} onSubmit={() => undefined}>

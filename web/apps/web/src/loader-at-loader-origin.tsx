@@ -290,10 +290,13 @@ export function joinParts(at: AtLoaderOrigin, then = "/"): GateParts {
       if (signIn === undefined || origin === undefined || !("bootstrapToken" in signIn.held)) {
         throw new Error("only a realm sign-in is handed on from here");
       }
-      const code = await handOffCode(reaching.first, signIn);
-      if (reaching.first.kind === "webrtc") {
-        reaching.first.transport.close();
-      }
+      // The transport is closed whether the hand-off's code came or not: left open after a failure,
+      // its connections stayed, each one the core turned away replaced at once (staging, 2026-10-25).
+      const code = await handOffCode(reaching.first, signIn).finally(() => {
+        if (reaching.first.kind === "webrtc") {
+          reaching.first.transport.close();
+        }
+      });
       rememberHousehold(at.storage, {
         coreId: core.coreId,
         fingerprint: core.fingerprint,
