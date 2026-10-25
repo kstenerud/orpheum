@@ -148,8 +148,30 @@ export function isDrawn(selector: string): boolean {
 const arrows = ["{ArrowUp}", "{ArrowDown}", "{ArrowLeft}", "{ArrowRight}"] as const;
 
 /**
+ * How many presses of one arrow a walk makes while each only scrolls the page through text, before
+ * it takes the arrow to lead nowhere more: three screens' reading.
+ */
+const readingPresses = 4;
+
+/** Presses arrow until focus moves or a press scrolls nothing, at most readingPresses times. */
+async function pressThroughText(
+  arrow: string,
+  press: (keys: string) => Promise<void>,
+): Promise<void> {
+  const before = document.activeElement;
+  for (let pressed = 0; pressed < readingPresses; pressed += 1) {
+    const scrolled = window.scrollY;
+    await press(arrow);
+    if (document.activeElement !== before || window.scrollY === scrolled) {
+      return;
+    }
+  }
+}
+
+/**
  * Every element an arrow reaches from start, following each arrow from each element reached in turn,
- * pressed as a remote's keys are by press: what a person can get to on the page.
+ * pressed as a remote's keys are by press, again while a press scrolls through text: what a person
+ * can get to on the page.
  */
 export async function reachedFrom(
   start: HTMLElement,
@@ -160,7 +182,7 @@ export async function reachedFrom(
   for (let next = waiting.shift(); next !== undefined; next = waiting.shift()) {
     for (const arrow of arrows) {
       next.focus();
-      await press(arrow);
+      await pressThroughText(arrow, press);
       const now = document.activeElement;
       if (now instanceof HTMLElement && now !== document.body && !reached.has(now)) {
         reached.add(now);

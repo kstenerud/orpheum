@@ -158,7 +158,7 @@ export const coversTopAttribute = "data-focus-covers-top";
  * before the banner (a walk at Silk's 960 × 480, 2026-10-25: Up from the films skipped Continue
  * Watching, scrolled out above, for the banner over it).
  */
-function boxOf(element: Element): Box {
+export function searchBoxOf(element: Element): Box {
   const box = element.getBoundingClientRect();
   if (element.closest(`[${coversTopAttribute}]`) === null) {
     return box;
@@ -179,10 +179,10 @@ export const geometricFocus: FocusEngine = {
     const candidates: Placed<HTMLElement>[] = [];
     for (const element of focusTargetsIn(region)) {
       if (element !== from && !from.contains(element)) {
-        candidates.push({ item: element, box: boxOf(element) });
+        candidates.push({ item: element, box: searchBoxOf(element) });
       }
     }
-    return nearestInDirection(boxOf(from), candidates, direction);
+    return nearestInDirection(searchBoxOf(from), candidates, direction);
   },
 };
 

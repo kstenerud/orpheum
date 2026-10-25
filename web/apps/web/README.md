@@ -151,8 +151,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
   text field's value or a range's is the field's; one with nowhere to go is the browser's. The
   first arrow starts in the main content, not the banner; an arrow into a container or the main
   content goes back to what last had focus there; the focused element is scrolled into view no
-  further than it must be, clear of the sticky banner; a controller's move is shown as a key's is
-  (`:focus-visible`), a pointer's never; Back returns focus to what had it on the page left, noted
+  further than it must be, clear of the sticky banner, and Up or Down over more than half a screen
+  of text scrolls through it a step at a time before the control past it takes focus; a
+  controller's move is shown as a key's is (`:focus-visible`), a pointer's never; Back returns focus to what had it on the page left, noted
   on its history entry as the page was left and found once the page draws it (`src/focus-memory.ts`),
   Silk's Back too. The player answers over the browser's own controls (`src/player-commands.ts`):
   play/pause wherever focus is, OK on the video, a 10 s seek by the seeking buttons, the browser's
@@ -164,7 +165,8 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `src/input-pads.test.ts`, `src/navigation.test.ts`, `src/app-shell.test.tsx`,
   `src/modal-dialog.test.tsx`, `src/modal-dialog.browser.test.tsx`, and the walks of every page
   in Chromium and Firefox at Silk's 960 × 480 and a desktop's size, `src/input-walk.browser.test.tsx`,
-  `src/input-rows.browser.test.tsx`, `src/input-pages.browser.test.tsx`; on devices, VQ61 and VQ62.
+  `src/input-rows.browser.test.tsx`, `src/input-pages.browser.test.tsx`,
+  `src/focus-navigation.browser.test.tsx`; on devices, VQ61 and VQ62.
   A row that scrolls sideways keeps room for the focus ring (`--focus-ring-room` in
   `src/tokens.css`), which it would clip.
 - **Focus only adds** (D189): ring, lift and modest scale are custom properties in
