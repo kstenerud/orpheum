@@ -726,9 +726,15 @@ User-Agent (D263; the User-Agent is logged only).
   gives the nearest-element search nothing to follow.
 - **Kept:** Silk remembers the mode across a restart of the Fire TV, and reopens the page it was
   on. Changing the mode reloads the page, so a page's state does not survive the change.
-- **Unknown:** whether Back reaches the page in spatial mode.
-- **Evidence:** [owner] 2026-10-25, staging, `/lab/input`, lab results `XOSUILPC` (pointer mode)
-  and `ECD3SZ56` (spatial mode); plans/tv-device-tests.md §5.
+- **The remote's other keys, in spatial mode:** OK arrives as `Enter` with `code` `NumpadEnter`
+  (keyCode 13). Back is never a key: it steps the page's history (two presses, two steps), which a
+  page catches as `popstate`. Play/pause arrives as `MediaPlayPause` (keyCode 179). Rewind and
+  fast forward reach the page not at all, neither as keys nor as Media Session actions, even with
+  the page playing sound; no Media Session action fired for any key. A page on Silk can therefore
+  give play/pause its own meaning, but seeking from the remote needs the D-pad.
+- **Evidence:** [owner] 2026-10-25, staging, `/lab/input`, lab results `XOSUILPC` (pointer mode),
+  `ECD3SZ56`, `6IRKWCYO`, `UGVNKUGU`, `Q5JAAP2N` and `IDDJ6NL7` (spatial mode);
+  plans/tv-device-tests.md §5.
 
 ### A TCL TV in TV Bro plays a page's sound about half a second late, and the browser cannot tell
 
