@@ -13,6 +13,7 @@ import {
   useRef,
   useState,
   type JSX,
+  type ReactNode,
   type RefObject,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -44,7 +45,8 @@ import { Subtitles } from "./subtitles.tsx";
 import { camelKey } from "./catalogue-key.ts";
 import { LevelSwitch, soundLevelOf, type SoundLevel } from "./levelling.tsx";
 import { Loaded } from "./title.tsx";
-import { HostPlaysTogether } from "./together-host.tsx";
+import { PlaysAlong, useReceiving, type Receiving } from "./cast-receiver.tsx";
+import { CastToDevice, PlayOrSendOn } from "./cast-to.tsx";
 import { useResource, type Resource } from "./use-resource.ts";
 import { watchingOf, type PlaybackDecision, type StartCause } from "./watching.ts";
 
@@ -83,6 +85,8 @@ interface PlayViewProps {
   readonly onOwnPictureGivenUp?: ((at: ReopenAt) => void) | undefined;
   /** Whether the film waits to be played, as one the person had paused when it was opened again. */
   readonly isStartPaused?: boolean;
+  /** The cast this device receives of the film, while it does (D337; cast-receiver.tsx). */
+  readonly receiving?: Receiving | undefined;
   /**
    * Whether the page is opening the playback again, this one lost: what it plays is held on screen,
    * and its player's failures, its media gone with the playback, are not told.
@@ -123,7 +127,6 @@ export function PlayView(props: PlayViewProps): JSX.Element {
 function PlayerView(
   props: PlayViewProps & { readonly onBare: (() => void) | undefined },
 ): JSX.Element {
-  const { t } = useTranslation();
   // The lower quality a stalled player moved to, and where it was (D247 §2); per playback.
   const [moved, setMoved] = useState<MovedDown | undefined>(undefined);
   // The video playing now, which the host's Watch Together session follows: kept here, above the
@@ -155,32 +158,53 @@ function PlayerView(
     }),
     [fileId, decision, onDecideAgain, onPlaybackGone, onOwnPictureGivenUp, onLowerQuality],
   );
-  const { titleName } = props.decision;
+  const { titleName, resumePositionMs } = props.decision;
+  const { receiving } = props;
+  // A cast's receiver shows the film and nothing else (D337 §3).
+  const isOwn = receiving === undefined;
   return (
     <>
-      {titleName === undefined ? null : <h1 className="play__title">{titleName}</h1>}
+      {titleName === undefined || !isOwn ? null : <h1 className="play__title">{titleName}</h1>}
       <PlayContext value={ways}>
         <div className="play" data-focus-container="">
           <FilmPlayer
             decision={props.decision}
             moved={moved}
-            ladderStartMs={props.decision.resumePositionMs}
+            ladderStartMs={resumePositionMs}
             composition={pageComposition(props)}
           />
           <FrameTimingNote video={video} />
-          {props.onBare === undefined ? null : (
-            <button type="button" onClick={props.onBare}>
-              {t("play.bare.open")}
-            </button>
-          )}
+          {isOwn ? (
+            <UnderThePlayer {...{ fileId, onBare: props.onBare, video }} at={resumePositionMs} />
+          ) : null}
         </div>
       </PlayContext>
-      <HostPlaysTogether
-        fileId={props.fileId}
-        video={video}
-        startPositionMs={props.decision.resumePositionMs}
-        cannotKeepUp={cannotKeepUp}
+      <PlaysAlong
+        {...{ receiving, fileId, video, cannotKeepUp }}
+        startPositionMs={resumePositionMs}
       />
+    </>
+  );
+}
+
+/** The bare player's button where onBare is given, and Cast to another device (D337). */
+function UnderThePlayer(props: {
+  readonly fileId: number;
+  /** Where the film started, for a cast before the video can say where it stands. */
+  readonly at: number;
+  readonly onBare: (() => void) | undefined;
+  readonly video: HTMLVideoElement | null;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { video } = props;
+  return (
+    <>
+      {props.onBare === undefined ? null : (
+        <button type="button" onClick={props.onBare}>
+          {t("play.bare.open")}
+        </button>
+      )}
+      <CastToDevice fileId={props.fileId} positionMs={() => positionToMoveFrom(video, props.at)} />
     </>
   );
 }
@@ -207,9 +231,10 @@ function useFullscreenAsTheBrowserIs(video: HTMLVideoElement | null): void {
 function pageComposition(props: Parameters<typeof PlayView>[0]): FilmComposition {
   // On a television the player's own bar, which a remote reaches, and full screen at once; on a
   // computer or a phone the browser's own controls (the owner, 2026-10-25).
-  const isOnTelevision = isTelevision(navigator.userAgent);
+  // A cast's receiver shows the film and nothing else (D337 §3).
+  const isOnTelevision = isTelevision(navigator.userAgent) && props.receiving === undefined;
   return {
-    hasControls: !isOnTelevision,
+    hasControls: !isOnTelevision && props.receiving === undefined,
     ...(isOnTelevision ? { over: TvControls } : {}),
     isAutoPlay: props.isStartPaused !== true,
     isFailureHidden: props.isReconnecting === true,
@@ -565,12 +590,23 @@ interface Opened {
  * The player's screen for one file, playing at once: nothing is asked of how the device makes sound
  * (D336 §4). A playback the server lost, as when it restarted, is opened again where it was, playing
  * or paused as it was, while the server answers within about a minute (askUntilAnswered); one lost
- * again within reopenAtMostEveryMs is told.
+ * again within reopenAtMostEveryMs is told. On a device that casts, the film goes on to its receiver
+ * instead (D337; plans/cast-to-device.md §9 Q3).
  */
-export function Play(props: { readonly fileId: number }): JSX.Element {
+export function Play(props: { readonly fileId: number }): ReactNode {
+  return (
+    <PlayOrSendOn fileId={props.fileId}>
+      <PlayHere fileId={props.fileId} />
+    </PlayOrSendOn>
+  );
+}
+
+/** The Play page playing its film on this device. */
+function PlayHere(props: { readonly fileId: number }): JSX.Element {
   const { t } = useTranslation();
+  const receiving = useReceiving(props.fileId);
   const { opened, held, decideAgain, reopenPlayback, startAtTheTwin, reopenWhenBack } =
-    useOpenedPlayback(props.fileId);
+    useOpenedPlayback(props.fileId, receiving?.cast.positionMs);
   const render = ({ decision, isStartPaused }: Opened): JSX.Element => (
     <PlayView
       key={decision.mediaToken}
@@ -582,6 +618,7 @@ export function Play(props: { readonly fileId: number }): JSX.Element {
       onOwnPictureGivenUp={startAtTheTwin}
       isStartPaused={isStartPaused === true}
       isReconnecting={opened.state !== "loaded"}
+      receiving={receiving}
     />
   );
   // While a lost playback is opened again, the one lost stays on screen, playing what it holds (the
@@ -679,7 +716,10 @@ function useReopening(parts: {
  * says whether it is: not within reopenAtMostEveryMs of the last. held is what played before, shown
  * while the new one is asked for.
  */
-function useOpenedPlayback(fileId: number): {
+function useOpenedPlayback(
+  fileId: number,
+  firstAtMs: number | undefined,
+): {
   readonly opened: Resource<Opened>;
   readonly held: Opened | undefined;
   readonly decideAgain: DecideAgain;
@@ -691,7 +731,9 @@ function useOpenedPlayback(fileId: number): {
   // Why the next decision is asked for: the page's opening, unless something asked it again; and
   // where the video stood when it did, for the next to start from, when it said.
   const nextCauseRef = useRef<StartCause>("playPage");
-  const nextAtRef = useRef<ReopenAt | undefined>(undefined);
+  const nextAtRef = useRef<ReopenAt | undefined>(
+    firstAtMs === undefined ? undefined : { positionMs: firstAtMs, isPaused: false },
+  );
   // Where a playback opened again is, read as its new one comes, for that to start from, and why it
   // is: the server lost it, or its player gave the film's own picture up; and when the last lost one
   // was opened again, on the page's clock.

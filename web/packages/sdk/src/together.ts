@@ -116,7 +116,20 @@ export interface RosterMember {
  * member left, or the server no longer knows the membership at all ("gone").
  */
 export type TogetherEndReason =
-  "hostEnded" | "ejected" | "movedAway" | "left" | "gone" | "uploadFull";
+  | "hostEnded"
+  | "ejected"
+  | "movedAway"
+  | "left"
+  | "gone"
+  | "uploadFull"
+  /**
+   * A cast's ends (D337): its receiver took control back, another cast replaced it, its remote
+   * stopped it, or its film ended.
+   */
+  | "takenBack"
+  | "replaced"
+  | "stopped"
+  | "filmEnded";
 
 /** How a device follows its group, as the server's settings said when it was welcomed (D250 §1). */
 export interface SyncTuning {
@@ -219,7 +232,7 @@ export type TogetherServerMessage =
 export type VoiceSignal = { readonly sdp: string } | { readonly candidate: string };
 
 /** A value read from outside, as a record of unknown fields; undefined when it is not an object. */
-function recordOf(value: unknown): Readonly<Record<string, unknown>> | undefined {
+export function recordOf(value: unknown): Readonly<Record<string, unknown>> | undefined {
   return typeof value === "object" && value !== null && !Array.isArray(value)
     ? Object.fromEntries(Object.entries(value))
     : undefined;
@@ -324,6 +337,10 @@ const endReasons: readonly TogetherEndReason[] = [
   "movedAway",
   "left",
   "uploadFull",
+  "takenBack",
+  "replaced",
+  "stopped",
+  "filmEnded",
 ];
 
 /** A welcome's tuning, each value the starting one where it says none. */

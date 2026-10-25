@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
+import { enCast } from "./en-cast.ts";
 import { enDevices } from "./en-devices.ts";
 import { enDiscovery } from "./en-discovery.ts";
 import { enLibraries } from "./en-libraries.ts";
@@ -21,6 +22,7 @@ export const en = {
   ...enTogether,
   ...enPlay,
   ...enDevices,
+  ...enCast,
   ...enDiscovery,
   ...enLibraries,
   ...enPeople,

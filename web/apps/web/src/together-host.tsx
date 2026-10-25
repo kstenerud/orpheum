@@ -61,6 +61,57 @@ export function HostPlaysTogether(props: HostPlayer): JSX.Element | null {
   );
 }
 
+/** A player leading its session: the host's in Watch Together, a cast's receiver (D88). */
+interface LeadingPlayer {
+  readonly connection: TogetherConnection | undefined;
+  /** Whether the connection is welcomed, and so may put the film on. */
+  readonly isWelcomed: boolean;
+  readonly fileId: number;
+  readonly video: HTMLVideoElement | null;
+  /** Where the film is put on from while the video cannot yet say where it stands. */
+  readonly startPositionMs: number;
+  /** Where the film is put on from whatever the video says: where a cast's sender stood. */
+  readonly putOnAtMs?: number | undefined;
+}
+
+/**
+ * Leads a session from this player: once welcomed, puts its film on for the session from where the
+ * video stands, unless the session plays it already; the player's own play, pause and seeks are the
+ * session's, as it follows the session (D268); the film plays at the tab's volume (D281 §5).
+ */
+export function useLeadingPlayer(leading: LeadingPlayer): void {
+  const { connection, isWelcomed, fileId, video, startPositionMs, putOnAtMs } = leading;
+  const hasPutOnRef = useRef(false);
+  useEffect(() => {
+    if (connection === undefined || !isWelcomed || hasPutOnRef.current) {
+      return;
+    }
+    hasPutOnRef.current = true;
+    if (connection.snapshot().group?.fileId !== fileId) {
+      const positionMs =
+        putOnAtMs ??
+        (video !== null && video.readyState >= HTMLMediaElement.HAVE_METADATA
+          ? video.currentTime * 1000
+          : startPositionMs);
+      connection.command({ command: "changeItem", fileId, positionMs });
+    }
+  }, [connection, isWelcomed, fileId, video, startPositionMs, putOnAtMs]);
+  useEffect(
+    () =>
+      video === null || connection === undefined
+        ? undefined
+        : followGroup(video, connection, {
+            fileId,
+            leads: everyRight,
+            monotonicMs,
+            startLag: startLagMemory(browserStorage()),
+            page: document,
+          }),
+    [connection, fileId, video],
+  );
+  useEffect(() => (video === null ? undefined : followFilmVolume(video)), [video]);
+}
+
 /** The host's stop, sent as they leave the player: every screen goes black (D246 §5). */
 const stopForEveryone: GroupCommand = { command: "stop" };
 
@@ -80,36 +131,7 @@ function HostLeading(
   const hostVoice = useHostVoice();
   const isWelcomed = snapshot?.status === "connected";
   const isOver = snapshot?.status === "ended" && snapshot.endReason !== undefined;
-  const hasPutOnRef = useRef(false);
-  useEffect(() => {
-    // Once welcomed, this film is put on for everyone, from where it starts here.
-    if (connection === undefined || !isWelcomed || hasPutOnRef.current) {
-      return;
-    }
-    hasPutOnRef.current = true;
-    if (connection.snapshot().group?.fileId !== fileId) {
-      const positionMs =
-        video !== null && video.readyState >= HTMLMediaElement.HAVE_METADATA
-          ? video.currentTime * 1000
-          : startPositionMs;
-      connection.command({ command: "changeItem", fileId, positionMs });
-    }
-  }, [connection, isWelcomed, fileId, video, startPositionMs]);
-  useEffect(
-    () =>
-      video === null || connection === undefined
-        ? undefined
-        : followGroup(video, connection, {
-            fileId,
-            leads: everyRight,
-            monotonicMs,
-            startLag: startLagMemory(browserStorage()),
-            page: document,
-          }),
-    [connection, fileId, video],
-  );
-  // The film plays at the tab's volume, which the status tray's pop-up sets too (D281 §5).
-  useEffect(() => (video === null ? undefined : followFilmVolume(video)), [video]);
+  useLeadingPlayer({ connection, isWelcomed, fileId, video, startPositionMs });
   useToldCannotKeepUp(connection, props.cannotKeepUp);
   useEffect(() => {
     if (isOver) {
@@ -132,7 +154,7 @@ function HostLeading(
  * film's sound that no recent tap started, as after the host's page is loaded again, and the film
  * played on for the group with no sound and nothing said why (the owner's test, 2026-10-12).
  */
-function SoundOn(props: {
+export function SoundOn(props: {
   readonly video: HTMLVideoElement | null;
   readonly connection: TogetherConnection | undefined;
 }): JSX.Element | null {

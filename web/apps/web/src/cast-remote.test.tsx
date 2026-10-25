@@ -1,0 +1,113 @@
+// @vitest-environment happy-dom
+// SPDX-License-Identifier: MPL-2.0
+
+import "./i18n.ts";
+
+import { afterEach, describe, expect, it } from "vitest";
+
+import { Casting } from "./cast-remote.tsx";
+import { buttonWithText, click, mount, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
+import { withServices } from "./test-services.tsx";
+import { fakeTogetherServer } from "./test-together.ts";
+
+/** The cast this device sends, as GET /me/casts lists it. */
+const sent = {
+  castId: 9,
+  isSender: true,
+  fileId: 4,
+  titleId: 2,
+  titleName: "Metropolis",
+  durationMs: 600_000,
+  senderDeviceId: 1,
+  senderName: "Pixel",
+  receiverDeviceId: 2,
+  receiverName: "Fire TV",
+  membershipCredential: "remote",
+};
+
+/** The remote's welcome, the receiver's film paused at a minute. */
+const welcome = {
+  type: "welcome",
+  seq: 3,
+  sessionId: 9,
+  memberId: 2,
+  deviceId: 5,
+  isHost: true,
+  rights: { canPlayPause: true, canSeek: true },
+  group: { state: "Paused", positionMs: 61_000, rate: 1, fileId: 4 },
+  roster: [],
+};
+
+describe("the remote of a cast (D337 §5)", () => {
+  let mounted: Mounted | undefined;
+  afterEach(() => {
+    mounted?.unmount();
+    mounted = undefined;
+  });
+
+  it("holds no player, plays and seeks the receiver, and says where its film stands", async () => {
+    const services = servedBy({ "GET /me/casts": [200, { casts: [sent] }] }, [], "token");
+    const server = fakeTogetherServer();
+    mounted = await mount(
+      withServices(<Casting />, { ...services, openTogetherSocket: server.openSocket }),
+    );
+    await server.accept();
+    expect(server.heard[0]).toMatchObject({ type: "hello", credential: "remote", role: "voice" });
+    await server.say(welcome);
+    expect(mounted.container.querySelector("video")).toBeNull();
+    expect(mounted.container.textContent).toContain("Metropolis");
+    expect(mounted.container.textContent).toContain("Playing on Fire TV");
+    expect(mounted.container.textContent).toContain("1:01 / 10:00");
+    await click(buttonWithText(mounted.container, "Play"));
+    expect(server.heard.at(-1)).toMatchObject({ type: "command", command: "play" });
+    await click(buttonWithText(mounted.container, "Forward 10 s"));
+    expect(server.heard.at(-1)).toMatchObject({
+      type: "command",
+      command: "seek",
+      positionMs: 71_000,
+    });
+  });
+
+  it("says control was taken back, and offers to play here from where it stood (§9 Q5)", async () => {
+    const services = servedBy({ "GET /me/casts": [200, { casts: [sent] }] }, [], "token");
+    const server = fakeTogetherServer();
+    mounted = await mount(
+      withServices(<Casting />, { ...services, openTogetherSocket: server.openSocket }),
+    );
+    await server.accept();
+    await server.say(welcome);
+    await server.say({ type: "ended", reason: "takenBack" });
+    expect(mounted.container.textContent).toContain("Fire TV took control back.");
+    await click(buttonWithText(mounted.container, "Play here from 1:01"));
+    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 4 });
+  });
+
+  it("stops casting at Stop, the receiver told", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /me/casts": [200, { casts: [sent] }],
+        "POST /me/casts/9/end": [200, { positionMs: 75_000, isPlaying: false }],
+      },
+      heard,
+      "token",
+    );
+    const server = fakeTogetherServer();
+    mounted = await mount(
+      withServices(<Casting />, { ...services, openTogetherSocket: server.openSocket }),
+    );
+    await server.accept();
+    await server.say(welcome);
+    await click(buttonWithText(mounted.container, "Stop casting"));
+    expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/end")?.body).toEqual({
+      reason: "stopped",
+    });
+    expect(buttonWithText(mounted.container, "Play here from 1:15")).not.toBeUndefined();
+  });
+
+  it("says when this device casts nothing", async () => {
+    const services = servedBy({ "GET /me/casts": [200, { casts: [] }] }, [], "token");
+    mounted = await mount(withServices(<Casting />, services));
+    expect(mounted.container.textContent).toContain("This device is not casting anything.");
+  });
+});
