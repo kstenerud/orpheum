@@ -295,7 +295,7 @@ and compare with `/lab/device`'s *Fire TV* line, which reads the user agent's `A
   Silk itself: `key` lines with `ArrowDown`).
 - **Decides:**
   - Which ids read right: an inferred layout that is wrong for a mode (the page says Xbox and A
-    is the right button) corrects lab-pads.ts's table before the real UI takes it; the `padId`
+    is the right button) corrects input-pads.ts's table before the real UI takes it; the `padId`
     strings replace the unverified ones in its tests.
   - Switch mode reading as Nintendo, X-input as Xbox, D-input as unknown → the real UI infers by
     vendor and asks only for unknown pads; every mode unknown on the Fire TV (Android's ids carry no

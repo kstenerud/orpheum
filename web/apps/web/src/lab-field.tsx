@@ -27,7 +27,7 @@ const inputTypeKept = 40;
  * keyboard do with a field, sent as it happens: focus entering and leaving it, each input and
  * composition's start and end, with the value's length only, never its text, which could be anything
  * a person types. Its keys are the page's, flagged as in the field; the arrows are the field's but at
- * the value's ends (lab-focus.ts).
+ * the value's ends (focus-engine.ts).
  */
 export function FieldTest(props: { readonly noteEvent: (event: NotedEvent) => void }): JSX.Element {
   const { t } = useTranslation();

@@ -3,7 +3,7 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { driveFocus, geometricFocus, moveFocus } from "./lab-focus.ts";
+import { driveFocus, geometricFocus, moveFocus } from "./focus-engine.ts";
 
 /** A region of three buttons in the document, and a field outside it. */
 function regionOfButtons(): { readonly region: HTMLElement; readonly field: HTMLInputElement } {

@@ -584,10 +584,10 @@ An item is ticked only by the person who did it, and only with what they saw.
   `/lab/input` and move across the tiles about 20 times in each mode (plans/tv-device-tests.md H2,
   B2). Passes when the page logs the remote's keys and measures each move; D190's line is our
   geometric search's worst key-to-focus at or under 250 ms, which the result records whether or not
-  it is met. (`web/apps/web/src/lab-input.tsx`, `lab-focus.ts`)
+  it is met. (`web/apps/web/src/lab-input.tsx`, `focus-engine.ts`)
 - [ ] **VQ60** — On a Fire TV stick in Silk's spatial mode and on a laptop's Chrome and Firefox,
   run `/lab/input`'s text field, both full-screen buttons and the 8BitDo SN30 Pro in each of its
   modes (plans/tv-device-tests.md H6–H8). Passes when the core's log holds the run's `fieldIn`,
   `fieldInput` (a length, no text), `fullscreenEnter` or `fullscreenRefused`, keys with
   `inFullscreen: true`, and a `pad` line per mode with its layout; what they show is the finding.
-  (`web/apps/web/src/lab-field.tsx`, `lab-fullscreen.tsx`, `lab-pad-input.tsx`, `lab-pads.ts`)
+  (`web/apps/web/src/lab-field.tsx`, `lab-fullscreen.tsx`, `lab-pad-input.tsx`, `input-pads.ts`)

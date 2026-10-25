@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 /**
- * A game controller as the button test reads it (plans/tv-device-tests.md H8): which layout its id
- * says it has, which face button confirms on that layout, each standard button's place on the pad,
- * and its stick's directions with their repeat while held. Pure, so the real UI's controller work can
- * take it over (the owner, 2026-10-25).
+ * A game controller as the app reads it (controller-input-2026-10-25.md §6.1 item 5): which layout
+ * its id says it has, which face button confirms on that layout, each standard button's place on the
+ * pad, and its stick's directions with their repeat while held. Proven by the device lab's button
+ * test (plans/tv-device-tests.md H8), which reads pads by it too.
  *
  * Under the W3C standard mapping buttons are positional: 0 bottom, 1 right, 2 left, 3 top, 4 and 5
  * the shoulders, 6 and 7 the triggers, 8 select (back, view), 9 start (menu), 10 and 11 the sticks'
@@ -13,13 +13,10 @@
  * Nintendo confirms with the right one (labelled A) and goes back with the bottom (labelled B).
  */
 
-import type { Direction } from "./lab-focus.ts";
+import type { Direction, OkButton } from "./input-buttons.ts";
 
-/** A layout the test infers from a pad's id. */
+/** A layout inferred from a pad's id. */
 export type PadLayout = "xbox" | "playstation" | "nintendo" | "unknown";
-
-/** Which face button confirms: the bottom one, or the right one. */
-export type OkButton = "bottom" | "right";
 
 /** A standard pad's button by its place on the pad. */
 export type PadButtonName =

@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: MPL-2.0
 
 /**
- * The input probe's focus engine (plans/tv-device-tests.md): which element an arrow key moves real
- * DOM focus to, behind a narrow interface, so another engine (@bbc/tv-lrud-spatial, should the owner
- * take it, controller-input-2026-10-25.md §6.1) drops in beside ours and is measured the same way.
+ * The app's focus engine (controller-input-2026-10-25.md §6.1 item 2), proven by the device lab's
+ * button test (plans/tv-device-tests.md): which element an arrow moves real DOM focus to, behind a
+ * narrow interface, so another engine (@bbc/tv-lrud-spatial, should the owner take it) drops in
+ * beside ours and is measured the same way.
  * Ours is a minimal geometric search: the nearest element whose box lies in the arrow's direction,
  * nearness along the arrow counting less than the step across it.
  */
 
-import { keyCodeOf } from "./lab-keys.ts";
-
-/** Where an arrow moves focus. */
-export type Direction = "up" | "down" | "left" | "right";
+import { directionOfKey, keyCodeOf, type Direction } from "./input-buttons.ts";
 
 /** An element's box on the screen, as getBoundingClientRect gives it. */
 export interface Box {
@@ -83,31 +81,6 @@ export function nearestInDirection<T>(
     }
   }
   return best?.item;
-}
-
-/** The directions the arrow keys name, by key: the standard names, then old Edge's and IE's. */
-const directionsByKey = new Map<string, Direction>([
-  ["ArrowUp", "up"],
-  ["ArrowDown", "down"],
-  ["ArrowLeft", "left"],
-  ["ArrowRight", "right"],
-  ["Up", "up"],
-  ["Down", "down"],
-  ["Left", "left"],
-  ["Right", "right"],
-]);
-
-/** The directions the arrow keys name by keyCode, which an old TV browser alone gives. */
-const directionsByKeyCode = new Map<number, Direction>([
-  [37, "left"],
-  [38, "up"],
-  [39, "right"],
-  [40, "down"],
-]);
-
-/** The direction an arrow key names, by its key or, on an old TV browser, its keyCode. */
-export function directionOfKey(key: string, keyCode: number): Direction | undefined {
-  return directionsByKey.get(key) ?? directionsByKeyCode.get(keyCode);
 }
 
 /**
