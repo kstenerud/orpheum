@@ -11,6 +11,7 @@ export const enOrderings = {
     option: "{{label}} ({{kind}}) · episodes here: {{count}}",
     optionListed: "{{label}} ({{kind}}) · episodes listed: {{count}}",
     failed: "The order could not be changed: {{why}}",
+    fetching: "Fetching this order; its episodes show here once it is fetched.",
     part: "Part {{number}}",
     groupPlace: "{{group}} · {{number}}",
     episode: "Episode {{number}}",

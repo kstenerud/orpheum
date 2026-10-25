@@ -143,6 +143,21 @@
 //     TestSeries_AMatchedSeriesNamesItsEpisodesFromOneSeasonListing,
 //     TestSeries_ANewEpisodeFetchesItsSeasonAgain, TestSeries_OfSeveralByItsNameTheOldestIsGuessedAndAPersonCorrectsIt,
 //     TestSeries_AYearOrAnIDSettlesTheSearch.
+//   - A series' other orderings are its provider's episode groups (episode-orderings.md §3): the
+//     list of them comes with its own record, no request of its own, stored as the part
+//     episode_groups, each group an ordering "tmdb:<group id>" with its kind, label and listed
+//     count; a group's contents are fetched only once a person chose it, once, stored as
+//     episode_group/<id>, and place the series' episodes as the group does (its part's order the
+//     group, its own order plus one the number), its parts' names the groups'; an episode it leaves
+//     out has no place in it; every pass of the library keeps them placed from what is stored, as
+//     episodes come and go, writing only what changed (D170, D96, D303).
+//     TestOrderings_AChosenEpisodeGroupPlacesTheSeriesEpisodesAsTheGroupDoes.
+//   - What should have been fetched and was not is filled in by a sweep, passively, a few at a time
+//     (missingFetchesPerSweep) and behind other work, through the queue's back-off and giving up; a
+//     series whose fetch gave up waits for a person, and nothing stored is fetched again (D335 §1,
+//     §3). Its first kinds: a series' list of episode groups, fetched before its record carried
+//     one, and a group a person chose that is not fetched.
+//     TestOrderings_ASeriesFetchedBeforeItsGroupsWereHasThemFilledInByTheSweep.
 //   - A series renamed by its match keeps the new episodes its folders name.
 //     TestSeries_AnEpisodeAddedAfterTheSeriesWasRenamedJoinsIt.
 //   - A provider's episode ids never find a film, nor its film ids an episode.
@@ -212,6 +227,9 @@
 //   - D183: an override is an override wherever its value came from.
 //   - D209: for shows, the series is what is identified.
 //   - D213: a dead image checked once, the rolling refresh, and nothing deleted upstream.
+//   - D335: what should have been fetched and was not is filled in by the sweeps; a refetch that
+//     replaces is a person's act.
+//   - docs/contributors/design/plans/episode-orderings.md: a series' orderings.
 //   - D231 §3, §4: work derived from persistent.db by sweeps; an item's own failure and a person's
 //     refresh are facts, not job rows.
 //   - D141: NFO lock markers.
@@ -229,7 +247,9 @@
 //   - provider.go: the provider interface; cleaned.go: cleaning every provider answer where it
 //     enters. match.go: the matcher and the fetch_metadata job's handler; match_series.go: a series' match
 //     and its season listings. series.go: a series in the pass. refresh.go: a person's refresh, the
-//     rolling refresh, and the fetch sweeps (first matches, requests, rechecks).
+//     rolling refresh, and the fetch sweeps (first matches, requests, rechecks). orderings.go: a
+//     series' episode groups as orderings, fetched and derived; missing.go: the sweep that fills in
+//     what should have been fetched (D335).
 //   - chooser.go: what a person does — list, choose, override. The TMDB client is
 //     internal/core/providers/tmdb.
 //   - identifytest/: the fake TMDB that this package's tests and the API's share. The tests that

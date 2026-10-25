@@ -118,7 +118,13 @@ func (client *Client) Fetch(ctx context.Context, kind, id string) ([]byte, error
 	if _, err := strconv.ParseInt(id, 10, 64); err != nil {
 		return nil, fmt.Errorf("tmdb: %q is not a TMDB id: %w", id, identify.ErrNoMatch)
 	}
-	return client.get(ctx, "/"+kindEndpoint.path+"/"+id, url.Values{"append_to_response": {"credits,external_ids"}})
+	appended := "credits,external_ids"
+	if kind == identify.KindSeries {
+		// A series' list of episode groups comes with it, at no request of its own (episode-orderings.md
+		// §2.1, as Jellyfin asks for it).
+		appended += ",episode_groups"
+	}
+	return client.get(ctx, "/"+kindEndpoint.path+"/"+id, url.Values{"append_to_response": {appended}})
 }
 
 // workDetails is the part of /movie/{id} and /tv/{id} that is read, in TMDB's names.
@@ -230,4 +236,95 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+// groupKinds are TMDB's episode group types, by number, as the kinds an ordering says it is
+// (episode-orderings.md §2.1: "Groups support 7 different types").
+var groupKinds = map[int]string{ //nolint:gochecknoglobals // a fixed table of TMDB's
+	1: "aired_alternate", 2: "absolute", 3: "dvd", 4: "digital", 5: "story_arc", 6: "production", 7: "tv",
+}
+
+// EpisodeGroupsIn is the episode_groups a stored /tv/{id} record carries, the same shape as
+// /tv/{id}/episode_groups answers; false for a record fetched without it.
+func (*Client) EpisodeGroupsIn(seriesBody []byte) ([]byte, bool) {
+	//nolint:tagliatelle // TMDB's field names
+	var record struct {
+		EpisodeGroups json.RawMessage `json:"episode_groups"`
+	}
+	if err := json.Unmarshal(seriesBody, &record); err != nil || len(record.EpisodeGroups) == 0 ||
+		string(record.EpisodeGroups) == "null" {
+		return nil, false
+	}
+	return record.EpisodeGroups, true
+}
+
+// FetchEpisodeGroups returns /tv/{id}/episode_groups: the list of a series' episode groups, for a
+// series whose record was fetched before it carried them.
+func (client *Client) FetchEpisodeGroups(ctx context.Context, seriesID string) ([]byte, error) {
+	if _, err := strconv.ParseInt(seriesID, 10, 64); err != nil {
+		return nil, fmt.Errorf("tmdb: %q is not a TMDB id: %w", seriesID, identify.ErrNoMatch)
+	}
+	return client.get(ctx, "/tv/"+seriesID+"/episode_groups", url.Values{})
+}
+
+// ParseEpisodeGroups reads a stored list of a series' episode groups.
+func (*Client) ParseEpisodeGroups(body []byte) ([]identify.EpisodeGroup, error) {
+	//nolint:tagliatelle // TMDB's field names
+	var list struct {
+		Results []struct {
+			ID           string `json:"id"`
+			Name         string `json:"name"`
+			Type         int    `json:"type"`
+			EpisodeCount int    `json:"episode_count"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal(body, &list); err != nil {
+		return nil, fmt.Errorf("tmdb: read a stored list of episode groups: %w", err)
+	}
+	groups := make([]identify.EpisodeGroup, 0, len(list.Results))
+	for _, group := range list.Results {
+		if group.ID == "" {
+			continue
+		}
+		groups = append(groups, identify.EpisodeGroup{
+			ID: group.ID, Name: group.Name, Kind: groupKinds[group.Type], EpisodeCount: group.EpisodeCount,
+		})
+	}
+	return groups, nil
+}
+
+// FetchEpisodeGroup returns /tv/episode_group/{id}: one group's parts and their episodes.
+func (client *Client) FetchEpisodeGroup(ctx context.Context, groupID string) ([]byte, error) {
+	if groupID == "" || url.PathEscape(groupID) != groupID {
+		return nil, fmt.Errorf("tmdb: %q is not an episode group id: %w", groupID, identify.ErrNoMatch)
+	}
+	return client.get(ctx, "/tv/episode_group/"+groupID, url.Values{})
+}
+
+// ParseEpisodeGroup reads a stored group's parts, each with its episodes by their TMDB ids.
+func (*Client) ParseEpisodeGroup(body []byte) ([]identify.EpisodeGroupPart, error) {
+	var group struct {
+		Groups []struct {
+			Name     string `json:"name"`
+			Order    int    `json:"order"`
+			Episodes []struct {
+				ID    int64 `json:"id"`
+				Order int   `json:"order"`
+			} `json:"episodes"`
+		} `json:"groups"`
+	}
+	if err := json.Unmarshal(body, &group); err != nil {
+		return nil, fmt.Errorf("tmdb: read a stored episode group: %w", err)
+	}
+	parts := make([]identify.EpisodeGroupPart, 0, len(group.Groups))
+	for _, part := range group.Groups {
+		entries := make([]identify.EpisodeGroupEntry, 0, len(part.Episodes))
+		for _, episode := range part.Episodes {
+			entries = append(entries, identify.EpisodeGroupEntry{
+				EpisodeID: strconv.FormatInt(episode.ID, 10), Order: episode.Order,
+			})
+		}
+		parts = append(parts, identify.EpisodeGroupPart{Order: part.Order, Name: part.Name, Episodes: entries})
+	}
+	return parts, nil
 }

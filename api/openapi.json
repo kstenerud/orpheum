@@ -3577,6 +3577,9 @@
             "format": "int64",
             "type": "integer"
           },
+          "isAwaitingFetch": {
+            "type": "boolean"
+          },
           "kind": {
             "description": "What order it is: aired, or a TMDB group's type (dvd, absolute, digital, story_arc, production, tv, aired_alternate)",
             "type": "string"

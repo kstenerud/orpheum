@@ -111,8 +111,9 @@ func TestDemoteUnwantedEvery_IsAtMostHalfTheShortestPlayPriorityKept(t *testing.
 	}
 }
 
-// The sweeps that derive first matches, requested refreshes, rechecks, the identification passes and
-// the reconsidering of ambiguous matches run as derived_work_sweep_every_seconds says, read afresh
+// The sweeps that derive first matches, requested refreshes, rechecks, the identification passes,
+// the reconsidering of ambiguous matches and what should have been fetched (D335) run as
+// derived_work_sweep_every_seconds says, read afresh
 // (D231 §3); the reconsidering runs before the first matches, which queue what it returns to them.
 func TestSweeps_TheDerivedWorkSweepsRunAsTheirSettingSays(t *testing.T) {
 	t.Parallel()
@@ -121,7 +122,7 @@ func TestSweeps_TheDerivedWorkSweepsRunAsTheirSettingSays(t *testing.T) {
 	services := jobServices{settings: config}
 	derived := map[string]bool{
 		sweepFirstMatches: true, sweepRefreshRequests: true, sweepRechecks: true, sweepPasses: true,
-		sweepOwedPasses: true, sweepReconsidered: true,
+		sweepOwedPasses: true, sweepReconsidered: true, sweepMissing: true,
 	}
 	var order []string
 	for _, sweep := range services.sweeps(slog.New(slog.DiscardHandler)) {

@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -42,7 +43,9 @@ func (harness testHarness) shelveDVDOrder(t *testing.T) {
 		`INSERT INTO ordering (id, collection_id, name, provider, kind, source_id, label, listed_count)
 		 VALUES (2, 20, 'tmdb:dvd', 'tmdb', 'dvd', 'dvd', 'DVD Order', 5)`,
 		"INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order) "+
-			"VALUES (2, 23, 1, 1, 10001), (2, 21, 1, 2, 10002), (2, 24, 2, 1, 20001)")
+			"VALUES (2, 23, 1, 1, 10001), (2, 21, 1, 2, 10002), (2, 24, 2, 1, 20001)",
+		`INSERT INTO provider_response (item_id, provider, part, fetched_at, last_asked_at, body_gzip)
+		 VALUES (20, 'tmdb', 'episode_group/dvd', 1, 1, X'')`)
 }
 
 // playState is every play position and event, which a choice of ordering must leave as they were.
@@ -173,7 +176,8 @@ func TestOrderings_APersonChoosesAmongTheOrderingsASeriesHas(t *testing.T) {
 		Orderings []OrderingBody `json:"orderings"`
 	}
 	harness.readJSON(t, "/collections/20", user, &offered)
-	if got, want := fmt.Sprint(offered.Orderings), "[{aired aired  0 4} {tmdb:dvd dvd DVD Order 5 3}]"; got != want {
+	if got, want := fmt.Sprint(offered.Orderings),
+		"[{aired aired  0 4 false} {tmdb:dvd dvd DVD Order 5 3 false}]"; got != want {
 		t.Errorf("orderings offered %s; want %s", got, want)
 	}
 	choose := func(ordering string) response {
@@ -254,4 +258,36 @@ func (harness testHarness) wantSeriesOrderingsUnreached(t *testing.T, admin stri
 		map[string]string{"episodeOrdering": "tmdb:dvd"}), http.StatusNotFound, CodeNotFound)
 	wantError(t, harness.do(t, http.MethodGet, "/collections/20/not-in-order?limit=10", partner, nil),
 		http.StatusNotFound, CodeNotFound)
+}
+
+// Choosing an episode group no one has fetched yet keeps the choice and queues its fetch, and the
+// page says it waits for it, holding none of the series' episodes until then (episode-orderings.md
+// §3.4, §4; D170: a first fetch, on a person's act).
+func TestOrderings_ChoosingAGroupNotFetchedYetQueuesItsFetch(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.shelveDVDOrder(t)
+	storetest.ExecRaw(t, harness.databasePath,
+		`UPDATE collection SET followed_source = 'tmdb', followed_source_id = '1396' WHERE id = 20`,
+		`INSERT INTO ordering (id, collection_id, name, provider, kind, source_id, label, listed_count)
+		 VALUES (3, 20, 'tmdb:intended', 'tmdb', 'absolute', 'intended', 'Intended Order', 14)`)
+	var offered struct {
+		Orderings []OrderingBody `json:"orderings"`
+	}
+	harness.readJSON(t, "/collections/20", admin, &offered)
+	if got := fmt.Sprint(offered.Orderings[2]); got != "{tmdb:intended absolute Intended Order 14 0 true}" {
+		t.Errorf("a group not fetched is offered as %s; want it awaiting its fetch, holding none", got)
+	}
+	if answer := harness.do(t, http.MethodPut, "/collections/20/preferences", admin,
+		map[string]string{"episodeOrdering": "tmdb:intended"}); answer.status != http.StatusNoContent {
+		t.Fatalf("choosing it = %d %s", answer.status, answer.body)
+	}
+	job := newestOf(t, harness.listedJobs(t, admin), jobs.KindFetchMetadata)
+	if job.ItemID != 20 || job.Reason != "an episode ordering a person chose" {
+		t.Errorf("queued %+v; want series 20's fetch of the ordering chosen", job)
+	}
+	if got, want := harness.seriesSummary(t, admin), "tmdb:intended seasons[] next none"; got != want {
+		t.Errorf("while it waits: %s; want %s, its episodes all listed apart", got, want)
+	}
 }

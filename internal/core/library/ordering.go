@@ -89,12 +89,15 @@ func (browser *Browser) episodePlace(ctx context.Context, userID, titleID int64)
 
 // Ordering is one of a series' orderings, as its page offers it (episode-orderings.md §4): its name,
 // the key a person's choice keeps; its kind and its provider's label for it, "" for aired; how many
-// episodes its provider lists in it, 0 when it did not say; and how many of the series' episodes it
-// holds.
+// episodes its provider lists in it, 0 when it did not say; how many of the series' episodes it
+// holds; and whether its contents wait to be fetched.
 type Ordering struct {
 	Name, Kind, Label string
 	ListedCount       int64
 	EpisodeCount      int64
+	// IsAwaitingFetch is whether it is a provider's group whose contents are not fetched yet, which
+	// choosing it fetches (episode-orderings.md §3.4).
+	IsAwaitingFetch bool
 }
 
 // withOrderings gives a series' detail every ordering it has, the names its ordering gives its
@@ -109,6 +112,7 @@ func (browser *Browser) withOrderings(ctx context.Context, detail *SeriesDetail)
 		detail.Orderings = append(detail.Orderings, Ordering{
 			Name: row.Name, Kind: ptr.ValueOrZero(row.Kind), Label: ptr.ValueOrZero(row.Label),
 			ListedCount: ptr.ValueOrZero(row.ListedCount), EpisodeCount: row.EpisodeCount,
+			IsAwaitingFetch: row.IsAwaitingFetch != 0,
 		})
 	}
 	names, err := groupNames(ctx, queries, detail.ID, detail.Ordering)

@@ -3217,6 +3217,7 @@ export interface components {
              * @description How many of the series' episodes it holds
              */
             episodeCount: number;
+            isAwaitingFetch?: boolean;
             /** @description What order it is: aired, or a TMDB group's type (dvd, absolute, digital, story_arc, production, tv, aired_alternate) */
             kind?: string;
             label?: string;

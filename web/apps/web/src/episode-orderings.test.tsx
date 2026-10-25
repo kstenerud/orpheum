@@ -80,6 +80,18 @@ describe("a series in the ordering its person chose (episode-orderings.md §4)",
       ),
     );
     expect(listedOnly).toContain("DVD Order (DVD) · episodes listed: 5");
+    expect(listedOnly).not.toContain("Fetching this order");
+    const awaiting = renderToStaticMarkup(
+      withServices(
+        <SeriesView
+          series={{
+            ...inDVDOrder,
+            orderings: [aired, { ...dvd, episodeCount: 0, isAwaitingFetch: true }],
+          }}
+        />,
+      ),
+    );
+    expect(awaiting).toContain("Fetching this order; its episodes show here once it is fetched.");
     const onlyAired = renderToStaticMarkup(
       withServices(<SeriesView series={{ ...inAired, orderings: [aired] }} />),
     );
