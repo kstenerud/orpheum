@@ -152,7 +152,11 @@ func open(ctx context.Context, path string, options OpenOptions, applicationID i
 	if err != nil {
 		return nil, errors.Join(fmt.Errorf("open database %q for reading: %w", path, err), writer.Close())
 	}
-	readers.SetMaxOpenConns(max(options.MinimumReaders, runtime.NumCPU()))
+	readerCount := max(options.MinimumReaders, runtime.NumCPU())
+	readers.SetMaxOpenConns(readerCount)
+	// Every reader stays open once made: database/sql keeps 2 idle by default, and a connection
+	// closed past them takes its parsed schema and its page cache with it (audit 2026-10-25, S1).
+	readers.SetMaxIdleConns(readerCount)
 	maintenance, err := sql.Open("sqlite", path+"?"+connectionPragmas)
 	if err != nil {
 		return nil, errors.Join(fmt.Errorf("open database %q for maintenance: %w", path, err), readers.Close(),

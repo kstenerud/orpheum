@@ -28,6 +28,9 @@
 //     TestOpen_RefusesAFileThatIsNotOurs.
 //   - Writes go through Write on the one writer; the reader pool is query_only. Enforced by
 //     TestRead_RefusesAWrite and TestWrite_RollsBackWhenTheChangeFails.
+//   - Every reader a pool opens stays open, on persistent.db and cache.db, with or without a load
+//     of the planner's statistics: a closed one loses its parsed schema and its page cache.
+//     Enforced by TestOpen_KeepsEveryReaderItOpens.
 //   - ReadTx's queries, on either database, all see one commit, whatever commits meanwhile (D303,
 //     M2). Enforced by TestReadTx_SeesOneCommitWhateverCommitsMeanwhile and
 //     TestCacheReadTx_SeesOneCommitWhateverCommitsMeanwhile.
