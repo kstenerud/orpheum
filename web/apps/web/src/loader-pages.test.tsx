@@ -289,6 +289,34 @@ describe("the loader's /activate, which a TV's QR code opens (D321)", () => {
       })}`,
     ]);
   });
+
+  // Left open, its connections stayed for as long as the page did, each the core turned away
+  // replaced at once (staging, 2026-10-25).
+  it("closes its WebRTC transport when the hand-off fails too, going nowhere", async () => {
+    const went: string[] = [];
+    const parts = joinParts(loaderAt(scanned, memoryStorage(), went), activate);
+    let isClosed = false;
+    const transport = {
+      fetch: () => Promise.reject(new TypeError("the channel for /api/v1/session/handoff failed")),
+      close: () => {
+        isClosed = true;
+      },
+    };
+    const reaching = {
+      first: { kind: "webrtc", transport },
+      another: () => Promise.reject(new Error("none")),
+      better: () => Promise.resolve(undefined),
+    } as unknown as Parameters<typeof parts.onConnected>[1];
+    const signIn = { name: "karl", password: "pw", held: { bootstrapToken: "a-token" } };
+    const handedOn = parts.onConnected(
+      { coreId: "k7xq2", fingerprint, realm: "nas" },
+      reaching,
+      signIn,
+    );
+    await expect(handedOn).rejects.toThrow();
+    expect(isClosed).toBe(true);
+    expect(went).toEqual([]);
+  });
 });
 
 describe("taking a hand-off's session at the client origin", () => {

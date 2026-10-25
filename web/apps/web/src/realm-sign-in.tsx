@@ -15,7 +15,7 @@ import {
  * What a realm sign-in says went wrong: a part wrong, said as one as the discovery does; the server
  * found but not reached from this network; or a server this device reached before not reached now.
  */
-export type RealmProblem = "wrong" | "unreached" | "again";
+export type RealmProblem = "wrong" | "unreached" | "turnedAway" | "again";
 
 export interface RealmCredentials {
   readonly realm: string;

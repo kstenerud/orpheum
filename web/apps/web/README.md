@@ -55,7 +55,11 @@ The web client: the browser and phone interface, served embedded by the core. MP
   W4c): the discovery names its client API in the page (`<meta name="orpheum-discovery-client-api">`;
   the client reads no environment, D204); a link is spent by its click, never the page's loading; the
   connection's offers are proven and its answers taken only when the core signed them by the key the
-  link's fingerprint names; each core's credentials are kept under its id. `discovery-gate.test.tsx`,
+  link's fingerprint names; each core's credentials are kept under its id. A core that turns the
+  device away for its network's share (rtcapi's `Verdict`) is said so, with a way to try again,
+  never as a network that cannot reach it, and a remembered one stays remembered. Every WebRTC
+  transport a page used is closed with its path, when its hand-off fails, and when the page leaves
+  for good. `discovery-gate.test.tsx`, `kept-path.test.ts`, `loader-pages.test.tsx`,
   `session.test.ts`, and the SDK's `discovery.test.ts`.
 - **At a discovery the page is its loader, which runs the core's own client** (D308): `app.` keeps
   no core's session, hands a link on to its core's client origin, and hands a realm sign-in on by a
