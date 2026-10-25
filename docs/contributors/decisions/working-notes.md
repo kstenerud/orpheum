@@ -16761,7 +16761,10 @@ both hold. The owner: *"I'm fine with always copying"*, and *"headphones count a
    it answers. A file prepared for another reason (its container, its codec) carries stereo mixes
    only in M3, standard and boosted, so on a receiver too the boost is offered there and works
    (the owner, 2026-09-27: *"That's fine with me"*); a surround track in prepared copies, so a
-   receiver keeps its channels, is a later decision.
+   receiver keeps its channels, is a later decision. *(Revised 2026-10-25 by
+   [D336](#d336--a-films-sound-plays-as-it-is-unless-the-device-cannot-play-it-or-the-person-asks-for-a-feature-that-needs-it-made-no-one-is-asked-how-their-device-makes-sound):
+   no one is asked how their device makes sound, and a surround sound is prepared only while the
+   person's boost is on.)*
 3. **Whether the boost is on is the person's** ([D83](#d83--loudness-is-measured-at-scan-and-applied-as-gain-downmix-has-one-default-and-a-dialogue-control-drc-is-per-device)): one choice that follows them
    from film to film, off until they turn it on, and the player starts with it.
 4. **The boost's strength stays one fixed level in M3.** The owner asked whether it should be
@@ -21555,7 +21558,17 @@ dialogue boost could be switched mid-film.
    late on an Android TV by the context's latency (the owner's TCL TV, 2026-10-24; research
    youtube-tv-browser-av-sync-2026-10-24.md).
 
-**Status:** Decided; not built.
+**Status:** Built: part 1: the decision keeps a film's own sound wherever the playable
+formats list its codec and channels (aac-multi apart from aac-stereo, so a browser without
+multichannel AAC still has it made, for audio_codec), and only the dialogue boost, on, over a sound
+of more than two channels prepares it (§1, §2); the boost turned on over the original keeps the
+choice and asks for the film again from where it stands (cause `boostChosen`), answered by its
+ladder or a prepared copy with the boosted mix, and turned off on the ladder or a prepared copy it
+stays there on the standard mix (§3); the question is gone from the first playback, the player, the
+device pages and a Watch Together guest's join, with its `choosingSound` standing, and
+`device.audio_output` is read and written by nothing, kept unmigrated (§4). Night mode (§2, §5) is
+not built. On the ladder, whose sounds are the server's stereo mixes, a film's sound is made as
+before.
 
 ## D335 — What should have been fetched and was not is filled in by the sweeps; a refetch that replaces is the person's deliberate act
 
