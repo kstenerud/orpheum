@@ -346,14 +346,16 @@ export function PadLine(props: {
     return <p className="lab__small">{t("lab.input.controller.none")}</p>;
   }
   const id = pad.id.length > padIdShown ? `${pad.id.slice(0, padIdShown - 1)}…` : pad.id;
-  const isChosen = pad.isStandard && pad.layout === "unknown";
+  // Every standard pad offers the choice: a pad's labels need not match the layout it reports.
+  const isChosen = pad.isStandard;
   const layout = t(`lab.input.controller.layout.${pad.layout}`);
   const ok = t(`lab.input.controller.ok.${pad.okButton}`);
   let said = t("lab.input.controller.noStandard");
-  if (isChosen) {
-    said = t("lab.input.controller.unknown");
-  } else if (pad.isStandard) {
-    said = t("lab.input.controller.standard", { layout, ok });
+  if (pad.isStandard) {
+    said =
+      pad.layout === "unknown"
+        ? t("lab.input.controller.unknown")
+        : t("lab.input.controller.standard", { layout, ok });
   }
   return (
     <div className="lab__controls lab__small">

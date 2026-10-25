@@ -118,17 +118,17 @@ export function padLayoutOf(id: string): PadLayout {
 }
 
 /**
- * Which face button confirms on layout: the right one on Nintendo's, the bottom one on Xbox's and
- * PlayStation's; on an unknown layout the person's choice, else the bottom one, the more common.
+ * Which face button confirms: the person's choice where they made one, whatever the layout, since
+ * a pad's labels need not match what it reports (the owner's 8BitDo SN30 Pro, 2026-10-25: in
+ * X-input mode it reports an Xbox pad, but its labels are Nintendo's, so its A is on the right);
+ * else by layout, the right one on Nintendo's, the bottom one on Xbox's, PlayStation's and an
+ * unknown layout, the more common.
  */
 export function okButtonOf(layout: PadLayout, chosen: OkButton | undefined): OkButton {
-  if (layout === "nintendo") {
-    return "right";
+  if (chosen !== undefined) {
+    return chosen;
   }
-  if (layout === "unknown") {
-    return chosen ?? "bottom";
-  }
-  return "bottom";
+  return layout === "nintendo" ? "right" : "bottom";
 }
 
 /** A pad's mapping as the log keeps it: the standard one, none, or another. */
