@@ -21,6 +21,12 @@
 //     TestDevices_FollowsPoolsArraysAndPartitionsToTheirDisksToTellHowEachReads,
 //     TestDevices_APoolOrOverlayWhoseDisksCannotBeSeenIsUnknown,
 //     TestDevices_ADiskBehindUSBIsKnownByItsDrivesRotationRateOrElseUnknown.
+//   - The mount point a path is on is the deepest mount holding it (MountTable, which the disk gate
+//     keys by, D328 §1); the table is read once and again only after the kernel raises POLLPRI on it,
+//     a mount or an unmount since (proc(5)), never at every gated read.
+//     TestMountPointOf_IsTheDeepestMountHoldingThePath, TestMountTable_IsReadAgainOnlyWhenTheKernelSaysItChanged,
+//     TestMountTable_TheSystemsTableSaysUnchangedOnceRead. A mount point mounted over again is the
+//     later mount. TestParseMounts_AMountPointMountedOverAgainIsTheLaterOne.
 //
 // # Read before changing
 //
@@ -29,5 +35,6 @@
 //
 // # Where to change
 //
-//   - gpu.go: the GPU devices. storage.go: the devices the roots are on.
+//   - gpu.go: the GPU devices. storage.go: the devices the roots are on. mounttable.go: the mount
+//     table the disk gate asks.
 package hardware
