@@ -412,7 +412,8 @@ async function cutTransport(page: Page): Promise<void> {
  * A guest as the owner's phone was (2026-10-15): not signed in, joining by the session's link on the
  * discovery's page, over WebRTC. The link's key proves only the offer that spends it, so the guest's
  * later offers, its transport's growth and every replacement, are proven by the membership the core
- * gave it: its transport grows to four, comes back after every connection is lost, and the page,
+ * gave it: its transport grows past its first as its requests crowd it, comes back after every
+ * connection is lost, and the page,
  * loaded again, finds the server by that membership without the spent link.
  */
 test("a guest not signed in keeps reaching the core through the discovery after joining: more connections, lost ones replaced, a reload", async ({
@@ -432,8 +433,9 @@ test("a guest not signed in keeps reaching the core through the discovery after 
     await guest.goto(link);
     await guest.getByRole("button", { name: "Connect" }).click();
     await join(guest, link);
-    // Its transport grows past the connection the link's offer opened.
-    await expect.poll(() => transportConnected(guest), { timeout: 60_000 }).toBe(4);
+    // Its transport grows past the connection the link's offer opened, as joining's requests crowd
+    // it; to four only under more (rtc-transport.ts's growWhenEachCarries).
+    await expect.poll(() => transportConnected(guest), { timeout: 60_000 }).toBeGreaterThan(1);
     await hostPlays(host, warmUpFilm);
     await expect.poll(() => isPlaying(guest), { timeout: 60_000 }).toBe(true);
     // Wi-Fi goes off: every connection is gone, and the ones that replace them carry the next film.
