@@ -140,17 +140,17 @@ export function Browse(props: { readonly kind: BrowseKind }): JSX.Element {
   const { t } = useTranslation();
   const [sort, setSort] = useState<BrowseSort>("name");
   return (
-    <section className="browse" aria-labelledby="browse-heading">
-      <div className="browse__bar">
-        <h1 id="browse-heading">{t(props.kind === "movie" ? "browse.films" : "browse.series")}</h1>
-        <SortChoice sort={sort} onSort={setSort} />
-      </div>
-      <div className="browse__layout">
-        <div>
-          <BrowsePages key={`${props.kind}/${sort}`} kind={props.kind} sort={sort} />
+    <section className="browse browse__layout" aria-labelledby="browse-heading">
+      <div>
+        <div className="browse__bar">
+          <h1 id="browse-heading">
+            {t(props.kind === "movie" ? "browse.films" : "browse.series")}
+          </h1>
+          <SortChoice sort={sort} onSort={setSort} />
         </div>
-        {sort === "name" ? <AlphabetRail /> : null}
+        <BrowsePages key={`${props.kind}/${sort}`} kind={props.kind} sort={sort} />
       </div>
+      {sort === "name" ? <AlphabetRail /> : null}
     </section>
   );
 }
