@@ -98,7 +98,9 @@
 @media (min-width: 600px) {
   :root {
     --space-page: var(--space-5);
-    --size-poster-min: 9rem;
+    /* Six posters across Silk's 960-pixel page on a Fire TV, as Continue Watching showed them
+       (the owner, 2026-10-25: five were too big). */
+    --size-poster-min: 8.5rem;
     --font-size-h1: 2rem;
   }
 }
