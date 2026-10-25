@@ -106,9 +106,14 @@ function RunningInputLayer(props: { readonly children: ReactNode }): JSX.Element
       isNavigating: () => offCountRef.current === 0,
     });
     const stopKeeping = keepFocusOnEntries(navigation, started);
+    // The browser's own Back at the base laid under a page opened directly goes where its Back does.
+    const stopBase = navigation.onBase(() => {
+      navigation.replace(backUpRef.current ?? { screen: "home" });
+    });
     inputRef.current = started;
     return () => {
       inputRef.current = undefined;
+      stopBase();
       stopKeeping();
       started.stop();
     };
