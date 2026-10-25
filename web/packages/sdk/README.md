@@ -6,6 +6,10 @@ playable-formats probe (what this browser can play), the wait for a file the ser
 making, the reading of refusals, and the Watch Together client: a device's connection to its
 session over the session WebSocket (cut-a §5.1), and a player following its group.
 
+It also holds the device lab's capability report (`src/device-report.ts`: what a browser decodes
+and which APIs it has) and a WebRTC call of a page with itself (`src/rtc-loopback.ts`), shared by
+the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither talks to a server.
+
 ## Invariants
 
 - **No React, React DOM or player import.** `sdk-not-to-react-or-player`
@@ -14,6 +18,9 @@ session over the session WebSocket (cut-a §5.1), and a player following its gro
 - **The only code that talks to the server.** `fetch`, `WebSocket`, `EventSource` and
   `XMLHttpRequest` are banned everywhere else by `no-restricted-globals` and
   `no-restricted-properties`; this package is the one exemption.
+- **The device report decides nothing and never ends early**: a probe that throws is no answer,
+  and an old WebView's odd answers are reported as they are; the Fire TV line is a hint from the
+  user agent, never the answer. `src/device-report.test.ts`, `src/rtc-loopback.test.ts`.
 - **One public entry.** `exports` in `package.json` exposes only `src/index.ts`;
   `not-into-another-package-by-path` and `no-barrel-files` stop other routes in.
 - **Watch Together keeps no shared clock** (D66): a playing group's expected position is its

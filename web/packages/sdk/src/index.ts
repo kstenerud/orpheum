@@ -14,6 +14,34 @@ export { apiPrefix, artUrl, createApi } from "./client.ts";
 export type { Api, ApiOptions, ArtSize } from "./client.ts";
 export type { components, operations, paths } from "./gen/api.ts";
 export { browserPlayableFormats, playableFormatsFrom } from "./playable-formats.ts";
+export {
+  audioContextClass,
+  browserDeviceFacts,
+  codecAnswersFrom,
+  countAudioOutputs,
+  deviceReportFrom,
+  fireTvHintOf,
+  labCodecs,
+  labFeatureNames,
+  measureAudioLatency,
+  nativeHlsTypes,
+} from "./device-report.ts";
+export type {
+  AudioLatency,
+  CodecAnswer,
+  CodecProbe,
+  DeviceFacts,
+  DeviceReport,
+  LabFeature,
+} from "./device-report.ts";
+export {
+  failureText,
+  openLoopback,
+  receivedLevelOf,
+  testLoopback,
+  toneTrack,
+} from "./rtc-loopback.ts";
+export type { Loopback, LoopbackResult } from "./rtc-loopback.ts";
 export { browserFetch, textWhenReady, whenReady } from "./ready.ts";
 export { connectRtc } from "./rtc-connect.ts";
 export { RtcTransport, SwitchableFetch } from "./rtc-transport.ts";
