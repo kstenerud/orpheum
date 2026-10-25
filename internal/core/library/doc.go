@@ -240,6 +240,12 @@
 //     or event (D159's first assertion, D157). Enforced by
 //     TestOrderings_APersonsChosenOrderingIsTheSeriesTheySee (internal/core/api).
 //
+//   - A series' page offers every ordering it has, aired first, each with its kind, label and how
+//     many of its episodes it holds; a group carries its ordering's name for it (group_text by
+//     ordering); the episodes the ordering in use leaves out are listed apart at their aired places,
+//     never as Next Up (episode-orderings.md §4, §7 Q4). Enforced by
+//     TestOrderings_APersonChoosesAmongTheOrderingsASeriesHas (internal/core/api).
+//
 //   - A removed file is deleted removed_files_kept_days after it went, by a daily sweep, in short
 //     writes, after each package that holds something of it has dealt with it; a video goes only
 //     once no sidecar of it stays, and its title and version stay (D304 §6, D306 §8).

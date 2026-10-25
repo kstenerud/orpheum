@@ -615,9 +615,24 @@
             "$ref": "#/components/schemas/NextUpBody",
             "description": "The person's next episode, which the page offers to play; absent when every one is finished or none has a file"
           },
+          "notInOrderingCount": {
+            "description": "How many of its episodes the ordering in use leaves out: GET /collections/{id}/not-in-order",
+            "format": "int64",
+            "type": "integer"
+          },
           "ordering": {
             "description": "The ordering its person watches it in, which its seasons are the groups of; absent for aired",
             "type": "string"
+          },
+          "orderings": {
+            "description": "Every ordering it has, aired first; its page offers a choice when there is more than one",
+            "items": {
+              "$ref": "#/components/schemas/OrderingBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           },
           "overview": {
             "type": "string"
@@ -3220,6 +3235,10 @@
             "format": "int64",
             "type": "integer"
           },
+          "groupName": {
+            "description": "The ordering's name for its group (Disc 2); absent where it names none",
+            "type": "string"
+          },
           "groupNumber": {
             "description": "Its group in the ordering, a series' season; 0 for the specials and those with none",
             "format": "int64",
@@ -3547,6 +3566,36 @@
           "sessionId",
           "membershipCredential",
           "isNew"
+        ],
+        "type": "object"
+      },
+      "OrderingBody": {
+        "additionalProperties": false,
+        "properties": {
+          "episodeCount": {
+            "description": "How many of the series' episodes it holds",
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "description": "What order it is: aired, or a TMDB group's type (dvd, absolute, digital, story_arc, production, tv, aired_alternate)",
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "listedCount": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Its key, which a choice of it names: aired, or a provider's (tmdb:\u003cgroup id\u003e)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "episodeCount"
         ],
         "type": "object"
       },
@@ -5084,8 +5133,12 @@
             "format": "int64",
             "type": "integer"
           },
+          "name": {
+            "description": "The ordering's name for it (Disc 2); absent where it names none, as aired names no season",
+            "type": "string"
+          },
           "seasonNumber": {
-            "description": "0 for the specials and the episodes with no season",
+            "description": "Its group's number; aired's 0 for the specials and the episodes with no season",
             "format": "int64",
             "type": "integer"
           },
@@ -5364,6 +5417,16 @@
           },
           "isLevellingOn": {
             "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "SetSeriesPreferencesInputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "episodeOrdering": {
+            "maxLength": 200,
+            "type": "string"
           }
         },
         "type": "object"
@@ -8299,6 +8362,134 @@
           }
         },
         "summary": "A series with its seasons, each with how many episodes it has",
+        "tags": [
+          "Browse"
+        ]
+      }
+    },
+    "/collections/{id}/not-in-order": {
+      "get": {
+        "operationId": "getNotInOrdering",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "From the previous page's nextCursor",
+            "explode": false,
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "description": "From the previous page's nextCursor",
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "maximum": 500,
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SeasonOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "A page of a series' episodes the ordering the person watches it in leaves out, in aired order",
+        "tags": [
+          "Browse"
+        ]
+      }
+    },
+    "/collections/{id}/preferences": {
+      "put": {
+        "operationId": "setSeriesPreferences",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 1,
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetSeriesPreferencesInputBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "Keep a person's choices in one series: the ordering they watch it in, which its pages, its episodes' labels and its Next Up follow",
         "tags": [
           "Browse"
         ]

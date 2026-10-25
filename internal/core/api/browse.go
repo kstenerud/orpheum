@@ -176,9 +176,11 @@ type EpisodeBody struct {
 	Unavailable *UnavailableBody `json:"unavailable,omitempty"`
 }
 
-// SeasonBody is one season of a series, as its page lists it (D306 §9).
+// SeasonBody is one season of a series, a group of the ordering its person watches it in, as its page
+// lists it (D306 §9).
 type SeasonBody struct {
-	SeasonNumber int64  `doc:"0 for the specials and the episodes with no season" json:"seasonNumber"`
+	SeasonNumber int64  `doc:"Its group's number; aired's 0 for the specials and the episodes with no season" json:"seasonNumber"`              //nolint:lll // one struct tag
+	Name         string `doc:"The ordering's name for it (Disc 2); absent where it names none, as aired names no season" json:"name,omitempty"` //nolint:lll // one struct tag
 	EpisodeCount int64  `json:"episodeCount"`
 	StillSha256  string `doc:"Its first episode's still that has one" json:"stillSha256,omitempty"`
 }
@@ -198,12 +200,25 @@ type CollectionOutput struct {
 		LibraryID           int64             `json:"libraryId"`
 		Ordering            string            `doc:"The ordering its person watches it in, which its seasons are the groups of; absent for aired" json:"ordering,omitempty"` //nolint:lll // one struct tag
 		Seasons             []SeasonBody      `json:"seasons"`
+		Orderings           []OrderingBody    `doc:"Every ordering it has, aired first; its page offers a choice when there is more than one" json:"orderings,omitempty"`             //nolint:lll // one struct tag
+		NotInOrderingCount  int64             `doc:"How many of its episodes the ordering in use leaves out: GET /collections/{id}/not-in-order" json:"notInOrderingCount,omitempty"` //nolint:lll // one struct tag
 		Art                 ArtBody           `json:"art"`
 		FetchFailure        *FetchFailureBody `json:"fetchFailure,omitempty"`
 		RefreshRequestedAt  int64             `doc:"When a person asked for it to be refreshed, while no fetch has answered yet" json:"refreshRequestedAt,omitempty"`                        //nolint:lll // one struct tag
 		Unavailable         *UnavailableBody  `doc:"Why none of its episodes' files can be read now; absent when one can" json:"unavailable,omitempty"`                                      //nolint:lll // one struct tag
 		NextUp              *NextUpBody       `doc:"The person's next episode, which the page offers to play; absent when every one is finished or none has a file" json:"nextUp,omitempty"` //nolint:lll // one struct tag
 	}
+}
+
+// OrderingBody is one of a series' orderings, as its page offers it (episode-orderings.md §4).
+type OrderingBody struct {
+	Name string `doc:"Its key, which a choice of it names: aired, or a provider's (tmdb:<group id>)" json:"name"`
+	Kind string `doc:"What order it is: aired, or a TMDB group's type (dvd, absolute, digital, story_arc, production, tv, aired_alternate)" json:"kind,omitempty"` //nolint:lll // one struct tag
+	// Label is its provider's name for it ("DVD Order"); absent for aired.
+	Label string `json:"label,omitempty"`
+	// ListedCount is how many episodes its provider lists in it; absent when it did not say.
+	ListedCount  int64 `json:"listedCount,omitempty"`
+	EpisodeCount int64 `doc:"How many of the series' episodes it holds" json:"episodeCount"`
 }
 
 // NextUpBody is a person's Next Up in a collection's ordering (D160), for a series the one they watch
@@ -213,6 +228,7 @@ type NextUpBody struct {
 	Name          string           `json:"name,omitempty"`
 	GroupNumber   int64            `doc:"Its group in the ordering, a series' season; 0 for the specials and those with none" json:"groupNumber"` //nolint:lll // one struct tag
 	NumberInGroup int64            `doc:"Its number in its group, a series' episode number" json:"numberInGroup"`
+	GroupName     string           `doc:"The ordering's name for its group (Disc 2); absent where it names none" json:"groupName,omitempty"`             //nolint:lll // one struct tag
 	FileID        int64            `doc:"The file its Play plays: the one the person is partway through, else its first" json:"fileId"`                  //nolint:lll // one struct tag
 	IsPartway     bool             `doc:"Whether the person is partway through it, which its Play resumes" json:"isPartway"`                             //nolint:lll // one struct tag
 	PositionMs    int64            `doc:"Where in the file the person is, when partway through it" json:"positionMs,omitempty"`                          //nolint:lll // one struct tag
@@ -277,6 +293,11 @@ func (server *Server) registerBrowse() {
 		OperationID: "getSeason", Method: http.MethodGet, Path: "/collections/{id}/seasons/{season}",
 		Summary: "A page of one season's episodes, in the ordering the person watches the series in", Tags: tags,
 	}, server.getSeason)
+	huma.Register(server.humaAPI, huma.Operation{
+		OperationID: "getNotInOrdering", Method: http.MethodGet, Path: "/collections/{id}/not-in-order",
+		Summary: "A page of a series' episodes the ordering the person watches it in leaves out, in aired order",
+		Tags:    tags,
+	}, server.getNotInOrdering)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "search", Method: http.MethodGet, Path: "/search",
 		Summary: "Titles and series by name, in any script (D48)", Tags: tags,
@@ -413,9 +434,18 @@ func (server *Server) getSeries(ctx context.Context, input *ItemInput) (*Collect
 	body.Seasons = make([]SeasonBody, 0, len(series.Seasons))
 	for _, season := range series.Seasons {
 		body.Seasons = append(body.Seasons, SeasonBody{
-			SeasonNumber: season.Number, EpisodeCount: season.EpisodeCount, StillSha256: season.StillSha256,
+			SeasonNumber: season.Number, Name: season.Name, EpisodeCount: season.EpisodeCount,
+			StillSha256: season.StillSha256,
 		})
 	}
+	body.Orderings = make([]OrderingBody, 0, len(series.Orderings))
+	for _, ordering := range series.Orderings {
+		body.Orderings = append(body.Orderings, OrderingBody{
+			Name: ordering.Name, Kind: ordering.Kind, Label: ordering.Label, ListedCount: ordering.ListedCount,
+			EpisodeCount: ordering.EpisodeCount,
+		})
+	}
+	body.NotInOrderingCount = series.NotInOrderingCount
 	body.Art = artBody(series.Art)
 	next, hasNext, err := dependencies.Browser.NextUp(ctx, principal.UserID, series.ID, series.Ordering)
 	if err != nil {
@@ -424,7 +454,8 @@ func (server *Server) getSeries(ctx context.Context, input *ItemInput) (*Collect
 	if hasNext {
 		body.NextUp = &NextUpBody{
 			TitleID: next.TitleID, Name: next.Name, GroupNumber: next.Group, NumberInGroup: next.NumberInGroup,
-			FileID: next.FileID, IsPartway: next.IsPartway, PositionMs: next.PartwayAtMs,
+			GroupName: next.GroupName,
+			FileID:    next.FileID, IsPartway: next.IsPartway, PositionMs: next.PartwayAtMs,
 			Unavailable: unavailableBody(next.Unreadable, server.nodeNamer(ctx, dependencies)),
 		}
 	}
@@ -442,6 +473,38 @@ func (server *Server) getSeason(ctx context.Context, input *SeasonInput) (*Seaso
 	if err != nil {
 		return nil, server.libraryError(ctx, "read a season", err)
 	}
+	return server.episodePageOutput(ctx, dependencies, page), nil
+}
+
+// NotInOrderingInput asks for a page of the episodes a series' ordering in use leaves out.
+type NotInOrderingInput struct {
+	AuthorizationHeader
+	ID     int64  `path:"id"`
+	Cursor string `doc:"From the previous page's nextCursor" query:"cursor"`
+	Limit  int64  `maximum:"500" minimum:"1" query:"limit" required:"true"`
+}
+
+// getNotInOrdering is a page of the episodes the ordering the person watches a series in leaves out,
+// at their aired places, which its page lists after the ordering's groups (episode-orderings.md
+// §7 Q4); none in aired.
+func (server *Server) getNotInOrdering(ctx context.Context, input *NotInOrderingInput) (*SeasonOutput, error) {
+	dependencies, principal, err := server.requireSignedIn(ctx, input.Authorization)
+	if err != nil {
+		return nil, err
+	}
+	page, err := dependencies.Browser.NotInOrdering(ctx, principal.Reach, library.SeasonQuery{
+		SeriesID: input.ID, UserID: principal.UserID, Cursor: input.Cursor, Limit: input.Limit,
+	})
+	if err != nil {
+		return nil, server.libraryError(ctx, "read the episodes not in a series' ordering", err)
+	}
+	return server.episodePageOutput(ctx, dependencies, page), nil
+}
+
+// episodePageOutput is a page of a series' episodes as the API says it.
+func (server *Server) episodePageOutput(
+	ctx context.Context, dependencies *Dependencies, page library.SeasonPage,
+) *SeasonOutput {
 	output := &SeasonOutput{}
 	output.Body.Episodes = make([]EpisodeBody, 0, len(page.Episodes))
 	nodeName := server.nodeNamer(ctx, dependencies)
@@ -461,7 +524,7 @@ func (server *Server) getSeason(ctx context.Context, input *SeasonInput) (*Seaso
 		})
 	}
 	output.Body.NextCursor = page.NextCursor
-	return output, nil
+	return output
 }
 
 func (server *Server) search(ctx context.Context, input *SearchInput) (*SearchOutput, error) {

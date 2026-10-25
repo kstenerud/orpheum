@@ -9,7 +9,7 @@
   episode ordering, *aired, DVD, absolute, production, custom*, with every ordering the same
   mechanism ([D160](../../decisions/working-notes.md): a sequence is what a Collection produces,
   and Next Up is a query over any of them). The owner answered §7 the same day. Building the
-  viewing order, §6's steps 1–4; steps 1 and 2 are built (each step says so below).
+  viewing order, §6's steps 1–4; steps 1 to 3 are built (each step says so below).
 - **Depends on:** [play-state.md](play-state.md) (Next Up over an ordering),
   [schema.md](schema.md) (`ordering`, `position`, `group_text`, `preference`),
   [closed-beta.md](closed-beta.md) (B2, "Episode orderings", D96 and D210, size M).
@@ -362,6 +362,17 @@ fixtures and the fake provider (`internal/core/identify/identifytest`), never TM
 3. **The selector.** `GET /collections/{id}` lists the orderings the series has and the one in
    use; a `PUT` sets the preference. The series page shows the selector when there is more than
    one. *Test:* API and web tests; a series with one ordering shows none.
+   *Built 2026-10-25:* `GET /collections/{id}` gives `orderings` (aired first, then providers' by
+   label, then the household's own) with `kind`, `label`, `listedCount` and `episodeCount`, the
+   `ordering` in use (absent for aired), each season's `name` from `group_text`, `nextUp.groupName`
+   and `notInOrderingCount`; `GET /collections/{id}/not-in-order` pages the episodes the ordering in
+   use leaves out at their aired places (§7 Q4); `PUT /collections/{id}/preferences` with
+   `episodeOrdering` keeps a choice of one the series has and refuses another. The web client's
+   selector is a `<select>` on the series' top page; choosing goes to that page (§7 Q10). Labels
+   (§7 Q8): aired keeps "S1E3"; another ordering "Disc 1 · 2" by the group's name, "Part 2 · 3" where
+   it names none, "Episode 812" in an ordering of one group; an episode's page adds "Aired as S1E1".
+   **Flagged for the owner:** the selector shows how many episodes an ordering *holds*; one not yet
+   fetched holds none, so it shows TMDB's count of what it *lists* instead.
 4. **TMDB groups.** Append `episode_groups` to the series fetch and parse the list; fetch a
    group's contents when chosen, store it as `episode_group/<id>`, materialise its ordering,
    positions and group names. *Test:* a stored *Emberwing*-shaped fixture group makes an ordering

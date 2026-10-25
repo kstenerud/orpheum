@@ -123,6 +123,20 @@ func (service *Service) setPersonalSwitch(ctx context.Context, userID int64, axi
 	return nil
 }
 
+// ChooseEpisodeOrdering keeps the ordering a person watches a series in, by its name (D159 §1): a
+// choice of theirs on the series' page, never one inferred from what they watch (D159 §4). The
+// caller has found the series has it; one it no longer has is read as no choice.
+func (service *Service) ChooseEpisodeOrdering(ctx context.Context, userID, seriesID int64, ordering string) error {
+	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+		inSeries := place{userID: userID, scope: scopeWork, scopeID: seriesID, axis: AxisEpisodeOrdering}
+		return service.set(ctx, queries, replacing, inSeries, ordering)
+	})
+	if err != nil {
+		return fmt.Errorf("keep the ordering user %d watches series %d in: %w", userID, seriesID, err)
+	}
+	return nil
+}
+
 // writeMode is whether a preference replaces one already kept at its place.
 type writeMode bool
 

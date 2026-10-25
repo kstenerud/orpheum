@@ -50,7 +50,7 @@ func (harness testHarness) shelve(t *testing.T) {
 		 (2, 1, 1, '/m/BB/S01E01.mkv', 10, X'02', 'listed', 2, 1, 1)`,
 		`INSERT INTO stream (bytes_file, video_file, stream_index, kind, codec, language, channel_count) VALUES
 		 (1, 1, 0, 'video', 'h264', NULL, NULL), (1, 1, 1, 'audio', 'truehd', 'en', 8)`,
-		"INSERT INTO ordering (id, collection_id, name) VALUES (1, 20, 'aired')",
+		"INSERT INTO ordering (id, collection_id, name, kind) VALUES (1, 20, 'aired', 'aired')",
 		"INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order) "+
 			"VALUES (1, 21, 1, 1, 10001)",
 		"INSERT INTO collection_member (collection_id, member_title, position) VALUES (20, 21, 10001)",

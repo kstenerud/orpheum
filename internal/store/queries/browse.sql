@@ -135,10 +135,17 @@ WHERE position.title_id = sqlc.arg(title_id) AND ordering.name = 'aired';
 
 -- name: GetPlaceInOrdering :one
 -- A member's place in one of its collection's named orderings (D96, D159): its group and number in
--- it, and how many groups the ordering has, one for an ordering that is a single run (absolute).
+-- it, how many groups the ordering has, one for an ordering that is a single run (absolute), and its
+-- group's name where the ordering names it, '' where it does not.
 SELECT position.group_number, position.number_in_group,
   (SELECT count(DISTINCT coalesce(other.group_number, 0)) FROM position AS other WHERE other.ordering_id = ordering.id)
-    AS group_count
+    AS group_count,
+  CAST(coalesce((
+    SELECT group_text.name FROM group_text
+    WHERE group_text.ordering_id = ordering.id AND group_text.group_number = position.group_number
+      AND group_text.name IS NOT NULL
+    ORDER BY group_text.language LIMIT 1
+  ), '') AS TEXT) AS group_name
 FROM ordering
 JOIN position ON position.ordering_id = ordering.id
 WHERE ordering.collection_id = sqlc.arg(collection_id) AND ordering.name = sqlc.arg(ordering_name)
@@ -204,6 +211,65 @@ WHERE ordering.collection_id = sqlc.arg(collection_id) AND ordering.name = sqlc.
   AND position.sort_order > sqlc.arg(after_sort_order)
 ORDER BY position.sort_order
 LIMIT sqlc.arg(max_rows);
+
+-- name: ListSeriesOrderings :many
+-- A series' orderings, as its page offers them (episode-orderings.md section 4): aired first, then each
+-- provider's by its label, then the household's own; each with its kind, its provider's label and
+-- how many episodes the provider lists in it, and how many of the series' live episodes it holds.
+SELECT ordering.name, ordering.kind, ordering.label, ordering.listed_count,
+  (SELECT count(*) FROM position JOIN item ON item.id = position.title_id AND item.removed_at IS NULL
+   WHERE position.ordering_id = ordering.id) AS episode_count
+FROM ordering
+WHERE ordering.collection_id = sqlc.arg(collection_id)
+ORDER BY ordering.name <> 'aired', ordering.provider IS NULL, coalesce(ordering.label, ordering.name), ordering.id;
+
+-- name: ListOrderingGroupNames :many
+-- The names an ordering of a series gives its groups ("Disc 2", "Volume 3"), each group's in the first
+-- language it has one in; a group it names none of is not listed.
+SELECT group_text.group_number, CAST(group_text.name AS TEXT) AS name
+FROM ordering
+JOIN group_text ON group_text.ordering_id = ordering.id AND group_text.name IS NOT NULL
+WHERE ordering.collection_id = sqlc.arg(collection_id) AND ordering.name = sqlc.arg(ordering_name)
+ORDER BY group_text.group_number, group_text.language;
+
+-- name: ListEpisodesNotInOrdering :many
+-- A page of a series' episodes that one of its orderings leaves out, in aired order, which every
+-- episode is in, after the one at after_sort_order, each at its aired place and with whether it has
+-- a live file: what its page lists under "Not in this order" (episode-orderings.md section 7, Q4).
+SELECT aired.title_id, aired.group_number, aired.number_in_group, aired.sort_order, item_text.name,
+  title.year, title.runtime_ms, title.identification_state,
+  EXISTS (
+    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+    WHERE version.title_id = aired.title_id AND version.removed_at IS NULL AND file.removed_at IS NULL
+  ) AS available
+FROM ordering AS aired_ordering
+JOIN position AS aired ON aired.ordering_id = aired_ordering.id
+JOIN title ON title.id = aired.title_id
+JOIN item ON item.id = title.id
+LEFT JOIN item_text ON item_text.item_id = aired.title_id AND item_text.is_original = 1
+WHERE aired_ordering.collection_id = sqlc.arg(collection_id) AND aired_ordering.name = 'aired'
+  AND item.removed_at IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM ordering AS chosen JOIN position AS there ON there.ordering_id = chosen.id
+    WHERE chosen.collection_id = aired_ordering.collection_id AND chosen.name = sqlc.arg(ordering_name)
+      AND there.title_id = aired.title_id
+  )
+  AND aired.sort_order > sqlc.arg(after_sort_order)
+ORDER BY aired.sort_order
+LIMIT sqlc.arg(max_rows);
+
+-- name: CountEpisodesNotInOrdering :one
+-- How many of a series' live episodes one of its orderings leaves out.
+SELECT count(*)
+FROM ordering AS aired_ordering
+JOIN position AS aired ON aired.ordering_id = aired_ordering.id
+JOIN item ON item.id = aired.title_id AND item.removed_at IS NULL
+WHERE aired_ordering.collection_id = sqlc.arg(collection_id) AND aired_ordering.name = 'aired'
+  AND NOT EXISTS (
+    SELECT 1 FROM ordering AS chosen JOIN position AS there ON there.ordering_id = chosen.id
+    WHERE chosen.collection_id = aired_ordering.collection_id AND chosen.name = sqlc.arg(ordering_name)
+      AND there.title_id = aired.title_id
+  );
 
 -- name: ListLiveFileLocationsOfTitles :many
 -- Where each of some titles' live playable files is: its node and the path it reported, for
