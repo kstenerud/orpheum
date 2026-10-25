@@ -282,3 +282,36 @@ describe("App", () => {
     mounted.unmount();
   });
 });
+
+describe("the signed-in page's start", () => {
+  it("reads each row Home polls once, when the server's waits arrive after it started (W3)", async () => {
+    const heard: Heard[] = [];
+    const services = servedBy(
+      {
+        "GET /me": [200, { id: 1, name: "owner", role: "user", isAdmin: false }],
+        "GET /titles": [200, { titles: [], nextCursor: "" }],
+        "GET /home": [200, { continueWatching: [] }],
+        "GET /client-settings": [
+          200,
+          {
+            screenRefreshFirstWaitSeconds: 3,
+            screenRefreshLongestWaitSeconds: 60,
+            screenRefreshFailedWaitSeconds: 7,
+          },
+        ],
+      },
+      heard,
+      "token",
+    );
+    services.navigation.go({ screen: "home" });
+    const mounted = await mount(withServices(<App />, services));
+    expect(heard.some((each) => each.methodAndPath === "GET /client-settings")).toBe(true);
+    const rows = heard
+      .filter((each) => each.methodAndPath === "GET /home" || each.methodAndPath === "GET /titles")
+      .map((each) => `${each.methodAndPath}${each.query ?? ""}`);
+    expect(rows.length).toBe(3);
+    // Each row is asked for once, not again when the poller takes the server's waits.
+    expect(new Set(rows).size).toBe(rows.length);
+    mounted.unmount();
+  });
+});
