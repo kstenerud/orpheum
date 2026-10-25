@@ -11,6 +11,7 @@ export const enDevices = {
     name: "Its name",
     elsewhere: "Your other devices are on your account page.",
     notListed: "This browser is not one of your devices: sign in again to name it.",
+    soundOffsetNotKept: "This device could not keep its sound timing: {{problem}}",
     controller: {
       heading: "Game controller",
       explain:
