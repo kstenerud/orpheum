@@ -38,7 +38,9 @@ test("once on the WebRTC path, a tab finds and plays a film with nothing of the 
   // Within the app, as a person moves about: a reload would start the app again, on HTTP until it
   // connects anew.
   await page.getByRole("link", { name: "Films", exact: true }).click();
-  const card = page.locator("a.poster-grid__card").filter({ hasText: new RegExp(warmUpFilm, "u") });
+  const card = page
+    .locator(".poster-grid a.poster-card__link")
+    .filter({ hasText: new RegExp(warmUpFilm, "u") });
   await expect(card).toBeVisible({ timeout: 60_000 });
   await card.click();
   await expect(page.getByRole("heading", { name: warmUpFilm })).toBeVisible();
@@ -90,7 +92,7 @@ test(
 
     await host.getByRole("link", { name: "Films", exact: true }).click();
     const card = host
-      .locator("a.poster-grid__card")
+      .locator(".poster-grid a.poster-card__link")
       .filter({ hasText: new RegExp(warmUpFilm, "u") });
     await expect(card).toBeVisible({ timeout: 60_000 });
     await card.click();

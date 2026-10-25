@@ -56,7 +56,7 @@ describe("browse", () => {
     expect(markup).toContain('href="/titles/10"');
     expect(markup).toContain('src="/api/v1/bytes/art/ab12/portrait-m.webp"');
     expect(markup).toContain(
-      '<span class="poster-grid__name">Metropolis</span><span class="poster-grid__year">1995</span>',
+      '<span class="poster-card__name">Metropolis</span><span class="poster-card__detail">1995</span>',
     );
     expect(markup).toContain("No poster");
     expect(markup).toContain("Show more");
@@ -82,7 +82,7 @@ describe("browse", () => {
         ],
       },
     });
-    const tray = markup.slice(markup.indexOf('class="poster-grid__cues"'));
+    const tray = markup.slice(markup.indexOf('poster-card__cues"'));
     expect(tray.indexOf("This cannot be played now")).toBeGreaterThan(0);
     expect(tray.indexOf("This may be identified incorrectly")).toBeGreaterThan(
       tray.indexOf("This cannot be played now"),
@@ -135,6 +135,6 @@ describe("a title that cannot be played now (D241 §3)", () => {
     expect(markup).toContain("Metropolis");
     expect(markup).toContain("Cannot be played now");
     expect(markup).toContain("what was mounted at /media/usb on devnas is missing");
-    expect(markup).toContain("poster-grid__card--unavailable");
+    expect(markup).toContain("poster-card__link--dimmed");
   });
 });

@@ -8,10 +8,9 @@ import { useTranslation } from "react-i18next";
 
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, unavailableText } from "./problem.ts";
-import { ContinueWatching } from "./continue-watching.tsx";
-import { Link } from "./link.tsx";
+import { ContinueWatching, useWatchedPercents } from "./continue-watching.tsx";
 import { StatusTray } from "./status-cues.tsx";
-import { Poster } from "./poster.tsx";
+import { PosterCard, PosterDetail } from "./poster-card.tsx";
 import { itemRoute } from "./router.ts";
 import { EndOfList } from "./end-of-list.tsx";
 import { useServices } from "./services.tsx";
@@ -42,11 +41,13 @@ export function PosterGrid(props: {
   /** Watches each poster, by its place, for the list to know which are in view (usePages). */
   readonly watchItemAt?: ((index: number) => (element: Element | null) => void) | undefined;
 }): JSX.Element {
+  const percents = useWatchedPercents();
   return (
     <ul className="poster-grid" data-focus-container="">
       {props.entries.map((entry, index) => (
-        <PosterCard
+        <GridPoster
           key={entry.id}
+          percent={percents.get(`${props.kind}:${String(entry.id)}`)}
           kind={props.kind}
           entry={entry}
           watch={props.watchItemAt?.(index)}
@@ -60,38 +61,63 @@ export function PosterGrid(props: {
  * One poster with its name, year and cues. A poll that changes one entry draws that one again, as
  * usePages keeps each unchanged entry the very one shown before.
  */
-const PosterCard = memo(function PosterCard(props: {
+const GridPoster = memo(function GridPoster(props: {
   readonly kind: BrowseKind;
   readonly entry: Entry;
+  readonly percent: number | undefined;
   readonly watch: ((element: Element | null) => void) | undefined;
 }): JSX.Element {
-  const { t } = useTranslation();
   const { entry, kind, watch } = props;
-  return (
-    <li ref={watch} className="poster-grid__item">
-      <Link
-        to={itemRoute(kind, entry.id)}
-        className={
-          entry.unavailable === undefined
-            ? "poster-grid__card"
-            : "poster-grid__card poster-grid__card--unavailable"
-        }
-      >
-        <Poster sourceSha256={entry.posterSha256} />
-        <span className="poster-grid__name">{entry.name}</span>
-        {entry.year === undefined ? null : (
-          <span className="poster-grid__year">{t("browse.year", { year: entry.year })}</span>
-        )}
-        {entry.unavailable === undefined ? null : (
-          <span className="poster-grid__unavailable" title={unavailableText(t, entry.unavailable)}>
-            {t("title.unavailableNow")}
-          </span>
-        )}
-      </Link>
-      <StatusTray subject={entry} />
-    </li>
-  );
+  return <EntryPoster kind={kind} entry={entry} percent={props.percent} watch={watch} />;
 });
+
+/**
+ * A film's or series' poster as every list shows it: its page, its year, its status cues, and how
+ * far in it is watched when partway.
+ */
+export function EntryPoster(props: {
+  readonly kind: BrowseKind;
+  readonly entry: Entry;
+  readonly percent: number | undefined;
+  readonly watch?: ((element: Element | null) => void) | undefined;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const { entry, kind, percent } = props;
+  return (
+    <PosterCard
+      to={itemRoute(kind, entry.id)}
+      posterSha256={entry.posterSha256}
+      name={entry.name}
+      details={<EntryDetails entry={entry} />}
+      isDimmed={entry.unavailable !== undefined}
+      cues={<StatusTray subject={entry} />}
+      progress={
+        percent === undefined
+          ? undefined
+          : { percent, label: t("continueWatching.watched", { percent }) }
+      }
+      watch={props.watch}
+    />
+  );
+}
+
+/** The lines under a film's or series' name: its year, and that it cannot play now. */
+export function EntryDetails(props: { readonly entry: Entry }): JSX.Element {
+  const { t } = useTranslation();
+  const { entry } = props;
+  return (
+    <>
+      {entry.year === undefined ? null : (
+        <PosterDetail>{t("browse.year", { year: entry.year })}</PosterDetail>
+      )}
+      {entry.unavailable === undefined ? null : (
+        <PosterDetail title={unavailableText(t, entry.unavailable)}>
+          {t("title.unavailableNow")}
+        </PosterDetail>
+      )}
+    </>
+  );
+}
 
 /**
  * Films or series, by name or newest first, with no pagination to click through: the next page

@@ -10,6 +10,7 @@ import { Account } from "./account.tsx";
 import { AppShell } from "./app-shell.tsx";
 import { tabStorage } from "./browser-storage.ts";
 import { Browse } from "./browse.tsx";
+import { Home } from "./home.tsx";
 import { NeedsAttention } from "./needs-attention.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 import { InputLayer } from "./input-layer.tsx";
@@ -189,6 +190,9 @@ export function Screen(props: { readonly route: Route }): JSX.Element {
 
 /** The screens anyone signed in may see to watch: lists, a title, a series, playing and search. */
 function viewerScreen(route: Route): JSX.Element | undefined {
+  if (route.screen === "home") {
+    return <Home />;
+  }
   if (route.screen === "films" || route.screen === "series") {
     return <Browse key={route.screen} kind={route.screen === "films" ? "movie" : "series"} />;
   }

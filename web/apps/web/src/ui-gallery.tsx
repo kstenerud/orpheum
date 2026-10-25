@@ -137,10 +137,15 @@ function PostersOfTone(props: { readonly tone: (typeof tones)[number] }): JSX.El
       <h2 id={`gallery-${tone}`}>{t(`gallery.tone.${tone}`)}</h2>
       <ul className="poster-grid">
         {states.map((state) => (
-          <li key={state.key} className="poster-grid__item">
-            <span className="poster-grid__card">
-              <span className={`poster ui-gallery__poster ${toneClass[tone]}`} aria-hidden="true" />
-              <span className="poster-grid__name">{t(state.key)}</span>
+          <li key={state.key} className="poster-card">
+            <span className="poster-card__link">
+              <span className="poster-card__art">
+                <span
+                  className={`poster ui-gallery__poster ${toneClass[tone]}`}
+                  aria-hidden="true"
+                />
+              </span>
+              <span className="poster-card__name">{t(state.key)}</span>
             </span>
             <StatusTray subject={state.subject} />
           </li>

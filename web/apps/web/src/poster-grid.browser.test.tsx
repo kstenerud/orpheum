@@ -33,12 +33,12 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
         "GET /titles": { titles: films(12), nextCursor: "" },
       }),
     );
-    await expect.poll(() => isDrawn(".poster-grid__card")).toBe(true);
+    await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
     const items = [...document.querySelectorAll<HTMLElement>(".poster-grid > li")];
     const firstRowTop = items[0]?.getBoundingClientRect().top;
     const across = items.filter((item) => item.getBoundingClientRect().top === firstRowTop).length;
     expect(across).toBe(6);
-    const card = items[0]?.querySelector(".poster-grid__card");
+    const card = items[0]?.querySelector(".poster-grid .poster-card__link");
     const item = items[0];
     if (card === null || card === undefined || item === undefined) {
       throw new Error("the grid has no card");

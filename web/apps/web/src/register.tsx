@@ -159,7 +159,7 @@ function useRegistration(secret: string): {
         // to D154's rule). It is spent now, and Films takes its page's place, so it stays in
         // neither the address nor the history, and Back leaves the app.
         session.signIn(token, { deviceId: user.device?.id, deviceSecret, locator });
-        navigation.replace({ screen: "films" });
+        navigation.replace({ screen: "home" });
       } catch (cause: unknown) {
         setRefusalText(
           fieldProblemText(t, cause, {

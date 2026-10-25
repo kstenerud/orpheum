@@ -9,11 +9,10 @@ import type { Api, components } from "@orpheum/sdk";
 import { useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { UnplayableSign } from "./unplayable-sign.tsx";
+import { StatusTray } from "./status-cues.tsx";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, throwIfRefused } from "./problem.ts";
-import { Poster } from "./poster.tsx";
-import { Link } from "./link.tsx";
+import { PosterCard, PosterDetail } from "./poster-card.tsx";
 import { useServices } from "./services.tsx";
 import { useResource } from "./use-resource.ts";
 import { placeCode, type OrderingPlace } from "./episode-place.ts";
@@ -51,6 +50,43 @@ export function watchedPercent(
   }
   return Math.min(100, Math.round((row.positionMs * 100) / row.durationMs));
 }
+
+/**
+ * How far in each partway film and series is watched, a whole percent, by its kind and id: a film by
+ * its own row, a series by its partway episode's, the first one listed (the row the server puts
+ * first). Every poster shows it (the owner, 2026-10-25: all posters alike, "the play status if
+ * mid-play"); Continue Watching is where the server says it.
+ */
+export function watchedPercentsOf(
+  rows: readonly ContinueWatchingRow[],
+): ReadonlyMap<string, number> {
+  const percents = new Map<string, number>();
+  for (const row of rows) {
+    const percent = watchedPercent(row);
+    const key =
+      row.episode === undefined
+        ? `movie:${String(row.id)}`
+        : `series:${String(row.episode.seriesId)}`;
+    if (percent !== undefined && !percents.has(key)) {
+      percents.set(key, percent);
+    }
+  }
+  return percents;
+}
+
+/** The person's partway films and series, by kind and id, for the posters of a list. */
+export function useWatchedPercents(): ReadonlyMap<string, number> {
+  const { api } = useServices();
+  const [rows] = useResource(
+    "continue-watching",
+    () => loadContinueWatching(api),
+    useBackgroundChangesPoller(),
+  );
+  return rows.state === "loaded" ? watchedPercentsOf(rows.value) : noPercents;
+}
+
+/** No film or series partway, while the person's are not yet read. */
+const noPercents: ReadonlyMap<string, number> = new Map();
 
 /** An episode's series, place and own name, for naming its row. */
 export interface EpisodeNaming {
@@ -122,7 +158,7 @@ export function ContinueWatchingView(props: {
           </button>
         </output>
       )}
-      <ul className="continue-watching__rows" data-focus-container="">
+      <ul className="poster-row" data-focus-container="">
         {props.rows.map((row) => (
           <ContinueWatchingRowView
             key={row.id}
@@ -149,42 +185,41 @@ function ContinueWatchingRowView(props: {
   const { row } = props;
   const percent = watchedPercent(row);
   return (
-    <li className="continue-watching__row">
-      <Link
-        to={
-          row.unavailable === undefined
-            ? { screen: "play", fileId: row.fileId }
-            : { screen: "title", itemId: row.id }
-        }
-        className="continue-watching__play"
-      >
-        <Poster sourceSha256={row.posterSha256} />
-        <span className="continue-watching__name">{props.name}</span>
-        {row.unavailable === undefined ? null : (
-          <span className="continue-watching__file">{t("title.unavailableNow")}</span>
-        )}
-        {row.fileName === undefined ? null : (
-          <span className="continue-watching__file">{row.fileName}</span>
-        )}
-        {percent === undefined ? null : (
-          <progress
-            value={percent}
-            max={100}
-            aria-label={t("continueWatching.watched", { percent })}
-          />
-        )}
-      </Link>
-      {row.unavailable === undefined ? null : <UnplayableSign unavailable={row.unavailable} />}
-      <button
-        type="button"
-        onClick={() => {
-          props.onHide(row);
-        }}
-        aria-label={t("continueWatching.hideLabel", { name: props.name })}
-      >
-        {t("continueWatching.hide")}
-      </button>
-    </li>
+    <PosterCard
+      to={
+        row.unavailable === undefined
+          ? { screen: "play", fileId: row.fileId }
+          : { screen: "title", itemId: row.id }
+      }
+      posterSha256={row.posterSha256}
+      name={props.name}
+      details={
+        <>
+          {row.unavailable === undefined ? null : (
+            <PosterDetail>{t("title.unavailableNow")}</PosterDetail>
+          )}
+          {row.fileName === undefined ? null : <PosterDetail>{row.fileName}</PosterDetail>}
+        </>
+      }
+      progress={
+        percent === undefined
+          ? undefined
+          : { percent, label: t("continueWatching.watched", { percent }) }
+      }
+      cues={<StatusTray subject={row} />}
+      actions={
+        <button
+          type="button"
+          className="poster-card__action"
+          onClick={() => {
+            props.onHide(row);
+          }}
+          aria-label={t("continueWatching.hideLabel", { name: props.name })}
+        >
+          {t("continueWatching.hide")}
+        </button>
+      }
+    />
   );
 }
 

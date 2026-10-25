@@ -19,6 +19,7 @@ interface Destination {
   readonly route: Route;
   /** The key of the destination's name in the catalogue, under nav. */
   readonly labelKey:
+    | "home"
     | "films"
     | "series"
     | "search"
@@ -49,6 +50,7 @@ interface Destination {
 }
 
 const destinations: readonly Destination[] = [
+  { route: { screen: "home" }, labelKey: "home", audience: "everyone", group: "watching" },
   { route: { screen: "films" }, labelKey: "films", audience: "everyone", group: "watching" },
   { route: { screen: "series" }, labelKey: "series", audience: "everyone", group: "watching" },
   {
@@ -155,7 +157,7 @@ export function AppShell(props: {
       <header className="app-shell__banner" data-focus-container="" data-focus-covers-top="">
         <p className="app-shell__title">
           {/* The logo is the way home, to the library's first shelf, as on most sites. */}
-          <Link to={{ screen: "films" }} className="app-shell__home">
+          <Link to={{ screen: "home" }} className="app-shell__home">
             <img className="app-shell__logo" src={logo} alt={productName} />
           </Link>
         </p>

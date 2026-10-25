@@ -114,7 +114,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
   it("opens the banner's menu by OK, goes down its places to This device, and Back returns to its icon", async () => {
     await page.viewport(width, height);
     walking = await mountApp(walkServices({ ...signedIn, "GET /me/devices": { devices: [] } }));
-    await drawn(".poster-grid__card");
+    await drawn(".poster-grid .poster-card__link");
     await press("{ArrowDown}");
     expect(await pressUntil("{ArrowUp}", () => isFocusIn(".app-shell__banner"))).toBe(true);
     expect(await pressUntil("{ArrowRight}", () => focusedName() === "Menu")).toBe(true);
@@ -124,7 +124,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
     await press("{Enter}");
     await drawn("#this-device-heading");
     await press("{Escape}");
-    await drawn(".poster-grid__card");
+    await drawn(".poster-grid .poster-card__link");
     await expect.poll(focusedName).toBe("Menu");
     expect(document.querySelector("details")?.open).toBe(false);
   });
@@ -132,7 +132,7 @@ describe.each(screens)("the pages by a remote's keys, on $name", ({ width, heigh
   it("closes the open menu by Back, keeping its icon, before going anywhere", async () => {
     await page.viewport(width, height);
     walking = await mountApp(walkServices(signedIn));
-    await drawn(".poster-grid__card");
+    await drawn(".poster-grid .poster-card__link");
     await press("{ArrowDown}");
     await pressUntil("{ArrowUp}", () => isFocusIn(".app-shell__banner"));
     await pressUntil("{ArrowRight}", () => focusedName() === "Menu");

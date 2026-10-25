@@ -5,7 +5,7 @@ import "./uncertain-match.css";
 import { use, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { IsAdminContext, WarningSign } from "./warning-sign.tsx";
+import { IsAdminContext } from "./warning-sign.tsx";
 
 /**
  * The uncertain match's icon, the owner's (2026-10-15): a question mark on the caution yellow.
@@ -35,23 +35,6 @@ export function UncertainMatchIcon(props: { readonly isRinged: boolean }): JSX.E
         <circle className="uncertain-match-icon__dot" cx="12" cy="18.8" r="1.7" />
       </g>
     </svg>
-  );
-}
-
-/**
- * The cue over the poster of a film or series whose match is a guess no person confirmed (D301 §4),
- * opening what it means as a warning sign does (D278): an administrator is told how to correct it,
- * anyone else that it may be another work of the name, and to tell them.
- */
-export function UncertainMatchSign(): JSX.Element {
-  const { t } = useTranslation();
-  return (
-    <WarningSign
-      summary={t("warning.uncertainMatch")}
-      forAdmin={t("warning.uncertainMatchForAdmin")}
-      forViewer={t("warning.uncertainMatchForViewer")}
-      icon={<UncertainMatchIcon isRinged={true} />}
-    />
   );
 }
 

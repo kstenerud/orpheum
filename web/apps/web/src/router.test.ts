@@ -48,7 +48,8 @@ describe("parseRoute and routeHref", () => {
     ]) {
       expect(parseRoute(pathname, "")).toEqual({ screen: "not-found" });
     }
-    expect(parseRoute("/", "")).toEqual({ screen: "films" });
+    expect(parseRoute("/", "")).toEqual({ screen: "home" });
+    expect(parseRoute("/films", "")).toEqual({ screen: "films" });
   });
 
   it("reaches the device lab by a short address, with or without a slash, and no other probe", () => {

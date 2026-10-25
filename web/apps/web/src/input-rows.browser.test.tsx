@@ -90,8 +90,8 @@ async function pressUntil(key: string, isThere: () => boolean, times = 8): Promi
 
 /** The Continue Watching card that has focus, or what is in it: its film's name; "" for none. */
 function focusedCard(): string {
-  const row = document.activeElement?.closest(".continue-watching__row");
-  return row?.querySelector(".continue-watching__name")?.textContent ?? "";
+  const row = document.activeElement?.closest(".continue-watching .poster-card");
+  return row?.querySelector(".poster-card__name")?.textContent ?? "";
 }
 
 /**
@@ -134,8 +134,8 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
   it("goes back to the film it left in Continue Watching, and to the one it left in the grid", async () => {
     await page.viewport(width, height);
     walking = await mountApp(walkServices(withContinueWatching));
-    await expect.poll(() => isDrawn(".poster-grid__card")).toBe(true);
-    await expect.poll(() => isDrawn(".continue-watching__play")).toBe(true);
+    await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
+    await expect.poll(() => isDrawn(".continue-watching .poster-card__link")).toBe(true);
     await userEvent.keyboard("{ArrowDown}");
     expect(focusedCard()).toBe("Metropolis");
     await userEvent.keyboard("{ArrowRight}");
@@ -167,10 +167,10 @@ describe.each(screens)("rows and lists by a remote's keys, on $name", ({ width, 
   it("draws the whole focus ring of a card in Continue Watching and of a place in the banner, rows that scroll sideways", async () => {
     await page.viewport(width, height);
     walking = await mountApp(walkServices(withContinueWatching));
-    await expect.poll(() => isDrawn(".continue-watching__play")).toBe(true);
+    await expect.poll(() => isDrawn(".continue-watching .poster-card__link")).toBe(true);
     await userEvent.keyboard("{ArrowDown}");
     expect(focusedCard()).toBe("Metropolis");
-    expect(ringOutside(".continue-watching__rows")).toEqual([]);
+    expect(ringOutside(".continue-watching .poster-row")).toEqual([]);
     document.querySelector<HTMLElement>('.app-shell__watching a[href="/series"]')?.focus();
     await userEvent.keyboard("{ArrowLeft}");
     expect(document.activeElement?.getAttribute("href")).toBe("/films");

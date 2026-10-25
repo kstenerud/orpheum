@@ -66,7 +66,7 @@ async function lookAtPairing(
     const { token, deviceSecret, locator, user } = await takePairedSession(api, kept.secret);
     forgetPairing(storage);
     // A television signed in by code starts at home, not wherever the address last was.
-    navigation.go({ screen: "films" });
+    navigation.go({ screen: "home" });
     session.signIn(token, { deviceId: user.device?.id, deviceSecret, locator });
     return { kind: "signingIn" };
   }
