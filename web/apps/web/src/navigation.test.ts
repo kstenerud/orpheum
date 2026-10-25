@@ -81,3 +81,34 @@ describe("navigation's notes on history entries", () => {
     expect(navigation.route()).toEqual({ screen: "series" });
   });
 });
+
+describe("a base under a page a television opened on (the owner's Fire TV, 2026-10-25)", () => {
+  it("lays one, so the remote's Back steps to it and not out of the browser, then goes up", () => {
+    const place = fakePlace("/play/7");
+    const navigation = createNavigation(place, true);
+    const went: string[] = [];
+    navigation.onBase(() => {
+      went.push("up");
+      navigation.replace({ screen: "title", itemId: 3 });
+    });
+    place.history.back();
+    expect(went).toEqual(["up"]);
+    expect(navigation.route()).toEqual({ screen: "title", itemId: 3 });
+  });
+
+  it("goes home from the base when no page says where its Back goes", () => {
+    const place = fakePlace("/play/7");
+    const navigation = createNavigation(place, true);
+    place.history.back();
+    expect(navigation.route()).toEqual({ screen: "home" });
+  });
+
+  it("keeps no secret after the # in the base (D218 §1), and lays none under home", () => {
+    const place = fakePlace("/register#abc_DEF-123");
+    createNavigation(place, true);
+    expect(place.addresses).toEqual(["/register", "/register#abc_DEF-123"]);
+    const home = fakePlace("/");
+    createNavigation(home, true);
+    expect(home.addresses).toEqual(["/"]);
+  });
+});
