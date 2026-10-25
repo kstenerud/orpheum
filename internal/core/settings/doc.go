@@ -30,8 +30,13 @@
 //   - Rows nothing reads are listed, and only they can be deleted, only by a person; a retired key
 //     says when and why (D202). Enforced by TestUnused_ListsRowsNothingReadsAndDeletesOnlyThem and
 //     TestRetiredKeys_AreNotInUseAndSayWhen.
-//   - A missing row is healed: its starting value is written to the database and the heal logged,
-//     never held only in memory (D202). Enforced by TestRead_HealsARemovedSettingAndSaysSo.
+//   - A missing row is healed, by a read that finds it missing from the values it holds or by List:
+//     its starting value is written to the database and the heal logged, never held only in memory
+//     (D202). Enforced by TestRead_HealsARemovedSettingAndSaysSo.
+//   - A read runs no statement once the values are read: they are held in memory, read again after
+//     every write the service makes, so a set or reset is seen by the next read; the core is the
+//     table's only writer, and a row changed behind its back is seen at its next write or start.
+//     Enforced by TestRead_RunsNoStatementAndSeesEachWriteAtOnce.
 //   - A change is checked against the registry's kind and bounds, and, through /settings, against
 //     the important ones, and applied all or none. Enforced by TestSet_RefusesAndChangesNothing.
 //   - Reset writes the starting value back, and refuses a key that is no server setting as

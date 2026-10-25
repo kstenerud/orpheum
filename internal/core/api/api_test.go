@@ -46,6 +46,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/readthrough"
 	"github.com/kstenerud/orpheum/internal/core/renditions"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
+	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
 	"github.com/kstenerud/orpheum/internal/core/together"
@@ -103,6 +104,8 @@ type testHarness struct {
 	backups *backup.Service
 	// reads records each file a play asked to have read first (D304 §4).
 	reads *fakeFileReads
+	// settings are the server's settings, which a test changes through them, as /config does.
+	settings *settings.Service
 }
 
 // fakeFileReads records the files a play asks to have read before what else waits.
@@ -309,7 +312,7 @@ func newHarness(t *testing.T) testHarness {
 		tmdbProvider: provider, cache: cache, nodes: nodes, exchanges: exchanges, directories: directories, clock: now,
 		nodeBytes: nodeBytes, queue: queue, resolver: resolver, backups: backups,
 		subtitler: subtitler, readThrough: readThroughService, subtitles: subtitlesService,
-		renditions: renditionsService, chunks: chunksService, reads: reads,
+		renditions: renditionsService, chunks: chunksService, reads: reads, settings: seeded,
 	}
 }
 

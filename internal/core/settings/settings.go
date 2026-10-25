@@ -56,6 +56,59 @@ type Service struct {
 	reactionsByKey map[Key][]func(context.Context) error // guarded by mutex
 	// machineZone is the machine's own time zone, the server's while time_zone is empty (D246 §7).
 	machineZone localtime.Zone // guarded by mutex
+
+	stored storedValues
+}
+
+// storedValues are every setting row's value, as JSON by key, read in one statement and read again
+// after each write the service makes: a setting is read on hot paths, per chunk and per request,
+// some holding a lock, and the core is the only writer of the table, through this service
+// (principles §11; audit 2026-10-25, S2). A row changed in the file behind the server's back is
+// read at the service's next write, or the next start.
+type storedValues struct {
+	mutex sync.Mutex
+	byKey map[string]string // guarded by mutex; nil until read, and after a read that failed
+}
+
+// valueOf is a row's stored value, and whether there is one, reading every row first when none
+// are held.
+func (service *Service) valueOf(ctx context.Context, key Key) (string, bool, error) {
+	service.stored.mutex.Lock()
+	defer service.stored.mutex.Unlock()
+	if service.stored.byKey == nil {
+		if err := service.readStoredLocked(ctx); err != nil {
+			return "", false, err
+		}
+	}
+	value, isStored := service.stored.byKey[string(key)]
+	return value, isStored, nil
+}
+
+// readStored reads every row again after a write of the table, its transaction ended, committed or
+// not. The lock is held across the read, so one begun before the commit cannot replace it after.
+// A read that fails leaves none held, for the next to try again.
+func (service *Service) readStored(ctx context.Context) {
+	service.stored.mutex.Lock()
+	defer service.stored.mutex.Unlock()
+	if err := service.readStoredLocked(context.WithoutCancel(ctx)); err != nil {
+		service.logger.WarnContext(ctx, "could not read the settings again after a write; the next read tries",
+			"err", err)
+	}
+}
+
+// readStoredLocked reads every row into the held values; the caller holds the mutex.
+func (service *Service) readStoredLocked(ctx context.Context) error {
+	service.stored.byKey = nil
+	rows, err := service.database.Read().ListSettings(ctx)
+	if err != nil {
+		return fmt.Errorf("list settings: %w", err)
+	}
+	byKey := make(map[string]string, len(rows))
+	for _, row := range rows {
+		byKey[row.Key] = row.ValueJSON
+	}
+	service.stored.byKey = byKey
+	return nil
 }
 
 // UseMachineZone is the machine's own time zone, which the server's is while time_zone is empty:
@@ -112,6 +165,7 @@ func (service *Service) heal(ctx context.Context, definition Definition) error {
 			SetAt: service.clock.Now().UnixMilli(),
 		})
 	})
+	service.readStored(ctx)
 	if err != nil {
 		return fmt.Errorf("write the starting value of %s: %w", definition.Key, err)
 	}
@@ -212,19 +266,20 @@ func (service *Service) read(ctx context.Context, key Key, kind Kind, target any
 	if definition.Kind != kind {
 		return fmt.Errorf("%s is a %s setting, read as a %s one: %w", key, definition.Kind, kind, ErrInvalidValue)
 	}
-	row, err := store.OrNotFound(service.database.Read().GetSetting(ctx, string(key)))
-	if errors.Is(err, store.ErrNotFound) {
+	valueJSON, isStored, err := service.valueOf(ctx, key)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", key, err)
+	}
+	if !isStored {
 		if healErr := service.heal(ctx, definition); healErr != nil {
 			return healErr
 		}
-		row.ValueJSON = compactJSON(definition.StartJSON)
-	} else if err != nil {
-		return fmt.Errorf("read %s: %w", key, err)
+		valueJSON = compactJSON(definition.StartJSON)
 	}
-	if row.ValueJSON == "null" {
+	if valueJSON == "null" {
 		return fmt.Errorf("%s: %w", key, ErrUnanswered)
 	}
-	if err = json.Unmarshal([]byte(row.ValueJSON), target); err != nil {
+	if err = json.Unmarshal([]byte(valueJSON), target); err != nil {
 		return fmt.Errorf("read %s: %w", key, err)
 	}
 	return nil
@@ -264,6 +319,7 @@ func (service *Service) Set(
 		}
 		return nil
 	})
+	service.readStored(ctx)
 	if err != nil {
 		return err
 	}
@@ -288,6 +344,7 @@ func (service *Service) Reset(ctx context.Context, key Key, setByUserID *int64) 
 			key: string(key), value: compactJSON(definition.StartJSON), setByUserID: setByUserID, setAt: setAt,
 		})
 	})
+	service.readStored(ctx)
 	if err != nil {
 		return err
 	}
