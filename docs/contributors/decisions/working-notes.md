@@ -8987,6 +8987,8 @@ this today; the rule's boundary is where it would.
 
 ## D135 — Casting on your own is a device delegation, not an invitation; the credential is the session, and the queue is Next Up
 
+> **Narrowed by [D337](#d337--casting-starts-with-a-persons-own-signed-in-devices-one-chosen-from-those-connected-now-plays-the-film-the-one-that-cast-becomes-its-remote-and-either-may-take-control-back)** (2026-10-25): the first casting route is to a device signed in as the same person, which plays under its own sign-in with no `cast` grant; the delegation to a device not signed in waits as a later "takeover for this session only".
+
 **Decided** (2026-09-21), by the project owner. Fills the gap between
 [D88](#d88--casting-is-remote-control-of-another-client-which-is-watch-together-with-a-group-of-one)
 (*casting is Watch Together with a group of one*) and
@@ -9110,6 +9112,8 @@ whether Next Up maps onto all three is not known.
 ---
 
 ## D136 — Control belongs to the cast session, not to the sender; and an externally-paused receiver must say so
+
+> **Narrowed by [D337](#d337--casting-starts-with-a-persons-own-signed-in-devices-one-chosen-from-those-connected-now-plays-the-film-the-one-that-cast-becomes-its-remote-and-either-may-take-control-back)** (2026-10-25): one device controls a cast at a time, and a newer cast by the same person replaces it rather than joining it; the receiver's own controls go on working throughout.
 
 **Decided** (2026-09-21), from the project owner's question: *"when the TV is being cast to,
 the TV's own controls can't affect playback?"* Resolves the open item in
@@ -21527,6 +21531,114 @@ driver, on the image, only where `/dev/nvidiactl` exists (`nvidiaAccess`), passe
 `nvidia.com/gpu=all` or reserves the `nvidia` driver with the four capabilities
 (`mediaOverride`). On gpuhost (rootless Docker, CDI) the node chose `h264_nvenc` confined. The
 driver's route waits on VQ53.
+
+## D337 — Casting starts with a person's own signed-in devices: one chosen from those connected now plays the film, the one that cast becomes its remote, and either may take control back
+
+**Decided** (2026-10-25), by the project owner, choosing the first casting route after the casting
+research ([casting-2026-10-25.md](../design/research/casting-2026-10-25.md),
+[casting-review-2026-10-25.md](../design/research/casting-review-2026-10-25.md)), which proposed the
+remote page and a playback-only credential first, then a Google Cast receiver, and the split-device
+sketch's code at `orpheum.cc`
+([watch-together-split-devices-2026-10-24.md](../design/research/watch-together-split-devices-2026-10-24.md)
+§4) for TVs with no Cast:
+
+> *"The user can select 'cast to other device' from one of their devices. Orpheum brings up a page
+> listing devices that are currently connected and active. The user selects one of them. That
+> device enters casting receiver mode. The casting sender device now controls the casting receiver
+> device. The casting receiver device would also have an escape mode to take back control. This
+> would require the device to be logged in as that user. We can sort out the 'takeover for this
+> session only' functionality later."*
+
+The owner then agreed the answers below the same day, and changed two of them: a second cast by
+the same person takes over without asking (*"a cast session should be last-one-wins"*), and the
+receiver's own media controls go on working (*"the controlled device's media controls should also
+work"*). The route needs no Cast or AirPlay receiver, no code typed on a TV and no new credential:
+a TV whose browser plays our client (Fire TV's Silk, a TCL's TV Bro; closed-beta B5) is signed in
+once, as any device is
+([D288](#d288--a-device-is-activated-by-the-code-it-shows-entered-on-a-device-already-signed-in-and-a-check-code-both-show),
+[D321](#d321--a-tv-shows-a-qr-code-carrying-its-keys-hash-which-activates-it-with-one-tap-the-typed-codes-check-code-is-committed)),
+and is then a device a person can cast to, at home or away. **Narrows**
+[D135](#d135--casting-on-your-own-is-a-device-delegation-not-an-invitation-the-credential-is-the-session-and-the-queue-is-next-up)
+and
+[D136](#d136--control-belongs-to-the-cast-session-not-to-the-sender-and-an-externally-paused-receiver-must-say-so);
+keeps
+[D88](#d88--casting-is-remote-control-of-another-client-which-is-watch-together-with-a-group-of-one),
+[D120](#d120--a-participant-is-a-person-devices-attach-to-them-with-roles-and-the-cap-counts-people)
+and
+[D124](#d124--the-playback-role-may-be-a-cast-receiver-and-for-a-guest-that-is-the-best-path-the-phone-controls-it-does-not-relay).
+Its build plan follows, in plans/cast-to-device.md.
+
+1. **Only a device signed in as the same person can receive.** A receiver is signed in to one
+   account, so only that person's devices can cast to it, and nothing new is minted for it: it
+   plays under its own sign-in, by its own playback decision (D2, D124: the receiver probes and
+   picks; [D103](#d103--a-device-scoped-preference-is-stored-a-device-capability-never-is)). This
+   narrows D135, whose casting to one's own TV was a delegation to a device that is *not* signed
+   in, with a `cast` grant
+   ([D154](#d154--one-grant-table-opaque-and-revocable-the-session-credential-never-appears-in-a-url)
+   §3): that grant is not needed for this route and waits for §8.
+2. **A device is active when Orpheum is open and connected on it now, on any page.** The list of
+   devices to cast to holds the person's other devices that are connected at that moment, each
+   with its name and when it was last used, as the person's own list of devices shows them. A device signed in but not open is
+   not on it.
+3. **The receiver shows the film full screen and nothing else**, with a brief "Controlled from
+   ‹sender device›" that fades.
+4. **Taking control back is two presses.** Any key or tap on the receiver shows "Take back
+   control"; one more press confirms it, so a bumped remote does not end the cast. On Fire TV,
+   Back reaches the page only as a history step (the owner's lab result `Q5JAAP2N`: two history
+   steps, no Back key), which the page can catch, so Back also brings up the prompt. Taken back,
+   the receiver is an ordinary player again, its own controls on screen, and the sender is told.
+5. **The sender becomes a remote:** play and pause, the timeline and seeking, subtitles, sound
+   and the dialogue boost
+   ([D336](#d336--a-films-sound-plays-as-it-is-unless-the-device-cannot-play-it-or-the-person-asks-for-a-feature-that-needs-it-made-no-one-is-asked-how-their-device-makes-sound)
+   §2), and volume. It plays nothing itself. In Watch Together the sender keeps the voice call
+   while the receiver plays the film: the split-device arrangement D120 and
+   [D188](#d188--the-interface-is-designed-against-the-fields-recorded-failures-accessibility-shapes-the-design-but-does-not-gate-cut-a-her-television-plays-and-her-phone-talks)
+   §3 describe (*"her television plays and her phone talks"*), with the person's subtitles,
+   audio track and volume theirs alone (D188 §4).
+6. **One controller at a time; the last cast wins.** If the same person casts to the receiver
+   from a second device, the newest cast takes over at once and the earlier sender is told; no
+   one is asked. This replaces the proposal of asking before replacing, and narrows D136, under
+   which any authorised device could attach to a cast session and control it beside the others:
+   here a device that casts replaces the controller. D136's purpose holds, since a sender that
+   left is never a stuck receiver (§7, §6's next cast).
+7. **The receiver goes on by itself.** If the sender goes away (a phone locked, a browser closed),
+   the receiver keeps playing and shows its own controls at a key press. **Its own media controls
+   work throughout**, receiving or not: play, pause, seek and volume from its own remote, keyboard
+   or media keys act on the playback, and the sender's remote shows the change. A change made on
+   the receiver is reported upward as D136 requires, never inferred from a position standing
+   still.
+8. **Later, not now:** a "takeover for this session only" for a device not signed in as the person
+   (D135's delegation, under D154's grants; the split-device sketch's `orpheum.cc` code and
+   playback-only credential, which serves a Watch Together guest's TV); and Google Cast and AirPlay
+   receivers (D124, D135–D137), which can later appear as further entries in the same "Cast to"
+   list.
+
+**Consequences.**
+
+- **Presence is new.** Nothing in the core knows which devices are open now: a device's
+  `last_used_at` says when it last made a request, and Watch Together's socket holds only a
+  session's members. "Connected now" needs a live connection per open device of a signed-in
+  person, carried over WebRTC when away as the session socket already is.
+- **In Watch Together only someone signed in on the host's core can cast.** A guest who came by a
+  link is an ephemeral account
+  ([D246](#d246--what-a-person-may-do-is-their-roles-an-invite-names-who-it-is-for-and-a-watch-together-viewer-is-an-ephemeral-account-that-sees-only-the-hosts-playback)
+  §3) with one device, and a guest's own TV is signed in to their own household, so their TV waits
+  for §8. The host and a signed-in member, whose sessions follow them to every device
+  ([D267](#d267--a-watch-together-membership-is-kept-by-the-browser-that-joined-or-by-the-account-of-whoever-is-signed-in-and-one-member-may-be-on-several-devices)
+  §2, §3), can cast; a host's receiver leads, as *"whichever device the host plays on leads"*
+  (D267 §3).
+- **D88 is not decided against.** Whether the remote's commands travel through Watch Together's hub
+  (a cast as a session of one, D88) or a channel of the person's own is the plan's judgement for
+  the owner (the build plan's §3).
+- **The research's build order changes:** its remote page (casting-2026-10-25.md §5.2 step 1) is
+  built first for this route, and its playback-only credential, Cast receiver and `orpheum.cc`
+  steps wait for §8.
+
+**Open, for the owner** (the build plan's §9): where "Cast to another device" is offered; which
+device reports the viewing; whether the remote can put on another film; how receiving ends at a
+film's end; and what the sender shows once control is taken back.
+
+**Status:** Decided; not built.
 
 ## D336 — A film's sound plays as it is unless the device cannot play it or the person asks for a feature that needs it made; no one is asked how their device makes sound
 
