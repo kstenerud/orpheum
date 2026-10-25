@@ -241,6 +241,11 @@
 //     TestMembersAheadInGroup_StartAtThePersonsPlaceInTheGroup,
 //     TestMembersOf_ReadThePersonsPositionsAgainstTheThresholds.
 //
+//   - What plays after a file (UpNext) is the member after its title in the ordering its person
+//     watches its series in, offered as Next Up's is, its partway file first; none for a film, an
+//     episode that ordering leaves out, or the last (plans/up-next.md). Enforced by
+//     TestUpNext_IsTheNextEpisodeInThePersonsOrdering (internal/core/api).
+//
 //   - Which ordering a person sees a series in is answered in one place, ViewingOrdering: their
 //     choice, the preference episode_ordering at the series' work scope, when the series still has
 //     it; else aired, the files' order until an admin can name another (D159 §1, D210 §5;
@@ -286,7 +291,8 @@
 //     roots, list, scan, the scanner view); browse.go and detail.go: lists, a title's detail, a
 //     series' episodes, and search; progress.go: how far a person is through a list's entries;
 //     home.go: Continue Watching and the resume thresholds;
-//     next_up.go: a collection's members as a person stands in them, and their Next Up;
+//     next_up.go: a collection's members as a person stands in them, their Next Up, and what plays
+//     after a file (UpNext);
 //     ordering.go: the ordering a person sees a series in, and an episode's place in it;
 //     subtitle_sidecar.go: a subtitle file's track; rootpath.go: which root a file is under, and a
 //     path's text; availability.go: the one writer of a place's availability (D328); places.go:

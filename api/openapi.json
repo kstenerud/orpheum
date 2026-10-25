@@ -7422,6 +7422,40 @@
         ],
         "type": "object"
       },
+      "UpNextBody": {
+        "additionalProperties": false,
+        "properties": {
+          "episode": {
+            "$ref": "#/components/schemas/NextUpBody"
+          },
+          "isOnlyGroup": {
+            "description": "Whether the ordering is one run, whose label names no group",
+            "type": "boolean"
+          },
+          "ordering": {
+            "type": "string"
+          },
+          "stillSha256": {
+            "description": "Its still's hash: GET /bytes/art/{sourceSha256}/landscape-s.webp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "episode",
+          "ordering"
+        ],
+        "type": "object"
+      },
+      "UpNextOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "upNext": {
+            "$ref": "#/components/schemas/UpNextBody",
+            "description": "What the player offers as the file ends; absent for a film, an episode its person's ordering leaves out, and the last"
+          }
+        },
+        "type": "object"
+      },
       "UserBody": {
         "additionalProperties": false,
         "properties": {
@@ -9772,6 +9806,57 @@
           }
         },
         "summary": "Fetch a subtitle for a file; spends one of the account's daily downloads (D224)",
+        "tags": [
+          "Playback"
+        ]
+      }
+    },
+    "/files/{id}/up-next": {
+      "get": {
+        "operationId": "getUpNext",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpNextOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "What plays after a file as it ends: the next episode in the ordering its person watches its series in",
         "tags": [
           "Playback"
         ]

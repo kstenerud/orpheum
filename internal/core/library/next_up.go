@@ -5,6 +5,7 @@ package library
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -151,20 +152,78 @@ func (browser *Browser) NextUp(ctx context.Context, userID, collectionID int64, 
 	if len(ahead) == 0 {
 		return NextUp{}, false, nil
 	}
+	next, err := browser.nextUpOf(ctx, collectionID, ordering, ahead[0])
+	return next, err == nil, err
+}
+
+// nextUpOf is member of collectionID's ordering as its page offers to play it: the file its Play
+// plays, the one its person is partway through, else its first; its group's name; and why none of
+// its files can be read now.
+func (browser *Browser) nextUpOf(ctx context.Context, collectionID int64, ordering string, member Member) (
+	NextUp, error,
+) {
 	names, err := groupNames(ctx, browser.database.Read(), collectionID, ordering)
 	if err != nil {
-		return NextUp{}, false, err
+		return NextUp{}, err
 	}
-	next := NextUp{Member: ahead[0], FileID: ahead[0].FileIDs[0], GroupName: names[ahead[0].Group]}
+	next := NextUp{Member: member, FileID: member.FileIDs[0], GroupName: names[member.Group]}
 	if next.IsPartway {
 		next.FileID = next.PartwayFileID
 	}
 	unreadable, err := browser.unreadableItems(ctx, []int64{next.TitleID}, false)
 	if err != nil {
-		return NextUp{}, false, err
+		return NextUp{}, err
 	}
 	if why, isUnreadable := unreadable[next.TitleID]; isUnreadable {
 		next.Unreadable = &why
 	}
-	return next, true, nil
+	return next, nil
+}
+
+// UpNext is what plays after a file as it ends (plans/up-next.md): the member after the file's
+// title in the ordering its person watches its series in (D159 §1, D160), as Next Up offers it; the
+// ordering, which labels it; whether that ordering is one group, whose label names no group; and
+// the member's still, "" for none.
+type UpNext struct {
+	NextUp
+	Ordering    string
+	IsOnlyGroup bool
+	StillSha256 string
+}
+
+// UpNext is what plays after fileID for userID; false for a file of no series, one its person's
+// ordering leaves out, and its last. ErrNoFile for a file there is not.
+func (browser *Browser) UpNext(ctx context.Context, userID, fileID int64) (UpNext, bool, error) {
+	work, err := browser.WorkOfFile(ctx, fileID)
+	if err != nil || work.TitleID == 0 {
+		return UpNext{}, false, err
+	}
+	place, err := browser.episodePlace(ctx, userID, work.TitleID)
+	if err != nil || place == nil {
+		return UpNext{}, false, err
+	}
+	members, err := ReadMembers(ctx, browser.database.Read(), browser.settings, place.CollectionID, userID,
+		place.Ordering)
+	if err != nil {
+		return UpNext{}, false, err
+	}
+	at := slices.IndexFunc(members, func(each Member) bool { return each.TitleID == work.TitleID })
+	if at < 0 || at+1 >= len(members) {
+		return UpNext{}, false, nil
+	}
+	next, err := browser.nextUpOf(ctx, place.CollectionID, place.Ordering, members[at+1])
+	if err != nil {
+		return UpNext{}, false, err
+	}
+	stills, err := browser.shownArtSourceSha256s(ctx, ArtStill, []int64{next.TitleID})
+	if err != nil {
+		return UpNext{}, false, err
+	}
+	groups := map[int64]bool{}
+	for _, each := range members {
+		groups[each.Group] = true
+	}
+	return UpNext{
+		NextUp: next, Ordering: place.Ordering, IsOnlyGroup: len(groups) == 1, StillSha256: stills[next.TitleID],
+	}, true, nil
 }
