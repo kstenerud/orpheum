@@ -20,9 +20,15 @@
  */
 .browse__layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr) var(--space-page);
   align-items: start;
+  margin-inline-end: calc(-1 * var(--space-page));
+}
+
+/* The rail stands in the page's right margin, centred there, so the posters keep the same margin on
+   both sides (the owner, 2026-10-25: the left one was half the right). */
+.browse__layout > .alphabet-rail {
+  justify-self: center;
 }
 
 @media (min-width: 600px) and (max-width: 1199px) {
@@ -31,29 +37,48 @@
   }
 }
 
-/* Under the sticky banner, the height of what the window shows of the page. */
+/*
+ * Under the sticky banner, the height of what the window shows of the page, its letters sized by
+ * that height: small on a Fire TV's 480-pixel page, larger on a desktop's tall window (the owner,
+ * 2026-10-25: "looks very small when viewed on a desktop browser").
+ */
 .alphabet-rail {
   position: sticky;
   inset-block-start: 4.5rem;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  max-height: calc(100vh - 6rem);
+  height: calc(100vh - 6rem);
+  max-height: 60rem;
   margin: 0;
-  padding: var(--space-1) var(--space-2);
+  padding: var(--space-1) 0;
   border-radius: var(--radius-pill);
   background: var(--color-surface-raised);
-  color: var(--color-muted);
-  font-size: 0.7rem;
-  font-weight: var(--font-weight-strong);
-  line-height: 1;
+  font-size: clamp(0.65rem, calc((100vh - 6rem) / 40), 1.25rem);
   list-style: none;
-  text-align: center;
 }
 
 .alphabet-rail > li {
+  display: flex;
   margin: 0;
-  padding-block: 1px;
+}
+
+.alphabet-rail__letter {
+  flex: 1;
+  min-height: 0;
+  padding: 0 0.15em;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--color-muted);
+  font-size: inherit;
+  font-weight: var(--font-weight-strong);
+  line-height: 1.2;
+}
+
+.alphabet-rail__letter:hover:not(:disabled) {
+  background: none;
+  color: var(--color-text);
 }
 
 /* Posters sized by the window: three across a phone, more as it widens, one gutter throughout. */

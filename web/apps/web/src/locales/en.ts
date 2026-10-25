@@ -276,6 +276,7 @@ export const en = {
     sort: "Sort",
     byName: "By name",
     byAdded: "Newest first",
+    alphabet: "Jump to a letter",
     empty: "Nothing here yet. Once a library is scanned, what it holds shows here.",
     noLibrary:
       "You have not been given any library yet, so there is nothing to watch. Ask whoever runs this server to share one with you.",

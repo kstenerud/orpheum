@@ -12,9 +12,17 @@ import "./base.css";
 import "./i18n.ts";
 
 import { afterEach, describe, expect, it } from "vitest";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 
-import { films, isDrawn, mountApp, viewer, walkServices, type Walking } from "./test-walk.tsx";
+import {
+  films,
+  focusedTile,
+  isDrawn,
+  mountApp,
+  viewer,
+  walkServices,
+  type Walking,
+} from "./test-walk.tsx";
 
 describe("the films' grid at a Fire TV's page in Silk", () => {
   let walking: Walking | undefined;
@@ -25,14 +33,7 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
 
   it("shows six posters across beside the alphabet rail, each with room for its focus ring", async () => {
     await page.viewport(960, 480);
-    walking = await mountApp(
-      walkServices({
-        "GET /me": viewer,
-        "GET /client-settings": {},
-        "GET /home": { continueWatching: [] },
-        "GET /titles": { titles: films(12), nextCursor: "" },
-      }),
-    );
+    walking = await mountApp(walkServices(filmsOnly));
     await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
     const items = [...document.querySelectorAll<HTMLElement>(".poster-grid > li")];
     const firstRowTop = items[0]?.getBoundingClientRect().top;
@@ -51,4 +52,60 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
       card.getBoundingClientRect().left - item.getBoundingClientRect().left,
     ).toBeGreaterThanOrEqual(ringRoom);
   });
+
+  it("walks into the alphabet rail from the grid's right edge and back to the tile it left", async () => {
+    await page.viewport(960, 480);
+    walking = await mountApp(walkServices(filmsOnly));
+    await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
+    const sixth = document.querySelectorAll<HTMLElement>(".poster-grid .poster-card__link")[5];
+    sixth?.focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(document.activeElement?.classList.contains("alphabet-rail__letter")).toBe(true);
+    await userEvent.keyboard("{ArrowDown}");
+    expect(document.activeElement?.classList.contains("alphabet-rail__letter")).toBe(true);
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(focusedTile()).toBe("Film 6");
+  });
+
+  it("keeps the same margin left of the posters as right of them, the rail in the margin", async () => {
+    for (const [width, height] of [
+      [960, 480],
+      [1440, 1000],
+    ] as const) {
+      await page.viewport(width, height);
+      walking?.unmount();
+      walking = await mountApp(walkServices(filmsOnly));
+      await expect.poll(() => isDrawn(".poster-grid .poster-card__link")).toBe(true);
+      const cards = [...document.querySelectorAll(".poster-grid .poster-card__link")].map((each) =>
+        each.getBoundingClientRect(),
+      );
+      const left = Math.min(...cards.map((card) => card.left));
+      const right = window.innerWidth - Math.max(...cards.map((card) => card.right));
+      expect(Math.abs(right - left)).toBeLessThanOrEqual(2);
+      const rail = document.querySelector(".alphabet-rail")?.getBoundingClientRect();
+      expect(rail === undefined ? -1 : rail.right).toBeLessThanOrEqual(window.innerWidth);
+    }
+  });
+
+  it("sizes the rail's letters by the window's height, larger on a desktop's than a Fire TV's", async () => {
+    const letterSize = async (width: number, height: number): Promise<number> => {
+      await page.viewport(width, height);
+      walking?.unmount();
+      walking = await mountApp(walkServices(filmsOnly));
+      await expect.poll(() => isDrawn(".alphabet-rail__letter")).toBe(true);
+      const letter = document.querySelector(".alphabet-rail__letter");
+      return letter === null ? 0 : Number.parseFloat(getComputedStyle(letter).fontSize);
+    };
+    const onTheStick = await letterSize(960, 480);
+    const onADesktop = await letterSize(1440, 1000);
+    expect(onADesktop).toBeGreaterThan(onTheStick * 1.5);
+  });
 });
+
+/** The films' page: twelve films, nothing partway. */
+const filmsOnly = {
+  "GET /me": viewer,
+  "GET /client-settings": {},
+  "GET /home": { continueWatching: [] },
+  "GET /titles": { titles: films(12), nextCursor: "" },
+};
