@@ -288,6 +288,27 @@ func (queue *Queue[T]) Cancel(ctx context.Context, id int64) error {
 	if !wasOpen {
 		return ErrNotOpen
 	}
+	queue.afterCancel(ctx, id)
+	return nil
+}
+
+// CancelOpenOf cancels kind's queued, running and assigned jobs on target that match says, reading
+// only that target's: a run of chunks a seek went past, cancelled on a player's request path while
+// a scan may hold thousands of other open jobs (audit 2026-10-25, C3). It says how many it
+// cancelled.
+func (queue *Queue[T]) CancelOpenOf(ctx context.Context, kind Kind, target T, match func(Row[T]) bool) (int, error) {
+	cancelled, err := queue.storage.CancelOpenOf(ctx, kind, target, queue.clock.Now(), match)
+	if err != nil {
+		return 0, fmt.Errorf("cancel the open %s jobs of %v: %w", kind, target, err)
+	}
+	for _, id := range cancelled {
+		queue.afterCancel(ctx, id)
+	}
+	return len(cancelled), nil
+}
+
+// afterCancel stops a cancelled job that was running here, and says it was cancelled.
+func (queue *Queue[T]) afterCancel(ctx context.Context, id int64) {
 	queue.mutex.Lock()
 	stop, isRunning := queue.cancelByRunningJobID[id]
 	cancelled := queue.cancelled
@@ -298,7 +319,6 @@ func (queue *Queue[T]) Cancel(ctx context.Context, id int64) error {
 	if cancelled != nil {
 		cancelled(ctx, id)
 	}
-	return nil
 }
 
 // SetProgress records how far a running job is, from 0 to 1.

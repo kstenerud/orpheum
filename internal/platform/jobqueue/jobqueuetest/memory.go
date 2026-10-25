@@ -338,6 +338,24 @@ func (memory *Memory[T]) Health(_ context.Context, failedSince time.Time) ([]job
 	return health, nil
 }
 
+// CancelOpenOf cancels kind's open jobs on target that match says, and returns their ids.
+func (memory *Memory[T]) CancelOpenOf(
+	_ context.Context, kind jobqueue.Kind, target T, cancelledAt time.Time, match func(jobqueue.Row[T]) bool,
+) ([]int64, error) {
+	memory.mutex.Lock()
+	defer memory.mutex.Unlock()
+	var cancelled []int64
+	for index := range memory.rows {
+		row := &memory.rows[index]
+		if row.Kind != kind || row.Target != target || !isOpen(row.State) || !match(*row) {
+			continue
+		}
+		row.State, row.FinishedAt, row.AssignedUntil = jobqueue.StateCancelled, &cancelledAt, nil
+		cancelled = append(cancelled, row.ID)
+	}
+	return cancelled, nil
+}
+
 // ListOpen is every queued, running and assigned job, oldest first.
 func (memory *Memory[T]) ListOpen(context.Context) ([]jobqueue.Row[T], error) {
 	memory.mutex.Lock()

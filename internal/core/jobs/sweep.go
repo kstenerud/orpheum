@@ -48,8 +48,8 @@ func (queue *Queue) CancelWhere(
 func (queue *Queue) CancelMatching(
 	ctx context.Context, kind Kind, target Target, match func(argsJSON string) bool,
 ) (int, error) {
-	return queue.queue.CancelWhere(ctx, func(row jobqueue.Row[Target]) bool {
-		return row.Kind == kind && row.Target == target && match(row.ArgsJSON)
+	return queue.queue.CancelOpenOf(ctx, kind, target, func(row jobqueue.Row[Target]) bool {
+		return match(row.ArgsJSON)
 	})
 }
 

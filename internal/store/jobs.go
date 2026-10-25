@@ -46,12 +46,7 @@ func (jobStorage *JobStorage) Enqueue(
 	plan func(open jobqueue.Open[JobTarget]) (jobqueue.Change, error),
 ) error {
 	return jobStorage.cache.Write(ctx, func(queries *cachegen.Queries) error {
-		columns := target.columns()
-		rows, err := queries.ListOpenJobsOfTarget(ctx, cachegen.ListOpenJobsOfTargetParams{
-			Kind: string(kind), ItemID: columns.item, RenditionID: columns.rendition, StreamID: columns.stream,
-			FetchedSubtitleID: columns.fetchedSubtitle, FileID: columns.file,
-			ScanID: columns.scan, ScanBatchID: columns.scanBatch, ChunkStoreID: columns.chunkStore,
-		})
+		rows, err := queries.ListOpenJobsOfTarget(ctx, openOfTargetParams(kind, target))
 		if err != nil {
 			return fmt.Errorf("list the open %s jobs for %+v: %w", kind, target, err)
 		}
@@ -70,6 +65,16 @@ func (jobStorage *JobStorage) Enqueue(
 		}
 		return applyChange(ctx, queries, kind, target, change)
 	})
+}
+
+// openOfTargetParams are ListOpenJobsOfTarget's for kind's jobs on target.
+func openOfTargetParams(kind jobqueue.Kind, target JobTarget) cachegen.ListOpenJobsOfTargetParams {
+	columns := target.columns()
+	return cachegen.ListOpenJobsOfTargetParams{
+		Kind: string(kind), ItemID: columns.item, RenditionID: columns.rendition, StreamID: columns.stream,
+		FetchedSubtitleID: columns.fetchedSubtitle, FileID: columns.file,
+		ScanID: columns.scan, ScanBatchID: columns.scanBatch, ChunkStoreID: columns.chunkStore,
+	}
 }
 
 // applyChange writes an enqueue's change.
@@ -124,6 +129,38 @@ func (jobStorage *JobStorage) Cancel(ctx context.Context, id int64, at time.Time
 		return false, fmt.Errorf("cancel job %d: %w", id, err)
 	}
 	return cancelledCount > 0, nil
+}
+
+// CancelOpenOf cancels kind's open jobs on target that match says, in one write, reading only that
+// target's by job_open_target, and returns their ids.
+func (jobStorage *JobStorage) CancelOpenOf(
+	ctx context.Context, kind jobqueue.Kind, target JobTarget, cancelledAt time.Time,
+	match func(jobqueue.Row[JobTarget]) bool,
+) ([]int64, error) {
+	var cancelled []int64
+	err := jobStorage.cache.Write(ctx, func(queries *cachegen.Queries) error {
+		cancelled = nil
+		rows, err := queries.ListOpenJobsOfTarget(ctx, openOfTargetParams(kind, target))
+		if err != nil {
+			return fmt.Errorf("list the open %s jobs for %+v: %w", kind, target, err)
+		}
+		for _, row := range rows {
+			if !match(jobRow(row)) {
+				continue
+			}
+			count, cancelErr := queries.CancelJob(ctx, cachegen.CancelJobParams{
+				FinishedAt: new(cancelledAt.UnixMilli()), ID: row.ID,
+			})
+			if cancelErr != nil {
+				return fmt.Errorf("cancel job %d: %w", row.ID, cancelErr)
+			}
+			if count > 0 {
+				cancelled = append(cancelled, row.ID)
+			}
+		}
+		return nil
+	})
+	return cancelled, err
 }
 
 // KeepWanted moves on, to until, the time a person waits for kind's open jobs on target until.

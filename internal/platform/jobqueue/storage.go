@@ -11,18 +11,16 @@ import (
 // one transaction, so that a program's database stays in the one package allowed to touch it.
 type Storage[T comparable] interface {
 	Queueing[T]
+	Cancelling[T]
 	Working[T]
 	Listing[T]
 }
 
-// Queueing is the part of Storage that takes requests and cancels.
+// Queueing is the part of Storage that takes requests and keeps their priorities.
 type Queueing[T comparable] interface {
 	// Enqueue reads kind's open jobs for target, asks plan what to do with them, and applies its
 	// Change, all in one write, so two requests for one target never both insert.
 	Enqueue(ctx context.Context, kind Kind, target T, plan func(open Open[T]) (Change, error)) error
-	// Cancel ends a queued, running or assigned job as cancelled at the given time, and says whether
-	// one was open. A cancelled job stays cancelled whatever its handler records after.
-	Cancel(ctx context.Context, id int64, at time.Time) (bool, error)
 	// KeepWanted moves on, to until, the time a person waits for kind's open jobs on target until; a
 	// later time already kept stands.
 	KeepWanted(ctx context.Context, kind Kind, target T, until time.Time) error
@@ -35,6 +33,17 @@ type Queueing[T comparable] interface {
 	// PruneFinished forgets the jobs that ended, done, failed or cancelled, before a time, and says
 	// how many.
 	PruneFinished(ctx context.Context, before time.Time) (int64, error)
+}
+
+// Cancelling is the part of Storage that ends jobs as cancelled.
+type Cancelling[T comparable] interface {
+	// Cancel ends a queued, running or assigned job as cancelled at the given time, and says whether
+	// one was open. A cancelled job stays cancelled whatever its handler records after.
+	Cancel(ctx context.Context, id int64, at time.Time) (bool, error)
+	// CancelOpenOf ends as cancelled, at the given time and in one write, kind's queued, running and
+	// assigned jobs on target that match says, and returns their ids: reading only that target's
+	// jobs, by the index an enqueue reads them by, not every open job.
+	CancelOpenOf(ctx context.Context, kind Kind, target T, at time.Time, match func(Row[T]) bool) ([]int64, error)
 }
 
 // Working is the part of Storage that runners use.
