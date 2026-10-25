@@ -3026,7 +3026,7 @@ export interface components {
         };
         LabInputEventsInputBody: {
             /** @description What it heard since its last request, in order */
-            events: components["schemas"]["LabInputEvent"][] | null;
+            events: components["schemas"]["LabInputEvent"][];
             /** @description The run's name, made by the page as it loaded and shown on it */
             run: string;
             /** @description The page as it opened, with the run's first events */

@@ -157,6 +157,7 @@ func TestLab_TheButtonTestsEventsAreLoggedALineEachAndBounded(t *testing.T) {
 	for name, refused := range map[string]map[string]any{
 		"201 events":           labInputEvents(tooMany...),
 		"no events":            {"run": "K3J9QW2A", "events": []map[string]any{}},
+		"events of null":       {"run": "K3J9QW2A", "events": nil},
 		"a kind of its own":    labInputEvents(map[string]any{"seq": 0, "atMs": 0, "kind": "anything"}),
 		"a key of 41":          labInputEvents(longKey),
 		"an attribute its own": labInputEvents(ownAttribute),

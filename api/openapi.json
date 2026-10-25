@@ -2904,10 +2904,7 @@
             },
             "maxItems": 200,
             "minItems": 1,
-            "type": [
-              "array",
-              "null"
-            ]
+            "type": "array"
           },
           "run": {
             "description": "The run's name, made by the page as it loaded and shown on it",
