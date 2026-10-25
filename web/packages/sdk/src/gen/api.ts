@@ -830,6 +830,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lab-input-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** What the button test heard, as it heard it, for the server's log (tv-device-tests.md H2) */
+        post: operations["reportLabInputEvents"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/lab-results": {
         parameters: {
             query?: never;
@@ -2946,6 +2963,98 @@ export interface components {
             membershipCredential: string;
             /** Format: int64 */
             sessionId: number;
+        };
+        LabInputEvent: {
+            /**
+             * @description A Media Session action
+             * @enum {string}
+             */
+            action?: "play" | "pause" | "seekbackward" | "seekforward" | "previoustrack" | "nexttrack";
+            /**
+             * Format: int64
+             * @description Milliseconds since the page loaded
+             */
+            atMs: number;
+            /**
+             * @description The button the test named it, where it is a press
+             * @enum {string}
+             */
+            button?: "up" | "down" | "left" | "right" | "select" | "back" | "playPause" | "rewind" | "fastForward" | "volumeUp" | "volumeDown" | "mute" | "other";
+            /** @description A key's code */
+            code?: string;
+            /** @description Whether a key is its own repeat */
+            isRepeat?: boolean;
+            /** @description A key's key */
+            key?: string;
+            /**
+             * Format: int64
+             * @description A key's keyCode
+             */
+            keyCode?: number;
+            /**
+             * @description What it is
+             * @enum {string}
+             */
+            kind: "key" | "back" | "gamepad" | "media" | "move" | "mode";
+            /**
+             * Format: int64
+             * @description A move's time from its key to the frame after focus moved
+             */
+            latencyMs?: number;
+            /**
+             * @description Who moved focus when it came
+             * @enum {string}
+             */
+            mode?: "browser" | "geometric";
+            /**
+             * Format: int64
+             * @description A controller's button, in its mapping
+             */
+            padButton?: number;
+            /** @description A controller's own name for itself */
+            padId?: string;
+            /**
+             * Format: int64
+             * @description A controller's index
+             */
+            padIndex?: number;
+            /**
+             * Format: int64
+             * @description Its place in the run, from 0
+             */
+            seq: number;
+        };
+        LabInputEventsInputBody: {
+            /** @description What it heard since its last request, in order */
+            events: components["schemas"]["LabInputEvent"][] | null;
+            /** @description The run's name, made by the page as it loaded and shown on it */
+            run: string;
+            /** @description The page as it opened, with the run's first events */
+            start?: components["schemas"]["LabInputRunStart"];
+        };
+        LabInputRunStart: {
+            /**
+             * Format: double
+             * @description Device pixels to a CSS pixel
+             */
+            devicePixelRatio: number;
+            /** @description Whether the browser has Media Session */
+            hasMediaSession: boolean;
+            /**
+             * @description Who moves focus between the tiles
+             * @enum {string}
+             */
+            mode: "browser" | "geometric";
+            /**
+             * Format: int64
+             * @description The page's height in CSS pixels
+             */
+            viewportHeight: number;
+            /**
+             * Format: int64
+             * @description The page's width in CSS pixels
+             */
+            viewportWidth: number;
         };
         LabResultInputBody: {
             /**
@@ -6339,6 +6448,40 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    reportLabInputEvents: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabInputEventsInputBody"];
+            };
+        };
         responses: {
             /** @description No Content */
             204: {
