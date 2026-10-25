@@ -2,19 +2,22 @@
 
 import "./poster.css";
 
-import { artUrl } from "@orpheum/sdk";
-import { useState, type JSX } from "react";
+import { artUrl, type ArtSize } from "@orpheum/sdk";
+import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
+
+import { useBackgroundChangesPoller } from "./polling.ts";
 
 /**
  * A poster, or a named blank where there is none, or where its image does not load: one not yet
  * made in the sizes for screens answers "no such image" (the owner, Fire TV, 2026-10-25: Copper Kettle's
  * seasons showed broken images while their art waited its turn). The card's own text names the item.
+ * A blank for an image that did not load asks for it again (useArtShown), and shows it once made.
  */
 export function Poster(props: { readonly sourceSha256: string | undefined }): JSX.Element {
   const { t } = useTranslation();
-  const [failedSha256, setFailedSha256] = useState<string | undefined>(undefined);
-  if (props.sourceSha256 === undefined || failedSha256 === props.sourceSha256) {
+  const shown = useArtShown(props.sourceSha256, "portrait-m");
+  if (shown.url === undefined) {
     return (
       <span className="poster poster--blank" aria-hidden="true">
         <Clapperboard />
@@ -22,18 +25,15 @@ export function Poster(props: { readonly sourceSha256: string | undefined }): JS
       </span>
     );
   }
-  const sha256 = props.sourceSha256;
   return (
     <img
       className="poster"
-      src={artUrl(sha256, "portrait-m")}
+      src={shown.url}
       alt={""}
       loading="lazy"
       width={240}
       height={360}
-      onError={() => {
-        setFailedSha256(sha256);
-      }}
+      onError={shown.onError}
     />
   );
 }
@@ -46,22 +46,103 @@ export function Still(props: {
   readonly sourceSha256: string | undefined;
   readonly className: string;
 }): JSX.Element {
-  const [failedSha256, setFailedSha256] = useState<string | undefined>(undefined);
-  if (props.sourceSha256 === undefined || failedSha256 === props.sourceSha256) {
+  const shown = useArtShown(props.sourceSha256, "landscape-s");
+  if (shown.url === undefined) {
     return <span className={props.className} aria-hidden="true" />;
   }
-  const sha256 = props.sourceSha256;
   return (
     <img
       className={props.className}
-      src={artUrl(sha256, "landscape-s")}
+      src={shown.url}
       alt={""}
       loading="lazy"
-      onError={() => {
-        setFailedSha256(sha256);
-      }}
+      onError={shown.onError}
     />
   );
+}
+
+/** The address an image is shown by, undefined for its blank, and what its img does when it fails. */
+interface ArtShown {
+  readonly url: string | undefined;
+  readonly onError: () => void;
+}
+
+/**
+ * The address of sourceSha256's image in size, undefined while it is blank. An image that does not
+ * load is asked for again on the background changes' schedule (D237), backing off while it is still
+ * not made, each ask by a new address so that no answer the browser kept is shown again: the server
+ * makes an image's sizes in their turn, and its asking for one with none made queues them (D212 §3),
+ * so a poster once blank shows its art soon after it is made, with no reload. It stops asking once
+ * the image loads or the poster leaves the page.
+ */
+function useArtShown(sourceSha256: string | undefined, size: ArtSize): ArtShown {
+  const poller = useBackgroundChangesPoller();
+  const [state, setState] = useState<{
+    readonly sha256?: string;
+    readonly isFailed: boolean;
+    readonly again: number;
+  }>({ isFailed: false, again: 0 });
+  const askedRef = useRef(0);
+  const current =
+    state.sha256 === sourceSha256 ? state : { sha256: sourceSha256, isFailed: false, again: 0 };
+  const isFailed = sourceSha256 !== undefined && current.isFailed;
+  useEffect(() => {
+    if (!isFailed) {
+      return undefined;
+    }
+    let isCurrent = true;
+    const stop = poller.start((answered, signal) => {
+      askedRef.current += 1;
+      const again = askedRef.current;
+      void imageLoads(againUrl(sourceSha256, size, again), signal).then((isLoaded) => {
+        if (isLoaded && isCurrent) {
+          setState({ sha256: sourceSha256, isFailed: false, again });
+        }
+        answered(isLoaded ? "changed" : "unchanged");
+      });
+    });
+    return () => {
+      isCurrent = false;
+      stop();
+    };
+  }, [isFailed, poller, sourceSha256, size]);
+  if (sourceSha256 === undefined || isFailed) {
+    return { url: undefined, onError: () => undefined };
+  }
+  return {
+    url: againUrl(sourceSha256, size, current.again),
+    onError: () => {
+      setState({ sha256: sourceSha256, isFailed: true, again: current.again });
+    },
+  };
+}
+
+/** The address of an image's size, asked for again the again-th time: a new address each time. */
+function againUrl(sourceSha256: string, size: ArtSize, again: number): string {
+  const url = artUrl(sourceSha256, size);
+  return again === 0 ? url : `${url}?again=${String(again)}`;
+}
+
+/** Whether the image at url loads, false if signal aborts first. */
+function imageLoads(url: string, signal?: AbortSignal): Promise<boolean> {
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => {
+      resolve(true);
+    };
+    image.onerror = () => {
+      resolve(false);
+    };
+    signal?.addEventListener(
+      "abort",
+      () => {
+        image.src = "";
+        resolve(false);
+      },
+      { once: true },
+    );
+    image.src = url;
+  });
 }
 
 /**

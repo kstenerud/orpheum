@@ -89,6 +89,10 @@ The web client: the browser and phone interface, served embedded by the core. MP
   the SDK's `device-code.test.ts`.
 - **The session token travels in the Authorization header**; images load through the media
   cookie sign-in sets (D154), by addresses from `artUrl` in `@orpheum/sdk`.
+- **A poster or still whose image does not load shows its blank and asks for it again** on the
+  background changes' schedule (D237), each time by a new address, until it loads or leaves the page,
+  so art the server makes after the page was drawn shows with no reload (the owner, 2026-10-25).
+  `src/poster.test.tsx`.
 - **A screen showing what the server changes in the background asks again** — the lists, a title,
   *Needs a match*, the libraries, the System page, the jobs and the home rows — after 2 s, backing
   off while nothing changes to 30 s, and keeps what it shows meanwhile (D237); the waits are the
