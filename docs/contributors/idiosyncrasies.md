@@ -40,6 +40,7 @@ User-Agent (D263; the User-Agent is logged only).
 
 | Symptom | Entry |
 |---|---|
+| A game controller paired to a Fire TV moved Silk's pointer, its D-pad did nothing, and its right stick left Silk for the home screen. | [Fire TV keeps a game controller's D-pad and sticks from a page in Silk](#fire-tv-keeps-a-game-controllers-d-pad-and-sticks-from-a-page-in-silk) |
 | On a Fire TV in Silk, the remote's arrows moved a pointer and no arrow key reached the page; only play/pause did. | [Silk on Fire TV keeps the D-pad for its pointer unless its spatial navigation mode is on](#silk-on-fire-tv-keeps-the-d-pad-for-its-pointer-unless-its-spatial-navigation-mode-is-on) |
 | A TCL TV in TV Bro plays every film's sound about half a second after its picture, whatever the codec; YouTube there is in time. | [A TCL TV in TV Bro plays a page's sound about half a second late, and the browser cannot tell](#a-tcl-tv-in-tv-bro-plays-a-pages-sound-about-half-a-second-late-and-the-browser-cannot-tell) |
 | A read-through over a share that dropped mid-film was answered as complete, its loudness that of part of the film. | [FFmpeg whose input read fails part way exits 0 with an answer made of what it read](#ffmpeg-whose-input-read-fails-part-way-exits-0-with-an-answer-made-of-what-it-read) |
@@ -709,6 +710,26 @@ User-Agent (D263; the User-Agent is logged only).
 ---
 
 ## Chrome and Android (getUserMedia and audio)
+
+### Fire TV keeps a game controller's D-pad and sticks from a page in Silk
+
+- **Symptom:** an 8BitDo SN30 Pro paired to a Fire TV Stick (AFTSSS, Silk 138, spatial navigation
+  on) could not move focus on a page. In its D-input mode (`8Bitdo SN30 Pro (Vendor: 2dc8 Product:
+  6101)`, no standard mapping) the left stick drove Silk's pointer, A clicked where the pointer was,
+  B was not Back, and the D-pad did nothing; the page saw a few raw button presses only. In X-input
+  mode it reported a standard Xbox pad (vendor 045e): its face buttons reached the page through the
+  Gamepad API, but the D-pad still sent nothing, the left stick still drove the pointer, and the
+  right stick sent Silk away to the Fire TV's home screen.
+- **Cause:** Fire OS and Silk take the D-pad and sticks for their own pointer and navigation before
+  the page; unverified beyond these runs.
+- **Beware:** in X-input mode the pad reports Xbox's layout while its labels are Nintendo's (B at the
+  bottom, A on the right), so a page that takes a reported layout for the labels swaps OK and Back.
+- **What we do:** on Fire TV the remote is the input; controllers there wait for an app shell, which
+  gets every button (owner, 2026-10-25: controllers on a Fire TV stick will be rare). The button
+  test offers every standard pad the choice of which face button is OK, the reported layout only its
+  starting guess.
+- **Evidence:** [owner] 2026-10-25, staging, `/lab/input`, runs `ONCULPN4` (D-input) and `QJRWQSNT`
+  (X-input); plans/tv-device-tests.md §5.
 
 ### Silk on Fire TV keeps the D-pad for its pointer unless its spatial navigation mode is on
 
