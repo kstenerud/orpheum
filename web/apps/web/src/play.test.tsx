@@ -88,7 +88,9 @@ describe("playing a file", () => {
         />,
       ),
     );
-    expect(named).toMatch(/^<h1 class="play__title">Metropolis<\/h1><div class="play">/u);
+    expect(named).toMatch(
+      /^<h1 class="play__title">Metropolis<\/h1><div class="play" data-focus-container="">/u,
+    );
     const unnamed = renderToStaticMarkup(
       withServices(
         <PlayView fileId={2} decision={directDecision()} onDecideAgain={() => undefined} />,

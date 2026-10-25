@@ -4,13 +4,14 @@ import { useRef, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { FrameTimingNote } from "./frame-timing-note.tsx";
+import { usePlayerCommands } from "./player-commands.ts";
 import { SoundOffsetControl } from "./sound-delay.tsx";
 
 /**
  * The film's own file in a video element and nothing else: no subtitles, no drawing over it, the
  * browser's own controls, from where the playback resumes. A test of whether what the player draws
  * over a video makes a browser show its picture late (the owner's TCL TV, 2026-10-24); its frame
- * timing under it.
+ * timing under it. A remote, a keyboard or a controller plays and seeks it as the player (player-commands.ts).
  */
 export function BarePlayer(props: {
   readonly url: string;
@@ -22,8 +23,9 @@ export function BarePlayer(props: {
   const { t } = useTranslation();
   const [video, setVideo] = useState<HTMLVideoElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  usePlayerCommands(video);
   return (
-    <div className="play">
+    <div className="play" data-focus-container="">
       {/* eslint-disable-next-line jsx-a11y-x/media-has-caption -- nothing over the picture, subtitles included: the test is of the video alone */}
       <video
         ref={(element) => {
