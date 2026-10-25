@@ -452,6 +452,21 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
   to 21.1 s.
 - **Warning sign:** `_sqlite3InitCallback` or `sqlite3Prepare` high in a test package's profile.
 
+### 25. A fixed deadline on CPU-bound work, under a loaded machine
+
+- **Mechanism:** `TestBackupInto_CopiesWhileAWriteHoldsTheWriter` gives its backup a 5 s context:
+  `VACUUM INTO` of the whole migrated schema and the copy's `integrity_check`, both CPU-bound, on
+  the maintenance connection. Nothing in it waits on a lock: the write it holds is the one the
+  backup must not wait for, and idle readers hold neither a lock nor a snapshot in WAL mode, so
+  keeping them open (S1) cannot hold the copy or a checkpoint back.
+- **Instance** (2026-10-25): it timed out once ("context deadline exceeded" after 9.5 s) in a
+  whole-tree make check at a load average of about 90; it passed alone and in three package runs.
+- **Why it was invisible:** the deadline is generous on an idle machine, and the failure looks like
+  a lock wait, the thing the test exists to rule out.
+- **Fix:** none yet; the deadline bounds a regression to a waiting backup, which a longer one would
+  still catch. If it recurs, raise it to testutil.ReceiveLimit's scale or measure the copy's CPU.
+- **Warning sign:** a backup or copy test red only in a loaded whole-tree run.
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of
