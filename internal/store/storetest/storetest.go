@@ -157,18 +157,14 @@ func ExecRaw(tb testing.TB, path string, statements ...string) {
 }
 
 // QueryRaw reads every row a query returns from the database file at path, bypassing the store,
-// each row's columns as text joined by "|": for a test that compares two databases' contents.
+// each row's columns as text joined by "|": for a test that compares two databases' contents. A
+// test's reads of one file share one connection, closed when the test ends: a new connection
+// parses the whole schema before its first query, about 85 times the cost of the query itself
+// (audit 2026-10-25, G1), and some tests read a file table by table, step by step.
 func QueryRaw(tb testing.TB, path, query string) []string {
 	tb.Helper()
-	pool, err := sql.Open("sqlite", path+"?_pragma=busy_timeout(15000)&_pragma=query_only(1)")
-	if err != nil {
-		tb.Fatalf("open %s: %v", path, err)
-	}
-	defer func() {
-		if closeErr := pool.Close(); closeErr != nil {
-			tb.Errorf("close %s: %v", path, closeErr)
-		}
-	}()
+	pool, release := rawReaderOf(tb, path)
+	defer release()
 	rows, err := pool.QueryContext(tb.Context(), query)
 	if err != nil {
 		tb.Fatalf("query %q on %s: %v", query, path, err)
@@ -201,6 +197,74 @@ func QueryRaw(tb testing.TB, path, query string) []string {
 		tb.Fatalf("read %q: %v", query, err)
 	}
 	return read
+}
+
+// rawReader is QueryRaw's connection to one file, for one test, and the file it was opened on.
+type rawReader struct {
+	pool   *sql.DB
+	opened os.FileInfo
+}
+
+// rawReaderKey names a rawReader: the test it serves and the path it reads.
+type rawReaderKey struct {
+	tb   testing.TB
+	path string
+}
+
+// rawReaders are QueryRaw's open connections, each closed by the cleanup of the test it serves.
+//
+//nolint:gochecknoglobals // a test's connection must outlive one call, and a TB carries no values
+var rawReaders struct {
+	mutex  sync.Mutex
+	byTest map[rawReaderKey]*rawReader
+}
+
+// rawReaderOf is the test's connection to path: the one it opened before, unless another file has
+// taken the path since, which it closes and opens the new one in its place. With no file at path
+// yet, the connection serves the one call, which then releases it.
+func rawReaderOf(tb testing.TB, path string) (pool *sql.DB, release func()) {
+	tb.Helper()
+	key := rawReaderKey{tb: tb, path: path}
+	rawReaders.mutex.Lock()
+	defer rawReaders.mutex.Unlock()
+	current, statErr := os.Stat(path)
+	if reader, isOpen := rawReaders.byTest[key]; isOpen {
+		if statErr == nil && os.SameFile(reader.opened, current) {
+			return reader.pool, func() {}
+		}
+		closeRawReader(tb, path, reader.pool)
+		delete(rawReaders.byTest, key)
+	}
+	pool, err := sql.Open("sqlite", path+"?_pragma=busy_timeout(15000)&_pragma=query_only(1)")
+	if err != nil {
+		tb.Fatalf("open %s: %v", path, err)
+	}
+	pool.SetMaxOpenConns(1) // one connection, held open: it keeps the file it was opened on
+	pool.SetMaxIdleConns(1)
+	if statErr != nil {
+		return pool, func() { closeRawReader(tb, path, pool) }
+	}
+	if rawReaders.byTest == nil {
+		rawReaders.byTest = map[rawReaderKey]*rawReader{}
+	}
+	rawReaders.byTest[key] = &rawReader{pool: pool, opened: current}
+	tb.Cleanup(func() {
+		rawReaders.mutex.Lock()
+		defer rawReaders.mutex.Unlock()
+		if reader, isOpen := rawReaders.byTest[key]; isOpen && reader.pool == pool {
+			delete(rawReaders.byTest, key)
+			closeRawReader(tb, path, pool)
+		}
+	})
+	return pool, func() {}
+}
+
+// closeRawReader closes one of QueryRaw's connections, failing the test if it cannot.
+func closeRawReader(tb testing.TB, path string, pool *sql.DB) {
+	tb.Helper()
+	if err := pool.Close(); err != nil {
+		tb.Errorf("close %s: %v", path, err)
+	}
 }
 
 // DiskFullError is the error SQLite answers a write with when its disk has no room: a real one,

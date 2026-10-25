@@ -437,6 +437,21 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
 - **Warning sign:** check-pr's revert-red over a batch whose commits each passed check-commit-red
   taking as long as it did before; a sqlc file's probe red only in "its dependents".
 
+### 24. A helper that reconnects on every call
+
+- **Mechanism:** `storetest.QueryRaw` opened a new SQLite pool for each query and closed it after,
+  and a new modernc connection parses the whole schema (about 160 rows: tables, triggers, views)
+  before its first statement: 3.4 ms of CPU against 40 µs for a query on a warm connection.
+- **Instance** (audit 2026-10-25, G1): identify's tests dump every table a pass writes, table by
+  table, step by step; `QueryRaw` was 40% of the package's CPU, which had grown from 6.4 s
+  (2026-10-08) to 94–99 s under the full suite.
+- **Why it was invisible:** the cost is per call and spread over 186 call sites, each one fast
+  alone; only a profile shows the schema parse.
+- **Fix:** a test's reads of one file share one connection, closed at the test's cleanup
+  (`TestQueryRaw_ReadsAFileOnOneConnectionForTheWholeTest`): identify's test binary 43.6 s of CPU
+  to 21.1 s.
+- **Warning sign:** `_sqlite3InitCallback` or `sqlite3Prepare` high in a test package's profile.
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of
