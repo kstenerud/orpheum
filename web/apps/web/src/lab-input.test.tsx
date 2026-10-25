@@ -32,4 +32,19 @@ describe("the input probe", () => {
     expect(document.activeElement?.classList.contains("lab__tile")).toBe(true);
     expect(tone.getAttribute("aria-pressed")).toBe("true");
   });
+
+  it("moves among the page's every control by our navigation, not the grid's alone", async () => {
+    mounted = await mount(withServices(<LabInput />));
+    const send = buttonWithText(mounted.container, "Send to server");
+    if (send === undefined) {
+      throw new Error("the probe has no Send button");
+    }
+    send.focus();
+    const arrow = new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true, cancelable: true });
+    act(() => {
+      send.dispatchEvent(arrow);
+    });
+    expect(arrow.defaultPrevented).toBe(true);
+    expect(document.activeElement?.classList.contains("lab__tile")).toBe(false);
+  });
 });

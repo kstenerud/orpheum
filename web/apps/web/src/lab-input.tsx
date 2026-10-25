@@ -221,10 +221,14 @@ function useTone(): { readonly isToneOn: boolean; readonly toggleTone: () => voi
 
 /**
  * Each move's latency, by mode, from the key's time to the frame after focus arrived in the region:
- * the key's own time where the browser gives it on the page's clock, else when it was heard.
+ * the key's own time where the browser gives it on the page's clock, else when it was heard. Ours
+ * moves across the whole region, the page's every control, so a remote reaches Send too (owner,
+ * Silk, 2026-10-25: changing Silk's mode reloads the page, so Send must be reached in ours), and
+ * the first arrow starts it at start, the grid.
  */
 function useFocusLatency(
   regionRef: RefObject<HTMLDivElement | null>,
+  startRef: RefObject<HTMLDivElement | null>,
   mode: FocusMode,
 ): {
   readonly latencies: Readonly<Record<FocusMode, readonly number[]>>;
@@ -243,7 +247,10 @@ function useFocusLatency(
     if (region === null) {
       return undefined;
     }
-    const stopDriving = mode === "geometric" ? driveFocus(region, geometricFocus) : undefined;
+    const stopDriving =
+      mode === "geometric"
+        ? driveFocus(region, geometricFocus, startRef.current ?? region)
+        : undefined;
     const moved = (): void => {
       const at = keyAtRef.current;
       keyAtRef.current = undefined;
@@ -263,7 +270,7 @@ function useFocusLatency(
       region.removeEventListener("focusin", moved);
       stopDriving?.();
     };
-  }, [mode, regionRef]);
+  }, [mode, regionRef, startRef]);
   return { latencies, noteKey };
 }
 
@@ -436,8 +443,9 @@ export function LabInput(): JSX.Element {
   const { api } = useServices();
   const [mode, setMode] = useState<FocusMode>("geometric");
   const { isToneOn, toggleTone } = useTone();
-  const regionRef = useRef<HTMLDivElement>(null);
-  const { latencies, noteKey } = useFocusLatency(regionRef, mode);
+  const pageRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const { latencies, noteKey } = useFocusLatency(pageRef, gridRef, mode);
   const keys = useKeyLog(noteKey);
   const backSteps = useBackSteps();
   const mediaFired = useMediaActions(t("lab.input.mediaTitle"));
@@ -450,36 +458,38 @@ export function LabInput(): JSX.Element {
   const backKeys = keys.filter((key) => key.isBack && key.type === "keydown").length;
   return (
     <LabFrame id="lab-input" heading={t("lab.input.heading")}>
-      <p className="lab__lead">{t("lab.input.explain")}</p>
-      <InputActions mode={mode} onMode={setMode} isToneOn={isToneOn} onTone={toggleTone}>
-        <LabSendButton
-          sending={sending}
-          onSend={() => {
-            send({
-              mode,
-              latency: summaries,
-              latenciesMs: latencies,
-              backSteps,
-              backKeysInLog: backKeys,
-              mediaSessionFired: mediaFired,
-              hasMediaSession: "mediaSession" in navigator,
-              gamepadsSeen: seen,
-              keys,
-              userAgent: navigator.userAgent,
-            });
-          }}
+      <div ref={pageRef}>
+        <p className="lab__lead">{t("lab.input.explain")}</p>
+        <InputActions mode={mode} onMode={setMode} isToneOn={isToneOn} onTone={toggleTone}>
+          <LabSendButton
+            sending={sending}
+            onSend={() => {
+              send({
+                mode,
+                latency: summaries,
+                latenciesMs: latencies,
+                backSteps,
+                backKeysInLog: backKeys,
+                mediaSessionFired: mediaFired,
+                hasMediaSession: "mediaSession" in navigator,
+                gamepadsSeen: seen,
+                keys,
+                userAgent: navigator.userAgent,
+              });
+            }}
+          />
+        </InputActions>
+        <InputFacts
+          summaries={summaries}
+          backSteps={backSteps}
+          backKeys={backKeys}
+          mediaFired={mediaFired}
+          pads={pads}
         />
-      </InputActions>
-      <InputFacts
-        summaries={summaries}
-        backSteps={backSteps}
-        backKeys={backKeys}
-        mediaFired={mediaFired}
-        pads={pads}
-      />
-      <TileGrid ref={regionRef} />
-      <h2>{t("lab.input.keys")}</h2>
-      <KeyTable keys={keys} />
+        <TileGrid ref={gridRef} />
+        <h2>{t("lab.input.keys")}</h2>
+        <KeyTable keys={keys} />
+      </div>
     </LabFrame>
   );
 }
