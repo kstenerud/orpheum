@@ -370,6 +370,48 @@ func TestRaiser_ALookAtASeriesRaisesItsNextUpAlone(t *testing.T) {
 	}
 }
 
+// A look at a series' own page raises the work of each season's still it shows, as a title's page
+// raises its own artwork, and a look at a season's the work of every one of its episodes, whose
+// stills it shows; their files only as before (the owner, Fire TV, 2026-10-25: a series' season
+// stills showed blank while their sizes waited their turn).
+func TestRaiser_ALookAtASeriesRaisesTheWorkOfTheStillsItShows(t *testing.T) {
+	t.Parallel()
+	database := seriesOfSix(t)
+	// Season 1's still is its second episode's, its first having none; season 2's is its first's.
+	storetest.ExecRaw(t, database.Path(),
+		`INSERT INTO artwork (item_id, kind, source, source_ref, source_sha256) VALUES
+		 (22, 'still', 'tmdb', '/b.jpg', X'22'), (23, 'still', 'tmdb', '/c.jpg', X'23'),
+		 (24, 'still', 'tmdb', '/d.jpg', X'24')`)
+	now := clocktest.NewFake(time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC))
+	register := NewRegister(now)
+	record := &raising{}
+	room := &waitingRoom{}
+	raiser := mustRaiser(t, Parts{
+		Register: register, Jobs: record, Nodes: room, Waiting: room, Reads: &readsAsked{},
+		Playing: func() []int64 { return nil }, Database: database, Settings: settingstest.Seeded(t, database),
+		Clock: now, Logger: slog.New(slog.DiscardHandler),
+	})
+	register.Look("only", 1, 20, NoSeason)
+	if err := raiser.Raise(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	register.Look("only", 1, 20, 2)
+	if err := raiser.Raise(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		// The series, its Next Up 21 with its file, and the episodes whose stills stand for its seasons.
+		describe(jobs.Interested{ItemIDs: []int64{20, 21, 22, 23}, FileIDs: []int64{210}}, jobs.PriorityLookedAt,
+			false),
+		// The series, season 2's three ahead with their files, and its fourth, whose still it shows.
+		describe(jobs.Interested{ItemIDs: []int64{20, 23, 24, 25, 26}, FileIDs: []int64{230, 240, 250}},
+			jobs.PriorityLookedAt, false),
+	}
+	if !slices.Equal(record.raised, want) {
+		t.Errorf("raised\n  %q\nwant\n  %q", record.raised, want)
+	}
+}
+
 // A look at a series follows the ordering its person watches it in (D159; episode-orderings.md
 // §7 Q4): its Next Up there, a season its group, and an episode the ordering leaves out never raised.
 func TestRaiser_ALookAtASeriesFollowsTheOrderingItsPersonWatchesItIn(t *testing.T) {

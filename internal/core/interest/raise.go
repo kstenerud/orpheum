@@ -302,6 +302,9 @@ func (raiser *Raiser) Run(ctx context.Context, tick <-chan time.Time) {
 // files, and the titles whose reads it asks for: on the series' own page, its person's Next Up
 // alone, as that episode's own page raises it (the owner, 2026-10-25), and its read; on a season's,
 // series_episodes_ahead of that season's from their place in it, and the read of all its members.
+// The members whose stills the page shows have their own work raised, not their files', as a
+// title's page raises its artwork: on the series' page each season's still (SeasonStillMembers), on
+// a season's every one of its episodes'.
 // The ordering is the one its person watches the series in (library.ViewingOrdering, D159), and a
 // season is a group of it: an episode it leaves out is never raised (episode-orderings.md §7 Q4).
 func (raiser *Raiser) withMembersAhead(
@@ -318,6 +321,11 @@ func (raiser *Raiser) withMembersAhead(
 	}
 	ahead := library.MembersAhead(members, 1)
 	toRead := ahead
+	// shown are the members whose stills the page shows, whose own work, their artwork's, it raises.
+	shown, err := library.SeasonStillMembers(ctx, queries, members)
+	if err != nil {
+		return jobs.Interested{}, nil, err
+	}
 	if look.Season != NoSeason {
 		count, countErr := raiser.parts.Settings.Int(ctx, settings.SeriesEpisodesAhead)
 		if countErr != nil {
@@ -325,10 +333,16 @@ func (raiser *Raiser) withMembersAhead(
 		}
 		ahead = library.MembersAheadInGroup(members, look.Season, int(count))
 		toRead = library.MembersOfGroup(members, look.Season)
+		shown = toRead
 	}
 	for _, each := range ahead {
 		interested.ItemIDs = append(interested.ItemIDs, each.TitleID)
 		interested.FileIDs = append(interested.FileIDs, each.FileIDs...)
+	}
+	for _, each := range shown {
+		if !slices.Contains(interested.ItemIDs, each.TitleID) {
+			interested.ItemIDs = append(interested.ItemIDs, each.TitleID)
+		}
 	}
 	titleIDs := make([]int64, 0, len(toRead))
 	for _, each := range toRead {

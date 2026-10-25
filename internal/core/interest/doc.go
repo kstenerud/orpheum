@@ -42,6 +42,10 @@
 //     ordering its person watches the series in, and an episode that ordering leaves out is never
 //     raised (episode-orderings.md §7 Q4). Enforced by
 //     TestRaiser_ALookAtASeriesFollowsTheOrderingItsPersonWatchesItIn.
+//   - A look raises the work, not the files, of the episodes whose stills its page shows, as a
+//     title's page raises its own artwork: a series' own page each season's still
+//     (library.SeasonStillMembers), a season's every one of its episodes' (the owner, Fire TV,
+//     2026-10-25). Enforced by TestRaiser_ALookAtASeriesRaisesTheWorkOfTheStillsItShows.
 //   - A look asks for the read of the unread files of what it shows, once for the look: a series'
 //     its Next Up's, a season's every one of its episodes', in their order (D304 §4; the owner,
 //     2026-10-25); a look said again asks for none, as a read asked for while its scan lists asks for
