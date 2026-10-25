@@ -1,0 +1,129 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+package library
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
+)
+
+// withProgress gives a page's entries how far userID is through each (the owner, 2026-10-25: "for
+// series, the progress bar at the bottom shows how far along they have watched"): a film the percent
+// of its file Continue Watching would resume it at, by the same rule; a series how many of its
+// episodes they finished, of how many it has, in the ordering they watch it in, the members Next Up
+// reads with the same thresholds. A constant number of statements, in one read, whatever the page.
+func (browser *Browser) withProgress(ctx context.Context, userID int64, kind string, page Page) (Page, error) {
+	if len(page.Entries) == 0 {
+		return page, nil
+	}
+	thresholds, err := ReadResumeThresholds(ctx, browser.settings)
+	if err != nil {
+		return Page{}, err
+	}
+	ids := make([]int64, 0, len(page.Entries))
+	for _, entry := range page.Entries {
+		ids = append(ids, entry.ID)
+	}
+	err = browser.database.ReadTx(ctx, func(queries *sqlcgen.Queries) error {
+		if kind == ListSeries {
+			return seriesProgress(ctx, queries, thresholds, userID, ids, page.Entries)
+		}
+		return filmsProgress(ctx, queries, thresholds, userID, ids, page.Entries)
+	})
+	if err != nil {
+		return Page{}, err
+	}
+	return page, nil
+}
+
+// filmsProgress sets each film's WatchedPercent: of its positions, most recent first, the first
+// Continue Watching resumes at, when its file's length is known.
+func filmsProgress(
+	ctx context.Context, queries *sqlcgen.Queries, thresholds ResumeThresholds, userID int64, ids []int64,
+	entries []Entry,
+) error {
+	encoded, err := json.Marshal(ids)
+	if err != nil {
+		return fmt.Errorf("encode %d title ids: %w", len(ids), err)
+	}
+	rows, err := queries.ListTitlesPlayPositions(ctx, sqlcgen.ListTitlesPlayPositionsParams{
+		TitleIdsJSON: string(encoded), UserID: userID,
+	})
+	if err != nil {
+		return fmt.Errorf("read user %d's positions in %d films: %w", userID, len(ids), err)
+	}
+	latestWatchedAt := map[int64]int64{} // a film's most recent watching, in any of its files
+	decided := map[int64]bool{}
+	percent := map[int64]int64{}
+	for _, row := range rows {
+		if _, seen := latestWatchedAt[row.TitleID]; !seen {
+			latestWatchedAt[row.TitleID] = row.PositionReadAt
+		}
+		if decided[row.TitleID] ||
+			!thresholds.resumesAt(row.PositionMs, row.DurationMs, row.HiddenAt, latestWatchedAt[row.TitleID]) {
+			continue
+		}
+		decided[row.TitleID] = true
+		if row.DurationMs > 0 {
+			percent[row.TitleID] = row.PositionMs * 100 / row.DurationMs
+		}
+	}
+	for index := range entries {
+		entries[index].WatchedPercent = percent[entries[index].ID]
+	}
+	return nil
+}
+
+// seriesProgress sets each series' EpisodeCount and FinishedEpisodeCount, in the ordering userID
+// watches it in (ViewingOrderings): its members with a live file, and those of them with a file
+// they finished, as Next Up counts a member finished (MembersOf).
+func seriesProgress(
+	ctx context.Context, queries *sqlcgen.Queries, thresholds ResumeThresholds, userID int64, ids []int64,
+	entries []Entry,
+) error {
+	orderings, err := ViewingOrderings(ctx, queries, userID, ids)
+	if err != nil {
+		return err
+	}
+	named := make([][2]any, 0, len(ids))
+	for _, id := range ids {
+		named = append(named, [2]any{id, orderings[id]})
+	}
+	encoded, err := json.Marshal(named)
+	if err != nil {
+		return fmt.Errorf("encode %d series' orderings: %w", len(ids), err)
+	}
+	counts, err := queries.CountOrderingMembers(ctx, string(encoded))
+	if err != nil {
+		return fmt.Errorf("count the episodes of %d series: %w", len(ids), err)
+	}
+	positions, err := queries.ListOrderingMemberPositions(ctx, sqlcgen.ListOrderingMemberPositionsParams{
+		OrderingsJSON: string(encoded), UserID: userID,
+	})
+	if err != nil {
+		return fmt.Errorf("read user %d's positions in %d series: %w", userID, len(ids), err)
+	}
+	memberCount := map[int64]int64{}
+	for _, row := range counts {
+		memberCount[row.CollectionID] = row.MemberCount
+	}
+	type member struct{ seriesID, titleID int64 }
+	finished := map[member]bool{}
+	finishedCount := map[int64]int64{}
+	for _, row := range positions {
+		each := member{seriesID: row.CollectionID, titleID: row.TitleID}
+		if finished[each] || !thresholds.IsFinished(row.PositionMs, row.DurationMs) {
+			continue
+		}
+		finished[each] = true
+		finishedCount[row.CollectionID]++
+	}
+	for index := range entries {
+		id := entries[index].ID
+		entries[index].EpisodeCount, entries[index].FinishedEpisodeCount = memberCount[id], finishedCount[id]
+	}
+	return nil
+}

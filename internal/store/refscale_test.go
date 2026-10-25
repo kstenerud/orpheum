@@ -378,10 +378,10 @@ func checkStepBudgets(t *testing.T, database *Database, steps []Step) {
 	}
 }
 
-// rebuildStep is a step that rebuilds table in the documented pattern (migrations.md): the views
-// dropped, a copy made with its rows and id sequence, the old table dropped and the copy renamed,
-// and its indexes, triggers and the views made again. It moves the rows and changes no schema, so
-// the plans read after it are the schema's.
+// rebuildStep is a step that rebuilds table in the documented pattern (migrations.md): the views and
+// the other tables' triggers dropped, a copy made with its rows and id sequence, the old table
+// dropped and the copy renamed, and its indexes, the views and every trigger made again. It moves the
+// rows and changes no schema, so the plans read after it are the schema's.
 func rebuildStep(t *testing.T, database *Database, table string, version int) Step {
 	t.Helper()
 	schemaSQL := func(query string) []string {
@@ -401,14 +401,22 @@ func rebuildStep(t *testing.T, database *Database, table string, version int) St
 	for _, view := range schemaSQL("SELECT name FROM sqlite_schema WHERE type = 'view' ORDER BY name") {
 		fmt.Fprintf(&text, "DROP VIEW %s;\n", view)
 	}
+	// Another table's trigger may read the table or a view (step 0058's read file through title_found),
+	// and a rename checks every trigger: each is dropped, and made again after the views.
+	triggers := schemaSQL("SELECT sql FROM sqlite_schema WHERE type = 'trigger' ORDER BY name")
+	for _, trigger := range schemaSQL("SELECT name FROM sqlite_schema WHERE type = 'trigger' AND tbl_name <> '" +
+		table + "' ORDER BY name") {
+		fmt.Fprintf(&text, "DROP TRIGGER %s;\n", trigger)
+	}
 	fmt.Fprintf(&text, "CREATE TABLE %s %s;\n", copyName, strings.TrimPrefix(created[0], "CREATE TABLE "+table+" "))
 	fmt.Fprintf(&text, "INSERT INTO %s (%s) SELECT %[2]s FROM %s;\n", copyName, strings.Join(columns, ", "), table)
 	fmt.Fprintf(&text, "UPDATE sqlite_sequence SET seq = (SELECT seq FROM sqlite_sequence WHERE name = '%s') "+
 		"WHERE name = '%s';\n", table, copyName)
 	fmt.Fprintf(&text, "DROP TABLE %s;\nALTER TABLE %s RENAME TO %[1]s;\n", table, copyName)
-	remade := schemaSQL("SELECT sql FROM sqlite_schema WHERE type IN ('index', 'trigger') AND tbl_name = '" + table +
-		"' AND sql IS NOT NULL ORDER BY type, name")
+	remade := schemaSQL("SELECT sql FROM sqlite_schema WHERE type = 'index' AND tbl_name = '" + table +
+		"' AND sql IS NOT NULL ORDER BY name")
 	remade = append(remade, schemaSQL("SELECT sql FROM sqlite_schema WHERE type = 'view' ORDER BY name")...)
+	remade = append(remade, triggers...)
 	for _, statement := range remade {
 		fmt.Fprintf(&text, "%s;\n", statement)
 	}
@@ -420,10 +428,7 @@ func rebuildStep(t *testing.T, database *Database, table string, version int) St
 // query that no longer scans fails until it is taken off (sql.md section 11).
 func fullScansAllowed() map[string]string {
 	return map[string]string{
-		"ListSeriesByAdded": "newest first reads the series, which are few (200 at the reference scale), " +
-			"and sorts them: walking item_added would pass every film and episode",
 		"ListTitlesByIdentification":    "the admin's needs-a-match list: 1.3 ms at the reference scale",
-		"ListSeriesByIdentification":    "the same list's series, which are few",
 		"ListLibraries":                 "a household has a handful of libraries",
 		"ListRoles":                     "a household has a handful of roles; the admin lists them (D243 section 4)",
 		"ListRoleLibraries":             "a role reaches a handful of libraries; the admin lists them (D243 section 4)",
@@ -440,8 +445,6 @@ func fullScansAllowed() map[string]string {
 			"each one's last scan every 15 minutes (D272 section 1)",
 		"ListUnavailablePlaces": "a household's libraries have a handful of roots and disks; the sweep of " +
 			"unavailable ones reads them every unavailable_root_rescan_seconds (D233 section 10, D327 section 3)",
-		"ListSeriesOwingOrderingParts": "the series, which are few (200 at the reference scale), each asked whether " +
-			"it owes a part of its orderings; the D335 sweep reads them hourly and at start, 20 at a time",
 	}
 }
 
@@ -470,11 +473,27 @@ func checkQueryPlans(t *testing.T, database *Database) {
 // pageBudget is performance-targets.md's for a library page or a poster grid.
 const pageBudget = 50 * time.Millisecond
 
+// pageOfIDs is the ids query lists, as a JSON array.
+func pageOfIDs(t *testing.T, database *Database, query string) string {
+	t.Helper()
+	var ids []string
+	for _, row := range queryRows(t, database, query, 1) {
+		ids = append(ids, row[0])
+	}
+	return "[" + strings.Join(ids, ",") + "]"
+}
+
 // checkPageBudgets times the first page of each browse list at the reference scale, best of five,
 // against the page budget: a query shaped badly enough to read every file for every title took
 // seconds here while the dev library showed nothing (audit-2026-09-25).
 func checkPageBudgets(t *testing.T, database *Database) {
 	t.Helper()
+	filmIDs := pageOfIDs(t, database, "SELECT id FROM title WHERE kind = 'movie' ORDER BY id LIMIT 60")
+	var named []string
+	for _, row := range queryRows(t, database, "SELECT id FROM collection ORDER BY id LIMIT 60", 1) {
+		named = append(named, "["+row[0]+",\"aired\"]")
+	}
+	orderings := "[" + strings.Join(named, ",") + "]"
 	queries := sqlcgen.New(database.readers)
 	ctx := t.Context()
 	pages := map[string]func() error{
@@ -487,7 +506,8 @@ func checkPageBudgets(t *testing.T, database *Database) {
 		},
 		"films newest first": func() error {
 			first := sqlcgen.ListFilmsByAddedParams{
-				BeforeAt: 1 << 62, BeforeID: 1 << 62, MaxRows: 60, IsEveryLibrary: 1, LibraryIdsJSON: "[]",
+				BeforeFoundAt: 1 << 62, BeforeModifiedAt: 1 << 62, BeforeID: 1 << 62, MaxRows: 60, IsEveryLibrary: 1,
+				LibraryIdsJSON: "[]",
 			}
 			_, err := queries.ListFilmsByAdded(ctx, first)
 			return err //nolint:wrapcheck // a test
@@ -501,9 +521,25 @@ func checkPageBudgets(t *testing.T, database *Database) {
 		},
 		"series newest first": func() error {
 			first := sqlcgen.ListSeriesByAddedParams{
-				BeforeAt: 1 << 62, BeforeID: 1 << 62, MaxRows: 60, IsEveryLibrary: 1, LibraryIdsJSON: "[]",
+				BeforeFoundAt: 1 << 62, BeforeModifiedAt: 1 << 62, BeforeID: 1 << 62, MaxRows: 60, IsEveryLibrary: 1,
+				LibraryIdsJSON: "[]",
 			}
 			_, err := queries.ListSeriesByAdded(ctx, first)
+			return err //nolint:wrapcheck // a test
+		},
+		"a page of films' progress": func() error {
+			_, err := queries.ListTitlesPlayPositions(ctx, sqlcgen.ListTitlesPlayPositionsParams{
+				TitleIdsJSON: filmIDs, UserID: 1,
+			})
+			return err //nolint:wrapcheck // a test
+		},
+		"a page of series' progress": func() error {
+			if _, err := queries.CountOrderingMembers(ctx, orderings); err != nil {
+				return err //nolint:wrapcheck // a test
+			}
+			_, err := queries.ListOrderingMemberPositions(ctx, sqlcgen.ListOrderingMemberPositionsParams{
+				OrderingsJSON: orderings, UserID: 1,
+			})
 			return err //nolint:wrapcheck // a test
 		},
 		"a series' episodes": func() error {

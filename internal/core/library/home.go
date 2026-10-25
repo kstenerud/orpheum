@@ -64,10 +64,7 @@ func (browser *Browser) ContinueWatching(ctx context.Context, userID int64, reac
 		if _, seen := latestWatchedAt[row.TitleID]; !seen {
 			latestWatchedAt[row.TitleID] = row.PositionReadAt
 		}
-		if row.HiddenAt != nil && *row.HiddenAt >= latestWatchedAt[row.TitleID] {
-			continue
-		}
-		if !thresholds.IsPartwayThrough(row.PositionMs, row.DurationMs) {
+		if !thresholds.resumesAt(row.PositionMs, row.DurationMs, row.HiddenAt, latestWatchedAt[row.TitleID]) {
 			continue
 		}
 		partwayFileCountByTitle[row.TitleID]++
@@ -150,6 +147,18 @@ func ReadResumeThresholds(ctx context.Context, config IntSettings) (ResumeThresh
 // Watching takes it. A file of unknown length is never finished by its position.
 func (thresholds ResumeThresholds) IsFinished(positionMs, durationMs int64) bool {
 	return durationMs > 0 && positionMs*100 > thresholds.finishedAfterPercent*durationMs
+}
+
+// resumesAt is whether Continue Watching resumes a work at a position in one of its files: partway
+// through it, and the work not hidden since latestWatchedAt, its latest watching in any of its files
+// (D188). A list's film shows how far in it is by the same rule.
+func (thresholds ResumeThresholds) resumesAt(
+	positionMs, durationMs int64, hiddenAt *int64, latestWatchedAt int64,
+) bool {
+	if hiddenAt != nil && *hiddenAt >= latestWatchedAt {
+		return false
+	}
+	return thresholds.IsPartwayThrough(positionMs, durationMs)
 }
 
 // IsPartwayThrough is whether a position is partway through a file: past the first threshold and not

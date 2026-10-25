@@ -207,8 +207,18 @@
 //
 //   - Films and series are listed in the sort_locale's order (D47) or newest first, a page at a
 //     time behind an opaque cursor, and only those with a live file. TestBrowse_FilmsInTheLocalesOrderAPageAtATime,
-//     TestBrowse_FilmsNewestFirst. A title's extras, too, are only those with a live file.
-//     TestBrowse_ATitlesExtrasAreOnlyThoseWithALiveFile.
+//     TestBrowse_FilmsNewestFirst. Newest first is by the scan that found it, most recent first,
+//     then by its file's own time: a film as the scan that first found it, a series as its newest
+//     episode (the owner, 2026-10-25; the store's step 0058).
+//     TestFound_FilmsNewestFirstByTheScanThatFoundThemThenTheirFilesTime,
+//     TestFound_ASeriesIsAsNewAsItsNewestEpisode (internal/store). A title's extras, too, are only
+//     those with a live file. TestBrowse_ATitlesExtrasAreOnlyThoseWithALiveFile.
+//
+//   - A list's entry shows how far its person is through it, in a constant number of statements
+//     for its page: a film where Continue Watching would resume it, by the same rule (resumesAt);
+//     a series how many of its episodes with a file they finished, of how many, in the ordering
+//     they watch it in, by Next Up's threshold. TestBrowse_AListShowsHowFarThePersonIsThroughEach
+//     (internal/core/api).
 //
 //   - A search is folded and routed by internal/core/textindex and answered by the index that
 //     can (D48). TestSearch_EveryRouteFindsWhatItShould.
@@ -274,7 +284,8 @@
 //   - ingest.go, observe.go, complete.go, sidecar.go: the ingest; streams.go: the stream rows a probe
 //     derives; create.go: libraries; admin.go: what an admin does with them (create over a node's
 //     roots, list, scan, the scanner view); browse.go and detail.go: lists, a title's detail, a
-//     series' episodes, and search; home.go: Continue Watching and the resume thresholds;
+//     series' episodes, and search; progress.go: how far a person is through a list's entries;
+//     home.go: Continue Watching and the resume thresholds;
 //     next_up.go: a collection's members as a person stands in them, and their Next Up;
 //     ordering.go: the ordering a person sees a series in, and an episode's place in it;
 //     subtitle_sidecar.go: a subtitle file's track; rootpath.go: which root a file is under, and a

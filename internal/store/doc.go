@@ -49,6 +49,12 @@
 //     while it copies (D303 §7). Enforced by TestBackupInto_CopiesWhileAWriteHoldsTheWriter. A copy
 //     that fails integrity_check is refused (M6). Enforced by
 //     TestBackupInto_RefusesACopyThatFailsItsIntegrityCheck.
+//   - A title's and a series' found_at and found_file_modified_at, which newest first walks by an
+//     index, are derived from their files by step 0058's triggers, as its views title_found and
+//     collection_found define them, whatever writes the files, versions or members, and only on a
+//     change. Enforced by TestFound_FilmsNewestFirstByTheScanThatFoundThemThenTheirFilesTime,
+//     TestFound_ASeriesIsAsNewAsItsNewestEpisode, and the invariant "every title and series is as
+//     new as its files say".
 //   - Every query of both databases, and each of search's statements, reads by an index, or is
 //     listed with why it may read a whole table; an entry naming D303 is a defect the redesign
 //     removes (D303, DL1). Enforced by TestQueryPlans_EveryQueryReadsByAnIndexOrSaysWhy. Each search

@@ -4,6 +4,7 @@ package library
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -21,16 +22,35 @@ import (
 // until an admin can name another (episode-orderings.md §7 Q3). It is the one answer to "which
 // ordering" for everything a person sees of a series; identification never asks it.
 func ViewingOrdering(ctx context.Context, queries *sqlcgen.Queries, userID, seriesID int64) (string, error) {
-	chosen, err := store.OrNotFound(queries.GetChosenOrdering(ctx, sqlcgen.GetChosenOrderingParams{
-		UserID: userID, CollectionID: seriesID, Axis: preferences.AxisEpisodeOrdering,
-	}))
-	switch {
-	case errors.Is(err, store.ErrNotFound):
-		return OrderingAired, nil
-	case err != nil:
-		return "", fmt.Errorf("read the ordering user %d watches series %d in: %w", userID, seriesID, err)
+	orderings, err := ViewingOrderings(ctx, queries, userID, []int64{seriesID})
+	if err != nil {
+		return "", err
 	}
-	return chosen, nil
+	return orderings[seriesID], nil
+}
+
+// ViewingOrderings is ViewingOrdering for each of seriesIDs, in one statement: a list's page of series.
+func ViewingOrderings(ctx context.Context, queries *sqlcgen.Queries, userID int64, seriesIDs []int64) (
+	map[int64]string, error,
+) {
+	orderings := make(map[int64]string, len(seriesIDs))
+	for _, id := range seriesIDs {
+		orderings[id] = OrderingAired
+	}
+	encoded, err := json.Marshal(seriesIDs)
+	if err != nil {
+		return nil, fmt.Errorf("encode %d series ids: %w", len(seriesIDs), err)
+	}
+	chosen, err := queries.ListChosenOrderings(ctx, sqlcgen.ListChosenOrderingsParams{
+		CollectionIdsJSON: string(encoded), UserID: userID, Axis: preferences.AxisEpisodeOrdering,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("read the orderings user %d watches %d series in: %w", userID, len(seriesIDs), err)
+	}
+	for _, row := range chosen {
+		orderings[row.CollectionID] = row.Name
+	}
+	return orderings, nil
 }
 
 // EpisodePlace is an episode's series and aired place, and its place in the ordering its person

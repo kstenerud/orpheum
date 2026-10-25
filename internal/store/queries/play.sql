@@ -63,6 +63,21 @@ WHERE play_position.user_id = sqlc.arg(user_id)
 ORDER BY play_position.position_read_at DESC
 LIMIT sqlc.arg(max_rows);
 
+-- name: ListTitlesPlayPositions :many
+-- A person's positions in the live files of some titles, most recent watching first, with each
+-- file's length where its probe knows it and when its title was last hidden: as
+-- ListRecentPlayPositions has them, for a list's films' progress; the page's titles drive, by CROSS JOIN.
+SELECT version.title_id, play_position.position_ms, play_position.position_read_at,
+  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
+    AS duration_ms,
+  progress_hide.hidden_at
+FROM json_each(CAST(sqlc.arg(title_ids_json) AS TEXT)) AS listed
+CROSS JOIN version ON version.title_id = listed.value AND version.removed_at IS NULL
+CROSS JOIN file ON file.version_id = version.id AND file.removed_at IS NULL
+CROSS JOIN play_position ON play_position.user_id = sqlc.arg(user_id) AND play_position.file_id = file.id
+LEFT JOIN progress_hide ON progress_hide.user_id = play_position.user_id AND progress_hide.item_id = version.title_id
+ORDER BY play_position.position_read_at DESC;
+
 -- name: HideProgress :exec
 -- A work hidden from Continue Watching until it next has activity (D188): not a completion.
 INSERT INTO progress_hide (user_id, item_id, hidden_at) VALUES (sqlc.arg(user_id), sqlc.arg(item_id), sqlc.arg(hidden_at))

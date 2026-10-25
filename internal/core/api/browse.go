@@ -26,7 +26,10 @@ type EntryBody struct {
 	AddedAt      int64  `json:"addedAt"`
 	PosterSha256 string `doc:"Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp" json:"posterSha256,omitempty"` //nolint:lll // one struct tag
 	// Unavailable says why none of its files can be read now; absent when one can (D241 §3).
-	Unavailable *UnavailableBody `json:"unavailable,omitempty"`
+	Unavailable          *UnavailableBody `json:"unavailable,omitempty"`
+	WatchedPercent       int64            `doc:"How far, in percent, the person is through a film, where Continue Watching would resume it; absent for a series, and for a film they are not partway through, have hidden since, or whose file's length is not known" json:"watchedPercent,omitempty"` //nolint:lll // one struct tag
+	EpisodeCount         int64            `doc:"How many episodes a series has with a file, in the ordering the person watches it in; absent for a film" json:"episodeCount,omitempty"`                                                                                                                //nolint:lll // one struct tag
+	FinishedEpisodeCount int64            `doc:"How many of those episodes the person finished; absent when none, and for a film" json:"finishedEpisodeCount,omitempty"`                                                                                                                               //nolint:lll // one struct tag
 }
 
 // UnavailableBody is why what is listed cannot be played now: its machine away, or its folder or
@@ -69,7 +72,7 @@ func artBody(art library.Art) ArtBody {
 type TitlesInput struct {
 	AuthorizationHeader
 	Kind   string `enum:"movie,series" query:"kind" required:"true"`
-	Sort   string `enum:"name,added" query:"sort" required:"true"`
+	Sort   string `doc:"name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode" enum:"name,added" query:"sort" required:"true"` //nolint:lll // one struct tag
 	Cursor string `doc:"From the previous page's nextCursor" query:"cursor"`
 	Limit  int64  `maximum:"500" minimum:"1" query:"limit" required:"true"`
 }
@@ -314,6 +317,7 @@ func (server *Server) getTitles(ctx context.Context, input *TitlesInput) (*Title
 	}
 	page, err := dependencies.Browser.List(ctx, library.ListQuery{
 		Kind: input.Kind, Sort: input.Sort, Cursor: input.Cursor, Limit: input.Limit, Reach: principal.Reach,
+		UserID: principal.UserID,
 	})
 	if err != nil {
 		return nil, server.libraryError(ctx, "list titles", err)
@@ -326,7 +330,9 @@ func (server *Server) getTitles(ctx context.Context, input *TitlesInput) (*Title
 			ID: entry.ID, Name: entry.Name, Year: entry.Year, IdentificationState: entry.IdentificationState,
 			IsGuessed: entry.IsGuessed, LibraryID: entry.LibraryID,
 			AddedAt: entry.AddedAt, PosterSha256: entry.PosterSha256,
-			Unavailable: unavailableBody(entry.Unreadable, nodeName),
+			Unavailable:    unavailableBody(entry.Unreadable, nodeName),
+			WatchedPercent: entry.WatchedPercent, EpisodeCount: entry.EpisodeCount,
+			FinishedEpisodeCount: entry.FinishedEpisodeCount,
 		})
 	}
 	output.Body.NextCursor = page.NextCursor

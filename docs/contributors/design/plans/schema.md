@@ -393,7 +393,6 @@ CREATE TABLE item (                                        -- class I
   removed_at  INTEGER
 );
 CREATE INDEX item_library ON item(library_id, kind) WHERE removed_at IS NULL;
-CREATE INDEX item_added ON item(added_at) WHERE removed_at IS NULL;  -- migration 0026: newest first
 CREATE VIEW live_item AS SELECT * FROM item WHERE removed_at IS NULL;
 
 CREATE TABLE item_provider_id (                            -- class I; several per provider (ISRCs)
@@ -423,12 +422,19 @@ CREATE TABLE title (                                       -- mixed: see the col
   followed_source         TEXT CHECK (followed_source IN ('nfo','tmdb','tvdb','none')),       -- F/A
   followed_source_id      TEXT,                                                      -- F/A
   identification_state          TEXT NOT NULL CHECK (identification_state IN
-                   ('identified','ambiguous','unidentified','confirmed'))    -- F/A (D172)
+                   ('identified','ambiguous','unidentified','confirmed')),   -- F/A (D172)
+  -- Step 0058: newest first (the owner, 2026-10-25: the most recent scan first, then the file's
+  -- own time), derived by triggers from the files as the view title_found defines them: the
+  -- first-found live file's first_seen_at, its listing's time, which names the scan, and that
+  -- file's modified_at; 0 with no live file.
+  found_at                      INTEGER NOT NULL DEFAULT 0,                  -- C
+  found_file_modified_at        INTEGER NOT NULL DEFAULT 0                   -- C
 );
 CREATE INDEX title_ambiguous ON title(id) WHERE identification_state = 'ambiguous';
 -- What waits for a person's match after a search found nothing: CountWaitingForAPerson (D303, step 0046).
 CREATE INDEX title_waiting ON title(id)
   WHERE identification_state = 'unidentified' AND followed_source = 'none' AND kind != 'episode';
+CREATE INDEX title_film_found ON title(found_at, found_file_modified_at) WHERE kind = 'movie';
 
 CREATE TABLE edition (                                     -- class A when a person made it
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -621,8 +627,13 @@ CREATE TABLE collection (                                  -- class A or O
   year        INTEGER,                                                       -- O: resolved
   followed_source      TEXT CHECK (followed_source IN ('nfo','tmdb','tvdb','none')),         -- F/A: its own values
   followed_source_id   TEXT,                                                          -- F/A: its match
-  identification_state       TEXT CHECK (identification_state IN ('identified','ambiguous','unidentified','confirmed'))  -- F/A
+  identification_state       TEXT CHECK (identification_state IN ('identified','ambiguous','unidentified','confirmed')),  -- F/A
+  -- Step 0058: newest first, its newest member's title.found_at and found_file_modified_at
+  -- (collection_found), derived by triggers; 0 with none.
+  found_at                   INTEGER NOT NULL DEFAULT 0,                              -- C
+  found_file_modified_at     INTEGER NOT NULL DEFAULT 0                               -- C
 );
+CREATE INDEX collection_series_found ON collection(found_at, found_file_modified_at) WHERE kind = 'series';
 CREATE TABLE collection_member (                           -- D159, D160
   collection_id     INTEGER NOT NULL REFERENCES collection(id) ON DELETE RESTRICT,
   member_title      INTEGER REFERENCES title(id) ON DELETE RESTRICT,

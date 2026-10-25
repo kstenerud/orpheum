@@ -2474,6 +2474,16 @@ export interface components {
         EntryBody: {
             /** Format: int64 */
             addedAt: number;
+            /**
+             * Format: int64
+             * @description How many episodes a series has with a file, in the ordering the person watches it in; absent for a film
+             */
+            episodeCount?: number;
+            /**
+             * Format: int64
+             * @description How many of those episodes the person finished; absent when none, and for a film
+             */
+            finishedEpisodeCount?: number;
             /** Format: int64 */
             id: number;
             identificationState: string;
@@ -2484,6 +2494,11 @@ export interface components {
             /** @description Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp */
             posterSha256?: string;
             unavailable?: components["schemas"]["UnavailableBody"];
+            /**
+             * Format: int64
+             * @description How far, in percent, the person is through a film, where Continue Watching would resume it; absent for a series, and for a film they are not partway through, have hidden since, or whose file's length is not known
+             */
+            watchedPercent?: number;
             /** Format: int64 */
             year?: number;
         };
@@ -8572,6 +8587,7 @@ export interface operations {
                 cursor?: string;
                 kind: "movie" | "series";
                 limit: number;
+                /** @description name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode */
                 sort: "name" | "added";
             };
             header?: {
