@@ -23,9 +23,15 @@
   list-style: none;
 }
 
-/* A row off screen is not laid out or painted until it nears the view: a long list stays cheap. */
+/*
+ * A row off screen is not laid out or painted until it nears the view: a long list stays cheap. That
+ * clips what leaves each item's box, the focus ring too, so an item keeps room for the ring around
+ * its card and stands where it would without it (the owner, Silk, 2026-10-25: the grid's posters
+ * showed no ring where Continue Watching's did).
+ */
 .poster-grid > li {
-  margin: 0;
+  margin: calc(-1 * var(--focus-ring-room));
+  padding: var(--focus-ring-room);
   content-visibility: auto;
   contain-intrinsic-size: auto 18rem;
 }
@@ -93,10 +99,11 @@
   position: relative;
 }
 
+/* Placed from the item's box, which keeps room for the focus ring around the card. */
 .poster-grid__cues {
   position: absolute;
-  inset-block-start: var(--space-1);
-  inset-inline-end: var(--space-1);
+  inset-block-start: calc(var(--space-1) + var(--focus-ring-room));
+  inset-inline-end: calc(var(--space-1) + var(--focus-ring-room));
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
