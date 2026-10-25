@@ -5,34 +5,18 @@
  * no HTTPS address reaches. Each request goes on a data channel of its own: a text head (method, path,
  * headers), the body in binary messages of at most `maxMessageBytes`, an empty message ending it;
  * the core answers on the same channel the same way, and the client closes it. A client opens
- * `clientConnections` peer connections and sends each request on the one with the fewest under way;
- * making them is rtc-connect.ts.
+ * up to `clientConnections` peer connections, one kept and more only while its requests crowd it, and
+ * sends each request on the one with the fewest under way; making them is rtc-connect.ts.
  */
 
-/** The most a message holds, which every browser carries; the core's rtcapi.MaxMessageBytes. */
-export const maxMessageBytes = 64 * 1024;
+import { abortReason, channelOf, sendOnChannel, type ChannelLike } from "./rtc-request.ts";
 
 /**
- * How many peer connections a client opens: one is bound by its congestion window, and four carried
- * three times as much (reachability-approaches-2026-10-09.md §9.4); the core's ClientConnections.
+ * How many peer connections a client opens at most, while its requests crowd them: one is bound by
+ * its congestion window, and four carried three times as much (reachability-approaches-2026-10-09.md
+ * §9.4); the core's ClientConnections.
  */
 export const clientConnections = 4;
-
-/** What a channel says, to the one request it carries. */
-export interface ChannelListener {
-  readonly open: () => void;
-  readonly message: (data: string | ArrayBuffer) => void;
-  readonly close: () => void;
-  readonly error: () => void;
-}
-
-/** What the transport needs of a data channel: the browser's, through channelOf, or a test's. */
-export interface ChannelLike {
-  readonly readyState: RTCDataChannelState;
-  send(data: string | ArrayBuffer): void;
-  close(): void;
-  listen(listener: ChannelListener): void;
-}
 
 /** What the transport needs of a peer connection: opening a channel, and hearing that it is gone. */
 export interface PeerLike {
@@ -55,53 +39,6 @@ export const disconnectedGraceMs = 5000;
 /** The first and the longest wait before a gone connection's replacement is tried again. */
 export const replaceFirstMs = 1000;
 export const replaceMostMs = 30_000;
-
-/** A request's head, as the core reads it: rtcapi.RequestHead. */
-interface RequestHead {
-  readonly method: string;
-  readonly path: string;
-  readonly headers: Record<string, string[]>;
-}
-
-/** A response's head, as the core sends it: rtcapi.ResponseHead. */
-interface ResponseHead {
-  readonly status: number;
-  readonly headers?: Record<string, string[]>;
-}
-
-/** The statuses whose response has no body, which a Response refuses one for. */
-const bodylessStatuses = new Set([101, 204, 205, 304]);
-
-/** A browser's data channel as the transport uses it; its binaryType must be "arraybuffer". */
-export function channelOf(channel: RTCDataChannel): ChannelLike {
-  return {
-    get readyState() {
-      return channel.readyState;
-    },
-    send: (data) => {
-      // RTCDataChannel.send is overloaded per type, so a union must be narrowed to pick one.
-      if (typeof data === "string") {
-        channel.send(data);
-      } else {
-        channel.send(data);
-      }
-    },
-    close: () => {
-      channel.close();
-    },
-    listen: (listener) => {
-      channel.addEventListener("open", listener.open);
-      channel.addEventListener("message", (event: MessageEvent<unknown>) => {
-        const { data } = event;
-        if (typeof data === "string" || data instanceof ArrayBuffer) {
-          listener.message(data);
-        }
-      });
-      channel.addEventListener("close", listener.close);
-      channel.addEventListener("error", listener.error);
-    },
-  };
-}
 
 /**
  * A browser's peer connection as the transport uses it: each channel delivers ArrayBuffers, and it
@@ -140,245 +77,6 @@ export function peerOf(peer: RTCPeerConnection): PeerLike {
       });
     },
   };
-}
-
-/** A request as the messages that carry it: its head, its body in pieces, and an empty end. */
-export async function requestMessages(request: Request): Promise<(string | ArrayBuffer)[]> {
-  const body = request.body === null ? undefined : await request.arrayBuffer();
-  const url = new URL(request.url);
-  const headers: Record<string, string[]> = {};
-  request.headers.forEach((value, name) => {
-    headers[name] = [...(headers[name] ?? []), value];
-  });
-  const head: RequestHead = { method: request.method, path: url.pathname + url.search, headers };
-  const messages: (string | ArrayBuffer)[] = [JSON.stringify(head)];
-  for (let start = 0; body !== undefined && start < body.byteLength; start += maxMessageBytes) {
-    messages.push(body.slice(start, start + maxMessageBytes));
-  }
-  messages.push(new ArrayBuffer(0));
-  return messages;
-}
-
-/**
- * What a request whose signal aborted fails with, as fetch fails: the signal's reason, an AbortError
- * unless the one who aborted it gave another.
- */
-function abortReason(signal: AbortSignal): Error {
-  const reason: unknown = signal.reason;
-  return reason instanceof Error
-    ? reason
-    : new DOMException("the request was aborted", "AbortError");
-}
-
-/**
- * Sends one request on a channel of its own, and resolves with the response once its head arrives,
- * its body streamed as its messages do. The channel closes when the body ends or is cancelled, or
- * when the request's signal aborts: the request then fails, or its body does, with the signal's
- * reason, and the core, its channel closed, ends the request's work (rtcapi's
- * TestChannel_AChannelTheClientClosesEndsItsRequest).
- */
-export async function sendOnChannel(channel: ChannelLike, request: Request): Promise<Response> {
-  const messages = await requestMessages(request);
-  const { signal } = request;
-  const answered = receiveResponse(channel, new URL(request.url).pathname, signal);
-  const sendAll = (): void => {
-    if (signal.aborted) {
-      return;
-    }
-    for (const message of messages) {
-      channel.send(message);
-    }
-  };
-  if (channel.readyState === "open") {
-    sendAll();
-  } else {
-    onceOpen.set(channel, sendAll);
-  }
-  return await answered;
-}
-
-/** What to send once each channel not yet open opens. */
-const onceOpen = new WeakMap<ChannelLike, () => void>();
-
-/**
- * How many body messages a reader takes before the core is granted as many more: the core sends
- * rtcapi.InitialCreditMessages before the first grant, so a film asked for from its first byte never
- * sits whole in the browser.
- */
-export const grantEvery = 16;
-
-/**
- * A response's body as its messages arrive, handed to its reader only as it reads: each `grantEvery`
- * messages handed out grant the core as many more.
- */
-class BodyQueue {
-  private readonly queued: Uint8Array[] = [];
-  private waiting: (() => void) | undefined;
-  private isFinished = false;
-  private failure: Error | undefined;
-  private handedOut = 0;
-
-  constructor(private readonly grant: (messages: number) => void) {}
-
-  push(chunk: Uint8Array): void {
-    this.queued.push(chunk);
-    this.wake();
-  }
-
-  finish(failure?: Error): void {
-    this.isFinished = true;
-    this.failure = failure;
-    this.wake();
-  }
-
-  /** The body as a stream its reader pulls from, each message only when asked for. */
-  stream(onCancel: () => void): ReadableStream<Uint8Array> {
-    return new ReadableStream<Uint8Array>(
-      {
-        pull: async (controller) => {
-          while (this.queued.length === 0 && !this.isFinished) {
-            await new Promise<void>((resolve) => {
-              this.waiting = resolve;
-            });
-          }
-          const next = this.queued.shift();
-          if (next !== undefined) {
-            controller.enqueue(next);
-            this.handedOut += 1;
-            if (this.handedOut % grantEvery === 0) {
-              this.grant(grantEvery);
-            }
-          } else if (this.failure === undefined) {
-            controller.close();
-          } else {
-            controller.error(this.failure);
-          }
-        },
-        cancel: onCancel,
-      },
-      { highWaterMark: 0 },
-    );
-  }
-
-  private wake(): void {
-    const waiting = this.waiting;
-    this.waiting = undefined;
-    waiting?.();
-  }
-}
-
-/** The response a channel carries: resolved at its head, its body streamed until the empty end. */
-function receiveResponse(
-  channel: ChannelLike,
-  path: string,
-  signal: AbortSignal,
-): Promise<Response> {
-  return new Promise<Response>((resolve, reject) => {
-    let isEnded = false;
-    const body = new BodyQueue((messages) => {
-      if (!isEnded) {
-        channel.send(JSON.stringify({ credit: messages }));
-      }
-    });
-    const end = (failure?: Error): void => {
-      if (isEnded) {
-        return;
-      }
-      isEnded = true;
-      signal.removeEventListener("abort", aborted);
-      body.finish(failure);
-      if (failure !== undefined) {
-        reject(failure);
-      }
-      channel.close();
-    };
-    const aborted = (): void => {
-      end(abortReason(signal));
-    };
-    channel.listen({
-      open: () => onceOpen.get(channel)?.(),
-      message: (data) => {
-        if (typeof data === "string") {
-          const response = responseOf(data, body, end);
-          if (response !== undefined) {
-            resolve(response);
-          }
-        } else if (data.byteLength === 0) {
-          end();
-        } else {
-          body.push(new Uint8Array(data));
-        }
-      },
-      close: () => {
-        end(new Error(`the channel for ${path} closed before its response ended`));
-      },
-      error: () => {
-        end(new Error(`the channel for ${path} failed`));
-      },
-    });
-    if (signal.aborted) {
-      aborted();
-    } else {
-      signal.addEventListener("abort", aborted);
-    }
-  });
-}
-
-/**
- * The response a head begins, its body read from body, or undefined for a head that is not one,
- * which ends the request with why.
- */
-function responseOf(
-  text: string,
-  body: BodyQueue,
-  end: (failure?: Error) => void,
-): Response | undefined {
-  let answered: ResponseHead;
-  try {
-    answered = readHead(text);
-  } catch (error: unknown) {
-    end(error instanceof Error ? error : new Error(String(error)));
-    return undefined;
-  }
-  const stream = bodylessStatuses.has(answered.status)
-    ? null
-    : body.stream(() => {
-        end();
-      });
-  return new Response(stream, { status: answered.status, headers: toHeaders(answered.headers) });
-}
-
-/** A response head as the core sent it, or an error for one that is not. */
-function readHead(text: string): ResponseHead {
-  const parsed: unknown = JSON.parse(text);
-  if (
-    typeof parsed !== "object" ||
-    parsed === null ||
-    !("status" in parsed) ||
-    typeof parsed.status !== "number"
-  ) {
-    throw new Error("the core's response head is not one");
-  }
-  const headers =
-    "headers" in parsed && typeof parsed.headers === "object" && parsed.headers !== null
-      ? Object.fromEntries(
-          Object.entries(parsed.headers).filter((entry): entry is [string, string[]] =>
-            Array.isArray(entry[1]),
-          ),
-        )
-      : {};
-  return { status: parsed.status, headers };
-}
-
-/** A head's headers as a Headers. */
-function toHeaders(headers: Record<string, string[]> | undefined): Headers {
-  const result = new Headers();
-  for (const [name, values] of Object.entries(headers ?? {})) {
-    for (const value of values) {
-      result.append(name, value);
-    }
-  }
-  return result;
 }
 
 /**
@@ -438,10 +136,101 @@ function countedChannel(channel: ChannelLike, release: () => void): ChannelLike 
   };
 }
 
-/** One of the transport's connections, and how many requests are under way on it. */
-interface Link {
-  readonly peer: PeerLike;
-  underWay: number;
+/**
+ * A channel that calls release once, when it closes, by either end: a socket's, which holds its
+ * connection open while it is.
+ */
+function heldChannel(channel: ChannelLike, release: () => void): ChannelLike {
+  let isReleased = false;
+  const releaseOnce = (): void => {
+    if (!isReleased) {
+      isReleased = true;
+      release();
+    }
+  };
+  return {
+    get readyState() {
+      return channel.readyState;
+    },
+    send: (data) => {
+      channel.send(data);
+    },
+    close: () => {
+      channel.close();
+      releaseOnce();
+    },
+    listen: (listener) => {
+      channel.listen({
+        ...listener,
+        close: () => {
+          releaseOnce();
+          listener.close();
+        },
+        error: () => {
+          releaseOnce();
+          listener.error();
+        },
+      });
+    },
+  };
+}
+
+/**
+ * How many requests every connection up carries before the transport opens another, up to its size:
+ * a page browsing or waiting carries one request at a time, which one connection serves as well as
+ * four, and four opened for every tab at once filled a network's share of the core's connections
+ * with four tabs, connections that carried no request in five minutes (staging, 2026-10-25, the
+ * owner's four browsers holding all sixteen and the Fire TV turned away).
+ */
+export const growWhenEachCarries = 2;
+
+/**
+ * How long a connection beyond a transport's last carries no request and no socket before it is
+ * closed: long enough that a page loading posters as it scrolls keeps the ones it opened, short
+ * enough that a tab left open holds one connection of its network's share, not four.
+ */
+export const idleClosesAfterMs = 30_000;
+
+/**
+ * How long a connection must live before its going is replaced at once: one gone sooner, as one the
+ * core closes as soon as it connects, is replaced only after the transport's growing wait, which a
+ * connection that lives this long resets. Replaced at once, each one closed made another, about one a
+ * second, for as long as the page stayed open (staging, 2026-10-25).
+ */
+export const settledAfterMs = 10_000;
+
+/** One of the transport's connections, what it carries, and whether it is still new. */
+class Link {
+  underWay = 0;
+  /** How many sockets' channels it holds open (openChannel), which keep it from closing as idle. */
+  sockets = 0;
+  isNew = true;
+  private idle: ReturnType<typeof setTimeout> | undefined;
+
+  constructor(readonly peer: PeerLike) {}
+
+  /** Whether it carries nothing: no request under way, and no socket. */
+  get isIdle(): boolean {
+    return this.underWay === 0 && this.sockets === 0;
+  }
+
+  /** Calls then once it has stayed idle for ms, from now; not while it carries anything. */
+  whenIdleFor(ms: number, then: () => void): void {
+    this.stopIdle();
+    if (this.isIdle) {
+      this.idle = setTimeout(() => {
+        this.idle = undefined;
+        if (this.isIdle) {
+          then();
+        }
+      }, ms);
+    }
+  }
+
+  stopIdle(): void {
+    clearTimeout(this.idle);
+    this.idle = undefined;
+  }
 }
 
 /** The link of links with the fewest requests under way, or none. */
@@ -452,7 +241,7 @@ function fewestUnderWay(links: readonly Link[]): Link | undefined {
   );
 }
 
-/** How a transport keeps its connections: opening another, and how many it keeps. */
+/** How a transport keeps its connections: opening another, and how many it keeps at most. */
 export interface Growth {
   readonly open: () => Promise<PeerLike>;
   readonly size: number;
@@ -460,10 +249,13 @@ export interface Growth {
 
 /**
  * A client's WebRTC transport to its core: up to `clientConnections` peer connections, each request
- * sent on the one with the fewest under way. With growth, it opens connections up to its size, takes
- * one that is gone out of use at once and opens another in its place, retrying each failure after a
- * wait that doubles (plans/webrtc-transport.md W2d). `fetch` is what the API client sends requests
- * with; while no connection is up, a request waits for one.
+ * sent on the one with the fewest under way. With growth, it keeps one connection up, opening another
+ * only while every one up carries growWhenEachCarries requests or a request waits for room, one at a
+ * time, up to its size, and closing one beyond the last once it has carried nothing for
+ * idleClosesAfterMs. It takes one that is gone out of use at once and opens another in its place when
+ * it is still wanted, retrying each failure, a refusal included, after a wait that doubles
+ * (plans/webrtc-transport.md W2d). `fetch` is what the API client sends requests with; while no
+ * connection is up, a request waits for one.
  */
 export class RtcTransport {
   private readonly links: Link[] = [];
@@ -481,7 +273,6 @@ export class RtcTransport {
     for (const peer of peers) {
       this.add(peer);
     }
-    this.grow();
   }
 
   /** How many connections are up. */
@@ -501,8 +292,10 @@ export class RtcTransport {
     }
     // Chosen at once while one has room, so requests made together spread across the connections.
     const link = this.claimNow() ?? (await this.claim(signal));
+    this.grow();
     const channel = countedChannel(link.peer.createDataChannel("request"), () => {
       link.underWay -= 1;
+      this.closeWhenIdle(link);
       this.wakeWaiting();
     });
     try {
@@ -516,7 +309,7 @@ export class RtcTransport {
   /**
    * A channel of its own on the connection with the fewest under way, for a request that holds it
    * open: a WebSocket's messages (rtc-together.ts). With no connection up, it throws, and the socket
-   * is opened again later.
+   * is opened again later. Its connection is not closed as idle while it is open.
    */
   openChannel(): ChannelLike {
     // A socket's channel is held apart from the requests' room (requestsPerConnection).
@@ -524,13 +317,19 @@ export class RtcTransport {
     if (link === undefined) {
       throw new Error("no WebRTC connection to the core is up");
     }
-    return link.peer.createDataChannel("upgrade");
+    link.sockets += 1;
+    link.stopIdle();
+    return heldChannel(link.peer.createDataChannel("upgrade"), () => {
+      link.sockets -= 1;
+      this.closeWhenIdle(link);
+    });
   }
 
   /** Closes every connection, and opens no more. */
   close(): void {
     this.isClosed = true;
     for (const link of this.links.splice(0)) {
+      link.stopIdle();
       link.peer.close();
     }
     // A request waiting for a connection fails now rather than waiting for good.
@@ -539,29 +338,74 @@ export class RtcTransport {
     }
   }
 
-  /** Takes peer into use, and out of it once it is gone, opening another in its place. */
+  /**
+   * Takes peer into use, and out of it once it is gone, opening another in its place when one is
+   * wanted: at once for one that had lived settledAfterMs, after the growing wait for one that had not.
+   */
   private add(peer: PeerLike): void {
-    const link: Link = { peer, underWay: 0 };
+    const link = new Link(peer);
     this.links.push(link);
+    setTimeout(() => {
+      link.isNew = false;
+      if (this.links.includes(link)) {
+        this.retryMs = replaceFirstMs;
+      }
+    }, settledAfterMs);
+    this.closeWhenIdle(link);
     this.wakeWaiting();
     peer.onGone?.(() => {
-      const index = this.links.indexOf(link);
-      if (index >= 0) {
-        this.links.splice(index, 1);
-      }
+      link.stopIdle();
+      this.drop(link);
       peer.close();
-      this.grow();
+      if (link.isNew) {
+        this.retryLater();
+      } else {
+        this.grow();
+      }
     });
   }
 
-  /** Opens connections up to the growth's size, one at a time per missing one. */
+  /** Takes link out of use. */
+  private drop(link: Link): void {
+    const index = this.links.indexOf(link);
+    if (index >= 0) {
+      this.links.splice(index, 1);
+    }
+  }
+
+  /**
+   * Closes link once it has carried nothing for idleClosesAfterMs, unless it is the last up: the
+   * page keeps one connection, and opens more only as its requests crowd it.
+   */
+  private closeWhenIdle(link: Link): void {
+    link.whenIdleFor(idleClosesAfterMs, () => {
+      if (this.links.length > 1 && this.links.includes(link)) {
+        this.drop(link);
+        link.peer.close();
+      }
+    });
+  }
+
+  /**
+   * Whether another connection is wanted: none is up, a request waits for room, or every one up
+   * carries growWhenEachCarries; never while one is opening or waiting to be tried again, nor past
+   * the growth's size.
+   */
+  private wantsAnother(growth: Growth): boolean {
+    if (this.isClosed || this.opening > 0 || this.links.length >= growth.size) {
+      return false;
+    }
+    return (
+      this.links.length === 0 ||
+      this.waiting.length > 0 ||
+      this.links.every((link) => link.underWay >= growWhenEachCarries)
+    );
+  }
+
+  /** Opens another connection when one is wanted. */
   private grow(): void {
     const growth = this.growth;
-    while (
-      growth !== undefined &&
-      !this.isClosed &&
-      this.links.length + this.opening < growth.size
-    ) {
+    if (growth !== undefined && this.wantsAnother(growth)) {
       this.opening += 1;
       void this.openOne(growth);
     }
@@ -571,21 +415,28 @@ export class RtcTransport {
     try {
       const peer = await growth.open();
       this.opening -= 1;
-      this.retryMs = replaceFirstMs;
       if (this.isClosed) {
         peer.close();
         return;
       }
       this.add(peer);
+      this.grow();
     } catch {
-      // A connection that could not be made is tried again after a wait, longer each time.
-      const wait = this.retryMs;
-      this.retryMs = Math.min(this.retryMs * 2, replaceMostMs);
-      setTimeout(() => {
-        this.opening -= 1;
-        this.grow();
-      }, wait);
+      // A connection that could not be made, or the core turned away, is tried after a wait.
+      this.opening -= 1;
+      this.retryLater();
     }
+  }
+
+  /** Looks again whether another connection is wanted after a wait, longer each time. */
+  private retryLater(): void {
+    const wait = this.retryMs;
+    this.retryMs = Math.min(this.retryMs * 2, replaceMostMs);
+    this.opening += 1;
+    setTimeout(() => {
+      this.opening -= 1;
+      this.grow();
+    }, wait);
   }
 
   /** Wakes every request waiting for a connection with room, to look again. */
@@ -606,6 +457,7 @@ export class RtcTransport {
     const link = fewestUnderWay(this.links.filter((each) => each.underWay < requestsPerConnection));
     if (link !== undefined) {
       link.underWay += 1;
+      link.stopIdle();
     }
     return link;
   }
@@ -640,6 +492,7 @@ export class RtcTransport {
         };
         this.waiting.push(wake);
         signal.addEventListener("abort", aborted, { once: true });
+        this.grow();
       });
     }
   }

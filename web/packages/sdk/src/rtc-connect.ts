@@ -7,6 +7,7 @@
  */
 
 import { reportFailure } from "./problem.ts";
+import { channelOf, type ChannelLike } from "./rtc-request.ts";
 import { clientConnections, peerOf, RtcTransport, type PeerLike } from "./rtc-transport.ts";
 
 /** How long a connection may take to gather its candidates and connect. */
@@ -56,6 +57,91 @@ export function slowConnection(timings: ConnectTimings): string | undefined {
   );
 }
 
+/**
+ * How long, once its negotiation channel is open, a connection waits for the core's verdict: the
+ * core sends it as the channel opens, so it comes within a round trip; a core from before verdicts
+ * sends none, and its connection is taken as held when this is over.
+ */
+export const verdictWaitMs = 1_000;
+
+/**
+ * A connection the core turned away, saying why (rtcapi.Verdict): `network-full` when the client's
+ * network holds its share of the core's connections already (rtcapi's perSourceLimit), which a page
+ * says as too many Orpheum pages open on the network, not as a network that cannot reach the server
+ * (the owner's Fire TV, 2026-10-25).
+ */
+export class TurnedAway extends Error {
+  constructor(readonly reason: string) {
+    super(`the core turned the WebRTC connection away: ${reason}`);
+    this.name = "TurnedAway";
+  }
+}
+
+/** The core's reason for turning a connection away for its network's share: rtcapi.RefusedNetworkFull. */
+export const networkFull = "network-full";
+
+/** Whether problem, or any cause behind it, is the core turning a connection away for reason. */
+export function isTurnedAway(problem: unknown, reason: string = networkFull): boolean {
+  for (let each = problem, depth = 0; each instanceof Error && depth < 8; depth += 1) {
+    if (each instanceof TurnedAway && each.reason === reason) {
+      return true;
+    }
+    each = each.cause;
+  }
+  return false;
+}
+
+/**
+ * Settles with the core's verdict on a connection, told on its negotiation channel (rtcapi.Verdict):
+ * resolves when it is held, or when verdictWaitMs pass after the channel opens with none said, as an
+ * older core says none; rejects with TurnedAway when the core turned it away, and with an error when
+ * the channel closes first.
+ */
+export function verdictOf(channel: ChannelLike): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const settle = (failure?: Error): void => {
+      clearTimeout(timer);
+      if (failure === undefined) {
+        resolve();
+      } else {
+        reject(failure);
+      }
+    };
+    const waitAfterOpen = (): void => {
+      timer ??= setTimeout(settle, verdictWaitMs);
+    };
+    channel.listen({
+      open: waitAfterOpen,
+      message: (data) => {
+        const refused = typeof data === "string" ? refusalIn(data) : undefined;
+        settle(refused === undefined ? undefined : new TurnedAway(refused));
+      },
+      close: () => {
+        settle(new Error("the core closed the WebRTC connection before saying it was held"));
+      },
+      error: () => {
+        settle(new Error("the WebRTC connection's negotiation channel failed"));
+      },
+    });
+    if (channel.readyState === "open") {
+      waitAfterOpen();
+    }
+  });
+}
+
+/** The reason a verdict's text turns the connection away for, or undefined for one that does not. */
+function refusalIn(text: string): string | undefined {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    const refused: unknown =
+      typeof parsed === "object" && parsed !== null ? Reflect.get(parsed, "refused") : undefined;
+    return typeof refused === "string" && refused !== "" ? refused : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** A session description: an offer or an answer, and its SDP. */
 export interface Description {
   readonly type: "offer" | "answer";
@@ -83,9 +169,10 @@ export async function connectRtc(
 async function connectOne(signaller: Signaller, rtcConfig: RTCConfiguration): Promise<PeerLike> {
   const peer = new RTCPeerConnection(rtcConfig);
   try {
-    // An offer needs something to negotiate: a channel opened and never used, which the core knows by
-    // its label and never serves (internal/core/rtcapi.NegotiationLabel).
-    peer.createDataChannel("hello");
+    // An offer needs something to negotiate: a channel the client sends nothing on, which the core
+    // knows by its label, never serves, and tells its verdict on (internal/core/rtcapi.NegotiationLabel).
+    const verdict = verdictOf(channelOf(peer.createDataChannel("hello")));
+    verdict.catch(() => undefined);
     const startedAt = performance.now();
     await peer.setLocalDescription(await peer.createOffer());
     await gathered(peer, hasRelayServer(rtcConfig));
@@ -98,6 +185,7 @@ async function connectOne(signaller: Signaller, rtcConfig: RTCConfiguration): Pr
     const answeredAt = performance.now();
     await peer.setRemoteDescription(answer);
     await connected(peer);
+    await withinConnectTimeout(verdict);
     const slow = slowConnection({
       gathering: gatheredAt - startedAt,
       answer: answeredAt - gatheredAt,
@@ -110,6 +198,21 @@ async function connectOne(signaller: Signaller, rtcConfig: RTCConfiguration): Pr
   } catch (error: unknown) {
     peer.close();
     throw error;
+  }
+}
+
+/** Settles as settling does, or rejects once connectTimeoutMs pass first. */
+async function withinConnectTimeout(settling: Promise<void>): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error("the core said nothing of the WebRTC connection in time"));
+    }, connectTimeoutMs);
+  });
+  try {
+    await Promise.race([settling, late]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 

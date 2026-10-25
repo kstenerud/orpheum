@@ -3,26 +3,21 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
-  connectTimeoutMs,
-  gatherAfterReflexiveMs,
-  gatherForRelayMs,
-  gathered,
-  hasRelayServer,
-  slowConnection,
-  slowConnectMs,
-  type GatheringPeer,
-} from "./rtc-connect.ts";
-import {
   grantEvery,
   maxMessageBytes,
-  replaceFirstMs,
-  closingHoldsMs,
-  requestsPerConnection,
-  RtcTransport,
   sendOnChannel,
-  SwitchableFetch,
   type ChannelLike,
   type ChannelListener,
+} from "./rtc-request.ts";
+import {
+  closingHoldsMs,
+  growWhenEachCarries,
+  idleClosesAfterMs,
+  replaceFirstMs,
+  requestsPerConnection,
+  RtcTransport,
+  settledAfterMs,
+  SwitchableFetch,
   type PeerLike,
 } from "./rtc-transport.ts";
 
@@ -449,46 +444,117 @@ describe("the WebRTC transport's connections (plans/webrtc-transport.md W2d)", (
     return { transport, opened, failing };
   }
 
-  it("is usable with its first connection, and grows to four behind it", async () => {
+  /** Sends count requests on transport that no one answers, so each stays under way. */
+  function crowd(transport: RtcTransport, count: number): void {
+    for (let index = 0; index < count; index += 1) {
+      transport
+        .fetch(new Request(`https://app.example/poster/${String(index)}`))
+        .catch(() => undefined);
+    }
+  }
+
+  it("is usable with its first connection, and grows to four only while its requests crowd it", async () => {
     const first = new FakePeer();
     const { transport, opened } = growing(first);
+    await settle();
+    // A tab with nothing under way, or one request at a time, keeps the one connection.
+    expect(transport.size).toBe(1);
     void transport.fetch(new Request("https://app.example/a"));
     expect(first.channels).toHaveLength(1);
+    await settle();
+    expect(transport.size).toBe(1);
+    expect(opened).toHaveLength(0);
+    crowd(transport, 7);
+    for (let more = 0; more < 4; more += 1) {
+      await settle();
+      crowd(transport, 2);
+    }
     await settle();
     expect(transport.size).toBe(4);
     expect(opened).toHaveLength(3);
   });
 
-  it("takes a connection that is gone out of use at once, and opens another in its place", async () => {
+  it("closes a connection beyond its last once it has carried nothing for idleClosesAfterMs", async () => {
+    vi.useFakeTimers();
     const first = new FakePeer();
     const { transport, opened } = growing(first);
-    await settle();
+    crowd(transport, growWhenEachCarries);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(transport.size).toBe(2);
+    for (const channel of [...first.channels, ...(opened[0]?.channels ?? [])]) {
+      channel.closeFromTheCore();
+    }
+    await vi.advanceTimersByTimeAsync(idleClosesAfterMs - 1);
+    expect(transport.size).toBe(2);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(transport.size).toBe(1);
+    expect([first.isClosed, opened[0]?.isClosed].filter(Boolean)).toHaveLength(1);
+    // The last is kept however long it carries nothing.
+    await vi.advanceTimersByTimeAsync(idleClosesAfterMs * 10);
+    expect(transport.size).toBe(1);
+  });
+
+  it("keeps a connection a socket's channel is open on, idle or not", async () => {
+    vi.useFakeTimers();
+    const first = new FakePeer();
+    const { transport, opened } = growing(first);
+    crowd(transport, growWhenEachCarries);
+    await vi.advanceTimersByTimeAsync(0);
+    const second = opened[0];
+    // The socket goes on the connection with the fewest under way: the new one.
+    const socket = transport.openChannel();
+    socket.listen({
+      open: () => undefined,
+      message: () => undefined,
+      close: () => undefined,
+      error: () => undefined,
+    });
+    for (const channel of first.channels) {
+      channel.closeFromTheCore();
+    }
+    await vi.advanceTimersByTimeAsync(idleClosesAfterMs * 2);
+    expect(transport.size).toBe(1);
+    expect(first.isClosed).toBe(true);
+    expect(second?.isClosed).toBe(false);
+    socket.close();
+    crowd(transport, growWhenEachCarries);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(transport.size).toBe(2);
+  });
+
+  it("takes a connection that is gone out of use at once, and opens another in its place", async () => {
+    vi.useFakeTimers();
+    const first = new FakePeer();
+    const { transport, opened } = growing(first);
+    crowd(transport, growWhenEachCarries);
+    await vi.advanceTimersByTimeAsync(settledAfterMs);
+    expect(transport.size).toBe(2);
     first.goes();
     expect(first.isClosed).toBe(true);
-    expect(transport.size).toBe(3);
+    expect(transport.size).toBe(1);
     for (const path of ["a", "b", "c", "d", "e", "f"]) {
       void transport.fetch(new Request(`https://app.example/${path}`));
     }
-    expect(first.channels).toHaveLength(0);
-    await settle();
-    expect(transport.size).toBe(4);
-    expect(opened).toHaveLength(4);
+    expect(first.channels).toHaveLength(growWhenEachCarries);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(transport.size).toBe(2);
+    expect(opened).toHaveLength(2);
   });
 
   it("tries a connection that could not be made again after a wait, and a request waits for one", async () => {
     vi.useFakeTimers();
     const first = new FakePeer();
     const { transport, failing } = growing(first);
-    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(settledAfterMs);
     failing.is = true;
     for (const peer of [first]) {
       peer.goes();
     }
-    expect(transport.size).toBe(3);
+    expect(transport.size).toBe(0);
     await vi.advanceTimersByTimeAsync(0);
     failing.is = false;
     await vi.advanceTimersByTimeAsync(replaceFirstMs);
-    expect(transport.size).toBe(4);
+    expect(transport.size).toBe(1);
 
     const alone = new FakePeer();
     const lonely = new RtcTransport([alone], {
@@ -511,134 +577,37 @@ describe("the WebRTC transport's connections (plans/webrtc-transport.md W2d)", (
     await vi.advanceTimersByTimeAsync(0);
     expect(outcome).toBe("failed"); // closed, it fails what waited
   });
-});
 
-/** A peer gathering candidates as the test says: each found, and gathering complete. */
-class FakeGatheringPeer implements GatheringPeer {
-  iceGatheringState: RTCIceGatheringState = "gathering";
-  readonly #onState: (() => void)[] = [];
-  readonly #onCandidate: ((event: RTCPeerConnectionIceEvent) => void)[] = [];
-
-  addEventListener(type: "icegatheringstatechange", listener: () => void): void;
-  addEventListener(
-    type: "icecandidate",
-    listener: (event: RTCPeerConnectionIceEvent) => void,
-  ): void;
-  addEventListener(type: string, listener: (event: RTCPeerConnectionIceEvent) => void): void {
-    if (type === "icecandidate") {
-      this.#onCandidate.push(listener);
-    } else {
-      this.#onState.push(() => {
-        listener(undefined as never);
-      });
-    }
-  }
-
-  find(type: RTCIceCandidateType): void {
-    const event = { candidate: { type } } as unknown as RTCPeerConnectionIceEvent;
-    this.#onCandidate.forEach((listener) => {
-      listener(event);
-    });
-  }
-
-  complete(): void {
-    this.iceGatheringState = "complete";
-    this.#onState.forEach((listener) => {
-      listener();
-    });
-  }
-}
-
-describe("gathered", () => {
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  // Gathering completes only when every STUN attempt has answered or given up, some forty seconds
-  // on an interface with no way out, so each offer waited out connectTimeoutMs, and a realm sign-in
-  // took 28 s on staging (2026-10-23).
-  it("goes gatherAfterReflexiveMs after the first candidate that reaches past this machine", async () => {
+  // A connection the core closes as soon as it connects, as one past its network's share, was
+  // replaced at once, each new one closed in turn: a refusal about every second for as long as the
+  // page stayed open (staging, 2026-10-25).
+  it("replaces a connection gone before settledAfterMs only after a wait that doubles", async () => {
     vi.useFakeTimers();
-    const peer = new FakeGatheringPeer();
-    let isDone = false;
-    void gathered(peer).then(() => {
-      isDone = true;
+    const opened: FakePeer[] = [];
+    const first = new FakePeer();
+    const transport = new RtcTransport([first], {
+      size: 4,
+      open: () => {
+        const peer = new FakePeer();
+        opened.push(peer);
+        return Promise.resolve(peer);
+      },
     });
-    peer.find("host");
-    await vi.advanceTimersByTimeAsync(gatherAfterReflexiveMs * 2);
-    expect(isDone).toBe(false);
-    peer.find("srflx");
-    peer.find("srflx");
-    await vi.advanceTimersByTimeAsync(gatherAfterReflexiveMs - 1);
-    expect(isDone).toBe(false);
-    await vi.advanceTimersByTimeAsync(1);
-    expect(isDone).toBe(true);
-  });
-
-  it("with a TURN server, waits for the relayed candidate, up to gatherForRelayMs", async () => {
-    vi.useFakeTimers();
-    const relayed = new FakeGatheringPeer();
-    let isRelayedDone = false;
-    void gathered(relayed, true).then(() => {
-      isRelayedDone = true;
-    });
-    relayed.find("srflx");
-    await vi.advanceTimersByTimeAsync(gatherAfterReflexiveMs);
-    expect(isRelayedDone).toBe(false);
-    relayed.find("relay");
-    await vi.advanceTimersByTimeAsync(gatherAfterReflexiveMs);
-    expect(isRelayedDone).toBe(true);
-    const noRelay = new FakeGatheringPeer();
-    let isNoRelayDone = false;
-    void gathered(noRelay, true).then(() => {
-      isNoRelayDone = true;
-    });
-    noRelay.find("srflx");
-    await vi.advanceTimersByTimeAsync(gatherForRelayMs - 1);
-    expect(isNoRelayDone).toBe(false);
-    await vi.advanceTimersByTimeAsync(1);
-    expect(isNoRelayDone).toBe(true);
-  });
-
-  it("expects a relayed candidate only from a TURN server", () => {
-    expect(hasRelayServer({ iceServers: [{ urls: "stun:stun.example.com:3478" }] })).toBe(false);
-    expect(
-      hasRelayServer({ iceServers: [{ urls: ["stun:a", "turns:relay.example.com:5349"] }] }),
-    ).toBe(true);
-    expect(hasRelayServer({})).toBe(false);
-  });
-
-  it("goes when gathering completes, or at connectTimeoutMs with only host candidates", async () => {
-    vi.useFakeTimers();
-    const completes = new FakeGatheringPeer();
-    let isCompleteDone = false;
-    void gathered(completes).then(() => {
-      isCompleteDone = true;
-    });
-    completes.complete();
+    first.goes();
     await vi.advanceTimersByTimeAsync(0);
-    expect(isCompleteDone).toBe(true);
-    const hostOnly = new FakeGatheringPeer();
-    let isHostOnlyDone = false;
-    void gathered(hostOnly).then(() => {
-      isHostOnlyDone = true;
-    });
-    hostOnly.find("host");
-    await vi.advanceTimersByTimeAsync(connectTimeoutMs - 1);
-    expect(isHostOnlyDone).toBe(false);
-    await vi.advanceTimersByTimeAsync(1);
-    expect(isHostOnlyDone).toBe(true);
-  });
-});
-
-describe("slowConnection", () => {
-  it("says where a slow connection's time went, and nothing of one within slowConnectMs", () => {
-    expect(
-      slowConnection({ gathering: 1_000, answer: 1_000, connecting: slowConnectMs - 2_000 }),
-    ).toBe(undefined);
-    expect(slowConnection({ gathering: 10_004.4, answer: 2_100, connecting: 300 })).toBe(
-      "a WebRTC connection took 12404 ms: gathering its candidates 10004 ms, the core's answer 2100 ms, " +
-        "connecting 300 ms",
-    );
+    expect(opened).toHaveLength(0);
+    await vi.advanceTimersByTimeAsync(replaceFirstMs);
+    expect(opened).toHaveLength(1);
+    opened[0]?.goes();
+    await vi.advanceTimersByTimeAsync(replaceFirstMs);
+    expect(opened).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(replaceFirstMs);
+    expect(opened).toHaveLength(2);
+    // One that lives settledAfterMs is replaced at once when it goes.
+    await vi.advanceTimersByTimeAsync(settledAfterMs);
+    opened[1]?.goes();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(opened).toHaveLength(3);
+    expect(transport.size).toBe(1);
   });
 });

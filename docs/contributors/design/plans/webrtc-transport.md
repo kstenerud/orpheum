@@ -33,8 +33,9 @@
   channel per request gives each its own flow control with no multiplexing of our own.
 - **Several connections per client.** One connection is window-bound (§9.4's measurement), so a
   client keeps up to four peer connections and spreads requests across them. The core tunes pion's
-  window growth (`SetSCTPCwndCAStep`, 64 KiB). Since D290 the race opens **one** and the others
-  follow once WebRTC is chosen (protocol §2.5, W2d).
+  window growth (`SetSCTPCwndCAStep`, 64 KiB). Since D290 the race opens **one**; since 2026-10-25
+  the others follow only while every connection up carries two requests or one waits for room, and
+  one beyond the last is closed after 30 s idle, so an idle tab holds one of its network's 16 (W2d).
 - **Messages of at most 64 KiB**, which every browser carries; the core enforces it on receive too
   (protocol §2.5's bounds, K3a).
 - **The peer's address is the request's.** A request's remote address is the address of the ICE

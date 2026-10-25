@@ -40,7 +40,10 @@ export interface KeptPath {
    * page makes by itself go through it: rejects where no service worker runs.
    */
   readonly carried: Promise<void>;
-  /** Stops looking for better paths and closes a WebRTC connection in use. */
+  /**
+   * Stops looking for better paths and closes every WebRTC transport the page used, the one in use
+   * or one it moved away from; the page's hiding for good does too.
+   */
   readonly close: () => void;
 }
 
@@ -92,10 +95,12 @@ export function keepPath(
   let openSocket = socketOn(reaching.first);
   let credentials = (): MediaCredentials => ({ token: session.token(), viewer: undefined });
   const moveListeners = new Set<(to: string) => void>();
+  const used = transportsUsed();
   const keeper = new PathKeeper<Reached>(reaching.first, {
     sendOn: (path) => sendingOn(path).send,
     another: reaching.another,
     onUse: (path) => {
+      used.add(path);
       if (!isFirst) {
         // Never the first path's use, which the keeper tells as it is made, before looking is.
         looking.moved(inUse);
@@ -120,6 +125,7 @@ export function keepPath(
   const carried = carryMediaOver(keeper.fetch, () => credentials(), sendingOn(reaching.first).name);
   carried.catch(reportFailure);
   const looking = lookForBetterPaths(keeper, reaching, pathJudge(session));
+  used.onClose(looking.stop);
   return {
     fetch: keeper.fetch,
     openTogetherSocket: (listeners) => openSocket(listeners),
@@ -133,12 +139,53 @@ export function keepPath(
       credentials = named;
     },
     carried,
-    close: () => {
-      looking.stop();
-      if (keeper.path.kind === "webrtc") {
-        keeper.path.transport.close();
+    close: used.close,
+  };
+}
+
+/** The WebRTC transports a page used, closed together. */
+interface TransportsUsed {
+  /** Keeps path's transport, when it is one, to close. */
+  readonly add: (path: Reached) => void;
+  /** Names what else closing does. */
+  readonly onClose: (also: () => void) => void;
+  /** Closes every transport kept, and does what onClose named. */
+  readonly close: () => void;
+}
+
+/**
+ * Each WebRTC transport a page used, closed with its path or when the page leaves for good: one it
+ * moved away from kept its connections, a share of its network's at the core, for as long as the tab
+ * stayed open. A page leaving closes them itself, so the core frees them at once rather than when
+ * their checks time out; a page kept for the back button keeps them.
+ */
+function transportsUsed(): TransportsUsed {
+  const transports = new Set<{ readonly close: () => void }>();
+  let also = (): void => undefined;
+  const close = (): void => {
+    window.removeEventListener("pagehide", onPageHide);
+    also();
+    for (const transport of transports) {
+      transport.close();
+    }
+    transports.clear();
+  };
+  function onPageHide(event: Event): void {
+    if (Reflect.get(event, "persisted") !== true) {
+      close();
+    }
+  }
+  window.addEventListener("pagehide", onPageHide);
+  return {
+    add: (path) => {
+      if (path.kind === "webrtc") {
+        transports.add(path.transport);
       }
     },
+    onClose: (named) => {
+      also = named;
+    },
+    close,
   };
 }
 
