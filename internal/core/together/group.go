@@ -270,7 +270,7 @@ func (current *session) endWait(now time.Time) {
 
 // settle starts a group waiting at a sync point playing once every device that plays along is
 // ready. A playing group is never stopped by a player that is not (D250 §2). A device that has not
-// yet once been ready, still choosing its speakers or loading, is not waited for (D246 §6). A group
+// yet once been ready, still waiting for its tap or loading, is not waited for (D246 §6). A group
 // with no player ready waits on, so it never plays to no one: the one it waited for dropped, it
 // plays once that player is back and ready (D250 §2's amendment of 2026-10-12).
 func (current *session) settle(now time.Time) {

@@ -63,8 +63,8 @@ type StartPlaybackInput struct {
 		// Cause and PageStarts are for the log alone: why the page asked, and how many playbacks it
 		// has asked for since it loaded, so a playback started again by itself says what started it
 		// (staging, 2026-10-14, where a phone's playback started over and nothing said why).
-		Cause      string `doc:"Why the page asked for this playback, for the log" enum:"filmPage,playPage,warmUpStale,warmUpOffLadder,warmUpFailed,soundAnswered,soundChanged,subtitleFetched,audioChosen,originalChosen,playbackGone,ownPictureGivenUp,mediaBack" json:"cause,omitempty" required:"false"` //nolint:lll // one struct tag
-		PageStarts int    `doc:"How many playbacks the page has asked for since it loaded, this one included" json:"pageStarts,omitempty" minimum:"0" required:"false"`                                                                                                                                      //nolint:lll // one struct tag
+		Cause      string `doc:"Why the page asked for this playback, for the log" enum:"filmPage,playPage,warmUpStale,warmUpOffLadder,warmUpFailed,subtitleFetched,audioChosen,originalChosen,boostChosen,playbackGone,ownPictureGivenUp,mediaBack" json:"cause,omitempty" required:"false"` //nolint:lll // one struct tag
+		PageStarts int    `doc:"How many playbacks the page has asked for since it loaded, this one included" json:"pageStarts,omitempty" minimum:"0" required:"false"`                                                                                                                       //nolint:lll // one struct tag
 		// HasGivenUpOwnPicture is the page's word that its player gave the film's own picture up as
 		// unplayable on this device (D266), so the playback starts at its twin (D323 §2); the core
 		// keeps it before it decides, whether or not the player's report reached it first.
@@ -106,9 +106,6 @@ type StartPlaybackOutputBody struct {
 	ResumePositionMs int64 `json:"resumePositionMs"`
 	// MediaToken names this playback in its reports; it grants nothing alone (D217 §2).
 	MediaToken string `json:"mediaToken"`
-	// AudioOutput is how the device asking makes sound, absent until it is asked: the player
-	// asks before it plays, and asks for the decision again with the answer (D222).
-	AudioOutput AudioOutputKind `json:"audioOutput,omitempty"`
 	// SoundOffsetMs is how far the device asking moves its sound from its picture, later when
 	// positive and earlier when negative: its person sets it there (changeMyDevice); 0 for none.
 	SoundOffsetMs int64 `json:"soundOffsetMs" maximum:"2000" minimum:"-2000"`
@@ -304,7 +301,7 @@ func (server *Server) logPlaybackStarted(ctx context.Context, who []any, started
 	server.logger.InfoContext(ctx, "a playback started", append(who,
 		"delivery", string(started.Decision.Delivery), "profile", string(started.Decision.Profile),
 		"notDirectReasons", reasons, "isPreparing", started.IsPreparing,
-		"resumePositionMs", started.ResumePositionMs, "audioOutput", started.AudioOutput,
+		"resumePositionMs", started.ResumePositionMs, "isDialogueBoostOn", started.Preferences.IsDialogueBoostOn,
 		"startsOnLadderKbps", startsOnLadderKbps(started), "notOnLadderBecause", started.NotOnLadderBecause)...)
 }
 
@@ -361,7 +358,6 @@ func startedOutput(started playback.Started) *StartPlaybackOutput {
 	output.Body.Preferences = playbackPreferencesBody(started.Preferences)
 	output.Body.ResumePositionMs = started.ResumePositionMs
 	output.Body.MediaToken = started.Token
-	output.Body.AudioOutput = AudioOutputKind(started.AudioOutput)
 	output.Body.SoundOffsetMs = started.SoundOffsetMs
 	output.Body.Levelling = levellingBody(started.Levelling)
 	output.Body.Tracks = tracksBody(started.Tracks)

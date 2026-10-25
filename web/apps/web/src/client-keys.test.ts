@@ -28,6 +28,7 @@ it("keeps every key the client's source names, so a new one is never cleared at 
 it("clears what an older release kept, and nothing of another's", () => {
   expect(isClientKey("orpheum.discovery.core")).toBe(false);
   expect(isClientKey("orpheum.audioOutput")).toBe(false);
+  expect(isClientKey("orpheum.together.audioOutput")).toBe(false);
   expect(isClientKey("orpheum.core.k7xq2.session")).toBe(true);
   expect(isClientKey("orpheum.loader.core")).toBe(true);
   expect(isClientKey("orpheum.together.viewer")).toBe(true);

@@ -7,11 +7,10 @@
 export const enDevices = {
   thisDevice: {
     heading: "This device",
-    explain:
-      "How this device plays, kept for this device alone. A change applies from the next film you start.",
+    explain: "This device's own settings, kept for it alone.",
     name: "Its name",
     elsewhere: "Your other devices are on your account page.",
-    notListed: "This browser is not one of your devices: sign in again to choose how it plays.",
+    notListed: "This browser is not one of your devices: sign in again to name it.",
   },
   devices: {
     heading: "Your devices",

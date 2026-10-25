@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/core/textindex"
-	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -19,29 +18,13 @@ import (
 // ErrNoDevice is a device that is not there, or not the person's.
 var ErrNoDevice = errors.New("no such device")
 
-// The ways a device makes sound, as a person answers (D222): its own speakers, a soundbar or
-// receiver, or headphones.
-const (
-	AudioOutputBuiltInSpeakers = "built_in_speakers"
-	AudioOutputReceiver        = "receiver"
-	AudioOutputHeadphones      = "headphones"
-)
-
-// AudioOutputs are every way a device makes sound: the one list, which the API documents.
-func AudioOutputs() []string {
-	return []string{AudioOutputBuiltInSpeakers, AudioOutputReceiver, AudioOutputHeadphones}
-}
-
 // Device is one of a person's devices, as their list shows it (D218 §4).
 type Device struct {
-	ID       int64
-	Name     string
-	Platform string
-	// AudioOutput is how it makes sound (D222): built_in_speakers, receiver or headphones, or empty
-	// until it is asked, the first time it plays.
-	AudioOutput string
-	AddedAt     time.Time
-	LastUsedAt  time.Time
+	ID         int64
+	Name       string
+	Platform   string
+	AddedAt    time.Time
+	LastUsedAt time.Time
 	// IsSignedIn is whether any of its sessions is still live, and IsByCode whether a code activated
 	// one of them (the device scope).
 	IsSignedIn, IsByCode bool
@@ -62,7 +45,7 @@ func (service *Service) Devices(ctx context.Context, userID int64) ([]Device, er
 			lastUsedAt = remembered // a use not yet written (FlushSessionUses)
 		}
 		devices = append(devices, Device{
-			ID: row.ID, Name: row.Name, Platform: row.Platform, AudioOutput: ptr.ValueOrZero(row.AudioOutput),
+			ID: row.ID, Name: row.Name, Platform: row.Platform,
 			AddedAt:    time.UnixMilli(row.AddedAt),
 			LastUsedAt: time.UnixMilli(lastUsedAt), IsSignedIn: row.IsSignedIn == 1, IsByCode: row.IsByCode == 1,
 		})
@@ -77,13 +60,6 @@ func (service *Service) Devices(ctx context.Context, userID int64) ([]Device, er
 func (service *Service) RenameDevice(ctx context.Context, userID, deviceID int64, name string) error {
 	return service.onOwnDevice(ctx, userID, deviceID, func(queries *sqlcgen.Queries) error {
 		return queries.RenameDevice(ctx, sqlcgen.RenameDeviceParams{Name: textindex.Line(name), ID: deviceID})
-	})
-}
-
-// SetAudioOutput keeps how one of a person's devices makes sound (D222).
-func (service *Service) SetAudioOutput(ctx context.Context, userID, deviceID int64, output string) error {
-	return service.onOwnDevice(ctx, userID, deviceID, func(queries *sqlcgen.Queries) error {
-		return queries.SetDeviceAudioOutput(ctx, sqlcgen.SetDeviceAudioOutputParams{AudioOutput: &output, ID: deviceID})
 	})
 }
 
@@ -182,7 +158,7 @@ func (service *Service) DeviceOf(ctx context.Context, userID, deviceID int64) (D
 		return Device{}, err
 	}
 	return Device{
-		ID: known.ID, Name: known.Name, Platform: known.Platform, AudioOutput: ptr.ValueOrZero(known.AudioOutput),
+		ID: known.ID, Name: known.Name, Platform: known.Platform,
 		IsSignedIn: true,
 	}, nil
 }

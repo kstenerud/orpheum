@@ -1026,7 +1026,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Rename one of one's devices, or say how it makes sound */
+        /** Rename one of one's devices, or set how far it moves its sound */
         put: operations["changeMyDevice"];
         post?: never;
         /** Remove one of one's devices; it is signed out at its next request */
@@ -2152,11 +2152,6 @@ export interface components {
             checkEveryHours?: number;
         };
         ChangeDeviceInputBody: {
-            /**
-             * @description How the device makes sound; built-in speakers and headphones are stereo (D222)
-             * @enum {string}
-             */
-            audioOutput?: "built_in_speakers" | "receiver" | "headphones";
             name?: string;
             /**
              * Format: int64
@@ -2326,11 +2321,6 @@ export interface components {
              * @description Unix milliseconds
              */
             addedAt: number;
-            /**
-             * @description Absent until the device is asked, when it first plays (D222)
-             * @enum {string}
-             */
-            audioOutput?: "built_in_speakers" | "receiver" | "headphones";
             /** Format: int64 */
             id: number;
             /** @description A code activated it: it neither administers nor changes the account */
@@ -3922,7 +3912,7 @@ export interface components {
              * @description Why the page asked for this playback, for the log
              * @enum {string}
              */
-            cause?: "filmPage" | "playPage" | "warmUpStale" | "warmUpOffLadder" | "warmUpFailed" | "soundAnswered" | "soundChanged" | "subtitleFetched" | "audioChosen" | "originalChosen" | "playbackGone" | "ownPictureGivenUp" | "mediaBack";
+            cause?: "filmPage" | "playPage" | "warmUpStale" | "warmUpOffLadder" | "warmUpFailed" | "subtitleFetched" | "audioChosen" | "originalChosen" | "boostChosen" | "playbackGone" | "ownPictureGivenUp" | "mediaBack";
             /** Format: int64 */
             fileId: number;
             /** @description Whether the player gave the film's own picture up as unplayable here */
@@ -3940,8 +3930,6 @@ export interface components {
             preferredDelivery?: "direct" | "hls";
         };
         StartPlaybackOutputBody: {
-            /** @enum {string} */
-            audioOutput?: "built_in_speakers" | "receiver" | "headphones";
             audioRenditions?: components["schemas"]["AudioRenditionBody"][] | null;
             audioTracks: components["schemas"]["AudioTrackBody"][] | null;
             /** @enum {string} */
@@ -4256,11 +4244,6 @@ export interface components {
             id: number;
         };
         ViewerPlaybackInputBody: {
-            /**
-             * @description The viewer's speaker setup
-             * @enum {string}
-             */
-            audioOutput?: "built_in_speakers" | "receiver" | "headphones";
             playableFormats: components["schemas"]["PlayableFormatsBody"];
         };
         WaitBody: {

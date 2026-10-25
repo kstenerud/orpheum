@@ -140,7 +140,6 @@ func (harness testHarness) viewerPlayback(t *testing.T, credential string) respo
 	t.Helper()
 	body := chrome(0)
 	delete(body, "fileId")
-	body["audioOutput"] = "headphones"
 	return harness.do(t, http.MethodPost, "/together/playback", credential, body)
 }
 

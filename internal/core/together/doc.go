@@ -25,7 +25,7 @@
 //     Concurrency); the race detector runs in make test-all.
 //   - The group waits for its players only at its sync points: a film put on, the host's play after
 //     a pause, and the host's seek, each waiting for every player that has once been ready, those
-//     catching up too; one still choosing its speakers or loading holds no one up (D246 §6, D250 §2).
+//     catching up too; one still waiting for its tap or loading holds no one up (D246 §6, D250 §2).
 //     Enforced by TestHub_TheGroupPlaysWhenEveryPlayerIsReadyAndPlaysOnWhenOneBuffers and
 //     TestHub_AJoiningViewerHoldsNoOneUpUntilReady.
 //   - The group never stops for one member: a stall or a drop leaves it playing, and the player

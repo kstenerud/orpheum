@@ -6,6 +6,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
 // phoneAndTelevision signs a person in on a phone and activates a television by its code (D288), and
@@ -122,7 +124,7 @@ func TestSignOutElsewhere_EndsEverySessionButTheAskingOneAndKeepsTheDevicesListe
 	}
 }
 
-func TestSetAudioOutput_IsKeptOnTheDeviceAndOnlyItsOwnerSetsIt(t *testing.T) {
+func TestSetSoundOffset_IsKeptOnTheDeviceAndOnlyItsOwnerSetsIt(t *testing.T) {
 	t.Parallel()
 	fixture := newFixture(t)
 	ctx := t.Context()
@@ -130,18 +132,20 @@ func TestSetAudioOutput_IsKeptOnTheDeviceAndOnlyItsOwnerSetsIt(t *testing.T) {
 	phoneAndTelevision(t, fixture.service, id)
 	other := fixture.createUser(t, "owner", "pw", RoleAdmin)
 	devices, err := fixture.service.Devices(ctx, id)
-	if err != nil || len(devices) == 0 || devices[0].AudioOutput != "" {
-		t.Fatalf("devices = %+v, %v; want none asked yet", devices, err)
+	if err != nil || len(devices) == 0 {
+		t.Fatalf("devices = %+v, %v; want some", devices, err)
 	}
-	if err = fixture.service.SetAudioOutput(ctx, other, devices[0].ID, "receiver"); !errors.Is(err, ErrNoDevice) {
+	if err = fixture.service.SetSoundOffset(ctx, other, devices[0].ID, 300); !errors.Is(err, ErrNoDevice) {
 		t.Errorf("setting someone else's device: %v, want ErrNoDevice", err)
 	}
-	if err = fixture.service.SetAudioOutput(ctx, id, devices[0].ID, "built_in_speakers"); err != nil {
+	if err = fixture.service.SetSoundOffset(ctx, id, devices[0].ID, 450); err != nil {
 		t.Fatal(err)
 	}
-	device, err := fixture.service.DeviceOf(ctx, id, devices[0].ID)
-	if err != nil || device.AudioOutput != "built_in_speakers" {
-		t.Errorf("the device after = %+v, %v; want built_in_speakers kept", device, err)
+	device, err := fixture.service.database.Read().GetLiveDeviceOfUser(ctx, sqlcgen.GetLiveDeviceOfUserParams{
+		ID: devices[0].ID, UserID: &id,
+	})
+	if err != nil || device.SoundOffsetMs != 450 {
+		t.Errorf("the device after = %+v, %v; want 450 ms kept", device, err)
 	}
 }
 

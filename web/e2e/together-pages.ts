@@ -44,11 +44,10 @@ export async function endSession(host: Page): Promise<void> {
   await expect(host.getByRole("button", { name: "Start a session" })).toBeVisible();
 }
 
-/** The guest joins by link with their name, and says they listen with headphones. */
+/** The guest joins by link with their name, asked nothing of how they hear the film (D336 §4). */
 export async function join(guest: Page, link: string): Promise<void> {
   await guest.getByLabel("Your name").fill("Anna");
   await guest.getByRole("button", { name: "Join" }).click();
-  await guest.getByRole("button", { name: /Headphones/ }).click();
   await expect(guest.getByText(/Here: /)).toBeVisible();
   expect(guest.url()).not.toContain(link.slice(link.indexOf("#") + 1));
 }
@@ -57,14 +56,7 @@ export async function join(guest: Page, link: string): Promise<void> {
 export async function hostPlays(host: Page, film: string): Promise<void> {
   await openFilm(host, film);
   await host.getByRole("link", { name: "Play" }).click();
-  // A device not asked yet is asked how it plays sound first; one asked before plays at once.
-  const question = host.getByRole("button", { name: /Built-in speakers/ });
-  const leading = host.getByText("Watch Together is on");
-  await expect(question.or(leading)).toBeVisible({ timeout: 30_000 });
-  if (await question.isVisible()) {
-    await question.click();
-  }
-  await expect(leading).toBeVisible({ timeout: 30_000 });
+  await expect(host.getByText("Watch Together is on")).toBeVisible({ timeout: 30_000 });
 }
 
 /** What one browser's voice call measures, from its own WebRTC statistics. */

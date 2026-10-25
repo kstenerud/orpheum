@@ -128,7 +128,11 @@ float.
 device play sound — built-in speakers, a soundbar or receiver, or headphones?* The answer sets whether
 we send a downmixed stereo mix (and so whether dialogue boost can act, [D178](../../decisions/working-notes.md)) and the DRC
 state, and it is changeable from the player. Quiet dialogue from a mix nobody chose is the failure
-this exists to prevent.
+this exists to prevent. *(Revised by [D336](../../decisions/working-notes.md) §4: the question
+confused people and is asked no more. A film's sound plays as it is where the browser plays it,
+the device mixing it down itself, and the server makes the stereo mix only when the device cannot
+play the sound or the person turns the dialogue boost on, which over the original asks for the
+film again from where it stands.)*
 
 **And it is stored, keyed by device** ([D103](../../decisions/working-notes.md)), which needed
 a decision of its own because the naive version rebuilds the device-profile database

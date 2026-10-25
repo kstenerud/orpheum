@@ -152,11 +152,11 @@
 //     wrong current one is ErrWrongPassword, not a failed sign-in's ErrBadCredentials. Enforced by
 //     TestChangePassword_NeedsTheCurrentOne and TestPassword_ANewPasswordEndsTheOtherSessions.
 //
-//   - A person's devices are listed, and only they, or an admin, change one, by its name or how
-//     it makes sound (D222); a removed device's sessions end, and signing out elsewhere ends
+//   - A person's devices are listed, and only they, or an admin, change one, by its name or its
+//     sound offset; a removed device's sessions end, and signing out elsewhere ends
 //     every session but the asking one and keeps the devices listed (D218 §4, §5). Enforced by
 //     TestDevices_AreListedAndARemovedOneIsSignedOutAtItsNextRequest,
-//     TestSetAudioOutput_IsKeptOnTheDeviceAndOnlyItsOwnerSetsIt and
+//     TestSetSoundOffset_IsKeptOnTheDeviceAndOnlyItsOwnerSetsIt and
 //     TestSignOutElsewhere_EndsEverySessionButTheAskingOneAndKeepsTheDevicesListed.
 //
 //   - An admin removes a person, never themselves (so an admin remains), deleting what was theirs

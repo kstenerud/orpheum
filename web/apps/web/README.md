@@ -35,13 +35,14 @@ The web client: the browser and phone interface, served embedded by the core. MP
   twice shows once, and an unchanged entry stays the object shown, so a memoised row is not drawn
   again. A series sends its seasons and a season its episodes a page at a time (D306 §9).
   `src/use-pages.test.ts`, `src/items-in-view.test.ts`, `src/series.test.tsx`.
-- **A device not yet asked how it makes sound is asked before it plays**, and the decision is
-  asked for again with the answer; it can be changed under the video and in Your devices, and
-  the dialogue boost starts as the person left it and switches the mix at once, under a prepared
-  copy and under a film on its ladder alike (D222). `src/sound.test.tsx`.
+- **No one is asked how their device makes sound** (D336 §4): a film plays at once, and the
+  dialogue boost starts as the person left it and switches the mix at once, under a prepared copy
+  and under a film on its ladder alike (D222); over the original, where its track has a centre, it
+  starts off, and turned on it is kept and the film asked for again from where the video stands,
+  with the cause boostChosen (D336 §3). `src/sound.test.tsx`.
 - **A Watch Together viewer needs no sign-in and sees none of the app** (D246 §3, §5, §6): their
-  page is only the host's playback, black while nothing plays, the speaker question as they join
-  unless this browser has the answer, voice, their own volume and Leave; the link's secret leaves
+  page is only the host's playback, black while nothing plays, with nothing asked of their speakers
+  (D336 §4), voice, their own volume and Leave; the link's secret leaves
   the address once used. `src/together-viewer.test.tsx`.
 - **Voice starts only from Talk**, the press the microphone needs, on the viewer's page and with
   the host's player; then mute, Leave voice and the partner's volume, apart from the film's; a
@@ -110,7 +111,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
 [D51](../../../docs/contributors/decisions/working-notes.md), [D138](../../../docs/contributors/decisions/working-notes.md),
 [D188](../../../docs/contributors/decisions/working-notes.md), [D189](../../../docs/contributors/decisions/working-notes.md),
 [D193](../../../docs/contributors/decisions/working-notes.md) §6, [D222](../../../docs/contributors/decisions/working-notes.md),
-[D246](../../../docs/contributors/decisions/working-notes.md);
+[D246](../../../docs/contributors/decisions/working-notes.md), [D336](../../../docs/contributors/decisions/working-notes.md);
 [web-client.md](../../../docs/contributors/design/plans/web-client.md);
 [standards/typescript.md](../../../docs/contributors/standards/typescript.md).
 
@@ -122,15 +123,15 @@ The web client: the browser and phone interface, served embedded by the core. MP
   `identify.tsx` (needs a match), `libraries.tsx` and `create-library.tsx` (retiring a folder and deleting a library, each confirmed by `confirm-button.tsx`), `files.tsx` (what
   the scanner saw), `settings.tsx` (keys, passwords and server settings), `jobs.tsx` (the job view), `system.tsx` (the System page: the server's facts, doctor's findings, and each machine's software, sandbox, hardware encoding, disks and recent prepares, D225), `node-confinement.tsx` (a machine's FFmpeg sandbox, on the System page), `about.tsx`,
   `sign-in.tsx`, `play.tsx` (the player), `watching.ts` (the film a tab watches: its page's warm-up
-  and letting go of the last film's playbacks, D258), `sound.tsx` (how the device makes sound, the boost),
+  and letting go of the last film's playbacks, D258), `sound.tsx` (the switches of the person's own choices: the boost, levelling),
   `audio-tracks.tsx` (the audio track menu, D230), `watch-together.tsx` (the host's Watch Together
   screen: links with notes, members, ending it), `together-viewer.tsx` (a viewer's page, joined by
   their link), `together-host.tsx` (the host's player in their session), `together-news.tsx` and
   `together-events.ts` (who is here and the named events), `use-together.ts` (the session's
-  connection), `together-voice.tsx` (voice's controls), `volume-range.tsx` (every volume slider, which a touch anywhere moves), `together-storage.ts` (the memberships this tab keeps and a viewer's speakers),
+  connection), `together-voice.tsx` (voice's controls), `volume-range.tsx` (every volume slider, which a touch anywhere moves), `together-storage.ts` (the memberships this tab keeps),
   `subtitles.tsx` (the subtitle menu and offset) and `subtitle-search.tsx` (finding and fetching a
   subtitle a file lacks, from OpenSubtitles, D224), `this-device.tsx` (the This device page: its
-  name and how it makes sound), `now-playing.tsx` (who is playing what, and stopping it),
+  name), `now-playing.tsx` (who is playing what, and stopping it),
   `roles-section.tsx` (roles and their libraries), `system-reachability.tsx` and `system-work.tsx`
   (the System page's reachability check and its queue's health), and `busy-group.tsx` (controls
   held while a request is answered).

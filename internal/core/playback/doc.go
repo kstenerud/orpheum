@@ -99,9 +99,11 @@
 //     decides on what that transaction does not see. Enforced by
 //     TestKeepSubtitleOffset_RefusesAFileItsTransactionRemoved.
 //
-//   - A decision reads how the asking device makes sound: built-in speakers and headphones are stereo,
-//     a receiver or a device not yet asked is not, and the answer says which so the player can
-//     ask (D222). Enforced by TestPlayback_OnStereoOutputASurroundSoundIsAlwaysPreparedSoTheBoostCanAct.
+//   - A decision never reads how the asking device makes sound, and no one is asked: a film's sound
+//     plays as it is where the browser plays it, and the person's dialogue boost, on, over a sound of
+//     more than two channels prepares it with its boosted mix (D336 §1, §2, §4). Enforced by
+//     TestPlayback_ASurroundSoundPlaysAsItIsUntilThePersonTurnsTheBoostOn and
+//     TestDevices_NothingTheAPIDocumentsAsksHowADeviceMakesSound.
 //
 //   - The dialogue boost is the person's, in every file, off until they turn it on (D83, D222).
 //     Enforced by TestFilePreferences_TheDialogueBoostIsThePersonsInEveryFile.
@@ -153,7 +155,8 @@
 //   - D180: a prepared rendition's play state is its source's.
 //   - D81: play state is an append-only event log plus a guarded position.
 //   - D191: signed-in Watch Together viewing is also recorded.
-//   - D83, D222: the dialogue boost is a person's; a device's sound decides whether we fold it down.
+//   - D83, D222: the dialogue boost is a person's. D336: it alone of how a person hears a film needs
+//     the sound made; how a device makes sound is asked of no one.
 //   - D226: loudness is measured by the node (internal/core/loudness) and levelled by the player.
 //   - docs/contributors/design/plans/play-state.md, docs/contributors/design/plans/cut-a.md §6.
 //

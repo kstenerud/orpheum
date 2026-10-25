@@ -2,7 +2,6 @@
 
 import type { Api, MediaCredentials, PlayableFormats } from "@orpheum/sdk";
 
-import type { AudioOutput } from "./accounts.ts";
 import type { PlaybackDecision } from "./watching.ts";
 import { dataOrThrow } from "./problem.ts";
 import type { Session } from "./session.ts";
@@ -17,7 +16,7 @@ import { membershipHeaders } from "./together-storage.ts";
 export async function requestTogetherPlayback(
   api: Api,
   credential: string,
-  asked: { readonly playableFormats: PlayableFormats; readonly audioOutput: AudioOutput },
+  asked: { readonly playableFormats: PlayableFormats },
 ): Promise<PlaybackDecision> {
   mediaViewer.credential = credential;
   return dataOrThrow(
@@ -25,7 +24,6 @@ export async function requestTogetherPlayback(
       headers: membershipHeaders(credential),
       body: {
         playableFormats: asked.playableFormats,
-        audioOutput: asked.audioOutput,
       },
     }),
   );

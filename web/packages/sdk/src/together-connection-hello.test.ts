@@ -93,8 +93,9 @@ describe("what a device's page waits on (the owner's session, 2026-10-18)", () =
       sockets.sent.filter((each) => each["type"] === "standing").map((each) => each["standing"]);
     connection.setStanding("needsTap");
     connection.setStanding("needsTap");
-    connection.setStanding("choosingSound");
-    expect(standings()).toEqual(["needsTap", "choosingSound"]);
+    connection.setStanding("");
+    connection.setStanding("needsTap");
+    expect(standings()).toEqual(["needsTap", "", "needsTap"]);
     sockets.opened[0]!.onClose(1006);
     vi.advanceTimersByTime(reconnectWaitMs(0));
     sockets.opened[1]!.onOpen();
@@ -102,12 +103,12 @@ describe("what a device's page waits on (the owner's session, 2026-10-18)", () =
       JSON.stringify({
         ...welcome,
         roster: [
-          { id: 7, name: "Gran", devices: [{ id: 9, role: "playback", status: "choosingSound" }] },
+          { id: 7, name: "Gran", devices: [{ id: 9, role: "playback", status: "needsTap" }] },
         ],
       }),
     );
-    expect(standings()).toEqual(["needsTap", "choosingSound", "choosingSound"]);
-    expect(connection.snapshot().roster[0]?.devices[0]?.status).toBe("choosingSound");
+    expect(standings()).toEqual(["needsTap", "", "needsTap", "needsTap"]);
+    expect(connection.snapshot().roster[0]?.devices[0]?.status).toBe("needsTap");
     connection.setStanding("");
     expect(standings().at(-1)).toBe("");
     sockets.opened[1]!.onMessage(

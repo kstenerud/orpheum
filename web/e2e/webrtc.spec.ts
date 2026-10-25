@@ -43,7 +43,6 @@ test("once on the WebRTC path, a tab finds and plays a film with nothing of the 
   await card.click();
   await expect(page.getByRole("heading", { name: warmUpFilm })).toBeVisible();
   await page.getByRole("link", { name: "Play" }).click();
-  await page.getByRole("button", { name: /Built-in speakers/u }).click();
   await expect.poll(() => isPlaying(page), { timeout: 30_000 }).toBe(true);
   expect(overHttp).toEqual([]);
 });
@@ -96,13 +95,7 @@ test(
     await expect(card).toBeVisible({ timeout: 60_000 });
     await card.click();
     await host.getByRole("link", { name: "Play" }).click();
-    const question = host.getByRole("button", { name: /Built-in speakers/u });
-    const leading = host.getByText("Watch Together is on");
-    await expect(question.or(leading)).toBeVisible({ timeout: 30_000 });
-    if (await question.isVisible()) {
-      await question.click();
-    }
-    await expect(leading).toBeVisible({ timeout: 30_000 });
+    await expect(host.getByText("Watch Together is on")).toBeVisible({ timeout: 30_000 });
     await expect.poll(() => isPlaying(guest), { timeout: 30_000 }).toBe(true);
     expect(sockets).toEqual([]);
     await endSession(host);

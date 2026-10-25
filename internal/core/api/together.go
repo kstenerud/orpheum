@@ -135,12 +135,11 @@ type TogetherMemberInput struct {
 
 // ViewerPlaybackInput starts a viewer's playback of what the session plays now: the membership
 // credential in the Authorization header, never in the URL (D154), and how this device plays, as
-// POST /playback is told, with the speaker setup the viewer chose as they joined (D246 §6).
+// POST /playback is told; no viewer is asked how they hear it (D336 §4).
 type ViewerPlaybackInput struct {
 	AuthorizationHeader
 	Body struct {
 		PlayableFormats PlayableFormatsBody `json:"playableFormats"`
-		AudioOutput     AudioOutputKind     `doc:"The viewer's speaker setup" json:"audioOutput,omitempty" required:"false"` //nolint:lll // one struct tag
 	}
 	ClientFacts
 }
@@ -402,7 +401,7 @@ func (server *Server) playTogether(ctx context.Context, input *ViewerPlaybackInp
 	}
 	started, err := dependencies.Playback.Start(ctx, holder, playback.Request{
 		FileID: holder.OnlyFileID, PlayableFormats: playableFormatsOf(input.Body.PlayableFormats),
-		AudioOutput: string(input.Body.AudioOutput), ClientAddress: input.clientAddress,
+		ClientAddress: input.clientAddress,
 	})
 	sessionID, memberID, _ := dependencies.Together.MemberOf(credential)
 	who := []any{

@@ -712,9 +712,9 @@ func playing(t *testing.T) playingStage {
 	return playingStage{sessionStage: stage, host: host, guestDevice: guestDevice, hostBox: hostBox, guest: guest}
 }
 
-// Everyone's roster says where each player stands: what its page waits on, its person's speakers or
-// a tap; once a film is on, loading until it is first ready, then watching. Nothing of it moves whom
-// the group waits for (D246 §6). A guest still choosing her speakers was shown as nothing at all
+// Everyone's roster says where each player stands: what its page waits on, a tap; once a film is
+// on, loading until it is first ready, then watching. Nothing of it moves whom the group waits for
+// (D246 §6). A guest still choosing her speakers was shown as nothing at all
 // while the group played on without her (the owner's Watch Together session, 2026-10-18).
 func TestHub_TheRosterSaysWhereEachPlayerStands(t *testing.T) {
 	t.Parallel()
@@ -734,7 +734,7 @@ func TestHub_TheRosterSaysWhereEachPlayerStands(t *testing.T) {
 	if got := guestStatus(); got != "" {
 		t.Errorf("before any film, waiting on nothing: %q; want none", got)
 	}
-	for _, standing := range []Standing{StandingNeedsTap, StandingChoosingSound} {
+	for _, standing := range []Standing{StandingNeedsTap} {
 		stage.hub.Handle(t.Context(), guestDevice, Inbound{Type: MessageStanding, Standing: standing})
 		if got := guestStatus(); got != DeviceStatus(standing) {
 			t.Errorf("its page waiting on %q: %q; want the same", standing, got)
@@ -743,12 +743,12 @@ func TestHub_TheRosterSaysWhereEachPlayerStands(t *testing.T) {
 	stage.ready(t, host, false)
 	stage.command(t, host, CommandChangeItem, 7)
 	if got := hostBox.last(MessageGroup).Group.State; got != GroupPlaying {
-		t.Errorf("the group with the guest choosing her speakers is %q; want it playing, waiting for no one", got)
+		t.Errorf("the group with the guest waiting for her tap is %q; want it playing, waiting for no one", got)
 	}
 	stage.command(t, host, CommandStop, 0)
 	stage.hub.Handle(t.Context(), guestDevice, Inbound{Type: MessageStanding, Standing: StandingNone})
 	if got := guestStatus(); got != "" {
-		t.Errorf("speakers chosen, nothing on: %q; want none", got)
+		t.Errorf("tapped, nothing on: %q; want none", got)
 	}
 	stage.command(t, host, CommandChangeItem, 8) // the roster comes with the group's change
 	if got := guestStatus(); got != StatusLoading {

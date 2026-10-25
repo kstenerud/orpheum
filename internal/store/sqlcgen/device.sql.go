@@ -10,7 +10,7 @@ import (
 )
 
 const getLiveDeviceOfUser = `-- name: GetLiveDeviceOfUser :one
-SELECT id, name, platform, audio_output, sound_offset_ms FROM device
+SELECT id, name, platform, sound_offset_ms FROM device
 WHERE id = ?1 AND user_id = ?2 AND removed_at IS NULL
 `
 
@@ -23,7 +23,6 @@ type GetLiveDeviceOfUserRow struct {
 	ID            int64
 	Name          string
 	Platform      string
-	AudioOutput   *string
 	SoundOffsetMs int64
 }
 
@@ -35,7 +34,6 @@ func (q *Queries) GetLiveDeviceOfUser(ctx context.Context, arg GetLiveDeviceOfUs
 		&i.ID,
 		&i.Name,
 		&i.Platform,
-		&i.AudioOutput,
 		&i.SoundOffsetMs,
 	)
 	return i, err
@@ -70,7 +68,7 @@ func (q *Queries) InsertDevice(ctx context.Context, arg InsertDeviceParams) (int
 }
 
 const listLiveDevicesOfUser = `-- name: ListLiveDevicesOfUser :many
-SELECT device.id, device.name, device.platform, device.audio_output, device.added_at,
+SELECT device.id, device.name, device.platform, device.added_at,
   CAST(coalesce(max("grant".last_used_at), device.added_at) AS INTEGER) AS last_used_at,
   CAST(coalesce(max("grant".revoked_at IS NULL AND ("grant".expires_at IS NULL OR "grant".expires_at > ?1)), 0) AS INTEGER) AS is_signed_in,
   CAST(coalesce(max("grant".scope = 'device' AND "grant".revoked_at IS NULL), 0) AS INTEGER) AS is_by_code
@@ -87,14 +85,13 @@ type ListLiveDevicesOfUserParams struct {
 }
 
 type ListLiveDevicesOfUserRow struct {
-	ID          int64
-	Name        string
-	Platform    string
-	AudioOutput *string
-	AddedAt     int64
-	LastUsedAt  int64
-	IsSignedIn  int64
-	IsByCode    int64
+	ID         int64
+	Name       string
+	Platform   string
+	AddedAt    int64
+	LastUsedAt int64
+	IsSignedIn int64
+	IsByCode   int64
 }
 
 // A person's devices, most recently used first: when each was last used, by the latest use of any
@@ -113,7 +110,6 @@ func (q *Queries) ListLiveDevicesOfUser(ctx context.Context, arg ListLiveDevices
 			&i.ID,
 			&i.Name,
 			&i.Platform,
-			&i.AudioOutput,
 			&i.AddedAt,
 			&i.LastUsedAt,
 			&i.IsSignedIn,
@@ -208,21 +204,6 @@ type RevokeDeviceSecretsOfDeviceParams struct {
 // The device secrets a device held before a sign-in issued it a new one (the third audit's A8).
 func (q *Queries) RevokeDeviceSecretsOfDevice(ctx context.Context, arg RevokeDeviceSecretsOfDeviceParams) error {
 	_, err := q.db.ExecContext(ctx, revokeDeviceSecretsOfDevice, arg.RevokedAt, arg.DeviceID)
-	return err
-}
-
-const setDeviceAudioOutput = `-- name: SetDeviceAudioOutput :exec
-UPDATE device SET audio_output = ?1 WHERE id = ?2
-`
-
-type SetDeviceAudioOutputParams struct {
-	AudioOutput *string
-	ID          int64
-}
-
-// How a device makes sound (D222): asked the first time it plays, changeable after.
-func (q *Queries) SetDeviceAudioOutput(ctx context.Context, arg SetDeviceAudioOutputParams) error {
-	_, err := q.db.ExecContext(ctx, setDeviceAudioOutput, arg.AudioOutput, arg.ID)
 	return err
 }
 

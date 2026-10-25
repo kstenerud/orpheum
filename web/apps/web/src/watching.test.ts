@@ -189,7 +189,7 @@ describe("the film being watched (D258)", () => {
     watching.warmUp(7, playableFormats);
     clock.ms = warmUpKeptMs;
     await watching.decide(7, playableFormats);
-    await watching.decide(7, playableFormats, "soundChanged");
+    await watching.decide(7, playableFormats, "subtitleFetched");
     const offLadder: Heard[] = [];
     const { api } = servedBy(
       {
@@ -210,7 +210,7 @@ describe("the film being watched (D258)", () => {
     expect(playbackCauses(asked)).toEqual([
       "filmPage",
       "warmUpStale",
-      "soundChanged",
+      "subtitleFetched",
       "filmPage",
       "warmUpOffLadder",
       "filmPage",

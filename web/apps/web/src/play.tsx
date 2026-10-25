@@ -33,7 +33,7 @@ import { usePlayState } from "./play-state.ts";
 import { useServices } from "./services.tsx";
 import { BarePlayer } from "./bare-player.tsx";
 import { FrameTimingNote } from "./frame-timing-note.tsx";
-import { BoostSwitch, SoundLine, SoundQuestion } from "./sound.tsx";
+import { BoostSwitch } from "./sound.tsx";
 import { SoundOffsetControl } from "./sound-delay.tsx";
 import { FindSubtitles } from "./subtitle-search.tsx";
 import { Subtitles } from "./subtitles.tsx";
@@ -47,15 +47,24 @@ import { watchingOf, type PlaybackDecision, type StartCause } from "./watching.t
 /** Why a playing page asks how the file plays again. */
 type DecideAgainCause = Extract<
   StartCause,
-  "soundAnswered" | "soundChanged" | "subtitleFetched" | "audioChosen" | "originalChosen"
+  "subtitleFetched" | "audioChosen" | "originalChosen" | "boostChosen"
 >;
+
+/**
+ * Asks the server again how the file plays, saying why, and, given at, from where the video stood
+ * then rather than where the server last heard it was.
+ */
+type DecideAgain = (cause: DecideAgainCause, at?: ReopenAt) => void;
 
 /** What PlayView is given: the file, its decision, and its ways to ask again. */
 interface PlayViewProps {
   readonly fileId: number;
   readonly decision: PlaybackDecision;
-  /** Asks the server again how the file plays: after the sound changed (D222) or a subtitle was fetched. */
-  readonly onDecideAgain: (cause: DecideAgainCause) => void;
+  /**
+   * Asks the server again how the file plays: after a subtitle was fetched, another audio track or
+   * the original chosen, or the dialogue boost turned on over the original (D336 §3).
+   */
+  readonly onDecideAgain: DecideAgain;
   /**
    * Told that the server lost the playback, and how to read where it is: true when the page opens
    * it again from there; false, or undefined, tells the person.
@@ -165,7 +174,6 @@ function PlayerView(
         video={video}
         startPositionMs={props.decision.resumePositionMs}
         cannotKeepUp={cannotKeepUp}
-        audioOutput={props.decision.audioOutput}
       />
     </>
   );
@@ -197,7 +205,7 @@ type PlayProps = Parameters<typeof PlayView>[0] & {
 
 /** A handler that asks how the file plays again, saying why. */
 function decideAgainFor(
-  props: { readonly onDecideAgain: (cause: DecideAgainCause) => void },
+  props: { readonly onDecideAgain: DecideAgain },
   cause: DecideAgainCause,
 ): () => void {
   return () => {
@@ -253,7 +261,7 @@ function useReportedPlayState(
 
 /**
  * What sits under a playing video: "Start over", the subtitle menu and offset for the decision's
- * tracks, finding subtitles, the audio track, the device's sound and levelling. It keeps the
+ * tracks, finding subtitles, the audio track, levelling and the sound's offset. It keeps the
  * playback's play state on the server, starting where the person left the file. A chosen audio
  * track is kept for the person, and onAudioChosen() plays it.
  */
@@ -295,12 +303,6 @@ function UnderTheVideo(
       />
       <FindSubtitles fileId={props.fileId} onFetched={decideAgainFor(props, "subtitleFetched")} />
       <AudioMenu fileId={props.fileId} decision={props.decision} onChosen={props.onAudioChosen} />
-      {props.decision.audioOutput === undefined ? null : (
-        <SoundLine
-          current={props.decision.audioOutput}
-          onChanged={decideAgainFor(props, "soundChanged")}
-        />
-      )}
       <LevelSwitch
         fileId={props.fileId}
         level={props.level}
@@ -355,15 +357,50 @@ function PlayUnder(props: PlayProps & FilmParts): JSX.Element {
   return <DirectUnder {...props} />;
 }
 
-/** Under the original: what sits under every video; its tracks say it plays as it is. */
+/**
+ * Under the original: what sits under every video; its tracks say it plays as it is. Its sound is the
+ * film's own, which the device mixes down itself, so the dialogue boost, where the track has a
+ * centre to raise, starts off here: turned on, it is kept, then the film is asked for again from
+ * where the video stands, and the server answers with its ladder or a prepared copy carrying the
+ * boosted mix (D336 §1, §3).
+ */
 function DirectUnder(props: PlayProps & FilmParts): JSX.Element {
+  const { onDecideAgain, videoRef } = props;
+  const startPositionMs = props.decision.resumePositionMs;
   return (
-    <UnderTheVideo
-      {...props}
-      level={soundLevelOf(props.decision, undefined)}
-      onAudioChosen={decideAgainFor(props, "audioChosen")}
-    />
+    <>
+      <UnderTheVideo
+        {...props}
+        level={soundLevelOf(props.decision, undefined)}
+        onAudioChosen={decideAgainFor(props, "audioChosen")}
+      />
+      {hasACentre(props.decision) ? (
+        <BoostSwitch
+          isInitiallyOn={false}
+          onSwitched={() => undefined}
+          onKept={(isOn) => {
+            if (isOn) {
+              const video = videoRef.current;
+              onDecideAgain("boostChosen", {
+                positionMs: positionToMoveFrom(video, startPositionMs),
+                isPaused: video?.paused ?? false,
+              });
+            }
+          }}
+        />
+      ) : null}
+    </>
   );
+}
+
+/**
+ * Whether the track the original plays has a centre for the dialogue boost to raise: more than two
+ * channels, as the server's boosted mix needs (D222, D336 §2).
+ */
+export function hasACentre(decision: PlaybackDecision): boolean {
+  const index = startingAudioTrack(decision)?.audioTrackIndex ?? 0;
+  const sound = (decision.tracks.fileSounds ?? []).find((each) => each.audioTrackIndex === index);
+  return sound !== undefined && sound.channelCount > 2;
 }
 
 /**
@@ -497,38 +534,28 @@ interface Opened {
 }
 
 /**
- * The player's screen for one file. A device not yet asked how it makes sound is asked first,
- * and the decision asked for again with the answer (D222). A playback the server lost, as when it
- * restarted, is opened again where it was, playing or paused as it was, while the server answers
- * within about a minute (askUntilAnswered); one lost again within reopenAtMostEveryMs is told.
+ * The player's screen for one file, playing at once: nothing is asked of how the device makes sound
+ * (D336 §4). A playback the server lost, as when it restarted, is opened again where it was, playing
+ * or paused as it was, while the server answers within about a minute (askUntilAnswered); one lost
+ * again within reopenAtMostEveryMs is told.
  */
 export function Play(props: { readonly fileId: number }): JSX.Element {
-  const { session } = useServices();
   const { t } = useTranslation();
   const { opened, held, decideAgain, reopenPlayback, startAtTheTwin, reopenWhenBack } =
     useOpenedPlayback(props.fileId);
-  const render = ({ decision, isStartPaused }: Opened): JSX.Element =>
-    decision.audioOutput === undefined && session.deviceId() !== undefined ? (
-      <div className="play">
-        <SoundQuestion
-          onAnswered={() => {
-            decideAgain("soundAnswered");
-          }}
-        />
-      </div>
-    ) : (
-      <PlayView
-        key={decision.mediaToken}
-        fileId={props.fileId}
-        decision={decision}
-        onDecideAgain={decideAgain}
-        onPlaybackGone={reopenPlayback}
-        onMediaBack={reopenWhenBack}
-        onOwnPictureGivenUp={startAtTheTwin}
-        isStartPaused={isStartPaused === true}
-        isReconnecting={opened.state !== "loaded"}
-      />
-    );
+  const render = ({ decision, isStartPaused }: Opened): JSX.Element => (
+    <PlayView
+      key={decision.mediaToken}
+      fileId={props.fileId}
+      decision={decision}
+      onDecideAgain={decideAgain}
+      onPlaybackGone={reopenPlayback}
+      onMediaBack={reopenWhenBack}
+      onOwnPictureGivenUp={startAtTheTwin}
+      isStartPaused={isStartPaused === true}
+      isReconnecting={opened.state !== "loaded"}
+    />
+  );
   // While a lost playback is opened again, the one lost stays on screen, playing what it holds (the
   // owner's test, 2026-10-18: "the page should hold the video open if it can while it tries to
   // reconnect").
@@ -627,14 +654,16 @@ function useReopening(parts: {
 function useOpenedPlayback(fileId: number): {
   readonly opened: Resource<Opened>;
   readonly held: Opened | undefined;
-  readonly decideAgain: (cause: DecideAgainCause) => void;
+  readonly decideAgain: DecideAgain;
   readonly reopenPlayback: (whereNow: () => ReopenAt) => boolean;
   readonly startAtTheTwin: (at: ReopenAt) => void;
   readonly reopenWhenBack: (at: ReopenAt) => void;
 } {
   const { api, playableFormats } = useServices();
-  // Why the next decision is asked for: the page's opening, unless something asked it again.
+  // Why the next decision is asked for: the page's opening, unless something asked it again; and
+  // where the video stood when it did, for the next to start from, when it said.
   const nextCauseRef = useRef<StartCause>("playPage");
+  const nextAtRef = useRef<ReopenAt | undefined>(undefined);
   // Where a playback opened again is, read as its new one comes, for that to start from, and why it
   // is: the server lost it, or its player gave the film's own picture up; and when the last lost one
   // was opened again, on the page's clock.
@@ -642,13 +671,21 @@ function useOpenedPlayback(fileId: number): {
   const [held, setHeld] = useState<Opened | undefined>(undefined);
   const [opened, reload] = useResource(`play/${String(fileId)}`, async (): Promise<Opened> => {
     const cause = nextCauseRef.current;
+    const askedAt = nextAtRef.current;
     nextCauseRef.current = "playPage";
+    nextAtRef.current = undefined;
     const reopen = reopenRef.current;
     reopenRef.current = undefined;
     const watching = watchingOf(api);
     if (reopen === undefined) {
       setHeld(undefined);
-      return { decision: await watching.decide(fileId, playableFormats(), cause) };
+      const decision = await watching.decide(fileId, playableFormats(), cause);
+      return askedAt === undefined
+        ? { decision }
+        : {
+            decision: { ...decision, resumePositionMs: Math.round(askedAt.positionMs) },
+            isStartPaused: askedAt.isPaused,
+          };
     }
     // The server may still be starting: asked again for about a minute.
     const decision = await askUntilAnswered(() =>
@@ -659,8 +696,9 @@ function useOpenedPlayback(fileId: number): {
     return { decision: { ...decision, resumePositionMs }, isStartPaused: at.isPaused };
   });
   const decideAgain = useCallback(
-    (cause: DecideAgainCause) => {
+    (cause: DecideAgainCause, at?: ReopenAt) => {
       nextCauseRef.current = cause;
+      nextAtRef.current = at;
       reload();
     },
     [reload],

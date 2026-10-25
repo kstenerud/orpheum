@@ -441,15 +441,6 @@
       "ChangeDeviceInputBody": {
         "additionalProperties": false,
         "properties": {
-          "audioOutput": {
-            "description": "How the device makes sound; built-in speakers and headphones are stereo (D222)",
-            "enum": [
-              "built_in_speakers",
-              "receiver",
-              "headphones"
-            ],
-            "type": "string"
-          },
           "name": {
             "maxLength": 100,
             "minLength": 1,
@@ -995,15 +986,6 @@
             "description": "Unix milliseconds",
             "format": "int64",
             "type": "integer"
-          },
-          "audioOutput": {
-            "description": "Absent until the device is asked, when it first plays (D222)",
-            "enum": [
-              "built_in_speakers",
-              "receiver",
-              "headphones"
-            ],
-            "type": "string"
           },
           "id": {
             "format": "int64",
@@ -5824,11 +5806,10 @@
               "warmUpStale",
               "warmUpOffLadder",
               "warmUpFailed",
-              "soundAnswered",
-              "soundChanged",
               "subtitleFetched",
               "audioChosen",
               "originalChosen",
+              "boostChosen",
               "playbackGone",
               "ownPictureGivenUp",
               "mediaBack"
@@ -5871,14 +5852,6 @@
       "StartPlaybackOutputBody": {
         "additionalProperties": false,
         "properties": {
-          "audioOutput": {
-            "enum": [
-              "built_in_speakers",
-              "receiver",
-              "headphones"
-            ],
-            "type": "string"
-          },
           "audioRenditions": {
             "items": {
               "$ref": "#/components/schemas/AudioRenditionBody"
@@ -6973,15 +6946,6 @@
       "ViewerPlaybackInputBody": {
         "additionalProperties": false,
         "properties": {
-          "audioOutput": {
-            "description": "The viewer's speaker setup",
-            "enum": [
-              "built_in_speakers",
-              "receiver",
-              "headphones"
-            ],
-            "type": "string"
-          },
           "playableFormats": {
             "$ref": "#/components/schemas/PlayableFormatsBody"
           }
@@ -11218,7 +11182,7 @@
             "description": "Error"
           }
         },
-        "summary": "Rename one of one's devices, or say how it makes sound",
+        "summary": "Rename one of one's devices, or set how far it moves its sound",
         "tags": [
           "Accounts"
         ]

@@ -10,8 +10,6 @@ func (each *device) status(isPlaying bool) DeviceStatus {
 	switch {
 	case !each.role.plays():
 		return ""
-	case each.standing == StandingChoosingSound:
-		return StatusChoosingSound
 	case each.standing == StandingNeedsTap:
 		return StatusNeedsTap
 	case !isPlaying:
