@@ -77,7 +77,7 @@ func newNodeService(opened openedServices, logger *slog.Logger) (*nodes.Service,
 	// from its path (D304 §5).
 	ingester.SetOnUnreadRetired(identify.RetireUnreadFile)
 	queue := opened.jobServices.queue
-	askForAPassOnNewFiles(ingester, queue)
+	askForAPassOnNewFiles(ingester, pass)
 	ingester.SetOnPathsFound(func(ctx context.Context, nodeID int64, paths []string) {
 		for _, path := range paths {
 			queue.Unpark(ctx, jobs.RootDestination(nodeID, path)) // a root back is a root's probe (D231 §6)
@@ -95,9 +95,16 @@ type sweepRequester interface {
 	RequestSweeps(names ...string)
 }
 
-// askForAPassOnNewFiles has a batch of a scan that stored a new film ask for an identification
-// pass while the scan goes on, so what is found early is playable early (D236 §1). The sweeper
-// runs it within a minute, once however many batches asked.
-func askForAPassOnNewFiles(ingester *library.Ingester, sweeps sweepRequester) {
-	ingester.SetOnNewFiles(func(context.Context) { sweeps.RequestSweeps(sweepPasses) })
+// passOwer marks a library as owing an identification pass: the pass, which asks for its owed
+// passes' sweep.
+type passOwer interface {
+	OwePass(libraryID int64)
+}
+
+// askForAPassOnNewFiles has a batch of a scan that stored a new film ask for its library's
+// identification pass while the scan goes on, so what is found early is playable early (D236 §1):
+// owed, as a match or a refresh asks for one, so the sweeper runs it once however many batches
+// asked (D303, DL14), and every other library's pass is left alone (audit 2026-10-25, C8).
+func askForAPassOnNewFiles(ingester *library.Ingester, passes passOwer) {
+	ingester.SetOnNewFiles(func(_ context.Context, libraryID int64) { passes.OwePass(libraryID) })
 }

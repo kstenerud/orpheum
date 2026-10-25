@@ -93,7 +93,7 @@ func (batch *ingestBatch) insertOrFill(
 	if unreadID == 0 {
 		return batch.insertFile(ctx, scan, seenFile)
 	}
-	batch.hasNewFiles = true
+	batch.noteNewFile(scan.libraryID)
 	return batch.updateObservedFile(ctx, scan, unreadID, seenFile)
 }
 
@@ -125,7 +125,7 @@ func (batch *ingestBatch) reviveOrInsert(
 	if err := batch.queries.ReviveFile(ctx, tombstone); err != nil {
 		return fmt.Errorf("revive file %d at %s: %w", tombstone, seenFile.path, err)
 	}
-	batch.hasNewFiles = true
+	batch.noteNewFile(scan.libraryID)
 	return nil
 }
 
@@ -210,7 +210,7 @@ func (batch *ingestBatch) insertFile(ctx context.Context, scan *scanState, seenF
 	if err != nil {
 		return fmt.Errorf("insert %s: %w", seenFile.path, err)
 	}
-	batch.hasNewFiles = true
+	batch.noteNewFile(scan.libraryID)
 	if err := batch.keepProbe(ctx, id, seenFile); err != nil {
 		return err
 	}

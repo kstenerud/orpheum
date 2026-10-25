@@ -212,7 +212,7 @@ func (listing *listingComparison) storeUnread(ctx context.Context, video listedV
 	if err != nil {
 		return fmt.Errorf("store %s unread: %w", video.located.text, err)
 	}
-	listing.batch.hasNewFiles = true
+	listing.batch.noteNewFile(video.scan.libraryID)
 	return nil
 }
 
@@ -268,7 +268,7 @@ func (listing *listingComparison) concludeInodeMoves(ctx context.Context) error 
 		if err != nil {
 			return fmt.Errorf("move file %d to %s: %w", stored.ID, video.located.text, err)
 		}
-		listing.batch.hasNewFiles = true // its pass identifies it again from its new path
+		listing.batch.noteNewFile(video.scan.libraryID) // its pass identifies it again from its new path
 	}
 	listing.taken.ToExamine = slices.DeleteFunc(listing.taken.ToExamine, func(file nodeproto.ExamineFile) bool {
 		return file.Kind == nodeproto.ExamineVideo && moved[file.Path.Text]
