@@ -67,7 +67,7 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
     expect(focusedTile()).toBe("Film 6");
   });
 
-  it("keeps the same margin left of the posters as right of them, the rail in the margin", async () => {
+  it("keeps the same margin left of the posters as right of them, the rail centred and whole there", async () => {
     for (const [width, height] of [
       [960, 480],
       [1440, 1000],
@@ -82,8 +82,15 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
       const left = Math.min(...cards.map((card) => card.left));
       const right = window.innerWidth - Math.max(...cards.map((card) => card.right));
       expect(Math.abs(right - left)).toBeLessThanOrEqual(2);
-      const rail = document.querySelector(".alphabet-rail")?.getBoundingClientRect();
-      expect(rail === undefined ? -1 : rail.right).toBeLessThanOrEqual(window.innerWidth);
+      // The rail centred in the gutter right of the posters, and whole on the page, Z included.
+      const rail = boxOf(".alphabet-rail");
+      const postersRight = Math.max(...cards.map((card) => card.right));
+      expect(
+        Math.abs(rail.left - postersRight - (window.innerWidth - rail.right)),
+      ).toBeLessThanOrEqual(2);
+      expect(boxOf(".alphabet-rail > li:last-child").bottom).toBeLessThanOrEqual(
+        window.innerHeight,
+      );
     }
   });
 
@@ -101,6 +108,15 @@ describe("the films' grid at a Fire TV's page in Silk", () => {
     expect(onADesktop).toBeGreaterThan(onTheStick * 1.5);
   });
 });
+
+/** Where the element selector names stands on the page; the test fails where there is none. */
+function boxOf(selector: string): DOMRect {
+  const element = document.querySelector(selector);
+  if (element === null) {
+    throw new Error(`the page has no ${selector}`);
+  }
+  return element.getBoundingClientRect();
+}
 
 /** The films' page: twelve films, nothing partway. */
 const filmsOnly = {
