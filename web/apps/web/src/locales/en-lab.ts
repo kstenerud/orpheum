@@ -11,6 +11,7 @@ export const enLab = {
     explain:
       "Tests to run on a TV, a phone, a laptop or a Chromecast. Each shows what it found here and sends it to the server's log, under a short name to note down.",
     backToMenu: "Back to the lab",
+    turnedOff: "Device tests are turned off on this server.",
     menu: {
       device: "Device report",
       deviceWhat: "What this browser plays and which features it has",

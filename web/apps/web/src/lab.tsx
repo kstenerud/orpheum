@@ -2,7 +2,7 @@
 
 import "./lab.css";
 
-import type { JSX } from "react";
+import { use, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { LabCast } from "./lab-cast.tsx";
@@ -11,14 +11,35 @@ import { LabExtend } from "./lab-extend.tsx";
 import { LabInput } from "./lab-input.tsx";
 import { LabRemote } from "./lab-remote.tsx";
 import { Link } from "./link.tsx";
+import { DeviceTestsOfferedContext } from "./lab-offered.ts";
 import { routeHref, type LabPage } from "./router.ts";
 
 /**
  * The device lab (plans/tv-device-tests.md): a menu of probes, each run on a device to settle how
  * casting, extending, a phone's remote and a TV's controller input are built. Reached at /lab, a
- * few presses on a TV's remote; no menu leads to it.
+ * few presses on a TV's remote, or by Device tests in the menu. Only while the server offers the
+ * tests (should_offer_device_tests): off, every page says so in place of its probe, and nothing
+ * while the client settings are still read.
  */
-export function Lab(props: { readonly probe: LabPage | undefined }): JSX.Element {
+export function Lab(props: { readonly probe: LabPage | undefined }): JSX.Element | null {
+  const { t } = useTranslation();
+  const isOffered = use(DeviceTestsOfferedContext);
+  if (isOffered === undefined) {
+    return null;
+  }
+  if (!isOffered) {
+    return (
+      <section className="lab" aria-labelledby="lab-heading">
+        <h1 id="lab-heading">{t("lab.heading")}</h1>
+        <p className="lab__lead">{t("lab.turnedOff")}</p>
+      </section>
+    );
+  }
+  return <LabProbe probe={props.probe} />;
+}
+
+/** The probe the address names, or the lab's menu. */
+function LabProbe(props: { readonly probe: LabPage | undefined }): JSX.Element {
   switch (props.probe) {
     case "device":
       return <LabDevice />;

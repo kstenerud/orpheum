@@ -203,6 +203,31 @@ describe("AppShell", () => {
     expect(markupWith(false)).not.toContain('href="/ui-gallery"');
   });
 
+  it("offers Device tests beside Watch Together, to everyone, only while the server offers them (the owner, 2026-10-25)", () => {
+    const watchingWith = (showsDeviceTests: boolean | undefined): string => {
+      const markup = renderToStaticMarkup(
+        withServices(
+          <AppShell
+            isAdmin={false}
+            canHostWatchTogether={true}
+            currentScreen="films"
+            onSignOut={ignore}
+            signedInAs={undefined}
+            {...(showsDeviceTests === undefined ? {} : { showsDeviceTests })}
+          >
+            <p>screen</p>
+          </AppShell>,
+        ),
+      );
+      return /<ul class="app-shell__watching">(.*?)<\/ul>/u.exec(markup)?.[1] ?? "";
+    };
+    expect(watchingWith(true)).toMatch(
+      /href="\/watch-together"[^>]*>Watch Together<\/a><\/li><li><a href="\/lab"[^>]*>Device tests<\/a>/u,
+    );
+    expect(watchingWith(false)).not.toContain('href="/lab"');
+    expect(watchingWith(undefined)).not.toContain('href="/lab"');
+  });
+
   it("offers to switch household only while a discovery's loader runs the page (D308 §8)", async () => {
     let switched = 0;
     const shellWith = (onSwitchHousehold: (() => void) | undefined) =>
