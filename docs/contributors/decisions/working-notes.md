@@ -21584,9 +21584,10 @@ The build plan is [cast-to-device.md](../design/plans/cast-to-device.md).
    ‹sender device›" that fades.
 4. **Taking control back is two presses.** Any key or tap on the receiver shows "Take back
    control"; one more press confirms it, so a bumped remote does not end the cast. On Fire TV,
-   Back reaches the page only as a history step (the owner's lab result `Q5JAAP2N`: two history
-   steps, no Back key), which the page can catch, so Back also brings up the prompt. Taken back,
-   the receiver is an ordinary player again, its own controls on screen, and the sender is told.
+   Back reaches the page only as a history step, one per press and never a key (the owner's lab
+   results `Q5JAAP2N`, `HSH4M2QQ`, `BHJ6AJ7I`), which the page can catch, so Back also brings up
+   the prompt. Taken back, the receiver is an ordinary player again, its own controls on screen,
+   and the sender is told.
 5. **The sender becomes a remote:** play and pause, the timeline and seeking, subtitles, sound
    and the dialogue boost
    ([D336](#d336--a-films-sound-plays-as-it-is-unless-the-device-cannot-play-it-or-the-person-asks-for-a-feature-that-needs-it-made-no-one-is-asked-how-their-device-makes-sound)
