@@ -108,27 +108,46 @@ type LabInputRunStart struct {
 	DevicePixelRatio float64 `doc:"Device pixels to a CSS pixel"              json:"devicePixelRatio" maximum:"100"    minimum:"0"` //nolint:lll // one struct tag
 	Mode             string  `doc:"Who moves focus between the tiles"         enum:"browser,geometric" json:"mode"`                 //nolint:lll // one struct tag
 	HasMediaSession  bool    `doc:"Whether the browser has Media Session"     json:"hasMediaSession"`
+	HasFullscreen    bool    `doc:"Whether elements have requestFullscreen"   json:"hasFullscreen"`
+	HasCaptureStream bool    `doc:"Whether a canvas has captureStream, for the full-screen test's video" json:"hasCaptureStream"` //nolint:lll // one struct tag
 }
 
 // LabInputEvent is one thing the button test heard or measured: a key going down, a step back in
-// the page's history, a controller's button, a Media Session action, a move of focus with its
-// latency, or a change of who moves focus. Its fields are the log line's attributes, so each is
-// named here and bounded: a page cannot add an attribute or write a long value into the log.
+// the page's history, a controller's button, stick or axis, a Media Session action, a move of focus
+// with its latency, a change of who moves focus, its text field's focus, input and composition, the
+// visual viewport's resizing, full screen's entering and leaving, a controller seen and the person's
+// choice of its OK button (tv-device-tests.md H2, H6–H8). Its fields are the log line's attributes,
+// so each is named here and bounded: a page cannot add an attribute or write a long value into the
+// log. The field's text is never sent, only its length.
 type LabInputEvent struct {
-	Seq       int64  `doc:"Its place in the run, from 0"                           json:"seq"                 maximum:"1000000000" minimum:"0"`                                                               //nolint:lll // one struct tag
-	AtMs      int64  `doc:"Milliseconds since the page loaded"                     json:"atMs"                maximum:"1000000000" minimum:"0"`                                                               //nolint:lll // one struct tag
-	Kind      string `doc:"What it is"                                             enum:"key,back,gamepad,media,move,mode" json:"kind"`                                                                       //nolint:lll // one struct tag
-	Button    string `doc:"The button the test named it, where it is a press"      enum:"up,down,left,right,select,back,playPause,rewind,fastForward,volumeUp,volumeDown,mute,other" json:"button,omitempty"` //nolint:lll // one struct tag
-	Mode      string `doc:"Who moved focus when it came"                           enum:"browser,geometric" json:"mode,omitempty"`                                                                            //nolint:lll // one struct tag
-	Key       string `doc:"A key's key"                                            json:"key,omitempty"       maxLength:"40"`                                                                                 //nolint:lll // one struct tag
-	Code      string `doc:"A key's code"                                           json:"code,omitempty"      maxLength:"40"`                                                                                 //nolint:lll // one struct tag
-	KeyCode   *int64 `doc:"A key's keyCode"                                        json:"keyCode,omitempty"   maximum:"100000"     minimum:"0"`                                                               //nolint:lll // one struct tag
-	IsRepeat  *bool  `doc:"Whether a key is its own repeat"                        json:"isRepeat,omitempty"`
-	PadIndex  *int64 `doc:"A controller's index"                                   json:"padIndex,omitempty"  maximum:"63"         minimum:"0"`                                //nolint:lll // one struct tag
-	PadButton *int64 `doc:"A controller's button, in its mapping"                  json:"padButton,omitempty" maximum:"63"         minimum:"0"`                                //nolint:lll // one struct tag
-	PadID     string `doc:"A controller's own name for itself"                     json:"padId,omitempty"     maxLength:"100"`                                                 //nolint:lll // one struct tag
-	Action    string `doc:"A Media Session action"                                 enum:"play,pause,seekbackward,seekforward,previoustrack,nexttrack" json:"action,omitempty"` //nolint:lll // one struct tag
-	LatencyMs *int64 `doc:"A move's time from its key to the frame after focus moved" json:"latencyMs,omitempty" maximum:"60000" minimum:"0"`                                  //nolint:lll // one struct tag
+	Seq              int64    `doc:"Its place in the run, from 0"                                json:"seq"                        maximum:"1000000000" minimum:"0"`                                                                                                                                                    //nolint:lll // one struct tag
+	AtMs             int64    `doc:"Milliseconds since the page loaded"                          json:"atMs"                       maximum:"1000000000" minimum:"0"`                                                                                                                                                    //nolint:lll // one struct tag
+	Kind             string   `doc:"What it is"                                                  enum:"key,back,gamepad,stick,axis,media,move,mode,fieldIn,fieldOut,fieldInput,compositionStart,compositionEnd,viewport,fullscreenEnter,fullscreenExit,fullscreenRefused,fullscreenExitAsked,pad,okChoice" json:"kind"` //nolint:lll // one struct tag
+	Button           string   `doc:"The button the test named it, where it is a press"           enum:"up,down,left,right,select,back,playPause,rewind,fastForward,volumeUp,volumeDown,mute,other" json:"button,omitempty"`                                                                                             //nolint:lll // one struct tag
+	Mode             string   `doc:"Who moved focus when it came"                                enum:"browser,geometric" json:"mode,omitempty"`                                                                                                                                                                        //nolint:lll // one struct tag
+	Key              string   `doc:"A key's key; a character typed in the field is sent as Character" json:"key,omitempty"       maxLength:"40"`                                                                                                                                                                        //nolint:lll // one struct tag
+	Code             string   `doc:"A key's code"                                                json:"code,omitempty"             maxLength:"40"`                                                                                                                                                                      //nolint:lll // one struct tag
+	KeyCode          *int64   `doc:"A key's keyCode"                                             json:"keyCode,omitempty"          maximum:"100000"     minimum:"0"`                                                                                                                                                    //nolint:lll // one struct tag
+	IsRepeat         *bool    `doc:"Whether a key is its own repeat"                             json:"isRepeat,omitempty"`                                                                                                                                                                                             //nolint:lll // one struct tag
+	InField          *bool    `doc:"Whether the test's text field had focus"                     json:"inField,omitempty"`                                                                                                                                                                                              //nolint:lll // one struct tag
+	InFullscreen     *bool    `doc:"Whether the page was full screen"                            json:"inFullscreen,omitempty"`                                                                                                                                                                                         //nolint:lll // one struct tag
+	PadIndex         *int64   `doc:"A controller's index"                                        json:"padIndex,omitempty"         maximum:"63"         minimum:"0"`                                                                                                                                                    //nolint:lll // one struct tag
+	PadButton        *int64   `doc:"A controller's button, in its mapping"                       json:"padButton,omitempty"        maximum:"63"         minimum:"0"`                                                                                                                                                    //nolint:lll // one struct tag
+	PadButtonName    string   `doc:"A standard controller's button by its place on the pad"      enum:"faceBottom,faceRight,faceLeft,faceTop,shoulderLeft,shoulderRight,triggerLeft,triggerRight,select,start,stickLeft,stickRight,dpadUp,dpadDown,dpadLeft,dpadRight,home" json:"padButtonName,omitempty"`             //nolint:lll // one struct tag
+	PadID            string   `doc:"A controller's own name for itself"                          json:"padId,omitempty"            maxLength:"100"`                                                                                                                                                                     //nolint:lll // one struct tag
+	PadMapping       string   `doc:"A controller's mapping: the standard one, none, or another"  enum:"standard,none,other" json:"padMapping,omitempty"`                                                                                                                                                                //nolint:lll // one struct tag
+	PadLayout        string   `doc:"The layout the page inferred from the controller's name"     enum:"xbox,playstation,nintendo,unknown" json:"padLayout,omitempty"`                                                                                                                                                   //nolint:lll // one struct tag
+	OKButton         string   `doc:"Which face button confirms, as inferred or chosen"           enum:"bottom,right" json:"okButton,omitempty"`                                                                                                                                                                         //nolint:lll // one struct tag
+	AxisIndex        *int64   `doc:"A controller's axis"                                         json:"axisIndex,omitempty"        maximum:"63"         minimum:"0"`                                                                                                                                                    //nolint:lll // one struct tag
+	AxisValue        *float64 `doc:"The axis's value as it crossed half way"                     json:"axisValue,omitempty"        maximum:"1"          minimum:"-1"`                                                                                                                                                   //nolint:lll // one struct tag
+	Action           string   `doc:"A Media Session action"                                      enum:"play,pause,seekbackward,seekforward,previoustrack,nexttrack" json:"action,omitempty"`                                                                                                                            //nolint:lll // one struct tag
+	LatencyMs        *int64   `doc:"A move's time from its key to the frame after focus moved"   json:"latencyMs,omitempty"        maximum:"60000"      minimum:"0"`                                                                                                                                                    //nolint:lll // one struct tag
+	ValueLength      *int64   `doc:"How many characters the field holds, never what they are"   json:"valueLength,omitempty"      maximum:"100000"     minimum:"0"`                                                                                                                                                     //nolint:lll // one struct tag
+	InputType        string   `doc:"An input event's inputType"                                  json:"inputType,omitempty"        maxLength:"40"       pattern:"^[A-Za-z]*$"`                                                                                                                                          //nolint:lll // one struct tag
+	Width            *int64   `doc:"The visual viewport's width in CSS pixels"                   json:"width,omitempty"            maximum:"100000"     minimum:"0"`                                                                                                                                                    //nolint:lll // one struct tag
+	Height           *int64   `doc:"The visual viewport's height in CSS pixels"                  json:"height,omitempty"           maximum:"100000"     minimum:"0"`                                                                                                                                                    //nolint:lll // one struct tag
+	FullscreenTarget string   `doc:"What was asked to go full screen: the video's box or the bare video" enum:"container,video" json:"fullscreenTarget,omitempty"`                                                                                                                                                      //nolint:lll // one struct tag
+	ErrorName        string   `doc:"The name of the error a refused request rejected with"       json:"errorName,omitempty"        maxLength:"40"       pattern:"^[A-Za-z]*$"`                                                                                                                                          //nolint:lll // one struct tag
 }
 
 // LabInputEventsInput is the button test's events since its last request, under its run's name,
@@ -160,21 +179,39 @@ func (server *Server) reportLabInputEvents(ctx context.Context, input *LabInputE
 		server.logger.InfoContext(ctx, "a button test started", "labRun", run,
 			"viewport", fmt.Sprintf("%dx%d", start.ViewportWidth, start.ViewportHeight),
 			"devicePixelRatio", start.DevicePixelRatio, "mode", start.Mode,
-			"hasMediaSession", start.HasMediaSession, "userId", principal.UserID,
+			"hasMediaSession", start.HasMediaSession, "hasFullscreen", start.HasFullscreen,
+			"hasCaptureStream", start.HasCaptureStream, "userId", principal.UserID,
 			"deviceId", principal.DeviceID, "userAgent", input.userAgent)
 	}
 	for _, event := range input.Body.Events {
-		attributes := labInputEventAttributes(run, event, principal)
-		switch event.Kind {
-		case "move":
-			server.logger.InfoContext(ctx, "a button test measured a move", attributes...)
-		case "mode":
-			server.logger.InfoContext(ctx, "a button test changed who moves focus", attributes...)
-		default:
-			server.logger.InfoContext(ctx, "a button test heard a press", attributes...)
-		}
+		server.logLabInputEvent(ctx, run, event, principal)
 	}
 	return &struct{}{}, nil
+}
+
+// logLabInputEvent logs one of the button test's events as a line of its own, under a message
+// saying what the test saw, in a few fixed words, so a run's kinds of line are grepped by message
+// too.
+func (server *Server) logLabInputEvent(ctx context.Context, run string, event LabInputEvent, principal auth.Principal) {
+	attributes := labInputEventAttributes(run, event, principal)
+	switch event.Kind {
+	case "move":
+		server.logger.InfoContext(ctx, "a button test measured a move", attributes...)
+	case "mode":
+		server.logger.InfoContext(ctx, "a button test changed who moves focus", attributes...)
+	case "fieldIn", "fieldOut", "fieldInput", "compositionStart", "compositionEnd":
+		server.logger.InfoContext(ctx, "a button test's text field changed", attributes...)
+	case "viewport":
+		server.logger.InfoContext(ctx, "a button test's visual viewport resized", attributes...)
+	case "fullscreenEnter", "fullscreenExit", "fullscreenRefused", "fullscreenExitAsked":
+		server.logger.InfoContext(ctx, "a button test's full screen changed", attributes...)
+	case "pad", "okChoice":
+		server.logger.InfoContext(ctx, "a button test read a controller", attributes...)
+	case "axis":
+		server.logger.InfoContext(ctx, "a button test heard a controller's axis", attributes...)
+	default:
+		server.logger.InfoContext(ctx, "a button test heard a press", attributes...)
+	}
 }
 
 // keyCodeAttribute names a key's code in the log, as the event names it.
@@ -189,8 +226,15 @@ func labInputEventAttributes(run string, event LabInputEvent, principal auth.Pri
 		{"mode", event.Mode},
 		{"key", event.Key},
 		{keyCodeAttribute, event.Code},
+		{"padButtonName", event.PadButtonName},
 		{"padId", event.PadID},
+		{"padMapping", event.PadMapping},
+		{"padLayout", event.PadLayout},
+		{"okButton", event.OKButton},
 		{"action", event.Action},
+		{"inputType", event.InputType},
+		{"fullscreenTarget", event.FullscreenTarget},
+		{"errorName", event.ErrorName},
 	} {
 		if text.value != "" {
 			attributes = append(attributes, text.name, text.value)
@@ -204,13 +248,29 @@ func labInputEventAttributes(run string, event LabInputEvent, principal auth.Pri
 		{"padIndex", event.PadIndex},
 		{"padButton", event.PadButton},
 		{"latencyMs", event.LatencyMs},
+		{"axisIndex", event.AxisIndex},
+		{"valueLength", event.ValueLength},
+		{"width", event.Width},
+		{"height", event.Height},
 	} {
 		if number.value != nil {
 			attributes = append(attributes, number.name, *number.value)
 		}
 	}
-	if event.IsRepeat != nil {
-		attributes = append(attributes, "isRepeat", *event.IsRepeat)
+	if event.AxisValue != nil {
+		attributes = append(attributes, "axisValue", *event.AxisValue)
+	}
+	for _, flag := range []struct {
+		name  string
+		value *bool
+	}{
+		{"isRepeat", event.IsRepeat},
+		{"inField", event.InField},
+		{"inFullscreen", event.InFullscreen},
+	} {
+		if flag.value != nil {
+			attributes = append(attributes, flag.name, *flag.value)
+		}
 	}
 	return append(attributes, "userId", principal.UserID, "deviceId", principal.DeviceID)
 }

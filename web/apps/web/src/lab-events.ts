@@ -155,6 +155,8 @@ export function useInputEvents(
         devicePixelRatio: window.devicePixelRatio,
         mode,
         hasMediaSession: "mediaSession" in navigator,
+        hasFullscreen: "requestFullscreen" in Element.prototype,
+        hasCaptureStream: "captureStream" in HTMLCanvasElement.prototype,
       },
       post: postEventsBy(api),
       onSending: setSending,

@@ -136,10 +136,13 @@
 //     TestLab_ResultsAreRefusedAndTheTestsNotOfferedUntilTheAdminTurnsThemOn.
 //   - The button test's events (POST /lab-input-events) are logged at info a line each, flat, by
 //     the run's name the page made, with a line for the run's start; a request carries 1 to 200
-//     events, each field named and bounded (a kind and a button from their lists, a key's key and
-//     code at most 40 characters), so a page writes no attribute of its own and no long value into
-//     the log; behind the same sign-in, setting and body bound as a result (requireDeviceTests).
-//     Enforced by TestLab_TheButtonTestsEventsAreLoggedALineEachAndBounded and
+//     events, each field named and bounded (a kind, a button, a controller's layout and mapping and
+//     a full screen's target from their lists, a key's key and code at most 40 characters, numbers
+//     in their ranges), so a page writes no attribute of its own and no long value into the log; its
+//     text field's events carry the value's length, never its text; behind the same sign-in, setting
+//     and body bound as a result (requireDeviceTests). Enforced by
+//     TestLab_TheButtonTestsEventsAreLoggedALineEachAndBounded,
+//     TestLab_TheButtonTestsFieldFullScreenAndControllerEventsAreLoggedFlat and
 //     TestLab_TheButtonTestsEventsAreRefusedUntilTheAdminTurnsTheTestsOn.
 //   - Every operation checks the caller's reach, is an admin's, or holds no library content
 //     (D243 §4). TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent.

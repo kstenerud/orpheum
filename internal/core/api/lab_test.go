@@ -125,7 +125,7 @@ func TestLab_TheButtonTestsEventsAreLoggedALineEachAndBounded(t *testing.T) {
 	)
 	sent["start"] = map[string]any{
 		"viewportWidth": 960, "viewportHeight": 540, "devicePixelRatio": 2, "mode": "geometric",
-		"hasMediaSession": true,
+		"hasMediaSession": true, "hasFullscreen": true, "hasCaptureStream": true,
 	}
 	answer := harness.do(t, http.MethodPost, "/lab-input-events", user, sent)
 	if answer.status != http.StatusNoContent {
@@ -187,5 +187,103 @@ func TestLab_TheButtonTestsEventsAreRefusedUntilTheAdminTurnsTheTestsOn(t *testi
 	answer := harness.do(t, http.MethodPost, "/lab-input-events", user, sent)
 	if answer.status != http.StatusNoContent {
 		t.Errorf("POST /lab-input-events with the tests on = %d %s", answer.status, answer.body)
+	}
+}
+
+// The button test's text field, full-screen and controller events are logged flat as the rest are,
+// each kind under its own message (tv-device-tests.md H6–H8); the field's length is sent, never its
+// text, and each new value is bounded by a list, a range or a pattern.
+func TestLab_TheButtonTestsFieldFullScreenAndControllerEventsAreLoggedFlat(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	settingstest.Set(t, harness.server.dependencies.Load().Settings, settings.ShouldOfferDeviceTests, "true")
+	inField := labKeyEvent(0)
+	inField["inField"] = true
+	inFullscreen := labKeyEvent(9)
+	inFullscreen["inFullscreen"] = true
+	sent := labInputEvents(inField,
+		map[string]any{"seq": 1, "atMs": 100, "kind": "fieldIn"},
+		map[string]any{"seq": 2, "atMs": 110, "kind": "fieldInput", "valueLength": 3, "inputType": "insertText"},
+		map[string]any{"seq": 3, "atMs": 120, "kind": "compositionEnd", "valueLength": 4},
+		map[string]any{"seq": 4, "atMs": 130, "kind": "viewport", "width": 960, "height": 270},
+		map[string]any{"seq": 5, "atMs": 140, "kind": "fullscreenEnter", "fullscreenTarget": "container"},
+		map[string]any{
+			"seq": 6, "atMs": 150, "kind": "fullscreenRefused", "fullscreenTarget": "video",
+			"errorName": "NotAllowedError",
+		},
+		map[string]any{
+			"seq": 7, "atMs": 160, "kind": "pad", "padIndex": 0, "padId": "057e-2009-Pro Controller",
+			"padMapping": "standard", "padLayout": "nintendo", "okButton": "right",
+		},
+		map[string]any{
+			"seq": 8, "atMs": 170, "kind": "stick", "button": "up", "padIndex": 0, "axisIndex": 1,
+			"axisValue": -0.75, "padLayout": "nintendo",
+		},
+		inFullscreen,
+		map[string]any{
+			"seq": 10, "atMs": 180, "kind": "gamepad", "button": "select", "padIndex": 0, "padButton": 1,
+			"padButtonName": "faceRight", "padLayout": "nintendo",
+		},
+		map[string]any{"seq": 11, "atMs": 190, "kind": "okChoice", "okButton": "right"},
+		map[string]any{"seq": 12, "atMs": 200, "kind": "axis", "padIndex": 1, "axisIndex": 9, "axisValue": 1},
+	)
+	sent["start"] = map[string]any{
+		"viewportWidth": 960, "viewportHeight": 540, "devicePixelRatio": 2, "mode": "geometric",
+		"hasMediaSession": true, "hasFullscreen": true, "hasCaptureStream": false,
+	}
+	answer := harness.do(t, http.MethodPost, "/lab-input-events", user, sent)
+	if answer.status != http.StatusNoContent {
+		t.Fatalf("POST /lab-input-events = %d %s", answer.status, answer.body)
+	}
+	harness.logs.AwaitLine(t, `"msg":"a button test started"`, `"hasFullscreen":true`,
+		`"hasCaptureStream":false`)
+	harness.logs.AwaitLine(t, `"msg":"a button test heard a press"`, `"seq":0`, `"inField":true`)
+	harness.logs.AwaitLine(t, `"msg":"a button test's text field changed"`, `"seq":1`, `"kind":"fieldIn"`)
+	harness.logs.AwaitLine(t, `"msg":"a button test's text field changed"`, `"seq":2`,
+		`"inputType":"insertText"`, `"valueLength":3`)
+	harness.logs.AwaitLine(t, `"msg":"a button test's text field changed"`, `"seq":3`,
+		`"kind":"compositionEnd"`, `"valueLength":4`)
+	harness.logs.AwaitLine(t, `"msg":"a button test's visual viewport resized"`, `"seq":4`,
+		`"width":960,"height":270`)
+	harness.logs.AwaitLine(t, `"msg":"a button test's full screen changed"`, `"seq":5`,
+		`"kind":"fullscreenEnter"`, `"fullscreenTarget":"container"`)
+	harness.logs.AwaitLine(t, `"msg":"a button test's full screen changed"`, `"seq":6`,
+		`"fullscreenTarget":"video"`, `"errorName":"NotAllowedError"`)
+	harness.logs.AwaitLine(t, `"msg":"a button test read a controller"`, `"seq":7`,
+		`"padId":"057e-2009-Pro Controller","padMapping":"standard","padLayout":"nintendo","okButton":"right"`)
+	harness.logs.AwaitLine(t, `"msg":"a button test heard a press"`, `"seq":8`, `"kind":"stick"`,
+		`"button":"up"`, `"axisIndex":1`, `"axisValue":-0.75`)
+	harness.logs.AwaitLine(t, `"msg":"a button test heard a press"`, `"seq":9`, `"inFullscreen":true`)
+	harness.logs.AwaitLine(t, `"msg":"a button test heard a press"`, `"seq":10`,
+		`"padButtonName":"faceRight"`, `"padLayout":"nintendo"`)
+	harness.logs.AwaitLine(t, `"msg":"a button test read a controller"`, `"seq":11`, `"kind":"okChoice"`,
+		`"okButton":"right"`)
+	harness.logs.AwaitLine(t, `"msg":"a button test heard a controller's axis"`, `"seq":12`,
+		`"axisIndex":9`, `"axisValue":1`)
+
+	// One event of kind carrying field's value, at the run's start.
+	event := func(kind, field string, value any) map[string]any {
+		return labInputEvents(map[string]any{"seq": 0, "atMs": 0, "kind": kind, field: value})
+	}
+	for name, refused := range map[string]map[string]any{
+		"a field's text":           event("fieldInput", "value", "secret"),
+		"an input type of its own": event("fieldInput", "inputType", "insert text"),
+		"a length below 0":         event("fieldInput", "valueLength", -1),
+		"a viewport too wide":      event("viewport", "width", 100001),
+		"a target of its own":      event("fullscreenEnter", "fullscreenTarget", "page"),
+		"an error of its own":      event("fullscreenRefused", "errorName", "<b>"),
+		"a layout of its own":      event("pad", "padLayout", "sega"),
+		"a mapping of its own":     event("pad", "padMapping", "xr-standard"),
+		"an OK of its own":         event("okChoice", "okButton", "left"),
+		"a button name its own":    event("gamepad", "padButtonName", "turbo"),
+		"an axis past 1":           event("axis", "axisValue", 1.5),
+		"an axis of 64":            event("axis", "axisIndex", 64),
+		"in a field as text":       event("key", "inField", "yes"),
+	} {
+		answer := harness.do(t, http.MethodPost, "/lab-input-events", user, refused)
+		if answer.status != http.StatusUnprocessableEntity {
+			t.Errorf("%s was taken: %d %s", name, answer.status, answer.body)
+		}
 	}
 }
