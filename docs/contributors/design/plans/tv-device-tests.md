@@ -38,7 +38,7 @@ server nothing.
 | --- | --- | --- |
 | Menu | `/lab` | The probes, one big link each |
 | Device report | `/lab/device` | User agent and the Fire OS/Vega hint, screen and page size, devicePixelRatio; MSE, ManagedMediaSource and `canPlayType` for H.264 (five profiles and levels), HEVC, AV1, VP9, AAC-LC, HE-AAC (v1, v2), AC-3, E-AC-3, Opus and FLAC in fMP4; native HLS; then, after **Run**, the audio context's base and output latency, the number of audio outputs, and a WebRTC call with itself (data-channel round trips, a tone's received level). Lists which of setSinkId, Screen Wake Lock, getUserMedia, RTCPeerConnection, getScreenDetails, the Gamepad API, Media Session, Fullscreen, the Presentation API and Remote Playback the browser has |
-| Remote and keys | `/lab/input` | The last 30 key events (key, code, keyCode, repeat, ms since the one before; Backs marked), Media Session actions, Back as history steps, gamepads, and a header row over a 6 × 4 grid of tiles, moved across by the browser's own navigation or by our geometric search, with each move's latency from key to the frame after focus moved (median and worst, against D190's 250 ms) |
+| Button test (was Remote and keys) | `/lab/input` | A chip for each button (Up, Down, Left, Right, OK / Enter, Back, Play / Pause, Rewind, Fast forward, Other; the volume keys once heard), lit as the page hears it as a key, a history step back, a controller button or a Media Session action; the last named large with its key, code and keyCode; two rows of six tiles, moved across by the browser's own navigation or Orpheum's, each move's latency from key to the frame after focus moved (median and worst, against D190's 250 ms). Fits a Fire TV's 960 × 540 unscrolled (the owner, 2026-10-25). Under **Details**: the last 30 key events (key, code, keyCode, repeat, ms since the one before; Backs marked), Media Session actions, Back as history steps, gamepads and the tone's switch. The report sends all of these and the buttons heard |
 | Phone as remote | `/lab/remote` | Screen Wake Lock held and asked again when shown; the microphone through a call with the page itself, played back through an `<audio>` element (not Web Audio), its level sampled each second; a 1 s ticker whose gaps over 2 s mean the page was stopped; visibility and page lifecycle. Sends its log every 30 s |
 | Extend to the TV | `/lab/extend` | Where the browser can place a window on another screen (Window Management API, Chromium), opens a test film there (a counter, a sweep, a flash and a beep each second, full screen at its first press) and stays as its remote (play/pause, ±10 s); elsewhere, says so and gives the manual recipe. Then two tones on two audio outputs at once (setSinkId) |
 | Cast | `/lab/cast` | Chromium only, over HTTPS. Google's Default Media Receiver handed an address, or our own receiver by its app id, spoken to on `urn:x-cast:org.orpheum.lab`. Must be opened by its own address (typed, or from the menu, which loads it afresh): only that page may load Google's Cast SDK |
@@ -77,17 +77,20 @@ and compare with `/lab/device`'s *Fire TV* line, which reads the user agent's `A
   - The output latency is the figure to compare with the TCL's 320 ms (§2's sound test).
 - **VQ55.**
 
-### H2. Input probe in Silk
+### H2. Button test (the input probe) in Silk
 
 - **Device:** each Fire TV stick, Silk, with its own remote.
 - **Open:** `/lab/input`.
-- **Steps:**
+- **Steps** (the page's wording since 2026-10-25, when the probe became the button test; the
+  results in §5 were taken under the old one, *Our geometric search* being today's *Orpheum's
+  navigation*):
   1. Press each remote key once: the D-pad, OK, Back, Home, Menu (≡), play/pause, rewind, fast
-     forward. Note which show in the key log, and with what `key` and `keyCode`.
-  2. Move across the grid with the D-pad in **Browser's own navigation**, then in **Our geometric
-     search**, about 20 moves each.
+     forward. Note which chips light, and under **Details** with what `key` and `keyCode`.
+  2. Move across the tiles with the D-pad in **The browser's own**, then in **Orpheum's
+     navigation**, about 20 moves each.
   3. Press **Back** three times.
-  4. Press **Play a quiet tone**, then the media keys again.
+  4. Press the media keys again: the first press started the quiet tone that lets them reach the
+     page (**Details** switches it).
   5. Press **Send to server**.
 - **Record:** which keys reach the page and their `key`/`keyCode`; whether Silk's own cursor
   takes the D-pad (no arrows in the log) or the arrows reach the page; whether either mode moves
@@ -180,7 +183,7 @@ As [controller-input-2026-10-25.md](../research/controller-input-2026-10-25.md) 
 - **Decides:** whether TV Bro is a usable test bench for the TV mode (controller §5.4); the
   confirmed facts go into [idiosyncrasies.md](../../idiosyncrasies.md).
 
-### B2. Input probe in TV Bro
+### B2. Button test (the input probe) in TV Bro
 
 - **Open:** `/lab/input`, in **cursor mode** first, then in **direct mode**.
 - **Steps and record:** as H2. In cursor mode expect no arrows at all (controller §1.1).
