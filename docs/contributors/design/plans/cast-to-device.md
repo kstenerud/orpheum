@@ -305,7 +305,8 @@ casts as sessions of one in the hub (`internal/core/together/cast.go`, `POST /me
 and a title's page (§9 Q1), the receiver (`cast-receiver.tsx`), the remote (`cast-remote.tsx`,
 `/casting`), and a film played on a device that casts sent on to its receiver (Q3,
 `PlayOrSendOn`). Device checks: VQ64–VQ66. Not built: step 5 (the person's choices sent from the
-remote), step 8 (Watch Together), and the Playwright runs of §8.
+remote), step 8 (Watch Together), and §8's Playwright runs but one: `web/e2e/cast.spec.ts`, two
+browsers signed in as one person, casts, pauses and plays from the remote, and takes control back.
 
 Where this plan was silent, the build assumed, each the plan's lean or the smallest step:
 
