@@ -555,3 +555,33 @@ An item is ticked only by the person who did it, and only with what they saw.
   sign-in from the sandbox (192.168.1.199) logged `path="direct from away"` and `GET /users` was
   refused. With the proxy off and the daemon restarted, the script reported it off, the same sign-in
   logged `path="direct from home" isAdmin=true` and `GET /users` answered 200.
+- [ ] **VQ55** — On each Fire TV stick at home, in Silk, signed in by a device code, open `/lab/device`
+  and press **Run the sound and WebRTC tests** (plans/tv-device-tests.md H1). Passes when the page
+  shows its report and **Sent as** a name, and the core's log holds that name's line with
+  `probe=device`, the stick's codecs, its audio latency and the WebRTC call; note Fire OS or Vega OS
+  (Settings, My Fire TV, About) beside it. (the device lab: `web/apps/web/src/lab-device.tsx`,
+  `web/packages/sdk/src/device-report.ts`, `internal/core/api/lab.go`)
+- [ ] **VQ56** — On the iPhone, in a Safari tab and then as a home-screen app, and on an Android
+  phone in Chrome, run `/lab/remote` with earphones for the runs of plans/tv-device-tests.md H4.
+  Passes when each run's log reaches the core every 30 s (`probe=remote`) with its wake-lock,
+  sound-flowing and page-stopped counts, whatever they show; what they show is the finding.
+  (`web/apps/web/src/lab-remote.tsx`, `web/packages/sdk/src/rtc-loopback.ts`)
+- [ ] **VQ57** — On the Windows laptop extending to a TV (Win+K, Win+P Extend), in Chrome, open
+  `/lab/extend`, **Find screens**, open the test film on the TV, drive it with play/pause and ±10 s,
+  then play the two tones on two outputs (plans/tv-device-tests.md H3, H5). Passes when the test
+  film opens on the TV's screen and goes full screen at a press, the laptop's page shows its position
+  move with each command, and each tone is heard on the output chosen for it, or the page says
+  plainly which API is missing. (`web/apps/web/src/lab-extend.tsx`, `lab-extend-player.tsx`)
+- [ ] **VQ58** — With a Chromecast (or the TCL's built-in one) registered for development and our
+  receiver registered at `https://<core's LAN name>/cast/` (plans/tv-device-tests.md §3), open
+  `/lab/cast` in desktop Chrome at that name, **Cast to our receiver**, **Ask for its report**, and
+  **Play the film on it** with the sign-in ticked. Passes when the TV shows the receiver's log with
+  *CAF started* and no *blocked by the page's policy* line, the receiver's report reaches the core's
+  log (`probe=receiver`), and the film plays on the TV; the report's WebRTC line, stalls and memory
+  are the spike's findings. (`web/apps/cast-receiver/src/`, `web/apps/web/src/lab-cast.tsx`, the
+  cast policies in `internal/core/webclient/webclient.go`)
+- [ ] **VQ59** — On the TCL in TV Bro's direct mode, and on a Fire TV stick in Silk, open
+  `/lab/input` and move across the grid about 20 times in each mode (plans/tv-device-tests.md H2,
+  B2). Passes when the page logs the remote's keys and measures each move; D190's line is our
+  geometric search's worst key-to-focus at or under 250 ms, which the result records whether or not
+  it is met. (`web/apps/web/src/lab-input.tsx`, `lab-focus.ts`)
