@@ -19,14 +19,19 @@
  * the left, so the posters keep the same margin on both sides; it runs from under the sticky banner
  * (--banner-height, app-shell.tsx) to the bottom of what the browser shows (svh: Silk's address bar
  * takes part of the screen), a gap each end, and sticks there as the page scrolls. Its letters are
- * sized to fill it, never past its background (the owner's Fire TV: Y and Z ran off it), with room
- * above the first and below the last as at their sides.
+ * sized to fill it, never past its background (the owner's Fire TV: Y and Z ran off it), with as
+ * much room showing above the first and below the last as at their sides.
  */
 .browse__layout {
-  --rail-gap: var(--space-4);
+  /* The gap at each end, a share of the window's height, so it looks alike on a Fire TV's short page
+     and a desktop's tall one (the owner, 2026-10-25: heavier on the Fire TV at a fixed 16 pixels). */
+  --rail-gap: clamp(0.25rem, 1.6svh, 1.5rem);
   --rail-height: calc(100svh - var(--banner-height, 3.75rem) - 2 * var(--rail-gap));
-  /* 27 letters at a line-height of 1.2, and a letter's width of room at each end. */
-  --rail-font: clamp(0.5rem, calc(var(--rail-height) / 34.4), 1.25rem);
+  /* 27 letters at a line-height of 1.2, and the room at each end (twice --rail-end). */
+  --rail-font: clamp(0.5rem, calc(var(--rail-height) / 33.1), 1.25rem);
+  /* The room at each end, which with a letter's line spacing above the first and below the last
+     shows as much as the room at a letter's sides (the owner, 2026-10-25: twice as much showed). */
+  --rail-end: calc(var(--rail-font) * 0.35);
   --rail-width: calc(var(--rail-font) * 2);
   --gutter: calc(var(--rail-width) + 2 * var(--space-3));
 
@@ -57,7 +62,7 @@
   box-sizing: border-box;
   height: var(--rail-height);
   margin: 0;
-  padding: var(--rail-font) 0;
+  padding: var(--rail-end) 0;
   border-radius: var(--radius-pill);
   background: var(--color-surface-raised);
   font-size: var(--rail-font);
