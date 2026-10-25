@@ -158,9 +158,8 @@ func TestLoudness_TheGainFollowsTheLevelAndTheRaiseTheSettingsSay(t *testing.T) 
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
-	storetest.ExecRaw(t, harness.databasePath,
-		"UPDATE setting SET value_json = '-16', is_modified = 1 WHERE key = 'loudness_target_lufs'",
-		"UPDATE setting SET value_json = '10', is_modified = 1 WHERE key = 'loudness_max_raise_db'")
+	harness.setSetting(t, "loudness_target_lufs", "-16")
+	harness.setSetting(t, "loudness_max_raise_db", "10")
 	for _, check := range []struct {
 		what       string
 		integrated float64

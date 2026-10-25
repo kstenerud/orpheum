@@ -20,6 +20,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/platform/localtime"
+	"github.com/kstenerud/orpheum/internal/platform/querytally"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -707,5 +708,37 @@ func TestDurationOrStarting_IsTheSettingOrItsStart(t *testing.T) {
 	}
 	if wait := DurationOrStarting(t.Context(), nil, key, logger); wait != start {
 		t.Errorf("no reader: %s; want the starting %s", wait, start)
+	}
+}
+
+// A setting is read from memory: once the values are read, reads run no statement, however many,
+// and a set or a reset is seen by the very next read (principles §11; audit 2026-10-25, S2). A
+// chunk's request read about six settings, each a statement, before.
+func TestRead_RunsNoStatementAndSeesEachWriteAtOnce(t *testing.T) {
+	t.Parallel()
+	service, owner := newSeededService(t)
+	ctx, tally := querytally.New(t.Context())
+	for range 100 {
+		if _, err := service.Int(ctx, SignInFailureLimit); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := service.Duration(ctx, BackupAgeWarningHours); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if ran := tally.Statements(); ran != 0 {
+		t.Errorf("200 reads ran %d statements (%s); want none, the values held in memory", ran, tally)
+	}
+	if err := service.Set(ctx, jsonByKey(string(SignInFailureLimit), "9"), &owner, false); err != nil {
+		t.Fatal(err)
+	}
+	if limit, err := service.Int(ctx, SignInFailureLimit); err != nil || limit != 9 {
+		t.Errorf("read after a set = %d, %v; want 9", limit, err)
+	}
+	if err := service.Reset(ctx, SignInFailureLimit, &owner); err != nil {
+		t.Fatal(err)
+	}
+	if limit, err := service.Int(ctx, SignInFailureLimit); err != nil || limit != 5 {
+		t.Errorf("read after a reset = %d, %v; want its starting 5", limit, err)
 	}
 }

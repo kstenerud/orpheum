@@ -69,9 +69,11 @@ func (service *Service) DeleteUnused(ctx context.Context, key string) error {
 	if _, known := Lookup(Key(key)); known {
 		return fmt.Errorf("%s: %w", key, ErrInUse)
 	}
-	return service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
+	err := service.database.Write(ctx, func(queries *sqlcgen.Queries) error {
 		return queries.DeleteSetting(ctx, key)
 	})
+	service.readStored(ctx)
+	return err
 }
 
 func unusedIn(rows []sqlcgen.Setting) []UnusedSetting {

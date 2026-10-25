@@ -240,8 +240,7 @@ func TestPrepare_ACopyMadeWithAnotherSegmentLengthIsMadeAgain(t *testing.T) {
 	if same := harness.play(t, user, chrome(2)); same.IsPreparing {
 		t.Errorf("played again with the same setting: %+v, want the copy as it is", same)
 	}
-	storetest.ExecRaw(t, harness.databasePath,
-		"UPDATE setting SET value_json = '6', is_modified = 1 WHERE key = 'hls_segment_length_seconds'")
+	harness.setSetting(t, "hls_segment_length_seconds", "6")
 	if changed := harness.play(t, user, chrome(2)); !changed.IsPreparing {
 		t.Errorf("played after hls_segment_length_seconds changed: %+v, want the copy made again", changed)
 	}

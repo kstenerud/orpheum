@@ -47,6 +47,7 @@ func (service *Service) Seed(ctx context.Context) (SeedReport, error) {
 		}
 		return nil
 	})
+	service.readStored(ctx)
 	return report, err
 }
 

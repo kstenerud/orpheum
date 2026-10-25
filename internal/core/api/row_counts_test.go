@@ -8,14 +8,14 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
-	"github.com/kstenerud/orpheum/internal/store/storetest"
+	"github.com/kstenerud/orpheum/internal/core/settings"
+	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 )
 
 // setSetting sets a server setting, as a person's change through /config would.
 func (harness testHarness) setSetting(t *testing.T, key, valueJSON string) {
 	t.Helper()
-	storetest.ExecRaw(t, harness.databasePath,
-		"UPDATE setting SET value_json = '"+valueJSON+"', is_modified = 1 WHERE key = '"+key+"'")
+	settingstest.Set(t, harness.settings, settings.Key(key), valueJSON)
 }
 
 // How many rows Continue Watching, the job view and the System page list are the admin's
