@@ -167,13 +167,19 @@ const railLetters = [
 /**
  * A list's alphabet beside its grid, by name only, to jump to a letter: a prototype, drawn but not
  * yet working (the owner, 2026-10-25: "It doesn't need to actually work yet, but I want to see how
- * it looks on-screen"), so its letters are words, not controls, and take no focus.
+ * it looks on-screen"). Its letters are buttons that do nothing yet, so a remote's moves into and
+ * out of it can be tried (the owner, 2026-10-25), a focus container of their own.
  */
 function AlphabetRail(): JSX.Element {
+  const { t } = useTranslation();
   return (
-    <ol className="alphabet-rail" aria-hidden="true">
+    <ol className="alphabet-rail" aria-label={t("browse.alphabet")} data-focus-container="">
       {railLetters.map((letter) => (
-        <li key={letter}>{letter}</li>
+        <li key={letter}>
+          <button type="button" className="alphabet-rail__letter">
+            {letter}
+          </button>
+        </li>
       ))}
     </ol>
   );
