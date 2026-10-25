@@ -49,6 +49,20 @@ rests on, so the claim can be checked against them; a total goes stale with the 
 
 ## Log
 
+### A44 — Told the owner a test checked the alphabet rail when the edit that added the checks never landed (2026-10-25)
+
+- **What happened:** with an earlier commit the agent told the owner the browser test now checked that the
+  alphabet rail starts under the banner and that every letter from "#" to "Z" sits on its
+  background. The checks were never in the file: the agent's scripted string replacement looked for
+  lines the formatter had already reflowed after an earlier edit, matched nothing, and wrote the
+  file back unchanged without complaint. The test went green because it tested less than claimed,
+  and the agent reported the run, not the file. The false belief came from a test that could not
+  fail.
+- **Caught by:** the agent itself, two rounds later, writing the next rail test and finding the
+  first one's checks absent (an earlier commit adds them and was seen red without its fix).
+- **Gate:** none. The lesson: a scripted edit asserts that what it replaces is present, and a test
+  claimed to check something is seen red before the claim is made.
+
 ### A43 — Concluded a TV showed its picture late from clips whose period hid a whole-period lag (2026-10-24)
 
 - **What happened:** to find why the owner's TCL TV in TV Bro played films out of sync, the agent
