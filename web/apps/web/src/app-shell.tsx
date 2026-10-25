@@ -2,7 +2,7 @@
 
 import "./app-shell.css";
 
-import { useEffect, useRef, type JSX, type ReactNode } from "react";
+import { useEffect, useRef, type JSX, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import logo from "./assets/orpheum-logo.svg";
@@ -13,6 +13,46 @@ import { LocalNetworkNote } from "./local-network-note.tsx";
 import { PlainHttpNote } from "./plain-http-note.tsx";
 import { productName } from "./product-name.ts";
 import type { Route } from "./router.ts";
+
+/** The logo, the way home, underlined while home is the page (the owner, 2026-10-25). */
+function HomeLogo(props: { readonly isHome: boolean }): JSX.Element {
+  return (
+    <p className="app-shell__title">
+      {/* The logo is the way home, as on most sites, and the banner's mark of being there
+          (the owner, 2026-10-25: no Home entry; the logo, underlined at home). */}
+      <Link to={{ screen: "home" }} className="app-shell__home" isCurrent={props.isHome}>
+        <img className="app-shell__logo" src={logo} alt={productName} />
+      </Link>
+    </p>
+  );
+}
+
+/**
+ * Keeps the banner's height, which its content sets (one row from a tablet up, two on a phone), in
+ * the page's --banner-height, for what stands under the sticky banner to size itself by: the
+ * alphabet rail runs from under it to the window's bottom (the owner, 2026-10-25). Returns the
+ * banner's ref.
+ */
+function useBannerHeight(): RefObject<HTMLElement | null> {
+  const bannerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const banner = bannerRef.current;
+    if (banner === null || typeof ResizeObserver === "undefined") {
+      return undefined;
+    }
+    const root = document.documentElement;
+    const keep = (): void => {
+      root.style.setProperty("--banner-height", `${String(banner.offsetHeight)}px`);
+    };
+    keep();
+    const watching = new ResizeObserver(keep);
+    watching.observe(banner);
+    return () => {
+      watching.disconnect();
+    };
+  }, []);
+  return bannerRef;
+}
 
 /** A place the menu leads to, and whether this person may go there. */
 interface Destination {
@@ -150,20 +190,16 @@ export function AppShell(props: {
     ));
   const isIn = (group: Destination["group"]): boolean =>
     inGroup(group).some((destination) => destination.route.screen === props.currentScreen);
+  const bannerRef = useBannerHeight();
   return (
     <div className="app-shell">
-      <header className="app-shell__banner" data-focus-container="" data-focus-covers-top="">
-        <p className="app-shell__title">
-          {/* The logo is the way home, as on most sites, and the banner's mark of being there
-              (the owner, 2026-10-25: no Home entry; the logo, underlined at home). */}
-          <Link
-            to={{ screen: "home" }}
-            className="app-shell__home"
-            isCurrent={props.currentScreen === "home"}
-          >
-            <img className="app-shell__logo" src={logo} alt={productName} />
-          </Link>
-        </p>
+      <header
+        ref={bannerRef}
+        className="app-shell__banner"
+        data-focus-container=""
+        data-focus-covers-top=""
+      >
+        <HomeLogo isHome={props.currentScreen === "home"} />
         <nav className="app-shell__nav" aria-label={t("nav.label")}>
           <ul className="app-shell__watching">{links("watching")}</ul>
           <BannerEnd shell={props} isMenuCurrent={isIn("manage") || isIn("develop") || isIn("own")}>

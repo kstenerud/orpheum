@@ -14,12 +14,20 @@
 }
 
 /*
- * The grid and, listed by name, its alphabet rail beside it (a prototype, the owner, 2026-10-25):
- * the rail takes a narrow column on the right, and the grid's posters shrink a little to keep six
- * across a Fire TV's 960-pixel page.
+ * The films or the series, and, listed by name, their alphabet rail beside them (a prototype, the
+ * owner, 2026-10-25): the rail in a gutter of its own on the right, centred there, as much kept on
+ * the left, so the posters keep the same margin on both sides; it runs from under the sticky banner
+ * (--banner-height, app-shell.tsx) to the bottom of what the browser shows (svh: Silk's address bar
+ * takes part of the screen), a gap each end, and sticks there as the page scrolls. Its letters are
+ * sized to fill it, never past its background (the owner's Fire TV: Y and Z ran off it), with room
+ * above the first and below the last as at their sides.
  */
 .browse__layout {
-  --rail-width: clamp(1.5rem, calc((100svh - 6rem) / 20), 2.5rem);
+  --rail-gap: var(--space-4);
+  --rail-height: calc(100svh - var(--banner-height, 3.75rem) - 2 * var(--rail-gap));
+  /* 27 letters at a line-height of 1.2, and a letter's width of room at each end. */
+  --rail-font: clamp(0.5rem, calc(var(--rail-height) / 34.4), 1.25rem);
+  --rail-width: calc(var(--rail-font) * 2);
   --gutter: calc(var(--rail-width) + 2 * var(--space-3));
 
   display: grid;
@@ -29,9 +37,6 @@
   padding-inline-start: calc(var(--gutter) - var(--space-page));
 }
 
-/* The rail centred in the right gutter, and as much room kept on the left, so the posters keep the
-   same margin on both sides (the owner, 2026-10-25: the left one half the right, then both too
-   narrow, then the rail not centred in its gutter). */
 .browse__layout > .alphabet-rail {
   justify-self: center;
   width: var(--rail-width);
@@ -43,27 +48,19 @@
   }
 }
 
-/*
- * Under the sticky banner, the height of what the window shows of the page, its letters sized by
- * that height: small on a Fire TV's 480-pixel page, larger on a desktop's tall window (the owner,
- * 2026-10-25: "looks very small when viewed on a desktop browser").
- */
 .alphabet-rail {
   position: sticky;
-  inset-block-start: 4.5rem;
+  inset-block-start: calc(var(--banner-height, 3.75rem) + var(--rail-gap));
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  /* The height the browser shows below the page's heading, where the rail starts: Silk's address
-     bar takes part of the screen, which 100vh counts (the owner's Fire TV, 2026-10-25: the rail ran
-     past the page's bottom after X). */
-  height: calc(100svh - 10rem);
-  max-height: 60rem;
+  box-sizing: border-box;
+  height: var(--rail-height);
   margin: 0;
-  padding: var(--space-1) 0;
+  padding: var(--rail-font) 0;
   border-radius: var(--radius-pill);
   background: var(--color-surface-raised);
-  font-size: clamp(0.65rem, calc((100svh - 10rem) / 40), 1.25rem);
+  font-size: var(--rail-font);
   list-style: none;
 }
 
@@ -75,7 +72,7 @@
 .alphabet-rail__letter {
   flex: 1;
   min-height: 0;
-  padding: 0 0.15em;
+  padding: 0;
   border: 0;
   border-radius: var(--radius-pill);
   background: none;
