@@ -6,7 +6,7 @@ import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { EntryPoster, type BrowseKind, type Entry } from "./browse.tsx";
-import { ContinueWatching, useWatchedPercents } from "./continue-watching.tsx";
+import { ContinueWatching } from "./continue-watching.tsx";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow } from "./problem.ts";
 import { useServices } from "./services.tsx";
@@ -42,7 +42,6 @@ export function NewestRow(props: { readonly kind: BrowseKind }): JSX.Element | n
   const { t } = useTranslation();
   const { api } = useServices();
   const { kind } = props;
-  const percents = useWatchedPercents();
   const [entries] = useResource(
     `newest-${kind}`,
     async () => {
@@ -60,12 +59,7 @@ export function NewestRow(props: { readonly kind: BrowseKind }): JSX.Element | n
       <h2 id={headingId}>{t(kind === "movie" ? "home.newestFilms" : "home.newestSeries")}</h2>
       <ul className="poster-row" data-focus-container="">
         {entries.value.map((entry: Entry) => (
-          <EntryPoster
-            key={entry.id}
-            kind={kind}
-            entry={entry}
-            percent={percents.get(`${kind}:${String(entry.id)}`)}
-          />
+          <EntryPoster key={entry.id} kind={kind} entry={entry} />
         ))}
       </ul>
     </section>

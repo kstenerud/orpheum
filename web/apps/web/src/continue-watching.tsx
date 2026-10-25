@@ -51,43 +51,6 @@ export function watchedPercent(
   return Math.min(100, Math.round((row.positionMs * 100) / row.durationMs));
 }
 
-/**
- * How far in each partway film and series is watched, a whole percent, by its kind and id: a film by
- * its own row, a series by its partway episode's, the first one listed (the row the server puts
- * first). Every poster shows it (the owner, 2026-10-25: all posters alike, "the play status if
- * mid-play"); Continue Watching is where the server says it.
- */
-export function watchedPercentsOf(
-  rows: readonly ContinueWatchingRow[],
-): ReadonlyMap<string, number> {
-  const percents = new Map<string, number>();
-  for (const row of rows) {
-    const percent = watchedPercent(row);
-    const key =
-      row.episode === undefined
-        ? `movie:${String(row.id)}`
-        : `series:${String(row.episode.seriesId)}`;
-    if (percent !== undefined && !percents.has(key)) {
-      percents.set(key, percent);
-    }
-  }
-  return percents;
-}
-
-/** The person's partway films and series, by kind and id, for the posters of a list. */
-export function useWatchedPercents(): ReadonlyMap<string, number> {
-  const { api } = useServices();
-  const [rows] = useResource(
-    "continue-watching",
-    () => loadContinueWatching(api),
-    useBackgroundChangesPoller(),
-  );
-  return rows.state === "loaded" ? watchedPercentsOf(rows.value) : noPercents;
-}
-
-/** No film or series partway, while the person's are not yet read. */
-const noPercents: ReadonlyMap<string, number> = new Map();
-
 /** An episode's series, place and own name, for naming its row. */
 export interface EpisodeNaming {
   readonly seriesName: string;

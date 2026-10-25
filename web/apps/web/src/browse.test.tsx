@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { ApiProblem } from "./problem.ts";
-import { BrowseView, type Entry } from "./browse.tsx";
+import { BrowseView, watchedPercentOf, type Entry } from "./browse.tsx";
 import { itemRoute } from "./router.ts";
 import type { Page } from "./use-pages.ts";
 import type { Resource } from "./use-resource.ts";
@@ -137,5 +137,25 @@ describe("a title that cannot be played now (D241 §3)", () => {
     expect(markup).toContain("Cannot be played now");
     expect(markup).toContain("what was mounted at /media/usb on devnas is missing");
     expect(markup).toContain("poster-card__link--dimmed");
+  });
+});
+
+describe("how far in a poster's film or series is watched (the owner, 2026-10-25)", () => {
+  const base: Entry = {
+    id: 1,
+    name: "A",
+    identificationState: "identified",
+    libraryId: 1,
+    addedAt: 1,
+  };
+
+  it("is a film's partway file's percent, and a series' episodes finished of those it has", () => {
+    expect(watchedPercentOf({ ...base, watchedPercent: 40 })).toBe(40);
+    expect(watchedPercentOf({ ...base, episodeCount: 8, finishedEpisodeCount: 2 })).toBe(25);
+  });
+
+  it("is nothing for one not begun, or a series with no episodes", () => {
+    expect(watchedPercentOf(base)).toBeUndefined();
+    expect(watchedPercentOf({ ...base, episodeCount: 0, finishedEpisodeCount: 0 })).toBeUndefined();
   });
 });

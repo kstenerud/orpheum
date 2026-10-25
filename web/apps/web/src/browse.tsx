@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, unavailableText } from "./problem.ts";
-import { ContinueWatching, useWatchedPercents } from "./continue-watching.tsx";
+import { ContinueWatching } from "./continue-watching.tsx";
 import { StatusTray } from "./status-cues.tsx";
 import { PosterCard, PosterDetail } from "./poster-card.tsx";
 import { itemRoute } from "./router.ts";
@@ -41,13 +41,11 @@ export function PosterGrid(props: {
   /** Watches each poster, by its place, for the list to know which are in view (usePages). */
   readonly watchItemAt?: ((index: number) => (element: Element | null) => void) | undefined;
 }): JSX.Element {
-  const percents = useWatchedPercents();
   return (
     <ul className="poster-grid" data-focus-container="">
       {props.entries.map((entry, index) => (
         <GridPoster
           key={entry.id}
-          percent={percents.get(`${props.kind}:${String(entry.id)}`)}
           kind={props.kind}
           entry={entry}
           watch={props.watchItemAt?.(index)}
@@ -64,11 +62,10 @@ export function PosterGrid(props: {
 const GridPoster = memo(function GridPoster(props: {
   readonly kind: BrowseKind;
   readonly entry: Entry;
-  readonly percent: number | undefined;
   readonly watch: ((element: Element | null) => void) | undefined;
 }): JSX.Element {
   const { entry, kind, watch } = props;
-  return <EntryPoster kind={kind} entry={entry} percent={props.percent} watch={watch} />;
+  return <EntryPoster kind={kind} entry={entry} watch={watch} />;
 });
 
 /**
@@ -78,11 +75,11 @@ const GridPoster = memo(function GridPoster(props: {
 export function EntryPoster(props: {
   readonly kind: BrowseKind;
   readonly entry: Entry;
-  readonly percent: number | undefined;
   readonly watch?: ((element: Element | null) => void) | undefined;
 }): JSX.Element {
   const { t } = useTranslation();
-  const { entry, kind, percent } = props;
+  const { entry, kind } = props;
+  const percent = watchedPercentOf(entry);
   return (
     <PosterCard
       to={itemRoute(kind, entry.id)}
@@ -99,6 +96,23 @@ export function EntryPoster(props: {
       watch={props.watch}
     />
   );
+}
+
+/**
+ * How far in a film or series is watched, a whole percent, as the server says it: a film by its
+ * partway file, a series by its episodes finished of those it has (the owner, 2026-10-25: "For
+ * series, the progress bar at the bottom shows how far along they have watched"); none for one not
+ * begun.
+ */
+export function watchedPercentOf(entry: Entry): number | undefined {
+  if (entry.watchedPercent !== undefined) {
+    return entry.watchedPercent;
+  }
+  const { episodeCount, finishedEpisodeCount } = entry;
+  if (episodeCount === undefined || finishedEpisodeCount === undefined || episodeCount === 0) {
+    return undefined;
+  }
+  return Math.round((finishedEpisodeCount * 100) / episodeCount);
 }
 
 /** The lines under a film's or series' name: its year, and that it cannot play now. */

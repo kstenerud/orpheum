@@ -32,7 +32,13 @@ describe("home (the owner, 2026-10-25)", () => {
             ],
           },
         ],
-        "GET /titles": [200, { titles: [entry(7, "Metropolis"), entry(8, "Nosferatu")], nextCursor: "" }],
+        "GET /titles": [
+          200,
+          {
+            titles: [{ ...entry(7, "Metropolis"), watchedPercent: 25 }, entry(8, "Nosferatu")],
+            nextCursor: "",
+          },
+        ],
       },
       [],
       "token",
@@ -43,7 +49,7 @@ describe("home (the owner, 2026-10-25)", () => {
     const newFilms = mounted.container.querySelector('[aria-labelledby="home-newest-movie"]');
     const cards = newFilms?.querySelectorAll(".poster-card") ?? [];
     expect(cards).toHaveLength(2);
-    // A film partway shows how far in, in every list, not only Continue Watching.
+    // A film partway shows how far in, in every list, as the server says it.
     expect(cards[0]?.querySelector("progress")?.getAttribute("value")).toBe("25");
     expect(cards[1]?.querySelector("progress")).toBeNull();
   });
