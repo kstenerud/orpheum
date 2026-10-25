@@ -154,7 +154,12 @@ The web client: the browser and phone interface, served embedded by the core. MP
   further than it must be, clear of the sticky banner; a controller's move is shown as a key's is
   (`:focus-visible`), a pointer's never; Back returns focus to what had it on the page left, noted
   on its history entry as the page was left and found once the page draws it (`src/focus-memory.ts`),
-  Silk's Back too. `src/input-commands.test.tsx`, `src/input-layer.test.tsx`,
+  Silk's Back too. The player answers over the browser's own controls (`src/player-commands.ts`):
+  play/pause wherever focus is, OK on the video, a 10 s seek by the seeking buttons, the browser's
+  media controls and Left and Right while the video or nothing has focus, and Back leaving full
+  screen before the page; every control under the video is reached by arrows.
+  `src/player-commands.test.tsx`, `src/input-player.browser.test.tsx`,
+  `src/input-commands.test.tsx`, `src/input-layer.test.tsx`,
   `src/focus-memory.test.ts`, `src/focus-engine.test.ts`, `src/input-buttons.test.ts`,
   `src/input-pads.test.ts`, `src/navigation.test.ts`, `src/app-shell.test.tsx`,
   `src/modal-dialog.test.tsx`, `src/input-walk.browser.test.tsx` (Chromium and Firefox, at Silk's
@@ -179,7 +184,7 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - The screens: `browse.tsx` (films and series), `title.tsx`, `series.tsx`, `search.tsx`,
   `identify.tsx` (needs a match), `libraries.tsx` and `create-library.tsx` (retiring a folder and deleting a library, each confirmed by `confirm-button.tsx`), `files.tsx` (what
   the scanner saw), `settings.tsx` (keys, passwords and server settings), `jobs.tsx` (the job view), `system.tsx` (the System page: the server's facts, doctor's findings, and each machine's software, sandbox, hardware encoding, disks and recent prepares, D225), `node-confinement.tsx` (a machine's FFmpeg sandbox, on the System page), `about.tsx`,
-  `sign-in.tsx`, `play.tsx` (the player), `watching.ts` (the film a tab watches: its page's warm-up
+  `sign-in.tsx`, `play.tsx` (the player, with `player-commands.ts`, its answers to a remote), `watching.ts` (the film a tab watches: its page's warm-up
   and letting go of the last film's playbacks, D258), `sound.tsx` (the switches of the person's own choices: the boost, levelling),
   `audio-tracks.tsx` (the audio track menu, D230), `watch-together.tsx` (the host's Watch Together
   screen: links with notes, members, ending it), `together-viewer.tsx` (a viewer's page, joined by

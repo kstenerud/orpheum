@@ -30,6 +30,7 @@ import { problemText } from "./problem.ts";
 import { askUntilAnswered, reopenAtMostEveryMs, type ReopenAt } from "./reopen.ts";
 import type { LadderOffer } from "./moving-down.ts";
 import { usePlayState } from "./play-state.ts";
+import { usePlayerCommands } from "./player-commands.ts";
 import { useServices } from "./services.tsx";
 import { BarePlayer } from "./bare-player.tsx";
 import { FrameTimingNote } from "./frame-timing-note.tsx";
@@ -128,6 +129,7 @@ function PlayerView(
   const [video, setVideo] = useState<HTMLVideoElement | null>(null);
   // Whether its lowest quality cannot keep up, which a host's session tells everyone (D247 §8).
   const [cannotKeepUp, setCannotKeepUp] = useState<CannotKeepUp | undefined>(undefined);
+  usePlayerCommands(video);
   const { mediaToken } = props.decision;
   const onLowerQuality = useCallback(
     (offer: LadderOffer, positionMs: number) => {
@@ -154,7 +156,7 @@ function PlayerView(
     <>
       {titleName === undefined ? null : <h1 className="play__title">{titleName}</h1>}
       <PlayContext value={ways}>
-        <div className="play">
+        <div className="play" data-focus-container="">
           <FilmPlayer
             decision={props.decision}
             moved={moved}

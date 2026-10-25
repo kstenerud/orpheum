@@ -143,3 +143,30 @@ export function focusedTile(): string {
 export function isDrawn(selector: string): boolean {
   return document.querySelector(selector) !== null;
 }
+
+/** The arrows a walk tries from each control it reaches. */
+const arrows = ["{ArrowUp}", "{ArrowDown}", "{ArrowLeft}", "{ArrowRight}"] as const;
+
+/**
+ * Every element an arrow reaches from start, following each arrow from each element reached in turn,
+ * pressed as a remote's keys are by press: what a person can get to on the page.
+ */
+export async function reachedFrom(
+  start: HTMLElement,
+  press: (keys: string) => Promise<void>,
+): Promise<Set<Element>> {
+  const reached = new Set<Element>([start]);
+  const waiting: HTMLElement[] = [start];
+  for (let next = waiting.shift(); next !== undefined; next = waiting.shift()) {
+    for (const arrow of arrows) {
+      next.focus();
+      await press(arrow);
+      const now = document.activeElement;
+      if (now instanceof HTMLElement && now !== document.body && !reached.has(now)) {
+        reached.add(now);
+        waiting.push(now);
+      }
+    }
+  }
+  return reached;
+}
