@@ -2175,6 +2175,8 @@ export interface components {
             /** Format: int64 */
             libraryId: number;
             name: string;
+            /** @description The person's next episode, which the page offers to play; absent when every one is finished or none has a file */
+            nextUp?: components["schemas"]["NextUpBody"];
             overview?: string;
             /**
              * Format: int64
@@ -3024,6 +3026,35 @@ export interface components {
             previousDeviceId?: number;
             /** @description The device secret a sign-in on that device gave: the proof it was this client */
             previousDeviceProof?: string;
+        };
+        NextUpBody: {
+            /**
+             * Format: int64
+             * @description The file its Play plays: the one the person is partway through, else its first
+             */
+            fileId: number;
+            /**
+             * Format: int64
+             * @description Its group in the ordering, a series' season; 0 for the specials and those with none
+             */
+            groupNumber: number;
+            /** @description Whether the person is partway through it, which its Play resumes */
+            isPartway: boolean;
+            name?: string;
+            /**
+             * Format: int64
+             * @description Its number in its group, a series' episode number
+             */
+            numberInGroup: number;
+            /**
+             * Format: int64
+             * @description Where in the file the person is, when partway through it
+             */
+            positionMs?: number;
+            /** Format: int64 */
+            titleId: number;
+            /** @description Why none of its files can be read now, as its own page says; absent when one can */
+            unavailable?: components["schemas"]["UnavailableBody"];
         };
         NodeBody: {
             /** @description Whether it is connected now: polling for its commands, or heard within node_silent_after_seconds */

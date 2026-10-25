@@ -54,6 +54,86 @@ describe("SeriesView", () => {
   });
 });
 
+describe("a series' next episode (the owner, 2026-10-25)", () => {
+  const series: SeriesDetail = {
+    id: 20,
+    kind: "series",
+    name: "Glass Tide",
+    libraryId: 1,
+    art: {},
+    seasons: [
+      { seasonNumber: 1, episodeCount: 4 },
+      { seasonNumber: 2, episodeCount: 1 },
+    ],
+  };
+  const next = {
+    titleId: 33,
+    name: "Low Water",
+    groupNumber: 1,
+    numberInGroup: 3,
+    fileId: 7,
+    isPartway: false,
+  };
+
+  it("continues the one partway through, playing its file, which resumes where it was", () => {
+    const markup = renderToStaticMarkup(
+      withServices(
+        <SeriesView
+          series={{ ...series, nextUp: { ...next, isPartway: true, positionMs: 600_000 } }}
+        />,
+      ),
+    );
+    expect(markup).toContain('href="/play/7"');
+    expect(markup).toContain(">Continue S1E3</a>");
+    expect(markup).not.toContain("Play S1E3");
+  });
+
+  it("plays the one after the last finished, or the first of a series never watched", () => {
+    const after = renderToStaticMarkup(
+      withServices(
+        <SeriesView
+          series={{ ...series, nextUp: { ...next, numberInGroup: 4, fileId: 8, titleId: 34 } }}
+        />,
+      ),
+    );
+    expect(after).toContain('href="/play/8"');
+    expect(after).toContain(">Play S1E4</a>");
+    const first = renderToStaticMarkup(
+      withServices(
+        <SeriesView series={{ ...series, nextUp: { ...next, numberInGroup: 1, fileId: 5 } }} />,
+      ),
+    );
+    expect(first).toContain(">Play S1E1</a>");
+  });
+
+  it("offers none when the series has no next episode, nor on a season's page", () => {
+    const none = renderToStaticMarkup(withServices(<SeriesView series={series} />));
+    expect(none).not.toContain("/play/");
+    const season = renderToStaticMarkup(
+      withServices(<SeriesView series={{ ...series, nextUp: next }} season={2} />),
+    );
+    expect(season).not.toContain("/play/");
+  });
+
+  it("says why it cannot be played now, as its own page does, and offers no Play", () => {
+    const markup = renderToStaticMarkup(
+      withServices(
+        <SeriesView
+          series={{
+            ...series,
+            nextUp: { ...next, unavailable: { reason: "still_reading", nodeName: "devnas" } },
+          }}
+        />,
+      ),
+    );
+    expect(markup).not.toContain("/play/");
+    expect(markup).toContain(
+      "S1E3: This is still being read: devnas is reading it now, and it plays as soon as that is done.",
+    );
+    expect(markup).toContain("series__absent");
+  });
+});
+
 describe("SeasonView", () => {
   it("lists a season's episodes, each with its still and whether it is on disk, and offers more", () => {
     const page = {

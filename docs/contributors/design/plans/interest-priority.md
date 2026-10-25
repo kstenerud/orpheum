@@ -50,19 +50,28 @@ and a read-through is one file).
 - **A film's work** (D324 §3): its files' read-throughs, its artwork's sizes, its subtitles'
   extractions, its metadata fetch when owed, and, for a device whose playback decision needs one
   (decide), its prepared copy. A playing film's work is what its playback is already waiting on.
-- **A series' work**: the same for `series_episodes_ahead` (3) episodes in season and number order,
-  starting from the session's person's place in it: the episode they are partway through (in
-  progress by `in_progress_after_percent` and `finished_after_percent`), the latest played when
-  several are; else the episode after the last one they finished, the latest finished; else the
-  first. Its artwork and metadata are the series'.
+- **A series' work** (D324 §3; the owner, 2026-10-25: *a series' page is its next episode's*): the
+  same as that episode's own page raises, for its person's **Next Up** alone, the D160 query over
+  the series' ordering (the aired one until a person chooses theirs, D159): the episode they are
+  partway through (in progress by `in_progress_after_percent` and `finished_after_percent`), the
+  latest played when several are; else the episode after the last one they finished, the latest
+  finished; else the first; none once the last is finished. Its artwork and metadata are the
+  series'. When that episode's files are not read yet, the look asks for their read before what
+  else waits (D304 §4, as its own page does), once for the look. The series' page offers it to play:
+  *Continue S1E3* where the person is partway through it, which resumes where they were, else *Play
+  S1E4*; where it cannot be played now, why, as its page says. One rule serves both
+  (`library.MembersAhead`), and the series' detail (`GET /collections/{id}`) carries it as `nextUp`.
 - **A season's work** (D324 §3; the owner, 2026-10-24: interest follows the drill-down, a series'
   page to the series, a season's to the season, an episode's to the episode): a series' page that
   shows one season says which (`PUT /interest/{id}?season=<n>`, 0 for the specials), and its look
   raises the series' own work and `series_episodes_ahead` of that season's episodes, from the
   person's place among them by the same rules; else, when they have watched none of it or finished
-  its last, from its first. A session's look at one season and at another, or at the series' own
-  page, are different looks. A series of one season shows its episodes on the series' own page,
-  whose look is the series'.
+  its last, from its first. And it quick-scans the season (the owner, 2026-10-25): as the look
+  begins it asks for the read of every unread file of the season's episodes, in episode order, once
+  for the look; said again, it asks for none (a read asked for while its scan lists asks for one
+  more scan after it, so asking at every word would scan again and again). A session's look at one
+  season and at another, or at the series' own page, are different looks. A series of one season
+  shows its episodes on the series' own page, whose look is the series'.
 - **Raising** reprioritises the item's jobs that wait or run (`CommandReprioritize`, D234 §3), and
   queues those owed that the sweeps have not queued yet. **Lapsing** gives each its own priority
   again; nothing is cancelled for a lapse, and work that ran on keeps its result.
@@ -106,7 +115,7 @@ and a read-through is one file).
 | --- | --- | --- | --- |
 | `interest_said_every_seconds` | 15 | 5–120 | how often a shown page says so; sent in `/client-settings` |
 | `interest_lapses_after_seconds` | 45 | 15–600 | three missed words, as a node's silence (cut-a §4) |
-| `series_episodes_ahead` | 3 | 1–20 | the owner, 2026-10-21 |
+| `series_episodes_ahead` | 3 | 1–20 | the owner, 2026-10-21; a season's page's since 2026-10-25, a series' own raising its next episode alone |
 
 `play_priority_kept_seconds` stays for now (§2).
 

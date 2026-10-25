@@ -15,7 +15,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/store"
-	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
 
 // Jobs raises and releases the work interest is in: jobs.InterestJobs.
@@ -34,12 +33,19 @@ type Waiting interface {
 	Unpark(ctx context.Context, destination jobs.Destination)
 }
 
+// Reads has a title's files its listing stored unread read before what else waits, for a person
+// who looks at its page or its series' (D304 §4): playback.Service's ReadWhenViewed.
+type Reads interface {
+	ReadWhenViewed(ctx context.Context, titleID int64) error
+}
+
 // Parts are what the raiser reads and raises.
 type Parts struct {
 	Register *Register
 	Jobs     Jobs
 	Nodes    Nodes
 	Waiting  Waiting
+	Reads    Reads
 	// Playing are the files played now: the playback service's NowPlaying.
 	Playing  func() []int64
 	Database *store.Database
@@ -61,6 +67,17 @@ type Raiser struct {
 	// lastLooked is what the last pass raised for each page looked at, which a look that ended
 	// releases.
 	lastLooked map[page]jobs.Interested
+	// asked are the titles whose reads each look going on has asked for, so a look said again does
+	// not ask again: a read asked for while its scan lists asks for one more scan after it.
+	asked map[askedRead]bool
+}
+
+// askedRead is a title whose read a look asked for: the look, by its page, its person and when it
+// began, and the title.
+type askedRead struct {
+	shown         page
+	userID, since int64
+	titleID       int64
 }
 
 // page is what a look shows: a film's or series' page, or one season's of a series.
@@ -80,6 +97,7 @@ func NewRaiser(parts Parts) (*Raiser, error) {
 		{"Jobs", parts.Jobs == nil},
 		{"Nodes", parts.Nodes == nil},
 		{"Waiting", parts.Waiting == nil},
+		{"Reads", parts.Reads == nil},
 		{"Playing", parts.Playing == nil},
 		{"Database", parts.Database == nil},
 		{"Settings", parts.Settings == nil},
@@ -90,7 +108,7 @@ func NewRaiser(parts Parts) (*Raiser, error) {
 			return nil, fmt.Errorf("%s: %w", part.name, ErrMissingPart)
 		}
 	}
-	return &Raiser{parts: parts, lastLooked: map[page]jobs.Interested{}}, nil
+	return &Raiser{parts: parts, lastLooked: map[page]jobs.Interested{}, asked: map[askedRead]bool{}}, nil
 }
 
 // Raise raises the work of what is played and looked at now, kept wanted for interest's lapse, and
@@ -104,16 +122,18 @@ func (raiser *Raiser) Raise(ctx context.Context) error {
 		return err
 	}
 	looked := map[page]jobs.Interested{}
+	asked := map[askedRead]bool{}
 	var stillLooked jobs.Interested
 	for _, look := range raiser.parts.Register.Looks(lapse) {
 		shown := page{itemID: look.ItemID, season: look.Season}
 		if _, isRaised := looked[shown]; isRaised {
 			continue // another session's look at it, which began earlier
 		}
-		interested, err := raiser.worksOf(ctx, look)
+		interested, toRead, err := raiser.worksOf(ctx, look)
 		if err != nil {
 			return err
 		}
+		raiser.askForReads(ctx, look, toRead, asked)
 		priority := max(jobs.PriorityLookedAt-int64(len(looked)), jobs.PriorityPersonsRequest+1)
 		if err := raiser.raise(ctx, interested, priority, until); err != nil {
 			return err
@@ -134,7 +154,28 @@ func (raiser *Raiser) Raise(ctx context.Context) error {
 		}
 	}
 	raiser.lastLooked = looked
+	raiser.asked = asked
 	return nil
+}
+
+// askForReads asks, once for each look, for the read of each of titleIDs' files its listing stored
+// unread, in their order, and records them in asked: a look said again asks for none it asked for.
+// A read that could not be asked for is not asked again in that look; its page's Play asks again.
+func (raiser *Raiser) askForReads(ctx context.Context, look Look, titleIDs []int64, asked map[askedRead]bool) {
+	for _, titleID := range titleIDs {
+		key := askedRead{
+			shown: page{itemID: look.ItemID, season: look.Season}, userID: look.UserID,
+			since: look.Since.UnixNano(), titleID: titleID,
+		}
+		asked[key] = true
+		if raiser.asked[key] {
+			continue
+		}
+		if err := raiser.parts.Reads.ReadWhenViewed(ctx, titleID); err != nil && ctx.Err() == nil {
+			raiser.parts.Logger.WarnContext(ctx, "could not ask for the read of a title looked at", "titleId", titleID,
+				"err", err)
+		}
+	}
 }
 
 // without is what interested names that kept does not.
@@ -203,31 +244,33 @@ func isRoomOnANode(destination jobs.Destination) bool {
 	return parts.IsSlot || parts.IsQuickPass || parts.IsLastReader
 }
 
-// worksOf is what a look at an item raises (D324 §3): a film's or episode's own jobs and its live
-// files'; a series' own, and its next episodes' and their files' from its person's place in it, or
-// in the season looked at.
-func (raiser *Raiser) worksOf(ctx context.Context, look Look) (jobs.Interested, error) {
+// worksOf is what a look at an item raises (D324 §3), and the titles whose unread files it asks to
+// have read: a film's or episode's own jobs and its live files', whose page asks for their read
+// itself; a series' own, and its Next Up's and its files', whose read it asks for, as that
+// episode's page would; a season's, the series' own and the next episodes' of the season, from its
+// person's place in it, and it asks for the read of every one of its episodes.
+func (raiser *Raiser) worksOf(ctx context.Context, look Look) (jobs.Interested, []int64, error) {
 	itemID := look.ItemID
 	queries := raiser.parts.Database.Read()
 	kind, err := store.OrNotFound(queries.GetItemKind(ctx, itemID))
 	if errors.Is(err, store.ErrNotFound) {
-		return jobs.Interested{}, nil // gone since its page said it was shown
+		return jobs.Interested{}, nil, nil // gone since its page said it was shown
 	}
 	if err != nil {
-		return jobs.Interested{}, fmt.Errorf("read item %d's kind: %w", itemID, err)
+		return jobs.Interested{}, nil, fmt.Errorf("read item %d's kind: %w", itemID, err)
 	}
 	interested := jobs.Interested{ItemIDs: []int64{itemID}}
 	if kind != "title" {
-		return raiser.withEpisodesAhead(ctx, look, interested)
+		return raiser.withMembersAhead(ctx, look, interested)
 	}
 	files, err := queries.ListLiveFilesOfTitle(ctx, itemID)
 	if err != nil {
-		return jobs.Interested{}, fmt.Errorf("list title %d's files: %w", itemID, err)
+		return jobs.Interested{}, nil, fmt.Errorf("list title %d's files: %w", itemID, err)
 	}
 	for _, file := range files {
 		interested.FileIDs = append(interested.FileIDs, file.ID)
 	}
-	return interested, nil
+	return interested, nil, nil
 }
 
 // raiseWatchedEvery is how often the watched files' work is raised: new work for them is queued
@@ -255,32 +298,36 @@ func (raiser *Raiser) Run(ctx context.Context, tick <-chan time.Time) {
 	}
 }
 
-// withEpisodesAhead is interested with the series' episodes ahead of its person (episodesAhead), or
-// of the season looked at (episodesAheadInSeason): each episode and its live files.
-func (raiser *Raiser) withEpisodesAhead(
+// withMembersAhead is interested with what a look at a series raises, each member and its live
+// files, and the titles whose reads it asks for: on the series' own page, its person's Next Up
+// alone, as that episode's own page raises it (the owner, 2026-10-25), and its read; on a season's,
+// series_episodes_ahead of that season's from their place in it, and the read of all its members.
+// The ordering is the aired one until a person chooses theirs (D159).
+func (raiser *Raiser) withMembersAhead(
 	ctx context.Context, look Look, interested jobs.Interested,
-) (jobs.Interested, error) {
-	thresholds, err := library.ReadResumeThresholds(ctx, raiser.parts.Settings)
+) (jobs.Interested, []int64, error) {
+	members, err := library.ReadMembers(ctx, raiser.parts.Database.Read(), raiser.parts.Settings, look.ItemID,
+		look.UserID, library.OrderingAired)
 	if err != nil {
-		return jobs.Interested{}, err
+		return jobs.Interested{}, nil, err
 	}
-	count, err := raiser.parts.Settings.Int(ctx, settings.SeriesEpisodesAhead)
-	if err != nil {
-		return jobs.Interested{}, fmt.Errorf("read %s: %w", settings.SeriesEpisodesAhead, err)
-	}
-	rows, err := raiser.parts.Database.Read().ListSeriesEpisodeFilesWithPositions(ctx,
-		sqlcgen.ListSeriesEpisodeFilesWithPositionsParams{CollectionID: look.ItemID, UserID: look.UserID})
-	if err != nil {
-		return jobs.Interested{}, fmt.Errorf("list series %d's episodes: %w", look.ItemID, err)
-	}
-	episodes := episodesOf(rows, thresholds)
-	ahead := episodesAhead(episodes, int(count))
+	ahead := library.MembersAhead(members, 1)
+	toRead := ahead
 	if look.Season != NoSeason {
-		ahead = episodesAheadInSeason(episodes, look.Season, int(count))
+		count, countErr := raiser.parts.Settings.Int(ctx, settings.SeriesEpisodesAhead)
+		if countErr != nil {
+			return jobs.Interested{}, nil, fmt.Errorf("read %s: %w", settings.SeriesEpisodesAhead, countErr)
+		}
+		ahead = library.MembersAheadInGroup(members, look.Season, int(count))
+		toRead = library.MembersOfGroup(members, look.Season)
 	}
 	for _, each := range ahead {
-		interested.ItemIDs = append(interested.ItemIDs, each.titleID)
-		interested.FileIDs = append(interested.FileIDs, each.fileIDs...)
+		interested.ItemIDs = append(interested.ItemIDs, each.TitleID)
+		interested.FileIDs = append(interested.FileIDs, each.FileIDs...)
 	}
-	return interested, nil
+	titleIDs := make([]int64, 0, len(toRead))
+	for _, each := range toRead {
+		titleIDs = append(titleIDs, each.TitleID)
+	}
+	return interested, titleIDs, nil
 }

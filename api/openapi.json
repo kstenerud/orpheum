@@ -611,6 +611,10 @@
           "name": {
             "type": "string"
           },
+          "nextUp": {
+            "$ref": "#/components/schemas/NextUpBody",
+            "description": "The person's next episode, which the page offers to play; absent when every one is finished or none has a file"
+          },
           "overview": {
             "type": "string"
           },
@@ -3192,6 +3196,54 @@
         "required": [
           "name",
           "platform"
+        ],
+        "type": "object"
+      },
+      "NextUpBody": {
+        "additionalProperties": false,
+        "properties": {
+          "fileId": {
+            "description": "The file its Play plays: the one the person is partway through, else its first",
+            "format": "int64",
+            "type": "integer"
+          },
+          "groupNumber": {
+            "description": "Its group in the ordering, a series' season; 0 for the specials and those with none",
+            "format": "int64",
+            "type": "integer"
+          },
+          "isPartway": {
+            "description": "Whether the person is partway through it, which its Play resumes",
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "numberInGroup": {
+            "description": "Its number in its group, a series' episode number",
+            "format": "int64",
+            "type": "integer"
+          },
+          "positionMs": {
+            "description": "Where in the file the person is, when partway through it",
+            "format": "int64",
+            "type": "integer"
+          },
+          "titleId": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "unavailable": {
+            "$ref": "#/components/schemas/UnavailableBody",
+            "description": "Why none of its files can be read now, as its own page says; absent when one can"
+          }
+        },
+        "required": [
+          "titleId",
+          "groupNumber",
+          "numberInGroup",
+          "fileId",
+          "isPartway"
         ],
         "type": "object"
       },

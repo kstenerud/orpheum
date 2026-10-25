@@ -228,12 +228,17 @@ WHERE version.title_id = sqlc.arg(title_id) AND version.removed_at IS NULL AND f
   AND file.payload_hash IS NULL AND file.sidecar_kind IS NULL
 ORDER BY file.id;
 
--- name: ListSeriesEpisodeFilesWithPositions :many
--- A series' episodes in aired order, each live file of each with a person's position in it and
--- when it was watched, and the file's length where its probe knows it: where the person is in the
--- series, which a look at its page raises the next episodes of (D324 section 3), and the season
--- each is in, 0 for the specials and those with no season, which a look at one season keeps to.
-SELECT position.title_id, CAST(coalesce(position.group_number, 0) AS INTEGER) AS season_number,
+-- name: ListOrderingMemberFilesWithPositions :many
+-- A collection's members in one of its named orderings (D159; 'aired' for a series today), each
+-- live file of each with a person's position in it and when it was watched, and the file's length
+-- where its probe knows it: where the person is in the sequence, for its Next Up (D160) and the
+-- members a look at its page raises (D324 section 3). Each member's group, a series' season, 0 for
+-- the specials and those with none, which a look at one season keeps to, and its number in it and
+-- name, which its Next Up shows. A member's files come as its page lists them, so the first is the
+-- one its page plays first.
+SELECT position.title_id, CAST(coalesce(position.group_number, 0) AS INTEGER) AS group_number,
+  CAST(coalesce(position.number_in_group, 0) AS INTEGER) AS number_in_group,
+  CAST(coalesce(item_text.name, '') AS TEXT) AS name,
   file.id AS file_id,
   CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
     AS duration_ms,
@@ -243,6 +248,7 @@ JOIN position ON position.ordering_id = ordering.id
 JOIN item ON item.id = position.title_id AND item.removed_at IS NULL
 JOIN version ON version.title_id = position.title_id AND version.removed_at IS NULL
 JOIN file ON file.version_id = version.id AND file.removed_at IS NULL AND file.filing IN ('listed', 'unidentified')
+LEFT JOIN item_text ON item_text.item_id = position.title_id AND item_text.is_original = 1
 LEFT JOIN play_position ON play_position.file_id = file.id AND play_position.user_id = sqlc.arg(user_id)
-WHERE ordering.collection_id = sqlc.arg(collection_id) AND ordering.name = 'aired'
-ORDER BY position.sort_order, file.id;
+WHERE ordering.collection_id = sqlc.arg(collection_id) AND ordering.name = sqlc.arg(ordering_name)
+ORDER BY position.sort_order, version.id, file.part_index, file.id;

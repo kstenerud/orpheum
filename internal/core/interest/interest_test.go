@@ -14,6 +14,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
+	"github.com/kstenerud/orpheum/internal/store"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -159,7 +160,8 @@ func TestRaiser_RaisesThePlayedTheLookedAtAndTheWatched(t *testing.T) {
 	record := &raising{}
 	room := &waitingRoom{}
 	raiser := mustRaiser(t, Parts{
-		Register: register, Jobs: record, Nodes: room, Waiting: room, Playing: func() []int64 { return []int64{200} },
+		Register: register, Jobs: record, Nodes: room, Waiting: room, Reads: &readsAsked{},
+		Playing:  func() []int64 { return []int64{200} },
 		Database: database, Settings: settingstest.Seeded(t, database), Clock: now,
 		Logger: slog.New(slog.DiscardHandler),
 	})
@@ -213,7 +215,8 @@ func TestRaiser_ALookThatGoesOnReleasesWhatLeftIt(t *testing.T) {
 	record := &raising{}
 	room := &waitingRoom{}
 	raiser := mustRaiser(t, Parts{
-		Register: register, Jobs: record, Nodes: room, Waiting: room, Playing: func() []int64 { return nil },
+		Register: register, Jobs: record, Nodes: room, Waiting: room, Reads: &readsAsked{},
+		Playing:  func() []int64 { return nil },
 		Database: database, Settings: settingstest.Seeded(t, database), Clock: now,
 		Logger: slog.New(slog.DiscardHandler),
 	})
@@ -234,11 +237,10 @@ func TestRaiser_ALookThatGoesOnReleasesWhatLeftIt(t *testing.T) {
 	}
 }
 
-// A look at a series' season raises the series and that season's episodes from its person's place
-// in it, not the series' next ones; a session that moves to another season releases the episodes
-// it left and keeps the series raised (the owner, 2026-10-24).
-func TestRaiser_ALookAtASeasonRaisesItsEpisodes(t *testing.T) {
-	t.Parallel()
+// seriesOfSix is a database with series 20, whose season 1 is episodes 21 and 22 and season 2 is
+// 23 to 26, each with one file, its id ten times the episode's, 1000 ms long, and user 1.
+func seriesOfSix(t *testing.T) *store.Database {
+	t.Helper()
 	database := storetest.OpenMigrated(t)
 	librarytest.NodeWithLibrary(t, database, librarytest.Library{Name: "Shows", Kind: "shows", MetadataSource: "tmdb"})
 	storetest.ExecRaw(t, database.Path(),
@@ -260,17 +262,28 @@ func TestRaiser_ALookAtASeasonRaisesItsEpisodes(t *testing.T) {
 		 (220, 1, 1, '/s/2.mkv', 1, X'02', 'listed', 2, 1, 1), (230, 1, 1, '/s/3.mkv', 1, X'03', 'listed', 3, 1, 1),
 		 (240, 1, 1, '/s/4.mkv', 1, X'04', 'listed', 4, 1, 1), (250, 1, 1, '/s/5.mkv', 1, X'05', 'listed', 5, 1, 1),
 		 (260, 1, 1, '/s/6.mkv', 1, X'06', 'listed', 6, 1, 1)`,
-		`INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (230, '{}', 1000)`,
-		`INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1)`,
-		// Season 2's first episode finished: the series' next are 24 to 26.
-		`INSERT INTO play_position (user_id, file_id, position_ms, position_read_at, report_seq, updated_at)
-		 VALUES (1, 230, 1000, 5, 1, 1)`)
+		`INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (210, '{}', 1000), (220, '{}', 1000),
+		 (230, '{}', 1000), (240, '{}', 1000), (250, '{}', 1000), (260, '{}', 1000)`,
+		`INSERT INTO user (id, name, role_id, created_at) VALUES (1, 'owner', 1, 1)`)
+	return database
+}
+
+// A look at a series' season raises the series and that season's episodes from its person's place
+// in it, not the series' next ones; a session that moves to another season releases the episodes
+// it left and keeps the series raised (the owner, 2026-10-24).
+func TestRaiser_ALookAtASeasonRaisesItsEpisodes(t *testing.T) {
+	t.Parallel()
+	database := seriesOfSix(t)
+	// Season 2's first episode finished: the series' Next Up is 24.
+	storetest.ExecRaw(t, database.Path(), `INSERT INTO play_position (user_id, file_id, position_ms, position_read_at,
+		 report_seq, updated_at) VALUES (1, 230, 1000, 5, 1, 1)`)
 	now := clocktest.NewFake(time.Date(2026, 10, 24, 12, 0, 0, 0, time.UTC))
 	register := NewRegister(now)
 	record := &raising{}
 	room := &waitingRoom{}
 	raiser := mustRaiser(t, Parts{
-		Register: register, Jobs: record, Nodes: room, Waiting: room, Playing: func() []int64 { return nil },
+		Register: register, Jobs: record, Nodes: room, Waiting: room, Reads: &readsAsked{},
+		Playing:  func() []int64 { return nil },
 		Database: database, Settings: settingstest.Seeded(t, database), Clock: now,
 		Logger: slog.New(slog.DiscardHandler),
 	})
@@ -283,8 +296,7 @@ func TestRaiser_ALookAtASeasonRaisesItsEpisodes(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{
-		describe(jobs.Interested{ItemIDs: []int64{20, 24, 25, 26}, FileIDs: []int64{240, 250, 260}},
-			jobs.PriorityLookedAt, false),
+		describe(jobs.Interested{ItemIDs: []int64{20, 24}, FileIDs: []int64{240}}, jobs.PriorityLookedAt, false),
 		describe(jobs.Interested{ItemIDs: []int64{20, 21, 22}, FileIDs: []int64{210, 220}}, jobs.PriorityLookedAt,
 			false),
 	}
@@ -295,9 +307,111 @@ func TestRaiser_ALookAtASeasonRaisesItsEpisodes(t *testing.T) {
 	for _, interested := range record.released {
 		released = append(released, describe(interested, 0, false))
 	}
-	if gone := describe(jobs.Interested{ItemIDs: []int64{24, 25, 26}, FileIDs: []int64{240, 250, 260}}, 0,
+	if gone := describe(jobs.Interested{ItemIDs: []int64{24}, FileIDs: []int64{240}}, 0,
 		false); !slices.Equal(released, []string{gone}) {
-		t.Errorf("released %q; want the series' next episodes, and the series still looked at", released)
+		t.Errorf("released %q; want the series' Next Up, and the series still looked at", released)
+	}
+}
+
+// readsAsked records the titles whose reads were asked for, in order.
+type readsAsked struct{ titleIDs []int64 }
+
+func (reads *readsAsked) ReadWhenViewed(_ context.Context, titleID int64) error {
+	reads.titleIDs = append(reads.titleIDs, titleID)
+	return nil
+}
+
+// A look at a series' own page raises the series and its person's Next Up alone, as that episode's
+// own page would, and asks for its read: the episode partway through; else the one after the last
+// finished; else the first; and none past the last (the owner, 2026-10-25).
+func TestRaiser_ALookAtASeriesRaisesItsNextUpAlone(t *testing.T) {
+	t.Parallel()
+	for _, each := range []struct {
+		name      string
+		positions string
+		want      jobs.Interested
+	}{
+		{"nothing watched: the first", "", jobs.Interested{ItemIDs: []int64{20, 21}, FileIDs: []int64{210}}},
+		{
+			"partway: it, though a later one is finished", "(1, 220, 500, 9, 1, 1), (1, 240, 1000, 3, 1, 1)",
+			jobs.Interested{ItemIDs: []int64{20, 22}, FileIDs: []int64{220}},
+		},
+		{
+			"finished: the one after", "(1, 210, 1000, 3, 1, 1), (1, 220, 1000, 4, 1, 1)",
+			jobs.Interested{ItemIDs: []int64{20, 23}, FileIDs: []int64{230}},
+		},
+		{"the last finished: the series alone", "(1, 260, 1000, 3, 1, 1)", jobs.Interested{ItemIDs: []int64{20}}},
+	} {
+		database := seriesOfSix(t)
+		if each.positions != "" {
+			storetest.ExecRaw(t, database.Path(), `INSERT INTO play_position (user_id, file_id, position_ms,
+				 position_read_at, report_seq, updated_at) VALUES `+each.positions)
+		}
+		now := clocktest.NewFake(time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC))
+		register := NewRegister(now)
+		record := &raising{}
+		room := &waitingRoom{}
+		reads := &readsAsked{}
+		raiser := mustRaiser(t, Parts{
+			Register: register, Jobs: record, Nodes: room, Waiting: room, Reads: reads,
+			Playing: func() []int64 { return nil }, Database: database, Settings: settingstest.Seeded(t, database),
+			Clock: now, Logger: slog.New(slog.DiscardHandler),
+		})
+		register.Look("only", 1, 20, NoSeason)
+		if err := raiser.Raise(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		if want := describe(each.want, jobs.PriorityLookedAt, false); !slices.Equal(record.raised, []string{want}) {
+			t.Errorf("%s: raised %q; want %q", each.name, record.raised, want)
+		}
+		if want := each.want.ItemIDs[1:]; !slices.Equal(reads.titleIDs, want) {
+			t.Errorf("%s: asked for the reads of %v; want %v, the Next Up's", each.name, reads.titleIDs, want)
+		}
+	}
+}
+
+// A look at a series' season asks for the read of every one of its episodes, in their order, once
+// for the look: said again it asks for none, and a look begun anew asks again (the owner,
+// 2026-10-25: a season's page quick-scans its episodes).
+func TestRaiser_ALookAtASeasonAsksForTheReadOfEachOfItsEpisodesOnce(t *testing.T) {
+	t.Parallel()
+	database := seriesOfSix(t)
+	now := clocktest.NewFake(time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC))
+	register := NewRegister(now)
+	record := &raising{}
+	room := &waitingRoom{}
+	reads := &readsAsked{}
+	raiser := mustRaiser(t, Parts{
+		Register: register, Jobs: record, Nodes: room, Waiting: room, Reads: reads,
+		Playing: func() []int64 { return nil }, Database: database, Settings: settingstest.Seeded(t, database),
+		Clock: now, Logger: slog.New(slog.DiscardHandler),
+	})
+	register.Look("only", 1, 20, 2)
+	if err := raiser.Raise(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if want := []int64{23, 24, 25, 26}; !slices.Equal(reads.titleIDs, want) {
+		t.Fatalf("asked for the reads of %v; want season 2's episodes, %v", reads.titleIDs, want)
+	}
+	now.Advance(time.Second)
+	register.Look("only", 1, 20, 2)
+	if err := raiser.Raise(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if len(reads.titleIDs) != 4 {
+		t.Errorf("asked for the reads of %v; want none more for the look said again", reads.titleIDs)
+	}
+	register.Leave("only", 20, 2)
+	if err := raiser.Raise(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	now.Advance(time.Second)
+	register.Look("only", 1, 20, 2)
+	if err := raiser.Raise(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if want := []int64{23, 24, 25, 26, 23, 24, 25, 26}; !slices.Equal(reads.titleIDs, want) {
+		t.Errorf("asked for the reads of %v; want season 2's again, for the look begun anew", reads.titleIDs)
 	}
 }
 
@@ -325,7 +439,7 @@ func TestRaiser_BringsBackRaisedWorkWaitingForRoomOnANode(t *testing.T) {
 	}}
 	room := &waitingRoom{}
 	raiser := mustRaiser(t, Parts{
-		Register: NewRegister(now), Jobs: record, Nodes: room, Waiting: room,
+		Register: NewRegister(now), Jobs: record, Nodes: room, Waiting: room, Reads: &readsAsked{},
 		Playing: func() []int64 { return []int64{100} }, Database: database,
 		Settings: settingstest.Seeded(t, database), Clock: now, Logger: slog.New(slog.DiscardHandler),
 	})

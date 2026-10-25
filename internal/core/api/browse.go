@@ -184,9 +184,23 @@ type CollectionOutput struct {
 		Seasons             []SeasonBody      `json:"seasons"`
 		Art                 ArtBody           `json:"art"`
 		FetchFailure        *FetchFailureBody `json:"fetchFailure,omitempty"`
-		RefreshRequestedAt  int64             `doc:"When a person asked for it to be refreshed, while no fetch has answered yet" json:"refreshRequestedAt,omitempty"` //nolint:lll // one struct tag
-		Unavailable         *UnavailableBody  `doc:"Why none of its episodes' files can be read now; absent when one can" json:"unavailable,omitempty"`               //nolint:lll // one struct tag
+		RefreshRequestedAt  int64             `doc:"When a person asked for it to be refreshed, while no fetch has answered yet" json:"refreshRequestedAt,omitempty"`                        //nolint:lll // one struct tag
+		Unavailable         *UnavailableBody  `doc:"Why none of its episodes' files can be read now; absent when one can" json:"unavailable,omitempty"`                                      //nolint:lll // one struct tag
+		NextUp              *NextUpBody       `doc:"The person's next episode, which the page offers to play; absent when every one is finished or none has a file" json:"nextUp,omitempty"` //nolint:lll // one struct tag
 	}
+}
+
+// NextUpBody is a person's Next Up in a collection's ordering (D160), the aired one for a series: the
+// member its page offers to play, and where it is in the ordering.
+type NextUpBody struct {
+	TitleID       int64            `json:"titleId"`
+	Name          string           `json:"name,omitempty"`
+	GroupNumber   int64            `doc:"Its group in the ordering, a series' season; 0 for the specials and those with none" json:"groupNumber"` //nolint:lll // one struct tag
+	NumberInGroup int64            `doc:"Its number in its group, a series' episode number" json:"numberInGroup"`
+	FileID        int64            `doc:"The file its Play plays: the one the person is partway through, else its first" json:"fileId"`                  //nolint:lll // one struct tag
+	IsPartway     bool             `doc:"Whether the person is partway through it, which its Play resumes" json:"isPartway"`                             //nolint:lll // one struct tag
+	PositionMs    int64            `doc:"Where in the file the person is, when partway through it" json:"positionMs,omitempty"`                          //nolint:lll // one struct tag
+	Unavailable   *UnavailableBody `doc:"Why none of its files can be read now, as its own page says; absent when one can" json:"unavailable,omitempty"` //nolint:lll // one struct tag
 }
 
 // SeasonInput asks for a page of one season's episodes.
@@ -373,6 +387,17 @@ func (server *Server) getSeries(ctx context.Context, input *ItemInput) (*Collect
 		})
 	}
 	body.Art = artBody(series.Art)
+	next, hasNext, err := dependencies.Browser.NextUp(ctx, principal.UserID, series.ID, library.OrderingAired)
+	if err != nil {
+		return nil, server.libraryError(ctx, "read a series' next episode", err)
+	}
+	if hasNext {
+		body.NextUp = &NextUpBody{
+			TitleID: next.TitleID, Name: next.Name, GroupNumber: next.Group, NumberInGroup: next.NumberInGroup,
+			FileID: next.FileID, IsPartway: next.IsPartway, PositionMs: next.PartwayAtMs,
+			Unavailable: unavailableBody(next.Unreadable, server.nodeNamer(ctx, dependencies)),
+		}
+	}
 	return output, nil
 }
 

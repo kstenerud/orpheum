@@ -309,6 +309,10 @@ export const en = {
     retireFileConfirm: "Retire the file",
     specials: "Specials",
     play: "Play",
+    episodeCode: "S{{season}}E{{number}}",
+    continueEpisode: "Continue {{episode}}",
+    playEpisode: "Play {{episode}}",
+    nextUpUnavailable: "{{episode}}: {{why}}",
   },
   nodes: {
     confined:

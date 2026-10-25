@@ -327,7 +327,8 @@ func newInterestRaiser(
 	dependencies.Interest = interest.NewRegister(clock.System{})
 	raiser, err := interest.NewRaiser(interest.Parts{
 		Register: dependencies.Interest, Jobs: jobs.NewInterestJobs(opened.cache, clock.System{}),
-		Nodes: opened.exchanges, Waiting: opened.jobServices.queue, Playing: playingFiles(dependencies.Playback),
+		Nodes: opened.exchanges, Waiting: opened.jobServices.queue, Reads: dependencies.Playback,
+		Playing:  playingFiles(dependencies.Playback),
 		Database: opened.database, Settings: opened.settings, Clock: clock.System{}, Logger: logger,
 	})
 	if err != nil {

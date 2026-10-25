@@ -29,6 +29,7 @@ import { useItemsInView } from "./items-in-view.ts";
 export type SeriesDetail = components["schemas"]["CollectionOutputBody"];
 type Season = components["schemas"]["SeasonBody"];
 type Episode = components["schemas"]["EpisodeBody"];
+type NextUp = components["schemas"]["NextUpBody"];
 
 /** How many of a season's episodes one read asks for: a season or two of most series. */
 const episodesPerPage = 100;
@@ -66,6 +67,9 @@ export function SeriesView(props: {
           {series.year === undefined ? null : <p className="series__year">{series.year}</p>}
           {series.overview === undefined ? null : <p>{series.overview}</p>}
           <StatusNotes subject={series} />
+          {props.season === undefined && series.nextUp !== undefined ? (
+            <NextUpPlay nextUp={series.nextUp} />
+          ) : null}
           {props.onMatchCorrected === undefined ? null : (
             <MatchCorrection itemId={series.id} onCorrected={props.onMatchCorrected} />
           )}
@@ -86,6 +90,37 @@ export function SeriesView(props: {
         </section>
       )}
     </article>
+  );
+}
+
+/**
+ * The series' next episode for this person, as the server says it (D160): played at once by its
+ * button, "Continue S1E3" where they are partway through it, which resumes where they were, else
+ * "Play S1E4"; or, when it cannot be played now, why, as its own page says and hides its Play
+ * (D241 §3). The owner, 2026-10-25: a series' page is its next episode's.
+ */
+export function NextUpPlay(props: { readonly nextUp: NextUp }): JSX.Element {
+  const { t } = useTranslation();
+  const { nextUp } = props;
+  const episode = t("title.episodeCode", {
+    season: nextUp.groupNumber,
+    number: nextUp.numberInGroup,
+  });
+  if (nextUp.unavailable !== undefined) {
+    return (
+      <p className="series__absent">
+        {t("title.nextUpUnavailable", { episode, why: unavailableText(t, nextUp.unavailable) })}
+      </p>
+    );
+  }
+  return (
+    <p>
+      <Link to={{ screen: "play", fileId: nextUp.fileId }} className="title__play">
+        {nextUp.isPartway
+          ? t("title.continueEpisode", { episode })
+          : t("title.playEpisode", { episode })}
+      </Link>
+    </p>
   );
 }
 

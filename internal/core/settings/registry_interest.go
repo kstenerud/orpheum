@@ -24,8 +24,9 @@ func interestDefinitions() []Definition {
 				"the shown-interest rung (D324 §1)"),
 			"D324: three missed words, as a node's silence (cut-a §4)"),
 		sourced(integerSetting(SeriesEpisodesAhead, "3", 1, 20,
-			"how many of a series' episodes a look at its page raises the work of, from the one its person is "+
-				"partway through, or the one after the last they finished, or the first (D324 §3)"),
-			"the owner, 2026-10-21: the next three"),
+			"how many of a season's episodes a look at that season's page raises the work of, from the one its "+
+				"person is partway through, or the one after the last they finished, or its first; a series' own "+
+				"page raises its next episode alone (D324 §3)"),
+			"the owner, 2026-10-21: the next three; 2026-10-25: a series' page is its next episode's"),
 	}
 }

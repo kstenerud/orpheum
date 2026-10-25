@@ -24,16 +24,25 @@
 //     the room (D324 §4, D255 §2); work given to a node is told its new priority.
 //     Enforced by TestRaiser_BringsBackRaisedWorkWaitingForRoomOnANode, and the bump in
 //     internal/core/nodes by TestAssign_WorkOfAHigherTierBumpsTheLowestWhereNothingIsFree.
-//   - A look at a series raises series_episodes_ahead episodes from its person's place: the one
-//     partway through, the latest watched of several; else the one after the latest finished; else
-//     the first (D324 §3). Enforced by TestEpisodesAhead_StartAtThePersonsPlaceInTheSeries and
-//     TestEpisodesOf_ReadThePersonsPositionsAgainstTheThresholds.
+//   - A look at a series' own page raises the series and its person's Next Up alone, as that
+//     episode's own page would (the owner, 2026-10-25), by library.MembersAhead over its aired
+//     ordering (D159, D160): the one partway through, the latest watched of several; else the one
+//     after the latest finished; else the first; none past the last (D324 §3). Enforced by
+//     TestRaiser_ALookAtASeriesRaisesItsNextUpAlone, and the rule in internal/core/library by
+//     TestMembersAhead_StartAtThePersonsPlaceInTheOrdering and
+//     TestMembersOf_ReadThePersonsPositionsAgainstTheThresholds; the series' page says the same
+//     episode by TestBrowse_ASeriesSaysItsPersonsNextEpisode in internal/core/api.
 //   - A look at a series' season raises the series and series_episodes_ahead of that season's
 //     episodes, from its person's place among them, the same way; else, its last finished or none
 //     watched, from its first (D324 §3, the owner, 2026-10-24). Enforced by
-//     TestEpisodesAheadInSeason_StartAtThePersonsPlaceInTheSeason and
+//     TestMembersAheadInGroup_StartAtThePersonsPlaceInTheGroup in internal/core/library and
 //     TestRaiser_ALookAtASeasonRaisesItsEpisodes; the page saying its season by
 //     TestInterest_ASeasonsPageSaysItsSeason in internal/core/api.
+//   - A look asks for the read of the unread files of what it shows, once for the look: a series'
+//     its Next Up's, a season's every one of its episodes', in their order (D304 §4; the owner,
+//     2026-10-25); a look said again asks for none, as a read asked for while its scan lists asks for
+//     one more scan after it. Enforced by TestRaiser_ALookAtASeriesRaisesItsNextUpAlone and
+//     TestRaiser_ALookAtASeasonAsksForTheReadOfEachOfItsEpisodesOnce.
 //   - Interest never lowers a job: a play's stays a play's. Enforced in internal/core/jobs by
 //     TestInterestJobs_RaiseTheWorkOfInterestAndLetItFallToTheShownInterestRung.
 //   - Imports nothing from internal/node, never os/exec. Enforced by the depguard rule
@@ -48,6 +57,8 @@
 // # Where to change
 //
 //   - register.go: each session's look, said by PUT and DELETE /interest/{id} (api's page_interest.go).
-//   - raise.go: what a look, a playback and a watching raise, and the loop that raises them.
-//   - series.go: a series' episodes ahead of its person.
+//   - raise.go: what a look, a playback and a watching raise, the reads a look asks for, and the
+//     loop that raises them.
+//   - internal/core/library's next_up.go: a collection's members ahead of its person, its Next Up
+//     first (D160).
 package interest
