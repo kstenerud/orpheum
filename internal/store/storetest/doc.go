@@ -8,10 +8,10 @@
 //   - Every database it opens is a real file under the test's temporary directory, so a test sees
 //     the production schema: a copy of one persistent.db the real runner migrated once per test
 //     process, which the runner is then asked to migrate again and finds current. Review-only.
-//   - It goes through internal/store like everyone else, except ExecRaw, which opens a file with
-//     database/sql to build a state the store never produces (a newer release's file, a foreign
-//     one). It may, being under internal/store: the depguard rule sql-only-in-store and
-//     TestArch_OnlyStoreImportsDatabaseSQL allow database/sql nowhere else.
+//   - It goes through internal/store like everyone else, except ExecRaw and QueryRaw, which open a
+//     file with database/sql to build a state the store never produces (a newer release's file, a
+//     foreign one) or to read one as it is. They may, being under internal/store: the depguard rule
+//     sql-only-in-store and TestArch_OnlyStoreImportsDatabaseSQL allow database/sql nowhere else.
 //   - A database OpenMigrated opens fails the test whose request that only reads wrote to it,
 //     unless store.ReaderWriteAllowed allows the writer, with why (D303, DL10). Enforced by
 //     TestOpenMigrated_FailsATestWhoseReadingRequestWrote.
@@ -27,6 +27,7 @@
 // # Where to change
 //
 //   - storetest.go: OpenMigrated and the migrated template it copies, OpenCache, the options
-//     tests open and migrate with (OpenOptions, MigrateOptions), ExecRaw, and helpers that seed
-//     rows every caller needs (InsertUser).
+//     tests open and migrate with (OpenOptions, MigrateOptions), ExecRaw, QueryRaw and the
+//     connection a test's reads of one file share, and helpers that seed rows every caller needs
+//     (InsertUser).
 package storetest
