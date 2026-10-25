@@ -724,8 +724,9 @@ User-Agent (D263; the User-Agent is logged only).
   §6.1). With one, Silk's spatial mode gives the page the D-pad with no app. Silk's own moves there
   are quick (median 69 ms, worst 96 ms over 20 moves) but jump oddly on our pages, whose layout
   gives the nearest-element search nothing to follow.
-- **Unknown:** whether Silk remembers the mode across restarts, and whether Back reaches the page
-  in it.
+- **Kept:** Silk remembers the mode across a restart of the Fire TV, and reopens the page it was
+  on. Changing the mode reloads the page, so a page's state does not survive the change.
+- **Unknown:** whether Back reaches the page in spatial mode.
 - **Evidence:** [owner] 2026-10-25, staging, `/lab/input`, lab results `XOSUILPC` (pointer mode)
   and `ECD3SZ56` (spatial mode); plans/tv-device-tests.md §5.
 
