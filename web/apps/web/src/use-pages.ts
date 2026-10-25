@@ -21,6 +21,11 @@ export interface Pages<T> {
   readonly loadedSoFar: Resource<Page<T>>;
   readonly isLoadingMore: boolean;
   readonly loadMore: () => void;
+  /**
+   * Loads page after page, as loadMore does, until isFound finds an item among those loaded or the
+   * list ends; the item's place in loadedSoFar's items, or undefined where none is found.
+   */
+  readonly loadUntil: (isFound: (item: T) => boolean) => Promise<number | undefined>;
   /** The view's first and last item in view, by their place in loadedSoFar's items. */
   readonly showRange: (first: number, last: number) => void;
 }
@@ -102,6 +107,8 @@ interface Shown<T> {
   pages: ReadPage<T>[] | undefined;
   hasFailed: boolean;
   isLoadingMore: boolean;
+  /** The page more being loaded, which a load until something is found waits for. */
+  loading?: Promise<unknown> | undefined;
   /** The items in view, by their place in the merged items; undefined before the view says. */
   range: { first: number; last: number } | undefined;
 }
@@ -199,7 +206,7 @@ function useLoadMore<T>(
     }
     setIsLoadingMore(true);
     state.isLoadingMore = true;
-    load(cursor).then(
+    state.loading = load(cursor).then(
       (page) => {
         setIsLoadingMore(false);
         state.isLoadingMore = false;
@@ -212,6 +219,52 @@ function useLoadMore<T>(
       },
     );
   };
+}
+
+/**
+ * How a list loads until it finds an item: a page more at a time after the last read, each one
+ * shown as it comes, as loadMore loads it, while a poll skips its turn; after the page more already
+ * loading, if one is. The found item's place among the merged items, or undefined when the list
+ * ends, or a read fails, without it.
+ */
+function useLoadUntil<T>(
+  list: PolledList<T> & {
+    readonly fail: (cause: unknown) => void;
+    readonly idOf: { readonly current: ((item: T) => unknown) | undefined };
+  },
+  setIsLoadingMore: (isLoadingMore: boolean) => void,
+): (isFound: (item: T) => boolean) => Promise<number | undefined> {
+  const { load, show, fail, idOf } = list;
+  const state = list.shown.current;
+  return useCallback(
+    async (isFound: (item: T) => boolean): Promise<number | undefined> => {
+      await state.loading?.catch(() => undefined);
+      for (;;) {
+        const pages = state.pages;
+        if (pages === undefined) {
+          return undefined;
+        }
+        const place = merged(pages, idOf.current).items.findIndex(isFound);
+        const cursor = pages.at(-1)?.nextCursor ?? "";
+        if (place >= 0 || cursor === "") {
+          return place >= 0 ? place : undefined;
+        }
+        setIsLoadingMore(true);
+        state.isLoadingMore = true;
+        try {
+          const page = await load(cursor);
+          show([...pages, { cursor, ...page }]);
+        } catch (cause: unknown) {
+          fail(cause);
+          return undefined;
+        } finally {
+          setIsLoadingMore(false);
+          state.isLoadingMore = false;
+        }
+      }
+    },
+    [load, show, fail, idOf, state, setIsLoadingMore],
+  );
 }
 
 /** A list as its poller reads and shows it: how to load a page, what is shown, and how to show it. */
@@ -302,6 +355,7 @@ export function usePages<T>(
   }, [load, show, fail]);
   usePagesPolling(poller, { load, shown, show });
   const loadMore = useLoadMore({ load, shown, show, fail }, setIsLoadingMore);
+  const loadUntil = useLoadUntil({ load, shown, show, fail, idOf: idOfNow }, setIsLoadingMore);
   const showRange = useCallback((first: number, last: number): void => {
     shown.current.range = { first, last };
   }, []);
@@ -310,5 +364,5 @@ export function usePages<T>(
     loadedSoFar.state === "failed" && poller !== undefined
       ? { ...loadedSoFar, willAskAgain: true }
       : loadedSoFar;
-  return { loadedSoFar: shownSoFar, isLoadingMore, loadMore, showRange };
+  return { loadedSoFar: shownSoFar, isLoadingMore, loadMore, loadUntil, showRange };
 }

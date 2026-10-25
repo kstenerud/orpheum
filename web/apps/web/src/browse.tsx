@@ -2,10 +2,11 @@
 
 import "./browse.css";
 
-import type { components } from "@orpheum/sdk";
-import { memo, useCallback, useState, type JSX } from "react";
+import { reportFailure, type components } from "@orpheum/sdk";
+import { memo, useCallback, useEffect, useRef, useState, type JSX, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
+import { focusAndShow } from "./focus-navigation.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, unavailableText } from "./problem.ts";
 import { StatusTray } from "./status-cues.tsx";
@@ -15,7 +16,7 @@ import { EndOfList } from "./end-of-list.tsx";
 import { useServices } from "./services.tsx";
 import { Loaded } from "./title.tsx";
 import { useItemsInView } from "./items-in-view.ts";
-import { usePages, type Page } from "./use-pages.ts";
+import { usePages, type Page, type Pages } from "./use-pages.ts";
 import { useResource, type Resource } from "./use-resource.ts";
 
 /** One film or series in a list, as the server sends it. */
@@ -139,20 +140,43 @@ export function EntryDetails(props: { readonly entry: Entry }): JSX.Element {
 export function Browse(props: { readonly kind: BrowseKind }): JSX.Element {
   const { t } = useTranslation();
   const [sort, setSort] = useState<BrowseSort>("name");
+  const [jump, setJump] = useState<LetterJump | undefined>(undefined);
+  const listRef = useRef<HTMLDivElement>(null);
+  const onLetter = useCallback((letter: string) => {
+    setJump((last) => ({ letter, count: (last?.count ?? 0) + 1 }));
+  }, []);
   return (
     <section className="browse browse__layout" aria-labelledby="browse-heading">
-      <div>
+      <div ref={listRef}>
         <div className="browse__bar">
           <h1 id="browse-heading">
             {t(props.kind === "movie" ? "browse.films" : "browse.series")}
           </h1>
-          <SortChoice sort={sort} onSort={setSort} />
+          <SortChoice
+            sort={sort}
+            onSort={(chosen) => {
+              setJump(undefined);
+              setSort(chosen);
+            }}
+          />
         </div>
-        <BrowsePages key={`${props.kind}/${sort}`} kind={props.kind} sort={sort} />
+        <BrowsePages
+          key={`${props.kind}/${sort}`}
+          kind={props.kind}
+          sort={sort}
+          jump={sort === "name" ? jump : undefined}
+          listRef={listRef}
+        />
       </div>
-      {sort === "name" ? <AlphabetRail /> : null}
+      {sort === "name" ? <AlphabetRail onLetter={onLetter} /> : null}
     </section>
   );
+}
+
+/** A letter of the alphabet rail pressed, counted, so the same letter pressed again jumps again. */
+interface LetterJump {
+  readonly letter: string;
+  readonly count: number;
 }
 
 /** The letters of the alphabet rail, a list's names' first characters: digits and marks, then A to Z. */
@@ -162,18 +186,23 @@ const railLetters = [
 ];
 
 /**
- * A list's alphabet beside its grid, by name only, to jump to a letter: a prototype, drawn but not
- * yet working (the owner, 2026-10-25: "It doesn't need to actually work yet, but I want to see how
- * it looks on-screen"). Its letters are buttons that do nothing yet, so a remote's moves into and
- * out of it can be tried (the owner, 2026-10-25), a focus container of their own.
+ * A list's alphabet beside its grid, by name only, to jump to a letter (the owner, 2026-10-25): a
+ * letter moves the list to its first title, # to the first of all, those beginning with a digit or
+ * a mark, a focus container of its own.
  */
-function AlphabetRail(): JSX.Element {
+function AlphabetRail(props: { readonly onLetter: (letter: string) => void }): JSX.Element {
   const { t } = useTranslation();
   return (
     <ol className="alphabet-rail" aria-label={t("browse.alphabet")} data-focus-container="">
       {railLetters.map((letter) => (
         <li key={letter}>
-          <button type="button" className="alphabet-rail__letter">
+          <button
+            type="button"
+            className="alphabet-rail__letter"
+            onClick={() => {
+              props.onLetter(letter);
+            }}
+          >
             {letter}
           </button>
         </li>
@@ -207,8 +236,13 @@ export function SortChoice(props: {
 /** An entry's id, by which a list shows an entry read twice once. */
 const entryId = (entry: Entry): number => entry.id;
 
-/** One list in one order, read a page at a time. */
-function BrowsePages(props: { readonly kind: BrowseKind; readonly sort: BrowseSort }): JSX.Element {
+/** One list in one order, read a page at a time, moved to a letter as the alphabet rail asks. */
+function BrowsePages(props: {
+  readonly kind: BrowseKind;
+  readonly sort: BrowseSort;
+  readonly jump: LetterJump | undefined;
+  readonly listRef: RefObject<HTMLElement | null>;
+}): JSX.Element {
   const { api } = useServices();
   const { kind, sort } = props;
   const loadPage = useCallback(
@@ -221,6 +255,7 @@ function BrowsePages(props: { readonly kind: BrowseKind; readonly sort: BrowseSo
   );
   const pages = usePages(loadPage, useBackgroundChangesPoller(), entryId);
   const watchItemAt = useItemsInView(pages.showRange);
+  useLetterJump({ kind, jump: props.jump, pages, listRef: props.listRef });
   return (
     <BrowseView
       kind={kind}
@@ -230,6 +265,71 @@ function BrowsePages(props: { readonly kind: BrowseKind; readonly sort: BrowseSo
       watchItemAt={watchItemAt}
     />
   );
+}
+
+/**
+ * Moves a list by name to the first title at or after the letter jump names, as the server sorts
+ * them (`from`), # to the first of all: it loads the list's pages up to it, as scrolling would,
+ * and focuses its poster at the top of the view, so a remote goes on from there; where no title
+ * comes at or after the letter, the last. The newest jump wins over one still loading.
+ */
+function useLetterJump(props: {
+  readonly kind: BrowseKind;
+  readonly jump: LetterJump | undefined;
+  readonly pages: Pages<Entry>;
+  readonly listRef: RefObject<HTMLElement | null>;
+}): void {
+  const { api } = useServices();
+  const { kind, jump, listRef } = props;
+  const { loadUntil, loadedSoFar } = props.pages;
+  // The place of the poster to focus once it is drawn, the last's for -1, undefined for none; the
+  // jump found it, the drawing of the pages after it focuses it.
+  const toFocusRef = useRef<number | undefined>(undefined);
+  const [found, setFound] = useState(0);
+  useEffect(() => {
+    if (jump === undefined) {
+      return undefined;
+    }
+    let isCurrent = true;
+    const from = jump.letter === "#" ? {} : { from: jump.letter };
+    const query = { kind, sort: "name" as const, limit: 1, ...from };
+    api
+      .GET("/titles", { params: { query } })
+      .then(async (answer) => {
+        const first = dataOrThrow(answer).titles?.[0];
+        const place = await loadUntil((entry) => entry.id === first?.id);
+        if (isCurrent) {
+          toFocusRef.current = place ?? -1;
+          setFound((count) => count + 1);
+        }
+      })
+      .catch(reportFailure);
+    return () => {
+      isCurrent = false;
+    };
+  }, [api, kind, jump, loadUntil]);
+  useEffect(() => {
+    const place = toFocusRef.current;
+    if (place === undefined) {
+      return;
+    }
+    const posters = listRef.current?.querySelectorAll<HTMLElement>(".poster-grid > li > a");
+    const poster = place < 0 ? posters?.[posters.length - 1] : posters?.[place];
+    if (poster !== undefined) {
+      toFocusRef.current = undefined;
+      showAtTop(poster);
+    }
+  }, [found, loadedSoFar, listRef]);
+}
+
+/** Focuses a poster jumped to, its row scrolled to the view's top, clear of the banner. */
+function showAtTop(poster: HTMLElement): void {
+  // A test's DOM may have no scrolling at all.
+  if (typeof poster.scrollIntoView === "function") {
+    poster.scrollIntoView({ block: "start" });
+  }
+  // Focused as a key would, a remote's press being one; scrolled on, gently, clear of the banner.
+  focusAndShow(poster, true);
 }
 
 /** A list's pages as they show: loading, failed with why, empty, or the grid and a way to more. */
