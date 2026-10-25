@@ -142,9 +142,12 @@ export function isFocusInView(): boolean {
   );
 }
 
-/** The name of the film or series whose tile has focus, or "" where no tile has it. */
+/** The name of the film or series whose tile in the grid has focus, or "" where none has it. */
 export function focusedTile(): string {
-  return document.activeElement?.querySelector(".poster-grid__name")?.textContent ?? "";
+  const focused = document.activeElement;
+  return focused?.closest(".poster-grid") === null
+    ? ""
+    : (focused?.querySelector(".poster-card__name")?.textContent ?? "");
 }
 
 /** Whether the page draws an element by selector, for a walk to wait on. */

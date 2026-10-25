@@ -1,0 +1,13 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+.home__heading {
+  margin-block-start: 0;
+}
+
+.home__row {
+  margin-block-end: var(--space-6);
+}
+
+.home__row h2 {
+  margin-block-start: 0;
+}

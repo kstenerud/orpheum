@@ -88,9 +88,9 @@ describe("the shell, laid out by a real browser", () => {
       year: 2020,
     };
     await drawn(<PosterGrid kind="movie" entries={[entry]} />, ({ container }) => {
-      const item = container.querySelector(".poster-grid__item");
+      const item = container.querySelector(".poster-grid > .poster-card");
       const poster = boxOf(item?.querySelector(".poster"));
-      const signs = item?.querySelectorAll(".poster-grid__cues > .warning-sign") ?? [];
+      const signs = item?.querySelectorAll(".poster-card__cues > .poster-cue") ?? [];
       expect(signs).toHaveLength(2);
       const [first, second] = [boxOf(signs[0]), boxOf(signs[1])];
       // In the poster's top-right corner, the second under the first, both over the poster.

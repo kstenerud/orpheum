@@ -30,7 +30,7 @@ describe("AppShell", () => {
     );
     expect(markup.match(/<main/gu)).toHaveLength(1);
     expect(markup).toMatch(
-      /<header class="app-shell__banner" data-focus-container="" data-focus-covers-top=""><p class="app-shell__title"><a href="\/films" class="app-shell__home"><img class="app-shell__logo" src="[^"]*orpheum-logo\.svg" alt="Orpheum"\/><\/a><\/p>/u,
+      /<header class="app-shell__banner" data-focus-container="" data-focus-covers-top=""><p class="app-shell__title"><a href="\/" class="app-shell__home"><img class="app-shell__logo" src="[^"]*orpheum-logo\.svg" alt="Orpheum"\/><\/a><\/p>/u,
     );
     expect(markup).toContain('<li aria-current="page"><a href="/films">Films</a></li>');
     expect(markup).toContain('<a href="/watch-together">Watch Together</a>');
@@ -88,7 +88,7 @@ describe("AppShell", () => {
     expect(shell(undefined)).not.toContain("app-shell__realm");
   });
 
-  it("takes a person home, to the films, when the logo is clicked", async () => {
+  it("takes a person home when the logo is clicked", async () => {
     const services = testServices(undefined, "/about");
     const mounted = await mount(
       withServices(
@@ -105,7 +105,7 @@ describe("AppShell", () => {
       ),
     );
     await click(mounted.container.querySelector(".app-shell__home"));
-    expect(services.navigation.route()).toEqual({ screen: "films" });
+    expect(services.navigation.route()).toEqual({ screen: "home" });
     mounted.unmount();
   });
 

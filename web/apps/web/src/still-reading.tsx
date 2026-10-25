@@ -5,7 +5,7 @@ import "./still-reading.css";
 import { use, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
-import { IsAdminContext, WarningSign } from "./warning-sign.tsx";
+import { IsAdminContext } from "./warning-sign.tsx";
 
 /**
  * The still-reading icon: an hourglass on the status blue, its sand run into the lower bulb and
@@ -40,23 +40,6 @@ export function StillReadingIcon(props: { readonly isRinged: boolean }): JSX.Ele
         />
       </g>
     </svg>
-  );
-}
-
-/**
- * The cue over the poster of a title whose file is still being read, opening what it means as a
- * warning sign does (D278): it is shown from its folder's listing, and plays once read, which asking
- * to play it starts at once.
- */
-export function StillReadingSign(): JSX.Element {
-  const { t } = useTranslation();
-  return (
-    <WarningSign
-      summary={t("warning.stillReading")}
-      forAdmin={t("warning.stillReadingForAdmin")}
-      forViewer={t("warning.stillReadingForViewer")}
-      icon={<StillReadingIcon isRinged={true} />}
-    />
   );
 }
 

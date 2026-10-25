@@ -83,7 +83,7 @@ describe("a session the server ended", () => {
     await services.api.GET("/me");
     expect(services.session.token()).toBeUndefined();
     expect(services.session.lastEndReason()).toBe("session_ended");
-    expect(went).toEqual([{ screen: "films" }]);
+    expect(went).toEqual([{ screen: "home" }]);
     expect(services.session.deviceId()).toBe(42);
     services.session.signIn("next");
     expect(services.session.lastEndReason()).toBeUndefined();

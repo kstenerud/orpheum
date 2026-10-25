@@ -62,7 +62,7 @@ it("tells anyone else only that something is wrong, and to tell the administrato
   expect(text).not.toContain("chown");
 });
 
-it("marks a title that cannot be played now with the sign over its poster", async () => {
+it("marks a title that cannot be played now with an icon over its poster, no control and no detail", async () => {
   const entry = {
     id: 10,
     name: "Metropolis",
@@ -72,9 +72,14 @@ it("marks a title that cannot be played now with the sign over its poster", asyn
     unavailable: { reason: "node_away", nodeName: "nas" },
   } as unknown as Entry;
   mounted = await mountAs(true, <PosterGrid kind="movie" entries={[entry]} />);
-  await click(sign(mounted.container));
-  expect(mounted.container.textContent).toContain("This cannot be played now");
-  expect(mounted.container.textContent).toContain("The Libraries page says more");
+  // Over a poster the cue is an icon only: the title's page says what it means (the owner,
+  // 2026-10-25: a control there was messy and took a controller's focus).
+  const icon = mounted.container.querySelector(".poster-card__cues > .poster-cue");
+  expect(icon?.textContent).toBe("This cannot be played now");
+  expect(sign(mounted.container)).toBeNull();
+  expect(
+    mounted.container.querySelector(".poster-card__cues button, .poster-card__cues [title]"),
+  ).toBeNull();
 });
 
 it("marks a folder whose scan waits with the sign, saying why", async () => {

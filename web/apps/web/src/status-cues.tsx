@@ -2,12 +2,13 @@
 
 import "./status-cues.css";
 
-import { createElement, type JSX } from "react";
+import { createElement, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { unavailableText } from "./problem.ts";
-import { StillReadingNote, StillReadingSign } from "./still-reading.tsx";
-import { UncertainMatchNote, UncertainMatchSign } from "./uncertain-match.tsx";
+import { StillReadingIcon, StillReadingNote } from "./still-reading.tsx";
+import { UncertainMatchIcon, UncertainMatchNote } from "./uncertain-match.tsx";
+import { WarningIcon } from "./warning-sign.tsx";
 import { UnplayableSign } from "./unplayable-sign.tsx";
 
 /** What a status cue reads of a film, series or episode. */
@@ -18,18 +19,59 @@ export interface CueSubject {
   readonly isGuessed?: boolean | undefined;
 }
 
-/** One status cue: whether a subject has it, its sign over a poster, and its note on a page. */
+/**
+ * One status cue: whether a subject has it, its icon over a poster, and its note on a page. Over a
+ * poster it is only an icon, never a control and with no tooltip, which made the posters messy and
+ * took a controller's focus; the title's page says what it means (the owner, 2026-10-25).
+ */
 interface StatusCue {
   readonly name: string;
   readonly isShown: (subject: CueSubject) => boolean;
-  readonly sign: (props: { readonly subject: CueSubject }) => JSX.Element | null;
+  readonly icon: () => JSX.Element;
   readonly note: (props: { readonly subject: CueSubject }) => JSX.Element | null;
 }
 
-/** A subject's cannot-play sign over its poster (D278). */
-function CannotPlaySign(props: { readonly subject: CueSubject }): JSX.Element | null {
-  const { unavailable } = props.subject;
-  return unavailable === undefined ? null : <UnplayableSign unavailable={unavailable} />;
+/** A cue's icon over a poster, named for a screen reader by what it means, and nothing more. */
+function PosterCueIcon(props: {
+  readonly label: string;
+  readonly children: ReactNode;
+}): JSX.Element {
+  return (
+    <span className="poster-cue">
+      {props.children}
+      <span className="poster-cue__name">{props.label}</span>
+    </span>
+  );
+}
+
+/** A cannot-play cue's icon over a poster: the warning triangle (D278). */
+function CannotPlayIcon(): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <PosterCueIcon label={t("warning.cannotPlay")}>
+      <WarningIcon />
+    </PosterCueIcon>
+  );
+}
+
+/** An uncertain match's icon over a poster (D301 §4). */
+function UncertainMatchCueIcon(): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <PosterCueIcon label={t("warning.uncertainMatch")}>
+      <UncertainMatchIcon isRinged={true} />
+    </PosterCueIcon>
+  );
+}
+
+/** A file still being read's icon over a poster (D304 §4). */
+function StillReadingCueIcon(): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <PosterCueIcon label={t("warning.stillReading")}>
+      <StillReadingIcon isRinged={true} />
+    </PosterCueIcon>
+  );
 }
 
 /** A subject's cannot-play note: the warning sign, and why, as the reader needs it (D241 §3). */
@@ -53,20 +95,20 @@ export const statusCues: readonly StatusCue[] = [
   {
     name: "cannotPlay",
     isShown: (subject) => subject.unavailable !== undefined && !isStillReading(subject),
-    sign: CannotPlaySign,
+    icon: CannotPlayIcon,
     note: CannotPlayNote,
   },
   {
     name: "uncertainMatch",
     isShown: (subject) => subject.isGuessed === true,
-    sign: UncertainMatchSign,
+    icon: UncertainMatchCueIcon,
     note: UncertainMatchNote,
   },
   {
     // Not a fault: shown from its listing, it plays once read (D304 §4).
     name: "stillReading",
     isShown: isStillReading,
-    sign: StillReadingSign,
+    icon: StillReadingCueIcon,
     note: StillReadingNote,
   },
 ];
@@ -80,8 +122,8 @@ function isStillReading(subject: CueSubject): boolean {
 export function StatusTray(props: { readonly subject: CueSubject }): JSX.Element | null {
   const shown = statusCues.filter((cue) => cue.isShown(props.subject));
   return shown.length === 0 ? null : (
-    <span className="poster-grid__cues">
-      {shown.map((cue) => createElement(cue.sign, { key: cue.name, subject: props.subject }))}
+    <span className="poster-card__cues">
+      {shown.map((cue) => createElement(cue.icon, { key: cue.name }))}
     </span>
   );
 }

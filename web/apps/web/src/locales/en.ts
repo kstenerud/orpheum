@@ -36,6 +36,7 @@ export const en = {
     hours: "about {{count}} hours",
   },
   nav: {
+    home: "Home",
     administerFromHome:
       "You administer this server from home, on its own page or the discovery's page at home.",
     administerFromHomeAt: "You administer this server from home, at",
@@ -264,6 +265,11 @@ export const en = {
     tmdbNotice: "This product uses the TMDB API but is not endorsed or certified by TMDB.",
     thanksHeading: "Built on",
     thanksIntro: "{{product}} stands on the work of these projects, with thanks.",
+  },
+  home: {
+    heading: "Home",
+    newestFilms: "New films",
+    newestSeries: "New series",
   },
   browse: {
     films: "Films",

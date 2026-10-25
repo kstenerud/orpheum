@@ -27,7 +27,9 @@ export async function signIn(page: Page): Promise<void> {
  * not its row under Continue Watching, which a film played before also has and which plays it.
  */
 export async function openFilm(page: Page, name: string): Promise<void> {
-  const card = page.locator("a.poster-grid__card").filter({ hasText: new RegExp(name) });
+  const card = page
+    .locator(".poster-grid a.poster-card__link")
+    .filter({ hasText: new RegExp(name) });
   await expect(async () => {
     await page.goto(`${serverUrl()}/films`);
     await expect(card).toBeVisible({ timeout: 1000 });

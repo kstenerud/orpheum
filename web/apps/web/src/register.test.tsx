@@ -48,8 +48,8 @@ it("registers with the link's secret, and leaves it in neither the address nor t
   });
   expect(services.session.token()).toBe("new-token");
   expect(services.session.deviceProof()).toBe("phone-secret");
-  expect(services.navigation.route()).toEqual({ screen: "films" });
-  expect(place.addresses).toEqual(["/films"]);
+  expect(services.navigation.route()).toEqual({ screen: "home" });
+  expect(place.addresses).toEqual(["/"]);
 });
 
 it("asks an invitation's person for their own name, and sends it with the password (D246 §2)", async () => {

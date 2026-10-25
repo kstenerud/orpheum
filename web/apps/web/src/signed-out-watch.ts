@@ -22,7 +22,7 @@ export function watchForSignOut(session: Session, navigation: Navigation): Middl
         return undefined;
       }
       const problem = await problemFromAnswer(response.clone());
-      navigation.go({ screen: "films" });
+      navigation.go({ screen: "home" });
       session.signOutBecause(sessionEndReason(problem));
       return undefined;
     },

@@ -143,7 +143,9 @@ test("a browser registers and plays through a discovery, over WebRTC, its core's
   await movedToWebrtc;
   // A name of each browser's own: the browsers share one core.
   await registerAndOpenFilms(page, `guest-${test.info().project.name}`);
-  const card = page.locator("a.poster-grid__card").filter({ hasText: new RegExp(warmUpFilm, "u") });
+  const card = page
+    .locator(".poster-grid a.poster-card__link")
+    .filter({ hasText: new RegExp(warmUpFilm, "u") });
   await expect(card).toBeVisible({ timeout: 60_000 });
   await card.click();
   await page.getByRole("link", { name: "Play" }).click();
@@ -290,7 +292,9 @@ test("a page on the discovery's origin plays from its core's own name, its poste
   await movedToCore;
   await mediaToCore;
   await registerAndOpenFilms(page, `direct-${test.info().project.name}`);
-  const card = page.locator("a.poster-grid__card").filter({ hasText: new RegExp(warmUpFilm, "u") });
+  const card = page
+    .locator(".poster-grid a.poster-card__link")
+    .filter({ hasText: new RegExp(warmUpFilm, "u") });
   await expect(card).toBeVisible({ timeout: 60_000 });
   // Its poster, fetched from the core with the header into a blob, shows.
   await expect.poll(() => posterShows(card), { timeout: 30_000 }).toBe(true);

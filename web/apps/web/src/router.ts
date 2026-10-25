@@ -14,6 +14,7 @@ export type LabPage = (typeof labPages)[number];
 
 /** Every screen the client shows, and what it needs from the address to show it. */
 export type Route =
+  | { readonly screen: "home" }
   | { readonly screen: "films" }
   | { readonly screen: "series" }
   | { readonly screen: "title"; readonly itemId: number }
@@ -63,7 +64,8 @@ interface Shape {
 
 // An id is a positive whole number; anything else names no item.
 const shapes: readonly Shape[] = [
-  { pattern: /^\/(?:films\/?)?$/u, toRoute: () => ({ screen: "films" }) },
+  { pattern: /^\/$/u, toRoute: () => ({ screen: "home" }) },
+  { pattern: /^\/films\/?$/u, toRoute: () => ({ screen: "films" }) },
   { pattern: /^\/series\/?$/u, toRoute: () => ({ screen: "series" }) },
   { pattern: /^\/titles\/([1-9]\d{0,15})$/u, toRoute: (itemId) => ({ screen: "title", itemId }) },
   {
@@ -149,6 +151,9 @@ function labRouteHref(route: Route): string | undefined {
   return route.screen === "lab-extend-player" ? "/lab/extend/player" : undefined;
 }
 
+/** The screens at the site's root: home, and an address that names nothing, which goes there. */
+const rootScreens: ReadonlySet<Route["screen"]> = new Set(["home", "not-found"]);
+
 /** The address of a route: what parseRoute reads back as the same route. */
 export function routeHref(route: Route): string {
   const withQuery = queryRouteHref(route);
@@ -175,5 +180,5 @@ export function routeHref(route: Route): string {
   if (lab !== undefined) {
     return lab;
   }
-  return route.screen === "not-found" ? "/" : `/${route.screen}`;
+  return rootScreens.has(route.screen) ? "/" : `/${route.screen}`;
 }
