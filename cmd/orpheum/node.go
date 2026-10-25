@@ -151,17 +151,15 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	if err != nil {
 		return err
 	}
-	encoderChoice := chooseEncoder(ctx, runner, logger)
-	hello, err := describeNode(ctx, config, runner, nodeCapabilities{
-		confinement: confinement, encoderChoice: encoderChoice, gpus: hardware.GPUs(),
-	})
+	detected := detectCapabilities(ctx, runner, confinement, logger)
+	hello, err := describeNode(ctx, config, runner, detected)
 	if err != nil {
 		return err
 	}
 	scanner := newScanner(config, roots, runner, hello, disks)
 	// A node that cannot use its prepared directory still scans and serves files as they are; it
 	// says why it prepares nothing, and each prepare it is asked for fails with that reason.
-	directory, err := openPreparedDirectory(config, runner, encoderChoice.Chosen, logger)
+	directory, err := openPreparedDirectory(config, runner, detected.encoderChoice.Chosen, logger)
 	if err != nil {
 		logger.ErrorContext(ctx, "this node cannot prepare; it serves files as they are", "err", err)
 	} else {
@@ -192,7 +190,7 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 		Subtitler:     subtitle.NewExtractor(runner, hello.Capacity.SlowestReadBytesPerSecond),
 		ThroughReader: readthrough.NewReader(runner, hello.Capacity.SlowestReadBytesPerSecond),
 		HeldResults:   heldResults, Hashes: hashes, Stuck: stuckOf(runner), SetStatusEvery: setStatusEvery,
-		Disks: disks, Films: filmsOf(ctx, runner, logger),
+		Disks: disks, Films: runner,
 	}
 	workers.EndedWorkKept, workers.ReadStallWindow = workPacing(config)
 	workers.ReadStallWindow = cmp.Or(seams.readStallWindow, workers.ReadStallWindow)
@@ -454,11 +452,24 @@ func openRootsThrough(
 }
 
 // nodeCapabilities are what the node found it has: its confinement, per mechanism, the encoder
-// trials that chose its encoder, and the GPU devices it sees (D225 §3).
+// trials that chose its encoder, the GPU devices it sees (D225 §3), and whether its FFmpeg reads
+// each film through the node (D330).
 type nodeCapabilities struct {
-	confinement   []confine.State
-	encoderChoice prepare.Choice
-	gpus          []nodeproto.GPU
+	confinement           []confine.State
+	encoderChoice         prepare.Choice
+	gpus                  []nodeproto.GPU
+	readsFilmsThroughNode bool
+}
+
+// detectCapabilities finds what the node has, given its confinement: its encoder, its GPUs, and
+// whether its FFmpeg reads films through the node, when runner then streams them (streamFilmsIfAble).
+func detectCapabilities(
+	ctx context.Context, runner *execx.Runner, confinement []confine.State, logger *slog.Logger,
+) nodeCapabilities {
+	return nodeCapabilities{
+		confinement: confinement, encoderChoice: chooseEncoder(ctx, runner, logger), gpus: hardware.GPUs(),
+		readsFilmsThroughNode: streamFilmsIfAble(ctx, runner, logger),
+	}
 }
 
 // newScanner lists under the roots and examines their files, probing each video with runner, which
@@ -530,11 +541,12 @@ func capacityOf(config Config) nodeproto.Capacity {
 	}
 }
 
-// filmsOf is what makes the films the node's runs read: runner, which serves each film to the run that
-// reads it (D330) when its FFmpeg has the fdproxy protocol, and otherwise has each read its film by
-// its path, as the stock build does, and a node whose FFmpeg cannot be asked. It says which. The
-// runner logs to logger what concerns streamed films as a whole.
-func filmsOf(ctx context.Context, runner *execx.Runner, logger *slog.Logger) *execx.Runner {
+// streamFilmsIfAble has runner, which makes the films the node's runs read, serve each film to the
+// run that reads it (D330) when its FFmpeg has the fdproxy protocol, and otherwise has each read its
+// film by its path, as the stock build does, and a node whose FFmpeg cannot be asked. It says which,
+// in the log and in what it returns, which the hello carries. The runner logs to logger what
+// concerns streamed films as a whole.
+func streamFilmsIfAble(ctx context.Context, runner *execx.Runner, logger *slog.Logger) bool {
 	hasIt, err := runner.LoggingTo(logger).HasFDProxy(ctx)
 	if hasIt {
 		runner.StreamFilms()
@@ -548,17 +560,20 @@ func filmsOf(ctx context.Context, runner *execx.Runner, logger *slog.Logger) *ex
 	default:
 		logger.InfoContext(ctx, "FFmpeg has no fdproxy protocol; each run reads its film by its path")
 	}
-	return runner
+	return hasIt
 }
 
 // hardwareReport is the hello's account of hardware encoding: the devices, each trial and the
-// encoder chosen (D225 §3).
+// encoder chosen (D225 §3); and whether FFmpeg reads films through the node (D330).
 func hardwareReport(detected nodeCapabilities) nodeproto.Hardware {
 	trials := make([]nodeproto.EncoderTrial, 0, len(detected.encoderChoice.Trials))
 	for _, trial := range detected.encoderChoice.Trials {
 		trials = append(trials, nodeproto.EncoderTrial{Encoder: string(trial.Encoder), Failure: trial.Failure})
 	}
-	return nodeproto.Hardware{GPUs: detected.gpus, Trials: trials, ChosenEncoder: string(detected.encoderChoice.Chosen)}
+	return nodeproto.Hardware{
+		GPUs: detected.gpus, Trials: trials, ChosenEncoder: string(detected.encoderChoice.Chosen),
+		ReadsFilmsThroughNode: detected.readsFilmsThroughNode,
+	}
 }
 
 // capabilityNames are the hello's (cut-a §4): remux and AAC, which every node can do, and the

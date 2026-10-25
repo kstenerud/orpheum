@@ -24,7 +24,7 @@ const QueryAfterCommandSeq = "afterCommandSeq"
 // records and results. It is raised with any change a node or core of another build would misread,
 // so the two refuse each other at hello instead (D233 §9). Core and node ship as one build today,
 // so the two match unless a node is updated apart from its core.
-const ProtocolVersion = 42
+const ProtocolVersion = 43
 
 // Hello is the first thing a node says, and it says it again after every reconnection.
 type Hello struct {
@@ -92,6 +92,10 @@ type Hardware struct {
 	Trials []EncoderTrial `json:"trials"`
 	// ChosenEncoder is the encoder its encodes use: one of the encoders below.
 	ChosenEncoder string `json:"chosenEncoder"`
+	// ReadsFilmsThroughNode is whether the node's FFmpeg has the fdproxy protocol, so each run reads
+	// its film through the node, which a share that goes away cannot hang (D330); false is the stock
+	// build, each run reading its film by its path.
+	ReadsFilmsThroughNode bool `json:"readsFilmsThroughNode"`
 }
 
 // The encoders a node reports, its trials' and its choice, the hardware ones in the order it tries them

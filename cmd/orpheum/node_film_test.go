@@ -18,7 +18,9 @@ import (
 )
 
 // A node streams its films only when its FFmpeg lists the fdproxy protocol among its inputs, and
-// says at start which way its runs read their films; the stock build reads them by path (D330).
+// says at start which way its runs read their films, in its log and in its hello, so a node on the
+// stock build, which reads them by path, is seen to lack the dead-share protection (D330; audit
+// 2026-10-25 N9).
 func TestStreamsFilms_OnlyWhenTheNodesFFmpegHasTheProtocolAndSaysWhich(t *testing.T) {
 	t.Parallel()
 	for _, example := range []struct {
@@ -40,11 +42,16 @@ func TestStreamsFilms_OnlyWhenTheNodesFFmpegHasTheProtocolAndSaysWhich(t *testin
 			t.Fatal(err)
 		}
 		var logged bytes.Buffer
-		films := filmsOf(t.Context(), runner, slog.New(slog.NewTextHandler(&logged, nil)))
-		got := films.FilmOf("/media/film.mkv", openedFilm(t), execx.ReadsWholeFilm).Stream != nil
+		said := streamFilmsIfAble(t.Context(), runner, slog.New(slog.NewTextHandler(&logged, nil)))
+		got := runner.FilmOf("/media/film.mkv", openedFilm(t), execx.ReadsWholeFilm).Stream != nil
 		if got != example.want || !strings.Contains(logged.String(), example.wantSaid) {
 			t.Errorf("%s: streams films %v, said %q; want %v, saying it reads films %s", example.name, got,
 				logged.String(), example.want, example.wantSaid)
+		}
+		hello := hardwareReport(nodeCapabilities{readsFilmsThroughNode: said})
+		if hello.ReadsFilmsThroughNode != example.want {
+			t.Errorf("%s: the hello says it reads films through the node: %v; want %v, so the core can see it",
+				example.name, hello.ReadsFilmsThroughNode, example.want)
 		}
 	}
 }

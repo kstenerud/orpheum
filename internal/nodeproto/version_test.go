@@ -86,6 +86,8 @@ var wireShapeByVersion = map[int]string{
 	41: "1514f7e736a75243c304c27e9370072da046d898c94ce7c11dbbee4ffa4fc29d",
 	// 42 probes any place, a root or a disk inside one, PlaceProbe naming its Path (D328 §6).
 	42: "c0d627168692620ce61b4247709be8bc076034e0259bc812fbdc17dba2143994",
+	// 43 says in the hello whether the node's FFmpeg reads films through it (Hardware, D330).
+	43: "0613182317b5b4bd95c62024b19b1ee4f36ce08491d6d1d173b92813b464a979",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this
