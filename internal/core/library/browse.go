@@ -75,7 +75,19 @@ type Entry struct {
 	// Unreadable is why none of its files can be read now, the first's, or nil when one can, or it
 	// has none (D241 §3).
 	Unreadable *Unreadable
+	// WatchedPercent is how far its person is through a film, as Continue Watching would resume it:
+	// 0 when it would not, or its file's length is not known.
+	WatchedPercent int64
+	// EpisodeCount is how many episodes a series has with a live file, in the ordering its person
+	// watches it in, and FinishedEpisodeCount how many of them they finished; 0 for a film.
+	EpisodeCount, FinishedEpisodeCount int64
+	// found is where it stands newest first, which a page's cursor holds: set by listByAdded alone.
+	found foundKey
 }
+
+// foundKey is when the scan that found a title or a series' newest episode listed it, and that
+// file's own modified time (step 0058).
+type foundKey struct{ at, fileModifiedAt int64 }
 
 // Page is one page of a list, and the cursor of the next; "" on the last.
 type Page struct {
@@ -90,13 +102,27 @@ type ListQuery struct {
 	Cursor string
 	Limit  int64
 	Reach  auth.Reach
+	// UserID is the person listing, whose progress each entry shows.
+	UserID int64
 }
 
 // List is one page of films or series, only those with a live file.
 func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error) {
+	var page Page
+	var err error
 	if query.Sort == SortAdded {
-		return browser.listByAdded(ctx, query)
+		page, err = browser.listByAdded(ctx, query)
+	} else {
+		page, err = browser.listByName(ctx, query)
 	}
+	if err != nil {
+		return Page{}, err
+	}
+	return browser.withProgress(ctx, query.UserID, query.Kind, page)
+}
+
+// listByName is one page in the sort_locale's order (D47).
+func (browser *Browser) listByName(ctx context.Context, query ListQuery) (Page, error) {
 	locale, err := browser.sortLocale(ctx)
 	if err != nil {
 		return Page{}, err
@@ -145,21 +171,29 @@ func (browser *Browser) List(ctx context.Context, query ListQuery) (Page, error)
 		closePage(entries, query.Limit, func(last int) string { return encodeCursor(keys[last], entries[last].ID) }))
 }
 
+// listByAdded is one page newest first: by the scan that found it, most recent first, then by its
+// file's own time, newest first, then by id (the owner, 2026-10-25; step 0058's found_at). A film is
+// as new as the scan that first found it; a series as its newest episode.
 func (browser *Browser) listByAdded(ctx context.Context, query ListQuery) (Page, error) {
-	addedAtKey, id, err := decodeCursor(query.Cursor)
+	cursorKey, id, err := decodeCursor(query.Cursor)
 	if err != nil {
 		return Page{}, err
 	}
-	beforeAddedAt, beforeID := int64(1)<<62, int64(1)<<62 // the first page starts before everything
+	beforeFoundAt, beforeModifiedAt, beforeID := int64(1)<<62, int64(1)<<62, int64(1)<<62 // before everything
 	if query.Cursor != "" {
-		beforeAddedAt, beforeID = int64(binary.BigEndian.Uint64(addedAtKey)), id //nolint:gosec // a time we encoded
+		if len(cursorKey) != 16 {
+			return Page{}, ErrBadCursor
+		}
+		beforeFoundAt = int64(binary.BigEndian.Uint64(cursorKey[:8]))    //nolint:gosec // a time we encoded
+		beforeModifiedAt = int64(binary.BigEndian.Uint64(cursorKey[8:])) //nolint:gosec // a time we encoded
+		beforeID = id
 	}
 	var entries []Entry
 	queries := browser.database.Read()
 	isEveryLibrary, libraryIDsJSON := query.Reach.QueryArgs()
 	if query.Kind == ListSeries {
 		rows, listErr := queries.ListSeriesByAdded(ctx, sqlcgen.ListSeriesByAddedParams{
-			BeforeAt: beforeAddedAt, BeforeID: beforeID, MaxRows: query.Limit,
+			BeforeFoundAt: beforeFoundAt, BeforeModifiedAt: beforeModifiedAt, BeforeID: beforeID, MaxRows: query.Limit,
 			IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
 		})
 		err = listErr
@@ -168,11 +202,12 @@ func (browser *Browser) listByAdded(ctx context.Context, query ListQuery) (Page,
 				ID: row.ItemID, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
 				IdentificationState: ptr.ValueOrZero(row.IdentificationState),
 				LibraryID:           ptr.ValueOrZero(row.LibraryID), AddedAt: row.AddedAt, IsGuessed: row.IsGuessed,
+				found: foundKey{at: row.FoundAt, fileModifiedAt: row.FoundFileModifiedAt},
 			})
 		}
 	} else {
 		rows, listErr := queries.ListFilmsByAdded(ctx, sqlcgen.ListFilmsByAddedParams{
-			BeforeAt: beforeAddedAt, BeforeID: beforeID, MaxRows: query.Limit,
+			BeforeFoundAt: beforeFoundAt, BeforeModifiedAt: beforeModifiedAt, BeforeID: beforeID, MaxRows: query.Limit,
 			IsEveryLibrary: isEveryLibrary, LibraryIdsJSON: libraryIDsJSON,
 		})
 		err = listErr
@@ -181,6 +216,7 @@ func (browser *Browser) listByAdded(ctx context.Context, query ListQuery) (Page,
 				ID: row.ItemID, Name: ptr.ValueOrZero(row.Name), Year: ptr.ValueOrZero(row.Year),
 				IdentificationState: row.IdentificationState, LibraryID: ptr.ValueOrZero(row.LibraryID),
 				AddedAt: row.AddedAt, IsGuessed: row.IsGuessed,
+				found: foundKey{at: row.FoundAt, fileModifiedAt: row.FoundFileModifiedAt},
 			})
 		}
 	}
@@ -188,8 +224,10 @@ func (browser *Browser) listByAdded(ctx context.Context, query ListQuery) (Page,
 		return Page{}, fmt.Errorf("list %s by date added: %w", query.Kind, err)
 	}
 	return browser.finishPage(ctx, query.Kind, closePage(entries, query.Limit, func(last int) string {
-		added := binary.BigEndian.AppendUint64(nil, uint64(entries[last].AddedAt)) //nolint:gosec // a time
-		return encodeCursor(added, entries[last].ID)
+		found := entries[last].found
+		key := binary.BigEndian.AppendUint64(nil, uint64(found.at))            //nolint:gosec // a time
+		key = binary.BigEndian.AppendUint64(key, uint64(found.fileModifiedAt)) //nolint:gosec // a time
+		return encodeCursor(key, entries[last].ID)
 	}))
 }
 

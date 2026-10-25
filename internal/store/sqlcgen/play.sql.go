@@ -417,6 +417,64 @@ func (q *Queries) ListRecentPlayPositions(ctx context.Context, arg ListRecentPla
 	return items, nil
 }
 
+const listTitlesPlayPositions = `-- name: ListTitlesPlayPositions :many
+SELECT version.title_id, play_position.position_ms, play_position.position_read_at,
+  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
+    AS duration_ms,
+  progress_hide.hidden_at
+FROM json_each(CAST(?1 AS TEXT)) AS listed
+CROSS JOIN version ON version.title_id = listed.value AND version.removed_at IS NULL
+CROSS JOIN file ON file.version_id = version.id AND file.removed_at IS NULL
+CROSS JOIN play_position ON play_position.user_id = ?2 AND play_position.file_id = file.id
+LEFT JOIN progress_hide ON progress_hide.user_id = play_position.user_id AND progress_hide.item_id = version.title_id
+ORDER BY play_position.position_read_at DESC
+`
+
+type ListTitlesPlayPositionsParams struct {
+	TitleIdsJSON string
+	UserID       int64
+}
+
+type ListTitlesPlayPositionsRow struct {
+	TitleID        int64
+	PositionMs     int64
+	PositionReadAt int64
+	DurationMs     int64
+	HiddenAt       *int64
+}
+
+// A person's positions in the live files of some titles, most recent watching first, with each
+// file's length where its probe knows it and when its title was last hidden: as
+// ListRecentPlayPositions has them, for a list's films' progress; the page's titles drive, by CROSS JOIN.
+func (q *Queries) ListTitlesPlayPositions(ctx context.Context, arg ListTitlesPlayPositionsParams) ([]ListTitlesPlayPositionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listTitlesPlayPositions, arg.TitleIdsJSON, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListTitlesPlayPositionsRow{}
+	for rows.Next() {
+		var i ListTitlesPlayPositionsRow
+		if err := rows.Scan(
+			&i.TitleID,
+			&i.PositionMs,
+			&i.PositionReadAt,
+			&i.DurationMs,
+			&i.HiddenAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWatchedLiveFiles = `-- name: ListWatchedLiveFiles :many
 SELECT DISTINCT play_position.file_id, title.id AS title_id
 FROM play_position

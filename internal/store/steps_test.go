@@ -494,3 +494,45 @@ func TestMigrate_Step0056KeepsEachDevicesSoundDelayAsItsOffset(t *testing.T) {
 	}
 	execRaw(t, database, "UPDATE device SET sound_offset_ms = -450 WHERE id = 1")
 }
+
+// Step 0058 gives each title and series what newest first sorts by, from the files already stored:
+// a film the scan that first found it, a series its newest episode (the owner, 2026-10-25).
+func TestMigrate_Step0058GivesEachTitleAndSeriesTheScanThatFoundIt(t *testing.T) {
+	t.Parallel()
+	steps, err := Steps()
+	if err != nil {
+		t.Fatal(err)
+	}
+	step0058 := stepIndex(t, steps, 58)
+	database := openTemporary(t)
+	if err = database.migrate(t.Context(), steps[:step0058], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	execRaw(t, database, `INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable,
+		created_at) VALUES (1, 'Everything', 'mixed', 'nfo', 'manual', 0, 1)`,
+		`INSERT INTO node (id, name, enrolled_at) VALUES (1, 'nas', 1)`,
+		`INSERT INTO item (id, kind, library_id, added_at) VALUES (1, 'title', 1, 1), (10, 'collection', 1, 1),
+		(11, 'title', 1, 1), (12, 'title', 1, 1), (20, 'title', 1, 1)`,
+		`INSERT INTO title (id, kind, identification_state) VALUES (1, 'movie', 'identified'),
+		(11, 'episode', 'identified'), (12, 'episode', 'identified'), (20, 'movie', 'identified')`,
+		`INSERT INTO collection (id, kind, membership, created_by) VALUES (10, 'series', 'explicit', 'scanner')`,
+		`INSERT INTO collection_member (collection_id, member_title, position) VALUES (10, 11, 1), (10, 12, 2)`,
+		`INSERT INTO version (id, title_id, created_at) VALUES (1, 1, 1), (2, 1, 1), (11, 11, 1), (12, 12, 1),
+		(20, 20, 1)`,
+		`INSERT INTO file (id, library_id, node_id, path, modified_at, filing, version_id, first_seen_at,
+		last_seen_at, removed_at) VALUES
+		(1, 1, 1, '/m/1.mkv', 30, 'listed', 1, 100, 100, NULL), (2, 1, 1, '/m/1b.mkv', 40, 'listed', 2, 300, 300, NULL),
+		(11, 1, 1, '/s/1.mkv', 70, 'listed', 11, 100, 100, NULL),
+		(12, 1, 1, '/s/2.mkv', NULL, 'listed', 12, 200, 200, NULL),
+		(20, 1, 1, '/m/gone.mkv', 9, 'listed', 20, 50, 50, 60)`)
+	if err = database.migrate(t.Context(), steps[:step0058+1], testMigrateOptions(t.TempDir())); err != nil {
+		t.Fatal(err)
+	}
+	got := fmt.Sprint(queryRows(t, database, "SELECT id, found_at, found_file_modified_at FROM title ORDER BY id", 3),
+		queryRows(t, database, "SELECT id, found_at, found_file_modified_at FROM collection", 3))
+	want := "[[1 100 30] [11 100 70] [12 200 0] [20 0 0]] [[10 200 0]]"
+	if got != want {
+		t.Errorf("after the step: %s; want %s: a film its first-found file's, a series its newest episode's, "+
+			"one with no live file 0", got, want)
+	}
+}

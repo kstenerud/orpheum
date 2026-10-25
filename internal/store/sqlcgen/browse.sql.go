@@ -35,28 +35,51 @@ func (q *Queries) CountEpisodesNotInOrdering(ctx context.Context, arg CountEpiso
 	return count, err
 }
 
-const getChosenOrdering = `-- name: GetChosenOrdering :one
-SELECT ordering.name
-FROM preference
-JOIN ordering ON ordering.collection_id = preference.scope_id
-  AND ordering.name = CAST(json_extract(preference.value_json, '$') AS TEXT)
-WHERE preference.user_id = ?1 AND preference.scope = 'work'
-  AND preference.scope_id = ?2 AND preference.axis = ?3
+const countOrderingMembers = `-- name: CountOrderingMembers :many
+SELECT ordering.collection_id, count(*) AS member_count
+FROM json_each(CAST(?1 AS TEXT)) AS named
+CROSS JOIN ordering ON ordering.collection_id = json_extract(named.value, '$[0]')
+  AND ordering.name = json_extract(named.value, '$[1]')
+CROSS JOIN position ON position.ordering_id = ordering.id
+CROSS JOIN item ON item.id = position.title_id AND item.removed_at IS NULL
+WHERE EXISTS (
+  SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+  WHERE version.title_id = position.title_id AND version.removed_at IS NULL AND file.removed_at IS NULL
+    AND file.filing IN ('listed', 'unidentified')
+)
+GROUP BY ordering.collection_id
 `
 
-type GetChosenOrderingParams struct {
-	UserID       int64
+type CountOrderingMembersRow struct {
 	CollectionID int64
-	Axis         string
+	MemberCount  int64
 }
 
-// The ordering a person chose to watch a series in (D159 section 1), a preference at the series'
-// work scope, when the series still has it; none when they chose none, or one it no longer has.
-func (q *Queries) GetChosenOrdering(ctx context.Context, arg GetChosenOrderingParams) (string, error) {
-	row := q.db.QueryRowContext(ctx, getChosenOrdering, arg.UserID, arg.CollectionID, arg.Axis)
-	var name string
-	err := row.Scan(&name)
-	return name, err
+// How many members each of some series' orderings has with a live file, as
+// ListOrderingMemberFilesWithPositions lists them: a series' episodes in the ordering its person
+// watches it in, which its progress counts. Each ordering is named [collection id, name]; the
+// page's orderings drive, in this order, by CROSS JOIN.
+func (q *Queries) CountOrderingMembers(ctx context.Context, orderingsJson string) ([]CountOrderingMembersRow, error) {
+	rows, err := q.db.QueryContext(ctx, countOrderingMembers, orderingsJson)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CountOrderingMembersRow{}
+	for rows.Next() {
+		var i CountOrderingMembersRow
+		if err := rows.Scan(&i.CollectionID, &i.MemberCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getEpisodePlace = `-- name: GetEpisodePlace :one
@@ -272,6 +295,52 @@ func (q *Queries) GetTitleOfFile(ctx context.Context, id int64) (GetTitleOfFileR
 	return i, err
 }
 
+const listChosenOrderings = `-- name: ListChosenOrderings :many
+SELECT ordering.collection_id, ordering.name
+FROM json_each(CAST(?1 AS TEXT)) AS chosen
+JOIN preference ON preference.user_id = ?2 AND preference.scope = 'work'
+  AND preference.scope_id = chosen.value AND preference.axis = ?3
+JOIN ordering ON ordering.collection_id = preference.scope_id
+  AND ordering.name = CAST(json_extract(preference.value_json, '$') AS TEXT)
+`
+
+type ListChosenOrderingsParams struct {
+	CollectionIdsJSON string
+	UserID            int64
+	Axis              string
+}
+
+type ListChosenOrderingsRow struct {
+	CollectionID int64
+	Name         string
+}
+
+// The ordering a person chose to watch each of some series in (D159 section 1), a preference at the
+// series' work scope, when the series still has it; a series they chose none for, or one it no
+// longer has, is not listed.
+func (q *Queries) ListChosenOrderings(ctx context.Context, arg ListChosenOrderingsParams) ([]ListChosenOrderingsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listChosenOrderings, arg.CollectionIdsJSON, arg.UserID, arg.Axis)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListChosenOrderingsRow{}
+	for rows.Next() {
+		var i ListChosenOrderingsRow
+		if err := rows.Scan(&i.CollectionID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEpisodesNotInOrdering = `-- name: ListEpisodesNotInOrdering :many
 SELECT aired.title_id, aired.group_number, aired.number_in_group, aired.sort_order, item_text.name,
   title.year, title.runtime_ms, title.identification_state,
@@ -358,6 +427,7 @@ func (q *Queries) ListEpisodesNotInOrdering(ctx context.Context, arg ListEpisode
 
 const listFilmsByAdded = `-- name: ListFilmsByAdded :many
 SELECT item.id AS item_id, item_text.name, title.year, title.identification_state, item.library_id, item.added_at,
+  title.found_at, title.found_file_modified_at,
   EXISTS (SELECT 1 FROM guessed_match WHERE guessed_match.item_id = item.id) AS is_guessed
 FROM title
 JOIN item ON item.id = title.id
@@ -365,21 +435,23 @@ LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 
 WHERE title.kind = 'movie' AND item.removed_at IS NULL
   AND (CAST(?1 AS INTEGER) = 1
     OR item.library_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT))))
-  AND (item.added_at < ?3 OR (item.added_at = ?3 AND item.id < ?4))
+  AND (title.found_at, title.found_file_modified_at, title.id)
+    < (?3, ?4, ?5)
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
     WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
   )
-ORDER BY item.added_at DESC, item.id DESC
-LIMIT ?5
+ORDER BY title.found_at DESC, title.found_file_modified_at DESC, title.id DESC
+LIMIT ?6
 `
 
 type ListFilmsByAddedParams struct {
-	IsEveryLibrary int64
-	LibraryIdsJSON string
-	BeforeAt       int64
-	BeforeID       int64
-	MaxRows        int64
+	IsEveryLibrary   int64
+	LibraryIdsJSON   string
+	BeforeFoundAt    int64
+	BeforeModifiedAt int64
+	BeforeID         int64
+	MaxRows          int64
 }
 
 type ListFilmsByAddedRow struct {
@@ -389,14 +461,19 @@ type ListFilmsByAddedRow struct {
 	IdentificationState string
 	LibraryID           *int64
 	AddedAt             int64
+	FoundAt             int64
+	FoundFileModifiedAt int64
 	IsGuessed           bool
 }
 
+// Newest first: the scan that found it, then its file's own time (title.found_at, step 0058), by
+// title_film_found from its top, stopping at its LIMIT; the row value is the page's keyset.
 func (q *Queries) ListFilmsByAdded(ctx context.Context, arg ListFilmsByAddedParams) ([]ListFilmsByAddedRow, error) {
 	rows, err := q.db.QueryContext(ctx, listFilmsByAdded,
 		arg.IsEveryLibrary,
 		arg.LibraryIdsJSON,
-		arg.BeforeAt,
+		arg.BeforeFoundAt,
+		arg.BeforeModifiedAt,
 		arg.BeforeID,
 		arg.MaxRows,
 	)
@@ -414,6 +491,8 @@ func (q *Queries) ListFilmsByAdded(ctx context.Context, arg ListFilmsByAddedPara
 			&i.IdentificationState,
 			&i.LibraryID,
 			&i.AddedAt,
+			&i.FoundAt,
+			&i.FoundFileModifiedAt,
 			&i.IsGuessed,
 		); err != nil {
 			return nil, err
@@ -729,6 +808,64 @@ func (q *Queries) ListOrderingMemberFilesWithPositions(ctx context.Context, arg 
 	return items, nil
 }
 
+const listOrderingMemberPositions = `-- name: ListOrderingMemberPositions :many
+SELECT ordering.collection_id, position.title_id, play_position.position_ms,
+  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
+    AS duration_ms
+FROM json_each(CAST(?1 AS TEXT)) AS named
+CROSS JOIN ordering ON ordering.collection_id = json_extract(named.value, '$[0]')
+  AND ordering.name = json_extract(named.value, '$[1]')
+CROSS JOIN position ON position.ordering_id = ordering.id
+CROSS JOIN item ON item.id = position.title_id AND item.removed_at IS NULL
+CROSS JOIN version ON version.title_id = position.title_id AND version.removed_at IS NULL
+CROSS JOIN file ON file.version_id = version.id AND file.removed_at IS NULL AND file.filing IN ('listed', 'unidentified')
+CROSS JOIN play_position ON play_position.user_id = ?2 AND play_position.file_id = file.id
+`
+
+type ListOrderingMemberPositionsParams struct {
+	OrderingsJSON string
+	UserID        int64
+}
+
+type ListOrderingMemberPositionsRow struct {
+	CollectionID int64
+	TitleID      int64
+	PositionMs   int64
+	DurationMs   int64
+}
+
+// A person's positions in the live files of each of some series' orderings' members, as
+// ListOrderingMemberFilesWithPositions has them, with each file's length where its probe knows it:
+// which members they finished, for the series' progress. Each ordering is named [collection id, name];
+// the page's orderings drive, in this order, by CROSS JOIN, each member's files then their positions.
+func (q *Queries) ListOrderingMemberPositions(ctx context.Context, arg ListOrderingMemberPositionsParams) ([]ListOrderingMemberPositionsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listOrderingMemberPositions, arg.OrderingsJSON, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOrderingMemberPositionsRow{}
+	for rows.Next() {
+		var i ListOrderingMemberPositionsRow
+		if err := rows.Scan(
+			&i.CollectionID,
+			&i.TitleID,
+			&i.PositionMs,
+			&i.DurationMs,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSeasonEpisodeDetails = `-- name: ListSeasonEpisodeDetails :many
 SELECT position.title_id, position.group_number, position.number_in_group, position.sort_order, item_text.name,
   title.year, title.runtime_ms, title.identification_state,
@@ -812,14 +949,16 @@ func (q *Queries) ListSeasonEpisodeDetails(ctx context.Context, arg ListSeasonEp
 
 const listSeriesByAdded = `-- name: ListSeriesByAdded :many
 SELECT item.id AS item_id, item_text.name, collection.year, collection.identification_state, item.library_id, item.added_at,
+  collection.found_at, collection.found_file_modified_at,
   EXISTS (SELECT 1 FROM guessed_match WHERE guessed_match.item_id = item.id) AS is_guessed
 FROM collection
-CROSS JOIN item ON item.id = collection.id
+JOIN item ON item.id = collection.id
 LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
 WHERE collection.kind = 'series' AND item.removed_at IS NULL
   AND (CAST(?1 AS INTEGER) = 1
     OR item.library_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT))))
-  AND (item.added_at < ?3 OR (item.added_at = ?3 AND item.id < ?4))
+  AND (collection.found_at, collection.found_file_modified_at, collection.id)
+    < (?3, ?4, ?5)
   AND EXISTS (
     SELECT 1 FROM collection_member
     CROSS JOIN version ON version.title_id = collection_member.member_title
@@ -827,16 +966,17 @@ WHERE collection.kind = 'series' AND item.removed_at IS NULL
     WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
       AND file.removed_at IS NULL
   )
-ORDER BY item.added_at DESC, item.id DESC
-LIMIT ?5
+ORDER BY collection.found_at DESC, collection.found_file_modified_at DESC, collection.id DESC
+LIMIT ?6
 `
 
 type ListSeriesByAddedParams struct {
-	IsEveryLibrary int64
-	LibraryIdsJSON string
-	BeforeAt       int64
-	BeforeID       int64
-	MaxRows        int64
+	IsEveryLibrary   int64
+	LibraryIdsJSON   string
+	BeforeFoundAt    int64
+	BeforeModifiedAt int64
+	BeforeID         int64
+	MaxRows          int64
 }
 
 type ListSeriesByAddedRow struct {
@@ -846,17 +986,19 @@ type ListSeriesByAddedRow struct {
 	IdentificationState *string
 	LibraryID           *int64
 	AddedAt             int64
+	FoundAt             int64
+	FoundFileModifiedAt int64
 	IsGuessed           bool
 }
 
-// The series are read first, by CROSS JOIN, and sorted: they are few, and walking item_added
-// newest first would pass every film and episode added between them, about seventy for each
-// series at the reference scale.
+// Newest first: the scan that found its newest episode, then that episode's file's own time
+// (collection.found_at, step 0058), by collection_series_found from its top, stopping at its LIMIT.
 func (q *Queries) ListSeriesByAdded(ctx context.Context, arg ListSeriesByAddedParams) ([]ListSeriesByAddedRow, error) {
 	rows, err := q.db.QueryContext(ctx, listSeriesByAdded,
 		arg.IsEveryLibrary,
 		arg.LibraryIdsJSON,
-		arg.BeforeAt,
+		arg.BeforeFoundAt,
+		arg.BeforeModifiedAt,
 		arg.BeforeID,
 		arg.MaxRows,
 	)
@@ -874,6 +1016,8 @@ func (q *Queries) ListSeriesByAdded(ctx context.Context, arg ListSeriesByAddedPa
 			&i.IdentificationState,
 			&i.LibraryID,
 			&i.AddedAt,
+			&i.FoundAt,
+			&i.FoundFileModifiedAt,
 			&i.IsGuessed,
 		); err != nil {
 			return nil, err

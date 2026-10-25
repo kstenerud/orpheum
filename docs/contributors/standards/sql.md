@@ -147,7 +147,8 @@ D181 is the policy and [migrations.md](../design/plans/migrations.md) the mechan
   derived data and schedules a rescan. Go code appears only for a data transform SQL cannot
   express, and such a step changes no schema. **Review-only.**
 - **Rebuilds follow one pattern**: create new, copy with explicit `rowid` where FTS content
-  depends on it, drop old, rename, recreate indexes, triggers and views. `CREATE TABLE … AS
+  depends on it, drop old, rename, recreate indexes, triggers and views; the views and the other
+  tables' triggers are dropped before the rename, which checks every trigger. `CREATE TABLE … AS
   SELECT` is not used. **Review-only.**
 - **Once migrations are live, every released version has a golden fixture; every golden
   migrates to a schema equal to a fresh install's; killing the runner after any step and

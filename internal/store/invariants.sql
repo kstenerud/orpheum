@@ -17,3 +17,16 @@ WHERE version.removed_at IS NULL AND item.removed_at IS NOT NULL AND EXISTS (
 SELECT title.id FROM title
 JOIN item ON item.id = title.id
 WHERE item.removed_at IS NULL AND NOT EXISTS (SELECT 1 FROM version WHERE version.title_id = title.id);
+
+-- invariant: every title and series is as new as its files say
+-- found_at and found_file_modified_at, which newest first sorts by, are derived by step 0058's
+-- triggers from the files; a write they missed leaves one out of date.
+SELECT title.id FROM title
+JOIN title_found ON title_found.title_id = title.id
+WHERE title.found_at IS NOT title_found.found_at
+  OR title.found_file_modified_at IS NOT title_found.found_file_modified_at
+UNION ALL
+SELECT collection.id FROM collection
+JOIN collection_found ON collection_found.collection_id = collection.id
+WHERE collection.found_at IS NOT collection_found.found_at
+  OR collection.found_file_modified_at IS NOT collection_found.found_file_modified_at;

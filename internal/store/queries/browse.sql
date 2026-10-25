@@ -26,7 +26,10 @@ ORDER BY sort_key.collation_key, sort_key.item_id
 LIMIT sqlc.arg(max_rows);
 
 -- name: ListFilmsByAdded :many
+-- Newest first: the scan that found it, then its file's own time (title.found_at, step 0058), by
+-- title_film_found from its top, stopping at its LIMIT; the row value is the page's keyset.
 SELECT item.id AS item_id, item_text.name, title.year, title.identification_state, item.library_id, item.added_at,
+  title.found_at, title.found_file_modified_at,
   EXISTS (SELECT 1 FROM guessed_match WHERE guessed_match.item_id = item.id) AS is_guessed
 FROM title
 JOIN item ON item.id = title.id
@@ -34,12 +37,13 @@ LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 
 WHERE title.kind = 'movie' AND item.removed_at IS NULL
   AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
     OR item.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
-  AND (item.added_at < sqlc.arg(before_at) OR (item.added_at = sqlc.arg(before_at) AND item.id < sqlc.arg(before_id)))
+  AND (title.found_at, title.found_file_modified_at, title.id)
+    < (sqlc.arg(before_found_at), sqlc.arg(before_modified_at), sqlc.arg(before_id))
   AND EXISTS (
     SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
     WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
   )
-ORDER BY item.added_at DESC, item.id DESC
+ORDER BY title.found_at DESC, title.found_file_modified_at DESC, title.id DESC
 LIMIT sqlc.arg(max_rows);
 
 -- name: ListSeriesByName :many
@@ -64,18 +68,19 @@ ORDER BY sort_key.collation_key, sort_key.item_id
 LIMIT sqlc.arg(max_rows);
 
 -- name: ListSeriesByAdded :many
--- The series are read first, by CROSS JOIN, and sorted: they are few, and walking item_added
--- newest first would pass every film and episode added between them, about seventy for each
--- series at the reference scale.
+-- Newest first: the scan that found its newest episode, then that episode's file's own time
+-- (collection.found_at, step 0058), by collection_series_found from its top, stopping at its LIMIT.
 SELECT item.id AS item_id, item_text.name, collection.year, collection.identification_state, item.library_id, item.added_at,
+  collection.found_at, collection.found_file_modified_at,
   EXISTS (SELECT 1 FROM guessed_match WHERE guessed_match.item_id = item.id) AS is_guessed
 FROM collection
-CROSS JOIN item ON item.id = collection.id
+JOIN item ON item.id = collection.id
 LEFT JOIN item_text ON item_text.item_id = collection.id AND item_text.is_original = 1
 WHERE collection.kind = 'series' AND item.removed_at IS NULL
   AND (CAST(sqlc.arg(is_every_library) AS INTEGER) = 1
     OR item.library_id IN (SELECT value FROM json_each(CAST(sqlc.arg(library_ids_json) AS TEXT))))
-  AND (item.added_at < sqlc.arg(before_at) OR (item.added_at = sqlc.arg(before_at) AND item.id < sqlc.arg(before_id)))
+  AND (collection.found_at, collection.found_file_modified_at, collection.id)
+    < (sqlc.arg(before_found_at), sqlc.arg(before_modified_at), sqlc.arg(before_id))
   AND EXISTS (
     SELECT 1 FROM collection_member
     CROSS JOIN version ON version.title_id = collection_member.member_title
@@ -83,7 +88,7 @@ WHERE collection.kind = 'series' AND item.removed_at IS NULL
     WHERE collection_member.collection_id = collection.id AND version.removed_at IS NULL
       AND file.removed_at IS NULL
   )
-ORDER BY item.added_at DESC, item.id DESC
+ORDER BY collection.found_at DESC, collection.found_file_modified_at DESC, collection.id DESC
 LIMIT sqlc.arg(max_rows);
 
 -- name: GetTitleDetail :one
@@ -151,15 +156,16 @@ JOIN position ON position.ordering_id = ordering.id
 WHERE ordering.collection_id = sqlc.arg(collection_id) AND ordering.name = sqlc.arg(ordering_name)
   AND position.title_id = sqlc.arg(title_id);
 
--- name: GetChosenOrdering :one
--- The ordering a person chose to watch a series in (D159 section 1), a preference at the series'
--- work scope, when the series still has it; none when they chose none, or one it no longer has.
-SELECT ordering.name
-FROM preference
+-- name: ListChosenOrderings :many
+-- The ordering a person chose to watch each of some series in (D159 section 1), a preference at the
+-- series' work scope, when the series still has it; a series they chose none for, or one it no
+-- longer has, is not listed.
+SELECT ordering.collection_id, ordering.name
+FROM json_each(CAST(sqlc.arg(collection_ids_json) AS TEXT)) AS chosen
+JOIN preference ON preference.user_id = sqlc.arg(user_id) AND preference.scope = 'work'
+  AND preference.scope_id = chosen.value AND preference.axis = sqlc.arg(axis)
 JOIN ordering ON ordering.collection_id = preference.scope_id
-  AND ordering.name = CAST(json_extract(preference.value_json, '$') AS TEXT)
-WHERE preference.user_id = sqlc.arg(user_id) AND preference.scope = 'work'
-  AND preference.scope_id = sqlc.arg(collection_id) AND preference.axis = sqlc.arg(axis);
+  AND ordering.name = CAST(json_extract(preference.value_json, '$') AS TEXT);
 
 -- name: GetSeriesDetail :one
 -- A series, with a failure of its own to be fetched and a person's refresh waiting (D231 section 4).
@@ -347,3 +353,38 @@ LEFT JOIN item_text ON item_text.item_id = position.title_id AND item_text.is_or
 LEFT JOIN play_position ON play_position.file_id = file.id AND play_position.user_id = sqlc.arg(user_id)
 WHERE ordering.collection_id = sqlc.arg(collection_id) AND ordering.name = sqlc.arg(ordering_name)
 ORDER BY position.sort_order, version.id, file.part_index, file.id;
+
+-- name: CountOrderingMembers :many
+-- How many members each of some series' orderings has with a live file, as
+-- ListOrderingMemberFilesWithPositions lists them: a series' episodes in the ordering its person
+-- watches it in, which its progress counts. Each ordering is named [collection id, name]; the
+-- page's orderings drive, in this order, by CROSS JOIN.
+SELECT ordering.collection_id, count(*) AS member_count
+FROM json_each(CAST(sqlc.arg(orderings_json) AS TEXT)) AS named
+CROSS JOIN ordering ON ordering.collection_id = json_extract(named.value, '$[0]')
+  AND ordering.name = json_extract(named.value, '$[1]')
+CROSS JOIN position ON position.ordering_id = ordering.id
+CROSS JOIN item ON item.id = position.title_id AND item.removed_at IS NULL
+WHERE EXISTS (
+  SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+  WHERE version.title_id = position.title_id AND version.removed_at IS NULL AND file.removed_at IS NULL
+    AND file.filing IN ('listed', 'unidentified')
+)
+GROUP BY ordering.collection_id;
+
+-- name: ListOrderingMemberPositions :many
+-- A person's positions in the live files of each of some series' orderings' members, as
+-- ListOrderingMemberFilesWithPositions has them, with each file's length where its probe knows it:
+-- which members they finished, for the series' progress. Each ordering is named [collection id, name];
+-- the page's orderings drive, in this order, by CROSS JOIN, each member's files then their positions.
+SELECT ordering.collection_id, position.title_id, play_position.position_ms,
+  CAST(coalesce((SELECT file_probe.duration_ms FROM file_probe WHERE file_probe.file_id = file.id), 0) AS INTEGER)
+    AS duration_ms
+FROM json_each(CAST(sqlc.arg(orderings_json) AS TEXT)) AS named
+CROSS JOIN ordering ON ordering.collection_id = json_extract(named.value, '$[0]')
+  AND ordering.name = json_extract(named.value, '$[1]')
+CROSS JOIN position ON position.ordering_id = ordering.id
+CROSS JOIN item ON item.id = position.title_id AND item.removed_at IS NULL
+CROSS JOIN version ON version.title_id = position.title_id AND version.removed_at IS NULL
+CROSS JOIN file ON file.version_id = version.id AND file.removed_at IS NULL AND file.filing IN ('listed', 'unidentified')
+CROSS JOIN play_position ON play_position.user_id = sqlc.arg(user_id) AND play_position.file_id = file.id;

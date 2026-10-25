@@ -397,3 +397,54 @@ func TestSchema_NamesEveryReasonAFileCannotBeReadNow(t *testing.T) {
 		}
 	}
 }
+
+// titlesProgress is GET path's entries in short: "id:watchedPercent:finished/episodes" each.
+func (harness testHarness) titlesProgress(t *testing.T, path, token string) string {
+	t.Helper()
+	var page struct {
+		Titles []EntryBody `json:"titles"`
+	}
+	harness.readJSON(t, path, token, &page)
+	var entries []string
+	for _, entry := range page.Titles {
+		entries = append(entries, fmt.Sprintf("%d:%d:%d/%d", entry.ID, entry.WatchedPercent,
+			entry.FinishedEpisodeCount, entry.EpisodeCount))
+	}
+	return strings.Join(entries, " ")
+}
+
+// A list shows how far the person is through each of its entries (the owner, 2026-10-25): a film
+// where Continue Watching would resume it, by the same rule, so not once hidden; a series how many of
+// its episodes they finished of how many it has, in the ordering they watch it in.
+func TestBrowse_AListShowsHowFarThePersonIsThroughEach(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	user := harness.createAdminAndSignIn(t)
+	harness.shelveDVDOrder(t)
+	storetest.ExecRaw(t, harness.databasePath,
+		`INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (1, '{}', 1000000)
+		 ON CONFLICT (file_id) DO UPDATE SET duration_ms = excluded.duration_ms`)
+	harness.setPositionReadAt(t, 1, 300_000, 5) // Metropolis, 30% in
+	harness.setPositionReadAt(t, 3, 1000, 6)    // 22, aired S1E2 and in no DVD disc, finished
+	harness.setPositionReadAt(t, 4, 1000, 7)    // 23, finished
+	harness.setPositionReadAt(t, 5, 500, 8)     // 24, halfway
+	for _, path := range []string{"/titles?kind=movie&sort=name&limit=10", "/titles?kind=movie&sort=added&limit=10"} {
+		if got, want := harness.titlesProgress(t, path, user), "10:30:0/0"; got != want {
+			t.Errorf("%s: %s; want %s, Metropolis 30%% in", path, got, want)
+		}
+	}
+	series := "/titles?kind=series&sort=added&limit=10"
+	if got, want := harness.titlesProgress(t, series, user), "20:0:2/4"; got != want {
+		t.Errorf("series in aired: %s; want %s, two of its four episodes finished", got, want)
+	}
+	storetest.ExecRaw(t, harness.databasePath,
+		`INSERT INTO preference (user_id, scope, scope_id, axis, value_json, set_at)
+		 VALUES (1, 'work', 20, 'episode_ordering', '"tmdb:dvd"', 1)`,
+		`INSERT INTO progress_hide (user_id, item_id, hidden_at) VALUES (1, 10, 5)`)
+	if got, want := harness.titlesProgress(t, "/titles?kind=series&sort=name&limit=10", user), "20:0:1/3"; got != want {
+		t.Errorf("series in the DVD order: %s; want %s, one of its three finished", got, want)
+	}
+	if got, want := harness.titlesProgress(t, "/titles?kind=movie&sort=name&limit=10", user), "10:0:0/0"; got != want {
+		t.Errorf("Metropolis hidden: %s; want %s, as Continue Watching leaves it out", got, want)
+	}
+}

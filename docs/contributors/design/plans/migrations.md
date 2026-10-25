@@ -93,8 +93,10 @@ upgraded file is a known state, not a half-state.
 - **Plain SQL, read by sqlc**, so the generated queries always match the migrated schema. A step
   never calls generated query code or current Go constants (Room, Apple).
 - **Rebuilds follow one documented pattern** — create new, copy **with explicit `rowid`** where FTS
-  content depends on it, drop old, rename new, recreate indexes, triggers and views — and views
-  are dropped before the rename. `CREATE TABLE … AS SELECT` is not used.
+  content depends on it, drop old, rename new, recreate indexes, triggers and views — and views,
+  and every other table's trigger, are dropped before the rename: a rename checks every trigger,
+  and step 0058's triggers on `version`, `title` and `collection_member` read `file` through the
+  views `title_found` and `collection_found`. `CREATE TABLE … AS SELECT` is not used.
 - **The runner records each applied step's checksum** (`schema_step`), in the step's own
   transaction, and refuses a database where an applied step's text has since changed. A committed step never
   changes; a draft applied by the dev loop and then edited before it was committed does, and
