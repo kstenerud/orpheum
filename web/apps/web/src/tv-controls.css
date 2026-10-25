@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: MPL-2.0 */
 
 /* A television's player overlay (tv-controls.tsx): along the film's bottom, over it, in full
-   screen too, as Jellyfin's (the owner, 2026-10-25). Hidden, it is out of focus's reach as well as
-   out of sight; after a seek only the scrub row shows. */
+   screen too, as Jellyfin's (the owner, 2026-10-25). Hidden, it is out of the page altogether, with
+   no fade, so nothing lies over the film while it plays: a weak stick then composites every frame
+   (the owner's Fire TV, 2026-10-25: playback choppy with it hidden over the film). After a seek
+   only the scrub row shows. */
 .tv-controls {
   position: absolute;
   inset-inline: 0;
@@ -12,12 +14,10 @@
   padding: var(--space-7) var(--space-6) var(--space-5);
   background: linear-gradient(to top, rgb(0 0 0 / 85%), transparent);
   color: #fff;
-  transition: opacity var(--duration-quick);
 }
 
 .tv-controls[data-shown="none"] {
-  visibility: hidden;
-  opacity: 0;
+  display: none;
 }
 
 .tv-controls[data-shown="scrub"] .tv-controls__buttons {
