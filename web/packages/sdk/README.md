@@ -74,6 +74,14 @@ the web app's `/lab` and the cast receiver (plans/tv-device-tests.md); neither t
   to the connection with the fewest under way, and a switchable fetch moves the API's requests to a
   new path while the app runs, saying so in the console. `src/rtc-transport.test.ts`; in a real
   browser against a real core, `web/e2e/webrtc.spec.ts`.
+- **A WebRTC transport holds one connection, and more only while its requests crowd it**: another
+  opens, one at a time up to `clientConnections`, while every one up carries
+  `growWhenEachCarries` or a request waits for room; one beyond the last closes once it has carried
+  nothing, and held no socket, for `idleClosesAfterMs`; one gone before `settledAfterMs` is replaced
+  only after a wait that doubles. The core holds 16 per network, and four per tab filled them with
+  four tabs (staging, 2026-10-25). A connection counts as up only once the core's verdict holds it
+  (rtcapi's `Verdict`); one the core turns away fails with `TurnedAway`, which `isTurnedAway` reads.
+  `src/rtc-transport.test.ts`, `src/rtc-connect.test.ts`.
 - **On the WebRTC path, what the browser loads by itself goes over the transport too** (W2b): the
   service worker (`apps/web/src/sw.ts`, built on its own as one classic script) answers a WebRTC
   page's loads under `/api/v1/` by asking the page over a message port, and the page answers

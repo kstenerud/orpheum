@@ -43,7 +43,7 @@ export {
 } from "./rtc-loopback.ts";
 export type { Loopback, LoopbackResult } from "./rtc-loopback.ts";
 export { browserFetch, textWhenReady, whenReady } from "./ready.ts";
-export { connectRtc } from "./rtc-connect.ts";
+export { connectRtc, isTurnedAway, TurnedAway } from "./rtc-connect.ts";
 export { RtcTransport, SwitchableFetch } from "./rtc-transport.ts";
 export { directFetch, directPathWaitMs, firstDirectPath } from "./direct-path.ts";
 export { isNetworkFailure, namingFailures, PathKeeper } from "./path-keeper.ts";

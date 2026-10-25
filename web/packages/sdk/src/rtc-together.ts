@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import { apiPrefix } from "./client.ts";
-import type { ChannelLike } from "./rtc-transport.ts";
+import type { ChannelLike } from "./rtc-request.ts";
 import type { OpenTogetherSocket } from "./together.ts";
 
 /** The close code of a channel that ended without the core saying why: a WebSocket's "abnormal". */

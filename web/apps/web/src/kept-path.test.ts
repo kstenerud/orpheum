@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 // SPDX-License-Identifier: MPL-2.0
 
+import { RtcTransport } from "@orpheum/sdk";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Reached } from "./discovery-start.ts";
@@ -173,4 +174,82 @@ describe("the kept path", () => {
     kept.close();
     globalThis.fetch = realFetch;
   });
+
+  it("closes a WebRTC transport it moved away from when it closes, not only the one in use (staging, 2026-10-25)", async () => {
+    vi.useFakeTimers();
+    const home: Reached = {
+      kind: "direct",
+      origin: "https://192-168-1-2.core1.orpheum-core.com:8443",
+    };
+    const peer = closingPeer();
+    const webrtc: Reached = { kind: "webrtc", transport: new RtcTransport([peer]) };
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (): Promise<Response> => Promise.resolve(new Response("{}"));
+    const kept = keepPath(
+      {
+        first: webrtc,
+        another: () => Promise.resolve(webrtc),
+        better: (current) => Promise.resolve(current === webrtc ? home : undefined),
+        onLocalNetworkGranted: () => () => undefined,
+        onLocalNetworkAsking: () => () => undefined,
+      },
+      { token: () => undefined },
+    );
+    kept.carried.catch(() => undefined);
+    const told: string[] = [];
+    kept.onPathMove((to) => {
+      told.push(to);
+    });
+    await vi.advanceTimersByTimeAsync(betterPathFirstMs);
+    expect(told).toEqual([`the core's name, ${home.origin}`]);
+    expect(peer.isClosed).toBe(false);
+    kept.close();
+    globalThis.fetch = realFetch;
+    expect(peer.isClosed).toBe(true);
+  });
+
+  it("closes its WebRTC transport when the page leaves for good, and keeps it for the back button", () => {
+    const kept = (peer: ReturnType<typeof closingPeer>): ReturnType<typeof keepPath> => {
+      const webrtc: Reached = { kind: "webrtc", transport: new RtcTransport([peer]) };
+      const path = keepPath(
+        {
+          first: webrtc,
+          another: () => Promise.resolve(webrtc),
+          better: () => Promise.resolve(undefined),
+          onLocalNetworkGranted: () => () => undefined,
+          onLocalNetworkAsking: () => () => undefined,
+        },
+        { token: () => undefined },
+      );
+      path.carried.catch(() => undefined);
+      return path;
+    };
+    const cached = closingPeer();
+    const keptForBack = kept(cached);
+    window.dispatchEvent(Object.assign(new Event("pagehide"), { persisted: true }));
+    expect(cached.isClosed).toBe(false);
+    keptForBack.close();
+    const left = closingPeer();
+    kept(left);
+    window.dispatchEvent(Object.assign(new Event("pagehide"), { persisted: false }));
+    expect(left.isClosed).toBe(true);
+  });
 });
+
+/** A peer connection that only says whether it was closed. */
+function closingPeer(): {
+  isClosed: boolean;
+  createDataChannel: () => never;
+  close: () => void;
+} {
+  const peer = {
+    isClosed: false,
+    createDataChannel: (): never => {
+      throw new Error("no channel is opened in this test");
+    },
+    close: (): void => {
+      peer.isClosed = true;
+    },
+  };
+  return peer;
+}

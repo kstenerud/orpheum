@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 
 import { rtcTogetherSocket } from "./rtc-together.ts";
-import type { ChannelLike, ChannelListener } from "./rtc-transport.ts";
+import type { ChannelLike, ChannelListener } from "./rtc-request.ts";
 
 /** A channel the test plays the core on. */
 class FakeChannel implements ChannelLike {
