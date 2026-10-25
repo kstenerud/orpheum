@@ -1,0 +1,80 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* A television's player overlay (tv-controls.tsx): along the film's bottom, over it, in full
+   screen too, as Jellyfin's (the owner, 2026-10-25). Hidden, it is out of focus's reach as well as
+   out of sight; after a seek only the scrub row shows. */
+.tv-controls {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-7) var(--space-6) var(--space-5);
+  background: linear-gradient(to top, rgb(0 0 0 / 85%), transparent);
+  color: #fff;
+  transition: opacity var(--duration-quick);
+}
+
+.tv-controls[data-shown="none"] {
+  visibility: hidden;
+  opacity: 0;
+}
+
+.tv-controls[data-shown="scrub"] .tv-controls__buttons {
+  visibility: hidden;
+}
+
+.tv-controls__buttons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.tv-controls__play {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: rgb(255 255 255 / 12%);
+  color: #fff;
+  font-size: 1.25rem;
+}
+
+.tv-controls__ends {
+  margin-inline-start: auto;
+  font-size: var(--font-size-small);
+}
+
+.tv-controls__scrub-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.tv-controls__scrub {
+  width: 100%;
+  margin-block: var(--space-2);
+  accent-color: var(--color-accent);
+}
+
+.tv-controls__time {
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The stage full screen, as a television's player opens: the film fills it, black around it. */
+.film-player__stage:fullscreen {
+  display: grid;
+  place-items: center;
+  background: #000;
+}
+
+.film-player__stage:fullscreen .film-player__video {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: contain;
+}
