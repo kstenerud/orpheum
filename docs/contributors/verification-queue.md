@@ -638,3 +638,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   §6.4). Passes when the TV pauses and plays, and seeks 10 s, without the take-back prompt, and the
   phone shows *Paused* or *Playing* and the new position within a second or two.
   (`web/apps/web/src/cast-receiver.tsx`, `player-commands.ts`)
+- [ ] **VQ67** — Sign the Fire TV stick (Silk, in spatial mode and again in pointer mode), the TCL TV
+  (TV Bro) and a laptop's Chrome in as one person whose autoplay is on (Your account, *Playing*).
+  Play an episode that is not its season's last, seek to a minute before its end and let it play
+  (plans/up-next.md). Passes when, 30 s before the end, *Up next: S1E3 · ‹name›* shows with its still
+  in the picture's top corner, leaving the picture's end in view; at the end it counts *Plays in 10 s*
+  down and plays the next episode; done again, a press of Down stops the count and leaves the
+  offer, OK on it plays it, and Back dismisses it; with the TV's overlay open (OK while it plays),
+  Up from play reaches the offer and OK presses it. Then turn autoplay off and play to the end: the
+  offer stays with no count, focused, and OK plays it. On the laptop the mouse does the same, and
+  its × dismisses it. (`web/apps/web/src/up-next.tsx`, `tv-controls.tsx`)

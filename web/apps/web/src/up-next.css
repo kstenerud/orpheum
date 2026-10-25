@@ -1,0 +1,52 @@
+/* SPDX-License-Identifier: MPL-2.0 */
+
+/* The Up next offer (up-next.tsx): a card in the film's top corner, inside its stage so it stays in
+   full screen, small enough to leave the ending in view (D139). Clear of a television's overlay
+   along the bottom and of the browser's own controls. */
+.up-next {
+  position: absolute;
+  inset-block-start: var(--space-5);
+  inset-inline-end: var(--space-5);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  max-width: min(26rem, calc(100% - 2 * var(--space-5)));
+}
+
+.up-next__play {
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-card);
+  background: rgb(0 0 0 / 80%);
+  color: #fff;
+  text-align: start;
+}
+
+.up-next__still {
+  display: block;
+  width: 8rem;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-control);
+  background: rgb(255 255 255 / 12%);
+  object-fit: cover;
+}
+
+.up-next__words {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.up-next__count {
+  font-size: var(--font-size-small);
+}
+
+.up-next__dismiss {
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: rgb(0 0 0 / 80%);
+  color: #fff;
+}
