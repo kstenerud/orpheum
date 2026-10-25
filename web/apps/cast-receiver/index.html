@@ -4,7 +4,37 @@
   <head>
     <meta charset="utf-8" />
     <title>Orpheum</title>
-    <!-- The Cast Application Framework receiver SDK script tag is added in M5 (plans/cut-a.md §8). -->
+    <!-- The Cast Application Framework's receiver SDK, from Google: the core's policy for /cast/ allows it. -->
+    <script src="https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
+    <style>
+      body {
+        margin: 0;
+        background: #000;
+        color: #f3eee4;
+        font:
+          1.25rem/1.4 system-ui,
+          sans-serif;
+      }
+      .receiver__video {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+      .receiver__log {
+        position: fixed;
+        inset: auto 0 0 0;
+        max-height: 40vh;
+        margin: 0;
+        padding: 1rem 2rem;
+        overflow: hidden;
+        background: rgb(0 0 0 / 60%);
+        font:
+          1rem/1.3 ui-monospace,
+          monospace;
+        white-space: pre-wrap;
+      }
+    </style>
   </head>
   <body>
     <script type="module" src="/src/main.ts"></script>
