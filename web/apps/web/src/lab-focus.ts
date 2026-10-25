@@ -140,11 +140,15 @@ export const geometricFocus: FocusEngine = {
  * Moves real DOM focus by engine on each arrow key the page hears, the browser's own handling of the
  * key prevented, so the engine alone moves it; the input probe measures each move by the focus it
  * sees arrive. An arrow while nothing in region has focus (the page just opened, focus on its body)
- * focuses region's first element, as a TV app's first press does (owner, Firefox, 2026-10-25: the
- * arrows reached the page and moved nothing). An arrow in a field of a form is the field's. Returns
- * the stopping.
+ * focuses start's first element (region's, unless given), as a TV app's first press does (owner,
+ * Firefox, 2026-10-25: the arrows reached the page and moved nothing). An arrow in a field of a
+ * form is the field's. Returns the stopping.
  */
-export function driveFocus(region: HTMLElement, engine: FocusEngine): () => void {
+export function driveFocus(
+  region: HTMLElement,
+  engine: FocusEngine,
+  start: HTMLElement = region,
+): () => void {
   const handle = (event: KeyboardEvent): void => {
     const direction = directionOfKey(event.key, keyCodeOf(event));
     if (direction === undefined) {
@@ -156,7 +160,7 @@ export function driveFocus(region: HTMLElement, engine: FocusEngine): () => void
       engine.next(from, direction, region)?.focus();
     } else if (!(from instanceof HTMLInputElement || from instanceof HTMLSelectElement)) {
       event.preventDefault();
-      region.querySelector<HTMLElement>(focusableSelector)?.focus();
+      start.querySelector<HTMLElement>(focusableSelector)?.focus();
     }
   };
   document.addEventListener("keydown", handle);
