@@ -32,7 +32,7 @@ import type { LadderOffer } from "./moving-down.ts";
 import { usePlayState } from "./play-state.ts";
 import { usePlayerCommands } from "./player-commands.ts";
 import { TvControls } from "./tv-controls.tsx";
-import { isTelevision } from "./tv-device.ts";
+import { isBrowserFullscreen, isTelevision, thisBrowserWindow } from "./tv-device.ts";
 import { useServices } from "./services.tsx";
 import { BarePlayer } from "./bare-player.tsx";
 import { FrameTimingNote } from "./frame-timing-note.tsx";
@@ -132,6 +132,7 @@ function PlayerView(
   // Whether its lowest quality cannot keep up, which a host's session tells everyone (D247 §8).
   const [cannotKeepUp, setCannotKeepUp] = useState<CannotKeepUp | undefined>(undefined);
   usePlayerCommands(video);
+  useFullscreenAsTheBrowserIs(video);
   const { mediaToken } = props.decision;
   const onLowerQuality = useCallback(
     (offer: LadderOffer, positionMs: number) => {
@@ -181,6 +182,21 @@ function PlayerView(
       />
     </>
   );
+}
+
+/**
+ * Puts the player's stage full screen as it opens where the browser itself is full screen (F11, a
+ * Mac's full-screen window), as a television's player does (the owner, 2026-10-25); the press that
+ * opened the film lets the page ask, and a browser that refuses leaves it in the page.
+ */
+function useFullscreenAsTheBrowserIs(video: HTMLVideoElement | null): void {
+  useEffect(() => {
+    const stage = video?.closest(".film-player__stage");
+    const isAsked = !isTelevision(navigator.userAgent) && isBrowserFullscreen(thisBrowserWindow());
+    if (isAsked && stage instanceof HTMLElement && document.fullscreenElement === null) {
+      stage.requestFullscreen().catch(() => undefined);
+    }
+  }, [video]);
 }
 
 /**
