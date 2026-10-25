@@ -78,7 +78,9 @@
 //     TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings. Doctor warns when a node has a
 //     GPU and no hardware encoder works on it. TestHardwareFinding_WarnsWhenANodeHasAGPUButEncodesOnTheProcessor.
 //     Doctor warns when a node runs another build than the server's (D225 §5).
-//     TestNodeBuildFinding_WarnsWhenANodeRunsAnotherBuildThanTheServer.
+//     TestNodeBuildFinding_WarnsWhenANodeRunsAnotherBuildThanTheServer. Doctor warns when a node's
+//     FFmpeg reads films by their paths, without the dead-share protection (D330).
+//     TestFilmReadingFinding_WarnsOfANodeWhoseFFmpegReadsFilmsByTheirPaths.
 //   - The System page lists what is down, each with why, since when and its next check, and each
 //     outside host's provider: its rate, its background share, its quota and its credentials
 //     (D231 §5, §12). Each node says whether it is connected, silent or awaiting its hello

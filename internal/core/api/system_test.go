@@ -554,6 +554,22 @@ func TestShareFinding_WarnsOfAShareThatWaitsForItsServerForGood(t *testing.T) {
 	}
 }
 
+// A node whose FFmpeg reads films by their paths, the stock build, is warned of, since it loses the
+// dead-share protection; one reading them through the node is fine (D330; audit 2026-10-25 N9).
+func TestFilmReadingFinding_WarnsOfANodeWhoseFFmpegReadsFilmsByTheirPaths(t *testing.T) {
+	t.Parallel()
+	through := filmReadingFinding("local", nodeproto.Hardware{ReadsFilmsThroughNode: true})
+	if through.Verdict != VerdictOK || !strings.Contains(through.Detail, "fdproxy") {
+		t.Errorf("a node whose FFmpeg reads films through it: %+v, want ok, saying so", through)
+	}
+	byPath := filmReadingFinding("local", nodeproto.Hardware{})
+	if byPath.Verdict != VerdictWarning || !strings.Contains(byPath.Detail, "by its path") ||
+		!strings.Contains(byPath.Action, "fdproxy") {
+		t.Errorf("a node on the stock FFmpeg: %+v, want a warning saying runs read films by path, and the build to run",
+			byPath)
+	}
+}
+
 // Every encoder a node may report is one the schema names, for its trials and its choice: one the
 // schema lacks reaches a client whose types do not know it (D225 §3, D332).
 func TestSchema_NamesEveryEncoderANodeMayReport(t *testing.T) {

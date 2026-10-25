@@ -76,7 +76,8 @@ func (server *Server) collectFindings(ctx context.Context, dependencies *Depende
 		}
 		findings = append(findings, nodeBuildFinding(node.Name, facts.Hello.Build, dependencies.System.Build),
 			ConfinementFinding("node "+node.Name, facts.Hello.Confinement),
-			hardwareFinding(node.Name, facts.Hello.Hardware), shareFinding(node.Name, facts.Hello.Devices))
+			hardwareFinding(node.Name, facts.Hello.Hardware), shareFinding(node.Name, facts.Hello.Devices),
+			filmReadingFinding(node.Name, facts.Hello.Hardware))
 		if facts.Status != nil && facts.Status.PreparedUsage != nil {
 			findings = append(findings, preparedFinding(node.Name, *facts.Status.PreparedUsage))
 		}
@@ -113,6 +114,25 @@ func shareFinding(nodeName string, devices []nodeproto.Device) FindingBody {
 		finding.Detail = "passed on from another machine or program, whose mount the node cannot see: " +
 			strings.Join(passedOn, "; ") + ". If that is a network share mounted to wait for its server, mount " +
 			"it with soft,timeo=100,retrans=3 (NFS) there"
+	}
+	return finding
+}
+
+// filmReadingFinding is whether a node's FFmpeg reads each film through the node (D330): a warning
+// for one that reads films by their paths, as the stock FFmpeg build does, which loses the
+// dead-share protection, a run's read of a share whose server went away hanging in the kernel where
+// the node cannot end it (audit 2026-10-25 N9).
+func filmReadingFinding(nodeName string, hardware nodeproto.Hardware) FindingBody {
+	finding := FindingBody{
+		Check: "how FFmpeg reads films on node " + nodeName, Verdict: VerdictOK,
+		Detail: "each run reads its film through the node (fdproxy), which a share that goes away cannot hang",
+	}
+	if !hardware.ReadsFilmsThroughNode {
+		finding.Verdict = VerdictWarning
+		finding.Detail = "this node's FFmpeg has no fdproxy protocol, so each run reads its film by its path: " +
+			"if a network share's server goes away, a run reading it can hang where the node cannot end it"
+		finding.Action = "run the node with Orpheum's own FFmpeg build, which has the fdproxy protocol, " +
+			"and restart it"
 	}
 	return finding
 }
