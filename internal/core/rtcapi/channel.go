@@ -66,6 +66,9 @@ type servedChannel struct {
 	// ownNetworks are the core's own public IPv6 networks on the channel's connection, which the
 	// request's context carries (OwnIPv6NetworksOf); nil carries none.
 	ownNetworks func() []netip.Prefix
+	// held is the channel's connection's record, which counts its requests and learns whose it is
+	// (NoteClient); nil keeps none.
+	held *heldConnection
 }
 
 // serveChannel serves the one request a channel carries: its head, its body, an empty message ending
@@ -110,6 +113,7 @@ func serveChannel(
 		if served.ownNetworks != nil {
 			overWebRTC = context.WithValue(overWebRTC, ownNetworksKey{}, served.ownNetworks())
 		}
+		overWebRTC = withHeld(overWebRTC, served.held)
 		request, err := reader.request(overWebRTC, remote())
 		if err != nil {
 			logger.WarnContext(ctx, "a request over WebRTC was not one", "err", err)
