@@ -20,9 +20,22 @@ import {
   type LabInputEvent,
   type NotedEvent,
 } from "./lab-events.ts";
+import { FieldTest, useViewportChanges } from "./lab-field.tsx";
 import { LabFrame, yesNo } from "./lab-frame.tsx";
-import { driveFocus, geometricFocus } from "./lab-focus.ts";
+import { caretOf, driveFocus, geometricFocus, type Direction } from "./lab-focus.ts";
+import { FullscreenTest, fullscreenElementOf, leaveFullscreenAt } from "./lab-fullscreen.tsx";
 import { heardKeyOf, keyEntryOf, withKey, type KeyEntry } from "./lab-keys.ts";
+import {
+  PadLine,
+  padIdKept,
+  usePadHandlers,
+  usePadNavigation,
+  usePads,
+  type PadButtonPress,
+  type PadState,
+  type StickPress,
+} from "./lab-pad-input.tsx";
+import { padButtonNameOf, type OkButton } from "./lab-pads.ts";
 import { eventTimeMs, latencySummary, type LatencySummary } from "./lab-timing.ts";
 import { toneUrl } from "./lab-tone.ts";
 import { useServices } from "./services.tsx";
@@ -41,11 +54,12 @@ const mediaActions: readonly NonNullable<LabInputEvent["action"]>[] = [
 ];
 
 /**
- * The tiles' size: two rows of six, enough to try every arrow while the whole page fits a Fire TV's
- * 960 × 540 without scrolling (the owner, 2026-10-25). A justified constant, the page's layout.
+ * The tiles' size: one row of six, with the text field and the full-screen test below them, enough
+ * to try every arrow while the whole page fits a Fire TV's 960 × 540 without scrolling (the owner,
+ * 2026-10-25). A justified constant, the page's layout.
  */
 const tileColumns = 6;
-const tileRows = 2;
+const tileRows = 1;
 
 /** A key that came longer ago than this before focus moved did not move it, in milliseconds. */
 const keyMovesFocusWithinMs = 1000;
@@ -61,47 +75,77 @@ type Press =
       readonly code: string;
       readonly keyCode: number;
       readonly isRepeat: boolean;
+      readonly isInField: boolean;
     }
   | { readonly kind: "historyStep" }
-  | { readonly kind: "pad"; readonly button: number; readonly index: number; readonly pad: string }
+  | PadButtonPress
+  | StickPress
   | { readonly kind: "media"; readonly action: NonNullable<LabInputEvent["action"]> };
 
 /** A press told on, with when it came on the page's clock, in milliseconds. */
 type OnPress = (press: Press, atMs?: number) => void;
 
-/** The event the server logs of a press the page heard as button, at atMs. */
-function eventOfPress(press: Press, button: ButtonName, atMs: number): NotedEvent {
-  const heardAt = { button, atMs: Math.round(atMs) };
+/** An event's fields a press gives, before when it came. */
+type PressFields = Omit<NotedEvent, "atMs">;
+
+/**
+ * A key's fields as the log keeps them: in the text field, a key that is one character is a
+ * character typed, sent as Character with no code or keyCode, which would spell it.
+ */
+function keyFieldsOf(press: Extract<Press, { kind: "key" }>): PressFields {
+  const isTyped = press.isInField && /^.$/u.test(press.key);
+  return {
+    kind: "key",
+    key: isTyped ? "Character" : press.key.slice(0, keyTextKept),
+    ...(isTyped ? {} : { code: press.code.slice(0, keyTextKept), keyCode: press.keyCode }),
+    isRepeat: press.isRepeat,
+    ...(press.isInField ? { inField: true } : {}),
+  };
+}
+
+/** The fields of a press's event its kind gives. */
+function fieldsOfPress(press: Press): PressFields {
   switch (press.kind) {
     case "key":
-      return {
-        kind: "key",
-        ...heardAt,
-        key: press.key.slice(0, keyTextKept),
-        code: press.code.slice(0, keyTextKept),
-        keyCode: press.keyCode,
-        isRepeat: press.isRepeat,
-      };
+      return keyFieldsOf(press);
     case "historyStep":
-      return { kind: "back", ...heardAt };
-    case "pad":
+      return { kind: "back" };
+    case "pad": {
+      const name = press.isStandard ? padButtonNameOf(press.button) : undefined;
       return {
         kind: "gamepad",
-        ...heardAt,
         padIndex: press.index,
         padButton: press.button,
+        ...(name === undefined ? {} : { padButtonName: name }),
         padId: press.pad.slice(0, padIdKept),
+        padLayout: press.layout,
+      };
+    }
+    case "stick":
+      return {
+        kind: "stick",
+        padIndex: press.index,
+        axisIndex: press.axis,
+        axisValue: press.value,
+        padLayout: press.layout,
       };
     case "media":
-      return { kind: "media", ...heardAt, action: press.action };
+      return { kind: "media", action: press.action };
   }
+}
+
+/** The event the server logs of a press the page heard as button, at atMs. */
+function eventOfPress(press: Press, button: ButtonName, atMs: number): NotedEvent {
+  return {
+    ...fieldsOfPress(press),
+    button,
+    atMs: Math.round(atMs),
+    ...(fullscreenElementOf() === null ? {} : { inFullscreen: true }),
+  };
 }
 
 /** How much of a key's key and code the log keeps: the server's bound (lab.go). A justified constant. */
 const keyTextKept = 40;
-
-/** How much of a controller's name the log keeps: the server's bound (lab.go). A justified constant. */
-const padIdKept = 100;
 
 /** The buttons heard, in the order first heard, and the last press. */
 interface HeardButtons {
@@ -130,72 +174,6 @@ function useHeardButtons(onButton: (press: Press, button: ButtonName, atMs: numb
     [onButton],
   );
   return { heard, note };
-}
-
-/** One gamepad as the probe last read it. */
-interface PadState {
-  readonly index: number;
-  readonly id: string;
-  readonly mapping: string;
-  readonly pressed: readonly number[];
-  readonly axes: readonly number[];
-}
-
-/** The pads navigator.getGamepads gives, as the probe shows them. */
-function readPads(): PadState[] {
-  const pads: PadState[] = [];
-  for (const pad of navigator.getGamepads()) {
-    if (pad !== null) {
-      pads.push({
-        index: pad.index,
-        id: pad.id,
-        mapping: pad.mapping,
-        pressed: pad.buttons.flatMap((button, index) => (button.pressed ? [index] : [])),
-        axes: pad.axes.map((axis) => Math.round(axis * 100) / 100),
-      });
-    }
-  }
-  return pads;
-}
-
-/**
- * The pads connected, polled each frame only while one is (controller-input §6.1 item 5); tells
- * onPress each button as it goes down, with its pad's name.
- */
-function usePads(onPress: OnPress): readonly PadState[] {
-  const [pads, setPads] = useState<readonly PadState[]>([]);
-  useEffect(() => {
-    if (!("getGamepads" in navigator)) {
-      return undefined;
-    }
-    let frame: number | undefined;
-    const pressedBefore = new Map<number, readonly number[]>();
-    const poll = (): void => {
-      const read = readPads();
-      for (const pad of read) {
-        const before = pressedBefore.get(pad.index) ?? [];
-        for (const button of pad.pressed.filter((each) => !before.includes(each))) {
-          onPress({ kind: "pad", button, index: pad.index, pad: pad.id });
-        }
-        pressedBefore.set(pad.index, pad.pressed);
-      }
-      setPads(read);
-      frame = read.length > 0 ? requestAnimationFrame(poll) : undefined;
-    };
-    const connected = (): void => {
-      frame ??= requestAnimationFrame(poll);
-    };
-    globalThis.addEventListener("gamepadconnected", connected);
-    globalThis.addEventListener("gamepaddisconnected", connected);
-    return () => {
-      globalThis.removeEventListener("gamepadconnected", connected);
-      globalThis.removeEventListener("gamepaddisconnected", connected);
-      if (frame !== undefined) {
-        cancelAnimationFrame(frame);
-      }
-    };
-  }, [onPress]);
-  return pads;
 }
 
 /** Sets session's handler for action, where the browser knows the action; a browser that does not throws. */
@@ -315,21 +293,16 @@ function useTone(): { readonly isToneOn: boolean; readonly toggleTone: () => voi
   return { isToneOn, toggleTone };
 }
 
-/** Where focus moves (the page's every control), and where the first arrow starts it. */
-interface FocusRegion {
-  readonly regionRef: RefObject<HTMLDivElement | null>;
-  readonly startRef: RefObject<HTMLDivElement | null>;
-}
-
 /**
- * Each move's latency, by mode, from the key's time to the frame after focus arrived in the region:
- * the key's own time where the browser gives it on the page's clock, else when it was heard; each
- * told to onMove. Ours moves across the whole region, the page's every control, so a remote reaches
- * the details too (owner, Silk, 2026-10-25: changing Silk's mode reloads the page, so every control
- * must be reached in ours), and the first arrow starts it at start, the tiles.
+ * Each move's latency, by mode, from the key's time to the frame after focus arrived: the key's own
+ * time where the browser gives it on the page's clock, else when it was heard; each told to onMove.
+ * Ours moves across the whole app, the shell's title bar and the page's every control, so a remote
+ * reaches them all (owner, Silk, 2026-10-25: changing Silk's mode reloads the page, so every control
+ * must be reached in ours; and Up from the page's top reached nothing, the region being the page
+ * alone), and the first arrow starts it at start, the tiles.
  */
 function useFocusLatency(
-  { regionRef, startRef }: FocusRegion,
+  startRef: RefObject<HTMLDivElement | null>,
   mode: FocusMode,
   onMove: (mode: FocusMode, latencyMs: number) => void,
 ): {
@@ -345,10 +318,7 @@ function useFocusLatency(
     keyAtRef.current = atMs;
   }, []);
   useEffect(() => {
-    const region = regionRef.current;
-    if (region === null) {
-      return undefined;
-    }
+    const region = document.body;
     const stopDriving =
       mode === "geometric"
         ? driveFocus(region, geometricFocus, startRef.current ?? region)
@@ -373,7 +343,7 @@ function useFocusLatency(
       region.removeEventListener("focusin", moved);
       stopDriving?.();
     };
-  }, [mode, regionRef, startRef, onMove]);
+  }, [mode, startRef, onMove]);
   return { latencies, noteKey };
 }
 
@@ -413,6 +383,12 @@ function pressDetail(t: ReturnType<typeof useTranslation>["t"], press: Press): s
       return t("lab.input.detail.historyStep");
     case "pad":
       return t("lab.input.detail.pad", { button: String(press.button), pad: press.pad });
+    case "stick":
+      return t("lab.input.detail.stick", {
+        axis: String(press.axis),
+        value: String(press.value),
+        pad: press.pad,
+      });
     case "media":
       return t("lab.input.detail.media", { action: press.action });
   }
@@ -441,7 +417,7 @@ function LastHeard(props: { readonly heard: HeardButtons }): JSX.Element {
   );
 }
 
-/** Two rows of tiles, all buttons, for the arrows to move across. */
+/** A row of tiles, all buttons, for the arrows to move across. */
 function TileRows({ ref }: { readonly ref: Ref<HTMLDivElement> }): JSX.Element {
   const { t } = useTranslation();
   return (
@@ -455,11 +431,10 @@ function TileRows({ ref }: { readonly ref: Ref<HTMLDivElement> }): JSX.Element {
   );
 }
 
-/** Who moves between the tiles, and where the sending stands after them. */
+/** Who moves between the tiles. */
 function InputControls(props: {
   readonly mode: FocusMode;
   readonly onMode: (mode: FocusMode) => void;
-  readonly children: ReactNode;
 }): JSX.Element {
   const { t } = useTranslation();
   return (
@@ -480,7 +455,6 @@ function InputControls(props: {
           </button>
         ))}
       </fieldset>
-      {props.children}
     </div>
   );
 }
@@ -621,12 +595,17 @@ function InputDetails(props: {
 
 /**
  * The page's hearing: every key, Back's history steps, Media Session's actions and the pads; each
- * press, a key's going down alone, told to onButton.
+ * press, a key's going down alone, told to onButton; a pad seen and a pad's axis sent to noteEvent;
+ * a stick's arrows to onStickArrow.
  */
 function useHearing(
   noteKey: (atMs: number) => void,
   onButton: (press: Press, button: ButtonName, atMs: number) => void,
-  t: ReturnType<typeof useTranslation>["t"],
+  pads: {
+    readonly noteEvent: (event: NotedEvent) => void;
+    readonly onStickArrow: (direction: Direction) => void;
+    readonly okChosen: OkButton | undefined;
+  },
 ): {
   readonly heard: HeardButtons;
   readonly keys: readonly KeyEntry[];
@@ -634,10 +613,12 @@ function useHearing(
   readonly mediaFired: readonly string[];
   readonly pads: readonly PadState[];
 } {
+  const { t } = useTranslation();
   const { heard, note } = useHeardButtons(onButton);
   const onKeyDown = useCallback(
     (atMs: number, entry: KeyEntry) => {
       noteKey(atMs);
+      const focused = document.activeElement;
       note(
         {
           kind: "key",
@@ -645,6 +626,7 @@ function useHearing(
           code: entry.code,
           keyCode: entry.keyCode,
           isRepeat: entry.isRepeat,
+          isInField: focused !== null && caretOf(focused) !== undefined,
         },
         atMs,
       );
@@ -654,8 +636,14 @@ function useHearing(
   const keys = useKeyLog(onKeyDown);
   const backSteps = useBackSteps(note);
   const mediaFired = useMediaActions(t("lab.input.mediaTitle"), note);
-  const pads = usePads(note);
-  return { heard, keys, backSteps, mediaFired, pads };
+  const padHandlers = usePadHandlers(note, pads.noteEvent, pads.onStickArrow);
+  const padsRead = usePads(padHandlers, pads.okChosen);
+  return { heard, keys, backSteps, mediaFired, pads: padsRead };
+}
+
+/** When something came, on the page's clock, in whole milliseconds. */
+function nowMs(): number {
+  return Math.round(performance.now());
 }
 
 /** Where the sending stands, in one small line: the run's name to note down, and how many sent. */
@@ -673,40 +661,73 @@ function SendingLine(props: { readonly sending: EventSending }): JSX.Element {
 }
 
 /**
- * The button test (plans/tv-device-tests.md H2; controller-input-2026-10-25.md §6.2 step 0): which
- * of a remote's, a keyboard's or a controller's buttons the page hears, each lighting its chip, the
- * last named large; tiles to move across with the arrows, by the browser's own navigation or ours,
- * each move's latency from the key to the frame after focus moved measured against D190's 250 ms;
- * the key log, Back, Media Session and the pads in the details. Each press and move goes to the
- * server's log as it happens, under the run's name the page shows. It fits a Fire TV's 960 × 540
- * without scrolling, the details closed (the owner, 2026-10-25).
+ * The test's hearing and measuring in mode, its events sent by noteEvent: every press, each move's
+ * latency, the visual viewport's changes, Back or Escape leaving full screen, a pad's buttons and
+ * stick driving our navigation, and the OK the person chose for a pad of unknown layout.
+ */
+function useButtonTest(
+  mode: FocusMode,
+  tilesRef: RefObject<HTMLDivElement | null>,
+  noteEvent: (event: NotedEvent) => void,
+): ReturnType<typeof useHearing> & {
+  readonly latencies: Readonly<Record<FocusMode, readonly number[]>>;
+  readonly chooseOk: (chosen: OkButton) => void;
+} {
+  const [okChosen, setOkChosen] = useState<OkButton | undefined>(undefined);
+  useViewportChanges(noteEvent);
+  const onMove = useCallback(
+    (movedBy: FocusMode, latencyMs: number) => {
+      noteEvent({ kind: "move", mode: movedBy, latencyMs, atMs: nowMs() });
+    },
+    [noteEvent],
+  );
+  const { latencies, noteKey } = useFocusLatency(tilesRef, mode, onMove);
+  const { onPadButton, onStickArrow } = usePadNavigation(mode, tilesRef, noteKey);
+  const onButton = useCallback(
+    (press: Press, button: ButtonName, atMs: number) => {
+      noteEvent(eventOfPress(press, button, atMs));
+      if (button === "back" || (press.kind === "key" && press.key === "Escape")) {
+        leaveFullscreenAt(noteEvent, button);
+      }
+      if (press.kind === "pad") {
+        onPadButton(button);
+      }
+    },
+    [noteEvent, onPadButton],
+  );
+  const hearing = useHearing(noteKey, onButton, { noteEvent, onStickArrow, okChosen });
+  const chooseOk = useCallback(
+    (chosen: OkButton) => {
+      setOkChosen(chosen);
+      noteEvent({ kind: "okChoice", okButton: chosen, atMs: nowMs() });
+    },
+    [noteEvent],
+  );
+  return { ...hearing, latencies, chooseOk };
+}
+
+/**
+ * The button test (plans/tv-device-tests.md H2, H6–H8; controller-input-2026-10-25.md §6.2 step 0):
+ * which of a remote's, a keyboard's or a controller's buttons the page hears, each lighting its chip,
+ * the last named large; tiles to move across with the arrows, by the browser's own navigation or
+ * ours, each move's latency from the key to the frame after focus moved measured against D190's
+ * 250 ms; a text field, a full-screen test and the controller connected with its layout; the key
+ * log, Back, Media Session and the pads in the details. Each press, move, the field's and full
+ * screen's changes go to the server's log as they happen, under the run's name the page shows. It
+ * fits a Fire TV's 960 × 540 without scrolling, the details closed (the owner, 2026-10-25).
  */
 export function LabInput(): JSX.Element {
   const { t } = useTranslation();
   const { api } = useServices();
   const [mode, setMode] = useState<FocusMode>("geometric");
   const { isToneOn, toggleTone } = useTone();
-  const pageRef = useRef<HTMLDivElement>(null);
   const tilesRef = useRef<HTMLDivElement>(null);
   const { sending, noteEvent } = useInputEvents(api, mode);
-  const onMove = useCallback(
-    (movedBy: FocusMode, latencyMs: number) => {
-      noteEvent({ kind: "move", mode: movedBy, latencyMs, atMs: Math.round(performance.now()) });
-    },
-    [noteEvent],
-  );
-  const onButton = useCallback(
-    (press: Press, button: ButtonName, atMs: number) => {
-      noteEvent(eventOfPress(press, button, atMs));
-    },
-    [noteEvent],
-  );
-  const { latencies, noteKey } = useFocusLatency(
-    { regionRef: pageRef, startRef: tilesRef },
+  const { heard, keys, backSteps, mediaFired, pads, latencies, chooseOk } = useButtonTest(
     mode,
-    onMove,
+    tilesRef,
+    noteEvent,
   );
-  const { heard, keys, backSteps, mediaFired, pads } = useHearing(noteKey, onButton, t);
   const summaries = {
     browser: latencySummary(latencies.browser),
     geometric: latencySummary(latencies.geometric),
@@ -714,29 +735,35 @@ export function LabInput(): JSX.Element {
   const backKeys = keys.filter((key) => key.isBack && key.type === "keydown").length;
   const changeMode = (chosen: FocusMode): void => {
     setMode(chosen);
-    noteEvent({ kind: "mode", mode: chosen, atMs: Math.round(performance.now()) });
+    noteEvent({ kind: "mode", mode: chosen, atMs: nowMs() });
   };
   return (
-    <div ref={pageRef}>
-      <LabFrame id="lab-input" heading={t("lab.input.heading")} isCompact={true}>
-        <p className="lab__lead">{t("lab.input.explain")}</p>
-        <ButtonChips heard={heard} />
-        <LastHeard heard={heard} />
-        <TileRows ref={tilesRef} />
-        <InputControls mode={mode} onMode={changeMode}>
-          <SendingLine sending={sending} />
-        </InputControls>
+    <LabFrame
+      id="lab-input"
+      heading={t("lab.input.heading")}
+      isCompact={true}
+      atTop={<SendingLine sending={sending} />}
+    >
+      <p className="lab__lead">{t("lab.input.explain")}</p>
+      <ButtonChips heard={heard} />
+      <LastHeard heard={heard} />
+      <TileRows ref={tilesRef} />
+      <div className="lab__controls">
+        <FieldTest noteEvent={noteEvent} />
+        <FullscreenTest noteEvent={noteEvent} />
+      </div>
+      <InputControls mode={mode} onMode={changeMode} />
+      <PadLine pads={pads} onChoose={chooseOk} />
+      <InputDetails isToneOn={isToneOn} onTone={toggleTone} keys={keys}>
         <p className="lab__small">{timingText(t, summaries[mode])}</p>
-        <InputDetails isToneOn={isToneOn} onTone={toggleTone} keys={keys}>
-          <InputFacts
-            summaries={summaries}
-            backSteps={backSteps}
-            backKeys={backKeys}
-            mediaFired={mediaFired}
-            pads={pads}
-          />
-        </InputDetails>
-      </LabFrame>
-    </div>
+        <InputFacts
+          summaries={summaries}
+          backSteps={backSteps}
+          backKeys={backKeys}
+          mediaFired={mediaFired}
+          pads={pads}
+        />
+      </InputDetails>
+    </LabFrame>
   );
 }

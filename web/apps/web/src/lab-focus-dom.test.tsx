@@ -55,6 +55,27 @@ describe("the input probe's focus driving", () => {
     }
   });
 
+  it("leaves an arrow to a text field inside the region while it composes, even at the value's end", () => {
+    const { region } = regionOfButtons();
+    const field = document.createElement("input");
+    region.append(field);
+    field.focus();
+    const stop = driveFocus(region, geometricFocus);
+    try {
+      const composing = new KeyboardEvent("keydown", {
+        key: "ArrowLeft",
+        isComposing: true,
+        bubbles: true,
+        cancelable: true,
+      });
+      field.dispatchEvent(composing);
+      expect(composing.defaultPrevented).toBe(false);
+      expect(press("ArrowLeft").defaultPrevented).toBe(true);
+    } finally {
+      stop();
+    }
+  });
+
   it("hears no arrow once stopped", () => {
     const { region } = regionOfButtons();
     driveFocus(region, geometricFocus)();

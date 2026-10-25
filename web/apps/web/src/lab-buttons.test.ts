@@ -4,6 +4,11 @@ import { describe, expect, it } from "vitest";
 
 import { buttonOf, chipsShown, type ButtonName, type HeardInput } from "./lab-buttons.ts";
 
+/** A standard pad's button, on a layout whose OK is okButton. */
+function pad(button: number, okButton: "bottom" | "right" = "bottom"): HeardInput {
+  return { kind: "pad", button, isStandard: true, okButton };
+}
+
 /** A key as a browser names it, with its keyCode. */
 function key(name: string, keyCode = 0): HeardInput {
   return { kind: "key", key: name, keyCode };
@@ -29,10 +34,28 @@ describe("the button test's buttons", () => {
     ["a volume key", key("AudioVolumeUp", 175), "volumeUp"],
     ["any other key", key("F5", 116), "other"],
     ["a step back in the page's history", { kind: "historyStep" }, "back"],
-    ["a controller's A", { kind: "pad", button: 0 }, "select"],
-    ["a controller's B", { kind: "pad", button: 1 }, "back"],
-    ["a controller's D-pad left", { kind: "pad", button: 14 }, "left"],
-    ["a controller's other button", { kind: "pad", button: 3 }, "other"],
+    ["an Xbox pad's bottom button (A)", pad(0), "select"],
+    ["an Xbox pad's right button (B)", pad(1), "back"],
+    ["a Nintendo pad's right button (A)", pad(1, "right"), "select"],
+    ["a Nintendo pad's bottom button (B)", pad(0, "right"), "back"],
+    ["a controller's D-pad left", pad(14), "left"],
+    ["a controller's other button", pad(3), "other"],
+    [
+      "a button of a pad with no standard mapping",
+      { kind: "pad", button: 14, isStandard: false, okButton: "bottom" },
+      "other",
+    ],
+    ["a stick leaning up", { kind: "stick", direction: "up" }, "up"],
+    [
+      "Backspace in a text field, which deletes",
+      { kind: "key", key: "Backspace", keyCode: 8, isInField: true },
+      "other",
+    ],
+    [
+      "Back's keyCode in a text field",
+      { kind: "key", key: "Unidentified", keyCode: 4, isInField: true },
+      "back",
+    ],
     ["Media Session's pause", { kind: "media", action: "pause" }, "playPause"],
     ["Media Session's seek forward", { kind: "media", action: "seekforward" }, "fastForward"],
     ["Media Session's next track", { kind: "media", action: "nexttrack" }, "other"],

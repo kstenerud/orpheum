@@ -8,13 +8,15 @@ import type { Sending } from "./lab-send.ts";
 import { Link } from "./link.tsx";
 
 /**
- * A probe's page: the way back to the lab's menu and its heading, on one line where they fit, and
- * its body; compact, its parts closer together, for a page that must fit a TV's screen unscrolled.
+ * A probe's page: the way back to the lab's menu and its heading, on one line where they fit, with
+ * what the probe puts beside them (atTop), and its body; compact, its parts closer together, for a
+ * page that must fit a TV's screen unscrolled.
  */
 export function LabFrame(props: {
   readonly id: string;
   readonly heading: string;
   readonly isCompact?: boolean;
+  readonly atTop?: ReactNode;
   readonly children: ReactNode;
 }): JSX.Element {
   const { t } = useTranslation();
@@ -30,6 +32,7 @@ export function LabFrame(props: {
           </Link>
         </p>
         <h1 id={`${props.id}-heading`}>{props.heading}</h1>
+        {props.atTop}
       </div>
       {props.children}
     </section>

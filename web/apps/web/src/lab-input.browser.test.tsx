@@ -57,6 +57,50 @@ describe("the button test, laid out by a real browser", () => {
     expect(extent().width).toBeLessThanOrEqual(window.innerWidth);
   });
 
+  it("fits with a controller of unknown layout connected, its choice of OK shown", async () => {
+    // An 8BitDo in D-input mode, whose vendor says nothing of its layout.
+    const pad = {
+      index: 0,
+      id: "8Bitdo SF30 Pro (STANDARD GAMEPAD Vendor: 2dc8 Product: 6102)",
+      mapping: "standard",
+      buttons: Array.from({ length: 17 }, () => ({ pressed: false })),
+      axes: [0, 0, 0, 0],
+    };
+    Object.defineProperty(navigator, "getGamepads", { configurable: true, value: () => [pad] });
+    try {
+      await page.viewport(960, 540);
+      mounted = await mount(withServices(inTheShell));
+      globalThis.dispatchEvent(new Event("gamepadconnected"));
+      await expect.poll(() => mounted?.container.textContent ?? "").toContain("the right button");
+      expect(extent().height).toBeLessThanOrEqual(window.innerHeight);
+    } finally {
+      Reflect.deleteProperty(navigator, "getGamepads");
+    }
+  });
+
+  it("moves up from the page's top control into the shell's title bar, by our navigation", async () => {
+    // The owner, Silk in spatial mode, 2026-10-25: Up from the page's top reached nothing, our
+    // navigation moving within the page alone and preventing Silk's own move.
+    await page.viewport(960, 540);
+    mounted = await mount(withServices(inTheShell));
+    const top = mounted.container.querySelector<HTMLElement>(".lab__back");
+    if (top === null) {
+      throw new Error("the test has no way back to the lab");
+    }
+    top.focus();
+    const arrow = new KeyboardEvent("keydown", {
+      key: "ArrowUp",
+      keyCode: 38,
+      bubbles: true,
+      cancelable: true,
+    });
+    top.dispatchEvent(arrow);
+    expect(arrow.defaultPrevented).toBe(true);
+    const banner = mounted.container.querySelector(".app-shell__banner");
+    expect(banner?.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement?.getClientRects().length).toBeGreaterThan(0);
+  });
+
   it("spills sideways nowhere on a phone", async () => {
     await page.viewport(390, 844);
     mounted = await mount(withServices(inTheShell));
