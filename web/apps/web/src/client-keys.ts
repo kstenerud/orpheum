@@ -32,6 +32,8 @@ const clientKeys = new Set([
   "orpheum.discovery.realm",
   // The custom Cast receiver's app id the lab's cast probe launches (lab-cast.tsx).
   "orpheum.lab.castAppId",
+  // Which face button of a game controller is OK on this browser (controller-choice.ts).
+  "orpheum.controller.ok",
 ]);
 
 /**

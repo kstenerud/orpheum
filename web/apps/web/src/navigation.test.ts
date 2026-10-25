@@ -53,3 +53,31 @@ describe("navigation's back", () => {
     expect(reloaded.route()).toEqual({ screen: "films" });
   });
 });
+
+describe("navigation's notes on history entries", () => {
+  it("goes nowhere back with no up where the entry before is not this app's, as a remote's Back on a page with no Back of its own", () => {
+    const place = fakePlace("/films");
+    const navigation = createNavigation(place);
+    expect(navigation.back()).toBe(false);
+    expect(place.addresses).toEqual(["/films"]);
+    navigation.go({ screen: "search", query: "" });
+    expect(navigation.back()).toBe(true);
+    expect(navigation.route()).toEqual({ screen: "films" });
+  });
+
+  it("keeps a note with the entry left, written just before go leaves it, and reads it back on returning", () => {
+    const place = fakePlace("/films");
+    const navigation = createNavigation(place);
+    navigation.beforeLeaving(() => {
+      navigation.noteOnEntry({ href: `/left-from${place.location.pathname}`, ordinal: 0 });
+    });
+    navigation.go({ screen: "title", itemId: 4 });
+    expect(navigation.entryNote()).toBeUndefined();
+    navigation.back();
+    expect(navigation.route()).toEqual({ screen: "films" });
+    expect(navigation.entryNote()).toEqual({ href: "/left-from/films", ordinal: 0 });
+    // The note rides beside what the entry already kept: it is still this app's.
+    expect(navigation.back({ screen: "series" })).toBe(true);
+    expect(navigation.route()).toEqual({ screen: "series" });
+  });
+});

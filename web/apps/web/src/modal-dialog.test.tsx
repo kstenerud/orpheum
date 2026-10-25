@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ModalDialog } from "./modal-dialog.tsx";
 import { fire, mount } from "./test-dom.tsx";
+import { withServices } from "./test-services.tsx";
 
 describe("a modal dialog (the owner, 2026-10-11)", () => {
   it("opens as the browser's modal, and Escape closes it without reaching the page", async () => {
@@ -57,5 +58,30 @@ describe("a modal dialog (the owner, 2026-10-11)", () => {
     mounted.unmount();
     showModal.mockRestore();
     close.mockRestore();
+  });
+
+  it("closes on a remote's Back, as on Escape, before Back goes anywhere", async () => {
+    const onClose = vi.fn();
+    const mounted = await mount(
+      withServices(
+        <ModalDialog label="Gran" onClose={onClose}>
+          <button type="button">inside</button>
+        </ModalDialog>,
+      ),
+    );
+    const inside = mounted.container.querySelector("button");
+    act(() => {
+      inside?.focus();
+    });
+    const back = new KeyboardEvent("keydown", {
+      key: "XF86Back",
+      keyCode: 10_009,
+      bubbles: true,
+      cancelable: true,
+    });
+    await fire(inside, back);
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(back.defaultPrevented).toBe(true);
+    mounted.unmount();
   });
 });

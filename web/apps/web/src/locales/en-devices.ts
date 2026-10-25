@@ -11,6 +11,15 @@ export const enDevices = {
     name: "Its name",
     elsewhere: "Your other devices are on your account page.",
     notListed: "This browser is not one of your devices: sign in again to name it.",
+    controller: {
+      heading: "Game controller",
+      explain:
+        "Which face button of a game controller is OK; the other one is Back. Kept in this browser.",
+      legend: "OK is",
+      automatic: "Automatic, by the controller's make",
+      bottom: "The bottom button",
+      right: "The right button",
+    },
   },
   devices: {
     heading: "Your devices",

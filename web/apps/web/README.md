@@ -127,15 +127,38 @@ The web client: the browser and phone interface, served embedded by the core. MP
   H6); its full-screen test puts a video drawn in the page full screen by its box or bare, leaves
   at Back or Escape and sends what happened (`src/lab-fullscreen.tsx`, H7); its controller line
   shows the first pad's name, mapping and the layout its id says (`src/input-pads.ts`: by vendor, else
-  by name; Nintendo's OK is the right face button, Xbox's and PlayStation's the bottom one), asks
-  which is OK where the layout is unknown, sends a pad with no standard mapping's buttons as numbers
-  and its axes as they cross half way, and lets a standard pad's D-pad, left stick (repeating while
-  held) and OK drive our navigation (`src/lab-pad-input.tsx`, H8). `src/lab.test.tsx`,
+  by name; Nintendo's OK is the right face button, Xbox's and PlayStation's the bottom one), offers
+  the choice of OK, kept as the This device page keeps it, and sends a pad with no standard
+  mapping's buttons as numbers and its axes as they cross half way (`src/lab-pad-input.tsx`, H8);
+  the app's navigation moves by a standard pad there as on every page, and the test keeps Back
+  rather than going back by it. `src/lab.test.tsx`,
   `src/lab-input.test.tsx`, `src/lab-input-field.test.tsx`, `src/lab-pad-input.test.tsx`,
   `src/input-pads.test.ts`, `src/lab-events.test.ts`, `src/lab-input.browser.test.tsx`,
   `src/lab-buttons.test.ts`, `src/input-buttons.test.ts`, `src/router.test.ts`, `src/focus-engine.test.ts`,
-  `src/lab-focus-dom.test.tsx`, `src/lab-timing.test.ts`, `src/lab-keys.test.ts`,
+  `src/lab-timing.test.ts`, `src/lab-keys.test.ts`,
   `src/lab-extend-channel.test.ts`, `src/lab-tone.test.ts`; on devices, VQ55–VQ60.
+- **Every page is driven by a remote, a keyboard or a game controller**
+  (controller-input-2026-10-25.md §6.1; the owner, 2026-10-25): one input layer
+  (`src/input-commands.ts`, run around every screen by `src/input-layer.tsx`) turns a key (by its
+  `key`, then the platforms' keyCodes), a controller's buttons, D-pad and left stick
+  (`src/input-pad-poll.ts`, its OK by its make or as chosen on This device) and the browser's media
+  seeking into commands; pages hear commands, never keys, and single-letter shortcuts have none. A
+  command is offered first at what has focus, so an open menu or dialog answers Back before
+  anything else; one no one answers moves real DOM focus by the geometric engine
+  (`src/focus-navigation.ts`, `src/focus-engine.ts`), searching the marked container around focus
+  before the page (`data-focus-container`: the banner, its menu, a row or grid, the player), presses
+  what has focus, or goes back as the page's own Back does (`src/back-button.tsx`). An arrow inside a
+  text field's value or a range's is the field's; one with nowhere to go is the browser's. The
+  first arrow starts in the main content, not the banner; an arrow into a container or the main
+  content goes back to what last had focus there; the focused element is scrolled into view no
+  further than it must be, clear of the sticky banner; a controller's move is shown as a key's is
+  (`:focus-visible`), a pointer's never; Back returns focus to what had it on the page left, noted
+  on its history entry as the page was left and found once the page draws it (`src/focus-memory.ts`),
+  Silk's Back too. `src/input-commands.test.tsx`, `src/input-layer.test.tsx`,
+  `src/focus-memory.test.ts`, `src/focus-engine.test.ts`, `src/input-buttons.test.ts`,
+  `src/input-pads.test.ts`, `src/navigation.test.ts`, `src/app-shell.test.tsx`,
+  `src/modal-dialog.test.tsx`, `src/input-walk.browser.test.tsx` (Chromium and Firefox, at Silk's
+  960 × 480 and a desktop's size).
 - **Focus only adds** (D189): ring, lift and modest scale are custom properties in
   `src/tokens.css`. Review-only until the first tile lands; then the geometry and luminance
   tests of [testing-strategy.md](../../../docs/contributors/design/plans/testing-strategy.md) enforce it.
@@ -170,8 +193,13 @@ The web client: the browser and phone interface, served embedded by the core. MP
   (the System page's reachability check and its queue's health), and `busy-group.tsx` (controls
   held while a request is answered).
 - A remote's, a keyboard's and a controller's input (controller-input-2026-10-25.md §6.1):
-  `input-buttons.ts` (which button a press is), `input-pads.ts` (a controller's layout and stick)
-  and `focus-engine.ts` (where an arrow moves focus).
+  `input-buttons.ts` (which button and command a press is), `input-commands.ts` (keys and pads to
+  commands, and what a command no one answers does), `input-layer.tsx` (the layer around every
+  screen: Back's target, focus kept on history entries, `useCommands` for a component),
+  `input-pads.ts` (a controller's layout and stick), `input-pad-poll.ts` (the pads polled once for
+  every listener), `controller-choice.ts` (the OK chosen on This device), `focus-engine.ts` (where an
+  arrow moves focus, within containers), `focus-navigation.ts` (moving, starting, scrolling,
+  pressing) and `focus-memory.ts` (what each container and history entry remembers).
 - The device lab (plans/tv-device-tests.md): `lab.tsx` (its menu), `lab-frame.tsx` (a probe's
   page and its Send), `lab-device.tsx`, `lab-input.tsx` (the button test, with `lab-buttons.ts`, its
   chips, `lab-keys.ts`, `lab-events.ts`, its events on their way to the log, `lab-field.tsx`, its text field, `lab-fullscreen.tsx`, its full-screen test, and `lab-pad-input.tsx`, its controllers), `lab-remote.tsx`, `lab-extend.tsx` and `lab-extend-player.tsx` (with

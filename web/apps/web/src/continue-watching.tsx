@@ -122,7 +122,7 @@ export function ContinueWatchingView(props: {
           </button>
         </output>
       )}
-      <ul className="continue-watching__rows">
+      <ul className="continue-watching__rows" data-focus-container="">
         {props.rows.map((row) => (
           <ContinueWatchingRowView
             key={row.id}

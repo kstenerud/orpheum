@@ -6,6 +6,7 @@ import { useEffect, useRef, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import logo from "./assets/orpheum-logo.svg";
+import { useCommands } from "./input-layer.tsx";
 import { StatusTray } from "./status-tray.tsx";
 import { Link } from "./link.tsx";
 import { LocalNetworkNote } from "./local-network-note.tsx";
@@ -151,7 +152,7 @@ export function AppShell(props: {
     inGroup(group).some((destination) => destination.route.screen === props.currentScreen);
   return (
     <div className="app-shell">
-      <header className="app-shell__banner">
+      <header className="app-shell__banner" data-focus-container="" data-focus-covers-top="">
         <p className="app-shell__title">
           {/* The logo is the way home, to the library's first shelf, as on most sites. */}
           <Link to={{ screen: "films" }} className="app-shell__home">
@@ -197,7 +198,7 @@ function isShownTo(
 /** The screen, under any word the page has about what the browser is doing. */
 function ShellMain(props: { readonly children: ReactNode }): JSX.Element {
   return (
-    <main className="app-shell__main">
+    <main className="app-shell__main" data-focus-memory="">
       <PlainHttpNote />
       <LocalNetworkNote />
       {props.children}
@@ -356,14 +357,14 @@ function MainMenu(props: {
 }
 
 /**
- * Whether event closes the open menu: a press outside it, Escape, or a click on one of its
- * places. A press on its own name is the menu's to toggle.
+ * Whether event closes the open menu: a press outside it, a click on one of its places, or focus
+ * moving to something outside it. A press on its own name is the menu's to toggle.
  */
 function closesMenu(event: Event, menu: HTMLDetailsElement): boolean {
   const target = event.target instanceof Element ? event.target : null;
   const isInside = target !== null && menu.contains(target);
-  if (event instanceof KeyboardEvent) {
-    return event.key === "Escape";
+  if (event instanceof FocusEvent) {
+    return event.relatedTarget instanceof Element && !menu.contains(event.relatedTarget);
   }
   if (event.type === "pointerdown") {
     return !isInside;
@@ -374,7 +375,8 @@ function closesMenu(event: Event, menu: HTMLDetailsElement): boolean {
 /**
  * A menu in the banner: its icon, which opens a list below it. It is the page's own disclosure,
  * so it works without script and by keyboard; it closes when one of its places is chosen, when
- * the person presses or taps outside it, and on Escape.
+ * the person presses or taps outside it or moves focus out of it, and on Back, Escape's included,
+ * which it hears before anything else does (input-layer.tsx), its icon keeping focus.
  */
 function BannerMenu(props: {
   /** Its name, for a screen reader and a pointer's hover: the eye sees the menu icon. */
@@ -393,19 +395,31 @@ function BannerMenu(props: {
     };
     document.addEventListener("pointerdown", close);
     document.addEventListener("click", close);
-    document.addEventListener("keydown", close);
+    document.addEventListener("focusout", close);
     return () => {
       document.removeEventListener("pointerdown", close);
       document.removeEventListener("click", close);
-      document.removeEventListener("keydown", close);
+      document.removeEventListener("focusout", close);
     };
   }, []);
+  useCommands(
+    "document",
+    (detail, event) => {
+      const menu = ref.current;
+      if (detail.command === "back" && menu?.open === true) {
+        event.preventDefault();
+        menu.open = false;
+        menu.querySelector("summary")?.focus();
+      }
+    },
+    { isCapture: true },
+  );
   const classes = ["app-shell__menu"];
   if (props.isCurrent) {
     classes.push("app-shell__menu--current");
   }
   return (
-    <details ref={ref} className={classes.join(" ")}>
+    <details ref={ref} className={classes.join(" ")} data-focus-container="">
       <summary aria-label={props.label} title={props.label}>
         <MenuIcon />
       </summary>

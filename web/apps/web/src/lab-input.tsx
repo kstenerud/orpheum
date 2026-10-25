@@ -1,15 +1,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type JSX,
-  type ReactNode,
-  type Ref,
-  type RefObject,
-} from "react";
+import { useCallback, useEffect, useRef, useState, type JSX, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { buttonOf, type ButtonName, type Direction, type OkButton } from "./input-buttons.ts";
@@ -23,19 +14,13 @@ import {
 } from "./lab-events.ts";
 import { FieldTest, useViewportChanges } from "./lab-field.tsx";
 import { LabFrame, yesNo } from "./lab-frame.tsx";
-import { caretOf, driveFocus, geometricFocus } from "./focus-engine.ts";
+import { chooseOk as keepOkChoice } from "./controller-choice.ts";
+import { caretOf } from "./focus-engine.ts";
+import { useBrowsersNavigation, useCommands } from "./input-layer.tsx";
+import type { PadButtonPress, PadState, StickPress } from "./input-pad-poll.ts";
 import { FullscreenTest, fullscreenElementOf, leaveFullscreenAt } from "./lab-fullscreen.tsx";
 import { heardKeyOf, keyEntryOf, withKey, type KeyEntry } from "./lab-keys.ts";
-import {
-  PadLine,
-  padIdKept,
-  usePadHandlers,
-  usePadNavigation,
-  usePads,
-  type PadButtonPress,
-  type PadState,
-  type StickPress,
-} from "./lab-pad-input.tsx";
+import { PadLine, padIdKept, usePadHandlers, usePads } from "./lab-pad-input.tsx";
 import { padButtonNameOf } from "./input-pads.ts";
 import { eventTimeMs, latencySummary, type LatencySummary } from "./lab-timing.ts";
 import { toneUrl } from "./lab-tone.ts";
@@ -300,10 +285,9 @@ function useTone(): { readonly isToneOn: boolean; readonly toggleTone: () => voi
  * Ours moves across the whole app, the shell's title bar and the page's every control, so a remote
  * reaches them all (owner, Silk, 2026-10-25: changing Silk's mode reloads the page, so every control
  * must be reached in ours; and Up from the page's top reached nothing, the region being the page
- * alone), and the first arrow starts it at start, the tiles.
+ * alone), and the first arrow starts it at the tiles; the browser's own leaves the arrows to it.
  */
 function useFocusLatency(
-  startRef: RefObject<HTMLDivElement | null>,
   mode: FocusMode,
   onMove: (mode: FocusMode, latencyMs: number) => void,
 ): {
@@ -318,12 +302,9 @@ function useFocusLatency(
   const noteKey = useCallback((atMs: number) => {
     keyAtRef.current = atMs;
   }, []);
+  useBrowsersNavigation(mode === "browser");
   useEffect(() => {
     const region = document.body;
-    const stopDriving =
-      mode === "geometric"
-        ? driveFocus(region, geometricFocus, startRef.current ?? region)
-        : undefined;
     const moved = (): void => {
       const at = keyAtRef.current;
       keyAtRef.current = undefined;
@@ -342,9 +323,8 @@ function useFocusLatency(
     region.addEventListener("focusin", moved);
     return () => {
       region.removeEventListener("focusin", moved);
-      stopDriving?.();
     };
-  }, [mode, startRef, onMove]);
+  }, [mode, onMove]);
   return { latencies, noteKey };
 }
 
@@ -419,10 +399,11 @@ function LastHeard(props: { readonly heard: HeardButtons }): JSX.Element {
 }
 
 /** A row of tiles, all buttons, for the arrows to move across. */
-function TileRows({ ref }: { readonly ref: Ref<HTMLDivElement> }): JSX.Element {
+function TileRows(): JSX.Element {
   const { t } = useTranslation();
   return (
-    <div ref={ref} className="lab__tiles">
+    // The first arrow starts here, not at the way back above (focus-navigation.ts).
+    <div className="lab__tiles" data-focus-start="">
       {Array.from({ length: tileRows * tileColumns }, (_, index) => (
         <button key={index} type="button" className="lab__tile">
           {t("lab.input.tile", { number: String(index + 1) })}
@@ -598,15 +579,14 @@ function InputDetails(props: {
 /**
  * The page's hearing: every key, Back's history steps, Media Session's actions and the pads; each
  * press, a key's going down alone, told to onButton; a pad seen and a pad's axis sent to noteEvent;
- * a stick's arrows to onStickArrow.
+ * a pad's arrows to onArrow, before the app's navigation moves by them.
  */
 function useHearing(
   noteKey: (atMs: number) => void,
   onButton: (press: Press, button: ButtonName, atMs: number) => void,
   pads: {
     readonly noteEvent: (event: NotedEvent) => void;
-    readonly onStickArrow: (direction: Direction) => void;
-    readonly okChosen: OkButton | undefined;
+    readonly onArrow: (direction: Direction) => void;
   },
 ): {
   readonly heard: HeardButtons;
@@ -638,8 +618,8 @@ function useHearing(
   const keys = useKeyLog(onKeyDown);
   const backSteps = useBackSteps(note);
   const mediaFired = useMediaActions(t("lab.input.mediaTitle"), note);
-  const padHandlers = usePadHandlers(note, pads.noteEvent, pads.onStickArrow);
-  const padsRead = usePads(padHandlers, pads.okChosen);
+  const padHandlers = usePadHandlers(note, pads.noteEvent, pads.onArrow);
+  const padsRead = usePads(padHandlers);
   return { heard, keys, backSteps, mediaFired, pads: padsRead };
 }
 
@@ -663,44 +643,55 @@ function SendingLine(props: { readonly sending: EventSending }): JSX.Element {
 }
 
 /**
+ * Keeps a remote's, a keyboard's or a controller's Back on the test, which shows it, rather than
+ * going back from it: the test's own way back is its link at the top.
+ */
+function useBackKept(): void {
+  useCommands("document", (detail, event) => {
+    if (detail.command === "back") {
+      event.preventDefault();
+    }
+  });
+}
+
+/**
  * The test's hearing and measuring in mode, its events sent by noteEvent: every press, each move's
- * latency, the visual viewport's changes, Back or Escape leaving full screen, a pad's buttons and
- * stick driving our navigation, and the OK the person chose for a pad of unknown layout.
+ * latency (a pad's arrow timed before the app's navigation moves by it), the visual viewport's
+ * changes, Back or Escape leaving full screen, and the OK the person chose, kept as the This device
+ * page keeps it.
  */
 function useButtonTest(
   mode: FocusMode,
-  tilesRef: RefObject<HTMLDivElement | null>,
   noteEvent: (event: NotedEvent) => void,
 ): ReturnType<typeof useHearing> & {
   readonly latencies: Readonly<Record<FocusMode, readonly number[]>>;
   readonly chooseOk: (chosen: OkButton) => void;
 } {
-  const [okChosen, setOkChosen] = useState<OkButton | undefined>(undefined);
   useViewportChanges(noteEvent);
+  useBackKept();
   const onMove = useCallback(
     (movedBy: FocusMode, latencyMs: number) => {
       noteEvent({ kind: "move", mode: movedBy, latencyMs, atMs: nowMs() });
     },
     [noteEvent],
   );
-  const { latencies, noteKey } = useFocusLatency(tilesRef, mode, onMove);
-  const { onPadButton, onStickArrow } = usePadNavigation(mode, tilesRef, noteKey);
+  const { latencies, noteKey } = useFocusLatency(mode, onMove);
+  const onArrow = useCallback(() => {
+    noteKey(performance.now());
+  }, [noteKey]);
   const onButton = useCallback(
     (press: Press, button: ButtonName, atMs: number) => {
       noteEvent(eventOfPress(press, button, atMs));
       if (button === "back" || (press.kind === "key" && press.key === "Escape")) {
         leaveFullscreenAt(noteEvent, button);
       }
-      if (press.kind === "pad") {
-        onPadButton(button);
-      }
     },
-    [noteEvent, onPadButton],
+    [noteEvent],
   );
-  const hearing = useHearing(noteKey, onButton, { noteEvent, onStickArrow, okChosen });
+  const hearing = useHearing(noteKey, onButton, { noteEvent, onArrow });
   const chooseOk = useCallback(
     (chosen: OkButton) => {
-      setOkChosen(chosen);
+      keepOkChoice(chosen);
       noteEvent({ kind: "okChoice", okButton: chosen, atMs: nowMs() });
     },
     [noteEvent],
@@ -723,11 +714,9 @@ export function LabInput(): JSX.Element {
   const { api } = useServices();
   const [mode, setMode] = useState<FocusMode>("geometric");
   const { isToneOn, toggleTone } = useTone();
-  const tilesRef = useRef<HTMLDivElement>(null);
   const { sending, noteEvent } = useInputEvents(api, mode);
   const { heard, keys, backSteps, mediaFired, pads, latencies, chooseOk } = useButtonTest(
     mode,
-    tilesRef,
     noteEvent,
   );
   const summaries = {
@@ -748,7 +737,7 @@ export function LabInput(): JSX.Element {
     >
       <ButtonChips heard={heard} />
       <LastHeard heard={heard} />
-      <TileRows ref={tilesRef} />
+      <TileRows />
       <div className="lab__controls">
         <FieldTest noteEvent={noteEvent} />
         <FullscreenTest noteEvent={noteEvent} />

@@ -6,6 +6,7 @@ import "./i18n.ts";
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { chooseOk } from "./controller-choice.ts";
 import { LabInput } from "./lab-input.tsx";
 import {
   bodyField,
@@ -102,6 +103,8 @@ async function mountTest(heard: Heard[]): Promise<Mounted> {
 describe("the button test's controllers", () => {
   let mounted: Mounted | undefined;
   beforeEach(() => {
+    // The OK a test chose is kept in the browser, as the person's is: each test starts with none.
+    chooseOk("automatic");
     connected = [];
     Object.defineProperty(navigator, "getGamepads", {
       configurable: true,

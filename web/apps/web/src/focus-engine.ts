@@ -9,7 +9,7 @@
  * nearness along the arrow counting less than the step across it.
  */
 
-import { directionOfKey, keyCodeOf, type Direction } from "./input-buttons.ts";
+import type { Direction } from "./input-buttons.ts";
 
 /** An element's box on the screen, as getBoundingClientRect gives it. */
 export interface Box {
@@ -62,20 +62,24 @@ function gapAcross(from: Box, to: Box, direction: Direction): number {
 /**
  * The candidate an arrow in direction moves to from the box from: the nearest whose box lies wholly
  * past from's edge that way (a box may touch it), by the gap along plus acrossWeight times the gap
- * across; undefined where none lies that way.
+ * across; undefined where none lies that way. Left and Right move along from's line alone, to a box
+ * beside it: Right at the end of a grid's short last row goes nowhere rather than up a row (a walk
+ * at Silk's 960 × 480, 2026-10-25).
  */
 export function nearestInDirection<T>(
   from: Box,
   candidates: readonly Placed<T>[],
   direction: Direction,
 ): T | undefined {
+  const isAlongALine = direction === "left" || direction === "right";
   let best: { readonly item: T; readonly score: number } | undefined;
   for (const candidate of candidates) {
     const along = gapAlong(from, candidate.box, direction);
-    if (along < 0) {
+    const across = gapAcross(from, candidate.box, direction);
+    if (along < 0 || (isAlongALine && across > 0)) {
       continue;
     }
-    const score = along + acrossWeight * gapAcross(from, candidate.box, direction);
+    const score = along + acrossWeight * across;
     if (best === undefined || score < best.score) {
       best = { item: candidate.item, score };
     }
@@ -92,25 +96,133 @@ export interface FocusEngine {
   readonly next: (from: Element, direction: Direction, region: Element) => HTMLElement | undefined;
 }
 
-/** What may take focus inside a region: its links, buttons and anything with a tabindex. */
-const focusableSelector = "a[href], button:not([disabled]), input, select, [tabindex]";
+/**
+ * What may take focus: links, buttons, form fields, a details' summary, a video with its own
+ * controls and anything with a tabindex, each as long as it is not switched off.
+ */
+export const focusableSelector = [
+  "a[href]",
+  "button:not([disabled])",
+  'input:not([disabled]):not([type="hidden"])',
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "summary",
+  "video[controls]",
+  "[tabindex]",
+].join(", ");
+
+/** Whether element is inside a closed details, but for its summary, which stays shown. */
+function isInClosedDetails(element: HTMLElement): boolean {
+  const details = element.closest("details");
+  return details !== null && !details.open && element.closest("summary")?.parentElement !== details;
+}
 
 /**
- * Our geometric engine over the region's focusable elements that are laid out: one inside a closed
- * menu or a closed details has no box, and would otherwise be found at the screen's corner.
+ * Whether element is drawn: laid out (one inside a closed menu or a closed details has no box, and
+ * would otherwise be found at the screen's corner), and, where the browser can say, neither hidden
+ * nor skipped as a closed details' content is in Chromium, which still gives it a box.
  */
+function isDrawn(element: HTMLElement): boolean {
+  if (element.getClientRects().length === 0 || isInClosedDetails(element)) {
+    return false;
+  }
+  return (
+    typeof element.checkVisibility !== "function" ||
+    element.checkVisibility({ visibilityProperty: true })
+  );
+}
+
+/** Whether element can take focus by an arrow now: in the tab order, drawn, and not inert. */
+export function isFocusTarget(element: HTMLElement): boolean {
+  return element.tabIndex >= 0 && element.closest("[inert]") === null && isDrawn(element);
+}
+
+/** The elements in region an arrow can move focus to, in the document's order. */
+export function focusTargetsIn(region: ParentNode): HTMLElement[] {
+  return [...region.querySelectorAll<HTMLElement>(focusableSelector)].filter((element) =>
+    isFocusTarget(element),
+  );
+}
+
+/**
+ * The attribute that marks an element fixed over the page's top, as the shell's sticky banner: an
+ * element focused beneath it is scrolled clear of it (focus-navigation.ts), and the search reads it
+ * where it stands at the page's top, not where it sticks.
+ */
+export const coversTopAttribute = "data-focus-covers-top";
+
+/**
+ * Where element is for the search: its box on the screen, or, inside the banner over the page's
+ * top, its box at the page's top, where it stands unscrolled. A page scrolled down holds what is
+ * above the screen between its content and the banner, and Up from the screen's top row goes there
+ * before the banner (a walk at Silk's 960 × 480, 2026-10-25: Up from the films skipped Continue
+ * Watching, scrolled out above, for the banner over it).
+ */
+function boxOf(element: Element): Box {
+  const box = element.getBoundingClientRect();
+  if (element.closest(`[${coversTopAttribute}]`) === null) {
+    return box;
+  }
+  const scrolled = window.scrollY;
+  return {
+    left: box.left,
+    right: box.right,
+    top: box.top - scrolled,
+    bottom: box.bottom - scrolled,
+  };
+}
+
+/** Our geometric engine over the region's elements that can take focus, but from and those in it. */
 export const geometricFocus: FocusEngine = {
   name: "geometric",
   next: (from, direction, region) => {
     const candidates: Placed<HTMLElement>[] = [];
-    for (const element of region.querySelectorAll<HTMLElement>(focusableSelector)) {
-      if (element !== from && element.tabIndex >= 0 && element.getClientRects().length > 0) {
-        candidates.push({ item: element, box: element.getBoundingClientRect() });
+    for (const element of focusTargetsIn(region)) {
+      if (element !== from && !from.contains(element)) {
+        candidates.push({ item: element, box: boxOf(element) });
       }
     }
-    return nearestInDirection(from.getBoundingClientRect(), candidates, direction);
+    return nearestInDirection(boxOf(from), candidates, direction);
   },
 };
+
+/**
+ * The attribute that marks a focus container in the markup (controller-input-2026-10-25.md §6.1
+ * item 2): the shell's banner, a page's main content, a row or grid of tiles, a menu, the player.
+ * An arrow looks first inside the container that holds focus, and only where nothing lies that way
+ * there, in the one around it, out to the whole region; so Right at a row's end does not leap to
+ * whatever is to the right on the page while the row has more. Each container remembers what last
+ * had focus in it (focus-memory.ts).
+ */
+export const focusContainerAttribute = "data-focus-container";
+
+/** The container nearest around element, inside root; root itself where none is. */
+export function containerAround(element: Element, root: Element): Element {
+  const container = element.parentElement?.closest(`[${focusContainerAttribute}]`);
+  return container !== null && container !== undefined && root.contains(container)
+    ? container
+    : root;
+}
+
+/**
+ * The element an arrow in direction moves focus to from from, by engine, within root: the nearest
+ * that way inside from's container, else inside the container around that, out to root; undefined
+ * where none lies that way in root.
+ */
+export function nextInContainers(
+  from: HTMLElement,
+  direction: Direction,
+  { root, engine }: { readonly root: Element; readonly engine: FocusEngine },
+): HTMLElement | undefined {
+  let scope = containerAround(from, root);
+  for (;;) {
+    const next = engine.next(from, direction, scope);
+    if (next !== undefined || scope === root) {
+      return next;
+    }
+    scope = containerAround(scope, root);
+  }
+}
 
 /** Where a text field's caret stands, as an arrow reads it. */
 export interface Caret {
@@ -166,69 +278,20 @@ export function caretOf(element: Element): Caret | undefined {
   return undefined;
 }
 
-/** What our navigation moves focus within, by which engine, and where its first arrow starts. */
-export interface FocusDrive {
-  readonly region: HTMLElement;
-  readonly engine: FocusEngine;
-  readonly start: HTMLElement;
-}
-
 /**
- * Moves real DOM focus from what has it in the drive's region by its engine, one step in direction;
- * while nothing in region has focus, focuses start's first element. Whether it took the arrow:
- * false where focus is in a field outside region, which keeps it.
+ * Whether an arrow in direction is element's own rather than ours: a text field's, by its caret
+ * (isArrowTheFields), and every arrow while it composes; a range's Left and Right, which move its
+ * value, Up and Down leaving it.
  */
-export function moveFocus({ region, engine, start }: FocusDrive, direction: Direction): boolean {
-  const from = document.activeElement;
-  if (from instanceof HTMLElement && from !== region && region.contains(from)) {
-    engine.next(from, direction, region)?.focus(visibly);
-    return true;
+export function isArrowTheElements(
+  element: Element,
+  direction: Direction,
+  isComposing: boolean,
+): boolean {
+  const caret = caretOf(element);
+  if (caret !== undefined) {
+    return isComposing || isArrowTheFields(direction, caret);
   }
-  if (from instanceof HTMLInputElement || from instanceof HTMLSelectElement) {
-    return false;
-  }
-  start.querySelector<HTMLElement>(focusableSelector)?.focus(visibly);
-  return true;
-}
-
-/**
- * Focus moved by a controller, shown as a key's is: a browser draws :focus-visible only after a key,
- * and a gamepad's press is none (the owner, Firefox on a Mac, 2026-10-25: the D-pad moved focus,
- * the log said, and the page showed nothing move).
- */
-const visibly: FocusOptions = { focusVisible: true };
-
-/**
- * Moves real DOM focus by engine on each arrow key the page hears, the browser's own handling of the
- * key prevented, so the engine alone moves it; the input probe measures each move by the focus it
- * sees arrive. An arrow while nothing in region has focus (the page just opened, focus on its body)
- * focuses start's first element (region's, unless given), as a TV app's first press does (owner,
- * Firefox, 2026-10-25: the arrows reached the page and moved nothing). An arrow in a field of a
- * form outside region is the field's; in a text field inside it, the field's unless the caret is at
- * the value's end the arrow points to (isArrowTheFields), or the field is composing. Returns the
- * stopping.
- */
-export function driveFocus(
-  region: HTMLElement,
-  engine: FocusEngine,
-  start: HTMLElement = region,
-): () => void {
-  const handle = (event: KeyboardEvent): void => {
-    const direction = directionOfKey(event.key, keyCodeOf(event));
-    if (direction === undefined) {
-      return;
-    }
-    const from = document.activeElement;
-    const caret = from === null ? undefined : caretOf(from);
-    if (caret !== undefined && (event.isComposing || isArrowTheFields(direction, caret))) {
-      return;
-    }
-    if (moveFocus({ region, engine, start }, direction)) {
-      event.preventDefault();
-    }
-  };
-  document.addEventListener("keydown", handle);
-  return () => {
-    document.removeEventListener("keydown", handle);
-  };
+  const isAcross = direction === "left" || direction === "right";
+  return element instanceof HTMLInputElement && element.type === "range" && isAcross;
 }

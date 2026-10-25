@@ -208,3 +208,38 @@ export function buttonOf(input: HeardInput): ButtonName {
       return buttonsByMediaAction.get(input.action) ?? "other";
   }
 }
+
+/**
+ * What a press asks of the app (controller-input-2026-10-25.md §6.1 item 1): pages and the player
+ * hear commands, never keys.
+ */
+export type Command = Direction | "select" | "back" | "playPause" | "seekBack" | "seekForward";
+
+/** The commands by button: rewind and fast forward seek; the volume keys and the rest ask nothing. */
+const commandsByButton = new Map<ButtonName, Command>([
+  ["up", "up"],
+  ["down", "down"],
+  ["left", "left"],
+  ["right", "right"],
+  ["select", "select"],
+  ["back", "back"],
+  ["playPause", "playPause"],
+  ["rewind", "seekBack"],
+  ["fastForward", "seekForward"],
+]);
+
+/**
+ * The command a press asks for: its button's, and Back for Escape, which closes what is open and
+ * goes back as a remote's Back does (the owner, 2026-10-25); undefined for a press that asks none.
+ */
+export function commandOf(input: HeardInput): Command | undefined {
+  if (input.kind === "key" && (input.key === "Escape" || input.key === "Esc")) {
+    return "back";
+  }
+  return commandsByButton.get(buttonOf(input));
+}
+
+/** Whether command is an arrow's. */
+export function isDirection(command: Command): command is Direction {
+  return command === "up" || command === "down" || command === "left" || command === "right";
+}

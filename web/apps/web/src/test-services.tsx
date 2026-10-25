@@ -3,6 +3,7 @@
 import { createApi } from "@orpheum/sdk";
 import type { JSX, ReactNode } from "react";
 
+import { InputLayer } from "./input-layer.tsx";
 import { createNavigation, type Place } from "./navigation.ts";
 import { createSession } from "./session.ts";
 import { ServicesContext, type Services } from "./services.tsx";
@@ -131,7 +132,11 @@ export function testServices(
   };
 }
 
-/** Wraps a tree in test services. */
+/** Wraps a tree in test services, with the input layer the app runs every screen under. */
 export function withServices(tree: ReactNode, services: Services = testServices()): JSX.Element {
-  return <ServicesContext value={services}>{tree}</ServicesContext>;
+  return (
+    <ServicesContext value={services}>
+      <InputLayer>{tree}</InputLayer>
+    </ServicesContext>
+  );
 }
