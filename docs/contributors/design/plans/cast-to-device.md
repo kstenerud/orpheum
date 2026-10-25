@@ -295,3 +295,39 @@ tabs count, no opt-out (Q6); control by A (Q7); the fading line is enough (Q8).
 - **The TCL's late sound** (idiosyncrasies, TV Bro) is the receiver's problem as it is any player's
   there; casting does not change it.
 - Nothing here was run: no two-device session, no remote, no receiver.
+
+## 11. What was built, and the assumptions it made
+
+Built 2026-10-25, steps 1–4, 6 and 7 for casting alone: presence (`internal/core/live`, the presence
+socket in `internal/core/api/live_socket.go`, the SDK's `live-connection.ts`, the web's `live.tsx`),
+casts as sessions of one in the hub (`internal/core/together/cast.go`, `POST /me/casts`,
+`GET /me/casts`, `POST /me/casts/{id}/end`), Cast to another device on the Play page
+and a title's page (§9 Q1), the receiver (`cast-receiver.tsx`), the remote (`cast-remote.tsx`,
+`/casting`), and a film played on a device that casts sent on to its receiver (Q3,
+`PlayOrSendOn`). Device checks: VQ64–VQ66. Not built: step 5 (the person's choices sent from the
+remote), step 8 (Watch Together), and the Playwright runs of §8.
+
+Where this plan was silent, the build assumed, each the plan's lean or the smallest step:
+
+1. **The presence socket is the session socket's address with a hello of its own** (`live`), so it
+   travels wherever that socket does, directly, over WebRTC and through a discovery's loader, with
+   nothing new in the transports (§3 left the address open).
+2. **The remote is the cast's voice device**: a device with no player (D120's voice role), which the
+   group never waits for, rather than a role of its own; in Watch Together it is the one that talks.
+3. **A receive goes to the receiver's newest connection**: of a device's several tabs, one receives;
+   another is handed the cast only once that one is gone (§4's reload).
+4. **A sender controls one receiver**: casting to another ends its earlier cast, whose receiver is
+   told it stopped (D337 §6 says one controller per receiver; the reverse was open).
+5. **Stop casting pauses the receiver** and leaves it an ordinary player, rather than sending it home.
+6. **The receiver plays at once** even when the sender was paused.
+7. **At the film's end the receiver ends the cast and goes home** (§9 Q4's second half): the player
+   plays no next episode by itself yet, so "as the sender would" is nothing; once it does, the
+   receiver should follow it.
+8. **Play here from ‹position›** opens the film's Play page, which starts where the server kept the
+   person's position: the receiver's last report, at most a report interval behind what it says.
+9. **A replaced remote is told another device controls the receiver**, without naming it.
+10. **The remote shows the title and its length, no poster**, from the file the cast plays.
+11. **Casting is not offered while the tab hosts Watch Together**, until step 8.
+12. **Presses on the receiver:** with no prompt up, play/pause, rewind, fast forward and Left and
+    Right are the player's own (§6.4), and any other key, a tap or Back raises the prompt; with it
+    up, OK, a tap or Back takes control, and an arrow does nothing.

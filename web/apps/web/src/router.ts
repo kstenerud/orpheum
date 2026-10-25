@@ -38,6 +38,8 @@ export type Route =
   | { readonly screen: "register" }
   | { readonly screen: "together" }
   | { readonly screen: "watch-together" }
+  /** This device's remote for the cast it sends to another of the person's (D337 §5). */
+  | { readonly screen: "casting" }
   /**
    * The device lab (plans/tv-device-tests.md): its menu, or one of its probes, at a short address a
    * TV's remote types quickly; no menu leads to it.
@@ -100,6 +102,7 @@ const shapes: readonly Shape[] = [
   { pattern: /^\/register\/?$/u, toRoute: () => ({ screen: "register" }) },
   { pattern: /^\/together\/?$/u, toRoute: () => ({ screen: "together" }) },
   { pattern: /^\/watch-together\/?$/u, toRoute: () => ({ screen: "watch-together" }) },
+  { pattern: /^\/casting\/?$/u, toRoute: () => ({ screen: "casting" }) },
   { pattern: /^\/ui-gallery\/?$/u, toRoute: () => ({ screen: "ui-gallery" }) },
   { pattern: /^\/lab\/?$/u, toRoute: () => ({ screen: "lab" }) },
   ...labPages.map((probe) => ({

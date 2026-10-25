@@ -34,6 +34,8 @@ const clientKeys = new Set([
   "orpheum.lab.castAppId",
   // Which face button of a game controller is OK on this browser (controller-choice.ts).
   "orpheum.controller.ok",
+  // Whether the tab sends a cast, so a film it plays goes on to its receiver (cast.ts).
+  "orpheum.cast.sending",
 ]);
 
 /**

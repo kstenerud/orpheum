@@ -10,10 +10,12 @@ import { Account } from "./account.tsx";
 import { AppShell } from "./app-shell.tsx";
 import { tabStorage } from "./browser-storage.ts";
 import { Browse } from "./browse.tsx";
+import { Casting } from "./cast-remote.tsx";
 import { Home } from "./home.tsx";
 import { NeedsAttention } from "./needs-attention.tsx";
 import { IsAdminContext } from "./warning-sign.tsx";
 import { InputLayer } from "./input-layer.tsx";
+import { LiveProvider } from "./live.tsx";
 import { Files } from "./files.tsx";
 import { Identify } from "./identify.tsx";
 import { Jobs } from "./jobs.tsx";
@@ -120,33 +122,35 @@ function SignedIn(): JSX.Element {
   }, [api]);
   return (
     <IsAdminContext value={isAdmin}>
-      <HostVoiceProvider membership={hostMembership}>
-        <BackgroundChangesContext value={poller}>
-          <InterestSaidEveryContext value={clientSettings?.interestSaidEverySeconds ?? 15}>
-            <AppShell
-              isAdmin={isAdmin}
-              canHostWatchTogether={me.state === "loaded" && me.value.canHostWatchTogether}
-              isHostingTogether={isHostingTogether}
-              signedInAs={
-                me.state === "loaded"
-                  ? { name: me.value.name, deviceName: me.value.device?.name }
-                  : undefined
-              }
-              currentScreen={route.screen}
-              administersFromHomeAt={administersFromHomeAt(me)}
-              realm={realm}
-              showsDeveloperPages={clientSettings?.shouldShowDeveloperPages === true}
-              showsDeviceTests={clientSettings?.shouldOfferDeviceTests === true}
-              onSwitchHousehold={switchHousehold}
-              onSignOut={signOut}
-            >
-              <DeviceTestsOfferedContext value={clientSettings?.shouldOfferDeviceTests}>
-                <Screen route={route} />
-              </DeviceTestsOfferedContext>
-            </AppShell>
-          </InterestSaidEveryContext>
-        </BackgroundChangesContext>
-      </HostVoiceProvider>
+      <LiveProvider>
+        <HostVoiceProvider membership={hostMembership}>
+          <BackgroundChangesContext value={poller}>
+            <InterestSaidEveryContext value={clientSettings?.interestSaidEverySeconds ?? 15}>
+              <AppShell
+                isAdmin={isAdmin}
+                canHostWatchTogether={me.state === "loaded" && me.value.canHostWatchTogether}
+                isHostingTogether={isHostingTogether}
+                signedInAs={
+                  me.state === "loaded"
+                    ? { name: me.value.name, deviceName: me.value.device?.name }
+                    : undefined
+                }
+                currentScreen={route.screen}
+                administersFromHomeAt={administersFromHomeAt(me)}
+                realm={realm}
+                showsDeveloperPages={clientSettings?.shouldShowDeveloperPages === true}
+                showsDeviceTests={clientSettings?.shouldOfferDeviceTests === true}
+                onSwitchHousehold={switchHousehold}
+                onSignOut={signOut}
+              >
+                <DeviceTestsOfferedContext value={clientSettings?.shouldOfferDeviceTests}>
+                  <Screen route={route} />
+                </DeviceTestsOfferedContext>
+              </AppShell>
+            </InterestSaidEveryContext>
+          </BackgroundChangesContext>
+        </HostVoiceProvider>
+      </LiveProvider>
     </IsAdminContext>
   );
 }
@@ -230,6 +234,9 @@ function nonLibraryScreen(route: Route): JSX.Element | undefined {
   }
   if (route.screen === "watch-together") {
     return <WatchTogether />;
+  }
+  if (route.screen === "casting") {
+    return <Casting />;
   }
   if (route.screen === "ui-gallery") {
     return <UiGallery />;

@@ -4,6 +4,7 @@ import {
   createTogetherConnection,
   type GroupCommand,
   type CannotKeepUp,
+  type DeviceRole,
   type Standing,
   type TellsCannotKeepUp,
   type TellsStanding,
@@ -34,6 +35,8 @@ export interface TogetherDevice {
   readonly sessionToken?: string | undefined;
   /** The command it sends as the component goes: the host's stop, as they leave the player. */
   readonly commandOnLeaving?: GroupCommand | undefined;
+  /** What the device does for its member (D120): "playback" when not given; a cast's remote plays nothing. */
+  readonly role?: DeviceRole | undefined;
 }
 
 /**
@@ -46,7 +49,7 @@ export function useTogether(device: TogetherDevice): {
   readonly snapshot: TogetherSnapshot | undefined;
 } {
   const { openTogetherSocket } = useServices();
-  const { credential, sessionToken, commandOnLeaving } = device;
+  const { credential, sessionToken, commandOnLeaving, role } = device;
   const connection = useMemo(
     () =>
       credential === undefined
@@ -55,10 +58,11 @@ export function useTogether(device: TogetherDevice): {
             credential,
             client: ownScriptOf(document),
             sessionToken,
+            role,
             openSocket: openTogetherSocket,
             monotonicMs,
           }),
-    [credential, sessionToken, openTogetherSocket],
+    [credential, sessionToken, role, openTogetherSocket],
   );
   useEffect(() => {
     connection?.open();

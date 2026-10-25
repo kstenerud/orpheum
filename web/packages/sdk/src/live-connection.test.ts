@@ -1,0 +1,152 @@
+// SPDX-License-Identifier: MPL-2.0
+
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { createLiveConnection, parseLiveMessage } from "./live-connection.ts";
+import { pingEveryMs, reconnectWaitMs } from "./together-connection.ts";
+import type { TogetherSocketListeners } from "./together.ts";
+
+/** A stand-in for the server's end of each socket: what was opened, and every message sent. */
+function fakeSockets(): {
+  readonly opened: TogetherSocketListeners[];
+  readonly sent: Record<string, unknown>[];
+  readonly open: (listeners: TogetherSocketListeners) => {
+    send: (text: string) => void;
+    close: () => void;
+  };
+} {
+  const opened: TogetherSocketListeners[] = [];
+  const sent: Record<string, unknown>[] = [];
+  return {
+    opened,
+    sent,
+    open: (listeners) => {
+      opened.push(listeners);
+      return {
+        send: (text) => {
+          sent.push(JSON.parse(text) as Record<string, unknown>);
+        },
+        close: () => undefined,
+      };
+    },
+  };
+}
+
+const monotonicMs = (): number => 1000;
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+describe("a page's live connection (D337 §2)", () => {
+  it("says hello with the session token, never in the address, and keeps the devices it is told", () => {
+    const sockets = fakeSockets();
+    const connection = createLiveConnection({
+      sessionToken: "session",
+      client: "index-T3st.js",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    sockets.opened[0]!.onOpen();
+    expect(sockets.sent[0]).toEqual({
+      type: "live",
+      sessionToken: "session",
+      client: "index-T3st.js",
+    });
+    sockets.opened[0]!.onMessage(JSON.stringify({ type: "devices", deviceIds: [3, 4] }));
+    expect(connection.snapshot()).toMatchObject({ isConnected: true, deviceIds: [3, 4] });
+  });
+
+  it("connects again after a drop, with the growing wait, and pings as the session socket does", () => {
+    vi.useFakeTimers();
+    const sockets = fakeSockets();
+    const connection = createLiveConnection({
+      sessionToken: "session",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    sockets.opened[0]!.onOpen();
+    vi.advanceTimersByTime(pingEveryMs);
+    expect(sockets.sent.at(-1)).toMatchObject({ type: "ping" });
+    sockets.opened[0]!.onClose(1006);
+    expect(connection.snapshot().isConnected).toBe(false);
+    vi.advanceTimersByTime(reconnectWaitMs(0));
+    expect(sockets.opened).toHaveLength(2);
+  });
+
+  it("connects no more once the server refuses the sign-in", () => {
+    vi.useFakeTimers();
+    const sockets = fakeSockets();
+    const connection = createLiveConnection({
+      sessionToken: "lapsed",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    sockets.opened[0]!.onOpen();
+    sockets.opened[0]!.onClose(1008);
+    vi.advanceTimersByTime(60_000);
+    expect(sockets.opened).toHaveLength(1);
+    expect(connection.snapshot().isRefused).toBe(true);
+  });
+
+  it("keeps a cast handed to it until it is taken", () => {
+    const sockets = fakeSockets();
+    const connection = createLiveConnection({
+      sessionToken: "session",
+      openSocket: sockets.open,
+      monotonicMs,
+    });
+    connection.open();
+    sockets.opened[0]!.onOpen();
+    sockets.opened[0]!.onMessage(
+      JSON.stringify({
+        type: "receive",
+        receive: {
+          castId: 7,
+          membershipCredential: "cast",
+          fileId: 3,
+          positionMs: 61_000,
+          fromDeviceId: 2,
+          fromDeviceName: "Pixel",
+        },
+      }),
+    );
+    expect(connection.snapshot().receive).toEqual({
+      castId: 7,
+      membershipCredential: "cast",
+      fileId: 3,
+      positionMs: 61_000,
+      fromDeviceId: 2,
+      fromDeviceName: "Pixel",
+    });
+    connection.takeReceive();
+    expect(connection.snapshot().receive).toBeUndefined();
+  });
+
+  it("reads a cast with no position as one starting where the person left the film", () => {
+    expect(
+      parseLiveMessage(
+        JSON.stringify({
+          type: "receive",
+          receive: { castId: 1, membershipCredential: "c", fileId: 2, fromDeviceId: 3 },
+        }),
+      ),
+    ).toEqual({
+      type: "receive",
+      receive: {
+        castId: 1,
+        membershipCredential: "c",
+        fileId: 2,
+        positionMs: undefined,
+        fromDeviceId: 3,
+        fromDeviceName: "",
+      },
+    });
+    expect(parseLiveMessage(JSON.stringify({ type: "receive", receive: { castId: 1 } }))).toBe(
+      undefined,
+    );
+  });
+});

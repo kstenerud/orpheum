@@ -10,6 +10,8 @@ import { artUrl, type components } from "@orpheum/sdk";
 import { useEffect, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
+import { CastToDevice } from "./cast-to.tsx";
+
 import { camelKey } from "./catalogue-key.ts";
 import { languageName } from "./language-name.ts";
 import { useBackgroundChangesPoller } from "./polling.ts";
@@ -238,6 +240,10 @@ function Versions(props: {
                   ))}
                 </ul>
               </details>
+              {/* Cast before anything plays, from where the person left it (D337; §9 Q1). */}
+              {props.isPlayable ? (
+                <CastToDevice fileId={file.id} positionMs={() => undefined} />
+              ) : null}
               {/* An admin sees the path, and says a file that cannot be read now is gone (D241 §5). */}
               {props.isPlayable ||
               file.path === undefined ||

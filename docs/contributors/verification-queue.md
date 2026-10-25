@@ -616,3 +616,25 @@ An item is ticked only by the person who did it, and only with what they saw.
   reached from this network*, and the log must show one "turned a connection away" line per Try
   again, not one a second. (`web/packages/sdk/src/rtc-transport.ts`, `rtc-connect.ts`,
   `internal/core/rtcapi/verdict.go`, `web/apps/web/src/discovery-gate.tsx`)
+- [ ] **VQ64** — Sign a Fire TV stick (Silk, in pointer mode and again in spatial mode), the TCL TV
+  (TV Bro) and a phone in as the same person; open any Orpheum page on the TV. On the phone, play a
+  film, press **Cast to another device** and choose the TV (D337; plans/cast-to-device.md §4, §8
+  step 3). Passes when the TV is listed by its name with when it was last used, plays the film within
+  a few seconds of where the phone stood, filling the screen with nothing on it but *Controlled from
+  ‹phone›*, which fades after about five seconds; with sound, or with **Sound on**, which OK starts;
+  the phone shows the remote (no film playing on it), and its Play, Pause, Back 10 s, Forward 10 s and
+  timeline move the TV within a second or two. (`web/apps/web/src/cast-to.tsx`, `cast-receiver.tsx`,
+  `cast-remote.tsx`, `live.tsx`)
+- [ ] **VQ65** — With the phone casting to the TV as in VQ64, on the Fire TV in Silk's spatial mode
+  press Back, then Back again; then cast again and press OK twice; in pointer mode, press OK twice;
+  on the TCL, the remote's Back twice (D337 §4; §6.1). Passes when the first press shows *Take back
+  control* and the second takes it: the TV plays on with its own controls, and the phone says *‹TV›
+  took control back.* with **Play here from ‹position›**; a single press left alone hides the prompt
+  after about five seconds and the cast goes on. Then cast from the phone, then from a laptop: the
+  phone must say another device now controls the TV, and the TV follow the laptop. Lock the phone:
+  the TV plays on. (`web/apps/web/src/cast-receiver.tsx`)
+- [ ] **VQ66** — With the phone casting to the TV as in VQ64, press the Fire TV remote's play/pause
+  key, and in Silk's spatial mode its Left and Right; on the TCL, its remote's play/pause (D337 §7;
+  §6.4). Passes when the TV pauses and plays, and seeks 10 s, without the take-back prompt, and the
+  phone shows *Paused* or *Playing* and the new position within a second or two.
+  (`web/apps/web/src/cast-receiver.tsx`, `player-commands.ts`)

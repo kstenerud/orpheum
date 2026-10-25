@@ -167,7 +167,10 @@ export type {
   TogetherEndReason,
   VoiceSignal,
 } from "./together.ts";
-export { createTogetherConnection } from "./together-connection.ts";
+export { createTogetherConnection, expectedGroupPositionMs } from "./together-connection.ts";
+export { createLiveConnection } from "./live-connection.ts";
+export { scrubPauseWindowMs } from "./together-lead.ts";
+export type { CastToReceive, LiveConnection, LiveSnapshot } from "./live-connection.ts";
 export type {
   ConnectionStatus,
   GroupCommand,

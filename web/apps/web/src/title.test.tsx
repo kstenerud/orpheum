@@ -69,6 +69,13 @@ describe("TitleView", () => {
     expect(markup).toContain("/m/Metropolis (1995).mkv");
   });
 
+  it("offers to cast a file it can play to another device, before anything plays (D337; §9 Q1)", () => {
+    const markup = renderToStaticMarkup(withServices(<TitleView title={heat} />));
+    expect(markup).toMatch(
+      /<\/details><button type="button" class="cast-to__open">Cast to another device/u,
+    );
+  });
+
   it("keeps a file's path and streams in a closed File details, with Play outside it", () => {
     const markup = renderToStaticMarkup(withServices(<TitleView title={heat} />));
     const details =

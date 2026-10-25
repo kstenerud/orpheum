@@ -80,6 +80,10 @@ export const enTogether = {
       left: "You left the session. You can close this page.",
       gone: "This session is over. You can close this page.",
       uploadFull: "The host's connection can't carry everyone right now.",
+      takenBack: "Control was taken back. You can close this page.",
+      replaced: "Another device took over. You can close this page.",
+      stopped: "Casting stopped. You can close this page.",
+      filmEnded: "The film ended. You can close this page.",
       joinAgain: "Join again",
     },
     event: {
