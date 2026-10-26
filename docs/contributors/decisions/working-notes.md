@@ -15178,6 +15178,8 @@ That is one research round, and its output is `standards/` plus any principles a
 
 ## D193 — The audit's proposals are accepted: the node does all media work, "prepare" is the one path besides direct play, the machinery is cut, and Cut A's design freezes
 
+> **§2 narrowed by [D344](#d344--the-whole-film-prepare-is-retired-every-playback-the-device-cannot-play-as-it-is-plays-from-its-ladder-cut-on-time-where-its-keyframes-cannot-be-had)** (2026-10-26): prepare is retired; the one path besides direct play is the ladder of chunks (D247 §10, D260).
+
 **Decided** (2026-09-23), by the project owner, answering
 [audit-2026-09-23.md](../design/research/audit-2026-09-23.md) §9: *"P1: yes. P2: yes. P3: yes.
 P4: yes. P5: I have a bunch of domains already that I can use. P7: yes. P8: devnas doesn't have
@@ -16525,6 +16527,8 @@ whose media cookie is scoped to the byte paths, and cut-a §5's paths.
 
 ## D217 — M3's playback contract: the client sends ranked lists, the media token is a reference, every audio track is prepared, and hls.js, JASSUB and Playwright are allowed
 
+> **§3 and §5 narrowed by [D344](#d344--the-whole-film-prepare-is-retired-every-playback-the-device-cannot-play-as-it-is-plays-from-its-ladder-cut-on-time-where-its-keyframes-cannot-be-had)** (2026-10-26): no prepare is made; a film's sounds keep §3's mixes as chunks, and the node's prepared directory holds its stores of chunks within §5's budget.
+
 **Decided** (2026-09-25), by the project owner, over the gaps found in cut-a before M3
 (*"1, 2, 4, 9: agreed"*, then *"ok, that all sounds good"* to §5–§8). What M3's accounts are is
 [D218](#d218--accounts-the-admin-creates-a-person-who-sets-a-password-from-a-one-time-link-a-signed-in-person-adds-a-tv-by-a-short-safe32-code).
@@ -16884,6 +16888,8 @@ and a download a capability on the role.
 order OpenSubtitles returns.
 
 ## D225 — One admin page, System, shows every fact about the server and each node, and M3's shows whether hardware encoding works
+
+> **§3 narrowed by [D344](#d344--the-whole-film-prepare-is-retired-every-playback-the-device-cannot-play-as-it-is-plays-from-its-ladder-cut-on-time-where-its-keyframes-cannot-be-had)** (2026-10-26): there are no prepares to list; the encoder trials stay.
 
 **Decided** (2026-09-27), by the project owner, asked how a person can tell whether the hardware
 encoders of cut-a §6 work: *"Are things set up properly? Does it see the GPU? Does it have
@@ -18656,6 +18662,8 @@ which came only from reading the whole file through.
 
 ## D260 — A film plays from its ladder of qualities from the start, filled on its page, and its player keeps choosing as it plays
 
+> **§1 revised by [D344](#d344--the-whole-film-prepare-is-retired-every-playback-the-device-cannot-play-as-it-is-plays-from-its-ladder-cut-on-time-where-its-keyframes-cannot-be-had)** (2026-10-26): a film not cut on its keyframes in time, or that cannot be, is cut on time and plays from its ladder; no prepared copy is made.
+
 > **Refined by [D265](#d265--the-chunked-player-chooses-its-quality-with-a-bitrate-controller-of-its-own-inside-hlsjs)** (2026-10-07): its player chooses with a bitrate controller of its own, which steps down while filling and playing alike (§3).
 
 **Decided** (2026-10-07), by the project owner: *"If the client has an idea of what its network
@@ -19017,6 +19025,8 @@ from the player's events with one-shot marks, where most of a week's bugs lived.
 **Status:** Decided 2026-10-08.
 
 ## D269 — A film with no keyframe index is cut on time and plays encoded at once; its original picture is copied once a read-through has found its keyframes
+
+> **§1 revised by [D344](#d344--the-whole-film-prepare-is-retired-every-playback-the-device-cannot-play-as-it-is-plays-from-its-ladder-cut-on-time-where-its-keyframes-cannot-be-had)** (2026-10-26): a film whose keyframes are not read in time, that cannot be read through, or that has no keyframe before its end is cut on time too, and on time the top of its ladder is the twin.
 
 **Decided** (2026-10-08), by the project owner, on the question of what matching the original's
 keyframes buys the viewer: *"Ok, go with your recommendations on the key frames issue"*; and, on
@@ -21841,9 +21851,43 @@ reached the other.
 
 **Status:** Built.
 
-## D344 — Reserved: Retiring whole-film prepare
+## D344 — The whole-film prepare is retired: every playback the device cannot play as it is plays from its ladder, cut on time where its keyframes cannot be had
 
-**Reserved** (2026-10-26) for a branch being built from the owner's answers of 2026-10-26; the branch replaces this entry with the decision.
+**Decided** (2026-10-26), by the project owner, on C9/N6 of the audit of 2026-10-25
+(design/research/audit-2026-10-25.md): *"agreed"*, to deciding whether the on-time grid
+([D269](#d269--a-film-with-no-keyframe-index-is-cut-on-time-and-plays-encoded-at-once-its-original-picture-is-copied-once-a-read-through-has-found-its-keyframes))
+can carry the playbacks that still fell back to a prepared copy, then retiring prepare, or
+recording why it stays. The check is design/plans/retire-prepare.md §1: it can. **Narrows**
+[D193](#d193--the-audits-proposals-are-accepted-the-node-does-all-media-work-prepare-is-the-one-path-besides-direct-play-the-machinery-is-cut-and-cut-as-design-freezes)
+§2, [D217](#d217--m3s-playback-contract-the-client-sends-ranked-lists-the-media-token-is-a-reference-every-audio-track-is-prepared-and-hlsjs-jassub-and-playwright-are-allowed)
+§3 and §5 and [D225](#d225--one-admin-page-system-shows-every-fact-about-the-server-and-each-node-and-m3s-shows-whether-hardware-encoding-works)
+§3; **revises** [D260](#d260--a-film-plays-from-its-ladder-of-qualities-from-the-start-filled-on-its-page-and-its-player-keeps-choosing-as-it-plays)
+§1 and D269 §1.
+
+1. **There is one path besides direct play: the ladder** (D247 §10, D260). No whole-film copy is
+   made: the prepare job, its renditions, their index in cache.db, their files on the node, and
+   what showed or waited on them (a prepared playback's playlists, the System page's finished
+   prepares, a file's prepare wait) are removed. A film's sounds keep D217 §3's mixes, each track's
+   standard and, with a centre, its boosted one, as chunks; the node's prepared directory keeps
+   the stores of chunks within the same budget (D217 §5).
+2. **A film whose keyframes cannot be had in time is cut on time** (D269 §1): one whose
+   keyframes were not read within `play_ladder_wait_ms`, one FFmpeg could not read through, and
+   one with no keyframe before its end. Its playback keeps that grid to its end (D269 §3); the
+   next is cut on the keyframes once they are known. A run asked for on the time grid is made on
+   it.
+3. **On time, the top of the ladder is the twin** (D323 §1), H.264 at the picture's own height,
+   whether or not the player decodes the original, so a playback that would have had its picture
+   copied by a prepare is not held below the film's own height.
+4. **A picture too small for a twin, which the player cannot decode, is offered the one quality**
+   an on-time film is offered when none is below it, so its playback has a picture.
+5. **A playback that still cannot start on its ladder is refused** as one that cannot be
+   converted: a file with no picture, or with neither a known length nor keyframes. A prepare
+   could not carry those either.
+6. **Offline download** ([D87](#d87--a-download-is-a-rendition-plus-a-lease-and-it-is-self-contained),
+   not built) was designed as a prepared rendition plus a lease; what a download's rendition is
+   becomes its own question when it is built.
+
+**Status:** Decided 2026-10-26.
 
 ## D345 — Reserved: Sweeps as job kinds
 
