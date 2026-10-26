@@ -11,6 +11,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/auth"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -81,16 +82,17 @@ func TestNeedsAttention_TellsTheSeriesWhoseEpisodesWereLikelyReadWrongly(t *test
 	harness.shelve(t)
 	var statements []string
 	for index := range 5 {
-		id := 40 + index
-		statements = append(statements,
-			fmt.Sprintf("INSERT INTO item (id, kind, library_id, added_at) VALUES (%d, 'title', 1, 2)", id),
-			fmt.Sprintf("INSERT INTO title (id, kind, identification_state) VALUES (%d, 'episode', 'unidentified')",
-				id),
-			fmt.Sprintf("INSERT INTO version (id, title_id, created_at) VALUES (%d, %d, 2)", id, id),
-			fmt.Sprintf(`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing, version_id,
-			 first_seen_at, last_seen_at) VALUES (%d, 1, 1, '/m/BB/Brass Arena - 1x%d.mkv', 10, X'0%d', 'listed',
-			 %d, 1, 1)`, id, index+2, index+3, id),
-			fmt.Sprintf(`INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order)
+		id := int64(40 + index)
+		librarytest.Title(t, harness.database, librarytest.TitleSpec{
+			ID: id, Library: 1, Kind: "episode", IdentificationState: "unidentified", AddedAt: 2,
+		})
+		librarytest.Version(t, harness.database, librarytest.VersionSpec{ID: id, TitleID: id, CreatedAt: 2})
+		librarytest.File(t, harness.database, librarytest.FileSpec{
+			ID: id, LibraryID: 1, NodeID: 1, Path: fmt.Sprintf("/m/BB/Brass Arena - 1x%d.mkv", index+2),
+			SizeBytes: 10, PayloadHash: []byte{byte(index + 3)}, Filing: "listed", VersionID: id,
+		})
+		statements = append(statements, fmt.Sprintf(
+			`INSERT INTO position (ordering_id, title_id, group_number, number_in_group, sort_order)
 			 VALUES (1, %d, 0, NULL, %d)`, id, 20000+index))
 	}
 	storetest.ExecRaw(t, harness.databasePath, statements...)
