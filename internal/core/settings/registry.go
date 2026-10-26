@@ -264,7 +264,7 @@ func buildRegistry() []Definition {
 		uploadDefinitions(), playbackTimingDefinitions(), chunkTimingDefinitions(),
 		togetherSweepDefinitions(), portMappingDefinitions(), certificateDefinitions(),
 		artworkCacheDefinitions(), libraryAdminDefinitions(), linkShareDefinitions(),
-		nodeTuningDefinitions(), interestDefinitions(), offeredPagesDefinitions(),
+		nodeTuningDefinitions(), interestDefinitions(), offeredPagesDefinitions(), loggingDefinitions(),
 	)...)
 }
 

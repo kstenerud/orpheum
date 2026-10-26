@@ -12,8 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/danielgtaylor/huma/v2"
-
 	"github.com/kstenerud/orpheum/internal/core/auth"
 	"github.com/kstenerud/orpheum/internal/core/textindex"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
@@ -240,7 +238,7 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		t.Fatal(err)
 	}
 	partner := harness.signIn(t, "partner", "partner-password")
-	for _, operation := range operationsOf(harness.server.OpenAPI()) {
+	for _, operation := range operationsIn(harness.server.OpenAPI()) {
 		switch {
 		case slices.Contains(reachChecked, operation.id), slices.Contains(noLibraryContent, operation.id):
 		case !isAdminOnly(operation.id):
@@ -258,25 +256,6 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 			}
 		}
 	}
-}
-
-// registeredOperation is one operation the API registers.
-type registeredOperation struct{ id, method, path string }
-
-// operationsOf is every operation the document holds.
-func operationsOf(document *huma.OpenAPI) []registeredOperation {
-	var operations []registeredOperation
-	for path, item := range document.Paths {
-		for method, operation := range map[string]*huma.Operation{
-			http.MethodGet: item.Get, http.MethodPost: item.Post, http.MethodPut: item.Put,
-			http.MethodDelete: item.Delete, http.MethodHead: item.Head, http.MethodPatch: item.Patch,
-		} {
-			if operation != nil {
-				operations = append(operations, registeredOperation{operation.OperationID, method, path})
-			}
-		}
-	}
-	return operations
 }
 
 // adminOnlyHandlers says whether a handler, named for its operation, asks requireAdmin in this

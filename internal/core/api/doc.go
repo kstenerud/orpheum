@@ -157,6 +157,15 @@
 //     TestCast_TheLastCastWinsAndTheReceiverTakesControlBack.
 //   - Every operation checks the caller's reach, is an admin's, or holds no library content
 //     (D243 §4). TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent.
+//   - Every answer names its request's ID, the core's own, in X-Request-ID (RequestIDHeader), and every
+//     line the request causes, logged with its context, carries it as requestId (D347). Enforced by
+//     TestRequestID_EveryAnswerNamesItAndTheLinesItCausedCarryIt.
+//   - The answers of compressedOperations alone (lists, titles, search, the admin's views) are sent
+//     gzipped to a client that accepts it, varying by Accept-Encoding; none of them holds a
+//     credential, so no answer carrying a token, a session's, a device's, a pairing's or a link's
+//     is ever compressed beside text a request chose (BREACH, D342).
+//     TestCompress_AListIsGzippedToAClientThatAcceptsIt, TestCompress_ASignInIsNeverGzipped and
+//     TestArch_NoCompressedOperationAnswersWithACredential.
 //
 // # Read before changing
 //
@@ -194,5 +203,6 @@
 //   - idempotency.go: a POST carrying an Idempotency-Key, done once (D244 §4); backups.go:
 //     listing and making backups (D242 §5); client_settings.go: the settings every client reads
 //     (D237); destinations.go: a destination that is down, as what waits on it says (D231 §12);
-//     needs_attention.go: what needs the admin, counted for the status tray (D280).
+//     needs_attention.go: what needs the admin, counted for the status tray (D280);
+//     compress.go: which answers are sent gzipped (D342); request_id.go: each request's ID (D347).
 package api

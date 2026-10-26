@@ -145,6 +145,7 @@ send_interface_addresses = true
 [webrtc]
 udp_port = 0
 stun_servers = []
+max_connections = 64
 
 [database]
 read_connections_minimum = 4

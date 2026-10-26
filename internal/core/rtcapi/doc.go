@@ -40,8 +40,10 @@
 //   - A core taking WebRTC at home gathers its host candidates on one UDP port and answers with the
 //     house's address at it, so a device in the house reaches it directly (D300 §1).
 //     TestListenLAN_AnswersWithTheHousesAddressAtItsPort.
-//   - Only an offer is answered, and none past MaxConnections.
-//     TestAnswer_RefusesWhatIsNotAnOfferAndPastTheLimit.
+//   - Only an offer is answered, and none past the most connections the core holds at once:
+//     DefaultMaxConnections until SetMaxConnections names another (the config's
+//     webrtc.max_connections, D348). TestAnswer_RefusesWhatIsNotAnOfferAndPastTheLimit,
+//     TestSetMaxConnections_RefusesAnOfferPastTheConfiguredLimit.
 //   - An offer a discovery passed on is checked by the core before any connection is made: one
 //     sha-256 fingerprint, at most MaxRelayedCandidates candidates, mDNS ones dropped and so is every
 //     one naming an address that is private, loopback, link-local or in the core's own networks; its

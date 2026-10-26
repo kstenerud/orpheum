@@ -22,6 +22,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/api"
 	"github.com/kstenerud/orpheum/internal/core/certificate"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
+	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/node/agent"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
 	"github.com/kstenerud/orpheum/internal/platform/slogx"
@@ -311,6 +312,12 @@ func webRTCConfigKeys() []configKey {
 				"the core's own choice, never its discovery's, since an IPv6 address one finds names the " +
 				"house's network, from which an admin administers (the Plex-chain review's L3); none finds " +
 				"only the machine's own addresses",
+		},
+		{
+			tableWebRTC, "max_connections", strconv.Itoa(rtcapi.DefaultMaxConnections),
+			"the most WebRTC connections the core holds at once, of every network: a client opens up to four, " +
+				"so 64 holds 16 remote devices, Watch Together guests among them; an offer past it is refused " +
+				"(D348). Each network's share is the webrtc_connections_per_network setting",
 		},
 	}
 }

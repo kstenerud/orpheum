@@ -21,13 +21,41 @@ func TestAnswer_RefusesWhatIsNotAnOfferAndPastTheLimit(t *testing.T) {
 		t.Error("an answer was taken as an offer")
 	}
 	server.mutex.Lock()
-	for range MaxConnections {
+	for range DefaultMaxConnections {
 		server.connections[&webrtc.PeerConnection{}] = true
 	}
 	server.mutex.Unlock()
 	if _, err := server.Answer(t.Context(), Description{Type: "offer", SDP: "v=0"}); !errors.Is(err,
 		ErrTooManyConnections) {
-		t.Errorf("past %d connections, Answer = %v; want ErrTooManyConnections", MaxConnections, err)
+		t.Errorf("past %d connections, Answer = %v; want ErrTooManyConnections", DefaultMaxConnections, err)
+	}
+	server.mutex.Lock()
+	server.connections = map[*webrtc.PeerConnection]bool{}
+	server.mutex.Unlock()
+}
+
+// The config's webrtc.max_connections replaces the default (D348): with a limit of 2, the third
+// offer is refused, and with one of 3 it is not.
+func TestSetMaxConnections_RefusesAnOfferPastTheConfiguredLimit(t *testing.T) {
+	t.Parallel()
+	server := New(t.Context(), http.NotFoundHandler(), slog.New(slog.DiscardHandler))
+	server.SetMaxConnections(2)
+	server.mutex.Lock()
+	for range 2 {
+		server.connections[&webrtc.PeerConnection{}] = true
+	}
+	server.mutex.Unlock()
+	if _, err := server.open(server.api); !errors.Is(err, ErrTooManyConnections) {
+		t.Errorf("past a limit of 2, open = %v; want ErrTooManyConnections", err)
+	}
+	server.SetMaxConnections(3)
+	connection, err := server.open(server.api)
+	if err != nil {
+		t.Fatalf("under a limit of 3, open = %v; want a connection", err)
+	}
+	server.forget(connection)
+	if err := connection.Close(); err != nil {
+		t.Errorf("close: %v", err)
 	}
 	server.mutex.Lock()
 	server.connections = map[*webrtc.PeerConnection]bool{}

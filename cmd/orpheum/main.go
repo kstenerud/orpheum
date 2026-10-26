@@ -187,11 +187,12 @@ func commandCore(ctx context.Context, call invocation) int {
 	if err != nil {
 		return call.fail(err)
 	}
-	logger, closeLog, err := call.logger(config)
+	opened, err := call.leveledLogger(config)
 	if err != nil {
 		return call.fail(err)
 	}
-	defer closeLog() //nolint:errcheck // nothing is logged after it
+	logger := opened.logger
+	defer opened.closeLog() //nolint:errcheck // nothing is logged after it
 	for _, note := range configReport.Notes() {
 		logger.WarnContext(ctx, "the config file needs attention; doctor lists it too", "note", note)
 	}
@@ -201,6 +202,7 @@ func commandCore(ctx context.Context, call invocation) int {
 	}
 	outside := releaseWiring()
 	outside.machineZone = machineZone(systemZoneSources(call.lookupEnv))
+	outside.logLevel = opened.level
 	if err = serve(ctx, config, configReport, listener, outside, logger); err != nil {
 		return exitFailure
 	}

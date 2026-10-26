@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/kstenerud/orpheum/internal/platform/httpgzip"
 )
 
 // compressedExtensions are the files sent gzipped to a browser that accepts it: text, which gzip
@@ -73,23 +75,6 @@ func isCompressible(files fs.FS, name string) bool {
 	return err == nil && info.Size() >= smallestCompressed
 }
 
-// acceptsGzip is whether an Accept-Encoding header accepts gzip: named, or by "*", with a weight
-// above zero.
-func acceptsGzip(header string) bool {
-	for _, coding := range strings.Split(header, ",") {
-		name, parameters, _ := strings.Cut(strings.TrimSpace(coding), ";")
-		name = strings.ToLower(strings.TrimSpace(name))
-		if name != "gzip" && name != "*" {
-			continue
-		}
-		weight := strings.ReplaceAll(strings.ToLower(parameters), " ", "")
-		if !strings.HasPrefix(weight, "q=0") || strings.Trim(strings.TrimPrefix(weight, "q=0"), ".0") != "" {
-			return true
-		}
-	}
-	return false
-}
-
 // serveFile serves name: gzipped, with Content-Encoding and Vary saying so, to a browser that
 // accepts it when gzip shrinks the file; as it is otherwise.
 func (cache *gzipped) serveFile(writer http.ResponseWriter, request *http.Request, files fs.FS, name string) {
@@ -99,7 +84,7 @@ func (cache *gzipped) serveFile(writer http.ResponseWriter, request *http.Reques
 	}
 	writer.Header().Add("Vary", "Accept-Encoding")
 	compressed := []byte(nil)
-	if acceptsGzip(request.Header.Get("Accept-Encoding")) {
+	if httpgzip.Accepts(request.Header.Get("Accept-Encoding")) {
 		compressed = cache.of(files, name)
 	}
 	if compressed == nil {

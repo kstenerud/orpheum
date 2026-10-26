@@ -159,6 +159,9 @@ type wiring struct {
 	// machineZone is the machine's own time zone, the server's until the admin chooses one
 	// (D246 §7); a test's is UTC.
 	machineZone localtime.Zone
+	// logLevel is the level the log is written at, which the log_level setting changes while the core
+	// runs (D347); nil, a test's, is left as it is.
+	logLevel *slog.LevelVar
 }
 
 // openedServices is what openAndWire opened and serve must close.
@@ -235,7 +238,7 @@ func openAndWire(
 		dependencies.ConfigFileKeys, err = configFileKeys(config, configReport)
 	}
 	if err == nil {
-		err = mountDebug(ctx, server.Mux(), config, dependencies.Settings, logger)
+		err = mountDiagnostics(ctx, server.Mux(), config, outside.logLevel, dependencies.Settings, logger)
 	}
 	if err == nil {
 		opened = opened.with(&dependencies, directories, logger)
@@ -689,7 +692,7 @@ func serveClient(server *api.Server, clientFiles fs.FS, hasClient bool) error {
 // webRTCOf is the WebRTC server over server's handler, taking WebRTC at home as config says, which
 // server serves offers to.
 func webRTCOf(ctx context.Context, server *api.Server, config Config, logger *slog.Logger) *rtcapi.Server {
-	rtc := newWebRTC(ctx, server.Handler(), logger)
+	rtc := newWebRTC(ctx, server.Handler(), config.WebRTC, logger)
 	listenForWebRTCAtHome(ctx, rtc, config, logger)
 	server.SetRTC(rtc)
 	return rtc
@@ -734,10 +737,13 @@ func listenForWebRTCAtHome(ctx context.Context, rtc *rtcapi.Server, config Confi
 	logger.InfoContext(ctx, "taking WebRTC at home", "udpPort", config.WebRTC.UDPPort, "addresses", lanIPs)
 }
 
-// newWebRTC is the WebRTC server over the API's handler, as this build serves it: a development build
-// lets a discovery's offers reach the machine's own addresses, a release never (relaxForDevelopment).
-func newWebRTC(ctx context.Context, handler http.Handler, logger *slog.Logger) *rtcapi.Server {
-	return relaxForDevelopment(rtcapi.New(ctx, handler, logger))
+// newWebRTC is the WebRTC server over the API's handler, as this build serves it, holding as many
+// connections as config allows (D348): a development build lets a discovery's offers reach the
+// machine's own addresses, a release never (relaxForDevelopment).
+func newWebRTC(ctx context.Context, handler http.Handler, config WebRTCConfig, logger *slog.Logger) *rtcapi.Server {
+	rtc := rtcapi.New(ctx, handler, logger)
+	rtc.SetMaxConnections(config.MaxConnections)
+	return relaxForDevelopment(rtc)
 }
 
 // warnSignInLimitFull warns, once a minute at most as auth tells it, that the failed-sign-in limit is

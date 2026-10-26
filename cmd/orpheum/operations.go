@@ -71,27 +71,44 @@ func (call invocation) printConfigNotes(report ConfigReport) {
 // standard error or appending to the file log.destination names (D242 §3). The returned close
 // closes that file.
 func (call invocation) logger(config Config) (logger *slog.Logger, closeLog func() error, err error) {
-	level, err := parseLevel(config.Log.Level)
+	opened, err := call.leveledLogger(config)
+	return opened.logger, opened.closeLog, err
+}
+
+// processLog is the process's logger, the level it writes at and the close of its file.
+type processLog struct {
+	logger *slog.Logger
+	// level is the config file's log.level until it is set to another while the process runs (D347).
+	level *slog.LevelVar
+	// closeLog closes the log's file; standard error's does nothing.
+	closeLog func() error
+}
+
+// leveledLogger is logger, with the level it writes at.
+func (call invocation) leveledLogger(config Config) (processLog, error) {
+	fileLevel, err := parseLevel(config.Log.Level)
 	if err != nil {
-		return nil, nil, err
+		return processLog{}, err
 	}
+	level := &slog.LevelVar{}
+	level.Set(fileLevel)
 	format, err := slogx.ParseFormat(config.Log.Format)
 	if err != nil {
-		return nil, nil, err
+		return processLog{}, err
 	}
 	output, closeLog := call.stderr, func() error { return nil }
 	if config.Log.Destination != logToStderr {
 		file, openErr := os.OpenFile(config.Log.Destination, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600)
 		if openErr != nil {
-			return nil, nil, fmt.Errorf("open the log, log.destination: %w", openErr)
+			return processLog{}, fmt.Errorf("open the log, log.destination: %w", openErr)
 		}
 		output, closeLog = file, file.Close
 	}
-	logger, err = slogx.New(output, format, level)
+	logger, err := slogx.New(output, format, level)
 	if err != nil {
-		return nil, nil, errors.Join(err, closeLog())
+		return processLog{}, errors.Join(err, closeLog())
 	}
-	return logger, closeLog, nil
+	return processLog{logger: logger, level: level, closeLog: closeLog}, nil
 }
 
 // openExistingDatabase opens an existing persistent.db, refusing to create one where there is none.

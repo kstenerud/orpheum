@@ -223,10 +223,12 @@ func (server *Server) registerWhatPagesLog() {
 }
 
 // Handler is the HTTP handler to serve: the API, a POST with an Idempotency-Key answered once,
-// every answer naming the web client this server serves (ClientScriptHeader).
+// every answer naming the web client this server serves (ClientScriptHeader) and its request's ID
+// (RequestIDHeader).
 func (server *Server) Handler() http.Handler {
-	return server.forAPerson(server.markingHome(server.loggingSlow(
-		server.crossOrigin(server.namingClient(server.idempotent(server.pacedMedia(server.mux)))))))
+	return identifyingRequests(server.forAPerson(server.markingHome(server.loggingSlow(
+		server.crossOrigin(server.namingClient(server.idempotent(server.pacedMedia(
+			server.compressing(server.mux)))))))))
 }
 
 // forAPerson marks every request as one a person waits on: its writes take the database's writer

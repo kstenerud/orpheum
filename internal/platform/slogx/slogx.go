@@ -32,14 +32,15 @@ func ParseFormat(value string) (Format, error) {
 
 // New builds the process's logger. Only cmd/orpheum calls it; every other package receives
 // the resulting *slog.Logger as a constructor parameter and adds its own attributes with
-// With("component", ...).
+// With("component", ...). It logs at level, which a *slog.LevelVar changes while it runs (D347),
+// and a line logged with a request's context carries the request's ID (WithRequestID).
 func New(output io.Writer, format Format, level slog.Leveler) (*slog.Logger, error) {
 	options := &slog.HandlerOptions{Level: level}
 	switch format {
 	case FormatJSON:
-		return slog.New(slog.NewJSONHandler(output, options)), nil
+		return slog.New(requestHandler{slog.NewJSONHandler(output, options)}), nil
 	case FormatText:
-		return slog.New(slog.NewTextHandler(output, options)), nil
+		return slog.New(requestHandler{slog.NewTextHandler(output, options)}), nil
 	}
 	return nil, fmt.Errorf("log format %q: want %q or %q", format, FormatJSON, FormatText)
 }

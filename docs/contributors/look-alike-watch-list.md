@@ -37,16 +37,6 @@ Still copies, not yet twins:
   `web/package.json`): `orpheum-connect`'s `internal/panel/pages/qrcode.js`, byte for byte, which
   its operator's panel draws invitations' QR codes with. A bump in `web/` is copied there too.
 
-- The MAC'd stateless nonce, the replay guard of every signed core call (the security audit's
-  S13): `discovery/single/single.go` (`challenge`, `nonceMAC`, `nonceExpiry`, `isSigned`, woven
-  into `Discovery`) and `orpheum-connect`'s `internal/cores/nonces.go` (`nonces`: `issue`, `mac`,
-  `spend`), the same design, 8 bytes of expiry, 16 random, a 16-byte HMAC-SHA256, each spent nonce
-  kept until it expires, written apart (the audit of 2026-10-25, R4). A fix to one reaches the
-  other only by hand. They cannot be twins as they stand: a twin is at the same path in each, and
-  connect cannot import Orpheum's `discovery/internal/`. The question for the owner: a public
-  `discovery/proof` nonce that both use (a new public API), or a path both repositories hold a
-  twin at.
-
 - `internal/store`'s migration runner, with the migration window (D272 §5), and
   `orpheum-connect`'s numbered steps without one: they become twins when `orpheum-connect` heads for
   production, whose database must not be lost (the owner, 2026-10-14).

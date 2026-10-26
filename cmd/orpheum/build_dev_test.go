@@ -14,7 +14,8 @@ import (
 // tests on one machine.
 func TestRelaxForDevelopment_LetsADevelopmentBuildCheckItsOwnAddresses(t *testing.T) {
 	t.Parallel()
-	rtc := newWebRTC(t.Context(), http.NotFoundHandler(), slog.New(slog.DiscardHandler))
+	rtc := newWebRTC(t.Context(), http.NotFoundHandler(), WebRTCConfig{MaxConnections: 64},
+		slog.New(slog.DiscardHandler))
 	if !rtc.AcceptsAnyRelayedAddress() {
 		t.Error("a development build still refuses a discovery's offers its own addresses")
 	}

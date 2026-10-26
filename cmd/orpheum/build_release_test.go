@@ -30,7 +30,8 @@ func TestEnvironmentLookup_SeesOnlyTZInARelease(t *testing.T) {
 // the development build's allowance is not in it.
 func TestRelaxForDevelopment_ChangesNothingInARelease(t *testing.T) {
 	t.Parallel()
-	rtc := newWebRTC(t.Context(), http.NotFoundHandler(), slog.New(slog.DiscardHandler))
+	rtc := newWebRTC(t.Context(), http.NotFoundHandler(), WebRTCConfig{MaxConnections: 64},
+		slog.New(slog.DiscardHandler))
 	if rtc.AcceptsAnyRelayedAddress() {
 		t.Error("a release build lets a discovery's offers check the core's own networks")
 	}
