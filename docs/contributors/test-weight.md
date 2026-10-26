@@ -516,6 +516,26 @@ The first reading (2026-10-20) found each claim waiting about 10 s on the core's
 - **Warning sign:** a captured-log test red only in a loaded whole-tree run, with "no log line
   holds" rather than an assertion about the log's content.
 
+### 28. A served test instance that starts as a new installation
+
+- **Mechanism:** every cmd/orpheum test that serves (`startServing`) started from an instance
+  default-config had just made: the core migrated persistent.db through every step from empty, and
+  hashed each password at argon2id's production costs (64 MiB, three passes, four lanes), which
+  the unit tests' `settingstest.Seeded` lowers but nothing lowered for a served instance.
+- **Instance** (test architecture review, 2026-10-26, finding 7): 47 serves, 26 sign-ins
+  among them; cmd/orpheum 71 s in a probe under load.
+- **Why it was invisible:** both costs are production's own, so the tests looked like a faithful
+  start; on an idle machine each serve's migration and hashes are a fraction of a second.
+- **Fix:** `startServing` gives an instance with no persistent.db a copy of storetest's migrated
+  template (`storetest.WriteMigrated`) seeded by `settingstest.Seeded`, whose lowered costs are
+  rows a person set, so the server's sweep leaves them. One test still starts cold
+  (`TestServe_ComesUpReadyAndStopsCleanly`, which now checks it migrated and wrote the starting
+  values) and one checks the hash a new installation writes carries the production costs
+  (`TestServe_ANewInstallationHashesPasswordsAtTheProductionCosts`). The package's test binary on
+  an idle machine: 36–37 s of CPU to 25–26 s, 9.2–9.7 s to 7.2–7.8 s of wall time.
+- **Warning sign:** a serving test's log full of `migrating` lines, or `argon2` high in a package's
+  profile.
+
 ## What makes these hard to see
 
 - **Parallelism hides cost as contention.** A step that adds 30 s of CPU adds no visible time of

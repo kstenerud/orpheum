@@ -93,6 +93,20 @@ func OpenMigrated(tb testing.TB) *store.Database {
 	return database
 }
 
+// WriteMigrated writes a copy of the migrated template at path, for a test whose code under test
+// opens and migrates the file itself (a served instance's persistent.db): that migration then finds
+// nothing to do, rather than replaying every step for each instance a test starts.
+func WriteMigrated(tb testing.TB, path string) {
+	tb.Helper()
+	contents, err := migratedContents(tb)
+	if err != nil {
+		tb.Fatalf("make the migrated template: %v", err)
+	}
+	if err := os.WriteFile(path, contents, 0o600); err != nil {
+		tb.Fatalf("copy the migrated template: %v", err)
+	}
+}
+
 // OpenCache returns a new cache.db in a temporary directory, closed when the test ends.
 func OpenCache(tb testing.TB) *store.Cache {
 	tb.Helper()
