@@ -49,6 +49,60 @@ func (harness testHarness) ambiguousTitle(t *testing.T) {
 	}
 }
 
+// otherVideoTitle adds title 20, an other library's video, identified from its file and never
+// owed a match (D349 sections 4 and 10).
+func (harness testHarness) otherVideoTitle(t *testing.T) {
+	t.Helper()
+	librarytest.NodeWithLibrary(t, harness.database,
+		librarytest.Library{Name: "Home movies", Kind: "other", MetadataSource: "nfo"})
+	storetest.ExecRaw(t, harness.databasePath,
+		`INSERT INTO item (id, kind, library_id, added_at) VALUES (20, 'title', 1, 1)`,
+		`INSERT INTO title (id, kind, identification_state) VALUES (20, 'other', 'identified')`,
+		`INSERT INTO item_text (item_id, language, is_original, name) VALUES (20, 'und', 1, 'Beach day')`,
+		"INSERT INTO version (id, title_id, created_at) VALUES (2, 20, 1)",
+		`INSERT INTO file (id, library_id, node_id, path, size_bytes, payload_hash, filing, version_id, first_seen_at,
+		 last_seen_at) VALUES (2, 1, 1, '/m/Beach day.mp4', 1000, X'02', 'listed', 2, 1, 1)`,
+		`INSERT INTO other_video (title_id, recorded_at, recorded_from, file_name, file_name_key)
+		 VALUES (20, 1500000000000, 'name', 'Beach day.mp4', X'00')`)
+}
+
+// An other video's recorded date is a field a person may override, and it is never matched online
+// (D349 sections 4 and 10): a field the enum once refused, and an error the handler once passed
+// through unmapped.
+func TestIdentification_AnOtherVideosDateIsOverriddenAndItIsNeverMatched(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.otherVideoTitle(t)
+
+	set := harness.do(t, http.MethodPut, "/items/20/overrides/recorded_at", admin,
+		map[string]string{"value": "1600000000000"})
+	if set.status != http.StatusNoContent {
+		t.Fatalf("PUT an other video's recorded_at override = %d %s", set.status, set.body)
+	}
+
+	matched := harness.do(t, http.MethodPost, "/items/20/match", admin,
+		map[string]string{"provider": "tmdb", "providerId": "2"})
+	wantInvalidAt(t, matched, http.StatusUnprocessableEntity, "path.id")
+}
+
+// An other video is never owed a match (D349 section 10), so it is left off the list identified
+// titles wait on, however identified it is.
+func TestIdentification_AnOtherVideoIsNeverListedAmongTitlesWaitingOnAMatch(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	admin := harness.createAdminAndSignIn(t)
+	harness.otherVideoTitle(t)
+
+	listed := harness.do(t, http.MethodGet, "/items?identificationState=identified", admin, nil)
+	if listed.status != http.StatusOK {
+		t.Fatalf("GET /items?identificationState=identified = %d %s", listed.status, listed.body)
+	}
+	if strings.Contains(listed.body, `"id":20`) {
+		t.Errorf("an other video listed among identified titles: %s; want it left off (D349 §10)", listed.body)
+	}
+}
+
 func TestIdentification_APersonChoosesAnAmbiguousTitlesMatch(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)

@@ -93,6 +93,26 @@ func TestPass_ImagesBesideTheMediaAreFoundByTheirConventionalNames(t *testing.T)
 	}
 }
 
+// An other video shows every image beside it: a still, a poster, a backdrop and a logo alike,
+// where a film or an episode shows only its own kinds (D349 §3).
+func TestPass_AnOtherVideoShowsEveryImageBesideIt(t *testing.T) {
+	t.Parallel()
+	lib := newTestLibrary(t, "other", "nfo")
+	report := lib.scan(
+		videoRecord("Clips/trip.mp4"),
+		imageRecord("Clips/trip-poster.jpg"),
+		imageRecord("Clips/trip-fanart.png"),
+		imageRecord("Clips/trip-clearlogo.png"),
+		imageRecord("Clips/trip-thumb.jpg"),
+	)
+	title := lib.titlesByPath()["Clips/trip.mp4"].TitleID
+	got := localKinds(report)
+	want := []string{library.ArtBackdrop, library.ArtLogo, library.ArtPoster, library.ArtStill}
+	if !slices.Equal(got[title], want) {
+		t.Errorf("an other video's images beside it: %v; want %v, every kind", got[title], want)
+	}
+}
+
 func TestPass_ReportsEveryImageTheProviderNamesBesideThoseBesideTheMedia(t *testing.T) {
 	t.Parallel()
 	lib := newTestLibrary(t, "movies", "nfo_then_tmdb")
