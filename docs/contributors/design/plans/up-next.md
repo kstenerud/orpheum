@@ -49,7 +49,7 @@ Where nothing above decides, the build chose the conventional behaviour:
 6. **Films have no next one**: no collection of films exists yet. The query is over any collection
    (D160), so one will.
 7. **A next episode that cannot be read now is not offered.**
-8. **On a cast**, the receiver shows the offer, which it cannot be pressed (presses there are Take
+8. **On a cast**, the receiver shows the offer, which cannot be pressed there (its presses are Take
    back control's), and counts it down by the person's setting; at its end the cast moves on to the
    next episode in the same session of one (`POST /me/casts/{id}/next`), the receiver handed it
    again and the remote following. With autoplay off the receiver waits at the end with the offer.
