@@ -113,6 +113,13 @@ class Worktrees(unittest.TestCase):
         self.assertTrue((self.tree / ".claude" / ".cache" / "check-pending-code").exists())
         self.assertFalse((self.project / ".claude" / ".cache" / "check-pending-code").exists())
 
+    def test_from_a_worktree_that_is_the_project_its_surroundings_are_not_our_business(self):
+        """Run in an agent's worktree, the project is the worktree; the main checkout around it is outside."""
+        result = run_hook("pre_edit.py", {"tool_name": "Edit",
+                                          "tool_input": {"file_path": str(self.tree / ".." / "elsewhere" / "Makefile")}},
+                          CLAUDE_PROJECT_DIR=str(self.tree))
+        self.assertEqual(decision(result), "")
+
     def test_a_shell_write_into_a_worktrees_gate_is_refused(self):
         target = self.tree / "scripts" / "check_docs.py"
         result = run_hook("pre_bash.py", {"tool_input": {"command": f"echo x > {target}"}},
