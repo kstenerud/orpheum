@@ -338,6 +338,22 @@ func (memory *Memory[T]) Health(_ context.Context, failedSince time.Time) ([]job
 	return health, nil
 }
 
+// EnqueueBatch is Enqueue for each request, in order.
+func (memory *Memory[T]) EnqueueBatch(
+	ctx context.Context, requested []jobqueue.Requested[T],
+	plan func(index int, open jobqueue.Open[T]) (jobqueue.Change, error),
+) error {
+	for index, each := range requested {
+		err := memory.Enqueue(ctx, each.Kind, each.Target, func(open jobqueue.Open[T]) (jobqueue.Change, error) {
+			return plan(index, open)
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // CancelOpenOf cancels kind's open jobs on target that match says, and returns their ids.
 func (memory *Memory[T]) CancelOpenOf(
 	_ context.Context, kind jobqueue.Kind, target T, cancelledAt time.Time, match func(jobqueue.Row[T]) bool,

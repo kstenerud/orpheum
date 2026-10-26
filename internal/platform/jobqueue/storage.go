@@ -21,6 +21,11 @@ type Queueing[T comparable] interface {
 	// Enqueue reads kind's open jobs for target, asks plan what to do with them, and applies its
 	// Change, all in one write, so two requests for one target never both insert.
 	Enqueue(ctx context.Context, kind Kind, target T, plan func(open Open[T]) (Change, error)) error
+	// EnqueueBatch is Enqueue for each of several requests, all in one write: plan is asked for the
+	// change of each by its index. A sweep queues thousands, which each took the writer apart.
+	EnqueueBatch(
+		ctx context.Context, requested []Requested[T], plan func(index int, open Open[T]) (Change, error),
+	) error
 	// KeepWanted moves on, to until, the time a person waits for kind's open jobs on target until; a
 	// later time already kept stands.
 	KeepWanted(ctx context.Context, kind Kind, target T, until time.Time) error
@@ -91,6 +96,12 @@ type KindHealth struct {
 	OldestQueuedAt time.Time
 	// FailedCount is how many failed since the time asked about.
 	FailedCount int64
+}
+
+// Requested is one of a batch's requests, as the storage reads its open jobs by: a kind and a target.
+type Requested[T comparable] struct {
+	Kind   Kind
+	Target T
 }
 
 // Open are a kind's open jobs for one target: at most one queued, and those running, where an

@@ -153,13 +153,57 @@ func (queue *Queue[T]) Enqueue(ctx context.Context, request Request[T]) (Action,
 	if err != nil {
 		return "", fmt.Errorf("enqueue a %s job: %w", request.Kind, err)
 	}
+	queue.afterEnqueue(request, change)
+	return change.Action, nil
+}
+
+// enqueueBatchSize is the most requests one write of EnqueueBatch holds: enough that a sweep of a
+// library's tens of thousands of files takes the writer tens of times, not tens of thousands, and
+// few enough that a person's write waits behind one for no more than a few milliseconds. A fixed
+// bound of the writer's sharing, not a setting.
+const enqueueBatchSize = 500
+
+// EnqueueBatch is Enqueue for each request, a batch of them in each write (the audit of 2026-10-25,
+// S4), and says what each did.
+func (queue *Queue[T]) EnqueueBatch(ctx context.Context, requests []Request[T]) ([]Action, error) {
+	actions := make([]Action, 0, len(requests))
+	for start := 0; start < len(requests); start += enqueueBatchSize {
+		batch := requests[start:min(start+enqueueBatchSize, len(requests))]
+		now := queue.clock.Now()
+		requested := make([]Requested[T], len(batch))
+		for index := range batch {
+			batch[index].ArgsJSON = cmp.Or(batch[index].ArgsJSON, "{}")
+			if batch[index].RunnableAt.IsZero() {
+				batch[index].RunnableAt = now
+			}
+			requested[index] = Requested[T]{Kind: batch[index].Kind, Target: batch[index].Target}
+		}
+		changes := make([]Change, len(batch))
+		err := queue.storage.EnqueueBatch(ctx, requested, func(index int, open Open[T]) (Change, error) {
+			var planErr error
+			changes[index], planErr = queue.plan(batch[index], open, now)
+			return changes[index], planErr
+		})
+		if err != nil {
+			return actions, fmt.Errorf("enqueue a batch of %d jobs: %w", len(batch), err)
+		}
+		for index, change := range changes {
+			queue.afterEnqueue(batch[index], change)
+			actions = append(actions, change.Action)
+		}
+	}
+	return actions, nil
+}
+
+// afterEnqueue wakes the request's kind when it queued or merged work, and probes the destination a
+// person's request waits on.
+func (queue *Queue[T]) afterEnqueue(request Request[T], change Change) {
 	if change.Action != ActionDrop {
 		queue.wakeKind(request.Kind)
 	}
 	if queue.personsRequestPriority > 0 && request.Priority >= queue.personsRequestPriority && !request.IsDerived {
 		queue.ProbeNow(change.Destination)
 	}
-	return change.Action, nil
 }
 
 // KeepWanted moves on, to until, the time a person waits for kind's open jobs on target until
