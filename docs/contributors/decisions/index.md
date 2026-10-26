@@ -356,6 +356,7 @@ on a decision, and treat an empty one as *probably* untouched.
 - [D348](working-notes.md#d348--the-most-webrtc-connections-a-core-holds-is-a-config-key-webrtcmax_connections) The most WebRTC connections a core holds is a config key, webrtc.max_connections
 - [D349](working-notes.md#d349--libraries-are-browsed-on-a-page-of-their-own-which-replaces-search-a-kind-other-holds-the-videos-that-are-never-identified-films-and-series-gather-every-library-of-theirs-but-those-a-person-leaves-out) Libraries are browsed on a page of their own, which replaces Search; a kind, other, holds the videos that are never identified; Films and Series gather every library of theirs but those a person leaves out
 - [D350](working-notes.md#d350--a-disc-image-plays-its-main-title-read-by-the-node-from-the-images-own-structure-and-served-to-ffmpeg-through-fdproxy) A disc image plays its main title, read by the node from the image's own structure and served to FFmpeg through fdproxy
+- [D351](working-notes.md#d351--the-cores-services-are-assembled-in-one-package-internalcoreassembly-which-serve-and-the-tests-share-cmdorpheum-reads-the-outside-world-and-runs-the-lifecycle) The core's services are assembled in one package, internal/core/assembly, which serve and the tests share; cmd/orpheum reads the outside world and runs the lifecycle
 
 ## Archived
 
