@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/encode"
 	"github.com/kstenerud/orpheum/internal/node/execx"
-	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -35,12 +35,11 @@ const TimelineOffsetMs = 10_000
 // run's first raw file starts that much before the run's start (slow-links.md §10).
 const aacPriming = 1024
 
-// How a run is watched: as a prepare is, since it is one (prepare.go's numbers).
+// How a run is watched: a grace before its first chunk, and a window it may go without one.
 const (
 	runStartGrace  = time.Minute
 	runStallWindow = 2 * time.Minute
-	// The speed a run is assumed to make chunks at: half of real time, as a prepare's before one
-	// has said.
+	// The speed a run is assumed to make chunks at: half of real time, before one has said.
 	unmeasuredRealtimeFactor = 0.5
 )
 
@@ -78,11 +77,11 @@ type Maker struct {
 	runner    Runner
 	keeper    Keeper
 	directory string
-	encoder   prepare.Encoder
+	encoder   encode.Encoder
 }
 
 // NewMaker returns a maker writing under directory, the prepared directory, encoding with encoder.
-func NewMaker(runner Runner, keeper Keeper, directory string, encoder prepare.Encoder) *Maker {
+func NewMaker(runner Runner, keeper Keeper, directory string, encoder encode.Encoder) *Maker {
 	return &Maker{runner: runner, keeper: keeper, directory: directory, encoder: encoder}
 }
 

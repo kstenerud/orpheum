@@ -3,7 +3,7 @@
 package nodeproto
 
 // CommandType names one kind of command (cut-a §4). The set is closed; cancel comes with the
-// work it commands. CommandEncodeArtwork is in artwork.go, CommandPrepare in prepare.go,
+// work it commands. CommandEncodeArtwork is in artwork.go,
 // CommandExtractSubtitle in subtitle.go, CommandReadThrough in readthrough.go, CommandMakeChunks in
 // chunks.go.
 type CommandType string
@@ -46,8 +46,6 @@ type Work struct {
 	Type CommandType `json:"type"`
 	// EncodeArtwork is set for CommandEncodeArtwork.
 	EncodeArtwork *ArtworkBatch `json:"encodeArtwork,omitempty"`
-	// Prepare is set for CommandPrepare.
-	Prepare *Prepare `json:"prepare,omitempty"`
 	// ExtractSubtitle is set for CommandExtractSubtitle.
 	ExtractSubtitle *ExtractSubtitle `json:"extractSubtitle,omitempty"`
 	// ReadThrough is set for CommandReadThrough.
@@ -80,8 +78,6 @@ type Commands struct {
 // is on is the one the work holds a reader of (D240 §5).
 func (work Work) MediaFile() (BytesFile, bool) {
 	switch {
-	case work.Prepare != nil:
-		return work.Prepare.Video, true
 	case work.ExtractSubtitle != nil && work.ExtractSubtitle.Video != nil:
 		return *work.ExtractSubtitle.Video, true
 	case work.ExtractSubtitle != nil && work.ExtractSubtitle.Sidecar != nil:
@@ -136,10 +132,6 @@ const (
 // read of a video's index alone, which hold only a reader of their device, a scan, a cancel.
 func (work Work) Slot() Slot {
 	switch {
-	case work.Prepare != nil && work.Prepare.Profile == ProfileRemux:
-		return SlotRemux
-	case work.Prepare != nil:
-		return SlotEncode
 	case work.ExtractSubtitle != nil:
 		return SlotExtract
 	case work.ReadThrough != nil && !work.ReadThrough.IsFromIndexOnly():

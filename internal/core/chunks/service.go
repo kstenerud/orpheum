@@ -77,7 +77,7 @@ type Parts struct {
 	Nodes library.NodeConnections
 	// Exchanges are how a run is given to its node and its word taken (D234 §7).
 	Exchanges *nodes.Exchanges
-	// Loudness says the gain a sound's chunks carry, as a prepare's (D226 §4).
+	// Loudness says the gain a sound's chunks carry (D226 §4).
 	Loudness Loudness
 	// ReadThrough reads a film without a grid through for a player waiting on it (D247 §2).
 	ReadThrough ReadThrough

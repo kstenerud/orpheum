@@ -2,7 +2,7 @@
 
 package jobs
 
-// Readiness is how far work a person waits for is: a prepared copy, a subtitle's text.
+// Readiness is how far work a person waits for is: a subtitle's text.
 type Readiness string
 
 // The readinesses: being made, done, or failed.

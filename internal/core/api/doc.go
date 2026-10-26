@@ -3,7 +3,7 @@
 // Package api is the client API: the huma handlers under /api/v1, from which the OpenAPI document
 // (api/openapi.json) is generated, committed and diffed. It authenticates, validates and
 // translates; the decisions belong to the packages it calls. It also relays media bytes from the
-// node to the client for direct play and prepared renditions.
+// node to the client for direct play and chunks.
 //
 // Every error leaves in the one shape of cut-a §5.2, with a code from its closed enumeration.
 // Credentials travel in a header or a cookie, never in a URL (D154).
@@ -74,7 +74,7 @@
 //   - Only an admin sees /doctor; its artwork finding warns at high water with the ceiling to set
 //     (D212 §7). TestDoctor_AnAdminSeesTheArtworkCacheAgainstItsCeiling.
 //   - Only an admin sees /system, the System page: the server's facts, doctor's findings and each
-//     node's, with the encoder each recent prepare used (D225).
+//     node's, with the encoder trials each node made (D225).
 //     TestSystem_ShowsTheServersFactsEachNodesAndDoctorsFindings. Doctor warns when a node has a
 //     GPU and no hardware encoder works on it. TestHardwareFinding_WarnsWhenANodeHasAGPUButEncodesOnTheProcessor.
 //     Doctor warns when a node runs another build than the server's (D225 §5).

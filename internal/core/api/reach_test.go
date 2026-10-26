@@ -176,7 +176,7 @@ func TestReach_EveryOperationChecksReachIsAnAdminsOrHoldsNoLibraryContent(t *tes
 		"getLibraries",
 		"getFileAvailability", "getFileWaits", "getSubtitleCandidates", "postFileSubtitle", "startPlayback",
 		"getDirect",
-		"headDirect", "getMasterPlaylist", "getRenditionFile", "getChunksMasterPlaylist", "getChunkFile",
+		"headDirect", "getChunksMasterPlaylist", "getChunkFile",
 		"getSubtitle", "reportPlayback",
 		"setFilePreferences", "hideProgress", "getArt", "getItemCandidates", "postItemMatch", "putOverride",
 		"deleteOverride", "postItemRefresh", "postItemMatchByLink", "putInterest",

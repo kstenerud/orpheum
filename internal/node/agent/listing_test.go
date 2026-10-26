@@ -26,7 +26,7 @@ func TestAgent_ListsARootAndExaminesTheFilesTheCoreAsksFor(t *testing.T) {
 	core, socket := startFakeCore(t)
 	logged := &testutil.Log{}
 	root, _ := startAgentWithWorkers(t, socket, Workers{
-		Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Preparer: fakePreparer{}, Subtitler: fakeSubtitler{},
+		Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Subtitler: fakeSubtitler{},
 		ThroughReader: fakeThroughReader{}, ChunkMaker: fakeChunkMaker{},
 	}, func(node *Agent) { node.logger = slog.New(slog.NewTextHandler(logged, nil)) })
 	if err := os.WriteFile(filepath.Join(root.Path(), "Wing.mkv"), []byte("alien"), 0o600); err != nil {

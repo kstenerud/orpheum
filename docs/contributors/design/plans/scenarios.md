@@ -405,13 +405,11 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   Those should go back to the queue at no cost.
 - **Status:** **holds** (2026-10-03, the jobs rebuild's Phases 4–6). A hello from another start ends the jobs
   running on the node, tried again after the retry delay, never the file's failure (D248); a long
-  absence parks them until the hello (`TestHello_ANodeThatStartedAgainInterruptsTheJobsWaitingOnIt`,
-  `TestHandle_APrepareItsNodeLostByStartingAgainIsTriedAgainAndNeverTheRenditionsFailure`);
+  absence parks them until the hello (`TestHello_ANodeThatStartedAgainInterruptsTheJobsWaitingOnIt`);
   since 2026-10-05 also when the core started again with it, at an update or a reboot: each attempt
   keeps in cache.db the start of the node it was given to, where before the node's first status
   found the work lost, a broken invariant
   (`TestHello_ANodeThatStartedAgainWithTheCoreInterruptsTheWorkItsLastStartWasGiven`);
-  a prepare that fails for good fails its rendition (`TestPrepare_APrepareJobThatFailsForGoodFailsItsRendition`);
   the commands of the jobs it ended are withdrawn (`TestCancelledAndInterrupt_EndTheAttemptsOfTheirJobAndNode`).
 
 ### S27 — A node restarts with commands queued for jobs that already gave up
@@ -449,11 +447,11 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   - The System page shows the disk (D225), but nothing links it to the waiting job.
 - **Design:** silent. D231's "down" covers an unreachable node, not a node that answers "no
   room".
-- **Status:** **holds** (2026-10-03). The node refuses a prepare for want of room; the core parks the node's
-  prepares on its prepared directory at no cost until a status shows room
-  (`TestPrepare_ARefusalForWantOfRoomParksTheNodesPreparesUntilItsStatusShowsRoom`,
-  `TestStatus_ShowingRoomBringsBackThePreparesParkedOnThePreparedDirectory`); other kinds use other
-  slots and destinations.
+- **Status:** **holds** (2026-10-03). The node refuses a run of chunks for want of room; the core parks
+  the node's runs on its prepared directory at no cost until a status shows room
+  (`TestHandleMakeChunks_EachEndOfARunIsTakenAsItsNodeSays`,
+  `TestStatus_ShowingRoomBringsBackTheRunsParkedOnThePreparedDirectory`); other kinds use other
+  slots and destinations. (Held for the whole-film prepare until it was retired, D344.)
 
 ### S29 — A person presses play while the file's node is parked
 
@@ -473,7 +471,7 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
   at once with `media_unreachable`, naming the machine and since when, and queues nothing; once the
   node is back the same play starts (`TestScenario_S29_APlayWhoseNodeIsAwayIsRefusedAtOnceAndQueuesNothing`).
   A play-driven prepare whose source goes missing after it was queued ends rather than parks
-  (`TestPrepare_APlayDrivenPrepareWhoseRootGoesMissingEndsRatherThanParks`). Before, from 2026-09-30,
+  (`TestReadThrough_APlayDrivenReadWhoseRootGoesMissingEndsRatherThanParks`). Before, from 2026-09-30,
   the prepare waited for the node at no cost. What the player says mid-play is the jobs rebuild's 6b.
 
 ### S70 — A person asks "look again" while TMDB is parked
@@ -576,9 +574,8 @@ The people are **the owner**, at home, admin, and **the partner**, remote, a use
     - The new file row gets measured by the next sweep, and prepared and extracted on its next
       play.
 - **Status:** **holds** (2026-10-03). Before a scan the node refuses a changed file, retried on back-off; after
-  a scan the prepare finds no file and fails its making (`TestPrepare_ARefusedPrepareIsTriedAgainAndThePlaybackKeepsWaiting`);
-  a prepare that fails for good at its limit fails its rendition
-  (`TestPrepare_APrepareJobThatFailsForGoodFailsItsRendition`), so the player is told.
+  a scan a run of chunks finds no file and ends for good (`TestHandleMakeChunks_ARunOnAGridTheFilmNoLongerHasEndsForGood`),
+  so the player's next ask is told. (The whole-film prepare held it too until it was retired, D344.)
 
 ### S75 — OpenSubtitles' daily quota is spent while conversions are queued
 
@@ -786,7 +783,7 @@ Each of these can be driven by scripted node reports, the fake TMDB, a fake node
 - S29's, and G8's "a prepare that fails for good says so". The first **built 2026-09-30**
   (internal/core/api), and renamed
   `TestScenario_S29_APlayWhoseNodeIsAwayIsRefusedAtOnceAndQueuesNothing` when D241 §4 revised
-  it; G8's holds by `TestPrepare_APrepareJobThatFailsForGoodFailsItsRendition`.
+  it; G8's held by the whole-film prepare's own test until the prepare was retired (D344).
 - `TestScenario_S77_AFullCoreDiskParksTheQueueSaysWhyOnceAndResumesWhenThereIsRoom`. **Built
   2026-09-30** (internal/core/jobs), with a real SQLite "disk full" error (`storetest.DiskFullError`,
   from a scratch database held to its pages) behind cache.db's job storage.
@@ -799,9 +796,9 @@ Each of these can be driven by scripted node reports, the fake TMDB, a fake node
   the core retries at no cost to the item; the slot frees; other encodes proceed. A second stall
   on the same file records an item fact with "stalled twice". *Today:* a livelock (#4).
   **Holds** (2026-10-03, the jobs rebuild's Phase 5), its window three minutes mid-run, and "stalled
-  twice" a failure's words rather than an item fact (`TestAgent_AStalledPrepareIsAnsweredStalledNotFailedAndFreesItsSlot`,
-  `TestHandle_AStalledPrepareIsTriedAgainAndTwoInARowAreTheRenditionsFailure`,
-  `TestRunWatched_ARunThatOutlivesItsKillIsAnsweredAndListedAsStuckUntilItEnds`).
+  twice" a failure's words rather than an item fact (`TestAgent_AStalledRunIsAnsweredStalledNotFailedAndFreesItsSlot`,
+  `TestRunWatched_ARunThatOutlivesItsKillIsAnsweredAndListedAsStuckUntilItEnds`); the prepare is
+  retired (D344), and a run of chunks is answered the same way.
 - **S80 — A hung loudness measurement.** *Expected:* as S79. The item is not failed for a hang,
   and the node's measure slot comes back. *Today:* the slot is gone until the node restarts, and
   the file is eventually blamed. **Holds** (2026-10-03): the measurement has its own watchdog, and a
@@ -812,7 +809,6 @@ Each of these can be driven by scripted node reports, the fake TMDB, a fake node
   the core accepts it by run id even if the job gave up; nothing is re-encoded. **Holds** (2026-10-04's reading, the jobs rebuild's Phases 4–6): a result
   is recorded by its run as it arrives, whether or not its job still waits, and one not
   acknowledged is sent again (`TestExchanges_RecordEveryResultBeforeAnyJobHearsIt`,
-  `TestRecordPrepare_RecordsAMakingByItsRunWhetherOrNotItsJobWaits`,
   `TestAgent_AnUnacknowledgedResultIsSentAgainAtTheNextHello`).
 - **S82 — The core restarts during an hour-long encode.** *Expected:* the encode continues; at
   hello the node lists it; the core adopts it without re-dispatching; progress resumes in the job

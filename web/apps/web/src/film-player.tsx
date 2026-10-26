@@ -9,15 +9,13 @@ import {
   mediaErrorFailure,
   meterBufferGrowth,
   playChunked,
-  playHls,
   watchStalls,
   type ChunkedPlayback,
-  type HlsPlayback,
   type LinkMeter,
   type PlaybackFailure,
   type PlayedLevel,
 } from "@orpheum/player";
-import { healPageAudio, whenReady, type CannotKeepUp } from "@orpheum/sdk";
+import { healPageAudio, type CannotKeepUp } from "@orpheum/sdk";
 import type { TFunction } from "i18next";
 import {
   useCallback,
@@ -32,23 +30,20 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-import { mixIndices, startingAudioTrack } from "./audio-tracks.tsx";
+import { startingAudioTrack } from "./audio-tracks.tsx";
 import { camelKey } from "./catalogue-key.ts";
-import { useFileWaits, waitText, type FileWait } from "./file-waits.ts";
 import { startOn, type LadderOffer } from "./moving-down.ts";
-import { problemText } from "./problem.ts";
 import { rateText } from "./rate-text.ts";
 import type { ReopenAt } from "./reopen.ts";
 import { usePlaybackFailure } from "./playback-failure.ts";
-import { useServices } from "./services.tsx";
 import { playingPicture, TracksNote, type PlayingSound } from "./tracks-note.tsx";
 import { monotonicMs } from "./use-together.ts";
 import type { PlaybackDecision } from "./watching.ts";
 
 /**
  * What a page knows of the film playing, given to what it composes around the video: the video, the
- * link's speed as the playback measures it, and the way it plays: a prepared copy's playback, to
- * switch its sound; a chunked one's quality and where it started; neither for the original.
+ * link's speed as the playback measures it, and the way it plays: a chunked one's quality and
+ * where it started; none for the original.
  */
 export interface FilmParts {
   readonly videoRef: RefObject<HTMLVideoElement | null>;
@@ -56,7 +51,6 @@ export interface FilmParts {
   readonly readLinkKbps: () => number | undefined;
   /** What failed, in the viewer's words; undefined while nothing has. */
   readonly failure: string | undefined;
-  readonly preparedRef?: RefObject<HlsPlayback | undefined> | undefined;
   readonly ladder?:
     | {
         readonly offer: LadderOffer;
@@ -110,8 +104,8 @@ export interface MovedDown {
 /**
  * The film, playing as the server decided, the one player every page composes (the owner,
  * 2026-10-11: "The play view and controls should ideally be reusable and composable"): on the
- * ladder a stalled player moved to (D247 §2), on its film's ladder from ladderStartMs (D260), the
- * original, or a prepared copy. Each owns the video and its stage, and says why it cannot play.
+ * ladder a stalled player moved to (D247 §2), on its film's ladder from ladderStartMs (D260), or the
+ * original. Each owns the video and its stage, and says why it cannot play.
  */
 export function FilmPlayer(props: {
   readonly decision: PlaybackDecision;
@@ -140,16 +134,24 @@ export function FilmPlayer(props: {
       />
     );
   }
+  if (decision.delivery !== "direct") {
+    return <NotConverted />;
+  }
   return (
     <>
-      {decision.delivery === "direct" ? (
-        <DirectFilm decision={decision} composition={composition} />
-      ) : (
-        <PreparedFilm decision={decision} composition={composition} />
-      )}
+      <DirectFilm decision={decision} composition={composition} />
       <TracksNote tracks={decision.tracks} sound={sound} />
     </>
   );
+}
+
+/**
+ * A film its device cannot play as it is that came with no ladder to play it from: the server
+ * converts a film only on its ladder (D344 §1), so this says it cannot be converted.
+ */
+function NotConverted(): JSX.Element {
+  const { t } = useTranslation();
+  return <p role="alert">{t("play.cannotConvert")}</p>;
 }
 
 /** The sound a decision starts with: its starting track, its boosted mix when the boost is on. */
@@ -179,7 +181,7 @@ function Stage(
       readonly onError?: (error: MediaError | null) => void;
     },
 ): JSX.Element {
-  const { over: Over, under: Under, videoRef, readLinkKbps, failure, preparedRef, ladder } = props;
+  const { over: Over, under: Under, videoRef, readLinkKbps, failure, ladder } = props;
   useEffect(() => {
     const video = videoRef.current;
     // Absent where the page is not served over HTTPS, or the browser has no Screen Wake Lock.
@@ -213,23 +215,11 @@ function Stage(
           <KeptVideo {...props} video={props.keptVideo} />
         )}
         {Over === undefined ? null : (
-          <Over
-            videoRef={videoRef}
-            readLinkKbps={readLinkKbps}
-            failure={failure}
-            preparedRef={preparedRef}
-            ladder={ladder}
-          />
+          <Over videoRef={videoRef} readLinkKbps={readLinkKbps} failure={failure} ladder={ladder} />
         )}
       </div>
       {Under === undefined ? null : (
-        <Under
-          videoRef={videoRef}
-          readLinkKbps={readLinkKbps}
-          failure={failure}
-          preparedRef={preparedRef}
-          ladder={ladder}
-        />
+        <Under videoRef={videoRef} readLinkKbps={readLinkKbps} failure={failure} ladder={ladder} />
       )}
     </>
   );
@@ -370,47 +360,6 @@ function DirectFilm(props: {
 }
 
 /**
- * A prepared copy, playing: it waits while the copy's first part is made, then plays it, starting
- * with the audio track the playback starts with, boosted as the person's preference says (D217 §3).
- */
-function PreparedFilm(props: {
-  readonly decision: PlaybackDecision;
-  readonly composition: FilmComposition;
-}): JSX.Element {
-  const { t } = useTranslation();
-  const { decision } = props;
-  const [startIndex] = useState(() =>
-    audioRenditionIndex(
-      decision,
-      startingAudioTrack(decision)?.audioTrackIndex ?? 0,
-      decision.preferences.isDialogueBoostOn,
-    ),
-  );
-  const { videoRef, playbackRef, isWaiting, failure } = usePreparedPlayback(
-    props.composition,
-    decision,
-    startIndex,
-  );
-  // How long the copy will take, as the server says; a Watch Together viewer asks nothing (D324 §6).
-  const preparing = useFileWaits(props.composition.askAbout, isWaiting)?.prepare;
-  return (
-    <>
-      <Stage
-        {...props.composition}
-        videoRef={videoRef}
-        readLinkKbps={() => playbackRef.current?.estimateKbps()}
-        failure={failure}
-        preparedRef={playbackRef}
-      />
-      {isWaiting && failure === undefined ? <p>{preparingText(t, preparing)}</p> : null}
-      {failure === undefined || props.composition.isFailureHidden === true ? null : (
-        <p role="alert">{t("play.preparedFailed", { reason: failure })}</p>
-      )}
-    </>
-  );
-}
-
-/**
  * The film on its ladder, every quality of it cut into chunks, from the one offered, stepping down
  * by itself and back up with care: from where it starts (D260), or where a stalled player moved to
  * it (D247 §2, §10). It says which quality plays, and when its lowest cannot keep up (D247 §8). On
@@ -541,88 +490,6 @@ export function ladderStartingAudio(
   sound: PlayingSound | undefined,
 ): number | undefined {
   return sound?.isBoosted === true ? ladderAudioRenditionIndex(tracks, sound) : undefined;
-}
-
-/**
- * The audio rendition that plays a track of a prepared copy: its boosted mix when the boost is on
- * and it has one, else its standard mix; undefined when the copy has no such track.
- */
-export function audioRenditionIndex(
-  decision: Pick<PlaybackDecision, "audioRenditions">,
-  audioTrackIndex: number,
-  isBoostOn: boolean,
-): number | undefined {
-  const mixes = mixIndices(decision, audioTrackIndex);
-  return isBoostOn && mixes?.boosted !== undefined ? mixes.boosted : mixes?.standard;
-}
-
-/**
- * What a viewer waiting for a prepared copy is told: about how long it will take where the server
- * says, a few seconds otherwise (D324 §6).
- */
-export function preparingText(t: TFunction, preparing: FileWait | undefined): string {
-  const seconds = preparing?.secondsLeft;
-  return seconds === undefined
-    ? t("play.preparing")
-    : t("play.preparingFor", { wait: waitText(t, seconds) });
-}
-
-/**
- * A prepared copy's playback: it waits while the copy's first part is made, then plays it,
- * starting with the audio rendition startAudioRenditionIndex when one is given. A failure asks the
- * server why the file asking.askAbout names cannot be read; undefined asks nothing, for a Watch Together
- * viewer, who may not ask of the host's files and is told the player's own words.
- */
-export function usePreparedPlayback(
-  asking: Pick<FilmComposition, "askAbout" | "onMediaBack">,
-  decision: PlaybackDecision,
-  startAudioRenditionIndex: number | undefined,
-): {
-  videoRef: RefObject<HTMLVideoElement | null>;
-  playbackRef: RefObject<HlsPlayback | undefined>;
-  isWaiting: boolean;
-  failure: string | undefined;
-} {
-  const { t } = useTranslation();
-  const { fetchMedia } = useServices();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const playbackRef = useRef<HlsPlayback | undefined>(undefined);
-  const [isWaiting, setIsWaiting] = useState(decision.isPreparing);
-  const [failure, setFailure] = usePlaybackFailure(asking.askAbout, {
-    onMediaBack: asking.onMediaBack,
-    videoRef,
-  });
-  useEffect(() => {
-    const element = videoRef.current;
-    if (element === null) {
-      return undefined;
-    }
-    const aborter = new AbortController();
-    whenReady(decision.url, { fetch: fetchMedia, signal: aborter.signal }).then(
-      () => {
-        if (!aborter.signal.aborted) {
-          setIsWaiting(false);
-          playbackRef.current = playHls(element, decision.url, {
-            onFailed: (failure) => {
-              setFailure(playbackFailureText(t, failure));
-            },
-            ...(startAudioRenditionIndex === undefined ? {} : { startAudioRenditionIndex }),
-          });
-        }
-      },
-      (cause: unknown) => {
-        if (!aborter.signal.aborted) {
-          setFailure(problemText(t, cause));
-        }
-      },
-    );
-    return () => {
-      aborter.abort();
-      playbackRef.current?.destroy();
-      playbackRef.current = undefined;
-    };
-  }, [decision.url, startAudioRenditionIndex, t, setFailure, fetchMedia]);
-  return { videoRef, playbackRef, isWaiting, failure };
 }
 
 /**

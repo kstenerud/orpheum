@@ -436,7 +436,7 @@ changed since the scan is named (`changed`) and said apart, tried again as befor
   renditions it knows, and the node evicts the rest, whatever their kept time; a run directory with
   no manifest, from a making that never finished, is evicted too, never while it is being written.
 - The intermittent hang in
-  `TestJobs_TheViewListsAPrepareAndACancelStopsItOnTheNodeSoTheNextPlayPreparesAgain`, a handler
+  `TestJobs_TheViewListsAReadThroughAndACancelStopsItOnTheNodeSoTheNextPlayAsksAgain`, a handler
   failing after its command reached the node, is closed by the cancel on every way out.
 - Closes G4, G5, G8, S26, S27, S72, S82, S91.
 

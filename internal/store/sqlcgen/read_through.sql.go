@@ -41,7 +41,7 @@ type ListFileSizesAndNodesRow struct {
 }
 
 // The node, the size and the length of each live file named, by its id: the bytes ahead of a
-// read-through on its node, and the film a prepare makes (D324 section 6). A length not probed is 0.
+// read-through on its node (D324 section 6). A length not probed is 0.
 func (q *Queries) ListFileSizesAndNodes(ctx context.Context, fileIdsJson string) ([]ListFileSizesAndNodesRow, error) {
 	rows, err := q.db.QueryContext(ctx, listFileSizesAndNodes, fileIdsJson)
 	if err != nil {

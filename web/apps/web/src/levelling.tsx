@@ -17,28 +17,14 @@ type Levelling = components["schemas"]["LevellingBody"];
 /** A playback's sound: what levels it, and what its copy already carries. */
 export interface SoundLevel {
   readonly levelling: Levelling;
-  /** Already in the sound, put in when a copy was prepared; 0 for the original. */
+  /** Already in the sound, put in when its chunks were made; 0 for the original. */
   readonly carriedGainDb: number;
 }
 
-/**
- * The sound of one audio track of a playback: a prepared copy's standard mix of the track at
- * audioTrackIndex, whose boosted twin plays at the same gain (D226 §3); or, for the original or a
- * copy with no such track, the sound the playback starts with.
- */
+/** The sound of the original as it plays: what levels it, and nothing it carries already. */
 export function soundLevelOf(
-  decision: Pick<
-    components["schemas"]["StartPlaybackOutputBody"],
-    "delivery" | "levelling" | "audioRenditions"
-  >,
-  audioTrackIndex: number | undefined,
+  decision: Pick<components["schemas"]["StartPlaybackOutputBody"], "levelling">,
 ): SoundLevel {
-  const mix = decision.audioRenditions?.find(
-    (candidate) => candidate.audioTrackIndex === audioTrackIndex && !candidate.isDialogueBoosted,
-  );
-  if (decision.delivery === "hls" && mix !== undefined) {
-    return { levelling: mix.levelling, carriedGainDb: mix.carriedGainDb };
-  }
   return { levelling: decision.levelling, carriedGainDb: 0 };
 }
 

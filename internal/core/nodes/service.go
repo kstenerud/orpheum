@@ -68,15 +68,8 @@ type ResultSink interface {
 	Reconcile(ctx context.Context, nodeID int64, held []nodeproto.HeldAttempt, onTheirWay map[string]bool)
 }
 
-// RenditionIndex is the core's index of the renditions its nodes hold: playback's, which owns it. A
-// node's hello lists its renditions by their manifests, and AdoptRenditions reconciles the index with
-// them and returns the directories of those it keeps; the node evicts the others (D238 §2).
-type RenditionIndex interface {
-	AdoptRenditions(ctx context.Context, nodeID int64, renditions []nodeproto.RenditionManifest) ([]string, error)
-}
-
 // Destinations are the job queue's parked destinations (jobs.Queue): a node's hello brings back
-// the work parked on it, and its status showing room the prepares parked on its prepared
+// the work parked on it, and its status showing room the runs parked on its prepared
 // directory (D231 §5, §11).
 type Destinations interface {
 	Unpark(ctx context.Context, destination jobs.Destination)
@@ -92,10 +85,9 @@ type Service struct {
 	logger       *slog.Logger
 	pollHold     time.Duration
 
-	resultSink     ResultSink
-	heldResults    HeldResultReader
-	renditionIndex RenditionIndex
-	scans          ScanRequester
+	resultSink  ResultSink
+	heldResults HeldResultReader
+	scans       ScanRequester
 	// changes takes the nodes' watchers' notices; nil drops them.
 	changes ChangeTaker
 	// storeTiers says how strongly each chunk store is kept (D309 §8); nil sends none.
@@ -118,12 +110,6 @@ type HeldResultReader interface {
 // a held result that arrives with none set is refused.
 func (service *Service) SetHeldResultReader(reader HeldResultReader) {
 	service.heldResults = reader
-}
-
-// SetRenditionIndex names the index a node's hello reconciles its renditions with. Set it before the
-// channel serves; with none set, every rendition a node lists is kept.
-func (service *Service) SetRenditionIndex(index RenditionIndex) {
-	service.renditionIndex = index
 }
 
 // SetScans names what a hello asks for its roots' scans of. Set it before the channel serves; with

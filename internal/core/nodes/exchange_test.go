@@ -159,16 +159,18 @@ func (bench exchangeBench) wantNothingSent(t *testing.T, why string) {
 	}
 }
 
-var prepareCommand = nodeproto.Command{
-	Work: nodeproto.Work{Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{}},
+var runCommand = nodeproto.Command{
+	Work: nodeproto.Work{Type: nodeproto.CommandMakeChunks, MakeChunks: &nodeproto.MakeChunks{
+		Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamQuality},
+	}},
 }
 
-// deliver hands exchanges node nodeID's result, naming the prepare command unless it names another,
+// deliver hands exchanges node nodeID's result, naming the run's command unless it names another,
 // as a node's results do, and fails the test if it is not taken.
 func deliver(t *testing.T, exchanges *nodes.Exchanges, nodeID int64, result nodeproto.Result) {
 	t.Helper()
 	if result.Work == nil {
-		result.Work = &prepareCommand.Work
+		result.Work = &runCommand.Work
 	}
 	if err := exchanges.Deliver(t.Context(), nodeID, result); err != nil {
 		t.Errorf("the result was not taken: %v", err)
@@ -183,32 +185,32 @@ func TestExchange_AResultReachesTheJobThatAskedAndAFinishedOneIsNotCancelled(t *
 	t.Parallel()
 	bench := newExchanges(t)
 	resolved := make(answers, 4)
-	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(resolved, nil))
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(resolved, nil))
 	err := bench.exchanges.Assign(t.Context(), 1, jobs.Job{
-		ID: 7, Kind: jobs.KindPrepare,
+		ID: 7, Kind: jobs.KindMakeChunks,
 		Priority: jobs.PriorityPlayNow,
-	}, prepareCommand)
+	}, runCommand)
 	jobqueue.HandOver(t.Context(), err)
-	sent := testutil.Receive(t, bench.sender.sent, "the prepare command")
-	if sent.Type != nodeproto.CommandPrepare || sent.JobID != 7 || len(sent.AttemptToken) != 32 ||
+	sent := testutil.Receive(t, bench.sender.sent, "the run's command")
+	if sent.Type != nodeproto.CommandMakeChunks || sent.JobID != 7 || len(sent.AttemptToken) != 32 ||
 		sent.Priority != jobs.PriorityPlayNow {
-		t.Fatalf("the node was sent %+v, want the prepare, named by its job's id and a token of its own, at play "+
+		t.Fatalf("the node was sent %+v, want the run, named by its job's id and a token of its own, at play "+
 			"priority", sent)
 	}
-	report := func(state nodeproto.PrepareState) *nodeproto.PrepareReport {
-		return &nodeproto.PrepareReport{State: state}
+	report := func(state nodeproto.RunState) *nodeproto.MakeChunksReport {
+		return &nodeproto.MakeChunksReport{State: state}
 	}
 	// Another job's, an earlier attempt's at job 7, and job 7's attempt's from another node: none is
 	// this attempt's.
-	deliver(t, bench.exchanges, 1, nodeproto.Result{JobID: 8, Prepare: report(nodeproto.PrepareFailed)})
+	deliver(t, bench.exchanges, 1, nodeproto.Result{JobID: 8, MakeChunks: report(nodeproto.RunFailed)})
 	deliver(t, bench.exchanges, 1, nodeproto.Result{
-		JobID: 7, AttemptToken: "0123456789abcdef0123456789abcdef", Prepare: report(nodeproto.PrepareFailed),
+		JobID: 7, AttemptToken: "0123456789abcdef0123456789abcdef", MakeChunks: report(nodeproto.RunFailed),
 	})
 	deliver(t, bench.exchanges, 2, nodeproto.Result{
-		JobID: 7, AttemptToken: sent.AttemptToken, Prepare: report(nodeproto.PrepareFailed),
+		JobID: 7, AttemptToken: sent.AttemptToken, MakeChunks: report(nodeproto.RunFailed),
 	})
 	deliver(t, bench.exchanges, 1, nodeproto.Result{
-		JobID: 7, AttemptToken: sent.AttemptToken, Prepare: report(nodeproto.PrepareDone),
+		JobID: 7, AttemptToken: sent.AttemptToken, MakeChunks: report(nodeproto.RunDone),
 	})
 	if answer := testutil.Receive(t, resolved, "job 7's answer"); answer != nil {
 		t.Fatalf("job 7 was resolved with %v; want this attempt's report from node 1, and no other", answer)
@@ -227,14 +229,14 @@ func TestExchange_ASilenceTellsTheNodeToStopAndParksOnlyWhenItWentAway(t *testin
 		bench := newExchanges(t)
 		bench.sender.isGone = isGone
 		resolved := make(answers, 1)
-		bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(resolved, nil))
+		bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(resolved, nil))
 		sent := bench.assign(t)
 		tick := make(chan time.Time)
 		go bench.exchanges.Watch(t.Context(), tick)
 		bench.now.Advance(2 * time.Minute)
 		tick <- time.Time{}
 		err := testutil.Receive(t, resolved, "job 7's answer")
-		if !errors.Is(err, nodes.ErrNodeSilent) || !strings.Contains(err.Error(), "prepare job 7") ||
+		if !errors.Is(err, nodes.ErrNodeSilent) || !strings.Contains(err.Error(), "make_chunks job 7") ||
 			errors.Is(err, errParked) != isGone {
 			t.Errorf("a silence, the node gone %v: %v; want ErrNodeSilent naming the work, parked only when gone",
 				isGone, err)
@@ -248,7 +250,7 @@ func TestExchange_ACancelTellsTheNodeToStop(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
 	cancelled := make(chan nodes.Attempt, 1)
-	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(make(answers, 1), cancelled))
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(make(answers, 1), cancelled))
 	sent := bench.assign(t)
 	bench.exchanges.Cancelled(t.Context(), 7)
 	bench.wantToldToStop(t, sent)
@@ -264,7 +266,7 @@ func TestExchange_AJobWhoseTimeRanOutTellsTheNodeToStop(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
 	cancelled := make(chan nodes.Attempt, 1)
-	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(make(answers, 1), cancelled))
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(make(answers, 1), cancelled))
 	sent := bench.assign(t)
 	bench.exchanges.Overdue(t.Context(), 7)
 	bench.wantToldToStop(t, sent)
@@ -283,7 +285,7 @@ func TestExchanges_AResultForNoWaitingJobIsLoggedByItsJobID(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
 	exchanges, logged := bench.exchanges, bench.logged
-	deliver(t, exchanges, 1, nodeproto.Result{JobID: 42, Prepare: &nodeproto.PrepareReport{}})
+	deliver(t, exchanges, 1, nodeproto.Result{JobID: 42, MakeChunks: &nodeproto.MakeChunksReport{}})
 	if !strings.Contains(logged.String(), `"jobId":42`) || !strings.Contains(logged.String(), `"nodeId":1`) {
 		t.Errorf("the log = %s, want the job named as jobId and the node as nodeId", logged.String())
 	}
@@ -295,9 +297,9 @@ func TestExchange_ARefusalParksTheJobUntilTheNodeIsUpdatedAndStopsNothing(t *tes
 	t.Parallel()
 	bench := newExchanges(t)
 	resolved := make(answers, 1)
-	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(resolved, nil))
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(resolved, nil))
 	sent := bench.assign(t)
-	refusal := `this node cannot read the command "prepare"`
+	refusal := `this node cannot read the command "make_chunks"`
 	deliver(t, bench.exchanges, 1, nodeproto.Result{JobID: 7, AttemptToken: sent.AttemptToken, Refusal: refusal})
 	err := testutil.Receive(t, resolved, "job 7's answer")
 	parking, isParked := jobqueue.ParkingOf(err)
@@ -315,18 +317,18 @@ func TestExchange_ANodeThatStartedAgainEndsTheWaitOfItsJobsOnly(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
 	resolved := make(answers, 2)
-	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(resolved, nil))
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(resolved, nil))
 	bench.assign(t)
-	elsewhere := bench.exchanges.Assign(t.Context(), 2, jobs.Job{ID: 8, Kind: jobs.KindPrepare}, prepareCommand)
+	elsewhere := bench.exchanges.Assign(t.Context(), 2, jobs.Job{ID: 8, Kind: jobs.KindMakeChunks}, runCommand)
 	jobqueue.HandOver(t.Context(), elsewhere)
-	sentElsewhere := testutil.Receive(t, bench.sender.sent, "job 8's prepare command")
+	sentElsewhere := testutil.Receive(t, bench.sender.sent, "job 8's run's command")
 	bench.exchanges.Interrupt(t.Context(), 1, "started again")
 	if ended := testutil.Receive(t, resolved, "job 7's answer"); !errors.Is(ended, nodes.ErrNodeRestarted) {
 		t.Errorf("job 7 was resolved with %v, want ErrNodeRestarted", ended)
 	}
 	deliver(t, bench.exchanges, 2, nodeproto.Result{
 		JobID: 8, AttemptToken: sentElsewhere.AttemptToken,
-		Prepare: &nodeproto.PrepareReport{State: nodeproto.PrepareDone},
+		MakeChunks: &nodeproto.MakeChunksReport{State: nodeproto.RunDone},
 	})
 	if answer := testutil.Receive(t, resolved, "job 8's answer"); answer != nil {
 		t.Errorf("job 8, on node 2, was resolved with %v, want its result", answer)
@@ -342,31 +344,32 @@ func TestExchange_ProgressKeepsTheWaitAliveAndOnlyItsOwnReachesTheJob(t *testing
 	bench := newExchanges(t)
 	resolved := make(answers, 1)
 	heard := make(chan nodeproto.Progress, 8)
-	assignee := assignedPrepare(resolved, nil)
+	assignee := assignedRun(resolved, nil)
 	refuse := assignee.Progress
 	assignee.Progress = func(ctx context.Context, attempt nodes.Attempt, progress nodeproto.Progress) error {
 		heard <- progress
 		return refuse(ctx, attempt, progress)
 	}
-	bench.exchanges.Handle(jobs.KindPrepare, assignee)
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignee)
 	sent := bench.assign(t)
 	tick := make(chan time.Time)
 	go bench.exchanges.Watch(t.Context(), tick)
-	running := func(nodeID int64, token string, throughMs int64) {
+	running := func(nodeID int64, token string, through int) {
 		bench.exchanges.DeliverProgress(t.Context(), nodeID, nodeproto.Progress{
-			JobID: 7, AttemptToken: token, State: nodeproto.ProgressRunning, PreparedThroughMs: throughMs,
+			JobID: 7, AttemptToken: token, State: nodeproto.ProgressRunning, ChunksMadeThrough: &through,
 		})
 	}
-	running(2, sent.AttemptToken, 1000)
-	running(1, "0123456789abcdef0123456789abcdef", 2000)
-	running(1, sent.AttemptToken, 3000)
-	if progress := testutil.Receive(t, heard, "the job's progress"); progress.PreparedThroughMs != 3000 {
-		t.Errorf("the job heard %+v first, want its own attempt's from node 1, 3000 ms", progress)
+	running(2, sent.AttemptToken, 10)
+	running(1, "0123456789abcdef0123456789abcdef", 20)
+	running(1, sent.AttemptToken, 30)
+	progress := testutil.Receive(t, heard, "the job's progress")
+	if progress.ChunksMadeThrough == nil || *progress.ChunksMadeThrough != 30 {
+		t.Errorf("the job heard %+v first, want its own attempt's from node 1, through chunk 30", progress)
 	}
 	// Past the first minute, the silence started again at the progress has not run out.
 	for range 3 {
 		bench.now.Advance(30 * time.Second)
-		running(1, sent.AttemptToken, 4000)
+		running(1, sent.AttemptToken, 40)
 		testutil.Receive(t, heard, "the job's progress again")
 		tick <- time.Time{}
 	}
@@ -392,23 +395,24 @@ func TestExchanges_RecordEveryResultBeforeAnyJobHearsIt(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
 	resolved := make(answers, 2)
-	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(resolved, nil))
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(resolved, nil))
 	var recorded []int64
 	var refusal error
-	bench.exchanges.Record(nodeproto.CommandPrepare, func(_ context.Context, _ int64, result nodeproto.Result) error {
+	record := func(_ context.Context, _ int64, result nodeproto.Result) error {
 		if refusal != nil {
 			return refusal
 		}
 		recorded = append(recorded, result.JobID)
 		return nil
-	})
-	done := &nodeproto.PrepareReport{State: nodeproto.PrepareDone}
+	}
+	bench.exchanges.Record(nodeproto.CommandMakeChunks, record)
+	done := &nodeproto.MakeChunksReport{State: nodeproto.RunDone}
 	// No job is given an attempt "gone": job 41's result is recorded all the same.
-	deliver(t, bench.exchanges, 1, nodeproto.Result{JobID: 41, AttemptToken: "gone", Prepare: done})
+	deliver(t, bench.exchanges, 1, nodeproto.Result{JobID: 41, AttemptToken: "gone", MakeChunks: done})
 	sent := bench.assign(t)
 	refusal = errors.New("cache.db is busy")
 	err := bench.exchanges.Deliver(t.Context(), 1, nodeproto.Result{
-		JobID: 7, AttemptToken: sent.AttemptToken, Work: &prepareCommand.Work, Prepare: done,
+		JobID: 7, AttemptToken: sent.AttemptToken, Work: &runCommand.Work, MakeChunks: done,
 	})
 	if err == nil || !strings.Contains(err.Error(), "busy") {
 		t.Errorf("a result its recorder could not record was taken: %v", err)
@@ -419,7 +423,7 @@ func TestExchanges_RecordEveryResultBeforeAnyJobHearsIt(t *testing.T) {
 	default:
 	}
 	refusal = nil
-	deliver(t, bench.exchanges, 1, nodeproto.Result{JobID: 7, AttemptToken: sent.AttemptToken, Prepare: done})
+	deliver(t, bench.exchanges, 1, nodeproto.Result{JobID: 7, AttemptToken: sent.AttemptToken, MakeChunks: done})
 	if answer := testutil.Receive(t, resolved, "job 7's answer"); answer != nil {
 		t.Errorf("job 7 was resolved with %v, want its result", answer)
 	}
@@ -427,7 +431,7 @@ func TestExchanges_RecordEveryResultBeforeAnyJobHearsIt(t *testing.T) {
 	if len(recorded) != 2 || recorded[0] != 41 || recorded[1] != 7 {
 		t.Errorf("recorded jobs %v, want 41's and 7's once recorded, and no refusal", recorded)
 	}
-	malformed := bench.exchanges.Deliver(t.Context(), 1, nodeproto.Result{JobID: 44, Prepare: done})
+	malformed := bench.exchanges.Deliver(t.Context(), 1, nodeproto.Result{JobID: 44, MakeChunks: done})
 	if !errors.Is(malformed, nodes.ErrMalformedResult) {
 		t.Errorf("a result naming no work: %v, want ErrMalformedResult", malformed)
 	}
@@ -438,7 +442,7 @@ func TestExchanges_RecordEveryResultBeforeAnyJobHearsIt(t *testing.T) {
 func TestExchange_ACancelBeforeTheNodeTookTheWorkSendsItNothing(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
-	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(make(answers, 1), make(chan nodes.Attempt, 1)))
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(make(answers, 1), make(chan nodes.Attempt, 1)))
 	bench.assign(t)
 	bench.sender.isQueued = true
 	bench.exchanges.Cancelled(t.Context(), 7)
@@ -451,13 +455,13 @@ func TestExchange_ACancelBeforeTheNodeTookTheWorkSendsItNothing(t *testing.T) {
 func TestExchange_PlayPriorityWorkIsSentPlayDrivenAndBackgroundWorkIsNot(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
-	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(make(answers, 4), nil))
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(make(answers, 4), nil))
 	for _, job := range []jobs.Job{
-		{ID: 7, Kind: jobs.KindPrepare, Priority: jobs.PriorityPlayNow},
-		{ID: 8, Kind: jobs.KindPrepare, Priority: 0},
+		{ID: 7, Kind: jobs.KindMakeChunks, Priority: jobs.PriorityPlayNow},
+		{ID: 8, Kind: jobs.KindMakeChunks, Priority: 0},
 	} {
-		jobqueue.HandOver(t.Context(), bench.exchanges.Assign(t.Context(), 1, job, prepareCommand))
-		sent := testutil.Receive(t, bench.sender.sent, "the prepare command")
+		jobqueue.HandOver(t.Context(), bench.exchanges.Assign(t.Context(), 1, job, runCommand))
+		sent := testutil.Receive(t, bench.sender.sent, "the run's command")
 		if sent.Priority != job.Priority {
 			t.Errorf("job %d at priority %d was sent at priority %d", job.ID, job.Priority, sent.Priority)
 		}

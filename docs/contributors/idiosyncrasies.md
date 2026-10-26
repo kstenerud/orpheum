@@ -526,8 +526,8 @@ User-Agent (D263; the User-Agent is logged only).
 
 ### iPhone Safari's native HLS cannot be routed through Web Audio, so it cannot be given a gain
 
-- **What we do:** the gain is carried in the prepared sound (`CarriedGainDB`,
-  `internal/nodeproto/prepare.go:66-68`).
+- **What we do:** the gain is carried in the sound's chunks (`CarriedGainDB`,
+  `internal/nodeproto/sound.go`; the whole-film prepare carried it until it was retired, D344).
 - **Evidence:** D226 §4-§5; VQ13.
   **[web]** [WebKit bug 180696](https://bugs.webkit.org/show_bug.cgi?id=180696), "createMediaElementSource()
   not working with Hls stream": NEW since 2017; [WebKit bug
@@ -690,11 +690,10 @@ User-Agent (D263; the User-Agent is logged only).
 
 ### Safari needs a copied HEVC picture tagged `hvc1` (FFmpeg's MP4 muxer writes `hev1` by default)
 
-- **What we do:** `-tag:v hvc1` when copying HEVC. `internal/node/prepare/arguments.go:103-110`;
-  `internal/node/chunks/arguments.go:84-86`; the comments at `internal/nodeproto/prepare.go:43-44` and
-  `internal/nodeproto/chunks.go:49-50`.
-- **Evidence:** tests `TestArguments_TagCopiedHEVCForSafariAndReEncodeTo8BitH264` and
-  `internal/node/chunks/arguments_test.go:60`; commit "feat(prepare): the node prepares fMP4 HLS renditions with every audio track, standard and boosted, and serves them on its byte socket" (2026-09-25). **Cause unverified in the
+- **What we do:** `-tag:v hvc1` when copying HEVC. `internal/node/chunks/arguments.go:84-86`; the
+  comment at `internal/nodeproto/chunks.go:49-50`. (The whole-film prepare did the same until it was
+  retired, D344.)
+- **Evidence:** test `TestArguments_TagACopiedHEVCPicture` (`internal/node/chunks/arguments_test.go`); commit "feat(prepare): the node prepares fMP4 HLS renditions with every audio track, standard and boosted, and serves them on its byte socket" (2026-09-25). **Cause unverified in the
   repo:** the tests cite cut-a §6, which has no hvc1 text, and no Safari failure is recorded. It is
   well-known Apple behaviour [web].
   **[web]** Apple's [HLS authoring specification for Apple
@@ -1537,7 +1536,7 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 
 - **Cause:** NVENC ignores `-force_key_frames` without `-forced-idr 1`. QSV's option is `-forced_idr 1`.
   Jellyfin does not trust `-force_key_frames` on QSV.
-- **What we do:** `internal/node/prepare/encoder.go:37-79`.
+- **What we do:** `internal/node/encode/encoder.go` (QualityArguments).
 - **Evidence:** `research/slow-links.md` §4; `research/playback-in-practice.md` §3 [web/source]; D190; commit
   An earlier commit. Unverified on our QSV hardware.
   **[web]** [FFmpeg codecs docs](https://ffmpeg.org/ffmpeg-codecs.html) list `forced-idr` for libx264 and
@@ -1982,7 +1981,8 @@ This is the encoder half of 1.1. It is listed so the FFmpeg/x265 group is comple
 
 ### The NFS client's default timeout is 60 s, retransmitted twice
 
-- **What we do:** a 3-minute prepare stall window. `internal/node/prepare/prepare.go:31-35`.
+- **What we do:** a 2-minute stall window for a run of chunks, after a minute's grace for its first
+  (`internal/node/chunks/maker.go`); the whole-film prepare's was 3 minutes until it was retired (D344).
   **Evidence:** the comment. [doc] Low priority.
 - **Evidence:** **[web]** [nfs(5)](https://man7.org/linux/man-pages/man5/nfs.5.html): "For NFS over TCP the
   default timeo value is 600 (60 seconds)", with linear backoff (each retransmission adds `timeo`, up to 600

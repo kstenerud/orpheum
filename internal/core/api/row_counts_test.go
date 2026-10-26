@@ -3,8 +3,6 @@
 package api
 
 import (
-	"encoding/json"
-	"net/http"
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/core/jobs"
@@ -18,9 +16,9 @@ func (harness testHarness) setSetting(t *testing.T, key, valueJSON string) {
 	settingstest.Set(t, harness.settings, settings.Key(key), valueJSON)
 }
 
-// How many rows Continue Watching, the job view and the System page list are the admin's
-// settings, not numbers in code.
-func TestRowCounts_ContinueWatchingTheJobViewAndTheSystemPageListAsManyAsTheirSettingsSay(t *testing.T) {
+// How many rows Continue Watching and the job view list are the admin's settings, not numbers in
+// code.
+func TestRowCounts_ContinueWatchingAndTheJobViewListAsManyAsTheirSettingsSay(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
@@ -34,26 +32,13 @@ func TestRowCounts_ContinueWatchingTheJobViewAndTheSystemPageListAsManyAsTheirSe
 			t.Fatal(err)
 		}
 	}
-	finishPrepare(t, harness, 1, "h264_qsv", 6.5)
-	finishPrepare(t, harness, 2, "h264_qsv", 6.5)
 	harness.setSetting(t, "continue_watching_max_works", "1")
 	harness.setSetting(t, "job_view_max_jobs", "2")
-	harness.setSetting(t, "system_page_recent_prepares_per_node", "1")
 
 	if rows := harness.continueWatching(t, admin); len(rows) != 1 || rows[0].ID != 10 {
 		t.Errorf("Continue Watching at continue_watching_max_works 1: %v, want only Metropolis, the latest", rowsOf(rows))
 	}
 	if listed := harness.listedJobs(t, admin); len(listed) != 2 {
 		t.Errorf("the job view at job_view_max_jobs 2 lists %d jobs, want 2", len(listed))
-	}
-	answer := harness.do(t, http.MethodGet, "/system", admin, nil)
-	var system struct {
-		Nodes []SystemNodeBody `json:"nodes"`
-	}
-	if err := json.Unmarshal([]byte(answer.body), &system); err != nil || len(system.Nodes) != 1 {
-		t.Fatalf("GET /system = %d %s", answer.status, answer.body)
-	}
-	if prepares := system.Nodes[0].RecentPrepares; len(prepares) != 1 {
-		t.Errorf("the System page at system_page_recent_prepares_per_node 1 lists %+v, want one", prepares)
 	}
 }

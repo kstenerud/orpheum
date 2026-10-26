@@ -33,7 +33,7 @@ type LoudnessTrack struct {
 	// StreamIndex is the track's stream index, as ffprobe numbers every stream.
 	StreamIndex int `json:"streamIndex"`
 	// ChannelCount is the track's channel count: one with more than two is measured as it is and as
-	// the standard stereo mix a prepare makes of it; one with two or fewer, as stereo alone.
+	// the standard stereo mix its sound's chunks are made with; one with two or fewer, as stereo alone.
 	ChannelCount int `json:"channelCount"`
 }
 

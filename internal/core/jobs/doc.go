@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package jobs is Orpheum's use of the generic queue in internal/platform/jobqueue: its kinds
-// (fetches, artwork, prepares, subtitles, loudness, a scan's listing and examining, backups), their
+// (fetches, artwork, runs of chunks, subtitles, loudness, a scan's listing and examining, backups), their
 // targets,
 // the answers its handlers give, the sweeps that derive their work, and the job view. The rows are
 // cache.db's job table, kept by internal/store's JobStorage, a cache of the work persistent.db

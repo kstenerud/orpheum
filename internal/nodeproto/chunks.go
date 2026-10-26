@@ -32,8 +32,8 @@ type ChunkStream struct {
 	// width following the source's shape.
 	BitRateKbps int `json:"bitRateKbps,omitempty"`
 	Height      int `json:"height,omitempty"`
-	// Sound is a sound's: the track and its mix, as a prepare makes them (D217 §3).
-	Sound *PrepareAudio `json:"sound,omitempty"`
+	// Sound is a sound's: the track and its mix (D217 §3).
+	Sound *SoundTrack `json:"sound,omitempty"`
 	// IsBoosted is whether a sound is the dialogue boost's mix.
 	IsBoosted bool `json:"isBoosted,omitempty"`
 	// SoundKbps is a sound's AAC bit rate, chunk_sound_kbps when the run was asked for.
@@ -68,9 +68,9 @@ type MakeChunks struct {
 	PictureSeekMs int64 `json:"pictureSeekMs,omitempty"`
 }
 
-// MakeChunksReport is the node's word on how a run ended: its states are a prepare's.
+// MakeChunksReport is the node's word on how a run ended.
 type MakeChunksReport struct {
-	State PrepareState `json:"state"`
+	State RunState `json:"state"`
 	// LastChunk is the last chunk the run made; -1 when it made none.
 	LastChunk   int         `json:"lastChunk"`
 	Failure     string      `json:"failure,omitempty"`
@@ -83,8 +83,8 @@ type MakeChunksReport struct {
 // made: a store directory without one is evicted as a making that never finished.
 const StoreManifestName = "store.json"
 
-// StoreManifest names a store: what it holds, so the node's budget keeps it as it keeps a
-// rendition.
+// StoreManifest names a store: what it holds, so the node knows what its disk holds after a restart
+// (D238 §2).
 type StoreManifest struct {
 	StoreDir string      `json:"storeDir"`
 	Video    BytesFile   `json:"video"`

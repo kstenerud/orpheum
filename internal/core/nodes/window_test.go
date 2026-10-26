@@ -13,11 +13,15 @@ import (
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
 
-// prepareOf is a prepare of profile reading a film under the root on zfs:tank.
-func prepareOf(profile nodeproto.PrepareProfile) nodeproto.Command {
-	return nodeproto.Command{Work: nodeproto.Work{Type: nodeproto.CommandPrepare, Prepare: &nodeproto.Prepare{
-		Profile: profile, Video: nodeproto.BytesFile{RootPath: "/media", Path: []byte("Film.mkv")},
-	}}}
+// runOf is a run of chunks of a stream of kind, reading a film under the root on zfs:tank: a quality's holds
+// an encode slot, a copied picture's a remux slot.
+func runOf(kind nodeproto.ChunkStreamKind) nodeproto.Command {
+	return nodeproto.Command{Work: nodeproto.Work{
+		Type: nodeproto.CommandMakeChunks, MakeChunks: &nodeproto.MakeChunks{
+			Stream: nodeproto.ChunkStream{Kind: kind},
+			Video:  nodeproto.BytesFile{RootPath: "/media", Path: []byte("Film.mkv")},
+		},
+	}}
 }
 
 // assignAt gives job id its command, and says how its job was answered: the command sent, or the
@@ -26,7 +30,7 @@ func (bench exchangeBench) assignAt(
 	t *testing.T, id int64, command nodeproto.Command,
 ) (nodeproto.Command, jobs.Destination) {
 	t.Helper()
-	answer := bench.exchanges.Assign(t.Context(), 1, jobs.Job{ID: id, Kind: jobs.KindPrepare}, command)
+	answer := bench.exchanges.Assign(t.Context(), 1, jobs.Job{ID: id, Kind: jobs.KindMakeChunks}, command)
 	if jobqueue.IsAssigned(answer) {
 		jobqueue.HandOver(t.Context(), answer)
 		return testutil.Receive(t, bench.sender.sent, "the command"), ""
@@ -45,13 +49,13 @@ func (bench exchangeBench) assignAt(
 func TestAssign_WorkBeyondANodesWindowWaitsForTheSlotOrDeviceThatIsFull(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
-	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(make(answers, 4), nil))
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(make(answers, 4), nil))
 	bench.sender.resources = &nodes.Resources{
 		Capacity:     nodeproto.Capacity{EncodeSlotCount: 4, RemuxSlotCount: 1},
 		Devices:      nodeproto.Devices{{Key: "zfs:tank", MountPaths: []string{"/media"}}},
 		ReaderLimits: map[string]int{"zfs:tank": 2},
 	}
-	remux := prepareOf(nodeproto.ProfileRemux)
+	remux := runOf(nodeproto.StreamPicture)
 	first, _ := bench.assignAt(t, 1, remux)
 	if second, full := bench.assignAt(t, 2, remux); full != "" || first.JobID != 1 || second.JobID != 2 {
 		t.Fatalf("remuxes 1 and 2, within the slot's one and the one more, were not both given: %q", full)
@@ -59,7 +63,7 @@ func TestAssign_WorkBeyondANodesWindowWaitsForTheSlotOrDeviceThatIsFull(t *testi
 	if _, full := bench.assignAt(t, 3, remux); full != jobs.SlotDestination(1, "remux") {
 		t.Errorf("a third remux waits on %q, want the node's remux slot", full)
 	}
-	encode := prepareOf(nodeproto.ProfileH264)
+	encode := runOf(nodeproto.StreamQuality)
 	if _, full := bench.assignAt(t, 4, encode); full != "" {
 		t.Fatalf("an encode, with tank's two readers and one more, waits on %q", full)
 	}
@@ -68,7 +72,7 @@ func TestAssign_WorkBeyondANodesWindowWaitsForTheSlotOrDeviceThatIsFull(t *testi
 	}
 	deliver(t, bench.exchanges, 1, nodeproto.Result{
 		JobID: 1, AttemptToken: first.AttemptToken,
-		Prepare: &nodeproto.PrepareReport{State: nodeproto.PrepareDone}, Work: &remux.Work,
+		MakeChunks: &nodeproto.MakeChunksReport{State: nodeproto.RunDone}, Work: &remux.Work,
 	})
 	unparked := bench.unparked.list()
 	if !slices.Contains(unparked, jobs.SlotDestination(1, "remux")) ||
@@ -82,7 +86,7 @@ func TestAssign_WorkBeyondANodesWindowWaitsForTheSlotOrDeviceThatIsFull(t *testi
 func TestReprioritize_TellsTheNodeHoldingAJobsAttemptItsNewPriority(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
-	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(make(answers, 2), nil))
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(make(answers, 2), nil))
 	sent := bench.assign(t)
 	bench.exchanges.Reprioritize(7, jobs.PriorityBackground)
 	told := testutil.Receive(t, bench.sender.sent, "the reprioritize command")
@@ -97,22 +101,22 @@ func TestReprioritize_TellsTheNodeHoldingAJobsAttemptItsNewPriority(t *testing.T
 func TestAssign_PlayDrivenWorkIsNotHeldBackForItsDevicesReaders(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
-	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(make(answers, 4), nil))
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(make(answers, 4), nil))
 	bench.sender.resources = &nodes.Resources{
 		Capacity:     nodeproto.Capacity{EncodeSlotCount: 4, RemuxSlotCount: 4},
 		Devices:      nodeproto.Devices{{Key: "zfs:tank", MountPaths: []string{"/media"}}},
 		ReaderLimits: map[string]int{"zfs:tank": 1},
 	}
-	encode := prepareOf(nodeproto.ProfileH264)
+	encode := runOf(nodeproto.StreamQuality)
 	bench.assignAt(t, 1, encode)
 	bench.assignAt(t, 2, encode)
 	if _, full := bench.assignAt(t, 3, encode); full != jobs.ReaderDestination(1, "zfs:tank") {
 		t.Fatalf("a third background job reading tank waits on %q, want tank's readers", full)
 	}
 	answer := bench.exchanges.Assign(t.Context(), 1,
-		jobs.Job{ID: 4, Kind: jobs.KindPrepare, Priority: jobs.PriorityPlayNow}, encode)
+		jobs.Job{ID: 4, Kind: jobs.KindMakeChunks, Priority: jobs.PriorityPlayNow}, encode)
 	if !jobqueue.IsAssigned(answer) {
-		t.Errorf("a play-driven prepare reading the full tank was answered %v, want it given to the node", answer)
+		t.Errorf("a play-driven run reading the full tank was answered %v, want it given to the node", answer)
 	}
 }
 
@@ -121,20 +125,20 @@ func TestAssign_PlayDrivenWorkIsNotHeldBackForItsDevicesReaders(t *testing.T) {
 func TestAssign_PlayDrivenWorkIsNotHeldBackForItsSlot(t *testing.T) {
 	t.Parallel()
 	bench := newExchanges(t)
-	bench.exchanges.Handle(jobs.KindPrepare, assignedPrepare(make(answers, 4), nil))
+	bench.exchanges.Handle(jobs.KindMakeChunks, assignedRun(make(answers, 4), nil))
 	bench.sender.resources = &nodes.Resources{
 		Capacity:     nodeproto.Capacity{EncodeSlotCount: 1, RemuxSlotCount: 1},
 		Devices:      nodeproto.Devices{{Key: "zfs:tank", MountPaths: []string{"/media"}}},
 		ReaderLimits: map[string]int{"zfs:tank": 8},
 	}
-	encode := prepareOf(nodeproto.ProfileH264)
+	encode := runOf(nodeproto.StreamQuality)
 	bench.assignAt(t, 1, encode)
 	bench.assignAt(t, 2, encode)
 	if _, full := bench.assignAt(t, 3, encode); full != jobs.SlotDestination(1, "encode") {
 		t.Fatalf("a third background encode waits on %q, want the node's encode slot", full)
 	}
 	answer := bench.exchanges.Assign(t.Context(), 1,
-		jobs.Job{ID: 4, Kind: jobs.KindPrepare, Priority: jobs.PriorityPlayNow}, encode)
+		jobs.Job{ID: 4, Kind: jobs.KindMakeChunks, Priority: jobs.PriorityPlayNow}, encode)
 	if !jobqueue.IsAssigned(answer) {
 		t.Errorf("a play-driven encode with the slot full was answered %v, want it given to the node", answer)
 	}

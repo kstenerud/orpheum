@@ -32,18 +32,6 @@ type SubtitleTrackBody struct {
 	VTTURL            string `doc:"The track as WebVTT" json:"vttUrl"`
 }
 
-// AudioRenditionBody is one audio rendition: a source track's standard mix, or its boosted one.
-type AudioRenditionBody struct {
-	AudioTrackIndex   int    `json:"audioTrackIndex"`
-	Language          string `json:"language"`
-	IsDialogueBoosted bool   `json:"isDialogueBoosted"`
-	// Levelling brings the track's stereo sound to the level (D226).
-	Levelling LevellingBody `json:"levelling"`
-	// CarriedGainDB is already in the rendition's sound: the player applies the levelling less
-	// this, and on its own when levelling is off (D226 §4).
-	CarriedGainDB float64 `doc:"dB already in the sound, put in when it was prepared" json:"carriedGainDb"`
-}
-
 // LevellingBody is what brings a sound to the level (D226): its gain, once it is measured.
 type LevellingBody struct {
 	IsMeasured bool    `doc:"Absent a measurement, the sound plays as it is" json:"isMeasured"`

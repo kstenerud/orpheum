@@ -9,7 +9,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/chunks/qualities"
 	"github.com/kstenerud/orpheum/internal/core/decide"
-	"github.com/kstenerud/orpheum/internal/core/renditions"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -60,10 +59,8 @@ func TestTracks_OnTheLadderAreTheFilmsOwnPictureAndConvertedQualitiesAndSounds(t
 	}
 }
 
-// Off the ladder, a file played as it is plays every track as it is; a prepared copy remuxed keeps the
-// picture and converts the sound to AAC in stereo at the prepared rate, and one made in H.264 converts
-// the picture too.
-func TestTracks_OffTheLadderAreTheFilesOwnOrAPreparedCopys(t *testing.T) {
+// Off the ladder, a file played as it is plays every track as it is.
+func TestTracks_OffTheLadderAreTheFilesOwn(t *testing.T) {
 	t.Parallel()
 	service := &Service{}
 	direct, err := service.tracksOf(t.Context(), tokenPlayback{}, scopeFilm(),
@@ -75,26 +72,5 @@ func TestTracks_OffTheLadderAreTheFilesOwnOrAPreparedCopys(t *testing.T) {
 		{Codec: "hevc", Width: 1920, Height: 696, Kbps: 2600, IsOriginal: true},
 	}) || !reflect.DeepEqual(direct.Sounds, []SoundTrack{{Codec: "eac3", ChannelCount: 6, IsOriginal: true}}) {
 		t.Errorf("tracks played as they are = %+v, %+v", direct.Pictures, direct.Sounds)
-	}
-	prepared := Started{
-		Decision:        decide.Decision{Delivery: decide.HLS, Profile: decide.Remux},
-		AudioRenditions: []renditions.AudioRendition{{AudioTrackIndex: 0}},
-	}
-	remuxed, err := service.tracksOf(t.Context(), tokenPlayback{}, scopeFilm(), prepared)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !remuxed.Pictures[0].IsOriginal || !reflect.DeepEqual(remuxed.Sounds, []SoundTrack{
-		{Codec: "aac", ChannelCount: 2, Kbps: nodeproto.PreparedSoundKbps},
-	}) {
-		t.Errorf("a remuxed copy's tracks = %+v, %+v", remuxed.Pictures, remuxed.Sounds)
-	}
-	prepared.Decision.Profile = decide.H264
-	encoded, err := service.tracksOf(t.Context(), tokenPlayback{}, scopeFilm(), prepared)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if encoded.Pictures[0] != (PictureTrack{Codec: "h264", Width: 1920, Height: 696}) {
-		t.Errorf("an H.264 copy's picture = %+v; want H.264, converted, at the file's size", encoded.Pictures[0])
 	}
 }

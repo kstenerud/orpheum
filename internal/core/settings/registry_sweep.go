@@ -62,7 +62,7 @@ const (
 	RetentionSweepEveryHours               Key = "retention_sweep_every_hours"
 	InvariantsCheckEveryHours              Key = "invariants_check_every_hours"
 	ScanRootErrorLimit                     Key = "scan_root_error_limit"
-	PrepareProgressEverySeconds            Key = "prepare_progress_every_seconds"
+	NodeProgressEverySeconds               Key = "node_progress_every_seconds"
 )
 
 // upkeepSweepDefinitions are how often the core's upkeep looks, and how far back the job view counts:
@@ -328,12 +328,12 @@ func libraryAdminDefinitions() []Definition {
 // nodeTuningDefinitions are how the nodes behave, which the core sends them (nodeproto.Tuning).
 func nodeTuningDefinitions() []Definition {
 	return []Definition{
-		// The core retries a prepare it has not heard of in prepareMaxSilence, five minutes: a
+		// The core retries work it has not heard of in its node's silence limit, five minutes: a
 		// minute's most stays well within it.
-		sourced(durationSetting(PrepareProgressEverySeconds, time.Second,
+		sourced(durationSetting(NodeProgressEverySeconds, time.Second,
 			strconv.Itoa(nodeproto.StartingProgressEverySeconds), 1, 60,
-			"seconds, at least, between a running prepare's words to the core on how far it is (D234 §5); "+
-				"was the node's progress_every_seconds"),
+			"seconds, at least, between a running read-through's words to the core on how far it is (D234 §5); "+
+				"was prepare_progress_every_seconds"),
 			"D234 §5: throttled; two seconds"),
 	}
 }

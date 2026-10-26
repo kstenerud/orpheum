@@ -88,6 +88,7 @@ var wireShapeByVersion = map[int]string{
 	42: "c0d627168692620ce61b4247709be8bc076034e0259bc812fbdc17dba2143994",
 	// 43 says in the hello whether the node's FFmpeg reads films through it (Hardware, D330).
 	43: "0613182317b5b4bd95c62024b19b1ee4f36ce08491d6d1d173b92813b464a979",
+	44: "b21c5b100bbb082b3ce7496eb22f03e2bb09b8e4bab2b06f024956f1a710fe0e",
 }
 
 // TestProtocolVersion_IsRaisedWithAnyChangeToTheWire holds that the messages' shape is the one this

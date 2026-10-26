@@ -22,7 +22,7 @@ import { SystemDiscovery } from "./system-discovery.tsx";
 import { SystemReachability } from "./system-reachability.tsx";
 import { NodeDevices, NodeWorkView, QueueHealth } from "./system-work.tsx";
 import { DownDestinations, OutsideServices } from "./system-outside.tsx";
-import { byteSizeText, tenthsText } from "./number-text.ts";
+import { byteSizeText } from "./number-text.ts";
 import { Link } from "./link.tsx";
 import { useBackgroundChangesPoller } from "./polling.ts";
 import { dataOrThrow, problemText, throwIfRefused } from "./problem.ts";
@@ -39,7 +39,6 @@ type Certificate = components["schemas"]["CertificateBody"];
 export type SystemNode = components["schemas"]["SystemNodeBody"];
 type Disk = components["schemas"]["DiskBody"];
 type Hardware = components["schemas"]["HardwareBody"];
-type FinishedPrepare = components["schemas"]["FinishedPrepareBody"];
 type Finding = components["schemas"]["FindingBody"];
 type Build = components["schemas"]["BuildBody"];
 type Host = components["schemas"]["HostBody"];
@@ -366,7 +365,6 @@ function NodeFacts(props: {
           <Disks disks={node.disks ?? []} />
           <NodeDevices nodeName={node.name} devices={node.devices ?? []} />
           <NodeStuckView stuck={node.stuck ?? []} />
-          <RecentPrepares prepares={node.recentPrepares ?? []} />
         </>
       ) : (
         <>
@@ -429,56 +427,6 @@ function HardwareEncoding(props: { readonly hardware: Hardware }): JSX.Element {
           </li>
         ))}
       </ul>
-    </section>
-  );
-}
-
-/** What the machine's recent prepares used, and how fast they ran (D225 §3). */
-function RecentPrepares(props: { readonly prepares: readonly FinishedPrepare[] }): JSX.Element {
-  const { t } = useTranslation();
-  return (
-    <section aria-label={t("system.recentPrepares")}>
-      <h3>{t("system.recentPrepares")}</h3>
-      {props.prepares.length === 0 ? (
-        <p>{t("system.noPrepares")}</p>
-      ) : (
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">{t("system.preparedFile")}</th>
-              <th scope="col">{t("system.preparedWith")}</th>
-              <th scope="col">{t("system.realtimeFactor")}</th>
-              <th scope="col">{t("system.finishedAt")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {props.prepares.map((prepare) => (
-              <tr
-                key={`${String(prepare.sourceFileId)}-${prepare.profile}-${String(prepare.finishedAt)}`}
-              >
-                <td>
-                  <code>
-                    {prepare.path === "" ? `#${String(prepare.sourceFileId)}` : prepare.path}
-                  </code>
-                </td>
-                <td>
-                  {prepare.state === "failed"
-                    ? t("system.prepareFailed", { why: prepare.failure ?? "" })
-                    : t(`system.encoder.${camelKey(prepare.videoEncoder ?? "unknown")}`)}
-                </td>
-                <td>
-                  {prepare.realtimeFactor === undefined
-                    ? ""
-                    : t("system.realtimeFactorTimes", {
-                        realtimeFactor: tenthsText(prepare.realtimeFactor, i18n.language),
-                      })}
-                </td>
-                <td>{dateTimeText(prepare.finishedAt, i18n.language)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
     </section>
   );
 }

@@ -36,7 +36,7 @@ func (server *Server) registerPageInterest() {
 	}, server.deleteInterest)
 	huma.Register(server.humaAPI, huma.Operation{
 		OperationID: "getFileWaits", Method: http.MethodGet, Path: "/files/{id}/waits", Tags: tags,
-		Summary: "The work a file's viewer waits on, its read-through for its loudness and its prepared copy, " +
+		Summary: "The work a file's viewer waits on, its read-through for its loudness and its timeline, " +
 			"and about how long each will take (D324 §6)",
 	}, server.getFileWaits)
 }
@@ -51,7 +51,6 @@ type WaitBody struct {
 type FileWaitsOutput struct {
 	Body struct {
 		ReadThrough *WaitBody `doc:"Its read-through, for its loudness" json:"readThrough,omitempty"`
-		Prepare     *WaitBody `doc:"Its prepared copy, for a device that plays one" json:"prepare,omitempty"`
 	}
 }
 
@@ -67,7 +66,7 @@ func (server *Server) getFileWaits(ctx context.Context, input *ItemInput) (*File
 		return nil, server.playbackError(ctx, "say how long a file's work will take", err)
 	}
 	output := &FileWaitsOutput{}
-	output.Body.ReadThrough, output.Body.Prepare = waitBody(found.ReadThrough), waitBody(found.Prepare)
+	output.Body.ReadThrough = waitBody(found.ReadThrough)
 	return output, nil
 }
 

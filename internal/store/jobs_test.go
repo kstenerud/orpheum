@@ -72,11 +72,11 @@ func TestJobStorage_ClaimsInOrderAndCountsTheAttempt(t *testing.T) {
 	item := JobTarget{ItemID: 7}
 	storage.insert("fetch_metadata", item, 0, jobStart)
 	storage.insert("fetch_metadata", JobTarget{ItemID: 8}, 5, jobStart)
-	storage.insert("prepare", JobTarget{RenditionID: 7}, 9, jobStart.Add(time.Minute))
+	storage.insert("make_chunks", JobTarget{ChunkStoreID: 7}, 9, jobStart.Add(time.Minute))
 	if first, _ := storage.claim("fetch_metadata", jobStart); first.Target.ItemID != 8 {
 		t.Errorf("claimed item %d first, want 8, the higher priority", first.Target.ItemID)
 	}
-	if _, found := storage.claim("prepare", jobStart); found {
+	if _, found := storage.claim("make_chunks", jobStart); found {
 		t.Error("claimed a job before its time")
 	}
 	running, found := storage.claim("fetch_metadata", jobStart)
@@ -156,13 +156,13 @@ func TestJobStorage_RecordsAWaitWithItsFlagsAndNeverUndoesACancel(t *testing.T) 
 func TestJobStorage_RequeuesWithTheAttemptCountedAndKnowsATargetByItsColumn(t *testing.T) {
 	t.Parallel()
 	storage := newJobStorageFixture(t)
-	rendition := JobTarget{RenditionID: 7}
-	storage.insert("prepare", rendition, 0, jobStart)
-	prepare, _ := storage.claim("prepare", jobStart)
+	store := JobTarget{ChunkStoreID: 7}
+	storage.insert("make_chunks", store, 0, jobStart)
+	run, _ := storage.claim("make_chunks", jobStart)
 	if count, err := storage.jobs.RequeueRunning(t.Context()); err != nil || count != 1 {
 		t.Fatalf("RequeueRunning = %d, %v; want the one running", count, err)
 	}
-	if requeued := storage.byID()[prepare.ID]; requeued.State != jobqueue.StateQueued || requeued.AttemptCount != 1 {
+	if requeued := storage.byID()[run.ID]; requeued.State != jobqueue.StateQueued || requeued.AttemptCount != 1 {
 		t.Errorf("requeued job = %+v, want queued with its attempt counted", requeued)
 	}
 	storage.insert("read_through", JobTarget{FileID: 8}, 0, jobStart)
@@ -172,8 +172,8 @@ func TestJobStorage_RequeuesWithTheAttemptCountedAndKnowsATargetByItsColumn(t *t
 		t.Fatal(err)
 	}
 	open, err := storage.jobs.ListOpen(t.Context())
-	if err != nil || len(open) != 1 || open[0].ID != prepare.ID || open[0].Target != rendition {
-		t.Errorf("ListOpen = %+v, %v; want the prepare alone, its target rendition 7 by its column", open, err)
+	if err != nil || len(open) != 1 || open[0].ID != run.ID || open[0].Target != store {
+		t.Errorf("ListOpen = %+v, %v; want the run alone, its target store 7 by its column", open, err)
 	}
 }
 
@@ -250,20 +250,20 @@ func TestJobStorage_KeepsAnAssignedJobOpenAndRunningThroughARestart(t *testing.T
 	t.Parallel()
 	storage := newJobStorageFixture(t)
 	until := jobStart.Add(time.Hour)
-	prepare := storage.assign("prepare", JobTarget{RenditionID: 7}, until)
-	if row := storage.byID()[prepare]; row.State != jobqueue.StateAssigned || row.AssignedUntil == nil ||
+	run := storage.assign("make_chunks", JobTarget{ChunkStoreID: 7}, until)
+	if row := storage.byID()[run]; row.State != jobqueue.StateAssigned || row.AssignedUntil == nil ||
 		!row.AssignedUntil.Equal(until) || row.AttemptCount != 1 {
-		t.Fatalf("an assigned prepare = %+v, want assigned until %v with its attempt", row, until)
+		t.Fatalf("an assigned run = %+v, want assigned until %v with its attempt", row, until)
 	}
-	if open := storage.insert("prepare", JobTarget{RenditionID: 7}, 0, jobStart); len(open.Running) != 1 ||
-		open.Running[0].ID != prepare {
-		t.Errorf("a request's plan was shown %+v, want the assigned prepare as running", open)
+	if open := storage.insert("make_chunks", JobTarget{ChunkStoreID: 7}, 0, jobStart); len(open.Running) != 1 ||
+		open.Running[0].ID != run {
+		t.Errorf("a request's plan was shown %+v, want the assigned run as running", open)
 	}
 	if count, err := storage.jobs.RequeueRunning(t.Context()); err != nil || count != 0 {
 		t.Errorf("RequeueRunning = %d, %v; want the assigned job left with its node", count, err)
 	}
 	if open, err := storage.jobs.ListOpen(t.Context()); err != nil || len(open) != 2 {
-		t.Errorf("ListOpen = %d jobs, %v; want the assigned prepare and its follow-up", len(open), err)
+		t.Errorf("ListOpen = %d jobs, %v; want the assigned run and its follow-up", len(open), err)
 	}
 }
 
@@ -271,14 +271,14 @@ func TestJobStorage_KeepsAnAssignedJobOpenAndRunningThroughARestart(t *testing.T
 func TestJobStorage_ACancelEndsAnAssignedJobAndNoOutcomeTakesIt(t *testing.T) {
 	t.Parallel()
 	storage := newJobStorageFixture(t)
-	prepare := storage.assign("prepare", JobTarget{RenditionID: 7}, jobStart.Add(time.Hour))
-	if cancelled, err := storage.jobs.Cancel(t.Context(), prepare, jobStart); err != nil || !cancelled {
-		t.Fatalf("cancelling the assigned prepare: %v, %v", cancelled, err)
+	run := storage.assign("make_chunks", JobTarget{ChunkStoreID: 7}, jobStart.Add(time.Hour))
+	if cancelled, err := storage.jobs.Cancel(t.Context(), run, jobStart); err != nil || !cancelled {
+		t.Fatalf("cancelling the assigned run: %v, %v", cancelled, err)
 	}
-	_, found, takeErr := storage.jobs.TakeAssigned(t.Context(), prepare)
-	if row := storage.byID()[prepare]; takeErr != nil || found || row.State != jobqueue.StateCancelled ||
+	_, found, takeErr := storage.jobs.TakeAssigned(t.Context(), run)
+	if row := storage.byID()[run]; takeErr != nil || found || row.State != jobqueue.StateCancelled ||
 		row.AssignedUntil != nil {
-		t.Errorf("an outcome for the cancelled prepare: taken %v (%v), and it is %+v; want it left cancelled",
+		t.Errorf("an outcome for the cancelled run: taken %v (%v), and it is %+v; want it left cancelled",
 			found, takeErr, row)
 	}
 }
@@ -289,7 +289,7 @@ func TestJobStorage_TakesAnAssignedJobBackOnceByItsKindWhenItsTimeRanOut(t *test
 	t.Parallel()
 	storage := newJobStorageFixture(t)
 	until := jobStart.Add(time.Hour)
-	prepare := storage.assign("prepare", JobTarget{RenditionID: 7}, until)
+	run := storage.assign("make_chunks", JobTarget{ChunkStoreID: 7}, until)
 	storage.assign("read_through", JobTarget{FileID: 8}, jobStart)
 	takeOverdue := func(kind jobqueue.Kind, now time.Time) (jobqueue.Row[JobTarget], bool) {
 		t.Helper()
@@ -299,19 +299,19 @@ func TestJobStorage_TakesAnAssignedJobBackOnceByItsKindWhenItsTimeRanOut(t *test
 		}
 		return row, found
 	}
-	if _, found := takeOverdue("prepare", until.Add(-time.Millisecond)); found {
-		t.Error("a prepare was taken as overdue before its time ran out")
+	if _, found := takeOverdue("make_chunks", until.Add(-time.Millisecond)); found {
+		t.Error("a run was taken as overdue before its time ran out")
 	}
-	overdue, found := takeOverdue("prepare", until)
-	if !found || overdue.ID != prepare || overdue.State != jobqueue.StateRunning || overdue.AssignedUntil == nil ||
+	overdue, found := takeOverdue("make_chunks", until)
+	if !found || overdue.ID != run || overdue.State != jobqueue.StateRunning || overdue.AssignedUntil == nil ||
 		!overdue.AssignedUntil.Equal(until) {
-		t.Fatalf("the overdue prepare = %+v (%v); want it back to running, its time kept", overdue, found)
+		t.Fatalf("the overdue run = %+v (%v); want it back to running, its time kept", overdue, found)
 	}
-	if _, found := takeOverdue("prepare", until.Add(24*time.Hour)); found {
-		t.Error("an overdue prepare was taken twice, or the measurement, of another kind, taken as a prepare")
+	if _, found := takeOverdue("make_chunks", until.Add(24*time.Hour)); found {
+		t.Error("an overdue run was taken twice, or the measurement, of another kind, taken as a run")
 	}
-	if _, found, err := storage.jobs.TakeAssigned(t.Context(), prepare); err != nil || found {
-		t.Errorf("an outcome after its time ran out took the prepare again: %v, %v", found, err)
+	if _, found, err := storage.jobs.TakeAssigned(t.Context(), run); err != nil || found {
+		t.Errorf("an outcome after its time ran out took the run again: %v, %v", found, err)
 	}
 }
 
@@ -321,15 +321,15 @@ func TestJobStorage_TakesAnAssignedJobBackOnceByItsKindWhenItsTimeRanOut(t *test
 func TestJobStorage_KeepsAJobWantedAndDemotesItOncePast(t *testing.T) {
 	t.Parallel()
 	storage := newJobStorageFixture(t)
-	film, show := JobTarget{RenditionID: 7}, JobTarget{RenditionID: 8}
-	storage.insert("prepare", film, 1000, jobStart)
-	storage.insert("prepare", show, 1000, jobStart)
-	storage.insert("prepare", JobTarget{RenditionID: 9}, 1000, jobStart)
+	film, show := JobTarget{ChunkStoreID: 7}, JobTarget{ChunkStoreID: 8}
+	storage.insert("make_chunks", film, 1000, jobStart)
+	storage.insert("make_chunks", show, 1000, jobStart)
+	storage.insert("make_chunks", JobTarget{ChunkStoreID: 9}, 1000, jobStart)
 	for _, keep := range []struct {
 		target JobTarget
 		until  time.Time
 	}{{film, jobStart.Add(10 * time.Minute)}, {show, jobStart.Add(time.Hour)}, {show, jobStart.Add(time.Minute)}} {
-		if err := storage.jobs.KeepWanted(t.Context(), "prepare", keep.target, keep.until); err != nil {
+		if err := storage.jobs.KeepWanted(t.Context(), "make_chunks", keep.target, keep.until); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -355,15 +355,15 @@ func TestJobStorage_KeepsAJobWantedAndDemotesItOncePast(t *testing.T) {
 func TestJobStorage_AReleasedJobIsDemotedAtOnce(t *testing.T) {
 	t.Parallel()
 	storage := newJobStorageFixture(t)
-	film, show := JobTarget{RenditionID: 7}, JobTarget{RenditionID: 8}
-	storage.insert("prepare", film, 1000, jobStart)
-	storage.insert("prepare", show, 1000, jobStart)
+	film, show := JobTarget{ChunkStoreID: 7}, JobTarget{ChunkStoreID: 8}
+	storage.insert("make_chunks", film, 1000, jobStart)
+	storage.insert("make_chunks", show, 1000, jobStart)
 	for _, kept := range []JobTarget{film, show} {
-		if err := storage.jobs.KeepWanted(t.Context(), "prepare", kept, jobStart.Add(time.Hour)); err != nil {
+		if err := storage.jobs.KeepWanted(t.Context(), "make_chunks", kept, jobStart.Add(time.Hour)); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := storage.jobs.ReleaseWanted(t.Context(), "prepare", film, jobStart.Add(time.Minute)); err != nil {
+	if err := storage.jobs.ReleaseWanted(t.Context(), "make_chunks", film, jobStart.Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	demoted, err := storage.jobs.DemoteUnwanted(t.Context(), jobStart.Add(time.Minute), 0)

@@ -233,7 +233,6 @@ func wholeReadsAllowed() map[string]string {
 		"DeleteSortKeysOfOtherLocales": "runs once, when the sort locale changes",
 		"cache.ListArtServed":          "the artwork ceiling's sweep reads when every image was served, once a day",
 		"cache.ListNodeAttempts":       few + "nodes' attempts",
-		"cache.ListFinishedRenditions": "read once at start, to adopt what the node kept",
 		"cache.ListScans":              few + "scans at a time, one per root",
 		// Small tables the planner reads whole by the committed statistics (D303, DL15).
 		"ListSeriesByName": "by the statistics the planner reads the series, which are few (200 at the " +

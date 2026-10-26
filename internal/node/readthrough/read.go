@@ -50,7 +50,7 @@ type Findings struct {
 
 // Read reads film, a video the caller has checked, through once, and
 // learns what the command asks: the loudness of each of its loudnessTracks, a track with more than
-// two channels as it is and as the standard stereo mix a prepare makes of it, any other as stereo
+// two channels as it is and as the standard stereo mix its chunks are made with, any other as stereo
 // (D226 §1); and, when timeline is set, its picture's timeline (D247 §10). The film's length,
 // duration, is 0 when unknown: decoding its sound takes as long as the film plays on the slowest
 // machine, so when loudness is asked the watchdog allows the longer of that and reading the file.

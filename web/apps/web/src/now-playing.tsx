@@ -78,7 +78,7 @@ function PlayingRow(props: {
   const how =
     playing.delivery === "direct"
       ? t("nowPlaying.direct")
-      : t("nowPlaying.prepared", { reasons: (playing.notDirectReasons ?? []).join(", ") });
+      : t("nowPlaying.converted", { reasons: (playing.notDirectReasons ?? []).join(", ") });
   return (
     <li>
       <p>

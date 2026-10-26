@@ -64,17 +64,6 @@ const connected: SystemNode = {
     chosenEncoder: "h264_qsv",
   },
   disks: [{ path: "/media", totalBytes: 4_000_000_000_000, availableBytes: 1_500_000_000_000 }],
-  recentPrepares: [
-    {
-      sourceFileId: 42,
-      path: "Films/Metropolis (1995)/Metropolis.mkv",
-      profile: "h264",
-      state: "complete",
-      videoEncoder: "h264_qsv",
-      realtimeFactor: 6.5,
-      finishedAt: 1_790_000_000_000,
-    },
-  ],
   devices: [],
   stuck: [],
 };
@@ -145,8 +134,6 @@ it("the System page answers whether a machine sees its GPU, may open it, and enc
   );
   expect(text).toContain("What worked when Orpheum started on this machine");
   expect(text).toContain("NVIDIA NVENC: did not work: Cannot load libcuda.so.1");
-  expect(text).toContain("Films/Metropolis (1995)/Metropolis.mkv");
-  expect(text).toContain("6.5× real time");
   expect(text).toContain("1.5 TB free of 4 TB");
   expect(text).toContain("persistent.db");
   expect(text).toContain("encodes use h264_qsv");
@@ -220,7 +207,6 @@ it("the System page says a machine that stopped answering is silent, and when it
     lastHeardAt: 1_790_000_000_000,
     confinement: [],
     disks: [],
-    recentPrepares: [],
     devices: [],
     stuck: [],
   });
@@ -240,7 +226,6 @@ it("the System page says a machine that stopped answering is silent, and when it
     gid: 0,
     confinement: [],
     disks: [],
-    recentPrepares: [],
     devices: [],
     stuck: [],
   });
@@ -257,7 +242,6 @@ it("the System page says a machine on another version of Orpheum needs updating 
     gid: 0,
     confinement: [],
     disks: [],
-    recentPrepares: [],
     devices: [],
     stuck: [],
   });

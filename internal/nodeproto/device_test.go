@@ -36,7 +36,6 @@ func TestMediaFile_IsTheFileACommandReads(t *testing.T) {
 		work Work
 		want string
 	}{
-		"prepare":  {Work{Prepare: &Prepare{Video: video}}, "a.mkv"},
 		"extract":  {Work{ExtractSubtitle: &ExtractSubtitle{Video: &video}}, "a.mkv"},
 		"sidecar":  {Work{ExtractSubtitle: &ExtractSubtitle{Sidecar: &sidecar}}, "a.srt"},
 		"read":     {Work{ReadThrough: &ReadThrough{Video: video}}, "a.mkv"},
@@ -57,7 +56,7 @@ func TestMediaFile_IsTheFileACommandReads(t *testing.T) {
 }
 
 // A run of chunks holds an encode slot when it encodes a quality, and a remux slot when it copies
-// the picture or makes a sound, as a prepare of each does (D247 §10).
+// the picture or makes a sound (D247 §10).
 func TestSlot_ARunOfChunksHoldsAnEncodeSlotForAQualityElseARemuxSlot(t *testing.T) {
 	t.Parallel()
 	for kind, want := range map[ChunkStreamKind]Slot{

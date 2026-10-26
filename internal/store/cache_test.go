@@ -99,7 +99,8 @@ func TestOpenCache_KeepsTheAttemptsGivenToNodesUntilForgotten(t *testing.T) {
 	cache := openCacheAt(t, filepath.Join(t.TempDir(), "cache.db"))
 	err := cache.Write(t.Context(), func(queries *cachegen.Queries) error {
 		return queries.InsertNodeAttempt(t.Context(), cachegen.InsertNodeAttemptParams{
-			AttemptToken: "a7", JobID: 7, JobKind: "prepare", NodeID: 1, WorkJSON: `{"type":"prepare"}`, SentAt: 5,
+			AttemptToken: "a7", JobID: 7, JobKind: "make_chunks", NodeID: 1, WorkJSON: `{"type":"make_chunks"}`,
+			SentAt: 5,
 		})
 	})
 	if err != nil {

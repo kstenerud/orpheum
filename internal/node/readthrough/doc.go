@@ -4,7 +4,7 @@
 // the whole file tells. How loud each audio track is, by EBU R128 with FFmpeg's ebur128 filter, so
 // the core can set a gain that brings films to one level and the player can apply it (D226): a
 // track with more than two channels is measured as it is, which a receiver plays, and as the
-// standard stereo mix a prepare makes of it, which a stereo device hears, since that mix
+// standard stereo mix its sound's chunks are made with, which a stereo device hears, since that mix
 // renormalises its gains and plays 7 to 8 dB quieter. And the picture's timeline, from its packets
 // copied undecoded into FFmpeg's framecrc muxer: its keyframes, where a copy of it can be cut, and
 // its bytes in each second of the film, the peaks a link must carry (D247 §10). A read asks for
@@ -23,7 +23,7 @@
 //
 //   - The video is read by the file: protocol only, or, when the node streams the film, by the
 //     fdproxy protocol only, given no path (execx.Film, D330), with every other protocol refused,
-//     and each sound is measured through its own named filter, the stereo mix being prepare's own. Enforced by
+//     and each sound is measured through its own named filter, the stereo mix being the chunks' own. Enforced by
 //     TestRead_ReadsOnlyTheFileAndMeasuresEachSoundByName.
 //
 //   - The timeline is read from the one read that measures the sound, by the picture's stream

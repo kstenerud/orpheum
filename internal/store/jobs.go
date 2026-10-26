@@ -19,7 +19,6 @@ import (
 // most one.
 type JobTarget struct {
 	ItemID            int64
-	RenditionID       int64
 	StreamID          int64
 	FetchedSubtitleID int64
 	FileID            int64
@@ -107,7 +106,7 @@ func isMergedAlready(queued jobqueue.Row[JobTarget], change jobqueue.Change) boo
 func openOfTargetParams(kind jobqueue.Kind, target JobTarget) cachegen.ListOpenJobsOfTargetParams {
 	columns := target.columns()
 	return cachegen.ListOpenJobsOfTargetParams{
-		Kind: string(kind), ItemID: columns.item, RenditionID: columns.rendition, StreamID: columns.stream,
+		Kind: string(kind), ItemID: columns.item, StreamID: columns.stream,
 		FetchedSubtitleID: columns.fetchedSubtitle, FileID: columns.file,
 		ScanID: columns.scan, ScanBatchID: columns.scanBatch, ChunkStoreID: columns.chunkStore,
 	}
@@ -121,7 +120,7 @@ func applyChange(
 	case jobqueue.ActionInsert:
 		columns := target.columns()
 		_, err := queries.InsertJob(ctx, cachegen.InsertJobParams{
-			Kind: string(kind), ItemID: columns.item, RenditionID: columns.rendition, StreamID: columns.stream,
+			Kind: string(kind), ItemID: columns.item, StreamID: columns.stream,
 			FetchedSubtitleID: columns.fetchedSubtitle, FileID: columns.file,
 			ScanID: columns.scan, ScanBatchID: columns.scanBatch, ChunkStoreID: columns.chunkStore,
 			ArgsJSON: change.ArgsJSON,
@@ -226,7 +225,7 @@ func (jobStorage *JobStorage) setWanted(
 		columns := target.columns()
 		return queries.SetJobWanted(ctx, cachegen.SetJobWantedParams{
 			IsRelease: release, Until: until.UnixMilli(), Kind: string(kind),
-			ItemID: columns.item, RenditionID: columns.rendition, StreamID: columns.stream,
+			ItemID: columns.item, StreamID: columns.stream,
 			FetchedSubtitleID: columns.fetchedSubtitle, FileID: columns.file, ScanID: columns.scan,
 			ScanBatchID: columns.scanBatch, ChunkStoreID: columns.chunkStore,
 		})
@@ -471,13 +470,13 @@ func (jobStorage *JobStorage) ListOpen(ctx context.Context) ([]jobqueue.Row[JobT
 
 // jobTargetColumns are a target as the job table holds it: NULL where unset.
 type jobTargetColumns struct {
-	item, rendition, stream, fetchedSubtitle, file, scan, scanBatch, chunkStore *int64
+	item, stream, fetchedSubtitle, file, scan, scanBatch, chunkStore *int64
 }
 
 // columns are the target's columns.
 func (target JobTarget) columns() jobTargetColumns {
 	return jobTargetColumns{
-		item: ptr.NilIfZero(target.ItemID), rendition: ptr.NilIfZero(target.RenditionID),
+		item:   ptr.NilIfZero(target.ItemID),
 		stream: ptr.NilIfZero(target.StreamID), fetchedSubtitle: ptr.NilIfZero(target.FetchedSubtitleID),
 		file: ptr.NilIfZero(target.FileID), scan: ptr.NilIfZero(target.ScanID),
 		scanBatch: ptr.NilIfZero(target.ScanBatchID), chunkStore: ptr.NilIfZero(target.ChunkStoreID),
@@ -489,7 +488,7 @@ func jobRow(row cachegen.Job) jobqueue.Row[JobTarget] {
 	converted := jobqueue.Row[JobTarget]{
 		ID: row.ID, Kind: jobqueue.Kind(row.Kind), ArgsJSON: row.ArgsJSON, Priority: row.Priority,
 		Target: JobTarget{
-			ItemID: ptr.ValueOrZero(row.ItemID), RenditionID: ptr.ValueOrZero(row.RenditionID),
+			ItemID:   ptr.ValueOrZero(row.ItemID),
 			StreamID: ptr.ValueOrZero(row.StreamID), FetchedSubtitleID: ptr.ValueOrZero(row.FetchedSubtitleID),
 			FileID: ptr.ValueOrZero(row.FileID), ScanID: ptr.ValueOrZero(row.ScanID),
 			ScanBatchID: ptr.ValueOrZero(row.ScanBatchID), ChunkStoreID: ptr.ValueOrZero(row.ChunkStoreID),

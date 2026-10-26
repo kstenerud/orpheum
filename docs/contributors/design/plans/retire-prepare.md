@@ -5,7 +5,7 @@
 
 # Retiring the whole-film prepare
 
-- **Status:** BUILDING — 2026-10-26. The owner agreed to the audit's proposal (C9/N6 of
+- **Status:** BUILT — 2026-10-26. The owner agreed to the audit's proposal (C9/N6 of
   [audit-2026-10-25.md](../research/audit-2026-10-25.md)): check whether the on-time grid
   ([D269](../../decisions/working-notes.md)) can carry the remaining fallbacks, then retire
   prepare, or record why it stays. §1 is the check; every case is carried, so §3 removes it.
@@ -24,7 +24,7 @@ play the file as it is) and the playback is not on its ladder. `startOnLadder` s
 
 | Case | When it happens | Carried by the ladder? |
 | --- | --- | --- |
-| `noGridYet` | The file has an index, but its keyframes were not read within `play_ladder_wait_ms` (2 s): a busy node, a slow disk, or a read-through retried for the person's play. | **With a small change.** Cut on time (D269 §1) once the wait is over: the playback is offered the encoded qualities at once and keeps that grid to its end (D269 §3); the read-through goes on, and the next playback is cut on the keyframes. |
+| `noGridYet` | The file has an index, but its keyframes were not read within `play_ladder_wait_ms` (2 s): a busy node, a slow disk, or a read-through retried for the person's play. | **With a small change.** Cut on time (D269 §1) once the wait is over: the playback is offered the encoded qualities at once and keeps that grid to its end (D269 §3); the read-through goes on, and the next playback is cut on the keyframes. A film the device plays as it is keeps playing as it is while its keyframes are read, as today; only a prepare's case changes. |
 | `cannotBeCut`, FFmpeg could not read the file through | The picture's timeline records a failure: no index and a full read that failed. | **With a small change.** The on-time grid needs no keyframes, only the probe's length: cut on time. Each chunk is its own FFmpeg run from a seek, so a damaged stretch fails its own chunks, where a prepare, one run over the whole file, failed at the damage (and the read-through had already failed on it). |
 | `cannotBeCut`, no keyframe before the end | `GridOf` finds no keyframe to start a chunk on. | **With a small change.** Cut on time, as above. |
 | `cannotBeCut`, no picture | The probe has no video stream. | **Not a regression.** A prepare cannot carry it either: its command maps the main picture, and with none it mapped stream 0 as the video. Such a file plays as it is where the device can; otherwise its play is refused as one that cannot be converted (§2). |
@@ -59,7 +59,7 @@ either reach it.
 | `core/api` | `/bytes/media/hls/{token}/…` and the prepared master route, `isPreparing`, `audioRenditions`, the file's `prepare` wait, the System page's recent prepares | **Removed.** |
 | `core/waits` | `prepareOf`, from open prepare jobs | **Removed.** |
 | `core/jobs` | the `prepare` kind, its `rendition_id` target, the prepared directory's destination | **Removed**; the prepared directory's destination stays while chunk runs park on it. |
-| `core/nodes` | reconciles the index with a hello's renditions (`AdoptRenditions`, `KeptRenditionDirs`) | **Removed.** |
+| `core/nodes` | reconciles the index with a hello's renditions (`AdoptRenditions`, `KeptRenditionDirs`); parks a prepare whose run stalled on the prepared directory's disk | **Removed;** a run of chunks that stalls outside its root is its kind's to answer, as other work's is. |
 | `store` (cache.db) | `prepared_rendition`, `job.rendition_id`, the `prepare` kind | **Removed**, the cache schema's version raised (versioned by discard). No persistent.db step. |
 | settings | `system_page_recent_prepares_per_node`; `prepare_progress_every_seconds`, which read-throughs also use | The first **retired**; the second **renamed** `node_progress_every_seconds`. `hls_segment_length_seconds` and `play_ladder_wait_ms` stay, their words changed. |
 | node config | `prepared_budget_gib` and four more | **Stay:** they bound the chunk stores, which live in the same directory. |
@@ -72,6 +72,11 @@ either reach it.
 
 ## 4. Steps
 
-1. The ladder carries the cases of §1 (one commit, with its tests).
+1. The ladder carries the cases of §1, with its tests. Built.
 2. The prepare path is removed (§3), core, node, store and web, with its tests, which go with the
-   behaviour (`Test-Weakened:` citing D344).
+   behaviour (`Test-Weakened:` citing D344); the tests that used a prepare only as a vehicle for
+   other behaviour now use a run of chunks or a read-through. Built, in one commit with step 1, since
+   the start that refuses what the ladder cannot carry and the ladder that carries the rest are one
+   change. Not yet seen on a device: a film whose keyframes come late, played on a browser that
+   cannot play it as it is, now starts on time with its twin at the top (VQ to add if the owner wants
+   it watched).

@@ -31,7 +31,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/core/providers"
 	"github.com/kstenerud/orpheum/internal/core/reachability"
-	"github.com/kstenerud/orpheum/internal/core/renditions"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -86,8 +85,6 @@ type Dependencies struct {
 	Chunks *chunks.Service
 	// Subtitles lists the subtitles a person can fetch for a file (D224).
 	Subtitles *subtitles.Service
-	// Renditions says what each node's prepares made, for the System page (D225 §3).
-	Renditions *renditions.Service
 	// Together holds the Watch Together sessions, in memory (D119).
 	Together *together.Hub
 	// Live is which of each person's devices are connected now, and the casts between them (D337).

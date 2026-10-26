@@ -14,7 +14,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/chunks"
 	"github.com/kstenerud/orpheum/internal/core/decide"
 	"github.com/kstenerud/orpheum/internal/core/preferences"
-	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/randbytes"
 )
 
@@ -68,9 +67,7 @@ type tokenPlayback struct {
 	// stopMessage, once the admin stopped the playback, is what its player is told in the answer to
 	// its next report, which ends it (D243 §9).
 	stopMessage *string
-	// profile is a prepared playback's rendition; empty for direct play.
-	profile    nodeproto.PrepareProfile
-	lastUsedAt time.Time
+	lastUsedAt  time.Time
 	// lastReportSeq is the number of the last play report taken for this playback: the player
 	// numbers its reports from 1, and one sent again is taken once.
 	lastReportSeq int64

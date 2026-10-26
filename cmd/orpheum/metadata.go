@@ -27,7 +27,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/providers/opensubtitles"
 	"github.com/kstenerud/orpheum/internal/core/providers/tmdb"
 	"github.com/kstenerud/orpheum/internal/core/readthrough"
-	"github.com/kstenerud/orpheum/internal/core/renditions"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/subtitles"
@@ -39,7 +38,7 @@ import (
 
 // jobServices is what the background jobs need: the identification pass, the job queue, the
 // matcher that runs its fetch_metadata jobs, the chooser a person uses, the refresher, the artwork its
-// matches name, playback's prepares, the subtitles and the read-throughs.
+// matches name, playback's chunks, the subtitles and the read-throughs.
 type jobServices struct {
 	pass      *identify.Pass
 	queue     *jobs.Queue
@@ -48,8 +47,6 @@ type jobServices struct {
 	refresher *identify.Refresher
 	settings  *settings.Service
 	artwork   *artwork.Service
-	// renditions runs the prepare jobs, which share the one queue (cut-a §5.3).
-	renditions *renditions.Service
 	// readThrough reads each video through, for its sounds' loudness and its picture's timeline
 	// (D226, D247 §10).
 	readThrough *readthrough.Service
@@ -59,7 +56,7 @@ type jobServices struct {
 	playback *playback.Service
 	// subtitles has a played video's subtitles made and fetches them on request (D217 §6, D224).
 	subtitles *subtitles.Service
-	// nodes says how many prepare slots the nodes have, which as many prepare runners serve.
+	// nodes is the node channel, whose hellos and statuses the job services hear.
 	nodes *nodes.Service
 	// exchanges give node jobs to nodes, and resolve each by its node's word (D234 §7).
 	exchanges *nodes.Exchanges
@@ -250,7 +247,7 @@ type jobRunner struct {
 	assignee func(runner nodes.Resolver) nodes.Assignee
 }
 
-// derivedByAPlay names what derives the work a play asks for: a prepare, a subtitle's text. It
+// derivedByAPlay names what derives the work a play asks for: a run of chunks, a subtitle's text. It
 // needs no sweep, since the next play asks again (D231 §4).
 func derivedByAPlay() []string { return []string{"the next play"} }
 
@@ -260,8 +257,7 @@ func derivedByAScanRequest() []string { return []string{"the next scan asked for
 
 // runners are the kinds of job the server works, each one at a time, the artwork retry schedule read
 // by the caller: one fetch per provider; a node's job is given to its node and answered at once,
-// the core holding each node to its slots and devices (D234 §7, D240 §5). A prepare's failure is its
-// rendition's, which the next play prepares again.
+// the core holding each node to its slots and devices (D234 §7, D240 §5).
 func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRunners {
 	return jobRunners{
 		{
@@ -295,10 +291,6 @@ func (services jobServices) runners(artworkRetrySchedule []time.Duration) jobRun
 			// A run lost is forgotten, so the next player's ask for its chunks queues another.
 			jobs.KindMakeChunks, services.chunks.HandleMakeChunks, services.chunks.RecordMakeChunksFailure, nil, 1,
 			derivedByAPlay(), services.chunks.Assignee,
-		},
-		{
-			jobs.KindPrepare, services.renditions.HandlePrepare, services.renditions.RecordPrepareFailure, nil, 1,
-			derivedByAPlay(), services.renditions.Assignee,
 		},
 		{
 			jobs.KindScan, services.scans.HandleScan, services.scans.RecordScanFailure, nil, 1,

@@ -23,10 +23,7 @@ export const enPlay = {
   play: {
     updateAfterFilm: "A new version of this app is ready: it loads as you leave the film.",
     directFailed: "This browser could not play the original file: {{reason}}.",
-    prepared: "Playing a copy prepared for this browser, because {{reasons}}.",
-    preparing: "Preparing — ready in a few seconds.",
-    preparingFor: "Preparing this film for this device: {{wait}}.",
-    preparedFailed: "The prepared copy could not play: {{reason}}.",
+    cannotConvert: "This file can't be converted for this device.",
     ladderFailed: "The film could not play: {{reason}}.",
     lowerQualityStarting:
       "Your connection could not keep up, so this moves to a lower quality: {{height}}p, {{rate}}.",
@@ -75,7 +72,7 @@ export const enPlay = {
       waitingToMeasure:
         "Its loudness is waiting to be measured, {{wait}}; until then it plays as it is.",
       deviceVolume:
-        "This device sets its own volume, so only a copy prepared after measuring is levelled here.",
+        "This device sets its own volume, so only a sound converted after measuring is levelled here.",
     },
     startOver: "Start over",
     playOriginal: "Play the original file",
@@ -148,16 +145,6 @@ export const enPlay = {
         unreadable: "That subtitle could not be read, so it was not kept. Choose another.",
         unknown: "OpenSubtitles could not be reached.",
       },
-    },
-    reason: {
-      container: "the browser cannot open its container",
-      videoCodec: "the browser cannot decode its video",
-      audioCodec: "the browser cannot decode its sound",
-      bandwidth: "it is too large for the connection",
-      dialogueBoost:
-        "the dialogue boost is on, so its surround sound is mixed here with the voices raised",
-      audioTrack: "the sound you chose is not the one the file plays first",
-      userChoice: "you asked for it to be prepared",
     },
   },
 };

@@ -19,7 +19,6 @@ import { withServices } from "./test-services.tsx";
 const everyKind = [
   "fetch_metadata",
   "make_artwork_sizes",
-  "prepare",
   "extract_subtitle",
   "convert_fetched_subtitle",
   "read_through",
@@ -34,10 +33,10 @@ const everyKind = [
 const isEveryKind: Exclude<Job["kind"], (typeof everyKind)[number]> extends never ? true : never =
   true;
 
-const preparing: Job = {
+const making: Job = {
   id: 5,
-  kind: "prepare",
-  renditionId: 3,
+  kind: "make_chunks",
+  chunkStoreId: 3,
   state: "running",
   progressFraction: 0.4,
   reason: "someone is waiting to watch it",
@@ -75,8 +74,8 @@ describe("the job view", () => {
     const services = servedBy(
       {
         "GET /jobs": [
-          [200, { jobs: [preparing, lookedUp] }],
-          [200, { jobs: [{ ...preparing, state: "cancelled" }, lookedUp] }],
+          [200, { jobs: [making, lookedUp] }],
+          [200, { jobs: [{ ...making, state: "cancelled" }, lookedUp] }],
         ],
         "POST /jobs/5/cancel": [204, undefined],
       },
@@ -84,7 +83,7 @@ describe("the job view", () => {
     );
     mounted = await mount(withServices(<Jobs />, services));
     const shown = mounted.container.textContent;
-    expect(shown).toContain("Preparing a copy #3");
+    expect(shown).toContain("Making a film's chunks #3");
     expect(shown).toContain("Running");
     expect(shown).toContain("Why: someone is waiting to watch it");
     expect(shown).toContain("Last error: TMDB did not answer");
@@ -121,7 +120,7 @@ describe("the job view", () => {
       },
     };
     const waitingOnNode: Job = {
-      ...preparing,
+      ...making,
       id: 7,
       state: "queued",
       destination: "node:1",
@@ -145,15 +144,15 @@ describe("the job view", () => {
   });
 
   it("says where a node holds the work: waiting for a slot, or paused for a film (D240 §6)", async () => {
-    const waitingForSlot: Job = { ...preparing, id: 8, onNode: "waiting" };
+    const waitingForSlot: Job = { ...making, id: 8, onNode: "waiting" };
     const paused: Job = {
-      ...preparing,
+      ...making,
       id: 9,
       kind: "read_through",
       fileId: 2,
       onNode: "paused",
     };
-    const running: Job = { ...preparing, id: 10, onNode: "running" };
+    const running: Job = { ...making, id: 10, onNode: "running" };
     const services = servedBy({ "GET /jobs": [200, { jobs: [waitingForSlot, paused, running] }] });
     mounted = await mount(withServices(<Jobs />, services));
     const waiting = [...mounted.container.querySelectorAll(".jobs__waiting")].map(
@@ -167,7 +166,7 @@ describe("the job view", () => {
 
   it("says so when the job had already ended", async () => {
     const services = servedBy({
-      "GET /jobs": [200, { jobs: [preparing] }],
+      "GET /jobs": [200, { jobs: [making] }],
       "POST /jobs/5/cancel": refusal(409, "conflict"),
     });
     mounted = await mount(withServices(<Jobs />, services));

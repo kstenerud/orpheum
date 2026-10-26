@@ -57,7 +57,7 @@ func RootDestination(nodeID int64, path string) Destination {
 	return Destination(rootPrefix + strconv.FormatInt(nodeID, 10) + ":" + path)
 }
 
-// PreparedDirectoryDestination is a node's prepared directory, where its prepares write: down
+// PreparedDirectoryDestination is a node's prepared directory, where its runs of chunks write: down
 // while the node answers that its disk has no room, until its status shows room.
 func PreparedDirectoryDestination(nodeID int64) Destination {
 	return Destination(preparedPrefix + strconv.FormatInt(nodeID, 10))

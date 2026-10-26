@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kstenerud/orpheum/internal/node/encode"
 	"github.com/kstenerud/orpheum/internal/node/execx"
-	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -102,7 +102,7 @@ func keyframeTimes(command nodeproto.MakeChunks) string {
 
 // Arguments is FFmpeg's command line for one run, after execx's hardening flags: the source film, the
 // run's raw directory, where the segment muxer writes, and the node's encoder.
-func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, encoder prepare.Encoder) []string {
+func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, encoder encode.Encoder) []string {
 	end := command.BoundsMs[len(command.BoundsMs)-1]
 	arguments := []string{"-v", "error", "-nostats", "-ss", seconds(seekMs(command)), "-to", seconds(end)}
 	arguments = append(arguments, source.Input()...)
@@ -120,7 +120,7 @@ func Arguments(source execx.Film, rawPath string, command nodeproto.MakeChunks, 
 		sound := command.Stream.Sound
 		arguments = append(arguments, "-map", "0:a:"+strconv.Itoa(sound.AudioTrackIndex),
 			"-filter:a", "atrim=start="+seconds(soundTrimMs(command))+",asetpts=PTS-STARTPTS,"+
-				prepare.MixFilter(*sound, command.Stream.IsBoosted),
+				encode.MixFilter(*sound, command.Stream.IsBoosted),
 			"-c:a", "aac", "-b:a", strconv.Itoa(command.Stream.SoundKbps)+"k", "-ac", "2")
 	}
 	return append(arguments, "-sn", "-dn",

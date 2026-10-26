@@ -52,17 +52,24 @@
 //     TestStoreFileNamed_IsTheInitOrAChunkByItsNumber.
 //
 //   - A film whose file has no index of its keyframes is cut on time, a chunk at each multiple of the
-//     segment length, and its playback offered the qualities, at least one, and not the picture
-//     copied; it is read through ahead of the sweep, and a playback that began on time keeps that
-//     grid to its end, a run on it made on it (D269). Enforced by
-//     TestTimeGridOf_StartsAChunkAtEachMultipleOfTheLengthAndMergesAShortLastOne,
+//     segment length, and its playback offered its twin at the top and the qualities below it, not
+//     the picture copied; it is read through ahead of the sweep, and a playback that began on time
+//     keeps that grid to its end, a run on it made on it (D269, D344 §3). So is a film FFmpeg could
+//     not read through, or with no keyframe before its end, for a play and for a run (D344 §2).
+//     Enforced by TestTimeGridOf_StartsAChunkAtEachMultipleOfTheLengthAndMergesAShortLastOne,
 //     TestMasterPlaylist_AFilmWhoseFileHasNoIndexIsCutOnTimeWithoutItsPictureCopied,
-//     TestMasterPlaylist_APlaybackThatBeganOnTimeStaysOnTimeOnceTheKeyframesAreKnown and
-//     TestHandleMakeChunks_ARunOnTimeIsMadeOnTheTimeGrid; through the API by
+//     TestMasterPlaylist_APlaybackThatBeganOnTimeStaysOnTimeOnceTheKeyframesAreKnown,
+//     TestMasterPlaylist_APlayTriesAgainAReadThroughThatFailedBeforeIt,
+//     TestHandleMakeChunks_ARunOnTimeIsMadeOnTheTimeGrid and
+//     TestHandleMakeChunks_ARunOfAFilmItsKeyframesCannotCutIsMadeOnTime; through the API by
 //     TestChunks_AFilmWithNoIndexIsCutOnTimeAndItsPlaybackStaysSo (internal/core/api).
 //
+//   - A picture too small for a twin, which its player cannot decode, is offered one quality, as a
+//     film cut on time with none below its picture is (D344 §4). Enforced by
+//     TestStartOnLadder_APictureTooSmallForATwinIsOfferedOneQuality.
+//
 //   - A playback is offered the picture copied unless its player cannot decode it, each quality
-//     below the film's own picture in bit rate and height, and every sound a prepare makes, its
+//     below the film's own picture in bit rate and height, and every sound of its tracks (SoundsOf), its
 //     starting track's standard mix the default; any other stream or file is ErrNoStream, before the
 //     node is asked for anything. A film with no grid yet is read through at play priority.
 //     Enforced by TestMasterPlaylist_OffersThePictureAndEachQualityBelowTheFilmsOwnWithEverySound,
@@ -145,13 +152,13 @@
 //     is a 429 by TestChunks_AnEvictedQualityIsRefusedWithItsOwnStatusAndCode (internal/core/api).
 //
 //   - A run is sent as its film's main picture by identity, its stream's recipe, a sound with the
-//     track's mix and levelling gain as a prepare's and led in from the chunk before, and the grid's
-//     bounds; a run on a grid the film no longer has ends for good, and its node's word ends it as a
-//     prepare's does. Enforced by
+//     track's mix and levelling gain and led in from the chunk before, and the grid's
+//     bounds; a run on a grid the film no longer has ends for good, and its node's word ends it, done,
+//     failed, stalled or refused. Enforced by
 //     TestHandleMakeChunks_SendsTheRunOfTheFilmsPictureAndTakesItsChunksAsTheyAreMade,
 //     TestHandleMakeChunks_ASoundRunStartsAChunkEarlyWithItsTracksGainAndMix,
 //     TestHandleMakeChunks_ARunOnAGridTheFilmNoLongerHasEndsForGood and
-//     TestHandleMakeChunks_EachEndIsTakenAsAPreparesIs.
+//     TestHandleMakeChunks_EachEndOfARunIsTakenAsItsNodeSays.
 //
 //   - It reads the timelines and never writes them: internal/core/readthrough writes
 //     video_timeline. Enforced by TestArch_EachTableHasOneWritingPackage.

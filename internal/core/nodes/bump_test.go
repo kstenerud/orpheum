@@ -36,8 +36,8 @@ func newBumpBench(t *testing.T) *bumpBench {
 	bench := &bumpBench{
 		exchangeBench: newExchanges(t), t: t, resolved: make(answers, 8), sent: map[int64]nodeproto.Command{},
 	}
-	bench.exchanges.Handle(jobs.KindReadThrough, assignedPrepare(bench.resolved, nil))
-	bench.exchanges.Handle(jobs.KindExamine, assignedPrepare(bench.resolved, nil))
+	bench.exchanges.Handle(jobs.KindReadThrough, assignedRun(bench.resolved, nil))
+	bench.exchanges.Handle(jobs.KindExamine, assignedRun(bench.resolved, nil))
 	bench.sender.resources = &nodes.Resources{
 		Capacity:     nodeproto.Capacity{EncodeSlotCount: 4, RemuxSlotCount: 4},
 		Devices:      nodeproto.Devices{{Key: "zfs:tank", MountPaths: []string{"/media"}}},

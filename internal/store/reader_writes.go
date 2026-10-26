@@ -27,7 +27,5 @@ func readerWritesAllowed() map[string]string {
 			"text it plays",
 		"jobqueue.(*Queue[...]).CancelOpenOf": "a play's GET cancels the run of chunks a seek went past (D250 §5)",
 		"chunks.(*Service).storeIDOf":         "a play's GET names the chunk store its first run makes",
-		"renditions.(*Service).want":          "a play's GET asks for the prepared copy it plays",
-		"renditions.(*Service).redo":          "a play's GET asks again for a prepared copy that failed",
 	}
 }

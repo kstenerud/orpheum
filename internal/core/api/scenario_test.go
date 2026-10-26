@@ -51,8 +51,8 @@ func TestScenario_S29_APlayWhoseNodeIsAwayIsRefusedAtOnceAndQueuesNothing(t *tes
 		t.Errorf("a refused play queued %+v; want nothing", listed)
 	}
 	harness.nodes.isAway.Store(false)
-	if decided := harness.play(t, partner, chrome(2)); !decided.IsPreparing {
-		t.Errorf("once its node is back the play = %+v, want a copy being prepared", decided)
+	if decided := harness.play(t, partner, chrome(2)); decided.OnLadder == nil {
+		t.Errorf("once its node is back the play = %+v, want it on its ladder", decided)
 	}
 }
 
@@ -84,26 +84,26 @@ func TestStartPlayback_AFilmStillBeingReadIsRefusedAsSoAndAskedToBeReadFirst(t *
 	}
 }
 
-// A play-driven prepare whose root goes missing after it was queued ends, and its rendition with it,
-// rather than parking on the root: no one can watch it, so no one waits for it (D241 §4). A
-// background one parks.
-func TestPrepare_APlayDrivenPrepareWhoseRootGoesMissingEndsRatherThanParks(t *testing.T) {
+// A play-driven read-through whose root goes missing after it was queued ends rather than parking on
+// the root: no one can watch its film, so no one waits for it (D241 §4). A background one parks.
+func TestReadThrough_APlayDrivenReadWhoseRootGoesMissingEndsRatherThanParks(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	user := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
+	harness.shelveAudioStreams(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 1)
-	harness.play(t, user, chrome(2)) // queues its prepare, a person waiting
+	harness.play(t, user, chrome(1)) // queues its read-through, a person waiting
 	harness.missingMedia(t)
-	prepares := harness.queue.NewRunner(jobs.KindPrepare, harness.renditions.HandlePrepare)
-	if err := prepares.RunDue(t.Context()); err != nil {
+	reads := harness.queue.NewRunner(jobs.KindReadThrough, harness.readThrough.HandleReadThrough)
+	if err := reads.RunDue(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	prepare := newestPrepareJob(t, harness.listedJobs(t, user))
-	if prepare.State != "failed" || prepare.WaitingFor != nil ||
-		!strings.Contains(prepare.LastFailure, "root_missing") || len(harness.nodes.commanded) != 0 {
-		t.Errorf("a play-driven prepare under a missing root: %+v; want it ended, saying the root is missing, "+
-			"nothing sent", prepare)
+	read := newestReadThrough(t, harness.listedJobs(t, user))
+	if read.State != "failed" || read.WaitingFor != nil ||
+		!strings.Contains(read.LastFailure, "root_missing") || len(harness.nodes.commanded) != 0 {
+		t.Errorf("a play-driven read-through under a missing root: %+v; want it ended, saying the root is "+
+			"missing, nothing sent", read)
 	}
 }
 
@@ -215,22 +215,6 @@ func (harness testHarness) missingMedia(t *testing.T) {
 		 VALUES (1, '/media', 'unreadable', 5000)`,
 		`INSERT INTO unavailable_place (node_id, path, root_path, since, cause)
 		 VALUES (1, '/media', '/media', 5000, 'unread')`)
-}
-
-func TestPrepare_APrepareOfAFileUnderAMissingRootParksOnItAndSendsNothing(t *testing.T) {
-	t.Parallel()
-	harness := newHarness(t)
-	user := harness.createAdminAndSignIn(t)
-	harness.shelveFilms(t)
-	harness.nodes.commanded = make(chan nodeproto.Command, 1)
-	harness.play(t, user, chrome(2))
-	harness.missingMedia(t)
-	prepare := jobs.Job{ID: 81, Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 1}}
-	err := harness.renditions.HandlePrepare(t.Context(), prepare)
-	if parking, isParked := jobqueue.ParkingOf(err); !isParked ||
-		parking.Destination != jobs.RootDestination(1, "/media") || len(harness.nodes.commanded) != 0 {
-		t.Errorf("a prepare under a missing root: %v; want it parked on the root and nothing sent (D231 §5)", err)
-	}
 }
 
 func TestSubtitles_AnExtractionWaitsForAMissingRootAndForANodeThatIsAway(t *testing.T) {
@@ -389,7 +373,7 @@ func TestScenario_S23_ARetiredNodesRootsAreRetiredAndItsParkedWorkCancelled(t *t
 	node := jobs.NodeDestination(1)
 	harness.queueWork(t, []jobs.Request{
 		{Kind: jobs.KindReadThrough, Target: jobs.Target{FileID: 1}, Destination: node},
-		{Kind: jobs.KindPrepare, Target: jobs.Target{RenditionID: 7}, Destination: node},
+		{Kind: jobs.KindMakeChunks, Target: jobs.Target{ChunkStoreID: 7}, Destination: node},
 	}, node)
 	retired := harness.retire(t, admin, http.MethodPost, "/nodes/retire", map[string]string{"nodeName": "local"})
 	if retired.Body.TombstonedFileCount != 3 || retired.Body.CancelledJobCount != 2 {

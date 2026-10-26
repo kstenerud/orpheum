@@ -5,6 +5,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/namedfile"
 	"github.com/kstenerud/orpheum/internal/node/nodetest"
+	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
 	"github.com/kstenerud/orpheum/internal/testutil"
@@ -22,14 +24,25 @@ import (
 
 // fakeChunkMaker makes every chunk of the run in turn, telling each, and ends; a run of a store
 // named "...failing..." fails after its first chunk, as FFmpeg does on bytes it cannot read, and
-// one named "...panicking..." panics, as the node's own code reading FFmpeg's output might.
+// one named "...panicking..." panics, as the node's own code reading FFmpeg's output might. One named
+// "...slow..." makes its first chunk and runs until it is stopped, one named "...full..." finds the
+// disk with no room, and one named "...stalled..." is stopped by the watchdog.
 type fakeChunkMaker struct{}
 
 func (fakeChunkMaker) Make(
-	_ context.Context, _ execx.Film, command nodeproto.MakeChunks, onChunk func(n int),
+	ctx context.Context, _ execx.Film, command nodeproto.MakeChunks, onChunk func(n int),
 ) (int, error) {
-	if strings.Contains(command.StoreDir, "panicking") {
+	switch {
+	case strings.Contains(command.StoreDir, "panicking"):
 		panic("a box shorter than its header")
+	case strings.Contains(command.StoreDir, "slow"):
+		onChunk(command.FirstChunk)
+		<-ctx.Done()
+		return command.FirstChunk, ctx.Err()
+	case strings.Contains(command.StoreDir, "full"):
+		return -1, fmt.Errorf("make %s: %w", command.StoreDir, prepared.ErrNoRoom)
+	case strings.Contains(command.StoreDir, "stalled"):
+		return -1, fmt.Errorf("make %s: %w", command.StoreDir, errStalled)
 	}
 	last := command.FirstChunk + len(command.BoundsMs) - 2
 	if strings.Contains(command.StoreDir, "failing") {
@@ -87,7 +100,7 @@ func TestAgent_MakesChunksOfOnlyTheVideoTheCoreNamedAndSaysEachAsItIsMade(t *tes
 	if told[0] != 4 || told[1] != 5 {
 		t.Errorf("the core was told chunks %v; want 4 then 5, each as it is made", told)
 	}
-	if done := receiveChunksReport(t, core); done.State != nodeproto.PrepareDone || done.LastChunk != 5 {
+	if done := receiveChunksReport(t, core); done.State != nodeproto.RunDone || done.LastChunk != 5 {
 		t.Errorf("the run ended %+v; want done through chunk 5", done)
 	}
 	failing := nodeproto.MakeChunks{
@@ -95,14 +108,14 @@ func TestAgent_MakesChunksOfOnlyTheVideoTheCoreNamedAndSaysEachAsItIsMade(t *tes
 		BoundsMs: []int64{0, 2000, 4000}, Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamPicture},
 	}
 	core.sendMakeChunks(2, failing)
-	if failed := receiveChunksReport(t, core); failed.State != nodeproto.PrepareFailed || failed.LastChunk != 0 ||
+	if failed := receiveChunksReport(t, core); failed.State != nodeproto.RunFailed || failed.LastChunk != 0 ||
 		!strings.Contains(failed.Failure, "Invalid data") {
 		t.Errorf("a run FFmpeg failed ended %+v; want failed through chunk 0, in FFmpeg's words", failed)
 	}
 	changed := failing
 	changed.Video.PayloadHash = strings.Repeat("0", 64)
 	core.sendMakeChunks(3, changed)
-	if refused := receiveChunksReport(t, core); refused.State != nodeproto.PrepareRefused ||
+	if refused := receiveChunksReport(t, core); refused.State != nodeproto.RunRefused ||
 		refused.RefusalCode != nodeproto.RefusedChanged || refused.LastChunk != -1 {
 		t.Errorf("a run of a changed video ended %+v; want refused untried (D100)", refused)
 	}
@@ -129,7 +142,7 @@ func TestAgent_AJobThatPanicsSaysSoAndTheNodeGoesOn(t *testing.T) {
 		Video: video, StoreDir: "1/chunks-picture/0123456789abcdef", FirstChunk: 0,
 		BoundsMs: []int64{0, 2000}, Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamPicture},
 	})
-	if done := receiveChunksReport(t, core); done.State != nodeproto.PrepareDone {
+	if done := receiveChunksReport(t, core); done.State != nodeproto.RunDone {
 		t.Errorf("the next run ended %+v; want it made, the node going on", done)
 	}
 }
@@ -179,7 +192,7 @@ func TestAgent_ARunOfChunksIsLoggedWithTheFilmItMadeAndHowFast(t *testing.T) {
 	clock := clocktest.NewFake(time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC))
 	logs := &testutil.Log{}
 	root, _ := startAgentWithWorkers(t, socket, Workers{
-		Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Preparer: fakePreparer{}, Subtitler: fakeSubtitler{},
+		Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Subtitler: fakeSubtitler{},
 		ThroughReader: fakeThroughReader{},
 		ChunkMaker:    pacedChunkMaker{clock: clock, chunkTakes: 600 * time.Millisecond},
 	}, func(node *Agent) {
@@ -241,7 +254,7 @@ func TestAgent_RunsOfAnUnchangedFilmHashItOnceInTheHashesTheNodeShares(t *testin
 			BoundsMs: []int64{job * 2000, job*2000 + 2000},
 			Stream:   nodeproto.ChunkStream{Kind: nodeproto.StreamPicture},
 		})
-		if done := receiveChunksReport(t, core); done.State != nodeproto.PrepareDone {
+		if done := receiveChunksReport(t, core); done.State != nodeproto.RunDone {
 			t.Fatalf("run %d ended %+v; want done", job+1, done)
 		}
 	}

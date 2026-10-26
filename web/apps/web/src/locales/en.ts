@@ -124,6 +124,8 @@ export const en = {
     nextCheck: "; it will be checked again at {{at}}",
     preparing: "It is still being prepared. Wait a moment.",
     prepareFailed: "This could not be prepared for this device.",
+    cannotConvert:
+      "This file can't be converted for this device: it has no picture, or nothing to cut it into pieces by.",
     noRoomToMake:
       "The server cannot make this quality as fast as it plays while it makes others for other viewers. Try again in a while.",
     migrating: "The server is starting up, or updating. It will answer in a moment.",
@@ -251,7 +253,7 @@ export const en = {
     who: "{{person}} on {{device}}: {{name}}, since {{since}}.",
     noDevice: "a device with no name",
     direct: "Played as it is.",
-    prepared: "A prepared copy, because of: {{reasons}}.",
+    converted: "Converted, because of: {{reasons}}.",
     message: "Message",
     stop: "Stop it",
   },
@@ -612,15 +614,7 @@ export const en = {
       unknown: "not recorded",
     },
     preparedUsage:
-      "Prepared copies: {{used}} of a {{budget}} budget; the disk is {{percent}}% full, its limit {{limit}}%.",
-    recentPrepares: "Recent prepared copies",
-    noPrepares: "Nothing prepared since the copies' records were last cleared.",
-    preparedFile: "File",
-    preparedWith: "Video",
-    realtimeFactor: "Speed",
-    realtimeFactorTimes: "{{realtimeFactor}}× real time",
-    finishedAt: "Finished",
-    prepareFailed: "failed: {{why}}",
+      "Films' chunks: {{used}} of a {{budget}} budget; the disk is {{percent}}% full, its limit {{limit}}%.",
   },
   jobs: {
     heading: "Jobs",
@@ -629,7 +623,6 @@ export const en = {
     kind: {
       fetchMetadata: "Looking up",
       makeArtworkSizes: "Making artwork sizes",
-      prepare: "Preparing a copy",
       extractSubtitle: "Extracting subtitles",
       readThrough: "Reading a video through",
       makeChunks: "Making a film's chunks",

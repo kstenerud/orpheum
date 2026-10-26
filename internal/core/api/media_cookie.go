@@ -215,10 +215,10 @@ const (
 	// An image size: its URL names its content, so a client keeps it for good (D212; artwork.md,
 	// Content-addressed).
 	cacheImmutable = "private, max-age=31536000, immutable"
-	// Bytes that never change once made: a rendition's segment or finished playlist, and a
+	// Bytes that never change once made: a chunk or a store's init, and a
 	// subtitle track.
 	cacheForADay = "private, max-age=86400"
-	// A playlist that grows while its rendition is made.
+	// A playlist that may change while it is in use.
 	cacheRevalidate = "no-cache"
 	// A redirect to the nearest image size while the one asked for is not made.
 	cacheNever = "no-store"

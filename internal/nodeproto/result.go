@@ -11,7 +11,7 @@ const PathBytesResult = "/bytes/v1/result/"
 
 // MaxPostedResultBytes is the largest result the node posts whole, encoded: one larger is held on
 // the node and posted as a HeldResult, which the core fetches from the byte socket. A mebibyte
-// carries any prepare, read-through or ordinary subtitle; an artwork re-encode's sizes are larger.
+// carries any run of chunks, read-through or ordinary subtitle; an artwork re-encode's sizes are larger.
 const MaxPostedResultBytes = 1 << 20
 
 // HeldResult names a result the node holds, too large to post: the core fetches it whole, its JSON
@@ -24,7 +24,7 @@ type HeldResult struct {
 }
 
 // Result is the node's word on a job the core gave it, by the job's id and the attempt's token: one of
-// a prepare's reports, a subtitle's text, a read-through's findings, an artwork re-encode, a listing or
+// a run of chunks' reports, a subtitle's text, a read-through's findings, an artwork re-encode, a listing or
 // an examining. Exactly one is set, the one that answers the command the job sent, or none and a
 // Refusal.
 type Result struct {
@@ -44,7 +44,6 @@ type Result struct {
 	// Crashed says the node's own code failed running the work, a panic, with where: the work ended
 	// and the node went on. Nothing else in the result is set.
 	Crashed     string              `json:"crashed,omitempty"`
-	Prepare     *PrepareReport      `json:"prepare,omitempty"`
 	Subtitle    *SubtitleText       `json:"subtitle,omitempty"`
 	ReadThrough *ReadThroughResult  `json:"readThrough,omitempty"`
 	MakeChunks  *MakeChunksReport   `json:"makeChunks,omitempty"`
@@ -56,8 +55,6 @@ type Result struct {
 // Stall is what the node saw of the work it answered as stalled, whichever kind it is, or nil.
 func (result Result) Stall() *Stall {
 	switch {
-	case result.Prepare != nil:
-		return result.Prepare.Stall
 	case result.Subtitle != nil:
 		return result.Subtitle.Stall
 	case result.ReadThrough != nil:

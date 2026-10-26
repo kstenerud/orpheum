@@ -15,7 +15,7 @@ import (
 )
 
 // A store holds one stream of a film cut into chunks (D247 §10), at <file_id>/chunks-<stream>/<grid_id>
-// in the prepared directory, beside the renditions and in the same budget. Each run of chunks
+// in the prepared directory, beside the runs and in the same budget. Each run of chunks
 // writes FFmpeg's raw files in a raw directory of its own inside the store, and takes them out as
 // it makes them into chunks.
 

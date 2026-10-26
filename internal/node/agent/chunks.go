@@ -38,7 +38,7 @@ func (agent *Agent) chunksWork(
 		case jobCtx.Err() != nil && ctx.Err() == nil:
 			agent.logger.InfoContext(ctx, "a run of chunks was cancelled", run...)
 			return
-		case report.State == nodeproto.PrepareDone:
+		case report.State == nodeproto.RunDone:
 			agent.logger.InfoContext(ctx, "a run of chunks finished", run...)
 		default:
 			agent.logger.WarnContext(ctx, "a run of chunks did not finish", append(run,
@@ -86,7 +86,7 @@ func (agent *Agent) runChunks(
 ) nodeproto.MakeChunksReport {
 	refused := func(err error) nodeproto.MakeChunksReport {
 		return nodeproto.MakeChunksReport{
-			State: nodeproto.PrepareRefused, LastChunk: -1, Refusal: err.Error(), RefusalCode: refusalCodeOf(err),
+			State: nodeproto.RunRefused, LastChunk: -1, Refusal: err.Error(), RefusalCode: refusalCodeOf(err),
 		}
 	}
 	if agent.workers.ChunkMaker == nil {
@@ -94,7 +94,7 @@ func (agent *Agent) runChunks(
 	}
 	source, closeSource, err := agent.openFilm(ctx, command.Video)
 	if stall := stallOf(err); stall != nil {
-		return nodeproto.MakeChunksReport{State: nodeproto.PrepareStalled, LastChunk: -1, Stall: stall}
+		return nodeproto.MakeChunksReport{State: nodeproto.RunStalled, LastChunk: -1, Stall: stall}
 	}
 	if err != nil {
 		return refused(err)
@@ -115,9 +115,9 @@ func (agent *Agent) runChunks(
 		noRoom.RefusalCode, noRoom.LastChunk = nodeproto.RefusedNoRoom, last
 		return noRoom
 	case stall != nil:
-		return nodeproto.MakeChunksReport{State: nodeproto.PrepareStalled, LastChunk: last, Stall: stall}
+		return nodeproto.MakeChunksReport{State: nodeproto.RunStalled, LastChunk: last, Stall: stall}
 	case err != nil:
-		return nodeproto.MakeChunksReport{State: nodeproto.PrepareFailed, LastChunk: last, Failure: err.Error()}
+		return nodeproto.MakeChunksReport{State: nodeproto.RunFailed, LastChunk: last, Failure: err.Error()}
 	}
-	return nodeproto.MakeChunksReport{State: nodeproto.PrepareDone, LastChunk: last}
+	return nodeproto.MakeChunksReport{State: nodeproto.RunDone, LastChunk: last}
 }

@@ -102,7 +102,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   browser cannot play (HEVC 10-bit on a phone): it prepares and plays, `intel_gpu_top` shows the
   video engine busy meanwhile, and afterwards **Recent prepared copies** lists it made with Intel
   Quick Sync, faster than real time. With Landlock on (VQ9), all of it holds: the GPU is granted
-  to the confined encode (cut-a §6, D225). (`internal/node/prepare/encoder.go`,
+  to the confined encode (cut-a §6, D225). (`internal/node/encode/encoder.go`, before D344 `internal/node/prepare/encoder.go`,
   `internal/node/hardware/`, `internal/node/confine/landlock_linux.go`,
   `web/apps/web/src/system.tsx`)
 - [ ] **VQ11** — On the dev loop, as admin, open **Settings** and set the OpenSubtitles username
@@ -142,7 +142,7 @@ An item is ticked only by the person who did it, and only with what they saw.
   `master.m3u8` under `.dev/node/cache/prepared/`) to the Mac and run
   `mediastreamvalidator master.m3u8` in it. Passes when it reports no errors (cut-a §8, M3's
   acceptance: `mediastreamvalidator` passes on a prepared rendition).
-  (`internal/node/prepare/arguments.go`)
+  (`internal/node/prepare/arguments.go`, retired with the prepare, D344)
 - [ ] **VQ16** — On devnas (Debian trixie), as your own user: install Docker Engine from Docker's
   Debian repository and add yourself to the `docker` group, clone the repository, and run `./dev
   make check`. Passes when the first run builds the development image (`deploy/Containerfile`)

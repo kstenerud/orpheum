@@ -30,6 +30,14 @@ func RetiredKeys() []RetiredKey {
 		renamed("ssd_reader_limit", ReaderLimitSSD),
 		renamed("network_share_reader_limit", ReaderLimitNetworkShare),
 		renamed("unknown_disk_reader_limit", ReaderLimitUnknownDisk),
+		{
+			Key: "system_page_recent_prepares_per_node", Release: "after 0.3.0-beta.7",
+			Reason: "the whole-film prepare is retired: there are no prepares to list (D344)",
+		},
+		{
+			Key: "prepare_progress_every_seconds", Release: "after 0.3.0-beta.7",
+			Reason: "renamed " + string(NodeProgressEverySeconds) + ": the whole-film prepare is retired (D344)",
+		},
 	}
 }
 

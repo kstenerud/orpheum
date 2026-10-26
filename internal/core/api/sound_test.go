@@ -13,17 +13,17 @@ import (
 )
 
 // shelveSurroundFilm adds file 4 to shelveFilms' library: an MP4 whose sound is 5.1 AAC, which a
-// browser listing aac-multi plays as it is.
+// browser listing aac-multi plays as it is; it has a length, so it is cut on time when converted.
 func (harness testHarness) shelveSurroundFilm(t *testing.T) {
 	t.Helper()
-	probe := `{"format":{"formatNames":["mov","mp4","m4a"]},"streams":[` +
+	probe := `{"format":{"formatNames":["mov","mp4","m4a"],"durationMs":1200000},"streams":[` +
 		`{"kind":"video","codec":"h264","codecProfile":"High","video":{"pixelFormat":"yuv420p"}},` +
 		`{"streamIndex":1,"kind":"audio","codec":"aac","codecProfile":"LC","audio":{"channelCount":6}}]}`
 	storetest.ExecRaw(t, harness.databasePath,
 		`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, payload_hash, filing,
 		 first_seen_at, last_seen_at) VALUES
 		 (4, 1, 1, '/media/Loud (2008).mp4', CAST('/media/Loud (2008).mp4' AS BLOB), 10, X'1a1b', 'listed', 1, 1)`,
-		`INSERT INTO file_probe (file_id, probe_json) VALUES (4, '`+probe+`')`)
+		`INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (4, '`+probe+`', 1200000)`)
 }
 
 // thisDeviceID is the device a session is on, from its list of devices.
@@ -70,7 +70,7 @@ func (harness testHarness) playFor(t *testing.T, token string, body map[string]a
 
 // A film's surround sound plays as it is where the browser plays it, with nothing asked of the
 // device, until its person turns the dialogue boost on: the server must make that mix, so the film
-// is prepared with its boosted mix (D336 §1, §2, §4).
+// plays from its ladder, its boosted mix among its sounds (D336 §1, §2, §4, D344 §1).
 func TestPlayback_ASurroundSoundPlaysAsItIsUntilThePersonTurnsTheBoostOn(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
@@ -88,11 +88,11 @@ func TestPlayback_ASurroundSoundPlaysAsItIsUntilThePersonTurnsTheBoostOn(t *test
 	}
 	got := harness.playFor(t, user, surroundFormats())
 	isBoosted := false
-	for _, audio := range got.Audio {
-		isBoosted = isBoosted || audio.IsDialogueBoosted
+	for _, sound := range got.Tracks.Sounds {
+		isBoosted = isBoosted || sound.IsBoosted
 	}
 	if got.Delivery != "hls" || !slices.Equal(got.NotDirectReasons, []string{"dialogue_boost"}) || !isBoosted {
-		t.Errorf("5.1 with the boost on: %s %v, a boosted mix %v; want prepared for dialogue_boost, with it",
+		t.Errorf("5.1 with the boost on: %s %v, a boosted mix %v; want converted for dialogue_boost, with it",
 			got.Delivery, got.NotDirectReasons, isBoosted)
 	}
 	if stereo := harness.playFor(t, user, chrome(1)); stereo.Delivery != "direct" {

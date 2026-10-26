@@ -216,7 +216,8 @@ func TestServeFile_ServesANameThatIsNotUTF8(t *testing.T) {
 	}
 }
 
-// preparedRoot is a prepared directory with one rendition's master playlist, a segment and an init.
+// preparedRoot is a prepared directory with a store's init, a chunk, its manifest and a raw file, and
+// what a whole-film prepare left (D344).
 func preparedRoot(t *testing.T) *confine.MediaRoot {
 	t.Helper()
 	directory := t.TempDir()
@@ -242,61 +243,12 @@ func preparedRoot(t *testing.T) *confine.MediaRoot {
 	return prepared
 }
 
-func TestServeRenditionFile_ServesARenditionsFilesAndNothingElse(t *testing.T) {
-	t.Parallel()
-	handler := byteserver.New(nil, preparedRoot(t)).Handler()
-	for name, want := range map[string]string{
-		"7/remux/0123456789abcdef/master.m3u8":               "application/vnd.apple.mpegurl",
-		"7/remux/0123456789abcdef/audio0-boost/seg00001.m4s": "video/iso.segment",
-		"7/remux/0123456789abcdef/video/init_0.mp4":          "video/mp4",
-	} {
-		got := request(t, handler, http.MethodGet, nodeproto.PathBytesPrepared+name, nil)
-		if got.Code != http.StatusOK || got.Header().Get("Content-Type") != want {
-			t.Errorf("%s: %d %q, want 200 %s", name, got.Code, got.Header().Get("Content-Type"), want)
-		}
-	}
-	for _, name := range []string{
-		"7/remux/0123456789abcdef/notes.txt", "7/remux/0123456789abcdef/video/seg00002.m4s",
-		"7/other/0123456789abcdef/master.m3u8", "0/remux/0123456789abcdef/master.m3u8", "7/remux/master.m3u8",
-	} {
-		if got := request(t, handler, http.MethodGet, nodeproto.PathBytesPrepared+name, nil); got.Code !=
-			http.StatusNotFound {
-			t.Errorf("%s: %d, want 404", name, got.Code)
-		}
-	}
-	// A path with .. is only ever redirected to its cleaned form, which is then judged as above.
-	for _, name := range []string{"7/remux/../remux/master.m3u8", "7/remux/video/../../../etc/passwd"} {
-		got := request(t, handler, http.MethodGet, nodeproto.PathBytesPrepared+name, nil)
-		if got.Code == http.StatusOK {
-			t.Errorf("%s was served", name)
-		}
-	}
-	if got := request(t, byteserver.New(nil, nil).Handler(), http.MethodGet,
-		nodeproto.PathBytesPrepared+"7/remux/0123456789abcdef/master.m3u8", nil); got.Code != http.StatusNotFound {
-		t.Errorf("a node that does not prepare: %d, want 404", got.Code)
-	}
-}
-
-func TestServeRenditionFile_SaysWhichRenditionItServed(t *testing.T) {
-	t.Parallel()
-	var served []string
-	handler := byteserver.New(nil, preparedRoot(t)).OnRenditionServed(func(renditionDir string) {
-		served = append(served, renditionDir)
-	}).Handler()
-	const run = nodeproto.PathBytesPrepared + "7/remux/0123456789abcdef/"
-	request(t, handler, http.MethodGet, run+"audio0-boost/seg00001.m4s", nil)
-	request(t, handler, http.MethodGet, run+"notes.txt", nil)
-	if want := []string{"7/remux/0123456789abcdef"}; !slices.Equal(served, want) {
-		t.Errorf("served %v, want only the segment's rendition, its last use (D217 §5)", served)
-	}
-}
-
-// A store's init and chunks are served, and counted a use of the store; its manifest, its raw files
-// and any other name are not (D247 §10).
+// A store's init and chunks are served, and counted a use of the store; its manifest, its raw files,
+// what a whole-film prepare left and any other name are not (D247 §10, D344 §1).
 func TestServeStoreFile_ServesAStoresInitAndChunksAndNothingElse(t *testing.T) {
 	t.Parallel()
 	var served []string
-	handler := byteserver.New(nil, preparedRoot(t)).OnRenditionServed(func(dir string) {
+	handler := byteserver.New(nil, preparedRoot(t)).OnStoreServed(func(dir string) {
 		served = append(served, dir)
 	}).Handler()
 	const store = nodeproto.PathBytesChunks + "7/chunks-q1200k480p/0123456789abcdef/"
@@ -309,7 +261,6 @@ func TestServeStoreFile_ServesAStoresInitAndChunksAndNothingElse(t *testing.T) {
 	for _, name := range []string{
 		store + "store.json", store + "raw-1/00013.mp4", store + "00013.m4s",
 		nodeproto.PathBytesChunks + "7/remux/0123456789abcdef/master.m3u8",
-		nodeproto.PathBytesPrepared + "7/chunks-q1200k480p/0123456789abcdef/00012.m4s",
 	} {
 		if got := request(t, handler, http.MethodGet, name, nil); got.Code != http.StatusNotFound {
 			t.Errorf("%s: %d, want 404", name, got.Code)
@@ -318,6 +269,18 @@ func TestServeStoreFile_ServesAStoresInitAndChunksAndNothingElse(t *testing.T) {
 	const storeDir = "7/chunks-q1200k480p/0123456789abcdef"
 	if want := []string{storeDir, storeDir}; !slices.Equal(served, want) {
 		t.Errorf("served %v, want the store twice, for its init and its chunk", served)
+	}
+	// A path with .. is only ever redirected to its cleaned form, which is then judged as above.
+	for _, name := range []string{
+		"7/chunks-q1200k480p/../chunks-q1200k480p/0123456789abcdef/init.mp4", "7/remux/../../../etc/passwd",
+	} {
+		if got := request(t, handler, http.MethodGet, nodeproto.PathBytesChunks+name, nil); got.Code == http.StatusOK {
+			t.Errorf("%s was served", name)
+		}
+	}
+	if got := request(t, byteserver.New(nil, nil).Handler(), http.MethodGet, store+"00012.m4s", nil); got.Code !=
+		http.StatusNotFound {
+		t.Errorf("a node with no prepared directory: %d, want 404", got.Code)
 	}
 }
 

@@ -17,8 +17,8 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/node/chunks"
 	"github.com/kstenerud/orpheum/internal/node/confine"
+	"github.com/kstenerud/orpheum/internal/node/encode"
 	"github.com/kstenerud/orpheum/internal/node/execx"
-	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/clock/clocktest"
@@ -175,7 +175,7 @@ func TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes(t *testing.T) {
 	directory := t.TempDir()
 	shelf := prepared.New(directory, prepared.Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 100},
 		clocktest.NewFake(time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)), slog.New(slog.DiscardHandler))
-	maker := chunks.NewMaker(runner, shelf, directory, prepare.EncoderX264)
+	maker := chunks.NewMaker(runner, shelf, directory, encode.EncoderX264)
 	matroska := inMatroska(t, runner, source)
 	picture := nodeproto.ChunkStream{Kind: nodeproto.StreamPicture}
 	quality := nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 300, Height: 96}
@@ -210,7 +210,7 @@ func TestMake_TwoRunsChunksJoinIntoOneStreamAtTheFilmsTimes(t *testing.T) {
 	}
 	soundStore := "1/chunks-sound0/0123456789abcdef"
 	makeInTwoRuns(t, maker, source, soundStore, grid, nodeproto.ChunkStream{
-		Kind: nodeproto.StreamSound, Sound: &nodeproto.PrepareAudio{ChannelCount: 2},
+		Kind: nodeproto.StreamSound, Sound: &nodeproto.SoundTrack{ChannelCount: 2},
 	})
 	times := packetTimes(t, runner, filepath.Join(directory, soundStore), len(grid)-1)
 	const frame = 1024.0 / 48000

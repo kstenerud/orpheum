@@ -212,18 +212,17 @@ func (q *Queries) FinishJob(ctx context.Context, arg FinishJobParams) error {
 
 const insertJob = `-- name: InsertJob :one
 
-INSERT INTO job (kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, runnable_at, reason,
+INSERT INTO job (kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, runnable_at, reason,
   destination, created_at)
-VALUES (?1, ?2, ?3, ?4, ?5,
-        ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13,
-        ?14, ?15)
+VALUES (?1, ?2, ?3, ?4,
+        ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
+        ?13, ?14)
 RETURNING id
 `
 
 type InsertJobParams struct {
 	Kind              string
 	ItemID            *int64
-	RenditionID       *int64
 	StreamID          *int64
 	FetchedSubtitleID *int64
 	FileID            *int64
@@ -245,7 +244,6 @@ func (q *Queries) InsertJob(ctx context.Context, arg InsertJobParams) (int64, er
 	row := q.db.QueryRowContext(ctx, insertJob,
 		arg.Kind,
 		arg.ItemID,
-		arg.RenditionID,
 		arg.StreamID,
 		arg.FetchedSubtitleID,
 		arg.FileID,
@@ -265,7 +263,7 @@ func (q *Queries) InsertJob(ctx context.Context, arg InsertJobParams) (int64, er
 }
 
 const listEveryOpenJob = `-- name: ListEveryOpenJob :many
-SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, state, destination, runnable_at,
+SELECT id, kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, state, destination, runnable_at,
        is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at, assigned_until, wanted_until
 FROM job
 WHERE state IN ('queued', 'running', 'assigned')
@@ -287,7 +285,6 @@ func (q *Queries) ListEveryOpenJob(ctx context.Context) ([]Job, error) {
 			&i.ID,
 			&i.Kind,
 			&i.ItemID,
-			&i.RenditionID,
 			&i.StreamID,
 			&i.FetchedSubtitleID,
 			&i.FileID,
@@ -324,7 +321,7 @@ func (q *Queries) ListEveryOpenJob(ctx context.Context) ([]Job, error) {
 }
 
 const listJobs = `-- name: ListJobs :many
-SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, state, destination, runnable_at,
+SELECT id, kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, state, destination, runnable_at,
        is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at, assigned_until, wanted_until
 FROM job
 ORDER BY id DESC
@@ -345,7 +342,6 @@ func (q *Queries) ListJobs(ctx context.Context, maxRows int64) ([]Job, error) {
 			&i.ID,
 			&i.Kind,
 			&i.ItemID,
-			&i.RenditionID,
 			&i.StreamID,
 			&i.FetchedSubtitleID,
 			&i.FileID,
@@ -441,13 +437,13 @@ func (q *Queries) ListOpenJobsOfItemsAndFiles(ctx context.Context, arg ListOpenJ
 }
 
 const listOpenJobsOfTarget = `-- name: ListOpenJobsOfTarget :many
-SELECT id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, state, destination, runnable_at,
+SELECT id, kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, state, destination, runnable_at,
        is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure, created_at, finished_at, assigned_until, wanted_until
 FROM job
-WHERE kind = ?1 AND item_id IS ?2 AND rendition_id IS ?3 AND stream_id IS ?4
-  AND fetched_subtitle_id IS ?5 AND file_id IS ?6
-  AND scan_id IS ?7 AND scan_batch_id IS ?8
-  AND chunk_store_id IS ?9
+WHERE kind = ?1 AND item_id IS ?2 AND stream_id IS ?3
+  AND fetched_subtitle_id IS ?4 AND file_id IS ?5
+  AND scan_id IS ?6 AND scan_batch_id IS ?7
+  AND chunk_store_id IS ?8
   AND state IN ('queued', 'running', 'assigned')
 ORDER BY id
 `
@@ -455,7 +451,6 @@ ORDER BY id
 type ListOpenJobsOfTargetParams struct {
 	Kind              string
 	ItemID            *int64
-	RenditionID       *int64
 	StreamID          *int64
 	FetchedSubtitleID *int64
 	FileID            *int64
@@ -470,7 +465,6 @@ func (q *Queries) ListOpenJobsOfTarget(ctx context.Context, arg ListOpenJobsOfTa
 	rows, err := q.db.QueryContext(ctx, listOpenJobsOfTarget,
 		arg.Kind,
 		arg.ItemID,
-		arg.RenditionID,
 		arg.StreamID,
 		arg.FetchedSubtitleID,
 		arg.FileID,
@@ -489,7 +483,6 @@ func (q *Queries) ListOpenJobsOfTarget(ctx context.Context, arg ListOpenJobsOfTa
 			&i.ID,
 			&i.Kind,
 			&i.ItemID,
-			&i.RenditionID,
 			&i.StreamID,
 			&i.FetchedSubtitleID,
 			&i.FileID,
@@ -511,54 +504,6 @@ func (q *Queries) ListOpenJobsOfTarget(ctx context.Context, arg ListOpenJobsOfTa
 			&i.FinishedAt,
 			&i.AssignedUntil,
 			&i.WantedUntil,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listOpenPreparesOfFile = `-- name: ListOpenPreparesOfFile :many
-SELECT job.id, job.state, job.progress_fraction, prepared_rendition.node_id, prepared_rendition.profile
-FROM job
-JOIN prepared_rendition ON prepared_rendition.id = job.rendition_id
-WHERE job.kind = 'prepare' AND job.state IN ('queued', 'running', 'assigned')
-  AND prepared_rendition.source_file = ?1
-ORDER BY job.priority DESC, job.id
-`
-
-type ListOpenPreparesOfFileRow struct {
-	ID               int64
-	State            string
-	ProgressFraction *float64
-	NodeID           int64
-	Profile          string
-}
-
-// The open prepares of a file's renditions, with how far each is, and its node and profile: what a
-// player waiting for a prepared copy waits on (D324 section 6).
-func (q *Queries) ListOpenPreparesOfFile(ctx context.Context, fileID int64) ([]ListOpenPreparesOfFileRow, error) {
-	rows, err := q.db.QueryContext(ctx, listOpenPreparesOfFile, fileID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListOpenPreparesOfFileRow{}
-	for rows.Next() {
-		var i ListOpenPreparesOfFileRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.State,
-			&i.ProgressFraction,
-			&i.NodeID,
-			&i.Profile,
 		); err != nil {
 			return nil, err
 		}
@@ -806,10 +751,10 @@ UPDATE job SET wanted_until = CASE
     ELSE MAX(COALESCE(wanted_until, 0), CAST(?2 AS INTEGER))
   END
 WHERE kind = ?3 AND state IN ('queued', 'running', 'assigned')
-  AND item_id IS ?4 AND rendition_id IS ?5 AND stream_id IS ?6
-  AND fetched_subtitle_id IS ?7 AND file_id IS ?8
-  AND scan_id IS ?9 AND scan_batch_id IS ?10
-  AND chunk_store_id IS ?11
+  AND item_id IS ?4 AND stream_id IS ?5
+  AND fetched_subtitle_id IS ?6 AND file_id IS ?7
+  AND scan_id IS ?8 AND scan_batch_id IS ?9
+  AND chunk_store_id IS ?10
 `
 
 type SetJobWantedParams struct {
@@ -817,7 +762,6 @@ type SetJobWantedParams struct {
 	Until             int64
 	Kind              string
 	ItemID            *int64
-	RenditionID       *int64
 	StreamID          *int64
 	FetchedSubtitleID *int64
 	FileID            *int64
@@ -836,7 +780,6 @@ func (q *Queries) SetJobWanted(ctx context.Context, arg SetJobWantedParams) erro
 		arg.Until,
 		arg.Kind,
 		arg.ItemID,
-		arg.RenditionID,
 		arg.StreamID,
 		arg.FetchedSubtitleID,
 		arg.FileID,
@@ -850,7 +793,7 @@ func (q *Queries) SetJobWanted(ctx context.Context, arg SetJobWantedParams) erro
 const startJob = `-- name: StartJob :one
 UPDATE job SET state = 'running', attempt_count = attempt_count + 1
 WHERE id = ?1 AND state = 'queued'
-RETURNING id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, state, destination,
+RETURNING id, kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, state, destination,
           runnable_at, is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure,
           created_at, finished_at, assigned_until, wanted_until
 `
@@ -863,7 +806,6 @@ func (q *Queries) StartJob(ctx context.Context, id int64) (Job, error) {
 		&i.ID,
 		&i.Kind,
 		&i.ItemID,
-		&i.RenditionID,
 		&i.StreamID,
 		&i.FetchedSubtitleID,
 		&i.FileID,
@@ -892,7 +834,7 @@ func (q *Queries) StartJob(ctx context.Context, id int64) (Job, error) {
 const takeAssignedJob = `-- name: TakeAssignedJob :one
 UPDATE job SET state = 'running'
 WHERE id = ?1 AND state = 'assigned'
-RETURNING id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, state, destination,
+RETURNING id, kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, state, destination,
           runnable_at, is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure,
           created_at, finished_at, assigned_until, wanted_until
 `
@@ -906,7 +848,6 @@ func (q *Queries) TakeAssignedJob(ctx context.Context, id int64) (Job, error) {
 		&i.ID,
 		&i.Kind,
 		&i.ItemID,
-		&i.RenditionID,
 		&i.StreamID,
 		&i.FetchedSubtitleID,
 		&i.FileID,
@@ -937,7 +878,7 @@ UPDATE job SET state = 'running'
 WHERE id = (SELECT overdue.id FROM job AS overdue
             WHERE overdue.state = 'assigned' AND overdue.kind = ?1 AND overdue.assigned_until <= ?2
             ORDER BY overdue.assigned_until, overdue.id LIMIT 1)
-RETURNING id, kind, item_id, rendition_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, state, destination,
+RETURNING id, kind, item_id, stream_id, fetched_subtitle_id, file_id, scan_id, scan_batch_id, chunk_store_id, args_json, priority, state, destination,
           runnable_at, is_snoozed, attempt_count, last_attempt_tool_failed, progress_fraction, reason, last_failure,
           created_at, finished_at, assigned_until, wanted_until
 `
@@ -955,7 +896,6 @@ func (q *Queries) TakeOverdueAssignedJob(ctx context.Context, arg TakeOverdueAss
 		&i.ID,
 		&i.Kind,
 		&i.ItemID,
-		&i.RenditionID,
 		&i.StreamID,
 		&i.FetchedSubtitleID,
 		&i.FileID,

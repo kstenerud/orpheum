@@ -206,7 +206,7 @@ type NodeConfig struct {
 	PreparedBudgetGiB            int64 `toml:"prepared_budget_gib"`
 	PreparedKeptAfterPlayHours   int64 `toml:"prepared_kept_after_play_hours"`
 	PreparedDiskUsedLimitPercent int64 `toml:"prepared_disk_used_limit_percent"`
-	// PreparedWatchedMinutes is how recently a rendition served a file for it to count as being
+	// PreparedWatchedMinutes is how recently a store served a file for it to count as being
 	// watched, which eviction never removes.
 	PreparedWatchedMinutes int64 `toml:"prepared_watched_minutes"`
 	// PreparedDiskMinFreeMiB is the least the prepared directory's disk keeps free, whatever its percentage.
@@ -402,28 +402,28 @@ func nodeConfigKeys() []configKey {
 		},
 		{
 			tableNode, "prepared_budget_gib", "200",
-			"GiB the prepared renditions may take; the least recently played go first past it (D217 §5)",
+			"GiB the stores of chunks may take; the least recently played go first past it (D217 §5)",
 		},
 		{
 			tableNode, "prepared_kept_after_play_hours", "72",
-			"hours after its last play a prepared rendition is kept before any past it is evicted (D217 §5)",
+			"hours after its last play a store of chunks is kept before any past it is evicted (D217 §5)",
 		},
 		{
 			// A playing hls.js fetches a segment every few seconds once its 30 s buffer is full; ten
 			// minutes also covers a short pause, after which a paused film may go.
 			tableNode, "prepared_watched_minutes", "10",
-			"minutes after it last served a file that a prepared rendition counts as being watched; eviction " +
-				"never removes one being watched, and a prepare the disk then has no room for is refused",
+			"minutes after it last served a file that a store of chunks counts as being watched; eviction " +
+				"never removes one being watched, and a run of chunks the disk then has no room for is refused",
 		},
 		{
 			tableNode, "prepared_disk_used_limit_percent", "95",
-			"how full the prepared directory's disk may be, whatever the budget; past it, renditions are " +
-				"evicted, and a prepare with nothing to evict is refused (D217 §5)",
+			"how full the prepared directory's disk may be, whatever the budget; past it, stores are " +
+				"evicted, and a run of chunks with nothing to evict is refused (D217 §5)",
 		},
 		{
 			tableNode, "prepared_disk_min_free_mib", "100",
-			"MiB the prepared directory's disk keeps free, whatever its fullness limit; below it, renditions are " +
-				"evicted, and a prepare with nothing to evict is refused",
+			"MiB the prepared directory's disk keeps free, whatever its fullness limit; below it, stores are " +
+				"evicted, and a run of chunks with nothing to evict is refused",
 		},
 	}, nodeCapacityConfigKeys()...)
 }

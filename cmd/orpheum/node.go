@@ -25,10 +25,10 @@ import (
 	"github.com/kstenerud/orpheum/internal/node/chunks"
 	"github.com/kstenerud/orpheum/internal/node/confine"
 	"github.com/kstenerud/orpheum/internal/node/diskwatch"
+	"github.com/kstenerud/orpheum/internal/node/encode"
 	"github.com/kstenerud/orpheum/internal/node/execx"
 	"github.com/kstenerud/orpheum/internal/node/hardware"
 	"github.com/kstenerud/orpheum/internal/node/namedfile"
-	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/node/prepared"
 	"github.com/kstenerud/orpheum/internal/node/probe"
 	"github.com/kstenerud/orpheum/internal/node/readthrough"
@@ -158,10 +158,10 @@ func runNodeWith(ctx context.Context, config Config, logger *slog.Logger, seams 
 	}
 	scanner := newScanner(config, roots, runner, hello, disks)
 	// A node that cannot use its prepared directory still scans and serves files as they are; it
-	// says why it prepares nothing, and each prepare it is asked for fails with that reason.
+	// says why it makes no chunks, and each run it is asked for is refused with that reason.
 	directory, err := openPreparedDirectory(config, runner, detected.encoderChoice.Chosen, logger)
 	if err != nil {
-		logger.ErrorContext(ctx, "this node cannot prepare; it serves files as they are", "err", err)
+		logger.ErrorContext(ctx, "this node cannot make chunks; it serves files as they are", "err", err)
 	} else {
 		defer readonly.Close(directory.root)
 		if _, evictErr := directory.shelf.Evict(ctx); evictErr != nil {
@@ -212,13 +212,12 @@ func statusTicker(seams nodeSeams) (*time.Ticker, func(time.Duration)) {
 	return ticker, ticker.Reset
 }
 
-// withPreparedDirectory has workers prepare and make chunks in directory, when it opened.
+// withPreparedDirectory has workers make chunks in directory, when it opened.
 func withPreparedDirectory(workers *agent.Workers, directory preparedDirectory) {
 	if directory.root == nil {
 		return
 	}
-	workers.Preparer, workers.ChunkMaker, workers.PreparedShelf = directory.preparer, directory.chunkMaker,
-		directory.shelf
+	workers.ChunkMaker, workers.PreparedShelf = directory.chunkMaker, directory.shelf
 	workers.PreparedDirectory = directory.root.Path()
 }
 
@@ -321,20 +320,18 @@ func workPacing(config Config) (endedWorkKept, readStallWindow time.Duration) {
 
 // chooseEncoder chooses, once, the encoder the node's encodes use: the first hardware one that
 // works here, confined, else x264 (cut-a §6).
-func chooseEncoder(ctx context.Context, runner *execx.Runner, logger *slog.Logger) prepare.Choice {
-	encoderChoice := prepare.ChooseEncoder(ctx, runner)
+func chooseEncoder(ctx context.Context, runner *execx.Runner, logger *slog.Logger) encode.Choice {
+	encoderChoice := encode.ChooseEncoder(ctx, runner)
 	logger.InfoContext(ctx, "this node chose its encoder", "chosenEncoder", encoderChoice.Chosen, "usable",
 		encoderChoice.Usable())
 	return encoderChoice
 }
 
 // preparedDirectory is the node's prepared directory: opened for the byte socket to read, the
-// preparer that writes into it, and the shelf that keeps it within its budget (D217 §5). Its zero
-// value is a node that prepares nothing.
+// maker of the chunks it holds, and the shelf that keeps it within its budget (D217 §5). Its zero
+// value is a node that makes no chunks.
 type preparedDirectory struct {
-	root     *confine.MediaRoot
-	preparer *prepare.Preparer
-	// chunkMaker makes chunks in the same directory, beside the renditions and in their budget.
+	root       *confine.MediaRoot
 	chunkMaker *chunks.Maker
 	shelf      *prepared.Shelf
 }
@@ -353,7 +350,7 @@ func preparedBudget(config Config) prepared.Budget {
 // openPreparedDirectory makes the node's prepared directory, in its instance's cache directory
 // (D242 §3), if it is missing, and opens it.
 func openPreparedDirectory(
-	config Config, runner *execx.Runner, encoder prepare.Encoder, logger *slog.Logger,
+	config Config, runner *execx.Runner, encoder encode.Encoder, logger *slog.Logger,
 ) (preparedDirectory, error) {
 	path := config.Instance.preparedDir()
 	if err := os.MkdirAll(path, 0o750); err != nil {
@@ -364,12 +361,8 @@ func openPreparedDirectory(
 		return preparedDirectory{}, err
 	}
 	shelf := prepared.New(root.Path(), preparedBudget(config), clock.System{}, logger)
-	preparer, err := prepare.New(runner, root.Path(), shelf, encoder)
-	if err != nil {
-		return preparedDirectory{}, errors.Join(err, root.Close())
-	}
 	chunkMaker := chunks.NewMaker(runner, shelf, root.Path(), encoder)
-	return preparedDirectory{root: root, preparer: preparer, chunkMaker: chunkMaker, shelf: shelf}, nil
+	return preparedDirectory{root: root, chunkMaker: chunkMaker, shelf: shelf}, nil
 }
 
 // byteSocketShares are what the byte socket shares with the node's agent: the results it holds,
@@ -394,7 +387,7 @@ func serveBytes(
 	server := byteserver.New(roots, directory.root).ServingResults(shares.heldResults).
 		WatchingOpens(shares.disks, fileOpenWindow).SharingHashes(shares.hashes)
 	if directory.shelf != nil {
-		server.OnRenditionServed(directory.shelf.MarkServed)
+		server.OnStoreServed(directory.shelf.MarkServed)
 	}
 	handler, err := keepSocketKey(ctx, listener.Addr().String(), server.Handler(), logger)
 	if err != nil {
@@ -456,7 +449,7 @@ func openRootsThrough(
 // each film through the node (D330).
 type nodeCapabilities struct {
 	confinement           []confine.State
-	encoderChoice         prepare.Choice
+	encoderChoice         encode.Choice
 	gpus                  []nodeproto.GPU
 	readsFilmsThroughNode bool
 }
@@ -578,7 +571,7 @@ func hardwareReport(detected nodeCapabilities) nodeproto.Hardware {
 
 // capabilityNames are the hello's (cut-a §4): remux and AAC, which every node can do, and the
 // encoders it found it can use.
-func capabilityNames(encoders []prepare.Encoder) []string {
+func capabilityNames(encoders []encode.Encoder) []string {
 	names := []string{"remux", "aac"}
 	for _, encoder := range encoders {
 		names = append(names, string(encoder))

@@ -17,7 +17,7 @@ func TestCancelRetired_CancelsTheWorkOfWhatWasRetiredByTargetOrDestinationAndFor
 		{Kind: KindReadThrough, Target: Target{FileID: 2}},
 		{Kind: KindExtractSubtitle, Target: Target{StreamID: 3}},
 		{Kind: KindConvertFetchedSubtitle, Target: Target{FetchedSubtitleID: 4}},
-		{Kind: KindPrepare, Target: Target{RenditionID: 5}, Destination: retiredRoot},
+		{Kind: KindMakeChunks, Target: Target{ChunkStoreID: 5}, Destination: retiredRoot},
 		{Kind: KindFetchMetadata, Target: Target{ItemID: 6}},
 		{Kind: KindReadThrough, Target: Target{FileID: 7}, Destination: keptRoot},
 	}

@@ -62,7 +62,7 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/core/jobs` | R8 | — (Orpheum's use of `internal/platform/jobqueue` since the jobs rebuild's Phase 1: its kinds, targets and answers, and the job view) |
 | `internal/core/interest` | R8 | — (D324: what each session plays and looks at, kept in memory, raising and releasing the work of it on the one queue) |
 | `internal/core/live` | LIVE (D337: which of each person's devices are connected now, and the casts between them, in memory; built 2026-10-25) | — (the presence socket is internal/core/api's; a cast's control is internal/core/together's) |
-| `internal/core/waits` | R8 | — (D324 §6: how long the work a viewer waits on will take, a file's read-through and its prepared copy, from each node's measured read speed, kept in memory) |
+| `internal/core/waits` | R8 | — (D324 §6: how long the work a viewer waits on will take, a file's read-through, from each node's measured read speed, kept in memory) |
 | `internal/core/library` | R2 | ⚑ R9 read models: browse.go, home.go, detail.go, art.go. ⚑ R6a: library creation and admin (create.go, admin.go, retire.go, move.go). ⚑ R8: scans as `list` and `examine` jobs (scans.go, batches.go; D241), and the one rule for parking work under an unavailable root (`Unavailability`, `ParkIfUnder`; unavailable.go, playable.go) |
 | `internal/core/nodes` | R8 | ⚑ R6a: an admin's reader limit for one of a node's devices (devices.go, D240 §5) |
 | `internal/core/loudness` | R7 (the gains that level a file's sounds, from its measurements) | — (split out of playback on 2026-10-03, F2; its job, sweep and writes moved to `internal/core/readthrough` on 2026-10-05) |
@@ -70,7 +70,6 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/core/chunks` | R7 (a film's grid of chunks, from its picture's timeline, and the playlists a playback is offered), R8 (the `make_chunks` runs, and in memory each store's chunks made and runs on their way) | — (D247 §10; built 2026-10-05) |
 | `internal/core/chunks/qualities` | R7 (the setting `chunk_qualities`, read and checked by one function) | — (its own package so the settings registry checks the value with it, D247 §6) |
 | `internal/core/playback` | R6b (play state) | — (the preferences store moved out on 2026-09-30; loudness, subtitles and renditions on 2026-10-03, F2) |
-| `internal/core/renditions` | R8 (the prepare jobs), R3 (the index of prepared copies, in cache.db) | — (split out of playback on 2026-10-03, F2) |
 | `internal/core/subtitles` | R8 (the subtitle extraction and conversion jobs), R3 (the texts, by source hash) | ⚑ R1: subtitle search and fetch through the provider client (fetch.go). Split out of playback on 2026-10-03, F2 |
 | `internal/core/preferences` | R6b (a person's choices) | — (since 2026-09-30: F2's preferences part, F6) |
 | `internal/core/providers/opensubtitles` | R1 | — (moved from `playback/opensubtitles` on 2026-09-30, the jobs rebuild's Phase 2) |
@@ -94,16 +93,16 @@ is the evidence. The first column names each package by its path; the check read
 | `internal/node/confine` | CONTAIN | ⚑ also the read-only `MediaRoot` handle that scan, namedfile and byteserver use (scan.go:47, namedfile.go:64) |
 | `internal/node/execx` | CONTAIN | — |
 | `internal/node/fdproxy` | CONTAIN | — (D330: the node's side of fdproxy, over which FFmpeg reads its input film through the node, every frame FFmpeg sends judged and a breach, a failed read or a passed budget killing the run; execx runs a watched run's film through it (WatchedRun.Film); no run kind uses it yet, waiting on the patched FFmpeg being fetchable) |
+| `internal/node/encode` | R3 | — (the H.264 encoder a node chose by trial and a quality's arguments, and a track's stereo mixes; the whole-film prepare's until D344) |
 | `internal/node/hardware` | OPS | — |
 | `internal/node/hash` | R2 (file identity) | — |
 | `internal/node/namedfile` | R2 (identity-checked open) | — |
 | `internal/node/diskwatch` | R8 | — (D233 §10: one stuck operation at most on each root; a disk that does not answer is a stall, and its root is read no more until the stuck operation returns) |
-| `internal/node/chunks` | R3 | — (borrows prepare's encoder and mix filters; its stores are `internal/node/prepared`'s, D247 §10) |
+| `internal/node/chunks` | R3 | — (its encoder and mix filters are `internal/node/encode`'s; its stores are `internal/node/prepared`'s, D247 §10) |
 | `internal/node/diskschedule` | R8 | — (D329 §3, work-scheduling.md §8: for one device, which read goes next, by tier, deadline and arrival, with background reads held to a rate a slow playback read halves; a pure decider the node and `internal/schedtest` both drive; not yet wired into the node) |
-| `internal/node/prepare` | R3 | — |
-| `internal/node/prepared` | R3 (rendition store custody) | — |
+| `internal/node/prepared` | R3 (custody of the stores of chunks) | — |
 | `internal/node/probe` | R2 | — |
-| `internal/node/readthrough` | R3 | — (borrows prepare's mix filters, loudness.go; was `internal/node/loudness` until 2026-10-05) |
+| `internal/node/readthrough` | R3 | — (its mix filters are `internal/node/encode`'s, loudness.go; was `internal/node/loudness` until 2026-10-05) |
 | `internal/node/scan` | R2 | — |
 | `internal/node/subtitle` | R3 | — |
 | `internal/node/watch` | R2 (change detection, D27) | — (notices what changed under each root for the core to scan, D272 §9) |
@@ -205,13 +204,12 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | match_candidate | cache.db | T2 (a TMDB search) | no | ⚑ T2 in cache.db. Mitigated: the chooser searches again when the candidates are lost |
 | art_served | cache.db | T4 | no | — |
 | chunk_store (a stream of a film on a grid, the target of its runs) | cache.db | T4 | no | made again by the next run asked for; the chunks themselves are the node's |
-| prepared_rendition (index of node renditions) | cache.db | T3 | no | mitigated by D238 §2: a node's hello lists its renditions, and the core adopts them. cache.db is at version 27 |
 | full config (`config.toml`) | instance's persistent/ | T1 | yes | D242 §3 |
 | secret.key | instance's persistent/ | T1 | only when asked | by design (D194) |
 | setup-code file, sockets, the server's lock | instance's run/ | transient | no | — |
 | backups (tar.gz), pre-restore and pre-migrate snapshots | instance's backups/ and persistent/ | T1 copies | — | same disk (doctor says so); scheduled backups are M4's (D243) |
 | art/<source sha256>/<size>.webp and .jpeg | instance's cache/ | T3 (node-encoded); the provider source behind it is T2 | no | ⚑ provider images are not kept or backed up. Accepted by artwork.md ("deleting cache/ costs time") |
-| prepared/<file_id>/<profile>/<run_id>/ | node instance's cache/prepared/ | T3 | no | correct; the core re-adopts it (above) |
+| prepared/<file_id>/chunks-<stream>/<grid_id>/ | node instance's cache/prepared/ | T3 | no | correct; a store keeps its own manifest, and a player's ask makes a chunk again (D344) |
 | TLS/ACME keys | — | T1/T2 | — | M4 (D243); not built yet |
 
 ## 3. Seams

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/node/encode"
 	"github.com/kstenerud/orpheum/internal/node/execx"
-	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -42,14 +42,14 @@ func run(stream nodeproto.ChunkStream) nodeproto.MakeChunks {
 func TestArguments_ReadTheRunsChunksAndCutAtEachAndAtTheEnd(t *testing.T) {
 	t.Parallel()
 	arguments := Arguments(execx.Film{Path: "/films/a.mp4"}, "/prepared/7/chunks-x/0123456789abcdef/raw-1",
-		run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture}), prepare.EncoderX264)
+		run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture}), encode.EncoderX264)
 	if start, end := valueOf(arguments, "-ss"), valueOf(arguments, "-to"); start != "103.854" || end != "122.581" {
 		t.Errorf("the run reads %s to %s, want from its seek, 103.854, to 122.581", start, end)
 	}
 	quality := Arguments(execx.Film{Path: "/a"}, "/r", run(nodeproto.ChunkStream{
 		Kind: nodeproto.StreamQuality, BitRateKbps: 1200,
 		Height: 480,
-	}), prepare.EncoderX264)
+	}), encode.EncoderX264)
 	if start := valueOf(quality, "-ss"); start != "98.849" {
 		t.Errorf("an encoded quality reads from %s, want its start, 98.849", start)
 	}
@@ -77,7 +77,7 @@ func TestArguments_TagACopiedHEVCPicture(t *testing.T) {
 	t.Parallel()
 	hevc := run(nodeproto.ChunkStream{Kind: nodeproto.StreamPicture})
 	hevc.VideoCodec = "hevc"
-	if tag := valueOf(Arguments(execx.Film{Path: "/a"}, "/r", hevc, prepare.EncoderX264), "-tag:v"); tag != "hvc1" {
+	if tag := valueOf(Arguments(execx.Film{Path: "/a"}, "/r", hevc, encode.EncoderX264), "-tag:v"); tag != "hvc1" {
 		t.Errorf("a copied HEVC picture is tagged %q, want hvc1", tag)
 	}
 }
@@ -87,7 +87,7 @@ func TestArguments_TagACopiedHEVCPicture(t *testing.T) {
 func TestArguments_EncodeAQualityWithKeyframesAtItsChunksStarts(t *testing.T) {
 	t.Parallel()
 	arguments := Arguments(execx.Film{Path: "/a"}, "/r",
-		run(nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 1200, Height: 480}), prepare.EncoderX264)
+		run(nodeproto.ChunkStream{Kind: nodeproto.StreamQuality, BitRateKbps: 1200, Height: 480}), encode.EncoderX264)
 	if keyframes := valueOf(arguments, "-force_key_frames"); keyframes != "0.000,10.010,13.764" {
 		t.Errorf("the keyframes are at %s, want 0.000,10.010,13.764", keyframes)
 	}
@@ -107,10 +107,10 @@ func TestArguments_StartASoundAChunkEarlyAndCutItAtTheBounds(t *testing.T) {
 	t.Parallel()
 	sound := run(nodeproto.ChunkStream{
 		Kind: nodeproto.StreamSound, IsBoosted: true, SoundKbps: 96,
-		Sound: &nodeproto.PrepareAudio{AudioTrackIndex: 1, ChannelCount: 6},
+		Sound: &nodeproto.SoundTrack{AudioTrackIndex: 1, ChannelCount: 6},
 	})
 	sound.SoundLeadInMs = 88_839
-	arguments := Arguments(execx.Film{Path: "/a"}, "/r", sound, prepare.EncoderX264)
+	arguments := Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
 	if start := valueOf(arguments, "-ss"); start != "86.839" {
 		t.Errorf("the sound's decode starts at %s, want two seconds before its lead-in, 86.839", start)
 	}
@@ -121,7 +121,7 @@ func TestArguments_StartASoundAChunkEarlyAndCutItAtTheBounds(t *testing.T) {
 		t.Errorf("the cuts are %s, want 10.010,20.020,23.774,33.742", cuts)
 	}
 	if mapped, mix := valueOf(arguments, "-map"), valueOf(arguments, "-filter:a"); mapped != "0:a:1" ||
-		mix != "atrim=start=2.000,asetpts=PTS-STARTPTS,"+prepare.MixFilter(*sound.Stream.Sound, true) {
+		mix != "atrim=start=2.000,asetpts=PTS-STARTPTS,"+encode.MixFilter(*sound.Stream.Sound, true) {
 		t.Errorf("the sound is %s filtered by %q; want the two seconds before its lead-in dropped, then "+
 			"track 1's boosted mix", mapped, mix)
 	}
@@ -135,11 +135,11 @@ func TestArguments_StartASoundAChunkEarlyAndCutItAtTheBounds(t *testing.T) {
 func TestArguments_ASoundNearTheFilmsStartDecodesFromItsStart(t *testing.T) {
 	t.Parallel()
 	sound := run(nodeproto.ChunkStream{
-		Kind: nodeproto.StreamSound, SoundKbps: 96, Sound: &nodeproto.PrepareAudio{ChannelCount: 2},
+		Kind: nodeproto.StreamSound, SoundKbps: 96, Sound: &nodeproto.SoundTrack{ChannelCount: 2},
 	})
 	sound.BoundsMs = []int64{1_500, 11_500}
 	sound.FirstChunk = 0
-	arguments := Arguments(execx.Film{Path: "/a"}, "/r", sound, prepare.EncoderX264)
+	arguments := Arguments(execx.Film{Path: "/a"}, "/r", sound, encode.EncoderX264)
 	if start, filter := valueOf(arguments, "-ss"), valueOf(arguments, "-filter:a"); start != "0.000" ||
 		!strings.HasPrefix(filter, "atrim=start=1.500,asetpts=PTS-STARTPTS,") {
 		t.Errorf("the sound decodes from %s filtered by %q; want from 0.000, dropping 1.500 s", start, filter)

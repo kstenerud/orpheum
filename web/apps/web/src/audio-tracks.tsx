@@ -34,24 +34,6 @@ export function startingAudioTrack(decision: PlaybackDecision): AudioTrack | und
   );
 }
 
-/**
- * Where a track's standard and boosted mixes are among a prepared copy's audio renditions; boosted
- * is undefined for a track with no centre to raise, and undefined for no such track at all.
- */
-export function mixIndices(
-  decision: Pick<PlaybackDecision, "audioRenditions">,
-  audioTrackIndex: number,
-): { standard: number; boosted: number | undefined } | undefined {
-  const audio = decision.audioRenditions ?? [];
-  const standard = audio.findIndex(
-    (mix) => mix.audioTrackIndex === audioTrackIndex && !mix.isDialogueBoosted,
-  );
-  const boosted = audio.findIndex(
-    (mix) => mix.audioTrackIndex === audioTrackIndex && mix.isDialogueBoosted,
-  );
-  return standard < 0 ? undefined : { standard, boosted: boosted < 0 ? undefined : boosted };
-}
-
 /** A track's name in the menu: its language, its container's title, and its kind when not plain. */
 export function audioTrackLabel(
   track: AudioTrack,

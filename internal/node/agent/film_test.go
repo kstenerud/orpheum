@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/kstenerud/orpheum/internal/node/execx"
-	"github.com/kstenerud/orpheum/internal/node/prepare"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/testutil"
 )
@@ -20,20 +19,20 @@ type filmSeen struct {
 	readErr  error
 }
 
-// filmRecordingPreparer tells films each film a prepare is given, read through its stream while the
-// prepare runs, as FFmpeg reads it.
-type filmRecordingPreparer struct{ films chan filmSeen }
+// filmRecordingChunkMaker tells films each film a run is given, read through its stream while the run
+// goes on, as FFmpeg reads it.
+type filmRecordingChunkMaker struct{ films chan filmSeen }
 
-func (preparer filmRecordingPreparer) Prepare(
-	ctx context.Context, source execx.Film, _ nodeproto.Prepare, _ func(preparedThroughMs int64),
-) (prepare.Made, error) {
+func (maker filmRecordingChunkMaker) Make(
+	ctx context.Context, source execx.Film, command nodeproto.MakeChunks, _ func(n int),
+) (int, error) {
 	seen := filmSeen{film: source}
 	if source.Stream != nil {
 		seen.contents = make([]byte, source.Size)
 		seen.readErr = source.Stream.Source.ReadAt(ctx, seen.contents, 0)
 	}
-	preparer.films <- seen
-	return prepare.Made{}, nil
+	maker.films <- seen
+	return command.FirstChunk, nil
 }
 
 // On a node whose FFmpeg reads through it, a run is served the very file the node opened and checked
@@ -43,12 +42,12 @@ func TestAgent_ARunIsServedTheFileTheNodeCheckedOnlyWhenItsFFmpegReadsThroughIt(
 	t.Parallel()
 	for _, isStreamed := range []bool{true, false} {
 		core, socket := startFakeCore(t)
-		preparer := filmRecordingPreparer{films: make(chan filmSeen, 1)}
+		maker := filmRecordingChunkMaker{films: make(chan filmSeen, 1)}
 		root, _ := startAgentWithWorkers(t, socket, Workers{
-			Scanner: fakeScanner{}, Artworker: fakeArtworker{}, Preparer: preparer, Films: filmsRunner(t, isStreamed),
+			Scanner: fakeScanner{}, Artworker: fakeArtworker{}, ChunkMaker: maker, Films: filmsRunner(t, isStreamed),
 		})
-		core.sendPrepare(1, preparableFilm(t, root), "3/remux/0123456789abcdef")
-		seen := testutil.Receive(t, preparer.films, "the prepare's film")
+		core.sendRun(1, chunkableFilm(t, root), "3/chunks-picture/0123456789abcdef")
+		seen := testutil.Receive(t, maker.films, "the run's film")
 		wantPath := root.Path() + "/film.mkv"
 		if seen.film.Path != wantPath || seen.film.Size != int64(len("a film")) {
 			t.Errorf("streamed %v: the film is %s of %d bytes; want %s of 6", isStreamed, seen.film.Path,
@@ -60,7 +59,7 @@ func TestAgent_ARunIsServedTheFileTheNodeCheckedOnlyWhenItsFFmpegReadsThroughIt(
 			t.Errorf("a node whose FFmpeg reads by path streamed the film, or did not grant its path: %+v",
 				seen.film)
 		}
-		finalPrepareReport(t, core)
+		finalRunReport(t, core)
 	}
 }
 

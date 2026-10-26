@@ -387,7 +387,7 @@ func (service *Service) RecordFailure(ctx context.Context, job jobs.Job, failure
 			return fmt.Errorf("read fetched subtitle %d: %w", job.FetchedSubtitleID, err)
 		}
 		key = fetchedKey(fetched.BodyGzip)
-	case jobs.KindFetchMetadata, jobs.KindMakeArtworkSizes, jobs.KindPrepare, jobs.KindReadThrough,
+	case jobs.KindFetchMetadata, jobs.KindMakeArtworkSizes, jobs.KindReadThrough,
 		jobs.KindMakeChunks, jobs.KindScan, jobs.KindBackup:
 		return fmt.Errorf("job %d: %s is not a subtitle's job", job.ID, job.Kind)
 	}

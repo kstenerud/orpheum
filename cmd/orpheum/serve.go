@@ -31,7 +31,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/preferences"
 	"github.com/kstenerud/orpheum/internal/core/reachability"
 	"github.com/kstenerud/orpheum/internal/core/readthrough"
-	"github.com/kstenerud/orpheum/internal/core/renditions"
 	"github.com/kstenerud/orpheum/internal/core/rtcapi"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -201,9 +200,9 @@ func (opened openedServices) release() error {
 	return errors.Join(opened.cache.Close(), opened.database.Close(), opened.lock.Release())
 }
 
-// prepareMaxSilence is how long a running prepare may go without a word from its node before its
-// job is given up and retried: the node reports every two seconds while FFmpeg runs.
-const prepareMaxSilence = 5 * time.Minute
+// nodeWorkMaxSilence is how long running work may go without a word from its node before its job
+// is given up and retried: the node reports at every status tick, and a run of chunks at each chunk.
+const nodeWorkMaxSilence = 5 * time.Minute
 
 // openAndWire opens the instance's directories and the database, migrates, and hands the API its
 // dependencies.
@@ -259,9 +258,9 @@ func openAndWire(
 	dependencies.Browser = library.NewBrowser(database, opened.settings)
 	dependencies.Browser.SetNodeConnections(opened.nodes)
 	opened.jobServices, dependencies.Playback = openPlayback(opened, database, dependencies.Preferences, logger)
-	dependencies.Subtitles, dependencies.Renditions, dependencies.Artwork, dependencies.Chunks, dependencies.Discovery =
-		opened.jobServices.subtitles, opened.jobServices.renditions, opened.jobServices.artwork,
-		opened.jobServices.chunks, opened.jobServices.discovery
+	dependencies.Subtitles, dependencies.Artwork, dependencies.Chunks, dependencies.Discovery =
+		opened.jobServices.subtitles, opened.jobServices.artwork, opened.jobServices.chunks,
+		opened.jobServices.discovery
 	if opened, err = wireJobsInto(&dependencies, opened, logger); err != nil {
 		return opened, errors.Join(err, opened.cache.Close(), database.Close())
 	}
@@ -309,7 +308,6 @@ func wireJobsInto(
 	dependencies *api.Dependencies, opened openedServices, logger *slog.Logger,
 ) (openedServices, error) {
 	opened.jobServices.nodes = opened.nodes
-	opened.nodes.SetRenditionIndex(opened.jobServices.renditions)
 	dependencies.Together = opened.together
 	dependencies.Together.SnapSeeksBy(dependencies.Chunks.KeyframeAtOrBefore)
 	// Which of each person's devices are open now, and the casts between them (D337).
@@ -358,7 +356,7 @@ func newInterestRaiser(
 }
 
 // openPlayback is what plays a file and the work a play asks of the nodes: the read-through for its
-// sounds' loudness and its picture's timeline, its subtitles, its prepared copies and its chunks, which it
+// sounds' loudness and its picture's timeline, its subtitles and its chunks, which it
 // returns among the job services, and the playback service.
 func openPlayback(
 	opened openedServices, database *store.Database, preferencesService *preferences.Service, logger *slog.Logger,
@@ -370,12 +368,7 @@ func openPlayback(
 	levels := loudness.NewService(loudness.Parts{Database: database, Settings: opened.settings})
 	services.subtitles = subtitles.NewService(subtitles.Parts{
 		Database: database, Queue: queue, Nodes: opened.nodes, Exchanges: opened.exchanges,
-		Subtitler: services.subtitler, Clock: clock.System{}, MaxSilence: prepareMaxSilence,
-	})
-	services.renditions = renditions.NewService(renditions.Parts{
-		Database: database, Cache: opened.cache, Queue: queue, Nodes: opened.nodes, Exchanges: opened.exchanges,
-		Settings: opened.settings, Loudness: levels, Clock: clock.System{}, Random: rand.Reader,
-		Logger: logger,
+		Subtitler: services.subtitler, Clock: clock.System{}, MaxSilence: nodeWorkMaxSilence,
 	})
 	services.chunks = chunks.NewService(chunks.Parts{
 		Database: database, Cache: opened.cache, Settings: opened.settings, Queue: queue, Nodes: opened.nodes,
@@ -384,7 +377,7 @@ func openPlayback(
 	})
 	services.playback = playback.NewService(playback.Parts{
 		Database: database, Nodes: opened.nodes, Settings: opened.settings, Clock: clock.System{},
-		Random: rand.Reader, Renditions: services.renditions, Subtitles: services.subtitles,
+		Random: rand.Reader, Subtitles: services.subtitles,
 		Preferences: preferencesService, Loudness: levels, Chunks: services.chunks, Offers: services.chunks,
 		Reads: opened.jobServices.scans, Roots: opened.jobServices.scans,
 	})
@@ -401,7 +394,7 @@ func openPlayback(
 func openExchanges(opened openedServices, logger *slog.Logger) *nodes.Exchanges {
 	exchanges := nodes.NewExchanges(nodes.ExchangeParts{
 		Sender: opened.nodes, Clock: clock.System{}, Random: rand.Reader, Logger: logger, Cache: opened.cache,
-		Settings: opened.settings, MaxSilence: prepareMaxSilence, Rooms: opened.nodes,
+		Settings: opened.settings, MaxSilence: nodeWorkMaxSilence, Rooms: opened.nodes,
 	})
 	opened.nodes.SetResultSink(exchanges)
 	return exchanges

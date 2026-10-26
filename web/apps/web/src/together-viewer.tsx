@@ -481,8 +481,8 @@ function useGuestFilm(): GuestFilm {
 }
 
 /**
- * Under the guest's film: its stalls reported by the membership, the original's or a prepared
- * copy's (useMovingDown), or a ladder's word that even its lowest cannot keep up (D247 §8).
+ * Under the guest's film: its stalls reported by the membership, the original's
+ * (useMovingDown), or a ladder's word that even its lowest cannot keep up (D247 §8).
  */
 function GuestStalls(props: FilmParts): JSX.Element {
   const film = useGuestFilm();
@@ -510,7 +510,7 @@ function TellsCannotKeepUp(props: {
   return null;
 }
 
-/** The original or a prepared copy: its stalls reported by the membership (useMovingDown). */
+/** The original: its stalls reported by the membership (useMovingDown). */
 function ReportsStalls(props: {
   readonly videoRef: RefObject<HTMLVideoElement | null>;
   readonly readLinkKbps: () => number | undefined;

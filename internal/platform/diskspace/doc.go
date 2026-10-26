@@ -3,7 +3,7 @@
 // Package diskspace measures the filesystem that holds a path: its size and what a user who is
 // not root may still write; and what the files under a directory take. It is the one way to ask
 // each (AGENTS.md rule 11), for the store's check before a migration, the node's prepared
-// directory limit and budget, a rendition's size and the System page (D225).
+// directory limit and budget, a store of chunks' size and the System page (D225).
 //
 // # Invariants
 //

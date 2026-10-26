@@ -5,9 +5,7 @@ package prepared
 import (
 	"os"
 	"path/filepath"
-	"slices"
 	"testing"
-	"time"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
@@ -82,35 +80,5 @@ func TestStore_DiscardsOnlyItsRunsRawFiles(t *testing.T) {
 	}
 	if _, err := os.Stat(rawPath); !os.IsNotExist(err) || !shelf.HasFile(testStore, "00003.m4s") {
 		t.Errorf("closing the run left its raw directory (%v), or took the chunks", err)
-	}
-}
-
-// The node keeps its stores through the core's reconciling, which knows renditions alone, but a
-// store directory with no manifest is a making that never finished (D238 §2).
-func TestReconcile_KeepsAStoreWithItsManifestAndEvictsOneWithout(t *testing.T) {
-	t.Parallel()
-	disk := 50
-	shelf := shelfWith(t, Budget{MaxBytes: 1 << 30, DiskUsedLimitPercent: 95}, &disk, map[string]struct {
-		bytes int
-		ago   time.Duration
-	}{
-		"8/chunks-picture/fedcba9876543210": {100, time.Minute}, // never opened as a store
-	})
-	if _, err := shelf.OpenStore(nodeproto.StoreManifest{
-		StoreDir: testStore, Stream: nodeproto.ChunkStream{Kind: nodeproto.StreamPicture},
-	}); err != nil {
-		t.Fatal(err)
-	}
-	evicted, err := shelf.Reconcile(nil, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !slices.Equal(evicted, []string{"8/chunks-picture/fedcba9876543210"}) ||
-		!slices.Equal(remainingRunDirs(t, shelf), []string{testStore}) {
-		t.Errorf("reconciling evicted %v, leaving %v; want only the store without a manifest gone",
-			evicted, remainingRunDirs(t, shelf))
-	}
-	if manifests, err := shelf.Inventory(); err != nil || len(manifests) != 0 {
-		t.Errorf("the inventory lists %v, %v; want no store among the renditions", manifests, err)
 	}
 }

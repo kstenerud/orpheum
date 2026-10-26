@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kstenerud/orpheum/internal/node/prepare"
+	"github.com/kstenerud/orpheum/internal/node/encode"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
@@ -68,10 +68,10 @@ func loudnessOutput(tracks []nodeproto.LoudnessTrack) []string {
 			graph = append(graph,
 				input+"asplit=2["+multichannel+"_in]["+stereo+"_in]",
 				"["+multichannel+"_in]ebur128@"+multichannel+ebur128Options+"["+multichannel+"]",
-				"["+stereo+"_in]"+prepare.StandardMix+",ebur128@"+stereo+ebur128Options+"["+stereo+"]")
+				"["+stereo+"_in]"+encode.StandardMix+",ebur128@"+stereo+ebur128Options+"["+stereo+"]")
 			maps = append(maps, "-map", "["+multichannel+"]")
 		} else {
-			graph = append(graph, input+prepare.StereoAsIsMix+",ebur128@"+stereo+ebur128Options+"["+stereo+"]")
+			graph = append(graph, input+encode.StereoAsIsMix+",ebur128@"+stereo+ebur128Options+"["+stereo+"]")
 		}
 		maps = append(maps, "-map", "["+stereo+"]")
 	}

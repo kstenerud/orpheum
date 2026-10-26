@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package playback turns a decision into something playable and records what was watched: it
-// starts a playback with the person's choices, issues single-playback media tokens, wants a
-// prepared copy from internal/core/renditions when the decision needs one, and keeps play state
+// starts a playback with the person's choices, issues single-playback media tokens, starts a film
+// its device cannot play as it is on its ladder of chunks (internal/core/chunks), and keeps play state
 // (positions and watched spans, reported with the device's sequence) against the source file.
 // Continue Watching, Next Up, hide and undo read from here.
 //
@@ -11,11 +11,14 @@
 //   - A link speed a player measured is kept by player, a device or a deviceless session, and by
 //     network, an IPv6 /64 or an IPv4 address, for a day (D257). A film cut into chunks starts on
 //     its ladder, at the top, or where its player's speed on its network calls for, and no prepared
-//     copy is made for it; its stalls start nothing (D260). A film not cut yet plays as its decision
-//     says. internal/core/clientnet's TestOf_IsAnIPv6AddressesSlash64OrAnIPv4AddressWhole,
+//     copy is made for it; its stalls start nothing (D260). A film not cut yet within
+//     play_ladder_wait_ms is cut on time where its device cannot play it as it is, keeping that grid,
+//     and plays as it is where it can (D344 §2), by
+//     TestStartOnLadder_WaitsForAFilmsKeyframesUpToTheLadderWaitThenStartsOnTime.
+//     internal/core/clientnet's TestOf_IsAnIPv6AddressesSlash64OrAnIPv4AddressWhole,
 //     TestLinkSpeeds_AreFreshForADayOnTheirOwnNetwork,
 //     TestPlayback_ADeviceRememberedSlowStartsOnALowerQualityOnTheSameNetwork,
-//     TestPlayback_ACutFilmStartsOnItsLadderAndPreparesNoCopy and
+//     TestPlayback_AFilmItsDeviceCannotPlayStartsOnItsLadderAtItsMasterPlaylist and
 //     TestReport_AStallOnTheLadderIsOfferedNothing (internal/core/api).
 //
 //   - Each playback holds what its player wants of its film's chunks, which decides the runs that go
@@ -70,7 +73,7 @@
 //   - Imports no database/sql or SQLite driver; it calls internal/store. Enforced by the depguard
 //     rule sql-only-in-store and TestArch_OnlyStoreImportsDatabaseSQL.
 //
-//   - Play state records against the source file, never a prepared rendition, and a position moves
+//   - Play state records against the source file, never a converted copy of it, and a position moves
 //     only for a report about a later moment of watching, anchored from the device's monotonic
 //     clock, so two devices reporting out of order never rewind it; a report sent again changes
 //     nothing; and only for a playback that has played, which a report says by its started event
@@ -93,7 +96,7 @@
 //     the started file used (D230). Enforced by
 //     TestSubtitleChoice_TheLastLanguageChosenFollowsTheSeriesUnwatchedEpisodes and
 //     TestAudioChoice_TheLastLanguageChosenFollowsTheSeriesUnwatchedEpisodes (internal/core/api).
-//     A chosen audio track that is not the one the original starts with is played prepared, since a
+//     A chosen audio track that is not the one the original starts with is played converted, since a
 //     browser plays the original's first (decide's audio_track). A choice or a subtitle offset is
 //     kept only for a file, and among tracks, the transaction that keeps it reads, so it never
 //     decides on what that transaction does not see. Enforced by
@@ -101,7 +104,7 @@
 //
 //   - A decision never reads how the asking device makes sound, and no one is asked: a film's sound
 //     plays as it is where the browser plays it, and the person's dialogue boost, on, over a sound of
-//     more than two channels prepares it with its boosted mix (D336 §1, §2, §4). Enforced by
+//     more than two channels converts it with its boosted mix (D336 §1, §2, §4). Enforced by
 //     TestPlayback_ASurroundSoundPlaysAsItIsUntilThePersonTurnsTheBoostOn and
 //     TestDevices_NothingTheAPIDocumentsAsksHowADeviceMakesSound.
 //
@@ -119,10 +122,6 @@
 //   - A direct playback's bytes come from the file's node, named by root, path and payload
 //     hash; the core never opens the file (D193 §1). Enforced by
 //     TestPlayback_AFilePlaysFromTheNodesSocketThroughTheCore.
-//
-//   - A prepared playback's files are relayed from its node, and one not written yet is 425 with
-//     Retry-After while its rendition is being made, never a 404 the player gives up on.
-//     Enforced by TestPrepare_APreparedPlaybackIsTooEarlyUntilItsFileExists.
 //
 //   - A play of a file that cannot be read now, its node away or its root or a disk inside it
 //     missing, is refused before anything is queued (library.RefuseUnreadable, D241 §4).
@@ -163,8 +162,7 @@
 // # Where to change
 //
 //   - tokens.go: media tokens, in memory. playback.go: starting a playback, finding a direct
-//     playback's bytes, and a playback's subtitles through internal/core/subtitles. hls.go: a
-//     prepared playback's files, through internal/core/renditions. chunks.go: a playback as its
+//     playback's bytes, and a playback's subtitles through internal/core/subtitles. chunks.go: a playback as its
 //     film's chunks are served to it, through internal/core/chunks (D247 §10). report.go: the play report, its
 //     log and the guarded position. resume.go: where a playback starts. hide.go: hiding a work from
 //     Continue Watching, which library's home.go lists. choices.go: a person's choices in a file,

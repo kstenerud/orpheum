@@ -28,10 +28,10 @@ func (harness testHarness) listedJobs(t *testing.T, token string) []JobBody {
 	return listed.Body.Jobs
 }
 
-// newestPrepareJob is the newest prepare job in the view.
-func newestPrepareJob(t *testing.T, listed []JobBody) JobBody {
+// newestReadThrough is the newest read-through in the view.
+func newestReadThrough(t *testing.T, listed []JobBody) JobBody {
 	t.Helper()
-	return newestOf(t, listed, jobs.KindPrepare)
+	return newestOf(t, listed, jobs.KindReadThrough)
 }
 
 // newestOf is the newest job of a kind in the view.
@@ -46,26 +46,29 @@ func newestOf(t *testing.T, listed []JobBody, kind jobs.Kind) JobBody {
 	return JobBody{}
 }
 
-func TestJobs_TheViewListsAPrepareAndACancelStopsItOnTheNodeSoTheNextPlayPreparesAgain(t *testing.T) {
+// The view lists a play's read-through of its film, and a cancel stops it on its node, so the next play
+// asks for it again rather than waiting on it.
+func TestJobs_TheViewListsAReadThroughAndACancelStopsItOnTheNodeSoTheNextPlayAsksAgain(t *testing.T) {
 	t.Parallel()
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
+	harness.shelveAudioStreams(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 1)
-	harness.play(t, admin, chrome(2))
-	queued := newestPrepareJob(t, harness.listedJobs(t, admin))
+	harness.play(t, admin, chrome(1))
+	queued := newestReadThrough(t, harness.listedJobs(t, admin))
 	if queued.State != "queued" || queued.Reason == "" {
-		t.Errorf("the prepare in the view = %+v, want queued with its reason", queued)
+		t.Errorf("the read-through in the view = %+v, want queued with its reason", queued)
 	}
-	runner := harness.queue.NewRunner(jobs.KindPrepare, harness.renditions.HandlePrepare)
+	runner := harness.queue.NewRunner(jobs.KindReadThrough, harness.readThrough.HandleReadThrough)
 	ran := make(chan error, 1)
 	go func() { ran <- runner.RunDue(t.Context()) }()
-	if command := harness.nextCommand(t); command.Type != nodeproto.CommandPrepare {
-		t.Fatalf("the node was sent %+v, want the prepare", command)
+	if command := harness.nextCommand(t); command.Type != nodeproto.CommandReadThrough {
+		t.Fatalf("the node was sent %+v, want the read-through", command)
 	}
 	// Given to the node, its runner waits on nothing (D234 §7); to a person, it runs there.
-	if assigned := newestPrepareJob(t, harness.listedJobs(t, admin)); assigned.State != "running" {
-		t.Errorf("the prepare once the node has it = %+v, want running on it", assigned)
+	if assigned := newestReadThrough(t, harness.listedJobs(t, admin)); assigned.State != "running" {
+		t.Errorf("the read-through once the node has it = %+v, want running on it", assigned)
 	}
 	cancel := "/jobs/" + strconv.FormatInt(queued.ID, 10) + "/cancel"
 	if status := harness.do(t, http.MethodPost, cancel, admin, nil).status; status != http.StatusNoContent {
@@ -78,14 +81,12 @@ func TestJobs_TheViewListsAPrepareAndACancelStopsItOnTheNodeSoTheNextPlayPrepare
 	if err := testutil.Receive(t, ran, "the runner to end"); err != nil {
 		t.Fatal(err)
 	}
-	if cancelled := newestPrepareJob(t, harness.listedJobs(t, admin)); cancelled.State != "cancelled" {
-		t.Errorf("the prepare after the cancel = %+v, want cancelled", cancelled)
+	if cancelled := newestReadThrough(t, harness.listedJobs(t, admin)); cancelled.State != "cancelled" {
+		t.Errorf("the read-through after the cancel = %+v, want cancelled", cancelled)
 	}
-	if again := harness.play(t, admin, chrome(2)); !again.IsPreparing {
-		t.Errorf("the next play: %+v, want the copy prepared again, not waited on", again)
-	}
-	if next := newestPrepareJob(t, harness.listedJobs(t, admin)); next.ID == queued.ID || next.State != "queued" {
-		t.Errorf("the newest prepare = %+v, want a new one queued", next)
+	harness.play(t, admin, chrome(1))
+	if next := newestReadThrough(t, harness.listedJobs(t, admin)); next.ID == queued.ID || next.State != "queued" {
+		t.Errorf("the newest read-through = %+v, want a new one queued", next)
 	}
 	if status := harness.do(t, http.MethodPost, cancel, admin, nil).status; status != http.StatusConflict {
 		t.Errorf("cancelling a cancelled job: %d, want 409", status)
@@ -168,8 +169,9 @@ func TestJobs_AJobWaitingOnADestinationThatIsDownSaysWhatWhySinceWhenAndTheNextC
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
 	harness.nodes.roots = []string{"/media"} // shelveFilms enrolled node 1, "local"
+	harness.shelveAudioStreams(t)
 	harness.nodes.commanded = make(chan nodeproto.Command, 1)
-	harness.play(t, admin, chrome(2))
+	harness.play(t, admin, chrome(1))
 	// No one waits for it any more, so it waits for its node: a play-driven one whose node is away
 	// ends instead (D241 §4).
 	harness.clock.Advance(time.Hour)
@@ -177,19 +179,19 @@ func TestJobs_AJobWaitingOnADestinationThatIsDownSaysWhatWhySinceWhenAndTheNextC
 		t.Fatal(err)
 	}
 	harness.nodes.isAway.Store(true)
-	prepares := harness.queue.NewRunner(jobs.KindPrepare, harness.renditions.HandlePrepare)
-	if err := prepares.RunDue(t.Context()); err != nil {
+	reads := harness.queue.NewRunner(jobs.KindReadThrough, harness.readThrough.HandleReadThrough)
+	if err := reads.RunDue(t.Context()); err != nil {
 		t.Fatal(err)
 	}
-	prepare := newestPrepareJob(t, harness.listedJobs(t, admin))
+	read := newestReadThrough(t, harness.listedJobs(t, admin))
 	wantNode := DestinationBody{
 		Destination: "node:1", Name: "node local", Reason: "not connected", DownAt: fakeNodeLastHeard.UnixMilli(),
 	}
-	if prepare.State != "queued" || prepare.Destination != "node:1" || prepare.WaitingFor == nil ||
-		*prepare.WaitingFor != wantNode {
-		t.Errorf("a prepare for a node that is away: %+v, waiting for %+v; want it waiting for node local, not "+
-			"connected since it was last heard, with no next check: its hello brings it back (D231 §12)",
-			prepare, prepare.WaitingFor)
+	if read.State != "queued" || read.Destination != "node:1" || read.WaitingFor == nil ||
+		*read.WaitingFor != wantNode {
+		t.Errorf("a read-through for a node that is away: %+v, waiting for %+v; want it waiting for node local, "+
+			"not connected since it was last heard, with no next check: its hello brings it back (D231 §12)",
+			read, read.WaitingFor)
 	}
 	harness.queue.Park(t.Context(), jobs.Parking{Destination: jobs.DestinationTMDBAPI, Reason: "unreachable"})
 	fetch := jobs.Request{
@@ -213,17 +215,17 @@ func TestJobs_AJobGivenToANodeSaysWhereItsNodeSaysItIs(t *testing.T) {
 	harness := newHarness(t)
 	admin := harness.createAdminAndSignIn(t)
 	harness.shelveFilms(t)
-	harness.play(t, admin, chrome(2))
-	runner := harness.queue.NewRunner(jobs.KindPrepare, func(context.Context, jobs.Job) error {
+	harness.play(t, admin, chrome(1))
+	runner := harness.queue.NewRunner(jobs.KindReadThrough, func(context.Context, jobs.Job) error {
 		return jobs.Assign(harness.clock.Now().Add(time.Hour))
 	})
 	if err := runner.RunDue(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	harness.queue.SetReportedProgress(func(int64) (string, bool) { return "paused", true })
-	shown := newestPrepareJob(t, harness.listedJobs(t, admin))
+	shown := newestReadThrough(t, harness.listedJobs(t, admin))
 	if shown.State != "running" || shown.OnNode != "paused" {
-		t.Errorf("the prepare its node paused shows %+v; want running, paused on its node", shown)
+		t.Errorf("the read-through its node paused shows %+v; want running, paused on its node", shown)
 	}
 }
 

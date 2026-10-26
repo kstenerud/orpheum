@@ -13,7 +13,7 @@ import (
 )
 
 // Playing is not starved (D324 §5): a node that encodes in software and holds a played encode, a
-// run of chunks or a prepare a person waits on, is given no other encode; and while its played
+// run of chunks a person waits on, is given no other encode; and while its played
 // encode is behind playback (HoldBackFor), it is given nothing that is not played. A film played as
 // it is, remuxed, or encoded on a GPU leaves the CPU free, and work runs beside it.
 

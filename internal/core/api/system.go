@@ -16,7 +16,6 @@ import (
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/core/library"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
-	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/build"
 	"github.com/kstenerud/orpheum/internal/platform/diskspace"
@@ -233,8 +232,6 @@ type SystemNodeBody struct {
 	PreparedUsage *PreparedBody `json:"preparedUsage,omitempty"`
 	// Disks are the filesystems its roots and prepared directory are on.
 	Disks []DiskBody `json:"disks"`
-	// RecentPrepares are its latest finished prepares, newest first, each with what made it.
-	RecentPrepares []FinishedPrepareBody `json:"recentPrepares"`
 	// Devices are what its roots and prepared directory are on, with how many may read each at once
 	// (D240 §5); none while it is not connected.
 	Devices []NodeDeviceBody `json:"devices"`
@@ -308,21 +305,6 @@ type PreparedBody struct {
 	BudgetBytes          int64 `json:"budgetBytes"`
 	DiskUsedPercent      int   `json:"diskUsedPercent"`
 	DiskUsedLimitPercent int   `json:"diskUsedLimitPercent"`
-}
-
-// FinishedPrepareBody is one finished prepare: its file, how it ended, what made its video and how
-// fast.
-type FinishedPrepareBody struct {
-	SourceFileID int64  `json:"sourceFileId"`
-	Path         string `doc:"Empty when the library no longer has the file" json:"path"`
-	// Profile is what was made; State how it ended.
-	Profile        string  `enum:"remux,h264" json:"profile"`
-	State          string  `enum:"complete,failed" json:"state"`
-	VideoEncoder   string  `doc:"the encoder that made the video, or copy for a remux" json:"videoEncoder,omitempty"`
-	RealtimeFactor float64 `doc:"Seconds of the source prepared per second of running" json:"realtimeFactor,omitempty"`
-	SizeBytes      int64   `json:"sizeBytes,omitempty"`
-	Failure        string  `json:"failure,omitempty"`
-	FinishedAt     int64   `doc:"Unix milliseconds" json:"finishedAt"`
 }
 
 func (server *Server) registerSystem() {
@@ -428,7 +410,7 @@ func (server *Server) systemNode(
 ) (SystemNodeBody, error) {
 	body := SystemNodeBody{
 		Name: node.Name, Confinement: []ConfinementBody{}, Disks: []DiskBody{},
-		RecentPrepares: []FinishedPrepareBody{}, Devices: []NodeDeviceBody{}, Stuck: []StuckBody{},
+		Devices: []NodeDeviceBody{}, Stuck: []StuckBody{},
 	}
 	devices, err := dependencies.NodeReports.DeviceStates(ctx, node.ID)
 	if err != nil {
@@ -449,10 +431,6 @@ func (server *Server) systemNode(
 	facts, found := dependencies.NodeReports.Facts(node.Name)
 	if !found {
 		return body, nil
-	}
-	body.RecentPrepares, err = finishedPrepares(ctx, dependencies, facts.NodeID)
-	if err != nil {
-		return body, server.playbackError(ctx, "list a node's prepares", err)
 	}
 	fillNodeFacts(&body, facts, dependencies.System.Build)
 	if body.Work != nil && dependencies.NodeWork != nil {
@@ -591,26 +569,6 @@ func hardwareBody(hardware nodeproto.Hardware) *HardwareBody {
 		body.Trials = append(body.Trials, EncoderTrialBody{Encoder: trial.Encoder, Failure: trial.Failure})
 	}
 	return body
-}
-
-func finishedPrepares(ctx context.Context, dependencies *Dependencies, nodeID int64) ([]FinishedPrepareBody, error) {
-	maxPrepares, err := dependencies.Settings.Int(ctx, settings.SystemPageRecentPreparesPerNode)
-	if err != nil {
-		return nil, fmt.Errorf("read system_page_recent_prepares_per_node: %w", err)
-	}
-	finished, err := dependencies.Renditions.FinishedPrepares(ctx, nodeID, int(maxPrepares))
-	if err != nil {
-		return nil, fmt.Errorf("list node %d's prepares: %w", nodeID, err)
-	}
-	bodies := make([]FinishedPrepareBody, 0, len(finished))
-	for _, prepare := range finished {
-		bodies = append(bodies, FinishedPrepareBody{
-			SourceFileID: prepare.SourceFileID, Path: prepare.Path, Profile: prepare.Profile, State: prepare.State,
-			VideoEncoder: prepare.VideoEncoder, RealtimeFactor: prepare.RealtimeFactor, SizeBytes: prepare.SizeBytes,
-			Failure: prepare.Failure, FinishedAt: prepare.FinishedAt.UnixMilli(),
-		})
-	}
-	return bodies, nil
 }
 
 // nodeBuildFinding is whether a node runs the server's own build: a node on another release, or a

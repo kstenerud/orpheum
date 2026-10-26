@@ -144,7 +144,7 @@ func TestSweeps_TheDerivedWorkSweepsRunAsTheirSettingSays(t *testing.T) {
 }
 
 // Every kind runs one at a time: a handler gives its work to a node and answers at once, and the
-// core holds each node to its slots and devices (D234 §7, D240 §5), so a second person's prepare is
+// core holds each node to its slots and devices (D234 §7, D240 §5), so a second person's run is
 // not held behind the first's.
 func TestRunners_EveryKindRunsOneAtATime(t *testing.T) {
 	t.Parallel()

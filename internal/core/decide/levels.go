@@ -3,7 +3,6 @@
 package decide
 
 import (
-	"encoding/json"
 	"math"
 
 	"github.com/kstenerud/orpheum/internal/nodeproto"
@@ -82,7 +81,7 @@ func DirectLevelling(levels Levels, probe nodeproto.Probe) Levelling {
 }
 
 // StereoLevelling is the levelling of a file's audio track, by its place among its audio tracks, as
-// stereo: what a prepared rendition's sound is brought to (D226 §4); none for a place it lacks.
+// stereo: what a converted sound is brought to (D226 §4); none for a place it lacks.
 func StereoLevelling(levels Levels, probe nodeproto.Probe, audioTrackIndex int) Levelling {
 	indexes := AudioStreamIndexes(probe)
 	if audioTrackIndex >= len(indexes) {
@@ -91,8 +90,8 @@ func StereoLevelling(levels Levels, probe nodeproto.Probe, audioTrackIndex int) 
 	return levels[SoundKey{int64(indexes[audioTrackIndex]), MixStereo}]
 }
 
-// AudioStreams are a file's audio tracks, in order: a track's place among them is how a prepare and
-// a playback's audio renditions name it.
+// AudioStreams are a file's audio tracks, in order: a track's place among them is how a run of its
+// sound's chunks and a playback's sounds name it.
 func AudioStreams(probe nodeproto.Probe) []nodeproto.ProbeStream {
 	var tracks []nodeproto.ProbeStream
 	for _, stream := range probe.Streams {
@@ -112,26 +111,11 @@ func AudioStreamIndexes(probe nodeproto.Probe) []int {
 	return indexes
 }
 
-// LevelPrepare puts each audio track's levelling gain into a prepare's command, and returns them as
-// its rendition records them (D226 §4). A track not measured yet carries none.
-func LevelPrepare(command *nodeproto.Prepare, levels Levels, probe nodeproto.Probe) string {
-	for index := range command.AudioTracks {
-		track := &command.AudioTracks[index]
+// LevelSounds puts each audio track's levelling gain into the track, the gain its sound's chunks
+// carry (D226 §4). A track not measured yet carries none.
+func LevelSounds(tracks []nodeproto.SoundTrack, levels Levels, probe nodeproto.Probe) {
+	for index := range tracks {
+		track := &tracks[index]
 		track.CarriedGainDB = StereoLevelling(levels, probe, track.AudioTrackIndex).GainDB
 	}
-	return CarriedGainsJSON(command.AudioTracks)
-}
-
-// CarriedGainsJSON are the gains a prepare puts in its audio tracks, by their place, as a rendition
-// records them (D226 §4).
-func CarriedGainsJSON(tracks []nodeproto.PrepareAudio) string {
-	gains := make([]float64, 0, len(tracks))
-	for _, track := range tracks {
-		gains = append(gains, track.CarriedGainDB)
-	}
-	encoded, err := json.Marshal(gains)
-	if err != nil {
-		return "[]"
-	}
-	return string(encoded)
 }

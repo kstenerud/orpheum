@@ -37,35 +37,10 @@ describe("levelling a film's loudness (D226)", () => {
     expect(addedGainDb(unmeasured, true)).toBe(0);
   });
 
-  it("levels a prepared copy by the playing track's mix, and the original by its main track", () => {
-    const direct: Parameters<typeof soundLevelOf>[0] = {
-      delivery: "direct",
-      levelling: { isMeasured: true, gainDb: -4.2 },
-    };
-    expect(soundLevelOf(direct, undefined)).toEqual({
+  it("levels the original by its main track, which carries no gain of its own", () => {
+    expect(soundLevelOf({ levelling: { isMeasured: true, gainDb: -4.2 } })).toEqual({
       levelling: { isMeasured: true, gainDb: -4.2 },
       carriedGainDb: 0,
-    });
-    const mix = (audioTrackIndex: number, gainDb: number, isDialogueBoosted = false) => ({
-      audioTrackIndex,
-      language: "en",
-      isDialogueBoosted,
-      levelling: { isMeasured: true, gainDb },
-      carriedGainDb: gainDb,
-    });
-    const hls: Parameters<typeof soundLevelOf>[0] = {
-      delivery: "hls",
-      levelling: { isMeasured: true, gainDb: 1 },
-      audioRenditions: [mix(0, 5), mix(0, 9, true), mix(1, 3)],
-    };
-    expect(soundLevelOf(hls, 0)).toEqual({
-      levelling: { isMeasured: true, gainDb: 5 },
-      carriedGainDb: 5,
-    });
-    // Another track chosen is levelled by its own mix (D230 §5).
-    expect(soundLevelOf(hls, 1)).toEqual({
-      levelling: { isMeasured: true, gainDb: 3 },
-      carriedGainDb: 3,
     });
   });
 

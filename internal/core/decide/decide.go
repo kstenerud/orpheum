@@ -8,7 +8,7 @@ import (
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 )
 
-// Delivery is how a file plays: its own bytes, or a prepared HLS rendition. It is the decision's
+// Delivery is how a file plays: its own bytes, or converted, as HLS on its ladder of chunks. It is the decision's
 // answer, and the person's override of it.
 type Delivery string
 
@@ -24,7 +24,7 @@ func Deliveries() []Delivery {
 	return []Delivery{Direct, HLS}
 }
 
-// Profile is a prepared rendition's recipe (cut-a §6).
+// Profile is how a converted film's picture is converted: copied (remux) or to H.264 (cut-a §6).
 type Profile string
 
 // The profiles: the video copied, or re-encoded to H.264 at about 8 Mb/s. Both carry the audio
@@ -49,7 +49,7 @@ const (
 	// the server makes the mix that raises its centre (D222, D336 §2).
 	ReasonDialogueBoost Reason = "dialogue_boost"
 	// ReasonAudioTrack is an audio track a person chose that is not the one the original starts with:
-	// a browser plays the original's first, and a prepared copy carries every track (D217 §3, D230).
+	// a browser plays the original's first, and a film converted carries every track (D217 §3, D230).
 	ReasonAudioTrack Reason = "audio_track"
 	ReasonUserChoice Reason = "user_choice"
 )
@@ -60,7 +60,7 @@ type Input struct {
 	Probe           nodeproto.Probe
 	PlayableFormats PlayableFormats
 	// PreferredDelivery is a person's override of the decision (web-client.md: playback is never a
-	// black box): Direct plays the original whatever it holds, HLS prepares a rendition, and empty
+	// black box): Direct plays the original whatever it holds, HLS converts it on its ladder, and empty
 	// leaves the decision its own.
 	PreferredDelivery Delivery
 	// IsDialogueBoostOn is whether the person plays with the dialogue boost (D83): a sound of more
@@ -83,7 +83,8 @@ type Decision struct {
 }
 
 // Decide resolves cut-a §6's first question, whether the original plays as it is, and when it
-// does not, which profile prepares it. Whether a rendition already exists is the caller's.
+// does not, which profile converts it: its own picture copied (remux) or not decoded (h264), on
+// its ladder (D344 §1).
 func Decide(input Input) Decision {
 	if input.PreferredDelivery == Direct {
 		return Decision{Delivery: Direct}

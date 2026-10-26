@@ -222,7 +222,7 @@ ORDER BY s.bytes_file <> s.video_file, s.stream_index, f.path;
 
 -- name: ListAudioTracksOfVideo :many
 -- A video's own audio tracks in the order of their stream indexes, which is their place among
--- them, as a prepare numbers them: what a person chooses a language from (D230).
+-- them, as a run of chunks numbers them: what a person chooses a language from (D230).
 SELECT id, stream_index, language, container_title, disposition_flags
 FROM stream
 WHERE video_file = sqlc.arg(video_file) AND bytes_file = video_file AND kind = 'audio'
@@ -250,10 +250,6 @@ VALUES (sqlc.arg(bytes_file), sqlc.arg(video_file), NULL, 'subtitle', sqlc.arg(c
 UPDATE stream SET video_file = sqlc.arg(video_file), codec = sqlc.arg(codec), container_language = sqlc.arg(container_language),
   language = sqlc.arg(language), disposition_flags = sqlc.arg(disposition_flags)
 WHERE id = sqlc.arg(id);
-
--- name: GetFilePath :one
--- A file's path, removed or not, to name it where it was worked on (the System page, D225).
-SELECT path FROM file WHERE id = ?;
 
 -- name: GetFileForSubtitleSearch :one
 -- A live video, what finds subtitles made for it (D224 section 3): its OpenSubtitles hash, and the
