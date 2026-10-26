@@ -14,8 +14,9 @@
 //   - Starts no process except through internal/node/execx. Enforced by the depguard rule exec-
 //     only-in-execx and TestArch_OnlyExecxImportsOsExec.
 //
-//   - A video is read only as a local file, and a sidecar's bytes and the ASS reach FFmpeg only
-//     on a pipe, with every other protocol refused. Enforced by
+//   - A video is read by the file: protocol only, or, when the node streams the film, by the
+//     fdproxy protocol only, given no path (execx.Film, D330), and a sidecar's bytes and the ASS
+//     reach FFmpeg only on a pipe, with every other protocol refused. Enforced by
 //     TestExtract_FFmpegReadsOnlyTheFileOrThePipeItIsGiven.
 //
 //   - An embedded track and a sidecar each come out as ASS and as the WebVTT of that ASS.

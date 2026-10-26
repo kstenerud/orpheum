@@ -21,8 +21,9 @@
 //   - Starts no process except through internal/node/execx. Enforced by the depguard rule exec-
 //     only-in-execx and TestArch_OnlyExecxImportsOsExec.
 //
-//   - The video is read only as a local file, with every other protocol refused, and each sound
-//     is measured through its own named filter, the stereo mix being prepare's own. Enforced by
+//   - The video is read by the file: protocol only, or, when the node streams the film, by the
+//     fdproxy protocol only, given no path (execx.Film, D330), with every other protocol refused,
+//     and each sound is measured through its own named filter, the stereo mix being prepare's own. Enforced by
 //     TestRead_ReadsOnlyTheFileAndMeasuresEachSoundByName.
 //
 //   - The timeline is read from the one read that measures the sound, by the picture's stream
