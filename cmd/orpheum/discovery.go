@@ -56,7 +56,7 @@ func discoveryParts(
 	mapped *portmap.Service, logger *slog.Logger,
 ) discovery.Parts {
 	return discovery.Parts{
-		Files: opened.directories, Settings: opened.settings, HTTP: opened.jobServices.outboundClient,
+		Files: opened.directories, Settings: opened.settings, HTTP: opened.outboundClient,
 		Clock:  clock.System{},
 		Logger: logger, Version: thisBuild().Version, APIMajor: apiMajor,
 		Candidates: heartbeatCandidates(config, mapped.Candidates),
@@ -68,7 +68,7 @@ func discoveryParts(
 		// realm sign-ins it passes on (D297 §3).
 		RealmSignIn: opened.auth.TakeRealmSignIn, OnRealm: opened.auth.SetRealm,
 		TURN: relayForFound(newRelayIssuer(config, opened, logger), logger), ProbeNonce: opened.reachability.ProbeNonce,
-		HasCertificate: opened.jobServices.certificates.hasDiscoveryCertificate,
+		HasCertificate: opened.certificates.hasDiscoveryCertificate,
 	}
 }
 
@@ -154,7 +154,7 @@ func openReachedFromOutside(
 	if err != nil {
 		return opened, err
 	}
-	served := opened.jobServices.certificates
+	served := opened.certificates
 	var discovered *discovery.Service
 	onClaimed := func(ctx context.Context) {
 		if useErr := served.useDiscoveryName(discovered.Status().CertificateName()); useErr != nil {
@@ -182,7 +182,7 @@ func openReachedFromOutside(
 	rtc.UseICEServers(func() []webrtc.ICEServer {
 		return iceServersFor(config.WebRTC.STUNServers, discovered.Status().ICEServers)
 	})
-	opened.jobServices.discovery, opened.jobServices.portMapping = discovered, mapped
+	opened.discovery, opened.portMapping = discovered, mapped
 	served.discoveryParts.DNS = discovered
 	if useErr := served.useDiscoveryName(discovered.Status().CertificateName()); useErr != nil {
 		return opened, useErr
@@ -228,7 +228,7 @@ func portMappingParts(
 	config Config, opened openedServices, standing func() discovery.Status, logger *slog.Logger,
 ) portmap.Parts {
 	return portmap.Parts{
-		Settings: opened.settings, HTTP: opened.jobServices.outboundClient, Clock: clock.System{}, Logger: logger,
+		Settings: opened.settings, HTTP: opened.outboundClient, Clock: clock.System{}, Logger: logger,
 		Port: httpsPort(config),
 		IsWanted: func(ctx context.Context) bool {
 			if !standing().IsPublished() {

@@ -31,8 +31,10 @@ tables:
   library/clean.go, probe ("hostile bytes stop here"). It is a real seam with its own gates
   (forbidigo `[reveal]`, `core-no-image`).
 - **PERSIST, storage custody**: store, instancedir. The design treats this as a layer, not a feature.
-- **COMPOSE, composition and lifecycle**: cmd/orpheum wiring. The node supervisor went in the jobs
-  rebuild's Phase 4a: the node is a service of its own (D233 §2, D235 §4).
+- **COMPOSE, composition and lifecycle**: cmd/orpheum, the composition root, which reads the outside
+  world and runs the lifecycle, and internal/core/assembly, which assembles the core's services for
+  it and for the tests (D351). The node supervisor went in the jobs rebuild's Phase 4a: the node is a
+  service of its own (D233 §2, D235 §4).
 - **PRIM, shared primitives**: platform/{clock,slogx,errs,ptr,randbytes,readonly}.
 
 Test support packages are listed as TEST.
@@ -46,7 +48,8 @@ is the evidence. The first column names each package by its path; the check read
 
 | Package | Resp. | Second job(s) |
 | --- | --- | --- |
-| `cmd/orpheum` | COMPOSE | ⚑ R8 scheduling: the seventeen sweeps it registers with the queue (`jobServices.sweeps`, metadata.go; D231 §3), a runner per kind each ticking every second, and loops of its own beside them (`startBackgroundLoops` and `startUpkeep`, metadata.go): `demoteUnwanted` (every 5 s), the interest raiser's (5 s), `pruneFinished` (hourly), the silence watch it ticks (`Exchanges.Watch`), `maintainArtworkCache` (artwork.go), the sessions' uses written in batches, and the playback's upload watch and share (2026-10-26). ⚑ PERSIST: makes an instance's layout and config (instance.go, D242 §4). ⚑ OPS: a whole offline doctor, doctor.go |
+| `cmd/orpheum` | COMPOSE (the root: argv, environment, config, files, lifecycle; D351) | ⚑ R8 scheduling: the runners and sweeps the assembly makes (`assembly.Services`, D231 §3), each runner ticking every second, the sweeps on their loop, and loops of its own beside them (`startBackgroundLoops` and `startUpkeep`, metadata.go): `demoteUnwanted` (every 5 s), the interest raiser's (5 s), `pruneFinished` (hourly), the silence watch it ticks (`Exchanges.Watch`), `maintainArtworkCache` (artwork.go), the sessions' uses written in batches, and the playback's upload watch and share (2026-10-26). ⚑ PERSIST: makes an instance's layout and config (instance.go, D242 §4). ⚑ OPS: a whole offline doctor, doctor.go |
+| `internal/core/assembly` | COMPOSE (the core's services, assembled; D351) | ⚑ R8: the jobs table, each kind's runner and the sweeps that derive the work (jobs.go; D231 §3) |
 | `internal/deployment` | OPS | — (writes a deployment's directory from its values file: the compose file, the configs, the tunnel's keys; `orpheum write-deployment` runs it in the image, D272 §3) |
 | `internal/core/api` | R9 | ⚑ R4: relays bytes (relayDirect playback.go:206, relayHLSFile :234) and serves art (art.go:51) and subtitles (subtitle.go:104). ⚑ OPS: doctor.go, system.go:270 measures disks. The doc admits the relay job |
 | `internal/core/artwork` | R3 (derived artwork store) | ⚑ R1: fetches its images (retry.go), through the image server's provider service since 2026-09-30, which replaced its own breaker. ⚑ R4: serves images (serve.go). ⚑ R8: cache sweep (ceiling.go). The one writer of `artwork` and owner of the image vocabulary since 2026-09-30 (F5); it imports no identify |
@@ -153,7 +156,7 @@ is the evidence. The first column names each package by its path; the check read
 | Waiting for a node's word on a job | nodes (`Exchanges.Watch`), subtitles | `subtitles.convertWhileWaiting` (fetch.go:265) times its person's wait with its own timer at the node-silence limit, beside the exchange's own silence watch. Two clocks on one silence; watch |
 | Doctor findings | cmd/orpheum, api | **Fixed 2026-10-04 (F7):** one `api.Verdict` (`ok`, `warn`, `fail`), which the command's findings use too and print with a failure in capitals. Was: cmd/orpheum/doctor.go's own `verdict` (`FAIL`) against api/doctor.go's strings (`fail`) |
 | Writing `file` | library, identify | **Fixed 2026-09-30:** library writes it alone; identify files through `library.FileAs` and `library.PutInVersion`. Was: library/observe.go:184 `UpdateFileFilingAndLastSeen`; identify/match.go:407 and titles.go:166 `SetFileFiling`; pass.go:367 `SetFileVersionAndIdentifiedPath` |
-| Writing `artwork` | identify, artwork | **Fixed 2026-09-30:** the artwork service writes it alone (artwork/images.go); identify reports the images it found and the server's wiring hands them over (cmd/orpheum/artwork.go). Was: identify/match.go:284, localart.go:128, refresh.go:239; artwork/service.go:377,384 |
+| Writing `artwork` | identify, artwork | **Fixed 2026-09-30:** the artwork service writes it alone (artwork/images.go); identify reports the images it found and the server's wiring hands them over (internal/core/assembly/artwork.go, D351). Was: identify/match.go:284, localart.go:128, refresh.go:239; artwork/service.go:377,384 |
 | A person's or device's choices | preferences (`preference`); auth (`device.audio_output`) | **Fixed 2026-09-30:** a person's choices live only in internal/core/preferences, and `setting` lost its unused `user` scope and `/me/settings`; how a device makes sound stays on its row, a fact about its speakers. Was: playback/preferences.go:140-170; auth/devices.go:74; settings/settings.go:249 |
 | The admin's tunables | config file, `setting` | cmd/orpheum/config.go:101-160 holds starting values in code (prepared_budget_gib, probe_timeout_seconds …); settings/registry.go holds D200 settings. The node's status cadence, once a config key coupled in prose to node_silent_after_seconds, is derived from it by the core since 2026-10-21 |
 | Media-request authentication | api ×2 spellings | **Fixed 2026-09-30:** `requireSignedInForMedia` returns the principal and signs every byte path in. Was: media_cookie.go:47, and the same steps inline at playback.go:209, :240 and subtitle.go:122 |
@@ -239,7 +242,7 @@ these crosses the core–node seam, and `TestArch_EachTableHasOneWritingPackage`
 to one writer whichever package calls it.
 
 **Fetching (R1).** Clean. All outbound HTTP goes through the one client `outbound.NewClient`
-makes (forbidigo `[outbound]`), built in cmd/orpheum/metadata.go. The metadata and subtitle
+makes (forbidigo `[outbound]`), built in internal/core/assembly/assembly.go (D351). The metadata and subtitle
 providers and Cloudflare's DNS (providers/cloudflare/client.go) read through `Exchange`; the
 failure policy is unified since 2026-09-30: each such host is a provider service
 (internal/core/providers) owning its health, rate, quota and credentials, and a host that is down

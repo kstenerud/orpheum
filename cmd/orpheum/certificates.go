@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/assembly"
 	"github.com/kstenerud/orpheum/internal/core/certificate"
 	"github.com/kstenerud/orpheum/internal/core/jobs"
 	"github.com/kstenerud/orpheum/internal/platform/clock"
@@ -31,10 +32,6 @@ type servedCertificates struct {
 	// Guarded by mutex: onServable is told once there is a certificate to serve; nil tells nothing.
 	onServable func()
 }
-
-// errNoPublicName is a renewal asked of a server with no name to hold a certificate for.
-var errNoPublicName = errors.New("the server has no public name (https.domain) and no discovery, " +
-	"so no certificate to renew")
 
 // all are the certificates the server holds.
 func (served *servedCertificates) all() []*certificate.Service {
@@ -163,7 +160,7 @@ func (served *servedCertificates) QueueRenewal(ctx context.Context) (int, error)
 func (served *servedCertificates) HandleRenew(ctx context.Context, job jobs.Job) error {
 	held := served.all()
 	if len(held) == 0 {
-		return jobs.MarkPermanent(errNoPublicName)
+		return jobs.MarkPermanent(assembly.ErrNoPublicName)
 	}
 	var retried, permanent []error
 	for _, each := range held {

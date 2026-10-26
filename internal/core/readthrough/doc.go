@@ -60,7 +60,7 @@
 //     read-through whose job gave up otherwise, refused, unanswered or out of attempts, keeps
 //     nothing, so the next sweep asks again (D244 §1, D233 §10).
 //     TestRunners_EveryKindsWorkIsDerivedByASweepOrAskedForByAPlayAndItsOwnFailureIsAFact
-//     (cmd/orpheum).
+//     (internal/core/assembly).
 //
 //   - It is the one writer of loudness and video_timeline. Enforced by
 //     TestArch_EachTableHasOneWritingPackage.

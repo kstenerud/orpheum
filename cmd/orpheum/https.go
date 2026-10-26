@@ -44,19 +44,19 @@ func openCertificates(
 ) (openedServices, error) {
 	parts := certificate.Parts{
 		Contact: config.HTTPS.Contact, DirectoryURL: config.HTTPS.ACMEDirectory,
-		HTTP: opened.jobServices.outboundClient, Files: opened.directories, Queue: opened.jobServices.queue,
+		HTTP: opened.outboundClient, Files: opened.directories, Queue: opened.queue,
 		Clock: clock.System{}, Settings: opened.settings, Logger: logger,
 	}
 	parts.PropagationWait = propagationWaitOf(outside.waitsForDNS, opened.settings, logger)
 	served := &servedCertificates{discoveryParts: parts}
-	opened.jobServices.certificates = served
+	opened.certificates = served
 	if !config.HTTPS.isOn() {
 		return opened, nil
 	}
 	own := parts
 	own.Domain = config.HTTPS.Domain
 	own.DNS = certificate.CloudflareDNS(
-		cloudflare.New(opened.jobServices.outboundClient, outside.cloudflareBaseURL, opened.secrets))
+		cloudflare.New(opened.outboundClient, outside.cloudflareBaseURL, opened.secrets))
 	service, err := certificate.New(own)
 	if err != nil {
 		return opened, err
@@ -120,7 +120,7 @@ func listenForClients(ctx context.Context, server ServerConfig, logger *slog.Log
 func listenAndServeHTTPS(
 	ctx context.Context, config Config, opened openedServices, handler http.Handler, logger *slog.Logger,
 ) (func() error, error) {
-	served := opened.jobServices.certificates
+	served := opened.certificates
 	listen := func() (func() error, error) {
 		listener, err := listenForMedia(ctx, config.HTTPS.Listen, logger)
 		if err != nil {

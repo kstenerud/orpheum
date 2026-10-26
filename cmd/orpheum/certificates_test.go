@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kstenerud/orpheum/internal/core/assembly"
 	"github.com/kstenerud/orpheum/internal/core/certificate"
 	"github.com/kstenerud/orpheum/internal/core/certificate/certificatetest"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
@@ -147,7 +148,7 @@ func TestServedCertificates_NoNameAndNoDiscoveryHaveNothingToRenew(t *testing.T)
 	t.Parallel()
 	served := &servedCertificates{}
 	err := served.HandleRenew(t.Context(), jobs.Job{Kind: jobs.KindRenewCertificate})
-	if !errors.Is(err, errNoPublicName) || !jobs.IsMarkedPermanent(err) {
+	if !errors.Is(err, assembly.ErrNoPublicName) || !jobs.IsMarkedPermanent(err) {
 		t.Errorf("a renewal with nothing to renew = %v; want errNoPublicName, asking no retry", err)
 	}
 }
