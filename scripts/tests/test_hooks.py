@@ -77,6 +77,49 @@ class PreEdit(unittest.TestCase):
         self.assertEqual(self.edit("../elsewhere/Makefile"), "")
 
 
+class Worktrees(unittest.TestCase):
+    """An agent's worktree, at .claude/worktrees/<name>/ inside the project, is judged from its own
+    root; a repository made inside the project is not a worktree, and its files stay judged from the
+    project's (hooklib.root_of; 2026-10-26)."""
+
+    def setUp(self) -> None:
+        import shutil
+        import tempfile
+        self.project = Path(tempfile.mkdtemp(prefix="hooks-worktrees-"))
+        self.addCleanup(shutil.rmtree, self.project)
+        shutil.copytree(ROOT / "scripts", self.project / "scripts", ignore=shutil.ignore_patterns("__pycache__"))
+        git = ["git", "-C", str(self.project), "-c", "user.name=t", "-c", "user.email=t@t"]
+        subprocess.run([*git, "init", "-q"], check=True, env=os.environ | HERMETIC)
+        subprocess.run([*git, "add", "scripts"], check=True, env=os.environ | HERMETIC)
+        subprocess.run([*git, "commit", "-q", "-m", "x", "--no-verify"], check=True, env=os.environ | HERMETIC)
+        self.tree = self.project / ".claude" / "worktrees" / "agent"
+        subprocess.run([*git, "worktree", "add", "-q", str(self.tree)], check=True, env=os.environ | HERMETIC)
+
+    def edit(self, path: Path) -> str:
+        return decision(run_hook("pre_edit.py", {"tool_name": "Edit", "tool_input": {"file_path": str(path)}},
+                                 CLAUDE_PROJECT_DIR=str(self.project)))
+
+    def test_a_worktrees_files_are_judged_from_its_own_root(self):
+        self.assertEqual(self.edit(self.tree / "internal" / "x.go"), "")
+        self.assertEqual(self.edit(self.tree / "scripts" / "check_docs.py"), "deny")
+
+    def test_a_repository_made_inside_the_project_is_no_way_round_a_gate(self):
+        subprocess.run(["git", "init", "-q", str(self.project / "scripts")], check=True, env=os.environ | HERMETIC)
+        self.assertEqual(self.edit(self.project / "scripts" / "check_docs.py"), "deny")
+
+    def test_a_worktrees_edit_owes_its_own_gate_not_the_projects(self):
+        run_hook("post_edit.py", {"tool_input": {"file_path": str(self.tree / "internal" / "x.go")}},
+                 CLAUDE_PROJECT_DIR=str(self.project))
+        self.assertTrue((self.tree / ".claude" / ".cache" / "check-pending-code").exists())
+        self.assertFalse((self.project / ".claude" / ".cache" / "check-pending-code").exists())
+
+    def test_a_shell_write_into_a_worktrees_gate_is_refused(self):
+        target = self.tree / "scripts" / "check_docs.py"
+        result = run_hook("pre_bash.py", {"tool_input": {"command": f"echo x > {target}"}},
+                          CLAUDE_PROJECT_DIR=str(self.project))
+        self.assertEqual(decision(result), "deny")
+
+
 class PreBash(unittest.TestCase):
     def bash(self, command: str, **env: str) -> str:
         return decision(run_hook("pre_bash.py", {"tool_name": "Bash",

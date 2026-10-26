@@ -12,7 +12,11 @@ def main() -> None:
     event = hooklib.read_event()
     tool_input = event.get("tool_input") or {}
     path = tool_input.get("file_path") or tool_input.get("notebook_path") or ""
-    rel = relative(str(path), hooklib.ROOT) if path else None
+    if not path:
+        return
+    # The checkout the file is in: ROOT, or an agent's worktree of the same repository (hooklib.root_of).
+    root = hooklib.root_of(path)
+    rel = relative(str(path), root)
     if rel is None:
         return
     if is_generated(rel):
@@ -20,7 +24,7 @@ def main() -> None:
             f"{rel} is generated. Edit its source (queries/*.sql, the handlers, package.json) "
             "and run `make generate` or the package manager instead."
         )
-    elif is_committed_migration(rel, hooklib.ROOT):
+    elif is_committed_migration(rel, root):
         hooklib.deny(
             f"{rel} is a committed migration, and migrations are append-only (D181). "
             "Add the next numbered migration instead. Until migrations are live (D228), a schema "

@@ -113,3 +113,20 @@ class CpuShare(unittest.TestCase):
         finally:
             revert_red_commands.CPU_SHARE = old
         self.assertEqual(done.args, ["true"])
+
+    def test_the_run_takes_the_probes_share_of_the_cpus(self) -> None:
+        """run_whole_group hands every command to revert_red_commands.shared with the probe's share."""
+        seen: list[tuple[list[str], int | None]] = []
+        real, old = revert_red_commands.shared, revert_red_commands.CPU_SHARE
+
+        def recording(command: list[str], env: dict[str, str] | None,
+                      share: int | None) -> tuple[list[str], dict[str, str] | None]:
+            seen.append((command, share))
+            return real(command, env, share)
+
+        revert_red_commands.shared, revert_red_commands.CPU_SHARE = recording, 3
+        try:
+            run_whole_group(["true"], tempfile.gettempdir(), 10)
+        finally:
+            revert_red_commands.shared, revert_red_commands.CPU_SHARE = real, old
+        self.assertEqual(seen, [(["true"], 3)])
