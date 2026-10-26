@@ -95,6 +95,10 @@ it("shows the session's controls the moment they open, having asked for them as 
   const sign = mounted.container.querySelector<HTMLButtonElement>(
     '[aria-label="Watch Together is on: its controls"]',
   );
+  // The controls' code, asked for as the sign appeared, is here by the time a person presses it.
+  await act(async () => {
+    await vi.dynamicImportSettled();
+  });
   // Opened, before the server answers again: what it asked for as the sign appeared shows at once.
   act(() => {
     sign?.click();

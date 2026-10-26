@@ -2,7 +2,7 @@
 
 import "./status-tray.css";
 
-import { lazy, Suspense, useState, type JSX } from "react";
+import { createElement, useEffect, useState, type JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Link } from "./link.tsx";
@@ -56,13 +56,28 @@ export function TogetherIcon(): JSX.Element {
 }
 
 /**
- * Watch Together's controls, whose code loads as the tray first opens them: with them, the player's
- * volume, and hls.js with it, was in the script every page loaded before it drew (the audit of
- * 2026-10-25, W1).
+ * Watch Together's controls, whose code loads as the sign appears, not with every page: with them,
+ * the player's volume, and hls.js with it, was in the script every page loaded before it drew (the
+ * audit of 2026-10-25, W1). Asked for with the sign, they show the moment the tray opens, as the
+ * session's details do (the owner, 2026-10-12).
  */
-const WatchTogetherControls = lazy(async () => ({
-  default: (await import("./watch-together.tsx")).WatchTogetherControls,
-}));
+type Controls = () => JSX.Element;
+
+function useControlsCode(): Controls | undefined {
+  const [controls, setControls] = useState<{ readonly shown: Controls } | undefined>(undefined);
+  useEffect(() => {
+    let isCurrent = true;
+    void import("./watch-together.tsx").then((loaded) => {
+      if (isCurrent) {
+        setControls({ shown: loaded.WatchTogetherControls });
+      }
+    });
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
+  return controls?.shown;
+}
 
 /**
  * The Watch Together sign, which opens the session's controls over whatever screen is shown: a
@@ -74,6 +89,7 @@ function TogetherStatus(): JSX.Element {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   usePrefetchedHostedDetails();
+  const WatchTogetherControls = useControlsCode();
   const close = (): void => {
     setIsOpen(false);
   };
@@ -103,9 +119,11 @@ function TogetherStatus(): JSX.Element {
               {t("status.close")}
             </button>
           </div>
-          <Suspense fallback={<p>{t("common.loading")}</p>}>
-            <WatchTogetherControls />
-          </Suspense>
+          {WatchTogetherControls === undefined ? (
+            <p>{t("common.loading")}</p>
+          ) : (
+            createElement(WatchTogetherControls)
+          )}
         </ModalDialog>
       ) : null}
     </div>
