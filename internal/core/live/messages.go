@@ -11,6 +11,8 @@ const (
 	MessageHello MessageType = "live"
 	// MessagePing keeps it open, as the session socket's pings do (clientPingEvery).
 	MessagePing MessageType = "ping"
+	// MessageFront says the device's tab came to the front, or went behind (D338 §2).
+	MessageFront MessageType = "front"
 )
 
 // The messages the server sends.
@@ -33,6 +35,9 @@ type Inbound struct {
 	Client string `json:"client,omitempty"`
 	// TMono is a ping's monotonic time, which its pong carries back.
 	TMono int64 `json:"tMono,omitempty"`
+	// IsBehind, in a hello or a front message, is whether the tab is behind another, hidden, rather
+	// than in front, where a cast to the device goes (D338 §2).
+	IsBehind bool `json:"behind,omitempty"`
 }
 
 // Outbound is one message the server sends.
@@ -40,6 +45,9 @@ type Outbound struct {
 	Type MessageType `json:"type"`
 	// DeviceIDs are a devices message's: the person's devices connected now, this one among them.
 	DeviceIDs []int64 `json:"deviceIds,omitempty"`
+	// InFrontDeviceIDs are a devices message's: those of DeviceIDs with an Orpheum tab in front,
+	// which a cast can go to (D338 §2).
+	InFrontDeviceIDs []int64 `json:"inFrontDeviceIds,omitempty"`
 	// Receive is a receive message's cast.
 	Receive *Receive `json:"receive,omitempty"`
 	// TMono is a pong's: its ping's.

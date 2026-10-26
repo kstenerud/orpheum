@@ -282,7 +282,7 @@ func castBodyOf(cast live.Cast, thisDeviceID int64, credential string) CastBody 
 // castError is the answer to a cast the registry refused.
 func castError(err error) error {
 	switch {
-	case errors.Is(err, live.ErrNotConnected):
+	case errors.Is(err, live.ErrNotConnected), errors.Is(err, live.ErrNotInFront):
 		return newError(http.StatusConflict, CodeConflict, err.Error())
 	case errors.Is(err, live.ErrToItself):
 		return invalidRequestAt(http.StatusUnprocessableEntity, "body.toDeviceId", err.Error())

@@ -9,11 +9,14 @@
   ([D337](../../decisions/working-notes.md#d337--casting-starts-with-a-persons-own-signed-in-devices-one-chosen-from-those-connected-now-plays-the-film-the-one-that-cast-becomes-its-remote-and-either-may-take-control-back)),
   then, the same day, accepted every recommendation in §9, the control channel included (§3: A,
   through Watch Together's hub, with a presence socket for presence and the hand-off). §8's steps
-  are being built in order.
+  are being built in order. After the first build the owner changed six things on 2026-10-26
+  ([D338](../../decisions/working-notes.md#d338--a-cast-goes-to-the-devices-tab-in-front-its-receiver-keeps-a-televisions-controls-and-leaves-by-back-or-a-double-ok-and-stop-casting-returns-it-to-the-page-it-was-on)): Stop casting sends the receiver back to the page it was on; the tab in front receives;
+  a member is the person, on a device per role; the receiver keeps a television's controls; and
+  Back, or OK twice, leaves controlled mode. §1, §4–§6 and §11 say it as it is now.
 - **Depends on:** [closed-beta.md](closed-beta.md) (B5, the living room: TV sign-in by code, voice
   on a second device), [tv-device-tests.md](tv-device-tests.md) (what Silk and TV Bro let a page
   hear).
-- **Governing decisions:** D337; [D88](../../decisions/working-notes.md#d88--casting-is-remote-control-of-another-client-which-is-watch-together-with-a-group-of-one)
+- **Governing decisions:** D337 and D338; [D88](../../decisions/working-notes.md#d88--casting-is-remote-control-of-another-client-which-is-watch-together-with-a-group-of-one)
   (casting is Watch Together with a group of one);
   [D120](../../decisions/working-notes.md#d120--a-participant-is-a-person-devices-attach-to-them-with-roles-and-the-cap-counts-people)
   and [D124](../../decisions/working-notes.md#d124--the-playback-role-may-be-a-cast-receiver-and-for-a-guest-that-is-the-best-path-the-phone-controls-it-does-not-relay)
@@ -46,15 +49,18 @@
 1. On a device playing a film (§9 Q1 asks where else), they choose **Cast to another device**.
 2. A page lists their **other devices open and connected now**, on any page: each by its name and
    when it was last used. A device signed in but closed is not listed.
-3. They choose one. **That device plays the film full screen** from where the sender stood, with a
-   brief "Controlled from ‹sender device›" that fades, and nothing else on screen.
+3. They choose one. **That device's Orpheum tab in front plays the film full screen** from where the
+   sender stood, with a television's player controls and a brief "Controlled from ‹sender device›"
+   that fades (D338 §5). A device with no Orpheum tab in front is listed as such, and a cast to it
+   asks for one to be brought to the front (D338 §2).
 4. **The sender becomes a remote**: play and pause, the timeline and seeking, subtitles, sound and
    the dialogue boost, volume. It plays nothing. In Watch Together it keeps the voice call.
-5. **On the receiver**, any key or tap shows **Take back control**; one more press takes it, and
-   the receiver is an ordinary player again. Back on a Fire TV does the same (§6.1). The receiver's
-   own remote, keyboard and media keys work all along (§6.4).
+5. **On the receiver**, Back, or OK (or a tap) twice, leaves controlled mode, and the receiver is an
+   ordinary player again, playing on (D338 §6; §6.1). Every other press works its own controls, and
+   its remote, keyboard and media keys work all along (§6.4).
 6. **Casting again from another of the person's devices takes over** at once; the earlier sender is
-   told. If the sender goes away, the receiver plays on.
+   told. If the sender goes away, the receiver plays on. **Stop casting** on the sender sends the
+   receiver back to the page it showed before the cast (D338 §1).
 
 ## 2. What exists to reuse
 
@@ -113,9 +119,20 @@ general socket of a signed-in device; that refactor is not needed for the first 
   audio track, boost, volume). The receiver asks for its own playback (`POST /playback`), so it gets
   the rendition its own browser can play (D2, D124), starts at the sender's position, and takes the
   sender's choices as its own for this playback.
-- **The look.** The film fills the window, no controls and no title; "Controlled from ‹sender
-  device›" fades after a few seconds. The page composes `PlayView` with its composition's
-  `hasControls` off (`film-player.tsx`'s `FilmComposition`).
+- **The look.** The film fills the window with a television's player controls over it (D338 §5:
+  *"the controlled device would have only the fullscreen controls"*) and no title; "Controlled from
+  ‹sender device› · Back, or OK twice, to take control here" fades after a few seconds. The Play
+  page composes `PlayView` as on a television, whatever the device: the browser's controls off and
+  `tv-controls.tsx`'s overlay with Up next over the film.
+- **Which tab.** A device's Orpheum tab in front receives: each page's presence socket says, in its
+  hello and as it changes, whether its tab is in front (`visibilitychange`), and of several the one
+  that came to the front last receives. A device with none in front is listed in "Cast to" with
+  *Open, but no Orpheum tab is in front*, and the core refuses a cast to it (409), which the list
+  words as a request to bring an Orpheum tab to the front there (D338 §2).
+- **Where it goes back to.** As a cast takes a tab over, the page it showed is kept in the tab's
+  storage; a cast that replaces it, or the same cast handed again after a reload, keeps the first.
+  Stop casting, and a film's end with nothing after it, send the receiver back there (home when none
+  was kept); leaving controlled mode on the receiver forgets it and plays on (D338 §1, §6).
 - **Full screen and sound without a press are not given.** The Fullscreen API needs a recent user
   activation, and a browser may refuse to start sound without one (iPhone Safari does:
   [idiosyncrasies](../../idiosyncrasies.md#iphone-safari-refuses-a-films-sound-that-no-recent-tap-started-and-a-tap-long-before-does-not-count)).
@@ -134,8 +151,8 @@ general socket of a signed-in device; that refactor is not needed for the first 
 
 - **What it shows:** the film's title and poster, play and pause, the timeline with the position
   and seeking, back and forward by a step, subtitles, the audio track, sound (the boost, D336 §2),
-  volume, and **Stop casting**, which ends receiving and offers to play here from the receiver's
-  position (§9 Q5).
+  volume, and **Stop casting**, which ends receiving, sends the receiver back to the page it was on
+  (D338 §1), and offers to play here from the receiver's position (§9 Q5).
 - **Its state comes from the receiver**, never from its own guess: the timeline is drawn from what
   the receiver last said and moved on by the clock between, as a Watch Together follower's view of
   the group is. A change the receiver made itself (§6.4) shows within a second.
@@ -148,14 +165,22 @@ general socket of a signed-in device; that refactor is not needed for the first 
 
 ### 6.1 Taking control back
 
-- Any key that reaches the page, or a tap or click, shows **Take back control** with the sender's
-  name; a second press confirms; a few seconds without one hides it again.
+D338 §6 replaced the first build's two presses (any key raising *Take back control*, a second
+confirming it): *"pressing back or double-pressing select inside the controlled device's view exits
+controlled mode."*
+
+- **Back** leaves at once: the input layer's `back` command (Escape, a browser's Back key, a
+  controller's back button), heard on `window` before anything on the page, so the TV overlay never
+  takes it to hide itself.
+- **OK twice**, or a tap or click twice, within 500 ms (`doublePressWithinMs`, the desktop
+  double-click default) leaves. The first press does what one press does, opening the TV overlay or
+  pressing what has focus; the second is taken from the page. A click a key made (`detail` 0), or one
+  within 100 ms after an OK, is that OK's own and not a second press.
 - **Fire TV's Back:** in Silk, Back is never a key: each press steps the page's history once, in
   either navigation mode (lab results `Q5JAAP2N`, `HSH4M2QQ`, `BHJ6AJ7I`; idiosyncrasies, Silk on
-  Fire TV). The receiver mode pushes a history entry as it starts and treats a `popstate` as a
-  press, pushing the entry again so the confirming Back is caught too. In spatial mode OK arrives
-  as `Enter`; in pointer mode no arrow and no OK key reaches the page, and OK presumably clicks
-  where the pointer is, which counts as a tap: UNVERIFIED, part of step 6's VQ.
+  Fire TV). The receiver mode pushes a history entry as it starts and treats a `popstate` as Back.
+  In spatial mode OK arrives as `Enter`; in pointer mode no arrow and no OK key reaches the page,
+  and OK presumably clicks where the pointer is, which counts as a tap: UNVERIFIED, VQ65.
 - Taken back, the receiver keeps playing as an ordinary Play page, its controls shown, and the
   sender's remote says "‹receiver› took control back" (§9 Q5 for what it then offers).
 
@@ -184,8 +209,8 @@ position standing still (D136):
   own remote is by the D-pad, which reaches the page only in Silk's spatial mode.
 - **Elsewhere**: Media Session's `play`, `pause` and, where offered, `seekbackward`, `seekforward`
   and `seekto`; `watchMediaSession` handles only the first two today.
-- **A keyboard**: space and the arrows, while no prompt is up; any other key raises the take-back
-  prompt.
+- **A keyboard and the remote's D-pad** work the television overlay as on any TV Play page
+  (`tv-controls.tsx`): Left and Right seek, OK and Up and Down open it; Escape is Back (§6.1).
 - **Volume** from the TV's own remote changes the TV's output, which the page cannot see; only the
   page's own film volume is reported.
 
@@ -313,25 +338,42 @@ Where this plan was silent, the build assumed, each the plan's lean or the small
 1. **The presence socket is the session socket's address with a hello of its own** (`live`), so it
    travels wherever that socket does, directly, over WebRTC and through a discovery's loader, with
    nothing new in the transports (§3 left the address open).
-2. **The remote is the cast's voice device**: a device with no player (D120's voice role), which the
-   group never waits for, rather than a role of its own; in Watch Together it is the one that talks.
-3. **A receive goes to the receiver's newest connection**: of a device's several tabs, one receives;
-   another is handed the cast only once that one is gone (§4's reload).
+2. **The remote is the cast's control panel with voice**: a device with no player, which the group
+   never waits for; in Watch Together it is the one that talks. **D338 §4 named it**: a member is
+   the person, on a device per role, and the roles are the video viewer (`video`, the receiver) and
+   the control panel with voice (`panel`, the remote), with `both` for one device in both; the hub's
+   roles, once `playback` and `voice`, carry those names. The hub does not refuse a second device in
+   one role (a page loaded again overlaps its old socket until that one is gone).
+3. ~~A receive goes to the receiver's newest connection.~~ **Replaced by D338 §2**: the tab in
+   front receives, the one that came to the front last; a device with none is refused, and the "Cast
+   to" list says so (§4, Which tab). A cast none holds, its tab gone, goes to the tab in front, or
+   the next to come to the front. A tab that holds a cast keeps it when it goes behind.
 4. **A sender controls one receiver**: casting to another ends its earlier cast, whose receiver is
    told it stopped (D337 §6 says one controller per receiver; the reverse was open).
-5. **Stop casting pauses the receiver** and leaves it an ordinary player, rather than sending it home.
+5. ~~Stop casting pauses the receiver.~~ **Replaced by D338 §1**: Stop casting sends the receiver
+   back to the page it showed before the cast took it over (§4, Where it goes back to).
 6. **The receiver plays at once** even when the sender was paused.
 7. **At the film's end the receiver ends the cast and goes home** (§9 Q4's second half): the player
    plays no next episode by itself yet, so "as the sender would" is nothing; once it does, the
    receiver should follow it. **It now does** (2026-10-26, [up-next.md](up-next.md) §8): the
    receiver shows its Up next and, by the person's autoplay, moves the cast on to the next episode
    (`POST /me/casts/{id}/next`), handed to it again in the same cast; the remote offers *Up next*
-   and follows; with none it goes home as before.
+   and follows; with none it ends the cast and, since D338 §1, goes back to the page it showed
+   before the cast rather than home (read as the owner's *"Leaving cast mode should return the
+   controlled device back to whatever page it was showing"*).
 8. **Play here from ‹position›** opens the film's Play page, which starts where the server kept the
    person's position: the receiver's last report, at most a report interval behind what it says.
 9. **A replaced remote is told another device controls the receiver**, without naming it.
 10. **The remote shows the title and its length, no poster**, from the file the cast plays.
-11. **Casting is not offered while the tab hosts Watch Together**, until step 8.
-12. **Presses on the receiver:** with no prompt up, play/pause, rewind, fast forward and Left and
-    Right are the player's own (§6.4), and any other key, a tap or Back raises the prompt; with it
-    up, OK, a tap or Back takes control, and an arrow does nothing.
+11. **Casting is not offered while the tab hosts Watch Together**, until step 8; the owner kept it
+    so, *"fine for now"* (D338 §3).
+12. ~~Presses on the receiver raise a take-back prompt.~~ **Replaced by D338 §5, §6**: the
+    receiver has a television's controls, every press but Back and a double OK is theirs, and Back,
+    or OK or a tap twice within 500 ms, leaves controlled mode (§6.1). The first press of a double
+    OK does what one OK does (opens the overlay, or presses the focused control, play or pause
+    among them) before the second leaves: the smallest step, which no delay on every OK costs.
+13. **Built for D338** (2026-10-26): the presence socket's `behind` in the hello and its `front`
+    message, the devices message's `inFrontDeviceIds`, `ErrNotInFront`
+    (`internal/core/live/registry.go`); the receiver's controlled mode (`cast-receiver.tsx`'s
+    `ControlledMode`), the page it goes back to (`cast-return.ts`), and the TV composition for a
+    receiver (`play.tsx`). Device checks: VQ64–VQ66 and VQ68 as revised, and VQ71.

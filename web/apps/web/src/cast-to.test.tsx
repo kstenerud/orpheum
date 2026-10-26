@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { tabStorage } from "./browser-storage.ts";
 import { isNotedSending, noteSending } from "./cast.ts";
+import { castReturnKey } from "./cast-return.ts";
 import { CastToDevice, PlayOrSendOn } from "./cast-to.tsx";
 import { LiveProvider, useLive } from "./live.tsx";
 import {
@@ -15,6 +16,7 @@ import {
   buttonWithText,
   click,
   mount,
+  refusal,
   servedBy,
   type Heard,
   type Mounted,
@@ -46,6 +48,22 @@ function Receiving(): JSX.Element {
 function ReceivingFile(): JSX.Element {
   const { receiving } = useLive();
   return <p>{receiving === undefined ? "" : `receiving file ${String(receiving.fileId)}`}</p>;
+}
+
+/** What the receiver shows, and its two ways out, as children of the provider. */
+function Leaving(): JSX.Element {
+  const { receiving, endReceiving, leaveReceiving } = useLive();
+  return (
+    <>
+      <p>{receiving === undefined ? "" : `receiving cast ${String(receiving.castId)}`}</p>
+      <button type="button" onClick={leaveReceiving}>
+        leave
+      </button>
+      <button type="button" onClick={endReceiving}>
+        take back
+      </button>
+    </>
+  );
 }
 
 describe("Cast to another device (D337 §1, §2)", () => {
@@ -118,6 +136,66 @@ describe("Cast to another device (D337 §1, §2)", () => {
       "None of your other devices has Orpheum open now",
     );
   });
+
+  it("says a device has no Orpheum tab in front, and a cast to it is refused with what to do (D338 §2)", async () => {
+    const services = servedBy(
+      {
+        "GET /me/devices": [
+          200,
+          { devices: [device(1, "Laptop", true), device(2, "Fire TV"), device(3, "Pixel")] },
+        ],
+        "POST /me/casts": refusal(409, "conflict"),
+      },
+      [],
+      "token",
+    );
+    const server = fakeTogetherServer();
+    mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <CastToDevice fileId={4} positionMs={() => undefined} />
+        </LiveProvider>,
+        { ...services, openTogetherSocket: server.openSocket },
+      ),
+    );
+    await server.accept();
+    await server.say({ type: "devices", deviceIds: [1, 2, 3], inFrontDeviceIds: [1, 3] });
+    await click(buttonWithText(mounted.container, "Cast to another device"));
+    const items = [...mounted.container.querySelectorAll(".cast-to__devices li")].map(
+      (item) => item.textContent,
+    );
+    expect(items[0]).toContain("no Orpheum tab is in front");
+    expect(items[1]).toContain("Open now");
+    await click(buttonWithText(mounted.container, "Fire TV"));
+    expect(mounted.container.querySelector("[role=alert]")?.textContent).toBe(
+      "Fire TV has no Orpheum tab in front. Bring an Orpheum tab to the front on it, then cast again.",
+    );
+  });
+
+  it("says in its hello and as the tab moves whether its tab is in front (D338 §2)", async () => {
+    const services = servedBy({}, [], "token");
+    const server = fakeTogetherServer();
+    let visibility: DocumentVisibilityState = "hidden";
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => visibility,
+    });
+    try {
+      mounted = await mount(
+        withServices(<LiveProvider>{null}</LiveProvider>, {
+          ...services,
+          openTogetherSocket: server.openSocket,
+        }),
+      );
+      await server.accept();
+      expect(server.heard[0]).toEqual({ type: "live", sessionToken: "token", behind: true });
+      visibility = "visible";
+      document.dispatchEvent(new Event("visibilitychange"));
+      expect(server.heard.at(-1)).toEqual({ type: "front" });
+    } finally {
+      delete (document as { visibilityState?: unknown }).visibilityState;
+    }
+  });
 });
 
 describe("the page's live connection (D337 §2, §4)", () => {
@@ -152,6 +230,57 @@ describe("the page's live connection (D337 §2, §4)", () => {
     });
     expect(mounted.container.textContent).toContain("receiving cast 5");
     expect(services.navigation.route()).toEqual({ screen: "play", fileId: 7 });
+  });
+
+  it("goes back to the page a cast took it over from as casting ends there, through a cast that replaced it (D338 §1)", async () => {
+    const services = servedBy({}, [], "token");
+    const before = services.navigation.route();
+    expect(before.screen).not.toBe("play");
+    const server = fakeTogetherServer();
+    mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <Leaving />
+        </LiveProvider>,
+        { ...services, openTogetherSocket: server.openSocket },
+      ),
+    );
+    await server.accept();
+    const handed = {
+      castId: 5,
+      membershipCredential: "cast",
+      fileId: 7,
+      fromDeviceId: 2,
+      fromDeviceName: "Pixel",
+    };
+    await server.say({ type: "receive", receive: handed });
+    await server.say({ type: "receive", receive: { ...handed, castId: 6, fileId: 9 } });
+    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 9 });
+    await click(buttonWithText(mounted.container, "leave"));
+    expect(services.navigation.route()).toEqual(before);
+    expect(mounted.container.textContent).not.toContain("receiving");
+    expect(tabStorage().getItem(castReturnKey)).toBeNull();
+  });
+
+  it("stays on the film, forgetting the page before, as its control is taken back here (D338 §6)", async () => {
+    const services = servedBy({}, [], "token");
+    const server = fakeTogetherServer();
+    mounted = await mount(
+      withServices(
+        <LiveProvider>
+          <Leaving />
+        </LiveProvider>,
+        { ...services, openTogetherSocket: server.openSocket },
+      ),
+    );
+    await server.accept();
+    await server.say({
+      type: "receive",
+      receive: { castId: 5, membershipCredential: "c", fileId: 7, fromDeviceId: 2 },
+    });
+    await click(buttonWithText(mounted.container, "take back"));
+    expect(services.navigation.route()).toEqual({ screen: "play", fileId: 7 });
+    expect(tabStorage().getItem(castReturnKey)).toBeNull();
   });
 
   it("plays the next episode when the same cast is handed again with it (plans/up-next.md)", async () => {

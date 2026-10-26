@@ -6,7 +6,14 @@ import "./i18n.ts";
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { CastReceiver, castNoteShownMs, moveOnOrGoHome, TakeBackPrompt } from "./cast-receiver.tsx";
+import {
+  CastReceiver,
+  castNoteShownMs,
+  ControlledMode,
+  doublePressWithinMs,
+  moveOnOrLeave,
+} from "./cast-receiver.tsx";
+import { onCommand } from "./input-commands.ts";
 import { mount, refusal, servedBy, type Heard, type Mounted } from "./test-dom.tsx";
 import { testServices, withServices } from "./test-services.tsx";
 import { fakeTogetherServer, type FakeTogetherServer } from "./test-together.ts";
@@ -20,12 +27,16 @@ function press(key: string, keyCode = 0): KeyboardEvent {
   return event;
 }
 
-/** The take-back prompt's button, if it shows. */
-function takeBackButton(mounted: Mounted): HTMLButtonElement | null {
-  return mounted.container.querySelector(".cast-receiver__take-back");
+/** Clicks the page as a tap does: a click with a count, which a key's never has. */
+function tap(): void {
+  act(() => {
+    document.body.dispatchEvent(
+      new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 }),
+    );
+  });
 }
 
-describe("the receiver's take-back (D337 §4)", () => {
+describe("the receiver's controlled mode (D338 §6)", () => {
   let mounted: Mounted | undefined;
   afterEach(() => {
     mounted?.unmount();
@@ -33,75 +44,96 @@ describe("the receiver's take-back (D337 §4)", () => {
     vi.useRealTimers();
   });
 
-  it("says who controls it, and lets the line fade", async () => {
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+  /** A receiver's controlled mode, and what it was told of leaving. */
+  async function controlled(
+    services = testServices("token", "/play/3"),
+  ): Promise<{ readonly mounted: Mounted; readonly onLeave: ReturnType<typeof vi.fn> }> {
+    const onLeave = vi.fn();
     mounted = await mount(
-      withServices(<TakeBackPrompt fromName="Pixel" onTakeBack={() => undefined} />),
+      withServices(<ControlledMode fromName="Pixel" onTakeBack={onLeave} />, services),
     );
-    expect(mounted.container.textContent).toContain("Controlled from Pixel");
+    return { mounted, onLeave };
+  }
+
+  it("says who controls it and how to leave, and lets the line fade", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+    const shown = await controlled();
+    expect(shown.mounted.container.textContent).toContain(
+      "Controlled from Pixel · Back, or OK twice, to take control here",
+    );
     act(() => {
       vi.advanceTimersByTime(castNoteShownMs);
     });
-    expect(mounted.container.textContent).not.toContain("Controlled from Pixel");
+    expect(shown.mounted.container.textContent).not.toContain("Controlled from Pixel");
   });
 
-  it("shows Take back control at OK, and takes it at a second OK", async () => {
-    const onTakeBack = vi.fn();
-    mounted = await mount(
-      withServices(<TakeBackPrompt fromName="Pixel" onTakeBack={onTakeBack} />),
-    );
-    expect(takeBackButton(mounted)).toBeNull();
-    press("Enter");
-    expect(takeBackButton(mounted)).not.toBeNull();
-    expect(onTakeBack).not.toHaveBeenCalled();
-    press("Enter");
-    expect(onTakeBack).toHaveBeenCalledOnce();
+  it("leaves at Back, before anything else on the page hears it", async () => {
+    const { onLeave } = await controlled();
+    const heard = vi.fn();
+    const stop = onCommand(document, heard, { isCapture: true });
+    const back = press("Escape");
+    stop();
+    expect(onLeave).toHaveBeenCalledOnce();
+    expect(back.defaultPrevented).toBe(true);
+    expect(heard).not.toHaveBeenCalled();
   });
 
-  it("leaves the media keys to the player, raising nothing", async () => {
-    const onTakeBack = vi.fn();
-    mounted = await mount(
-      withServices(<TakeBackPrompt fromName="Pixel" onTakeBack={onTakeBack} />),
-    );
-    press("MediaPlayPause", 179);
-    press("ArrowRight");
-    expect(takeBackButton(mounted)).toBeNull();
-  });
-
-  it("hears Back, a Fire TV's history step, as a press, and keeps its entry for the next", async () => {
-    const onTakeBack = vi.fn();
+  it("leaves at a Fire TV's Back, a step back from the entry it keeps", async () => {
     const services = testServices("token", "/play/3");
     const pushed = vi.spyOn(services.navigation, "go");
-    mounted = await mount(
-      withServices(<TakeBackPrompt fromName="Pixel" onTakeBack={onTakeBack} />, services),
-    );
+    const { onLeave } = await controlled(services);
     expect(pushed).toHaveBeenCalledWith({ screen: "play", fileId: 3 });
     act(() => {
       window.dispatchEvent(new PopStateEvent("popstate"));
     });
-    expect(takeBackButton(mounted)).not.toBeNull();
-    act(() => {
-      window.dispatchEvent(new PopStateEvent("popstate"));
-    });
-    expect(onTakeBack).toHaveBeenCalledOnce();
-    expect(pushed).toHaveBeenCalledTimes(3);
+    expect(onLeave).toHaveBeenCalledOnce();
   });
 
-  it("hears a tap as a press, and hides the prompt again when no second one comes", async () => {
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
-    const onTakeBack = vi.fn();
-    mounted = await mount(
-      withServices(<TakeBackPrompt fromName="Pixel" onTakeBack={onTakeBack} />),
-    );
+  it("leaves at OK pressed twice within the window, and leaves one OK to the player", async () => {
+    vi.useFakeTimers({ toFake: ["performance"] });
+    const { onLeave } = await controlled();
+    const heard = vi.fn();
+    const stop = onCommand(document, heard, { isCapture: true });
+    press("Enter");
+    vi.advanceTimersByTime(doublePressWithinMs + 1);
+    press("Enter");
+    expect(onLeave).not.toHaveBeenCalled();
+    expect(heard).toHaveBeenCalledTimes(2); // each the player's own
+    vi.advanceTimersByTime(doublePressWithinMs - 1);
+    const second = press("Enter");
+    stop();
+    expect(onLeave).toHaveBeenCalledOnce();
+    expect(second.defaultPrevented).toBe(true);
+  });
+
+  it("leaves every other key to the player", async () => {
+    const { onLeave } = await controlled();
+    for (const [key, keyCode] of [
+      ["MediaPlayPause", 179],
+      ["ArrowRight", 39],
+      ["ArrowUp", 38],
+    ] as const) {
+      expect(press(key, keyCode).defaultPrevented).toBe(false);
+    }
+    expect(onLeave).not.toHaveBeenCalled();
+  });
+
+  it("leaves at a tap twice, counting no click a key made nor the click following OK", async () => {
+    vi.useFakeTimers({ toFake: ["performance"] });
+    const { onLeave } = await controlled();
     act(() => {
-      document.body.click();
+      document.body.click(); // a key's click: no count
     });
-    expect(takeBackButton(mounted)).not.toBeNull();
-    act(() => {
-      vi.advanceTimersByTime(castNoteShownMs);
-    });
-    expect(takeBackButton(mounted)).toBeNull();
-    expect(onTakeBack).not.toHaveBeenCalled();
+    tap();
+    vi.advanceTimersByTime(doublePressWithinMs + 1);
+    press("Enter");
+    tap(); // OK's own click, the same press
+    vi.advanceTimersByTime(doublePressWithinMs + 1);
+    tap();
+    expect(onLeave).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(doublePressWithinMs - 1);
+    tap();
+    expect(onLeave).toHaveBeenCalledOnce();
   });
 });
 
@@ -146,6 +178,7 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
     readonly heard: Heard[];
     readonly services: ReturnType<typeof servedBy>;
     readonly onOver: ReturnType<typeof vi.fn>;
+    readonly onLeave: ReturnType<typeof vi.fn>;
   }> {
     const heard: Heard[] = [];
     const services = servedBy(answers, heard, "token");
@@ -153,10 +186,11 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
     const video = document.createElement("video");
     document.body.append(video);
     const onOver = vi.fn();
+    const onLeave = vi.fn();
     mounted = await mount(
       withServices(
         <CastReceiver
-          receiving={{ cast, onOver }}
+          receiving={{ cast, onOver, onLeave }}
           fileId={4}
           video={video}
           startPositionMs={0}
@@ -166,7 +200,7 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
       ),
     );
     await server.accept();
-    return { server, video, heard, services, onOver };
+    return { server, video, heard, services, onOver, onLeave };
   }
 
   it("leads its session of one from where the sender stood", async () => {
@@ -187,24 +221,40 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
     );
   });
 
-  it("pauses and plays on as an ordinary player when the remote stops casting", async () => {
-    const { server, video, onOver } = await receiver();
-    const pause = vi.spyOn(video, "pause").mockImplementation(() => undefined);
+  it("goes back to the page it was on before the cast when the remote stops casting (D338 §1)", async () => {
+    const { server, onOver, onLeave } = await receiver();
     await server.say(welcome);
     await server.say({ type: "ended", reason: "stopped" });
-    expect(pause).toHaveBeenCalled();
-    expect(onOver).toHaveBeenCalledOnce();
-  });
-
-  it("goes on receiving when another cast replaces this one", async () => {
-    const { server, onOver } = await receiver();
-    await server.say(welcome);
-    await server.say({ type: "ended", reason: "replaced" });
+    expect(onLeave).toHaveBeenCalledOnce();
     expect(onOver).not.toHaveBeenCalled();
   });
 
-  it("ends the cast at the film's end and goes home, the remote told", async () => {
-    const { server, video, heard, services, onOver } = await receiver({
+  it("plays on here, the remote told, when its control is taken back here (D338 §6)", async () => {
+    const { server, heard, onOver, onLeave } = await receiver({
+      "POST /me/casts/9/end": [200, { positionMs: 61_000, isPlaying: true }],
+    });
+    await server.say(welcome);
+    press("Escape");
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/end")?.body).toEqual({
+      reason: "takenBack",
+    });
+    expect(onOver).toHaveBeenCalledOnce();
+    expect(onLeave).not.toHaveBeenCalled();
+  });
+
+  it("goes on receiving when another cast replaces this one", async () => {
+    const { server, onOver, onLeave } = await receiver();
+    await server.say(welcome);
+    await server.say({ type: "ended", reason: "replaced" });
+    expect(onOver).not.toHaveBeenCalled();
+    expect(onLeave).not.toHaveBeenCalled();
+  });
+
+  it("ends the cast at the film's end and goes back to the page it was on, the remote told", async () => {
+    const { server, video, heard, onLeave } = await receiver({
       "POST /me/casts/9/end": [200, { positionMs: 600_000, isPlaying: false }],
     });
     await server.say(welcome);
@@ -215,12 +265,11 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
     expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/end")?.body).toEqual({
       reason: "filmEnded",
     });
-    expect(onOver).toHaveBeenCalledOnce();
-    expect(services.navigation.route()).toEqual({ screen: "home" });
+    expect(onLeave).toHaveBeenCalledOnce();
   });
 
   it("leaves its film's end to Up next where an episode plays next (plans/up-next.md)", async () => {
-    const { server, video, heard, onOver } = await receiver({}, true);
+    const { server, video, heard, onOver, onLeave } = await receiver({}, true);
     await server.say(welcome);
     await act(async () => {
       video.dispatchEvent(new Event("ended"));
@@ -228,6 +277,7 @@ describe("the receiver of a cast (D337 §3, §7; §9 Q4)", () => {
     });
     expect(heard.some((each) => each.methodAndPath === "POST /me/casts/9/end")).toBe(false);
     expect(onOver).not.toHaveBeenCalled();
+    expect(onLeave).not.toHaveBeenCalled();
   });
 });
 
@@ -235,16 +285,16 @@ describe("a receiver's Up next (plans/up-next.md; D337's §9 answers, Q4)", () =
   it("moves the cast on to the next episode, which the server hands it again", async () => {
     const heard: Heard[] = [];
     const services = servedBy({ "POST /me/casts/9/next": [200, { castId: 9, fileId: 5 }] }, heard);
-    const onOver = vi.fn();
+    const onLeave = vi.fn();
     await act(async () => {
-      moveOnOrGoHome(services.api, services.navigation, { cast, onOver });
+      moveOnOrLeave(services.api, { cast, onOver: vi.fn(), onLeave });
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     expect(heard.map((each) => each.methodAndPath)).toEqual(["POST /me/casts/9/next"]);
-    expect(onOver).not.toHaveBeenCalled();
+    expect(onLeave).not.toHaveBeenCalled();
   });
 
-  it("ends the cast and goes home, the remote told, where it cannot move on", async () => {
+  it("ends the cast and goes back to the page it was on, the remote told, where it cannot move on", async () => {
     const heard: Heard[] = [];
     const services = servedBy(
       {
@@ -253,9 +303,9 @@ describe("a receiver's Up next (plans/up-next.md; D337's §9 answers, Q4)", () =
       },
       heard,
     );
-    const onOver = vi.fn();
+    const onLeave = vi.fn();
     await act(async () => {
-      moveOnOrGoHome(services.api, services.navigation, { cast, onOver });
+      moveOnOrLeave(services.api, { cast, onOver: vi.fn(), onLeave });
       for (let turn = 0; turn < 5; turn += 1) {
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
@@ -263,7 +313,6 @@ describe("a receiver's Up next (plans/up-next.md; D337's §9 answers, Q4)", () =
     expect(heard.find((each) => each.methodAndPath === "POST /me/casts/9/end")?.body).toEqual({
       reason: "filmEnded",
     });
-    expect(onOver).toHaveBeenCalledOnce();
-    expect(services.navigation.route()).toEqual({ screen: "home" });
+    expect(onLeave).toHaveBeenCalledOnce();
   });
 });

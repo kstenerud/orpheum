@@ -45,19 +45,24 @@ The web client: the browser and phone interface, served embedded by the core. MP
   page is only the host's playback, black while nothing plays, with nothing asked of their speakers
   (D336 §4), voice, their own volume and Leave; the link's secret leaves
   the address once used. `src/together-viewer.test.tsx`.
-- **A person casts only to their own devices open now, and the receiver shows the film and nothing
-  else** (D337; plans/cast-to-device.md): every signed-in page holds a live connection
-  (`src/live.tsx`), and a cast handed to it opens the film's Play page, which leads the cast's session
-  of one from where the sender stood, fills the window and shows only a fading *Controlled from*
-  line; its media keys and seeks stay its own; any other key, a tap or Back (a Fire TV's history
-  step) shows *Take back control*, and a second takes it; stopped by the remote it pauses, replaced it
-  goes on; at the film's end it shows its Up next, which counts down by the person's autoplay and
-  moves the cast on to the next episode in the same cast, handed to it again, else it goes home
-  (plans/up-next.md). *Cast to another device* lists the person's other devices
-  open now, by name and last use, and is not offered while the tab hosts Watch Together; the remote
-  (`/casting`) holds no player, commands the receiver, offers its film's *Up next*, follows the
-  receiver to the next episode, and once the cast is over says why with *Play here from*. `src/cast-to.test.tsx`, `src/cast-receiver.test.tsx`, `src/cast-remote.test.tsx`; on
-  devices, VQ64–VQ66 and VQ68.
+- **A person casts only to their own devices open now, to the tab in front there, and the receiver
+  keeps a television's controls** (D337, D338; plans/cast-to-device.md): every signed-in page holds a
+  live connection (`src/live.tsx`) that says whether its tab is in front, and a cast handed to it
+  opens the film's Play page, noting the page it took the tab over from; the page leads the cast's
+  session of one from where the sender stood, fills the window and shows a television's player
+  controls and a fading *Controlled from* line; its controls, media keys and seeks stay its own;
+  Back (a Fire TV's history step too), or OK or a tap twice within 500 ms, leaves controlled mode,
+  the film playing on here and the remote told; stopped by the remote it goes back to the page it
+  was on before the cast, replaced it goes on; at the film's end it shows its Up next, which counts
+  down by the person's autoplay and moves the cast on to the next episode in the same cast, handed
+  to it again, else it goes back to that page too (plans/up-next.md). *Cast to another device*
+  lists the person's other devices open now, by name and last use, says of one with no Orpheum tab
+  in front that one must be brought to the front, and is not offered while the tab hosts Watch
+  Together; the remote (`/casting`) holds no player, commands the receiver, offers its film's *Up
+  next*, follows the receiver to the next episode, and once the cast is over says why with *Play
+  here from*. `src/cast-to.test.tsx`, `src/cast-receiver.test.tsx`, `src/cast-return.test.ts`,
+  `src/cast-remote.test.tsx`; on
+  devices, VQ64–VQ66, VQ68 and VQ71.
 - **Voice starts only from Talk**, the press the microphone needs, on the viewer's page and with
   the host's player; then mute, Leave voice and the partner's volume, apart from the film's; a
   microphone that cannot open says why. `src/together-voice.test.tsx`.

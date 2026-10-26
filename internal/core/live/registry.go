@@ -17,6 +17,8 @@ var (
 	ErrToItself = errors.New("a device cannot cast to itself")
 	// ErrNoCast is a cast that is not, or no longer, one of the device's.
 	ErrNoCast = errors.New("no such cast")
+	// ErrNotInFront is a cast to a device connected now on which no Orpheum tab is in front (D338 §2).
+	ErrNotInFront = errors.New("that device has no Orpheum tab in front")
 )
 
 // Credential mints another credential for a cast's session, for a receiver loaded again: the hub's
@@ -56,6 +58,8 @@ type Registry struct {
 	mutex  sync.Mutex
 	people map[int64]*person // by user; guarded by mutex
 	lastID int64             // the last connection id given; guarded by mutex
+	// fronts counts the connections that came to the front, ordering them; guarded by mutex.
+	fronts int64
 }
 
 // person is one person's live connections and the casts between their devices.
@@ -70,6 +74,9 @@ type connection struct {
 	id       int64
 	deviceID int64
 	send     Sender
+	// frontSince orders the connections in front: the registry's count as this one last came to the
+	// front, or 0 while its tab is behind another (D338 §2).
+	frontSince int64
 }
 
 // heldCast is a cast and the connection its receiver was handed it on, 0 while none holds it.
@@ -83,10 +90,11 @@ func NewRegistry(credential Credential) *Registry {
 	return &Registry{credential: credential, people: map[int64]*person{}}
 }
 
-// Connect registers a connection of userID's device deviceID, sending to send: it is told the
-// person's devices connected now, and so is every other connection of theirs when that changes; a
-// cast to the device that no connection holds is handed to it.
-func (registry *Registry) Connect(userID, deviceID int64, send Sender) Connection {
+// Connect registers a connection of userID's device deviceID, its tab in front or behind (isInFront),
+// sending to send: it is told the person's devices connected now and those in front, and so is every
+// other connection of theirs when that changes; a cast to the device that no connection holds is
+// handed to it if it is in front (D338 §2).
+func (registry *Registry) Connect(userID, deviceID int64, isInFront bool, send Sender) Connection {
 	registry.mutex.Lock()
 	defer registry.mutex.Unlock()
 	owner := registry.people[userID]
@@ -94,19 +102,48 @@ func (registry *Registry) Connect(userID, deviceID int64, send Sender) Connectio
 		owner = &person{connections: map[int64]*connection{}, casts: map[int64]*heldCast{}}
 		registry.people[userID] = owner
 	}
-	wasConnected := owner.isConnected(deviceID)
+	wasConnected, wasInFront := owner.isConnected(deviceID), owner.isInFront(deviceID)
 	registry.lastID++
 	opened := &connection{id: registry.lastID, deviceID: deviceID, send: send}
+	if isInFront {
+		registry.fronts++
+		opened.frontSince = registry.fronts
+	}
 	owner.connections[opened.id] = opened
-	if wasConnected {
+	if wasConnected && wasInFront == owner.isInFront(deviceID) {
 		send(owner.devicesMessage())
 	} else {
 		owner.tellDevices()
 	}
-	if held := owner.casts[deviceID]; held != nil && held.heldBy == 0 {
-		registry.handOff(held, opened)
-	}
+	registry.handOffWaiting(owner, deviceID)
 	return Connection{ID: opened.id, UserID: userID, DeviceID: deviceID}
+}
+
+// ShowFront notes that the connection's tab came to the front, or went behind (isInFront false):
+// the person's connections are told when their devices in front change, and a cast to the device
+// that no connection holds is handed to the tab now in front (D338 §2). A connection that holds a
+// cast keeps it behind, playing on.
+func (registry *Registry) ShowFront(shown Connection, isInFront bool) {
+	registry.mutex.Lock()
+	defer registry.mutex.Unlock()
+	owner := registry.people[shown.UserID]
+	if owner == nil {
+		return
+	}
+	changed := owner.connections[shown.ID]
+	if changed == nil || (changed.frontSince != 0) == isInFront {
+		return
+	}
+	wasInFront := owner.isInFront(shown.DeviceID)
+	changed.frontSince = 0
+	if isInFront {
+		registry.fronts++
+		changed.frontSince = registry.fronts
+	}
+	if wasInFront != owner.isInFront(shown.DeviceID) {
+		owner.tellDevices()
+	}
+	registry.handOffWaiting(owner, shown.DeviceID)
 }
 
 // Disconnect removes a connection that ended: its person's other connections are told when its
@@ -121,15 +158,17 @@ func (registry *Registry) Disconnect(gone Connection) {
 	if _, found := owner.connections[gone.ID]; !found {
 		return
 	}
+	wasInFront := owner.isInFront(gone.DeviceID)
 	delete(owner.connections, gone.ID)
 	for _, held := range owner.casts {
 		if held.heldBy == gone.ID {
 			held.heldBy = 0
 		}
 	}
-	if !owner.isConnected(gone.DeviceID) {
+	if !owner.isConnected(gone.DeviceID) || wasInFront != owner.isInFront(gone.DeviceID) {
 		owner.tellDevices()
 	}
+	registry.handOffWaiting(owner, gone.DeviceID)
 	if len(owner.connections) == 0 && len(owner.casts) == 0 {
 		delete(registry.people, gone.UserID)
 	}
@@ -146,10 +185,10 @@ func (registry *Registry) Connected(userID int64) []int64 {
 	return owner.connectedDevices()
 }
 
-// Cast starts cast, handing it to its receiver's newest connection by receiverCredential. It replaces the cast its
-// receiver had, and the one its sender controlled, which it returns for their sessions to be
-// ended (D337 §6: the last cast wins). The receiver must be another of the person's devices,
-// connected now.
+// Cast starts cast, handing it by receiverCredential to the receiver's tab in front, the one that
+// came to the front last (D338 §2). It replaces the cast its receiver had, and the one its sender
+// controlled, which it returns for their sessions to be ended (D337 §6: the last cast wins). The
+// receiver must be another of the person's devices, connected now, with a tab in front.
 func (registry *Registry) Cast(cast Cast, receiverCredential string) (replaced []Cast, err error) {
 	if cast.ReceiverDeviceID == cast.SenderDeviceID {
 		return nil, ErrToItself
@@ -160,17 +199,18 @@ func (registry *Registry) Cast(cast Cast, receiverCredential string) (replaced [
 	if owner == nil || !owner.isConnected(cast.ReceiverDeviceID) || cast.ReceiverDeviceID == 0 {
 		return nil, ErrNotConnected
 	}
+	front := owner.frontOf(cast.ReceiverDeviceID)
+	if front == nil {
+		return nil, ErrNotInFront
+	}
 	for receiverID, held := range owner.casts {
 		if receiverID == cast.ReceiverDeviceID || held.SenderDeviceID == cast.SenderDeviceID {
 			replaced = append(replaced, held.Cast)
 			delete(owner.casts, receiverID)
 		}
 	}
-	held := &heldCast{Cast: cast}
-	owner.casts[cast.ReceiverDeviceID] = held
-	held.heldBy = owner.newestOf(cast.ReceiverDeviceID).id
-	newest := owner.connections[held.heldBy]
-	newest.send(Outbound{Type: MessageReceive, Receive: receiveOf(cast, receiverCredential)})
+	owner.casts[cast.ReceiverDeviceID] = &heldCast{Cast: cast, heldBy: front.id}
+	front.send(Outbound{Type: MessageReceive, Receive: receiveOf(cast, receiverCredential)})
 	return replaced, nil
 }
 
@@ -247,6 +287,18 @@ func (registry *Registry) MoveOn(userID, deviceID, castID int64, film Film) (Cas
 	return Cast{}, ErrNoCast
 }
 
+// handOffWaiting hands the cast to deviceID that no connection holds, if any, to its tab in front,
+// if any: a receiver loaded again, or a tab of it come to the front (D338 §2).
+func (registry *Registry) handOffWaiting(owner *person, deviceID int64) {
+	held := owner.casts[deviceID]
+	if held == nil || held.heldBy != 0 {
+		return
+	}
+	if front := owner.frontOf(deviceID); front != nil {
+		registry.handOff(held, front)
+	}
+}
+
 // handOff hands held to the connection to, by a credential minted for it: a receiver loaded again.
 // A credential that cannot be made leaves it for the next connection.
 func (registry *Registry) handOff(held *heldCast, to *connection) {
@@ -276,15 +328,21 @@ func (owner *person) isConnected(deviceID int64) bool {
 	return false
 }
 
-// newestOf is deviceID's newest connection, which must have one.
-func (owner *person) newestOf(deviceID int64) *connection {
-	var newest *connection
+// isInFront is whether any connection of deviceID has its tab in front.
+func (owner *person) isInFront(deviceID int64) bool {
+	return owner.frontOf(deviceID) != nil
+}
+
+// frontOf is deviceID's connection whose tab came to the front last, of those in front now; nil for
+// none (D338 §2).
+func (owner *person) frontOf(deviceID int64) *connection {
+	var front *connection
 	for _, each := range owner.connections {
-		if each.deviceID == deviceID && (newest == nil || each.id > newest.id) {
-			newest = each
+		if each.deviceID == deviceID && each.frontSince != 0 && (front == nil || each.frontSince > front.frontSince) {
+			front = each
 		}
 	}
-	return newest
+	return front
 }
 
 // connectedDevices is the person's devices with a connection open, by id, in order.
@@ -296,9 +354,22 @@ func (owner *person) connectedDevices() []int64 {
 	return slices.Sorted(maps.Keys(devices))
 }
 
-// devicesMessage is the devices message of the person's connected devices now.
+// devicesInFront is the person's devices with a tab in front, by id, in order.
+func (owner *person) devicesInFront() []int64 {
+	devices := map[int64]bool{}
+	for _, each := range owner.connections {
+		if each.frontSince != 0 {
+			devices[each.deviceID] = true
+		}
+	}
+	return slices.Sorted(maps.Keys(devices))
+}
+
+// devicesMessage is the devices message of the person's connected devices now, and those in front.
 func (owner *person) devicesMessage() Outbound {
-	return Outbound{Type: MessageDevices, DeviceIDs: owner.connectedDevices()}
+	return Outbound{
+		Type: MessageDevices, DeviceIDs: owner.connectedDevices(), InFrontDeviceIDs: owner.devicesInFront(),
+	}
 }
 
 // tellDevices tells every connection of the person their connected devices now.

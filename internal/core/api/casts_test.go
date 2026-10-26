@@ -25,9 +25,15 @@ type liveSocket struct {
 	connection *websocket.Conn
 }
 
-// dialLive opens a page's live connection, signed in by token: the session socket's address, with
-// a live hello.
+// dialLive opens a page's live connection, signed in by token, its tab in front: the session
+// socket's address, with a live hello.
 func (harness testHarness) dialLive(t *testing.T, token string) liveSocket {
+	t.Helper()
+	return harness.dialLiveSaying(t, live.Inbound{Type: live.MessageHello, SessionToken: token})
+}
+
+// dialLiveSaying opens a page's live connection with hello.
+func (harness testHarness) dialLiveSaying(t *testing.T, hello live.Inbound) liveSocket {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
@@ -37,7 +43,7 @@ func (harness testHarness) dialLive(t *testing.T, token string) liveSocket {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = connection.CloseNow() }) //nolint:errcheck // closing what may be closed
-	if err := wsjson.Write(ctx, connection, live.Inbound{Type: live.MessageHello, SessionToken: token}); err != nil {
+	if err := wsjson.Write(ctx, connection, hello); err != nil {
 		t.Fatal(err)
 	}
 	return liveSocket{t: t, connection: connection}
@@ -216,6 +222,40 @@ func TestCast_ADeviceCastsOnlyToAnotherOfItsPersonsConnectedNow(t *testing.T) {
 	if err := json.Unmarshal([]byte(listed.body), &mine.Body); err != nil || len(mine.Body.Casts) != 1 ||
 		mine.Body.Casts[0].IsSender || mine.Body.Casts[0].MembershipCredential == "" {
 		t.Errorf("GET /me/casts on the TV = %s; want the one it receives, with a credential", listed.body)
+	}
+}
+
+// A cast goes only to a device with an Orpheum tab in front: a page that says hello behind is
+// listed as connected but not in front, a cast to it is refused for the person to bring a tab to
+// the front, and once the page says it came to the front the cast is handed to it (D338 §2).
+func TestCast_GoesOnlyToADeviceWithATabInFront(t *testing.T) {
+	t.Parallel()
+	harness := newHarness(t)
+	phoneToken := harness.createAdminAndSignIn(t)
+	harness.shelveFilms(t)
+	tvToken := harness.signIn(t, "owner", "owner-password")
+	phone, television := harness.thisDevice(t, phoneToken), harness.thisDevice(t, tvToken)
+	phoneSocket := harness.dialLive(t, phoneToken)
+	tvSocket := harness.dialLiveSaying(t, live.Inbound{
+		Type: live.MessageHello, SessionToken: tvToken, IsBehind: true,
+	})
+	phoneSocket.await(live.MessageDevices, func(message live.Outbound) bool {
+		return slices.Equal(message.DeviceIDs, []int64{phone, television}) &&
+			slices.Equal(message.InFrontDeviceIDs, []int64{phone})
+	})
+	wantError(t, harness.startCast(t, phoneToken, television, 0), http.StatusConflict, CodeConflict)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	if err := wsjson.Write(ctx, tvSocket.connection, live.Inbound{Type: live.MessageFront}); err != nil {
+		t.Fatal(err)
+	}
+	phoneSocket.await(live.MessageDevices, func(message live.Outbound) bool {
+		return slices.Equal(message.InFrontDeviceIDs, []int64{phone, television})
+	})
+	started := startedCast(t, harness.startCast(t, phoneToken, television, 0))
+	received := tvSocket.await(live.MessageReceive, func(live.Outbound) bool { return true }).Receive
+	if received.CastID != started.CastID {
+		t.Errorf("the TV's tab come to the front was handed %+v, want cast %d", received, started.CastID)
 	}
 }
 

@@ -8,8 +8,7 @@ import { useTranslation } from "react-i18next";
 
 import { endCast, moveCastOn } from "./cast.ts";
 import { fillsWindowClass } from "./film-fullscreen.ts";
-import type { Command } from "./input-buttons.ts";
-import { useCommands } from "./input-layer.tsx";
+import { onCommand } from "./input-commands.ts";
 import { useServices, useToken } from "./services.tsx";
 import { useLive } from "./live.tsx";
 import type { Navigation } from "./navigation.ts";
@@ -17,27 +16,20 @@ import { HostPlaysTogether, SoundOn, useLeadingPlayer } from "./together-host.ts
 import { useTogether } from "./use-together.ts";
 
 /**
- * How long the "Controlled from" line stays before it fades, and the take-back prompt waits for its
- * second press, in milliseconds: long enough to read a short line across a room. A justified
- * constant.
+ * How long the "Controlled from" line stays before it fades, in milliseconds: long enough to read a
+ * short line across a room. A justified constant.
  */
 export const castNoteShownMs = 5000;
 
-/** The commands the receiver's own controls answer while no prompt is up (§6.4): its media keys. */
-const ownControls: ReadonlySet<Command> = new Set([
-  "playPause",
-  "seekBack",
-  "seekForward",
-  "left",
-  "right",
-]);
-
 /** The cast this device receives of fileId, while it does, and how it ends here (D337). */
 export function useReceiving(fileId: number): Receiving | undefined {
-  const { receiving, endReceiving } = useLive();
+  const { receiving, endReceiving, leaveReceiving } = useLive();
   return useMemo(
-    () => (receiving?.fileId === fileId ? { cast: receiving, onOver: endReceiving } : undefined),
-    [receiving, fileId, endReceiving],
+    () =>
+      receiving?.fileId === fileId
+        ? { cast: receiving, onOver: endReceiving, onLeave: leaveReceiving }
+        : undefined,
+    [receiving, fileId, endReceiving, leaveReceiving],
   );
 }
 
@@ -65,31 +57,37 @@ export function PlaysAlong(props: {
 /**
  * Moves the cast this device receives on to the next episode, which the server hands it again
  * (live.tsx plays it), its remote following; where it cannot, the cast ends at its film's end and
- * the receiver goes home, the remote told (D337's §9 answers, Q4; plans/up-next.md).
+ * the receiver goes back to the page it was on before the cast, the remote told (D337's §9 answers,
+ * Q4; D338 §1; plans/up-next.md).
  */
-export function moveOnOrGoHome(api: Api, navigation: Navigation, receiving: Receiving): void {
+export function moveOnOrLeave(api: Api, receiving: Receiving): void {
   moveCastOn(api, receiving.cast.castId).catch(() => {
     endCast(api, receiving.cast.castId, "filmEnded").catch(() => undefined);
-    receiving.onOver();
-    navigation.go({ screen: "home" });
+    receiving.onLeave();
   });
 }
 
 /** What the Play page is given while this device receives a cast. */
 export interface Receiving {
   readonly cast: CastToReceive;
-  /** Told that receiving is over here: control taken back, or the cast ended. */
+  /** Told that receiving is over here, the film playing on as the device's own: control taken back. */
   readonly onOver: () => void;
+  /**
+   * Told that receiving is over and the device goes back to the page it was on before the cast:
+   * casting stopped, or the film over with nothing after it (D338 §1).
+   */
+  readonly onLeave: () => void;
 }
 
 /**
- * The receiver of a cast (D337 §3–§7; plans/cast-to-device.md §4, §6): its video leads the cast's
- * session of one, from where the sender stood, filling the window with nothing on it but a
- * "Controlled from" line that fades; its own media keys go on working, and every change of theirs
- * reaches the remote as the session's; any other key, a tap, or Back raises Take back control, and a
- * second press takes it. The cast stopped by the remote pauses it; at the film's end it plays the
- * next episode as the sender would (Up next, plans/up-next.md), and where none plays next it goes
- * home.
+ * The receiver of a cast (D337 §3–§7, D338; plans/cast-to-device.md §4, §6): its video leads the
+ * cast's session of one, from where the sender stood, filling the window, with a television's player
+ * controls over it (the Play page's composition) and a "Controlled from" line that fades; its own
+ * controls and media keys go on working, and every change of theirs reaches the remote as the
+ * session's. Back, or OK twice, leaves controlled mode, the film playing on here (D338 §6). The cast
+ * stopped by the remote sends it back to the page it was on before (D338 §1); at the film's end it
+ * plays the next episode as the sender would (Up next, plans/up-next.md), and where none plays next
+ * it goes back to that page too.
  */
 export function CastReceiver(props: {
   readonly receiving: Receiving;
@@ -99,9 +97,9 @@ export function CastReceiver(props: {
   /** Whether an episode plays after the film, whose Up next moves the cast on to it at its end. */
   readonly hasNext?: boolean;
 }): JSX.Element {
-  const { api, navigation } = useServices();
+  const { api } = useServices();
   const token = useToken();
-  const { cast, onOver } = props.receiving;
+  const { cast, onOver, onLeave } = props.receiving;
   const { video, fileId } = props;
   const { connection, snapshot } = useTogether({
     credential: cast.membershipCredential,
@@ -122,11 +120,12 @@ export function CastReceiver(props: {
     if (endReason === undefined || endReason === "replaced") {
       return;
     }
-    if (endReason === "stopped") {
-      video?.pause();
+    if (endReason === "stopped" || endReason === "filmEnded") {
+      onLeave();
+    } else {
+      onOver();
     }
-    onOver();
-  }, [endReason, onOver, video]);
+  }, [endReason, onOver, onLeave]);
   const hasNext = props.hasNext === true;
   useEffect(() => {
     if (hasNext) {
@@ -134,14 +133,13 @@ export function CastReceiver(props: {
     }
     const atTheEnd = (): void => {
       endCast(api, cast.castId, "filmEnded").catch(() => undefined);
-      onOver();
-      navigation.go({ screen: "home" });
+      onLeave();
     };
     video?.addEventListener("ended", atTheEnd);
     return () => {
       video?.removeEventListener("ended", atTheEnd);
     };
-  }, [api, cast.castId, navigation, onOver, video, hasNext]);
+  }, [api, cast.castId, onLeave, video, hasNext]);
   const takeBack = useCallback(() => {
     endCast(api, cast.castId, "takenBack").catch(() => undefined);
     onOver();
@@ -149,7 +147,7 @@ export function CastReceiver(props: {
   return (
     <>
       <SoundOn video={video} connection={connection} />
-      <TakeBackPrompt fromName={cast.fromDeviceName} onTakeBack={takeBack} />
+      <ControlledMode fromName={cast.fromDeviceName} onTakeBack={takeBack} />
     </>
   );
 }
@@ -169,67 +167,40 @@ function useFillsTheWindow(video: HTMLVideoElement | null): void {
 }
 
 /**
- * The "Controlled from" line, fading after castNoteShownMs, and Take back control: raised by any key
- * but the media keys, a tap, or Back (a Fire TV's is a history step, never a key: the page keeps an
- * entry of its own to step back to and keeps it again); one more OK, tap or Back takes control, and
- * castNoteShownMs without one hides it again (D337 §4).
+ * How close together two presses of OK, or two taps, must come to leave controlled mode, in
+ * milliseconds: the double-click time desktop systems default to (Windows' 500 ms), which a person
+ * pressing twice on purpose stays well within. A justified constant.
  */
-export function TakeBackPrompt(props: {
+export const doublePressWithinMs = 500;
+
+/**
+ * How soon after an OK a click is the same press, in milliseconds: a TV browser may follow OK's key
+ * with the click it makes on what has focus, which is not a second press. A justified constant, well
+ * under any two presses a hand makes.
+ */
+const samePressWithinMs = 100;
+
+/**
+ * The receiver's way out of controlled mode (D338 §6): Back, a remote's (a Fire TV's is a history
+ * step, never a key: the page keeps an entry of its own to step back to) or a key's, and OK pressed
+ * twice, or a tap twice, within doublePressWithinMs, leave it; one press of OK, a tap and every other
+ * key are the receiver's own controls'. A "Controlled from" line, which fades after castNoteShownMs,
+ * says who controls it and how to leave.
+ */
+export function ControlledMode(props: {
   readonly fromName: string;
   readonly onTakeBack: () => void;
 }): JSX.Element {
-  const { t } = useTranslation();
   const { navigation } = useServices();
-  const [isAsking, setIsAsking] = useState(false);
-  const isAskingRef = useRef(false);
-  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const { onTakeBack } = props;
-  const press = useCallback(() => {
-    clearTimeout(hideTimerRef.current);
-    if (isAskingRef.current) {
-      onTakeBack();
-      return;
-    }
-    isAskingRef.current = true;
-    setIsAsking(true);
-    hideTimerRef.current = setTimeout(() => {
-      isAskingRef.current = false;
-      setIsAsking(false);
-    }, castNoteShownMs);
-  }, [onTakeBack]);
-  useEffect(
-    () => () => {
-      clearTimeout(hideTimerRef.current);
-    },
-    [],
-  );
-  useCommands(
-    "document",
-    (detail, event) => {
-      if (isAskingRef.current ? isAMove(detail.command) : ownControls.has(detail.command)) {
-        return; // the player's own, or a move about the prompt
-      }
-      event.preventDefault();
-      press();
-    },
-    { isCapture: true },
-  );
-  useBackAsAPress(navigation, press);
-  useTapAsAPress(press);
+  useLeavingPresses(navigation, props.onTakeBack);
   return (
     <div className="cast-receiver">
       <ControlledFrom name={props.fromName} />
-      {isAsking ? (
-        <div className="cast-receiver__prompt" role="alertdialog" aria-label={t("cast.takeBack")}>
-          <p>{t("cast.takeBackExplain", { name: props.fromName })}</p>
-          <TakeBackButton onTakeBack={onTakeBack} />
-        </div>
-      ) : null}
     </div>
   );
 }
 
-/** "Controlled from" the sender, which fades and goes after castNoteShownMs (D337 §3). */
+/** "Controlled from" the sender, and how to leave, which fades and goes after castNoteShownMs. */
 function ControlledFrom(props: { readonly name: string }): JSX.Element | null {
   const { t } = useTranslation();
   const [isShown, setIsShown] = useState(true);
@@ -248,64 +219,60 @@ function ControlledFrom(props: { readonly name: string }): JSX.Element | null {
   ) : null;
 }
 
-/** Whether a command only moves about the page: an arrow. */
-function isAMove(command: Command): boolean {
-  return command === "up" || command === "down" || command === "left" || command === "right";
-}
-
-/** The button that takes control back, focused as it shows so OK presses it. */
-function TakeBackButton(props: { readonly onTakeBack: () => void }): JSX.Element {
-  const { t } = useTranslation();
-  const ref = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    ref.current?.focus();
-  }, []);
-  return (
-    <button ref={ref} type="button" className="cast-receiver__take-back" onClick={props.onTakeBack}>
-      {t("cast.takeBack")}
-    </button>
-  );
-}
-
 /**
- * Hears Back as a press: the page keeps an entry of its own in the history, the receiver's, and a
- * step back from it is a press, the entry kept again for the next.
+ * Hears the presses that leave controlled mode: Back as a command, before anything else on the page
+ * hears it, or as a step back from the receiver's own history entry, kept as it starts; and OK or a
+ * tap twice within doublePressWithinMs, the second press taken from the page.
  */
-function useBackAsAPress(
-  navigation: ReturnType<typeof useServices>["navigation"],
-  press: () => void,
-): void {
-  const pressRef = useRef(press);
+function useLeavingPresses(navigation: Navigation, onTakeBack: () => void): void {
+  const takeBackRef = useRef(onTakeBack);
   useEffect(() => {
-    pressRef.current = press;
+    takeBackRef.current = onTakeBack;
   });
   useEffect(() => {
-    navigation.go(navigation.route());
-    const onBack = (): void => {
-      navigation.go(navigation.route());
-      pressRef.current();
+    let lastPressAt = Number.NEGATIVE_INFINITY;
+    let lastSelectAt = Number.NEGATIVE_INFINITY;
+    const isSecondPress = (now: number): boolean => {
+      const isSecond = now - lastPressAt <= doublePressWithinMs;
+      lastPressAt = isSecond ? Number.NEGATIVE_INFINITY : now;
+      return isSecond;
     };
-    window.addEventListener("popstate", onBack);
-    return () => {
-      window.removeEventListener("popstate", onBack);
-    };
-  }, [navigation]);
-}
-
-/** Hears a tap or a click anywhere as a press, before what it lands on: nothing else is on screen. */
-function useTapAsAPress(press: () => void): void {
-  useEffect(() => {
-    const onTap = (event: Event): void => {
-      if (event.target instanceof Element && event.target.closest(".cast-receiver__take-back")) {
-        return; // the button's own click takes control
+    const stopCommands = onCommand(
+      window,
+      (detail, event) => {
+        const now = performance.now();
+        if (detail.command === "select") {
+          lastSelectAt = now;
+        }
+        const isLeaving =
+          detail.command === "back" || (detail.command === "select" && isSecondPress(now));
+        if (isLeaving) {
+          event.preventDefault();
+          takeBackRef.current();
+        }
+      },
+      { isCapture: true },
+    );
+    const onClick = (event: MouseEvent): void => {
+      const now = performance.now();
+      // A click a key made (detail 0), or one following OK as the same press, is not a tap.
+      if (event.detail === 0 || now - lastSelectAt <= samePressWithinMs || !isSecondPress(now)) {
+        return;
       }
       event.preventDefault();
       event.stopPropagation();
-      press();
+      takeBackRef.current();
     };
-    document.addEventListener("click", onTap, true);
+    window.addEventListener("click", onClick, true);
+    navigation.go(navigation.route());
+    const onBack = (): void => {
+      takeBackRef.current();
+    };
+    window.addEventListener("popstate", onBack);
     return () => {
-      document.removeEventListener("click", onTap, true);
+      stopCommands();
+      window.removeEventListener("click", onClick, true);
+      window.removeEventListener("popstate", onBack);
     };
-  }, [press]);
+  }, [navigation]);
 }

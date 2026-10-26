@@ -15,7 +15,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-import { moveOnOrGoHome, type Receiving } from "./cast-receiver.tsx";
+import { moveOnOrLeave, type Receiving } from "./cast-receiver.tsx";
 import { placeCode } from "./episode-place.ts";
 import type { FilmParts, FilmPiece } from "./film-player.tsx";
 import { useCommands } from "./input-layer.tsx";
@@ -137,13 +137,12 @@ export function UpNextOver(props: FilmParts): JSX.Element | null {
       key={upNext.episode.fileId}
       upNext={upNext}
       isAutoplayOn={offered?.isAutoplayOn ?? false}
-      isPressable={receiving === undefined}
       videoRef={props.videoRef}
       onPlay={() => {
         if (receiving === undefined) {
           navigation.replace({ screen: "play", fileId: upNext.episode.fileId });
         } else {
-          moveOnOrGoHome(api, navigation, receiving);
+          moveOnOrLeave(api, receiving);
         }
       }}
     />
@@ -151,11 +150,11 @@ export function UpNextOver(props: FilmParts): JSX.Element | null {
 }
 
 /**
- * What the Play page draws over its film: on a television its own bar (tv-controls.tsx), and the Up
- * next offer, a cast's receiver's too, which shows nothing else (D337 §3).
+ * What the Play page draws over its film: where it has a television's controls, on a television or
+ * a cast's receiver (D338 §5), that bar (tv-controls.tsx); and the Up next offer.
  */
-export function overTheFilm(isOnTelevision: boolean, isReceiving: boolean): FilmPiece {
-  return isOnTelevision && !isReceiving ? TvControlsAndUpNext : UpNextOver;
+export function overTheFilm(hasTelevisionControls: boolean): FilmPiece {
+  return hasTelevisionControls ? TvControlsAndUpNext : UpNextOver;
 }
 
 /** A television's player overlay (tv-controls.tsx), and the Up next offer over the film. */
@@ -178,7 +177,7 @@ export function TvControlsAndUpNext(props: FilmParts): JSX.Element {
 export function UpNextOffer(props: {
   readonly upNext: UpNext;
   readonly isAutoplayOn: boolean;
-  /** Whether it is pressed here: not on a cast's receiver, whose presses take control back. */
+  /** Whether it is pressed here; not, it shows its words alone, with nothing to press. */
   readonly isPressable?: boolean;
   readonly videoRef: RefObject<HTMLVideoElement | null>;
   readonly onPlay: () => void;
