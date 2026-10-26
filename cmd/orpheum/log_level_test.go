@@ -9,6 +9,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/settings"
 	"github.com/kstenerud/orpheum/internal/core/settings/settingstest"
+	"github.com/kstenerud/orpheum/internal/platform/localtime"
 	"github.com/kstenerud/orpheum/internal/store/storetest"
 )
 
@@ -76,5 +77,15 @@ func TestMountDiagnostics_TheFilesLevelHoldsUntilTheSettingNamesAnother(t *testi
 	settingstest.Set(t, service, settings.LogLevel, `"info"`)
 	if level.Level() != slog.LevelInfo {
 		t.Errorf("set to info, the level is %v", level.Level())
+	}
+}
+
+// A release's run hands the serve its opened log's level, which the log_level setting then moves: wired
+// to another, an admin's change of the setting reached nothing the log wrote at (D347).
+func TestReleaseWiringFor_HandsTheServeTheLevelItsLogWritesAt(t *testing.T) {
+	opened := processLog{level: &slog.LevelVar{}}
+	wired := releaseWiringFor(opened, localtime.Zone{})
+	if wired.logLevel != opened.level {
+		t.Fatalf("the serve's level is %p; want the opened log's, %p", wired.logLevel, opened.level)
 	}
 }
