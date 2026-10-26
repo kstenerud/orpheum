@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"slices"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/kstenerud/orpheum/internal/core/auth/authtest"
 	"github.com/kstenerud/orpheum/internal/core/instancedir"
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/core/nodes"
 	"github.com/kstenerud/orpheum/internal/core/secrets"
 	"github.com/kstenerud/orpheum/internal/core/settings"
@@ -32,16 +34,19 @@ func TestLibraryAdminOf_NamesAsManyRemovalsAsTheServersSetting(t *testing.T) {
 	database := storetest.OpenMigrated(t)
 	config := settingstest.Seeded(t, database)
 	settingstest.Set(t, config, settings.ScanWithheldRemovalsNamed, "1")
-	storetest.ExecRaw(t, database.Path(),
-		"INSERT INTO node (id, name, enrolled_at) VALUES (1, 'nas', 1)",
-		`INSERT INTO library (id, name, kind, metadata_source, change_detection, is_writable, created_at)
-		 VALUES (1, 'Films', 'movies', 'nfo', 'manual', 0, 1)`,
-		"INSERT INTO library_root (library_id, node_id, root_path) VALUES (1, 1, '/media')",
-		`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, filing, first_seen_at, last_seen_at)
-		 VALUES (1, 1, 1, '/media/a.mkv', CAST('/media/a.mkv' AS BLOB), 'skipped', 1, 1),
-		        (2, 1, 1, '/media/b.mkv', CAST('/media/b.mkv' AS BLOB), 'skipped', 1, 1)`,
+	nodeID := librarytest.Node(t, database, "nas")
+	libraryID := librarytest.LibraryOn(t, database, nodeID,
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/media"})
+	librarytest.File(t, database, librarytest.FileSpec{
+		LibraryID: libraryID, NodeID: nodeID, Path: "/media/a.mkv", Filing: "skipped",
+	})
+	librarytest.File(t, database, librarytest.FileSpec{
+		LibraryID: libraryID, NodeID: nodeID, Path: "/media/b.mkv", Filing: "skipped",
+	})
+	storetest.ExecRaw(t, database.Path(), fmt.Sprintf(
 		`INSERT INTO root_state (node_id, root_path, last_scan_outcome, last_scan_at, withheld_scan_started_at,
-		 withheld_reason) VALUES (1, '/media', 'withheld', 9000, 5000, 'the scan would remove 2 of 2 files')`)
+		 withheld_reason) VALUES (%d, '/media', 'withheld', 9000, 5000, 'the scan would remove 2 of 2 files')`,
+		nodeID))
 	now := clocktest.NewFake(time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC))
 	parts := Parts{Database: database, Clock: now, Settings: config}
 	waiting, err := (&Services{}).libraryAdmin(parts).Waiting(t.Context())

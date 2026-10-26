@@ -8,6 +8,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/kstenerud/orpheum/internal/core/library/librarytest"
 	"github.com/kstenerud/orpheum/internal/nodeproto"
 	"github.com/kstenerud/orpheum/internal/platform/ptr"
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
@@ -98,8 +99,8 @@ func TestPass_EpisodesAnOlderReadingSplitIntoSeriesOfTheirOwnComeTogether(t *tes
 	// As the older reading filed them: the second episode in a series of its own, each series named
 	// for its episode's folder.
 	split := fmt.Sprintf
+	librarytest.Item(t, lib.database, librarytest.ItemSpec{ID: 9001, Kind: "collection", LibraryID: lib.libraryID})
 	storetest.ExecRaw(t, lib.database.Path(),
-		split(`INSERT INTO item (id, kind, library_id, added_at) VALUES (9001, 'collection', %d, 1)`, lib.libraryID),
 		`INSERT INTO collection (id, kind, membership, created_by) VALUES (9001, 'series', 'explicit', 'scanner')`,
 		split(`INSERT INTO item_text (item_id, language, is_original, name)
 			SELECT 9001, language, is_original, 'Wing Vellmoor S01E02' FROM item_text WHERE item_id = %d`, seriesID),

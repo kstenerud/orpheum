@@ -48,11 +48,12 @@ func unavailableFilm(t *testing.T, roots *probedRoots) *Service {
 	database := storetest.OpenMigrated(t)
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
 		librarytest.Library{Name: "Films", Kind: "mixed", MetadataSource: "nfo", Root: "/media"})
-	storetest.ExecRaw(t, database.Path(), fmt.Sprintf(
-		`INSERT INTO file (id, library_id, node_id, path, reported_path_raw, size_bytes, payload_hash, filing,
-		 first_seen_at, last_seen_at)
-		 VALUES (2, %[1]d, %[2]d, '/media/Film.mkv', CAST('/media/Film.mkv' AS BLOB), 10, X'0c0d', 'listed', 1, 1)`,
-		libraryID, nodeID), "INSERT INTO file_probe (file_id, probe_json) VALUES (2, '{}')",
+	librarytest.File(t, database, librarytest.FileSpec{
+		ID: 2, LibraryID: libraryID, NodeID: nodeID, Path: "/media/Film.mkv", SizeBytes: 10,
+		PayloadHash: []byte{0x0c, 0x0d}, Filing: "listed",
+	})
+	librarytest.Probe(t, database, librarytest.ProbeSpec{FileID: 2})
+	storetest.ExecRaw(t, database.Path(),
 		fmt.Sprintf(`INSERT INTO root_state (node_id, root_path, filesystem_device, is_mount_point, last_scan_outcome,
 		 last_scan_at) VALUES (%[1]d, '/media', 7, 1, 'complete', 1)`, nodeID),
 		fmt.Sprintf(`INSERT INTO unavailable_place (node_id, path, root_path, since, cause)

@@ -137,12 +137,11 @@ func serviceWithFilms(t *testing.T) *Service {
 		5: `{"format":{"durationMs":7000},"streams":[{"kind":"audio","codec":"aac"}]}`,
 	}
 	for fileID, probe := range probes {
-		storetest.ExecRaw(t, database.Path(), fmt.Sprintf("INSERT INTO file (id, library_id, node_id, path, "+
-			"payload_hash, filing, first_seen_at, last_seen_at) "+
-			"VALUES (%d, %d, %d, '/m/f%d.mkv', X'0%d', 'unidentified', 1, 1)",
-			fileID, libraryID, nodeID, fileID, fileID),
-			fmt.Sprintf("INSERT INTO file_probe (file_id, probe_json, duration_ms) VALUES (%d, '%s', 7000)",
-				fileID, probe))
+		librarytest.File(t, database, librarytest.FileSpec{
+			ID: fileID, LibraryID: libraryID, NodeID: nodeID, Path: fmt.Sprintf("/m/f%d.mkv", fileID),
+			PayloadHash: []byte{byte(fileID)}, Filing: "unidentified", //nolint:gosec // a test's small id, 1-5
+		})
+		librarytest.Probe(t, database, librarytest.ProbeSpec{FileID: fileID, ProbeJSON: probe, DurationMs: 7000})
 	}
 	failure := "Invalid data found"
 	err := database.Write(t.Context(), func(queries *sqlcgen.Queries) error {

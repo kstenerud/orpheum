@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"errors"
 	"log/slog"
-	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -168,12 +167,13 @@ func newBench(t *testing.T) *bench {
 	database := storetest.OpenMigrated(t)
 	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
 		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo", Root: "/m"})
-	storetest.ExecRaw(t, database.Path(),
-		"INSERT INTO file (id, library_id, node_id, path, reported_path_raw, payload_hash, filing, "+
-			"first_seen_at, last_seen_at) VALUES (1, "+strconv.FormatInt(libraryID, 10)+", "+
-			strconv.FormatInt(nodeID, 10)+", '/m/f1.mkv', CAST('/m/f1.mkv' AS BLOB), X'01', 'unidentified', 1, 1)",
-		"INSERT INTO stream (id, bytes_file, video_file, stream_index, kind, codec, language, disposition_flags) "+
-			"VALUES (1, 1, 1, 2, 'subtitle', 'ass', 'en', 0)")
+	librarytest.File(t, database, librarytest.FileSpec{
+		ID: 1, LibraryID: libraryID, NodeID: nodeID, Path: "/m/f1.mkv", PayloadHash: []byte{0x01},
+		Filing: "unidentified",
+	})
+	librarytest.Stream(t, database, librarytest.StreamSpec{
+		ID: 1, BytesFile: 1, StreamIndex: 2, Kind: "subtitle", Codec: "ass", Language: "en",
+	})
 	node := &fakeNode{ctx: t.Context(), isConnected: true}
 	fakeClock := clocktest.NewFake(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
 	queue := newFakeQueue()

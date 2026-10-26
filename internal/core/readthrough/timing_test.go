@@ -33,10 +33,13 @@ func (record *timings) ReadThroughFinished(nodeID, bytes int64, took time.Durati
 func TestTimeRead_AFullReadTellsItsBytesAndHowLongItRan(t *testing.T) {
 	t.Parallel()
 	database := storetest.OpenMigrated(t)
-	librarytest.NodeWithLibrary(t, database, librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo"})
-	storetest.ExecRaw(t, database.Path(), `INSERT INTO file (id, library_id, node_id, path, size_bytes,
-	 payload_hash, filing, first_seen_at, last_seen_at) VALUES (4, 1, 1, '/m/a.mkv', 4000, X'04', 'unidentified',
-	 1, 1)`, `INSERT INTO file_probe (file_id, probe_json) VALUES (4, '{}')`)
+	nodeID, libraryID := librarytest.NodeWithLibrary(t, database,
+		librarytest.Library{Name: "Films", Kind: "movies", MetadataSource: "nfo"})
+	librarytest.File(t, database, librarytest.FileSpec{
+		ID: 4, LibraryID: libraryID, NodeID: nodeID, Path: "/m/a.mkv", SizeBytes: 4000,
+		PayloadHash: []byte{0x04}, Filing: "unidentified",
+	})
+	librarytest.Probe(t, database, librarytest.ProbeSpec{FileID: 4})
 	now := clocktest.NewFake(time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC))
 	record := &timings{}
 	service := &Service{database: database, clock: now}
