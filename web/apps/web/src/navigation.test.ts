@@ -12,10 +12,10 @@ describe("createNavigation", () => {
     const heard: string[] = [];
     navigation.subscribe(() => heard.push(navigation.route().screen));
     expect(navigation.route()).toEqual({ screen: "title", itemId: 4 });
-    navigation.go({ screen: "search", query: "heat" });
+    navigation.go({ screen: "browse", query: "heat" });
     expect(place.location.search).toBe("?query=heat");
     place.back("/series");
-    expect(heard).toEqual(["search", "series"]);
+    expect(heard).toEqual(["browse", "series"]);
   });
 
   it("reads the origin and fragment, and replaces the current address in the history", () => {
@@ -60,7 +60,7 @@ describe("navigation's notes on history entries", () => {
     const navigation = createNavigation(place);
     expect(navigation.back()).toBe(false);
     expect(place.addresses).toEqual(["/films"]);
-    navigation.go({ screen: "search", query: "" });
+    navigation.go({ screen: "browse", query: "" });
     expect(navigation.back()).toBe(true);
     expect(navigation.route()).toEqual({ screen: "films" });
   });

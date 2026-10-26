@@ -149,7 +149,19 @@ The web client: the browser and phone interface, served embedded by the core. MP
 - **A list by name's alphabet rail moves it to a letter** (the owner, 2026-10-25): the server names
   the first title at or after the letter in its own order (`/titles?from=`), # the first of all; the
   list loads its pages up to it as scrolling would, and its poster takes focus at the view's top,
-  where no title comes after the letter the last. `src/alphabet-rail.test.tsx`.
+  where no title comes after the letter the last. The rail (`src/alphabet-rail.tsx`) can be given
+  the letters a list has titles under (`GET /titles/letters`), showing only those, as the Libraries
+  page does; Films and Series still show every letter. `src/alphabet-rail.test.tsx`.
+- **Libraries replaces Search in the top bar** (D349): one page for every library the person
+  reaches, the first chosen by name on a fresh visit and the chosen library, the view, the folder,
+  the sort and a search query all held in its address (`/browse`), so Back and a reload return to
+  it; a film library lists its films, a series library its series, a mixed one both, *All libraries*
+  everything, each by name or newest first; an other library lists its videos by recorded date (the
+  default), name, file name or newest added, with a view of *All* or *Folders*, a 16:9 tile and its
+  recorded date in place of a poster and a year; its folders are only a view, each leading into its
+  own, with *Up* back out; the library, the view and the sort are each a focusable drop-down
+  (`RouteChooser`, over `modal-dialog.tsx`), since a native `<select>` is unreliable on a
+  television's browser. `src/library-browse.test.tsx`; on devices, VQ72.
 - **About credits TMDB with its logo and exact notice, and names what we are built on**
   (D213 §7). `src/about.test.tsx`.
 - **The device lab is at `/lab`, each probe a page of its own** (plans/tv-device-tests.md), offered
@@ -237,8 +249,9 @@ The web client: the browser and phone interface, served embedded by the core. MP
 
 - The frame every screen renders in: `src/app-shell.tsx`; which screen an address names:
   `src/router.ts` and `src/app.tsx`.
-- The screens: `browse.tsx` (films and series), `title.tsx`, `series.tsx`, `search.tsx`,
-  `identify.tsx` (needs a match), `libraries.tsx` and `create-library.tsx` (retiring a folder and deleting a library, each confirmed by `confirm-button.tsx`), `files.tsx` (what
+- The screens: `browse.tsx` (films and series), `title.tsx`, `series.tsx`, `library-browse.tsx`
+  (the Libraries page, D349, with `alphabet-rail.tsx`; `search.tsx` holds its search results, by
+  `QueryResults`), `identify.tsx` (needs a match), `libraries.tsx` and `create-library.tsx` (retiring a folder and deleting a library, each confirmed by `confirm-button.tsx`), `files.tsx` (what
   the scanner saw), `settings.tsx` (keys, passwords and server settings), `jobs.tsx` (the job view), `system.tsx` (the System page: the server's facts, doctor's findings, and each machine's software, sandbox, hardware encoding, disks and recent prepares, D225), `node-confinement.tsx` (a machine's FFmpeg sandbox, on the System page), `about.tsx`,
   `sign-in.tsx`, `play.tsx` (the player, with `player-commands.ts`, its answers to a remote, and
   `up-next.tsx`, what plays next), `autoplay-setting.tsx` (the person's autoplay, on their account), `watching.ts` (the film a tab watches: its page's warm-up

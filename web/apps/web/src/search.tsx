@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MPL-2.0
 
 import type { components } from "@orpheum/sdk";
-import { useState, type JSX } from "react";
+import type { JSX } from "react";
 import { useTranslation } from "react-i18next";
 
 import { dataOrThrow } from "./problem.ts";
-import { submitWith } from "./form-row.tsx";
 import { Link } from "./link.tsx";
 import { itemRoute } from "./router.ts";
 import { useServices } from "./services.tsx";
@@ -45,50 +44,25 @@ export function SearchResults(props: {
   );
 }
 
-/** Search: a box whose query is in the address, so a search can be shared and gone back to. */
-export function Search(props: { readonly query: string }): JSX.Element {
-  const { t } = useTranslation();
-  const { navigation } = useServices();
-  const [typedQuery, setTypedQuery] = useState(props.query);
-  const submit = submitWith(() => {
-    navigation.go({ screen: "search", query: typedQuery.trim() });
-  });
-  return (
-    <section aria-labelledby="search-heading">
-      <h1 id="search-heading">{t("search.heading")}</h1>
-      <form role="search" onSubmit={submit}>
-        <label>
-          {t("search.label")}
-          <input
-            type="search"
-            value={typedQuery}
-            onChange={(event) => {
-              setTypedQuery(event.target.value);
-            }}
-          />
-        </label>
-        <button type="submit">{t("search.submit")}</button>
-      </form>
-      {props.query === "" ? null : <QueryResults key={props.query} query={props.query} />}
-    </section>
-  );
-}
-
-/** The results for one query. */
-function QueryResults(props: { readonly query: string }): JSX.Element {
+/**
+ * The results for one query, in a library (the Libraries page's own search field, D349 §9.1) or,
+ * with none, every library the person reaches.
+ */
+export function QueryResults(props: {
+  readonly query: string;
+  readonly library?: number | undefined;
+}): JSX.Element {
   const { api } = useServices();
-  const [hits] = useResource(`search/${props.query}`, async () => {
+  const { query, library } = props;
+  const [hits] = useResource(`search/${String(library)}/${query}`, async () => {
     const searchBody = dataOrThrow(
       await api.GET("/search", {
-        params: { query: { query: props.query, limit: 100 } },
+        params: { query: { query, limit: 100, ...(library === undefined ? {} : { library }) } },
       }),
     );
     return searchBody.results ?? [];
   });
   return (
-    <Loaded
-      resource={hits}
-      render={(value) => <SearchResults query={props.query} hits={value} />}
-    />
+    <Loaded resource={hits} render={(value) => <SearchResults query={query} hits={value} />} />
   );
 }

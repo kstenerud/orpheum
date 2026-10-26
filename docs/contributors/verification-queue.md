@@ -684,3 +684,13 @@ An item is ticked only by the person who did it, and only with what they saw.
   to it from its home page, reload the TV's page while it receives, then stop again: it goes back to
   its home page. (`web/apps/web/src/live.tsx`, `cast-to.tsx`, `cast-return.ts`,
   `internal/core/live/registry.go`)
+- [ ] **VQ72** — On a Fire TV stick in Silk's spatial mode (D349, library-browsing.md §5.5), open the
+  Libraries page from the top bar with two or more libraries, one of them an `other` library. Passes
+  when Up from the grid's top row reaches the bar, Left and Right move among the library chooser, the
+  view chooser (the `other` library only) and the sort chooser; OK on any of them opens its list of
+  choices as a focusable overlay with focus on it at once, arrows move within it, OK on a choice
+  follows it and closes the overlay, and Back closes it without choosing, returning focus to the
+  chooser button; the alphabet rail at the grid's right shows only while sorted by name or file name,
+  and Right from the grid's last column reaches it; opening the `other` library's Folders shows its
+  subfolders and videos, Up leaves a folder, and one click reaches each from the bar.
+  (`web/apps/web/src/library-browse.tsx`, `modal-dialog.tsx`, `focus-navigation.ts`)

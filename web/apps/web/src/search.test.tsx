@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { itemRoute } from "./router.ts";
-import { Search, SearchResults } from "./search.tsx";
+import { SearchResults } from "./search.tsx";
 import { withServices } from "./test-services.tsx";
 
 describe("search", () => {
@@ -33,14 +33,5 @@ describe("search", () => {
       screen: "title",
       itemId: 5,
     });
-  });
-
-  it("says when nothing matches, and keeps the query in the box", () => {
-    expect(renderToStaticMarkup(withServices(<SearchResults query="zzz" hits={[]} />))).toContain(
-      "Nothing matches “zzz”.",
-    );
-    const markup = renderToStaticMarkup(withServices(<Search query="heat" />));
-    expect(markup).toContain('value="heat"');
-    expect(markup).toContain('role="search"');
   });
 });
