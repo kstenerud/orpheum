@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"reflect"
 	"slices"
 	"sync"
 	"time"
@@ -109,6 +110,8 @@ type session struct {
 	members         map[int64]*member
 	// lastRights are the rights of the last link made, which the next one starts with (D271 §4).
 	lastRights Rights
+	// lastRoster is the roster every device was last told (sendRoster).
+	lastRoster []MemberView
 	// logger is the hub's: each change of the group is logged with the session's id.
 	logger *slog.Logger
 }
@@ -544,7 +547,7 @@ func (current *session) takeState(ctx context.Context, now time.Time, who *membe
 				"linkKbps", from.cannotKeepUp.LinkKbps, "lowestKbps", from.cannotKeepUp.LowestKbps)...)
 	}
 	current.settle(now)
-	current.sendRoster()
+	current.sendRosterIfChanged()
 }
 
 // relay passes voice signalling to the device it names, in the same session (D193 §4).
@@ -583,11 +586,22 @@ func (current *session) roster() []MemberView {
 
 // sendRoster tells every device the roster.
 func (current *session) sendRoster() {
-	current.broadcast(Outbound{V: ProtocolVersion, Type: MessageRoster, Roster: current.roster()})
+	current.lastRoster = current.roster()
+	current.broadcast(Outbound{V: ProtocolVersion, Type: MessageRoster, Roster: current.lastRoster})
 }
 
-// broadcast sends message to every device of every member.
+// sendRosterIfChanged tells every device the roster when it is not the one they were last told: a
+// device's state report comes each second while its group waits, from each device, and each sent
+// every device the roster, the same one most of the time (the audit of 2026-10-25, R2).
+func (current *session) sendRosterIfChanged() {
+	if roster := current.roster(); !reflect.DeepEqual(roster, current.lastRoster) {
+		current.sendRoster()
+	}
+}
+
+// broadcast sends message to every device of every member, encoded once for them all.
 func (current *session) broadcast(message Outbound) {
+	message.encoded = &sharedEncoding{}
 	for _, each := range current.members {
 		for _, attached := range each.devices {
 			attached.send(message)

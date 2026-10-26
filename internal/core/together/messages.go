@@ -2,7 +2,11 @@
 
 package together
 
-import "slices"
+import (
+	"encoding/json"
+	"slices"
+	"sync"
+)
 
 // MessageType names one message of the session WebSocket (cut-a §5.1).
 type MessageType string
@@ -476,6 +480,30 @@ type Outbound struct {
 	Reason string `json:"reason,omitempty"`
 	// Tuning is welcome's: how the device follows the group, from the settings (D250 §1).
 	Tuning *Tuning `json:"tuning,omitempty"`
+	// encoded is a broadcast's JSON, made by the first device's writer and shared by the rest: a
+	// roster went to every device, each encoding its own copy (the audit of 2026-10-25, R2). Nil for
+	// a message sent to one device.
+	encoded *sharedEncoding
+}
+
+// sharedEncoding is one message's JSON, made once for every device it is sent to.
+type sharedEncoding struct {
+	once    sync.Once
+	encoded []byte
+	err     error
+}
+
+// MarshalJSON is the message's JSON: a broadcast's made once, for every device it goes to.
+func (message Outbound) MarshalJSON() ([]byte, error) {
+	type fields Outbound // the same fields, without this method
+	if message.encoded == nil {
+		return json.Marshal(fields(message))
+	}
+	shared := message.encoded
+	shared.once.Do(func() {
+		shared.encoded, shared.err = json.Marshal(fields(message))
+	})
+	return shared.encoded, shared.err
 }
 
 // Tuning is how a device follows its group, the settings' numbers as each device is welcomed with
