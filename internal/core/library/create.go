@@ -20,7 +20,7 @@ var ErrNameTaken = errors.New("a library with that name already exists")
 // and never defaulted (D184), and the roots of one node it covers, as that node reports them.
 type NewLibrary struct {
 	Name            string
-	Kind            string // movies, shows or mixed
+	Kind            string // movies, shows, mixed or other
 	MetadataSource  string // nfo_then_tmdb, tmdb or nfo
 	ChangeDetection string // watch, interval or manual
 	CheckEveryHours *int64 // interval only

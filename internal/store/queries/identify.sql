@@ -479,3 +479,44 @@ JOIN version ON version.title_id = position.title_id AND version.removed_at IS N
 JOIN file ON file.version_id = version.id AND file.removed_at IS NULL
 WHERE series.library_id = sqlc.arg(library_id) AND series.removed_at IS NULL
 ORDER BY ordering.collection_id, file.path;
+
+-- name: ListLibraryOtherVideos :many
+-- The other videos of a library's live titles, as the pass last derived them (D349 section 4).
+SELECT other_video.title_id, other_video.recorded_at, other_video.recorded_from, other_video.file_name,
+  other_video.file_name_key
+FROM item
+JOIN other_video ON other_video.title_id = item.id
+WHERE item.library_id = ? AND item.removed_at IS NULL AND item.kind = 'title';
+
+-- name: GetOtherVideo :one
+SELECT title_id, recorded_at, recorded_from, file_name, file_name_key
+FROM other_video
+WHERE title_id = ?;
+
+-- name: UpsertOtherVideo :exec
+-- An other video's date, where it came from, and its file's name and that name's sort key.
+INSERT INTO other_video (title_id, recorded_at, recorded_from, file_name, file_name_key)
+VALUES (sqlc.arg(title_id), sqlc.arg(recorded_at), sqlc.arg(recorded_from), sqlc.arg(file_name), sqlc.arg(file_name_key))
+ON CONFLICT (title_id) DO UPDATE SET recorded_at = excluded.recorded_at, recorded_from = excluded.recorded_from,
+  file_name = excluded.file_name, file_name_key = excluded.file_name_key
+-- Only when it changes something (D303, DL9).
+WHERE (other_video.recorded_at, other_video.recorded_from, other_video.file_name, other_video.file_name_key)
+  IS NOT (excluded.recorded_at, excluded.recorded_from, excluded.file_name, excluded.file_name_key);
+
+-- name: ListLibraryRecordedTimes :many
+-- When each live file of a library says it was recorded, as its node's probe read it, for those
+-- that say: an other video's date (D349 section 4).
+SELECT file.id AS file_id,
+  CAST(json_extract(file_probe.probe_json, '$.format.recordedAtMs') AS INTEGER) AS recorded_at_ms
+FROM file
+JOIN file_probe ON file_probe.file_id = file.id
+WHERE file.library_id = ? AND file.removed_at IS NULL
+  AND json_extract(file_probe.probe_json, '$.format.recordedAtMs') IS NOT NULL;
+
+-- name: ListOtherVideoFileNames :many
+-- Every other video's file name and its sort key in the locale, which a change of locale keys again.
+SELECT title_id, file_name, file_name_key FROM other_video ORDER BY title_id;
+
+-- name: SetOtherVideoFileNameKey :exec
+UPDATE other_video SET file_name_key = sqlc.arg(file_name_key)
+WHERE title_id = sqlc.arg(title_id) AND file_name_key IS NOT sqlc.arg(file_name_key);

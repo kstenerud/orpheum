@@ -21,6 +21,9 @@ const (
 	fieldRuntimeMs = "runtime_ms"
 	fieldYear      = "year"
 	fieldTagline   = "tagline"
+	// When an other video was recorded, in Unix milliseconds: a person's correction of the date its
+	// file gave it (D349 §4).
+	fieldRecordedAt = "recorded_at"
 
 	extraTrailer    = "trailer"
 	extraFeaturette = "featurette"

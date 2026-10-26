@@ -20,6 +20,11 @@ type ProbeFormat struct {
 	DurationMs     int64    `json:"durationMs"`
 	BitRateBps     int64    `json:"bitRateBps"`
 	ContainerTitle string   `json:"containerTitle"`
+	// RecordedAtMs is when the file says it was recorded, in Unix milliseconds: a QuickTime file's
+	// creationdate, else its container's creation_time tag, else its first video track's; 0 when it
+	// says none, or a time no camera keeps (before 1950, the zero of a QuickTime or Unix clock). A
+	// home video's date (D349 §4).
+	RecordedAtMs int64 `json:"recordedAtMs,omitempty"`
 }
 
 // ProbeStream is one track, as the container describes it (scanner.md, Track facts).

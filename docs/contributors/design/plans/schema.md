@@ -126,14 +126,16 @@ CREATE TABLE device_reader_limit (                          -- class A
 CREATE TABLE library (                                     -- class A
   id               INTEGER PRIMARY KEY AUTOINCREMENT,
   name             TEXT NOT NULL,
-  kind             TEXT NOT NULL CHECK (kind IN ('movies','shows','mixed')),
+  kind             TEXT NOT NULL CHECK (kind IN ('movies','shows','mixed','other')),  -- other: step 0059 (D349)
   -- the three questions asked at creation (D184), never defaulted:
   metadata_source  TEXT NOT NULL CHECK (metadata_source IN ('nfo_then_tmdb','tmdb','nfo')),
   change_detection TEXT NOT NULL CHECK (change_detection IN ('watch','interval','manual')),
   check_every_hours INTEGER,         -- only for 'interval'
   is_writable         INTEGER NOT NULL CHECK (is_writable IN (0,1)),
   created_at       INTEGER NOT NULL,
-  removed_at       INTEGER
+  removed_at       INTEGER,
+  -- An other library is never identified online: it reads NFO files alone, and is not asked (D349).
+  CHECK (kind <> 'other' OR metadata_source = 'nfo')
 );
 
 CREATE TABLE library_root (                                -- class O: as the node reports it (D107)
@@ -412,7 +414,9 @@ arrive together as additive tables.
 ```sql
 CREATE TABLE title (                                       -- mixed: see the columns
   id             INTEGER PRIMARY KEY REFERENCES item(id) ON DELETE RESTRICT,
-  kind           TEXT NOT NULL CHECK (kind IN ('movie','episode','extra')),
+  -- other: a video of an other library, one file, never matched (step 0059, D349). The step adds
+  -- the column anew, so it stands last in the table, with the default adding it needs.
+  kind           TEXT NOT NULL CHECK (kind IN ('movie','episode','extra','other')),
   media_kind     TEXT NOT NULL DEFAULT 'video' CHECK (media_kind IN ('video','audio')),
   year           INTEGER,                                    -- O: resolved
   runtime_ms     INTEGER,                                    -- O: resolved
@@ -492,6 +496,20 @@ CREATE TABLE edition_text (                                -- class A or O
   name        TEXT NOT NULL,
   PRIMARY KEY (edition_id, language)
 );
+
+-- Step 0059: what an other video's lists sort by besides its name (D349 section 4): when it was
+-- recorded, and where that came from (its container's tag, a date in its file's or a folder's name,
+-- the file's own time, or a person's correction, the override recorded_at), and its file's name with
+-- that name's sort key in the sort_locale. The identification pass's.
+CREATE TABLE other_video (                                 -- class C (D349)
+  title_id      INTEGER PRIMARY KEY REFERENCES title(id) ON DELETE RESTRICT,
+  recorded_at   INTEGER NOT NULL,          -- Unix milliseconds
+  recorded_from TEXT NOT NULL CHECK (recorded_from IN ('tag','name','file','person')),
+  file_name     TEXT NOT NULL,             -- its file's name, the last part of its path
+  file_name_key BLOB NOT NULL              -- file_name's CLDR sort key in the sort_locale, BINARY order
+) STRICT;
+CREATE INDEX other_video_recorded ON other_video(recorded_at, title_id);    -- newest recorded first
+CREATE INDEX other_video_file_name ON other_video(file_name_key, title_id); -- by file name
 
 CREATE TABLE sort_key (                                    -- class C (D47)
   item_id     INTEGER NOT NULL REFERENCES item(id) ON DELETE CASCADE,
@@ -1306,6 +1324,7 @@ second writer, or on a writer this table does not name. A table no package write
 | `loudness` | persistent.db | `internal/core/readthrough` | the read-through that measures it; `internal/core/loudness` reads it for the gains |
 | `node` | persistent.db | `internal/core/nodes` | |
 | `ordering` | persistent.db | `internal/core/identify` | |
+| `other_video` | persistent.db | `internal/core/identify` | |
 | `play_event` | persistent.db | `internal/core/playback` | |
 | `play_position` | persistent.db | `internal/core/playback` | |
 | `play_span` | persistent.db | `internal/core/playback` | |
@@ -1354,7 +1373,7 @@ rows. Each class that would grow with no bound but time is kept to a limit a set
 
 | Grows with | Tables | Bounded by, today |
 | --- | --- | --- |
-| The library | `file`, `file_probe`, `file_nfo`, `stream`, `item`, `title`, `version`, `collection`, `collection_member`, `ordering`, `position`, `extra_relation`, `item_text`, `sort_key`, `item_provider_id`, `field_override`, `artwork`, `provider_response`, `loudness`, `video_timeline`, `subtitle_text`, `fetched_subtitle` | the files and works the libraries hold, **and every one they ever held**: a removed file is a tombstone, kept so that a file copied back returns with what was read of it (D208 §4, D231 §7), and deleted `removed_files_kept_days` (90) after, with its streams, probe, NFO, subtitles fetched for it and the choices made in it (D306 §8); a removed item, title or version stays, and nothing purges those yet |
+| The library | `file`, `file_probe`, `file_nfo`, `stream`, `item`, `title`, `version`, `collection`, `collection_member`, `ordering`, `position`, `extra_relation`, `item_text`, `sort_key`, `other_video`, `item_provider_id`, `field_override`, `artwork`, `provider_response`, `loudness`, `video_timeline`, `subtitle_text`, `fetched_subtitle` | the files and works the libraries hold, **and every one they ever held**: a removed file is a tombstone, kept so that a file copied back returns with what was read of it (D208 §4, D231 §7), and deleted `removed_files_kept_days` (90) after, with its streams, probe, NFO, subtitles fetched for it and the choices made in it (D306 §8); a removed item, title or version stays, and nothing purges those yet |
 | The library's open questions | `fetch_failure`, `refresh_request`, `guessed_match` | one row an item at most; each is deleted when its question is answered |
 | People and their devices | `user`, `device`, `"grant"`, `locator` | the people and devices there are, and a removed person's nameless row (D305 §1); a credential that ended, revoked or expired, is deleted `ended_credentials_kept_days` (90) after, with its locator (D304 §6); a removed device stays as a row while a play names it |
 | Watching | `play_event`, `play_span`, `play_position`, `progress_hide`, `purged_watching` | every play of the files there are; a deleted file's plays fold into one `purged_watching` row a person a version (D306 §8); all deleted with the person who watched (`ForgetWatchingOf`) |

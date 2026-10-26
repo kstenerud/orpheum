@@ -116,16 +116,16 @@ type MatchByLinkInput struct {
 type OverrideInput struct {
 	AuthorizationHeader
 	ID    int64  `path:"id"`
-	Field string `enum:"name,overview,tagline,year,runtime_ms" path:"field"`
+	Field string `enum:"name,overview,tagline,year,runtime_ms,recorded_at" path:"field"`
 }
 
 // PutOverrideInput sets a field to a person's value.
 type PutOverrideInput struct {
 	AuthorizationHeader
 	ID    int64  `path:"id"`
-	Field string `enum:"name,overview,tagline,year,runtime_ms" path:"field"`
+	Field string `enum:"name,overview,tagline,year,runtime_ms,recorded_at" path:"field"`
 	Body  struct {
-		Value string `doc:"The value; year and runtime_ms are whole numbers" json:"value"`
+		Value string `doc:"The value; year, runtime_ms and recorded_at (an other video's, Unix milliseconds) are whole numbers" json:"value"` //nolint:lll // one struct tag
 	}
 }
 
@@ -339,7 +339,8 @@ func (server *Server) identifyError(ctx context.Context, action string, err erro
 		return invalidRequestAt(http.StatusUnprocessableEntity, "path.field", err.Error())
 	case errors.Is(err, identify.ErrBadValue):
 		return invalidRequestAt(http.StatusUnprocessableEntity, "body.value", err.Error())
-	case errors.Is(err, identify.ErrNotChoosable): // an episode, named in the path
+	case errors.Is(err, identify.ErrNotChoosable), errors.Is(err, identify.ErrNeverMatched):
+		// An episode, or an other video, named in the path.
 		return invalidRequestAt(http.StatusUnprocessableEntity, "path.id", err.Error())
 	case errors.Is(err, identify.ErrNoMatch):
 		return invalidRequestAt(http.StatusUnprocessableEntity, "body.providerId", "the provider has no such work")

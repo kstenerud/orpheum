@@ -36,6 +36,8 @@ type MyPreferencesBody struct {
 	IsDialogueBoostOn bool `doc:"Whether they play with the dialogue boost (D83)" json:"isDialogueBoostOn"`
 	IsLevellingOn     bool `doc:"Whether they play with loudness levelled (D226 §5)" json:"isLevellingOn"`
 	IsAutoplayOn      bool `doc:"Whether the next episode plays by itself after a countdown" json:"isAutoplayOn"`
+	// LeftOutLibraryIDs are the libraries the person leaves out of Films and Series (D349 §8).
+	LeftOutLibraryIDs []int64 `doc:"The libraries left out of Films and Series, which gather every other library of those kinds" json:"leftOutLibraryIds"` //nolint:lll // one struct tag
 }
 
 // MyPreferencesOutput are a person's own choices.
@@ -105,9 +107,13 @@ func (server *Server) getMyPreferences(ctx context.Context, input *Authorization
 	if err != nil {
 		return nil, server.playbackError(ctx, "read a person's own choices", err)
 	}
+	leftOut, err := dependencies.Preferences.LeftOutLibraries(ctx, principal.UserID)
+	if err != nil {
+		return nil, server.playbackError(ctx, "read the libraries a person left out", err)
+	}
 	return &MyPreferencesOutput{Body: MyPreferencesBody{
 		IsDialogueBoostOn: switches.IsDialogueBoostOn, IsLevellingOn: switches.IsLevellingOn,
-		IsAutoplayOn: switches.IsAutoplayOn,
+		IsAutoplayOn: switches.IsAutoplayOn, LeftOutLibraryIDs: leftOut,
 	}}, nil
 }
 
@@ -135,6 +141,9 @@ type SetMyPreferencesInput struct {
 		IsLevellingOn *bool `json:"isLevellingOn,omitempty" required:"false"`
 		// IsAutoplayOn, when given, is whether the next episode plays by itself (plans/up-next.md).
 		IsAutoplayOn *bool `json:"isAutoplayOn,omitempty" required:"false"`
+		// LeftOutLibraryIDs, when given, are the libraries the person leaves out of Films and Series
+		// (D349 §8), all of them: an empty list leaves none out.
+		LeftOutLibraryIDs []int64 `json:"leftOutLibraryIds,omitempty" maxItems:"1000" required:"false"`
 	}
 }
 
@@ -156,6 +165,11 @@ func (server *Server) setMyPreferences(ctx context.Context, input *SetMyPreferen
 	if isOn := input.Body.IsAutoplayOn; isOn != nil {
 		if err := dependencies.Preferences.SetAutoplay(ctx, principal.UserID, *isOn); err != nil {
 			return nil, server.playbackError(ctx, "keep whether a person's next episode plays by itself", err)
+		}
+	}
+	if leftOut := input.Body.LeftOutLibraryIDs; leftOut != nil {
+		if err := dependencies.Preferences.SetLeftOutLibraries(ctx, principal.UserID, leftOut); err != nil {
+			return nil, server.playbackError(ctx, "keep the libraries a person left out", err)
 		}
 	}
 	return &struct{}{}, nil

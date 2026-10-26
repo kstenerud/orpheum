@@ -20,6 +20,7 @@ const kindKeys = {
   series: "search.kindSeries",
   episode: "search.kindEpisode",
   extra: "search.kindExtra",
+  other: "search.kindOther",
 } as const;
 
 /** Search results, best first, with no cap to page through. */

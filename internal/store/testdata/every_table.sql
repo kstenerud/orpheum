@@ -68,6 +68,8 @@ INSERT INTO item_text (item_id, language, is_original, name, overview, tagline)
   VALUES (1, 'en', 1, 'Direct Play Film', 'A synthetic film.', 'It plays.');
 INSERT INTO edition_text (edition_id, language, name) VALUES (1, 'en', 'Director''s Cut');
 INSERT INTO sort_key (item_id, locale, listing, collation_key) VALUES (1, 'en', 'movie', X'4450');
+INSERT INTO other_video (title_id, recorded_at, recorded_from, file_name, file_name_key)
+  VALUES (1, 1563100262000, 'tag', 'direct-play.mkv', X'4450');
 INSERT INTO field_override (item_id, field, language, override_value, origin, set_by_user_id, set_at)
   VALUES (1, 'name', 'en', 'Direct Play Film', 'typed', 1, 1790000004000);
 INSERT INTO artwork (id, item_id, kind, language, source, source_ref, source_sha256, is_chosen)

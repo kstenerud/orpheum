@@ -82,6 +82,7 @@ describe("the shell, laid out by a real browser", () => {
       id: 1,
       identificationState: "matched",
       isGuessed: true,
+      kind: "movie",
       libraryId: 1,
       name: "A Film",
       unavailable: { reason: "node_away", nodeName: "devnas" },

@@ -18,6 +18,7 @@ describe("search", () => {
           hits={[
             { id: 20, kind: "series", name: "Brass Arena", year: 2008 },
             { id: 21, kind: "episode", name: "Pilot" },
+            { id: 22, kind: "other", name: "Beach day" },
           ]}
         />,
       ),
@@ -26,6 +27,8 @@ describe("search", () => {
     expect(markup).toContain('href="/titles/21"');
     expect(markup).toContain("Series");
     expect(markup).toContain("Episode");
+    expect(markup).toContain('href="/titles/22"');
+    expect(markup).toContain("Video");
     expect(itemRoute("movie", 5)).toEqual({
       screen: "title",
       itemId: 5,

@@ -214,6 +214,22 @@
 //     TestFound_ASeriesIsAsNewAsItsNewestEpisode (internal/store). A title's extras, too, are only
 //     those with a live file. TestBrowse_ATitlesExtrasAreOnlyThoseWithALiveFile.
 //
+//   - A list is of one library alone, or of every library its person reaches, less, for films and
+//     series, the libraries they left out; a library they do not reach is no such library, not an
+//     empty one (D349 §1, §8). Every kind together is one list in one order, each kind read from
+//     the same place and merged. Other videos come newest recorded first, by name, by file name or
+//     newest added first; films and series in none but their two orders (D349 §4).
+//     TestBrowse_OneLibrarysListAndALibraryNotReached, TestBrowse_ALibraryLeftOutOfFilmsAndSeries,
+//     TestBrowse_OtherVideosInTheirFourOrders (internal/core/api).
+//
+//   - The alphabet rail's letters are those a list by name or file name has a title under in its
+//     order, found by a read from each letter that has one, never the list (D349 §9).
+//     TestBrowse_TheRailsLettersAreThoseTheListHasTitlesUnder (internal/core/api).
+//
+//   - An other library's folders are its files' folders below its roots, every root's together,
+//     each with how many videos it holds; no other kind of library is browsed by folder (D349 §5).
+//     TestBrowse_AnOtherLibrarysFolders (internal/core/api).
+//
 //   - A list's entry shows how far its person is through it, in a constant number of statements
 //     for its page: a film where Continue Watching would resume it, by the same rule (resumesAt);
 //     a series how many of its episodes with a file they finished, of how many, in the ordering

@@ -12,6 +12,7 @@ import {
   checkEveryHoursToStart,
   CreateLibraryForm,
   hasARoot,
+  libraryToCreate,
   onAConnectedNode,
   withChangeDetection,
   withRootChosen,
@@ -355,5 +356,26 @@ describe("libraries", () => {
       ),
     );
     expect(markup).toContain("No node has connected since the server started.");
+  });
+
+  it("offers other videos, asked no source, as they are never looked up online (D349)", () => {
+    const other = { ...blankLibrary(), kind: "other" as const, rootPaths: ["/media/home"] };
+    const markup = renderToStaticMarkup(
+      withServices(
+        <CreateLibraryForm
+          draft={other}
+          nodes={[{ name: "local", isConnected: true, rootPaths: ["/media/home"] }]}
+          checkEveryHoursToStart={24}
+          problem=""
+          onDraftChange={ignore}
+          onSubmit={ignore}
+        />,
+      ),
+    );
+    expect(markup).toContain("Other videos: home movies, concerts, lectures, clips");
+    expect(markup).not.toContain("<legend>Where information comes from</legend>");
+    expect(markup).toContain("Other videos are never looked up online");
+    expect(libraryToCreate(other)).not.toHaveProperty("metadataSource");
+    expect(libraryToCreate(blankLibrary()).metadataSource).toBe("nfo_then_tmdb");
   });
 });

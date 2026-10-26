@@ -870,7 +870,8 @@
             "enum": [
               "movies",
               "shows",
-              "mixed"
+              "mixed",
+              "other"
             ],
             "type": "string"
           },
@@ -906,7 +907,6 @@
         "required": [
           "name",
           "kind",
-          "metadataSource",
           "changeDetection",
           "isWritable",
           "nodeName",
@@ -1405,6 +1405,19 @@
           "isGuessed": {
             "type": "boolean"
           },
+          "kind": {
+            "description": "What it is: a film, a series, or an other video (D349)",
+            "enum": [
+              "movie",
+              "series",
+              "other"
+            ],
+            "type": "string"
+          },
+          "landscapeSha256": {
+            "description": "An other video's 16:9 picture: GET /bytes/art/{sourceSha256}/landscape-s.webp",
+            "type": "string"
+          },
           "libraryId": {
             "format": "int64",
             "type": "integer"
@@ -1415,6 +1428,9 @@
           "posterSha256": {
             "description": "Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp",
             "type": "string"
+          },
+          "recorded": {
+            "$ref": "#/components/schemas/RecordedBody"
           },
           "unavailable": {
             "$ref": "#/components/schemas/UnavailableBody"
@@ -1431,6 +1447,7 @@
         },
         "required": [
           "id",
+          "kind",
           "name",
           "identificationState",
           "libraryId",
@@ -1984,6 +2001,39 @@
         ],
         "type": "object"
       },
+      "FolderOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "folder": {
+            "description": "Its path below the library's folders; empty at their top",
+            "type": "string"
+          },
+          "subfolders": {
+            "items": {
+              "$ref": "#/components/schemas/SubfolderBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "titles": {
+            "items": {
+              "$ref": "#/components/schemas/EntryBody"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "folder",
+          "subfolders",
+          "titles"
+        ],
+        "type": "object"
+      },
       "GPUBody": {
         "additionalProperties": false,
         "properties": {
@@ -2096,6 +2146,7 @@
               "movie",
               "episode",
               "extra",
+              "other",
               "series"
             ],
             "type": "string"
@@ -2536,7 +2587,8 @@
             "enum": [
               "movie",
               "episode",
-              "extra"
+              "extra",
+              "other"
             ],
             "type": "string"
           },
@@ -3210,6 +3262,25 @@
         ],
         "type": "object"
       },
+      "LettersOutputBody": {
+        "additionalProperties": false,
+        "properties": {
+          "letters": {
+            "description": "In order, # (before A) then A to Z, only those some title is under: the first at or after the letter, before the next",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "letters"
+        ],
+        "type": "object"
+      },
       "LevellingBody": {
         "additionalProperties": false,
         "properties": {
@@ -3285,7 +3356,8 @@
             "enum": [
               "movies",
               "shows",
-              "mixed"
+              "mixed",
+              "other"
             ],
             "type": "string"
           },
@@ -3510,12 +3582,24 @@
           "isLevellingOn": {
             "description": "Whether they play with loudness levelled (D226 §5)",
             "type": "boolean"
+          },
+          "leftOutLibraryIds": {
+            "description": "The libraries left out of Films and Series, which gather every other library of those kinds",
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           }
         },
         "required": [
           "isDialogueBoostOn",
           "isLevellingOn",
-          "isAutoplayOn"
+          "isAutoplayOn",
+          "leftOutLibraryIds"
         ],
         "type": "object"
       },
@@ -4765,7 +4849,7 @@
         "additionalProperties": false,
         "properties": {
           "value": {
-            "description": "The value; year and runtime_ms are whole numbers",
+            "description": "The value; year, runtime_ms and recorded_at (an other video's, Unix milliseconds) are whole numbers",
             "type": "string"
           }
         },
@@ -4951,6 +5035,36 @@
         },
         "required": [
           "outcome"
+        ],
+        "type": "object"
+      },
+      "RecordedBody": {
+        "additionalProperties": false,
+        "properties": {
+          "fileName": {
+            "description": "Its file's name",
+            "type": "string"
+          },
+          "from": {
+            "description": "Its container's recorded-time tag, a date in its file's or a folder's name, the file's own time, or a person's correction",
+            "enum": [
+              "tag",
+              "name",
+              "file",
+              "person"
+            ],
+            "type": "string"
+          },
+          "recordedAt": {
+            "description": "Unix milliseconds",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "recordedAt",
+          "from",
+          "fileName"
         ],
         "type": "object"
       },
@@ -5843,6 +5957,17 @@
           },
           "isLevellingOn": {
             "type": "boolean"
+          },
+          "leftOutLibraryIds": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "maxItems": 1000,
+            "type": [
+              "array",
+              "null"
+            ]
           }
         },
         "type": "object"
@@ -6573,6 +6698,29 @@
           "program",
           "paths",
           "gaveUpAt"
+        ],
+        "type": "object"
+      },
+      "SubfolderBody": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "description": "What GET /libraries/{id}/folders takes as its folder",
+            "type": "string"
+          },
+          "videoCount": {
+            "description": "How many videos it holds, in the folders inside it too",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "path",
+          "videoCount"
         ],
         "type": "object"
       },
@@ -10509,7 +10657,8 @@
                 "overview",
                 "tagline",
                 "year",
-                "runtime_ms"
+                "runtime_ms",
+                "recorded_at"
               ],
               "type": "string"
             }
@@ -10566,7 +10715,8 @@
                 "overview",
                 "tagline",
                 "year",
-                "runtime_ms"
+                "runtime_ms",
+                "recorded_at"
               ],
               "type": "string"
             }
@@ -11032,6 +11182,85 @@
         "summary": "Choose again how a library notices changes: watching, checking every so many hours, or when asked",
         "tags": [
           "Libraries"
+        ]
+      }
+    },
+    "/libraries/{id}/folders": {
+      "get": {
+        "operationId": "getLibraryFolder",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Its path below the library's folders, as a listed folder's path says it; absent for their top",
+            "explode": false,
+            "in": "query",
+            "name": "folder",
+            "schema": {
+              "description": "Its path below the library's folders, as a listed folder's path says it; absent for their top",
+              "maxLength": 4096,
+              "type": "string"
+            }
+          },
+          {
+            "description": "The order its videos come in",
+            "explode": false,
+            "in": "query",
+            "name": "sort",
+            "required": true,
+            "schema": {
+              "description": "The order its videos come in",
+              "enum": [
+                "recorded",
+                "name",
+                "file_name",
+                "added"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "One folder of an other library: the folders in it, and its videos (D349)",
+        "tags": [
+          "Browse"
         ]
       }
     },
@@ -13045,6 +13274,18 @@
             }
           },
           {
+            "description": "One library's titles alone; absent for every library the person reaches",
+            "explode": false,
+            "in": "query",
+            "name": "library",
+            "schema": {
+              "description": "One library's titles alone; absent for every library the person reaches",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
             "explode": false,
             "in": "query",
             "name": "limit",
@@ -13835,31 +14076,49 @@
             }
           },
           {
+            "description": "movie, series or other; any: every kind, a mixed library's or every library's",
             "explode": false,
             "in": "query",
             "name": "kind",
             "required": true,
             "schema": {
+              "description": "movie, series or other; any: every kind, a mixed library's or every library's",
               "enum": [
                 "movie",
-                "series"
+                "series",
+                "other",
+                "any"
               ],
               "type": "string"
             }
           },
           {
-            "description": "name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode",
+            "description": "name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode. recorded: newest recorded first, and file_name: by the files' names, other videos only",
             "explode": false,
             "in": "query",
             "name": "sort",
             "required": true,
             "schema": {
-              "description": "name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode",
+              "description": "name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode. recorded: newest recorded first, and file_name: by the files' names, other videos only",
               "enum": [
                 "name",
-                "added"
+                "added",
+                "recorded",
+                "file_name"
               ],
               "type": "string"
+            }
+          },
+          {
+            "description": "One library's alone; absent for every library the person reaches, less, for films and series, those they left out (leftOutLibraryIds)",
+            "explode": false,
+            "in": "query",
+            "name": "library",
+            "schema": {
+              "description": "One library's alone; absent for every library the person reaches, less, for films and series, those they left out (leftOutLibraryIds)",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
             }
           },
           {
@@ -13873,12 +14132,12 @@
             }
           },
           {
-            "description": "A name, by name only and with no cursor: the page starts at the first title sorted at or after it, as a letter of the alphabet does",
+            "description": "A name, by name or file name only and with no cursor: the page starts at the first title sorted at or after it, as a letter of the alphabet does",
             "explode": false,
             "in": "query",
             "name": "from",
             "schema": {
-              "description": "A name, by name only and with no cursor: the page starts at the first title sorted at or after it, as a letter of the alphabet does",
+              "description": "A name, by name or file name only and with no cursor: the page starts at the first title sorted at or after it, as a letter of the alphabet does",
               "maxLength": 100,
               "type": "string"
             }
@@ -13919,6 +14178,92 @@
           }
         },
         "summary": "Films or series, by name in the library's locale or newest first",
+        "tags": [
+          "Browse"
+        ]
+      }
+    },
+    "/titles/letters": {
+      "get": {
+        "operationId": "getTitleLetters",
+        "parameters": [
+          {
+            "description": "Bearer \u003csession token\u003e",
+            "in": "header",
+            "name": "Authorization",
+            "schema": {
+              "description": "Bearer \u003csession token\u003e",
+              "type": "string"
+            }
+          },
+          {
+            "description": "As GET /titles takes it",
+            "explode": false,
+            "in": "query",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "description": "As GET /titles takes it",
+              "enum": [
+                "movie",
+                "series",
+                "other",
+                "any"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "The order the rail follows: by name, or an other video's by file name",
+            "explode": false,
+            "in": "query",
+            "name": "sort",
+            "required": true,
+            "schema": {
+              "description": "The order the rail follows: by name, or an other video's by file name",
+              "enum": [
+                "name",
+                "file_name"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "description": "As GET /titles takes it",
+            "explode": false,
+            "in": "query",
+            "name": "library",
+            "schema": {
+              "description": "As GET /titles takes it",
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LettersOutputBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        },
+        "summary": "The alphabet rail's letters a list by name or file name has titles under (D349)",
         "tags": [
           "Browse"
         ]

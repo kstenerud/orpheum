@@ -875,6 +875,399 @@ func (q *Queries) ListOrderingMemberPositions(ctx context.Context, arg ListOrder
 	return items, nil
 }
 
+const listOtherByAdded = `-- name: ListOtherByAdded :many
+SELECT item.id AS item_id, item_text.name, title.identification_state, item.library_id, item.added_at,
+  title.found_at, title.found_file_modified_at, other_video.recorded_at, other_video.recorded_from,
+  other_video.file_name
+FROM title
+JOIN item ON item.id = title.id
+LEFT JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
+LEFT JOIN other_video ON other_video.title_id = title.id
+WHERE title.kind = 'other' AND item.removed_at IS NULL
+  AND (CAST(?1 AS INTEGER) = 1
+    OR item.library_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT))))
+  AND (title.found_at, title.found_file_modified_at, title.id)
+    < (?3, ?4, ?5)
+  AND EXISTS (
+    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+    WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
+  )
+ORDER BY title.found_at DESC, title.found_file_modified_at DESC, title.id DESC
+LIMIT ?6
+`
+
+type ListOtherByAddedParams struct {
+	IsEveryLibrary   int64
+	LibraryIdsJSON   string
+	BeforeFoundAt    int64
+	BeforeModifiedAt int64
+	BeforeID         int64
+	MaxRows          int64
+}
+
+type ListOtherByAddedRow struct {
+	ItemID              int64
+	Name                *string
+	IdentificationState string
+	LibraryID           *int64
+	AddedAt             int64
+	FoundAt             int64
+	FoundFileModifiedAt int64
+	RecordedAt          *int64
+	RecordedFrom        *string
+	FileName            *string
+}
+
+// Other videos newest added first, as films are (step 0058's found_at), by title_other_found.
+func (q *Queries) ListOtherByAdded(ctx context.Context, arg ListOtherByAddedParams) ([]ListOtherByAddedRow, error) {
+	rows, err := q.db.QueryContext(ctx, listOtherByAdded,
+		arg.IsEveryLibrary,
+		arg.LibraryIdsJSON,
+		arg.BeforeFoundAt,
+		arg.BeforeModifiedAt,
+		arg.BeforeID,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOtherByAddedRow{}
+	for rows.Next() {
+		var i ListOtherByAddedRow
+		if err := rows.Scan(
+			&i.ItemID,
+			&i.Name,
+			&i.IdentificationState,
+			&i.LibraryID,
+			&i.AddedAt,
+			&i.FoundAt,
+			&i.FoundFileModifiedAt,
+			&i.RecordedAt,
+			&i.RecordedFrom,
+			&i.FileName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOtherByFileName = `-- name: ListOtherByFileName :many
+SELECT item.id AS item_id, other_video.file_name_key, item_text.name, title.identification_state, item.library_id,
+  item.added_at, other_video.recorded_at, other_video.recorded_from, other_video.file_name
+FROM other_video
+CROSS JOIN title ON title.id = other_video.title_id
+CROSS JOIN item ON item.id = other_video.title_id
+LEFT JOIN item_text ON item_text.item_id = other_video.title_id AND item_text.is_original = 1
+WHERE item.removed_at IS NULL
+  AND (CAST(?1 AS INTEGER) = 1
+    OR item.library_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT))))
+  AND (other_video.file_name_key, other_video.title_id)
+    > (CAST(?3 AS BLOB), CAST(?4 AS INTEGER))
+  AND EXISTS (
+    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+    WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
+  )
+ORDER BY other_video.file_name_key, other_video.title_id
+LIMIT ?5
+`
+
+type ListOtherByFileNameParams struct {
+	IsEveryLibrary int64
+	LibraryIdsJSON string
+	AfterKey       []byte
+	AfterID        int64
+	MaxRows        int64
+}
+
+type ListOtherByFileNameRow struct {
+	ItemID              int64
+	FileNameKey         []byte
+	Name                *string
+	IdentificationState string
+	LibraryID           *int64
+	AddedAt             int64
+	RecordedAt          int64
+	RecordedFrom        string
+	FileName            string
+}
+
+// Other videos by their files' names in the locale (D349 section 4), by other_video_file_name.
+func (q *Queries) ListOtherByFileName(ctx context.Context, arg ListOtherByFileNameParams) ([]ListOtherByFileNameRow, error) {
+	rows, err := q.db.QueryContext(ctx, listOtherByFileName,
+		arg.IsEveryLibrary,
+		arg.LibraryIdsJSON,
+		arg.AfterKey,
+		arg.AfterID,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOtherByFileNameRow{}
+	for rows.Next() {
+		var i ListOtherByFileNameRow
+		if err := rows.Scan(
+			&i.ItemID,
+			&i.FileNameKey,
+			&i.Name,
+			&i.IdentificationState,
+			&i.LibraryID,
+			&i.AddedAt,
+			&i.RecordedAt,
+			&i.RecordedFrom,
+			&i.FileName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOtherByName = `-- name: ListOtherByName :many
+SELECT sort_key.item_id, sort_key.collation_key, item_text.name, title.identification_state, item.library_id,
+  item.added_at, other_video.recorded_at, other_video.recorded_from, other_video.file_name
+FROM sort_key
+JOIN item ON item.id = sort_key.item_id
+JOIN title ON title.id = sort_key.item_id
+LEFT JOIN item_text ON item_text.item_id = sort_key.item_id AND item_text.is_original = 1
+LEFT JOIN other_video ON other_video.title_id = sort_key.item_id
+WHERE sort_key.locale = ?1 AND sort_key.listing = 'other' AND item.removed_at IS NULL
+  AND (CAST(?2 AS INTEGER) = 1
+    OR item.library_id IN (SELECT value FROM json_each(CAST(?3 AS TEXT))))
+  AND (sort_key.collation_key > ?4 OR (sort_key.collation_key = ?4 AND sort_key.item_id > ?5))
+  AND EXISTS (
+    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+    WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
+  )
+ORDER BY sort_key.collation_key, sort_key.item_id
+LIMIT ?6
+`
+
+type ListOtherByNameParams struct {
+	Locale         string
+	IsEveryLibrary int64
+	LibraryIdsJSON string
+	AfterKey       []byte
+	AfterID        int64
+	MaxRows        int64
+}
+
+type ListOtherByNameRow struct {
+	ItemID              int64
+	CollationKey        []byte
+	Name                *string
+	IdentificationState string
+	LibraryID           *int64
+	AddedAt             int64
+	RecordedAt          *int64
+	RecordedFrom        *string
+	FileName            *string
+}
+
+// Other videos by name in the locale (D349), as films by name are.
+func (q *Queries) ListOtherByName(ctx context.Context, arg ListOtherByNameParams) ([]ListOtherByNameRow, error) {
+	rows, err := q.db.QueryContext(ctx, listOtherByName,
+		arg.Locale,
+		arg.IsEveryLibrary,
+		arg.LibraryIdsJSON,
+		arg.AfterKey,
+		arg.AfterID,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOtherByNameRow{}
+	for rows.Next() {
+		var i ListOtherByNameRow
+		if err := rows.Scan(
+			&i.ItemID,
+			&i.CollationKey,
+			&i.Name,
+			&i.IdentificationState,
+			&i.LibraryID,
+			&i.AddedAt,
+			&i.RecordedAt,
+			&i.RecordedFrom,
+			&i.FileName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOtherByRecorded = `-- name: ListOtherByRecorded :many
+SELECT item.id AS item_id, item_text.name, title.identification_state, item.library_id, item.added_at,
+  other_video.recorded_at, other_video.recorded_from, other_video.file_name
+FROM other_video
+CROSS JOIN title ON title.id = other_video.title_id
+CROSS JOIN item ON item.id = other_video.title_id
+LEFT JOIN item_text ON item_text.item_id = other_video.title_id AND item_text.is_original = 1
+WHERE item.removed_at IS NULL
+  AND (CAST(?1 AS INTEGER) = 1
+    OR item.library_id IN (SELECT value FROM json_each(CAST(?2 AS TEXT))))
+  AND (other_video.recorded_at, other_video.title_id) < (?3, ?4)
+  AND EXISTS (
+    SELECT 1 FROM version CROSS JOIN file ON file.version_id = version.id
+    WHERE version.title_id = title.id AND version.removed_at IS NULL AND file.removed_at IS NULL
+  )
+ORDER BY other_video.recorded_at DESC, other_video.title_id DESC
+LIMIT ?5
+`
+
+type ListOtherByRecordedParams struct {
+	IsEveryLibrary   int64
+	LibraryIdsJSON   string
+	BeforeRecordedAt int64
+	BeforeID         int64
+	MaxRows          int64
+}
+
+type ListOtherByRecordedRow struct {
+	ItemID              int64
+	Name                *string
+	IdentificationState string
+	LibraryID           *int64
+	AddedAt             int64
+	RecordedAt          int64
+	RecordedFrom        string
+	FileName            string
+}
+
+// Other videos newest recorded first (D349 section 4), by other_video_recorded from its top: only an
+// other video has an other_video row.
+func (q *Queries) ListOtherByRecorded(ctx context.Context, arg ListOtherByRecordedParams) ([]ListOtherByRecordedRow, error) {
+	rows, err := q.db.QueryContext(ctx, listOtherByRecorded,
+		arg.IsEveryLibrary,
+		arg.LibraryIdsJSON,
+		arg.BeforeRecordedAt,
+		arg.BeforeID,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOtherByRecordedRow{}
+	for rows.Next() {
+		var i ListOtherByRecordedRow
+		if err := rows.Scan(
+			&i.ItemID,
+			&i.Name,
+			&i.IdentificationState,
+			&i.LibraryID,
+			&i.AddedAt,
+			&i.RecordedAt,
+			&i.RecordedFrom,
+			&i.FileName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOtherVideosOfLibrary = `-- name: ListOtherVideosOfLibrary :many
+SELECT title.id AS title_id, file.path, item_text.name, title.identification_state, item.added_at,
+  other_video.recorded_at, other_video.recorded_from, other_video.file_name, other_video.file_name_key,
+  title.found_at, title.found_file_modified_at
+FROM item
+CROSS JOIN other_video ON other_video.title_id = item.id
+CROSS JOIN title ON title.id = item.id
+JOIN item_text ON item_text.item_id = title.id AND item_text.is_original = 1
+JOIN file ON file.id = (
+  SELECT live.id FROM version CROSS JOIN file AS live ON live.version_id = version.id
+  WHERE version.title_id = title.id AND version.removed_at IS NULL AND live.removed_at IS NULL
+  ORDER BY live.path LIMIT 1
+)
+WHERE item.library_id = ?1 AND item.removed_at IS NULL
+ORDER BY file.path
+`
+
+type ListOtherVideosOfLibraryRow struct {
+	TitleID             int64
+	Path                string
+	Name                string
+	IdentificationState string
+	AddedAt             int64
+	RecordedAt          int64
+	RecordedFrom        string
+	FileName            string
+	FileNameKey         []byte
+	FoundAt             int64
+	FoundFileModifiedAt int64
+}
+
+// An other library's live videos with where their files are, for its folders (D349 section 5): each
+// title's first live file, by path; one the pass has not named and dated yet waits for it.
+func (q *Queries) ListOtherVideosOfLibrary(ctx context.Context, libraryID *int64) ([]ListOtherVideosOfLibraryRow, error) {
+	rows, err := q.db.QueryContext(ctx, listOtherVideosOfLibrary, libraryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOtherVideosOfLibraryRow{}
+	for rows.Next() {
+		var i ListOtherVideosOfLibraryRow
+		if err := rows.Scan(
+			&i.TitleID,
+			&i.Path,
+			&i.Name,
+			&i.IdentificationState,
+			&i.AddedAt,
+			&i.RecordedAt,
+			&i.RecordedFrom,
+			&i.FileName,
+			&i.FileNameKey,
+			&i.FoundAt,
+			&i.FoundFileModifiedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSeasonEpisodeDetails = `-- name: ListSeasonEpisodeDetails :many
 SELECT position.title_id, position.group_number, position.number_in_group, position.sort_order, item_text.name,
   title.year, title.runtime_ms, title.identification_state,

@@ -5,13 +5,15 @@
 
 # Library browsing
 
-- **Status:** PLANNED, specified by the owner's answers of 2026-10-26
+- **Status:** BUILDING, specified by the owner's answers of 2026-10-26
   ([D349](../../decisions/working-notes.md)), which §9 sets out and which replace §5 where they
   differ. Written 2026-10-25 at the owner's request: *"I want to have the ability to browse
   individual libraries (so for example if I have two movie libraries, and want to look in only
   one). This will be important when we add support for other kinds of videos, like home movies,
   which won't fit under series or films. Come up with an early design for this and where it might
-  fit into the UI."*
+  fit into the UI."* The schema, the API (§9.2) and the identification pass are built (2026-10-26);
+  the Libraries page itself (§9.1: the top bar, the chooser, the grid, the rail, folders) is not
+  (§7 says which steps).
 - **Depends on:** [library-model.md](library-model.md) (titles, collections, kinds),
   [web-client.md](web-client.md) (curated home rows, folder browsing),
   [closed-beta.md](closed-beta.md) (B2's "Browse filters and more sorts").
@@ -191,14 +193,25 @@ order (D138), within the set the owner allows (D149 §5).
 
 ## 7. Phased steps
 
-1. **The chooser** on Films and Series: `library` on `GET /titles`, held-kind counts on
-   `GET /libraries`, the address parameter, the TV overlay. No schema change. Size S.
-2. **The other kind**: the library and title kinds, filing every video of such a library as
-   `other` with no identification, its name and `recorded_at`, the frame as its picture. Size M.
-3. **Its page and its place**: the top-bar entries, the by-date grid with its year rail, the home
-   row. Size S to M.
-4. **Folders**: the folder view, for other libraries first, then as every library's escape hatch
-   (D149 §7). Size M.
+1. **The chooser.** §9 replaces this step's own design (a chooser on Films and Series, held-kind
+   counts on `GET /libraries`) with a single Libraries page (§9.1): **built**, on the API side,
+   is `library` narrowing `GET /titles` and `GET /search`'s reach (a library outside it is a 404),
+   `GET /titles/letters`, and `leftOutLibraryIds` on `GET`/`PUT /me/preferences`, which Films and
+   Series already read through the same `library` parameter's absence (2026-10-26). Not built: the
+   held-kind counts `GET /libraries` was to gain are no longer needed, since no page offers a
+   chooser per kind.
+2. **The other kind: built** (2026-10-26). The library and title kinds, the migration
+   (`0059_other_videos.sql`), filing every video of such a library as `other` with no
+   identification, its name and `recorded_at` (the container's tag, a date in its name, or its
+   file's time, each correctable), its file's name and sort key, and the admin's library-creation
+   form offering it (no metadata source asked). The frame as its picture (§9.3) is not: a library's
+   picture is the image beside it, or none.
+3. **Its page and its place: not built.** The API they call on is (`GET /libraries/{id}/folders`,
+   `GET /titles` with `kind=other`); the top-bar entry, the page itself (the chooser, the view and
+   sort row, the grid, the alphabet and year rail) and the home row are not. Size S to M.
+4. **Folders: built on the API side** (`GET /libraries/{id}/folders`, `ListOtherVideosOfLibrary`);
+   the folder view itself, and folder browsing as every library's escape hatch (D149 §7), are not.
+   Size M.
 5. **Later**: a folder promoted to a named collection; per-library home rows as a person's
    setting; a library's own page for a mixed library.
 

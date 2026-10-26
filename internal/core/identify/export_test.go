@@ -14,6 +14,7 @@ import (
 // two of its rules, and nothing outside the package needs any of them.
 const (
 	KindExtra = library.TitleKindExtra
+	KindOther = library.TitleKindOther
 
 	SourceNFO  = sourceNFO
 	SourceTMDB = sourceTMDB
@@ -56,3 +57,6 @@ func BatchRows(pass *Pass, rows int64) { pass.batchRows = rows }
 func BetweenBatches(pass *Pass, between func(ctx context.Context, rowsChanged int64)) {
 	pass.betweenBatches = between
 }
+
+// OtherName is the name and date an other video's file gives it (D349 §3, §4).
+var OtherName = otherName

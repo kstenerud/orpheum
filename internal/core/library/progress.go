@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 
 	"github.com/kstenerud/orpheum/internal/store/sqlcgen"
 )
@@ -15,7 +16,7 @@ import (
 // of its file Continue Watching would resume it at, by the same rule; a series how many of its
 // episodes they finished, of how many it has, in the ordering they watch it in, the members Next Up
 // reads with the same thresholds. A constant number of statements, in one read, whatever the page.
-func (browser *Browser) withProgress(ctx context.Context, userID int64, kind string, page Page) (Page, error) {
+func (browser *Browser) withProgress(ctx context.Context, userID int64, page Page) (Page, error) {
 	if len(page.Entries) == 0 {
 		return page, nil
 	}
@@ -23,18 +24,35 @@ func (browser *Browser) withProgress(ctx context.Context, userID int64, kind str
 	if err != nil {
 		return Page{}, err
 	}
-	ids := make([]int64, 0, len(page.Entries))
+	var series, titles []Entry
 	for _, entry := range page.Entries {
-		ids = append(ids, entry.ID)
-	}
-	err = browser.database.ReadTx(ctx, func(queries *sqlcgen.Queries) error {
-		if kind == ListSeries {
-			return seriesProgress(ctx, queries, thresholds, userID, ids, page.Entries)
+		if entry.Kind == ListSeries {
+			series = append(series, entry)
+		} else {
+			titles = append(titles, entry)
 		}
-		return filmsProgress(ctx, queries, thresholds, userID, ids, page.Entries)
+	}
+	seriesIDs, titleIDs := idsBySeries(page.Entries)
+	err = browser.database.ReadTx(ctx, func(queries *sqlcgen.Queries) error {
+		if len(series) > 0 {
+			if seriesErr := seriesProgress(ctx, queries, thresholds, userID, seriesIDs, series); seriesErr != nil {
+				return seriesErr
+			}
+		}
+		if len(titles) == 0 {
+			return nil
+		}
+		return filmsProgress(ctx, queries, thresholds, userID, titleIDs, titles)
 	})
 	if err != nil {
 		return Page{}, err
+	}
+	progressed := map[int64]Entry{}
+	for _, entry := range slices.Concat(series, titles) {
+		progressed[entry.ID] = entry
+	}
+	for index := range page.Entries {
+		page.Entries[index] = progressed[page.Entries[index].ID]
 	}
 	return page, nil
 }

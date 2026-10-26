@@ -196,6 +196,7 @@ package writes each table is schema.md's [owners table](plans/schema.md#who-writ
 | video_timeline (a picture's keyframes and bytes in each second, by payload hash) | persistent.db | T3 (reads the whole file, copying the picture's packets) | yes | the T3 kept with T1, as loudness is, whose read gathers it (step 0035; one version in cache.db before, F1) |
 | subtitle_text (ass, vtt) | persistent.db | T3 for embedded tracks (reads the whole video); T4 for fetched ones | yes | correct: moved from cache.db by step 0029 (F1) |
 | item_text (name, overview) | persistent.db | TO/T2, resolved | yes | — |
+| other_video (an other video's date, where it came from, its file's name and sort key) | persistent.db | TO, resolved (a person's correction is field_override's, T1) | yes | the pass's, from the file, its probe and the override (D349) |
 | item_text.search_alternates, item_fts, item_fts_tri, sort_key | persistent.db | T4 | yes | ⚑ cheap derived in the backup; re-derived at start anyway. See F12 |
 | schema_meta, schema_step | persistent.db | runner record | yes | — |
 | job | cache.db | T4 | no | correct (D231 §3): level-triggered by the queue's six sweeps (§1) |

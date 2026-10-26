@@ -899,6 +899,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/libraries/{id}/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One folder of an other library: the folders in it, and its videos (D349) */
+        get: operations["getLibraryFolder"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/libraries/{id}/mounts/gone": {
         parameters: {
             query?: never;
@@ -1743,6 +1760,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/titles/letters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The alphabet rail's letters a list by name or file name has titles under (D349) */
+        get: operations["getTitleLetters"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/together": {
         parameters: {
             query?: never;
@@ -2364,9 +2398,9 @@ export interface components {
             /** @description May the server write beside the media */
             isWritable: boolean;
             /** @enum {string} */
-            kind: "movies" | "shows" | "mixed";
+            kind: "movies" | "shows" | "mixed" | "other";
             /** @enum {string} */
-            metadataSource: "nfo_then_tmdb" | "tmdb" | "nfo";
+            metadataSource?: "nfo_then_tmdb" | "tmdb" | "nfo";
             name: string;
             /** @description The node's configured name */
             nodeName: string;
@@ -2550,11 +2584,19 @@ export interface components {
             id: number;
             identificationState: string;
             isGuessed?: boolean;
+            /**
+             * @description What it is: a film, a series, or an other video (D349)
+             * @enum {string}
+             */
+            kind: "movie" | "series" | "other";
+            /** @description An other video's 16:9 picture: GET /bytes/art/{sourceSha256}/landscape-s.webp */
+            landscapeSha256?: string;
             /** Format: int64 */
             libraryId: number;
             name: string;
             /** @description Its poster's hash: GET /bytes/art/{sourceSha256}/portrait-m.webp */
             posterSha256?: string;
+            recorded?: components["schemas"]["RecordedBody"];
             unavailable?: components["schemas"]["UnavailableBody"];
             /**
              * Format: int64
@@ -2755,6 +2797,12 @@ export interface components {
             /** @enum {string} */
             verdict: "ok" | "warn" | "fail";
         };
+        FolderOutputBody: {
+            /** @description Its path below the library's folders; empty at their top */
+            folder: string;
+            subfolders: components["schemas"]["SubfolderBody"][] | null;
+            titles: components["schemas"]["EntryBody"][] | null;
+        };
         GPUBody: {
             devicePath: string;
             driver?: string;
@@ -2780,7 +2828,7 @@ export interface components {
             /** Format: int64 */
             id: number;
             /** @enum {string} */
-            kind: "movie" | "episode" | "extra" | "series";
+            kind: "movie" | "episode" | "extra" | "other" | "series";
             name: string;
             /** Format: int64 */
             year?: number;
@@ -2930,7 +2978,7 @@ export interface components {
             /** @description Whether its match is a guess no person confirmed (D301) */
             isGuessed?: boolean;
             /** @enum {string} */
-            kind: "movie" | "episode" | "extra";
+            kind: "movie" | "episode" | "extra" | "other";
             /** Format: int64 */
             libraryId: number;
             name: string;
@@ -3199,6 +3247,10 @@ export interface components {
             /** @description The chunked master playlist */
             url: string;
         };
+        LettersOutputBody: {
+            /** @description In order, # (before A) then A to Z, only those some title is under: the first at or after the letter, before the next */
+            letters: string[] | null;
+        };
         LevellingBody: {
             /**
              * Format: double
@@ -3226,7 +3278,7 @@ export interface components {
             id: number;
             isWritable: boolean;
             /** @enum {string} */
-            kind: "movies" | "shows" | "mixed";
+            kind: "movies" | "shows" | "mixed" | "other";
             /** @enum {string} */
             metadataSource: "nfo_then_tmdb" | "tmdb" | "nfo";
             name: string;
@@ -3292,6 +3344,8 @@ export interface components {
             isDialogueBoostOn: boolean;
             /** @description Whether they play with loudness levelled (D226 §5) */
             isLevellingOn: boolean;
+            /** @description The libraries left out of Films and Series, which gather every other library of those kinds */
+            leftOutLibraryIds: number[] | null;
         };
         MyTogetherBody: {
             isHost: boolean;
@@ -3730,7 +3784,7 @@ export interface components {
             reason: "no_key" | "key_refused" | "no_login" | "login_refused" | "not_configured" | "unavailable" | "unreadable";
         };
         PutOverrideInputBody: {
-            /** @description The value; year and runtime_ms are whole numbers */
+            /** @description The value; year, runtime_ms and recorded_at (an other video's, Unix milliseconds) are whole numbers */
             value: string;
         };
         PutSecretInputBody: {
@@ -3798,6 +3852,20 @@ export interface components {
             detail?: string;
             /** @enum {string} */
             outcome: "reached" | "notChecked" | "nameUnresolved" | "notAnswering" | "certificateRefused" | "anotherServer";
+        };
+        RecordedBody: {
+            /** @description Its file's name */
+            fileName: string;
+            /**
+             * @description Its container's recorded-time tag, a date in its file's or a folder's name, the file's own time, or a person's correction
+             * @enum {string}
+             */
+            from: "tag" | "name" | "file" | "person";
+            /**
+             * Format: int64
+             * @description Unix milliseconds
+             */
+            recordedAt: number;
         };
         RedeemInputBody: {
             code: string;
@@ -4053,6 +4121,7 @@ export interface components {
             isAutoplayOn?: boolean;
             isDialogueBoostOn?: boolean;
             isLevellingOn?: boolean;
+            leftOutLibraryIds?: number[] | null;
         };
         SetSeriesPreferencesInputBody: {
             episodeOrdering?: string;
@@ -4278,6 +4347,16 @@ export interface components {
             paths: string[] | null;
             /** @enum {string} */
             program: "ffmpeg" | "ffprobe" | "node";
+        };
+        SubfolderBody: {
+            name: string;
+            /** @description What GET /libraries/{id}/folders takes as its folder */
+            path: string;
+            /**
+             * Format: int64
+             * @description How many videos it holds, in the folders inside it too
+             */
+            videoCount: number;
         };
         SubtitleCandidateBody: {
             /** Format: int64 */
@@ -6391,7 +6470,7 @@ export interface operations {
                 Authorization?: string;
             };
             path: {
-                field: "name" | "overview" | "tagline" | "year" | "runtime_ms";
+                field: "name" | "overview" | "tagline" | "year" | "runtime_ms" | "recorded_at";
                 id: number;
             };
             cookie?: never;
@@ -6428,7 +6507,7 @@ export interface operations {
                 Authorization?: string;
             };
             path: {
-                field: "name" | "overview" | "tagline" | "year" | "runtime_ms";
+                field: "name" | "overview" | "tagline" | "year" | "runtime_ms" | "recorded_at";
                 id: number;
             };
             cookie?: never;
@@ -6747,6 +6826,45 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getLibraryFolder: {
+        parameters: {
+            query: {
+                /** @description Its path below the library's folders, as a listed folder's path says it; absent for their top */
+                folder?: string;
+                /** @description The order its videos come in */
+                sort: "recorded" | "name" | "file_name" | "added";
+            };
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FolderOutputBody"];
+                };
             };
             /** @description Error */
             default: {
@@ -8167,6 +8285,8 @@ export interface operations {
     search: {
         parameters: {
             query: {
+                /** @description One library's titles alone; absent for every library the person reaches */
+                library?: number;
                 limit: number;
                 query: string;
             };
@@ -8764,12 +8884,15 @@ export interface operations {
             query: {
                 /** @description From the previous page's nextCursor */
                 cursor?: string;
-                /** @description A name, by name only and with no cursor: the page starts at the first title sorted at or after it, as a letter of the alphabet does */
+                /** @description A name, by name or file name only and with no cursor: the page starts at the first title sorted at or after it, as a letter of the alphabet does */
                 from?: string;
-                kind: "movie" | "series";
+                /** @description movie, series or other; any: every kind, a mixed library's or every library's */
+                kind: "movie" | "series" | "other" | "any";
+                /** @description One library's alone; absent for every library the person reaches, less, for films and series, those they left out (leftOutLibraryIds) */
+                library?: number;
                 limit: number;
-                /** @description name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode */
-                sort: "name" | "added";
+                /** @description name: in the library's locale. added: newest first, by the scan that found it, most recent first, then by its file's own modified time, newest first; a film is as new as the scan that first found it, a series as its newest episode. recorded: newest recorded first, and file_name: by the files' names, other videos only */
+                sort: "name" | "added" | "recorded" | "file_name";
             };
             header?: {
                 /** @description Bearer <session token> */
@@ -8787,6 +8910,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TitlesOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getTitleLetters: {
+        parameters: {
+            query: {
+                /** @description As GET /titles takes it */
+                kind: "movie" | "series" | "other" | "any";
+                /** @description As GET /titles takes it */
+                library?: number;
+                /** @description The order the rail follows: by name, or an other video's by file name */
+                sort: "name" | "file_name";
+            };
+            header?: {
+                /** @description Bearer <session token> */
+                Authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LettersOutputBody"];
                 };
             };
             /** @description Error */
