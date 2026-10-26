@@ -23,6 +23,7 @@ from typing import Any, Callable
 
 import last_run
 import revert_red_commands as commands
+from revert_red_locales import CATALOGUE_TEST
 
 GATE = "revert-red"
 NAME = "last-timings"
@@ -93,6 +94,8 @@ def kind_of(command: list[str], label: str, env: dict[str, str] | None) -> str:
         return "web type check"
     if "vitest" in text and "related" in text:
         return "vitest related"
+    if "vitest" in text and CATALOGUE_TEST in text:
+        return "vitest, the catalogue's own test"
     if "vitest" in text:
         return "vitest, an added file's importers"
     if command[-2:] == ["run", "build"]:
