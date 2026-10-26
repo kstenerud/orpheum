@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 import last_run
+import revert_red_commands as commands
 
 GATE = "revert-red"
 NAME = "last-timings"
@@ -100,7 +101,7 @@ def kind_of(command: list[str], label: str, env: dict[str, str] | None) -> str:
         return "vitest whole suite"
     if env and ("GOOS" in env or "GOARCH" in env):
         return "go compile, another system"
-    if command[:2] == ["go", "test"]:
+    if commands.is_go_test(command):
         if "integration" in command:
             return "go test, store integration"
         if "-tags" in command:

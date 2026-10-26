@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from revert_red_attempts import FIRST_RED_VITEST
+from revert_red_commands import vitest
 
 # A relative import or re-export: `from "./x.tsx"`, `import "./x.css"`, `import("./x.ts")`.
 RELATIVE_IMPORT = re.compile(r"""(?:\bfrom\s*|\bimport\s*\(?\s*)["'](\.{1,2}/[^"']+)["']""")
@@ -74,10 +74,10 @@ def importing_tests(tree: str, path: str, depth: int | None = None) -> list[str]
                   if found != target and TEST_FILE.search(found.name))
 
 
-VITEST_RUN = ["npx", "--prefix", "web", "vitest", "run", "--root", "web"]
+VITEST_RUN = vitest("run", first_red=False)
 # A probe's run, which its first red settles; the spot check runs VITEST_RUN to its end, to list every
 # failure.
-PROBE_RUN = [*VITEST_RUN, FIRST_RED_VITEST]
+PROBE_RUN = vitest("run")
 
 
 def added_file_scope(tree: str, path: str) -> list[str] | None:
